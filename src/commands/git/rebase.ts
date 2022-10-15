@@ -1,4 +1,5 @@
 import { env } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { Container } from '../../container';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
@@ -6,7 +7,6 @@ import { GitReference, GitRevision } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { Directive, DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -26,6 +26,7 @@ import {
 	StepResult,
 } from '../quickCommand';
 
+const localize = nls.loadMessageBundle();
 interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
@@ -55,9 +56,11 @@ type RebaseStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo'
 
 export class RebaseGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: RebaseGitCommandArgs) {
-		super(container, 'rebase', 'rebase', 'Rebase', {
-			description:
+		super(container, 'rebase', localize('label', 'rebase'), localize('title', 'Rebase'), {
+			description: localize(
+				'description',
 				'integrates changes from a specified branch into the current branch, by changing the base of the branch and reapplying the commits on top',
+			),
 		});
 
 		let counter = 0;
@@ -163,7 +166,16 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				});
 
 				const result: StepResult<GitReference> = yield* pickBranchOrTagStep(state as RebaseStepState, context, {
-					placeholder: context => `Choose a branch${context.showTags ? ' or tag' : ''} to rebase`,
+					placeholder: context =>
+						context.showTags
+							? localize(
+									'pickBranchOrTagStep.placeholder.chooseBranchToRebase',
+									'Choose a branch to rebase',
+							  )
+							: localize(
+									'pickBranchOrTagStep.placeholder.chooseBranchOrTagToRebase',
+									'Choose a branch or tag to rebase',
+							  ),
 					picked: context.selectedBranchOrTag?.ref,
 					value: context.selectedBranchOrTag == null ? state.reference?.ref : undefined,
 					additionalButtons: [pickCommitToggle],
@@ -204,12 +216,20 @@ export class RebaseGitCommand extends QuickCommand<State> {
 					onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
 					placeholder: (context, log) =>
 						log == null
-							? `No commits found on ${GitReference.toString(context.selectedBranchOrTag, {
-									icon: false,
-							  })}`
-							: `Choose a commit to rebase ${GitReference.toString(context.destination, {
-									icon: false,
-							  })} onto`,
+							? localize(
+									'pickCommitStep.placeholder.noCommitsFoundOnBranchOrTag',
+									'No commits found on {0}',
+									GitReference.toString(context.selectedBranchOrTag, {
+										icon: false,
+									}),
+							  )
+							: localize(
+									'pickCommitStep.placeholder.chooseCommitToRebaseBranchOnto',
+									'Choose a commit to rebase {0} onto',
+									GitReference.toString(context.destination, {
+										icon: false,
+									}),
+							  ),
 					picked: state.reference?.ref,
 				});
 				if (result === StepResult.Break) continue;
@@ -239,13 +259,16 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		const count = aheadBehind != null ? aheadBehind.ahead + aheadBehind.behind : 0;
 		if (count === 0) {
 			const step: QuickPickStep<DirectiveQuickPickItem> = this.createConfirmStep(
-				appendReposToTitle(`Confirm ${context.title}`, state, context),
+				appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
 				[],
 				DirectiveQuickPickItem.create(Directive.Cancel, true, {
-					label: `Cancel ${this.title}`,
-					detail: `${GitReference.toString(context.destination, {
-						capitalize: true,
-					})} is up to date with ${GitReference.toString(state.reference)}`,
+					label: localize('cancel', 'Cancel {0}', this.title),
+					detail: localize(
+						'confirmStep.detail.branchIsUpToDateWithRef',
+						'{0} is up to date with {1}',
+						GitReference.toString(context.destination, { capitalize: true }),
+						GitReference.toString(state.reference),
+					),
 				}),
 			);
 			const selection: StepSelection<typeof step> = yield step;
@@ -254,21 +277,44 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		}
 
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
 			[
 				FlagsQuickPickItem.create<Flags>(state.flags, [], {
 					label: this.title,
-					detail: `Will update ${GitReference.toString(context.destination)} by applying ${pluralize(
-						'commit',
-						count,
-					)} on top of ${GitReference.toString(state.reference)}`,
+					detail:
+						count === 1
+							? localize(
+									'confirmStep.quickPick.rebase.detail.willUpdateBranchByApplyingOneCommitOnTopOfRef',
+									'Will update {0} by applying 1 commit on top of {1}',
+									GitReference.toString(context.destination),
+									GitReference.toString(state.reference),
+							  )
+							: localize(
+									'confirmStep.quickPick.rebase.detail.willUpdateBranchByApplyingCommitsOnTopOfRef',
+									'Will update {0} by applying {1} commits on top of {2}',
+									GitReference.toString(context.destination),
+									count,
+									GitReference.toString(state.reference),
+							  ),
 				}),
 				FlagsQuickPickItem.create<Flags>(state.flags, ['--interactive'], {
-					label: `Interactive ${this.title}`,
+					label: localize('confirmStep.quickPick.interactive.label', 'Interactive {0}', this.title),
 					description: '--interactive',
-					detail: `Will interactively update ${GitReference.toString(
-						context.destination,
-					)} by applying ${pluralize('commit', count)} on top of ${GitReference.toString(state.reference)}`,
+					detail:
+						count === 1
+							? localize(
+									'confirmStep.quickPick.interactive.detail.willUpdateBranchByApplyingOneCommitOnTopOfRef',
+									'Will interactively update {0} by applying 1 commit on top of {1}',
+									GitReference.toString(context.destination),
+									GitReference.toString(state.reference),
+							  )
+							: localize(
+									'confirmStep.quickPick.interactive.detail.willUpdateBranchByApplyingCommitsOnTopOfRef',
+									'Will interactively update {0} by applying {1} commits on top of {2}',
+									GitReference.toString(context.destination),
+									count,
+									GitReference.toString(state.reference),
+							  ),
 				}),
 			],
 		);

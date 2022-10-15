@@ -1,5 +1,6 @@
 import type { Command, Selection } from 'vscode';
 import { MarkdownString, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
 import { Commands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
@@ -14,6 +15,7 @@ import type { View, ViewsWithCommits } from '../viewBase';
 import type { ViewNode } from './viewNode';
 import { ContextValues, ViewRefFileNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryView> extends ViewRefFileNode<TView> {
 	static key = ':file';
 	static getId(parent: ViewNode, path: string): string {
@@ -166,7 +168,7 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 			},
 		};
 		return {
-			title: 'Open Changes with Previous Revision',
+			title: localize('openChangesWithPreviousRevision', 'Open Changes with Previous Revision'),
 			command: Commands.DiffWithPrevious,
 			arguments: [undefined, commandArgs],
 		};

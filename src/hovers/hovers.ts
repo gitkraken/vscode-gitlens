@@ -1,5 +1,6 @@
 import type { CancellationToken, TextDocument } from 'vscode';
 import { MarkdownString } from 'vscode';
+import * as nls from 'vscode-nls';
 import { hrtime } from '@env/hrtime';
 import { DiffWithCommand, ShowQuickCommitCommand } from '../commands';
 import { configuration } from '../configuration';
@@ -18,6 +19,7 @@ import { count } from '../system/iterable';
 import { getSettledValue, PromiseCancelledError } from '../system/promise';
 import { getDurationMilliseconds } from '../system/string';
 
+const localize = nls.loadMessageBundle();
 export namespace Hovers {
 	export async function changesMessage(
 		commit: GitCommit,
@@ -94,36 +96,38 @@ export namespace Hovers {
 				},
 				repoPath: commit.repoPath,
 				line: editorLine,
-			})} "Open Changes")`;
+			})} "${localize('openChanges', 'Open Changes')}")`;
 
 			previous =
 				compareUris.previous.sha == null || compareUris.previous.isUncommitted
 					? `  &nbsp;_${GitRevision.shorten(compareUris.previous.sha, {
-							strings: { working: 'Working Tree' },
+							strings: { working: localize('workingTree', 'Working Tree') },
 					  })}_ &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `
 					: `  &nbsp;[$(git-commit) ${GitRevision.shorten(
 							compareUris.previous.sha || '',
-					  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
-							compareUris.previous.sha || '',
-					  )} "Show Commit") &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `;
+					  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(compareUris.previous.sha || '')} "${localize(
+							'showCommit',
+							'Show Commit',
+					  )}") &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `;
 
 			current =
 				compareUris.current.sha == null || compareUris.current.isUncommitted
 					? `_${GitRevision.shorten(compareUris.current.sha, {
 							strings: {
-								working: 'Working Tree',
+								working: localize('workingTree', 'Working Tree'),
 							},
 					  })}_`
 					: `[$(git-commit) ${GitRevision.shorten(
 							compareUris.current.sha || '',
-					  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
-							compareUris.current.sha || '',
-					  )} "Show Commit")`;
+					  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(compareUris.current.sha || '')} "${localize(
+							'showCommit',
+							'Show Commit',
+					  )}")`;
 		} else {
-			message = `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs(
-				commit,
-				editorLine,
-			)} "Open Changes")`;
+			message = `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs(commit, editorLine)} "${localize(
+				'openChanges',
+				'Open Changes',
+			)}")`;
 
 			if (previousSha === null) {
 				previousSha = await commit.getPreviousSha();
@@ -131,17 +135,22 @@ export namespace Hovers {
 			if (previousSha) {
 				previous = `  &nbsp;[$(git-commit) ${GitRevision.shorten(
 					previousSha,
-				)}](${ShowQuickCommitCommand.getMarkdownCommandArgs(previousSha)} "Show Commit") &nbsp;${
-					GlyphChars.ArrowLeftRightLong
-				}&nbsp;`;
+				)}](${ShowQuickCommitCommand.getMarkdownCommandArgs(previousSha)} "${localize(
+					'showCommit',
+					'Show Commit',
+				)}") &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp;`;
 			}
 
 			current = `[$(git-commit) ${commit.shortSha}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
 				commit.sha,
-			)} "Show Commit")`;
+			)} "${localize('showCommit', 'Show Commit')}")`;
 		}
 
-		message = `${diff}\n---\n\nChanges${previous ?? ' added in '}${current} &nbsp;&nbsp;|&nbsp;&nbsp; ${message}`;
+		message = `${diff}\n---\n\n${
+			previous
+				? localize('changesPreviousCommitCurrentCommit', 'Changes{0}{1}', previous, current)
+				: localize('ChangesAddedInCommit', 'Changes added in {0}', current)
+		}&nbsp;&nbsp;|&nbsp;&nbsp; ${message}`;
 
 		const markdown = new MarkdownString(message, true);
 		markdown.supportHtml = true;
@@ -161,8 +170,8 @@ export namespace Hovers {
 		let previous;
 		let current;
 		if (fromCommit == null) {
-			previous = '_Working Tree_';
-			current = '_Unsaved_';
+			previous = `_${localize('workingTree', 'Working Tree')}_`;
+			current = `_${localize('unsaved', 'Unsaved')}_`;
 		} else {
 			const file = await fromCommit.findFile(uri);
 			if (file == null) return undefined;
@@ -178,15 +187,15 @@ export namespace Hovers {
 				},
 				repoPath: uri.repoPath!,
 				line: editorLine,
-			})} "Open Changes")`;
+			})} "${localize('openChanges', 'Open Changes')}")`;
 
 			previous = `[$(git-commit) ${fromCommit.shortSha}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
 				fromCommit.sha,
-			)} "Show Commit")`;
+			)} "${localize('showComit', 'Show Commit')}")`;
 
-			current = '_Working Tree_';
+			current = `_${localize('workingTree', 'Working Tree')}_`;
 		}
-		message = `${diff}\n---\n\nLocal Changes  &nbsp;${previous} &nbsp;${
+		message = `${diff}\n---\n\n${localize('localChanges', 'Local Changes')}  &nbsp;${previous} &nbsp;${
 			GlyphChars.ArrowLeftRightLong
 		}&nbsp; ${current}${message == null ? '' : ` &nbsp;&nbsp;|&nbsp;&nbsp; ${message}`}`;
 

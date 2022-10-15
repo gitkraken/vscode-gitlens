@@ -1,4 +1,5 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import { GlyphChars } from '../../constants';
 import { PlusFeatures } from '../../features';
 import type { GitUri } from '../../git/gitUri';
@@ -12,6 +13,7 @@ import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
 import { WorktreeNode } from './worktreeNode';
 
+const localize = nls.loadMessageBundle();
 export class WorktreesNode extends ViewNode<WorktreesView | RepositoriesView> {
 	static key = ':worktrees';
 	static getId(repoPath: string): string {
@@ -43,7 +45,9 @@ export class WorktreesNode extends ViewNode<WorktreesView | RepositoriesView> {
 			if (!access.allowed) return [];
 
 			const worktrees = await this.repo.getWorktrees();
-			if (worktrees.length === 0) return [new MessageNode(this.view, this, 'No worktrees could be found.')];
+			if (worktrees.length === 0) {
+				return [new MessageNode(this.view, this, localize('noWorktreesFound', 'No worktrees could be found.'))];
+			}
 
 			this._children = worktrees.map(c => new WorktreeNode(this.uri, this.view, this, c));
 		}
@@ -55,14 +59,17 @@ export class WorktreesNode extends ViewNode<WorktreesView | RepositoriesView> {
 		const access = await this.repo.access(PlusFeatures.Worktrees);
 
 		const item = new TreeItem(
-			'Worktrees',
+			localize('worktrees', 'Worktrees'),
 			access.allowed ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.None,
 		);
 		item.id = this.id;
 		item.contextValue = ContextValues.Worktrees;
 		item.description = access.allowed
 			? undefined
-			: ` ${GlyphChars.Warning}  GitLens+ feature which requires an account`;
+			: ` ${GlyphChars.Warning}  ${localize(
+					'plusFeatureWhichRequiresAccount',
+					'GitLens+ feature which requires an account',
+			  )}`;
 		// TODO@eamodio `folder` icon won't work here for some reason
 		item.iconPath = new ThemeIcon('folder-opened');
 		return item;

@@ -1,3 +1,4 @@
+import * as nls from 'vscode-nls';
 import type { Container } from '../../container';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
@@ -22,6 +23,7 @@ import {
 	StepResult,
 } from '../quickCommand';
 
+const localize = nls.loadMessageBundle();
 interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
@@ -49,8 +51,8 @@ type CherryPickStepState<T extends State = State> = ExcludeSome<StepState<T>, 'r
 
 export class CherryPickGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: CherryPickGitCommandArgs) {
-		super(container, 'cherry-pick', 'cherry-pick', 'Cherry Pick', {
-			description: 'integrates changes from specified commits into the current branch',
+		super(container, 'cherry-pick', localize('label', 'cherry-pick'), localize('title', 'Cherry Pick'), {
+			description: localize('description', 'integrates changes from specified commits into the current branch'),
 		});
 
 		let counter = 0;
@@ -142,7 +144,15 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 					{
 						filter: { branches: b => b.id !== context.destination.id },
 						placeholder: context =>
-							`Choose a branch${context.showTags ? ' or tag' : ''} to cherry-pick from`,
+							context.showTags
+								? localize(
+										'pickBranchOrTagStep.placeholder.chooseBranchOrTagToCherryPickFrom',
+										'Choose a branch or tag to cherry-pick from',
+								  )
+								: localize(
+										'pickBranchOrTagStep.placeholder.chooseBranchToCherryPickFrom',
+										'Choose a branch to cherry-pick from',
+								  ),
 						picked: context.selectedBranchOrTag?.ref,
 						value: context.selectedBranchOrTag == null ? state.references?.[0]?.ref : undefined,
 					},
@@ -182,12 +192,20 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 						picked: state.references?.map(r => r.ref),
 						placeholder: (context, log) =>
 							log == null
-								? `No pickable commits found on ${GitReference.toString(context.selectedBranchOrTag, {
-										icon: false,
-								  })}`
-								: `Choose commits to cherry-pick into ${GitReference.toString(context.destination, {
-										icon: false,
-								  })}`,
+								? localize(
+										'pickCommitsStep.placeholder.noPickableCommitsFoundOnBranchOrTag',
+										'No pickable commits found on {0}',
+										GitReference.toString(context.selectedBranchOrTag, {
+											icon: false,
+										}),
+								  )
+								: localize(
+										'pickCommitsStep.placeholder.chooseCommitsToCherryPickIntoBranch',
+										'Choose commits to cherry-pick into {0}',
+										GitReference.toString(context.destination, {
+											icon: false,
+										}),
+								  ),
 					},
 				);
 				if (result === StepResult.Break) continue;
@@ -211,27 +229,36 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 
 	private *confirmStep(state: CherryPickStepState, context: Context): StepResultGenerator<Flags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = QuickCommand.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(localize('confirm', 'Confrim {0}', context.title), state, context),
 			[
 				FlagsQuickPickItem.create<Flags>(state.flags, [], {
 					label: this.title,
-					detail: `Will apply ${GitReference.toString(state.references)} to ${GitReference.toString(
-						context.destination,
-					)}`,
+					detail: localize(
+						'quickPick.detail',
+						'Will apply {0} to {1}',
+						GitReference.toString(state.references),
+						GitReference.toString(context.destination),
+					),
 				}),
 				FlagsQuickPickItem.create<Flags>(state.flags, ['--edit'], {
 					label: `${this.title} & Edit`,
 					description: '--edit',
-					detail: `Will edit and apply ${GitReference.toString(state.references)} to ${GitReference.toString(
-						context.destination,
-					)}`,
+					detail: localize(
+						'quickPick.edit.detail',
+						'Will edit and apply {0} to {1}',
+						GitReference.toString(state.references),
+						GitReference.toString(context.destination),
+					),
 				}),
 				FlagsQuickPickItem.create<Flags>(state.flags, ['--no-commit'], {
 					label: `${this.title} without Committing`,
 					description: '--no-commit',
-					detail: `Will apply ${GitReference.toString(state.references)} to ${GitReference.toString(
-						context.destination,
-					)} without Committing`,
+					detail: localize(
+						'quickPick.noCommit.detail',
+						'Will apply {0} to {1} without Committing',
+						GitReference.toString(state.references),
+						GitReference.toString(context.destination),
+					),
 				}),
 			],
 			context,

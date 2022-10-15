@@ -1,5 +1,6 @@
 import type { TextEditor, Uri } from 'vscode';
 import { env } from 'vscode';
+import * as nls from 'vscode-nls';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -16,6 +17,8 @@ import {
 	isCommandContextViewNodeHasTag,
 } from './base';
 import { GitActions } from './gitCommands.actions';
+
+const localize = nls.loadMessageBundle();
 
 export interface CopyMessageToClipboardCommandArgs {
 	message?: string;
@@ -96,7 +99,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 							return;
 						} catch (ex) {
 							Logger.error(ex, 'CopyMessageToClipboardCommand', `getBlameForLine(${blameline})`);
-							void showGenericErrorMessage('Unable to copy message');
+							void showGenericErrorMessage(localize('unableToCopyMessage', 'Unable to copy message'));
 
 							return;
 						}
@@ -110,7 +113,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 			await env.clipboard.writeText(args.message);
 		} catch (ex) {
 			Logger.error(ex, 'CopyMessageToClipboardCommand');
-			void showGenericErrorMessage('Unable to copy message');
+			void showGenericErrorMessage(localize('unableToCopyMessage', 'Unable to copy message'));
 		}
 	}
 }

@@ -1,5 +1,6 @@
 import type { Selection } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { UriComparer } from '../../comparers';
 import { ContextKeys } from '../../constants';
 import { setContext } from '../../context';
@@ -18,6 +19,7 @@ import { LineHistoryNode } from './lineHistoryNode';
 import type { ViewNode } from './viewNode';
 import { ContextValues, SubscribeableViewNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView | LineHistoryView> {
 	private _base: string | undefined;
 	private _child: LineHistoryNode | undefined;
@@ -48,14 +50,20 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			if (!this.hasUri) {
 				this.view.description = undefined;
 
-				this.view.message = 'There are no editors open that can provide line history information.';
+				this.view.message = localize(
+					'noEditorsProvidingLineHistoryOpen',
+					'There are no editors open that can provide line history information.',
+				);
 				return [];
 			}
 
 			if (this._selection == null) {
 				this.view.description = undefined;
 
-				this.view.message = 'There was no selection provided for line history.';
+				this.view.message = localize(
+					'noSelectionProvidedForLineHistory',
+					'There was no selection provided for line history.',
+				);
 				this.view.description = `${this.uri.fileName}${
 					this.uri.sha
 						? ` ${
@@ -64,7 +72,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 									: `(${this.uri.shortSha})`
 						  }`
 						: ''
-				}${!this.followingEditor ? ' (pinned)' : ''}`;
+				}${!this.followingEditor ? ` ${localize('pinned', '(pinned)')}` : ''}`;
 				return [];
 			}
 
@@ -96,7 +104,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	getTreeItem(): TreeItem {
 		this.splatted = false;
 
-		const item = new TreeItem('Line History', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(localize('lineHistory', 'Line History'), TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.ActiveLineHistory;
 
 		void this.ensureSubscription();
@@ -117,8 +125,8 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	async changeBase() {
 		const pick = await ReferencePicker.show(
 			this.uri.repoPath!,
-			'Change Line History Base',
-			'Choose a reference to set as the new base',
+			localize('changeLineHistoryBase', 'Change Line History Base'),
+			localize('chooseReferenceToSetAsNewBase', 'Choose a reference to set as the new base'),
 			{
 				allowEnteringRefs: true,
 				picked: this._base,

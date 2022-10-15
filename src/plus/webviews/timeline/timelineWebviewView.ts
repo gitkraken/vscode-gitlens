@@ -1,6 +1,7 @@
 'use strict';
 import type { Disposable, TextEditor } from 'vscode';
 import { commands, Uri, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { GitActions } from '../../../commands/gitCommands.actions';
 import { configuration } from '../../../configuration';
 import { Commands } from '../../../constants';
@@ -25,6 +26,8 @@ import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import type { Commit, Period, State } from './protocol';
 import { DidChangeNotificationType, OpenDataPointCommandType, UpdatePeriodCommandType } from './protocol';
 
+const localize = nls.loadMessageBundle();
+
 interface Context {
 	uri: Uri | undefined;
 	period: Period | undefined;
@@ -43,7 +46,13 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 	private _pendingContext: Partial<Context> | undefined;
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.timeline', 'timeline.html', 'Visual File History', 'timelineView');
+		super(
+			container,
+			'gitlens.views.timeline',
+			'timeline.html',
+			localize('visualFileHistory', 'Visual File History'),
+			'timelineView',
+		);
 
 		this._context = {
 			uri: undefined,
@@ -200,7 +209,10 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 		if (current.uri == null) {
 			return {
 				period: period,
-				title: 'There are no editors open that can provide file history information',
+				title: localize(
+					'noEditorsOpenThatCanProvideFileHistoryInfo',
+					'There are no editors open that can provide file history information',
+				),
 				dateFormat: dateFormat,
 				shortDateFormat: shortDateFormat,
 				access: access,
@@ -226,7 +238,10 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 			return {
 				dataset: [],
 				period: period,
-				title: 'No commits found for the specified time period',
+				title: localize(
+					'noCommitsFoundForTheSpecifiedTimePeriod',
+					'No commits found for the specified time period',
+				),
 				uri: current.uri.toString(),
 				dateFormat: dateFormat,
 				shortDateFormat: shortDateFormat,
@@ -246,9 +261,12 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 
 			if (queryRequiredCommits.length > limit) {
 				void window.showWarningMessage(
-					`Unable able to show more than the first ${limit} commits for the specified time period because of ${
-						name ? `${name} ` : ''
-					}rate limits.`,
+					localize(
+						'unableToShowMoreThanTheFirstNumberOfCommits',
+						'Unable to show more than the first {0} commits for the specified time period because of {1}rate limits.',
+						limit,
+						name ? `${name} ` : '',
+					),
 				);
 				queryRequiredCommits = queryRequiredCommits.slice(0, 20);
 			}
@@ -256,13 +274,13 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 			void (await Promise.allSettled(queryRequiredCommits.map(c => c.ensureFullDetails())));
 		}
 
-		const name = currentUser?.name ? `${currentUser.name} (you)` : 'You';
+		const name = currentUser?.name ? `${currentUser.name} (${localize('you', 'you')})` : localize('you', 'You');
 
 		const dataset: Commit[] = [];
 		for (const commit of log.commits.values()) {
 			const stats = commit.file?.stats ?? (commit.stats?.changedFiles === 1 ? commit.stats : undefined);
 			dataset.push({
-				author: commit.author.name === 'You' ? name : commit.author.name,
+				author: commit.author.name === localize('you', 'You') ? name : commit.author.name,
 				additions: stats?.additions,
 				deletions: stats?.deletions,
 				commit: commit.sha,

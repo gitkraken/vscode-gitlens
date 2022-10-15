@@ -1,3 +1,4 @@
+import * as nls from 'vscode-nls';
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { isBranch } from '../../git/models/branch';
@@ -8,7 +9,7 @@ import { Directive, DirectiveQuickPickItem } from '../../quickpicks/items/direct
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { isStringArray } from '../../system/array';
 import { fromNow } from '../../system/date';
-import { pad, pluralize } from '../../system/string';
+import { pad } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -26,6 +27,7 @@ import {
 	StepResult,
 } from '../quickCommand';
 
+const localize = nls.loadMessageBundle();
 interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
@@ -50,8 +52,11 @@ type PullStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repos',
 
 export class PullGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: PullGitCommandArgs) {
-		super(container, 'pull', 'pull', 'Pull', {
-			description: 'fetches and integrates changes from a remote into the current branch',
+		super(container, 'pull', localize('label', 'pull'), localize('title', 'Pull'), {
+			description: localize(
+				'description',
+				'fetches and integrates changes from a remote into the current branch',
+			),
 		});
 
 		let counter = 0;
@@ -145,25 +150,46 @@ export class PullGitCommand extends QuickCommand<State> {
 		let step: QuickPickStep<FlagsQuickPickItem<Flags>>;
 
 		if (state.repos.length > 1) {
-			step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
-				FlagsQuickPickItem.create<Flags>(state.flags, [], {
-					label: this.title,
-					detail: `Will pull ${state.repos.length} repositories`,
-				}),
-				FlagsQuickPickItem.create<Flags>(state.flags, ['--rebase'], {
-					label: `${this.title} with Rebase`,
-					description: '--rebase',
-					detail: `Will pull ${state.repos.length} repositories by rebasing`,
-				}),
-			]);
+			step = this.createConfirmStep(
+				appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
+				[
+					FlagsQuickPickItem.create<Flags>(state.flags, [], {
+						label: this.title,
+						detail:
+							state.repos.length === 1
+								? localize('quickPick.pull.detail.willPullOneRepository', 'Will pull 1 repository')
+								: localize(
+										'quickPick.pull.detail.willPullRepositories',
+										'Will pull {0} repositories',
+										state.repos.length,
+								  ),
+					}),
+					FlagsQuickPickItem.create<Flags>(state.flags, ['--rebase'], {
+						label: localize('quickPick.rebase.label', '{0} with Rebase', this.title),
+						description: '--rebase',
+						detail:
+							state.repos.length === 1
+								? localize(
+										'quickPick.rebase.detail.willPullOneRepositoryByRebasing',
+										'Will pull 1 repository by rebasing',
+										state.repos.length,
+								  )
+								: localize(
+										'quickPick.rebase.detail.willPullRepositoriesByRebasing',
+										'Will pull {0} repositories by rebasing',
+										state.repos.length,
+								  ),
+					}),
+				],
+			);
 		} else if (GitReference.isBranch(state.reference)) {
 			if (state.reference.remote) {
 				step = this.createConfirmStep(
-					appendReposToTitle(`Confirm ${context.title}`, state, context),
+					appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
 					[],
 					DirectiveQuickPickItem.create(Directive.Cancel, true, {
-						label: `Cancel ${this.title}`,
-						detail: 'Cannot pull a remote branch',
+						label: localize('cancel', 'Cancel {0}', this.title),
+						detail: localize('cannotPullRemoteBranch', 'Cannot pull a remote branch'),
 					}),
 				);
 			} else {
@@ -172,26 +198,43 @@ export class PullGitCommand extends QuickCommand<State> {
 
 				if (branch?.upstream == null) {
 					step = this.createConfirmStep(
-						appendReposToTitle(`Confirm ${context.title}`, state, context),
+						appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
 						[],
 						DirectiveQuickPickItem.create(Directive.Cancel, true, {
-							label: `Cancel ${this.title}`,
-							detail: 'Cannot pull a branch until it has been published',
+							label: localize('cancel', 'Cancel {0}', this.title),
+							detail: localize(
+								'cannotPullBranchUntilItHasBeenPublished',
+								'Cannot pull a branch until it has been published',
+							),
 						}),
 					);
 				} else {
-					step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
-						FlagsQuickPickItem.create<Flags>(state.flags, [], {
-							label: this.title,
-							detail: `Will pull${
-								branch.state.behind
-									? ` ${pluralize('commit', branch.state.behind)} into ${GitReference.toString(
-											branch,
-									  )}`
-									: ` into ${GitReference.toString(branch)}`
-							}`,
-						}),
-					]);
+					step = this.createConfirmStep(
+						appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
+						[
+							FlagsQuickPickItem.create<Flags>(state.flags, [], {
+								label: this.title,
+								detail: branch.state.behind
+									? branch.state.behind === 1
+										? localize(
+												'quickPick.pull.willPullOneCommitIntoBranch',
+												'Will pull 1 commit into {0}',
+												GitReference.toString(branch),
+										  )
+										: localize(
+												'quickPick.pull.willPullCommitsIntoBranch',
+												'Will pull {0} commits into {1}',
+												branch.state.behind,
+												GitReference.toString(branch),
+										  )
+									: localize(
+											'quickPick.pull.willPullIntoBranch',
+											'Will pull into {0}',
+											GitReference.toString(branch),
+									  ),
+							}),
+						],
+					);
 				}
 			}
 		} else {
@@ -200,25 +243,60 @@ export class PullGitCommand extends QuickCommand<State> {
 
 			let lastFetchedOn = '';
 			if (lastFetched !== 0) {
-				lastFetchedOn = `${pad(GlyphChars.Dot, 2, 2)}Last fetched ${fromNow(new Date(lastFetched))}`;
+				lastFetchedOn = `${pad(GlyphChars.Dot, 2, 2)}${localize(
+					'lastFetchedTime',
+					'Last fetched {0}',
+					fromNow(new Date(lastFetched)),
+				)}`;
 			}
 
-			const pullDetails =
-				status?.state.behind != null
-					? ` ${pluralize('commit', status.state.behind)} into $(repo) ${repo.formattedName}`
-					: ` into $(repo) ${repo.formattedName}`;
-
 			step = this.createConfirmStep(
-				appendReposToTitle(`Confirm ${context.title}`, state, context, lastFetchedOn),
+				appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context, lastFetchedOn),
 				[
 					FlagsQuickPickItem.create<Flags>(state.flags, [], {
 						label: this.title,
-						detail: `Will pull${pullDetails}`,
+						detail:
+							status?.state.behind != null
+								? status.state.behind === 1
+									? localize(
+											'quickPick.pull.detail.willPullOneCommitIntoRepo',
+											'Will pull 1 commit into {0}',
+											`$(repo) ${repo.formattedName}`,
+									  )
+									: localize(
+											'quickPick.pull.detail.willPullCommitsIntoRepo',
+											'Will pull {0} commits into {1}',
+											status.state.behind,
+											`$(repo) ${repo.formattedName}`,
+									  )
+								: localize(
+										'quickPick.pull.detail.willPullIntoRepo',
+										'Will pull into {0}',
+										`$(repo) ${repo.formattedName}`,
+								  ),
 					}),
 					FlagsQuickPickItem.create<Flags>(state.flags, ['--rebase'], {
-						label: `${this.title} with Rebase`,
+						label: localize('quickPick.rebase.title', '{0} with Rebase'),
 						description: '--rebase',
-						detail: `Will pull and rebase${pullDetails}`,
+						detail:
+							status?.state.behind != null
+								? status.state.behind === 1
+									? localize(
+											'quickPick.rebase.detail.willPullAndRebaseOneCommitIntoRepo',
+											'Will pull and rebase 1 commit into {0}',
+											`$(repo) ${repo.formattedName}`,
+									  )
+									: localize(
+											'quickPick.rebase.detail.willPullAndRebaseCommitsIntoRepo',
+											'Will pull and rebase {0} commits into {1}',
+											status.state.behind,
+											`$(repo) ${repo.formattedName}`,
+									  )
+								: localize(
+										'quickPick.rebase.detail.willPullAndRebaseIntoRepo',
+										'Will pull and rebase into {0}',
+										`$(repo) ${repo.formattedName}`,
+								  ),
 					}),
 				],
 				undefined,
@@ -227,9 +305,11 @@ export class PullGitCommand extends QuickCommand<State> {
 					onDidClickButton: async (quickpick, button) => {
 						if (button !== QuickCommandButtons.Fetch || quickpick.busy) return false;
 
-						quickpick.title = `Confirm ${context.title}${pad(GlyphChars.Dot, 2, 2)}Fetching${
-							GlyphChars.Ellipsis
-						}`;
+						quickpick.title = `${localize('confirm', 'Confirm {0}', context.title)}${pad(
+							GlyphChars.Dot,
+							2,
+							2,
+						)}${localize('fetching', 'Fetching')}${GlyphChars.Ellipsis}`;
 
 						quickpick.busy = true;
 						quickpick.enabled = false;

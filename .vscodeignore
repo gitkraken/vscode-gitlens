@@ -43,3 +43,7 @@ tsconfig*.tsbuildinfo
 webpack.config*.js
 yarn.lock
 .DS_Store
+i18n/**
+vscode-gitlens-localization-export/**
+vscode-translations-import/**
+gulpfile.js

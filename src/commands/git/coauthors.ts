@@ -1,3 +1,4 @@
+import * as nls from 'vscode-nls';
 import { CoreCommands } from '../../constants';
 import type { Container } from '../../container';
 import type { GitContributor } from '../../git/models/contributor';
@@ -8,6 +9,7 @@ import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type { PartialStepState, StepGenerator, StepState } from '../quickCommand';
 import { pickContributorsStep, pickRepositoryStep, QuickCommand, StepResult } from '../quickCommand';
 
+const localize = nls.loadMessageBundle();
 interface Context {
 	repos: Repository[];
 	activeRepo: Repository | undefined;
@@ -29,8 +31,8 @@ type CoAuthorStepState<T extends State = State> = ExcludeSome<StepState<T>, 'rep
 
 export class CoAuthorsGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: CoAuthorsGitCommandArgs) {
-		super(container, 'co-authors', 'co-authors', 'Add Co-Authors', {
-			description: 'adds co-authors to a commit message',
+		super(container, 'co-authors', localize('label', 'co-authors'), localize('title', 'Add Co-Authors'), {
+			description: localize('description', 'adds co-authors to a commit message'),
 		});
 
 		let counter = 0;
@@ -62,7 +64,8 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 
 		let message = repo.inputBox.value;
 
-		const index = message.indexOf('Co-authored-by: ');
+		const coAuthoredBy = localize('coAuthoredBy', 'Co-authored-by: ');
+		const index = message.indexOf(coAuthoredBy);
 		if (index !== -1) {
 			message = message.substring(0, index - 1).trimRight();
 		}
@@ -73,7 +76,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 
 		for (const c of state.contributors) {
 			let newlines;
-			if (message.includes('Co-authored-by: ')) {
+			if (message.includes(coAuthoredBy)) {
 				newlines = '\n';
 			} else if (message.length !== 0 && message.endsWith('\n')) {
 				newlines = '\n\n';
@@ -81,7 +84,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 				newlines = '\n\n\n';
 			}
 
-			message += `${newlines}Co-authored-by: ${c.getCoauthor()}`;
+			message += `${newlines}${coAuthoredBy}${c.getCoauthor()}`;
 		}
 
 		repo.inputBox.value = message;
@@ -140,7 +143,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 				const result = yield* pickContributorsStep(
 					state as CoAuthorStepState,
 					context,
-					'Choose contributors to add as co-authors',
+					localize('pickContributorsStep.label', 'Choose contributors to add as co-authors'),
 				);
 				if (result === StepResult.Break) {
 					// If we skipped the previous step, make sure we back up past it

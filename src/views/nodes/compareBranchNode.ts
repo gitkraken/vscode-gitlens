@@ -1,4 +1,5 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import { ViewShowBranchComparison } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import type { GitUri } from '../../git/gitUri';
@@ -10,7 +11,6 @@ import type { StoredBranchComparison, StoredBranchComparisons } from '../../stor
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { getSettledValue } from '../../system/promise';
-import { pluralize } from '../../system/string';
 import type { BranchesView } from '../branchesView';
 import type { CommitsView } from '../commitsView';
 import type { RepositoriesView } from '../repositoriesView';
@@ -22,6 +22,7 @@ import type { FilesQueryResults } from './resultsFilesNode';
 import { ResultsFilesNode } from './resultsFilesNode';
 import { ContextValues, ViewNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | RepositoriesView | WorktreesView> {
 	static key = ':compare-branch';
 	static getId(repoPath: string, name: string, root: boolean): string {
@@ -87,7 +88,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 					this.view,
 					this,
 					this.repoPath,
-					'Behind',
+					localize('behind', 'Behind'),
 					{
 						query: this.getCommitsQuery(GitRevision.createRange(behind.ref1, behind.ref2, '..')),
 						comparison: behind,
@@ -100,7 +101,10 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 					},
 					{
 						id: 'behind',
-						description: pluralize('commit', aheadBehindCounts?.behind ?? 0),
+						description:
+							(aheadBehindCounts?.behind ?? 0) === 1
+								? localize('oneCommit', '1 commit')
+								: localize('commits', '{0} commits', aheadBehindCounts?.behind ?? 0),
 						expand: false,
 					},
 				),
@@ -108,7 +112,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 					this.view,
 					this,
 					this.repoPath,
-					'Ahead',
+					localize('ahead', 'Ahead'),
 					{
 						query: this.getCommitsQuery(
 							GitRevision.createRange(ahead.ref1, this.compareWithWorkingTree ? '' : ahead.ref2, '..'),
@@ -123,7 +127,10 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 					},
 					{
 						id: 'ahead',
-						description: pluralize('commit', aheadBehindCounts?.ahead ?? 0),
+						description:
+							(aheadBehindCounts?.behind ?? 0) === 1
+								? localize('oneCommit', '1 commit')
+								: localize('commits', '{0} commits', aheadBehindCounts?.behind ?? 0),
 						expand: false,
 					},
 				),
@@ -149,19 +156,41 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		let label;
 		let tooltip;
 		if (this._compareWith == null) {
-			label = `Compare ${
-				this.compareWithWorkingTree ? 'Working Tree' : this.branch.name
-			} with <branch, tag, or ref>`;
+			label = this.compareWithWorkingTree
+				? localize('compareWorkingTreeWithBranchTagOrRef', 'Compare Working Tree with <branch, tag, or ref>')
+				: localize(
+						'compareBranchWithBranchTagOrRef',
+						'Compare {0} with <branch, tag, or ref>',
+						this.branch.name,
+				  );
 			state = TreeItemCollapsibleState.None;
-			tooltip = `Click to compare ${
-				this.compareWithWorkingTree ? 'Working Tree' : this.branch.name
-			} with a branch, tag, or ref`;
+			tooltip = this.compareWithWorkingTree
+				? localize(
+						'clickToCompareWorkingTreeWithBranchTagOrRef',
+						'Click to compare Working Tree with a branch, tag, or ref',
+				  )
+				: localize(
+						'clickToCompareBranchWithBranchTagOrRef',
+						'Click to compare {0} with a branch, tag, or ref',
+						this.branch.name,
+				  );
 		} else {
-			label = `Compare ${
-				this.compareWithWorkingTree ? 'Working Tree' : this.branch.name
-			} with ${GitRevision.shorten(this._compareWith.ref, {
-				strings: { working: 'Working Tree' },
-			})}`;
+			label = this.compareWithWorkingTree
+				? localize(
+						'compareWorkingTreeWith',
+						'Compare Working Tree with {0}',
+						GitRevision.shorten(this._compareWith.ref, {
+							strings: { working: localize('workingTree', 'Working Tree') },
+						}),
+				  )
+				: localize(
+						'compareBranchWithReference',
+						'Compare {0} with {1}',
+						this.branch.name,
+						GitRevision.shorten(this._compareWith.ref, {
+							strings: { working: localize('workingTree', 'Working Tree') },
+						}),
+				  );
 			state = TreeItemCollapsibleState.Collapsed;
 		}
 
@@ -173,9 +202,11 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 
 		if (this._compareWith == null) {
 			item.command = {
-				title: `Compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''} with${
-					GlyphChars.Ellipsis
-				}`,
+				title: this.compareWithWorkingTree
+					? `${localize('compareWorkingBranchWith', 'Compare {0} (working) with', this.branch.name)} ${
+							GlyphChars.Ellipsis
+					  }`
+					: `${localize('compareBranchWith', 'Compare {0} with', this.branch.name)} ${GlyphChars.Ellipsis}`,
 				command: 'gitlens.views.editNode',
 				arguments: [this],
 			};
@@ -231,8 +262,10 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	private async compareWith() {
 		const pick = await ReferencePicker.show(
 			this.branch.repoPath,
-			`Compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''} with`,
-			'Choose a reference to compare with',
+			this.compareWithWorkingTree
+				? localize('compareWorkingBranchWith', 'Compare {0} (working) with', this.branch.name)
+				: localize('compareBranchWith', 'Compare {0} with', this.branch.name),
+			localize('chooseReferenceToCompareWith', 'Choose a reference to compare with'),
 			{
 				allowEnteringRefs: true,
 				picked: this.branch.ref,
@@ -299,8 +332,14 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 			}
 		}
 
+		const filesCount = files?.length ?? 0;
 		return {
-			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
+			label:
+				filesCount === 0
+					? localize('noFilesChanged', 'No files changed')
+					: filesCount === 1
+					? localize('oneFileChanged', '1 file changed')
+					: localize('filesChanged', '{0} files changed', filesCount),
 			files: files,
 			stats: stats,
 		};
@@ -315,8 +354,14 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		]);
 
 		const files = getSettledValue(filesResult) ?? [];
+		const filesCount = files?.length ?? 0;
 		return {
-			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
+			label:
+				filesCount === 0
+					? localize('noFilesChanged', 'No files changed')
+					: filesCount === 1
+					? localize('oneFileChanged', '1 file changed')
+					: localize('filesChanged', '{0} files changed', filesCount),
 			files: files,
 			stats: getSettledValue(statsResult),
 		};
@@ -361,8 +406,14 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		]);
 
 		const files = getSettledValue(filesResult) ?? [];
+		const filesCount = files?.length ?? 0;
 		return {
-			label: `${pluralize('file', files.length, { zero: 'No' })} changed`,
+			label:
+				filesCount === 0
+					? localize('noFilesChanged', 'No files changed')
+					: filesCount === 1
+					? localize('oneFileChanged', '1 file changed')
+					: localize('filesChanged', '{0} files changed', filesCount),
 			files: files,
 			stats: getSettledValue(statsResult),
 		};

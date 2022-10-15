@@ -1,5 +1,6 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Range, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { FileAnnotationType } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
@@ -9,6 +10,8 @@ import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
 import { findOrOpenEditor } from '../system/utils';
 import { ActiveEditorCommand, getCommandUri } from './base';
+
+const localize = nls.loadMessageBundle();
 
 export interface OpenWorkingFileCommandArgs {
 	uri?: Uri;
@@ -42,7 +45,10 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 				const workingUri = await this.container.git.getWorkingUri(args.uri.repoPath!, args.uri);
 				if (workingUri === undefined) {
 					void window.showWarningMessage(
-						'Unable to open working file. File could not be found in the working tree',
+						localize(
+							'unableToOpenWorkingFileNotFoundInWorkingTree',
+							'Unable to open working file. File could not be found in the working tree',
+						),
 					);
 
 					return;
@@ -66,7 +72,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenWorkingFileCommand');
-			void showGenericErrorMessage('Unable to open working file');
+			void showGenericErrorMessage(localize('unableToOpenWorkingFile', 'Unable to open working file'));
 		}
 	}
 }

@@ -1,5 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { Avatars } from '../avatars';
 import type { ContributorsViewConfig } from '../configuration';
 import { configuration, ViewFilesLayout } from '../configuration';
@@ -19,6 +20,8 @@ import type { ViewNode } from './nodes/viewNode';
 import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
+
+const localize = nls.loadMessageBundle();
 
 export class ContributorsRepositoryNode extends RepositoryFolderNode<ContributorsView, ContributorsNode> {
 	async getChildren(): Promise<ViewNode[]> {
@@ -53,7 +56,7 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 		if (this.children == null) {
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = 'No contributors could be found.';
+				this.view.message = localize('noContributorsFound', 'No contributors could be found.');
 
 				return [];
 			}
@@ -86,8 +89,8 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 
 			// const contributors = await child.repo.getContributors({ all: all, ref: ref });
 			if (children.length === 0) {
-				this.view.message = 'No contributors could be found.';
-				this.view.title = 'Contributors';
+				this.view.message = localize('noContributorsFound', 'No contributors could be found.');
+				this.view.title = localize('contributors', 'Contributors');
 
 				void child.ensureSubscription();
 
@@ -95,7 +98,7 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 			}
 
 			this.view.message = undefined;
-			this.view.title = `Contributors (${children.length})`;
+			this.view.title = localize('contributorsNumber', 'Contributors ({0})', children.length);
 
 			return children;
 		}
@@ -106,7 +109,7 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Contributors', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(localize('contributors', 'Contributors'), TreeItemCollapsibleState.Expanded);
 		return item;
 	}
 }
@@ -115,7 +118,7 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 	protected readonly configKey = 'contributors';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.contributors', 'Contributors', 'contributorsView');
+		super(container, 'gitlens.views.contributors', localize('contributors', 'Contributors'), 'contributorsView');
 	}
 
 	override get canReveal(): boolean {
@@ -255,7 +258,11 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing contributor '${contributor.name}' in the side bar...`,
+				title: localize(
+					'revealingContributorInSideBar',
+					"Revealing contributor '{0}' in the side bar...",
+					contributor.name,
+				),
 				cancellable: true,
 			},
 			async (progress, token) => {

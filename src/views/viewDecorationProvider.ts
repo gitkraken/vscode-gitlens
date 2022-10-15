@@ -1,7 +1,10 @@
 import type { CancellationToken, Event, FileDecoration, FileDecorationProvider, Uri } from 'vscode';
 import { Disposable, EventEmitter, ThemeColor, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { GlyphChars } from '../constants';
 import { GitBranchStatus } from '../git/models/branch';
+
+const localize = nls.loadMessageBundle();
 
 export class ViewFileDecorationProvider implements FileDecorationProvider, Disposable {
 	private readonly _onDidChange = new EventEmitter<undefined | Uri | Uri[]>();
@@ -57,43 +60,43 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 				return {
 					badge: 'I',
 					color: new ThemeColor('gitlens.decorations.ignoredForegroundColor'),
-					tooltip: 'Ignored',
+					tooltip: localize('commitFile.status.ignored', 'Ignored'),
 				};
 			case '?':
 				return {
 					badge: 'U',
 					color: new ThemeColor('gitlens.decorations.untrackedForegroundColor'),
-					tooltip: 'Untracked',
+					tooltip: localize('commitFile.status.untracked', 'Untracked'),
 				};
 			case 'A':
 				return {
 					badge: 'A',
 					color: new ThemeColor('gitlens.decorations.addedForegroundColor'),
-					tooltip: 'Added',
+					tooltip: localize('gitlens.viewDecorationProvider.commitFileStatusAdded', 'Added'),
 				};
 			case 'C':
 				return {
 					badge: 'C',
 					color: new ThemeColor('gitlens.decorations.copiedForegroundColor'),
-					tooltip: 'Copied',
+					tooltip: localize('commitFile.status.copied', 'Copied'),
 				};
 			case 'D':
 				return {
 					badge: 'D',
 					color: new ThemeColor('gitlens.decorations.deletedForegroundColor'),
-					tooltip: 'Deleted',
+					tooltip: localize('commitFile.status.deleted', 'Deleted'),
 				};
 			case 'M':
 				return {
 					badge: 'M',
 					// color: new ThemeColor('gitlens.decorations.modifiedForegroundColor'),
-					tooltip: 'Modified',
+					tooltip: localize('commitFile.status.modified', 'Modified'),
 				};
 			case 'R':
 				return {
 					badge: 'R',
 					color: new ThemeColor('gitlens.decorations.renamedForegroundColor'),
-					tooltip: 'Renamed',
+					tooltip: localize('commitFile.status.renamed', 'Renamed'),
 				};
 			default:
 				return undefined;
@@ -108,37 +111,37 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 				return {
 					badge: '▲',
 					color: new ThemeColor('gitlens.decorations.branchAheadForegroundColor'),
-					tooltip: 'Ahead',
+					tooltip: localize('branch.status.ahead', 'Ahead'),
 				};
 			case GitBranchStatus.Behind:
 				return {
 					badge: '▼',
 					color: new ThemeColor('gitlens.decorations.branchBehindForegroundColor'),
-					tooltip: 'Behind',
+					tooltip: localize('branch.status.behind', 'Behind'),
 				};
 			case GitBranchStatus.Diverged:
 				return {
 					badge: '▼▲',
 					color: new ThemeColor('gitlens.decorations.branchDivergedForegroundColor'),
-					tooltip: 'Diverged',
+					tooltip: localize('branch.status.diverged', 'Diverged'),
 				};
 			case GitBranchStatus.MissingUpstream:
 				return {
 					badge: '!',
 					color: new ThemeColor('gitlens.decorations.branchMissingUpstreamForegroundColor'),
-					tooltip: 'Missing Upstream',
+					tooltip: localize('branch.status.missingUpstream', 'Missing Upstream'),
 				};
 			case GitBranchStatus.UpToDate:
 				return {
 					badge: '',
 					color: new ThemeColor('gitlens.decorations.branchUpToDateForegroundColor'),
-					tooltip: 'Up to Date',
+					tooltip: localize('branch.status.upToDate', 'Up to Date'),
 				};
 			case GitBranchStatus.Unpublished:
 				return {
 					badge: '▲+',
 					color: new ThemeColor('gitlens.decorations.branchUnpublishedForegroundColor'),
-					tooltip: 'Unpublished',
+					tooltip: localize('branch.status.unpublished', 'Unpublished'),
 				};
 			default:
 				return undefined;
@@ -172,7 +175,7 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 		return {
 			badge: GlyphChars.Check,
 			color: color,
-			tooltip: 'Current Branch',
+			tooltip: localize('currentBranch', 'Current Branch'),
 		};
 	}
 
@@ -183,7 +186,7 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 
 		return {
 			badge: GlyphChars.Check,
-			tooltip: 'Default Remote',
+			tooltip: localize('defaultRemote', 'Default Remote'),
 		};
 	}
 }

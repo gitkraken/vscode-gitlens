@@ -1,5 +1,6 @@
 import type { TreeItem } from 'vscode';
 import { ThemeIcon } from 'vscode';
+import * as nls from 'vscode-nls';
 import { executeGitCommand } from '../../commands/gitCommands.actions';
 import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
@@ -15,6 +16,7 @@ import { ResultsCommitsNode } from './resultsCommitsNode';
 import type { PageableViewNode } from './viewNode';
 import { ContextValues, ViewNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 let instanceId = 0;
 
 interface SearchQueryResults {
@@ -241,12 +243,16 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 
 		const count = log?.count ?? 0;
 
-		const resultsType =
-			label.resultsType === undefined ? { singular: 'result', plural: 'results' } : label.resultsType;
-
-		return `${pluralize(resultsType.singular, count, {
+		if (label.resultsType === undefined) {
+			return count === 0
+				? localize('noResults', 'No results')
+				: count === 1
+				? localize('result', '{0} result', log?.hasMore ? `${count}+` : count)
+				: localize('results', '{0} results', log?.hasMore ? `${count}+` : count);
+		}
+		return `${pluralize(label.resultsType.singular, count, {
 			format: c => (log?.hasMore ? `${c}+` : undefined),
-			plural: resultsType.plural,
+			plural: label.resultsType.plural,
 			zero: 'No',
 		})} ${label.label}`;
 	}

@@ -1,5 +1,6 @@
 import type { TextEditor, Uri } from 'vscode';
 import { env } from 'vscode';
+import * as nls from 'vscode-nls';
 import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
@@ -16,6 +17,8 @@ import {
 	isCommandContextViewNodeHasCommit,
 	isCommandContextViewNodeHasTag,
 } from './base';
+
+const localize = nls.loadMessageBundle();
 
 export interface CopyShaToClipboardCommandArgs {
 	sha?: string;
@@ -79,7 +82,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 						args.sha = blame.commit.sha;
 					} catch (ex) {
 						Logger.error(ex, 'CopyShaToClipboardCommand', `getBlameForLine(${blameline})`);
-						void showGenericErrorMessage('Unable to copy commit SHA');
+						void showGenericErrorMessage(localize('unableToCopyCommitSha', 'Unable to copy commit SHA'));
 
 						return;
 					}
@@ -89,7 +92,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 			await env.clipboard.writeText(args.sha);
 		} catch (ex) {
 			Logger.error(ex, 'CopyShaToClipboardCommand');
-			void showGenericErrorMessage('Unable to copy commit SHA');
+			void showGenericErrorMessage(localize('unableToCopyCommitSha', 'Unable to copy commit SHA'));
 		}
 	}
 }

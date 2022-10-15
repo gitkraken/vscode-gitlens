@@ -1,4 +1,5 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { ViewShowBranchComparison } from '../../configuration';
 import { ViewBranchesLayout } from '../../configuration';
 import { Colors, ContextKeys, GlyphChars } from '../../constants';
@@ -38,6 +39,7 @@ type State = {
 	pendingPullRequest: Promise<PullRequest | undefined> | undefined;
 };
 
+const localize = nls.loadMessageBundle();
 export class BranchNode
 	extends ViewRefNode<BranchesView | CommitsView | RemotesView | RepositoriesView, GitBranchReference, State>
 	implements PageableViewNode
@@ -110,7 +112,7 @@ export class BranchNode
 	}
 
 	get label(): string {
-		if (this.options.showAsCommits) return 'Commits';
+		if (this.options.showAsCommits) return localize('commits', 'Commits');
 
 		const branchName = this.branch.getNameWithoutRemote();
 		return `${
@@ -122,7 +124,7 @@ export class BranchNode
 			this.branch.starred
 				? branchName
 				: this.branch.getBasename()
-		}${this.branch.rebasing ? ' (Rebasing)' : ''}`;
+		}${this.branch.rebasing ? ` ${localize('rebasing', '(Rebasing)')}` : ''}`;
 	}
 
 	get ref(): GitBranchReference {
@@ -217,7 +219,8 @@ export class BranchNode
 					: undefined,
 			]);
 			const log = getSettledValue(logResult);
-			if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
+			if (log == null)
+				return [new MessageNode(this.view, this, localize('noCommitsFound', 'No commits could be found.'))];
 
 			const children = [];
 
@@ -340,9 +343,7 @@ export class BranchNode
 	async getTreeItem(): Promise<TreeItem> {
 		this.splatted = false;
 
-		let tooltip: string | MarkdownString = `${
-			this.current ? 'Current branch' : 'Branch'
-		} $(git-branch) ${this.branch.getNameWithoutRemote()}${this.branch.rebasing ? ' (Rebasing)' : ''}`;
+		let tooltip: string | MarkdownString = '';
 
 		let contextValue: string = ContextValues.Branch;
 		if (this.current) {
@@ -364,6 +365,7 @@ export class BranchNode
 		let color: ThemeColor | undefined;
 		let description;
 		let iconSuffix = '';
+
 		if (!this.branch.remote) {
 			if (this.branch.upstream != null) {
 				let arrows = GlyphChars.Dash;
@@ -400,28 +402,140 @@ export class BranchNode
 				description = this.options.showAsCommits
 					? `${this.branch.getTrackingStatus({
 							suffix: pad(GlyphChars.Dot, 1, 1),
-					  })}${this.branch.getNameWithoutRemote()}${this.branch.rebasing ? ' (Rebasing)' : ''}${pad(
-							arrows,
-							2,
-							2,
-					  )}${this.branch.upstream.name}`
+					  })}${this.branch.getNameWithoutRemote()}${
+							this.branch.rebasing ? ` ${localize('rebasing', '(Rebasing)')}` : ''
+					  }${pad(arrows, 2, 2)}${this.branch.upstream.name}`
 					: `${this.branch.getTrackingStatus({ suffix: `${GlyphChars.Space} ` })}${arrows}${
 							GlyphChars.Space
 					  } ${this.branch.upstream.name}`;
 
-				tooltip += ` is ${this.branch.getTrackingStatus({
-					empty: this.branch.upstream.missing
-						? `missing upstream $(git-branch) ${this.branch.upstream.name}`
-						: `up to date with $(git-branch)  ${this.branch.upstream.name}${
-								remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-						  }`,
+				tooltip = this.branch.getTrackingStatus({
+					empty: this.current
+						? this.branch.rebasing
+							? this.branch.upstream.missing
+								? localize(
+										'currentBranchRebasingIsMissingUpstream',
+										'Current branch {0} (Rebasing) is missing upstream {1}',
+										`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+										`$(git-branch) ${this.branch.upstream.name}`,
+								  )
+								: remote?.provider?.name
+								? localize(
+										'currentBranchRebasingIsUpToDateWithUpstreamOnProvider',
+										'Current branch {0} (Rebasing) is up to date with {1} on {2}',
+										`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+										`$(git-branch) ${this.branch.upstream.name}`,
+										remote.provider.name,
+								  )
+								: localize(
+										'currentBranchRebasingIsUpToDateWithUpstream',
+										'Current branch {0} (Rebasing) is up to date with {1}',
+										`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+										`$(git-branch) ${this.branch.upstream.name}`,
+								  )
+							: this.branch.upstream.missing
+							? localize(
+									'currentBranchIsMissingUpstream',
+									'Current branch {0} is missing upstream {1}',
+									`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+									`$(git-branch) ${this.branch.upstream.name}`,
+							  )
+							: remote?.provider?.name
+							? localize(
+									'currentBranchIsUpToDateWithUpstreamOnProvider',
+									'Current branch {0} is up to date with {1} on {2}',
+									`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+									`$(git-branch) ${this.branch.upstream.name}`,
+									remote.provider.name,
+							  )
+							: localize(
+									'currentBranchIsUpToDateWithUpstream',
+									'Current branch {0} is up to date with {1}',
+									`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+									`$(git-branch) ${this.branch.upstream.name}`,
+							  )
+						: this.branch.rebasing
+						? this.branch.upstream.missing
+							? localize(
+									'branchRebasingIsMissingUpstream',
+									'Branch {0} (Rebasing) is missing upstream {1}',
+									`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+									`$(git-branch) ${this.branch.upstream.name}`,
+							  )
+							: remote?.provider?.name
+							? localize(
+									'branchRebasingIsUpToDateWithUpstreamOnProvider',
+									'Branch {0} (Rebasing) is up to date with {1} on {2}',
+									`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+									`$(git-branch) ${this.branch.upstream.name}`,
+									remote.provider.name,
+							  )
+							: localize(
+									'branchRebasingIsUpToDateWithUpstream',
+									'Branch {0} (Rebasing) is up to date with {1}',
+									`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+									`$(git-branch) ${this.branch.upstream.name}`,
+							  )
+						: this.branch.upstream.missing
+						? localize(
+								'branchIsMissingUpstream',
+								'Branch {0} is missing upstream {1}',
+								`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+								`$(git-branch) ${this.branch.upstream.name}`,
+						  )
+						: remote?.provider?.name
+						? localize(
+								'branchIsUpToDateWithUpstreamOnProvider',
+								'Branch {0} is up to date with {1} on {2}',
+								`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+								`$(git-branch) ${this.branch.upstream.name}`,
+								remote.provider.name,
+						  )
+						: localize(
+								'branchIsUpToDateWithUpstream',
+								'Branch {0} is up to date with {1}',
+								`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+								`$(git-branch) ${this.branch.upstream.name}`,
+						  ),
 					expand: true,
 					icons: true,
 					separator: ', ',
-					suffix: ` $(git-branch) ${this.branch.upstream.name}${
-						remote?.provider?.name ? ` on ${remote.provider.name}` : ''
+					prefix: `${
+						this.current
+							? this.branch.rebasing
+								? localize(
+										'currentBranchRebasingIs',
+										'Current branch {0} (Rebasing) is',
+										`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+								  )
+								: localize(
+										'currentBranchIs',
+										'Current branch {0} is',
+										`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+								  )
+							: this.branch.rebasing
+							? localize(
+									'branchRebasingIs',
+									'Branch {0} (Rebasing) is',
+									`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+							  )
+							: localize(
+									'branchIs',
+									'Branch {0} is',
+									`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+							  )
+					} `,
+					suffix: ` ${
+						remote?.provider?.name
+							? localize(
+									'upstreamOnProvider',
+									'{0} on {1}',
+									`$(git-branch) ${this.branch.upstream.name}`,
+									remote.provider.name,
+							  )
+							: this.branch.upstream.name
 					}`,
-				})}`;
+				});
 
 				if (this.branch.state.ahead || this.branch.state.behind) {
 					if (this.branch.state.ahead) {
@@ -441,8 +555,54 @@ export class BranchNode
 				);
 				const providerName = providers?.length ? providers[0].name : undefined;
 
-				tooltip += ` hasn't been published to ${providerName ?? 'a remote'}`;
+				tooltip = this.current
+					? this.branch.rebasing
+						? localize(
+								'currentBranchRebasingHasntBeenPublishedToProvider',
+								"Current branch {0} (Rebasing) hasn't been published to {1}",
+								`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+								providerName,
+						  )
+						: localize(
+								'currentBranchHasntBeenPublishedToProvider',
+								"Current branch {0} hasn't been published to {1}",
+								`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+								providerName,
+						  )
+					: this.branch.rebasing
+					? localize(
+							'branchRebasingHasntBeenPublishedToProvider',
+							"Branch {0} (Rebasing) hasn't been published to {1}",
+							`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+							providerName,
+					  )
+					: localize(
+							'branchHasntBeenPublishedToProvider',
+							"Branch {0} hasn't been published to {1}",
+							`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+							providerName,
+					  );
 			}
+		} else {
+			tooltip = this.current
+				? this.branch.rebasing
+					? localize(
+							'currentBranchRebasing',
+							'Current branch {0} (Rebasing)',
+							`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+					  )
+					: localize(
+							'currentBranch',
+							'Current branch {0}',
+							`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+					  )
+				: this.branch.rebasing
+				? localize(
+						'branchRebasing',
+						'Branch {0} (Rebasing)',
+						`$(git-branch) ${this.branch.getNameWithoutRemote()}`,
+				  )
+				: localize('branch', 'Branch {0}', `$(git-branch) ${this.branch.getNameWithoutRemote()}`);
 		}
 
 		if (this.branch.date != null) {
@@ -450,9 +610,12 @@ export class BranchNode
 				this.branch.formattedDate
 			}`;
 
-			tooltip += `\n\nLast commit ${this.branch.formatDateFromNow()} (${this.branch.formatDate(
-				this.view.container.BranchDateFormatting.dateFormat,
-			)})`;
+			tooltip += `\n\n${localize(
+				'lastCommitDate',
+				'Last commit {0} ({1})',
+				this.branch.formatDateFromNow(),
+				this.branch.formatDate(this.view.container.BranchDateFormatting.dateFormat),
+			)}`;
 		}
 
 		tooltip = new MarkdownString(tooltip, true);
@@ -460,7 +623,7 @@ export class BranchNode
 		tooltip.isTrusted = true;
 
 		if (this.branch.starred) {
-			tooltip.appendMarkdown('\\\n$(star-full) Favorited');
+			tooltip.appendMarkdown(`\\\n$(star-full) ${localize('favorited', 'Favorited')}`);
 		}
 
 		const pendingPullRequest = this.getState('pendingPullRequest');

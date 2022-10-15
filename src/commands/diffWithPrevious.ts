@@ -1,4 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import * as nls from 'vscode-nls';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -11,6 +12,8 @@ import { findOrOpenEditor } from '../system/utils';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri } from './base';
 import type { DiffWithCommandArgs } from './diffWith';
+
+const localize = nls.loadMessageBundle();
 
 export interface DiffWithPreviousCommandArgs {
 	commit?: GitCommit;
@@ -135,7 +138,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				'DiffWithPreviousCommand',
 				`getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`,
 			);
-			void showGenericErrorMessage('Unable to open compare');
+			void showGenericErrorMessage(localize('unableToOpenCompare', 'Unable to open compare'));
 		}
 	}
 }

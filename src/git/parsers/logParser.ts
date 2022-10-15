@@ -1,4 +1,5 @@
 import type { Range } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { Container } from '../../container';
 import { filterMap } from '../../system/array';
 import { debug } from '../../system/decorators/log';
@@ -12,6 +13,8 @@ import type { GitLog } from '../models/log';
 import { GitRevision } from '../models/reference';
 import type { GitUser } from '../models/user';
 import { isUserMatch } from '../models/user';
+
+const localize = nls.loadMessageBundle();
 
 const diffRegex = /diff --git a\/(.*) b\/(.*)/;
 const diffRangeRegex = /^@@ -(\d+?),(\d+?) \+(\d+?),(\d+?) @@/;
@@ -400,7 +403,7 @@ export class GitLogParser {
 
 				case 97: // 'a': // author
 					if (GitRevision.uncommitted === entry.sha) {
-						entry.author = 'You';
+						entry.author = localize('you', 'You');
 					} else {
 						entry.author = line.substring(4);
 					}
@@ -668,13 +671,13 @@ export class GitLogParser {
 		if (commit == null) {
 			if (entry.author != null) {
 				if (isUserMatch(currentUser, entry.author, entry.authorEmail)) {
-					entry.author = 'You';
+					entry.author = localize('you', 'You');
 				}
 			}
 
 			if (entry.committer != null) {
 				if (isUserMatch(currentUser, entry.committer, entry.committerEmail)) {
-					entry.committer = 'You';
+					entry.committer = localize('you', 'You');
 				}
 			}
 

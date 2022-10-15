@@ -1,5 +1,6 @@
 import type { TextEditor, TextEditorEdit, Uri } from 'vscode';
 import { window } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { AnnotationContext } from '../annotations/annotationProvider';
 import type { ChangesAnnotationContext } from '../annotations/gutterChangesAnnotationProvider';
 import { UriComparer } from '../comparers';
@@ -11,6 +12,8 @@ import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
 import { isTextEditor } from '../system/utils';
 import { ActiveEditorCommand, EditorCommand } from './base';
+
+const localize = nls.loadMessageBundle();
 
 @command()
 export class ClearFileAnnotationsCommand extends EditorCommand {
@@ -33,7 +36,7 @@ export class ClearFileAnnotationsCommand extends EditorCommand {
 			await this.container.fileAnnotations.clear(editor);
 		} catch (ex) {
 			Logger.error(ex, 'ClearFileAnnotationsCommand');
-			void showGenericErrorMessage('Unable to clear file annotations');
+			void showGenericErrorMessage(localize('unableToClearFileAnnotations', 'Unable to clear file annotations'));
 		}
 	}
 }
@@ -138,7 +141,11 @@ async function toggleFileAnnotations<TArgs extends ToggleFileAnnotationCommandAr
 	} catch (ex) {
 		Logger.error(ex, 'ToggleFileAnnotationsCommand');
 		void window.showErrorMessage(
-			`Unable to toggle file ${args.type} annotations. See output channel for more details`,
+			localize(
+				'unableToToggleFileAnnotations',
+				'Unable to toggle file {0} annotations. See output channel for more details',
+				args.type,
+			),
 		);
 	}
 }

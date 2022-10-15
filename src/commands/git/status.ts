@@ -1,3 +1,4 @@
+import * as nls from 'vscode-nls';
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { GitReference } from '../../git/models/reference';
@@ -10,6 +11,7 @@ import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type { PartialStepState, StepGenerator, StepState } from '../quickCommand';
 import { pickRepositoryStep, QuickCommand, showRepositoryStatusStep, StepResult } from '../quickCommand';
 
+const localize = nls.loadMessageBundle();
 interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
@@ -30,8 +32,8 @@ type StatusStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo'
 
 export class StatusGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: StatusGitCommandArgs) {
-		super(container, 'status', 'status', 'Status', {
-			description: 'shows status information about a repository',
+		super(container, 'status', localize('label', 'status'), localize('title', 'Status'), {
+			description: localize('description', 'shows status information about a repository'),
 		});
 
 		let counter = 0;

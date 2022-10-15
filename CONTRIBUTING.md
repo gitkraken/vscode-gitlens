@@ -158,6 +158,51 @@ If this is your first contribution to GitLens, please give yourself credit by ad
 
 > - `Your Name ([@<your-github-username>](https://github.com/<your-github-username>)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=<your-github-username>)`
 
+### String Localization
+
+[vscode-nls](https://github.com/microsoft/vscode-nls) is used to localize strings in TypeScript code. To use [vscode-nls](https://github.com/microsoft/vscode-nls), the source file must contain:
+
+```typescript
+import * as nls from 'vscode-nls';
+
+nls.config({ messageFormat: nls.MessageFormat.bundle, bundleFormat: nls.BundleFormat.standalone })();
+const localize: nls.LocalizeFunc = nls.loadMessageBundle();
+```
+
+For each user-facing string, wrap the string in a call to localize:
+
+```typescript
+const fetchReposMessage: string = localize('quickPick.fetch.detail.willFetchRepos', 'Will fetch {0}', reposToFetch);
+```
+
+The first parameter to localize should be a unique key for that string, not used by any other call to localize() in the file unless representing the same string. The second parameter is the string to localize. Both of these parameters must be string literals. Tokens such as {0} and {1} are supported in the localizable string, with replacement values passed as additional parameters to localize().
+
+#### Adding a New Language
+
+[Gulp](https://gulpjs.com/) is used to automate localized strings import and export.
+To add new language support one should follow these steps:
+
+1. Add target language to `gulpfile.js`.
+
+For example:
+
+```javascript
+const languages = [{ id: 'ru', folderName: 'rus' }];
+```
+
+2. Export internalized strings into `.xlf` file by calling `gulp translations-export` from a terminal
+   You can find the resulting file under `vscode-gitlens-localization-export/vscode-gitlens/gitlens.xlf`
+
+3. Translate the .xlf file using localization tool of your choice. (e.g. [Transifex](https://www.transifex.com/) or [Smartcat](https://smartcat.com))
+
+4. Put localized file under `vscode-translations-import/<target language ID>/vscode-gitlens/gitlens.xlf`
+
+5. Import localizations by calling `gulp translations-import`
+
+6. You can find imported localizations under `i18n/<target language folderName>`
+
+7. Now you can build project and test your localization in work
+
 ## Publishing
 
 ### Versioning

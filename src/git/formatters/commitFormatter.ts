@@ -1,4 +1,5 @@
 import type { Uri } from 'vscode';
+import * as nls from 'vscode-nls';
 import type {
 	Action,
 	ActionContext,
@@ -37,6 +38,8 @@ import { GitRemote } from '../models/remote';
 import type { RemoteProvider } from '../remotes/remoteProvider';
 import type { FormatOptions, RequiredTokenOptions } from './formatter';
 import { Formatter } from './formatter';
+
+const localize = nls.loadMessageBundle();
 
 export interface CommitFormatOptions extends FormatOptions {
 	autolinkedIssuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>;
@@ -201,12 +204,16 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 		switch (this._options.outputFormat) {
 			case 'markdown':
-				return `[${author}](${email ? `mailto:${email} "Email ${name} (${email})"` : `# "${name}"`})`;
+				return `[${author}](${
+					email ? `mailto:${email} ${localize('emailTo', 'Email {0}', `${name} (${email})`)}` : `# "${name}"`
+				})`;
 			case 'html':
 				name = encodeHtmlWeak(name);
 				email = encodeHtmlWeak(email);
 				return /*html*/ `<a ${
-					email ? `href="mailto:${email}" title="Email ${name} (${email})"` : `href="#" title="${name}"`
+					email
+						? `href="mailto:${email}" title="${localize('emailTo', 'Email {0}', `${name} (${email})`)}"`
+						: `href="#" title="${name}"`
 				})${
 					this._options.htmlFormat?.classes?.author
 						? ` class="${this._options.htmlFormat.classes.author}"`
@@ -245,18 +252,22 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 	get authorNotYou(): string {
 		let { name, email } = this._item.author;
-		if (name === 'You') return this._padOrTruncate('', this._options.tokenOptions.authorNotYou);
+		if (name === localize('you', 'You')) return this._padOrTruncate('', this._options.tokenOptions.authorNotYou);
 
 		const author = this._padOrTruncate(name, this._options.tokenOptions.authorNotYou);
 
 		switch (this._options.outputFormat) {
 			case 'markdown':
-				return `[${author}](${email ? `mailto:${email} "Email ${name} (${email})"` : `# "${name}"`})`;
+				return `[${author}](${
+					email ? `mailto:${email} "${localize('emailTo', 'Email {0}', `${name} ($email})`)}"` : `# "${name}"`
+				})`;
 			case 'html':
 				name = encodeHtmlWeak(name);
 				email = encodeHtmlWeak(email);
 				return /*html*/ `<a ${
-					email ? `href="mailto:${email}" title="Email ${name} (${email})"` : `href="#" title="${name}"`
+					email
+						? `href="mailto:${email}" title="${localize('emailTo', 'Email {0}', `${name} ($email})`)}"`
+						: `href="#" title="${name}"`
 				})${
 					this._options.htmlFormat?.classes?.author
 						? ` class="${this._options.htmlFormat.classes.author}"`
@@ -277,9 +288,14 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 		const presence = this._options.presence;
 		if (presence != null) {
-			let title = `${name} ${name === 'You' ? 'are' : 'is'} ${
-				presence.status === 'dnd' ? 'in ' : ''
-			}${presence.statusText.toLocaleLowerCase()}`;
+			let title =
+				name === localize('you', 'You')
+					? presence.status === 'dnd'
+						? localize('youAreInStatus', 'You are in {0}', presence.statusText.toLocaleLowerCase())
+						: localize('youAreStatus', 'You are {0}', presence.statusText.toLocaleLowerCase())
+					: presence.status === 'dnd'
+					? localize('authorIsInStatus', '{0} is in {1}', name, presence.statusText.toLocaleLowerCase())
+					: localize('authorIsStatus', '{0} is {1}', name, presence.statusText.toLocaleLowerCase());
 
 			if (outputFormat === 'html') {
 				title = encodeHtmlWeak(title);

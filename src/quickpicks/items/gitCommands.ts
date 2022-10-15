@@ -1,4 +1,5 @@
 import type { QuickInputButton, QuickPickItem } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { GitCommandsCommandArgs } from '../../commands/gitCommands';
 import { getSteps } from '../../commands/gitCommands.utils';
 import { Commands, GlyphChars } from '../../constants';
@@ -19,6 +20,7 @@ import { pad } from '../../system/string';
 import type { QuickPickItemOfT } from './common';
 import { CommandQuickPickItem } from './common';
 
+const localize = nls.loadMessageBundle();
 export class GitCommandQuickPickItem extends CommandQuickPickItem<[GitCommandsCommandArgs]> {
 	constructor(label: string, args: GitCommandsCommandArgs);
 	constructor(item: QuickPickItem, args: GitCommandsCommandArgs);
@@ -54,16 +56,16 @@ export namespace BranchQuickPickItem {
 		let description = '';
 		if (options?.type === true) {
 			if (options.current === true && branch.current) {
-				description = 'current branch';
+				description = localize('branch.description.currentBranch', 'current branch');
 			} else {
-				description = 'branch';
+				description = localize('branch.description.branch', 'branch');
 			}
 		} else if (options?.type === 'remote') {
 			if (branch.remote) {
-				description = 'remote branch';
+				description = localize('branch.description.remoteBranch', 'remote branch');
 			}
 		} else if (options?.current === true && branch.current) {
-			description = 'current branch';
+			description = localize('branch.description.currentBranch', 'current branch');
 		}
 
 		if (options?.status && !branch.remote && branch.upstream != null) {
@@ -139,7 +141,7 @@ export namespace BranchQuickPickItem {
 }
 
 export class CommitLoadMoreQuickPickItem implements QuickPickItem {
-	readonly label = 'Load more';
+	readonly label = localize('loadMore.label', 'Load more');
 	readonly alwaysShow = true;
 }
 
@@ -254,7 +256,10 @@ export namespace RefQuickPickItem {
 	): RefQuickPickItem {
 		if (ref === '') {
 			return {
-				label: `${options?.icon ? `$(file-directory)${GlyphChars.Space}` : ''}Working Tree`,
+				label: `${options?.icon ? `$(file-directory)${GlyphChars.Space}` : ''}${localize(
+					'ref.label.workingTree',
+					'Working Tree',
+				)}`,
 				description: '',
 				alwaysShow: options?.alwaysShow,
 				buttons: options?.buttons,
@@ -290,7 +295,7 @@ export namespace RefQuickPickItem {
 
 		if (GitRevision.isRange(ref)) {
 			return {
-				label: `Range ${gitRef.name}`,
+				label: localize('ref.range', 'Range {0}', gitRef.name),
 				description: '',
 				alwaysShow: options?.alwaysShow,
 				buttons: options?.buttons,
@@ -303,7 +308,7 @@ export namespace RefQuickPickItem {
 		}
 
 		const item: RefQuickPickItem = {
-			label: `Commit ${gitRef.name}`,
+			label: localize('ref.label.commitRef', 'Commit {0}', gitRef.name),
 			description: options?.ref ? `$(git-commit)${GlyphChars.Space}${ref}` : '',
 			alwaysShow: options?.alwaysShow,
 			buttons: options?.buttons,
@@ -366,7 +371,11 @@ export namespace RepositoryQuickPickItem {
 		if (options?.fetched) {
 			const lastFetched = await repository.getLastFetched();
 			if (lastFetched !== 0) {
-				const fetched = `Last fetched ${fromNow(new Date(lastFetched))}`;
+				const fetched = localize(
+					'repository.description.lastFetchedTime',
+					'Last fetched {0}',
+					fromNow(new Date(lastFetched)),
+				);
 				description = `${description ? `${description}${pad(GlyphChars.Dot, 2, 2)}${fetched}` : fetched}`;
 			}
 		}
@@ -464,15 +473,23 @@ export namespace WorktreeQuickPickItem {
 
 		if (options?.status != null) {
 			description += options.status.hasChanges
-				? pad(`Uncommited changes (${options.status.getFormattedDiffStatus()})`, description ? 2 : 0, 0)
-				: pad('No changes', description ? 2 : 0, 0);
+				? pad(
+						localize(
+							'workTree.description.uncommitedChanges',
+							'Uncommited changes ({0})',
+							options.status.getFormattedDiffStatus(),
+						),
+						description ? 2 : 0,
+						0,
+				  )
+				: pad(localize('workTree.description.noChanges', 'No changes'), description ? 2 : 0, 0);
 		}
 
 		let icon;
 		let label;
 		switch (worktree.type) {
 			case 'bare':
-				label = '(bare)';
+				label = `(${localize('workTree.label.bare', 'bare')})`;
 				icon = '$(folder)';
 				break;
 			case 'branch':
@@ -488,7 +505,9 @@ export namespace WorktreeQuickPickItem {
 		const item: WorktreeQuickPickItem = {
 			label: `${icon}${GlyphChars.Space}${label}${options?.checked ? pad('$(check)', 2) : ''}`,
 			description: description,
-			detail: options?.path ? `In $(folder) ${worktree.friendlyPath}` : undefined,
+			detail: options?.path
+				? localize('worktree.inWorktreePath', 'In {0}', `$(folder) ${worktree.friendlyPath}`)
+				: undefined,
 			alwaysShow: options?.alwaysShow,
 			buttons: options?.buttons,
 			picked: picked,

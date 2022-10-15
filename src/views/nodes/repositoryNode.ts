@@ -1,4 +1,5 @@
 import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import { GlyphChars } from '../../constants';
 import { Features } from '../../features';
 import type { GitUri } from '../../git/gitUri';
@@ -30,6 +31,7 @@ import type { ViewNode } from './viewNode';
 import { ContextValues, SubscribeableViewNode } from './viewNode';
 import { WorktreesNode } from './worktreesNode';
 
+const localize = nls.loadMessageBundle();
 export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 	static key = ':repository';
 	static getId(repoPath: string): string {
@@ -182,7 +184,11 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		let description;
 		let tooltip = `${this.repo.formattedName ?? this.uri.repoPath ?? ''}${
 			lastFetched
-				? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(lastFetched, false)}`
+				? `${pad(GlyphChars.Dash, 2, 2)}${localize(
+						'lastFetched',
+						'Last fetched {0}',
+						Repository.formatLastFetched(lastFetched, false),
+				  )}`
 				: ''
 		}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}`;
 		let iconSuffix = '';
@@ -195,8 +201,6 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 		const status = await this._status;
 		if (status != null) {
-			tooltip += `\n\nCurrent branch $(git-branch) ${status.branch}${status.rebasing ? ' (Rebasing)' : ''}`;
-
 			if (this.view.config.includeWorkingTree && status.files.length !== 0) {
 				workingStatus = status.getFormattedDiffStatus({
 					compact: true,
@@ -208,7 +212,9 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				suffix: pad(GlyphChars.Dot, 1, 1),
 			});
 
-			description = `${upstreamStatus}${status.branch}${status.rebasing ? ' (Rebasing)' : ''}${workingStatus}`;
+			description = `${upstreamStatus}${status.branch}${
+				status.rebasing ? ` ${localize('rebasing', '(Rebasing)')}` : ''
+			}${workingStatus}`;
 
 			let providerName;
 			if (status.upstream != null) {
@@ -222,16 +228,57 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			}
 
 			iconSuffix = workingStatus ? '-blue' : '';
+			tooltip += '\n\n';
 			if (status.upstream != null) {
-				tooltip += ` is ${status.getUpstreamStatus({
-					empty: `up to date with $(git-branch) ${status.upstream}${
-						providerName ? ` on ${providerName}` : ''
-					}`,
+				tooltip += status.getUpstreamStatus({
+					empty: status.rebasing
+						? providerName
+							? localize(
+									'currentBranchRebasingIsUpToDateWithUpstreamOnProvider',
+									'Current branch {0} (Rebasing) is up to date with {1} on {2}',
+									`$(git-branch) ${status.branch}`,
+									`$(git-branch) ${status.upstream}`,
+									providerName,
+							  )
+							: localize(
+									'currentBranchRebasingIsUpToDateWithUpstream',
+									'Current branch {0} (Rebasing) is up to date with {1}',
+									`$(git-branch) ${status.branch}`,
+									`$(git-branch) ${status.upstream}`,
+							  )
+						: providerName
+						? localize(
+								'currentBranchIsUpToDateWithUpstreamOnProvider',
+								'Current branch {0} is up to date with {1} on {2}',
+								`$(git-branch) ${status.branch}`,
+								`$(git-branch) ${status.upstream}`,
+								providerName,
+						  )
+						: localize(
+								'currentBranchIsUpToDateWithUpstream',
+								'Current branch {0} is up to date with {1}',
+								`$(git-branch) ${status.branch}`,
+								`$(git-branch) ${status.upstream}`,
+						  ),
 					expand: true,
 					icons: true,
 					separator: ', ',
-					suffix: ` $(git-branch) ${status.upstream}${providerName ? ` on ${providerName}` : ''}`,
-				})}`;
+					prefix: status.rebasing
+						? `${localize(
+								'currentBranchRebasingIs',
+								'Current branch {0} (Rebasing) is',
+								`$(git-branch) ${status.branch}`,
+						  )} `
+						: `${localize('currentBranchIs', 'Current branch {0} is', `$(git-branch) ${status.branch}`)} `,
+					suffix: providerName
+						? ` ${localize(
+								'upstreamOnProvider',
+								'{0} on {1}',
+								`$(git-branch) ${status.upstream}`,
+								providerName,
+						  )}`
+						: `$(git-branch) ${status.upstream}`,
+				});
 
 				if (status.state.behind) {
 					contextValue += '+behind';
@@ -241,14 +288,26 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 					iconSuffix = status.state.behind ? '-yellow' : '-green';
 					contextValue += '+ahead';
 				}
+			} else {
+				tooltip += status.rebasing
+					? localize(
+							'currentBranchRebasing',
+							'Current branch {0} (Rebasing)',
+							`$(git-branch) ${status.branch}`,
+					  )
+					: localize('currentBranch', 'Current branch {0}', `$(git-branch) ${status.branch}`);
 			}
 
 			if (workingStatus) {
-				tooltip += `\n\nWorking tree has uncommitted changes${status.getFormattedDiffStatus({
-					expand: true,
-					prefix: '\n',
-					separator: '\n',
-				})}`;
+				tooltip += `\n\n${localize(
+					'workingTreeHasUncommittedChanges',
+					'Working tree has uncommitted changes{0}',
+					status.getFormattedDiffStatus({
+						expand: true,
+						prefix: '\n',
+						separator: '\n',
+					}),
+				)}`;
 			}
 		}
 
@@ -256,7 +315,13 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		item.id = this.id;
 		item.contextValue = contextValue;
 		item.description = `${description ?? ''}${
-			lastFetched ? `${pad(GlyphChars.Dot, 1, 1)}Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''
+			lastFetched
+				? `${pad(GlyphChars.Dot, 1, 1)}${localize(
+						'lastFetched',
+						'Last fetched {0}',
+						Repository.formatLastFetched(lastFetched),
+				  )}`
+				: ''
 		}`;
 		item.iconPath = {
 			dark: this.view.container.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),

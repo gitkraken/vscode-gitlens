@@ -1,3 +1,4 @@
+import * as nls from 'vscode-nls';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
@@ -9,6 +10,8 @@ import { command } from '../system/command';
 import { first } from '../system/iterable';
 import type { CommandContext } from './base';
 import { Command, isCommandContextViewNodeHasRemote } from './base';
+
+const localize = nls.loadMessageBundle();
 
 export interface ConnectRemoteProviderCommandArgs {
 	remote: string;
@@ -67,7 +70,10 @@ export class ConnectRemoteProviderCommand extends Command {
 			} else {
 				const pick = await RepositoryPicker.show(
 					undefined,
-					'Choose which repository to connect to the remote provider',
+					localize(
+						'chooseRepositoryToConnectToRemoteProvider',
+						'Choose which repository to connect to the remote provider',
+					),
 					[...repos.keys()],
 				);
 				if (pick?.item == null) return undefined;
@@ -158,7 +164,10 @@ export class DisconnectRemoteProviderCommand extends Command {
 			} else {
 				const pick = await RepositoryPicker.show(
 					undefined,
-					'Choose which repository to disconnect from the remote provider',
+					localize(
+						'chooseRepositoryToDisconnectFromRemoteProvider',
+						'Choose which repository to disconnect from the remote provider',
+					),
 					[...repos.keys()],
 				);
 				if (pick?.item == null) return undefined;

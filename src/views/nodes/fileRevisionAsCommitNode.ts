@@ -1,5 +1,6 @@
 import type { Command, Selection } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
 import { configuration } from '../../configuration';
 import { Colors, Commands } from '../../constants';
@@ -20,6 +21,7 @@ import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChanges
 import type { ViewNode } from './viewNode';
 import { ContextValues, ViewRefFileNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits | FileHistoryView | LineHistoryView> {
 	constructor(
 		view: ViewsWithCommits | FileHistoryView | LineHistoryView,
@@ -147,7 +149,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 
 		if (this.commit.file?.hasConflicts) {
 			return {
-				title: 'Open Changes',
+				title: localize('openChanges', 'Open Changes'),
 				command: Commands.DiffWith,
 				arguments: [
 					{
@@ -180,7 +182,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 			},
 		};
 		return {
-			title: 'Open Changes with Previous Revision',
+			title: localize('openChangesWithPreviousRevision', 'Open Changes with Previous Revision'),
 			command: Commands.DiffWithPrevious,
 			arguments: [undefined, commandArgs],
 		};

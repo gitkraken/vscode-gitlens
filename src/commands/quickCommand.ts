@@ -1,8 +1,11 @@
 import type { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
+import * as nls from 'vscode-nls';
 import { configuration } from '../configuration';
 import type { Container } from '../container';
 import type { Keys } from '../keyboard';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks/items/directive';
+
+const localize = nls.loadMessageBundle();
 
 export * from './quickCommand.buttons';
 export * from './quickCommand.steps';
@@ -329,7 +332,7 @@ export namespace QuickCommand {
 		options: Partial<QuickPickStep<T>> = {},
 	): QuickPickStep<T> {
 		return createPickStep<T>({
-			placeholder: `Confirm ${context.title}`,
+			placeholder: localize('confrim', 'Confirm {0}', context.title),
 			title: title,
 			ignoreFocusOut: true,
 			items: [...confirmations, cancel ?? DirectiveQuickPickItem.create(Directive.Cancel)],

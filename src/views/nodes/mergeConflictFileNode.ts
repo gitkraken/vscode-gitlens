@@ -1,5 +1,6 @@
 import type { Command, Uri } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import { CoreCommands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
@@ -13,6 +14,8 @@ import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNo
 import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChangesNode';
 import type { ViewNode } from './viewNode';
 import { ContextValues, ViewFileNode } from './viewNode';
+
+const localize = nls.loadMessageBundle();
 
 export class MergeConflictFileNode extends ViewFileNode<ViewsWithCommits> implements FileNode {
 	constructor(
@@ -49,7 +52,11 @@ export class MergeConflictFileNode extends ViewFileNode<ViewsWithCommits> implem
 		item.contextValue = `${ContextValues.File}+conflicted`;
 
 		const tooltip = StatusFileFormatter.fromTemplate(
-			`\${file}\${ \u2022 changesDetail}\${\\\\\ndirectory}\${\n\nstatus}\${ (originalPath)} in Index (staged)`,
+			localize(
+				'fileInIndex',
+				'{0} in Index (staged)',
+				`\${file}\${ \u2022 changesDetail}\${\\\\\ndirectory}\${\n\nstatus}\${ (originalPath)}`,
+			),
 			this.file,
 		);
 		const markdown = new MarkdownString(tooltip, true);
@@ -118,7 +125,7 @@ export class MergeConflictFileNode extends ViewFileNode<ViewsWithCommits> implem
 
 	override getCommand(): Command | undefined {
 		return {
-			title: 'Open File',
+			title: localize('openFile', 'Open File'),
 			command: CoreCommands.Open,
 			arguments: [
 				this.view.container.git.getAbsoluteUri(this.file.path, this.repoPath),

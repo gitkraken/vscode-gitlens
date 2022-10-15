@@ -1,5 +1,6 @@
 import type { TextDocumentShowOptions, TextEditor } from 'vscode';
 import { Uri } from 'vscode';
+import * as nls from 'vscode-nls';
 import { FileAnnotationType } from '../configuration';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
@@ -15,6 +16,8 @@ import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri } from './base';
 import { GitActions } from './gitCommands.actions';
 import type { OpenFileAtRevisionFromCommandArgs } from './openFileAtRevisionFrom';
+
+const localize = nls.loadMessageBundle();
 
 export interface OpenFileAtRevisionCommandArgs {
 	revisionUri?: Uri;
@@ -88,7 +91,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 			}
 
 			if (args.revisionUri == null) {
-				void showGenericErrorMessage('Unable to open blame');
+				void showGenericErrorMessage(localize('unableToOpenBlame', 'Unable to open blame'));
 				return undefined;
 			}
 		}
@@ -119,18 +122,26 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 							: undefined),
 				);
 
-				const title = `Open ${
-					args.annotationType === FileAnnotationType.Blame ? 'Blame' : 'File'
-				} at Revision${pad(GlyphChars.Dot, 2, 2)}`;
+				const title = `${
+					args.annotationType === FileAnnotationType.Blame
+						? localize('openBlameAtRevision', 'Open Blame At Revision')
+						: localize('openFileAtRevision', 'Open File At Revision')
+				}${pad(GlyphChars.Dot, 2, 2)}`;
 				const pick = await CommitPicker.show(
 					log,
 					`${title}${gitUri.getFormattedFileName({
 						suffix: gitUri.sha ? `:${GitRevision.shorten(gitUri.sha)}` : undefined,
 						truncateTo: quickPickTitleMaxChars - title.length,
 					})}`,
-					`Choose a commit to ${
-						args.annotationType === FileAnnotationType.Blame ? 'blame' : 'open'
-					} the file revision from`,
+					args.annotationType === FileAnnotationType.Blame
+						? localize(
+								'chooseCommitToBlameFileRevisionFrom',
+								'Choose a commit to blame the file revision from',
+						  )
+						: localize(
+								'chooseCommitToOpenFileRevisionFrom',
+								'Choose a commit to open the file revision from',
+						  ),
 					{
 						picked: gitUri.sha,
 						keys: ['right', 'alt+right', 'ctrl+right'],
@@ -144,11 +155,11 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 						},
 						showOtherReferences: [
 							CommandQuickPickItem.fromCommand(
-								'Choose a Branch or Tag...',
+								localize('chooseBranchOrTag', 'Choose a branch or tag...'),
 								Commands.OpenFileAtRevisionFrom,
 							),
 							CommandQuickPickItem.fromCommand<OpenFileAtRevisionFromCommandArgs>(
-								'Choose a Stash...',
+								localize('chooseStash', 'Choose a Stash...'),
 								Commands.OpenFileAtRevisionFrom,
 								{ stash: true },
 							),
@@ -173,7 +184,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 			});
 		} catch (ex) {
 			Logger.error(ex, 'OpenFileAtRevisionCommand');
-			void showGenericErrorMessage('Unable to open file at revision');
+			void showGenericErrorMessage(localize('unableToOpenFileAtRevision', 'Unable to open file at revision'));
 		}
 	}
 }

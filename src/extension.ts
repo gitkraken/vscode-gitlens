@@ -1,5 +1,6 @@
 import type { ExtensionContext } from 'vscode';
 import { version as codeVersion, env, extensions, window, workspace } from 'vscode';
+import * as nls from 'vscode-nls';
 import { isWeb } from '@env/platform';
 import { Api } from './api/api';
 import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';
@@ -26,6 +27,8 @@ import { once } from './system/event';
 import { Stopwatch } from './system/stopwatch';
 import { compare, fromString, satisfies } from './system/version';
 import { isViewNode } from './views/nodes/viewNode';
+
+const localize = nls.loadMessageBundle();
 
 export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {
 	const gitlensVersion: string = context.extension.packageJSON.version;
@@ -217,7 +220,10 @@ function setKeysForSync(context: ExtensionContext, ...keys: (SyncedStorageKeys |
 function registerBuiltInActionRunners(container: Container): void {
 	container.context.subscriptions.push(
 		container.actionRunners.registerBuiltIn<CreatePullRequestActionContext>('createPullRequest', {
-			label: ctx => `Create Pull Request on ${ctx.remote?.provider?.name ?? 'Remote'}`,
+			label: ctx =>
+				ctx.remote?.provider?.name
+					? localize('createPullRequestOnProvider', 'Create Pull Request on {0}', ctx.remote.provider.name)
+					: localize('createPullRequestOnRemote', 'Create Pull Request on Remote'),
 			run: async ctx => {
 				if (ctx.type !== 'createPullRequest') return;
 
@@ -234,7 +240,10 @@ function registerBuiltInActionRunners(container: Container): void {
 			},
 		}),
 		container.actionRunners.registerBuiltIn<OpenPullRequestActionContext>('openPullRequest', {
-			label: ctx => `Open Pull Request on ${ctx.provider?.name ?? 'Remote'}`,
+			label: ctx =>
+				ctx.provider?.name
+					? localize('openPullRequestOnProvider', 'Open Pull Request on {0}', ctx.provider.name)
+					: localize('openPullRequestOnRemote', 'Open Pull Request on Remote'),
 			run: async ctx => {
 				if (ctx.type !== 'openPullRequest') return;
 

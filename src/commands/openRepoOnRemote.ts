@@ -1,5 +1,6 @@
 import type { TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -10,6 +11,8 @@ import { command, executeCommand } from '../system/command';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasRemote } from './base';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
+
+const localize = nls.loadMessageBundle();
 
 export interface OpenRepoOnRemoteCommandArgs {
 	clipboard?: boolean;
@@ -44,8 +47,8 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 				gitUri,
 				editor,
 				args?.clipboard
-					? 'Choose which repository to copy the url from'
-					: 'Choose which repository to open on remote',
+					? localize('chooseRepositoryToCopyUrlFrom', 'Choose which repository to copy the url from')
+					: localize('chooseRepositoryToOpenOnRemote', 'Choose which repository to open on remote'),
 			)
 		)?.path;
 		if (!repoPath) return;
@@ -62,7 +65,10 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 		} catch (ex) {
 			Logger.error(ex, 'OpenRepoOnRemoteCommand');
 			void window.showErrorMessage(
-				'Unable to open repository on remote provider. See output channel for more details',
+				localize(
+					'unableToOpenRepositoryOnRemote',
+					'Unable to open repository on remote provider. See output channel for more details',
+				),
 			);
 		}
 	}

@@ -1,5 +1,6 @@
 import type { TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -10,6 +11,8 @@ import { command, executeCommand } from '../system/command';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasRemote } from './base';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
+
+const localize = nls.loadMessageBundle();
 
 export interface OpenBranchesOnRemoteCommandArgs {
 	clipboard?: boolean;
@@ -47,7 +50,9 @@ export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 			await RepositoryPicker.getBestRepositoryOrShow(
 				gitUri,
 				editor,
-				args?.clipboard ? 'Copy Remote Branches Url' : 'Open Branches on Remote',
+				args?.clipboard
+					? localize('copyRemoteBranchesUrl', 'Copy Remote Branches Url')
+					: localize('openBranchesOnRemote', 'Open Branches on Remote'),
 			)
 		)?.path;
 		if (!repoPath) return;
@@ -64,7 +69,10 @@ export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 		} catch (ex) {
 			Logger.error(ex, 'OpenBranchesOnRemoteCommand');
 			void window.showErrorMessage(
-				'Unable to open branches on remote provider. See output channel for more details',
+				localize(
+					'unableToOpenBranchesOnRemote',
+					'Unable to open branches on remote provider. See output channel for more details',
+				),
 			);
 		}
 	}

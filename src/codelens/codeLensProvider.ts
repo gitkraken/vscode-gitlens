@@ -9,6 +9,7 @@ import type {
 	Uri,
 } from 'vscode';
 import { CodeLens, EventEmitter, Location, Position, Range, SymbolInformation, SymbolKind } from 'vscode';
+import * as nls from 'vscode-nls';
 import type {
 	DiffWithPreviousCommandArgs,
 	OpenOnRemoteCommandArgs,
@@ -31,6 +32,8 @@ import { asCommand, executeCoreCommand } from '../system/command';
 import { is, once } from '../system/function';
 import { filterMap, find, first, join, map } from '../system/iterable';
 import { isVirtualUri } from '../system/utils';
+
+const localize = nls.loadMessageBundle();
 
 export class GitRecentChangeCodeLens extends CodeLens {
 	constructor(
@@ -509,9 +512,9 @@ export class GitCodeLensProvider implements CodeLensProvider {
 				(lens.symbol as SymbolInformation).containerName
 					? `|${(lens.symbol as SymbolInformation).containerName}`
 					: ''
-			}), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1}), Commit (${
-				recentCommit.shortSha
-			})]`;
+			}), ${localize('lines', 'Lines')} (${lens.blameRange.start.line + 1}-${
+				lens.blameRange.end.line + 1
+			}), ${localize('commit', 'Commit')} (${recentCommit.shortSha})]`;
 		}
 
 		if (lens.desiredCommand === false) {
@@ -571,7 +574,9 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		const count = blame.authors.size;
 		const author = first(blame.authors.values())?.name ?? 'Unknown';
 
-		let title = `${count} ${count > 1 ? 'authors' : 'author'} (${author}${count > 1 ? ' and others' : ''})`;
+		let title = `${
+			count > 1 ? localize('manyAuthors', '{0} authors', count) : localize('oneAuthor', '{0} author', count)
+		} (${count > 1 ? localize('authorAndOthers', '{0} and others', author) : ''})`;
 		if (configuration.get('debug')) {
 			title += ` [${lens.languageId}: ${SymbolKind[lens.symbol.kind]}(${lens.range.start.character}-${
 				lens.range.end.character
@@ -579,7 +584,9 @@ export class GitCodeLensProvider implements CodeLensProvider {
 				(lens.symbol as SymbolInformation).containerName
 					? `|${(lens.symbol as SymbolInformation).containerName}`
 					: ''
-			}), Lines (${lens.blameRange.start.line + 1}-${lens.blameRange.end.line + 1}), Authors (${join(
+			}), ${localize('lines', 'Lines')} (${lens.blameRange.start.line + 1}-${
+				lens.blameRange.end.line + 1
+			}), ${localize('authors', 'Authors')} (${join(
 				map(blame.authors.values(), a => a.name),
 				', ',
 			)})]`;

@@ -1,5 +1,6 @@
 import type { Uri } from 'vscode';
 import { window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
@@ -9,6 +10,8 @@ import { filterMap } from '../system/array';
 import { command } from '../system/command';
 import { findOrOpenEditors } from '../system/utils';
 import { Command } from './base';
+
+const localize = nls.loadMessageBundle();
 
 export interface OpenChangedFilesCommandArgs {
 	uris?: Uri[];
@@ -25,12 +28,16 @@ export class OpenChangedFilesCommand extends Command {
 
 		try {
 			if (args.uris == null) {
-				const repository = await RepositoryPicker.getRepositoryOrShow('Open All Changed Files');
+				const repository = await RepositoryPicker.getRepositoryOrShow(
+					localize('openAllChangedFiles', 'Open All Changed Files'),
+				);
 				if (repository == null) return;
 
 				const status = await this.container.git.getStatusForRepo(repository.uri);
 				if (status == null) {
-					void window.showWarningMessage('Unable to open changed files');
+					void window.showWarningMessage(
+						localize('unableToOpenChangedFiles', 'Unable to open changed files'),
+					);
 
 					return;
 				}
@@ -41,7 +48,7 @@ export class OpenChangedFilesCommand extends Command {
 			findOrOpenEditors(args.uris);
 		} catch (ex) {
 			Logger.error(ex, 'OpenChangedFilesCommand');
-			void showGenericErrorMessage('Unable to open all changed files');
+			void showGenericErrorMessage(localize('unableToOpenAllChangedFiles', 'Unable to open all changed files'));
 		}
 	}
 }

@@ -1,4 +1,5 @@
 import type { Uri } from 'vscode';
+import * as nls from 'vscode-nls';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { memoize } from '../../system/decorators/memoize';
@@ -11,6 +12,8 @@ import { GitFile, GitFileChange, GitFileConflictStatus, GitFileIndexStatus, GitF
 import { GitRevision } from './reference';
 import type { GitRemote } from './remote';
 import type { GitUser } from './user';
+
+const localize = nls.loadMessageBundle();
 
 export interface ComputedWorkingTreeGitStatus {
 	staged: number;
@@ -444,11 +447,11 @@ export class GitStatusFile implements GitFile {
 					container,
 					this.repoPath,
 					GitRevision.uncommitted,
-					new GitCommitIdentity('You', user?.email ?? undefined, now),
-					new GitCommitIdentity('You', user?.email ?? undefined, now),
-					'Uncommitted changes',
+					new GitCommitIdentity(localize('you', 'You'), user?.email ?? undefined, now),
+					new GitCommitIdentity(localize('you', 'You'), user?.email ?? undefined, now),
+					localize('uncommittedChanges', 'Uncommitted changes'),
 					[GitRevision.uncommittedStaged],
-					'Uncommitted changes',
+					localize('uncommittedChanges', 'Uncommitted changes'),
 					new GitFileChange(
 						this.repoPath,
 						this.path,
@@ -475,11 +478,11 @@ export class GitStatusFile implements GitFile {
 					container,
 					this.repoPath,
 					GitRevision.uncommitted,
-					new GitCommitIdentity('You', user?.email ?? undefined, now),
-					new GitCommitIdentity('You', user?.email ?? undefined, now),
-					'Uncommitted changes',
+					new GitCommitIdentity(localize('you', 'You'), user?.email ?? undefined, now),
+					new GitCommitIdentity(localize('you', 'You'), user?.email ?? undefined, now),
+					localize('uncommittedChanges', 'Uncommitted changes'),
 					[GitRevision.uncommittedStaged],
-					'Uncommitted changes',
+					localize('uncommittedChanges', 'Uncommitted changes'),
 					new GitFileChange(
 						this.repoPath,
 						this.path,
@@ -494,8 +497,8 @@ export class GitStatusFile implements GitFile {
 					container,
 					this.repoPath,
 					GitRevision.uncommittedStaged,
-					new GitCommitIdentity('You', user?.email ?? undefined, older),
-					new GitCommitIdentity('You', user?.email ?? undefined, older),
+					new GitCommitIdentity(localize('you', 'You'), user?.email ?? undefined, older),
+					new GitCommitIdentity(localize('you', 'You'), user?.email ?? undefined, older),
 					'Uncommitted changes',
 					['HEAD'],
 					'Uncommitted changes',
@@ -510,8 +513,8 @@ export class GitStatusFile implements GitFile {
 					container,
 					this.repoPath,
 					this.workingTreeStatus != null ? GitRevision.uncommitted : GitRevision.uncommittedStaged,
-					new GitCommitIdentity('You', user?.email ?? undefined, now),
-					new GitCommitIdentity('You', user?.email ?? undefined, now),
+					new GitCommitIdentity(localize('you', 'You'), user?.email ?? undefined, now),
+					new GitCommitIdentity(localize('you', 'You'), user?.email ?? undefined, now),
 					'Uncommitted changes',
 					['HEAD'],
 					'Uncommitted changes',

@@ -1,5 +1,6 @@
 import type { Disposable, TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { Container } from '../container';
 import type { Repository } from '../git/models/repository';
 import { map } from '../system/iterable';
@@ -7,6 +8,7 @@ import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import { CommandQuickPickItem } from './items/common';
 import { RepositoryQuickPickItem } from './items/gitCommands';
 
+const localize = nls.loadMessageBundle();
 export namespace RepositoryPicker {
 	export async function getBestRepositoryOrShow(
 		uri: Uri | undefined,
@@ -45,7 +47,7 @@ export namespace RepositoryPicker {
 
 	export async function show(
 		title: string | undefined,
-		placeholder: string = 'Choose a repository',
+		placeholder: string = localize('placeholder', 'Choose a repository'),
 		repositories?: Repository[],
 	): Promise<RepositoryQuickPickItem | undefined> {
 		const items = await Promise.all<Promise<RepositoryQuickPickItem>>([

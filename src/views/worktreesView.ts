@@ -1,5 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable, TreeViewVisibilityChangeEvent } from 'vscode';
 import { ProgressLocation, ThemeColor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { WorktreesViewConfig } from '../configuration';
 import { configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
 import { Commands } from '../constants';
@@ -13,7 +14,6 @@ import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../subscription';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
-import { pluralize } from '../system/string';
 import { RepositoryNode } from './nodes/repositoryNode';
 import type { ViewNode } from './nodes/viewNode';
 import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
@@ -21,6 +21,8 @@ import { WorktreeNode } from './nodes/worktreeNode';
 import { WorktreesNode } from './nodes/worktreesNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
+
+const localize = nls.loadMessageBundle();
 
 export class WorktreesRepositoryNode extends RepositoryFolderNode<WorktreesView, WorktreesNode> {
 	getChildren(): Promise<ViewNode[]> {
@@ -49,7 +51,7 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 		if (this.children == null) {
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = 'No worktrees could be found.';
+				this.view.message = localize('noWorktreesFound', 'No worktrees could be found.');
 
 				return [];
 			}
@@ -68,7 +70,7 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 			const children = await child.getChildren();
 			if (children.length <= 1) {
 				this.view.message = undefined;
-				this.view.title = 'Worktrees';
+				this.view.title = localize('worktrees', 'Worktrees');
 
 				void child.ensureSubscription();
 
@@ -76,7 +78,7 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 			}
 
 			this.view.message = undefined;
-			this.view.title = `Worktrees (${children.length})`;
+			this.view.title = localize('worktreesNumber', 'Worktrees ({0})', children.length);
 
 			return children;
 		}
@@ -87,7 +89,7 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Worktrees', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(localize('worktrees', 'Worktrees'), TreeItemCollapsibleState.Expanded);
 		return item;
 	}
 }
@@ -96,7 +98,7 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 	protected readonly configKey = 'worktrees';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.worktrees', 'Worktrees', 'workspaceView');
+		super(container, 'gitlens.views.worktrees', localize('worktrees', 'Worktrees'), 'workspaceView');
 
 		this.disposables.push(
 			window.registerFileDecorationProvider({
@@ -111,8 +113,8 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 
 					return {
 						badge: '●',
-						color: new ThemeColor('gitlens.decorations.worktreeView.hasUncommittedChangesForegroundColoSr'),
-						tooltip: 'Has Uncommitted Changes',
+						color: new ThemeColor('gitlens.decorations.worktreeView.hasUncommittedChangesForegroundColor'),
+						tooltip: localize('worktreeHasUncommittedChanges', 'Has Uncommitted Changes'),
 					};
 				},
 			}),
@@ -149,16 +151,38 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 			case SubscriptionState.Free:
 			case SubscriptionState.FreePreviewTrialExpired:
 			case SubscriptionState.VerificationRequired:
-				this.description = '✨ GitLens+ feature';
+				this.description = `✨ ${localize('plusFeature', 'GitLens+ feature')}`;
 				break;
 			case SubscriptionState.FreeInPreviewTrial: {
 				const days = getSubscriptionTimeRemaining(subscription, 'days')!;
-				this.description = `✨⏳ ${pluralize('more day', days)} to try worktrees on public and private repos`;
+				this.description = `✨⏳ ${
+					days === 1
+						? localize(
+								'oneMoreDayToTryWorktreesOnPublicAndPrivateRepos',
+								'1 more day to try worktrees on public and private repos',
+						  )
+						: localize(
+								'moreDaysToTryWorktreesOnPublicAndPrivateRepos',
+								'{0} more days to try worktrees on public and private repos',
+								days,
+						  )
+				}`;
 				break;
 			}
 			case SubscriptionState.FreePlusInTrial: {
 				const days = getSubscriptionTimeRemaining(subscription, 'days')!;
-				this.description = `✨⏳ ${pluralize('more day', days)} to try worktrees on private repos`;
+				this.description = `✨⏳ ${
+					days === 1
+						? localize(
+								'oneMoreDayToTryWorktreesOnPrivateRepos',
+								'1 more day to try worktrees on private repos',
+						  )
+						: localize(
+								'moreDaysToTryWorktreesOnPrivateRepos',
+								'{0} more days to try worktrees on private repos',
+								days,
+						  )
+				}`;
 				break;
 			}
 			case SubscriptionState.FreePlusTrialExpired:
@@ -295,7 +319,11 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing worktree '${worktree.name}' in the side bar...`,
+				title: localize(
+					'revealingWorktreeInSideBar',
+					"\"Revealing worktree '{0}' in the side bar...",
+					worktree.name,
+				),
 				cancellable: true,
 			},
 			async (progress, token) => {

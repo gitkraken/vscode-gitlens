@@ -1,10 +1,12 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import { GlyphChars } from '../../constants';
 import { unknownGitUri } from '../../git/gitUri';
 import type { StoredNamedRef } from '../../storage';
 import type { SearchAndCompareView, SearchAndCompareViewNode } from '../searchAndCompareView';
 import { ContextValues, ViewNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 interface RepoRef {
 	label: string;
 	repoPath: string;
@@ -42,26 +44,40 @@ export class ComparePickerNode extends ViewNode<SearchAndCompareView> {
 		let item;
 		if (selectedRef == null) {
 			item = new TreeItem(
-				'Compare <branch, tag, or ref> with <branch, tag, or ref>',
+				localize(
+					'compareBranchTagOrRefWithBranchTagOrRef',
+					'Compare <branch, tag, or ref> with <branch, tag, or ref>',
+				),
 				TreeItemCollapsibleState.None,
 			);
 			item.contextValue = ContextValues.ComparePicker;
 			item.description = description;
-			item.tooltip = `Click to select or enter a reference for compare${GlyphChars.Ellipsis}`;
+			item.tooltip = `${localize(
+				'clickToSelectOrEnterReferenceForCompare',
+				'Click to select or enter a reference for compare',
+			)}${GlyphChars.Ellipsis}`;
 			item.command = {
-				title: `Compare${GlyphChars.Ellipsis}`,
+				title: `${localize('compare', 'Compare')}${GlyphChars.Ellipsis}`,
 				command: this.view.getQualifiedCommand('selectForCompare'),
 			};
 		} else {
 			item = new TreeItem(
-				`Compare ${selectedRef.label} with <branch, tag, or ref>`,
+				localize(
+					'compareSelectedRefWithBranchTagOrRef',
+					'Compare {0} with <branch, tag, or ref>',
+					selectedRef.label,
+				),
 				TreeItemCollapsibleState.None,
 			);
 			item.contextValue = ContextValues.ComparePickerWithRef;
 			item.description = description;
-			item.tooltip = `Click to compare ${selectedRef.label} with${GlyphChars.Ellipsis}`;
+			item.tooltip = `${localize('clickToCompareSelectedRefWith', 'Click to compare {0} with')}${
+				GlyphChars.Ellipsis
+			}`;
 			item.command = {
-				title: `Compare ${selectedRef.label} with${GlyphChars.Ellipsis}`,
+				title: `${localize('compareSelectedRefWith', 'Compare {0} with', selectedRef.label)}${
+					GlyphChars.Ellipsis
+				}`,
 				command: this.view.getQualifiedCommand('compareWithSelected'),
 			};
 		}

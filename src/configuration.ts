@@ -2,9 +2,13 @@ export * from './config';
 
 import type { ConfigurationChangeEvent, ConfigurationScope, Event, ExtensionContext } from 'vscode';
 import { ConfigurationTarget, EventEmitter, workspace } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { Config } from './config';
 import { areEqual } from './system/object';
 
+// this call must go before all nls.loadMessageBundle() calls
+// if localization does not work and default locale is loaded, the call order can possibly be the issue
+nls.config({ messageFormat: nls.MessageFormat.bundle, bundleFormat: nls.BundleFormat.standalone })();
 const configPrefix = 'gitlens';
 
 interface ConfigurationOverrides {

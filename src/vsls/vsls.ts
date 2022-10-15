@@ -1,4 +1,5 @@
 import { Disposable, extensions, workspace } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { LiveShare, LiveShareExtension, SessionChangeEvent } from '../@types/vsls';
 import { configuration } from '../configuration';
 import { ContextKeys, Schemes } from '../constants';
@@ -13,6 +14,7 @@ import { defer } from '../system/promise';
 import { VslsGuestService } from './guest';
 import { VslsHostService } from './host';
 
+const localize = nls.loadMessageBundle();
 export interface ContactPresence {
 	status: ContactPresenceStatus;
 	statusText: string;
@@ -22,15 +24,15 @@ export type ContactPresenceStatus = 'online' | 'away' | 'busy' | 'dnd' | 'offlin
 function contactStatusToPresence(status: string | undefined): ContactPresence {
 	switch (status) {
 		case 'available':
-			return { status: 'online', statusText: 'Available' };
+			return { status: 'online', statusText: localize('contact.status.available', 'Available') };
 		case 'away':
-			return { status: 'away', statusText: 'Away' };
+			return { status: 'away', statusText: localize('contact.status.away', 'Away') };
 		case 'busy':
-			return { status: 'busy', statusText: 'Busy' };
+			return { status: 'busy', statusText: localize('contact.status.busy', 'Busy') };
 		case 'doNotDisturb':
-			return { status: 'dnd', statusText: 'DND' };
+			return { status: 'dnd', statusText: localize('contact.status.DND', 'DND') };
 		default:
-			return { status: 'offline', statusText: 'Offline' };
+			return { status: 'offline', statusText: localize('contact.status.offline', 'Offline') };
 	}
 }
 

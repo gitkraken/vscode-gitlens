@@ -197,32 +197,40 @@ function getExtensionConfig(target, mode, env) {
 					exclude: /\.d\.ts$/,
 					include: path.join(__dirname, 'src'),
 					test: /\.tsx?$/,
-					use: env.esbuild
-						? {
-								loader: 'esbuild-loader',
-								options: {
-									implementation: esbuild,
-									loader: 'tsx',
-									target: ['es2020', 'chrome91', 'node14.16'],
-									tsconfigRaw: resolveTSConfig(
-										path.join(
+					use: [
+						{
+							loader: 'vscode-nls-dev/lib/webpack-loader',
+							options: {
+								base: __dirname,
+							},
+						},
+						env.esbuild
+							? {
+									loader: 'esbuild-loader',
+									options: {
+										implementation: esbuild,
+										loader: 'tsx',
+										target: ['es2020', 'chrome91', 'node14.16'],
+										tsconfigRaw: resolveTSConfig(
+											path.join(
+												__dirname,
+												target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json',
+											),
+										),
+									},
+							  }
+							: {
+									loader: 'ts-loader',
+									options: {
+										configFile: path.join(
 											__dirname,
 											target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json',
 										),
-									),
-								},
-						  }
-						: {
-								loader: 'ts-loader',
-								options: {
-									configFile: path.join(
-										__dirname,
-										target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json',
-									),
-									experimentalWatchApi: true,
-									transpileOnly: true,
-								},
-						  },
+										experimentalWatchApi: true,
+										transpileOnly: true,
+									},
+							  },
+					],
 				},
 			],
 		},
@@ -404,24 +412,32 @@ function getWebviewsConfig(mode, env) {
 					exclude: /\.d\.ts$/,
 					include: path.join(__dirname, 'src'),
 					test: /\.tsx?$/,
-					use: env.esbuild
-						? {
-								loader: 'esbuild-loader',
-								options: {
-									implementation: esbuild,
-									loader: 'tsx',
-									target: 'es2020',
-									tsconfigRaw: resolveTSConfig(path.join(basePath, 'tsconfig.json')),
-								},
-						  }
-						: {
-								loader: 'ts-loader',
-								options: {
-									configFile: path.join(basePath, 'tsconfig.json'),
-									experimentalWatchApi: true,
-									transpileOnly: true,
-								},
-						  },
+					use: [
+						{
+							loader: 'vscode-nls-dev/lib/webpack-loader',
+							options: {
+								base: __dirname,
+							},
+						},
+						env.esbuild
+							? {
+									loader: 'esbuild-loader',
+									options: {
+										implementation: esbuild,
+										loader: 'tsx',
+										target: 'es2020',
+										tsconfigRaw: resolveTSConfig(path.join(basePath, 'tsconfig.json')),
+									},
+							  }
+							: {
+									loader: 'ts-loader',
+									options: {
+										configFile: path.join(basePath, 'tsconfig.json'),
+										experimentalWatchApi: true,
+										transpileOnly: true,
+									},
+							  },
+					],
 				},
 				{
 					test: /\.scss$/,

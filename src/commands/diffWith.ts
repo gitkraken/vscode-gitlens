@@ -1,5 +1,6 @@
 import type { TextDocumentShowOptions, Uri } from 'vscode';
 import { Range, ViewColumn } from 'vscode';
+import * as nls from 'vscode-nls';
 import { Commands, CoreCommands, GlyphChars } from '../constants';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
@@ -10,6 +11,8 @@ import { showGenericErrorMessage } from '../messages';
 import { command, executeCoreCommand } from '../system/command';
 import { basename } from '../system/path';
 import { Command } from './base';
+
+const localize = nls.loadMessageBundle();
 
 export interface DiffWithCommandArgsRevision {
 	sha: string;
@@ -131,26 +134,37 @@ export class DiffWithCommand extends Command {
 				this.container.git.getBestRevisionUri(args.repoPath, args.rhs.uri.fsPath, args.rhs.sha),
 			]);
 
-			let rhsSuffix = GitRevision.shorten(rhsSha, { strings: { uncommitted: 'Working Tree' } });
+			let rhsSuffix = GitRevision.shorten(rhsSha, {
+				strings: { uncommitted: localize('workingTree', 'Working Tree') },
+			});
 			if (rhs == null) {
 				if (GitRevision.isUncommitted(args.rhs.sha)) {
-					rhsSuffix = 'deleted';
+					rhsSuffix = localize('deleted', 'deleted');
 				} else if (rhsSuffix.length === 0 && args.rhs.sha === GitRevision.deletedOrMissing) {
-					rhsSuffix = 'not in Working Tree';
+					rhsSuffix = localize('notInWorkingTree', 'not in Working Tree');
 				} else {
-					rhsSuffix = `deleted${rhsSuffix.length === 0 ? '' : ` in ${rhsSuffix}`}`;
+					rhsSuffix =
+						rhsSuffix.length === 0
+							? localize('deleted', 'deleted')
+							: localize('deletedInSha', 'deleted in {0}', rhsSuffix);
 				}
 			} else if (lhs == null) {
-				rhsSuffix = `added${rhsSuffix.length === 0 ? '' : ` in ${rhsSuffix}`}`;
+				rhsSuffix =
+					rhsSuffix.length === 0
+						? localize('added', 'added')
+						: localize('addedInSha', 'added in {0}', rhsSuffix);
 			}
 
 			let lhsSuffix = args.lhs.sha !== GitRevision.deletedOrMissing ? GitRevision.shorten(lhsSha) : '';
 			if (lhs == null && args.rhs.sha.length === 0) {
 				if (rhs != null) {
-					lhsSuffix = lhsSuffix.length === 0 ? '' : `not in ${lhsSuffix}`;
+					lhsSuffix = lhsSuffix.length === 0 ? '' : localize('notInSha', 'not in {0}', lhsSuffix);
 					rhsSuffix = '';
 				} else {
-					lhsSuffix = `deleted${lhsSuffix.length === 0 ? '' : ` in ${lhsSuffix}`}`;
+					lhsSuffix =
+						lhsSuffix.length === 0
+							? localize('deleted', 'deleted')
+							: localize('deletedInSha', 'deleted in {0}', lhsSuffix);
 				}
 			}
 
@@ -189,7 +203,7 @@ export class DiffWithCommand extends Command {
 			));
 		} catch (ex) {
 			Logger.error(ex, 'DiffWithCommand', 'getVersionedFile');
-			void showGenericErrorMessage('Unable to open compare');
+			void showGenericErrorMessage(localize('unableToOpenCompare', 'Unable to open compare'));
 		}
 	}
 }

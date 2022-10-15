@@ -1,5 +1,6 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { SearchAndCompareViewConfig } from '../configuration';
 import { configuration, ViewFilesLayout } from '../configuration';
 import { Commands, ContextKeys } from '../constants';
@@ -27,6 +28,7 @@ import { ContextValues, RepositoryFolderNode, ViewNode } from './nodes/viewNode'
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
+const localize = nls.loadMessageBundle();
 export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 	protected override splatted = true;
 	private comparePicker: ComparePickerNode | undefined;
@@ -61,7 +63,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 	getTreeItem(): TreeItem {
 		this.splatted = false;
 
-		const item = new TreeItem('SearchAndCompare', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(localize('searchAndCompare', 'SearchAndCompare'), TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.SearchAndCompare;
 		return item;
 	}
@@ -141,8 +143,8 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 		if (ref == null) {
 			const pick = await ReferencePicker.show(
 				repoPath,
-				`Compare ${this.getRefName(selectedRef.ref)} with`,
-				'Choose a reference to compare with',
+				localize('compareRefWith', 'Compare {0} with', this.getRefName(selectedRef.ref)),
+				localize('chooseReferenceToCompareWith', 'Choose a reference to compare with'),
 				{
 					allowEnteringRefs: true,
 					picked: typeof selectedRef.ref === 'string' ? selectedRef.ref : selectedRef.ref.ref,
@@ -169,7 +171,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 
 	async selectForCompare(repoPath?: string, ref?: string | StoredNamedRef, options?: { prompt?: boolean }) {
 		if (repoPath == null) {
-			repoPath = (await RepositoryPicker.getRepositoryOrShow('Compare'))?.path;
+			repoPath = (await RepositoryPicker.getRepositoryOrShow(localize('compare', 'Compare')))?.path;
 		}
 		if (repoPath == null) return;
 
@@ -178,15 +180,20 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 		let prompt = options?.prompt ?? false;
 		let ref2;
 		if (ref == null) {
-			const pick = await ReferencePicker.show(repoPath, 'Compare', 'Choose a reference to compare', {
-				allowEnteringRefs: { ranges: true },
-				// checkmarks: false,
-				include:
-					ReferencesQuickPickIncludes.BranchesAndTags |
-					ReferencesQuickPickIncludes.HEAD |
-					ReferencesQuickPickIncludes.WorkingTree,
-				sort: { branches: { current: true }, tags: {} },
-			});
+			const pick = await ReferencePicker.show(
+				repoPath,
+				localize('compare', 'Compare'),
+				localize('chooseReferenceToCompare', 'Choose a reference to compare'),
+				{
+					allowEnteringRefs: { ranges: true },
+					// checkmarks: false,
+					include:
+						ReferencesQuickPickIncludes.BranchesAndTags |
+						ReferencesQuickPickIncludes.HEAD |
+						ReferencesQuickPickIncludes.WorkingTree,
+					sort: { branches: { current: true }, tags: {} },
+				},
+			);
 			if (pick == null) {
 				await this.triggerChange();
 
@@ -225,7 +232,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 
 	private getRefName(ref: string | StoredNamedRef): string {
 		return typeof ref === 'string'
-			? GitRevision.shorten(ref, { strings: { working: 'Working Tree' } })!
+			? GitRevision.shorten(ref, { strings: { working: localize('workingTree', 'Working Tree') } })!
 			: ref.label ?? GitRevision.shorten(ref.ref)!;
 	}
 
@@ -248,7 +255,12 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 	protected readonly configKey = 'searchAndCompare';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.searchAndCompare', 'Search & Compare', 'searchAndCompareView');
+		super(
+			container,
+			'gitlens.views.searchAndCompare',
+			localize('searchAndCompare.title', 'Search & Compare'),
+			'searchAndCompareView',
+		);
 
 		void setContext(ContextKeys.ViewsSearchAndCompareKeepResults, this.keepResults);
 	}
@@ -402,7 +414,10 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 			await this.show();
 		}
 
-		const labels = { label: `Results ${typeof label === 'string' ? label : label.label}`, queryLabel: label };
+		const labels = {
+			label: localize('results', 'Results {0}', typeof label === 'string' ? label : label.label),
+			queryLabel: label,
+		};
 		if (updateNode != null) {
 			await updateNode.edit({ pattern: search, labels: labels, log: results });
 

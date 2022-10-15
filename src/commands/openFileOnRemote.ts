@@ -1,5 +1,6 @@
 import type { TextEditor, Uri } from 'vscode';
 import { Range, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { UriComparer } from '../comparers';
 import { BranchSorting, TagSorting } from '../configuration';
 import { Commands, GlyphChars } from '../constants';
@@ -21,6 +22,8 @@ import {
 	isCommandContextViewNodeHasCommit,
 } from './base';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
+
+const localize = nls.loadMessageBundle();
 
 export interface OpenFileOnRemoteCommandArgs {
 	branchOrTag?: string;
@@ -150,9 +153,25 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 					const pick = await ReferencePicker.show(
 						gitUri.repoPath,
 						args.clipboard
-							? `Copy Remote File Url From${pad(GlyphChars.Dot, 2, 2)}${gitUri.relativePath}`
-							: `Open File on Remote From${pad(GlyphChars.Dot, 2, 2)}${gitUri.relativePath}`,
-						`Choose a branch or tag to ${args.clipboard ? 'copy' : 'open'} the file revision from`,
+							? `${localize('copyRemoteFileUrlFrom', 'Copy Remote File Url From')}${pad(
+									GlyphChars.Dot,
+									2,
+									2,
+							  )}${gitUri.relativePath}`
+							: `${localize('openFileOnRemoteFrom', 'Open File on Remote From')}${pad(
+									GlyphChars.Dot,
+									2,
+									2,
+							  )}${gitUri.relativePath}`,
+						args.clipboard
+							? localize(
+									'chooseBranchOrTagToCopyFileRevisionFrom',
+									'Choose a branch or tag to copy the file revision from',
+							  )
+							: localize(
+									'chooseBranchOrTagToOpenFileRevisionFrom',
+									'Choose a branch or tag to open the file revision from',
+							  ),
 						{
 							allowEnteringRefs: true,
 							autoPick: true,
@@ -206,7 +225,12 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenFileOnRemoteCommand');
-			void window.showErrorMessage('Unable to open file on remote provider. See output channel for more details');
+			void window.showErrorMessage(
+				localize(
+					'unableTopOpenFileOnRemoteProvider',
+					'Unable to open file on remote provider. See output channel for more details',
+				),
+			);
 		}
 	}
 }

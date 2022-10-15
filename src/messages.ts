@@ -1,45 +1,69 @@
 import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { configuration, SuppressedMessages } from './configuration';
 import { Commands } from './constants';
 import type { GitCommit } from './git/models/commit';
 import { Logger } from './logger';
 import { executeCommand } from './system/command';
 
+const localize = nls.loadMessageBundle();
+
 export function showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit): Promise<MessageItem | undefined> {
 	if (commit == null) {
-		return showMessage('info', 'There is no previous commit.', SuppressedMessages.CommitHasNoPreviousCommitWarning);
+		return showMessage(
+			'info',
+			localize('commitHasNoPreviousCommitWarning.message', 'There is no previous commit.'),
+			SuppressedMessages.CommitHasNoPreviousCommitWarning,
+		);
 	}
 	return showMessage(
 		'info',
-		`Commit ${commit.shortSha} (${commit.author.name}, ${commit.formattedDate}) has no previous commit.`,
+		localize(
+			'commitHasNoPreviousCommitWarning.message',
+			'Commit {0} ({1}, {2}) has no previous commit.',
+			commit.shortSha,
+			commit.author.name,
+			commit.formattedDate,
+		),
 		SuppressedMessages.CommitHasNoPreviousCommitWarning,
 	);
 }
 
 export function showCommitNotFoundWarningMessage(message: string): Promise<MessageItem | undefined> {
-	return showMessage('warn', `${message}. The commit could not be found.`, SuppressedMessages.CommitNotFoundWarning);
+	return showMessage(
+		'warn',
+		`${message}. ${localize('commitNotFoundWarning.commitNotFound', 'The commit could not be found.')}`,
+		SuppressedMessages.CommitNotFoundWarning,
+	);
 }
 
 export async function showCreatePullRequestPrompt(branch: string): Promise<boolean> {
-	const create = { title: 'Create Pull Request...' };
+	const create = { title: localize('createPullRequestPrompt.title', 'Create Pull Request...') };
 	const result = await showMessage(
 		'info',
-		`Would you like to create a Pull Request for branch '${branch}'?`,
+		localize(
+			'createPullRequestPrompt.message',
+			"Would you like to create a Pull Request for branch '{0}'?",
+			branch,
+		),
 		SuppressedMessages.CreatePullRequestPrompt,
-		{ title: "Don't Show Again" },
+		{ title: localize('dontShowAgain', "Don't Show Again") },
 		create,
 	);
 	return result === create;
 }
 
 export async function showDebugLoggingWarningMessage(): Promise<boolean> {
-	const disable = { title: 'Disable Debug Logging' };
+	const disable = { title: localize('debugLoggingWarningMessage.title', 'Disable Debug Logging') };
 	const result = await showMessage(
 		'warn',
-		'GitLens debug logging is currently enabled. Unless you are reporting an issue, it is recommended to be disabled. Would you like to disable it?',
+		localize(
+			'debugLoggingWarningMessage.message',
+			'GitLens debug logging is currently enabled. Unless you are reporting an issue, it is recommended to be disabled. Would you like to disable it?',
+		),
 		SuppressedMessages.SuppressDebugLoggingWarning,
-		{ title: "Don't Show Again" },
+		{ title: localize('dontShowAgain', "Don't Show Again") },
 		disable,
 	);
 
@@ -47,10 +71,10 @@ export async function showDebugLoggingWarningMessage(): Promise<boolean> {
 }
 
 export async function showGenericErrorMessage(message: string): Promise<MessageItem | undefined> {
-	const actions: MessageItem[] = [{ title: 'Open Output Channel' }];
+	const actions: MessageItem[] = [{ title: localize('genericErrorMessage.title', 'Open Output Channel') }];
 	const result = await showMessage(
 		'error',
-		`${message}. See output channel for more details`,
+		`${message}. ${localize('genericErrorMessage.message', 'See output channel for more details')}`,
 		undefined,
 		null,
 		...actions,
@@ -65,7 +89,10 @@ export async function showGenericErrorMessage(message: string): Promise<MessageI
 export function showFileNotUnderSourceControlWarningMessage(message: string): Promise<MessageItem | undefined> {
 	return showMessage(
 		'warn',
-		`${message}. The file is probably not under source control.`,
+		`${message}. ${localize(
+			'fileNotUnderSourceControlWarningMessage.message',
+			'The file is probably not under source control.',
+		)}`,
 		SuppressedMessages.FileNotUnderSourceControlWarning,
 	);
 }
@@ -73,7 +100,10 @@ export function showFileNotUnderSourceControlWarningMessage(message: string): Pr
 export function showGitDisabledErrorMessage() {
 	return showMessage(
 		'error',
-		'GitLens requires Git to be enabled. Please re-enable Git \u2014 set `git.enabled` to true and reload.',
+		localize(
+			'gitDisabledErrorMessage.message',
+			'GitLens requires Git to be enabled. Please re-enable Git \u2014 set `git.enabled` to true and reload.',
+		),
 		SuppressedMessages.GitDisabledWarning,
 	);
 }
@@ -81,14 +111,20 @@ export function showGitDisabledErrorMessage() {
 export function showGitInvalidConfigErrorMessage() {
 	return showMessage(
 		'error',
-		'GitLens is unable to use Git. Your Git configuration seems to be invalid. Please resolve any issues with your Git configuration and reload.',
+		localize(
+			'gitInvalidConfigErrorMessage.message',
+			'GitLens is unable to use Git. Your Git configuration seems to be invalid. Please resolve any issues with your Git configuration and reload.',
+		),
 	);
 }
 
 export function showGitMissingErrorMessage() {
 	return showMessage(
 		'error',
-		"GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'git.path' is pointed to its installed location.",
+		localize(
+			'gitMissingErrorMessage.message',
+			"GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'git.path' is pointed to its installed location.",
+		),
 		SuppressedMessages.GitMissingWarning,
 	);
 }
@@ -99,7 +135,12 @@ export function showGitVersionUnsupportedErrorMessage(
 ): Promise<MessageItem | undefined> {
 	return showMessage(
 		'error',
-		`GitLens requires a newer version of Git (>= ${required}) than is currently installed (${version}). Please install a more recent version of Git.`,
+		localize(
+			'gitVersionUnsupportedErrorMessage.message',
+			'GitLens requires a newer version of Git (>= {0}) than is currently installed ({1}). Please install a more recent version of Git.',
+			required,
+			version,
+		),
 		SuppressedMessages.GitVersionWarning,
 	);
 }
@@ -107,35 +148,55 @@ export function showGitVersionUnsupportedErrorMessage(
 export function showInsidersErrorMessage() {
 	return showMessage(
 		'error',
-		'GitLens (Insiders) cannot be used while GitLens is also enabled. Please ensure that only one version is enabled.',
+		localize(
+			'insidersErrorMessage.message',
+			'GitLens (Insiders) cannot be used while GitLens is also enabled. Please ensure that only one version is enabled.',
+		),
 	);
 }
 
 export function showPreReleaseExpiredErrorMessage(version: string, insiders: boolean) {
 	return showMessage(
 		'error',
-		`This GitLens ${
-			insiders ? '(Insiders)' : 'pre-release'
-		} version (${version}) has expired. Please upgrade to a more recent version.`,
+		`${
+			insiders
+				? localize(
+						'preReleaseExpiredErrorMessage.insiders',
+						'GitLens (Insiders) version ({0}) has expired.',
+						version,
+				  )
+				: localize(
+						'preReleaseExpiredErrorMessage.preRelease',
+						'GitLens pre-release version ({0}) has expired.',
+						version,
+				  )
+		} ${localize('preReleaseExpiredErrorMessage.pleaseUpgrade', 'Please upgrade to a more recent version.')}`,
 	);
 }
 
 export function showLineUncommittedWarningMessage(message: string): Promise<MessageItem | undefined> {
 	return showMessage(
 		'warn',
-		`${message}. The line has uncommitted changes.`,
+		`${message}. ${localize('lineUncommittedWarningMessage.message', 'The line has uncommitted changes.')}`,
 		SuppressedMessages.LineUncommittedWarning,
 	);
 }
 
 export function showNoRepositoryWarningMessage(message: string): Promise<MessageItem | undefined> {
-	return showMessage('warn', `${message}. No repository could be found.`, SuppressedMessages.NoRepositoryWarning);
+	return showMessage(
+		'warn',
+		`${message}. ${localize('noRepositoryWarningMessage.message', 'No repository could be found.')}`,
+		SuppressedMessages.NoRepositoryWarning,
+	);
 }
 
 export function showRebaseSwitchToTextWarningMessage(): Promise<MessageItem | undefined> {
 	return showMessage(
 		'warn',
-		'Closing either the git-rebase-todo file or the Rebase Editor will start the rebase.',
+		localize(
+			'rebaseSwitchToTextWarningMessage.message',
+			'Closing either the git-rebase-todo file or the Rebase Editor will start the rebase.',
+		),
 		SuppressedMessages.RebaseSwitchToTextWarning,
 	);
 }
@@ -145,38 +206,42 @@ export function showIntegrationDisconnectedTooManyFailedRequestsWarningMessage(
 ): Promise<MessageItem | undefined> {
 	return showMessage(
 		'error',
-		`Rich integration with ${providerName} has been disconnected for this session, because of too many failed requests.`,
+		localize(
+			'intergationDisconnectedErrorMessage.message',
+			'Rich integration with {0} has been disconnected for this session, because of too many failed requests.',
+			providerName,
+		),
 		SuppressedMessages.IntegrationDisconnectedTooManyFailedRequestsWarning,
 		undefined,
 		{
-			title: 'OK',
+			title: localize('ok', 'OK'),
 		},
 	);
 }
 
 export function showIntegrationRequestFailed500WarningMessage(message: string): Promise<MessageItem | undefined> {
 	return showMessage('error', message, SuppressedMessages.IntegrationRequestFailed500Warning, undefined, {
-		title: 'OK',
+		title: localize('ok', 'OK'),
 	});
 }
 
 export function showIntegrationRequestTimedOutWarningMessage(providerName: string): Promise<MessageItem | undefined> {
 	return showMessage(
 		'error',
-		`${providerName} request timed out.`,
+		localize('integrationRequestTimedOutWarningMessage.message', '{0} request timed out.', providerName),
 		SuppressedMessages.IntegrationRequestTimedOutWarning,
 		undefined,
 		{
-			title: 'OK',
+			title: localize('ok', 'OK'),
 		},
 	);
 }
 
 export async function showWhatsNewMessage(version: string) {
-	const whatsnew = { title: "See What's New" };
+	const whatsnew = { title: localize('whatsNewMessage.title', "See What's New") };
 	const result = await showMessage(
 		'info',
-		`GitLens ${version} is here — check out what's new!`,
+		localize('WhatsNewMessage.message', "GitLens {0} is here — check out what's new!", version),
 		undefined,
 		null,
 		whatsnew,
@@ -191,7 +256,7 @@ async function showMessage(
 	type: 'info' | 'warn' | 'error',
 	message: string,
 	suppressionKey?: SuppressedMessages,
-	dontShowAgain: MessageItem | null = { title: "Don't Show Again" },
+	dontShowAgain: MessageItem | null = { title: localize('dontShowAgain', "Don't Show Again") },
 	...actions: MessageItem[]
 ): Promise<MessageItem | undefined> {
 	Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${JSON.stringify(dontShowAgain)})`);

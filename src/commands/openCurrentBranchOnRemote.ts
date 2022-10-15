@@ -1,5 +1,6 @@
 import type { TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -9,6 +10,8 @@ import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/command';
 import { ActiveEditorCommand, getCommandUri } from './base';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
+
+const localize = nls.loadMessageBundle();
 
 @command()
 export class OpenCurrentBranchOnRemoteCommand extends ActiveEditorCommand {
@@ -21,7 +24,11 @@ export class OpenCurrentBranchOnRemoteCommand extends ActiveEditorCommand {
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-		const repository = await RepositoryPicker.getBestRepositoryOrShow(gitUri, editor, 'Open Current Branch Name');
+		const repository = await RepositoryPicker.getBestRepositoryOrShow(
+			gitUri,
+			editor,
+			localize('openCurrentBranchName', 'Open Current Branch Name'),
+		);
 		if (repository == null) return;
 
 		try {
@@ -38,7 +45,10 @@ export class OpenCurrentBranchOnRemoteCommand extends ActiveEditorCommand {
 		} catch (ex) {
 			Logger.error(ex, 'OpenCurrentBranchOnRemoteCommand');
 			void window.showErrorMessage(
-				'Unable to open branch on remote provider. See output channel for more details',
+				localize(
+					'unableToOpenBranchOnRemote',
+					'Unable to open branch on remote provider. See output channel for more details',
+				),
 			);
 		}
 	}

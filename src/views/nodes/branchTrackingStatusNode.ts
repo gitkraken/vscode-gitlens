@@ -1,4 +1,5 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { Colors } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch, GitTrackingState } from '../../git/models/branch';
@@ -10,7 +11,6 @@ import { fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { first, map } from '../../system/iterable';
-import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { BranchTrackingStatusFilesNode } from './branchTrackingStatusFilesNode';
@@ -20,6 +20,7 @@ import { insertDateMarkers } from './helpers';
 import type { PageableViewNode } from './viewNode';
 import { ContextValues, ViewNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 export interface BranchTrackingStatus {
 	ref: string;
 	repoPath: string;
@@ -170,15 +171,56 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 			case 'ahead': {
 				const remote = await this.branch.getRemote();
 
-				label = `Changes to push to ${remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!)}${
-					remote?.provider?.name ? ` on ${remote?.provider.name}` : ''
-				}`;
-				description = pluralize('commit', this.status.state.ahead);
-				tooltip = `Branch $(git-branch) ${this.branch.name} is ${pluralize('commit', this.status.state.ahead, {
-					infix: '$(arrow-up) ',
-				})} ahead of $(git-branch) ${this.status.upstream}${
-					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-				}`;
+				label = remote?.provider?.name
+					? localize(
+							'changesToPushToRemoteOnProvider',
+							'Changes to push to {0} on {1}',
+							remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!),
+							remote?.provider.name,
+					  )
+					: localize(
+							'changesToPushToRemote',
+							'Changes to push to {0}',
+							remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!),
+					  );
+				description =
+					this.status.state.ahead === 1
+						? localize('oneCommit', '1 commit', 1)
+						: localize('commits', '{0} commits', this.status.state.ahead);
+				tooltip =
+					this.status.state.ahead === 1
+						? remote?.provider?.name
+							? localize(
+									'branchIsOneCommitAheadOfUpstreamOnProvider',
+									'Branch {0} is {1} commit ahead of {2} on {3}',
+									`$(git-branch)  ${this.branch.name}`,
+									'1$(arrow-up)',
+									`$(git-branch)  ${this.status.upstream}`,
+									remote.provider.name,
+							  )
+							: localize(
+									'branchIsOneCommitAheadOfUpstream',
+									'Branch {0} is {1} commit ahead of {2}',
+									`$(git-branch)  ${this.branch.name}`,
+									'1$(arrow-up)',
+									`$(git-branch)  ${this.status.upstream}`,
+							  )
+						: remote?.provider?.name
+						? localize(
+								'branchIsSeveralCommitsAheadOfUpstreamOnProvider',
+								'Branch {0} is {1} commits ahead of {2} on {3}',
+								`$(git-branch)  ${this.branch.name}`,
+								`${this.status.state.ahead}$(arrow-up)`,
+								`$(git-branch)  ${this.status.upstream}`,
+								remote.provider.name,
+						  )
+						: localize(
+								'branchIsSeveralCommitsAheadOfUpstream',
+								'Branch {0} is {1} commits ahead of {2}',
+								`$(git-branch)  ${this.branch.name}`,
+								`${this.status.state.ahead}$(arrow-up)`,
+								`$(git-branch)  ${this.status.upstream}`,
+						  );
 
 				collapsibleState = TreeItemCollapsibleState.Collapsed;
 				contextValue = this.root
@@ -191,15 +233,56 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 			case 'behind': {
 				const remote = await this.branch.getRemote();
 
-				label = `Changes to pull from ${remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!)}${
-					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-				}`;
-				description = pluralize('commit', this.status.state.behind);
-				tooltip = `Branch $(git-branch) ${this.branch.name} is ${pluralize('commit', this.status.state.behind, {
-					infix: '$(arrow-down) ',
-				})} behind $(git-branch) ${this.status.upstream}${
-					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-				}`;
+				label = remote?.provider?.name
+					? localize(
+							'changesToPullFromRemoteOnProvider',
+							'Changes to pull from {0} on {1}',
+							remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!),
+							remote.provider.name,
+					  )
+					: localize(
+							'changesToPullFromRemote',
+							'Changes to pull from {0}',
+							remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!),
+					  );
+				description =
+					this.status.state.behind === 1
+						? localize('oneCommit', '1 commit')
+						: localize('commits', '{0} commits', this.status.state.behind);
+				tooltip =
+					this.status.state.behind === 1
+						? remote?.provider?.name
+							? localize(
+									'branchIsOneCommitBehindUpstreamOnProvider',
+									'Branch {0} is {1} commit behind of {2} on {3}',
+									`$(git-branch) ${this.branch.name}`,
+									'1$(arrow-down)',
+									`$(git-branch) ${this.status.upstream}`,
+									remote.provider.name,
+							  )
+							: localize(
+									'branchIsOneCommitBehindUpstream',
+									'Branch {0} is {1} commit behind {2}',
+									`$(git-branch) ${this.branch.name}`,
+									'1$(arrow-down)',
+									`$(git-branch) ${this.status.upstream}`,
+							  )
+						: remote?.provider?.name
+						? localize(
+								'branchIsSeveralCommitsBehindUpstreamOnProvider',
+								'Branch {0} is {1} commits behind {2} on {3}',
+								`$(git-branch) ${this.branch.name}`,
+								`${this.status.state.behind}$(arrow-down)`,
+								`$(git-branch) ${this.status.upstream}`,
+								remote.provider.name,
+						  )
+						: localize(
+								'branchIsSeveralCommitsBehindUpstream',
+								'Branch {0} is {1} commits behind {2}',
+								`$(git-branch) ${this.branch.name}`,
+								`${this.status.state.behind}$(arrow-down)`,
+								`$(git-branch) ${this.status.upstream}`,
+						  );
 
 				collapsibleState = TreeItemCollapsibleState.Collapsed;
 				contextValue = this.root
@@ -212,13 +295,35 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 			case 'same': {
 				const remote = await this.branch.getRemote();
 
-				label = `Up to date with ${remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!)}${
-					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
-				}`;
-				description = lastFetched ? `Last fetched ${fromNow(new Date(lastFetched))}` : '';
-				tooltip = `Branch $(git-branch) ${this.branch.name} is up to date with $(git-branch) ${
-					this.status.upstream
-				}${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}`;
+				label = remote?.provider?.name
+					? localize(
+							'upToDateWithRemoteOnProvider',
+							'Up to date with {0} on {1}',
+							remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!),
+							remote.provider.name,
+					  )
+					: localize(
+							'upToDateWithRemote',
+							'Up to date with {0}',
+							remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!),
+					  );
+				description = lastFetched
+					? localize('lastFetched', 'Last fetched {0}', fromNow(new Date(lastFetched)))
+					: '';
+				tooltip = remote?.provider?.name
+					? localize(
+							'branchIsUpToDateWithUpstreamOnProvider',
+							'Branch {0} is up to date with {1} on {2}',
+							`$(git-branch)  ${this.branch.name}`,
+							`$(git-branch)  ${this.status.upstream}`,
+							remote.provider.name,
+					  )
+					: localize(
+							'branchIsUpToDateWithUpstream',
+							'Branch {0} is up to date with {1}',
+							`$(git-branch)  ${this.branch.name}`,
+							`$(git-branch)  ${this.status.upstream}`,
+					  );
 
 				collapsibleState = TreeItemCollapsibleState.None;
 				contextValue = this.root
@@ -233,10 +338,21 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 				const providers = GitRemote.getHighlanderProviders(remotes);
 				const providerName = providers?.length ? providers[0].name : undefined;
 
-				label = `Publish ${this.branch.name} to ${providerName ?? 'a remote'}`;
-				tooltip = `Branch $(git-branch) ${this.branch.name} hasn't been published to ${
-					providerName ?? 'a remote'
-				}`;
+				label = providerName
+					? localize('publishBranchToProvider', 'Publish {0} to {1}', this.branch.name, providerName)
+					: localize('publishBranchToRemote', 'Publish {0} to a remote', this.branch.name);
+				tooltip = providerName
+					? localize(
+							'branchHasntBeenPublishedToProvider',
+							"Branch {0} hasn't been published to {1}",
+							`$(git-branch)  ${this.branch.name}`,
+							providerName,
+					  )
+					: localize(
+							'branchHasntBeenPublishedToRemote',
+							"Branch {0} hasn't been published to a remote",
+							`$(git-branch)  ${this.branch.name}`,
+					  );
 
 				collapsibleState = TreeItemCollapsibleState.None;
 				contextValue = this.root ? ContextValues.StatusNoUpstream : ContextValues.BranchStatusNoUpstream;
@@ -254,7 +370,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 		item.contextValue = contextValue;
 		item.description = description;
 		if (lastFetched) {
-			tooltip += `\n\nLast fetched ${fromNow(new Date(lastFetched))}`;
+			tooltip += `\n\n${localize('lastFetched', 'Last fetched {0}', fromNow(new Date(lastFetched)))}`;
 		}
 		item.iconPath = icon;
 

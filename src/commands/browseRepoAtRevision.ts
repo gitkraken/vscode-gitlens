@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import * as nls from 'vscode-nls';
 import { Commands, CoreCommands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -9,6 +10,8 @@ import { basename } from '../system/path';
 import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri } from './base';
+
+const localize = nls.loadMessageBundle();
 
 export interface BrowseRepoAtRevisionCommandArgs {
 	uri?: Uri;
@@ -74,7 +77,9 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 			}
 		} catch (ex) {
 			Logger.error(ex, 'BrowseRepoAtRevisionCommand');
-			void showGenericErrorMessage('Unable to open the repository at the specified revision');
+			void showGenericErrorMessage(
+				localize('unableToOpenRepositoryAtRevision', 'Unable to open the repository at the specified revision'),
+			);
 		}
 	}
 }

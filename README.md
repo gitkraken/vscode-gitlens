@@ -1224,6 +1224,7 @@ A big thanks to the people that have contributed to this project:
 - Adaex Yang ([@adaex](https://github.com/adaex)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=adaex)
 - Yan Zhang ([@Eskibear](https://github.com/Eskibear)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=Eskibear)
 - Zyck ([@qzyse2017](https://github.com/qzyse2017)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=qzyse2017)
+- Aleksei Airapetov ([@airaketa](https://github.com/airaketa)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=airaketa)
 
 Also special thanks to the people that have provided support, testing, brainstorming, etc:
 

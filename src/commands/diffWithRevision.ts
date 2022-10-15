@@ -1,4 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import * as nls from 'vscode-nls';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -12,6 +13,8 @@ import { pad } from '../system/string';
 import { ActiveEditorCommand, getCommandUri } from './base';
 import type { DiffWithCommandArgs } from './diffWith';
 import type { DiffWithRevisionFromCommandArgs } from './diffWithRevisionFrom';
+
+const localize = nls.loadMessageBundle();
 
 export interface DiffWithRevisionCommandArgs {
 	line?: number;
@@ -46,14 +49,18 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 							: undefined),
 				);
 
-			const title = `Open Changes with Revision${pad(GlyphChars.Dot, 2, 2)}`;
+			const title = `${localize('openChangesWithRevision', 'Open Changes with Revision')}${pad(
+				GlyphChars.Dot,
+				2,
+				2,
+			)}`;
 			const pick = await CommitPicker.show(
 				log,
 				`${title}${gitUri.getFormattedFileName({
 					suffix: gitUri.sha ? `:${GitRevision.shorten(gitUri.sha)}` : undefined,
 					truncateTo: quickPickTitleMaxChars - title.length,
 				})}`,
-				'Choose a commit to compare with',
+				localize('chooseCommitToCompareWith', 'Choose a commit to compare with'),
 				{
 					picked: gitUri.sha,
 					keys: ['right', 'alt+right', 'ctrl+right'],
@@ -73,9 +80,12 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 						}));
 					},
 					showOtherReferences: [
-						CommandQuickPickItem.fromCommand('Choose a Branch or Tag...', Commands.DiffWithRevisionFrom),
+						CommandQuickPickItem.fromCommand(
+							localize('chooseBranchOrTag', 'Choose a branch or tag...'),
+							Commands.DiffWithRevisionFrom,
+						),
 						CommandQuickPickItem.fromCommand<DiffWithRevisionFromCommandArgs>(
-							'Choose a Stash...',
+							localize('chooseStash', 'Choose a Stash...'),
 							Commands.DiffWithRevisionFrom,
 							{ stash: true },
 						),
@@ -99,7 +109,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'DiffWithRevisionCommand');
-			void showGenericErrorMessage('Unable to open compare');
+			void showGenericErrorMessage(localize('unableToOpenCompare', 'Unable to open compare'));
 		}
 	}
 }

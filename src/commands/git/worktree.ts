@@ -1,5 +1,6 @@
 import type { MessageItem } from 'vscode';
 import { QuickInputButtons, Uri, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { configuration } from '../../configuration';
 import type { Container } from '../../container';
 import { PlusFeatures } from '../../features';
@@ -18,7 +19,7 @@ import { QuickPickSeparator } from '../../quickpicks/items/common';
 import { Directive } from '../../quickpicks/items/directive';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { basename, isDescendent } from '../../system/path';
-import { pluralize, truncateLeft } from '../../system/string';
+import { truncateLeft } from '../../system/string';
 import { OpenWorkspaceLocation } from '../../system/utils';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitActions } from '../gitCommands.actions';
@@ -43,6 +44,8 @@ import {
 	QuickCommand,
 	StepResult,
 } from '../quickCommand';
+
+const localize = nls.loadMessageBundle();
 
 interface Context {
 	repos: Repository[];
@@ -90,12 +93,13 @@ type DeleteStepState<T extends DeleteState = DeleteState> = WorktreeStepState<Ex
 type OpenStepState<T extends OpenState = OpenState> = WorktreeStepState<ExcludeSome<T, 'repo', string>>;
 
 const subcommandToTitleMap = new Map<State['subcommand'], string>([
-	['create', 'Create'],
-	['delete', 'Delete'],
-	['open', 'Open'],
+	['create', localize('subcommand.create.title', 'Create Worktree')],
+	['delete', localize('subcommand.delete.title.plural', 'Delete Worktrees')],
+	['open', localize('subcommand.open.title', 'Open Worktree')],
 ]);
-function getTitle(title: string, subcommand: State['subcommand'] | undefined) {
-	return subcommand == null ? title : `${subcommandToTitleMap.get(subcommand)} ${title}`;
+
+function getTitle(placeholder: string, subcommand: State['subcommand'] | undefined) {
+	return subcommand == null ? placeholder : subcommandToTitleMap.get(subcommand) ?? placeholder;
 }
 
 export interface WorktreeGitCommandArgs {
@@ -109,8 +113,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	private canSkipConfirmOverride: boolean | undefined;
 
 	constructor(container: Container, args?: WorktreeGitCommandArgs) {
-		super(container, 'worktree', 'worktree', 'Worktree', {
-			description: 'open, create, or delete worktrees',
+		super(container, 'worktree', localize('label', 'worktree'), localize('title', 'Worktree'), {
+			description: localize('description', 'open, create, or delete worktrees'),
 		});
 
 		let counter = 0;
@@ -209,7 +213,10 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			const result = yield* ensureAccessStep(state as any, context, PlusFeatures.Worktrees);
 			if (result === StepResult.Break) break;
 
-			context.title = getTitle(state.subcommand === 'delete' ? 'Worktrees' : this.title, state.subcommand);
+			context.title = getTitle(
+				state.subcommand === 'delete' ? localize('title.placeholder.worktrees', 'Worktrees') : this.title,
+				state.subcommand,
+			);
 
 			switch (state.subcommand) {
 				case 'create': {
@@ -247,23 +254,23 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	private *pickSubcommandStep(state: PartialStepState<State>): StepResultGenerator<State['subcommand']> {
 		const step = QuickCommand.createPickStep<QuickPickItemOfT<State['subcommand']>>({
 			title: this.title,
-			placeholder: `Choose a ${this.label} command`,
+			placeholder: localize('pickSubcommandStep.placeholder', 'Choose a {0} command', this.label),
 			items: [
 				{
-					label: 'open',
-					description: 'opens the specified worktree',
+					label: localize('pickSubcommandStep.open.label', 'open'),
+					description: localize('pickSubcommandStep.open.description', 'opens the specified worktree'),
 					picked: state.subcommand === 'open',
 					item: 'open',
 				},
 				{
-					label: 'create',
-					description: 'creates a new worktree',
+					label: localize('pickSubcommandStep.create.label', 'create'),
+					description: localize('pickSubcommandStep.create.description', 'creates a new worktree'),
 					picked: state.subcommand === 'create',
 					item: 'create',
 				},
 				{
-					label: 'delete',
-					description: 'deletes the specified worktrees',
+					label: localize('pickSubcommandStep.delete.label', 'delete'),
+					description: localize('pickSubcommandStep.delete.description', 'deletes the specified worktrees'),
 					picked: state.subcommand === 'delete',
 					item: 'delete',
 				},
@@ -293,9 +300,17 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			if (state.counter < 3 || state.reference == null) {
 				const result = yield* pickBranchOrTagStep(state, context, {
 					placeholder: context =>
-						`Choose a branch${context.showTags ? ' or tag' : ''} to create the new worktree for`,
+						context.showTags
+							? localize(
+									'pickBranchOrTagStep.placeholder.chooseBranchOrTagToCreateNewWorktreeFor',
+									'Choose a branch or tag to create the new worktree for',
+							  )
+							: localize(
+									'pickBranchOrTagStep.placeholder.chooseBranchToCreateNewWorktreeFor',
+									'Choose a branch to create the new worktree for',
+							  ),
 					picked: state.reference?.ref ?? (await state.repo.getBranch())?.ref,
-					titleContext: ' for',
+					titleContext: ` ${localize('pickBranchOrTagStep.titleContext.for', 'for')}`,
 					value: GitReference.isRevision(state.reference) ? state.reference.ref : undefined,
 				});
 				// Always break on the first step (so we will go back)
@@ -313,11 +328,15 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					state.uri = context.defaultUri;
 				} else {
 					const result = yield* this.createCommandChoosePathStep(state, context, {
-						titleContext: ` for ${GitReference.toString(state.reference, {
-							capitalize: true,
-							icon: false,
-							label: state.reference.refType !== 'branch',
-						})}`,
+						titleContext: ` ${localize(
+							'choosePathStep.titleContext.forRef',
+							'for {0}',
+							GitReference.toString(state.reference, {
+								capitalize: true,
+								icon: false,
+								label: state.reference.refType !== 'branch',
+							}),
+						)}`,
 					});
 					if (result === StepResult.Break) continue;
 
@@ -340,12 +359,19 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 			if (state.flags.includes('-b') && state.createBranch == null) {
 				const result = yield* inputBranchNameStep(state, context, {
-					placeholder: 'Please provide a name for the new branch',
-					titleContext: ` from ${GitReference.toString(state.reference, {
-						capitalize: true,
-						icon: false,
-						label: state.reference.refType !== 'branch',
-					})}`,
+					placeholder: localize(
+						'inputBranchNameStep.placeholder',
+						'Please provide a name for the new branch',
+					),
+					titleContext: ` ${localize(
+						'inputBranchNameStep.fromRef',
+						'from {0}',
+						GitReference.toString(state.reference, {
+							capitalize: true,
+							icon: false,
+							label: state.reference.refType !== 'branch',
+						}),
+					)}`,
 					value: state.createBranch ?? GitReference.getNameWithoutRemote(state.reference),
 				});
 				if (result === StepResult.Break) {
@@ -376,14 +402,26 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					WorktreeCreateError.is(ex, WorktreeCreateErrorReason.AlreadyCheckedOut) &&
 					!state.flags.includes('--force')
 				) {
-					const createBranch: MessageItem = { title: 'Create New Branch' };
-					const force: MessageItem = { title: 'Create Anyway' };
-					const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+					const createBranch: MessageItem = {
+						title: localize('alreadyCheckedOutWarning.createNewBranch', 'Create New Branch'),
+					};
+					const force: MessageItem = {
+						title: localize('alreadyCheckedOutWarning.createAnyway', 'Create Anyway'),
+					};
+					const cancel: MessageItem = { title: localize('cancel', 'Cancel'), isCloseAffordance: true };
 					const result = await window.showWarningMessage(
-						`Unable to create the new worktree because ${GitReference.toString(state.reference, {
-							icon: false,
-							quoted: true,
-						})} is already checked out.\n\nWould you like to create a new branch for this worktree or forcibly create it anyway?`,
+						`${localize(
+							'alreadyCheckedOutWarning.message.unableToCreateWorktree',
+							'Unable to create the new worktree because {0} is already checked out.',
+							GitReference.toString(state.reference, {
+								icon: false,
+								quoted: true,
+							}),
+						)}
+						\n\n${localize(
+							'alreadyCheckedOutWarning.message.wouldYouLikeToCreateNewBranchOrForceCreateAnyway',
+							'Would you like to create a new branch for this worktree or forcibly create it anyway?',
+						)}`,
 						{ modal: true },
 						createBranch,
 						force,
@@ -405,14 +443,20 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					}
 				} else if (WorktreeCreateError.is(ex, WorktreeCreateErrorReason.AlreadyExists)) {
 					void window.showErrorMessage(
-						`Unable to create a new worktree in '${GitWorktree.getFriendlyPath(
-							uri,
-						)}' because the folder already exists and is not empty.`,
-						'OK',
+						localize(
+							'alreadyExistsError.message',
+							'Unable to create a new worktree in {0} because the folder already exists and is not empty.',
+							GitWorktree.getFriendlyPath(uri),
+						),
+						localize('ok', 'OK'),
 					);
 				} else {
 					void showGenericErrorMessage(
-						`Unable to create a new worktree in '${GitWorktree.getFriendlyPath(uri)}.`,
+						localize(
+							'genericError.message',
+							'Unable to create a new worktree in {0}.',
+							GitWorktree.getFriendlyPath(uri),
+						),
 					);
 				}
 			}
@@ -433,12 +477,13 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					canSelectFolders: true,
 					canSelectMany: false,
 					defaultUri: context.pickedUri ?? state.uri ?? context.defaultUri,
-					openLabel: 'Select Worktree Location',
-					title: `${appendReposToTitle(
-						`Choose Worktree Location${options?.titleContext ?? ''}`,
+					openLabel: localize('choosePathStep.openLabel', 'Select Worktree Location'),
+					title: appendReposToTitle(
+						`
+						${localize('choosePathStep.title', 'Choose Worktree Location')}${options?.titleContext ?? ''}`,
 						state,
 						context,
-					)}`,
+					),
 				});
 
 				if (uris == null || uris.length === 0) return Directive.Back;
@@ -506,15 +551,23 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		);
 
 		const step: QuickPickStep<FlagsQuickPickItem<CreateFlags, Uri>> = QuickCommand.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
 			[
 				FlagsQuickPickItem.create<CreateFlags, Uri>(
 					state.flags,
 					[],
 					{
 						label: context.title,
-						description: ` for ${GitReference.toString(state.reference)}`,
-						detail: `Will create worktree in $(folder) ${recommendedFriendlyPath}`,
+						description: ` ${localize(
+							'quickPick.create.description',
+							'for {0}',
+							GitReference.toString(state.reference),
+						)}`,
+						detail: localize(
+							'quickPick.create.detail',
+							'Will create worktree in {0}',
+							`$(folder) ${recommendedFriendlyPath}`,
+						),
 					},
 					recommendedRootUri,
 				),
@@ -522,9 +575,17 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					state.flags,
 					['-b'],
 					{
-						label: 'Create New Branch and Worktree',
-						description: ` from ${GitReference.toString(state.reference)}`,
-						detail: `Will create worktree in $(folder) ${recommendedNewBranchFriendlyPath}`,
+						label: localize('quickPick.createBranch.label', 'Create New Branch and Worktree'),
+						description: ` ${localize(
+							'quickPick.createBranch.description',
+							'from {0}',
+							GitReference.toString(state.reference),
+						)}`,
+						detail: localize(
+							'quickPick.createBranch.detail',
+							'Will create worktree in {0}',
+							`$(folder) ${recommendedNewBranchFriendlyPath}`,
+						),
 					},
 					recommendedRootUri,
 				),
@@ -535,9 +596,21 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 								state.flags,
 								['--direct'],
 								{
-									label: `${context.title} (directly in folder)`,
-									description: ` for ${GitReference.toString(state.reference)}`,
-									detail: `Will create worktree directly in $(folder) ${pickedFriendlyPath}`,
+									label: localize(
+										'quickPick.createDirect.label',
+										'{0} (directly in folder)',
+										context.title,
+									),
+									description: ` ${localize(
+										'quickPick.createDirect.description',
+										'for {0}',
+										GitReference.toString(state.reference),
+									)}`,
+									detail: localize(
+										'quickPick.createDirect.detail',
+										'Will create wokrtree directly in {0}',
+										`$(folder) ${pickedFriendlyPath}`,
+									),
 								},
 								pickedUri,
 							),
@@ -545,9 +618,20 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 								state.flags,
 								['-b', '--direct'],
 								{
-									label: 'Create New Branch and Worktree (directly in folder)',
-									description: ` from ${GitReference.toString(state.reference)}`,
-									detail: `Will create worktree directly in $(folder) ${pickedFriendlyPath}`,
+									label: localize(
+										'quickPick.createBranchDirect',
+										'Create New Branch and Worktree (directly in folder)',
+									),
+									description: ` ${localize(
+										'quickPick.description',
+										'from {0}',
+										GitReference.toString(state.reference),
+									)}`,
+									detail: localize(
+										'quickPick.createBranchDirect.detail',
+										'Will create worktree directly in {0}',
+										`$(folder) ${pickedFriendlyPath}`,
+									),
 								},
 								pickedUri,
 							),
@@ -571,13 +655,13 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.uris == null || state.uris.length === 0) {
-				context.title = getTitle('Worktrees', state.subcommand);
+				context.title = localize('subcommand.delete.title.plural', 'Delete Worktrees');
 
 				const result = yield* pickWorktreesStep(state, context, {
 					filter: wt => wt.main || !wt.opened, // Can't delete the main or opened worktree
 					includeStatus: true,
 					picked: state.uris?.map(uri => uri.toString()),
-					placeholder: 'Choose worktrees to delete',
+					placeholder: localize('pickWorktreesStep.placeholder', 'Choose worktrees to delete'),
 				});
 				// Always break on the first step (so we will go back)
 				if (result === StepResult.Break) break;
@@ -585,7 +669,10 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				state.uris = result.map(w => w.uri);
 			}
 
-			context.title = getTitle(pluralize('Worktree', state.uris.length, { only: true }), state.subcommand);
+			context.title =
+				state.uris.length === 1
+					? localize('subcommand.delete.title', 'Delete Worktree')
+					: localize('subcommand.delete.title.plural', 'Delete Worktrees');
 
 			const result = yield* this.deleteCommandConfirmStep(state, context);
 			if (result === StepResult.Break) continue;
@@ -605,10 +692,28 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 							const worktree = context.worktrees.find(wt => wt.uri.toString() === uri.toString());
 							const status = await worktree?.getStatus();
 							if (status?.hasChanges ?? false) {
-								const confirm: MessageItem = { title: 'Force Delete' };
-								const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+								const confirm: MessageItem = {
+									title: localize('deleteUncommittedChangesWarning.forceDelete', 'Force Delete'),
+								};
+								const cancel: MessageItem = {
+									title: localize('cancel', 'Cancel'),
+									isCloseAffordance: true,
+								};
 								const result = await window.showWarningMessage(
-									`The worktree in '${uri.fsPath}' has uncommitted changes.\n\nDeleting it will cause those changes to be FOREVER LOST.\nThis is IRREVERSIBLE!\n\nAre you sure you still want to delete it?`,
+									`${localize(
+										'deleteUncommittedChangesWarning.message.worktreeInPathHasUncommittedChanges',
+										"The worktree in '{0}' has uncommitted changes.",
+										uri.fsPath,
+									)}
+									\n\n${localize(
+										'deleteUncommittedChangesWarning.message.deletingWorktreeWillCauseChangesToBeForeverLost',
+										'Deleting it will cause those changes to be FOREVER LOST.',
+									)}
+									\n${localize('warning.thisIsIrreversible', 'This is IRREVERSIBLE!')}
+									\n\n${localize(
+										'deleteUncommittedChangesWarning.message.areYouSureYouWantToDeleteWorktree',
+										'Are you sure you still want to delete it?',
+									)}`,
 									{ modal: true },
 									confirm,
 									cancel,
@@ -622,14 +727,45 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					} catch (ex) {
 						if (WorktreeDeleteError.is(ex)) {
 							if (ex.reason === WorktreeDeleteErrorReason.MainWorkingTree) {
-								void window.showErrorMessage('Unable to delete the main worktree');
+								void window.showErrorMessage(
+									localize(
+										'unableToDeleteError.message.unableToDeleteMainWorktree',
+										'Unable to delete the main worktree',
+									),
+								);
 							} else if (!force) {
-								const confirm: MessageItem = { title: 'Force Delete' };
-								const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+								const confirm: MessageItem = {
+									title: localize('unableToDeleteError.forceDelete', 'Force Delete'),
+								};
+								const cancel: MessageItem = {
+									title: localize('cancel', 'Cancel'),
+									isCloseAffordance: true,
+								};
 								const result = await window.showErrorMessage(
 									ex.reason === WorktreeDeleteErrorReason.HasChanges
-										? `Unable to delete worktree because there are UNCOMMITTED changes in '${uri.fsPath}'.\n\nForcibly deleting it will cause those changes to be FOREVER LOST.\nThis is IRREVERSIBLE!\n\nWould you like to forcibly delete it?`
-										: `Unable to delete worktree in '${uri.fsPath}'.\n\nWould you like to try to forcibly delete it?`,
+										? `${localize(
+												'unableToDeleteError.message.unableToDeleteWorktreeBecauseUncommittedChanges',
+												"Unable to delete worktree because there are UNCOMMITTED changes in '{0}'.",
+												uri.fsPath,
+										  )}
+										\n\n${localize(
+											'unableToDeleteError.message.forciblyDeletingWorjtreeWillCauseChangesToBeForeverLost',
+											'Forcibly deleting it will cause those changes to be FOREVER LOST.',
+										)}
+										\n${localize('warning.thisIsIrreversible', 'This is IRREVERSIBLE!')}
+										\n\n${localize(
+											'unableToDeleteError.message.wouldYouLikeToForceDeleteWorktree',
+											'Would you like to forcibly delete it?',
+										)}`
+										: `${localize(
+												'unableToDeleteError.message.unableToDeleteWorktreeInDir',
+												"Unable to delete worktree in '{0}'.",
+												uri.fsPath,
+										  )}
+										\n\n${localize(
+											'unableToDeleteError.message.wouldYouLikeToTryToForceDeleteWorktree',
+											'Would you like to try to forcibly delete it?',
+										)}`,
 									{ modal: true },
 									confirm,
 									cancel,
@@ -641,7 +777,13 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 								}
 							}
 						} else {
-							void showGenericErrorMessage(`Unable to delete worktree in '${uri.fsPath}.`);
+							void showGenericErrorMessage(
+								localize(
+									'genericDeleteError.message',
+									"Unable to delete worktree in '{0}'",
+									uri.fsPath,
+								),
+							);
 						}
 					}
 				} while (retry);
@@ -651,22 +793,38 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 	private *deleteCommandConfirmStep(state: DeleteStepState, context: Context): StepResultGenerator<DeleteFlags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<DeleteFlags>> = QuickCommand.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
 			[
 				FlagsQuickPickItem.create<DeleteFlags>(state.flags, [], {
 					label: context.title,
-					detail: `Will delete ${pluralize('worktree', state.uris.length, {
-						only: state.uris.length === 1,
-					})}${state.uris.length === 1 ? ` in $(folder) ${GitWorktree.getFriendlyPath(state.uris[0])}` : ''}`,
+					detail:
+						state.uris.length === 1
+							? localize(
+									'quickPick.delete.detail.willDeleteWorktreeInDir',
+									'Will delete worktree in {0}',
+									`$(folder) ${GitWorktree.getFriendlyPath(state.uris[0])}`,
+							  )
+							: localize(
+									'quickPick.delete.detail.willDeleteWorktrees',
+									'Will delete {0} worktrees',
+									state.uris.length,
+							  ),
 				}),
 				FlagsQuickPickItem.create<DeleteFlags>(state.flags, ['--force'], {
-					label: `Force ${context.title}`,
-					description: 'including ANY UNCOMMITTED changes',
-					detail: `Will forcibly delete ${pluralize('worktree', state.uris.length, {
-						only: state.uris.length === 1,
-					})} ${
-						state.uris.length === 1 ? ` in $(folder) ${GitWorktree.getFriendlyPath(state.uris[0])}` : ''
-					}`,
+					label: localize('quickPick.forceDelete.title', 'Force {0}', context.title),
+					description: localize('quickPick.forceDelete.description', 'including ANY UNCOMMITTED changes'),
+					detail:
+						state.uris.length === 1
+							? localize(
+									'quickPick.forceDelete.detail.willForciblyDeleteWorktreeInDir',
+									'Will forcibly delete worktree in {0}',
+									`$(folder) ${GitWorktree.getFriendlyPath(state.uris[0])}`,
+							  )
+							: localize(
+									'quickPick.forceDelete.detail.willForciblyDeleteWorktrees',
+									'Will forcibly delete {0} worktrees',
+									state.uris.length,
+							  ),
 				}),
 			],
 			context,
@@ -685,12 +843,12 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.uri == null) {
-				context.title = getTitle('Worktree', state.subcommand);
+				context.title = localize('subcommand.open.title', 'Open Worktree');
 
 				const result = yield* pickWorktreeStep(state, context, {
 					includeStatus: true,
 					picked: state.uri?.toString(),
-					placeholder: 'Choose worktree to open',
+					placeholder: localize('pickWorktreeStep.placeholder', 'Choose worktree to open'),
 				});
 				// Always break on the first step (so we will go back)
 				if (result === StepResult.Break) break;
@@ -698,7 +856,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				state.uri = result.uri;
 			}
 
-			context.title = getTitle('Worktree', state.subcommand);
+			context.title = localize('subcommand.open.title', 'Open Worktree');
 
 			const result = yield* this.openCommandConfirmStep(state, context);
 			if (result === StepResult.Break) continue;
@@ -722,25 +880,31 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 	private *openCommandConfirmStep(state: OpenStepState, context: Context): StepResultGenerator<OpenFlags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<OpenFlags>> = QuickCommand.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
 			[
 				FlagsQuickPickItem.create<OpenFlags>(state.flags, [], {
 					label: context.title,
-					detail: `Will open, in the current window, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
-						state.uri,
-					)}`,
+					detail: localize(
+						'quickPick.open.detail',
+						'Will open, in the current window, the worktree in {0}',
+						`$(folder) ${GitWorktree.getFriendlyPath(state.uri)}`,
+					),
 				}),
 				FlagsQuickPickItem.create<OpenFlags>(state.flags, ['--new-window'], {
-					label: `${context.title} in a New Window`,
-					detail: `Will open, in a new window, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
-						state.uri,
-					)}`,
+					label: localize('quickPick.openInNewWindow.label', '{0} in a New Window', context.title),
+					detail: localize(
+						'quickPick.openInNewWindow.detail',
+						'Will open, in a new window, the worktree in {0}',
+						`$(folder) ${GitWorktree.getFriendlyPath(state.uri)}`,
+					),
 				}),
 				FlagsQuickPickItem.create<OpenFlags>(state.flags, ['--reveal-explorer'], {
-					label: `Reveal in File Explorer`,
-					detail: `Will open, in the File Explorer, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
-						state.uri,
-					)}`,
+					label: localize('quickPick.revealExplorer.label', 'Reveal in File Explorer'),
+					detail: localize(
+						'quickPick.revealExplorer.detail',
+						'Will open, in the File Explorer, the worktree in {0}',
+						`$(folder) ${GitWorktree.getFriendlyPath(state.uri)}`,
+					),
 				}),
 			],
 			context,

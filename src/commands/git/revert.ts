@@ -1,3 +1,4 @@
+import * as nls from 'vscode-nls';
 import type { Container } from '../../container';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
@@ -16,6 +17,7 @@ import type {
 } from '../quickCommand';
 import { appendReposToTitle, pickCommitsStep, pickRepositoryStep, QuickCommand, StepResult } from '../quickCommand';
 
+const localize = nls.loadMessageBundle();
 interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
@@ -41,8 +43,11 @@ type RevertStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo'
 
 export class RevertGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: RevertGitCommandArgs) {
-		super(container, 'revert', 'revert', 'Revert', {
-			description: 'undoes the changes of specified commits, by creating new commits with inverted changes',
+		super(container, 'revert', localize('label', 'revert'), localize('title', 'Revert'), {
+			description: localize(
+				'description',
+				'undoes the changes of specified commits, by creating new commits with inverted changes',
+			),
 		});
 
 		let counter = 0;
@@ -135,7 +140,16 @@ export class RevertGitCommand extends QuickCommand<State> {
 						log: await log,
 						onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
 						placeholder: (context, log) =>
-							log == null ? `${context.destination.name} has no commits` : 'Choose commits to revert',
+							log == null
+								? localize(
+										'pickCommitsStep.placeholder.branchHasNoCommits',
+										'{0} has no commits',
+										context.destination.name,
+								  )
+								: localize(
+										'pickCommitsStep.placeholder.chooseCommitsToRevert',
+										'Choose commits to revert',
+								  ),
 						picked: state.references?.map(r => r.ref),
 					},
 				);
@@ -165,17 +179,25 @@ export class RevertGitCommand extends QuickCommand<State> {
 
 	private *confirmStep(state: RevertStepState, context: Context): StepResultGenerator<Flags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
 			[
 				FlagsQuickPickItem.create<Flags>(state.flags, ['--no-edit'], {
 					label: this.title,
 					description: '--no-edit',
-					detail: `Will revert ${GitReference.toString(state.references)}`,
+					detail: localize(
+						'confirmStep.quickPick.noEdit.detail',
+						'Will revert {0}',
+						GitReference.toString(state.references),
+					),
 				}),
 				FlagsQuickPickItem.create<Flags>(state.flags, ['--edit'], {
-					label: `${this.title} & Edit`,
+					label: localize('confirmStep.quickPick.edit.label', '{0} & Edit', this.title),
 					description: '--edit',
-					detail: `Will revert and edit ${GitReference.toString(state.references)}`,
+					detail: localize(
+						'confirmStep.quickPick.edit.detail',
+						'Will revert and edit {0}',
+						GitReference.toString(state.references),
+					),
 				}),
 			],
 		);

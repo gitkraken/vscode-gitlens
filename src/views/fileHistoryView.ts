@@ -1,4 +1,5 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { FileHistoryViewConfig } from '../configuration';
 import { configuration } from '../configuration';
 import { Commands, ContextKeys } from '../constants';
@@ -11,7 +12,8 @@ import { LineHistoryTrackerNode } from './nodes/lineHistoryTrackerNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
-const pinnedSuffix = ' (pinned)';
+const localize = nls.loadMessageBundle();
+const pinnedSuffix = ` ${localize('pinnedSuffix', '(pinned)')}`;
 
 export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHistoryTrackerNode, FileHistoryViewConfig> {
 	protected readonly configKey = 'fileHistory';
@@ -20,7 +22,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 	private _followEditor: boolean = true;
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.fileHistory', 'File History', 'fileHistoryView');
+		super(container, 'gitlens.views.fileHistory', localize('fileHistory', 'File History'), 'fileHistoryView');
 
 		void setContext(ContextKeys.ViewsFileHistoryCursorFollowing, this._followCursor);
 		void setContext(ContextKeys.ViewsFileHistoryEditorFollowing, this._followEditor);
@@ -134,7 +136,9 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		this._followCursor = enabled;
 		void setContext(ContextKeys.ViewsFileHistoryCursorFollowing, enabled);
 
-		this.title = this._followCursor ? 'Line History' : 'File History';
+		this.title = this._followCursor
+			? localize('lineHistory', 'Line History')
+			: localize('fileHistory', 'File History');
 
 		const root = this.ensureRoot(true);
 		if (uri != null) {

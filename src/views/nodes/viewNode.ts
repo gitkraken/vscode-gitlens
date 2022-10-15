@@ -1,5 +1,6 @@
 import type { Command, Event, TreeViewVisibilityChangeEvent } from 'vscode';
 import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import { GlyphChars } from '../../constants';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import type { GitUri } from '../../git/gitUri';
@@ -17,6 +18,8 @@ import { debug, log, logName } from '../../system/decorators/log';
 import { is as isA, szudzikPairing } from '../../system/function';
 import { pad } from '../../system/string';
 import type { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
+
+const localize = nls.loadMessageBundle();
 
 export const enum ContextValues {
 	ActiveFileHistory = 'gitlens:history:active:file',
@@ -444,7 +447,11 @@ export abstract class RepositoryFolderNode<
 			const status = branch.getTrackingStatus();
 			item.description = `${status ? `${status}${pad(GlyphChars.Dot, 1, 1)}` : ''}${branch.name}${
 				lastFetched
-					? `${pad(GlyphChars.Dot, 1, 1)}Last fetched ${Repository.formatLastFetched(lastFetched)}`
+					? `${pad(GlyphChars.Dot, 1, 1)}${localize(
+							'lastFetched',
+							'Last fetched {0}',
+							Repository.formatLastFetched(lastFetched),
+					  )}`
 					: ''
 			}`;
 
@@ -462,29 +469,67 @@ export abstract class RepositoryFolderNode<
 			item.tooltip = new MarkdownString(
 				`${this.repo.formattedName ?? this.uri.repoPath ?? ''}${
 					lastFetched
-						? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(
-								lastFetched,
-								false,
+						? `${pad(GlyphChars.Dash, 2, 2)}${localize(
+								'lastFetched',
+								'Last fetched {0}',
+								Repository.formatLastFetched(lastFetched, false),
 						  )}`
 						: ''
-				}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${
-					branch.name
-				}${
+				}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}\n\n${
 					branch.upstream != null
-						? ` is ${branch.getTrackingStatus({
+						? branch.getTrackingStatus({
 								empty: branch.upstream.missing
-									? `missing upstream $(git-branch) ${branch.upstream.name}`
-									: `up to date with $(git-branch) ${branch.upstream.name}${
-											providerName ? ` on ${providerName}` : ''
-									  }`,
+									? localize(
+											'currentBranchIsMissingUpstream',
+											'Current branch {0} is missing upstream {1}',
+											`$(git-branch) ${branch.name}`,
+											`$(git-branch) ${branch.upstream.name}`,
+									  )
+									: providerName
+									? localize(
+											'currentBranchIsUpToDateWithUpstreamOnProvider',
+											'Current branch {0} is up to date with {1}',
+											`$(git-branch) ${branch.name}`,
+											`$(git-branch) ${branch.upstream.name}`,
+									  )
+									: localize(
+											'currentBranchIsUpToDateWithUpstream',
+											'Current branch {0} is up to date with {1} on {2}',
+											`$(git-branch) ${branch.name}`,
+											`$(git-branch) ${branch.upstream.name}`,
+											providerName,
+									  ),
 								expand: true,
 								icons: true,
 								separator: ', ',
-								suffix: ` $(git-branch) ${branch.upstream.name}${
-									providerName ? ` on ${providerName}` : ''
+								prefix: `${localize(
+									'currentBranchIsStatus',
+									'Current branch {0} is',
+									`$(git-branch) ${branch.name}`,
+								)} `,
+								suffix: ` ${
+									providerName
+										? localize(
+												'upstreamOnProvider',
+												'{0} on {1}',
+												`$(git-branch) ${branch.upstream.name}`,
+												providerName,
+										  )
+										: `$(git-branch) ${branch.upstream.name}`
 								}`,
-						  })}`
-						: `hasn't been published to ${providerName ?? 'a remote'}`
+						  })
+						: providerName
+						? localize(
+								'currentBranchNotPublishedToProvider',
+								"Current branch {0} hasn't been published to {1}",
+								`$(git-branch) ${branch.name}`,
+								providerName,
+						  )
+						: localize(
+								'currentBranchNotPublishedToRemote',
+								"Current branch {0} hasn't been published to a remote",
+								`$(git-branch) ${branch.name}`,
+						  )
 				}`,
 				true,
 			);

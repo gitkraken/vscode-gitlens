@@ -1,5 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { RemotesViewConfig } from '../configuration';
 import { configuration, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
 import { Commands } from '../constants';
@@ -24,6 +25,8 @@ import type { ViewNode } from './nodes/viewNode';
 import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
+
+const localize = nls.loadMessageBundle();
 
 export class RemotesRepositoryNode extends RepositoryFolderNode<RemotesView, RemotesNode> {
 	async getChildren(): Promise<ViewNode[]> {
@@ -50,7 +53,7 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 		if (this.children == null) {
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = 'No remotes could be found.';
+				this.view.message = localize('noRemotesFound', 'No remotes could be found.');
 
 				return [];
 			}
@@ -68,8 +71,8 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 
 			const remotes = await child.repo.getRemotes();
 			if (remotes.length === 0) {
-				this.view.message = 'No remotes could be found.';
-				this.view.title = 'Remotes';
+				this.view.message = localize('noRemotesFound', 'No remotes could be found.');
+				this.view.title = localize('remotes', 'Remotes');
 
 				void child.ensureSubscription();
 
@@ -77,7 +80,7 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 			}
 
 			this.view.message = undefined;
-			this.view.title = `Remotes (${remotes.length})`;
+			this.view.title = localize('remotesNumber', 'Remotes ({0})', remotes.length);
 
 			return child.getChildren();
 		}
@@ -88,7 +91,7 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Remotes', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(localize('remotes', 'Remotes'), TreeItemCollapsibleState.Expanded);
 		return item;
 	}
 }
@@ -97,7 +100,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 	protected readonly configKey = 'remotes';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.remotes', 'Remotes', 'remotesView');
+		super(container, 'gitlens.views.remotes', localize('remotes', 'Remotes'), 'remotesView');
 	}
 
 	override get canReveal(): boolean {
@@ -284,7 +287,11 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(branch, { icon: false, quoted: true })} in the side bar...`,
+				title: localize(
+					'revealingBranchInSideBar',
+					'Revealing {0} in the side bar...',
+					GitReference.toString(branch, { icon: false, quoted: true }),
+				),
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -310,7 +317,11 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(commit, { icon: false, quoted: true })} in the side bar...`,
+				title: localize(
+					'revealingCommitInSideBar',
+					'Revealing {0} in the side bar...',
+					GitReference.toString(commit, { icon: false, quoted: true }),
+				),
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -336,7 +347,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing remote '${remote.name}' in the side bar...`,
+				title: localize('revealingRemoteInSideBar', 'Revealing remote {0} in the side bar...', remote.name),
 				cancellable: true,
 			},
 			async (progress, token) => {

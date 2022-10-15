@@ -1,5 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, ProgressLocation, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { CommitsViewConfig } from '../configuration';
 import { configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
 import { Commands, ContextKeys, GlyphChars } from '../constants';
@@ -26,12 +27,14 @@ import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/vie
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
+const localize = nls.loadMessageBundle();
+
 export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, BranchNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.child == null) {
 			const branch = await this.repo.getBranch();
 			if (branch == null) {
-				this.view.message = 'No commits could be found.';
+				this.view.message = localize('noCommitsFound', 'No commits could be found.');
 
 				return [];
 			}
@@ -116,7 +119,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 		if (this.children == null) {
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = 'No commits could be found.';
+				this.view.message = localize('noCommitsFound', 'No commits could be found.');
 
 				return [];
 			}
@@ -154,8 +157,16 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 
 				const status = branch.getTrackingStatus();
 				this.view.description = `${status ? `${status} ${GlyphChars.Dot} ` : ''}${branch.name}${
-					branch.rebasing ? ' (Rebasing)' : ''
-				}${lastFetched ? ` ${GlyphChars.Dot} Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''}`;
+					branch.rebasing ? ` ${localize('rebasing', '(Rebasing)')}` : ''
+				}${
+					lastFetched
+						? ` ${GlyphChars.Dot} ${localize(
+								'lastFetched',
+								'Last fetched {0}',
+								Repository.formatLastFetched(lastFetched),
+						  )}`
+						: ''
+				}`;
 			}
 
 			return commitGraphNode == null ? child.getChildren() : [commitGraphNode, ...(await child.getChildren())];
@@ -165,7 +176,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Commits', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(localize('commits', 'Commits'), TreeItemCollapsibleState.Expanded);
 		return item;
 	}
 }
@@ -178,7 +189,7 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 	protected readonly configKey = 'commits';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.commits', 'Commits', 'commitsView');
+		super(container, 'gitlens.views.commits', localize('commits', 'Commits'), 'commitsView');
 		this.disposables.push(container.usage.onDidChange(this.onUsageChanged, this));
 	}
 
@@ -349,7 +360,11 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(commit, { icon: false, quoted: true })} in the side bar...`,
+				title: localize(
+					'revealingCommitInSideBar',
+					'Revealing {0} in the side bar...',
+					GitReference.toString(commit, { icon: false, quoted: true }),
+				),
 				cancellable: true,
 			},
 			async (progress, token) => {

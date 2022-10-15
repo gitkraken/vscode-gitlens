@@ -18,6 +18,7 @@ import {
 	Uri,
 	window,
 } from 'vscode';
+import * as nls from 'vscode-nls';
 import { fetch, getProxyAgent } from '@env/fetch';
 import { getPlatform } from '@env/platform';
 import { configuration } from '../../configuration';
@@ -47,11 +48,11 @@ import { gate } from '../../system/decorators/gate';
 import { debug, getLogScope, log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { once } from '../../system/function';
-import { pluralize } from '../../system/string';
 import { openWalkthrough } from '../../system/utils';
 import { satisfies } from '../../system/version';
 import { ensurePlusFeaturesEnabled } from './utils';
 
+const localize = nls.loadMessageBundle();
 // TODO: What user-agent should we use?
 const userAgent = 'Visual-Studio-Code-GitLens';
 
@@ -240,10 +241,17 @@ export class SubscriptionService implements Disposable {
 			} = this._subscription;
 
 			if (account?.verified === false) {
-				const confirm: MessageItem = { title: 'Resend Verification', isCloseAffordance: true };
-				const cancel: MessageItem = { title: 'Cancel' };
+				const confirm: MessageItem = {
+					title: localize('resendVerification', 'Resend Verification'),
+					isCloseAffordance: true,
+				};
+				const cancel: MessageItem = { title: localize('cancel', 'Cancel') };
 				const result = await window.showInformationMessage(
-					`Before you can access ${effective.name}, you must verify your email address.`,
+					localize(
+						'beforeYouAccessAccountYoumustVerifyEmail',
+						'Before you can access {0}, you must verify your email address.',
+						effective.name,
+					),
 					confirm,
 					cancel,
 				);
@@ -254,15 +262,22 @@ export class SubscriptionService implements Disposable {
 			} else if (isSubscriptionTrial(this._subscription)) {
 				const remaining = getSubscriptionTimeRemaining(this._subscription, 'days');
 
-				const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
-				const learn: MessageItem = { title: 'Learn More' };
+				const confirm: MessageItem = { title: localize('ok', 'OK'), isCloseAffordance: true };
+				const learn: MessageItem = { title: localize('learnMore', 'Learn More') };
+				const daysRemaining = remaining ?? 0;
 				const result = await window.showInformationMessage(
-					`Welcome to ${
-						effective.name
-					} (Trial). You now have additional access to GitLens+ features on private repos for ${pluralize(
-						'more day',
-						remaining ?? 0,
-					)}.`,
+					`${localize('welcomeToAccountTrial', 'Welcome to {0} (Trial).', effective.name)} ${
+						daysRemaining === 1
+							? localize(
+									'youHaveAccessToPlusOnPrivateReposForOneMoreDay',
+									'You now have additional access to GitLens+ features on private repos for 1 more day.',
+							  )
+							: localize(
+									'youHaveAccessToPlusOnPrivateReposForMoreDays',
+									'You now have additional access to GitLens+ features on private repos for {0} more days.',
+									daysRemaining,
+							  )
+					}`,
 					{ modal: true },
 					confirm,
 					learn,
@@ -273,13 +288,19 @@ export class SubscriptionService implements Disposable {
 				}
 			} else if (isSubscriptionPaid(this._subscription)) {
 				void window.showInformationMessage(
-					`Welcome to ${actual.name}. You now have additional access to GitLens+ features on private repos.`,
-					'OK',
+					`${localize('welcomeToAccount', 'Welcome to {0}.', actual.name)} ${localize(
+						'youHaveAccessToPlusFeaturesOnPrivateRepos',
+						'You now have additional access to GitLens+ features on private repos.',
+					)}`,
+					localize('ok', 'OK'),
 				);
 			} else {
 				void window.showInformationMessage(
-					`Welcome to ${actual.name}. You have access to GitLens+ features on local & public repos.`,
-					'OK',
+					`${localize('welcomeToAccount', 'Welcome to {0}.', actual.name)} ${localize(
+						'youHaveAccessToPlusFeaturesOnLocalAndPublicRepos',
+						'You have access to GitLens+ features on local & public repos.',
+					)}`,
+					localize('ok', 'OK'),
 				);
 			}
 		}
@@ -387,15 +408,25 @@ export class SubscriptionService implements Disposable {
 					`Unable to resend verification email; status=(${rsp.status}): ${rsp.statusText}`,
 				);
 
-				void window.showErrorMessage(`Unable to resend verification email; Status: ${rsp.statusText}`, 'OK');
+				void window.showErrorMessage(
+					localize(
+						'unableToResendVerificationEmailWithStatus',
+						'Unable to resend verification email; Status: {0}',
+						rsp.statusText,
+					),
+					localize('ok', 'OK'),
+				);
 
 				return false;
 			}
 
-			const confirm = { title: 'Recheck' };
-			const cancel = { title: 'Cancel' };
+			const confirm = { title: localize('recheck', 'Recheck') };
+			const cancel = { title: localize('cancel', 'Cancel') };
 			const result = await window.showInformationMessage(
-				"Once you have verified your email address, click 'Recheck'.",
+				localize(
+					'onceYouHaveVerifiedYourEmailClickRecheck',
+					"Once you have verified your email address, click 'Recheck'.",
+				),
 				confirm,
 				cancel,
 			);
@@ -408,7 +439,10 @@ export class SubscriptionService implements Disposable {
 			Logger.error(ex, scope);
 			debugger;
 
-			void window.showErrorMessage('Unable to resend verification email', 'OK');
+			void window.showErrorMessage(
+				localize('unableToResendVerificationEmail', 'Unable to resend verification email'),
+				localize('ok', 'OK'),
+			);
 		}
 
 		return false;
@@ -437,10 +471,16 @@ export class SubscriptionService implements Disposable {
 			void this.showHomeView();
 
 			if (!silent && plan.effective.id === SubscriptionPlanId.Free) {
-				const confirm: MessageItem = { title: 'Extend Your Trial', isCloseAffordance: true };
-				const cancel: MessageItem = { title: 'Cancel' };
+				const confirm: MessageItem = {
+					title: localize('extendYourTrial', 'Extend Your Trial'),
+					isCloseAffordance: true,
+				};
+				const cancel: MessageItem = { title: localize('cancel', 'Cancel') };
 				const result = await window.showInformationMessage(
-					'Your 3-day trial has ended.\nExtend your GitLens Pro trial to continue to use GitLens+ features on private repos, free for an additional 7-days.',
+					`${localize('yourTrialHasEnded', 'Your 3-day trial has ended.')}\n${localize(
+						'extendYourTrial',
+						'Extend your GitLens Pro trial to continue to use GitLens+ features on private repos, free for an additional 7-days.',
+					)}`,
 					{ modal: true },
 					confirm,
 					cancel,
@@ -483,10 +523,14 @@ export class SubscriptionService implements Disposable {
 		});
 
 		if (!silent) {
-			const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
-			const learn: MessageItem = { title: 'Learn More' };
+			const confirm: MessageItem = { title: localize('ok', 'OK'), isCloseAffordance: true };
+			const learn: MessageItem = { title: localize('learnMore', 'Learn More') };
 			const result = await window.showInformationMessage(
-				`You have started a ${days}-day GitLens Pro trial of GitLens+ features on private repos.`,
+				localize(
+					'youHaveStartedTrialOfGitlensForNumberOfDays',
+					'You have started a {0}-day GitLens Pro trial of GitLens+ features on private repos.',
+					days,
+				),
 				{ modal: true },
 				confirm,
 				learn,
@@ -531,7 +575,7 @@ export class SubscriptionService implements Disposable {
 			await window.withProgress(
 				{
 					location: ProgressLocation.Notification,
-					title: 'Validating your GitLens+ account...',
+					title: localize('validatingYourPlusAccount', 'Validating your GitLens+ account...'),
 				},
 				() => validating,
 			);
@@ -754,11 +798,13 @@ export class SubscriptionService implements Disposable {
 					if (createIfNeeded) {
 						const unauthorized = ex.statusCode === 401;
 						queueMicrotask(async () => {
-							const confirm: MessageItem = { title: 'Retry Sign In' };
+							const confirm: MessageItem = { title: localize('retrySignIn', 'Retry Sign In') };
 							const result = await window.showErrorMessage(
-								`Unable to sign in to your (${name}) GitLens+ account. Please try again. If this issue persists, please contact support.${
-									unauthorized ? '' : ` Error=${ex.message}`
-								}`,
+								`${localize(
+									'unableToSignIn',
+									'Unable to sign in to your ({0}) GitLens+ account. Please try again. If this issue persists, please contact support.',
+									name,
+								)}${unauthorized ? '' : ` ${localize('error', 'Error={0}', ex.message)}`}`,
 								confirm,
 							);
 
@@ -772,8 +818,12 @@ export class SubscriptionService implements Disposable {
 
 					if ((ex.original as any)?.code !== 'ENOTFOUND') {
 						void window.showErrorMessage(
-							`Unable to sign in to your (${name}) GitLens+ account right now. Please try again in a few minutes. If this issue persists, please contact support. Error=${ex.message}`,
-							'OK',
+							`${localize(
+								'unableToSignInRightNow',
+								'Unable to sign in to your ({0}) GitLens+ account right now. Please try again in a few minutes. If this issue persists, please contact support.',
+								name,
+							)} ${localize('error', 'Error={0}', ex.message)}`,
+							localize('ok', 'OK'),
 						);
 					}
 				}
@@ -922,26 +972,53 @@ export class SubscriptionService implements Disposable {
 			);
 		}
 
-		this._statusBarSubscription.name = 'GitLens+ Subscription';
+		this._statusBarSubscription.name = localize('gitlensPlusSubscription', 'GitLens+ Subscription');
 		this._statusBarSubscription.command = Commands.ShowHomeView;
 
 		if (account?.verified === false) {
-			this._statusBarSubscription.text = `$(warning) ${effective.name} (Unverified)`;
+			this._statusBarSubscription.text = `$(warning) ${effective.name} (${localize(
+				'account.unverified',
+				'Unverified',
+			)})`;
 			this._statusBarSubscription.backgroundColor = new ThemeColor('statusBarItem.warningBackground');
 			this._statusBarSubscription.tooltip = new MarkdownString(
-				trial
-					? `**Please verify your email**\n\nBefore you can start your **${effective.name}** trial, please verify your email address.\n\nClick for details`
-					: `**Please verify your email**\n\nBefore you can also use GitLens+ features on private repos, please verify your email address.\n\nClick for details`,
+				`**${localize('pleaseVerifyEmail', 'Please verify your email')}**
+					\n\n${
+						trial
+							? localize(
+									'beforeYouCanStartYourTrialPleaseVerifyEmail',
+									'Before you can start your {0} trial, please verify your email address.',
+									`**${effective.name}**`,
+							  )
+							: localize(
+									'beforeYouCanUsePlusFeaturePleaseVerifyEmail',
+									'Before you can also use GitLens+ features on private repos, please verify your email address.',
+							  )
+					}
+					\n\n${localize('clickForDetails', 'Click for details')}`,
 				true,
 			);
 		} else {
-			const remaining = getSubscriptionTimeRemaining(this._subscription, 'days');
+			const remaining = getSubscriptionTimeRemaining(this._subscription, 'days') ?? 0;
 
-			this._statusBarSubscription.text = `${effective.name} (Trial)`;
+			const daysRemaining = remaining ?? 0;
+			this._statusBarSubscription.text = `${effective.name} (${localize('account.trial', 'Trial')})`;
 			this._statusBarSubscription.tooltip = new MarkdownString(
-				`You have ${pluralize('day', remaining ?? 0)} left in your **${
-					effective.name
-				}** trial, which gives you additional access to GitLens+ features on private repos.\n\nClick for details`,
+				`${
+					daysRemaining === 1
+						? localize(
+								'youHaveOneDayLeftInTrial',
+								'You have 1 day left in your {0} trial, which gives you additional access to GitLens+ features on private repos.',
+								`**${effective.name}**`,
+						  )
+						: localize(
+								'yourHaveDaysLeftInTrial',
+								'Your have {0} days left in your {1} trial, which gives you additional access to GitLens+ features on private repos.',
+								daysRemaining,
+								`**${effective.name}**`,
+						  )
+				}
+					\n\n${localize('clickForDetails', 'Click for details')}`,
 				true,
 			);
 		}

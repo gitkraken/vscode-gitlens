@@ -1,5 +1,6 @@
 import type { TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -12,6 +13,8 @@ import { command, executeCommand } from '../system/command';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasBranch } from './base';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
+
+const localize = nls.loadMessageBundle();
 
 export interface OpenBranchOnRemoteCommandArgs {
 	branch?: string;
@@ -50,7 +53,9 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 			await RepositoryPicker.getBestRepositoryOrShow(
 				gitUri,
 				editor,
-				args?.clipboard ? 'Copy Remote Branch Url' : 'Open Branch On Remote',
+				args?.clipboard
+					? localize('copyRemoteBranchUrl', 'Copy Remote Branch Url')
+					: localize('openBranchOnRemote', 'Open Branch On Remote'),
 			)
 		)?.path;
 		if (!repoPath) return;
@@ -61,8 +66,12 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 			if (args.branch == null) {
 				const pick = await ReferencePicker.show(
 					repoPath,
-					args.clipboard ? 'Copy Remote Branch Url' : 'Open Branch On Remote',
-					args.clipboard ? 'Choose a branch to copy the url from' : 'Choose a branch to open',
+					args.clipboard
+						? localize('copyRemoteBranchUrl', 'Copy Remote Branch Url')
+						: localize('openBranchOnRemote', 'Open Branch On Remote'),
+					args.clipboard
+						? localize('chooseBranchToCopyUrlFrom', 'Choose a branch to copy the url from')
+						: localize('chooseBranchToOpen', 'Choose a branch to open'),
 					{
 						autoPick: true,
 						// checkmarks: false,
@@ -88,7 +97,10 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 		} catch (ex) {
 			Logger.error(ex, 'OpenBranchOnRemoteCommand');
 			void window.showErrorMessage(
-				'Unable to open branch on remote provider. See output channel for more details',
+				localize(
+					'unableToOpenBranchOnRemote',
+					'Unable to open branch on remote provider. See output channel for more details',
+				),
 			);
 		}
 	}

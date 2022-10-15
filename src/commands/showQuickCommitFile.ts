@@ -1,5 +1,6 @@
 import type { TextEditor } from 'vscode';
 import { Uri, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -17,6 +18,8 @@ import { command } from '../system/command';
 import type { CommandContext } from './base';
 import { ActiveEditorCachedCommand, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
 import { executeGitCommand } from './gitCommands.actions';
+
+const localize = nls.loadMessageBundle();
 
 export interface ShowQuickCommitFileCommandArgs {
 	sha?: string;
@@ -83,14 +86,18 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 			try {
 				const blame = await this.container.git.getBlameForLine(gitUri, blameLine);
 				if (blame == null) {
-					void showFileNotUnderSourceControlWarningMessage('Unable to show commit file details');
+					void showFileNotUnderSourceControlWarningMessage(
+						localize('unableToShowCommitFileDetails', 'Unable to show commit file details'),
+					);
 
 					return;
 				}
 
 				// Because the previous sha of an uncommitted file isn't trust worthy we just have to kick out
 				if (blame.commit.isUncommitted) {
-					void showLineUncommittedWarningMessage('Unable to show commit file details');
+					void showLineUncommittedWarningMessage(
+						localize('unableToShowCommitFileDetails', 'Unable to show commit file details'),
+					);
 
 					return;
 				}
@@ -100,7 +107,12 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 				args.commit = blame.commit;
 			} catch (ex) {
 				Logger.error(ex, 'ShowQuickCommitFileDetailsCommand', `getBlameForLine(${blameLine})`);
-				void window.showErrorMessage('Unable to show commit file details. See output channel for more details');
+				void window.showErrorMessage(
+					localize(
+						'unableToShowCommitFileDetailsSeeOutput',
+						'Unable to show commit file details. See output channel for more details',
+					),
+				);
 
 				return;
 			}
@@ -122,7 +134,9 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 						ref: args.sha,
 					});
 					if (args.commit == null) {
-						void showCommitNotFoundWarningMessage('Unable to show commit file details');
+						void showCommitNotFoundWarningMessage(
+							localize('unableToShowCommitFileDetails', 'Unable to show commit file details'),
+						);
 
 						return;
 					}
@@ -130,7 +144,9 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 			}
 
 			if (args.commit == null) {
-				void showCommitNotFoundWarningMessage('Unable to show commit file details');
+				void showCommitNotFoundWarningMessage(
+					localize('unableToShowCommitFileDetails', 'Unable to show commit file details'),
+				);
 
 				return;
 			}
@@ -198,7 +214,9 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 			// return undefined;
 		} catch (ex) {
 			Logger.error(ex, 'ShowQuickCommitFileDetailsCommand');
-			void showGenericErrorMessage('Unable to show commit file details');
+			void showGenericErrorMessage(
+				localize('unableToShowCommitFileDetails', 'Unable to show commit file details'),
+			);
 		}
 	}
 }

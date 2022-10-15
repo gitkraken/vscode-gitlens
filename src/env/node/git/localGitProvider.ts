@@ -4,6 +4,7 @@ import { resolve as resolvePath } from 'path';
 import { env as process_env } from 'process';
 import type { CancellationToken, Event, TextDocument, WorkspaceFolder } from 'vscode';
 import { Disposable, env, EventEmitter, extensions, FileType, Range, Uri, window, workspace } from 'vscode';
+import * as nls from 'vscode-nls';
 import { fetch, getProxyAgent } from '@env/fetch';
 import { hrtime } from '@env/hrtime';
 import { isLinux, isWindows } from '@env/platform';
@@ -159,6 +160,8 @@ import { GitErrors, gitLogDefaultConfigs, gitLogDefaultConfigsWithFiles, maxGitC
 import type { GitLocation } from './locator';
 import { findGitPath, InvalidGitConfigError, UnableToFindGitError } from './locator';
 import { CancelledRunError, fsExists, RunError } from './shell';
+
+const localize = nls.loadMessageBundle();
 
 const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
@@ -3790,8 +3793,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						this.container,
 						repoPath,
 						s.sha,
-						new GitCommitIdentity('You', undefined, new Date((s.date as any) * 1000)),
-						new GitCommitIdentity('You', undefined, new Date((s.committedDate as any) * 1000)),
+						new GitCommitIdentity(localize('you', 'You'), undefined, new Date((s.date as any) * 1000)),
+						new GitCommitIdentity(
+							localize('you', 'You'),
+							undefined,
+							new Date((s.committedDate as any) * 1000),
+						),
 						message.split('\n', 1)[0] ?? '',
 						s.parents.split(' '),
 						message,

@@ -1,4 +1,5 @@
 import { window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { RemoteResourceType } from '../git/models/remoteResource';
@@ -8,6 +9,8 @@ import { ResultsCommitsNode } from '../views/nodes/resultsCommitsNode';
 import type { CommandContext } from './base';
 import { Command } from './base';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
+
+const localize = nls.loadMessageBundle();
 
 export interface OpenComparisonOnRemoteCommandArgs {
 	clipboard?: boolean;
@@ -59,7 +62,10 @@ export class OpenComparisonOnRemoteCommand extends Command {
 		} catch (ex) {
 			Logger.error(ex, 'OpenComparisonOnRemoteCommand');
 			void window.showErrorMessage(
-				'Unable to open comparison on remote provider. See output channel for more details',
+				localize(
+					'unableToOpenComparisonOnRemote',
+					'Unable to open comparison on remote provider. See output channel for more details',
+				),
 			);
 		}
 	}

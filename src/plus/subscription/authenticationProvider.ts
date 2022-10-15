@@ -4,12 +4,14 @@ import type {
 	AuthenticationSession,
 } from 'vscode';
 import { authentication, Disposable, EventEmitter, extensions, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { uuid } from '@env/crypto';
 import type { Container } from '../../container';
 import { Logger } from '../../logger';
 import { debug, getLogScope } from '../../system/decorators/log';
 import type { ServerConnection } from './serverConnection';
 
+const localize = nls.loadMessageBundle();
 interface StoredSession {
 	id: string;
 	accessToken: string;
@@ -86,7 +88,9 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 			if (ex === 'Cancelled') throw ex;
 
 			Logger.error(ex, scope);
-			void window.showErrorMessage(`Unable to sign in to GitLens+: ${ex}`);
+			void window.showErrorMessage(
+				localize('unableToSignInDueToError', 'Unable to sign in to GitLens+: {0}', ex),
+			);
 			throw ex;
 		}
 	}

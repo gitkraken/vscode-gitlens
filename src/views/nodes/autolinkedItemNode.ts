@@ -1,4 +1,5 @@
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { Autolink } from '../../annotations/autolinks';
 import { AutolinkType } from '../../config';
 import { GitUri } from '../../git/gitUri';
@@ -6,6 +7,8 @@ import { IssueOrPullRequest, IssueOrPullRequestType } from '../../git/models/iss
 import { fromNow } from '../../system/date';
 import type { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode } from './viewNode';
+
+const localize = nls.loadMessageBundle();
 
 export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 	constructor(
@@ -69,14 +72,33 @@ export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 				? ContextValues.PullRequest
 				: ContextValues.AutolinkedIssue;
 
-		const linkTitle = ` "Open ${
-			this.item.type === IssueOrPullRequestType.PullRequest ? 'Pull Request' : 'Issue'
-		} \\#${this.item.id} on ${this.item.provider.name}"`;
+		const linkTitle =
+			this.item.type ===
+			` "${
+				IssueOrPullRequestType.PullRequest
+					? localize(
+							'openPullRequest',
+							'Open Pull Request \\#{0} on {1}',
+							this.item.id,
+							this.item.provider.name,
+					  )
+					: localize('openIssue', 'Open Issue \\#{0} on {1}', this.item.id, this.item.provider.name)
+			}"`;
 		const tooltip = new MarkdownString(
 			`${IssueOrPullRequest.getMarkdownIcon(this.item)} [**${this.item.title.trim()}**](${
 				this.item.url
-			}${linkTitle}) \\\n[#${this.item.id}](${this.item.url}${linkTitle}) was ${
-				this.item.closed ? 'closed' : 'opened'
+			}${linkTitle}) ${
+				this.item.closed
+					? localize(
+							'issueWasClosed',
+							'{0} was closed',
+							`\\\n[#${this.item.id}](${this.item.url}${linkTitle})`,
+					  )
+					: localize(
+							'issueWasOpened',
+							'{0} was opened',
+							`\\\n[#${this.item.id}](${this.item.url}${linkTitle})`,
+					  )
 			} ${relativeTime}`,
 			true,
 		);

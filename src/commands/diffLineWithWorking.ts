@@ -1,5 +1,6 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -10,6 +11,8 @@ import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } 
 import { command, executeCommand } from '../system/command';
 import { ActiveEditorCommand, getCommandUri } from './base';
 import type { DiffWithCommandArgs } from './diffWith';
+
+const localize = nls.loadMessageBundle();
 
 export interface DiffLineWithWorkingCommandArgs {
 	commit?: GitCommit;
@@ -45,7 +48,9 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 			try {
 				const blame = await this.container.git.getBlameForLine(gitUri, blameline, editor?.document);
 				if (blame == null) {
-					void showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+					void showFileNotUnderSourceControlWarningMessage(
+						localize('unableToOpenCompare', 'Unable to open compare'),
+					);
 
 					return;
 				}
@@ -74,7 +79,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 				args.line = blame.line.line - 1;
 			} catch (ex) {
 				Logger.error(ex, 'DiffLineWithWorkingCommand', `getBlameForLine(${blameline})`);
-				void showGenericErrorMessage('Unable to open compare');
+				void showGenericErrorMessage(localize('unableToOpenCompare', 'Unable to open compare'));
 
 				return;
 			}
@@ -85,7 +90,12 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 
 		const workingUri = await args.commit.file?.getWorkingUri();
 		if (workingUri == null) {
-			void window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
+			void window.showWarningMessage(
+				localize(
+					'unableToOpenCompareFileDeletedFromWorkingTree',
+					'Unable to open compare. File has been deleted from the working tree',
+				),
+			);
 
 			return;
 		}

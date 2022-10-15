@@ -1,5 +1,6 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import { ViewFilesLayout } from '../../config';
 import { GitUri } from '../../git/gitUri';
 import type { GitTrackingState } from '../../git/models/branch';
@@ -19,6 +20,7 @@ import { RepositoryNode } from './repositoryNode';
 import { UncommittedFileNode } from './UncommittedFileNode';
 import { ContextValues, ViewNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 export class UncommittedFilesNode extends ViewNode<RepositoriesView | WorktreesView> {
 	static key = ':uncommitted-files';
 	static getId(repoPath: string): string {
@@ -100,7 +102,10 @@ export class UncommittedFilesNode extends ViewNode<RepositoriesView | WorktreesV
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Uncommitted changes', TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(
+			localize('uncommittedChanges', 'Uncommitted changes'),
+			TreeItemCollapsibleState.Collapsed,
+		);
 		item.id = this.id;
 		item.contextValue = ContextValues.UncommittedFiles;
 		item.iconPath = new ThemeIcon('folder');
@@ -126,11 +131,11 @@ export class UncommittedFilesNode extends ViewNode<RepositoriesView | WorktreesV
 				this.view.container,
 				file.repoPath,
 				ref,
-				new GitCommitIdentity('You', undefined, date),
-				new GitCommitIdentity('You', undefined, date),
-				'Uncommitted changes',
+				new GitCommitIdentity(localize('you', 'You'), undefined, date),
+				new GitCommitIdentity(localize('you', 'You'), undefined, date),
+				localize('uncommittedChanges', 'Uncommitted changes'),
 				[previousRef],
-				'Uncommitted changes',
+				localize('uncommittedChanges', 'Uncommitted changes'),
 				new GitFileChange(file.repoPath, file.path, file.status, file.originalPath, previousRef),
 				undefined,
 				[],

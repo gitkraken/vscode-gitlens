@@ -1,4 +1,5 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import * as nls from 'vscode-nls';
 import type { Autolink } from '../../annotations/autolinks';
 import { GitUri } from '../../git/gitUri';
 import type { IssueOrPullRequest } from '../../git/models/issue';
@@ -12,6 +13,8 @@ import { AutolinkedItemNode } from './autolinkedItemNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { PullRequestNode } from './pullRequestNode';
 import { ContextValues, ViewNode } from './viewNode';
+
+const localize = nls.loadMessageBundle();
 
 let instanceId = 0;
 
@@ -83,14 +86,20 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 			}
 
 			if (children == null || children.length === 0) {
-				children = [new MessageNode(this.view, this, 'No autolinked issues or pull requests could be found.')];
+				children = [
+					new MessageNode(
+						this.view,
+						this,
+						localize('noAutolinkedIssuesFound', 'No autolinked issues or pull requests could be found.'),
+					),
+				];
 			}
 
 			if (this.log.hasMore) {
 				children.push(
 					new LoadMoreNode(this.view, this.parent as any, children[children.length - 1], {
 						context: { expandAutolinks: true },
-						message: 'Load more commits to search for autolinks',
+						message: localize('loadMoreCommitsToSearch', 'Load more commits to search for autolinks'),
 					}),
 				);
 			}
@@ -102,7 +111,7 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem(
-			'Autolinked Issues and Pull Requests',
+			localize('autolinkedIssuesAndPullRequests', 'Autolinked Issues and Pull Requests'),
 			this.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;

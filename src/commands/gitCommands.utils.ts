@@ -1,3 +1,4 @@
+import * as nls from 'vscode-nls';
 import { GitCommandSorting } from '../config';
 import { configuration } from '../configuration';
 import { ContextKeys } from '../constants';
@@ -25,6 +26,8 @@ import { WorktreeGitCommand } from './git/worktree';
 import type { GitCommandsCommandArgs } from './gitCommands';
 import type { QuickCommand, QuickPickStep, StepGenerator } from './quickCommand';
 
+const localize = nls.loadMessageBundle();
+
 function* nullSteps(): StepGenerator {
 	/* noop */
 }
@@ -50,7 +53,7 @@ export class PickCommandStep implements QuickPickStep {
 	ignoreFocusOut = false;
 	readonly items: QuickCommand[];
 	readonly matchOnDescription = true;
-	readonly placeholder = 'Choose a git command';
+	readonly placeholder = localize('chooseGitCommand', 'Choose a git command');
 	readonly title = 'GitLens';
 
 	constructor(private readonly container: Container, args?: GitCommandsCommandArgs) {

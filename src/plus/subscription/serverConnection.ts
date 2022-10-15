@@ -1,5 +1,6 @@
 import type { CancellationToken, Disposable, StatusBarItem, UriHandler } from 'vscode';
 import { CancellationTokenSource, env, EventEmitter, StatusBarAlignment, Uri, window } from 'vscode';
+import * as nls from 'vscode-nls';
 import { uuid } from '@env/crypto';
 import type { Response } from '@env/fetch';
 import { fetch, getProxyAgent } from '@env/fetch';
@@ -10,6 +11,7 @@ import { memoize } from '../../system/decorators/memoize';
 import type { DeferredEvent, DeferredEventExecutor } from '../../system/event';
 import { promisifyDeferred } from '../../system/event';
 
+const localize = nls.loadMessageBundle();
 interface AccountInfo {
 	id: string;
 	accountName: string;
@@ -230,8 +232,8 @@ export class ServerConnection implements Disposable {
 	private updateStatusBarItem(signingIn?: boolean) {
 		if (signingIn && this._statusBarItem == null) {
 			this._statusBarItem = window.createStatusBarItem('gitlens.plus.signIn', StatusBarAlignment.Left);
-			this._statusBarItem.name = 'GitLens+ Sign in';
-			this._statusBarItem.text = 'Signing in to GitLens+...';
+			this._statusBarItem.name = localize('statusBarItem.name', 'GitLens+ Sign in');
+			this._statusBarItem.text = localize('statusBar.text', 'Signing in to GitLens+...');
 			this._statusBarItem.show();
 		}
 

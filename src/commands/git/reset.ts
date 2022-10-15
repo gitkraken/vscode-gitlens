@@ -1,3 +1,4 @@
+import * as nls from 'vscode-nls';
 import type { Container } from '../../container';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
@@ -16,6 +17,7 @@ import type {
 } from '../quickCommand';
 import { appendReposToTitle, pickCommitStep, pickRepositoryStep, QuickCommand, StepResult } from '../quickCommand';
 
+const localize = nls.loadMessageBundle();
 interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
@@ -42,7 +44,9 @@ type ResetStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo',
 
 export class ResetGitCommand extends QuickCommand<State> {
 	constructor(container: Container, args?: ResetGitCommandArgs) {
-		super(container, 'reset', 'reset', 'Reset', { description: 'resets the current branch to a specified commit' });
+		super(container, 'reset', localize('label', 'reset'), localize('title', 'Reset'), {
+			description: localize('description', 'resets the current branch to a specified commit'),
+		});
 
 		let counter = 0;
 		if (args?.state?.repo != null) {
@@ -129,8 +133,16 @@ export class ResetGitCommand extends QuickCommand<State> {
 					onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
 					placeholder: (context, log) =>
 						log == null
-							? `${context.destination.name} has no commits`
-							: `Choose a commit to reset ${context.destination.name} to`,
+							? localize(
+									'pickCommitStep.placeholder.branchHasNoCommits',
+									'{0} has no commits',
+									context.destination.name,
+							  )
+							: localize(
+									'pickCommitStep.placeholder.chooseCommitToResetBranchTo',
+									'Choose a commit to reset {0} to',
+									context.destination.name,
+							  ),
 					picked: state.reference?.ref,
 				});
 				if (result === StepResult.Break) {
@@ -161,27 +173,36 @@ export class ResetGitCommand extends QuickCommand<State> {
 
 	private *confirmStep(state: ResetStepState, context: Context): StepResultGenerator<Flags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(localize('confirm', 'Confirm {0}', context.title), state, context),
 			[
 				FlagsQuickPickItem.create<Flags>(state.flags, [], {
 					label: this.title,
-					detail: `Will reset (leaves changes in the working tree) ${GitReference.toString(
-						context.destination,
-					)} to ${GitReference.toString(state.reference)}`,
+					detail: localize(
+						'confirmStep.quickPick.reset.detail',
+						'Will reset (leaves changes in the working tree) {0} to {1}',
+						GitReference.toString(context.destination),
+						GitReference.toString(state.reference),
+					),
 				}),
 				FlagsQuickPickItem.create<Flags>(state.flags, ['--soft'], {
-					label: `Soft ${this.title}`,
+					label: localize('confirmStep.quickPick.soft.label', 'Soft {0}', this.title),
 					description: '--soft',
-					detail: `Will soft reset (leaves changes in the index and working tree) ${GitReference.toString(
-						context.destination,
-					)} to ${GitReference.toString(state.reference)}`,
+					detail: localize(
+						'confirmStep.quickPick.soft.detail',
+						'Will soft reset (leaves changes in the index and working tree) {0} to {1}',
+						GitReference.toString(context.destination),
+						GitReference.toString(state.reference),
+					),
 				}),
 				FlagsQuickPickItem.create<Flags>(state.flags, ['--hard'], {
-					label: `Hard ${this.title}`,
+					label: localize('confirmStep.quikcPick.hard.label', 'Hard {0}', this.title),
 					description: '--hard',
-					detail: `Will hard reset (discards all changes) ${GitReference.toString(
-						context.destination,
-					)} to ${GitReference.toString(state.reference)}`,
+					detail: localize(
+						'confirmStep.quickPick.hard.detail',
+						'Will hard reset (discrards all changes) {0} to {1}',
+						GitReference.toString(context.destination),
+						GitReference.toString(state.reference),
+					),
 				}),
 			],
 		);

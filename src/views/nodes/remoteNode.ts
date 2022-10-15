@@ -1,4 +1,5 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import * as nls from 'vscode-nls';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
@@ -15,6 +16,7 @@ import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
 
+const localize = nls.loadMessageBundle();
 export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 	static key = ':remote';
 	static getId(repoPath: string, name: string, id: string): string {
@@ -45,7 +47,9 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 			filter: b => b.remote && b.name.startsWith(this.remote.name),
 			sort: true,
 		});
-		if (branches.values.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
+		if (branches.values.length === 0) {
+			return [new MessageNode(this.view, this, localize('noBranchesFound', 'No branches could be found.'))];
+		}
 
 		// TODO@eamodio handle paging
 		const branchNodes = branches.values.map(
@@ -130,7 +134,9 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 
 				item.contextValue = `${ContextValues.Remote}${connected ? '+connected' : '+disconnected'}`;
 				item.tooltip = `${this.remote.name} (${provider.name} ${GlyphChars.Dash} ${
-					connected ? 'connected' : 'not connected'
+					connected
+						? localize('providerConnected', '{0} connected', `${provider.name} ${GlyphChars.Dash}`)
+						: localize('providerNotConnected', '{0} not connected', `${provider.name} ${GlyphChars.Dash}`)
 				})\n${provider.displayPath}\n`;
 			} else {
 				item.contextValue = ContextValues.Remote;
