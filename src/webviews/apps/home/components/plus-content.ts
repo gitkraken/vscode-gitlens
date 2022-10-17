@@ -8,7 +8,7 @@ const template = html<PlusContent>`
 	${when(
 		x => x.state === SubscriptionState.Free,
 		html<PlusContent>`
-			<p>All-new, powerful, and completely optional, features that enhance your GitLens experience.</p>
+			<p>All-new, powerful, additional features that enhance your GitLens experience.</p>
 			<p>
 				GitLens+ features are free for local and public repos, no account required, while upgrading to GitLens
 				Pro gives you access on private repos.

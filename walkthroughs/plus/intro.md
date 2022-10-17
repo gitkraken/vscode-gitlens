@@ -1,6 +1,6 @@
 ## Introducing GitLens+ Features
 
-All-new, powerful, and completely optional, features that enhance your current GitLens experience.
+All-new, powerful, additional features that enhance your current GitLens experience.
 
 [GitLens+ features](https://gitkraken.com/gitlens/plus-features?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-plus-links) are free for local and public repos, no account required, while upgrading to GitLens Pro gives you access on private repos.
 
