@@ -89,7 +89,7 @@ No, the introduction of GitLens+ features has no impact on existing GitLens feat
 
 The _Commit Graph_ helps you easily visualize and keep track of all work in progress. Not only does it help you verify your changes, but also easily see changes made by others and when. Selecting a row within the graph will open in-depth information about a commit or stash in the new [Commit Details view](#commit-details-view-).
 
-Use the rich commit search to find exactly what your looking for. It's powerful filters allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change.
+Use the rich commit search to find exactly what you're looking for. It's powerful filters allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change.
 
 ## Visual File History view [#](#visual-file-history-view- 'Visual File History view')
 
@@ -99,7 +99,7 @@ Use the rich commit search to find exactly what your looking for. It's powerful 
 
 The _Visual File History_ view allows you to quickly see the evolution of a file, including when changes were made, how large they were, and who made them.
 
-Use it to quickly find when the most impactful changes were made to a file or who best to talk to about file changes, and more.
+Use it to quickly find when the most impactful changes were made to a file or who best to talk to about file changes and more.
 
 Authors who have contributed changes to the file are on the left y-axis to create a swim-lane of their commits over time (the x-axis). Commit are plotted as color-coded (per-author) bubbles, whose size represents the relative magnitude of the changes.
 
@@ -111,7 +111,7 @@ Additionally, each commit's additions and deletions are visualized as color-code
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/worktrees-illustrated.png" alt="Worktrees view" />
 </p>
 
-Worktrees help you multitask, by minimizing the context switching between branches, allowing you to easily work on different branches of a repository simultaneously.
+Worktrees help you multitask by minimizing the context switching between branches, allowing you to easily work on different branches of a repository simultaneously.
 
 Avoid interrupting your work in progress when needing to review a pull request. Simply create a new worktree and open it in a new VS Code window, all without impacting your other work.
 

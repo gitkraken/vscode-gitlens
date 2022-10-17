@@ -6,7 +6,7 @@
 
 The Visual File History allows you to quickly see the evolution of a file, including when changes were made, how large they were, and who made them.
 
-Use it to quickly find when the most impactful changes were made to a file or who best to talk to about file changes, and more.
+Use it to quickly find when the most impactful changes were made to a file or who best to talk to about file changes and more.
 
 Authors who have contributed changes to the file are on the left y-axis to create a swim-lane of their commits over time (the x-axis). Commit are plotted as color-coded (per-author) bubbles, whose size represents the relative magnitude of the changes.
 
