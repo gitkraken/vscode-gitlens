@@ -62,7 +62,7 @@ export class WorktreesNode extends ViewNode<WorktreesView | RepositoriesView> {
 		item.contextValue = ContextValues.Worktrees;
 		item.description = access.allowed
 			? undefined
-			: ` ${GlyphChars.Warning}  GitLens+ feature which requires an account`;
+			: ` ${GlyphChars.Warning}  Requires GitLens Pro to access Worktrees on private repos`;
 		// TODO@eamodio `folder` icon won't work here for some reason
 		item.iconPath = new ThemeIcon('folder-opened');
 		return item;

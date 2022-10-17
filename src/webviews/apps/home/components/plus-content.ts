@@ -8,7 +8,7 @@ const template = html<PlusContent>`
 	${when(
 		x => x.state === SubscriptionState.Free,
 		html<PlusContent>`
-			<p>Powerful, all-new, and completely optional, features that enhance your GitLens experience.</p>
+			<p>All-new, powerful, and completely optional, features that enhance your GitLens experience.</p>
 			<p>
 				GitLens+ features are free for local and public repos, no account required, while upgrading to GitLens
 				Pro gives you access on private repos.
@@ -42,8 +42,13 @@ const template = html<PlusContent>`
 			<p>
 				You have ${x => x.daysRemaining} left in your 3-day
 				<a title="Learn more about GitLens+ features" href="command:gitlens.plus.learn">GitLens Pro trial</a>.
-				Don't worry, once your trial ends, you can extend it for an additional 7-days of GitLens+ features on
-				private repos for free.
+				Don't worry if you need more time, you can extend your trial for an additional free 7-days of GitLens+
+				features on private repos.
+			</p>
+			<p>
+				<vscode-button @click="${x => x.fireAction('command:gitlens.plus.purchase')}"
+					>Upgrade to Pro</vscode-button
+				>
 			</p>
 		`,
 	)}
@@ -64,10 +69,10 @@ const template = html<PlusContent>`
 		html<PlusContent>`
 			<h3>Extend Your GitLens Pro Trial</h3>
 			<p>
-				Your free 3-day GitLens Pro trial has ended, extend your trial to get an additional 7-days of GitLens+
-				features on private repos for free.
+				Your free 3-day GitLens Pro trial has ended, extend your trial to get an additional free 7-days of
+				GitLens+ features on private repos.
 			</p>
-			<p class="mb-1">
+			<p>
 				<vscode-button @click="${x => x.fireAction('command:gitlens.plus.loginOrSignUp')}"
 					>Extend Pro Trial</vscode-button
 				>
@@ -82,7 +87,7 @@ const template = html<PlusContent>`
 				Your GitLens Pro trial has ended, please upgrade to GitLens Pro to continue to use GitLens+ features on
 				private repos.
 			</p>
-			<p class="mb-1">
+			<p>
 				<vscode-button @click="${x => x.fireAction('command:gitlens.plus.purchase')}"
 					>Upgrade to Pro</vscode-button
 				>
@@ -101,7 +106,7 @@ const template = html<PlusContent>`
 					>Resend Verification Email</vscode-button
 				>
 			</p>
-			<p class="mb-1">
+			<p>
 				<vscode-button @click="${x => x.fireAction('command:gitlens.plus.validate')}"
 					>Refresh Verification Status</vscode-button
 				>
@@ -109,7 +114,7 @@ const template = html<PlusContent>`
 		`,
 	)}
 
-	<p class="mb-0"><code-icon icon="info"></code-icon> All other GitLens features are always accessible</p>
+	<p class="mb-0"><code-icon icon="info"></code-icon> All other GitLens features can always be used on any repo</p>
 `;
 
 const styles = css`
