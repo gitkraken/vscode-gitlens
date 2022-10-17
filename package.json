@@ -12420,7 +12420,7 @@
 					{
 						"id": "gitlens.welcome.plus",
 						"title": "Introducing GitLens+ Features",
-						"description": "Check out the all-new, powerful, and completely optional, GitLens+ features.\n\n[Learn about GitLens+ features](command:gitlens.plus.learn?false \"Open the GitLens+ features walkthrough\")",
+						"description": "Check out the all-new, powerful, additional GitLens+ features.\n\n[Learn about GitLens+ features](command:gitlens.plus.learn?false \"Open the GitLens+ features walkthrough\")",
 						"media": {
 							"markdown": "walkthroughs/getting-started/12-plus.md"
 						}
@@ -12435,7 +12435,7 @@
 					{
 						"id": "gitlens.plus.intro",
 						"title": "Introducing GitLens+ Features",
-						"description": "All-new, powerful, and completely optional, features that enhance your current GitLens experience.",
+						"description": "All-new, powerful, additional features that enhance your current GitLens experience.",
 						"media": {
 							"markdown": "walkthroughs/plus/intro.md"
 						}
