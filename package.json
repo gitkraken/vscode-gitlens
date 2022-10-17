@@ -4038,7 +4038,7 @@
 			},
 			{
 				"command": "gitlens.plus.purchase",
-				"title": "Upgrade Your GitLens+ Account...",
+				"title": "Upgrade to GitLens Pro...",
 				"category": "GitLens+"
 			},
 			{
@@ -12164,7 +12164,7 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Worktrees allow you to easily work on different branches of a repository simultaneously. You can create multiple working trees, each of which can be opened in individual windows or all together in a single workspace."
+				"contents": "Worktrees, a [✨ GitLens+ feature](command:gitlens.plus.learn \"Learn more about GitLens+ features\"), help you multitask, by minimizing the context switching between branches, allowing you to easily work on different branches of a repository simultaneously.\n\nYou can create multiple working trees, each of which can be opened in individual windows or all together in a single workspace."
 			},
 			{
 				"view": "gitlens.views.worktrees",
@@ -12173,28 +12173,23 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Please verify your email\n\nTo use Worktrees, please verify the email for the account you created.\n\n[Resend verification email](command:gitlens.plus.resendVerification)\n\n[Refresh verification status](command:gitlens.plus.validate)",
+				"contents": "Please verify your email\n\nTo use Worktrees, please verify your email address.\n\n[Resend verification email](command:gitlens.plus.resendVerification)\n\n[Refresh verification status](command:gitlens.plus.validate)",
 				"when": "gitlens:plus:state == -1"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Try worktrees now, without an account, for 3 days on public and private repos, or [sign in](command:gitlens.plus.loginOrSignUp \"Sign in to GitLens+\") for use on public repos.\n\n[Try worktrees now](command:gitlens.plus.startPreviewTrial)",
-				"when": "gitlens:plus:state == 0"
+				"contents": "[Try worktrees on private repos](command:gitlens.plus.startPreviewTrial)\n\nTo use worktrees and other [GitLens+ features](command:gitlens.plus.learn) on private repos, start a free trial of GitLens Pro, without an account, or [sign in](command:gitlens.plus.loginOrSignUp).",
+				"when": "gitlens:plus:required && gitlens:plus:state == 0"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Sign in to use worktrees and other GitLens+ features on public repos and get a free 7-day trial for both public and private repos.\n\n[Sign in to GitLens+](command:gitlens.plus.loginOrSignUp)",
-				"when": "gitlens:plus:state == 2"
+				"contents": "[Extend Pro Trial](command:gitlens.plus.loginOrSignUp)\n\nYour free 3-day GitLens Pro trial has ended, extend your trial to get an additional 7-days of worktrees and other [GitLens+ features](command:gitlens.plus.learn) on private repos.",
+				"when": "gitlens:plus:required && gitlens:plus:state == 2"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Upgrade your account](command:gitlens.plus.purchase)",
-				"when": "gitlens:plus:state == 4"
-			},
-			{
-				"view": "gitlens.views.worktrees",
-				"contents": "✨ Worktrees are a [GitLens+ feature](command:gitlens.plus.learn) which can be used on public repos with a [free account](command:gitlens.plus.loginOrSignUp) and private repos with a [paid account](command:gitlens.plus.purchase).\n\n🛈 All other GitLens features can always be used on any repo, without an account.\n◴ GitLens+ [introductory pricing](command:gitlens.plus.purchase) will end with the next release (late Sept, early Oct).",
-				"when": "gitlens:plus:state > -1"
+				"contents": "[Upgrade to Pro](command:gitlens.plus.purchase)\n\nYour GitLens Pro trial has ended, please upgrade to GitLens Pro to continue to use worktrees and other [GitLens+ features](command:gitlens.plus.learn) on private repos.",
+				"when": "gitlens:plus:required && gitlens:plus:state == 4"
 			}
 		],
 		"views": {
@@ -12425,7 +12420,7 @@
 					{
 						"id": "gitlens.welcome.plus",
 						"title": "Introducing GitLens+ Features",
-						"description": "Check out the powerfull, all-new, and completely optional, GitLens+ features.\n\n[Learn about GitLens+ features](command:gitlens.plus.learn?false \"Open the GitLens+ features walkthrough\")",
+						"description": "Check out the all-new, powerful, and completely optional, GitLens+ features.\n\n[Learn about GitLens+ features](command:gitlens.plus.learn?false \"Open the GitLens+ features walkthrough\")",
 						"media": {
 							"markdown": "walkthroughs/getting-started/12-plus.md"
 						}
@@ -12438,48 +12433,12 @@
 				"description": "Get even more out of GitLens in VS Code!",
 				"steps": [
 					{
-						"id": "gitlens.plus.intro.tryNow",
-						"title": "Introducing GitLens+ Features",
-						"description": "Try GitLens+ features on private repos, free for 3 days, without an account.\n\n[Start a GitLens Pro Trial](command:gitlens.plus.startPreviewTrial)",
-						"media": {
-							"markdown": "walkthroughs/plus/intro.md"
-						},
-						"when": "gitlens:plus:state == 0"
-					},
-					{
-						"id": "gitlens.plus.intro.trial",
-						"title": "Introducing GitLens+ Features",
-						"description": "During your GitLens Pro trial, you have additional access to GitLens+ features on private repos.",
-						"media": {
-							"markdown": "walkthroughs/plus/intro.md"
-						},
-						"when": "gitlens:plus:state == 1 || gitlens:plus:state == 3"
-					},
-					{
-						"id": "gitlens.plus.intro.extend",
-						"title": "Introducing GitLens+ Features",
-						"description": "Do you want to continue to use GitLens+ features on private repos, free for an additional 7-days?\n\n[Extend Trial](command:gitlens.plus.loginOrSignUp)",
-						"media": {
-							"markdown": "walkthroughs/plus/intro.md"
-						},
-						"when": "gitlens:plus:state == 2"
-					},
-					{
-						"id": "gitlens.plus.intro.signIn",
-						"title": "Introducing GitLens+ Features",
-						"description": "Do you want to continue to use GitLens+ features on private repos?\n\n[Upgrade to Pro](command:gitlens.plus.command:gitlens.plus.purchase)",
-						"media": {
-							"markdown": "walkthroughs/plus/intro.md"
-						},
-						"when": "gitlens:plus:state == 4"
-					},
-					{
 						"id": "gitlens.plus.intro",
 						"title": "Introducing GitLens+ Features",
+						"description": "All-new, powerful, and completely optional, features that enhance your current GitLens experience.",
 						"media": {
 							"markdown": "walkthroughs/plus/intro.md"
-						},
-						"when": "gitlens:plus:state == 5"
+						}
 					},
 					{
 						"id": "gitlens.plus.commitGraph",
@@ -12515,34 +12474,34 @@
 					{
 						"id": "gitlens.plus.tryNow",
 						"title": "Try GitLens Pro",
-						"description": "Try GitLens+ features on private repos, free for 3 days, without an account.\n\n[Start a GitLens Pro Trial](command:gitlens.plus.startPreviewTrial)",
+						"description": "To use [GitLens+ features](command:gitlens.plus.learn) on private repos, start a free trial of GitLens Pro, without an account, or [sign in](command:gitlens.plus.loginOrSignUp).\n\n[Start Pro Trial](command:gitlens.plus.startPreviewTrial)",
 						"media": {
 							"markdown": "walkthroughs/plus/try-now.md"
 						},
 						"when": "gitlens:plus:state == 0"
 					},
 					{
-						"id": "gitlens.plus.extend",
-						"title": "Extend Your GitLens Pro Trial",
-						"description": "Extend your trial to get an additional 7-days of GitLens+ features on private repos for free.\n\n[Extend Trial](command:gitlens.plus.loginOrSignUp)",
-						"media": {
-							"markdown": "walkthroughs/plus/try-now.md"
-						},
-						"when": "gitlens:plus:state == 2"
-					},
-					{
-						"id": "gitlens.plus.purchase",
-						"title": "Upgrade to GitLens Pro",
-						"description": "Want to use GitLens+ features on private repos?\n\n[Upgrade to Pro](command:gitlens.plus.purchase)",
+						"id": "gitlens.plus.trial",
+						"title": "Trialing GitLens Pro",
+						"description": "During your GitLens Pro trial, you have additional access to [GitLens+ features](command:gitlens.plus.learn) on private repos.\n\n[Upgrade to Pro](command:gitlens.plus.purchase)",
 						"media": {
 							"markdown": "walkthroughs/plus/try-now.md"
 						},
 						"when": "gitlens:plus:state == 1 || gitlens:plus:state == 3"
 					},
 					{
-						"id": "gitlens.plus.expired",
+						"id": "gitlens.plus.trial.extend",
+						"title": "Extend GitLens Pro Trial",
+						"description": "Your free 3-day GitLens Pro trial has ended, extend your trial to get an additional free 7-days of [GitLens+ features](command:gitlens.plus.learn) on private repos.\n\n[Extend Pro Trial](command:gitlens.plus.loginOrSignUp)",
+						"media": {
+							"markdown": "walkthroughs/plus/try-now.md"
+						},
+						"when": "gitlens:plus:state == 2"
+					},
+					{
+						"id": "gitlens.plus.trial.upgrade",
 						"title": "Upgrade to GitLens Pro",
-						"description": "Want to continue to use GitLens+ features on private repos?\n\n[Upgrade to Pro](command:gitlens.plus.purchase)",
+						"description": "Your GitLens Pro trial has ended, please upgrade to GitLens Pro to continue to use [GitLens+ features](command:gitlens.plus.learn) on private repos.\n\n[Upgrade to Pro](command:gitlens.plus.command:gitlens.plus.purchase)",
 						"media": {
 							"markdown": "walkthroughs/plus/try-now.md"
 						},

@@ -598,12 +598,10 @@ export function GraphWrapper({
 					<>
 						<p className="alert__title">GitLens Pro Trial</p>
 						<p className="alert__message">
-							You have {days < 1 ? 'less than one day' : pluralize('day', days)} left in your 3-day{' '}
-							<a title="Learn more about GitLens+ features" href="command:gitlens.plus.learn">
-								GitLens Pro trial
-							</a>
-							. Don't worry, once your trial ends, you can extend it for an additional 7-days of GitLens+
-							features on private repos for free.
+							You have {days < 1 ? 'less than one day' : pluralize('day', days)} left in your 3-day
+							GitLens Pro trial. Don't worry if you need more time, you can extend your trial for an
+							additional free 7-days of the Commit Graph and other{' '}
+							<a href="command:gitlens.plus.learn">GitLens+ features</a> on private repos.
 						</p>
 					</>
 				);
@@ -615,12 +613,10 @@ export function GraphWrapper({
 					<>
 						<p className="alert__title">GitLens Pro Trial</p>
 						<p className="alert__message">
-							You have {days < 1 ? 'less than one day' : pluralize('day', days)} left in your{' '}
-							<a title="Learn more about GitLens+ features" href="command:gitlens.plus.learn">
-								GitLens Pro trial
-							</a>
-							. Once your trial ends, you'll continue to have access to GitLens+ features on local and
-							public repos, while upgrading to GitLens Pro gives you access on private repos.
+							You have {days < 1 ? 'less than one day' : pluralize('day', days)} left in your GitLens Pro
+							trial. Once your trial ends, you'll continue to have access to the Commit Graph and other{' '}
+							<a href="command:gitlens.plus.learn">GitLens+ features</a> on local and public repos, while
+							upgrading to GitLens Pro gives you access on private repos.
 						</p>
 					</>
 				);
@@ -632,8 +628,9 @@ export function GraphWrapper({
 					<>
 						<p className="alert__title">Extend Your GitLens Pro Trial</p>
 						<p className="alert__message">
-							Your free 3-day GitLens Pro trial has ended, extend your trial to get an additional 7-days
-							of GitLens+ features on private repos for free.
+							Your free 3-day GitLens Pro trial has ended, extend your trial to get an additional free
+							7-days of the Commit Graph and other{' '}
+							<a href="command:gitlens.plus.learn">GitLens+ features</a> on private repos.
 						</p>
 					</>
 				);
@@ -650,8 +647,9 @@ export function GraphWrapper({
 					<>
 						<p className="alert__title">GitLens Pro Trial Expired</p>
 						<p className="alert__message">
-							Your GitLens Pro trial has ended, please upgrade to GitLens Pro to continue to use GitLens+
-							features on private repos.
+							Your GitLens Pro trial has ended, please upgrade to GitLens Pro to continue to use the
+							Commit Graph and other <a href="command:gitlens.plus.learn">GitLens+ features</a> on private
+							repos.
 						</p>
 					</>
 				);
@@ -668,8 +666,8 @@ export function GraphWrapper({
 					<>
 						<p className="alert__title">Please verify your email</p>
 						<p className="alert__message">
-							Before you can also use GitLens+ features on private repos, please verify your email
-							address.
+							Before you can use <a href="command:gitlens.plus.learn">GitLens+ features</a> on private
+							repos, please verify your email address.
 						</p>
 					</>
 				);
