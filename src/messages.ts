@@ -1,11 +1,9 @@
 import type { MessageItem } from 'vscode';
-import { ConfigurationTarget, window } from 'vscode';
+import { ConfigurationTarget, env, Uri, window } from 'vscode';
 import { configuration, SuppressedMessages } from './configuration';
-import { Commands } from './constants';
 import type { Container } from './container';
 import type { GitCommit } from './git/models/commit';
 import { Logger } from './logger';
-import { executeCommand } from './system/command';
 
 export function showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit): Promise<MessageItem | undefined> {
 	if (commit == null) {
@@ -202,7 +200,7 @@ export async function showWhatsNewMessage(version: string) {
 	);
 
 	if (result === whatsnew) {
-		void (await executeCommand(Commands.ShowWelcomePage));
+		void (await env.openExternal(Uri.parse('https://help.gitkraken.com/gitlens/gitlens-release-notes-current/')));
 	}
 }
 
