@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [13.0.0] - 2022-10-17
+
 ### Added
 
 - ✨ All GitLens+ features on public and local repos are now available to everyone &mdash; no account required!
@@ -4354,7 +4356,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v12.2.2...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v13.0.0...HEAD
+[13.0.0]: https://github.com/gitkraken/vscode-gitlens/compare/v12.2.2...gitkraken:v13.0.0
 [12.2.2]: https://github.com/gitkraken/vscode-gitlens/compare/v12.2.1...gitkraken:v12.2.2
 [12.2.1]: https://github.com/gitkraken/vscode-gitlens/compare/v12.2.0...gitkraken:v12.2.1
 [12.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v12.1.2...gitkraken:v12.2.0
