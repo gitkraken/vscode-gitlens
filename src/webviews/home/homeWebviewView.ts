@@ -136,7 +136,7 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 			completedActions.push(CompletedActions.DismissedWelcome);
 		}
 
-		const subscriptionState = subscription ?? (await this.container.subscription.getSubscription());
+		const subscriptionState = subscription ?? (await this.container.subscription.getSubscription(true));
 
 		let avatar;
 		if (subscriptionState.account?.email) {
@@ -146,7 +146,7 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 		}
 
 		return {
-			subscription: subscription ?? (await this.container.subscription.getSubscription()),
+			subscription: subscriptionState,
 			completedActions: completedActions,
 			avatar: avatar,
 		};
