@@ -12474,7 +12474,7 @@
 					{
 						"id": "gitlens.plus.tryNow",
 						"title": "Try GitLens Pro",
-						"description": "To use [GitLens+ features](command:gitlens.plus.learn) on private repos, start a free trial of GitLens Pro, without an account, or [sign in](command:gitlens.plus.loginOrSignUp).\n\n[Start Pro Trial](command:gitlens.plus.startPreviewTrial)",
+						"description": "[GitLens+ features](command:gitlens.plus.learn) are free for local and public repos, no account required, while upgrading to GitLens Pro gives you access on private repos.\n\n[Try GitLens+ features on private repos](command:gitlens.plus.startPreviewTrial)",
 						"media": {
 							"markdown": "walkthroughs/plus/try-now.md"
 						},
