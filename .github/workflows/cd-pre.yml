@@ -22,27 +22,27 @@ jobs:
               run: |
                   git config user.name github-actions
                   git config user.email github-actions@github.com
-                  if git rev-parse origin/insiders >/dev/null 2>&1; then
-                    insidersRef=$(git show-ref -s origin/insiders)
+                  if git rev-parse origin/pre >/dev/null 2>&1; then
+                    preRef=$(git show-ref -s origin/pre)
                     headRef=$(git show-ref --head -s head)
-                    echo "origin/insiders"
-                    echo $insidersRef
+                    echo "origin/pre"
+                    echo $preRef
                     echo "HEAD"
                     echo $headRef
-                    if [ "$insidersRef" = "$headRef" ]; then
-                      echo "No changes since last insiders build. Exiting."
+                    if [ "$preRef" = "$headRef" ]; then
+                      echo "No changes since last pre-release build. Exiting."
                       echo "::set-output name=status::unchanged"
                       exit 0
                     else
-                      echo "Updating insiders"
-                      git push origin --delete insiders
-                      git checkout -b insiders
-                      git push origin insiders
+                      echo "Updating pre"
+                      git push origin --delete pre
+                      git checkout -b pre
+                      git push origin pre
                     fi
                   else
-                    echo "No insiders branch. Creating."
-                    git checkout -b insiders
-                    git push origin insiders
+                    echo "No pre branch. Creating."
+                    git checkout -b pre
+                    git push origin pre
                   fi
                   echo "::set-output name=status::changed"
 
