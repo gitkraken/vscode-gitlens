@@ -27,6 +27,7 @@ import { setContext } from '../../context';
 import { AccountValidationError } from '../../errors';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { Logger } from '../../logger';
+import { showProDiscountNotification } from '../../messages';
 import type { Subscription } from '../../subscription';
 import {
 	computeSubscriptionState,
@@ -842,6 +843,16 @@ export class SubscriptionService implements Disposable {
 
 		this._subscription = subscription;
 		this._etag = Date.now();
+
+		setTimeout(() => {
+			if (
+				new Date() < new Date('2022-10-18T00:00:00.000Z') &&
+				subscription!.account != null &&
+				!isSubscriptionPaid(subscription!)
+			) {
+				void showProDiscountNotification(this.container);
+			}
+		}, 5000);
 
 		if (!silent) {
 			this.updateContext();

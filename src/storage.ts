@@ -144,6 +144,7 @@ export interface GlobalStorage {
 	pendingWhatsNewOnFocus?: boolean;
 	plus: {
 		migratedAuthentication?: boolean;
+		discountNotificationShown?: boolean;
 	};
 	// Don't change this key name ('premium`) as its the stored subscription
 	premium: {
