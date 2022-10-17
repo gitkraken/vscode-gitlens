@@ -12164,7 +12164,7 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Worktrees, a [✨ GitLens+ feature](command:gitlens.plus.learn \"Learn more about GitLens+ features\"), help you multitask, by minimizing the context switching between branches, allowing you to easily work on different branches of a repository simultaneously.\n\nYou can create multiple working trees, each of which can be opened in individual windows or all together in a single workspace."
+				"contents": "Worktrees, a [✨ GitLens+ feature](command:gitlens.plus.learn \"Learn more about GitLens+ features\"), help you multitask by minimizing the context switching between branches, allowing you to easily work on different branches of a repository simultaneously.\n\nYou can create multiple working trees, each of which can be opened in individual windows or all together in a single workspace."
 			},
 			{
 				"view": "gitlens.views.worktrees",
