@@ -17,7 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Double-click on a branch or tag to quickly switch your working tree to it
   - Rich search features to find exactly what you're looking for:
     - Powerful filters to search by commit, message, author, a changed file or files, or even a specific code change
-    - Searches look at ALL commits in a respository, not just what's shown in the graph
+    - Searches look at ALL commits in a repository, not just what's shown in the graph
   - PR support for connected rich integrations (GitHub/GitLab)
   - Significant performance improvements when opening the graph and loading in additional commits
   - Personalization of your graph experience
@@ -913,7 +913,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
       - `right arrow` &mdash; searches for the selected commit and shows the results in the _Search Commits_ view, if there is no text in the quick pick menu
       - `alt+right arrow` &mdash; searches for the selected commit and shows the results in the _Search Commits_ view
       - `ctrl+right arrow`, `cmd+right arrow` (macOS) &mdash; reveals the selected commit in the _Commits_ view (or _Repositories_ view, if enabled)
-  - Adds a new _status_ command to show the current respository status
+  - Adds a new _status_ command to show the current repository status
   - Adds a new _Delete Branch & Remote_ and _Force Delete Branch & Remote_ options to the _branch delete_ command &mdash; to more easily delete branches with tracking branches
   - Adds ability pull (fetch) a specific branch(es) to the _pull_ command &mdash; closes [#873](https://github.com/gitkraken/vscode-gitlens/issues/873)
   - Adds a new _Publish Branch_ option to the _push_ command
