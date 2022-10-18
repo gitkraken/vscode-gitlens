@@ -27,5 +27,5 @@ function ensureTerminal(): Terminal {
 export function runGitCommandInTerminal(command: string, args: string, cwd: string, execute: boolean = false) {
 	const terminal = ensureTerminal();
 	terminal.show(false);
-	terminal.sendText(`git -C ${cwd} ${command} ${args}`, execute);
+	terminal.sendText(`git -C ${cwd.includes(' ') ? `"${cwd}"` : cwd} ${command} ${args}`, execute);
 }
