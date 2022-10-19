@@ -626,7 +626,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 
 	private async getDetailsModel(commit: GitCommit, formattedMessage?: string): Promise<CommitDetails> {
 		const [commitResult, avatarUriResult, remoteResult] = await Promise.allSettled([
-			!commit.hasFullDetails ? commit.ensureFullDetails().then(() => commit) : commit,
+			!commit.hasFullDetails() ? commit.ensureFullDetails().then(() => commit) : commit,
 			commit.author.getAvatarUri(commit),
 			this.container.git.getBestRemoteWithRichProvider(commit.repoPath, { includeDisconnected: true }),
 		]);
