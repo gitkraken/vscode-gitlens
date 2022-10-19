@@ -152,6 +152,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 				preferences: {
 					autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded'),
 					filesAsTree: this.container.storage.getWorkspace('views:commitDetails:filesAsTree'),
+					dismissed: this.container.storage.getWorkspace('views:commitDetails:dismissed'),
 				},
 			});
 		}
@@ -476,7 +477,8 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	private updatePreferences(preferences: SavedPreferences) {
 		if (
 			this._context.preferences?.autolinksExpanded === preferences.autolinksExpanded &&
-			this._context.preferences?.filesAsTree === preferences.filesAsTree
+			this._context.preferences?.filesAsTree === preferences.filesAsTree &&
+			this._context.preferences?.dismissed === preferences.dismissed
 		) {
 			return;
 		}
@@ -493,6 +495,11 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		if (this._context.preferences?.filesAsTree !== preferences.filesAsTree) {
 			void this.container.storage.storeWorkspace('views:commitDetails:filesAsTree', preferences.filesAsTree);
 			changes.filesAsTree = preferences.filesAsTree;
+		}
+
+		if (this._context.preferences?.dismissed !== preferences.dismissed) {
+			void this.container.storage.storeWorkspace('views:commitDetails:dismissed', preferences.dismissed);
+			changes.dismissed = preferences.dismissed;
 		}
 
 		this.updatePendingContext({ preferences: changes });

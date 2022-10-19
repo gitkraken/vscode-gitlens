@@ -70,6 +70,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-more-actions', e =>
 				this.onFileMoreActions(e.detail),
 			),
+			DOM.on('[data-action="dismiss-banner"]', 'click', e => this.onDismissBanner(e)),
 			DOM.on('[data-action="commit-actions"]', 'click', e => this.onCommitActions(e)),
 			DOM.on('[data-action="pick-commit"]', 'click', e => this.onPickCommit(e)),
 			DOM.on('[data-action="search-commit"]', 'click', e => this.onSearchCommit(e)),
@@ -124,6 +125,19 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			default:
 				super.onMessageReceived?.(e);
 		}
+	}
+
+	onDismissBanner(e: MouseEvent) {
+		const dismissed = this.state.preferences?.dismissed ?? [];
+		if (dismissed.includes('sidebar')) {
+			return;
+		}
+		dismissed.push('sidebar');
+		this.state.preferences = { ...this.state.preferences, dismissed: dismissed };
+		const parent = (e.target as HTMLElement)?.closest<HTMLElement>('[data-region="sidebar-banner"]') ?? undefined;
+		this.renderBanner(this.state as CommitState, parent);
+
+		this.sendCommand(PreferencesCommandType, { dismissed: dismissed });
 	}
 
 	private onTreeSetting(e: MouseEvent) {
@@ -212,6 +226,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 	renderContent() {
 		if (!this.renderCommit(this.state)) return;
 
+		this.renderBanner(this.state);
 		this.renderActions(this.state);
 		this.renderPin(this.state);
 		this.renderSha(this.state);
@@ -223,6 +238,17 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		// if (this.state.includeRichContent) {
 		this.renderPullRequestAndAutolinks(this.state);
 		// }
+	}
+
+	renderBanner(state: CommitState, target?: HTMLElement) {
+		if (!state.preferences?.dismissed?.includes('sidebar')) {
+			return;
+		}
+
+		if (!target) {
+			target = document.querySelector<HTMLElement>('[data-region="sidebar-banner"]') ?? undefined;
+		}
+		target?.remove();
 	}
 
 	renderActions(state: CommitState) {
