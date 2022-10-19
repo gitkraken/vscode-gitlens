@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#2271](https://github.com/gitkraken/vscode-gitlens/issues/2271) - Terminal commands should wrap path with quote to deal with path contains space
+- Fixes an issue where the _Commit Details_ view fails to show the full commit message and changed files when following editor lines
 
 ## [13.0.2] - 2022-10-17
 
