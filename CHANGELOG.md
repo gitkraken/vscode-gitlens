@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds a banner to the _Commit Details_ view to let users know they can move the view to the Secondary Side Bar
 
+### Fixed
+
+- Fixes [#2271](https://github.com/gitkraken/vscode-gitlens/issues/2271) - Terminal commands should wrap path with quote to deal with path contains space
+
 ## [13.0.2] - 2022-10-17
 
 ### Added
