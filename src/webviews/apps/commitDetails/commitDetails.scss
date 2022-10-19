@@ -250,7 +250,7 @@ ul {
 	gap: 0.4rem;
 	font-size: 1.2rem;
 	border-radius: 0.3rem;
-	margin-bottom: 1rem;
+	margin: 1rem;
 
 	.vscode-high-contrast &,
 	.vscode-dark & {
@@ -292,6 +292,7 @@ ul {
 		min-width: 10rem;
 		flex-basis: 40%;
 		max-width: 12rem;
+		margin-right: 0.6rem;
 	}
 
 	&__icon {
