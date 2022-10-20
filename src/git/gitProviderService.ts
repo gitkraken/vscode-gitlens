@@ -760,12 +760,14 @@ export class GitProviderService implements Disposable {
 
 		// Don't block for the remote context updates (because it can block other downstream requests during initialization)
 		async function updateRemoteContext(this: GitProviderService) {
+			const integrations = configuration.get('integrations.enabled');
+
 			let hasRemotes = false;
 			let hasRichRemotes = false;
 			let hasConnectedRemotes = false;
-			if (hasRepositories && configuration.get('integrations.enabled')) {
+			if (hasRepositories) {
 				for (const repo of this._repositories.values()) {
-					if (!hasConnectedRemotes) {
+					if (!hasConnectedRemotes && integrations) {
 						hasConnectedRemotes = await repo.hasRichRemote(true);
 
 						if (hasConnectedRemotes) {
@@ -774,7 +776,7 @@ export class GitProviderService implements Disposable {
 						}
 					}
 
-					if (!hasRichRemotes) {
+					if (!hasRichRemotes && integrations) {
 						hasRichRemotes = await repo.hasRichRemote();
 
 						if (hasRichRemotes) {
@@ -786,7 +788,7 @@ export class GitProviderService implements Disposable {
 						hasRemotes = await repo.hasRemotes();
 					}
 
-					if (hasRemotes && hasRichRemotes && hasConnectedRemotes) break;
+					if (hasRemotes && ((hasRichRemotes && hasConnectedRemotes) || !integrations)) break;
 				}
 			}
 
