@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes [#2276](https://github.com/gitkraken/vscode-gitlens/issues/2276) - Search commit by Sha not working in Gitlens side bar
+
 ## [13.0.3] - 2022-10-20
 
 ### Added

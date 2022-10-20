@@ -1193,7 +1193,6 @@ export class Git {
 			return this.git<string>(
 				{ cwd: repoPath },
 				'show',
-				'-s',
 				'--name-status',
 				`--format=${GitLogParser.defaultFormat}`,
 				'--use-mailmap',
