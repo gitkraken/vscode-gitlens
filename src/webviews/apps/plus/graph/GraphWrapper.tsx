@@ -143,7 +143,6 @@ export function GraphWrapper({
 	onSelectionChange,
 	onDismissBanner,
 }: GraphWrapperProps) {
-	const mainRef = useRef<HTMLElement>(null);
 	const graphRef = useRef<GraphContainer>(null);
 
 	const [rows, setRows] = useState(state.rows ?? []);
@@ -694,7 +693,6 @@ export function GraphWrapper({
 				</header>
 			)}
 			<main
-				ref={mainRef}
 				id="main"
 				className={`graph-app__main${!isAccessAllowed ? ' is-gated' : ''}`}
 				aria-hidden={!isAccessAllowed}
