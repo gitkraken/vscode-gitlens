@@ -1,7 +1,7 @@
 <section id="commit-graph" class="section--settings section--collapsible">
 	<div class="section__header">
 		<h2>
-			Commit Graph
+			<span title="GitLens+ feature">✨</span> Commit Graph
 			<a
 				class="link__learn-more"
 				title="Learn more"
@@ -16,7 +16,7 @@
 			<a class="command command--show-view" title="Show Commit Graph" href="command:gitlens.showGraphPage"
 				>Commit Graph</a
 			>
-			to visualize, explore, and manage a Git repository ✨
+			to visualize, explore, and manage a Git repository
 		</p>
 	</div>
 
@@ -35,43 +35,32 @@
 								data-setting
 								data-default-value="500"
 							/>
-							<label for="graph.defaultItemLimit"> rows initially</label>
-						</div>
-					</div>
-
-					<div class="setting">
-						<div class="setting__input">
-							<label for="graph.pageItemLimit">Show an additional </label>
+							<label for="graph.defaultItemLimit"> rows at first and</label>
+							<label for="graph.pageItemLimit">&nbsp;then page in </label>
 							<input
 								id="graph.pageItemLimit"
 								name="graph.pageItemLimit"
 								type="number"
-								placeholder="90"
+								placeholder="200"
 								data-setting
-								data-default-value="90"
+								data-default-value="200"
 							/>
-							<label for="graph.pageItemLimit"> rows when scrolling</label>
+							<label for="graph.pageItemLimit"> more rows when scrolling</label>
 						</div>
 					</div>
 
 					<div class="setting">
 						<div class="setting__input">
-							<input id="graph.avatars" name="graph.avatars" type="checkbox" data-setting />
-							<label for="graph.avatars">Use author and remote avatars</label>
-						</div>
-					</div>
-
-					<div class="setting">
-						<div class="setting__input">
+							<label for="graph.searchItemLimit">Show </label>
 							<input
-								id="graph.highlightRowsOnRefHover"
-								name="graph.highlightRowsOnRefHover"
-								type="checkbox"
+								id="graph.searchItemLimit"
+								name="graph.searchItemLimit"
+								type="number"
+								placeholder="100"
 								data-setting
+								data-default-value="100"
 							/>
-							<label for="graph.highlightRowsOnRefHover"
-								>Highlight associated rows when hovering on a branch</label
-							>
+							<label for="graph.searchItemLimit"> search results at first and when paging</label>
 						</div>
 					</div>
 
@@ -108,7 +97,21 @@
 								data-setting
 							/>
 							<label for="graph.showGhostRefsOnRowHover"
-								>Show a ghost ref when hovering/selecting on a commit</label
+								>Show ghost branch / tag when hovering over or selecting a commit</label
+							>
+						</div>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input">
+							<input
+								id="graph.highlightRowsOnRefHover"
+								name="graph.highlightRowsOnRefHover"
+								type="checkbox"
+								data-setting
+							/>
+							<label for="graph.highlightRowsOnRefHover"
+								>Highlight associated rows when hovering over a branch</label
 							>
 						</div>
 					</div>
@@ -122,6 +125,13 @@
 								data-setting
 							/>
 							<label for="graph.showRemoteNames">Show remote names on remote branches</label>
+						</div>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input">
+							<input id="graph.avatars" name="graph.avatars" type="checkbox" data-setting />
+							<label for="graph.avatars">Use author and remote avatars</label>
 						</div>
 					</div>
 
