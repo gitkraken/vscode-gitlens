@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [13.0.3] - 2022-10-20
+
 ### Added
 
 - Adds a banner to the _Commit Details_ view to let users know they can move the view to the Secondary Side Bar
