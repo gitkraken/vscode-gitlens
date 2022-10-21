@@ -12198,7 +12198,6 @@
 					"type": "webview",
 					"id": "gitlens.views.home",
 					"name": "Home",
-					"when": "!gitlens:disabled && gitlens:plus:enabled",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-gitlens)",
 					"visibility": "visible"

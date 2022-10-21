@@ -246,6 +246,18 @@ ul {
 		max-width: 10rem;
 		height: auto;
 	}
+
+	#no-repo[aria-hidden='false'] ~ & {
+		display: none;
+	}
+}
+
+#no-repo {
+	margin-bottom: 0;
+
+	&[aria-hidden='true'] {
+		display: none;
+	}
 }
 
 .video-banner {

@@ -6,6 +6,7 @@ import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../subscr
 import type { State } from '../../home/protocol';
 import {
 	CompleteStepCommandType,
+	DidChangeExtensionEnabledType,
 	DidChangeSubscriptionNotificationType,
 	DismissSectionCommandType,
 } from '../../home/protocol';
@@ -76,6 +77,14 @@ export class HomeApp extends App<State> {
 					this.state.completedActions = params.completedActions;
 					this.state.avatar = params.avatar;
 					this.updateState();
+				});
+				break;
+			case DidChangeExtensionEnabledType.method:
+				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
+
+				onIpc(DidChangeExtensionEnabledType, msg, params => {
+					this.state.extensionEnabled = params.extensionEnabled;
+					this.updateNoRepo();
 				});
 				break;
 
@@ -157,6 +166,15 @@ export class HomeApp extends App<State> {
 		}
 	}
 
+	private updateNoRepo() {
+		const { extensionEnabled } = this.state;
+
+		const $el = document.getElementById('no-repo');
+		if ($el) {
+			$el.setAttribute('aria-hidden', extensionEnabled ? 'true' : 'false');
+		}
+	}
+
 	private updatePlusContent(days = this.getDaysRemaining()) {
 		const { subscription, visibility } = this.state;
 
@@ -211,6 +229,7 @@ export class HomeApp extends App<State> {
 	private updateState() {
 		const { completedSteps, dismissedSections, plusEnabled } = this.state;
 
+		this.updateNoRepo();
 		document.getElementById('restore-plus')?.classList.toggle('hide', plusEnabled);
 
 		const showRestoreWelcome = completedSteps?.length || dismissedSections?.length;
