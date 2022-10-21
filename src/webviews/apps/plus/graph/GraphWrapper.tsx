@@ -10,7 +10,7 @@ import type {
 	OnFormatCommitDateTime,
 } from '@gitkraken/gitkraken-components';
 import type { ReactElement } from 'react';
-import React, { createElement, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
 import { DateStyle } from '../../../../config';
 import { RepositoryVisibility } from '../../../../git/gitProvider';
@@ -79,18 +79,6 @@ const getGraphDateFormatter = (config?: GraphComponentConfig): OnFormatCommitDat
 	return (commitDateTime: number) => formatCommitDateTime(commitDateTime, config?.dateStyle, config?.dateFormat);
 };
 
-type DebouncableFn = (...args: any) => void;
-type DebouncedFn = (...args: any) => void;
-const debounceFrame = (func: DebouncableFn): DebouncedFn => {
-	let timer: number;
-	return function (...args: any) {
-		if (timer) cancelAnimationFrame(timer);
-		timer = requestAnimationFrame(() => {
-			func(...args);
-		});
-	};
-};
-
 const createIconElements = (): { [key: string]: ReactElement<any> } => {
 	const iconList = [
 		'head',
@@ -155,11 +143,6 @@ export function GraphWrapper({
 	onSelectionChange,
 	onDismissBanner,
 }: GraphWrapperProps) {
-	// TODO: application shouldn't know about the graph component's header
-	const graphHeaderOffset = 24;
-	const [mainWidth, setMainWidth] = useState<number>();
-	const [mainHeight, setMainHeight] = useState<number>();
-	const mainRef = useRef<HTMLElement>(null);
 	const graphRef = useRef<GraphContainer>(null);
 
 	const [rows, setRows] = useState(state.rows ?? []);
@@ -294,22 +277,6 @@ export function GraphWrapper({
 	}
 
 	useEffect(() => subscriber?.(updateState), []);
-
-	useLayoutEffect(() => {
-		if (mainRef.current === null) return;
-
-		const setDimensionsDebounced = debounceFrame((width, height) => {
-			setMainWidth(Math.floor(width));
-			setMainHeight(Math.floor(height) - graphHeaderOffset);
-		});
-
-		const resizeObserver = new ResizeObserver(entries =>
-			entries.forEach(e => setDimensionsDebounced(e.contentRect.width, e.contentRect.height)),
-		);
-		resizeObserver.observe(mainRef.current);
-
-		return () => resizeObserver.disconnect();
-	}, [mainRef]);
 
 	const searchPosition: number = useMemo(() => {
 		if (searchResults?.ids == null || !searchQuery?.query) return 0;
@@ -726,7 +693,6 @@ export function GraphWrapper({
 				</header>
 			)}
 			<main
-				ref={mainRef}
 				id="main"
 				className={`graph-app__main${!isAccessAllowed ? ' is-gated' : ''}`}
 				aria-hidden={!isAccessAllowed}
@@ -734,44 +700,40 @@ export function GraphWrapper({
 				{!isAccessAllowed && <div className="graph-app__cover"></div>}
 				{repo !== undefined ? (
 					<>
-						{mainWidth !== undefined && mainHeight !== undefined && (
-							<GraphContainer
-								ref={graphRef}
-								avatarUrlByEmail={avatars}
-								columnsSettings={columns}
-								contexts={context}
-								cssVariables={styleProps?.cssVariables}
-								enableMultiSelection={graphConfig?.enableMultiSelection}
-								formatCommitDateTime={getGraphDateFormatter(graphConfig)}
-								getExternalIcon={getIconElementLibrary}
-								graphRows={rows}
-								hasMoreCommits={pagingHasMore}
-								height={mainHeight}
-								// Just cast the { [id: string]: number } object to { [id: string]: boolean } for performance
-								highlightedShas={searchResults?.ids as GraphContainerProps['highlightedShas']}
-								highlightRowsOnRefHover={graphConfig?.highlightRowsOnRefHover}
-								hiddenRefsById={hiddenRefsById}
-								showGhostRefsOnRowHover={graphConfig?.showGhostRefsOnRowHover}
-								showRemoteNamesOnRefs={graphConfig?.showRemoteNamesOnRefs}
-								isLoadingRows={isLoading}
-								isSelectedBySha={selectedRows}
-								nonce={nonce}
-								onColumnResized={handleOnColumnResized}
-								onDoubleClickGraphRef={handleOnDoubleClickRef}
-								onSelectGraphRows={handleSelectGraphRows}
-								onToggleRefsVisibilityClick={handleOnToggleRefsVisibilityClick}
-								onEmailsMissingAvatarUrls={handleMissingAvatars}
-								onRefsMissingMetadata={handleMissingRefsMetadata}
-								onShowMoreCommits={handleMoreCommits}
-								platform={clientPlatform}
-								refMetadataById={refsMetadata}
-								shaLength={graphConfig?.idLength}
-								themeOpacityFactor={styleProps?.themeOpacityFactor}
-								useAuthorInitialsForAvatars={!graphConfig?.avatars}
-								width={mainWidth}
-								workDirStats={workingTreeStats}
-							/>
-						)}
+						<GraphContainer
+							ref={graphRef}
+							avatarUrlByEmail={avatars}
+							columnsSettings={columns}
+							contexts={context}
+							cssVariables={styleProps?.cssVariables}
+							enableMultiSelection={graphConfig?.enableMultiSelection}
+							formatCommitDateTime={getGraphDateFormatter(graphConfig)}
+							getExternalIcon={getIconElementLibrary}
+							graphRows={rows}
+							hasMoreCommits={pagingHasMore}
+							// Just cast the { [id: string]: number } object to { [id: string]: boolean } for performance
+							highlightedShas={searchResults?.ids as GraphContainerProps['highlightedShas']}
+							highlightRowsOnRefHover={graphConfig?.highlightRowsOnRefHover}
+							hiddenRefsById={hiddenRefsById}
+							showGhostRefsOnRowHover={graphConfig?.showGhostRefsOnRowHover}
+							showRemoteNamesOnRefs={graphConfig?.showRemoteNamesOnRefs}
+							isLoadingRows={isLoading}
+							isSelectedBySha={selectedRows}
+							nonce={nonce}
+							onColumnResized={handleOnColumnResized}
+							onDoubleClickGraphRef={handleOnDoubleClickRef}
+							onSelectGraphRows={handleSelectGraphRows}
+							onToggleRefsVisibilityClick={handleOnToggleRefsVisibilityClick}
+							onEmailsMissingAvatarUrls={handleMissingAvatars}
+							onRefsMissingMetadata={handleMissingRefsMetadata}
+							onShowMoreCommits={handleMoreCommits}
+							platform={clientPlatform}
+							refMetadataById={refsMetadata}
+							shaLength={graphConfig?.idLength}
+							themeOpacityFactor={styleProps?.themeOpacityFactor}
+							useAuthorInitialsForAvatars={!graphConfig?.avatars}
+							workDirStats={workingTreeStats}
+						/>
 					</>
 				) : (
 					<p>No repository is selected</p>
