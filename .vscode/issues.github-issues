@@ -2,7 +2,7 @@
   {
     "kind": 2,
     "language": "github-issues",
-    "value": "$issues=repo:gitkraken/vscode-gitlens is:open\n$prs=repo:gitkraken/vscode-gitlens is:open is:pr"
+    "value": "$current=milestone:\"13.1\"\n$patch=milestone:\"13.0-patch\"\n$issues=repo:gitkraken/vscode-gitlens is:issue\n$prs=repo:gitkraken/vscode-gitlens is:pr"
   },
   {
     "kind": 1,
@@ -17,7 +17,7 @@
   {
     "kind": 2,
     "language": "github-issues",
-    "value": "$issues label:\"triage\" sort:updated-desc"
+    "value": "$issues is:open label:\"triage\" sort:updated-desc"
   },
   {
     "kind": 1,
@@ -32,6 +32,51 @@
   {
     "kind": 1,
     "language": "markdown",
+    "value": "## Patch"
+  },
+  {
+    "kind": 2,
+    "language": "github-issues",
+    "value": "$issues $patch"
+  },
+  {
+    "kind": 1,
+    "language": "markdown",
+    "value": "## Current Iteration"
+  },
+  {
+    "kind": 1,
+    "language": "markdown",
+    "value": "### TODO"
+  },
+  {
+    "kind": 2,
+    "language": "github-issues",
+    "value": "$issues $current is:open"
+  },
+  {
+    "kind": 1,
+    "language": "markdown",
+    "value": "### Verification Needed"
+  },
+  {
+    "kind": 2,
+    "language": "github-issues",
+    "value": "$issues $current is:closed label:\"needs-verification\" -label:\"verified ✔\""
+  },
+  {
+    "kind": 1,
+    "language": "markdown",
+    "value": "### Done"
+  },
+  {
+    "kind": 2,
+    "language": "github-issues",
+    "value": "$issues $current is:closed -label:\"pending-release\""
+  },
+  {
+    "kind": 1,
+    "language": "markdown",
     "value": "## Milestones"
   },
   {
@@ -40,49 +85,9 @@
     "value": "### Soon™"
   },
   {
-    "kind": 1,
-    "language": "markdown",
-    "value": "#### Open"
-  },
-  {
     "kind": 2,
     "language": "github-issues",
     "value": "$issues milestone:Soon™"
-  },
-  {
-    "kind": 1,
-    "language": "markdown",
-    "value": "#### Verification Needed"
-  },
-  {
-    "kind": 2,
-    "language": "github-issues",
-    "value": "$issues milestone:Soon™ is:closed label:\"needs-verification\" -label:\"verified ✔\""
-  },
-  {
-    "kind": 1,
-    "language": "markdown",
-    "value": "#### Done"
-  },
-  {
-    "kind": 2,
-    "language": "github-issues",
-    "value": "$issues milestone:Soon™ is:closed -label:\"pending-release\""
-  },
-  {
-    "kind": 2,
-    "language": "github-issues",
-    "value": "$issues milestone:Soon™ is:closed label:\"pending-release\""
-  },
-  {
-    "kind": 1,
-    "language": "markdown",
-    "value": "### Soonish™"
-  },
-  {
-    "kind": 2,
-    "language": "github-issues",
-    "value": "$issues milestone:Soonish™"
   },
   {
     "kind": 1,
