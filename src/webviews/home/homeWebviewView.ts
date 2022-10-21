@@ -2,8 +2,9 @@ import type { Disposable } from 'vscode';
 import { window } from 'vscode';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import { configuration } from '../../configuration';
-import { CoreCommands } from '../../constants';
+import { ContextKeys, CoreCommands } from '../../constants';
 import type { Container } from '../../container';
+import { getContext, onDidChangeContext } from '../../context';
 import type { RepositoriesVisibility } from '../../git/gitProviderService';
 import type { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
 import { ensurePlusFeaturesEnabled } from '../../plus/subscription/utils';
@@ -16,6 +17,7 @@ import type { CompleteStepParams, DismissSectionParams, State } from './protocol
 import {
 	CompletedActions,
 	CompleteStepCommandType,
+	DidChangeExtensionEnabledType,
 	DidChangeSubscriptionNotificationType,
 	DismissSectionCommandType,
 } from './protocol';
@@ -24,7 +26,13 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 	constructor(container: Container) {
 		super(container, 'gitlens.views.home', 'home.html', 'Home', 'homeView');
 
-		this.disposables.push(this.container.subscription.onDidChange(this.onSubscriptionChanged, this));
+		this.disposables.push(
+			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			onDidChangeContext(key => {
+				if (key !== ContextKeys.Disabled) return;
+				this.notifyExtensionEnabled();
+			}),
+		);
 	}
 
 	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
@@ -158,6 +166,7 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 		const sections = this.container.storage.get('home:sections:dismissed', []);
 
 		return {
+			extensionEnabled: this.getExtensionEnabled(),
 			webroot: this.getWebRoot(),
 			subscription: subscriptionState.subscription,
 			completedActions: subscriptionState.completedActions,
@@ -175,6 +184,18 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 		return window.withProgress({ location: { viewId: this.id } }, async () =>
 			this.notify(DidChangeSubscriptionNotificationType, await this.getSubscription(subscription)),
 		);
+	}
+
+	private getExtensionEnabled() {
+		return !getContext(ContextKeys.Disabled, false);
+	}
+
+	private notifyExtensionEnabled() {
+		if (!this.isReady) return;
+
+		void this.notify(DidChangeExtensionEnabledType, {
+			extensionEnabled: this.getExtensionEnabled(),
+		});
 	}
 
 	private _validating: Promise<void> | undefined;

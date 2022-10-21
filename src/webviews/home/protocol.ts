@@ -8,6 +8,7 @@ export const enum CompletedActions {
 }
 
 export interface State {
+	extensionEnabled: boolean;
 	webroot?: string;
 	subscription: Subscription;
 	completedActions: CompletedActions[];
@@ -36,4 +37,11 @@ export interface DidChangeSubscriptionParams {
 }
 export const DidChangeSubscriptionNotificationType = new IpcNotificationType<DidChangeSubscriptionParams>(
 	'subscription/didChange',
+);
+
+export interface DidChangeExtensionEnabledParams {
+	extensionEnabled: boolean;
+}
+export const DidChangeExtensionEnabledType = new IpcNotificationType<DidChangeExtensionEnabledParams>(
+	'extensionEnabled/didChange',
 );
