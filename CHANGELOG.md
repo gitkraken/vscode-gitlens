@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Updated
+
+- Updates the _Home_ view to ensure its always available
+
 ### Fixed
 
 - Fixes [#2281](https://github.com/gitkraken/vscode-gitlens/issues/2281) - Push and Pull buttons missing from the commits view w/ integrations disabled
