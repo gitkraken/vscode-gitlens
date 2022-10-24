@@ -764,20 +764,12 @@ export class Repository implements Disposable {
 					const branch = await this.getBranch(options?.reference.name);
 					if (branch == null) return;
 
-					const currentBranch = await this.getBranch();
-					if (branch.id === currentBranch?.id) {
-						void (await executeCoreGitCommand(
-							options?.force ? CoreGitCommands.PushForce : CoreGitCommands.Push,
-							this.path,
-						));
-					} else {
-						await repo?.push(
-							branch.getRemoteName(),
-							branch.name,
-							undefined,
-							options?.force ? ForcePushMode.ForceWithLease : undefined,
-						);
-					}
+					await repo?.push(
+						branch.getRemoteName(),
+						branch.name,
+						undefined,
+						options?.force ? ForcePushMode.ForceWithLease : undefined,
+					);
 				}
 			} else if (options?.reference != null) {
 				const repo = await this.container.git.getOrOpenScmRepository(this.path);
