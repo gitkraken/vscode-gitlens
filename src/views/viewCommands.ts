@@ -616,7 +616,7 @@ export class ViewCommands {
 		}
 
 		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
-			return GitActions.push(node.repoPath, undefined, node.root ? undefined : node.branch);
+			return GitActions.push(node.repoPath, force, node.root ? undefined : node.branch);
 		}
 
 		if (node instanceof CommitNode || node instanceof FileRevisionAsCommitNode) {
