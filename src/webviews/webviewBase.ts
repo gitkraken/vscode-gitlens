@@ -31,7 +31,7 @@ function nextIpcId() {
 	return `host:${ipcSequence}`;
 }
 
-export type WebviewIds = 'graph' | 'settings' | 'timeline' | 'welcome';
+export type WebviewIds = 'graph' | 'settings' | 'timeline' | 'welcome' | 'workspaces';
 
 @logName<WebviewBase<any>>((c, name) => `${name}(${c.id})`)
 export abstract class WebviewBase<State> implements Disposable {

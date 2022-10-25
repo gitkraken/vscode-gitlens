@@ -1505,6 +1505,10 @@ const styles = css`
 		font-family: 'glicons';
 		content: '\\f11a';
 	}
+	:host([icon='gl-clock']):before {
+		font-family: 'glicons';
+		content: '\\f11d';
+	}
 
 	@keyframes codicon-spin {
 		100% {
