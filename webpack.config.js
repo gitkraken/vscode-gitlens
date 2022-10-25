@@ -344,7 +344,7 @@ function getWebviewsConfig(mode, env) {
 		},
 		mode: mode,
 		target: 'web',
-		devtool: mode === 'production' ? false : 'inline-source-map',
+		devtool: mode === 'production' ? false : 'source-map',
 		output: {
 			filename: '[name].js',
 			path: path.join(__dirname, 'dist', 'webviews'),
