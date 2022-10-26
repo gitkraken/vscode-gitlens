@@ -2563,8 +2563,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		const operations = parseSearchQuery(search);
 
-		let op;
-		let values = operations.get('commit:');
+		const values = operations.get('commit:');
 		if (values != null) {
 			const commit = await this.getCommit(repoPath, values[0]);
 			if (commit == null) return undefined;
@@ -2580,53 +2579,26 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			};
 		}
 
-		const query = [];
-
-		for ([op, values] of operations.entries()) {
-			switch (op) {
-				case 'message:':
-					query.push(...values.map(m => m.replace(/ /g, '+')));
-					break;
-
-				case 'author:':
-					query.push(
-						...values.map(a => {
-							a = a.replace(/ /g, '+');
-							if (a.startsWith('@')) return `author:${a.slice(1)}`;
-							if (a.startsWith('"@')) return `author:"${a.slice(2)}`;
-							if (a.includes('@')) return `author-email:${a}`;
-							return `author-name:${a}`;
-						}),
-					);
-					break;
-
-				// case 'change:':
-				// case 'file:':
-				// 	break;
-			}
-		}
-
-		if (query.length === 0) return undefined;
+		const queryArgs = await this.getQueryArgsFromSearchQuery(search, operations, repoPath);
+		if (queryArgs.length === 0) return undefined;
 
 		const limit = this.getPagingLimit(options?.limit);
 
 		try {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
 
-			const result = await github.searchCommits(
-				session.accessToken,
-				`repo:${metadata.repo.owner}/${metadata.repo.name}+${query.join('+').trim()}`,
-				{
-					cursor: options?.cursor,
-					limit: limit,
-					sort:
-						options?.ordering === 'date'
-							? 'committer-date'
-							: options?.ordering === 'author-date'
-							? 'author-date'
-							: undefined,
-				},
-			);
+			const query = `repo:${metadata.repo.owner}/${metadata.repo.name}+${queryArgs.join('+').trim()}`;
+
+			const result = await github.searchCommits(session.accessToken, query, {
+				cursor: options?.cursor,
+				limit: limit,
+				sort:
+					options?.ordering === 'date'
+						? 'committer-date'
+						: options?.ordering === 'author-date'
+						? 'author-date'
+						: undefined,
+			});
 			if (result == null) return undefined;
 
 			const commits = new Map<string, GitCommit>();
@@ -2760,8 +2732,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const results: GitSearchResults = new Map<string, GitSearchResultData>();
 			const operations = parseSearchQuery(search);
 
-			let op;
-			let values = operations.get('commit:');
+			const values = operations.get('commit:');
 			if (values != null) {
 				const commitsResults = await Promise.allSettled<Promise<GitCommit | undefined>[]>(
 					values.map(v => this.getCommit(repoPath, v.replace(doubleQuoteRegex, ''))),
@@ -2786,33 +2757,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				};
 			}
 
-			const queryValues: string[] = [];
-
-			for ([op, values] of operations.entries()) {
-				switch (op) {
-					case 'message:':
-						queryValues.push(...values.map(m => m.replace(/ /g, '+')));
-						break;
-
-					case 'author:':
-						queryValues.push(
-							...values.map(a => {
-								a = a.replace(/ /g, '+');
-								if (a.startsWith('@')) return `author:${a.slice(1)}`;
-								if (a.startsWith('"@')) return `author:"${a.slice(2)}`;
-								if (a.includes('@')) return `author-email:${a}`;
-								return `author-name:${a}`;
-							}),
-						);
-						break;
-
-					// case 'change:':
-					// case 'file:':
-					// 	break;
-				}
-			}
-
-			if (queryValues.length === 0) {
+			const queryArgs = await this.getQueryArgsFromSearchQuery(search, operations, repoPath);
+			if (queryArgs.length === 0) {
 				return {
 					repoPath: repoPath,
 					query: search,
@@ -2823,7 +2769,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
 
-			const query = `repo:${metadata.repo.owner}/${metadata.repo.name}+${queryValues.join('+').trim()}`;
+			const query = `repo:${metadata.repo.owner}/${metadata.repo.name}+${queryArgs.join('+').trim()}`;
 
 			async function searchForCommitsCore(
 				this: GitHubGitProvider,
@@ -3181,6 +3127,57 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		if (ref == null) debugger;
 
 		return ref;
+	}
+
+	private async getQueryArgsFromSearchQuery(
+		search: SearchQuery,
+		operations: Map<string, string[]>,
+		repoPath: string,
+	) {
+		const query = [];
+
+		for (const [op, values] of operations.entries()) {
+			switch (op) {
+				case 'message:':
+					query.push(...values.map(m => m.replace(/ /g, '+')));
+					break;
+
+				case 'author:': {
+					let currentUser: GitUser | undefined;
+					if (values.includes('@me')) {
+						currentUser = await this.getCurrentUser(repoPath);
+					}
+
+					for (let value of values) {
+						if (!value) continue;
+						value = value.replace(doubleQuoteRegex, search.matchRegex ? '\\b' : '');
+						if (!value) continue;
+
+						if (value === '@me') {
+							if (currentUser?.username == null) continue;
+
+							value = `@${currentUser.username}`;
+						}
+
+						value = value.replace(/ /g, '+');
+						if (value.startsWith('@')) {
+							query.push(`author:${value.slice(1)}`);
+						} else if (value.includes('@')) {
+							query.push(`author-email:${value}`);
+						} else {
+							query.push(`author-name:${value}`);
+						}
+					}
+
+					break;
+				}
+				// case 'change:':
+				// case 'file:':
+				// 	break;
+			}
+		}
+
+		return query;
 	}
 }
 

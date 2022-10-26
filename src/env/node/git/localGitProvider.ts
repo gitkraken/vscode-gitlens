@@ -4242,7 +4242,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const limit = options?.limit ?? configuration.get('advanced.maxSearchItems') ?? 0;
 			const similarityThreshold = configuration.get('advanced.similarityThreshold');
 
-			const { args, files, shas } = getGitArgsFromSearchQuery(search);
+			const currentUser = await this.getCurrentUser(repoPath);
+
+			const { args, files, shas } = getGitArgsFromSearchQuery(search, currentUser);
 
 			args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`, '--');
 			if (files.length !== 0) {
@@ -4262,7 +4264,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				repoPath,
 				undefined,
 				undefined,
-				await this.getCurrentUser(repoPath),
+				currentUser,
 				limit,
 				false,
 				undefined,
@@ -4334,7 +4336,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		try {
 			const refAndDateParser = getRefAndDateParser();
 
-			const { args: searchArgs, files, shas } = getGitArgsFromSearchQuery(search);
+			const currentUser = search.query.includes('@me') ? await this.getCurrentUser(repoPath) : undefined;
+
+			const { args: searchArgs, files, shas } = getGitArgsFromSearchQuery(search, currentUser);
 			if (shas?.size) {
 				const data = await this.git.show2(
 					repoPath,

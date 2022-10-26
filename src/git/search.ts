@@ -1,5 +1,6 @@
 import type { GitRevisionReference } from './models/reference';
 import { GitRevision } from './models/reference';
+import type { GitUser } from './models/user';
 
 export type SearchOperators =
 	| ''
@@ -132,7 +133,7 @@ export function parseSearchQuery(search: SearchQuery): Map<string, string[]> {
 		({ value, text } = match.groups);
 
 		if (text) {
-			op = GitRevision.isSha(text) ? 'commit:' : 'message:';
+			op = text === '@me' ? 'author:' : GitRevision.isSha(text) ? 'commit:' : 'message:';
 			value = text;
 		}
 
@@ -151,7 +152,10 @@ export function parseSearchQuery(search: SearchQuery): Map<string, string[]> {
 
 const doubleQuoteRegex = /"/g;
 
-export function getGitArgsFromSearchQuery(search: SearchQuery): {
+export function getGitArgsFromSearchQuery(
+	search: SearchQuery,
+	currentUser: GitUser | undefined,
+): {
 	args: string[];
 	files: string[];
 	shas?: Set<string> | undefined;
@@ -198,6 +202,17 @@ export function getGitArgsFromSearchQuery(search: SearchQuery): {
 						if (!value) continue;
 						value = value.replace(doubleQuoteRegex, search.matchRegex ? '\\b' : '');
 						if (!value) continue;
+
+						if (value === '@me') {
+							if (currentUser?.name == null) continue;
+
+							value = currentUser.name;
+						}
+
+						if (value.startsWith('@')) {
+							searchArgs.add(`--author=${value.slice(1)}`);
+							continue;
+						}
 
 						searchArgs.add(`--author=${value}`);
 					}
