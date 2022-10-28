@@ -1,12 +1,19 @@
-import { TextEditor, Uri } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitCommit, GitLog, GitStashCommit } from '../git/models';
+import type { GitCommit, GitStashCommit } from '../git/models/commit';
+import type { GitLog } from '../git/models/log';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import {
+	showCommitNotFoundWarningMessage,
+	showFileNotUnderSourceControlWarningMessage,
+	showGenericErrorMessage,
+	showLineUncommittedWarningMessage,
+} from '../messages';
 import { command } from '../system/command';
-import { ActiveEditorCachedCommand, CommandContext, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
+import type { CommandContext } from './base';
+import { ActiveEditorCachedCommand, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
 import { executeGitCommand, GitActions } from './gitCommands.actions';
 
 export interface ShowQuickCommitCommandArgs {
@@ -85,14 +92,14 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 			try {
 				const blame = await this.container.git.getBlameForLine(gitUri, blameline);
 				if (blame == null) {
-					void Messages.showFileNotUnderSourceControlWarningMessage('Unable to show commit');
+					void showFileNotUnderSourceControlWarningMessage('Unable to show commit');
 
 					return;
 				}
 
 				// Because the previous sha of an uncommitted file isn't trust worthy we just have to kick out
 				if (blame.commit.isUncommitted) {
-					void Messages.showLineUncommittedWarningMessage('Unable to show commit');
+					void showLineUncommittedWarningMessage('Unable to show commit');
 
 					return;
 				}
@@ -103,7 +110,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 				args.commit = blame.commit;
 			} catch (ex) {
 				Logger.error(ex, 'ShowQuickCommitCommand', `getBlameForLine(${blameline})`);
-				void Messages.showGenericErrorMessage('Unable to show commit');
+				void showGenericErrorMessage('Unable to show commit');
 
 				return;
 			}
@@ -125,7 +132,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 			}
 
 			if (args.commit == null) {
-				void Messages.showCommitNotFoundWarningMessage('Unable to show commit');
+				void showCommitNotFoundWarningMessage('Unable to show commit');
 
 				return;
 			}
@@ -140,16 +147,16 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 				return;
 			}
 
-			void (await executeGitCommand({
+			await executeGitCommand({
 				command: 'show',
 				state: {
 					repo: repoPath,
 					reference: args.commit,
 				},
-			}));
+			});
 		} catch (ex) {
 			Logger.error(ex, 'ShowQuickCommitCommand');
-			void Messages.showGenericErrorMessage('Unable to show commit');
+			void showGenericErrorMessage('Unable to show commit');
 		}
 	}
 }

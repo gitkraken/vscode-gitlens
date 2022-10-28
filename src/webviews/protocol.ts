@@ -4,11 +4,12 @@ export interface IpcMessage {
 	id: string;
 	method: string;
 	params?: unknown;
+	completionId?: string;
 }
 
 abstract class IpcMessageType<Params = void> {
 	_?: Params; // Required for type inferencing to work properly
-	constructor(public readonly method: string) {}
+	constructor(public readonly method: string, public readonly overwriteable: boolean = false) {}
 }
 export type IpcMessageParams<T> = T extends IpcMessageType<infer P> ? P : never;
 
@@ -24,11 +25,11 @@ export class IpcNotificationType<Params = void> extends IpcMessageType<Params> {
 export function onIpc<T extends IpcMessageType<any>>(
 	type: T,
 	msg: IpcMessage,
-	fn: (params: IpcMessageParams<T>) => unknown,
+	fn: (params: IpcMessageParams<T>, type: T) => unknown,
 ) {
 	if (type.method !== msg.method) return;
 
-	fn(msg.params as IpcMessageParams<T>);
+	fn(msg.params as IpcMessageParams<T>, type);
 }
 
 // COMMANDS
@@ -43,7 +44,7 @@ export const ExecuteCommandType = new IpcCommandType<ExecuteCommandParams>('comm
 
 export interface GenerateCommitPreviewParams {
 	key: string;
-	type: 'commit';
+	type: 'commit' | 'commit-uncommitted';
 	format: string;
 }
 
@@ -73,7 +74,6 @@ export const DidChangeConfigurationNotificationType = new IpcNotificationType<Di
 );
 
 export interface DidGenerateConfigurationPreviewParams {
-	completionId: string;
 	preview: string;
 }
 

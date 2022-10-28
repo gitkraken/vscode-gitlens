@@ -1,17 +1,19 @@
-import { Disposable, TextEditor } from 'vscode';
+import type { TextEditor } from 'vscode';
+import { Disposable } from 'vscode';
+import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
-import { Container } from '../container';
-import { GitCommit } from '../git/models';
-import { Logger } from '../logger';
-import { debug } from '../system/decorators/log';
-import {
+import type { Container } from '../container';
+import type { GitCommit } from '../git/models/commit';
+import { debug, getLogScope } from '../system/decorators/log';
+import type {
 	DocumentBlameStateChangeEvent,
 	DocumentContentChangeEvent,
 	DocumentDirtyIdleTriggerEvent,
 	DocumentDirtyStateChangeEvent,
 	GitDocumentState,
 } from './gitDocumentTracker';
-import { LinesChangeEvent, LineSelection, LineTracker } from './lineTracker';
+import type { LinesChangeEvent, LineSelection } from './lineTracker';
+import { LineTracker } from './lineTracker';
 
 export * from './lineTracker';
 
@@ -82,11 +84,11 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 	})
 	private onContentChanged(e: DocumentContentChangeEvent<GitDocumentState>) {
 		if (
-			e.contentChanges.some(cc =>
+			e.contentChanges.some(scope =>
 				this.selections?.some(
 					selection =>
-						(cc.range.end.line >= selection.active && selection.active >= cc.range.start.line) ||
-						(cc.range.start.line >= selection.active && selection.active >= cc.range.end.line),
+						(scope.range.end.line >= selection.active && selection.active >= scope.range.start.line) ||
+						(scope.range.start.line >= selection.active && selection.active >= scope.range.end.line),
 				),
 			)
 		) {
@@ -100,7 +102,7 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		},
 	})
 	private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) {
-		const maxLines = this.container.config.advanced.blame.sizeThresholdAfterEdit;
+		const maxLines = configuration.get('advanced.blame.sizeThresholdAfterEdit');
 		if (maxLines > 0 && e.document.lineCount > maxLines) return;
 
 		this.resume();
@@ -125,14 +127,13 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 	@debug<GitLineTracker['updateState']>({
 		args: { 0: selections => selections?.map(s => s.active).join(','), 1: e => e.document.uri.toString(true) },
 		exit: updated => `returned ${updated}`,
-		singleLine: true,
 	})
 	private async updateState(selections: LineSelection[], editor: TextEditor): Promise<boolean> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		if (!this.includes(selections)) {
-			if (cc != null) {
-				cc.exitDetails = ` ${GlyphChars.Dot} lines no longer match`;
+			if (scope != null) {
+				scope.exitDetails = ` ${GlyphChars.Dot} lines no longer match`;
 			}
 
 			return false;
@@ -140,8 +141,8 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 
 		const trackedDocument = await this.container.tracker.getOrAdd(editor.document);
 		if (!trackedDocument.isBlameable) {
-			if (cc != null) {
-				cc.exitDetails = ` ${GlyphChars.Dot} document is not blameable`;
+			if (scope != null) {
+				scope.exitDetails = ` ${GlyphChars.Dot} document is not blameable`;
 			}
 
 			return false;
@@ -154,8 +155,8 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 				editor?.document,
 			);
 			if (blameLine == null) {
-				if (cc != null) {
-					cc.exitDetails = ` ${GlyphChars.Dot} blame failed`;
+				if (scope != null) {
+					scope.exitDetails = ` ${GlyphChars.Dot} blame failed`;
 				}
 
 				return false;
@@ -165,8 +166,8 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		} else {
 			const blame = await this.container.git.getBlame(trackedDocument.uri, editor.document);
 			if (blame == null) {
-				if (cc != null) {
-					cc.exitDetails = ` ${GlyphChars.Dot} blame failed`;
+				if (scope != null) {
+					scope.exitDetails = ` ${GlyphChars.Dot} blame failed`;
 				}
 
 				return false;
@@ -181,16 +182,16 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		// Check again because of the awaits above
 
 		if (!this.includes(selections)) {
-			if (cc != null) {
-				cc.exitDetails = ` ${GlyphChars.Dot} lines no longer match`;
+			if (scope != null) {
+				scope.exitDetails = ` ${GlyphChars.Dot} lines no longer match`;
 			}
 
 			return false;
 		}
 
 		if (!trackedDocument.isBlameable) {
-			if (cc != null) {
-				cc.exitDetails = ` ${GlyphChars.Dot} document is not blameable`;
+			if (scope != null) {
+				scope.exitDetails = ` ${GlyphChars.Dot} document is not blameable`;
 			}
 
 			return false;

@@ -1,9 +1,6 @@
-import {
+import type {
 	ConfigurationChangeEvent,
-	Disposable,
-	EndOfLine,
 	Event,
-	EventEmitter,
 	Position,
 	Range,
 	TextDocument,
@@ -11,23 +8,25 @@ import {
 	TextDocumentContentChangeEvent,
 	TextEditor,
 	TextLine,
-	Uri,
-	window,
-	workspace,
 } from 'vscode';
+import { Disposable, EndOfLine, EventEmitter, Uri, window, workspace } from 'vscode';
 import { configuration } from '../configuration';
 import { ContextKeys } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { setContext } from '../context';
-import { RepositoriesChangeEvent } from '../git/gitProviderService';
-import { GitUri } from '../git/gitUri';
-import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models';
+import type { RepositoriesChangeEvent } from '../git/gitProviderService';
+import type { GitUri } from '../git/gitUri';
+import { isGitUri } from '../git/gitUri';
+import type { RepositoryChangeEvent } from '../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
+import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
-import { debounce, Deferrable } from '../system/function';
-import { filter, map } from '../system/iterable';
-import { getBestPath } from '../system/path';
-import { isActiveDocument, isTextEditor } from '../system/utils';
-import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocument';
+import type { Deferrable } from '../system/function';
+import { debounce } from '../system/function';
+import { filter, join, map } from '../system/iterable';
+import { findTextDocument, isActiveDocument, isTextEditor } from '../system/utils';
+import type { DocumentBlameStateChangeEvent } from './trackedDocument';
+import { TrackedDocument } from './trackedDocument';
 
 export * from './trackedDocument';
 
@@ -71,8 +70,7 @@ export class DocumentTracker<T> implements Disposable {
 
 	private _dirtyIdleTriggerDelay: number;
 	private readonly _disposable: Disposable;
-	// TODO@eamodio: replace with a trie?
-	protected readonly _documentMap = new Map<TextDocument | string, Promise<TrackedDocument<T>>>();
+	protected readonly _documentMap = new Map<TextDocument, Promise<TrackedDocument<T>>>();
 
 	constructor(protected readonly container: Container) {
 		this._disposable = Disposable.from(
@@ -167,7 +165,7 @@ export class DocumentTracker<T> implements Disposable {
 				RepositoryChangeComparisonMode.Any,
 			)
 		) {
-			void this.reset('repository', new Set([e.repository.path]));
+			this.reset('repository', new Set([e.repository.path]));
 		}
 	}
 
@@ -238,7 +236,7 @@ export class DocumentTracker<T> implements Disposable {
 	add(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>>;
 	async add(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>> {
 		let document;
-		if (GitUri.is(documentOrUri)) {
+		if (isGitUri(documentOrUri)) {
 			try {
 				document = await workspace.openTextDocument(documentOrUri.documentUri());
 			} catch (ex) {
@@ -272,12 +270,9 @@ export class DocumentTracker<T> implements Disposable {
 	}
 
 	private async addCore(document: TextDocument): Promise<TrackedDocument<T>> {
-		const key = getUriKey(document.uri);
-
-		// Always start out false, so we will fire the event if needed
 		const doc = TrackedDocument.create<T>(
 			document,
-			key,
+			// Always start out false, so we will fire the event if needed
 			false,
 			{
 				onDidBlameStateChange: (e: DocumentBlameStateChangeEvent<T>) => this._onDidChangeBlameState.fire(e),
@@ -286,7 +281,6 @@ export class DocumentTracker<T> implements Disposable {
 		);
 
 		this._documentMap.set(document, doc);
-		this._documentMap.set(key, doc);
 
 		return doc;
 	}
@@ -303,22 +297,22 @@ export class DocumentTracker<T> implements Disposable {
 	get(uri: Uri): Promise<TrackedDocument<T>> | undefined;
 	get(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>> | undefined;
 	get(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>> | undefined {
-		let key;
-		if (GitUri.is(documentOrUri)) {
-			key = getUriKey(documentOrUri.documentUri());
-		} else if (documentOrUri instanceof Uri) {
-			key = getUriKey(documentOrUri);
-		} else {
-			key = documentOrUri;
+		if (documentOrUri instanceof Uri) {
+			const document = findTextDocument(documentOrUri);
+			if (document == null) return undefined;
+
+			documentOrUri = document;
 		}
 
-		const doc = this._documentMap.get(key);
+		const doc = this._documentMap.get(documentOrUri);
 		return doc;
 	}
 
-	getOrAdd(document: TextDocument): Promise<TrackedDocument<T>>;
-	getOrAdd(uri: Uri): Promise<TrackedDocument<T>>;
 	async getOrAdd(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>> {
+		if (documentOrUri instanceof Uri) {
+			documentOrUri = findTextDocument(documentOrUri) ?? documentOrUri;
+		}
+
 		const doc = this.get(documentOrUri) ?? this.add(documentOrUri);
 		return doc;
 	}
@@ -327,8 +321,12 @@ export class DocumentTracker<T> implements Disposable {
 	has(uri: Uri): boolean;
 	has(documentOrUri: TextDocument | Uri): boolean {
 		if (documentOrUri instanceof Uri) {
-			return this._documentMap.has(getUriKey(documentOrUri));
+			const document = findTextDocument(documentOrUri);
+			if (document == null) return false;
+
+			documentOrUri = document;
 		}
+
 		return this._documentMap.has(documentOrUri);
 	}
 
@@ -339,7 +337,6 @@ export class DocumentTracker<T> implements Disposable {
 		}
 
 		this._documentMap.delete(document);
-		this._documentMap.delete(getUriKey(document.uri));
 
 		(tracked ?? (await promise))?.dispose();
 	}
@@ -386,12 +383,19 @@ export class DocumentTracker<T> implements Disposable {
 		this._dirtyStateChangedDebounced(e);
 	}
 
+	@debug<DocumentTracker<T>['reset']>({
+		args: {
+			1: c => (c != null ? join(c, ',') : ''),
+			2: r => (r != null ? join(r, ',') : ''),
+		},
+	})
 	private reset(reason: 'config' | 'repository', changedRepoPaths?: Set<string>, removedRepoPaths?: Set<string>) {
 		void Promise.allSettled(
 			map(
 				filter(this._documentMap, ([key]) => typeof key === 'string'),
 				async ([, promise]) => {
 					const doc = await promise;
+
 					if (removedRepoPaths?.has(doc.uri.repoPath!)) {
 						void this.remove(doc.document, doc);
 						return;
@@ -467,7 +471,3 @@ class EmptyTextDocument implements TextDocument {
 
 class BinaryTextDocument extends EmptyTextDocument {}
 class MissingRevisionTextDocument extends EmptyTextDocument {}
-
-function getUriKey(pathOrUri: string | Uri): string {
-	return getBestPath(pathOrUri);
-}

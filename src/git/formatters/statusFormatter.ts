@@ -1,8 +1,10 @@
 import { GlyphChars } from '../../constants';
 import { basename } from '../../system/path';
-import { TokenOptions } from '../../system/string';
-import { GitFile, GitFileChange, GitFileWithCommit } from '../models/file';
-import { FormatOptions, Formatter } from './formatter';
+import type { TokenOptions } from '../../system/string';
+import type { GitFileWithCommit } from '../models/file';
+import { GitFile, GitFileChange } from '../models/file';
+import type { FormatOptions } from './formatter';
+import { Formatter } from './formatter';
 
 export interface StatusFormatOptions extends FormatOptions {
 	relativePath?: string;

@@ -1,5 +1,5 @@
-import { QuickPickItem } from 'vscode';
-import { QuickPickItemOfT } from './common';
+import type { QuickPickItem } from 'vscode';
+import type { QuickPickItemOfT } from './common';
 
 export type FlagsQuickPickItem<T, Context = void> = Context extends void
 	? QuickPickItemOfT<T[]>

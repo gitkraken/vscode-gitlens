@@ -1,11 +1,11 @@
-import { Uri } from 'vscode';
+import type { Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { memoize } from '../../system/decorators/memoize';
 import { formatPath } from '../../system/formatPath';
 import { relativeDir, splitPath } from '../../system/path';
 import { pad, pluralize } from '../../system/string';
-import { GitCommit } from './commit';
+import type { GitCommit } from './commit';
 
 export declare type GitFileStatus = GitFileConflictStatus | GitFileIndexStatus | GitFileWorkingTreeStatus;
 
@@ -40,13 +40,14 @@ export const enum GitFileWorkingTreeStatus {
 }
 
 export interface GitFile {
+	readonly path: string;
+	readonly originalPath?: string;
 	status: GitFileStatus;
 	readonly repoPath?: string;
+
 	readonly conflictStatus?: GitFileConflictStatus;
 	readonly indexStatus?: GitFileIndexStatus;
 	readonly workingTreeStatus?: GitFileWorkingTreeStatus;
-	readonly path: string;
-	readonly originalPath?: string;
 }
 
 export interface GitFileWithCommit extends GitFile {
@@ -172,7 +173,14 @@ export interface GitFileChangeStats {
 	changes: number;
 }
 
-export class GitFileChange {
+export interface GitFileChangeShape {
+	readonly path: string;
+	readonly originalPath?: string | undefined;
+	readonly status: GitFileStatus;
+	readonly repoPath: string;
+}
+
+export class GitFileChange implements GitFileChangeShape {
 	static is(file: any): file is GitFileChange {
 		return file instanceof GitFileChange;
 	}

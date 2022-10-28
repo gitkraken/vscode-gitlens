@@ -1,0 +1,477 @@
+:root {
+	--gitlens-gutter-width: 20px;
+	--gitlens-scrollbar-gutter-width: 10px;
+}
+
+// generic resets
+html {
+	font-size: 62.5%;
+	// box-sizing: border-box;
+	font-family: var(--font-family);
+}
+
+*,
+*:before,
+*:after {
+	box-sizing: border-box;
+}
+
+body {
+	font-family: var(--font-family);
+	font-size: var(--font-size);
+	color: var(--color-foreground);
+	padding: 0;
+}
+
+a {
+	text-decoration: none;
+	&:hover {
+		text-decoration: underline;
+	}
+}
+
+ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.bulleted {
+	list-style: disc;
+	padding-left: 1.2em;
+	> li + li {
+		margin-top: 0.25em;
+	}
+}
+
+::-webkit-scrollbar-corner {
+	background-color: transparent !important;
+}
+
+.button {
+	--button-foreground: var(--vscode-button-foreground);
+	--button-background: var(--vscode-button-background);
+	--button-hover-background: var(--vscode-button-hoverBackground);
+
+	display: inline-block;
+	border: none;
+	padding: 0.4rem;
+	font-family: inherit;
+	font-size: inherit;
+	line-height: 1.4;
+	text-align: center;
+	text-decoration: none;
+	user-select: none;
+	background: var(--button-background);
+	color: var(--button-foreground);
+	cursor: pointer;
+
+	&:hover {
+		background: var(--button-hover-background);
+	}
+
+	&:focus {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: 0.2rem;
+	}
+
+	&--full {
+		width: 100%;
+	}
+
+	code-icon {
+		pointer-events: none;
+	}
+}
+
+.button-container {
+	margin: 1rem auto 0;
+	text-align: left;
+	max-width: 30rem;
+	transition: max-width 0.2s ease-out;
+}
+
+.button-group {
+	display: inline-flex;
+	gap: 0.1rem;
+	width: 100%;
+	max-width: 30rem;
+}
+
+.svg-themed {
+	--svg-outline: var(--color-foreground--50);
+	--svg-foreground: var(--color-link-foreground--lighten-20);
+	--svg-overlay: var(--color-highlight--25);
+
+	&__outline {
+		stroke: var(--svg-outline);
+	}
+
+	&__view {
+		fill: var(--svg-overlay);
+		stroke: var(--svg-foreground);
+	}
+
+	&__line {
+		stroke: var(--svg-foreground);
+		fill: var(--svg-foreground);
+	}
+}
+
+.switch {
+	margin-left: auto;
+	display: inline-flex;
+	flex-direction: row;
+	border-radius: 0.25em;
+	gap: 0.1rem;
+
+	.vscode-high-contrast &,
+	.vscode-dark & {
+		background-color: var(--color-background--lighten-075);
+	}
+	.vscode-high-contrast-light &,
+	.vscode-light & {
+		background-color: var(--color-background--darken-075);
+	}
+
+	&__option {
+		display: inline-flex;
+		justify-content: center;
+		align-items: flex-end;
+		border-radius: 0.25em;
+		color: inherit;
+		padding: 0.2rem 0.8rem;
+		text-decoration: none;
+		background: none;
+		border: none;
+		cursor: pointer;
+
+		> * {
+			pointer-events: none;
+		}
+
+		&:focus {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: -1px;
+		}
+
+		&:hover {
+			color: var(--vscode-foreground);
+			text-decoration: none;
+			.vscode-high-contrast &,
+			.vscode-dark & {
+				background-color: var(--color-background--lighten-10);
+			}
+			.vscode-high-contrast-light &,
+			.vscode-light & {
+				background-color: var(--color-background--darken-10);
+			}
+		}
+
+		&.is-selected {
+			color: var(--vscode-foreground);
+			.vscode-high-contrast &,
+			.vscode-dark & {
+				background-color: var(--color-background--lighten-15);
+			}
+			.vscode-high-contrast-light &,
+			.vscode-light & {
+				background-color: var(--color-background--darken-15);
+			}
+		}
+	}
+}
+
+@media (min-width: 640px) {
+	.button-container {
+		max-width: 100%;
+	}
+}
+
+// webview-specific styles
+.change-list {
+	list-style: none;
+
+	&__item {
+		// & + & {
+		//     margin-top: 0.25rem;
+		// }
+	}
+	&__link {
+		width: 100%;
+		color: inherit;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		overflow: hidden;
+	}
+	&__type {
+	}
+	&__filename {
+	}
+	&__path {
+		font-size: 0.9em;
+	}
+	&__actions {
+		flex: none;
+	}
+	&__action {
+	}
+}
+
+.commit-stashed {
+	display: flex;
+	gap: 0.25rem 0.5rem;
+	justify-content: start;
+	align-items: center;
+
+	&__media {
+		width: 3.6rem;
+		height: 3.6rem;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+	}
+	&__media &__icon {
+		width: 2.8rem;
+		height: 2.8rem;
+		font-size: 2.8rem;
+	}
+	&__date {
+		font-size: 1.2rem;
+	}
+}
+
+.commit-banner {
+	display: flex;
+	flex-direction: row;
+	align-items: flex-start;
+	justify-content: space-between;
+	padding: 1rem;
+	gap: 0.4rem;
+	font-size: 1.2rem;
+	border-radius: 0.3rem;
+	margin: 1rem;
+
+	.vscode-high-contrast &,
+	.vscode-dark & {
+		background-color: var(--color-background--lighten-075);
+	}
+
+	.vscode-high-contrast-light &,
+	.vscode-light & {
+		background-color: var(--color-background--darken-075);
+	}
+
+	&__message {
+		flex-basis: 60%;
+		margin: {
+			left: 0.6rem;
+			right: 0.6rem;
+		}
+
+		h2 {
+			font-weight: normal;
+			font-size: inherit;
+			margin: {
+				top: 0;
+				bottom: 0.4rem;
+			}
+		}
+		p {
+			margin: 0;
+			opacity: 0.5;
+			transition: font-size ease 100ms;
+
+			@media (max-width: 350px) {
+				font-size: 0.88em;
+			}
+		}
+	}
+
+	&__media {
+		min-width: 10rem;
+		flex-basis: 40%;
+		max-width: 12rem;
+		margin-right: 0.6rem;
+	}
+
+	&__icon {
+		flex: none;
+
+		&:last-child {
+			transform: translateY(-0.4rem);
+		}
+	}
+}
+
+.commit-details {
+	&__top {
+		position: sticky;
+		top: 0;
+		z-index: 1;
+		padding: {
+			top: 1rem;
+			left: var(--gitlens-gutter-width);
+			right: var(--gitlens-scrollbar-gutter-width);
+			bottom: 0.5rem;
+		}
+		background-color: var(--vscode-sideBar-background);
+
+		&-menu {
+			display: flex;
+			flex-direction: row;
+			align-items: flex-start;
+			justify-content: space-between;
+		}
+	}
+
+	&__message {
+		font-size: 1.3rem;
+		border: 1px solid var(--vscode-input-border);
+		background: var(--vscode-input-background);
+		padding: 0.5rem;
+		margin: {
+			top: 1rem;
+			left: var(--gitlens-gutter-width);
+			right: var(--gitlens-scrollbar-gutter-width);
+			bottom: 1.75rem;
+		}
+	}
+
+	&__message-text {
+		flex: 1;
+		margin: 0;
+		display: block;
+
+		overflow-y: auto;
+		overflow-x: hidden;
+		max-height: 9rem;
+		white-space: break-spaces;
+
+		strong {
+			font-weight: 600;
+			font-size: 1.4rem;
+		}
+	}
+
+	&__commit-action {
+		display: inline-flex;
+		justify-content: center;
+		align-items: center;
+		height: 21px;
+		border-radius: 0.25em;
+		color: inherit;
+		padding: 0.2rem;
+		vertical-align: text-bottom;
+		text-decoration: none;
+
+		> * {
+			pointer-events: none;
+		}
+
+		&:focus {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: -1px;
+		}
+
+		&:hover {
+			color: var(--vscode-foreground);
+			text-decoration: none;
+			.vscode-dark & {
+				background-color: var(--color-background--lighten-15);
+			}
+			.vscode-light & {
+				background-color: var(--color-background--darken-15);
+			}
+		}
+
+		&.is-active {
+			.vscode-dark & {
+				background-color: var(--color-background--lighten-10);
+			}
+			.vscode-light & {
+				background-color: var(--color-background--darken-10);
+			}
+		}
+	}
+
+	&__sha {
+		margin: 0 0.5rem 0 0.25rem;
+	}
+
+	&__authors {
+		flex-basis: 100%;
+	}
+	&__author {
+		& + & {
+			margin-top: 0.5rem;
+		}
+	}
+
+	&__rich {
+		padding: 0 var(--gitlens-scrollbar-gutter-width) 1.5rem var(--gitlens-gutter-width);
+
+		> :first-child {
+			margin-top: 0;
+		}
+		> :last-child {
+			margin-top: 0.5rem;
+			margin-bottom: 0;
+		}
+	}
+	&__pull-request {
+	}
+	&__issue {
+		> :not(:first-child) {
+			margin-top: 0.5rem;
+		}
+	}
+
+	&__file {
+		--tree-level: 1;
+		padding: {
+			left: calc(var(--gitlens-gutter-width) * var(--tree-level));
+			right: var(--gitlens-scrollbar-gutter-width);
+			top: 1px;
+			bottom: 1px;
+		}
+		line-height: 22px;
+		height: 22px;
+	}
+	&__item-skeleton {
+		padding: {
+			left: var(--gitlens-gutter-width);
+			right: var(--gitlens-scrollbar-gutter-width);
+			top: 1px;
+			bottom: 1px;
+		}
+	}
+}
+
+.commit-detail-panel {
+	$block: &;
+
+	max-height: 100vh;
+	overflow: auto;
+	scrollbar-gutter: stable;
+	color: var(--vscode-sideBar-foreground);
+	background-color: var(--vscode-sideBar-background);
+
+	[aria-hidden='true'] {
+		display: none;
+	}
+
+	&__none {
+		padding: {
+			left: var(--gitlens-gutter-width);
+			right: var(--gitlens-scrollbar-gutter-width);
+		}
+	}
+
+	&__main {
+		padding-bottom: 1rem;
+	}
+}
+
+@import '../shared/codicons';
+@import '../shared/glicons';

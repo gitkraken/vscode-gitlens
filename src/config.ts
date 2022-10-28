@@ -1,4 +1,4 @@
-import { DateTimeFormat } from './system/date';
+import type { DateTimeFormat } from './system/date';
 
 export interface Config {
 	autolinks: AutolinkReference[] | null;
@@ -28,6 +28,7 @@ export interface Config {
 		dateFormat: string | null;
 		enabled: boolean;
 		format: string;
+		uncommittedChangesFormat: string | null;
 		pullRequests: {
 			enabled: boolean;
 		};
@@ -56,10 +57,12 @@ export interface Config {
 		skipConfirmations: string[];
 		sortBy: GitCommandSorting;
 	};
+	graph: GraphConfig;
 	heatmap: {
 		ageThreshold: number;
 		coldColor: string;
 		hotColor: string;
+		fadeLines: boolean;
 		locations: HeatmapLocations[];
 		toggleMode: AnnotationsToggleMode;
 	};
@@ -120,6 +123,9 @@ export interface Config {
 		url: string | null;
 		strictSSL: boolean;
 	} | null;
+	rebaseEditor: {
+		ordering: 'asc' | 'desc';
+	};
 	remotes: RemotesConfig[] | null;
 	showWelcomeOnInstall: boolean;
 	showWhatsNewAfterUpgrades: boolean;
@@ -169,18 +175,26 @@ export const enum AnnotationsToggleMode {
 	Window = 'window',
 }
 
+export const enum AutolinkType {
+	Issue = 'Issue',
+	PullRequest = 'PullRequest',
+}
+
 export interface AutolinkReference {
 	prefix: string;
 	url: string;
 	title?: string;
 	alphanumeric?: boolean;
 	ignoreCase?: boolean;
+
+	type?: AutolinkType;
+	description?: string;
 }
 
 export const enum BlameHighlightLocations {
 	Gutter = 'gutter',
 	Line = 'line',
-	Overview = 'overview',
+	Scrollbar = 'overview',
 }
 
 export const enum BranchSorting {
@@ -192,7 +206,8 @@ export const enum BranchSorting {
 
 export const enum ChangesLocations {
 	Gutter = 'gutter',
-	Overview = 'overview',
+	Line = 'line',
+	Scrollbar = 'overview',
 }
 
 export const enum CodeLensCommand {
@@ -272,7 +287,8 @@ export const enum GravatarDefaultStyle {
 
 export const enum HeatmapLocations {
 	Gutter = 'gutter',
-	Overview = 'overview',
+	Line = 'line',
+	Scrollbar = 'overview',
 }
 
 export const enum KeyMap {
@@ -349,24 +365,29 @@ export interface AdvancedConfig {
 	fileHistoryShowAllBranches: boolean;
 	maxListItems: number;
 	maxSearchItems: number;
-	messages: {
-		suppressCommitHasNoPreviousCommitWarning: boolean;
-		suppressCommitNotFoundWarning: boolean;
-		suppressCreatePullRequestPrompt: boolean;
-		suppressDebugLoggingWarning: boolean;
-		suppressFileNotUnderSourceControlWarning: boolean;
-		suppressGitDisabledWarning: boolean;
-		suppressGitMissingWarning: boolean;
-		suppressGitVersionWarning: boolean;
-		suppressLineUncommittedWarning: boolean;
-		suppressNoRepositoryWarning: boolean;
-		suppressRebaseSwitchToTextWarning: boolean;
-	};
+	messages: { [key in SuppressedMessages]: boolean };
 	quickPick: {
 		closeOnFocusOut: boolean;
 	};
 	repositorySearchDepth: number | null;
 	similarityThreshold: number | null;
+}
+
+export interface GraphConfig {
+	avatars: boolean;
+	commitOrdering: 'date' | 'author-date' | 'topo';
+	dateFormat: DateTimeFormat | string | null;
+	dateStyle: DateStyle | null;
+	defaultItemLimit: number;
+	highlightRowsOnRefHover: boolean;
+	showDetailsView: 'open' | 'selection' | false;
+	showGhostRefsOnRowHover: boolean;
+	showRemoteNames: boolean;
+	pageItemLimit: number;
+	searchItemLimit: number;
+	statusBar: {
+		enabled: boolean;
+	};
 }
 
 export interface CodeLensConfig {
@@ -427,7 +448,18 @@ export interface MenuConfig {
 	scm:
 		| false
 		| {
+				graph: boolean;
+		  };
+	scmTitleInline:
+		| false
+		| {
+				graph: boolean;
+		  };
+	scmTitle:
+		| false
+		| {
 				authors: boolean;
+				graph: boolean;
 		  };
 	scmGroupInline:
 		| false
@@ -439,6 +471,11 @@ export interface MenuConfig {
 		| {
 				compare: boolean;
 				openClose: boolean;
+				stash: boolean;
+		  };
+	scmItemInline:
+		| false
+		| {
 				stash: boolean;
 		  };
 	scmItem:
@@ -471,6 +508,7 @@ export type RemotesConfig =
 			protocol?: string;
 			type: CustomRemoteType;
 			urls?: RemotesUrlsConfig;
+			ignoreSSLErrors?: boolean | 'force';
 	  }
 	| {
 			domain: null;
@@ -479,6 +517,7 @@ export type RemotesConfig =
 			protocol?: string;
 			type: CustomRemoteType;
 			urls?: RemotesUrlsConfig;
+			ignoreSSLErrors?: boolean | 'force';
 	  };
 
 export interface RemotesUrlsConfig {
@@ -492,6 +531,24 @@ export interface RemotesUrlsConfig {
 	fileInCommit: string;
 	fileLine: string;
 	fileRange: string;
+}
+
+// NOTE: Must be kept in sync with `gitlens.advanced.messages` setting in the package.json
+export const enum SuppressedMessages {
+	CommitHasNoPreviousCommitWarning = 'suppressCommitHasNoPreviousCommitWarning',
+	CommitNotFoundWarning = 'suppressCommitNotFoundWarning',
+	CreatePullRequestPrompt = 'suppressCreatePullRequestPrompt',
+	SuppressDebugLoggingWarning = 'suppressDebugLoggingWarning',
+	FileNotUnderSourceControlWarning = 'suppressFileNotUnderSourceControlWarning',
+	GitDisabledWarning = 'suppressGitDisabledWarning',
+	GitMissingWarning = 'suppressGitMissingWarning',
+	GitVersionWarning = 'suppressGitVersionWarning',
+	LineUncommittedWarning = 'suppressLineUncommittedWarning',
+	NoRepositoryWarning = 'suppressNoRepositoryWarning',
+	RebaseSwitchToTextWarning = 'suppressRebaseSwitchToTextWarning',
+	IntegrationDisconnectedTooManyFailedRequestsWarning = 'suppressIntegrationDisconnectedTooManyFailedRequestsWarning',
+	IntegrationRequestFailed500Warning = 'suppressIntegrationRequestFailed500Warning',
+	IntegrationRequestTimedOutWarning = 'suppressIntegrationRequestTimedOutWarning',
 }
 
 export interface ViewsCommonConfig {
@@ -512,6 +569,12 @@ export interface ViewsCommonConfig {
 	};
 	pageItemLimit: number;
 	showRelativeDateMarkers: boolean;
+
+	experimental: {
+		multiSelect: {
+			enabled: boolean | null | undefined;
+		};
+	};
 }
 
 export const viewsCommonConfigKeys: (keyof ViewsCommonConfig)[] = [

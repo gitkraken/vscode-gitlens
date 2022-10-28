@@ -1,16 +1,16 @@
-import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitReference, GitRevision } from '../git/models';
-import { Messages } from '../messages';
+import { GitReference, GitRevision } from '../git/models/reference';
+import { showNoRepositoryWarningMessage } from '../messages';
 import { StashPicker } from '../quickpicks/commitPicker';
 import { ReferencePicker } from '../quickpicks/referencePicker';
 import { command, executeCommand } from '../system/command';
 import { basename } from '../system/path';
 import { pad } from '../system/string';
 import { ActiveEditorCommand, getCommandUri } from './base';
-import { DiffWithCommandArgs } from './diffWith';
+import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithRevisionFromCommandArgs {
 	line?: number;
@@ -30,7 +30,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 
 		const gitUri = await GitUri.fromUri(uri);
 		if (!gitUri.repoPath) {
-			void Messages.showNoRepositoryWarningMessage('Unable to open file compare');
+			void showNoRepositoryWarningMessage('Unable to open file compare');
 
 			return;
 		}

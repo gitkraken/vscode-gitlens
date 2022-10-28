@@ -1,13 +1,20 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../config';
-import { CommitFormatter } from '../../git/formatters';
-import { GitStashCommit, GitStashReference } from '../../git/models';
+import { configuration } from '../../configuration';
+import { CommitFormatter } from '../../git/formatters/commitFormatter';
+import type { GitStashCommit } from '../../git/models/commit';
+import type { GitStashReference } from '../../git/models/reference';
 import { makeHierarchical } from '../../system/array';
 import { joinPaths, normalizePath } from '../../system/path';
 import { sortCompare } from '../../system/string';
-import { ContextValues, FileNode, FolderNode, RepositoryNode, StashFileNode, ViewNode, ViewRefNode } from '../nodes';
-import { RepositoriesView } from '../repositoriesView';
-import { StashesView } from '../stashesView';
+import type { RepositoriesView } from '../repositoriesView';
+import type { StashesView } from '../stashesView';
+import type { FileNode } from './folderNode';
+import { FolderNode } from './folderNode';
+import { RepositoryNode } from './repositoryNode';
+import { StashFileNode } from './stashFileNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, ViewRefNode } from './viewNode';
 
 export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitStashReference> {
 	static key = ':stash';
@@ -56,20 +63,24 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 		const item = new TreeItem(
 			CommitFormatter.fromTemplate(this.view.config.formats.stashes.label, this.commit, {
 				messageTruncateAtNewLine: true,
-				dateFormat: this.view.container.config.defaultDateFormat,
+				dateFormat: configuration.get('defaultDateFormat'),
 			}),
 			TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
 		item.description = CommitFormatter.fromTemplate(this.view.config.formats.stashes.description, this.commit, {
 			messageTruncateAtNewLine: true,
-			dateFormat: this.view.container.config.defaultDateFormat,
+			dateFormat: configuration.get('defaultDateFormat'),
 		});
 		item.contextValue = ContextValues.Stash;
-		item.tooltip = CommitFormatter.fromTemplate(`\${ago} (\${date})\n\n\${message}`, this.commit, {
-			dateFormat: this.view.container.config.defaultDateFormat,
-			// messageAutolinks: true,
-		});
+		item.tooltip = CommitFormatter.fromTemplate(
+			`\${'On 'stashOnRef\n}\${ago} (\${date})\n\n\${message}`,
+			this.commit,
+			{
+				dateFormat: configuration.get('defaultDateFormat'),
+				// messageAutolinks: true,
+			},
+		);
 
 		return item;
 	}

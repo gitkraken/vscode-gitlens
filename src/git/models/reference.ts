@@ -1,6 +1,6 @@
+import { configuration } from '../../configuration';
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { GitBranch } from './branch';
+import { getBranchNameWithoutRemote } from './branch';
 
 const rangeRegex = /^(\S*?)(\.\.\.?)(\S*)\s*$/;
 const shaLikeRegex = /(^[0-9a-f]{40}([\^@~:]\S*)?$)|(^[0]{40}(:|-)$)/;
@@ -53,28 +53,25 @@ export namespace GitRevision {
 
 	export function shorten(
 		ref: string | undefined,
-		{
-			force,
-			strings = {},
-		}: {
+		options?: {
 			force?: boolean;
 			strings?: { uncommitted?: string; uncommittedStaged?: string; working?: string };
-		} = {},
+		},
 	) {
 		if (ref === deletedOrMissing) return '(deleted)';
 
-		if (!ref) return strings.working ?? '';
+		if (!ref) return options?.strings?.working ?? '';
 		if (isUncommitted(ref)) {
 			return isUncommittedStaged(ref)
-				? strings.uncommittedStaged ?? 'Index'
-				: strings.uncommitted ?? 'Working Tree';
+				? options?.strings?.uncommittedStaged ?? 'Index'
+				: options?.strings?.uncommitted ?? 'Working Tree';
 		}
 
 		if (GitRevision.isRange(ref)) return ref;
-		if (!force && !isShaLike(ref)) return ref;
+		if (!options?.force && !isShaLike(ref)) return ref;
 
 		// Don't allow shas to be shortened to less than 5 characters
-		const len = Math.max(5, Container.instance.config.advanced.abbreviatedShaLength);
+		const len = Math.max(5, configuration.get('advanced.abbreviatedShaLength'));
 
 		// If we have a suffix, append it
 		const match = shaShortenRegex.exec(ref);
@@ -104,6 +101,7 @@ export namespace GitRevision {
 
 export interface GitBranchReference {
 	readonly refType: 'branch';
+	id?: string;
 	name: string;
 	ref: string;
 	readonly remote: boolean;
@@ -113,6 +111,7 @@ export interface GitBranchReference {
 
 export interface GitRevisionReference {
 	readonly refType: 'revision' | 'stash';
+	id?: undefined;
 	name: string;
 	ref: string;
 	repoPath: string;
@@ -123,6 +122,7 @@ export interface GitRevisionReference {
 
 export interface GitStashReference {
 	readonly refType: 'stash';
+	id?: undefined;
 	name: string;
 	ref: string;
 	repoPath: string;
@@ -133,6 +133,7 @@ export interface GitStashReference {
 
 export interface GitTagReference {
 	readonly refType: 'tag';
+	id?: string;
 	name: string;
 	ref: string;
 	repoPath: string;
@@ -144,7 +145,13 @@ export namespace GitReference {
 	export function create(
 		ref: string,
 		repoPath: string,
-		options: { refType: 'branch'; name: string; remote: boolean; upstream?: { name: string; missing: boolean } },
+		options: {
+			refType: 'branch';
+			name: string;
+			id?: string;
+			remote: boolean;
+			upstream?: { name: string; missing: boolean };
+		},
 	): GitBranchReference;
 	export function create(
 		ref: string,
@@ -156,48 +163,61 @@ export namespace GitReference {
 		repoPath: string,
 		options: { refType: 'stash'; name: string; number: string | undefined; message?: string },
 	): GitStashReference;
-	export function create(ref: string, repoPath: string, options: { refType: 'tag'; name: string }): GitTagReference;
+	export function create(
+		ref: string,
+		repoPath: string,
+		options: { refType: 'tag'; name: string; id?: string },
+	): GitTagReference;
 	export function create(
 		ref: string,
 		repoPath: string,
 		options:
-			| { refType: 'branch'; name: string; remote: boolean }
+			| {
+					id?: string;
+					refType: 'branch';
+					name: string;
+					remote: boolean;
+					upstream?: { name: string; missing: boolean };
+			  }
 			| { refType?: 'revision'; name?: string; message?: string }
 			| { refType: 'stash'; name: string; number: string | undefined; message?: string }
-			| { refType: 'tag'; name: string } = { refType: 'revision' },
+			| { id?: string; refType: 'tag'; name: string } = { refType: 'revision' },
 	): GitReference {
 		switch (options.refType) {
 			case 'branch':
 				return {
-					name: options.name,
-					ref: ref,
 					refType: 'branch',
-					remote: options.remote,
 					repoPath: repoPath,
+					ref: ref,
+					name: options.name,
+					id: options.id,
+					remote: options.remote,
+					upstream: options.upstream,
 				};
 			case 'stash':
 				return {
-					name: options.name,
-					ref: ref,
 					refType: 'stash',
 					repoPath: repoPath,
+					ref: ref,
+					name: options.name,
 					number: options.number,
 					message: options.message,
 				};
 			case 'tag':
 				return {
-					name: options.name,
-					ref: ref,
 					refType: 'tag',
 					repoPath: repoPath,
+					ref: ref,
+					name: options.name,
+					id: options.id,
 				};
 			default:
 				return {
-					name:
-						options.name ?? GitRevision.shorten(ref, { force: true, strings: { working: 'Working Tree' } }),
-					ref: ref,
 					refType: 'revision',
 					repoPath: repoPath,
+					ref: ref,
+					name:
+						options.name ?? GitRevision.shorten(ref, { force: true, strings: { working: 'Working Tree' } }),
 					message: options.message,
 				};
 		}
@@ -205,6 +225,7 @@ export namespace GitReference {
 
 	export function fromBranch(branch: GitBranchReference) {
 		return create(branch.ref, branch.repoPath, {
+			id: branch.id,
 			refType: branch.refType,
 			name: branch.name,
 			remote: branch.remote,
@@ -212,8 +233,26 @@ export namespace GitReference {
 		});
 	}
 
+	export function fromRevision(revision: GitRevisionReference) {
+		if (revision.refType === 'stash') {
+			return create(revision.ref, revision.repoPath, {
+				refType: revision.refType,
+				name: revision.name,
+				number: revision.number,
+				message: revision.message,
+			});
+		}
+
+		return create(revision.ref, revision.repoPath, {
+			refType: revision.refType,
+			name: revision.name,
+			message: revision.message,
+		});
+	}
+
 	export function fromTag(tag: GitTagReference) {
 		return create(tag.ref, tag.repoPath, {
+			id: tag.id,
 			refType: tag.refType,
 			name: tag.name,
 		});
@@ -221,7 +260,7 @@ export namespace GitReference {
 
 	export function getNameWithoutRemote(ref: GitReference) {
 		if (ref.refType === 'branch') {
-			return ref.remote ? GitBranch.getNameWithoutRemote(ref.name) : ref.name;
+			return ref.remote ? getBranchNameWithoutRemote(ref.name) : ref.name;
 		}
 		return ref.name;
 	}
@@ -239,7 +278,7 @@ export namespace GitReference {
 	}
 
 	export function isStash(ref: GitReference | undefined): ref is GitStashReference {
-		return ref?.refType === 'stash' || (ref?.refType === 'revision' && (ref as any)?.stashName);
+		return ref?.refType === 'stash' || (ref?.refType === 'revision' && Boolean((ref as any)?.stashName));
 	}
 
 	export function isTag(ref: GitReference | undefined): ref is GitTagReference {

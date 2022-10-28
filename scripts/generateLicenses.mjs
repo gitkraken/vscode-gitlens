@@ -60,7 +60,7 @@ async function generateThirdpartyNotices(packages) {
 			name = key;
 		}
 
-		if (name === 'gitlens') continue;
+		if (name === 'gitlens' || name.startsWith('@gitkraken')) continue;
 		if (data.licenseFile == null) continue;
 
 		let license;

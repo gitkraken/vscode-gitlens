@@ -29,10 +29,16 @@ export namespace DOM {
 		listener: (e: DocumentEventMap[K], target: T) => void,
 		options?: boolean | AddEventListenerOptions,
 	): Disposable;
+	export function on<T extends HTMLElement, K>(
+		selector: string,
+		name: string,
+		listener: (e: CustomEvent<K>, target: T) => void,
+		options?: boolean | AddEventListenerOptions,
+	): Disposable;
 	export function on<K extends keyof (DocumentEventMap | WindowEventMap), T extends Document | Element | Window>(
 		sourceOrSelector: string | Window | Document | Element,
 		name: K,
-		listener: (e: (DocumentEventMap | WindowEventMap)[K], target: T) => void,
+		listener: (e: (DocumentEventMap | WindowEventMap)[K] | CustomEvent<K>, target: T) => void,
 		options?: boolean | AddEventListenerOptions,
 	): Disposable {
 		let disposed = false;

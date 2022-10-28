@@ -1,40 +1,35 @@
-import { ConfigurationChangeEvent, ConfigurationTarget, WebviewPanelOnDidChangeViewStateEvent } from 'vscode';
+import type { ConfigurationChangeEvent, WebviewPanelOnDidChangeViewStateEvent } from 'vscode';
+import { ConfigurationTarget } from 'vscode';
 import { configuration } from '../configuration';
-import { Commands } from '../constants';
+import type { Commands } from '../constants';
 import type { Container } from '../container';
-import { CommitFormatter } from '../git/formatters';
-import {
-	GitCommit,
-	GitCommitIdentity,
-	GitFileChange,
-	GitFileIndexStatus,
-	PullRequest,
-	PullRequestState,
-} from '../git/models';
+import { CommitFormatter } from '../git/formatters/commitFormatter';
+import { GitCommit, GitCommitIdentity } from '../git/models/commit';
+import { GitFileChange, GitFileIndexStatus } from '../git/models/file';
+import { PullRequest, PullRequestState } from '../git/models/pullRequest';
 import { Logger } from '../logger';
+import type { TrackedUsageFeatures } from '../usageTracker';
+import type { IpcMessage } from './protocol';
 import {
 	DidChangeConfigurationNotificationType,
 	DidGenerateConfigurationPreviewNotificationType,
-	DidOpenAnchorNotificationType,
 	GenerateConfigurationPreviewCommandType,
-	IpcMessage,
 	onIpc,
 	UpdateConfigurationCommandType,
 } from './protocol';
 import { WebviewBase } from './webviewBase';
 
 export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
-	private _pendingJumpToAnchor: string | undefined;
-
 	constructor(
 		container: Container,
 		id: `gitlens.${string}`,
 		fileName: string,
 		iconPath: string,
 		title: string,
+		trackingFeature: TrackedUsageFeatures,
 		showCommand: Commands,
 	) {
-		super(container, id, fileName, iconPath, title, showCommand);
+		super(container, id, fileName, iconPath, title, trackingFeature, showCommand);
 		this.disposables.push(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
@@ -55,31 +50,8 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 		void this.notifyDidChangeConfiguration();
 	}
 
-	private onConfigurationChanged(_e: ConfigurationChangeEvent) {
+	protected onConfigurationChanged(_e: ConfigurationChangeEvent) {
 		void this.notifyDidChangeConfiguration();
-	}
-
-	protected override onReady() {
-		if (this._pendingJumpToAnchor != null) {
-			const anchor = this._pendingJumpToAnchor;
-			this._pendingJumpToAnchor = undefined;
-
-			void this.notify(DidOpenAnchorNotificationType, { anchor: anchor, scrollBehavior: 'auto' });
-		}
-	}
-
-	protected override onShowCommand(anchor?: string) {
-		if (anchor) {
-			if (this.isReady && this.visible) {
-				queueMicrotask(
-					() => void this.notify(DidOpenAnchorNotificationType, { anchor: anchor, scrollBehavior: 'smooth' }),
-				);
-				return;
-			}
-
-			this._pendingJumpToAnchor = anchor;
-		}
-		super.onShowCommand();
 	}
 
 	protected override onViewStateChanged(e: WebviewPanelOnDidChangeViewStateEvent): void {
@@ -126,11 +98,11 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 							}
 						}
 
-						void (await configuration.update(key as any, value, target));
+						await configuration.update(key as any, value, target);
 					}
 
 					for (const key of params.removes) {
-						void (await configuration.update(key as any, undefined, target));
+						await configuration.update(key as any, undefined, target);
 					}
 				});
 				break;
@@ -140,16 +112,17 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 
 				onIpc(GenerateConfigurationPreviewCommandType, e, async params => {
 					switch (params.type) {
-						case 'commit': {
+						case 'commit':
+						case 'commit-uncommitted': {
 							const commit = new GitCommit(
 								this.container,
 								'~/code/eamodio/vscode-gitlens-demo',
 								'fe26af408293cba5b4bfd77306e1ac9ff7ccaef8',
 								new GitCommitIdentity('You', 'eamodio@gmail.com', new Date('2016-11-12T20:41:00.000Z')),
 								new GitCommitIdentity('You', 'eamodio@gmail.com', new Date('2020-11-01T06:57:21.000Z')),
-								'Supercharged',
+								params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
 								['3ac1d3f51d7cf5f438cc69f25f6740536ad80fef'],
-								'Supercharged',
+								params.type === 'commit-uncommitted' ? 'Uncommitted changes' : 'Supercharged',
 								new GitFileChange(
 									'~/code/eamodio/vscode-gitlens-demo',
 									'code.ts',
@@ -162,17 +135,17 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 							let includePullRequest = false;
 							switch (params.key) {
 								case configuration.name('currentLine.format'):
-									includePullRequest = this.container.config.currentLine.pullRequests.enabled;
+									includePullRequest = configuration.get('currentLine.pullRequests.enabled');
 									break;
 								case configuration.name('statusBar.format'):
-									includePullRequest = this.container.config.statusBar.pullRequests.enabled;
+									includePullRequest = configuration.get('statusBar.pullRequests.enabled');
 									break;
 							}
 
 							let pr: PullRequest | undefined;
 							if (includePullRequest) {
 								pr = new PullRequest(
-									{ id: 'github', name: 'GitHub', domain: 'github.com' },
+									{ id: 'github', name: 'GitHub', domain: 'github.com', icon: 'github' },
 									{
 										name: 'Eric Amodio',
 										avatarUrl: 'https://avatars1.githubusercontent.com/u/641685?s=32&v=4',
@@ -191,7 +164,7 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 							let preview;
 							try {
 								preview = CommitFormatter.fromTemplate(params.format, commit, {
-									dateFormat: this.container.config.defaultDateFormat,
+									dateFormat: configuration.get('defaultDateFormat'),
 									pullRequestOrRemote: pr,
 									messageTruncateAtNewLine: true,
 								});
@@ -199,10 +172,11 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 								preview = 'Invalid format';
 							}
 
-							await this.notify(DidGenerateConfigurationPreviewNotificationType, {
-								completionId: e.id,
-								preview: preview,
-							});
+							await this.notify(
+								DidGenerateConfigurationPreviewNotificationType,
+								{ preview: preview },
+								e.completionId,
+							);
 						}
 					}
 				});
@@ -225,13 +199,26 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 						update: this.container.rebaseEditor.setEnabled,
 					},
 				],
+				[
+					'currentLine.useUncommittedChangesFormat',
+					{
+						name: 'currentLine.useUncommittedChangesFormat',
+						enabled: () => configuration.get('currentLine.uncommittedChangesFormat') != null,
+						update: async enabled =>
+							configuration.updateEffective(
+								'currentLine.uncommittedChangesFormat',
+								// eslint-disable-next-line no-template-curly-in-string
+								enabled ? '✏️ ${ago}' : null,
+							),
+					},
+				],
 			]);
 		}
 		return this._customSettings;
 	}
 
 	protected getCustomSettings(): Record<string, boolean> {
-		const customSettings = Object.create(null);
+		const customSettings: Record<string, boolean> = Object.create(null);
 		for (const [key, setting] of this.customSettings) {
 			customSettings[key] = setting.enabled();
 		}
@@ -241,7 +228,7 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 	private notifyDidChangeConfiguration() {
 		// Make sure to get the raw config, not from the container which has the modes mixed in
 		return this.notify(DidChangeConfigurationNotificationType, {
-			config: configuration.get(),
+			config: configuration.getAll(true),
 			customSettings: this.getCustomSettings(),
 		});
 	}

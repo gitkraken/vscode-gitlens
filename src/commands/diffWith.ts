@@ -1,9 +1,12 @@
-import { Range, TextDocumentShowOptions, Uri, ViewColumn } from 'vscode';
+import type { TextDocumentShowOptions, Uri } from 'vscode';
+import { Range, ViewColumn } from 'vscode';
 import { Commands, CoreCommands, GlyphChars } from '../constants';
 import type { Container } from '../container';
-import { GitCommit, GitRevision } from '../git/models';
+import type { GitCommit } from '../git/models/commit';
+import { isCommit } from '../git/models/commit';
+import { GitRevision } from '../git/models/reference';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import { showGenericErrorMessage } from '../messages';
 import { command, executeCoreCommand } from '../system/command';
 import { basename } from '../system/path';
 import { Command } from './base';
@@ -29,7 +32,7 @@ export class DiffWithCommand extends Command {
 	static getMarkdownCommandArgs(commit: GitCommit, line?: number): string;
 	static getMarkdownCommandArgs(argsOrCommit: DiffWithCommandArgs | GitCommit, line?: number): string {
 		let args: DiffWithCommandArgs | GitCommit;
-		if (GitCommit.is(argsOrCommit)) {
+		if (isCommit(argsOrCommit)) {
 			const commit = argsOrCommit;
 			if (commit.file == null || commit.unresolvedPreviousSha == null) {
 				debugger;
@@ -93,11 +96,11 @@ export class DiffWithCommand extends Command {
 			[args.lhs.sha, args.rhs.sha] = await Promise.all([
 				await this.container.git.resolveReference(args.repoPath, args.lhs.sha, args.lhs.uri, {
 					// If the ref looks like a sha, don't wait too long, since it should work
-					timeout: GitRevision.isSha(args.lhs.sha) ? 100 : undefined,
+					timeout: GitRevision.isShaLike(args.lhs.sha) ? 100 : undefined,
 				}),
 				await this.container.git.resolveReference(args.repoPath, args.rhs.sha, args.rhs.uri, {
 					// If the ref looks like a sha, don't wait too long, since it should work
-					timeout: GitRevision.isSha(args.rhs.sha) ? 100 : undefined,
+					timeout: GitRevision.isShaLike(args.rhs.sha) ? 100 : undefined,
 				}),
 			]);
 
@@ -186,7 +189,7 @@ export class DiffWithCommand extends Command {
 			));
 		} catch (ex) {
 			Logger.error(ex, 'DiffWithCommand', 'getVersionedFile');
-			void Messages.showGenericErrorMessage('Unable to open compare');
+			void showGenericErrorMessage('Unable to open compare');
 		}
 	}
 }

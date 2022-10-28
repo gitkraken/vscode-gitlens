@@ -1,19 +1,24 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { Colors } from '../../constants';
 import { GitUri } from '../../git/gitUri';
-import { GitBranch, GitLog, GitRemote, GitRevision, GitTrackingState } from '../../git/models';
+import type { GitBranch, GitTrackingState } from '../../git/models/branch';
+import { getRemoteNameFromBranchName } from '../../git/models/branch';
+import type { GitLog } from '../../git/models/log';
+import { GitRevision } from '../../git/models/reference';
+import { GitRemote } from '../../git/models/remote';
 import { fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { first, map } from '../../system/iterable';
 import { pluralize } from '../../system/string';
-import { ViewsWithCommits } from '../viewBase';
+import type { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { BranchTrackingStatusFilesNode } from './branchTrackingStatusFilesNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 export interface BranchTrackingStatus {
 	ref: string;
@@ -87,7 +92,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 					ref: commit.sha,
 				});
 				if (previousLog != null) {
-					commits[commits.length - 1] = first(previousLog.commits.values());
+					commits[commits.length - 1] = first(previousLog.commits.values())!;
 				}
 			}
 		} else {
@@ -165,7 +170,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 			case 'ahead': {
 				const remote = await this.branch.getRemote();
 
-				label = `Changes to push to ${remote?.name ?? GitBranch.getRemote(this.status.upstream!)}${
+				label = `Changes to push to ${remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!)}${
 					remote?.provider?.name ? ` on ${remote?.provider.name}` : ''
 				}`;
 				description = pluralize('commit', this.status.state.ahead);
@@ -186,7 +191,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 			case 'behind': {
 				const remote = await this.branch.getRemote();
 
-				label = `Changes to pull from ${remote?.name ?? GitBranch.getRemote(this.status.upstream!)}${
+				label = `Changes to pull from ${remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!)}${
 					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 				}`;
 				description = pluralize('commit', this.status.state.behind);
@@ -207,7 +212,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 			case 'same': {
 				const remote = await this.branch.getRemote();
 
-				label = `Up to date with ${remote?.name ?? GitBranch.getRemote(this.status.upstream!)}${
+				label = `Up to date with ${remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!)}${
 					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 				}`;
 				description = lastFetched ? `Last fetched ${fromNow(new Date(lastFetched))}` : '';

@@ -1,35 +1,42 @@
-import { env, Range, TextDocumentShowOptions, Uri, window } from 'vscode';
+import type { TextDocumentShowOptions } from 'vscode';
+import { env, Range, Uri, window } from 'vscode';
 import type {
 	BrowseRepoAtRevisionCommandArgs,
 	DiffWithCommandArgs,
+	DiffWithPreviousCommandArgs,
 	DiffWithWorkingCommandArgs,
 	GitCommandsCommandArgs,
+	OpenFileOnRemoteCommandArgs,
 	OpenWorkingFileCommandArgs,
+	ShowQuickCommitCommandArgs,
+	ShowQuickCommitFileCommandArgs,
 } from '../commands';
-import { FileAnnotationType } from '../configuration';
+import type { FileAnnotationType } from '../configuration';
 import { Commands, CoreCommands } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import {
+import type { GitCommit, GitStashCommit } from '../git/models/commit';
+import { isCommit } from '../git/models/commit';
+import type { GitContributor } from '../git/models/contributor';
+import type { GitFile } from '../git/models/file';
+import type {
 	GitBranchReference,
-	GitCommit,
-	GitContributor,
-	GitFile,
-	GitReference,
-	GitRemote,
-	GitRevision,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
-	GitWorktree,
-	Repository,
-} from '../git/models';
+} from '../git/models/reference';
+import { GitReference, GitRevision } from '../git/models/reference';
+import type { GitRemote } from '../git/models/remote';
+import type { Repository } from '../git/models/repository';
+import type { GitWorktree } from '../git/models/worktree';
+import type { ShowInCommitGraphCommandArgs } from '../plus/webviews/graph/graphWebview';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { ensure } from '../system/array';
 import { executeCommand, executeCoreCommand, executeEditorCommand } from '../system/command';
-import { findOrOpenEditor, findOrOpenEditors, openWorkspace, OpenWorkspaceLocation } from '../system/utils';
-import { ViewsWithRepositoryFolders } from '../views/viewBase';
-import { ResetGitCommandArgs } from './git/reset';
+import type { OpenWorkspaceLocation } from '../system/utils';
+import { findOrOpenEditor, findOrOpenEditors, openWorkspace } from '../system/utils';
+import type { ViewsWithRepositoryFolders } from '../views/viewBase';
+import type { ResetGitCommandArgs } from './git/reset';
 
 export async function executeGitCommand(args: GitCommandsCommandArgs): Promise<void> {
 	void (await executeCommand<GitCommandsCommandArgs>(Commands.GitCommands, args));
@@ -102,10 +109,15 @@ export namespace GitActions {
 		});
 	}
 
-	export function switchTo(repos?: string | string[] | Repository | Repository[], ref?: GitReference) {
+	export function switchTo(
+		repos?: string | string[] | Repository | Repository[],
+		ref?: GitReference,
+		confirm?: boolean,
+	) {
 		return executeGitCommand({
 			command: 'switch',
 			state: { repos: repos, reference: ref },
+			confirm: confirm,
 		});
 	}
 
@@ -168,23 +180,30 @@ export namespace GitActions {
 			ref2?: GitRevisionReference,
 		) {
 			// Open the working file to ensure undo will work
-			void (await GitActions.Commit.openFile(file, ref1, { preserveFocus: true, preview: false }));
-			void (await Container.instance.git.applyChangesToWorkingFile(
-				GitUri.fromFile(file, ref1.repoPath, ref1.ref),
-				ref1.ref,
+			await GitActions.Commit.openFile(file, ref1, { preserveFocus: true, preview: false });
+
+			let ref = ref1.ref;
+			// If the file is `?` (untracked), then this must be a stash, so get the ^3 commit to access the untracked file
+			if (typeof file !== 'string' && file.status === '?') {
+				ref = `${ref}^3`;
+			}
+
+			await Container.instance.git.applyChangesToWorkingFile(
+				GitUri.fromFile(file, ref1.repoPath, ref),
+				ref,
 				ref2?.ref,
-			));
+			);
 		}
 
 		export async function copyIdToClipboard(ref: { repoPath: string; ref: string } | GitCommit) {
-			void (await env.clipboard.writeText(ref.ref));
+			await env.clipboard.writeText(ref.ref);
 		}
 
 		export async function copyMessageToClipboard(
 			ref: { repoPath: string; ref: string } | GitCommit,
 		): Promise<void> {
 			let commit;
-			if (GitCommit.is(ref)) {
+			if (isCommit(ref)) {
 				commit = ref;
 				if (commit.message == null) {
 					await commit.ensureFullDetails();
@@ -195,7 +214,7 @@ export namespace GitActions {
 			}
 
 			const message = commit.message ?? commit.summary;
-			void (await env.clipboard.writeText(message));
+			await env.clipboard.writeText(message);
 		}
 
 		export async function openAllChanges(commit: GitCommit, options?: TextDocumentShowOptions): Promise<void>;
@@ -211,7 +230,7 @@ export namespace GitActions {
 		) {
 			let files;
 			let refs;
-			if (GitCommit.is(commitOrFiles)) {
+			if (isCommit(commitOrFiles)) {
 				if (commitOrFiles.files == null) {
 					await commitOrFiles.ensureFullDetails();
 				}
@@ -232,7 +251,7 @@ export namespace GitActions {
 
 			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are your sure you want to open the changes for all ${files.length} files?`,
+					`Are you sure you want to open the changes for all ${files.length} files?`,
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
@@ -256,7 +275,7 @@ export namespace GitActions {
 			ref?: { repoPath: string; ref: string },
 		) {
 			let files;
-			if (GitCommit.is(commitOrFiles)) {
+			if (isCommit(commitOrFiles)) {
 				if (commitOrFiles.files == null) {
 					await commitOrFiles.ensureFullDetails();
 				}
@@ -272,7 +291,7 @@ export namespace GitActions {
 
 			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are your sure you want to open the changes for all ${files.length} files?`,
+					`Are you sure you want to open the changes for all ${files.length} files?`,
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
@@ -300,7 +319,7 @@ export namespace GitActions {
 		) {
 			let files;
 			let ref;
-			if (GitCommit.is(commitOrFiles)) {
+			if (isCommit(commitOrFiles)) {
 				if (commitOrFiles.files == null) {
 					await commitOrFiles.ensureFullDetails();
 				}
@@ -319,7 +338,7 @@ export namespace GitActions {
 
 			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are your sure you want to open the changes for all ${files.length} files?`,
+					`Are you sure you want to open the changes for all ${files.length} files?`,
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
@@ -329,7 +348,7 @@ export namespace GitActions {
 			options = { preserveFocus: true, preview: false, ...options };
 
 			for (const file of files) {
-				void (await openChangesWithWorking(file, ref, options));
+				await openChangesWithWorking(file, ref, options);
 			}
 		}
 
@@ -349,7 +368,7 @@ export namespace GitActions {
 			options?: TextDocumentShowOptions,
 		) {
 			if (typeof file === 'string') {
-				if (!GitCommit.is(commitOrRefs)) throw new Error('Invalid arguments');
+				if (!isCommit(commitOrRefs)) throw new Error('Invalid arguments');
 
 				const f = await commitOrRefs.findFile(file);
 				if (f == null) throw new Error('Invalid arguments');
@@ -357,9 +376,19 @@ export namespace GitActions {
 				file = f;
 			}
 
-			if (file.status === 'A') return;
+			options = { preserveFocus: true, preview: false, ...options };
 
-			const refs = GitCommit.is(commitOrRefs)
+			if (file.status === 'A') {
+				if (!isCommit(commitOrRefs)) return;
+
+				const commit = await commitOrRefs.getCommitForFile(file);
+				void executeCommand<DiffWithPreviousCommandArgs>(Commands.DiffWithPrevious, {
+					commit: commit,
+					showOptions: options,
+				});
+			}
+
+			const refs = isCommit(commitOrRefs)
 				? {
 						repoPath: commitOrRefs.repoPath,
 						// Don't need to worry about verifying the previous sha, as the DiffWith command will
@@ -367,8 +396,6 @@ export namespace GitActions {
 						ref2: commitOrRefs.sha,
 				  }
 				: commitOrRefs;
-
-			options = { preserveFocus: true, preview: false, ...options };
 
 			const uri1 = GitUri.fromFile(file, refs.repoPath);
 			const uri2 =
@@ -400,7 +427,7 @@ export namespace GitActions {
 			tool?: string,
 		) {
 			if (typeof file === 'string') {
-				if (!GitCommit.is(commitOrRef)) throw new Error('Invalid arguments');
+				if (!isCommit(commitOrRef)) throw new Error('Invalid arguments');
 
 				const f = await commitOrRef.findFile(file);
 				if (f == null) throw new Error('Invalid arguments');
@@ -436,7 +463,7 @@ export namespace GitActions {
 			options?: TextDocumentShowOptions,
 		) {
 			if (typeof file === 'string') {
-				if (!GitCommit.is(commitOrRef)) throw new Error('Invalid arguments');
+				if (!isCommit(commitOrRef)) throw new Error('Invalid arguments');
 
 				const f = await commitOrRef.findFile(file);
 				if (f == null) throw new Error('Invalid arguments');
@@ -447,7 +474,7 @@ export namespace GitActions {
 			if (file.status === 'D') return;
 
 			let ref;
-			if (GitCommit.is(commitOrRef)) {
+			if (isCommit(commitOrRef)) {
 				ref = {
 					repoPath: commitOrRef.repoPath,
 					ref: commitOrRef.sha,
@@ -502,7 +529,10 @@ export namespace GitActions {
 				options = refOrOptions as TextDocumentShowOptions;
 			} else {
 				const ref = refOrOptions as GitRevisionReference;
+
 				uri = GitUri.fromFile(fileOrUri, ref.repoPath, ref.ref);
+				// If the file is `?` (untracked), then this must be an untracked file in a stash, so just return
+				if (typeof fileOrUri !== 'string' && fileOrUri.status === '?') return;
 			}
 
 			options = { preserveFocus: true, preview: false, ...options };
@@ -529,12 +559,12 @@ export namespace GitActions {
 		): Promise<void> {
 			let uri;
 			if (fileOrRevisionUri instanceof Uri) {
-				if (GitCommit.is(commitOrOptions)) throw new Error('Invalid arguments');
+				if (isCommit(commitOrOptions)) throw new Error('Invalid arguments');
 
 				uri = fileOrRevisionUri;
 				options = commitOrOptions;
 			} else {
-				if (!GitCommit.is(commitOrOptions)) throw new Error('Invalid arguments');
+				if (!isCommit(commitOrOptions)) throw new Error('Invalid arguments');
 
 				const commit = commitOrOptions;
 
@@ -573,6 +603,28 @@ export namespace GitActions {
 			}
 		}
 
+		export async function openFileOnRemote(uri: Uri): Promise<void>;
+		export async function openFileOnRemote(file: string | GitFile, ref: GitRevisionReference): Promise<void>;
+		export async function openFileOnRemote(
+			fileOrUri: string | GitFile | Uri,
+			ref?: GitRevisionReference,
+		): Promise<void> {
+			let uri;
+			if (fileOrUri instanceof Uri) {
+				uri = fileOrUri;
+			} else {
+				if (ref == null) throw new Error('Invalid arguments');
+
+				uri = GitUri.fromFile(fileOrUri, ref.repoPath, ref.ref);
+				// If the file is `?` (untracked), then this must be an untracked file in a stash, so just return
+				if (typeof fileOrUri !== 'string' && fileOrUri.status === '?') return;
+			}
+
+			void (await executeCommand<[Uri, OpenFileOnRemoteCommandArgs]>(Commands.OpenFileOnRemote, uri, {
+				sha: ref?.ref,
+			}));
+		}
+
 		export async function openFiles(commit: GitCommit): Promise<void>;
 		export async function openFiles(files: GitFile[], repoPath: string, ref: string): Promise<void>;
 		export async function openFiles(
@@ -581,7 +633,7 @@ export namespace GitActions {
 			ref?: string,
 		): Promise<void> {
 			let files;
-			if (GitCommit.is(commitOrFiles)) {
+			if (isCommit(commitOrFiles)) {
 				if (commitOrFiles.files == null) {
 					await commitOrFiles.ensureFullDetails();
 				}
@@ -595,7 +647,7 @@ export namespace GitActions {
 
 			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are your sure you want to open all ${files.length} files?`,
+					`Are you sure you want to open all ${files.length} files?`,
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
@@ -626,7 +678,7 @@ export namespace GitActions {
 			ref2?: string,
 		): Promise<void> {
 			let files;
-			if (GitCommit.is(commitOrFiles)) {
+			if (isCommit(commitOrFiles)) {
 				if (commitOrFiles.files == null) {
 					await commitOrFiles.ensureFullDetails();
 				}
@@ -641,7 +693,7 @@ export namespace GitActions {
 
 			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are your sure you want to open all ${files.length} file revisions?`,
+					`Are you sure you want to open all ${files.length} file revisions?`,
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
@@ -663,10 +715,11 @@ export namespace GitActions {
 				ref = revision.ref;
 			} else {
 				path = file.path;
-				ref = file.status === 'D' ? `${revision.ref}^` : revision.ref;
+				ref =
+					file.status === `?` ? `${revision.ref}^3` : file.status === 'D' ? `${revision.ref}^` : revision.ref;
 			}
 
-			void (await Container.instance.git.checkout(revision.repoPath, ref, { path: path }));
+			await Container.instance.git.checkout(revision.repoPath, ref, { path: path });
 		}
 
 		export async function reveal(
@@ -693,6 +746,46 @@ export namespace GitActions {
 			}
 
 			return undefined;
+		}
+
+		export async function showDetailsQuickPick(commit: GitCommit, uri?: Uri): Promise<void>;
+		export async function showDetailsQuickPick(commit: GitCommit, file?: string | GitFile): Promise<void>;
+		export async function showDetailsQuickPick(
+			commit: GitCommit,
+			fileOrUri?: string | GitFile | Uri,
+		): Promise<void> {
+			if (fileOrUri == null) {
+				void (await executeCommand<ShowQuickCommitCommandArgs>(Commands.ShowQuickCommit, { commit: commit }));
+				return;
+			}
+
+			let uri;
+			if (fileOrUri instanceof Uri) {
+				uri = fileOrUri;
+			} else {
+				uri = GitUri.fromFile(fileOrUri, commit.repoPath, commit.ref);
+			}
+
+			void (await executeCommand<[Uri, ShowQuickCommitFileCommandArgs]>(Commands.ShowQuickCommitFile, uri, {
+				sha: commit.sha,
+			}));
+		}
+
+		export function showDetailsView(
+			commit: GitRevisionReference | GitCommit,
+			options?: { pin?: boolean; preserveFocus?: boolean; preserveVisibility?: boolean },
+		): Promise<void> {
+			return Container.instance.commitDetailsView.show({ ...options, commit: commit });
+		}
+
+		export async function showInCommitGraph(
+			commit: GitRevisionReference | GitCommit,
+			options?: { preserveFocus?: boolean },
+		): Promise<void> {
+			void (await executeCommand<ShowInCommitGraphCommandArgs>(Commands.ShowInCommitGraph, {
+				ref: GitReference.fromRevision(commit),
+				preserveFocus: options?.preserveFocus,
+			}));
 		}
 	}
 
@@ -749,8 +842,8 @@ export namespace GitActions {
 			if (url == null || url.length === 0) return undefined;
 
 			repo = ensureRepo(repo);
-			void (await Container.instance.git.addRemote(repo.path, name, url));
-			void (await repo.fetch({ remote: name }));
+			await Container.instance.git.addRemote(repo.path, name, url);
+			await repo.fetch({ remote: name });
 
 			return name;
 		}
@@ -763,11 +856,11 @@ export namespace GitActions {
 				repo = r;
 			}
 
-			void (await repo.fetch({ remote: remote }));
+			await repo.fetch({ remote: remote });
 		}
 
 		export async function prune(repo: string | Repository, remote: string) {
-			void (await Container.instance.git.pruneRemote(typeof repo === 'string' ? repo : repo.path, remote));
+			await Container.instance.git.pruneRemote(typeof repo === 'string' ? repo : repo.path, remote);
 		}
 
 		export async function reveal(
@@ -851,6 +944,13 @@ export namespace GitActions {
 				? await view.revealStash(stash, options)
 				: await Container.instance.repositoriesView.revealStash(stash, options);
 			return node;
+		}
+
+		export function showDetailsView(
+			stash: GitStashReference | GitStashCommit,
+			options?: { pin?: boolean; preserveFocus?: boolean },
+		): Promise<void> {
+			return Container.instance.commitDetailsView.show({ ...options, commit: stash });
 		}
 	}
 

@@ -1,22 +1,14 @@
-import { v4 as uuid } from 'uuid';
-import {
-	CancellationToken,
-	CancellationTokenSource,
-	Disposable,
-	env,
-	EventEmitter,
-	StatusBarAlignment,
-	StatusBarItem,
-	Uri,
-	UriHandler,
-	window,
-} from 'vscode';
-import { fetch, getProxyAgent, Response } from '@env/fetch';
-import { Container } from '../../container';
+import type { CancellationToken, Disposable, StatusBarItem, UriHandler } from 'vscode';
+import { CancellationTokenSource, env, EventEmitter, StatusBarAlignment, Uri, window } from 'vscode';
+import { uuid } from '@env/crypto';
+import type { Response } from '@env/fetch';
+import { fetch, getProxyAgent } from '@env/fetch';
+import type { Container } from '../../container';
 import { Logger } from '../../logger';
-import { debug, log } from '../../system/decorators/log';
+import { debug, getLogScope, log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
-import { DeferredEvent, DeferredEventExecutor, promisifyDeferred } from '../../system/event';
+import type { DeferredEvent, DeferredEventExecutor } from '../../system/event';
+import { promisifyDeferred } from '../../system/event';
 
 interface AccountInfo {
 	id: string;
@@ -55,14 +47,14 @@ export class ServerConnection implements Disposable {
 	@memoize()
 	private get baseAccountUri(): Uri {
 		if (this.container.env === 'staging') {
-			return Uri.parse('https://stagingaccount.gitkraken.com');
+			return Uri.parse('https://stagingapp.gitkraken.com');
 		}
 
 		if (this.container.env === 'dev') {
-			return Uri.parse('https://devaccount.gitkraken.com');
+			return Uri.parse('https://devapp.gitkraken.com');
 		}
 
-		return Uri.parse('https://account.gitkraken.com');
+		return Uri.parse('https://app.gitkraken.com');
 	}
 
 	abort(): Promise<void> {
@@ -75,7 +67,7 @@ export class ServerConnection implements Disposable {
 
 	@debug({ args: false })
 	async getAccountInfo(token: string): Promise<AccountInfo> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		let rsp: Response;
 		try {
@@ -88,7 +80,7 @@ export class ServerConnection implements Disposable {
 				},
 			});
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			throw ex;
 		}
 
@@ -203,7 +195,7 @@ export class ServerConnection implements Disposable {
 			}
 		} finally {
 			input.dispose();
-			disposables.forEach(d => d.dispose());
+			disposables.forEach(d => void d.dispose());
 		}
 	}
 
@@ -252,16 +244,16 @@ export class ServerConnection implements Disposable {
 
 class UriEventHandler extends EventEmitter<Uri> implements UriHandler {
 	// Strip query strings from the Uri to avoid logging token, etc
-	@log<UriEventHandler['handleUri']>({ args: { 0: u => u.with({ query: '' }).toString(false) } })
+	@log<UriEventHandler['handleUri']>({ args: { 0: u => u.with({ query: '' }).toString(true) } })
 	handleUri(uri: Uri) {
 		this.fire(uri);
 	}
 }
 
 function parseQuery(uri: Uri): Record<string, string> {
-	return uri.query.split('&').reduce((prev, current) => {
+	return uri.query.split('&').reduce<Record<string, string>>((prev, current) => {
 		const queryString = current.split('=');
 		prev[queryString[0]] = queryString[1];
 		return prev;
-	}, {} as Record<string, string>);
+	}, {});
 }

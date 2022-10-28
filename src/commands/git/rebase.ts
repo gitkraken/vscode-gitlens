@@ -1,24 +1,29 @@
 import { env } from 'vscode';
-import { Container } from '../../container';
-import { GitBranch, GitLog, GitReference, GitRevision, Repository } from '../../git/models';
+import type { Container } from '../../container';
+import type { GitBranch } from '../../git/models/branch';
+import type { GitLog } from '../../git/models/log';
+import { GitReference, GitRevision } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
 import { Directive, DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { pluralize } from '../../system/string';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import {
-	appendReposToTitle,
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
+	QuickPickStep,
+	StepGenerator,
+	StepSelection,
+	StepState,
+} from '../quickCommand';
+import {
+	appendReposToTitle,
 	pickBranchOrTagStep,
 	pickCommitStep,
 	pickRepositoryStep,
 	QuickCommand,
 	QuickCommandButtons,
-	QuickPickStep,
-	StepGenerator,
 	StepResult,
-	StepSelection,
-	StepState,
 } from '../quickCommand';
 
 interface Context {
@@ -96,7 +101,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 					break;
 			}
 
-			configs = ['-c', `sequence.editor="${editor}"`];
+			configs = ['-c', `sequence.editor="${editor}"`, '-c', `core.editor="${editor}"`];
 		}
 		return state.repo.rebase(configs, ...state.flags, state.reference.ref);
 	}

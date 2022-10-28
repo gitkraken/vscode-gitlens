@@ -2,16 +2,16 @@
 import './rebase.scss';
 import Sortable from 'sortablejs';
 import { onIpc } from '../../protocol';
+import type { RebaseEntry, RebaseEntryAction, State } from '../../rebase/protocol';
 import {
 	AbortCommandType,
 	ChangeEntryCommandType,
 	DidChangeNotificationType,
 	DisableCommandType,
 	MoveEntryCommandType,
-	RebaseEntry,
-	RebaseEntryAction,
+	ReorderCommandType,
+	SearchCommandType,
 	StartCommandType,
-	State,
 	SwitchCommandType,
 } from '../../rebase/protocol';
 import { App } from '../shared/appBase';
@@ -61,7 +61,10 @@ class RebaseEditor extends App<State> {
 				let squashing = false;
 				let squashToHere = false;
 
-				const $entries = document.querySelectorAll<HTMLLIElement>('li[data-ref]');
+				const $entries = [...document.querySelectorAll<HTMLLIElement>('li[data-ref]')];
+				if (this.state.ascending) {
+					$entries.reverse();
+				}
 				for (const $entry of $entries) {
 					squashToHere = false;
 					if ($entry.classList.contains('entry--squash') || $entry.classList.contains('entry--fixup')) {
@@ -86,7 +89,11 @@ class RebaseEditor extends App<State> {
 
 				const ref = e.item.dataset.ref;
 				if (ref != null) {
-					this.moveEntry(ref, e.newIndex, false);
+					let indexTarget = e.newIndex;
+					if (this.state.ascending && e.oldIndex) {
+						indexTarget = this.getEntryIndex(ref) + (indexTarget - e.oldIndex) * -1;
+					}
+					this.moveEntry(ref, indexTarget, false);
 
 					document.querySelectorAll<HTMLLIElement>(`li[data-ref="${ref}"]`)[0]?.focus();
 				}
@@ -116,6 +123,11 @@ class RebaseEditor extends App<State> {
 
 						this.onAbortClicked();
 					}
+				} else if (e.key === '/') {
+					e.preventDefault();
+					e.stopPropagation();
+
+					this.onSearch();
 				}
 			}),
 			DOM.on('[data-action="start"]', 'click', () => this.onStartClicked()),
@@ -142,12 +154,17 @@ class RebaseEditor extends App<State> {
 					}
 				} else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
 					if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
+						const advance =
+							(e.key === 'ArrowDown' && !this.state.ascending) ||
+							(e.key === 'ArrowUp' && this.state.ascending)
+								? 1
+								: -1;
 						if (e.altKey) {
 							const ref = target.dataset.ref;
 							if (ref) {
 								e.stopPropagation();
 
-								this.moveEntry(ref, e.key === 'ArrowDown' ? 1 : -1, true);
+								this.moveEntry(ref, advance, true);
 							}
 						} else {
 							if (this.state == null) return;
@@ -157,7 +174,7 @@ class RebaseEditor extends App<State> {
 
 							e.preventDefault();
 
-							let index = this.getEntryIndex(ref) + (e.key === 'ArrowDown' ? 1 : -1);
+							let index = this.getEntryIndex(ref) + advance;
 							if (index < 0) {
 								index = this.state.entries.length - 1;
 							} else if (index === this.state.entries.length) {
@@ -177,7 +194,8 @@ class RebaseEditor extends App<State> {
 
 						e.preventDefault();
 
-						let index = this.getEntryIndex(ref) + (e.key === 'j' ? 1 : -1);
+						const shouldAdvance = this.state.ascending ? e.key === 'k' : e.key === 'j';
+						let index = this.getEntryIndex(ref) + (shouldAdvance ? 1 : -1);
 						if (index < 0) {
 							index = this.state.entries.length - 1;
 						} else if (index === this.state.entries.length) {
@@ -193,7 +211,8 @@ class RebaseEditor extends App<State> {
 						if (ref) {
 							e.stopPropagation();
 
-							this.moveEntry(ref, e.key === 'J' ? 1 : -1, true);
+							const shouldAdvance = this.state.ascending ? e.key === 'K' : e.key === 'J';
+							this.moveEntry(ref, shouldAdvance ? 1 : -1, true);
 						}
 					}
 				} else if (!e.metaKey && !e.altKey && !e.ctrlKey) {
@@ -210,6 +229,9 @@ class RebaseEditor extends App<State> {
 				}
 			}),
 			DOM.on('select[data-ref]', 'input', (e, target: HTMLSelectElement) => this.onSelectChanged(target)),
+			DOM.on('input[data-action="reorder"]', 'input', (e, target: HTMLInputElement) =>
+				this.onOrderChanged(target),
+			),
 		);
 
 		return disposables;
@@ -254,6 +276,10 @@ class RebaseEditor extends App<State> {
 		this.sendCommand(DisableCommandType, undefined);
 	}
 
+	private onSearch() {
+		this.sendCommand(SearchCommandType, undefined);
+	}
+
 	private onSelectChanged($el: HTMLSelectElement) {
 		const ref = $el.dataset.ref;
 		if (ref) {
@@ -267,6 +293,14 @@ class RebaseEditor extends App<State> {
 
 	private onSwitchClicked() {
 		this.sendCommand(SwitchCommandType, undefined);
+	}
+
+	private onOrderChanged($el: HTMLInputElement) {
+		const isChecked = $el.checked;
+
+		this.sendCommand(ReorderCommandType, {
+			ascending: isChecked,
+		});
 	}
 
 	protected override onMessageReceived(e: MessageEvent) {
@@ -342,20 +376,36 @@ class RebaseEditor extends App<State> {
 		let squashToHere = false;
 		let tabIndex = 0;
 
-		for (const entry of state.entries) {
-			squashToHere = false;
-			if (entry.action === 'squash' || entry.action === 'fixup') {
-				squashing = true;
-			} else if (squashing) {
-				if (entry.action !== 'drop') {
-					squashToHere = true;
-					squashing = false;
+		const $entries = document.createDocumentFragment();
+		const appendEntries = () => {
+			const appendEntry = (entry: RebaseEntry) => {
+				squashToHere = false;
+				if (entry.action === 'squash' || entry.action === 'fixup') {
+					squashing = true;
+				} else if (squashing) {
+					if (entry.action !== 'drop') {
+						squashToHere = true;
+						squashing = false;
+					}
 				}
-			}
 
-			let $el: HTMLLIElement;
-			[$el, tabIndex] = this.createEntry(entry, state, ++tabIndex, squashToHere);
-			$container.appendChild($el);
+				let $el: HTMLLIElement;
+				[$el, tabIndex] = this.createEntry(entry, state, ++tabIndex, squashToHere);
+
+				return $el;
+			};
+
+			const entryList = state.entries.map(appendEntry);
+			if (state.ascending) {
+				entryList.reverse().forEach($el => $entries.appendChild($el));
+			} else {
+				entryList.forEach($el => $entries.appendChild($el));
+			}
+		};
+
+		if (!state.ascending) {
+			$container.classList.remove('entries--ascending');
+			appendEntries();
 		}
 
 		if (state.onto) {
@@ -372,10 +422,22 @@ class RebaseEditor extends App<State> {
 					++tabIndex,
 					false,
 				);
-				$container.appendChild($el);
+				$entries.appendChild($el);
 				$container.classList.add('entries--base');
 			}
 		}
+
+		if (state.ascending) {
+			$container.classList.add('entries--ascending');
+			appendEntries();
+		}
+
+		const $checkbox = document.getElementById('ordering');
+		if ($checkbox != null) {
+			($checkbox as HTMLInputElement).checked = state.ascending;
+		}
+
+		$container.appendChild($entries);
 
 		document
 			.querySelectorAll<HTMLLIElement>(
@@ -398,7 +460,7 @@ class RebaseEditor extends App<State> {
 		$entry.dataset.ref = entry.ref;
 
 		if (entry.action != null) {
-			$entry.tabIndex = tabIndex++;
+			$entry.tabIndex = 0;
 
 			const $dragHandle = document.createElement('span');
 			$dragHandle.classList.add('entry-handle');
@@ -411,8 +473,8 @@ class RebaseEditor extends App<State> {
 			const $select = document.createElement('select');
 			$select.dataset.ref = entry.ref;
 			$select.name = 'action';
-			$select.tabIndex = tabIndex++;
 
+			const $options = document.createDocumentFragment();
 			for (const action of rebaseActions) {
 				const $option = document.createElement('option');
 				$option.value = action;
@@ -422,8 +484,9 @@ class RebaseEditor extends App<State> {
 					$option.selected = true;
 				}
 
-				$select.appendChild($option);
+				$options.appendChild($option);
 			}
+			$select.appendChild($options);
 			$selectContainer.appendChild($select);
 		}
 
@@ -465,7 +528,6 @@ class RebaseEditor extends App<State> {
 		// $ref.dataset.prev = prev ? `${prev} \u2190 ` : '';
 		$ref.href = commit?.ref ? state.commands.commit.replace(this.commitTokenRegex, commit.ref) : '#';
 		$ref.textContent = entry.ref.substr(0, 7);
-		$ref.tabIndex = tabIndex++;
 		$entry.appendChild($ref);
 
 		return [$entry, tabIndex];

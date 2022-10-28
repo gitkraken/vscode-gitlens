@@ -1,11 +1,13 @@
-import { commands, ConfigurationChangeEvent, Disposable } from 'vscode';
-import { configuration, LineHistoryViewConfig } from '../configuration';
+import type { ConfigurationChangeEvent, Disposable } from 'vscode';
+import type { LineHistoryViewConfig } from '../configuration';
+import { configuration } from '../configuration';
 import { Commands, ContextKeys } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { setContext } from '../context';
 import { executeCommand } from '../system/command';
-import { LineHistoryTrackerNode } from './nodes';
+import { LineHistoryTrackerNode } from './nodes/lineHistoryTrackerNode';
 import { ViewBase } from './viewBase';
+import { registerViewCommand } from './viewCommands';
 
 const pinnedSuffix = ' (pinned)';
 
@@ -13,7 +15,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 	protected readonly configKey = 'lineHistory';
 
 	constructor(container: Container) {
-		super('gitlens.views.lineHistory', 'Line History', container);
+		super(container, 'gitlens.views.lineHistory', 'Line History', 'lineHistoryView');
 
 		void setContext(ContextKeys.ViewsLineHistoryEditorFollowing, true);
 	}
@@ -30,33 +32,25 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 		void this.container.viewCommands;
 
 		return [
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
-			commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
-			commands.registerCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this),
-			commands.registerCommand(
+			registerViewCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
+			registerViewCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this),
+			registerViewCommand(
 				this.getQualifiedCommand('setEditorFollowingOn'),
 				() => this.setEditorFollowing(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setEditorFollowingOff'),
 				() => this.setEditorFollowing(false),
 				this,
 			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOn'),
-				() => this.setShowAvatars(true),
-				this,
-			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOff'),
-				() => this.setShowAvatars(false),
-				this,
-			),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
 		];
 	}
 

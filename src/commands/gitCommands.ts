@@ -1,13 +1,15 @@
-import { Disposable, InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem, window } from 'vscode';
+import type { Disposable, InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
+import { QuickInputButtons, window } from 'vscode';
 import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import { Container } from '../container';
-import { KeyMapping } from '../keyboard';
+import type { KeyMapping } from '../keyboard';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { command } from '../system/command';
 import { log } from '../system/decorators/log';
 import { isPromise } from '../system/promise';
-import { Command, CommandContext } from './base';
+import type { CommandContext } from './base';
+import { Command } from './base';
 import type { BranchGitCommandArgs } from './git/branch';
 import type { CherryPickGitCommandArgs } from './git/cherry-pick';
 import type { CoAuthorsGitCommandArgs } from './git/coauthors';
@@ -27,17 +29,8 @@ import type { SwitchGitCommandArgs } from './git/switch';
 import type { TagGitCommandArgs } from './git/tag';
 import type { WorktreeGitCommandArgs } from './git/worktree';
 import { PickCommandStep } from './gitCommands.utils';
-import {
-	CustomStep,
-	isCustomStep,
-	isQuickInputStep,
-	isQuickPickStep,
-	QuickCommand,
-	QuickInputStep,
-	QuickPickStep,
-	StepResult,
-	StepSelection,
-} from './quickCommand';
+import type { CustomStep, QuickInputStep, QuickPickStep, StepSelection } from './quickCommand';
+import { isCustomStep, isQuickInputStep, isQuickPickStep, QuickCommand, StepResult } from './quickCommand';
 import { QuickCommandButtons, ToggleQuickInputButton } from './quickCommand.buttons';
 
 const sanitizeLabel = /\$\(.+?\)|\s/g;
@@ -116,7 +109,7 @@ export class GitCommandsCommand extends Command {
 		return this.execute(args);
 	}
 
-	@log({ args: false, correlate: true, singleLine: true, timed: false })
+	@log({ args: false, scoped: true, singleLine: true, timed: false })
 	async execute(args?: GitCommandsCommandArgs) {
 		const commandsStep = new PickCommandStep(this.container, args);
 
@@ -218,7 +211,7 @@ export class GitCommandsCommand extends Command {
 			);
 		} finally {
 			quickpick.dispose();
-			disposables.forEach(d => d.dispose());
+			disposables.forEach(d => void d.dispose());
 		}
 	}
 
@@ -252,7 +245,7 @@ export class GitCommandsCommand extends Command {
 						skipConfirmations.push(command.skipConfirmKey);
 					}
 
-					void (await configuration.updateEffective('gitCommands.skipConfirmations', skipConfirmations));
+					await configuration.updateEffective('gitCommands.skipConfirmations', skipConfirmations);
 				});
 				buttons.push(willConfirmToggle);
 			} else {
@@ -431,7 +424,7 @@ export class GitCommandsCommand extends Command {
 			});
 		} finally {
 			input.dispose();
-			disposables.forEach(d => d.dispose());
+			disposables.forEach(d => void d.dispose());
 		}
 	}
 
@@ -719,7 +712,7 @@ export class GitCommandsCommand extends Command {
 										resolve(undefined);
 										return;
 
-									case Directive.RequiresFreeSubscription:
+									case Directive.ExtendTrial:
 										void Container.instance.subscription.loginOrSignUp();
 										resolve(undefined);
 										return;
@@ -778,21 +771,30 @@ export class GitCommandsCommand extends Command {
 				// Needs to be after we reset the command
 				quickpick.buttons = this.getButtons(step, commandsStep.command);
 
-				if (step.value != null) {
+				const selectValueWhenShown = step.selectValueWhenShown ?? true;
+				if (step.value != null && selectValueWhenShown) {
 					quickpick.value = step.value;
 				}
 
 				quickpick.show();
 
-				// Manually trigger `onDidChangeValue`, because the QuickPick seems to fail to call it properly
-				if (step.value != null) {
+				if (step.value != null && !selectValueWhenShown) {
+					quickpick.value = step.value;
+				}
+
+				// Manually trigger `onDidChangeValue`, because the QuickPick fails to call it if the value is set before it is shown
+				if (step.value != null && selectValueWhenShown) {
 					// HACK: This is fragile!
-					(quickpick as any)._onDidChangeValueEmitter.fire(quickpick.value);
+					try {
+						(quickpick as any)._onDidChangeValueEmitter.fire(quickpick.value);
+					} catch {
+						debugger;
+					}
 				}
 			});
 		} finally {
 			quickpick.dispose();
-			disposables.forEach(d => d.dispose());
+			disposables.forEach(d => void d.dispose());
 		}
 	}
 }

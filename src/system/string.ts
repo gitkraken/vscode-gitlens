@@ -94,10 +94,29 @@ export function compareSubstringIgnoreCase(
 	return 0;
 }
 
+export function encodeHtmlWeak(s: string): string;
+export function encodeHtmlWeak(s: string | undefined): string | undefined;
+export function encodeHtmlWeak(s: string | undefined): string | undefined {
+	return s?.replace(/[<>&"]/g, c => {
+		switch (c) {
+			case '<':
+				return '&lt;';
+			case '>':
+				return '&gt;';
+			case '&':
+				return '&amp;';
+			case '"':
+				return '&quot;';
+			default:
+				return c;
+		}
+	});
+}
+
 const escapeMarkdownRegex = /[\\`*_{}[\]()#+\-.!]/g;
 const escapeMarkdownHeaderRegex = /^===/gm;
 // const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';
-const markdownQuotedRegex = /\n/g;
+const markdownQuotedRegex = /\r?\n/g;
 
 export function escapeMarkdown(s: string, options: { quoted?: boolean } = {}): string {
 	s = s
@@ -109,7 +128,7 @@ export function escapeMarkdown(s: string, options: { quoted?: boolean } = {}): s
 	if (!options.quoted) return s;
 
 	// Keep under the same block-quote but with line breaks
-	return s.replace(markdownQuotedRegex, '\t\n>  ');
+	return s.trim().replace(markdownQuotedRegex, '\t\\\n>  ');
 }
 
 export function escapeRegex(s: string) {
@@ -121,16 +140,46 @@ export function getDurationMilliseconds(start: [number, number]) {
 	return secs * 1000 + Math.floor(nanosecs / 1000000);
 }
 
-export function* getLines(s: string, char: string = '\n'): IterableIterator<string> {
-	let i = 0;
-	while (i < s.length) {
-		let j = s.indexOf(char, i);
-		if (j === -1) {
-			j = s.length;
+export function* getLines(data: string | string[], char: string = '\n'): IterableIterator<string> {
+	if (typeof data === 'string') {
+		let i = 0;
+		while (i < data.length) {
+			let j = data.indexOf(char, i);
+			if (j === -1) {
+				j = data.length;
+			}
+
+			yield data.substring(i, j);
+			i = j + 1;
 		}
 
-		yield s.substring(i, j);
-		i = j + 1;
+		return;
+	}
+
+	let count = 0;
+	let leftover: string | undefined;
+	for (let s of data) {
+		count++;
+		if (leftover) {
+			s = leftover + s;
+			leftover = undefined;
+		}
+
+		let i = 0;
+		while (i < s.length) {
+			let j = s.indexOf(char, i);
+			if (j === -1) {
+				if (count === data.length) {
+					j = s.length;
+				} else {
+					leftover = s.substring(i);
+					break;
+				}
+			}
+
+			yield s.substring(i, j);
+			i = j + 1;
+		}
 	}
 }
 
@@ -210,7 +259,7 @@ export function interpolate(template: string, context: object | undefined): stri
 		interpolationMap.set(template, fn);
 	}
 
-	return fn.call(context);
+	return fn.call(context) as string;
 }
 
 // eslint-disable-next-line prefer-arrow-callback
@@ -235,7 +284,7 @@ export async function interpolateAsync(template: string, context: object | undef
 	}
 
 	const value = await fn.call(context);
-	return value;
+	return value as string;
 }
 
 export function isLowerAsciiLetter(code: number): boolean {
@@ -404,6 +453,8 @@ export function getWidth(s: string): number {
 		cachedAnsiRegex = ansiRegex();
 	}
 	s = s.replace(cachedAnsiRegex, '');
+
+	if (s.length === 0) return 0;
 
 	let count = 0;
 	let emoji = 0;

@@ -1,9 +1,10 @@
 import { debug } from '../../system/decorators/log';
-import { GitTreeEntry } from '../models';
+import type { GitTreeEntry } from '../models/tree';
 
 const emptyStr = '';
 const treeRegex = /(?:.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s+(.+)/gm;
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class GitTreeParser {
 	@debug({ args: false, singleLine: true })
 	static parse(data: string | undefined): GitTreeEntry[] | undefined {

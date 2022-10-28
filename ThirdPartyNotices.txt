@@ -3,23 +3,132 @@ GitLens
 THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 This project incorporates components from the projects listed below.
 
-1. @octokit/core version 3.6.0 (https://github.com/octokit/core.js)
-2. @vscode/codicons version 0.0.29 (https://github.com/microsoft/vscode-codicons)
-3. @vscode/webview-ui-toolkit version 0.9.3 (https://github.com/microsoft/vscode-webview-ui-toolkit)
-4. ansi-regex version 6.0.1 (https://github.com/chalk/ansi-regex)
-5. billboard.js version 3.3.2 (https://github.com/naver/billboard.js)
-6. chroma-js version 2.3.0 (https://github.com/gka/chroma.js)
-7. https-proxy-agent version 5.0.0 (https://github.com/TooTallNate/node-https-proxy-agent)
-8. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
-9. lodash-es version 4.17.21 (https://github.com/lodash/lodash)
-10. md5.js version 1.3.5 (https://github.com/crypto-browserify/md5.js)
-11. microsoft/vscode (https://github.com/microsoft/vscode)
-12. node-fetch version 2.6.7 (https://github.com/bitinn/node-fetch)
-13. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
-14. sindresorhus/is-fullwidth-code-point (https://github.com/sindresorhus/is-fullwidth-code-point)
-15. sindresorhus/string-width (https://github.com/sindresorhus/string-width)
-16. sortablejs version 1.14.0 (https://github.com/SortableJS/Sortable)
-17. uuid version 8.3.2 (https://github.com/uuidjs/uuid)
+1. @microsoft/fast-element version 1.10.5 (https://github.com/Microsoft/fast)
+2. @microsoft/fast-react-wrapper version 0.3.14 (https://github.com/Microsoft/fast)
+3. @octokit/core version 4.0.5 (https://github.com/octokit/core.js)
+4. @vscode/codicons version 0.0.32 (https://github.com/microsoft/vscode-codicons)
+5. @vscode/webview-ui-toolkit version 1.1.0 (https://github.com/microsoft/vscode-webview-ui-toolkit)
+6. ansi-regex version 6.0.1 (https://github.com/chalk/ansi-regex)
+7. billboard.js version 3.5.1 (https://github.com/naver/billboard.js)
+8. chroma-js version 2.4.2 (https://github.com/gka/chroma.js)
+9. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
+10. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
+11. lit version 2.3.1 (https://github.com/lit/lit)
+12. lodash-es version 4.17.21 (https://github.com/lodash/lodash)
+13. md5.js version 1.3.5 (https://github.com/crypto-browserify/md5.js)
+14. microsoft/vscode (https://github.com/microsoft/vscode)
+15. node-fetch version 2.6.7 (https://github.com/bitinn/node-fetch)
+16. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
+17. react-dom version 16.8.4 (https://github.com/facebook/react)
+18. react version 16.8.4 (https://github.com/facebook/react)
+19. sindresorhus/is-fullwidth-code-point (https://github.com/sindresorhus/is-fullwidth-code-point)
+20. sindresorhus/string-width (https://github.com/sindresorhus/string-width)
+21. sortablejs version 1.15.0 (https://github.com/SortableJS/Sortable)
+
+%% @microsoft/fast-element NOTICES AND INFORMATION BEGIN HERE
+=========================================
+# FAST Element
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![npm version](https://badge.fury.io/js/%40microsoft%2Ffast-element.svg)](https://badge.fury.io/js/%40microsoft%2Ffast-element)
+
+The `fast-element` library is a lightweight means to easily build performant, memory-efficient, standards-compliant Web Components. FAST Elements work in every major browser and can be used in combination with any front-end framework or even without a framework.
+
+## Installation
+
+### From NPM
+
+To install the `fast-element` library, use either `npm` or `yarn` as follows:
+
+```shell
+npm install --save @microsoft/fast-element
+```
+
+```shell
+yarn add @microsoft/fast-element
+```
+
+Within your JavaScript or TypeScript code, you can then import library APIs like this:
+
+```ts
+import { FASTElement } from '@microsoft/fast-element';
+```
+
+:::tip
+Looking for a setup that integrates with a particular front-end framework or bundler? Check out [our integration docs](../integrations/introduction.md).
+:::
+
+### From CDN
+
+A pre-bundled script that contains all APIs needed to build web components with FAST Element is available on CDN. You can use this script by adding [`type="module"`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Modules) to the script element and then importing from the CDN.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <script type="module">
+          import { FASTElement } from "https://cdn.jsdelivr.net/npm/@microsoft/fast-element/dist/fast-element.min.js";
+
+          // your code here
+        </script>
+    </head>
+    <!-- ... -->
+</html>
+```
+
+The markup above always references the latest release. When deploying to production, you will want to ship with a specific version. Here's an example of the markup for that:
+
+```html
+<script type="module" src="https://cdn.jsdelivr.net/npm/@microsoft/fast-element@1.6.2/dist/fast-element.min.js"></script>
+```
+
+:::note
+For simplicity, examples throughout the documentation will assume the library has been installed from NPM, but you can always replace the import location with the CDN URL.
+:::
+
+:::tip
+Looking for a quick guide on building components?  Check out [our Cheat Sheet](../resources/cheat-sheet.md#building-components).
+:::
+=========================================
+END OF  @microsoft/fast-element NOTICES AND INFORMATION
+
+%% @microsoft/fast-react-wrapper NOTICES AND INFORMATION BEGIN HERE
+=========================================
+# FAST React Wrapper
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![npm version](https://badge.fury.io/js/%40microsoft%2Ffast-react-wrapper.svg)](https://badge.fury.io/js/%40microsoft%2Ffast-react-wrapper)
+
+The `fast-react-wrapper` package contains a utility that enables automatically wrapping Web Components in a React component for ease of integration into React projects.
+
+## Installation
+
+### From NPM
+
+To install the `fast-react-wrapper` library, use either `npm` or `yarn` as follows:
+
+```shell
+npm install --save @microsoft/fast-react-wrapper
+```
+
+```shell
+yarn add @microsoft/fast-react-wrapper
+```
+
+Within your JavaScript or TypeScript code, you can then and use the wrapper like this:
+
+```ts
+import React from 'react';
+import { provideReactWrapper } from '@microsoft/fast-react-wrapper';
+
+const { wrap } = provideReactWrapper(React);
+
+const MyComponent = wrap(MyComponent);
+```
+
+For additional wrapper settings and more information on integrating with Design Systems, see [our integration docs](https://fast.design/docs/integrations/react).
+=========================================
+END OF  @microsoft/fast-react-wrapper NOTICES AND INFORMATION
 
 %% @octokit/core NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -746,6 +855,39 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 =========================================
 END OF  iconv-lite NOTICES AND INFORMATION
 
+%% lit NOTICES AND INFORMATION BEGIN HERE
+=========================================
+BSD 3-Clause License
+
+Copyright (c) 2017 Google LLC. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+=========================================
+END OF  lit NOTICES AND INFORMATION
+
 %% lodash-es NOTICES AND INFORMATION BEGIN HERE
 =========================================
 Copyright OpenJS Foundation and other contributors <https://openjsf.org/>
@@ -907,6 +1049,60 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 =========================================
 END OF  path-browserify NOTICES AND INFORMATION
 
+%% react-dom NOTICES AND INFORMATION BEGIN HERE
+=========================================
+MIT License
+
+Copyright (c) Facebook, Inc. and its affiliates.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+=========================================
+END OF  react-dom NOTICES AND INFORMATION
+
+%% react NOTICES AND INFORMATION BEGIN HERE
+=========================================
+MIT License
+
+Copyright (c) Facebook, Inc. and its affiliates.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+=========================================
+END OF  react NOTICES AND INFORMATION
+
 %% sindresorhus/is-fullwidth-code-point NOTICES AND INFORMATION BEGIN HERE
 =========================================
 MIT License
@@ -963,18 +1159,3 @@ SOFTWARE.
 
 =========================================
 END OF  sortablejs NOTICES AND INFORMATION
-
-%% uuid NOTICES AND INFORMATION BEGIN HERE
-=========================================
-The MIT License (MIT)
-
-Copyright (c) 2010-2020 Robert Kieffer and other contributors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-=========================================
-END OF  uuid NOTICES AND INFORMATION

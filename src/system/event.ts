@@ -1,5 +1,5 @@
-import { Disposable, Event } from 'vscode';
-import { Deferred } from './promise';
+import type { Disposable, Event } from 'vscode';
+import type { Deferred } from './promise';
 
 export function once<T>(event: Event<T>): Event<T> {
 	return (listener: (e: T) => unknown, thisArgs?: unknown, disposables?: Disposable[]) => {

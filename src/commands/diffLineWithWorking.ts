@@ -1,13 +1,15 @@
-import { TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitCommit, GitRevision } from '../git/models';
+import type { GitCommit } from '../git/models/commit';
+import { GitRevision } from '../git/models/reference';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/command';
 import { ActiveEditorCommand, getCommandUri } from './base';
-import { DiffWithCommandArgs } from './diffWith';
+import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffLineWithWorkingCommandArgs {
 	commit?: GitCommit;
@@ -43,7 +45,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 			try {
 				const blame = await this.container.git.getBlameForLine(gitUri, blameline, editor?.document);
 				if (blame == null) {
-					void Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+					void showFileNotUnderSourceControlWarningMessage('Unable to open compare');
 
 					return;
 				}
@@ -72,7 +74,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 				args.line = blame.line.line - 1;
 			} catch (ex) {
 				Logger.error(ex, 'DiffLineWithWorkingCommand', `getBlameForLine(${blameline})`);
-				void Messages.showGenericErrorMessage('Unable to open compare');
+				void showGenericErrorMessage('Unable to open compare');
 
 				return;
 			}

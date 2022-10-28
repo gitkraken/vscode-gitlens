@@ -8,3 +8,7 @@ export function getNonce(): string {
 export function md5(data: string | Uint8Array, encoding: 'base64' | 'hex' = 'base64'): string {
 	return new MD5().update(data).digest(encoding);
 }
+
+export function uuid(): string {
+	return globalThis.crypto.randomUUID();
+}

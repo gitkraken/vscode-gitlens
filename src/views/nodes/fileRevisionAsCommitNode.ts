@@ -1,31 +1,30 @@
-import {
-	Command,
-	MarkdownString,
-	Selection,
-	ThemeColor,
-	ThemeIcon,
-	TreeItem,
-	TreeItemCollapsibleState,
-	Uri,
-} from 'vscode';
+import type { Command, Selection } from 'vscode';
+import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
+import { configuration } from '../../configuration';
 import { Colors, Commands } from '../../constants';
-import { CommitFormatter, StatusFileFormatter } from '../../git/formatters';
+import { CommitFormatter } from '../../git/formatters/commitFormatter';
+import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
-import { GitBranch, GitCommit, GitFile, GitRevisionReference } from '../../git/models';
+import type { GitBranch } from '../../git/models/branch';
+import type { GitCommit } from '../../git/models/commit';
+import { GitFile } from '../../git/models/file';
+import type { GitRevisionReference } from '../../git/models/reference';
 import { joinPaths } from '../../system/path';
-import { FileHistoryView } from '../fileHistoryView';
-import { LineHistoryView } from '../lineHistoryView';
-import { ViewsWithCommits } from '../viewBase';
+import { getSettledValue } from '../../system/promise';
+import type { FileHistoryView } from '../fileHistoryView';
+import type { LineHistoryView } from '../lineHistoryView';
+import type { ViewsWithCommits } from '../viewBase';
 import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNode';
 import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChangesNode';
-import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, ViewRefFileNode } from './viewNode';
 
 export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits | FileHistoryView | LineHistoryView> {
 	constructor(
 		view: ViewsWithCommits | FileHistoryView | LineHistoryView,
 		parent: ViewNode,
-		public readonly file: GitFile,
+		file: GitFile,
 		public commit: GitCommit,
 		private readonly _options: {
 			branch?: GitBranch;
@@ -34,7 +33,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 			unpublished?: boolean;
 		} = {},
 	) {
-		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent);
+		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent, file);
 	}
 
 	override toClipboard(): string {
@@ -52,11 +51,16 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 	async getChildren(): Promise<ViewNode[]> {
 		if (!this.commit.file?.hasConflicts) return [];
 
-		const [mergeStatus, rebaseStatus] = await Promise.all([
+		const [mergeStatusResult, rebaseStatusResult] = await Promise.allSettled([
 			this.view.container.git.getMergeStatus(this.commit.repoPath),
 			this.view.container.git.getRebaseStatus(this.commit.repoPath),
 		]);
-		if (mergeStatus == null && rebaseStatus == null) return [];
+
+		const mergeStatus = getSettledValue(mergeStatusResult);
+		if (mergeStatus == null) return [];
+
+		const rebaseStatus = getSettledValue(rebaseStatusResult);
+		if (rebaseStatus == null) return [];
 
 		return [
 			new MergeConflictCurrentChangesNode(this.view, this, (mergeStatus ?? rebaseStatus)!, this.file),
@@ -83,7 +87,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 
 		const item = new TreeItem(
 			CommitFormatter.fromTemplate(this.view.config.formats.commits.label, this.commit, {
-				dateFormat: this.view.container.config.defaultDateFormat,
+				dateFormat: configuration.get('defaultDateFormat'),
 				getBranchAndTagTips: (sha: string) => this._options.getBranchAndTagTips?.(sha, { compact: true }),
 				messageTruncateAtNewLine: true,
 			}),
@@ -93,7 +97,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		item.contextValue = this.contextValue;
 
 		item.description = CommitFormatter.fromTemplate(this.view.config.formats.commits.description, this.commit, {
-			dateFormat: this.view.container.config.defaultDateFormat,
+			dateFormat: configuration.get('defaultDateFormat'),
 			getBranchAndTagTips: (sha: string) => this._options.getBranchAndTagTips?.(sha, { compact: true }),
 			messageTruncateAtNewLine: true,
 		});
@@ -103,7 +107,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		if (!this.commit.isUncommitted && this.view.config.avatars) {
 			item.iconPath = this._options.unpublished
 				? new ThemeIcon('arrow-up', new ThemeColor(Colors.UnpublishedCommitIconColor))
-				: await this.commit.getAvatarUri({ defaultStyle: this.view.container.config.defaultGravatarsStyle });
+				: await this.commit.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') });
 		}
 
 		if (item.iconPath == null) {
@@ -198,7 +202,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 
 	private async getTooltip() {
 		const remotes = await this.view.container.git.getRemotesWithProviders(this.commit.repoPath);
-		const remote = await this.view.container.git.getRichRemoteProvider(remotes);
+		const remote = await this.view.container.git.getBestRemoteWithRichProvider(remotes);
 
 		if (this.commit.message == null) {
 			await this.commit.ensureFullDetails();
@@ -208,13 +212,21 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		let pr;
 
 		if (remote?.provider != null) {
-			[autolinkedIssuesOrPullRequests, pr] = await Promise.all([
-				this.view.container.autolinks.getIssueOrPullRequestLinks(
+			const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
+				this.view.container.autolinks.getLinkedIssuesAndPullRequests(
 					this.commit.message ?? this.commit.summary,
 					remote,
 				),
-				this.view.container.git.getPullRequestForCommit(this.commit.ref, remote.provider),
+				this.commit.getAssociatedPullRequest({ remote: remote }),
 			]);
+
+			autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
+			pr = getSettledValue(prResult);
+
+			// Remove possible duplicate pull request
+			if (pr != null) {
+				autolinkedIssuesOrPullRequests?.delete(pr.id);
+			}
 		}
 
 		const status = StatusFileFormatter.fromTemplate(`\${status}\${ (originalPath)}`, this.file);
@@ -223,12 +235,12 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 			this.commit,
 			{
 				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
-				dateFormat: this.view.container.config.defaultDateFormat,
+				dateFormat: configuration.get('defaultDateFormat'),
 				getBranchAndTagTips: this._options.getBranchAndTagTips,
-				markdown: true,
 				messageAutolinks: true,
 				messageIndent: 4,
 				pullRequestOrRemote: pr,
+				outputFormat: 'markdown',
 				remotes: remotes,
 				unpublished: this._options.unpublished,
 			},

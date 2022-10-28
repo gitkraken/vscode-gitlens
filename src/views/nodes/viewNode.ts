@@ -1,38 +1,29 @@
-import {
-	Command,
-	Disposable,
-	Event,
-	MarkdownString,
-	TreeItem,
-	TreeItemCollapsibleState,
-	TreeViewVisibilityChangeEvent,
-} from 'vscode';
+import type { Command, Event, TreeViewVisibilityChangeEvent } from 'vscode';
+import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { RepositoriesChangeEvent } from '../../git/gitProviderService';
-import { GitUri } from '../../git/gitUri';
-import {
-	GitFile,
-	GitReference,
-	GitRemote,
-	GitRevisionReference,
-	Repository,
-	RepositoryChange,
-	RepositoryChangeComparisonMode,
-	RepositoryChangeEvent,
-} from '../../git/models';
+import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
+import type { GitUri } from '../../git/gitUri';
+import { unknownGitUri } from '../../git/gitUri';
+import type { GitFile } from '../../git/models/file';
+import type { GitRevisionReference } from '../../git/models/reference';
+import { GitReference } from '../../git/models/reference';
+import { GitRemote } from '../../git/models/remote';
+import type { RepositoryChangeEvent } from '../../git/models/repository';
+import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { Logger } from '../../logger';
-import { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
+import type { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
 import { gate } from '../../system/decorators/gate';
 import { debug, log, logName } from '../../system/decorators/log';
 import { is as isA, szudzikPairing } from '../../system/function';
 import { pad } from '../../system/string';
-import { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
+import type { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
 
 export const enum ContextValues {
 	ActiveFileHistory = 'gitlens:history:active:file',
 	ActiveLineHistory = 'gitlens:history:active:line',
 	AutolinkedItems = 'gitlens:autolinked:items',
 	AutolinkedIssue = 'gitlens:autolinked:issue',
+	AutolinkedItem = 'gitlens:autolinked:item',
 	Branch = 'gitlens:branch',
 	Branches = 'gitlens:branches',
 	BranchStatusAheadOfUpstream = 'gitlens:status-branch:upstream:ahead',
@@ -94,25 +85,22 @@ export interface ViewNode {
 }
 
 @logName<ViewNode>((c, name) => `${name}${c.id != null ? `(${c.id})` : ''}`)
-export abstract class ViewNode<TView extends View = View> {
-	static is(node: any): node is ViewNode {
-		return node instanceof ViewNode;
-	}
-
+export abstract class ViewNode<TView extends View = View, State extends object = any> {
 	protected splatted = false;
 
-	constructor(uri: GitUri, public readonly view: TView, protected readonly parent?: ViewNode) {
+	constructor(uri: GitUri, public readonly view: TView, protected parent?: ViewNode) {
 		this._uri = uri;
 	}
 
 	toClipboard?(): string;
 
 	toString(): string {
-		return `${Logger.toLoggableName(this)}${this.id != null ? `(${this.id})` : ''}`;
+		const id = this.id;
+		return `${Logger.toLoggableName(this)}${id != null ? `(${id})` : ''}`;
 	}
 
 	protected _uri: GitUri;
-	get uri() {
+	get uri(): GitUri {
 		return this._uri;
 	}
 
@@ -147,12 +135,61 @@ export abstract class ViewNode<TView extends View = View> {
 	}
 
 	getSplattedChild?(): Promise<ViewNode | undefined>;
+
+	deleteState<T extends StateKey<State> = StateKey<State>>(key?: T): void {
+		if (this.id == null) {
+			debugger;
+			throw new Error('Id is required to delete state');
+		}
+		return this.view.nodeState.deleteState(this.id, key as string);
+	}
+
+	getState<T extends StateKey<State> = StateKey<State>>(key: T): StateValue<State, T> | undefined {
+		if (this.id == null) {
+			debugger;
+			throw new Error('Id is required to get state');
+		}
+		return this.view.nodeState.getState(this.id, key as string);
+	}
+
+	storeState<T extends StateKey<State> = StateKey<State>>(key: T, value: StateValue<State, T>): void {
+		if (this.id == null) {
+			debugger;
+			throw new Error('Id is required to store state');
+		}
+		this.view.nodeState.storeState(this.id, key as string, value);
+	}
+}
+
+export function isViewNode(node: any): node is ViewNode {
+	return node instanceof ViewNode;
+}
+
+type StateKey<T> = keyof T;
+type StateValue<T, P extends StateKey<T>> = P extends keyof T ? T[P] : never;
+
+export abstract class ViewFileNode<TView extends View = View, State extends object = any> extends ViewNode<
+	TView,
+	State
+> {
+	constructor(uri: GitUri, view: TView, public override parent: ViewNode, public readonly file: GitFile) {
+		super(uri, view, parent);
+	}
+
+	get repoPath(): string {
+		return this.uri.repoPath!;
+	}
+
+	override toString(): string {
+		return `${super.toString()}:${this.file.path}`;
+	}
 }
 
 export abstract class ViewRefNode<
 	TView extends View = View,
 	TReference extends GitReference = GitReference,
-> extends ViewNode<TView> {
+	State extends object = any,
+> extends ViewNode<TView, State> {
 	abstract get ref(): TReference;
 
 	get repoPath(): string {
@@ -164,8 +201,15 @@ export abstract class ViewRefNode<
 	}
 }
 
-export abstract class ViewRefFileNode<TView extends View = View> extends ViewRefNode<TView, GitRevisionReference> {
-	abstract get file(): GitFile;
+export abstract class ViewRefFileNode<TView extends View = View, State extends object = any> extends ViewFileNode<
+	TView,
+	State
+> {
+	constructor(uri: GitUri, view: TView, parent: ViewNode, file: GitFile) {
+		super(uri, view, parent, file);
+	}
+
+	abstract get ref(): GitRevisionReference;
 
 	override toString(): string {
 		return `${super.toString()}:${this.file.path}`;
@@ -411,7 +455,7 @@ export abstract class RepositoryFolderNode<
 				);
 				providerName = providers?.length ? providers[0].name : undefined;
 			} else {
-				const remote = await branch.getRemote();
+				const remote = await branch.getRemoteWithProvider();
 				providerName = remote?.provider?.name;
 			}
 
@@ -521,7 +565,7 @@ export abstract class RepositoriesSubscribeableNode<
 	protected children: TChild[] | undefined;
 
 	constructor(view: TView) {
-		super(GitUri.unknown, view);
+		super(unknownGitUri, view);
 	}
 
 	override async getSplattedChild() {

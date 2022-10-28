@@ -1,15 +1,9 @@
 /*global window document*/
-import {
-	IpcCommandType,
-	IpcMessage,
-	IpcMessageParams,
-	IpcNotificationType,
-	onIpc,
-	WebviewReadyCommandType,
-} from '../../protocol';
+import type { IpcCommandType, IpcMessage, IpcMessageParams, IpcNotificationType } from '../../protocol';
+import { onIpc, WebviewReadyCommandType } from '../../protocol';
 import { DOM } from './dom';
-import { Disposable } from './events';
-import { initializeAndWatchThemeColors } from './theme';
+import type { Disposable } from './events';
+import { initializeAndWatchThemeColors, onDidChangeTheme } from './theme';
 
 interface VsCodeApi {
 	postMessage(msg: unknown): void;
@@ -32,7 +26,7 @@ function nextIpcId() {
 	return `webview:${ipcSequence}`;
 }
 
-export abstract class App<State = void> {
+export abstract class App<State = undefined> {
 	private readonly _api: VsCodeApi;
 	protected state: State;
 
@@ -44,6 +38,10 @@ export abstract class App<State = void> {
 		// this.log(`${this.appName}(${this.state ? JSON.stringify(this.state) : ''})`);
 
 		this._api = acquireVsCodeApi();
+
+		if (this.onThemeUpdated != null) {
+			onDidChangeTheme(this.onThemeUpdated, this);
+		}
 		initializeAndWatchThemeColors();
 
 		requestAnimationFrame(() => {
@@ -61,9 +59,11 @@ export abstract class App<State = void> {
 
 				this.onInitialized?.();
 			} finally {
-				setTimeout(() => {
-					document.body.classList.remove('preload');
-				}, 500);
+				if (document.body.classList.contains('preload')) {
+					setTimeout(() => {
+						document.body.classList.remove('preload');
+					}, 500);
+				}
 			}
 		});
 	}
@@ -72,6 +72,7 @@ export abstract class App<State = void> {
 	protected onBind?(): Disposable[];
 	protected onInitialized?(): void;
 	protected onMessageReceived?(e: MessageEvent): void;
+	protected onThemeUpdated?(): void;
 
 	private bindDisposables: Disposable[] | undefined;
 	protected bind() {
@@ -79,8 +80,8 @@ export abstract class App<State = void> {
 		this.bindDisposables = this.onBind?.();
 	}
 
-	protected log(message: string) {
-		console.log(message);
+	protected log(message: string, ...optionalParams: any[]) {
+		console.log(message, ...optionalParams);
 	}
 
 	protected getState(): State {
@@ -94,31 +95,52 @@ export abstract class App<State = void> {
 		const id = nextIpcId();
 		this.log(`${this.appName}.sendCommand(${id}): name=${command.method}`);
 
-		return this.postMessage({ id: id, method: command.method, params: params });
+		this.postMessage({ id: id, method: command.method, params: params });
 	}
 
-	protected sendCommandWithCompletion<
+	protected async sendCommandWithCompletion<
 		TCommand extends IpcCommandType<any>,
-		TCompletion extends IpcNotificationType<{ completionId: string }>,
+		TCompletion extends IpcNotificationType<any>,
 	>(
 		command: TCommand,
 		params: IpcMessageParams<TCommand>,
 		completion: TCompletion,
-		callback: (params: IpcMessageParams<TCompletion>) => void,
-	): void {
+	): Promise<IpcMessageParams<TCompletion>> {
 		const id = nextIpcId();
 		this.log(`${this.appName}.sendCommandWithCompletion(${id}): name=${command.method}`);
 
-		const disposable = DOM.on(window, 'message', e => {
-			onIpc(completion, e.data as IpcMessage, params => {
-				if (params.completionId === id) {
-					disposable.dispose();
-					callback(params);
-				}
-			});
+		const promise = new Promise<IpcMessageParams<TCompletion>>((resolve, reject) => {
+			let timeout: ReturnType<typeof setTimeout> | undefined;
+
+			const disposables = [
+				DOM.on(window, 'message', (e: MessageEvent<IpcMessage>) => {
+					onIpc(completion, e.data, params => {
+						if (e.data.completionId === id) {
+							disposables.forEach(d => d.dispose());
+							queueMicrotask(() => resolve(params));
+						}
+					});
+				}),
+				{
+					dispose: function () {
+						if (timeout != null) {
+							clearTimeout(timeout);
+							timeout = undefined;
+						}
+					},
+				},
+			];
+
+			timeout = setTimeout(() => {
+				timeout = undefined;
+				disposables.forEach(d => d.dispose());
+				debugger;
+				reject(new Error(`Timed out waiting for completion of ${completion.method}`));
+			}, 60000);
 		});
 
-		return this.postMessage({ id: id, method: command.method, params: params });
+		this.postMessage({ id: id, method: command.method, params: params, completionId: id });
+		return promise;
 	}
 
 	protected setState(state: State) {

@@ -2,10 +2,9 @@ import { ConfigurationTarget } from 'vscode';
 import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { Logger } from '../logger';
 import { ModePicker } from '../quickpicks/modePicker';
 import { command } from '../system/command';
-import { log } from '../system/decorators/log';
+import { getLogScope, log } from '../system/decorators/log';
 import { Command } from './base';
 
 @command()
@@ -14,26 +13,26 @@ export class SwitchModeCommand extends Command {
 		super(Commands.SwitchMode);
 	}
 
-	@log({ args: false, correlate: true, singleLine: true, timed: false })
+	@log({ args: false, scoped: true, singleLine: true, timed: false })
 	async execute() {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const pick = await ModePicker.show();
 		if (pick === undefined) return;
 
-		if (cc != null) {
-			cc.exitDetails = ` \u2014 mode=${pick.key ?? ''}`;
+		if (scope != null) {
+			scope.exitDetails = ` \u2014 mode=${pick.key ?? ''}`;
 		}
 
-		const active = this.container.config.mode.active;
+		const active = configuration.get('mode.active');
 		if (active === pick.key) return;
 
 		// Check if we have applied any annotations and clear them if we won't be applying them again
 		if (active != null && active.length !== 0) {
-			const activeAnnotations = this.container.config.modes?.[active].annotations;
+			const modes = configuration.get('modes');
+			const activeAnnotations = modes?.[active].annotations;
 			if (activeAnnotations != null) {
-				const newAnnotations =
-					pick.key != null ? this.container.config.modes?.[pick.key].annotations : undefined;
+				const newAnnotations = pick.key != null ? modes?.[pick.key].annotations : undefined;
 				if (activeAnnotations !== newAnnotations) {
 					await this.container.fileAnnotations.clearAll();
 				}
@@ -52,11 +51,10 @@ export class ToggleReviewModeCommand extends Command {
 
 	@log({ args: false, singleLine: true, timed: false })
 	async execute() {
-		if (this.container.config.modes == null || !Object.keys(this.container.config.modes).includes('review')) {
-			return;
-		}
+		const modes = configuration.get('modes');
+		if (modes == null || !Object.keys(modes).includes('review')) return;
 
-		const mode = this.container.config.mode.active === 'review' ? undefined : 'review';
+		const mode = configuration.get('mode.active') === 'review' ? undefined : 'review';
 		await configuration.update('mode.active', mode, ConfigurationTarget.Global);
 	}
 }
@@ -69,11 +67,10 @@ export class ToggleZenModeCommand extends Command {
 
 	@log({ args: false, singleLine: true, timed: false })
 	async execute() {
-		if (this.container.config.modes == null || !Object.keys(this.container.config.modes).includes('zen')) {
-			return;
-		}
+		const modes = configuration.get('modes');
+		if (modes == null || !Object.keys(modes).includes('zen')) return;
 
-		const mode = this.container.config.mode.active === 'zen' ? undefined : 'zen';
+		const mode = configuration.get('mode.active') === 'zen' ? undefined : 'zen';
 		await configuration.update('mode.active', mode, ConfigurationTarget.Global);
 	}
 }

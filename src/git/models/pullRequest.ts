@@ -4,7 +4,9 @@ import { Colors } from '../../constants';
 import { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
-import { RemoteProviderReference } from './remoteProvider';
+import type { IssueOrPullRequest } from './issue';
+import { IssueOrPullRequestType } from './issue';
+import type { RemoteProviderReference } from './remoteProvider';
 
 export const enum PullRequestState {
 	Open = 'Open',
@@ -12,7 +14,43 @@ export const enum PullRequestState {
 	Merged = 'Merged',
 }
 
-export class PullRequest {
+export interface PullRequestShape extends IssueOrPullRequest {
+	readonly author: {
+		readonly name: string;
+		readonly avatarUrl: string;
+		readonly url: string;
+	};
+	readonly state: PullRequestState;
+	readonly mergedDate?: Date;
+}
+
+export function serializePullRequest(value: PullRequest): PullRequestShape {
+	const serialized: PullRequestShape = {
+		type: value.type,
+		provider: {
+			id: value.provider.id,
+			name: value.provider.name,
+			domain: value.provider.domain,
+			icon: value.provider.icon,
+		},
+		id: value.id,
+		title: value.title,
+		url: value.url,
+		date: value.date,
+		closedDate: value.closedDate,
+		closed: value.closed,
+		author: {
+			name: value.author.name,
+			avatarUrl: value.author.avatarUrl,
+			url: value.author.url,
+		},
+		state: value.state,
+		mergedDate: value.mergedDate,
+	};
+	return serialized;
+}
+
+export class PullRequest implements PullRequestShape {
 	static is(pr: any): pr is PullRequest {
 		return pr instanceof PullRequest;
 	}
@@ -49,6 +87,8 @@ export class PullRequest {
 		}
 	}
 
+	readonly type = IssueOrPullRequestType.PullRequest;
+
 	constructor(
 		public readonly provider: RemoteProviderReference,
 		public readonly author: {
@@ -64,6 +104,10 @@ export class PullRequest {
 		public readonly closedDate?: Date,
 		public readonly mergedDate?: Date,
 	) {}
+
+	get closed(): boolean {
+		return this.state === PullRequestState.Closed;
+	}
 
 	get formattedDate(): string {
 		return Container.instance.PullRequestDateFormatting.dateStyle === DateStyle.Absolute

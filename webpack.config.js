@@ -1,24 +1,24 @@
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
-/* eslint-disable @typescript-eslint/ban-ts-comment */
-/* eslint-disable @typescript-eslint/no-var-requires */
-/* eslint-disable @typescript-eslint/strict-boolean-expressions */
-/* eslint-disable @typescript-eslint/prefer-optional-chain */
 const { spawnSync } = require('child_process');
-const path = require('path');
 const CircularDependencyPlugin = require('circular-dependency-plugin');
 const { CleanWebpackPlugin: CleanPlugin } = require('clean-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 const CspHtmlPlugin = require('csp-html-webpack-plugin');
 const esbuild = require('esbuild');
+const { generateFonts } = require('fantasticon');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
+const fs = require('fs');
 const HtmlPlugin = require('html-webpack-plugin');
 const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');
 const JSON5 = require('json5');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const path = require('path');
+const { validate } = require('schema-utils');
 const TerserPlugin = require('terser-webpack-plugin');
-const { WebpackError } = require('webpack');
+const { WebpackError, webpack, optimize } = require('webpack');
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
 module.exports =
@@ -48,7 +48,7 @@ module.exports =
 /**
  * @param { 'node' | 'webworker' } target
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; squoosh?: boolean } | undefined } env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; squoosh?: boolean } } env
  * @returns { WebpackConfig }
  */
 function getExtensionConfig(target, mode, env) {
@@ -61,13 +61,14 @@ function getExtensionConfig(target, mode, env) {
 			async: false,
 			eslint: {
 				enabled: true,
-				files: 'src/**/*.ts',
+				files: 'src/**/*.ts?(x)',
 				options: {
 					// cache: true,
 					// cacheLocation: path.join(
 					// 	__dirname,
 					// 	target === 'webworker' ? '.eslintcache.browser' : '.eslintcache',
 					// ),
+					fix: mode !== 'production',
 					overrideConfigFile: path.join(
 						__dirname,
 						target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.json',
@@ -80,6 +81,34 @@ function getExtensionConfig(target, mode, env) {
 			},
 		}),
 	];
+
+	if (target === 'webworker') {
+		plugins.push(new optimize.LimitChunkCountPlugin({ maxChunks: 1 }));
+	} else {
+		// Ensure that the dist folder exists otherwise the FantasticonPlugin will fail
+		const dist = path.join(__dirname, 'dist');
+		if (!fs.existsSync(dist)) {
+			fs.mkdirSync(dist);
+		}
+
+		plugins.push(
+			new FantasticonPlugin({
+				configPath: '.fantasticonrc.js',
+				onBefore: () =>
+					spawnSync('yarn', ['run', 'icons:svgo'], {
+						cwd: __dirname,
+						encoding: 'utf8',
+						shell: true,
+					}),
+				onComplete: () =>
+					spawnSync('yarn', ['run', 'icons:apply'], {
+						cwd: __dirname,
+						encoding: 'utf8',
+						shell: true,
+					}),
+			}),
+		);
+	}
 
 	if (env.analyzeDeps) {
 		plugins.push(
@@ -108,7 +137,7 @@ function getExtensionConfig(target, mode, env) {
 		},
 		mode: mode,
 		target: target,
-		devtool: 'source-map',
+		devtool: mode === 'production' ? false : 'source-map',
 		output: {
 			path: target === 'webworker' ? path.join(__dirname, 'dist', 'browser') : path.join(__dirname, 'dist'),
 			libraryTarget: 'commonjs2',
@@ -133,12 +162,12 @@ function getExtensionConfig(target, mode, env) {
 								},
 						  }
 						: {
-								compress: {
-									drop_debugger: true,
-								},
 								extractComments: false,
 								parallel: true,
 								terserOptions: {
+									compress: {
+										drop_debugger: true,
+									},
 									ecma: 2020,
 									// Keep the class names otherwise @log won't provide a useful name
 									keep_classnames: true,
@@ -173,7 +202,7 @@ function getExtensionConfig(target, mode, env) {
 								loader: 'esbuild-loader',
 								options: {
 									implementation: esbuild,
-									loader: 'ts',
+									loader: 'tsx',
 									target: ['es2020', 'chrome91', 'node14.16'],
 									tsconfigRaw: resolveTSConfig(
 										path.join(
@@ -225,7 +254,7 @@ function getExtensionConfig(target, mode, env) {
 
 /**
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; squoosh?: boolean } | undefined } env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; squoosh?: boolean } } env
  * @returns { WebpackConfig }
  */
 function getWebviewsConfig(mode, env) {
@@ -248,8 +277,11 @@ function getWebviewsConfig(mode, env) {
 			async: false,
 			eslint: {
 				enabled: true,
-				files: path.join(basePath, '**', '*.ts'),
-				// options: { cache: true },
+				files: path.join(basePath, '**', '*.ts?(x)'),
+				options: {
+					// cache: true,
+					fix: mode !== 'production',
+				},
 			},
 			formatter: 'basic',
 			typescript: {
@@ -257,6 +289,8 @@ function getWebviewsConfig(mode, env) {
 			},
 		}),
 		new MiniCssExtractPlugin({ filename: '[name].css' }),
+		getHtmlPlugin('commitDetails', false, mode, env),
+		getHtmlPlugin('graph', true, mode, env),
 		getHtmlPlugin('home', false, mode, env),
 		getHtmlPlugin('rebase', false, mode, env),
 		getHtmlPlugin('settings', false, mode, env),
@@ -300,6 +334,8 @@ function getWebviewsConfig(mode, env) {
 		name: 'webviews',
 		context: basePath,
 		entry: {
+			commitDetails: './commitDetails/commitDetails.ts',
+			graph: './plus/graph/graph.tsx',
 			home: './home/home.ts',
 			rebase: './rebase/rebase.ts',
 			settings: './settings/settings.ts',
@@ -308,7 +344,7 @@ function getWebviewsConfig(mode, env) {
 		},
 		mode: mode,
 		target: 'web',
-		devtool: 'source-map',
+		devtool: mode === 'production' ? false : 'source-map',
 		output: {
 			filename: '[name].js',
 			path: path.join(__dirname, 'dist', 'webviews'),
@@ -333,14 +369,14 @@ function getWebviewsConfig(mode, env) {
 								},
 						  }
 						: {
-								compress: {
-									drop_debugger: true,
-									drop_console: true,
-								},
 								extractComments: false,
 								parallel: true,
 								// @ts-ignore
 								terserOptions: {
+									compress: {
+										drop_debugger: true,
+										drop_console: true,
+									},
 									ecma: 2020,
 									// // Keep the class names otherwise @log won't provide a useful name
 									// keep_classnames: true,
@@ -351,6 +387,14 @@ function getWebviewsConfig(mode, env) {
 				new ImageMinimizerPlugin({
 					deleteOriginalAssets: true,
 					generator: [imageGeneratorConfig],
+				}),
+				new CssMinimizerPlugin({
+					minimizerOptions: {
+						preset: [
+							'cssnano-preset-advanced',
+							{ discardUnused: false, mergeIdents: false, reduceIdents: false },
+						],
+					},
 				}),
 			],
 		},
@@ -365,7 +409,7 @@ function getWebviewsConfig(mode, env) {
 								loader: 'esbuild-loader',
 								options: {
 									implementation: esbuild,
-									loader: 'ts',
+									loader: 'tsx',
 									target: 'es2020',
 									tsconfigRaw: resolveTSConfig(path.join(basePath, 'tsconfig.json')),
 								},
@@ -388,14 +432,14 @@ function getWebviewsConfig(mode, env) {
 						{
 							loader: 'css-loader',
 							options: {
-								sourceMap: true,
+								sourceMap: mode !== 'production',
 								url: false,
 							},
 						},
 						{
 							loader: 'sass-loader',
 							options: {
-								sourceMap: true,
+								sourceMap: mode !== 'production',
 							},
 						},
 					],
@@ -404,6 +448,9 @@ function getWebviewsConfig(mode, env) {
 			],
 		},
 		resolve: {
+			alias: {
+				'@env': path.resolve(__dirname, 'src', 'env', 'browser'),
+			},
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			modules: [basePath, 'node_modules'],
 		},
@@ -437,7 +484,10 @@ function getCspHtmlPlugin(mode, env) {
 				mode !== 'production'
 					? ['#{cspSource}', "'nonce-#{cspNonce}'", "'unsafe-eval'"]
 					: ['#{cspSource}', "'nonce-#{cspNonce}'"],
-			'style-src': ['#{cspSource}', "'nonce-#{cspNonce}'", "'unsafe-hashes'"],
+			'style-src':
+				mode === 'production'
+					? ['#{cspSource}', "'nonce-#{cspNonce}'", "'unsafe-hashes'"]
+					: ['#{cspSource}', "'unsafe-hashes'", "'unsafe-inline'"],
 			'font-src': ['#{cspSource}'],
 		},
 		{
@@ -445,11 +495,11 @@ function getCspHtmlPlugin(mode, env) {
 			hashingMethod: 'sha256',
 			hashEnabled: {
 				'script-src': true,
-				'style-src': true,
+				'style-src': mode === 'production',
 			},
 			nonceEnabled: {
 				'script-src': true,
-				'style-src': true,
+				'style-src': mode === 'production',
 			},
 		},
 	);
@@ -594,4 +644,93 @@ function resolveTSConfig(configFile) {
 	const end = data.lastIndexOf('}') + 1;
 	const json = JSON5.parse(data.substring(start, end));
 	return json;
+}
+
+const schema = {
+	type: 'object',
+	properties: {
+		config: {
+			type: 'object',
+		},
+		configPath: {
+			type: 'string',
+		},
+		onBefore: {
+			instanceof: 'Function',
+		},
+		onComplete: {
+			instanceof: 'Function',
+		},
+	},
+};
+
+class FantasticonPlugin {
+	alreadyRun = false;
+
+	constructor(options = {}) {
+		this.pluginName = 'fantasticon';
+		this.options = options;
+
+		validate(
+			// @ts-ignore
+			schema,
+			options,
+			{
+				name: this.pluginName,
+				baseDataPath: 'options',
+			},
+		);
+	}
+
+	/**
+	 * @param {import("webpack").Compiler} compiler
+	 */
+	apply(compiler) {
+		const {
+			config = undefined,
+			configPath = undefined,
+			onBefore = undefined,
+			onComplete = undefined,
+		} = this.options;
+
+		let loadedConfig;
+		if (configPath) {
+			try {
+				loadedConfig = require(path.join(__dirname, configPath));
+			} catch (ex) {
+				console.error(`[${this.pluginName}] Error loading configuration: ${ex}`);
+			}
+		}
+
+		if (!loadedConfig && !config) {
+			console.error(`[${this.pluginName}] Error loading configuration: no configuration found`);
+			return;
+		}
+
+		const fontConfig = { ...(loadedConfig ?? {}), ...(config ?? {}) };
+
+		// TODO@eamodio: Figure out how to add watching for the fontConfig.inputDir
+		// Maybe something like: https://github.com/Fridus/webpack-watch-files-plugin
+
+		/**
+		 * @this {FantasticonPlugin}
+		 * @param {import("webpack").Compiler} compiler
+		 */
+		async function generate(compiler) {
+			if (compiler.watchMode) {
+				if (this.alreadyRun) return;
+				this.alreadyRun = true;
+			}
+
+			const logger = compiler.getInfrastructureLogger(this.pluginName);
+			logger.log(`Generating icon font...`);
+			await onBefore?.(fontConfig);
+			await generateFonts(fontConfig);
+			await onComplete?.(fontConfig);
+			logger.log(`Generated icon font`);
+		}
+
+		compiler.hooks.beforeRun.tapPromise(this.pluginName, generate.bind(this));
+		compiler.hooks.watchRun.tapPromise(this.pluginName, generate.bind(this));
+	}
 }

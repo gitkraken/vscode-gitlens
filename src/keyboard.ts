@@ -1,8 +1,9 @@
-import { commands, Disposable } from 'vscode';
+import { Disposable } from 'vscode';
 import { ContextKeys } from './constants';
 import { setContext } from './context';
 import { Logger } from './logger';
-import { log } from './system/decorators/log';
+import { registerCommand } from './system/command';
+import { getLogScope, log } from './system/decorators/log';
 
 export declare interface KeyCommand {
 	onDidPressKey?(key: Keys): void | Promise<void>;
@@ -49,9 +50,9 @@ export class KeyboardScope implements Disposable {
 	async dispose() {
 		const index = mappings.indexOf(this._mapping);
 
-		const cc = Logger.getCorrelationContext();
-		if (cc != null) {
-			cc.exitDetails = ` \u2022 index=${index}`;
+		const scope = getLogScope();
+		if (scope != null) {
+			scope.exitDetails = ` \u2022 index=${index}`;
 		}
 
 		if (index === mappings.length - 1) {
@@ -72,12 +73,12 @@ export class KeyboardScope implements Disposable {
 		prefix: (context, key) => `${context.prefix}[${mappings.length}](${key})`,
 	})
 	async clearKeyCommand(key: Keys) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const mapping = mappings[mappings.length - 1];
 		if (mapping !== this._mapping || mapping[key] == null) {
-			if (cc != null) {
-				cc.exitDetails = ' \u2022 skipped';
+			if (scope != null) {
+				scope.exitDetails = ' \u2022 skipped';
 			}
 
 			return;
@@ -95,10 +96,10 @@ export class KeyboardScope implements Disposable {
 		if (this._paused) return;
 
 		this._paused = true;
-		const mapping = (Object.keys(this._mapping) as Keys[]).reduce((accumulator, key) => {
+		const mapping = (Object.keys(this._mapping) as Keys[]).reduce<KeyMapping>((accumulator, key) => {
 			accumulator[key] = keys == null || keys.includes(key) ? undefined : this._mapping[key];
 			return accumulator;
-		}, Object.create(null) as KeyMapping);
+		}, Object.create(null));
 
 		await this.updateKeyCommandsContext(mapping);
 	}
@@ -123,12 +124,12 @@ export class KeyboardScope implements Disposable {
 		prefix: (context, key) => `${context.prefix}[${mappings.length}](${key})`,
 	})
 	async setKeyCommand(key: Keys, command: KeyCommand | (() => Promise<KeyCommand>)) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const mapping = mappings[mappings.length - 1];
 		if (mapping !== this._mapping) {
-			if (cc != null) {
-				cc.exitDetails = ' \u2022 skipped';
+			if (scope != null) {
+				scope.exitDetails = ' \u2022 skipped';
 			}
 
 			return;
@@ -151,9 +152,7 @@ export class Keyboard implements Disposable {
 	private readonly _disposable: Disposable;
 
 	constructor() {
-		const subscriptions = keys.map(key =>
-			commands.registerCommand(`gitlens.key.${key}`, () => this.execute(key), this),
-		);
+		const subscriptions = keys.map(key => registerCommand(`gitlens.key.${key}`, () => this.execute(key), this));
 		this._disposable = Disposable.from(...subscriptions);
 	}
 
@@ -183,11 +182,11 @@ export class Keyboard implements Disposable {
 
 	@log()
 	async execute(key: Keys): Promise<void> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		if (!mappings.length) {
-			if (cc != null) {
-				cc.exitDetails = ' \u2022 skipped, no mappings';
+			if (scope != null) {
+				scope.exitDetails = ' \u2022 skipped, no mappings';
 			}
 
 			return;
@@ -201,16 +200,16 @@ export class Keyboard implements Disposable {
 				command = await command();
 			}
 			if (typeof command?.onDidPressKey !== 'function') {
-				if (cc != null) {
-					cc.exitDetails = ' \u2022 skipped, no callback';
+				if (scope != null) {
+					scope.exitDetails = ' \u2022 skipped, no callback';
 				}
 
 				return;
 			}
 
-			void (await command.onDidPressKey(key));
+			await command.onDidPressKey(key);
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 		}
 	}
 }

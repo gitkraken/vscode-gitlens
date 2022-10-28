@@ -10,6 +10,8 @@ export interface State {
 	commands: {
 		commit: string;
 	};
+
+	ascending: boolean;
 }
 
 export interface RebaseEntry {
@@ -41,12 +43,15 @@ export interface Commit {
 // COMMANDS
 
 export const AbortCommandType = new IpcCommandType('rebase/abort');
-
 export const DisableCommandType = new IpcCommandType('rebase/disable');
-
+export const SearchCommandType = new IpcCommandType('rebase/search');
 export const StartCommandType = new IpcCommandType('rebase/start');
-
 export const SwitchCommandType = new IpcCommandType('rebase/switch');
+
+export interface ReorderParams {
+	ascending: boolean;
+}
+export const ReorderCommandType = new IpcCommandType<ReorderParams>('rebase/reorder');
 
 export interface ChangeEntryParams {
 	ref: string;

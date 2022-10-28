@@ -1,4 +1,5 @@
-import { TextEditor, Uri, window } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
+import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
@@ -13,7 +14,7 @@ export class ToggleLineBlameCommand extends ActiveEditorCommand {
 
 	async execute(editor: TextEditor, _uri?: Uri): Promise<void> {
 		try {
-			void (await this.container.lineAnnotations.toggle(editor));
+			await this.container.lineAnnotations.toggle(editor);
 		} catch (ex) {
 			Logger.error(ex, 'ToggleLineBlameCommand');
 			void window.showErrorMessage(

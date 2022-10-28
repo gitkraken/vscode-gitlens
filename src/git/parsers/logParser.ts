@@ -1,22 +1,17 @@
-import { Range } from 'vscode';
+import type { Range } from 'vscode';
 import type { Container } from '../../container';
 import { filterMap } from '../../system/array';
 import { debug } from '../../system/decorators/log';
 import { normalizePath, relative } from '../../system/path';
 import { getLines } from '../../system/string';
-import {
-	GitCommit,
-	GitCommitIdentity,
-	GitCommitLine,
-	GitFile,
-	GitFileChange,
-	GitFileChangeStats,
-	GitFileIndexStatus,
-	GitLog,
-	GitRevision,
-	GitUser,
-	isUserMatch,
-} from '../models';
+import type { GitCommitLine } from '../models/commit';
+import { GitCommit, GitCommitIdentity } from '../models/commit';
+import type { GitFile, GitFileChangeStats } from '../models/file';
+import { GitFileChange, GitFileIndexStatus } from '../models/file';
+import type { GitLog } from '../models/log';
+import { GitRevision } from '../models/reference';
+import type { GitUser } from '../models/user';
+import { isUserMatch } from '../models/user';
 
 const diffRegex = /diff --git a\/(.*) b\/(.*)/;
 const diffRangeRegex = /^@@ -(\d+?),(\d+?) \+(\d+?),(\d+?) @@/;
@@ -66,13 +61,14 @@ interface LogEntry {
 	fileStats?: GitFileChangeStats;
 
 	summary?: string;
+	tips?: string[];
 
 	line?: GitCommitLine;
 }
 
 export type Parser<T> = {
 	arguments: string[];
-	parse: (data: string) => Generator<T>;
+	parse: (data: string | string[]) => Generator<T>;
 };
 
 type ParsedEntryFile = { status: string; path: string; originalPath?: string };
@@ -82,37 +78,243 @@ type ParserWithFiles<T> = {
 	parse: (data: string) => Generator<ParsedEntryWithFiles<T>>;
 };
 
+type GraphParser = Parser<{
+	sha: string;
+	author: string;
+	authorEmail: string;
+	authorDate: string;
+	committerDate: string;
+	parents: string;
+	tips: string;
+	message: string;
+}>;
+
+let _graphParser: GraphParser | undefined;
+export function getGraphParser(): GraphParser {
+	if (_graphParser == null) {
+		_graphParser = createLogParser({
+			sha: '%H',
+			author: '%aN',
+			authorEmail: '%aE',
+			authorDate: '%at',
+			committerDate: '%ct',
+			parents: '%P',
+			tips: '%D',
+			message: '%B',
+		});
+	}
+	return _graphParser;
+}
+
+type RefParser = Parser<string>;
+
+let _refParser: RefParser | undefined;
+export function getRefParser(): RefParser {
+	if (_refParser == null) {
+		_refParser = createLogParserSingle('%H');
+	}
+	return _refParser;
+}
+
+type RefAndDateParser = Parser<{ sha: string; authorDate: string; committerDate: string }>;
+
+let _refAndDateParser: RefAndDateParser | undefined;
+export function getRefAndDateParser(): RefAndDateParser {
+	if (_refAndDateParser == null) {
+		_refAndDateParser = createLogParser({
+			sha: '%H',
+			authorDate: '%at',
+			committerDate: '%ct',
+		});
+	}
+	return _refAndDateParser;
+}
+
+export function createLogParser<T extends Record<string, unknown>>(
+	fieldMapping: ExtractAll<T, string>,
+	options?: {
+		additionalArgs?: string[];
+		parseEntry?: (fields: IterableIterator<string>, entry: T) => void;
+		prefix?: string;
+		fieldPrefix?: string;
+		fieldSuffix?: string;
+		separator?: string;
+		skip?: number;
+	},
+): Parser<T> {
+	let format = options?.prefix ?? '';
+	const keys: (keyof ExtractAll<T, string>)[] = [];
+	for (const key in fieldMapping) {
+		keys.push(key);
+		format += `${options?.fieldPrefix ?? ''}${fieldMapping[key]}${
+			options?.fieldSuffix ?? (options?.fieldPrefix == null ? '%x00' : '')
+		}`;
+	}
+
+	const args = ['-z', `--format=${format}`];
+	if (options?.additionalArgs != null && options.additionalArgs.length > 0) {
+		args.push(...options.additionalArgs);
+	}
+
+	function* parse(data: string | string[]): Generator<T> {
+		let entry: T = {} as any;
+		let fieldCount = 0;
+		let field;
+
+		const fields = getLines(data, options?.separator ?? '\0');
+		if (options?.skip) {
+			for (let i = 0; i < options.skip; i++) {
+				fields.next();
+			}
+		}
+
+		while (true) {
+			field = fields.next();
+			if (field.done) break;
+
+			entry[keys[fieldCount++]] = field.value as T[keyof T];
+
+			if (fieldCount === keys.length) {
+				fieldCount = 0;
+				field = fields.next();
+
+				options?.parseEntry?.(fields, entry);
+				yield entry;
+
+				entry = {} as any;
+			}
+		}
+	}
+
+	return { arguments: args, parse: parse };
+}
+
+export function createLogParserSingle(field: string): Parser<string> {
+	const format = field;
+	const args = ['-z', `--format=${format}`];
+
+	function* parse(data: string | string[]): Generator<string> {
+		let field;
+
+		const fields = getLines(data, '\0');
+		while (true) {
+			field = fields.next();
+			if (field.done) break;
+
+			yield field.value;
+		}
+	}
+
+	return { arguments: args, parse: parse };
+}
+
+export function createLogParserWithFiles<T extends Record<string, unknown>>(
+	fieldMapping: ExtractAll<T, string>,
+): ParserWithFiles<T> {
+	let format = '%x00';
+	const keys: (keyof ExtractAll<T, string>)[] = [];
+	for (const key in fieldMapping) {
+		keys.push(key);
+		format += `%x00${fieldMapping[key]}`;
+	}
+
+	const args = ['-z', `--format=${format}`, '--name-status'];
+
+	function* parse(data: string): Generator<ParsedEntryWithFiles<T>> {
+		const records = getLines(data, '\0\0\0');
+
+		let entry: ParsedEntryWithFiles<T>;
+		let files: ParsedEntryFile[];
+		let fields: IterableIterator<string>;
+
+		for (const record of records) {
+			entry = {} as any;
+			files = [];
+			fields = getLines(record, '\0');
+
+			// Skip the 2 starting NULs
+			fields.next();
+			fields.next();
+
+			let fieldCount = 0;
+			let field;
+			while (true) {
+				field = fields.next();
+				if (field.done) break;
+
+				if (fieldCount < keys.length) {
+					entry[keys[fieldCount++]] = field.value as ParsedEntryWithFiles<T>[keyof T];
+				} else {
+					const file: ParsedEntryFile = { status: field.value.trim(), path: undefined! };
+					field = fields.next();
+					file.path = field.value;
+
+					if (file.status[0] === 'R' || file.status[0] === 'C') {
+						field = fields.next();
+						file.originalPath = field.value;
+					}
+
+					files.push(file);
+				}
+			}
+
+			entry.files = files;
+			yield entry;
+		}
+	}
+
+	return { arguments: args, parse: parse };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class GitLogParser {
 	static readonly shortstatRegex =
 		/(?<files>\d+) files? changed(?:, (?<additions>\d+) insertions?\(\+\))?(?:, (?<deletions>\d+) deletions?\(-\))?/;
 
-	private static _defaultParser: ParserWithFiles<{
-		sha: string;
-		author: string;
-		authorEmail: string;
-		authorDate: string;
-		committer: string;
-		committerEmail: string;
-		committerDate: string;
-		message: string;
-		parents: string[];
-	}>;
-	static get defaultParser() {
-		if (this._defaultParser == null) {
-			this._defaultParser = GitLogParser.createWithFiles({
-				sha: '%H',
-				author: '%aN',
-				authorEmail: '%aE',
-				authorDate: '%at',
-				committer: '%cN',
-				committerEmail: '%cE',
-				committerDate: '%ct',
-				message: '%B',
-				parents: '%P',
-			});
-		}
-		return this._defaultParser;
-	}
+	// private static _defaultParser: ParserWithFiles<{
+	// 	sha: string;
+	// 	author: string;
+	// 	authorEmail: string;
+	// 	authorDate: string;
+	// 	committer: string;
+	// 	committerEmail: string;
+	// 	committerDate: string;
+	// 	message: string;
+	// 	parents: string[];
+	// }>;
+	// static get defaultParser() {
+	// 	if (this._defaultParser == null) {
+	// 		this._defaultParser = GitLogParser.createWithFiles({
+	// 			sha: '%H',
+	// 			author: '%aN',
+	// 			authorEmail: '%aE',
+	// 			authorDate: '%at',
+	// 			committer: '%cN',
+	// 			committerEmail: '%cE',
+	// 			committerDate: '%ct',
+	// 			message: '%B',
+	// 			parents: '%P',
+	// 		});
+	// 	}
+	// 	return this._defaultParser;
+	// }
+
+	static allFormat = [
+		`${lb}${sl}f${rb}`,
+		`${lb}r${rb}${sp}%H`, // ref
+		`${lb}a${rb}${sp}%aN`, // author
+		`${lb}e${rb}${sp}%aE`, // author email
+		`${lb}d${rb}${sp}%at`, // author date
+		`${lb}n${rb}${sp}%cN`, // committer
+		`${lb}m${rb}${sp}%cE`, // committer email
+		`${lb}c${rb}${sp}%ct`, // committer date
+		`${lb}p${rb}${sp}%P`, // parents
+		`${lb}t${rb}${sp}%D`, // tips
+		`${lb}s${rb}`,
+		'%B', // summary
+		`${lb}${sl}s${rb}`,
+		`${lb}f${rb}`,
+	].join('%n');
 
 	static defaultFormat = [
 		`${lb}${sl}f${rb}`,
@@ -135,141 +337,6 @@ export class GitLogParser {
 
 	static shortlog = '%H%x00%aN%x00%aE%x00%at';
 
-	static create<T extends Record<string, unknown>>(
-		fieldMapping: ExtractAll<T, string>,
-		options?: {
-			additionalArgs?: string[];
-			parseEntry?: (fields: IterableIterator<string>, entry: T) => void;
-			prefix?: string;
-			fieldPrefix?: string;
-			fieldSuffix?: string;
-			separator?: string;
-			skip?: number;
-		},
-	): Parser<T> {
-		let format = options?.prefix ?? '';
-		const keys: (keyof ExtractAll<T, string>)[] = [];
-		for (const key in fieldMapping) {
-			keys.push(key);
-			format += `${options?.fieldPrefix ?? ''}${fieldMapping[key]}${
-				options?.fieldSuffix ?? (options?.fieldPrefix == null ? '%x00' : '')
-			}`;
-		}
-
-		const args = ['-z', `--format=${format}`];
-		if (options?.additionalArgs != null && options.additionalArgs.length > 0) {
-			args.push(...options.additionalArgs);
-		}
-
-		function* parse(data: string): Generator<T> {
-			let entry: T = {} as any;
-			let fieldCount = 0;
-			let field;
-
-			const fields = getLines(data, options?.separator ?? '\0');
-			if (options?.skip) {
-				for (let i = 0; i < options.skip; i++) {
-					field = fields.next();
-				}
-			}
-
-			while (true) {
-				field = fields.next();
-				if (field.done) break;
-
-				entry[keys[fieldCount++]] = field.value as T[keyof T];
-
-				if (fieldCount === keys.length) {
-					fieldCount = 0;
-					field = fields.next();
-
-					options?.parseEntry?.(fields, entry);
-					yield entry;
-
-					entry = {} as any;
-				}
-			}
-		}
-
-		return { arguments: args, parse: parse };
-	}
-
-	static createSingle(field: string): Parser<string> {
-		const format = field;
-		const args = ['-z', `--format=${format}`];
-
-		function* parse(data: string): Generator<string> {
-			let field;
-
-			const fields = getLines(data, '\0');
-			while (true) {
-				field = fields.next();
-				if (field.done) break;
-
-				yield field.value;
-			}
-		}
-
-		return { arguments: args, parse: parse };
-	}
-
-	static createWithFiles<T extends Record<string, string>>(fieldMapping: T): ParserWithFiles<T> {
-		let format = '%x00%x00';
-		const keys: (keyof T)[] = [];
-		for (const key in fieldMapping) {
-			keys.push(key);
-			format += `%x00${fieldMapping[key]}`;
-		}
-
-		const args = ['-z', `--format=${format}`, '--name-status'];
-
-		function* parse(data: string): Generator<ParsedEntryWithFiles<T>> {
-			const records = getLines(data, '\0\0\0\0');
-
-			let entry: ParsedEntryWithFiles<T>;
-			let files: ParsedEntryFile[];
-			let fields: IterableIterator<string>;
-
-			let first = true;
-			for (let record of records) {
-				if (first) {
-					first = false;
-					// Fix the first record (since it only has 3 nulls)
-					record = record.slice(3);
-				}
-
-				entry = {} as any;
-				files = [];
-				fields = getLines(record, '\0');
-
-				let fieldCount = 0;
-				let field;
-				while (true) {
-					field = fields.next();
-					if (field.done) break;
-
-					if (fieldCount < keys.length) {
-						entry[keys[fieldCount++]] = field.value as ParsedEntryWithFiles<T>[keyof T];
-					} else {
-						const file: ParsedEntryFile = { status: field.value.trim(), path: undefined! };
-						field = fields.next();
-						file.path = field.value;
-
-						if (file.status[0] === 'R' || file.status[0] === 'C') {
-							field = fields.next();
-							file.originalPath = field.value;
-						}
-					}
-				}
-
-				entry.files = files;
-				yield entry;
-			}
-		}
-
-		return { arguments: args, parse: parse };
-	}
-
 	@debug({ args: false })
 	static parse(
 		container: Container,
@@ -282,10 +349,11 @@ export class GitLogParser {
 		limit: number | undefined,
 		reverse: boolean,
 		range: Range | undefined,
+		hasMoreOverride?: boolean,
 	): GitLog | undefined {
 		if (!data) return undefined;
 
-		let relativeFileName: string;
+		let relativeFileName: string | undefined;
 
 		let entry: LogEntry = {};
 		let line: string | undefined = undefined;
@@ -359,7 +427,13 @@ export class GitLogParser {
 					break;
 
 				case 112: // 'p': // parents
-					entry.parentShas = line.substring(4).split(' ');
+					line = line.substring(4);
+					entry.parentShas = line.length !== 0 ? line.split(' ') : undefined;
+					break;
+
+				case 116: // 't': // tips
+					line = line.substring(4);
+					entry.tips = line.length !== 0 ? line.split(', ') : undefined;
 					break;
 
 				case 115: // 's': // summary
@@ -536,7 +610,11 @@ export class GitLogParser {
 						);
 						relativeFileName = normalizePath(relative(repoPath, fileName));
 					} else {
-						relativeFileName = entry.path!;
+						relativeFileName =
+							entry.path ??
+							(repoPath != null && fileName != null
+								? normalizePath(relative(repoPath, fileName))
+								: undefined);
 					}
 					first = false;
 
@@ -572,7 +650,7 @@ export class GitLogParser {
 			count: i,
 			limit: limit,
 			range: range,
-			hasMore: Boolean(truncationCount && i > truncationCount && truncationCount !== 1),
+			hasMore: hasMoreOverride ?? Boolean(truncationCount && i > truncationCount && truncationCount !== 1),
 		};
 		return log;
 	}
@@ -583,7 +661,7 @@ export class GitLogParser {
 		commit: GitCommit | undefined,
 		type: LogType,
 		repoPath: string | undefined,
-		relativeFileName: string,
+		relativeFileName: string | undefined,
 		commits: Map<string, GitCommit>,
 		currentUser: GitUser | undefined,
 	): void {
@@ -605,7 +683,7 @@ export class GitLogParser {
 			const files: { file?: GitFileChange; files?: GitFileChange[] } = {
 				files: entry.files?.map(f => new GitFileChange(repoPath!, f.path, f.status, f.originalPath)),
 			};
-			if (type === LogType.LogFile) {
+			if (type === LogType.LogFile && relativeFileName != null) {
 				files.file = new GitFileChange(
 					repoPath!,
 					relativeFileName,
@@ -632,6 +710,7 @@ export class GitLogParser {
 				files,
 				undefined,
 				entry.line != null ? [entry.line] : [],
+				entry.tips,
 			);
 
 			commits.set(entry.sha!, commit);

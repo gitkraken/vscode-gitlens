@@ -1,14 +1,21 @@
-import { CancellationToken, MarkdownString, TextDocument } from 'vscode';
+import type { CancellationToken, TextDocument } from 'vscode';
+import { MarkdownString } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { DiffWithCommand, ShowQuickCommitCommand } from '../commands';
+import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { CommitFormatter } from '../git/formatters';
+import { CommitFormatter } from '../git/formatters/commitFormatter';
 import { GitUri } from '../git/gitUri';
-import { GitCommit, GitDiffHunk, GitDiffHunkLine, GitRemote, GitRevision, PullRequest } from '../git/models';
+import type { GitCommit } from '../git/models/commit';
+import type { GitDiffHunk, GitDiffHunkLine } from '../git/models/diff';
+import type { PullRequest } from '../git/models/pullRequest';
+import { GitRevision } from '../git/models/reference';
+import type { GitRemote } from '../git/models/remote';
 import { Logger, LogLevel } from '../logger';
+import { getNewLogScope } from '../system/decorators/log';
 import { count } from '../system/iterable';
-import { PromiseCancelledError } from '../system/promise';
+import { getSettledValue, PromiseCancelledError } from '../system/promise';
 import { getDurationMilliseconds } from '../system/string';
 
 export namespace Hovers {
@@ -224,26 +231,37 @@ export namespace Hovers {
 
 		if (options?.cancellationToken?.isCancellationRequested) return new MarkdownString();
 
-		const [previousLineComparisonUris, autolinkedIssuesOrPullRequests, pr, presence] = await Promise.all([
-			commit.isUncommitted ? commit.getPreviousComparisonUrisForLine(editorLine, uri.sha) : undefined,
-			getAutoLinkedIssuesOrPullRequests(message, remotes),
-			options?.pullRequests?.pr ??
-				getPullRequestForCommit(commit.ref, remotes, {
-					pullRequests:
-						options?.pullRequests?.enabled !== false &&
-						CommitFormatter.has(
-							format,
-							'pullRequest',
-							'pullRequestAgo',
-							'pullRequestAgoOrDate',
-							'pullRequestDate',
-							'pullRequestState',
-						),
-				}),
-			Container.instance.vsls.maybeGetPresence(commit.author.email),
-		]);
+		const [previousLineComparisonUrisResult, autolinkedIssuesOrPullRequestsResult, prResult, presenceResult] =
+			await Promise.allSettled([
+				commit.isUncommitted ? commit.getPreviousComparisonUrisForLine(editorLine, uri.sha) : undefined,
+				getAutoLinkedIssuesOrPullRequests(message, remotes),
+				options?.pullRequests?.pr ??
+					getPullRequestForCommit(commit.ref, remotes, {
+						pullRequests:
+							options?.pullRequests?.enabled !== false &&
+							CommitFormatter.has(
+								format,
+								'pullRequest',
+								'pullRequestAgo',
+								'pullRequestAgoOrDate',
+								'pullRequestDate',
+								'pullRequestState',
+							),
+					}),
+				Container.instance.vsls.maybeGetPresence(commit.author.email),
+			]);
 
 		if (options?.cancellationToken?.isCancellationRequested) return new MarkdownString();
+
+		const previousLineComparisonUris = getSettledValue(previousLineComparisonUrisResult);
+		const autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
+		const pr = getSettledValue(prResult);
+		const presence = getSettledValue(presenceResult);
+
+		// Remove possible duplicate pull request
+		if (pr != null && !(pr instanceof PromiseCancelledError)) {
+			autolinkedIssuesOrPullRequests?.delete(pr.id);
+		}
 
 		const details = await CommitFormatter.fromTemplateAsync(format, commit, {
 			autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
@@ -253,11 +271,11 @@ export namespace Hovers {
 				uri: uri,
 			},
 			getBranchAndTagTips: options?.getBranchAndTagTips,
-			markdown: true,
 			messageAutolinks: options?.autolinks,
 			pullRequestOrRemote: pr,
 			presence: presence,
 			previousLineComparisonUris: previousLineComparisonUris,
+			outputFormat: 'markdown',
 			remotes: remotes,
 		});
 
@@ -272,7 +290,7 @@ export namespace Hovers {
 	}
 
 	function getDiffFromHunkLine(hunkLine: GitDiffHunkLine, diffStyle?: 'line' | 'hunk'): string {
-		if (diffStyle === 'hunk' || (diffStyle == null && Container.instance.config.hovers.changesDiff === 'hunk')) {
+		if (diffStyle === 'hunk' || (diffStyle == null && configuration.get('hovers.changesDiff') === 'hunk')) {
 			return getDiffFromHunk(hunkLine.hunk);
 		}
 
@@ -282,24 +300,25 @@ export namespace Hovers {
 	}
 
 	async function getAutoLinkedIssuesOrPullRequests(message: string, remotes: GitRemote[]) {
-		const cc = Logger.getNewCorrelationContext('Hovers.getAutoLinkedIssuesOrPullRequests');
-		Logger.debug(cc, `${GlyphChars.Dash} message=<message>`);
+		const scope = getNewLogScope('Hovers.getAutoLinkedIssuesOrPullRequests');
+		Logger.debug(scope, `${GlyphChars.Dash} message=<message>`);
 
 		const start = hrtime();
 
+		const cfg = configuration.get('hovers');
 		if (
-			!Container.instance.config.hovers.autolinks.enabled ||
-			!Container.instance.config.hovers.autolinks.enhanced ||
-			!CommitFormatter.has(Container.instance.config.hovers.detailsMarkdownFormat, 'message')
+			!cfg.autolinks.enabled ||
+			!cfg.autolinks.enhanced ||
+			!CommitFormatter.has(cfg.detailsMarkdownFormat, 'message')
 		) {
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+			Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}
 
-		const remote = await Container.instance.git.getRichRemoteProvider(remotes);
+		const remote = await Container.instance.git.getBestRemoteWithRichProvider(remotes);
 		if (remote?.provider == null) {
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+			Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}
@@ -308,7 +327,7 @@ export namespace Hovers {
 		const timeout = 250;
 
 		try {
-			const autolinks = await Container.instance.autolinks.getIssueOrPullRequestLinks(message, remote, {
+			const autolinks = await Container.instance.autolinks.getLinkedIssuesAndPullRequests(message, remote, {
 				timeout: timeout,
 			});
 
@@ -317,7 +336,7 @@ export namespace Hovers {
 				const prCount = count(autolinks.values(), pr => pr instanceof PromiseCancelledError);
 				if (prCount !== 0) {
 					Logger.debug(
-						cc,
+						scope,
 						`timed out ${
 							GlyphChars.Dash
 						} ${prCount} issue/pull request queries took too long (over ${timeout} ms) ${
@@ -334,7 +353,7 @@ export namespace Hovers {
 					// ];
 					// void Promise.all(pending).then(() => {
 					// 	Logger.debug(
-					// 		cc,
+					// 		scope,
 					// 		`${GlyphChars.Dot} ${count} issue/pull request queries completed; refreshing...`,
 					// 	);
 					// 	void executeCoreCommand(CoreCommands.EditorShowHover);
@@ -344,11 +363,11 @@ export namespace Hovers {
 				}
 			}
 
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+			Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return autolinks;
 		} catch (ex) {
-			Logger.error(ex, cc, `failed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+			Logger.error(ex, scope, `failed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}
@@ -361,20 +380,22 @@ export namespace Hovers {
 			pullRequests?: boolean;
 		},
 	) {
-		const cc = Logger.getNewCorrelationContext('Hovers.getPullRequestForCommit');
-		Logger.debug(cc, `${GlyphChars.Dash} ref=${ref}`);
+		const scope = getNewLogScope('Hovers.getPullRequestForCommit');
+		Logger.debug(scope, `${GlyphChars.Dash} ref=${ref}`);
 
 		const start = hrtime();
 
 		if (!options?.pullRequests) {
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+			Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}
 
-		const remote = await Container.instance.git.getRichRemoteProvider(remotes, { includeDisconnected: true });
+		const remote = await Container.instance.git.getBestRemoteWithRichProvider(remotes, {
+			includeDisconnected: true,
+		});
 		if (remote?.provider == null) {
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+			Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}
@@ -382,7 +403,7 @@ export namespace Hovers {
 		const { provider } = remote;
 		const connected = provider.maybeConnected ?? (await provider.isConnected());
 		if (!connected) {
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+			Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return remote;
 		}
@@ -390,17 +411,17 @@ export namespace Hovers {
 		try {
 			const pr = await Container.instance.git.getPullRequestForCommit(ref, provider, { timeout: 250 });
 
-			Logger.debug(cc, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+			Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return pr;
 		} catch (ex) {
 			if (ex instanceof PromiseCancelledError) {
-				Logger.debug(cc, `timed out ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+				Logger.debug(scope, `timed out ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 				return ex;
 			}
 
-			Logger.error(ex, cc, `failed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+			Logger.error(ex, scope, `failed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
 
 			return undefined;
 		}

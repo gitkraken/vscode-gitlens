@@ -1,9 +1,12 @@
 import { Commands, GlyphChars } from '../constants';
 import type { Container } from '../container';
-import { GitRemote, GitRevision } from '../git/models';
-import { RemoteProvider, RemoteResource, RemoteResourceType } from '../git/remotes/provider';
+import { GitRevision } from '../git/models/reference';
+import { GitRemote } from '../git/models/remote';
+import type { RemoteResource } from '../git/models/remoteResource';
+import { RemoteResourceType } from '../git/models/remoteResource';
+import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import { showGenericErrorMessage } from '../messages';
 import { RemoteProviderPicker } from '../quickpicks/remoteProviderPicker';
 import { command } from '../system/command';
 import { pad, splitSingle } from '../system/string';
@@ -157,10 +160,10 @@ export class OpenOnRemoteCommand extends Command {
 			}
 
 			const pick = await RemoteProviderPicker.show(title, placeHolder, args.resource, remotes, options);
-			void (await pick?.execute());
+			await pick?.execute();
 		} catch (ex) {
 			Logger.error(ex, 'OpenOnRemoteCommand');
-			void Messages.showGenericErrorMessage('Unable to open in remote provider');
+			void showGenericErrorMessage('Unable to open in remote provider');
 		}
 	}
 }

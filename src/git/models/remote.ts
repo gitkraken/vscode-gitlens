@@ -1,7 +1,10 @@
+import type { ColorTheme } from 'vscode';
+import { Uri, window } from 'vscode';
 import { Container } from '../../container';
-import { WorkspaceStorageKeys } from '../../storage';
 import { sortCompare } from '../../system/string';
-import { RemoteProvider, RichRemoteProvider } from '../remotes/provider';
+import { isLightTheme } from '../../system/utils';
+import type { RemoteProvider } from '../remotes/remoteProvider';
+import type { RichRemoteProvider } from '../remotes/richRemoteProvider';
 
 export const enum GitRemoteType {
 	Fetch = 'fetch',
@@ -59,7 +62,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	) {}
 
 	get default() {
-		const defaultRemote = Container.instance.storage.getWorkspace<string>(WorkspaceStorageKeys.DefaultRemote);
+		const defaultRemote = Container.instance.storage.getWorkspace('remote:default');
 		return this.id === defaultRemote;
 	}
 
@@ -79,19 +82,26 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	}
 
 	hasRichProvider(): this is GitRemote<RichRemoteProvider> {
-		return RichRemoteProvider.is(this.provider);
+		return this.provider?.hasRichIntegration() ?? false;
 	}
 
-	async setAsDefault(state: boolean = true, updateViews: boolean = true) {
-		void (await Container.instance.storage.storeWorkspace(
-			WorkspaceStorageKeys.DefaultRemote,
-			state ? this.id : undefined,
-		));
-
-		// TODO@eamodio this is UGLY
-		if (updateViews) {
-			void (await Container.instance.remotesView.refresh());
-			void (await Container.instance.repositoriesView.refresh());
-		}
+	async setAsDefault(value: boolean = true) {
+		const repository = Container.instance.git.getRepository(this.repoPath);
+		await repository?.setRemoteAsDefault(this, value);
 	}
+}
+
+export function getRemoteIconUri(
+	container: Container,
+	remote: GitRemote,
+	asWebviewUri?: (uri: Uri) => Uri,
+	theme: ColorTheme = window.activeColorTheme,
+): Uri | undefined {
+	if (remote.provider?.icon == null) return undefined;
+
+	const uri = Uri.joinPath(
+		container.context.extensionUri,
+		`images/${isLightTheme(theme) ? 'light' : 'dark'}/icon-${remote.provider.icon}.svg`,
+	);
+	return asWebviewUri != null ? asWebviewUri(uri) : uri;
 }

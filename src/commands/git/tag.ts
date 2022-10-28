@@ -1,25 +1,30 @@
-import { QuickInputButtons, QuickPickItem } from 'vscode';
-import { Container } from '../../container';
-import { GitReference, GitTagReference, Repository } from '../../git/models';
-import { QuickPickItemOfT } from '../../quickpicks/items/common';
+import type { QuickPickItem } from 'vscode';
+import { QuickInputButtons } from 'vscode';
+import type { Container } from '../../container';
+import type { GitTagReference } from '../../git/models/reference';
+import { GitReference } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { pluralize } from '../../system/string';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type {
+	AsyncStepResultGenerator,
+	PartialStepState,
+	QuickPickStep,
+	StepGenerator,
+	StepResultGenerator,
+	StepSelection,
+	StepState,
+} from '../quickCommand';
 import {
 	appendReposToTitle,
-	AsyncStepResultGenerator,
 	inputTagNameStep,
-	PartialStepState,
 	pickBranchOrTagStep,
 	pickRepositoryStep,
 	pickTagsStep,
 	QuickCommand,
-	QuickPickStep,
-	StepGenerator,
 	StepResult,
-	StepResultGenerator,
-	StepSelection,
-	StepState,
 } from '../quickCommand';
 
 interface Context {
@@ -267,7 +272,7 @@ export class TagGitCommand extends QuickCommand<State> {
 			}
 
 			QuickCommand.endSteps(state);
-			void state.repo.tag(
+			state.repo.tag(
 				...state.flags,
 				...(state.message.length !== 0 ? [`"${state.message}"`] : []),
 				state.name,
@@ -358,7 +363,7 @@ export class TagGitCommand extends QuickCommand<State> {
 			if (result === StepResult.Break) continue;
 
 			QuickCommand.endSteps(state);
-			void state.repo.tagDelete(state.references);
+			state.repo.tagDelete(state.references);
 		}
 	}
 

@@ -1,43 +1,30 @@
-import {
-	CancellationToken,
-	ConfigurationTarget,
-	CustomTextEditorProvider,
-	Disposable,
-	Position,
-	Range,
-	TextDocument,
-	Uri,
-	WebviewPanel,
-	window,
-	workspace,
-	WorkspaceEdit,
-} from 'vscode';
+import type { CancellationToken, CustomTextEditorProvider, TextDocument, WebviewPanel } from 'vscode';
+import { ConfigurationTarget, Disposable, Position, Range, Uri, window, workspace, WorkspaceEdit } from 'vscode';
 import { getNonce } from '@env/crypto';
 import { ShowQuickCommitCommand } from '../../commands';
 import { configuration } from '../../configuration';
 import { CoreCommands } from '../../constants';
 import type { Container } from '../../container';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { Logger } from '../../logger';
-import { Messages } from '../../messages';
+import { showRebaseSwitchToTextWarningMessage } from '../../messages';
 import { executeCoreCommand } from '../../system/command';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { join, map } from '../../system/iterable';
 import { normalizePath } from '../../system/path';
-import { IpcMessage, onIpc } from '../protocol';
+import type { IpcMessage } from '../protocol';
+import { onIpc } from '../protocol';
+import type { Author, Commit, RebaseEntry, RebaseEntryAction, ReorderParams, State } from './protocol';
 import {
 	AbortCommandType,
-	Author,
 	ChangeEntryCommandType,
-	Commit,
 	DidChangeNotificationType,
 	DisableCommandType,
 	MoveEntryCommandType,
-	RebaseEntry,
-	RebaseEntryAction,
+	ReorderCommandType,
+	SearchCommandType,
 	StartCommandType,
-	State,
 	SwitchCommandType,
 } from './protocol';
 
@@ -98,16 +85,19 @@ interface RebaseEditorContext {
 
 export class RebaseEditorProvider implements CustomTextEditorProvider, Disposable {
 	private readonly _disposable: Disposable;
+	private ascending = false;
 
 	constructor(private readonly container: Container) {
 		this._disposable = Disposable.from(
 			window.registerCustomEditorProvider('gitlens.rebase', this, {
 				supportsMultipleEditorsPerDocument: false,
 				webviewOptions: {
+					enableFindWidget: true,
 					retainContextWhenHidden: true,
 				},
 			}),
 		);
+		this.ascending = configuration.get('rebaseEditor.ordering') === 'asc';
 	}
 
 	dispose() {
@@ -146,10 +136,10 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 		let associations = inspection?.globalValue;
 		if (Array.isArray(associations)) {
-			associations = associations.reduce((accumulator, current) => {
+			associations = associations.reduce<Record<string, string>>((accumulator, current) => {
 				accumulator[current.filenamePattern] = current.viewType;
 				return accumulator;
-			}, Object.create(null) as Record<string, string>);
+			}, Object.create(null));
 		}
 
 		if (associations == null) {
@@ -172,7 +162,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 		const subscriptions: Disposable[] = [];
 		const context: RebaseEditorContext = {
-			dispose: () => Disposable.from(...subscriptions).dispose(),
+			dispose: () => void Disposable.from(...subscriptions).dispose(),
 
 			id: nextWebviewId(),
 			subscriptions: subscriptions,
@@ -245,7 +235,13 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 	private async parseState(context: RebaseEditorContext): Promise<State> {
 		const branch = await this.container.git.getBranch(context.repoPath);
-		const state = await parseRebaseTodo(this.container, context.document.getText(), context.repoPath, branch?.name);
+		const state = await parseRebaseTodo(
+			this.container,
+			context.document.getText(),
+			context.repoPath,
+			branch?.name,
+			this.ascending,
+		);
 		return state;
 	}
 
@@ -280,12 +276,22 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 				onIpc(DisableCommandType, e, () => this.disable(context));
 				break;
 
+			case SearchCommandType.method:
+				onIpc(SearchCommandType, e, () => executeCoreCommand(CoreCommands.CustomEditorShowFindWidget));
+				break;
+
 			case StartCommandType.method:
 				onIpc(StartCommandType, e, () => this.rebase(context));
 				break;
 
 			case SwitchCommandType.method:
 				onIpc(SwitchCommandType, e, () => this.switch(context));
+				break;
+
+			case ReorderCommandType.method:
+				onIpc(ReorderCommandType, e, params => {
+					this.reorder(params, context);
+				});
 				break;
 
 			case ChangeEntryCommandType.method:
@@ -460,13 +466,19 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	private switch(context: RebaseEditorContext) {
 		context.abortOnClose = false;
 
-		void Messages.showRebaseSwitchToTextWarningMessage();
+		void showRebaseSwitchToTextWarningMessage();
 
 		// Open the text version of the document
 		void executeCoreCommand(CoreCommands.Open, context.document.uri, {
 			override: false,
 			preview: false,
 		});
+	}
+
+	private reorder(params: ReorderParams, context: RebaseEditorContext) {
+		this.ascending = params.ascending ?? false;
+		void configuration.updateEffective('rebaseEditor.ordering', this.ascending ? 'asc' : 'desc');
+		void this.getStateAndNotify(context);
 	}
 
 	private async getHtml(context: RebaseEditorContext): Promise<string> {
@@ -481,19 +493,16 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		const root = context.panel.webview.asWebviewUri(this.container.context.extensionUri).toString();
 		const webRoot = context.panel.webview.asWebviewUri(webRootUri).toString();
 
-		const html = content
-			.replace(/#{(head|body|endOfBody)}/i, (_substring, token) => {
+		const html = content.replace(
+			/#{(head|body|endOfBody|placement|cspSource|cspNonce|root|webroot)}/g,
+			(_substring: string, token: string) => {
 				switch (token) {
 					case 'endOfBody':
-						return `<script type="text/javascript" nonce="#{cspNonce}">window.bootstrap = ${JSON.stringify(
+						return `<script type="text/javascript" nonce="${cspNonce}">window.bootstrap=${JSON.stringify(
 							bootstrap,
 						)};</script>`;
-					default:
-						return '';
-				}
-			})
-			.replace(/#{(cspSource|cspNonce|root|webroot)}/g, (substring, token) => {
-				switch (token) {
+					case 'placement':
+						return 'editor';
 					case 'cspSource':
 						return cspSource;
 					case 'cspNonce':
@@ -505,7 +514,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 					default:
 						return '';
 				}
-			});
+			},
+		);
 
 		return html;
 	}
@@ -516,6 +526,7 @@ async function parseRebaseTodo(
 	contents: string | { entries: RebaseEntry[]; onto: string },
 	repoPath: string,
 	branch: string | undefined,
+	ascending: boolean,
 ): Promise<Omit<State, 'rebasing'>> {
 	let onto: string;
 	let entries;
@@ -529,8 +540,8 @@ async function parseRebaseTodo(
 	const authors = new Map<string, Author>();
 	const commits: Commit[] = [];
 
-	const log = await container.git.getLogForSearch(repoPath, {
-		pattern: `${onto ? `#:${onto} ` : ''}${join(
+	const log = await container.git.richSearchCommits(repoPath, {
+		query: `${onto ? `#:${onto} ` : ''}${join(
 			map(entries, e => `#:${e.ref}`),
 			' ',
 		)}`,
@@ -544,7 +555,7 @@ async function parseRebaseTodo(
 			authors.set(name, {
 				author: name,
 				avatarUrl: (
-					await ontoCommit.getAvatarUri({ defaultStyle: container.config.defaultGravatarsStyle })
+					await ontoCommit.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })
 				).toString(true),
 				email: email,
 			});
@@ -553,7 +564,7 @@ async function parseRebaseTodo(
 		commits.push({
 			ref: ontoCommit.ref,
 			author: name,
-			date: ontoCommit.formatDate(container.config.defaultDateFormat),
+			date: ontoCommit.formatDate(configuration.get('defaultDateFormat')),
 			dateFromNow: ontoCommit.formatDateFromNow(),
 			message: ontoCommit.message || 'root',
 		});
@@ -574,7 +585,7 @@ async function parseRebaseTodo(
 			authors.set(name, {
 				author: name,
 				avatarUrl: (
-					await commit.getAvatarUri({ defaultStyle: container.config.defaultGravatarsStyle })
+					await commit.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })
 				).toString(true),
 				email: email,
 			});
@@ -583,7 +594,7 @@ async function parseRebaseTodo(
 		commits.push({
 			ref: commit.ref,
 			author: name,
-			date: commit.formatDate(container.config.defaultDateFormat),
+			date: commit.formatDate(configuration.get('defaultDateFormat')),
 			dateFromNow: commit.formatDateFromNow(),
 			message: commit.message ?? commit.summary,
 		});
@@ -598,6 +609,7 @@ async function parseRebaseTodo(
 		commands: {
 			commit: ShowQuickCommitCommand.getMarkdownCommandArgs(`\${commit}`, repoPath),
 		},
+		ascending: ascending,
 	};
 }
 

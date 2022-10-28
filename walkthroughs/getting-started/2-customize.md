@@ -1,9 +1,7 @@
 ## Customize GitLens
 
 <p align="center">
-  <figure>
-    <img src="../../images/docs/settings.png" alt="GitLens Interactive Settings" />
-  </figure>
+  <img src="../../images/docs/settings.png" alt="GitLens Interactive Settings" />
 </p>
 
 GitLens provides a rich interactive settings editor, an easy-to-use interface, to configure many of GitLens' powerful features.

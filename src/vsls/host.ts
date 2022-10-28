@@ -1,21 +1,21 @@
-import { CancellationToken, Disposable, Uri, workspace, WorkspaceFoldersChangeEvent } from 'vscode';
+import type { CancellationToken, WorkspaceFoldersChangeEvent } from 'vscode';
+import { Disposable, Uri, workspace } from 'vscode';
 import { git } from '@env/providers';
 import type { LiveShare, SharedService } from '../@types/vsls';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { Logger } from '../logger';
-import { debug, log } from '../system/decorators/log';
+import { debug, getLogScope, log } from '../system/decorators/log';
 import { join } from '../system/iterable';
 import { isVslsRoot, normalizePath } from '../system/path';
-import {
+import type {
 	GetRepositoriesForUriRequest,
-	GetRepositoriesForUriRequestType,
 	GetRepositoriesForUriResponse,
 	GitCommandRequest,
-	GitCommandRequestType,
 	GitCommandResponse,
 	RepositoryProxy,
 	RequestType,
 } from './protocol';
+import { GetRepositoriesForUriRequestType, GitCommandRequestType } from './protocol';
 
 const defaultWhitelistFn = () => true;
 const gitWhitelist = new Map<string, (args: any[]) => boolean>([
@@ -77,7 +77,7 @@ export class VslsHostService implements Disposable {
 		this.onRequest(GitCommandRequestType, this.onGitCommandRequest.bind(this));
 		this.onRequest(GetRepositoriesForUriRequestType, this.onGetRepositoriesForUriRequest.bind(this));
 
-		void this.onWorkspaceFoldersChanged();
+		this.onWorkspaceFoldersChanged();
 	}
 
 	dispose() {
@@ -103,7 +103,7 @@ export class VslsHostService implements Disposable {
 	private onWorkspaceFoldersChanged(_e?: WorkspaceFoldersChangeEvent) {
 		if (workspace.workspaceFolders == null || workspace.workspaceFolders.length === 0) return;
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		this._localToSharedPaths.clear();
 		this._sharedToLocalPaths.clear();
@@ -114,7 +114,7 @@ export class VslsHostService implements Disposable {
 			localPath = normalizePath(f.uri.fsPath);
 			sharedPath = normalizePath(this.convertLocalUriToShared(f.uri).toString());
 
-			Logger.debug(cc, `shared='${sharedPath}' \u2194 local='${localPath}'`);
+			Logger.debug(scope, `shared='${sharedPath}' \u2194 local='${localPath}'`);
 			this._localToSharedPaths.set(localPath, sharedPath);
 			this._sharedToLocalPaths.set(sharedPath, localPath);
 		}
@@ -142,7 +142,7 @@ export class VslsHostService implements Disposable {
 		if (options.cwd != null && options.cwd.length > 0 && this._sharedToLocalPaths != null) {
 			// This is all so ugly, but basically we are converting shared paths to local paths
 			if (this._sharedPathsRegex?.test(options.cwd)) {
-				options.cwd = normalizePath(options.cwd).replace(this._sharedPathsRegex, (match, shared) => {
+				options.cwd = normalizePath(options.cwd).replace(this._sharedPathsRegex, (match, shared: string) => {
 					if (!isRootWorkspace) {
 						isRootWorkspace = shared === '/~0';
 					}
@@ -180,7 +180,7 @@ export class VslsHostService implements Disposable {
 					args.splice(
 						i,
 						1,
-						normalizePath(arg).replace(this._sharedPathsRegex, (match, shared) => {
+						normalizePath(arg).replace(this._sharedPathsRegex, (match, shared: string) => {
 							const local = this._sharedToLocalPaths.get(shared);
 							return local != null ? local : shared;
 						}),
@@ -193,7 +193,7 @@ export class VslsHostService implements Disposable {
 		if (typeof data === 'string') {
 			// And then we convert local paths to shared paths
 			if (this._localPathsRegex != null && data.length > 0) {
-				data = data.replace(this._localPathsRegex, (match, local) => {
+				data = data.replace(this._localPathsRegex, (match, local: string) => {
 					const shared = this._localToSharedPaths.get(normalizePath(local));
 					return shared != null ? shared : local;
 				});
@@ -233,11 +233,11 @@ export class VslsHostService implements Disposable {
 		exit: result => `returned ${result.toString(true)}`,
 	})
 	private convertLocalUriToShared(localUri: Uri) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		let sharedUri = this._api.convertLocalUriToShared(localUri);
 		Logger.debug(
-			cc,
+			scope,
 			`LiveShare.convertLocalUriToShared(${localUri.toString(true)}) returned ${sharedUri.toString(true)}`,
 		);
 

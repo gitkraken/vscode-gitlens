@@ -1,21 +1,24 @@
 import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
 import { emojify } from '../../emojis';
-import { GitUri } from '../../git/gitUri';
-import { GitLog, GitRevision, GitTag, GitTagReference } from '../../git/models';
+import type { GitUri } from '../../git/gitUri';
+import type { GitLog } from '../../git/models/log';
+import type { GitTagReference } from '../../git/models/reference';
+import { GitRevision } from '../../git/models/reference';
+import type { GitTag } from '../../git/models/tag';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { pad } from '../../system/string';
-import { RepositoriesView } from '../repositoriesView';
-import { TagsView } from '../tagsView';
+import type { RepositoriesView } from '../repositoriesView';
+import type { TagsView } from '../tagsView';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { insertDateMarkers } from './helpers';
 import { RepositoryNode } from './repositoryNode';
-import { ContextValues, PageableViewNode, ViewNode, ViewRefNode } from './viewNode';
+import type { PageableViewNode, ViewNode } from './viewNode';
+import { ContextValues, ViewRefNode } from './viewNode';
 
 export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagReference> implements PageableViewNode {
 	static key = ':tag';
@@ -81,13 +84,13 @@ export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagRefe
 		})}${
 			this.tag.date != null
 				? `\n${this.tag.formatDateFromNow()} (${this.tag.formatDate(
-						Container.instance.TagDateFormatting.dateFormat,
+						this.view.container.TagDateFormatting.dateFormat,
 				  )})`
 				: ''
 		}\n\n${emojify(this.tag.message)}${
 			this.tag.commitDate != null && this.tag.date !== this.tag.commitDate
 				? `\n${this.tag.formatCommitDateFromNow()} (${this.tag.formatCommitDate(
-						Container.instance.TagDateFormatting.dateFormat,
+						this.view.container.TagDateFormatting.dateFormat,
 				  )})`
 				: ''
 		}`;

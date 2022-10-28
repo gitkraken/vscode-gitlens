@@ -1,7 +1,8 @@
 import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../constants';
-import { LogCorrelationContext, Logger, LogLevel } from '../logger';
-import { getNextCorrelationId } from '../system/decorators/log';
+import type { LogScope } from '../logger';
+import { Logger, LogLevel } from '../logger';
+import { getNextLogScopeId } from '../system/decorators/log';
 
 type StopwatchLogOptions = { message?: string; suffix?: string };
 type StopwatchOptions = {
@@ -11,15 +12,15 @@ type StopwatchOptions = {
 type StopwatchLogLevel = Exclude<LogLevel, LogLevel.Off>;
 
 export class Stopwatch {
-	private readonly instance = `[${String(getNextCorrelationId()).padStart(5)}] `;
+	private readonly instance = `[${String(getNextLogScopeId()).padStart(5)}] `;
 	private readonly logLevel: StopwatchLogLevel;
 	private time: [number, number];
 
-	constructor(public readonly context: string | LogCorrelationContext, options?: StopwatchOptions, ...params: any[]) {
-		let cc;
-		if (typeof context !== 'string') {
-			cc = context;
-			context = '';
+	constructor(public readonly scope: string | LogScope | undefined, options?: StopwatchOptions, ...params: any[]) {
+		let logScope;
+		if (typeof scope !== 'string') {
+			logScope = scope;
+			scope = '';
 			this.instance = '';
 		}
 
@@ -39,26 +40,31 @@ export class Stopwatch {
 			if (params.length) {
 				log(
 					this.logLevel,
-					cc,
-					`${this.instance}${context}${logOptions.message ?? ''}${logOptions.suffix ?? ''}`,
+					logScope,
+					`${this.instance}${scope}${logOptions.message ?? ''}${logOptions.suffix ?? ''}`,
 					...params,
 				);
 			} else {
 				log(
 					this.logLevel,
-					cc,
-					`${this.instance}${context}${logOptions.message ?? ''}${logOptions.suffix ?? ''}`,
+					logScope,
+					`${this.instance}${scope}${logOptions.message ?? ''}${logOptions.suffix ?? ''}`,
 				);
 			}
 		}
 	}
 
+	elapsed(): number {
+		const [secs, nanosecs] = hrtime(this.time);
+		return secs * 1000 + Math.floor(nanosecs / 1000000);
+	}
+
 	log(options?: StopwatchLogOptions): void {
-		this.logCore(this.context, options, false);
+		this.logCore(this.scope, options, false);
 	}
 
 	restart(options?: StopwatchLogOptions): void {
-		this.logCore(this.context, options, true);
+		this.logCore(this.scope, options, true);
 		this.time = hrtime();
 	}
 
@@ -67,20 +73,20 @@ export class Stopwatch {
 	}
 
 	private logCore(
-		context: string | LogCorrelationContext,
+		scope: string | LogScope | undefined,
 		options: StopwatchLogOptions | undefined,
 		logTotalElapsed: boolean,
 	): void {
 		if (!Logger.enabled(this.logLevel)) return;
 
-		let cc;
-		if (typeof context !== 'string') {
-			cc = context;
-			context = '';
+		let logScope;
+		if (typeof scope !== 'string') {
+			logScope = scope;
+			scope = '';
 		}
 
 		if (!logTotalElapsed) {
-			log(this.logLevel, cc, `${this.instance}${context}${options?.message ?? ''}${options?.suffix ?? ''}`);
+			log(this.logLevel, logScope, `${this.instance}${scope}${options?.message ?? ''}${options?.suffix ?? ''}`);
 
 			return;
 		}
@@ -88,10 +94,10 @@ export class Stopwatch {
 		const [secs, nanosecs] = hrtime(this.time);
 		const ms = secs * 1000 + Math.floor(nanosecs / 1000000);
 
-		const prefix = `${this.instance}${context}${options?.message ?? ''}`;
+		const prefix = `${this.instance}${scope}${options?.message ?? ''}`;
 		log(
 			ms > 250 ? LogLevel.Warn : this.logLevel,
-			cc,
+			logScope,
 			`${prefix ? `${prefix} ${GlyphChars.Dot} ` : ''}${ms} ms${options?.suffix ?? ''}`,
 		);
 	}
@@ -113,19 +119,19 @@ export class Stopwatch {
 	}
 }
 
-function log(logLevel: StopwatchLogLevel, cc: LogCorrelationContext | undefined, message: string, ...params: any[]) {
+function log(logLevel: StopwatchLogLevel, scope: LogScope | undefined, message: string, ...params: any[]) {
 	switch (logLevel) {
 		case LogLevel.Error:
-			Logger.error('', cc, message, ...params);
+			Logger.error('', scope, message, ...params);
 			break;
 		case LogLevel.Warn:
-			Logger.warn(cc, message, ...params);
+			Logger.warn(scope, message, ...params);
 			break;
 		case LogLevel.Info:
-			Logger.log(cc, message, ...params);
+			Logger.log(scope, message, ...params);
 			break;
 		default:
-			Logger.debug(cc, message, ...params);
+			Logger.debug(scope, message, ...params);
 			break;
 	}
 }

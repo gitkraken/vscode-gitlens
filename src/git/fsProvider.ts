@@ -1,29 +1,20 @@
-import {
-	Disposable,
-	Event,
-	EventEmitter,
-	FileChangeEvent,
-	FileStat,
-	FileSystemError,
-	FileSystemProvider,
-	FileType,
-	Uri,
-	workspace,
-} from 'vscode';
+import type { Event, FileChangeEvent, FileStat, FileSystemProvider, Uri } from 'vscode';
+import { Disposable, EventEmitter, FileSystemError, FileType, workspace } from 'vscode';
 import { isLinux } from '@env/platform';
 import { Schemes } from '../constants';
-import { Container } from '../container';
-import { GitUri } from '../git/gitUri';
+import type { Container } from '../container';
+import { GitUri, isGitUri } from '../git/gitUri';
 import { debug } from '../system/decorators/log';
 import { map } from '../system/iterable';
 import { normalizePath, relative } from '../system/path';
 import { TernarySearchTree } from '../system/searchTree';
-import { GitRevision, GitTreeEntry } from './models';
+import { GitRevision } from './models/reference';
+import type { GitTreeEntry } from './models/tree';
 
 const emptyArray = new Uint8Array(0);
 
 export function fromGitLensFSUri(uri: Uri): { path: string; ref: string; repoPath: string } {
-	const gitUri = GitUri.is(uri) ? uri : GitUri.fromRevisionUri(uri);
+	const gitUri = isGitUri(uri) ? uri : GitUri.fromRevisionUri(uri);
 	return { path: gitUri.relativePath, ref: gitUri.sha!, repoPath: gitUri.repoPath! };
 }
 
@@ -49,14 +40,14 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		return this._onDidChangeFile.event;
 	}
 
-	copy?(): void | Thenable<void> {
-		throw FileSystemError.NoPermissions;
+	copy?(source: Uri, _destination: Uri, _options: { readonly overwrite: boolean }): void | Thenable<void> {
+		throw FileSystemError.NoPermissions(source);
 	}
-	createDirectory(): void | Thenable<void> {
-		throw FileSystemError.NoPermissions;
+	createDirectory(uri: Uri): void | Thenable<void> {
+		throw FileSystemError.NoPermissions(uri);
 	}
-	delete(): void | Thenable<void> {
-		throw FileSystemError.NoPermissions;
+	delete(uri: Uri, _options: { readonly recursive: boolean }): void | Thenable<void> {
+		throw FileSystemError.NoPermissions(uri);
 	}
 
 	@debug()
@@ -85,8 +76,8 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		return data != null ? data : emptyArray;
 	}
 
-	rename(): void | Thenable<void> {
-		throw FileSystemError.NoPermissions;
+	rename(oldUri: Uri, _newUri: Uri, _options: { readonly overwrite: boolean }): void | Thenable<void> {
+		throw FileSystemError.NoPermissions(oldUri);
 	}
 
 	@debug()
@@ -144,8 +135,8 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		};
 	}
 
-	writeFile(): void | Thenable<void> {
-		throw FileSystemError.NoPermissions;
+	writeFile(uri: Uri): void | Thenable<void> {
+		throw FileSystemError.NoPermissions(uri);
 	}
 
 	private async createSearchTree(ref: string, repoPath: string) {

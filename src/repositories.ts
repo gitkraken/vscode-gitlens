@@ -1,7 +1,7 @@
-import { Uri } from 'vscode';
+import type { Uri } from 'vscode';
 import { isLinux } from '@env/platform';
 import { Schemes } from './constants';
-import { Repository } from './git/models/repository';
+import type { Repository } from './git/models/repository';
 import { addVslsPrefixIfNeeded, normalizePath } from './system/path';
 import { UriTrie } from './system/trie';
 // TODO@eamodio don't import from string here since it will break the tests because of ESM dependencies

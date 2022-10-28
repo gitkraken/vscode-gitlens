@@ -1,20 +1,23 @@
 import { MarkdownString, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { getPresenceDataUri } from '../../avatars';
+import { configuration } from '../../configuration';
 import { GlyphChars } from '../../constants';
-import { GitUri } from '../../git/gitUri';
-import { GitContributor, GitLog } from '../../git/models';
+import type { GitUri } from '../../git/gitUri';
+import type { GitContributor } from '../../git/models/contributor';
+import type { GitLog } from '../../git/models/log';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { pluralize } from '../../system/string';
-import { ContactPresence } from '../../vsls/vsls';
-import { ContributorsView } from '../contributorsView';
-import { RepositoriesView } from '../repositoriesView';
+import type { ContactPresence } from '../../vsls/vsls';
+import type { ContributorsView } from '../contributorsView';
+import type { RepositoriesView } from '../repositoriesView';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { insertDateMarkers } from './helpers';
 import { RepositoryNode } from './repositoryNode';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 export class ContributorNode extends ViewNode<ContributorsView | RepositoriesView> implements PageableViewNode {
 	static key = ':contributor';
@@ -98,9 +101,9 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 		let avatarUri;
 		let avatarMarkdown;
 		if (this.view.config.avatars) {
-			const size = this.view.container.config.hovers.avatarSize;
+			const size = configuration.get('hovers.avatarSize');
 			avatarUri = await this.contributor.getAvatarUri({
-				defaultStyle: this.view.container.config.defaultGravatarsStyle,
+				defaultStyle: configuration.get('defaultGravatarsStyle'),
 				size: size,
 			});
 

@@ -1,10 +1,10 @@
-import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { FileAnnotationType } from '../configuration';
+import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import type { FileAnnotationType } from '../configuration';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitReference } from '../git/models';
-import { Messages } from '../messages';
+import type { GitReference } from '../git/models/reference';
+import { showNoRepositoryWarningMessage } from '../messages';
 import { StashPicker } from '../quickpicks/commitPicker';
 import { ReferencePicker } from '../quickpicks/referencePicker';
 import { command } from '../system/command';
@@ -33,7 +33,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 
 		const gitUri = await GitUri.fromUri(uri);
 		if (!gitUri.repoPath) {
-			void Messages.showNoRepositoryWarningMessage('Unable to open file revision');
+			void showNoRepositoryWarningMessage('Unable to open file revision');
 			return;
 		}
 
@@ -69,7 +69,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 						onDidPressKey: async (key, quickpick) => {
 							const [item] = quickpick.activeItems;
 							if (item != null) {
-								void (await GitActions.Commit.openFileAtRevision(
+								await GitActions.Commit.openFileAtRevision(
 									this.container.git.getRevisionUri(item.ref, gitUri.fsPath, gitUri.repoPath!),
 									{
 										annotationType: args!.annotationType,
@@ -77,7 +77,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 										preserveFocus: true,
 										preview: false,
 									},
-								));
+								);
 							}
 						},
 					},
@@ -88,13 +88,13 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 			}
 		}
 
-		void (await GitActions.Commit.openFileAtRevision(
+		await GitActions.Commit.openFileAtRevision(
 			this.container.git.getRevisionUri(args.reference.ref, gitUri.fsPath, gitUri.repoPath),
 			{
 				annotationType: args.annotationType,
 				line: args.line,
 				...args.showOptions,
 			},
-		));
+		);
 	}
 }

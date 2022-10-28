@@ -1,12 +1,16 @@
-import { QuickPickItem, window } from 'vscode';
+import type { QuickPickItem } from 'vscode';
+import { window } from 'vscode';
 import { GitActions } from '../../commands/gitCommands.actions';
-import { OpenChangedFilesCommandArgs } from '../../commands/openChangedFiles';
+import type { OpenChangedFilesCommandArgs } from '../../commands/openChangedFiles';
 import { QuickCommandButtons } from '../../commands/quickCommand.buttons';
 import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { CommitFormatter } from '../../git/formatters';
-import { GitCommit, GitFile, GitFileChange, GitStatusFile } from '../../git/models';
-import { Keys } from '../../keyboard';
+import { CommitFormatter } from '../../git/formatters/commitFormatter';
+import type { GitCommit } from '../../git/models/commit';
+import type { GitFileChange } from '../../git/models/file';
+import { GitFile } from '../../git/models/file';
+import type { GitStatusFile } from '../../git/models/status';
+import type { Keys } from '../../keyboard';
 import { basename } from '../../system/path';
 import { pad } from '../../system/string';
 import { CommandQuickPickItem } from './common';
@@ -42,9 +46,7 @@ export class CommitFilesQuickPickItem extends CommandQuickPickItem {
 				}${options?.hint != null ? `${pad(GlyphChars.Dash, 4, 2, GlyphChars.Space)}${options.hint}` : ''}`,
 				alwaysShow: true,
 				picked: options?.picked ?? true,
-				buttons: GitCommit.isStash(commit)
-					? [QuickCommandButtons.RevealInSideBar]
-					: [QuickCommandButtons.RevealInSideBar, QuickCommandButtons.SearchInSideBar],
+				buttons: [QuickCommandButtons.ShowDetailsView, QuickCommandButtons.RevealInSideBar],
 			},
 			undefined,
 			undefined,
@@ -248,6 +250,26 @@ export class CommitOpenDirectoryCompareWithWorkingCommandQuickPickItem extends C
 
 	override execute(): Promise<void> {
 		return GitActions.Commit.openDirectoryCompareWithWorking(this.commit);
+	}
+}
+
+export class CommitOpenDetailsCommandQuickPickItem extends CommandQuickPickItem {
+	constructor(private readonly commit: GitCommit, item?: QuickPickItem) {
+		super(item ?? '$(eye) Open Details');
+	}
+
+	override execute(options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
+		return GitActions.Commit.showDetailsView(this.commit, { preserveFocus: options?.preserveFocus });
+	}
+}
+
+export class CommitOpenInGraphCommandQuickPickItem extends CommandQuickPickItem {
+	constructor(private readonly commit: GitCommit, item?: QuickPickItem) {
+		super(item ?? '$(gitlens-graph) Open in Commit Graph');
+	}
+
+	override execute(options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
+		return GitActions.Commit.showInCommitGraph(this.commit, { preserveFocus: options?.preserveFocus });
 	}
 }
 

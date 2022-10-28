@@ -1,6 +1,7 @@
-import { Container } from '../../container';
-import { GitCommandOptions } from '../../git/commandOptions';
-import { GitProvider } from '../../git/gitProvider';
+import { configuration } from '../../configuration';
+import type { Container } from '../../container';
+import type { GitCommandOptions } from '../../git/commandOptions';
+import type { GitProvider } from '../../git/gitProvider';
 // import { GitHubGitProvider } from '../../plus/github/githubGitProvider';
 import { Git } from './git/git';
 import { LocalGitProvider } from './git/localGitProvider';
@@ -26,7 +27,7 @@ export async function getSupportedGitProviders(container: Container): Promise<Gi
 		new VslsGitProvider(container, new VslsGit(git)),
 	];
 
-	if (container.config.virtualRepositories.enabled) {
+	if (configuration.get('virtualRepositories.enabled')) {
 		const GitHubGitProvider = (await import(/* webpackChunkName: "github" */ '../../plus/github/githubGitProvider'))
 			.GitHubGitProvider;
 		providers.push(new GitHubGitProvider(container));

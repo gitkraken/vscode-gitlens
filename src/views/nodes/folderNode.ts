@@ -1,27 +1,36 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ViewFilesLayout, ViewsFilesConfig } from '../../configuration';
+import type { ViewsFilesConfig } from '../../configuration';
+import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
-import { HierarchicalItem } from '../../system/array';
+import type { HierarchicalItem } from '../../system/array';
 import { sortCompare } from '../../system/string';
-import { FileHistoryView } from '../fileHistoryView';
-import { StashesView } from '../stashesView';
-import { ViewsWithCommits } from '../viewBase';
+import type { FileHistoryView } from '../fileHistoryView';
+import type { StashesView } from '../stashesView';
+import type { ViewsWithCommits } from '../viewBase';
+import type { ViewFileNode } from './viewNode';
 import { ContextValues, ViewNode } from './viewNode';
 
-export interface FileNode extends ViewNode {
+export interface FileNode extends ViewFileNode {
 	folderName: string;
-	label?: string;
 	priority: number;
+
+	label?: string;
 	relativePath?: string;
-	root?: HierarchicalItem<FileNode>;
+
+	// root?: HierarchicalItem<FileNode>;
 }
 
 export class FolderNode extends ViewNode<ViewsWithCommits | FileHistoryView | StashesView> {
+	static key = ':folder';
+	static getId(parent: ViewNode, path: string): string {
+		return `${parent.id}${this.key}(${path})`;
+	}
+
 	readonly priority: number = 1;
 
 	constructor(
 		view: ViewsWithCommits | FileHistoryView | StashesView,
-		parent: ViewNode,
+		protected override parent: ViewNode,
 		public readonly repoPath: string,
 		public readonly folderName: string,
 		public readonly root: HierarchicalItem<FileNode>,
@@ -33,6 +42,10 @@ export class FolderNode extends ViewNode<ViewsWithCommits | FileHistoryView | St
 
 	override toClipboard(): string {
 		return this.folderName;
+	}
+
+	override get id(): string {
+		return FolderNode.getId(this.parent, this.folderName);
 	}
 
 	getChildren(): (FolderNode | FileNode)[] {
@@ -55,7 +68,7 @@ export class FolderNode extends ViewNode<ViewsWithCommits | FileHistoryView | St
 					children.push(
 						new FolderNode(
 							this.view,
-							this.folderName ? this : this.parent!,
+							this.folderName ? this : this.parent,
 							this.repoPath,
 							folder.name,
 							folder,
@@ -67,7 +80,7 @@ export class FolderNode extends ViewNode<ViewsWithCommits | FileHistoryView | St
 				}
 
 				// Make sure to set the parent
-				(folder.value as any).parent = this.folderName ? this : this.parent!;
+				folder.value.parent = this.folderName ? this : this.parent;
 				folder.value.relativePath = this.root.relativePath;
 				children.push(folder.value);
 			}
@@ -86,6 +99,7 @@ export class FolderNode extends ViewNode<ViewsWithCommits | FileHistoryView | St
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem(this.label, TreeItemCollapsibleState.Expanded);
+		item.id = this.id;
 		item.contextValue = ContextValues.Folder;
 		if (this.containsWorkingFiles) {
 			item.contextValue += '+working';

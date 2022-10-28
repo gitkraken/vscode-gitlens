@@ -1,12 +1,21 @@
-import { TextEditor, Uri, window } from 'vscode';
+import type { TextEditor } from 'vscode';
+import { Uri, window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitCommit, GitLog, GitStashCommit } from '../git/models';
+import type { GitCommit, GitStashCommit } from '../git/models/commit';
+import { isCommit } from '../git/models/commit';
+import type { GitLog } from '../git/models/log';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import {
+	showCommitNotFoundWarningMessage,
+	showFileNotUnderSourceControlWarningMessage,
+	showGenericErrorMessage,
+	showLineUncommittedWarningMessage,
+} from '../messages';
 import { command } from '../system/command';
-import { ActiveEditorCachedCommand, CommandContext, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
+import type { CommandContext } from './base';
+import { ActiveEditorCachedCommand, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
 import { executeGitCommand } from './gitCommands.actions';
 
 export interface ShowQuickCommitFileCommandArgs {
@@ -74,14 +83,14 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 			try {
 				const blame = await this.container.git.getBlameForLine(gitUri, blameLine);
 				if (blame == null) {
-					void Messages.showFileNotUnderSourceControlWarningMessage('Unable to show commit file details');
+					void showFileNotUnderSourceControlWarningMessage('Unable to show commit file details');
 
 					return;
 				}
 
 				// Because the previous sha of an uncommitted file isn't trust worthy we just have to kick out
 				if (blame.commit.isUncommitted) {
-					void Messages.showLineUncommittedWarningMessage('Unable to show commit file details');
+					void showLineUncommittedWarningMessage('Unable to show commit file details');
 
 					return;
 				}
@@ -113,7 +122,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 						ref: args.sha,
 					});
 					if (args.commit == null) {
-						void Messages.showCommitNotFoundWarningMessage('Unable to show commit file details');
+						void showCommitNotFoundWarningMessage('Unable to show commit file details');
 
 						return;
 					}
@@ -121,13 +130,13 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 			}
 
 			if (args.commit == null) {
-				void Messages.showCommitNotFoundWarningMessage('Unable to show commit file details');
+				void showCommitNotFoundWarningMessage('Unable to show commit file details');
 
 				return;
 			}
 
 			const path = args.commit?.file?.path ?? gitUri.fsPath;
-			if (GitCommit.is(args.commit)) {
+			if (isCommit(args.commit)) {
 				if (args.commit.files == null) {
 					await args.commit.ensureFullDetails();
 				}
@@ -139,14 +148,14 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 			// 	args.commit = (await this.container.git.getCommit(args.commit.repoPath, args.commit.ref))!;
 			// }
 
-			void (await executeGitCommand({
+			await executeGitCommand({
 				command: 'show',
 				state: {
 					repo: args.commit.repoPath,
 					reference: args.commit,
 					fileName: path,
 				},
-			}));
+			});
 
 			// if (args.goBackCommand === undefined) {
 			// 	const commandArgs: ShowQuickCommitCommandArgs = {
@@ -189,7 +198,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 			// return undefined;
 		} catch (ex) {
 			Logger.error(ex, 'ShowQuickCommitFileDetailsCommand');
-			void Messages.showGenericErrorMessage('Unable to show commit file details');
+			void showGenericErrorMessage('Unable to show commit file details');
 		}
 	}
 }

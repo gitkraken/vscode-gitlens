@@ -15,7 +15,11 @@
 
 		<div class="container">
 			<header>
-				<a class="header__link" title="Learn more about GitLens" href="https://gitlens.amod.io">
+				<a
+					class="header__link"
+					title="Learn more about GitLens"
+					href="https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links"
+				>
 					<div class="header__logo">
 						<img class="image__logo" src="#{root}/images/gitlens-icon.png" />
 						<div>
@@ -36,20 +40,29 @@
 			<div class="content__area">
 				<section id="welcome" class="section--full">
 					<h2 class="section__title section__title--primary">
-						Welcome to <span class="highlight">GitLens 12</span>
+						Welcome to <span class="highlight">GitLens 13</span>
 					</h2>
 					<div class="section__whatsnew">
-						<a title="See What's New" href="https://gitkraken.com/blog/gitlens-12"
-							><img src="#{webroot}/media/gitlens-12-card.webp"
-						/></a>
+						<a
+							title="Watch the GitLens Getting Started video"
+							href="https://www.youtube.com/watch?v=UQPb73Zz9qk"
+						>
+							<img
+								src="#{webroot}/media/gitlens-tutorial-banner.webp"
+								alt="Watch the GitLens Getting Started video"
+							/>
+						</a>
 						<a
 							class="button button--flat"
 							title="See What's New"
-							href="https://gitkraken.com/blog/gitlens-12"
-							>See What's New in GitLens 12</a
+							href="https://help.gitkraken.com/gitlens/gitlens-release-notes-current/"
+							>See What's New in GitLens 13</a
 						>
 						<span class="button__subaction"
-							>or read the <a href="https://gitlens.amod.io/#whats-new">release notes</a></span
+							>or read the
+							<a href="https://github.com/gitkraken/vscode-gitlens/blob/main/CHANGELOG.md"
+								>change log</a
+							></span
 						>
 						<a
 							class="button button--flat"
@@ -499,7 +512,7 @@
 									</a>
 								</div>
 								<span class="setting__hint"
-									>Example date:
+									>Example time:
 									<span
 										data-setting-preview="defaultTimeFormat"
 										data-setting-preview-type="date"
@@ -516,7 +529,8 @@
 		<style nonce="#{cspNonce}">
 			@font-face {
 				font-family: 'codicon';
-				src: url('#{webroot}/codicon.ttf?404cbc4fe3a64b9a93064eef76704c79') format('truetype');
+				font-display: block;
+				src: url('#{webroot}/codicon.ttf?0e5b0adf625a37fbcd638d31f0fe72aa') format('truetype');
 			}
 		</style>
 	</body>

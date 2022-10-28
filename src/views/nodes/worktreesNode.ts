@@ -1,12 +1,12 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { PlusFeatures } from '../../features';
-import { GitUri } from '../../git/gitUri';
-import { Repository } from '../../git/models';
+import type { GitUri } from '../../git/gitUri';
+import type { Repository } from '../../git/models/repository';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
-import { RepositoriesView } from '../repositoriesView';
-import { WorktreesView } from '../worktreesView';
+import type { RepositoriesView } from '../repositoriesView';
+import type { WorktreesView } from '../worktreesView';
 import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
@@ -62,7 +62,7 @@ export class WorktreesNode extends ViewNode<WorktreesView | RepositoriesView> {
 		item.contextValue = ContextValues.Worktrees;
 		item.description = access.allowed
 			? undefined
-			: ` ${GlyphChars.Warning}  GitLens+ feature which requires an account`;
+			: ` ${GlyphChars.Warning}  Requires GitLens Pro to access Worktrees on private repos`;
 		// TODO@eamodio `folder` icon won't work here for some reason
 		item.iconPath = new ThemeIcon('folder-opened');
 		return item;

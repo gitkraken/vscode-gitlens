@@ -1,20 +1,14 @@
-import {
+import type {
 	CancellationToken,
-	CodeLens,
 	CodeLensProvider,
 	Command,
 	DocumentSelector,
 	DocumentSymbol,
 	Event,
-	EventEmitter,
-	Location,
-	Position,
-	Range,
-	SymbolInformation,
-	SymbolKind,
 	TextDocument,
 	Uri,
 } from 'vscode';
+import { CodeLens, EventEmitter, Location, Position, Range, SymbolInformation, SymbolKind } from 'vscode';
 import type {
 	DiffWithPreviousCommandArgs,
 	OpenOnRemoteCommandArgs,
@@ -24,19 +18,14 @@ import type {
 	ShowQuickFileHistoryCommandArgs,
 	ToggleFileChangesAnnotationCommandArgs,
 } from '../commands';
-import {
-	CodeLensCommand,
-	CodeLensConfig,
-	CodeLensLanguageScope,
-	CodeLensScopes,
-	configuration,
-	FileAnnotationType,
-} from '../configuration';
+import type { CodeLensConfig, CodeLensLanguageScope } from '../configuration';
+import { CodeLensCommand, CodeLensScopes, configuration, FileAnnotationType } from '../configuration';
 import { Commands, CoreCommands, Schemes } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import type { GitUri } from '../git/gitUri';
-import { GitBlame, GitBlameLines, GitCommit } from '../git/models';
-import { RemoteResourceType } from '../git/remotes/provider';
+import type { GitBlame, GitBlameLines } from '../git/models/blame';
+import type { GitCommit } from '../git/models/commit';
+import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
 import { asCommand, executeCoreCommand } from '../system/command';
 import { is, once } from '../system/function';
@@ -110,6 +99,9 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		// Since we can't currently blame edited virtual documents, don't even attempt anything if dirty
 		if (document.isDirty && isVirtualUri(document.uri)) return [];
 
+		const cfg = configuration.get('codeLens', document);
+		if (!cfg.enabled) return [];
+
 		const trackedDocument = await this.container.tracker.getOrAdd(document);
 		if (!trackedDocument.isBlameable) return [];
 
@@ -117,7 +109,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		if (document.isDirty) {
 			// Only allow dirty blames if we are idle
 			if (trackedDocument.isDirtyIdle) {
-				const maxLines = this.container.config.advanced.blame.sizeThresholdAfterEdit;
+				const maxLines = configuration.get('advanced.blame.sizeThresholdAfterEdit');
 				if (maxLines > 0 && document.lineCount > maxLines) {
 					dirty = true;
 				}
@@ -125,8 +117,6 @@ export class GitCodeLensProvider implements CodeLensProvider {
 				dirty = true;
 			}
 		}
-
-		const cfg = configuration.get('codeLens', document);
 
 		let languageScope = cfg.scopesByLanguage?.find(ll => ll.language?.toLowerCase() === document.languageId);
 		if (languageScope == null) {
@@ -490,9 +480,11 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
 	private resolveGitRecentChangeCodeLens(lens: GitRecentChangeCodeLens, _token: CancellationToken): CodeLens {
 		const blame = lens.getBlame();
-		if (blame === undefined) return lens;
+		if (blame == null) return lens;
 
 		const recentCommit = first(blame.commits.values());
+		if (recentCommit == null) return lens;
+
 		// TODO@eamodio This is FAR too expensive, but this accounts for commits that delete lines -- is there another way?
 		// if (lens.uri != null) {
 		// 	const commit = await this.container.git.getCommitForFile(lens.uri.repoPath, lens.uri.fsPath, {
@@ -510,7 +502,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		let title = `${recentCommit.author.name}, ${
 			lens.dateFormat == null ? recentCommit.formattedDate : recentCommit.formatDate(lens.dateFormat)
 		}`;
-		if (this.container.config.debug) {
+		if (configuration.get('debug')) {
 			title += ` [${lens.languageId}: ${SymbolKind[lens.symbol.kind]}(${lens.range.start.character}-${
 				lens.range.end.character
 			}${
@@ -574,14 +566,13 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
 	private resolveGitAuthorsCodeLens(lens: GitAuthorsCodeLens, _token: CancellationToken): CodeLens {
 		const blame = lens.getBlame();
-		if (blame === undefined) return lens;
+		if (blame == null) return lens;
 
 		const count = blame.authors.size;
-
-		const author = first(blame.authors.values()).name;
+		const author = first(blame.authors.values())?.name ?? 'Unknown';
 
 		let title = `${count} ${count > 1 ? 'authors' : 'author'} (${author}${count > 1 ? ' and others' : ''})`;
-		if (this.container.config.debug) {
+		if (configuration.get('debug')) {
 			title += ` [${lens.languageId}: ${SymbolKind[lens.symbol.kind]}(${lens.range.start.character}-${
 				lens.range.end.character
 			}${
@@ -599,6 +590,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		}
 
 		const commit = find(blame.commits.values(), c => c.author.name === author) ?? first(blame.commits.values());
+		if (commit == null) return lens;
 
 		switch (lens.desiredCommand) {
 			case CodeLensCommand.CopyRemoteCommitUrl:
@@ -871,10 +863,10 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
 	private getDirtyTitle(cfg: CodeLensConfig) {
 		if (cfg.recentChange.enabled && cfg.authors.enabled) {
-			return this.container.config.strings.codeLens.unsavedChanges.recentChangeAndAuthors;
+			return configuration.get('strings.codeLens.unsavedChanges.recentChangeAndAuthors');
 		}
-		if (cfg.recentChange.enabled) return this.container.config.strings.codeLens.unsavedChanges.recentChangeOnly;
-		return this.container.config.strings.codeLens.unsavedChanges.authorsOnly;
+		if (cfg.recentChange.enabled) return configuration.get('strings.codeLens.unsavedChanges.recentChangeOnly');
+		return configuration.get('strings.codeLens.unsavedChanges.authorsOnly');
 	}
 }
 

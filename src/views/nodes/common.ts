@@ -1,9 +1,11 @@
-import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import type { Command, ThemeIcon, Uri } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { configuration } from '../../configuration';
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { GitUri } from '../../git/gitUri';
-import { View } from '../viewBase';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
+import { unknownGitUri } from '../../git/gitUri';
+import type { View } from '../viewBase';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 export class MessageNode extends ViewNode {
 	constructor(
@@ -22,7 +24,7 @@ export class MessageNode extends ViewNode {
 			| ThemeIcon,
 		private readonly _contextValue?: string,
 	) {
-		super(GitUri.unknown, view, parent);
+		super(unknownGitUri, view, parent);
 	}
 
 	getChildren(): ViewNode[] | Promise<ViewNode[]> {
@@ -91,7 +93,7 @@ export class UpdateableMessageNode extends ViewNode {
 			  }
 			| ThemeIcon,
 	) {
-		super(GitUri.unknown, view, parent);
+		super(unknownGitUri, view, parent);
 		this.id = id;
 	}
 
@@ -150,9 +152,9 @@ export abstract class PagerNode extends ViewNode {
 			context?: Record<string, unknown>;
 			pageSize?: number;
 			getCount?: () => Promise<number | undefined>;
-		}, // protected readonly pageSize: number = Container.instance.config.views.pageItemLimit, // protected readonly countFn?: () => Promise<number | undefined>, // protected readonly context?: Record<string, unknown>, // protected readonly beforeLoadCallback?: (mode: 'all' | 'more') => void,
+		}, // protected readonly pageSize: number = configuration.get('views.pageItemLimit'), // protected readonly countFn?: () => Promise<number | undefined>, // protected readonly context?: Record<string, unknown>, // protected readonly beforeLoadCallback?: (mode: 'all' | 'more') => void,
 	) {
-		super(GitUri.unknown, view, parent);
+		super(unknownGitUri, view, parent);
 	}
 
 	async loadAll() {
@@ -168,7 +170,7 @@ export abstract class PagerNode extends ViewNode {
 	loadMore() {
 		return this.view.loadMoreNodeChildren(
 			this.parent! as ViewNode & PageableViewNode,
-			this.options?.pageSize ?? Container.instance.config.views.pageItemLimit,
+			this.options?.pageSize ?? configuration.get('views.pageItemLimit'),
 			this.previousNode,
 			this.options?.context,
 		);

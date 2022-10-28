@@ -1,11 +1,11 @@
-import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { FileAnnotationType } from '../configuration';
+import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import type { FileAnnotationType } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitRevision } from '../git/models';
+import { GitRevision } from '../git/models/reference';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
 import { ActiveEditorCommand, getCommandUri } from './base';
 import { GitActions } from './gitCommands.actions';
@@ -53,14 +53,14 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 				}
 			}
 
-			void (await GitActions.Commit.openFileAtRevision(args.revisionUri, {
+			await GitActions.Commit.openFileAtRevision(args.revisionUri, {
 				annotationType: args.annotationType,
 				line: args.line,
 				...args.showOptions,
-			}));
+			});
 		} catch (ex) {
 			Logger.error(ex, 'OpenRevisionFileCommand');
-			void Messages.showGenericErrorMessage('Unable to open file revision');
+			void showGenericErrorMessage('Unable to open file revision');
 		}
 	}
 }

@@ -1,21 +1,22 @@
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
-import { GlyphChars } from '../../constants';
-import { GitUri } from '../../git/gitUri';
-import {
-	GitBranch,
-	GitLog,
-	GitRemote,
-	GitRemoteType,
-	GitRevision,
-	GitWorktree,
-	PullRequestState,
-} from '../../git/models';
+import { ContextKeys, GlyphChars } from '../../constants';
+import { getContext } from '../../context';
+import type { GitUri } from '../../git/gitUri';
+import type { GitBranch } from '../../git/models/branch';
+import type { GitLog } from '../../git/models/log';
+import type { PullRequest } from '../../git/models/pullRequest';
+import { PullRequestState } from '../../git/models/pullRequest';
+import { GitRevision } from '../../git/models/reference';
+import { GitRemote, GitRemoteType } from '../../git/models/remote';
+import type { GitWorktree } from '../../git/models/worktree';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
+import type { Deferred } from '../../system/promise';
+import { defer, getSettledValue } from '../../system/promise';
 import { pad } from '../../system/string';
-import { RepositoriesView } from '../repositoriesView';
-import { WorktreesView } from '../worktreesView';
+import type { RepositoriesView } from '../repositoriesView';
+import type { WorktreesView } from '../worktreesView';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { CompareBranchNode } from './compareBranchNode';
@@ -25,14 +26,18 @@ import { RepositoryNode } from './repositoryNode';
 import { UncommittedFilesNode } from './UncommittedFilesNode';
 import { ContextValues, ViewNode } from './viewNode';
 
-export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView> {
+type State = {
+	pullRequest: PullRequest | null | undefined;
+	pendingPullRequest: Promise<PullRequest | undefined> | undefined;
+};
+
+export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView, State> {
 	static key = ':worktree';
 	static getId(repoPath: string, uri: Uri): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${uri.path})`;
 	}
 
 	private _branch: GitBranch | undefined;
-	private _children: ViewNode[] | undefined;
 
 	constructor(
 		uri: GitUri,
@@ -55,45 +60,81 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView> {
 		return this.uri.repoPath!;
 	}
 
+	private _children: ViewNode[] | undefined;
+
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
 			const branch = this._branch;
 
-			let prPromise;
+			let onCompleted: Deferred<void> | undefined;
+			let pullRequest;
+
 			if (
 				branch != null &&
 				this.view.config.pullRequests.enabled &&
 				this.view.config.pullRequests.showForBranches &&
-				(branch.upstream != null || branch.remote)
+				(branch.upstream != null || branch.remote) &&
+				getContext(ContextKeys.HasConnectedRemotes)
 			) {
-				prPromise = branch.getAssociatedPullRequest({
-					include: [PullRequestState.Open, PullRequestState.Merged],
-				});
+				pullRequest = this.getState('pullRequest');
+				if (pullRequest === undefined && this.getState('pendingPullRequest') === undefined) {
+					onCompleted = defer<void>();
+					const prPromise = this.getAssociatedPullRequest(branch, {
+						include: [PullRequestState.Open, PullRequestState.Merged],
+					});
+
+					queueMicrotask(async () => {
+						await onCompleted?.promise;
+
+						// If we are waiting too long, refresh this node to show a spinner while the pull request is loading
+						let spinner = false;
+						const timeout = setTimeout(() => {
+							spinner = true;
+							this.view.triggerNodeChange(this);
+						}, 250);
+
+						const pr = await prPromise;
+						clearTimeout(timeout);
+
+						// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
+						if (pr != null && this._children != null) {
+							this._children.splice(
+								this._children[0] instanceof CompareBranchNode ? 1 : 0,
+								0,
+								new PullRequestNode(this.view, this, pr, branch),
+							);
+						}
+
+						// Refresh this node to add the pull request node or remove the spinner
+						if (spinner || pr != null) {
+							this.view.triggerNodeChange(this);
+						}
+					});
+				}
 			}
 
-			const range =
-				branch != null && !branch.remote
-					? await this.view.container.git.getBranchAheadRange(branch)
-					: undefined;
-			const [log, getBranchAndTagTips, status, unpublishedCommits] = await Promise.all([
-				this.getLog(),
-				this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath),
-				this.worktree.getStatus(),
-				range
-					? this.view.container.git.getLogRefsOnly(this.uri.repoPath!, {
-							limit: 0,
-							ref: range,
-					  })
-					: undefined,
-			]);
+			const [logResult, getBranchAndTagTipsResult, statusResult, unpublishedCommitsResult] =
+				await Promise.allSettled([
+					this.getLog(),
+					this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath),
+					this.worktree.getStatus(),
+					branch != null && !branch.remote
+						? this.view.container.git.getBranchAheadRange(branch).then(range =>
+								range
+									? this.view.container.git.getLogRefsOnly(this.uri.repoPath!, {
+											limit: 0,
+											ref: range,
+									  })
+									: undefined,
+						  )
+						: undefined,
+				]);
+			const log = getSettledValue(logResult);
 			if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
 			const children = [];
 
-			let prInsertIndex = 0;
-
 			if (branch != null && this.view.config.showBranchComparison !== false) {
-				prInsertIndex++;
 				children.push(
 					new CompareBranchNode(
 						this.uri,
@@ -105,6 +146,13 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView> {
 					),
 				);
 			}
+
+			if (branch != null && pullRequest != null) {
+				children.push(new PullRequestNode(this.view, this, pullRequest, branch));
+			}
+
+			const unpublishedCommits = getSettledValue(unpublishedCommitsResult);
+			const getBranchAndTagTips = getSettledValue(getBranchAndTagTipsResult);
 
 			children.push(
 				...insertDateMarkers(
@@ -128,33 +176,16 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView> {
 				children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
 			}
 
+			const status = getSettledValue(statusResult);
+
 			if (status?.hasChanges) {
 				children.splice(0, 0, new UncommittedFilesNode(this.view, this, status, undefined));
 			}
 
-			if (prPromise != null) {
-				const pr = await prPromise;
-				if (pr != null) {
-					children.splice(prInsertIndex, 0, new PullRequestNode(this.view, this, pr, branch!));
-				}
-
-				// const pr = await Promise.race([
-				// 	prPromise,
-				// 	new Promise<null>(resolve => setTimeout(() => resolve(null), 100)),
-				// ]);
-				// if (pr != null) {
-				// 	children.splice(prInsertIndex, 0, new PullRequestNode(this.view, this, pr, this.branch));
-				// } else if (pr === null) {
-				// 	void prPromise.then(pr => {
-				// 		if (pr == null) return;
-
-				// 		void this.triggerChange();
-				// 	});
-				// }
-			}
-
 			this._children = children;
+			onCompleted?.fulfill();
 		}
+
 		return this._children;
 	}
 
@@ -300,13 +331,23 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView> {
 			}
 		}
 
+		const pendingPullRequest = this.getState('pendingPullRequest');
+		if (pendingPullRequest != null) {
+			tooltip.appendMarkdown(`\n\n$(loading~spin) Loading associated pull request${GlyphChars.Ellipsis}`);
+		}
+
 		const item = new TreeItem(this.worktree.name, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.description = description;
 		item.contextValue = `${ContextValues.Worktree}${this.worktree.main ? '+main' : ''}${
 			this.worktree.opened ? '+active' : ''
 		}`;
-		item.iconPath = this.worktree.opened ? new ThemeIcon('check') : icon;
+		item.iconPath =
+			pendingPullRequest != null
+				? new ThemeIcon('loading~spin')
+				: this.worktree.opened
+				? new ThemeIcon('check')
+				: icon;
 		item.tooltip = tooltip;
 		item.resourceUri = hasChanges ? Uri.parse('gitlens-view://worktree/changes') : undefined;
 		return item;
@@ -318,7 +359,30 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView> {
 		this._children = undefined;
 		if (reset) {
 			this._log = undefined;
+			this.deleteState();
 		}
+	}
+
+	private async getAssociatedPullRequest(
+		branch: GitBranch,
+		options?: { include?: PullRequestState[] },
+	): Promise<PullRequest | undefined> {
+		let pullRequest = this.getState('pullRequest');
+		if (pullRequest !== undefined) return Promise.resolve(pullRequest ?? undefined);
+
+		let pendingPullRequest = this.getState('pendingPullRequest');
+		if (pendingPullRequest == null) {
+			pendingPullRequest = branch.getAssociatedPullRequest(options);
+			this.storeState('pendingPullRequest', pendingPullRequest);
+
+			pullRequest = await pendingPullRequest;
+			this.storeState('pullRequest', pullRequest ?? null);
+			this.deleteState('pendingPullRequest');
+
+			return pullRequest;
+		}
+
+		return pendingPullRequest;
 	}
 
 	private _log: GitLog | undefined;

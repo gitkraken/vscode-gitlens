@@ -1,9 +1,9 @@
-import { Range, Uri } from 'vscode';
-import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference } from '../../config';
-import { GitRevision } from '../models';
-import { Repository } from '../models/repository';
-import { RemoteProvider } from './provider';
+import type { Range, Uri } from 'vscode';
+import type { DynamicAutolinkReference } from '../../annotations/autolinks';
+import type { AutolinkReference } from '../../config';
+import { GitRevision } from '../models/reference';
+import type { Repository } from '../models/repository';
+import { RemoteProvider } from './remoteProvider';
 
 const fileRegex = /^\/([^/]+)\/\+(.+)$/i;
 const rangeRegex = /^(\d+)$/;
@@ -41,6 +41,8 @@ export class GerritRemote extends RemoteProvider {
 					url: `${this.baseReviewUrl}/q/<num>`,
 					title: `Open Change #<num> on ${this.name}`,
 					alphanumeric: true,
+
+					description: `Change #<num> on ${this.name}`,
 				},
 			];
 		}

@@ -1,6 +1,7 @@
 /*global document IntersectionObserver*/
 import './settings.scss';
-import { State } from '../../settings/protocol';
+import type { AutolinkReference } from '../../../config';
+import type { State } from '../../settings/protocol';
 import { AppWithConfig } from '../shared/appWithConfigBase';
 import { DOM } from '../shared/dom';
 // import { Snow } from '../shared/snow';
@@ -62,6 +63,17 @@ export class SettingsApp extends AppWithConfig<State> {
 					label.title = `Setting name: "gitlens.${el.name}"`;
 				}
 			}
+		}
+	}
+
+	protected override beforeUpdateState() {
+		const focusId = document.activeElement?.id;
+		this.renderAutolinks();
+		if (focusId?.startsWith('autolinks.')) {
+			console.log(focusId, document.getElementById(focusId));
+			queueMicrotask(() => {
+				document.getElementById(focusId)?.focus();
+			});
 		}
 	}
 
@@ -167,6 +179,22 @@ export class SettingsApp extends AppWithConfig<State> {
 				document.querySelector('[data-action="collapse"]')!.classList.remove('hidden');
 				document.querySelector('[data-action="expand"]')!.classList.add('hidden');
 				break;
+
+			case 'show':
+				if (element.dataset.actionTarget) {
+					for (const el of document.querySelectorAll(`[data-region="${element.dataset.actionTarget}"]`)) {
+						el.classList.remove('hidden');
+						el.querySelector<HTMLElement>('input,select,textarea,button')?.focus();
+					}
+				}
+				break;
+			case 'hide':
+				if (element.dataset.actionTarget) {
+					for (const el of document.querySelectorAll(`[data-region="${element.dataset.actionTarget}"]`)) {
+						el.classList.add('hidden');
+					}
+				}
+				break;
 		}
 
 		e.preventDefault();
@@ -207,6 +235,115 @@ export class SettingsApp extends AppWithConfig<State> {
 		if (el != null) {
 			el.classList.toggle('active', active);
 		}
+	}
+
+	private renderAutolinks() {
+		const $root = document.querySelector('[data-component="autolinks"]');
+		if ($root == null) return;
+
+		const helpTemplate = () => `
+			<div class="setting__hint">
+				<span style="line-height: 2rem">
+					<i class="icon icon--sm icon__info"></i> Matches prefixes that are followed by a reference value within commit messages.<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;The URL must contain a <code>&lt;num&gt;</code> for the reference value to be included in the link.
+				</span>
+			</div>
+		`;
+
+		const autolinkTemplate = (index: number, autolink?: AutolinkReference, isNew = false, renderHelp = true) => `
+			<div class="setting${isNew ? ' hidden" data-region="autolink' : ''}">
+				<div class="setting__group">
+					<div class="setting__input setting__input--short setting__input--with-actions">
+						<label for="autolinks.${index}.prefix">Prefix</label>
+						<input
+							id="autolinks.${index}.prefix"
+							name="autolinks.${index}.prefix"
+							placeholder="TICKET-"
+							data-setting
+							data-setting-type="arrayObject"
+							${autolink?.prefix ? `value="${encodeURIComponent(autolink.prefix)}"` : ''}
+						>
+						<div class="setting__input-actions">
+							<div class="toggle-button">
+								<input
+									id="autolinks.${index}.ignoreCase"
+									name="autolinks.${index}.ignoreCase"
+									type="checkbox"
+									class="toggle-button__control"
+									data-setting
+									data-setting-type="arrayObject"
+									${autolink?.ignoreCase ? 'checked' : ''}
+								>
+								<label class="toggle-button__label" for="autolinks.${index}.ignoreCase" title="Case-sensitive" aria-label="Case-sensitive">Aa</label>
+							</div>
+							<div class="toggle-button">
+								<input
+									id="autolinks.${index}.alphanumeric"
+									name="autolinks.${index}.alphanumeric"
+									type="checkbox"
+									class="toggle-button__control"
+									data-setting
+									data-setting-type="arrayObject"
+									${autolink?.alphanumeric ? 'checked' : ''}
+								>
+								<label class="toggle-button__label" for="autolinks.${index}.alphanumeric" title="Alphanumeric" aria-label="Alphanumeric">a1</label>
+							</div>
+						</div>
+					</div>
+					<div class="setting__input setting__input--long setting__input--centered">
+						<label for="autolinks.${index}.url">URL</label>
+						<input
+							id="autolinks.${index}.url"
+							name="autolinks.${index}.url"
+							type="text"
+							placeholder="https://example.com/TICKET?q=&lt;num&gt;"
+							data-setting
+							data-setting-type="arrayObject"
+							${autolink?.url ? `value="${encodeURIComponent(autolink.url)}"` : ''}
+						>
+						${
+							isNew
+								? `
+							<button
+								class="button button--compact button--flat-subtle"
+								type="button"
+								data-action="hide"
+								data-action-target="autolink"
+								title="Delete"
+								aria-label="Delete"
+							><i class="codicon codicon-close"></i></button>
+						`
+								: `
+							<button
+								id="autolinks.${index}.delete"
+								name="autolinks.${index}.delete"
+								class="button button--compact button--flat-subtle"
+								type="button"
+								data-setting-type="arrayObject"
+								data-setting-clear
+								title="Delete"
+								aria-label="Delete"
+							><i class="codicon codicon-close"></i></button>
+						`
+						}
+					</div>
+				</div>
+				${renderHelp && isNew ? helpTemplate() : ''}
+			</div>
+		`;
+
+		const fragment: string[] = [];
+		const autolinks = (this.state.config.autolinks?.length || 0) > 0;
+		if (autolinks) {
+			this.state.config.autolinks?.forEach((autolink, i) => fragment.push(autolinkTemplate(i, autolink)));
+		}
+
+		fragment.push(autolinkTemplate(this.state.config.autolinks?.length ?? 0, undefined, true, !autolinks));
+
+		if (autolinks) {
+			fragment.push(helpTemplate());
+		}
+
+		$root.innerHTML = fragment.join('');
 	}
 }
 

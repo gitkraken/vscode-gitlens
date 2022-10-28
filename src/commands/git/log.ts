@@ -1,19 +1,16 @@
 import { GlyphChars, quickPickTitleMaxChars } from '../../constants';
-import { Container } from '../../container';
-import { GitCommit, GitLog, GitReference, Repository } from '../../git/models';
+import type { Container } from '../../container';
+import { GitCommit } from '../../git/models/commit';
+import type { GitLog } from '../../git/models/log';
+import { GitReference } from '../../git/models/reference';
+import { Repository } from '../../git/models/repository';
 import { formatPath } from '../../system/formatPath';
 import { pad } from '../../system/string';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import { GitActions } from '../gitCommands.actions';
 import { getSteps } from '../gitCommands.utils';
-import {
-	PartialStepState,
-	pickBranchOrTagStep,
-	pickCommitStep,
-	pickRepositoryStep,
-	QuickCommand,
-	StepGenerator,
-	StepResult,
-} from '../quickCommand';
+import type { PartialStepState, StepGenerator } from '../quickCommand';
+import { pickBranchOrTagStep, pickCommitStep, pickRepositoryStep, QuickCommand, StepResult } from '../quickCommand';
 
 interface Context {
 	repos: Repository[];
@@ -28,6 +25,7 @@ interface State {
 	reference: GitReference | 'HEAD';
 
 	fileName?: string;
+	openPickInView?: boolean;
 }
 
 type RepositoryStepState<T extends State = State> = SomeNonNullable<
@@ -191,18 +189,28 @@ export class LogGitCommand extends QuickCommand<State> {
 				state.reference = await this.container.git.getCommit(state.repo.path, state.reference.ref);
 			}
 
-			const result = yield* getSteps(
-				this.container,
-				{
-					command: 'show',
-					state: {
-						repo: state.repo,
-						reference: state.reference,
-						fileName: state.fileName,
+			let result: StepResult<ReturnType<typeof getSteps>>;
+			if (state.openPickInView) {
+				void GitActions.Commit.showDetailsView(state.reference as GitCommit, {
+					pin: false,
+					preserveFocus: false,
+				});
+				result = StepResult.Break;
+			} else {
+				result = yield* getSteps(
+					this.container,
+					{
+						command: 'show',
+						state: {
+							repo: state.repo,
+							reference: state.reference,
+							fileName: state.fileName,
+						},
 					},
-				},
-				this.pickedVia,
-			);
+					this.pickedVia,
+				);
+			}
+
 			state.counter--;
 			if (result === StepResult.Break) {
 				QuickCommand.endSteps(state);

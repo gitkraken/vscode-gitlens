@@ -1,10 +1,16 @@
-import { TextDocument, TextDocumentShowOptions, TextEditor, Uri, ViewColumn, window, workspace } from 'vscode';
+import type { ColorTheme, TextDocument, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { ColorThemeKind, ViewColumn, window, workspace } from 'vscode';
 import { configuration } from '../configuration';
 import { CoreCommands, ImageMimetypes, Schemes } from '../constants';
-import { GitUri } from '../git/gitUri';
+import { isGitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { executeCoreCommand } from './command';
 import { extname } from './path';
+
+export function findTextDocument(uri: Uri): TextDocument | undefined {
+	const normalizedUri = uri.toString();
+	return workspace.textDocuments.find(d => d.uri.toString() === normalizedUri);
+}
 
 export function findEditor(uri: Uri): TextEditor | undefined {
 	const active = window.activeTextEditor;
@@ -71,6 +77,14 @@ export function isActiveDocument(document: TextDocument): boolean {
 	return editor != null && editor.document === document;
 }
 
+export function isDarkTheme(theme: ColorTheme): boolean {
+	return theme.kind === ColorThemeKind.Dark || theme.kind === ColorThemeKind.HighContrast;
+}
+
+export function isLightTheme(theme: ColorTheme): boolean {
+	return theme.kind === ColorThemeKind.Light || theme.kind === ColorThemeKind.HighContrastLight;
+}
+
 export function isVirtualUri(uri: Uri): boolean {
 	return uri.scheme === Schemes.Virtual || uri.scheme === Schemes.GitHub;
 }
@@ -92,7 +106,7 @@ export async function openEditor(
 ): Promise<TextEditor | undefined> {
 	const { rethrow, ...opts } = options;
 	try {
-		if (GitUri.is(uri)) {
+		if (isGitUri(uri)) {
 			uri = uri.documentUri();
 		}
 
@@ -130,6 +144,11 @@ export async function openWalkthrough(
 	stepId?: string,
 	openToSide: boolean = true,
 ): Promise<void> {
+	// Only open to side if there is an active tab
+	if (openToSide && window.tabGroups.activeTabGroup.activeTab == null) {
+		openToSide = false;
+	}
+
 	// Takes the following params: walkthroughID: string | { category: string, step: string } | undefined, toSide: boolean | undefined
 	void (await executeCoreCommand(
 		CoreCommands.OpenWalkthrough,

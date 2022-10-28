@@ -1,44 +1,28 @@
 import { Uri } from 'vscode';
-import { getAvatarUri } from '../../avatars';
-import { DateSource, DateStyle, GravatarDefaultStyle } from '../../configuration';
+import { getAvatarUri, getCachedAvatarUri } from '../../avatars';
+import type { GravatarDefaultStyle } from '../../configuration';
+import { DateSource, DateStyle } from '../../configuration';
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
+import type { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { memoize } from '../../system/decorators/memoize';
 import { cancellable } from '../../system/promise';
 import { pad, pluralize } from '../../system/string';
-import { PreviousLineComparisonUrisResult } from '../gitProvider';
+import type { PreviousLineComparisonUrisResult } from '../gitProvider';
 import { GitUri } from '../gitUri';
-import { GitFile, GitFileChange, GitFileWorkingTreeStatus } from './file';
-import { PullRequest } from './pullRequest';
-import { GitReference, GitRevision, GitRevisionReference, GitStashReference } from './reference';
-import { Repository } from './repository';
+import type { RichRemoteProvider } from '../remotes/richRemoteProvider';
+import type { GitFile } from './file';
+import { GitFileChange, GitFileWorkingTreeStatus } from './file';
+import type { PullRequest } from './pullRequest';
+import type { GitReference, GitRevisionReference, GitStashReference } from './reference';
+import { GitRevision } from './reference';
+import type { GitRemote } from './remote';
+import type { Repository } from './repository';
 
 const stashNumberRegex = /stash@{(\d+)}/;
 
 export class GitCommit implements GitRevisionReference {
-	static is(commit: any): commit is GitCommit {
-		return commit instanceof GitCommit;
-	}
-
-	static isStash(commit: any): commit is GitStashCommit {
-		return commit instanceof GitCommit && commit.refType === 'stash' && Boolean(commit.stashName);
-	}
-
-	static isOfRefType(commit: GitReference | undefined): boolean {
-		return commit?.refType === 'revision' || commit?.refType === 'stash';
-	}
-
-	static hasFullDetails(commit: GitCommit): commit is GitCommit & SomeNonNullable<GitCommit, 'message' | 'files'> {
-		return (
-			commit.message != null &&
-			commit.files != null &&
-			commit.parents.length !== 0 &&
-			(commit.refType !== 'stash' || commit._stashUntrackedFilesLoaded)
-		);
-	}
-
 	private _stashUntrackedFilesLoaded = false;
 	private _recomputeStats = false;
 
@@ -49,6 +33,8 @@ export class GitCommit implements GitRevisionReference {
 	readonly stashName: string | undefined;
 	// TODO@eamodio rename to stashNumber
 	readonly number: string | undefined;
+	readonly stashOnRef: string | undefined;
+	readonly tips: string[] | undefined;
 
 	constructor(
 		private readonly container: Container,
@@ -62,16 +48,27 @@ export class GitCommit implements GitRevisionReference {
 		files?: GitFileChange | GitFileChange[] | { file?: GitFileChange; files?: GitFileChange[] } | undefined,
 		stats?: GitCommitStats,
 		lines?: GitCommitLine | GitCommitLine[] | undefined,
+		tips?: string[],
 		stashName?: string | undefined,
+		stashOnRef?: string | undefined,
 	) {
 		this.ref = this.sha;
-		this.refType = stashName ? 'stash' : 'revision';
 		this.shortSha = this.sha.substring(0, this.container.CommitShaFormatting.length);
+		this.tips = tips;
+
+		if (stashName) {
+			this.refType = 'stash';
+			this.stashName = stashName || undefined;
+			this.stashOnRef = stashOnRef || undefined;
+			this.number = stashNumberRegex.exec(stashName)?.[1];
+		} else {
+			this.refType = 'revision';
+		}
 
 		// Add an ellipsis to the summary if there is or might be more message
 		if (message != null) {
 			this._message = message;
-			if (this.summary !== message) {
+			if (summary !== message) {
 				this._summary = `${summary} ${GlyphChars.Ellipsis}`;
 			} else {
 				this._summary = summary;
@@ -90,9 +87,6 @@ export class GitCommit implements GitRevisionReference {
 				this._files = files;
 			} else if (files instanceof GitFileChange) {
 				this._file = files;
-				if (GitRevision.isUncommitted(sha, true)) {
-					this._files = [files];
-				}
 			} else {
 				if (files.file != null) {
 					this._file = files.file;
@@ -114,11 +108,6 @@ export class GitCommit implements GitRevisionReference {
 			}
 		} else {
 			this.lines = [];
-		}
-
-		if (stashName) {
-			this.stashName = stashName || undefined;
-			this.number = stashNumberRegex.exec(stashName)?.[1];
 		}
 	}
 
@@ -179,14 +168,58 @@ export class GitCommit implements GitRevisionReference {
 
 	private _resolvedPreviousSha: string | undefined;
 	get unresolvedPreviousSha(): string {
-		if (this._resolvedPreviousSha != null) return this._resolvedPreviousSha;
-		if (this.file != null) return this.file.previousSha ?? `${this.sha}^`;
-		return this.parents[0] ?? `${this.sha}^`;
+		return (
+			this._resolvedPreviousSha ?? (this.file != null ? this.file.previousSha : this.parents[0]) ?? `${this.sha}^`
+		);
+	}
+
+	private _etagFileSystem: number | undefined;
+
+	hasFullDetails(): this is GitCommit & SomeNonNullable<GitCommit, 'message' | 'files'> {
+		return (
+			this.message != null &&
+			this.files != null &&
+			((this.isUncommitted &&
+				// If this is an uncommitted commit, check if we need to load the working files (if we don't have a matching etag -- only works if we are currently watching the file system for this repository)
+				this._etagFileSystem === this.container.git.getRepository(this.repoPath)?.etagFileSystem) ||
+				this.parents.length !== 0) &&
+			(this.refType !== 'stash' || this._stashUntrackedFilesLoaded)
+		);
+	}
+
+	assertsFullDetails(): asserts this is GitCommit & SomeNonNullable<GitCommit, 'message' | 'files'> {
+		if (!this.hasFullDetails()) {
+			throw new Error(`GitCommit(${this.sha}) is not fully loaded`);
+		}
 	}
 
 	@gate()
 	async ensureFullDetails(): Promise<void> {
-		if (this.isUncommitted || GitCommit.hasFullDetails(this)) return;
+		if (this.hasFullDetails()) return;
+
+		// If the commit is "uncommitted", then have the files list be all uncommitted files
+		if (this.isUncommitted) {
+			this._message = 'Uncommitted Changes';
+
+			const repository = this.container.git.getRepository(this.repoPath);
+			this._etagFileSystem = repository?.etagFileSystem;
+
+			if (this._etagFileSystem != null) {
+				const status = await this.container.git.getStatusForRepo(this.repoPath);
+				if (status != null) {
+					this._files = status.files.map(
+						f => new GitFileChange(this.repoPath, f.path, f.status, f.originalPath),
+					);
+				}
+				this._etagFileSystem = repository?.etagFileSystem;
+			}
+
+			if (this._files == null) {
+				this._files = this.file != null ? [this.file] : [];
+			}
+
+			return;
+		}
 
 		const [commitResult, untrackedResult] = await Promise.allSettled([
 			this.refType !== 'stash' ? this.container.git.getCommit(this.repoPath, this.sha) : undefined,
@@ -290,7 +323,7 @@ export class GitCommit implements GitRevisionReference {
 	async findFile(path: string): Promise<GitFileChange | undefined>;
 	async findFile(uri: Uri): Promise<GitFileChange | undefined>;
 	async findFile(pathOrUri: string | Uri): Promise<GitFileChange | undefined> {
-		if (!GitCommit.hasFullDetails(this)) {
+		if (!this.hasFullDetails()) {
 			await this.ensureFullDetails();
 			if (this._files == null) return undefined;
 		}
@@ -368,12 +401,10 @@ export class GitCommit implements GitRevisionReference {
 
 		if (expand) {
 			if (additions) {
-				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 				status += `${changedFiles ? sectionSeparator : ''}${pluralize('addition', additions)}`;
 			}
 
 			if (deletions) {
-				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 				status += `${changedFiles || additions ? separator : ''}${pluralize('deletion', deletions)}`;
 			}
 		}
@@ -384,10 +415,14 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	private _pullRequest: Promise<PullRequest | undefined> | undefined;
-	async getAssociatedPullRequest(options?: { timeout?: number }): Promise<PullRequest | undefined> {
+	async getAssociatedPullRequest(options?: {
+		remote?: GitRemote<RichRemoteProvider>;
+		timeout?: number;
+	}): Promise<PullRequest | undefined> {
 		if (this._pullRequest == null) {
 			async function getCore(this: GitCommit): Promise<PullRequest | undefined> {
-				const remote = await this.container.git.getRichRemoteProvider(this.repoPath);
+				const remote =
+					options?.remote ?? (await this.container.git.getBestRemoteWithRichProvider(this.repoPath));
 				if (remote?.provider == null) return undefined;
 
 				return this.container.git.getPullRequestForCommit(this.ref, remote, options);
@@ -402,6 +437,10 @@ export class GitCommit implements GitRevisionReference {
 		return this.author.getAvatarUri(this, options);
 	}
 
+	getCachedAvatarUri(options?: { size?: number }): Uri | undefined {
+		return this.author.getCachedAvatarUri(options);
+	}
+
 	async getCommitForFile(file: string | GitFile): Promise<GitCommit | undefined> {
 		const path = typeof file === 'string' ? this.container.git.getRelativePath(file, this.repoPath) : file.path;
 		const foundFile = await this.findFile(path);
@@ -412,7 +451,7 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	async getCommitsForFiles(): Promise<GitCommit[]> {
-		if (!GitCommit.hasFullDetails(this)) {
+		if (!this.hasFullDetails()) {
 			await this.ensureFullDetails();
 			if (this._files == null) return [];
 		}
@@ -461,6 +500,8 @@ export class GitCommit implements GitRevisionReference {
 						GitRevision.isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`,
 						this.file.originalPath ?? this.file.path,
 					);
+
+					this._resolvedPreviousSha = sha;
 					return sha;
 				}
 
@@ -471,10 +512,12 @@ export class GitCommit implements GitRevisionReference {
 					this.repoPath,
 					GitRevision.isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`,
 				);
+
+				this._resolvedPreviousSha = sha;
 				return sha;
 			}
 
-			this._previousShaPromise = getCore.call(this).then(sha => (this._resolvedPreviousSha = sha));
+			this._previousShaPromise = getCore.call(this);
 		}
 
 		return this._previousShaPromise;
@@ -526,7 +569,9 @@ export class GitCommit implements GitRevisionReference {
 			files,
 			this.stats,
 			this.getChangedValue(changes.lines, this.lines),
+			this.tips,
 			this.stashName,
+			this.stashOnRef,
 		);
 	}
 
@@ -536,7 +581,25 @@ export class GitCommit implements GitRevisionReference {
 	}
 }
 
-export class GitCommitIdentity {
+export function isCommit(commit: any): commit is GitCommit {
+	return commit instanceof GitCommit;
+}
+
+export function isStash(commit: any): commit is GitStashCommit {
+	return commit instanceof GitCommit && commit.refType === 'stash' && Boolean(commit.stashName);
+}
+
+export function isOfCommitOrStashRefType(commit: GitReference | undefined): boolean {
+	return commit?.refType === 'revision' || commit?.refType === 'stash';
+}
+
+export interface GitCommitIdentityShape {
+	readonly name: string;
+	readonly email: string | undefined;
+	readonly date: Date;
+}
+
+export class GitCommitIdentity implements GitCommitIdentityShape {
 	constructor(
 		public readonly name: string,
 		public readonly email: string | undefined,
@@ -557,9 +620,11 @@ export class GitCommitIdentity {
 		commit: GitCommit,
 		options?: { defaultStyle?: GravatarDefaultStyle; size?: number },
 	): Uri | Promise<Uri> {
-		if (this.avatarUrl != null) return Uri.parse(this.avatarUrl);
+		return this.avatarUrl != null ? Uri.parse(this.avatarUrl) : getAvatarUri(this.email, commit, options);
+	}
 
-		return getAvatarUri(this.email, commit, options);
+	getCachedAvatarUri(options?: { size?: number }): Uri | undefined {
+		return this.avatarUrl != null ? Uri.parse(this.avatarUrl) : getCachedAvatarUri(this.email, options);
 	}
 }
 

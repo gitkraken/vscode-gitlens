@@ -1,11 +1,13 @@
 import { FileType, Uri, workspace } from 'vscode';
 import { Schemes } from '../../../constants';
 import { Container } from '../../../container';
-import { GitCommandOptions } from '../../../git/commandOptions';
-import { GitProviderDescriptor, GitProviderId } from '../../../git/gitProvider';
-import { Repository } from '../../../git/models/repository';
+import type { GitCommandOptions } from '../../../git/commandOptions';
+import type { GitProviderDescriptor } from '../../../git/gitProvider';
+import { GitProviderId } from '../../../git/gitProvider';
+import type { Repository } from '../../../git/models/repository';
 import { Logger } from '../../../logger';
-import { addVslsPrefixIfNeeded, dirname } from '../../../system/path';
+import { getLogScope } from '../../../system/decorators/log';
+import { addVslsPrefixIfNeeded } from '../../../system/path';
 import { Git } from './git';
 import { LocalGitProvider } from './localGitProvider';
 
@@ -32,24 +34,28 @@ export class VslsGit extends Git {
 }
 
 export class VslsGitProvider extends LocalGitProvider {
-	override readonly descriptor: GitProviderDescriptor = { id: GitProviderId.Vsls, name: 'Live Share' };
+	override readonly descriptor: GitProviderDescriptor = {
+		id: GitProviderId.Vsls,
+		name: 'Live Share',
+		virtual: false,
+	};
 	override readonly supportedSchemes: Set<string> = new Set([Schemes.Vsls, Schemes.VslsScc]);
 
 	override async discoverRepositories(uri: Uri): Promise<Repository[]> {
 		if (!this.supportedSchemes.has(uri.scheme)) return [];
 
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			const guest = await this.container.vsls.guest();
 			const repositories = await guest?.getRepositoriesForUri(uri);
 			if (repositories == null || repositories.length === 0) return [];
 
-			return repositories.map(r =>
+			return repositories.flatMap(r =>
 				this.openRepository(undefined, Uri.parse(r.folderUri, true), r.root, undefined, r.closed),
 			);
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			debugger;
 
 			return [];
@@ -73,15 +79,18 @@ export class VslsGitProvider extends LocalGitProvider {
 	}
 
 	override async findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		let repoPath: string | undefined;
 		try {
+			if (isDirectory == null) {
+				const stats = await workspace.fs.stat(uri);
+				isDirectory = (stats.type & FileType.Directory) === FileType.Directory;
+			}
+
+			// If the uri isn't a directory, go up one level
 			if (!isDirectory) {
-				try {
-					const stats = await workspace.fs.stat(uri);
-					uri = stats?.type === FileType.Directory ? uri : uri.with({ path: dirname(uri.fsPath) });
-				} catch {}
+				uri = Uri.joinPath(uri, '..');
 			}
 
 			repoPath = await this.git.rev_parse__show_toplevel(uri.fsPath);
@@ -89,7 +98,7 @@ export class VslsGitProvider extends LocalGitProvider {
 
 			return repoPath ? Uri.parse(repoPath, true) : undefined;
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			return undefined;
 		}
 	}

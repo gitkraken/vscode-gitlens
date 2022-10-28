@@ -38,12 +38,12 @@ export function* chunkByStringLength(source: string[], maxLength: number): Itera
 	}
 }
 
-export function count<T>(source: Iterable<T> | IterableIterator<T>, predicate?: (item: T) => boolean): number {
+export function count<T>(source: IterableIterator<T>, predicate?: (item: T) => boolean): number {
 	let count = 0;
 	let next: IteratorResult<T>;
 
 	while (true) {
-		next = (source as IterableIterator<T>).next();
+		next = source.next();
 		if (next.done) break;
 
 		if (predicate === undefined || predicate(next.value)) {
@@ -107,8 +107,8 @@ export function find<T>(source: Iterable<T> | IterableIterator<T>, predicate: (i
 	return null;
 }
 
-export function first<T>(source: Iterable<T> | IterableIterator<T>): T {
-	return source[Symbol.iterator]().next().value;
+export function first<T>(source: Iterable<T> | IterableIterator<T>): T | undefined {
+	return source[Symbol.iterator]().next().value as T | undefined;
 }
 
 export function* flatMap<T, TMapped>(
@@ -168,7 +168,7 @@ export function* map<T, TMapped>(
 }
 
 export function next<T>(source: IterableIterator<T>): T {
-	return source.next().value;
+	return source.next().value as T;
 }
 
 export function* skip<T>(source: Iterable<T> | IterableIterator<T>, count: number): IterableIterator<T> {

@@ -1,24 +1,29 @@
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { GitBranch, GitBranchReference, GitReference, Repository } from '../../git/models';
+import type { Container } from '../../container';
+import { isBranch } from '../../git/models/branch';
+import type { GitBranchReference } from '../../git/models/reference';
+import { GitReference } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
 import { Directive, DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { isStringArray } from '../../system/array';
 import { fromNow } from '../../system/date';
 import { pad, pluralize } from '../../system/string';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import {
-	appendReposToTitle,
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
+	QuickPickStep,
+	StepGenerator,
+	StepSelection,
+	StepState,
+} from '../quickCommand';
+import {
+	appendReposToTitle,
 	pickRepositoriesStep,
 	QuickCommand,
 	QuickCommandButtons,
-	QuickPickStep,
-	StepGenerator,
 	StepResult,
-	StepSelection,
-	StepState,
 } from '../quickCommand';
 
 interface Context {
@@ -64,7 +69,7 @@ export class PullGitCommand extends QuickCommand<State> {
 	async execute(state: PullStepState) {
 		if (GitReference.isBranch(state.reference)) {
 			// Only resort to a branch fetch if the branch isn't the current one
-			if (!GitBranch.is(state.reference) || !state.reference.current) {
+			if (!isBranch(state.reference) || !state.reference.current) {
 				const currentBranch = await state.repos[0].getBranch();
 				if (currentBranch?.name !== state.reference.name) {
 					return state.repos[0].fetch({ branch: state.reference, pull: true });

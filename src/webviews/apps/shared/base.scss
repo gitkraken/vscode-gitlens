@@ -77,6 +77,10 @@ textarea {
 	margin: 0;
 }
 
+button:not(:disabled) {
+	cursor: pointer;
+}
+
 input[type='checkbox'] {
 	background: none;
 	border: none;
@@ -140,6 +144,7 @@ textarea {
 
 input[type='number'] {
 	max-width: 100px;
+	text-align: center;
 }
 
 kbd {

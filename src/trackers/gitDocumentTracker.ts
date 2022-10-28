@@ -1,5 +1,7 @@
-import { TextDocument, Uri } from 'vscode';
-import { GitBlame, GitDiff, GitLog } from '../git/models';
+import type { TextDocument, Uri } from 'vscode';
+import type { GitBlame } from '../git/models/blame';
+import type { GitDiff } from '../git/models/diff';
+import type { GitLog } from '../git/models/log';
 import { DocumentTracker } from './documentTracker';
 
 export * from './documentTracker';
@@ -17,8 +19,6 @@ export class GitDocumentState {
 	private readonly blameCache = new Map<string, CachedBlame>();
 	private readonly diffCache = new Map<string, CachedDiff>();
 	private readonly logCache = new Map<string, CachedLog>();
-
-	constructor(public readonly key: string) {}
 
 	clearBlame(key?: string): void {
 		if (key == null) {

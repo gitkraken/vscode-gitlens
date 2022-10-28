@@ -1,15 +1,18 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
-import { GitBranch, GitFileWithCommit, GitRevision } from '../../git/models';
+import type { GitBranch } from '../../git/models/branch';
+import type { GitFileWithCommit } from '../../git/models/file';
+import { GitRevision } from '../../git/models/reference';
 import { groupBy, makeHierarchical } from '../../system/array';
 import { filter, flatMap, map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
 import { pluralize, sortCompare } from '../../system/string';
-import { ViewsWithCommits } from '../viewBase';
+import type { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
-import { BranchTrackingStatus } from './branchTrackingStatusNode';
-import { FileNode, FolderNode } from './folderNode';
+import type { BranchTrackingStatus } from './branchTrackingStatusNode';
+import type { FileNode } from './folderNode';
+import { FolderNode } from './folderNode';
 import { StatusFileNode } from './statusFileNode';
 import { ContextValues, ViewNode } from './viewNode';
 
@@ -83,9 +86,10 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 				new StatusFileNode(
 					this.view,
 					this,
-					this.repoPath,
 					files[files.length - 1],
+					this.repoPath,
 					files.map(s => s.commit),
+					this.direction,
 				),
 		);
 

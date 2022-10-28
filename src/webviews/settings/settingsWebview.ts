@@ -1,13 +1,17 @@
-import { commands, workspace } from 'vscode';
+import { workspace } from 'vscode';
 import { configuration } from '../../configuration';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
+import { registerCommand } from '../../system/command';
+import { DidOpenAnchorNotificationType } from '../protocol';
 import { WebviewWithConfigBase } from '../webviewWithConfigBase';
-import { State } from './protocol';
+import type { State } from './protocol';
 
 const anchorRegex = /.*?#(.*)/;
 
 export class SettingsWebview extends WebviewWithConfigBase<State> {
+	private _pendingJumpToAnchor: string | undefined;
+
 	constructor(container: Container) {
 		super(
 			container,
@@ -15,6 +19,7 @@ export class SettingsWebview extends WebviewWithConfigBase<State> {
 			'settings.html',
 			'images/gitlens-icon.png',
 			'GitLens Settings',
+			'settingsWebview',
 			Commands.ShowSettingsPage,
 		);
 
@@ -32,6 +37,8 @@ export class SettingsWebview extends WebviewWithConfigBase<State> {
 				Commands.ShowSettingsPageAndJumpToTagsView,
 				Commands.ShowSettingsPageAndJumpToWorkTreesView,
 				Commands.ShowSettingsPageAndJumpToViews,
+				Commands.ShowSettingsPageAndJumpToCommitGraph,
+				Commands.ShowSettingsPageAndJumpToAutolinks,
 			].map(c => {
 				// The show and jump commands are structured to have a # separating the base command from the anchor
 				let anchor: string | undefined;
@@ -40,9 +47,33 @@ export class SettingsWebview extends WebviewWithConfigBase<State> {
 					[, anchor] = match;
 				}
 
-				return commands.registerCommand(c, () => this.onShowCommand(anchor), this);
+				return registerCommand(c, (...args: any[]) => this.onShowAnchorCommand(anchor, ...args), this);
 			}),
 		);
+	}
+
+	protected override onReady() {
+		if (this._pendingJumpToAnchor != null) {
+			const anchor = this._pendingJumpToAnchor;
+			this._pendingJumpToAnchor = undefined;
+
+			void this.notify(DidOpenAnchorNotificationType, { anchor: anchor, scrollBehavior: 'auto' });
+		}
+	}
+
+	private onShowAnchorCommand(anchor?: string, ...args: any[]) {
+		if (anchor) {
+			if (this.isReady && this.visible) {
+				queueMicrotask(
+					() => void this.notify(DidOpenAnchorNotificationType, { anchor: anchor, scrollBehavior: 'smooth' }),
+				);
+				return;
+			}
+
+			this._pendingJumpToAnchor = anchor;
+		}
+
+		this.onShowCommand(...args);
 	}
 
 	protected override includeBootstrap(): State {
@@ -53,7 +84,7 @@ export class SettingsWebview extends WebviewWithConfigBase<State> {
 
 		return {
 			// Make sure to get the raw config, not from the container which has the modes mixed in
-			config: configuration.get(),
+			config: configuration.getAll(true),
 			customSettings: this.getCustomSettings(),
 			scope: 'user',
 			scopes: scopes,

@@ -1,14 +1,15 @@
-import { env, TextEditor, Uri } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
+import { env } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
 import { first } from '../system/iterable';
+import type { CommandContext } from './base';
 import {
 	ActiveEditorCommand,
-	CommandContext,
 	getCommandUri,
 	isCommandContextViewNodeHasBranch,
 	isCommandContextViewNodeHasCommit,
@@ -19,6 +20,7 @@ import { GitActions } from './gitCommands.actions';
 export interface CopyMessageToClipboardCommandArgs {
 	message?: string;
 	sha?: string;
+	repoPath?: string;
 }
 
 @command()
@@ -59,6 +61,11 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 
 		try {
 			if (!args.message) {
+				if (args.repoPath != null && args.sha != null) {
+					await GitActions.Commit.copyMessageToClipboard({ ref: args.sha, repoPath: args.repoPath });
+					return;
+				}
+
 				let repoPath;
 
 				// If we don't have an editor then get the message of the last commit to the branch
@@ -85,25 +92,25 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 							const blame = await this.container.git.getBlameForLine(gitUri, blameline, editor?.document);
 							if (blame == null || blame.commit.isUncommitted) return;
 
-							void (await GitActions.Commit.copyMessageToClipboard(blame.commit));
+							await GitActions.Commit.copyMessageToClipboard(blame.commit);
 							return;
 						} catch (ex) {
 							Logger.error(ex, 'CopyMessageToClipboardCommand', `getBlameForLine(${blameline})`);
-							void Messages.showGenericErrorMessage('Unable to copy message');
+							void showGenericErrorMessage('Unable to copy message');
 
 							return;
 						}
 					} else {
-						void (await GitActions.Commit.copyMessageToClipboard({ ref: args.sha, repoPath: repoPath! }));
+						await GitActions.Commit.copyMessageToClipboard({ ref: args.sha, repoPath: repoPath! });
 						return;
 					}
 				}
 			}
 
-			void (await env.clipboard.writeText(args.message));
+			await env.clipboard.writeText(args.message);
 		} catch (ex) {
 			Logger.error(ex, 'CopyMessageToClipboardCommand');
-			void Messages.showGenericErrorMessage('Unable to copy message');
+			void showGenericErrorMessage('Unable to copy message');
 		}
 	}
 }

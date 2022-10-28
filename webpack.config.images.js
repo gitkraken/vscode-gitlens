@@ -16,8 +16,8 @@ module.exports =
 		const basePath = path.join(__dirname, 'src', 'webviews', 'apps');
 
 		env = {
-			useOptimization: false,
-			squoosh: false,
+			useOptimization: true,
+			squoosh: true,
 			...env,
 		};
 
@@ -59,8 +59,8 @@ module.exports =
 			new CopyPlugin({
 				patterns: [
 					{
-						from: path.posix.join(basePath.replace(/\\/g, '/'), 'images', 'settings', '*.png'),
-						to: __dirname.replace(/\\/g, '/'),
+						from: path.posix.join(basePath.replace(/\\/g, '/'), 'media', '*.png'),
+						to: path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews'),
 					},
 				],
 			}),

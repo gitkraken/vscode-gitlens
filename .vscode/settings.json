@@ -10,11 +10,16 @@
 		"**/.vscode-test": true,
 		"**/.vscode-test-web": true
 	},
+	"files.insertFinalNewline": true,
 	"files.trimTrailingWhitespace": true,
 	"githubIssues.queries": [
 		{
 			"label": "Triage",
 			"query": "state:open repo:${owner}/${repository} label:triage sort:updated-desc"
+		},
+		{
+			"label": "Current",
+			"query": "state:open repo:${owner}/${repository} milestone:\"June 2022\" sort:updated-desc"
 		},
 		{
 			"label": "Soon™",
@@ -29,18 +34,18 @@
 			"query": "state:closed repo:${owner}/${repository} label:pending-release sort:updated-desc"
 		},
 		{
-			"label": "Soonish™",
-			"query": "state:open repo:${owner}/${repository} milestone:Soonish™ sort:updated-desc"
-		},
-		{
 			"label": "All",
 			"query": "state:open repo:${owner}/${repository} sort:updated-desc"
 		}
 	],
 	"gitlens.advanced.blame.customArguments": ["--ignore-revs-file", ".gitignore-revs"],
+	"[html][javascript][json][jsonc][markdown][scss][svg][typescript][typescriptreact]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
 	"npm.packageManager": "yarn",
 	"search.exclude": {
 		"**/dist": true
 	},
+	"typescript.preferences.importModuleSpecifier": "project-relative",
 	"typescript.tsdk": "node_modules\\typescript\\lib"
 }

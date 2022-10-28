@@ -2,8 +2,9 @@ import { env, Uri } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { command } from '../system/command';
-import { PullRequestNode } from '../views/nodes';
-import { Command, CommandContext } from './base';
+import { PullRequestNode } from '../views/nodes/pullRequestNode';
+import type { CommandContext } from './base';
+import { Command } from './base';
 
 export interface OpenPullRequestOnRemoteCommandArgs {
 	clipboard?: boolean;
@@ -34,7 +35,7 @@ export class OpenPullRequestOnRemoteCommand extends Command {
 		if (args?.pr == null) {
 			if (args?.repoPath == null || args?.ref == null) return;
 
-			const remote = await this.container.git.getRichRemoteProvider(args.repoPath);
+			const remote = await this.container.git.getBestRemoteWithRichProvider(args.repoPath);
 			if (remote?.provider == null) return;
 
 			const pr = await this.container.git.getPullRequestForCommit(args.ref, remote.provider);
@@ -45,7 +46,7 @@ export class OpenPullRequestOnRemoteCommand extends Command {
 		}
 
 		if (args.clipboard) {
-			void (await env.clipboard.writeText(args.pr.url));
+			await env.clipboard.writeText(args.pr.url);
 		} else {
 			void env.openExternal(Uri.parse(args.pr.url));
 		}

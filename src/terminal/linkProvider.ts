@@ -1,18 +1,21 @@
-import { commands, Disposable, TerminalLink, TerminalLinkContext, TerminalLinkProvider, window } from 'vscode';
+import type { Disposable, TerminalLink, TerminalLinkContext, TerminalLinkProvider } from 'vscode';
+import { commands, window } from 'vscode';
 import type {
 	GitCommandsCommandArgs,
 	ShowQuickBranchHistoryCommandArgs,
 	ShowQuickCommitCommandArgs,
 } from '../commands';
 import { Commands } from '../constants';
-import { Container } from '../container';
-import { PagedResult } from '../git/gitProvider';
-import { GitBranch, GitReference, GitTag } from '../git/models';
+import type { Container } from '../container';
+import type { PagedResult } from '../git/gitProvider';
+import type { GitBranch } from '../git/models/branch';
+import { GitReference } from '../git/models/reference';
+import type { GitTag } from '../git/models/tag';
 
 const commandsRegexShared =
 	/\b(g(?:it)?\b\s*)\b(branch|checkout|cherry-pick|fetch|grep|log|merge|pull|push|rebase|reset|revert|show|stash|status|tag)\b/gi;
 // Since negative lookbehind isn't supported in all browsers, leave out the negative lookbehind condition `(?<!\.lock)` to ensure the branch name doesn't end with `.lock`
-const refRegexShared = /\b((?!\/)(?!\S*\/\/)(?!\S*@\{)(?!@$)(?!\S*\\)[^\000-\037\177 ~^:?*[]+(?<!\/)(?<!\.))\b/gi;
+const refRegexShared = /\b((?!.*\/\.)(?!.*\.\.)(?!.*\/\/)(?!.*@\{)[^\000-\037\177 ~^:?*[\\]+[^./])\b/gi;
 const rangeRegex = /^[0-9a-f]{7,40}\.\.\.?[0-9a-f]{7,40}$/;
 const shaRegex = /^[0-9a-f]{7,40}$/;
 

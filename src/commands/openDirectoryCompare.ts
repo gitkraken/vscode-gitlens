@@ -1,14 +1,15 @@
-import { TextEditor, Uri } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
 import { GitActions } from '../commands/gitCommands.actions';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import { showGenericErrorMessage } from '../messages';
 import { ReferencePicker } from '../quickpicks/referencePicker';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
-import { CompareResultsNode } from '../views/nodes';
-import { ActiveEditorCommand, CommandContext, getCommandUri, isCommandContextViewNodeHasRef } from './base';
+import { CompareResultsNode } from '../views/nodes/compareResultsNode';
+import type { CommandContext } from './base';
+import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasRef } from './base';
 
 export interface OpenDirectoryCompareCommandArgs {
 	ref1?: string;
@@ -82,7 +83,7 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 			void GitActions.Commit.openDirectoryCompare(repoPath, args.ref1, args.ref2);
 		} catch (ex) {
 			Logger.error(ex, 'OpenDirectoryCompareCommand');
-			void Messages.showGenericErrorMessage('Unable to open directory compare');
+			void showGenericErrorMessage('Unable to open directory compare');
 		}
 	}
 }

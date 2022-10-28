@@ -1,24 +1,23 @@
-import { QuickInputButton, QuickPickItem } from 'vscode';
+import type { QuickInputButton, QuickPickItem } from 'vscode';
 import type { GitCommandsCommandArgs } from '../../commands/gitCommands';
 import { getSteps } from '../../commands/gitCommands.utils';
 import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
-import {
-	GitBranch,
-	GitCommit,
-	GitContributor,
-	GitReference,
-	GitRemoteType,
-	GitRevision,
-	GitStatus,
-	GitTag,
-	GitWorktree,
-	Repository,
-} from '../../git/models';
+import type { GitBranch } from '../../git/models/branch';
+import type { GitCommit } from '../../git/models/commit';
+import { isStash } from '../../git/models/commit';
+import type { GitContributor } from '../../git/models/contributor';
+import { GitReference, GitRevision } from '../../git/models/reference';
+import { GitRemoteType } from '../../git/models/remote';
+import type { Repository } from '../../git/models/repository';
+import type { GitStatus } from '../../git/models/status';
+import type { GitTag } from '../../git/models/tag';
+import type { GitWorktree } from '../../git/models/worktree';
 import { fromNow } from '../../system/date';
 import { pad } from '../../system/string';
-import { CommandQuickPickItem, QuickPickItemOfT } from './common';
+import type { QuickPickItemOfT } from './common';
+import { CommandQuickPickItem } from './common';
 
 export class GitCommandQuickPickItem extends CommandQuickPickItem<[GitCommandsCommandArgs]> {
 	constructor(label: string, args: GitCommandsCommandArgs);
@@ -152,7 +151,7 @@ export namespace CommitQuickPickItem {
 		picked?: boolean,
 		options?: { alwaysShow?: boolean; buttons?: QuickInputButton[]; compact?: boolean; icon?: boolean },
 	) {
-		if (GitCommit.isStash(commit)) {
+		if (isStash(commit)) {
 			const number = commit.number == null ? '' : `${commit.number}: `;
 
 			if (options?.compact) {

@@ -1,8 +1,11 @@
-import { Disposable, window } from 'vscode';
+import type { Disposable } from 'vscode';
+import { window } from 'vscode';
 import { configuration } from '../configuration';
 import { Container } from '../container';
-import { GitCommit, GitLog, GitStash, GitStashCommit } from '../git/models';
-import { KeyboardScope, Keys } from '../keyboard';
+import type { GitCommit, GitStashCommit } from '../git/models/commit';
+import type { GitLog } from '../git/models/log';
+import type { GitStash } from '../git/models/stash';
+import type { KeyboardScope, Keys } from '../keyboard';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
 import { filter, map } from '../system/iterable';
 import { isPromise } from '../system/promise';
@@ -174,7 +177,7 @@ export namespace CommitPicker {
 			return pick.item;
 		} finally {
 			quickpick.dispose();
-			disposables.forEach(d => d.dispose());
+			disposables.forEach(d => void d.dispose());
 		}
 	}
 }
@@ -308,7 +311,7 @@ export namespace StashPicker {
 			return pick.item;
 		} finally {
 			quickpick.dispose();
-			disposables.forEach(d => d.dispose());
+			disposables.forEach(d => void d.dispose());
 		}
 	}
 }

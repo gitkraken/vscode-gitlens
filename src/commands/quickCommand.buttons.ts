@@ -1,4 +1,5 @@
-import { QuickInput, QuickInputButton, ThemeIcon, Uri } from 'vscode';
+import type { QuickInput, QuickInputButton } from 'vscode';
+import { ThemeIcon, Uri } from 'vscode';
 import { Container } from '../container';
 
 export class ToggleQuickInputButton implements QuickInputButton {
@@ -112,14 +113,14 @@ export namespace QuickCommandButtons {
 		tooltip: 'Open in New Window',
 	};
 
-	export const RevealInSideBar: QuickInputButton = {
+	export const ShowDetailsView: QuickInputButton = {
 		iconPath: new ThemeIcon('eye'),
-		tooltip: 'Reveal in Side Bar',
+		tooltip: 'Open Details',
 	};
 
-	export const SearchInSideBar: QuickInputButton = {
+	export const RevealInSideBar: QuickInputButton = {
 		iconPath: new ThemeIcon('search'),
-		tooltip: 'Search in Side Bar',
+		tooltip: 'Reveal in Side Bar',
 	};
 
 	export const ShowResultsInSideBar: QuickInputButton = {

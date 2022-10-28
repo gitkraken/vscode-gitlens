@@ -1,16 +1,18 @@
-import { CancellationToken, Disposable, Uri, window } from 'vscode';
+import type { CancellationToken, Disposable, Uri } from 'vscode';
+import { window } from 'vscode';
 import type { LiveShare, SharedServiceProxy } from '../@types/vsls';
-import { Container } from '../container';
-import { GitCommandOptions } from '../git/commandOptions';
+import type { Container } from '../container';
+import type { GitCommandOptions } from '../git/commandOptions';
 import { Logger } from '../logger';
-import { debug, log } from '../system/decorators/log';
+import { debug, getLogScope, log } from '../system/decorators/log';
 import { VslsHostService } from './host';
-import { GetRepositoriesForUriRequestType, GitCommandRequestType, RepositoryProxy, RequestType } from './protocol';
+import type { RepositoryProxy, RequestType } from './protocol';
+import { GetRepositoriesForUriRequestType, GitCommandRequestType } from './protocol';
 
 export class VslsGuestService implements Disposable {
 	@log()
 	static async connect(api: LiveShare, container: Container) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			const service = await api.getSharedService(VslsHostService.ServiceId);
@@ -20,7 +22,7 @@ export class VslsGuestService implements Disposable {
 
 			return new VslsGuestService(api, service, container);
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			return undefined;
 		}
 	}
@@ -77,6 +79,7 @@ export class VslsGuestService implements Disposable {
 		request: TRequest,
 		_cancellation?: CancellationToken,
 	): Promise<TResponse> {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 		return this._service.request(requestType.name, [request]);
 	}
 }

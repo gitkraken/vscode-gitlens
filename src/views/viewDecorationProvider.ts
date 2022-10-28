@@ -1,16 +1,7 @@
-import {
-	CancellationToken,
-	Disposable,
-	Event,
-	EventEmitter,
-	FileDecoration,
-	FileDecorationProvider,
-	ThemeColor,
-	Uri,
-	window,
-} from 'vscode';
+import type { CancellationToken, Event, FileDecoration, FileDecorationProvider, Uri } from 'vscode';
+import { Disposable, EventEmitter, ThemeColor, window } from 'vscode';
 import { GlyphChars } from '../constants';
-import { GitBranchStatus } from '../git/models';
+import { GitBranchStatus } from '../git/models/branch';
 
 export class ViewFileDecorationProvider implements FileDecorationProvider, Disposable {
 	private readonly _onDidChange = new EventEmitter<undefined | Uri | Uri[]>();

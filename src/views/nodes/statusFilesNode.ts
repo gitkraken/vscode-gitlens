@@ -1,14 +1,19 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
-import { GitCommit, GitFileWithCommit, GitLog, GitStatus, GitStatusFile, GitTrackingState } from '../../git/models';
+import type { GitTrackingState } from '../../git/models/branch';
+import type { GitCommit } from '../../git/models/commit';
+import type { GitFileWithCommit } from '../../git/models/file';
+import type { GitLog } from '../../git/models/log';
+import type { GitStatus, GitStatusFile } from '../../git/models/status';
 import { groupBy, makeHierarchical } from '../../system/array';
 import { filter, flatMap, map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
 import { pluralize, sortCompare } from '../../system/string';
-import { RepositoriesView } from '../repositoriesView';
+import type { RepositoriesView } from '../repositoriesView';
 import { WorktreesView } from '../worktreesView';
-import { FileNode, FolderNode } from './folderNode';
+import type { FileNode } from './folderNode';
+import { FolderNode } from './folderNode';
 import { RepositoryNode } from './repositoryNode';
 import { StatusFileNode } from './statusFileNode';
 import { ContextValues, ViewNode } from './viewNode';
@@ -89,8 +94,8 @@ export class StatusFilesNode extends ViewNode<RepositoriesView | WorktreesView> 
 				new StatusFileNode(
 					this.view,
 					this,
-					repoPath,
 					files[files.length - 1],
+					repoPath,
 					files.map(s => s.commit),
 				),
 		);

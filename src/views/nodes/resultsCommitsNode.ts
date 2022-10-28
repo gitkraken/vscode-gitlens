@@ -1,17 +1,20 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { configuration } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
-import { GitLog } from '../../git/models';
+import type { GitLog } from '../../git/models/log';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import { cancellable, PromiseCancelledError } from '../../system/promise';
-import { ViewsWithCommits } from '../viewBase';
+import type { ViewsWithCommits } from '../viewBase';
 import { AutolinkedItemsNode } from './autolinkedItemsNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
-import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
+import type { FilesQueryResults } from './resultsFilesNode';
+import { ResultsFilesNode } from './resultsFilesNode';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 export interface CommitsQueryResults {
 	readonly label: string;
@@ -26,7 +29,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 {
 	constructor(
 		view: View,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly repoPath: string,
 		private _label: string,
 		private readonly _results: {
@@ -64,26 +67,21 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 	}
 
 	override get id(): string {
-		return `${this.parent!.id}:results:commits${this._options.id ? `:${this._options.id}` : ''}`;
+		return `${this.parent.id}:results:commits${this._options.id ? `:${this._options.id}` : ''}`;
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
 		const { log } = await this.getCommitsQueryResults();
 		if (log == null) return [];
 
-		const [getBranchAndTagTips, provider] = await Promise.all([
+		const [getBranchAndTagTips] = await Promise.all([
 			this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath),
-			this.view.container.git.getRichRemoteProvider(this.repoPath),
 		]);
 
-		const children = [];
-
-		if (provider != null) {
-			children.push(
-				new AutolinkedItemsNode(this.view, this, this.uri.repoPath!, provider, log, this._expandAutolinks),
-			);
-			this._expandAutolinks = false;
-		}
+		const children: ViewNode[] = [
+			new AutolinkedItemsNode(this.view, this, this.uri.repoPath!, log, this._expandAutolinks),
+		];
+		this._expandAutolinks = false;
 
 		const { files } = this._results;
 		if (files != null) {
@@ -173,9 +171,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 	private _commitsQueryResults: Promise<CommitsQueryResults> | undefined;
 	private async getCommitsQueryResults() {
 		if (this._commitsQueryResults == null) {
-			this._commitsQueryResults = this._results.query(
-				this.limit ?? this.view.container.config.advanced.maxSearchItems,
-			);
+			this._commitsQueryResults = this._results.query(this.limit ?? configuration.get('advanced.maxSearchItems'));
 			const results = await this._commitsQueryResults;
 			this._hasMore = results.hasMore;
 

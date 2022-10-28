@@ -1,5 +1,7 @@
-import { Uri } from 'vscode';
-import { isSubscriptionPaidPlan, RequiredSubscriptionPlans, Subscription } from './subscription';
+import type { Uri } from 'vscode';
+import type { Response } from '@env/fetch';
+import type { RequiredSubscriptionPlans, Subscription } from './subscription';
+import { isSubscriptionPaidPlan } from './subscription';
 
 export class AccessDeniedError extends Error {
 	public readonly subscription: Subscription;
@@ -144,6 +146,26 @@ export class OpenVirtualRepositoryError extends Error {
 		this.reason = reason;
 		this.repoPath = repoPath;
 		Error.captureStackTrace?.(this, OpenVirtualRepositoryError);
+	}
+}
+
+export class ProviderFetchError extends Error {
+	get status() {
+		return this.response.status;
+	}
+
+	get statusText() {
+		return this.response.statusText;
+	}
+
+	constructor(provider: string, public readonly response: Response, errors?: { message: string }[]) {
+		super(
+			`${provider} request failed: ${!response.ok ? `(${response.status}) ${response.statusText}. ` : ''}${
+				errors?.length ? errors[0].message : ''
+			}`,
+		);
+
+		Error.captureStackTrace?.(this, ProviderFetchError);
 	}
 }
 

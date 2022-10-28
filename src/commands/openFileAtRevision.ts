@@ -1,18 +1,20 @@
-import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import type { TextDocumentShowOptions, TextEditor } from 'vscode';
+import { Uri } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitRevision } from '../git/models';
+import { GitRevision } from '../git/models/reference';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
 import { CommitPicker } from '../quickpicks/commitPicker';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
 import { command } from '../system/command';
 import { pad } from '../system/string';
-import { ActiveEditorCommand, CommandContext, getCommandUri } from './base';
+import type { CommandContext } from './base';
+import { ActiveEditorCommand, getCommandUri } from './base';
 import { GitActions } from './gitCommands.actions';
-import { OpenFileAtRevisionFromCommandArgs } from './openFileAtRevisionFrom';
+import type { OpenFileAtRevisionFromCommandArgs } from './openFileAtRevisionFrom';
 
 export interface OpenFileAtRevisionCommandArgs {
 	revisionUri?: Uri;
@@ -66,7 +68,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 								if (comparisonUris?.previous != null) {
 									args.revisionUri = this.container.git.getRevisionUri(comparisonUris.previous);
 								} else {
-									void Messages.showCommitHasNoPreviousCommitWarningMessage(blame.commit);
+									void showCommitHasNoPreviousCommitWarningMessage(blame.commit);
 									return undefined;
 								}
 							} else {
@@ -74,7 +76,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 								if (previousSha != null) {
 									args.revisionUri = this.container.git.getRevisionUri(blame.commit.getGitUri(true));
 								} else {
-									void Messages.showCommitHasNoPreviousCommitWarningMessage(blame.commit);
+									void showCommitHasNoPreviousCommitWarningMessage(blame.commit);
 									return undefined;
 								}
 							}
@@ -86,7 +88,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 			}
 
 			if (args.revisionUri == null) {
-				void Messages.showGenericErrorMessage('Unable to open blame');
+				void showGenericErrorMessage('Unable to open blame');
 				return undefined;
 			}
 		}
@@ -133,12 +135,12 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 						picked: gitUri.sha,
 						keys: ['right', 'alt+right', 'ctrl+right'],
 						onDidPressKey: async (key, item) => {
-							void (await GitActions.Commit.openFileAtRevision(item.item.file!, item.item, {
+							await GitActions.Commit.openFileAtRevision(item.item.file!, item.item, {
 								annotationType: args!.annotationType,
 								line: args!.line,
 								preserveFocus: true,
 								preview: false,
-							}));
+							});
 						},
 						showOtherReferences: [
 							CommandQuickPickItem.fromCommand(
@@ -155,23 +157,23 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 				);
 				if (pick?.file == null) return;
 
-				void (await GitActions.Commit.openFileAtRevision(pick.file, pick, {
+				await GitActions.Commit.openFileAtRevision(pick.file, pick, {
 					annotationType: args.annotationType,
 					line: args.line,
 					...args.showOptions,
-				}));
+				});
 
 				return;
 			}
 
-			void (await GitActions.Commit.openFileAtRevision(args.revisionUri, {
+			await GitActions.Commit.openFileAtRevision(args.revisionUri, {
 				annotationType: args.annotationType,
 				line: args.line,
 				...args.showOptions,
-			}));
+			});
 		} catch (ex) {
 			Logger.error(ex, 'OpenFileAtRevisionCommand');
-			void Messages.showGenericErrorMessage('Unable to open file at revision');
+			void showGenericErrorMessage('Unable to open file at revision');
 		}
 	}
 }

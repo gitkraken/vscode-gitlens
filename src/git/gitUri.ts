@@ -12,7 +12,8 @@ import { basename, getBestPath, normalizePath, relativeDir, splitPath } from '..
 // import { CharCode } from '../system/string';
 import { isVirtualUri } from '../system/utils';
 import type { RevisionUriData } from './gitProvider';
-import { GitFile, GitRevision } from './models';
+import type { GitFile } from './models/file';
+import { GitRevision } from './models/reference';
 
 const slash = 47; //CharCode.Slash;
 
@@ -38,15 +39,6 @@ interface UriEx {
 }
 
 export class GitUri extends (Uri as any as UriEx) {
-	private static readonly _unknown = new GitUri();
-	static get unknown() {
-		return this._unknown;
-	}
-
-	static is(uri: any): uri is GitUri {
-		return uri instanceof GitUri;
-	}
-
 	readonly repoPath?: string;
 	readonly sha?: string;
 
@@ -213,7 +205,7 @@ export class GitUri extends (Uri as any as UriEx) {
 	equals(uri: Uri | undefined) {
 		if (!UriComparer.equals(this, uri)) return false;
 
-		return this.sha === (GitUri.is(uri) ? uri.sha : undefined);
+		return this.sha === (isGitUri(uri) ? uri.sha : undefined);
 	}
 
 	getFormattedFileName(options?: { suffix?: string; truncateTo?: number }): string {
@@ -230,7 +222,14 @@ export class GitUri extends (Uri as any as UriEx) {
 			typeof file === 'string' ? file : (original && file.originalPath) || file.path,
 			repoPath,
 		);
-		return !ref ? new GitUri(uri, repoPath) : new GitUri(uri, { repoPath: repoPath, sha: ref });
+
+		return !ref
+			? new GitUri(uri, repoPath)
+			: new GitUri(uri, {
+					repoPath: repoPath,
+					// If the file is `?` (untracked), then this must be a stash, so get the ^3 commit to access the untracked file
+					sha: typeof file !== 'string' && file.status === '?' ? `${ref}^3` : ref,
+			  });
 	}
 
 	static fromRepoPath(repoPath: string, ref?: string) {
@@ -247,7 +246,7 @@ export class GitUri extends (Uri as any as UriEx) {
 		exit: uri => `returned ${Logger.toLoggable(uri)}`,
 	})
 	static async fromUri(uri: Uri): Promise<GitUri> {
-		if (GitUri.is(uri)) return uri;
+		if (isGitUri(uri)) return uri;
 		if (!Container.instance.git.isTrackable(uri)) return new GitUri(uri);
 		if (uri.scheme === Schemes.GitLens) return new GitUri(uri);
 
@@ -262,7 +261,7 @@ export class GitUri extends (Uri as any as UriEx) {
 				const repository = await Container.instance.git.getOrOpenRepository(Uri.file(data.path));
 				if (repository == null) {
 					debugger;
-					throw new Error(`Unable to find repository for uri=${uri.toString(false)}`);
+					throw new Error(`Unable to find repository for uri=${Uri.file(data.path).toString(true)}`);
 				}
 
 				let ref;
@@ -310,17 +309,17 @@ export class GitUri extends (Uri as any as UriEx) {
 				const repository = await Container.instance.git.getOrOpenRepository(Uri.file(data.fileName));
 				if (repository == null) {
 					debugger;
-					throw new Error(`Unable to find repository for uri=${uri.toString(false)}`);
+					throw new Error(`Unable to find repository for uri=${Uri.file(data.fileName).toString(true)}`);
 				}
 
-				let repoPath = normalizePath(uri.fsPath);
+				let repoPath: string | undefined = normalizePath(uri.fsPath);
 				if (repoPath.endsWith(data.fileName)) {
 					repoPath = repoPath.substr(0, repoPath.length - data.fileName.length - 1);
 				} else {
-					// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-					repoPath = (await Container.instance.git.getOrOpenRepository(uri))?.path!;
+					repoPath = (await Container.instance.git.getOrOpenRepository(uri))?.path;
 					if (!repoPath) {
 						debugger;
+						throw new Error(`Unable to find repository for uri=${uri.toString(true)}`);
 					}
 				}
 
@@ -336,6 +335,12 @@ export class GitUri extends (Uri as any as UriEx) {
 		const repository = await Container.instance.git.getOrOpenRepository(uri);
 		return new GitUri(uri, repository?.path);
 	}
+}
+
+export const unknownGitUri = Object.freeze(new GitUri());
+
+export function isGitUri(uri: any): uri is GitUri {
+	return uri instanceof GitUri;
 }
 
 export function decodeGitLensRevisionUriAuthority<T>(authority: string): T {

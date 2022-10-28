@@ -1,8 +1,34 @@
-import { Disposable, Event, EventEmitter, ExtensionContext, SecretStorageChangeEvent } from 'vscode';
+import type { Disposable, Event, ExtensionContext, SecretStorageChangeEvent } from 'vscode';
+import { EventEmitter } from 'vscode';
 import type { ViewShowBranchComparison } from './config';
-import type { SearchPattern } from './git/search';
+import type { StoredSearchQuery } from './git/search';
+import type { Subscription } from './subscription';
+import { debug } from './system/decorators/log';
+import type { TrackedUsage, TrackedUsageKeys } from './usageTracker';
+import type { CompletedActions } from './webviews/home/protocol';
+
+export type StorageChangeEvent =
+	| {
+			/**
+			 * The key of the stored value that has changed.
+			 */
+			readonly key: GlobalStoragePath;
+			readonly workspace: false;
+	  }
+	| {
+			/**
+			 * The key of the stored value that has changed.
+			 */
+			readonly key: WorkspaceStoragePath;
+			readonly workspace: true;
+	  };
 
 export class Storage implements Disposable {
+	private _onDidChange = new EventEmitter<StorageChangeEvent>();
+	get onDidChange(): Event<StorageChangeEvent> {
+		return this._onDidChange.event;
+	}
+
 	private _onDidChangeSecrets = new EventEmitter<SecretStorageChangeEvent>();
 	get onDidChangeSecrets(): Event<SecretStorageChangeEvent> {
 		return this._onDidChangeSecrets.event;
@@ -17,121 +43,223 @@ export class Storage implements Disposable {
 		this._disposable.dispose();
 	}
 
-	get<T>(key: StorageKeys | SyncedStorageKeys): T | undefined;
-	get<T>(key: StorageKeys | SyncedStorageKeys, defaultValue: T): T;
-	get<T>(key: StorageKeys | SyncedStorageKeys, defaultValue?: T): T | undefined {
-		return this.context.globalState.get(key, defaultValue);
+	get<T extends GlobalStoragePath>(key: T): GlobalStoragePathValue<T>;
+	get<T extends GlobalStoragePath>(
+		key: T,
+		defaultValue: NonNullable<GlobalStoragePathValue<T>>,
+	): NonNullable<GlobalStoragePathValue<T>>;
+	@debug({ logThreshold: 50 })
+	get<T extends GlobalStoragePath>(
+		key: T,
+		defaultValue?: GlobalStoragePathValue<T>,
+	): GlobalStoragePathValue<T> | undefined {
+		return this.context.globalState.get(`gitlens:${key}`, defaultValue);
 	}
 
-	async delete(key: StorageKeys | SyncedStorageKeys): Promise<void> {
-		return this.context.globalState.update(key, undefined);
+	@debug({ logThreshold: 250 })
+	async delete<T extends GlobalStoragePath>(key: T): Promise<void> {
+		await this.context.globalState.update(`gitlens:${key}`, undefined);
+		this._onDidChange.fire({ key: key, workspace: false });
 	}
 
-	async store<T>(key: StorageKeys | SyncedStorageKeys, value: T): Promise<void> {
-		return this.context.globalState.update(key, value);
+	@debug({ args: { 1: false }, logThreshold: 250 })
+	async store<T extends GlobalStoragePath>(key: T, value: GlobalStoragePathValue<T>): Promise<void> {
+		await this.context.globalState.update(`gitlens:${key}`, value);
+		this._onDidChange.fire({ key: key, workspace: false });
 	}
 
+	@debug({ args: false, logThreshold: 250 })
 	async getSecret(key: SecretKeys): Promise<string | undefined> {
 		return this.context.secrets.get(key);
 	}
 
+	@debug({ args: false, logThreshold: 250 })
 	async deleteSecret(key: SecretKeys): Promise<void> {
 		return this.context.secrets.delete(key);
 	}
 
+	@debug({ args: false, logThreshold: 250 })
 	async storeSecret(key: SecretKeys, value: string): Promise<void> {
 		return this.context.secrets.store(key, value);
 	}
 
-	getWorkspace<T>(key: WorkspaceStorageKeys | `${WorkspaceStorageKeys.ConnectedPrefix}${string}`): T | undefined;
-	getWorkspace<T>(key: WorkspaceStorageKeys | `${WorkspaceStorageKeys.ConnectedPrefix}${string}`, defaultValue: T): T;
-	getWorkspace<T>(
-		key: WorkspaceStorageKeys | `${WorkspaceStorageKeys.ConnectedPrefix}${string}`,
-		defaultValue?: T,
-	): T | undefined {
-		return this.context.workspaceState.get(key, defaultValue);
+	getWorkspace<T extends WorkspaceStoragePath>(key: T): WorkspaceStoragePathValue<T>;
+	getWorkspace<T extends WorkspaceStoragePath>(
+		key: T,
+		defaultValue: NonNullable<WorkspaceStoragePathValue<T>>,
+	): NonNullable<WorkspaceStoragePathValue<T>>;
+	@debug({ logThreshold: 25 })
+	getWorkspace<T extends WorkspaceStoragePath>(
+		key: T,
+		defaultValue?: WorkspaceStoragePathValue<T>,
+	): WorkspaceStoragePathValue<T> | undefined {
+		return this.context.workspaceState.get(`gitlens:${key}`, defaultValue);
 	}
 
-	async deleteWorkspace(
-		key: WorkspaceStorageKeys | `${WorkspaceStorageKeys.ConnectedPrefix}${string}`,
-	): Promise<void> {
-		return this.context.workspaceState.update(key, undefined);
+	@debug({ logThreshold: 250 })
+	async deleteWorkspace<T extends WorkspaceStoragePath>(key: T): Promise<void> {
+		await this.context.workspaceState.update(`gitlens:${key}`, undefined);
+		this._onDidChange.fire({ key: key, workspace: true });
 	}
 
-	async storeWorkspace<T>(
-		key: WorkspaceStorageKeys | `${WorkspaceStorageKeys.ConnectedPrefix}${string}`,
-		value: T,
-	): Promise<void> {
-		return this.context.workspaceState.update(key, value);
+	@debug({ args: { 1: false }, logThreshold: 250 })
+	async storeWorkspace<T extends WorkspaceStoragePath>(key: T, value: WorkspaceStoragePathValue<T>): Promise<void> {
+		await this.context.workspaceState.update(`gitlens:${key}`, value);
+		this._onDidChange.fire({ key: key, workspace: true });
 	}
 }
 
 export type SecretKeys = string;
 
-export const enum StorageKeys {
-	Avatars = 'gitlens:avatars',
-	PendingWelcomeOnFocus = 'gitlens:pendingWelcomeOnFocus',
-	PendingWhatsNewOnFocus = 'gitlens:pendingWhatsNewOnFocus',
-	HomeViewActionsCompleted = 'gitlens:home:actions:completed',
-
-	Version = 'gitlens:version',
-
-	MigratedAuthentication = 'gitlens:plus:migratedAuthentication',
-	Subscription = 'gitlens:premium:subscription', // Don't change this key name as its the stored subscription
-
-	Deprecated_Version = 'gitlensVersion',
+export const enum DeprecatedStorageKeys {
+	/** @deprecated */
+	DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 }
 
 export const enum SyncedStorageKeys {
 	Version = 'gitlens:synced:version',
+	PreReleaseVersion = 'gitlens:synced:preVersion',
 	HomeViewWelcomeVisible = 'gitlens:views:welcome:visible',
-
-	Deprecated_DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 }
 
-export const enum WorkspaceStorageKeys {
-	AssumeRepositoriesOnStartup = 'gitlens:assumeRepositoriesOnStartup',
-	GitPath = 'gitlens:gitPath',
-
-	BranchComparisons = 'gitlens:branch:comparisons',
-	ConnectedPrefix = 'gitlens:connected:',
-	DefaultRemote = 'gitlens:remote:default',
-	GitCommandPaletteUsage = 'gitlens:gitComandPalette:usage',
-	StarredBranches = 'gitlens:starred:branches',
-	StarredRepositories = 'gitlens:starred:repositories',
-	ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
-	ViewsSearchAndCompareKeepResults = 'gitlens:views:searchAndCompare:keepResults',
-	ViewsSearchAndComparePinnedItems = 'gitlens:views:searchAndCompare:pinned',
-
-	Deprecated_DisallowConnectionPrefix = 'gitlens:disallow:connection:',
-	Deprecated_PinnedComparisons = 'gitlens:pinned:comparisons',
+export interface GlobalStorage {
+	avatars?: [string, StoredAvatar][];
+	provider: {
+		authentication: {
+			skip: Record<string, boolean>;
+		};
+	};
+	home: {
+		actions: {
+			completed?: CompletedActions[];
+		};
+		steps: {
+			completed?: string[];
+		};
+		sections: {
+			dismissed?: string[];
+		};
+	};
+	pendingWelcomeOnFocus?: boolean;
+	pendingWhatsNewOnFocus?: boolean;
+	plus: {
+		migratedAuthentication?: boolean;
+		discountNotificationShown?: boolean;
+	};
+	// Don't change this key name ('premium`) as its the stored subscription
+	premium: {
+		subscription?: Stored<Subscription>;
+	};
+	synced: {
+		version?: string;
+		// Keep the pre-release version separate from the released version
+		preVersion?: string;
+	};
+	usages?: Record<TrackedUsageKeys, TrackedUsage>;
+	version?: string;
+	// Keep the pre-release version separate from the released version
+	preVersion?: string;
+	views: {
+		welcome: {
+			visible?: boolean;
+		};
+	};
 }
 
-export interface BranchComparison {
+export interface WorkspaceStorage {
+	assumeRepositoriesOnStartup?: boolean;
+	branch: {
+		comparisons?: StoredBranchComparisons;
+	};
+	connected: Record<string, boolean>;
+	gitComandPalette: {
+		usage?: RecentUsage;
+	};
+	gitPath?: string;
+	graph: {
+		banners: {
+			dismissed?: Record<string, boolean>;
+		};
+		columns?: Record<string, StoredGraphColumn>;
+		hiddenRefs?: Record<string, StoredGraphHiddenRef>;
+	};
+	remote: {
+		default?: string;
+	};
+	starred: {
+		branches?: StoredStarred;
+		repositories?: StoredStarred;
+	};
+	views: {
+		repositories: {
+			autoRefresh?: boolean;
+		};
+		searchAndCompare: {
+			keepResults?: boolean;
+			pinned?: StoredPinnedItems;
+		};
+		commitDetails: {
+			autolinksExpanded?: boolean;
+			filesAsTree?: boolean;
+			dismissed?: string[];
+		};
+	};
+
+	pinned: {
+		/** @deprecated use `gitlens:views:searchAndCompare:pinned` */
+		comparisons?: DeprecatedPinnedComparisons;
+	};
+}
+
+export interface Stored<T, SchemaVersion extends number = 1> {
+	v: SchemaVersion;
+	data: T;
+}
+
+export interface StoredAvatar {
+	uri: string;
+	timestamp: number;
+}
+
+export interface StoredBranchComparison {
 	ref: string;
 	notation: '..' | '...' | undefined;
 	type: Exclude<ViewShowBranchComparison, false> | undefined;
 }
 
-export interface BranchComparisons {
-	[id: string]: string | BranchComparison;
+export interface StoredBranchComparisons {
+	[id: string]: string | StoredBranchComparison;
 }
 
-export interface NamedRef {
+export interface StoredGraphColumn {
+	isHidden?: boolean;
+	width?: number;
+}
+
+export type StoredGraphRefType = 'head' | 'remote' | 'tag';
+
+export interface StoredGraphHiddenRef {
+	id: string;
+	type: StoredGraphRefType;
+	name: string;
+	owner?: string;
+}
+
+export interface StoredNamedRef {
 	label?: string;
 	ref: string;
 }
 
-export interface PinnedComparison {
+export interface StoredPinnedComparison {
 	type: 'comparison';
 	timestamp: number;
 	path: string;
-	ref1: NamedRef;
-	ref2: NamedRef;
+	ref1: StoredNamedRef;
+	ref2: StoredNamedRef;
 	notation?: '..' | '...';
 }
 
-export interface PinnedSearch {
+export interface StoredPinnedSearch {
 	type: 'search';
 	timestamp: number;
 	path: string;
@@ -144,19 +272,47 @@ export interface PinnedSearch {
 					resultsType?: { singular: string; plural: string };
 			  };
 	};
-	search: SearchPattern;
+	search: StoredSearchQuery;
 }
 
-export type PinnedItem = PinnedComparison | PinnedSearch;
+export type StoredPinnedItem = StoredPinnedComparison | StoredPinnedSearch;
+export type StoredPinnedItems = Record<string, StoredPinnedItem>;
+export type StoredStarred = Record<string, boolean>;
+export type RecentUsage = Record<string, number>;
 
-export interface PinnedItems {
-	[id: string]: PinnedItem;
+interface DeprecatedPinnedComparison {
+	path: string;
+	ref1: StoredNamedRef;
+	ref2: StoredNamedRef;
+	notation?: '..' | '...';
 }
 
-export interface Starred {
-	[id: string]: boolean;
+interface DeprecatedPinnedComparisons {
+	[id: string]: DeprecatedPinnedComparison;
 }
 
-export interface Usage {
-	[id: string]: number;
-}
+type SubPath<T, Key extends keyof T> = Key extends string
+	? T[Key] extends Record<string, any>
+		?
+				| `${Key}:${SubPath<T[Key], Exclude<keyof T[Key], keyof any[]>>}`
+				| `${Key}:${Exclude<keyof T[Key], keyof any[]> & string}`
+		: never
+	: never;
+
+type Path<T> = SubPath<T, keyof T> | keyof T;
+
+type PathValue<T, P extends Path<T>> = P extends `${infer Key}:${infer Rest}`
+	? Key extends keyof T
+		? Rest extends Path<T[Key]>
+			? PathValue<T[Key], Rest>
+			: never
+		: never
+	: P extends keyof T
+	? T[P]
+	: never;
+
+type GlobalStoragePath = Path<GlobalStorage>;
+type GlobalStoragePathValue<P extends GlobalStoragePath> = PathValue<GlobalStorage, P>;
+
+type WorkspaceStoragePath = Path<WorkspaceStorage>;
+type WorkspaceStoragePathValue<P extends WorkspaceStoragePath> = PathValue<WorkspaceStorage, P>;

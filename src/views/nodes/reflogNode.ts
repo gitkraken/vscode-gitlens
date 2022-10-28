@@ -1,13 +1,15 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GitUri } from '../../git/gitUri';
-import { GitReflog, Repository } from '../../git/models';
+import type { GitUri } from '../../git/gitUri';
+import type { GitReflog } from '../../git/models/reflog';
+import type { Repository } from '../../git/models/repository';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
-import { RepositoriesView } from '../repositoriesView';
+import type { RepositoriesView } from '../repositoriesView';
 import { LoadMoreNode, MessageNode } from './common';
 import { ReflogRecordNode } from './reflogRecordNode';
 import { RepositoryNode } from './repositoryNode';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 export class ReflogNode extends ViewNode<RepositoriesView> implements PageableViewNode {
 	static key = ':reflog';

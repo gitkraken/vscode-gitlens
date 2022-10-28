@@ -26,10 +26,10 @@ export interface Commit {
 
 export type Period = `${number}|${'D' | 'M' | 'Y'}`;
 
-export interface DidChangeStateParams {
+export interface DidChangeParams {
 	state: State;
 }
-export const DidChangeStateNotificationType = new IpcNotificationType<DidChangeStateParams>('timeline/data/didChange');
+export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('timeline/didChange');
 
 export interface OpenDataPointParams {
 	data?: {
@@ -37,7 +37,7 @@ export interface OpenDataPointParams {
 		selected: boolean;
 	};
 }
-export const OpenDataPointCommandType = new IpcCommandType<OpenDataPointParams>('timeline/point/click');
+export const OpenDataPointCommandType = new IpcCommandType<OpenDataPointParams>('timeline/point/open');
 
 export interface UpdatePeriodParams {
 	period: Period;

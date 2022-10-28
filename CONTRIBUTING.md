@@ -100,11 +100,35 @@ yarn run package
 
 ### Debugging
 
-#### Using VS Code
+#### Using VS Code (desktop)
 
 1. Open the `vscode-gitlens` folder
 2. Ensure the required [dependencies](#dependencies) are installed
 3. Choose the `Watch & Run` launch configuration from the launch dropdown in the Run and Debug viewlet and press `F5`.
+
+#### Using VS Code (desktop webworker)
+
+1. Open the `vscode-gitlens` folder
+2. Ensure the required [dependencies](#dependencies) are installed
+3. Choose the `Watch & Run (web)` launch configuration from the launch dropdown in the Run and Debug viewlet and press `F5`.
+
+#### Using VS Code for the Web (locally)
+
+See https://code.visualstudio.com/api/extension-guides/web-extensions#test-your-web-extension-in-a-browser-using-vscodetestweb
+
+1. Open the `vscode-gitlens` folder
+2. Ensure the required [dependencies](#dependencies) are installed
+3. Run the `build` or `watch` task from the command palette
+4. Run the `Run (local web)` task from the command palette
+
+#### Using VS Code for the Web (vscode.dev)
+
+See https://code.visualstudio.com/api/extension-guides/web-extensions#test-your-web-extension-in-on-vscode.dev
+
+1. Open the `vscode-gitlens` folder
+2. Ensure the required [dependencies](#dependencies) are installed
+3. Run the `build` or `watch` task from the command palette
+4. Run the `Run (vscode.dev)` task from the command palette
 
 ## Submitting a Pull Request
 
@@ -115,3 +139,70 @@ Please follow all the instructions in the [PR template](.github/PULL_REQUEST_TEM
 This repository contains both OSS-licensed and non-OSS-licensed files. All files in or under any directory named "plus" fall under LICENSE.plus. The remaining files fall under LICENSE, the MIT license.
 
 If a pull request is submitted which contains changes to files in or under any directory named "plus", then you agree that GitKraken and/or its licensors (as applicable) retain all right, title and interest in and to all such modifications and/or patches.
+
+### Update the CHANGELOG
+
+The [Change Log](CHANGELOG.md) is updated manually and an entry should be added for each change. Changes are grouped in lists by `added`, `changed` or `fixed`.
+
+Entries should be written in future tense:
+
+> - Adds [Gravatar](https://en.gravatar.com/) support to gutter and hover blame annotations
+
+Be sure to give yourself much deserved credit by adding your name and user in the entry:
+
+> - Adds `gitlens.statusBar.alignment` settings to control the alignment of the status bar &mdash; thanks to [PR #72](https://github.com/gitkraken/vscode-gitlens/pull/72) by Zack Schuster ([@zackschuster](https://github.com/zackschuster))!
+
+### Update the README
+
+If this is your first contribution to GitLens, please give yourself credit by adding yourself to the `Contributors` section of the [README](README.md#contributors-) in the following format:
+
+> - `Your Name ([@<your-github-username>](https://github.com/<your-github-username>)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=<your-github-username>)`
+
+## Publishing
+
+### Versioning
+
+GitLens version changes are bucketed into two types:
+
+- `minor`: normal release (new features, enhancements and fixes)
+- `patch`: hotfix release (just fixes)
+
+<small>Note: `major` version bumps are only considered for more special circumstances.</small>
+
+#### Updating the CHANGELOG
+
+All recent changes are listed under `## [Unreleased]`. This title and corresponding link at the bottom of the page will need to be updated.
+
+The title should be updated to the upcoming version and the release date (YYYY-MM-DD):
+
+```markdown
+<!-- from: -->
+
+## [Unreleased]
+
+<!-- to: -->
+
+## [12.1.0] - 2022-06-14
+```
+
+Stage this file so it will be included with the version commit.
+
+#### Version Commit
+
+Run `yarn version` and enter the upcoming version when prompted.
+
+Once the commit is completed, run `git push --follow-tags` to push the version commit and the newly generated tags.
+
+### GitHub Actions and Deployment
+
+After the version commit and new tags are pushed to GitHub, the [Publish Stable workflow](.github/workflows/cd-stable.yml) will be triggered, which will automatically package the extension and deploy it to the [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens). The [release notes](https://github.com/gitkraken/vscode-gitlens/releases/latest) _should_ be generated during the action, but if not, this can be done manually using the notes from the [Change Log](CHANGELOG.md).
+
+If the action fails, the VSIX will need to be built locally with `yarn package` and uploaded manually in the marketplace.
+
+### Pre-release edition (currently disabled until VS Code's marketplace supports pre-releases)
+
+The [Publish Pre-release workflow](.github/workflows/cd-pre.yml) is automatically run every AM unless no new changes have been committed to `main`.
+
+### Insiders edition
+
+The [Publish Insiders workflow](.github/workflows/cd-insiders.yml) is automatically run every AM unless no new changes have been committed to `main`.

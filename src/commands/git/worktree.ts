@@ -1,6 +1,7 @@
-import { MessageItem, QuickInputButtons, Uri, window } from 'vscode';
+import type { MessageItem } from 'vscode';
+import { QuickInputButtons, Uri, window } from 'vscode';
 import { configuration } from '../../configuration';
-import { Container } from '../../container';
+import type { Container } from '../../container';
 import { PlusFeatures } from '../../features';
 import {
 	WorktreeCreateError,
@@ -8,34 +9,39 @@ import {
 	WorktreeDeleteError,
 	WorktreeDeleteErrorReason,
 } from '../../git/errors';
-import { GitReference, GitWorktree, Repository } from '../../git/models';
-import { Messages } from '../../messages';
-import { QuickPickItemOfT, QuickPickSeparator } from '../../quickpicks/items/common';
+import { GitReference } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
+import { GitWorktree } from '../../git/models/worktree';
+import { showGenericErrorMessage } from '../../messages';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common';
+import { QuickPickSeparator } from '../../quickpicks/items/common';
 import { Directive } from '../../quickpicks/items/directive';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { basename, isDescendent } from '../../system/path';
 import { pluralize, truncateLeft } from '../../system/string';
 import { OpenWorkspaceLocation } from '../../system/utils';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitActions } from '../gitCommands.actions';
-import {
-	appendReposToTitle,
+import type {
 	AsyncStepResultGenerator,
 	CustomStep,
+	PartialStepState,
+	QuickPickStep,
+	StepGenerator,
+	StepResultGenerator,
+	StepSelection,
+	StepState,
+} from '../quickCommand';
+import {
+	appendReposToTitle,
 	ensureAccessStep,
 	inputBranchNameStep,
-	PartialStepState,
 	pickBranchOrTagStep,
 	pickRepositoryStep,
 	pickWorktreesStep,
 	pickWorktreeStep,
 	QuickCommand,
-	QuickPickStep,
-	StepGenerator,
 	StepResult,
-	StepResultGenerator,
-	StepSelection,
-	StepState,
 } from '../quickCommand';
 
 interface Context {
@@ -162,8 +168,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: Container.instance.git.openRepositories,
-			associatedView: Container.instance.worktreesView,
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.worktreesView,
 			showTags: false,
 			title: this.title,
 		};
@@ -405,7 +411,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						'OK',
 					);
 				} else {
-					void Messages.showGenericErrorMessage(
+					void showGenericErrorMessage(
 						`Unable to create a new worktree in '${GitWorktree.getFriendlyPath(uri)}.`,
 					);
 				}
@@ -472,14 +478,18 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		let recommendedRootUri;
 
 		const repoUri = state.repo.uri;
+		const trailer = `${basename(repoUri.path)}.worktrees`;
+
 		if (repoUri.toString() !== pickedUri.toString()) {
 			if (isDescendent(pickedUri, repoUri)) {
-				recommendedRootUri = Uri.joinPath(repoUri, '..', `${basename(repoUri.path)}.worktrees`);
+				recommendedRootUri = Uri.joinPath(repoUri, '..', trailer);
+			} else if (basename(pickedUri.path) === trailer) {
+				recommendedRootUri = pickedUri;
 			} else {
-				recommendedRootUri = Uri.joinPath(pickedUri, `${basename(repoUri.path)}.worktrees`);
+				recommendedRootUri = Uri.joinPath(pickedUri, trailer);
 			}
 		} else {
-			recommendedRootUri = Uri.joinPath(repoUri, '..', `${basename(repoUri.path)}.worktrees`);
+			recommendedRootUri = Uri.joinPath(repoUri, '..', trailer);
 			// Don't allow creating directly into the main worktree folder
 			canCreateDirectlyInPicked = false;
 		}
@@ -631,7 +641,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 								}
 							}
 						} else {
-							void Messages.showGenericErrorMessage(`Unable to delete worktree in '${uri.fsPath}.`);
+							void showGenericErrorMessage(`Unable to delete worktree in '${uri.fsPath}.`);
 						}
 					}
 				} while (retry);

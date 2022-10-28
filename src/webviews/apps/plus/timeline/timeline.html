@@ -9,7 +9,7 @@
 		</style>
 	</head>
 
-	<body class="preload">
+	<body class="preload" data-placement="#{placement}">
 		<div class="container">
 			<section class="header">
 				<h2 data-bind="title"></h2>
@@ -41,24 +41,45 @@
 		<div id="overlay" class="hidden">
 			<div class="modal">
 				<p>
-					The Visual File History allows you to quickly see the evolution of a file, including when changes
-					were made, how large they were, and who made them.
+					The Visual File History, a
+					<a title="Learn more about GitLens+ features" href="command:gitlens.plus.learn"
+						>✨GitLens+ feature</a
+					>, allows you to quickly see the evolution of a file, including when changes were made, how large
+					they were, and who made them.
+				</p>
+				<p>
+					Use it to quickly find when the most impactful changes were made to a file or who best to talk to
+					about file changes and more.
 				</p>
 				<div id="overlay-slot"></div>
 			</div>
 		</div>
 		#{endOfBody}
+
+		<style nonce="#{cspNonce}">
+			:root {
+				--gl-plus-bg: url(#{webroot}/media/gitlens-backdrop.webp);
+			}
+		</style>
 		<style nonce="#{cspNonce}">
 			@font-face {
 				font-family: 'codicon';
-				src: url('#{root}/dist/webviews/codicon.ttf?669d352dfabff8f6eaa466c8ae820e43') format('truetype');
+				font-display: block;
+				src: url('#{webroot}/codicon.ttf?0e5b0adf625a37fbcd638d31f0fe72aa') format('truetype');
+			}
+		</style>
+		<style nonce="#{cspNonce}">
+			@font-face {
+				font-family: 'glicons';
+				font-display: block;
+				src: url('#{root}/dist/glicons.woff2?2e51fe40df2abdf6a27fbae6c29587b1') format('woff2');
 			}
 		</style>
 	</body>
 
 	<!-- prettier-ignore -->
 	<%= require('html-loader?{"esModule":false}!./partials/state.free.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.free-preview-expired.html') %>
+	<%= require('html-loader?{"esModule":false}!./partials/state.free-preview-trial-expired.html') %>
 	<%= require('html-loader?{"esModule":false}!./partials/state.plus-trial-expired.html') %>
 	<%= require('html-loader?{"esModule":false}!./partials/state.verify-email.html') %>
 </html>

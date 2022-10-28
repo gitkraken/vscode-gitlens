@@ -1,3 +1,4 @@
+import * as process from 'process';
 import { env, UIKind } from 'vscode';
 
 export const isWeb = env.uiKind === UIKind.Web;

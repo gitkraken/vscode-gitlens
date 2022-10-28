@@ -1,3 +1,38 @@
+@keyframes codicon-spin {
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+.icon--sync.icon-modifier--spin,
+.icon--loading.icon-modifier--spin,
+.icon--gear.icon-modifier--spin {
+	/* Use steps to throttle FPS to reduce CPU usage */
+	animation: codicon-spin 1.5s steps(30) infinite;
+}
+
+.icon-modifier--disabled {
+	opacity: 0.5;
+}
+
+.icon-modifier--hidden {
+	opacity: 0;
+}
+
+.icon--loading {
+	/* Use steps to throttle FPS to reduce CPU usage */
+	animation: codicon-spin 1.5s steps(30) infinite;
+
+	/* custom speed & easing for loading icon */
+	animation-duration: 1s !important;
+	animation-timing-function: cubic-bezier(0.53, 0.21, 0.29, 0.67) !important;
+
+	&::before {
+		content: '\eb19';
+		font-family: codicon;
+	}
+}
+
 .icon--branch {
 	&::before {
 		content: '\ea68';
@@ -52,6 +87,7 @@
 
 	vertical-align: middle;
 	line-height: 2rem;
+	letter-spacing: normal;
 }
 
 .codicon-add:before {

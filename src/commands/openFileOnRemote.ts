@@ -1,24 +1,26 @@
-import { Range, TextEditor, Uri, window } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
+import { Range, window } from 'vscode';
 import { UriComparer } from '../comparers';
 import { BranchSorting, TagSorting } from '../configuration';
 import { Commands, GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitBranch, GitRevision } from '../git/models';
-import { RemoteResourceType } from '../git/remotes/provider';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/models/branch';
+import { GitRevision } from '../git/models/reference';
+import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
 import { ReferencePicker } from '../quickpicks/referencePicker';
 import { command, executeCommand } from '../system/command';
 import { pad, splitSingle } from '../system/string';
-import { StatusFileNode } from '../views/nodes';
+import { StatusFileNode } from '../views/nodes/statusFileNode';
+import type { CommandContext } from './base';
 import {
 	ActiveEditorCommand,
-	CommandContext,
 	getCommandUri,
 	isCommandContextViewNodeHasBranch,
 	isCommandContextViewNodeHasCommit,
 } from './base';
-import { OpenOnRemoteCommandArgs } from './openOnRemote';
+import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenFileOnRemoteCommandArgs {
 	branchOrTag?: string;
@@ -167,9 +169,9 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 
 					if (pick.refType === 'branch') {
 						if (pick.remote) {
-							args.branchOrTag = GitBranch.getNameWithoutRemote(pick.name);
+							args.branchOrTag = getBranchNameWithoutRemote(pick.name);
 
-							const remoteName = GitBranch.getRemote(pick.name);
+							const remoteName = getRemoteNameFromBranchName(pick.name);
 							const remote = remotes.find(r => r.name === remoteName);
 							if (remote != null) {
 								remotes = [remote];

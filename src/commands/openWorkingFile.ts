@@ -1,10 +1,11 @@
-import { Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
-import { FileAnnotationType } from '../configuration';
+import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { Range, window } from 'vscode';
+import type { FileAnnotationType } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { GitUri } from '../git/gitUri';
+import { GitUri, isGitUri } from '../git/gitUri';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
 import { findOrOpenEditor } from '../system/utils';
 import { ActiveEditorCommand, getCommandUri } from './base';
@@ -37,7 +38,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 			}
 
 			args.uri = await GitUri.fromUri(uri);
-			if (GitUri.is(args.uri) && args.uri.sha) {
+			if (isGitUri(args.uri) && args.uri.sha) {
 				const workingUri = await this.container.git.getWorkingUri(args.uri.repoPath!, args.uri);
 				if (workingUri === undefined) {
 					void window.showWarningMessage(
@@ -65,7 +66,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenWorkingFileCommand');
-			void Messages.showGenericErrorMessage('Unable to open working file');
+			void showGenericErrorMessage('Unable to open working file');
 		}
 	}
 }

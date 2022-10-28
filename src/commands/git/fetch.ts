@@ -1,23 +1,22 @@
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { GitBranchReference, GitReference, Repository } from '../../git/models';
+import type { Container } from '../../container';
+import type { GitBranchReference } from '../../git/models/reference';
+import { GitReference } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { isStringArray } from '../../system/array';
 import { fromNow } from '../../system/date';
 import { pad } from '../../system/string';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import {
-	appendReposToTitle,
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
-	pickRepositoriesStep,
-	QuickCommand,
 	QuickPickStep,
 	StepGenerator,
-	StepResult,
 	StepSelection,
 	StepState,
 } from '../quickCommand';
+import { appendReposToTitle, pickRepositoriesStep, QuickCommand, StepResult } from '../quickCommand';
 
 interface Context {
 	repos: Repository[];

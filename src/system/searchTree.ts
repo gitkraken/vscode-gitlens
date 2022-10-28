@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/strict-boolean-expressions */
 import { CharCode } from '../constants';
 import { count, map, some } from './iterable';
 import { compareSubstring, compareSubstringIgnoreCase } from './string';
@@ -380,7 +379,7 @@ export class TernarySearchTree<K, V> {
 		return count(this.entries(), predicate === undefined ? undefined : ([, e]) => predicate(e));
 	}
 
-	entries(): Iterable<[K, V]> {
+	entries(): IterableIterator<[K, V]> {
 		return this._iterator(this._root);
 	}
 
@@ -391,7 +390,7 @@ export class TernarySearchTree<K, V> {
 	highlander(): [K, V] | undefined {
 		if (this._root === undefined || this._root.isEmpty()) return undefined;
 
-		const entries = this.entries() as IterableIterator<[K, V]>;
+		const entries = this.entries();
 
 		let count = 0;
 		let next: IteratorResult<[K, V]>;

@@ -164,7 +164,7 @@ $entry-padding: 5px;
 			border-right: 2px solid rgba(212, 153, 0, 1);
 			height: #{31px + ($entry-padding * 2)};
 			margin-left: -18px;
-			margin-top: 6px;
+			margin-top: 5px;
 			position: absolute;
 			z-index: 1;
 		}
@@ -208,8 +208,6 @@ $entry-padding: 5px;
 
 	&.entry--base,
 	&.entry--done {
-		margin-top: 5px;
-
 		& > .entry-action {
 			opacity: 0.8;
 		}
@@ -249,8 +247,17 @@ $entry-padding: 5px;
 		}
 	}
 
+	&.entry--done {
+		margin-top: 5px;
+	}
+
 	&.entry--base {
-		margin-top: 10px;
+		.entries--ascending & {
+			margin-bottom: 10px;
+		}
+		.entries:not(.entries--ascending) & {
+			margin-top: 10px;
+		}
 
 		.vscode-dark & {
 			background: rgba(255, 255, 255, 0.1);
@@ -263,8 +270,10 @@ $entry-padding: 5px;
 		}
 	}
 
-	.entries--base &:nth-last-of-type(2),
-	:not(.entries--base) &:nth-last-of-type(1) {
+	.entries--base:not(.entries--ascending) &:nth-last-of-type(2),
+	.entries:not(.entries--base):not(.entries--ascending) &:nth-last-of-type(1),
+	.entries--base.entries--ascending &:nth-of-type(2),
+	.entries--ascending:not(.entries--base) &:nth-of-type(1) {
 		& select {
 			& > option[value='squash'],
 			& > option[value='fixup'] {
@@ -396,6 +405,65 @@ $entry-padding: 5px;
 
 	& span {
 		margin: 0 0 0 5px;
+	}
+}
+
+.toggle {
+	display: inline-flex;
+	flex-direction: row-reverse;
+	align-items: center;
+	gap: 0.5em;
+
+	&__input,
+	&__indicator {
+		width: 2.4em;
+		height: 1.4em;
+	}
+
+	&__input {
+		position: absolute;
+		appearance: none;
+		opacity: 0;
+		border-radius: 1em;
+		padding: 0;
+
+		&:focus {
+			border-radius: 1em;
+		}
+	}
+
+	&__indicator {
+		position: relative;
+		pointer-events: none;
+		display: block;
+		flex: none;
+		border-radius: 1em;
+		background-color: var(--color-background--lighten-075);
+		border: 1px solid var(--color-background--lighten-075);
+
+		&::before {
+			content: '';
+			top: 0.1em;
+			left: 0.1em;
+			position: absolute;
+			width: 1.2em;
+			height: 1.2em;
+			border-radius: 100%;
+			background-color: var(--color-button-foreground);
+
+			:checked ~ & {
+				transform: translateX(1em);
+			}
+		}
+
+		:checked ~ & {
+			background-color: var(--color-highlight);
+		}
+
+		:focus ~ & {
+			border-color: var(--color-background);
+			box-shadow: 0 0 0 1px var(--color-focus-border);
+		}
 	}
 }
 

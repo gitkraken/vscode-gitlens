@@ -1,18 +1,26 @@
-import { Command, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import type { Command } from 'vscode';
+import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
-import { ViewFilesLayout } from '../../configuration';
+import { configuration, ViewFilesLayout } from '../../configuration';
 import { Commands, CoreCommands } from '../../constants';
-import { CommitFormatter } from '../../git/formatters';
+import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { GitUri } from '../../git/gitUri';
-import { GitBranch, GitCommit, GitRebaseStatus, GitReference, GitRevisionReference, GitStatus } from '../../git/models';
+import type { GitBranch } from '../../git/models/branch';
+import type { GitCommit } from '../../git/models/commit';
+import type { GitRebaseStatus } from '../../git/models/rebase';
+import type { GitRevisionReference } from '../../git/models/reference';
+import { GitReference } from '../../git/models/reference';
+import type { GitStatus } from '../../git/models/status';
 import { makeHierarchical } from '../../system/array';
 import { executeCoreCommand } from '../../system/command';
 import { joinPaths, normalizePath } from '../../system/path';
+import { getSettledValue } from '../../system/promise';
 import { pluralize, sortCompare } from '../../system/string';
-import { ViewsWithCommits } from '../viewBase';
+import type { ViewsWithCommits } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { CommitFileNode } from './commitFileNode';
-import { FileNode, FolderNode } from './folderNode';
+import type { FileNode } from './folderNode';
+import { FolderNode } from './folderNode';
 import { MergeConflictFileNode } from './mergeConflictFileNode';
 import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
 
@@ -44,7 +52,7 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 
 	async getChildren(): Promise<ViewNode[]> {
 		let children: FileNode[] =
-			this.status?.conflicts.map(f => new MergeConflictFileNode(this.view, this, this.rebaseStatus, f)) ?? [];
+			this.status?.conflicts.map(f => new MergeConflictFileNode(this.view, this, f, this.rebaseStatus)) ?? [];
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
 			const hierarchy = makeHierarchical(
@@ -189,7 +197,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 
 	private async getTooltip() {
 		const remotes = await this.view.container.git.getRemotesWithProviders(this.commit.repoPath);
-		const remote = await this.view.container.git.getRichRemoteProvider(remotes);
+		const remote = await this.view.container.git.getBestRemoteWithRichProvider(remotes);
 
 		if (this.commit.message == null) {
 			await this.commit.ensureFullDetails();
@@ -199,13 +207,21 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 		let pr;
 
 		if (remote?.provider != null) {
-			[autolinkedIssuesOrPullRequests, pr] = await Promise.all([
-				this.view.container.autolinks.getIssueOrPullRequestLinks(
+			const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
+				this.view.container.autolinks.getLinkedIssuesAndPullRequests(
 					this.commit.message ?? this.commit.summary,
 					remote,
 				),
-				this.view.container.git.getPullRequestForCommit(this.commit.ref, remote.provider),
+				this.commit.getAssociatedPullRequest({ remote: remote }),
 			]);
+
+			autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
+			pr = getSettledValue(prResult);
+
+			// Remove possible duplicate pull request
+			if (pr != null) {
+				autolinkedIssuesOrPullRequests?.delete(pr.id);
+			}
 		}
 
 		const tooltip = await CommitFormatter.fromTemplateAsync(
@@ -213,11 +229,11 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 			this.commit,
 			{
 				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
-				dateFormat: this.view.container.config.defaultDateFormat,
-				markdown: true,
+				dateFormat: configuration.get('defaultDateFormat'),
 				messageAutolinks: true,
 				messageIndent: 4,
 				pullRequestOrRemote: pr,
+				outputFormat: 'markdown',
 				remotes: remotes,
 			},
 		);

@@ -1,22 +1,16 @@
 export * from './config';
 
-import {
-	ConfigurationChangeEvent,
-	ConfigurationScope,
-	ConfigurationTarget,
-	Event,
-	EventEmitter,
-	ExtensionContext,
-	workspace,
-} from 'vscode';
+import type { ConfigurationChangeEvent, ConfigurationScope, Event, ExtensionContext } from 'vscode';
+import { ConfigurationTarget, EventEmitter, workspace } from 'vscode';
 import type { Config } from './config';
 import { areEqual } from './system/object';
 
 const configPrefix = 'gitlens';
 
-export interface ConfigurationWillChangeEvent {
-	change: ConfigurationChangeEvent;
-	transform?(e: ConfigurationChangeEvent): ConfigurationChangeEvent;
+interface ConfigurationOverrides {
+	get<T extends ConfigPath>(section: T, value: ConfigPathValue<T>): ConfigPathValue<T>;
+	getAll(config: Config): Config;
+	onChange(e: ConfigurationChangeEvent): ConfigurationChangeEvent;
 }
 
 export class Configuration {
@@ -36,8 +30,8 @@ export class Configuration {
 		return this._onDidChangeAny.event;
 	}
 
-	private _onWillChange = new EventEmitter<ConfigurationWillChangeEvent>();
-	get onWillChange(): Event<ConfigurationWillChangeEvent> {
+	private _onWillChange = new EventEmitter<ConfigurationChangeEvent>();
+	get onWillChange(): Event<ConfigurationChangeEvent> {
 		return this._onWillChange.event;
 	}
 
@@ -48,37 +42,52 @@ export class Configuration {
 			return;
 		}
 
-		const evt: ConfigurationWillChangeEvent = {
-			change: e,
-		};
-		this._onWillChange.fire(evt);
+		this._onWillChange.fire(e);
 
-		if (evt.transform !== undefined) {
-			e = evt.transform(e);
+		if (this._overrides?.onChange != null) {
+			e = this._overrides.onChange(e);
 		}
 
 		this._onDidChangeAny.fire(e);
 		this._onDidChange.fire(e);
 	}
 
-	get(): Config;
+	private _overrides: Partial<ConfigurationOverrides> | undefined;
+
+	applyOverrides(overrides: ConfigurationOverrides): void {
+		this._overrides = overrides;
+	}
+
+	clearOverrides(): void {
+		if (this._overrides == null) return;
+
+		// Don't clear the "onChange" override as we need to keep it until the stack unwinds (so the the event propagates with the override)
+		this._overrides.get = undefined;
+		this._overrides.getAll = undefined;
+		queueMicrotask(() => (this._overrides = undefined));
+	}
+
+	get<T extends ConfigPath>(section: T, scope?: ConfigurationScope | null): ConfigPathValue<T>;
+	get<T extends ConfigPath>(
+		section: T,
+		scope: ConfigurationScope | null | undefined,
+		defaultValue: NonNullable<ConfigPathValue<T>>,
+	): NonNullable<ConfigPathValue<T>>;
 	get<T extends ConfigPath>(
 		section: T,
 		scope?: ConfigurationScope | null,
-		defaultValue?: ConfigPathValue<T>,
-	): ConfigPathValue<T>;
-	get<T extends ConfigPath>(
-		section?: T,
-		scope?: ConfigurationScope | null,
-		defaultValue?: ConfigPathValue<T>,
-	): Config | ConfigPathValue<T> {
-		return defaultValue === undefined
-			? workspace
-					.getConfiguration(section === undefined ? undefined : configPrefix, scope)
-					.get<ConfigPathValue<T>>(section === undefined ? configPrefix : section)!
-			: workspace
-					.getConfiguration(section === undefined ? undefined : configPrefix, scope)
-					.get<ConfigPathValue<T>>(section === undefined ? configPrefix : section, defaultValue)!;
+		defaultValue?: NonNullable<ConfigPathValue<T>>,
+	): ConfigPathValue<T> {
+		const value =
+			defaultValue === undefined
+				? workspace.getConfiguration(configPrefix, scope).get<ConfigPathValue<T>>(section)!
+				: workspace.getConfiguration(configPrefix, scope).get<ConfigPathValue<T>>(section, defaultValue)!;
+		return this._overrides?.get == null ? value : this._overrides.get<T>(section, value);
+	}
+
+	getAll(skipOverrides?: boolean): Config {
+		const config = workspace.getConfiguration().get<Config>(configPrefix)!;
+		return skipOverrides || this._overrides?.getAll == null ? config : this._overrides.getAll(config);
 	}
 
 	getAny<T>(section: string, scope?: ConfigurationScope | null): T | undefined;
@@ -91,20 +100,33 @@ export class Configuration {
 
 	changed<T extends ConfigPath>(
 		e: ConfigurationChangeEvent | undefined,
-		section: T,
+		section: T | T[],
 		scope?: ConfigurationScope | null | undefined,
 	): boolean {
-		return e?.affectsConfiguration(`${configPrefix}.${section}`, scope!) ?? true;
+		if (e == null) return true;
+
+		return Array.isArray(section)
+			? section.some(s => e.affectsConfiguration(`${configPrefix}.${s}`, scope!))
+			: e.affectsConfiguration(`${configPrefix}.${section}`, scope!);
 	}
 
 	inspect<T extends ConfigPath, V extends ConfigPathValue<T>>(section: T, scope?: ConfigurationScope | null) {
 		return workspace
-			.getConfiguration(section === undefined ? undefined : configPrefix, scope)
+			.getConfiguration(configPrefix, scope)
 			.inspect<V>(section === undefined ? configPrefix : section);
 	}
 
 	inspectAny<T>(section: string, scope?: ConfigurationScope | null) {
 		return workspace.getConfiguration(undefined, scope).inspect<T>(section);
+	}
+
+	isUnset<T extends ConfigPath>(section: T, scope?: ConfigurationScope | null): boolean {
+		const inspect = configuration.inspect(section, scope)!;
+		if (inspect.workspaceFolderValue !== undefined) return false;
+		if (inspect.workspaceValue !== undefined) return false;
+		if (inspect.globalValue !== undefined) return false;
+
+		return true;
 	}
 
 	async migrate<T extends ConfigPath>(
@@ -241,6 +263,10 @@ export class Configuration {
 				// }
 			}
 		}
+	}
+
+	matches<T extends ConfigPath>(match: T, section: ConfigPath, value: unknown): value is ConfigPathValue<T> {
+		return match === section;
 	}
 
 	name<T extends ConfigPath>(section: T): string {

@@ -1,6 +1,7 @@
-import { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
+import type { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
+import { configuration } from '../configuration';
 import type { Container } from '../container';
-import { Keys } from '../keyboard';
+import type { Keys } from '../keyboard';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks/items/directive';
 
 export * from './quickCommand.buttons';
@@ -53,6 +54,7 @@ export interface QuickPickStep<T extends QuickPickItem = QuickPickItem> {
 	selectedItems?: QuickPickItem[];
 	title?: string;
 	value?: string;
+	selectValueWhenShown?: boolean;
 
 	onDidAccept?(quickpick: QuickPick<T>): boolean | Promise<boolean>;
 	onDidChangeValue?(quickpick: QuickPick<T>): boolean | Promise<boolean>;
@@ -180,7 +182,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 
 		return override != null
 			? override
-			: !this.container.config.gitCommands.skipConfirmations.includes(this.skipConfirmKey);
+			: !configuration.get('gitCommands.skipConfirmations').includes(this.skipConfirmKey);
 	}
 
 	isMatch(key: string) {
@@ -199,6 +201,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 	}
 
 	async previous(): Promise<QuickPickStep | QuickInputStep | undefined> {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 		return (await this.next(Directive.Back)).value;
 	}
 
@@ -244,12 +247,12 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 
 	protected getStepState(limitBackNavigation: boolean): PartialStepState<State> {
 		// Set the minimum step to be our initial counter, so that the back button will work as expected
-		// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-		return {
+		const state: PartialStepState<State> = {
 			counter: 0,
 			...this.initialState,
 			startingStep: limitBackNavigation ? this.initialState?.counter ?? 0 : 0,
-		} as PartialStepState<State>;
+		} as unknown as PartialStepState<State>;
+		return state;
 	}
 }
 

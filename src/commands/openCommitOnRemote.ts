@@ -1,20 +1,22 @@
-import { TextEditor, Uri, window } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
+import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitRevision } from '../git/models';
-import { RemoteResourceType } from '../git/remotes/provider';
+import { GitRevision } from '../git/models/reference';
+import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
-import { Messages } from '../messages';
+import { showFileNotUnderSourceControlWarningMessage } from '../messages';
+import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/command';
+import type { CommandContext } from './base';
 import {
 	ActiveEditorCommand,
-	CommandContext,
 	getCommandUri,
 	isCommandContextGitTimelineItem,
 	isCommandContextViewNodeHasCommit,
 } from './base';
-import { OpenOnRemoteCommandArgs } from './openOnRemote';
+import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenCommitOnRemoteCommandArgs {
 	clipboard?: boolean;
@@ -58,10 +60,21 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: OpenCommitOnRemoteCommandArgs) {
 		uri = getCommandUri(uri, editor);
-		if (uri == null) return;
 
-		const gitUri = await GitUri.fromUri(uri);
-		if (!gitUri.repoPath) return;
+		let gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
+
+		const repoPath = (
+			await RepositoryPicker.getBestRepositoryOrShow(
+				gitUri,
+				editor,
+				args?.clipboard ? 'Copy Remote Commit Url' : 'Open Commit On Remote',
+			)
+		)?.path;
+		if (!repoPath) return;
+
+		if (gitUri == null) {
+			gitUri = GitUri.fromRepoPath(repoPath);
+		}
 
 		args = { ...args };
 
@@ -72,9 +85,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 
 				const blame = await this.container.git.getBlameForLine(gitUri, blameline, editor?.document);
 				if (blame == null) {
-					void Messages.showFileNotUnderSourceControlWarningMessage(
-						'Unable to open commit on remote provider',
-					);
+					void showFileNotUnderSourceControlWarningMessage('Unable to open commit on remote provider');
 
 					return;
 				}
@@ -90,7 +101,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 					type: RemoteResourceType.Commit,
 					sha: args.sha,
 				},
-				repoPath: gitUri.repoPath,
+				repoPath: repoPath,
 				clipboard: args.clipboard,
 			}));
 		} catch (ex) {

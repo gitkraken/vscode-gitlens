@@ -1,4 +1,4 @@
-import { SourceControl } from 'vscode';
+import type { SourceControl } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { command } from '../system/command';

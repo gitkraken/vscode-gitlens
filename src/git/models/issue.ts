@@ -1,6 +1,6 @@
 import { ColorThemeKind, ThemeColor, ThemeIcon, window } from 'vscode';
 import { Colors } from '../../constants';
-import { RemoteProviderReference } from './remoteProvider';
+import type { RemoteProviderReference } from './remoteProvider';
 
 export const enum IssueOrPullRequestType {
 	Issue = 'Issue',
@@ -8,17 +8,58 @@ export const enum IssueOrPullRequestType {
 }
 
 export interface IssueOrPullRequest {
-	type: IssueOrPullRequestType;
-	provider: RemoteProviderReference;
-	id: string;
-	date: Date;
-	title: string;
-	closed: boolean;
-	closedDate?: Date;
-	url: string;
+	readonly type: IssueOrPullRequestType;
+	readonly provider: RemoteProviderReference;
+	readonly id: string;
+	readonly title: string;
+	readonly url: string;
+	readonly date: Date;
+	readonly closedDate?: Date;
+	readonly closed: boolean;
+}
+
+export function serializeIssueOrPullRequest(value: IssueOrPullRequest): IssueOrPullRequest {
+	const serialized: IssueOrPullRequest = {
+		type: value.type,
+		provider: {
+			id: value.provider.id,
+			name: value.provider.name,
+			domain: value.provider.domain,
+			icon: value.provider.icon,
+		},
+		id: value.id,
+		title: value.title,
+		url: value.url,
+		date: value.date,
+		closedDate: value.closedDate,
+		closed: value.closed,
+	};
+	return serialized;
 }
 
 export namespace IssueOrPullRequest {
+	export function getHtmlIcon(issue: IssueOrPullRequest): string {
+		if (issue.type === IssueOrPullRequestType.PullRequest) {
+			if (issue.closed) {
+				return `<span class="codicon codicon-git-pull-request" style="color:${
+					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#a371f7' : '#8250df'
+				};"></span>`;
+			}
+			return `<span class="codicon codicon-git-pull-request" style="color:${
+				window.activeColorTheme.kind === ColorThemeKind.Dark ? '#3fb950' : '#1a7f37'
+			};"></span>`;
+		}
+
+		if (issue.closed) {
+			return `<span class="codicon codicon-pass" style="color:${
+				window.activeColorTheme.kind === ColorThemeKind.Dark ? '#a371f7' : '#8250df'
+			};"></span>`;
+		}
+		return `<span class="codicon codicon-issues" style="color:${
+			window.activeColorTheme.kind === ColorThemeKind.Dark ? '#3fb950' : '#1a7f37'
+		};"></span>`;
+	}
+
 	export function getMarkdownIcon(issue: IssueOrPullRequest): string {
 		if (issue.type === IssueOrPullRequestType.PullRequest) {
 			if (issue.closed) {
@@ -38,7 +79,7 @@ export namespace IssueOrPullRequest {
 		}
 		return `<span style="color:${
 			window.activeColorTheme.kind === ColorThemeKind.Dark ? '#3fb950' : '#1a7f37'
-		};">$(issue)</span>`;
+		};">$(issues)</span>`;
 	}
 
 	export function getThemeIcon(issue: IssueOrPullRequest): ThemeIcon {

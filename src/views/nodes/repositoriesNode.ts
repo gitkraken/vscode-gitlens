@@ -1,20 +1,22 @@
-import { Disposable, TextEditor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { RepositoriesChangeEvent } from '../../git/gitProviderService';
-import { GitUri } from '../../git/gitUri';
+import type { TextEditor } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
+import { GitUri, unknownGitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { debounce, szudzikPairing } from '../../system/function';
-import { RepositoriesView } from '../repositoriesView';
+import type { RepositoriesView } from '../repositoriesView';
 import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
-import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, SubscribeableViewNode } from './viewNode';
 
 export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 	private _children: (RepositoryNode | MessageNode)[] | undefined;
 
 	constructor(view: RepositoriesView) {
-		super(GitUri.unknown, view);
+		super(unknownGitUri, view);
 	}
 
 	override dispose() {

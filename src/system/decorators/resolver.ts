@@ -6,7 +6,6 @@ function replacer(key: string, value: any): any {
 	if (value == null) return value;
 	if (value instanceof Error) return String(value);
 	if (value instanceof Uri) {
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if ('sha' in (value as any) && (value as any).sha) {
 			return `${(value as any).sha}:${value.toString()}`;
 		}
@@ -27,7 +26,6 @@ export function defaultResolver(...args: any[]): string {
 	if (typeof arg0 === 'string') return arg0;
 	if (typeof arg0 === 'number' || typeof arg0 === 'boolean' || arg0 instanceof Error) return String(arg0);
 	if (arg0 instanceof Uri) {
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if ('sha' in (arg0 as any) && (arg0 as any).sha) {
 			return `${(arg0 as any).sha}:${arg0.toString()}`;
 		}

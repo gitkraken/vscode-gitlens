@@ -1,35 +1,23 @@
-import {
-	CancellationToken,
-	commands,
-	ConfigurationChangeEvent,
-	Disposable,
-	ProgressLocation,
-	TreeItem,
-	TreeItemCollapsibleState,
-	window,
-} from 'vscode';
-import { configuration, StashesViewConfig, ViewFilesLayout } from '../configuration';
+import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
+import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { StashesViewConfig } from '../configuration';
+import { configuration, ViewFilesLayout } from '../configuration';
 import { Commands } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import {
-	GitReference,
-	GitStashReference,
-	RepositoryChange,
-	RepositoryChangeComparisonMode,
-	RepositoryChangeEvent,
-} from '../git/models';
+import type { GitStashReference } from '../git/models/reference';
+import { GitReference } from '../git/models/reference';
+import type { RepositoryChangeEvent } from '../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
-import {
-	RepositoriesSubscribeableNode,
-	RepositoryFolderNode,
-	RepositoryNode,
-	StashesNode,
-	StashNode,
-	ViewNode,
-} from './nodes';
+import { RepositoryNode } from './nodes/repositoryNode';
+import { StashesNode } from './nodes/stashesNode';
+import { StashNode } from './nodes/stashNode';
+import type { ViewNode } from './nodes/viewNode';
+import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
+import { registerViewCommand } from './viewCommands';
 
 export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, StashesNode> {
 	async getChildren(): Promise<ViewNode[]> {
@@ -67,7 +55,7 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 			const [child] = this.children;
 
 			const stash = await child.repo.getStash();
-			if (stash == null) {
+			if (stash == null || stash.commits.size === 0) {
 				this.view.message = 'No stashes could be found.';
 				this.view.title = 'Stashes';
 
@@ -77,7 +65,7 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 			}
 
 			this.view.message = undefined;
-			this.view.title = `Stashes (${stash?.commits.size ?? 0})`;
+			this.view.title = `Stashes (${stash.commits.size})`;
 
 			return child.getChildren();
 		}
@@ -97,7 +85,7 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 	protected readonly configKey = 'stashes';
 
 	constructor(container: Container) {
-		super('gitlens.views.stashes', 'Stashes', container);
+		super(container, 'gitlens.views.stashes', 'Stashes', 'stashesView');
 	}
 
 	override get canReveal(): boolean {
@@ -112,12 +100,12 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 		void this.container.viewCommands;
 
 		return [
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
 				() => {
 					this.container.git.resetCaches('stashes');
@@ -125,17 +113,17 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 				},
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout(ViewFilesLayout.Auto),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToList'),
 				() => this.setFilesLayout(ViewFilesLayout.List),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToTree'),
 				() => this.setFilesLayout(ViewFilesLayout.Tree),
 				this,

@@ -15,7 +15,11 @@
 
 		<div class="container">
 			<header>
-				<a class="header__link" title="Learn more about GitLens" href="https://gitlens.amod.io">
+				<a
+					class="header__link"
+					title="Learn more about GitLens"
+					href="https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links"
+				>
 					<div class="header__logo">
 						<img class="image__logo" src="#{root}/images/gitlens-icon.png" />
 						<div>
@@ -35,7 +39,7 @@
 					</div>
 					<div class="hero__toolbar">
 						<div class="hero__toolbar-scope hidden">
-							<label for="scopes">Save Settings to</label>
+							<label for="scopes">Save settings for the</label>
 							<div class="select-container">
 								<select id="scopes" name="scope"></select>
 							</div>
@@ -77,7 +81,9 @@
 				<%= require('html-loader?{"esModule":false}!./partials/blame.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/changes.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/heatmap.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/commit-graph.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/rebase-editor.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/autolinks.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/dates.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/menus.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/shortcuts.html') %>
@@ -212,7 +218,7 @@
 								data-action="jump"
 								href="#worktrees-view"
 								title="Jump to Worktrees view settings"
-								>Worktrees view</a
+								>✨ Worktrees view</a
 							>
 						</li>
 						<li>
@@ -239,8 +245,8 @@
 								class="sidebar__jump-link"
 								data-action="jump"
 								href="#blame"
-								title="Jump to Gutter Blame settings"
-								>Gutter Blame</a
+								title="Jump to File Blame settings"
+								>File Blame</a
 							>
 						</li>
 						<li>
@@ -248,8 +254,8 @@
 								class="sidebar__jump-link"
 								data-action="jump"
 								href="#changes"
-								title="Jump to Gutter Changes settings"
-								>Gutter Changes</a
+								title="Jump to File Changes settings"
+								>File Changes</a
 							>
 						</li>
 						<li>
@@ -257,12 +263,21 @@
 								class="sidebar__jump-link"
 								data-action="jump"
 								href="#heatmap"
-								title="Jump to Gutter Heatmap settings"
-								>Gutter Heatmap</a
+								title="Jump to File Heatmap settings"
+								>File Heatmap</a
 							>
 						</li>
 
 						<li class="mt-1">
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#commit-graph"
+								title="Jump to Commit Graph settings"
+								>✨ Commit Graph</a
+							>
+						</li>
+						<li>
 							<a
 								class="sidebar__jump-link"
 								data-action="jump"
@@ -273,6 +288,11 @@
 						</li>
 
 						<li class="mt-1">
+							<a class="sidebar__jump-link" data-action="jump" href="#autolinks" title="Jump to Autolinks"
+								>Autolinks</a
+							>
+						</li>
+						<li>
 							<a
 								class="sidebar__jump-link"
 								data-action="jump"
@@ -317,7 +337,8 @@
 		<style nonce="#{cspNonce}">
 			@font-face {
 				font-family: 'codicon';
-				src: url('#{webroot}/codicon.ttf?404cbc4fe3a64b9a93064eef76704c79') format('truetype');
+				font-display: block;
+				src: url('#{webroot}/codicon.ttf?0e5b0adf625a37fbcd638d31f0fe72aa') format('truetype');
 			}
 		</style>
 	</body>

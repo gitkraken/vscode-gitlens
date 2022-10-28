@@ -42,6 +42,18 @@
 			"problemMatcher": ["$ts-checker-webpack-watch", "$ts-checker-eslint-webpack-watch"]
 		},
 		{
+			"label": "Run (local web)",
+			"type": "npm",
+			"script": "web",
+			"group": "test",
+			"isBackground": true,
+			"presentation": {
+				"group": "web",
+				"reveal": "never"
+			},
+			"problemMatcher": []
+		},
+		{
 			"label": "Run (vscode.dev)",
 			"group": "test",
 			"dependsOn": ["npm: web:serve", "npm: web:tunnel"],

@@ -1,28 +1,33 @@
-import { ProgressLocation, QuickPickItem, window } from 'vscode';
+import { ProgressLocation, window } from 'vscode';
 import { BranchSorting } from '../../config';
-import { Container } from '../../container';
-import { GitReference, Repository } from '../../git/models';
+import type { Container } from '../../container';
+import { GitReference } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { isStringArray } from '../../system/array';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import {
-	appendReposToTitle,
-	inputBranchNameStep,
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type {
 	PartialStepState,
-	pickBranchOrTagStepMultiRepo,
-	pickRepositoriesStep,
-	QuickCommand,
 	QuickPickStep,
 	StepGenerator,
-	StepResult,
 	StepResultGenerator,
 	StepSelection,
 	StepState,
+} from '../quickCommand';
+import {
+	appendReposToTitle,
+	inputBranchNameStep,
+	pickBranchOrTagStepMultiRepo,
+	pickRepositoriesStep,
+	QuickCommand,
+	StepResult,
 } from '../quickCommand';
 
 interface Context {
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
 	showTags: boolean;
+	switchToLocalFrom: GitReference | undefined;
 	title: string;
 }
 
@@ -30,7 +35,10 @@ interface State {
 	repos: string | string[] | Repository | Repository[];
 	reference: GitReference;
 	createBranch?: string;
+	fastForwardTo?: GitReference;
 }
+
+type ConfirmationChoice = 'switch' | 'switch+fast-forward';
 
 type SwitchStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repos', string | string[] | Repository>;
 
@@ -63,7 +71,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 	}
 
 	async execute(state: SwitchStepState) {
-		return void (await window.withProgress(
+		await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
 				title: `Switching ${
@@ -76,7 +84,11 @@ export class SwitchGitCommand extends QuickCommand<State> {
 						r.switch(state.reference.ref, { createBranch: state.createBranch, progress: false }),
 					),
 				),
-		));
+		);
+
+		if (state.fastForwardTo != null) {
+			state.repos[0].merge('--ff-only', state.fastForwardTo.ref);
+		}
 	}
 
 	override isMatch(key: string) {
@@ -92,6 +104,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			repos: this.container.git.openRepositories,
 			associatedView: this.container.commitsView,
 			showTags: false,
+			switchToLocalFrom: undefined,
 			title: this.title,
 		};
 
@@ -160,15 +173,22 @@ export class SwitchGitCommand extends QuickCommand<State> {
 
 					state.createBranch = result;
 				} else {
+					context.title = `${this.title} to Local Branch`;
+					context.switchToLocalFrom = state.reference;
+					state.reference = branches[0];
 					state.createBranch = undefined;
 				}
 			} else {
 				state.createBranch = undefined;
 			}
 
-			if (this.confirm(state.confirm)) {
+			if (this.confirm(state.confirm || context.switchToLocalFrom != null)) {
 				const result = yield* this.confirmStep(state as SwitchStepState, context);
 				if (result === StepResult.Break) continue;
+
+				if (result === 'switch+fast-forward') {
+					state.fastForwardTo = context.switchToLocalFrom;
+				}
 			}
 
 			QuickCommand.endSteps(state);
@@ -178,8 +198,26 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		return state.counter < 0 ? StepResult.Break : undefined;
 	}
 
-	private *confirmStep(state: SwitchStepState, context: Context): StepResultGenerator<void> {
-		const step: QuickPickStep<QuickPickItem> = this.createConfirmStep(
+	private *confirmStep(state: SwitchStepState, context: Context): StepResultGenerator<ConfirmationChoice> {
+		let additionalConfirmations: QuickPickItemOfT<ConfirmationChoice>[];
+		if (context.switchToLocalFrom != null && state.repos.length === 1) {
+			additionalConfirmations = [
+				{
+					label: `${context.title} and Fast-Forward`,
+					description: '',
+					detail: `Will switch to and fast-forward local ${GitReference.toString(
+						state.reference,
+					)} in $(repo) ${state.repos[0].formattedName}`,
+					item: 'switch+fast-forward',
+				},
+			];
+		} else {
+			additionalConfirmations = [];
+		}
+
+		const step: QuickPickStep<QuickPickItemOfT<ConfirmationChoice>> = this.createConfirmStep<
+			QuickPickItemOfT<ConfirmationChoice>
+		>(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
 				{
@@ -190,18 +228,22 @@ export class SwitchGitCommand extends QuickCommand<State> {
 							? `create and switch to a new branch named ${
 									state.createBranch
 							  } from ${GitReference.toString(state.reference)}`
-							: `switch to ${GitReference.toString(state.reference)}`
+							: `switch to ${context.switchToLocalFrom != null ? 'local ' : ''}${GitReference.toString(
+									state.reference,
+							  )}`
 					} in ${
 						state.repos.length === 1
 							? `$(repo) ${state.repos[0].formattedName}`
 							: `${state.repos.length} repositories`
 					}`,
+					item: 'switch',
 				},
+				...additionalConfirmations,
 			],
 			undefined,
 			{ placeholder: `Confirm ${context.title}` },
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection) ? undefined : StepResult.Break;
+		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 }

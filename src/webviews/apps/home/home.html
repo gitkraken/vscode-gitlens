@@ -4,35 +4,349 @@
 		<meta charset="utf-8" />
 	</head>
 
-	<body class="preload">
-		<div id="container" class="container">
-			<div class="content">
-				<section id="slot1"></section>
-				<section id="slot2"></section>
-				<section id="slot3"></section>
-			</div>
-			<div>
-				<section id="slot-footer"></section>
-			</div>
+	<body class="home preload">
+		<a href="#links" class="sr-skip sr-only-focusable">skip to links</a>
+		<a href="#main" class="sr-skip sr-only-focusable">skip to main content</a>
+		<div class="home__nav">
+			<nav class="inline-nav" id="links" tabindex="-1" aria-label="Help and Resources">
+				<div class="inline-nav__group">
+					<a
+						class="inline-nav__link inline-nav__link--text"
+						href="https://help.gitkraken.com/gitlens/gitlens-release-notes-current/"
+						aria-label="What's New"
+						title="What's New"
+						><span class="codicon codicon-rocket"></span><span>What's New</span></a
+					>
+					<a
+						class="inline-nav__link inline-nav__link--text"
+						href="https://help.gitkraken.com/gitlens/gitlens-home/"
+						aria-label="Help Center"
+						title="Help Center"
+						><span class="codicon codicon-question"></span><span>Help</span></a
+					>
+					<a
+						class="inline-nav__link inline-nav__link--text"
+						href="https://github.com/gitkraken/vscode-gitlens/issues"
+						aria-label="Feedback"
+						title="Feedback"
+						><span class="codicon codicon-feedback"></span><span>Feedback</span></a
+					>
+				</div>
+				<div class="inline-nav__group">
+					<a
+						class="inline-nav__link"
+						href="https://github.com/gitkraken/vscode-gitlens/discussions"
+						aria-label="GitHub Discussions"
+						title="GitHub Discussions"
+						><span class="codicon codicon-comment-discussion"></span
+					></a>
+					<a
+						class="inline-nav__link"
+						href="https://github.com/gitkraken/vscode-gitlens"
+						aria-label="GitHub Repo"
+						title="GitHub Repo"
+						><span class="codicon codicon-github"></span
+					></a>
+					<a
+						class="inline-nav__link"
+						href="https://twitter.com/gitlens"
+						aria-label="@gitlens on Twitter"
+						title="@gitlens on Twitter"
+						><span class="codicon codicon-twitter"></span
+					></a>
+					<a
+						class="inline-nav__link"
+						href="https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links"
+						aria-label="GitLens Website"
+						title="GitLens Website"
+						><span class="codicon codicon-globe"></span
+					></a>
+				</div>
+			</nav>
 		</div>
+		<header class="home__header">
+			<header-card id="header-card" image="#{webroot}/media/gitlens-logo.webp"></header-card>
+		</header>
+		<main class="home__main" id="main" tabindex="-1">
+			<style nonce="#{cspNonce}">
+				.video-banner {
+					--video-banner-bg: url(#{webroot}/media/getting-started.webp);
+				}
+				.vscode-high-contrast .video-banner,
+				.vscode-dark .video-banner {
+					--video-banner-play: url(#{webroot}/media/play-button.webp);
+				}
+				.vscode-high-contrast-light .video-banner,
+				.vscode-light .video-banner {
+					--video-banner-play: url(#{webroot}/media/play-button-dark.webp);
+				}
+				.gl-plus-banner {
+					background-image: url(#{webroot}/media/gitlens-backdrop.webp);
+				}
+			</style>
+			<div class="stepped-sections">
+				<stepped-section id="welcome">
+					<span slot="heading">Welcome to GitLens 13</span>
+					<p>
+						GitLens supercharges Git inside VS Code and unlocks the untapped knowledge within each
+						repository.
+					</p>
+					<p>
+						<a href="command:gitlens.showWelcomePage?%22quick-setup%22" class="button-link"
+							><code-icon icon="pass"></code-icon>Quick Setup</a
+						>
+					</p>
+				</stepped-section>
+				<stepped-section id="getting-started">
+					<span slot="heading">Getting Started</span>
+					<a class="video-banner" href="https://www.youtube.com/watch?v=UQPb73Zz9qk">
+						<span>Get Started</span> <small>Tutorial Video</small>
+					</a>
+					<ul>
+						<li>
+							The <a href="command:gitlens.showWelcomePage?%22quick-setup%22">Quick Setup</a> helps you
+							start personalizing GitLens to your needs.
+						</li>
+						<li>
+							The <a href="command:gitlens.getStarted">Feature Walkthrough</a> gets you familiarized with
+							the rich features GitLens provides.
+						</li>
+						<li>
+							The <a href="command:gitlens.showSettingsPage">Interactive settings editor</a> helps you
+							fine-tune your GitLens experience.
+						</li>
+					</ul>
+				</stepped-section>
+				<stepped-section id="features">
+					<span slot="heading">Features</span>
+					<p>
+						GitLens is deeply integrated into many areas and aspects of VS Code, especially editors and
+						views.
+					</p>
+					<card-section no-heading id="no-repo" aria-hidden="true">
+						<div class="centered">
+							<p>
+								To use GitLens, open a folder containing a git repository or clone from a URL from the
+								Explorer.
+							</p>
+
+							<vscode-button class="mb-1" data-action="command:workbench.view.explorer"
+								>Open a Folder or Repository</vscode-button
+							>
+						</div>
+					</card-section>
+					<div class="activitybar-banner">
+						<ul>
+							<li>
+								Find many features by opening the
+								<a href="command:workbench.view.scm">Source Control Side Bar</a>
+							</li>
+							<li>Your central hub for the latest feature updates and support information</li>
+						</ul>
+						<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 83 76">
+							<rect x="42.5" y=".5" width="40" height="75" rx="16.5" stroke="url(#a)" />
+							<mask
+								id="b"
+								class="svg-mask-alpha"
+								maskUnits="userSpaceOnUse"
+								x="45"
+								y="3"
+								width="35"
+								height="70"
+							>
+								<rect
+									x="45"
+									y="3"
+									width="35"
+									height="70"
+									rx="14"
+									fill="#333"
+									class="svg-activity-bar-bg"
+								/>
+							</mask>
+							<g mask="url(#b)">
+								<rect
+									x="45"
+									y="3"
+									width="35"
+									height="70"
+									rx="14"
+									fill="#333"
+									class="svg-activity-bar-bg"
+								/>
+								<path fill="#fff" d="M45 38h1v27h-1z" class="svg-activity-bar-active" />
+							</g>
+							<g clip-path="url(#c)" fill="#fff" class="svg-activity-bar-fg">
+								<path
+									d="m64.078 54.996-2.138-2.138.752-.751 2.137 2.138-.751.751ZM60.73 58.079V52.92h1.062v5.158h-1.063Z"
+								/>
+								<path
+									d="M61.26 61.167a1.594 1.594 0 1 0 0-3.188 1.594 1.594 0 0 0 0 3.188ZM65.51 57.27a1.594 1.594 0 1 0 0-3.187 1.594 1.594 0 0 0 0 3.188ZM61.26 53.02a1.594 1.594 0 1 0 0-3.187 1.594 1.594 0 0 0 0 3.188Z"
+								/>
+								<path
+									d="M62.5 47.885a7.615 7.615 0 1 0 0 15.23 7.615 7.615 0 0 0 0-15.23ZM54 55.5a8.5 8.5 0 1 1 17 0 8.5 8.5 0 0 1-17 0Z"
+								/>
+							</g>
+							<g clip-path="url(#d)">
+								<path
+									d="M68.755 17.166a2.804 2.804 0 0 0-5.406-1.053 2.803 2.803 0 0 0 1.802 3.724 2.241 2.241 0 0 1-2.001 1.253h-2.243a3.342 3.342 0 0 0-2.241.873V16.55a2.803 2.803 0 1 0-1.121 0v6.838a2.832 2.832 0 1 0 1.362.074 2.242 2.242 0 0 1 2.001-1.25h2.242a3.362 3.362 0 0 0 3.168-2.28 2.803 2.803 0 0 0 2.437-2.765Zm-12.331-3.363a1.682 1.682 0 1 1 3.363 0 1.682 1.682 0 0 1-3.363 0Zm3.363 12.331a1.682 1.682 0 1 1-3.364 0 1.682 1.682 0 0 1 3.364 0Zm6.166-7.286a1.682 1.682 0 1 1 0-3.364 1.682 1.682 0 0 1 0 3.364Z"
+									fill="#858585"
+									class="svg-activity-bar-inactive"
+								/>
+							</g>
+							<path
+								d="M.333 54a2.667 2.667 0 1 1 5.334 0 2.667 2.667 0 0 1-5.334 0ZM34 54l-5 2.887v-5.774L34 54Zm-31-.5h26.5v1H3v-1Z"
+								fill="#fff"
+								class="svg-fg"
+							/>
+							<path
+								d="M.333 22a2.667 2.667 0 1 1 5.334 0 2.667 2.667 0 0 1-5.334 0ZM34 22l-5 2.887v-5.774L34 22Zm-31-.5h26.5v1H3v-1Z"
+								fill="#007FD5"
+								class="svg-link"
+							/>
+							<defs>
+								<clipPath id="c">
+									<path fill="#fff" transform="translate(54 47)" d="M0 0h17v17H0z" class="svg-link" />
+								</clipPath>
+								<clipPath id="d">
+									<path fill="#fff" transform="translate(53 11)" d="M0 0h18v18H0z" class="svg-link" />
+								</clipPath>
+								<linearGradient
+									id="a"
+									x1="62.5"
+									y1="-19.365"
+									x2="62.5"
+									y2="76"
+									gradientUnits="userSpaceOnUse"
+								>
+									<stop stop-color="#333" class="svg-activity-bar-stop" />
+									<stop offset="1" stop-color="#333" stop-opacity="0" class="svg-activity-bar-stop" />
+									<stop offset="1" stop-color="#333" stop-opacity="0" class="svg-activity-bar-stop" />
+								</linearGradient>
+							</defs>
+						</svg>
+					</div>
+				</stepped-section>
+				<stepped-section id="integrations">
+					<span slot="heading">Integrations</span>
+					<p>GitLens provides issue and pull request auto-linking with many Git hosting services.</p>
+					<p>
+						Rich integrations with GitHub & GitLab provide more detailed hover information for auto-linked
+						issues and pull requests, pull requests associated with branches and commits, and avatars.
+					</p>
+				</stepped-section>
+				<stepped-section id="plus">
+					<span slot="heading">Want even more from GitLens?</span>
+					<card-section class="gl-plus-banner" no-heading>
+						<div class="centered">
+							<p class="type-tight">
+								<span class="logo"
+									><span class="foreground">Git</span>Lens+
+									<span class="foreground">Features</span></span
+								>
+							</p>
+							<plus-content id="plus-content"></plus-content>
+						</div>
+					</card-section>
+				</stepped-section>
+			</div>
+			<!-- check for gitlens+ -->
+			<div id="plus-sections">
+				<card-section dismissable id="commit-graph">
+					<span slot="heading">Introducing the Commit Graph ✨</span>
+					<a
+						title="Learn more about the Commit Graph"
+						href="command:gitlens.openWalkthrough?%22gitlens.plus%7Cgitlens.plus.commitGraph%22"
+						><img
+							src="#{webroot}/media/plus-commit-graph-illustrated.webp"
+							alt="Commit Graph illustration"
+							class="mb-1"
+					/></a>
+					<p>
+						The
+						<a
+							title="Learn more about the Commit Graph"
+							href="command:gitlens.openWalkthrough?%22gitlens.plus%7Cgitlens.plus.commitGraph%22"
+							>Commit Graph</a
+						>
+						helps you easily visualize and keep track of all work in progress.
+					</p>
+					<p class="mb-0">
+						Use the rich commit search to find exactly what you're looking for. It's powerful filters allow
+						you to search by a specific commit, message, author, a changed file or files, or even a specific
+						code change.
+					</p>
+				</card-section>
+				<card-section dismissable id="visual-file-history">
+					<span slot="heading">Introducing Visual File History ✨</span>
+					<a
+						title="Learn more about the Visual File History"
+						href="command:gitlens.openWalkthrough?%22gitlens.plus%7Cgitlens.plus.visualFileHistory%22"
+						><img
+							src="#{webroot}/media/plus-visual-file-history-illustrated.webp"
+							alt="Visual File History illustration"
+							class="mb-1"
+					/></a>
+					<p>
+						The
+						<a
+							title="Learn more about the Visual File History"
+							href="command:gitlens.openWalkthrough?%22gitlens.plus%7Cgitlens.plus.visualFileHistory%22"
+							>Visual File History</a
+						>
+						allows you to quickly see the evolution of a file, including when changes were made, how large
+						they were, and who made them.
+					</p>
+					<p class="mb-0">
+						Use it to quickly find when the most impactful changes were made to a file or who best to talk
+						to about file changes and more.
+					</p>
+				</card-section>
+				<card-section dismissable id="worktrees">
+					<span slot="heading">Introducing Worktrees ✨</span>
+					<a
+						title="Learn more about Worktrees"
+						href="command:gitlens.openWalkthrough?%22gitlens.plus%7Cgitlens.plus.worktrees%22"
+						><img
+							src="#{webroot}/media/plus-worktrees-illustrated.webp"
+							alt="Worktrees illustration"
+							class="mb-1"
+					/></a>
+					<p>
+						<a
+							title="Learn more about Worktrees"
+							href="command:gitlens.openWalkthrough?%22gitlens.plus%7Cgitlens.plus.worktrees%22"
+							>Worktrees</a
+						>
+						help you multitask by minimizing the context switching between branches, allowing you to easily
+						work on different branches of a repository simultaneously.
+					</p>
+					<p class="mb-0">
+						Avoid interrupting your work in progress when needing to review a pull request. Simply create a
+						new worktree and open it in a new VS Code window, all without impacting your other work
+					</p>
+				</card-section>
+			</div>
+			<div class="button-container">
+				<vscode-button id="restore-plus" appearance="secondary" data-action="command:gitlens.plus.restore"
+					>Restore GitLens+ features</vscode-button
+				>
+				<vscode-button
+					id="restore-welcome"
+					appearance="secondary"
+					data-action="command:gitlens.home.restoreWelcome"
+					>Restore</vscode-button
+				>
+			</div>
+		</main>
+
 		#{endOfBody}
 		<style nonce="#{cspNonce}">
 			@font-face {
 				font-family: 'codicon';
-				src: url('#{webroot}/codicon.ttf?404cbc4fe3a64b9a93064eef76704c79') format('truetype');
+				font-display: block;
+				src: url('#{webroot}/codicon.ttf?0e5b0adf625a37fbcd638d31f0fe72aa') format('truetype');
 			}
 		</style>
 	</body>
-
-	<!-- prettier-ignore -->
-	<%= require('html-loader?{"esModule":false}!./partials/welcome.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/views.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/links.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.free.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.free-preview.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.free-preview-expired.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.plus-trial.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.plus-trial-expired.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.paid.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.verify-email.html') %>
 </html>

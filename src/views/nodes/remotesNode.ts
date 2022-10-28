@@ -1,10 +1,10 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GitUri } from '../../git/gitUri';
-import { Repository } from '../../git/models';
+import type { GitUri } from '../../git/gitUri';
+import type { Repository } from '../../git/models/repository';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
-import { RemotesView } from '../remotesView';
-import { RepositoriesView } from '../repositoriesView';
+import type { RemotesView } from '../remotesView';
+import type { RepositoriesView } from '../repositoriesView';
 import { MessageNode } from './common';
 import { RemoteNode } from './remoteNode';
 import { RepositoryNode } from './repositoryNode';

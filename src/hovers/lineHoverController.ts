@@ -1,23 +1,12 @@
-import {
-	CancellationToken,
-	ConfigurationChangeEvent,
-	Disposable,
-	Hover,
-	languages,
-	Position,
-	Range,
-	TextDocument,
-	TextEditor,
-	Uri,
-	window,
-} from 'vscode';
+import type { CancellationToken, ConfigurationChangeEvent, Position, TextDocument, TextEditor, Uri } from 'vscode';
+import { Disposable, Hover, languages, Range, window } from 'vscode';
 import { UriComparer } from '../comparers';
 import { configuration, FileAnnotationType } from '../configuration';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { Logger } from '../logger';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
-import { LinesChangeEvent } from '../trackers/gitLineTracker';
+import type { LinesChangeEvent } from '../trackers/gitLineTracker';
 import { Hovers } from './hovers';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
@@ -50,7 +39,8 @@ export class LineHoverController implements Disposable {
 			return;
 		}
 
-		if (this.container.config.hovers.enabled && this.container.config.hovers.currentLine.enabled) {
+		const cfg = configuration.get('hovers');
+		if (cfg.enabled && cfg.currentLine.enabled) {
 			this.container.lineTracker.subscribe(
 				this,
 				this.container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this),
@@ -103,13 +93,15 @@ export class LineHoverController implements Disposable {
 		const commit = lineState?.commit;
 		if (commit == null) return undefined;
 
+		const cfg = configuration.get('hovers');
+
 		// Avoid double annotations if we are showing the whole-file hover blame annotations
-		if (this.container.config.hovers.annotations.details) {
+		if (cfg.annotations.details) {
 			const fileAnnotations = await this.container.fileAnnotations.getAnnotationType(window.activeTextEditor);
 			if (fileAnnotations === FileAnnotationType.Blame) return undefined;
 		}
 
-		const wholeLine = this.container.config.hovers.currentLine.over === 'line';
+		const wholeLine = cfg.currentLine.over === 'line';
 		// If we aren't showing the hover over the whole line, make sure the annotation is on
 		if (!wholeLine && this.container.lineAnnotations.suspended) return undefined;
 
@@ -135,12 +127,12 @@ export class LineHoverController implements Disposable {
 			commit,
 			trackedDocument.uri,
 			editorLine,
-			this.container.config.hovers.detailsMarkdownFormat,
-			this.container.config.defaultDateFormat,
+			cfg.detailsMarkdownFormat,
+			configuration.get('defaultDateFormat'),
 			{
-				autolinks: this.container.config.hovers.autolinks.enabled,
+				autolinks: cfg.autolinks.enabled,
 				pullRequests: {
-					enabled: this.container.config.hovers.pullRequests.enabled,
+					enabled: cfg.pullRequests.enabled,
 				},
 			},
 		);
@@ -165,13 +157,15 @@ export class LineHoverController implements Disposable {
 		const commit = lineState?.commit;
 		if (commit == null) return undefined;
 
+		const cfg = configuration.get('hovers');
+
 		// Avoid double annotations if we are showing the whole-file hover blame annotations
-		if (this.container.config.hovers.annotations.changes) {
+		if (cfg.annotations.changes) {
 			const fileAnnotations = await this.container.fileAnnotations.getAnnotationType(window.activeTextEditor);
 			if (fileAnnotations === FileAnnotationType.Blame) return undefined;
 		}
 
-		const wholeLine = this.container.config.hovers.currentLine.over === 'line';
+		const wholeLine = cfg.currentLine.over === 'line';
 		// If we aren't showing the hover over the whole line, make sure the annotation is on
 		if (!wholeLine && this.container.lineAnnotations.suspended) return undefined;
 
@@ -208,7 +202,7 @@ export class LineHoverController implements Disposable {
 
 		if (editor == null) return;
 
-		const cfg = this.container.config.hovers;
+		const cfg = configuration.get('hovers');
 		if (!cfg.enabled || !cfg.currentLine.enabled || (!cfg.currentLine.details && !cfg.currentLine.changes)) return;
 
 		this._uri = editor.document.uri;

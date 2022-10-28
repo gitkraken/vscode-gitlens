@@ -1,33 +1,26 @@
-import {
-	CancellationToken,
-	commands,
-	ConfigurationChangeEvent,
-	Disposable,
-	ProgressLocation,
-	ThemeColor,
-	TreeItem,
-	TreeItemCollapsibleState,
-	TreeViewVisibilityChangeEvent,
-	window,
-} from 'vscode';
-import { configuration, ViewFilesLayout, ViewShowBranchComparison, WorktreesViewConfig } from '../configuration';
-import { Container } from '../container';
+import type { CancellationToken, ConfigurationChangeEvent, Disposable, TreeViewVisibilityChangeEvent } from 'vscode';
+import { ProgressLocation, ThemeColor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { WorktreesViewConfig } from '../configuration';
+import { configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { PlusFeatures } from '../features';
 import { GitUri } from '../git/gitUri';
-import { GitWorktree, RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models';
+import type { RepositoryChangeEvent } from '../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
+import type { GitWorktree } from '../git/models/worktree';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../subscription';
+import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import { pluralize } from '../system/string';
-import {
-	RepositoriesSubscribeableNode,
-	RepositoryFolderNode,
-	RepositoryNode,
-	ViewNode,
-	WorktreeNode,
-	WorktreesNode,
-} from './nodes';
+import { RepositoryNode } from './nodes/repositoryNode';
+import type { ViewNode } from './nodes/viewNode';
+import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
+import { WorktreeNode } from './nodes/worktreeNode';
+import { WorktreesNode } from './nodes/worktreesNode';
 import { ViewBase } from './viewBase';
+import { registerViewCommand } from './viewCommands';
 
 export class WorktreesRepositoryNode extends RepositoryFolderNode<WorktreesView, WorktreesNode> {
 	getChildren(): Promise<ViewNode[]> {
@@ -51,7 +44,7 @@ export class WorktreesRepositoryNode extends RepositoryFolderNode<WorktreesView,
 export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesView, WorktreesRepositoryNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		const access = await this.view.container.git.access(PlusFeatures.Worktrees);
-		if (!access.allowed) return [];
+		if (access.allowed === false) return [];
 
 		if (this.children == null) {
 			const repositories = this.view.container.git.openRepositories;
@@ -103,7 +96,7 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 	protected readonly configKey = 'worktrees';
 
 	constructor(container: Container) {
-		super('gitlens.views.worktrees', 'Worktrees', container);
+		super(container, 'gitlens.views.worktrees', 'Worktrees', 'workspaceView');
 
 		this.disposables.push(
 			window.registerFileDecorationProvider({
@@ -154,11 +147,11 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 
 		switch (subscription.state) {
 			case SubscriptionState.Free:
-			case SubscriptionState.FreePreviewExpired:
+			case SubscriptionState.FreePreviewTrialExpired:
 			case SubscriptionState.VerificationRequired:
 				this.description = '✨ GitLens+ feature';
 				break;
-			case SubscriptionState.FreeInPreview: {
+			case SubscriptionState.FreeInPreviewTrial: {
 				const days = getSubscriptionTimeRemaining(subscription, 'days')!;
 				this.description = `✨⏳ ${pluralize('more day', days)} to try worktrees on public and private repos`;
 				break;
@@ -182,12 +175,12 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 		void this.container.viewCommands;
 
 		return [
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
 				async () => {
 					// this.container.git.resetCaches('worktrees');
@@ -195,48 +188,40 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 				},
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout(ViewFilesLayout.Auto),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToList'),
 				() => this.setFilesLayout(ViewFilesLayout.List),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToTree'),
 				() => this.setFilesLayout(ViewFilesLayout.Tree),
 				this,
 			),
 
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOn'),
-				() => this.setShowAvatars(true),
-				this,
-			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOff'),
-				() => this.setShowAvatars(false),
-				this,
-			),
-			commands.registerCommand(
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
+			registerViewCommand(
 				this.getQualifiedCommand('setShowBranchComparisonOn'),
 				() => this.setShowBranchComparison(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowBranchComparisonOff'),
 				() => this.setShowBranchComparison(false),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowBranchPullRequestOn'),
 				() => this.setShowBranchPullRequest(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowBranchPullRequestOff'),
 				() => this.setShowBranchPullRequest(false),
 				this,

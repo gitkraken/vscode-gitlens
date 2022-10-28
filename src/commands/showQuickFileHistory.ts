@@ -1,11 +1,15 @@
-import { Range, TextEditor, Uri } from 'vscode';
+import type { Range, TextEditor, Uri } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitBranch, GitLog, GitReference, GitTag } from '../git/models';
-import { CommandQuickPickItem } from '../quickpicks/items/common';
+import type { GitBranch } from '../git/models/branch';
+import type { GitLog } from '../git/models/log';
+import type { GitReference } from '../git/models/reference';
+import type { GitTag } from '../git/models/tag';
+import type { CommandQuickPickItem } from '../quickpicks/items/common';
 import { command } from '../system/command';
-import { ActiveEditorCachedCommand, CommandContext, getCommandUri } from './base';
+import type { CommandContext } from './base';
+import { ActiveEditorCachedCommand, getCommandUri } from './base';
 import { executeGitCommand } from './gitCommands.actions';
 
 export interface ShowQuickFileHistoryCommandArgs {
@@ -56,7 +60,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 			return;
 		}
 
-		void (await executeGitCommand({
+		await executeGitCommand({
 			command: 'log',
 			state:
 				gitUri?.repoPath != null
@@ -66,6 +70,6 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 							fileName: gitUri.relativePath,
 					  }
 					: {},
-		}));
+		});
 	}
 }

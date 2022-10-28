@@ -1,26 +1,22 @@
-import {
+import type {
 	CancellationToken,
 	DecorationOptions,
 	Disposable,
-	Hover,
-	languages,
-	Position,
-	Range,
-	Selection,
 	TextDocument,
 	TextEditor,
 	TextEditorDecorationType,
-	TextEditorRevealType,
 } from 'vscode';
-import { FileAnnotationType } from '../configuration';
-import { Container } from '../container';
-import { GitCommit, GitDiff } from '../git/models';
+import { Hover, languages, Position, Range, Selection, TextEditorRevealType } from 'vscode';
+import { configuration, FileAnnotationType } from '../configuration';
+import type { Container } from '../container';
+import type { GitCommit } from '../git/models/commit';
+import type { GitDiff } from '../git/models/diff';
 import { Hovers } from '../hovers/hovers';
-import { Logger } from '../logger';
-import { log } from '../system/decorators/log';
+import { getLogScope, log } from '../system/decorators/log';
 import { Stopwatch } from '../system/stopwatch';
-import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
-import { AnnotationContext, AnnotationProviderBase } from './annotationProvider';
+import type { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
+import type { AnnotationContext } from './annotationProvider';
+import { AnnotationProviderBase } from './annotationProvider';
 import { Decorations } from './fileAnnotationController';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
@@ -65,7 +61,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 
 	@log()
 	async onProvideAnnotation(context?: ChangesAnnotationContext): Promise<boolean> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		if (this.mustReopen(context)) {
 			this.clear();
@@ -158,7 +154,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		).filter(<T>(d?: T): d is T => Boolean(d));
 		if (!diffs?.length) return false;
 
-		const sw = new Stopwatch(cc!);
+		const sw = new Stopwatch(scope);
 
 		const decorationsMap = new Map<
 			string,
@@ -181,14 +177,12 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 
 					const sha = context!.sha;
 					for (let i = hunk.current.position.start - 1; i < hunk.current.position.end; i++) {
-						if (blame.lines[i].sha === sha) {
+						if (blame.lines[i]?.sha === sha) {
 							skip = false;
 						}
 					}
 
-					if (skip) {
-						continue;
-					}
+					if (skip) continue;
 				}
 
 				// Subtract 2 because editor lines are 0-based and we will be adding 1 in the first iteration of the loop
@@ -282,9 +276,8 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 	}
 
 	registerHoverProvider() {
-		if (!this.container.config.hovers.enabled || !this.container.config.hovers.annotations.enabled) {
-			return;
-		}
+		const cfg = configuration.get('hovers');
+		if (!cfg.enabled || !cfg.annotations.enabled) return;
 
 		this.hoverProviderDisposable = languages.registerHoverProvider(
 			{ pattern: this.document.uri.fsPath },
@@ -301,7 +294,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		_token: CancellationToken,
 	): Promise<Hover | undefined> {
 		if (this.state == null) return undefined;
-		if (this.container.config.hovers.annotations.over !== 'line' && position.character !== 0) return undefined;
+		if (configuration.get('hovers.annotations.over') !== 'line' && position.character !== 0) return undefined;
 
 		const { commit, diffs } = this.state;
 

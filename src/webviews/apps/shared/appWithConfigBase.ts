@@ -1,11 +1,11 @@
 /*global document*/
 import type { Config } from '../../../config';
+import type { IpcMessage } from '../../protocol';
 import {
 	DidChangeConfigurationNotificationType,
 	DidGenerateConfigurationPreviewNotificationType,
 	DidOpenAnchorNotificationType,
 	GenerateConfigurationPreviewCommandType,
-	IpcMessage,
 	onIpc,
 	UpdateConfigurationCommandType,
 } from '../../protocol';
@@ -57,8 +57,11 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 				'input',
 				(e, target: HTMLInputElement) => this.onInputChanged(target),
 			),
+			DOM.on('button[data-setting-clear]', 'click', (e, target: HTMLButtonElement) =>
+				this.onButtonClicked(target),
+			),
 			DOM.on('select[data-setting]', 'change', (e, target: HTMLSelectElement) => this.onInputSelected(target)),
-			DOM.on('.popup', 'mousedown', (e, target: HTMLElement) => this.onPopupMouseDown(target, e)),
+			DOM.on('.token[data-token]', 'mousedown', (e, target: HTMLElement) => this.onTokenMouseDown(target, e)),
 		);
 
 		return disposables;
@@ -120,10 +123,61 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 			}
 		}
 
-		this._changes[element.name] = element.type === 'number' && value != null ? Number(value) : value;
+		if (element.dataset.settingType === 'arrayObject') {
+			const props = element.name.split('.');
+			const settingName = props[0];
+			const index = parseInt(props[1], 10);
+			const objectProps = props.slice(2);
+
+			let setting: Record<string, any>[] | undefined = this.getSettingValue(settingName);
+			if (value == null && (setting === undefined || setting?.length === 0)) {
+				if (setting !== undefined) {
+					this._changes[settingName] = undefined;
+				}
+			} else {
+				setting = setting ?? [];
+
+				let settingItem = setting[index];
+				if (value != null || (value == null && settingItem !== undefined)) {
+					if (settingItem === undefined) {
+						settingItem = Object.create(null);
+						setting[index] = settingItem;
+					}
+
+					set(
+						settingItem,
+						objectProps.join('.'),
+						element.type === 'number' && value != null ? Number(value) : value,
+					);
+
+					this._changes[settingName] = setting;
+				}
+			}
+		} else {
+			this._changes[element.name] = element.type === 'number' && value != null ? Number(value) : value;
+		}
 
 		// this.setAdditionalSettings(element.checked ? element.dataset.addSettingsOn : element.dataset.addSettingsOff);
 		this.applyChanges();
+	}
+
+	protected onButtonClicked(element: HTMLButtonElement) {
+		if (element.dataset.settingType === 'arrayObject') {
+			const props = element.name.split('.');
+			const settingName = props[0];
+
+			const setting = this.getSettingValue<Record<string, any>[]>(settingName);
+			if (setting === undefined) return;
+
+			const index = parseInt(props[1], 10);
+			if (setting[index] == null) return;
+
+			setting.splice(index, 1);
+
+			this._changes[settingName] = setting.length ? setting : undefined;
+
+			this.applyChanges();
+		}
 	}
 
 	protected onInputChanged(element: HTMLInputElement) {
@@ -175,6 +229,29 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 
 				break;
 			}
+			case 'arrayObject': {
+				const props = element.name.split('.');
+				const settingName = props[0];
+				const index = parseInt(props[1], 10);
+				const objectProps = props.slice(2);
+
+				const setting: Record<string, any>[] = this.getSettingValue(settingName) ?? [];
+
+				const settingItem = setting[index] ?? Object.create(null);
+				if (setting[index] === undefined) {
+					setting[index] = settingItem;
+				}
+
+				if (element.checked) {
+					set(setting[index], objectProps.join('.'), fromCheckboxValue(element.value));
+				} else {
+					set(setting[index], objectProps.join('.'), false);
+				}
+
+				this._changes[settingName] = setting;
+
+				break;
+			}
 			case 'custom': {
 				this._changes[element.name] = element.checked;
 
@@ -201,10 +278,10 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 		const $popup = document.getElementById(`${element.name}.popup`);
 		if ($popup != null) {
 			if ($popup.childElementCount === 0) {
-				const $template = (document.querySelector('#token-popup') as HTMLTemplateElement)?.content.cloneNode(
-					true,
-				);
-				$popup.appendChild($template);
+				const $template = document.querySelector<HTMLTemplateElement>('#token-popup')?.content.cloneNode(true);
+				if ($template != null) {
+					$popup.appendChild($template);
+				}
 			}
 			$popup.classList.remove('hidden');
 		}
@@ -220,15 +297,6 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 		this._changes[element.name] = ensureIfBooleanOrNull(value);
 
 		this.applyChanges();
-	}
-
-	protected onPopupMouseDown(element: HTMLElement, e: MouseEvent) {
-		e.preventDefault();
-
-		const el = e.target as HTMLElement;
-		if (el?.matches('[data-token]')) {
-			this.onTokenMouseDown(el, e);
-		}
 	}
 
 	protected onTokenMouseDown(element: HTMLElement, e: MouseEvent) {
@@ -324,7 +392,6 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 					if (value === undefined) {
 						value = this.getSettingValue<string | boolean>(lhs) ?? false;
 					}
-					// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 					state = rhs !== undefined ? rhs !== String(value) : !value;
 					break;
 				}
@@ -349,12 +416,16 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 
 	private getSettingValue<T>(path: string): T | undefined {
 		const customSetting = this.getCustomSettingValue(path);
-		if (customSetting != null) return customSetting as any;
+		if (customSetting != null) return customSetting as unknown as T;
 
 		return get<T>(this.state.config, path);
 	}
 
+	protected beforeUpdateState?(): void;
+
 	private updateState() {
+		this.beforeUpdateState?.();
+
 		this._updating = true;
 
 		setDefaultDateLocales(this.state.config.defaultDateLocale);
@@ -395,6 +466,11 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 		}
 
 		const state = flatten(this.state.config);
+		if (this.state.customSettings != null) {
+			for (const [key, value] of Object.entries(this.state.customSettings)) {
+				state[key] = value;
+			}
+		}
 		this.setVisibility(state);
 		this.setEnablement(state);
 	}
@@ -435,7 +511,8 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 	}
 
 	private updatePreview(el: HTMLSpanElement, value?: string) {
-		switch (el.dataset.settingPreviewType) {
+		const previewType = el.dataset.settingPreviewType;
+		switch (previewType) {
 			case 'date': {
 				if (value === undefined) {
 					value = this.getSettingValue<string>(el.dataset.settingPreview!);
@@ -443,6 +520,12 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 
 				if (!value) {
 					value = el.dataset.settingPreviewDefault;
+					if (value == null) {
+						const lookup = el.dataset.settingPreviewDefaultLookup;
+						if (lookup != null) {
+							value = this.getSettingValue<string>(lookup);
+						}
+					}
 				}
 
 				el.innerText = value == null ? '' : formatDate(date, value, undefined, false);
@@ -465,13 +548,20 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 				}
 				break;
 			}
-			case 'commit': {
+			case 'commit':
+			case 'commit-uncommitted': {
 				if (value === undefined) {
 					value = this.getSettingValue<string>(el.dataset.settingPreview!);
 				}
 
 				if (!value) {
 					value = el.dataset.settingPreviewDefault;
+					if (value == null) {
+						const lookup = el.dataset.settingPreviewDefaultLookup;
+						if (lookup != null) {
+							value = this.getSettingValue<string>(lookup);
+						}
+					}
 				}
 
 				if (value == null) {
@@ -480,18 +570,17 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 					return;
 				}
 
-				this.sendCommandWithCompletion(
+				void this.sendCommandWithCompletion(
 					GenerateConfigurationPreviewCommandType,
 					{
 						key: el.dataset.settingPreview!,
-						type: 'commit',
+						type: previewType,
 						format: value,
 					},
 					DidGenerateConfigurationPreviewNotificationType,
-					params => {
-						el.innerText = params.preview ?? '';
-					},
-				);
+				).then(params => {
+					el.innerText = params.preview ?? '';
+				});
 
 				break;
 			}
@@ -509,6 +598,7 @@ function ensureIfBooleanOrNull(value: string | boolean): string | boolean | null
 }
 
 function get<T>(o: Record<string, any>, path: string): T | undefined {
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 	return path.split('.').reduce((o = {}, key) => (o == null ? undefined : o[key]), o) as T;
 }
 
@@ -566,7 +656,7 @@ function flatten(o: Record<string, any>, path?: string): Record<string, any> {
 	return results;
 }
 
-function fromCheckboxValue(elementValue: any) {
+function fromCheckboxValue(elementValue: unknown) {
 	switch (elementValue) {
 		case 'on':
 			return true;

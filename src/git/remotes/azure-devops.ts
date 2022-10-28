@@ -1,8 +1,9 @@
-import { Range, Uri } from 'vscode';
-import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference } from '../../config';
-import { Repository } from '../models/repository';
-import { RemoteProvider } from './provider';
+import type { Range, Uri } from 'vscode';
+import type { DynamicAutolinkReference } from '../../annotations/autolinks';
+import type { AutolinkReference } from '../../config';
+import { AutolinkType } from '../../config';
+import type { Repository } from '../models/repository';
+import { RemoteProvider } from './remoteProvider';
 
 const gitRegex = /\/_git\/?/i;
 const legacyDefaultCollectionRegex = /^DefaultCollection\//i;
@@ -51,12 +52,18 @@ export class AzureDevOpsRemote extends RemoteProvider {
 					prefix: '#',
 					url: `${workUrl}/_workitems/edit/<num>`,
 					title: `Open Work Item #<num> on ${this.name}`,
+
+					type: AutolinkType.Issue,
+					description: `Work Item #<num> on ${this.name}`,
 				},
 				{
 					// Default Pull request message when merging a PR in ADO. Will not catch commits & pushes following a different pattern.
 					prefix: 'Merged PR ',
 					url: `${this.baseUrl}/pullrequest/<num>`,
 					title: `Open Pull Request #<num> on ${this.name}`,
+
+					type: AutolinkType.PullRequest,
+					description: `Pull Request #<num> on ${this.name}`,
 				},
 			];
 		}

@@ -1,31 +1,29 @@
 'use strict';
-import { commands, Disposable, TextEditor, Uri, window } from 'vscode';
-import type { ShowQuickCommitFileCommandArgs } from '../../../commands';
+import type { Disposable, TextEditor } from 'vscode';
+import { commands, Uri, window } from 'vscode';
+import { GitActions } from '../../../commands/gitCommands.actions';
 import { configuration } from '../../../configuration';
 import { Commands } from '../../../constants';
-import { Container } from '../../../container';
+import type { Container } from '../../../container';
 import { PlusFeatures } from '../../../features';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import { GitUri } from '../../../git/gitUri';
-import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../../../git/models';
+import type { RepositoryChangeEvent } from '../../../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+import { registerCommand } from '../../../system/command';
 import { createFromDateDelta } from '../../../system/date';
 import { debug } from '../../../system/decorators/log';
-import { debounce, Deferrable } from '../../../system/function';
+import type { Deferrable } from '../../../system/function';
+import { debounce } from '../../../system/function';
 import { filter } from '../../../system/iterable';
-import { getBestPath } from '../../../system/path';
 import { hasVisibleTextEditor, isTextEditor } from '../../../system/utils';
-import { IpcMessage, onIpc } from '../../../webviews/protocol';
+import type { IpcMessage } from '../../../webviews/protocol';
+import { onIpc } from '../../../webviews/protocol';
 import { WebviewViewBase } from '../../../webviews/webviewViewBase';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
-import {
-	Commit,
-	DidChangeStateNotificationType,
-	OpenDataPointCommandType,
-	Period,
-	State,
-	UpdatePeriodCommandType,
-} from './protocol';
+import type { Commit, Period, State } from './protocol';
+import { DidChangeNotificationType, OpenDataPointCommandType, UpdatePeriodCommandType } from './protocol';
 
 interface Context {
 	uri: Uri | undefined;
@@ -45,7 +43,7 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 	private _pendingContext: Partial<Context> | undefined;
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.timeline', 'timeline.html', 'Visual File History');
+		super(container, 'gitlens.views.timeline', 'timeline.html', 'Visual File History', 'timelineView');
 
 		this._context = {
 			uri: undefined,
@@ -58,6 +56,7 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 
 	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
+
 		return super.show(options);
 	}
 
@@ -93,8 +92,8 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 
 	protected override registerCommands(): Disposable[] {
 		return [
-			commands.registerCommand(`${this.id}.refresh`, () => this.refresh(), this),
-			commands.registerCommand(`${this.id}.openInTab`, () => this.openInTab(), this),
+			registerCommand(`${this.id}.refresh`, () => this.refresh(), this),
+			registerCommand(`${this.id}.openInTab`, () => this.openInTab(), this),
 		];
 	}
 
@@ -118,34 +117,16 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 	protected override onMessageReceived(e: IpcMessage) {
 		switch (e.method) {
 			case OpenDataPointCommandType.method:
-				onIpc(OpenDataPointCommandType, e, params => {
+				onIpc(OpenDataPointCommandType, e, async params => {
 					if (params.data == null || !params.data.selected || this._context.uri == null) return;
 
 					const repository = this.container.git.getRepository(this._context.uri);
 					if (repository == null) return;
 
-					const commandArgs: ShowQuickCommitFileCommandArgs = {
-						revisionUri: this.container.git
-							.getRevisionUri(params.data.id, getBestPath(this._context.uri), repository.uri)
-							.toString(true),
-					};
+					const commit = await repository.getCommit(params.data.id);
+					if (commit == null) return;
 
-					void commands.executeCommand(Commands.ShowQuickCommitFile, commandArgs);
-
-					// const commandArgs: DiffWithPreviousCommandArgs = {
-					// 	line: 0,
-					// 	showOptions: {
-					// 		preserveFocus: true,
-					// 		preview: true,
-					// 		viewColumn: ViewColumn.Beside,
-					// 	},
-					// };
-
-					// void commands.executeCommand(
-					// 	Commands.DiffWithPrevious,
-					// 	new GitUri(gitUri, { repoPath: gitUri.repoPath!, sha: params.data.id }),
-					// 	commandArgs,
-					// );
+					void GitActions.Commit.showDetailsView(commit, { pin: true, preserveFocus: true });
 				});
 
 				break;
@@ -163,6 +144,7 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 
 	@debug({ args: false })
 	private onActiveEditorChanged(editor: TextEditor | undefined) {
+		if (editor == null || !this.container.git.isTrackable(editor.document.uri)) return;
 		if (!this.updatePendingEditor(editor)) return;
 
 		this.updateState();
@@ -198,11 +180,11 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 	@debug({ args: false })
 	private async getState(current: Context): Promise<State> {
 		const access = await this.container.git.access(PlusFeatures.Timeline);
-		const dateFormat = this.container.config.defaultDateFormat ?? 'MMMM Do, YYYY h:mma';
-		const shortDateFormat = this.container.config.defaultDateShortFormat ?? 'short';
+		const dateFormat = configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma';
+		const shortDateFormat = configuration.get('defaultDateShortFormat') ?? 'short';
 		const period = current.period ?? defaultPeriod;
 
-		if (!access.allowed) {
+		if (access.allowed === false) {
 			const dataset = generateRandomTimelineDataset();
 			return {
 				dataset: dataset.sort((a, b) => b.sort - a.sort),
@@ -396,7 +378,7 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 		const context = { ...this._context, ...this._pendingContext };
 
 		return window.withProgress({ location: { viewId: this.id } }, async () => {
-			const success = await this.notify(DidChangeStateNotificationType, {
+			const success = await this.notify(DidChangeNotificationType, {
 				state: await this.getState(context),
 			});
 			if (success) {

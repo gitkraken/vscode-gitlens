@@ -1,14 +1,16 @@
 import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
-import { GitBranch, GitCommit, PullRequest, PullRequestState } from '../../git/models';
-import { ViewsWithCommits } from '../viewBase';
-import { RepositoryNode } from './repositoryNode';
+import type { GitBranch } from '../../git/models/branch';
+import type { GitCommit } from '../../git/models/commit';
+import { isCommit } from '../../git/models/commit';
+import { PullRequest, PullRequestState } from '../../git/models/pullRequest';
+import type { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 	static key = ':pullrequest';
-	static getId(repoPath: string, id: string, refOrParent: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${id}):${refOrParent}`;
+	static getId(parent: ViewNode, id: string, ref?: string): string {
+		return `${parent.id}${this.key}(${id}):${ref}`;
 	}
 
 	public readonly pullRequest: PullRequest;
@@ -17,7 +19,7 @@ export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 
 	constructor(
 		view: ViewsWithCommits,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		pullRequest: PullRequest,
 		branchOrCommitOrRepoPath: GitBranch | GitCommit | string,
 	) {
@@ -42,7 +44,7 @@ export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 	}
 
 	override get id(): string {
-		return PullRequestNode.getId(this.repoPath, this.pullRequest.id, this.branchOrCommit?.ref ?? this.parent!.id!);
+		return PullRequestNode.getId(this.parent, this.pullRequest.id, this.branchOrCommit?.ref);
 	}
 
 	getChildren(): ViewNode[] {
@@ -60,7 +62,7 @@ export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 		tooltip.supportHtml = true;
 		tooltip.isTrusted = true;
 
-		if (GitCommit.is(this.branchOrCommit)) {
+		if (isCommit(this.branchOrCommit)) {
 			tooltip.appendMarkdown(
 				`Commit \`$(git-commit) ${this.branchOrCommit.shortSha}\` was introduced by $(git-pull-request) PR #${this.pullRequest.id}\n\n`,
 			);

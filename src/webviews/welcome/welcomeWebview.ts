@@ -1,3 +1,4 @@
+import { configuration } from '../../configuration';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { WebviewWithConfigBase } from '../webviewWithConfigBase';
@@ -11,13 +12,15 @@ export class WelcomeWebview extends WebviewWithConfigBase<State> {
 			'welcome.html',
 			'images/gitlens-icon.png',
 			'Welcome to GitLens',
+			'welcomeWebview',
 			Commands.ShowWelcomePage,
 		);
 	}
 
 	protected override includeBootstrap(): State {
 		return {
-			config: this.container.config,
+			// Make sure to get the raw config, not from the container which has the modes mixed in
+			config: configuration.getAll(true),
 		};
 	}
 }

@@ -1,13 +1,15 @@
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { command } from '../system/command';
-import { Command, CommandContext } from './base';
+import type { CommandContext } from './base';
+import { Command } from './base';
 
 @command()
 export class ShowViewCommand extends Command {
 	constructor(private readonly container: Container) {
 		super([
 			Commands.ShowBranchesView,
+			Commands.ShowCommitDetailsView,
 			Commands.ShowCommitsView,
 			Commands.ShowContributorsView,
 			Commands.ShowFileHistoryView,
@@ -31,6 +33,8 @@ export class ShowViewCommand extends Command {
 		switch (command) {
 			case Commands.ShowBranchesView:
 				return this.container.branchesView.show();
+			case Commands.ShowCommitDetailsView:
+				return this.container.commitDetailsView.show();
 			case Commands.ShowCommitsView:
 				return this.container.commitsView.show();
 			case Commands.ShowContributorsView:

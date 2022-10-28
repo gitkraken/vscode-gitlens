@@ -1,6 +1,7 @@
-import { Disposable, TextEditor, Uri, window } from 'vscode';
+import type { Disposable, TextEditor, Uri } from 'vscode';
+import { window } from 'vscode';
 import { Container } from '../container';
-import { Repository } from '../git/models';
+import type { Repository } from '../git/models/repository';
 import { map } from '../system/iterable';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import { CommandQuickPickItem } from './items/common';
@@ -47,7 +48,7 @@ export namespace RepositoryPicker {
 		placeholder: string = 'Choose a repository',
 		repositories?: Repository[],
 	): Promise<RepositoryQuickPickItem | undefined> {
-		const items: RepositoryQuickPickItem[] = await Promise.all([
+		const items = await Promise.all<Promise<RepositoryQuickPickItem>>([
 			...map(repositories ?? Container.instance.git.openRepositories, r =>
 				RepositoryQuickPickItem.create(r, undefined, { branch: true, status: true }),
 			),
@@ -82,7 +83,7 @@ export namespace RepositoryPicker {
 			return pick;
 		} finally {
 			quickpick.dispose();
-			disposables.forEach(d => d.dispose());
+			disposables.forEach(d => void d.dispose());
 		}
 	}
 }

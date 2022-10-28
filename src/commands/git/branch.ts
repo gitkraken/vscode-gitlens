@@ -1,26 +1,30 @@
 import { QuickInputButtons } from 'vscode';
 import type { Container } from '../../container';
-import { GitBranchReference, GitReference, Repository } from '../../git/models';
-import { QuickPickItemOfT } from '../../quickpicks/items/common';
+import type { GitBranchReference } from '../../git/models/reference';
+import { GitReference } from '../../git/models/reference';
+import { Repository } from '../../git/models/repository';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { pluralize } from '../../system/string';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type {
+	AsyncStepResultGenerator,
+	PartialStepState,
+	QuickPickStep,
+	StepGenerator,
+	StepResultGenerator,
+	StepSelection,
+	StepState,
+} from '../quickCommand';
 import {
 	appendReposToTitle,
-	AsyncStepResultGenerator,
 	inputBranchNameStep,
-	PartialStepState,
 	pickBranchesStep,
 	pickBranchOrTagStep,
 	pickBranchStep,
 	pickRepositoryStep,
 	QuickCommand,
-	QuickPickStep,
-	StepGenerator,
 	StepResult,
-	StepResultGenerator,
-	StepSelection,
-	StepState,
 } from '../quickCommand';
 
 interface Context {
@@ -325,9 +329,9 @@ export class BranchGitCommand extends QuickCommand<State> {
 
 			QuickCommand.endSteps(state);
 			if (state.flags.includes('--switch')) {
-				void (await state.repo.switch(state.reference.ref, { createBranch: state.name }));
+				await state.repo.switch(state.reference.ref, { createBranch: state.name });
 			} else {
-				void state.repo.branch(...state.flags, state.name, state.reference.ref);
+				state.repo.branch(...state.flags, state.name, state.reference.ref);
 			}
 		}
 	}
@@ -400,7 +404,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 			state.flags = result;
 
 			QuickCommand.endSteps(state);
-			void state.repo.branchDelete(state.references, {
+			state.repo.branchDelete(state.references, {
 				force: state.flags.includes('--force'),
 				remote: state.flags.includes('--remotes'),
 			});
@@ -496,7 +500,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 			state.flags = result;
 
 			QuickCommand.endSteps(state);
-			void state.repo.branch(...state.flags, state.reference.ref, state.name);
+			state.repo.branch(...state.flags, state.reference.ref, state.name);
 		}
 	}
 

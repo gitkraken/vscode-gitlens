@@ -1,32 +1,38 @@
-import { QuickInputButtons, QuickPickItem, Uri, window } from 'vscode';
+import type { QuickPickItem, Uri } from 'vscode';
+import { QuickInputButtons, window } from 'vscode';
 import { ContextKeys, GlyphChars } from '../../constants';
-import { Container } from '../../container';
+import type { Container } from '../../container';
 import { getContext } from '../../context';
 import { StashApplyError, StashApplyErrorReason } from '../../git/errors';
-import { GitReference, GitStashCommit, GitStashReference, Repository } from '../../git/models';
+import type { GitStashCommit } from '../../git/models/commit';
+import type { GitStashReference } from '../../git/models/reference';
+import { GitReference } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
 import { Logger } from '../../logger';
-import { Messages } from '../../messages';
-import { QuickPickItemOfT } from '../../quickpicks/items/common';
+import { showGenericErrorMessage } from '../../messages';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { formatPath } from '../../system/formatPath';
 import { pad } from '../../system/string';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { GitActions } from '../gitCommands.actions';
 import { getSteps } from '../gitCommands.utils';
-import {
-	appendReposToTitle,
+import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
+	QuickPickStep,
+	StepGenerator,
+	StepResultGenerator,
+	StepSelection,
+	StepState,
+} from '../quickCommand';
+import {
+	appendReposToTitle,
 	pickRepositoryStep,
 	pickStashStep,
 	QuickCommand,
 	QuickCommandButtons,
-	QuickPickStep,
-	StepGenerator,
 	StepResult,
-	StepResultGenerator,
-	StepSelection,
-	StepState,
 } from '../quickCommand';
 
 interface Context {
@@ -296,11 +302,18 @@ export class StashGitCommand extends QuickCommand<State> {
 			QuickCommand.endSteps(state);
 
 			try {
-				void (await state.repo.stashApply(
+				await state.repo.stashApply(
 					// pop can only take a stash index, e.g. `stash@{1}`
 					state.subcommand === 'pop' ? `stash@{${state.reference.number}}` : state.reference.ref,
 					{ deleteAfter: state.subcommand === 'pop' },
-				));
+				);
+
+				if (state.reference.message) {
+					const scmRepository = await this.container.git.getScmRepository(state.repo.path);
+					if (scmRepository != null && !scmRepository.inputBox.value) {
+						scmRepository.inputBox.value = state.reference.message;
+					}
+				}
 			} catch (ex) {
 				Logger.error(ex, context.title);
 
@@ -309,7 +322,7 @@ export class StashGitCommand extends QuickCommand<State> {
 						'Unable to apply stash. Your working tree changes would be overwritten. Please commit or stash your changes before trying again',
 					);
 				} else {
-					void Messages.showGenericErrorMessage(ex.message);
+					void showGenericErrorMessage(ex.message);
 				}
 			}
 		}
@@ -351,9 +364,14 @@ export class StashGitCommand extends QuickCommand<State> {
 			undefined,
 			{
 				placeholder: `Confirm ${context.title}`,
-				additionalButtons: [QuickCommandButtons.RevealInSideBar],
+				additionalButtons: [QuickCommandButtons.ShowDetailsView, QuickCommandButtons.RevealInSideBar],
 				onDidClickButton: (quickpick, button) => {
-					if (button === QuickCommandButtons.RevealInSideBar) {
+					if (button === QuickCommandButtons.ShowDetailsView) {
+						void GitActions.Stash.showDetailsView(state.reference, {
+							pin: false,
+							preserveFocus: true,
+						});
+					} else if (button === QuickCommandButtons.RevealInSideBar) {
 						void GitActions.Stash.reveal(state.reference, {
 							select: true,
 							expand: true,
@@ -387,11 +405,11 @@ export class StashGitCommand extends QuickCommand<State> {
 			QuickCommand.endSteps(state);
 			try {
 				// drop can only take a stash index, e.g. `stash@{1}`
-				void (await state.repo.stashDelete(`stash@{${state.reference.number}}`, state.reference.ref));
+				await state.repo.stashDelete(`stash@{${state.reference.number}}`, state.reference.ref);
 			} catch (ex) {
 				Logger.error(ex, context.title);
 
-				void Messages.showGenericErrorMessage('Unable to delete stash');
+				void showGenericErrorMessage('Unable to delete stash');
 
 				return;
 			}
@@ -410,9 +428,14 @@ export class StashGitCommand extends QuickCommand<State> {
 			undefined,
 			{
 				placeholder: `Confirm ${context.title}`,
-				additionalButtons: [QuickCommandButtons.RevealInSideBar],
+				additionalButtons: [QuickCommandButtons.ShowDetailsView, QuickCommandButtons.RevealInSideBar],
 				onDidClickButton: (quickpick, button) => {
-					if (button === QuickCommandButtons.RevealInSideBar) {
+					if (button === QuickCommandButtons.ShowDetailsView) {
+						void GitActions.Stash.showDetailsView(state.reference, {
+							pin: false,
+							preserveFocus: true,
+						});
+					} else if (button === QuickCommandButtons.RevealInSideBar) {
 						void GitActions.Stash.reveal(state.reference, {
 							select: true,
 							expand: true,
@@ -467,6 +490,11 @@ export class StashGitCommand extends QuickCommand<State> {
 
 		while (this.canStepsContinue(state)) {
 			if (state.counter < 3 || state.message == null) {
+				if (state.message == null) {
+					const scmRepository = await this.container.git.getScmRepository(state.repo.path);
+					state.message = scmRepository?.inputBox.value;
+				}
+
 				const result = yield* this.pushCommandInputMessageStep(state, context);
 				// Always break on the first step (so we will go back)
 				if (result === StepResult.Break) break;
@@ -483,10 +511,10 @@ export class StashGitCommand extends QuickCommand<State> {
 
 			QuickCommand.endSteps(state);
 			try {
-				void (await state.repo.stashSave(state.message, state.uris, {
+				await state.repo.stashSave(state.message, state.uris, {
 					includeUntracked: state.flags.includes('--include-untracked'),
 					keepIndex: state.flags.includes('--keep-index'),
-				}));
+				});
 			} catch (ex) {
 				Logger.error(ex, context.title);
 
@@ -497,7 +525,7 @@ export class StashGitCommand extends QuickCommand<State> {
 					return;
 				}
 
-				void Messages.showGenericErrorMessage('Unable to stash changes');
+				void showGenericErrorMessage('Unable to stash changes');
 
 				return;
 			}

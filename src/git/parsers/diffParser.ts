@@ -1,13 +1,13 @@
 import { debug } from '../../system/decorators/log';
 import { getLines } from '../../system/string';
-import { GitDiff, GitDiffHunk, GitDiffHunkLine, GitDiffLine, GitDiffShortStat } from '../models/diff';
-import { GitFile, GitFileStatus } from '../models/file';
+import type { GitDiff, GitDiffHunkLine, GitDiffLine, GitDiffShortStat } from '../models/diff';
+import { GitDiffHunk } from '../models/diff';
+import type { GitFile, GitFileStatus } from '../models/file';
 
-const nameStatusDiffRegex = /^(.*?)\t(.*?)(?:\t(.*?))?$/gm;
-const shortStatDiffRegex =
-	/^\s*(\d+)\sfiles? changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/;
+const shortStatDiffRegex = /(\d+)\s+files? changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/;
 const unifiedDiffRegex = /^@@ -([\d]+)(?:,([\d]+))? \+([\d]+)(?:,([\d]+))? @@(?:.*?)\n([\s\S]*?)(?=^@@)/gm;
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class GitDiffParser {
 	@debug({ args: false, singleLine: true })
 	static parse(data: string, debug: boolean = false): GitDiff | undefined {
@@ -150,32 +150,22 @@ export class GitDiffParser {
 
 		const files: GitFile[] = [];
 
-		let status: string;
-		let fileName: string;
-		let originalFileName: string;
+		let status;
 
-		let match: RegExpExecArray | null;
-		do {
-			match = nameStatusDiffRegex.exec(data);
-			if (match == null) break;
-
-			[, status, fileName, originalFileName] = match;
+		const fields = data.split('\0');
+		for (let i = 0; i < fields.length - 1; i++) {
+			status = fields[i][0];
+			if (status === '.') {
+				status = '?';
+			}
 
 			files.push({
+				status: status as GitFileStatus,
+				path: fields[++i],
+				originalPath: status[0] === 'R' || status[0] === 'C' ? fields[++i] : undefined,
 				repoPath: repoPath,
-				status: (!status.startsWith('.') ? status[0].trim() : '?') as GitFileStatus,
-				conflictStatus: undefined,
-				indexStatus: undefined,
-				workingTreeStatus: undefined,
-				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-				path: ` ${fileName}`.substr(1),
-				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-				originalPath:
-					originalFileName == null || originalFileName.length === 0
-						? undefined
-						: ` ${originalFileName}`.substr(1),
 			});
-		} while (true);
+		}
 
 		return files;
 	}

@@ -1,11 +1,14 @@
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { GitCommit, GitRemote, Repository } from '../git/models';
-import { RichRemoteProvider } from '../git/remotes/provider';
+import type { GitCommit } from '../git/models/commit';
+import { GitRemote } from '../git/models/remote';
+import type { Repository } from '../git/models/repository';
+import type { RichRemoteProvider } from '../git/remotes/richRemoteProvider';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
 import { first } from '../system/iterable';
-import { Command, CommandContext, isCommandContextViewNodeHasRemote } from './base';
+import type { CommandContext } from './base';
+import { Command, isCommandContextViewNodeHasRemote } from './base';
 
 export interface ConnectRemoteProviderCommandArgs {
 	remote: string;
@@ -59,7 +62,7 @@ export class ConnectRemoteProviderCommand extends Command {
 			if (repos.size === 0) return false;
 			if (repos.size === 1) {
 				let repo;
-				[repo, remote] = first(repos);
+				[repo, remote] = first(repos)!;
 				repoPath = repo.path;
 			} else {
 				const pick = await RepositoryPicker.show(
@@ -75,7 +78,7 @@ export class ConnectRemoteProviderCommand extends Command {
 		} else if (args?.remote == null) {
 			repoPath = args.repoPath;
 
-			remote = await this.container.git.getRichRemoteProvider(repoPath, { includeDisconnected: true });
+			remote = await this.container.git.getBestRemoteWithRichProvider(repoPath, { includeDisconnected: true });
 			if (remote == null) return false;
 		} else {
 			repoPath = args.repoPath;
@@ -150,7 +153,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 			if (repos.size === 0) return undefined;
 			if (repos.size === 1) {
 				let repo;
-				[repo, remote] = first(repos);
+				[repo, remote] = first(repos)!;
 				repoPath = repo.path;
 			} else {
 				const pick = await RepositoryPicker.show(
@@ -166,7 +169,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 		} else if (args?.remote == null) {
 			repoPath = args.repoPath;
 
-			remote = await this.container.git.getRichRemoteProvider(repoPath, { includeDisconnected: false });
+			remote = await this.container.git.getBestRemoteWithRichProvider(repoPath, { includeDisconnected: false });
 			if (remote == null) return undefined;
 		} else {
 			repoPath = args.repoPath;
