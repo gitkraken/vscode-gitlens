@@ -1,5 +1,5 @@
 import { css, customElement, FASTElement, html, observable, slotted } from '@microsoft/fast-element';
-import '../codicon';
+import '../code-icon';
 
 const template = html<ActionNav>`<template role="navigation"><slot ${slotted('actionNodes')}></slot></template>`;
 

@@ -1,7 +1,7 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import '../formatted-date';
-import '../codicon';
+import '../code-icon';
 
 @customElement('issue-pull-request')
 export class IssuePullRequest extends LitElement {

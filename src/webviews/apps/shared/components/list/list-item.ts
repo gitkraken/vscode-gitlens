@@ -1,7 +1,7 @@
 import { attr, css, customElement, FASTElement, html, repeat, volatile, when } from '@microsoft/fast-element';
 import type { TextDocumentShowOptions } from 'vscode';
 import { numberConverter } from '../converters/number-converter';
-import '../codicon';
+import '../code-icon';
 
 declare global {
 	interface HTMLElementEventMap {

@@ -1,6 +1,6 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import '../codicon';
+import '../code-icon';
 
 @customElement('commit-stats')
 export class CommitStats extends LitElement {

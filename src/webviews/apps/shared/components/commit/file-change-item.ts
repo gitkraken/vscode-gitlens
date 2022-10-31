@@ -1,7 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { FileShowOptions } from '../../../../commitDetails/protocol';
-import '../codicon';
+import '../code-icon';
 
 export interface FileChangeItemEventDetail {
 	path: string;

@@ -1,7 +1,7 @@
 import { attr, css, customElement, FASTElement, html, observable, ref, volatile, when } from '@microsoft/fast-element';
 import type { SearchQuery } from '../../../../../git/search';
 import { debounce } from '../../../../../system/function';
-import '../codicon';
+import '../code-icon';
 
 export type SearchOperators =
 	| '=:'

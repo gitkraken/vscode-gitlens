@@ -2,7 +2,7 @@ import { attr, css, customElement, FASTElement, html, volatile, when } from '@mi
 import { SubscriptionState } from '../../../../subscription';
 import { pluralize } from '../../../../system/string';
 import { numberConverter } from '../../shared/components/converters/number-converter';
-import '../../shared/components/codicon';
+import '../../shared/components/code-icon';
 
 const template = html<PlusContent>`
 	${when(

@@ -3,7 +3,7 @@ import type { TextDocumentShowOptions } from 'vscode';
 import { numberConverter } from '../converters/number-converter';
 import type { ListItem } from './list-item';
 import './list-item';
-import '../codicon';
+import '../code-icon';
 
 export interface FileChangeListItemDetail {
 	path: string;
