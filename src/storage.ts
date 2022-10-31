@@ -200,7 +200,6 @@ export interface WorkspaceStorage {
 		};
 		commitDetails: {
 			autolinksExpanded?: boolean;
-			filesAsTree?: boolean;
 			dismissed?: string[];
 		};
 	};

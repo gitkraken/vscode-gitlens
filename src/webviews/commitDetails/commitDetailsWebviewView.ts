@@ -43,7 +43,7 @@ import type { ViewNode } from '../../views/nodes/viewNode';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
 import { WebviewViewBase } from '../webviewViewBase';
-import type { CommitDetails, FileActionParams, SavedPreferences, State } from './protocol';
+import type { CommitDetails, FileActionParams, Preferences, State } from './protocol';
 import {
 	AutolinkSettingsCommandType,
 	CommitActionsCommandType,
@@ -63,7 +63,7 @@ import {
 interface Context {
 	pinned: boolean;
 	commit: GitCommit | undefined;
-	preferences: SavedPreferences | undefined;
+	preferences: Preferences | undefined;
 	richStateLoaded: boolean;
 	formattedMessage: string | undefined;
 	autolinkedIssues: IssueOrPullRequest[] | undefined;
@@ -151,8 +151,9 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			this.updatePendingContext({
 				preferences: {
 					autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded'),
-					filesAsTree: this.container.storage.getWorkspace('views:commitDetails:filesAsTree'),
+					avatars: configuration.get('views.commitDetails.avatars'),
 					dismissed: this.container.storage.getWorkspace('views:commitDetails:dismissed'),
+					files: configuration.get('views.commitDetails.files'),
 				},
 			});
 		}
@@ -196,9 +197,35 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		}
 	}
 
-	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
+	private onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'defaultDateFormat')) {
 			this.updatePendingContext({ dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma' });
+			this.updateState();
+		}
+
+		if (configuration.changed(e, 'views.commitDetails')) {
+			if (
+				configuration.changed(e, 'views.commitDetails.files') ||
+				configuration.changed(e, 'views.commitDetails.avatars')
+			) {
+				this.updatePendingContext({
+					preferences: {
+						...this._context.preferences,
+						...this._pendingContext?.preferences,
+						avatars: configuration.get('views.commitDetails.avatars'),
+						files: configuration.get('views.commitDetails.files'),
+					},
+				});
+			}
+
+			if (
+				this._context.commit != null &&
+				(configuration.changed(e, 'views.commitDetails.autolinks') ||
+					configuration.changed(e, 'views.commitDetails.pullRequests'))
+			) {
+				this.updateCommit(this._context.commit, { force: true });
+			}
+
 			this.updateState();
 		}
 	}
@@ -392,8 +419,13 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 
 		if (remote?.provider != null) {
 			const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
-				this.container.autolinks.getLinkedIssuesAndPullRequests(commit.message ?? commit.summary, remote),
-				commit.getAssociatedPullRequest({ remote: remote }),
+				configuration.get('views.commitDetails.autolinks.enabled') &&
+				configuration.get('views.commitDetails.autolinks.enhanced')
+					? this.container.autolinks.getLinkedIssuesAndPullRequests(commit.message ?? commit.summary, remote)
+					: undefined,
+				configuration.get('views.commitDetails.pullRequests.enabled')
+					? commit.getAssociatedPullRequest({ remote: remote })
+					: undefined,
 			]);
 
 			if (cancellation.isCancellationRequested) return;
@@ -431,9 +463,12 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 
 	private _commitDisposable: Disposable | undefined;
 
-	private updateCommit(commit: GitCommit | undefined, options?: { pinned?: boolean; immediate?: boolean }) {
+	private updateCommit(
+		commit: GitCommit | undefined,
+		options?: { force?: boolean; pinned?: boolean; immediate?: boolean },
+	) {
 		// this.commits = [commit];
-		if (this._context.commit?.sha === commit?.sha) return;
+		if (!options?.force && this._context.commit?.sha === commit?.sha) return;
 
 		this._commitDisposable?.dispose();
 
@@ -449,13 +484,16 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			);
 		}
 
-		this.updatePendingContext({
-			commit: commit,
-			richStateLoaded: Boolean(commit?.isUncommitted) || !getContext(ContextKeys.HasConnectedRemotes),
-			formattedMessage: undefined,
-			autolinkedIssues: undefined,
-			pullRequest: undefined,
-		});
+		this.updatePendingContext(
+			{
+				commit: commit,
+				richStateLoaded: Boolean(commit?.isUncommitted) || !getContext(ContextKeys.HasConnectedRemotes),
+				formattedMessage: undefined,
+				autolinkedIssues: undefined,
+				pullRequest: undefined,
+			},
+			options?.force,
+		);
 
 		if (options?.pinned != null) {
 			this.updatePinned(options?.pinned);
@@ -474,32 +512,54 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		this.updateState(immediate);
 	}
 
-	private updatePreferences(preferences: SavedPreferences) {
+	private updatePreferences(preferences: Preferences) {
 		if (
 			this._context.preferences?.autolinksExpanded === preferences.autolinksExpanded &&
-			this._context.preferences?.filesAsTree === preferences.filesAsTree &&
-			this._context.preferences?.dismissed === preferences.dismissed
+			this._context.preferences?.avatars === preferences.avatars &&
+			this._context.preferences?.dismissed === preferences.dismissed &&
+			this._context.preferences?.files === preferences.files &&
+			this._context.preferences?.files?.compact === preferences.files?.compact &&
+			this._context.preferences?.files?.layout === preferences.files?.layout &&
+			this._context.preferences?.files?.threshold === preferences.files?.threshold
 		) {
 			return;
 		}
 
-		const changes: SavedPreferences = {};
+		const changes: Preferences = {};
+
 		if (this._context.preferences?.autolinksExpanded !== preferences.autolinksExpanded) {
 			void this.container.storage.storeWorkspace(
 				'views:commitDetails:autolinksExpanded',
 				preferences.autolinksExpanded,
 			);
+
 			changes.autolinksExpanded = preferences.autolinksExpanded;
 		}
 
-		if (this._context.preferences?.filesAsTree !== preferences.filesAsTree) {
-			void this.container.storage.storeWorkspace('views:commitDetails:filesAsTree', preferences.filesAsTree);
-			changes.filesAsTree = preferences.filesAsTree;
+		if (this._context.preferences?.avatars !== preferences.avatars) {
+			void configuration.updateEffective('views.commitDetails.avatars', preferences.avatars);
+
+			changes.avatars = preferences.avatars;
 		}
 
 		if (this._context.preferences?.dismissed !== preferences.dismissed) {
 			void this.container.storage.storeWorkspace('views:commitDetails:dismissed', preferences.dismissed);
+
 			changes.dismissed = preferences.dismissed;
+		}
+
+		if (this._context.preferences?.files !== preferences.files) {
+			if (this._context.preferences?.files?.compact !== preferences.files?.compact) {
+				void configuration.updateEffective('views.commitDetails.files.compact', preferences.files?.compact);
+			}
+			if (this._context.preferences?.files?.layout !== preferences.files?.layout) {
+				void configuration.updateEffective('views.commitDetails.files.layout', preferences.files?.layout);
+			}
+			if (this._context.preferences?.files?.threshold !== preferences.files?.threshold) {
+				void configuration.updateEffective('views.commitDetails.files.threshold', preferences.files?.threshold);
+			}
+
+			changes.files = preferences.files;
 		}
 
 		this.updatePendingContext({ preferences: changes });
@@ -627,7 +687,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	private async getDetailsModel(commit: GitCommit, formattedMessage?: string): Promise<CommitDetails> {
 		const [commitResult, avatarUriResult, remoteResult] = await Promise.allSettled([
 			!commit.hasFullDetails() ? commit.ensureFullDetails().then(() => commit) : commit,
-			commit.author.getAvatarUri(commit),
+			commit.author.getAvatarUri(commit, { size: 32 }),
 			this.container.git.getBestRemoteWithRichProvider(commit.repoPath, { includeDisconnected: true }),
 		]);
 
@@ -677,6 +737,9 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		if (index !== -1) {
 			message = `${message.substring(0, index)}${messageHeadlineSplitterToken}${message.substring(index + 1)}`;
 		}
+
+		if (!configuration.get('views.commitDetails.autolinks.enabled')) return message;
+
 		return this.container.autolinks.linkify(
 			message,
 			'html',

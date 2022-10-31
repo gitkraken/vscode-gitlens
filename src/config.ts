@@ -587,6 +587,7 @@ export const viewsCommonConfigKeys: (keyof ViewsCommonConfig)[] = [
 interface ViewsConfigs {
 	branches: BranchesViewConfig;
 	commits: CommitsViewConfig;
+	commitDetails: CommitDetailsViewConfig;
 	contributors: ContributorsViewConfig;
 	fileHistory: FileHistoryViewConfig;
 	lineHistory: LineHistoryViewConfig;
@@ -641,6 +642,18 @@ export interface CommitsViewConfig {
 	};
 	reveal: boolean;
 	showBranchComparison: false | ViewShowBranchComparison;
+}
+
+export interface CommitDetailsViewConfig {
+	avatars: boolean;
+	files: ViewsFilesConfig;
+	autolinks: {
+		enabled: boolean;
+		enhanced: boolean;
+	};
+	pullRequests: {
+		enabled: boolean;
+	};
 }
 
 export interface ContributorsViewConfig {
