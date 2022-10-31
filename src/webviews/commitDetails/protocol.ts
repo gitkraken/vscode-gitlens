@@ -1,4 +1,5 @@
 import type { TextDocumentShowOptions } from 'vscode';
+import type { Config } from '../../config';
 import type { GitCommitIdentityShape, GitCommitStats } from '../../git/models/commit';
 import type { GitFileChangeShape } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
@@ -25,15 +26,16 @@ export type CommitDetails = CommitSummary & {
 	stats?: GitCommitStats;
 };
 
-export type SavedPreferences = {
+export type Preferences = {
 	autolinksExpanded?: boolean;
-	filesAsTree?: boolean;
+	avatars?: boolean;
 	dismissed?: string[];
+	files?: Config['views']['commitDetails']['files'];
 };
 
 export type State = {
 	pinned: boolean;
-	preferences?: SavedPreferences;
+	preferences?: Preferences;
 	// commits?: CommitSummary[];
 	includeRichContent?: boolean;
 
@@ -79,8 +81,9 @@ export const PinCommitCommandType = new IpcCommandType<PinParams>('commit/pin');
 
 export interface PreferenceParams {
 	autolinksExpanded?: boolean;
-	filesAsTree?: boolean;
+	avatars?: boolean;
 	dismissed?: string[];
+	files?: Config['views']['commitDetails']['files'];
 }
 export const PreferencesCommandType = new IpcCommandType<PreferenceParams>('commit/preferences');
 

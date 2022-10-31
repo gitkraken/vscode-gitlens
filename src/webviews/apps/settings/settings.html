@@ -68,6 +68,7 @@
 				<%= require('html-loader?{"esModule":false}!./partials/hovers.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/views.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/views.commits.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/views.commitDetails.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/views.repositories.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/views.file-history.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/views.line-history.html') %>
@@ -147,6 +148,15 @@
 								href="#commits-view"
 								title="Jump to Commits view settings"
 								>Commits view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#commit-details-view"
+								title="Jump to Commit Details view settings"
+								>Commit Details view</a
 							>
 						</li>
 						<li>

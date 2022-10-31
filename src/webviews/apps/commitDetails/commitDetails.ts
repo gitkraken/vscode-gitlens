@@ -1,4 +1,5 @@
 /*global*/
+import { ViewFilesLayout } from '../../../config';
 import type { HierarchicalItem } from '../../../system/array';
 import { makeHierarchical } from '../../../system/array';
 import type { Serialized } from '../../../system/serialize';
@@ -75,7 +76,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			DOM.on('[data-action="pick-commit"]', 'click', e => this.onPickCommit(e)),
 			DOM.on('[data-action="search-commit"]', 'click', e => this.onSearchCommit(e)),
 			DOM.on('[data-action="autolink-settings"]', 'click', e => this.onAutolinkSettings(e)),
-			DOM.on('[data-switch-value]', 'click', e => this.onTreeSetting(e)),
+			DOM.on('[data-switch-value]', 'click', e => this.onToggleFilesLayout(e)),
 			DOM.on('[data-action="pin"]', 'click', e => this.onTogglePin(e)),
 			DOM.on<WebviewPane, WebviewPaneExpandedChangeEventDetail>(
 				'[data-region="rich-pane"]',
@@ -140,15 +141,25 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		this.sendCommand(PreferencesCommandType, { dismissed: dismissed });
 	}
 
-	private onTreeSetting(e: MouseEvent) {
-		const isTree = (e.target as HTMLElement)?.getAttribute('data-switch-value') === 'list-tree';
-		if (!isTree === this.state.preferences?.filesAsTree) return;
+	private onToggleFilesLayout(e: MouseEvent) {
+		const layout = ((e.target as HTMLElement)?.getAttribute('data-switch-value') as ViewFilesLayout) ?? undefined;
+		if (layout === this.state.preferences?.files?.layout) return;
 
-		this.state.preferences = { ...this.state.preferences, filesAsTree: !isTree };
+		const files = {
+			...this.state.preferences?.files,
+			layout: layout ?? ViewFilesLayout.Auto,
+			compact: this.state.preferences?.files?.compact ?? true,
+			threshold: this.state.preferences?.files?.threshold ?? 5,
+		};
+
+		this.state.preferences = {
+			...this.state.preferences,
+			files: files,
+		};
 
 		this.renderFiles(this.state as CommitState);
 
-		this.sendCommand(PreferencesCommandType, { filesAsTree: !isTree });
+		this.sendCommand(PreferencesCommandType, { files: files });
 	}
 
 	private onExpandedChange(e: WebviewPaneExpandedChangeEventDetail) {
@@ -358,17 +369,39 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		const $el = document.querySelector<HTMLElement>('[data-region="files"]');
 		if ($el == null) return;
 
-		const isTree = state.preferences?.filesAsTree === true;
+		const layout = state.preferences?.files?.layout ?? ViewFilesLayout.Auto;
+
 		const $toggle = document.querySelector('[data-switch-value]');
 		if ($toggle) {
-			$toggle.setAttribute('data-switch-value', isTree ? 'list-tree' : 'list');
-			$toggle.setAttribute('icon', isTree ? 'list-flat' : 'list-tree');
-			$toggle.setAttribute('label', isTree ? 'View as List' : 'View as Tree');
+			switch (layout) {
+				case ViewFilesLayout.Auto:
+					$toggle.setAttribute('data-switch-value', 'list');
+					$toggle.setAttribute('icon', 'list-flat');
+					$toggle.setAttribute('label', 'View as List');
+					break;
+				case ViewFilesLayout.List:
+					$toggle.setAttribute('data-switch-value', 'tree');
+					$toggle.setAttribute('icon', 'list-tree');
+					$toggle.setAttribute('label', 'View as Tree');
+					break;
+				case ViewFilesLayout.Tree:
+					$toggle.setAttribute('data-switch-value', 'auto');
+					$toggle.setAttribute('icon', 'gl-list-auto');
+					$toggle.setAttribute('label', 'View as Auto');
+					break;
+			}
 		}
 
 		if (!state.selected.files?.length) {
 			$el.innerHTML = '';
 			return;
+		}
+
+		let isTree: boolean;
+		if (layout === ViewFilesLayout.Auto) {
+			isTree = state.selected.files.length > (state.preferences?.files?.threshold ?? 5);
+		} else {
+			isTree = layout === ViewFilesLayout.Tree;
 		}
 
 		const stashAttr = state.selected.isStash
@@ -382,7 +415,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 				state.selected.files,
 				n => n.path.split('/'),
 				(...parts: string[]) => parts.join('/'),
-				true,
+				this.state.preferences?.files?.compact ?? true,
 			);
 			const flatTree = flattenHeirarchy(tree);
 
@@ -461,7 +494,8 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 					email="${state.selected.author.email}"
 					date=${state.selected.author.date}
 					dateFormat="${state.dateFormat}"
-					avatar="${state.selected.author.avatar}"
+					avatarUrl="${state.selected.author.avatar ?? ''}"
+					showAvatar="${state.preferences?.avatars ?? true}"
 					actionLabel="${state.selected.sha === uncommittedSha ? 'modified' : 'committed'}"
 				></commit-identity>
 			`;

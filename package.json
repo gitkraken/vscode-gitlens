@@ -946,9 +946,75 @@
 				}
 			},
 			{
+				"id": "commit-details-view",
+				"title": "Commit Details View",
+				"order": 22,
+				"properties": {
+					"gitlens.views.commitDetails.autolinks.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to automatically link external resources in commit messages",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.commitDetails.autolinks.enhanced": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to lookup additional details about automatically link external resources in commit messages. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.commitDetails.pullRequests.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to query for associated pull requests. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 21
+					},
+					"gitlens.views.commitDetails.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.commitDetails.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _Commit Details_ view will display files",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.commitDetails.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Commit Details_ view. Only applies when `#gitlens.views.commitDetails.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.commitDetails.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Commit Details_ view. Only applies when `#gitlens.views.commitDetails.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.commitDetails.avatars": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Commit Details_ view",
+						"scope": "window",
+						"order": 40
+					}
+				}
+			},
+			{
 				"id": "repositories-view",
 				"title": "Repositories View",
-				"order": 22,
+				"order": 23,
 				"properties": {
 					"gitlens.views.repositories.showBranchComparison": {
 						"type": [
@@ -1162,7 +1228,7 @@
 			{
 				"id": "file-history-view",
 				"title": "File History View",
-				"order": 23,
+				"order": 24,
 				"properties": {
 					"gitlens.views.fileHistory.files.layout": {
 						"type": "string",
@@ -1221,7 +1287,7 @@
 			{
 				"id": "line-history-view",
 				"title": "Line History View",
-				"order": 24,
+				"order": 25,
 				"properties": {
 					"gitlens.views.lineHistory.avatars": {
 						"type": "boolean",
@@ -1239,7 +1305,7 @@
 			{
 				"id": "branches-view",
 				"title": "Branches View",
-				"order": 25,
+				"order": 26,
 				"properties": {
 					"gitlens.views.branches.showBranchComparison": {
 						"type": [
@@ -1364,7 +1430,7 @@
 			{
 				"id": "remotes-view",
 				"title": "Remotes View",
-				"order": 26,
+				"order": 27,
 				"properties": {
 					"gitlens.views.remotes.pullRequests.enabled": {
 						"type": "boolean",
@@ -1452,7 +1518,7 @@
 			{
 				"id": "stashes-view",
 				"title": "Stashes View",
-				"order": 27,
+				"order": 28,
 				"properties": {
 					"gitlens.views.stashes.files.layout": {
 						"type": "string",
@@ -1497,7 +1563,7 @@
 			{
 				"id": "tags-view",
 				"title": "Tags View",
-				"order": 28,
+				"order": 29,
 				"properties": {
 					"gitlens.views.tags.branches.layout": {
 						"type": "string",
@@ -1583,7 +1649,7 @@
 			{
 				"id": "worktrees-view",
 				"title": "Worktrees View",
-				"order": 29,
+				"order": 30,
 				"properties": {
 					"gitlens.worktrees.promptForLocation": {
 						"type": "boolean",
@@ -1688,7 +1754,7 @@
 			{
 				"id": "contributors-view",
 				"title": "Contributors View",
-				"order": 30,
+				"order": 31,
 				"properties": {
 					"gitlens.views.contributors.showAllBranches": {
 						"type": "boolean",
@@ -1791,7 +1857,7 @@
 			{
 				"id": "search-compare-view",
 				"title": "Search & Compare View",
-				"order": 31,
+				"order": 32,
 				"properties": {
 					"gitlens.views.searchAndCompare.pullRequests.enabled": {
 						"type": "boolean",

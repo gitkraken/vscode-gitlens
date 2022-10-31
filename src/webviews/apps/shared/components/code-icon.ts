@@ -2,7 +2,7 @@ import { attr, css, customElement, FASTElement } from '@microsoft/fast-element';
 
 const styles = css`
 	:host {
-		font: normal normal normal 16px/1 codicon;
+		font: normal normal normal var(--code-icon-size, 16px) / 1 codicon;
 		display: inline-block;
 		text-decoration: none;
 		text-rendering: auto;
@@ -1501,6 +1501,10 @@ const styles = css`
 		font-family: 'glicons';
 		content: '\\f102';
 	}
+	:host([icon='gl-list-auto']):before {
+		font-family: 'glicons';
+		content: '\\f11a';
+	}
 
 	@keyframes codicon-spin {
 		100% {
@@ -1529,4 +1533,10 @@ export class CodeIcon extends FASTElement {
 
 	@attr
 	modifier = '';
+
+	@attr
+	size = 16;
+	sizeChanged() {
+		this.style.setProperty('--code-icon-size', `${this.size}px`);
+	}
 }
