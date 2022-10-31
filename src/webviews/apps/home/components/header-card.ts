@@ -2,7 +2,7 @@ import { attr, css, customElement, FASTElement, html, ref, volatile, when } from
 import { SubscriptionState } from '../../../../subscription';
 import { pluralize } from '../../../../system/string';
 import { numberConverter } from '../../shared/components/converters/number-converter';
-import '../../shared/components/codicon';
+import '../../shared/components/code-icon';
 
 const template = html<HeaderCard>`
 	<div class="header-card__media"><img class="header-card__image" src="${x => x.image}" alt="GitLens Logo" /></div>

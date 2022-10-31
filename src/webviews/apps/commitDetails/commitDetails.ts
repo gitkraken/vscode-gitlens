@@ -25,7 +25,7 @@ import type { FileChangeListItem, FileChangeListItemDetail } from '../shared/com
 import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../shared/components/webview-pane';
 import { DOM } from '../shared/dom';
 import './commitDetails.scss';
-import '../shared/components/codicon';
+import '../shared/components/code-icon';
 import '../shared/components/commit/commit-identity';
 import '../shared/components/formatted-date';
 import '../shared/components/rich/issue-pull-request';
@@ -273,7 +273,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		$el.classList.toggle('is-active', state.pinned);
 
 		const $icon = $el.querySelector('[data-region="commit-pin"]');
-		$icon?.setAttribute('icon', state.pinned ? 'pinned-filled' : 'pin');
+		$icon?.setAttribute('icon', state.pinned ? 'gl-pinned-filled' : 'pin');
 	}
 
 	renderSha(state: CommitState) {

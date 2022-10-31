@@ -17,7 +17,7 @@ import { DOM } from '../shared/dom';
 import type { CardSection } from './components/card-section';
 import type { PlusContent } from './components/plus-content';
 import type { SteppedSection } from './components/stepped-section';
-import '../shared/components/codicon';
+import '../shared/components/code-icon';
 import './components/card-section';
 import './components/stepped-section';
 import './components/plus-content';

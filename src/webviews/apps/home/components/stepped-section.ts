@@ -1,6 +1,6 @@
 import { attr, css, customElement, FASTElement, html } from '@microsoft/fast-element';
 import { numberConverter } from '../../shared/components/converters/number-converter';
-import '../../shared/components/codicon';
+import '../../shared/components/code-icon';
 
 const template = html<SteppedSection>`<template role="region">
 	<header class="heading" role="heading" aria-level="${x => x.headingLevel}">

@@ -1,6 +1,6 @@
 import { attr, css, customElement, FASTElement, html, when } from '@microsoft/fast-element';
 import { numberConverter } from '../../shared/components/converters/number-converter';
-import '../../shared/components/codicon';
+import '../../shared/components/code-icon';
 
 const template = html<CardSection>`<template role="region">
 	${when(

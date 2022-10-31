@@ -4,7 +4,7 @@ import { pluralize } from '../../../../../system/string';
 import type { Disposable } from '../../dom';
 import { DOM } from '../../dom';
 import { numberConverter } from '../converters/number-converter';
-import '../codicon';
+import '../code-icon';
 import type { SearchInput } from './search-input';
 import './search-input';
 import './../progress';
