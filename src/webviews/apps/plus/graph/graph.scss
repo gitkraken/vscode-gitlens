@@ -3,6 +3,43 @@
 @import '../../shared/glicons';
 @import '../../../../../node_modules/@gitkraken/gitkraken-components/dist/styles.css';
 
+body {
+	.vertical_scrollbar,
+	.horizontal_scrollbar {
+		border-color: transparent;
+		transition: border-color 1s linear;
+	}
+
+	&:hover,
+	&:focus-within {
+		.vertical_scrollbar,
+		.horizontal_scrollbar {
+			transition: border-color 0.1s linear;
+			border-color: var(--vscode-scrollbarSlider-background);
+		}
+	}
+}
+
+::-webkit-scrollbar-corner {
+	background-color: transparent !important;
+}
+
+::-webkit-scrollbar-thumb {
+	background-color: transparent;
+	border-color: inherit;
+	border-right-style: inset;
+	border-right-width: calc(100vw + 100vh);
+	border-radius: unset !important;
+
+	&:hover {
+		border-color: var(--vscode-scrollbarSlider-hoverBackground);
+	}
+
+	&:active {
+		border-color: var(--vscode-scrollbarSlider-activeBackground);
+	}
+}
+
 a {
 	text-decoration: none;
 	&:hover {
@@ -558,43 +595,6 @@ a {
 	&__main.is-gated {
 		position: relative;
 		pointer-events: none;
-	}
-}
-
-::-webkit-scrollbar-corner {
-	background-color: transparent !important;
-}
-
-::-webkit-scrollbar-thumb {
-	background-color: transparent;
-	border-color: inherit;
-	border-right-style: inset;
-	border-right-width: calc(100vw + 100vh);
-	border-radius: unset !important;
-
-	&:hover {
-		border-color: var(--vscode-scrollbarSlider-hoverBackground);
-	}
-
-	&:active {
-		border-color: var(--vscode-scrollbarSlider-activeBackground);
-	}
-}
-
-.graph-app__main {
-	.vertical_scrollbar,
-	.horizontal_scrollbar {
-		border-color: transparent;
-		transition: border-color 1s linear;
-	}
-
-	&:hover,
-	&:focus-within {
-		.vertical_scrollbar,
-		.horizontal_scrollbar {
-			transition: border-color 0.1s linear;
-			border-color: var(--vscode-scrollbarSlider-background);
-		}
 	}
 }
 

@@ -21,26 +21,27 @@ body {
 	font-size: var(--font-size);
 	color: var(--color-foreground);
 	padding: 0;
-}
 
-a {
-	text-decoration: none;
-	&:hover {
-		text-decoration: underline;
+	&.scrollable,
+	.scrollable {
+		border-color: transparent;
+		transition: border-color 1s linear;
+
+		&:hover,
+		&:focus-within {
+			&.scrollable,
+			.scrollable {
+				border-color: var(--vscode-scrollbarSlider-background);
+				transition: none;
+			}
+		}
 	}
-}
 
-ul {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
-.bulleted {
-	list-style: disc;
-	padding-left: 1.2em;
-	> li + li {
-		margin-top: 0.25em;
+	&.preload {
+		&.scrollable,
+		.scrollable {
+			transition: none;
+		}
 	}
 }
 
@@ -64,24 +65,24 @@ ul {
 	}
 }
 
-.commit-detail-panel {
-	border-color: transparent;
-	transition: border-color 1s linear;
-
-	.commit-details__message-text {
-		border-color: transparent;
-		transition: border-color 1s linear;
+a {
+	text-decoration: none;
+	&:hover {
+		text-decoration: underline;
 	}
+}
 
-	&:hover,
-	&:focus-within {
-		transition: border-color 0.1s linear;
-		border-color: var(--vscode-scrollbarSlider-background);
+ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
 
-		.commit-details__message-text {
-			transition: border-color 0.1s linear;
-			border-color: var(--vscode-scrollbarSlider-background);
-		}
+.bulleted {
+	list-style: disc;
+	padding-left: 1.2em;
+	> li + li {
+		margin-top: 0.25em;
 	}
 }
 
