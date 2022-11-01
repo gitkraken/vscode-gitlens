@@ -289,16 +289,22 @@ ul {
 	justify-content: center;
 	align-items: flex-end;
 	margin-bottom: 0.8rem;
-	background: no-repeat var(--video-banner-play) center center, no-repeat var(--video-banner-bg) left center;
+	background: no-repeat var(--video-banner-play) 1.2rem center, no-repeat var(--video-banner-bg) left center;
 	background-color: var(--card-background);
 	background-size: clamp(2.9rem, 8%, 6rem), cover;
+	background-blend-mode: normal, overlay;
 	aspect-ratio: var(--video-banner-ratio, 354 / 54);
 	padding: 0.4rem 1.2rem;
 	color: inherit;
 	line-height: 1.2;
 	font-size: clamp(var(--vscode-font-size), 4vw, 2.4rem);
-	transition: aspect-ratio linear 100ms, background-color linear 100ms;
+	transition: aspect-ratio linear 100ms, background-color linear 100ms, background-position linear 200ms;
 	border-radius: 0.4rem;
+
+	@media (min-width: 277px) {
+		background-blend-mode: normal, normal;
+		background-position: center center, left center;
+	}
 
 	@media (min-width: 564px) {
 		aspect-ratio: var(--video-banner-ratio, 354 / 40);
