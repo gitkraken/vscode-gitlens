@@ -153,13 +153,21 @@ export class HomeApp extends App<State> {
 				$headerContent.setAttribute('image', avatar);
 			}
 			$headerContent.setAttribute('name', subscription.account?.name ?? '');
-			const steps = this.$steps?.length;
-			let completed = completedSteps?.length;
-			if (forceShowPlus && completedSteps != null && this.$steps != null && steps === completed) {
-				completed -= 1;
+
+			const steps = this.$steps?.length ?? 0;
+			let completed = completedSteps?.length ?? 0;
+			if (steps > 0 && completed > 0) {
+				const stepIds = this.$steps.map(el => el.id);
+				const availableCompleted = completedSteps!.filter(name => stepIds.includes(name));
+				completed = availableCompleted.length;
+
+				if (forceShowPlus && availableCompleted.includes('plus')) {
+					completed -= 1;
+				}
 			}
-			$headerContent.setAttribute('steps', steps?.toString() ?? '');
-			$headerContent.setAttribute('completed', completed?.toString() ?? '');
+
+			$headerContent.setAttribute('steps', steps.toString());
+			$headerContent.setAttribute('completed', completed.toString());
 			$headerContent.setAttribute('state', subscription.state.toString());
 			$headerContent.setAttribute('plan', subscription.plan.effective.name);
 			$headerContent.setAttribute('days', days.toString());
