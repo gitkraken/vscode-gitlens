@@ -13,7 +13,7 @@ const template = html<SteppedSection>`<template role="region">
 			@click="${(x, c) => x.handleClick(c.event)}"
 		>
 			<slot name="heading"></slot>
-			<small class="description"><slot name="description"></slot></small>
+			<span class="description"><slot name="description"></slot></span>
 		</button>
 	</header>
 	<div class="content${x => (x.completed ? ' is-hidden' : '')}" id="content" aria-labelledby="button">
@@ -113,11 +113,9 @@ const styles = css`
 	}
 
 	.description {
-		margin-left: 0.2rem;
+		margin-left: 0.6rem;
 		text-transform: none;
-		color: var(--gitlens-brand-color-2);
-		opacity: 0.6;
-		font-style: italic;
+		opacity: 0.5;
 	}
 `;
 

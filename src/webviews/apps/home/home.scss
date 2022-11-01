@@ -136,6 +136,24 @@ ul {
 	padding-left: 1.2em;
 }
 
+.icon-list {
+	list-style: none;
+	padding-left: 0;
+
+	li {
+		position: relative;
+		padding-left: 2.2rem;
+
+		> code-icon:first-child {
+			position: absolute;
+			left: 0;
+			top: 0.1rem;
+			font-size: 1.6rem;
+			color: var(--color-foreground--50);
+		}
+	}
+}
+
 .button-container {
 	display: flex;
 	flex-direction: column;
@@ -217,9 +235,14 @@ ul {
 	}
 }
 
+.plus-banner-text {
+	text-shadow: 0.1rem 0.1rem 0 var(--color-background), 0.1rem 0.1rem 0.2rem var(--color-background);
+}
+
 .logo {
 	font-size: 1.8rem;
 	color: var(--gitlens-brand-color-2);
+	font-weight: 500;
 }
 
 .description {
