@@ -48,6 +48,43 @@ ul {
 	background-color: transparent !important;
 }
 
+::-webkit-scrollbar-thumb {
+	background-color: transparent;
+	border-color: inherit;
+	border-right-style: inset;
+	border-right-width: calc(100vw + 100vh);
+	border-radius: unset !important;
+
+	&:hover {
+		border-color: var(--vscode-scrollbarSlider-hoverBackground);
+	}
+
+	&:active {
+		border-color: var(--vscode-scrollbarSlider-activeBackground);
+	}
+}
+
+.commit-detail-panel {
+	border-color: transparent;
+	transition: border-color 1s linear;
+
+	.commit-details__message-text {
+		border-color: transparent;
+		transition: border-color 1s linear;
+	}
+
+	&:hover,
+	&:focus-within {
+		transition: border-color 0.1s linear;
+		border-color: var(--vscode-scrollbarSlider-background);
+
+		.commit-details__message-text {
+			transition: border-color 0.1s linear;
+			border-color: var(--vscode-scrollbarSlider-background);
+		}
+	}
+}
+
 .button {
 	--button-foreground: var(--vscode-button-foreground);
 	--button-background: var(--vscode-button-background);
