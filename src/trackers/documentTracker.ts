@@ -9,7 +9,7 @@ import type {
 	TextEditor,
 	TextLine,
 } from 'vscode';
-import { Disposable, EndOfLine, EventEmitter, Uri, window, workspace } from 'vscode';
+import { Disposable, EndOfLine, env, EventEmitter, Uri, window, workspace } from 'vscode';
 import { configuration } from '../configuration';
 import { ContextKeys } from '../constants';
 import type { Container } from '../container';
@@ -241,20 +241,27 @@ export class DocumentTracker<T> implements Disposable {
 				document = await workspace.openTextDocument(documentOrUri.documentUri());
 			} catch (ex) {
 				const msg: string = ex?.toString() ?? '';
-				if (msg.includes('File seems to be binary and cannot be opened as text')) {
-					document = new BinaryTextDocument(documentOrUri);
-				} else if (
-					msg.includes('File not found') ||
-					msg.includes('Unable to read file') ||
-					msg.includes('Unable to resolve non-existing file')
-				) {
-					// If we can't find the file, assume it is because the file has been renamed or deleted at some point
+				if (env.language.startsWith('en')) {
+					if (msg.includes('File seems to be binary and cannot be opened as text')) {
+						document = new BinaryTextDocument(documentOrUri);
+					} else if (
+						msg.includes('File not found') ||
+						msg.includes('Unable to read file') ||
+						msg.includes('Unable to resolve non-existing file')
+					) {
+						// If we can't find the file, assume it is because the file has been renamed or deleted at some point
+						document = new MissingRevisionTextDocument(documentOrUri);
+
+						// const [fileName, repoPath] = await this.container.git.findWorkingFileName(documentOrUri, undefined, ref);
+						// if (fileName == null) throw new Error(`Failed to add tracking for document: ${documentOrUri}`);
+
+						// documentOrUri = await workspace.openTextDocument(path.resolve(repoPath!, fileName));
+					} else {
+						throw ex;
+					}
+				} else if (msg.includes('cannot open')) {
+					// If we aren't in english, we can't figure out what the error might be (since the messages are translated), so just assume its missing
 					document = new MissingRevisionTextDocument(documentOrUri);
-
-					// const [fileName, repoPath] = await this.container.git.findWorkingFileName(documentOrUri, undefined, ref);
-					// if (fileName == null) throw new Error(`Failed to add tracking for document: ${documentOrUri}`);
-
-					// documentOrUri = await workspace.openTextDocument(path.resolve(repoPath!, fileName));
 				} else {
 					throw ex;
 				}
