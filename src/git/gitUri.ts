@@ -282,7 +282,7 @@ export class GitUri extends (Uri as any as UriEx) {
 
 				const commitish: GitCommitish = {
 					fileName: data.path,
-					repoPath: repository?.path,
+					repoPath: repository.path,
 					sha: ref,
 				};
 				return new GitUri(uri, commitish);
@@ -306,26 +306,15 @@ export class GitUri extends (Uri as any as UriEx) {
 			} catch {}
 
 			if (data?.fileName) {
-				const repository = await Container.instance.git.getOrOpenRepository(Uri.file(data.fileName));
+				const repository = await Container.instance.git.getOrOpenRepository(uri);
 				if (repository == null) {
 					debugger;
 					throw new Error(`Unable to find repository for uri=${Uri.file(data.fileName).toString(true)}`);
 				}
 
-				let repoPath: string | undefined = normalizePath(uri.fsPath);
-				if (repoPath.endsWith(data.fileName)) {
-					repoPath = repoPath.substr(0, repoPath.length - data.fileName.length - 1);
-				} else {
-					repoPath = (await Container.instance.git.getOrOpenRepository(uri))?.path;
-					if (!repoPath) {
-						debugger;
-						throw new Error(`Unable to find repository for uri=${uri.toString(true)}`);
-					}
-				}
-
 				const commitish: GitCommitish = {
 					fileName: data.fileName,
-					repoPath: repoPath,
+					repoPath: repository.path,
 					sha: data.isBase ? data.baseCommit : data.headCommit,
 				};
 				return new GitUri(uri, commitish);
