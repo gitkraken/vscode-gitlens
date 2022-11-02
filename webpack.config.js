@@ -351,7 +351,7 @@ function getWebviewsConfig(mode, env) {
 			publicPath: '#{root}/dist/webviews/',
 		},
 		optimization: {
-			minimizer: [
+			minimizer: mode === 'production' ? [
 				new TerserPlugin(
 					env.esbuild
 						? {
@@ -396,7 +396,7 @@ function getWebviewsConfig(mode, env) {
 						],
 					},
 				}),
-			],
+			] : [],
 		},
 		module: {
 			rules: [
