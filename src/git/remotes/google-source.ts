@@ -18,8 +18,8 @@ export class GoogleSourceRemote extends GerritRemote {
 	}
 
 	private get reviewDomain(): string {
-		const [subdomain, secondLevelDomain, topLevelDomain] = this.domain.split('.');
-		return [`${subdomain}-review`, secondLevelDomain, topLevelDomain].join('.');
+		const [subdomain, ...domains] = this.domain.split('.');
+		return [`${subdomain}-review`, ...domains].join('.');
 	}
 
 	protected override get baseReviewUrl(): string {
