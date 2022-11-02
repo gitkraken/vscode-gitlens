@@ -804,8 +804,6 @@ export class GitProviderService implements Disposable {
 		this._providers.forEach(p => p.updateContext?.());
 	}
 
-	// private _pathToProvider = new Map<string, GitProviderResult>();
-
 	private getProvider(repoPath: string | Uri): GitProviderResult {
 		if (repoPath == null || (typeof repoPath !== 'string' && !this.supportedSchemes.has(repoPath.scheme))) {
 			debugger;
@@ -819,48 +817,30 @@ export class GitProviderService implements Disposable {
 			({ scheme } = repoPath);
 		}
 
-		// const key = repoPath.toString();
-		// let providerResult = this._pathToProvider.get(key);
-		// if (providerResult != null) return providerResult;
+		const possibleResults = new Set<GitProviderResult>();
 
 		for (const provider of this._providers.values()) {
 			const path = provider.canHandlePathOrUri(scheme, repoPath);
 			if (path == null) continue;
 
-			const providerResult: GitProviderResult = { provider: provider, path: path };
-			// this._pathToProvider.set(key, providerResult);
-			return providerResult;
+			possibleResults.add({ provider: provider, path: path });
 		}
 
-		debugger;
-		throw new ProviderNotFoundError(repoPath);
+		if (possibleResults.size === 0) {
+			debugger;
+			throw new ProviderNotFoundError(repoPath);
+		}
 
-		// let id = !isWeb ? GitProviderId.Git : undefined;
-		// if (typeof repoPath !== 'string' && repoPath.scheme === Schemes.Virtual) {
-		// 	if (repoPath.authority.startsWith('github')) {
-		// 		id = GitProviderId.GitHub;
-		// 	} else {
-		// 		throw new ProviderNotFoundError(repoPath);
-		// 	}
-		// }
-		// if (id == null) throw new ProviderNotFoundError(repoPath);
+		// Prefer the provider with an open repository
+		if (possibleResults.size > 1) {
+			for (const result of possibleResults) {
+				if (this.hasOpenRepositories(result.provider.descriptor.id)) {
+					return result;
+				}
+			}
+		}
 
-		// const provider = this._providers.get(id);
-		// if (provider == null) throw new ProviderNotFoundError(repoPath);
-
-		// switch (id) {
-		// 	case GitProviderId.Git:
-		// 		return {
-		// 			provider: provider,
-		// 			path: typeof repoPath === 'string' ? repoPath : repoPath.fsPath,
-		// 		};
-
-		// 	default:
-		// 		return {
-		// 			provider: provider,
-		// 			path: typeof repoPath === 'string' ? repoPath : repoPath.toString(),
-		// 		};
-		// }
+		return first(possibleResults)!;
 	}
 
 	getAbsoluteUri(pathOrUri: string | Uri, base?: string | Uri): Uri {

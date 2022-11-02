@@ -1,53 +1,11 @@
 import type { Uri } from 'vscode';
 import { isLinux } from '@env/platform';
-import { Schemes } from '../constants';
 import { filterMap } from './iterable';
 import { normalizePath as _normalizePath } from './path';
 // TODO@eamodio don't import from string here since it will break the tests because of ESM dependencies
 // import { CharCode } from './string';
 
 const slash = 47; //CharCode.Slash;
-
-function normalizeUri(uri: Uri): { path: string; ignoreCase: boolean } {
-	let path;
-	switch (uri.scheme.toLowerCase()) {
-		case Schemes.File:
-			path = normalizePath(uri.fsPath);
-			return { path: path, ignoreCase: !isLinux };
-
-		case Schemes.Git:
-			path = normalizePath(uri.fsPath);
-			// TODO@eamodio parse the ref out of the query
-			return { path: path, ignoreCase: !isLinux };
-
-		case Schemes.GitLens:
-			path = uri.path;
-			if (path.charCodeAt(path.length - 1) === slash) {
-				path = path.slice(0, -1);
-			}
-
-			if (!isLinux) {
-				path = path.toLowerCase();
-			}
-
-			return { path: uri.authority ? `${uri.authority}${path}` : path.slice(1), ignoreCase: false };
-
-		case Schemes.Virtual:
-		case Schemes.GitHub:
-			path = uri.path;
-			if (path.charCodeAt(path.length - 1) === slash) {
-				path = path.slice(0, -1);
-			}
-			return { path: uri.authority ? `${uri.authority}${path}` : path.slice(1), ignoreCase: false };
-
-		default:
-			path = uri.path;
-			if (path.charCodeAt(path.length - 1) === slash) {
-				path = path.slice(0, -1);
-			}
-			return { path: path.slice(1), ignoreCase: false };
-	}
-}
 
 function normalizePath(path: string): string {
 	path = _normalizePath(path);
@@ -63,7 +21,7 @@ export type UriEntry<T> = PathEntry<T>;
 export class UriEntryTrie<T> {
 	private readonly trie: PathEntryTrie<T>;
 
-	constructor(private readonly normalize: (uri: Uri) => { path: string; ignoreCase: boolean } = normalizeUri) {
+	constructor(private readonly normalize: (uri: Uri) => { path: string; ignoreCase: boolean }) {
 		this.trie = new PathEntryTrie<T>();
 	}
 
@@ -112,7 +70,7 @@ export class UriEntryTrie<T> {
 export class UriTrie<T> {
 	private readonly trie: PathTrie<T>;
 
-	constructor(private readonly normalize: (uri: Uri) => { path: string; ignoreCase: boolean } = normalizeUri) {
+	constructor(private readonly normalize: (uri: Uri) => { path: string; ignoreCase: boolean }) {
 		this.trie = new PathTrie<T>();
 	}
 
