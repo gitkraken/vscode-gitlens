@@ -154,6 +154,9 @@ export interface Config {
 			};
 		};
 	};
+	terminal: {
+		overrideGitEditor: boolean;
+	};
 	terminalLinks: {
 		enabled: boolean;
 		showDetailsView: boolean;
