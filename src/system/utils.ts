@@ -1,5 +1,5 @@
 import type { ColorTheme, TextDocument, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { ColorThemeKind, ViewColumn, window, workspace } from 'vscode';
+import { ColorThemeKind, env, ViewColumn, window, workspace } from 'vscode';
 import { configuration } from '../configuration';
 import { CoreCommands, ImageMimetypes, Schemes } from '../constants';
 import { isGitUri } from '../git/gitUri';
@@ -178,4 +178,23 @@ export function openWorkspace(
 	return void executeCoreCommand(CoreCommands.OpenFolder, uri, {
 		forceNewWindow: options?.location === OpenWorkspaceLocation.NewWindow,
 	});
+}
+
+export function getEditorCommand() {
+	let editor;
+	switch (env.appName) {
+		case 'Visual Studio Code - Insiders':
+			editor = 'code-insiders --wait --reuse-window';
+			break;
+		case 'Visual Studio Code - Exploration':
+			editor = 'code-exploration --wait --reuse-window';
+			break;
+		case 'VSCodium':
+			editor = 'codium --wait --reuse-window';
+			break;
+		default:
+			editor = 'code --wait --reuse-window';
+			break;
+	}
+	return editor;
 }
