@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#2298](https://github.com/gitkraken/vscode-gitlens/issues/2298) - Commit Graph does not update to current branch correctly
 - Fixes [#2300](https://github.com/gitkraken/vscode-gitlens/issues/2300) - extra non-functional toolbar buttons when viewing PR diffs in VSCode web
 - Fixes [#2281](https://github.com/gitkraken/vscode-gitlens/issues/2281) - Push and Pull buttons missing from the commits view w/ integrations disabled
 - Fixes [#2276](https://github.com/gitkraken/vscode-gitlens/issues/2276) - Search commit by Sha not working in Gitlens side bar
