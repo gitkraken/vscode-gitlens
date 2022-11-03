@@ -1,4 +1,3 @@
-import { env } from 'vscode';
 import type { Container } from '../../container';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
@@ -7,6 +6,7 @@ import type { Repository } from '../../git/models/repository';
 import { Directive, DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { pluralize } from '../../system/string';
+import { getEditorCommand } from '../../system/utils';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -85,23 +85,8 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		if (state.flags.includes('--interactive')) {
 			await this.container.rebaseEditor.enableForNextUse();
 
-			let editor;
-			switch (env.appName) {
-				case 'Visual Studio Code - Insiders':
-					editor = 'code-insiders --wait --reuse-window';
-					break;
-				case 'Visual Studio Code - Exploration':
-					editor = 'code-exploration --wait --reuse-window';
-					break;
-				case 'VSCodium':
-					editor = 'codium --wait --reuse-window';
-					break;
-				default:
-					editor = 'code --wait --reuse-window';
-					break;
-			}
-
-			configs = ['-c', `"sequence.editor=${editor}"`, '-c', `"core.editor=${editor}"`];
+			const editor = getEditorCommand();
+			configs = ['-c', `"sequence.editor=${editor}"`];
 		}
 		return state.repo.rebase(configs, ...state.flags, state.reference.ref);
 	}
