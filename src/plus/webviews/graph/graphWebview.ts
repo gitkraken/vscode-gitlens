@@ -164,25 +164,14 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	set repository(value: Repository | undefined) {
-		if (this._repository === value) return;
+		if (this._repository === value) {
+			this.ensureRepositorySubscriptions();
+			return;
+		}
 
-		this._repositoryEventsDisposable?.dispose();
 		this._repository = value;
 		this.resetRepositoryState();
-
-		if (value != null) {
-			this._repositoryEventsDisposable = Disposable.from(
-				value.onDidChange(this.onRepositoryChanged, this),
-				value.startWatchingFileSystem(),
-				value.onDidChangeFileSystem(this.onRepositoryFileSystemChanged, this),
-				onDidChangeContext(key => {
-					if (key !== ContextKeys.HasConnectedRemotes) return;
-
-					this.resetRefsMetadata();
-					this.updateRefsMetadata();
-				}),
-			);
-		}
+		this.ensureRepositorySubscriptions(true);
 
 		if (this.isReady) {
 			this.updateState();
@@ -282,10 +271,7 @@ export class GraphWebview extends WebviewBase<State> {
 			const context = Array.isArray(contexts) ? contexts[0] : contexts;
 
 			if (context.type === 'scm' && context.scm.rootUri != null) {
-				const repository = this.container.git.getRepository(context.scm.rootUri);
-				if (repository != null) {
-					this.repository = repository;
-				}
+				this.repository = this.container.git.getRepository(context.scm.rootUri);
 			} else if (context.type === 'viewItem' && context.node instanceof RepositoryFolderNode) {
 				this.repository = context.node.repo;
 			}
@@ -381,11 +367,19 @@ export class GraphWebview extends WebviewBase<State> {
 
 	protected override onInitializing(): Disposable[] | undefined {
 		this._theme = window.activeColorTheme;
+		this.ensureRepositorySubscriptions();
+
 		return [
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			this.container.git.onDidChangeRepositories(() => void this.refresh(true)),
 			window.onDidChangeActiveColorTheme(this.onThemeChanged, this),
-			{ dispose: () => void this._repositoryEventsDisposable?.dispose() },
+			{
+				dispose: () => {
+					if (this._repositoryEventsDisposable == null) return;
+					this._repositoryEventsDisposable.dispose();
+					this._repositoryEventsDisposable = undefined;
+				},
+			},
 		];
 	}
 
@@ -497,6 +491,7 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 	}
 
+	@debug<GraphWebview['onRepositoryChanged']>({ args: { 0: e => e.toString() } })
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
 		if (
 			!e.changed(
@@ -519,11 +514,13 @@ export class GraphWebview extends WebviewBase<State> {
 		this.updateState();
 	}
 
+	@debug({ args: false })
 	private onRepositoryFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
 		if (e.repository?.path !== this.repository?.path) return;
 		void this.notifyDidChangeWorkingTree();
 	}
 
+	@debug({ args: false })
 	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
 		if (e.etag === this._etagSubscription) return;
 
@@ -701,7 +698,7 @@ export class GraphWebview extends WebviewBase<State> {
 	@debug()
 	private async onGetMoreRows(e: GetMoreRowsParams, sendSelectedRows: boolean = false) {
 		if (this._graph?.paging == null) return;
-		if (this._graph?.more == null || this._repository?.etag !== this._etagRepository) {
+		if (this._graph?.more == null || this.repository?.etag !== this._etagRepository) {
 			this.updateState(true);
 
 			return;
@@ -751,9 +748,9 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		if (search == null || search.comparisonKey !== getSearchQueryComparisonKey(e.search)) {
-			if (this._repository == null) return;
+			if (this.repository == null) return;
 
-			if (this._repository.etag !== this._etagRepository) {
+			if (this.repository.etag !== this._etagRepository) {
 				this.updateState(true);
 			}
 
@@ -766,7 +763,7 @@ export class GraphWebview extends WebviewBase<State> {
 			this._searchCancellation = cancellation;
 
 			try {
-				search = await this._repository.searchCommits(e.search, {
+				search = await this.repository.searchCommits(e.search, {
 					limit: configuration.get('graph.searchItemLimit') ?? 100,
 					ordering: configuration.get('graph.commitOrdering'),
 					cancellation: cancellation.token,
@@ -1125,6 +1122,30 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 	}
 
+	private ensureRepositorySubscriptions(force?: boolean) {
+		if (!force && this._repositoryEventsDisposable != null) return;
+
+		if (this._repositoryEventsDisposable != null) {
+			this._repositoryEventsDisposable.dispose();
+			this._repositoryEventsDisposable = undefined;
+		}
+
+		const repo = this.repository;
+		if (repo == null) return;
+
+		this._repositoryEventsDisposable = Disposable.from(
+			repo.onDidChange(this.onRepositoryChanged, this),
+			repo.startWatchingFileSystem(),
+			repo.onDidChangeFileSystem(this.onRepositoryFileSystemChanged, this),
+			onDidChangeContext(key => {
+				if (key !== ContextKeys.HasConnectedRemotes) return;
+
+				this.resetRefsMetadata();
+				this.updateRefsMetadata();
+			}),
+		);
+	}
+
 	private async ensureSearchStartsInRange(graph: GitGraph, search: GitSearch) {
 		if (search.results.size === 0) return undefined;
 
@@ -1279,12 +1300,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private async getWorkingTreeStats(): Promise<GraphWorkingTreeStats | undefined> {
-		if (this.container.git.repositoryCount === 0) return undefined;
-
-		if (this.repository == null) {
-			this.repository = this.container.git.getBestRepositoryOrFirst();
-			if (this.repository == null) return undefined;
-		}
+		if (this.repository == null || this.container.git.repositoryCount === 0) return undefined;
 
 		const status = await this.container.git.getStatusForRepo(this.repository.path);
 		const workingTreeStatus = status?.getDiffStatus();
@@ -1737,7 +1753,7 @@ export class GraphWebview extends WebviewBase<State> {
 			return GitActions.switchTo(ref.repoPath);
 		}
 
-		return GitActions.switchTo(this._repository);
+		return GitActions.switchTo(this.repository);
 	}
 
 	@debug()
