@@ -1,5 +1,6 @@
 import type { Disposable, Terminal } from 'vscode';
 import { window } from 'vscode';
+import { configuration } from './configuration';
 import { Container } from './container';
 import { getEditorCommand } from './system/utils';
 
@@ -28,6 +29,8 @@ function ensureTerminal(): Terminal {
 export function runGitCommandInTerminal(command: string, args: string, cwd: string, execute: boolean = false) {
 	const terminal = ensureTerminal();
 	terminal.show(false);
-	const editor = getEditorCommand();
-	terminal.sendText(`git -C "${cwd}" -c "core.editor=${editor}" ${command} ${args}`, execute);
+	const coreEditorConfig = configuration.get('terminal.overrideGitEditor')
+		? `-c "core.editor=${getEditorCommand()}" `
+		: '';
+	terminal.sendText(`git -C "${cwd}" ${coreEditorConfig}${command} ${args}`, execute);
 }

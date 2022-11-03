@@ -2692,6 +2692,13 @@
 						"markdownDescription": "Specifies whether to show the _Commit Details_ view when clicking on a commit link in the integrated terminal",
 						"scope": "window",
 						"order": 20
+					},
+					"gitlens.terminal.overrideGitEditor": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to use VS Code as Git's `core.editor` for Gitlens terminal commands",
+						"scope": "window",
+						"order": 100
 					}
 				}
 			},
