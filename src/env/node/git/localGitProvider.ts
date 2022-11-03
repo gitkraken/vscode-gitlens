@@ -694,8 +694,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		// Short-circuit if the path is relative
-		if (typeof pathOrUri === 'string' && !isAbsolute(pathOrUri)) {
-			return Uri.joinPath(base, normalizePath(pathOrUri));
+		if (typeof pathOrUri === 'string') {
+			const normalized = normalizePath(pathOrUri);
+			if (!isAbsolute(normalized)) return Uri.joinPath(base, normalized);
 		}
 
 		const relativePath = this.getRelativePath(pathOrUri, base);
