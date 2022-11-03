@@ -1,6 +1,7 @@
 import type { Disposable, Terminal } from 'vscode';
 import { window } from 'vscode';
 import { Container } from './container';
+import { getEditorCommand } from './system/utils';
 
 let _terminal: Terminal | undefined;
 let _disposable: Disposable | undefined;
@@ -27,5 +28,6 @@ function ensureTerminal(): Terminal {
 export function runGitCommandInTerminal(command: string, args: string, cwd: string, execute: boolean = false) {
 	const terminal = ensureTerminal();
 	terminal.show(false);
-	terminal.sendText(`git -C ${cwd.includes(' ') ? `"${cwd}"` : cwd} ${command} ${args}`, execute);
+	const editor = getEditorCommand();
+	terminal.sendText(`git -C "${cwd}" -c "core.editor=${editor}" ${command} ${args}`, execute);
 }
