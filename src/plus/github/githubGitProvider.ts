@@ -281,8 +281,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			}
 		}
 
-		if (typeof pathOrUri === 'string' && !maybeUri(pathOrUri) && !isAbsolute(pathOrUri)) {
-			return Uri.joinPath(base, normalizePath(pathOrUri));
+		if (typeof pathOrUri === 'string' && !maybeUri(pathOrUri)) {
+			const normalized = normalizePath(pathOrUri);
+			if (!isAbsolute(normalized)) return Uri.joinPath(base, normalized);
 		}
 
 		const relativePath = this.getRelativePath(pathOrUri, base);
