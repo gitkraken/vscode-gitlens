@@ -1,5 +1,6 @@
 import { EventEmitter, Uri } from 'vscode';
 import { GravatarDefaultStyle } from './config';
+import { configuration } from './configuration';
 import { ContextKeys } from './constants';
 import { Container } from './container';
 import { getContext } from './context';
@@ -186,19 +187,13 @@ function hasAvatarExpired(avatar: Avatar) {
 	return Date.now() >= avatar.timestamp + retryDecay[Math.min(avatar.retries, retryDecay.length - 1)];
 }
 
-function getAvatarUriFromGravatar(
-	hash: string,
-	size: number,
-	defaultStyle: GravatarDefaultStyle = GravatarDefaultStyle.Robot,
-): Uri {
-	return Uri.parse(`https://www.gravatar.com/avatar/${hash}?s=${size}&d=${defaultStyle}`);
+function getAvatarUriFromGravatar(hash: string, size: number, defaultStyle?: GravatarDefaultStyle): Uri {
+	return Uri.parse(
+		`https://www.gravatar.com/avatar/${hash}?s=${size}&d=${defaultStyle ?? getDefaultGravatarStyle()}`,
+	);
 }
 
-export function getAvatarUriFromGravatarEmail(
-	email: string,
-	size: number,
-	defaultStyle: GravatarDefaultStyle = GravatarDefaultStyle.Robot,
-): Uri {
+export function getAvatarUriFromGravatarEmail(email: string, size: number, defaultStyle?: GravatarDefaultStyle): Uri {
 	return getAvatarUriFromGravatar(md5(email.trim().toLowerCase(), 'hex'), size, defaultStyle);
 }
 
@@ -306,4 +301,17 @@ export function resetAvatarCache(reset: 'all' | 'failed' | 'fallback') {
 			}
 			break;
 	}
+}
+
+let defaultGravatarsStyle: GravatarDefaultStyle | undefined = undefined;
+function getDefaultGravatarStyle() {
+	if (defaultGravatarsStyle == null) {
+		defaultGravatarsStyle = configuration.get('defaultGravatarsStyle', undefined, GravatarDefaultStyle.Robot);
+	}
+	return defaultGravatarsStyle;
+}
+
+export function setDefaultGravatarsStyle(style: GravatarDefaultStyle) {
+	defaultGravatarsStyle = style;
+	resetAvatarCache('fallback');
 }
