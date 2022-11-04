@@ -5,7 +5,7 @@ import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
 import { ActionRunners } from './api/actionRunners';
-import { resetAvatarCache } from './avatars';
+import { setDefaultGravatarsStyle } from './avatars';
 import { GitCodeLensController } from './codelens/codeLensController';
 import type { ToggleFileAnnotationCommandArgs } from './commands';
 import type { FileAnnotationType, ModeConfig } from './configuration';
@@ -253,7 +253,7 @@ export class Container {
 		}
 
 		if (configuration.changed(e, 'defaultGravatarsStyle')) {
-			resetAvatarCache('fallback');
+			setDefaultGravatarsStyle(configuration.get('defaultGravatarsStyle'));
 		}
 
 		if (configuration.changed(e, 'mode')) {
