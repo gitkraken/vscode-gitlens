@@ -14,9 +14,8 @@ body {
 	grid-template-rows: auto 1fr auto;
 	height: 100vh;
 	margin: 0 auto;
-	grid-gap: 0.5em 0;
 	max-width: 1200px;
-	min-width: 450px;
+	min-width: 495px;
 }
 
 header {
@@ -27,6 +26,7 @@ header {
 	flex-wrap: wrap;
 	margin: 0;
 	gap: 0 0.5em;
+	position: relative;
 
 	h2 {
 		flex: auto 0 1;
@@ -62,11 +62,16 @@ h4 {
 	opacity: 0.8;
 }
 
+h4#subhead {
+	padding-right: 12rem;
+}
+
 footer {
 	grid-area: footer;
 
 	display: grid;
 	grid-template-areas: 'shortcuts' 'actions';
+	border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
 }
 
 .entries-container {
@@ -98,23 +103,37 @@ footer {
 
 .shortcuts {
 	grid-area: shortcuts;
-	margin: 0 auto;
+	display: flex;
+	justify-content: center;
+	text-align: center;
 }
 
 .actions {
 	grid-area: actions;
-	margin: 10px;
+	margin: 0.5rem 0 1rem 0;
 	display: flex;
 	flex-wrap: wrap;
 }
 
 .actions--left {
 	display: flex;
+	gap: 0 1rem;
 }
 
 .actions--right {
 	display: flex;
 	margin-left: auto;
+	gap: 0 1rem;
+}
+
+.button {
+	letter-spacing: 0.1rem;
+	margin: 0;
+	padding: 0.5rem 1rem;
+
+	.shortcut {
+		margin: 0.1rem 0 0 0;
+	}
 }
 
 $entry-padding: 5px;
@@ -429,6 +448,9 @@ $entry-padding: 5px;
 	flex-direction: row-reverse;
 	align-items: center;
 	gap: 0.5em;
+	position: absolute;
+	top: 2rem;
+	right: 0;
 
 	&__input,
 	&__indicator {
