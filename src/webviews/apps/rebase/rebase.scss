@@ -3,14 +3,16 @@
 @import '../shared/utils';
 
 body {
-	height: unset;
+	overflow: overlay;
 }
 
 .container {
 	display: grid;
 	font-size: 1.3em;
-	grid-template-areas: 'header' 'entries' 'shortcuts' 'actions';
-	grid-template-columns: repeat(1, 1fr min-content);
+	grid-template-areas: 'header' 'entries' 'footer';
+	grid-template-columns: 1fr;
+	grid-template-rows: auto 1fr auto;
+	height: 100vh;
 	margin: 0 auto;
 	grid-gap: 0.5em 0;
 	max-width: 1200px;
@@ -18,10 +20,13 @@ body {
 }
 
 header {
+	grid-area: header;
+
 	display: flex;
 	align-items: baseline;
 	flex-wrap: wrap;
 	margin: 0;
+	gap: 0 0.5em;
 
 	h2 {
 		flex: auto 0 1;
@@ -57,8 +62,19 @@ h4 {
 	opacity: 0.8;
 }
 
-.entries {
+footer {
+	grid-area: footer;
+
+	display: grid;
+	grid-template-areas: 'shortcuts' 'actions';
+}
+
+.entries-container {
 	grid-area: entries;
+	overflow: auto;
+}
+
+.entries {
 	border-left: 2px solid;
 	margin-left: 10px;
 	padding-left: 4px;
@@ -107,7 +123,7 @@ $entry-padding: 5px;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	margin: 0 10px;
+	margin: 0px 5px 0px 10px;
 	padding: $entry-padding 0;
 	border: 2px solid transparent;
 	border-radius: 3px;
@@ -222,7 +238,7 @@ $entry-padding: 5px;
 			opacity: 0.3;
 		}
 
-		& > .entry-ref {
+		& > .entry-sha {
 			opacity: 0.4;
 		}
 
@@ -377,7 +393,7 @@ $entry-padding: 5px;
 
 .entry-author,
 .entry-date,
-.entry-ref {
+.entry-sha {
 	flex: auto 0 0;
 	margin: 0 10px;
 	opacity: 0.5;
@@ -394,7 +410,7 @@ $entry-padding: 5px;
 	}
 }
 
-.entry-ref {
+.entry-sha {
 	opacity: 0.7;
 }
 

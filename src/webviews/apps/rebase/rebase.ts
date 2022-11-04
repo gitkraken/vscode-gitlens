@@ -13,6 +13,7 @@ import {
 	SearchCommandType,
 	StartCommandType,
 	SwitchCommandType,
+	UpdateSelectionCommandType,
 } from '../../rebase/protocol';
 import { App } from '../shared/appBase';
 import { DOM } from '../shared/dom';
@@ -61,7 +62,7 @@ class RebaseEditor extends App<State> {
 				let squashing = false;
 				let squashToHere = false;
 
-				const $entries = [...document.querySelectorAll<HTMLLIElement>('li[data-ref]')];
+				const $entries = [...document.querySelectorAll<HTMLLIElement>('li[data-sha]')];
 				if (this.state.ascending) {
 					$entries.reverse();
 				}
@@ -87,15 +88,15 @@ class RebaseEditor extends App<State> {
 					return;
 				}
 
-				const ref = e.item.dataset.ref;
-				if (ref != null) {
+				const sha = e.item.dataset.sha;
+				if (sha != null) {
 					let indexTarget = e.newIndex;
 					if (this.state.ascending && e.oldIndex) {
-						indexTarget = this.getEntryIndex(ref) + (indexTarget - e.oldIndex) * -1;
+						indexTarget = this.getEntryIndex(sha) + (indexTarget - e.oldIndex) * -1;
 					}
-					this.moveEntry(ref, indexTarget, false);
+					this.moveEntry(sha, indexTarget, false);
 
-					document.querySelectorAll<HTMLLIElement>(`li[data-ref="${ref}"]`)[0]?.focus();
+					this.setSelectedEntry(sha);
 				}
 			},
 			onMove: e => !e.related.classList.contains('entry--base'),
@@ -134,8 +135,8 @@ class RebaseEditor extends App<State> {
 			DOM.on('[data-action="abort"]', 'click', () => this.onAbortClicked()),
 			DOM.on('[data-action="disable"]', 'click', () => this.onDisableClicked()),
 			DOM.on('[data-action="switch"]', 'click', () => this.onSwitchClicked()),
-			DOM.on('li[data-ref]', 'keydown', (e, target: HTMLElement) => {
-				if (target.matches('select[data-ref]')) {
+			DOM.on('li[data-sha]', 'keydown', (e, target: HTMLLIElement) => {
+				if (e.target?.matches('select[data-sha]')) {
 					if (e.key === 'Escape') {
 						target.focus();
 					}
@@ -144,11 +145,11 @@ class RebaseEditor extends App<State> {
 				}
 
 				if (e.key === 'Enter' || e.key === ' ') {
-					if (e.key === 'Enter' && target.matches('a.entry-ref')) {
+					if (e.key === 'Enter' && e.target?.matches('a.entry-sha')) {
 						return;
 					}
 
-					const $select = target.querySelectorAll<HTMLSelectElement>('select[data-ref]')[0];
+					const $select = target.querySelectorAll<HTMLSelectElement>('select[data-sha]')[0];
 					if ($select != null) {
 						$select.focus();
 					}
@@ -160,59 +161,59 @@ class RebaseEditor extends App<State> {
 								? 1
 								: -1;
 						if (e.altKey) {
-							const ref = target.dataset.ref;
-							if (ref) {
+							const sha = target.dataset.sha;
+							if (sha) {
 								e.stopPropagation();
 
-								this.moveEntry(ref, advance, true);
+								this.moveEntry(sha, advance, true);
 							}
 						} else {
 							if (this.state == null) return;
 
-							let ref = target.dataset.ref;
-							if (ref == null) return;
+							let sha = target.dataset.sha;
+							if (sha == null) return;
 
 							e.preventDefault();
 
-							let index = this.getEntryIndex(ref) + advance;
+							let index = this.getEntryIndex(sha) + advance;
 							if (index < 0) {
 								index = this.state.entries.length - 1;
 							} else if (index === this.state.entries.length) {
 								index = 0;
 							}
 
-							ref = this.state.entries[index].ref;
-							document.querySelectorAll<HTMLLIElement>(`li[data-ref="${ref}"]`)[0]?.focus();
+							sha = this.state.entries[index].sha;
+							this.setSelectedEntry(sha);
 						}
 					}
 				} else if (e.key === 'j' || e.key === 'k') {
 					if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
 						if (this.state == null) return;
 
-						let ref = target.dataset.ref;
-						if (ref == null) return;
+						let sha = target.dataset.sha;
+						if (sha == null) return;
 
 						e.preventDefault();
 
 						const shouldAdvance = this.state.ascending ? e.key === 'k' : e.key === 'j';
-						let index = this.getEntryIndex(ref) + (shouldAdvance ? 1 : -1);
+						let index = this.getEntryIndex(sha) + (shouldAdvance ? 1 : -1);
 						if (index < 0) {
 							index = this.state.entries.length - 1;
 						} else if (index === this.state.entries.length) {
 							index = 0;
 						}
 
-						ref = this.state.entries[index].ref;
-						document.querySelectorAll<HTMLLIElement>(`li[data-ref="${ref}"]`)[0]?.focus();
+						sha = this.state.entries[index].sha;
+						this.setSelectedEntry(sha);
 					}
 				} else if (e.key === 'J' || e.key === 'K') {
 					if (!e.metaKey && !e.ctrlKey && !e.altKey && e.shiftKey) {
-						const ref = target.dataset.ref;
-						if (ref) {
+						const sha = target.dataset.sha;
+						if (sha) {
 							e.stopPropagation();
 
 							const shouldAdvance = this.state.ascending ? e.key === 'K' : e.key === 'J';
-							this.moveEntry(ref, shouldAdvance ? 1 : -1, true);
+							this.moveEntry(sha, shouldAdvance ? 1 : -1, true);
 						}
 					}
 				} else if (!e.metaKey && !e.altKey && !e.ctrlKey) {
@@ -220,7 +221,7 @@ class RebaseEditor extends App<State> {
 					if (action !== undefined) {
 						e.stopPropagation();
 
-						const $select = target.querySelectorAll<HTMLSelectElement>('select[data-ref]')[0];
+						const $select = target.querySelectorAll<HTMLSelectElement>('select[data-sha]')[0];
 						if ($select != null && !$select.disabled) {
 							$select.value = action;
 							this.onSelectChanged($select);
@@ -228,7 +229,8 @@ class RebaseEditor extends App<State> {
 					}
 				}
 			}),
-			DOM.on('select[data-ref]', 'input', (e, target: HTMLSelectElement) => this.onSelectChanged(target)),
+			DOM.on('li[data-sha]', 'focus', (e, target: HTMLLIElement) => this.onSelectionChanged(target.dataset.sha)),
+			DOM.on('select[data-sha]', 'input', (e, target: HTMLSelectElement) => this.onSelectChanged(target)),
 			DOM.on('input[data-action="reorder"]', 'input', (e, target: HTMLInputElement) =>
 				this.onOrderChanged(target),
 			),
@@ -237,32 +239,32 @@ class RebaseEditor extends App<State> {
 		return disposables;
 	}
 
-	private getEntry(ref: string) {
-		return this.state?.entries.find(e => e.ref === ref);
+	private getEntry(sha: string) {
+		return this.state?.entries.find(e => e.sha === sha);
 	}
 
-	private getEntryIndex(ref: string) {
-		return this.state?.entries.findIndex(e => e.ref === ref) ?? -1;
+	private getEntryIndex(sha: string) {
+		return this.state?.entries.findIndex(e => e.sha === sha) ?? -1;
 	}
 
-	private moveEntry(ref: string, index: number, relative: boolean) {
-		const entry = this.getEntry(ref);
+	private moveEntry(sha: string, index: number, relative: boolean) {
+		const entry = this.getEntry(sha);
 		if (entry != null) {
 			this.sendCommand(MoveEntryCommandType, {
-				ref: entry.ref,
+				sha: entry.sha,
 				to: index,
 				relative: relative,
 			});
 		}
 	}
 
-	private setEntryAction(ref: string, action: RebaseEntryAction) {
-		const entry = this.getEntry(ref);
+	private setEntryAction(sha: string, action: RebaseEntryAction) {
+		const entry = this.getEntry(sha);
 		if (entry != null) {
 			if (entry.action === action) return;
 
 			this.sendCommand(ChangeEntryCommandType, {
-				ref: entry.ref,
+				sha: entry.sha,
 				action: action,
 			});
 		}
@@ -281,9 +283,9 @@ class RebaseEditor extends App<State> {
 	}
 
 	private onSelectChanged($el: HTMLSelectElement) {
-		const ref = $el.dataset.ref;
-		if (ref) {
-			this.setEntryAction(ref, $el.options[$el.selectedIndex].value as RebaseEntryAction);
+		const sha = $el.dataset.sha;
+		if (sha) {
+			this.setEntryAction(sha, $el.options[$el.selectedIndex].value as RebaseEntryAction);
 		}
 	}
 
@@ -298,9 +300,17 @@ class RebaseEditor extends App<State> {
 	private onOrderChanged($el: HTMLInputElement) {
 		const isChecked = $el.checked;
 
-		this.sendCommand(ReorderCommandType, {
-			ascending: isChecked,
-		});
+		this.sendCommand(ReorderCommandType, { ascending: isChecked });
+	}
+
+	private onSelectionChanged(sha: string | undefined) {
+		if (sha == null) return;
+
+		this.sendCommand(UpdateSelectionCommandType, { sha: sha });
+	}
+
+	private setSelectedEntry(sha: string, focusSelect: boolean = false) {
+		document.querySelectorAll<HTMLLIElement>(`${focusSelect ? 'select' : 'li'}[data-sha="${sha}"]`)[0]?.focus();
 	}
 
 	protected override onMessageReceived(e: MessageEvent) {
@@ -311,7 +321,7 @@ class RebaseEditor extends App<State> {
 				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
 
 				onIpc(DidChangeNotificationType, msg, params => {
-					this.setState({ ...this.state, ...params.state });
+					this.setState(params.state);
 					this.refresh(this.state);
 				});
 				break;
@@ -322,9 +332,9 @@ class RebaseEditor extends App<State> {
 	}
 
 	private refresh(state: State) {
-		const focusRef = document.activeElement?.closest<HTMLLIElement>('li[data-ref]')?.dataset.ref;
+		const focusRef = document.activeElement?.closest<HTMLLIElement>('li[data-sha]')?.dataset.sha;
 		let focusSelect = false;
-		if (document.activeElement?.matches('select[data-ref]')) {
+		if (document.activeElement?.matches('select[data-sha]')) {
 			focusSelect = true;
 		}
 
@@ -377,8 +387,10 @@ class RebaseEditor extends App<State> {
 		let tabIndex = 0;
 
 		const $entries = document.createDocumentFragment();
-		const appendEntries = () => {
-			const appendEntry = (entry: RebaseEntry) => {
+		function appendEntries(this: RebaseEditor) {
+			const entries = state.ascending ? state.entries.slice().reverse() : state.entries;
+			let $el: HTMLLIElement;
+			for (const entry of entries) {
 				squashToHere = false;
 				if (entry.action === 'squash' || entry.action === 'fixup') {
 					squashing = true;
@@ -389,34 +401,26 @@ class RebaseEditor extends App<State> {
 					}
 				}
 
-				let $el: HTMLLIElement;
 				[$el, tabIndex] = this.createEntry(entry, state, ++tabIndex, squashToHere);
 
-				return $el;
-			};
-
-			const entryList = state.entries.map(appendEntry);
-			if (state.ascending) {
-				entryList.reverse().forEach($el => $entries.appendChild($el));
-			} else {
-				entryList.forEach($el => $entries.appendChild($el));
+				$entries.appendChild($el);
 			}
-		};
+		}
 
 		if (!state.ascending) {
 			$container.classList.remove('entries--ascending');
-			appendEntries();
+			appendEntries.call(this);
 		}
 
 		if (state.onto) {
-			const commit = state.commits.find(c => c.ref.startsWith(state.onto));
+			const commit = state.commits.find(c => c.sha.startsWith(state.onto));
 			if (commit != null) {
 				const [$el] = this.createEntry(
 					{
 						action: undefined!,
 						index: 0,
 						message: commit.message.split('\n')[0],
-						ref: state.onto,
+						sha: state.onto,
 					},
 					state,
 					++tabIndex,
@@ -429,7 +433,7 @@ class RebaseEditor extends App<State> {
 
 		if (state.ascending) {
 			$container.classList.add('entries--ascending');
-			appendEntries();
+			appendEntries.call(this);
 		}
 
 		const $checkbox = document.getElementById('ordering');
@@ -439,13 +443,7 @@ class RebaseEditor extends App<State> {
 
 		$container.appendChild($entries);
 
-		document
-			.querySelectorAll<HTMLLIElement>(
-				`${focusSelect ? 'select' : 'li'}[data-ref="${focusRef ?? state.entries[0].ref}"]`,
-			)[0]
-			?.focus();
-
-		this.bind();
+		this.setSelectedEntry(focusRef ?? state.entries[0].sha, focusSelect);
 	}
 
 	private createEntry(
@@ -457,7 +455,7 @@ class RebaseEditor extends App<State> {
 		const $entry = document.createElement('li');
 		$entry.classList.add('entry', `entry--${entry.action ?? 'base'}`);
 		$entry.classList.toggle('entry--squash-to', squashToHere);
-		$entry.dataset.ref = entry.ref;
+		$entry.dataset.sha = entry.sha;
 
 		if (entry.action != null) {
 			$entry.tabIndex = 0;
@@ -471,7 +469,7 @@ class RebaseEditor extends App<State> {
 			$entry.appendChild($selectContainer);
 
 			const $select = document.createElement('select');
-			$select.dataset.ref = entry.ref;
+			$select.dataset.sha = entry.sha;
 			$select.name = 'action';
 
 			const $options = document.createDocumentFragment();
@@ -495,7 +493,7 @@ class RebaseEditor extends App<State> {
 		$message.textContent = entry.message ?? '';
 		$entry.appendChild($message);
 
-		const commit = state.commits.find(c => c.ref.startsWith(entry.ref));
+		const commit = state.commits.find(c => c.sha.startsWith(entry.sha));
 		if (commit != null) {
 			$message.title = commit.message ?? '';
 
@@ -523,12 +521,12 @@ class RebaseEditor extends App<State> {
 			}
 		}
 
-		const $ref = document.createElement('a');
-		$ref.classList.add('entry-ref', 'icon--commit');
-		// $ref.dataset.prev = prev ? `${prev} \u2190 ` : '';
-		$ref.href = commit?.ref ? state.commands.commit.replace(this.commitTokenRegex, commit.ref) : '#';
-		$ref.textContent = entry.ref.substr(0, 7);
-		$entry.appendChild($ref);
+		const $sha = document.createElement('a');
+		$sha.classList.add('entry-sha', 'icon--commit');
+		// $sha.dataset.prev = prev ? `${prev} \u2190 ` : '';
+		$sha.href = commit?.sha ? state.commands.commit.replace(this.commitTokenRegex, commit.sha) : '#';
+		$sha.textContent = entry.sha.substr(0, 7);
+		$entry.appendChild($sha);
 
 		return [$entry, tabIndex];
 	}

@@ -2,20 +2,33 @@ import type { CancellationToken, CustomTextEditorProvider, TextDocument, Webview
 import { ConfigurationTarget, Disposable, Position, Range, Uri, window, workspace, WorkspaceEdit } from 'vscode';
 import { getNonce } from '@env/crypto';
 import { ShowQuickCommitCommand } from '../../commands';
+import { GitActions } from '../../commands/gitCommands.actions';
 import { configuration } from '../../configuration';
 import { CoreCommands } from '../../constants';
 import type { Container } from '../../container';
+import type { GitCommit } from '../../git/models/commit';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { Logger } from '../../logger';
 import { showRebaseSwitchToTextWarningMessage } from '../../messages';
 import { executeCoreCommand } from '../../system/command';
-import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
+import type { Deferrable } from '../../system/function';
+import { debounce } from '../../system/function';
 import { join, map } from '../../system/iterable';
 import { normalizePath } from '../../system/path';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
-import type { Author, Commit, RebaseEntry, RebaseEntryAction, ReorderParams, State } from './protocol';
+import type {
+	Author,
+	ChangeEntryParams,
+	Commit,
+	MoveEntryParams,
+	RebaseEntry,
+	RebaseEntryAction,
+	ReorderParams,
+	State,
+	UpdateSelectionParams,
+} from './protocol';
 import {
 	AbortCommandType,
 	ChangeEntryCommandType,
@@ -26,6 +39,7 @@ import {
 	SearchCommandType,
 	StartCommandType,
 	SwitchCommandType,
+	UpdateSelectionCommandType,
 } from './protocol';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
@@ -79,8 +93,13 @@ interface RebaseEditorContext {
 	readonly repoPath: string;
 	readonly subscriptions: Disposable[];
 
-	abortOnClose: boolean;
+	authors?: Map<string, Author>;
+	branchName?: string | null;
+	commits?: GitCommit[];
 	pendingChange?: boolean;
+
+	fireSelectionChangedDebounced?: Deferrable<RebaseEditorProvider['fireSelectionChanged']> | undefined;
+	notifyDidChangeStateDebounced?: Deferrable<RebaseEditorProvider['notifyDidChangeState']> | undefined;
 }
 
 export class RebaseEditorProvider implements CustomTextEditorProvider, Disposable {
@@ -155,7 +174,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		await configuration.updateAny('workbench.editorAssociations', associations, ConfigurationTarget.Global);
 	}
 
-	@debug({ args: false })
+	@debug<RebaseEditorProvider['resolveCustomTextEditor']>({ args: { 0: d => d.uri.toString(true) } })
 	async resolveCustomTextEditor(document: TextDocument, panel: WebviewPanel, _token: CancellationToken) {
 		const repoPath = normalizePath(Uri.joinPath(document.uri, '..', '..', '..').fsPath);
 		const repo = this.container.git.getRepository(repoPath);
@@ -169,32 +188,27 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			document: document,
 			panel: panel,
 			repoPath: repo?.path ?? repoPath,
-			abortOnClose: true,
 		};
 
 		subscriptions.push(
 			panel.onDidDispose(() => {
-				// If the user closed this without taking an action, consider it an abort
-				if (context.abortOnClose) {
-					void this.abort(context);
-				}
 				Disposable.from(...subscriptions).dispose();
 			}),
 			panel.onDidChangeViewState(() => {
 				if (!context.pendingChange) return;
 
-				void this.getStateAndNotify(context);
+				this.updateState(context);
 			}),
 			panel.webview.onDidReceiveMessage(e => this.onMessageReceived(context, e)),
 			workspace.onDidChangeTextDocument(e => {
 				if (e.contentChanges.length === 0 || e.document.uri.toString() !== document.uri.toString()) return;
 
-				void this.getStateAndNotify(context);
+				this.updateState(context, true);
 			}),
 			workspace.onDidSaveTextDocument(e => {
 				if (e.uri.toString() !== document.uri.toString()) return;
 
-				void this.getStateAndNotify(context);
+				this.updateState(context, true);
 			}),
 		);
 
@@ -203,7 +217,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 				repo.onDidChange(e => {
 					if (!e.changed(RepositoryChange.Rebase, RepositoryChangeComparisonMode.Any)) return;
 
-					void this.getStateAndNotify(context);
+					this.updateState(context);
 				}),
 			);
 		}
@@ -217,31 +231,12 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		}
 	}
 
-	@gate((context: RebaseEditorContext) => `${context.id}`)
-	private async getStateAndNotify(context: RebaseEditorContext) {
-		if (!context.panel.visible) {
-			context.pendingChange = true;
-
-			return;
-		}
-
-		const state = await this.parseState(context);
-		void this.postMessage(context, {
-			id: nextIpcId(),
-			method: DidChangeNotificationType.method,
-			params: { state: state },
-		});
-	}
-
 	private async parseState(context: RebaseEditorContext): Promise<State> {
-		const branch = await this.container.git.getBranch(context.repoPath);
-		const state = await parseRebaseTodo(
-			this.container,
-			context.document.getText(),
-			context.repoPath,
-			branch?.name,
-			this.ascending,
-		);
+		if (context.branchName === undefined) {
+			const branch = await this.container.git.getBranch(context.repoPath);
+			context.branchName = branch?.name ?? null;
+		}
+		const state = await parseRebaseTodo(this.container, context, this.ascending);
 		return state;
 	}
 
@@ -289,152 +284,204 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 				break;
 
 			case ReorderCommandType.method:
-				onIpc(ReorderCommandType, e, params => {
-					this.reorder(params, context);
-				});
+				onIpc(ReorderCommandType, e, params => this.reorder(params, context));
 				break;
 
 			case ChangeEntryCommandType.method:
-				onIpc(ChangeEntryCommandType, e, async params => {
-					const entries = parseRebaseTodoEntries(context.document);
-
-					const entry = entries.find(e => e.ref === params.ref);
-					if (entry == null) return;
-
-					const start = context.document.positionAt(entry.index);
-					const range = context.document.validateRange(
-						new Range(new Position(start.line, 0), new Position(start.line, maxSmallIntegerV8)),
-					);
-
-					let action = params.action;
-					const edit = new WorkspaceEdit();
-
-					// Fake the new set of entries, to check if last entry is a squash/fixup
-					const newEntries = [...entries];
-					newEntries.splice(entries.indexOf(entry), 1, {
-						...entry,
-						action: params.action,
-					});
-
-					let squashing = false;
-
-					for (const entry of newEntries) {
-						if (entry.action === 'squash' || entry.action === 'fixup') {
-							squashing = true;
-						} else if (squashing) {
-							if (entry.action !== 'drop') {
-								squashing = false;
-							}
-						}
-					}
-
-					// Ensure that the last entry isn't a squash/fixup
-					if (squashing) {
-						const lastEntry = newEntries[newEntries.length - 1];
-						if (entry.ref === lastEntry.ref) {
-							action = 'pick';
-						} else {
-							const start = context.document.positionAt(lastEntry.index);
-							const range = context.document.validateRange(
-								new Range(new Position(start.line, 0), new Position(start.line, maxSmallIntegerV8)),
-							);
-
-							edit.replace(context.document.uri, range, `pick ${lastEntry.ref} ${lastEntry.message}`);
-						}
-					}
-
-					edit.replace(context.document.uri, range, `${action} ${entry.ref} ${entry.message}`);
-					await workspace.applyEdit(edit);
-				});
-
+				onIpc(ChangeEntryCommandType, e, params => this.onEntryChanged(context, params));
 				break;
 
 			case MoveEntryCommandType.method:
-				onIpc(MoveEntryCommandType, e, async params => {
-					const entries = parseRebaseTodoEntries(context.document);
-
-					const entry = entries.find(e => e.ref === params.ref);
-					if (entry == null) return;
-
-					const index = entries.findIndex(e => e.ref === params.ref);
-
-					let newIndex;
-					if (params.relative) {
-						if ((params.to === -1 && index === 0) || (params.to === 1 && index === entries.length - 1)) {
-							return;
-						}
-
-						newIndex = index + params.to;
-					} else {
-						if (index === params.to) return;
-
-						newIndex = params.to;
-					}
-
-					const newEntry = entries[newIndex];
-					let newLine = context.document.positionAt(newEntry.index).line;
-					if (newIndex < index) {
-						newLine++;
-					}
-
-					const start = context.document.positionAt(entry.index);
-					const range = context.document.validateRange(
-						new Range(new Position(start.line, 0), new Position(start.line + 1, 0)),
-					);
-
-					// Fake the new set of entries, so we can ensure that the last entry isn't a squash/fixup
-					const newEntries = [...entries];
-					newEntries.splice(index, 1);
-					newEntries.splice(newIndex, 0, entry);
-
-					let squashing = false;
-
-					for (const entry of newEntries) {
-						if (entry.action === 'squash' || entry.action === 'fixup') {
-							squashing = true;
-						} else if (squashing) {
-							if (entry.action !== 'drop') {
-								squashing = false;
-							}
-						}
-					}
-
-					const edit = new WorkspaceEdit();
-
-					let action = entry.action;
-
-					// Ensure that the last entry isn't a squash/fixup
-					if (squashing) {
-						const lastEntry = newEntries[newEntries.length - 1];
-						if (entry.ref === lastEntry.ref) {
-							action = 'pick';
-						} else {
-							const start = context.document.positionAt(lastEntry.index);
-							const range = context.document.validateRange(
-								new Range(new Position(start.line, 0), new Position(start.line, maxSmallIntegerV8)),
-							);
-
-							edit.replace(context.document.uri, range, `pick ${lastEntry.ref} ${lastEntry.message}`);
-						}
-					}
-
-					edit.delete(context.document.uri, range);
-					edit.insert(
-						context.document.uri,
-						new Position(newLine, 0),
-						`${action} ${entry.ref} ${entry.message}\n`,
-					);
-
-					await workspace.applyEdit(edit);
-				});
-
+				onIpc(MoveEntryCommandType, e, params => this.onEntryMoved(context, params));
 				break;
+
+			case UpdateSelectionCommandType.method:
+				onIpc(UpdateSelectionCommandType, e, params => this.onSelectionChanged(context, params));
 		}
 	}
 
-	private async abort(context: RebaseEditorContext) {
-		context.abortOnClose = false;
+	private async onEntryChanged(context: RebaseEditorContext, params: ChangeEntryParams) {
+		const entries = parseRebaseTodoEntries(context.document);
 
+		const entry = entries.find(e => e.sha === params.sha);
+		if (entry == null) return;
+
+		const start = context.document.positionAt(entry.index);
+		const range = context.document.validateRange(
+			new Range(new Position(start.line, 0), new Position(start.line, maxSmallIntegerV8)),
+		);
+
+		let action = params.action;
+		const edit = new WorkspaceEdit();
+
+		// Fake the new set of entries, to check if last entry is a squash/fixup
+		const newEntries = [...entries];
+		newEntries.splice(entries.indexOf(entry), 1, {
+			...entry,
+			action: params.action,
+		});
+
+		let squashing = false;
+
+		for (const entry of newEntries) {
+			if (entry.action === 'squash' || entry.action === 'fixup') {
+				squashing = true;
+			} else if (squashing) {
+				if (entry.action !== 'drop') {
+					squashing = false;
+				}
+			}
+		}
+
+		// Ensure that the last entry isn't a squash/fixup
+		if (squashing) {
+			const lastEntry = newEntries[newEntries.length - 1];
+			if (entry.sha === lastEntry.sha) {
+				action = 'pick';
+			} else {
+				const start = context.document.positionAt(lastEntry.index);
+				const range = context.document.validateRange(
+					new Range(new Position(start.line, 0), new Position(start.line, maxSmallIntegerV8)),
+				);
+
+				edit.replace(context.document.uri, range, `pick ${lastEntry.sha} ${lastEntry.message}`);
+			}
+		}
+
+		edit.replace(context.document.uri, range, `${action} ${entry.sha} ${entry.message}`);
+		await workspace.applyEdit(edit);
+	}
+
+	private async onEntryMoved(context: RebaseEditorContext, params: MoveEntryParams) {
+		const entries = parseRebaseTodoEntries(context.document);
+
+		const entry = entries.find(e => e.sha === params.sha);
+		if (entry == null) return;
+
+		const index = entries.findIndex(e => e.sha === params.sha);
+
+		let newIndex;
+		if (params.relative) {
+			if ((params.to === -1 && index === 0) || (params.to === 1 && index === entries.length - 1)) {
+				return;
+			}
+
+			newIndex = index + params.to;
+		} else {
+			if (index === params.to) return;
+
+			newIndex = params.to;
+		}
+
+		const newEntry = entries[newIndex];
+		let newLine = context.document.positionAt(newEntry.index).line;
+		if (newIndex < index) {
+			newLine++;
+		}
+
+		const start = context.document.positionAt(entry.index);
+		const range = context.document.validateRange(
+			new Range(new Position(start.line, 0), new Position(start.line + 1, 0)),
+		);
+
+		// Fake the new set of entries, so we can ensure that the last entry isn't a squash/fixup
+		const newEntries = [...entries];
+		newEntries.splice(index, 1);
+		newEntries.splice(newIndex, 0, entry);
+
+		let squashing = false;
+
+		for (const entry of newEntries) {
+			if (entry.action === 'squash' || entry.action === 'fixup') {
+				squashing = true;
+			} else if (squashing) {
+				if (entry.action !== 'drop') {
+					squashing = false;
+				}
+			}
+		}
+
+		const edit = new WorkspaceEdit();
+
+		let action = entry.action;
+
+		// Ensure that the last entry isn't a squash/fixup
+		if (squashing) {
+			const lastEntry = newEntries[newEntries.length - 1];
+			if (entry.sha === lastEntry.sha) {
+				action = 'pick';
+			} else {
+				const start = context.document.positionAt(lastEntry.index);
+				const range = context.document.validateRange(
+					new Range(new Position(start.line, 0), new Position(start.line, maxSmallIntegerV8)),
+				);
+
+				edit.replace(context.document.uri, range, `pick ${lastEntry.sha} ${lastEntry.message}`);
+			}
+		}
+
+		edit.delete(context.document.uri, range);
+		edit.insert(context.document.uri, new Position(newLine, 0), `${action} ${entry.sha} ${entry.message}\n`);
+
+		await workspace.applyEdit(edit);
+	}
+
+	private onSelectionChanged(context: RebaseEditorContext, params: UpdateSelectionParams) {
+		if (context.fireSelectionChangedDebounced == null) {
+			context.fireSelectionChangedDebounced = debounce(this.fireSelectionChanged.bind(this), 250);
+		}
+
+		void context.fireSelectionChangedDebounced(context, params.sha);
+	}
+
+	private async fireSelectionChanged(context: RebaseEditorContext, sha: string | undefined) {
+		let commit: GitCommit | undefined;
+		if (sha != null) {
+			commit = await this.container.git.getCommit(context.repoPath, sha);
+		}
+		if (commit == null) return;
+		void GitActions.Commit.showDetailsView(commit, {
+			pin: true,
+			preserveFocus: true,
+			preserveVisibility: false,
+		});
+	}
+
+	@debug<RebaseEditorProvider['updateState']>({ args: { 0: c => `${c.id}:${c.document.uri.toString(true)}` } })
+	private updateState(context: RebaseEditorContext, immediate: boolean = false) {
+		if (immediate) {
+			context.notifyDidChangeStateDebounced?.cancel();
+
+			void this.notifyDidChangeState(context);
+			return;
+		}
+
+		if (context.notifyDidChangeStateDebounced == null) {
+			context.notifyDidChangeStateDebounced = debounce(this.notifyDidChangeState.bind(this), 250);
+		}
+
+		void context.notifyDidChangeStateDebounced(context);
+	}
+
+	@debug<RebaseEditorProvider['notifyDidChangeState']>({
+		args: { 0: c => `${c.id}:${c.document.uri.toString(true)}` },
+	})
+	private async notifyDidChangeState(context: RebaseEditorContext) {
+		if (!context.panel.visible) {
+			context.pendingChange = true;
+
+			return;
+		}
+
+		const state = await this.parseState(context);
+		void this.postMessage(context, {
+			id: nextIpcId(),
+			method: DidChangeNotificationType.method,
+			params: { state: state },
+		});
+	}
+
+	private async abort(context: RebaseEditorContext) {
 		// Avoid triggering events by disposing them first
 		context.dispose();
 
@@ -453,8 +500,6 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	}
 
 	private async rebase(context: RebaseEditorContext) {
-		context.abortOnClose = false;
-
 		// Avoid triggering events by disposing them first
 		context.dispose();
 
@@ -463,9 +508,13 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		context.panel.dispose();
 	}
 
-	private switch(context: RebaseEditorContext) {
-		context.abortOnClose = false;
+	private reorder(params: ReorderParams, context: RebaseEditorContext) {
+		this.ascending = params.ascending ?? false;
+		void configuration.updateEffective('rebaseEditor.ordering', this.ascending ? 'asc' : 'desc');
+		this.updateState(context, true);
+	}
 
+	private switch(context: RebaseEditorContext) {
 		void showRebaseSwitchToTextWarningMessage();
 
 		// Open the text version of the document
@@ -473,12 +522,6 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			override: false,
 			preview: false,
 		});
-	}
-
-	private reorder(params: ReorderParams, context: RebaseEditorContext) {
-		this.ascending = params.ascending ?? false;
-		void configuration.updateEffective('rebaseEditor.ordering', this.ascending ? 'asc' : 'desc');
-		void this.getStateAndNotify(context);
 	}
 
 	private async getHtml(context: RebaseEditorContext): Promise<string> {
@@ -523,92 +566,85 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 async function parseRebaseTodo(
 	container: Container,
-	contents: string | { entries: RebaseEntry[]; onto: string },
-	repoPath: string,
-	branch: string | undefined,
+	context: RebaseEditorContext,
 	ascending: boolean,
 ): Promise<Omit<State, 'rebasing'>> {
-	let onto: string;
-	let entries;
-	if (typeof contents === 'string') {
-		entries = parseRebaseTodoEntries(contents);
-		[, , , onto] = rebaseRegex.exec(contents) ?? ['', '', ''];
-	} else {
-		({ entries, onto } = contents);
+	const contents = context.document.getText();
+	const entries = parseRebaseTodoEntries(contents);
+	let [, , , onto] = rebaseRegex.exec(contents) ?? ['', '', ''];
+
+	if (context.authors == null || context.commits == null) {
+		context.commits = [];
+		context.authors = new Map<string, Author>();
+
+		const log = await container.git.richSearchCommits(
+			context.repoPath,
+			{
+				query: `${onto ? `#:${onto} ` : ''}${join(
+					map(entries, e => `#:${e.sha}`),
+					' ',
+				)}`,
+			},
+			{ limit: 0 },
+		);
+
+		if (log != null) {
+			for (const c of log.commits.values()) {
+				context.commits.push(c);
+
+				if (!context.authors.has(c.author.name)) {
+					context.authors.set(c.author.name, {
+						author: c.author.name,
+						avatarUrl: (await c.getAvatarUri()).toString(true),
+						email: c.author.email,
+					});
+				}
+			}
+		}
 	}
 
-	const authors = new Map<string, Author>();
 	const commits: Commit[] = [];
+	const defaultDateFormat = configuration.get('defaultDateFormat');
+	const command = ShowQuickCommitCommand.getMarkdownCommandArgs(`\${commit}`, context.repoPath);
 
-	const log = await container.git.richSearchCommits(repoPath, {
-		query: `${onto ? `#:${onto} ` : ''}${join(
-			map(entries, e => `#:${e.ref}`),
-			' ',
-		)}`,
-	});
-	const foundCommits = log != null ? [...log.commits.values()] : [];
-
-	const ontoCommit = onto ? foundCommits.find(c => c.ref.startsWith(onto)) : undefined;
+	const ontoCommit = onto ? context.commits.find(c => c.sha.startsWith(onto)) : undefined;
 	if (ontoCommit != null) {
-		const { name, email } = ontoCommit.author;
-		if (!authors.has(name)) {
-			authors.set(name, {
-				author: name,
-				avatarUrl: (
-					await ontoCommit.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })
-				).toString(true),
-				email: email,
-			});
-		}
-
 		commits.push({
-			ref: ontoCommit.ref,
-			author: name,
-			date: ontoCommit.formatDate(configuration.get('defaultDateFormat')),
+			sha: ontoCommit.sha,
+			author: ontoCommit.author.name,
+			date: ontoCommit.formatDate(defaultDateFormat),
 			dateFromNow: ontoCommit.formatDateFromNow(),
 			message: ontoCommit.message || 'root',
 		});
 	}
 
+	let commit;
 	for (const entry of entries) {
-		const commit = foundCommits.find(c => c.ref.startsWith(entry.ref));
+		commit = context.commits.find(c => c.sha.startsWith(entry.sha));
 		if (commit == null) continue;
 
 		// If the onto commit is contained in the list of commits, remove it and clear the 'onto' value — See #1201
-		if (commit.ref === ontoCommit?.ref) {
+		if (commit.sha === ontoCommit?.sha) {
 			commits.splice(0, 1);
 			onto = '';
 		}
 
-		const { name, email } = commit.author;
-		if (!authors.has(name)) {
-			authors.set(name, {
-				author: name,
-				avatarUrl: (
-					await commit.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })
-				).toString(true),
-				email: email,
-			});
-		}
-
 		commits.push({
-			ref: commit.ref,
-			author: name,
-			date: commit.formatDate(configuration.get('defaultDateFormat')),
+			sha: commit.sha,
+			author: commit.author.name,
+			date: commit.formatDate(defaultDateFormat),
 			dateFromNow: commit.formatDateFromNow(),
 			message: commit.message ?? commit.summary,
 		});
 	}
 
 	return {
-		branch: branch ?? '',
+		branch: context.branchName ?? '',
 		onto: onto,
 		entries: entries,
-		authors: [...authors.values()],
+		authors: [...context.authors.values()],
 		commits: commits,
-		commands: {
-			commit: ShowQuickCommitCommand.getMarkdownCommandArgs(`\${commit}`, repoPath),
-		},
+		commands: { commit: command },
 		ascending: ascending,
 	};
 }
@@ -622,20 +658,20 @@ function parseRebaseTodoEntries(contentsOrDocument: string | TextDocument): Reba
 
 	let match;
 	let action;
-	let ref;
+	let sha;
 	let message;
 
 	do {
 		match = rebaseCommandsRegex.exec(contents);
 		if (match == null) break;
 
-		[, action, ref, message] = match;
+		[, action, sha, message] = match;
 
 		entries.push({
 			index: match.index,
 			action: rebaseActionsMap.get(action) ?? 'pick',
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			ref: ` ${ref}`.substr(1),
+			sha: ` ${sha}`.substr(1),
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 			message: message == null || message.length === 0 ? '' : ` ${message}`.substr(1),
 		});
