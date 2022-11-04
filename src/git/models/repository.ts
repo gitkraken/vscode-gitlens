@@ -45,30 +45,30 @@ const millisecondsPerHour = 60 * 60 * 1000;
 const millisecondsPerDay = 24 * 60 * 60 * 1000;
 
 export const enum RepositoryChange {
-	// FileSystem = 'filesystem',
-	Unknown = 'unknown',
-
-	// No file watching required
-	Closed = 'closed',
-	Ignores = 'ignores',
-	Starred = 'starred',
+	Unknown = -1,
 
 	// File watching required
-	CherryPick = 'cherrypick',
-	Config = 'config',
-	Heads = 'heads',
-	Index = 'index',
-	Merge = 'merge',
-	Rebase = 'rebase',
-	Remotes = 'remotes',
-	RemoteProviders = 'providers',
-	Stash = 'stash',
+	Index = 0,
+	Head = 1,
+	Heads = 2,
+	Tags = 3,
+	Stash = 4,
+	Remotes = 5,
+	Worktrees = 6,
+	Config = 7,
 	/*
 	 * Union of Cherry, Merge, and Rebase
 	 */
-	Status = 'status',
-	Tags = 'tags',
-	Worktrees = 'worktrees',
+	Status = 8,
+	CherryPick = 9,
+	Merge = 10,
+	Rebase = 11,
+
+	// No file watching required
+	Closed = 100,
+	Ignores = 101,
+	RemoteProviders = 102,
+	Starred = 103,
 }
 
 export const enum RepositoryChangeComparisonMode {
@@ -334,6 +334,10 @@ export class Repository implements Disposable {
 					return;
 
 				case 'HEAD':
+					this.resetCaches('branches');
+					this.fireChange(RepositoryChange.Head, RepositoryChange.Heads);
+					return;
+
 				case 'ORIG_HEAD':
 					this.resetCaches('branches');
 					this.fireChange(RepositoryChange.Heads);

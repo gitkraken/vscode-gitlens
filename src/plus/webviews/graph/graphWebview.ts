@@ -496,6 +496,7 @@ export class GraphWebview extends WebviewBase<State> {
 		if (
 			!e.changed(
 				RepositoryChange.Config,
+				RepositoryChange.Head,
 				RepositoryChange.Heads,
 				// RepositoryChange.Index,
 				RepositoryChange.Remotes,
@@ -511,7 +512,12 @@ export class GraphWebview extends WebviewBase<State> {
 			return;
 		}
 
-		this.updateState();
+		if (e.changed(RepositoryChange.Head, RepositoryChangeComparisonMode.Any)) {
+			this.setSelectedRows(undefined);
+		}
+
+		// Unless we don't know what changed, update the state immediately
+		this.updateState(!e.changed(RepositoryChange.Unknown, RepositoryChangeComparisonMode.Exclusive));
 	}
 
 	@debug({ args: false })
@@ -894,7 +900,7 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		if (this._notifyDidChangeStateDebounced == null) {
-			this._notifyDidChangeStateDebounced = debounce(this.notifyDidChangeState.bind(this), 500);
+			this._notifyDidChangeStateDebounced = debounce(this.notifyDidChangeState.bind(this), 250);
 		}
 
 		void this._notifyDidChangeStateDebounced();
