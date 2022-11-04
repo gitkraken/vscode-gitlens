@@ -3,6 +3,7 @@ import { SubscriptionState } from '../../../../subscription';
 import { pluralize } from '../../../../system/string';
 import { numberConverter } from '../../shared/components/converters/number-converter';
 import '../../shared/components/code-icon';
+import '../../shared/components/overlays/pop-over';
 
 const template = html<HeaderCard>`
 	<div class="header-card__media"><img class="header-card__image" src="${x => x.image}" alt="GitLens Logo" /></div>
@@ -11,11 +12,13 @@ const template = html<HeaderCard>`
 		${when(x => x.name !== '', html<HeaderCard>`${x => x.name}`)}
 	</h1>
 	<p class="header-card__account">
-		<span
-			class="status"
-			title="Can access GitLens+ features on ${x => (x.isPro ? 'any repo' : 'local & public repos')}"
-			><span class="repo-access${x => (x.isPro ? ' is-pro' : '')}">✨</span>${x => x.planName}</span
-		>
+		<span class="status">
+			<span class="repo-access${x => (x.isPro ? ' is-pro' : '')}">✨</span>${x => x.planName}
+			<pop-over>
+				You have access to GitLens+ features on ${x => (x.isPro ? 'any repo' : 'local & public repos')}, and all
+				other GitLens features on any repo.
+			</pop-over>
+		</span>
 		<span class="account-actions">
 			${when(
 				x => !x.hasAccount,
@@ -51,12 +54,6 @@ const template = html<HeaderCard>`
 		<div ${ref('progressNode')} class="progress__indicator"></div>
 	</div>
 	<span class="actions">
-		${when(
-			x => x.state === SubscriptionState.Free,
-			html<HeaderCard>`<a class="action is-primary" href="command:gitlens.plus.startPreviewTrial"
-				>Start Pro Trial</a
-			>`,
-		)}
 		${when(
 			x => x.state === SubscriptionState.FreePreviewTrialExpired,
 			html<HeaderCard>`<a class="action is-primary" href="command:gitlens.plus.loginOrSignUp"
@@ -99,9 +96,12 @@ const styles = css`
 	:host {
 		position: relative;
 		display: grid;
+		/*
 		padding: 1rem 1rem 1.2rem;
 		background-color: var(--card-background);
 		border-radius: 0.4rem;
+		*/
+		padding: 1rem 0 1.2rem;
 		gap: 0 0.8rem;
 		grid-template-columns: 3.4rem auto;
 		grid-auto-flow: column;
@@ -143,6 +143,7 @@ const styles = css`
 	}
 
 	.header-card__account {
+		position: relative;
 		margin: 0;
 		display: flex;
 		flex-direction: row;
@@ -176,8 +177,10 @@ const styles = css`
 		position: absolute;
 		bottom: 0;
 		left: 0;
+		/*
 		border-bottom-left-radius: 0.4rem;
 		border-bottom-right-radius: 0.4rem;
+		*/
 	}
 
 	.brand {
@@ -185,12 +188,20 @@ const styles = css`
 	}
 	.status {
 		color: var(--color-foreground--65);
+		cursor: help;
+	}
+
+	.status pop-over {
+		top: 1.6em;
+		left: 0;
+	}
+	.status:not(:hover) pop-over {
+		display: none;
 	}
 
 	.repo-access {
 		font-size: 1.1em;
 		margin-right: 0.2rem;
-		cursor: help;
 	}
 	.repo-access:not(.is-pro) {
 		filter: grayscale(1) brightness(0.7);

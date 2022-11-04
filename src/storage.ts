@@ -160,6 +160,7 @@ export interface GlobalStorage {
 	// Keep the pre-release version separate from the released version
 	preVersion?: string;
 	views: {
+		layout?: StoredViewsLayout;
 		welcome: {
 			visible?: boolean;
 		};
@@ -212,6 +213,7 @@ export interface WorkspaceStorage {
 	};
 }
 
+export type StoredViewsLayout = 'gitlens' | 'scm';
 export interface Stored<T, SchemaVersion extends number = 1> {
 	v: SchemaVersion;
 	data: T;

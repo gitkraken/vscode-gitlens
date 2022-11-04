@@ -1,3 +1,4 @@
+import type { ViewsLayout } from '../../commands/setViewsLayout';
 import type { RepositoriesVisibility } from '../../git/gitProviderService';
 import type { Subscription } from '../../subscription';
 import { IpcCommandType, IpcNotificationType } from '../protocol';
@@ -17,6 +18,7 @@ export interface State {
 	plusEnabled: boolean;
 	visibility: RepositoriesVisibility;
 	avatar?: string;
+	layout: ViewsLayout;
 }
 
 export interface CompleteStepParams {
@@ -45,3 +47,15 @@ export interface DidChangeExtensionEnabledParams {
 export const DidChangeExtensionEnabledType = new IpcNotificationType<DidChangeExtensionEnabledParams>(
 	'extensionEnabled/didChange',
 );
+
+export interface DidChangeConfigurationParams {
+	plusEnabled: boolean;
+}
+export const DidChangeConfigurationType = new IpcNotificationType<DidChangeConfigurationParams>(
+	'configuration/didChange',
+);
+
+export interface DidChangeLayoutParams {
+	layout: ViewsLayout;
+}
+export const DidChangeLayoutType = new IpcNotificationType<DidChangeLayoutParams>('layout/didChange');

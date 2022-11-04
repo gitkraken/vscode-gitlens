@@ -6,7 +6,9 @@ import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../subscr
 import type { State } from '../../home/protocol';
 import {
 	CompleteStepCommandType,
+	DidChangeConfigurationType,
 	DidChangeExtensionEnabledType,
+	DidChangeLayoutType,
 	DidChangeSubscriptionNotificationType,
 	DismissSectionCommandType,
 } from '../../home/protocol';
@@ -15,11 +17,13 @@ import { ExecuteCommandType, onIpc } from '../../protocol';
 import { App } from '../shared/appBase';
 import { DOM } from '../shared/dom';
 import type { CardSection } from './components/card-section';
-import type { PlusContent } from './components/plus-content';
+import type { PlusBanner } from './components/plus-banner';
 import type { SteppedSection } from './components/stepped-section';
 import '../shared/components/code-icon';
+import '../shared/components/overlays/pop-over';
 import './components/card-section';
 import './components/stepped-section';
+import './components/plus-banner';
 import './components/plus-content';
 import './components/header-card';
 
@@ -47,7 +51,7 @@ export class HomeApp extends App<State> {
 			DOM.on('[data-action]', 'click', (e, target: HTMLElement) => this.onDataActionClicked(e, target)),
 		);
 		disposables.push(
-			DOM.on<PlusContent, string>('plus-content', 'action', (e, target: HTMLElement) =>
+			DOM.on<PlusBanner, string>('plus-banner', 'action', (e, target: HTMLElement) =>
 				this.onPlusActionClicked(e, target),
 			),
 		);
@@ -85,6 +89,22 @@ export class HomeApp extends App<State> {
 				onIpc(DidChangeExtensionEnabledType, msg, params => {
 					this.state.extensionEnabled = params.extensionEnabled;
 					this.updateNoRepo();
+				});
+				break;
+			case DidChangeConfigurationType.method:
+				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
+
+				onIpc(DidChangeConfigurationType, msg, params => {
+					this.state.plusEnabled = params.plusEnabled;
+					this.updatePlusContent();
+				});
+				break;
+			case DidChangeLayoutType.method:
+				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
+
+				onIpc(DidChangeLayoutType, msg, params => {
+					this.state.layout = params.layout;
+					this.updateLayout();
 				});
 				break;
 
@@ -183,10 +203,29 @@ export class HomeApp extends App<State> {
 		}
 	}
 
-	private updatePlusContent(days = this.getDaysRemaining()) {
-		const { subscription, visibility } = this.state;
+	private updateLayout() {
+		const { layout } = this.state;
 
-		const $plusContent = document.getElementById('plus-content');
+		const $els = [...document.querySelectorAll('[data-gitlens-layout]')];
+		$els.forEach(el => {
+			const attr = el.getAttribute('data-gitlens-layout');
+			el.classList.toggle('is-active', attr === layout);
+		});
+	}
+
+	private updatePlusContent(days = this.getDaysRemaining()) {
+		const { subscription, visibility, plusEnabled } = this.state;
+
+		let $plusContent = document.getElementById('plus-banner');
+		if ($plusContent) {
+			$plusContent.setAttribute('days', days.toString());
+			$plusContent.setAttribute('state', subscription.state.toString());
+			$plusContent.setAttribute('visibility', visibility);
+			$plusContent.setAttribute('plan', subscription.plan.effective.name);
+			$plusContent.setAttribute('plus', plusEnabled.toString());
+		}
+
+		$plusContent = document.getElementById('plus-content');
 		if ($plusContent) {
 			$plusContent.setAttribute('days', days.toString());
 			$plusContent.setAttribute('state', subscription.state.toString());
@@ -235,10 +274,10 @@ export class HomeApp extends App<State> {
 	}
 
 	private updateState() {
-		const { completedSteps, dismissedSections, plusEnabled } = this.state;
+		const { completedSteps, dismissedSections } = this.state;
 
 		this.updateNoRepo();
-		document.getElementById('restore-plus')?.classList.toggle('hide', plusEnabled);
+		this.updateLayout();
 
 		const showRestoreWelcome = completedSteps?.length || dismissedSections?.length;
 		document.getElementById('restore-welcome')?.classList.toggle('hide', !showRestoreWelcome);

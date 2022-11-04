@@ -1,6 +1,7 @@
-import type { Disposable } from 'vscode';
+import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { window } from 'vscode';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
+import { ViewsLayout } from '../../commands/setViewsLayout';
 import { configuration } from '../../configuration';
 import { ContextKeys, CoreCommands } from '../../constants';
 import type { Container } from '../../container';
@@ -8,6 +9,7 @@ import { getContext, onDidChangeContext } from '../../context';
 import type { RepositoriesVisibility } from '../../git/gitProviderService';
 import type { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
 import { ensurePlusFeaturesEnabled } from '../../plus/subscription/utils';
+import type { StorageChangeEvent } from '../../storage';
 import type { Subscription } from '../../subscription';
 import { executeCoreCommand, registerCommand } from '../../system/command';
 import type { Deferrable } from '../../system/function';
@@ -19,7 +21,9 @@ import type { CompleteStepParams, DismissSectionParams, State } from './protocol
 import {
 	CompletedActions,
 	CompleteStepCommandType,
+	DidChangeConfigurationType,
 	DidChangeExtensionEnabledType,
+	DidChangeLayoutType,
 	DidChangeSubscriptionNotificationType,
 	DismissSectionCommandType,
 } from './protocol';
@@ -34,6 +38,12 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 				if (key !== ContextKeys.Disabled) return;
 				this.notifyExtensionEnabled();
 			}),
+			configuration.onDidChange(e => {
+				this.onConfigurationChanged(e);
+			}, this),
+			this.container.storage.onDidChange(e => {
+				this.onStorageChanged(e);
+			}),
 		);
 	}
 
@@ -44,6 +54,22 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 
 	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
 		void this.notifyDidChangeData(e.current);
+	}
+
+	private onConfigurationChanged(e: ConfigurationChangeEvent) {
+		if (!configuration.changed(e, 'plusFeatures.enabled')) {
+			return;
+		}
+
+		this.notifyDidChangeConfiguration();
+	}
+
+	private onStorageChanged(e: StorageChangeEvent) {
+		if (e.key !== 'views:layout') {
+			return;
+		}
+
+		this.notifyDidChangeLayout();
 	}
 
 	protected override onVisibilityChanged(visible: boolean): void {
@@ -178,11 +204,12 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 			webroot: this.getWebRoot(),
 			subscription: subscriptionState.subscription,
 			completedActions: subscriptionState.completedActions,
-			plusEnabled: configuration.get('plusFeatures.enabled'),
+			plusEnabled: this.getPlusEnabled(),
 			visibility: await this.getRepoVisibility(),
 			completedSteps: steps,
 			dismissedSections: sections,
 			avatar: subscriptionState.avatar,
+			layout: this.getLayout(),
 		};
 	}
 
@@ -203,6 +230,34 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 
 		void this.notify(DidChangeExtensionEnabledType, {
 			extensionEnabled: this.getExtensionEnabled(),
+		});
+	}
+
+	private getPlusEnabled() {
+		return configuration.get('plusFeatures.enabled');
+	}
+
+	private notifyDidChangeConfiguration() {
+		if (!this.isReady) return;
+
+		void this.notify(DidChangeConfigurationType, {
+			plusEnabled: this.getPlusEnabled(),
+		});
+	}
+
+	private getLayout() {
+		const layout = this.container.storage.get('views:layout');
+		if (layout == null) {
+			return ViewsLayout.GitLens;
+		}
+		return layout as ViewsLayout;
+	}
+
+	private notifyDidChangeLayout() {
+		if (!this.isReady) return;
+
+		void this.notify(DidChangeLayoutType, {
+			layout: this.getLayout(),
 		});
 	}
 

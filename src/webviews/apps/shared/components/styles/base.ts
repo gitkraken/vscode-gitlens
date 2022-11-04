@@ -9,7 +9,6 @@ export const elementBase = css`
 	:host *::after {
 		box-sizing: inherit;
 	}
-
 	[hidden] {
 		display: none !important;
 	}
