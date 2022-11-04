@@ -14,6 +14,7 @@
 	--progress-bar-color: var(--color-background--lighten-15);
 	--card-background: var(--color-background--lighten-075);
 	--card-hover-background: var(--color-background--lighten-10);
+	--popover-bg: var(--color-background--lighten-15);
 }
 
 .vscode-high-contrast-light,
@@ -21,6 +22,7 @@
 	--progress-bar-color: var(--color-background--darken-15);
 	--card-background: var(--color-background--darken-075);
 	--card-hover-background: var(--color-background--darken-10);
+	--popover-bg: var(--color-background--darken-15);
 }
 
 * {
@@ -125,16 +127,63 @@ body {
 	&__header {
 		flex: none;
 		padding: 0 2rem;
+		position: relative;
 	}
 	&__main {
 		flex: 1;
 		overflow: auto;
 		padding: 2rem 2rem 0.4rem;
+
+		background: linear-gradient(var(--color-view-background) 33%, var(--color-view-background)),
+			linear-gradient(var(--color-view-background), var(--color-view-background) 66%) 0 100%,
+			linear-gradient(to bottom, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0)),
+			linear-gradient(to top, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0)) 0 100%;
+		background-color: var(--color-view-background);
+		background-repeat: no-repeat;
+		background-attachment: local, local, scroll, scroll;
+		background-size: 100% 12px, 100% 12px, 100% 6px, 100% 6px;
 	}
 	&__nav {
 		flex: none;
 		padding: 0 2rem;
 		margin-bottom: 0.6rem;
+	}
+}
+
+.popover {
+	background-color: var(--color-background--lighten-15);
+	position: absolute;
+	top: 100%;
+	left: 5.2rem;
+	transform: translateY(0.8rem);
+	max-width: 30rem;
+	padding: 0.8rem 1.2rem 1.2rem;
+	z-index: 10;
+
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+
+	&__top {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		opacity: 0.5;
+	}
+
+	&__heading {
+		font-weight: 600;
+	}
+
+	&__caret {
+		position: absolute;
+		bottom: 100%;
+		width: 0;
+		height: 0;
+		border-left: 0.8rem solid transparent;
+		border-right: 0.8rem solid transparent;
+		border-bottom: 0.8rem solid var(--color-background--lighten-15);
 	}
 }
 
@@ -176,6 +225,11 @@ p {
 ul {
 	margin-top: 0;
 	padding-left: 1.2em;
+}
+
+.unlist {
+	list-style: none;
+	padding-left: 0;
 }
 
 .icon-list {
@@ -277,6 +331,12 @@ ul {
 	}
 }
 
+.gl-plus-banner {
+	background-color: transparent;
+	background-position: left -30vw center;
+	background-size: 80vw;
+}
+
 .plus-banner-text {
 	text-shadow: 0.1rem 0.1rem 0 var(--color-background), 0.1rem 0.1rem 0.2rem var(--color-background);
 }
@@ -292,10 +352,29 @@ ul {
 	opacity: 0.6;
 }
 
+.alert {
+	padding: 0.8rem 1.2rem;
+	line-height: 1.2;
+	margin-bottom: 1.2rem;
+	background-color: var(--color-alert-neutralBackground);
+	border-left: 0.3rem solid var(--color-alert-neutralBorder);
+	color: var(--color-alert-foreground);
+
+	&__title {
+		font-size: 1.4rem;
+		margin: 0;
+	}
+
+	&__description {
+		font-size: 1.2rem;
+		margin: 0.4rem 0 0;
+	}
+}
+
 .activitybar-banner {
 	display: flex;
-	flex-direction: row;
-	justify-content: space-between;
+	flex-direction: row-reverse;
+	justify-content: flex-end;
 	align-items: stretch;
 	gap: 1.6rem;
 
@@ -306,10 +385,51 @@ ul {
 		gap: clamp(0.1rem, 2vw, 1.2rem);
 		margin-bottom: 0;
 	}
-	svg {
+
+	&__content {
+		// padding-top: 1.6rem;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+
+		> :last-child {
+			margin-bottom: 0;
+		}
+	}
+
+	&__media {
+		position: relative;
 		flex: none;
-		max-width: 10rem;
-		height: auto;
+		width: 9.2rem;
+	}
+
+	&__nav {
+		position: absolute;
+		top: 0;
+		left: 0.4rem;
+		width: 4.8rem;
+		height: 12.3rem;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: flex-start;
+		gap: 1.6rem;
+
+		&-item {
+			position: absolute;
+			left: 0.5rem;
+			width: 4.6rem;
+			height: 3.2rem;
+			// background-color: #ff000066;
+
+			&:first-of-type {
+				top: 2.2rem;
+			}
+
+			&:last-of-type {
+				top: 7rem;
+			}
+		}
 	}
 
 	#no-repo[aria-hidden='false'] ~ & {
@@ -363,8 +483,19 @@ ul {
 	}
 }
 
+.link-minimal {
+	color: var(--color-foreground--50);
+	font-size: 1rem;
+	text-align: center;
+	position: relative;
+	top: 0.6rem;
+
+	&:hover {
+		color: var(--color-foreground--50);
+	}
+}
+
 vscode-button {
-	align-self: center;
 	max-width: 300px;
 	width: 100%;
 
@@ -373,8 +504,11 @@ vscode-button {
 	}
 }
 
-@media (min-width: 640px) {
-	vscode-button {
+.link-minimal,
+vscode-button {
+	align-self: center;
+
+	@media (min-width: 640px) {
 		align-self: flex-start;
 	}
 }
@@ -402,28 +536,65 @@ vscode-button {
 }
 
 .svg {
-	&-activity-bar-bg {
+	width: 100%;
+	height: auto;
+
+	&__outline {
+		transition: all ease 250ms;
+
+		.vscode-light &,
+		.vscode-high-contrast-light & {
+			stop-color: var(--color-background--darken-15);
+		}
+
+		.vscode-dark &,
+		.vscode-high-contrast & {
+			stop-color: var(--color-background--lighten-15);
+		}
+	}
+
+	&:hover &__outline,
+	.activitybar-banner__nav-item:focus ~ & &__outline,
+	.activitybar-banner__nav-item:hover ~ & &__outline {
+		.vscode-light &,
+		.vscode-high-contrast-light & {
+			stop-color: var(--color-background--darken-50);
+		}
+
+		.vscode-dark &,
+		.vscode-high-contrast & {
+			stop-color: var(--color-background--lighten-50);
+		}
+	}
+
+	&__bar {
 		fill: var(--vscode-activityBar-background);
 	}
-	&-activity-bar-stop {
-		stop-color: var(--vscode-activityBar-background);
+
+	&__indicator {
+		fill: transparent;
+		&.is-active {
+			fill: var(--vscode-activityBar-activeBorder);
+		}
 	}
-	&-activity-bar-fg {
-		fill: var(--vscode-activityBar-foreground);
-	}
-	&-fg {
-		fill: var(--vscode-foreground);
-	}
-	&-activity-bar-inactive {
+	&__icon {
+		transition: all ease 100ms;
 		fill: var(--vscode-activityBar-inactiveForeground);
+		&.is-active {
+			fill: var(--vscode-activityBar-foreground);
+		}
 	}
-	&-activity-bar-active {
-		fill: var(--vscode-activityBar-activeBorder);
+	&__arrow {
+		fill: transparent;
+		&.is-active {
+			fill: var(--vscode-textLink-foreground);
+		}
 	}
-	&-link {
-		fill: var(--vscode-textLink-foreground);
-	}
-	&-mask-alpha {
-		mask-type: alpha;
+
+	.activitybar-banner__nav-item:first-of-type:focus ~ & &__icon:last-of-type,
+	.activitybar-banner__nav-item:first-of-type:hover ~ & &__icon:last-of-type,
+	.activitybar-banner__nav-item:last-of-type:focus ~ & &__icon:first-of-type,
+	.activitybar-banner__nav-item:last-of-type:hover ~ & &__icon:first-of-type {
+		fill: var(--vscode-activityBar-foreground);
 	}
 }

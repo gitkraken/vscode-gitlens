@@ -5,7 +5,7 @@ import type { Container } from '../container';
 import { command, executeCommand, executeCoreCommand } from '../system/command';
 import { Command } from './base';
 
-enum ViewsLayout {
+export enum ViewsLayout {
 	GitLens = 'gitlens',
 	SourceControl = 'scm',
 }
@@ -46,6 +46,8 @@ export class SetViewsLayoutCommand extends Command {
 
 			layout = pick.layout;
 		}
+
+		void this.container.storage.store('views:layout', layout);
 
 		switch (layout) {
 			case ViewsLayout.GitLens:
