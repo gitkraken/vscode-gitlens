@@ -156,6 +156,7 @@ export interface Config {
 	};
 	terminalLinks: {
 		enabled: boolean;
+		showDetailsView: boolean;
 	};
 	views: ViewsConfig;
 	virtualRepositories: {

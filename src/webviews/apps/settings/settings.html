@@ -85,6 +85,7 @@
 				<%= require('html-loader?{"esModule":false}!./partials/commit-graph.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/rebase-editor.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/autolinks.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/terminal-links.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/dates.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/menus.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/shortcuts.html') %>
@@ -303,6 +304,16 @@
 							>
 						</li>
 						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#terminal-links"
+								title="Jump to Terminal Links"
+								>Terminal Links</a
+							>
+						</li>
+
+						<li class="mt-1">
 							<a
 								class="sidebar__jump-link"
 								data-action="jump"
