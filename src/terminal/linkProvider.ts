@@ -2,20 +2,23 @@ import type { Disposable, TerminalLink, TerminalLinkContext, TerminalLinkProvide
 import { commands, window } from 'vscode';
 import type {
 	GitCommandsCommandArgs,
+	ShowCommitsInViewCommandArgs,
 	ShowQuickBranchHistoryCommandArgs,
 	ShowQuickCommitCommandArgs,
 } from '../commands';
+import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import type { PagedResult } from '../git/gitProvider';
 import type { GitBranch } from '../git/models/branch';
+import { getBranchNameWithoutRemote } from '../git/models/branch';
 import { GitReference } from '../git/models/reference';
 import type { GitTag } from '../git/models/tag';
 
 const commandsRegexShared =
 	/\b(g(?:it)?\b\s*)\b(branch|checkout|cherry-pick|fetch|grep|log|merge|pull|push|rebase|reset|revert|show|stash|status|tag)\b/gi;
 // Since negative lookbehind isn't supported in all browsers, leave out the negative lookbehind condition `(?<!\.lock)` to ensure the branch name doesn't end with `.lock`
-const refRegexShared = /\b((?!.*\/\.)(?!.*\.\.)(?!.*\/\/)(?!.*@\{)[^\000-\037\177 ~^:?*[\\]+[^./])\b/gi;
+const refRegexShared = /\b((?!.*\/\.)(?!.*\.\.)(?!.*\/\/)(?!.*@\{)[^\000-\037\177 ,~^:?*[\\]+[^ ./])\b/gi;
 const rangeRegex = /^[0-9a-f]{7,40}\.\.\.?[0-9a-f]{7,40}$/;
 const shaRegex = /^[0-9a-f]{7,40}$/;
 
@@ -42,6 +45,8 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 
 		const repoPath = this.container.git.highlander?.path;
 		if (!repoPath) return [];
+
+		const showDetailsView = configuration.get('terminalLinks.showDetailsView');
 
 		const links: GitTerminalLink[] = [];
 
@@ -100,7 +105,10 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				// TODO@eamodio handle paging
 			}
 
-			const branch = branchResults.values.find(r => r.name === ref);
+			let branch = branchResults.values.find(r => r.name === ref);
+			if (branch == null) {
+				branch = branchResults.values.find(r => getBranchNameWithoutRemote(r.name) === ref);
+			}
 			if (branch != null) {
 				const link: GitTerminalLink<ShowQuickBranchHistoryCommandArgs> = {
 					startIndex: match.index,
@@ -161,17 +169,25 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 			}
 
 			if (await this.container.git.validateReference(repoPath, ref)) {
-				const link: GitTerminalLink<ShowQuickCommitCommandArgs> = {
+				const link: GitTerminalLink<ShowQuickCommitCommandArgs | ShowCommitsInViewCommandArgs> = {
 					startIndex: match.index,
 					length: ref.length,
 					tooltip: 'Show Commit',
-					command: {
-						command: Commands.ShowQuickCommit,
-						args: {
-							repoPath: repoPath,
-							sha: ref,
-						},
-					},
+					command: showDetailsView
+						? {
+								command: Commands.ShowInDetailsView,
+								args: {
+									repoPath: repoPath,
+									refs: [ref],
+								},
+						  }
+						: {
+								command: Commands.ShowQuickCommit,
+								args: {
+									repoPath: repoPath,
+									sha: ref,
+								},
+						  },
 				};
 				links.push(link);
 			}

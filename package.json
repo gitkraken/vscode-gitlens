@@ -2683,7 +2683,15 @@
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to enable terminal links &mdash; autolinks in the integrated terminal to quickly jump to more details for commits, branches, tags, and more",
-						"scope": "window"
+						"scope": "window",
+						"order": 10
+					},
+					"gitlens.terminalLinks.showDetailsView": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show the _Commit Details_ view when clicking on a commit link in the integrated terminal",
+						"scope": "window",
+						"order": 20
 					}
 				}
 			},

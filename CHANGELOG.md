@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds a Terminal Links section to the GitLens Interactive Settings
+
 ### Changed
 
 - Improved Rebase editor &mdash; better performance and user experience
@@ -17,6 +21,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds emoji support for commit messages &mdash; closes [#1789](https://github.com/gitkraken/vscode-gitlens/issues/1789)
   - Ensures that large rebases show rich commit details
 - Changes the _Home_ view to always be available
+- Changes SHA terminal links to use the _Commit Details_ view &mdash; closes [#2320](https://github.com/gitkraken/vscode-gitlens/issues/2320)
+  - Adds a `gitlens.terminalLinks.showDetailsView` setting to specify whether to show the _Commit Details_ view when clicking on a commit link
 
 ### Fixed
 
@@ -45,9 +51,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds a banner to the _Commit Details_ view to let users know they can move the view to the Secondary Side Bar
 
-### Updated
+### Changed
 
-- Updates the _Commit Graph_ settings clarity and ordering
+- Changes the _Commit Graph_ settings for improved clarity and ordering
 
 ### Fixed
 
