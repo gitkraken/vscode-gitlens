@@ -125,6 +125,7 @@ export interface Config {
 	} | null;
 	rebaseEditor: {
 		ordering: 'asc' | 'desc';
+		showDetailsView: 'open' | 'selection' | false;
 	};
 	remotes: RemotesConfig[] | null;
 	showWelcomeOnInstall: boolean;

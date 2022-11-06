@@ -2315,6 +2315,26 @@
 						"markdownDescription": "Specifies how Git commits are displayed in the _Interactive Rebase Editor_",
 						"scope": "window",
 						"order": 10
+					},
+					"gitlens.rebaseEditor.showDetailsView": {
+						"type": [
+							"boolean",
+							"string"
+						],
+						"default": "selection",
+						"enum": [
+							false,
+							"open",
+							"selection"
+						],
+						"enumDescriptions": [
+							"Never shows the _Commit Details_ view automatically",
+							"Shows the _Commit Details_ view automatically only when opening the _Interactive Rebase Editor_",
+							"Shows the _Commit Details_ view automatically when selection changes in the _Interactive Rebase Editor_"
+						],
+						"markdownDescription": "Specifies when to show the _Commit Details_ view for the selected row in the _Interactive Rebase Editor_",
+						"scope": "window",
+						"order": 20
 					}
 				}
 			},

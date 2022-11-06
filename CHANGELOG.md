@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Improved Rebase editor &mdash; better performance and user experience
   - Changes the header and footer to always be visible
   - Shows the _Commit Details_ view on commit selection
+    - Adds a `gitlens.rebaseEditor.showDetailsView` setting to specify when to show the _Commit Details_ view for the selected row in the _Interactive Rebase Editor_
   - Adds full (multiline) commit message
   - Adds the `f` fixup shortcut key to UI
   - Adds emoji support for commit messages &mdash; closes [#1789](https://github.com/gitkraken/vscode-gitlens/issues/1789)
