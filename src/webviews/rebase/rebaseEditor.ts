@@ -6,6 +6,7 @@ import { GitActions } from '../../commands/gitCommands.actions';
 import { configuration } from '../../configuration';
 import { CoreCommands } from '../../constants';
 import type { Container } from '../../container';
+import { emojify } from '../../emojis';
 import type { GitCommit } from '../../git/models/commit';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { Logger } from '../../logger';
@@ -597,7 +598,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 				author: commit.author.name,
 				date: commit.formatDate(defaultDateFormat),
 				dateFromNow: commit.formatDateFromNow(),
-				message: commit.message ?? commit.summary,
+				message: emojify(commit.message ?? commit.summary),
 			};
 		}
 
@@ -613,7 +614,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 										author: ontoCommit.author.name,
 										date: ontoCommit.formatDate(defaultDateFormat),
 										dateFromNow: ontoCommit.formatDateFromNow(),
-										message: ontoCommit.message || 'root',
+										message: emojify(ontoCommit.message || 'root'),
 								  }
 								: undefined,
 				  }
