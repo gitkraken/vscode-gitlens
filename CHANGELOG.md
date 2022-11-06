@@ -23,7 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes the _Home_ view to always be available
 - Changes SHA terminal links to use the _Commit Details_ view &mdash; closes [#2320](https://github.com/gitkraken/vscode-gitlens/issues/2320)
   - Adds a `gitlens.terminalLinks.showDetailsView` setting to specify whether to show the _Commit Details_ view when clicking on a commit link
-- Changes to uses VS Code as Git's `core.editor` for terminal run commands &mdash; closes [#2134](https://github.com/gitkraken/vscode-gitlens/pull/2134) thanks to [PR #2135](https://github.com/gitkraken/vscode-gitlens/pull/2135) by Nafiur Rahman Khadem ([@ShafinKhadem](https://github.com/ShafinKhadem))
+- Changes to uses VS Code as Git's `core.editor` for terminal run commands &mdash; closes [#2134](https://github.com/gitkraken/vscode-gitlens/issues/2134) thanks to [PR #2135](https://github.com/gitkraken/vscode-gitlens/pull/2135) by Nafiur Rahman Khadem ([@ShafinKhadem](https://github.com/ShafinKhadem))
   - Adds a `gitlens.terminal.overrideGitEditor` setting to specify whether to use VS Code as Git's `core.editor` for Gitlens terminal commands
 
 ### Fixed
