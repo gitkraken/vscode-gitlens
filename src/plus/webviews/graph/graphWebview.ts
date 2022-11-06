@@ -435,7 +435,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 			if (this.selection != null) {
 				void GitActions.Commit.showDetailsView(this.selection[0], {
-					pin: true,
+					pin: false,
 					preserveFocus: true,
 					preserveVisibility: this._showDetailsView === false,
 				});
@@ -879,7 +879,7 @@ export class GraphWebview extends WebviewBase<State> {
 		if (commits == null) return;
 
 		void GitActions.Commit.showDetailsView(commits[0], {
-			pin: true,
+			pin: false,
 			preserveFocus: true,
 			preserveVisibility: this._firstSelection
 				? this._showDetailsView === false
