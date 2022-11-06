@@ -15,6 +15,7 @@ import { GitLogParser } from '../../../git/parsers/logParser';
 import { GitReflogParser } from '../../../git/parsers/reflogParser';
 import { GitTagParser } from '../../../git/parsers/tagParser';
 import { Logger } from '../../../logger';
+import { join } from '../../../system/iterable';
 import { dirname, isAbsolute, isFolderGlob, joinPaths, normalizePath, splitPath } from '../../../system/path';
 import { getDurationMilliseconds } from '../../../system/string';
 import { compare, fromString } from '../../../system/version';
@@ -1191,17 +1192,18 @@ export class Git {
 			limit?: number;
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			skip?: number;
-			useShow?: boolean;
+			shas?: Set<string>;
 		},
 	) {
-		if (options?.useShow) {
+		if (options?.shas != null) {
+			const stdin = join(options.shas, '\n');
 			return this.git<string>(
-				{ cwd: repoPath },
+				{ cwd: repoPath, stdin: stdin },
 				'show',
+				'--stdin',
 				'--name-status',
 				`--format=${GitLogParser.defaultFormat}`,
 				'--use-mailmap',
-				...search,
 			);
 		}
 

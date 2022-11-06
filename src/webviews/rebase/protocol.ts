@@ -2,11 +2,10 @@ import { IpcCommandType, IpcNotificationType } from '../protocol';
 
 export interface State {
 	branch: string;
-	onto: string;
+	onto: { sha: string; commit?: Commit } | undefined;
 
 	entries: RebaseEntry[];
-	authors: Author[];
-	commits: Commit[];
+	authors: Record<string, Author>;
 	commands: {
 		commit: string;
 	};
@@ -16,9 +15,11 @@ export interface State {
 
 export interface RebaseEntry {
 	readonly action: RebaseEntryAction;
-	readonly ref: string;
+	readonly sha: string;
 	readonly message: string;
 	readonly index: number;
+
+	commit?: Commit;
 }
 
 export type RebaseEntryAction = 'pick' | 'reword' | 'edit' | 'squash' | 'fixup' | 'break' | 'drop';
@@ -30,7 +31,7 @@ export interface Author {
 }
 
 export interface Commit {
-	readonly ref: string;
+	readonly sha: string;
 	readonly author: string;
 	// readonly avatarUrl: string;
 	readonly date: string;
@@ -54,17 +55,22 @@ export interface ReorderParams {
 export const ReorderCommandType = new IpcCommandType<ReorderParams>('rebase/reorder');
 
 export interface ChangeEntryParams {
-	ref: string;
+	sha: string;
 	action: RebaseEntryAction;
 }
 export const ChangeEntryCommandType = new IpcCommandType<ChangeEntryParams>('rebase/change/entry');
 
 export interface MoveEntryParams {
-	ref: string;
+	sha: string;
 	to: number;
 	relative: boolean;
 }
 export const MoveEntryCommandType = new IpcCommandType<MoveEntryParams>('rebase/move/entry');
+
+export interface UpdateSelectionParams {
+	sha: string;
+}
+export const UpdateSelectionCommandType = new IpcCommandType<UpdateSelectionParams>('rebase/selection/update');
 
 // NOTIFICATIONS
 

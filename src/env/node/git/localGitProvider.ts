@@ -4231,7 +4231,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return cancelled ? ref : resolved ?? ref;
 	}
 
-	@log()
+	@log<LocalGitProvider['richSearchCommits']>({
+		args: {
+			1: s =>
+				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}]: ${
+					s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query
+				}`,
+		},
+	})
 	async richSearchCommits(
 		repoPath: string,
 		search: SearchQuery,
@@ -4252,11 +4259,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				args.push(...files);
 			}
 
-			const data = await this.git.log__search(repoPath, args, {
+			const data = await this.git.log__search(repoPath, shas?.size ? undefined : args, {
 				ordering: configuration.get('advanced.commitOrdering'),
 				...options,
 				limit: limit,
-				useShow: Boolean(shas?.size),
+				shas: shas,
 			});
 			const log = GitLogParser.parse(
 				this.container,

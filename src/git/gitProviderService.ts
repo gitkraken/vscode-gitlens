@@ -2232,7 +2232,14 @@ export class GitProviderService implements Disposable {
 		return provider.resolveReference(path, ref, pathOrUri, options);
 	}
 
-	@log()
+	@log<GitProviderService['richSearchCommits']>({
+		args: {
+			1: s =>
+				`[${s.matchAll ? 'A' : ''}${s.matchCase ? 'C' : ''}${s.matchRegex ? 'R' : ''}]: ${
+					s.query.length > 500 ? `${s.query.substring(0, 500)}...` : s.query
+				}`,
+		},
+	})
 	async richSearchCommits(
 		repoPath: string | Uri,
 		search: SearchQuery,
