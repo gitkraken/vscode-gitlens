@@ -98,6 +98,7 @@ interface RebaseEditorContext {
 	commits?: GitCommit[];
 	pendingChange?: boolean;
 
+	firstSelection?: boolean;
 	fireSelectionChangedDebounced?: Deferrable<RebaseEditorProvider['fireSelectionChanged']> | undefined;
 	notifyDidChangeStateDebounced?: Deferrable<RebaseEditorProvider['notifyDidChangeState']> | undefined;
 }
@@ -188,6 +189,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			document: document,
 			panel: panel,
 			repoPath: repo?.path ?? repoPath,
+
+			firstSelection: true,
 		};
 
 		subscriptions.push(
@@ -440,11 +443,15 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			commit = await this.container.git.getCommit(context.repoPath, sha);
 		}
 		if (commit == null) return;
+
+		const showDetailsView = configuration.get('rebaseEditor.showDetailsView');
+
 		void GitActions.Commit.showDetailsView(commit, {
 			pin: true,
 			preserveFocus: true,
-			preserveVisibility: false,
+			preserveVisibility: context.firstSelection ? showDetailsView === false : showDetailsView !== 'selection',
 		});
+		context.firstSelection = false;
 	}
 
 	@debug<RebaseEditorProvider['updateState']>({ args: { 0: c => `${c.id}:${c.document.uri.toString(true)}` } })
