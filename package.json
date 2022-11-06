@@ -2194,7 +2194,7 @@
 						],
 						"enumDescriptions": [
 							"Never shows the _Commit Details_ view automatically",
-							"Shows the _Commit Details_ view automatically when the _Commit Graph_ is first opened",
+							"Shows the _Commit Details_ view automatically only when opening the _Commit Graph_",
 							"Shows the _Commit Details_ view automatically when selection changes in the _Commit Graph_"
 						],
 						"markdownDescription": "Specifies when to show the _Commit Details_ view for the selected row in the _Commit Graph_",
