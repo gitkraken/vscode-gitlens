@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#2052](https://github.com/gitkraken/vscode-gitlens/issues/2052) - Interactive Rebase fails to start when using xonsh shell due to command quoting
 - Fixes [#2141](https://github.com/gitkraken/vscode-gitlens/issues/2141) - GitLens's rebase UI randomly fails loading interactive rebase when performed outside of VSC
 - Fixes [#1732](https://github.com/gitkraken/vscode-gitlens/issues/1732) - Phantom rebase-merge directory (`rm -rf ".git/rebase-merge"`)
 - Fixes [#1652](https://github.com/gitkraken/vscode-gitlens/issues/1652) - Closing interacteractive rebase editor after "git rebase --edit" aborts rebase-in-progress

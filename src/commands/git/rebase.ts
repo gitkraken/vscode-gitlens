@@ -101,7 +101,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 					break;
 			}
 
-			configs = ['-c', `sequence.editor="${editor}"`, '-c', `core.editor="${editor}"`];
+			configs = ['-c', `"sequence.editor=${editor}"`, '-c', `"core.editor=${editor}"`];
 		}
 		return state.repo.rebase(configs, ...state.flags, state.reference.ref);
 	}
