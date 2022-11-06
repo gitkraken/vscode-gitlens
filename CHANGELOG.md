@@ -8,10 +8,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Improved Rebase editor &mdash; better performance and user experience
+  - Changes the header and footer to always be visible
+  - Shows the _Commit Details_ view on commit selection
+  - Adds full (multiline) commit message
+  - Adds the `f` fixup shortcut key to UI
+  - Ensures that large rebases show rich commit details
 - Changes the _Home_ view to always be available
 
 ### Fixed
 
+- Fixes [#2141](https://github.com/gitkraken/vscode-gitlens/issues/2141) - GitLens's rebase UI randomly fails loading interactive rebase when performed outside of VSC
+- Fixes [#1732](https://github.com/gitkraken/vscode-gitlens/issues/1732) - Phantom rebase-merge directory (`rm -rf ".git/rebase-merge"`)
+- Fixes [#1652](https://github.com/gitkraken/vscode-gitlens/issues/1652) - Closing interacteractive rebase editor after "git rebase --edit" aborts rebase-in-progress
 - Fixes [#1549](https://github.com/gitkraken/vscode-gitlens/issues/1549) - Fetch does not work when local branch name differs from remote branch name
 - Fixes [#2292](https://github.com/gitkraken/vscode-gitlens/issues/2292) - Push button in BranchTrackingStatusNode of non-current branch does not trigger "Push force"
 - Fixes [#1488](https://github.com/gitkraken/vscode-gitlens/issues/1488) - Open Folder History not working with non-English language pack
