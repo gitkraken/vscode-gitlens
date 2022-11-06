@@ -447,7 +447,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		const showDetailsView = configuration.get('rebaseEditor.showDetailsView');
 
 		void GitActions.Commit.showDetailsView(commit, {
-			pin: true,
+			pin: false,
 			preserveFocus: true,
 			preserveVisibility: context.firstSelection ? showDetailsView === false : showDetailsView !== 'selection',
 		});

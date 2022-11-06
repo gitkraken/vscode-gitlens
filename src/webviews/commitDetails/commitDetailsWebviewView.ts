@@ -128,7 +128,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 						commit = await this.container.git.getCommit(commit.repoPath, commit.ref);
 					}
 				}
-				this.updateCommit(commit, { pinned: pin ?? true });
+				this.updateCommit(commit, { pinned: pin ?? false });
 			}
 		}
 

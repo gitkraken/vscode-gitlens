@@ -1,8 +1,9 @@
 import type { TextEditor, Uri } from 'vscode';
-import { executeGitCommand } from '../commands/gitCommands.actions';
+import { executeGitCommand, GitActions } from '../commands/gitCommands.actions';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
+import { GitReference } from '../git/models/reference';
 import { createSearchQueryForCommits } from '../git/search';
 import { Logger } from '../logger';
 import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
@@ -79,9 +80,9 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 		}
 
 		if (args.refs.length === 1) {
-			return this.container.commitDetailsView.show({
-				commit: { ref: args.refs[0], refType: 'revision', repoPath: args.repoPath!, name: '' },
-			});
+			return GitActions.Commit.showDetailsView(
+				GitReference.create(args.refs[0], args.repoPath!, { refType: 'revision' }),
+			);
 		}
 
 		return executeGitCommand({
