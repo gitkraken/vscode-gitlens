@@ -73,15 +73,16 @@
 								value="selection"
 								data-setting
 							/>
-							<label for="graph.showDetailsView">Show the Commit Details view</label>
+							<label for="graph.showDetailsView">Show Commit Details view</label>
 							<div class="select-container">
 								<select
 									id="graph.showDetailsView"
 									name="graph.showDetailsView"
 									data-setting
 									data-enablement="graph.showDetailsView !false"
+									disabled
 								>
-									<option value="open">when first opened</option>
+									<option value="open">only when opening</option>
 									<option value="selection">when selection changes (default)</option>
 								</select>
 							</div>
