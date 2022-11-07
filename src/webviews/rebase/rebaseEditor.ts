@@ -1,7 +1,7 @@
 import type { CancellationToken, CustomTextEditorProvider, TextDocument, WebviewPanel } from 'vscode';
 import { ConfigurationTarget, Disposable, Position, Range, Uri, window, workspace, WorkspaceEdit } from 'vscode';
 import { getNonce } from '@env/crypto';
-import { ShowQuickCommitCommand } from '../../commands';
+import { ShowCommitsInViewCommand } from '../../commands';
 import { GitActions } from '../../commands/gitCommands.actions';
 import { configuration } from '../../configuration';
 import { CoreCommands } from '../../constants';
@@ -585,7 +585,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		}
 
 		const defaultDateFormat = configuration.get('defaultDateFormat');
-		const command = ShowQuickCommitCommand.getMarkdownCommandArgs(`\${commit}`, context.repoPath);
+		const command = ShowCommitsInViewCommand.getMarkdownCommandArgs(`\${commit}`, context.repoPath);
 
 		const ontoCommit = onto ? context.commits?.find(c => c.sha.startsWith(onto)) : undefined;
 
