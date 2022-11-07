@@ -615,12 +615,15 @@ export class SubscriptionService implements Disposable {
 
 		let actual: Subscription['plan']['actual'] | undefined;
 		if (paidLicenses.length > 0) {
-			paidLicenses.sort(
-				(a, b) =>
-					licenseStatusPriority(b[1].latestStatus) - licenseStatusPriority(a[1].latestStatus) ||
-					getSubscriptionPlanPriority(convertLicenseTypeToPlanId(b[0])) -
-						getSubscriptionPlanPriority(convertLicenseTypeToPlanId(a[0])),
-			);
+			if (paidLicenses.length > 1) {
+				paidLicenses.sort(
+					(a, b) =>
+						getSubscriptionPlanPriority(convertLicenseTypeToPlanId(b[0])) +
+						licenseStatusPriority(b[1].latestStatus) -
+						(getSubscriptionPlanPriority(convertLicenseTypeToPlanId(a[0])) +
+							licenseStatusPriority(a[1].latestStatus)),
+				);
+			}
 
 			const [licenseType, license] = paidLicenses[0];
 			actual = getSubscriptionPlan(
@@ -639,12 +642,15 @@ export class SubscriptionService implements Disposable {
 
 		let effective: Subscription['plan']['effective'] | undefined;
 		if (effectiveLicenses.length > 0) {
-			effectiveLicenses.sort(
-				(a, b) =>
-					licenseStatusPriority(b[1].latestStatus) - licenseStatusPriority(a[1].latestStatus) ||
-					getSubscriptionPlanPriority(convertLicenseTypeToPlanId(b[0])) -
-						getSubscriptionPlanPriority(convertLicenseTypeToPlanId(a[0])),
-			);
+			if (effectiveLicenses.length > 1) {
+				effectiveLicenses.sort(
+					(a, b) =>
+						getSubscriptionPlanPriority(convertLicenseTypeToPlanId(b[0])) +
+						licenseStatusPriority(b[1].latestStatus) -
+						(getSubscriptionPlanPriority(convertLicenseTypeToPlanId(a[0])) +
+							licenseStatusPriority(a[1].latestStatus)),
+				);
+			}
 
 			const [licenseType, license] = effectiveLicenses[0];
 			effective = getSubscriptionPlan(
@@ -655,6 +661,8 @@ export class SubscriptionService implements Disposable {
 		}
 
 		if (effective == null) {
+			effective = { ...actual };
+		} else if (getSubscriptionPlanPriority(actual.id) >= getSubscriptionPlanPriority(effective.id)) {
 			effective = { ...actual };
 		}
 
