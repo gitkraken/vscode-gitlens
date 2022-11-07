@@ -119,7 +119,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			if (commit == null) {
 				commit = this.getBestCommitOrStash();
 			}
-			if (commit != null) {
+			if (commit != null && !this._context.commit?.ref.startsWith(commit.ref)) {
 				if (!isCommit(commit)) {
 					if (commit.refType === 'stash') {
 						const stash = await this.container.git.getStash(commit.repoPath);

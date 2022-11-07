@@ -36,7 +36,6 @@ import { getContext, onDidChangeContext, setContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
 import { GitSearchError } from '../../../git/errors';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../../../git/models/branch';
-import type { GitCommit } from '../../../git/models/commit';
 import { GitContributor } from '../../../git/models/contributor';
 import { GitGraphRowType } from '../../../git/models/graph';
 import type { GitGraph } from '../../../git/models/graph';
@@ -140,7 +139,7 @@ export interface ShowInCommitGraphCommandArgs {
 }
 
 export interface GraphSelectionChangeEvent {
-	readonly selection: GitCommit[];
+	readonly selection: GitRevisionReference[];
 }
 
 const defaultGraphColumnsSettings: GraphColumnsSettings = {
@@ -178,8 +177,8 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 	}
 
-	private _selection: readonly GitCommit[] | undefined;
-	get selection(): readonly GitCommit[] | undefined {
+	private _selection: readonly GitRevisionReference[] | undefined;
+	get selection(): readonly GitRevisionReference[] | undefined {
 		return this._selection;
 	}
 
@@ -853,20 +852,27 @@ export class GraphWebview extends WebviewBase<State> {
 			this._fireSelectionChangedDebounced = debounce(this.fireSelectionChanged.bind(this), 250);
 		}
 
-		void this._fireSelectionChangedDebounced(item?.id, item?.type);
+		this._fireSelectionChangedDebounced(item?.id, item?.type);
 	}
 
-	private async fireSelectionChanged(id: string | undefined, type: GitGraphRowType | undefined) {
-		let commits: GitCommit[] | undefined;
+	private fireSelectionChanged(id: string | undefined, type: GitGraphRowType | undefined) {
+		if (this.repository == null) return;
+
+		let commits: GitRevisionReference[] | undefined;
 		if (id != null) {
 			let commit;
 			if (type === GitGraphRowType.Stash) {
-				const stash = await this.repository?.getStash();
-				commit = stash?.commits.get(id);
+				commit = GitReference.create(id, this.repository.path, {
+					refType: 'stash',
+					name: id,
+					number: undefined,
+				});
+				// const stash = await this.repository?.getStash();
+				// commit = stash?.commits.get(id);
 			} else if (type === GitGraphRowType.Working) {
-				commit = await this.repository?.getCommit(GitRevision.uncommitted);
+				commit = GitReference.create(GitRevision.uncommitted, this.repository.path, { refType: 'revision' });
 			} else {
-				commit = await this.repository?.getCommit(id);
+				commit = GitReference.create(id, this.repository.path, { refType: 'revision' });
 			}
 			if (commit != null) {
 				commits = [commit];
