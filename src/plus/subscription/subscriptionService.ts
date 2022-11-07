@@ -522,6 +522,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private _lastCheckInDate: Date | undefined;
+	@gate<SubscriptionService['checkInAndValidate']>(s => s.account.id)
 	private async checkInAndValidate(session: AuthenticationSession, showSlowProgress: boolean = false): Promise<void> {
 		if (!showSlowProgress) return this.checkInAndValidateCore(session);
 
