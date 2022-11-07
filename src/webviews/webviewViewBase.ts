@@ -155,6 +155,8 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 	}
 
 	private onWindowStateChanged(e: WindowState) {
+		if (!this.visible) return;
+
 		this.onWindowFocusChanged?.(e.focused);
 	}
 

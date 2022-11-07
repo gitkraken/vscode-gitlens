@@ -10,6 +10,8 @@ import type { SubscriptionChangeEvent } from '../../plus/subscription/subscripti
 import { ensurePlusFeaturesEnabled } from '../../plus/subscription/utils';
 import type { Subscription } from '../../subscription';
 import { executeCoreCommand, registerCommand } from '../../system/command';
+import type { Deferrable } from '../../system/function';
+import { debounce } from '../../system/function';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
 import { WebviewViewBase } from '../webviewViewBase';
@@ -45,13 +47,19 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 	}
 
 	protected override onVisibilityChanged(visible: boolean): void {
-		if (!visible) return;
+		if (!visible) {
+			this._validateSubscriptionDebounced?.cancel();
+			return;
+		}
 
 		queueMicrotask(() => void this.validateSubscription());
 	}
 
 	protected override onWindowFocusChanged(focused: boolean): void {
-		if (!focused) return;
+		if (!focused || !this.visible) {
+			this._validateSubscriptionDebounced?.cancel();
+			return;
+		}
 
 		queueMicrotask(() => void this.validateSubscription());
 	}
@@ -198,8 +206,18 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 		});
 	}
 
-	private _validating: Promise<void> | undefined;
+	private _validateSubscriptionDebounced: Deferrable<HomeWebviewView['validateSubscription']> | undefined = undefined;
+
 	private async validateSubscription(): Promise<void> {
+		if (this._validateSubscriptionDebounced == null) {
+			this._validateSubscriptionDebounced = debounce(this.validateSubscriptionCore, 1000);
+		}
+
+		await this._validateSubscriptionDebounced();
+	}
+
+	private _validating: Promise<void> | undefined;
+	private async validateSubscriptionCore() {
 		if (this._validating == null) {
 			this._validating = this.container.subscription.validate();
 			try {
