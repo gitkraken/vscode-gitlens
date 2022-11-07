@@ -8,6 +8,7 @@ import { CoreCommands } from '../../constants';
 import type { Container } from '../../container';
 import { emojify } from '../../emojis';
 import type { GitCommit } from '../../git/models/commit';
+import { GitReference } from '../../git/models/reference';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { Logger } from '../../logger';
 import { showRebaseSwitchToTextWarningMessage } from '../../messages';
@@ -434,19 +435,17 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			context.fireSelectionChangedDebounced = debounce(this.fireSelectionChanged.bind(this), 250);
 		}
 
-		void context.fireSelectionChangedDebounced(context, params.sha);
+		context.fireSelectionChangedDebounced(context, params.sha);
 	}
 
-	private async fireSelectionChanged(context: RebaseEditorContext, sha: string | undefined) {
-		let commit: GitCommit | undefined;
-		if (sha != null) {
-			commit = await this.container.git.getCommit(context.repoPath, sha);
-		}
-		if (commit == null) return;
-
+	private fireSelectionChanged(context: RebaseEditorContext, sha: string | undefined) {
+		if (sha == null) return;
 		const showDetailsView = configuration.get('rebaseEditor.showDetailsView');
 
-		void GitActions.Commit.showDetailsView(commit, {
+		// Find the full sha
+		sha = context.commits?.find(c => c.sha.startsWith(sha!))?.sha ?? sha;
+
+		void GitActions.Commit.showDetailsView(GitReference.create(sha, context.repoPath, { refType: 'revision' }), {
 			pin: false,
 			preserveFocus: true,
 			preserveVisibility: context.firstSelection ? showDetailsView === false : showDetailsView !== 'selection',
