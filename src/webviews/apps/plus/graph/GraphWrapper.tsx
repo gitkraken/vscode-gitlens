@@ -1,14 +1,14 @@
 import GraphContainer from '@gitkraken/gitkraken-components';
 import type {
 	GraphColumnSetting,
+	GraphColumnsSettings,
 	GraphContainerProps,
 	GraphPlatform,
 	GraphRef,
 	GraphRefGroup,
 	GraphRefOptData,
 	GraphRow,
-	OnFormatCommitDateTime,
-} from '@gitkraken/gitkraken-components';
+ OnFormatCommitDateTime } from '@gitkraken/gitkraken-components';
 import type { ReactElement } from 'react';
 import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
@@ -20,8 +20,8 @@ import type {
 	DidSearchParams,
 	DismissBannerParams,
 	GraphAvatars,
-	GraphColumnConfig,
 	GraphColumnName,
+	GraphColumnsConfig,
 	GraphComponentConfig,
 	GraphHiddenRef,
 	GraphMissingRefsMetadata,
@@ -59,7 +59,7 @@ export interface GraphWrapperProps {
 	state: State;
 	subscriber: (callback: UpdateStateCallback) => () => void;
 	onSelectRepository?: (repository: GraphRepository) => void;
-	onColumnChange?: (name: GraphColumnName, settings: GraphColumnConfig) => void;
+	onColumnsChange?: (colsSettings: GraphColumnsConfig) => void;
 	onDoubleClickRef?: (ref: GraphRef) => void;
 	onMissingAvatars?: (emails: { [email: string]: string }) => void;
 	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
@@ -131,7 +131,7 @@ export function GraphWrapper({
 	nonce,
 	state,
 	onSelectRepository,
-	onColumnChange,
+	onColumnsChange,
 	onDoubleClickRef,
 	onEnsureRowPromise,
 	onMissingAvatars,
@@ -473,11 +473,26 @@ export function GraphWrapper({
 
 	const handleOnColumnResized = (columnName: GraphColumnName, columnSettings: GraphColumnSetting) => {
 		if (columnSettings.width) {
-			onColumnChange?.(columnName, {
-				width: columnSettings.width,
-				isHidden: columnSettings.isHidden,
+			onColumnsChange?.({
+				[columnName]: {
+					width: columnSettings.width,
+					isHidden: columnSettings.isHidden,
+					order: columnSettings.order
+				}
 			});
 		}
+	};
+
+	const handleOnGraphColumnsReOrdered = (columnsSettings: GraphColumnsSettings) => {
+		const graphColumnsConfig: GraphColumnsConfig = {};
+		Object.keys(columnsSettings).forEach((columnName: string) => {
+			graphColumnsConfig[columnName] = {
+				width: columnsSettings[columnName].width,
+				isHidden: columnsSettings[columnName].isHidden,
+				order: columnsSettings[columnName].order
+			};
+		});
+		onColumnsChange?.(graphColumnsConfig);
 	};
 
 	const handleOnToggleRefsVisibilityClick = (_event: any, refs: GraphRefOptData[], visible: boolean) => {
@@ -736,6 +751,7 @@ export function GraphWrapper({
 							nonce={nonce}
 							onColumnResized={handleOnColumnResized}
 							onDoubleClickGraphRef={handleOnDoubleClickRef}
+							onGraphColumnsReOrdered={handleOnGraphColumnsReOrdered}
 							onSelectGraphRows={handleSelectGraphRows}
 							onToggleRefsVisibilityClick={handleOnToggleRefsVisibilityClick}
 							onEmailsMissingAvatarUrls={handleMissingAvatars}
