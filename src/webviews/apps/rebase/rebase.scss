@@ -3,7 +3,15 @@
 @import '../shared/utils';
 
 body {
+	--avatar-size: 2.2rem;
 	overflow: overlay;
+}
+
+.vscode-dark {
+	--avatar-bg: var(--color-background--lighten-30);
+}
+.vscode-light {
+	--avatar-bg: var(--color-background--darken-30);
 }
 
 .container {
@@ -80,16 +88,7 @@ footer {
 }
 
 .entries {
-	border-left: 2px solid;
-	margin-left: 10px;
-	padding-left: 4px;
-
-	.vscode-dark & {
-		border-color: var(--color-background--lighten-15);
-	}
-	.vscode-light & {
-		border-color: var(--color-background--darken-15);
-	}
+	padding: 0;
 }
 
 .entries--empty {
@@ -136,17 +135,42 @@ footer {
 	}
 }
 
-$entry-padding: 5px;
+$entry-padding: 7px;
 
-.entry {
+.entry,
+.entry-blocked {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	margin: 0px 5px 0px 10px;
 	padding: $entry-padding 0;
-	border: 2px solid transparent;
 	border-radius: 3px;
-	position: relative;
+}
+
+.entry {
+	padding-left: 26px;
+	margin: 0 5px 0 0;
+	content-visibility: auto;
+	contain-intrinsic-size: auto 36px;
+
+	&::before {
+		display: inline-block;
+		content: ' ';
+		background-color: var(--color-background);
+		border-right: 2px solid;
+		height: 100%;
+		position: absolute;
+		z-index: 0;
+		left: 10px;
+		top: 0;
+		transform: translateX(-50%);
+
+		.vscode-dark & {
+			border-right-color: var(--color-background--lighten-15);
+		}
+		.vscode-light & {
+			border-right-color: var(--color-background--darken-15);
+		}
+	}
 
 	&::after {
 		display: inline-block;
@@ -156,15 +180,14 @@ $entry-padding: 5px;
 		border-radius: 50%;
 		height: 12px;
 		width: 12px;
-		margin-left: -25px;
+		left: 2px;
 		position: absolute;
 		z-index: 2;
 	}
 
 	&:focus-within {
-		outline: none;
-		border: 2px solid var(--color-highlight--50);
-		border-radius: 3px;
+		outline: 2px solid var(--color-highlight--50);
+		outline-offset: -2px;
 	}
 
 	&.entry--edit,
@@ -175,14 +198,7 @@ $entry-padding: 5px;
 		}
 
 		&::before {
-			display: inline-block;
-			content: ' ';
-			background-color: var(--color-background);
-			border-right: 2px solid rgba(0, 153, 0, 1);
-			height: #{28px + ($entry-padding * 2)};
-			margin-left: -18px;
-			position: absolute;
-			z-index: 1;
+			border-right-color: rgba(0, 153, 0, 1);
 		}
 	}
 
@@ -193,15 +209,7 @@ $entry-padding: 5px;
 		}
 
 		&::before {
-			display: inline-block;
-			content: ' ';
-			background-color: var(--color-background);
-			border-right: 2px solid rgba(212, 153, 0, 1);
-			height: #{31px + ($entry-padding * 2)};
-			margin-left: -18px;
-			margin-top: 5px;
-			position: absolute;
-			z-index: 1;
+			border-right-color: rgba(212, 153, 0, 1);
 		}
 	}
 
@@ -211,14 +219,7 @@ $entry-padding: 5px;
 		}
 
 		&::before {
-			display: inline-block;
-			content: ' ';
-			background-color: var(--color-background);
-			border-right: 2px solid rgba(153, 0, 0, 1);
-			height: #{28px + ($entry-padding * 2)};
-			margin-left: -18px;
-			position: absolute;
-			z-index: 1;
+			border-right-color: rgba(153, 0, 0, 1);
 		}
 	}
 
@@ -229,18 +230,11 @@ $entry-padding: 5px;
 		}
 
 		&::before {
-			display: inline-block;
-			content: ' ';
-			background-color: var(--color-background);
-			border-right: 2px solid rgba(212, 153, 0, 1);
-			height: 40px;
-			margin-left: -18px;
-			margin-top: -5px;
-			position: absolute;
-			z-index: 1;
+			border-right-color: rgba(212, 153, 0, 1);
 		}
 	}
 
+	.entry-blocked,
 	&.entry--base,
 	&.entry--done {
 		& > .entry-action {
@@ -252,7 +246,6 @@ $entry-padding: 5px;
 			opacity: 0.4;
 		}
 
-		& > .entry-author,
 		& > .entry-date {
 			opacity: 0.3;
 		}
@@ -288,20 +281,12 @@ $entry-padding: 5px;
 
 	&.entry--base {
 		.entries--ascending & {
-			margin-bottom: 10px;
+			padding-top: 1px;
+			padding-bottom: 9px;
 		}
 		.entries:not(.entries--ascending) & {
-			margin-top: 10px;
-		}
-
-		.vscode-dark & {
-			background: rgba(255, 255, 255, 0.1);
-			box-shadow: 0px -1px 0px 0px rgba(255, 255, 255, 0.2);
-		}
-
-		.vscode-light & {
-			background: rgba(0, 0, 0, 0.1);
-			box-shadow: 0px -1px 0px 0px rgba(0, 0, 0, 0.2);
+			padding-top: 9px;
+			padding-bottom: 1px;
 		}
 	}
 
@@ -323,6 +308,20 @@ $entry-padding: 5px;
 				}
 			}
 		}
+	}
+}
+
+.entry-blocked {
+	width: 100%;
+
+	.vscode-dark & {
+		background: rgba(255, 255, 255, 0.1);
+		box-shadow: 0px -1px 0px 0px rgba(255, 255, 255, 0.2);
+	}
+
+	.vscode-light & {
+		background: rgba(0, 0, 0, 0.1);
+		box-shadow: 0px -1px 0px 0px rgba(0, 0, 0, 0.2);
 	}
 }
 
@@ -398,9 +397,7 @@ $entry-padding: 5px;
 
 .entry-avatar {
 	flex: auto 0 0;
-	margin: 0 -5px 0 0;
-	max-height: 16px;
-	max-width: 16px;
+	margin: 0;
 
 	.entry--squash &,
 	.entry--fixup &,
@@ -409,7 +406,6 @@ $entry-padding: 5px;
 	}
 }
 
-.entry-author,
 .entry-date,
 .entry-sha {
 	flex: auto 0 0;

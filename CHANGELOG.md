@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     - Adds a `gitlens.rebaseEditor.showDetailsView` setting to specify when to show the _Commit Details_ view for the selected row in the _Interactive Rebase Editor_
   - Adds full (multiline) commit message
   - Adds the `f` fixup shortcut key to UI
+  - Consolidates the UI for author and committer information into a stack of avatars
   - Adds emoji support for commit messages &mdash; closes [#1789](https://github.com/gitkraken/vscode-gitlens/issues/1789)
   - Ensures that large rebases show rich commit details
 - Changes the _Home_ view to always be available

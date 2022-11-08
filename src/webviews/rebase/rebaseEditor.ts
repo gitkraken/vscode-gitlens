@@ -602,6 +602,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			entry.commit = {
 				sha: commit.sha,
 				author: commit.author.name,
+				committer: commit.committer.name,
 				date: commit.formatDate(defaultDateFormat),
 				dateFromNow: commit.formatDateFromNow(),
 				message: emojify(commit.message ?? commit.summary),
@@ -618,6 +619,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 								? {
 										sha: ontoCommit.sha,
 										author: ontoCommit.author.name,
+										committer: ontoCommit.committer.name,
 										date: ontoCommit.formatDate(defaultDateFormat),
 										dateFromNow: ontoCommit.formatDateFromNow(),
 										message: emojify(ontoCommit.message || 'root'),
@@ -657,6 +659,14 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 						author: c.author.name,
 						avatarUrl: (await c.getAvatarUri()).toString(true),
 						email: c.author.email,
+					});
+				}
+				if (!context.authors.has(c.committer.name)) {
+					const avatarUri = await c.committer.getAvatarUri(c);
+					context.authors.set(c.committer.name, {
+						author: c.committer.name,
+						avatarUrl: avatarUri.toString(true),
+						email: c.committer.email,
 					});
 				}
 			}

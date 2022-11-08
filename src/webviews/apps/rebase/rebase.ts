@@ -16,7 +16,10 @@ import {
 	UpdateSelectionCommandType,
 } from '../../rebase/protocol';
 import { App } from '../shared/appBase';
+import type { AvatarItem } from '../shared/components/avatars/avatar-item';
 import { DOM } from '../shared/dom';
+import '../shared/components/avatars/avatar-item';
+import '../shared/components/avatars/avatar-stack';
 
 const rebaseActions = ['pick', 'reword', 'edit', 'squash', 'fixup', 'drop'];
 const rebaseActionsMap = new Map<string, RebaseEntryAction>([
@@ -310,7 +313,9 @@ class RebaseEditor extends App<State> {
 	}
 
 	private setSelectedEntry(sha: string, focusSelect: boolean = false) {
-		document.querySelectorAll<HTMLLIElement>(`${focusSelect ? 'select' : 'li'}[data-sha="${sha}"]`)[0]?.focus();
+		window.requestAnimationFrame(() => {
+			document.querySelectorAll<HTMLLIElement>(`${focusSelect ? 'select' : 'li'}[data-sha="${sha}"]`)[0]?.focus();
+		});
 	}
 
 	protected override onMessageReceived(e: MessageEvent) {
@@ -386,7 +391,6 @@ class RebaseEditor extends App<State> {
 		let squashToHere = false;
 		let tabIndex = 0;
 
-		const $entries = document.createDocumentFragment();
 		for (const entry of state.entries) {
 			squashToHere = false;
 			if (entry.action === 'squash' || entry.action === 'fixup') {
@@ -401,9 +405,9 @@ class RebaseEditor extends App<State> {
 			[$el, tabIndex] = this.createEntry(entry, state, ++tabIndex, squashToHere);
 
 			if (state.ascending) {
-				$entries.prepend($el);
+				$container.prepend($el);
 			} else {
-				$entries.append($el);
+				$container.append($el);
 			}
 		}
 
@@ -422,9 +426,9 @@ class RebaseEditor extends App<State> {
 					false,
 				);
 				if (state.ascending) {
-					$entries.prepend($el);
+					$container.prepend($el);
 				} else {
-					$entries.appendChild($el);
+					$container.appendChild($el);
 				}
 				$container.classList.add('entries--base');
 			}
@@ -436,8 +440,6 @@ class RebaseEditor extends App<State> {
 			($checkbox as HTMLInputElement).checked = state.ascending;
 		}
 
-		$container.appendChild($entries);
-
 		this.setSelectedEntry(focusRef ?? state.entries[0].sha, focusSelect);
 	}
 
@@ -448,9 +450,17 @@ class RebaseEditor extends App<State> {
 		squashToHere: boolean,
 	): [HTMLLIElement, number] {
 		const $entry = document.createElement('li');
-		$entry.classList.add('entry', `entry--${entry.action ?? 'base'}`);
+		const action: string = entry.action ?? 'base';
+		$entry.classList.add('entry', `entry--${action}`);
 		$entry.classList.toggle('entry--squash-to', squashToHere);
 		$entry.dataset.sha = entry.sha;
+
+		let $content: HTMLElement = $entry;
+		if (action === 'base') {
+			$content = document.createElement('div');
+			$content.classList.add('entry-blocked');
+			$entry.appendChild($content);
+		}
 
 		if (entry.action != null) {
 			$entry.tabIndex = 0;
@@ -490,22 +500,38 @@ class RebaseEditor extends App<State> {
 		const message = commit?.message.trim() ?? entry.message.trim();
 		$message.textContent = message.replace(/\n+(?:\s+\n+)?/g, ' | ');
 		$message.title = message;
-		$entry.appendChild($message);
+		$content.appendChild($message);
 
 		if (commit != null) {
 			if (commit.author) {
 				const author = state.authors[commit.author];
-				if (author?.avatarUrl.length) {
-					const $avatar = document.createElement('img');
-					$avatar.classList.add('entry-avatar');
-					$avatar.src = author.avatarUrl;
-					$entry.appendChild($avatar);
-				}
+				const committer = state.authors[commit.committer];
+				if (author?.avatarUrl != null || committer?.avatarUrl != null) {
+					const $avatarStack = document.createElement('avatar-stack');
+					$avatarStack.classList.add('entry-avatar');
 
-				const $author = document.createElement('span');
-				$author.classList.add('entry-author');
-				$author.textContent = commit.author;
-				$entry.appendChild($author);
+					const hasAuthor = author?.avatarUrl.length;
+					const hasCommitter = author !== committer && committer?.avatarUrl.length;
+					if (hasAuthor) {
+						const $avatar = document.createElement('avatar-item') as AvatarItem;
+						$avatar.media = author.avatarUrl;
+						$avatar.ariaLabel = $avatar.title = hasCommitter
+							? `Authored by: ${author.author}`
+							: author.author;
+						$avatarStack.appendChild($avatar);
+					}
+
+					if (hasCommitter) {
+						const $avatar = document.createElement('avatar-item') as AvatarItem;
+						$avatar.media = committer.avatarUrl;
+						$avatar.ariaLabel = $avatar.title = hasAuthor
+							? `Committed by: ${committer.author}`
+							: committer.author;
+						$avatarStack.appendChild($avatar);
+					}
+
+					$entry.appendChild($avatarStack);
+				}
 			}
 
 			if (commit.dateFromNow) {
@@ -521,7 +547,7 @@ class RebaseEditor extends App<State> {
 		$sha.classList.add('entry-sha', 'icon--commit');
 		$sha.href = state.commands.commit.replace(this.commitTokenRegex, commit?.sha ?? entry.sha);
 		$sha.textContent = entry.sha.substr(0, 7);
-		$entry.appendChild($sha);
+		$content.appendChild($sha);
 
 		return [$entry, tabIndex];
 	}

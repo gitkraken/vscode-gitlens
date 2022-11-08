@@ -33,6 +33,7 @@ export interface Author {
 export interface Commit {
 	readonly sha: string;
 	readonly author: string;
+	readonly committer: string;
 	// readonly avatarUrl: string;
 	readonly date: string;
 	readonly dateFromNow: string;
