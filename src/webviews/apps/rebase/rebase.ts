@@ -387,29 +387,24 @@ class RebaseEditor extends App<State> {
 		let tabIndex = 0;
 
 		const $entries = document.createDocumentFragment();
-		function appendEntries(this: RebaseEditor) {
-			const entries = state.ascending ? state.entries.slice().reverse() : state.entries;
-			let $el: HTMLLIElement;
-			for (const entry of entries) {
-				squashToHere = false;
-				if (entry.action === 'squash' || entry.action === 'fixup') {
-					squashing = true;
-				} else if (squashing) {
-					if (entry.action !== 'drop') {
-						squashToHere = true;
-						squashing = false;
-					}
+		for (const entry of state.entries) {
+			squashToHere = false;
+			if (entry.action === 'squash' || entry.action === 'fixup') {
+				squashing = true;
+			} else if (squashing) {
+				if (entry.action !== 'drop') {
+					squashToHere = true;
+					squashing = false;
 				}
-
-				[$el, tabIndex] = this.createEntry(entry, state, ++tabIndex, squashToHere);
-
-				$entries.appendChild($el);
 			}
-		}
 
-		if (!state.ascending) {
-			$container.classList.remove('entries--ascending');
-			appendEntries.call(this);
+			[$el, tabIndex] = this.createEntry(entry, state, ++tabIndex, squashToHere);
+
+			if (state.ascending) {
+				$entries.prepend($el);
+			} else {
+				$entries.append($el);
+			}
 		}
 
 		if (state.onto != null) {
@@ -426,16 +421,16 @@ class RebaseEditor extends App<State> {
 					++tabIndex,
 					false,
 				);
-				$entries.appendChild($el);
+				if (state.ascending) {
+					$entries.prepend($el);
+				} else {
+					$entries.appendChild($el);
+				}
 				$container.classList.add('entries--base');
 			}
 		}
 
-		if (state.ascending) {
-			$container.classList.add('entries--ascending');
-			appendEntries.call(this);
-		}
-
+		$container.classList.toggle('entries--ascending', state.ascending);
 		const $checkbox = document.getElementById('ordering');
 		if ($checkbox != null) {
 			($checkbox as HTMLInputElement).checked = state.ascending;
