@@ -164,7 +164,6 @@ export interface GlobalStorage {
 			visible?: boolean;
 		};
 		commitDetails: {
-			autolinksExpanded?: boolean;
 			dismissed?: string[];
 		};
 	};
@@ -201,6 +200,9 @@ export interface WorkspaceStorage {
 		searchAndCompare: {
 			keepResults?: boolean;
 			pinned?: StoredPinnedItems;
+		};
+		commitDetails: {
+			autolinksExpanded?: boolean;
 		};
 	};
 
