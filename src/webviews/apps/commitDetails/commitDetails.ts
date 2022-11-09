@@ -268,15 +268,13 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 	}
 
 	renderActions(state: CommitState) {
-		const isHiddenForUncommitted = state.selected?.sha === uncommittedSha ? 'true' : 'false';
-		for (const $el of document.querySelectorAll('[data-action-type="graph"],[data-action-type="more"]')) {
+		const isUncommitted = state.selected?.sha === uncommittedSha;
+		const isHiddenForUncommitted = isUncommitted.toString();
+		for (const $el of document.querySelectorAll('[data-action-type="sha"],[data-action-type="more"]')) {
 			$el.setAttribute('aria-hidden', isHiddenForUncommitted);
 		}
 
-		const isHiddenForCommitted = state.selected?.sha !== uncommittedSha ? 'true' : 'false';
-		for (const $el of document.querySelectorAll('[data-action-type="scm"]')) {
-			$el.setAttribute('aria-hidden', isHiddenForCommitted);
-		}
+		document.querySelector('[data-action-type="scm"]')?.setAttribute('aria-hidden', (!isUncommitted).toString());
 	}
 
 	renderPin(state: CommitState) {
