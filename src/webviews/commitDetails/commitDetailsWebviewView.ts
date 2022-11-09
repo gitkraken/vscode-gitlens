@@ -150,7 +150,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		if (this._context.preferences == null) {
 			this.updatePendingContext({
 				preferences: {
-					autolinksExpanded: this.container.storage.get('views:commitDetails:autolinksExpanded'),
+					autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded'),
 					avatars: configuration.get('views.commitDetails.avatars'),
 					dismissed: this.container.storage.get('views:commitDetails:dismissed'),
 					files: configuration.get('views.commitDetails.files'),
@@ -534,7 +534,10 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			preferences.autolinksExpanded != null &&
 			this._context.preferences?.autolinksExpanded !== preferences.autolinksExpanded
 		) {
-			void this.container.storage.store('views:commitDetails:autolinksExpanded', preferences.autolinksExpanded);
+			void this.container.storage.storeWorkspace(
+				'views:commitDetails:autolinksExpanded',
+				preferences.autolinksExpanded,
+			);
 
 			changes.autolinksExpanded = preferences.autolinksExpanded;
 		}
