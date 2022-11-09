@@ -1346,10 +1346,13 @@ export class GraphWebview extends WebviewBase<State> {
 		// If we have a set of data refresh to the same set
 		const limit = Math.max(defaultItemLimit, this._graph?.ids.size ?? defaultItemLimit);
 
+		const ref =
+			this._selectedId == null || this._selectedId === GitRevision.uncommitted ? 'HEAD' : this._selectedId;
+
 		const dataPromise = this.container.git.getCommitsForGraph(
 			this.repository.path,
 			this._panel!.webview.asWebviewUri.bind(this._panel!.webview),
-			{ limit: limit, ref: this._selectedId ?? 'HEAD' },
+			{ limit: limit, ref: ref },
 		);
 
 		// Check for GitLens+ access and working tree stats
@@ -1448,6 +1451,9 @@ export class GraphWebview extends WebviewBase<State> {
 		if (this._selectedId === id) return;
 
 		this._selectedId = id;
+		if (id === GitRevision.uncommitted) {
+			id = GitGraphRowType.Working;
+		}
 		this._selectedRows = id != null ? { [id]: true } : undefined;
 	}
 
