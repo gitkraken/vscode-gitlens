@@ -150,9 +150,9 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		if (this._context.preferences == null) {
 			this.updatePendingContext({
 				preferences: {
-					autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded'),
+					autolinksExpanded: this.container.storage.get('views:commitDetails:autolinksExpanded'),
 					avatars: configuration.get('views.commitDetails.avatars'),
-					dismissed: this.container.storage.getWorkspace('views:commitDetails:dismissed'),
+					dismissed: this.container.storage.get('views:commitDetails:dismissed'),
 					files: configuration.get('views.commitDetails.files'),
 				},
 			});
@@ -525,30 +525,33 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			return;
 		}
 
-		const changes: Preferences = {};
+		const changes: Preferences = {
+			...this._context.preferences,
+			...this._pendingContext?.preferences,
+		};
 
-		if (this._context.preferences?.autolinksExpanded !== preferences.autolinksExpanded) {
-			void this.container.storage.storeWorkspace(
-				'views:commitDetails:autolinksExpanded',
-				preferences.autolinksExpanded,
-			);
+		if (
+			preferences.autolinksExpanded != null &&
+			this._context.preferences?.autolinksExpanded !== preferences.autolinksExpanded
+		) {
+			void this.container.storage.store('views:commitDetails:autolinksExpanded', preferences.autolinksExpanded);
 
 			changes.autolinksExpanded = preferences.autolinksExpanded;
 		}
 
-		if (this._context.preferences?.avatars !== preferences.avatars) {
+		if (preferences.avatars != null && this._context.preferences?.avatars !== preferences.avatars) {
 			void configuration.updateEffective('views.commitDetails.avatars', preferences.avatars);
 
 			changes.avatars = preferences.avatars;
 		}
 
-		if (this._context.preferences?.dismissed !== preferences.dismissed) {
-			void this.container.storage.storeWorkspace('views:commitDetails:dismissed', preferences.dismissed);
+		if (preferences.dismissed != null && this._context.preferences?.dismissed !== preferences.dismissed) {
+			void this.container.storage.store('views:commitDetails:dismissed', preferences.dismissed);
 
 			changes.dismissed = preferences.dismissed;
 		}
 
-		if (this._context.preferences?.files !== preferences.files) {
+		if (preferences.files != null && this._context.preferences?.files !== preferences.files) {
 			if (this._context.preferences?.files?.compact !== preferences.files?.compact) {
 				void configuration.updateEffective('views.commitDetails.files.compact', preferences.files?.compact);
 			}
