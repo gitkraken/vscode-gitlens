@@ -163,6 +163,11 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 	}
 
 	private onExpandedChange(e: WebviewPaneExpandedChangeEventDetail) {
+		this.state.preferences = {
+			...this.state.preferences,
+			autolinksExpanded: e.expanded,
+		};
+
 		this.sendCommand(PreferencesCommandType, { autolinksExpanded: e.expanded });
 	}
 
