@@ -475,18 +475,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	async visibility(repoPath: string): Promise<RepositoryVisibility> {
-		const remotes = await this.getRemotes(repoPath);
+		const remotes = await this.getRemotes(repoPath, { sort: true });
 		if (remotes.length === 0) return RepositoryVisibility.Local;
-
-		const origin = remotes.find(r => r.name === 'origin');
-		if (origin != null) {
-			return this.getRemoteVisibility(origin);
-		}
-
-		const upstream = remotes.find(r => r.name === 'upstream');
-		if (upstream != null) {
-			return this.getRemoteVisibility(upstream);
-		}
 
 		for await (const result of fastestSettled(remotes.map(r => this.getRemoteVisibility(r)))) {
 			if (result.status !== 'fulfilled') continue;
@@ -497,9 +487,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return RepositoryVisibility.Private;
 	}
 
+	@debug<LocalGitProvider['getRemoteVisibility']>({ args: { 0: r => r.url } })
 	private async getRemoteVisibility(
 		remote: GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
 	): Promise<RepositoryVisibility> {
+		const scope = getLogScope();
+
 		switch (remote.provider?.id) {
 			case 'github':
 			case 'gitlab':
@@ -513,11 +506,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 				// Check if the url returns a 200 status code
 				try {
-					const response = await fetch(url, { method: 'HEAD', agent: getProxyAgent() });
-					if (response.status === 200) {
-						return RepositoryVisibility.Public;
-					}
-				} catch {}
+					const rsp = await fetch(url, { method: 'HEAD', agent: getProxyAgent() });
+					if (rsp.ok) return RepositoryVisibility.Public;
+
+					Logger.debug(scope, `Response=${rsp.status}`);
+				} catch (ex) {
+					debugger;
+					Logger.error(ex, scope);
+				}
 				return RepositoryVisibility.Private;
 			}
 			default:
