@@ -26,7 +26,7 @@ const styles = css`
 	}
 
 	:host(:hover) {
-		transform: translateY(-0.2em);
+		transform: scale(1.2);
 	}
 
 	:host(:focus-visible) {
