@@ -83,7 +83,7 @@ import { gate } from '../../system/decorators/gate';
 import { debug, getLogScope, log } from '../../system/decorators/log';
 import { filterMap, first, last, some } from '../../system/iterable';
 import { isAbsolute, isFolderGlob, maybeUri, normalizePath, relative } from '../../system/path';
-import { getSettledValue } from '../../system/promise';
+import { fastestSettled, getSettledValue } from '../../system/promise';
 import { serializeWebviewItemContext } from '../../system/webview';
 import type { CachedBlame, CachedLog } from '../../trackers/gitDocumentTracker';
 import { GitDocumentState } from '../../trackers/gitDocumentTracker';
@@ -217,12 +217,13 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	async visibility(repoPath: string): Promise<RepositoryVisibility> {
-		const remotes = await this.getRemotes(repoPath);
+		const remotes = await this.getRemotes(repoPath, { sort: true });
 		if (remotes.length === 0) return RepositoryVisibility.Local;
 
-		const origin = remotes.find(r => r.name === 'origin');
-		if (origin != null) {
-			return this.getRemoteVisibility(origin);
+		for await (const result of fastestSettled(remotes.map(r => this.getRemoteVisibility(r)))) {
+			if (result.status !== 'fulfilled') continue;
+
+			if (result.value === RepositoryVisibility.Public) return RepositoryVisibility.Public;
 		}
 
 		return RepositoryVisibility.Private;
