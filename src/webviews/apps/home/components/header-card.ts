@@ -375,7 +375,7 @@ export class HeaderCard extends FASTElement {
 		this.progressNode.style.width = this.progress;
 	}
 
-	dismissStatus(e: MouseEvent) {
+	dismissStatus(_e: MouseEvent) {
 		this.pinStatus = false;
 		this.$emit('dismiss-status');
 
