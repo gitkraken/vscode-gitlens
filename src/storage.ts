@@ -139,6 +139,9 @@ export interface GlobalStorage {
 		sections: {
 			dismissed?: string[];
 		};
+		status: {
+			pinned?: boolean;
+		};
 	};
 	pendingWelcomeOnFocus?: boolean;
 	pendingWhatsNewOnFocus?: boolean;

@@ -11,12 +11,14 @@ import {
 	DidChangeLayoutType,
 	DidChangeSubscriptionNotificationType,
 	DismissSectionCommandType,
+	DismissStatusCommandType,
 } from '../../home/protocol';
 import type { IpcMessage } from '../../protocol';
 import { ExecuteCommandType, onIpc } from '../../protocol';
 import { App } from '../shared/appBase';
 import { DOM } from '../shared/dom';
 import type { CardSection } from './components/card-section';
+import type { HeaderCard } from './components/header-card';
 import type { PlusBanner } from './components/plus-banner';
 import type { SteppedSection } from './components/stepped-section';
 import '../shared/components/code-icon';
@@ -65,6 +67,11 @@ export class HomeApp extends App<State> {
 				this.onCardDismissed(e, target),
 			),
 		);
+		disposables.push(
+			DOM.on<HeaderCard, undefined>('header-card', 'dismiss-status', (e, target: HTMLElement) =>
+				this.onStatusDismissed(e, target),
+			),
+		);
 
 		return disposables;
 	}
@@ -80,6 +87,7 @@ export class HomeApp extends App<State> {
 					this.state.subscription = params.subscription;
 					this.state.completedActions = params.completedActions;
 					this.state.avatar = params.avatar;
+					this.state.pinStatus = params.pinStatus;
 					this.updateState();
 				});
 				break;
@@ -129,6 +137,12 @@ export class HomeApp extends App<State> {
 		this.updateState();
 	}
 
+	private onStatusDismissed(e: CustomEvent<undefined>, target: HTMLElement) {
+		this.state.pinStatus = false;
+		this.sendCommand(DismissStatusCommandType, undefined);
+		this.updateHeader();
+	}
+
 	private onDataActionClicked(e: MouseEvent, target: HTMLElement) {
 		const action = target.dataset.action;
 		this.onActionClickedCore(action);
@@ -165,9 +179,9 @@ export class HomeApp extends App<State> {
 	}
 
 	private updateHeader(days = this.getDaysRemaining(), forceShowPlus = this.forceShowPlus()) {
-		const { subscription, completedSteps, avatar } = this.state;
+		const { subscription, completedSteps, avatar, pinStatus } = this.state;
 
-		const $headerContent = document.getElementById('header-card');
+		const $headerContent = document.getElementById('header-card') as HeaderCard;
 		if ($headerContent) {
 			if (avatar) {
 				$headerContent.setAttribute('image', avatar);
@@ -191,6 +205,7 @@ export class HomeApp extends App<State> {
 			$headerContent.setAttribute('state', subscription.state.toString());
 			$headerContent.setAttribute('plan', subscription.plan.effective.name);
 			$headerContent.setAttribute('days', days.toString());
+			$headerContent.pinStatus = pinStatus;
 		}
 	}
 
