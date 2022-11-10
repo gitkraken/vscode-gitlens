@@ -19,6 +19,7 @@ export interface State {
 	visibility: RepositoriesVisibility;
 	avatar?: string;
 	layout: ViewsLayout;
+	pinStatus: boolean;
 }
 
 export interface CompleteStepParams {
@@ -32,10 +33,13 @@ export interface DismissSectionParams {
 }
 export const DismissSectionCommandType = new IpcCommandType<DismissSectionParams>('home/section/dismiss');
 
+export const DismissStatusCommandType = new IpcCommandType<undefined>('home/status/dismiss');
+
 export interface DidChangeSubscriptionParams {
 	subscription: Subscription;
 	completedActions: CompletedActions[];
 	avatar?: string;
+	pinStatus: boolean;
 }
 export const DidChangeSubscriptionNotificationType = new IpcNotificationType<DidChangeSubscriptionParams>(
 	'subscription/didChange',

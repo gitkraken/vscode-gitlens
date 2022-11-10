@@ -13,8 +13,23 @@ const template = html<HeaderCard>`
 	</h1>
 	<p class="header-card__account">
 		<span class="status">
-			<span class="repo-access${x => (x.isPro ? ' is-pro' : '')}">✨</span>${x => x.planName}
-			<pop-over>
+			<span ${ref('statusNode')} tabindex="-1" class="status-label"
+				><span class="repo-access${x => (x.isPro ? ' is-pro' : '')}">✨</span>${x => x.planName}</span
+			>
+			<pop-over class="${x => (x.pinStatus ? 'is-pinned' : null)}">
+				${when(
+					x => x.pinStatus,
+					html<HeaderCard>`
+						<span slot="type">status update</span>
+						<a
+							href="#"
+							class="action is-icon"
+							slot="actions"
+							@click="${(x, c) => x.dismissStatus(c.event as MouseEvent)}"
+							><code-icon icon="close"></code-icon
+						></a>
+					`,
+				)}
 				You have access to GitLens+ features on ${x => (x.isPro ? 'any repo' : 'local & public repos')}, and all
 				other GitLens features on any repo.
 			</pop-over>
@@ -188,6 +203,9 @@ const styles = css`
 	}
 	.status {
 		color: var(--color-foreground--65);
+	}
+
+	.status-label {
 		cursor: help;
 	}
 
@@ -195,7 +213,7 @@ const styles = css`
 		top: 1.6em;
 		left: 0;
 	}
-	.status:not(:hover) pop-over {
+	.status-label:not(:hover) + pop-over:not(.is-pinned) {
 		display: none;
 	}
 
@@ -251,6 +269,10 @@ const styles = css`
 	:host-context(.vscode-light) .action:hover {
 		background-color: var(--color-background--darken-10);
 	}
+
+	pop-over .action {
+		margin-right: -0.2rem;
+	}
 `;
 
 @customElement({ name: 'header-card', template: template, styles: styles })
@@ -276,7 +298,11 @@ export class HeaderCard extends FASTElement {
 	@attr
 	plan = '';
 
+	@attr({ attribute: 'pin-status', mode: 'boolean' })
+	pinStatus = true;
+
 	progressNode!: HTMLElement;
+	statusNode!: HTMLElement;
 
 	override attributeChangedCallback(name: string, oldValue: string, newValue: string): void {
 		super.attributeChangedCallback(name, oldValue, newValue);
@@ -347,5 +373,14 @@ export class HeaderCard extends FASTElement {
 
 	updateProgressWidth() {
 		this.progressNode.style.width = this.progress;
+	}
+
+	dismissStatus(e: MouseEvent) {
+		this.pinStatus = false;
+		this.$emit('dismiss-status');
+
+		window.requestAnimationFrame(() => {
+			this.statusNode?.focus();
+		});
 	}
 }

@@ -26,6 +26,7 @@ import {
 	DidChangeLayoutType,
 	DidChangeSubscriptionNotificationType,
 	DismissSectionCommandType,
+	DismissStatusCommandType,
 } from './protocol';
 
 export class HomeWebviewView extends WebviewViewBase<State> {
@@ -52,7 +53,8 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 		return super.show(options);
 	}
 
-	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
+	private async onSubscriptionChanged(e: SubscriptionChangeEvent) {
+		await this.container.storage.store('home:status:pinned', true);
 		void this.notifyDidChangeData(e.current);
 	}
 
@@ -133,6 +135,9 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 			case DismissSectionCommandType.method:
 				onIpc(DismissSectionCommandType, e, params => this.dismissSection(params));
 				break;
+			case DismissStatusCommandType.method:
+				onIpc(DismissStatusCommandType, e, _params => this.dismissPinStatus());
+				break;
 		}
 	}
 
@@ -156,6 +161,10 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 		}
 
 		void this.container.storage.store('home:sections:dismissed', sections);
+	}
+
+	private dismissPinStatus() {
+		void this.container.storage.store('home:status:pinned', false);
 	}
 
 	protected override async includeBootstrap(): Promise<State> {
@@ -194,6 +203,10 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 		};
 	}
 
+	private getPinStatus() {
+		return this.container.storage.get('home:status:pinned') ?? true;
+	}
+
 	private async getState(subscription?: Subscription): Promise<State> {
 		const subscriptionState = await this.getSubscription(subscription);
 		const steps = this.container.storage.get('home:steps:completed', []);
@@ -210,14 +223,24 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 			dismissedSections: sections,
 			avatar: subscriptionState.avatar,
 			layout: this.getLayout(),
+			pinStatus: this.getPinStatus(),
 		};
 	}
 
 	private notifyDidChangeData(subscription?: Subscription) {
 		if (!this.isReady) return false;
 
+		const getSub = async () => {
+			const sub = await this.getSubscription(subscription);
+
+			return {
+				...sub,
+				pinStatus: this.getPinStatus(),
+			};
+		};
+
 		return window.withProgress({ location: { viewId: this.id } }, async () =>
-			this.notify(DidChangeSubscriptionNotificationType, await this.getSubscription(subscription)),
+			this.notify(DidChangeSubscriptionNotificationType, await getSub()),
 		);
 	}
 

@@ -14,19 +14,13 @@ import { elementBase } from '../styles/base';
 
 const template = html<PopOver>`
 	<template>
-		${when(
-			x => x.hasTopNodes,
-			html<PopOver>`
-				<div class="top">
-					<slot ${slotted('typeNodes')} name="type"></slot>
-					<slot ${slotted('actionsNodes')} name="actions"></slot>
-				</div>
-			`,
-		)}
-		${when(
-			x => x.hasHeadingNodes,
-			html<PopOver>`<div class="heading"><slot ${slotted('headingNodes')} name="heading"></slot></div>`,
-		)}
+		<div class="top" ?hidden="${x => !x.hasTopNodes}">
+			<slot ${slotted('typeNodes')} name="type"></slot>
+			<slot ${slotted('actionsNodes')} name="actions"></slot>
+		</div>
+		<div class="heading" ?hidden="${x => !x.hasHeadingNodes}">
+			<slot ${slotted('headingNodes')} name="heading"></slot>
+		</div>
 		<div class="content"><slot></slot></div>
 		${when(x => x.caret, html<PopOver>`<span class="caret"></span>`)}
 	</template>
