@@ -137,13 +137,13 @@ export class HomeApp extends App<State> {
 		this.updateState();
 	}
 
-	private onStatusDismissed(e: CustomEvent<undefined>, target: HTMLElement) {
+	private onStatusDismissed(_e: CustomEvent<undefined>, _target: HTMLElement) {
 		this.state.pinStatus = false;
 		this.sendCommand(DismissStatusCommandType, undefined);
 		this.updateHeader();
 	}
 
-	private onDataActionClicked(e: MouseEvent, target: HTMLElement) {
+	private onDataActionClicked(_e: MouseEvent, target: HTMLElement) {
 		const action = target.dataset.action;
 		this.onActionClickedCore(action);
 	}
