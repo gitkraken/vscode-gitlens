@@ -4,7 +4,7 @@ import type { Action, ActionContext } from '../api/gitlens';
 import type { Command } from '../commands/base';
 import type { CoreCommands, CoreGitCommands } from '../constants';
 import { Commands } from '../constants';
-import type { Container } from '../container';
+import { Container } from '../container';
 
 interface CommandConstructor {
 	new (container: Container): Command;
@@ -18,7 +18,14 @@ export function command(): ClassDecorator {
 }
 
 export function registerCommand(command: string, callback: (...args: any[]) => any, thisArg?: any): Disposable {
-	return commands.registerCommand(command, callback, thisArg);
+	return commands.registerCommand(
+		command,
+		function (this: any, ...args) {
+			Container.instance.telemetry.sendEvent('command', { command: command });
+			callback.call(this, ...args);
+		},
+		thisArg,
+	);
 }
 
 export function registerCommands(container: Container): Disposable[] {
@@ -59,6 +66,7 @@ export function executeCoreCommand<T extends [...unknown[]] = [], U = any>(
 	command: CoreCommands,
 	...args: T
 ): Thenable<U> {
+	Container.instance.telemetry.sendEvent('command', { command: command });
 	return commands.executeCommand<U>(command, ...args);
 }
 
@@ -72,6 +80,7 @@ export function executeCoreGitCommand<T extends [...unknown[]] = [], U = any>(
 	command: CoreGitCommands,
 	...args: T
 ): Thenable<U> {
+	Container.instance.telemetry.sendEvent('command', { command: command });
 	return commands.executeCommand<U>(command, ...args);
 }
 

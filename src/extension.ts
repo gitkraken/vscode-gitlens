@@ -23,6 +23,7 @@ import { Storage, SyncedStorageKeys } from './storage';
 import { executeCommand, executeCoreCommand, registerCommands } from './system/command';
 import { setDefaultDateLocales } from './system/date';
 import { once } from './system/event';
+import { flatten } from './system/object';
 import { Stopwatch } from './system/stopwatch';
 import { compare, fromString, satisfies } from './system/version';
 import { isViewNode } from './views/nodes/viewNode';
@@ -176,6 +177,26 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	}
 
 	const mode = container.mode;
+	const data = {
+		'activation.elapsed': sw.elapsed(),
+		'activation.previousVersion': previousVersion,
+		'workspace.isTrusted': workspace.isTrusted,
+	};
+	queueMicrotask(() => {
+		container.telemetry.setGlobalAttributes({
+			debugging: container.debugging,
+			insiders: insiders,
+			prerelease: prerelease,
+		});
+		container.telemetry.sendEvent('activate', data);
+
+		setTimeout(() => {
+			const data = flatten(configuration.getAll(true), { prefix: 'config', skipNulls: true, stringify: true });
+			// TODO@eamodio do we want to capture any vscode settings that are relevant to GitLens?
+			container.telemetry.sendEvent('config', data);
+		}, 5000);
+	});
+
 	sw.stop({
 		message: ` activated${exitMessage != null ? `, ${exitMessage}` : ''}${
 			mode != null ? `, mode: ${mode.name}` : ''

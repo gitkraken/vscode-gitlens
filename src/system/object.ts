@@ -1,43 +1,57 @@
 // eslint-disable-next-line no-restricted-imports
 export { isEqual as areEqual } from 'lodash-es';
 
-export function flatten(o: any, prefix: string = '', stringify: boolean = false): Record<string, any> {
-	const flattened = Object.create(null) as Record<string, any>;
-	_flatten(flattened, prefix, o, stringify);
-	return flattened;
-}
+export function flatten(o: any, options: { prefix?: string; skipNulls: true; stringify: true }): Record<string, string>;
+export function flatten(
+	o: any,
+	options: { prefix?: string; skipNulls: true; stringify?: false },
+): Record<string, NonNullable<any>>;
+export function flatten(
+	o: any,
+	options: { prefix?: string; skipNulls?: false; stringify: true },
+): Record<string, string | null>;
+export function flatten(
+	o: any,
+	options?: { prefix?: string; skipNulls?: boolean; stringify?: boolean },
+): Record<string, any>;
+export function flatten(
+	o: any,
+	options?: { prefix?: string; skipNulls?: boolean; stringify?: boolean },
+): Record<string, any> {
+	const skipNulls = options?.skipNulls ?? false;
+	const stringify = options?.stringify ?? false;
 
-function _flatten(flattened: Record<string, any>, key: string, value: any, stringify: boolean = false) {
-	if (Object(value) !== value) {
-		if (stringify) {
+	function flattenCore(flattened: Record<string, any>, key: string, value: any) {
+		if (Object(value) !== value) {
 			if (value == null) {
-				flattened[key] = null;
+				if (skipNulls) return;
+
+				flattened[key] = stringify ? value ?? null : value;
 			} else if (typeof value === 'string') {
 				flattened[key] = value;
 			} else {
-				flattened[key] = JSON.stringify(value);
+				flattened[key] = stringify ? JSON.stringify(value) : value;
+			}
+		} else if (Array.isArray(value)) {
+			const len = value.length;
+			if (len === 0) return;
+
+			for (let i = 0; i < len; i++) {
+				flattenCore(flattened, `${key}[${i}]`, value[i]);
 			}
 		} else {
-			flattened[key] = value;
-		}
-	} else if (Array.isArray(value)) {
-		const len = value.length;
-		for (let i = 0; i < len; i++) {
-			_flatten(flattened, `${key}[${i}]`, value[i], stringify);
-		}
-		if (len === 0) {
-			flattened[key] = null;
-		}
-	} else {
-		let isEmpty = true;
-		for (const p in value) {
-			isEmpty = false;
-			_flatten(flattened, key ? `${key}.${p}` : p, value[p], stringify);
-		}
-		if (isEmpty && key) {
-			flattened[key] = null;
+			const entries = Object.entries(value);
+			if (entries.length === 0) return;
+
+			for (const [k, v] of entries) {
+				flattenCore(flattened, key ? `${key}.${k}` : k, v);
+			}
 		}
 	}
+
+	const flattened: Record<string, any> = Object.create(null);
+	flattenCore(flattened, options?.prefix ?? '', o);
+	return flattened;
 }
 
 export function paths(o: Record<string, any>, path?: string): string[] {

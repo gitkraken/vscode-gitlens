@@ -28,7 +28,7 @@ import { isSubscriptionPaidPlan, SubscriptionPlanId } from '../subscription';
 import { groupByFilterMap, groupByMap } from '../system/array';
 import { gate } from '../system/decorators/gate';
 import { debug, getLogScope, log } from '../system/decorators/log';
-import { count, filter, first, flatMap, map, some } from '../system/iterable';
+import { count, filter, first, flatMap, join, map, some } from '../system/iterable';
 import { getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
 import { cancellable, fastestSettled, getSettledValue, isPromise, PromiseCancelledError } from '../system/promise';
 import { VisitedPathsTrie } from '../system/trie';
@@ -115,6 +115,14 @@ export class GitProviderService implements Disposable {
 		this._etag = Date.now();
 
 		this._onDidChangeProviders.fire({ added: added ?? [], removed: removed ?? [], etag: this._etag });
+
+		this.container.telemetry.sendEvent('providers/changed', {
+			'providers.count': this._providers.size,
+			'providers.ids': join(this._providers.keys(), ','),
+			'providers.added': added?.length ?? 0,
+			'providers.removed': removed?.length ?? 0,
+			'repositories.count': this.openRepositoryCount,
+		});
 	}
 
 	private _onDidChangeRepositories = new EventEmitter<RepositoriesChangeEvent>();
@@ -130,6 +138,14 @@ export class GitProviderService implements Disposable {
 			this._visibilityCache.clear();
 		}
 		this._onDidChangeRepositories.fire({ added: added ?? [], removed: removed ?? [], etag: this._etag });
+
+		this.container.telemetry.sendEvent('repositories/changed', {
+			'repositories.count': this.openRepositoryCount,
+			'repositories.added': added?.length ?? 0,
+			'repositories.removed': removed?.length ?? 0,
+			'providers.count': this._providers.size,
+			'providers.ids': join(this._providers.keys(), ','),
+		});
 	}
 
 	private readonly _onDidChangeRepository = new EventEmitter<RepositoryChangeEvent>();
@@ -423,12 +439,17 @@ export class GitProviderService implements Disposable {
 			this.updateContext();
 		}
 
+		const autoRepositoryDetection = configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
+			CoreGitConfiguration.AutoRepositoryDetection,
+		);
+		this.container.telemetry.sendEvent('providers/registrationComplete', {
+			'folders.count': workspaceFolders?.length ?? 0,
+			'folders.schemes': workspaceFolders?.map(f => f.uri.scheme).join(', '),
+			'config.git.autoRepositoryDetection': autoRepositoryDetection,
+		});
+
 		if (scope != null) {
-			scope.exitDetails = ` ${GlyphChars.Dot} workspaceFolders=${
-				workspaceFolders?.length
-			}, git.autoRepositoryDetection=${configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
-				CoreGitConfiguration.AutoRepositoryDetection,
-			)}`;
+			scope.exitDetails = ` ${GlyphChars.Dot} workspaceFolders=${workspaceFolders?.length}, git.autoRepositoryDetection=${autoRepositoryDetection}`;
 		}
 	}
 
@@ -651,6 +672,16 @@ export class GitProviderService implements Disposable {
 			let visibility = this._visibilityCache.get(undefined);
 			if (visibility == null) {
 				visibility = this.visibilityCore();
+				void visibility.then(v =>
+					queueMicrotask(() => {
+						this.container.telemetry.sendEvent('repositories/visibility', {
+							'repositories.count': this.openRepositoryCount,
+							'repositories.visibility': v,
+							'providers.count': this._providers.size,
+							'providers.ids': join(this._providers.keys(), ','),
+						});
+					}),
+				);
 				this._visibilityCache.set(undefined, visibility);
 			}
 			return visibility;
