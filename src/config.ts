@@ -154,6 +154,9 @@ export interface Config {
 			};
 		};
 	};
+	telemetry: {
+		enabled: boolean;
+	};
 	terminal: {
 		overrideGitEditor: boolean;
 	};

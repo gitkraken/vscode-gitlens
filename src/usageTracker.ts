@@ -1,5 +1,6 @@
 import type { Disposable, Event } from 'vscode';
 import { EventEmitter } from 'vscode';
+import type { Container } from './container';
 import type { Storage } from './storage';
 import { updateRecordValue } from './system/object';
 
@@ -44,7 +45,7 @@ export class UsageTracker implements Disposable {
 		return this._onDidChange.event;
 	}
 
-	constructor(private readonly storage: Storage) {}
+	constructor(private readonly container: Container, private readonly storage: Storage) {}
 
 	dispose(): void {}
 
@@ -86,9 +87,13 @@ export class UsageTracker implements Disposable {
 			};
 			usages[key] = usage;
 		} else {
-			usage.count++;
+			if (usage.count !== Number.MAX_SAFE_INTEGER) {
+				usage.count++;
+			}
 			usage.lastUsedAt = usedAt;
 		}
+
+		this.container.telemetry.sendEvent('usage/track', { 'usage.key': key, 'usage.count': usage.count });
 
 		await this.storage.store('usages', usages);
 

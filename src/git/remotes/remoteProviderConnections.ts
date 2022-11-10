@@ -1,5 +1,6 @@
 import { EventEmitter } from 'vscode';
 import type { Event } from 'vscode';
+import { Container } from '../../container';
 
 export interface ConnectionStateChangeEvent {
 	key: string;
@@ -16,6 +17,7 @@ export namespace RichRemoteProviders {
 		if (_connectedCache.has(key)) return;
 
 		_connectedCache.add(key);
+		Container.instance.telemetry.sendEvent('remoteProviders/connected', { 'remoteProviders.key': key });
 
 		_onDidChangeConnectionState.fire({ key: key, reason: 'connected' });
 	}
@@ -24,6 +26,7 @@ export namespace RichRemoteProviders {
 		// Probably shouldn't bother to fire the event if we don't already think we are connected, but better to be safe
 		// if (!_connectedCache.has(key)) return;
 		_connectedCache.delete(key);
+		Container.instance.telemetry.sendEvent('remoteProviders/disconnected', { 'remoteProviders.key': key });
 
 		_onDidChangeConnectionState.fire({ key: key, reason: 'disconnected' });
 	}

@@ -3310,6 +3310,13 @@
 						"scope": "resource",
 						"order": 0
 					},
+					"gitlens.telemetry.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to allow the collection of product usage telemetry",
+						"scope": "window",
+						"order": 1
+					},
 					"gitlens.advanced.messages": {
 						"type": "object",
 						"default": {
@@ -3403,7 +3410,7 @@
 						"additionalProperties": false,
 						"markdownDescription": "Specifies which messages should be suppressed",
 						"scope": "window",
-						"order": 1
+						"order": 5
 					},
 					"gitlens.advanced.repositorySearchDepth": {
 						"type": "number",
@@ -12660,6 +12667,9 @@
 		"@microsoft/fast-element": "1.11.0",
 		"@microsoft/fast-react-wrapper": "0.3.15",
 		"@octokit/core": "4.1.0",
+		"@opentelemetry/api": "1.3.0",
+		"@opentelemetry/exporter-trace-otlp-http": "0.34.0",
+		"@opentelemetry/sdk-trace-base": "1.8.0",
 		"@vscode/codicons": "0.0.32",
 		"@vscode/webview-ui-toolkit": "1.1.0",
 		"ansi-regex": "6.0.1",
@@ -12671,6 +12681,7 @@
 		"lodash-es": "4.17.21",
 		"md5.js": "1.3.5",
 		"node-fetch": "2.6.7",
+		"os-browserify": "0.3.0",
 		"path-browserify": "1.0.1",
 		"react": "16.8.4",
 		"react-dom": "16.8.4",

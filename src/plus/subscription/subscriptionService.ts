@@ -48,6 +48,7 @@ import { gate } from '../../system/decorators/gate';
 import { debug, getLogScope, log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { once } from '../../system/function';
+import { flatten } from '../../system/object';
 import { pluralize } from '../../system/string';
 import { openWalkthrough } from '../../system/utils';
 import { satisfies } from '../../system/version';
@@ -552,6 +553,8 @@ export class SubscriptionService implements Disposable {
 				id: session.account.id,
 				platform: getPlatform(),
 				gitlensVersion: this.container.version,
+				machineId: env.machineId,
+				sessionId: env.sessionId,
 				vscodeEdition: env.appName,
 				vscodeHost: env.appHost,
 				vscodeVersion: codeVersion,
@@ -841,12 +844,57 @@ export class SubscriptionService implements Disposable {
 		subscription.state = computeSubscriptionState(subscription);
 		assertSubscriptionState(subscription);
 
-		const previous = this._subscription; // Can be undefined here, since we call this in the constructor
+		const previous = this._subscription as typeof this._subscription | undefined; // Can be undefined here, since we call this in the constructor
+		// Check the previous and new subscriptions are exactly the same
+		const matches = previous != null && JSON.stringify(previous) === JSON.stringify(subscription);
+
+		queueMicrotask(() => {
+			this.container.telemetry.setGlobalAttributes({
+				'account.id': subscription!.account?.id,
+				'account.verified': subscription!.account?.verified,
+				'subscription.actual.id': subscription!.plan.actual.id,
+				'subscription.actual.startedOn': subscription!.plan.actual.startedOn,
+				'subscription.actual.expiresOn': subscription!.plan.actual.expiresOn,
+				'subscription.effective.id': subscription!.plan.effective.id,
+				'subscription.effective.startedOn': subscription!.plan.effective.startedOn,
+				'subscription.effective.expiresOn': subscription!.plan.effective.expiresOn,
+				'subscription.state': subscription!.state,
+			});
+
+			const data = {
+				'account.id': subscription!.account?.id,
+				'account.verified': subscription!.account?.verified,
+				...flatten(subscription!.plan, { prefix: 'subscription', skipNulls: true, stringify: true }),
+				...flatten(subscription!.previewTrial, {
+					prefix: 'subscription.previewTrial',
+					skipNulls: true,
+					stringify: true,
+				}),
+				'subscription.state': subscription!.state,
+				...(!matches && previous != null
+					? {
+							'previous.account.id': previous.account?.id,
+							'previous.account.verified': previous.account?.verified,
+							...flatten(previous.plan, {
+								prefix: 'previous.subscription',
+								skipNulls: true,
+								stringify: true,
+							}),
+							...flatten(previous.previewTrial, {
+								prefix: 'previous.subscription.previewTrial',
+								skipNulls: true,
+								stringify: true,
+							}),
+							'previous.subscription.state': previous.state,
+					  }
+					: {}),
+			};
+
+			this.container.telemetry.sendEvent(previous == null ? 'subscription' : 'subscription/changed', data);
+		});
 
 		// If the previous and new subscriptions are exactly the same, kick out
-		if (previous != null && JSON.stringify(previous) === JSON.stringify(subscription)) {
-			return;
-		}
+		if (matches) return;
 
 		void this.storeSubscription(subscription);
 
