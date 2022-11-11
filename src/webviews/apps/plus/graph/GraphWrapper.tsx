@@ -8,7 +8,8 @@ import type {
 	GraphRefGroup,
 	GraphRefOptData,
 	GraphRow,
- OnFormatCommitDateTime } from '@gitkraken/gitkraken-components';
+ 	OnFormatCommitDateTime
+} from '@gitkraken/gitkraken-components';
 import type { ReactElement } from 'react';
 import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
