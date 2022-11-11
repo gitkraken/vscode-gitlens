@@ -67,7 +67,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 			await RepositoryPicker.getBestRepositoryOrShow(
 				gitUri,
 				editor,
-				args?.clipboard ? 'Copy Remote Commit Url' : 'Open Commit On Remote',
+				args?.clipboard ? 'Copy Remote Commit URL' : 'Open Commit On Remote',
 			)
 		)?.path;
 		if (!repoPath) return;

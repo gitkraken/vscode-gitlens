@@ -336,9 +336,9 @@
 							"Shows a file history quick pick menu",
 							"Shows a branch history quick pick menu",
 							"Opens the commit on the remote service (when available)",
-							"Copies the remote commit url to the clipboard (when available)",
+							"Copies the remote commit URL to the clipboard (when available)",
 							"Opens the file revision on the remote service (when available)",
-							"Copies the remote file url to the clipboard (when available)"
+							"Copies the remote file URL to the clipboard (when available)"
 						],
 						"default": "gitlens.toggleFileBlame",
 						"markdownDescription": "Specifies the command to be executed when an _authors_ CodeLens is clicked",
@@ -389,9 +389,9 @@
 							"Shows a file history quick pick menu",
 							"Shows a branch history quick pick menu",
 							"Opens the commit on the remote service (when available)",
-							"Copies the remote commit url to the clipboard (when available)",
+							"Copies the remote commit URL to the clipboard (when available)",
 							"Opens the file revision on the remote service (when available)",
-							"Copies the remote file url to the clipboard (when available)"
+							"Copies the remote file URL to the clipboard (when available)"
 						],
 						"default": "gitlens.showQuickCommitFileDetails",
 						"markdownDescription": "Specifies the command to be executed when a _recent change_ CodeLens is clicked",
@@ -556,9 +556,9 @@
 							"Shows a file history quick pick menu",
 							"Shows a branch history quick pick menu",
 							"Opens the commit on the remote service (when available)",
-							"Copies the remote commit url to the clipboard (when available)",
+							"Copies the remote commit URL to the clipboard (when available)",
 							"Opens the file revision on the remote service (when available)",
-							"Copies the remote file url to the clipboard (when available)"
+							"Copies the remote file URL to the clipboard (when available)"
 						],
 						"markdownDescription": "Specifies the command to be executed when the blame status bar item is clicked",
 						"scope": "window",
@@ -2495,7 +2495,7 @@
 								},
 								"url": {
 									"type": "string",
-									"description": "Specifies the url of the external resource you want to link to. Use `<num>` as the variable for the reference number"
+									"description": "Specifies the URL of the external resource you want to link to. Use `<num>` as the variable for the reference number"
 								},
 								"alphanumeric": {
 									"type": "boolean",
@@ -2576,7 +2576,7 @@
 								"protocol": {
 									"type": "string",
 									"default": "https",
-									"description": "Specifies an optional url protocol for the custom remote service"
+									"description": "Specifies an optional URL protocol for the custom remote service"
 								},
 								"ignoreSSLErrors": {
 									"type": "boolean",
@@ -2599,39 +2599,39 @@
 									"properties": {
 										"repository": {
 											"type": "string",
-											"markdownDescription": "Specifies the format of a repository url for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path"
+											"markdownDescription": "Specifies the format of a repository URL for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path"
 										},
 										"branches": {
 											"type": "string",
-											"markdownDescription": "Specifies the format of a branches url for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${branch}` &mdash; branch"
+											"markdownDescription": "Specifies the format of a branches URL for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${branch}` &mdash; branch"
 										},
 										"branch": {
 											"type": "string",
-											"markdownDescription": "Specifies the format of a branch url for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${branch}` &mdash; branch"
+											"markdownDescription": "Specifies the format of a branch URL for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${branch}` &mdash; branch"
 										},
 										"commit": {
 											"type": "string",
-											"markdownDescription": "Specifies the format of a commit url for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${id}` &mdash; commit SHA"
+											"markdownDescription": "Specifies the format of a commit URL for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${id}` &mdash; commit SHA"
 										},
 										"file": {
 											"type": "string",
-											"markdownDescription": "Specifies the format of a file url for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${file}` &mdash; file name\\\n`${line}` &mdash; formatted line information"
+											"markdownDescription": "Specifies the format of a file URL for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${file}` &mdash; file name\\\n`${line}` &mdash; formatted line information"
 										},
 										"fileInBranch": {
 											"type": "string",
-											"markdownDescription": "Specifies the format of a branch file url for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${file}` &mdash; file name\\\n`${branch}` &mdash; branch\\\n`${line}` &mdash; formatted line information"
+											"markdownDescription": "Specifies the format of a branch file URL for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${file}` &mdash; file name\\\n`${branch}` &mdash; branch\\\n`${line}` &mdash; formatted line information"
 										},
 										"fileInCommit": {
 											"type": "string",
-											"markdownDescription": "Specifies the format of a commit file url for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${file}` &mdash; file name\\\n`${id}` &mdash; commit SHA\\\n`${line}` &mdash; formatted line information"
+											"markdownDescription": "Specifies the format of a commit file URL for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${file}` &mdash; file name\\\n`${id}` &mdash; commit SHA\\\n`${line}` &mdash; formatted line information"
 										},
 										"fileLine": {
 											"type": "string",
-											"markdownDescription": "Specifies the format of a line in a file url for the custom remote service\n\nAvailable tokens\\\n`${line}` &mdash; line"
+											"markdownDescription": "Specifies the format of a line in a file URL for the custom remote service\n\nAvailable tokens\\\n`${line}` &mdash; line"
 										},
 										"fileRange": {
 											"type": "string",
-											"markdownDescription": "Specifies the format of a range in a file url for the custom remote service\n\nAvailable tokens\\\n`${start}` &mdash; starting line\\\n`${end}` &mdash; ending line"
+											"markdownDescription": "Specifies the format of a range in a file URL for the custom remote service\n\nAvailable tokens\\\n`${start}` &mdash; starting line\\\n`${end}` &mdash; ending line"
 										}
 									},
 									"additionalProperties": false
@@ -3662,7 +3662,7 @@
 										"null"
 									],
 									"default": null,
-									"description": "Specifies the url of the proxy server to use"
+									"description": "Specifies the URL of the proxy server to use"
 								},
 								"strictSSL": {
 									"type": "boolean",
@@ -4807,7 +4807,7 @@
 			},
 			{
 				"command": "gitlens.copyRemoteBranchesUrl",
-				"title": "Copy Remote Branches Url",
+				"title": "Copy Remote Branches URL",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
@@ -4825,7 +4825,7 @@
 			},
 			{
 				"command": "gitlens.copyRemoteBranchUrl",
-				"title": "Copy Remote Branch Url",
+				"title": "Copy Remote Branch URL",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
@@ -4837,7 +4837,7 @@
 			},
 			{
 				"command": "gitlens.copyRemoteCommitUrl",
-				"title": "Copy Remote Commit Url",
+				"title": "Copy Remote Commit URL",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
@@ -4849,7 +4849,7 @@
 			},
 			{
 				"command": "gitlens.copyRemoteComparisonUrl",
-				"title": "Copy Remote Comparison Url",
+				"title": "Copy Remote Comparison URL",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
@@ -4866,13 +4866,13 @@
 			},
 			{
 				"command": "gitlens.copyRemoteFileUrlToClipboard",
-				"title": "Copy Remote File Url",
+				"title": "Copy Remote File URL",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.copyRemoteFileUrlWithoutRange",
-				"title": "Copy Remote File Url",
+				"title": "Copy Remote File URL",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
@@ -4884,7 +4884,7 @@
 			},
 			{
 				"command": "gitlens.copyRemoteFileUrlFrom",
-				"title": "Copy Remote File Url From...",
+				"title": "Copy Remote File URL From...",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
@@ -4908,13 +4908,13 @@
 			},
 			{
 				"command": "gitlens.openAutolinkUrl",
-				"title": "Open Autolink Url",
+				"title": "Open Autolink URL",
 				"category": "GitLens",
 				"icon": "$(globe)"
 			},
 			{
 				"command": "gitlens.copyAutolinkUrl",
-				"title": "Copy Autolink Url",
+				"title": "Copy Autolink URL",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
@@ -4926,7 +4926,7 @@
 			},
 			{
 				"command": "gitlens.copyRemoteIssueUrl",
-				"title": "Copy Issue Url",
+				"title": "Copy Issue URL",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
@@ -4938,7 +4938,7 @@
 			},
 			{
 				"command": "gitlens.copyRemotePullRequestUrl",
-				"title": "Copy Pull Request Url",
+				"title": "Copy Pull Request URL",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
@@ -4956,7 +4956,7 @@
 			},
 			{
 				"command": "gitlens.copyRemoteRepositoryUrl",
-				"title": "Copy Remote Repository Url",
+				"title": "Copy Remote Repository URL",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
@@ -6426,7 +6426,7 @@
 			},
 			{
 				"command": "gitlens.graph.copyRemoteBranchUrl",
-				"title": "Copy Remote Branch Url",
+				"title": "Copy Remote Branch URL",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
@@ -6518,7 +6518,7 @@
 			},
 			{
 				"command": "gitlens.graph.copyRemoteCommitUrl",
-				"title": "Copy Remote Commit Url",
+				"title": "Copy Remote Commit URL",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
