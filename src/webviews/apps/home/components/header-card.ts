@@ -26,6 +26,8 @@ const template = html<HeaderCard>`
 							class="action is-icon"
 							slot="actions"
 							@click="${(x, c) => x.dismissStatus(c.event as MouseEvent)}"
+							title="Dismiss status update"
+							aria-label="Dismiss status update"
 							><code-icon icon="close"></code-icon
 						></a>
 					`,
