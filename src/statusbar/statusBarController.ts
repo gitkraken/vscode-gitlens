@@ -226,11 +226,11 @@ export class StatusBarController implements Disposable {
 		let tooltip: string;
 		switch (cfg.command) {
 			case StatusBarCommand.CopyRemoteCommitUrl:
-				tooltip = 'Click to Copy Remote Commit Url';
+				tooltip = 'Click to Copy Remote Commit URL';
 				break;
 			case StatusBarCommand.CopyRemoteFileUrl:
 				this._statusBarBlame.command = Commands.CopyRemoteFileUrl;
-				tooltip = 'Click to Copy Remote File Revision Url';
+				tooltip = 'Click to Copy Remote File Revision URL';
 				break;
 			case StatusBarCommand.DiffWithPrevious:
 				this._statusBarBlame.command = Commands.DiffLineWithPrevious;

@@ -85,11 +85,11 @@ export class OpenOnRemoteCommand extends Command {
 				setDefault: true,
 			};
 			let title;
-			let placeHolder = `Choose which remote to ${args.clipboard ? 'copy the url for' : 'open on'}`;
+			let placeHolder = `Choose which remote to ${args.clipboard ? 'copy the URL for' : 'open on'}`;
 
 			switch (args.resource.type) {
 				case RemoteResourceType.Branch:
-					title = `${args.clipboard ? `Copy ${provider} Branch Url` : `Open Branch on ${provider}`}${pad(
+					title = `${args.clipboard ? `Copy ${provider} Branch URL` : `Open Branch on ${provider}`}${pad(
 						GlyphChars.Dot,
 						2,
 						2,
@@ -97,11 +97,11 @@ export class OpenOnRemoteCommand extends Command {
 					break;
 
 				case RemoteResourceType.Branches:
-					title = `${args.clipboard ? `Copy ${provider} Branches Url` : `Open Branches on ${provider}`}`;
+					title = `${args.clipboard ? `Copy ${provider} Branches URL` : `Open Branches on ${provider}`}`;
 					break;
 
 				case RemoteResourceType.Commit:
-					title = `${args.clipboard ? `Copy ${provider} Commit Url` : `Open Commit on ${provider}`}${pad(
+					title = `${args.clipboard ? `Copy ${provider} Commit URL` : `Open Commit on ${provider}`}${pad(
 						GlyphChars.Dot,
 						2,
 						2,
@@ -110,7 +110,7 @@ export class OpenOnRemoteCommand extends Command {
 
 				case RemoteResourceType.Comparison:
 					title = `${
-						args.clipboard ? `Copy ${provider} Comparison Url` : `Open Comparison on ${provider}`
+						args.clipboard ? `Copy ${provider} Comparison URL` : `Open Comparison on ${provider}`
 					}${pad(GlyphChars.Dot, 2, 2)}${GitRevision.createRange(
 						args.resource.base,
 						args.resource.compare,
@@ -124,7 +124,7 @@ export class OpenOnRemoteCommand extends Command {
 
 					title = `${
 						args.clipboard
-							? `Copy ${provider} Create Pull Request Url`
+							? `Copy ${provider} Create Pull Request URL`
 							: `Create Pull Request on ${provider}`
 					}${pad(GlyphChars.Dot, 2, 2)}${
 						args.resource.base?.branch
@@ -133,12 +133,12 @@ export class OpenOnRemoteCommand extends Command {
 					}`;
 
 					placeHolder = `Choose which remote to ${
-						args.clipboard ? 'copy the create pull request url for' : 'create the pull request on'
+						args.clipboard ? 'copy the create pull request URL for' : 'create the pull request on'
 					}`;
 					break;
 
 				case RemoteResourceType.File:
-					title = `${args.clipboard ? `Copy ${provider} File Url` : `Open File on ${provider}`}${pad(
+					title = `${args.clipboard ? `Copy ${provider} File URL` : `Open File on ${provider}`}${pad(
 						GlyphChars.Dot,
 						2,
 						2,
@@ -146,11 +146,11 @@ export class OpenOnRemoteCommand extends Command {
 					break;
 
 				case RemoteResourceType.Repo:
-					title = `${args.clipboard ? `Copy ${provider} Repository Url` : `Open Repository on ${provider}`}`;
+					title = `${args.clipboard ? `Copy ${provider} Repository URL` : `Open Repository on ${provider}`}`;
 					break;
 
 				case RemoteResourceType.Revision: {
-					title = `${args.clipboard ? `Copy ${provider} File Url` : `Open File on ${provider}`}${pad(
+					title = `${args.clipboard ? `Copy ${provider} File URL` : `Open File on ${provider}`}${pad(
 						GlyphChars.Dot,
 						2,
 						2,
