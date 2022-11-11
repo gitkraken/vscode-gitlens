@@ -104,7 +104,7 @@ export class CopyRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 		super(
 			`$(copy) Copy ${providers?.length ? providers[0].name : 'Remote'} ${getNameFromRemoteResource(
 				resource,
-			)} Url${providers?.length === 1 ? '' : GlyphChars.Ellipsis}`,
+			)} URL${providers?.length === 1 ? '' : GlyphChars.Ellipsis}`,
 			Commands.OpenOnRemote,
 			[commandArgs],
 		);
