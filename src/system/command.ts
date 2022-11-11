@@ -66,7 +66,7 @@ export function executeCoreCommand<T extends [...unknown[]] = [], U = any>(
 	command: CoreCommands,
 	...args: T
 ): Thenable<U> {
-	Container.instance.telemetry.sendEvent('command', { command: command });
+	Container.instance.telemetry.sendEvent('command/core', { command: command });
 	return commands.executeCommand<U>(command, ...args);
 }
 
@@ -80,7 +80,7 @@ export function executeCoreGitCommand<T extends [...unknown[]] = [], U = any>(
 	command: CoreGitCommands,
 	...args: T
 ): Thenable<U> {
-	Container.instance.telemetry.sendEvent('command', { command: command });
+	Container.instance.telemetry.sendEvent('command/core', { command: command });
 	return commands.executeCommand<U>(command, ...args);
 }
 
