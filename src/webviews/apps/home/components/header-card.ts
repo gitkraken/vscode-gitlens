@@ -14,13 +14,17 @@ const template = html<HeaderCard>`
 	<p class="header-card__account">
 		<span class="status">
 			<span ${ref('statusNode')} tabindex="-1" class="status-label"
-				><span class="repo-access${x => (x.isPro ? ' is-pro' : '')}">✨</span>${x => x.planName}</span
+				><span class="repo-access${x => (x.isPro ? ' is-pro' : '')}">✨</span>${x =>
+					`${x.planName}${x.daysLeft}`}</span
 			>
 			<pop-over class="${x => (x.pinStatus ? 'is-pinned' : null)}">
 				${when(
 					x => x.pinStatus,
 					html<HeaderCard>`
-						<span slot="type">status update</span>
+						<span slot="type"
+							><span class="repo-access${x => (x.isPro ? ' is-pro' : '')}">✨</span>${x =>
+								x.planName}</span
+						>
 						<a
 							href="#"
 							class="action is-icon"
@@ -33,7 +37,8 @@ const template = html<HeaderCard>`
 					`,
 				)}
 				You have access to GitLens+ features on ${x => (x.isPro ? 'any repo' : 'local & public repos')}, and all
-				other GitLens features on any repo.
+				other GitLens features on any repo.<br /><br />
+				✨ indicates GitLens+ features.
 			</pop-over>
 		</span>
 		<span class="account-actions">
@@ -344,11 +349,22 @@ export class HeaderCard extends FASTElement {
 				return 'GitLens Free';
 			case SubscriptionState.FreeInPreviewTrial:
 			case SubscriptionState.FreePlusInTrial:
-				return `GitLens Pro (Trial), ${this.daysRemaining} left`;
+				return 'GitLens Pro (Trial)';
 			case SubscriptionState.VerificationRequired:
 				return `${this.plan} (Unverified)`;
 			default:
 				return this.plan;
+		}
+	}
+
+	@volatile
+	get daysLeft() {
+		switch (this.state) {
+			case SubscriptionState.FreeInPreviewTrial:
+			case SubscriptionState.FreePlusInTrial:
+				return `, ${this.daysRemaining} left`;
+			default:
+				return '';
 		}
 	}
 
