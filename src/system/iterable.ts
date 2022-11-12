@@ -129,23 +129,19 @@ export function isIterable(source: Iterable<any>): boolean {
 }
 
 export function join(source: Iterable<any>, separator: string): string {
-	let value = '';
-
 	const iterator = source[Symbol.iterator]();
 	let next = iterator.next();
-	if (next.done) return value;
+	if (next.done) return '';
 
+	let result = String(next.value);
 	while (true) {
 		next = iterator.next();
-		if (next.done) {
-			value += String(next.value);
-			break;
-		}
+		if (next.done) break;
 
-		value += `${next.value}${separator}`;
+		result += `${separator}${next.value}`;
 	}
 
-	return value;
+	return result;
 }
 
 export function last<T>(source: Iterable<T>): T | undefined {
