@@ -1491,7 +1491,7 @@ export class GraphWebview extends WebviewBase<State> {
 				this._statusBarItem.name = 'GitLens Commit Graph';
 				this._statusBarItem.command = Commands.ShowGraphPage;
 				this._statusBarItem.text = '$(gitlens-graph)';
-				this._statusBarItem.tooltip = new MarkdownString('Visualize commits on the all-new Commit Graph ✨');
+				this._statusBarItem.tooltip = new MarkdownString('Visualize commits on the Commit Graph ✨');
 				this._statusBarItem.accessibilityInformation = {
 					label: `Show the GitLens Commit Graph`,
 				};

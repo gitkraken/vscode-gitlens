@@ -138,9 +138,9 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 						this.view,
 						this,
 						{ command: Commands.ShowGraphPage, title: 'Show Commit Graph' },
-						'Visualize commits on the all-new Commit Graph',
-						'✨ GitLens+',
-						'Visualize commits on the all-new Commit Graph ✨',
+						'Visualize commits on the Commit Graph',
+						'✨ GitLens+ feature',
+						'Visualize commits on the Commit Graph ✨',
 						new ThemeIcon('gitlens-graph'),
 				  )
 				: undefined;
