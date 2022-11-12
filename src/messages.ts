@@ -1,7 +1,6 @@
 import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, env, Uri, window } from 'vscode';
 import { configuration, SuppressedMessages } from './configuration';
-import type { Container } from './container';
 import type { GitCommit } from './git/models/commit';
 import { Logger } from './logger';
 
@@ -169,24 +168,6 @@ export function showIntegrationRequestTimedOutWarningMessage(providerName: strin
 			title: 'OK',
 		},
 	);
-}
-
-export async function showProDiscountNotification(container: Container): Promise<void> {
-	if (container.storage.get('plus:discountNotificationShown', false)) return;
-
-	void container.storage.store('plus:discountNotificationShown', true);
-
-	const upgrade: MessageItem = { title: 'Upgrade to Pro' };
-	const result = await showMessage(
-		'info',
-		'GitLens Pro introductory pricing, up to a 60% discount, goes away tomorrow. Upgrade to GitLens Pro now to access [GitLens+ features](command:gitlens.plus.learn) on private repos at a reduced rate.',
-		undefined,
-		undefined,
-		upgrade,
-	);
-	if (result === upgrade) {
-		void container.subscription.purchase();
-	}
 }
 
 export async function showWhatsNewMessage(version: string) {
