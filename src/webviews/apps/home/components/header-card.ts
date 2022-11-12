@@ -21,10 +21,7 @@ const template = html<HeaderCard>`
 				${when(
 					x => x.pinStatus,
 					html<HeaderCard>`
-						<span slot="type"
-							><span class="repo-access${x => (x.isPro ? ' is-pro' : '')}">✨</span>${x =>
-								x.planName}</span
-						>
+						<span slot="type">${x => x.planName}</span>
 						<a
 							href="#"
 							class="action is-icon"
