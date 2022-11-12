@@ -478,13 +478,17 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const remotes = await this.getRemotes(repoPath, { sort: true });
 		if (remotes.length === 0) return RepositoryVisibility.Local;
 
+		let local = true;
 		for await (const result of fastestSettled(remotes.map(r => this.getRemoteVisibility(r)))) {
 			if (result.status !== 'fulfilled') continue;
 
 			if (result.value === RepositoryVisibility.Public) return RepositoryVisibility.Public;
+			if (result.value !== RepositoryVisibility.Local) {
+				local = false;
+			}
 		}
 
-		return RepositoryVisibility.Private;
+		return local ? RepositoryVisibility.Local : RepositoryVisibility.Private;
 	}
 
 	@debug<LocalGitProvider['getRemoteVisibility']>({ args: { 0: r => r.url } })
@@ -517,7 +521,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				return RepositoryVisibility.Private;
 			}
 			default:
-				return RepositoryVisibility.Private;
+				return maybeUri(remote.url) ? RepositoryVisibility.Private : RepositoryVisibility.Local;
 		}
 	}
 
