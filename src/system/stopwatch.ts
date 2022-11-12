@@ -14,7 +14,11 @@ type StopwatchLogLevel = Exclude<LogLevel, LogLevel.Off>;
 export class Stopwatch {
 	private readonly instance = `[${String(getNextLogScopeId()).padStart(5)}] `;
 	private readonly logLevel: StopwatchLogLevel;
-	private time: [number, number];
+
+	private _time: [number, number];
+	get startTime() {
+		return this._time;
+	}
 
 	constructor(public readonly scope: string | LogScope | undefined, options?: StopwatchOptions, ...params: any[]) {
 		let logScope;
@@ -32,7 +36,7 @@ export class Stopwatch {
 		}
 
 		this.logLevel = options?.logLevel ?? LogLevel.Info;
-		this.time = hrtime();
+		this._time = hrtime();
 
 		if (logOptions != null) {
 			if (!Logger.enabled(this.logLevel)) return;
@@ -55,7 +59,7 @@ export class Stopwatch {
 	}
 
 	elapsed(): number {
-		const [secs, nanosecs] = hrtime(this.time);
+		const [secs, nanosecs] = hrtime(this._time);
 		return secs * 1000 + Math.floor(nanosecs / 1000000);
 	}
 
@@ -65,7 +69,7 @@ export class Stopwatch {
 
 	restart(options?: StopwatchLogOptions): void {
 		this.logCore(this.scope, options, true);
-		this.time = hrtime();
+		this._time = hrtime();
 	}
 
 	stop(options?: StopwatchLogOptions): void {
@@ -91,7 +95,7 @@ export class Stopwatch {
 			return;
 		}
 
-		const [secs, nanosecs] = hrtime(this.time);
+		const [secs, nanosecs] = hrtime(this._time);
 		const ms = secs * 1000 + Math.floor(nanosecs / 1000000);
 
 		const prefix = `${this.instance}${scope}${options?.message ?? ''}`;

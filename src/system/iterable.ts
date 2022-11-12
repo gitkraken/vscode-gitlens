@@ -136,15 +136,13 @@ export function join(source: Iterable<any>, separator: string): string {
 	if (next.done) return value;
 
 	while (true) {
-		const s = next.value.toString();
-
 		next = iterator.next();
 		if (next.done) {
-			value += s;
+			value += String(next.value);
 			break;
 		}
 
-		value += `${s}${separator}`;
+		value += `${next.value}${separator}`;
 	}
 
 	return value;

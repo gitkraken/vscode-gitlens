@@ -18,6 +18,7 @@ import { debounce } from '../../system/function';
 import { filter, join, some } from '../../system/iterable';
 import { updateRecordValue } from '../../system/object';
 import { basename, normalizePath } from '../../system/path';
+import { md5 } from '../../system/string';
 import { runGitCommandInTerminal } from '../../terminal';
 import type { GitProviderDescriptor } from '../gitProvider';
 import { loadRemoteProviders } from '../remotes/remoteProviders';
@@ -179,6 +180,14 @@ export class Repository implements Disposable {
 	readonly id: string;
 	readonly index: number;
 	readonly name: string;
+
+	private _idHash: string | undefined;
+	get idHash() {
+		if (this._idHash === undefined) {
+			this._idHash = md5(this.id);
+		}
+		return this._idHash;
+	}
 
 	private _branch: Promise<GitBranch | undefined> | undefined;
 	private readonly _disposable: Disposable;

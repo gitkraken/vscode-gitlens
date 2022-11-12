@@ -97,7 +97,10 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	if (!workspace.isTrusted) {
 		void setContext(ContextKeys.Untrusted, true);
 		context.subscriptions.push(
-			workspace.onDidGrantWorkspaceTrust(() => void setContext(ContextKeys.Untrusted, undefined)),
+			workspace.onDidGrantWorkspaceTrust(() => {
+				void setContext(ContextKeys.Untrusted, undefined);
+				container.telemetry.setGlobalAttribute('workspace.isTrusted', workspace.isTrusted);
+			}),
 		);
 	}
 
@@ -176,22 +179,30 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		void setContext(ContextKeys.Debugging, true);
 	}
 
+	container.telemetry.setGlobalAttributes({
+		debugging: container.debugging,
+		insiders: insiders,
+		prerelease: prerelease,
+		install: previousVersion == null,
+		upgrade: previousVersion != null && gitlensVersion !== previousVersion,
+		upgradedFrom: previousVersion != null && gitlensVersion !== previousVersion ? previousVersion : undefined,
+	});
+
 	const mode = container.mode;
-	const data = {
-		'activation.elapsed': sw.elapsed(),
-		'activation.previousVersion': previousVersion,
-		'workspace.isTrusted': workspace.isTrusted,
-	};
+	const elapsed = sw.elapsed();
+
 	queueMicrotask(() => {
-		container.telemetry.setGlobalAttributes({
-			debugging: container.debugging,
-			insiders: insiders,
-			prerelease: prerelease,
-		});
-		container.telemetry.sendEvent('activate', data);
+		container.telemetry.sendEvent(
+			'activate',
+			{
+				'activation.elapsed': elapsed,
+				'activation.mode': mode?.name,
+			},
+			sw.startTime,
+		);
 
 		setTimeout(() => {
-			const data = flatten(configuration.getAll(true), { prefix: 'config', skipNulls: true, stringify: true });
+			const data = flatten(configuration.getAll(true), { prefix: 'config', stringify: 'all' });
 			// TODO@eamodio do we want to capture any vscode settings that are relevant to GitLens?
 			container.telemetry.sendEvent('config', data);
 		}, 5000);

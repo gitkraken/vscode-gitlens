@@ -1,5 +1,6 @@
 // eslint-disable-next-line no-restricted-imports
 export { findLastIndex, intersectionWith as intersection } from 'lodash-es';
+import { join } from './iterable';
 
 export function chunk<T>(source: T[], size: number): T[][] {
 	const chunks = [];
@@ -63,7 +64,7 @@ export function filterMapAsync<T, TMapped>(
 	}, []);
 }
 
-export function groupBy<T>(source: T[], groupingKey: (item: T) => string): Record<string, T[]> {
+export function groupBy<T>(source: readonly T[], groupingKey: (item: T) => string): Record<string, T[]> {
 	return source.reduce<Record<string, T[]>>((groupings, current) => {
 		const value = groupingKey(current);
 		const group = groupings[value];
@@ -76,7 +77,10 @@ export function groupBy<T>(source: T[], groupingKey: (item: T) => string): Recor
 	}, Object.create(null));
 }
 
-export function groupByMap<TKey, TValue>(source: TValue[], groupingKey: (item: TValue) => TKey): Map<TKey, TValue[]> {
+export function groupByMap<TKey, TValue>(
+	source: readonly TValue[],
+	groupingKey: (item: TValue) => TKey,
+): Map<TKey, TValue[]> {
 	return source.reduce((groupings, current) => {
 		const value = groupingKey(current);
 		const group = groupings.get(value);
@@ -90,7 +94,7 @@ export function groupByMap<TKey, TValue>(source: TValue[], groupingKey: (item: T
 }
 
 export function groupByFilterMap<TKey, TValue, TMapped>(
-	source: TValue[],
+	source: readonly TValue[],
 	groupingKey: (item: TValue) => TKey,
 	predicateMapper: (item: TValue) => TMapped | null | undefined,
 ): Map<TKey, TMapped[]> {
@@ -109,7 +113,7 @@ export function groupByFilterMap<TKey, TValue, TMapped>(
 	}, new Map<TKey, TMapped[]>());
 }
 
-export function isStringArray<T extends any[]>(array: string[] | T): array is string[] {
+export function isStringArray<T extends any[]>(array: readonly string[] | T): array is string[] {
 	return typeof array[0] === 'string';
 }
 
@@ -206,8 +210,16 @@ export function compactHierarchy<T>(
 	return root;
 }
 
+export function unique<T>(source: readonly T[]): T[] {
+	return [...new Set(source)];
+}
+
+export function joinUnique<T>(source: readonly T[], separator: string): string {
+	return join(new Set(source), separator);
+}
+
 export function uniqueBy<TKey, TValue>(
-	source: TValue[],
+	source: readonly TValue[],
 	uniqueKey: (item: TValue) => TKey,
 	onDuplicate: (original: TValue, current: TValue) => TValue | void,
 ): TValue[] {
