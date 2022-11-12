@@ -29,6 +29,7 @@ interface QueuedEvent {
 	type: 'sendEvent';
 	name: string;
 	data?: Record<string, AttributeValue | null | undefined>;
+	global: Map<string, AttributeValue>;
 	startTime: TimeInput;
 	endTime: TimeInput;
 }
@@ -102,18 +103,19 @@ export class TelemetryService implements Disposable {
 			container.debugging,
 		);
 
-		this.provider.setGlobalAttributes(this.globalAttributes);
-
 		if (this.eventQueue.length) {
 			const queue = [...this.eventQueue];
 			this.eventQueue.length = 0;
 
-			for (const { type, name, data } of queue) {
+			for (const { type, name, data, global } of queue) {
 				if (type === 'sendEvent') {
+					this.provider.setGlobalAttributes(global);
 					this.provider.sendEvent(name, stripNullOrUndefinedAttributes(data));
 				}
 			}
 		}
+
+		this.provider.setGlobalAttributes(this.globalAttributes);
 	}
 
 	sendEvent(
@@ -122,13 +124,14 @@ export class TelemetryService implements Disposable {
 		startTime?: TimeInput,
 		endTime?: TimeInput,
 	): void {
-		if (!this.enabled) return;
+		if (!this._enabled) return;
 
 		if (this.provider == null) {
 			this.eventQueue.push({
 				type: 'sendEvent',
 				name: name,
 				data: data,
+				global: new Map([...this.globalAttributes]),
 				startTime: startTime ?? Date.now(),
 				endTime: endTime ?? Date.now(),
 			});
