@@ -1,4 +1,4 @@
-import type { AttributeValue, Span } from '@opentelemetry/api';
+import type { AttributeValue, Span, TimeInput } from '@opentelemetry/api';
 import type { Disposable } from 'vscode';
 import { version as codeVersion, env } from 'vscode';
 import { getProxyAgent } from '@env/fetch';
@@ -20,15 +20,17 @@ export interface TelemetryContext {
 }
 
 export interface TelemetryProvider extends Disposable {
-	sendEvent(name: string, data?: Record<string, AttributeValue>): void;
-	startEvent(name: string, data?: Record<string, AttributeValue>): Span;
+	sendEvent(name: string, data?: Record<string, AttributeValue>, startTime?: TimeInput, endTime?: TimeInput): void;
+	startEvent(name: string, data?: Record<string, AttributeValue>, startTime?: TimeInput): Span;
 	setGlobalAttributes(attributes: Map<string, AttributeValue>): void;
 }
 
 interface QueuedEvent {
 	type: 'sendEvent';
 	name: string;
-	data?: Record<string, AttributeValue>;
+	data?: Record<string, AttributeValue | null | undefined>;
+	startTime: TimeInput;
+	endTime: TimeInput;
 }
 
 export class TelemetryService implements Disposable {
@@ -108,35 +110,52 @@ export class TelemetryService implements Disposable {
 
 			for (const { type, name, data } of queue) {
 				if (type === 'sendEvent') {
-					this.provider.sendEvent(name, data);
+					this.provider.sendEvent(name, stripNullOrUndefinedAttributes(data));
 				}
 			}
 		}
 	}
 
-	sendEvent(name: string, data?: Record<string, AttributeValue | null | undefined>): void {
-		if (!this.enabled) return;
-
-		const attributes = stripNullOrUndefinedAttributes(data);
-		if (this.provider == null) {
-			this.eventQueue.push({ type: 'sendEvent', name: name, data: attributes });
-			return;
-		}
-		this.provider.sendEvent(name, attributes);
-	}
-
-	async startEvent(
+	sendEvent(
 		name: string,
 		data?: Record<string, AttributeValue | null | undefined>,
-	): Promise<Span | undefined> {
+		startTime?: TimeInput,
+		endTime?: TimeInput,
+	): void {
 		if (!this.enabled) return;
 
 		if (this.provider == null) {
-			await this.initializeTelemetry(this.container);
+			this.eventQueue.push({
+				type: 'sendEvent',
+				name: name,
+				data: data,
+				startTime: startTime ?? Date.now(),
+				endTime: endTime ?? Date.now(),
+			});
+			return;
 		}
 
-		const attributes = stripNullOrUndefinedAttributes(data);
-		return this.provider!.startEvent(name, attributes);
+		this.provider.sendEvent(name, stripNullOrUndefinedAttributes(data), startTime, endTime);
+	}
+
+	startEvent(
+		name: string,
+		data?: Record<string, AttributeValue | null | undefined>,
+		startTime?: TimeInput,
+	): Disposable | undefined {
+		if (!this.enabled) return undefined;
+
+		if (this.provider != null) {
+			const span = this.provider.startEvent(name, stripNullOrUndefinedAttributes(data), startTime);
+			return {
+				dispose: () => span?.end(),
+			};
+		}
+
+		startTime = startTime ?? Date.now();
+		return {
+			dispose: () => this.sendEvent(name, data, startTime, Date.now()),
+		};
 	}
 
 	// sendErrorEvent(
@@ -178,14 +197,13 @@ export class TelemetryService implements Disposable {
 }
 
 function stripNullOrUndefinedAttributes(data: Record<string, AttributeValue | null | undefined> | undefined) {
-	let attributes: Record<string, AttributeValue> | undefined;
-	if (data != null) {
-		attributes = Object.create(null);
-		for (const [key, value] of Object.entries(data)) {
-			if (value == null) continue;
+	if (data == null) return undefined;
 
-			attributes![key] = value;
-		}
+	const attributes: Record<string, AttributeValue> | undefined = Object.create(null);
+	for (const [key, value] of Object.entries(data)) {
+		if (value == null) continue;
+
+		attributes![key] = value;
 	}
 	return attributes;
 }

@@ -12,11 +12,15 @@ export function flatten(
 ): Record<string, string | null>;
 export function flatten(
 	o: any,
+	options: { prefix?: string; skipNulls?: false; stringify: 'all' },
+): Record<string, string>;
+export function flatten(
+	o: any,
 	options?: { prefix?: string; skipNulls?: boolean; stringify?: boolean },
 ): Record<string, any>;
 export function flatten(
 	o: any,
-	options?: { prefix?: string; skipNulls?: boolean; stringify?: boolean },
+	options?: { prefix?: string; skipNulls?: boolean; stringify?: boolean | 'all' },
 ): Record<string, any> {
 	const skipNulls = options?.skipNulls ?? false;
 	const stringify = options?.stringify ?? false;
@@ -26,7 +30,7 @@ export function flatten(
 			if (value == null) {
 				if (skipNulls) return;
 
-				flattened[key] = stringify ? value ?? null : value;
+				flattened[key] = stringify ? (stringify == 'all' ? JSON.stringify(value) : value ?? null) : value;
 			} else if (typeof value === 'string') {
 				flattened[key] = value;
 			} else {

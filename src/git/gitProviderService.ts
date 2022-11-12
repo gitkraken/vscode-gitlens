@@ -25,7 +25,7 @@ import type { RepoComparisonKey } from '../repositories';
 import { asRepoComparisonKey, Repositories } from '../repositories';
 import type { Subscription } from '../subscription';
 import { isSubscriptionPaidPlan, SubscriptionPlanId } from '../subscription';
-import { groupByFilterMap, groupByMap } from '../system/array';
+import { groupByFilterMap, groupByMap, joinUnique } from '../system/array';
 import { gate } from '../system/decorators/gate';
 import { debug, getLogScope, log } from '../system/decorators/log';
 import { count, filter, first, flatMap, join, map, some } from '../system/iterable';
@@ -112,16 +112,20 @@ export class GitProviderService implements Disposable {
 		return this._onDidChangeProviders.event;
 	}
 	private fireProvidersChanged(added?: GitProvider[], removed?: GitProvider[]) {
+		this.container.telemetry.setGlobalAttributes({
+			'providers.count': this._providers.size,
+			'providers.ids': join(this._providers.keys(), ','),
+		});
+
 		this._etag = Date.now();
 
 		this._onDidChangeProviders.fire({ added: added ?? [], removed: removed ?? [], etag: this._etag });
 
-		this.container.telemetry.sendEvent('providers/changed', {
-			'providers.count': this._providers.size,
-			'providers.ids': join(this._providers.keys(), ','),
-			'providers.added': added?.length ?? 0,
-			'providers.removed': removed?.length ?? 0,
-			'repositories.count': this.openRepositoryCount,
+		queueMicrotask(() => {
+			this.container.telemetry.sendEvent('providers/changed', {
+				'providers.added': added?.length ?? 0,
+				'providers.removed': removed?.length ?? 0,
+			});
 		});
 	}
 
@@ -130,6 +134,12 @@ export class GitProviderService implements Disposable {
 		return this._onDidChangeRepositories.event;
 	}
 	private fireRepositoriesChanged(added?: Repository[], removed?: Repository[]) {
+		const openSchemes = this.openRepositories.map(r => r.uri.scheme);
+		this.container.telemetry.setGlobalAttributes({
+			'repositories.count': openSchemes.length,
+			'repositories.schemes': joinUnique(openSchemes, ','),
+		});
+
 		this._etag = Date.now();
 
 		this._accessCache.clear();
@@ -139,12 +149,23 @@ export class GitProviderService implements Disposable {
 		}
 		this._onDidChangeRepositories.fire({ added: added ?? [], removed: removed ?? [], etag: this._etag });
 
-		this.container.telemetry.sendEvent('repositories/changed', {
-			'repositories.count': this.openRepositoryCount,
-			'repositories.added': added?.length ?? 0,
-			'repositories.removed': removed?.length ?? 0,
-			'providers.count': this._providers.size,
-			'providers.ids': join(this._providers.keys(), ','),
+		queueMicrotask(() => {
+			this.container.telemetry.sendEvent('repositories/changed', {
+				'repositories.added': added?.length ?? 0,
+				'repositories.removed': removed?.length ?? 0,
+			});
+
+			if (added?.length) {
+				for (const repo of added) {
+					this.container.telemetry.sendEvent('repository/opened', {
+						'repository.id': repo.idHash,
+						'repository.scheme': repo.uri.scheme,
+						'repository.closed': repo.closed,
+						'repository.folder.scheme': repo.folder?.uri.scheme,
+						'repository.provider.id': repo.provider.id,
+					});
+				}
+			}
 		});
 	}
 
@@ -245,6 +266,12 @@ export class GitProviderService implements Disposable {
 		singleLine: true,
 	})
 	private onWorkspaceFoldersChanged(e: WorkspaceFoldersChangeEvent) {
+		const schemes = workspace.workspaceFolders?.map(f => f.uri.scheme);
+		this.container.telemetry.setGlobalAttributes({
+			'folders.count': schemes?.length ?? 0,
+			'folders.schemes': schemes != null ? joinUnique(schemes, ', ') : '',
+		});
+
 		if (e.added.length) {
 			void this.discoverRepositories(e.added);
 		}
@@ -442,11 +469,12 @@ export class GitProviderService implements Disposable {
 		const autoRepositoryDetection = configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
 			CoreGitConfiguration.AutoRepositoryDetection,
 		);
-		this.container.telemetry.sendEvent('providers/registrationComplete', {
-			'folders.count': workspaceFolders?.length ?? 0,
-			'folders.schemes': workspaceFolders?.map(f => f.uri.scheme).join(', '),
-			'config.git.autoRepositoryDetection': autoRepositoryDetection,
-		});
+
+		queueMicrotask(() =>
+			this.container.telemetry.sendEvent('providers/registrationComplete', {
+				'config.git.autoRepositoryDetection': autoRepositoryDetection,
+			}),
+		);
 
 		if (scope != null) {
 			scope.exitDetails = ` ${GlyphChars.Dot} workspaceFolders=${workspaceFolders?.length}, git.autoRepositoryDetection=${autoRepositoryDetection}`;
@@ -672,16 +700,10 @@ export class GitProviderService implements Disposable {
 			let visibility = this._visibilityCache.get(undefined);
 			if (visibility == null) {
 				visibility = this.visibilityCore();
-				void visibility.then(v =>
-					queueMicrotask(() => {
-						this.container.telemetry.sendEvent('repositories/visibility', {
-							'repositories.count': this.openRepositoryCount,
-							'repositories.visibility': v,
-							'providers.count': this._providers.size,
-							'providers.ids': join(this._providers.keys(), ','),
-						});
-					}),
-				);
+				void visibility.then(v => {
+					this.container.telemetry.setGlobalAttribute('repositories.visibility', v);
+					this.container.telemetry.sendEvent('repositories/visibility');
+				});
 				this._visibilityCache.set(undefined, visibility);
 			}
 			return visibility;
@@ -692,6 +714,19 @@ export class GitProviderService implements Disposable {
 		let visibility = this._visibilityCache.get(cacheKey);
 		if (visibility == null) {
 			visibility = this.visibilityCore(repoPath);
+			void visibility.then(v =>
+				queueMicrotask(() => {
+					const repo = this.getRepository(repoPath);
+					this.container.telemetry.sendEvent('repository/visibility', {
+						'repository.visibility': v,
+						'repository.id': repo?.idHash,
+						'repository.scheme': repo?.uri.scheme,
+						'repository.closed': repo?.closed,
+						'repository.folder.scheme': repo?.folder?.uri.scheme,
+						'repository.provider.id': repo?.provider.id,
+					});
+				}),
+			);
 			this._visibilityCache.set(cacheKey, visibility);
 		}
 		return visibility;
@@ -783,11 +818,20 @@ export class GitProviderService implements Disposable {
 	}
 
 	private updateContext() {
-		const hasRepositories = this.openRepositoryCount !== 0;
+		const openRepositoryCount = this.openRepositoryCount;
+		const hasRepositories = openRepositoryCount !== 0;
+
 		void this.setEnabledContext(hasRepositories);
 
 		// Don't bother trying to set the values if we're still starting up
-		if (!hasRepositories && this._initializing) return;
+		if (this._initializing) return;
+
+		this.container.telemetry.setGlobalAttributes({
+			enabled: hasRepositories,
+			'repositories.count': openRepositoryCount,
+		});
+
+		if (!hasRepositories) return;
 
 		// Don't block for the remote context updates (because it can block other downstream requests during initialization)
 		async function updateRemoteContext(this: GitProviderService) {
@@ -822,6 +866,13 @@ export class GitProviderService implements Disposable {
 					if (hasRemotes && ((hasRichRemotes && hasConnectedRemotes) || !integrations)) break;
 				}
 			}
+
+			this.container.telemetry.setGlobalAttributes({
+				'repositories.hasRemotes': hasRemotes,
+				'repositories.hasRichRemotes': hasRichRemotes,
+				'repositories.hasConnectedRemotes': hasConnectedRemotes,
+			});
+			queueMicrotask(() => this.container.telemetry.sendEvent('providers/context'));
 
 			await Promise.allSettled([
 				setContext(ContextKeys.HasRemotes, hasRemotes),
