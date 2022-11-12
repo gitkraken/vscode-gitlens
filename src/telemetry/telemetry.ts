@@ -35,8 +35,12 @@ interface QueuedEvent {
 }
 
 export class TelemetryService implements Disposable {
+	private _enabled: boolean = false;
+	get enabled(): boolean {
+		return this._enabled;
+	}
+
 	private provider: TelemetryProvider | undefined;
-	private enabled: boolean = false;
 	private globalAttributes = new Map<string, AttributeValue>();
 	private eventQueue: QueuedEvent[] = [];
 
@@ -59,8 +63,8 @@ export class TelemetryService implements Disposable {
 
 	private _initializationTimer: ReturnType<typeof setTimeout> | undefined;
 	private ensureTelemetry(container: Container): void {
-		this.enabled = env.isTelemetryEnabled && configuration.get('telemetry.enabled', undefined, true);
-		if (!this.enabled) {
+		this._enabled = env.isTelemetryEnabled && configuration.get('telemetry.enabled', undefined, true);
+		if (!this._enabled) {
 			if (this._initializationTimer != null) {
 				clearTimeout(this._initializationTimer);
 				this._initializationTimer = undefined;
@@ -146,7 +150,7 @@ export class TelemetryService implements Disposable {
 		data?: Record<string, AttributeValue | null | undefined>,
 		startTime?: TimeInput,
 	): Disposable | undefined {
-		if (!this.enabled) return undefined;
+		if (!this._enabled) return undefined;
 
 		if (this.provider != null) {
 			const span = this.provider.startEvent(name, stripNullOrUndefinedAttributes(data), startTime);
