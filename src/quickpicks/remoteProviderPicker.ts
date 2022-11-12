@@ -112,7 +112,7 @@ export class CopyRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 
 	override async onDidPressKey(key: Keys): Promise<void> {
 		await super.onDidPressKey(key);
-		void window.showInformationMessage('Url copied to the clipboard');
+		void window.showInformationMessage('URL copied to the clipboard');
 	}
 }
 
