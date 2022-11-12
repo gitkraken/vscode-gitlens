@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds a Terminal Links section to the GitLens Interactive Settings
+- Adds ability to reset to any commit in the _Commit Graph_ and GitLens views &mdash; closes [#2326](https://github.com/gitkraken/vscode-gitlens/issues/2326)
 
 ### Changed
 
