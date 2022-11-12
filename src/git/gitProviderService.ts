@@ -116,17 +116,14 @@ export class GitProviderService implements Disposable {
 			'providers.count': this._providers.size,
 			'providers.ids': join(this._providers.keys(), ','),
 		});
+		this.container.telemetry.sendEvent('providers/changed', {
+			'providers.added': added?.length ?? 0,
+			'providers.removed': removed?.length ?? 0,
+		});
 
 		this._etag = Date.now();
 
 		this._onDidChangeProviders.fire({ added: added ?? [], removed: removed ?? [], etag: this._etag });
-
-		queueMicrotask(() => {
-			this.container.telemetry.sendEvent('providers/changed', {
-				'providers.added': added?.length ?? 0,
-				'providers.removed': removed?.length ?? 0,
-			});
-		});
 	}
 
 	private _onDidChangeRepositories = new EventEmitter<RepositoriesChangeEvent>();
@@ -139,6 +136,10 @@ export class GitProviderService implements Disposable {
 			'repositories.count': openSchemes.length,
 			'repositories.schemes': joinUnique(openSchemes, ','),
 		});
+		this.container.telemetry.sendEvent('repositories/changed', {
+			'repositories.added': added?.length ?? 0,
+			'repositories.removed': removed?.length ?? 0,
+		});
 
 		this._etag = Date.now();
 
@@ -149,13 +150,8 @@ export class GitProviderService implements Disposable {
 		}
 		this._onDidChangeRepositories.fire({ added: added ?? [], removed: removed ?? [], etag: this._etag });
 
-		queueMicrotask(() => {
-			this.container.telemetry.sendEvent('repositories/changed', {
-				'repositories.added': added?.length ?? 0,
-				'repositories.removed': removed?.length ?? 0,
-			});
-
-			if (added?.length) {
+		if (added?.length) {
+			queueMicrotask(() => {
 				for (const repo of added) {
 					this.container.telemetry.sendEvent('repository/opened', {
 						'repository.id': repo.idHash,
@@ -165,8 +161,8 @@ export class GitProviderService implements Disposable {
 						'repository.provider.id': repo.provider.id,
 					});
 				}
-			}
-		});
+			});
+		}
 	}
 
 	private readonly _onDidChangeRepository = new EventEmitter<RepositoryChangeEvent>();
@@ -604,6 +600,10 @@ export class GitProviderService implements Disposable {
 		repoPath?: string | Uri,
 	): Promise<FeatureAccess | RepoFeatureAccess> {
 		const subscription = await this.getSubscription();
+
+		if (this.container.telemetry.enabled) {
+			queueMicrotask(() => void this.visibility());
+		}
 
 		const plan = subscription.plan.effective.id;
 		if (isSubscriptionPaidPlan(plan)) {
