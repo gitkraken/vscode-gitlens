@@ -4,7 +4,8 @@ import type {
 	TreeViewSelectionChangeEvent,
 	TreeViewVisibilityChangeEvent,
 } from 'vscode';
-import { CancellationTokenSource, Disposable, env, Uri, window } from 'vscode';
+import { CancellationTokenSource, Disposable, Uri, window } from 'vscode';
+import type { CopyShaToClipboardCommandArgs } from '../../commands';
 import { executeGitCommand, GitActions } from '../../commands/gitCommands.actions';
 import { configuration } from '../../configuration';
 import { Commands, ContextKeys, CoreCommands } from '../../constants';
@@ -294,7 +295,9 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 							if (params.alt) {
 								this.showCommitPicker();
 							} else if (this._context.commit != null) {
-								void env.clipboard.writeText(this._context.commit.sha);
+								void executeCommand<CopyShaToClipboardCommandArgs>(Commands.CopyShaToClipboard, {
+									sha: this._context.commit.sha,
+								});
 							}
 							break;
 					}
