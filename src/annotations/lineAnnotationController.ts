@@ -17,11 +17,11 @@ import type { LogScope } from '../logger';
 import { Logger } from '../logger';
 import { debug, getLogScope, log } from '../system/decorators/log';
 import { once } from '../system/event';
-import { count, every, filterMap } from '../system/iterable';
+import { count, every, filter } from '../system/iterable';
 import type { PromiseCancelledErrorWithId } from '../system/promise';
 import { PromiseCancelledError, raceAll } from '../system/promise';
 import { isTextEditor } from '../system/utils';
-import type { LinesChangeEvent, LineSelection } from '../trackers/gitLineTracker';
+import type { LinesChangeEvent } from '../trackers/gitLineTracker';
 import { getInlineDecoration } from './annotations';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
@@ -250,17 +250,15 @@ export class LineAnnotationController implements Disposable {
 				.join()}`;
 		}
 
-		const commitLines = [
-			...filterMap<LineSelection, [number, GitCommit]>(selections, selection => {
-				const state = this.container.lineTracker.getState(selection.active);
-				if (state?.commit == null) {
-					Logger.debug(scope, `Line ${selection.active} returned no commit`);
-					return undefined;
-				}
-
-				return [selection.active, state.commit];
-			}),
-		];
+		const commitLines = new Map<number, GitCommit>();
+		for (const selection of selections) {
+			const state = this.container.lineTracker.getState(selection.active);
+			if (state?.commit == null) {
+				Logger.debug(scope, `Line ${selection.active} returned no commit`);
+				continue;
+			}
+			commitLines.set(selection.active, state.commit);
+		}
 
 		const repoPath = trackedDocument.uri.repoPath;
 
@@ -281,7 +279,7 @@ export class LineAnnotationController implements Disposable {
 				? options?.prs ??
 				  this.getPullRequests(
 						repoPath,
-						commitLines.filter(([, commit]) => !commit.isUncommitted),
+						[...filter(commitLines, ([, commit]) => !commit.isUncommitted)],
 						{ timeout: timeout },
 				  )
 				: undefined,
