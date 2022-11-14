@@ -480,14 +480,29 @@ export class SearchInput extends FASTElement {
 	}
 
 	handleShortcutKeys(e: KeyboardEvent) {
-		if (e.key !== 'Enter' || e.ctrlKey || e.metaKey || e.altKey) return true;
+		if (!['Enter', 'ArrowUp', 'ArrowDown'].includes(e.key) || e.ctrlKey || e.metaKey || e.altKey) return true;
 
 		e.preventDefault();
-		if (e.shiftKey) {
-			this.$emit('previous');
-		} else {
-			this.$emit('next');
+		if (e.key === 'Enter') {
+			if (e.shiftKey) {
+				this.$emit('previous');
+			} else {
+				this.$emit('next');
+			}
+		} else if (this.searchHistory.length !== 0) {
+			const direction = e.key === 'ArrowDown' ? 1 : -1;
+			const nextPos = this.searchHistoryPos + direction;
+			if (nextPos > -1 && nextPos < this.searchHistory.length) {
+				this.searchHistoryPos = nextPos;
+				const value = this.searchHistory[nextPos];
+				if (value !== this.value) {
+					this.value = value;
+					this.debouncedUpdateHelpText();
+					this.debouncedEmitSearch();
+				}
+			}
 		}
+
 		return false;
 	}
 
@@ -521,6 +536,20 @@ export class SearchInput extends FASTElement {
 
 	setCustomValidity(errorMessage: string = '') {
 		this.errorMessage = errorMessage;
+	}
+
+	searchHistory: string[] = [];
+	searchHistoryPos = 0;
+	logSearch(query: SearchQuery) {
+		const lastIndex = this.searchHistory.length - 1;
+
+		// prevent duplicate entries
+		if (this.searchHistoryPos < lastIndex || this.searchHistory[lastIndex] === query.query) {
+			return;
+		}
+
+		this.searchHistory.push(query.query);
+		this.searchHistoryPos = this.searchHistory.length - 1;
 	}
 }
 

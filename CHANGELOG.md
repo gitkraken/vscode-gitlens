@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds a Terminal Links section to the GitLens Interactive Settings
 - Adds ability to reset to any commit in the _Commit Graph_ and GitLens views &mdash; closes [#2326](https://github.com/gitkraken/vscode-gitlens/issues/2326)
+- Adds history navigation to the search box in the _Commit Graph_
+  - when focused in the search field, using `up arrow` and `down arrow` navigates through previous searches that yielded results
 
 ### Changed
 
