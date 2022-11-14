@@ -392,8 +392,7 @@ export function GraphWrapper({
 		}
 
 		if (id != null) {
-			// TODO@eamodio Remove the any once we expose `selectCommits` on the graph component
-			queueMicrotask(() => void (graphRef.current as any)?.selectCommits([id], false));
+			queueMicrotask(() => graphRef.current?.selectCommits([id!], false));
 		}
 	};
 
