@@ -1439,10 +1439,9 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private updateColumns(columnsCfg: GraphColumnsConfig) {
 		let columns = this.container.storage.getWorkspace('graph:columns');
-		Object.keys(columnsCfg).forEach((key: string) => {
-			const name = key as GraphColumnName;
-			columns = updateRecordValue(columns, name, columnsCfg[name]);
-		});
+		for (const [key, value] of Object.entries(columnsCfg)) {
+			columns = updateRecordValue(columns, key, value);
+		}
 		void this.container.storage.storeWorkspace('graph:columns', columns);
 		void this.notifyDidChangeColumns();
 	}
