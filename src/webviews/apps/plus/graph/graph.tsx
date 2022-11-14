@@ -14,7 +14,7 @@ import type {
 	GraphRepository,
 	InternalNotificationType,
 	State,
-	UpdateStateCallback
+	UpdateStateCallback,
 } from '../../../../plus/webviews/graph/protocol';
 import {
 	DidChangeAvatarsNotificationType,
@@ -95,7 +95,7 @@ export class GraphApp extends App<State> {
 						path => this.onRepositorySelectionChanged(path),
 						250,
 					)}
-					onDoubleClickRef={(ref) => this.onDoubleClickRef(ref)}
+					onDoubleClickRef={ref => this.onDoubleClickRef(ref)}
 					onMissingAvatars={(...params) => this.onGetMissingAvatars(...params)}
 					onMissingRefsMetadata={(...params) => this.onGetMissingRefsMetadata(...params)}
 					onMoreRows={(...params) => this.onGetMoreRows(...params)}
