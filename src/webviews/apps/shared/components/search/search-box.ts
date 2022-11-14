@@ -1,5 +1,6 @@
 import { attr, css, customElement, FASTElement, html, observable, ref, volatile, when } from '@microsoft/fast-element';
 import { isMac } from '@env/platform';
+import type { SearchQuery } from '../../../../../git/search';
 import { pluralize } from '../../../../../system/string';
 import type { Disposable } from '../../dom';
 import { DOM } from '../../dom';
@@ -257,6 +258,10 @@ export class SearchBox extends FASTElement {
 	navigate(direction: SearchNavigationEventDetail['direction']) {
 		const details: SearchNavigationEventDetail = { direction: direction };
 		this.$emit('navigate', details);
+	}
+
+	logSearch(query: SearchQuery) {
+		this.searchInput?.logSearch(query);
 	}
 
 	handleShortcutKeys(e: KeyboardEvent) {

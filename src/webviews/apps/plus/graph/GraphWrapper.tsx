@@ -172,6 +172,7 @@ export function GraphWrapper({
 	// repo selection UI
 	const [repoExpanded, setRepoExpanded] = useState(false);
 	// search state
+	const searchEl = useRef<any>(null);
 	const [searchQuery, setSearchQuery] = useState<SearchQuery | undefined>(undefined);
 	const { results, resultsError } = getSearchResultModel(state);
 	const [searchResults, setSearchResults] = useState(results);
@@ -277,6 +278,14 @@ export function GraphWrapper({
 	}
 
 	useEffect(() => subscriber?.(updateState), []);
+
+	useEffect(() => {
+		if (searchResultsError != null || searchResults == null || searchResults.count === 0 || searchQuery == null) {
+			return;
+		}
+
+		searchEl.current?.logSearch(searchQuery);
+	}, [searchResults]);
 
 	const searchPosition: number = useMemo(() => {
 		if (searchResults?.ids == null || !searchQuery?.query) return 0;
@@ -675,6 +684,7 @@ export function GraphWrapper({
 				<header className="titlebar graph-app__header">
 					<div className="titlebar__group">
 						<SearchBox
+							ref={searchEl}
 							step={searchPosition}
 							total={searchResults?.count ?? 0}
 							valid={Boolean(searchQuery?.query && searchQuery.query.length > 2)}
