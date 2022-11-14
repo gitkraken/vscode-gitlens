@@ -354,52 +354,55 @@ function getWebviewsConfig(mode, env) {
 			publicPath: '#{root}/dist/webviews/',
 		},
 		optimization: {
-			minimizer: mode === 'production' ? [
-				new TerserPlugin(
-					env.esbuild
-						? {
-								minify: TerserPlugin.esbuildMinify,
-								terserOptions: {
-									// @ts-ignore
-									drop: ['debugger', 'console'],
-									// @ts-ignore
-									format: 'esm',
-									minify: true,
-									treeShaking: true,
-									// // Keep the class names otherwise @log won't provide a useful name
-									// keepNames: true,
-									target: 'es2020',
+			minimizer:
+				mode === 'production'
+					? [
+							new TerserPlugin(
+								env.esbuild
+									? {
+											minify: TerserPlugin.esbuildMinify,
+											terserOptions: {
+												// @ts-ignore
+												drop: ['debugger', 'console'],
+												// @ts-ignore
+												format: 'esm',
+												minify: true,
+												treeShaking: true,
+												// // Keep the class names otherwise @log won't provide a useful name
+												// keepNames: true,
+												target: 'es2020',
+											},
+									  }
+									: {
+											extractComments: false,
+											parallel: true,
+											// @ts-ignore
+											terserOptions: {
+												compress: {
+													drop_debugger: true,
+													drop_console: true,
+												},
+												ecma: 2020,
+												// // Keep the class names otherwise @log won't provide a useful name
+												// keep_classnames: true,
+												module: true,
+											},
+									  },
+							),
+							new ImageMinimizerPlugin({
+								deleteOriginalAssets: true,
+								generator: [imageGeneratorConfig],
+							}),
+							new CssMinimizerPlugin({
+								minimizerOptions: {
+									preset: [
+										'cssnano-preset-advanced',
+										{ discardUnused: false, mergeIdents: false, reduceIdents: false },
+									],
 								},
-						  }
-						: {
-								extractComments: false,
-								parallel: true,
-								// @ts-ignore
-								terserOptions: {
-									compress: {
-										drop_debugger: true,
-										drop_console: true,
-									},
-									ecma: 2020,
-									// // Keep the class names otherwise @log won't provide a useful name
-									// keep_classnames: true,
-									module: true,
-								},
-						  },
-				),
-				new ImageMinimizerPlugin({
-					deleteOriginalAssets: true,
-					generator: [imageGeneratorConfig],
-				}),
-				new CssMinimizerPlugin({
-					minimizerOptions: {
-						preset: [
-							'cssnano-preset-advanced',
-							{ discardUnused: false, mergeIdents: false, reduceIdents: false },
-						],
-					},
-				}),
-			] : [],
+							}),
+					  ]
+					: [],
 		},
 		module: {
 			rules: [
