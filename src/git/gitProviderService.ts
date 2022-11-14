@@ -796,6 +796,8 @@ export class GitProviderService implements Disposable {
 			disabled = !(this.container.storage.getWorkspace('assumeRepositoriesOnStartup') ?? true);
 		}
 
+		this.container.telemetry.setGlobalAttribute('enabled', enabled);
+
 		if (this._context.enabled === enabled && this._context.disabled === disabled) return;
 
 		const promises = [];
