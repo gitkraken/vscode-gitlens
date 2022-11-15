@@ -132,9 +132,15 @@
 								Find many features by opening the
 								<a href="command:workbench.view.scm">Source Control Side Bar</a>.
 							</p>
-							<p>Click on the icon to the left to set the location of your GitLens views.</p>
+							<p>
+								Click on
+								<span aria-hidden="true"
+									>the icon <span class="not-small">to the left</span
+									><span class="only-small">below</span></span
+								><span class="sr-only">a layout option</span> to set the location of your GitLens views.
+							</p>
 						</div>
-						<div class="activitybar-banner__media">
+						<nav class="activitybar-banner__media" aria-label="GitLens Layout">
 							<a
 								href="command:gitlens.setViewsLayout?%7B%22layout%22%3A%22scm%22%7D"
 								class="activitybar-banner__nav-item"
@@ -147,7 +153,13 @@
 								title="Move views to the GitLens side bar"
 								aria-label="Move views to the GitLens side bar"
 							></a>
-							<svg class="svg" fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 68 91">
+							<svg
+								class="svg"
+								fill="none"
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 68 91"
+								aria-hidden="true"
+							>
 								<rect x=".5" y=".5" width="40" height="90" rx="16.5" stroke="url(#a)" />
 								<rect x="3" y="3" width="35" height="85" rx="14" fill="#333" class="svg__bar" />
 								<g clip-path="url(#b)" class="svg__icon" data-gitlens-layout="gitlens">
@@ -206,7 +218,7 @@
 									</linearGradient>
 								</defs>
 							</svg>
-						</div>
+						</nav>
 					</div>
 				</stepped-section>
 				<stepped-section id="plus">

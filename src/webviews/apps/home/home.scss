@@ -378,6 +378,11 @@ ul {
 	align-items: stretch;
 	gap: 1.6rem;
 
+	@media (max-width: 280px) {
+		flex-direction: column;
+		align-items: center;
+	}
+
 	ul {
 		display: flex;
 		flex-direction: column;
@@ -596,5 +601,16 @@ vscode-button {
 	.activitybar-banner__nav-item:last-of-type:focus ~ & &__icon:first-of-type,
 	.activitybar-banner__nav-item:last-of-type:hover ~ & &__icon:first-of-type {
 		fill: var(--vscode-activityBar-foreground);
+	}
+}
+
+@media (max-width: 280px) {
+	.not-small {
+		display: none;
+	}
+}
+@media (min-width: 281px) {
+	.only-small {
+		display: none;
 	}
 }
