@@ -3,7 +3,7 @@ import type { Disposable, TextEditor } from 'vscode';
 import { commands, Uri, window } from 'vscode';
 import { GitActions } from '../../../commands/gitCommands.actions';
 import { configuration } from '../../../configuration';
-import { Commands } from '../../../constants';
+import { Commands, ContextKeys } from '../../../constants';
 import type { Container } from '../../../container';
 import { PlusFeatures } from '../../../features';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
@@ -43,7 +43,14 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 	private _pendingContext: Partial<Context> | undefined;
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.timeline', 'timeline.html', 'Visual File History', 'timelineView');
+		super(
+			container,
+			'gitlens.views.timeline',
+			'timeline.html',
+			'Visual File History',
+			`${ContextKeys.WebviewViewPrefix}timeline`,
+			'timelineView',
+		);
 
 		this._context = {
 			uri: undefined,

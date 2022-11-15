@@ -1,6 +1,6 @@
 /*global window document*/
 import type { IpcCommandType, IpcMessage, IpcMessageParams, IpcNotificationType } from '../../protocol';
-import { onIpc, WebviewReadyCommandType } from '../../protocol';
+import { onIpc, WebviewFocusChangedCommandType, WebviewReadyCommandType } from '../../protocol';
 import { DOM } from './dom';
 import type { Disposable } from './events';
 import { initializeAndWatchThemeColors, onDidChangeTheme } from './theme';
@@ -74,10 +74,36 @@ export abstract class App<State = undefined> {
 	protected onMessageReceived?(e: MessageEvent): void;
 	protected onThemeUpdated?(): void;
 
+	private _focused?: boolean;
+	private _inputFocused?: boolean;
+
 	private bindDisposables: Disposable[] | undefined;
 	protected bind() {
 		this.bindDisposables?.forEach(d => d.dispose());
 		this.bindDisposables = this.onBind?.();
+		if (this.bindDisposables == null) {
+			this.bindDisposables = [];
+		}
+		this.bindDisposables.push(
+			DOM.on(document, 'focusin', e => {
+				const inputFocused =
+					(e.target as HTMLElement)?.tagName.includes('-') ||
+					(e.target as HTMLElement)?.closest('input') != null;
+
+				if (this._focused !== true || this._inputFocused !== inputFocused) {
+					this._focused = true;
+					this._inputFocused = inputFocused;
+					this.sendCommand(WebviewFocusChangedCommandType, { focused: true, inputFocused: inputFocused });
+				}
+			}),
+			DOM.on(document, 'focusout', () => {
+				if (this._focused !== false || this._inputFocused !== false) {
+					this._focused = false;
+					this._inputFocused = false;
+					this.sendCommand(WebviewFocusChangedCommandType, { focused: false, inputFocused: false });
+				}
+			}),
+		);
 	}
 
 	protected log(message: string, ...optionalParams: any[]) {

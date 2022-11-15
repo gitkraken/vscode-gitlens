@@ -7,15 +7,15 @@ import type {
 } from 'vscode';
 import { Disposable, Uri, ViewColumn, window, workspace } from 'vscode';
 import { getNonce } from '@env/crypto';
-import type { Commands } from '../constants';
+import type { Commands, ContextKeys } from '../constants';
 import type { Container } from '../container';
-import { Logger } from '../logger';
+import { setContext } from '../context';
 import { executeCommand, registerCommand } from '../system/command';
 import { debug, log, logName } from '../system/decorators/log';
 import { serialize } from '../system/decorators/serialize';
 import type { TrackedUsageFeatures } from '../usageTracker';
-import type { IpcMessage, IpcMessageParams, IpcNotificationType } from './protocol';
-import { ExecuteCommandType, onIpc, WebviewReadyCommandType } from './protocol';
+import type { IpcMessage, IpcMessageParams, IpcNotificationType, WebviewFocusChangedParams } from './protocol';
+import { ExecuteCommandType, onIpc, WebviewFocusChangedCommandType, WebviewReadyCommandType } from './protocol';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 
@@ -43,6 +43,7 @@ export abstract class WebviewBase<State> implements Disposable {
 		private readonly fileName: string,
 		private readonly iconPath: string,
 		title: string,
+		private readonly contextKeyPrefix: `${ContextKeys.WebviewPrefix}${string}`,
 		private readonly trackingFeature: TrackedUsageFeatures,
 		showCommand: Commands,
 	) {
@@ -131,6 +132,7 @@ export abstract class WebviewBase<State> implements Disposable {
 	protected onInitializing?(): Disposable[] | undefined;
 	protected onReady?(): void;
 	protected onMessageReceived?(e: IpcMessage): void;
+	protected onActiveChanged?(active: boolean): void;
 	protected onFocusChanged?(focused: boolean): void;
 	protected onVisibilityChanged?(visible: boolean): void;
 
@@ -164,6 +166,7 @@ export abstract class WebviewBase<State> implements Disposable {
 
 	private onPanelDisposed() {
 		this.onVisibilityChanged?.(false);
+		this.onActiveChanged?.(false);
 		this.onFocusChanged?.(false);
 
 		this.isReady = false;
@@ -176,13 +179,34 @@ export abstract class WebviewBase<State> implements Disposable {
 		void this.show(undefined, ...args);
 	}
 
+	@debug<WebviewBase<State>['onViewFocusChanged']>({
+		args: { 0: e => `focused=${e.focused}, inputFocused=${e.inputFocused}` },
+	})
+	protected onViewFocusChanged(e: WebviewFocusChangedParams): void {
+		void setContext(`${this.contextKeyPrefix}:focus`, e.focused);
+		void setContext(`${this.contextKeyPrefix}:inputFocus`, e.inputFocused);
+		this.onFocusChanged?.(e.focused);
+	}
+
+	@debug<WebviewBase<State>['onViewStateChanged']>({
+		args: { 0: e => `active=${e.webviewPanel.active}, visible=${e.webviewPanel.visible}` },
+	})
 	protected onViewStateChanged(e: WebviewPanelOnDidChangeViewStateEvent): void {
-		Logger.debug(
-			`Webview(${this.id}).onViewStateChanged`,
-			`active=${e.webviewPanel.active}, visible=${e.webviewPanel.visible}`,
-		);
-		this.onVisibilityChanged?.(e.webviewPanel.visible);
-		this.onFocusChanged?.(e.webviewPanel.active);
+		const { active, visible } = e.webviewPanel;
+
+		// If we are becoming active, delay it a bit to give the UI time to update
+		if (active) {
+			setTimeout(() => void setContext(`${this.contextKeyPrefix}:active`, active), 250);
+		} else {
+			void setContext(`${this.contextKeyPrefix}:active`, active);
+		}
+
+		this.onVisibilityChanged?.(visible);
+
+		this.onActiveChanged?.(active);
+		if (!active) {
+			this.onFocusChanged?.(active);
+		}
 	}
 
 	@debug<WebviewBase<State>['onMessageReceivedCore']>({
@@ -196,6 +220,13 @@ export abstract class WebviewBase<State> implements Disposable {
 				onIpc(WebviewReadyCommandType, e, () => {
 					this.isReady = true;
 					this.onReady?.();
+				});
+
+				break;
+
+			case WebviewFocusChangedCommandType.method:
+				onIpc(WebviewFocusChangedCommandType, e, params => {
+					this.onViewFocusChanged(params);
 				});
 
 				break;

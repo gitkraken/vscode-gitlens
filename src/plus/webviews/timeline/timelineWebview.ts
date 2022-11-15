@@ -5,7 +5,6 @@ import { GitActions } from '../../../commands/gitCommands.actions';
 import { configuration } from '../../../configuration';
 import { Commands, ContextKeys } from '../../../constants';
 import type { Container } from '../../../container';
-import { setContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
 import { GitUri } from '../../../git/gitUri';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
@@ -49,6 +48,7 @@ export class TimelineWebview extends WebviewBase<State> {
 			'timeline.html',
 			'images/gitlens-icon.png',
 			'Visual File History',
+			`${ContextKeys.WebviewPrefix}timeline`,
 			'timelineWebview',
 			Commands.ShowTimelinePage,
 		);
@@ -107,16 +107,6 @@ export class TimelineWebview extends WebviewBase<State> {
 
 	protected override registerCommands(): Disposable[] {
 		return [registerCommand(Commands.RefreshTimelinePage, () => this.refresh(true))];
-	}
-
-	protected override onFocusChanged(focused: boolean): void {
-		if (focused) {
-			// If we are becoming focused, delay it a bit to give the UI time to update
-			setTimeout(() => void setContext(ContextKeys.TimelinePageFocused, focused), 0);
-			return;
-		}
-
-		void setContext(ContextKeys.TimelinePageFocused, focused);
 	}
 
 	protected override onVisibilityChanged(visible: boolean) {
