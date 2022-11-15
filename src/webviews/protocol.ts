@@ -36,6 +36,12 @@ export function onIpc<T extends IpcMessageType<any>>(
 
 export const WebviewReadyCommandType = new IpcCommandType('webview/ready');
 
+export interface WebviewFocusChangedParams {
+	focused: boolean;
+	inputFocused: boolean;
+}
+export const WebviewFocusChangedCommandType = new IpcCommandType<WebviewFocusChangedParams>('webview/focus');
+
 export interface ExecuteCommandParams {
 	command: string;
 	args?: [];

@@ -1,7 +1,7 @@
 import type { ConfigurationChangeEvent, WebviewPanelOnDidChangeViewStateEvent } from 'vscode';
 import { ConfigurationTarget } from 'vscode';
 import { configuration } from '../configuration';
-import type { Commands } from '../constants';
+import type { Commands, ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import { GitCommit, GitCommitIdentity } from '../git/models/commit';
@@ -26,10 +26,11 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 		fileName: string,
 		iconPath: string,
 		title: string,
+		contextKeyPrefix: `${ContextKeys.WebviewPrefix}${string}`,
 		trackingFeature: TrackedUsageFeatures,
 		showCommand: Commands,
 	) {
-		super(container, id, fileName, iconPath, title, trackingFeature, showCommand);
+		super(container, id, fileName, iconPath, title, contextKeyPrefix, trackingFeature, showCommand);
 		this.disposables.push(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),

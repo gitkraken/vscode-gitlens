@@ -31,7 +31,7 @@ import {
 
 export class HomeWebviewView extends WebviewViewBase<State> {
 	constructor(container: Container) {
-		super(container, 'gitlens.views.home', 'home.html', 'Home', 'homeView');
+		super(container, 'gitlens.views.home', 'home.html', 'Home', `${ContextKeys.WebviewViewPrefix}home`, 'homeView');
 
 		this.disposables.push(
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),

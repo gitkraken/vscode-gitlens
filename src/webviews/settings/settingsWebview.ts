@@ -1,6 +1,6 @@
 import { workspace } from 'vscode';
 import { configuration } from '../../configuration';
-import { Commands } from '../../constants';
+import { Commands, ContextKeys } from '../../constants';
 import type { Container } from '../../container';
 import { registerCommand } from '../../system/command';
 import { DidOpenAnchorNotificationType } from '../protocol';
@@ -19,6 +19,7 @@ export class SettingsWebview extends WebviewWithConfigBase<State> {
 			'settings.html',
 			'images/gitlens-icon.png',
 			'GitLens Settings',
+			`${ContextKeys.WebviewPrefix}settings`,
 			'settingsWebview',
 			Commands.ShowSettingsPage,
 		);

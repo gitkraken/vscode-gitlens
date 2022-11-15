@@ -8,6 +8,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds the ability to set keyboard shortcuts to commits and stashes on the _Commit Graph_ &mdash; closes [#2345](https://github.com/gitkraken/vscode-gitlens/issues/2345)
+  - Keyboard shortcuts can be applied to many of the `gitlens.graph.*` commands and should use `gitlens:webview:graph:focus && !gitlens:webview:graph:inputFocus` for their "When Expression" to only apply when the _Commit Graph_ is focused
+  - For example, add the following to your `keybindings.json` to allow <kbd>Ctrl</kbd>+<kbd>C</kbd> to copy the selected commit's SHA to the clipboard
+    ```json
+    {
+    	"key": "ctrl+c",
+    	"command": "gitlens.graph.copySha",
+    	"when": "gitlens:webview:graph:focus && !gitlens:webview:graph:inputFocus"
+    }
+    ```
 - Adds a Terminal Links section to the GitLens Interactive Settings
 - Adds ability to reset to any commit in the _Commit Graph_ and GitLens views &mdash; closes [#2326](https://github.com/gitkraken/vscode-gitlens/issues/2326)
 - Adds history navigation to the search box in the _Commit Graph_

@@ -32,7 +32,7 @@ import type { Config } from '../../../configuration';
 import { configuration } from '../../../configuration';
 import { Commands, ContextKeys, CoreGitCommands } from '../../../constants';
 import type { Container } from '../../../container';
-import { getContext, onDidChangeContext, setContext } from '../../../context';
+import { getContext, onDidChangeContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
 import { GitSearchError } from '../../../git/errors';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../../../git/models/branch';
@@ -206,6 +206,7 @@ export class GraphWebview extends WebviewBase<State> {
 			'graph.html',
 			'images/gitlens-icon.png',
 			'Commit Graph',
+			`${ContextKeys.WebviewPrefix}graph`,
 			'graphWebview',
 			Commands.ShowGraphPage,
 		);
@@ -428,22 +429,13 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	protected override onFocusChanged(focused: boolean): void {
-		if (focused) {
-			// If we are becoming focused, delay it a bit to give the UI time to update
-			setTimeout(() => void setContext(ContextKeys.GraphFocused, focused), 0);
-
-			if (this.selection != null) {
-				void GitActions.Commit.showDetailsView(this.selection[0], {
-					pin: false,
-					preserveFocus: true,
-					preserveVisibility: this._showDetailsView === false,
-				});
-			}
-
-			return;
+		if (focused && this.selection != null) {
+			void GitActions.Commit.showDetailsView(this.selection[0], {
+				pin: false,
+				preserveFocus: true,
+				preserveVisibility: this._showDetailsView === false,
+			});
 		}
-
-		void setContext(ContextKeys.GraphFocused, focused);
 	}
 
 	protected override onVisibilityChanged(visible: boolean): void {
@@ -860,22 +852,18 @@ export class GraphWebview extends WebviewBase<State> {
 
 		let commits: GitRevisionReference[] | undefined;
 		if (id != null) {
-			let commit;
 			if (type === GitGraphRowType.Stash) {
-				commit = GitReference.create(id, this.repository.path, {
-					refType: 'stash',
-					name: id,
-					number: undefined,
-				});
-				// const stash = await this.repository?.getStash();
-				// commit = stash?.commits.get(id);
+				commits = [
+					GitReference.create(id, this.repository.path, {
+						refType: 'stash',
+						name: id,
+						number: undefined,
+					}),
+				];
 			} else if (type === GitGraphRowType.Working) {
-				commit = GitReference.create(GitRevision.uncommitted, this.repository.path, { refType: 'revision' });
+				commits = [GitReference.create(GitRevision.uncommitted, this.repository.path, { refType: 'revision' })];
 			} else {
-				commit = GitReference.create(id, this.repository.path, { refType: 'revision' });
-			}
-			if (commit != null) {
-				commits = [commit];
+				commits = [GitReference.create(id, this.repository.path, { refType: 'revision' })];
 			}
 		}
 
@@ -1519,17 +1507,15 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private createBranch(item: GraphItemContext) {
-		if (isGraphItemRefContext(item)) {
-			const { ref } = item.webviewItemValue;
-			return GitActions.Branch.create(ref.repoPath, ref);
-		}
+	private createBranch(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return Promise.resolve();
 
-		return Promise.resolve();
+		return GitActions.Branch.create(ref.repoPath, ref);
 	}
 
 	@debug()
-	private deleteBranch(item: GraphItemContext) {
+	private deleteBranch(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 			return GitActions.Branch.remove(ref.repoPath, ref);
@@ -1539,7 +1525,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private mergeBranchInto(item: GraphItemContext) {
+	private mergeBranchInto(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 			return GitActions.merge(ref.repoPath, ref);
@@ -1549,7 +1535,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private openBranchOnRemote(item: GraphItemContext, clipboard?: boolean) {
+	private openBranchOnRemote(item?: GraphItemContext, clipboard?: boolean) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 			return executeCommand<OpenBranchOnRemoteCommandArgs>(Commands.OpenBranchOnRemote, {
@@ -1563,17 +1549,15 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private rebase(item: GraphItemContext) {
-		if (isGraphItemRefContext(item)) {
-			const { ref } = item.webviewItemValue;
-			return GitActions.rebase(ref.repoPath, ref);
-		}
+	private rebase(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return Promise.resolve();
 
-		return Promise.resolve();
+		return GitActions.rebase(ref.repoPath, ref);
 	}
 
 	@debug()
-	private rebaseToRemote(item: GraphItemContext) {
+	private rebaseToRemote(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 			if (ref.upstream != null) {
@@ -1592,7 +1576,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private renameBranch(item: GraphItemContext) {
+	private renameBranch(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 			return GitActions.Branch.rename(ref.repoPath, ref);
@@ -1602,19 +1586,17 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private cherryPick(item: GraphItemContext) {
-		if (isGraphItemRefContext(item, 'revision')) {
-			const { ref } = item.webviewItemValue;
-			return GitActions.cherryPick(ref.repoPath, ref);
-		}
+	private cherryPick(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'revision');
+		if (ref == null) return Promise.resolve();
 
-		return Promise.resolve();
+		return GitActions.cherryPick(ref.repoPath, ref);
 	}
 
 	@debug()
-	private async copy(item: GraphItemContext) {
-		if (isGraphItemRefContext(item)) {
-			const { ref } = item.webviewItemValue;
+	private async copy(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref != null) {
 			await env.clipboard.writeText(
 				ref.refType === 'revision' && ref.message ? `${ref.name}: ${ref.message}` : ref.name,
 			);
@@ -1630,112 +1612,95 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private copyMessage(item: GraphItemContext) {
-		if (isGraphItemRefContext(item)) {
-			const { ref } = item.webviewItemValue;
-			return executeCommand<CopyMessageToClipboardCommandArgs>(Commands.CopyMessageToClipboard, {
-				repoPath: ref.repoPath,
-				sha: ref.ref,
-				message: 'message' in ref ? ref.message : undefined,
-			});
-		}
+	private copyMessage(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return Promise.resolve();
 
-		return Promise.resolve();
+		return executeCommand<CopyMessageToClipboardCommandArgs>(Commands.CopyMessageToClipboard, {
+			repoPath: ref.repoPath,
+			sha: ref.ref,
+			message: 'message' in ref ? ref.message : undefined,
+		});
 	}
 
 	@debug()
-	private async copySha(item: GraphItemContext) {
-		if (isGraphItemRefContext(item)) {
-			const { ref } = item.webviewItemValue;
+	private async copySha(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return Promise.resolve();
 
-			let sha = ref.ref;
-			if (!GitRevision.isSha(sha)) {
-				sha = await this.container.git.resolveReference(ref.repoPath, sha, undefined, { force: true });
-			}
-
-			return executeCommand<CopyShaToClipboardCommandArgs>(Commands.CopyShaToClipboard, {
-				sha: sha,
-			});
+		let sha = ref.ref;
+		if (!GitRevision.isSha(sha)) {
+			sha = await this.container.git.resolveReference(ref.repoPath, sha, undefined, { force: true });
 		}
 
-		return Promise.resolve();
+		return executeCommand<CopyShaToClipboardCommandArgs>(Commands.CopyShaToClipboard, {
+			sha: sha,
+		});
 	}
 
 	@debug()
-	private openInDetailsView(item: GraphItemContext) {
-		if (isGraphItemRefContext(item, 'revision')) {
-			const { ref } = item.webviewItemValue;
-			return executeCommand<ShowCommitsInViewCommandArgs>(Commands.ShowInDetailsView, {
-				repoPath: ref.repoPath,
-				refs: [ref.ref],
-			});
-		}
+	private openInDetailsView(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'revision');
+		if (ref == null) return Promise.resolve();
 
-		return Promise.resolve();
+		return executeCommand<ShowCommitsInViewCommandArgs>(Commands.ShowInDetailsView, {
+			repoPath: ref.repoPath,
+			refs: [ref.ref],
+		});
 	}
 
 	@debug()
-	private openCommitOnRemote(item: GraphItemContext, clipboard?: boolean) {
-		if (isGraphItemRefContext(item, 'revision')) {
-			const { ref } = item.webviewItemValue;
-			return executeCommand<OpenCommitOnRemoteCommandArgs>(Commands.OpenCommitOnRemote, {
-				sha: ref.ref,
-				clipboard: clipboard,
-			});
-		}
+	private openCommitOnRemote(item?: GraphItemContext, clipboard?: boolean) {
+		const ref = this.getGraphItemRef(item, 'revision');
+		if (ref == null) return Promise.resolve();
 
-		return Promise.resolve();
+		return executeCommand<OpenCommitOnRemoteCommandArgs>(Commands.OpenCommitOnRemote, {
+			sha: ref.ref,
+			clipboard: clipboard,
+		});
 	}
 
 	@debug()
-	private resetCommit(item: GraphItemContext) {
-		if (isGraphItemRefContext(item, 'revision')) {
-			const { ref } = item.webviewItemValue;
-			return GitActions.reset(
-				ref.repoPath,
-				GitReference.create(`${ref.ref}^`, ref.repoPath, {
-					refType: 'revision',
-					name: `${ref.name}^`,
-					message: ref.message,
-				}),
-			);
-		}
+	private resetCommit(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'revision');
+		if (ref == null) return Promise.resolve();
 
-		return Promise.resolve();
+		return GitActions.reset(
+			ref.repoPath,
+			GitReference.create(`${ref.ref}^`, ref.repoPath, {
+				refType: 'revision',
+				name: `${ref.name}^`,
+				message: ref.message,
+			}),
+		);
 	}
 
 	@debug()
-	private resetToCommit(item: GraphItemContext) {
-		if (isGraphItemRefContext(item, 'revision')) {
-			const { ref } = item.webviewItemValue;
-			return GitActions.reset(ref.repoPath, ref);
-		}
+	private resetToCommit(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'revision');
+		if (ref == null) return Promise.resolve();
 
-		return Promise.resolve();
+		return GitActions.reset(ref.repoPath, ref);
 	}
 
 	@debug()
-	private revertCommit(item: GraphItemContext) {
-		if (isGraphItemRefContext(item, 'revision')) {
-			const { ref } = item.webviewItemValue;
-			return GitActions.revert(ref.repoPath, ref);
-		}
+	private revertCommit(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'revision');
+		if (ref == null) return Promise.resolve();
 
-		return Promise.resolve();
+		return GitActions.revert(ref.repoPath, ref);
 	}
 
 	@debug()
-	private switchTo(item: GraphItemContext) {
-		if (isGraphItemRefContext(item)) {
-			const { ref } = item.webviewItemValue;
-			return GitActions.switchTo(ref.repoPath, ref);
-		}
+	private switchTo(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return Promise.resolve();
 
-		return Promise.resolve();
+		return GitActions.switchTo(ref.repoPath, ref);
 	}
 
 	@debug()
-	private hideRef(item: GraphItemContext, options?: { group?: boolean; remote?: boolean }) {
+	private hideRef(item?: GraphItemContext, options?: { group?: boolean; remote?: boolean }) {
 		let refs;
 		if (options?.group && isGraphItemRefGroupContext(item)) {
 			({ refs } = item.webviewItemGroupValue);
@@ -1765,71 +1730,61 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private switchToAnother(item: GraphItemContext | unknown) {
-		if (isGraphItemRefContext(item)) {
-			const { ref } = item.webviewItemValue;
-			return GitActions.switchTo(ref.repoPath);
-		}
+	private switchToAnother(item?: GraphItemContext | unknown) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return Promise.resolve();
 
-		return GitActions.switchTo(this.repository);
+		return GitActions.switchTo(ref.repoPath);
 	}
 
 	@debug()
-	private async undoCommit(item: GraphItemContext) {
-		if (isGraphItemRefContext(item, 'revision')) {
-			const { ref } = item.webviewItemValue;
-			const repo = await this.container.git.getOrOpenScmRepository(ref.repoPath);
-			const commit = await repo?.getCommit('HEAD');
+	private async undoCommit(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return Promise.resolve();
 
-			if (commit?.hash !== ref.ref) {
-				void window.showWarningMessage(
-					`Commit ${GitReference.toString(ref, {
-						capitalize: true,
-						icon: false,
-					})} cannot be undone, because it is no longer the most recent commit.`,
-				);
+		const repo = await this.container.git.getOrOpenScmRepository(ref.repoPath);
+		const commit = await repo?.getCommit('HEAD');
 
-				return;
-			}
+		if (commit?.hash !== ref.ref) {
+			void window.showWarningMessage(
+				`Commit ${GitReference.toString(ref, {
+					capitalize: true,
+					icon: false,
+				})} cannot be undone, because it is no longer the most recent commit.`,
+			);
 
-			return void executeCoreGitCommand(CoreGitCommands.UndoCommit, ref.repoPath);
+			return;
 		}
 
-		return Promise.resolve();
+		return void executeCoreGitCommand(CoreGitCommands.UndoCommit, ref.repoPath);
 	}
 
 	@debug()
-	private applyStash(item: GraphItemContext) {
-		if (isGraphItemRefContext(item, 'stash')) {
-			const { ref } = item.webviewItemValue;
-			return GitActions.Stash.apply(ref.repoPath, ref);
-		}
+	private applyStash(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'stash');
+		if (ref == null) return Promise.resolve();
 
-		return Promise.resolve();
+		return GitActions.Stash.apply(ref.repoPath, ref);
 	}
 
 	@debug()
-	private deleteStash(item: GraphItemContext) {
-		if (isGraphItemRefContext(item, 'stash')) {
-			const { ref } = item.webviewItemValue;
-			return GitActions.Stash.drop(ref.repoPath, ref);
-		}
+	private deleteStash(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'stash');
+		if (ref == null) return Promise.resolve();
 
-		return Promise.resolve();
+		return GitActions.Stash.drop(ref.repoPath, ref);
 	}
 
 	@debug()
-	private async createTag(item: GraphItemContext) {
-		if (isGraphItemRefContext(item)) {
-			const { ref } = item.webviewItemValue;
-			return GitActions.Tag.create(ref.repoPath, ref);
-		}
+	private async createTag(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return Promise.resolve();
 
-		return Promise.resolve();
+		return GitActions.Tag.create(ref.repoPath, ref);
 	}
 
 	@debug()
-	private deleteTag(item: GraphItemContext) {
+	private deleteTag(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'tag')) {
 			const { ref } = item.webviewItemValue;
 			return GitActions.Tag.remove(ref.repoPath, ref);
@@ -1839,17 +1794,15 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private async createWorktree(item: GraphItemContext) {
-		if (isGraphItemRefContext(item)) {
-			const { ref } = item.webviewItemValue;
-			return GitActions.Worktree.create(ref.repoPath, undefined, ref);
-		}
+	private async createWorktree(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return Promise.resolve();
 
-		return Promise.resolve();
+		return GitActions.Worktree.create(ref.repoPath, undefined, ref);
 	}
 
 	@debug()
-	private async createPullRequest(item: GraphItemContext) {
+	private async createPullRequest(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 
@@ -1886,7 +1839,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private openPullRequestOnRemote(item: GraphItemContext, clipboard?: boolean) {
+	private openPullRequestOnRemote(item?: GraphItemContext, clipboard?: boolean) {
 		if (
 			isGraphItemContext(item) &&
 			typeof item.webviewItemValue === 'object' &&
@@ -1903,38 +1856,33 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private async compareAncestryWithWorking(item: GraphItemContext) {
-		if (isGraphItemRefContext(item)) {
-			const { ref } = item.webviewItemValue;
+	private async compareAncestryWithWorking(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return Promise.resolve();
 
-			const branch = await this.container.git.getBranch(ref.repoPath);
-			if (branch == null) return undefined;
+		const branch = await this.container.git.getBranch(ref.repoPath);
+		if (branch == null) return undefined;
 
-			const commonAncestor = await this.container.git.getMergeBase(ref.repoPath, branch.ref, ref.ref);
-			if (commonAncestor == null) return undefined;
+		const commonAncestor = await this.container.git.getMergeBase(ref.repoPath, branch.ref, ref.ref);
+		if (commonAncestor == null) return undefined;
 
-			return this.container.searchAndCompareView.compare(
-				ref.repoPath,
-				{ ref: commonAncestor, label: `ancestry with ${ref.ref} (${GitRevision.shorten(commonAncestor)})` },
-				'',
-			);
-		}
-
-		return Promise.resolve();
+		return this.container.searchAndCompareView.compare(
+			ref.repoPath,
+			{ ref: commonAncestor, label: `ancestry with ${ref.ref} (${GitRevision.shorten(commonAncestor)})` },
+			'',
+		);
 	}
 
 	@debug()
-	private compareHeadWith(item: GraphItemContext) {
-		if (isGraphItemRefContext(item)) {
-			const { ref } = item.webviewItemValue;
-			return this.container.searchAndCompareView.compare(ref.repoPath, 'HEAD', ref.ref);
-		}
+	private compareHeadWith(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return Promise.resolve();
 
-		return Promise.resolve();
+		return this.container.searchAndCompareView.compare(ref.repoPath, 'HEAD', ref.ref);
 	}
 
 	@debug()
-	private compareWithUpstream(item: GraphItemContext) {
+	private compareWithUpstream(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 			if (ref.upstream != null) {
@@ -1946,17 +1894,15 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private compareWorkingWith(item: GraphItemContext) {
-		if (isGraphItemRefContext(item)) {
-			const { ref } = item.webviewItemValue;
-			return this.container.searchAndCompareView.compare(ref.repoPath, '', ref.ref);
-		}
+	private compareWorkingWith(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return Promise.resolve();
 
-		return Promise.resolve();
+		return this.container.searchAndCompareView.compare(ref.repoPath, '', ref.ref);
 	}
 
 	@debug()
-	private addAuthor(item: GraphItemContext) {
+	private addAuthor(item?: GraphItemContext) {
 		if (isGraphItemTypedContext(item, 'contributor')) {
 			const { repoPath, name, email, current } = item.webviewItemValue;
 			return GitActions.Contributor.addAuthors(
@@ -1982,6 +1928,34 @@ export class GraphWebview extends WebviewBase<State> {
 		await this.container.storage.storeWorkspace('graph:columns', columns);
 
 		void this.notifyDidChangeColumns();
+	}
+
+	private getGraphItemRef(item?: GraphItemContext | unknown | undefined): GitReference | undefined;
+	private getGraphItemRef(
+		item: GraphItemContext | unknown | undefined,
+		refType: 'revision',
+	): GitRevisionReference | undefined;
+	private getGraphItemRef(
+		item: GraphItemContext | unknown | undefined,
+		refType: 'stash',
+	): GitStashReference | undefined;
+	private getGraphItemRef(
+		item?: GraphItemContext | unknown,
+		refType?: 'revision' | 'stash',
+	): GitReference | undefined {
+		if (item == null) {
+			const ref = this.selection?.[0];
+			return ref != null && (refType == null || refType === ref.refType) ? ref : undefined;
+		}
+
+		switch (refType) {
+			case 'revision':
+				return isGraphItemRefContext(item, 'revision') ? item.webviewItemValue.ref : undefined;
+			case 'stash':
+				return isGraphItemRefContext(item, 'stash') ? item.webviewItemValue.ref : undefined;
+			default:
+				return isGraphItemRefContext(item) ? item.webviewItemValue.ref : undefined;
+		}
 	}
 }
 

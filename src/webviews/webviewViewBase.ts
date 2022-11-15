@@ -8,15 +8,16 @@ import type {
 } from 'vscode';
 import { Disposable, Uri, window, workspace } from 'vscode';
 import { getNonce } from '@env/crypto';
-import type { Commands } from '../constants';
+import type { Commands, ContextKeys } from '../constants';
 import type { Container } from '../container';
+import { setContext } from '../context';
 import { Logger } from '../logger';
 import { executeCommand } from '../system/command';
 import { debug, getLogScope, log, logName } from '../system/decorators/log';
 import { serialize } from '../system/decorators/serialize';
 import type { TrackedUsageFeatures } from '../usageTracker';
-import type { IpcMessage, IpcMessageParams, IpcNotificationType } from './protocol';
-import { ExecuteCommandType, onIpc, WebviewReadyCommandType } from './protocol';
+import type { IpcMessage, IpcMessageParams, IpcNotificationType, WebviewFocusChangedParams } from './protocol';
+import { ExecuteCommandType, onIpc, WebviewFocusChangedCommandType, WebviewReadyCommandType } from './protocol';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 
@@ -43,6 +44,7 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 		public readonly id: `gitlens.views.${string}`,
 		protected readonly fileName: string,
 		title: string,
+		private readonly contextKeyPrefix: `${ContextKeys.WebviewViewPrefix}${string}`,
 		private readonly trackingFeature: TrackedUsageFeatures,
 	) {
 		this._title = title;
@@ -92,6 +94,7 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 	protected onInitializing?(): Disposable[] | undefined;
 	protected onReady?(): void;
 	protected onMessageReceived?(e: IpcMessage): void;
+	protected onFocusChanged?(focused: boolean): void;
 	protected onVisibilityChanged?(visible: boolean): void;
 	protected onWindowFocusChanged?(focused: boolean): void;
 
@@ -143,6 +146,15 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 		this._view = undefined;
 	}
 
+	@debug<WebviewViewBase<State>['onViewFocusChanged']>({
+		args: { 0: e => `focused=${e.focused}, inputFocused=${e.inputFocused}` },
+	})
+	protected onViewFocusChanged(e: WebviewFocusChangedParams): void {
+		void setContext(`${this.contextKeyPrefix}:inputFocus`, e.inputFocused);
+		void setContext(`${this.contextKeyPrefix}:focus`, e.focused);
+		this.onFocusChanged?.(e.focused);
+	}
+
 	private async onViewVisibilityChanged() {
 		const visible = this.visible;
 		Logger.debug(`WebviewView(${this.id}).onViewVisibilityChanged`, `visible=${visible}`);
@@ -171,6 +183,13 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 				onIpc(WebviewReadyCommandType, e, () => {
 					this.isReady = true;
 					this.onReady?.();
+				});
+
+				break;
+
+			case WebviewFocusChangedCommandType.method:
+				onIpc(WebviewFocusChangedCommandType, e, params => {
+					this.onViewFocusChanged(params);
 				});
 
 				break;

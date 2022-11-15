@@ -243,6 +243,8 @@ export const enum Commands {
 export const enum ContextKeys {
 	ActionPrefix = 'gitlens:action:',
 	KeyPrefix = 'gitlens:key:',
+	WebviewPrefix = `gitlens:webview:`,
+	WebviewViewPrefix = `gitlens:webviewView:`,
 
 	ActiveFileStatus = 'gitlens:activeFileStatus',
 	AnnotationStatus = 'gitlens:annotationStatus',
@@ -250,13 +252,11 @@ export const enum ContextKeys {
 	DisabledToggleCodeLens = 'gitlens:disabledToggleCodeLens',
 	Disabled = 'gitlens:disabled',
 	Enabled = 'gitlens:enabled',
-	GraphFocused = 'gitlens:graph:focused',
 	HasConnectedRemotes = 'gitlens:hasConnectedRemotes',
 	HasRemotes = 'gitlens:hasRemotes',
 	HasRichRemotes = 'gitlens:hasRichRemotes',
 	HasVirtualFolders = 'gitlens:hasVirtualFolders',
 	Readonly = 'gitlens:readonly',
-	TimelinePageFocused = 'gitlens:timelinePage:focused',
 	Untrusted = 'gitlens:untrusted',
 	ViewsCanCompare = 'gitlens:views:canCompare',
 	ViewsCanCompareFile = 'gitlens:views:canCompare:file',

@@ -86,7 +86,14 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	private _pinned = false;
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.commitDetails', 'commitDetails.html', 'Commit Details', 'commitDetailsView');
+		super(
+			container,
+			'gitlens.views.commitDetails',
+			'commitDetails.html',
+			'Commit Details',
+			`${ContextKeys.WebviewViewPrefix}commitDetails`,
+			'commitDetailsView',
+		);
 
 		this._context = {
 			pinned: false,

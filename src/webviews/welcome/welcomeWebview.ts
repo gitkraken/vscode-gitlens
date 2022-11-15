@@ -1,5 +1,5 @@
 import { configuration } from '../../configuration';
-import { Commands } from '../../constants';
+import { Commands, ContextKeys } from '../../constants';
 import type { Container } from '../../container';
 import { WebviewWithConfigBase } from '../webviewWithConfigBase';
 import type { State } from './protocol';
@@ -12,6 +12,7 @@ export class WelcomeWebview extends WebviewWithConfigBase<State> {
 			'welcome.html',
 			'images/gitlens-icon.png',
 			'Welcome to GitLens',
+			`${ContextKeys.WebviewPrefix}welcome`,
 			'welcomeWebview',
 			Commands.ShowWelcomePage,
 		);

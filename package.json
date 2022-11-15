@@ -8881,37 +8881,37 @@
 				},
 				{
 					"command": "gitlens.refreshTimelinePage",
-					"when": "gitlens:timelinePage:focused",
+					"when": "gitlens:webview:timeline:active",
 					"group": "navigation@-99"
 				},
 				{
 					"command": "gitlens.graph.push",
-					"when": "gitlens:graph:focused && gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"when": "gitlens:webview:graph:active && gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "navigation@-103"
 				},
 				{
 					"command": "gitlens.graph.pull",
-					"when": "gitlens:graph:focused && gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"when": "gitlens:webview:graph:active && gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "navigation@-102"
 				},
 				{
 					"command": "gitlens.graph.fetch",
-					"when": "gitlens:graph:focused && gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"when": "gitlens:webview:graph:active && gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "navigation@-101"
 				},
 				{
 					"command": "gitlens.graph.switchToAnotherBranch",
-					"when": "gitlens:graph:focused && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"when": "gitlens:webview:graph:active && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "navigation@-100"
 				},
 				{
 					"command": "gitlens.graph.refresh",
-					"when": "gitlens:graph:focused",
+					"when": "gitlens:webview:graph:active",
 					"group": "navigation@-99"
 				},
 				{
 					"command": "gitlens.showSettingsPage#commit-graph",
-					"when": "gitlens:graph:focused",
+					"when": "gitlens:webview:graph:active",
 					"group": "navigation@-98"
 				}
 			],
