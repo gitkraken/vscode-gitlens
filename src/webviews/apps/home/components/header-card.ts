@@ -35,7 +35,7 @@ const template = html<HeaderCard>`
 				)}
 				You have access to GitLens+ features on ${x => (x.isPro ? 'any repo' : 'local & public repos')}, and all
 				other GitLens features on any repo.<br /><br />
-				✨ indicates GitLens+ features.
+				✨ indicates GitLens+ features, <a class="link-inline" href="command:gitlens.plus.learn">learn more</a>
 			</pop-over>
 		</span>
 		<span class="account-actions">
@@ -276,6 +276,14 @@ const styles = css`
 
 	pop-over .action {
 		margin-right: -0.2rem;
+	}
+
+	.link-inline {
+		color: inherit;
+		text-decoration: underline;
+	}
+	.link-inline:hover {
+		color: var(--vscode-textLink-foreground);
 	}
 `;
 
