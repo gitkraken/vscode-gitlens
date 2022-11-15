@@ -486,13 +486,9 @@ export function GraphWrapper({
 
 	const handleOnGraphColumnsReOrdered = (columnsSettings: GraphColumnsSettings) => {
 		const graphColumnsConfig: GraphColumnsConfig = {};
-		Object.keys(columnsSettings).forEach((columnName: string) => {
-			graphColumnsConfig[columnName] = {
-				width: columnsSettings[columnName].width,
-				isHidden: columnsSettings[columnName].isHidden,
-				order: columnsSettings[columnName].order
-			};
-		});
+		for (const [columnName, config] of Object.entries(columnsSettings as GraphColumnsConfig)) {
+			graphColumnsConfig[columnName] = { ...config };
+		}
 		onColumnsChange?.(graphColumnsConfig);
 	};
 
