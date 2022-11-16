@@ -24,7 +24,7 @@ export class GiteaRemote extends RemoteProvider {
 					title: `Open Issue #<num> on ${this.name}`,
 
 					type: AutolinkType.Issue,
-					description: `Issue #<num> on ${this.name}`,
+					description: `${this.name} Issue #<num>`,
 				},
 			];
 		}

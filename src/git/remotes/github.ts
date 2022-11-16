@@ -60,7 +60,7 @@ export class GitHubRemote extends RichRemoteProvider {
 					url: `${this.baseUrl}/issues/<num>`,
 					title: `Open Issue or Pull Request #<num> on ${this.name}`,
 
-					description: `Issue or Pull Request #<num> on ${this.name}`,
+					description: `${this.name} Issue or Pull Request #<num>`,
 				},
 				{
 					prefix: 'gh-',
@@ -68,7 +68,7 @@ export class GitHubRemote extends RichRemoteProvider {
 					title: `Open Issue or Pull Request #<num> on ${this.name}`,
 					ignoreCase: true,
 
-					description: `Issue or Pull Request #<num> on ${this.name}`,
+					description: `${this.name} Issue or Pull Request #<num>`,
 				},
 				{
 					tokenize: (
@@ -110,7 +110,7 @@ export class GitHubRemote extends RichRemoteProvider {
 								url: `${this.protocol}://${this.domain}/${repo}/issues/${num}`,
 								title: `Open Issue or Pull Request #<num> from ${repo} on ${this.name}`,
 
-								description: `Issue or Pull Request #${num} from ${repo} on ${this.name}`,
+								description: `${this.name} Issue or Pull Request ${repo}#${num}`,
 							});
 						} while (true);
 					},
