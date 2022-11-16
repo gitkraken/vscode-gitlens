@@ -48,6 +48,7 @@ import type { Subscription } from '../../../../subscription';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../subscription';
 import { pluralize } from '../../../../system/string';
 import type { IpcNotificationType } from '../../../../webviews/protocol';
+import { PopOver } from '../../shared/components/overlays/react';
 import { SearchBox } from '../../shared/components/search/react';
 import type { SearchNavigationEventDetail } from '../../shared/components/search/search-box';
 import type { DateTimeFormat } from '../../shared/date';
@@ -533,11 +534,8 @@ export function GraphWrapper({
 		}
 
 		return (
-			<span className="mr-loose">
-				<span
-					className="badge"
-					title={`Can access GitLens+ features on ${isPro ? 'any repo' : 'local & public repos'}`}
-				>
+			<span className="badge-container mr-loose">
+				<span className="badge is-help">
 					<span className={`repo-access${isPro ? ' is-pro' : ''}`}>✨</span> {label}
 					{subText && (
 						<>
@@ -546,6 +544,12 @@ export function GraphWrapper({
 						</>
 					)}
 				</span>
+				<PopOver placement="bottom end" className="badge-popover">
+					You have access to GitLens+ features on {isPro ? 'any repo' : 'local & public repos'}, and all other
+					GitLens features on any repo.
+					<br />
+					<br />✨ indicates GitLens+ features
+				</PopOver>
 			</span>
 		);
 	};
