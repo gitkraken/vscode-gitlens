@@ -31,7 +31,7 @@ import type { DateTimeFormat } from '../../system/date';
 import { debug, getLogScope } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
-import { union } from '../../system/iterable';
+import { map, union } from '../../system/iterable';
 import type { PromiseCancelledError } from '../../system/promise';
 import { getSettledValue } from '../../system/promise';
 import type { Serialized } from '../../system/serialize';
@@ -749,7 +749,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 				};
 			}),
 			stats: commit.stats,
-			autolinks: autolinks ? Array.from(autolinks.values()).map(serializeAutolink) : undefined,
+			autolinks: autolinks != null ? [...map(autolinks.values(), serializeAutolink)] : undefined,
 		};
 	}
 
