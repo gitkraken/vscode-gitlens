@@ -187,7 +187,7 @@ export class SearchBox extends FASTElement {
 	label = 'Search';
 
 	@attr
-	placeholder = 'Search commits, e.g. "Updates dependencies" author:eamodio';
+	placeholder = 'Search commits (↑↓ for history), e.g. "Updates dependencies" author:eamodio';
 
 	@attr
 	value = '';
