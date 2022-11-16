@@ -75,6 +75,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#2329](https://github.com/gitkraken/vscode-gitlens/issues/2329) - Remember UI settings in Commit Details panel
 - Fixes [#1606](https://github.com/gitkraken/vscode-gitlens/issues/1606) - Adjusts capitalization of "URL" &mdash; thanks to [PR #2341](https://github.com/gitkraken/vscode-gitlens/pull/2341) by Dave Nicolson ([@dnicolson](https://github.com/dnicolson))
 - Fixes issue where we weren't honoring the default gravatar style (`gitlens.defaultGravatarsStyle`) in certain cases
+- Fixes graph issue where stashes are sometimes assigned the wrong column
+- Fixes graph issue with commit rows being incorrectly hidden in some cases
+- Fixes graph issue with merge commits not being hidden correctly in some cases
+- Fixes some graph issues with hover on branch/tag labels
 
 ## [13.0.4] - 2002-11-03
 
