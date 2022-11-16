@@ -147,6 +147,9 @@ const template = html<SearchInput>`
 		</div>
 		<div class="helper" id="helper" tabindex="-1" ${ref('helper')}>
 			<p class="helper-label">Search by</p>
+			<button class="helper-button" type="button" @click="${(x, _c) => x.handleInsertToken('@me')}">
+				My changes <small>@me</small>
+			</button>
 			<button class="helper-button" type="button" @click="${(x, _c) => x.handleInsertToken('message:')}">
 				Message <small>message: or =:</small>
 			</button>
@@ -161,9 +164,6 @@ const template = html<SearchInput>`
 			</button>
 			<button class="helper-button" type="button" @click="${(x, _c) => x.handleInsertToken('change:')}">
 				Change <small>change: or ~:</small>
-			</button>
-			<button class="helper-button" type="button" @click="${(x, _c) => x.handleInsertToken('@me')}">
-				My changes <small>@me</small>
 			</button>
 		</div>
 	</template>
