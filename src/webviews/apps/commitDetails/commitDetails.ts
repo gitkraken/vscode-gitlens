@@ -572,11 +572,31 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 
 		const $info = $el.querySelector('[data-region="rich-info"]');
 		const $autolinks = $el.querySelector('[data-region="autolinks"]');
-		if (state.pullRequest != null || state.autolinkedIssues?.length) {
+		const autolinkedIssuesCount = state.autolinkedIssues?.length ?? 0;
+		let autolinksCount = state.selected.autolinks?.length ?? 0;
+		let count = autolinksCount;
+		if (state.pullRequest != null || autolinkedIssuesCount || autolinksCount) {
+			let dedupedAutolinks = state.selected.autolinks;
+			if (dedupedAutolinks?.length && autolinkedIssuesCount) {
+				dedupedAutolinks = dedupedAutolinks.filter(
+					autolink => !state.autolinkedIssues?.some(issue => issue.url === autolink.url),
+				);
+			}
+
 			$autolinks?.setAttribute('aria-hidden', 'false');
 			$info?.setAttribute('aria-hidden', 'true');
+			this.renderAutolinks({
+				...state,
+				selected: {
+					...state.selected,
+					autolinks: dedupedAutolinks,
+				},
+			});
 			this.renderPullRequest(state);
 			this.renderIssues(state);
+
+			autolinksCount = dedupedAutolinks?.length ?? 0;
+			count = (state.pullRequest != null ? 1 : 0) + autolinkedIssuesCount + autolinksCount;
 		} else {
 			$autolinks?.setAttribute('aria-hidden', 'true');
 			$info?.setAttribute('aria-hidden', 'false');
@@ -585,8 +605,37 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		const $count = $el.querySelector('[data-region="autolink-count"]');
 		if ($count == null) return;
 
-		const count = (state.pullRequest != null ? 1 : 0) + (state.autolinkedIssues?.length ?? 0);
-		$count.innerHTML = state.includeRichContent ? `${count} found` : '…';
+		$count.innerHTML = `${state.includeRichContent || autolinksCount ? `${count} found ` : ''}${
+			state.includeRichContent ? '' : '…'
+		}`;
+	}
+
+	renderAutolinks(state: CommitState) {
+		const $el = document.querySelector<HTMLElement>('[data-region="custom-autolinks"]');
+		if ($el == null) return;
+
+		if (state.selected.autolinks?.length) {
+			$el.innerHTML = state.selected.autolinks
+				.map(autolink => {
+					let name = autolink.description ?? autolink.title;
+					if (name === undefined) {
+						name = `Custom Autolink ${autolink.prefix}${autolink.id}`;
+					}
+					return /*html*/ `
+						<issue-pull-request
+							name="${name ? escapeHTMLString(name) : ''}"
+							url="${autolink.url}"
+							key="${autolink.prefix}${autolink.id}"
+							status=""
+						></issue-pull-request>
+					`;
+				})
+				.join('');
+			$el.setAttribute('aria-hidden', 'false');
+		} else {
+			$el.innerHTML = '';
+			$el.setAttribute('aria-hidden', 'true');
+		}
 	}
 
 	renderPullRequest(state: CommitState) {
@@ -596,7 +645,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		if (state.pullRequest != null) {
 			$el.innerHTML = /*html*/ `
 				<issue-pull-request
-					name="${state.pullRequest.title}"
+					name="${escapeHTMLString(state.pullRequest.title)}"
 					url="${state.pullRequest.url}"
 					key="#${state.pullRequest.id}"
 					status="${state.pullRequest.state}"
@@ -620,7 +669,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 				.map(
 					issue => /*html*/ `
 						<issue-pull-request
-							name="${issue.title}"
+							name="${escapeHTMLString(issue.title)}"
 							url="${issue.url}"
 							key="${issue.id}"
 							status="${issue.closed ? 'closed' : 'opened'}"
@@ -669,6 +718,10 @@ function flattenHeirarchy<T>(item: HierarchicalItem<T>, level = 0): { level: num
 	}
 
 	return flattened;
+}
+
+function escapeHTMLString(value: string) {
+	return value.replace(/"/g, '&quot;');
 }
 
 new CommitDetailsApp();

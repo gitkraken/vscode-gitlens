@@ -31,6 +31,26 @@ export interface Autolink {
 	description?: string;
 }
 
+export function serializeAutolink(value: Autolink): Autolink {
+	const serialized: Autolink = {
+		provider: value.provider
+			? {
+					id: value.provider.id,
+					name: value.provider.name,
+					domain: value.provider.domain,
+					icon: value.provider.icon,
+			  }
+			: undefined,
+		id: value.id,
+		prefix: value.prefix,
+		title: value.title,
+		url: value.url,
+		type: value.type,
+		description: value.description,
+	};
+	return serialized;
+}
+
 export interface CacheableAutolinkReference extends AutolinkReference {
 	tokenize?:
 		| ((
