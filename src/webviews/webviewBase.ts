@@ -164,10 +164,18 @@ export abstract class WebviewBase<State> implements Disposable {
 		this._panel.webview.html = html;
 	}
 
+	private resetContextKeys() {
+		void setContext(`${this.contextKeyPrefix}:active`, false);
+		void setContext(`${this.contextKeyPrefix}:focus`, false);
+		void setContext(`${this.contextKeyPrefix}:inputFocus`, false);
+	}
+
 	private onPanelDisposed() {
-		this.onVisibilityChanged?.(false);
+		this.resetContextKeys();
+
 		this.onActiveChanged?.(false);
 		this.onFocusChanged?.(false);
+		this.onVisibilityChanged?.(false);
 
 		this.isReady = false;
 		this._disposablePanel?.dispose();
@@ -193,20 +201,26 @@ export abstract class WebviewBase<State> implements Disposable {
 	})
 	protected onViewStateChanged(e: WebviewPanelOnDidChangeViewStateEvent): void {
 		const { active, visible } = e.webviewPanel;
+		if (visible) {
+			// If we are becoming active, delay it a bit to give the UI time to update
+			if (active) {
+				setTimeout(() => void setContext(`${this.contextKeyPrefix}:active`, active), 250);
+			} else {
+				void setContext(`${this.contextKeyPrefix}:active`, active);
+			}
 
-		// If we are becoming active, delay it a bit to give the UI time to update
-		if (active) {
-			setTimeout(() => void setContext(`${this.contextKeyPrefix}:active`, active), 250);
+			this.onActiveChanged?.(active);
+			if (!active) {
+				this.onFocusChanged?.(false);
+			}
 		} else {
-			void setContext(`${this.contextKeyPrefix}:active`, active);
+			this.resetContextKeys();
+
+			this.onActiveChanged?.(false);
+			this.onFocusChanged?.(false);
 		}
 
 		this.onVisibilityChanged?.(visible);
-
-		this.onActiveChanged?.(active);
-		if (!active) {
-			this.onFocusChanged?.(active);
-		}
 	}
 
 	@debug<WebviewBase<State>['onMessageReceivedCore']>({

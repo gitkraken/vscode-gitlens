@@ -122,7 +122,7 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 
 		this._disposableView = Disposable.from(
 			this._view.onDidDispose(this.onViewDisposed, this),
-			this._view.onDidChangeVisibility(this.onViewVisibilityChanged, this),
+			this._view.onDidChangeVisibility(() => this.onViewVisibilityChanged(this.visible), this),
 			this._view.webview.onDidReceiveMessage(this.onMessageReceivedCore, this),
 			window.onDidChangeWindowState(this.onWindowStateChanged, this),
 			...(this.onInitializing?.() ?? []),
@@ -134,13 +134,38 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 	}
 
 	@debug()
-	protected async refresh(): Promise<void> {
+	protected async refresh(force?: boolean): Promise<void> {
 		if (this._view == null) return;
 
-		this._view.webview.html = await this.getHtml(this._view.webview);
+		// Mark the webview as not ready, until we know if we are changing the html
+		this.isReady = false;
+		const html = await this.getHtml(this._view.webview);
+		if (force) {
+			// Reset the html to get the webview to reload
+			this._view.webview.html = '';
+		}
+
+		// If we aren't changing the html, mark the webview as ready again
+		if (this._view.webview.html === html) {
+			this.isReady = true;
+			return;
+		}
+
+		this._view.webview.html = html;
+	}
+
+	private resetContextKeys() {
+		void setContext(`${this.contextKeyPrefix}:focus`, false);
+		void setContext(`${this.contextKeyPrefix}:inputFocus`, false);
 	}
 
 	private onViewDisposed() {
+		this.resetContextKeys();
+
+		this.onFocusChanged?.(false);
+		this.onVisibilityChanged?.(false);
+
+		this.isReady = false;
 		this._disposableView?.dispose();
 		this._disposableView = undefined;
 		this._view = undefined;
@@ -155,13 +180,14 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 		this.onFocusChanged?.(e.focused);
 	}
 
-	private async onViewVisibilityChanged() {
-		const visible = this.visible;
-		Logger.debug(`WebviewView(${this.id}).onViewVisibilityChanged`, `visible=${visible}`);
-
+	@debug()
+	private async onViewVisibilityChanged(visible: boolean) {
 		if (visible) {
 			void this.container.usage.track(`${this.trackingFeature}:shown`);
 			await this.refresh();
+		} else {
+			this.resetContextKeys();
+			this.onFocusChanged?.(false);
 		}
 		this.onVisibilityChanged?.(visible);
 	}
@@ -272,12 +298,21 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 		return html;
 	}
 
+	protected nextIpcId(): string {
+		return nextIpcId();
+	}
+
 	protected notify<T extends IpcNotificationType<any>>(
 		type: T,
 		params: IpcMessageParams<T>,
 		completionId?: string,
-	): Thenable<boolean> {
-		return this.postMessage({ id: nextIpcId(), method: type.method, params: params, completionId: completionId });
+	): Promise<boolean> {
+		return this.postMessage({
+			id: this.nextIpcId(),
+			method: type.method,
+			params: params,
+			completionId: completionId,
+		});
 	}
 
 	@serialize()
@@ -285,7 +320,7 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 		args: { 0: m => `(id=${m.id}, method=${m.method}${m.completionId ? `, completionId=${m.completionId}` : ''})` },
 	})
 	protected postMessage(message: IpcMessage) {
-		if (this._view == null) return Promise.resolve(false);
+		if (this._view == null || !this.isReady) return Promise.resolve(false);
 
 		// It looks like there is a bug where `postMessage` can sometimes just hang infinitely. Not sure why, but ensure we don't hang
 		return Promise.race<boolean>([
