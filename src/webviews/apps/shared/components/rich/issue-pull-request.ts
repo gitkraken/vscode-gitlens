@@ -1,4 +1,4 @@
-import { css, html, LitElement } from 'lit';
+import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import '../formatted-date';
 import '../code-icon';
@@ -55,23 +55,33 @@ export class IssuePullRequest extends LitElement {
 	@property()
 	key = '#1999';
 
+	renderDate() {
+		if (this.date === '') {
+			return nothing;
+		}
+		return html`<formatted-date date="${this.date}"></formatted-date>`;
+	}
+
 	override render() {
-		const icon =
-			this.status.toLowerCase() === 'merged'
-				? 'git-merge'
-				: this.status.toLowerCase() === 'closed'
-				? 'pass'
-				: 'issues';
+		let icon = 'issues';
+		switch (this.status.toLowerCase()) {
+			case '':
+				icon = 'link';
+				break;
+			case 'merged':
+				icon = 'git-merge';
+				break;
+			case 'closed':
+				icon = 'pass';
+				break;
+		}
 
 		return html`
 			<span class="icon"><code-icon icon=${icon}></code-icon></span>
 			<p class="title">
 				<a href="${this.url}">${this.name}</a>
 			</p>
-			<p class="date">
-				${this.key} ${this.status}
-				<formatted-date date="${this.date}"></formatted-date>
-			</p>
+			<p class="date">${this.key} ${this.status === '' ? this.status : nothing} ${this.renderDate()}</p>
 		`;
 	}
 }

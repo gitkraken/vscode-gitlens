@@ -5,6 +5,7 @@ import type {
 	TreeViewVisibilityChangeEvent,
 } from 'vscode';
 import { CancellationTokenSource, Disposable, Uri, window } from 'vscode';
+import { serializeAutolink } from '../../annotations/autolinks';
 import type { CopyShaToClipboardCommandArgs } from '../../commands';
 import { executeGitCommand, GitActions } from '../../commands/gitCommands.actions';
 import { configuration } from '../../configuration';
@@ -30,6 +31,7 @@ import type { DateTimeFormat } from '../../system/date';
 import { debug, getLogScope } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
+import { union } from '../../system/iterable';
 import type { PromiseCancelledError } from '../../system/promise';
 import { getSettledValue } from '../../system/promise';
 import type { Serialized } from '../../system/serialize';
@@ -715,6 +717,13 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			formattedMessage = this.getFormattedMessage(commit, remote);
 		}
 
+		let autolinks;
+		if (commit.message != null) {
+			const customAutolinks = this.container.autolinks.getAutolinks(commit.message);
+			const providerAutolinks = this.container.autolinks.getAutolinks(commit.message, remote);
+			autolinks = new Map(union(customAutolinks, providerAutolinks));
+		}
+
 		return {
 			sha: commit.sha,
 			shortSha: commit.shortSha,
@@ -740,6 +749,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 				};
 			}),
 			stats: commit.stats,
+			autolinks: autolinks ? Array.from(autolinks.values()).map(serializeAutolink) : undefined,
 		};
 	}
 
