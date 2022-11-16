@@ -35,6 +35,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Consolidates the UI for author and committer information into a stack of avatars
   - Adds emoji support for commit messages &mdash; closes [#1789](https://github.com/gitkraken/vscode-gitlens/issues/1789)
   - Ensures that large rebases show rich commit details
+- Adds improvements the _Commit Details_ view
+  - Adds custom and non-rich integration-based autolinks and improves autolink display
+  - Improves performance by avoiding unnecessary updates
+  - Avoids "pinning" commits by default when opened from the _Commit Graph_, _Visual File History_, quick picks, etc
+  - Adds a _Open in Commit Graph_ button even when showing uncommitted changes
 - Adds new sections and settings to the GitLens Interactive Settings
   - Adds a new _Commit Details_ view section
   - Adds a new _Terminal Links_ section
@@ -45,11 +50,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- Improves the _Commit Details_ view
-  - Adds custom and non-rich integration-based autolinks and improves autolink display
-  - Improves performance by avoiding unnecessary updates
-  - Avoids "pinning" commits by default when opened from the _Commit Graph_, _Visual File History_, quick picks, etc
-  - Adds a _Open in Commit Graph_ button even when showing uncommitted changes
 - Changes the _Home_ view to always be available and polishes the experience
 - Changes SHA terminal links to use the _Commit Details_ view &mdash; closes [#2320](https://github.com/gitkraken/vscode-gitlens/issues/2320)
   - Adds a `gitlens.terminalLinks.showDetailsView` setting to specify whether to show the _Commit Details_ view when clicking on a commit link
