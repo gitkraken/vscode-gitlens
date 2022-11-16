@@ -56,6 +56,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#2329](https://github.com/gitkraken/vscode-gitlens/issues/2329) - Remember UI settings in Commit Details panel
 - Fixes [#1606](https://github.com/gitkraken/vscode-gitlens/issues/1606) - Adjusts capitalization of "URL" &mdash; thanks to [PR #2341](https://github.com/gitkraken/vscode-gitlens/pull/2341) by Dave Nicolson ([@dnicolson](https://github.com/dnicolson))
 - Fixes [#2346](https://github.com/gitkraken/vscode-gitlens/issues/2346) - Multiple cursors on the same line duplicate inline annotations; thanks to [PR #2347](https://github.com/gitkraken/vscode-gitlens/pull/2347) by Yonatan Greenfeld ([@YonatanGreenfeld](https://github.com/YonatanGreenfeld))
+- Fixes [#2339](https://github.com/gitkraken/vscode-gitlens/issues/2339) - Commit details "Autolinks" group shows wrong count
 
 ## [13.0.4] - 2002-11-03
 
