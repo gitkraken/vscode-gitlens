@@ -3,6 +3,16 @@
 @import '../../shared/glicons';
 @import '../../../../../node_modules/@gitkraken/gitkraken-components/dist/styles.css';
 
+.vscode-high-contrast,
+.vscode-dark {
+	--popover-bg: var(--color-background--lighten-15);
+}
+
+.vscode-high-contrast-light,
+.vscode-light {
+	--popover-bg: var(--color-background--darken-15);
+}
+
 body {
 	.vertical_scrollbar,
 	.horizontal_scrollbar {
@@ -51,10 +61,28 @@ a {
 	font-weight: 700;
 	text-transform: uppercase;
 
+	&.is-help {
+		cursor: help;
+	}
+
 	small {
 		font-size: inherit;
 		opacity: 0.6;
 		font-weight: 400;
+	}
+
+	&-container {
+		position: relative;
+	}
+
+	&-popover {
+		width: max-content;
+		right: 0;
+		bottom: 100%;
+	}
+
+	&:not(:hover) + &-popover {
+		display: none;
 	}
 }
 
@@ -210,7 +238,6 @@ a {
 .repo-access {
 	font-size: 1.1em;
 	margin-right: 0.2rem;
-	cursor: help;
 
 	&:not(.is-pro) {
 		filter: grayscale(1) brightness(0.7);

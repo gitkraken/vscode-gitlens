@@ -44,8 +44,12 @@ const styles = css`
 		gap: 0.4rem;
 	}
 
-	:host([caret]) {
+	:host([caret]:not([placement~='bottom'])) {
 		transform: translateY(0.8rem);
+	}
+
+	:host([caret][placement~='bottom']) {
+		transform: translateY(-0.8rem);
 	}
 
 	.top {
@@ -63,12 +67,28 @@ const styles = css`
 
 	.caret {
 		position: absolute;
-		bottom: 100%;
 		width: 0;
 		height: 0;
 		border-left: 0.8rem solid transparent;
 		border-right: 0.8rem solid transparent;
 		border-bottom: 0.8rem solid var(--popover-bg);
+	}
+
+	:host(:not([placement~='bottom'])) .caret {
+		bottom: 100%;
+	}
+
+	:host([placement~='bottom']) .caret {
+		top: 100%;
+		transform: rotate(180deg);
+	}
+
+	:host(:not([placement~='end'])) .caret {
+		left: 1.2rem;
+	}
+
+	:host([placement~='end']) .caret {
+		right: 1.2rem;
 	}
 `;
 
@@ -79,6 +99,9 @@ export class PopOver extends FASTElement {
 
 	@attr({ mode: 'boolean' })
 	caret = true;
+
+	@attr
+	placement?: string;
 
 	@observable
 	typeNodes?: Node[];
