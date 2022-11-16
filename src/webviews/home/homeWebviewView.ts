@@ -67,9 +67,7 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 	}
 
 	private onStorageChanged(e: StorageChangeEvent) {
-		if (e.key !== 'views:layout') {
-			return;
-		}
+		if (e.key !== 'views:layout') return;
 
 		this.notifyDidChangeLayout();
 	}
@@ -270,18 +268,13 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 
 	private getLayout() {
 		const layout = this.container.storage.get('views:layout');
-		if (layout == null) {
-			return ViewsLayout.GitLens;
-		}
-		return layout as ViewsLayout;
+		return layout != null ? (layout as ViewsLayout) : ViewsLayout.SourceControl;
 	}
 
 	private notifyDidChangeLayout() {
 		if (!this.isReady) return;
 
-		void this.notify(DidChangeLayoutType, {
-			layout: this.getLayout(),
-		});
+		void this.notify(DidChangeLayoutType, { layout: this.getLayout() });
 	}
 
 	private _validateSubscriptionDebounced: Deferrable<HomeWebviewView['validateSubscription']> | undefined = undefined;
