@@ -419,7 +419,7 @@ export class GitCommandsCommand extends Command {
 				// Manually trigger `onDidChangeValue`, because the InputBox seems to fail to call it properly
 				if (step.value != null) {
 					// HACK: This is fragile!
-					(input as any)._onDidChangeValueEmitter.fire(input.value);
+					(input as any)._onDidChangeValueEmitter?.fire(input.value);
 				}
 			});
 		} finally {
@@ -786,7 +786,7 @@ export class GitCommandsCommand extends Command {
 				if (step.value != null && selectValueWhenShown) {
 					// HACK: This is fragile!
 					try {
-						(quickpick as any)._onDidChangeValueEmitter.fire(quickpick.value);
+						(quickpick as any)._onDidChangeValueEmitter?.fire(quickpick.value);
 					} catch {
 						debugger;
 					}
