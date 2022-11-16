@@ -1,10 +1,7 @@
-import { provideReactWrapper } from '@microsoft/fast-react-wrapper';
-import React from 'react';
+import { reactWrapper } from '../helpers/react-wrapper';
 import { SearchBox as searchBoxComponent } from './search-box';
 
-const { wrap } = provideReactWrapper(React);
-
-export const SearchBox = wrap(searchBoxComponent, {
+export const SearchBox = reactWrapper(searchBoxComponent, {
 	events: {
 		onChange: 'change',
 		onNavigate: 'navigate',
