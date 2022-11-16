@@ -56,7 +56,7 @@ export class GitLabRemote extends RichRemoteProvider {
 					title: `Open Issue #<num> on ${this.name}`,
 
 					type: AutolinkType.Issue,
-					description: `Issue #<num> on ${this.name}`,
+					description: `${this.name} Issue #<num>`,
 				},
 				{
 					prefix: '!',
@@ -64,7 +64,7 @@ export class GitLabRemote extends RichRemoteProvider {
 					title: `Open Merge Request !<num> on ${this.name}`,
 
 					type: AutolinkType.PullRequest,
-					description: `Merge Request !<num> on ${this.name}`,
+					description: `${this.name} Merge Request !<num>`,
 				},
 				{
 					tokenize: (
@@ -107,7 +107,7 @@ export class GitLabRemote extends RichRemoteProvider {
 								title: `Open Issue #<num> from ${repo} on ${this.name}`,
 
 								type: AutolinkType.Issue,
-								description: `Issue #${num} from ${repo} on ${this.name}`,
+								description: `${this.name} Issue ${repo}#${num}`,
 							});
 						} while (true);
 					},

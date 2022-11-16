@@ -54,7 +54,7 @@ export class AzureDevOpsRemote extends RemoteProvider {
 					title: `Open Work Item #<num> on ${this.name}`,
 
 					type: AutolinkType.Issue,
-					description: `Work Item #<num> on ${this.name}`,
+					description: `${this.name} Work Item #<num>`,
 				},
 				{
 					// Default Pull request message when merging a PR in ADO. Will not catch commits & pushes following a different pattern.
@@ -63,7 +63,7 @@ export class AzureDevOpsRemote extends RemoteProvider {
 					title: `Open Pull Request #<num> on ${this.name}`,
 
 					type: AutolinkType.PullRequest,
-					description: `Pull Request #<num> on ${this.name}`,
+					description: `${this.name} Pull Request #<num>`,
 				},
 			];
 		}

@@ -42,7 +42,7 @@ export class GerritRemote extends RemoteProvider {
 					title: `Open Change #<num> on ${this.name}`,
 					alphanumeric: true,
 
-					description: `Change #<num> on ${this.name}`,
+					description: `${this.name} Change #<num>`,
 				},
 			];
 		}
