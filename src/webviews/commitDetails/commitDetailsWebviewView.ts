@@ -740,8 +740,12 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		let autolinks;
 		if (commit.message != null) {
 			const customAutolinks = this.container.autolinks.getAutolinks(commit.message);
-			const providerAutolinks = this.container.autolinks.getAutolinks(commit.message, remote);
-			autolinks = new Map(union(customAutolinks, providerAutolinks));
+			if (remote != null) {
+				const providerAutolinks = this.container.autolinks.getAutolinks(commit.message, remote);
+				autolinks = new Map(union(providerAutolinks, customAutolinks));
+			} else {
+				autolinks = customAutolinks;
+			}
 		}
 
 		return {
