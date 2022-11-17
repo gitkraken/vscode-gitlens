@@ -1,17 +1,22 @@
 import { commands, EventEmitter } from 'vscode';
 import type { ContextKeys } from './constants';
 import { CoreCommands } from './constants';
+import type { WebviewIds } from './webviews/webviewBase';
+import type { WebviewViewIds } from './webviews/webviewViewBase';
 
 const contextStorage = new Map<string, unknown>();
 
 type WebviewContextKeys =
-	| `${ContextKeys.WebviewPrefix}${string}:active`
-	| `${ContextKeys.WebviewPrefix}${string}:focus`
-	| `${ContextKeys.WebviewPrefix}${string}:inputFocus`;
+	| `${ContextKeys.WebviewPrefix}${WebviewIds}:active`
+	| `${ContextKeys.WebviewPrefix}${WebviewIds}:focus`
+	| `${ContextKeys.WebviewPrefix}${WebviewIds}:inputFocus`
+	| `${ContextKeys.WebviewPrefix}rebaseEditor:active`
+	| `${ContextKeys.WebviewPrefix}rebaseEditor:focus`
+	| `${ContextKeys.WebviewPrefix}rebaseEditor:inputFocus`;
 
 type WebviewViewContextKeys =
-	| `${ContextKeys.WebviewViewPrefix}${string}:focus`
-	| `${ContextKeys.WebviewViewPrefix}${string}:inputFocus`;
+	| `${ContextKeys.WebviewViewPrefix}${WebviewViewIds}:focus`
+	| `${ContextKeys.WebviewViewPrefix}${WebviewViewIds}:inputFocus`;
 
 type AllContextKeys =
 	| ContextKeys
@@ -23,9 +28,9 @@ type AllContextKeys =
 const _onDidChangeContext = new EventEmitter<AllContextKeys>();
 export const onDidChangeContext = _onDidChangeContext.event;
 
-export function getContext<T>(key: ContextKeys): T | undefined;
-export function getContext<T>(key: ContextKeys, defaultValue: T): T;
-export function getContext<T>(key: ContextKeys, defaultValue?: T): T | undefined {
+export function getContext<T>(key: AllContextKeys): T | undefined;
+export function getContext<T>(key: AllContextKeys, defaultValue: T): T;
+export function getContext<T>(key: AllContextKeys, defaultValue?: T): T | undefined {
 	return (contextStorage.get(key) as T | undefined) ?? defaultValue;
 }
 

@@ -182,6 +182,10 @@ export class GraphWebview extends WebviewBase<State> {
 		return this._selection;
 	}
 
+	get activeSelection(): GitRevisionReference | undefined {
+		return this._selection?.[0];
+	}
+
 	private _etagSubscription?: number;
 	private _etagRepository?: number;
 	private _firstSelection = true;
@@ -429,23 +433,55 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	protected override onFocusChanged(focused: boolean): void {
-		if (focused && this.selection != null) {
-			void GitActions.Commit.showDetailsView(this.selection[0], {
-				pin: false,
-				preserveFocus: true,
-				preserveVisibility: this._showDetailsView === false,
-			});
+		if (!focused || this.activeSelection == null) {
+			this._showActiveSelectionDetailsDebounced?.cancel();
+			return;
 		}
+
+		this.showActiveSelectionDetails();
+	}
+
+	private _showActiveSelectionDetailsDebounced: Deferrable<GraphWebview['showActiveSelectionDetails']> | undefined =
+		undefined;
+
+	private showActiveSelectionDetails() {
+		if (this._showActiveSelectionDetailsDebounced == null) {
+			this._showActiveSelectionDetailsDebounced = debounce(this.showActiveSelectionDetailsCore.bind(this), 250);
+		}
+
+		this._showActiveSelectionDetailsDebounced();
+	}
+
+	private showActiveSelectionDetailsCore() {
+		const { activeSelection } = this;
+		if (activeSelection == null) return;
+
+		void GitActions.Commit.showDetailsView(activeSelection, {
+			pin: false,
+			preserveFocus: true,
+			preserveVisibility: this._showDetailsView === false,
+		});
 	}
 
 	protected override onVisibilityChanged(visible: boolean): void {
+		if (!visible) {
+			this._showActiveSelectionDetailsDebounced?.cancel();
+		}
+
 		if (visible && this.repository != null && this.repository.etag !== this._etagRepository) {
 			this.updateState(true);
 			return;
 		}
 
-		if (this.isReady && visible) {
-			this.sendPendingIpcNotifications();
+		if (visible) {
+			if (this.isReady) {
+				this.sendPendingIpcNotifications();
+			}
+
+			const { activeSelection } = this;
+			if (activeSelection == null) return;
+
+			this.showActiveSelectionDetails();
 		}
 	}
 
@@ -1944,7 +1980,7 @@ export class GraphWebview extends WebviewBase<State> {
 		refType?: 'revision' | 'stash',
 	): GitReference | undefined {
 		if (item == null) {
-			const ref = this.selection?.[0];
+			const ref = this.activeSelection;
 			return ref != null && (refType == null || refType === ref.refType) ? ref : undefined;
 		}
 

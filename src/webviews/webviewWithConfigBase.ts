@@ -17,16 +17,17 @@ import {
 	onIpc,
 	UpdateConfigurationCommandType,
 } from './protocol';
+import type { WebviewIds } from './webviewBase';
 import { WebviewBase } from './webviewBase';
 
 export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 	constructor(
 		container: Container,
-		id: `gitlens.${string}`,
+		id: `gitlens.${WebviewIds}`,
 		fileName: string,
 		iconPath: string,
 		title: string,
-		contextKeyPrefix: `${ContextKeys.WebviewPrefix}${string}`,
+		contextKeyPrefix: `${ContextKeys.WebviewPrefix}${WebviewIds}`,
 		trackingFeature: TrackedUsageFeatures,
 		showCommand: Commands,
 	) {

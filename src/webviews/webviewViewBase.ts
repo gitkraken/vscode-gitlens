@@ -32,6 +32,8 @@ function nextIpcId() {
 	return `host:${ipcSequence}`;
 }
 
+export type WebviewViewIds = 'commitDetails' | 'home' | 'timeline';
+
 @logName<WebviewViewBase<any>>((c, name) => `${name}(${c.id})`)
 export abstract class WebviewViewBase<State, SerializedState = State> implements WebviewViewProvider, Disposable {
 	protected readonly disposables: Disposable[] = [];
@@ -41,10 +43,10 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 
 	constructor(
 		protected readonly container: Container,
-		public readonly id: `gitlens.views.${string}`,
+		public readonly id: `gitlens.views.${WebviewViewIds}`,
 		protected readonly fileName: string,
 		title: string,
-		private readonly contextKeyPrefix: `${ContextKeys.WebviewViewPrefix}${string}`,
+		private readonly contextKeyPrefix: `${ContextKeys.WebviewViewPrefix}${WebviewViewIds}`,
 		private readonly trackingFeature: TrackedUsageFeatures,
 	) {
 		this._title = title;
@@ -159,9 +161,14 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 		this._view.webview.html = html;
 	}
 
-	private resetContextKeys() {
-		void setContext(`${this.contextKeyPrefix}:focus`, false);
+	private resetContextKeys(): void {
 		void setContext(`${this.contextKeyPrefix}:inputFocus`, false);
+		void setContext(`${this.contextKeyPrefix}:focus`, false);
+	}
+
+	private setContextKeys(focus: boolean, inputFocus: boolean): void {
+		void setContext(`${this.contextKeyPrefix}:focus`, focus);
+		void setContext(`${this.contextKeyPrefix}:inputFocus`, inputFocus);
 	}
 
 	private onViewDisposed() {
@@ -180,8 +187,7 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 		args: { 0: e => `focused=${e.focused}, inputFocused=${e.inputFocused}` },
 	})
 	protected onViewFocusChanged(e: WebviewFocusChangedParams): void {
-		void setContext(`${this.contextKeyPrefix}:inputFocus`, e.inputFocused);
-		void setContext(`${this.contextKeyPrefix}:focus`, e.focused);
+		this.setContextKeys(e.focused, e.inputFocused);
 		this.onFocusChanged?.(e.focused);
 	}
 
@@ -321,7 +327,9 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 
 	@serialize()
 	@debug<WebviewViewBase<State>['postMessage']>({
-		args: { 0: m => `(id=${m.id}, method=${m.method}${m.completionId ? `, completionId=${m.completionId}` : ''})` },
+		args: {
+			0: m => `{"id":${m.id},"method":${m.method}${m.completionId ? `,"completionId":${m.completionId}` : ''}}`,
+		},
 	})
 	protected postMessage(message: IpcMessage) {
 		if (this._view == null || !this.isReady) return Promise.resolve(false);
