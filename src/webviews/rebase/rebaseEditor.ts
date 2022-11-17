@@ -1,11 +1,18 @@
-import type { CancellationToken, CustomTextEditorProvider, TextDocument, WebviewPanel } from 'vscode';
+import type {
+	CancellationToken,
+	CustomTextEditorProvider,
+	TextDocument,
+	WebviewPanel,
+	WebviewPanelOnDidChangeViewStateEvent,
+} from 'vscode';
 import { ConfigurationTarget, Disposable, Position, Range, Uri, window, workspace, WorkspaceEdit } from 'vscode';
 import { getNonce } from '@env/crypto';
 import { ShowCommitsInViewCommand } from '../../commands';
 import { GitActions } from '../../commands/gitCommands.actions';
 import { configuration } from '../../configuration';
-import { CoreCommands } from '../../constants';
+import { ContextKeys, CoreCommands } from '../../constants';
 import type { Container } from '../../container';
+import { setContext } from '../../context';
 import { emojify } from '../../emojis';
 import type { GitCommit } from '../../git/models/commit';
 import { GitReference } from '../../git/models/reference';
@@ -18,8 +25,8 @@ import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
 import { join, map } from '../../system/iterable';
 import { normalizePath } from '../../system/path';
-import type { IpcMessage } from '../protocol';
-import { onIpc } from '../protocol';
+import type { IpcMessage, WebviewFocusChangedParams } from '../protocol';
+import { onIpc, WebviewFocusChangedCommandType } from '../protocol';
 import type {
 	Author,
 	ChangeEntryParams,
@@ -125,6 +132,10 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		this._disposable.dispose();
 	}
 
+	private get contextKeyPrefix() {
+		return `${ContextKeys.WebviewPrefix}rebaseEditor` as const;
+	}
+
 	get enabled(): boolean {
 		const associations = configuration.inspectAny<
 			{ [key: string]: string } | { viewType: string; filenamePattern: string }[]
@@ -198,13 +209,11 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 		subscriptions.push(
 			panel.onDidDispose(() => {
+				this.resetContextKeys();
+
 				Disposable.from(...subscriptions).dispose();
 			}),
-			panel.onDidChangeViewState(() => {
-				if (!context.pendingChange) return;
-
-				this.updateState(context);
-			}),
+			panel.onDidChangeViewState(e => this.onViewStateChanged(context, e)),
 			panel.webview.onDidReceiveMessage(e => this.onMessageReceived(context, e)),
 			workspace.onDidChangeTextDocument(e => {
 				if (e.contentChanges.length === 0 || e.document.uri.toString() !== document.uri.toString()) return;
@@ -237,6 +246,55 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		}
 	}
 
+	private resetContextKeys(): void {
+		void setContext(`${this.contextKeyPrefix}:inputFocus`, false);
+		void setContext(`${this.contextKeyPrefix}:focus`, false);
+		void setContext(`${this.contextKeyPrefix}:active`, false);
+	}
+
+	private setContextKeys(active: boolean | undefined, focus?: boolean, inputFocus?: boolean): void {
+		if (active != null) {
+			void setContext(`${this.contextKeyPrefix}:active`, active);
+
+			if (!active) {
+				focus = false;
+				inputFocus = false;
+			}
+		}
+		if (focus != null) {
+			void setContext(`${this.contextKeyPrefix}:focus`, focus);
+		}
+		if (inputFocus != null) {
+			void setContext(`${this.contextKeyPrefix}:inputFocus`, inputFocus);
+		}
+	}
+
+	@debug<RebaseEditorProvider['onViewFocusChanged']>({
+		args: { 0: e => `focused=${e.focused}, inputFocused=${e.inputFocused}` },
+	})
+	protected onViewFocusChanged(e: WebviewFocusChangedParams): void {
+		this.setContextKeys(e.focused, e.focused, e.inputFocused);
+	}
+
+	@debug<RebaseEditorProvider['onViewStateChanged']>({
+		args: {
+			0: c => `${c.id}:${c.document.uri.toString(true)}`,
+			1: e => `active=${e.webviewPanel.active}, visible=${e.webviewPanel.visible}`,
+		},
+	})
+	protected onViewStateChanged(context: RebaseEditorContext, e: WebviewPanelOnDidChangeViewStateEvent): void {
+		const { active, visible } = e.webviewPanel;
+		if (visible) {
+			this.setContextKeys(active);
+		} else {
+			this.resetContextKeys();
+		}
+
+		if (!context.pendingChange) return;
+
+		this.updateState(context);
+	}
+
 	private async parseState(context: RebaseEditorContext): Promise<State> {
 		if (context.branchName === undefined) {
 			const branch = await this.container.git.getBranch(context.repoPath);
@@ -267,6 +325,13 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			// 	});
 
 			// 	break;
+
+			case WebviewFocusChangedCommandType.method:
+				onIpc(WebviewFocusChangedCommandType, e, params => {
+					this.onViewFocusChanged(params);
+				});
+
+				break;
 
 			case AbortCommandType.method:
 				onIpc(AbortCommandType, e, () => this.abort(context));

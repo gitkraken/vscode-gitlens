@@ -30,6 +30,8 @@ function nextIpcId() {
 	return `host:${ipcSequence}`;
 }
 
+export type WebviewIds = 'graph' | 'settings' | 'timeline' | 'welcome';
+
 @logName<WebviewBase<any>>((c, name) => `${name}(${c.id})`)
 export abstract class WebviewBase<State> implements Disposable {
 	protected readonly disposables: Disposable[] = [];
@@ -39,11 +41,11 @@ export abstract class WebviewBase<State> implements Disposable {
 
 	constructor(
 		protected readonly container: Container,
-		public readonly id: `gitlens.${string}`,
+		public readonly id: `gitlens.${WebviewIds}`,
 		private readonly fileName: string,
 		private readonly iconPath: string,
 		title: string,
-		private readonly contextKeyPrefix: `${ContextKeys.WebviewPrefix}${string}`,
+		private readonly contextKeyPrefix: `${ContextKeys.WebviewPrefix}${WebviewIds}`,
 		private readonly trackingFeature: TrackedUsageFeatures,
 		showCommand: Commands,
 	) {
@@ -164,10 +166,27 @@ export abstract class WebviewBase<State> implements Disposable {
 		this._panel.webview.html = html;
 	}
 
-	private resetContextKeys() {
-		void setContext(`${this.contextKeyPrefix}:active`, false);
-		void setContext(`${this.contextKeyPrefix}:focus`, false);
+	private resetContextKeys(): void {
 		void setContext(`${this.contextKeyPrefix}:inputFocus`, false);
+		void setContext(`${this.contextKeyPrefix}:focus`, false);
+		void setContext(`${this.contextKeyPrefix}:active`, false);
+	}
+
+	private setContextKeys(active: boolean | undefined, focus?: boolean, inputFocus?: boolean): void {
+		if (active != null) {
+			void setContext(`${this.contextKeyPrefix}:active`, active);
+
+			if (!active) {
+				focus = false;
+				inputFocus = false;
+			}
+		}
+		if (focus != null) {
+			void setContext(`${this.contextKeyPrefix}:focus`, focus);
+		}
+		if (inputFocus != null) {
+			void setContext(`${this.contextKeyPrefix}:inputFocus`, inputFocus);
+		}
 	}
 
 	private onPanelDisposed() {
@@ -191,8 +210,7 @@ export abstract class WebviewBase<State> implements Disposable {
 		args: { 0: e => `focused=${e.focused}, inputFocused=${e.inputFocused}` },
 	})
 	protected onViewFocusChanged(e: WebviewFocusChangedParams): void {
-		void setContext(`${this.contextKeyPrefix}:focus`, e.focused);
-		void setContext(`${this.contextKeyPrefix}:inputFocus`, e.inputFocused);
+		this.setContextKeys(e.focused, e.focused, e.inputFocused);
 		this.onFocusChanged?.(e.focused);
 	}
 
@@ -202,13 +220,7 @@ export abstract class WebviewBase<State> implements Disposable {
 	protected onViewStateChanged(e: WebviewPanelOnDidChangeViewStateEvent): void {
 		const { active, visible } = e.webviewPanel;
 		if (visible) {
-			// If we are becoming active, delay it a bit to give the UI time to update
-			if (active) {
-				setTimeout(() => void setContext(`${this.contextKeyPrefix}:active`, active), 250);
-			} else {
-				void setContext(`${this.contextKeyPrefix}:active`, active);
-			}
-
+			this.setContextKeys(active);
 			this.onActiveChanged?.(active);
 			if (!active) {
 				this.onFocusChanged?.(false);
@@ -332,7 +344,9 @@ export abstract class WebviewBase<State> implements Disposable {
 
 	@serialize()
 	@debug<WebviewBase<State>['postMessage']>({
-		args: { 0: m => `(id=${m.id}, method=${m.method}${m.completionId ? `, completionId=${m.completionId}` : ''})` },
+		args: {
+			0: m => `{"id":${m.id},"method":${m.method}${m.completionId ? `,"completionId":${m.completionId}` : ''}}`,
+		},
 	})
 	protected postMessage(message: IpcMessage): Promise<boolean> {
 		if (this._panel == null || !this.isReady || !this.visible) return Promise.resolve(false);

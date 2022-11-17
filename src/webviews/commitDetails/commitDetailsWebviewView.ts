@@ -28,7 +28,7 @@ import { Logger } from '../../logger';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
 import { executeCommand, executeCoreCommand } from '../../system/command';
 import type { DateTimeFormat } from '../../system/date';
-import { debug, getLogScope } from '../../system/decorators/log';
+import { debug, getLogScope, log } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
 import { map, union } from '../../system/iterable';
@@ -116,6 +116,12 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		);
 	}
 
+	@log<CommitDetailsWebviewView['show']>({
+		args: {
+			0: o =>
+				`{"commit":${o?.commit?.ref},"pin":${o?.pin},"preserveFocus":${o?.preserveFocus},"preserveVisibility":${o?.preserveVisibility}}`,
+		},
+	})
 	override async show(options?: {
 		commit?: GitRevisionReference | GitCommit;
 		pin?: boolean;
@@ -255,7 +261,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			stashesView.onDidChangeVisibility(this.onStashesViewVisibilityChanged, this),
 		);
 
-		const commit = this.getBestCommitOrStash();
+		const commit = this._pendingContext?.commit ?? this.getBestCommitOrStash();
 		this.updateCommit(commit, { immediate: false });
 	}
 
@@ -333,8 +339,18 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	private onActiveLinesChanged(e: LinesChangeEvent) {
 		if (e.pending) return;
 
-		const commit =
-			e.selections != null ? this.container.lineTracker.getState(e.selections[0].active)?.commit : undefined;
+		let commit;
+		if (e.editor == null) {
+			if (getContext('gitlens:webview:graph:active') || getContext('gitlens:webview:rebaseEditor:active')) {
+				commit = this._pendingContext?.commit ?? this._context.commit;
+				if (commit == null) return;
+			}
+		}
+
+		if (commit == null) {
+			commit =
+				e.selections != null ? this.container.lineTracker.getState(e.selections[0].active)?.commit : undefined;
+		}
 		this.updateCommit(commit);
 	}
 
@@ -672,31 +688,35 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 
 		let commit;
 
-		const { lineTracker } = this.container;
-		const line = lineTracker.selections?.[0].active;
-		if (line != null) {
-			commit = lineTracker.getState(line)?.commit;
-		}
+		if (window.activeTextEditor == null) {
+			if (getContext('gitlens:webview:graph:active') || getContext('gitlens:webview:rebaseEditor:active')) {
+				commit = this._pendingContext?.commit ?? this._context.commit;
+				if (commit != null) return commit;
+			}
 
-		if (commit == null) {
-			const { commitsView } = this.container;
-			const node = commitsView.activeSelection;
-			if (
-				node != null &&
-				(node instanceof CommitNode ||
-					node instanceof FileRevisionAsCommitNode ||
-					node instanceof CommitFileNode)
-			) {
-				commit = node.commit;
+			const { lineTracker } = this.container;
+			const line = lineTracker.selections?.[0].active;
+			if (line != null) {
+				commit = lineTracker.getState(line)?.commit;
+				if (commit != null) return commit;
 			}
 		}
 
-		if (commit == null) {
-			const { stashesView } = this.container;
-			const node = stashesView.activeSelection;
-			if (node != null && (node instanceof StashNode || node instanceof StashFileNode)) {
-				commit = node.commit;
-			}
+		const { commitsView } = this.container;
+		let node = commitsView.activeSelection;
+		if (
+			node != null &&
+			(node instanceof CommitNode || node instanceof FileRevisionAsCommitNode || node instanceof CommitFileNode)
+		) {
+			commit = node.commit;
+			if (commit != null) return commit;
+		}
+
+		const { stashesView } = this.container;
+		node = stashesView.activeSelection;
+		if (node != null && (node instanceof StashNode || node instanceof StashFileNode)) {
+			commit = node.commit;
+			if (commit != null) return commit;
 		}
 
 		return commit;
