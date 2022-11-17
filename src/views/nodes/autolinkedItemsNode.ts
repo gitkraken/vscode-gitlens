@@ -50,7 +50,7 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 				if (remote != null) {
 					const providerAutolinks = this.view.container.autolinks.getAutolinks(combineMessages, remote);
 
-					items = new Map(union(customAutolinks, providerAutolinks));
+					items = providerAutolinks;
 
 					const [autolinkedMapResult /*, ...prsResults*/] = await Promise.allSettled([
 						this.view.container.autolinks.getLinkedIssuesAndPullRequests(combineMessages, remote, {
@@ -65,6 +65,8 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 							items.set(id, issue);
 						}
 					}
+
+					items = new Map(union(items, customAutolinks));
 				} else {
 					items = customAutolinks;
 				}
