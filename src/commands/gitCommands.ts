@@ -416,10 +416,14 @@ export class GitCommandsCommand extends Command {
 
 				input.show();
 
-				// Manually trigger `onDidChangeValue`, because the InputBox seems to fail to call it properly
+				// Manually trigger `onDidChangeValue`, because the InputBox fails to call it if the value is set before it is shown
 				if (step.value != null) {
 					// HACK: This is fragile!
-					(input as any)._onDidChangeValueEmitter?.fire(input.value);
+					try {
+						(input as any)._onDidChangeValueEmitter?.fire(input.value);
+					} catch {
+						debugger;
+					}
 				}
 			});
 		} finally {
