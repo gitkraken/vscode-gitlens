@@ -91,6 +91,11 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 		}
 	}
 
+	private readonly _cspNonce = getNonce();
+	protected get cspNonce(): string {
+		return this._cspNonce;
+	}
+
 	protected onInitializing?(): Disposable[] | undefined;
 	protected onReady?(): void;
 	protected onMessageReceived?(e: IpcMessage): void;
@@ -258,7 +263,6 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 		]);
 
 		const cspSource = webview.cspSource;
-		const cspNonce = getNonce();
 
 		const root = webview.asWebviewUri(this.container.context.extensionUri).toString();
 		const webRoot = webview.asWebviewUri(webRootUri).toString();
@@ -274,9 +278,9 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 					case 'endOfBody':
 						return `${
 							bootstrap != null
-								? `<script type="text/javascript" nonce="${cspNonce}">window.bootstrap=${JSON.stringify(
-										bootstrap,
-								  )};</script>`
+								? `<script type="text/javascript" nonce="${
+										this.cspNonce
+								  }">window.bootstrap=${JSON.stringify(bootstrap)};</script>`
 								: ''
 						}${endOfBody ?? ''}`;
 					case 'placement':
@@ -284,7 +288,7 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 					case 'cspSource':
 						return cspSource;
 					case 'cspNonce':
-						return cspNonce;
+						return this.cspNonce;
 					case 'root':
 						return root;
 					case 'webroot':
