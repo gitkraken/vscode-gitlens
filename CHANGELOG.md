@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds improvements to the _Commit Graph_
+- Adds _Commit Graph_ enhancements
   - Adds the ability to set keyboard shortcuts to commits and stashes on the _Commit Graph_ &mdash; closes [#2345](https://github.com/gitkraken/vscode-gitlens/issues/2345)
     - Keyboard shortcuts can be applied to many of the `gitlens.graph.*` commands and should use `gitlens:webview:graph:focus && !gitlens:webview:graph:inputFocus` for their "When Expression" to only apply when the _Commit Graph_ is focused
     - For example, add the following to your `keybindings.json` to allow <kbd>Ctrl</kbd>+<kbd>C</kbd> to copy the selected commit's SHA to the clipboard
@@ -26,7 +26,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds history navigation to the search box in the _Commit Graph_
     - When the search field is focused, use the `up arrow` and `down arrow` to navigate through any previous searches that yielded results
   - Adds ability to reset to any commit in the _Commit Graph_ and GitLens views &mdash; closes [#2326](https://github.com/gitkraken/vscode-gitlens/issues/2326)
-- Adds improvements to the _Interactive Rebase Editor_ &mdash; much better performance and user experience
+- Adds _Interactive Rebase Editor_ performance and UX improvements
   - Changes the header and footer to always be visible
   - Shows the _Commit Details_ view on commit selection
     - Adds a `gitlens.rebaseEditor.showDetailsView` setting to specify when to show the _Commit Details_ view for the selected row in the _Interactive Rebase Editor_
@@ -35,7 +35,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Consolidates the UI for author and committer information into a stack of avatars
   - Adds emoji support for commit messages &mdash; closes [#1789](https://github.com/gitkraken/vscode-gitlens/issues/1789)
   - Ensures that large rebases show rich commit details
-- Adds improvements the _Commit Details_ view
+- Adds _Commit Details_ view improvements
   - Adds custom and non-rich integration-based autolinks and improves autolink display
   - Improves performance by avoiding unnecessary updates
   - Avoids "pinning" commits by default when opened from the _Commit Graph_, _Visual File History_, quick picks, etc
@@ -54,7 +54,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes SHA terminal links to use the _Commit Details_ view &mdash; closes [#2320](https://github.com/gitkraken/vscode-gitlens/issues/2320)
   - Adds a `gitlens.terminalLinks.showDetailsView` setting to specify whether to show the _Commit Details_ view when clicking on a commit link
 - Changes to uses VS Code as Git's `core.editor` for terminal run commands &mdash; closes [#2134](https://github.com/gitkraken/vscode-gitlens/issues/2134) thanks to [PR #2135](https://github.com/gitkraken/vscode-gitlens/pull/2135) by Nafiur Rahman Khadem ([@ShafinKhadem](https://github.com/ShafinKhadem))
-  - Adds a `gitlens.terminal.overrideGitEditor` setting to specify whether to use VS Code as Git's `core.editor` for Gitlens terminal commands
+  - Adds a `gitlens.terminal.overrideGitEditor` setting to specify whether to use VS Code as Git's `core.editor` for GitLens terminal commands
 - Polishes webview (_Commit Graph_, _Interactive Rebase Editor_, etc) scroll bars to match VS Code's style and behavior
 
 ### Fixed
@@ -64,9 +64,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#2344](https://github.com/gitkraken/vscode-gitlens/issues/2344) - copying abbreviated commit SHAs is not working
 - Fixes [#2342](https://github.com/gitkraken/vscode-gitlens/issues/2342) - Local remotes are incorrectly treated as private
 - Fixes [#2052](https://github.com/gitkraken/vscode-gitlens/issues/2052) - Interactive Rebase fails to start when using xonsh shell due to command quoting
-- Fixes [#2141](https://github.com/gitkraken/vscode-gitlens/issues/2141) - GitLens's rebase UI randomly fails loading interactive rebase when performed outside of VSC
+- Fixes [#2141](https://github.com/gitkraken/vscode-gitlens/issues/2141) - GitLens' rebase UI randomly fails loading interactive rebase when performed outside of VSC
 - Fixes [#1732](https://github.com/gitkraken/vscode-gitlens/issues/1732) - Phantom rebase-merge directory (`rm -rf ".git/rebase-merge"`)
-- Fixes [#1652](https://github.com/gitkraken/vscode-gitlens/issues/1652) - Closing interacteractive rebase editor after "git rebase --edit" aborts rebase-in-progress
+- Fixes [#1652](https://github.com/gitkraken/vscode-gitlens/issues/1652) - Closing interactive rebase editor after "git rebase --edit" aborts rebase-in-progress
 - Fixes [#1549](https://github.com/gitkraken/vscode-gitlens/issues/1549) - Fetch does not work when local branch name differs from remote branch name
 - Fixes [#2292](https://github.com/gitkraken/vscode-gitlens/issues/2292) - Push button in BranchTrackingStatusNode of non-current branch does not trigger "Push force"
 - Fixes [#1488](https://github.com/gitkraken/vscode-gitlens/issues/1488) - Open Folder History not working with non-English language pack
