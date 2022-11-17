@@ -889,7 +889,10 @@ export class SubscriptionService implements Disposable {
 					: {}),
 			};
 
-			this.container.telemetry.sendEvent(matches ? 'subscription' : 'subscription/changed', data);
+			this.container.telemetry.sendEvent(
+				previous == null || matches ? 'subscription' : 'subscription/changed',
+				data,
+			);
 		});
 
 		// If the previous and new subscriptions are exactly the same, kick out
