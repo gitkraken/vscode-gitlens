@@ -1,3 +1,4 @@
+import * as regexpTree from 'regexp-tree';
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable } from 'vscode';
 import type { AutolinkReference, AutolinkType } from '../configuration';
@@ -445,10 +446,20 @@ function ensureCachedRegex(
 ): asserts ref is RequireSome<CacheableAutolinkReference, 'messageRegex'>;
 function ensureCachedRegex(ref: CacheableAutolinkReference, outputFormat: 'html' | 'markdown' | 'plaintext') {
 	// Regexes matches the ref prefix followed by a token (e.g. #1234)
+	function escapeRegexCharacters(regex: string, fn: (c: string) => string) {
+		return regexpTree.transform(`/${ regex }/`, {
+			// escape all literal characters with a backslash
+			Char: function({node}) {
+				node.value = fn(node.value).replace('\\', '\\\\');
+			},
+		}).getSource();
+	}
 	if (outputFormat === 'markdown' && ref.messageMarkdownRegex == null) {
 		// Extra `\\\\` in `\\\\\\[` is because the markdown is escaped
 		ref.messageMarkdownRegex = ref.regex
-			? new RegExp(`((${ref.regex}))`, 'g')
+			? new RegExp(`((${escapeRegexCharacters(ref.regex,
+				c => encodeHtmlWeak(escapeMarkdown(c))
+				)}))`, 'g')
 			: new RegExp(
 					`(?<=^|\\s|\\(|\\\\\\[)(${escapeRegex(encodeHtmlWeak(escapeMarkdown(ref.prefix!)))}(${
 						ref.alphanumeric ? '\\w' : '\\d'
@@ -457,7 +468,7 @@ function ensureCachedRegex(ref: CacheableAutolinkReference, outputFormat: 'html'
 			  );
 	} else if (outputFormat === 'html' && ref.messageHtmlRegex == null) {
 		ref.messageHtmlRegex = ref.regex
-			? new RegExp(`((${ref.regex}))`, 'g')
+			? new RegExp(`((${escapeRegexCharacters(ref.regex, encodeHtmlWeak)}))`, 'g')
 			: new RegExp(
 					`(?<=^|\\s|\\(|\\[)(${escapeRegex(encodeHtmlWeak(ref.prefix!))}(${
 						ref.alphanumeric ? '\\w' : '\\d'
