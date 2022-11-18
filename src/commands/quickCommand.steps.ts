@@ -714,7 +714,6 @@ export async function* pickBranchOrTagStep<
 		onDidClickButton: async (quickpick, button) => {
 			if (button === showTagsButton) {
 				quickpick.busy = true;
-				quickpick.enabled = false;
 
 				try {
 					context.showTags = !context.showTags;
@@ -730,7 +729,6 @@ export async function* pickBranchOrTagStep<
 					quickpick.items = branchesAndOrTags;
 				} finally {
 					quickpick.busy = false;
-					quickpick.enabled = true;
 				}
 			}
 		},
@@ -823,7 +821,6 @@ export async function* pickBranchOrTagStepMultiRepo<
 		onDidClickButton: async (quickpick, button) => {
 			if (button === showTagsButton) {
 				quickpick.busy = true;
-				quickpick.enabled = false;
 
 				try {
 					context.showTags = !context.showTags;
@@ -845,7 +842,6 @@ export async function* pickBranchOrTagStepMultiRepo<
 					quickpick.items = branchesAndOrTags;
 				} finally {
 					quickpick.busy = false;
-					quickpick.enabled = true;
 				}
 			}
 		},

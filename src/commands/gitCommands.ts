@@ -457,7 +457,6 @@ export class GitCommandsCommand extends Command {
 					if (step.onDidLoadMore == null) return;
 
 					quickpick.busy = true;
-					quickpick.enabled = false;
 
 					try {
 						const items = await step.onDidLoadMore?.(quickpick);
@@ -480,7 +479,6 @@ export class GitCommandsCommand extends Command {
 						}
 					} finally {
 						quickpick.busy = false;
-						quickpick.enabled = true;
 					}
 				}
 

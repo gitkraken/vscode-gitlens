@@ -232,14 +232,12 @@ export class PullGitCommand extends QuickCommand<State> {
 						}`;
 
 						quickpick.busy = true;
-						quickpick.enabled = false;
 						try {
 							await repo.fetch({ progress: true });
 							// Signal that the step should be retried
 							return true;
 						} finally {
 							quickpick.busy = false;
-							quickpick.enabled = true;
 						}
 					},
 				},
