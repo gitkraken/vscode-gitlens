@@ -35,7 +35,6 @@ export namespace CommitPicker {
 
 		if (isPromise(log)) {
 			quickpick.busy = true;
-			quickpick.enabled = false;
 			quickpick.show();
 
 			log = await log;
@@ -68,7 +67,6 @@ export namespace CommitPicker {
 
 		async function loadMore() {
 			quickpick.busy = true;
-			quickpick.enabled = false;
 
 			try {
 				log = await (await log)?.more?.(configuration.get('advanced.maxListItems'));
@@ -92,7 +90,6 @@ export namespace CommitPicker {
 				}
 			} finally {
 				quickpick.busy = false;
-				quickpick.enabled = true;
 			}
 		}
 
@@ -162,7 +159,6 @@ export namespace CommitPicker {
 				);
 
 				quickpick.busy = false;
-				quickpick.enabled = true;
 
 				quickpick.show();
 			});
@@ -208,7 +204,6 @@ export namespace StashPicker {
 
 		if (isPromise(stash)) {
 			quickpick.busy = true;
-			quickpick.enabled = false;
 			quickpick.show();
 
 			stash = await stash;
@@ -296,7 +291,6 @@ export namespace StashPicker {
 				);
 
 				quickpick.busy = false;
-				quickpick.enabled = true;
 
 				quickpick.show();
 			});

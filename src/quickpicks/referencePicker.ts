@@ -89,7 +89,6 @@ export namespace ReferencePicker {
 		}
 
 		quickpick.busy = true;
-		quickpick.enabled = false;
 
 		quickpick.show();
 
@@ -104,7 +103,6 @@ export namespace ReferencePicker {
 		quickpick.items = await items;
 
 		quickpick.busy = false;
-		quickpick.enabled = true;
 
 		try {
 			let pick = await new Promise<ReferencesQuickPickItem | undefined>(resolve => {
