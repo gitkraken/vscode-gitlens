@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
-## [13.1.0] - 2002-11-17
+## [13.1.0] - 2022-11-17
 
 ### Added
 
@@ -82,7 +82,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes graph issue with merge commits not being hidden correctly in some cases
 - Fixes some graph issues with hover on branch/tag labels
 
-## [13.0.4] - 2002-11-03
+## [13.0.4] - 2022-11-03
 
 ### Fixed
 
