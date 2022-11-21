@@ -142,6 +142,9 @@ export interface GlobalStorage {
 		status: {
 			pinned?: boolean;
 		};
+		banners: {
+			dismissed?: string[];
+		};
 	};
 	pendingWelcomeOnFocus?: boolean;
 	pendingWhatsNewOnFocus?: boolean;

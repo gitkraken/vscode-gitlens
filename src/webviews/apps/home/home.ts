@@ -10,6 +10,7 @@ import {
 	DidChangeExtensionEnabledType,
 	DidChangeLayoutType,
 	DidChangeSubscriptionNotificationType,
+	DismissBannerCommandType,
 	DismissSectionCommandType,
 	DismissStatusCommandType,
 } from '../../home/protocol';
@@ -71,6 +72,9 @@ export class HomeApp extends App<State> {
 			DOM.on<HeaderCard, undefined>('header-card', 'dismiss-status', (e, target: HTMLElement) =>
 				this.onStatusDismissed(e, target),
 			),
+		);
+		disposables.push(
+			DOM.on('[data-banner-dismiss]', 'click', (e, target: HTMLElement) => this.onBannerDismissed(e, target)),
 		);
 
 		return disposables;
@@ -143,6 +147,17 @@ export class HomeApp extends App<State> {
 		this.updateHeader();
 	}
 
+	private onBannerDismissed(_e: MouseEvent, target: HTMLElement) {
+		const key = target.getAttribute('data-banner-dismiss');
+		if (key == null || this.state.dismissedBanners?.includes(key)) {
+			return;
+		}
+		this.state.dismissedBanners = this.state.dismissedBanners ?? [];
+		this.state.dismissedBanners.push(key);
+		this.sendCommand(DismissBannerCommandType, { id: key });
+		this.updateBanners();
+	}
+
 	private onDataActionClicked(_e: MouseEvent, target: HTMLElement) {
 		const action = target.dataset.action;
 		this.onActionClickedCore(action);
@@ -207,6 +222,28 @@ export class HomeApp extends App<State> {
 			$headerContent.setAttribute('days', days.toString());
 			$headerContent.pinStatus = pinStatus;
 		}
+	}
+
+	private updateBanners() {
+		const $banners = [...document.querySelectorAll('[data-banner]')];
+		if (!$banners.length) {
+			return;
+		}
+
+		const { subscription, dismissedBanners } = this.state;
+		const isPaid = subscription.state === SubscriptionState.Paid;
+		$banners.forEach($el => {
+			const key = $el.getAttribute('data-banner');
+			if (
+				isPaid ||
+				(key !== null && dismissedBanners?.includes(key)) ||
+				(key === 'cyberweek2022' && !showCyberWeek())
+			) {
+				$el.setAttribute('hidden', 'true');
+			} else {
+				$el.removeAttribute('hidden');
+			}
+		});
 	}
 
 	private updateNoRepo() {
@@ -305,6 +342,7 @@ export class HomeApp extends App<State> {
 		this.updateSteps(forceShowPlus);
 
 		this.updateSections();
+		this.updateBanners();
 	}
 }
 
@@ -317,6 +355,11 @@ function toggleArrayItem(list: string[] = [], item: string, add = true) {
 	}
 
 	return list;
+}
+
+const cyberweekEnding = Date.parse('2022-12-06T00:00:00.000-08:00');
+function showCyberWeek() {
+	return Date.now() < cyberweekEnding;
 }
 
 new HomeApp();
