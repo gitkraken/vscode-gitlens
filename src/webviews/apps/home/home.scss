@@ -34,6 +34,10 @@
 	visibility: hidden;
 }
 
+[hidden] {
+	display: none !important;
+}
+
 html {
 	height: 100%;
 	font-size: 62.5%;
@@ -602,6 +606,81 @@ vscode-button {
 	.activitybar-banner__nav-item:last-of-type:focus ~ & &__icon:first-of-type,
 	.activitybar-banner__nav-item:last-of-type:hover ~ & &__icon:first-of-type {
 		fill: var(--vscode-activityBar-foreground);
+	}
+}
+
+.ribbon-banner {
+	&-container {
+		position: relative;
+	}
+
+	&-dismiss {
+		position: absolute;
+		top: 0;
+		right: 0;
+
+		display: inline-flex;
+		justify-content: center;
+		align-items: center;
+		width: 2.2rem;
+		height: 2.2rem;
+		color: var(--color-foreground--75);
+		&:hover {
+			color: var(--color-foreground--75);
+			text-decoration: none;
+		}
+	}
+
+	.vscode-high-contrast &,
+	.vscode-dark & {
+		background-color: var(--color-background--lighten-10);
+		background-position: right -7rem center;
+		background-size: auto 140px;
+	}
+	.vscode-high-contrast-light &,
+	.vscode-light & {
+		background-color: var(--color-background--darken-10);
+		background-position: right 2.5rem center;
+		background-size: auto 28px;
+	}
+
+	background-repeat: no-repeat;
+	display: block;
+	text-align: left;
+	color: inherit;
+	padding: 1.2rem 9.3rem 1.2rem 1.4rem;
+	line-height: 1.1;
+	margin-top: -2rem;
+	margin-bottom: 1rem;
+	border-radius: 0.4rem;
+	mix-blend-mode: luminosity;
+	opacity: 0.8;
+	transition: opacity ease 250ms, mix-blend-mode ease 250ms;
+
+	&:focus,
+	&:hover {
+		color: inherit;
+		text-decoration: none;
+		mix-blend-mode: normal;
+		opacity: 1;
+	}
+
+	h2 {
+		font-size: 1.2rem;
+		font-weight: inherit;
+		margin: 0 0 0.8rem 0;
+	}
+	p {
+		font-size: 1rem;
+		margin: 0;
+		opacity: 0.8;
+	}
+	strong {
+		font-weight: 800;
+		opacity: 1;
+	}
+	&__subtext {
+		opacity: 0.8;
 	}
 }
 

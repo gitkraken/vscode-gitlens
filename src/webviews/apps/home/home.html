@@ -83,7 +83,32 @@
 				.gl-plus-banner {
 					background-image: url(#{webroot}/media/gitlens-backdrop-opacity.webp);
 				}
+				.vscode-high-contrast .ribbon-banner,
+				.vscode-dark .ribbon-banner {
+					background-image: url(#{webroot}/media/cyber-week-banner-dark.webp);
+				}
+				.vscode-high-contrast-light .ribbon-banner,
+				.vscode-light .ribbon-banner {
+					background-image: url(#{webroot}/media/cyber-week-banner-light.webp);
+				}
 			</style>
+			<div class="ribbon-banner-container" data-banner="cyberweek2022" hidden>
+				<a href="#" class="ribbon-banner">
+					<h2>
+						<strong>50% off</strong>
+						<span class="ribbon-banner__subtext">GitLens Pro &amp; all GitKraken products!</span>
+					</h2>
+					<p>Expires Dec 5, 2022 11:59pm PT</p>
+				</a>
+				<a
+					href="#"
+					class="ribbon-banner-dismiss"
+					data-banner-dismiss="cyberweek2022"
+					title="Dismiss"
+					aria-label="Dismiss"
+					><code-icon icon="close"></code-icon
+				></a>
+			</div>
 			<div class="stepped-sections">
 				<stepped-section id="welcome">
 					<span slot="heading">Welcome to GitLens 13</span>

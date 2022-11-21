@@ -14,6 +14,7 @@ export interface State {
 	subscription: Subscription;
 	completedActions: CompletedActions[];
 	completedSteps?: string[];
+	dismissedBanners?: string[];
 	dismissedSections?: string[];
 	plusEnabled: boolean;
 	visibility: RepositoriesVisibility;
@@ -34,6 +35,11 @@ export interface DismissSectionParams {
 export const DismissSectionCommandType = new IpcCommandType<DismissSectionParams>('home/section/dismiss');
 
 export const DismissStatusCommandType = new IpcCommandType<undefined>('home/status/dismiss');
+
+export interface DismissBannerParams {
+	id: string;
+}
+export const DismissBannerCommandType = new IpcCommandType<DismissBannerParams>('home/banner/dismiss');
 
 export interface DidChangeSubscriptionParams {
 	subscription: Subscription;

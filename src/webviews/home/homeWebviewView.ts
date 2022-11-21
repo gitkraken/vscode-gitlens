@@ -17,7 +17,7 @@ import { debounce } from '../../system/function';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
 import { WebviewViewBase } from '../webviewViewBase';
-import type { CompleteStepParams, DismissSectionParams, State } from './protocol';
+import type { CompleteStepParams, DismissBannerParams, DismissSectionParams, State } from './protocol';
 import {
 	CompletedActions,
 	CompleteStepCommandType,
@@ -25,6 +25,7 @@ import {
 	DidChangeExtensionEnabledType,
 	DidChangeLayoutType,
 	DidChangeSubscriptionNotificationType,
+	DismissBannerCommandType,
 	DismissSectionCommandType,
 	DismissStatusCommandType,
 } from './protocol';
@@ -136,6 +137,9 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 			case DismissStatusCommandType.method:
 				onIpc(DismissStatusCommandType, e, _params => this.dismissPinStatus());
 				break;
+			case DismissBannerCommandType.method:
+				onIpc(DismissBannerCommandType, e, params => this.dismissBanner(params));
+				break;
 		}
 	}
 
@@ -153,12 +157,22 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 
 	private dismissSection(params: DismissSectionParams) {
 		const sections = this.container.storage.get('home:sections:dismissed', []);
-
-		if (!sections.includes(params.id)) {
-			sections.push(params.id);
+		if (sections.includes(params.id)) {
+			return;
 		}
 
+		sections.push(params.id);
 		void this.container.storage.store('home:sections:dismissed', sections);
+	}
+
+	private dismissBanner(params: DismissBannerParams) {
+		const banners = this.container.storage.get('home:banners:dismissed', []);
+
+		if (!banners.includes(params.id)) {
+			banners.push(params.id);
+		}
+
+		void this.container.storage.store('home:banners:dismissed', banners);
 	}
 
 	private dismissPinStatus() {
@@ -209,6 +223,7 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 		const subscriptionState = await this.getSubscription(subscription);
 		const steps = this.container.storage.get('home:steps:completed', []);
 		const sections = this.container.storage.get('home:sections:dismissed', []);
+		const dismissedBanners = this.container.storage.get('home:banners:dismissed', []);
 
 		return {
 			extensionEnabled: this.getExtensionEnabled(),
@@ -222,6 +237,7 @@ export class HomeWebviewView extends WebviewViewBase<State> {
 			avatar: subscriptionState.avatar,
 			layout: this.getLayout(),
 			pinStatus: this.getPinStatus(),
+			dismissedBanners: dismissedBanners,
 		};
 	}
 
