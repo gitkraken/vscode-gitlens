@@ -311,6 +311,7 @@ export class Autolinks implements Disposable {
 					case 'markdown':
 						ensureCachedRegex(ref, outputFormat);
 						return text.replace(ref.messageMarkdownRegex, (_: string, linkText: string, num: string) => {
+							num = num.replace(/\\/g, '');
 							const url = encodeUrl(ref.url.replace(numRegex, num));
 
 							let title = '';
@@ -354,6 +355,7 @@ export class Autolinks implements Disposable {
 					case 'html':
 						ensureCachedRegex(ref, outputFormat);
 						return text.replace(ref.messageHtmlRegex, (_: string, linkText: string, num: string) => {
+							num = num.replace(/\\/g, '');
 							const url = encodeUrl(ref.url.replace(numRegex, num));
 
 							let title = '';
@@ -450,7 +452,7 @@ function ensureCachedRegex(ref: CacheableAutolinkReference, outputFormat: 'html'
 		return regexpTree.transform(`/${ regex }/`, {
 			// escape all literal characters with a backslash
 			Char: function({node}) {
-				node.value = fn(node.value).replace('\\', '\\\\');
+				node.value = fn(node.value).replace(/\\/g, '\\\\');
 			},
 		}).getSource();
 	}
