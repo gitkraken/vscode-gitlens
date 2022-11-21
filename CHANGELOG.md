@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#2354](https://github.com/gitkraken/vscode-gitlens/issues/2354) - 'GitLens: Compare working three with...' Not able to select branch using keyboard
+- Fixes [#2359](https://github.com/gitkraken/vscode-gitlens/issues/2359) - rebase view shows 2 user icons even when they're the same
 
 ## [13.1.0] - 2022-11-17
 
