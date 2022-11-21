@@ -357,9 +357,11 @@ function toggleArrayItem(list: string[] = [], item: string, add = true) {
 	return list;
 }
 
+const cyberweekStart = Date.parse('2022-11-28T07:00:00.000-08:00');
 const cyberweekEnding = Date.parse('2022-12-06T00:00:00.000-08:00');
 function showCyberWeek() {
-	return Date.now() < cyberweekEnding;
+	const now = Date.now();
+	return now < cyberweekEnding && now >= cyberweekStart;
 }
 
 new HomeApp();
