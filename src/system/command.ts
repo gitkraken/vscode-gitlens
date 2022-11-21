@@ -2,8 +2,8 @@ import type { Command as CoreCommand, Disposable, Uri } from 'vscode';
 import { commands } from 'vscode';
 import type { Action, ActionContext } from '../api/gitlens';
 import type { Command } from '../commands/base';
-import type { CoreCommands, CoreGitCommands } from '../constants';
-import { Commands } from '../constants';
+import type { CoreGitCommands } from '../constants';
+import { Commands, CoreCommands } from '../constants';
 import { Container } from '../container';
 
 interface CommandConstructor {
@@ -66,7 +66,9 @@ export function executeCoreCommand<T extends [...unknown[]] = [], U = any>(
 	command: CoreCommands,
 	...args: T
 ): Thenable<U> {
-	Container.instance.telemetry.sendEvent('command/core', { command: command });
+	if (command !== CoreCommands.ExecuteDocumentSymbolProvider) {
+		Container.instance.telemetry.sendEvent('command/core', { command: command });
+	}
 	return commands.executeCommand<U>(command, ...args);
 }
 
