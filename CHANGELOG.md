@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [13.1.1] - 2022-11-21
+
 ### Fixed
 
 - Fixes [#2354](https://github.com/gitkraken/vscode-gitlens/issues/2354) - 'GitLens: Compare working three with...' Not able to select branch using keyboard
