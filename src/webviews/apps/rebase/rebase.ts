@@ -511,7 +511,7 @@ class RebaseEditor extends App<State> {
 					$avatarStack.classList.add('entry-avatar');
 
 					const hasAuthor = author?.avatarUrl.length;
-					const hasCommitter = author !== committer && committer?.avatarUrl.length;
+					const hasCommitter = author !== committer && author.author !== 'You' && committer?.avatarUrl.length;
 					if (hasAuthor) {
 						const $avatar = document.createElement('avatar-item') as AvatarItem;
 						$avatar.media = author.avatarUrl;
