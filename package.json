@@ -2181,6 +2181,13 @@
 						"scope": "window",
 						"order": 12
 					},
+					"gitlens.graph.scrollRowPadding": {
+						"type": "number",
+						"default": 0,
+						"markdownDescription": "Specifies how many rows from the edge a selected row should be before scrolling starts",
+						"scope": "window",
+						"order": 14
+					},
 					"gitlens.graph.showDetailsView": {
 						"type": [
 							"boolean",
