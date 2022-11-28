@@ -1,5 +1,6 @@
 import type { ExtensionContext } from 'vscode';
 import { version as codeVersion, env, extensions, window, workspace } from 'vscode';
+import { hrtime } from '@env/hrtime';
 import { isWeb } from '@env/platform';
 import { Api } from './api/api';
 import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';
@@ -188,25 +189,12 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		upgradedFrom: previousVersion != null && gitlensVersion !== previousVersion ? previousVersion : undefined,
 	});
 
+	const api = new Api(container);
 	const mode = container.mode;
+
+	const startTime = sw.startTime;
+	const endTime = hrtime();
 	const elapsed = sw.elapsed();
-
-	queueMicrotask(() => {
-		container.telemetry.sendEvent(
-			'activate',
-			{
-				'activation.elapsed': elapsed,
-				'activation.mode': mode?.name,
-			},
-			sw.startTime,
-		);
-
-		setTimeout(() => {
-			const data = flatten(configuration.getAll(true), { prefix: 'config', stringify: 'all' });
-			// TODO@eamodio do we want to capture any vscode settings that are relevant to GitLens?
-			container.telemetry.sendEvent('config', data);
-		}, 5000);
-	});
 
 	sw.stop({
 		message: ` activated${exitMessage != null ? `, ${exitMessage}` : ''}${
@@ -214,9 +202,23 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		}`,
 	});
 
-	setTimeout(() => uninstallDeprecatedAuthentication(), 30000);
+	setTimeout(() => {
+		// TODO@eamodio do we want to capture any vscode settings that are relevant to GitLens?
+		const config = flatten(configuration.getAll(true), { prefix: 'config', stringify: 'all' });
+		container.telemetry.sendEvent(
+			'activate',
+			{
+				'activation.elapsed': elapsed,
+				'activation.mode': mode?.name,
+				...config,
+			},
+			startTime,
+			endTime,
+		);
 
-	const api = new Api(container);
+		setTimeout(() => uninstallDeprecatedAuthentication(), 25000);
+	}, 5000);
+
 	return Promise.resolve(api);
 }
 
