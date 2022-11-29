@@ -847,6 +847,9 @@ export class SubscriptionService implements Disposable {
 		// Check the previous and new subscriptions are exactly the same
 		const matches = previous != null && JSON.stringify(previous) === JSON.stringify(subscription);
 
+		// If the previous and new subscriptions are exactly the same, kick out
+		if (matches) return;
+
 		queueMicrotask(() => {
 			this.container.telemetry.setGlobalAttributes({
 				'account.id': subscription!.account?.id,
@@ -889,14 +892,8 @@ export class SubscriptionService implements Disposable {
 					: {}),
 			};
 
-			this.container.telemetry.sendEvent(
-				previous == null || matches ? 'subscription' : 'subscription/changed',
-				data,
-			);
+			this.container.telemetry.sendEvent(previous == null ? 'subscription' : 'subscription/changed', data);
 		});
-
-		// If the previous and new subscriptions are exactly the same, kick out
-		if (matches) return;
 
 		void this.storeSubscription(subscription);
 
