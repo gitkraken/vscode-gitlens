@@ -102,6 +102,7 @@ export interface GraphComponentConfig {
 	dateStyle: DateStyle;
 	enableMultiSelection?: boolean;
 	highlightRowsOnRefHover?: boolean;
+	scrollRowPadding?: number;
 	showGhostRefsOnRowHover?: boolean;
 	showRemoteNamesOnRefs?: boolean;
 	idLength?: number;
