@@ -7,8 +7,7 @@ import type { SearchQuery } from '../../../../git/search';
 import type {
 	DismissBannerParams,
 	GraphAvatars,
-	GraphColumnConfig,
-	GraphColumnName,
+	GraphColumnsConfig,
 	GraphHiddenRef,
 	GraphMissingRefsMetadata,
 	GraphRepository,
@@ -37,7 +36,7 @@ import {
 	GetMoreRowsCommandType,
 	SearchCommandType,
 	SearchOpenInViewCommandType,
-	UpdateColumnCommandType,
+	UpdateColumnsCommandType,
 	UpdateRefsVisibilityCommandType,
 	UpdateSelectedRepositoryCommandType as UpdateRepositorySelectionCommandType,
 	UpdateSelectionCommandType,
@@ -84,8 +83,8 @@ export class GraphApp extends App<State> {
 					nonce={this.state.nonce}
 					state={this.state}
 					subscriber={(callback: UpdateStateCallback) => this.registerEvents(callback)}
-					onColumnChange={debounce<GraphApp['onColumnChanged']>(
-						(name, settings) => this.onColumnChanged(name, settings),
+					onColumnsChange={debounce<GraphApp['onColumnsChanged']>(
+						(settings) => this.onColumnsChanged(settings),
 						250,
 					)}
 					onRefsVisibilityChange={(refs: GraphHiddenRef[], visible: boolean) =>
@@ -378,9 +377,8 @@ export class GraphApp extends App<State> {
 		this.sendCommand(DismissBannerCommandType, { key: key });
 	}
 
-	private onColumnChanged(name: GraphColumnName, settings: GraphColumnConfig) {
-		this.sendCommand(UpdateColumnCommandType, {
-			name: name,
+	private onColumnsChanged(settings: GraphColumnsConfig) {
+		this.sendCommand(UpdateColumnsCommandType, {
 			config: settings,
 		});
 	}

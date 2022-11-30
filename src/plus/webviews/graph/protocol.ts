@@ -111,7 +111,10 @@ export interface GraphComponentConfig {
 export interface GraphColumnConfig {
 	isHidden?: boolean;
 	width?: number;
+	order?: number;
 }
+
+export type GraphColumnsConfig = {[name: string]: GraphColumnConfig};
 
 export type GraphHiddenRefs = HiddenRefsById;
 export type GraphHiddenRef = GraphRefOptData;
@@ -165,11 +168,10 @@ export interface SearchOpenInViewParams {
 }
 export const SearchOpenInViewCommandType = new IpcCommandType<SearchOpenInViewParams>('graph/search/openInView');
 
-export interface UpdateColumnParams {
-	name: GraphColumnName;
-	config: GraphColumnConfig;
+export interface UpdateColumnsParams {
+	config: GraphColumnsConfig;
 }
-export const UpdateColumnCommandType = new IpcCommandType<UpdateColumnParams>('graph/column/update');
+export const UpdateColumnsCommandType = new IpcCommandType<UpdateColumnsParams>('graph/columns/update');
 
 export interface UpdateRefsVisibilityParams {
 	refs: GraphHiddenRef[];

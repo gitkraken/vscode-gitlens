@@ -87,6 +87,7 @@ import type {
 	GetMoreRowsParams,
 	GraphColumnConfig,
 	GraphColumnName,
+	GraphColumnsConfig,
 	GraphColumnsSettings,
 	GraphComponentConfig,
 	GraphHiddenRef,
@@ -101,7 +102,7 @@ import type {
 	SearchOpenInViewParams,
 	SearchParams,
 	State,
-	UpdateColumnParams,
+	UpdateColumnsParams,
 	UpdateRefsVisibilityParams,
 	UpdateSelectedRepositoryParams,
 	UpdateSelectionParams,
@@ -127,7 +128,7 @@ import {
 	GetMoreRowsCommandType,
 	SearchCommandType,
 	SearchOpenInViewCommandType,
-	UpdateColumnCommandType,
+	UpdateColumnsCommandType,
 	UpdateRefsVisibilityCommandType,
 	UpdateSelectedRepositoryCommandType,
 	UpdateSelectionCommandType,
@@ -414,8 +415,8 @@ export class GraphWebview extends WebviewBase<State> {
 			case SearchOpenInViewCommandType.method:
 				onIpc(SearchOpenInViewCommandType, e, params => this.onSearchOpenInView(params));
 				break;
-			case UpdateColumnCommandType.method:
-				onIpc(UpdateColumnCommandType, e, params => this.onColumnChanged(params));
+			case UpdateColumnsCommandType.method:
+				onIpc(UpdateColumnsCommandType, e, params => this.onColumnsChanged(params));
 				break;
 			case UpdateRefsVisibilityCommandType.method:
 				onIpc(UpdateRefsVisibilityCommandType, e, params => this.onRefsVisibilityChanged(params));
@@ -587,8 +588,8 @@ export class GraphWebview extends WebviewBase<State> {
 		void this.container.storage.storeWorkspace('graph:banners:dismissed', banners);
 	}
 
-	private onColumnChanged(e: UpdateColumnParams) {
-		this.updateColumn(e.name, e.config);
+	private onColumnsChanged(e: UpdateColumnsParams) {
+		this.updateColumns(e.config);
 	}
 
 	private onRefsVisibilityChanged(e: UpdateRefsVisibilityParams) {
@@ -1436,9 +1437,11 @@ export class GraphWebview extends WebviewBase<State> {
 		};
 	}
 
-	private updateColumn(name: GraphColumnName, cfg: GraphColumnConfig) {
+	private updateColumns(columnsCfg: GraphColumnsConfig) {
 		let columns = this.container.storage.getWorkspace('graph:columns');
-		columns = updateRecordValue(columns, name, cfg);
+		for (const [key, value] of Object.entries(columnsCfg)) {
+			columns = updateRecordValue(columns, key, value);
+		}
 		void this.container.storage.storeWorkspace('graph:columns', columns);
 		void this.notifyDidChangeColumns();
 	}
