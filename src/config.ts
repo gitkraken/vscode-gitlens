@@ -388,6 +388,7 @@ export interface GraphConfig {
 	dateStyle: DateStyle | null;
 	defaultItemLimit: number;
 	highlightRowsOnRefHover: boolean;
+	scrollRowPadding: number;
 	showDetailsView: 'open' | 'selection' | false;
 	showGhostRefsOnRowHover: boolean;
 	showRemoteNames: boolean;

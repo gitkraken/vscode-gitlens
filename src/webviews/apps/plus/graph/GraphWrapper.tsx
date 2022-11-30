@@ -402,7 +402,7 @@ export function GraphWrapper({
 		}
 
 		if (id != null) {
-			queueMicrotask(() => graphRef.current?.selectCommits([id!], false));
+			queueMicrotask(() => graphRef.current?.selectCommits([id!], false, true));
 		}
 	};
 
@@ -728,6 +728,7 @@ export function GraphWrapper({
 							highlightedShas={searchResults?.ids as GraphContainerProps['highlightedShas']}
 							highlightRowsOnRefHover={graphConfig?.highlightRowsOnRefHover}
 							hiddenRefsById={hiddenRefsById}
+							scrollRowPadding={graphConfig?.scrollRowPadding}
 							showGhostRefsOnRowHover={graphConfig?.showGhostRefsOnRowHover}
 							showRemoteNamesOnRefs={graphConfig?.showRemoteNamesOnRefs}
 							isLoadingRows={isLoading}
