@@ -14,6 +14,13 @@ export class WorkspacesApp extends App<State> {
 	constructor() {
 		super('WorkspacesApp');
 	}
+
+	override onInitialize() {
+		this.log(`${this.appName}.onInitialize`);
+		this.renderContent();
+	}
+
+	renderContent() {}
 }
 
 new WorkspacesApp();

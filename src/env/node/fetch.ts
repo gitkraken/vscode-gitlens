@@ -6,7 +6,7 @@ import { configuration } from '../../configuration';
 import { Logger } from '../../logger';
 
 export { fetch };
-export type { BodyInit, RequestInit, Response } from 'node-fetch';
+export type { BodyInit, RequestInfo, RequestInit, Response } from 'node-fetch';
 
 export function getProxyAgent(strictSSL?: boolean): HttpsProxyAgent | undefined {
 	let proxyUrl: string | undefined;

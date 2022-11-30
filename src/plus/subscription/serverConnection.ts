@@ -1,7 +1,7 @@
 import type { CancellationToken, Disposable, StatusBarItem } from 'vscode';
 import { CancellationTokenSource, env, StatusBarAlignment, Uri, window } from 'vscode';
 import { uuid } from '@env/crypto';
-import type { Response } from '@env/fetch';
+import type { RequestInfo, RequestInit, Response } from '@env/fetch';
 import { fetch, getProxyAgent } from '@env/fetch';
 import type { Container } from '../../container';
 import { Logger } from '../../logger';
@@ -12,10 +12,18 @@ import type { DeferredEvent, DeferredEventExecutor } from '../../system/event';
 import { promisifyDeferred } from '../../system/event';
 
 export const AuthenticationUriPathPrefix = 'did-authenticate';
+// TODO: What user-agent should we use?
+const userAgent = 'Visual-Studio-Code-GitLens';
 
 interface AccountInfo {
 	id: string;
 	accountName: string;
+}
+
+interface GraphQLRequest {
+	query: string;
+	operationName?: string;
+	variables?: Record<string, unknown>;
 }
 
 export class ServerConnection implements Disposable {
@@ -72,8 +80,7 @@ export class ServerConnection implements Disposable {
 				agent: getProxyAgent(),
 				headers: {
 					Authorization: `Bearer ${token}`,
-					// TODO: What user-agent should we use?
-					'User-Agent': 'Visual-Studio-Code-GitLens',
+					'User-Agent': userAgent,
 				},
 			});
 		} catch (ex) {
@@ -241,6 +248,35 @@ export class ServerConnection implements Disposable {
 		if (!signingIn && this._statusBarItem != null) {
 			this._statusBarItem.dispose();
 			this._statusBarItem = undefined;
+		}
+	}
+
+	async fetchGraphql(data: GraphQLRequest, token: string, init?: RequestInit) {
+		return this.fetchCore(Uri.joinPath(this.baseAccountUri, 'api/projects/graphql').toString(), token, {
+			method: 'POST',
+			body: JSON.stringify(data),
+			...init,
+		});
+	}
+
+	private async fetchCore(url: RequestInfo, token: string, init?: RequestInit): Promise<Response> {
+		const scope = getLogScope();
+
+		try {
+			const options = {
+				agent: getProxyAgent(),
+				...init,
+				headers: {
+					Authorization: `Bearer ${token}`,
+					'User-Agent': userAgent,
+					'Content-Type': 'application/json',
+					...init?.headers,
+				},
+			};
+			return await fetch(url, options);
+		} catch (ex) {
+			Logger.error(ex, scope);
+			throw ex;
 		}
 	}
 }
