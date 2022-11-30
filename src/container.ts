@@ -27,6 +27,7 @@ import { GraphWebview } from './plus/webviews/graph/graphWebview';
 import { TimelineWebview } from './plus/webviews/timeline/timelineWebview';
 import { TimelineWebviewView } from './plus/webviews/timeline/timelineWebviewView';
 import { WorkspacesWebview } from './plus/webviews/workspaces/workspacesWebview';
+import { WorkspacesApi } from './plus/workspaces/workspaces';
 import { StatusBarController } from './statusbar/statusBarController';
 import type { Storage } from './storage';
 import { executeCommand } from './system/command';
@@ -175,6 +176,7 @@ export class Container {
 			(this._subscriptionAuthentication = new SubscriptionAuthenticationProvider(this, server)),
 		);
 		context.subscriptions.push((this._subscription = new SubscriptionService(this, previousVersion)));
+		context.subscriptions.push((this._workspaces = new WorkspacesApi(this, server)));
 
 		context.subscriptions.push((this._git = new GitProviderService(this)));
 		context.subscriptions.push(new GitFileSystemProvider(this));
@@ -528,6 +530,11 @@ export class Container {
 		}
 
 		return this._searchAndCompareView;
+	}
+
+	private _workspaces: WorkspacesApi;
+	get workspaces() {
+		return this._workspaces;
 	}
 
 	private _subscription: SubscriptionService;

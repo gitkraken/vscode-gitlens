@@ -34,4 +34,25 @@ export class WorkspacesWebview extends WebviewBase<State> {
 
 		void setContext(ContextKeys.WorkspacesFocused, focused);
 	}
+
+	private async getWorkspaces() {
+		try {
+			const rsp = await this.container.workspaces.getWorkspacesWithPullRequests();
+			console.log(rsp);
+		} catch (ex) {
+			console.log(ex);
+		}
+
+		return {};
+	}
+
+	private async getState(): Promise<State> {
+		return Promise.resolve({
+			workspaces: this.getWorkspaces(),
+		});
+	}
+
+	protected override async includeBootstrap(): Promise<State> {
+		return this.getState();
+	}
 }
