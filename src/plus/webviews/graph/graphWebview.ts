@@ -434,7 +434,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	protected override onFocusChanged(focused: boolean): void {
-		if (!focused || this.activeSelection == null) {
+		if (!focused || this.activeSelection == null || !this.container.commitDetailsView.visible) {
 			this._showActiveSelectionDetailsDebounced?.cancel();
 			return;
 		}
