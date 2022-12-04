@@ -82,7 +82,7 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 
 		return [
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
-			window.onDidChangeActiveTextEditor(this.onActiveEditorChanged, this),
+			window.onDidChangeActiveTextEditor(debounce(this.onActiveEditorChanged, 250), this),
 			this.container.git.onDidChangeRepository(this.onRepositoryChanged, this),
 			this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
 		];
@@ -151,7 +151,14 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 
 	@debug({ args: false })
 	private onActiveEditorChanged(editor: TextEditor | undefined) {
-		if (editor == null || !this.container.git.isTrackable(editor.document.uri)) return;
+		if (editor != null) {
+			if (!isTextEditor(editor)) return;
+
+			if (!this.container.git.isTrackable(editor.document.uri)) {
+				editor = undefined;
+			}
+		}
+
 		if (!this.updatePendingEditor(editor)) return;
 
 		this.updateState();
@@ -186,11 +193,26 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 
 	@debug({ args: false })
 	private async getState(current: Context): Promise<State> {
-		const access = await this.container.git.access(PlusFeatures.Timeline);
 		const dateFormat = configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma';
 		const shortDateFormat = configuration.get('defaultDateShortFormat') ?? 'short';
 		const period = current.period ?? defaultPeriod;
 
+		if (current.uri == null) {
+			const access = await this.container.git.access(PlusFeatures.Timeline);
+			return {
+				emptyMessage: 'There are no editors open that can provide file history information',
+				period: period,
+				title: '',
+				dateFormat: dateFormat,
+				shortDateFormat: shortDateFormat,
+				access: access,
+			};
+		}
+
+		const gitUri = await GitUri.fromUri(current.uri);
+		const repoPath = gitUri.repoPath!;
+
+		const access = await this.container.git.access(PlusFeatures.Timeline, repoPath);
 		if (access.allowed === false) {
 			const dataset = generateRandomTimelineDataset();
 			return {
@@ -204,20 +226,7 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 			};
 		}
 
-		if (current.uri == null) {
-			return {
-				period: period,
-				title: 'There are no editors open that can provide file history information',
-				dateFormat: dateFormat,
-				shortDateFormat: shortDateFormat,
-				access: access,
-			};
-		}
-
-		const gitUri = await GitUri.fromUri(current.uri);
-		const repoPath = gitUri.repoPath!;
 		const title = gitUri.relativePath;
-
 		this.description = gitUri.fileName;
 
 		const [currentUser, log] = await Promise.all([
@@ -232,8 +241,9 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 		if (log == null) {
 			return {
 				dataset: [],
+				emptyMessage: 'No commits found for the specified time period',
 				period: period,
-				title: 'No commits found for the specified time period',
+				title: title,
 				uri: current.uri.toString(),
 				dateFormat: dateFormat,
 				shortDateFormat: shortDateFormat,

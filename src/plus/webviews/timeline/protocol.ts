@@ -3,6 +3,7 @@ import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol'
 
 export interface State {
 	dataset?: Commit[];
+	emptyMessage?: string;
 	period: Period;
 	title: string;
 	uri?: string;

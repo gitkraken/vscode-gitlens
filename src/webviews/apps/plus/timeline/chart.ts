@@ -100,7 +100,7 @@ export class TimelineChart {
 			$overlay?.classList.toggle('hidden', false);
 
 			const $emptyMessage = $overlay.querySelector<HTMLHeadingElement>('[data-bind="empty"]')!;
-			$emptyMessage.textContent = state.title;
+			$emptyMessage.textContent = state.emptyMessage ?? '';
 
 			return;
 		}
