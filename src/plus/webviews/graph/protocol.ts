@@ -114,7 +114,7 @@ export interface GraphColumnConfig {
 	order?: number;
 }
 
-export type GraphColumnsConfig = {[name: string]: GraphColumnConfig};
+export type GraphColumnsConfig = { [name: string]: GraphColumnConfig };
 
 export type GraphHiddenRefs = HiddenRefsById;
 export type GraphHiddenRef = GraphRefOptData;

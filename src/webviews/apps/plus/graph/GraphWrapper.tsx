@@ -8,7 +8,7 @@ import type {
 	GraphRefGroup,
 	GraphRefOptData,
 	GraphRow,
- 	OnFormatCommitDateTime
+	OnFormatCommitDateTime,
 } from '@gitkraken/gitkraken-components';
 import type { ReactElement } from 'react';
 import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
@@ -478,8 +478,8 @@ export function GraphWrapper({
 				[columnName]: {
 					width: columnSettings.width,
 					isHidden: columnSettings.isHidden,
-					order: columnSettings.order
-				}
+					order: columnSettings.order,
+				},
 			});
 		}
 	};

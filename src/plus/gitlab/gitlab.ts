@@ -683,7 +683,7 @@ $search: String!
 		}
 	}
 
-	private async graphql<T>(
+	private async graphql<T extends object>(
 		provider: RichRemoteProvider,
 		token: string,
 		baseUrl: string | undefined,
