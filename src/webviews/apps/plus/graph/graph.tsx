@@ -84,7 +84,7 @@ export class GraphApp extends App<State> {
 					state={this.state}
 					subscriber={(callback: UpdateStateCallback) => this.registerEvents(callback)}
 					onColumnsChange={debounce<GraphApp['onColumnsChanged']>(
-						(settings) => this.onColumnsChanged(settings),
+						settings => this.onColumnsChanged(settings),
 						250,
 					)}
 					onRefsVisibilityChange={(refs: GraphHiddenRef[], visible: boolean) =>

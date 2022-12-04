@@ -4,7 +4,9 @@ export interface WebviewItemContext<TValue = unknown> {
 	webviewItemValue: TValue;
 }
 
-export function isWebviewItemContext<TValue = unknown>(item: unknown): item is WebviewItemContext<TValue> {
+export function isWebviewItemContext<TValue = unknown>(
+	item: object | null | undefined,
+): item is WebviewItemContext<TValue> {
 	if (item == null) return false;
 
 	return 'webview' in item && 'webviewItem' in item;
@@ -16,7 +18,9 @@ export interface WebviewItemGroupContext<TValue = unknown> {
 	webviewItemGroupValue: TValue;
 }
 
-export function isWebviewItemGroupContext<TValue = unknown>(item: unknown): item is WebviewItemGroupContext<TValue> {
+export function isWebviewItemGroupContext<TValue = unknown>(
+	item: object | null | undefined,
+): item is WebviewItemGroupContext<TValue> {
 	if (item == null) return false;
 
 	return 'webview' in item && 'webviewItemGroup' in item;
