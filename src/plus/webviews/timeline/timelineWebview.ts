@@ -174,11 +174,26 @@ export class TimelineWebview extends WebviewBase<State> {
 
 	@debug({ args: false })
 	private async getState(current: Context): Promise<State> {
-		const access = await this.container.git.access(PlusFeatures.Timeline);
 		const dateFormat = configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma';
 		const shortDateFormat = configuration.get('defaultDateShortFormat') ?? 'short';
 		const period = current.period ?? defaultPeriod;
 
+		if (current.uri == null) {
+			const access = await this.container.git.access(PlusFeatures.Timeline);
+			return {
+				emptyMessage: 'There are no editors open that can provide file history information',
+				period: period,
+				title: '',
+				dateFormat: dateFormat,
+				shortDateFormat: shortDateFormat,
+				access: access,
+			};
+		}
+
+		const gitUri = await GitUri.fromUri(current.uri);
+		const repoPath = gitUri.repoPath!;
+
+		const access = await this.container.git.access(PlusFeatures.Timeline, repoPath);
 		if (access.allowed === false) {
 			const dataset = generateRandomTimelineDataset();
 			return {
@@ -192,20 +207,7 @@ export class TimelineWebview extends WebviewBase<State> {
 			};
 		}
 
-		if (current.uri == null) {
-			return {
-				period: period,
-				title: 'There are no editors open that can provide file history information',
-				dateFormat: dateFormat,
-				shortDateFormat: shortDateFormat,
-				access: access,
-			};
-		}
-
-		const gitUri = await GitUri.fromUri(current.uri);
-		const repoPath = gitUri.repoPath!;
 		const title = gitUri.relativePath;
-
 		this.title = `${this.originalTitle}: ${gitUri.fileName}`;
 
 		const [currentUser, log] = await Promise.all([
@@ -220,8 +222,9 @@ export class TimelineWebview extends WebviewBase<State> {
 		if (log == null) {
 			return {
 				dataset: [],
+				emptyMessage: 'No commits found for the specified time period',
 				period: period,
-				title: 'No commits found for the specified time period',
+				title: title,
 				uri: current.uri.toString(),
 				dateFormat: dateFormat,
 				shortDateFormat: shortDateFormat,

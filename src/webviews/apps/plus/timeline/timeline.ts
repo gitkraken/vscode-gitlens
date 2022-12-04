@@ -2,6 +2,7 @@
 /*global*/
 import './timeline.scss';
 import { provideVSCodeDesignSystem, vsCodeButton, vsCodeDropdown, vsCodeOption } from '@vscode/webview-ui-toolkit';
+import { GlyphChars } from '../../../../constants';
 import type { State } from '../../../../plus/webviews/timeline/protocol';
 import {
 	DidChangeNotificationType,
@@ -93,7 +94,7 @@ export class TimelineApp extends App<State> {
 
 		const $slot = document.getElementById('overlay-slot') as HTMLDivElement;
 
-		if (this.state.access.allowed !== true) {
+		if (this.state.access.allowed === false) {
 			const { current: subscription, required } = this.state.access.subscription;
 
 			const requiresPublic = required === SubscriptionPlanId.FreePlus;
@@ -128,11 +129,6 @@ export class TimelineApp extends App<State> {
 
 		let { title } = this.state;
 
-		const empty = this.state.dataset == null || this.state.dataset.length === 0;
-		if (empty) {
-			title = '';
-		}
-
 		let description = '';
 		const index = title.lastIndexOf('/');
 		if (index >= 0) {
@@ -144,7 +140,7 @@ export class TimelineApp extends App<State> {
 		for (const [key, value] of Object.entries({ title: title, description: description })) {
 			const $el = document.querySelector(`[data-bind="${key}"]`);
 			if ($el != null) {
-				$el.textContent = String(value);
+				$el.textContent = String(value) || GlyphChars.Space;
 			}
 		}
 
