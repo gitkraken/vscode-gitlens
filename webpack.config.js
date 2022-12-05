@@ -407,6 +407,10 @@ function getWebviewsConfig(mode, env) {
 		module: {
 			rules: [
 				{
+					test: /\.m?js/,
+					resolve: { fullySpecified: false },
+				},
+				{
 					exclude: /\.d\.ts$/,
 					include: path.join(__dirname, 'src'),
 					test: /\.tsx?$/,
