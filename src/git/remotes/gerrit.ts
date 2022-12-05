@@ -37,10 +37,9 @@ export class GerritRemote extends RemoteProvider {
 		if (this._autolinks === undefined) {
 			this._autolinks = [
 				{
-					prefix: 'Change-Id: ',
+					regex: '(I[a-z0-9]{40})',
 					url: `${this.baseReviewUrl}/q/<num>`,
 					title: `Open Change #<num> on ${this.name}`,
-					alphanumeric: true,
 
 					description: `${this.name} Change #<num>`,
 				},

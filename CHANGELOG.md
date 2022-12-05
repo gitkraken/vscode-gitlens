@@ -56,6 +56,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a `@me` search filter to commit search in the _Search & Compare_ view and quick pick
 - Adds product usage telemetry
   - Honors the overall VS Code telemetry settings and add a `gitlens.telemetry.enabled` setting opt-out specifically for GitLens
+- Adds an `Open in Commit Graph` action to the hovers and commit quick pick menus
+- Adds support for configuring autolinks with regular expressions
 
 ### Changed
 
@@ -151,6 +153,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes Commit Details view showing incorrect actions for uncommitted changes
 - Fixes prioritization of multiple PRs associated with the same commit to choose a merged PR over others
 - Fixes Graph not showing account banners when access is not allowed and trial banners were previously dismissed
+- Fixes [#2251] - Gerrit change-ids should be parsed in the whole commit message body
 
 ## [12.2.2] - 2022-09-06
 

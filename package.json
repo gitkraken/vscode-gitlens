@@ -2483,14 +2483,44 @@
 						"default": null,
 						"items": {
 							"type": "object",
-							"required": [
-								"prefix",
-								"url"
+							"oneOf": [
+								{
+									"required": [
+										"prefix",
+										"url"
+									]
+								},
+								{
+									"required": [
+										"regex",
+										"url"
+									],
+									"allOf": [
+										{
+											"not": {
+												"required": [
+													"alphanumeric"
+												]
+											}
+										},
+										{
+											"not": {
+												"required": [
+													"ignoreCase"
+												]
+											}
+										}
+									]
+								}
 							],
 							"properties": {
 								"prefix": {
 									"type": "string",
 									"description": "Specifies the short prefix to use to generate autolinks for the external resource"
+								},
+								"regex": {
+									"type": "string",
+									"description": "Specifies the regular expression used to match autolinks for the external resource, where the first group matches the reference number"
 								},
 								"title": {
 									"type": [
@@ -2506,12 +2536,12 @@
 								},
 								"alphanumeric": {
 									"type": "boolean",
-									"description": "Specifies whether alphanumeric characters should be allowed in `<num>`",
+									"description": "When using a prefix, specifies whether alphanumeric characters should be allowed in `<num>`",
 									"default": false
 								},
 								"ignoreCase": {
 									"type": "boolean",
-									"description": "Specifies whether case should be ignored when matching the prefix",
+									"description": "When using a prefix, specifies whether case should be ignored when matching the prefix",
 									"default": false
 								}
 							},
@@ -12692,6 +12722,7 @@
 		"path-browserify": "1.0.1",
 		"react": "16.8.4",
 		"react-dom": "16.8.4",
+		"regexp-tree": "^0.1.24",
 		"sortablejs": "1.15.0"
 	},
 	"devDependencies": {

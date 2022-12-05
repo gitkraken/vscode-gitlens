@@ -189,11 +189,14 @@ export const enum AutolinkType {
 }
 
 export interface AutolinkReference {
-	prefix: string;
 	url: string;
 	title?: string;
+
+	prefix?: string;
 	alphanumeric?: boolean;
 	ignoreCase?: boolean;
+
+	regex?: string;
 
 	type?: AutolinkType;
 	description?: string;
