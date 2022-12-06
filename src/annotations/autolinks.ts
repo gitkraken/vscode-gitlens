@@ -443,19 +443,21 @@ function ensureCachedRegex(ref: CacheableAutolinkReference, outputFormat: 'html'
 	if (outputFormat === 'markdown' && ref.messageMarkdownRegex == null) {
 		// Extra `\\\\` in `\\\\\\[` is because the markdown is escaped
 		ref.messageMarkdownRegex = new RegExp(
-			`(?<=^|\\s|\\(|\\\\\\[)(${escapeRegex(encodeHtmlWeak(escapeMarkdown(ref.prefix)))}(${
+			`(?<=^|\\s|\\(|\\[|\\{)(${escapeRegex(encodeHtmlWeak(escapeMarkdown(ref.prefix)))}(${
 				ref.alphanumeric ? '\\w' : '\\d'
 			}+))\\b`,
 			ref.ignoreCase ? 'gi' : 'g',
 		);
 	} else if (outputFormat === 'html' && ref.messageHtmlRegex == null) {
 		ref.messageHtmlRegex = new RegExp(
-			`(?<=^|\\s|\\(|\\[)(${escapeRegex(encodeHtmlWeak(ref.prefix))}(${ref.alphanumeric ? '\\w' : '\\d'}+))\\b`,
+			`(?<=^|\\s|\\(|\\[|\\{)(${escapeRegex(encodeHtmlWeak(ref.prefix))}(${
+				ref.alphanumeric ? '\\w' : '\\d'
+			}+))\\b`,
 			ref.ignoreCase ? 'gi' : 'g',
 		);
 	} else if (ref.messageRegex == null) {
 		ref.messageRegex = new RegExp(
-			`(?<=^|\\s|\\(|\\[)(${escapeRegex(ref.prefix)}(${ref.alphanumeric ? '\\w' : '\\d'}+))\\b`,
+			`(?<=^|\\s|\\(|\\[|\\{)(${escapeRegex(ref.prefix)}(${ref.alphanumeric ? '\\w' : '\\d'}+))\\b`,
 			ref.ignoreCase ? 'gi' : 'g',
 		);
 	}
