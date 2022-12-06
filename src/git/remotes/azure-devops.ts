@@ -71,7 +71,7 @@ export class AzureDevOpsRemote extends RemoteProvider {
 	}
 
 	override get icon() {
-		return 'vsts';
+		return 'azdo';
 	}
 
 	get id() {
