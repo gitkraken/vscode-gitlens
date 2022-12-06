@@ -23,6 +23,7 @@ import type {
 	GraphAvatars,
 	GraphColumnName,
 	GraphColumnsConfig,
+	GraphCommitFilterState,
 	GraphComponentConfig,
 	GraphHiddenRef,
 	GraphMissingRefsMetadata,
@@ -59,6 +60,7 @@ export interface GraphWrapperProps {
 	nonce?: string;
 	state: State;
 	subscriber: (callback: UpdateStateCallback) => () => void;
+	onSelectCommitFilter?: (commitFilter: GraphCommitFilterState) => void;
 	onSelectRepository?: (repository: GraphRepository) => void;
 	onColumnsChange?: (colsSettings: GraphColumnsConfig) => void;
 	onDoubleClickRef?: (ref: GraphRef) => void;
@@ -131,6 +133,7 @@ export function GraphWrapper({
 	subscriber,
 	nonce,
 	state,
+	onSelectCommitFilter,
 	onSelectRepository,
 	onColumnsChange,
 	onDoubleClickRef,
@@ -149,6 +152,7 @@ export function GraphWrapper({
 
 	const [rows, setRows] = useState(state.rows ?? []);
 	const [avatars, setAvatars] = useState(state.avatars);
+	const [commitFilter, setCommitFilter] = useState(state.commitFilter);
 	const [refsMetadata, setRefsMetadata] = useState(state.refsMetadata);
 	const [repos, setRepos] = useState(state.repositories ?? []);
 	const [repo, setRepo] = useState<GraphRepository | undefined>(
@@ -173,6 +177,10 @@ export function GraphWrapper({
 	const [subscription, setSubscription] = useState<Subscription | undefined>(state.subscription);
 	// repo selection UI
 	const [repoExpanded, setRepoExpanded] = useState(false);
+	// commit filter UI
+	const [commitFilterExpanded, setCommitFilterExpanded] = useState(false);
+	// Number of true values in the commitFilter object
+	const commitFilterCount = Object.values(commitFilter ?? {}).filter(Boolean).length;
 	// search state
 	const searchEl = useRef<any>(null);
 	const [searchQuery, setSearchQuery] = useState<SearchQuery | undefined>(undefined);
@@ -260,6 +268,7 @@ export function GraphWrapper({
 				setHiddenRefsById(state.hiddenRefs);
 				setContext(state.context);
 				setAvatars(state.avatars ?? {});
+				setCommitFilter(state.commitFilter ?? {});
 				setRefsMetadata(state.refsMetadata);
 				setPagingHasMore(state.paging?.hasMore ?? false);
 				setRepos(state.repositories ?? []);
@@ -443,9 +452,20 @@ export function GraphWrapper({
 		setRepoExpanded(false);
 	};
 
+	const handleSelectCommitFilter = (commitFilter: GraphCommitFilterState) => {
+		if (Object.values(commitFilter).length) {
+			onSelectCommitFilter?.(commitFilter);
+		}
+		setCommitFilterExpanded(false);
+	};
+
 	const handleToggleRepos = () => {
 		if (repo != null && repos.length <= 1) return;
 		setRepoExpanded(!repoExpanded);
+	};
+
+	const handleToggleCommitFilter = () => {
+		setCommitFilterExpanded(!commitFilterExpanded);
 	};
 
 	const handleMissingAvatars = (emails: GraphAvatars) => {
@@ -842,6 +862,83 @@ export function GraphWrapper({
 									None available
 								</span>
 							)}
+						</div>
+					</div>
+					<div className="actioncombo">
+						<button
+							type="button"
+							aria-controls="commitfilter-actioncombo-list"
+							aria-expanded={commitFilterExpanded}
+							aria-haspopup="listbox"
+							id="commitfilter-actioncombo-label"
+							className="actioncombo__label"
+							disabled={isLoading}
+							role="combobox"
+							onClick={() => handleToggleCommitFilter()}
+						>
+							{
+								<span
+									title={`${commitFilterCount} filter(s) active`}
+									style={{
+										// TODO: Remove hard-coded styling entirely and move to CSS
+										// PS: I wonder if "Icon with status badge" is a good candidate for a component?
+										height: '2.2rem',
+										lineHeight: '2.2rem',
+										position: 'relative',
+										display: 'inline-block',
+										padding: '0 0.2rem',
+										textAlign: 'center',
+										cursor: 'pointer',
+										marginRight: '0.3rem',
+										marginLeft: '-0.8rem',
+									}}
+								>
+									<span className="codicon codicon-list-filter"></span>
+									{commitFilterCount > 0 ? (
+										<span
+											style={{
+												// TODO: Remove hard-coded styling entirely and move to CSS
+												position: 'absolute',
+												borderRadius: '1em',
+												backgroundColor: 'var(--vscode-activityBarBadge-background)',
+												lineHeight: '1',
+												display: 'inline-block',
+												padding: '0.2rem',
+												textAlign: 'center',
+												minWidth: '1.4em',
+												right: '-0.8rem',
+											}}
+										>
+											{commitFilterCount}
+										</span>
+									) : null}
+								</span>
+							}
+						</button>
+						<div
+							className="actioncombo__list"
+							id="commitfilter-actioncombo-list"
+							role="listbox"
+							tabIndex={-1}
+							aria-labelledby="commitfilter-actioncombo-label"
+						>
+							<button
+								type="button"
+								className="actioncombo__item"
+								role="option"
+								data-value={'commitfilter-actioncombo-item-all'}
+								id={`commitfilter-actioncombo-item-all`}
+								key={`commitfilter-actioncombo-item-all`}
+								aria-selected={undefined}
+								onClick={() => handleSelectCommitFilter(
+									{ currentBranchOnly: !commitFilter?.currentBranchOnly }
+								)}
+							>
+								{commitFilter?.currentBranchOnly
+									? 'Show All Commits'
+									: 'Show Current Branch Commits Only'
+								}
+							</button>
 						</div>
 					</div>
 					{isAccessAllowed && rows.length > 0 && (

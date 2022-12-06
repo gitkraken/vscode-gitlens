@@ -57,10 +57,15 @@ export interface State {
 	workingTreeStats?: GraphWorkingTreeStats;
 	searchResults?: DidSearchParams['results'];
 	hiddenRefs?: GraphHiddenRefs;
+	commitFilter?: GraphCommitFilterState;
 
 	// Props below are computed in the webview (not passed)
 	activeRow?: string;
 	theming?: { cssVariables: CssVariables; themeOpacityFactor: number };
+}
+
+export interface GraphCommitFilterState {
+	currentBranchOnly?: boolean;
 }
 
 export type GraphWorkingTreeStats = WorkDirStats;
@@ -191,6 +196,13 @@ export interface UpdateSelectedRepositoryParams {
 }
 export const UpdateSelectedRepositoryCommandType = new IpcCommandType<UpdateSelectedRepositoryParams>(
 	'graph/selectedRepository/update',
+);
+
+export interface UpdateCommitFilterSelectionParams {
+	commitFilter: GraphCommitFilterState
+}
+export const UpdateCommitFilterSelectionCommandType = new IpcCommandType<UpdateCommitFilterSelectionParams>(
+	'graph/commitFilterSelection/update',
 );
 
 export interface UpdateSelectionParams {

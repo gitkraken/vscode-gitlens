@@ -1072,6 +1072,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		asWebviewUri: (uri: Uri) => Uri,
 		options?: {
 			branch?: string;
+			currentBranchOnly?: boolean;
 			limit?: number;
 			mode?: 'single' | 'local' | 'all';
 			ref?: string;
@@ -1119,6 +1120,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		ids: Set<string>,
 		options?: {
 			branch?: string;
+			currentBranchOnly?: boolean;
 			limit?: number;
 			mode?: 'single' | 'local' | 'all';
 			ref?: string;

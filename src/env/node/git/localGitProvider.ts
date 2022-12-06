@@ -1629,6 +1629,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		asWebviewUri: (uri: Uri) => Uri,
 		options?: {
 			branch?: string;
+			currentBranchOnly?: boolean;
 			limit?: number;
 			mode?: 'single' | 'local' | 'all';
 			ref?: string;
@@ -1690,7 +1691,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			let size;
 
 			do {
-				const args = [...parser.arguments, `--${ordering}-order`, '--all'];
+				const args = [...parser.arguments, `--${ordering}-order`];
+				if (!options?.currentBranchOnly) {
+					args.push('--all');
+				}
+
 				if (cursor?.skip) {
 					args.push(`--skip=${cursor.skip}`);
 				}

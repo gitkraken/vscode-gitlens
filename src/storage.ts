@@ -190,6 +190,9 @@ export interface WorkspaceStorage {
 		banners: {
 			dismissed?: Record<string, boolean>;
 		};
+		commitFilter: {
+			currentBranchOnly?: boolean;
+		}
 		columns?: Record<string, StoredGraphColumn>;
 		hiddenRefs?: Record<string, StoredGraphHiddenRef>;
 	};

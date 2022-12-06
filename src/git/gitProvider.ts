@@ -224,6 +224,7 @@ export interface GitProvider extends Disposable {
 		asWebviewUri: (uri: Uri) => Uri,
 		options?: {
 			branch?: string;
+			currentBranchOnly?: boolean;
 			limit?: number;
 			mode?: 'single' | 'local' | 'all';
 			ref?: string;

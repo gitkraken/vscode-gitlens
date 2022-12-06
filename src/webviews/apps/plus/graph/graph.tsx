@@ -37,6 +37,7 @@ import {
 	SearchCommandType,
 	SearchOpenInViewCommandType,
 	UpdateColumnsCommandType,
+	UpdateCommitFilterSelectionCommandType,
 	UpdateRefsVisibilityCommandType,
 	UpdateSelectedRepositoryCommandType as UpdateRepositorySelectionCommandType,
 	UpdateSelectionCommandType,
@@ -90,6 +91,10 @@ export class GraphApp extends App<State> {
 					onRefsVisibilityChange={(refs: GraphHiddenRef[], visible: boolean) =>
 						this.onRefsVisibilityChanged(refs, visible)
 					}
+					onSelectCommitFilter={debounce<GraphApp['onCommitFilterSelectionChanged']>(
+						filter => this.onCommitFilterSelectionChanged(filter),
+						250,
+					)}
 					onSelectRepository={debounce<GraphApp['onRepositorySelectionChanged']>(
 						path => this.onRepositorySelectionChanged(path),
 						250,
@@ -393,6 +398,12 @@ export class GraphApp extends App<State> {
 	private onDoubleClickRef(ref: GraphRef) {
 		this.sendCommand(DoubleClickedRefCommandType, {
 			ref: ref,
+		});
+	}
+
+	private onCommitFilterSelectionChanged(commitFilter: any) {
+		this.sendCommand(UpdateCommitFilterSelectionCommandType, {
+			commitFilter: commitFilter,
 		});
 	}
 

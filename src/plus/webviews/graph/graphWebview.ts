@@ -103,6 +103,7 @@ import type {
 	SearchParams,
 	State,
 	UpdateColumnsParams,
+	UpdateCommitFilterSelectionParams,
 	UpdateRefsVisibilityParams,
 	UpdateSelectedRepositoryParams,
 	UpdateSelectionParams,
@@ -129,6 +130,7 @@ import {
 	SearchCommandType,
 	SearchOpenInViewCommandType,
 	UpdateColumnsCommandType,
+	UpdateCommitFilterSelectionCommandType,
 	UpdateRefsVisibilityCommandType,
 	UpdateSelectedRepositoryCommandType,
 	UpdateSelectionCommandType,
@@ -423,6 +425,9 @@ export class GraphWebview extends WebviewBase<State> {
 				break;
 			case DoubleClickedRefCommandType.method:
 				onIpc(DoubleClickedRefCommandType, e, params => this.onDoubleClickRef(params));
+				break;
+			case UpdateCommitFilterSelectionCommandType.method:
+				onIpc(UpdateCommitFilterSelectionCommandType, e, params => this.onCommitFilterSelectionChanged(params));
 				break;
 			case UpdateSelectedRepositoryCommandType.method:
 				onIpc(UpdateSelectedRepositoryCommandType, e, params => this.onSelectedRepositoryChanged(params));
@@ -870,6 +875,11 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private onSelectedRepositoryChanged(e: UpdateSelectedRepositoryParams) {
 		this.repository = this.container.git.getRepository(e.path);
+	}
+
+	private onCommitFilterSelectionChanged(e: UpdateCommitFilterSelectionParams) {
+		void this.container.storage.storeWorkspace('graph:commitFilter', e.commitFilter);
+		this.updateState();
 	}
 
 	private _fireSelectionChangedDebounced: Deferrable<GraphWebview['fireSelectionChanged']> | undefined = undefined;
@@ -1376,10 +1386,12 @@ export class GraphWebview extends WebviewBase<State> {
 		const ref =
 			this._selectedId == null || this._selectedId === GitRevision.uncommitted ? 'HEAD' : this._selectedId;
 
+		const commitFilter = this.container.storage.getWorkspace('graph:commitFilter');
+
 		const dataPromise = this.container.git.getCommitsForGraph(
 			this.repository.path,
 			this._panel!.webview.asWebviewUri.bind(this._panel!.webview),
-			{ limit: limit, ref: ref },
+			{ currentBranchOnly: commitFilter?.currentBranchOnly || false, limit: limit, ref: ref },
 		);
 
 		// Check for GitLens+ access and working tree stats
@@ -1434,6 +1446,7 @@ export class GraphWebview extends WebviewBase<State> {
 			hiddenRefs: data != null ? this.getHiddenRefs(data) : undefined,
 			nonce: this.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
+			commitFilter: commitFilter,
 		};
 	}
 

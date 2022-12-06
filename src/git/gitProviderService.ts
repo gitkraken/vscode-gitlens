@@ -1410,6 +1410,7 @@ export class GitProviderService implements Disposable {
 		asWebviewUri: (uri: Uri) => Uri,
 		options?: {
 			branch?: string;
+			currentBranchOnly?: boolean;
 			limit?: number;
 			mode?: 'single' | 'local' | 'all';
 			ref?: string;
