@@ -16,6 +16,9 @@ export interface TelemetryContext {
 	platform: string;
 	vscodeEdition: string;
 	vscodeHost: string;
+	vscodeRemoteName: string;
+	vscodeShell: string;
+	vscodeUIKind: string;
 	vscodeVersion: string;
 }
 
@@ -101,6 +104,9 @@ export class TelemetryService implements Disposable {
 				platform: getPlatform(),
 				vscodeEdition: env.appName,
 				vscodeHost: env.appHost,
+				vscodeRemoteName: env.remoteName ?? '',
+				vscodeShell: env.shell,
+				vscodeUIKind: String(env.uiKind),
 				vscodeVersion: codeVersion,
 			},
 			getProxyAgent(),
