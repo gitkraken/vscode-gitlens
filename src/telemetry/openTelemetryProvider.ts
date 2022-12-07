@@ -31,6 +31,9 @@ export class OpenTelemetryProvider implements TelemetryProvider {
 				'vscode.edition': context.vscodeEdition,
 				'vscode.version': context.vscodeVersion,
 				'vscode.host': context.vscodeHost,
+				'vscode.remoteName': context.vscodeRemoteName,
+				'vscode.shell': context.vscodeShell,
+				'vscode.uiKind': context.vscodeUIKind,
 			}) as any,
 		});
 
