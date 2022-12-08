@@ -29,6 +29,7 @@ import {
 	WorktreeDeleteErrorReason,
 } from '../../../git/errors';
 import type {
+	GitIncludeOptions,
 	GitProvider,
 	GitProviderDescriptor,
 	NextComparisonUrisResult,
@@ -1629,9 +1630,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		asWebviewUri: (uri: Uri) => Uri,
 		options?: {
 			branch?: string;
-			currentBranchOnly?: boolean;
+			includes?: GitIncludeOptions;
 			limit?: number;
-			mode?: 'single' | 'local' | 'all';
 			ref?: string;
 		},
 	): Promise<GitGraph> {
@@ -1652,6 +1652,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const branches = getSettledValue(branchesResult)?.values;
 		const branchMap = branches != null ? new Map(branches.map(r => [r.name, r])) : new Map<string, GitBranch>();
+
+		const targetBranch: GitBranch | undefined = options?.branch
+			? (options.branch === 'HEAD' ? branches?.find(b => b.current) : branchMap.get(options.branch))
+			: undefined;
+		const targetBranchName: string | undefined = targetBranch?.name;
+		const targetBranchHasUpstream: boolean = targetBranch?.upstream != null && targetBranch?.upstream !== undefined;
 
 		const currentUser = getSettledValue(currentUserResult);
 
@@ -1692,8 +1698,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			do {
 				const args = [...parser.arguments, `--${ordering}-order`];
-				if (!options?.currentBranchOnly) {
+				if (!(options?.branch)) {
 					args.push('--all');
+				}
+
+				if (targetBranchName != undefined) {
+					args.push(targetBranchName);
+					if (targetBranchHasUpstream && options?.includes?.remotes) {
+						args.push(`${targetBranchName}@{u}`);
+					}
 				}
 
 				if (cursor?.skip) {
@@ -1706,13 +1719,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						repoPath,
 						sha,
 						limit,
-						stdin ? { stdin: stdin } : undefined,
+						// TODO@ramint Figure out a way to get stashes to work when supplying a local branch
+						stdin && !(options?.branch) ? { stdin: stdin } : undefined,
 						...args,
 					);
 				} else {
 					args.push(`-n${nextPageLimit + 1}`);
 
-					data = await this.git.log2(repoPath, stdin ? { stdin: stdin } : undefined, ...args);
+					data = await this.git.log2(
+						repoPath,
+						// TODO@ramint Figure out a way to get stashes to work when supplying a local branch
+						stdin && !(options?.branch) ? { stdin: stdin } : undefined,
+						...args,
+					);
 
 					if (cursor) {
 						const cursorIndex = data.startsWith(`${cursor.sha}\x00`)
@@ -4339,6 +4358,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		search: SearchQuery,
 		options?: {
 			cancellation?: CancellationToken;
+			includes?: GitIncludeOptions;
 			limit?: number;
 			ordering?: 'date' | 'author-date' | 'topo';
 		},

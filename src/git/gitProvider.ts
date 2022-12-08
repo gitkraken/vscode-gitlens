@@ -34,6 +34,12 @@ export const enum GitProviderId {
 	Vsls = 'vsls',
 }
 
+export interface GitIncludeOptions {
+	remotes?: boolean;
+	stashes?: boolean;
+	tags?: boolean;
+}
+
 export interface GitProviderDescriptor {
 	readonly id: GitProviderId;
 	readonly name: string;
@@ -224,9 +230,8 @@ export interface GitProvider extends Disposable {
 		asWebviewUri: (uri: Uri) => Uri,
 		options?: {
 			branch?: string;
-			currentBranchOnly?: boolean;
+			includes?: GitIncludeOptions;
 			limit?: number;
-			mode?: 'single' | 'local' | 'all';
 			ref?: string;
 		},
 	): Promise<GitGraph>;
@@ -418,6 +423,7 @@ export interface GitProvider extends Disposable {
 		search: SearchQuery,
 		options?: {
 			cancellation?: CancellationToken;
+			includes?: GitIncludeOptions;
 			limit?: number;
 			ordering?: 'date' | 'author-date' | 'topo';
 		},

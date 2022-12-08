@@ -33,6 +33,7 @@ import { getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../
 import { cancellable, fastestSettled, getSettledValue, isPromise, PromiseCancelledError } from '../system/promise';
 import { VisitedPathsTrie } from '../system/trie';
 import type {
+	GitIncludeOptions,
 	GitProvider,
 	GitProviderDescriptor,
 	GitProviderId,
@@ -1410,9 +1411,8 @@ export class GitProviderService implements Disposable {
 		asWebviewUri: (uri: Uri) => Uri,
 		options?: {
 			branch?: string;
-			currentBranchOnly?: boolean;
+			includes?: GitIncludeOptions;
 			limit?: number;
-			mode?: 'single' | 'local' | 'all';
 			ref?: string;
 		},
 	): Promise<GitGraph> {
@@ -2340,6 +2340,7 @@ export class GitProviderService implements Disposable {
 		search: SearchQuery,
 		options?: {
 			cancellation?: CancellationToken;
+			includes?: GitIncludeOptions;
 			limit?: number;
 			ordering?: 'date' | 'author-date' | 'topo';
 		},

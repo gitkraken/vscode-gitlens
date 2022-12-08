@@ -1391,7 +1391,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const dataPromise = this.container.git.getCommitsForGraph(
 			this.repository.path,
 			this._panel!.webview.asWebviewUri.bind(this._panel!.webview),
-			{ currentBranchOnly: commitFilter?.currentBranchOnly || false, limit: limit, ref: ref },
+			{ ...commitFilter?.currentBranchOnly && { branch: 'HEAD'}, limit: limit, ref: ref },
 		);
 
 		// Check for GitLens+ access and working tree stats
