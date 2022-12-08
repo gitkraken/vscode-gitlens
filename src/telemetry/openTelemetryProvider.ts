@@ -1,12 +1,12 @@
 import type { AttributeValue, Span, TimeInput, Tracer } from '@opentelemetry/api';
-import { diag, DiagConsoleLogger, trace } from '@opentelemetry/api';
-import { DiagLogLevel } from '@opentelemetry/api/build/src/diag/types';
+// import { diag, DiagConsoleLogger } from '@opentelemetry/api';
+// import { DiagLogLevel } from '@opentelemetry/api/build/src/diag/types';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { Resource } from '@opentelemetry/resources';
 import {
 	BasicTracerProvider,
 	BatchSpanProcessor,
-	ConsoleSpanExporter,
+	// ConsoleSpanExporter,
 	SimpleSpanProcessor,
 } from '@opentelemetry/sdk-trace-base';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
@@ -15,10 +15,12 @@ import type { TelemetryContext, TelemetryProvider } from './telemetry';
 
 export class OpenTelemetryProvider implements TelemetryProvider {
 	private _globalAttributes: Record<string, AttributeValue> = {};
+
+	private readonly provider: BasicTracerProvider;
 	private readonly tracer: Tracer;
 
 	constructor(context: TelemetryContext, agent?: HttpsProxyAgent, debugging?: boolean) {
-		const provider = new BasicTracerProvider({
+		this.provider = new BasicTracerProvider({
 			resource: new Resource({
 				[SemanticResourceAttributes.SERVICE_NAME]: 'gitlens',
 				[SemanticResourceAttributes.SERVICE_VERSION]: context.extensionVersion,
@@ -37,10 +39,10 @@ export class OpenTelemetryProvider implements TelemetryProvider {
 			}) as any,
 		});
 
-		if (debugging) {
-			diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.VERBOSE);
-			provider.addSpanProcessor(new SimpleSpanProcessor(new ConsoleSpanExporter()));
-		}
+		// if (debugging) {
+		// 	diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.VERBOSE);
+		// 	this.provider.addSpanProcessor(new SimpleSpanProcessor(new ConsoleSpanExporter()));
+		// }
 
 		const exporter = new OTLPTraceExporter({
 			url: debugging
@@ -49,15 +51,17 @@ export class OpenTelemetryProvider implements TelemetryProvider {
 			compression: 'gzip' as any,
 			httpAgentOptions: agent?.options,
 		});
-		provider.addSpanProcessor(debugging ? new SimpleSpanProcessor(exporter) : new BatchSpanProcessor(exporter));
+		this.provider.addSpanProcessor(
+			debugging ? new SimpleSpanProcessor(exporter) : new BatchSpanProcessor(exporter),
+		);
 
-		provider.register();
+		this.provider.register();
 
-		this.tracer = trace.getTracer(context.extensionId);
+		this.tracer = this.provider.getTracer(context.extensionId);
 	}
 
 	dispose(): void {
-		trace.disable();
+		void this.provider.shutdown();
 	}
 
 	sendEvent(name: string, data?: Record<string, AttributeValue>, startTime?: TimeInput, endTime?: TimeInput): void {
