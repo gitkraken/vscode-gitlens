@@ -1773,7 +1773,7 @@ export class GraphWebview extends WebviewBase<State> {
 	@debug()
 	private switchToAnother(item?: GraphItemContext | unknown) {
 		const ref = this.getGraphItemRef(item);
-		if (ref == null) return Promise.resolve();
+		if (ref == null) return GitActions.switchTo(this.repository?.path);
 
 		return GitActions.switchTo(ref.repoPath);
 	}
