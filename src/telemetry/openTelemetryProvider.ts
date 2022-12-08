@@ -55,8 +55,6 @@ export class OpenTelemetryProvider implements TelemetryProvider {
 			debugging ? new SimpleSpanProcessor(exporter) : new BatchSpanProcessor(exporter),
 		);
 
-		this.provider.register();
-
 		this.tracer = this.provider.getTracer(context.extensionId);
 	}
 
