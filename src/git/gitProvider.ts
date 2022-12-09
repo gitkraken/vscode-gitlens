@@ -34,7 +34,7 @@ export const enum GitProviderId {
 	Vsls = 'vsls',
 }
 
-export interface GitIncludeOptions {
+export interface GitGraphIncludes {
 	remotes?: boolean;
 	stashes?: boolean;
 	tags?: boolean;
@@ -230,7 +230,7 @@ export interface GitProvider extends Disposable {
 		asWebviewUri: (uri: Uri) => Uri,
 		options?: {
 			branch?: string;
-			includes?: GitIncludeOptions;
+			includes?: GitGraphIncludes;
 			limit?: number;
 			ref?: string;
 		},
@@ -424,7 +424,7 @@ export interface GitProvider extends Disposable {
 		options?: {
 			branch?: string;
 			cancellation?: CancellationToken;
-			includes?: GitIncludeOptions;
+			includes?: GitGraphIncludes;
 			limit?: number;
 			ordering?: 'date' | 'author-date' | 'topo';
 		},

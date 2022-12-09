@@ -26,7 +26,7 @@ import {
 import { Features } from '../../features';
 import { GitSearchError } from '../../git/errors';
 import type {
-	GitIncludeOptions,
+	GitGraphIncludes,
 	GitProvider,
 	NextComparisonUrisResult,
 	PagedResult,
@@ -1076,7 +1076,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		asWebviewUri: (uri: Uri) => Uri,
 		options?: {
 			branch?: string;
-			includes?: GitIncludeOptions;
+			includes?: GitGraphIncludes;
 			limit?: number;
 			ref?: string;
 		},
@@ -1123,7 +1123,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		ids: Set<string>,
 		options?: {
 			branch?: string;
-			includes?: GitIncludeOptions;
+			includes?: GitGraphIncludes;
 			limit?: number;
 			ref?: string;
 			useAvatars?: boolean;
@@ -2726,7 +2726,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		options?: {
 			branch?: string;
 			cancellation?: CancellationToken;
-			includes?: GitIncludeOptions;
+			includes?: GitGraphIncludes;
 			limit?: number;
 			ordering?: 'date' | 'author-date' | 'topo';
 		},

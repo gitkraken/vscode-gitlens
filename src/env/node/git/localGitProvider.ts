@@ -29,7 +29,7 @@ import {
 	WorktreeDeleteErrorReason,
 } from '../../../git/errors';
 import type {
-	GitIncludeOptions,
+	GitGraphIncludes,
 	GitProvider,
 	GitProviderDescriptor,
 	NextComparisonUrisResult,
@@ -1635,7 +1635,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		asWebviewUri: (uri: Uri) => Uri,
 		options?: {
 			branch?: string;
-			includes?: GitIncludeOptions;
+			includes?: GitGraphIncludes;
 			limit?: number;
 			ref?: string;
 		},
@@ -1672,8 +1672,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		let stdin: string | undefined;
 		// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
+		// TODO@ramint Figure out a way to get stashes to work when supplying a local branch
 		const stash = getSettledValue(stashResult);
-		if (stash != null && stash.commits.size !== 0) {
+		if (!(options?.branch) && stash != null && stash.commits.size !== 0) {
 			stdin = join(
 				map(stash.commits.values(), c => c.sha.substring(0, 9)),
 				'\n',
@@ -1707,7 +1708,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					args.push('--all');
 				}
 
-				if (targetBranchName != undefined) {
+				if (targetBranchName) {
 					args.push(targetBranchName);
 					if (targetBranchHasUpstream && options?.includes?.remotes) {
 						args.push(`${targetBranchName}@{u}`);
@@ -1724,19 +1725,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						repoPath,
 						sha,
 						limit,
-						// TODO@ramint Figure out a way to get stashes to work when supplying a local branch
-						stdin && !(options?.branch) ? { stdin: stdin } : undefined,
+						stdin ? { stdin: stdin } : undefined,
 						...args,
 					);
 				} else {
 					args.push(`-n${nextPageLimit + 1}`);
 
-					data = await this.git.log2(
-						repoPath,
-						// TODO@ramint Figure out a way to get stashes to work when supplying a local branch
-						stdin && !(options?.branch) ? { stdin: stdin } : undefined,
-						...args,
-					);
+					data = await this.git.log2(repoPath, stdin ? { stdin: stdin } : undefined, ...args);
 
 					if (cursor) {
 						const cursorIndex = data.startsWith(`${cursor.sha}\x00`)
@@ -4364,7 +4359,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		options?: {
 			branch?: string;
 			cancellation?: CancellationToken;
-			includes?: GitIncludeOptions;
+			includes?: GitGraphIncludes;
 			limit?: number;
 			ordering?: 'date' | 'author-date' | 'topo';
 		},
@@ -4414,7 +4409,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const stash = await this.getStash(repoPath);
 			let stdin: string | undefined;
 			// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
-			if (stash != null && stash.commits.size !== 0) {
+			// TODO@ramint Figure out a way to get stashes to work when supplying a local branch
+			if (!(options?.branch) && stash != null && stash.commits.size !== 0) {
 				stdin = join(
 					map(stash.commits.values(), c => c.sha.substring(0, 9)),
 					'\n',
@@ -4429,9 +4425,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			if (options?.branch) {
 				const branch = await this.getBranch(repoPath, options.branch);
-				if (branch != undefined) {
+				if (branch) {
 					args.push(branch.name);
-					if (branch.upstream !== undefined && options?.includes?.remotes) {
+					if (branch.upstream && options.includes?.remotes) {
 						args.push(`${branch.name}@{u}`);
 					}
 				}
@@ -4457,8 +4453,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							cancellation: options?.cancellation,
 							configs: ['-C', repoPath, ...gitLogDefaultConfigs],
 							errors: GitErrorHandling.Throw,
-							// TODO@ramint Figure out a way to get stashes to work when supplying a local branch
-							stdin: stdin && !(options?.branch) ? stdin : undefined,
+							stdin: stdin,
 						},
 						...args,
 						...searchArgs,

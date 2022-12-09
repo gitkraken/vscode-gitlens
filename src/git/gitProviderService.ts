@@ -33,7 +33,7 @@ import { getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../
 import { cancellable, fastestSettled, getSettledValue, isPromise, PromiseCancelledError } from '../system/promise';
 import { VisitedPathsTrie } from '../system/trie';
 import type {
-	GitIncludeOptions,
+	GitGraphIncludes,
 	GitProvider,
 	GitProviderDescriptor,
 	GitProviderId,
@@ -1411,7 +1411,7 @@ export class GitProviderService implements Disposable {
 		asWebviewUri: (uri: Uri) => Uri,
 		options?: {
 			branch?: string;
-			includes?: GitIncludeOptions;
+			includes?: GitGraphIncludes;
 			limit?: number;
 			ref?: string;
 		},
@@ -2341,7 +2341,7 @@ export class GitProviderService implements Disposable {
 		options?: {
 			branch?: string;
 			cancellation?: CancellationToken;
-			includes?: GitIncludeOptions;
+			includes?: GitGraphIncludes;
 			limit?: number;
 			ordering?: 'date' | 'author-date' | 'topo';
 		},

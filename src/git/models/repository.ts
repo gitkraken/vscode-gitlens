@@ -20,7 +20,7 @@ import { updateRecordValue } from '../../system/object';
 import { basename, normalizePath } from '../../system/path';
 import { md5 } from '../../system/string';
 import { runGitCommandInTerminal } from '../../terminal';
-import type { GitProviderDescriptor } from '../gitProvider';
+import type { GitGraphIncludes, GitProviderDescriptor } from '../gitProvider';
 import { loadRemoteProviders } from '../remotes/remoteProviders';
 import type { RemoteProviders } from '../remotes/remoteProviders';
 import type { RichRemoteProvider } from '../remotes/richRemoteProvider';
@@ -872,6 +872,7 @@ export class Repository implements Disposable {
 		options?: {
 			branch?: string;
 			cancellation?: CancellationToken;
+			includes?: GitGraphIncludes;
 			limit?: number;
 			ordering?: 'date' | 'author-date' | 'topo';
 		},
