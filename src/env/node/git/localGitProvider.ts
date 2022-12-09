@@ -1664,7 +1664,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				: branchMap.get(options.branch)
 			: undefined;
 		const targetBranchName: string | undefined = targetBranch?.name;
-		const targetBranchHasUpstream: boolean = targetBranch?.upstream != null && targetBranch?.upstream !== undefined;
+		const targetBranchHasUpstream: boolean = targetBranch?.upstream != null && !targetBranch?.upstream.missing;
 
 		const currentUser = getSettledValue(currentUserResult);
 
@@ -4429,7 +4429,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				const branch = await this.getBranch(repoPath, options.branch);
 				if (branch) {
 					args.push(branch.name);
-					if (branch.upstream && options.includes?.remotes) {
+					if (branch.upstream != null && !branch.upstream.missing && options.includes?.remotes) {
 						args.push(`${branch.name}@{u}`);
 					}
 				}
