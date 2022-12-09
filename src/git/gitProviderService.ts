@@ -2339,6 +2339,7 @@ export class GitProviderService implements Disposable {
 		repoPath: string | Uri,
 		search: SearchQuery,
 		options?: {
+			branch?: string;
 			cancellation?: CancellationToken;
 			includes?: GitIncludeOptions;
 			limit?: number;

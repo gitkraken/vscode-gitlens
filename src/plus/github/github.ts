@@ -1820,6 +1820,7 @@ export class GitHubApi implements Disposable {
 		token: string,
 		query: string,
 		options?: {
+			branch?: string;
 			cursor?: string;
 			limit?: number;
 			order?: 'asc' | 'desc' | undefined;

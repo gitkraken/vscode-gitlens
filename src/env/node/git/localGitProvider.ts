@@ -1430,11 +1430,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getBranch(repoPath: string): Promise<GitBranch | undefined> {
+	async getBranch(repoPath: string, branchName?: string): Promise<GitBranch | undefined> {
+		const isCurrentBranch = !branchName || branchName === 'HEAD';
 		let {
 			values: [branch],
-		} = await this.getBranches(repoPath, { filter: b => b.current });
+		} = await this.getBranches(repoPath, {
+			filter: isCurrentBranch ? b => b.current : b => b.name === branchName,
+		});
 		if (branch != null) return branch;
+
+		if (!isCurrentBranch) return undefined;
 
 		const commitOrdering = configuration.get('advanced.commitOrdering');
 
@@ -4357,6 +4362,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		search: SearchQuery,
 		options?: {
+			branch?: string;
 			cancellation?: CancellationToken;
 			includes?: GitIncludeOptions;
 			limit?: number;
@@ -4421,6 +4427,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				'--use-mailmap',
 			];
 
+			if (options?.branch) {
+				const branch = await this.getBranch(repoPath, options.branch);
+				if (branch != undefined) {
+					args.push(branch.name);
+					if (branch.upstream !== undefined && options?.includes?.remotes) {
+						args.push(`${branch.name}@{u}`);
+					}
+				}
+			}
+
 			const results: GitSearchResults = new Map<string, GitSearchResultData>();
 			let total = 0;
 
@@ -4441,7 +4457,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							cancellation: options?.cancellation,
 							configs: ['-C', repoPath, ...gitLogDefaultConfigs],
 							errors: GitErrorHandling.Throw,
-							stdin: stdin,
+							// TODO@ramint Figure out a way to get stashes to work when supplying a local branch
+							stdin: stdin && !(options?.branch) ? stdin : undefined,
 						},
 						...args,
 						...searchArgs,

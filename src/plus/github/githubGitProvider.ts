@@ -765,10 +765,13 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getBranch(repoPath: string | undefined): Promise<GitBranch | undefined> {
+	async getBranch(repoPath: string | undefined, branchName?: string): Promise<GitBranch | undefined> {
+		const isCurrentBranch = !branchName || branchName === 'HEAD';
 		const {
 			values: [branch],
-		} = await this.getBranches(repoPath, { filter: b => b.current });
+		} = await this.getBranches(repoPath, {
+			filter: isCurrentBranch ? b => b.current : b => b.name === branchName
+		});
 		return branch;
 	}
 
@@ -2721,6 +2724,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		search: SearchQuery,
 		options?: {
+			branch?: string;
 			cancellation?: CancellationToken;
 			includes?: GitIncludeOptions;
 			limit?: number;

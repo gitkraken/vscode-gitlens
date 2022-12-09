@@ -869,7 +869,12 @@ export class Repository implements Disposable {
 	@debug()
 	searchCommits(
 		search: SearchQuery,
-		options?: { cancellation?: CancellationToken; limit?: number; ordering?: 'date' | 'author-date' | 'topo' },
+		options?: {
+			branch?: string;
+			cancellation?: CancellationToken;
+			limit?: number;
+			ordering?: 'date' | 'author-date' | 'topo';
+		},
 	): Promise<GitSearch> {
 		return this.container.git.searchCommits(this.path, search, options);
 	}

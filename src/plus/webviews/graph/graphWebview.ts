@@ -801,9 +801,11 @@ export class GraphWebview extends WebviewBase<State> {
 
 			const cancellation = new CancellationTokenSource();
 			this._searchCancellation = cancellation;
+			const commitFilter = this.container.storage.getWorkspace('graph:commitFilter');
 
 			try {
 				search = await this.repository.searchCommits(e.search, {
+					...commitFilter?.currentBranchOnly && { branch: 'HEAD' },
 					limit: configuration.get('graph.searchItemLimit') ?? 100,
 					ordering: configuration.get('graph.commitOrdering'),
 					cancellation: cancellation.token,
@@ -879,6 +881,11 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private onCommitFilterSelectionChanged(e: UpdateCommitFilterSelectionParams) {
 		void this.container.storage.storeWorkspace('graph:commitFilter', e.commitFilter);
+		// Reset search and selections in graph when commit filter changes
+		this.setSelectedRows(undefined);
+		this.resetSearchState();
+
+		// Update the graph with the new filter applied
 		this.updateState();
 	}
 
