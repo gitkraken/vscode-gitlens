@@ -1659,7 +1659,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const branchMap = branches != null ? new Map(branches.map(r => [r.name, r])) : new Map<string, GitBranch>();
 
 		const targetBranch: GitBranch | undefined = options?.branch
-			? (options.branch === 'HEAD' ? branches?.find(b => b.current) : branchMap.get(options.branch))
+			? options.branch === 'HEAD'
+				? branches?.find(b => b.current)
+				: branchMap.get(options.branch)
 			: undefined;
 		const targetBranchName: string | undefined = targetBranch?.name;
 		const targetBranchHasUpstream: boolean = targetBranch?.upstream != null && targetBranch?.upstream !== undefined;
@@ -1674,7 +1676,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
 		// TODO@ramint Figure out a way to get stashes to work when supplying a local branch
 		const stash = getSettledValue(stashResult);
-		if (!(options?.branch) && stash != null && stash.commits.size !== 0) {
+		if (!options?.branch && stash != null && stash.commits.size !== 0) {
 			stdin = join(
 				map(stash.commits.values(), c => c.sha.substring(0, 9)),
 				'\n',
@@ -1704,7 +1706,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			do {
 				const args = [...parser.arguments, `--${ordering}-order`];
-				if (!(options?.branch)) {
+				if (!options?.branch) {
 					args.push('--all');
 				}
 
@@ -4410,7 +4412,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			let stdin: string | undefined;
 			// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
 			// TODO@ramint Figure out a way to get stashes to work when supplying a local branch
-			if (!(options?.branch) && stash != null && stash.commits.size !== 0) {
+			if (!options?.branch && stash != null && stash.commits.size !== 0) {
 				stdin = join(
 					map(stash.commits.values(), c => c.sha.substring(0, 9)),
 					'\n',

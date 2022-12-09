@@ -200,7 +200,7 @@ export const UpdateSelectedRepositoryCommandType = new IpcCommandType<UpdateSele
 );
 
 export interface UpdateCommitFilterSelectionParams {
-	commitFilter: GraphCommitFilterState
+	commitFilter: GraphCommitFilterState;
 }
 export const UpdateCommitFilterSelectionCommandType = new IpcCommandType<UpdateCommitFilterSelectionParams>(
 	'graph/commitFilterSelection/update',

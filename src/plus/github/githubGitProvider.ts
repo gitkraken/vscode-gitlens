@@ -770,7 +770,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const {
 			values: [branch],
 		} = await this.getBranches(repoPath, {
-			filter: isCurrentBranch ? b => b.current : b => b.name === branchName
+			filter: isCurrentBranch ? b => b.current : b => b.name === branchName,
 		});
 		return branch;
 	}

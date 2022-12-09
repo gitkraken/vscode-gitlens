@@ -933,14 +933,13 @@ export function GraphWrapper({
 								key={`commitfilter-actioncombo-item-all`}
 								aria-selected={undefined}
 								disabled={isVirtual}
-								onClick={() => handleSelectCommitFilter(
-									{ currentBranchOnly: !commitFilter?.currentBranchOnly }
-								)}
+								onClick={() =>
+									handleSelectCommitFilter({ currentBranchOnly: !commitFilter?.currentBranchOnly })
+								}
 							>
 								{!isVirtual && commitFilter?.currentBranchOnly
 									? 'Show All Commits'
-									: 'Show Current Branch Commits Only'
-								}
+									: 'Show Current Branch Commits Only'}
 							</button>
 						</div>
 					</div>
