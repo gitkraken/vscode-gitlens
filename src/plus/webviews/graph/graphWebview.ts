@@ -1461,6 +1461,7 @@ export class GraphWebview extends WebviewBase<State> {
 			nonce: this.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
 			commitFilter: commitFilter,
+			isVirtual: this.repository?.provider?.virtual ?? false,
 		};
 	}
 

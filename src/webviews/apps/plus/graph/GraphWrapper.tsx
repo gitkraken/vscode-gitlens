@@ -152,7 +152,6 @@ export function GraphWrapper({
 
 	const [rows, setRows] = useState(state.rows ?? []);
 	const [avatars, setAvatars] = useState(state.avatars);
-	const [commitFilter, setCommitFilter] = useState(state.commitFilter);
 	const [refsMetadata, setRefsMetadata] = useState(state.refsMetadata);
 	const [repos, setRepos] = useState(state.repositories ?? []);
 	const [repo, setRepo] = useState<GraphRepository | undefined>(
@@ -177,8 +176,10 @@ export function GraphWrapper({
 	const [subscription, setSubscription] = useState<Subscription | undefined>(state.subscription);
 	// repo selection UI
 	const [repoExpanded, setRepoExpanded] = useState(false);
-	// commit filter UI
+	// commit filter state
+	const [commitFilter, setCommitFilter] = useState(state.commitFilter);
 	const [commitFilterExpanded, setCommitFilterExpanded] = useState(false);
+	const [isVirtual, setIsVirtual] = useState(state.isVirtual ?? false);
 	// Number of true values in the commitFilter object
 	const commitFilterCount = Object.values(commitFilter ?? {}).filter(Boolean).length;
 	// search state
@@ -269,6 +270,7 @@ export function GraphWrapper({
 				setContext(state.context);
 				setAvatars(state.avatars ?? {});
 				setCommitFilter(state.commitFilter ?? {});
+				setIsVirtual(state.isVirtual ?? false);
 				setRefsMetadata(state.refsMetadata);
 				setPagingHasMore(state.paging?.hasMore ?? false);
 				setRepos(state.repositories ?? []);
@@ -930,11 +932,12 @@ export function GraphWrapper({
 								id={`commitfilter-actioncombo-item-all`}
 								key={`commitfilter-actioncombo-item-all`}
 								aria-selected={undefined}
+								disabled={isVirtual}
 								onClick={() => handleSelectCommitFilter(
 									{ currentBranchOnly: !commitFilter?.currentBranchOnly }
 								)}
 							>
-								{commitFilter?.currentBranchOnly
+								{!isVirtual && commitFilter?.currentBranchOnly
 									? 'Show All Commits'
 									: 'Show Current Branch Commits Only'
 								}

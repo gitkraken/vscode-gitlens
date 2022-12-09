@@ -58,6 +58,7 @@ export interface State {
 	searchResults?: DidSearchParams['results'];
 	hiddenRefs?: GraphHiddenRefs;
 	commitFilter?: GraphCommitFilterState;
+	isVirtual?: boolean;
 
 	// Props below are computed in the webview (not passed)
 	activeRow?: string;
