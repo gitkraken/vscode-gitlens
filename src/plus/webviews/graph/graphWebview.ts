@@ -801,7 +801,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 			const cancellation = new CancellationTokenSource();
 			this._searchCancellation = cancellation;
-			const commitFilter = this.container.storage.getWorkspace('graph:commitFilter');
+			const commitFilter = this.container.storage.getWorkspace('graph:commitFilter')?.[this.repository.id];
 
 			try {
 				search = await this.repository.searchCommits(e.search, {
@@ -880,7 +880,14 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private onCommitFilterSelectionChanged(e: UpdateCommitFilterSelectionParams) {
-		void this.container.storage.storeWorkspace('graph:commitFilter', e.commitFilter);
+		if (this.repository == null) return;
+		let storedCommitFilter = this.container.storage.getWorkspace('graph:commitFilter');
+		storedCommitFilter = updateRecordValue(
+			storedCommitFilter,
+			this.repository.id,
+			e.commitFilter,
+		);
+		void this.container.storage.storeWorkspace('graph:commitFilter', storedCommitFilter);
 		// Reset search and selections in graph when commit filter changes
 		this.setSelectedRows(undefined);
 		this.resetSearchState();
@@ -1393,7 +1400,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const ref =
 			this._selectedId == null || this._selectedId === GitRevision.uncommitted ? 'HEAD' : this._selectedId;
 
-		const commitFilter = this.container.storage.getWorkspace('graph:commitFilter');
+		const commitFilter = this.container.storage.getWorkspace('graph:commitFilter')?.[this.repository.id];
 
 		const dataPromise = this.container.git.getCommitsForGraph(
 			this.repository.path,

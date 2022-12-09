@@ -190,9 +190,7 @@ export interface WorkspaceStorage {
 		banners: {
 			dismissed?: Record<string, boolean>;
 		};
-		commitFilter: {
-			currentBranchOnly?: boolean;
-		}
+		commitFilter: Record<string, StoredGraphCommitFilterState>;
 		columns?: Record<string, StoredGraphColumn>;
 		hiddenRefs?: Record<string, StoredGraphHiddenRef>;
 	};
@@ -246,6 +244,10 @@ export interface StoredBranchComparisons {
 export interface StoredGraphColumn {
 	isHidden?: boolean;
 	width?: number;
+}
+
+export interface StoredGraphCommitFilterState {
+	currentBranchOnly?: boolean;
 }
 
 export type StoredGraphRefType = 'head' | 'remote' | 'tag';
