@@ -1656,7 +1656,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		]);
 
 		const branches = getSettledValue(branchesResult)?.values;
-		const branchMap = branches != null ? new Map(branches.map(r => [r.name, r])) : new Map<string, GitBranch>();
+		let branchMap = branches != null ? new Map(branches.map(r => [r.name, r])) : new Map<string, GitBranch>();
 
 		const targetBranch: GitBranch | undefined = options?.branch
 			? options.branch === 'HEAD'
@@ -1665,6 +1665,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			: undefined;
 		const targetBranchName: string | undefined = targetBranch?.name;
 		const targetBranchHasUpstream: boolean = targetBranch?.upstream != null && !targetBranch?.upstream.missing;
+		if (options?.branch && targetBranchName != null && targetBranch != null) {
+			branchMap = new Map<string, GitBranch>();
+			branchMap.set(targetBranchName, targetBranch);
+		}
 
 		const currentUser = getSettledValue(currentUserResult);
 
@@ -1942,13 +1946,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							},
 						};
 
-						refHead = {
-							id: branchId,
-							name: tip,
-							isCurrentHead: head,
-							context: serializeWebviewItemContext<GraphItemRefContext>(context),
-						};
-						refHeads.push(refHead);
+						if (!options?.branch || options.branch === tip || (options.branch === 'HEAD' && head)) {
+							refHead = {
+								id: branchId,
+								name: tip,
+								isCurrentHead: head,
+								context: serializeWebviewItemContext<GraphItemRefContext>(context),
+							};
+							refHeads.push(refHead);
+						}
 
 						group = groupedRefs.get(tip);
 						if (group == null) {
