@@ -937,7 +937,7 @@ export function GraphWrapper({
 									handleSelectCommitFilter({ currentBranchOnly: !commitFilter?.currentBranchOnly })
 								}
 							>
-								{!isVirtual && commitFilter?.currentBranchOnly
+								{isVirtual || commitFilter?.currentBranchOnly
 									? 'Show All Commits'
 									: 'Show Current Branch Commits Only'}
 							</button>
@@ -949,9 +949,10 @@ export function GraphWrapper({
 								id={`commitfilter-actioncombo-item-hide-stashes`}
 								key={`commitfilter-actioncombo-item-hide-stashes`}
 								aria-selected={undefined}
+								disabled={isVirtual}
 								onClick={() => handleSelectCommitFilter({ hideStashes: !commitFilter?.hideStashes })}
 							>
-								{commitFilter?.hideStashes ? 'Show Stashes' : 'Hide Stashes'}
+								{isVirtual || commitFilter?.hideStashes ? 'Show Stashes' : 'Hide Stashes'}
 							</button>
 							<button
 								type="button"
