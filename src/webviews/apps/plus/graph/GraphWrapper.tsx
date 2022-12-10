@@ -557,8 +557,9 @@ export function GraphWrapper({
 					)}
 				</span>
 				<PopOver placement="bottom end" className="badge-popover">
-					You have access to GitLens+ features on {isPro ? 'any repo' : 'local & public repos'}, and all other
-					GitLens features on any repo.
+					{isPro
+						? 'You have access to all GitLens and GitLens+ features on any repo.'
+						: 'You have access to GitLens+ features on local & public repos, and all other GitLens features on any repo.'}
 					<br />
 					<br />✨ indicates GitLens+ features
 				</PopOver>
