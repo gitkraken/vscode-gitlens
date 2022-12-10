@@ -1680,7 +1680,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
 		// TODO@ramint Figure out a way to get stashes to work when supplying a local branch
 		const stash = getSettledValue(stashResult);
-		if (!options?.branch && stash != null && stash.commits.size !== 0) {
+		if (
+			!options?.branch &&
+			(!options?.includes || options.includes.stashes) &&
+			stash != null &&
+			stash.commits.size !== 0
+		) {
 			stdin = join(
 				map(stash.commits.values(), c => c.sha.substring(0, 9)),
 				'\n',
@@ -1843,6 +1848,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						if (tip === 'refs/stash') continue;
 
 						if (tip.startsWith('tag: ')) {
+							if (options?.includes && !options.includes.tags) continue;
 							tagName = tip.substring(5);
 							tagId = getTagId(repoPath, tagName);
 							context = {
@@ -2015,6 +2021,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				isCurrentUser = isUserMatch(currentUser, commit.author, commit.authorEmail);
 
 				if (stashCommit != null) {
+					if (options?.includes && !options.includes.stashes) continue;
 					contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
 						webviewItem: 'gitlens:stash',
 						webviewItemValue: {
@@ -4418,7 +4425,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			let stdin: string | undefined;
 			// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
 			// TODO@ramint Figure out a way to get stashes to work when supplying a local branch
-			if (!options?.branch && stash != null && stash.commits.size !== 0) {
+			if (
+				!options?.branch &&
+				(!options?.includes || options.includes.stashes) &&
+				stash != null &&
+				stash.commits.size !== 0
+			) {
 				stdin = join(
 					map(stash.commits.values(), c => c.sha.substring(0, 9)),
 					'\n',

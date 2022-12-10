@@ -248,6 +248,9 @@ export interface StoredGraphColumn {
 
 export interface StoredGraphCommitFilterState {
 	currentBranchOnly?: boolean;
+	hideRemotes?: boolean;
+	hideStashes?: boolean;
+	hideTags?: boolean;
 }
 
 export type StoredGraphRefType = 'head' | 'remote' | 'tag';

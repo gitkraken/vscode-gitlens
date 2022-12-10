@@ -1217,7 +1217,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				refRemoteHeads = [];
 			}
 
-			if (tags != null) {
+			if (tags != null && (!options?.includes || options.includes.tags)) {
 				refTags = [
 					...filterMap(tags, t => {
 						if (t.sha !== commit.sha) return undefined;

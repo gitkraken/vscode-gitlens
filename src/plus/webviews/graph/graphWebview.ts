@@ -806,6 +806,11 @@ export class GraphWebview extends WebviewBase<State> {
 			try {
 				search = await this.repository.searchCommits(e.search, {
 					...(commitFilter?.currentBranchOnly && { branch: 'HEAD' }),
+					includes: {
+						remotes: !commitFilter?.hideRemotes,
+						stashes: !commitFilter?.hideStashes,
+						tags: !commitFilter?.hideTags,
+					},
 					limit: configuration.get('graph.searchItemLimit') ?? 100,
 					ordering: configuration.get('graph.commitOrdering'),
 					cancellation: cancellation.token,
@@ -882,7 +887,9 @@ export class GraphWebview extends WebviewBase<State> {
 	private onCommitFilterSelectionChanged(e: UpdateCommitFilterSelectionParams) {
 		if (this.repository == null) return;
 		let storedCommitFilter = this.container.storage.getWorkspace('graph:commitFilter');
-		storedCommitFilter = updateRecordValue(storedCommitFilter, this.repository.id, e.commitFilter);
+		let commitFilter = storedCommitFilter?.[this.repository.id];
+		commitFilter = { ...commitFilter, ...e.commitFilter };
+		storedCommitFilter = updateRecordValue(storedCommitFilter, this.repository.id, commitFilter);
 		void this.container.storage.storeWorkspace('graph:commitFilter', storedCommitFilter);
 		// Reset search and selections in graph when commit filter changes
 		this.setSelectedRows(undefined);
@@ -1401,7 +1408,16 @@ export class GraphWebview extends WebviewBase<State> {
 		const dataPromise = this.container.git.getCommitsForGraph(
 			this.repository.path,
 			this._panel!.webview.asWebviewUri.bind(this._panel!.webview),
-			{ ...(commitFilter?.currentBranchOnly && { branch: 'HEAD' }), limit: limit, ref: ref },
+			{
+				...(commitFilter?.currentBranchOnly && { branch: 'HEAD' }),
+				includes: {
+					remotes: !commitFilter?.hideRemotes,
+					stashes: !commitFilter?.hideStashes,
+					tags: !commitFilter?.hideTags,
+				},
+				limit: limit,
+				ref: ref,
+			},
 		);
 
 		// Check for GitLens+ access and working tree stats

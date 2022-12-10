@@ -941,6 +941,30 @@ export function GraphWrapper({
 									? 'Show All Commits'
 									: 'Show Current Branch Commits Only'}
 							</button>
+							<button
+								type="button"
+								className="actioncombo__item"
+								role="option"
+								data-value={'commitfilter-actioncombo-item-hide-stashes'}
+								id={`commitfilter-actioncombo-item-hide-stashes`}
+								key={`commitfilter-actioncombo-item-hide-stashes`}
+								aria-selected={undefined}
+								onClick={() => handleSelectCommitFilter({ hideStashes: !commitFilter?.hideStashes })}
+							>
+								{commitFilter?.hideStashes ? 'Show Stashes' : 'Hide Stashes'}
+							</button>
+							<button
+								type="button"
+								className="actioncombo__item"
+								role="option"
+								data-value={'commitfilter-actioncombo-item-hide-tags'}
+								id={`commitfilter-actioncombo-item-hide-tags`}
+								key={`commitfilter-actioncombo-item-hide-tags`}
+								aria-selected={undefined}
+								onClick={() => handleSelectCommitFilter({ hideTags: !commitFilter?.hideTags })}
+							>
+								{commitFilter?.hideTags ? 'Show Tags' : 'Hide Tags'}
+							</button>
 						</div>
 					</div>
 					{isAccessAllowed && rows.length > 0 && (

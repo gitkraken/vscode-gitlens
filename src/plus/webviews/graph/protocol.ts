@@ -67,6 +67,9 @@ export interface State {
 
 export interface GraphCommitFilterState {
 	currentBranchOnly?: boolean;
+	hideRemotes?: boolean;
+	hideStashes?: boolean;
+	hideTags?: boolean;
 }
 
 export type GraphWorkingTreeStats = WorkDirStats;
