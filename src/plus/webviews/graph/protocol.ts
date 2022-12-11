@@ -9,6 +9,7 @@ import type {
 	GraphZoneType,
 	Head,
 	HostingServiceType,
+	IncludeRefsById,
 	PullRequestMetadata,
 	RefMetadata,
 	RefMetadataType,
@@ -60,6 +61,7 @@ export interface State {
 	workingTreeStats?: GraphWorkingTreeStats;
 	searchResults?: DidSearchParams['results'];
 	hiddenRefs?: GraphHiddenRefs;
+	includeRefs?: GraphIncludeRefs;
 
 	// Props below are computed in the webview (not passed)
 	activeRow?: string;
@@ -121,6 +123,8 @@ export type GraphColumnsConfig = { [name: string]: GraphColumnConfig };
 
 export type GraphHiddenRefs = ExcludeRefsById; // TODO: rename all HiddenRefs to use the new naming
 export type GraphHiddenRef = GraphRefOptData;
+export type GraphIncludeRefs = IncludeRefsById;
+export type GraphIncludeRef = GraphRefOptData;
 
 export type GraphColumnName = GraphZoneType;
 
@@ -259,6 +263,7 @@ export const DidChangeWindowFocusNotificationType = new IpcNotificationType<DidC
 
 export interface DidChangeRefsVisibilityParams {
 	hiddenRefs?: GraphHiddenRefs;
+	includeRefs?: GraphIncludeRefs;
 }
 export const DidChangeRefsVisibilityNotificationType = new IpcNotificationType<DidChangeRefsVisibilityParams>(
 	'graph/refs/didChangeVisibility',

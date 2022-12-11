@@ -163,6 +163,7 @@ export function GraphWrapper({
 	// const [graphDateFormatter, setGraphDateFormatter] = useState(getGraphDateFormatter(config));
 	const [columns, setColumns] = useState(state.columns);
 	const [hiddenRefsById, setHiddenRefsById] = useState(state.hiddenRefs);
+	const [includeRefsById, setIncludeRefsById] = useState(state.includeRefs);
 	const [context, setContext] = useState(state.context);
 	const [pagingHasMore, setPagingHasMore] = useState(state.paging?.hasMore ?? false);
 	const [isLoading, setIsLoading] = useState(state.loading);
@@ -246,6 +247,7 @@ export function GraphWrapper({
 				break;
 			case DidChangeRefsVisibilityNotificationType:
 				setHiddenRefsById(state.hiddenRefs);
+				setIncludeRefsById(state.includeRefs);
 				break;
 			case DidChangeSubscriptionNotificationType:
 				setIsAccessAllowed(state.allowed ?? false);
@@ -270,6 +272,7 @@ export function GraphWrapper({
 				setGraphConfig(state.config);
 				setSelectedRows(state.selectedRows);
 				setHiddenRefsById(state.hiddenRefs);
+				setIncludeRefsById(state.includeRefs);
 				setContext(state.context);
 				setAvatars(state.avatars ?? {});
 				setRefsMetadata(state.refsMetadata);
@@ -837,6 +840,7 @@ export function GraphWrapper({
 							highlightedShas={searchResults?.ids as GraphContainerProps['highlightedShas']}
 							highlightRowsOnRefHover={graphConfig?.highlightRowsOnRefHover}
 							excludeRefsById={hiddenRefsById}
+							includeRefsById={includeRefsById}
 							scrollRowPadding={graphConfig?.scrollRowPadding}
 							showGhostRefsOnRowHover={graphConfig?.showGhostRefsOnRowHover}
 							showRemoteNamesOnRefs={graphConfig?.showRemoteNamesOnRefs}
