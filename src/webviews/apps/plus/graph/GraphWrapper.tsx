@@ -24,7 +24,7 @@ import type {
 	GraphColumnName,
 	GraphColumnsConfig,
 	GraphComponentConfig,
-	GraphHiddenRef,
+	GraphExcludedRef,
 	GraphMissingRefsMetadata,
 	GraphRepository,
 	GraphSearchResults,
@@ -68,7 +68,7 @@ export interface GraphWrapperProps {
 	onMissingAvatars?: (emails: { [email: string]: string }) => void;
 	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
 	onMoreRows?: (id?: string) => void;
-	onRefsVisibilityChange?: (refs: GraphHiddenRef[], visible: boolean) => void;
+	onRefsVisibilityChange?: (refs: GraphExcludedRef[], visible: boolean) => void;
 	onSearch?: (search: SearchQuery | undefined, options?: { limit?: number }) => void;
 	onSearchPromise?: (
 		search: SearchQuery,
@@ -162,8 +162,8 @@ export function GraphWrapper({
 	const [graphConfig, setGraphConfig] = useState(state.config);
 	// const [graphDateFormatter, setGraphDateFormatter] = useState(getGraphDateFormatter(config));
 	const [columns, setColumns] = useState(state.columns);
-	const [hiddenRefsById, setHiddenRefsById] = useState(state.hiddenRefs);
-	const [includeRefsById, setIncludeRefsById] = useState(state.includeRefs);
+	const [excludeRefsById, setExcludeRefsById] = useState(state.excludeRefs);
+	const [includeOnlyRefsById, setIncludeOnlyRefsById] = useState(state.includeOnlyRefs);
 	const [context, setContext] = useState(state.context);
 	const [pagingHasMore, setPagingHasMore] = useState(state.paging?.hasMore ?? false);
 	const [isLoading, setIsLoading] = useState(state.loading);
@@ -246,8 +246,8 @@ export function GraphWrapper({
 				setSelectedRows(state.selectedRows);
 				break;
 			case DidChangeRefsVisibilityNotificationType:
-				setHiddenRefsById(state.hiddenRefs);
-				setIncludeRefsById(state.includeRefs);
+				setExcludeRefsById(state.excludeRefs);
+				setIncludeOnlyRefsById(state.includeOnlyRefs);
 				break;
 			case DidChangeSubscriptionNotificationType:
 				setIsAccessAllowed(state.allowed ?? false);
@@ -271,8 +271,8 @@ export function GraphWrapper({
 				setWorkingTreeStats(state.workingTreeStats ?? { added: 0, modified: 0, deleted: 0 });
 				setGraphConfig(state.config);
 				setSelectedRows(state.selectedRows);
-				setHiddenRefsById(state.hiddenRefs);
-				setIncludeRefsById(state.includeRefs);
+				setExcludeRefsById(state.excludeRefs);
+				setIncludeOnlyRefsById(state.includeOnlyRefs);
 				setContext(state.context);
 				setAvatars(state.avatars ?? {});
 				setRefsMetadata(state.refsMetadata);
@@ -832,6 +832,7 @@ export function GraphWrapper({
 							contexts={context}
 							cssVariables={styleProps?.cssVariables}
 							enableMultiSelection={graphConfig?.enableMultiSelection}
+							excludeRefsById={excludeRefsById}
 							formatCommitDateTime={getGraphDateFormatter(graphConfig)}
 							getExternalIcon={getIconElementLibrary}
 							graphRows={rows}
@@ -839,8 +840,7 @@ export function GraphWrapper({
 							// Just cast the { [id: string]: number } object to { [id: string]: boolean } for performance
 							highlightedShas={searchResults?.ids as GraphContainerProps['highlightedShas']}
 							highlightRowsOnRefHover={graphConfig?.highlightRowsOnRefHover}
-							excludeRefsById={hiddenRefsById}
-							includeRefsById={includeRefsById}
+							includeOnlyRefsById={includeOnlyRefsById}
 							scrollRowPadding={graphConfig?.scrollRowPadding}
 							showGhostRefsOnRowHover={graphConfig?.showGhostRefsOnRowHover}
 							showRemoteNamesOnRefs={graphConfig?.showRemoteNamesOnRefs}
