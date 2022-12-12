@@ -8,7 +8,7 @@ import type {
 	DismissBannerParams,
 	GraphAvatars,
 	GraphColumnsConfig,
-	GraphHiddenRef,
+	GraphExcludedRef,
 	GraphMissingRefsMetadata,
 	GraphRepository,
 	InternalNotificationType,
@@ -88,7 +88,7 @@ export class GraphApp extends App<State> {
 						settings => this.onColumnsChanged(settings),
 						250,
 					)}
-					onRefsVisibilityChange={(refs: GraphHiddenRef[], visible: boolean) =>
+					onRefsVisibilityChange={(refs: GraphExcludedRef[], visible: boolean) =>
 						this.onRefsVisibilityChanged(refs, visible)
 					}
 					onSelectRepository={debounce<GraphApp['onRepositorySelectionChanged']>(
@@ -170,8 +170,8 @@ export class GraphApp extends App<State> {
 
 			case DidChangeRefsVisibilityNotificationType.method:
 				onIpc(DidChangeRefsVisibilityNotificationType, msg, (params, type) => {
-					this.state.hiddenRefs = params.hiddenRefs;
-					this.state.includeRefs = params.includeRefs;
+					this.state.excludeRefs = params.excludeRefs;
+					this.state.includeOnlyRefs = params.includeOnlyRefs;
 					this.setState(this.state, type);
 				});
 				break;
@@ -399,7 +399,7 @@ export class GraphApp extends App<State> {
 		});
 	}
 
-	private onRefsVisibilityChanged(refs: GraphHiddenRef[], visible: boolean) {
+	private onRefsVisibilityChanged(refs: GraphExcludedRef[], visible: boolean) {
 		this.sendCommand(UpdateRefsVisibilityCommandType, {
 			refs: refs,
 			visible: visible,

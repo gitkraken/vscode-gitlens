@@ -51,7 +51,7 @@ import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey } from '../../../git/search';
-import type { StoredGraphHiddenRef } from '../../../storage';
+import type { StoredGraphExcludedRef } from '../../../storage';
 import { executeActionCommand, executeCommand, executeCoreGitCommand, registerCommand } from '../../../system/command';
 import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
@@ -86,10 +86,10 @@ import type {
 	GraphColumnsConfig,
 	GraphColumnsSettings,
 	GraphComponentConfig,
-	GraphHiddenRef,
-	GraphHiddenRefs,
+	GraphExcludedRef,
+	GraphExcludeRefs,
 	GraphHostingServiceType,
-	GraphIncludeRef,
+	GraphIncludeOnlyRef,
 	GraphMissingRefsMetadataType,
 	GraphPullRequestMetadata,
 	GraphRefMetadata,
@@ -599,7 +599,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private onRefsVisibilityChanged(e: UpdateRefsVisibilityParams) {
-		this.updateHiddenRefs(e.refs, e.visible);
+		this.updateExcludedRefs(e.refs, e.visible);
 	}
 
 	private onDoubleClickRef(e: DoubleClickedRefParams) {
@@ -1029,8 +1029,8 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		return this.notify(DidChangeRefsVisibilityNotificationType, {
-			hiddenRefs: this.getHiddenRefs(this._graph),
-			includeRefs: this.getIncludeRefs(this._graph),
+			excludeRefs: this.getExcludedRefs(this._graph),
+			includeOnlyRefs: this.getIncludeOnlyRefs(this._graph),
 		});
 	}
 
@@ -1269,11 +1269,11 @@ export class GraphWebview extends WebviewBase<State> {
 		return this.container.storage.getWorkspace('graph:columns');
 	}
 
-	private getHiddenRefs(graph: GitGraph | undefined): Record<string, GraphHiddenRef> | undefined {
-		return this.filterHiddenRefs(this.container.storage.getWorkspace('graph:hiddenRefs'), graph);
+	private getExcludedRefs(graph: GitGraph | undefined): Record<string, GraphExcludedRef> | undefined {
+		return this.filterExcludedRefs(this.container.storage.getWorkspace('graph:excludeRefs'), graph);
 	}
 
-	private getIncludeRefs(graph: GitGraph | undefined): Record<string, GraphIncludeRef> | undefined {
+	private getIncludeOnlyRefs(graph: GitGraph | undefined): Record<string, GraphIncludeOnlyRef> | undefined {
 		if (graph == null) return undefined;
 
 		if (Math.random() < 0.5) return {};
@@ -1286,26 +1286,26 @@ export class GraphWebview extends WebviewBase<State> {
 			},
 			[getBranchId(graph.repoPath, true, 'main')]: {
 				id: getBranchId(graph.repoPath, true, 'main'),
-				name: 'main',
-				type: 'head',
+				name: '*',
+				type: 'remote',
 				owner: 'origin',
 			},
 		};
 	}
 
-	private filterHiddenRefs(
-		hiddenRefs: Record<string, StoredGraphHiddenRef> | undefined,
+	private filterExcludedRefs(
+		excludeRefs: Record<string, StoredGraphExcludedRef> | undefined,
 		graph: GitGraph | undefined,
-	): GraphHiddenRefs | undefined {
-		if (hiddenRefs == null || graph == null) return undefined;
+	): GraphExcludeRefs | undefined {
+		if (excludeRefs == null || graph == null) return undefined;
 
 		const useAvatars = configuration.get('graph.avatars', undefined, true);
 
-		const filteredRefs: GraphHiddenRefs = {};
+		const filteredRefs: GraphExcludeRefs = {};
 
-		for (const id in hiddenRefs) {
+		for (const id in excludeRefs) {
 			if (getRepoPathFromBranchOrTagId(id) === graph.repoPath) {
-				const ref: GraphHiddenRef = { ...hiddenRefs[id] };
+				const ref: GraphExcludedRef = { ...excludeRefs[id] };
 				if (ref.type === 'remote' && ref.owner) {
 					const remote = graph.remotes.get(ref.owner);
 					if (remote != null) {
@@ -1351,7 +1351,7 @@ export class GraphWebview extends WebviewBase<State> {
 		// return filteredHiddenRefsById;
 
 		// For v13, we return directly the hidden refs without validating them
-		return hiddenRefs;
+		// return excludeRefs;
 	}
 
 	private getColumnSettings(columns: Record<GraphColumnName, GraphColumnConfig> | undefined): GraphColumnsSettings {
@@ -1518,8 +1518,8 @@ export class GraphWebview extends WebviewBase<State> {
 			context: {
 				header: this.getColumnHeaderContext(columns),
 			},
-			hiddenRefs: data != null ? this.getHiddenRefs(data) : undefined,
-			includeRefs: data != null ? this.getIncludeRefs(data) : undefined,
+			excludeRefs: data != null ? this.getExcludedRefs(data) : undefined,
+			includeOnlyRefs: data != null ? this.getIncludeOnlyRefs(data) : undefined,
 			nonce: this.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
 		};
@@ -1534,17 +1534,17 @@ export class GraphWebview extends WebviewBase<State> {
 		void this.notifyDidChangeColumns();
 	}
 
-	private updateHiddenRefs(refs: GraphHiddenRef[], visible: boolean) {
-		let storedHiddenRefs = this.container.storage.getWorkspace('graph:hiddenRefs');
+	private updateExcludedRefs(refs: GraphExcludedRef[], visible: boolean) {
+		let storedExcludedRefs = this.container.storage.getWorkspace('graph:excludeRefs');
 		for (const ref of refs) {
-			storedHiddenRefs = updateRecordValue(
-				storedHiddenRefs,
+			storedExcludedRefs = updateRecordValue(
+				storedExcludedRefs,
 				ref.id,
 				visible ? undefined : { id: ref.id, type: ref.type, name: ref.name, owner: ref.owner },
 			);
 		}
 
-		void this.container.storage.storeWorkspace('graph:hiddenRefs', storedHiddenRefs);
+		void this.container.storage.storeWorkspace('graph:excludeRefs', storedExcludedRefs);
 		void this.notifyDidChangeRefsVisibility();
 	}
 
@@ -1841,7 +1841,7 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		if (refs != null) {
-			this.updateHiddenRefs(
+			this.updateExcludedRefs(
 				refs.map(r => {
 					const remoteBranch = r.refType === 'branch' && r.remote;
 					return {
