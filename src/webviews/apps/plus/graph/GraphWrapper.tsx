@@ -163,6 +163,7 @@ export function GraphWrapper({
 	// const [graphDateFormatter, setGraphDateFormatter] = useState(getGraphDateFormatter(config));
 	const [columns, setColumns] = useState(state.columns);
 	const [excludeRefsById, setExcludeRefsById] = useState(state.excludeRefs);
+	const [excludeTypes, setExcludeTypes] = useState(state.excludeTypes);
 	const [includeOnlyRefsById, setIncludeOnlyRefsById] = useState(state.includeOnlyRefs);
 	const [context, setContext] = useState(state.context);
 	const [pagingHasMore, setPagingHasMore] = useState(state.paging?.hasMore ?? false);
@@ -272,6 +273,7 @@ export function GraphWrapper({
 				setGraphConfig(state.config);
 				setSelectedRows(state.selectedRows);
 				setExcludeRefsById(state.excludeRefs);
+				setExcludeTypes(state.excludeTypes);
 				setIncludeOnlyRefsById(state.includeOnlyRefs);
 				setContext(state.context);
 				setAvatars(state.avatars ?? {});
@@ -833,6 +835,7 @@ export function GraphWrapper({
 							cssVariables={styleProps?.cssVariables}
 							enableMultiSelection={graphConfig?.enableMultiSelection}
 							excludeRefsById={excludeRefsById}
+							excludeByType={excludeTypes}
 							formatCommitDateTime={getGraphDateFormatter(graphConfig)}
 							getExternalIcon={getIconElementLibrary}
 							graphRows={rows}

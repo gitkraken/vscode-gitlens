@@ -1,5 +1,6 @@
 import type {
 	CssVariables,
+	ExcludeByType,
 	ExcludeRefsById,
 	GraphColumnSetting,
 	GraphContexts,
@@ -61,6 +62,7 @@ export interface State {
 	workingTreeStats?: GraphWorkingTreeStats;
 	searchResults?: DidSearchParams['results'];
 	excludeRefs?: GraphExcludeRefs;
+	excludeTypes?: GraphExcludeTypes;
 	includeOnlyRefs?: GraphIncludeOnlyRefs;
 
 	// Props below are computed in the webview (not passed)
@@ -123,6 +125,7 @@ export type GraphColumnsConfig = { [name: string]: GraphColumnConfig };
 
 export type GraphExcludeRefs = ExcludeRefsById;
 export type GraphExcludedRef = GraphRefOptData;
+export type GraphExcludeTypes = ExcludeByType;
 export type GraphIncludeOnlyRefs = IncludeOnlyRefsById;
 export type GraphIncludeOnlyRef = GraphRefOptData;
 

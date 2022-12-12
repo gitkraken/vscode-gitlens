@@ -88,6 +88,7 @@ import type {
 	GraphComponentConfig,
 	GraphExcludedRef,
 	GraphExcludeRefs,
+	GraphExcludeTypes,
 	GraphHostingServiceType,
 	GraphIncludeOnlyRef,
 	GraphMissingRefsMetadataType,
@@ -1269,6 +1270,17 @@ export class GraphWebview extends WebviewBase<State> {
 		return this.container.storage.getWorkspace('graph:columns');
 	}
 
+	private getExcludedTypes(graph: GitGraph | undefined): GraphExcludeTypes | undefined {
+		// if (graph == null) return undefined;
+
+		return {
+			heads: true,
+			remotes: true,
+			stashes: true,
+			tags: true
+		};
+	}
+
 	private getExcludedRefs(graph: GitGraph | undefined): Record<string, GraphExcludedRef> | undefined {
 		return this.filterExcludedRefs(this.container.storage.getWorkspace('graph:excludeRefs'), graph);
 	}
@@ -1519,6 +1531,7 @@ export class GraphWebview extends WebviewBase<State> {
 				header: this.getColumnHeaderContext(columns),
 			},
 			excludeRefs: data != null ? this.getExcludedRefs(data) : undefined,
+			excludeTypes: this.getExcludedTypes(data),
 			includeOnlyRefs: data != null ? this.getIncludeOnlyRefs(data) : undefined,
 			nonce: this.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
