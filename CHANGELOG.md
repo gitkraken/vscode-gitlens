@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds new features to the _Commit Graph_ header
+  - Adds the current branch name with the ability to switch branches when clicked
+  - Adds a fetch action next to the branch name
+  - Moves the repo menu, account status and feedback links to the top
+
 ### Fixed
 
 - Fixes [#2377](https://github.com/gitkraken/vscode-gitlens/issues/2377) - Missing Azure Devops Icon

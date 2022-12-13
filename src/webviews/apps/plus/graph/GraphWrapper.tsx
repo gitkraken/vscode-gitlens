@@ -43,12 +43,15 @@ import {
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
 	DidChangeWorkingTreeNotificationType,
+	DidFetchNotificationType,
 	DidSearchNotificationType,
 } from '../../../../plus/webviews/graph/protocol';
 import type { Subscription } from '../../../../subscription';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../subscription';
 import { pluralize } from '../../../../system/string';
 import type { IpcNotificationType } from '../../../../webviews/protocol';
+import { MenuItem, MenuList } from '../../shared/components/menu/react';
+import { PopMenu } from '../../shared/components/overlays/pop-menu/react';
 import { PopOver } from '../../shared/components/overlays/react';
 import { SearchBox } from '../../shared/components/search/react';
 import type { SearchNavigationEventDetail } from '../../shared/components/search/search-box';
@@ -164,6 +167,8 @@ export function GraphWrapper({
 	const [pagingHasMore, setPagingHasMore] = useState(state.paging?.hasMore ?? false);
 	const [isLoading, setIsLoading] = useState(state.loading);
 	const [styleProps, setStyleProps] = useState(state.theming);
+	const [branchName, setBranchName] = useState(state.branchName);
+	const [lastFetched, setLastFetched] = useState(state.lastFetched);
 	// account
 	const [showAccount, setShowAccount] = useState(state.trialBanner);
 	const [isAccessAllowed, setIsAccessAllowed] = useState(state.allowed ?? false);
@@ -171,8 +176,6 @@ export function GraphWrapper({
 		state.selectedRepositoryVisibility === RepositoryVisibility.Private,
 	);
 	const [subscription, setSubscription] = useState<Subscription | undefined>(state.subscription);
-	// repo selection UI
-	const [repoExpanded, setRepoExpanded] = useState(false);
 	// search state
 	const searchEl = useRef<any>(null);
 	const [searchQuery, setSearchQuery] = useState<SearchQuery | undefined>(undefined);
@@ -247,11 +250,16 @@ export function GraphWrapper({
 			case DidChangeWorkingTreeNotificationType:
 				setWorkingTreeStats(state.workingTreeStats ?? { added: 0, modified: 0, deleted: 0 });
 				break;
+			case DidFetchNotificationType:
+				setLastFetched(state.lastFetched);
+				break;
 			default: {
 				setIsAccessAllowed(state.allowed ?? false);
 				if (!themingChanged) {
 					setStyleProps(state.theming);
 				}
+				setBranchName(state.branchName);
+				setLastFetched(state.lastFetched);
 				setColumns(state.columns);
 				setRows(state.rows ?? []);
 				setWorkingTreeStats(state.workingTreeStats ?? { added: 0, modified: 0, deleted: 0 });
@@ -440,12 +448,6 @@ export function GraphWrapper({
 			setIsLoading(true);
 			onSelectRepository?.(item);
 		}
-		setRepoExpanded(false);
-	};
-
-	const handleToggleRepos = () => {
-		if (repo != null && repos.length <= 1) return;
-		setRepoExpanded(!repoExpanded);
 	};
 
 	const handleMissingAvatars = (emails: GraphAvatars) => {
@@ -556,7 +558,7 @@ export function GraphWrapper({
 						</>
 					)}
 				</span>
-				<PopOver placement="bottom end" className="badge-popover">
+				<PopOver placement="top end" className="badge-popover">
 					{isPro
 						? 'You have access to all GitLens and GitLens+ features on any repo.'
 						: 'You have access to GitLens+ features on local & public repos, and all other GitLens features on any repo.'}
@@ -699,22 +701,112 @@ export function GraphWrapper({
 			{renderAlertContent()}
 			{isAccessAllowed && (
 				<header className="titlebar graph-app__header">
-					<div className="titlebar__group">
-						<SearchBox
-							ref={searchEl}
-							step={searchPosition}
-							total={searchResults?.count ?? 0}
-							valid={Boolean(searchQuery?.query && searchQuery.query.length > 2)}
-							more={searchResults?.paging?.hasMore ?? false}
-							searching={searching}
-							value={searchQuery?.query ?? ''}
-							errorMessage={searchResultsError?.error ?? ''}
-							resultsHidden={searchResultsHidden}
-							resultsLoaded={searchResults != null}
-							onChange={e => handleSearchInput(e as CustomEvent<SearchQuery>)}
-							onNavigate={e => handleSearchNavigation(e as CustomEvent<SearchNavigationEventDetail>)}
-							onOpenInView={() => handleSearchOpenInView()}
-						/>
+					<div className="titlebar__row">
+						<div className="titlebar__group">
+							{repos.length < 2 ? (
+								<button type="button" className="action-button" disabled>
+									{repo?.formattedName ?? 'none selected'}
+								</button>
+							) : (
+								<PopMenu>
+									<button
+										type="button"
+										className="action-button"
+										slot="trigger"
+										disabled={repos.length < 2}
+									>
+										{repo?.formattedName ?? 'none selected'}
+										{repos.length > 1 && (
+											<span
+												className="codicon codicon-chevron-down action-button__more"
+												aria-hidden="true"
+											></span>
+										)}
+									</button>
+									<MenuList role="listbox" slot="content">
+										{repos.length > 0 &&
+											repos.map((item, index) => (
+												<MenuItem
+													aria-selected={item.path === repo?.path}
+													onClick={() => handleSelectRepository(item)}
+													disabled={item.path === repo?.path}
+													key={`repo-actioncombo-item-${index}`}
+												>
+													<span
+														className={`${
+															item.path === repo?.path ? 'codicon codicon-check ' : ''
+														}actioncombo__icon`}
+														aria-label="Checked"
+													></span>
+													{item.formattedName}
+												</MenuItem>
+											))}
+									</MenuList>
+								</PopMenu>
+							)}
+							{repo && (
+								<>
+									<span>
+										<span className="codicon codicon-chevron-right"></span>
+									</span>
+									<a href="command:gitlens.graph.switchToAnotherBranch" className="action-button">
+										{branchName}
+										<span
+											className="codicon codicon-chevron-down action-button__more"
+											aria-hidden="true"
+										></span>
+									</a>
+									<span>
+										<span className="codicon codicon-chevron-right"></span>
+									</span>
+									<a href="command:gitlens.graph.fetch" className="action-button">
+										<span className="codicon codicon-sync action-button__icon"></span> Fetch{' '}
+										{lastFetched && <small>(Last fetched {fromNow(new Date(lastFetched))})</small>}
+									</a>
+								</>
+							)}
+						</div>
+						<div className="titlebar__group titlebar__group--fixed">
+							{renderAccountState()}
+							<a
+								href="https://github.com/gitkraken/vscode-gitlens/discussions/2158"
+								title="Commit Graph Feedback"
+								aria-label="Commit Graph Feedback"
+								className="action-button"
+							>
+								<span className="codicon codicon-feedback"></span>
+							</a>
+						</div>
+					</div>
+					<div className="titlebar__row">
+						<div className="titlebar__group">
+							{/* <span className="action-button">
+								<span className="codicon codicon-filter"></span>
+								<span className="action-button__indicator"></span>
+								<span
+									className="codicon codicon-chevron-down action-button__more"
+									aria-hidden="true"
+								></span>
+							</span>
+							<span>
+								<span className="action-divider"></span>
+							</span> */}
+							<SearchBox
+								ref={searchEl}
+								step={searchPosition}
+								total={searchResults?.count ?? 0}
+								valid={Boolean(searchQuery?.query && searchQuery.query.length > 2)}
+								more={searchResults?.paging?.hasMore ?? false}
+								searching={searching}
+								value={searchQuery?.query ?? ''}
+								errorMessage={searchResultsError?.error ?? ''}
+								resultsHidden={searchResultsHidden}
+								resultsLoaded={searchResults != null}
+								onChange={e => handleSearchInput(e as CustomEvent<SearchQuery>)}
+								onNavigate={e => handleSearchNavigation(e as CustomEvent<SearchNavigationEventDetail>)}
+								onOpenInView={() => handleSearchOpenInView()}
+							/>
+						</div>
 					</div>
 				</header>
 			)}
@@ -784,67 +876,6 @@ export function GraphWrapper({
 				aria-hidden={!isAccessAllowed}
 			>
 				<div className="actionbar__group">
-					<div className="actioncombo">
-						<button
-							type="button"
-							aria-controls="repo-actioncombo-list"
-							aria-expanded={repoExpanded}
-							aria-haspopup="listbox"
-							id="repo-actioncombo-label"
-							className="actioncombo__label"
-							disabled={repos.length < 2}
-							role="combobox"
-							aria-activedescendant={
-								repoExpanded
-									? `repo-actioncombo-item-${repos.findIndex(item => item.path === repo?.path)}`
-									: undefined
-							}
-							onClick={() => handleToggleRepos()}
-						>
-							<span className="codicon codicon-repo actioncombo__icon" aria-label="Repository "></span>
-							{repo?.formattedName ?? 'none selected'}
-						</button>
-						<div
-							className="actioncombo__list"
-							id="repo-actioncombo-list"
-							role="listbox"
-							tabIndex={-1}
-							aria-labelledby="repo-actioncombo-label"
-						>
-							{repos.length > 0 ? (
-								repos.map((item, index) => (
-									<button
-										type="button"
-										className="actioncombo__item"
-										role="option"
-										data-value={item.path}
-										id={`repo-actioncombo-item-${index}`}
-										key={`repo-actioncombo-item-${index}`}
-										aria-selected={item.path === repo?.path}
-										onClick={() => handleSelectRepository(item)}
-										disabled={item.path === repo?.path}
-									>
-										<span
-											className={`${
-												item.path === repo?.path ? 'codicon codicon-check ' : ''
-											}actioncombo__icon`}
-											aria-label="Checked"
-										></span>
-										{item.formattedName}
-									</button>
-								))
-							) : (
-								<span
-									className="actioncombo__item"
-									role="option"
-									id="repo-actioncombo-item-0"
-									aria-selected="true"
-								>
-									None available
-								</span>
-							)}
-						</div>
-					</div>
 					{isAccessAllowed && rows.length > 0 && (
 						<span className="actionbar__details">
 							showing {rows.length} item{rows.length ? 's' : ''}
@@ -855,16 +886,6 @@ export function GraphWrapper({
 							<span className="icon--loading icon-modifier--spin" />
 						</span>
 					)}
-				</div>
-				<div className="actionbar__group">
-					{renderAccountState()}
-					<a
-						href="https://github.com/gitkraken/vscode-gitlens/discussions/2158"
-						title="Commit Graph Feedback"
-						aria-label="Commit Graph Feedback"
-					>
-						<span className="codicon codicon-feedback"></span>
-					</a>
 				</div>
 				<div className={`progress-container infinite${isLoading ? ' active' : ''}`} role="progressbar">
 					<div className="progress-bar"></div>

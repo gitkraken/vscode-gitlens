@@ -27,6 +27,7 @@ import {
 	DidChangeSubscriptionNotificationType,
 	DidChangeWorkingTreeNotificationType,
 	DidEnsureRowNotificationType,
+	DidFetchNotificationType,
 	DidSearchNotificationType,
 	DismissBannerCommandType,
 	DoubleClickedRefCommandType,
@@ -126,6 +127,13 @@ export class GraphApp extends App<State> {
 			case DidChangeNotificationType.method:
 				onIpc(DidChangeNotificationType, msg, (params, type) => {
 					this.setState({ ...this.state, ...params.state }, type);
+				});
+				break;
+
+			case DidFetchNotificationType.method:
+				onIpc(DidFetchNotificationType, msg, (params, type) => {
+					this.state.lastFetched = params.lastFetched;
+					this.setState(this.state, type);
 				});
 				break;
 
