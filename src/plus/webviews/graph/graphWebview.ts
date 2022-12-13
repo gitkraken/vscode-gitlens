@@ -1282,7 +1282,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private getExcludedRefs(graph: GitGraph | undefined): Record<string, GraphExcludedRef> | undefined {
-		return this.filterExcludedRefs(this.container.storage.getWorkspace('graph:excludeRefs'), graph);
+		return this.filterExcludedRefs(this.container.storage.getWorkspace('graph:hiddenRefs'), graph);
 	}
 
 	private getIncludeOnlyRefs(graph: GitGraph | undefined): Record<string, GraphIncludeOnlyRef> | undefined {
@@ -1548,7 +1548,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private updateExcludedRefs(refs: GraphExcludedRef[], visible: boolean) {
-		let storedExcludedRefs = this.container.storage.getWorkspace('graph:excludeRefs');
+		let storedExcludedRefs = this.container.storage.getWorkspace('graph:hiddenRefs');
 		for (const ref of refs) {
 			storedExcludedRefs = updateRecordValue(
 				storedExcludedRefs,
@@ -1557,7 +1557,7 @@ export class GraphWebview extends WebviewBase<State> {
 			);
 		}
 
-		void this.container.storage.storeWorkspace('graph:excludeRefs', storedExcludedRefs);
+		void this.container.storage.storeWorkspace('graph:hiddenRefs', storedExcludedRefs);
 		void this.notifyDidChangeRefsVisibility();
 	}
 
