@@ -31,8 +31,7 @@ import type {
 	GraphSearchResultsError,
 	InternalNotificationType,
 	State,
-	UpdateStateCallback,
-} from '../../../../plus/webviews/graph/protocol';
+	UpdateStateCallback} from '../../../../plus/webviews/graph/protocol';
 import {
 	DidChangeAvatarsNotificationType,
 	DidChangeColumnsNotificationType,
@@ -42,6 +41,7 @@ import {
 	DidChangeRowsNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
+	DidChangeWindowFocusNotificationType,
 	DidChangeWorkingTreeNotificationType,
 	DidFetchNotificationType,
 	DidSearchNotificationType,
@@ -169,6 +169,7 @@ export function GraphWrapper({
 	const [styleProps, setStyleProps] = useState(state.theming);
 	const [branchName, setBranchName] = useState(state.branchName);
 	const [lastFetched, setLastFetched] = useState(state.lastFetched);
+	const [windowFocused, setWindowFocused] = useState(state.windowFocused);
 	// account
 	const [showAccount, setShowAccount] = useState(state.trialBanner);
 	const [isAccessAllowed, setIsAccessAllowed] = useState(state.allowed ?? false);
@@ -210,6 +211,9 @@ export function GraphWrapper({
 				break;
 			case DidChangeAvatarsNotificationType:
 				setAvatars(state.avatars);
+				break;
+			case DidChangeWindowFocusNotificationType:
+				setWindowFocused(state.windowFocused);
 				break;
 			case DidChangeRefsMetadataNotificationType:
 				setRefsMetadata(state.refsMetadata);
@@ -288,6 +292,10 @@ export function GraphWrapper({
 	}
 
 	useEffect(() => subscriber?.(updateState), []);
+
+	useEffect(() => {
+		graphRef.current?.setContainerWindowFocused(windowFocused || false);
+	}, [windowFocused]);
 
 	useEffect(() => {
 		if (searchResultsError != null || searchResults == null || searchResults.count === 0 || searchQuery == null) {

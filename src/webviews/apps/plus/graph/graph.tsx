@@ -13,8 +13,7 @@ import type {
 	GraphRepository,
 	InternalNotificationType,
 	State,
-	UpdateStateCallback,
-} from '../../../../plus/webviews/graph/protocol';
+	UpdateStateCallback} from '../../../../plus/webviews/graph/protocol';
 import {
 	DidChangeAvatarsNotificationType,
 	DidChangeColumnsNotificationType,
@@ -25,6 +24,7 @@ import {
 	DidChangeRowsNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
+	DidChangeWindowFocusNotificationType,
 	DidChangeWorkingTreeNotificationType,
 	DidEnsureRowNotificationType,
 	DidFetchNotificationType,
@@ -140,6 +140,13 @@ export class GraphApp extends App<State> {
 			case DidChangeAvatarsNotificationType.method:
 				onIpc(DidChangeAvatarsNotificationType, msg, (params, type) => {
 					this.state.avatars = params.avatars;
+					this.setState(this.state, type);
+				});
+				break;
+
+			case DidChangeWindowFocusNotificationType.method:
+				onIpc(DidChangeWindowFocusNotificationType, msg, (params, type) => {
+					this.state.windowFocused = params.focused;
 					this.setState(this.state, type);
 				});
 				break;

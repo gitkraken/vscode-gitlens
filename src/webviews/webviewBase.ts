@@ -4,6 +4,7 @@ import type {
 	WebviewPanel,
 	WebviewPanelOnDidChangeViewStateEvent,
 	WebviewPanelOptions,
+	WindowState,
 } from 'vscode';
 import { Disposable, Uri, ViewColumn, window, workspace } from 'vscode';
 import { getNonce } from '@env/crypto';
@@ -50,7 +51,10 @@ export abstract class WebviewBase<State> implements Disposable {
 		showCommand: Commands,
 	) {
 		this._originalTitle = this._title = title;
-		this.disposables.push(registerCommand(showCommand, this.onShowCommand, this));
+		this.disposables.push(
+			registerCommand(showCommand, this.onShowCommand, this),
+			window.onDidChangeWindowState(this.onWindowStateChanged, this),
+		);
 	}
 
 	dispose() {
@@ -137,6 +141,7 @@ export abstract class WebviewBase<State> implements Disposable {
 	protected onActiveChanged?(active: boolean): void;
 	protected onFocusChanged?(focused: boolean): void;
 	protected onVisibilityChanged?(visible: boolean): void;
+	protected onWindowFocusChanged?(focused: boolean): void;
 
 	protected registerCommands?(): Disposable[];
 
@@ -144,6 +149,12 @@ export abstract class WebviewBase<State> implements Disposable {
 	protected includeHead?(): string | Promise<string>;
 	protected includeBody?(): string | Promise<string>;
 	protected includeEndOfBody?(): string | Promise<string>;
+
+	private onWindowStateChanged(e: WindowState) {
+		if (!this.visible) return;
+
+		this.onWindowFocusChanged?.(e.focused);
+	}
 
 	@debug()
 	protected async refresh(force?: boolean): Promise<void> {
