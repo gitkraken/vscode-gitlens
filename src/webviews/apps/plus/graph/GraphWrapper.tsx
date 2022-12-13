@@ -294,10 +294,6 @@ export function GraphWrapper({
 	useEffect(() => subscriber?.(updateState), []);
 
 	useEffect(() => {
-		graphRef.current?.setContainerWindowFocused(windowFocused || false);
-	}, [windowFocused]);
-
-	useEffect(() => {
 		if (searchResultsError != null || searchResults == null || searchResults.count === 0 || searchQuery == null) {
 			return;
 		}
@@ -844,6 +840,7 @@ export function GraphWrapper({
 							scrollRowPadding={graphConfig?.scrollRowPadding}
 							showGhostRefsOnRowHover={graphConfig?.showGhostRefsOnRowHover}
 							showRemoteNamesOnRefs={graphConfig?.showRemoteNamesOnRefs}
+							isContainerWindowFocused={windowFocused}
 							isLoadingRows={isLoading}
 							isSelectedBySha={selectedRows}
 							nonce={nonce}
