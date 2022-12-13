@@ -191,7 +191,7 @@ export interface WorkspaceStorage {
 			dismissed?: Record<string, boolean>;
 		};
 		columns?: Record<string, StoredGraphColumn>;
-		excludeRefs?: Record<string, StoredGraphExcludedRef>;
+		hiddenRefs?: Record<string, StoredGraphExcludedRef>;
 	};
 	remote: {
 		default?: string;
