@@ -47,12 +47,8 @@ import type {
 } from '../../../git/models/reference';
 import { GitReference, GitRevision } from '../../../git/models/reference';
 import { getRemoteIconUri } from '../../../git/models/remote';
-import type {
-	Repository,
-	RepositoryChangeEvent,
-	RepositoryFileSystemChangeEvent,
-} from '../../../git/models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../../git/models/repository';
+import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey } from '../../../git/search';
 import type { StoredGraphHiddenRef } from '../../../storage';
@@ -60,7 +56,7 @@ import { executeActionCommand, executeCommand, executeCoreGitCommand, registerCo
 import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
-import { debounce, once } from '../../../system/function';
+import { debounce, disposableInterval, once } from '../../../system/function';
 import { last } from '../../../system/iterable';
 import { updateRecordValue } from '../../../system/object';
 import { getSettledValue } from '../../../system/promise';
@@ -119,6 +115,7 @@ import {
 	DidChangeSubscriptionNotificationType,
 	DidChangeWorkingTreeNotificationType,
 	DidEnsureRowNotificationType,
+	DidFetchNotificationType,
 	DidSearchNotificationType,
 	DismissBannerCommandType,
 	DoubleClickedRefCommandType,
@@ -201,6 +198,7 @@ export class GraphWebview extends WebviewBase<State> {
 	private _statusBarItem: StatusBarItem | undefined;
 	private _theme: ColorTheme | undefined;
 	private _repositoryEventsDisposable: Disposable | undefined;
+	private _lastFetchedDisposable: Disposable | undefined;
 
 	private trialBanner?: boolean;
 
@@ -1028,6 +1026,19 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
+	private async notifyDidFetch() {
+		if (!this.isReady || !this.visible) {
+			this.addPendingIpcNotification(DidFetchNotificationType);
+			return false;
+		}
+
+		const lastFetched = await this.repository!.getLastFetched();
+		return this.notify(DidFetchNotificationType, {
+			lastFetched: new Date(lastFetched),
+		});
+	}
+
+	@debug()
 	private async notifyDidChangeRows(sendSelectedRows: boolean = false, completionId?: string) {
 		if (this._graph == null) return;
 
@@ -1161,6 +1172,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private ensureRepositorySubscriptions(force?: boolean) {
+		void this.ensureLastFetchedSubscription(force);
 		if (!force && this._repositoryEventsDisposable != null) return;
 
 		if (this._repositoryEventsDisposable != null) {
@@ -1182,6 +1194,33 @@ export class GraphWebview extends WebviewBase<State> {
 				this.updateRefsMetadata();
 			}),
 		);
+	}
+
+	private async ensureLastFetchedSubscription(force?: boolean) {
+		if (!force && this._lastFetchedDisposable != null) return;
+
+		if (this._lastFetchedDisposable != null) {
+			this._lastFetchedDisposable.dispose();
+			this._lastFetchedDisposable = undefined;
+		}
+
+		const repo = this.repository;
+		if (repo == null) return;
+
+		const lastFetched = (await repo.getLastFetched()) ?? 0;
+
+		let interval = Repository.getLastFetchedUpdateInterval(lastFetched);
+		if (lastFetched !== 0 && interval > 0) {
+			this._lastFetchedDisposable = disposableInterval(() => {
+				// Check if the interval should change, and if so, reset it
+				const checkInterval = Repository.getLastFetchedUpdateInterval(lastFetched);
+				if (interval !== Repository.getLastFetchedUpdateInterval(lastFetched)) {
+					interval = checkInterval;
+				}
+
+				void this.notifyDidFetch();
+			}, interval);
+		}
 	}
 
 	private async ensureSearchStartsInRange(graph: GitGraph, search: GitSearch) {
@@ -1407,11 +1446,16 @@ export class GraphWebview extends WebviewBase<State> {
 
 		const columns = this.getColumns();
 
+		const lastFetched = await this.repository.getLastFetched();
+		const branch = await this.repository.getBranch();
+
 		return {
 			trialBanner: this.trialBanner,
 			repositories: formatRepositories(this.container.git.openRepositories),
 			selectedRepository: this.repository.path,
 			selectedRepositoryVisibility: visibility,
+			branchName: branch?.name,
+			lastFetched: new Date(lastFetched),
 			selectedRows: this._selectedRows,
 			subscription: access?.subscription.current,
 			allowed: (access?.allowed ?? false) !== false,

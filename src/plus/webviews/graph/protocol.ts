@@ -41,6 +41,8 @@ export interface State {
 	repositories?: GraphRepository[];
 	selectedRepository?: string;
 	selectedRepositoryVisibility?: RepositoryVisibility;
+	branchName?: string;
+	lastFetched?: Date;
 	selectedRows?: GraphSelectedRows;
 	subscription?: Subscription;
 	allowed: boolean;
@@ -299,3 +301,8 @@ export interface DidSearchParams {
 	selectedRows?: GraphSelectedRows;
 }
 export const DidSearchNotificationType = new IpcNotificationType<DidSearchParams>('graph/didSearch', true);
+
+export interface DidFetchParams {
+	lastFetched: Date;
+}
+export const DidFetchNotificationType = new IpcNotificationType<DidFetchParams>('graph/didFetch');
