@@ -699,85 +699,85 @@ export function GraphWrapper({
 	return (
 		<>
 			{renderAlertContent()}
-			{isAccessAllowed && (
-				<header className="titlebar graph-app__header">
-					<div className="titlebar__row">
-						<div className="titlebar__group">
-							{repos.length < 2 ? (
-								<button type="button" className="action-button" disabled>
+			<header className="titlebar graph-app__header">
+				<div className="titlebar__row">
+					<div className="titlebar__group">
+						{repos.length < 2 ? (
+							<button type="button" className="action-button" disabled>
+								{repo?.formattedName ?? 'none selected'}
+							</button>
+						) : (
+							<PopMenu>
+								<button
+									type="button"
+									className="action-button"
+									slot="trigger"
+									disabled={repos.length < 2}
+								>
 									{repo?.formattedName ?? 'none selected'}
-								</button>
-							) : (
-								<PopMenu>
-									<button
-										type="button"
-										className="action-button"
-										slot="trigger"
-										disabled={repos.length < 2}
-									>
-										{repo?.formattedName ?? 'none selected'}
-										{repos.length > 1 && (
-											<span
-												className="codicon codicon-chevron-down action-button__more"
-												aria-hidden="true"
-											></span>
-										)}
-									</button>
-									<MenuList role="listbox" slot="content">
-										{repos.length > 0 &&
-											repos.map((item, index) => (
-												<MenuItem
-													aria-selected={item.path === repo?.path}
-													onClick={() => handleSelectRepository(item)}
-													disabled={item.path === repo?.path}
-													key={`repo-actioncombo-item-${index}`}
-												>
-													<span
-														className={`${
-															item.path === repo?.path ? 'codicon codicon-check ' : ''
-														}actioncombo__icon`}
-														aria-label="Checked"
-													></span>
-													{item.formattedName}
-												</MenuItem>
-											))}
-									</MenuList>
-								</PopMenu>
-							)}
-							{repo && (
-								<>
-									<span>
-										<span className="codicon codicon-chevron-right"></span>
-									</span>
-									<a href="command:gitlens.graph.switchToAnotherBranch" className="action-button">
-										{branchName}
+									{repos.length > 1 && (
 										<span
 											className="codicon codicon-chevron-down action-button__more"
 											aria-hidden="true"
 										></span>
-									</a>
-									<span>
-										<span className="codicon codicon-chevron-right"></span>
-									</span>
-									<a href="command:gitlens.graph.fetch" className="action-button">
-										<span className="codicon codicon-sync action-button__icon"></span> Fetch{' '}
-										{lastFetched && <small>(Last fetched {fromNow(new Date(lastFetched))})</small>}
-									</a>
-								</>
-							)}
-						</div>
-						<div className="titlebar__group titlebar__group--fixed">
-							{renderAccountState()}
-							<a
-								href="https://github.com/gitkraken/vscode-gitlens/discussions/2158"
-								title="Commit Graph Feedback"
-								aria-label="Commit Graph Feedback"
-								className="action-button"
-							>
-								<span className="codicon codicon-feedback"></span>
-							</a>
-						</div>
+									)}
+								</button>
+								<MenuList role="listbox" slot="content">
+									{repos.length > 0 &&
+										repos.map((item, index) => (
+											<MenuItem
+												aria-selected={item.path === repo?.path}
+												onClick={() => handleSelectRepository(item)}
+												disabled={item.path === repo?.path}
+												key={`repo-actioncombo-item-${index}`}
+											>
+												<span
+													className={`${
+														item.path === repo?.path ? 'codicon codicon-check ' : ''
+													}actioncombo__icon`}
+													aria-label="Checked"
+												></span>
+												{item.formattedName}
+											</MenuItem>
+										))}
+								</MenuList>
+							</PopMenu>
+						)}
+						{repo && (
+							<>
+								<span>
+									<span className="codicon codicon-chevron-right"></span>
+								</span>
+								<a href="command:gitlens.graph.switchToAnotherBranch" className="action-button">
+									{branchName}
+									<span
+										className="codicon codicon-chevron-down action-button__more"
+										aria-hidden="true"
+									></span>
+								</a>
+								<span>
+									<span className="codicon codicon-chevron-right"></span>
+								</span>
+								<a href="command:gitlens.graph.fetch" className="action-button">
+									<span className="codicon codicon-sync action-button__icon"></span> Fetch{' '}
+									{lastFetched && <small>(Last fetched {fromNow(new Date(lastFetched))})</small>}
+								</a>
+							</>
+						)}
 					</div>
+					<div className="titlebar__group titlebar__group--fixed">
+						{renderAccountState()}
+						<a
+							href="https://github.com/gitkraken/vscode-gitlens/discussions/2158"
+							title="Commit Graph Feedback"
+							aria-label="Commit Graph Feedback"
+							className="action-button"
+						>
+							<span className="codicon codicon-feedback"></span>
+						</a>
+					</div>
+				</div>
+				{isAccessAllowed && (
 					<div className="titlebar__row">
 						<div className="titlebar__group">
 							{/* <span className="action-button">
@@ -808,8 +808,8 @@ export function GraphWrapper({
 							/>
 						</div>
 					</div>
-				</header>
-			)}
+				)}
+			</header>
 			<main
 				id="main"
 				className={`graph-app__main${!isAccessAllowed ? ' is-gated' : ''}`}
@@ -871,26 +871,25 @@ export function GraphWrapper({
 					></span>
 				</button>
 			</main>
-			<footer
-				className={`actionbar graph-app__footer${!isAccessAllowed ? ' is-gated' : ''}`}
-				aria-hidden={!isAccessAllowed}
-			>
-				<div className="actionbar__group">
-					{isAccessAllowed && rows.length > 0 && (
-						<span className="actionbar__details">
-							showing {rows.length} item{rows.length ? 's' : ''}
-						</span>
-					)}
-					{isLoading && (
-						<span className="actionbar__loading">
-							<span className="icon--loading icon-modifier--spin" />
-						</span>
-					)}
-				</div>
-				<div className={`progress-container infinite${isLoading ? ' active' : ''}`} role="progressbar">
-					<div className="progress-bar"></div>
-				</div>
-			</footer>
+			{isAccessAllowed && (
+				<footer className="actionbar graph-app__footer">
+					<div className="actionbar__group">
+						{rows.length > 0 && (
+							<span className="actionbar__details">
+								showing {rows.length} item{rows.length ? 's' : ''}
+							</span>
+						)}
+						{isLoading && (
+							<span className="actionbar__loading">
+								<span className="icon--loading icon-modifier--spin" />
+							</span>
+						)}
+					</div>
+					<div className={`progress-container infinite${isLoading ? ' active' : ''}`} role="progressbar">
+						<div className="progress-bar"></div>
+					</div>
+				</footer>
+			)}
 		</>
 	);
 }
