@@ -51,10 +51,7 @@ export abstract class WebviewBase<State> implements Disposable {
 		showCommand: Commands,
 	) {
 		this._originalTitle = this._title = title;
-		this.disposables.push(
-			registerCommand(showCommand, this.onShowCommand, this),
-			window.onDidChangeWindowState(this.onWindowStateChanged, this),
-		);
+		this.disposables.push(registerCommand(showCommand, this.onShowCommand, this));
 	}
 
 	dispose() {
@@ -121,6 +118,7 @@ export abstract class WebviewBase<State> implements Disposable {
 				this._panel.webview.onDidReceiveMessage(this.onMessageReceivedCore, this),
 				...(this.onInitializing?.() ?? []),
 				...(this.registerCommands?.() ?? []),
+				window.onDidChangeWindowState(this.onWindowStateChanged, this),
 			);
 
 			this._panel.webview.html = await this.getHtml(this._panel.webview);
