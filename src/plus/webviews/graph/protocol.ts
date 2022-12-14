@@ -1,5 +1,6 @@
 import type {
 	CssVariables,
+	ExcludeRefsById,
 	GraphColumnSetting,
 	GraphContexts,
 	GraphRef,
@@ -7,7 +8,6 @@ import type {
 	GraphRow,
 	GraphZoneType,
 	Head,
-	HiddenRefsById,
 	HostingServiceType,
 	PullRequestMetadata,
 	RefMetadata,
@@ -118,7 +118,7 @@ export interface GraphColumnConfig {
 
 export type GraphColumnsConfig = { [name: string]: GraphColumnConfig };
 
-export type GraphHiddenRefs = HiddenRefsById;
+export type GraphHiddenRefs = ExcludeRefsById; // TODO: rename all HiddenRefs to use the new naming
 export type GraphHiddenRef = GraphRefOptData;
 
 export type GraphColumnName = GraphZoneType;
