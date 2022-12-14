@@ -604,6 +604,7 @@ button:not([disabled]),
 
 	&__header {
 		flex: none;
+		z-index: 2000;
 	}
 
 	&__footer {
