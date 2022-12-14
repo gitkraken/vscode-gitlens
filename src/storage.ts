@@ -192,6 +192,8 @@ export interface WorkspaceStorage {
 		};
 		columns?: Record<string, StoredGraphColumn>;
 		hiddenRefs?: Record<string, StoredGraphExcludedRef>;
+		includeOnlyRefs?: Record<string, StoredGraphIncludeOnlyRef>;
+		hiddenTypes?: Record<string, boolean>;
 	};
 	remote: {
 		default?: string;
@@ -248,6 +250,13 @@ export interface StoredGraphColumn {
 export type StoredGraphRefType = 'head' | 'remote' | 'tag';
 
 export interface StoredGraphExcludedRef {
+	id: string;
+	type: StoredGraphRefType;
+	name: string;
+	owner?: string;
+}
+
+export interface StoredGraphIncludeOnlyRef {
 	id: string;
 	type: StoredGraphRefType;
 	name: string;

@@ -248,6 +248,7 @@ export function GraphWrapper({
 				break;
 			case DidChangeRefsVisibilityNotificationType:
 				setExcludeRefsById(state.excludeRefs);
+				setExcludeTypes(state.excludeTypes);
 				setIncludeOnlyRefsById(state.includeOnlyRefs);
 				break;
 			case DidChangeSubscriptionNotificationType:

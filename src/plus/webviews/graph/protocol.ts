@@ -266,6 +266,7 @@ export const DidChangeWindowFocusNotificationType = new IpcNotificationType<DidC
 
 export interface DidChangeRefsVisibilityParams {
 	excludeRefs?: GraphExcludeRefs;
+	excludeTypes?: GraphExcludeTypes;
 	includeOnlyRefs?: GraphIncludeOnlyRefs;
 }
 export const DidChangeRefsVisibilityNotificationType = new IpcNotificationType<DidChangeRefsVisibilityParams>(
