@@ -1,4 +1,5 @@
 import type { GraphRow, Head, Remote, RowContexts, Tag } from '@gitkraken/gitkraken-components';
+import type { GitBranch } from './branch';
 import type { GitRemote } from './remote';
 
 export type GitGraphRowHead = Head;
@@ -30,6 +31,7 @@ export interface GitGraph {
 	readonly ids: Set<string>;
 	/** A set of all skipped commit ids -- typically for stash index/untracked commits */
 	readonly skippedIds?: Set<string>;
+	readonly branches: Map<string, GitBranch>;
 	readonly remotes: Map<string, GitRemote>;
 	/** The rows for the set of commits requested */
 	readonly rows: GitGraphRow[];
