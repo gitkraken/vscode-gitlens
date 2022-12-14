@@ -1278,10 +1278,10 @@ export class GraphWebview extends WebviewBase<State> {
 		// return this.container.storage.getWorkspace('graph:excludeTypes');
 
 		return {
-			heads: true,
+			heads: false,
 			remotes: true,
 			stashes: true,
-			tags: true
+			tags: true,
 		};
 	}
 
@@ -1596,7 +1596,6 @@ export class GraphWebview extends WebviewBase<State> {
 		void this.container.storage.storeWorkspace('graph:hiddenRefs', storedExcludedRefs);
 		void this.notifyDidChangeRefsVisibility();
 	}
-
 
 	private updateIncludeOnlyRefs(refs: GraphIncludeOnlyRef[], include: boolean) {
 		let storedIncludeOnlyRefs = this.container.storage.getWorkspace('graph:includeOnlyRefs');
