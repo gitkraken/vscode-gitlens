@@ -9,6 +9,7 @@ import type {
 	GraphAvatars,
 	GraphColumnsConfig,
 	GraphExcludedRef,
+	GraphExcludeTypes,
 	GraphMissingRefsMetadata,
 	GraphRepository,
 	InternalNotificationType,
@@ -38,6 +39,8 @@ import {
 	SearchCommandType,
 	SearchOpenInViewCommandType,
 	UpdateColumnsCommandType,
+	UpdateExcludeTypeCommandType,
+	UpdateIncludeOnlyRefsCommandType,
 	UpdateRefsVisibilityCommandType,
 	UpdateSelectedRepositoryCommandType as UpdateRepositorySelectionCommandType,
 	UpdateSelectionCommandType,
@@ -108,6 +111,8 @@ export class GraphApp extends App<State> {
 					)}
 					onDismissBanner={key => this.onDismissBanner(key)}
 					onEnsureRowPromise={this.onEnsureRowPromise.bind(this)}
+					onExcludeType={this.onExcludeType.bind(this)}
+					onIncludeOnlyRef={this.onIncludeOnlyRef.bind(this)}
 				/>,
 				$root,
 			);
@@ -464,6 +469,17 @@ export class GraphApp extends App<State> {
 		} catch {
 			return undefined;
 		}
+	}
+
+	private onExcludeType(key: keyof GraphExcludeTypes, value: boolean) {
+		this.sendCommand(UpdateExcludeTypeCommandType, { key: key, value: value });
+	}
+
+	private onIncludeOnlyRef(all?: boolean) {
+		this.sendCommand(
+			UpdateIncludeOnlyRefsCommandType,
+			all ? {} : { refs: [{ id: 'HEAD', type: 'head', name: 'HEAD' }] },
+		);
 	}
 
 	private onSelectionChanged(rows: GraphRow[]) {
