@@ -832,7 +832,7 @@ export function GraphWrapper({
 							// Just cast the { [id: string]: number } object to { [id: string]: boolean } for performance
 							highlightedShas={searchResults?.ids as GraphContainerProps['highlightedShas']}
 							highlightRowsOnRefHover={graphConfig?.highlightRowsOnRefHover}
-							hiddenRefsById={hiddenRefsById}
+							excludeRefsById={hiddenRefsById}
 							scrollRowPadding={graphConfig?.scrollRowPadding}
 							showGhostRefsOnRowHover={graphConfig?.showGhostRefsOnRowHover}
 							showRemoteNamesOnRefs={graphConfig?.showRemoteNamesOnRefs}
