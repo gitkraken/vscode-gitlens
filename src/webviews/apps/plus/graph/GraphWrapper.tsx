@@ -80,6 +80,8 @@ export interface GraphWrapperProps {
 	onDismissBanner?: (key: DismissBannerParams['key']) => void;
 	onSelectionChange?: (rows: GraphRow[]) => void;
 	onEnsureRowPromise?: (id: string, select: boolean) => Promise<DidEnsureRowParams | undefined>;
+	onExcludeType?: (key: keyof GraphExcludeTypes, value: boolean) => void;
+	onIncludeOnlyRef?: (all: boolean) => void;
 }
 
 const getGraphDateFormatter = (config?: GraphComponentConfig): OnFormatCommitDateTime => {
@@ -149,6 +151,8 @@ export function GraphWrapper({
 	onSearchOpenInView,
 	onSelectionChange,
 	onDismissBanner,
+	onExcludeType,
+	onIncludeOnlyRef,
 }: GraphWrapperProps) {
 	const graphRef = useRef<GraphContainer>(null);
 
@@ -328,6 +332,13 @@ export function GraphWrapper({
 		return Object.values(excludeTypes).includes(true);
 	}, [excludeTypes]);
 
+	const isAllBranches = useMemo(() => {
+		if (includeOnlyRefsById == null) {
+			return true;
+		}
+		return Object.keys(includeOnlyRefsById).length === 0;
+	}, [includeOnlyRefsById]);
+
 	const handleSearchInput = (e: CustomEvent<SearchQuery>) => {
 		const detail = e.detail;
 		setSearchQuery(detail);
@@ -477,16 +488,23 @@ export function GraphWrapper({
 		const isLocalBranches = ['branch-all', 'branch-current'].includes(value);
 		if (!isLocalBranches && !['remotes', 'stashes', 'tags'].includes(value)) return;
 
-		const key = value;
+		const key = value as keyof GraphExcludeTypes;
 		const isChecked = $el.checked;
 
-		const currentFilter = excludeTypes?.[key as keyof GraphExcludeTypes];
+		const currentFilter = excludeTypes?.[key];
 		if ((currentFilter == null && isChecked) || (currentFilter != null && currentFilter !== isChecked)) {
 			setExcludeTypes({
 				...excludeTypes,
 				[key]: isChecked,
 			});
+			onExcludeType?.(key, isChecked);
 		}
+	};
+
+	const handleLocalBranchFiltering = (e: Event | FormEvent<HTMLElement>) => {
+		const $el = e.target as HTMLInputElement;
+		const isChecked = $el.checked;
+		onIncludeOnlyRef?.(!isChecked);
 	};
 
 	const handleMissingAvatars = (emails: GraphAvatars) => {
@@ -832,10 +850,21 @@ export function GraphWrapper({
 									<MenuLabel>Filter options</MenuLabel>
 									<MenuItem role="none">
 										<VSCodeRadioGroup orientation="vertical">
-											<VSCodeRadio value="branch-all" checked>
+											<VSCodeRadio
+												name="branching-toggle"
+												value="branch-all"
+												checked={isAllBranches}
+											>
 												Show All Local Branches
 											</VSCodeRadio>
-											<VSCodeRadio value="branch-current">Show Current Branch Only</VSCodeRadio>
+											<VSCodeRadio
+												name="branching-toggle"
+												value="branch-current"
+												checked={!isAllBranches}
+												onChange={handleLocalBranchFiltering}
+											>
+												Show Current Branch Only
+											</VSCodeRadio>
 										</VSCodeRadioGroup>
 									</MenuItem>
 									<MenuDivider></MenuDivider>

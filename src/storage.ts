@@ -191,9 +191,11 @@ export interface WorkspaceStorage {
 			dismissed?: Record<string, boolean>;
 		};
 		columns?: Record<string, StoredGraphColumn>;
+		// this should be excludeRefs, but we need to keep this name for backward compatibility
 		hiddenRefs?: Record<string, StoredGraphExcludedRef>;
 		includeOnlyRefs?: Record<string, StoredGraphIncludeOnlyRef>;
-		hiddenTypes?: Record<string, boolean>;
+		excludeTypes?: Record<string, boolean>;
+		filters: Record<string, StoredGraphFilters>;
 	};
 	remote: {
 		default?: string;
@@ -245,6 +247,13 @@ export interface StoredBranchComparisons {
 export interface StoredGraphColumn {
 	isHidden?: boolean;
 	width?: number;
+}
+
+export interface StoredGraphFilters {
+	includeOnlyRefs?: Record<string, StoredGraphIncludeOnlyRef>;
+	excludeTypes?: Record<string, boolean>;
+	// TODO migrate data here from hiddenRefs in the root graph storage
+	excludeRefs?: Record<string, StoredGraphExcludedRef>;
 }
 
 export type StoredGraphRefType = 'head' | 'remote' | 'tag';

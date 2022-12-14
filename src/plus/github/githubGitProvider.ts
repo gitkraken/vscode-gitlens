@@ -1125,12 +1125,14 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			useAvatars?: boolean;
 		},
 	): Promise<GitGraph> {
+		const branchMap = branch != null ? new Map([[branch.name, branch]]) : new Map<string, GitBranch>();
 		const remoteMap = remote != null ? new Map([[remote.name, remote]]) : new Map<string, GitRemote>();
 		if (log == null) {
 			return {
 				repoPath: repoPath,
 				avatars: avatars,
 				ids: ids,
+				branches: branchMap,
 				remotes: remoteMap,
 				rows: [],
 			};
@@ -1142,6 +1144,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				repoPath: repoPath,
 				avatars: avatars,
 				ids: ids,
+				branches: branchMap,
 				remotes: remoteMap,
 				rows: [],
 			};
@@ -1298,6 +1301,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			repoPath: repoPath,
 			avatars: avatars,
 			ids: ids,
+			branches: branchMap,
 			remotes: remoteMap,
 			rows: rows,
 			id: options?.ref,

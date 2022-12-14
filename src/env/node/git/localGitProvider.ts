@@ -1716,7 +1716,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						if (cursorIndex === -1) {
 							// If we didn't find any new commits, we must have them all so return that we have everything
 							if (size === data.length) {
-								return { repoPath: repoPath, avatars: avatars, ids: ids, remotes: remoteMap, rows: [] };
+								return {
+									repoPath: repoPath,
+									avatars: avatars,
+									ids: ids,
+									branches: branchMap,
+									remotes: remoteMap,
+									rows: [],
+								};
 							}
 
 							size = data.length;
@@ -1742,7 +1749,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					}
 				}
 
-				if (!data) return { repoPath: repoPath, avatars: avatars, ids: ids, remotes: remoteMap, rows: [] };
+				if (!data)
+					{return {
+						repoPath: repoPath,
+						avatars: avatars,
+						ids: ids,
+						branches: branchMap,
+						remotes: remoteMap,
+						rows: [],
+					};}
 
 				log = data;
 				if (limit !== 0) {
@@ -2056,6 +2071,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				avatars: avatars,
 				ids: ids,
 				skippedIds: skippedIds,
+				branches: branchMap,
 				remotes: remoteMap,
 				rows: rows,
 				id: sha,

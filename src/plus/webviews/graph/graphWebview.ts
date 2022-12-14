@@ -51,13 +51,13 @@ import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey } from '../../../git/search';
-import type { StoredGraphExcludedRef, StoredGraphIncludeOnlyRef } from '../../../storage';
+import type { StoredGraphExcludedRef, StoredGraphFilters, StoredGraphIncludeOnlyRef } from '../../../storage';
 import { executeActionCommand, executeCommand, executeCoreGitCommand, registerCommand } from '../../../system/command';
 import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce, disposableInterval, once } from '../../../system/function';
-import { last } from '../../../system/iterable';
+import { find, last } from '../../../system/iterable';
 import { updateRecordValue } from '../../../system/object';
 import { getSettledValue } from '../../../system/promise';
 import { isDarkTheme, isLightTheme } from '../../../system/utils';
@@ -102,6 +102,7 @@ import type {
 	SearchParams,
 	State,
 	UpdateColumnsParams,
+	UpdateExcludeTypeParams,
 	UpdateRefsVisibilityParams,
 	UpdateSelectedRepositoryParams,
 	UpdateSelectionParams
@@ -130,6 +131,8 @@ import {
 	SearchCommandType,
 	SearchOpenInViewCommandType,
 	UpdateColumnsCommandType,
+	UpdateExcludeTypeCommandType,
+	UpdateIncludeOnlyRefsCommandType,
 	UpdateRefsVisibilityCommandType,
 	UpdateSelectedRepositoryCommandType,
 	UpdateSelectionCommandType,
@@ -437,6 +440,14 @@ export class GraphWebview extends WebviewBase<State> {
 				break;
 			case UpdateSelectionCommandType.method:
 				onIpc(UpdateSelectionCommandType, e, this.onSelectionChanged.bind(this));
+				break;
+			case UpdateExcludeTypeCommandType.method:
+				onIpc(UpdateExcludeTypeCommandType, e, params => this.updateExcludedType(this._graph, params));
+				break;
+			case UpdateIncludeOnlyRefsCommandType.method:
+				onIpc(UpdateIncludeOnlyRefsCommandType, e, params =>
+					this.updateIncludeOnlyRefs(this._graph, params.refs),
+				);
 				break;
 		}
 	}
@@ -1273,42 +1284,61 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private getExcludedTypes(graph: GitGraph | undefined): GraphExcludeTypes | undefined {
-		// TODO: Uncomment these once we are actually updating the value in storage (UX is hooked up)
-		// if (graph == null) return undefined;
-		// return this.container.storage.getWorkspace('graph:excludeTypes');
+		if (graph == null) return undefined;
 
-		return {
-			heads: false,
-			remotes: true,
-			stashes: true,
-			tags: true,
-		};
+		return this.getRepoFilters(graph)?.excludeTypes;
 	}
 
 	private getExcludedRefs(graph: GitGraph | undefined): Record<string, GraphExcludedRef> | undefined {
+		// TODO: Migrate from graph:hiddenRefs to graph:filters[repoPath].excludeRefs
 		return this.filterExcludedRefs(this.container.storage.getWorkspace('graph:hiddenRefs'), graph);
 	}
 
 	private getIncludeOnlyRefs(graph: GitGraph | undefined): Record<string, GraphIncludeOnlyRef> | undefined {
-		// TODO: Uncomment this once we are actually updating the value in storage (UX is hooked up)
-		// return this.filterIncludeOnlyRefs(this.container.storage.getWorkspace('graph:includeOnlyRefs'), graph);
 		if (graph == null) return undefined;
 
-		if (Math.random() < 0.5) return {};
+		const storedFilters = this.getRepoFilters(graph);
+		const storedIncludeOnlyRefs = storedFilters?.includeOnlyRefs;
+		if (storedIncludeOnlyRefs == null || Object.keys(storedIncludeOnlyRefs).length === 0) return undefined;
 
-		return {
-			[getBranchId(graph.repoPath, false, 'main')]: {
-				id: getBranchId(graph.repoPath, false, 'main'),
-				name: 'main',
-				type: 'head',
-			},
-			[getBranchId(graph.repoPath, true, 'main')]: {
-				id: getBranchId(graph.repoPath, true, 'main'),
-				name: '*',
-				type: 'remote',
-				owner: 'origin',
-			},
-		};
+		const includeRemotes = !(storedFilters?.excludeTypes?.remotes ?? false);
+
+		const includeOnlyRefs: Record<string, StoredGraphIncludeOnlyRef> = {};
+
+		for (const [key, value] of Object.entries(storedIncludeOnlyRefs)) {
+			let branch;
+			if (value.id === 'HEAD') {
+				branch = find(graph.branches.values(), b => b.current);
+				if (branch == null) continue;
+
+				includeOnlyRefs[key] = { ...value, id: branch.id, name: branch.name };
+			} else {
+				includeOnlyRefs[key] = value;
+			}
+
+			// Add the upstream branches for any local branches if there are any and we aren't excluding them
+			if (includeRemotes && value.type === 'head') {
+				branch = branch ?? graph.branches.get(value.name);
+				if (branch?.upstream != null && !branch.upstream.missing) {
+					const id = getBranchId(graph.repoPath, true, branch.upstream.name);
+					includeOnlyRefs[id] = {
+						id: id,
+						type: 'remote',
+						name: getBranchNameWithoutRemote(branch.upstream.name),
+						owner: getRemoteNameFromBranchName(branch.upstream.name),
+					};
+				}
+			}
+		}
+
+		return includeOnlyRefs;
+	}
+
+	private getRepoFilters(graph: GitGraph | undefined): StoredGraphFilters | undefined {
+		if (graph == null) return undefined;
+
+		const filters = this.container.storage.getWorkspace('graph:filters');
+		return filters?.[graph.repoPath];
 	}
 
 	private filterExcludedRefs(
@@ -1597,38 +1627,58 @@ export class GraphWebview extends WebviewBase<State> {
 		void this.notifyDidChangeRefsVisibility();
 	}
 
-	private updateIncludeOnlyRefs(refs: GraphIncludeOnlyRef[], include: boolean) {
-		let storedIncludeOnlyRefs = this.container.storage.getWorkspace('graph:includeOnlyRefs');
-		for (const ref of refs) {
-			storedIncludeOnlyRefs = updateRecordValue(
-				storedIncludeOnlyRefs,
-				ref.id,
-				!include ? undefined : { id: ref.id, type: ref.type, name: ref.name, owner: ref.owner },
-			);
+	private updateRepoFilters(graph: GitGraph | undefined, filters: StoredGraphFilters) {
+		if (graph == null) throw new Error('Cannot save repository filters since Graph is undefined');
+
+		const filtersByRepo = this.container.storage.getWorkspace('graph:filters');
+		return this.container.storage.storeWorkspace(
+			'graph:filters',
+			updateRecordValue(filtersByRepo, graph.repoPath, filters),
+		);
+	}
+
+	private updateIncludeOnlyRefs(graph: GitGraph | undefined, refs: GraphIncludeOnlyRef[] | undefined) {
+		let storedFilters = this.getRepoFilters(graph);
+		if (refs == null || refs.length === 0) {
+			if (storedFilters?.includeOnlyRefs == null) return;
+
+			storedFilters.includeOnlyRefs = undefined;
+		} else {
+			if (storedFilters == null) {
+				storedFilters = {};
+			}
+
+			let storedIncludeOnlyRefs = storedFilters.includeOnlyRefs ?? {};
+			for (const ref of refs) {
+				storedIncludeOnlyRefs = updateRecordValue(storedIncludeOnlyRefs, ref.id, {
+					id: ref.id,
+					type: ref.type,
+					name: ref.name,
+					owner: ref.owner,
+				});
+			}
+
+			storedFilters.includeOnlyRefs = storedIncludeOnlyRefs;
 		}
 
-		void this.container.storage.storeWorkspace('graph:includeOnlyRefs', storedIncludeOnlyRefs);
+		void this.updateRepoFilters(graph, storedFilters);
 		void this.notifyDidChangeRefsVisibility();
 	}
 
-	private updateExcludedTypes(types: GraphExcludeTypes) {
-		let storedExcludedTypes = this.container.storage.getWorkspace('graph:hiddenTypes');
-		for (const [key, value] of Object.entries(types)) {
-			storedExcludedTypes = updateRecordValue(storedExcludedTypes, key, value);
+	private updateExcludedType(graph: GitGraph | undefined, { key, value }: UpdateExcludeTypeParams) {
+		let storedFilters = this.getRepoFilters(graph);
+
+		const storedExcludedTypes = storedFilters?.excludeTypes;
+		if ((storedExcludedTypes == null || Object.keys(storedExcludedTypes).length === 0) && value === false) {
+			return;
 		}
 
-		void this.container.storage.storeWorkspace('graph:hiddenTypes', storedExcludedTypes);
-		void this.notifyDidChangeRefsVisibility();
-	}
-
-	private toggleExcludedTypes(types: string[]) {
-		let storedExcludedTypes = this.container.storage.getWorkspace('graph:hiddenTypes');
-		for (const type of types) {
-			const storedValue = storedExcludedTypes?.[type];
-			storedExcludedTypes = updateRecordValue(storedExcludedTypes, type, storedValue ? !storedValue : true);
+		if (storedFilters == null) {
+			storedFilters = {};
 		}
+		storedFilters.excludeTypes = updateRecordValue(storedExcludedTypes, key, value);
 
-		void this.container.storage.storeWorkspace('graph:hiddenTypes', storedExcludedTypes);
+		void this.updateRepoFilters(graph, storedFilters);
 		void this.notifyDidChangeRefsVisibility();
 	}
 

@@ -143,6 +143,11 @@ export interface DismissBannerParams {
 }
 export const DismissBannerCommandType = new IpcCommandType<DismissBannerParams>('graph/dismissBanner');
 
+export interface DoubleClickedRefParams {
+	ref: GraphRef;
+}
+export const DoubleClickedRefCommandType = new IpcCommandType<DoubleClickedRefParams>('graph/ref/doubleclick');
+
 export interface EnsureRowParams {
 	id: string;
 	select?: boolean;
@@ -191,10 +196,20 @@ export const UpdateRefsVisibilityCommandType = new IpcCommandType<UpdateRefsVisi
 	'graph/refs/update/visibility',
 );
 
-export interface DoubleClickedRefParams {
-	ref: GraphRef;
+export interface UpdateExcludeTypeParams {
+	key: keyof GraphExcludeTypes;
+	value: boolean;
 }
-export const DoubleClickedRefCommandType = new IpcCommandType<DoubleClickedRefParams>('graph/ref/doubleclick');
+export const UpdateExcludeTypeCommandType = new IpcCommandType<UpdateExcludeTypeParams>(
+	'graph/fitlers/update/excludeType',
+);
+
+export interface UpdateIncludeOnlyRefsParams {
+	refs?: GraphIncludeOnlyRef[];
+}
+export const UpdateIncludeOnlyRefsCommandType = new IpcCommandType<UpdateIncludeOnlyRefsParams>(
+	'graph/fitlers/update/includeOnlyRefs',
+);
 
 export interface UpdateSelectedRepositoryParams {
 	path: string;
