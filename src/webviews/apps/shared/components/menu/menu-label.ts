@@ -11,12 +11,15 @@ const styles = css`
 	${elementBase}
 
 	:host {
+		display: block;
 		text-transform: uppercase;
 		font-size: 0.84em;
 		line-height: 2.2rem;
 		padding-left: 0.6rem;
 		padding-right: 0.6rem;
 		margin: 0px;
+		color: var(--vscode-menu-foreground);
+		opacity: 0.6;
 	}
 `;
 

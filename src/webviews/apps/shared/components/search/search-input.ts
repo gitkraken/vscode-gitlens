@@ -344,6 +344,7 @@ const styles = css`
 		padding-left: 0.6rem;
 		padding-right: 0.6rem;
 		margin: 0;
+		opacity: 0.6;
 	}
 
 	.helper-button {
