@@ -10,7 +10,8 @@ import type {
 	GraphRow,
 	OnFormatCommitDateTime,
 } from '@gitkraken/gitkraken-components';
-import type { ReactElement } from 'react';
+import { VSCodeCheckbox, VSCodeRadio, VSCodeRadioGroup } from '@vscode/webview-ui-toolkit/react';
+import type { FormEvent, ReactElement } from 'react';
 import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
 import { DateStyle } from '../../../../config';
@@ -25,6 +26,7 @@ import type {
 	GraphColumnsConfig,
 	GraphComponentConfig,
 	GraphExcludedRef,
+	GraphExcludeTypes,
 	GraphMissingRefsMetadata,
 	GraphRepository,
 	GraphSearchResults,
@@ -50,7 +52,7 @@ import type { Subscription } from '../../../../subscription';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../subscription';
 import { pluralize } from '../../../../system/string';
 import type { IpcNotificationType } from '../../../../webviews/protocol';
-import { MenuItem, MenuList } from '../../shared/components/menu/react';
+import { MenuDivider, MenuItem, MenuLabel, MenuList } from '../../shared/components/menu/react';
 import { PopMenu } from '../../shared/components/overlays/pop-menu/react';
 import { PopOver } from '../../shared/components/overlays/react';
 import { SearchBox } from '../../shared/components/search/react';
@@ -318,6 +320,14 @@ export function GraphWrapper({
 		return searchIndex < 1 ? 1 : searchIndex + 1;
 	}, [activeRow, searchResults]);
 
+	const hasFilters = useMemo(() => {
+		if (excludeTypes == null) {
+			return false;
+		}
+
+		return Object.values(excludeTypes).includes(true);
+	}, [excludeTypes]);
+
 	const handleSearchInput = (e: CustomEvent<SearchQuery>) => {
 		const detail = e.detail;
 		setSearchQuery(detail);
@@ -457,6 +467,25 @@ export function GraphWrapper({
 		if (item != null && item !== repo) {
 			setIsLoading(true);
 			onSelectRepository?.(item);
+		}
+	};
+
+	const handleExcludeTypeChange = (e: Event | FormEvent<HTMLElement>) => {
+		const $el = e.target as HTMLInputElement;
+
+		const value = $el.value;
+		const isLocalBranches = ['branch-all', 'branch-current'].includes(value);
+		if (!isLocalBranches && !['remotes', 'stashes', 'tags'].includes(value)) return;
+
+		const key = value;
+		const isChecked = $el.checked;
+
+		const currentFilter = excludeTypes?.[key as keyof GraphExcludeTypes];
+		if ((currentFilter == null && isChecked) || (currentFilter != null && currentFilter !== isChecked)) {
+			setExcludeTypes({
+				...excludeTypes,
+				[key]: isChecked,
+			});
 		}
 	};
 
@@ -790,17 +819,58 @@ export function GraphWrapper({
 				{isAccessAllowed && (
 					<div className="titlebar__row">
 						<div className="titlebar__group">
-							{/* <span className="action-button">
-								<span className="codicon codicon-filter"></span>
-								<span className="action-button__indicator"></span>
-								<span
-									className="codicon codicon-chevron-down action-button__more"
-									aria-hidden="true"
-								></span>
-							</span>
+							<PopMenu>
+								<button type="button" className="action-button" slot="trigger">
+									<span className="codicon codicon-filter"></span>
+									{hasFilters && <span className="action-button__indicator"></span>}
+									<span
+										className="codicon codicon-chevron-down action-button__more"
+										aria-hidden="true"
+									></span>
+								</button>
+								<MenuList slot="content">
+									<MenuLabel>Filter options</MenuLabel>
+									<MenuItem role="none">
+										<VSCodeRadioGroup orientation="vertical">
+											<VSCodeRadio value="branch-all" checked>
+												Show All Local Branches
+											</VSCodeRadio>
+											<VSCodeRadio value="branch-current">Show Current Branch Only</VSCodeRadio>
+										</VSCodeRadioGroup>
+									</MenuItem>
+									<MenuDivider></MenuDivider>
+									<MenuItem role="none">
+										<VSCodeCheckbox
+											value="remotes"
+											onChange={handleExcludeTypeChange}
+											defaultChecked={excludeTypes?.remotes ?? false}
+										>
+											Hide Remote Branches
+										</VSCodeCheckbox>
+									</MenuItem>
+									<MenuItem role="none">
+										<VSCodeCheckbox
+											value="stashes"
+											onChange={handleExcludeTypeChange}
+											defaultChecked={excludeTypes?.stashes ?? false}
+										>
+											Hide Stashes
+										</VSCodeCheckbox>
+									</MenuItem>
+									<MenuItem role="none">
+										<VSCodeCheckbox
+											value="tags"
+											onChange={handleExcludeTypeChange}
+											defaultChecked={excludeTypes?.tags ?? false}
+										>
+											Hide Tags
+										</VSCodeCheckbox>
+									</MenuItem>
+								</MenuList>
+							</PopMenu>
 							<span>
 								<span className="action-divider"></span>
-							</span> */}
+							</span>
 							<SearchBox
 								ref={searchEl}
 								step={searchPosition}
