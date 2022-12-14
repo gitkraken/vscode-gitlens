@@ -57,7 +57,7 @@ export class PopMenu extends FASTElement {
 		return this.contentNodes![0];
 	}
 
-	isTrackingOutside = false;
+	private isTrackingOutside = false;
 
 	override connectedCallback() {
 		super.connectedCallback();
@@ -71,7 +71,9 @@ export class PopMenu extends FASTElement {
 		this.disposeTrackOutside();
 	}
 
-	handleToggle() {
+	handleToggle(e: MouseEvent) {
+		if (!e.composedPath().includes(this.triggerNode!)) return;
+
 		this.open = !this.open;
 		this.updateToggle();
 	}

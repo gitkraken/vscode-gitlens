@@ -1,8 +1,8 @@
-import { attr, css, customElement, FASTElement, html } from '@microsoft/fast-element';
+import { attr, css, customElement, FASTElement, html, volatile } from '@microsoft/fast-element';
 import { elementBase } from '../styles/base';
 
 const template = html<MenuItem>`
-	<template role="option" tabindex="${x => (x.disabled ? '-1' : '0')}" ?disabled="${x => x.disabled}">
+	<template tabindex="${x => (x.isInteractive ? '0' : null)}" ?disabled="${x => x.disabled}">
 		<slot></slot>
 	</template>
 `;
@@ -11,6 +11,7 @@ const styles = css`
 	${elementBase}
 
 	:host {
+		display: block;
 		font-family: inherit;
 		border: none;
 		padding: 0 0.6rem;
@@ -18,13 +19,11 @@ const styles = css`
 		color: var(--vscode-menu-foreground);
 		background-color: var(--vscode-menu-background);
 		text-align: left;
-		display: flex;
-		align-items: center;
 		height: auto;
 		line-height: 2.2rem;
 	}
 
-	:host(:hover) {
+	:host([role='option']:hover) {
 		color: var(--vscode-menu-selectionForeground);
 		background-color: var(--vscode-menu-selectionBackground);
 	}
@@ -46,4 +45,16 @@ const styles = css`
 export class MenuItem extends FASTElement {
 	@attr({ mode: 'boolean' })
 	disabled = false;
+
+	@attr
+	override role: ARIAMixin['role'] = 'option';
+
+	@volatile
+	get isInteractive() {
+		if (this.disabled) {
+			return false;
+		}
+
+		return this.role === 'option';
+	}
 }
