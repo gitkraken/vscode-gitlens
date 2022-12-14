@@ -101,7 +101,8 @@ import type {
 	UpdateColumnsParams,
 	UpdateRefsVisibilityParams,
 	UpdateSelectedRepositoryParams,
-	UpdateSelectionParams} from './protocol';
+	UpdateSelectionParams
+} from './protocol';
 import {
 	DidChangeAvatarsNotificationType,
 	DidChangeColumnsNotificationType,

@@ -252,7 +252,7 @@ export const DidChangeColumnsNotificationType = new IpcNotificationType<DidChang
 export interface DidChangeWindowFocusParams {
 	focused: boolean;
 }
-export const DidChangeWindowFocusNotificationType= new IpcNotificationType<DidChangeWindowFocusParams>(
+export const DidChangeWindowFocusNotificationType = new IpcNotificationType<DidChangeWindowFocusParams>(
 	'graph/window/focus/didChange',
 	true,
 );
