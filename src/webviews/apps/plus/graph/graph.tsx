@@ -171,6 +171,7 @@ export class GraphApp extends App<State> {
 			case DidChangeRefsVisibilityNotificationType.method:
 				onIpc(DidChangeRefsVisibilityNotificationType, msg, (params, type) => {
 					this.state.excludeRefs = params.excludeRefs;
+					this.state.excludeTypes = params.excludeTypes;
 					this.state.includeOnlyRefs = params.includeOnlyRefs;
 					this.setState(this.state, type);
 				});

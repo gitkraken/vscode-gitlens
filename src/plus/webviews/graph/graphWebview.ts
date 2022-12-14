@@ -51,7 +51,7 @@ import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey } from '../../../git/search';
-import type { StoredGraphExcludedRef } from '../../../storage';
+import type { StoredGraphExcludedRef, StoredGraphIncludeOnlyRef } from '../../../storage';
 import { executeActionCommand, executeCommand, executeCoreGitCommand, registerCommand } from '../../../system/command';
 import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
@@ -91,6 +91,7 @@ import type {
 	GraphExcludeTypes,
 	GraphHostingServiceType,
 	GraphIncludeOnlyRef,
+	GraphIncludeOnlyRefs,
 	GraphMissingRefsMetadataType,
 	GraphPullRequestMetadata,
 	GraphRefMetadata,
@@ -1031,6 +1032,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 		return this.notify(DidChangeRefsVisibilityNotificationType, {
 			excludeRefs: this.getExcludedRefs(this._graph),
+			excludeTypes: this.getExcludedTypes(this._graph),
 			includeOnlyRefs: this.getIncludeOnlyRefs(this._graph),
 		});
 	}
@@ -1271,7 +1273,9 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private getExcludedTypes(graph: GitGraph | undefined): GraphExcludeTypes | undefined {
+		// TODO: Uncomment these once we are actually updating the value in storage (UX is hooked up)
 		// if (graph == null) return undefined;
+		// return this.container.storage.getWorkspace('graph:excludeTypes');
 
 		return {
 			heads: true,
@@ -1286,6 +1290,8 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private getIncludeOnlyRefs(graph: GitGraph | undefined): Record<string, GraphIncludeOnlyRef> | undefined {
+		// TODO: Uncomment this once we are actually updating the value in storage (UX is hooked up)
+		// return this.filterIncludeOnlyRefs(this.container.storage.getWorkspace('graph:includeOnlyRefs'), graph);
 		if (graph == null) return undefined;
 
 		if (Math.random() < 0.5) return {};
@@ -1364,6 +1370,36 @@ export class GraphWebview extends WebviewBase<State> {
 
 		// For v13, we return directly the hidden refs without validating them
 		// return excludeRefs;
+	}
+
+	// TODO: Use this in getIncludeOnlyRefs once we are actually updating the value in storage (UX is hooked up)
+	private filterIncludeOnlyRefs(
+		includeOnlyRefs: Record<string, StoredGraphIncludeOnlyRef> | undefined,
+		graph: GitGraph | undefined,
+	): GraphIncludeOnlyRefs | undefined {
+		if (includeOnlyRefs == null || graph == null) return undefined;
+
+		const useAvatars = configuration.get('graph.avatars', undefined, true);
+
+		const filteredRefs: GraphIncludeOnlyRefs = {};
+
+		for (const id in includeOnlyRefs) {
+			if (getRepoPathFromBranchOrTagId(id) === graph.repoPath) {
+				const ref: GraphIncludeOnlyRef = { ...includeOnlyRefs[id] };
+				if (ref.type === 'remote' && ref.owner) {
+					const remote = graph.remotes.get(ref.owner);
+					if (remote != null) {
+						ref.avatarUrl = (
+							(useAvatars ? remote.provider?.avatarUri : undefined) ??
+							getRemoteIconUri(this.container, remote, this._panel!.webview.asWebviewUri.bind(this))
+						)?.toString(true);
+					}
+				}
+				filteredRefs[id] = ref;
+			}
+		}
+
+		return filteredRefs;
 	}
 
 	private getColumnSettings(columns: Record<GraphColumnName, GraphColumnConfig> | undefined): GraphColumnsSettings {
@@ -1558,6 +1594,42 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		void this.container.storage.storeWorkspace('graph:hiddenRefs', storedExcludedRefs);
+		void this.notifyDidChangeRefsVisibility();
+	}
+
+
+	private updateIncludeOnlyRefs(refs: GraphIncludeOnlyRef[], include: boolean) {
+		let storedIncludeOnlyRefs = this.container.storage.getWorkspace('graph:includeOnlyRefs');
+		for (const ref of refs) {
+			storedIncludeOnlyRefs = updateRecordValue(
+				storedIncludeOnlyRefs,
+				ref.id,
+				!include ? undefined : { id: ref.id, type: ref.type, name: ref.name, owner: ref.owner },
+			);
+		}
+
+		void this.container.storage.storeWorkspace('graph:includeOnlyRefs', storedIncludeOnlyRefs);
+		void this.notifyDidChangeRefsVisibility();
+	}
+
+	private updateExcludedTypes(types: GraphExcludeTypes) {
+		let storedExcludedTypes = this.container.storage.getWorkspace('graph:hiddenTypes');
+		for (const [key, value] of Object.entries(types)) {
+			storedExcludedTypes = updateRecordValue(storedExcludedTypes, key, value);
+		}
+
+		void this.container.storage.storeWorkspace('graph:hiddenTypes', storedExcludedTypes);
+		void this.notifyDidChangeRefsVisibility();
+	}
+
+	private toggleExcludedTypes(types: string[]) {
+		let storedExcludedTypes = this.container.storage.getWorkspace('graph:hiddenTypes');
+		for (const type of types) {
+			const storedValue = storedExcludedTypes?.[type];
+			storedExcludedTypes = updateRecordValue(storedExcludedTypes, type, storedValue ? !storedValue : true);
+		}
+
+		void this.container.storage.storeWorkspace('graph:hiddenTypes', storedExcludedTypes);
 		void this.notifyDidChangeRefsVisibility();
 	}
 
