@@ -1385,7 +1385,7 @@ export class GraphWebview extends WebviewBase<State> {
 				branch = find(graph.branches.values(), b => b.current);
 				if (branch == null) continue;
 
-				includeOnlyRefs[key] = { ...value, id: branch.id, name: branch.name };
+				includeOnlyRefs[branch.id] = { ...value, id: branch.id, name: branch.name };
 			} else {
 				includeOnlyRefs[key] = value;
 			}
