@@ -101,7 +101,7 @@ import type {
 	UpdateColumnsParams,
 	UpdateRefsVisibilityParams,
 	UpdateSelectedRepositoryParams,
-	UpdateSelectionParams,
+	UpdateSelectionParams
 } from './protocol';
 import {
 	DidChangeAvatarsNotificationType,
@@ -113,6 +113,7 @@ import {
 	DidChangeRowsNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
+	DidChangeWindowFocusNotificationType,
 	DidChangeWorkingTreeNotificationType,
 	DidEnsureRowNotificationType,
 	DidFetchNotificationType,
@@ -201,6 +202,7 @@ export class GraphWebview extends WebviewBase<State> {
 	private _lastFetchedDisposable: Disposable | undefined;
 
 	private trialBanner?: boolean;
+	private isWindowFocused: boolean = true;
 
 	constructor(container: Container) {
 		super(
@@ -254,6 +256,11 @@ export class GraphWebview extends WebviewBase<State> {
 				},
 			),
 		);
+	}
+
+	protected override onWindowFocusChanged(focused: boolean): void {
+		this.isWindowFocused = focused;
+		void this.notifyDidChangeWindowFocus();
 	}
 
 	protected override get options(): WebviewPanelOptions & WebviewOptions {
@@ -936,6 +943,18 @@ export class GraphWebview extends WebviewBase<State> {
 		void this._notifyDidChangeStateDebounced();
 	}
 
+	@debug()
+	private async notifyDidChangeWindowFocus(): Promise<boolean> {
+		if (!this.isReady || !this.visible) {
+			this.addPendingIpcNotification(DidChangeWindowFocusNotificationType);
+			return false;
+		}
+
+		return this.notify(DidChangeWindowFocusNotificationType, {
+			focused: this.isWindowFocused,
+		});
+	}
+
 	private _notifyDidChangeAvatarsDebounced: Deferrable<GraphWebview['notifyDidChangeAvatars']> | undefined =
 		undefined;
 
@@ -1135,6 +1154,7 @@ export class GraphWebview extends WebviewBase<State> {
 		[DidChangeSelectionNotificationType, this.notifyDidChangeSelection],
 		[DidChangeSubscriptionNotificationType, this.notifyDidChangeSubscription],
 		[DidChangeWorkingTreeNotificationType, this.notifyDidChangeWorkingTree],
+		[DidChangeWindowFocusNotificationType, this.notifyDidChangeWindowFocus],
 	]);
 
 	private addPendingIpcNotification(type: IpcNotificationType<any>, msg?: IpcMessage) {
@@ -1450,6 +1470,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const branch = await this.repository.getBranch();
 
 		return {
+			windowFocused: this.isWindowFocused,
 			trialBanner: this.trialBanner,
 			repositories: formatRepositories(this.container.git.openRepositories),
 			selectedRepository: this.repository.path,

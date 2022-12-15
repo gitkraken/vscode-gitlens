@@ -4,6 +4,7 @@ import type {
 	WebviewPanel,
 	WebviewPanelOnDidChangeViewStateEvent,
 	WebviewPanelOptions,
+	WindowState,
 } from 'vscode';
 import { Disposable, Uri, ViewColumn, window, workspace } from 'vscode';
 import { getNonce } from '@env/crypto';
@@ -117,6 +118,7 @@ export abstract class WebviewBase<State> implements Disposable {
 				this._panel.webview.onDidReceiveMessage(this.onMessageReceivedCore, this),
 				...(this.onInitializing?.() ?? []),
 				...(this.registerCommands?.() ?? []),
+				window.onDidChangeWindowState(this.onWindowStateChanged, this),
 			);
 
 			this._panel.webview.html = await this.getHtml(this._panel.webview);
@@ -137,6 +139,7 @@ export abstract class WebviewBase<State> implements Disposable {
 	protected onActiveChanged?(active: boolean): void;
 	protected onFocusChanged?(focused: boolean): void;
 	protected onVisibilityChanged?(visible: boolean): void;
+	protected onWindowFocusChanged?(focused: boolean): void;
 
 	protected registerCommands?(): Disposable[];
 
@@ -144,6 +147,12 @@ export abstract class WebviewBase<State> implements Disposable {
 	protected includeHead?(): string | Promise<string>;
 	protected includeBody?(): string | Promise<string>;
 	protected includeEndOfBody?(): string | Promise<string>;
+
+	private onWindowStateChanged(e: WindowState) {
+		if (!this.visible) return;
+
+		this.onWindowFocusChanged?.(e.focused);
+	}
 
 	@debug()
 	protected async refresh(force?: boolean): Promise<void> {

@@ -38,6 +38,7 @@ export type GraphMissingRefsMetadata = Record</*id*/ string, /*missingType*/ Gra
 export type GraphPullRequestMetadata = PullRequestMetadata;
 
 export interface State {
+	windowFocused?: boolean,
 	repositories?: GraphRepository[];
 	selectedRepository?: string;
 	selectedRepositoryVisibility?: RepositoryVisibility;
@@ -245,6 +246,14 @@ export interface DidChangeColumnsParams {
 }
 export const DidChangeColumnsNotificationType = new IpcNotificationType<DidChangeColumnsParams>(
 	'graph/columns/didChange',
+	true,
+);
+
+export interface DidChangeWindowFocusParams {
+	focused: boolean;
+}
+export const DidChangeWindowFocusNotificationType = new IpcNotificationType<DidChangeWindowFocusParams>(
+	'graph/window/focus/didChange',
 	true,
 );
 
