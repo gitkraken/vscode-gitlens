@@ -505,10 +505,16 @@ export function GraphWrapper({
 		}
 	};
 
+	// This can only be applied to one radio button for now due to a bug in the component: https://github.com/microsoft/fast/issues/6381
 	const handleLocalBranchFiltering = (e: Event | FormEvent<HTMLElement>) => {
 		const $el = e.target as HTMLInputElement;
+		const value = $el.value;
 		const isChecked = $el.checked;
-		onIncludeOnlyRef?.(!isChecked);
+		const wantsAllBranches = value === 'branch-all' && isChecked;
+		if (isAllBranches === wantsAllBranches) {
+			return;
+		}
+		onIncludeOnlyRef?.(wantsAllBranches);
 	};
 
 	const handleMissingAvatars = (emails: GraphAvatars) => {
@@ -853,20 +859,18 @@ export function GraphWrapper({
 								<MenuList slot="content">
 									<MenuLabel>Filter options</MenuLabel>
 									<MenuItem role="none">
-										<VSCodeRadioGroup orientation="vertical">
+										<VSCodeRadioGroup
+											orientation="vertical"
+											value={isAllBranches ? 'branch-all' : 'branch-current'}
+										>
 											<VSCodeRadio
 												name="branching-toggle"
 												value="branch-all"
-												checked={isAllBranches}
+												onChange={handleLocalBranchFiltering}
 											>
 												Show All Local Branches
 											</VSCodeRadio>
-											<VSCodeRadio
-												name="branching-toggle"
-												value="branch-current"
-												checked={!isAllBranches}
-												onChange={handleLocalBranchFiltering}
-											>
+											<VSCodeRadio name="branching-toggle" value="branch-current">
 												Show Current Branch Only
 											</VSCodeRadio>
 										</VSCodeRadioGroup>
