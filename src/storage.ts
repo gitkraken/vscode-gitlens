@@ -12,14 +12,14 @@ export type StorageChangeEvent =
 			/**
 			 * The key of the stored value that has changed.
 			 */
-			readonly key: GlobalStoragePath;
+			readonly key: keyof (GlobalStorage & DeprecatedGlobalStorage);
 			readonly workspace: false;
 	  }
 	| {
 			/**
 			 * The key of the stored value that has changed.
 			 */
-			readonly key: WorkspaceStoragePath;
+			readonly key: keyof (WorkspaceStorage & DeprecatedWorkspaceStorage);
 			readonly workspace: true;
 	  };
 
@@ -43,27 +43,23 @@ export class Storage implements Disposable {
 		this._disposable.dispose();
 	}
 
-	get<T extends GlobalStoragePath>(key: T): GlobalStoragePathValue<T>;
-	get<T extends GlobalStoragePath>(
-		key: T,
-		defaultValue: NonNullable<GlobalStoragePathValue<T>>,
-	): NonNullable<GlobalStoragePathValue<T>>;
+	get<T extends keyof GlobalStorage>(key: T): GlobalStorage[T] | undefined;
+	/** @deprecated */
+	get<T extends keyof DeprecatedGlobalStorage>(key: T): DeprecatedGlobalStorage[T] | undefined;
+	get<T extends keyof GlobalStorage>(key: T, defaultValue: GlobalStorage[T]): GlobalStorage[T];
 	@debug({ logThreshold: 50 })
-	get<T extends GlobalStoragePath>(
-		key: T,
-		defaultValue?: GlobalStoragePathValue<T>,
-	): GlobalStoragePathValue<T> | undefined {
+	get(key: keyof (GlobalStorage & DeprecatedGlobalStorage), defaultValue?: unknown): unknown | undefined {
 		return this.context.globalState.get(`gitlens:${key}`, defaultValue);
 	}
 
 	@debug({ logThreshold: 250 })
-	async delete<T extends GlobalStoragePath>(key: T): Promise<void> {
+	async delete(key: keyof (GlobalStorage & DeprecatedGlobalStorage)): Promise<void> {
 		await this.context.globalState.update(`gitlens:${key}`, undefined);
 		this._onDidChange.fire({ key: key, workspace: false });
 	}
 
 	@debug({ args: { 1: false }, logThreshold: 250 })
-	async store<T extends GlobalStoragePath>(key: T, value: GlobalStoragePathValue<T>): Promise<void> {
+	async store<T extends keyof GlobalStorage>(key: T, value: GlobalStorage[T] | undefined): Promise<void> {
 		await this.context.globalState.update(`gitlens:${key}`, value);
 		this._onDidChange.fire({ key: key, workspace: false });
 	}
@@ -83,27 +79,26 @@ export class Storage implements Disposable {
 		return this.context.secrets.store(key, value);
 	}
 
-	getWorkspace<T extends WorkspaceStoragePath>(key: T): WorkspaceStoragePathValue<T>;
-	getWorkspace<T extends WorkspaceStoragePath>(
-		key: T,
-		defaultValue: NonNullable<WorkspaceStoragePathValue<T>>,
-	): NonNullable<WorkspaceStoragePathValue<T>>;
+	getWorkspace<T extends keyof WorkspaceStorage>(key: T): WorkspaceStorage[T] | undefined;
+	/** @deprecated */
+	getWorkspace<T extends keyof DeprecatedWorkspaceStorage>(key: T): DeprecatedWorkspaceStorage[T] | undefined;
+	getWorkspace<T extends keyof WorkspaceStorage>(key: T, defaultValue: WorkspaceStorage[T]): WorkspaceStorage[T];
 	@debug({ logThreshold: 25 })
-	getWorkspace<T extends WorkspaceStoragePath>(
-		key: T,
-		defaultValue?: WorkspaceStoragePathValue<T>,
-	): WorkspaceStoragePathValue<T> | undefined {
+	getWorkspace(
+		key: keyof (WorkspaceStorage & DeprecatedWorkspaceStorage),
+		defaultValue?: unknown,
+	): unknown | undefined {
 		return this.context.workspaceState.get(`gitlens:${key}`, defaultValue);
 	}
 
 	@debug({ logThreshold: 250 })
-	async deleteWorkspace<T extends WorkspaceStoragePath>(key: T): Promise<void> {
+	async deleteWorkspace(key: keyof (WorkspaceStorage & DeprecatedWorkspaceStorage)): Promise<void> {
 		await this.context.workspaceState.update(`gitlens:${key}`, undefined);
 		this._onDidChange.fire({ key: key, workspace: true });
 	}
 
 	@debug({ args: { 1: false }, logThreshold: 250 })
-	async storeWorkspace<T extends WorkspaceStoragePath>(key: T, value: WorkspaceStoragePathValue<T>): Promise<void> {
+	async storeWorkspace(key: keyof WorkspaceStorage, value: unknown | undefined): Promise<void> {
 		await this.context.workspaceState.update(`gitlens:${key}`, value);
 		this._onDidChange.fire({ key: key, workspace: true });
 	}
@@ -111,117 +106,65 @@ export class Storage implements Disposable {
 
 export type SecretKeys = string;
 
-export const enum DeprecatedStorageKeys {
-	/** @deprecated */
-	DisallowConnectionPrefix = 'gitlens:disallow:connection:',
-}
-
 export const enum SyncedStorageKeys {
 	Version = 'gitlens:synced:version',
 	PreReleaseVersion = 'gitlens:synced:preVersion',
 	HomeViewWelcomeVisible = 'gitlens:views:welcome:visible',
 }
 
-export interface GlobalStorage {
-	avatars?: [string, StoredAvatar][];
-	provider: {
-		authentication: {
-			skip: Record<string, boolean>;
-		};
-	};
-	home: {
-		actions: {
-			completed?: CompletedActions[];
-		};
-		steps: {
-			completed?: string[];
-		};
-		sections: {
-			dismissed?: string[];
-		};
-		status: {
-			pinned?: boolean;
-		};
-		banners: {
-			dismissed?: string[];
-		};
-	};
-	pendingWelcomeOnFocus?: boolean;
-	pendingWhatsNewOnFocus?: boolean;
-	plus: {
-		migratedAuthentication?: boolean;
-		discountNotificationShown?: boolean;
-	};
+export type DeprecatedGlobalStorage = {
+	/** @deprecated */
+	[key in `disallow:connection:${string}`]: any;
+};
+
+export type GlobalStorage = {
+	avatars: [string, StoredAvatar][];
+	'home:actions:completed': CompletedActions[];
+	'home:steps:completed': string[];
+	'home:sections:dismissed': string[];
+	'home:status:pinned': boolean;
+	'home:banners:dismissed': string[];
+	pendingWelcomeOnFocus: boolean;
+	pendingWhatsNewOnFocus: boolean;
+	'plus:migratedAuthentication': boolean;
+	'plus:discountNotificationShown': boolean;
 	// Don't change this key name ('premium`) as its the stored subscription
-	premium: {
-		subscription?: Stored<Subscription>;
-	};
-	synced: {
-		version?: string;
-		// Keep the pre-release version separate from the released version
-		preVersion?: string;
-	};
-	usages?: Record<TrackedUsageKeys, TrackedUsage>;
-	version?: string;
+	'premium:subscription': Stored<Subscription>;
+	'synced:version': string;
 	// Keep the pre-release version separate from the released version
-	preVersion?: string;
-	views: {
-		layout?: StoredViewsLayout;
-		welcome: {
-			visible?: boolean;
-		};
-		commitDetails: {
-			dismissed?: string[];
-		};
-	};
-}
+	'synced:preVersion': string;
+	usages: Record<TrackedUsageKeys, TrackedUsage>;
+	version: string;
+	// Keep the pre-release version separate from the released version
+	preVersion: string;
+	'views:layout': StoredViewsLayout;
+	'views:welcome:visible': boolean;
+	'views:commitDetails:dismissed': string[];
+} & { [key in `provider:authentication:skip:${string}`]: boolean };
 
-export interface WorkspaceStorage {
+export type DeprecatedWorkspaceStorage = {
+	/** @deprecated use `graph:filtersByRepo.excludeRefs` */
+	'graph:hiddenRefs': Record<string, StoredGraphExcludedRef>;
+	/** @deprecated use `views:searchAndCompare:pinned` */
+	'pinned:comparisons': Record<string, DeprecatedPinnedComparison>;
+};
+
+export type WorkspaceStorage = {
 	assumeRepositoriesOnStartup?: boolean;
-	branch: {
-		comparisons?: StoredBranchComparisons;
-	};
-	connected: Record<string, boolean>;
-	gitComandPalette: {
-		usage?: RecentUsage;
-	};
-	gitPath?: string;
-	graph: {
-		banners: {
-			dismissed?: Record<string, boolean>;
-		};
-		columns?: Record<string, StoredGraphColumn>;
-		// this should be excludeRefs, but we need to keep this name for backward compatibility
-		hiddenRefs?: Record<string, StoredGraphExcludedRef>;
-		includeOnlyRefs?: Record<string, StoredGraphIncludeOnlyRef>;
-		excludeTypes?: Record<string, boolean>;
-		filters: Record<string, StoredGraphFilters>;
-	};
-	remote: {
-		default?: string;
-	};
-	starred: {
-		branches?: StoredStarred;
-		repositories?: StoredStarred;
-	};
-	views: {
-		repositories: {
-			autoRefresh?: boolean;
-		};
-		searchAndCompare: {
-			keepResults?: boolean;
-			pinned?: StoredPinnedItems;
-		};
-		commitDetails: {
-			autolinksExpanded?: boolean;
-		};
-	};
-
-	pinned: {
-		/** @deprecated use `gitlens:views:searchAndCompare:pinned` */
-		comparisons?: DeprecatedPinnedComparisons;
-	};
-}
+	'branch:comparisons': StoredBranchComparisons;
+	'gitComandPalette:usage': RecentUsage;
+	gitPath: string;
+	'graph:banners:dismissed': Record<string, boolean>;
+	'graph:columns': Record<string, StoredGraphColumn>;
+	'graph:filtersByRepo': Record<string, StoredGraphFilters>;
+	'remote:default': string;
+	'starred:branches': StoredStarred;
+	'starred:repositories': StoredStarred;
+	'views:repositories:autoRefresh': boolean;
+	'views:searchAndCompare:keepResults': boolean;
+	'views:searchAndCompare:pinned': StoredPinnedItems;
+	'views:commitDetails:autolinksExpanded': boolean;
+} & { [key in `connected:${string}`]: boolean };
 
 export type StoredViewsLayout = 'gitlens' | 'scm';
 export interface Stored<T, SchemaVersion extends number = 1> {
@@ -251,9 +194,8 @@ export interface StoredGraphColumn {
 
 export interface StoredGraphFilters {
 	includeOnlyRefs?: Record<string, StoredGraphIncludeOnlyRef>;
-	excludeTypes?: Record<string, boolean>;
-	// TODO migrate data here from hiddenRefs in the root graph storage
 	excludeRefs?: Record<string, StoredGraphExcludedRef>;
+	excludeTypes?: Record<string, boolean>;
 }
 
 export type StoredGraphRefType = 'head' | 'remote' | 'tag';
@@ -313,33 +255,3 @@ interface DeprecatedPinnedComparison {
 	ref2: StoredNamedRef;
 	notation?: '..' | '...';
 }
-
-interface DeprecatedPinnedComparisons {
-	[id: string]: DeprecatedPinnedComparison;
-}
-
-type SubPath<T, Key extends keyof T> = Key extends string
-	? T[Key] extends Record<string, any>
-		?
-				| `${Key}:${SubPath<T[Key], Exclude<keyof T[Key], keyof any[]>>}`
-				| `${Key}:${Exclude<keyof T[Key], keyof any[]> & string}`
-		: never
-	: never;
-
-type Path<T> = SubPath<T, keyof T> | keyof T;
-
-type PathValue<T, P extends Path<T>> = P extends `${infer Key}:${infer Rest}`
-	? Key extends keyof T
-		? Rest extends Path<T[Key]>
-			? PathValue<T[Key], Rest>
-			: never
-		: never
-	: P extends keyof T
-	? T[P]
-	: never;
-
-type GlobalStoragePath = Path<GlobalStorage>;
-type GlobalStoragePathValue<P extends GlobalStoragePath> = PathValue<GlobalStorage, P>;
-
-type WorkspaceStoragePath = Path<WorkspaceStorage>;
-type WorkspaceStoragePathValue<P extends WorkspaceStoragePath> = PathValue<WorkspaceStorage, P>;
