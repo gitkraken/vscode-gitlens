@@ -51,7 +51,7 @@ import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey } from '../../../git/search';
-import type { StoredGraphExcludedRef, StoredGraphFilters, StoredGraphIncludeOnlyRef } from '../../../storage';
+import type { StoredGraphFilters, StoredGraphIncludeOnlyRef } from '../../../storage';
 import { executeActionCommand, executeCommand, executeCoreGitCommand, registerCommand } from '../../../system/command';
 import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
@@ -91,7 +91,6 @@ import type {
 	GraphExcludeTypes,
 	GraphHostingServiceType,
 	GraphIncludeOnlyRef,
-	GraphIncludeOnlyRefs,
 	GraphMissingRefsMetadataType,
 	GraphPullRequestMetadata,
 	GraphRefMetadata,
@@ -612,7 +611,7 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private onRefsVisibilityChanged(e: UpdateRefsVisibilityParams) {
-		this.updateExcludedRefs(e.refs, e.visible);
+		this.updateExcludedRefs(this._graph, e.refs, e.visible);
 	}
 
 	private onDoubleClickRef(e: DoubleClickedRefParams) {
@@ -1286,18 +1285,93 @@ export class GraphWebview extends WebviewBase<State> {
 	private getExcludedTypes(graph: GitGraph | undefined): GraphExcludeTypes | undefined {
 		if (graph == null) return undefined;
 
-		return this.getRepoFilters(graph)?.excludeTypes;
+		return this.getFiltersByRepo(graph)?.excludeTypes;
 	}
 
 	private getExcludedRefs(graph: GitGraph | undefined): Record<string, GraphExcludedRef> | undefined {
-		// TODO: Migrate from graph:hiddenRefs to graph:filters[repoPath].excludeRefs
-		return this.filterExcludedRefs(this.container.storage.getWorkspace('graph:hiddenRefs'), graph);
+		if (graph == null) return undefined;
+
+		let filtersByRepo: Record<string, StoredGraphFilters> | undefined;
+
+		const storedHiddenRefs = this.container.storage.getWorkspace('graph:hiddenRefs');
+		if (storedHiddenRefs != null && Object.keys(storedHiddenRefs).length !== 0) {
+			// Migrate hidden refs to exclude refs
+			filtersByRepo = this.container.storage.getWorkspace('graph:filtersByRepo') ?? {};
+
+			for (const id in storedHiddenRefs) {
+				const repoPath = getRepoPathFromBranchOrTagId(id);
+
+				filtersByRepo[repoPath] = updateRecordValue(
+					filtersByRepo[repoPath]?.excludeRefs,
+					'excludeRefs',
+					storedHiddenRefs[id],
+				);
+			}
+
+			void this.container.storage.storeWorkspace('graph:filtersByRepo', filtersByRepo);
+			void this.container.storage.deleteWorkspace('graph:hiddenRefs');
+		}
+
+		const storedExcludeRefs = (filtersByRepo?.[graph.repoPath] ?? this.getFiltersByRepo(graph))?.excludeRefs;
+		if (storedExcludeRefs == null || Object.keys(storedExcludeRefs).length === 0) return undefined;
+
+		const useAvatars = configuration.get('graph.avatars', undefined, true);
+
+		const excludeRefs: GraphExcludeRefs = {};
+
+		for (const id in storedExcludeRefs) {
+			const ref: GraphExcludedRef = { ...storedExcludeRefs[id] };
+			if (ref.type === 'remote' && ref.owner) {
+				const remote = graph.remotes.get(ref.owner);
+				if (remote != null) {
+					ref.avatarUrl = (
+						(useAvatars ? remote.provider?.avatarUri : undefined) ??
+						getRemoteIconUri(this.container, remote, this._panel!.webview.asWebviewUri.bind(this))
+					)?.toString(true);
+				}
+			}
+
+			excludeRefs[id] = ref;
+		}
+
+		// For v13, we return directly the hidden refs without validating them
+
+		// This validation has too much performance impact. So we decided to comment those lines
+		// for v13 and have it as tech debt to solve after we launch.
+		// See: https://github.com/gitkraken/vscode-gitlens/pull/2211#discussion_r990117432
+		// if (this.repository == null) {
+		// 	this.repository = this.container.git.getBestRepositoryOrFirst();
+		// 	if (this.repository == null) return undefined;
+		// }
+
+		// const [hiddenBranches, hiddenTags] = await Promise.all([
+		// 	this.repository.getBranches({
+		// 		filter: b => !b.current && excludeRefs[b.id] != undefined,
+		// 	}),
+		// 	this.repository.getTags({
+		// 		filter: t => excludeRefs[t.id] != undefined,
+		// 	}),
+		// ]);
+
+		// const filteredHiddenRefsById: GraphHiddenRefs = {};
+
+		// for (const hiddenBranch of hiddenBranches.values) {
+		// 	filteredHiddenRefsById[hiddenBranch.id] = excludeRefs[hiddenBranch.id];
+		// }
+
+		// for (const hiddenTag of hiddenTags.values) {
+		// 	filteredHiddenRefsById[hiddenTag.id] = excludeRefs[hiddenTag.id];
+		// }
+
+		// return filteredHiddenRefsById;
+
+		return excludeRefs;
 	}
 
 	private getIncludeOnlyRefs(graph: GitGraph | undefined): Record<string, GraphIncludeOnlyRef> | undefined {
 		if (graph == null) return undefined;
 
-		const storedFilters = this.getRepoFilters(graph);
+		const storedFilters = this.getFiltersByRepo(graph);
 		const storedIncludeOnlyRefs = storedFilters?.includeOnlyRefs;
 		if (storedIncludeOnlyRefs == null || Object.keys(storedIncludeOnlyRefs).length === 0) return undefined;
 
@@ -1334,102 +1408,11 @@ export class GraphWebview extends WebviewBase<State> {
 		return includeOnlyRefs;
 	}
 
-	private getRepoFilters(graph: GitGraph | undefined): StoredGraphFilters | undefined {
+	private getFiltersByRepo(graph: GitGraph | undefined): StoredGraphFilters | undefined {
 		if (graph == null) return undefined;
 
-		const filters = this.container.storage.getWorkspace('graph:filters');
+		const filters = this.container.storage.getWorkspace('graph:filtersByRepo');
 		return filters?.[graph.repoPath];
-	}
-
-	private filterExcludedRefs(
-		excludeRefs: Record<string, StoredGraphExcludedRef> | undefined,
-		graph: GitGraph | undefined,
-	): GraphExcludeRefs | undefined {
-		if (excludeRefs == null || graph == null) return undefined;
-
-		const useAvatars = configuration.get('graph.avatars', undefined, true);
-
-		const filteredRefs: GraphExcludeRefs = {};
-
-		for (const id in excludeRefs) {
-			if (getRepoPathFromBranchOrTagId(id) === graph.repoPath) {
-				const ref: GraphExcludedRef = { ...excludeRefs[id] };
-				if (ref.type === 'remote' && ref.owner) {
-					const remote = graph.remotes.get(ref.owner);
-					if (remote != null) {
-						ref.avatarUrl = (
-							(useAvatars ? remote.provider?.avatarUri : undefined) ??
-							getRemoteIconUri(this.container, remote, this._panel!.webview.asWebviewUri.bind(this))
-						)?.toString(true);
-					}
-				}
-				filteredRefs[id] = ref;
-			}
-		}
-
-		return filteredRefs;
-
-		// This validation has too much performance impact. So we decided to comment those lines
-		// for v13 and have it as tech debt to solve after we launch.
-		// See: https://github.com/gitkraken/vscode-gitlens/pull/2211#discussion_r990117432
-		// if (this.repository == null) {
-		// 	this.repository = this.container.git.getBestRepositoryOrFirst();
-		// 	if (this.repository == null) return undefined;
-		// }
-
-		// const [hiddenBranches, hiddenTags] = await Promise.all([
-		// 	this.repository.getBranches({
-		// 		filter: b => !b.current && hiddenRefs[b.id] != undefined,
-		// 	}),
-		// 	this.repository.getTags({
-		// 		filter: t => hiddenRefs[t.id] != undefined,
-		// 	}),
-		// ]);
-
-		// const filteredHiddenRefsById: GraphHiddenRefs = {};
-
-		// for (const hiddenBranch of hiddenBranches.values) {
-		// 	filteredHiddenRefsById[hiddenBranch.id] = hiddenRefs[hiddenBranch.id];
-		// }
-
-		// for (const hiddenTag of hiddenTags.values) {
-		// 	filteredHiddenRefsById[hiddenTag.id] = hiddenRefs[hiddenTag.id];
-		// }
-
-		// return filteredHiddenRefsById;
-
-		// For v13, we return directly the hidden refs without validating them
-		// return excludeRefs;
-	}
-
-	// TODO: Use this in getIncludeOnlyRefs once we are actually updating the value in storage (UX is hooked up)
-	private filterIncludeOnlyRefs(
-		includeOnlyRefs: Record<string, StoredGraphIncludeOnlyRef> | undefined,
-		graph: GitGraph | undefined,
-	): GraphIncludeOnlyRefs | undefined {
-		if (includeOnlyRefs == null || graph == null) return undefined;
-
-		const useAvatars = configuration.get('graph.avatars', undefined, true);
-
-		const filteredRefs: GraphIncludeOnlyRefs = {};
-
-		for (const id in includeOnlyRefs) {
-			if (getRepoPathFromBranchOrTagId(id) === graph.repoPath) {
-				const ref: GraphIncludeOnlyRef = { ...includeOnlyRefs[id] };
-				if (ref.type === 'remote' && ref.owner) {
-					const remote = graph.remotes.get(ref.owner);
-					if (remote != null) {
-						ref.avatarUrl = (
-							(useAvatars ? remote.provider?.avatarUri : undefined) ??
-							getRemoteIconUri(this.container, remote, this._panel!.webview.asWebviewUri.bind(this))
-						)?.toString(true);
-					}
-				}
-				filteredRefs[id] = ref;
-			}
-		}
-
-		return filteredRefs;
 	}
 
 	private getColumnSettings(columns: Record<GraphColumnName, GraphColumnConfig> | undefined): GraphColumnsSettings {
@@ -1613,72 +1596,64 @@ export class GraphWebview extends WebviewBase<State> {
 		void this.notifyDidChangeColumns();
 	}
 
-	private updateExcludedRefs(refs: GraphExcludedRef[], visible: boolean) {
-		let storedExcludedRefs = this.container.storage.getWorkspace('graph:hiddenRefs');
+	private updateExcludedRefs(graph: GitGraph | undefined, refs: GraphExcludedRef[], visible: boolean) {
+		if (refs == null || refs.length === 0) return;
+
+		let storedExcludeRefs: StoredGraphFilters['excludeRefs'] = this.getFiltersByRepo(graph)?.excludeRefs ?? {};
 		for (const ref of refs) {
-			storedExcludedRefs = updateRecordValue(
-				storedExcludedRefs,
+			storedExcludeRefs = updateRecordValue(
+				storedExcludeRefs,
 				ref.id,
 				visible ? undefined : { id: ref.id, type: ref.type, name: ref.name, owner: ref.owner },
 			);
 		}
 
-		void this.container.storage.storeWorkspace('graph:hiddenRefs', storedExcludedRefs);
+		void this.updateFiltersByRepo(graph, { excludeRefs: storedExcludeRefs });
 		void this.notifyDidChangeRefsVisibility();
 	}
 
-	private updateRepoFilters(graph: GitGraph | undefined, filters: StoredGraphFilters) {
+	private updateFiltersByRepo(graph: GitGraph | undefined, updates: Partial<StoredGraphFilters>) {
 		if (graph == null) throw new Error('Cannot save repository filters since Graph is undefined');
 
-		const filtersByRepo = this.container.storage.getWorkspace('graph:filters');
+		const filtersByRepo = this.container.storage.getWorkspace('graph:filtersByRepo');
 		return this.container.storage.storeWorkspace(
-			'graph:filters',
-			updateRecordValue(filtersByRepo, graph.repoPath, filters),
+			'graph:filtersByRepo',
+			updateRecordValue(filtersByRepo, graph.repoPath, { ...filtersByRepo?.[graph.repoPath], ...updates }),
 		);
 	}
 
 	private updateIncludeOnlyRefs(graph: GitGraph | undefined, refs: GraphIncludeOnlyRef[] | undefined) {
-		let storedFilters = this.getRepoFilters(graph);
+		let storedIncludeOnlyRefs: StoredGraphFilters['includeOnlyRefs'];
+
 		if (refs == null || refs.length === 0) {
-			if (storedFilters?.includeOnlyRefs == null) return;
+			if (this.getFiltersByRepo(graph)?.includeOnlyRefs == null) return;
 
-			storedFilters.includeOnlyRefs = undefined;
+			storedIncludeOnlyRefs = undefined;
 		} else {
-			if (storedFilters == null) {
-				storedFilters = {};
-			}
-
-			let storedIncludeOnlyRefs = storedFilters.includeOnlyRefs ?? {};
+			storedIncludeOnlyRefs = {};
 			for (const ref of refs) {
-				storedIncludeOnlyRefs = updateRecordValue(storedIncludeOnlyRefs, ref.id, {
+				storedIncludeOnlyRefs[ref.id] = {
 					id: ref.id,
 					type: ref.type,
 					name: ref.name,
 					owner: ref.owner,
-				});
+				};
 			}
-
-			storedFilters.includeOnlyRefs = storedIncludeOnlyRefs;
 		}
 
-		void this.updateRepoFilters(graph, storedFilters);
+		void this.updateFiltersByRepo(graph, { includeOnlyRefs: storedIncludeOnlyRefs });
 		void this.notifyDidChangeRefsVisibility();
 	}
 
 	private updateExcludedType(graph: GitGraph | undefined, { key, value }: UpdateExcludeTypeParams) {
-		let storedFilters = this.getRepoFilters(graph);
-
-		const storedExcludedTypes = storedFilters?.excludeTypes;
-		if ((storedExcludedTypes == null || Object.keys(storedExcludedTypes).length === 0) && value === false) {
+		let excludeTypes = this.getFiltersByRepo(graph)?.excludeTypes;
+		if ((excludeTypes == null || Object.keys(excludeTypes).length === 0) && value === false) {
 			return;
 		}
 
-		if (storedFilters == null) {
-			storedFilters = {};
-		}
-		storedFilters.excludeTypes = updateRecordValue(storedExcludedTypes, key, value);
+		excludeTypes = updateRecordValue(excludeTypes, key, value);
 
-		void this.updateRepoFilters(graph, storedFilters);
+		void this.updateFiltersByRepo(graph, { excludeTypes: excludeTypes });
 		void this.notifyDidChangeRefsVisibility();
 	}
 
@@ -1976,6 +1951,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 		if (refs != null) {
 			this.updateExcludedRefs(
+				this._graph,
 				refs.map(r => {
 					const remoteBranch = r.refType === 'branch' && r.remote;
 					return {
