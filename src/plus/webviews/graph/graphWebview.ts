@@ -1301,9 +1301,10 @@ export class GraphWebview extends WebviewBase<State> {
 			for (const id in storedHiddenRefs) {
 				const repoPath = getRepoPathFromBranchOrTagId(id);
 
-				filtersByRepo[repoPath] = updateRecordValue(
-					filtersByRepo[repoPath]?.excludeRefs,
-					'excludeRefs',
+				filtersByRepo[repoPath] = filtersByRepo[repoPath] ?? {};
+				filtersByRepo[repoPath].excludeRefs = updateRecordValue(
+					filtersByRepo[repoPath].excludeRefs,
+					id,
 					storedHiddenRefs[id],
 				);
 			}
