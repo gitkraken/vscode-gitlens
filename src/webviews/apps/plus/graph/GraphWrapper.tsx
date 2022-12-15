@@ -324,20 +324,24 @@ export function GraphWrapper({
 		return searchIndex < 1 ? 1 : searchIndex + 1;
 	}, [activeRow, searchResults]);
 
-	const hasFilters = useMemo(() => {
-		if (excludeTypes == null) {
-			return false;
-		}
-
-		return Object.values(excludeTypes).includes(true);
-	}, [excludeTypes]);
-
 	const isAllBranches = useMemo(() => {
 		if (includeOnlyRefsById == null) {
 			return true;
 		}
 		return Object.keys(includeOnlyRefsById).length === 0;
 	}, [includeOnlyRefsById]);
+
+	const hasFilters = useMemo(() => {
+		if (!isAllBranches) {
+			return true;
+		}
+
+		if (excludeTypes == null) {
+			return false;
+		}
+
+		return Object.values(excludeTypes).includes(true);
+	}, [excludeTypes, isAllBranches]);
 
 	const handleSearchInput = (e: CustomEvent<SearchQuery>) => {
 		const detail = e.detail;
@@ -839,7 +843,7 @@ export function GraphWrapper({
 						<div className="titlebar__group">
 							<PopMenu>
 								<button type="button" className="action-button" slot="trigger">
-									<span className="codicon codicon-filter"></span>
+									<span className={`codicon codicon-filter${hasFilters ? '-filled' : ''}`}></span>
 									{hasFilters && <span className="action-button__indicator"></span>}
 									<span
 										className="codicon codicon-chevron-down action-button__more"
