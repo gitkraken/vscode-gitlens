@@ -12,6 +12,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds the current branch name with the ability to switch branches when clicked
   - Adds a fetch action next to the branch name
   - Moves the repo menu, account status and feedback links to the top
+- Adds _Commit Graph_ filters
+  - Adds a _Show Current Branch Only_ option that displays only the current branch and it's upstream remote. _Show All Local Branches_ is selected by default.
+  - Adds ability to hide branches, stashes and tags
 
 ### Fixed
 
