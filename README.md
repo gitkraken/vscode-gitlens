@@ -1,7 +1,7 @@
-[![](https://vsmarketplacebadge.apphb.com/version-short/eamodio.gitlens.svg?color=8d4eb5)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
-[![](https://vsmarketplacebadge.apphb.com/installs-short/eamodio.gitlens.svg?color=8d4eb5)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
-[![](https://vsmarketplacebadge.apphb.com/downloads-short/eamodio.gitlens.svg?color=8d4eb5)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
-[![](https://vsmarketplacebadge.apphb.com/rating-short/eamodio.gitlens.svg?color=8d4eb5)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
+[![](https://vsmarketplacebadges.dev/version-short/eamodio.gitlens.svg?color=8d4eb5)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
+[![](https://vsmarketplacebadges.dev/installs-short/eamodio.gitlens.svg?color=8d4eb5)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
+[![](https://vsmarketplacebadges.dev/downloads-short/eamodio.gitlens.svg?color=8d4eb5)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
+[![](https://vsmarketplacebadges.dev/rating-short/eamodio.gitlens.svg?color=8d4eb5)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
 [![](https://aka.ms/vsls-badge?color=8d4eb5)](https://aka.ms/vsls-gitlens)
 [![](https://img.shields.io/badge/gitkraken--community-gitlens-8d4eb5.svg?logo=slack&labelColor=555555)](https://slack.gitkraken.com/)
 
