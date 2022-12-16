@@ -83,6 +83,7 @@ export interface GraphRepository {
 	id: string;
 	name: string;
 	path: string;
+	isVirtual: boolean;
 }
 
 export interface GraphCommitIdentity {
