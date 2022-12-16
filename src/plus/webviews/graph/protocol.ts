@@ -40,7 +40,7 @@ export type GraphMissingRefsMetadata = Record</*id*/ string, /*missingType*/ Gra
 export type GraphPullRequestMetadata = PullRequestMetadata;
 
 export interface State {
-	windowFocused?: boolean,
+	windowFocused?: boolean;
 	repositories?: GraphRepository[];
 	selectedRepository?: string;
 	selectedRepositoryVisibility?: RepositoryVisibility;
@@ -64,6 +64,7 @@ export interface State {
 	excludeRefs?: GraphExcludeRefs;
 	excludeTypes?: GraphExcludeTypes;
 	includeOnlyRefs?: GraphIncludeOnlyRefs;
+	debugging: boolean;
 
 	// Props below are computed in the webview (not passed)
 	activeRow?: string;
