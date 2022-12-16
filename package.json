@@ -2236,6 +2236,13 @@
 						"scope": "window",
 						"order": 24
 					},
+					"gitlens.graph.dimMergeCommits": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to always dim rows with merge commits in the _Commit Graph_",
+						"scope": "window",
+						"order": 25
+					},
 					"gitlens.graph.commitOrdering": {
 						"type": "string",
 						"default": "date",

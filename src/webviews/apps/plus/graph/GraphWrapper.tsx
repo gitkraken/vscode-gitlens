@@ -941,6 +941,7 @@ export function GraphWrapper({
 							columnsSettings={columns}
 							contexts={context}
 							cssVariables={styleProps?.cssVariables}
+							dimMergeCommits={graphConfig?.dimMergeCommits}
 							enableMultiSelection={graphConfig?.enableMultiSelection}
 							excludeRefsById={excludeRefsById}
 							excludeByType={excludeTypes}

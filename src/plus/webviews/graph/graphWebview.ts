@@ -529,6 +529,7 @@ export class GraphWebview extends WebviewBase<State> {
 			configuration.changed(e, 'graph.avatars') ||
 			configuration.changed(e, 'graph.dateFormat') ||
 			configuration.changed(e, 'graph.dateStyle') ||
+			configuration.changed(e, 'graph.dimMergeCommits') ||
 			configuration.changed(e, 'graph.highlightRowsOnRefHover') ||
 			configuration.changed(e, 'graph.scrollRowPadding') ||
 			configuration.changed(e, 'graph.showGhostRefsOnRowHover') ||
@@ -1453,6 +1454,7 @@ export class GraphWebview extends WebviewBase<State> {
 			dateFormat:
 				configuration.get('graph.dateFormat') ?? configuration.get('defaultDateFormat') ?? 'short+short',
 			dateStyle: configuration.get('graph.dateStyle') ?? configuration.get('defaultDateStyle'),
+			dimMergeCommits: configuration.get('graph.dimMergeCommits'),
 			enableMultiSelection: false,
 			highlightRowsOnRefHover: configuration.get('graph.highlightRowsOnRefHover'),
 			scrollRowPadding: configuration.get('graph.scrollRowPadding'),

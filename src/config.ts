@@ -387,6 +387,7 @@ export interface GraphConfig {
 	dateFormat: DateTimeFormat | string | null;
 	dateStyle: DateStyle | null;
 	defaultItemLimit: number;
+	dimMergeCommits: boolean;
 	highlightRowsOnRefHover: boolean;
 	scrollRowPadding: number;
 	showDetailsView: 'open' | 'selection' | false;
