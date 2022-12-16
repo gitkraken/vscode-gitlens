@@ -754,16 +754,29 @@ export class SubscriptionService implements Disposable {
 			Logger.error(ex, scope);
 			debugger;
 
+			this.container.telemetry.sendEvent('account/validation/failed', {
+				'account.id': session.account.id,
+				exception: String(ex),
+				code: ex.original?.code,
+				statusCode: ex.statusCode,
+			});
+
+			Logger.debug(scope, `Account validation failed (${ex.statusCode ?? ex.original?.code})`);
+
 			if (ex instanceof AccountValidationError) {
 				const name = session.account.label;
 
+				// if (
+				// 	(ex.statusCode != null && ex.statusCode < 500) ||
+				// 	(ex.statusCode == null && (ex.original as any)?.code !== 'ENOTFOUND')
+				// ) {
 				if (
-					(ex.statusCode != null && ex.statusCode < 500) ||
-					(ex.statusCode == null && (ex.original as any)?.code !== 'ENOTFOUND')
+					(ex.original as any)?.code !== 'ENOTFOUND' &&
+					ex.statusCode != null &&
+					ex.statusCode < 500 &&
+					ex.statusCode >= 400
 				) {
 					session = null;
-
-					Logger.debug(scope, `Account validation failed (${ex.statusCode ?? (ex.original as any)?.code})`);
 					await this.logoutCore();
 
 					if (createIfNeeded) {
@@ -785,12 +798,12 @@ export class SubscriptionService implements Disposable {
 				} else {
 					session = session ?? null;
 
-					if ((ex.original as any)?.code !== 'ENOTFOUND') {
-						void window.showErrorMessage(
-							`Unable to sign in to your (${name}) GitLens+ account right now. Please try again in a few minutes. If this issue persists, please contact support. Error=${ex.message}`,
-							'OK',
-						);
-					}
+					// if ((ex.original as any)?.code !== 'ENOTFOUND') {
+					// 	void window.showErrorMessage(
+					// 		`Unable to sign in to your (${name}) GitLens+ account right now. Please try again in a few minutes. If this issue persists, please contact support. Error=${ex.message}`,
+					// 		'OK',
+					// 	);
+					// }
 				}
 			}
 		}

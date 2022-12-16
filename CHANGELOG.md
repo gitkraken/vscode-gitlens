@@ -24,10 +24,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Holding the `ctrl` key with a commit row selected will highlight rows for that commit's branch
 
 ### Changed
+
 - In the _Commit Graph_, increases the time to highlight associated rows when hovering over a branch to 1s
 
 ### Fixed
 
+- Fixes [#2318](https://github.com/gitkraken/vscode-gitlens/issues/2318) - GitLens need to login again after VS Code insiders upgrade every day
 - Fixes [#2377](https://github.com/gitkraken/vscode-gitlens/issues/2377) - Missing Azure Devops Icon
 - Fixes [#2380](https://github.com/gitkraken/vscode-gitlens/issues/2380) - Autolink fails with curly braces
 - Fixes [#2381](https://github.com/gitkraken/vscode-gitlens/issues/2381) - can't use scrollbar in 'Commit Graph' view
