@@ -107,6 +107,7 @@ export interface GraphComponentConfig {
 	avatars?: boolean;
 	dateFormat: DateTimeFormat | string;
 	dateStyle: DateStyle;
+	dimMergeCommits?: boolean;
 	enableMultiSelection?: boolean;
 	highlightRowsOnRefHover?: boolean;
 	scrollRowPadding?: number;
