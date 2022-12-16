@@ -1,10 +1,3 @@
-[![](https://vsmarketplacebadges.dev/version-short/eamodio.gitlens.svg?color=8d4eb5)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
-[![](https://vsmarketplacebadges.dev/installs-short/eamodio.gitlens.svg?color=8d4eb5)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
-[![](https://vsmarketplacebadges.dev/downloads-short/eamodio.gitlens.svg?color=8d4eb5)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
-[![](https://vsmarketplacebadges.dev/rating-short/eamodio.gitlens.svg?color=8d4eb5)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
-[![](https://aka.ms/vsls-badge?color=8d4eb5)](https://aka.ms/vsls-gitlens)
-[![](https://img.shields.io/badge/gitkraken--community-gitlens-8d4eb5.svg?logo=slack&labelColor=555555)](https://slack.gitkraken.com/)
-
 <p align="center">
   <br />
   <a title="Learn more about GitLens" href="https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links"><img width="476px" src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/gitlens-logo-anybg.png" alt="GitLens Logo" /></a>
