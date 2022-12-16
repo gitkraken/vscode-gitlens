@@ -15,6 +15,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds _Commit Graph_ filters
   - Adds a _Show Current Branch Only_ option that displays only the current branch and it's upstream remote. _Show All Local Branches_ is selected by default.
   - Adds ability to hide branches, stashes and tags
+- Adds new _Commit Graph_ settings
+  - Adds setting to dim merge commit rows
+  - Adds setting to customize the number of rows from the edge at which the graph scrolls when using keyboard or search to change rows
+- Adds the ability to reorder some of the _Commit Graph_ columns by dragging and dropping column headers
+- Adds new _Commit Graph_ keyboard commands
+  - `shift+down arrow` and `shift+up arrow` to move to the parent/child of the selected commit row
+  - Holding the `ctrl` key with a commit row selected will highlight rows for that commit's branch
+
+### Changed
+- In the _Commit Graph_, increases the time to highlight associated rows when hovering over a branch to 1s
 
 ### Fixed
 
@@ -22,6 +32,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#2380](https://github.com/gitkraken/vscode-gitlens/issues/2380) - Autolink fails with curly braces
 - Fixes [#2381](https://github.com/gitkraken/vscode-gitlens/issues/2381) - can't use scrollbar in 'Commit Graph' view
 - Fixes an issue where _Switch to Another Branch..._ doesn't work in the Graph editor toolbar
+- Fixes graph issue with row highlighting/dimming sticking when the graph loses focus
+- Fixes graph issue with branches remaining hovered/extended when the mouse leaves the graph
 
 ## [13.1.1] - 2022-11-21
 
