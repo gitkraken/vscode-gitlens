@@ -67,6 +67,7 @@ export interface GraphWrapperProps {
 	subscriber: (callback: UpdateStateCallback) => () => void;
 	onSelectRepository?: (repository: GraphRepository) => void;
 	onColumnsChange?: (colsSettings: GraphColumnsConfig) => void;
+	onDimMergeCommits?: (dim: boolean) => void;
 	onDoubleClickRef?: (ref: GraphRef) => void;
 	onMissingAvatars?: (emails: { [email: string]: string }) => void;
 	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
@@ -141,6 +142,7 @@ export function GraphWrapper({
 	state,
 	onSelectRepository,
 	onColumnsChange,
+	onDimMergeCommits,
 	onDoubleClickRef,
 	onEnsureRowPromise,
 	onMissingAvatars,
@@ -491,11 +493,14 @@ export function GraphWrapper({
 
 		const value = $el.value;
 		const isLocalBranches = ['branch-all', 'branch-current'].includes(value);
-		if (!isLocalBranches && !['remotes', 'stashes', 'tags'].includes(value)) return;
+		if (!isLocalBranches && !['remotes', 'stashes', 'tags', 'mergeCommits'].includes(value)) return;
+		const isChecked = $el.checked;
+		if (value === 'mergeCommits') {
+			onDimMergeCommits?.(isChecked);
+			return;
+		}
 
 		const key = value as keyof GraphExcludeTypes;
-		const isChecked = $el.checked;
-
 		const currentFilter = excludeTypes?.[key];
 		if ((currentFilter == null && isChecked) || (currentFilter != null && currentFilter !== isChecked)) {
 			setExcludeTypes({
@@ -912,6 +917,15 @@ export function GraphWrapper({
 											defaultChecked={excludeTypes?.tags ?? false}
 										>
 											Hide Tags
+										</VSCodeCheckbox>
+									</MenuItem>
+									<MenuItem role="none">
+										<VSCodeCheckbox
+											value="mergeCommits"
+											onChange={handleExcludeTypeChange}
+											defaultChecked={graphConfig?.dimMergeCommits ?? false}
+										>
+											Dim Merge Commit Rows
 										</VSCodeCheckbox>
 									</MenuItem>
 								</MenuList>
