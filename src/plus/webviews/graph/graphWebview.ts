@@ -2207,13 +2207,14 @@ export class GraphWebview extends WebviewBase<State> {
 }
 
 function formatRepositories(repositories: Repository[]): GraphRepository[] {
-	if (repositories.length === 0) return repositories;
+	if (repositories.length === 0) return [];
 
 	return repositories.map(r => ({
 		formattedName: r.formattedName,
 		id: r.id,
 		name: r.name,
 		path: r.path,
+		isVirtual: r.provider.virtual,
 	}));
 }
 

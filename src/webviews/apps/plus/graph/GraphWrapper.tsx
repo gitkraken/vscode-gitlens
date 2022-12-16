@@ -872,39 +872,50 @@ export function GraphWrapper({
 									<MenuItem role="none">
 										<VSCodeRadioGroup
 											orientation="vertical"
-											value={isAllBranches ? 'branch-all' : 'branch-current'}
+											value={
+												isAllBranches && repo?.isVirtual !== true
+													? 'branch-all'
+													: 'branch-current'
+											}
+											readOnly={repo?.isVirtual === true}
 										>
-											<VSCodeRadio
-												name="branching-toggle"
-												value="branch-all"
-												onChange={handleLocalBranchFiltering}
-											>
-												Show All Local Branches
-											</VSCodeRadio>
+											{repo?.isVirtual !== true && (
+												<VSCodeRadio
+													name="branching-toggle"
+													value="branch-all"
+													onChange={handleLocalBranchFiltering}
+												>
+													Show All Local Branches
+												</VSCodeRadio>
+											)}
 											<VSCodeRadio name="branching-toggle" value="branch-current">
 												Show Current Branch Only
 											</VSCodeRadio>
 										</VSCodeRadioGroup>
 									</MenuItem>
 									<MenuDivider></MenuDivider>
-									<MenuItem role="none">
-										<VSCodeCheckbox
-											value="remotes"
-											onChange={handleExcludeTypeChange}
-											defaultChecked={excludeTypes?.remotes ?? false}
-										>
-											Hide Remote Branches
-										</VSCodeCheckbox>
-									</MenuItem>
-									<MenuItem role="none">
-										<VSCodeCheckbox
-											value="stashes"
-											onChange={handleExcludeTypeChange}
-											defaultChecked={excludeTypes?.stashes ?? false}
-										>
-											Hide Stashes
-										</VSCodeCheckbox>
-									</MenuItem>
+									{repo?.isVirtual !== true && (
+										<>
+											<MenuItem role="none">
+												<VSCodeCheckbox
+													value="remotes"
+													onChange={handleExcludeTypeChange}
+													defaultChecked={excludeTypes?.remotes ?? false}
+												>
+													Hide Remote Branches
+												</VSCodeCheckbox>
+											</MenuItem>
+											<MenuItem role="none">
+												<VSCodeCheckbox
+													value="stashes"
+													onChange={handleExcludeTypeChange}
+													defaultChecked={excludeTypes?.stashes ?? false}
+												>
+													Hide Stashes
+												</VSCodeCheckbox>
+											</MenuItem>
+										</>
+									)}
 									<MenuItem role="none">
 										<VSCodeCheckbox
 											value="tags"
