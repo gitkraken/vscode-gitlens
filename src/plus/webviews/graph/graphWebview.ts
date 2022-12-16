@@ -104,7 +104,7 @@ import type {
 	UpdateExcludeTypeParams,
 	UpdateRefsVisibilityParams,
 	UpdateSelectedRepositoryParams,
-	UpdateSelectionParams
+	UpdateSelectionParams,
 } from './protocol';
 import {
 	DidChangeAvatarsNotificationType,
@@ -1496,7 +1496,9 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private async getState(deferRows?: boolean): Promise<State> {
-		if (this.container.git.repositoryCount === 0) return { allowed: true, repositories: [] };
+		if (this.container.git.repositoryCount === 0) {
+			return { debugging: this.container.debugging, allowed: true, repositories: [] };
+		}
 
 		if (this.trialBanner == null) {
 			const banners = this.container.storage.getWorkspace('graph:banners:dismissed');
@@ -1507,7 +1509,9 @@ export class GraphWebview extends WebviewBase<State> {
 
 		if (this.repository == null) {
 			this.repository = this.container.git.getBestRepositoryOrFirst();
-			if (this.repository == null) return { allowed: true, repositories: [] };
+			if (this.repository == null) {
+				return { debugging: this.container.debugging, allowed: true, repositories: [] };
+			}
 		}
 
 		this._etagRepository = this.repository?.etag;
@@ -1587,6 +1591,7 @@ export class GraphWebview extends WebviewBase<State> {
 			includeOnlyRefs: data != null ? this.getIncludeOnlyRefs(data) : undefined,
 			nonce: this.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
+			debugging: this.container.debugging,
 		};
 	}
 

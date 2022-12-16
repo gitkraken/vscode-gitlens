@@ -33,7 +33,8 @@ import type {
 	GraphSearchResultsError,
 	InternalNotificationType,
 	State,
-	UpdateStateCallback} from '../../../../plus/webviews/graph/protocol';
+	UpdateStateCallback,
+} from '../../../../plus/webviews/graph/protocol';
 import {
 	DidChangeAvatarsNotificationType,
 	DidChangeColumnsNotificationType,
@@ -767,8 +768,8 @@ export function GraphWrapper({
 		<>
 			{renderAlertContent()}
 			<header className="titlebar graph-app__header">
-				<div className="titlebar__row">
-					<div className="titlebar__group">
+				<div className="titlebar__row titlebar__row--wrap">
+					<div className="titlebar__group titlebar__group--fixed">
 						{repos.length < 2 ? (
 							<button type="button" className="action-button" disabled>
 								{repo?.formattedName ?? 'none selected'}
@@ -833,6 +834,16 @@ export function GraphWrapper({
 						)}
 					</div>
 					<div className="titlebar__group titlebar__group--fixed">
+						{state.debugging && (
+							<span className="titlebar__group titlebar__debugging">
+								{isLoading && <span className="icon--loading icon-modifier--spin" />}
+								{rows.length > 0 && (
+									<span>
+										showing {rows.length} item{rows.length ? 's' : ''}
+									</span>
+								)}
+							</span>
+						)}
 						{renderAccountState()}
 						<a
 							href="https://github.com/gitkraken/vscode-gitlens/discussions/2158"
@@ -926,6 +937,9 @@ export function GraphWrapper({
 						</div>
 					</div>
 				)}
+				<div className={`progress-container infinite${isLoading ? ' active' : ''}`} role="progressbar">
+					<div className="progress-bar"></div>
+				</div>
 			</header>
 			<main
 				id="main"
@@ -992,25 +1006,6 @@ export function GraphWrapper({
 					></span>
 				</button>
 			</main>
-			{isAccessAllowed && (
-				<footer className="actionbar graph-app__footer">
-					<div className="actionbar__group">
-						{rows.length > 0 && (
-							<span className="actionbar__details">
-								showing {rows.length} item{rows.length ? 's' : ''}
-							</span>
-						)}
-						{isLoading && (
-							<span className="actionbar__loading">
-								<span className="icon--loading icon-modifier--spin" />
-							</span>
-						)}
-					</div>
-					<div className={`progress-container infinite${isLoading ? ' active' : ''}`} role="progressbar">
-						<div className="progress-bar"></div>
-					</div>
-				</footer>
-			)}
 		</>
 	);
 }

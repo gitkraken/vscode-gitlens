@@ -101,50 +101,6 @@ button:not([disabled]),
 	}
 }
 
-.actionbar {
-	--actionbar-height: 22px;
-
-	background-color: var(--color-graph-actionbar-background);
-	color: var(--color-foreground);
-	padding: 0 1rem;
-	height: var(--actionbar-height);
-
-	&,
-	&__group {
-		display: flex;
-		flex-direction: row;
-		justify-content: space-between;
-		align-items: baseline;
-		gap: 0.75rem;
-		// overflow: hidden;
-
-		> * {
-			margin: 0;
-		}
-	}
-
-	&__details {
-		line-height: var(--actionbar-height);
-	}
-
-	&__loading {
-		font-size: 1.2rem;
-
-		> * {
-			display: inline-block;
-		}
-	}
-
-	a {
-		color: inherit;
-
-		.codicon.codicon-feedback {
-			position: relative;
-			top: -2px;
-		}
-	}
-}
-
 .action-button {
 	position: relative;
 	appearance: none;
@@ -523,7 +479,6 @@ button:not([disabled]),
 .titlebar {
 	background: var(--vscode-titleBar-inactiveBackground);
 	color: var(--vscode-titleBar-inactiveForeground);
-	// height: 3.6rem;
 	padding: {
 		left: 0.8rem;
 		right: 0.8rem;
@@ -553,6 +508,10 @@ button:not([disabled]),
 
 	&__row {
 		flex: 0 0 100%;
+
+		&--wrap {
+			flex-wrap: wrap;
+		}
 	}
 
 	&__group {
@@ -560,6 +519,12 @@ button:not([disabled]),
 
 		&--fixed {
 			flex: none;
+		}
+	}
+
+	&__debugging {
+		> * {
+			display: inline-block;
 		}
 	}
 }
@@ -605,11 +570,11 @@ button:not([disabled]),
 	&__header {
 		flex: none;
 		z-index: 2000;
+		position: relative;
 	}
 
 	&__footer {
 		flex: none;
-		position: relative;
 	}
 
 	&__main {
@@ -712,7 +677,7 @@ button:not([disabled]),
 .progress-container {
 	position: absolute;
 	left: 0;
-	bottom: -2px;
+	bottom: 0;
 	z-index: 5;
 	height: 2px;
 	width: 100%;
