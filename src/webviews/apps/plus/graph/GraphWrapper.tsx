@@ -339,6 +339,10 @@ export function GraphWrapper({
 			return true;
 		}
 
+		if (graphConfig?.dimMergeCommits) {
+			return true;
+		}
+
 		if (excludeTypes == null) {
 			return false;
 		}
