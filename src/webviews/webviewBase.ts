@@ -219,7 +219,7 @@ export abstract class WebviewBase<State> implements Disposable {
 		args: { 0: e => `focused=${e.focused}, inputFocused=${e.inputFocused}` },
 	})
 	protected onViewFocusChanged(e: WebviewFocusChangedParams): void {
-		this.setContextKeys(e.focused, e.focused, e.inputFocused);
+		this.setContextKeys(undefined, e.focused, e.inputFocused);
 		this.onFocusChanged?.(e.focused);
 	}
 
