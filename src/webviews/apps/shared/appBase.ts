@@ -1,5 +1,12 @@
 /*global window document*/
-import type { IpcCommandType, IpcMessage, IpcMessageParams, IpcNotificationType } from '../../protocol';
+import { debounce } from '../../../system/function';
+import type {
+	IpcCommandType,
+	IpcMessage,
+	IpcMessageParams,
+	IpcNotificationType,
+	WebviewFocusChangedParams,
+} from '../../protocol';
 import { onIpc, WebviewFocusChangedCommandType, WebviewReadyCommandType } from '../../protocol';
 import { DOM } from './dom';
 import type { Disposable } from './events';
@@ -84,23 +91,27 @@ export abstract class App<State = undefined> {
 		if (this.bindDisposables == null) {
 			this.bindDisposables = [];
 		}
+
+		// Reduces event jankiness when only moving focus
+		const sendWebviewFocusChangedCommand = debounce((params: WebviewFocusChangedParams) => {
+			this.sendCommand(WebviewFocusChangedCommandType, params);
+		}, 150);
+
 		this.bindDisposables.push(
 			DOM.on(document, 'focusin', e => {
-				const inputFocused =
-					(e.target as HTMLElement)?.tagName.includes('-') ||
-					(e.target as HTMLElement)?.closest('input') != null;
+				const inputFocused = e.composedPath().some(el => (el as HTMLElement).tagName === 'INPUT');
 
 				if (this._focused !== true || this._inputFocused !== inputFocused) {
 					this._focused = true;
 					this._inputFocused = inputFocused;
-					this.sendCommand(WebviewFocusChangedCommandType, { focused: true, inputFocused: inputFocused });
+					sendWebviewFocusChangedCommand({ focused: true, inputFocused: inputFocused });
 				}
 			}),
 			DOM.on(document, 'focusout', () => {
 				if (this._focused !== false || this._inputFocused !== false) {
 					this._focused = false;
 					this._inputFocused = false;
-					this.sendCommand(WebviewFocusChangedCommandType, { focused: false, inputFocused: false });
+					sendWebviewFocusChangedCommand({ focused: false, inputFocused: false });
 				}
 			}),
 		);
