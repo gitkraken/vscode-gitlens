@@ -30,7 +30,7 @@ import { parseCommandContext } from '../../../commands/base';
 import { GitActions } from '../../../commands/gitCommands.actions';
 import type { Config } from '../../../configuration';
 import { configuration } from '../../../configuration';
-import { Commands, ContextKeys, CoreGitCommands } from '../../../constants';
+import { Commands, ContextKeys, CoreGitCommands, GlyphChars } from '../../../constants';
 import type { Container } from '../../../container';
 import { getContext, onDidChangeContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
@@ -51,6 +51,7 @@ import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey } from '../../../git/search';
+import { RepositoryPicker } from '../../../quickpicks/repositoryPicker';
 import type { StoredGraphFilters, StoredGraphIncludeOnlyRef } from '../../../storage';
 import { executeActionCommand, executeCommand, executeCoreGitCommand, registerCommand } from '../../../system/command';
 import { gate } from '../../../system/decorators/gate';
@@ -104,10 +105,10 @@ import type {
 	UpdateColumnsParams,
 	UpdateExcludeTypeParams,
 	UpdateRefsVisibilityParams,
-	UpdateSelectedRepositoryParams,
 	UpdateSelectionParams,
 } from './protocol';
 import {
+	ChooseRepositoryCommandType,
 	DidChangeAvatarsNotificationType,
 	DidChangeColumnsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
@@ -135,7 +136,6 @@ import {
 	UpdateExcludeTypeCommandType,
 	UpdateIncludeOnlyRefsCommandType,
 	UpdateRefsVisibilityCommandType,
-	UpdateSelectedRepositoryCommandType,
 	UpdateSelectionCommandType,
 } from './protocol';
 
@@ -406,11 +406,17 @@ export class GraphWebview extends WebviewBase<State> {
 
 	protected override onMessageReceived(e: IpcMessage) {
 		switch (e.method) {
+			case ChooseRepositoryCommandType.method:
+				onIpc(ChooseRepositoryCommandType, e, () => this.onChooseRepository());
+				break;
 			case DimMergeCommitsCommandType.method:
 				onIpc(DimMergeCommitsCommandType, e, params => this.dimMergeCommits(params));
 				break;
 			case DismissBannerCommandType.method:
 				onIpc(DismissBannerCommandType, e, params => this.dismissBanner(params));
+				break;
+			case DoubleClickedRefCommandType.method:
+				onIpc(DoubleClickedRefCommandType, e, params => this.onDoubleClickRef(params));
 				break;
 			case EnsureRowCommandType.method:
 				onIpc(EnsureRowCommandType, e, params => this.onEnsureRow(params, e.completionId));
@@ -435,12 +441,6 @@ export class GraphWebview extends WebviewBase<State> {
 				break;
 			case UpdateRefsVisibilityCommandType.method:
 				onIpc(UpdateRefsVisibilityCommandType, e, params => this.onRefsVisibilityChanged(params));
-				break;
-			case DoubleClickedRefCommandType.method:
-				onIpc(DoubleClickedRefCommandType, e, params => this.onDoubleClickRef(params));
-				break;
-			case UpdateSelectedRepositoryCommandType.method:
-				onIpc(UpdateSelectedRepositoryCommandType, e, params => this.onSelectedRepositoryChanged(params));
 				break;
 			case UpdateSelectionCommandType.method:
 				onIpc(UpdateSelectionCommandType, e, this.onSelectionChanged.bind(this));
@@ -896,8 +896,23 @@ export class GraphWebview extends WebviewBase<State> {
 		});
 	}
 
-	private onSelectedRepositoryChanged(e: UpdateSelectedRepositoryParams) {
-		this.repository = this.container.git.getRepository(e.path);
+	private async onChooseRepository() {
+		// Ensure that the current repository is always last
+		const repositories = this.container.git.openRepositories.sort(
+			(a, b) =>
+				(a === this.repository ? 1 : -1) - (b === this.repository ? 1 : -1) ||
+				(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+				a.index - b.index,
+		);
+
+		const pick = await RepositoryPicker.show(
+			`Switch Repository ${GlyphChars.Dot} ${this.repository?.name}`,
+			'Choose a repository to switch to',
+			repositories,
+		);
+		if (pick == null) return;
+
+		this.repository = pick.item;
 	}
 
 	private _fireSelectionChangedDebounced: Deferrable<GraphWebview['fireSelectionChanged']> | undefined = undefined;

@@ -65,7 +65,7 @@ export interface GraphWrapperProps {
 	nonce?: string;
 	state: State;
 	subscriber: (callback: UpdateStateCallback) => () => void;
-	onSelectRepository?: (repository: GraphRepository) => void;
+	onChooseRepository?: () => void;
 	onColumnsChange?: (colsSettings: GraphColumnsConfig) => void;
 	onDimMergeCommits?: (dim: boolean) => void;
 	onDoubleClickRef?: (ref: GraphRef) => void;
@@ -140,7 +140,7 @@ export function GraphWrapper({
 	subscriber,
 	nonce,
 	state,
-	onSelectRepository,
+	onChooseRepository,
 	onColumnsChange,
 	onDimMergeCommits,
 	onDoubleClickRef,
@@ -485,11 +485,8 @@ export function GraphWrapper({
 		return undefined;
 	};
 
-	const handleSelectRepository = (item: GraphRepository) => {
-		if (item != null && item !== repo) {
-			setIsLoading(true);
-			onSelectRepository?.(item);
-		}
+	const handleChooseRepository = () => {
+		onChooseRepository?.();
 	};
 
 	const handleExcludeTypeChange = (e: Event | FormEvent<HTMLElement>) => {
@@ -779,53 +776,32 @@ export function GraphWrapper({
 			<header className="titlebar graph-app__header">
 				<div className="titlebar__row titlebar__row--wrap">
 					<div className="titlebar__group titlebar__group--fixed">
-						{repos.length < 2 ? (
-							<button type="button" className="action-button" disabled>
-								{repo?.formattedName ?? 'none selected'}
-							</button>
-						) : (
-							<PopMenu>
-								<button
-									type="button"
-									className="action-button"
-									slot="trigger"
-									disabled={repos.length < 2}
-								>
-									{repo?.formattedName ?? 'none selected'}
-									{repos.length > 1 && (
-										<span
-											className="codicon codicon-chevron-down action-button__more"
-											aria-hidden="true"
-										></span>
-									)}
-								</button>
-								<MenuList role="listbox" slot="content">
-									{repos.length > 0 &&
-										repos.map((item, index) => (
-											<MenuItem
-												aria-selected={item.path === repo?.path}
-												onClick={() => handleSelectRepository(item)}
-												disabled={item.path === repo?.path}
-												key={`repo-actioncombo-item-${index}`}
-											>
-												<span
-													className={`${
-														item.path === repo?.path ? 'codicon codicon-check ' : ''
-													}actioncombo__icon`}
-													aria-label="Checked"
-												></span>
-												{item.formattedName}
-											</MenuItem>
-										))}
-								</MenuList>
-							</PopMenu>
-						)}
+						<button
+							type="button"
+							className="action-button"
+							slot="trigger"
+							title="Switch to Another Repository..."
+							disabled={repos.length < 2}
+							onClick={() => handleChooseRepository()}
+						>
+							{repo?.formattedName ?? 'none selected'}
+							{repos.length > 1 && (
+								<span
+									className="codicon codicon-chevron-down action-button__more"
+									aria-hidden="true"
+								></span>
+							)}
+						</button>
 						{repo && (
 							<>
 								<span>
 									<span className="codicon codicon-chevron-right"></span>
 								</span>
-								<a href="command:gitlens.graph.switchToAnotherBranch" className="action-button">
+								<a
+									href="command:gitlens.graph.switchToAnotherBranch"
+									className="action-button"
+									title="Switch to Another Branch..."
+								>
 									{branchName}
 									<span
 										className="codicon codicon-chevron-down action-button__more"
@@ -835,7 +811,11 @@ export function GraphWrapper({
 								<span>
 									<span className="codicon codicon-chevron-right"></span>
 								</span>
-								<a href="command:gitlens.graph.fetch" className="action-button">
+								<a
+									href="command:gitlens.graph.fetch"
+									className="action-button"
+									title="Fetch Repository"
+								>
 									<span className="codicon codicon-sync action-button__icon"></span> Fetch{' '}
 									{lastFetched && <small>(Last fetched {fromNow(new Date(lastFetched))})</small>}
 								</a>

@@ -11,11 +11,12 @@ import type {
 	GraphExcludedRef,
 	GraphExcludeTypes,
 	GraphMissingRefsMetadata,
-	GraphRepository,
 	InternalNotificationType,
 	State,
-	UpdateStateCallback} from '../../../../plus/webviews/graph/protocol';
+	UpdateStateCallback,
+} from '../../../../plus/webviews/graph/protocol';
 import {
+	ChooseRepositoryCommandType,
 	DidChangeAvatarsNotificationType,
 	DidChangeColumnsNotificationType,
 	DidChangeGraphConfigurationNotificationType,
@@ -43,7 +44,6 @@ import {
 	UpdateExcludeTypeCommandType,
 	UpdateIncludeOnlyRefsCommandType,
 	UpdateRefsVisibilityCommandType,
-	UpdateSelectedRepositoryCommandType as UpdateRepositorySelectionCommandType,
 	UpdateSelectionCommandType,
 } from '../../../../plus/webviews/graph/protocol';
 import { debounce } from '../../../../system/function';
@@ -96,10 +96,7 @@ export class GraphApp extends App<State> {
 					onRefsVisibilityChange={(refs: GraphExcludedRef[], visible: boolean) =>
 						this.onRefsVisibilityChanged(refs, visible)
 					}
-					onSelectRepository={debounce<GraphApp['onRepositorySelectionChanged']>(
-						path => this.onRepositorySelectionChanged(path),
-						250,
-					)}
+					onChooseRepository={debounce<GraphApp['onChooseRepository']>(() => this.onChooseRepository(), 250)}
 					onDoubleClickRef={ref => this.onDoubleClickRef(ref)}
 					onMissingAvatars={(...params) => this.onGetMissingAvatars(...params)}
 					onMissingRefsMetadata={(...params) => this.onGetMissingRefsMetadata(...params)}
@@ -414,6 +411,10 @@ export class GraphApp extends App<State> {
 		});
 	}
 
+	private onChooseRepository() {
+		this.sendCommand(ChooseRepositoryCommandType, undefined);
+	}
+
 	private onDimMergeCommits(dim: boolean) {
 		this.sendCommand(DimMergeCommitsCommandType, {
 			dim: dim,
@@ -423,12 +424,6 @@ export class GraphApp extends App<State> {
 	private onDoubleClickRef(ref: GraphRef) {
 		this.sendCommand(DoubleClickedRefCommandType, {
 			ref: ref,
-		});
-	}
-
-	private onRepositorySelectionChanged(repo: GraphRepository) {
-		this.sendCommand(UpdateRepositorySelectionCommandType, {
-			path: repo.path,
 		});
 	}
 
