@@ -141,6 +141,9 @@ export interface UpdateStateCallback {
 }
 
 // Commands
+
+export const ChooseRepositoryCommandType = new IpcCommandType<undefined>('graph/chooseRepository');
+
 export interface DimMergeCommitsParams {
 	dim: boolean;
 }
@@ -217,13 +220,6 @@ export interface UpdateIncludeOnlyRefsParams {
 }
 export const UpdateIncludeOnlyRefsCommandType = new IpcCommandType<UpdateIncludeOnlyRefsParams>(
 	'graph/fitlers/update/includeOnlyRefs',
-);
-
-export interface UpdateSelectedRepositoryParams {
-	path: string;
-}
-export const UpdateSelectedRepositoryCommandType = new IpcCommandType<UpdateSelectedRepositoryParams>(
-	'graph/selectedRepository/update',
 );
 
 export interface UpdateSelectionParams {
