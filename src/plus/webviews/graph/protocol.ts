@@ -141,6 +141,11 @@ export interface UpdateStateCallback {
 }
 
 // Commands
+export interface DimMergeCommitsParams {
+	dim: boolean;
+}
+export const DimMergeCommitsCommandType = new IpcCommandType<DimMergeCommitsParams>('graph/dimMergeCommits');
+
 export interface DismissBannerParams {
 	key: 'preview' | 'trial';
 }
