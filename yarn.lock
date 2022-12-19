@@ -195,10 +195,10 @@
   resolved "https://registry.yarnpkg.com/@gar/promisify/-/promisify-1.1.3.tgz#555193ab2e3bb3b6adc3d551c9c030d9e860daf6"
   integrity sha512-k2Ty1JcVojjJFwrg/ThKi2ujJ7XNLYaFGNB/bWT9wGR+oSMJHMa5w+CUq6p/pVrKeNNgA7pCqEcjSnHVoqJQFw==
 
-"@gitkraken/gitkraken-components@1.1.0-rc.14":
-  version "1.1.0-rc.14"
-  resolved "https://registry.yarnpkg.com/@gitkraken/gitkraken-components/-/gitkraken-components-1.1.0-rc.14.tgz#9189b4981de8ea1b78077d3947894689802b16bf"
-  integrity sha512-xpwyb9JxurjW3jMrAJ5eDTbzbeuPBjpHiBWKtVIT1jodf36zG446aDcQlUJ5tfptriUqAwTGR6Ktl5W42IIgfQ==
+"@gitkraken/gitkraken-components@1.1.0-rc.15":
+  version "1.1.0-rc.15"
+  resolved "https://registry.yarnpkg.com/@gitkraken/gitkraken-components/-/gitkraken-components-1.1.0-rc.15.tgz#4baa2b7772f8987136c29beb1edc5bb980d750c0"
+  integrity sha512-oqV1YktB+qhJnfKnppVEjoQpI1h2kQfi5/ATYrsqJLMpiigaj3THbpdJPscZ8Q44p/0wn8m1iiDwNtFgDFU6aA==
   dependencies:
     "@axosoft/react-virtualized" "9.22.3-gitkraken.3"
     classnames "2.2.3"
