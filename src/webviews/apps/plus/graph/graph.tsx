@@ -30,6 +30,7 @@ import {
 	DidEnsureRowNotificationType,
 	DidFetchNotificationType,
 	DidSearchNotificationType,
+	DimMergeCommitsCommandType,
 	DismissBannerCommandType,
 	DoubleClickedRefCommandType,
 	EnsureRowCommandType,
@@ -91,6 +92,7 @@ export class GraphApp extends App<State> {
 						settings => this.onColumnsChanged(settings),
 						250,
 					)}
+					onDimMergeCommits={dim => this.onDimMergeCommits(dim)}
 					onRefsVisibilityChange={(refs: GraphExcludedRef[], visible: boolean) =>
 						this.onRefsVisibilityChanged(refs, visible)
 					}
@@ -409,6 +411,12 @@ export class GraphApp extends App<State> {
 		this.sendCommand(UpdateRefsVisibilityCommandType, {
 			refs: refs,
 			visible: visible,
+		});
+	}
+
+	private onDimMergeCommits(dim: boolean) {
+		this.sendCommand(DimMergeCommitsCommandType, {
+			dim: dim,
 		});
 	}
 

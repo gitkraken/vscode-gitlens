@@ -2239,7 +2239,7 @@
 					"gitlens.graph.dimMergeCommits": {
 						"type": "boolean",
 						"default": false,
-						"markdownDescription": "Specifies whether to always dim rows with merge commits in the _Commit Graph_",
+						"markdownDescription": "Specifies whether to dim rows with merge commits in the _Commit Graph_",
 						"scope": "window",
 						"order": 25
 					},

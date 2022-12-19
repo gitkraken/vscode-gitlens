@@ -75,6 +75,7 @@ import { WebviewBase } from '../../../webviews/webviewBase';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import { arePlusFeaturesEnabled, ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import type {
+	DimMergeCommitsParams,
 	DismissBannerParams,
 	DoubleClickedRefParams,
 	EnsureRowParams,
@@ -121,6 +122,7 @@ import {
 	DidEnsureRowNotificationType,
 	DidFetchNotificationType,
 	DidSearchNotificationType,
+	DimMergeCommitsCommandType,
 	DismissBannerCommandType,
 	DoubleClickedRefCommandType,
 	EnsureRowCommandType,
@@ -404,6 +406,9 @@ export class GraphWebview extends WebviewBase<State> {
 
 	protected override onMessageReceived(e: IpcMessage) {
 		switch (e.method) {
+			case DimMergeCommitsCommandType.method:
+				onIpc(DimMergeCommitsCommandType, e, params => this.dimMergeCommits(params));
+				break;
 			case DismissBannerCommandType.method:
 				onIpc(DismissBannerCommandType, e, params => this.dismissBanner(params));
 				break;
@@ -595,6 +600,10 @@ export class GraphWebview extends WebviewBase<State> {
 
 		this._theme = theme;
 		this.updateState();
+	}
+
+	private dimMergeCommits(e: DimMergeCommitsParams) {
+		void configuration.updateEffective('graph.dimMergeCommits', e.dim);
 	}
 
 	private dismissBanner(e: DismissBannerParams) {
