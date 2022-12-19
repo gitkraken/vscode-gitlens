@@ -1610,9 +1610,9 @@ export class GraphWebview extends WebviewBase<State> {
 			context: {
 				header: this.getColumnHeaderContext(columns),
 			},
-			excludeRefs: data != null ? this.getExcludedRefs(data) : undefined,
-			excludeTypes: this.getExcludedTypes(data),
-			includeOnlyRefs: data != null ? this.getIncludeOnlyRefs(data) : undefined,
+			excludeRefs: data != null ? this.getExcludedRefs(data) ?? {} : {},
+			excludeTypes: this.getExcludedTypes(data) ?? {},
+			includeOnlyRefs: data != null ? this.getIncludeOnlyRefs(data) ?? {} : {},
 			nonce: this.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
 			debugging: this.container.debugging,
