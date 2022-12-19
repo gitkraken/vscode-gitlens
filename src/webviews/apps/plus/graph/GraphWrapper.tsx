@@ -348,7 +348,7 @@ export function GraphWrapper({
 		}
 
 		return Object.values(excludeTypes).includes(true);
-	}, [excludeTypes, isAllBranches]);
+	}, [excludeTypes, isAllBranches, graphConfig?.dimMergeCommits]);
 
 	const handleSearchInput = (e: CustomEvent<SearchQuery>) => {
 		const detail = e.detail;
