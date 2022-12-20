@@ -10,8 +10,9 @@ import { Commands, ContextKeys, CoreCommands } from './constants';
 import { Container } from './container';
 import { setContext } from './context';
 import { isGitUri } from './git/gitUri';
-import { getBranchNameWithoutRemote } from './git/models/branch';
+import { getBranchNameWithoutRemote, isBranch } from './git/models/branch';
 import { isCommit } from './git/models/commit';
+import { isTag } from './git/models/tag';
 import { Logger, LogLevel } from './logger';
 import {
 	showDebugLoggingWarningMessage,
@@ -42,11 +43,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 			})`;
 		}
 
-		if (isCommit(o)) {
-			return `GitCommit(${o.sha ? ` sha=${o.sha}` : ''}${o.repoPath ? ` repoPath=${o.repoPath}` : ''})`;
-		}
-
-		if (isViewNode(o)) return o.toString();
+		if (isBranch(o) || isCommit(o) || isTag(o) || isViewNode(o)) return o.toString();
 
 		return undefined;
 	});

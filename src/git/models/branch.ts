@@ -1,5 +1,6 @@
 import { BranchSorting, configuration, DateStyle } from '../../configuration';
 import { Container } from '../../container';
+import { getLoggableName } from '../../logger';
 import { formatDate, fromNow } from '../../system/date';
 import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
@@ -74,6 +75,10 @@ export class GitBranch implements GitBranchReference {
 			ahead: ahead,
 			behind: behind,
 		};
+	}
+
+	toString(): string {
+		return `${getLoggableName(this)}(${this.id})`;
 	}
 
 	get formattedDate(): string {

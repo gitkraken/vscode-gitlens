@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { hrtime } from '@env/hrtime';
 import type { LogScope } from '../../logger';
-import { Logger, LogLevel } from '../../logger';
+import { getLoggableName, Logger, LogLevel } from '../../logger';
 import { getParameters } from '../function';
 import { isPromise } from '../promise';
 import { getDurationMilliseconds } from '../string';
@@ -155,7 +155,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 
 			let instanceName: string;
 			if (this != null) {
-				instanceName = Logger.toLoggableName(this);
+				instanceName = getLoggableName(this);
 				if (this.constructor?.[LogInstanceNameFn]) {
 					instanceName = target.constructor[LogInstanceNameFn](this, instanceName);
 				}

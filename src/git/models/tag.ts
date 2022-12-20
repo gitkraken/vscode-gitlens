@@ -1,5 +1,6 @@
 import { configuration, DateStyle, TagSorting } from '../../configuration';
 import { Container } from '../../container';
+import { getLoggableName } from '../../logger';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
 import { sortCompare } from '../../system/string';
@@ -27,6 +28,10 @@ export class GitTag implements GitTagReference {
 		public readonly commitDate: Date | undefined,
 	) {
 		this.id = getTagId(repoPath, name);
+	}
+
+	toString(): string {
+		return `${getLoggableName(this)}(${this.id})`;
 	}
 
 	get formattedDate(): string {

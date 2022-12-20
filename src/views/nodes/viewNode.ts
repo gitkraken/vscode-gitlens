@@ -10,7 +10,7 @@ import { GitReference } from '../../git/models/reference';
 import { GitRemote } from '../../git/models/remote';
 import type { RepositoryChangeEvent } from '../../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
-import { Logger } from '../../logger';
+import { getLoggableName } from '../../logger';
 import type { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
 import { gate } from '../../system/decorators/gate';
 import { debug, log, logName } from '../../system/decorators/log';
@@ -96,7 +96,7 @@ export abstract class ViewNode<TView extends View = View, State extends object =
 
 	toString(): string {
 		const id = this.id;
-		return `${Logger.toLoggableName(this)}${id != null ? `(${id})` : ''}`;
+		return `${getLoggableName(this)}${id != null ? `(${id})` : ''}`;
 	}
 
 	protected _uri: GitUri;
