@@ -36,6 +36,10 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 		return ContributorsNode.getId(this.repo.path);
 	}
 
+	get repoPath(): string {
+		return this.repo.path;
+	}
+
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
 			const all = configuration.get('views.contributors.showAllBranches');
