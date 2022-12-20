@@ -1,4 +1,5 @@
 import type { AttributeValue, Span, TimeInput, Tracer } from '@opentelemetry/api';
+import { SpanKind } from '@opentelemetry/api';
 // import { diag, DiagConsoleLogger } from '@opentelemetry/api';
 // import { DiagLogLevel } from '@opentelemetry/api/build/src/diag/types';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
@@ -63,8 +64,11 @@ export class OpenTelemetryProvider implements TelemetryProvider {
 	}
 
 	sendEvent(name: string, data?: Record<string, AttributeValue>, startTime?: TimeInput, endTime?: TimeInput): void {
-		const span = this.tracer.startSpan(name, { startTime: startTime ?? Date.now() });
-		span.setAttributes(this._globalAttributes);
+		const span = this.tracer.startSpan(name, {
+			attributes: this._globalAttributes,
+			kind: SpanKind.INTERNAL,
+			startTime: startTime ?? Date.now(),
+		});
 		if (data != null) {
 			span.setAttributes(data);
 		}
@@ -72,8 +76,11 @@ export class OpenTelemetryProvider implements TelemetryProvider {
 	}
 
 	startEvent(name: string, data?: Record<string, AttributeValue>, startTime?: TimeInput): Span {
-		const span = this.tracer.startSpan(name, { startTime: startTime ?? Date.now() });
-		span.setAttributes(this._globalAttributes);
+		const span = this.tracer.startSpan(name, {
+			attributes: this._globalAttributes,
+			kind: SpanKind.INTERNAL,
+			startTime: startTime ?? Date.now(),
+		});
 		if (data != null) {
 			span.setAttributes(data);
 		}
