@@ -729,3 +729,7 @@ export class Container {
 		});
 	}
 }
+
+export function isContainer(container: any): container is Container {
+	return container instanceof Container;
+}

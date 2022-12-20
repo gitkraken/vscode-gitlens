@@ -4,6 +4,7 @@ import type { GravatarDefaultStyle } from '../../configuration';
 import { DateSource, DateStyle } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
+import { getLoggableName } from '../../logger';
 import { formatDate, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { memoize } from '../../system/decorators/memoize';
@@ -109,6 +110,10 @@ export class GitCommit implements GitRevisionReference {
 		} else {
 			this.lines = [];
 		}
+	}
+
+	toString(): string {
+		return `${getLoggableName(this)}(${this.repoPath}|${this.shortSha})`;
 	}
 
 	get date(): Date {

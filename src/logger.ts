@@ -193,23 +193,6 @@ export class Logger {
 		}
 	}
 
-	static toLoggableName(instance: Function | object) {
-		let name: string;
-		if (typeof instance === 'function') {
-			if (instance.prototype == null || instance.prototype.constructor == null) {
-				return instance.name;
-			}
-
-			name = instance.prototype.constructor.name ?? emptyStr;
-		} else {
-			name = instance.constructor?.name ?? emptyStr;
-		}
-
-		// Strip webpack module name (since I never name classes with an _)
-		const index = name.indexOf('_');
-		return index === -1 ? name : name.substr(index + 1);
-	}
-
 	private static get timestamp(): string {
 		return `[${new Date().toISOString().replace(/T/, ' ').slice(0, -1)}]`;
 	}
@@ -281,4 +264,19 @@ function toOrderedLevel(logLevel: LogLevel): OrderedLevel {
 		default:
 			return OrderedLevel.Off;
 	}
+}
+
+export function getLoggableName(instance: Function | object) {
+	let name: string;
+	if (typeof instance === 'function') {
+		if (instance.prototype?.constructor == null) return instance.name;
+
+		name = instance.prototype.constructor.name ?? emptyStr;
+	} else {
+		name = instance.constructor?.name ?? emptyStr;
+	}
+
+	// Strip webpack module name (since I never name classes with an _)
+	const index = name.indexOf('_');
+	return index === -1 ? name : name.substr(index + 1);
 }
