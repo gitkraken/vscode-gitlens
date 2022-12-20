@@ -177,6 +177,9 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		void setContext(ContextKeys.Debugging, true);
 	}
 
+	// TODO@eamodio do we want to capture any vscode settings that are relevant to GitLens?
+	const flatCfg = flatten(configuration.getAll(true), { prefix: 'config', stringify: 'all' });
+
 	container.telemetry.setGlobalAttributes({
 		debugging: container.debugging,
 		insiders: insiders,
@@ -199,22 +202,18 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		}`,
 	});
 
-	setTimeout(() => {
-		// TODO@eamodio do we want to capture any vscode settings that are relevant to GitLens?
-		const config = flatten(configuration.getAll(true), { prefix: 'config', stringify: 'all' });
-		container.telemetry.sendEvent(
-			'activate',
-			{
-				'activation.elapsed': elapsed,
-				'activation.mode': mode?.name,
-				...config,
-			},
-			startTime,
-			endTime,
-		);
+	container.telemetry.sendEvent(
+		'activate',
+		{
+			'activation.elapsed': elapsed,
+			'activation.mode': mode?.name,
+			...flatCfg,
+		},
+		startTime,
+		endTime,
+	);
 
-		setTimeout(() => uninstallDeprecatedAuthentication(), 25000);
-	}, 5000);
+	setTimeout(() => uninstallDeprecatedAuthentication(), 25000);
 
 	return Promise.resolve(api);
 }
