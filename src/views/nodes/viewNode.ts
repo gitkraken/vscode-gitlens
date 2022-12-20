@@ -627,6 +627,14 @@ export function canEditNode(node: ViewNode): node is ViewNode & { edit(): void |
 	return typeof (node as ViewNode & { edit(): void | Promise<void> }).edit === 'function';
 }
 
+export function canGetNodeRepoPath(node?: ViewNode): node is ViewNode & { repoPath: string | undefined } {
+	return node != null && 'repoPath' in node && typeof node.repoPath === 'string';
+}
+
 export function canViewDismissNode(view: View): view is View & { dismissNode(node: ViewNode): void } {
 	return typeof (view as View & { dismissNode(node: ViewNode): void }).dismissNode === 'function';
+}
+
+export function getNodeRepoPath(node?: ViewNode): string | undefined {
+	return canGetNodeRepoPath(node) ? node.repoPath : undefined;
 }

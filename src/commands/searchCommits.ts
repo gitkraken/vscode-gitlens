@@ -25,7 +25,10 @@ export class SearchCommitsCommand extends Command {
 	}
 
 	protected override preExecute(context: CommandContext, args?: SearchCommitsCommandArgs) {
-		if (context.type === 'viewItem') {
+		if (context.command === Commands.SearchCommitsInView) {
+			args = { ...args };
+			args.showResultsInSideBar = true;
+		} else if (context.type === 'viewItem') {
 			args = { ...args };
 			args.showResultsInSideBar = true;
 
@@ -38,9 +41,6 @@ export class SearchCommitsCommand extends Command {
 			if (isCommandContextViewNodeHasRepository(context)) {
 				args.repoPath = context.node.repo.path;
 			}
-		} else if (context.command === Commands.SearchCommitsInView) {
-			args = { ...args };
-			args.showResultsInSideBar = true;
 		}
 
 		return this.execute(args);

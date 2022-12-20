@@ -5406,7 +5406,19 @@
 				"icon": "$(person-add)"
 			},
 			{
+				"command": "gitlens.views.title.applyStash",
+				"title": "Apply a Stash...",
+				"category": "GitLens",
+				"icon": "$(gitlens-stash-pop)"
+			},
+			{
 				"command": "gitlens.views.createWorktree",
+				"title": "Create Worktree...",
+				"category": "GitLens",
+				"icon": "$(add)"
+			},
+			{
+				"command": "gitlens.views.title.createWorktree",
 				"title": "Create Worktree...",
 				"category": "GitLens",
 				"icon": "$(add)"
@@ -5446,6 +5458,12 @@
 				"icon": "$(add)"
 			},
 			{
+				"command": "gitlens.views.title.createBranch",
+				"title": "Create Branch...",
+				"category": "GitLens",
+				"icon": "$(add)"
+			},
+			{
 				"command": "gitlens.views.deleteBranch",
 				"title": "Delete Branch...",
 				"category": "GitLens",
@@ -5458,6 +5476,12 @@
 			},
 			{
 				"command": "gitlens.views.createTag",
+				"title": "Create Tag...",
+				"category": "GitLens",
+				"icon": "$(add)"
+			},
+			{
+				"command": "gitlens.views.title.createTag",
 				"title": "Create Tag...",
 				"category": "GitLens",
 				"icon": "$(add)"
@@ -7767,7 +7791,15 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.title.applyStash",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.createWorktree",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.title.createWorktree",
 					"when": "false"
 				},
 				{
@@ -7788,6 +7820,10 @@
 				},
 				{
 					"command": "gitlens.views.createBranch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.title.createBranch",
 					"when": "false"
 				},
 				{
@@ -7844,6 +7880,10 @@
 				},
 				{
 					"command": "gitlens.views.createTag",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.title.createTag",
 					"when": "false"
 				},
 				{
@@ -9153,7 +9193,7 @@
 					"group": "navigation@10"
 				},
 				{
-					"command": "gitlens.views.createBranch",
+					"command": "gitlens.views.title.createBranch",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && view =~ /gitlens\\.views\\.branches\\b/",
 					"group": "navigation@11"
 				},
@@ -9648,7 +9688,7 @@
 					"group": "navigation@10"
 				},
 				{
-					"command": "gitlens.stashApply",
+					"command": "gitlens.views.title.applyStash",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && view =~ /^gitlens\\.views\\.stashes/",
 					"group": "navigation@11"
 				},
@@ -9673,7 +9713,7 @@
 					"group": "navigation@99"
 				},
 				{
-					"command": "gitlens.views.createTag",
+					"command": "gitlens.views.title.createTag",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && view =~ /gitlens\\.views\\.tags\\b/",
 					"group": "navigation@10"
 				},
@@ -9728,7 +9768,7 @@
 					"group": "navigation@99"
 				},
 				{
-					"command": "gitlens.views.createWorktree",
+					"command": "gitlens.views.title.createWorktree",
 					"when": "view =~ /^gitlens\\.views\\.worktrees/",
 					"group": "navigation@10"
 				},

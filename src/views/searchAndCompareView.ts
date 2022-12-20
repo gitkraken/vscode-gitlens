@@ -295,7 +295,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 			registerViewCommand(this.getQualifiedCommand('pin'), this.pin, this),
 			registerViewCommand(this.getQualifiedCommand('unpin'), this.unpin, this),
 			registerViewCommand(this.getQualifiedCommand('swapComparison'), this.swapComparison, this),
-			registerViewCommand(this.getQualifiedCommand('selectForCompare'), this.selectForCompare, this),
+			registerViewCommand(this.getQualifiedCommand('selectForCompare'), () => this.selectForCompare()),
 			registerViewCommand(this.getQualifiedCommand('compareWithSelected'), this.compareWithSelected, this),
 
 			registerViewCommand(

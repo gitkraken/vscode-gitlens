@@ -27,7 +27,7 @@ import { debug } from '../system/decorators/log';
 import { sequentialize } from '../system/function';
 import { OpenWorkspaceLocation } from '../system/utils';
 import { runGitCommandInTerminal } from '../terminal';
-import { BranchesNode } from './nodes/branchesNode';
+import type { BranchesNode } from './nodes/branchesNode';
 import { BranchNode } from './nodes/branchNode';
 import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
 import { CommitFileNode } from './nodes/commitFileNode';
@@ -35,7 +35,6 @@ import { CommitNode } from './nodes/commitNode';
 import type { PagerNode } from './nodes/common';
 import { CompareBranchNode } from './nodes/compareBranchNode';
 import { ContributorNode } from './nodes/contributorNode';
-import { ContributorsNode } from './nodes/contributorsNode';
 import { FileHistoryNode } from './nodes/fileHistoryNode';
 import { FileRevisionAsCommitNode } from './nodes/fileRevisionAsCommitNode';
 import { FolderNode } from './nodes/folderNode';
@@ -43,7 +42,6 @@ import { LineHistoryNode } from './nodes/lineHistoryNode';
 import { MergeConflictFileNode } from './nodes/mergeConflictFileNode';
 import { PullRequestNode } from './nodes/pullRequestNode';
 import { RemoteNode } from './nodes/remoteNode';
-import type { RemotesNode } from './nodes/remotesNode';
 import { RepositoryNode } from './nodes/repositoryNode';
 import { ResultsFileNode } from './nodes/resultsFileNode';
 import { ResultsFilesNode } from './nodes/resultsFilesNode';
@@ -56,6 +54,7 @@ import {
 	canClearNode,
 	canEditNode,
 	canViewDismissNode,
+	getNodeRepoPath,
 	PageableViewNode,
 	RepositoryFolderNode,
 	ViewNode,
@@ -199,7 +198,7 @@ export class ViewCommands {
 		);
 
 		registerViewCommand('gitlens.views.addAuthors', this.addAuthors, this);
-		registerViewCommand('gitlens.views.addAuthor', this.addAuthors, this);
+		registerViewCommand('gitlens.views.addAuthor', this.addAuthor, this);
 
 		registerViewCommand('gitlens.views.openChanges', this.openChanges, this);
 		registerViewCommand('gitlens.views.openChangesWithWorking', this.openChangesWithWorking, this);
@@ -214,10 +213,10 @@ export class ViewCommands {
 		registerViewCommand('gitlens.views.highlightChanges', this.highlightChanges, this);
 		registerViewCommand('gitlens.views.highlightRevisionChanges', this.highlightRevisionChanges, this);
 		registerViewCommand('gitlens.views.restore', this.restore, this);
-		registerViewCommand('gitlens.views.switchToBranch', this.switch, this);
 		registerViewCommand('gitlens.views.switchToAnotherBranch', this.switch, this);
-		registerViewCommand('gitlens.views.switchToCommit', this.switch, this);
-		registerViewCommand('gitlens.views.switchToTag', this.switch, this);
+		registerViewCommand('gitlens.views.switchToBranch', this.switchTo, this);
+		registerViewCommand('gitlens.views.switchToCommit', this.switchTo, this);
+		registerViewCommand('gitlens.views.switchToTag', this.switchTo, this);
 		registerViewCommand('gitlens.views.addRemote', this.addRemote, this);
 		registerViewCommand('gitlens.views.pruneRemote', this.pruneRemote, this);
 
@@ -247,10 +246,16 @@ export class ViewCommands {
 		);
 
 		registerViewCommand('gitlens.views.cherryPick', this.cherryPick, this, ViewCommandMultiSelectMode.Custom);
+
+		registerViewCommand('gitlens.views.title.createBranch', () => this.createBranch());
 		registerViewCommand('gitlens.views.createBranch', this.createBranch, this);
 		registerViewCommand('gitlens.views.deleteBranch', this.deleteBranch, this);
 		registerViewCommand('gitlens.views.renameBranch', this.renameBranch, this);
+
+		registerViewCommand('gitlens.views.title.applyStash', () => this.applyStash());
 		registerViewCommand('gitlens.views.deleteStash', this.deleteStash, this, ViewCommandMultiSelectMode.Custom);
+
+		registerViewCommand('gitlens.views.title.createTag', () => this.createTag());
 		registerViewCommand('gitlens.views.createTag', this.createTag, this);
 		registerViewCommand('gitlens.views.deleteTag', this.deleteTag, this);
 
@@ -271,6 +276,7 @@ export class ViewCommands {
 		registerViewCommand('gitlens.views.createPullRequest', this.createPullRequest, this);
 		registerViewCommand('gitlens.views.openPullRequest', this.openPullRequest, this);
 
+		registerViewCommand('gitlens.views.title.createWorktree', () => this.createWorktree());
 		registerViewCommand('gitlens.views.createWorktree', this.createWorktree, this);
 		registerViewCommand('gitlens.views.deleteWorktree', this.deleteWorktree, this);
 		registerViewCommand('gitlens.views.openWorktree', this.openWorktree, this);
@@ -283,20 +289,25 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private addAuthors(node?: ContributorNode | ContributorsNode) {
-		if (node != null && !(node instanceof ContributorNode) && !(node instanceof ContributorsNode)) {
-			return Promise.resolve();
-		}
-
-		return GitActions.Contributor.addAuthors(
-			node?.uri.repoPath,
-			node instanceof ContributorNode ? node.contributor : undefined,
-		);
+	private addAuthors(node?: ViewNode) {
+		return GitActions.Contributor.addAuthors(getNodeRepoPath(node));
 	}
 
 	@debug()
-	private addRemote(node?: RemotesNode) {
-		return GitActions.Remote.add(node?.repoPath);
+	private addAuthor(node?: ContributorNode) {
+		if (node instanceof ContributorNode) {
+			return GitActions.Contributor.addAuthors(
+				node.repoPath,
+				node.contributor.current ? undefined : node.contributor,
+			);
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private addRemote(node?: ViewNode) {
+		return GitActions.Remote.add(getNodeRepoPath(node));
 	}
 
 	@debug()
@@ -314,6 +325,11 @@ export class ViewCommands {
 		if (node.ref == null || node.ref.ref === 'HEAD') return Promise.resolve();
 
 		return GitActions.Commit.applyChanges(node.file, node.ref);
+	}
+
+	@debug()
+	private applyStash() {
+		return GitActions.Stash.apply();
 	}
 
 	@debug()
@@ -362,37 +378,6 @@ export class ViewCommands {
 			from = branch;
 		}
 		return GitActions.Branch.create(node?.repoPath, from);
-	}
-
-	@debug()
-	private async createWorktree(node?: BranchNode | WorktreesNode) {
-		if (node instanceof WorktreesNode) {
-			node = undefined;
-		}
-		if (node != null && !(node instanceof BranchNode)) return undefined;
-
-		return GitActions.Worktree.create(node?.repoPath, undefined, node?.ref);
-	}
-
-	@debug()
-	private openWorktree(node: WorktreeNode, options?: { location?: OpenWorkspaceLocation }) {
-		if (!(node instanceof WorktreeNode)) return undefined;
-
-		return GitActions.Worktree.open(node.worktree, options);
-	}
-
-	@debug()
-	private revealWorktreeInExplorer(node: WorktreeNode) {
-		if (!(node instanceof WorktreeNode)) return undefined;
-
-		return GitActions.Worktree.revealInFileExplorer(node.worktree);
-	}
-
-	@debug()
-	private async deleteWorktree(node: WorktreeNode) {
-		if (!(node instanceof WorktreeNode)) return undefined;
-
-		return GitActions.Worktree.remove(node.repoPath, node.worktree.uri);
 	}
 
 	@debug()
@@ -446,6 +431,16 @@ export class ViewCommands {
 	}
 
 	@debug()
+	private async createWorktree(node?: BranchNode | WorktreesNode) {
+		if (node instanceof WorktreesNode) {
+			node = undefined;
+		}
+		if (node != null && !(node instanceof BranchNode)) return undefined;
+
+		return GitActions.Worktree.create(node?.repoPath, undefined, node?.ref);
+	}
+
+	@debug()
 	private deleteBranch(node: BranchNode) {
 		if (!(node instanceof BranchNode)) return Promise.resolve();
 
@@ -473,6 +468,13 @@ export class ViewCommands {
 		if (!(node instanceof TagNode)) return Promise.resolve();
 
 		return GitActions.Tag.remove(node.repoPath, node.tag);
+	}
+
+	@debug()
+	private async deleteWorktree(node: WorktreeNode) {
+		if (!(node instanceof WorktreeNode)) return undefined;
+
+		return GitActions.Worktree.remove(node.repoPath, node.worktree.uri);
 	}
 
 	@debug()
@@ -536,10 +538,10 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private pushToCommit(node: CommitNode | FileRevisionAsCommitNode) {
-		if (!(node instanceof CommitNode) && !(node instanceof FileRevisionAsCommitNode)) return Promise.resolve();
+	private openInTerminal(node: RepositoryNode | RepositoryFolderNode) {
+		if (!(node instanceof RepositoryNode) && !(node instanceof RepositoryFolderNode)) return Promise.resolve();
 
-		return GitActions.push(node.repoPath, false, node.commit);
+		return executeCoreCommand(CoreCommands.OpenInTerminal, Uri.file(node.repo.path));
 	}
 
 	@debug()
@@ -561,10 +563,10 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private openInTerminal(node: RepositoryNode | RepositoryFolderNode) {
-		if (!(node instanceof RepositoryNode) && !(node instanceof RepositoryFolderNode)) return Promise.resolve();
+	private openWorktree(node: WorktreeNode, options?: { location?: OpenWorkspaceLocation }) {
+		if (!(node instanceof WorktreeNode)) return undefined;
 
-		return executeCoreCommand(CoreCommands.OpenInTerminal, Uri.file(node.repo.path));
+		return GitActions.Worktree.open(node.worktree, options);
 	}
 
 	@debug()
@@ -628,6 +630,13 @@ export class ViewCommands {
 		}
 
 		return Promise.resolve();
+	}
+
+	@debug()
+	private pushToCommit(node: CommitNode | FileRevisionAsCommitNode) {
+		if (!(node instanceof CommitNode) && !(node instanceof FileRevisionAsCommitNode)) return Promise.resolve();
+
+		return GitActions.push(node.repoPath, false, node.commit);
 	}
 
 	@debug()
@@ -697,6 +706,13 @@ export class ViewCommands {
 	}
 
 	@debug()
+	private revealWorktreeInExplorer(node: WorktreeNode) {
+		if (!(node instanceof WorktreeNode)) return undefined;
+
+		return GitActions.Worktree.revealInFileExplorer(node.worktree);
+	}
+
+	@debug()
 	private revert(node: CommitNode | FileRevisionAsCommitNode) {
 		if (!(node instanceof CommitNode) && !(node instanceof FileRevisionAsCommitNode)) return Promise.resolve();
 
@@ -758,17 +774,20 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private switch(node?: ViewRefNode | BranchesNode) {
-		if (node == null) {
-			return GitActions.switchTo(this.container.git.highlander);
+	private switch(node?: ViewNode) {
+		return GitActions.switchTo(getNodeRepoPath(node));
+	}
+
+	@debug()
+	private switchTo(node?: ViewNode) {
+		if (node instanceof ViewRefNode) {
+			return GitActions.switchTo(
+				node.repoPath,
+				node instanceof BranchNode && node.branch.current ? undefined : node.ref,
+			);
 		}
 
-		if (!(node instanceof ViewRefNode) && !(node instanceof BranchesNode)) return Promise.resolve();
-
-		return GitActions.switchTo(
-			node.repoPath,
-			node instanceof BranchesNode || (node instanceof BranchNode && node.branch.current) ? undefined : node.ref,
-		);
+		return GitActions.switchTo(getNodeRepoPath(node));
 	}
 
 	@debug()
