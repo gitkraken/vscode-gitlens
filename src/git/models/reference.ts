@@ -47,6 +47,10 @@ export namespace GitRevision {
 		return ref === uncommitted || ref === uncommittedStaged || (!exact && isMatch(uncommittedRegex, ref));
 	}
 
+	export function isUncommittedParent(ref: string | undefined) {
+		return ref === `${uncommitted}^` || ref === `${uncommittedStaged}^`;
+	}
+
 	export function isUncommittedStaged(ref: string | undefined, exact: boolean = false): boolean {
 		return ref === uncommittedStaged || (!exact && isMatch(uncommittedStagedRegex, ref));
 	}

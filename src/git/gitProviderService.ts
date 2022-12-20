@@ -2303,6 +2303,10 @@ export class GitProviderService implements Disposable {
 		pathOrUri?: string | Uri,
 		options?: { timeout?: number },
 	) {
+		if (pathOrUri != null && GitRevision.isUncommittedParent(ref)) {
+			ref = 'HEAD';
+		}
+
 		if (
 			!ref ||
 			ref === GitRevision.deletedOrMissing ||
