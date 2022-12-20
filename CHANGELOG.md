@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [13.2.0] - 2022-12-20
+
 ### Added
 
 - Adds many all-new _Commit Graph_ features and improvements
@@ -4511,7 +4513,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v13.1.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v13.2.0...HEAD
+[13.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v13.1.1...gitkraken:v13.2.0
 [13.1.1]: https://github.com/gitkraken/vscode-gitlens/compare/v13.1.0...gitkraken:v13.1.1
 [13.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v13.0.4...gitkraken:v13.1.0
 [13.0.4]: https://github.com/gitkraken/vscode-gitlens/compare/v13.0.3...gitkraken:v13.0.4
