@@ -848,7 +848,7 @@ export function GraphWrapper({
 					<div className="titlebar__row">
 						<div className="titlebar__group">
 							<PopMenu>
-								<button type="button" className="action-button" slot="trigger">
+								<button type="button" className="action-button" slot="trigger" title="Filter Graph">
 									<span className={`codicon codicon-filter${hasFilters ? '-filled' : ''}`}></span>
 									{hasFilters && <span className="action-button__indicator"></span>}
 									<span
@@ -930,6 +930,7 @@ export function GraphWrapper({
 							</span>
 							<SearchBox
 								ref={searchEl}
+								label="Search Commits"
 								step={searchPosition}
 								total={searchResults?.count ?? 0}
 								valid={Boolean(searchQuery?.query && searchQuery.query.length > 2)}
