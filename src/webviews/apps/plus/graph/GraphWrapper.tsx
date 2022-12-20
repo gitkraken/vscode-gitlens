@@ -914,6 +914,7 @@ export function GraphWrapper({
 											Hide Tags
 										</VSCodeCheckbox>
 									</MenuItem>
+									<MenuDivider></MenuDivider>
 									<MenuItem role="none">
 										<VSCodeCheckbox
 											value="mergeCommits"
