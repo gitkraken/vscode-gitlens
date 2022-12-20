@@ -688,18 +688,16 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 
 		let commit;
 
-		if (window.activeTextEditor == null) {
-			if (getContext('gitlens:webview:graph:active') || getContext('gitlens:webview:rebaseEditor:active')) {
-				commit = this._pendingContext?.commit ?? this._context.commit;
-				if (commit != null) return commit;
-			}
-
+		if (window.activeTextEditor != null) {
 			const { lineTracker } = this.container;
 			const line = lineTracker.selections?.[0].active;
 			if (line != null) {
 				commit = lineTracker.getState(line)?.commit;
 				if (commit != null) return commit;
 			}
+		} else if (getContext('gitlens:webview:graph:active') || getContext('gitlens:webview:rebaseEditor:active')) {
+			commit = this._pendingContext?.commit ?? this._context.commit;
+			if (commit != null) return commit;
 		}
 
 		const { commitsView } = this.container;
