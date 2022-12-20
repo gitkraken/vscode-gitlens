@@ -173,9 +173,11 @@ export class GitCommit implements GitRevisionReference {
 
 	private _resolvedPreviousSha: string | undefined;
 	get unresolvedPreviousSha(): string {
-		return (
-			this._resolvedPreviousSha ?? (this.file != null ? this.file.previousSha : this.parents[0]) ?? `${this.sha}^`
-		);
+		const previousSha =
+			this._resolvedPreviousSha ??
+			(this.file != null ? this.file.previousSha : this.parents[0]) ??
+			`${this.sha}^`;
+		return GitRevision.isUncommittedParent(previousSha) ? 'HEAD' : previousSha;
 	}
 
 	private _etagFileSystem: number | undefined;
