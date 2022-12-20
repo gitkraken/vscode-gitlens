@@ -2184,7 +2184,7 @@
 					"gitlens.graph.scrollRowPadding": {
 						"type": "number",
 						"default": 0,
-						"markdownDescription": "Specifies how many rows from the edge a selected row should be before scrolling starts",
+						"markdownDescription": "Specifies the number of rows from the edge at which the graph will scroll when using keyboard or search to change the selected row",
 						"scope": "window",
 						"order": 14
 					},
@@ -2222,24 +2222,24 @@
 						"scope": "window",
 						"order": 22
 					},
+					"gitlens.graph.dimMergeCommits": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to dim (deemphasize) merge commit rows in the _Commit Graph_",
+						"scope": "window",
+						"order": 23
+					},
 					"gitlens.graph.showRemoteNames": {
 						"type": "boolean",
 						"default": false,
 						"markdownDescription": "Specifies whether to show remote names on remote branches in the _Commit Graph_",
 						"scope": "window",
-						"order": 23
+						"order": 24
 					},
 					"gitlens.graph.avatars": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to show avatar images instead of author initials and remote icons in the _Commit Graph_",
-						"scope": "window",
-						"order": 24
-					},
-					"gitlens.graph.dimMergeCommits": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to dim rows with merge commits in the _Commit Graph_",
 						"scope": "window",
 						"order": 25
 					},
