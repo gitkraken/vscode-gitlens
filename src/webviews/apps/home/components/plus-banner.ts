@@ -20,16 +20,6 @@ const template = html<PlusBanner>`
 					>Try GitLens+ features on private repos</vscode-button
 				>
 			</p>
-			<p class="mb-0">
-				${when(
-					x => x.plus,
-					html<PlusBanner>`<a class="minimal" href="command:gitlens.plus.hide">Hide GitLens+ features</a>`,
-				)}
-				${when(
-					x => !x.plus,
-					html<PlusBanner>`<a href="command:gitlens.plus.restore">Restore GitLens+ features</a>`,
-				)}
-			</p>
 		`,
 	)}
 	${when(
@@ -118,6 +108,26 @@ const template = html<PlusBanner>`
 				<vscode-button @click="${x => x.fireAction('command:gitlens.plus.validate')}"
 					>Refresh Verification Status</vscode-button
 				>
+			</p>
+		`,
+	)}
+	${when(
+		x =>
+			[
+				SubscriptionState.Free,
+				SubscriptionState.FreePreviewTrialExpired,
+				SubscriptionState.FreePlusTrialExpired,
+			].includes(x.state),
+		html<PlusBanner>`
+			<p class="mb-0">
+				${when(
+					x => x.plus,
+					html<PlusBanner>`<a class="minimal" href="command:gitlens.plus.hide">Hide GitLens+ features</a>`,
+				)}
+				${when(
+					x => !x.plus,
+					html<PlusBanner>`<a href="command:gitlens.plus.restore">Restore GitLens+ features</a>`,
+				)}
 			</p>
 		`,
 	)}
