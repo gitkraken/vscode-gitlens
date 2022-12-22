@@ -3694,7 +3694,7 @@
 					"gitlens.plusFeatures.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to enable GitLens+ features",
+						"markdownDescription": "Specifies whether to hide or show GitLens+ features that are not accessible given the opened repositories and current subscription",
 						"scope": "window",
 						"order": 60
 					},
