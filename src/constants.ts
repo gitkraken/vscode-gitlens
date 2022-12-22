@@ -270,6 +270,7 @@ export const enum ContextKeys {
 	Vsls = 'gitlens:vsls',
 
 	Plus = 'gitlens:plus',
+	PlusDisallowedRepos = 'gitlens:plus:disallowedRepos',
 	PlusEnabled = 'gitlens:plus:enabled',
 	PlusRequired = 'gitlens:plus:required',
 	PlusState = 'gitlens:plus:state',

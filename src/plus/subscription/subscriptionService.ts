@@ -1,12 +1,14 @@
 import type {
 	AuthenticationProviderAuthenticationSessionsChangeEvent,
 	AuthenticationSession,
+	CancellationToken,
 	Event,
 	MessageItem,
 	StatusBarItem,
 } from 'vscode';
 import {
 	authentication,
+	CancellationTokenSource,
 	version as codeVersion,
 	Disposable,
 	env,
@@ -46,7 +48,8 @@ import { createFromDateDelta } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { debug, getLogScope, log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
-import { once } from '../../system/function';
+import type { Deferrable } from '../../system/function';
+import { debounce, once } from '../../system/function';
 import { flatten } from '../../system/object';
 import { pluralize } from '../../system/string';
 import { openWalkthrough } from '../../system/utils';
@@ -946,18 +949,23 @@ export class SubscriptionService implements Disposable {
 		});
 	}
 
-	private updateContext(): void {
-		this.updateStatusBar();
+	private _cancellationSource: CancellationTokenSource | undefined;
+	private _updateAccessContextDebounced: Deferrable<SubscriptionService['updateAccessContext']> | undefined;
 
-		queueMicrotask(async () => {
-			let allowed: boolean | 'mixed' = false;
-			// For performance reasons, only check if we have any repositories
-			if (this.container.git.repositoryCount !== 0) {
-				({ allowed } = await this.container.git.access());
-			}
-			void setContext(ContextKeys.PlusEnabled, Boolean(allowed) || configuration.get('plusFeatures.enabled'));
-			void setContext(ContextKeys.PlusRequired, allowed === false);
-		});
+	private updateContext(): void {
+		this._updateAccessContextDebounced?.cancel();
+		if (this._updateAccessContextDebounced == null) {
+			this._updateAccessContextDebounced = debounce(this.updateAccessContext.bind(this), 500);
+		}
+
+		if (this._cancellationSource != null) {
+			this._cancellationSource.cancel();
+			this._cancellationSource.dispose();
+		}
+		this._cancellationSource = new CancellationTokenSource();
+
+		void this._updateAccessContextDebounced(this._cancellationSource.token);
+		this.updateStatusBar();
 
 		const {
 			plan: { actual },
@@ -966,6 +974,37 @@ export class SubscriptionService implements Disposable {
 
 		void setContext(ContextKeys.Plus, actual.id != SubscriptionPlanId.Free ? actual.id : undefined);
 		void setContext(ContextKeys.PlusState, state);
+	}
+
+	private async updateAccessContext(cancellation: CancellationToken): Promise<void> {
+		let allowed: boolean | 'mixed' = false;
+		// For performance reasons, only check if we have any repositories
+		if (this.container.git.repositoryCount !== 0) {
+			({ allowed } = await this.container.git.access());
+			if (cancellation.isCancellationRequested) return;
+		}
+
+		const plusFeatures = configuration.get('plusFeatures.enabled') ?? true;
+
+		let disallowedRepos: string[] | undefined;
+
+		if (!plusFeatures && allowed === 'mixed') {
+			disallowedRepos = [];
+			for (const repo of this.container.git.repositories) {
+				if (repo.closed) continue;
+
+				const access = await this.container.git.access(undefined, repo.uri);
+				if (cancellation.isCancellationRequested) return;
+
+				if (!access.allowed) {
+					disallowedRepos.push(repo.uri.toString());
+				}
+			}
+		}
+
+		void setContext(ContextKeys.PlusEnabled, Boolean(allowed) || plusFeatures);
+		void setContext(ContextKeys.PlusRequired, allowed === false);
+		void setContext(ContextKeys.PlusDisallowedRepos, disallowedRepos);
 	}
 
 	private updateStatusBar(): void {
