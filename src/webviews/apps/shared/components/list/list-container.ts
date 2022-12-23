@@ -1,6 +1,9 @@
 import { css, customElement, FASTElement, html, observable, slotted } from '@microsoft/fast-element';
 import type { FileChangeListItem } from './file-change-list-item';
-import type { ListItem, ListItemSelectedDetail } from './list-item';
+import type { ListItem, ListItemSelectedEvent } from './list-item';
+
+// Can only import types from 'vscode'
+const BesideViewColumn = -2; /*ViewColumn.Beside*/
 
 const template = html<ListContainer>`
 	<template role="tree">
@@ -69,31 +72,33 @@ export class ListContainer extends FASTElement {
 		this._lastSelected = target;
 	}
 
-	handleSelected(e: CustomEvent<ListItemSelectedDetail>) {
+	handleSelected(e: ListItemSelectedEvent) {
 		if (!e.target || !e.detail.branch) return;
 
-		const target = e.target as ListItem;
-		const level = target.getAttribute('level');
+		function getLevel(el: ListItem) {
+			return parseInt(el.getAttribute('level') ?? '0', 10);
+		}
 
-		const getLevel = (el: ListItem) => parseInt(el.getAttribute('level') ?? '0', 10);
-		const getParent = (el: ListItem) => {
+		function getParent(el: ListItem) {
 			const level = getLevel(el);
-			let prev = el.previousElementSibling;
+			let prev = el.previousElementSibling as ListItem | null;
 			while (prev) {
-				const prevLevel = getLevel(prev as ListItem);
-				if (prevLevel < level) {
-					return prev as ListItem;
-				}
-				prev = prev.previousElementSibling;
+				const prevLevel = getLevel(prev);
+				if (prevLevel < level) return prev;
+
+				prev = prev.previousElementSibling as ListItem | null;
 			}
 
 			return undefined;
-		};
-		let nextElement = target.nextElementSibling as ListItem;
+		}
+
+		const target = e.target as ListItem;
+		const level = getLevel(target);
+
+		let nextElement = target.nextElementSibling as ListItem | null;
 		while (nextElement) {
-			if (nextElement.getAttribute('level') === level) {
-				break;
-			}
+			if (level == getLevel(nextElement)) break;
+
 			const parentElement = getParent(nextElement);
 			nextElement.setAttribute('parentexpanded', parentElement?.expanded === false ? 'false' : 'true');
 			nextElement.setAttribute('expanded', e.detail.expanded ? 'true' : 'false');
@@ -106,7 +111,10 @@ export class ListContainer extends FASTElement {
 		const target = e.target as ListItem;
 
 		if (e.key === 'Enter' || e.key === ' ') {
-			target.select(e.key === 'Enter' ? { preserveFocus: false } : undefined);
+			target.select({
+				preserveFocus: e.key !== 'Enter',
+				viewColumn: e.altKey ? BesideViewColumn : undefined,
+			});
 		} else if (e.key === 'ArrowUp') {
 			const $previous: HTMLElement | null = target.previousElementSibling as HTMLElement;
 			$previous?.focus();

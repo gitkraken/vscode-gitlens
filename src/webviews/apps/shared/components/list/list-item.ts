@@ -3,17 +3,23 @@ import type { TextDocumentShowOptions } from 'vscode';
 import { numberConverter } from '../converters/number-converter';
 import '../code-icon';
 
+// Can only import types from 'vscode'
+const BesideViewColumn = -2; /*ViewColumn.Beside*/
+
 declare global {
 	interface HTMLElementEventMap {
 		selected: CustomEvent;
 	}
 }
 
-export interface ListItemSelectedDetail {
+export type ListItemSelectedEvent = CustomEvent<ListItemSelectedEventDetail>;
+
+export interface ListItemSelectedEventDetail {
 	tree: boolean;
 	branch: boolean;
 	expanded: boolean;
 	level: number;
+	showOptions?: TextDocumentShowOptions;
 }
 
 const template = html<ListItem>`
@@ -22,7 +28,13 @@ const template = html<ListItem>`
 		aria-expanded="${x => (x.expanded === true ? 'true' : 'false')}"
 		aria-hidden="${x => x.isHidden}"
 	>
-		<button id="item" class="item" type="button" @click="${(x, c) => x.onItemClick(c.event)}">
+		<button
+			id="item"
+			class="item"
+			type="button"
+			@click="${(x, c) => x.onItemClick(c.event as MouseEvent)}"
+			@dblclick="${(x, c) => x.onDblItemClick(c.event as MouseEvent)}"
+		>
 			${repeat(
 				x => x.treeLeaves,
 				html<ListItem>`<span class="node node--connector"><code-icon name="blank"></code-icon></span>`,
@@ -216,11 +228,18 @@ export class ListItem extends FASTElement {
 		return 'false';
 	}
 
-	onItemClick(_e: Event) {
-		this.select();
+	onItemClick(e: MouseEvent) {
+		this.select(e.altKey ? { viewColumn: BesideViewColumn } : undefined);
 	}
 
-	select(_showOptions?: TextDocumentShowOptions, quiet = false) {
+	onDblItemClick(e: MouseEvent) {
+		this.select({
+			preview: false,
+			viewColumn: e.altKey || e.ctrlKey || e.metaKey ? BesideViewColumn : undefined,
+		});
+	}
+
+	select(showOptions?: TextDocumentShowOptions, quiet = false) {
 		this.$emit('select');
 
 		// TODO: this needs to be implemented
@@ -236,7 +255,8 @@ export class ListItem extends FASTElement {
 					branch: this.branch,
 					expanded: this.expanded,
 					level: this.level,
-				});
+					showOptions: showOptions,
+				} satisfies ListItemSelectedEventDetail);
 			});
 		}
 	}
