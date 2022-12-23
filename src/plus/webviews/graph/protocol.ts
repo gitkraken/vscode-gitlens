@@ -154,10 +154,17 @@ export interface DismissBannerParams {
 }
 export const DismissBannerCommandType = new IpcCommandType<DismissBannerParams>('graph/dismissBanner');
 
-export interface DoubleClickedRefParams {
-	ref: GraphRef;
-}
-export const DoubleClickedRefCommandType = new IpcCommandType<DoubleClickedRefParams>('graph/ref/doubleclick');
+export type DoubleClickedParams =
+	| {
+			type: 'ref';
+			ref: GraphRef;
+	  }
+	| {
+			type: 'row';
+			row: { id: string; type: GitGraphRowType };
+			preserveFocus?: boolean;
+	  };
+export const DoubleClickedCommandType = new IpcCommandType<DoubleClickedParams>('graph/dblclick');
 
 export interface EnsureRowParams {
 	id: string;
@@ -228,6 +235,7 @@ export interface UpdateSelectionParams {
 export const UpdateSelectionCommandType = new IpcCommandType<UpdateSelectionParams>('graph/selection/update');
 
 // Notifications
+
 export interface DidChangeParams {
 	state: State;
 }
