@@ -1,10 +1,11 @@
 import type {
 	CancellationToken,
 	ConfigurationChangeEvent,
+	TextDocumentShowOptions,
 	TreeViewSelectionChangeEvent,
 	TreeViewVisibilityChangeEvent,
 } from 'vscode';
-import { CancellationTokenSource, Disposable, Uri, window } from 'vscode';
+import { CancellationTokenSource, Disposable, Uri, ViewColumn, window } from 'vscode';
 import { serializeAutolink } from '../../annotations/autolinks';
 import type { CopyShaToClipboardCommandArgs } from '../../commands';
 import { executeGitCommand, GitActions } from '../../commands/gitCommands.actions';
@@ -848,7 +849,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		void GitActions.Commit.openChangesWithWorking(file.path, commit, {
 			preserveFocus: true,
 			preview: true,
-			...params.showOptions,
+			...this.getShowOptions(params),
 		});
 	}
 
@@ -862,7 +863,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		void GitActions.Commit.openChanges(file.path, commit, {
 			preserveFocus: true,
 			preview: true,
-			...params.showOptions,
+			...this.getShowOptions(params),
 		});
 	}
 
@@ -876,7 +877,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		void GitActions.Commit.openFile(file.path, commit, {
 			preserveFocus: true,
 			preview: true,
-			...params.showOptions,
+			...this.getShowOptions(params),
 		});
 	}
 
@@ -887,6 +888,12 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		const [commit, file] = result;
 
 		void GitActions.Commit.openFileOnRemote(file.path, commit);
+	}
+
+	private getShowOptions(params: FileActionParams): TextDocumentShowOptions | undefined {
+		return getContext('gitlens:webview:graph:active') || getContext('gitlens:webview:rebaseEditor:active')
+			? { ...params.showOptions, viewColumn: ViewColumn.Beside }
+			: params.showOptions;
 	}
 }
 
