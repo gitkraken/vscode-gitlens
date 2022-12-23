@@ -1,9 +1,11 @@
 import { attr, css, customElement, FASTElement, html, ref, volatile, when } from '@microsoft/fast-element';
 import type { TextDocumentShowOptions } from 'vscode';
 import { numberConverter } from '../converters/number-converter';
-import type { ListItem } from './list-item';
-import './list-item';
+import type { ListItem, ListItemSelectedEvent } from './list-item';
 import '../code-icon';
+
+// Can only import types from 'vscode'
+const BesideViewColumn = -2; /*ViewColumn.Beside*/
 
 export interface FileChangeListItemDetail {
 	path: string;
@@ -20,7 +22,7 @@ const template = html<FileChangeListItem>`
 		active="${x => x.active}"
 		expanded="${x => x.expanded}"
 		parentexpanded="${x => x.parentexpanded}"
-		@selected="${(x, c) => x.onComparePrevious(c.event)}"
+		@selected="${(x, c) => x.onComparePrevious(c.event as ListItemSelectedEvent)}"
 	>
 		<img slot="icon" src="${x => x.icon}" title="${x => x.statusName}" alt="${x => x.statusName}" />
 		${x => x.fileName}
@@ -28,7 +30,7 @@ const template = html<FileChangeListItem>`
 		<span slot="actions">
 			<a
 				class="change-list__action"
-				@click="${(x, c) => x.onOpenFile(c.event)}"
+				@click="${(x, c) => x.onOpenFile(c.event as MouseEvent)}"
 				href="#"
 				title="Open file"
 				aria-label="Open file"
@@ -39,7 +41,7 @@ const template = html<FileChangeListItem>`
 				html<FileChangeListItem>`
 					<a
 						class="change-list__action"
-						@click="${(x, c) => x.onCompareWorking(c.event)}"
+						@click="${(x, c) => x.onCompareWorking(c.event as MouseEvent)}"
 						href="#"
 						title="Open Changes with Working File"
 						aria-label="Open Changes with Working File"
@@ -49,14 +51,14 @@ const template = html<FileChangeListItem>`
 						x => !x.stash,
 						html<FileChangeListItem>`<a
 								class="change-list__action"
-								@click="${(x, c) => x.onOpenFileOnRemote(c.event)}"
+								@click="${(x, c) => x.onOpenFileOnRemote(c.event as MouseEvent)}"
 								href="#"
 								title="Open on remote"
 								aria-label="Open on remote"
 								><code-icon icon="globe"></code-icon></a
 							><a
 								class="change-list__action"
-								@click="${(x, c) => x.onMoreActions(c.event)}"
+								@click="${(x, c) => x.onMoreActions(c.event as MouseEvent)}"
 								href="#"
 								title="Show more actions"
 								aria-label="Show more actions"
@@ -195,28 +197,32 @@ export class FileChangeListItem extends FASTElement {
 		};
 	}
 
-	onOpenFile(e: Event) {
-		e.preventDefault();
-		this.$emit('file-open', this.getEventDetail());
+	onOpenFile(e: MouseEvent) {
+		this.$emit(
+			'file-open',
+			this.getEventDetail({ preview: false, viewColumn: e.altKey ? BesideViewColumn : undefined }),
+		);
 	}
 
-	onOpenFileOnRemote(e: Event) {
-		e.preventDefault();
-		this.$emit('file-open-on-remote', this.getEventDetail());
+	onOpenFileOnRemote(e: MouseEvent) {
+		this.$emit(
+			'file-open-on-remote',
+			this.getEventDetail({ preview: false, viewColumn: e.altKey ? BesideViewColumn : undefined }),
+		);
 	}
 
-	onCompareWorking(e: Event) {
-		e.preventDefault();
-		this.$emit('file-compare-working', this.getEventDetail());
+	onCompareWorking(e: MouseEvent) {
+		this.$emit(
+			'file-compare-working',
+			this.getEventDetail({ preview: false, viewColumn: e.altKey ? BesideViewColumn : undefined }),
+		);
 	}
 
-	onComparePrevious(e?: Event, showOptions?: TextDocumentShowOptions) {
-		e?.preventDefault();
-		this.$emit('file-compare-previous', this.getEventDetail(showOptions));
+	onComparePrevious(e: ListItemSelectedEvent) {
+		this.$emit('file-compare-previous', this.getEventDetail(e.detail.showOptions));
 	}
 
-	onMoreActions(e: Event) {
-		e.preventDefault();
+	onMoreActions(_e: MouseEvent) {
 		this.$emit('file-more-actions', this.getEventDetail());
 	}
 }
