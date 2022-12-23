@@ -78,7 +78,7 @@ import { arePlusFeaturesEnabled, ensurePlusFeaturesEnabled } from '../../subscri
 import type {
 	DimMergeCommitsParams,
 	DismissBannerParams,
-	DoubleClickedRefParams,
+	DoubleClickedParams,
 	EnsureRowParams,
 	GetMissingAvatarsParams,
 	GetMissingRefsMetadataParams,
@@ -125,7 +125,7 @@ import {
 	DidSearchNotificationType,
 	DimMergeCommitsCommandType,
 	DismissBannerCommandType,
-	DoubleClickedRefCommandType,
+	DoubleClickedCommandType,
 	EnsureRowCommandType,
 	GetMissingAvatarsCommandType,
 	GetMissingRefsMetadataCommandType,
@@ -415,8 +415,8 @@ export class GraphWebview extends WebviewBase<State> {
 			case DismissBannerCommandType.method:
 				onIpc(DismissBannerCommandType, e, params => this.dismissBanner(params));
 				break;
-			case DoubleClickedRefCommandType.method:
-				onIpc(DoubleClickedRefCommandType, e, params => this.onDoubleClickRef(params));
+			case DoubleClickedCommandType.method:
+				onIpc(DoubleClickedCommandType, e, params => this.onDoubleClick(params));
 				break;
 			case EnsureRowCommandType.method:
 				onIpc(EnsureRowCommandType, e, params => this.onEnsureRow(params, e.completionId));
@@ -624,8 +624,8 @@ export class GraphWebview extends WebviewBase<State> {
 		this.updateExcludedRefs(this._graph, e.refs, e.visible);
 	}
 
-	private onDoubleClickRef(e: DoubleClickedRefParams) {
-		if (e.ref.context) {
+	private onDoubleClick(e: DoubleClickedParams) {
+		if (e.type === 'ref' && e.ref.context) {
 			const item = typeof e.ref.context === 'string' ? JSON.parse(e.ref.context) : e.ref.context;
 			if (!('webview' in item)) {
 				item.webview = this.id;
@@ -643,6 +643,9 @@ export class GraphWebview extends WebviewBase<State> {
 					configuration.isUnset('gitCommands.skipConfirmations') ? true : undefined,
 				);
 			}
+		} else if (e.type === 'row' && e.row) {
+			const commit = this.getRevisionReference(this.repository?.path, e.row.id, e.row.type);
+			if (commit != null) return GitActions.Commit.showDetailsView(commit, { preserveFocus: e.preserveFocus });
 		}
 
 		return Promise.resolve();
@@ -931,22 +934,8 @@ export class GraphWebview extends WebviewBase<State> {
 	private fireSelectionChanged(id: string | undefined, type: GitGraphRowType | undefined) {
 		if (this.repository == null) return;
 
-		let commits: GitRevisionReference[] | undefined;
-		if (id != null) {
-			if (type === GitGraphRowType.Stash) {
-				commits = [
-					GitReference.create(id, this.repository.path, {
-						refType: 'stash',
-						name: id,
-						number: undefined,
-					}),
-				];
-			} else if (type === GitGraphRowType.Working) {
-				commits = [GitReference.create(GitRevision.uncommitted, this.repository.path, { refType: 'revision' })];
-			} else {
-				commits = [GitReference.create(id, this.repository.path, { refType: 'revision' })];
-			}
-		}
+		const commit = this.getRevisionReference(this.repository.path, id, type);
+		const commits = commit != null ? [commit] : undefined;
 
 		this._selection = commits;
 		this._onDidChangeSelection.fire({ selection: commits ?? [] });
@@ -964,6 +953,29 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	private _notifyDidChangeStateDebounced: Deferrable<GraphWebview['notifyDidChangeState']> | undefined = undefined;
+
+	private getRevisionReference(
+		repoPath: string | undefined,
+		id: string | undefined,
+		type: GitGraphRowType | undefined,
+	) {
+		if (repoPath == null || id == null) return undefined;
+
+		switch (type) {
+			case GitGraphRowType.Stash:
+				return GitReference.create(id, repoPath, {
+					refType: 'stash',
+					name: id,
+					number: undefined,
+				});
+
+			case GitGraphRowType.Working:
+				return GitReference.create(GitRevision.uncommitted, repoPath, { refType: 'revision' });
+
+			default:
+				return GitReference.create(id, repoPath, { refType: 'revision' });
+		}
+	}
 
 	@debug()
 	private updateState(immediate: boolean = false) {

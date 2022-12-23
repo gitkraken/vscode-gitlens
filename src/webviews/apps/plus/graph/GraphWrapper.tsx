@@ -1,4 +1,4 @@
-import GraphContainer from '@gitkraken/gitkraken-components';
+import GraphContainer, { GRAPH_ZONE_TYPE, REF_ZONE_TYPE } from '@gitkraken/gitkraken-components';
 import type {
 	GraphColumnSetting,
 	GraphColumnsSettings,
@@ -8,6 +8,7 @@ import type {
 	GraphRefGroup,
 	GraphRefOptData,
 	GraphRow,
+	GraphZoneType,
 	OnFormatCommitDateTime,
 } from '@gitkraken/gitkraken-components';
 import { VSCodeCheckbox, VSCodeRadio, VSCodeRadioGroup } from '@vscode/webview-ui-toolkit/react';
@@ -69,6 +70,7 @@ export interface GraphWrapperProps {
 	onColumnsChange?: (colsSettings: GraphColumnsConfig) => void;
 	onDimMergeCommits?: (dim: boolean) => void;
 	onDoubleClickRef?: (ref: GraphRef) => void;
+	onDoubleClickRow?: (row: GraphRow, preserveFocus?: boolean) => void;
 	onMissingAvatars?: (emails: { [email: string]: string }) => void;
 	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
 	onMoreRows?: (id?: string) => void;
@@ -144,6 +146,7 @@ export function GraphWrapper({
 	onColumnsChange,
 	onDimMergeCommits,
 	onDoubleClickRef,
+	onDoubleClickRow,
 	onEnsureRowPromise,
 	onMissingAvatars,
 	onMissingRefsMetadata,
@@ -307,6 +310,30 @@ export function GraphWrapper({
 	}
 
 	useEffect(() => subscriber?.(updateState), []);
+
+	useEffect(() => {
+		window.addEventListener('keydown', handleKeyDown);
+
+		return () => {
+			window.removeEventListener('keydown', handleKeyDown);
+		};
+	}, [activeRow]);
+
+	const handleKeyDown = (e: KeyboardEvent) => {
+		if (e.key === 'Enter' || e.key === ' ') {
+			const sha = getActiveRowInfo(activeRow ?? state.activeRow)?.id;
+			if (sha == null) return;
+
+			// TODO@eamodio a bit of a hack since the graph container ref isn't exposed in the types
+			const graph = (graphRef.current as any)?.graphContainerRef.current;
+			if (!e.composedPath().some(el => el === graph)) return;
+
+			const row = rows.find(r => r.sha === sha);
+			if (row == null) return;
+
+			onDoubleClickRow?.(row, e.key !== 'Enter');
+		}
+	};
 
 	useEffect(() => {
 		if (searchResultsError != null || searchResults == null || searchResults.count === 0 || searchQuery == null) {
@@ -573,12 +600,23 @@ export function GraphWrapper({
 	};
 
 	const handleOnDoubleClickRef = (
-		event: React.MouseEvent<HTMLButtonElement, globalThis.MouseEvent>,
+		_event: React.MouseEvent<HTMLButtonElement, globalThis.MouseEvent>,
 		refGroup: GraphRefGroup,
+		_row: GraphRow,
 	) => {
 		if (refGroup.length > 0) {
 			onDoubleClickRef?.(refGroup[0]);
 		}
+	};
+
+	const handleOnDoubleClickRow = (
+		_event: React.MouseEvent<HTMLButtonElement, globalThis.MouseEvent>,
+		graphZoneType: GraphZoneType,
+		row: GraphRow,
+	) => {
+		if (graphZoneType === REF_ZONE_TYPE || graphZoneType === GRAPH_ZONE_TYPE) return;
+
+		onDoubleClickRow?.(row, true);
 	};
 
 	const handleSelectGraphRows = (rows: GraphRow[]) => {
@@ -986,6 +1024,7 @@ export function GraphWrapper({
 							isSelectedBySha={selectedRows}
 							nonce={nonce}
 							onColumnResized={handleOnColumnResized}
+							onDoubleClickGraphRow={handleOnDoubleClickRow}
 							onDoubleClickGraphRef={handleOnDoubleClickRef}
 							onGraphColumnsReOrdered={handleOnGraphColumnsReOrdered}
 							onSelectGraphRows={handleSelectGraphRows}

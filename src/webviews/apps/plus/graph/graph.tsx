@@ -33,7 +33,7 @@ import {
 	DidSearchNotificationType,
 	DimMergeCommitsCommandType,
 	DismissBannerCommandType,
-	DoubleClickedRefCommandType,
+	DoubleClickedCommandType,
 	EnsureRowCommandType,
 	GetMissingAvatarsCommandType,
 	GetMissingRefsMetadataCommandType,
@@ -76,6 +76,7 @@ export class GraphApp extends App<State> {
 
 	protected override onBind() {
 		const disposables = super.onBind?.() ?? [];
+		// disposables.push(DOM.on(window, 'keyup', e => this.onKeyUp(e)));
 
 		this.log(`${this.appName}.onBind`);
 
@@ -98,6 +99,7 @@ export class GraphApp extends App<State> {
 					}
 					onChooseRepository={debounce<GraphApp['onChooseRepository']>(() => this.onChooseRepository(), 250)}
 					onDoubleClickRef={ref => this.onDoubleClickRef(ref)}
+					onDoubleClickRow={(row, preserveFocus) => this.onDoubleClickRow(row, preserveFocus)}
 					onMissingAvatars={(...params) => this.onGetMissingAvatars(...params)}
 					onMissingRefsMetadata={(...params) => this.onGetMissingRefsMetadata(...params)}
 					onMoreRows={(...params) => this.onGetMoreRows(...params)}
@@ -122,6 +124,15 @@ export class GraphApp extends App<State> {
 
 		return disposables;
 	}
+
+	// private onKeyUp(e: KeyboardEvent) {
+	// 	if (e.key === 'Enter' || e.key === ' ') {
+	// 		const inputFocused = e.composedPath().some(el => (el as HTMLElement).tagName === 'INPUT');
+	// 		if (!inputFocused) return;
+
+	// 		const $target = e.target as HTMLElement;
+	// 	}
+	// }
 
 	protected override onMessageReceived(e: MessageEvent) {
 		const msg = e.data as IpcMessage;
@@ -422,8 +433,17 @@ export class GraphApp extends App<State> {
 	}
 
 	private onDoubleClickRef(ref: GraphRef) {
-		this.sendCommand(DoubleClickedRefCommandType, {
+		this.sendCommand(DoubleClickedCommandType, {
+			type: 'ref',
 			ref: ref,
+		});
+	}
+
+	private onDoubleClickRow(row: GraphRow, preserveFocus?: boolean) {
+		this.sendCommand(DoubleClickedCommandType, {
+			type: 'row',
+			row: { id: row.sha, type: row.type as GitGraphRowType },
+			preserveFocus: preserveFocus,
 		});
 	}
 
