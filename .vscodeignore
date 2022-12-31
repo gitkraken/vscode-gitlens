@@ -22,7 +22,7 @@ test/**
 **/*.js.LICENSE.txt
 .eslintcache
 .eslintignore
-.eslintrc.json
+.eslintrc*.json
 .fantasticonrc.js
 .gitattributes
 .gitignore
