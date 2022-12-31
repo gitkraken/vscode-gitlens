@@ -19,8 +19,8 @@ git clone https://github.com/gitkraken/vscode-gitlens.git
 Prerequisites
 
 - [Git](https://git-scm.com/), `>= 2.7.2`
-- [NodeJS](https://nodejs.org/), `>= 14.16.0`
-- [yarn](https://yarnpkg.com/), `>= 1.22.5`
+- [NodeJS](https://nodejs.org/), `>= 16.14.2`
+- [yarn](https://yarnpkg.com/), `>= 1.22.19`
 
 ### Dependencies
 
