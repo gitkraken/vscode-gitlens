@@ -907,7 +907,7 @@ export class Git {
 			'--',
 		);
 
-		const shaRegex = new RegExp(`(?:^|\x00\x00)${sha}\x00`);
+		const shaRegex = getShaInLogRegex(sha);
 
 		let found = false;
 		let count = 0;
@@ -935,7 +935,7 @@ export class Git {
 			function onData(s: string) {
 				data.push(s);
 				// eslint-disable-next-line no-control-regex
-				count += s.match(/(?:^|\x00\x00)[0-9a-f]{40}\x00/g)?.length ?? 0;
+				count += s.match(/(?:^\x00*|\x00\x00)[0-9a-f]{40}\x00/g)?.length ?? 0;
 
 				if (!found && shaRegex.test(s)) {
 					found = true;
@@ -1828,4 +1828,8 @@ export class Git {
 			return undefined;
 		}
 	}
+}
+
+export function getShaInLogRegex(sha: string) {
+	return new RegExp(`(?:^\x00*|\x00\x00)${sha}\x00`);
 }
