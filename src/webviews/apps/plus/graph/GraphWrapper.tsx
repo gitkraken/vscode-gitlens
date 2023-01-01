@@ -63,6 +63,8 @@ import { SearchBox } from '../../shared/components/search/react';
 import type { SearchNavigationEventDetail } from '../../shared/components/search/search-box';
 import type { DateTimeFormat } from '../../shared/date';
 import { formatDate, fromNow } from '../../shared/date';
+import type { ActivityStats, ActivityStatsSelectedEventDetail } from '../activity/activity-graph';
+import { ActivityGraph } from '../activity/react';
 
 export interface GraphWrapperProps {
 	nonce?: string;
@@ -214,6 +216,8 @@ export function GraphWrapper({
 		state.workingTreeStats ?? { added: 0, modified: 0, deleted: 0 },
 	);
 
+	const activityGraph = useRef<typeof ActivityGraph | undefined>(undefined);
+
 	const ensuredIds = useRef<Set<string>>(new Set());
 	const ensuredSkippedIds = useRef<Set<string>>(new Set());
 
@@ -327,6 +331,67 @@ export function GraphWrapper({
 			window.removeEventListener('keydown', handleKeyDown);
 		};
 	}, [activeRow]);
+
+	const activityData = useMemo(() => {
+		// Loops through all the rows and group them by day and aggregate the row.stats
+		const statsByDayMap = new Map<string, ActivityStats>();
+
+		let stats;
+		let day;
+		for (const row of rows) {
+			stats = row.stats;
+
+			// TODO@eamodio abstract the grouping function to reuse in the activity-graph component
+			day = formatDate(row.date, 'YYYY-MM-DD');
+
+			let stat = statsByDayMap.get(day);
+			if (stat == null) {
+				stat =
+					stats != null
+						? {
+								activity: stats.additions + stats.deletions,
+								commits: 1,
+								files: stats.files,
+								sha: row.sha,
+						  }
+						: {
+								commits: 1,
+								sha: row.sha,
+						  };
+			} else {
+				stat.commits++;
+				if (stats != null) {
+					stat.activity = (stat.activity ?? 0) + stats.additions + stats.deletions;
+					stat.files = (stat.files ?? 0) + stats.files;
+				}
+			}
+			statsByDayMap.set(day, stat);
+		}
+
+		return statsByDayMap;
+	}, [rows]);
+
+	const handleActivityStatsSelected = (e: CustomEvent<ActivityStatsSelectedEventDetail>) => {
+		let { sha } = e.detail;
+		if (sha == null) {
+			const date = e.detail.date?.getTime();
+			if (date == null) return;
+
+			// Find closest row to the date
+			const closest = rows.reduce((prev, curr) =>
+				Math.abs(curr.date - date) < Math.abs(prev.date - date) ? curr : prev,
+			);
+			sha = closest.sha;
+		}
+
+		graphRef.current?.selectCommits([sha], false, true);
+	};
+
+	const handleOnGraphRowHovered = (event: any, graphZoneType: GraphZoneType, graphRow: GraphRow) => {
+		if (graphZoneType === REF_ZONE_TYPE) return;
+
+		queueMicrotask(() => void (activityGraph.current as any)?.select(graphRow.date));
+	};
 
 	const handleKeyDown = (e: KeyboardEvent) => {
 		if (e.key === 'Enter' || e.key === ' ') {
@@ -634,6 +699,10 @@ export function GraphWrapper({
 		// HACK: Ensure the main state is updated since it doesn't come from the extension
 		state.activeRow = activeKey;
 		setActiveRow(activeKey);
+
+		if (active != null) {
+			queueMicrotask(() => void (activityGraph.current as any)?.select(active.date));
+		}
 		onSelectionChange?.(rows);
 	};
 
@@ -998,6 +1067,11 @@ export function GraphWrapper({
 				<div className={`progress-container infinite${isLoading ? ' active' : ''}`} role="progressbar">
 					<div className="progress-bar"></div>
 				</div>
+				<ActivityGraph
+					ref={activityGraph as any}
+					data={activityData}
+					onSelected={e => handleActivityStatsSelected(e as CustomEvent<ActivityStatsSelectedEventDetail>)}
+				></ActivityGraph>
 			</header>
 			<main
 				id="main"
@@ -1037,6 +1111,7 @@ export function GraphWrapper({
 							onDoubleClickGraphRow={handleOnDoubleClickRow}
 							onDoubleClickGraphRef={handleOnDoubleClickRef}
 							onGraphColumnsReOrdered={handleOnGraphColumnsReOrdered}
+							onGraphRowHovered={handleOnGraphRowHovered}
 							onSelectGraphRows={handleSelectGraphRows}
 							onToggleRefsVisibilityClick={handleOnToggleRefsVisibilityClick}
 							onEmailsMissingAvatarUrls={handleMissingAvatars}

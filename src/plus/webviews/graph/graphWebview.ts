@@ -1647,7 +1647,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const dataPromise = this.container.git.getCommitsForGraph(
 			this.repository.path,
 			this._panel!.webview.asWebviewUri.bind(this._panel!.webview),
-			{ limit: limit, ref: ref },
+			{ include: { stats: true }, limit: limit, ref: ref },
 		);
 
 		// Check for GitLens+ access and working tree stats

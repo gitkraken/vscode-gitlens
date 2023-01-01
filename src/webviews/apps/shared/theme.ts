@@ -140,6 +140,9 @@ export function initializeAndWatchThemeColors() {
 		bodyStyle.setProperty('--color-graph-text-secondary', opacity(foregroundColor, 65));
 		bodyStyle.setProperty('--color-graph-text-disabled', opacity(foregroundColor, 50));
 
+		color = computedStyle.getPropertyValue('--vscode-progressBar-background').trim();
+		bodyStyle.setProperty('--color-graph-activity', color);
+
 		// alert colors
 		color = computedStyle.getPropertyValue('--vscode-inputValidation-infoBackground').trim();
 		bodyStyle.setProperty('--color-alert-infoHoverBackground', isLightTheme ? darken(color, 5) : lighten(color, 5));
