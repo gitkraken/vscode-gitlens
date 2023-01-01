@@ -1410,8 +1410,8 @@ export class GitProviderService implements Disposable {
 		asWebviewUri: (uri: Uri) => Uri,
 		options?: {
 			branch?: string;
+			include?: { stats?: boolean };
 			limit?: number;
-			mode?: 'single' | 'local' | 'all';
 			ref?: string;
 		},
 	): Promise<GitGraph> {

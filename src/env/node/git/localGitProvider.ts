@@ -92,9 +92,9 @@ import { GitBlameParser } from '../../../git/parsers/blameParser';
 import { GitBranchParser } from '../../../git/parsers/branchParser';
 import { GitDiffParser } from '../../../git/parsers/diffParser';
 import {
-	createLogParser,
 	createLogParserSingle,
 	createLogParserWithFiles,
+	getContributorsParser,
 	getGraphParser,
 	getRefAndDateParser,
 	getRefParser,
@@ -155,7 +155,13 @@ import { serializeWebviewItemContext } from '../../../system/webview';
 import type { CachedBlame, CachedDiff, CachedLog, TrackedDocument } from '../../../trackers/gitDocumentTracker';
 import { GitDocumentState } from '../../../trackers/gitDocumentTracker';
 import type { Git } from './git';
-import { GitErrors, gitLogDefaultConfigs, gitLogDefaultConfigsWithFiles, maxGitCliLength } from './git';
+import {
+	getShaInLogRegex,
+	GitErrors,
+	gitLogDefaultConfigs,
+	gitLogDefaultConfigsWithFiles,
+	maxGitCliLength,
+} from './git';
 import type { GitLocation } from './locator';
 import { findGitPath, InvalidGitConfigError, UnableToFindGitError } from './locator';
 import { CancelledRunError, fsExists, RunError } from './shell';
@@ -1629,12 +1635,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		asWebviewUri: (uri: Uri) => Uri,
 		options?: {
 			branch?: string;
+			include?: { stats?: boolean };
 			limit?: number;
-			mode?: 'single' | 'local' | 'all';
 			ref?: string;
 		},
 	): Promise<GitGraph> {
-		const parser = getGraphParser();
+		const parser = getGraphParser(options?.include?.stats);
 		const refParser = getRefParser();
 
 		const defaultLimit = options?.limit ?? configuration.get('graph.defaultItemLimit') ?? 5000;
@@ -1710,10 +1716,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					data = await this.git.log2(repoPath, stdin ? { stdin: stdin } : undefined, ...args);
 
 					if (cursor) {
-						const cursorIndex = data.startsWith(`${cursor.sha}\x00`)
-							? 0
-							: data.indexOf(`\x00\x00${cursor.sha}\x00`);
-						if (cursorIndex === -1) {
+						if (!getShaInLogRegex(cursor.sha).test(data)) {
 							// If we didn't find any new commits, we must have them all so return that we have everything
 							if (size === data.length) {
 								return {
@@ -1732,32 +1735,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 							continue;
 						}
-
-						// if (cursorIndex > 0 && cursor != null) {
-						// 	const duplicates = data.substring(0, cursorIndex);
-						// 	if (data.length - duplicates.length < (size ?? data.length) / 4) {
-						// 		size = data.length;
-						// 		nextPageLimit = (nextPageLimit === 0 ? defaultPageLimit : nextPageLimit) * 2;
-						// 		continue;
-						// 	}
-
-						// 	// Substract out any duplicate commits (regex is faster than parsing and counting)
-						// 	nextPageLimit -= (duplicates.match(/\0\0[0-9a-f]{40}\0/g)?.length ?? 0) + 1;
-
-						// 	data = data.substring(cursorIndex + 2);
-						// }
 					}
 				}
 
-				if (!data)
-					{return {
+				if (!data) {
+					return {
 						repoPath: repoPath,
 						avatars: avatars,
 						ids: ids,
 						branches: branchMap,
 						remotes: remoteMap,
 						rows: [],
-					};}
+					};
+				}
 
 				log = data;
 				if (limit !== 0) {
@@ -2053,6 +2043,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					remotes: refRemoteHeads,
 					tags: refTags,
 					contexts: contexts,
+					stats: commit.stats,
 				});
 			}
 
@@ -2121,42 +2112,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				try {
 					repoPath = normalizePath(repoPath);
 					const currentUser = await this.getCurrentUser(repoPath);
-
-					const parser = createLogParser<{
-						sha: string;
-						author: string;
-						email: string;
-						date: string;
-						stats?: { files: number; additions: number; deletions: number };
-					}>(
-						{
-							sha: '%H',
-							author: '%aN',
-							email: '%aE',
-							date: '%at',
-						},
-						options?.stats
-							? {
-									additionalArgs: ['--shortstat', '--use-mailmap'],
-									parseEntry: (fields, entry) => {
-										const line = fields.next().value;
-										const match = GitLogParser.shortstatRegex.exec(line);
-										if (match?.groups != null) {
-											const { files, additions, deletions } = match.groups;
-											entry.stats = {
-												files: Number(files || 0),
-												additions: Number(additions || 0),
-												deletions: Number(deletions || 0),
-											};
-										}
-										return entry;
-									},
-									prefix: '%x00',
-									fieldSuffix: '%x00',
-									skip: 1,
-							  }
-							: undefined,
-					);
+					const parser = getContributorsParser(options?.stats);
 
 					const data = await this.git.log(repoPath, options?.ref, {
 						all: options?.all,

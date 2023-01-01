@@ -25,6 +25,9 @@ const logFileSimpleRegex = /^<r> (.*)\s*(?:(?:diff --git a\/(.*) b\/(.*))|(?:(\S
 const logFileSimpleRenamedRegex = /^<r> (\S+)\s*(.*)$/s;
 const logFileSimpleRenamedFilesRegex = /^(\S)\S*\t([^\t\n]+)(?:\t(.+)?)?$/gm;
 
+const shortstatRegex =
+	/(?<files>\d+) files? changed(?:, (?<additions>\d+) insertions?\(\+\))?(?:, (?<deletions>\d+) deletions?\(-\))?/;
+
 // Using %x00 codes because some shells seem to try to expand things if not
 const lb = '%x3c'; // `%x${'<'.charCodeAt(0).toString(16)}`;
 const rb = '%x3e'; // `%x${'>'.charCodeAt(0).toString(16)}`;
@@ -71,14 +74,48 @@ export type Parser<T> = {
 	parse: (data: string | string[]) => Generator<T>;
 };
 
-type ParsedEntryFile = { status: string; path: string; originalPath?: string };
-type ParsedEntryWithFiles<T> = { [K in keyof T]: string } & { files: ParsedEntryFile[] };
-type ParserWithFiles<T> = {
-	arguments: string[];
-	parse: (data: string) => Generator<ParsedEntryWithFiles<T>>;
-};
+export type ParsedEntryFile = { status: string; path: string; originalPath?: string };
+export type ParsedEntryWithFiles<T> = { [K in keyof T]: string } & { files: ParsedEntryFile[] };
+export type ParserWithFiles<T> = Parser<ParsedEntryWithFiles<T>>;
 
-type GraphParser = Parser<{
+export type ParsedStats = { files: number; additions: number; deletions: number };
+export type ParsedEntryWithStats<T> = T & { stats?: ParsedStats };
+export type ParserWithStats<T> = Parser<ParsedEntryWithStats<T>>;
+
+type ContributorsParserMaybeWithStats = ParserWithStats<{
+	sha: string;
+	author: string;
+	email: string;
+	date: string;
+}>;
+
+let _contributorsParser: ContributorsParserMaybeWithStats | undefined;
+let _contributorsParserWithStats: ContributorsParserMaybeWithStats | undefined;
+export function getContributorsParser(stats?: boolean): ContributorsParserMaybeWithStats {
+	if (stats) {
+		if (_contributorsParserWithStats == null) {
+			_contributorsParserWithStats = createLogParserWithStats({
+				sha: '%H',
+				author: '%aN',
+				email: '%aE',
+				date: '%at',
+			});
+		}
+		return _contributorsParserWithStats;
+	}
+
+	if (_contributorsParser == null) {
+		_contributorsParser = createLogParser({
+			sha: '%H',
+			author: '%aN',
+			email: '%aE',
+			date: '%at',
+		});
+	}
+	return _contributorsParser;
+}
+
+type GraphParserMaybeWithStats = ParserWithStats<{
 	sha: string;
 	author: string;
 	authorEmail: string;
@@ -89,8 +126,26 @@ type GraphParser = Parser<{
 	message: string;
 }>;
 
-let _graphParser: GraphParser | undefined;
-export function getGraphParser(): GraphParser {
+let _graphParser: GraphParserMaybeWithStats | undefined;
+let _graphParserWithStats: GraphParserMaybeWithStats | undefined;
+
+export function getGraphParser(stats?: boolean): GraphParserMaybeWithStats {
+	if (stats) {
+		if (_graphParserWithStats == null) {
+			_graphParserWithStats = createLogParserWithStats({
+				sha: '%H',
+				author: '%aN',
+				authorEmail: '%aE',
+				authorDate: '%at',
+				committerDate: '%ct',
+				parents: '%P',
+				tips: '%D',
+				message: '%B',
+			});
+		}
+		return _graphParserWithStats;
+	}
+
 	if (_graphParser == null) {
 		_graphParser = createLogParser({
 			sha: '%H',
@@ -130,18 +185,21 @@ export function getRefAndDateParser(): RefAndDateParser {
 	return _refAndDateParser;
 }
 
-export function createLogParser<T extends Record<string, unknown>>(
+export function createLogParser<
+	T extends Record<string, unknown>,
+	TAdditional extends Record<string, unknown> = Record<string, unknown>,
+>(
 	fieldMapping: ExtractAll<T, string>,
 	options?: {
 		additionalArgs?: string[];
-		parseEntry?: (fields: IterableIterator<string>, entry: T) => void;
+		parseEntry?: (fields: IterableIterator<string>, entry: T & TAdditional) => void;
 		prefix?: string;
 		fieldPrefix?: string;
 		fieldSuffix?: string;
 		separator?: string;
 		skip?: number;
 	},
-): Parser<T> {
+): Parser<T & TAdditional> {
 	let format = options?.prefix ?? '';
 	const keys: (keyof ExtractAll<T, string>)[] = [];
 	for (const key in fieldMapping) {
@@ -156,15 +214,15 @@ export function createLogParser<T extends Record<string, unknown>>(
 		args.push(...options.additionalArgs);
 	}
 
-	function* parse(data: string | string[]): Generator<T> {
-		let entry: T = {} as any;
+	function* parse(data: string | string[]): Generator<T & TAdditional> {
+		let entry: T & TAdditional = {} as any;
 		let fieldCount = 0;
 		let field;
 
 		const fields = getLines(data, options?.separator ?? '\0');
 		if (options?.skip) {
 			for (let i = 0; i < options.skip; i++) {
-				fields.next();
+				field = fields.next();
 			}
 		}
 
@@ -172,7 +230,7 @@ export function createLogParser<T extends Record<string, unknown>>(
 			field = fields.next();
 			if (field.done) break;
 
-			entry[keys[fieldCount++]] = field.value as T[keyof T];
+			entry[keys[fieldCount++]] = field.value as (T & TAdditional)[keyof T];
 
 			if (fieldCount === keys.length) {
 				fieldCount = 0;
@@ -220,7 +278,7 @@ export function createLogParserWithFiles<T extends Record<string, unknown>>(
 
 	const args = ['-z', `--format=${format}`, '--name-status'];
 
-	function* parse(data: string): Generator<ParsedEntryWithFiles<T>> {
+	function* parse(data: string | string[]): Generator<ParsedEntryWithFiles<T>> {
 		const records = getLines(data, '\0\0\0');
 
 		let entry: ParsedEntryWithFiles<T>;
@@ -266,11 +324,35 @@ export function createLogParserWithFiles<T extends Record<string, unknown>>(
 	return { arguments: args, parse: parse };
 }
 
+export function createLogParserWithStats<T extends Record<string, unknown>>(
+	fieldMapping: ExtractAll<T, string>,
+): ParserWithStats<T> {
+	function parseStats(fields: IterableIterator<string>, entry: ParsedEntryWithStats<T>) {
+		const stats = fields.next().value;
+		const match = shortstatRegex.exec(stats);
+		if (match?.groups != null) {
+			entry.stats = {
+				files: Number(match.groups.files || 0),
+				additions: Number(match.groups.additions || 0),
+				deletions: Number(match.groups.deletions || 0),
+			};
+		}
+		fields.next();
+		return entry;
+	}
+
+	return createLogParser<T, ParsedEntryWithStats<T>>(fieldMapping, {
+		additionalArgs: ['--shortstat'],
+		parseEntry: parseStats,
+		prefix: '%x00%x00',
+		separator: '\0',
+		fieldSuffix: '%x00',
+		skip: 2,
+	});
+}
+
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class GitLogParser {
-	static readonly shortstatRegex =
-		/(?<files>\d+) files? changed(?:, (?<additions>\d+) insertions?\(\+\))?(?:, (?<deletions>\d+) deletions?\(-\))?/;
-
 	// private static _defaultParser: ParserWithFiles<{
 	// 	sha: string;
 	// 	author: string;

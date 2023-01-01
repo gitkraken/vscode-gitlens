@@ -15,12 +15,19 @@ export const enum GitGraphRowType {
 	Rebase = 'unsupported-rebase-warning-node',
 }
 
+export interface GitGraphRowStats {
+	files: number;
+	additions: number;
+	deletions: number;
+}
+
 export interface GitGraphRow extends GraphRow {
 	type: GitGraphRowType;
 	heads?: GitGraphRowHead[];
 	remotes?: GitGraphRowRemoteHead[];
 	tags?: GitGraphRowTag[];
 	contexts?: GitGraphRowContexts;
+	stats?: GitGraphRowStats;
 }
 
 export interface GitGraph {
