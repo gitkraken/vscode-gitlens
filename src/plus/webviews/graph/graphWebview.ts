@@ -98,6 +98,7 @@ import type {
 	GraphRefMetadata,
 	GraphRepository,
 	GraphSelectedRows,
+	GraphUpstreamMetadata,
 	GraphWorkingTreeStats,
 	SearchOpenInViewParams,
 	SearchParams,
@@ -724,44 +725,83 @@ export class GraphWebview extends WebviewBase<State> {
 			}
 
 			const metadata = { ...this._refsMetadata.get(id) };
-			if (type !== 'pullRequests') {
+			if (type !== 'pullRequests' && type !== 'upstream') {
 				(metadata as any)[type] = null;
-				this._refsMetadata.set(id, metadata);
-				return;
-			}
-
-			const branch = (await this.container.git.getBranches(repoPath, { filter: b => b.id === id && b.remote }))
-				?.values?.[0];
-			const pr = await branch?.getAssociatedPullRequest();
-			if (pr == null) {
-				if (metadata.pullRequests === undefined || metadata.pullRequests?.length === 0) {
-					metadata.pullRequests = null;
+				if (Object.keys(metadata).length === 0) {
+					this._refsMetadata.set(id, metadata);
 				}
+
+				return;
+			}
+
+			let branch;
+			if (type === 'pullRequests') {
+				branch = (await this.container.git.getBranches(repoPath, { filter: b => b.id === id && b.remote }))
+					?.values?.[0];
+				const pr = await branch?.getAssociatedPullRequest();
+
+				if (pr == null) {
+					if (metadata.pullRequests === undefined || metadata.pullRequests?.length === 0) {
+						metadata.pullRequests = null;
+					}
+					this._refsMetadata.set(id, metadata);
+					return;
+				}
+
+				const prMetadata: GraphPullRequestMetadata = {
+					// TODO@eamodio: This is iffy, but works right now since `github` and `gitlab` are the only values possible currently
+					hostingServiceType: pr.provider.id as GraphHostingServiceType,
+					id: Number.parseInt(pr.id) || 0,
+					title: pr.title,
+					author: pr.author.name,
+					date: (pr.mergedDate ?? pr.closedDate ?? pr.date)?.getTime(),
+					state: pr.state,
+					url: pr.url,
+					context: serializeWebviewItemContext<GraphItemContext>({
+						webviewItem: 'gitlens:pullrequest',
+						webviewItemValue: {
+							type: 'pullrequest',
+							id: pr.id,
+							url: pr.url,
+						},
+					}),
+				};
+
+				metadata.pullRequests = [prMetadata];
+
 				this._refsMetadata.set(id, metadata);
 				return;
 			}
 
-			const prMetadata: GraphPullRequestMetadata = {
-				// TODO@eamodio: This is iffy, but works right now since `github` and `gitlab` are the only values possible currently
-				hostingServiceType: pr.provider.id as GraphHostingServiceType,
-				id: Number.parseInt(pr.id) || 0,
-				title: pr.title,
-				author: pr.author.name,
-				date: (pr.mergedDate ?? pr.closedDate ?? pr.date)?.getTime(),
-				state: pr.state,
-				url: pr.url,
-				context: serializeWebviewItemContext<GraphItemContext>({
-					webviewItem: 'gitlens:pullrequest',
-					webviewItemValue: {
-						type: 'pullrequest',
-						id: pr.id,
-						url: pr.url,
-					},
-				}),
-			};
+			if (type === 'upstream') {
+				branch = (await this.container.git.getBranches(repoPath, { filter: b => b.id === id && Boolean(b.upstream) }))
+					?.values?.[0];
+				const upstream = branch?.upstream;
 
-			metadata.pullRequests = [prMetadata];
-			this._refsMetadata.set(id, metadata);
+				if (upstream == null) return;
+
+				if (upstream?.missing) {
+					metadata.upstream = null;
+					this._refsMetadata.set(id, metadata);
+					return;
+				}
+
+				// Remote owner is the first part before the /.
+				const upstreamOwner = upstream.name.split('/')[0];
+				// Name is everything in the string after th first /.
+				const upstreamName = upstream.name.substring(upstreamOwner.length + 1);
+
+				const upstreamMetadata: GraphUpstreamMetadata = {
+					name: upstreamName,
+					owner: upstreamOwner,
+					ahead: branch.state.ahead,
+					behind: branch.state.behind,
+				};
+
+				metadata.upstream = upstreamMetadata;
+
+				this._refsMetadata.set(id, metadata);
+			}
 		}
 
 		const promises: Promise<void>[] = [];

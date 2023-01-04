@@ -16,6 +16,7 @@ import type {
 	RefMetadataType,
 	Remote,
 	Tag,
+	UpstreamMetadata,
 	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
 import type { DateStyle } from '../../../config';
@@ -33,6 +34,7 @@ export type GraphSelectedRows = Record</*id*/ string, true>;
 export type GraphAvatars = Record</*email*/ string, /*url*/ string>;
 
 export type GraphRefMetadata = RefMetadata | null;
+export type GraphUpstreamMetadata = UpstreamMetadata | null;
 export type GraphRefsMetadata = Record</* id */ string, GraphRefMetadata>;
 export type GraphHostingServiceType = HostingServiceType;
 export type GraphMissingRefsMetadataType = RefMetadataType;

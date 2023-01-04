@@ -109,6 +109,8 @@ const createIconElements = (): { [key: string]: ReactElement<any> } => {
 		'pull-request',
 		'show',
 		'hide',
+		'upstream-ahead',
+		'upstream-behind',
 	];
 	const elementLibrary: { [key: string]: ReactElement<any> } = {};
 	iconList.forEach(iconKey => {

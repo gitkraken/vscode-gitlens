@@ -474,6 +474,20 @@ button:not([disabled]),
 			content: '\ea64';
 		}
 	}
+	&--upstream-ahead {
+		&::before {
+			// codicon-arrow-up
+			font-family: codicon;
+			content: '\eaa1';
+		}
+	}
+	&--upstream-behind {
+		&::before {
+			// codicon-arrow-down
+			font-family: codicon;
+			content: '\ea9a';
+		}
+	}
 }
 
 .titlebar {
