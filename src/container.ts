@@ -11,6 +11,7 @@ import type { ToggleFileAnnotationCommandArgs } from './commands';
 import type { FileAnnotationType, ModeConfig } from './configuration';
 import { AnnotationsToggleMode, configuration, DateSource, DateStyle } from './configuration';
 import { Commands } from './constants';
+import { EventBus } from './eventBus';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitProviderService } from './git/gitProviderService';
 import { GitHubAuthenticationProvider } from './git/remotes/github';
@@ -180,6 +181,7 @@ export class Container {
 		context.subscriptions.push((this._lineTracker = new GitLineTracker(this)));
 		context.subscriptions.push((this._keyboard = new Keyboard()));
 		context.subscriptions.push((this._vsls = new VslsController(this)));
+		context.subscriptions.push((this._eventBus = new EventBus()));
 
 		context.subscriptions.push((this._fileAnnotationController = new FileAnnotationController(this)));
 		context.subscriptions.push((this._lineAnnotationController = new LineAnnotationController(this)));
@@ -341,6 +343,11 @@ export class Container {
 		}
 
 		return 'production';
+	}
+
+	private _eventBus: EventBus;
+	get events() {
+		return this._eventBus;
 	}
 
 	private _fileAnnotationController: FileAnnotationController;
