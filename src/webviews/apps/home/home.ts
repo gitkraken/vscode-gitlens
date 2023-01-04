@@ -230,15 +230,10 @@ export class HomeApp extends App<State> {
 			return;
 		}
 
-		const { subscription, dismissedBanners } = this.state;
-		const isPaid = subscription.state === SubscriptionState.Paid;
+		const { dismissedBanners } = this.state;
 		$banners.forEach($el => {
 			const key = $el.getAttribute('data-banner');
-			if (
-				isPaid ||
-				(key !== null && dismissedBanners?.includes(key)) ||
-				(key === 'cyberweek2022' && !showCyberWeek())
-			) {
+			if (key !== null && dismissedBanners?.includes(key)) {
 				$el.setAttribute('hidden', 'true');
 			} else {
 				$el.removeAttribute('hidden');
@@ -355,13 +350,6 @@ function toggleArrayItem(list: string[] = [], item: string, add = true) {
 	}
 
 	return list;
-}
-
-const cyberweekStart = Date.parse('2022-11-28T07:00:00.000-08:00');
-const cyberweekEnding = Date.parse('2022-12-06T00:00:00.000-08:00');
-function showCyberWeek() {
-	const now = Date.now();
-	return now < cyberweekEnding && now >= cyberweekStart;
 }
 
 new HomeApp();
