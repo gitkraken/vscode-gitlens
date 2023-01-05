@@ -1,4 +1,9 @@
-import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
+import type {
+	CancellationToken,
+	ConfigurationChangeEvent,
+	TreeViewSelectionChangeEvent,
+	TreeViewVisibilityChangeEvent,
+} from 'vscode';
 import { Disposable, ProgressLocation, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { CommitsViewConfig } from '../configuration';
 import { configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
@@ -19,7 +24,10 @@ import { disposableInterval } from '../system/function';
 import type { UsageChangeEvent } from '../usageTracker';
 import { BranchNode } from './nodes/branchNode';
 import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
+import { CommitFileNode } from './nodes/commitFileNode';
+import { CommitNode } from './nodes/commitNode';
 import { CommandMessageNode } from './nodes/common';
+import { FileRevisionAsCommitNode } from './nodes/fileRevisionAsCommitNode';
 import { RepositoryNode } from './nodes/repositoryNode';
 import type { ViewNode } from './nodes/viewNode';
 import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
@@ -286,6 +294,36 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		}
 
 		return true;
+	}
+
+	protected override onSelectionChanged(e: TreeViewSelectionChangeEvent<ViewNode>) {
+		super.onSelectionChanged(e);
+		this.notifySelections();
+	}
+
+	protected override onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
+		super.onVisibilityChanged(e);
+
+		if (e.visible) {
+			this.notifySelections();
+		}
+	}
+
+	private notifySelections() {
+		const node = this.selection?.[0];
+
+		if (
+			node != null &&
+			(node instanceof CommitNode || node instanceof FileRevisionAsCommitNode || node instanceof CommitFileNode)
+		) {
+			this.container.events.fire(
+				'commit:selected',
+				{
+					commit: node.commit,
+				},
+				{ source: this.id },
+			);
+		}
 	}
 
 	async findCommit(commit: GitCommit | { repoPath: string; ref: string }, token?: CancellationToken) {

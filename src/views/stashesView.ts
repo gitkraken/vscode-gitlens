@@ -1,4 +1,10 @@
-import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
+import type {
+	CancellationToken,
+	ConfigurationChangeEvent,
+	Disposable,
+	TreeViewSelectionChangeEvent,
+	TreeViewVisibilityChangeEvent,
+} from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { StashesViewConfig } from '../configuration';
 import { configuration, ViewFilesLayout } from '../configuration';
@@ -13,6 +19,7 @@ import { executeCommand } from '../system/command';
 import { gate } from '../system/decorators/gate';
 import { RepositoryNode } from './nodes/repositoryNode';
 import { StashesNode } from './nodes/stashesNode';
+import { StashFileNode } from './nodes/stashFileNode';
 import { StashNode } from './nodes/stashNode';
 import type { ViewNode } from './nodes/viewNode';
 import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
@@ -147,6 +154,32 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 		}
 
 		return true;
+	}
+
+	protected override onSelectionChanged(e: TreeViewSelectionChangeEvent<ViewNode>) {
+		super.onSelectionChanged(e);
+		this.notifySelections();
+	}
+
+	protected override onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
+		super.onVisibilityChanged(e);
+		if (e.visible) {
+			this.notifySelections();
+		}
+	}
+
+	private notifySelections() {
+		const node = this.selection?.[0];
+
+		if (node != null && (node instanceof StashNode || node instanceof StashFileNode)) {
+			this.container.events.fire(
+				'commit:selected',
+				{
+					commit: node.commit,
+				},
+				{ source: this.id },
+			);
+		}
 	}
 
 	findStash(stash: GitStashReference, token?: CancellationToken) {

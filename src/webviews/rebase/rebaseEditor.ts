@@ -8,7 +8,6 @@ import type {
 import { ConfigurationTarget, Disposable, Position, Range, Uri, window, workspace, WorkspaceEdit } from 'vscode';
 import { getNonce } from '@env/crypto';
 import { ShowCommitsInViewCommand } from '../../commands';
-import { GitActions } from '../../commands/gitCommands.actions';
 import { configuration } from '../../configuration';
 import { ContextKeys, CoreCommands } from '../../constants';
 import type { Container } from '../../container';
@@ -512,11 +511,20 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		// Find the full sha
 		sha = context.commits?.find(c => c.sha.startsWith(sha!))?.sha ?? sha;
 
-		void GitActions.Commit.showDetailsView(GitReference.create(sha, context.repoPath, { refType: 'revision' }), {
-			pin: false,
-			preserveFocus: true,
-			preserveVisibility: context.firstSelection ? showDetailsView === false : showDetailsView !== 'selection',
-		});
+		this.container.events.fire(
+			'commit:selected',
+			{
+				commit: GitReference.create(sha, context.repoPath, { refType: 'revision' }),
+				pin: false,
+				preserveFocus: true,
+				preserveVisibility: context.firstSelection
+					? showDetailsView === false
+					: showDetailsView !== 'selection',
+			},
+			{
+				source: 'gitlens.rebase',
+			},
+		);
 		context.firstSelection = false;
 	}
 

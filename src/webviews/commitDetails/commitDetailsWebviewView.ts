@@ -1,10 +1,4 @@
-import type {
-	CancellationToken,
-	ConfigurationChangeEvent,
-	TextDocumentShowOptions,
-	TreeViewSelectionChangeEvent,
-	TreeViewVisibilityChangeEvent,
-} from 'vscode';
+import type { CancellationToken, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
 import { CancellationTokenSource, Disposable, Uri, ViewColumn, window } from 'vscode';
 import { serializeAutolink } from '../../annotations/autolinks';
 import type { CopyShaToClipboardCommandArgs } from '../../commands';
@@ -13,6 +7,7 @@ import { configuration } from '../../configuration';
 import { Commands, ContextKeys, CoreCommands } from '../../constants';
 import type { Container } from '../../container';
 import { getContext } from '../../context';
+import type { EventBusPackage } from '../../eventBus';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitCommit } from '../../git/models/commit';
 import { isCommit } from '../../git/models/commit';
@@ -43,7 +38,6 @@ import { CommitNode } from '../../views/nodes/commitNode';
 import { FileRevisionAsCommitNode } from '../../views/nodes/fileRevisionAsCommitNode';
 import { StashFileNode } from '../../views/nodes/stashFileNode';
 import { StashNode } from '../../views/nodes/stashNode';
-import type { ViewNode } from '../../views/nodes/viewNode';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
 import { WebviewViewBase } from '../webviewViewBase';
@@ -115,6 +109,12 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 		);
+	}
+
+	onCommitSelected(event: EventBusPackage) {
+		if (event.data == null) return;
+
+		void this.show(event.data);
 	}
 
 	@log<CommitDetailsWebviewView['show']>({
@@ -253,13 +253,10 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 
 		if (this._pinned || !this.visible) return;
 
-		const { lineTracker, commitsView, stashesView } = this.container;
+		const { lineTracker } = this.container;
 		this._visibilityDisposable = Disposable.from(
 			lineTracker.subscribe(this, lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this)),
-			commitsView.onDidChangeSelection(this.onCommitsViewSelectionChanged, this),
-			commitsView.onDidChangeVisibility(this.onCommitsViewVisibilityChanged, this),
-			stashesView.onDidChangeSelection(this.onStashesViewSelectionChanged, this),
-			stashesView.onDidChangeVisibility(this.onStashesViewVisibilityChanged, this),
+			this.container.events.on('commit:selected', debounce(this.onCommitSelected, 250), this),
 		);
 
 		const commit = this._pendingContext?.commit ?? this.getBestCommitOrStash();
@@ -353,44 +350,6 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 				e.selections != null ? this.container.lineTracker.getState(e.selections[0].active)?.commit : undefined;
 		}
 		this.updateCommit(commit);
-	}
-
-	private onCommitsViewSelectionChanged(e: TreeViewSelectionChangeEvent<ViewNode>) {
-		const node = e.selection?.[0];
-		if (
-			node != null &&
-			(node instanceof CommitNode || node instanceof FileRevisionAsCommitNode || node instanceof CommitFileNode)
-		) {
-			this.updateCommit(node.commit);
-		}
-	}
-
-	private onCommitsViewVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
-		if (!e.visible) return;
-
-		const node = this.container.commitsView.activeSelection;
-		if (
-			node != null &&
-			(node instanceof CommitNode || node instanceof FileRevisionAsCommitNode || node instanceof CommitFileNode)
-		) {
-			this.updateCommit(node.commit);
-		}
-	}
-
-	private onStashesViewSelectionChanged(e: TreeViewSelectionChangeEvent<ViewNode>) {
-		const node = e.selection?.[0];
-		if (node != null && (node instanceof StashNode || node instanceof StashFileNode)) {
-			this.updateCommit(node.commit);
-		}
-	}
-
-	private onStashesViewVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
-		if (!e.visible) return;
-
-		const node = this.container.stashesView.activeSelection;
-		if (node != null && (node instanceof StashNode || node instanceof StashFileNode)) {
-			this.updateCommit(node.commit);
-		}
 	}
 
 	private _cancellationTokenSource: CancellationTokenSource | undefined = undefined;
@@ -865,6 +824,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			preview: true,
 			...this.getShowOptions(params),
 		});
+		this.container.events.fire('file:selected', file.uri, { source: this.id });
 	}
 
 	private async openFile(params: FileActionParams) {
