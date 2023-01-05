@@ -480,11 +480,18 @@ export class GraphWebview extends WebviewBase<State> {
 		const { activeSelection } = this;
 		if (activeSelection == null) return;
 
-		void GitActions.Commit.showDetailsView(activeSelection, {
-			pin: false,
-			preserveFocus: true,
-			preserveVisibility: this._showDetailsView === false,
-		});
+		this.container.events.fire(
+			'commit:selected',
+			{
+				commit: activeSelection,
+				pin: false,
+				preserveFocus: true,
+				preserveVisibility: this._showDetailsView === false,
+			},
+			{
+				source: this.id,
+			},
+		);
 	}
 
 	protected override onVisibilityChanged(visible: boolean): void {
@@ -645,7 +652,18 @@ export class GraphWebview extends WebviewBase<State> {
 			}
 		} else if (e.type === 'row' && e.row) {
 			const commit = this.getRevisionReference(this.repository?.path, e.row.id, e.row.type);
-			if (commit != null) return GitActions.Commit.showDetailsView(commit, { preserveFocus: e.preserveFocus });
+			if (commit != null) {
+				this.container.events.fire(
+					'commit:selected',
+					{
+						commit: commit,
+						preserveFocus: e.preserveFocus,
+					},
+					{
+						source: this.id,
+					},
+				);
+			}
 		}
 
 		return Promise.resolve();
@@ -942,13 +960,20 @@ export class GraphWebview extends WebviewBase<State> {
 
 		if (commits == null) return;
 
-		void GitActions.Commit.showDetailsView(commits[0], {
-			pin: false,
-			preserveFocus: true,
-			preserveVisibility: this._firstSelection
-				? this._showDetailsView === false
-				: this._showDetailsView !== 'selection',
-		});
+		this.container.events.fire(
+			'commit:selected',
+			{
+				commit: commits[0],
+				pin: false,
+				preserveFocus: true,
+				preserveVisibility: this._firstSelection
+					? this._showDetailsView === false
+					: this._showDetailsView !== 'selection',
+			},
+			{
+				source: this.id,
+			},
+		);
 		this._firstSelection = false;
 	}
 

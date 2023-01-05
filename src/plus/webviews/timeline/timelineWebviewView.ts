@@ -1,10 +1,10 @@
 'use strict';
 import type { Disposable, TextEditor } from 'vscode';
 import { commands, Uri, window } from 'vscode';
-import { GitActions } from '../../../commands/gitCommands.actions';
 import { configuration } from '../../../configuration';
 import { Commands, ContextKeys } from '../../../constants';
 import type { Container } from '../../../container';
+import type { EventBusPackage } from '../../../eventBus';
 import { PlusFeatures } from '../../../features';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import { GitUri } from '../../../git/gitUri';
@@ -83,6 +83,7 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 		return [
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			window.onDidChangeActiveTextEditor(debounce(this.onActiveEditorChanged, 250), this),
+			this.container.events.on('file:selected', this.onFileSelected, this),
 			this.container.git.onDidChangeRepository(this.onRepositoryChanged, this),
 			this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
 		];
@@ -133,7 +134,13 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 					const commit = await repository.getCommit(params.data.id);
 					if (commit == null) return;
 
-					void GitActions.Commit.showDetailsView(commit, { pin: false, preserveFocus: true });
+					this.container.events.fire(
+						'commit:selected',
+						{
+							commit: commit,
+						},
+						{ source: this.id },
+					);
 				});
 
 				break;
@@ -160,6 +167,23 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 		}
 
 		if (!this.updatePendingEditor(editor)) return;
+
+		this.updateState();
+	}
+
+	@debug({ args: false })
+	private onFileSelected(event: EventBusPackage) {
+		if (event.data == null) return;
+
+		let uri: Uri | undefined = event.data as Uri;
+
+		if (uri != null) {
+			if (!this.container.git.isTrackable(uri)) {
+				uri = undefined;
+			}
+		}
+
+		if (!this.updatePendingUri(uri)) return;
 
 		this.updateState();
 	}
@@ -371,7 +395,9 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 	private updateState(immediate: boolean = false) {
 		if (!this.isReady || !this.visible) return;
 
-		this.updatePendingEditor(window.activeTextEditor);
+		if (this._pendingContext == null) {
+			this.updatePendingEditor(window.activeTextEditor);
+		}
 
 		if (immediate) {
 			void this.notifyDidChangeState();
