@@ -1,16 +1,23 @@
 import { attr, css, customElement, FASTElement, html, ref } from '@microsoft/fast-element';
 import type { Chart } from 'billboard.js';
-import { areaSpline, bb, selection, zoom } from 'billboard.js';
-import { first, last } from '../../../../system/iterable';
+import { areaSpline, bar, bb, selection, zoom } from 'billboard.js';
+import { first, flatMap, last } from '../../../../system/iterable';
 import { pluralize } from '../../../../system/string';
 import { formatDate, formatNumeric, fromNow } from '../../shared/date';
 
 export interface ActivityStats {
 	commits: number;
 
-	activity?: number;
+	activity?: { additions: number; deletions: number };
 	files?: number;
 	sha?: string;
+}
+
+export interface ActivityMarker {
+	type: 'branch' | 'remote' | 'tag';
+	name: string;
+	current?: boolean;
+	upstream?: boolean;
 }
 
 export type ActivityStatsSelectedEvent = CustomEvent<ActivityStatsSelectedEventDetail>;
@@ -28,14 +35,15 @@ const styles = css`
 	:host {
 		display: flex;
 		width: 100%;
-		height: 27px;
+		/* height: 27px; */
 	}
 
 	#chart {
-		cursor: crosshair;
+		/* cursor: crosshair !important; */
 		height: 100%;
 		width: 100%;
 		overflow: hidden;
+		position: initial !important;
 	}
 
 	.bb svg {
@@ -101,11 +109,13 @@ const styles = css`
 	/*-- Axis --*/
 	.bb-axis {
 		shape-rendering: crispEdges;
+		visibility: hidden;
 	}
 
 	/*-- Grid --*/
 	.bb-grid {
 		pointer-events: none;
+		clip-path: none;
 	}
 
 	:host-context(.vscode-dark) .bb-grid line,
@@ -248,6 +258,7 @@ const styles = css`
 
 	/*-- Tooltip --*/
 	.bb-tooltip-container {
+		top: unset !important;
 		z-index: 10;
 		user-select: none;
 	}
@@ -267,9 +278,9 @@ const styles = css`
 	/* .bb-tooltip tr {
 		border: 1px solid #ccc;
 	} */
-	.bb-tooltip tr.bb-tooltip-name-activity {
+	/* .bb-tooltip tr.bb-tooltip-name-activity {
 		display: none;
-	}
+	} */
 	.bb-tooltip tbody {
 		border: 1px solid var(--color-hover-border);
 	}
@@ -398,6 +409,26 @@ const styles = css`
 		border-radius: 5px;
 		cursor: pointer; */
 	}
+
+	.marker-head text,
+	.marker-branch text,
+	.marker-remote text {
+		visibility: hidden;
+	}
+
+	.marker-head line {
+		stroke: rgb(255, 255, 255) !important;
+		stroke-width: 2px;
+		transform: translateY(32px);
+	}
+	.marker-branch line {
+		stroke: rgb(255, 255, 255, 0.8) !important;
+		transform: translateY(32px);
+	}
+	.marker-remote line {
+		stroke: rgb(255, 255, 255, 0.5) !important;
+		transform: translateY(32px);
+	}
 `;
 
 @customElement({ name: 'activity-graph', template: template, styles: styles })
@@ -407,13 +438,15 @@ export class ActivityGraph extends FASTElement {
 
 	@attr(/*{ attribute: 'data', mode: 'fromView' }*/)
 	data: Map<string, ActivityStats | null> | undefined;
+	@attr(/*{ attribute: 'data', mode: 'fromView' }*/)
+	markers: Map<string, ActivityMarker[]> | undefined;
 
 	private _timer: ReturnType<typeof setTimeout> | undefined;
 
 	override attributeChangedCallback(attrName: string, oldVal: string, newVal: string) {
 		super.attributeChangedCallback(attrName, oldVal, newVal);
 
-		if (attrName === 'data') {
+		if (attrName === 'data' || attrName === 'markers') {
 			if (this._timer) {
 				clearTimeout(this._timer);
 				this._timer = undefined;
@@ -461,7 +494,9 @@ export class ActivityGraph extends FASTElement {
 
 	private getIndex(date: number | Date): number | undefined {
 		date = new Date(date).setHours(0, 0, 0, 0);
-		return this._chart.data('activity')[0]?.values.find(v => (v.x as any as Date).getTime() === date)?.index;
+		return this._chart
+			?.data()[0]
+			?.values.find(v => (typeof v.x === 'number' ? v.x : (v.x as any as Date).getTime()) === date)?.index;
 	}
 
 	private loadChart() {
@@ -473,20 +508,28 @@ export class ActivityGraph extends FASTElement {
 		// Convert the map to an array dates and an array of stats
 		const dates: string[] = [];
 		const activity: number[] = [];
+		const commits: number[] = [];
+		const additions: number[] = [];
+		const deletions: number[] = [];
 
 		// const regions: RegionOptions[] = [];
 
 		const keys = this.data.keys();
-		const startDay = first(keys)!;
+		// const startDay = first(keys)!;
 		const endDay = last(keys)!;
 
-		const startDate = new Date(startDay);
+		const startDate = new Date();
 		const endDate = new Date(endDay);
 
 		let day;
 		let stat;
 		// let region: RegionOptions | undefined;
 
+		let activityMax = 0;
+		let commitsMax = 0;
+		let adds;
+		let changes;
+		let deletes;
 		// eslint-disable-next-line no-unmodified-loop-condition -- currentDate is modified via .setDate
 		while (startDate >= endDate) {
 			day = getDay(startDate);
@@ -494,8 +537,18 @@ export class ActivityGraph extends FASTElement {
 			stat = this.data.get(day);
 			// if (stat != null) {
 			dates.push(day);
-			// activity.push(stat?.commits ?? 0);
-			activity.push(stat?.activity ?? 0);
+
+			commits.push(stat?.commits ?? 0);
+			commitsMax = Math.max(stat?.commits ?? 0, commitsMax);
+
+			adds = stat?.activity?.additions ?? 0;
+			deletes = stat?.activity?.deletions ?? 0;
+			changes = adds + deletes;
+			activityMax = Math.max(changes, activityMax);
+
+			activity.push(changes);
+			additions.push(adds);
+			deletions.push(deletes);
 			// }
 
 			// if (stat == null && region == null) {
@@ -510,19 +563,40 @@ export class ActivityGraph extends FASTElement {
 			startDate.setDate(startDate.getDate() - 1);
 		}
 
+		// calculate the max value for the y-axis to avoid flattening the graph because of outlier changes
+		// const median = [...activity].sort((a, b) => a - b)[Math.floor(activity.length / 2)];
+		const p95 = [...activity].sort((a, b) => a - b)[Math.floor(activity.length * 0.95)];
+		const max = p95 + Math.min(activityMax - p95, p95 * 2);
+
 		if (this._chart == null) {
 			this._chart = bb.generate({
 				bindto: this.chart,
 				size: {
-					height: 34,
+					height: 44,
 				},
 				data: {
 					x: 'date',
 					type: areaSpline(),
+					axes: {
+						activity: 'y',
+						// commits: 'y2',
+						additions: 'y2',
+						deletions: 'y2',
+					},
 					columns: [
 						['date', ...dates],
+						// ['commits', ...commits],
 						['activity', ...activity],
+						['additions', ...additions],
+						['deletions', ...deletions],
 					],
+					names: {
+						activity: 'Activity',
+						// commits: 'Commits',
+						additions: 'Additions',
+						deletions: 'Deletions',
+					},
+					// hide: ['additions', 'deletions'],
 					onclick: d => {
 						const date = new Date(d.x);
 						const stat = this.data?.get(getDay(date));
@@ -551,10 +625,20 @@ export class ActivityGraph extends FASTElement {
 					},
 					colors: {
 						activity: 'var(--color-graph-activity)',
+						// commits: 'rgb(255, 0, 255)',
+						additions: 'rgba(73, 190, 71, 1)',
+						deletions: 'rgba(195, 32, 45, 1)',
+					},
+					groups: [['additions', 'deletions']],
+					types: {
+						activity: areaSpline(),
+						// commits: areaSpline(),
+						additions: bar(),
+						deletions: bar(),
 					},
 				},
 				area: {
-					linearGradient: true,
+					// linearGradient: true,
 				},
 				axis: {
 					x: {
@@ -571,9 +655,30 @@ export class ActivityGraph extends FASTElement {
 					},
 					y: {
 						min: 0,
-						show: false,
+						max: max,
+						show: true,
+						padding: {
+							bottom: 20,
+						},
+						// center: median,
+					},
+					y2: {
+						min: 0,
+						max: max,
+						show: true,
+						padding: {
+							bottom: 10,
+						},
+						// center: median,
 					},
 				},
+				bar: {
+					radius: {
+						ratio: 0.25,
+					},
+					width: 3,
+				},
+				clipPath: false,
 				legend: {
 					show: false,
 				},
@@ -597,36 +702,87 @@ export class ActivityGraph extends FASTElement {
 				// resize: {
 				// 	auto: true,
 				// },
+				spline: {
+					interpolation: {
+						type: 'catmull-rom',
+					},
+				},
+				grid: {
+					front: true,
+					x: {
+						show: true,
+						lines: [
+							...flatMap(this.markers!, ([k, v]) =>
+								v.map(m => ({
+									value: k,
+									text: m.name,
+									position: 'middle',
+									class: m.current ? 'marker-head' : `marker-${m.type}`,
+								})),
+							),
+						],
+					},
+				},
 				tooltip: {
-					position: function (data, width, height, element, pos) {
-						const { x } = pos;
-						// const rect = (element as HTMLElement).getBoundingClientRect();
-						const edge = x - width - 10;
+					position: (_data, width, _height, element, _pos) => {
+						const rect = (element as HTMLElement).getBoundingClientRect();
+						// const { x } = pos;
+						// const edge = x - width;
 						return {
-							top: -2,
+							top: 0, //64,
+							left: rect.right - (width + 10),
 							// left: x < rect.right / 2 ? rect.right - (width + 10) : 0,
-							left: edge < 0 ? x + 10 : edge,
+							// left: edge < 0 ? x + 10 : edge,
 						};
 					},
+					order: null,
 					format: {
+						value: (value, _ratio, id, _index) => {
+							switch (id) {
+								case 'activity':
+									return pluralize('change', value, {
+										format: c => formatNumeric(c),
+										zero: 'No',
+									});
+								case 'commits':
+									return pluralize('commit', value, {
+										format: c => formatNumeric(c),
+										zero: 'No',
+									});
+								case 'additions':
+								case 'deletions':
+									return pluralize('line', value, {
+										format: c => formatNumeric(c),
+									});
+								default:
+									return formatNumeric(value);
+							}
+						},
 						title: (x: string) => {
 							const date = new Date(x);
+							// return `${formatDate(date, 'MMMM Do, YYYY')} (${capitalize(fromNow(date))})`;
 
-							const stat = this.data?.get(getDay(date));
-							const commits = stat?.commits ?? 0;
-							return `${pluralize('commit', commits, {
-								format: c => formatNumeric(c),
-								zero: 'No',
-							})}${
-								commits > 0 && stat?.activity != null
-									? ` (${pluralize('change', stat.activity, {
-											format: c => formatNumeric(c),
-											zero: 'No',
-									  })})`
-									: ''
-							} \u2022 ${formatDate(date, 'MMMM Do, YYYY')} (${capitalize(fromNow(date))})`;
+							const markers = this.markers?.get(getDay(date));
+							return `${formatDate(date, 'MMMM Do, YYYY')} (${capitalize(fromNow(date))})${
+								markers != null ? ` \u2022 ${markers.map(m => m.name).join(', ')}` : ''
+							}`;
+							// const stat = this.data?.get(getDay(date));
+							// const commits = stat?.commits ?? 0;
+							// return `${pluralize('commit', commits, {
+							// 	format: c => formatNumeric(c),
+							// 	zero: 'No',
+							// })}${
+							// 	commits > 0 && stat?.activity != null
+							// 		? ` (${pluralize('change', stat.activity.additions + stat.activity.deletions, {
+							// 				format: c => formatNumeric(c),
+							// 				zero: 'No',
+							// 		  })})`
+							// 		: ''
+							// } \u2022 ${formatDate(date, 'MMMM Do, YYYY')} (${capitalize(fromNow(date))})`;
 						},
 					},
+					grouped: true,
+					linked: true,
 				},
 				zoom: {
 					enabled: zoom(),
@@ -641,10 +797,24 @@ export class ActivityGraph extends FASTElement {
 			this._chart.load({
 				columns: [
 					['date', ...dates],
+					// ['commits', ...commits],
 					['activity', ...activity],
+					['additions', ...additions],
+					['deletions', ...deletions],
 				],
 				// regions: regions,
 			});
+			this._chart.axis.max({ y: max, y2: max /*commitsMax*/ });
+			this._chart.xgrids([
+				...flatMap(this.markers!, ([k, v]) =>
+					v.map(m => ({
+						value: k,
+						text: m.name,
+						position: 'start',
+						class: m.current ? 'marker-head' : `marker-${m.type}`,
+					})),
+				),
+			]);
 		}
 	}
 }

@@ -63,7 +63,7 @@ import { SearchBox } from '../../shared/components/search/react';
 import type { SearchNavigationEventDetail } from '../../shared/components/search/search-box';
 import type { DateTimeFormat } from '../../shared/date';
 import { formatDate, fromNow } from '../../shared/date';
-import type { ActivityStats, ActivityStatsSelectedEventDetail } from '../activity/activity-graph';
+import type { ActivityMarker, ActivityStats, ActivityStatsSelectedEventDetail } from '../activity/activity-graph';
 import { ActivityGraph } from '../activity/react';
 
 export interface GraphWrapperProps {
@@ -335,6 +335,7 @@ export function GraphWrapper({
 	const activityData = useMemo(() => {
 		// Loops through all the rows and group them by day and aggregate the row.stats
 		const statsByDayMap = new Map<string, ActivityStats>();
+		const markersByDay = new Map<string, ActivityMarker[]>();
 
 		let stats;
 		let day;
@@ -344,12 +345,28 @@ export function GraphWrapper({
 			// TODO@eamodio abstract the grouping function to reuse in the activity-graph component
 			day = formatDate(row.date, 'YYYY-MM-DD');
 
+			if (row.heads?.length) {
+				const markers = markersByDay.get(day);
+				markersByDay.set(day, [
+					...(markers ?? []),
+					...row.heads.map<ActivityMarker>(h => ({ name: h.name, type: 'branch', current: h.isCurrentHead })),
+				]);
+			}
+
+			if (row.remotes?.length) {
+				const markers = markersByDay.get(day);
+				markersByDay.set(day, [
+					...(markers ?? []),
+					...row.remotes.map<ActivityMarker>(h => ({ name: `${h.owner}/${h.name}`, type: 'remote' })),
+				]);
+			}
+
 			let stat = statsByDayMap.get(day);
 			if (stat == null) {
 				stat =
 					stats != null
 						? {
-								activity: stats.additions + stats.deletions,
+								activity: { additions: stats.additions, deletions: stats.deletions },
 								commits: 1,
 								files: stats.files,
 								sha: row.sha,
@@ -361,14 +378,19 @@ export function GraphWrapper({
 			} else {
 				stat.commits++;
 				if (stats != null) {
-					stat.activity = (stat.activity ?? 0) + stats.additions + stats.deletions;
+					if (stat.activity == null) {
+						stat.activity = { additions: stats.additions, deletions: stats.deletions };
+					} else {
+						stat.activity.additions += stats.additions;
+						stat.activity.deletions += stats.deletions;
+					}
 					stat.files = (stat.files ?? 0) + stats.files;
 				}
 			}
 			statsByDayMap.set(day, stat);
 		}
 
-		return statsByDayMap;
+		return { stats: statsByDayMap, markers: markersByDay };
 	}, [rows]);
 
 	const handleActivityStatsSelected = (e: CustomEvent<ActivityStatsSelectedEventDetail>) => {
@@ -1069,7 +1091,8 @@ export function GraphWrapper({
 				</div>
 				<ActivityGraph
 					ref={activityGraph as any}
-					data={activityData}
+					data={activityData.stats}
+					markers={activityData.markers}
 					onSelected={e => handleActivityStatsSelected(e as CustomEvent<ActivityStatsSelectedEventDetail>)}
 				></ActivityGraph>
 			</header>
