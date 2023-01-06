@@ -2243,6 +2243,13 @@
 						"scope": "window",
 						"order": 25
 					},
+					"gitlens.graph.showUpstreamStatus": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to show a local branch's upstream status in the _Commit Graph_",
+						"scope": "window",
+						"order": 26
+					},
 					"gitlens.graph.commitOrdering": {
 						"type": "string",
 						"default": "date",

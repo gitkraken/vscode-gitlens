@@ -546,7 +546,8 @@ export class GraphWebview extends WebviewBase<State> {
 			configuration.changed(e, 'graph.highlightRowsOnRefHover') ||
 			configuration.changed(e, 'graph.scrollRowPadding') ||
 			configuration.changed(e, 'graph.showGhostRefsOnRowHover') ||
-			configuration.changed(e, 'graph.showRemoteNames')
+			configuration.changed(e, 'graph.showRemoteNames') ||
+			configuration.changed(e, 'graph.showUpstreamStatus')
 		) {
 			void this.notifyDidChangeConfiguration();
 		}
@@ -1561,6 +1562,7 @@ export class GraphWebview extends WebviewBase<State> {
 			scrollRowPadding: configuration.get('graph.scrollRowPadding'),
 			showGhostRefsOnRowHover: configuration.get('graph.showGhostRefsOnRowHover'),
 			showRemoteNamesOnRefs: configuration.get('graph.showRemoteNames'),
+			showUpstreamStatus: configuration.get('graph.showUpstreamStatus'),
 			idLength: configuration.get('advanced.abbreviatedShaLength'),
 		};
 		return config;

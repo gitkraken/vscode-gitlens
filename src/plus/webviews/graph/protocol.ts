@@ -117,6 +117,7 @@ export interface GraphComponentConfig {
 	scrollRowPadding?: number;
 	showGhostRefsOnRowHover?: boolean;
 	showRemoteNamesOnRefs?: boolean;
+	showUpstreamStatus?: boolean;
 	idLength?: number;
 }
 

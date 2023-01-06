@@ -1037,6 +1037,7 @@ export function GraphWrapper({
 							platform={clientPlatform}
 							refMetadataById={refsMetadata}
 							shaLength={graphConfig?.idLength}
+							showUpstreamStatus={graphConfig?.showUpstreamStatus}
 							themeOpacityFactor={styleProps?.themeOpacityFactor}
 							useAuthorInitialsForAvatars={!graphConfig?.avatars}
 							workDirStats={workingTreeStats}
