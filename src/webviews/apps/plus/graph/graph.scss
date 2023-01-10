@@ -372,6 +372,11 @@ button:not([disabled]),
 	vertical-align: middle;
 	line-height: 2rem;
 	letter-spacing: normal;
+
+	&.mini-icon {
+		font-size: 10px;
+		line-height: 1.6rem;
+	}
 }
 
 .icon {
