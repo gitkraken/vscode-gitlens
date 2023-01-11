@@ -787,14 +787,9 @@ export class GraphWebview extends WebviewBase<State> {
 					return;
 				}
 
-				// Remote owner is the first part before the /.
-				const upstreamOwner = upstream.name.split('/')[0];
-				// Name is everything in the string after th first /.
-				const upstreamName = upstream.name.substring(upstreamOwner.length + 1);
-
 				const upstreamMetadata: GraphUpstreamMetadata = {
-					name: upstreamName,
-					owner: upstreamOwner,
+					name: getBranchNameWithoutRemote(upstream.name),
+					owner: getRemoteNameFromBranchName(upstream.name),
 					ahead: branch.state.ahead,
 					behind: branch.state.behind,
 				};
