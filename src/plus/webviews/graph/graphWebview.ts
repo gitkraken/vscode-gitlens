@@ -779,10 +779,14 @@ export class GraphWebview extends WebviewBase<State> {
 					?.values?.[0];
 				const upstream = branch?.upstream;
 
-				if (upstream == null) return;
+				if (upstream == null || upstream == undefined) {
+					metadata.upstream = null;
+					this._refsMetadata.set(id, metadata);
+					return;
+				}
 
 				if (upstream?.missing) {
-					metadata.upstream = null;
+					metadata.upstream = undefined;
 					this._refsMetadata.set(id, metadata);
 					return;
 				}
