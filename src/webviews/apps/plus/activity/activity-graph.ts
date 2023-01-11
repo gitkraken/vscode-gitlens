@@ -1,6 +1,6 @@
-import { attr, css, customElement, FASTElement, html, ref } from '@microsoft/fast-element';
+import { css, customElement, FASTElement, html, observable, ref } from '@microsoft/fast-element';
 import type { Chart /*RegionOptions*/ } from 'billboard.js';
-import { areaSpline, bar, bb, selection, zoom } from 'billboard.js';
+import { areaSpline, bar, bb, selection } from 'billboard.js';
 import { flatMap, last, map, union } from '../../../../system/iterable';
 import { pluralize } from '../../../../system/string';
 import { formatDate, formatNumeric, fromNow } from '../../shared/date';
@@ -60,7 +60,8 @@ const styles = css`
 	:host {
 		display: flex;
 		width: 100%;
-		/* height: 27px; */
+		min-height: 24px;
+		height: 44px;
 	}
 
 	#chart {
@@ -74,6 +75,9 @@ const styles = css`
 	.bb svg {
 		font: 10px var(--font-family);
 		-webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+
+		margin-left: 2rem;
+		transform: rotateY(180deg);
 	}
 
 	.bb path,
@@ -97,6 +101,11 @@ const styles = css`
 		user-select: none;
 		fill: var(--color-view-foreground);
 		font-size: 11px;
+	}
+
+	.bb-event-rect {
+		height: calc(100% + 2px);
+		transform: translateY(-5px);
 	}
 
 	.bb-legend-item-tile,
@@ -246,48 +255,48 @@ const styles = css`
 	.bb-region.marker-head {
 		fill: lime;
 		fill-opacity: 1;
+		transform: translateY(-4px);
 	}
 	.bb-region.marker-head > rect {
 		width: 2px;
+		height: 100%;
 		transform: translateX(-1px);
-		/* width: 4px;
-		transform: translateX(-2px); */
 		transform-box: view-box;
 	}
 
 	.bb-region.marker-result {
 		fill: yellow;
 		fill-opacity: 1;
+		transform: translateY(-4px);
 	}
 	.bb-region.marker-result > rect {
 		width: 2px;
+		height: 100%;
 		transform: translateX(-1px);
-		/* width: 4px;
-		transform: translateX(-2px); */
 		transform-box: view-box;
 	}
 
 	.bb-region.marker-branch {
 		fill: cyan;
 		fill-opacity: 0.7;
+		transform: translateY(-4px);
 	}
 	.bb-region.marker-branch > rect {
 		width: 1px;
+		height: 100%;
 		transform: translateX(-1px);
-		/* width: 4px;
-		transform: translateX(-2px); */
 		transform-box: view-box;
 	}
 
 	.bb-region.marker-remote {
 		fill: cyan;
 		fill-opacity: 0.3;
+		transform: translateY(-4px);
 	}
 	.bb-region.marker-remote > rect {
 		width: 1px;
+		height: 100%;
 		transform: translateX(-1px);
-		/* width: 4px;
-		transform: translateX(-2px); */
 		transform-box: view-box;
 	}
 
@@ -452,11 +461,10 @@ const styles = css`
 
 	/*-- Button --*/
 	.bb-button {
-		position: absolute;
-		/* top: 10px;
-		right: 10px; */
-		top: 0;
-		right: 0;
+		position: relative;
+		/* TODO@eamodio this is UGLY */
+		top: -44px;
+		left: calc(100% - 20px);
 
 		color: var(--color-button-foreground);
 
@@ -509,12 +517,12 @@ export class ActivityGraph extends FASTElement {
 	chart!: HTMLDivElement;
 	_chart!: Chart;
 
-	@attr(/*{ attribute: 'data', mode: 'fromView' }*/)
+	@observable
 	data: Map<number, ActivityStats | null> | undefined;
-	@attr(/*{ attribute: 'data', mode: 'fromView' }*/)
+	@observable
 	markers: Map<number, ActivityMarker[]> | undefined;
 
-	@attr(/*{ attribute: 'data', mode: 'fromView' }*/)
+	@observable
 	searchResults: Map<number, ActivitySearchResultMarker> | undefined;
 
 	private _loadTimer: ReturnType<typeof setTimeout> | undefined;
@@ -523,50 +531,41 @@ export class ActivityGraph extends FASTElement {
 	private _markerRegions: Map<number, RegionOptions> | undefined;
 	private _regions: Map<number, RegionOptions> | undefined;
 
-	override attributeChangedCallback(attrName: string, oldVal: string, newVal: string) {
-		super.attributeChangedCallback(attrName, oldVal, newVal);
-
-		console.log('attributeChangedCallback', attrName);
-		if (attrName === 'data' || attrName === 'markers') {
-			if (this._loadTimer) {
-				clearTimeout(this._loadTimer);
-				this._loadTimer = undefined;
-			}
-
-			if (this._searchTimer) {
-				clearTimeout(this._searchTimer);
-				this._searchTimer = undefined;
-			}
-
-			if (attrName === 'markers') {
-				this._regions = undefined;
-				this._markerRegions = undefined;
-			}
-
-			this._loadTimer = setTimeout(() => this.loadChart(), 150);
+	dataChanged(
+		_oldVal?: Map<number, ActivityStats | null>,
+		_newVal?: Map<number, ActivityStats | null>,
+		markerChanged?: boolean,
+	) {
+		if (this._loadTimer) {
+			clearTimeout(this._loadTimer);
+			this._loadTimer = undefined;
 		}
 
-		if (attrName === 'searchresults') {
+		if (this._searchTimer) {
+			clearTimeout(this._searchTimer);
+			this._searchTimer = undefined;
+		}
+
+		if (markerChanged) {
 			this._regions = undefined;
-
-			if (this._searchTimer) {
-				clearTimeout(this._searchTimer);
-				this._searchTimer = undefined;
-			}
-			this._searchTimer = setTimeout(() => this.applySearchResults(), 150);
+			this._markerRegions = undefined;
 		}
+
+		this._loadTimer = setTimeout(() => this.loadChart(), 150);
 	}
 
-	override connectedCallback(): void {
-		super.connectedCallback();
+	markersChanged() {
+		this.dataChanged(undefined, undefined, true);
+	}
 
-		// this.data = [];
-		// const notifier = Observable.getNotifier(this.data);
-		// const handler = {
-		// 	handleChange: (source: any, splices: Splice[]) => {
-		// };
+	searchResultsChanged() {
+		this._regions = undefined;
 
-		// notifier.subscribe(handler);
+		if (this._searchTimer) {
+			clearTimeout(this._searchTimer);
+			this._searchTimer = undefined;
+		}
+		this._searchTimer = setTimeout(() => this.applySearchResults(), 150);
 	}
 
 	override disconnectedCallback(): void {
@@ -576,7 +575,7 @@ export class ActivityGraph extends FASTElement {
 	}
 
 	select(date: number | Date) {
-		// setTimeout(() => this.selectCore(date), 500);
+		setTimeout(() => this.selectCore(date), 500);
 	}
 
 	private selectCore(date: number | Date) {
@@ -685,9 +684,11 @@ export class ActivityGraph extends FASTElement {
 		let adds;
 		let changes;
 		let deletes;
+
+		const currentDate = startDate;
 		// eslint-disable-next-line no-unmodified-loop-condition -- currentDate is modified via .setDate
-		while (startDate >= endDate) {
-			day = getDay(startDate);
+		while (currentDate >= endDate) {
+			day = getDay(currentDate);
 
 			stat = this.data.get(day);
 			// if (stat != null) {
@@ -705,7 +706,7 @@ export class ActivityGraph extends FASTElement {
 			deletions.push(-deletes);
 			// }
 
-			startDate.setDate(startDate.getDate() - 1);
+			currentDate.setDate(currentDate.getDate() - 1);
 		}
 
 		const regions = this.getAllRegions();
@@ -720,11 +721,9 @@ export class ActivityGraph extends FASTElement {
 		if (this._chart == null) {
 			this._chart = bb.generate({
 				bindto: this.chart,
-				size: {
-					height: 44,
-				},
 				data: {
 					x: 'date',
+					xSort: false,
 					type: areaSpline(),
 					axes: {
 						activity: 'y',
@@ -769,8 +768,8 @@ export class ActivityGraph extends FASTElement {
 					},
 					colors: {
 						activity: 'var(--color-graph-activity)',
-						additions: 'rgba(73, 190, 71, 1)',
-						deletions: 'rgba(195, 32, 45, 1)',
+						additions: 'rgba(73, 190, 71, 0.7)',
+						deletions: 'rgba(195, 32, 45, 0.7)',
 					},
 					groups: [['additions', 'deletions']],
 					types: {
@@ -814,31 +813,6 @@ export class ActivityGraph extends FASTElement {
 					width: { max: 3 },
 				},
 				clipPath: false,
-				legend: {
-					show: false,
-				},
-				point: {
-					show: true,
-					select: {
-						r: 5,
-					},
-					focus: {
-						only: true,
-						expand: {
-							enabled: true,
-							r: 3,
-						},
-					},
-				},
-				regions: [...regions.values()],
-				// resize: {
-				// 	auto: true,
-				// },
-				spline: {
-					interpolation: {
-						type: 'catmull-rom',
-					},
-				},
 				// grid: {
 				// 	front: false,
 				// 	x: {
@@ -855,6 +829,32 @@ export class ActivityGraph extends FASTElement {
 				// 		// ],
 				// 	},
 				// },
+				legend: {
+					show: false,
+				},
+				point: {
+					show: true,
+					select: {
+						r: 5,
+					},
+					focus: {
+						only: true,
+						expand: {
+							enabled: true,
+							r: 3,
+						},
+					},
+					sensitivity: 100,
+				},
+				regions: [...regions.values()],
+				resize: {
+					auto: true,
+				},
+				spline: {
+					interpolation: {
+						type: 'catmull-rom',
+					},
+				},
 				tooltip: {
 					position: (_data, width, _height, element, _pos) => {
 						const rect = (element as HTMLElement).getBoundingClientRect();
@@ -916,14 +916,14 @@ export class ActivityGraph extends FASTElement {
 					grouped: true,
 					linked: true,
 				},
-				zoom: {
-					enabled: zoom(),
-					rescale: false,
-					resetButton: {
-						text: '',
-					},
-					type: 'drag',
-				},
+				// zoom: {
+				// 	enabled: zoom(),
+				// 	rescale: false,
+				// 	resetButton: {
+				// 		text: '',
+				// 	},
+				// 	type: 'drag',
+				// },
 			});
 		} else {
 			this._chart.load({
