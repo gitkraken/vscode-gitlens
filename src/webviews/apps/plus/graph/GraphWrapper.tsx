@@ -8,6 +8,7 @@ import type {
 	GraphRefOptData,
 	GraphRow,
 	GraphZoneType,
+	Head,
 	OnFormatCommitDateTime,
 } from '@gitkraken/gitkraken-components';
 import GraphContainer, { GRAPH_ZONE_TYPE, REF_ZONE_TYPE } from '@gitkraken/gitkraken-components';
@@ -63,7 +64,12 @@ import { SearchBox } from '../../shared/components/search/react';
 import type { SearchNavigationEventDetail } from '../../shared/components/search/search-box';
 import type { DateTimeFormat } from '../../shared/date';
 import { formatDate, fromNow } from '../../shared/date';
-import type { ActivityMarker, ActivityStats, ActivityStatsSelectedEventDetail } from '../activity/activity-graph';
+import type {
+	ActivityMarker,
+	ActivitySearchResultMarker,
+	ActivityStats,
+	ActivityStatsSelectedEventDetail,
+} from '../activity/activity-graph';
 import { ActivityGraph } from '../activity/react';
 
 export interface GraphWrapperProps {
@@ -334,34 +340,90 @@ export function GraphWrapper({
 
 	const activityData = useMemo(() => {
 		// Loops through all the rows and group them by day and aggregate the row.stats
-		const statsByDayMap = new Map<string, ActivityStats>();
-		const markersByDay = new Map<string, ActivityMarker[]>();
+		const statsByDayMap = new Map<number, ActivityStats>();
+		const markersByDay = new Map<number, ActivityMarker[]>();
 
-		let stats;
+		let rankedShas: { head: string | undefined; branch: string | undefined; remote: string | undefined } = {
+			head: undefined,
+			branch: undefined,
+			remote: undefined,
+		};
+
 		let day;
+		let prevDay;
+
+		let head: Head | undefined;
+		let markers;
+		let headMarkers;
+		let remoteMarkers;
+		let stat;
+		let stats;
+
 		for (const row of rows) {
 			stats = row.stats;
 
-			// TODO@eamodio abstract the grouping function to reuse in the activity-graph component
-			day = formatDate(row.date, 'YYYY-MM-DD');
+			day = getDay(row.date);
+			if (day !== prevDay) {
+				prevDay = day;
+				rankedShas = {
+					head: undefined,
+					branch: undefined,
+					remote: undefined,
+				};
+			}
 
 			if (row.heads?.length) {
-				const markers = markersByDay.get(day);
-				markersByDay.set(day, [
-					...(markers ?? []),
-					...row.heads.map<ActivityMarker>(h => ({ name: h.name, type: 'branch', current: h.isCurrentHead })),
-				]);
+				rankedShas.branch = row.sha;
+
+				// eslint-disable-next-line no-loop-func
+				headMarkers = row.heads.map<ActivityMarker>(h => {
+					if (h.isCurrentHead) {
+						head = h;
+						rankedShas.head = row.sha;
+					}
+
+					return {
+						type: 'branch',
+						name: h.name,
+						current: h.isCurrentHead,
+					};
+				});
+
+				markers = markersByDay.get(day);
+				if (markers == null) {
+					markersByDay.set(day, headMarkers);
+				} else {
+					markers.push(...headMarkers);
+				}
 			}
 
 			if (row.remotes?.length) {
-				const markers = markersByDay.get(day);
-				markersByDay.set(day, [
-					...(markers ?? []),
-					...row.remotes.map<ActivityMarker>(h => ({ name: `${h.owner}/${h.name}`, type: 'remote' })),
-				]);
+				rankedShas.remote = row.sha;
+
+				// eslint-disable-next-line no-loop-func
+				remoteMarkers = row.remotes.map<ActivityMarker>(h => {
+					let current = false;
+					if (h.name === head?.name) {
+						rankedShas.remote = row.sha;
+						current = true;
+					}
+
+					return {
+						type: 'remote',
+						name: `${h.owner}/${h.name}`,
+						current: current,
+					};
+				});
+
+				markers = markersByDay.get(day);
+				if (markers == null) {
+					markersByDay.set(day, remoteMarkers);
+				} else {
+					markers.push(...remoteMarkers);
+				}
 			}
 
-			let stat = statsByDayMap.get(day);
+			stat = statsByDayMap.get(day);
 			if (stat == null) {
 				stat =
 					stats != null
@@ -375,8 +437,10 @@ export function GraphWrapper({
 								commits: 1,
 								sha: row.sha,
 						  };
+				statsByDayMap.set(day, stat);
 			} else {
 				stat.commits++;
+				stat.sha = rankedShas.head ?? rankedShas.branch ?? rankedShas.remote ?? stat.sha;
 				if (stats != null) {
 					if (stat.activity == null) {
 						stat.activity = { additions: stats.additions, deletions: stats.deletions };
@@ -387,11 +451,31 @@ export function GraphWrapper({
 					stat.files = (stat.files ?? 0) + stats.files;
 				}
 			}
-			statsByDayMap.set(day, stat);
 		}
 
 		return { stats: statsByDayMap, markers: markersByDay };
 	}, [rows]);
+
+	const activitySearchResults = useMemo(() => {
+		const searchResultsByDay = new Map<number, ActivitySearchResultMarker>();
+
+		if (searchResults?.ids != null) {
+			let day;
+			let sha;
+			let r;
+			let result;
+			for ([sha, r] of Object.entries(searchResults.ids)) {
+				day = getDay(r.date);
+
+				result = searchResultsByDay.get(day);
+				if (result == null) {
+					searchResultsByDay.set(day, { type: 'search-result', sha: sha });
+				}
+			}
+		}
+
+		return searchResultsByDay;
+	}, [searchResults]);
 
 	const handleActivityStatsSelected = (e: CustomEvent<ActivityStatsSelectedEventDetail>) => {
 		let { sha } = e.detail;
@@ -1093,6 +1177,7 @@ export function GraphWrapper({
 					ref={activityGraph as any}
 					data={activityData.stats}
 					markers={activityData.markers}
+					searchResults={activitySearchResults}
 					onSelected={e => handleActivityStatsSelected(e as CustomEvent<ActivityStatsSelectedEventDetail>)}
 				></ActivityGraph>
 			</header>
@@ -1134,7 +1219,7 @@ export function GraphWrapper({
 							onDoubleClickGraphRow={handleOnDoubleClickRow}
 							onDoubleClickGraphRef={handleOnDoubleClickRef}
 							onGraphColumnsReOrdered={handleOnGraphColumnsReOrdered}
-							onGraphRowHovered={handleOnGraphRowHovered}
+							// onGraphRowHovered={handleOnGraphRowHovered}
 							onSelectGraphRows={handleSelectGraphRows}
 							onToggleRefsVisibilityClick={handleOnToggleRefsVisibilityClick}
 							onEmailsMissingAvatarUrls={handleMissingAvatars}
@@ -1300,4 +1385,8 @@ function getSearchResultModel(state: State): {
 		}
 	}
 	return { results: results, resultsError: resultsError };
+}
+
+function getDay(date: number | Date): number {
+	return new Date(date).setHours(0, 0, 0, 0);
 }

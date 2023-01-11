@@ -1,9 +1,41 @@
 import { attr, css, customElement, FASTElement, html, ref } from '@microsoft/fast-element';
-import type { Chart } from 'billboard.js';
+import type { Chart /*RegionOptions*/ } from 'billboard.js';
 import { areaSpline, bar, bb, selection, zoom } from 'billboard.js';
-import { first, flatMap, last } from '../../../../system/iterable';
+import { flatMap, last, map, union } from '../../../../system/iterable';
 import { pluralize } from '../../../../system/string';
 import { formatDate, formatNumeric, fromNow } from '../../shared/date';
+
+interface RegionOptions {
+	axis: 'x' | 'y' | 'y2';
+	start?: number | Date;
+	end?: number | Date;
+	class?: string;
+}
+
+export interface BranchMarker {
+	type: 'branch';
+	name: string;
+	current?: boolean;
+}
+
+export interface RemoteMarker {
+	type: 'remote';
+	name: string;
+	current?: boolean;
+}
+
+export interface TagMarker {
+	type: 'tag';
+	name: string;
+	current?: undefined;
+}
+
+export type ActivityMarker = BranchMarker | RemoteMarker | TagMarker;
+
+export interface ActivitySearchResultMarker {
+	type: 'search-result';
+	sha: string;
+}
 
 export interface ActivityStats {
 	commits: number;
@@ -11,13 +43,6 @@ export interface ActivityStats {
 	activity?: { additions: number; deletions: number };
 	files?: number;
 	sha?: string;
-}
-
-export interface ActivityMarker {
-	type: 'branch' | 'remote' | 'tag';
-	name: string;
-	current?: boolean;
-	upstream?: boolean;
 }
 
 export type ActivityStatsSelectedEvent = CustomEvent<ActivityStatsSelectedEventDetail>;
@@ -216,6 +241,54 @@ const styles = css`
 	.bb-region {
 		fill: steelblue;
 		fill-opacity: 0.1;
+	}
+
+	.bb-region.marker-head {
+		fill: lime;
+		fill-opacity: 1;
+	}
+	.bb-region.marker-head > rect {
+		width: 2px;
+		transform: translateX(-1px);
+		/* width: 4px;
+		transform: translateX(-2px); */
+		transform-box: view-box;
+	}
+
+	.bb-region.marker-result {
+		fill: yellow;
+		fill-opacity: 1;
+	}
+	.bb-region.marker-result > rect {
+		width: 2px;
+		transform: translateX(-1px);
+		/* width: 4px;
+		transform: translateX(-2px); */
+		transform-box: view-box;
+	}
+
+	.bb-region.marker-branch {
+		fill: cyan;
+		fill-opacity: 0.7;
+	}
+	.bb-region.marker-branch > rect {
+		width: 1px;
+		transform: translateX(-1px);
+		/* width: 4px;
+		transform: translateX(-2px); */
+		transform-box: view-box;
+	}
+
+	.bb-region.marker-remote {
+		fill: cyan;
+		fill-opacity: 0.3;
+	}
+	.bb-region.marker-remote > rect {
+		width: 1px;
+		transform: translateX(-1px);
+		/* width: 4px;
+		transform: translateX(-2px); */
+		transform-box: view-box;
 	}
 
 	/*-- Zoom region --*/
@@ -437,21 +510,50 @@ export class ActivityGraph extends FASTElement {
 	_chart!: Chart;
 
 	@attr(/*{ attribute: 'data', mode: 'fromView' }*/)
-	data: Map<string, ActivityStats | null> | undefined;
+	data: Map<number, ActivityStats | null> | undefined;
 	@attr(/*{ attribute: 'data', mode: 'fromView' }*/)
-	markers: Map<string, ActivityMarker[]> | undefined;
+	markers: Map<number, ActivityMarker[]> | undefined;
 
-	private _timer: ReturnType<typeof setTimeout> | undefined;
+	@attr(/*{ attribute: 'data', mode: 'fromView' }*/)
+	searchResults: Map<number, ActivitySearchResultMarker> | undefined;
+
+	private _loadTimer: ReturnType<typeof setTimeout> | undefined;
+	private _searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+	private _markerRegions: Map<number, RegionOptions> | undefined;
+	private _regions: Map<number, RegionOptions> | undefined;
 
 	override attributeChangedCallback(attrName: string, oldVal: string, newVal: string) {
 		super.attributeChangedCallback(attrName, oldVal, newVal);
 
+		console.log('attributeChangedCallback', attrName);
 		if (attrName === 'data' || attrName === 'markers') {
-			if (this._timer) {
-				clearTimeout(this._timer);
-				this._timer = undefined;
+			if (this._loadTimer) {
+				clearTimeout(this._loadTimer);
+				this._loadTimer = undefined;
 			}
-			this._timer = setTimeout(() => this.loadChart(), 150);
+
+			if (this._searchTimer) {
+				clearTimeout(this._searchTimer);
+				this._searchTimer = undefined;
+			}
+
+			if (attrName === 'markers') {
+				this._regions = undefined;
+				this._markerRegions = undefined;
+			}
+
+			this._loadTimer = setTimeout(() => this.loadChart(), 150);
+		}
+
+		if (attrName === 'searchresults') {
+			this._regions = undefined;
+
+			if (this._searchTimer) {
+				clearTimeout(this._searchTimer);
+				this._searchTimer = undefined;
+			}
+			this._searchTimer = setTimeout(() => this.applySearchResults(), 150);
 		}
 	}
 
@@ -474,11 +576,17 @@ export class ActivityGraph extends FASTElement {
 	}
 
 	select(date: number | Date) {
+		// setTimeout(() => this.selectCore(date), 500);
+	}
+
+	private selectCore(date: number | Date) {
+		const d = this._chart.selected('activity') as any as any[];
+		if (d.find(o => o.x.getTime() === getDay(date))) return;
+
 		const index = this.getIndex(date);
 		if (index == null) return;
 
 		this._chart?.select(['activity'], [index], true);
-		// setTimeout(() => this._chart?.select(['activity'], [index], true), 100);
 	}
 
 	unselect(date?: number | Date) {
@@ -486,7 +594,7 @@ export class ActivityGraph extends FASTElement {
 			const index = this.getIndex(date);
 			if (index == null) return;
 
-			this._chart?.unselect(['activity'], [index]);
+			this._chart?.unselect(undefined, [index]);
 		} else {
 			this._chart?.unselect();
 		}
@@ -499,6 +607,58 @@ export class ActivityGraph extends FASTElement {
 			?.values.find(v => (typeof v.x === 'number' ? v.x : (v.x as any as Date).getTime()) === date)?.index;
 	}
 
+	private getMarkerRegions() {
+		if (this._markerRegions == null) {
+			this._markerRegions = new Map<number, RegionOptions>(
+				this.markers != null
+					? flatMap(this.markers, ([day, markers]) =>
+							map(markers, m => [
+								day,
+								{
+									axis: 'x',
+									start: day,
+									end: day,
+									class: m.current ? 'marker-head' : `marker-${m.type}`,
+								} satisfies RegionOptions,
+							]),
+					  )
+					: undefined,
+			);
+		}
+		return this._markerRegions;
+	}
+
+	private getAllRegions() {
+		if (this._regions == null) {
+			this._regions = this.getMarkerRegions();
+
+			if (this.searchResults != null) {
+				this._regions = new Map<number, RegionOptions>(
+					union(
+						this._regions,
+						map(this.searchResults.keys(), day => [
+							day,
+							{
+								axis: 'x',
+								start: day,
+								end: day,
+								class: 'marker-result',
+							} satisfies RegionOptions,
+						]),
+					),
+				);
+			}
+		}
+		return this._regions;
+	}
+
+	private applySearchResults() {
+		if (this._chart == null || !this.data?.size) return;
+
+		const regions = this.getAllRegions();
+		this._chart.regions(regions == null ? [] : [...regions.values()]);
+	}
+
 	private loadChart() {
 		if (!this.data?.size) {
 			this._chart?.destroy();
@@ -506,16 +666,13 @@ export class ActivityGraph extends FASTElement {
 		}
 
 		// Convert the map to an array dates and an array of stats
-		const dates: string[] = [];
+		const dates = [];
 		const activity: number[] = [];
-		const commits: number[] = [];
+		// const commits: number[] = [];
 		const additions: number[] = [];
 		const deletions: number[] = [];
 
-		// const regions: RegionOptions[] = [];
-
 		const keys = this.data.keys();
-		// const startDay = first(keys)!;
 		const endDay = last(keys)!;
 
 		const startDate = new Date();
@@ -523,10 +680,8 @@ export class ActivityGraph extends FASTElement {
 
 		let day;
 		let stat;
-		// let region: RegionOptions | undefined;
 
-		let activityMax = 0;
-		let commitsMax = 0;
+		let changesMax = 0;
 		let adds;
 		let changes;
 		let deletes;
@@ -538,35 +693,29 @@ export class ActivityGraph extends FASTElement {
 			// if (stat != null) {
 			dates.push(day);
 
-			commits.push(stat?.commits ?? 0);
-			commitsMax = Math.max(stat?.commits ?? 0, commitsMax);
+			// commits.push(stat?.commits ?? 0);
 
 			adds = stat?.activity?.additions ?? 0;
 			deletes = stat?.activity?.deletions ?? 0;
 			changes = adds + deletes;
-			activityMax = Math.max(changes, activityMax);
+			changesMax = Math.max(changesMax, changes);
 
 			activity.push(changes);
 			additions.push(adds);
-			deletions.push(deletes);
-			// }
-
-			// if (stat == null && region == null) {
-			// 	region = { start: day, end: day };
-			// } else if (stat == null && region != null) {
-			// 	region.start = day;
-			// } else if (stat != null && region != null) {
-			// 	regions.push(region);
-			// 	region = undefined;
+			deletions.push(-deletes);
 			// }
 
 			startDate.setDate(startDate.getDate() - 1);
 		}
 
+		const regions = this.getAllRegions();
+
 		// calculate the max value for the y-axis to avoid flattening the graph because of outlier changes
-		// const median = [...activity].sort((a, b) => a - b)[Math.floor(activity.length / 2)];
-		const p95 = [...activity].sort((a, b) => a - b)[Math.floor(activity.length * 0.95)];
-		const max = p95 + Math.min(activityMax - p95, p95 * 2);
+		const p99 = [...activity].sort((a, b) => a - b)[Math.floor(activity.length * 0.99)];
+		const yMax = p99 + Math.min(changesMax - p99, p99 * 0.01) + 100;
+
+		// p99 = [...deletions].sort((a, b) => b - a)[Math.floor(activity.length * 0.99)];
+		// const y2Min = p99 + Math.min(changesMax - p99, p99 * 0.01);
 
 		if (this._chart == null) {
 			this._chart = bb.generate({
@@ -579,126 +728,109 @@ export class ActivityGraph extends FASTElement {
 					type: areaSpline(),
 					axes: {
 						activity: 'y',
-						// commits: 'y2',
-						additions: 'y2',
-						deletions: 'y2',
+						additions: 'y',
+						deletions: 'y',
 					},
 					columns: [
 						['date', ...dates],
-						// ['commits', ...commits],
 						['activity', ...activity],
 						['additions', ...additions],
 						['deletions', ...deletions],
 					],
 					names: {
 						activity: 'Activity',
-						// commits: 'Commits',
 						additions: 'Additions',
 						deletions: 'Deletions',
 					},
 					// hide: ['additions', 'deletions'],
 					onclick: d => {
+						if (d.id !== 'activity') return;
+
 						const date = new Date(d.x);
-						const stat = this.data?.get(getDay(date));
-						this.$emit('selected', {
-							date: date,
-							sha: stat?.sha,
-						} satisfies ActivityStatsSelectedEventDetail);
+						const day = getDay(date);
+						const sha = this.searchResults?.get(day)?.sha ?? this.data?.get(day)?.sha;
+
+						queueMicrotask(() => {
+							this.$emit('selected', {
+								date: date,
+								sha: sha,
+							} satisfies ActivityStatsSelectedEventDetail);
+						});
 					},
-					// onselected: d => {
-					// 		const date = new Date(d.x);
-					// 		const stat = this.data?.get(getDay(date));
-					// 		this.$emit('selected', {
-					// 			date: date,
-					// 			sha: stat?.sha,
-					// 		} satisfies ActivityStatsSelectedEventDetail);
-					// },
 					selection: {
 						enabled: selection(),
-						// draggable: true,
+						grouped: true,
 						multiple: false,
 						// isselectable: d => {
-						// 	const date = new Date((Array.isArray(d) ? d[0] : d).x);
-						// 	const stat = this.data?.get(getDay(date));
-						// 	return (stat?.commits ?? 0) > 0;
+						// 	if (d.id !== 'activity') return false;
+
+						// 	return (this.data?.get(getDay(new Date(d.x)))?.commits ?? 0) > 0;
 						// },
 					},
 					colors: {
 						activity: 'var(--color-graph-activity)',
-						// commits: 'rgb(255, 0, 255)',
 						additions: 'rgba(73, 190, 71, 1)',
 						deletions: 'rgba(195, 32, 45, 1)',
 					},
 					groups: [['additions', 'deletions']],
 					types: {
 						activity: areaSpline(),
-						// commits: areaSpline(),
 						additions: bar(),
 						deletions: bar(),
 					},
 				},
 				area: {
-					// linearGradient: true,
+					linearGradient: true,
+					front: true,
+					below: true,
+					zerobased: true,
 				},
 				axis: {
 					x: {
 						show: false,
-						// tick: {
-						// 	culling: {
-						// 		lines: false,
-						// 	},
-						// 	format: '%Y-%m-%d',
-						// 	show: false,
-						// 	type: 'timeseries',
-						// },
 						type: 'timeseries',
 					},
 					y: {
 						min: 0,
-						max: max,
+						max: yMax,
 						show: true,
-						padding: {
-							bottom: 20,
-						},
-						// center: median,
+						// padding: {
+						// 	top: 10,
+						// 	bottom: 20,
+						// },
 					},
-					y2: {
-						min: 0,
-						max: max,
-						show: true,
-						padding: {
-							bottom: 10,
-						},
-						// center: median,
-					},
+					// y2: {
+					// 	min: y2Min,
+					// 	max: yMax,
+					// 	show: true,
+					// 	// padding: {
+					// 	// 	top: 10,
+					// 	// 	bottom: 0,
+					// 	// },
+					// },
 				},
 				bar: {
-					radius: {
-						ratio: 0.25,
-					},
-					width: 3,
+					zerobased: false,
+					width: { max: 3 },
 				},
 				clipPath: false,
 				legend: {
 					show: false,
 				},
 				point: {
-					r: 0.1,
 					show: true,
 					select: {
-						r: 4,
+						r: 5,
 					},
-					// focus: {
-					// 	// only: true,
-					// 	expand: {
-					// 		enabled: true,
-					// 		r: 1,
-					// 	},
-					// },
-					sensitivity: 100,
+					focus: {
+						only: true,
+						expand: {
+							enabled: true,
+							r: 3,
+						},
+					},
 				},
-				// padding: false,
-				// regions: regions,
+				regions: [...regions.values()],
 				// resize: {
 				// 	auto: true,
 				// },
@@ -707,22 +839,22 @@ export class ActivityGraph extends FASTElement {
 						type: 'catmull-rom',
 					},
 				},
-				grid: {
-					front: true,
-					x: {
-						show: true,
-						lines: [
-							...flatMap(this.markers!, ([k, v]) =>
-								v.map(m => ({
-									value: k,
-									text: m.name,
-									position: 'middle',
-									class: m.current ? 'marker-head' : `marker-${m.type}`,
-								})),
-							),
-						],
-					},
-				},
+				// grid: {
+				// 	front: false,
+				// 	x: {
+				// 		show: false,
+				// 		// lines: [
+				// 		// 	...flatMap(this.markers!, ([k, v]) =>
+				// 		// 		v.map(m => ({
+				// 		// 			value: k,
+				// 		// 			text: m.name,
+				// 		// 			position: 'middle',
+				// 		// 			class: m.current ? 'marker-head' : `marker-${m.type}`,
+				// 		// 		})),
+				// 		// 	),
+				// 		// ],
+				// 	},
+				// },
 				tooltip: {
 					position: (_data, width, _height, element, _pos) => {
 						const rect = (element as HTMLElement).getBoundingClientRect();
@@ -786,7 +918,7 @@ export class ActivityGraph extends FASTElement {
 				},
 				zoom: {
 					enabled: zoom(),
-					rescale: true,
+					rescale: false,
 					resetButton: {
 						text: '',
 					},
@@ -797,30 +929,32 @@ export class ActivityGraph extends FASTElement {
 			this._chart.load({
 				columns: [
 					['date', ...dates],
-					// ['commits', ...commits],
 					['activity', ...activity],
 					['additions', ...additions],
 					['deletions', ...deletions],
 				],
-				// regions: regions,
 			});
-			this._chart.axis.max({ y: max, y2: max /*commitsMax*/ });
-			this._chart.xgrids([
-				...flatMap(this.markers!, ([k, v]) =>
-					v.map(m => ({
-						value: k,
-						text: m.name,
-						position: 'start',
-						class: m.current ? 'marker-head' : `marker-${m.type}`,
-					})),
-				),
-			]);
+			// this._chart.axis.min({ y: 0, y2: y2Min });
+			this._chart.axis.max({ y: yMax /*, y2: yMax*/ });
+
+			this._chart.regions([...regions.values()]);
+
+			// this._chart.xgrids([
+			// 	...flatMap(this.markers!, ([k, v]) =>
+			// 		v.map(m => ({
+			// 			value: k,
+			// 			text: m.name,
+			// 			position: 'start',
+			// 			class: m.current ? 'marker-head' : `marker-${m.type}`,
+			// 		})),
+			// 	),
+			// ]);
 		}
 	}
 }
 
-function getDay(date: Date): string {
-	return formatDate(date, 'YYYY-MM-DD');
+function getDay(date: number | Date): number {
+	return new Date(date).setHours(0, 0, 0, 0);
 }
 
 function capitalize(s: string): string {
