@@ -1,4 +1,4 @@
-import type { GraphRow, Head, Remote, RowContexts, Tag } from '@gitkraken/gitkraken-components';
+import type { GraphRow, Head, Remote, RowContexts, RowStats, Tag } from '@gitkraken/gitkraken-components';
 import type { GitBranch } from './branch';
 import type { GitRemote } from './remote';
 
@@ -6,6 +6,7 @@ export type GitGraphRowHead = Head;
 export type GitGraphRowRemoteHead = Remote;
 export type GitGraphRowTag = Tag;
 export type GitGraphRowContexts = RowContexts;
+export type GitGraphRowStats = RowStats;
 export const enum GitGraphRowType {
 	Commit = 'commit-node',
 	MergeCommit = 'merge-node',
@@ -13,12 +14,6 @@ export const enum GitGraphRowType {
 	Working = 'work-dir-changes',
 	Conflict = 'merge-conflict-node',
 	Rebase = 'unsupported-rebase-warning-node',
-}
-
-export interface GitGraphRowStats {
-	files: number;
-	additions: number;
-	deletions: number;
 }
 
 export interface GitGraphRow extends GraphRow {

@@ -195,13 +195,13 @@
   resolved "https://registry.yarnpkg.com/@gar/promisify/-/promisify-1.1.3.tgz#555193ab2e3bb3b6adc3d551c9c030d9e860daf6"
   integrity sha512-k2Ty1JcVojjJFwrg/ThKi2ujJ7XNLYaFGNB/bWT9wGR+oSMJHMa5w+CUq6p/pVrKeNNgA7pCqEcjSnHVoqJQFw==
 
-"@gitkraken/gitkraken-components@1.1.0-rc.18":
-  version "1.1.0-rc.18"
-  resolved "https://registry.yarnpkg.com/@gitkraken/gitkraken-components/-/gitkraken-components-1.1.0-rc.18.tgz#c95b234ad717c14fa952de2790cc7bc511a97095"
-  integrity sha512-PhPY8RGctOrcIuu+FYH69NzpmBQRirmGq+x4gcHqpOK3EJklM/ijydfmbZ3tKj8pEt9Uhts78zVQBs7zNUw06Q==
+"@gitkraken/gitkraken-components@1.1.0-rc.21":
+  version "1.1.0-rc.21"
+  resolved "https://registry.yarnpkg.com/@gitkraken/gitkraken-components/-/gitkraken-components-1.1.0-rc.21.tgz#2e73c81d605f27b3c0ad6f35086d30b650c2d168"
+  integrity sha512-GbmxgMxjILTBfeYeRquDTq4rPye0SAhaECqR/fDflaj1QKlbbHDPEV3PHcEzCGbnjnzud7TSS2W8Ih76wGRb2w==
   dependencies:
     "@axosoft/react-virtualized" "9.22.3-gitkraken.3"
-    classnames "2.2.3"
+    classnames "^2.3.2"
     color "^4.2.0"
     re-resizable "6.9.1"
     react "16.8.4"
@@ -1724,12 +1724,7 @@ circular-dependency-plugin@5.2.2:
   resolved "https://registry.yarnpkg.com/circular-dependency-plugin/-/circular-dependency-plugin-5.2.2.tgz#39e836079db1d3cf2f988dc48c5188a44058b600"
   integrity sha512-g38K9Cm5WRwlaH6g03B9OEz/0qRizI+2I7n+Gz+L5DxXJAPAiWQvwlYNm1V1jkdpUv95bOe/ASm2vfi/G560jQ==
 
-classnames@2.2.3:
-  version "2.2.3"
-  resolved "https://registry.yarnpkg.com/classnames/-/classnames-2.2.3.tgz#551b774b6762a0c0a997187f7ba4f1d603961ac5"
-  integrity sha512-5OsI59an/u+uJOgtaUs9iXI/mpenhKFIhZW8heJjivBV2c7NyPFnLA7GnwXDzeRzOq4D3rjgxFRAFz6O5ZKXTA==
-
-classnames@^2.2.5:
+classnames@^2.2.5, classnames@^2.3.2:
   version "2.3.2"
   resolved "https://registry.yarnpkg.com/classnames/-/classnames-2.3.2.tgz#351d813bf0137fcc6a76a16b88208d2560a0d924"
   integrity sha512-CSbhY4cFEJRe6/GQzIk5qXZ4Jeg5pcsP7b5peFSDpffpe1cqjASH/n9UTjBwOp6XpMSTwQ8Za2K5V02ueA7Tmw==
