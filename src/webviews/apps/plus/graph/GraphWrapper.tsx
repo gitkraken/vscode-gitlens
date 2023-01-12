@@ -356,10 +356,13 @@ export function GraphWrapper({
 		let markers;
 		let headMarkers;
 		let remoteMarkers;
+		let row: GraphRow;
 		let stat;
 		let stats;
 
-		for (const row of rows) {
+		// Iterate in reverse order so that we can track the HEAD upstream properly
+		for (let i = rows.length - 1; i >= 0; i--) {
+			row = rows[i];
 			stats = row.stats;
 
 			day = getDay(row.date);
@@ -476,6 +479,11 @@ export function GraphWrapper({
 
 		return searchResultsByDay;
 	}, [searchResults]);
+
+	const activitySelectedDay = useMemo(() => {
+		const date = getActiveRowInfo(activeRow)?.date;
+		return date != null ? getDay(date) : undefined;
+	}, [activeRow]);
 
 	const handleActivityStatsSelected = (e: CustomEvent<ActivityStatsSelectedEventDetail>) => {
 		let { sha } = e.detail;
@@ -765,6 +773,10 @@ export function GraphWrapper({
 				},
 			});
 		}
+	};
+
+	const handleOnGraphVisibleRowsChanged = (top: GraphRow, bottom: GraphRow) => {
+		(activityGraph.current as any).visibleDays = { top: top.date, bottom: bottom.date };
 	};
 
 	const handleOnGraphColumnsReOrdered = (columnsSettings: GraphColumnsSettings) => {
@@ -1178,6 +1190,7 @@ export function GraphWrapper({
 					data={activityData.stats}
 					markers={activityData.markers}
 					searchResults={activitySearchResults}
+					selectedDay={activitySelectedDay}
 					onSelected={e => handleActivityStatsSelected(e as CustomEvent<ActivityStatsSelectedEventDetail>)}
 				></ActivityGraph>
 			</header>
@@ -1225,6 +1238,7 @@ export function GraphWrapper({
 							onEmailsMissingAvatarUrls={handleMissingAvatars}
 							onRefsMissingMetadata={handleMissingRefsMetadata}
 							onShowMoreCommits={handleMoreCommits}
+							onGraphVisibleRowsChanged={handleOnGraphVisibleRowsChanged}
 							platform={clientPlatform}
 							refMetadataById={refsMetadata}
 							shaLength={graphConfig?.idLength}

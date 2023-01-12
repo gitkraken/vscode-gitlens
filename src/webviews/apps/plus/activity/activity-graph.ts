@@ -1,7 +1,7 @@
 import { css, customElement, FASTElement, html, observable, ref } from '@microsoft/fast-element';
 import type { Chart /*RegionOptions*/ } from 'billboard.js';
 import { areaSpline, bar, bb, selection } from 'billboard.js';
-import { flatMap, last, map, union } from '../../../../system/iterable';
+import { first, flatMap, map, union } from '../../../../system/iterable';
 import { pluralize } from '../../../../system/string';
 import { formatDate, formatNumeric, fromNow } from '../../shared/date';
 
@@ -61,7 +61,7 @@ const styles = css`
 		display: flex;
 		width: 100%;
 		min-height: 24px;
-		height: 44px;
+		height: 45px;
 	}
 
 	#chart {
@@ -252,13 +252,35 @@ const styles = css`
 		fill-opacity: 0.1;
 	}
 
+	.bb-region.visible-area {
+		fill: white;
+		fill-opacity: 0.2;
+		transform: translateY(-4px);
+		z-index: 10;
+	}
+	.bb-region.visible-area > rect {
+		height: 100%;
+	}
+
+	.bb-region.marker-selected {
+		fill: var(--vscode-progressBar-background);
+		fill-opacity: 1;
+		transform: translateY(-4px);
+	}
+	.bb-region.marker-selected > rect {
+		width: 2px;
+		height: 100%;
+		transform: translateX(-1px);
+		transform-box: view-box;
+	}
+
 	.bb-region.marker-head {
 		fill: lime;
 		fill-opacity: 1;
 		transform: translateY(-4px);
 	}
 	.bb-region.marker-head > rect {
-		width: 2px;
+		width: 3px;
 		height: 100%;
 		transform: translateX(-1px);
 		transform-box: view-box;
@@ -282,7 +304,7 @@ const styles = css`
 		transform: translateY(-4px);
 	}
 	.bb-region.marker-branch > rect {
-		width: 1px;
+		width: 2px;
 		height: 100%;
 		transform: translateX(-1px);
 		transform-box: view-box;
@@ -294,7 +316,19 @@ const styles = css`
 		transform: translateY(-4px);
 	}
 	.bb-region.marker-remote > rect {
-		width: 1px;
+		width: 2px;
+		height: 100%;
+		transform: translateX(-1px);
+		transform-box: view-box;
+	}
+
+	.bb-region.marker-upstream {
+		fill: lime;
+		fill-opacity: 0.8;
+		transform: translateY(-4px);
+	}
+	.bb-region.marker-upstream > rect {
+		width: 2px;
 		height: 100%;
 		transform: translateX(-1px);
 		transform-box: view-box;
@@ -491,7 +525,7 @@ const styles = css`
 		cursor: pointer; */
 	}
 
-	.marker-head text,
+	/* .marker-head text,
 	.marker-branch text,
 	.marker-remote text {
 		visibility: hidden;
@@ -509,29 +543,23 @@ const styles = css`
 	.marker-remote line {
 		stroke: rgb(255, 255, 255, 0.5) !important;
 		transform: translateY(32px);
-	}
+	} */
 `;
 
 @customElement({ name: 'activity-graph', template: template, styles: styles })
 export class ActivityGraph extends FASTElement {
 	chart!: HTMLDivElement;
-	_chart!: Chart;
+
+	private _chart!: Chart;
+	private _loadTimer: ReturnType<typeof setTimeout> | undefined;
+	private _regionsTimer: ReturnType<typeof setTimeout> | undefined;
+
+	private _markerRegions: Map<number, RegionOptions> | undefined;
+	private _regions: RegionOptions[] | undefined;
 
 	@observable
 	data: Map<number, ActivityStats | null> | undefined;
-	@observable
-	markers: Map<number, ActivityMarker[]> | undefined;
-
-	@observable
-	searchResults: Map<number, ActivitySearchResultMarker> | undefined;
-
-	private _loadTimer: ReturnType<typeof setTimeout> | undefined;
-	private _searchTimer: ReturnType<typeof setTimeout> | undefined;
-
-	private _markerRegions: Map<number, RegionOptions> | undefined;
-	private _regions: Map<number, RegionOptions> | undefined;
-
-	dataChanged(
+	protected dataChanged(
 		_oldVal?: Map<number, ActivityStats | null>,
 		_newVal?: Map<number, ActivityStats | null>,
 		markerChanged?: boolean,
@@ -541,9 +569,9 @@ export class ActivityGraph extends FASTElement {
 			this._loadTimer = undefined;
 		}
 
-		if (this._searchTimer) {
-			clearTimeout(this._searchTimer);
-			this._searchTimer = undefined;
+		if (this._regionsTimer) {
+			clearTimeout(this._regionsTimer);
+			this._regionsTimer = undefined;
 		}
 
 		if (markerChanged) {
@@ -554,18 +582,46 @@ export class ActivityGraph extends FASTElement {
 		this._loadTimer = setTimeout(() => this.loadChart(), 150);
 	}
 
-	markersChanged() {
+	@observable
+	markers: Map<number, ActivityMarker[]> | undefined;
+	protected markersChanged() {
 		this.dataChanged(undefined, undefined, true);
 	}
 
-	searchResultsChanged() {
+	@observable
+	searchResults: Map<number, ActivitySearchResultMarker> | undefined;
+	protected searchResultsChanged() {
+		this.onRegionsChanged();
+	}
+
+	@observable
+	selectedDay: number | undefined;
+	protected selectedDayChanged() {
+		// if (this.selectedDay == null) return;
+		// const index = this.getIndex(this.selectedDay);
+		// if (index == null) return;
+		// queueMicrotask(() => this._chart?.select(['activity'], [index]));
+		// // this.onRegionsChanged();
+	}
+
+	@observable
+	visibleDays: { top: number; bottom: number } | undefined;
+	protected visibleDaysChanged() {
+		// if (this.selectedDay == null) return;
+		// const index = this.getIndex(this.selectedDay);
+		// if (index == null) return;
+		// queueMicrotask(() => this._chart?.select(['activity'], [index]));
+		this.onRegionsChanged();
+	}
+
+	private onRegionsChanged() {
 		this._regions = undefined;
 
-		if (this._searchTimer) {
-			clearTimeout(this._searchTimer);
-			this._searchTimer = undefined;
+		if (this._regionsTimer) {
+			clearTimeout(this._regionsTimer);
+			this._regionsTimer = undefined;
 		}
-		this._searchTimer = setTimeout(() => this.applySearchResults(), 150);
+		this._regionsTimer = setTimeout(() => this.applyRegions(), 150);
 	}
 
 	override disconnectedCallback(): void {
@@ -617,7 +673,11 @@ export class ActivityGraph extends FASTElement {
 									axis: 'x',
 									start: day,
 									end: day,
-									class: m.current ? 'marker-head' : `marker-${m.type}`,
+									class: m.current
+										? m.type === 'branch'
+											? 'marker-head'
+											: 'marker-upstream'
+										: `marker-${m.type}`,
 								} satisfies RegionOptions,
 							]),
 					  )
@@ -629,33 +689,56 @@ export class ActivityGraph extends FASTElement {
 
 	private getAllRegions() {
 		if (this._regions == null) {
-			this._regions = this.getMarkerRegions();
+			const markerRegions = this.getMarkerRegions();
+			let regions: Iterable<RegionOptions> = markerRegions.values();
+
+			if (this.visibleDays != null) {
+				regions = union(regions, [
+					{
+						axis: 'x',
+						start: this.visibleDays.bottom,
+						end: this.visibleDays.top,
+						class: 'visible-area',
+					} satisfies RegionOptions,
+				]);
+			}
 
 			if (this.searchResults != null) {
-				this._regions = new Map<number, RegionOptions>(
-					union(
-						this._regions,
-						map(this.searchResults.keys(), day => [
-							day,
-							{
+				regions = union(
+					regions,
+					map(
+						this.searchResults.keys(),
+						day =>
+							({
 								axis: 'x',
 								start: day,
 								end: day,
 								class: 'marker-result',
-							} satisfies RegionOptions,
-						]),
+							} satisfies RegionOptions),
 					),
 				);
 			}
+
+			// if (this.selectedDay != null && markerRegions.get(this.selectedDay)?.class !== 'marker-head') {
+			// 	regions = union(regions, [
+			// 		{
+			// 			axis: 'x',
+			// 			start: this.selectedDay,
+			// 			end: this.selectedDay,
+			// 			class: 'marker-selected',
+			// 		} satisfies RegionOptions,
+			// 	]);
+			// }
+
+			this._regions = [...regions];
 		}
 		return this._regions;
 	}
 
-	private applySearchResults() {
+	private applyRegions() {
 		if (this._chart == null || !this.data?.size) return;
 
-		const regions = this.getAllRegions();
-		this._chart.regions(regions == null ? [] : [...regions.values()]);
+		this._chart.regions(this.getAllRegions());
 	}
 
 	private loadChart() {
@@ -672,7 +755,7 @@ export class ActivityGraph extends FASTElement {
 		const deletions: number[] = [];
 
 		const keys = this.data.keys();
-		const endDay = last(keys)!;
+		const endDay = first(keys)!;
 
 		const startDate = new Date();
 		const endDate = new Date(endDay);
@@ -813,22 +896,25 @@ export class ActivityGraph extends FASTElement {
 					width: { max: 3 },
 				},
 				clipPath: false,
-				// grid: {
-				// 	front: false,
-				// 	x: {
-				// 		show: false,
-				// 		// lines: [
-				// 		// 	...flatMap(this.markers!, ([k, v]) =>
-				// 		// 		v.map(m => ({
-				// 		// 			value: k,
-				// 		// 			text: m.name,
-				// 		// 			position: 'middle',
-				// 		// 			class: m.current ? 'marker-head' : `marker-${m.type}`,
-				// 		// 		})),
-				// 		// 	),
-				// 		// ],
-				// 	},
-				// },
+				grid: {
+					front: false,
+					// x: {
+					// 	show: false,
+					// 	// lines: [
+					// 	// 	...flatMap(this.markers!, ([k, v]) =>
+					// 	// 		v.map(m => ({
+					// 	// 			value: k,
+					// 	// 			text: m.name,
+					// 	// 			position: 'middle',
+					// 	// 			class: m.current ? 'marker-head' : `marker-${m.type}`,
+					// 	// 		})),
+					// 	// 	),
+					// 	// ],
+					// },
+					focus: {
+						show: true,
+					},
+				},
 				legend: {
 					show: false,
 				},
@@ -846,7 +932,7 @@ export class ActivityGraph extends FASTElement {
 					},
 					sensitivity: 100,
 				},
-				regions: [...regions.values()],
+				regions: regions,
 				resize: {
 					auto: true,
 				},
@@ -924,6 +1010,18 @@ export class ActivityGraph extends FASTElement {
 				// 	},
 				// 	type: 'drag',
 				// },
+				onafterinit: function () {
+					const xAxis = this.$.main.selectAll<Element, any>('.bb-axis-x').node();
+					xAxis?.remove();
+
+					const yAxis = this.$.main.selectAll<Element, any>('.bb-axis-y').node();
+					yAxis?.remove();
+
+					// Move the regions to be on top of the bars
+					const bars = this.$.main.selectAll<Element, any>('.bb-chart-bars').node();
+					const regions = this.$.main.selectAll<Element, any>('.bb-regions').node();
+					bars?.insertAdjacentElement('afterend', regions!);
+				},
 			});
 		} else {
 			this._chart.load({
@@ -937,7 +1035,7 @@ export class ActivityGraph extends FASTElement {
 			// this._chart.axis.min({ y: 0, y2: y2Min });
 			this._chart.axis.max({ y: yMax /*, y2: yMax*/ });
 
-			this._chart.regions([...regions.values()]);
+			this._chart.regions(regions);
 
 			// this._chart.xgrids([
 			// 	...flatMap(this.markers!, ([k, v]) =>
