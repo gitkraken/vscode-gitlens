@@ -110,9 +110,18 @@ const createIconElements = (): { [key: string]: ReactElement<any> } => {
 		'show',
 		'hide',
 	];
+
+	const miniIconList = [
+		'upstream-ahead',
+		'upstream-behind',
+	];
+
 	const elementLibrary: { [key: string]: ReactElement<any> } = {};
 	iconList.forEach(iconKey => {
 		elementLibrary[iconKey] = createElement('span', { className: `graph-icon icon--${iconKey}` });
+	});
+	miniIconList.forEach(iconKey => {
+		elementLibrary[iconKey] = createElement('span', { className: `graph-icon mini-icon icon--${iconKey}` });
 	});
 	return elementLibrary;
 };
@@ -1035,6 +1044,7 @@ export function GraphWrapper({
 							platform={clientPlatform}
 							refMetadataById={refsMetadata}
 							shaLength={graphConfig?.idLength}
+							showUpstreamStatus={graphConfig?.showUpstreamStatus}
 							themeOpacityFactor={styleProps?.themeOpacityFactor}
 							useAuthorInitialsForAvatars={!graphConfig?.avatars}
 							workDirStats={workingTreeStats}
