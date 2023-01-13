@@ -393,6 +393,7 @@ export interface GraphConfig {
 	showDetailsView: 'open' | 'selection' | false;
 	showGhostRefsOnRowHover: boolean;
 	showRemoteNames: boolean;
+	showUpstreamStatus: boolean;
 	pageItemLimit: number;
 	searchItemLimit: number;
 	statusBar: {

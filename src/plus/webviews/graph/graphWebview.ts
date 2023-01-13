@@ -98,6 +98,7 @@ import type {
 	GraphRefMetadata,
 	GraphRepository,
 	GraphSelectedRows,
+	GraphUpstreamMetadata,
 	GraphWorkingTreeStats,
 	SearchOpenInViewParams,
 	SearchParams,
@@ -545,7 +546,8 @@ export class GraphWebview extends WebviewBase<State> {
 			configuration.changed(e, 'graph.highlightRowsOnRefHover') ||
 			configuration.changed(e, 'graph.scrollRowPadding') ||
 			configuration.changed(e, 'graph.showGhostRefsOnRowHover') ||
-			configuration.changed(e, 'graph.showRemoteNames')
+			configuration.changed(e, 'graph.showRemoteNames') ||
+			configuration.changed(e, 'graph.showUpstreamStatus')
 		) {
 			void this.notifyDidChangeConfiguration();
 		}
@@ -718,58 +720,95 @@ export class GraphWebview extends WebviewBase<State> {
 
 		const repoPath = this._graph.repoPath;
 
-		async function getRefMetadata(this: GraphWebview, id: string, type: GraphMissingRefsMetadataType) {
+		async function getRefMetadata(this: GraphWebview, id: string, missingTypes: GraphMissingRefsMetadataType[]) {
 			if (this._refsMetadata == null) {
 				this._refsMetadata = new Map();
 			}
 
+			const branch = (await this.container.git.getBranches(repoPath, { filter: b => b.id === id }))?.values?.[0];
 			const metadata = { ...this._refsMetadata.get(id) };
-			if (type !== 'pullRequests') {
-				(metadata as any)[type] = null;
-				this._refsMetadata.set(id, metadata);
-				return;
-			}
 
-			const branch = (await this.container.git.getBranches(repoPath, { filter: b => b.id === id && b.remote }))
-				?.values?.[0];
-			const pr = await branch?.getAssociatedPullRequest();
-			if (pr == null) {
-				if (metadata.pullRequests === undefined || metadata.pullRequests?.length === 0) {
-					metadata.pullRequests = null;
+			if (branch == null) {
+				for (const type of missingTypes) {
+					(metadata as any)[type] = null;
+					this._refsMetadata.set(id, metadata);
 				}
-				this._refsMetadata.set(id, metadata);
+
 				return;
 			}
 
-			const prMetadata: GraphPullRequestMetadata = {
-				// TODO@eamodio: This is iffy, but works right now since `github` and `gitlab` are the only values possible currently
-				hostingServiceType: pr.provider.id as GraphHostingServiceType,
-				id: Number.parseInt(pr.id) || 0,
-				title: pr.title,
-				author: pr.author.name,
-				date: (pr.mergedDate ?? pr.closedDate ?? pr.date)?.getTime(),
-				state: pr.state,
-				url: pr.url,
-				context: serializeWebviewItemContext<GraphItemContext>({
-					webviewItem: 'gitlens:pullrequest',
-					webviewItemValue: {
-						type: 'pullrequest',
-						id: pr.id,
-						url: pr.url,
-					},
-				}),
-			};
+			for (const type of missingTypes) {
+				if (type !== 'pullRequests' && type !== 'upstream') {
+					(metadata as any)[type] = null;
+					this._refsMetadata.set(id, metadata);
 
-			metadata.pullRequests = [prMetadata];
-			this._refsMetadata.set(id, metadata);
+					continue;
+				}
+
+				if (type === 'pullRequests') {
+					const pr = await branch?.getAssociatedPullRequest();
+
+					if (pr == null) {
+						if (metadata.pullRequests === undefined || metadata.pullRequests?.length === 0) {
+							metadata.pullRequests = null;
+						}
+
+						this._refsMetadata.set(id, metadata);
+						continue;
+					}
+
+					const prMetadata: GraphPullRequestMetadata = {
+						// TODO@eamodio: This is iffy, but works right now since `github` and `gitlab` are the only values possible currently
+						hostingServiceType: pr.provider.id as GraphHostingServiceType,
+						id: Number.parseInt(pr.id) || 0,
+						title: pr.title,
+						author: pr.author.name,
+						date: (pr.mergedDate ?? pr.closedDate ?? pr.date)?.getTime(),
+						state: pr.state,
+						url: pr.url,
+						context: serializeWebviewItemContext<GraphItemContext>({
+							webviewItem: 'gitlens:pullrequest',
+							webviewItemValue: {
+								type: 'pullrequest',
+								id: pr.id,
+								url: pr.url,
+							},
+						}),
+					};
+
+					metadata.pullRequests = [prMetadata];
+
+					this._refsMetadata.set(id, metadata);
+					continue;
+				}
+
+				if (type === 'upstream') {
+					const upstream = branch?.upstream;
+
+					if (upstream == null || upstream == undefined || upstream.missing) {
+						metadata.upstream = null;
+						this._refsMetadata.set(id, metadata);
+						continue;
+					}
+
+					const upstreamMetadata: GraphUpstreamMetadata = {
+						name: getBranchNameWithoutRemote(upstream.name),
+						owner: getRemoteNameFromBranchName(upstream.name),
+						ahead: branch.state.ahead,
+						behind: branch.state.behind,
+					};
+
+					metadata.upstream = upstreamMetadata;
+
+					this._refsMetadata.set(id, metadata);
+				}
+			}
 		}
 
 		const promises: Promise<void>[] = [];
 
-		for (const [id, missingTypes] of Object.entries(e.metadata)) {
-			for (const missingType of missingTypes) {
-				promises.push(getRefMetadata.call(this, id, missingType));
-			}
+		for (const id of Object.keys(e.metadata)) {
+			promises.push(getRefMetadata.call(this, id, e.metadata[id]));
 		}
 
 		if (promises.length) {
@@ -1521,6 +1560,7 @@ export class GraphWebview extends WebviewBase<State> {
 			scrollRowPadding: configuration.get('graph.scrollRowPadding'),
 			showGhostRefsOnRowHover: configuration.get('graph.showGhostRefsOnRowHover'),
 			showRemoteNamesOnRefs: configuration.get('graph.showRemoteNames'),
+			showUpstreamStatus: configuration.get('graph.showUpstreamStatus'),
 			idLength: configuration.get('advanced.abbreviatedShaLength'),
 		};
 		return config;

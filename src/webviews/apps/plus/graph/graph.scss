@@ -372,6 +372,11 @@ button:not([disabled]),
 	vertical-align: middle;
 	line-height: 2rem;
 	letter-spacing: normal;
+
+	&.mini-icon {
+		font-size: 1rem;
+		line-height: 1.6rem;
+	}
 }
 
 .icon {
@@ -472,6 +477,20 @@ button:not([disabled]),
 			// codicon-git-pull-request
 			font-family: codicon;
 			content: '\ea64';
+		}
+	}
+	&--upstream-ahead {
+		&::before {
+			// codicon-arrow-up
+			font-family: codicon;
+			content: '\eaa1';
+		}
+	}
+	&--upstream-behind {
+		&::before {
+			// codicon-arrow-down
+			font-family: codicon;
+			content: '\ea9a';
 		}
 	}
 }
