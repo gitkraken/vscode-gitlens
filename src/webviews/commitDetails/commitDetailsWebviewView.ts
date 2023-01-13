@@ -108,6 +108,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		this.disposables.push(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
+			this.container.events.on('commit:selected', debounce(this.onCommitSelected, 250), this),
 		);
 	}
 
@@ -256,7 +257,6 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		const { lineTracker } = this.container;
 		this._visibilityDisposable = Disposable.from(
 			lineTracker.subscribe(this, lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this)),
-			this.container.events.on('commit:selected', debounce(this.onCommitSelected, 250), this),
 		);
 
 		const commit = this._pendingContext?.commit ?? this.getBestCommitOrStash();

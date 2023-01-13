@@ -660,6 +660,7 @@ export class GraphWebview extends WebviewBase<State> {
 					{
 						commit: commit,
 						preserveFocus: e.preserveFocus,
+						preserveVisibility: false,
 					},
 					{
 						source: this.id,
