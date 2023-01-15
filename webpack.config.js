@@ -63,11 +63,9 @@ function getExtensionConfig(target, mode, env) {
 				enabled: true,
 				files: 'src/**/*.ts?(x)',
 				options: {
-					// cache: true,
-					// cacheLocation: path.join(
-					// 	__dirname,
-					// 	target === 'webworker' ? '.eslintcache.browser' : '.eslintcache',
-					// ),
+					cache: true,
+					cacheLocation: path.join(__dirname, '.eslintcache/', target === 'webworker' ? 'browser/' : ''),
+					cacheStrategy: 'content',
 					fix: mode !== 'production',
 					overrideConfigFile: path.join(
 						__dirname,
@@ -282,7 +280,9 @@ function getWebviewsConfig(mode, env) {
 				enabled: true,
 				files: path.join(basePath, '**', '*.ts?(x)'),
 				options: {
-					// cache: true,
+					cache: true,
+					cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/'),
+					cacheStrategy: 'content',
 					fix: mode !== 'production',
 				},
 			},
