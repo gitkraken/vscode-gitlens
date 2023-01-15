@@ -25,10 +25,10 @@ import type { SteppedSection } from './components/stepped-section';
 import '../shared/components/code-icon';
 import '../shared/components/overlays/pop-over';
 import './components/card-section';
-import './components/stepped-section';
+import './components/header-card';
 import './components/plus-banner';
 import './components/plus-content';
-import './components/header-card';
+import './components/stepped-section';
 
 export class HomeApp extends App<State> {
 	private $steps!: SteppedSection[];

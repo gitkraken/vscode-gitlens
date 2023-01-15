@@ -5,10 +5,10 @@ import { pluralize } from '../../../../../system/string';
 import type { Disposable } from '../../dom';
 import { DOM } from '../../dom';
 import { numberConverter } from '../converters/number-converter';
-import '../code-icon';
 import type { SearchInput } from './search-input';
+import '../code-icon';
+import '../progress';
 import './search-input';
-import './../progress';
 
 export type SearchNavigationDirection = 'first' | 'previous' | 'next' | 'last';
 export interface SearchNavigationEventDetail {

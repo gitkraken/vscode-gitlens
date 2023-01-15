@@ -1,5 +1,5 @@
-import { EventEmitter } from 'vscode';
 import type { Event } from 'vscode';
+import { EventEmitter } from 'vscode';
 import { Container } from '../../container';
 
 export interface ConnectionStateChangeEvent {

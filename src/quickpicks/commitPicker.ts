@@ -6,10 +6,10 @@ import type { GitCommit, GitStashCommit } from '../git/models/commit';
 import type { GitLog } from '../git/models/log';
 import type { GitStash } from '../git/models/stash';
 import type { KeyboardScope, Keys } from '../keyboard';
-import { CommandQuickPickItem } from '../quickpicks/items/common';
 import { filter, map } from '../system/iterable';
 import { isPromise } from '../system/promise';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
+import { CommandQuickPickItem } from './items/common';
 import { Directive, DirectiveQuickPickItem } from './items/directive';
 import { CommitQuickPickItem } from './items/gitCommands';
 

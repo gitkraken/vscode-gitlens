@@ -1,7 +1,7 @@
 import type { HttpsProxyAgent } from 'https-proxy-agent';
 import { Disposable, Uri, window } from 'vscode';
-import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
 import type { RequestInit, Response } from '@env/fetch';
+import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
 import { configuration } from '../../configuration';
 import type { Container } from '../../container';

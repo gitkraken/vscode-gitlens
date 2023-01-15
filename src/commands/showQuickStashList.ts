@@ -1,8 +1,8 @@
-import { executeGitCommand } from '../commands/gitCommands.actions';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { command } from '../system/command';
 import { Command } from './base';
+import { executeGitCommand } from './gitCommands.actions';
 
 export interface ShowQuickStashListCommandArgs {
 	repoPath?: string;
