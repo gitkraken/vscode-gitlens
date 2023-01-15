@@ -158,18 +158,23 @@
 		"import/named": "off",
 		"import/namespace": "off",
 		"import/newline-after-import": "warn",
+		"import/no-absolute-path": "error",
 		"import/no-cycle": "off",
 		"import/no-default-export": "error",
 		"import/no-duplicates": "error",
 		"import/no-dynamic-require": "error",
 		"import/no-self-import": "error",
 		"import/no-unresolved": ["warn", { "ignore": ["vscode", "@env"] }],
+		"import/no-useless-path-segments": "error",
 		"import/order": [
 			"warn",
 			{
-				"alphabetize": { "order": "asc", "caseInsensitive": true },
-				"groups": ["builtin", "external", "internal", ["parent", "sibling", "index"]],
-				// "groups": ["builtin", "external", "internal", ["index", "sibling", "parent"]],
+				"alphabetize": {
+					"order": "asc",
+					"orderImportKind": "asc",
+					"caseInsensitive": true
+				},
+				"groups": ["builtin", "external", "internal", "parent", "sibling", "index"],
 				"newlines-between": "never"
 			}
 		],
