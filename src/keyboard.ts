@@ -23,7 +23,7 @@ export const keys = [
 	'alt+.',
 	'escape',
 ] as const;
-export type Keys = typeof keys[number];
+export type Keys = (typeof keys)[number];
 
 export type KeyMapping = { [K in Keys]?: KeyCommand | (() => Promise<KeyCommand>) };
 type IndexableKeyMapping = KeyMapping & {

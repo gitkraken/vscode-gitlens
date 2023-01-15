@@ -1,4 +1,3 @@
-import { GitActions } from '../commands/gitCommands.actions';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import type { GitStashCommit } from '../git/models/commit';
@@ -7,6 +6,7 @@ import type { CommandQuickPickItem } from '../quickpicks/items/common';
 import { command } from '../system/command';
 import type { CommandContext } from './base';
 import { Command, isCommandContextViewNodeHasCommit, isCommandContextViewNodeHasRepository } from './base';
+import { GitActions } from './gitCommands.actions';
 
 export interface StashApplyCommandArgs {
 	deleteAfter?: boolean;

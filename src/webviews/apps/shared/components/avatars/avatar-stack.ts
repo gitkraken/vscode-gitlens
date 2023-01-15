@@ -1,6 +1,6 @@
 import { css, customElement, FASTElement, html, observable, slotted } from '@microsoft/fast-element';
-import { elementBase } from '../../../shared/components/styles/base';
 import { nodeTypeFilter } from '../helpers/slots';
+import { elementBase } from '../styles/base';
 
 const template = html<AvatarStack>`<template>
 	<slot ${slotted({ property: 'avatarNodes', filter: nodeTypeFilter(Node.ELEMENT_NODE) })}></slot>

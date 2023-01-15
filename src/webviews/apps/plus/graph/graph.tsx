@@ -47,8 +47,8 @@ import {
 	UpdateSelectionCommandType,
 } from '../../../../plus/webviews/graph/protocol';
 import { debounce } from '../../../../system/function';
-import type { IpcMessage, IpcNotificationType } from '../../../../webviews/protocol';
-import { onIpc } from '../../../../webviews/protocol';
+import type { IpcMessage, IpcNotificationType } from '../../../protocol';
+import { onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
 import { mix, opacity } from '../../shared/colors';
 import { GraphWrapper } from './GraphWrapper';

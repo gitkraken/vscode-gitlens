@@ -82,8 +82,8 @@ import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '..
 import type { GitStash } from '../../../git/models/stash';
 import type { GitStatusFile } from '../../../git/models/status';
 import { GitStatus } from '../../../git/models/status';
-import type { GitTag } from '../../../git/models/tag';
-import { getTagId, sortTags, type TagSortOptions } from '../../../git/models/tag';
+import type { GitTag, TagSortOptions } from '../../../git/models/tag';
+import { getTagId, sortTags } from '../../../git/models/tag';
 import type { GitTreeEntry } from '../../../git/models/tree';
 import type { GitUser } from '../../../git/models/user';
 import { isUserMatch } from '../../../git/models/user';
@@ -113,8 +113,8 @@ import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../git/remo
 import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
 import type { GitSearch, GitSearchResultData, GitSearchResults, SearchQuery } from '../../../git/search';
 import { getGitArgsFromSearchQuery, getSearchQueryComparisonKey } from '../../../git/search';
-import { Logger } from '../../../logger';
 import type { LogScope } from '../../../logger';
+import { Logger } from '../../../logger';
 import {
 	showGenericErrorMessage,
 	showGitDisabledErrorMessage,

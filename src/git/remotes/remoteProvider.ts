@@ -1,5 +1,5 @@
-import { env, Uri } from 'vscode';
 import type { Range } from 'vscode';
+import { env, Uri } from 'vscode';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
 import { encodeUrl } from '../../system/encoding';

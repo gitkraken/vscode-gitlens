@@ -1,6 +1,6 @@
 import { attr, css, customElement, FASTElement, html } from '@microsoft/fast-element';
-import { focusOutline } from '../../../shared/components/styles/a11y';
-import { elementBase } from '../../../shared/components/styles/base';
+import { focusOutline } from '../styles/a11y';
+import { elementBase } from '../styles/base';
 
 const template = html<AvatarItem>`<template role="img" tabindex="${x => x.tabIndex ?? '0'}">
 	<slot></slot>

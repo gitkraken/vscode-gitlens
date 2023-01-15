@@ -9,8 +9,8 @@ import {
 	onIpc,
 	UpdateConfigurationCommandType,
 } from '../../protocol';
-import { formatDate, setDefaultDateLocales } from '../shared/date';
 import { App } from './appBase';
+import { formatDate, setDefaultDateLocales } from './date';
 import { DOM } from './dom';
 
 const offset = (new Date().getTimezoneOffset() / 60) * 100;

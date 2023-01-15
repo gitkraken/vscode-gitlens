@@ -3,8 +3,6 @@ import { ViewFilesLayout } from '../../../config';
 import type { HierarchicalItem } from '../../../system/array';
 import { makeHierarchical } from '../../../system/array';
 import type { Serialized } from '../../../system/serialize';
-import type { IpcMessage } from '../../../webviews/protocol';
-import { onIpc } from '../../../webviews/protocol';
 import type { CommitActionsParams, State } from '../../commitDetails/protocol';
 import {
 	AutolinkSettingsCommandType,
@@ -21,11 +19,15 @@ import {
 	PreferencesCommandType,
 	SearchCommitCommandType,
 } from '../../commitDetails/protocol';
+import type { IpcMessage } from '../../protocol';
+import { onIpc } from '../../protocol';
 import { App } from '../shared/appBase';
 import type { FileChangeListItem, FileChangeListItemDetail } from '../shared/components/list/file-change-list-item';
 import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../shared/components/webview-pane';
 import { DOM } from '../shared/dom';
 import './commitDetails.scss';
+import '../shared/components/actions/action-item';
+import '../shared/components/actions/action-nav';
 import '../shared/components/code-icon';
 import '../shared/components/commit/commit-identity';
 import '../shared/components/formatted-date';
@@ -37,8 +39,6 @@ import '../shared/components/progress';
 import '../shared/components/list/list-container';
 import '../shared/components/list/list-item';
 import '../shared/components/list/file-change-list-item';
-import '../shared/components/actions/action-item';
-import '../shared/components/actions/action-nav';
 
 const uncommittedSha = '0000000000000000000000000000000000000000';
 

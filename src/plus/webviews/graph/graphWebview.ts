@@ -37,8 +37,8 @@ import { PlusFeatures } from '../../../features';
 import { GitSearchError } from '../../../git/errors';
 import { getBranchId, getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../../../git/models/branch';
 import { GitContributor } from '../../../git/models/contributor';
-import { GitGraphRowType } from '../../../git/models/graph';
 import type { GitGraph } from '../../../git/models/graph';
+import { GitGraphRowType } from '../../../git/models/graph';
 import type {
 	GitBranchReference,
 	GitRevisionReference,
@@ -70,8 +70,8 @@ import type { CommitNode } from '../../../views/nodes/commitNode';
 import type { StashNode } from '../../../views/nodes/stashNode';
 import type { TagNode } from '../../../views/nodes/tagNode';
 import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
-import { onIpc } from '../../../webviews/protocol';
 import type { IpcMessage, IpcMessageParams, IpcNotificationType } from '../../../webviews/protocol';
+import { onIpc } from '../../../webviews/protocol';
 import { WebviewBase } from '../../../webviews/webviewBase';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import { arePlusFeaturesEnabled, ensurePlusFeaturesEnabled } from '../../subscription/utils';

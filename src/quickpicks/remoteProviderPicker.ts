@@ -9,9 +9,9 @@ import type { RemoteResource } from '../git/models/remoteResource';
 import { getNameFromRemoteResource, RemoteResourceType } from '../git/models/remoteResource';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import type { Keys } from '../keyboard';
-import { CommandQuickPickItem } from '../quickpicks/items/common';
 import { getSettledValue } from '../system/promise';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
+import { CommandQuickPickItem } from './items/common';
 
 export class ConfigureCustomRemoteProviderCommandQuickPickItem extends CommandQuickPickItem {
 	constructor() {

@@ -1,5 +1,4 @@
 import type { TextEditor, Uri } from 'vscode';
-import { executeGitCommand, GitActions } from '../commands/gitCommands.actions';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -11,6 +10,7 @@ import { command } from '../system/command';
 import { filterMap } from '../system/iterable';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
+import { executeGitCommand, GitActions } from './gitCommands.actions';
 
 export interface ShowCommitsInViewCommandArgs {
 	refs?: string[];
