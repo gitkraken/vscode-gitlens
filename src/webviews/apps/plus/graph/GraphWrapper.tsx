@@ -1006,12 +1006,12 @@ export function GraphWrapper({
 					<>
 						<GraphContainer
 							ref={graphRef}
-							enabledRefMetadataTypes={graphConfig?.enabledRefMetadataTypes}
 							avatarUrlByEmail={avatars}
 							columnsSettings={columns}
 							contexts={context}
 							cssVariables={styleProps?.cssVariables}
 							dimMergeCommits={graphConfig?.dimMergeCommits}
+							enabledRefMetadataTypes={graphConfig?.enabledRefMetadataTypes}
 							enableMultiSelection={graphConfig?.enableMultiSelection}
 							excludeRefsById={excludeRefsById}
 							excludeByType={excludeTypes}
