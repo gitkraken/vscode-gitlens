@@ -311,15 +311,28 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 
 	private notifySelections() {
 		const node = this.selection?.[0];
+		if (node == null) return;
 
-		if (
-			node != null &&
-			(node instanceof CommitNode || node instanceof FileRevisionAsCommitNode || node instanceof CommitFileNode)
-		) {
+		if (node instanceof CommitNode || node instanceof FileRevisionAsCommitNode || node instanceof CommitFileNode) {
 			this.container.events.fire(
 				'commit:selected',
 				{
 					commit: node.commit,
+					pin: false,
+					preserveFocus: true,
+					preserveVisibility: true,
+				},
+				{ source: this.id },
+			);
+		}
+
+		if (node instanceof FileRevisionAsCommitNode || node instanceof CommitFileNode) {
+			this.container.events.fire(
+				'file:selected',
+				{
+					uri: node.uri,
+					preserveFocus: true,
+					preserveVisibility: true,
 				},
 				{ source: this.id },
 			);

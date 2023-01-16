@@ -170,12 +170,28 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 
 	private notifySelections() {
 		const node = this.selection?.[0];
+		if (node == null) return;
 
-		if (node != null && (node instanceof StashNode || node instanceof StashFileNode)) {
+		if (node instanceof StashNode || node instanceof StashFileNode) {
 			this.container.events.fire(
 				'commit:selected',
 				{
 					commit: node.commit,
+					pin: false,
+					preserveFocus: true,
+					preserveVisibility: true,
+				},
+				{ source: this.id },
+			);
+		}
+
+		if (node instanceof StashFileNode) {
+			this.container.events.fire(
+				'file:selected',
+				{
+					uri: node.uri,
+					preserveFocus: true,
+					preserveVisibility: true,
 				},
 				{ source: this.id },
 			);
