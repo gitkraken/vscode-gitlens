@@ -1,4 +1,3 @@
-'use strict';
 /*global*/
 import './timeline.scss';
 import { provideVSCodeDesignSystem, vsCodeButton, vsCodeDropdown, vsCodeOption } from '@vscode/webview-ui-toolkit';
@@ -16,6 +15,7 @@ import { App } from '../../shared/appBase';
 import { DOM } from '../../shared/dom';
 import type { DataPointClickEvent } from './chart';
 import { TimelineChart } from './chart';
+import '../../shared/components/code-icon';
 
 export class TimelineApp extends App<State> {
 	private _chart: TimelineChart | undefined;
@@ -127,7 +127,7 @@ export class TimelineApp extends App<State> {
 			this._chart.onDidClickDataPoint(this.onChartDataPointClicked, this);
 		}
 
-		let { title } = this.state;
+		let { title, sha } = this.state;
 
 		let description = '';
 		const index = title.lastIndexOf('/');
@@ -137,12 +137,37 @@ export class TimelineApp extends App<State> {
 			title = name;
 		}
 
-		for (const [key, value] of Object.entries({ title: title, description: description })) {
+		function updateBoundData(
+			key: string,
+			value: string | undefined,
+			options?: { hideIfEmpty?: boolean; html?: boolean },
+		) {
 			const $el = document.querySelector(`[data-bind="${key}"]`);
 			if ($el != null) {
-				$el.textContent = String(value) || GlyphChars.Space;
+				const empty = value == null || value.length === 0;
+				if (options?.hideIfEmpty) {
+					$el.classList.toggle('hidden', empty);
+				}
+				if (options?.html && !empty) {
+					$el.innerHTML = value;
+				} else {
+					$el.textContent = String(value) || GlyphChars.Space;
+				}
 			}
 		}
+
+		updateBoundData('title', title);
+		updateBoundData('description', description);
+		updateBoundData(
+			'sha',
+			sha
+				? /*html*/ `<code-icon icon="git-commit" size="16"></code-icon><span class="sha">${sha}</span>`
+				: undefined,
+			{
+				hideIfEmpty: true,
+				html: true,
+			},
+		);
 
 		const $periods = document.getElementById('periods') as HTMLSelectElement;
 		if ($periods != null) {
