@@ -96,6 +96,7 @@ import type {
 	GraphMissingRefsMetadataType,
 	GraphPullRequestMetadata,
 	GraphRefMetadata,
+	GraphRefMetadataType,
 	GraphRepository,
 	GraphSelectedRows,
 	GraphUpstreamMetadata,
@@ -131,6 +132,7 @@ import {
 	GetMissingAvatarsCommandType,
 	GetMissingRefsMetadataCommandType,
 	GetMoreRowsCommandType,
+	GraphRefMetadataTypes,
 	SearchCommandType,
 	SearchOpenInViewCommandType,
 	UpdateColumnsCommandType,
@@ -546,6 +548,7 @@ export class GraphWebview extends WebviewBase<State> {
 			configuration.changed(e, 'graph.highlightRowsOnRefHover') ||
 			configuration.changed(e, 'graph.scrollRowPadding') ||
 			configuration.changed(e, 'graph.showGhostRefsOnRowHover') ||
+			configuration.changed(e, 'graph.showPullRequests') ||
 			configuration.changed(e, 'graph.showRemoteNames') ||
 			configuration.changed(e, 'graph.showUpstreamStatus')
 		) {
@@ -739,14 +742,14 @@ export class GraphWebview extends WebviewBase<State> {
 			}
 
 			for (const type of missingTypes) {
-				if (type !== 'pullRequests' && type !== 'upstream') {
+				if (!Object.values(GraphRefMetadataTypes).includes(type)) {
 					(metadata as any)[type] = null;
 					this._refsMetadata.set(id, metadata);
 
 					continue;
 				}
 
-				if (type === 'pullRequests') {
+				if (type === GraphRefMetadataTypes.PullRequest) {
 					const pr = await branch?.getAssociatedPullRequest();
 
 					if (pr == null) {
@@ -783,7 +786,7 @@ export class GraphWebview extends WebviewBase<State> {
 					continue;
 				}
 
-				if (type === 'upstream') {
+				if (type === GraphRefMetadataTypes.Upstream) {
 					const upstream = branch?.upstream;
 
 					if (upstream == null || upstream == undefined || upstream.missing) {
@@ -1551,6 +1554,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private getComponentConfig(): GraphComponentConfig {
 		const config: GraphComponentConfig = {
+			activeRefMetadataTypes: this.getActiveRefMetadataTypes(),
 			avatars: configuration.get('graph.avatars'),
 			dateFormat:
 				configuration.get('graph.dateFormat') ?? configuration.get('defaultDateFormat') ?? 'short+short',
@@ -1561,10 +1565,22 @@ export class GraphWebview extends WebviewBase<State> {
 			scrollRowPadding: configuration.get('graph.scrollRowPadding'),
 			showGhostRefsOnRowHover: configuration.get('graph.showGhostRefsOnRowHover'),
 			showRemoteNamesOnRefs: configuration.get('graph.showRemoteNames'),
-			showUpstreamStatus: configuration.get('graph.showUpstreamStatus'),
 			idLength: configuration.get('advanced.abbreviatedShaLength'),
 		};
 		return config;
+	}
+
+	private getActiveRefMetadataTypes(): GraphRefMetadataType[] {
+		const types: GraphRefMetadataType[] = [];
+		if (configuration.get('graph.showPullRequests')) {
+			types.push(GraphRefMetadataTypes.PullRequest as GraphRefMetadataType);
+		}
+
+		if (configuration.get('graph.showUpstreamStatus')) {
+			types.push(GraphRefMetadataTypes.Upstream as GraphRefMetadataType);
+		}
+
+		return types;
 	}
 
 	private async getGraphAccess() {

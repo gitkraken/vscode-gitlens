@@ -1006,6 +1006,7 @@ export function GraphWrapper({
 					<>
 						<GraphContainer
 							ref={graphRef}
+							activeRefMetadataTypes={graphConfig?.activeRefMetadataTypes}
 							avatarUrlByEmail={avatars}
 							columnsSettings={columns}
 							contexts={context}
@@ -1041,7 +1042,6 @@ export function GraphWrapper({
 							platform={clientPlatform}
 							refMetadataById={refsMetadata}
 							shaLength={graphConfig?.idLength}
-							showUpstreamStatus={graphConfig?.showUpstreamStatus}
 							themeOpacityFactor={styleProps?.themeOpacityFactor}
 							useAuthorInitialsForAvatars={!graphConfig?.avatars}
 							workDirStats={workingTreeStats}

@@ -2250,6 +2250,13 @@
 						"scope": "window",
 						"order": 26
 					},
+					"gitlens.graph.showPullRequests": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to show associated pull requests on remote branches in the _Commit Graph_",
+						"scope": "window",
+						"order": 27
+					},
 					"gitlens.graph.commitOrdering": {
 						"type": "string",
 						"default": "date",
