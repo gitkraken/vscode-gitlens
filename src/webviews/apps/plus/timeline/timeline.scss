@@ -101,22 +101,35 @@ span.button-subaction {
 
 .header {
 	display: grid;
-	grid-template-columns: max-content minmax(min-content, 1fr) max-content;
+	grid-template-columns: max-content min-content minmax(min-content, 1fr) max-content;
 	align-items: baseline;
-	grid-template-areas: 'title description toolbox';
+	grid-template-areas: 'title sha description toolbox';
 	justify-content: start;
 	margin-bottom: 1rem;
 
 	@media all and (max-width: 500px) {
 		grid-template-areas:
-			'title description'
+			'title sha description'
 			'empty toolbox';
-		grid-template-columns: max-content minmax(min-content, 1fr);
+		grid-template-columns: max-content min-content minmax(min-content, 1fr);
 	}
 
 	h2[data-bind='title'] {
 		grid-area: title;
 		margin-bottom: 0;
+	}
+
+	h2[data-bind='sha'] {
+		grid-area: sha;
+		font-size: 1.3em;
+		font-weight: 200;
+		margin-left: 1.5rem;
+		opacity: 0.7;
+		white-space: nowrap;
+
+		.sha {
+			margin-left: 0.25rem;
+		}
 	}
 
 	h2[data-bind='description'] {

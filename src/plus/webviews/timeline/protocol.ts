@@ -6,6 +6,7 @@ export interface State {
 	emptyMessage?: string;
 	period: Period;
 	title: string;
+	sha?: string;
 	uri?: string;
 
 	dateFormat: string;
