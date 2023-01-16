@@ -7,7 +7,7 @@ import { configuration } from '../../configuration';
 import { Commands, ContextKeys, CoreCommands } from '../../constants';
 import type { Container } from '../../container';
 import { getContext } from '../../context';
-import type { EventBusPackage } from '../../eventBus';
+import type { CommitSelectedEvent } from '../../eventBus';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitCommit } from '../../git/models/commit';
 import { isCommit } from '../../git/models/commit';
@@ -112,10 +112,10 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		);
 	}
 
-	onCommitSelected(event: EventBusPackage) {
-		if (event.data == null) return;
+	onCommitSelected(e: CommitSelectedEvent) {
+		if (e.data == null) return;
 
-		void this.show(event.data);
+		void this.show(e.data);
 	}
 
 	@log<CommitDetailsWebviewView['show']>({
@@ -824,7 +824,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			preview: true,
 			...this.getShowOptions(params),
 		});
-		this.container.events.fire('file:selected', file.uri, { source: this.id });
+		this.container.events.fire('file:selected', { uri: file.uri }, { source: this.id });
 	}
 
 	private async openFile(params: FileActionParams) {

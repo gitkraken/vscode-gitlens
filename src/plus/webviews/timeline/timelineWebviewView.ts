@@ -4,7 +4,7 @@ import { commands, Uri, window } from 'vscode';
 import { configuration } from '../../../configuration';
 import { Commands, ContextKeys } from '../../../constants';
 import type { Container } from '../../../container';
-import type { EventBusPackage } from '../../../eventBus';
+import type { FileSelectedEvent } from '../../../eventBus';
 import { PlusFeatures } from '../../../features';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import { GitUri } from '../../../git/gitUri';
@@ -83,7 +83,7 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 		return [
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			window.onDidChangeActiveTextEditor(debounce(this.onActiveEditorChanged, 250), this),
-			this.container.events.on('file:selected', this.onFileSelected, this),
+			this.container.events.on('file:selected', debounce(this.onFileSelected, 250), this),
 			this.container.git.onDidChangeRepository(this.onRepositoryChanged, this),
 			this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
 		];
@@ -138,6 +138,9 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 						'commit:selected',
 						{
 							commit: commit,
+							pin: false,
+							preserveFocus: false,
+							preserveVisibility: false,
 						},
 						{ source: this.id },
 					);
@@ -172,11 +175,10 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 	}
 
 	@debug({ args: false })
-	private onFileSelected(event: EventBusPackage) {
-		if (event.data == null) return;
+	private onFileSelected(e: FileSelectedEvent) {
+		if (e.data == null) return;
 
-		let uri: Uri | undefined = event.data as Uri;
-
+		let uri: Uri | undefined = e.data.uri;
 		if (uri != null) {
 			if (!this.container.git.isTrackable(uri)) {
 				uri = undefined;
