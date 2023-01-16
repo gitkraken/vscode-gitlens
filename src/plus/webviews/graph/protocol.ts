@@ -42,10 +42,12 @@ export type GraphMissingRefsMetadataType = RefMetadataType;
 export type GraphMissingRefsMetadata = Record</*id*/ string, /*missingType*/ GraphMissingRefsMetadataType[]>;
 export type GraphPullRequestMetadata = PullRequestMetadata;
 
-export const GraphRefMetadataTypes = {
-	Upstream: 'upstream',
-	PullRequest: 'pullRequests',
-};
+export enum GraphRefMetadataTypes {
+	Upstream = 'upstream',
+	PullRequest = 'pullRequests',
+}
+
+export const supportedRefMetadataTypes: GraphRefMetadataType[] = Object.values(GraphRefMetadataTypes);
 
 export interface State {
 	windowFocused?: boolean;
@@ -114,11 +116,11 @@ export type GraphTag = Tag;
 export type GraphBranch = Head;
 
 export interface GraphComponentConfig {
-	enabledRefMetadataTypes?: GraphRefMetadataType[];
 	avatars?: boolean;
 	dateFormat: DateTimeFormat | string;
 	dateStyle: DateStyle;
 	dimMergeCommits?: boolean;
+	enabledRefMetadataTypes?: GraphRefMetadataType[];
 	enableMultiSelection?: boolean;
 	highlightRowsOnRefHover?: boolean;
 	scrollRowPadding?: number;

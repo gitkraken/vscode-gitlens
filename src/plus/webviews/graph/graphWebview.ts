@@ -135,6 +135,7 @@ import {
 	GraphRefMetadataTypes,
 	SearchCommandType,
 	SearchOpenInViewCommandType,
+	supportedRefMetadataTypes,
 	UpdateColumnsCommandType,
 	UpdateExcludeTypeCommandType,
 	UpdateIncludeOnlyRefsCommandType,
@@ -742,7 +743,7 @@ export class GraphWebview extends WebviewBase<State> {
 			}
 
 			for (const type of missingTypes) {
-				if (!Object.values(GraphRefMetadataTypes).includes(type)) {
+				if (!supportedRefMetadataTypes.includes(type)) {
 					(metadata as any)[type] = null;
 					this._refsMetadata.set(id, metadata);
 
@@ -1554,11 +1555,11 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private getComponentConfig(): GraphComponentConfig {
 		const config: GraphComponentConfig = {
-			enabledRefMetadataTypes: this.getEnabledRefMetadataTypes(),
 			avatars: configuration.get('graph.avatars'),
 			dateFormat:
 				configuration.get('graph.dateFormat') ?? configuration.get('defaultDateFormat') ?? 'short+short',
 			dateStyle: configuration.get('graph.dateStyle') ?? configuration.get('defaultDateStyle'),
+			enabledRefMetadataTypes: this.getEnabledRefMetadataTypes(),
 			dimMergeCommits: configuration.get('graph.dimMergeCommits'),
 			enableMultiSelection: false,
 			highlightRowsOnRefHover: configuration.get('graph.highlightRowsOnRefHover'),
