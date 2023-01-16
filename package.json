@@ -2250,7 +2250,7 @@
 						"scope": "window",
 						"order": 26
 					},
-					"gitlens.graph.showPullRequests": {
+					"gitlens.graph.pullRequests.enabled": {
 						"type": "boolean",
 						"default": false,
 						"markdownDescription": "Specifies whether to show associated pull requests on remote branches in the _Commit Graph_",

@@ -548,7 +548,7 @@ export class GraphWebview extends WebviewBase<State> {
 			configuration.changed(e, 'graph.highlightRowsOnRefHover') ||
 			configuration.changed(e, 'graph.scrollRowPadding') ||
 			configuration.changed(e, 'graph.showGhostRefsOnRowHover') ||
-			configuration.changed(e, 'graph.showPullRequests') ||
+			configuration.changed(e, 'graph.pullRequests.enabled') ||
 			configuration.changed(e, 'graph.showRemoteNames') ||
 			configuration.changed(e, 'graph.showUpstreamStatus')
 		) {
@@ -1572,7 +1572,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private getActiveRefMetadataTypes(): GraphRefMetadataType[] {
 		const types: GraphRefMetadataType[] = [];
-		if (configuration.get('graph.showPullRequests')) {
+		if (configuration.get('graph.pullRequests.enabled')) {
 			types.push(GraphRefMetadataTypes.PullRequest as GraphRefMetadataType);
 		}
 
