@@ -1006,7 +1006,7 @@ export function GraphWrapper({
 					<>
 						<GraphContainer
 							ref={graphRef}
-							activeRefMetadataTypes={graphConfig?.activeRefMetadataTypes}
+							enabledRefMetadataTypes={graphConfig?.enabledRefMetadataTypes}
 							avatarUrlByEmail={avatars}
 							columnsSettings={columns}
 							contexts={context}

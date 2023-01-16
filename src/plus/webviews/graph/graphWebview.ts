@@ -1554,7 +1554,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private getComponentConfig(): GraphComponentConfig {
 		const config: GraphComponentConfig = {
-			activeRefMetadataTypes: this.getActiveRefMetadataTypes(),
+			enabledRefMetadataTypes: this.getEnabledRefMetadataTypes(),
 			avatars: configuration.get('graph.avatars'),
 			dateFormat:
 				configuration.get('graph.dateFormat') ?? configuration.get('defaultDateFormat') ?? 'short+short',
@@ -1570,7 +1570,7 @@ export class GraphWebview extends WebviewBase<State> {
 		return config;
 	}
 
-	private getActiveRefMetadataTypes(): GraphRefMetadataType[] {
+	private getEnabledRefMetadataTypes(): GraphRefMetadataType[] {
 		const types: GraphRefMetadataType[] = [];
 		if (configuration.get('graph.pullRequests.enabled')) {
 			types.push(GraphRefMetadataTypes.PullRequest as GraphRefMetadataType);

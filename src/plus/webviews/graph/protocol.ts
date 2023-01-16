@@ -114,7 +114,7 @@ export type GraphTag = Tag;
 export type GraphBranch = Head;
 
 export interface GraphComponentConfig {
-	activeRefMetadataTypes?: GraphRefMetadataType[];
+	enabledRefMetadataTypes?: GraphRefMetadataType[];
 	avatars?: boolean;
 	dateFormat: DateTimeFormat | string;
 	dateStyle: DateStyle;
