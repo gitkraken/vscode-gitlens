@@ -343,10 +343,16 @@ export function GraphWrapper({
 		const statsByDayMap = new Map<number, ActivityStats>();
 		const markersByDay = new Map<number, ActivityMarker[]>();
 
-		let rankedShas: { head: string | undefined; branch: string | undefined; remote: string | undefined } = {
+		let rankedShas: {
+			head: string | undefined;
+			branch: string | undefined;
+			remote: string | undefined;
+			tag: string | undefined;
+		} = {
 			head: undefined,
 			branch: undefined,
 			remote: undefined,
+			tag: undefined,
 		};
 
 		let day;
@@ -356,6 +362,7 @@ export function GraphWrapper({
 		let markers;
 		let headMarkers;
 		let remoteMarkers;
+		let tagMarkers;
 		let row: GraphRow;
 		let stat;
 		let stats;
@@ -372,6 +379,7 @@ export function GraphWrapper({
 					head: undefined,
 					branch: undefined,
 					remote: undefined,
+					tag: undefined,
 				};
 			}
 
@@ -404,16 +412,16 @@ export function GraphWrapper({
 				rankedShas.remote = row.sha;
 
 				// eslint-disable-next-line no-loop-func
-				remoteMarkers = row.remotes.map<ActivityMarker>(h => {
+				remoteMarkers = row.remotes.map<ActivityMarker>(r => {
 					let current = false;
-					if (h.name === head?.name) {
+					if (r.name === head?.name) {
 						rankedShas.remote = row.sha;
 						current = true;
 					}
 
 					return {
 						type: 'remote',
-						name: `${h.owner}/${h.name}`,
+						name: `${r.owner}/${r.name}`,
 						current: current,
 					};
 				});
@@ -423,6 +431,22 @@ export function GraphWrapper({
 					markersByDay.set(day, remoteMarkers);
 				} else {
 					markers.push(...remoteMarkers);
+				}
+			}
+
+			if (row.tags?.length) {
+				rankedShas.tag = row.sha;
+
+				tagMarkers = row.tags.map<ActivityMarker>(t => ({
+					type: 'tag',
+					name: t.name,
+				}));
+
+				markers = markersByDay.get(day);
+				if (markers == null) {
+					markersByDay.set(day, tagMarkers);
+				} else {
+					markers.push(...tagMarkers);
 				}
 			}
 
@@ -443,7 +467,7 @@ export function GraphWrapper({
 				statsByDayMap.set(day, stat);
 			} else {
 				stat.commits++;
-				stat.sha = rankedShas.head ?? rankedShas.branch ?? rankedShas.remote ?? stat.sha;
+				stat.sha = rankedShas.head ?? rankedShas.branch ?? rankedShas.remote ?? rankedShas.tag ?? stat.sha;
 				if (stats != null) {
 					if (stat.activity == null) {
 						stat.activity = { additions: stats.additions, deletions: stats.deletions };
@@ -504,7 +528,8 @@ export function GraphWrapper({
 	const handleOnGraphRowHovered = (event: any, graphZoneType: GraphZoneType, graphRow: GraphRow) => {
 		if (graphZoneType === REF_ZONE_TYPE) return;
 
-		queueMicrotask(() => void (activityGraph.current as any)?.select(graphRow.date));
+		// queueMicrotask(() => void (activityGraph.current as any)?.select(graphRow.date));
+		(activityGraph.current as any).highlightedDay = graphRow.date;
 	};
 
 	const handleKeyDown = (e: KeyboardEvent) => {
@@ -1232,7 +1257,7 @@ export function GraphWrapper({
 							onDoubleClickGraphRow={handleOnDoubleClickRow}
 							onDoubleClickGraphRef={handleOnDoubleClickRef}
 							onGraphColumnsReOrdered={handleOnGraphColumnsReOrdered}
-							// onGraphRowHovered={handleOnGraphRowHovered}
+							onGraphRowHovered={handleOnGraphRowHovered}
 							onSelectGraphRows={handleSelectGraphRows}
 							onToggleRefsVisibilityClick={handleOnToggleRefsVisibilityClick}
 							onEmailsMissingAvatarUrls={handleMissingAvatars}

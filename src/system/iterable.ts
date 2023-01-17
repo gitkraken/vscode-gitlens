@@ -123,7 +123,7 @@ export function first<T>(source: Iterable<T> | IterableIterator<T>): T | undefin
 export function* flatMap<T, TMapped>(
 	source: Iterable<T> | IterableIterator<T>,
 	mapper: (item: T) => Iterable<TMapped>,
-): Iterable<TMapped> {
+): IterableIterator<TMapped> {
 	for (const item of source) {
 		yield* mapper(item);
 	}
