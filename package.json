@@ -2246,7 +2246,7 @@
 					"gitlens.graph.showUpstreamStatus": {
 						"type": "boolean",
 						"default": false,
-						"markdownDescription": "Specifies whether to show a local branch's upstream status in the _Commit Graph_. Requires a connection to a supported remote service (e.g. GitHub)",
+						"markdownDescription": "Specifies whether to show a local branch's upstream status in the _Commit Graph_",
 						"scope": "window",
 						"order": 26
 					},
