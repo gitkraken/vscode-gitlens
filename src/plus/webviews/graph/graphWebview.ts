@@ -551,7 +551,8 @@ export class GraphWebview extends WebviewBase<State> {
 			configuration.changed(e, 'graph.showGhostRefsOnRowHover') ||
 			configuration.changed(e, 'graph.pullRequests.enabled') ||
 			configuration.changed(e, 'graph.showRemoteNames') ||
-			configuration.changed(e, 'graph.showUpstreamStatus')
+			configuration.changed(e, 'graph.showUpstreamStatus') ||
+			configuration.changed(e, 'graph.experimental.activityMinibar.enabled')
 		) {
 			void this.notifyDidChangeConfiguration();
 		}
@@ -1555,6 +1556,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private getComponentConfig(): GraphComponentConfig {
 		const config: GraphComponentConfig = {
+			activityMinibar: configuration.get('graph.experimental.activityMinibar.enabled'),
 			avatars: configuration.get('graph.avatars'),
 			dateFormat:
 				configuration.get('graph.dateFormat') ?? configuration.get('defaultDateFormat') ?? 'short+short',
@@ -1647,7 +1649,11 @@ export class GraphWebview extends WebviewBase<State> {
 		const dataPromise = this.container.git.getCommitsForGraph(
 			this.repository.path,
 			this._panel!.webview.asWebviewUri.bind(this._panel!.webview),
-			{ include: { stats: true }, limit: limit, ref: ref },
+			{
+				include: { stats: configuration.get('graph.experimental.activityMinibar.enabled') },
+				limit: limit,
+				ref: ref,
+			},
 		);
 
 		// Check for GitLens+ access and working tree stats

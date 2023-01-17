@@ -65,6 +65,7 @@ import type { SearchNavigationEventDetail } from '../../shared/components/search
 import type { DateTimeFormat } from '../../shared/date';
 import { formatDate, fromNow } from '../../shared/date';
 import type {
+	ActivityGraph as ActivityGraphType,
 	ActivityMarker,
 	ActivitySearchResultMarker,
 	ActivityStats,
@@ -222,7 +223,7 @@ export function GraphWrapper({
 		state.workingTreeStats ?? { added: 0, modified: 0, deleted: 0 },
 	);
 
-	const activityGraph = useRef<typeof ActivityGraph | undefined>(undefined);
+	const activityGraph = useRef<ActivityGraphType | undefined>(undefined);
 
 	const ensuredIds = useRef<Set<string>>(new Set());
 	const ensuredSkippedIds = useRef<Set<string>>(new Set());
@@ -339,6 +340,8 @@ export function GraphWrapper({
 	}, [activeRow]);
 
 	const activityData = useMemo(() => {
+		if (!graphConfig?.activityMinibar) return;
+
 		// Loops through all the rows and group them by day and aggregate the row.stats
 		const statsByDayMap = new Map<number, ActivityStats>();
 		const markersByDay = new Map<number, ActivityMarker[]>();
@@ -481,9 +484,11 @@ export function GraphWrapper({
 		}
 
 		return { stats: statsByDayMap, markers: markersByDay };
-	}, [rows]);
+	}, [rows, graphConfig]);
 
 	const activitySearchResults = useMemo(() => {
+		if (!graphConfig?.activityMinibar) return;
+
 		const searchResultsByDay = new Map<number, ActivitySearchResultMarker>();
 
 		if (searchResults?.ids != null) {
@@ -502,12 +507,14 @@ export function GraphWrapper({
 		}
 
 		return searchResultsByDay;
-	}, [searchResults]);
+	}, [searchResults, graphConfig]);
 
 	const activitySelectedDay = useMemo(() => {
+		if (!graphConfig?.activityMinibar) return;
+
 		const date = getActiveRowInfo(activeRow)?.date;
 		return date != null ? getDay(date) : undefined;
-	}, [activeRow]);
+	}, [activeRow, graphConfig]);
 
 	const handleActivityStatsSelected = (e: CustomEvent<ActivityStatsSelectedEventDetail>) => {
 		let { sha } = e.detail;
@@ -525,11 +532,11 @@ export function GraphWrapper({
 		graphRef.current?.selectCommits([sha], false, true);
 	};
 
-	const handleOnGraphRowHovered = (event: any, graphZoneType: GraphZoneType, graphRow: GraphRow) => {
-		if (graphZoneType === REF_ZONE_TYPE) return;
+	const handleOnGraphRowHovered = (_event: any, graphZoneType: GraphZoneType, graphRow: GraphRow) => {
+		if (graphZoneType === REF_ZONE_TYPE || activityGraph.current == null) return;
 
-		// queueMicrotask(() => void (activityGraph.current as any)?.select(graphRow.date));
-		(activityGraph.current as any).highlightedDay = graphRow.date;
+		activityGraph.current.highlightedDay = graphRow.date;
+		// queueMicrotask(() => void activityGraph.current?.select(graphRow.date));
 	};
 
 	const handleKeyDown = (e: KeyboardEvent) => {
@@ -801,7 +808,9 @@ export function GraphWrapper({
 	};
 
 	const handleOnGraphVisibleRowsChanged = (top: GraphRow, bottom: GraphRow) => {
-		(activityGraph.current as any).visibleDays = { top: top.date, bottom: bottom.date };
+		if (activityGraph.current == null) return;
+
+		activityGraph.current.visibleDays = { top: top.date, bottom: bottom.date };
 	};
 
 	const handleOnGraphColumnsReOrdered = (columnsSettings: GraphColumnsSettings) => {
@@ -843,9 +852,9 @@ export function GraphWrapper({
 		state.activeRow = activeKey;
 		setActiveRow(activeKey);
 
-		if (active != null) {
-			queueMicrotask(() => void (activityGraph.current as any)?.select(active.date));
-		}
+		// if (active != null) {
+		// 	queueMicrotask(() => activityGraph.current?.select(active.date));
+		// }
 		onSelectionChange?.(rows);
 	};
 
@@ -1210,14 +1219,18 @@ export function GraphWrapper({
 				<div className={`progress-container infinite${isLoading ? ' active' : ''}`} role="progressbar">
 					<div className="progress-bar"></div>
 				</div>
-				<ActivityGraph
-					ref={activityGraph as any}
-					data={activityData.stats}
-					markers={activityData.markers}
-					searchResults={activitySearchResults}
-					selectedDay={activitySelectedDay}
-					onSelected={e => handleActivityStatsSelected(e as CustomEvent<ActivityStatsSelectedEventDetail>)}
-				></ActivityGraph>
+				{graphConfig?.activityMinibar && (
+					<ActivityGraph
+						ref={activityGraph as any}
+						data={activityData?.stats}
+						markers={activityData?.markers}
+						searchResults={activitySearchResults}
+						selectedDay={activitySelectedDay}
+						onSelected={e =>
+							handleActivityStatsSelected(e as CustomEvent<ActivityStatsSelectedEventDetail>)
+						}
+					></ActivityGraph>
+				)}
 			</header>
 			<main
 				id="main"
