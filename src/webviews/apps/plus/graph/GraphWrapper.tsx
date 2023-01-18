@@ -1011,6 +1011,7 @@ export function GraphWrapper({
 							contexts={context}
 							cssVariables={styleProps?.cssVariables}
 							dimMergeCommits={graphConfig?.dimMergeCommits}
+							enabledRefMetadataTypes={graphConfig?.enabledRefMetadataTypes}
 							enableMultiSelection={graphConfig?.enableMultiSelection}
 							excludeRefsById={excludeRefsById}
 							excludeByType={excludeTypes}
@@ -1041,7 +1042,6 @@ export function GraphWrapper({
 							platform={clientPlatform}
 							refMetadataById={refsMetadata}
 							shaLength={graphConfig?.idLength}
-							showUpstreamStatus={graphConfig?.showUpstreamStatus}
 							themeOpacityFactor={styleProps?.themeOpacityFactor}
 							useAuthorInitialsForAvatars={!graphConfig?.avatars}
 							workDirStats={workingTreeStats}

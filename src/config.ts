@@ -392,6 +392,9 @@ export interface GraphConfig {
 	scrollRowPadding: number;
 	showDetailsView: 'open' | 'selection' | false;
 	showGhostRefsOnRowHover: boolean;
+	pullRequests: {
+		enabled: boolean;
+	};
 	showRemoteNames: boolean;
 	showUpstreamStatus: boolean;
 	pageItemLimit: number;

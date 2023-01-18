@@ -37,9 +37,17 @@ export type GraphRefMetadata = RefMetadata | null;
 export type GraphUpstreamMetadata = UpstreamMetadata | null;
 export type GraphRefsMetadata = Record</* id */ string, GraphRefMetadata>;
 export type GraphHostingServiceType = HostingServiceType;
+export type GraphRefMetadataType = RefMetadataType;
 export type GraphMissingRefsMetadataType = RefMetadataType;
 export type GraphMissingRefsMetadata = Record</*id*/ string, /*missingType*/ GraphMissingRefsMetadataType[]>;
 export type GraphPullRequestMetadata = PullRequestMetadata;
+
+export enum GraphRefMetadataTypes {
+	Upstream = 'upstream',
+	PullRequest = 'pullRequests',
+}
+
+export const supportedRefMetadataTypes: GraphRefMetadataType[] = Object.values(GraphRefMetadataTypes);
 
 export interface State {
 	windowFocused?: boolean;
@@ -112,12 +120,12 @@ export interface GraphComponentConfig {
 	dateFormat: DateTimeFormat | string;
 	dateStyle: DateStyle;
 	dimMergeCommits?: boolean;
+	enabledRefMetadataTypes?: GraphRefMetadataType[];
 	enableMultiSelection?: boolean;
 	highlightRowsOnRefHover?: boolean;
 	scrollRowPadding?: number;
 	showGhostRefsOnRowHover?: boolean;
 	showRemoteNamesOnRefs?: boolean;
-	showUpstreamStatus?: boolean;
 	idLength?: number;
 }
 

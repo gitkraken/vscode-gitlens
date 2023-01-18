@@ -172,6 +172,23 @@
 
 					<div class="setting">
 						<div class="setting__input">
+							<input
+								id="graph.pullRequests.enabled"
+								name="graph.pullRequests.enabled"
+								type="checkbox"
+								data-setting
+							/>
+							<label for="graph.pullRequests.enabled"
+								>Show associated pull requests on remote branches</label
+							>
+						</div>
+						<p class="setting__hint hidden" data-visibility="graph.pullRequests.enabled">
+							<i class="icon icon__info"></i>Requires a connection to a supported remote service (e.g. GitHub)
+						</p>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input">
 							<input id="graph.avatars" name="graph.avatars" type="checkbox" data-setting />
 							<label for="graph.avatars">Use author and remote avatars</label>
 						</div>
