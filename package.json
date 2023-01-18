@@ -2250,6 +2250,13 @@
 						"scope": "window",
 						"order": 26
 					},
+					"gitlens.graph.pullRequests.enabled": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to show associated pull requests on remote branches in the _Commit Graph_. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 27
+					},
 					"gitlens.graph.commitOrdering": {
 						"type": "string",
 						"default": "date",
@@ -12724,7 +12731,7 @@
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "1.1.0-rc.22",
+		"@gitkraken/gitkraken-components": "2.0.0",
 		"@microsoft/fast-element": "1.11.0",
 		"@microsoft/fast-react-wrapper": "0.3.16-0",
 		"@octokit/core": "4.1.0",
