@@ -25,6 +25,7 @@ import type {
 	GraphAvatars,
 	GraphColumnName,
 	GraphColumnsConfig,
+	GraphCommitDateTimeSource,
 	GraphComponentConfig,
 	GraphExcludedRef,
 	GraphExcludeTypes,
@@ -49,6 +50,7 @@ import {
 	DidChangeWorkingTreeNotificationType,
 	DidFetchNotificationType,
 	DidSearchNotificationType,
+	GraphCommitDateTimeSources,
 } from '../../../../plus/webviews/graph/protocol';
 import type { Subscription } from '../../../../subscription';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../subscription';
@@ -89,7 +91,8 @@ export interface GraphWrapperProps {
 }
 
 const getGraphDateFormatter = (config?: GraphComponentConfig): OnFormatCommitDateTime => {
-	return (commitDateTime: number) => formatCommitDateTime(commitDateTime, config?.dateStyle, config?.dateFormat);
+	return (commitDateTime: number, source?: GraphCommitDateTimeSource) =>
+		formatCommitDateTime(commitDateTime, config?.dateStyle, config?.dateFormat, source);
 };
 
 const createIconElements = (): { [key: string]: ReactElement<any> } => {
@@ -1071,8 +1074,15 @@ function formatCommitDateTime(
 	commitDateTime: number,
 	style: DateStyle = DateStyle.Absolute,
 	format: DateTimeFormat | string = 'short+short',
+	source?: GraphCommitDateTimeSource,
 ): string {
-	return style === DateStyle.Relative ? fromNow(commitDateTime) : formatDate(commitDateTime, format);
+	switch (source) {
+		case GraphCommitDateTimeSources.Tooltip:
+			return formatDate(commitDateTime, format);
+		case GraphCommitDateTimeSources.RowEntry:
+		default:
+			return style === DateStyle.Relative ? fromNow(commitDateTime) : formatDate(commitDateTime, format);
+	}
 }
 
 function getClosestSearchResultIndex(
