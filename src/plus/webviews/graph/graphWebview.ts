@@ -30,7 +30,7 @@ import { parseCommandContext } from '../../../commands/base';
 import { GitActions } from '../../../commands/gitCommands.actions';
 import type { Config } from '../../../configuration';
 import { configuration } from '../../../configuration';
-import { Commands, ContextKeys, CoreGitCommands, GlyphChars } from '../../../constants';
+import { Commands, ContextKeys, CoreCommands, CoreGitCommands, GlyphChars } from '../../../constants';
 import type { Container } from '../../../container';
 import { getContext, onDidChangeContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
@@ -53,7 +53,13 @@ import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey } from '../../../git/search';
 import { RepositoryPicker } from '../../../quickpicks/repositoryPicker';
 import type { StoredGraphFilters, StoredGraphIncludeOnlyRef } from '../../../storage';
-import { executeActionCommand, executeCommand, executeCoreGitCommand, registerCommand } from '../../../system/command';
+import {
+	executeActionCommand,
+	executeCommand,
+	executeCoreCommand,
+	executeCoreGitCommand,
+	registerCommand,
+} from '../../../system/command';
 import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
@@ -347,6 +353,7 @@ export class GraphWebview extends WebviewBase<State> {
 			registerCommand('gitlens.graph.copyRemoteCommitUrl', item => this.openCommitOnRemote(item, true), this),
 			registerCommand('gitlens.graph.showInDetailsView', this.openInDetailsView, this),
 			registerCommand('gitlens.graph.openCommitOnRemote', this.openCommitOnRemote, this),
+			registerCommand('gitlens.graph.openSCM', this.openSCM, this),
 			registerCommand('gitlens.graph.rebaseOntoCommit', this.rebase, this),
 			registerCommand('gitlens.graph.resetCommit', this.resetCommit, this),
 			registerCommand('gitlens.graph.resetToCommit', this.resetToCommit, this),
@@ -354,6 +361,7 @@ export class GraphWebview extends WebviewBase<State> {
 			registerCommand('gitlens.graph.switchToCommit', this.switchTo, this),
 			registerCommand('gitlens.graph.undoCommit', this.undoCommit, this),
 
+			registerCommand('gitlens.graph.saveStash', this.saveStash, this),
 			registerCommand('gitlens.graph.applyStash', this.applyStash, this),
 			registerCommand('gitlens.graph.deleteStash', this.deleteStash, this),
 
@@ -1611,6 +1619,19 @@ export class GraphWebview extends WebviewBase<State> {
 			added: workingTreeStatus?.added ?? 0,
 			deleted: workingTreeStatus?.deleted ?? 0,
 			modified: workingTreeStatus?.changed ?? 0,
+			context: serializeWebviewItemContext<GraphItemContext>({
+				webviewItem: 'gitlens:wip',
+				webviewItemValue: {
+					type: 'revision',
+					ref:
+						this.getRevisionReference(
+							this.repository.path,
+							GitRevision.uncommitted,
+							GitGraphRowType.Working,
+						) ||
+						GitReference.create(GitRevision.uncommitted, this.repository.path, { refType: 'revision' }),
+				},
+			}),
 		};
 	}
 
@@ -2015,6 +2036,14 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
+	private openSCM(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'revision');
+		if (ref == null) return Promise.resolve();
+
+		return executeCoreCommand(CoreCommands.ShowSCM);
+	}
+
+	@debug()
 	private openCommitOnRemote(item?: GraphItemContext, clipboard?: boolean) {
 		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
@@ -2123,6 +2152,14 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		return void executeCoreGitCommand(CoreGitCommands.UndoCommit, ref.repoPath);
+	}
+
+	@debug()
+	private saveStash(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return Promise.resolve();
+
+		return GitActions.Stash.push(ref.repoPath);
 	}
 
 	@debug()
@@ -2348,7 +2385,8 @@ export type GraphItemRefContextValue =
 	| GraphBranchContextValue
 	| GraphCommitContextValue
 	| GraphStashContextValue
-	| GraphTagContextValue;
+	| GraphTagContextValue
+	| GraphRevisionContextValue;
 
 export type GraphItemRefGroupContext<T = GraphItemRefGroupContextValue> = WebviewItemGroupContext<T>;
 export interface GraphItemRefGroupContextValue {
@@ -2393,6 +2431,11 @@ export interface GraphStashContextValue {
 export interface GraphTagContextValue {
 	type: 'tag';
 	ref: GitTagReference;
+}
+
+export interface GraphRevisionContextValue {
+	type: 'revision';
+	ref: GitRevisionReference;
 }
 
 function isGraphItemContext(item: unknown): item is GraphItemContext {
