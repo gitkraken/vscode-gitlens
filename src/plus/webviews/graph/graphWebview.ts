@@ -1622,7 +1622,7 @@ export class GraphWebview extends WebviewBase<State> {
 			context: serializeWebviewItemContext<GraphItemContext>({
 				webviewItem: 'gitlens:wip',
 				webviewItemValue: {
-					type: 'revision',
+					type: 'commit',
 					ref:
 						this.getRevisionReference(
 							this.repository.path,
@@ -2385,8 +2385,7 @@ export type GraphItemRefContextValue =
 	| GraphBranchContextValue
 	| GraphCommitContextValue
 	| GraphStashContextValue
-	| GraphTagContextValue
-	| GraphRevisionContextValue;
+	| GraphTagContextValue;
 
 export type GraphItemRefGroupContext<T = GraphItemRefGroupContextValue> = WebviewItemGroupContext<T>;
 export interface GraphItemRefGroupContextValue {
@@ -2431,11 +2430,6 @@ export interface GraphStashContextValue {
 export interface GraphTagContextValue {
 	type: 'tag';
 	ref: GitTagReference;
-}
-
-export interface GraphRevisionContextValue {
-	type: 'revision';
-	ref: GitRevisionReference;
 }
 
 function isGraphItemContext(item: unknown): item is GraphItemContext {
