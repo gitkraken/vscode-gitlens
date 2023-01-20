@@ -124,7 +124,7 @@ export function initializeAndWatchThemeColors() {
 			isLightTheme ? darken(backgroundColor, 10) : lighten(backgroundColor, 10),
 		);
 		color = computedStyle.getPropertyValue('--vscode-list-focusOutline').trim();
-		bodyStyle.setProperty('--color-graph-contrast-border-color', color);
+		bodyStyle.setProperty('--color-graph-contrast-border', color);
 		color = computedStyle.getPropertyValue('--vscode-list-activeSelectionBackground').trim();
 		bodyStyle.setProperty('--color-graph-selected-row', color);
 		color = computedStyle.getPropertyValue('--vscode-list-hoverBackground').trim();
@@ -139,6 +139,58 @@ export function initializeAndWatchThemeColors() {
 		bodyStyle.setProperty('--color-graph-text-normal', opacity(foregroundColor, 85));
 		bodyStyle.setProperty('--color-graph-text-secondary', opacity(foregroundColor, 65));
 		bodyStyle.setProperty('--color-graph-text-disabled', opacity(foregroundColor, 50));
+
+		color = computedStyle.getPropertyValue('--vscode-progressBar-background').trim();
+		bodyStyle.setProperty('--color-graph-activitybar-line0', color);
+
+		bodyStyle.setProperty(
+			'--color-graph-activitybar-focusLine',
+			isLightTheme ? lighten('#000000', 30) : darken('#ffffff', 30),
+		);
+
+		color = computedStyle.getPropertyValue('--vscode-scrollbarSlider-background').trim();
+		bodyStyle.setProperty('--color-graph-activitybar-visibleAreaBackground', color);
+
+		color = computedStyle.getPropertyValue('--vscode-scrollbarSlider-hoverBackground').trim();
+		bodyStyle.setProperty('--color-graph-activitybar-visibleAreaHoverBackground', color);
+
+		color = computedStyle.getPropertyValue('--vscode-list-activeSelectionBackground').trim();
+		// color = computedStyle.getPropertyValue('--vscode-editorCursor-foreground').trim();
+		bodyStyle.setProperty('--color-graph-activitybar-selectedMarker', color);
+		bodyStyle.setProperty('--color-graph-activitybar-highlightedMarker', opacity(color, 60));
+
+		bodyStyle.setProperty('--color-graph-activitybar-resultMarker', '#ffff00');
+
+		bodyStyle.setProperty('--color-graph-activitybar-headBackground', '#006400');
+		bodyStyle.setProperty('--color-graph-activitybar-headBorder', '#008000');
+		bodyStyle.setProperty('--color-graph-activitybar-headForeground', '#ffffff');
+		bodyStyle.setProperty(
+			'--color-graph-activitybar-headMarker',
+			opacity(isLightTheme ? '#30cb30' : '#00ff00', 80),
+		);
+
+		bodyStyle.setProperty('--color-graph-activitybar-upstreamBackground', '#006400');
+		bodyStyle.setProperty('--color-graph-activitybar-upstreamBorder', '#008000');
+		bodyStyle.setProperty('--color-graph-activitybar-upstreamForeground', '#ffffff');
+		bodyStyle.setProperty(
+			'--color-graph-activitybar-upstreamMarker',
+			opacity(isLightTheme ? '#30cb30' : '#00ff00', 60),
+		);
+
+		bodyStyle.setProperty('--color-graph-activitybar-branchBackground', '#8b4513');
+		bodyStyle.setProperty('--color-graph-activitybar-branchBorder', '#d2691e');
+		bodyStyle.setProperty('--color-graph-activitybar-branchForeground', '#ffffff');
+		bodyStyle.setProperty('--color-graph-activitybar-branchMarker', opacity('#ff7f50', 70));
+
+		bodyStyle.setProperty('--color-graph-activitybar-remoteBackground', opacity('#8b4513', 80));
+		bodyStyle.setProperty('--color-graph-activitybar-remoteBorder', opacity('#d2691e', 80));
+		bodyStyle.setProperty('--color-graph-activitybar-remoteForeground', '#ffffff');
+		bodyStyle.setProperty('--color-graph-activitybar-remoteMarker', opacity('#ff7f5080', 30));
+
+		bodyStyle.setProperty('--color-graph-activitybar-tagBackground', '#262626');
+		bodyStyle.setProperty('--color-graph-activitybar-tagBorder', '#4d4d4d');
+		bodyStyle.setProperty('--color-graph-activitybar-tagForeground', '#ffffff');
+		bodyStyle.setProperty('--color-graph-activitybar-tagMarker', opacity('#696969', 60));
 
 		// alert colors
 		color = computedStyle.getPropertyValue('--vscode-inputValidation-infoBackground').trim();

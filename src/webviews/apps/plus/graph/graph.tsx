@@ -380,11 +380,11 @@ export class GraphApp extends App<State> {
 
 				'--selected-row': computedStyle.getPropertyValue('--color-graph-selected-row'),
 				'--selected-row-border': isHighContrastTheme
-					? `1px solid ${computedStyle.getPropertyValue('--color-graph-contrast-border-color')}`
+					? `1px solid ${computedStyle.getPropertyValue('--color-graph-contrast-border')}`
 					: 'none',
 				'--hover-row': computedStyle.getPropertyValue('--color-graph-hover-row'),
 				'--hover-row-border': isHighContrastTheme
-					? `1px dashed ${computedStyle.getPropertyValue('--color-graph-contrast-border-color')}`
+					? `1px dashed ${computedStyle.getPropertyValue('--color-graph-contrast-border')}`
 					: 'none',
 
 				'--text-selected': computedStyle.getPropertyValue('--color-graph-text-selected'),
