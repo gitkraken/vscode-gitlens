@@ -1623,13 +1623,11 @@ export class GraphWebview extends WebviewBase<State> {
 				webviewItem: 'gitlens:wip',
 				webviewItemValue: {
 					type: 'commit',
-					ref:
-						this.getRevisionReference(
-							this.repository.path,
-							GitRevision.uncommitted,
-							GitGraphRowType.Working,
-						) ||
-						GitReference.create(GitRevision.uncommitted, this.repository.path, { refType: 'revision' }),
+					ref: this.getRevisionReference(
+						this.repository.path,
+						GitRevision.uncommitted,
+						GitGraphRowType.Working,
+					)!,
 				},
 			}),
 		};
