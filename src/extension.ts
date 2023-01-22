@@ -65,7 +65,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 			sw.stop({ message: ' was NOT activated because GitLens is also enabled' });
 
 			// If we don't use a setTimeout here this notification will get lost for some reason
-			setTimeout(() => void showInsidersErrorMessage(), 0);
+			setTimeout(showInsidersErrorMessage, 0);
 
 			return undefined;
 		}
@@ -86,7 +86,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 			});
 
 			// If we don't use a setTimeout here this notification will get lost for some reason
-			setTimeout(() => void showPreReleaseExpiredErrorMessage(gitlensVersion, insiders), 0);
+			setTimeout(showPreReleaseExpiredErrorMessage, 0, gitlensVersion, insiders);
 
 			return undefined;
 		}
@@ -213,7 +213,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		endTime,
 	);
 
-	setTimeout(() => uninstallDeprecatedAuthentication(), 25000);
+	setTimeout(uninstallDeprecatedAuthentication, 25000);
 
 	return Promise.resolve(api);
 }

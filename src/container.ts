@@ -653,7 +653,7 @@ export class Container {
 					on: true,
 				};
 				// Make sure to delay the execution by a bit so that the configuration changes get propagated first
-				setTimeout(() => executeCommand(command!, commandArgs), 50);
+				setTimeout(executeCommand, 50, command, commandArgs);
 			}
 		}
 

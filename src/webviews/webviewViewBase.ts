@@ -337,7 +337,7 @@ export abstract class WebviewViewBase<State, SerializedState = State> implements
 		// It looks like there is a bug where `postMessage` can sometimes just hang infinitely. Not sure why, but ensure we don't hang
 		return Promise.race<boolean>([
 			this._view.webview.postMessage(message),
-			new Promise<boolean>(resolve => setTimeout(() => resolve(false), 5000)),
+			new Promise<boolean>(resolve => setTimeout(resolve, 5000, false)),
 		]);
 	}
 }
