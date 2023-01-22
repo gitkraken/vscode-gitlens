@@ -532,7 +532,7 @@ export class SubscriptionService implements Disposable {
 		const validating = this.checkInAndValidateCore(session);
 		const result = await Promise.race([
 			validating,
-			new Promise<boolean>(resolve => setTimeout(() => resolve(true), 3000)),
+			new Promise<boolean>(resolve => setTimeout(resolve, 3000, true)),
 		]);
 
 		if (result) {

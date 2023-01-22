@@ -178,7 +178,7 @@ export class GitCommandsCommand extends Command {
 	): Promise<QuickPickStep<QuickPickItem> | QuickInputStep | CustomStep | undefined> {
 		const stepOrTimeout = await Promise.race([
 			stepPromise,
-			new Promise<typeof showLoadingSymbol>(resolve => setTimeout(() => resolve(showLoadingSymbol), 250)),
+			new Promise<typeof showLoadingSymbol>(resolve => setTimeout(resolve, 250, showLoadingSymbol)),
 		]);
 
 		if (stepOrTimeout !== showLoadingSymbol) {

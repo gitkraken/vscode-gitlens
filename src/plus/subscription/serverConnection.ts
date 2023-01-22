@@ -138,7 +138,7 @@ export class ServerConnection implements Disposable {
 			new Promise<string>((_, reject) =>
 				this._cancellationSource?.token.onCancellationRequested(() => reject('Cancelled')),
 			),
-			new Promise<string>((_, reject) => setTimeout(() => reject('Cancelled'), 120000)),
+			new Promise<string>((_, reject) => setTimeout(reject, 120000, 'Cancelled')),
 		]).finally(() => {
 			this._cancellationSource?.cancel();
 			this._cancellationSource?.dispose();

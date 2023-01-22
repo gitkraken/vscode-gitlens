@@ -173,7 +173,3 @@ export async function sequentialize<T extends (...args: any[]) => unknown>(
 export function szudzikPairing(x: number, y: number): number {
 	return x >= y ? x * x + x + y : x + y * y;
 }
-
-export async function wait(ms: number) {
-	await new Promise(resolve => setTimeout(resolve, ms));
-}
