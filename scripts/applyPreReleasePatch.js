@@ -18,7 +18,6 @@ packageJSON = JSON.stringify(
 		version: `${String(date.getFullYear())}.${date.getMonth() + 1}.${date.getDate()}${String(
 			date.getHours(),
 		).padStart(2, '0')}`,
-		preview: true,
 	},
 	undefined,
 	'\t',
