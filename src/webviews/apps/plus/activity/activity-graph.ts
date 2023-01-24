@@ -846,6 +846,9 @@ export class ActivityGraph extends FASTElement {
 					const yAxis = this.$.main.selectAll<Element, any>('.bb-axis-y').node();
 					yAxis?.remove();
 
+					const grid = this.$.main.selectAll<Element, any>('.bb-grid').node();
+					grid?.removeAttribute('clip-path');
+
 					// Move the regions to be on top of the bars
 					const bars = this.$.main.selectAll<Element, any>('.bb-chart-bars').node();
 					const regions = this.$.main.selectAll<Element, any>('.bb-regions').node();
