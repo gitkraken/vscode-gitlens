@@ -1,5 +1,6 @@
 /*global window document MutationObserver*/
-import { darken, lighten, opacity } from '../../../system/color';
+import chroma from 'chroma-js';
+import { darken, lighten, opacity } from './colors';
 import type { Event } from './events';
 import { Emitter } from './events';
 
@@ -32,6 +33,29 @@ export function initializeAndWatchThemeColors() {
 		);
 
 		const backgroundColor = computedStyle.getPropertyValue('--vscode-editor-background').trim();
+		const backgroundChroma = chroma(backgroundColor);
+		const backgroundLuminance = backgroundChroma.luminance();
+
+		let foregroundColor = computedStyle.getPropertyValue('--vscode-editor-foreground').trim();
+		if (!foregroundColor) {
+			foregroundColor = computedStyle.getPropertyValue('--vscode-foreground').trim();
+		}
+		const foregroundChroma = chroma(foregroundColor);
+		const foregroundLuminance = foregroundChroma.luminance();
+
+		const themeLuminance = (luminance: number) => {
+			let min;
+			let max;
+			if (foregroundLuminance > backgroundLuminance) {
+				max = foregroundLuminance;
+				min = backgroundLuminance;
+			} else {
+				min = foregroundLuminance;
+				max = backgroundLuminance;
+			}
+			const percent = luminance / 1;
+			return percent * (max - min) + min;
+		};
 
 		let color = backgroundColor;
 		bodyStyle.setProperty('--color-background', color);
@@ -63,10 +87,6 @@ export function initializeAndWatchThemeColors() {
 		color = computedStyle.getPropertyValue('--vscode-button-foreground').trim();
 		bodyStyle.setProperty('--color-button-foreground', color);
 
-		let foregroundColor = computedStyle.getPropertyValue('--vscode-editor-foreground').trim();
-		if (!foregroundColor) {
-			foregroundColor = computedStyle.getPropertyValue('--vscode-foreground').trim();
-		}
 		bodyStyle.setProperty('--color-foreground', foregroundColor);
 		bodyStyle.setProperty('--color-foreground--85', opacity(foregroundColor, 85));
 		bodyStyle.setProperty('--color-foreground--75', opacity(foregroundColor, 75));
@@ -140,57 +160,91 @@ export function initializeAndWatchThemeColors() {
 		bodyStyle.setProperty('--color-graph-text-secondary', opacity(foregroundColor, 65));
 		bodyStyle.setProperty('--color-graph-text-disabled', opacity(foregroundColor, 50));
 
+		// activity bar
+		const resultColor = chroma('#ffff00');
+		const headColor = chroma('#00ff00');
+		const branchColor = chroma('#ff7f50');
+		const tagColor = chroma('#15a0bf');
 		color = computedStyle.getPropertyValue('--vscode-progressBar-background').trim();
-		bodyStyle.setProperty('--color-graph-activitybar-line0', color);
+		const activityColor = chroma(color);
+		// bodyStyle.setProperty('--color-graph-activitybar-line0', color);
+		bodyStyle.setProperty('--color-graph-activitybar-line0', activityColor.luminance(themeLuminance(0.5)).hex());
 
 		bodyStyle.setProperty(
 			'--color-graph-activitybar-focusLine',
-			isLightTheme ? lighten('#000000', 30) : darken('#ffffff', 30),
+			backgroundChroma.luminance(themeLuminance(isLightTheme ? 0.6 : 0.2)).hex(),
 		);
 
 		color = computedStyle.getPropertyValue('--vscode-scrollbarSlider-background').trim();
-		bodyStyle.setProperty('--color-graph-activitybar-visibleAreaBackground', color);
+		bodyStyle.setProperty(
+			'--color-graph-activitybar-visibleAreaBackground',
+			chroma(color)
+				.luminance(themeLuminance(isLightTheme ? 0.6 : 0.3))
+				.hex(),
+		);
 
 		color = computedStyle.getPropertyValue('--vscode-scrollbarSlider-hoverBackground').trim();
-		bodyStyle.setProperty('--color-graph-activitybar-visibleAreaHoverBackground', color);
+		bodyStyle.setProperty(
+			'--color-graph-activitybar-visibleAreaHoverBackground',
+			chroma(color)
+				.luminance(themeLuminance(isLightTheme ? 0.5 : 0.32))
+				.hex(),
+		);
 
-		color = computedStyle.getPropertyValue('--vscode-list-activeSelectionBackground').trim();
+		color = chroma(computedStyle.getPropertyValue('--vscode-list-activeSelectionBackground').trim())
+			.luminance(themeLuminance(isLightTheme ? 0.45 : 0.32))
+			.hex();
 		// color = computedStyle.getPropertyValue('--vscode-editorCursor-foreground').trim();
 		bodyStyle.setProperty('--color-graph-activitybar-selectedMarker', color);
 		bodyStyle.setProperty('--color-graph-activitybar-highlightedMarker', opacity(color, 60));
 
-		bodyStyle.setProperty('--color-graph-activitybar-resultMarker', '#ffff00');
-
-		bodyStyle.setProperty('--color-graph-activitybar-headBackground', '#006400');
-		bodyStyle.setProperty('--color-graph-activitybar-headBorder', '#008000');
-		bodyStyle.setProperty('--color-graph-activitybar-headForeground', '#ffffff');
 		bodyStyle.setProperty(
-			'--color-graph-activitybar-headMarker',
-			opacity(isLightTheme ? '#30cb30' : '#00ff00', 80),
+			'--color-graph-activitybar-resultMarker',
+			resultColor.luminance(themeLuminance(0.6)).hex(),
 		);
 
-		bodyStyle.setProperty('--color-graph-activitybar-upstreamBackground', '#006400');
-		bodyStyle.setProperty('--color-graph-activitybar-upstreamBorder', '#008000');
-		bodyStyle.setProperty('--color-graph-activitybar-upstreamForeground', '#ffffff');
+		const pillLabel = foregroundChroma.luminance(themeLuminance(isLightTheme ? 0 : 1)).hex();
+		const headBackground = headColor.luminance(themeLuminance(isLightTheme ? 0.9 : 0.2)).hex();
+		const headBorder = headColor.luminance(themeLuminance(isLightTheme ? 0.2 : 0.4)).hex();
+		const headMarker = headColor.luminance(themeLuminance(0.5)).hex();
+
+		bodyStyle.setProperty('--color-graph-activitybar-headBackground', headBackground);
+		bodyStyle.setProperty('--color-graph-activitybar-headBorder', headBorder);
+		bodyStyle.setProperty('--color-graph-activitybar-headForeground', pillLabel);
+		bodyStyle.setProperty('--color-graph-activitybar-headMarker', opacity(headMarker, 80));
+
+		bodyStyle.setProperty('--color-graph-activitybar-upstreamBackground', headBackground);
+		bodyStyle.setProperty('--color-graph-activitybar-upstreamBorder', headBorder);
+		bodyStyle.setProperty('--color-graph-activitybar-upstreamForeground', pillLabel);
+		bodyStyle.setProperty('--color-graph-activitybar-upstreamMarker', opacity(headMarker, 60));
+
+		const branchBackground = branchColor.luminance(themeLuminance(isLightTheme ? 0.8 : 0.3)).hex();
+		const branchBorder = branchColor.luminance(themeLuminance(isLightTheme ? 0.2 : 0.4)).hex();
+		const branchMarker = branchColor.luminance(themeLuminance(0.6)).hex();
+
+		bodyStyle.setProperty('--color-graph-activitybar-branchBackground', branchBackground);
+		bodyStyle.setProperty('--color-graph-activitybar-branchBorder', branchBorder);
+		bodyStyle.setProperty('--color-graph-activitybar-branchForeground', pillLabel);
+		bodyStyle.setProperty('--color-graph-activitybar-branchMarker', opacity(branchMarker, 70));
+
+		bodyStyle.setProperty('--color-graph-activitybar-remoteBackground', opacity(branchBackground, 80));
+		bodyStyle.setProperty('--color-graph-activitybar-remoteBorder', opacity(branchBorder, 80));
+		bodyStyle.setProperty('--color-graph-activitybar-remoteForeground', pillLabel);
+		bodyStyle.setProperty('--color-graph-activitybar-remoteMarker', opacity(branchMarker, 30));
+
 		bodyStyle.setProperty(
-			'--color-graph-activitybar-upstreamMarker',
-			opacity(isLightTheme ? '#30cb30' : '#00ff00', 60),
+			'--color-graph-activitybar-tagBackground',
+			tagColor.luminance(themeLuminance(isLightTheme ? 0.8 : 0.2)).hex(),
 		);
-
-		bodyStyle.setProperty('--color-graph-activitybar-branchBackground', '#8b4513');
-		bodyStyle.setProperty('--color-graph-activitybar-branchBorder', '#d2691e');
-		bodyStyle.setProperty('--color-graph-activitybar-branchForeground', '#ffffff');
-		bodyStyle.setProperty('--color-graph-activitybar-branchMarker', opacity('#ff7f50', 70));
-
-		bodyStyle.setProperty('--color-graph-activitybar-remoteBackground', opacity('#8b4513', 80));
-		bodyStyle.setProperty('--color-graph-activitybar-remoteBorder', opacity('#d2691e', 80));
-		bodyStyle.setProperty('--color-graph-activitybar-remoteForeground', '#ffffff');
-		bodyStyle.setProperty('--color-graph-activitybar-remoteMarker', opacity('#ff7f5080', 30));
-
-		bodyStyle.setProperty('--color-graph-activitybar-tagBackground', '#262626');
-		bodyStyle.setProperty('--color-graph-activitybar-tagBorder', '#4d4d4d');
-		bodyStyle.setProperty('--color-graph-activitybar-tagForeground', '#ffffff');
-		bodyStyle.setProperty('--color-graph-activitybar-tagMarker', opacity('#696969', 60));
+		bodyStyle.setProperty(
+			'--color-graph-activitybar-tagBorder',
+			tagColor.luminance(themeLuminance(isLightTheme ? 0.2 : 0.4)).hex(),
+		);
+		bodyStyle.setProperty('--color-graph-activitybar-tagForeground', pillLabel);
+		bodyStyle.setProperty(
+			'--color-graph-activitybar-tagMarker',
+			opacity(tagColor.luminance(themeLuminance(0.5)).hex(), 60),
+		);
 
 		// alert colors
 		color = computedStyle.getPropertyValue('--vscode-inputValidation-infoBackground').trim();
