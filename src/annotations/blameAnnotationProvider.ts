@@ -55,7 +55,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 	}
 
 	@log({ args: false })
-	protected async getComputedHeatmap(blame: GitBlame): Promise<ComputedHeatmap> {
+	protected getComputedHeatmap(blame: GitBlame): ComputedHeatmap {
 		const dates: Date[] = [];
 
 		let commit;
@@ -124,7 +124,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 
 		return {
 			coldThresholdTimestamp: coldThresholdTimestamp,
-			colors: await getHeatmapColors(),
+			colors: getHeatmapColors(),
 			computeRelativeAge: (date: Date) => computeRelativeAge(date, getLookupTable(date)),
 			computeOpacity: (date: Date) => {
 				const lookup = getLookupTable(date, true);

@@ -46,11 +46,11 @@ import {
 	UpdateRefsVisibilityCommandType,
 	UpdateSelectionCommandType,
 } from '../../../../plus/webviews/graph/protocol';
+import { mix, opacity } from '../../../../system/color';
 import { debounce } from '../../../../system/function';
 import type { IpcMessage, IpcNotificationType } from '../../../protocol';
 import { onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
-import { mix, opacity } from '../../shared/colors';
 import { GraphWrapper } from './GraphWrapper';
 import './graph.scss';
 

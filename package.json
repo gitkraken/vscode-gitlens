@@ -12742,7 +12742,7 @@
 		"@vscode/webview-ui-toolkit": "1.2.1",
 		"ansi-regex": "6.0.1",
 		"billboard.js": "3.7.2",
-		"chroma-js": "2.4.2",
+		"colorjs.io": "0.4.2",
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
 		"lit": "2.3.1",
@@ -12756,7 +12756,6 @@
 		"sortablejs": "1.15.0"
 	},
 	"devDependencies": {
-		"@types/chroma-js": "2.1.4",
 		"@types/glob": "8.0.1",
 		"@types/lodash-es": "4.17.6",
 		"@types/mocha": "10.0.1",

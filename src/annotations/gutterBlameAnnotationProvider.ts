@@ -86,7 +86,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 		let computedHeatmap;
 		if (cfg.heatmap.enabled) {
-			computedHeatmap = await this.getComputedHeatmap(blame);
+			computedHeatmap = this.getComputedHeatmap(blame);
 		}
 
 		for (const l of blame.lines) {

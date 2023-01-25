@@ -14,8 +14,8 @@ import { Colors, GlyphChars } from '../constants';
 import type { CommitFormatOptions } from '../git/formatters/commitFormatter';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitCommit } from '../git/models/commit';
+import { steps, toRgba } from '../system/color';
 import { getWidth, interpolate, pad } from '../system/string';
-import { toRgba } from '../webviews/apps/shared/colors';
 
 export interface ComputedHeatmap {
 	coldThresholdTimestamp: number;
@@ -58,7 +58,7 @@ const defaultHeatmapColors = [
 ];
 
 let heatmapColors: { hot: string[]; cold: string[] } | undefined;
-export async function getHeatmapColors() {
+export function getHeatmapColors() {
 	if (heatmapColors == null) {
 		const { coldColor, hotColor } = configuration.get('heatmap');
 
@@ -66,10 +66,13 @@ export async function getHeatmapColors() {
 		if (coldColor === defaultHeatmapColdColor && hotColor === defaultHeatmapHotColor) {
 			colors = defaultHeatmapColors;
 		} else {
-			const chroma = (await import(/* webpackChunkName: "heatmap-chroma" */ 'chroma-js')).default;
-			colors = chroma.scale([hotColor, coldColor]).mode('lrgb').classes(20).colors(20);
+			colors = steps(hotColor, coldColor, {
+				space: 'xyz',
+				outputSpace: 'srgb',
+				steps: 20,
+				maxSteps: 20,
+			}).map(c => c.toString({ format: 'hex' }));
 		}
-
 		heatmapColors = {
 			hot: colors.slice(0, 10),
 			cold: colors.slice(10, 20),

@@ -31,7 +31,7 @@ export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProvide
 			string,
 			{ decorationType: TextEditorDecorationType; rangesOrOptions: Range[] }
 		>();
-		const computedHeatmap = await this.getComputedHeatmap(blame);
+		const computedHeatmap = this.getComputedHeatmap(blame);
 
 		let commit: GitCommit | undefined;
 		for (const l of blame.lines) {
