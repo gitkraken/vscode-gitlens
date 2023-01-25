@@ -1,5 +1,5 @@
 import type { Disposable, Uri } from 'vscode';
-import { EventEmitter } from 'vscode';
+import { EventEmitter, window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitReference } from '../git/models/reference';
@@ -114,18 +114,20 @@ export class DeepLinkService implements Disposable {
 		this._disposables = [
 			container.uri.onUri((event: UriEvent) => {
 				if (event.type === UriTypes.DeepLink && this._state === DeepLinkServiceStates.Idle) {
-					if (!Object.values(DeepLinkTypes).includes(event.linkType)) {
-						// TODO@ramint Give an error message.
+					if (!event.repoId || !event.linkType || !event.uri || !event.remoteUrl) {
+						void window.showErrorMessage(`Error resolving deep link: missing required properties.`);
 						return;
 					}
 
-					if (!event.repoId || !event.linkType || !event.uri || !event.remoteUrl) {
-						// TODO@ramint Give an error message.
+					if (!Object.values(DeepLinkTypes).includes(event.linkType)) {
+						void window.showErrorMessage(`Error resolving deep link: unknown link type.`);
 						return;
 					}
 
 					if (event.linkType !== DeepLinkTypes.Remote && !event.targetId) {
-						// TODO@ramint Give an error message.
+						void window.showErrorMessage(
+							`Error resolving deep link of type ${event.linkType}: no target id provided.`,
+						);
 						return;
 					}
 
@@ -188,7 +190,7 @@ export class DeepLinkService implements Disposable {
 	}
 
 	async handleDeepLinkStateChange(serviceStateChange: DeepLinkServiceStateChange) {
-		const { state, action } = serviceStateChange;
+		const { state, action, data } = serviceStateChange;
 		let nextState = this._transitionTable[state][action];
 		let nextData: any;
 		let nextAction: DeepLinkServiceAction = DeepLinkServiceActions.DeepLinkErrored;
@@ -199,24 +201,26 @@ export class DeepLinkService implements Disposable {
 		this._state = nextState;
 		switch (nextState) {
 			case DeepLinkServiceStates.Idle:
+				if (action === DeepLinkServiceActions.DeepLinkResolved) {
+					void window.showInformationMessage(`Deep link resolved: ${this._uri?.toString()}`);
+				}
+
+				if (action === DeepLinkServiceActions.DeepLinkCanceled) {
+					void window.showInformationMessage(`Deep link cancelled: ${this._uri?.toString()}`);
+				}
+
+				if (action === DeepLinkServiceActions.DeepLinkErrored) {
+					void window.showErrorMessage(`Error resolving deep link: ${data?.message ?? 'unknown error'}`);
+				}
+
 				this._repoId = undefined;
 				this._repo = undefined;
 				this._remoteUrl = undefined;
 				this._remote = undefined;
 				this._targetId = undefined;
+				this._targetType = undefined;
 				this._targetSha = undefined;
-
-				if (action === DeepLinkServiceActions.DeepLinkResolved) {
-					// TODO@ramint Show a message that the deep link was resolved.
-				}
-
-				if (action === DeepLinkServiceActions.DeepLinkCanceled) {
-					// TODO@ramint Show a message that the deep link was canceled.
-				}
-
-				if (action === DeepLinkServiceActions.DeepLinkErrored) {
-					// TODO@ramint Show a message that the deep link errored.
-				}
+				this._uri = undefined;
 
 				return;
 
@@ -345,7 +349,7 @@ export class DeepLinkService implements Disposable {
 				}
 
 				if (this._targetType === DeepLinkTypes.Remote) {
-					void executeCommand(Commands.ShowGraphPage, { repoUri: this._repo.uri });
+					void executeCommand(Commands.ShowGraphPage, this._repo);
 					nextAction = DeepLinkServiceActions.DeepLinkResolved;
 					break;
 				}

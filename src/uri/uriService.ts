@@ -15,7 +15,6 @@ export class UriService implements Disposable {
 	private _uriHandler: UriHandler = { handleUri: this.handleUri.bind(this) };
 	private _uriEventEmitter: EventEmitter<UriEvent> = new EventEmitter<UriEvent>();
 
-	// TODO@ramint Figure out how to set up the disposable properly.
 	constructor(private readonly container: Container) {
 		this._disposable = window.registerUriHandler(this._uriHandler);
 	}
@@ -42,7 +41,6 @@ export class UriService implements Disposable {
 		if (uriType !== UriTypes.DeepLink) return null;
 		const repoId = uriSplit[2];
 		const remoteUrl = this.parseQuery(uri).url;
-		if (!repoId || !remoteUrl) return null;
 		if (uriSplit.length === 3) {
 			return {
 				type: UriTypes.DeepLink,
@@ -53,7 +51,6 @@ export class UriService implements Disposable {
 			};
 		}
 
-		if (uriSplit.length < 5) return null;
 		const linkTarget = uriSplit[3];
 		// The link target id is everything after the link target.
 		// For example, if the uri is /repolink/{repoId}/branch/{branchName}?url={remoteUrl},
@@ -80,7 +77,6 @@ export class UriService implements Disposable {
 
 	@log<UriHandler['handleUri']>({ args: { 0: u => u.with({ query: '' }).toString(true) } })
 	handleUri(uri: Uri) {
-		void window.showInformationMessage(`URI handler called: ${uri.toString()}`);
 		const uriSplit = uri.path.split('/');
 		if (uriSplit.length < 2) return;
 		const uriType = uriSplit[1];

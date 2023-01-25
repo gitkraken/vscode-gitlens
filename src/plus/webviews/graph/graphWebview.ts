@@ -298,17 +298,13 @@ export class GraphWebview extends WebviewBase<State> {
 		if (this.container.git.repositoryCount > 1) {
 			const [contexts] = parseCommandContext(Commands.ShowGraphPage, undefined, ...args);
 			const context = Array.isArray(contexts) ? contexts[0] : contexts;
-			// TODO@ramint This is a hack to get the repoUri directly from the command args. There should be a cleaner
-			// way to do this i.e. set up a context and get the repo uri from the context.
-			const repoUri = (args?.[0] as any)?.repoUri;
-			if (repoUri) {
-				this.repository = this.container.git.getRepository(repoUri);
-			}
 
 			if (context.type === 'scm' && context.scm.rootUri != null) {
 				this.repository = this.container.git.getRepository(context.scm.rootUri);
 			} else if (context.type === 'viewItem' && context.node instanceof RepositoryFolderNode) {
 				this.repository = context.node.repo;
+			} else if (context.type === 'repository' && context.repository instanceof Repository) {
+				this.repository = context.repository;
 			}
 
 			if (this.repository != null && this.isReady) {
