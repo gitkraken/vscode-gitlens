@@ -30,7 +30,8 @@ enum DeepLinkServiceActions {
 	DeepLinkCanceled = 'DeepLinkCanceled',
 	DeepLinkResolved = 'DeepLinkResolved',
 	DeepLinkErrored = 'DeepLinkErrored',
-	RepoMatched = 'RepoMatched',
+	RepoMatchedWithId = 'RepoMatchedWithId',
+	RepoMatchedWithRemoteUrl = 'RepoMatchedWithRemoteUrl',
 	RepoMatchFailed = 'RepoMatchFailed',
 	RepoAdded = 'RepoAdded',
 	RemoteMatched = 'RemoteMatched',
@@ -68,7 +69,8 @@ export class DeepLinkService implements Disposable {
 			[DeepLinkServiceActions.DeepLinkEventFired]: DeepLinkServiceStates.RepoMatch,
 		},
 		[DeepLinkServiceStates.RepoMatch]: {
-			[DeepLinkServiceActions.RepoMatched]: DeepLinkServiceStates.RemoteMatch,
+			[DeepLinkServiceActions.RepoMatchedWithId]: DeepLinkServiceStates.RemoteMatch,
+			[DeepLinkServiceActions.RepoMatchedWithRemoteUrl]: DeepLinkServiceStates.TargetMatch,
 			[DeepLinkServiceActions.RepoMatchFailed]: DeepLinkServiceStates.CloneOrAddRepo,
 		},
 		[DeepLinkServiceStates.CloneOrAddRepo]: {
@@ -77,7 +79,8 @@ export class DeepLinkService implements Disposable {
 			[DeepLinkServiceActions.DeepLinkCanceled]: DeepLinkServiceStates.Idle,
 		},
 		[DeepLinkServiceStates.AddedRepoMatch]: {
-			[DeepLinkServiceActions.RepoMatched]: DeepLinkServiceStates.RemoteMatch,
+			[DeepLinkServiceActions.RepoMatchedWithId]: DeepLinkServiceStates.RemoteMatch,
+			[DeepLinkServiceActions.RepoMatchedWithRemoteUrl]: DeepLinkServiceStates.TargetMatch,
 			[DeepLinkServiceActions.DeepLinkErrored]: DeepLinkServiceStates.Idle,
 		},
 		[DeepLinkServiceStates.RemoteMatch]: {
@@ -232,10 +235,23 @@ export class DeepLinkService implements Disposable {
 					break;
 				}
 
+				// Try to match a repo using the remote URL first, since that saves us some steps.
+				// As a fallback, try to match using the repo id.
 				for (const repo of this.container.git.repositories) {
+					for (const remote of await repo.getRemotes()) {
+						if (remote.url === this._remoteUrl) {
+							this._repo = repo;
+							this._remote = remote;
+							nextAction = DeepLinkServiceActions.RepoMatchedWithRemoteUrl;
+							break;
+						}
+					}
+
+					// Repo ID can be any valid SHA in the repo, though standard practice is to use the
+					// first commit SHA.
 					if (await this.container.git.validateReference(repo.path, this._repoId)) {
 						this._repo = repo;
-						nextAction = DeepLinkServiceActions.RepoMatched;
+						nextAction = DeepLinkServiceActions.RepoMatchedWithId;
 						break;
 					}
 				}
