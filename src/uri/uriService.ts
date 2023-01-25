@@ -78,7 +78,10 @@ export class UriEventHandler extends EventEmitter<UriEvent> implements UriHandle
 
 		if (uriSplit.length < 5) return null;
 		const linkTarget = uriSplit[3];
-		const linkTargetId = uriSplit[4];
+		// The link target id is everything after the link target.
+		// For example, if the uri is /repolink/{repoId}/branch/{branchName}?url={remoteUrl},
+		// the link target id is {branchName}
+		const linkTargetId = uriSplit.slice(4).join('/');
 
 		return {
 			type: UriTypes.DeepLink,
