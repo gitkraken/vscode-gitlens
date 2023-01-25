@@ -14,7 +14,7 @@ export class UriService implements Disposable {
 	private _disposable: Disposable;
 	private _uriHandler: UriEventHandler;
 
-	// TODO: Figure out how to set up the disposable properly.
+	// TODO@ramint Figure out how to set up the disposable properly.
 	constructor(private readonly container: Container) {
 		this._uriHandler = new UriEventHandler();
 		this._disposable = window.registerUriHandler(this._uriHandler);

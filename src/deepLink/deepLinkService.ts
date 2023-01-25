@@ -111,25 +111,25 @@ export class DeepLinkService implements Disposable {
 	};
 
 	constructor(private readonly container: Container) {
-		// TODO: Figure out how to set up the disposable properly here.
+		// TODO@ramint Figure out how to set up the disposable properly here.
 		this._disposable = new Disposable(() => {});
 		this._state = DeepLinkServiceStates.Idle;
-		// TODO: This creates a potential ordering dependency. Figure out how to fix this.
+		// TODO@ramint This creates a potential ordering dependency. Figure out how to fix this.
 		this._uriEvent = container.uri.getUriHandler().event;
 		this._uriEvent((event: UriEvent) => {
 			if (event.type === UriTypes.DeepLink && this._state === DeepLinkServiceStates.Idle) {
 				if (!Object.values(DeepLinkTypes).includes(event.linkType)) {
-					// TODO: Give an error message.
+					// TODO@ramint Give an error message.
 					return;
 				}
 
 				if (!event.repoId || !event.linkType || !event.uri || !event.remoteUrl) {
-					// TODO: Give an error message.
+					// TODO@ramint Give an error message.
 					return;
 				}
 
 				if (event.linkType !== DeepLinkTypes.Remote && !event.targetId) {
-					// TODO: Give an error message.
+					// TODO@ramint Give an error message.
 					return;
 				}
 
@@ -210,15 +210,15 @@ export class DeepLinkService implements Disposable {
 				this._targetSha = undefined;
 
 				if (action === DeepLinkServiceActions.DeepLinkResolved) {
-					// TODO: Show a message that the deep link was resolved.
+					// TODO@ramint Show a message that the deep link was resolved.
 				}
 
 				if (action === DeepLinkServiceActions.DeepLinkCanceled) {
-					// TODO: Show a message that the deep link was canceled.
+					// TODO@ramint Show a message that the deep link was canceled.
 				}
 
 				if (action === DeepLinkServiceActions.DeepLinkErrored) {
-					// TODO: Show a message that the deep link errored.
+					// TODO@ramint Show a message that the deep link errored.
 				}
 
 				return;
@@ -257,7 +257,7 @@ export class DeepLinkService implements Disposable {
 					break;
 				}
 
-				// TODO: Instead of erroring here, prompt the user to clone or add the repo, wait for the response,
+				// TODO@ramint Instead of erroring, prompt the user to clone or add the repo, wait for the response,
 				// and then choose an action based on whether the repo is successfully cloned/added, of the user
 				// cancels, or if there is an error.
 				nextAction = DeepLinkServiceActions.DeepLinkErrored;
@@ -292,7 +292,7 @@ export class DeepLinkService implements Disposable {
 					break;
 				}
 
-				// TODO: Instead of erroring here, prompt the user to add the remote, wait for the response,
+				// TODO@ramint Instead of erroring here, prompt the user to add the remote, wait for the response,
 				// and then choose an action based on whether the remote is successfully added, of the user
 				// cancels, or if there is an error.
 				nextAction = DeepLinkServiceActions.DeepLinkErrored;
@@ -333,7 +333,7 @@ export class DeepLinkService implements Disposable {
 					break;
 				}
 
-				// TODO: Instead of erroring here, prompt the user to fetch, wait for the response,
+				// TODO@ramint Instead of erroring here, prompt the user to fetch, wait for the response,
 				// and then choose an action based on whether the fetch was successful, of the user
 				// cancels, or if there is an error.
 				nextAction = DeepLinkServiceActions.DeepLinkErrored;

@@ -26,7 +26,7 @@ export class ServerConnection implements Disposable {
 	private _statusBarItem: StatusBarItem | undefined;
 
 	constructor(private readonly container: Container) {
-		// TODO: Figure out how to set up the disposable here.
+		// TODO@ramint Figure out how to set up the disposable here.
 		this._disposable = new Disposable(() => {});
 	}
 
