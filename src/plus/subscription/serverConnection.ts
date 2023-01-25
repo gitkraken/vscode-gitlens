@@ -1,5 +1,5 @@
-import type { CancellationToken, StatusBarItem } from 'vscode';
-import { CancellationTokenSource, Disposable, env, StatusBarAlignment, Uri, window } from 'vscode';
+import type { CancellationToken, Disposable, StatusBarItem } from 'vscode';
+import { CancellationTokenSource, env, StatusBarAlignment, Uri, window } from 'vscode';
 import { uuid } from '@env/crypto';
 import type { Response } from '@env/fetch';
 import { fetch, getProxyAgent } from '@env/fetch';
@@ -11,7 +11,6 @@ import type { DeferredEvent, DeferredEventExecutor } from '../../system/event';
 import { promisifyDeferred } from '../../system/event';
 import type { UriEvent } from '../../uri/uri';
 import { UriTypes } from '../../uri/uri';
-import type { UriEventHandler } from '../../uri/uriService';
 
 interface AccountInfo {
 	id: string;
@@ -21,18 +20,12 @@ interface AccountInfo {
 export class ServerConnection implements Disposable {
 	private _cancellationSource: CancellationTokenSource | undefined;
 	private _deferredCodeExchanges = new Map<string, DeferredEvent<string>>();
-	private _disposable: Disposable;
 	private _pendingStates = new Map<string, string[]>();
 	private _statusBarItem: StatusBarItem | undefined;
 
-	constructor(private readonly container: Container) {
-		// TODO@ramint Figure out how to set up the disposable here.
-		this._disposable = new Disposable(() => {});
-	}
+	constructor(private readonly container: Container) {}
 
-	dispose() {
-		this._disposable.dispose();
-	}
+	dispose() {}
 
 	@memoize()
 	private get baseApiUri(): Uri {
@@ -118,9 +111,11 @@ export class ServerConnection implements Disposable {
 
 		// Ensure there is only a single listener for the URI callback, in case the user starts the login process multiple times before completing it
 		let deferredCodeExchange = this._deferredCodeExchanges.get(scopeKey);
-		const uriHandler: UriEventHandler = this.container.uri.getUriHandler();
 		if (deferredCodeExchange == null) {
-			deferredCodeExchange = promisifyDeferred(uriHandler.event, this.getUriHandlerDeferredExecutor(scopeKey));
+			deferredCodeExchange = promisifyDeferred(
+				this.container.uri.onUri,
+				this.getUriHandlerDeferredExecutor(scopeKey),
+			);
 			this._deferredCodeExchanges.set(scopeKey, deferredCodeExchange);
 		}
 
@@ -157,7 +152,6 @@ export class ServerConnection implements Disposable {
 		input.ignoreFocusOut = true;
 
 		const disposables: Disposable[] = [];
-		const uriHandler: UriEventHandler = this.container.uri.getUriHandler();
 
 		try {
 			if (cancellationToken.isCancellationRequested) return;
@@ -193,7 +187,7 @@ export class ServerConnection implements Disposable {
 			});
 
 			if (uri != null) {
-				uriHandler.handleUri(uri);
+				this.container.uri.handleUri(uri);
 			}
 		} finally {
 			input.dispose();
@@ -211,7 +205,7 @@ export class ServerConnection implements Disposable {
 			// TODO: We should really support a code to token exchange, but just return the token from the query string
 			// await this.exchangeCodeForToken(uri.query);
 			// As the backend still doesn't implement yet the code to token exchange, we just validate the state returned
-			const query = parseQuery(uri);
+			const query = this.container.uri.parseQuery(uri);
 
 			const acceptedStates = this._pendingStates.get(_scopeKey);
 
@@ -247,12 +241,4 @@ export class ServerConnection implements Disposable {
 			this._statusBarItem = undefined;
 		}
 	}
-}
-
-function parseQuery(uri: Uri): Record<string, string> {
-	return uri.query.split('&').reduce<Record<string, string>>((prev, current) => {
-		const queryString = current.split('=');
-		prev[queryString[0]] = queryString[1];
-		return prev;
-	}, {});
 }

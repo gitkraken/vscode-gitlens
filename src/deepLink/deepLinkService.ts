@@ -1,5 +1,5 @@
-import type { Event, Uri } from 'vscode';
-import { Disposable, EventEmitter } from 'vscode';
+import type { Disposable, Uri } from 'vscode';
+import { EventEmitter } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitReference } from '../git/models/reference';
@@ -52,10 +52,9 @@ interface DeepLinkServiceStateChange {
 }
 
 export class DeepLinkService implements Disposable {
-	private _disposable: Disposable;
+	private _disposables: Disposable[] = [];
 	private _state: DeepLinkServiceState = DeepLinkServiceStates.Idle;
 	private _stateChange = new EventEmitter<DeepLinkServiceStateChange>();
-	private _uriEvent: Event<UriEvent>;
 	private _uri: Uri | undefined;
 	private _repoId: string | undefined;
 	private _repo: Repository | undefined;
@@ -111,47 +110,45 @@ export class DeepLinkService implements Disposable {
 	};
 
 	constructor(private readonly container: Container) {
-		// TODO@ramint Figure out how to set up the disposable properly here.
-		this._disposable = new Disposable(() => {});
 		this._state = DeepLinkServiceStates.Idle;
-		// TODO@ramint This creates a potential ordering dependency. Figure out how to fix this.
-		this._uriEvent = container.uri.getUriHandler().event;
-		this._uriEvent((event: UriEvent) => {
-			if (event.type === UriTypes.DeepLink && this._state === DeepLinkServiceStates.Idle) {
-				if (!Object.values(DeepLinkTypes).includes(event.linkType)) {
-					// TODO@ramint Give an error message.
-					return;
+		this._disposables = [
+			container.uri.onUri((event: UriEvent) => {
+				if (event.type === UriTypes.DeepLink && this._state === DeepLinkServiceStates.Idle) {
+					if (!Object.values(DeepLinkTypes).includes(event.linkType)) {
+						// TODO@ramint Give an error message.
+						return;
+					}
+
+					if (!event.repoId || !event.linkType || !event.uri || !event.remoteUrl) {
+						// TODO@ramint Give an error message.
+						return;
+					}
+
+					if (event.linkType !== DeepLinkTypes.Remote && !event.targetId) {
+						// TODO@ramint Give an error message.
+						return;
+					}
+
+					this._repoId = event.repoId;
+					this._targetType = event.linkType;
+					this._uri = event.uri;
+					this._remoteUrl = event.remoteUrl;
+					this._targetId = event.targetId;
+
+					this._stateChange.fire({
+						state: this._state,
+						action: DeepLinkServiceActions.DeepLinkEventFired,
+					});
 				}
-
-				if (!event.repoId || !event.linkType || !event.uri || !event.remoteUrl) {
-					// TODO@ramint Give an error message.
-					return;
-				}
-
-				if (event.linkType !== DeepLinkTypes.Remote && !event.targetId) {
-					// TODO@ramint Give an error message.
-					return;
-				}
-
-				this._repoId = event.repoId;
-				this._targetType = event.linkType;
-				this._uri = event.uri;
-				this._remoteUrl = event.remoteUrl;
-				this._targetId = event.targetId;
-
-				this._stateChange.fire({
-					state: this._state,
-					action: DeepLinkServiceActions.DeepLinkEventFired,
-				});
-			}
-		});
-		this._stateChange.event(async (serviceStateChange: DeepLinkServiceStateChange) => {
-			await this.handleDeepLinkStateChange(serviceStateChange);
-		});
+			}),
+			this._stateChange.event(async (serviceStateChange: DeepLinkServiceStateChange) => {
+				await this.handleDeepLinkStateChange(serviceStateChange);
+			}),
+		];
 	}
 
 	dispose() {
-		this._disposable.dispose();
+		this._disposables.forEach((disposable: Disposable) => void disposable.dispose());
 	}
 
 	async getShaForTarget(): Promise<string | undefined> {
