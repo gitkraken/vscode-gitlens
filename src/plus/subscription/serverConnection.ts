@@ -1,14 +1,17 @@
-import type { CancellationToken, Disposable, StatusBarItem, UriHandler } from 'vscode';
-import { CancellationTokenSource, env, EventEmitter, StatusBarAlignment, Uri, window } from 'vscode';
+import type { CancellationToken, StatusBarItem } from 'vscode';
+import { CancellationTokenSource, Disposable, env, StatusBarAlignment, Uri, window } from 'vscode';
 import { uuid } from '@env/crypto';
 import type { Response } from '@env/fetch';
 import { fetch, getProxyAgent } from '@env/fetch';
 import type { Container } from '../../container';
 import { Logger } from '../../logger';
-import { debug, getLogScope, log } from '../../system/decorators/log';
+import { debug, getLogScope } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import type { DeferredEvent, DeferredEventExecutor } from '../../system/event';
 import { promisifyDeferred } from '../../system/event';
+import type { UriEvent } from '../../uri/uri';
+import { UriTypes } from '../../uri/uri';
+import type { UriEventHandler } from '../../uri/uriService';
 
 interface AccountInfo {
 	id: string;
@@ -21,10 +24,10 @@ export class ServerConnection implements Disposable {
 	private _disposable: Disposable;
 	private _pendingStates = new Map<string, string[]>();
 	private _statusBarItem: StatusBarItem | undefined;
-	private _uriHandler = new UriEventHandler();
 
 	constructor(private readonly container: Container) {
-		this._disposable = window.registerUriHandler(this._uriHandler);
+		// TODO: Figure out how to set up the disposable here.
+		this._disposable = new Disposable(() => {});
 	}
 
 	dispose() {
@@ -115,11 +118,9 @@ export class ServerConnection implements Disposable {
 
 		// Ensure there is only a single listener for the URI callback, in case the user starts the login process multiple times before completing it
 		let deferredCodeExchange = this._deferredCodeExchanges.get(scopeKey);
+		const uriHandler: UriEventHandler = this.container.uri.getUriHandler();
 		if (deferredCodeExchange == null) {
-			deferredCodeExchange = promisifyDeferred(
-				this._uriHandler.event,
-				this.getUriHandlerDeferredExecutor(scopeKey),
-			);
+			deferredCodeExchange = promisifyDeferred(uriHandler.event, this.getUriHandlerDeferredExecutor(scopeKey));
 			this._deferredCodeExchanges.set(scopeKey, deferredCodeExchange);
 		}
 
@@ -156,6 +157,7 @@ export class ServerConnection implements Disposable {
 		input.ignoreFocusOut = true;
 
 		const disposables: Disposable[] = [];
+		const uriHandler: UriEventHandler = this.container.uri.getUriHandler();
 
 		try {
 			if (cancellationToken.isCancellationRequested) return;
@@ -191,7 +193,7 @@ export class ServerConnection implements Disposable {
 			});
 
 			if (uri != null) {
-				this._uriHandler.handleUri(uri);
+				uriHandler.handleUri(uri);
 			}
 		} finally {
 			input.dispose();
@@ -199,8 +201,13 @@ export class ServerConnection implements Disposable {
 		}
 	}
 
-	private getUriHandlerDeferredExecutor(_scopeKey: string): DeferredEventExecutor<Uri, string> {
-		return (uri: Uri, resolve, reject) => {
+	private getUriHandlerDeferredExecutor(_scopeKey: string): DeferredEventExecutor<UriEvent, string> {
+		return (uriEvent: UriEvent, resolve, reject) => {
+			if (uriEvent.type !== UriTypes.Auth) {
+				reject('Invalid Uri type');
+			}
+
+			const uri = uriEvent.uri;
 			// TODO: We should really support a code to token exchange, but just return the token from the query string
 			// await this.exchangeCodeForToken(uri.query);
 			// As the backend still doesn't implement yet the code to token exchange, we just validate the state returned
@@ -239,14 +246,6 @@ export class ServerConnection implements Disposable {
 			this._statusBarItem.dispose();
 			this._statusBarItem = undefined;
 		}
-	}
-}
-
-class UriEventHandler extends EventEmitter<Uri> implements UriHandler {
-	// Strip query strings from the Uri to avoid logging token, etc
-	@log<UriEventHandler['handleUri']>({ args: { 0: u => u.with({ query: '' }).toString(true) } })
-	handleUri(uri: Uri) {
-		this.fire(uri);
 	}
 }
 
