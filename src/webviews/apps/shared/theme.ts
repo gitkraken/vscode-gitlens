@@ -1,6 +1,5 @@
 /*global window document MutationObserver*/
-import chroma from 'chroma-js';
-import { darken, lighten, opacity } from './colors';
+import { Color, darken, lighten, opacity } from './colors';
 import type { Event } from './events';
 import { Emitter } from './events';
 
@@ -33,15 +32,15 @@ export function initializeAndWatchThemeColors() {
 		);
 
 		const backgroundColor = computedStyle.getPropertyValue('--vscode-editor-background').trim();
-		const backgroundChroma = chroma(backgroundColor);
-		const backgroundLuminance = backgroundChroma.luminance();
+		const backgroundChroma = Color.from(backgroundColor);
+		const backgroundLuminance = backgroundChroma.getRelativeLuminance();
 
 		let foregroundColor = computedStyle.getPropertyValue('--vscode-editor-foreground').trim();
 		if (!foregroundColor) {
 			foregroundColor = computedStyle.getPropertyValue('--vscode-foreground').trim();
 		}
-		const foregroundChroma = chroma(foregroundColor);
-		const foregroundLuminance = foregroundChroma.luminance();
+		const foregroundChroma = Color.from(foregroundColor);
+		const foregroundLuminance = foregroundChroma.getRelativeLuminance();
 
 		const themeLuminance = (luminance: number) => {
 			let min;
@@ -161,52 +160,55 @@ export function initializeAndWatchThemeColors() {
 		bodyStyle.setProperty('--color-graph-text-disabled', opacity(foregroundColor, 50));
 
 		// activity bar
-		const resultColor = chroma('#ffff00');
-		const headColor = chroma('#00ff00');
-		const branchColor = chroma('#ff7f50');
-		const tagColor = chroma('#15a0bf');
+		const resultColor = Color.fromHex('#ffff00');
+		const headColor = Color.fromHex('#00ff00');
+		const branchColor = Color.fromHex('#ff7f50');
+		const tagColor = Color.fromHex('#15a0bf');
 		color = computedStyle.getPropertyValue('--vscode-progressBar-background').trim();
-		const activityColor = chroma(color);
+		const activityColor = Color.from(color);
 		// bodyStyle.setProperty('--color-graph-activitybar-line0', color);
-		bodyStyle.setProperty('--color-graph-activitybar-line0', activityColor.luminance(themeLuminance(0.5)).hex());
+		bodyStyle.setProperty(
+			'--color-graph-activitybar-line0',
+			activityColor.luminance(themeLuminance(0.5)).toString(),
+		);
 
 		bodyStyle.setProperty(
 			'--color-graph-activitybar-focusLine',
-			backgroundChroma.luminance(themeLuminance(isLightTheme ? 0.6 : 0.2)).hex(),
+			backgroundChroma.luminance(themeLuminance(isLightTheme ? 0.6 : 0.2)).toString(),
 		);
 
 		color = computedStyle.getPropertyValue('--vscode-scrollbarSlider-background').trim();
 		bodyStyle.setProperty(
 			'--color-graph-activitybar-visibleAreaBackground',
-			chroma(color)
+			Color.from(color)
 				.luminance(themeLuminance(isLightTheme ? 0.6 : 0.3))
-				.hex(),
+				.toString(),
 		);
 
 		color = computedStyle.getPropertyValue('--vscode-scrollbarSlider-hoverBackground').trim();
 		bodyStyle.setProperty(
 			'--color-graph-activitybar-visibleAreaHoverBackground',
-			chroma(color)
+			Color.from(color)
 				.luminance(themeLuminance(isLightTheme ? 0.5 : 0.32))
-				.hex(),
+				.toString(),
 		);
 
-		color = chroma(computedStyle.getPropertyValue('--vscode-list-activeSelectionBackground').trim())
+		color = Color.from(computedStyle.getPropertyValue('--vscode-list-activeSelectionBackground').trim())
 			.luminance(themeLuminance(isLightTheme ? 0.45 : 0.32))
-			.hex();
+			.toString();
 		// color = computedStyle.getPropertyValue('--vscode-editorCursor-foreground').trim();
 		bodyStyle.setProperty('--color-graph-activitybar-selectedMarker', color);
 		bodyStyle.setProperty('--color-graph-activitybar-highlightedMarker', opacity(color, 60));
 
 		bodyStyle.setProperty(
 			'--color-graph-activitybar-resultMarker',
-			resultColor.luminance(themeLuminance(0.6)).hex(),
+			resultColor.luminance(themeLuminance(0.6)).toString(),
 		);
 
-		const pillLabel = foregroundChroma.luminance(themeLuminance(isLightTheme ? 0 : 1)).hex();
-		const headBackground = headColor.luminance(themeLuminance(isLightTheme ? 0.9 : 0.2)).hex();
-		const headBorder = headColor.luminance(themeLuminance(isLightTheme ? 0.2 : 0.4)).hex();
-		const headMarker = headColor.luminance(themeLuminance(0.5)).hex();
+		const pillLabel = foregroundChroma.luminance(themeLuminance(isLightTheme ? 0 : 1)).toString();
+		const headBackground = headColor.luminance(themeLuminance(isLightTheme ? 0.9 : 0.2)).toString();
+		const headBorder = headColor.luminance(themeLuminance(isLightTheme ? 0.2 : 0.4)).toString();
+		const headMarker = headColor.luminance(themeLuminance(0.5)).toString();
 
 		bodyStyle.setProperty('--color-graph-activitybar-headBackground', headBackground);
 		bodyStyle.setProperty('--color-graph-activitybar-headBorder', headBorder);
@@ -218,9 +220,9 @@ export function initializeAndWatchThemeColors() {
 		bodyStyle.setProperty('--color-graph-activitybar-upstreamForeground', pillLabel);
 		bodyStyle.setProperty('--color-graph-activitybar-upstreamMarker', opacity(headMarker, 60));
 
-		const branchBackground = branchColor.luminance(themeLuminance(isLightTheme ? 0.8 : 0.3)).hex();
-		const branchBorder = branchColor.luminance(themeLuminance(isLightTheme ? 0.2 : 0.4)).hex();
-		const branchMarker = branchColor.luminance(themeLuminance(0.6)).hex();
+		const branchBackground = branchColor.luminance(themeLuminance(isLightTheme ? 0.8 : 0.3)).toString();
+		const branchBorder = branchColor.luminance(themeLuminance(isLightTheme ? 0.2 : 0.4)).toString();
+		const branchMarker = branchColor.luminance(themeLuminance(0.6)).toString();
 
 		bodyStyle.setProperty('--color-graph-activitybar-branchBackground', branchBackground);
 		bodyStyle.setProperty('--color-graph-activitybar-branchBorder', branchBorder);
@@ -234,16 +236,16 @@ export function initializeAndWatchThemeColors() {
 
 		bodyStyle.setProperty(
 			'--color-graph-activitybar-tagBackground',
-			tagColor.luminance(themeLuminance(isLightTheme ? 0.8 : 0.2)).hex(),
+			tagColor.luminance(themeLuminance(isLightTheme ? 0.8 : 0.2)).toString(),
 		);
 		bodyStyle.setProperty(
 			'--color-graph-activitybar-tagBorder',
-			tagColor.luminance(themeLuminance(isLightTheme ? 0.2 : 0.4)).hex(),
+			tagColor.luminance(themeLuminance(isLightTheme ? 0.2 : 0.4)).toString(),
 		);
 		bodyStyle.setProperty('--color-graph-activitybar-tagForeground', pillLabel);
 		bodyStyle.setProperty(
 			'--color-graph-activitybar-tagMarker',
-			opacity(tagColor.luminance(themeLuminance(0.5)).hex(), 60),
+			opacity(tagColor.luminance(themeLuminance(0.5)).toString(), 60),
 		);
 
 		// alert colors
