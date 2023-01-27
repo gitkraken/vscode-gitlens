@@ -28,6 +28,11 @@ import type { RemoteProviders } from './remotes/remoteProviders';
 import type { RichRemoteProvider } from './remotes/richRemoteProvider';
 import type { GitSearch, SearchQuery } from './search';
 
+export interface GitDir {
+	readonly uri: Uri;
+	readonly commonUri?: Uri;
+}
+
 export const enum GitProviderId {
 	Git = 'git',
 	GitHub = 'github',
@@ -270,6 +275,7 @@ export interface GitProvider extends Disposable {
 		options?: { filters?: GitDiffFilter[] | undefined; similarityThreshold?: number | undefined },
 	): Promise<GitFile[] | undefined>;
 	getFileStatusForCommit(repoPath: string, uri: Uri, ref: string): Promise<GitFile | undefined>;
+	getGitDir?(repoPath: string): Promise<GitDir | undefined>;
 	getLastFetchedTimestamp(repoPath: string): Promise<number | undefined>;
 	getLog(
 		repoPath: string,

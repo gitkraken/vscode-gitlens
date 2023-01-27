@@ -1474,11 +1474,35 @@ export class Git {
 		}
 	}
 
-	async rev_parse__git_dir(cwd: string): Promise<string | undefined> {
-		const data = await this.git<string>({ cwd: cwd, errors: GitErrorHandling.Ignore }, 'rev-parse', '--git-dir');
-		// Make sure to normalize: https://github.com/git-for-windows/git/issues/2478
+	async rev_parse__git_dir(cwd: string): Promise<{ path: string; commonPath?: string } | undefined> {
+		const data = await this.git<string>(
+			{ cwd: cwd, errors: GitErrorHandling.Ignore },
+			'rev-parse',
+			'--git-dir',
+			'--git-common-dir',
+		);
+		if (data.length === 0) return undefined;
+
 		// Keep trailing spaces which are part of the directory name
-		return data.length === 0 ? undefined : normalizePath(data.trimLeft().replace(/[\r|\n]+$/, ''));
+		let [dotGitPath, commonDotGitPath] = data.split('\n').map(r => r.trimStart());
+
+		// Make sure to normalize: https://github.com/git-for-windows/git/issues/2478
+
+		if (!isAbsolute(dotGitPath)) {
+			dotGitPath = joinPaths(cwd, dotGitPath);
+		}
+		dotGitPath = normalizePath(dotGitPath);
+
+		if (commonDotGitPath) {
+			if (!isAbsolute(commonDotGitPath)) {
+				commonDotGitPath = joinPaths(cwd, commonDotGitPath);
+			}
+			commonDotGitPath = normalizePath(commonDotGitPath);
+
+			return { path: dotGitPath, commonPath: commonDotGitPath !== dotGitPath ? commonDotGitPath : undefined };
+		}
+
+		return { path: dotGitPath };
 	}
 
 	async rev_parse__show_toplevel(cwd: string): Promise<string | undefined> {

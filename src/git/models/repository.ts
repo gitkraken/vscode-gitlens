@@ -200,7 +200,6 @@ export class Repository implements Disposable {
 	private _providers: RemoteProviders | undefined;
 	private _remotes: Promise<GitRemote[]> | undefined;
 	private _remotesDisposable: Disposable | undefined;
-	private _repoWatcherDisposable: Disposable | undefined;
 	private _suspended: boolean;
 
 	constructor(
@@ -239,38 +238,68 @@ export class Repository implements Disposable {
 		this._suspended = suspended;
 		this._closed = closed;
 
-		const watcher = workspace.createFileSystemWatcher(
-			new RelativePattern(
-				this.uri,
-				'{\
-**/.git/config,\
-**/.git/index,\
-**/.git/HEAD,\
-**/.git/*_HEAD,\
-**/.git/MERGE_*,\
-**/.git/refs/**,\
-**/.git/rebase-merge/**,\
-**/.git/sequencer/**,\
-**/.git/worktrees/**,\
-**/.gitignore\
-}',
-			),
-		);
 		this._disposable = Disposable.from(
-			watcher,
-			watcher.onDidChange(this.onRepositoryChanged, this),
-			watcher.onDidCreate(this.onRepositoryChanged, this),
-			watcher.onDidDelete(this.onRepositoryChanged, this),
+			this.setupRepoWatchers(),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 		);
+
 		this.onConfigurationChanged();
+	}
+
+	private setupRepoWatchers() {
+		let disposable: Disposable | undefined;
+
+		void this.setupRepoWatchersCore().then(d => (disposable = d));
+
+		return {
+			dispose: () => void disposable?.dispose(),
+		};
+	}
+
+	private async setupRepoWatchersCore() {
+		const disposables: Disposable[] = [];
+
+		const watcher = workspace.createFileSystemWatcher(new RelativePattern(this.uri, '**/.gitignore'));
+		disposables.push(
+			watcher,
+			watcher.onDidChange(this.onGitIgnoreChanged, this),
+			watcher.onDidCreate(this.onGitIgnoreChanged, this),
+			watcher.onDidDelete(this.onGitIgnoreChanged, this),
+		);
+
+		function watch(this: Repository, uri: Uri, pattern: string) {
+			const watcher = workspace.createFileSystemWatcher(new RelativePattern(uri, pattern));
+
+			disposables.push(
+				watcher,
+				watcher.onDidChange(e => this.onRepositoryChanged(e, uri)),
+				watcher.onDidCreate(e => this.onRepositoryChanged(e, uri)),
+				watcher.onDidDelete(e => this.onRepositoryChanged(e, uri)),
+			);
+			return watcher;
+		}
+
+		const gitDir = await this.container.git.getGitDir(this.path);
+		if (gitDir != null) {
+			if (gitDir?.commonUri == null) {
+				watch.call(
+					this,
+					gitDir.uri,
+					'{index,HEAD,*_HEAD,MERGE_*,config,refs/**,rebase-merge/**,sequencer/**,worktrees/**}',
+				);
+			} else {
+				watch.call(this, gitDir.uri, '{index,HEAD,*_HEAD,MERGE_*,rebase-merge/**,sequencer/**}');
+				watch.call(this, gitDir.commonUri, '{config,refs/**,worktrees/**}');
+			}
+		}
+
+		return Disposable.from(...disposables);
 	}
 
 	dispose() {
 		this.stopWatchingFileSystem();
 
 		this._remotesDisposable?.dispose();
-		this._repoWatcherDisposable?.dispose();
 		this._disposable.dispose();
 	}
 
@@ -311,24 +340,29 @@ export class Repository implements Disposable {
 	}
 
 	@debug()
-	private onRepositoryChanged(uri: Uri | undefined) {
+	private onGitIgnoreChanged(_uri: Uri) {
+		this.fireChange(RepositoryChange.Ignores);
+	}
+
+	@debug()
+	private onRepositoryChanged(uri: Uri | undefined, base: Uri) {
+		// TODO@eamodio Revisit -- as I can't seem to get this to work as a negative glob pattern match when creating the watcher
+		if (uri?.path.includes('/fsmonitor--daemon/')) {
+			return;
+		}
+
 		this._lastFetched = undefined;
 
 		const match =
 			uri != null
-				? /(?<ignore>\/\.gitignore)|\.git\/(?<type>config|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|refs\/(?:heads|remotes|stash|tags)|worktrees)/.exec(
-						uri.path,
+				? // Move worktrees first, since if it is in a worktree it isn't affecting this repo directly
+				  /(worktrees|index|HEAD|FETCH_HEAD|ORIG_HEAD|CHERRY_PICK_HEAD|MERGE_HEAD|REBASE_HEAD|rebase-merge|config|refs\/(?:heads|remotes|stash|tags))/.exec(
+						this.container.git.getRelativePath(uri, base),
 				  )
 				: undefined;
-		if (match?.groups != null) {
-			const { ignore, type } = match.groups;
 
-			if (ignore) {
-				this.fireChange(RepositoryChange.Ignores);
-				return;
-			}
-
-			switch (type) {
+		if (match != null) {
+			switch (match[1]) {
 				case 'config':
 					this.resetCaches();
 					this.fireChange(RepositoryChange.Config, RepositoryChange.Remotes);

@@ -29,6 +29,7 @@ import {
 	WorktreeDeleteErrorReason,
 } from '../../../git/errors';
 import type {
+	GitDir,
 	GitProvider,
 	GitProviderDescriptor,
 	NextComparisonUrisResult,
@@ -184,7 +185,7 @@ const stashSummaryRegex =
 const reflogCommands = ['merge', 'pull'];
 
 interface RepositoryInfo {
-	gitDir?: string;
+	gitDir?: GitDir;
 	user?: GitUser | null;
 }
 
@@ -2494,25 +2495,40 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@debug()
+	async getGitDir(repoPath: string): Promise<GitDir> {
+		const repo = this._repoInfoCache.get(repoPath);
+		if (repo?.gitDir != null) return repo.gitDir;
+
+		const gitDirPaths = await this.git.rev_parse__git_dir(repoPath);
+
+		let gitDir: GitDir;
+		if (gitDirPaths != null) {
+			gitDir = {
+				uri: Uri.file(gitDirPaths.path),
+				commonUri: gitDirPaths.commonPath != null ? Uri.file(gitDirPaths.commonPath) : undefined,
+			};
+		} else {
+			gitDir = {
+				uri: this.getAbsoluteUri('.git', repoPath),
+			};
+		}
+		this._repoInfoCache.set(repoPath, { ...repo, gitDir: gitDir });
+
+		return gitDir;
+	}
+
+	@debug()
 	async getLastFetchedTimestamp(repoPath: string): Promise<number | undefined> {
 		try {
 			const gitDir = await this.getGitDir(repoPath);
-			const stats = await workspace.fs.stat(this.container.git.getAbsoluteUri(`${gitDir}/FETCH_HEAD`, repoPath));
+			const stats = await workspace.fs.stat(
+				this.container.git.getAbsoluteUri(Uri.joinPath(gitDir.commonUri ?? gitDir.uri, 'FETCH_HEAD'), repoPath),
+			);
 			// If the file is empty, assume the fetch failed, and don't update the timestamp
 			if (stats.size > 0) return stats.mtime;
 		} catch {}
 
 		return undefined;
-	}
-
-	private async getGitDir(repoPath: string): Promise<string> {
-		const repo = this._repoInfoCache.get(repoPath);
-		if (repo?.gitDir != null) return repo.gitDir;
-
-		const gitDir = normalizePath((await this.git.rev_parse__git_dir(repoPath)) || '.git');
-		this._repoInfoCache.set(repoPath, { ...repo, gitDir: gitDir });
-
-		return gitDir;
 	}
 
 	@log()
