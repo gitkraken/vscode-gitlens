@@ -127,8 +127,8 @@ export class Repositories {
 		return this._trie.has(uri);
 	}
 
-	remove(uri: Uri): boolean {
-		const deleted = this._trie.delete(uri);
+	remove(uri: Uri, dispose: boolean = true): boolean {
+		const deleted = this._trie.delete(uri, dispose);
 		if (deleted) {
 			this._count--;
 		}
