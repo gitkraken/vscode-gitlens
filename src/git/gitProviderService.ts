@@ -32,6 +32,7 @@ import { getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../
 import { cancellable, fastestSettled, getSettledValue, isPromise, PromiseCancelledError } from '../system/promise';
 import { VisitedPathsTrie } from '../system/trie';
 import type {
+	GitDir,
 	GitProvider,
 	GitProviderDescriptor,
 	GitProviderId,
@@ -278,7 +279,7 @@ export class GitProviderService implements Disposable {
 			for (const folder of e.removed) {
 				const repository = this._repositories.getClosest(folder.uri);
 				if (repository != null) {
-					this._repositories.remove(repository.uri);
+					this._repositories.remove(repository.uri, false);
 					removed.push(repository);
 				}
 			}
@@ -427,7 +428,7 @@ export class GitProviderService implements Disposable {
 
 				for (const repository of [...this._repositories.values()]) {
 					if (repository?.provider.id === id) {
-						this._repositories.remove(repository.uri);
+						this._repositories.remove(repository.uri, false);
 						removed.push(repository);
 					}
 				}
@@ -1510,6 +1511,12 @@ export class GitProviderService implements Disposable {
 
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getFileStatusForCommit(path, uri, ref);
+	}
+
+	@debug()
+	getGitDir(repoPath: string): Promise<GitDir | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return Promise.resolve(provider.getGitDir?.(path));
 	}
 
 	@debug()
