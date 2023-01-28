@@ -1,8 +1,4 @@
-import type Color from 'colorjs.io';
-import { steps as _steps } from 'colorjs.io/fn';
-import type { ColorTypes } from 'colorjs.io/types/src/color';
-import type { Methods } from 'colorjs.io/types/src/index-fn';
-import type { RangeOptions } from 'colorjs.io/types/src/interpolation';
+import { steps as interpolateSteps } from 'colorjs.io/fn';
 
 const cssColorRegex =
 	/^(?:(#?)([0-9a-f]{3}|[0-9a-f]{6})|((?:rgb|hsl)a?)\((-?\d+%?)[,\s]+(-?\d+%?)[,\s]+(-?\d+%?)[,\s]*(-?[\d.]+%?)?\))$/i;
@@ -16,6 +12,15 @@ function adjustLight(color: number, amount: number) {
 
 export function darken(color: string, percentage: number) {
 	return lighten(color, -percentage);
+}
+
+export function interpolate(color1: string, color2: string, steps: number): string[] {
+	return interpolateSteps(color1, color2, {
+		space: 'xyz',
+		outputSpace: 'srgb',
+		steps: steps,
+		maxSteps: steps,
+	}).map(c => c.toString({ format: 'hex' }));
 }
 
 export function lighten(color: string, percentage: number) {
@@ -51,18 +56,6 @@ export function mix(color1: string, color2: string, percentage: number) {
 const mixChannel = (channel1: number, channel2: number, percentage: number) => {
 	return channel1 + ((channel2 - channel1) * percentage) / 100;
 };
-
-interface StepsOptions extends RangeOptions {
-	maxDeltaE?: number | undefined;
-	deltaEMethod?: Methods | undefined;
-	steps?: number | undefined;
-	maxSteps?: number | undefined;
-}
-
-export function steps(color1: ColorTypes, color2: ColorTypes, options?: StepsOptions): Color[] {
-	type Steps = (color1: ColorTypes, color2: ColorTypes, options?: StepsOptions) => Color[];
-	return (_steps as Steps)(color1, color2, options);
-}
 
 export function toRgba(color: string) {
 	color = color.trim();
