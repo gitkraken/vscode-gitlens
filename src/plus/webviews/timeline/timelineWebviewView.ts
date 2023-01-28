@@ -8,6 +8,7 @@ import type { FileSelectedEvent } from '../../../eventBus';
 import { PlusFeatures } from '../../../features';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import { GitUri } from '../../../git/gitUri';
+import { getChangedFilesCount } from '../../../git/models/commit';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import { registerCommand } from '../../../system/command';
@@ -279,7 +280,10 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 		}
 
 		let queryRequiredCommits = [
-			...filter(log.commits.values(), c => c.file?.stats == null && c.stats?.changedFiles !== 1),
+			...filter(
+				log.commits.values(),
+				c => c.file?.stats == null && getChangedFilesCount(c.stats?.changedFiles) !== 1,
+			),
 		];
 
 		if (queryRequiredCommits.length !== 0) {
@@ -304,7 +308,9 @@ export class TimelineWebviewView extends WebviewViewBase<State> {
 
 		const dataset: Commit[] = [];
 		for (const commit of log.commits.values()) {
-			const stats = commit.file?.stats ?? (commit.stats?.changedFiles === 1 ? commit.stats : undefined);
+			const stats =
+				commit.file?.stats ??
+				(getChangedFilesCount(commit.stats?.changedFiles) === 1 ? commit.stats : undefined);
 			dataset.push({
 				author: commit.author.name === 'You' ? name : commit.author.name,
 				additions: stats?.additions,

@@ -41,7 +41,7 @@ import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../.
 import type { BranchSortOptions } from '../../git/models/branch';
 import { getBranchId, GitBranch, sortBranches } from '../../git/models/branch';
 import type { GitCommitLine } from '../../git/models/commit';
-import { GitCommit, GitCommitIdentity } from '../../git/models/commit';
+import { getChangedFilesCount, GitCommit, GitCommitIdentity } from '../../git/models/commit';
 import { GitContributor } from '../../git/models/contributor';
 import type { GitDiff, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from '../../git/models/diff';
 import type { GitFile } from '../../git/models/file';
@@ -867,10 +867,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		const { stats } = commit;
 
-		const changedFiles =
-			typeof stats.changedFiles === 'number'
-				? stats.changedFiles
-				: stats.changedFiles.added + stats.changedFiles.changed + stats.changedFiles.deleted;
+		const changedFiles = getChangedFilesCount(stats.changedFiles);
 		return { additions: stats.additions, deletions: stats.deletions, changedFiles: changedFiles };
 	}
 

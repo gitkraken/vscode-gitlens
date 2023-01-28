@@ -364,7 +364,7 @@ export class GitCommit implements GitRevisionReference {
 		if (stats == null) return options?.empty ?? '';
 
 		const { changedFiles, additions, deletions } = stats;
-		if (changedFiles <= 0 && additions <= 0 && deletions <= 0) return options?.empty ?? '';
+		if (getChangedFilesCount(changedFiles) <= 0 && additions <= 0 && deletions <= 0) return options?.empty ?? '';
 
 		const {
 			compact = false,
@@ -648,6 +648,14 @@ export interface GitCommitStats {
 	readonly additions: number;
 	readonly deletions: number;
 	readonly changedFiles: number | { added: number; deleted: number; changed: number };
+}
+
+export function getChangedFilesCount(changedFiles: GitCommitStats['changedFiles'] | undefined): number {
+	if (changedFiles == null) return 0;
+
+	return typeof changedFiles === 'number'
+		? changedFiles
+		: changedFiles.added + changedFiles.changed + changedFiles.deleted;
 }
 
 export interface GitStashCommit extends GitCommit {
