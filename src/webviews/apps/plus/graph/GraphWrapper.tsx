@@ -8,6 +8,7 @@ import type {
 	GraphRefOptData,
 	GraphRow,
 	GraphZoneType,
+	Head,
 	OnFormatCommitDateTime,
 } from '@gitkraken/gitkraken-components';
 import GraphContainer, { GRAPH_ZONE_TYPE, REF_ZONE_TYPE } from '@gitkraken/gitkraken-components';
@@ -35,6 +36,7 @@ import type {
 	GraphSearchResultsError,
 	InternalNotificationType,
 	State,
+	UpdateGraphConfigurationParams,
 	UpdateStateCallback,
 } from '../../../../plus/webviews/graph/protocol';
 import {
@@ -63,6 +65,14 @@ import { SearchBox } from '../../shared/components/search/react';
 import type { SearchNavigationEventDetail } from '../../shared/components/search/search-box';
 import type { DateTimeFormat } from '../../shared/date';
 import { formatDate, fromNow } from '../../shared/date';
+import type {
+	ActivityMarker,
+	ActivityMinibar as ActivityMinibarType,
+	ActivitySearchResultMarker,
+	ActivityStats,
+	ActivityStatsSelectedEventDetail,
+} from '../activity/activity-minibar';
+import { ActivityMinibar } from '../activity/react';
 
 export interface GraphWrapperProps {
 	nonce?: string;
@@ -88,6 +98,7 @@ export interface GraphWrapperProps {
 	onEnsureRowPromise?: (id: string, select: boolean) => Promise<DidEnsureRowParams | undefined>;
 	onExcludeType?: (key: keyof GraphExcludeTypes, value: boolean) => void;
 	onIncludeOnlyRef?: (all: boolean) => void;
+	onUpdateGraphConfiguration?: (changes: UpdateGraphConfigurationParams['changes']) => void;
 }
 
 const getGraphDateFormatter = (config?: GraphComponentConfig): OnFormatCommitDateTime => {
@@ -168,6 +179,7 @@ export function GraphWrapper({
 	onDismissBanner,
 	onExcludeType,
 	onIncludeOnlyRef,
+	onUpdateGraphConfiguration,
 }: GraphWrapperProps) {
 	const graphRef = useRef<GraphContainer>(null);
 
@@ -180,6 +192,8 @@ export function GraphWrapper({
 	);
 	const [selectedRows, setSelectedRows] = useState(state.selectedRows);
 	const [activeRow, setActiveRow] = useState(state.activeRow);
+	const [activeDay, setActiveDay] = useState(state.activeDay);
+	const [visibleDays, setVisibleDays] = useState(state.visibleDays);
 	const [graphConfig, setGraphConfig] = useState(state.config);
 	// const [graphDateFormatter, setGraphDateFormatter] = useState(getGraphDateFormatter(config));
 	const [columns, setColumns] = useState(state.columns);
@@ -213,6 +227,8 @@ export function GraphWrapper({
 	const [workingTreeStats, setWorkingTreeStats] = useState(
 		state.workingTreeStats ?? { added: 0, modified: 0, deleted: 0 },
 	);
+
+	const activityMinibar = useRef<ActivityMinibarType | undefined>(undefined);
 
 	const ensuredIds = useRef<Set<string>>(new Set());
 	const ensuredSkippedIds = useRef<Set<string>>(new Set());
@@ -327,6 +343,206 @@ export function GraphWrapper({
 			window.removeEventListener('keydown', handleKeyDown);
 		};
 	}, [activeRow]);
+
+	const activityData = useMemo(() => {
+		if (!graphConfig?.activityMinibar) return undefined;
+
+		// Loops through all the rows and group them by day and aggregate the row.stats
+		const statsByDayMap = new Map<number, ActivityStats>();
+		const markersByDay = new Map<number, ActivityMarker[]>();
+
+		let rankedShas: {
+			head: string | undefined;
+			branch: string | undefined;
+			remote: string | undefined;
+			tag: string | undefined;
+		} = {
+			head: undefined,
+			branch: undefined,
+			remote: undefined,
+			tag: undefined,
+		};
+
+		let day;
+		let prevDay;
+
+		let head: Head | undefined;
+		let markers;
+		let headMarkers;
+		let remoteMarkers;
+		let tagMarkers;
+		let row: GraphRow;
+		let stat;
+		let stats;
+
+		// Iterate in reverse order so that we can track the HEAD upstream properly
+		for (let i = rows.length - 1; i >= 0; i--) {
+			row = rows[i];
+			stats = row.stats;
+
+			day = getDay(row.date);
+			if (day !== prevDay) {
+				prevDay = day;
+				rankedShas = {
+					head: undefined,
+					branch: undefined,
+					remote: undefined,
+					tag: undefined,
+				};
+			}
+
+			if (row.heads?.length) {
+				rankedShas.branch = row.sha;
+
+				// eslint-disable-next-line no-loop-func
+				headMarkers = row.heads.map<ActivityMarker>(h => {
+					if (h.isCurrentHead) {
+						head = h;
+						rankedShas.head = row.sha;
+					}
+
+					return {
+						type: 'branch',
+						name: h.name,
+						current: h.isCurrentHead,
+					};
+				});
+
+				markers = markersByDay.get(day);
+				if (markers == null) {
+					markersByDay.set(day, headMarkers);
+				} else {
+					markers.push(...headMarkers);
+				}
+			}
+
+			if (row.remotes?.length) {
+				rankedShas.remote = row.sha;
+
+				// eslint-disable-next-line no-loop-func
+				remoteMarkers = row.remotes.map<ActivityMarker>(r => {
+					let current = false;
+					if (r.name === head?.name) {
+						rankedShas.remote = row.sha;
+						current = true;
+					}
+
+					return {
+						type: 'remote',
+						name: `${r.owner}/${r.name}`,
+						current: current,
+					};
+				});
+
+				markers = markersByDay.get(day);
+				if (markers == null) {
+					markersByDay.set(day, remoteMarkers);
+				} else {
+					markers.push(...remoteMarkers);
+				}
+			}
+
+			if (row.tags?.length) {
+				rankedShas.tag = row.sha;
+
+				tagMarkers = row.tags.map<ActivityMarker>(t => ({
+					type: 'tag',
+					name: t.name,
+				}));
+
+				markers = markersByDay.get(day);
+				if (markers == null) {
+					markersByDay.set(day, tagMarkers);
+				} else {
+					markers.push(...tagMarkers);
+				}
+			}
+
+			stat = statsByDayMap.get(day);
+			if (stat == null) {
+				stat =
+					stats != null
+						? {
+								activity: { additions: stats.additions, deletions: stats.deletions },
+								commits: 1,
+								files: stats.files,
+								sha: row.sha,
+						  }
+						: {
+								commits: 1,
+								sha: row.sha,
+						  };
+				statsByDayMap.set(day, stat);
+			} else {
+				stat.commits++;
+				stat.sha = rankedShas.head ?? rankedShas.branch ?? rankedShas.remote ?? rankedShas.tag ?? stat.sha;
+				if (stats != null) {
+					if (stat.activity == null) {
+						stat.activity = { additions: stats.additions, deletions: stats.deletions };
+					} else {
+						stat.activity.additions += stats.additions;
+						stat.activity.deletions += stats.deletions;
+					}
+					stat.files = (stat.files ?? 0) + stats.files;
+				}
+			}
+		}
+
+		return { stats: statsByDayMap, markers: markersByDay };
+	}, [rows, graphConfig?.activityMinibar]);
+
+	const activitySearchResults = useMemo(() => {
+		if (!graphConfig?.activityMinibar) return undefined;
+
+		const searchResultsByDay = new Map<number, ActivitySearchResultMarker>();
+
+		if (searchResults?.ids != null) {
+			let day;
+			let sha;
+			let r;
+			let result;
+			for ([sha, r] of Object.entries(searchResults.ids)) {
+				day = getDay(r.date);
+
+				result = searchResultsByDay.get(day);
+				if (result == null) {
+					searchResultsByDay.set(day, { type: 'search-result', sha: sha });
+				}
+			}
+		}
+
+		return searchResultsByDay;
+	}, [searchResults, graphConfig?.activityMinibar]);
+
+	const handleOnActivityStatsSelected = (e: CustomEvent<ActivityStatsSelectedEventDetail>) => {
+		let { sha } = e.detail;
+		if (sha == null) {
+			const date = e.detail.date?.getTime();
+			if (date == null) return;
+
+			// Find closest row to the date
+			const closest = rows.reduce((prev, curr) =>
+				Math.abs(curr.date - date) < Math.abs(prev.date - date) ? curr : prev,
+			);
+			sha = closest.sha;
+		}
+
+		graphRef.current?.selectCommits([sha], false, true);
+	};
+
+	const handleOnToggleActivityMinibar = (_e: React.MouseEvent) => {
+		onUpdateGraphConfiguration?.({ activityMinibar: !graphConfig?.activityMinibar });
+	};
+
+	const handleOnGraphMouseLeave = (_event: any) => {
+		activityMinibar.current?.unselect(undefined, true);
+	};
+
+	const handleOnGraphRowHovered = (_event: any, graphZoneType: GraphZoneType, graphRow: GraphRow) => {
+		if (graphZoneType === REF_ZONE_TYPE || activityMinibar.current == null) return;
+
+		activityMinibar.current?.select(graphRow.date, true);
+	};
 
 	const handleKeyDown = (e: KeyboardEvent) => {
 		if (e.key === 'Enter' || e.key === ' ') {
@@ -596,6 +812,13 @@ export function GraphWrapper({
 		}
 	};
 
+	const handleOnGraphVisibleRowsChanged = (top: GraphRow, bottom: GraphRow) => {
+		setVisibleDays({
+			top: new Date(top.date).setHours(23, 59, 59, 999),
+			bottom: new Date(bottom.date).setHours(0, 0, 0, 0),
+		});
+	};
+
 	const handleOnGraphColumnsReOrdered = (columnsSettings: GraphColumnsSettings) => {
 		const graphColumnsConfig: GraphColumnsConfig = {};
 		for (const [columnName, config] of Object.entries(columnsSettings as GraphColumnsConfig)) {
@@ -634,6 +857,8 @@ export function GraphWrapper({
 		// HACK: Ensure the main state is updated since it doesn't come from the extension
 		state.activeRow = activeKey;
 		setActiveRow(activeKey);
+		setActiveDay(active?.date);
+
 		onSelectionChange?.(rows);
 	};
 
@@ -992,6 +1217,18 @@ export function GraphWrapper({
 								onNavigate={e => handleSearchNavigation(e as CustomEvent<SearchNavigationEventDetail>)}
 								onOpenInView={() => handleSearchOpenInView()}
 							/>
+							<span>
+								<span className="action-divider"></span>
+							</span>
+							<button
+								type="button"
+								className="action-button action-button--narrow"
+								title="Toggle Activity Minibar (experimental)"
+								aria-label="Toggle Activity Minibar (experimental)"
+								onClick={handleOnToggleActivityMinibar}
+							>
+								<span className="codicon codicon-graph-line action-button__icon"></span>
+							</button>
 						</div>
 					</div>
 				)}
@@ -999,6 +1236,17 @@ export function GraphWrapper({
 					<div className="progress-bar"></div>
 				</div>
 			</header>
+			{graphConfig?.activityMinibar && (
+				<ActivityMinibar
+					ref={activityMinibar as any}
+					activeDay={activeDay}
+					data={activityData?.stats}
+					markers={activityData?.markers}
+					searchResults={activitySearchResults}
+					visibleDays={visibleDays}
+					onSelected={e => handleOnActivityStatsSelected(e as CustomEvent<ActivityStatsSelectedEventDetail>)}
+				></ActivityMinibar>
+			)}
 			<main
 				id="main"
 				className={`graph-app__main${!isAccessAllowed ? ' is-gated' : ''}`}
@@ -1037,11 +1285,16 @@ export function GraphWrapper({
 							onDoubleClickGraphRow={handleOnDoubleClickRow}
 							onDoubleClickGraphRef={handleOnDoubleClickRef}
 							onGraphColumnsReOrdered={handleOnGraphColumnsReOrdered}
+							onGraphMouseLeave={activityMinibar.current ? handleOnGraphMouseLeave : undefined}
+							onGraphRowHovered={activityMinibar.current ? handleOnGraphRowHovered : undefined}
 							onSelectGraphRows={handleSelectGraphRows}
 							onToggleRefsVisibilityClick={handleOnToggleRefsVisibilityClick}
 							onEmailsMissingAvatarUrls={handleMissingAvatars}
 							onRefsMissingMetadata={handleMissingRefsMetadata}
 							onShowMoreCommits={handleMoreCommits}
+							onGraphVisibleRowsChanged={
+								activityMinibar.current ? handleOnGraphVisibleRowsChanged : undefined
+							}
 							platform={clientPlatform}
 							refMetadataById={refsMetadata}
 							shaLength={graphConfig?.idLength}
@@ -1202,4 +1455,8 @@ function getSearchResultModel(state: State): {
 		}
 	}
 	return { results: results, resultsError: resultsError };
+}
+
+function getDay(date: number | Date): number {
+	return new Date(date).setHours(0, 0, 0, 0);
 }
