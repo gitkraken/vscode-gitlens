@@ -86,7 +86,7 @@ const styles = css`
 
 	/*-- Grid --*/
 	.bb-xgrid-focus line {
-		stroke: var(--color-graph-activitybar-focusLine);
+		stroke: var(--color-activityMinibar-focusLine);
 	}
 
 	/*-- Line --*/
@@ -123,7 +123,7 @@ const styles = css`
 	/*-- Regions --*/
 
 	.bb-region.visible-area {
-		fill: var(--color-graph-activitybar-visibleAreaBackground);
+		fill: var(--color-activityMinibar-visibleAreaBackground);
 		transform: translateY(26px);
 		z-index: 0;
 	}
@@ -132,11 +132,11 @@ const styles = css`
 	}
 
 	:host(:hover) .bb-region.visible-area {
-		fill: var(--color-graph-activitybar-visibleAreaHoverBackground);
+		fill: var(--color-activityMinibar-visibleAreaHoverBackground);
 	}
 
 	.bb-region.marker-result {
-		fill: var(--color-graph-activitybar-resultMarker);
+		fill: var(--color-activityMinibar-resultMarker);
 		transform: translate(-1px, -4px);
 		z-index: 10;
 	}
@@ -146,7 +146,7 @@ const styles = css`
 	}
 
 	.bb-region.marker-head {
-		fill: var(--color-graph-activitybar-headMarker);
+		fill: var(--color-activityMinibar-headMarker);
 		transform: translate(0px, -4px);
 		z-index: 5;
 	}
@@ -156,7 +156,7 @@ const styles = css`
 	}
 
 	.bb-region.marker-upstream {
-		fill: var(--color-graph-activitybar-upstreamMarker);
+		fill: var(--color-activityMinibar-upstreamMarker);
 		transform: translate(0px, -4px);
 		z-index: 4;
 	}
@@ -166,7 +166,7 @@ const styles = css`
 	}
 
 	.bb-region.marker-branch {
-		fill: var(--color-graph-activitybar-branchMarker);
+		fill: var(--color-activityMinibar-branchMarker);
 		transform: translate(-2px, 26px);
 		z-index: 3;
 	}
@@ -176,7 +176,7 @@ const styles = css`
 	}
 
 	.bb-region.marker-remote {
-		fill: var(--color-graph-activitybar-remoteMarker);
+		fill: var(--color-activityMinibar-remoteMarker);
 		transform: translate(-3px, 31px);
 		z-index: 2;
 	}
@@ -186,7 +186,7 @@ const styles = css`
 	}
 
 	.bb-region.marker-tag {
-		fill: var(--color-graph-activitybar-tagMarker);
+		fill: var(--color-activityMinibar-tagMarker);
 		transform: translate(1px, 31px);
 		z-index: 1;
 	}
@@ -263,33 +263,33 @@ const styles = css`
 	.bb-tooltip .refs .branch {
 		border-radius: 3px;
 		padding: 0 4px;
-		background-color: var(--color-graph-activitybar-branchBackground);
-		border: 1px solid var(--color-graph-activitybar-branchBorder);
-		color: var(--color-graph-activitybar-branchForeground);
+		background-color: var(--color-activityMinibar-branchBackground);
+		border: 1px solid var(--color-activityMinibar-branchBorder);
+		color: var(--color-activityMinibar-branchForeground);
 	}
 	.bb-tooltip .refs .branch.current {
-		background-color: var(--color-graph-activitybar-headBackground);
-		border: 1px solid var(--color-graph-activitybar-headBorder);
-		color: var(--color-graph-activitybar-headForeground);
+		background-color: var(--color-activityMinibar-headBackground);
+		border: 1px solid var(--color-activityMinibar-headBorder);
+		color: var(--color-activityMinibar-headForeground);
 	}
 	.bb-tooltip .refs .remote {
 		border-radius: 3px;
 		padding: 0 4px;
-		background-color: var(--color-graph-activitybar-remoteBackground);
-		border: 1px solid var(--color-graph-activitybar-remoteBorder);
-		color: var(--color-graph-activitybar-remoteForeground);
+		background-color: var(--color-activityMinibar-remoteBackground);
+		border: 1px solid var(--color-activityMinibar-remoteBorder);
+		color: var(--color-activityMinibar-remoteForeground);
 	}
 	.bb-tooltip .refs .remote.current {
-		background-color: var(--color-graph-activitybar-upstreamBackground);
-		border: 1px solid var(--color-graph-activitybar-upstreamBorder);
-		color: var(--color-graph-activitybar-upstreamForeground);
+		background-color: var(--color-activityMinibar-upstreamBackground);
+		border: 1px solid var(--color-activityMinibar-upstreamBorder);
+		color: var(--color-activityMinibar-upstreamForeground);
 	}
 	.bb-tooltip .refs .tag {
 		border-radius: 3px;
 		padding: 0 4px;
-		background-color: var(--color-graph-activitybar-tagBackground);
-		border: 1px solid var(--color-graph-activitybar-tagBorder);
-		color: var(--color-graph-activitybar-tagForeground);
+		background-color: var(--color-activityMinibar-tagBackground);
+		border: 1px solid var(--color-activityMinibar-tagBorder);
+		color: var(--color-activityMinibar-tagForeground);
 	}
 `;
 
@@ -592,7 +592,7 @@ export class ActivityMinibar extends FASTElement {
 						// },
 					},
 					colors: {
-						activity: 'var(--color-graph-activitybar-line0)',
+						activity: 'var(--color-activityMinibar-line0)',
 						// additions: 'rgba(73, 190, 71, 0.7)',
 						// deletions: 'rgba(195, 32, 45, 0.7)',
 					},
