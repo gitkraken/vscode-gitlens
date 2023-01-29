@@ -14,7 +14,7 @@ import { Colors, GlyphChars } from '../constants';
 import type { CommitFormatOptions } from '../git/formatters/commitFormatter';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitCommit } from '../git/models/commit';
-import { interpolate as interpolateColors, toRgba } from '../system/color';
+import { scale, toRgba } from '../system/color';
 import { getWidth, interpolate, pad } from '../system/string';
 
 export interface ComputedHeatmap {
@@ -66,7 +66,7 @@ export function getHeatmapColors() {
 		if (coldColor === defaultHeatmapColdColor && hotColor === defaultHeatmapHotColor) {
 			colors = defaultHeatmapColors;
 		} else {
-			colors = interpolateColors(hotColor, coldColor, 20);
+			colors = scale(hotColor, coldColor, 20);
 		}
 		heatmapColors = {
 			hot: colors.slice(0, 10),

@@ -16,6 +16,7 @@
 		"../../config.ts",
 		"../../features.ts",
 		"../../subscription.ts",
+		"../../system/color.ts",
 		"../../system/date.ts"
 	],
 	"exclude": ["node_modules", "test"]
