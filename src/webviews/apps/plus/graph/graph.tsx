@@ -46,11 +46,12 @@ import {
 	UpdateRefsVisibilityCommandType,
 	UpdateSelectionCommandType,
 } from '../../../../plus/webviews/graph/protocol';
-import { mix, opacity } from '../../../../system/color';
+import { darken, lighten, mix, opacity } from '../../../../system/color';
 import { debounce } from '../../../../system/function';
 import type { IpcMessage, IpcNotificationType } from '../../../protocol';
 import { onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
+import type { ThemeChangeEvent } from '../../shared/theme';
 import { GraphWrapper } from './GraphWrapper';
 import './graph.scss';
 
@@ -320,7 +321,46 @@ export class GraphApp extends App<State> {
 		}
 	}
 
-	protected override onThemeUpdated() {
+	protected override onThemeUpdated(e: ThemeChangeEvent) {
+		const bodyStyle = document.body.style;
+		bodyStyle.setProperty('--graph-theme-opacity-factor', e.isLightTheme ? '0.5' : '1');
+
+		bodyStyle.setProperty(
+			'--color-graph-actionbar-background',
+			e.isLightTheme ? darken(e.colors.background, 5) : lighten(e.colors.background, 5),
+		);
+		bodyStyle.setProperty(
+			'--color-graph-actionbar-selectedBackground',
+			e.isLightTheme ? darken(e.colors.background, 10) : lighten(e.colors.background, 10),
+		);
+
+		bodyStyle.setProperty(
+			'--color-graph-background',
+			e.isLightTheme ? darken(e.colors.background, 5) : lighten(e.colors.background, 5),
+		);
+		bodyStyle.setProperty(
+			'--color-graph-background2',
+			e.isLightTheme ? darken(e.colors.background, 10) : lighten(e.colors.background, 10),
+		);
+		let color = e.computedStyle.getPropertyValue('--vscode-list-focusOutline').trim();
+		bodyStyle.setProperty('--color-graph-contrast-border-color', color);
+		color = e.computedStyle.getPropertyValue('--vscode-list-activeSelectionBackground').trim();
+		bodyStyle.setProperty('--color-graph-selected-row', color);
+		color = e.computedStyle.getPropertyValue('--vscode-list-hoverBackground').trim();
+		bodyStyle.setProperty('--color-graph-hover-row', color);
+		color = e.computedStyle.getPropertyValue('--vscode-list-activeSelectionForeground').trim();
+		bodyStyle.setProperty('--color-graph-text-selected-row', color);
+		bodyStyle.setProperty('--color-graph-text-dimmed-selected', opacity(color, 50));
+		bodyStyle.setProperty('--color-graph-text-dimmed', opacity(e.colors.foreground, 20));
+		color = e.computedStyle.getPropertyValue('--vscode-list-hoverForeground').trim();
+		bodyStyle.setProperty('--color-graph-text-hovered', color);
+		bodyStyle.setProperty('--color-graph-text-selected', e.colors.foreground);
+		bodyStyle.setProperty('--color-graph-text-normal', opacity(e.colors.foreground, 85));
+		bodyStyle.setProperty('--color-graph-text-secondary', opacity(e.colors.foreground, 65));
+		bodyStyle.setProperty('--color-graph-text-disabled', opacity(e.colors.foreground, 50));
+
+		if (e.isInitializing) return;
+
 		this.state.theming = undefined;
 		this.setState(this.state, 'didChangeTheme');
 	}

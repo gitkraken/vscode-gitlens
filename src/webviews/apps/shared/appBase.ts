@@ -10,6 +10,7 @@ import type {
 import { onIpc, WebviewFocusChangedCommandType, WebviewReadyCommandType } from '../../protocol';
 import { DOM } from './dom';
 import type { Disposable } from './events';
+import type { ThemeChangeEvent } from './theme';
 import { initializeAndWatchThemeColors, onDidChangeTheme } from './theme';
 
 interface VsCodeApi {
@@ -46,10 +47,12 @@ export abstract class App<State = undefined> {
 
 		this._api = acquireVsCodeApi();
 
+		const disposables: Disposable[] = [];
+
 		if (this.onThemeUpdated != null) {
-			onDidChangeTheme(this.onThemeUpdated, this);
+			disposables.push(onDidChangeTheme(this.onThemeUpdated, this));
 		}
-		initializeAndWatchThemeColors();
+		disposables.push(initializeAndWatchThemeColors());
 
 		requestAnimationFrame(() => {
 			this.log(`${this.appName}.initializing`);
@@ -59,7 +62,7 @@ export abstract class App<State = undefined> {
 				this.bind();
 
 				if (this.onMessageReceived != null) {
-					window.addEventListener('message', this.onMessageReceived.bind(this));
+					disposables.push(DOM.on(window, 'message', this.onMessageReceived.bind(this)));
 				}
 
 				this.sendCommand(WebviewReadyCommandType, undefined);
@@ -73,13 +76,21 @@ export abstract class App<State = undefined> {
 				}
 			}
 		});
+
+		disposables.push(
+			DOM.on(window, 'pagehide', () => {
+				disposables?.forEach(d => d.dispose());
+				this.bindDisposables?.forEach(d => d.dispose());
+				this.bindDisposables = undefined;
+			}),
+		);
 	}
 
 	protected onInitialize?(): void;
 	protected onBind?(): Disposable[];
 	protected onInitialized?(): void;
 	protected onMessageReceived?(e: MessageEvent): void;
-	protected onThemeUpdated?(): void;
+	protected onThemeUpdated?(e: ThemeChangeEvent): void;
 
 	private _focused?: boolean;
 	private _inputFocused?: boolean;
