@@ -31,6 +31,7 @@ export interface GitGraph {
 	readonly avatars: Map<string, string>;
 	/** A set of all "seen" commit ids */
 	readonly ids: Set<string>;
+	readonly includes: { stats?: boolean } | undefined;
 	/** A set of all skipped commit ids -- typically for stash index/untracked commits */
 	readonly skippedIds?: Set<string>;
 	readonly branches: Map<string, GitBranch>;

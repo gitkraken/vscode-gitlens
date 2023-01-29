@@ -13,6 +13,7 @@ import type {
 	GraphMissingRefsMetadata,
 	InternalNotificationType,
 	State,
+	UpdateGraphConfigurationParams,
 	UpdateStateCallback,
 } from '../../../../plus/webviews/graph/protocol';
 import {
@@ -42,6 +43,7 @@ import {
 	SearchOpenInViewCommandType,
 	UpdateColumnsCommandType,
 	UpdateExcludeTypeCommandType,
+	UpdateGraphConfigurationCommandType,
 	UpdateIncludeOnlyRefsCommandType,
 	UpdateRefsVisibilityCommandType,
 	UpdateSelectionCommandType,
@@ -114,6 +116,7 @@ export class GraphApp extends App<State> {
 					onEnsureRowPromise={this.onEnsureRowPromise.bind(this)}
 					onExcludeType={this.onExcludeType.bind(this)}
 					onIncludeOnlyRef={this.onIncludeOnlyRef.bind(this)}
+					onUpdateGraphConfiguration={this.onUpdateGraphConfiguration.bind(this)}
 				/>,
 				$root,
 			);
@@ -503,6 +506,10 @@ export class GraphApp extends App<State> {
 			UpdateIncludeOnlyRefsCommandType,
 			all ? {} : { refs: [{ id: 'HEAD', type: 'head', name: 'HEAD' }] },
 		);
+	}
+
+	private onUpdateGraphConfiguration(changes: UpdateGraphConfigurationParams['changes']) {
+		this.sendCommand(UpdateGraphConfigurationCommandType, { changes: changes });
 	}
 
 	private onSelectionChanged(rows: GraphRow[]) {

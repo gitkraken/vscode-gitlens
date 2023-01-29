@@ -1,17 +1,10 @@
 import { css, customElement, FASTElement, html, observable, ref } from '@microsoft/fast-element';
-import type { Chart /*RegionOptions*/ } from 'billboard.js';
-import { bar, bb, selection, spline } from 'billboard.js';
+import type { Chart, DataItem, RegionOptions } from 'billboard.js';
+import { bb, selection, spline } from 'billboard.js';
 import { groupByMap } from '../../../../system/array';
-import { first, flatMap, map, union } from '../../../../system/iterable';
+import { first, flatMap, map, some, union } from '../../../../system/iterable';
 import { pluralize } from '../../../../system/string';
 import { formatDate, formatNumeric, fromNow } from '../../shared/date';
-
-interface RegionOptions {
-	axis: 'x' | 'y' | 'y2';
-	start?: number | Date;
-	end?: number | Date;
-	class?: string;
-}
 
 export interface BranchMarker {
 	type: 'branch';
@@ -53,16 +46,19 @@ export interface ActivityStatsSelectedEventDetail {
 	sha?: string;
 }
 
-const template = html<ActivityGraph>`<template>
+const template = html<ActivityMinibar>`<template>
 	<div id="chart" ${ref('chart')}></div>
 </template>`;
 
 const styles = css`
 	:host {
 		display: flex;
+		position: relative;
 		width: 100%;
 		min-height: 24px;
 		height: 40px;
+		background: var(--color-background);
+		z-index: 2000;
 	}
 
 	#chart {
@@ -75,9 +71,7 @@ const styles = css`
 	.bb svg {
 		font: 10px var(--font-family);
 		-webkit-tap-highlight-color: rgba(0, 0, 0, 0);
-
-		margin-left: 2rem;
-		transform: rotateY(180deg);
+		transform: translateX(2.5em) rotateY(180deg);
 	}
 
 	.bb-chart {
@@ -103,7 +97,7 @@ const styles = css`
 
 	/*-- Point --*/
 	.bb-circle._expanded_ {
-		fill: var(--vscode-sideBar-background);
+		fill: var(--color-background);
 		opacity: 1 !important;
 		fill-opacity: 1 !important;
 		stroke-opacity: 1 !important;
@@ -111,7 +105,7 @@ const styles = css`
 	}
 
 	.bb-selected-circle {
-		fill: var(--vscode-sideBar-background);
+		fill: var(--color-background);
 		opacity: 1 !important;
 		fill-opacity: 1 !important;
 		stroke-opacity: 1 !important;
@@ -126,28 +120,6 @@ const styles = css`
 		fill-opacity: 0.75;
 	}
 
-	/*-- Focus --*/
-	/* .bb-target.bb-focused,
-	.bb-circles.bb-focused {
-		opacity: 1;
-	}
-
-	.bb-target.bb-focused path.bb-line,
-	.bb-target.bb-focused path.bb-step,
-	.bb-circles.bb-focused path.bb-line,
-	.bb-circles.bb-focused path.bb-step {
-		stroke-width: 2px;
-	}
-
-	.bb-target.bb-defocused,
-	.bb-circles.bb-defocused {
-		opacity: 0.3 !important;
-	}
-	.bb-target.bb-defocused .text-overlapping,
-	.bb-circles.bb-defocused .text-overlapping {
-		opacity: 0.05 !important;
-	} */
-
 	/*-- Regions --*/
 
 	.bb-region.visible-area {
@@ -161,26 +133,6 @@ const styles = css`
 
 	:host(:hover) .bb-region.visible-area {
 		fill: var(--color-graph-activitybar-visibleAreaHoverBackground);
-	}
-
-	.bb-region.marker-selected {
-		fill: var(--color-graph-activitybar-selectedMarker);
-		transform: translate(-1px, -4px);
-		z-index: 12;
-	}
-	.bb-region.marker-selected > rect {
-		width: 2px;
-		height: 100%;
-	}
-
-	.bb-region.marker-highlighted {
-		fill: var(--color-graph-activitybar-highlightedMarker);
-		transform: translate(-1px, -4px);
-		z-index: 11;
-	}
-	.bb-region.marker-highlighted > rect {
-		width: 2px;
-		height: 100%;
 	}
 
 	.bb-region.marker-result {
@@ -273,7 +225,8 @@ const styles = css`
 		background-color: var(--color-hover-background);
 		color: var(--color-hover-foreground);
 		border: 1px solid var(--color-hover-border);
-		box-shadow: 7px 7px 12px -9px var(--color-hover-border);
+		box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+		font-size: 13px;
 		opacity: 1;
 		white-space: nowrap;
 	}
@@ -283,7 +236,6 @@ const styles = css`
 		flex-direction: row;
 		justify-content: space-between;
 		gap: 1rem;
-		font-size: 13px;
 	}
 
 	.bb-tooltip .header--title {
@@ -301,6 +253,7 @@ const styles = css`
 
 	.bb-tooltip .refs {
 		display: flex;
+		font-size: 12px;
 		gap: 0.5rem;
 		flex-direction: row;
 		flex-wrap: wrap;
@@ -340,8 +293,8 @@ const styles = css`
 	}
 `;
 
-@customElement({ name: 'activity-graph', template: template, styles: styles })
-export class ActivityGraph extends FASTElement {
+@customElement({ name: 'activity-minibar', template: template, styles: styles })
+export class ActivityMinibar extends FASTElement {
 	chart!: HTMLDivElement;
 
 	private _chart!: Chart;
@@ -371,15 +324,6 @@ export class ActivityGraph extends FASTElement {
 	}
 
 	@observable
-	highlightedDay: number | undefined;
-	protected highlightedDayChanged() {
-		this._chart?.regions.remove({ classes: ['marker-highlighted'] });
-		if (this.highlightedDay == null) return;
-
-		this._chart?.regions.add(this.getHighlightedDayRegion(this.highlightedDay));
-	}
-
-	@observable
 	markers: Map<number, ActivityMarker[]> | undefined;
 	protected markersChanged() {
 		this.dataChanged(undefined, undefined, true);
@@ -397,10 +341,7 @@ export class ActivityGraph extends FASTElement {
 	@observable
 	selectedDay: number | undefined;
 	protected selectedDayChanged() {
-		this._chart?.regions.remove({ classes: ['marker-selected'] });
-		if (this.selectedDay == null) return;
-
-		this._chart?.regions.add(this.getSelectedDayRegion(this.selectedDay));
+		this.select(this.selectedDay);
 	}
 
 	@observable
@@ -416,23 +357,41 @@ export class ActivityGraph extends FASTElement {
 		super.disconnectedCallback();
 
 		this._chart?.destroy();
+		this._chart = undefined!;
 	}
 
-	select(date: number | Date) {
-		setTimeout(() => this.selectCore(date), 500);
+	private getInternalChart(): any {
+		return (this._chart as any).internal;
 	}
 
-	private selectCore(date: number | Date) {
-		const d = this._chart.selected('activity') as any as any[];
-		if (d.find(o => o.x.getTime() === getDay(date))) return;
+	select(date: number | Date | undefined, trackOnly: boolean = false) {
+		if (date == null) {
+			this.unselect();
 
-		const index = this.getIndex(date);
-		if (index == null) return;
+			return;
+		}
 
-		this._chart?.select(['activity'], [index], true);
+		const d = this.getData(date);
+		if (d == null) return;
+
+		const internal = this.getInternalChart();
+		internal.showGridFocus([d]);
+
+		if (!trackOnly) {
+			const { index } = d;
+			this._chart.$.main.selectAll(`.bb-shape-${index}`).each(function (d2) {
+				internal.toggleShape?.(this, d2, index);
+			});
+		}
 	}
 
-	unselect(date?: number | Date) {
+	unselect(date?: number | Date, focus: boolean = false) {
+		if (focus) {
+			this.getInternalChart().hideGridFocus();
+
+			return;
+		}
+
 		if (date != null) {
 			const index = this.getIndex(date);
 			if (index == null) return;
@@ -443,11 +402,15 @@ export class ActivityGraph extends FASTElement {
 		}
 	}
 
-	private getIndex(date: number | Date): number | undefined {
+	private getData(date: number | Date): DataItem<number> | undefined {
 		date = new Date(date).setHours(0, 0, 0, 0);
 		return this._chart
 			?.data()[0]
-			?.values.find(v => (typeof v.x === 'number' ? v.x : (v.x as any as Date).getTime()) === date)?.index;
+			?.values.find(v => (typeof v.x === 'number' ? v.x : (v.x as any as Date).getTime()) === date);
+	}
+
+	private getIndex(date: number | Date): number | undefined {
+		return this.getData(date)?.index;
 	}
 
 	private getMarkerRegions() {
@@ -489,26 +452,9 @@ export class ActivityGraph extends FASTElement {
 				regions = union(regions, this.getSearchResultsRegions(this.searchResults));
 			}
 
-			if (this.highlightedDay != null) {
-				regions = union(regions, [this.getHighlightedDayRegion(this.highlightedDay)]);
-			}
-
-			if (this.selectedDay != null) {
-				regions = union(regions, [this.getSelectedDayRegion(this.selectedDay)]);
-			}
-
 			this._regions = [...regions];
 		}
 		return this._regions;
-	}
-
-	private getHighlightedDayRegion(highlightedDay: NonNullable<typeof this.highlightedDay>): RegionOptions {
-		return {
-			axis: 'x',
-			start: highlightedDay,
-			end: highlightedDay,
-			class: 'marker-highlighted',
-		} satisfies RegionOptions;
 	}
 
 	private getSearchResultsRegions(searchResults: NonNullable<typeof this.searchResults>): Iterable<RegionOptions> {
@@ -524,15 +470,6 @@ export class ActivityGraph extends FASTElement {
 		);
 	}
 
-	private getSelectedDayRegion(selectedDay: NonNullable<typeof this.selectedDay>): RegionOptions {
-		return {
-			axis: 'x',
-			start: selectedDay,
-			end: selectedDay,
-			class: 'marker-selected',
-		} satisfies RegionOptions;
-	}
-
 	private getVisibleAreaRegion(visibleDays: NonNullable<typeof this.visibleDays>): RegionOptions {
 		return {
 			axis: 'x',
@@ -545,15 +482,19 @@ export class ActivityGraph extends FASTElement {
 	private loadChart() {
 		if (!this.data?.size) {
 			this._chart?.destroy();
+			this._chart = undefined!;
+
 			return;
 		}
+
+		const hasActivity = some(this.data.values(), v => v?.activity != null);
 
 		// Convert the map to an array dates and an array of stats
 		const dates = [];
 		const activity: number[] = [];
 		// const commits: number[] = [];
-		const additions: number[] = [];
-		const deletions: number[] = [];
+		// const additions: number[] = [];
+		// const deletions: number[] = [];
 
 		const keys = this.data.keys();
 		const endDay = first(keys)!;
@@ -575,20 +516,24 @@ export class ActivityGraph extends FASTElement {
 			day = getDay(currentDate);
 
 			stat = this.data.get(day);
-			// if (stat != null) {
 			dates.push(day);
 
-			// commits.push(stat?.commits ?? 0);
+			if (hasActivity) {
+				adds = stat?.activity?.additions ?? 0;
+				deletes = stat?.activity?.deletions ?? 0;
+				changes = adds + deletes;
 
-			adds = stat?.activity?.additions ?? 0;
-			deletes = stat?.activity?.deletions ?? 0;
-			changes = adds + deletes;
+				// additions.push(adds);
+				// deletions.push(-deletes);
+			} else {
+				changes = stat?.commits ?? 0;
+
+				// additions.push(0);
+				// deletions.push(0);
+			}
+
 			changesMax = Math.max(changesMax, changes);
-
 			activity.push(changes);
-			additions.push(adds);
-			deletions.push(-deletes);
-			// }
 
 			currentDate.setDate(currentDate.getDate() - 1);
 		}
@@ -613,15 +558,15 @@ export class ActivityGraph extends FASTElement {
 					columns: [
 						['date', ...dates],
 						['activity', ...activity],
-						['additions', ...additions],
-						['deletions', ...deletions],
+						// ['additions', ...additions],
+						// ['deletions', ...deletions],
 					],
 					names: {
 						activity: 'Activity',
-						additions: 'Additions',
-						deletions: 'Deletions',
+						// additions: 'Additions',
+						// deletions: 'Deletions',
 					},
-					hide: ['additions', 'deletions'],
+					// hide: ['additions', 'deletions'],
 					onclick: d => {
 						if (d.id !== 'activity') return;
 
@@ -648,14 +593,14 @@ export class ActivityGraph extends FASTElement {
 					},
 					colors: {
 						activity: 'var(--color-graph-activitybar-line0)',
-						additions: 'rgba(73, 190, 71, 0.7)',
-						deletions: 'rgba(195, 32, 45, 0.7)',
+						// additions: 'rgba(73, 190, 71, 0.7)',
+						// deletions: 'rgba(195, 32, 45, 0.7)',
 					},
 					groups: [['additions', 'deletions']],
 					types: {
 						activity: spline(),
-						additions: bar(),
-						deletions: bar(),
+						// additions: bar(),
+						// deletions: bar(),
 					},
 				},
 				area: {
@@ -696,19 +641,6 @@ export class ActivityGraph extends FASTElement {
 				clipPath: false,
 				grid: {
 					front: false,
-					// x: {
-					// 	show: false,
-					// 	// lines: [
-					// 	// 	...flatMap(this.markers!, ([k, v]) =>
-					// 	// 		v.map(m => ({
-					// 	// 			value: k,
-					// 	// 			text: m.name,
-					// 	// 			position: 'middle',
-					// 	// 			class: m.current ? 'marker-head' : `marker-${m.type}`,
-					// 	// 		})),
-					// 	// 	),
-					// 	// ],
-					// },
 					focus: {
 						show: true,
 					},
@@ -769,14 +701,19 @@ export class ActivityGraph extends FASTElement {
 										  })}, ${pluralize('file', stat?.commits ?? 0, {
 												format: c => formatNumeric(c),
 												zero: 'No',
-										  })}, ${pluralize(
-												'line',
-												(stat?.activity?.additions ?? 0) + (stat?.activity?.deletions ?? 0),
-												{
-													format: c => formatNumeric(c),
-													zero: 'No',
-												},
-										  )} changed`
+										  })}${
+												hasActivity
+													? `, ${pluralize(
+															'line',
+															(stat?.activity?.additions ?? 0) +
+																(stat?.activity?.deletions ?? 0),
+															{
+																format: c => formatNumeric(c),
+																zero: 'No',
+															},
+													  )}`
+													: ''
+										  } changed`
 								}</span>
 							</div>
 							${
@@ -860,26 +797,17 @@ export class ActivityGraph extends FASTElement {
 				columns: [
 					['date', ...dates],
 					['activity', ...activity],
-					['additions', ...additions],
-					['deletions', ...deletions],
+					// ['additions', ...additions],
+					// ['deletions', ...deletions],
 				],
 			});
 			// this._chart.axis.min({ y: 0, y2: y2Min });
 			this._chart.axis.max({ y: yMax /*, y2: yMax*/ });
 
 			this._chart.regions(regions);
-
-			// this._chart.xgrids([
-			// 	...flatMap(this.markers!, ([k, v]) =>
-			// 		v.map(m => ({
-			// 			value: k,
-			// 			text: m.name,
-			// 			position: 'start',
-			// 			class: m.current ? 'marker-head' : `marker-${m.type}`,
-			// 		})),
-			// 	),
-			// ]);
 		}
+
+		this.selectedDayChanged();
 	}
 }
 

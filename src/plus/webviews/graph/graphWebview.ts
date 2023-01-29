@@ -112,6 +112,7 @@ import type {
 	State,
 	UpdateColumnsParams,
 	UpdateExcludeTypeParams,
+	UpdateGraphConfigurationParams,
 	UpdateRefsVisibilityParams,
 	UpdateSelectionParams,
 } from './protocol';
@@ -144,6 +145,7 @@ import {
 	supportedRefMetadataTypes,
 	UpdateColumnsCommandType,
 	UpdateExcludeTypeCommandType,
+	UpdateGraphConfigurationCommandType,
 	UpdateIncludeOnlyRefsCommandType,
 	UpdateRefsVisibilityCommandType,
 	UpdateSelectionCommandType,
@@ -451,6 +453,9 @@ export class GraphWebview extends WebviewBase<State> {
 			case UpdateColumnsCommandType.method:
 				onIpc(UpdateColumnsCommandType, e, params => this.onColumnsChanged(params));
 				break;
+			case UpdateGraphConfigurationCommandType.method:
+				onIpc(UpdateGraphConfigurationCommandType, e, params => this.updateGraphConfig(params));
+				break;
 			case UpdateRefsVisibilityCommandType.method:
 				onIpc(UpdateRefsVisibilityCommandType, e, params => this.onRefsVisibilityChanged(params));
 				break;
@@ -465,6 +470,27 @@ export class GraphWebview extends WebviewBase<State> {
 					this.updateIncludeOnlyRefs(this._graph, params.refs),
 				);
 				break;
+		}
+	}
+	updateGraphConfig(params: UpdateGraphConfigurationParams) {
+		const config = this.getComponentConfig();
+
+		let key: keyof UpdateGraphConfigurationParams['changes'];
+		for (key in params.changes) {
+			if (config[key] !== params.changes[key]) {
+				switch (key) {
+					case 'activityMinibar':
+						void configuration.updateEffective(
+							'graph.experimental.activityMinibar.enabled',
+							params.changes[key],
+						);
+						break;
+					default:
+						// TODO:@eamodio add more config options as needed
+						debugger;
+						break;
+				}
+			}
 		}
 	}
 
@@ -563,6 +589,14 @@ export class GraphWebview extends WebviewBase<State> {
 			configuration.changed(e, 'graph.experimental.activityMinibar.enabled')
 		) {
 			void this.notifyDidChangeConfiguration();
+
+			if (
+				configuration.changed(e, 'graph.experimental.activityMinibar.enabled') &&
+				configuration.get('graph.experimental.activityMinibar.enabled') &&
+				!this._graph?.includes?.stats
+			) {
+				this.updateState();
+			}
 		}
 	}
 

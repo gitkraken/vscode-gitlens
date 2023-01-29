@@ -1,7 +1,7 @@
 import { reactWrapper } from '../../shared/components/helpers/react-wrapper';
-import { ActivityGraph as activityGraphComponent } from './activity-graph';
+import { ActivityMinibar as activityMinibarComponent } from './activity-minibar';
 
-export const ActivityGraph = reactWrapper(activityGraphComponent, {
+export const ActivityMinibar = reactWrapper(activityMinibarComponent, {
 	events: {
 		onSelected: 'selected',
 	},

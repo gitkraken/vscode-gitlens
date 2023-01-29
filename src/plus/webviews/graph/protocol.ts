@@ -241,6 +241,13 @@ export const UpdateExcludeTypeCommandType = new IpcCommandType<UpdateExcludeType
 	'graph/fitlers/update/excludeType',
 );
 
+export interface UpdateGraphConfigurationParams {
+	changes: { [key in keyof GraphComponentConfig]?: GraphComponentConfig[key] };
+}
+export const UpdateGraphConfigurationCommandType = new IpcCommandType<UpdateGraphConfigurationParams>(
+	'graph/configuration/update',
+);
+
 export interface UpdateIncludeOnlyRefsParams {
 	refs?: GraphIncludeOnlyRef[];
 }
