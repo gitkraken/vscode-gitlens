@@ -57,6 +57,22 @@ const mixChannel = (channel1: number, channel2: number, percentage: number) => {
 	return channel1 + ((channel2 - channel1) * percentage) / 100;
 };
 
+export function scale(value1: string, value2: string, steps: number): string[] {
+	const colors = [];
+	const color1 = Color.from(value1);
+	const color2 = Color.from(value2);
+
+	colors.push(color1);
+	const range = steps - 1;
+	for (let i = 1; i < range; i++) {
+		const newColor = color1.mix(color2, i / range);
+		colors.push(newColor);
+	}
+	colors.push(color2);
+
+	return colors.map(color => color.toString());
+}
+
 export function toRgba(color: string) {
 	color = color.trim();
 
@@ -463,7 +479,11 @@ export class Color {
 		return Color.Format.CSS.parseHex(hex) || Color.red;
 	}
 
-	static from(value: string): Color {
+	static from(value: string | Color): Color {
+		if (value instanceof Color) {
+			return value;
+		}
+
 		return Color.Format.CSS.parseString(value) || Color.red;
 	}
 

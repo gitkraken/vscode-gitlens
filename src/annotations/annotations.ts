@@ -16,6 +16,7 @@ import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitCommit } from '../git/models/commit';
 import { interpolate as interpolateColors, toRgba } from '../system/color';
 import { getWidth, interpolate, pad } from '../system/string';
+import { scale, toRgba } from '../webviews/apps/shared/colors';
 
 export interface ComputedHeatmap {
 	coldThresholdTimestamp: number;
@@ -66,7 +67,7 @@ export function getHeatmapColors() {
 		if (coldColor === defaultHeatmapColdColor && hotColor === defaultHeatmapHotColor) {
 			colors = defaultHeatmapColors;
 		} else {
-			colors = interpolateColors(hotColor, coldColor, 20);
+			colors = scale(hotColor, coldColor, 20);
 		}
 		heatmapColors = {
 			hot: colors.slice(0, 10),
@@ -81,7 +82,7 @@ export function getHeatmapColors() {
 		});
 	}
 
-	return heatmapColors;
+	return Promise.resolve(heatmapColors);
 }
 
 export function applyHeatmap(decoration: Partial<DecorationOptions>, date: Date, heatmap: ComputedHeatmap) {
