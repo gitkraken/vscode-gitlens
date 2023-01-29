@@ -130,6 +130,8 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		preserveFocus?: boolean | undefined;
 		preserveVisibility?: boolean | undefined;
 	}): Promise<void> {
+		if (this._pinned && !options?.pin && this.visible) return;
+
 		if (options != null) {
 			let commit;
 			let pin;
