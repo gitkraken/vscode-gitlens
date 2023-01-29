@@ -181,7 +181,7 @@ export function initializeAndWatchThemeColors() {
 		bodyStyle.setProperty(
 			'--color-graph-activitybar-visibleAreaBackground',
 			Color.from(color)
-				.luminance(themeLuminance(isLightTheme ? 0.6 : 0.3))
+				.luminance(themeLuminance(isLightTheme ? 0.6 : 0.15))
 				.toString(),
 		);
 
@@ -189,7 +189,7 @@ export function initializeAndWatchThemeColors() {
 		bodyStyle.setProperty(
 			'--color-graph-activitybar-visibleAreaHoverBackground',
 			Color.from(color)
-				.luminance(themeLuminance(isLightTheme ? 0.5 : 0.32))
+				.luminance(themeLuminance(isLightTheme ? 0.6 : 0.15))
 				.toString(),
 		);
 
