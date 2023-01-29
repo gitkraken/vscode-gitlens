@@ -14,9 +14,8 @@ import { Colors, GlyphChars } from '../constants';
 import type { CommitFormatOptions } from '../git/formatters/commitFormatter';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitCommit } from '../git/models/commit';
-import { interpolate as interpolateColors, toRgba } from '../system/color';
+import { scale, toRgba } from '../system/color';
 import { getWidth, interpolate, pad } from '../system/string';
-import { scale, toRgba } from '../webviews/apps/shared/colors';
 
 export interface ComputedHeatmap {
 	coldThresholdTimestamp: number;
@@ -82,7 +81,7 @@ export function getHeatmapColors() {
 		});
 	}
 
-	return Promise.resolve(heatmapColors);
+	return heatmapColors;
 }
 
 export function applyHeatmap(decoration: Partial<DecorationOptions>, date: Date, heatmap: ComputedHeatmap) {

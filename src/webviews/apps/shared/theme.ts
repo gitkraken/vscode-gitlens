@@ -1,5 +1,5 @@
 /*global window document MutationObserver*/
-import { Color, darken, lighten, opacity } from './colors';
+import { Color, darken, lighten, opacity } from '../../../system/color';
 import type { Event } from './events';
 import { Emitter } from './events';
 

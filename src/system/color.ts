@@ -480,9 +480,7 @@ export class Color {
 	}
 
 	static from(value: string | Color): Color {
-		if (value instanceof Color) {
-			return value;
-		}
+		if (value instanceof Color) return value;
 
 		return Color.Format.CSS.parseString(value) || Color.red;
 	}
