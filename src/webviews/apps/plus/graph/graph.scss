@@ -166,6 +166,17 @@ button:not([disabled]),
 	}
 }
 
+.action-button--narrow {
+	padding: 0;
+	width: 2.4rem;
+	height: 2.4rem;
+	text-align: center;
+
+	.codicon[class*='codicon-graph-line'] {
+		transform: translateX(2px);
+	}
+}
+
 .action-divider {
 	display: inline-block;
 	width: 0.1rem;

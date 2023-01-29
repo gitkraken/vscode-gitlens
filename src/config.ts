@@ -388,6 +388,11 @@ export interface GraphConfig {
 	dateStyle: DateStyle | null;
 	defaultItemLimit: number;
 	dimMergeCommits: boolean;
+	experimental: {
+		activityMinibar: {
+			enabled: boolean;
+		};
+	};
 	highlightRowsOnRefHover: boolean;
 	scrollRowPadding: number;
 	showDetailsView: 'open' | 'selection' | false;

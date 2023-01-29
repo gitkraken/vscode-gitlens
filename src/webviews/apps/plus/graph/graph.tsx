@@ -13,6 +13,7 @@ import type {
 	GraphMissingRefsMetadata,
 	InternalNotificationType,
 	State,
+	UpdateGraphConfigurationParams,
 	UpdateStateCallback,
 } from '../../../../plus/webviews/graph/protocol';
 import {
@@ -42,11 +43,12 @@ import {
 	SearchOpenInViewCommandType,
 	UpdateColumnsCommandType,
 	UpdateExcludeTypeCommandType,
+	UpdateGraphConfigurationCommandType,
 	UpdateIncludeOnlyRefsCommandType,
 	UpdateRefsVisibilityCommandType,
 	UpdateSelectionCommandType,
 } from '../../../../plus/webviews/graph/protocol';
-import { darken, lighten, mix, opacity } from '../../../../system/color';
+import { Color, darken, lighten, mix, opacity } from '../../../../system/color';
 import { debounce } from '../../../../system/function';
 import type { IpcMessage, IpcNotificationType } from '../../../protocol';
 import { onIpc } from '../../../protocol';
@@ -115,6 +117,7 @@ export class GraphApp extends App<State> {
 					onEnsureRowPromise={this.onEnsureRowPromise.bind(this)}
 					onExcludeType={this.onExcludeType.bind(this)}
 					onIncludeOnlyRef={this.onIncludeOnlyRef.bind(this)}
+					onUpdateGraphConfiguration={this.onUpdateGraphConfiguration.bind(this)}
 				/>,
 				$root,
 			);
@@ -322,6 +325,26 @@ export class GraphApp extends App<State> {
 	}
 
 	protected override onThemeUpdated(e: ThemeChangeEvent) {
+		const backgroundColor = Color.from(e.colors.background);
+		const backgroundLuminance = backgroundColor.getRelativeLuminance();
+
+		const foregroundColor = Color.from(e.colors.foreground);
+		const foregroundLuminance = foregroundColor.getRelativeLuminance();
+
+		const themeLuminance = (luminance: number) => {
+			let min;
+			let max;
+			if (foregroundLuminance > backgroundLuminance) {
+				max = foregroundLuminance;
+				min = backgroundLuminance;
+			} else {
+				min = foregroundLuminance;
+				max = backgroundLuminance;
+			}
+			const percent = luminance / 1;
+			return percent * (max - min) + min;
+		};
+
 		const bodyStyle = document.body.style;
 		bodyStyle.setProperty('--graph-theme-opacity-factor', e.isLightTheme ? '0.5' : '1');
 
@@ -343,7 +366,7 @@ export class GraphApp extends App<State> {
 			e.isLightTheme ? darken(e.colors.background, 10) : lighten(e.colors.background, 10),
 		);
 		let color = e.computedStyle.getPropertyValue('--vscode-list-focusOutline').trim();
-		bodyStyle.setProperty('--color-graph-contrast-border-color', color);
+		bodyStyle.setProperty('--color-graph-contrast-border', color);
 		color = e.computedStyle.getPropertyValue('--vscode-list-activeSelectionBackground').trim();
 		bodyStyle.setProperty('--color-graph-selected-row', color);
 		color = e.computedStyle.getPropertyValue('--vscode-list-hoverBackground').trim();
@@ -358,6 +381,93 @@ export class GraphApp extends App<State> {
 		bodyStyle.setProperty('--color-graph-text-normal', opacity(e.colors.foreground, 85));
 		bodyStyle.setProperty('--color-graph-text-secondary', opacity(e.colors.foreground, 65));
 		bodyStyle.setProperty('--color-graph-text-disabled', opacity(e.colors.foreground, 50));
+
+		// activity minibar
+		const resultColor = Color.fromHex('#ffff00');
+		const headColor = Color.fromHex('#00ff00');
+		const branchColor = Color.fromHex('#ff7f50');
+		const tagColor = Color.fromHex('#15a0bf');
+
+		color = e.computedStyle.getPropertyValue('--vscode-progressBar-background').trim();
+		const activityColor = Color.from(color);
+		// bodyStyle.setProperty('--color-activityMinibar-line0', color);
+		bodyStyle.setProperty('--color-activityMinibar-line0', activityColor.luminance(themeLuminance(0.5)).toString());
+
+		bodyStyle.setProperty(
+			'--color-activityMinibar-focusLine',
+			backgroundColor.luminance(themeLuminance(e.isLightTheme ? 0.6 : 0.2)).toString(),
+		);
+
+		color = e.computedStyle.getPropertyValue('--vscode-scrollbarSlider-background').trim();
+		bodyStyle.setProperty(
+			'--color-activityMinibar-visibleAreaBackground',
+			Color.from(color)
+				.luminance(themeLuminance(e.isLightTheme ? 0.6 : 0.15))
+				.toString(),
+		);
+
+		color = e.computedStyle.getPropertyValue('--vscode-scrollbarSlider-hoverBackground').trim();
+		bodyStyle.setProperty(
+			'--color-activityMinibar-visibleAreaHoverBackground',
+			Color.from(color)
+				.luminance(themeLuminance(e.isLightTheme ? 0.6 : 0.15))
+				.toString(),
+		);
+
+		color = Color.from(e.computedStyle.getPropertyValue('--vscode-list-activeSelectionBackground').trim())
+			.luminance(themeLuminance(e.isLightTheme ? 0.45 : 0.32))
+			.toString();
+		// color = e.computedStyle.getPropertyValue('--vscode-editorCursor-foreground').trim();
+		bodyStyle.setProperty('--color-activityMinibar-selectedMarker', color);
+		bodyStyle.setProperty('--color-activityMinibar-highlightedMarker', opacity(color, 60));
+
+		bodyStyle.setProperty(
+			'--color-activityMinibar-resultMarker',
+			resultColor.luminance(themeLuminance(0.6)).toString(),
+		);
+
+		const pillLabel = foregroundColor.luminance(themeLuminance(e.isLightTheme ? 0 : 1)).toString();
+		const headBackground = headColor.luminance(themeLuminance(e.isLightTheme ? 0.9 : 0.2)).toString();
+		const headBorder = headColor.luminance(themeLuminance(e.isLightTheme ? 0.2 : 0.4)).toString();
+		const headMarker = headColor.luminance(themeLuminance(0.5)).toString();
+
+		bodyStyle.setProperty('--color-activityMinibar-headBackground', headBackground);
+		bodyStyle.setProperty('--color-activityMinibar-headBorder', headBorder);
+		bodyStyle.setProperty('--color-activityMinibar-headForeground', pillLabel);
+		bodyStyle.setProperty('--color-activityMinibar-headMarker', opacity(headMarker, 80));
+
+		bodyStyle.setProperty('--color-activityMinibar-upstreamBackground', headBackground);
+		bodyStyle.setProperty('--color-activityMinibar-upstreamBorder', headBorder);
+		bodyStyle.setProperty('--color-activityMinibar-upstreamForeground', pillLabel);
+		bodyStyle.setProperty('--color-activityMinibar-upstreamMarker', opacity(headMarker, 60));
+
+		const branchBackground = branchColor.luminance(themeLuminance(e.isLightTheme ? 0.8 : 0.3)).toString();
+		const branchBorder = branchColor.luminance(themeLuminance(e.isLightTheme ? 0.2 : 0.4)).toString();
+		const branchMarker = branchColor.luminance(themeLuminance(0.6)).toString();
+
+		bodyStyle.setProperty('--color-activityMinibar-branchBackground', branchBackground);
+		bodyStyle.setProperty('--color-activityMinibar-branchBorder', branchBorder);
+		bodyStyle.setProperty('--color-activityMinibar-branchForeground', pillLabel);
+		bodyStyle.setProperty('--color-activityMinibar-branchMarker', opacity(branchMarker, 70));
+
+		bodyStyle.setProperty('--color-activityMinibar-remoteBackground', opacity(branchBackground, 80));
+		bodyStyle.setProperty('--color-activityMinibar-remoteBorder', opacity(branchBorder, 80));
+		bodyStyle.setProperty('--color-activityMinibar-remoteForeground', pillLabel);
+		bodyStyle.setProperty('--color-activityMinibar-remoteMarker', opacity(branchMarker, 30));
+
+		bodyStyle.setProperty(
+			'--color-activityMinibar-tagBackground',
+			tagColor.luminance(themeLuminance(e.isLightTheme ? 0.8 : 0.2)).toString(),
+		);
+		bodyStyle.setProperty(
+			'--color-activityMinibar-tagBorder',
+			tagColor.luminance(themeLuminance(e.isLightTheme ? 0.2 : 0.4)).toString(),
+		);
+		bodyStyle.setProperty('--color-activityMinibar-tagForeground', pillLabel);
+		bodyStyle.setProperty(
+			'--color-activityMinibar-tagMarker',
+			opacity(tagColor.luminance(themeLuminance(0.5)).toString(), 60),
+		);
 
 		if (e.isInitializing) return;
 
@@ -420,11 +530,11 @@ export class GraphApp extends App<State> {
 
 				'--selected-row': computedStyle.getPropertyValue('--color-graph-selected-row'),
 				'--selected-row-border': isHighContrastTheme
-					? `1px solid ${computedStyle.getPropertyValue('--color-graph-contrast-border-color')}`
+					? `1px solid ${computedStyle.getPropertyValue('--color-graph-contrast-border')}`
 					: 'none',
 				'--hover-row': computedStyle.getPropertyValue('--color-graph-hover-row'),
 				'--hover-row-border': isHighContrastTheme
-					? `1px dashed ${computedStyle.getPropertyValue('--color-graph-contrast-border-color')}`
+					? `1px dashed ${computedStyle.getPropertyValue('--color-graph-contrast-border')}`
 					: 'none',
 
 				'--text-selected': computedStyle.getPropertyValue('--color-graph-text-selected'),
@@ -543,6 +653,10 @@ export class GraphApp extends App<State> {
 			UpdateIncludeOnlyRefsCommandType,
 			all ? {} : { refs: [{ id: 'HEAD', type: 'head', name: 'HEAD' }] },
 		);
+	}
+
+	private onUpdateGraphConfiguration(changes: UpdateGraphConfigurationParams['changes']) {
+		this.sendCommand(UpdateGraphConfigurationCommandType, { changes: changes });
 	}
 
 	private onSelectionChanged(rows: GraphRow[]) {

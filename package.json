@@ -2308,6 +2308,13 @@
 						"markdownDescription": "Specifies whether to show the _Commit Graph_ in the status bar",
 						"scope": "window",
 						"order": 100
+					},
+					"gitlens.graph.experimental.activityMinibar.enabled": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to show an activity minibar above the _Commit Graph_",
+						"scope": "window",
+						"order": 100
 					}
 				}
 			},
