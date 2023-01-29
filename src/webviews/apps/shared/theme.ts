@@ -1,19 +1,33 @@
 /*global window document MutationObserver*/
 import { darken, lighten, opacity } from '../../../system/color';
-import type { Event } from './events';
+import type { Disposable, Event } from './events';
 import { Emitter } from './events';
 
-const _onDidChangeTheme = new Emitter<void>();
-export const onDidChangeTheme: Event<void> = _onDidChangeTheme.event;
+export interface ThemeChangeEvent {
+	colors: {
+		background: string;
+		foreground: string;
+	};
+	computedStyle: CSSStyleDeclaration;
 
-export function initializeAndWatchThemeColors() {
+	isLightTheme: boolean;
+	isHighContrastTheme: boolean;
+
+	isInitializing: boolean;
+}
+
+const _onDidChangeTheme = new Emitter<ThemeChangeEvent>();
+export const onDidChangeTheme: Event<ThemeChangeEvent> = _onDidChangeTheme.event;
+
+export function initializeAndWatchThemeColors(): Disposable {
 	const onColorThemeChanged = (mutations?: MutationRecord[]) => {
 		const body = document.body;
 		const computedStyle = window.getComputedStyle(body);
 
 		const isLightTheme =
 			body.classList.contains('vscode-light') || body.classList.contains('vscode-high-contrast-light');
-		// const isHighContrastTheme = body.classList.contains('vscode-high-contrast');
+		const isHighContrastTheme =
+			body.classList.contains('vscode-high-contrast') || body.classList.contains('vscode-high-contrast-light');
 
 		const bodyStyle = body.style;
 
@@ -32,6 +46,11 @@ export function initializeAndWatchThemeColors() {
 		);
 
 		const backgroundColor = computedStyle.getPropertyValue('--vscode-editor-background').trim();
+
+		let foregroundColor = computedStyle.getPropertyValue('--vscode-editor-foreground').trim();
+		if (!foregroundColor) {
+			foregroundColor = computedStyle.getPropertyValue('--vscode-foreground').trim();
+		}
 
 		let color = backgroundColor;
 		bodyStyle.setProperty('--color-background', color);
@@ -63,10 +82,6 @@ export function initializeAndWatchThemeColors() {
 		color = computedStyle.getPropertyValue('--vscode-button-foreground').trim();
 		bodyStyle.setProperty('--color-button-foreground', color);
 
-		let foregroundColor = computedStyle.getPropertyValue('--vscode-editor-foreground').trim();
-		if (!foregroundColor) {
-			foregroundColor = computedStyle.getPropertyValue('--vscode-foreground').trim();
-		}
 		bodyStyle.setProperty('--color-foreground', foregroundColor);
 		bodyStyle.setProperty('--color-foreground--85', opacity(foregroundColor, 85));
 		bodyStyle.setProperty('--color-foreground--75', opacity(foregroundColor, 75));
@@ -103,43 +118,6 @@ export function initializeAndWatchThemeColors() {
 		color = computedStyle.getPropertyValue('--vscode-editorHoverWidget-statusBarBackground').trim();
 		bodyStyle.setProperty('--color-hover-statusBarBackground', color);
 
-		// graph-specific colors
-		bodyStyle.setProperty('--graph-theme-opacity-factor', isLightTheme ? '0.5' : '1');
-
-		bodyStyle.setProperty(
-			'--color-graph-actionbar-background',
-			isLightTheme ? darken(backgroundColor, 5) : lighten(backgroundColor, 5),
-		);
-		bodyStyle.setProperty(
-			'--color-graph-actionbar-selectedBackground',
-			isLightTheme ? darken(backgroundColor, 10) : lighten(backgroundColor, 10),
-		);
-
-		bodyStyle.setProperty(
-			'--color-graph-background',
-			isLightTheme ? darken(backgroundColor, 5) : lighten(backgroundColor, 5),
-		);
-		bodyStyle.setProperty(
-			'--color-graph-background2',
-			isLightTheme ? darken(backgroundColor, 10) : lighten(backgroundColor, 10),
-		);
-		color = computedStyle.getPropertyValue('--vscode-list-focusOutline').trim();
-		bodyStyle.setProperty('--color-graph-contrast-border-color', color);
-		color = computedStyle.getPropertyValue('--vscode-list-activeSelectionBackground').trim();
-		bodyStyle.setProperty('--color-graph-selected-row', color);
-		color = computedStyle.getPropertyValue('--vscode-list-hoverBackground').trim();
-		bodyStyle.setProperty('--color-graph-hover-row', color);
-		color = computedStyle.getPropertyValue('--vscode-list-activeSelectionForeground').trim();
-		bodyStyle.setProperty('--color-graph-text-selected-row', color);
-		bodyStyle.setProperty('--color-graph-text-dimmed-selected', opacity(color, 50));
-		bodyStyle.setProperty('--color-graph-text-dimmed', opacity(foregroundColor, 20));
-		color = computedStyle.getPropertyValue('--vscode-list-hoverForeground').trim();
-		bodyStyle.setProperty('--color-graph-text-hovered', color);
-		bodyStyle.setProperty('--color-graph-text-selected', foregroundColor);
-		bodyStyle.setProperty('--color-graph-text-normal', opacity(foregroundColor, 85));
-		bodyStyle.setProperty('--color-graph-text-secondary', opacity(foregroundColor, 65));
-		bodyStyle.setProperty('--color-graph-text-disabled', opacity(foregroundColor, 50));
-
 		// alert colors
 		color = computedStyle.getPropertyValue('--vscode-inputValidation-infoBackground').trim();
 		bodyStyle.setProperty('--color-alert-infoHoverBackground', isLightTheme ? darken(color, 5) : lighten(color, 5));
@@ -168,14 +146,21 @@ export function initializeAndWatchThemeColors() {
 		bodyStyle.setProperty('--color-alert-neutralBorder', 'var(--vscode-input-foreground)');
 		bodyStyle.setProperty('--color-alert-foreground', 'var(--vscode-input-foreground)');
 
-		if (mutations != null) {
-			_onDidChangeTheme.fire();
-		}
+		_onDidChangeTheme.fire({
+			colors: {
+				background: backgroundColor,
+				foreground: foregroundColor,
+			},
+			computedStyle: computedStyle,
+			isLightTheme: isLightTheme,
+			isHighContrastTheme: isHighContrastTheme,
+			isInitializing: mutations == null,
+		});
 	};
 
 	onColorThemeChanged();
 
 	const observer = new MutationObserver(onColorThemeChanged);
 	observer.observe(document.body, { attributeFilter: ['class'] });
-	return observer;
+	return { dispose: () => observer.disconnect() };
 }
