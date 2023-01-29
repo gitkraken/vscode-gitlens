@@ -328,9 +328,9 @@ type SubPath<T, Key extends keyof T> = Key extends string
 		: never
 	: never;
 
-type Path<T> = SubPath<T, keyof T> | keyof T;
+export type Path<T> = SubPath<T, keyof T> | keyof T;
 
-type PathValue<T, P extends Path<T>> = P extends `${infer Key}.${infer Rest}`
+export type PathValue<T, P extends Path<T>> = P extends `${infer Key}.${infer Rest}`
 	? Key extends keyof T
 		? Rest extends Path<T[Key]>
 			? PathValue<T[Key], Rest>
@@ -340,5 +340,5 @@ type PathValue<T, P extends Path<T>> = P extends `${infer Key}.${infer Rest}`
 	? T[P]
 	: never;
 
-type ConfigPath = Path<Config>;
-type ConfigPathValue<P extends ConfigPath> = PathValue<Config, P>;
+export type ConfigPath = Path<Config>;
+export type ConfigPathValue<P extends ConfigPath> = PathValue<Config, P>;

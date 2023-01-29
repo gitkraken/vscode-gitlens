@@ -1,5 +1,6 @@
 import type { ConfigurationChangeEvent, WebviewPanelOnDidChangeViewStateEvent } from 'vscode';
 import { ConfigurationTarget } from 'vscode';
+import type { Path, PathValue } from '../configuration';
 import { configuration } from '../configuration';
 import type { Commands, ContextKeys } from '../constants';
 import type { Container } from '../container';
@@ -76,17 +77,24 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 					const target =
 						params.scope === 'workspace' ? ConfigurationTarget.Workspace : ConfigurationTarget.Global;
 
-					for (const key in params.changes) {
+					let key: keyof typeof params.changes;
+					for (key in params.changes) {
 						let value = params.changes[key];
 
-						const customSetting = this.customSettings.get(key);
-						if (customSetting != null) {
-							await customSetting.update(value);
+						if (isCustomConfigKey(key)) {
+							const customSetting = this.customSettings.get(key);
+							if (customSetting != null) {
+								if (typeof value === 'boolean') {
+									await customSetting.update(value);
+								} else {
+									debugger;
+								}
+							}
 
 							continue;
 						}
 
-						const inspect = configuration.inspect(key as any)!;
+						const inspect = configuration.inspect(key)!;
 
 						if (value != null) {
 							if (params.scope === 'workspace') {
@@ -189,10 +197,10 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 		}
 	}
 
-	private _customSettings: Map<string, CustomSetting> | undefined;
+	private _customSettings: Map<CustomConfigPath, CustomSetting> | undefined;
 	private get customSettings() {
 		if (this._customSettings == null) {
-			this._customSettings = new Map<string, CustomSetting>([
+			this._customSettings = new Map<CustomConfigPath, CustomSetting>([
 				[
 					'rebaseEditor.enabled',
 					{
@@ -240,4 +248,25 @@ interface CustomSetting {
 	name: string;
 	enabled: () => boolean;
 	update: (enabled: boolean) => Promise<void>;
+}
+
+interface CustomConfig {
+	rebaseEditor: {
+		enabled: boolean;
+	};
+	currentLine: {
+		useUncommittedChangesFormat: boolean;
+	};
+}
+
+export type CustomConfigPath = Path<CustomConfig>;
+export type CustomConfigPathValue<P extends CustomConfigPath> = PathValue<CustomConfig, P>;
+
+const customConfigKeys: readonly CustomConfigPath[] = [
+	'rebaseEditor.enabled',
+	'currentLine.useUncommittedChangesFormat',
+];
+
+export function isCustomConfigKey(key: string): key is CustomConfigPath {
+	return customConfigKeys.includes(key as CustomConfigPath);
 }

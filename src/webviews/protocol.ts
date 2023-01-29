@@ -1,4 +1,6 @@
 import type { Config } from '../config';
+import type { ConfigPath, ConfigPathValue } from '../configuration';
+import type { CustomConfigPath, CustomConfigPathValue } from './webviewWithConfigBase';
 
 export interface IpcMessage {
 	id: string;
@@ -61,7 +63,7 @@ export const GenerateConfigurationPreviewCommandType = new IpcCommandType<Genera
 
 export interface UpdateConfigurationParams {
 	changes: {
-		[key: string]: any;
+		[key in ConfigPath | CustomConfigPath]?: ConfigPathValue<ConfigPath> | CustomConfigPathValue<CustomConfigPath>;
 	};
 	removes: string[];
 	scope?: 'user' | 'workspace';
