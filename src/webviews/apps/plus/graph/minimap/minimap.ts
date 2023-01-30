@@ -1,10 +1,10 @@
 import { css, customElement, FASTElement, html, observable, ref } from '@microsoft/fast-element';
 import type { Chart, DataItem, RegionOptions } from 'billboard.js';
 import { bb, selection, spline, zoom } from 'billboard.js';
-import { groupByMap } from '../../../../system/array';
-import { first, flatMap, map, some, union } from '../../../../system/iterable';
-import { pluralize } from '../../../../system/string';
-import { formatDate, formatNumeric, fromNow } from '../../shared/date';
+import { groupByMap } from '../../../../../system/array';
+import { first, flatMap, map, some, union } from '../../../../../system/iterable';
+import { pluralize } from '../../../../../system/string';
+import { formatDate, formatNumeric, fromNow } from '../../../shared/date';
 
 export interface BranchMarker {
 	type: 'branch';
@@ -24,14 +24,14 @@ export interface TagMarker {
 	current?: undefined;
 }
 
-export type ActivityMarker = BranchMarker | RemoteMarker | TagMarker;
+export type GraphMinimapMarker = BranchMarker | RemoteMarker | TagMarker;
 
-export interface ActivitySearchResultMarker {
+export interface GraphMinimapSearchResultMarker {
 	type: 'search-result';
 	sha: string;
 }
 
-export interface ActivityStats {
+export interface GraphMinimapStats {
 	commits: number;
 
 	activity?: { additions: number; deletions: number };
@@ -39,14 +39,14 @@ export interface ActivityStats {
 	sha?: string;
 }
 
-export type ActivityStatsSelectedEvent = CustomEvent<ActivityStatsSelectedEventDetail>;
+export type GraphMinimapDaySelectedEvent = CustomEvent<GraphMinimapDaySelectedEventDetail>;
 
-export interface ActivityStatsSelectedEventDetail {
+export interface GraphMinimapDaySelectedEventDetail {
 	date: Date;
 	sha?: string;
 }
 
-const template = html<ActivityMinibar>`<template>
+const template = html<GraphMinimap>`<template>
 	<div id="chart" ${ref('chart')}></div>
 </template>`;
 
@@ -86,7 +86,7 @@ const styles = css`
 
 	/*-- Grid --*/
 	.bb-xgrid-focus line {
-		stroke: var(--color-activityMinibar-focusLine);
+		stroke: var(--color-graph-minimap-focusLine);
 	}
 
 	/*-- Line --*/
@@ -123,7 +123,7 @@ const styles = css`
 	/*-- Regions --*/
 
 	.bb-region.visible-area {
-		fill: var(--color-activityMinibar-visibleAreaBackground);
+		fill: var(--color-graph-minimap-visibleAreaBackground);
 		/* transform: translateY(26px); */
 		transform: translateY(-4px);
 		z-index: 0;
@@ -134,11 +134,11 @@ const styles = css`
 	}
 
 	/* :host(:hover) .bb-region.visible-area {
-		fill: var(--color-activityMinibar-visibleAreaHoverBackground);
+		fill: var(--color-graph-minimap-visibleAreaHoverBackground);
 	} */
 
 	.bb-region.marker-result {
-		fill: var(--color-activityMinibar-resultMarker);
+		fill: var(--color-graph-minimap-resultMarker);
 		transform: translate(-1px, -4px);
 		z-index: 10;
 	}
@@ -148,7 +148,7 @@ const styles = css`
 	}
 
 	.bb-region.marker-head {
-		fill: var(--color-activityMinibar-headMarker);
+		fill: var(--color-graph-minimap-headMarker);
 		transform: translate(0px, -4px);
 		z-index: 5;
 	}
@@ -158,7 +158,7 @@ const styles = css`
 	}
 
 	.bb-region.marker-upstream {
-		fill: var(--color-activityMinibar-upstreamMarker);
+		fill: var(--color-graph-minimap-upstreamMarker);
 		transform: translate(0px, -4px);
 		z-index: 4;
 	}
@@ -168,7 +168,7 @@ const styles = css`
 	}
 
 	.bb-region.marker-branch {
-		fill: var(--color-activityMinibar-branchMarker);
+		fill: var(--color-graph-minimap-branchMarker);
 		transform: translate(-2px, 26px);
 		z-index: 3;
 	}
@@ -178,7 +178,7 @@ const styles = css`
 	}
 
 	.bb-region.marker-remote {
-		fill: var(--color-activityMinibar-remoteMarker);
+		fill: var(--color-graph-minimap-remoteMarker);
 		transform: translate(-3px, 31px);
 		z-index: 2;
 	}
@@ -188,7 +188,7 @@ const styles = css`
 	}
 
 	.bb-region.marker-tag {
-		fill: var(--color-activityMinibar-tagMarker);
+		fill: var(--color-graph-minimap-tagMarker);
 		transform: translate(1px, 31px);
 		z-index: 1;
 	}
@@ -295,38 +295,38 @@ const styles = css`
 	.bb-tooltip .refs .branch {
 		border-radius: 3px;
 		padding: 0 4px;
-		background-color: var(--color-activityMinibar-branchBackground);
-		border: 1px solid var(--color-activityMinibar-branchBorder);
-		color: var(--color-activityMinibar-branchForeground);
+		background-color: var(--color-graph-minimap-branchBackground);
+		border: 1px solid var(--color-graph-minimap-branchBorder);
+		color: var(--color-graph-minimap-branchForeground);
 	}
 	.bb-tooltip .refs .branch.current {
-		background-color: var(--color-activityMinibar-headBackground);
-		border: 1px solid var(--color-activityMinibar-headBorder);
-		color: var(--color-activityMinibar-headForeground);
+		background-color: var(--color-graph-minimap-headBackground);
+		border: 1px solid var(--color-graph-minimap-headBorder);
+		color: var(--color-graph-minimap-headForeground);
 	}
 	.bb-tooltip .refs .remote {
 		border-radius: 3px;
 		padding: 0 4px;
-		background-color: var(--color-activityMinibar-remoteBackground);
-		border: 1px solid var(--color-activityMinibar-remoteBorder);
-		color: var(--color-activityMinibar-remoteForeground);
+		background-color: var(--color-graph-minimap-remoteBackground);
+		border: 1px solid var(--color-graph-minimap-remoteBorder);
+		color: var(--color-graph-minimap-remoteForeground);
 	}
 	.bb-tooltip .refs .remote.current {
-		background-color: var(--color-activityMinibar-upstreamBackground);
-		border: 1px solid var(--color-activityMinibar-upstreamBorder);
-		color: var(--color-activityMinibar-upstreamForeground);
+		background-color: var(--color-graph-minimap-upstreamBackground);
+		border: 1px solid var(--color-graph-minimap-upstreamBorder);
+		color: var(--color-graph-minimap-upstreamForeground);
 	}
 	.bb-tooltip .refs .tag {
 		border-radius: 3px;
 		padding: 0 4px;
-		background-color: var(--color-activityMinibar-tagBackground);
-		border: 1px solid var(--color-activityMinibar-tagBorder);
-		color: var(--color-activityMinibar-tagForeground);
+		background-color: var(--color-graph-minimap-tagBackground);
+		border: 1px solid var(--color-graph-minimap-tagBorder);
+		color: var(--color-graph-minimap-tagForeground);
 	}
 `;
 
-@customElement({ name: 'activity-minibar', template: template, styles: styles })
-export class ActivityMinibar extends FASTElement {
+@customElement({ name: 'graph-minimap', template: template, styles: styles })
+export class GraphMinimap extends FASTElement {
 	chart!: HTMLDivElement;
 
 	private _chart!: Chart;
@@ -342,10 +342,10 @@ export class ActivityMinibar extends FASTElement {
 	}
 
 	@observable
-	data: Map<number, ActivityStats | null> | undefined;
+	data: Map<number, GraphMinimapStats | null> | undefined;
 	protected dataChanged(
-		_oldVal?: Map<number, ActivityStats | null>,
-		_newVal?: Map<number, ActivityStats | null>,
+		_oldVal?: Map<number, GraphMinimapStats | null>,
+		_newVal?: Map<number, GraphMinimapStats | null>,
 		markerChanged?: boolean,
 	) {
 		if (this._loadTimer) {
@@ -362,13 +362,13 @@ export class ActivityMinibar extends FASTElement {
 	}
 
 	@observable
-	markers: Map<number, ActivityMarker[]> | undefined;
+	markers: Map<number, GraphMinimapMarker[]> | undefined;
 	protected markersChanged() {
 		this.dataChanged(undefined, undefined, true);
 	}
 
 	@observable
-	searchResults: Map<number, ActivitySearchResultMarker> | undefined;
+	searchResults: Map<number, GraphMinimapSearchResultMarker> | undefined;
 	protected searchResultsChanged() {
 		this._chart?.regions.remove({ classes: ['marker-result'] });
 		if (this.searchResults == null) return;
@@ -455,7 +455,7 @@ export class ActivityMinibar extends FASTElement {
 		if (this._markerRegions == null) {
 			if (this.markers != null) {
 				const regions = flatMap(this.markers, ([day, markers]) =>
-					map<ActivityMarker, RegionOptions>(
+					map<GraphMinimapMarker, RegionOptions>(
 						markers,
 						m =>
 							({
@@ -616,7 +616,7 @@ export class ActivityMinibar extends FASTElement {
 							this.$emit('selected', {
 								date: date,
 								sha: sha,
-							} satisfies ActivityStatsSelectedEventDetail);
+							} satisfies GraphMinimapDaySelectedEventDetail);
 						});
 					},
 					selection: {
@@ -630,7 +630,7 @@ export class ActivityMinibar extends FASTElement {
 						// },
 					},
 					colors: {
-						activity: 'var(--color-activityMinibar-line0)',
+						activity: 'var(--color-graph-minimap-line0)',
 						// additions: 'rgba(73, 190, 71, 0.7)',
 						// deletions: 'rgba(195, 32, 45, 0.7)',
 					},

@@ -479,11 +479,8 @@ export class GraphWebview extends WebviewBase<State> {
 		for (key in params.changes) {
 			if (config[key] !== params.changes[key]) {
 				switch (key) {
-					case 'activityMinibar':
-						void configuration.updateEffective(
-							'graph.experimental.activityMinibar.enabled',
-							params.changes[key],
-						);
+					case 'minimap':
+						void configuration.updateEffective('graph.experimental.minimap.enabled', params.changes[key]);
 						break;
 					default:
 						// TODO:@eamodio add more config options as needed
@@ -586,13 +583,13 @@ export class GraphWebview extends WebviewBase<State> {
 			configuration.changed(e, 'graph.pullRequests.enabled') ||
 			configuration.changed(e, 'graph.showRemoteNames') ||
 			configuration.changed(e, 'graph.showUpstreamStatus') ||
-			configuration.changed(e, 'graph.experimental.activityMinibar.enabled')
+			configuration.changed(e, 'graph.experimental.minimap.enabled')
 		) {
 			void this.notifyDidChangeConfiguration();
 
 			if (
-				configuration.changed(e, 'graph.experimental.activityMinibar.enabled') &&
-				configuration.get('graph.experimental.activityMinibar.enabled') &&
+				configuration.changed(e, 'graph.experimental.minimap.enabled') &&
+				configuration.get('graph.experimental.minimap.enabled') &&
 				!this._graph?.includes?.stats
 			) {
 				this.updateState();
@@ -1598,7 +1595,6 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private getComponentConfig(): GraphComponentConfig {
 		const config: GraphComponentConfig = {
-			activityMinibar: configuration.get('graph.experimental.activityMinibar.enabled'),
 			avatars: configuration.get('graph.avatars'),
 			dateFormat:
 				configuration.get('graph.dateFormat') ?? configuration.get('defaultDateFormat') ?? 'short+short',
@@ -1607,6 +1603,7 @@ export class GraphWebview extends WebviewBase<State> {
 			dimMergeCommits: configuration.get('graph.dimMergeCommits'),
 			enableMultiSelection: false,
 			highlightRowsOnRefHover: configuration.get('graph.highlightRowsOnRefHover'),
+			minimap: configuration.get('graph.experimental.minimap.enabled'),
 			scrollRowPadding: configuration.get('graph.scrollRowPadding'),
 			showGhostRefsOnRowHover: configuration.get('graph.showGhostRefsOnRowHover'),
 			showRemoteNamesOnRefs: configuration.get('graph.showRemoteNames'),
@@ -1703,7 +1700,7 @@ export class GraphWebview extends WebviewBase<State> {
 			this.repository.path,
 			this._panel!.webview.asWebviewUri.bind(this._panel!.webview),
 			{
-				include: { stats: configuration.get('graph.experimental.activityMinibar.enabled') },
+				include: { stats: configuration.get('graph.experimental.minimap.enabled') },
 				limit: limit,
 				ref: ref,
 			},
