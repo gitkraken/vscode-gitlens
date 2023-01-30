@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds a new experimental minimap of commit activity to the _Commit Graph_
+
 ## [13.2.0] - 2022-12-20
 
 ### Added
