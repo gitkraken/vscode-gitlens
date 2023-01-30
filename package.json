@@ -2309,10 +2309,10 @@
 						"scope": "window",
 						"order": 100
 					},
-					"gitlens.graph.experimental.activityMinibar.enabled": {
+					"gitlens.graph.experimental.minimap.enabled": {
 						"type": "boolean",
 						"default": false,
-						"markdownDescription": "Specifies whether to show an activity minibar above the _Commit Graph_",
+						"markdownDescription": "Specifies whether to show a minimap of commit activity above the _Commit Graph_",
 						"scope": "window",
 						"order": 100
 					}

@@ -389,7 +389,7 @@ export interface GraphConfig {
 	defaultItemLimit: number;
 	dimMergeCommits: boolean;
 	experimental: {
-		activityMinibar: {
+		minimap: {
 			enabled: boolean;
 		};
 	};

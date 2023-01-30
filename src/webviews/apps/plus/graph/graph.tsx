@@ -382,7 +382,8 @@ export class GraphApp extends App<State> {
 		bodyStyle.setProperty('--color-graph-text-secondary', opacity(e.colors.foreground, 65));
 		bodyStyle.setProperty('--color-graph-text-disabled', opacity(e.colors.foreground, 50));
 
-		// activity minibar
+		// minimap
+
 		const resultColor = Color.fromHex('#ffff00');
 		const headColor = Color.fromHex('#00ff00');
 		const branchColor = Color.fromHex('#ff7f50');
@@ -390,17 +391,17 @@ export class GraphApp extends App<State> {
 
 		color = e.computedStyle.getPropertyValue('--vscode-progressBar-background').trim();
 		const activityColor = Color.from(color);
-		// bodyStyle.setProperty('--color-activityMinibar-line0', color);
-		bodyStyle.setProperty('--color-activityMinibar-line0', activityColor.luminance(themeLuminance(0.5)).toString());
+		// bodyStyle.setProperty('--color-graph-minimap-line0', color);
+		bodyStyle.setProperty('--color-graph-minimap-line0', activityColor.luminance(themeLuminance(0.5)).toString());
 
 		bodyStyle.setProperty(
-			'--color-activityMinibar-focusLine',
+			'--color-graph-minimap-focusLine',
 			backgroundColor.luminance(themeLuminance(e.isLightTheme ? 0.6 : 0.2)).toString(),
 		);
 
 		color = e.computedStyle.getPropertyValue('--vscode-scrollbarSlider-background').trim();
 		bodyStyle.setProperty(
-			'--color-activityMinibar-visibleAreaBackground',
+			'--color-graph-minimap-visibleAreaBackground',
 			Color.from(color)
 				.luminance(themeLuminance(e.isLightTheme ? 0.6 : 0.15))
 				.toString(),
@@ -408,7 +409,7 @@ export class GraphApp extends App<State> {
 
 		color = e.computedStyle.getPropertyValue('--vscode-scrollbarSlider-hoverBackground').trim();
 		bodyStyle.setProperty(
-			'--color-activityMinibar-visibleAreaHoverBackground',
+			'--color-graph-minimap-visibleAreaHoverBackground',
 			Color.from(color)
 				.luminance(themeLuminance(e.isLightTheme ? 0.6 : 0.15))
 				.toString(),
@@ -418,11 +419,11 @@ export class GraphApp extends App<State> {
 			.luminance(themeLuminance(e.isLightTheme ? 0.45 : 0.32))
 			.toString();
 		// color = e.computedStyle.getPropertyValue('--vscode-editorCursor-foreground').trim();
-		bodyStyle.setProperty('--color-activityMinibar-selectedMarker', color);
-		bodyStyle.setProperty('--color-activityMinibar-highlightedMarker', opacity(color, 60));
+		bodyStyle.setProperty('--color-graph-minimap-selectedMarker', color);
+		bodyStyle.setProperty('--color-graph-minimap-highlightedMarker', opacity(color, 60));
 
 		bodyStyle.setProperty(
-			'--color-activityMinibar-resultMarker',
+			'--color-graph-minimap-resultMarker',
 			resultColor.luminance(themeLuminance(0.6)).toString(),
 		);
 
@@ -431,41 +432,41 @@ export class GraphApp extends App<State> {
 		const headBorder = headColor.luminance(themeLuminance(e.isLightTheme ? 0.2 : 0.4)).toString();
 		const headMarker = headColor.luminance(themeLuminance(0.5)).toString();
 
-		bodyStyle.setProperty('--color-activityMinibar-headBackground', headBackground);
-		bodyStyle.setProperty('--color-activityMinibar-headBorder', headBorder);
-		bodyStyle.setProperty('--color-activityMinibar-headForeground', pillLabel);
-		bodyStyle.setProperty('--color-activityMinibar-headMarker', opacity(headMarker, 80));
+		bodyStyle.setProperty('--color-graph-minimap-headBackground', headBackground);
+		bodyStyle.setProperty('--color-graph-minimap-headBorder', headBorder);
+		bodyStyle.setProperty('--color-graph-minimap-headForeground', pillLabel);
+		bodyStyle.setProperty('--color-graph-minimap-headMarker', opacity(headMarker, 80));
 
-		bodyStyle.setProperty('--color-activityMinibar-upstreamBackground', headBackground);
-		bodyStyle.setProperty('--color-activityMinibar-upstreamBorder', headBorder);
-		bodyStyle.setProperty('--color-activityMinibar-upstreamForeground', pillLabel);
-		bodyStyle.setProperty('--color-activityMinibar-upstreamMarker', opacity(headMarker, 60));
+		bodyStyle.setProperty('--color-graph-minimap-upstreamBackground', headBackground);
+		bodyStyle.setProperty('--color-graph-minimap-upstreamBorder', headBorder);
+		bodyStyle.setProperty('--color-graph-minimap-upstreamForeground', pillLabel);
+		bodyStyle.setProperty('--color-graph-minimap-upstreamMarker', opacity(headMarker, 60));
 
 		const branchBackground = branchColor.luminance(themeLuminance(e.isLightTheme ? 0.8 : 0.3)).toString();
 		const branchBorder = branchColor.luminance(themeLuminance(e.isLightTheme ? 0.2 : 0.4)).toString();
 		const branchMarker = branchColor.luminance(themeLuminance(0.6)).toString();
 
-		bodyStyle.setProperty('--color-activityMinibar-branchBackground', branchBackground);
-		bodyStyle.setProperty('--color-activityMinibar-branchBorder', branchBorder);
-		bodyStyle.setProperty('--color-activityMinibar-branchForeground', pillLabel);
-		bodyStyle.setProperty('--color-activityMinibar-branchMarker', opacity(branchMarker, 70));
+		bodyStyle.setProperty('--color-graph-minimap-branchBackground', branchBackground);
+		bodyStyle.setProperty('--color-graph-minimap-branchBorder', branchBorder);
+		bodyStyle.setProperty('--color-graph-minimap-branchForeground', pillLabel);
+		bodyStyle.setProperty('--color-graph-minimap-branchMarker', opacity(branchMarker, 70));
 
-		bodyStyle.setProperty('--color-activityMinibar-remoteBackground', opacity(branchBackground, 80));
-		bodyStyle.setProperty('--color-activityMinibar-remoteBorder', opacity(branchBorder, 80));
-		bodyStyle.setProperty('--color-activityMinibar-remoteForeground', pillLabel);
-		bodyStyle.setProperty('--color-activityMinibar-remoteMarker', opacity(branchMarker, 30));
+		bodyStyle.setProperty('--color-graph-minimap-remoteBackground', opacity(branchBackground, 80));
+		bodyStyle.setProperty('--color-graph-minimap-remoteBorder', opacity(branchBorder, 80));
+		bodyStyle.setProperty('--color-graph-minimap-remoteForeground', pillLabel);
+		bodyStyle.setProperty('--color-graph-minimap-remoteMarker', opacity(branchMarker, 30));
 
 		bodyStyle.setProperty(
-			'--color-activityMinibar-tagBackground',
+			'--color-graph-minimap-tagBackground',
 			tagColor.luminance(themeLuminance(e.isLightTheme ? 0.8 : 0.2)).toString(),
 		);
 		bodyStyle.setProperty(
-			'--color-activityMinibar-tagBorder',
+			'--color-graph-minimap-tagBorder',
 			tagColor.luminance(themeLuminance(e.isLightTheme ? 0.2 : 0.4)).toString(),
 		);
-		bodyStyle.setProperty('--color-activityMinibar-tagForeground', pillLabel);
+		bodyStyle.setProperty('--color-graph-minimap-tagForeground', pillLabel);
 		bodyStyle.setProperty(
-			'--color-activityMinibar-tagMarker',
+			'--color-graph-minimap-tagMarker',
 			opacity(tagColor.luminance(themeLuminance(0.5)).toString(), 60),
 		);
 

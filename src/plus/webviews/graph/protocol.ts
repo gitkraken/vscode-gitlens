@@ -128,7 +128,6 @@ export type GraphTag = Tag;
 export type GraphBranch = Head;
 
 export interface GraphComponentConfig {
-	activityMinibar?: boolean;
 	avatars?: boolean;
 	dateFormat: DateTimeFormat | string;
 	dateStyle: DateStyle;
@@ -136,6 +135,7 @@ export interface GraphComponentConfig {
 	enabledRefMetadataTypes?: GraphRefMetadataType[];
 	enableMultiSelection?: boolean;
 	highlightRowsOnRefHover?: boolean;
+	minimap?: boolean;
 	scrollRowPadding?: number;
 	showGhostRefsOnRowHover?: boolean;
 	showRemoteNamesOnRefs?: boolean;

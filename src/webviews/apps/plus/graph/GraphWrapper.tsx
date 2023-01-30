@@ -66,13 +66,13 @@ import type { SearchNavigationEventDetail } from '../../shared/components/search
 import type { DateTimeFormat } from '../../shared/date';
 import { formatDate, fromNow } from '../../shared/date';
 import type {
-	ActivityMarker,
-	ActivityMinibar as ActivityMinibarType,
-	ActivitySearchResultMarker,
-	ActivityStats,
-	ActivityStatsSelectedEventDetail,
-} from '../activity/activity-minibar';
-import { ActivityMinibar } from '../activity/react';
+	GraphMinimapDaySelectedEventDetail,
+	GraphMinimapMarker,
+	GraphMinimapSearchResultMarker,
+	GraphMinimapStats,
+	GraphMinimap as GraphMinimapType,
+} from './minimap/minimap';
+import { GraphMinimap } from './minimap/react';
 
 export interface GraphWrapperProps {
 	nonce?: string;
@@ -228,7 +228,7 @@ export function GraphWrapper({
 		state.workingTreeStats ?? { added: 0, modified: 0, deleted: 0 },
 	);
 
-	const activityMinibar = useRef<ActivityMinibarType | undefined>(undefined);
+	const minimap = useRef<GraphMinimapType | undefined>(undefined);
 
 	const ensuredIds = useRef<Set<string>>(new Set());
 	const ensuredSkippedIds = useRef<Set<string>>(new Set());
@@ -344,12 +344,12 @@ export function GraphWrapper({
 		};
 	}, [activeRow]);
 
-	const activityData = useMemo(() => {
-		if (!graphConfig?.activityMinibar) return undefined;
+	const minimapData = useMemo(() => {
+		if (!graphConfig?.minimap) return undefined;
 
 		// Loops through all the rows and group them by day and aggregate the row.stats
-		const statsByDayMap = new Map<number, ActivityStats>();
-		const markersByDay = new Map<number, ActivityMarker[]>();
+		const statsByDayMap = new Map<number, GraphMinimapStats>();
+		const markersByDay = new Map<number, GraphMinimapMarker[]>();
 
 		let rankedShas: {
 			head: string | undefined;
@@ -395,7 +395,7 @@ export function GraphWrapper({
 				rankedShas.branch = row.sha;
 
 				// eslint-disable-next-line no-loop-func
-				headMarkers = row.heads.map<ActivityMarker>(h => {
+				headMarkers = row.heads.map<GraphMinimapMarker>(h => {
 					if (h.isCurrentHead) {
 						head = h;
 						rankedShas.head = row.sha;
@@ -420,7 +420,7 @@ export function GraphWrapper({
 				rankedShas.remote = row.sha;
 
 				// eslint-disable-next-line no-loop-func
-				remoteMarkers = row.remotes.map<ActivityMarker>(r => {
+				remoteMarkers = row.remotes.map<GraphMinimapMarker>(r => {
 					let current = false;
 					if (r.name === head?.name) {
 						rankedShas.remote = row.sha;
@@ -445,7 +445,7 @@ export function GraphWrapper({
 			if (row.tags?.length) {
 				rankedShas.tag = row.sha;
 
-				tagMarkers = row.tags.map<ActivityMarker>(t => ({
+				tagMarkers = row.tags.map<GraphMinimapMarker>(t => ({
 					type: 'tag',
 					name: t.name,
 				}));
@@ -489,12 +489,12 @@ export function GraphWrapper({
 		}
 
 		return { stats: statsByDayMap, markers: markersByDay };
-	}, [rows, graphConfig?.activityMinibar]);
+	}, [rows, graphConfig?.minimap]);
 
-	const activitySearchResults = useMemo(() => {
-		if (!graphConfig?.activityMinibar) return undefined;
+	const minimapSearchResults = useMemo(() => {
+		if (!graphConfig?.minimap) return undefined;
 
-		const searchResultsByDay = new Map<number, ActivitySearchResultMarker>();
+		const searchResultsByDay = new Map<number, GraphMinimapSearchResultMarker>();
 
 		if (searchResults?.ids != null) {
 			let day;
@@ -512,9 +512,9 @@ export function GraphWrapper({
 		}
 
 		return searchResultsByDay;
-	}, [searchResults, graphConfig?.activityMinibar]);
+	}, [searchResults, graphConfig?.minimap]);
 
-	const handleOnActivityStatsSelected = (e: CustomEvent<ActivityStatsSelectedEventDetail>) => {
+	const handleOnMinimapDaySelected = (e: CustomEvent<GraphMinimapDaySelectedEventDetail>) => {
 		let { sha } = e.detail;
 		if (sha == null) {
 			const date = e.detail.date?.getTime();
@@ -530,18 +530,18 @@ export function GraphWrapper({
 		graphRef.current?.selectCommits([sha], false, true);
 	};
 
-	const handleOnToggleActivityMinibar = (_e: React.MouseEvent) => {
-		onUpdateGraphConfiguration?.({ activityMinibar: !graphConfig?.activityMinibar });
+	const handleOnToggleMinimap = (_e: React.MouseEvent) => {
+		onUpdateGraphConfiguration?.({ minimap: !graphConfig?.minimap });
 	};
 
 	const handleOnGraphMouseLeave = (_event: any) => {
-		activityMinibar.current?.unselect(undefined, true);
+		minimap.current?.unselect(undefined, true);
 	};
 
 	const handleOnGraphRowHovered = (_event: any, graphZoneType: GraphZoneType, graphRow: GraphRow) => {
-		if (graphZoneType === REF_ZONE_TYPE || activityMinibar.current == null) return;
+		if (graphZoneType === REF_ZONE_TYPE || minimap.current == null) return;
 
-		activityMinibar.current?.select(graphRow.date, true);
+		minimap.current?.select(graphRow.date, true);
 	};
 
 	const handleKeyDown = (e: KeyboardEvent) => {
@@ -1223,9 +1223,9 @@ export function GraphWrapper({
 							<button
 								type="button"
 								className="action-button action-button--narrow"
-								title="Toggle Activity Minibar (experimental)"
-								aria-label="Toggle Activity Minibar (experimental)"
-								onClick={handleOnToggleActivityMinibar}
+								title="Toggle Minimap (experimental)"
+								aria-label="Toggle Minimap (experimental)"
+								onClick={handleOnToggleMinimap}
 							>
 								<span className="codicon codicon-graph-line action-button__icon"></span>
 							</button>
@@ -1236,16 +1236,16 @@ export function GraphWrapper({
 					<div className="progress-bar"></div>
 				</div>
 			</header>
-			{graphConfig?.activityMinibar && (
-				<ActivityMinibar
-					ref={activityMinibar as any}
+			{graphConfig?.minimap && (
+				<GraphMinimap
+					ref={minimap as any}
 					activeDay={activeDay}
-					data={activityData?.stats}
-					markers={activityData?.markers}
-					searchResults={activitySearchResults}
+					data={minimapData?.stats}
+					markers={minimapData?.markers}
+					searchResults={minimapSearchResults}
 					visibleDays={visibleDays}
-					onSelected={e => handleOnActivityStatsSelected(e as CustomEvent<ActivityStatsSelectedEventDetail>)}
-				></ActivityMinibar>
+					onSelected={e => handleOnMinimapDaySelected(e as CustomEvent<GraphMinimapDaySelectedEventDetail>)}
+				></GraphMinimap>
 			)}
 			<main
 				id="main"
@@ -1285,16 +1285,14 @@ export function GraphWrapper({
 							onDoubleClickGraphRow={handleOnDoubleClickRow}
 							onDoubleClickGraphRef={handleOnDoubleClickRef}
 							onGraphColumnsReOrdered={handleOnGraphColumnsReOrdered}
-							onGraphMouseLeave={activityMinibar.current ? handleOnGraphMouseLeave : undefined}
-							onGraphRowHovered={activityMinibar.current ? handleOnGraphRowHovered : undefined}
+							onGraphMouseLeave={minimap.current ? handleOnGraphMouseLeave : undefined}
+							onGraphRowHovered={minimap.current ? handleOnGraphRowHovered : undefined}
 							onSelectGraphRows={handleSelectGraphRows}
 							onToggleRefsVisibilityClick={handleOnToggleRefsVisibilityClick}
 							onEmailsMissingAvatarUrls={handleMissingAvatars}
 							onRefsMissingMetadata={handleMissingRefsMetadata}
 							onShowMoreCommits={handleMoreCommits}
-							onGraphVisibleRowsChanged={
-								activityMinibar.current ? handleOnGraphVisibleRowsChanged : undefined
-							}
+							onGraphVisibleRowsChanged={minimap.current ? handleOnGraphVisibleRowsChanged : undefined}
 							platform={clientPlatform}
 							refMetadataById={refsMetadata}
 							shaLength={graphConfig?.idLength}
