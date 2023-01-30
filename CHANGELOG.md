@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes graph issue where search results that are merge commits are not highlighted when the `gitlens.graph.dimMergeCommits` setting is enabled
 - Fixes graph issue where the "Current Branch Only" filter shows unrelated commits from other branches [#2409](https://github.com/gitkraken/vscode-gitlens/issues/2409)
 - Fixes graph issue where rows with tags belonging to a hovered branch are not highlighted when the `gitlens.graph.highlightRowsOnRefHover` setting is enabled
+
 ## [13.2.0] - 2022-12-20
 
 ### Added
