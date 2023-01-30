@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds a new experimental minimap of commit activity to the _Commit Graph_
 
+### Fixed
+
+- Fixes [#2473](https://github.com/gitkraken/vscode-gitlens/issues/2473) - Commit graph status bar show wrong last fetched date
+
 ## [13.2.0] - 2022-12-20
 
 ### Added
