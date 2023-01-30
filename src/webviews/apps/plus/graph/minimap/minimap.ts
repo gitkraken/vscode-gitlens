@@ -58,7 +58,6 @@ const styles = css`
 		min-height: 24px;
 		height: 40px;
 		background: var(--color-background);
-		z-index: 2000;
 	}
 
 	#chart {
