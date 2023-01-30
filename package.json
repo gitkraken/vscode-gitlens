@@ -2312,7 +2312,7 @@
 					"gitlens.graph.experimental.minimap.enabled": {
 						"type": "boolean",
 						"default": false,
-						"markdownDescription": "Specifies whether to show a minimap of commit activity above the _Commit Graph_",
+						"markdownDescription": "Specifies whether to show an experimental minimap of commit activity above the _Commit Graph_",
 						"scope": "window",
 						"order": 100
 					}
