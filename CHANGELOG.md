@@ -8,9 +8,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds a new experimental minimap of commit activity to the _Commit Graph_
-- Adds context menu options to the WIP row of the _Commit Graph_ [#2458](https://github.com/gitkraken/vscode-gitlens/issues/2458)
-- Adds setting to toggle PR icons in the _Commit Graph_ [#2450](https://github.com/gitkraken/vscode-gitlens/issues/2450)
+- Adds new _Commit Graph_ features and improvements
+  - Adds a new experimental minimap of commit activity to the _Commit Graph_
+  - Adds the ability to show upstream status (ahead/behind) on local branches with remotes
+  - Adds a context menu to the WIP row [#2458](https://github.com/gitkraken/vscode-gitlens/issues/2458)
+  - Adds new settings
+    - Adds a `gitlens.graph.pullRequests.enabled` setting to toggle PR icons [#2450](https://github.com/gitkraken/vscode-gitlens/issues/2450)
+    - Adds a `gitlens.graph.showUpstreamStatus` setting to toggle upstream indicators on branches
+  - Improves tooltips in the graph:
+    - Author and avatar tooltips now also show the contributor's email address, if available
+    - Date tooltips now always show the absolute date, even when relative date formatting is enabled
 
 ### Changed
 
@@ -21,7 +28,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes [#2473](https://github.com/gitkraken/vscode-gitlens/issues/2473) - Commit graph status bar show wrong last fetched date
 - Fixes pinning not being respected in Commit Details
-
+- Fixes graph issue where search results that are merge commits are not highlighted when the `gitlens.graph.dimMergeCommits` setting is enabled
+- Fixes graph issue where the "Current Branch Only" filter shows unrelated commits from other branches [#2409](https://github.com/gitkraken/vscode-gitlens/issues/2409)
+- Fixes graph issue where rows with tags belonging to a hovered branch are not highlighted when the `gitlens.graph.highlightRowsOnRefHover` setting is enabled
 ## [13.2.0] - 2022-12-20
 
 ### Added
