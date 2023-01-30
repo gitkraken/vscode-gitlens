@@ -9,10 +9,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds a new experimental minimap of commit activity to the _Commit Graph_
+- Adds context menu options to the WIP row of the _Commit Graph_ [#2458](https://github.com/gitkraken/vscode-gitlens/issues/2458)
+- Adds setting to toggle PR icons in the _Commit Graph_ [#2450](https://github.com/gitkraken/vscode-gitlens/issues/2450)
+
+### Changed
+
+- Removes "preview" flag from pre-releases
+- Removes use of color libraries in the _File Heatmap_ annotations and webview themes
 
 ### Fixed
 
 - Fixes [#2473](https://github.com/gitkraken/vscode-gitlens/issues/2473) - Commit graph status bar show wrong last fetched date
+- Fixes pinning not being respected in Commit Details
 
 ## [13.2.0] - 2022-12-20
 
