@@ -1322,17 +1322,17 @@ export function GraphWrapper({
 }
 
 function formatCommitDateTime(
-	commitDateTime: number,
+	date: number,
 	style: DateStyle = DateStyle.Absolute,
 	format: DateTimeFormat | string = 'short+short',
 	source?: GraphCommitDateTimeSource,
 ): string {
 	switch (source) {
 		case GraphCommitDateTimeSources.Tooltip:
-			return formatDate(commitDateTime, format);
+			return `${formatDate(date, format)} (${fromNow(date)})`;
 		case GraphCommitDateTimeSources.RowEntry:
 		default:
-			return style === DateStyle.Relative ? fromNow(commitDateTime) : formatDate(commitDateTime, format);
+			return style === DateStyle.Relative ? fromNow(date) : formatDate(date, format);
 	}
 }
 
