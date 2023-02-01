@@ -49,6 +49,8 @@ export class SetViewsLayoutCommand extends Command {
 
 		void this.container.storage.store('views:layout', layout);
 
+		const views = viewsConfigKeys.filter(v => v !== 'contributors');
+
 		switch (layout) {
 			case ViewsLayout.GitLens:
 				try {
@@ -56,7 +58,7 @@ export class SetViewsLayoutCommand extends Command {
 					let count = 0;
 					while (count++ < 2) {
 						void (await executeCoreCommand(CoreCommands.MoveViews, {
-							viewIds: viewsConfigKeys.map(view => `gitlens.views.${view}`),
+							viewIds: views.map(v => `gitlens.views.${v}`),
 							destinationId: 'workbench.view.extension.gitlens',
 						}));
 					}
@@ -69,12 +71,12 @@ export class SetViewsLayoutCommand extends Command {
 					let count = 0;
 					while (count++ < 2) {
 						void (await executeCoreCommand(CoreCommands.MoveViews, {
-							viewIds: viewsConfigKeys.map(view => `gitlens.views.${view}`),
+							viewIds: views.map(v => `gitlens.views.${v}`),
 							destinationId: 'workbench.view.scm',
 						}));
 					}
 				} catch {
-					for (const view of viewsConfigKeys) {
+					for (const view of views) {
 						void (await executeCommand(`gitlens.views.${view}.resetViewLocation`));
 					}
 				}

@@ -19,6 +19,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     - Author and avatar tooltips now also show the contributor's email address, if available
     - Date tooltips now always show both the absolute date and relative date
 
+### Changed
+
+- Changes the _Contributors_ view to be shown by default on the _GitLens_ sidebar
+
 ### Removed
 
 - Removes the use of an external color library for the _File Heatmap_ annotations and webview themes &mdash; reduces the bundled extension size
