@@ -180,7 +180,7 @@ export class Container {
 
 		context.subscriptions.push((this._uri = new UriService(this)));
 
-		context.subscriptions.push((this._deepLink = new DeepLinkService(this)));
+		context.subscriptions.push((this._deepLinks = new DeepLinkService(this)));
 
 		context.subscriptions.push((this._actionRunners = new ActionRunners(this)));
 		context.subscriptions.push((this._tracker = new GitDocumentTracker(this)));
@@ -380,9 +380,9 @@ export class Container {
 		return this._uri;
 	}
 
-	private _deepLink: DeepLinkService;
-	get deepLink() {
-		return this._deepLink;
+	private _deepLinks: DeepLinkService;
+	get deepLinks() {
+		return this._deepLinks;
 	}
 
 	private _github: Promise<import('./plus/github/github').GitHubApi | undefined> | undefined;
