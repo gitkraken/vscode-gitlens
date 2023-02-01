@@ -1,8 +1,8 @@
 export enum DeepLinkTypes {
-	Branch = 'branch',
-	Commit = 'commit',
-	Remote = 'remote',
-	Tag = 'tag',
+	Branch = 'b',
+	Commit = 'c',
+	Remote = 'r',
+	Tag = 't',
 }
 
 export type DeepLinkType = DeepLinkTypes;

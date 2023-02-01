@@ -3,7 +3,7 @@ import type { DeepLinkType } from '../deepLink/deepLink';
 
 export enum UriTypes {
 	Auth = 'did-authenticate',
-	DeepLink = 'repolink',
+	DeepLink = 'link',
 }
 
 export type DidAuthUriEvent = {
