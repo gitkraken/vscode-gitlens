@@ -196,6 +196,7 @@ export class DeepLinkService implements Disposable {
 		const { state, action, data } = serviceStateChange;
 		let nextState = this._transitionTable[state][action];
 		let nextData: any;
+		let matchingRemotes: GitRemote[] = [];
 		let nextAction: DeepLinkServiceAction = DeepLinkServiceActions.DeepLinkErrored;
 		if (!nextState) {
 			nextState = DeepLinkServiceStates.Idle;
@@ -238,13 +239,12 @@ export class DeepLinkService implements Disposable {
 				// Try to match a repo using the remote URL first, since that saves us some steps.
 				// As a fallback, try to match using the repo id.
 				for (const repo of this.container.git.repositories) {
-					for (const remote of await repo.getRemotes()) {
-						if (remote.url === this._remoteUrl) {
-							this._repo = repo;
-							this._remote = remote;
-							nextAction = DeepLinkServiceActions.RepoMatchedWithRemoteUrl;
-							break;
-						}
+					matchingRemotes = await repo.getRemotes({ filter: r => r.url === this._remoteUrl });
+					if (matchingRemotes.length > 0) {
+						this._repo = repo;
+						this._remote = matchingRemotes[0];
+						nextAction = DeepLinkServiceActions.RepoMatchedWithRemoteUrl;
+						break;
 					}
 
 					// Repo ID can be any valid SHA in the repo, though standard practice is to use the
@@ -288,12 +288,11 @@ export class DeepLinkService implements Disposable {
 					break;
 				}
 
-				for (const remote of await this._repo.getRemotes()) {
-					if (remote.url === this._remoteUrl) {
-						this._remote = remote;
-						nextAction = DeepLinkServiceActions.RemoteMatched;
-						break;
-					}
+				matchingRemotes = await this._repo.getRemotes({ filter: r => r.url === this._remoteUrl });
+				if (matchingRemotes.length > 0) {
+					this._remote = matchingRemotes[0];
+					nextAction = DeepLinkServiceActions.RemoteMatched;
+					break;
 				}
 
 				if (!this._remote) {
