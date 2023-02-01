@@ -115,7 +115,7 @@ export class DeepLinkService implements Disposable {
 	constructor(private readonly container: Container) {
 		this._state = DeepLinkServiceStates.Idle;
 		this._disposables = [
-			container.uri.onUri((event: UriEvent) => {
+			container.uri.onDidReceiveUri((event: UriEvent) => {
 				if (event.type === UriTypes.DeepLink && this._state === DeepLinkServiceStates.Idle) {
 					if (!event.repoId || !event.linkType || !event.uri || !event.remoteUrl) {
 						void window.showErrorMessage(`Error resolving deep link: missing required properties.`);

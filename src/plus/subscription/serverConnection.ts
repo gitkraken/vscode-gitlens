@@ -113,7 +113,7 @@ export class ServerConnection implements Disposable {
 		let deferredCodeExchange = this._deferredCodeExchanges.get(scopeKey);
 		if (deferredCodeExchange == null) {
 			deferredCodeExchange = promisifyDeferred(
-				this.container.uri.onUri,
+				this.container.uri.onDidReceiveUri,
 				this.getUriHandlerDeferredExecutor(scopeKey),
 			);
 			this._deferredCodeExchanges.set(scopeKey, deferredCodeExchange);

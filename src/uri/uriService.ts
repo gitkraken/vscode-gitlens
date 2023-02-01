@@ -22,7 +22,7 @@ export class UriService implements Disposable, UriHandler {
 		this._disposable.dispose();
 	}
 
-	get onUri(): Event<UriEvent> {
+	get onDidReceiveUri(): Event<UriEvent> {
 		return this._uriEventEmitter.event;
 	}
 
