@@ -198,7 +198,7 @@ export class ServerConnection implements Disposable {
 	private getUriHandlerDeferredExecutor(_scopeKey: string): DeferredEventExecutor<UriEvent, string> {
 		return (uriEvent: UriEvent, resolve, reject) => {
 			if (uriEvent.type !== UriTypes.Auth) {
-				reject('Invalid Uri type');
+				return;
 			}
 
 			const uri = uriEvent.uri;

@@ -4,7 +4,7 @@ import type { Container } from '../container';
 import type { DeepLinkType } from '../deepLink/deepLink';
 import { DeepLinkTypes } from '../deepLink/deepLink';
 import { log } from '../system/decorators/log';
-import type { DeepLinkUriEvent, UriEvent } from './uri';
+import type { DeepLinkUriEvent, DidAuthUriEvent, UriEvent } from './uri';
 import { UriTypes } from './uri';
 
 // This service is in charge of registering a URI handler and handling/emitting URI events received by GitLens.
@@ -83,7 +83,8 @@ export class UriService implements Disposable, UriHandler {
 		const uriType = uriSplit[1];
 		if (uriType !== UriTypes.Auth && uriType !== UriTypes.DeepLink) return;
 		if (uriType === UriTypes.Auth) {
-			this._uriEventEmitter.fire({ type: UriTypes.Auth, uri: uri });
+			const didAuthEvent: DidAuthUriEvent = { type: UriTypes.Auth, uri: uri };
+			this._uriEventEmitter.fire(didAuthEvent);
 			return;
 		}
 
