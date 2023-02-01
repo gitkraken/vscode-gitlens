@@ -52,18 +52,22 @@ interface DeepLinkServiceStateChange {
 	data?: any;
 }
 
+interface DeepLinkServiceContext {
+	state: DeepLinkServiceState;
+	uri?: Uri | undefined;
+	repoId?: string | undefined;
+	repo?: Repository | undefined;
+	remoteUrl?: string | undefined;
+	remote?: GitRemote | undefined;
+	targetId?: string | undefined;
+	targetType?: DeepLinkType | undefined;
+	targetSha?: string | undefined;
+}
+
 export class DeepLinkService implements Disposable {
 	private _disposables: Disposable[] = [];
-	private _state: DeepLinkServiceState = DeepLinkServiceStates.Idle;
+	private _context: DeepLinkServiceContext;
 	private _stateChange = new EventEmitter<DeepLinkServiceStateChange>();
-	private _uri: Uri | undefined;
-	private _repoId: string | undefined;
-	private _repo: Repository | undefined;
-	private _remoteUrl: string | undefined;
-	private _remote: GitRemote | undefined;
-	private _targetId: string | undefined;
-	private _targetType: DeepLinkType | undefined;
-	private _targetSha: string | undefined;
 	private _transitionTable: { [state: string]: { [action: string]: DeepLinkServiceState } } = {
 		[DeepLinkServiceStates.Idle]: {
 			[DeepLinkServiceActions.DeepLinkEventFired]: DeepLinkServiceStates.RepoMatch,
@@ -113,10 +117,13 @@ export class DeepLinkService implements Disposable {
 	};
 
 	constructor(private readonly container: Container) {
-		this._state = DeepLinkServiceStates.Idle;
+		this._context = {
+			state: DeepLinkServiceStates.Idle,
+		};
+
 		this._disposables = [
 			container.uri.onDidReceiveUri((event: UriEvent) => {
-				if (event.type === UriTypes.DeepLink && this._state === DeepLinkServiceStates.Idle) {
+				if (event.type === UriTypes.DeepLink && this._context.state === DeepLinkServiceStates.Idle) {
 					if (!event.repoId || !event.linkType || !event.uri || !event.remoteUrl) {
 						void window.showErrorMessage(`Error resolving deep link: missing required properties.`);
 						return;
@@ -134,14 +141,17 @@ export class DeepLinkService implements Disposable {
 						return;
 					}
 
-					this._repoId = event.repoId;
-					this._targetType = event.linkType;
-					this._uri = event.uri;
-					this._remoteUrl = event.remoteUrl;
-					this._targetId = event.targetId;
+					this._context = {
+						...this._context,
+						repoId: event.repoId,
+						targetType: event.linkType,
+						uri: event.uri,
+						remoteUrl: event.remoteUrl,
+						targetId: event.targetId,
+					};
 
 					this._stateChange.fire({
-						state: this._state,
+						state: this._context.state,
 						action: DeepLinkServiceActions.DeepLinkEventFired,
 					});
 				}
@@ -152,19 +162,34 @@ export class DeepLinkService implements Disposable {
 		];
 	}
 
+	resetContext() {
+		this._context = {
+			state: DeepLinkServiceStates.Idle,
+			uri: undefined,
+			repoId: undefined,
+			repo: undefined,
+			remoteUrl: undefined,
+			remote: undefined,
+			targetId: undefined,
+			targetType: undefined,
+			targetSha: undefined,
+		};
+	}
+
 	dispose() {
 		this._disposables.forEach((disposable: Disposable) => void disposable.dispose());
 	}
 
 	async getShaForTarget(): Promise<string | undefined> {
-		if (!this._repo || !this._remote || this._targetType === DeepLinkTypes.Remote || !this._targetId) {
+		const { repo, remote, targetType, targetId } = this._context;
+		if (!repo || !remote || targetType === DeepLinkTypes.Remote || !targetId) {
 			return undefined;
 		}
 
-		if (this._targetType === DeepLinkTypes.Branch) {
+		if (targetType === DeepLinkTypes.Branch) {
 			// Form the target branch name using the remote name and branch name
-			const branchName = `${this._remote.name}/${this._targetId}`;
-			const branch = await this._repo.getBranch(branchName);
+			const branchName = `${remote.name}/${targetId}`;
+			const branch = await repo.getBranch(branchName);
 			if (branch) {
 				return branch.sha;
 			}
@@ -172,8 +197,8 @@ export class DeepLinkService implements Disposable {
 			return undefined;
 		}
 
-		if (this._targetType === DeepLinkTypes.Tag) {
-			const tag = await this._repo.getTag(this._targetId);
+		if (targetType === DeepLinkTypes.Tag) {
+			const tag = await repo.getTag(targetId);
 			if (tag) {
 				return tag.sha;
 			}
@@ -181,9 +206,9 @@ export class DeepLinkService implements Disposable {
 			return undefined;
 		}
 
-		if (this._targetType === DeepLinkTypes.Commit) {
-			if (await this.container.git.validateReference(this._repo.path, this._targetId)) {
-				return this._targetId;
+		if (targetType === DeepLinkTypes.Commit) {
+			if (await this.container.git.validateReference(repo.path, targetId)) {
+				return targetId;
 			}
 
 			return undefined;
@@ -193,8 +218,9 @@ export class DeepLinkService implements Disposable {
 	}
 
 	async handleDeepLinkStateChange(serviceStateChange: DeepLinkServiceStateChange) {
-		const { state, action, data } = serviceStateChange;
-		let nextState = this._transitionTable[state][action];
+		const { action, data } = serviceStateChange;
+		const { state: previousState, repoId, repo, uri, remoteUrl, remote, targetSha, targetType } = this._context;
+		let nextState = this._transitionTable[previousState][action];
 		let nextData: any;
 		let matchingRemotes: GitRemote[] = [];
 		let nextAction: DeepLinkServiceAction = DeepLinkServiceActions.DeepLinkErrored;
@@ -202,31 +228,23 @@ export class DeepLinkService implements Disposable {
 			nextState = DeepLinkServiceStates.Idle;
 		}
 
-		this._state = nextState;
+		this._context.state = nextState;
 		switch (nextState) {
 			case DeepLinkServiceStates.Idle:
 				if (action === DeepLinkServiceActions.DeepLinkResolved) {
-					void window.showInformationMessage(`Deep link resolved: ${this._uri?.toString()}`);
+					void window.showInformationMessage(`Deep link resolved: ${uri?.toString()}`);
 				} else if (action === DeepLinkServiceActions.DeepLinkCanceled) {
-					void window.showInformationMessage(`Deep link cancelled: ${this._uri?.toString()}`);
+					void window.showInformationMessage(`Deep link cancelled: ${uri?.toString()}`);
 				} else if (action === DeepLinkServiceActions.DeepLinkErrored) {
 					void window.showErrorMessage(`Error resolving deep link: ${data?.message ?? 'unknown error'}`);
 				}
 
-				this._repoId = undefined;
-				this._repo = undefined;
-				this._remoteUrl = undefined;
-				this._remote = undefined;
-				this._targetId = undefined;
-				this._targetType = undefined;
-				this._targetSha = undefined;
-				this._uri = undefined;
-
+				this.resetContext();
 				return;
 
 			case DeepLinkServiceStates.RepoMatch:
 			case DeepLinkServiceStates.AddedRepoMatch:
-				if (!this._repoId) {
+				if (!repoId) {
 					nextAction = DeepLinkServiceActions.DeepLinkErrored;
 					nextData = { message: 'No repo id was provided.' };
 					break;
@@ -235,24 +253,24 @@ export class DeepLinkService implements Disposable {
 				// Try to match a repo using the remote URL first, since that saves us some steps.
 				// As a fallback, try to match using the repo id.
 				for (const repo of this.container.git.repositories) {
-					matchingRemotes = await repo.getRemotes({ filter: r => r.url === this._remoteUrl });
+					matchingRemotes = await repo.getRemotes({ filter: r => r.url === remoteUrl });
 					if (matchingRemotes.length > 0) {
-						this._repo = repo;
-						this._remote = matchingRemotes[0];
+						this._context.repo = repo;
+						this._context.remote = matchingRemotes[0];
 						nextAction = DeepLinkServiceActions.RepoMatchedWithRemoteUrl;
 						break;
 					}
 
 					// Repo ID can be any valid SHA in the repo, though standard practice is to use the
 					// first commit SHA.
-					if (await this.container.git.validateReference(repo.path, this._repoId)) {
-						this._repo = repo;
+					if (await this.container.git.validateReference(repo.path, repoId)) {
+						this._context.repo = repo;
 						nextAction = DeepLinkServiceActions.RepoMatchedWithId;
 						break;
 					}
 				}
 
-				if (!this._repo) {
+				if (!this._context.repo) {
 					if (nextState === DeepLinkServiceStates.RepoMatch) {
 						nextAction = DeepLinkServiceActions.RepoMatchFailed;
 					} else {
@@ -264,7 +282,7 @@ export class DeepLinkService implements Disposable {
 				break;
 
 			case DeepLinkServiceStates.CloneOrAddRepo:
-				if (!this._repoId || !this._remoteUrl) {
+				if (!repoId || !remoteUrl) {
 					nextAction = DeepLinkServiceActions.DeepLinkErrored;
 					nextData = { message: 'Missing repo id or remote url.' };
 					break;
@@ -278,27 +296,27 @@ export class DeepLinkService implements Disposable {
 				break;
 
 			case DeepLinkServiceStates.RemoteMatch:
-				if (!this._repo || !this._remoteUrl) {
+				if (!repo || !remoteUrl) {
 					nextAction = DeepLinkServiceActions.DeepLinkErrored;
 					nextData = { message: 'Missing repo or remote url.' };
 					break;
 				}
 
-				matchingRemotes = await this._repo.getRemotes({ filter: r => r.url === this._remoteUrl });
+				matchingRemotes = await repo.getRemotes({ filter: r => r.url === remoteUrl });
 				if (matchingRemotes.length > 0) {
-					this._remote = matchingRemotes[0];
+					this._context.remote = matchingRemotes[0];
 					nextAction = DeepLinkServiceActions.RemoteMatched;
 					break;
 				}
 
-				if (!this._remote) {
+				if (!this._context.remote) {
 					nextAction = DeepLinkServiceActions.RemoteMatchFailed;
 				}
 
 				break;
 
 			case DeepLinkServiceStates.AddRemote:
-				if (!this._repo || !this._remoteUrl) {
+				if (!repo || !remoteUrl) {
 					nextAction = DeepLinkServiceActions.DeepLinkErrored;
 					nextData = { message: 'Missing repo or remote url.' };
 					break;
@@ -313,19 +331,19 @@ export class DeepLinkService implements Disposable {
 
 			case DeepLinkServiceStates.TargetMatch:
 			case DeepLinkServiceStates.FetchedTargetMatch:
-				if (!this._repo || !this._remote || !this._targetType) {
+				if (!repo || !remote || !targetType) {
 					nextAction = DeepLinkServiceActions.DeepLinkErrored;
 					nextData = { message: 'Missing repo, remote, or target type.' };
 					break;
 				}
 
-				if (this._targetType === DeepLinkTypes.Remote) {
+				if (targetType === DeepLinkTypes.Remote) {
 					nextAction = DeepLinkServiceActions.TargetMatched;
 					break;
 				}
 
-				this._targetSha = await this.getShaForTarget();
-				if (!this._targetSha) {
+				this._context.targetSha = await this.getShaForTarget();
+				if (!this._context.targetSha) {
 					if (nextState === DeepLinkServiceStates.TargetMatch) {
 						nextAction = DeepLinkServiceActions.TargetMatchFailed;
 					} else {
@@ -339,7 +357,7 @@ export class DeepLinkService implements Disposable {
 				break;
 
 			case DeepLinkServiceStates.Fetch:
-				if (!this._repo || !this._remote) {
+				if (!repo || !remote) {
 					nextAction = DeepLinkServiceActions.DeepLinkErrored;
 					nextData = { message: 'Missing repo or remote.' };
 					break;
@@ -353,26 +371,26 @@ export class DeepLinkService implements Disposable {
 				break;
 
 			case DeepLinkServiceStates.OpenGraph:
-				if (!this._repo || !this._targetType) {
+				if (!repo || !targetType) {
 					nextAction = DeepLinkServiceActions.DeepLinkErrored;
 					nextData = { message: 'Missing repo or target type.' };
 					break;
 				}
 
-				if (this._targetType === DeepLinkTypes.Remote) {
-					void executeCommand(Commands.ShowGraphPage, this._repo);
+				if (targetType === DeepLinkTypes.Remote) {
+					void executeCommand(Commands.ShowGraphPage, repo);
 					nextAction = DeepLinkServiceActions.DeepLinkResolved;
 					break;
 				}
 
-				if (!this._targetSha) {
+				if (!targetSha) {
 					nextAction = DeepLinkServiceActions.DeepLinkErrored;
-					nextData = { message: `Cannot find target ${this._targetType} in repo.` };
+					nextData = { message: `Cannot find target ${targetType} in repo.` };
 					break;
 				}
 
 				void (await executeCommand<ShowInCommitGraphCommandArgs>(Commands.ShowInCommitGraph, {
-					ref: GitReference.create(this._targetSha, this._repo.path),
+					ref: GitReference.create(targetSha, repo.path),
 				}));
 
 				nextAction = DeepLinkServiceActions.DeepLinkResolved;
@@ -385,7 +403,7 @@ export class DeepLinkService implements Disposable {
 		}
 
 		const nextStateChange: DeepLinkServiceStateChange = {
-			state: this._state,
+			state: this._context.state,
 			action: nextAction,
 		};
 
