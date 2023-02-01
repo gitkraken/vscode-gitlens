@@ -12404,7 +12404,17 @@
 					"name": "Home",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-gitlens)",
-					"visibility": "visible"
+					"visibility": "visible",
+					"initialSize": 5
+				},
+				{
+					"id": "gitlens.views.contributors",
+					"name": "Contributors",
+					"when": "!gitlens:disabled",
+					"contextualTitle": "GitLens",
+					"icon": "$(gitlens-contributors-view)",
+					"visibility": "visible",
+					"initialSize": 1
 				}
 			],
 			"gitlensPanel": [
@@ -12499,14 +12509,6 @@
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-worktrees-view)",
 					"visibility": "collapsed"
-				},
-				{
-					"id": "gitlens.views.contributors",
-					"name": "Contributors",
-					"when": "!gitlens:disabled",
-					"contextualTitle": "GitLens",
-					"icon": "$(gitlens-contributors-view)",
-					"visibility": "hidden"
 				},
 				{
 					"id": "gitlens.views.searchAndCompare",
