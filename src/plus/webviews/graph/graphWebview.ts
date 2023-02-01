@@ -248,21 +248,33 @@ export class GraphWebview extends WebviewBase<State> {
 			registerCommand(
 				Commands.ShowInCommitGraph,
 				async (
-					args: ShowInCommitGraphCommandArgs | BranchNode | CommitNode | CommitFileNode | StashNode | TagNode,
+					args:
+						| ShowInCommitGraphCommandArgs
+						| Repository
+						| BranchNode
+						| CommitNode
+						| CommitFileNode
+						| StashNode
+						| TagNode,
 				) => {
-					this.repository = this.container.git.getRepository(args.ref.repoPath);
-					let id = args.ref.ref;
-					if (!GitRevision.isSha(id)) {
-						id = await this.container.git.resolveReference(args.ref.repoPath, id, undefined, {
-							force: true,
-						});
+					let id;
+					if (args instanceof Repository) {
+						this.repository = args;
+					} else {
+						this.repository = this.container.git.getRepository(args.ref.repoPath);
+						id = args.ref.ref;
+						if (!GitRevision.isSha(id)) {
+							id = await this.container.git.resolveReference(args.ref.repoPath, id, undefined, {
+								force: true,
+							});
+						}
+						this.setSelectedRows(id);
 					}
-					this.setSelectedRows(id);
 
 					const preserveFocus = 'preserveFocus' in args ? args.preserveFocus ?? false : false;
 					if (this._panel == null) {
 						void this.show({ preserveFocus: preserveFocus });
-					} else {
+					} else if (id) {
 						this._panel.reveal(this._panel.viewColumn ?? ViewColumn.Active, preserveFocus ?? false);
 						if (this._graph?.ids.has(id)) {
 							void this.notifyDidChangeSelection();
@@ -303,8 +315,6 @@ export class GraphWebview extends WebviewBase<State> {
 				this.repository = this.container.git.getRepository(context.scm.rootUri);
 			} else if (context.type === 'viewItem' && context.node instanceof RepositoryFolderNode) {
 				this.repository = context.node.repo;
-			} else if (context.type === 'repository' && context.repository instanceof Repository) {
-				this.repository = context.repository;
 			}
 
 			if (this.repository != null && this.isReady) {

@@ -265,7 +265,7 @@ export class DeepLinkService implements Disposable {
 					}
 
 					if (targetType === DeepLinkType.Remote) {
-						void executeCommand(Commands.ShowGraphPage, repo);
+						void (await executeCommand(Commands.ShowInCommitGraph, repo));
 						action = DeepLinkServiceAction.DeepLinkResolved;
 						break;
 					}

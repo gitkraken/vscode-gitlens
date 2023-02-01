@@ -74,11 +74,6 @@ export interface CommandUrisContext extends CommandBaseContext {
 	readonly uris: Uri[];
 }
 
-export interface CommandRepositoryContext extends CommandBaseContext {
-	readonly type: 'repository';
-	readonly repository: Repository;
-}
-
 // export interface CommandViewContext extends CommandBaseContext {
 //     readonly type: 'view';
 // }
@@ -202,8 +197,7 @@ export type CommandContext =
 	| CommandUrisContext
 	// | CommandViewContext
 	| CommandViewNodeContext
-	| CommandViewNodesContext
-	| CommandRepositoryContext;
+	| CommandViewNodesContext;
 
 function isScm(scm: any): scm is SourceControl {
 	if (scm == null) return false;
@@ -403,11 +397,6 @@ export function parseCommandContext(
 	if (isScm(firstArg)) {
 		const [scm, ...rest] = args as [SourceControl, any];
 		return [{ command: command, type: 'scm', scm: scm }, rest];
-	}
-
-	if (firstArg instanceof Repository) {
-		const [repo, ...rest] = args as [Repository, any];
-		return [{ command: command, type: 'repository', repository: repo }, rest];
 	}
 
 	return [{ command: command, type: 'unknown', editor: editor, uri: editor?.document.uri }, args];
