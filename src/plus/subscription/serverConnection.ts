@@ -205,11 +205,12 @@ export class ServerConnection implements Disposable {
 			// TODO: We should really support a code to token exchange, but just return the token from the query string
 			// await this.exchangeCodeForToken(uri.query);
 			// As the backend still doesn't implement yet the code to token exchange, we just validate the state returned
-			const query = this.container.uri.parseQuery(uri);
+			const queryParams: URLSearchParams = new URLSearchParams(uri.query);
 
 			const acceptedStates = this._pendingStates.get(_scopeKey);
+			const state = queryParams.get('gkstate');
 
-			if (acceptedStates == null || !acceptedStates.includes(query.gkstate)) {
+			if (acceptedStates == null || !state || !acceptedStates.includes(state)) {
 				// A common scenario of this happening is if you:
 				// 1. Trigger a sign in with one set of scopes
 				// 2. Before finishing 1, you trigger a sign in with a different set of scopes
@@ -219,7 +220,10 @@ export class ServerConnection implements Disposable {
 				return;
 			}
 
-			const token = query['access-token'] ?? query['code'];
+			const accessToken = queryParams.get('access-token');
+			const code = queryParams.get('code');
+			const token = accessToken ?? code;
+
 			if (token == null) {
 				reject('Token not returned');
 			} else {

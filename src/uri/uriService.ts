@@ -37,10 +37,11 @@ export class UriService implements Disposable, UriHandler {
 		if (uriSplit.length < 2) return null;
 		const uriType = uriSplit[1];
 		if (uriType !== UriTypes.DeepLink) return null;
-		const repoTag = uriSplit[2];
-		if (repoTag !== 'r') return null;
+		const repoPrefix = uriSplit[2];
+		if (repoPrefix !== DeepLinkType.Remote) return null;
 		const repoId = uriSplit[3];
-		const remoteUrl = this.parseQuery(uri).url;
+		const remoteUrl = new URLSearchParams(uri.query).get('url');
+		if (!remoteUrl) return null;
 		if (uriSplit.length === 4) {
 			return {
 				type: UriTypes.DeepLink,
@@ -65,14 +66,6 @@ export class UriService implements Disposable, UriHandler {
 			remoteUrl: remoteUrl,
 			targetId: linkTargetId,
 		};
-	}
-
-	parseQuery(uri: Uri): Record<string, string> {
-		return uri.query.split('&').reduce<Record<string, string>>((prev, current) => {
-			const queryString = current.split('=');
-			prev[queryString[0]] = queryString[1];
-			return prev;
-		}, {});
 	}
 
 	@log<UriHandler['handleUri']>({ args: { 0: u => u.with({ query: '' }).toString(true) } })
