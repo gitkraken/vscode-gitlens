@@ -207,13 +207,9 @@ export class DeepLinkService implements Disposable {
 			case DeepLinkServiceStates.Idle:
 				if (action === DeepLinkServiceActions.DeepLinkResolved) {
 					void window.showInformationMessage(`Deep link resolved: ${this._uri?.toString()}`);
-				}
-
-				if (action === DeepLinkServiceActions.DeepLinkCanceled) {
+				} else if (action === DeepLinkServiceActions.DeepLinkCanceled) {
 					void window.showInformationMessage(`Deep link cancelled: ${this._uri?.toString()}`);
-				}
-
-				if (action === DeepLinkServiceActions.DeepLinkErrored) {
+				} else if (action === DeepLinkServiceActions.DeepLinkErrored) {
 					void window.showErrorMessage(`Error resolving deep link: ${data?.message ?? 'unknown error'}`);
 				}
 
