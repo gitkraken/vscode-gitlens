@@ -1,110 +1,19 @@
-import type { Disposable, Uri } from 'vscode';
+import type { Disposable } from 'vscode';
 import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitReference } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
-import type { Repository } from '../git/models/repository';
 import type { ShowInCommitGraphCommandArgs } from '../plus/webviews/graph/graphWebview';
 import { executeCommand } from '../system/command';
 import type { UriEvent } from '../uri/uri';
 import { UriTypes } from '../uri/uri';
-import type { DeepLinkType } from './deepLink';
-import { DeepLinkTypes } from './deepLink';
-
-enum DeepLinkServiceState {
-	Idle = 'Idle',
-	RepoMatch = 'RepoMatch',
-	CloneOrAddRepo = 'CloneOrAddRepo',
-	AddedRepoMatch = 'AddedRepoMatch',
-	RemoteMatch = 'RemoteMatch',
-	AddRemote = 'AddRemote',
-	TargetMatch = 'TargetMatch',
-	Fetch = 'Fetch',
-	FetchedTargetMatch = 'FetchedTargetMatch',
-	OpenGraph = 'OpenGraph',
-}
-
-enum DeepLinkServiceAction {
-	DeepLinkEventFired = 'DeepLinkEventFired',
-	DeepLinkCancelled = 'DeepLinkCancelled',
-	DeepLinkResolved = 'DeepLinkResolved',
-	DeepLinkErrored = 'DeepLinkErrored',
-	RepoMatchedWithId = 'RepoMatchedWithId',
-	RepoMatchedWithRemoteUrl = 'RepoMatchedWithRemoteUrl',
-	RepoMatchFailed = 'RepoMatchFailed',
-	RepoAdded = 'RepoAdded',
-	RemoteMatched = 'RemoteMatched',
-	RemoteMatchFailed = 'RemoteMatchFailed',
-	RemoteAdded = 'RemoteAdded',
-	TargetIsRemote = 'TargetIsRemote',
-	TargetMatched = 'TargetMatched',
-	TargetMatchFailed = 'TargetMatchFailed',
-	TargetFetched = 'TargetFetched',
-}
-
-interface DeepLinkServiceContext {
-	state: DeepLinkServiceState;
-	uri?: Uri | undefined;
-	repoId?: string | undefined;
-	repo?: Repository | undefined;
-	remoteUrl?: string | undefined;
-	remote?: GitRemote | undefined;
-	targetId?: string | undefined;
-	targetType?: DeepLinkType | undefined;
-	targetSha?: string | undefined;
-}
+import type { DeepLinkServiceContext } from './deepLink';
+import { DeepLinkServiceAction, DeepLinkServiceState, deepLinkStateTransitionTable, DeepLinkType } from './deepLink';
 
 export class DeepLinkService implements Disposable {
 	private _disposable: Disposable;
 	private _context: DeepLinkServiceContext;
-	private _transitionTable: { [state: string]: { [action: string]: DeepLinkServiceState } } = {
-		[DeepLinkServiceState.Idle]: {
-			[DeepLinkServiceAction.DeepLinkEventFired]: DeepLinkServiceState.RepoMatch,
-		},
-		[DeepLinkServiceState.RepoMatch]: {
-			[DeepLinkServiceAction.RepoMatchedWithId]: DeepLinkServiceState.RemoteMatch,
-			[DeepLinkServiceAction.RepoMatchedWithRemoteUrl]: DeepLinkServiceState.TargetMatch,
-			[DeepLinkServiceAction.RepoMatchFailed]: DeepLinkServiceState.CloneOrAddRepo,
-		},
-		[DeepLinkServiceState.CloneOrAddRepo]: {
-			[DeepLinkServiceAction.RepoAdded]: DeepLinkServiceState.AddedRepoMatch,
-			[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
-			[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
-		},
-		[DeepLinkServiceState.AddedRepoMatch]: {
-			[DeepLinkServiceAction.RepoMatchedWithId]: DeepLinkServiceState.RemoteMatch,
-			[DeepLinkServiceAction.RepoMatchedWithRemoteUrl]: DeepLinkServiceState.TargetMatch,
-			[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
-		},
-		[DeepLinkServiceState.RemoteMatch]: {
-			[DeepLinkServiceAction.RemoteMatched]: DeepLinkServiceState.TargetMatch,
-			[DeepLinkServiceAction.RemoteMatchFailed]: DeepLinkServiceState.AddRemote,
-		},
-		[DeepLinkServiceState.AddRemote]: {
-			[DeepLinkServiceAction.RemoteAdded]: DeepLinkServiceState.OpenGraph,
-			[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
-			[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
-		},
-		[DeepLinkServiceState.TargetMatch]: {
-			[DeepLinkServiceAction.TargetIsRemote]: DeepLinkServiceState.OpenGraph,
-			[DeepLinkServiceAction.TargetMatched]: DeepLinkServiceState.OpenGraph,
-			[DeepLinkServiceAction.TargetMatchFailed]: DeepLinkServiceState.Fetch,
-		},
-		[DeepLinkServiceState.Fetch]: {
-			[DeepLinkServiceAction.TargetFetched]: DeepLinkServiceState.FetchedTargetMatch,
-			[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
-			[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
-		},
-		[DeepLinkServiceState.FetchedTargetMatch]: {
-			[DeepLinkServiceAction.TargetMatched]: DeepLinkServiceState.OpenGraph,
-			[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
-		},
-		[DeepLinkServiceState.OpenGraph]: {
-			[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
-			[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
-		},
-	};
 
 	constructor(private readonly container: Container) {
 		this._context = {
@@ -118,12 +27,12 @@ export class DeepLinkService implements Disposable {
 					return;
 				}
 
-				if (!Object.values(DeepLinkTypes).includes(event.linkType)) {
+				if (!Object.values(DeepLinkType).includes(event.linkType)) {
 					void window.showErrorMessage(`Error resolving deep link: unknown link type.`);
 					return;
 				}
 
-				if (event.linkType !== DeepLinkTypes.Remote && !event.targetId) {
+				if (event.linkType !== DeepLinkType.Remote && !event.targetId) {
 					void window.showErrorMessage(
 						`Error resolving deep link of type ${event.linkType}: no target id provided.`,
 					);
@@ -164,11 +73,11 @@ export class DeepLinkService implements Disposable {
 
 	async getShaForTarget(): Promise<string | undefined> {
 		const { repo, remote, targetType, targetId } = this._context;
-		if (!repo || !remote || targetType === DeepLinkTypes.Remote || !targetId) {
+		if (!repo || !remote || targetType === DeepLinkType.Remote || !targetId) {
 			return undefined;
 		}
 
-		if (targetType === DeepLinkTypes.Branch) {
+		if (targetType === DeepLinkType.Branch) {
 			// Form the target branch name using the remote name and branch name
 			const branchName = `${remote.name}/${targetId}`;
 			const branch = await repo.getBranch(branchName);
@@ -179,7 +88,7 @@ export class DeepLinkService implements Disposable {
 			return undefined;
 		}
 
-		if (targetType === DeepLinkTypes.Tag) {
+		if (targetType === DeepLinkType.Tag) {
 			const tag = await repo.getTag(targetId);
 			if (tag) {
 				return tag.sha;
@@ -188,7 +97,7 @@ export class DeepLinkService implements Disposable {
 			return undefined;
 		}
 
-		if (targetType === DeepLinkTypes.Commit) {
+		if (targetType === DeepLinkType.Commit) {
 			if (await this.container.git.validateReference(repo.path, targetId)) {
 				return targetId;
 			}
@@ -204,7 +113,7 @@ export class DeepLinkService implements Disposable {
 		let matchingRemotes: GitRemote[] = [];
 		let action: DeepLinkServiceAction = DeepLinkServiceAction.DeepLinkEventFired;
 		while (true) {
-			this._context.state = this._transitionTable[this._context.state][action];
+			this._context.state = deepLinkStateTransitionTable[this._context.state][action];
 			const { state, repoId, repo, uri, remoteUrl, remote, targetSha, targetType } = this._context;
 			switch (state) {
 				case DeepLinkServiceState.Idle:
@@ -315,7 +224,7 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					if (targetType === DeepLinkTypes.Remote) {
+					if (targetType === DeepLinkType.Remote) {
 						action = DeepLinkServiceAction.TargetMatched;
 						break;
 					}
@@ -355,7 +264,7 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					if (targetType === DeepLinkTypes.Remote) {
+					if (targetType === DeepLinkType.Remote) {
 						void executeCommand(Commands.ShowGraphPage, repo);
 						action = DeepLinkServiceAction.DeepLinkResolved;
 						break;

@@ -1,8 +1,7 @@
 import type { Disposable, Event, Uri, UriHandler } from 'vscode';
 import { EventEmitter, window } from 'vscode';
 import type { Container } from '../container';
-import type { DeepLinkType } from '../deepLink/deepLink';
-import { DeepLinkTypes } from '../deepLink/deepLink';
+import { DeepLinkType } from '../deepLink/deepLink';
 import { log } from '../system/decorators/log';
 import type { DeepLinkUriEvent, DidAuthUriEvent, UriEvent } from './uri';
 import { UriTypes } from './uri';
@@ -45,7 +44,7 @@ export class UriService implements Disposable, UriHandler {
 		if (uriSplit.length === 4) {
 			return {
 				type: UriTypes.DeepLink,
-				linkType: DeepLinkTypes.Remote,
+				linkType: DeepLinkType.Remote,
 				uri: uri,
 				repoId: repoId,
 				remoteUrl: remoteUrl,
