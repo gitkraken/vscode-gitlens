@@ -1,14 +1,16 @@
-import type { CancellationToken, Disposable, StatusBarItem, UriHandler } from 'vscode';
-import { CancellationTokenSource, env, EventEmitter, StatusBarAlignment, Uri, window } from 'vscode';
+import type { CancellationToken, Disposable, StatusBarItem } from 'vscode';
+import { CancellationTokenSource, env, StatusBarAlignment, Uri, window } from 'vscode';
 import { uuid } from '@env/crypto';
 import type { Response } from '@env/fetch';
 import { fetch, getProxyAgent } from '@env/fetch';
 import type { Container } from '../../container';
 import { Logger } from '../../logger';
-import { debug, getLogScope, log } from '../../system/decorators/log';
+import { debug, getLogScope } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import type { DeferredEvent, DeferredEventExecutor } from '../../system/event';
 import { promisifyDeferred } from '../../system/event';
+
+export const AuthenticationUriPathPrefix = 'did-authenticate';
 
 interface AccountInfo {
 	id: string;
@@ -18,18 +20,12 @@ interface AccountInfo {
 export class ServerConnection implements Disposable {
 	private _cancellationSource: CancellationTokenSource | undefined;
 	private _deferredCodeExchanges = new Map<string, DeferredEvent<string>>();
-	private _disposable: Disposable;
 	private _pendingStates = new Map<string, string[]>();
 	private _statusBarItem: StatusBarItem | undefined;
-	private _uriHandler = new UriEventHandler();
 
-	constructor(private readonly container: Container) {
-		this._disposable = window.registerUriHandler(this._uriHandler);
-	}
+	constructor(private readonly container: Container) {}
 
-	dispose() {
-		this._disposable.dispose();
-	}
+	dispose() {}
 
 	@memoize()
 	private get baseApiUri(): Uri {
@@ -103,7 +99,9 @@ export class ServerConnection implements Disposable {
 		this._pendingStates.set(scopeKey, [...existingStates, gkstate]);
 
 		const callbackUri = await env.asExternalUri(
-			Uri.parse(`${env.uriScheme}://${this.container.context.extension.id}/did-authenticate?gkstate=${gkstate}`),
+			Uri.parse(
+				`${env.uriScheme}://${this.container.context.extension.id}/${AuthenticationUriPathPrefix}?gkstate=${gkstate}`,
+			),
 		);
 
 		const uri = Uri.joinPath(this.baseAccountUri, 'register').with({
@@ -117,7 +115,7 @@ export class ServerConnection implements Disposable {
 		let deferredCodeExchange = this._deferredCodeExchanges.get(scopeKey);
 		if (deferredCodeExchange == null) {
 			deferredCodeExchange = promisifyDeferred(
-				this._uriHandler.event,
+				this.container.uri.onDidReceiveAuthenticationUri,
 				this.getUriHandlerDeferredExecutor(scopeKey),
 			);
 			this._deferredCodeExchanges.set(scopeKey, deferredCodeExchange);
@@ -191,7 +189,7 @@ export class ServerConnection implements Disposable {
 			});
 
 			if (uri != null) {
-				this._uriHandler.handleUri(uri);
+				this.container.uri.handleUri(uri);
 			}
 		} finally {
 			input.dispose();
@@ -204,11 +202,12 @@ export class ServerConnection implements Disposable {
 			// TODO: We should really support a code to token exchange, but just return the token from the query string
 			// await this.exchangeCodeForToken(uri.query);
 			// As the backend still doesn't implement yet the code to token exchange, we just validate the state returned
-			const query = parseQuery(uri);
+			const queryParams: URLSearchParams = new URLSearchParams(uri.query);
 
 			const acceptedStates = this._pendingStates.get(_scopeKey);
+			const state = queryParams.get('gkstate');
 
-			if (acceptedStates == null || !acceptedStates.includes(query.gkstate)) {
+			if (acceptedStates == null || !state || !acceptedStates.includes(state)) {
 				// A common scenario of this happening is if you:
 				// 1. Trigger a sign in with one set of scopes
 				// 2. Before finishing 1, you trigger a sign in with a different set of scopes
@@ -218,7 +217,10 @@ export class ServerConnection implements Disposable {
 				return;
 			}
 
-			const token = query['access-token'] ?? query['code'];
+			const accessToken = queryParams.get('access-token');
+			const code = queryParams.get('code');
+			const token = accessToken ?? code;
+
 			if (token == null) {
 				reject('Token not returned');
 			} else {
@@ -240,20 +242,4 @@ export class ServerConnection implements Disposable {
 			this._statusBarItem = undefined;
 		}
 	}
-}
-
-class UriEventHandler extends EventEmitter<Uri> implements UriHandler {
-	// Strip query strings from the Uri to avoid logging token, etc
-	@log<UriEventHandler['handleUri']>({ args: { 0: u => u.with({ query: '' }).toString(true) } })
-	handleUri(uri: Uri) {
-		this.fire(uri);
-	}
-}
-
-function parseQuery(uri: Uri): Record<string, string> {
-	return uri.query.split('&').reduce<Record<string, string>>((prev, current) => {
-		const queryString = current.split('=');
-		prev[queryString[0]] = queryString[1];
-		return prev;
-	}, {});
 }
