@@ -956,6 +956,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 	}
 
+	async getFirstCommitSha(_repoPath: string): Promise<string | undefined> {
+		// TODO@ramint implement this if there is a way.
+		return undefined;
+	}
+
 	@log()
 	async getCommitBranches(
 		repoPath: string,

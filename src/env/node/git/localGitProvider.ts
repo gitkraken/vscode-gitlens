@@ -1619,6 +1619,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
+	async getFirstCommitSha(repoPath: string): Promise<string | undefined> {
+		const data = await this.git.rev_list(repoPath, 'HEAD', { maxParents: 0 });
+		if (data == null || data?.length === 0) return undefined;
+		return data[0];
+	}
+
+	@log()
 	async getCommitBranches(
 		repoPath: string,
 		ref: string,

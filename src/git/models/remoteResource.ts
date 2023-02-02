@@ -10,12 +10,14 @@ export const enum RemoteResourceType {
 	File = 'file',
 	Repo = 'repo',
 	Revision = 'revision',
+	Tag = 'tag',
 }
 
 export type RemoteResource =
 	| {
 			type: RemoteResourceType.Branch;
 			branch: string;
+			repoId?: string;
 	  }
 	| {
 			type: RemoteResourceType.Branches;
@@ -23,6 +25,7 @@ export type RemoteResource =
 	| {
 			type: RemoteResourceType.Commit;
 			sha: string;
+			repoId?: string;
 	  }
 	| {
 			type: RemoteResourceType.Comparison;
@@ -49,6 +52,7 @@ export type RemoteResource =
 	  }
 	| {
 			type: RemoteResourceType.Repo;
+			repoId?: string;
 	  }
 	| {
 			type: RemoteResourceType.Revision;
@@ -57,6 +61,11 @@ export type RemoteResource =
 			fileName: string;
 			range?: Range;
 			sha?: string;
+	  }
+	| {
+			type: RemoteResourceType.Tag;
+			tag: string;
+			repoId?: string;
 	  };
 
 export function getNameFromRemoteResource(resource: RemoteResource) {
@@ -77,6 +86,8 @@ export function getNameFromRemoteResource(resource: RemoteResource) {
 			return 'Repository';
 		case RemoteResourceType.Revision:
 			return 'File';
+		case RemoteResourceType.Tag:
+			return 'Tag';
 		default:
 			return '';
 	}

@@ -205,6 +205,7 @@ export interface GitProvider extends Disposable {
 	): Promise<PagedResult<GitBranch>>;
 	getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined>;
 	getCommit(repoPath: string, ref: string): Promise<GitCommit | undefined>;
+	getFirstCommitSha(repoPath: string): Promise<string | undefined>;
 	getCommitBranches(
 		repoPath: string,
 		ref: string,

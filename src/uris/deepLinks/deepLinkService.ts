@@ -1,5 +1,5 @@
-import type { Disposable, Uri } from 'vscode';
-import { window } from 'vscode';
+import type { Disposable } from 'vscode';
+import { env, Uri, window } from 'vscode';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { GitReference } from '../../git/models/reference';
@@ -14,6 +14,7 @@ import {
 	deepLinkStateTransitionTable,
 	DeepLinkType,
 	parseDeepLinkUri,
+	UriTypes,
 } from './deepLink';
 
 export class DeepLinkService implements Disposable {
@@ -294,5 +295,32 @@ export class DeepLinkService implements Disposable {
 					break;
 			}
 		}
+	}
+
+	generateDeepLinkUrl(repoId: string, remoteUrl: string, targetType: DeepLinkType, targetId?: string): Uri {
+		// Start with the prefix
+		let deepLinkUrl = `${env.uriScheme}://${this.container.context.extension.id}/${UriTypes.DeepLink}`;
+		// Then add the repo prefix and the repo ID to the URL
+		deepLinkUrl += `/${DeepLinkType.Repository}/${repoId}`;
+		// Now add the target tag and target ID to the URL (if applicable)
+		if (targetType !== DeepLinkType.Repository) {
+			deepLinkUrl += `/${targetType}/${targetId}`;
+		}
+
+		// Create a URL using the string we've built so far
+		const deepLinkUri = Uri.parse(deepLinkUrl);
+
+		// Finally, add the remote URL as a query parameter
+		return deepLinkUri.with({ query: `url=${remoteUrl}` });
+	}
+
+	async copyDeepLinkUrl(
+		repoId: string,
+		remoteUrl: string,
+		targetType: DeepLinkType,
+		targetId?: string,
+	): Promise<void> {
+		const deepLinkUrl = this.generateDeepLinkUrl(repoId, remoteUrl, targetType, targetId);
+		await env.clipboard.writeText(deepLinkUrl.toString());
 	}
 }

@@ -4862,6 +4862,30 @@
 				"icon": "$(globe)"
 			},
 			{
+				"command": "gitlens.copyDeepLinkToBranch",
+				"title": "Copy Link to Branch on Remote",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.copyDeepLinkToCommit",
+				"title": "Copy Link to Commit on Remote",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.copyDeepLinkToRepo",
+				"title": "Copy Link to Repo on Remote",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.copyDeepLinkToTag",
+				"title": "Copy Link to Tag on Remote",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
 				"command": "gitlens.copyRemoteBranchesUrl",
 				"title": "Copy Remote Branches URL",
 				"category": "GitLens",
@@ -6561,6 +6585,30 @@
 				"icon": "$(refresh)"
 			},
 			{
+				"command": "gitlens.graph.copyDeepLinkToBranch",
+				"title": "Copy Link to Branch on Remote",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.graph.copyDeepLinkToCommit",
+				"title": "Copy Link to Commit on Remote",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.graph.copyDeepLinkToRepo",
+				"title": "Copy Link to Repo on Remote",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.graph.copyDeepLinkToTag",
+				"title": "Copy Link to Tag on Remote",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
 				"command": "gitlens.graph.copyRemoteBranchUrl",
 				"title": "Copy Remote Branch URL",
 				"category": "GitLens",
@@ -7535,6 +7583,22 @@
 				{
 					"command": "gitlens.openCurrentBranchOnRemote",
 					"when": "gitlens:hasRemotes"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToBranch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToCommit",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToRepo",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToTag",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.copyRemoteBranchUrl",
@@ -8678,6 +8742,22 @@
 				},
 				{
 					"command": "gitlens.graph.refresh",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.copyDeepLinkToBranch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.copyDeepLinkToCommit",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.copyDeepLinkToRepo",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.copyDeepLinkToTag",
 					"when": "false"
 				},
 				{
@@ -11618,6 +11698,26 @@
 					"group": "2_gitlens@2"
 				},
 				{
+					"command": "gitlens.copyDeepLinkToBranch",
+					"when": "gitlens:hasRemotes && viewItem =~ /gitlens:branch/",
+					"group": "2_gitlens@3"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToCommit",
+					"when": "gitlens:hasRemotes && viewItem =~ /gitlens:commit/",
+					"group": "2_gitlens@3"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToRepo",
+					"when": "gitlens:hasRemotes && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+remote\\b)(?!.*?\\b\\+current\\b)/",
+					"group": "2_gitlens@3"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToTag",
+					"when": "gitlens:hasRemotes && viewItem =~ /gitlens:tag/",
+					"group": "2_gitlens@3"
+				},
+				{
 					"command": "gitlens.graph.copySha",
 					"when": "webviewItem =~ /gitlens:(?!stash\\b)/",
 					"group": "1_gitlens@1"
@@ -11636,6 +11736,26 @@
 					"command": "gitlens.graph.copyRemoteBranchUrl",
 					"when": "gitlens:hasRemotes && webviewItem =~ /gitlens:branch/",
 					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.graph.copyDeepLinkToBranch",
+					"when": "gitlens:hasRemotes && webviewItem =~ /gitlens:branch/",
+					"group": "3_gitlens@1"
+				},
+				{
+					"command": "gitlens.graph.copyDeepLinkToCommit",
+					"when": "gitlens:hasRemotes && webviewItem =~ /gitlens:commit/",
+					"group": "3_gitlens@1"
+				},
+				{
+					"command": "gitlens.graph.copyDeepLinkToRepo",
+					"when": "gitlens:hasRemotes && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+remote\\b)(?!.*?\\b\\+current\\b)/",
+					"group": "3_gitlens@2"
+				},
+				{
+					"command": "gitlens.graph.copyDeepLinkToTag",
+					"when": "gitlens:hasRemotes && webviewItem =~ /gitlens:tag/",
+					"group": "3_gitlens@1"
 				}
 			],
 			"gitlens/commit/changes": [

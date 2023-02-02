@@ -18,14 +18,18 @@ export type OpenOnRemoteCommandArgs =
 			repoPath: string;
 
 			remote?: string;
+			preSelectRemote?: boolean;
 			clipboard?: boolean;
+			deepLink?: boolean;
 	  }
 	| {
 			resource: RemoteResource;
 			remotes: GitRemote<RemoteProvider>[];
 
 			remote?: string;
+			preSelectRemote?: boolean;
 			clipboard?: boolean;
+			deepLink?: boolean;
 	  };
 
 @command()
@@ -40,7 +44,7 @@ export class OpenOnRemoteCommand extends Command {
 		let remotes =
 			'remotes' in args ? args.remotes : await this.container.git.getRemotesWithProviders(args.repoPath);
 
-		if (args.remote != null) {
+		if (args.remote != null && !args.preSelectRemote) {
 			const filtered = remotes.filter(r => r.name === args.remote);
 			// Only filter if we get some results
 			if (remotes.length > 0) {
@@ -56,7 +60,9 @@ export class OpenOnRemoteCommand extends Command {
 					const remote = remotes.find(r => r.name === remoteName);
 					if (remote != null) {
 						args.resource.branch = branchName;
-						remotes = [remote];
+						if (!args.preSelectRemote) {
+							remotes = [remote];
+						}
 					}
 				}
 			} else if (args.resource.type === RemoteResourceType.Revision) {
@@ -82,14 +88,24 @@ export class OpenOnRemoteCommand extends Command {
 			const options: Parameters<typeof RemoteProviderPicker.show>[4] = {
 				autoPick: 'default',
 				clipboard: args.clipboard,
+				deepLink: args.deepLink,
 				setDefault: true,
 			};
+
+			if (args.remote != null && args.preSelectRemote) {
+				options.preSelected = args.remote;
+			}
+
 			let title;
 			let placeHolder = `Choose which remote to ${args.clipboard ? 'copy the URL for' : 'open on'}`;
 
+			const getCopyPrefix = (type: string): string => {
+				return args.deepLink ? `Copy link to ${type} on ${provider}` : `Copy ${provider} ${type} URL`;
+			};
+
 			switch (args.resource.type) {
 				case RemoteResourceType.Branch:
-					title = `${args.clipboard ? `Copy ${provider} Branch URL` : `Open Branch on ${provider}`}${pad(
+					title = `${args.clipboard ? getCopyPrefix('Branch') : `Open Branch on ${provider}`}${pad(
 						GlyphChars.Dot,
 						2,
 						2,
@@ -101,7 +117,7 @@ export class OpenOnRemoteCommand extends Command {
 					break;
 
 				case RemoteResourceType.Commit:
-					title = `${args.clipboard ? `Copy ${provider} Commit URL` : `Open Commit on ${provider}`}${pad(
+					title = `${args.clipboard ? getCopyPrefix('Commit') : `Open Commit on ${provider}`}${pad(
 						GlyphChars.Dot,
 						2,
 						2,
@@ -146,7 +162,7 @@ export class OpenOnRemoteCommand extends Command {
 					break;
 
 				case RemoteResourceType.Repo:
-					title = `${args.clipboard ? `Copy ${provider} Repository URL` : `Open Repository on ${provider}`}`;
+					title = `${args.clipboard ? getCopyPrefix('Repository') : `Open Repository on ${provider}`}`;
 					break;
 
 				case RemoteResourceType.Revision: {
@@ -155,6 +171,15 @@ export class OpenOnRemoteCommand extends Command {
 						2,
 						2,
 					)}${GitRevision.shorten(args.resource.sha)}${pad(GlyphChars.Dot, 1, 1)}${args.resource.fileName}`;
+					break;
+				}
+
+				case RemoteResourceType.Tag: {
+					title = `${args.clipboard ? getCopyPrefix('Tag') : `Open Tag on ${provider}`}${pad(
+						GlyphChars.Dot,
+						2,
+						2,
+					)}${args.resource.tag}`;
 					break;
 				}
 			}

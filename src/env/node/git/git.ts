@@ -1380,6 +1380,38 @@ export class Git {
 		return isNaN(result) ? undefined : result;
 	}
 
+	async rev_list(
+		repoPath: string,
+		ref: string,
+		{
+			all,
+			maxParents,
+		}: {
+			all?: boolean;
+			maxParents?: number;
+		} = {},
+	): Promise<string[] | undefined> {
+		const params = ['rev-list'];
+		if (all) {
+			params.push('--all');
+		}
+
+		if (maxParents != null) {
+			params.push(`--max-parents=${maxParents}`);
+		}
+
+		const rawData = await this.git<string>(
+			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+			...params,
+			ref,
+			'--',
+		);
+		const data = rawData.trim().split('\n');
+		if (data.length === 0) return undefined;
+
+		return data;
+	}
+
 	async rev_list__left_right(
 		repoPath: string,
 		refs: string[],
