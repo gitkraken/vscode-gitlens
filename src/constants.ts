@@ -352,6 +352,7 @@ export const enum CoreGitCommands {
 	Push = 'git.push',
 	PushForce = 'git.pushForce',
 	UndoCommit = 'git.undoCommit',
+	Fetch = 'git.fetch',
 }
 
 export const enum CoreGitConfiguration {
