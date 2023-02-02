@@ -162,7 +162,11 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 
 		args = { ...args };
 
-		const repoId = (await this.container.git.getFirstCommitSha(repoPath)) ?? 'no-repo-id';
+		const repoId: string | undefined =
+			(await this.container.git.getFirstCommitSha(repoPath)) ??
+			this.container.git.getRepository(repoPath)?.id?.replace(/\//g, '_');
+
+		if (repoId == null) return;
 
 		try {
 			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
