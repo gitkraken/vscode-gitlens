@@ -573,7 +573,11 @@ export class Repository implements Disposable {
 		remote?: string;
 	}) {
 		try {
-			await this.container.git.fetch(this.path, options);
+			if (options?.branch != null) {
+				await this.container.git.fetch(this.path, options);
+			} else {
+				void (await executeCoreGitCommand(CoreGitCommands.Fetch, this.path));
+			}
 
 			this.fireChange(RepositoryChange.Unknown);
 		} catch (ex) {
