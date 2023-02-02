@@ -9,8 +9,8 @@ import { debug, getLogScope } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import type { DeferredEvent, DeferredEventExecutor } from '../../system/event';
 import { promisifyDeferred } from '../../system/event';
-import type { UriEvent } from '../../uri/uri';
-import { UriTypes } from '../../uri/uri';
+
+export const AuthenticationUriPathPrefix = 'did-authenticate';
 
 interface AccountInfo {
 	id: string;
@@ -99,7 +99,9 @@ export class ServerConnection implements Disposable {
 		this._pendingStates.set(scopeKey, [...existingStates, gkstate]);
 
 		const callbackUri = await env.asExternalUri(
-			Uri.parse(`${env.uriScheme}://${this.container.context.extension.id}/did-authenticate?gkstate=${gkstate}`),
+			Uri.parse(
+				`${env.uriScheme}://${this.container.context.extension.id}/${AuthenticationUriPathPrefix}?gkstate=${gkstate}`,
+			),
 		);
 
 		const uri = Uri.joinPath(this.baseAccountUri, 'register').with({
@@ -113,7 +115,7 @@ export class ServerConnection implements Disposable {
 		let deferredCodeExchange = this._deferredCodeExchanges.get(scopeKey);
 		if (deferredCodeExchange == null) {
 			deferredCodeExchange = promisifyDeferred(
-				this.container.uri.onDidReceiveUri,
+				this.container.uri.onDidReceiveAuthenticationUri,
 				this.getUriHandlerDeferredExecutor(scopeKey),
 			);
 			this._deferredCodeExchanges.set(scopeKey, deferredCodeExchange);
@@ -195,13 +197,8 @@ export class ServerConnection implements Disposable {
 		}
 	}
 
-	private getUriHandlerDeferredExecutor(_scopeKey: string): DeferredEventExecutor<UriEvent, string> {
-		return (uriEvent: UriEvent, resolve, reject) => {
-			if (uriEvent.type !== UriTypes.Auth) {
-				return;
-			}
-
-			const uri = uriEvent.uri;
+	private getUriHandlerDeferredExecutor(_scopeKey: string): DeferredEventExecutor<Uri, string> {
+		return (uri: Uri, resolve, reject) => {
 			// TODO: We should really support a code to token exchange, but just return the token from the query string
 			// await this.exchangeCodeForToken(uri.query);
 			// As the backend still doesn't implement yet the code to token exchange, we just validate the state returned

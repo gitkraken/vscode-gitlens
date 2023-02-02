@@ -1,12 +1,52 @@
 import type { Uri } from 'vscode';
-import type { GitRemote } from '../git/models/remote';
-import type { Repository } from '../git/models/repository';
+import type { GitRemote } from '../../git/models/remote';
+import type { Repository } from '../../git/models/repository';
+
+export const enum UriTypes {
+	DeepLink = 'link',
+}
 
 export enum DeepLinkType {
 	Branch = 'b',
 	Commit = 'c',
 	Repository = 'r',
 	Tag = 't',
+}
+
+export interface DeepLink {
+	type: DeepLinkType;
+	uri: Uri;
+	repoId: string;
+	remoteUrl: string;
+	targetId?: string;
+}
+
+export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
+	// The link target id is everything after the link target.
+	// For example, if the uri is /link/r/{repoId}/b/{branchName}?url={remoteUrl},
+	// the link target id is {branchName}
+	const [, type, prefix, repoId, target, ...targetId] = uri.path.split('/');
+	if (type !== UriTypes.DeepLink || prefix !== DeepLinkType.Repository) return undefined;
+
+	const remoteUrl = new URLSearchParams(uri.query).get('url');
+	if (!remoteUrl) return undefined;
+
+	if (target == null) {
+		return {
+			type: DeepLinkType.Repository,
+			uri: uri,
+			repoId: repoId,
+			remoteUrl: remoteUrl,
+		};
+	}
+
+	return {
+		type: target as DeepLinkType,
+		uri: uri,
+		repoId: repoId,
+		remoteUrl: remoteUrl,
+		targetId: targetId.join('/'),
+	};
 }
 
 export const enum DeepLinkServiceState {

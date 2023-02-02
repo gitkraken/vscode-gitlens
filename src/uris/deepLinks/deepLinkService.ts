@@ -1,16 +1,20 @@
-import type { Disposable } from 'vscode';
+import type { Disposable, Uri } from 'vscode';
 import { window } from 'vscode';
-import { Commands } from '../constants';
-import type { Container } from '../container';
-import { GitReference } from '../git/models/reference';
-import type { GitRemote } from '../git/models/remote';
-import { Logger } from '../logger';
-import type { ShowInCommitGraphCommandArgs } from '../plus/webviews/graph/graphWebview';
-import { executeCommand } from '../system/command';
-import type { UriEvent } from '../uri/uri';
-import { UriTypes } from '../uri/uri';
+import { Commands } from '../../constants';
+import type { Container } from '../../container';
+import { GitReference } from '../../git/models/reference';
+import type { GitRemote } from '../../git/models/remote';
+import { Logger } from '../../logger';
+import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
+import { executeCommand } from '../../system/command';
 import type { DeepLinkServiceContext } from './deepLink';
-import { DeepLinkServiceAction, DeepLinkServiceState, deepLinkStateTransitionTable, DeepLinkType } from './deepLink';
+import {
+	DeepLinkServiceAction,
+	DeepLinkServiceState,
+	deepLinkStateTransitionTable,
+	DeepLinkType,
+	parseDeepLinkUri,
+} from './deepLink';
 
 export class DeepLinkService implements Disposable {
 	private _disposable: Disposable;
@@ -21,33 +25,36 @@ export class DeepLinkService implements Disposable {
 			state: DeepLinkServiceState.Idle,
 		};
 
-		this._disposable = container.uri.onDidReceiveUri(async (event: UriEvent) => {
-			if (event.type === UriTypes.DeepLink && this._context.state === DeepLinkServiceState.Idle) {
-				if (!event.repoId || !event.linkType || !event.remoteUrl) {
+		this._disposable = container.uri.onDidReceiveUri(async (uri: Uri) => {
+			const link = parseDeepLinkUri(uri);
+			if (link == null) return;
+
+			if (this._context.state === DeepLinkServiceState.Idle) {
+				if (!link.repoId || !link.type || !link.remoteUrl) {
 					void window.showErrorMessage('Unable to resolve link');
-					Logger.warn(`Unable to resolve link - missing basic properties: ${event.uri.toString()}`);
+					Logger.warn(`Unable to resolve link - missing basic properties: ${link.uri.toString()}`);
 					return;
 				}
 
-				if (!Object.values(DeepLinkType).includes(event.linkType)) {
+				if (!Object.values(DeepLinkType).includes(link.type)) {
 					void window.showErrorMessage('Unable to resolve link');
-					Logger.warn(`Unable to resolve link - unknown link type: ${event.uri.toString()}`);
+					Logger.warn(`Unable to resolve link - unknown link type: ${link.uri.toString()}`);
 					return;
 				}
 
-				if (event.linkType !== DeepLinkType.Repository && !event.targetId) {
+				if (link.type !== DeepLinkType.Repository && !link.targetId) {
 					void window.showErrorMessage('Unable to resolve link');
-					Logger.warn(`Unable to resolve link - no target id provided: ${event.uri.toString()}`);
+					Logger.warn(`Unable to resolve link - no target id provided: ${link.uri.toString()}`);
 					return;
 				}
 
 				this._context = {
 					...this._context,
-					repoId: event.repoId,
-					targetType: event.linkType,
-					uri: event.uri,
-					remoteUrl: event.remoteUrl,
-					targetId: event.targetId,
+					repoId: link.repoId,
+					targetType: link.type,
+					uri: link.uri,
+					remoteUrl: link.remoteUrl,
+					targetId: link.targetId,
 				};
 
 				await this.processDeepLink();
@@ -55,7 +62,11 @@ export class DeepLinkService implements Disposable {
 		});
 	}
 
-	resetContext() {
+	dispose() {
+		this._disposable.dispose();
+	}
+
+	private resetContext() {
 		this._context = {
 			state: DeepLinkServiceState.Idle,
 			uri: undefined,
@@ -69,11 +80,7 @@ export class DeepLinkService implements Disposable {
 		};
 	}
 
-	dispose() {
-		this._disposable.dispose();
-	}
-
-	async getShaForTarget(): Promise<string | undefined> {
+	private async getShaForTarget(): Promise<string | undefined> {
 		const { repo, remote, targetType, targetId } = this._context;
 		if (!repo || !remote || targetType === DeepLinkType.Repository || !targetId) {
 			return undefined;
@@ -110,7 +117,7 @@ export class DeepLinkService implements Disposable {
 		return undefined;
 	}
 
-	async processDeepLink(): Promise<void> {
+	private async processDeepLink(): Promise<void> {
 		let message = '';
 		let matchingRemotes: GitRemote[] = [];
 		let action: DeepLinkServiceAction = DeepLinkServiceAction.DeepLinkEventFired;
