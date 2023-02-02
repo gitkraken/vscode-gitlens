@@ -4,6 +4,7 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitReference } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
+import { Logger } from '../logger';
 import type { ShowInCommitGraphCommandArgs } from '../plus/webviews/graph/graphWebview';
 import { executeCommand } from '../system/command';
 import type { UriEvent } from '../uri/uri';
@@ -22,20 +23,21 @@ export class DeepLinkService implements Disposable {
 
 		this._disposable = container.uri.onDidReceiveUri(async (event: UriEvent) => {
 			if (event.type === UriTypes.DeepLink && this._context.state === DeepLinkServiceState.Idle) {
-				if (!event.repoId || !event.linkType || !event.uri || !event.remoteUrl) {
-					void window.showErrorMessage(`Error resolving deep link: missing required properties.`);
+				if (!event.repoId || !event.linkType || !event.remoteUrl) {
+					void window.showErrorMessage('Unable to resolve link');
+					Logger.warn(`Unable to resolve link - missing basic properties: ${event.uri.toString()}`);
 					return;
 				}
 
 				if (!Object.values(DeepLinkType).includes(event.linkType)) {
-					void window.showErrorMessage(`Error resolving deep link: unknown link type.`);
+					void window.showErrorMessage('Unable to resolve link');
+					Logger.warn(`Unable to resolve link - unknown link type: ${event.uri.toString()}`);
 					return;
 				}
 
 				if (event.linkType !== DeepLinkType.Repository && !event.targetId) {
-					void window.showErrorMessage(
-						`Error resolving deep link of type ${event.linkType}: no target id provided.`,
-					);
+					void window.showErrorMessage('Unable to resolve link');
+					Logger.warn(`Unable to resolve link - no target id provided: ${event.uri.toString()}`);
 					return;
 				}
 
@@ -117,13 +119,9 @@ export class DeepLinkService implements Disposable {
 			const { state, repoId, repo, uri, remoteUrl, remote, targetSha, targetType } = this._context;
 			switch (state) {
 				case DeepLinkServiceState.Idle:
-					if (action === DeepLinkServiceAction.DeepLinkResolved) {
-						void window.showInformationMessage(`Deep link resolved: ${uri?.toString()}`);
-						// TODO@ramint Add the ability to cancel deep link processing
-						// } else if (action === DeepLinkServiceActions.DeepLinkCancelled) {
-						//	void window.showInformationMessage(`Deep link cancelled: ${uri?.toString()}`);
-					} else if (action === DeepLinkServiceAction.DeepLinkErrored) {
-						void window.showErrorMessage(`Error resolving deep link: ${message ?? 'unknown error'}`);
+					if (action === DeepLinkServiceAction.DeepLinkErrored) {
+						void window.showErrorMessage('Unable to resolve link');
+						Logger.warn(`Unable to resolve link - ${message}: ${uri?.toString()}`);
 					}
 
 					// Deep link processing complete. Reset the context and return.
