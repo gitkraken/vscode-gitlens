@@ -38,14 +38,14 @@ export class UriService implements Disposable, UriHandler {
 		const uriType = uriSplit[1];
 		if (uriType !== UriTypes.DeepLink) return null;
 		const repoPrefix = uriSplit[2];
-		if (repoPrefix !== DeepLinkType.Remote) return null;
+		if (repoPrefix !== DeepLinkType.Repository) return null;
 		const repoId = uriSplit[3];
 		const remoteUrl = new URLSearchParams(uri.query).get('url');
 		if (!remoteUrl) return null;
 		if (uriSplit.length === 4) {
 			return {
 				type: UriTypes.DeepLink,
-				linkType: DeepLinkType.Remote,
+				linkType: DeepLinkType.Repository,
 				uri: uri,
 				repoId: repoId,
 				remoteUrl: remoteUrl,

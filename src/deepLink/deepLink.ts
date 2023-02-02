@@ -5,39 +5,39 @@ import type { Repository } from '../git/models/repository';
 export enum DeepLinkType {
 	Branch = 'b',
 	Commit = 'c',
-	Remote = 'r',
+	Repository = 'r',
 	Tag = 't',
 }
 
-export enum DeepLinkServiceState {
-	Idle = 'Idle',
-	RepoMatch = 'RepoMatch',
-	CloneOrAddRepo = 'CloneOrAddRepo',
-	AddedRepoMatch = 'AddedRepoMatch',
-	RemoteMatch = 'RemoteMatch',
-	AddRemote = 'AddRemote',
-	TargetMatch = 'TargetMatch',
-	Fetch = 'Fetch',
-	FetchedTargetMatch = 'FetchedTargetMatch',
-	OpenGraph = 'OpenGraph',
+export const enum DeepLinkServiceState {
+	Idle,
+	RepoMatch,
+	CloneOrAddRepo,
+	AddedRepoMatch,
+	RemoteMatch,
+	AddRemote,
+	TargetMatch,
+	Fetch,
+	FetchedTargetMatch,
+	OpenGraph,
 }
 
-export enum DeepLinkServiceAction {
-	DeepLinkEventFired = 'DeepLinkEventFired',
-	DeepLinkCancelled = 'DeepLinkCancelled',
-	DeepLinkResolved = 'DeepLinkResolved',
-	DeepLinkErrored = 'DeepLinkErrored',
-	RepoMatchedWithId = 'RepoMatchedWithId',
-	RepoMatchedWithRemoteUrl = 'RepoMatchedWithRemoteUrl',
-	RepoMatchFailed = 'RepoMatchFailed',
-	RepoAdded = 'RepoAdded',
-	RemoteMatched = 'RemoteMatched',
-	RemoteMatchFailed = 'RemoteMatchFailed',
-	RemoteAdded = 'RemoteAdded',
-	TargetIsRemote = 'TargetIsRemote',
-	TargetMatched = 'TargetMatched',
-	TargetMatchFailed = 'TargetMatchFailed',
-	TargetFetched = 'TargetFetched',
+export const enum DeepLinkServiceAction {
+	DeepLinkEventFired,
+	DeepLinkCancelled,
+	DeepLinkResolved,
+	DeepLinkErrored,
+	RepoMatchedWithId,
+	RepoMatchedWithRemoteUrl,
+	RepoMatchFailed,
+	RepoAdded,
+	RemoteMatched,
+	RemoteMatchFailed,
+	RemoteAdded,
+	TargetIsRemote,
+	TargetMatched,
+	TargetMatchFailed,
+	TargetFetched,
 }
 
 export interface DeepLinkServiceContext {

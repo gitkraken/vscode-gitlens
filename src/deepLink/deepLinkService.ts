@@ -32,7 +32,7 @@ export class DeepLinkService implements Disposable {
 					return;
 				}
 
-				if (event.linkType !== DeepLinkType.Remote && !event.targetId) {
+				if (event.linkType !== DeepLinkType.Repository && !event.targetId) {
 					void window.showErrorMessage(
 						`Error resolving deep link of type ${event.linkType}: no target id provided.`,
 					);
@@ -73,7 +73,7 @@ export class DeepLinkService implements Disposable {
 
 	async getShaForTarget(): Promise<string | undefined> {
 		const { repo, remote, targetType, targetId } = this._context;
-		if (!repo || !remote || targetType === DeepLinkType.Remote || !targetId) {
+		if (!repo || !remote || targetType === DeepLinkType.Repository || !targetId) {
 			return undefined;
 		}
 
@@ -224,7 +224,7 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					if (targetType === DeepLinkType.Remote) {
+					if (targetType === DeepLinkType.Repository) {
 						action = DeepLinkServiceAction.TargetMatched;
 						break;
 					}
@@ -264,7 +264,7 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					if (targetType === DeepLinkType.Remote) {
+					if (targetType === DeepLinkType.Repository) {
 						void (await executeCommand(Commands.ShowInCommitGraph, repo));
 						action = DeepLinkServiceAction.DeepLinkResolved;
 						break;
