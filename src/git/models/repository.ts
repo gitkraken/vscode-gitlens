@@ -660,6 +660,13 @@ export class Repository implements Disposable {
 		return this.container.git.getStatusForRepo(this.path);
 	}
 
+	async getTag(name: string): Promise<GitTag | undefined> {
+		const {
+			values: [tag],
+		} = await this.getTags({ filter: b => b.name === name });
+		return tag;
+	}
+
 	getTags(options?: { filter?: (t: GitTag) => boolean; sort?: boolean | TagSortOptions }) {
 		return this.container.git.getTags(this.path, options);
 	}

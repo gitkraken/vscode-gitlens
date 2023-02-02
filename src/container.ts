@@ -35,6 +35,8 @@ import { TelemetryService } from './telemetry/telemetry';
 import { GitTerminalLinkProvider } from './terminal/linkProvider';
 import { GitDocumentTracker } from './trackers/gitDocumentTracker';
 import { GitLineTracker } from './trackers/gitLineTracker';
+import { DeepLinkService } from './uris/deepLinks/deepLinkService';
+import { UriService } from './uris/uriService';
 import { UsageTracker } from './usageTracker';
 import { BranchesView } from './views/branchesView';
 import { CommitsView } from './views/commitsView';
@@ -175,6 +177,10 @@ export class Container {
 
 		context.subscriptions.push((this._git = new GitProviderService(this)));
 		context.subscriptions.push(new GitFileSystemProvider(this));
+
+		context.subscriptions.push((this._uri = new UriService(this)));
+
+		context.subscriptions.push((this._deepLinks = new DeepLinkService(this)));
 
 		context.subscriptions.push((this._actionRunners = new ActionRunners(this)));
 		context.subscriptions.push((this._tracker = new GitDocumentTracker(this)));
@@ -367,6 +373,16 @@ export class Container {
 	private _git: GitProviderService;
 	get git() {
 		return this._git;
+	}
+
+	private _uri: UriService;
+	get uri() {
+		return this._uri;
+	}
+
+	private _deepLinks: DeepLinkService;
+	get deepLinks() {
+		return this._deepLinks;
 	}
 
 	private _github: Promise<import('./plus/github/github').GitHubApi | undefined> | undefined;
