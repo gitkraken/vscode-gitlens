@@ -25,24 +25,17 @@ export class UriService implements Disposable, UriHandler {
 		return this._uriEventEmitter.event;
 	}
 
-	// Set up a deep link event based on the following specifications:
-	// 1. Remote link type: /link/r/{repoId}?url={remoteUrl}
-	// 2. Branch link type: /link/r/{repoId}/b/{branchName}?url={remoteUrl}
-	// 3. Tag link type: /link/r/{repoId}/t/{tagName}?url={remoteUrl}
-	// 4. Commit link type: /link/r/{repoId}/c/{commitSha}?url={remoteUrl}
-	// If the url does not fit any of the above specifications, return null
-	// If the url does fit one of the above specifications, return the deep link event
-	private formatDeepLinkUriEvent(uri: Uri): DeepLinkUriEvent | null {
-		const uriSplit = uri.path.split('/');
-		if (uriSplit.length < 2) return null;
-		const uriType = uriSplit[1];
-		if (uriType !== UriTypes.DeepLink) return null;
-		const repoPrefix = uriSplit[2];
-		if (repoPrefix !== DeepLinkType.Repository) return null;
-		const repoId = uriSplit[3];
+	private formatDeepLinkUriEvent(uri: Uri): DeepLinkUriEvent | undefined {
+		// The link target id is everything after the link target.
+		// For example, if the uri is /link/r/{repoId}/b/{branchName}?url={remoteUrl},
+		// the link target id is {branchName}
+		const [, type, prefix, repoId, target, ...targetId] = uri.path.split('/');
+		if (type !== UriTypes.DeepLink || prefix !== DeepLinkType.Repository) return undefined;
+
 		const remoteUrl = new URLSearchParams(uri.query).get('url');
-		if (!remoteUrl) return null;
-		if (uriSplit.length === 4) {
+		if (!remoteUrl) return undefined;
+
+		if (target == null) {
 			return {
 				type: UriTypes.DeepLink,
 				linkType: DeepLinkType.Repository,
@@ -52,19 +45,13 @@ export class UriService implements Disposable, UriHandler {
 			};
 		}
 
-		const linkTarget = uriSplit[4];
-		// The link target id is everything after the link target.
-		// For example, if the uri is /link/r/{repoId}/b/{branchName}?url={remoteUrl},
-		// the link target id is {branchName}
-		const linkTargetId = uriSplit.slice(5).join('/');
-
 		return {
 			type: UriTypes.DeepLink,
-			linkType: linkTarget as DeepLinkType,
+			linkType: target as DeepLinkType,
 			uri: uri,
 			repoId: repoId,
 			remoteUrl: remoteUrl,
-			targetId: linkTargetId,
+			targetId: targetId.join('/'),
 		};
 	}
 
@@ -81,7 +68,7 @@ export class UriService implements Disposable, UriHandler {
 		}
 
 		if (uriType === UriTypes.DeepLink) {
-			const deepLinkEvent: DeepLinkUriEvent | null = this.formatDeepLinkUriEvent(uri);
+			const deepLinkEvent: DeepLinkUriEvent | undefined = this.formatDeepLinkUriEvent(uri);
 			if (deepLinkEvent) {
 				this._uriEventEmitter.fire(deepLinkEvent);
 			}
