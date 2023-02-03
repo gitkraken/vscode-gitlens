@@ -52,7 +52,9 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		`GitLens${prerelease ? (insiders ? ' (Insiders)' : ' (pre-release)') : ''} v${gitlensVersion}`,
 		{
 			log: {
-				message: ` activating in ${env.appName}(${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}`,
+				message: ` activating in ${env.appName}(${codeVersion}) on the ${isWeb ? 'web' : 'desktop'} (${
+					env.machineId
+				}|${env.sessionId})`,
 				//${context.extensionRuntime !== ExtensionRuntime.Node ? ' in a webworker' : ''}
 			},
 		},
