@@ -20,7 +20,7 @@ import { updateRecordValue } from '../../system/object';
 import { basename, normalizePath } from '../../system/path';
 import { md5 } from '../../system/string';
 import { runGitCommandInTerminal } from '../../terminal';
-import type { GitProviderDescriptor } from '../gitProvider';
+import type { GitProviderDescriptor, GitRepositoryCaches } from '../gitProvider';
 import type { RemoteProviders } from '../remotes/remoteProviders';
 import { loadRemoteProviders } from '../remotes/remoteProviders';
 import type { RichRemoteProvider } from '../remotes/richRemoteProvider';
@@ -40,6 +40,8 @@ import type { GitStash } from './stash';
 import type { GitStatus } from './status';
 import type { GitTag, TagSortOptions } from './tag';
 import type { GitWorktree } from './worktree';
+
+const emptyArray = Object.freeze([]) as unknown as any[];
 
 const millisecondsPerMinute = 60 * 1000;
 const millisecondsPerHour = 60 * 60 * 1000;
@@ -258,6 +260,14 @@ export class Repository implements Disposable {
 
 	private async setupRepoWatchersCore() {
 		const disposables: Disposable[] = [];
+
+		disposables.push(
+			this.container.events.on('git:cache:reset', e => {
+				if (!e.data.repoPath || e.data.repoPath === this.path) {
+					this.resetCaches(...(e.data.caches ?? emptyArray));
+				}
+			}),
+		);
 
 		const watcher = workspace.createFileSystemWatcher(new RelativePattern(this.uri, '**/.gitignore'));
 		disposables.push(
@@ -866,12 +876,12 @@ export class Repository implements Disposable {
 	}
 
 	@log({ singleLine: true })
-	resetCaches(...affects: ('branches' | 'remotes')[]) {
-		if (affects.length === 0 || affects.includes('branches')) {
+	private resetCaches(...caches: GitRepositoryCaches[]) {
+		if (caches.length === 0 || caches.includes('branches')) {
 			this._branch = undefined;
 		}
 
-		if (affects.length === 0 || affects.includes('remotes')) {
+		if (caches.length === 0 || caches.includes('remotes')) {
 			this._remotes = undefined;
 			this._remotesDisposable?.dispose();
 			this._remotesDisposable = undefined;

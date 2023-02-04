@@ -28,6 +28,10 @@ import type { RemoteProviders } from './remotes/remoteProviders';
 import type { RichRemoteProvider } from './remotes/richRemoteProvider';
 import type { GitSearch, SearchQuery } from './search';
 
+export type GitCaches = 'branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags';
+export type GitRepositoryCaches = Extract<GitCaches, 'branches' | 'remotes'>;
+export const gitRepositoryCacheKeys: Set<GitRepositoryCaches> = new Set(['branches', 'remotes']);
+
 export interface GitDir {
 	readonly uri: Uri;
 	readonly commonUri?: Uri;
@@ -136,9 +140,6 @@ export interface GitProvider extends Disposable {
 		ref: string,
 		options?: { createBranch?: string | undefined } | { path?: string | undefined },
 	): Promise<void>;
-	resetCaches(
-		...affects: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]
-	): void;
 	excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]>;
 	fetch(
 		repoPath: string,
