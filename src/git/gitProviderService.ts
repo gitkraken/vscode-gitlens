@@ -32,6 +32,7 @@ import { getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../
 import { cancellable, fastestSettled, getSettledValue, isPromise, PromiseCancelledError } from '../system/promise';
 import { VisitedPathsTrie } from '../system/trie';
 import type {
+	GitCaches,
 	GitDir,
 	GitProvider,
 	GitProviderDescriptor,
@@ -1029,24 +1030,12 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log({ singleLine: true })
-	resetCaches(
-		...affects: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]
-	): void {
-		if (affects.length === 0 || affects.includes('providers')) {
+	resetCaches(...caches: GitCaches[]): void {
+		if (caches.length === 0 || caches.includes('providers')) {
 			this._bestRemotesCache.clear();
 		}
 
-		const repoAffects = affects.filter((c): c is 'branches' | 'remotes' => c === 'branches' || c === 'remotes');
-		// Delegate to the repos, if we are clearing everything or one of the per-repo caches
-		if (affects.length === 0 || repoAffects.length > 0) {
-			for (const repo of this.repositories) {
-				repo.resetCaches(...repoAffects);
-			}
-		}
-
-		for (const provider of this._providers.values()) {
-			provider.resetCaches(...affects);
-		}
+		this.container.events.fire('git:cache:reset', { caches: caches });
 	}
 
 	@log<GitProviderService['excludeIgnoredUris']>({ args: { 1: uris => uris.length } })
@@ -2436,6 +2425,15 @@ export class GitProviderService implements Disposable {
 	): Promise<void> {
 		const { provider, path: rp } = this.getProvider(repoPath);
 		return Promise.resolve(provider.createWorktree?.(rp, path, options));
+	}
+
+	@log()
+	async getWorktree(
+		repoPath: string | Uri,
+		predicate: (w: GitWorktree) => boolean,
+	): Promise<GitWorktree | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return ((await provider.getWorktrees?.(path)) ?? []).find(predicate);
 	}
 
 	@log()

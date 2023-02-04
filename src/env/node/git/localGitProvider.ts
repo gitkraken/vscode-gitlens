@@ -29,6 +29,7 @@ import {
 	WorktreeDeleteErrorReason,
 } from '../../../git/errors';
 import type {
+	GitCaches,
 	GitDir,
 	GitProvider,
 	GitProviderDescriptor,
@@ -227,6 +228,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	constructor(protected readonly container: Container, protected readonly git: Git) {
 		this.git.setLocator(this.ensureGit.bind(this));
+
+		this._disposables.push(
+			this.container.events.on('git:cache:reset', e =>
+				e.data.repoPath
+					? this.resetCache(e.data.repoPath, ...(e.data.caches ?? emptyArray))
+					: this.resetCaches(...(e.data.caches ?? emptyArray)),
+			),
+		);
 	}
 
 	dispose() {
@@ -840,11 +849,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async addRemote(repoPath: string, name: string, url: string): Promise<void> {
 		await this.git.remote__add(repoPath, name, url);
+		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['remotes'] });
 	}
 
 	@log()
-	async pruneRemote(repoPath: string, remoteName: string): Promise<void> {
-		await this.git.remote__prune(repoPath, remoteName);
+	async pruneRemote(repoPath: string, name: string): Promise<void> {
+		await this.git.remote__prune(repoPath, name);
+		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['remotes'] });
 	}
 
 	@log()
@@ -903,6 +914,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		try {
 			await this.git.checkout(repoPath, ref, options);
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['branches', 'status'] });
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (/overwritten by checkout/i.test(msg)) {
@@ -918,29 +930,61 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log({ singleLine: true })
-	resetCaches(...affects: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]) {
-		if (affects.length === 0 || affects.includes('branches')) {
+	private resetCache(
+		repoPath: string,
+		...caches: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]
+	) {
+		if (caches.length === 0 || caches.includes('branches')) {
+			this._branchesCache.delete(repoPath);
+		}
+
+		if (caches.length === 0 || caches.includes('contributors')) {
+			this._contributorsCache.delete(repoPath);
+		}
+
+		if (caches.length === 0 || caches.includes('stashes')) {
+			this._stashesCache.delete(repoPath);
+		}
+
+		if (caches.length === 0 || caches.includes('status')) {
+			this._mergeStatusCache.delete(repoPath);
+			this._rebaseStatusCache.delete(repoPath);
+		}
+
+		if (caches.length === 0 || caches.includes('tags')) {
+			this._tagsCache.delete(repoPath);
+		}
+
+		if (caches.length === 0) {
+			this._trackedPaths.delete(repoPath);
+			this._repoInfoCache.delete(repoPath);
+		}
+	}
+
+	@log({ singleLine: true })
+	private resetCaches(...caches: GitCaches[]) {
+		if (caches.length === 0 || caches.includes('branches')) {
 			this._branchesCache.clear();
 		}
 
-		if (affects.length === 0 || affects.includes('contributors')) {
+		if (caches.length === 0 || caches.includes('contributors')) {
 			this._contributorsCache.clear();
 		}
 
-		if (affects.length === 0 || affects.includes('stashes')) {
+		if (caches.length === 0 || caches.includes('stashes')) {
 			this._stashesCache.clear();
 		}
 
-		if (affects.length === 0 || affects.includes('status')) {
+		if (caches.length === 0 || caches.includes('status')) {
 			this._mergeStatusCache.clear();
 			this._rebaseStatusCache.clear();
 		}
 
-		if (affects.length === 0 || affects.includes('tags')) {
+		if (caches.length === 0 || caches.includes('tags')) {
 			this._tagsCache.clear();
 		}
 
-		if (affects.length === 0) {
+		if (caches.length === 0) {
 			this._trackedPaths.clear();
 			this._repoInfoCache.clear();
 		}
@@ -975,15 +1019,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const branch = await repo?.getBranch(branchRef?.name);
 			if (!branch?.remote && branch?.upstream == null) return undefined;
 
-			return this.git.fetch(repoPath, {
+			await this.git.fetch(repoPath, {
 				branch: branch.getNameWithoutRemote(),
 				remote: branch.getRemoteName()!,
 				upstream: branch.getTrackingWithoutRemote()!,
 				pull: options?.pull,
 			});
+		} else {
+			await this.git.fetch(repoPath, opts);
 		}
-
-		return this.git.fetch(repoPath, opts);
+		this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 	}
 
 	private readonly toCanonicalMap = new Map<string, Uri>();
@@ -4544,6 +4589,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async stashDelete(repoPath: string, stashName: string, ref?: string): Promise<void> {
 		await this.git.stash__delete(repoPath, stashName, ref);
+		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes'] });
 	}
 
 	@log<LocalGitProvider['stashSave']>({ args: { 2: uris => uris?.length } })
@@ -4553,7 +4599,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		uris?: Uri[],
 		options?: { includeUntracked?: boolean; keepIndex?: boolean },
 	): Promise<void> {
-		if (uris == null) return this.git.stash__push(repoPath, message, options);
+		if (uris == null) {
+			await this.git.stash__push(repoPath, message, options);
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes', 'status'] });
+			return;
+		}
 
 		await this.ensureGitVersion(
 			'2.13.2',
@@ -4574,11 +4624,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			);
 		}
 
-		return this.git.stash__push(repoPath, message, {
+		await this.git.stash__push(repoPath, message, {
 			...options,
 			pathspecs: pathspecs,
 			stdin: stdin,
 		});
+		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes'] });
 	}
 
 	@log()
@@ -4589,6 +4640,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	) {
 		try {
 			await this.git.worktree__add(repoPath, path, options);
+			if (options?.createBranch) {
+				this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['branches'] });
+			}
 		} catch (ex) {
 			Logger.error(ex);
 

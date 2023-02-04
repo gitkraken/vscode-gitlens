@@ -1,19 +1,13 @@
 import type { Disposable, Uri } from 'vscode';
 import { EventEmitter } from 'vscode';
 import type { ViewsConfigKeys } from './config';
+import type { GitCaches } from './git/gitProvider';
 import type { GitCommit } from './git/models/commit';
 import type { GitRevisionReference } from './git/models/reference';
 import type { WebviewIds } from './webviews/webviewBase';
 import type { WebviewViewIds } from './webviews/webviewViewBase';
 
 export type CommitSelectedEvent = EventBusEvent<'commit:selected'>;
-export type FileSelectedEvent = EventBusEvent<'file:selected'>;
-
-type EventBusEventMap = {
-	'commit:selected': CommitSelectedEventArgs;
-	'file:selected': FileSelectedEventArgs;
-};
-
 interface CommitSelectedEventArgs {
 	readonly commit: GitRevisionReference | GitCommit;
 	readonly pin?: boolean;
@@ -21,15 +15,28 @@ interface CommitSelectedEventArgs {
 	readonly preserveVisibility?: boolean;
 }
 
+export type FileSelectedEvent = EventBusEvent<'file:selected'>;
 interface FileSelectedEventArgs {
 	readonly uri: Uri;
 	readonly preserveFocus?: boolean;
 	readonly preserveVisibility?: boolean;
 }
 
+export type GitCacheResetEvent = EventBusEvent<'git:cache:reset'>;
+interface GitCacheResetEventArgs {
+	readonly repoPath?: string;
+	readonly caches?: GitCaches[];
+}
+
+type EventBusEventMap = {
+	'commit:selected': CommitSelectedEventArgs;
+	'file:selected': FileSelectedEventArgs;
+	'git:cache:reset': GitCacheResetEventArgs;
+};
+
 interface EventBusEvent<T extends keyof EventBusEventMap = keyof EventBusEventMap> {
 	name: T;
-	data?: EventBusEventMap[T] | undefined;
+	data: EventBusEventMap[T];
 	source?: EventBusSource | undefined;
 }
 
@@ -53,7 +60,7 @@ export class EventBus implements Disposable {
 		this._emitter.dispose();
 	}
 
-	fire<T extends keyof EventBusEventMap>(name: T, data?: EventBusEventMap[T], options?: EventBusOptions) {
+	fire<T extends keyof EventBusEventMap>(name: T, data: EventBusEventMap[T], options?: EventBusOptions) {
 		this._emitter.fire({
 			name: name,
 			data: data,
@@ -61,10 +68,14 @@ export class EventBus implements Disposable {
 		});
 	}
 
+	fireAsync<T extends keyof EventBusEventMap>(name: T, data: EventBusEventMap[T], options?: EventBusOptions) {
+		queueMicrotask(() => this.fire(name, data, options));
+	}
+
 	on<T extends keyof EventBusEventMap>(
 		eventName: T,
 		handler: (e: EventBusEvent<T>) => void,
-		thisArgs?: any,
+		thisArgs?: unknown,
 		disposables?: Disposable[],
 	) {
 		return this.event(
