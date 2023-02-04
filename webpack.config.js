@@ -238,9 +238,12 @@ function getExtensionConfig(target, mode, env) {
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 		},
 		plugins: plugins,
-		infrastructureLogging: {
-			level: 'log', // enables logging required for problem matchers
-		},
+		infrastructureLogging:
+			mode === 'production'
+				? undefined
+				: {
+						level: 'log', // enables logging required for problem matchers
+				  },
 		stats: {
 			preset: 'errors-warnings',
 			assets: true,
@@ -465,9 +468,12 @@ function getWebviewsConfig(mode, env) {
 			modules: [basePath, 'node_modules'],
 		},
 		plugins: plugins,
-		infrastructureLogging: {
-			level: 'log', // enables logging required for problem matchers
-		},
+		infrastructureLogging:
+			mode === 'production'
+				? undefined
+				: {
+						level: 'log', // enables logging required for problem matchers
+				  },
 		stats: {
 			preset: 'errors-warnings',
 			assets: true,
