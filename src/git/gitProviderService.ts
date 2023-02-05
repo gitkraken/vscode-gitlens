@@ -996,35 +996,37 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getWorkingUri(repoPath: string | Uri, uri: Uri) {
+	getWorkingUri(repoPath: string | Uri, uri: Uri) {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getWorkingUri(path, uri);
 	}
 
 	@log()
-	addRemote(repoPath: string | Uri, name: string, url: string): Promise<void> {
+	addRemote(repoPath: string | Uri, name: string, url: string, options?: { fetch?: boolean }): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.addRemote(path, name, url);
+		return provider.addRemote(path, name, url, options);
 	}
 
 	@log()
-	pruneRemote(repoPath: string | Uri, remoteName: string): Promise<void> {
+	pruneRemote(repoPath: string | Uri, name: string): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.pruneRemote(path, remoteName);
+		return provider.pruneRemote(path, name);
 	}
 
 	@log()
-	async applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string): Promise<void> {
+	removeRemote(repoPath: string | Uri, name: string): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.removeRemote(path, name);
+	}
+
+	@log()
+	applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string): Promise<void> {
 		const { provider } = this.getProvider(uri);
 		return provider.applyChangesToWorkingFile(uri, ref1, ref2);
 	}
 
 	@log()
-	async checkout(
-		repoPath: string,
-		ref: string,
-		options?: { createBranch?: string } | { path?: string },
-	): Promise<void> {
+	checkout(repoPath: string, ref: string, options?: { createBranch?: string } | { path?: string }): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.checkout(path, ref, options);
 	}
@@ -1039,14 +1041,14 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log<GitProviderService['excludeIgnoredUris']>({ args: { 1: uris => uris.length } })
-	async excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]> {
+	excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.excludeIgnoredUris(path, uris);
 	}
 
 	@gate()
 	@log()
-	async fetch(
+	fetch(
 		repoPath: string,
 		options?: { all?: boolean; branch?: GitBranchReference; prune?: boolean; pull?: boolean; remote?: string },
 	): Promise<void> {

@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a `worktrees.openAfterCreate` setting to specify how and when to open a worktree after it is created
   - Creates new worktrees from the "main" repo, if already in a worktree
   - Shows the _Worktrees_ view after creating a new worktree
+- Adds a new _remote_ command to the _Git Command Palette_ to add, prune, and remove remotes
 
 ### Changed
 

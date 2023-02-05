@@ -1332,12 +1332,20 @@ export class Git {
 		return this.git<string>({ cwd: repoPath }, 'remote', '-v');
 	}
 
-	remote__add(repoPath: string, name: string, url: string) {
-		return this.git<string>({ cwd: repoPath }, 'remote', 'add', name, url);
+	remote__add(repoPath: string, name: string, url: string, options?: { fetch?: boolean }) {
+		const params = ['remote', 'add'];
+		if (options?.fetch) {
+			params.push('-f');
+		}
+		return this.git<string>({ cwd: repoPath }, ...params, name, url);
 	}
 
-	remote__prune(repoPath: string, remoteName: string) {
-		return this.git<string>({ cwd: repoPath }, 'remote', 'prune', remoteName);
+	remote__prune(repoPath: string, name: string) {
+		return this.git<string>({ cwd: repoPath }, 'remote', 'prune', name);
+	}
+
+	remote__remove(repoPath: string, name: string) {
+		return this.git<string>({ cwd: repoPath }, 'remote', 'remove', name);
 	}
 
 	remote__get_url(repoPath: string, remote: string): Promise<string> {

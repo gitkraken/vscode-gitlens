@@ -26,7 +26,6 @@ import {
 import { debug } from '../system/decorators/log';
 import { sequentialize } from '../system/function';
 import { OpenWorkspaceLocation } from '../system/utils';
-import { runGitCommandInTerminal } from '../terminal';
 import type { BranchesNode } from './nodes/branchesNode';
 import { BranchNode } from './nodes/branchNode';
 import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
@@ -219,6 +218,7 @@ export class ViewCommands {
 		registerViewCommand('gitlens.views.switchToTag', this.switchTo, this);
 		registerViewCommand('gitlens.views.addRemote', this.addRemote, this);
 		registerViewCommand('gitlens.views.pruneRemote', this.pruneRemote, this);
+		registerViewCommand('gitlens.views.removeRemote', this.removeRemote, this);
 
 		registerViewCommand('gitlens.views.stageDirectory', this.stageDirectory, this);
 		registerViewCommand('gitlens.views.stageFile', this.stageFile, this);
@@ -270,8 +270,6 @@ export class ViewCommands {
 		registerViewCommand('gitlens.views.resetToCommit', this.resetToCommit, this);
 		registerViewCommand('gitlens.views.revert', this.revert, this);
 		registerViewCommand('gitlens.views.undoCommit', this.undoCommit, this);
-
-		registerViewCommand('gitlens.views.terminalRemoveRemote', this.terminalRemoveRemote, this);
 
 		registerViewCommand('gitlens.views.createPullRequest', this.createPullRequest, this);
 		registerViewCommand('gitlens.views.openPullRequest', this.openPullRequest, this);
@@ -570,10 +568,17 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private async pruneRemote(node: RemoteNode) {
+	private pruneRemote(node: RemoteNode) {
 		if (!(node instanceof RemoteNode)) return Promise.resolve();
 
 		return GitActions.Remote.prune(node.repo, node.remote.name);
+	}
+
+	@debug()
+	private async removeRemote(node: RemoteNode) {
+		if (!(node instanceof RemoteNode)) return Promise.resolve();
+
+		return GitActions.Remote.remove(node.repo, node.remote.name);
 	}
 
 	@debug()
@@ -1246,11 +1251,5 @@ export class ViewCommands {
 		}
 
 		return GitActions.Commit.openFilesAtRevision(node.commit);
-	}
-
-	private terminalRemoveRemote(node: RemoteNode) {
-		if (!(node instanceof RemoteNode)) return;
-
-		runGitCommandInTerminal('remote', `remove ${node.remote.name}`, node.remote.repoPath);
 	}
 }

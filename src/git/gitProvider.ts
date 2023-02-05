@@ -132,8 +132,9 @@ export interface GitProvider extends Disposable {
 	// getRootUri(pathOrUri: string | Uri): Uri;
 	getWorkingUri(repoPath: string, uri: Uri): Promise<Uri | undefined>;
 
-	addRemote(repoPath: string, name: string, url: string): Promise<void>;
-	pruneRemote(repoPath: string, remoteName: string): Promise<void>;
+	addRemote(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void>;
+	pruneRemote(repoPath: string, name: string): Promise<void>;
+	removeRemote(repoPath: string, name: string): Promise<void>;
 	applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string): Promise<void>;
 	checkout(
 		repoPath: string,

@@ -11,7 +11,8 @@ import { isPromise } from '../system/promise';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import { CommandQuickPickItem } from './items/common';
 import { Directive, DirectiveQuickPickItem } from './items/directive';
-import { CommitQuickPickItem } from './items/gitCommands';
+import type { CommitQuickPickItem } from './items/gitCommands';
+import { createCommitQuickPickItem } from './items/gitCommands';
 
 export namespace CommitPicker {
 	export async function show(
@@ -56,7 +57,7 @@ export namespace CommitPicker {
 				: [
 						...(options?.showOtherReferences ?? []),
 						...map(log.commits.values(), commit =>
-							CommitQuickPickItem.create(commit, options?.picked === commit.ref, {
+							createCommitQuickPickItem(commit, options?.picked === commit.ref, {
 								compact: true,
 								icon: true,
 							}),
@@ -215,7 +216,7 @@ export namespace StashPicker {
 				...map(
 					options?.filter != null ? filter(stash.commits.values(), options.filter) : stash.commits.values(),
 					commit =>
-						CommitQuickPickItem.create(commit, options?.picked === commit.ref, {
+						createCommitQuickPickItem(commit, options?.picked === commit.ref, {
 							compact: true,
 							icon: true,
 						}),
