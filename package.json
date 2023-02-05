@@ -5582,8 +5582,8 @@
 				"icon": "$(discard)"
 			},
 			{
-				"command": "gitlens.views.terminalRemoveRemote",
-				"title": "Remove Remote (via Terminal)",
+				"command": "gitlens.views.removeRemote",
+				"title": "Remove Remote...",
 				"category": "GitLens"
 			},
 			{
@@ -7928,7 +7928,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.terminalRemoveRemote",
+					"command": "gitlens.views.removeRemote",
 					"when": "false"
 				},
 				{
@@ -10617,7 +10617,7 @@
 					"alt": "gitlens.copyRemoteBranchesUrl"
 				},
 				{
-					"command": "gitlens.views.terminalRemoveRemote",
+					"command": "gitlens.views.removeRemote",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:remote\\b/",
 					"group": "6_gitlens_terminal@1"
 				},

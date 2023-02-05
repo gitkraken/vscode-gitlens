@@ -847,14 +847,20 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async addRemote(repoPath: string, name: string, url: string): Promise<void> {
-		await this.git.remote__add(repoPath, name, url);
+	async addRemote(repoPath: string, name: string, url: string, options?: { fetch?: boolean }): Promise<void> {
+		await this.git.remote__add(repoPath, name, url, options);
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['remotes'] });
 	}
 
 	@log()
 	async pruneRemote(repoPath: string, name: string): Promise<void> {
 		await this.git.remote__prune(repoPath, name);
+		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['remotes'] });
+	}
+
+	@log()
+	async removeRemote(repoPath: string, name: string): Promise<void> {
+		await this.git.remote__remove(repoPath, name);
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['remotes'] });
 	}
 

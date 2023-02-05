@@ -13,6 +13,7 @@ import { MergeGitCommand } from './git/merge';
 import { PullGitCommand } from './git/pull';
 import { PushGitCommand } from './git/push';
 import { RebaseGitCommand } from './git/rebase';
+import { RemoteGitCommand } from './git/remote';
 import { ResetGitCommand } from './git/reset';
 import { RevertGitCommand } from './git/revert';
 import { SearchGitCommand } from './git/search';
@@ -74,6 +75,7 @@ export class PickCommandStep implements QuickPickStep {
 			readonly ? undefined : new PullGitCommand(container, args?.command === 'pull' ? args : undefined),
 			readonly ? undefined : new PushGitCommand(container, args?.command === 'push' ? args : undefined),
 			readonly ? undefined : new RebaseGitCommand(container, args?.command === 'rebase' ? args : undefined),
+			readonly ? undefined : new RemoteGitCommand(container, args?.command === 'remote' ? args : undefined),
 			readonly ? undefined : new ResetGitCommand(container, args?.command === 'reset' ? args : undefined),
 			readonly ? undefined : new RevertGitCommand(container, args?.command === 'revert' ? args : undefined),
 			new SearchGitCommand(container, args?.command === 'search' || args?.command === 'grep' ? args : undefined),

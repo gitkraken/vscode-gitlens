@@ -5,7 +5,8 @@ import type { Repository } from '../git/models/repository';
 import { map } from '../system/iterable';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import { CommandQuickPickItem } from './items/common';
-import { RepositoryQuickPickItem } from './items/gitCommands';
+import type { RepositoryQuickPickItem } from './items/gitCommands';
+import { createRepositoryQuickPickItem } from './items/gitCommands';
 
 export namespace RepositoryPicker {
 	export async function getBestRepositoryOrShow(
@@ -50,7 +51,7 @@ export namespace RepositoryPicker {
 	): Promise<RepositoryQuickPickItem | undefined> {
 		const items = await Promise.all<Promise<RepositoryQuickPickItem>>([
 			...map(repositories ?? Container.instance.git.openRepositories, r =>
-				RepositoryQuickPickItem.create(r, undefined, { branch: true, status: true }),
+				createRepositoryQuickPickItem(r, undefined, { branch: true, status: true }),
 			),
 		]);
 

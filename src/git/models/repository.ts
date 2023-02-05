@@ -459,6 +459,23 @@ export class Repository implements Disposable {
 	}
 
 	@log()
+	async addRemote(name: string, url: string, options?: { fetch?: boolean }): Promise<GitRemote | undefined> {
+		await this.container.git.addRemote(this.path, name, url, options);
+		const [remote] = await this.getRemotes({ filter: r => r.url === url });
+		return remote;
+	}
+
+	@log()
+	pruneRemote(name: string): Promise<void> {
+		return this.container.git.pruneRemote(this.path, name);
+	}
+
+	@log()
+	removeRemote(name: string): Promise<void> {
+		return this.container.git.removeRemote(this.path, name);
+	}
+
+	@log()
 	branch(...args: string[]) {
 		this.runTerminalCommand('branch', ...args);
 	}

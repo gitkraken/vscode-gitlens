@@ -358,10 +358,13 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async addRemote(_repoPath: string, _name: string, _url: string): Promise<void> {}
+	async addRemote(_repoPath: string, _name: string, _url: string, _options?: { fetch?: boolean }): Promise<void> {}
 
 	@log()
-	async pruneRemote(_repoPath: string, _remoteName: string): Promise<void> {}
+	async pruneRemote(_repoPath: string, _name: string): Promise<void> {}
+
+	@log()
+	async removeRemote(_repoPath: string, _name: string): Promise<void> {}
 
 	@log()
 	async applyChangesToWorkingFile(_uri: GitUri, _ref1?: string, _ref2?: string): Promise<void> {}

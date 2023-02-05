@@ -9,8 +9,8 @@ import { GitReference } from '../git/models/reference';
 import type { GitTag, TagSortOptions } from '../git/models/tag';
 import type { KeyboardScope, Keys } from '../keyboard';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
-import type { BranchQuickPickItem, TagQuickPickItem } from './items/gitCommands';
-import { RefQuickPickItem } from './items/gitCommands';
+import type { BranchQuickPickItem, RefQuickPickItem, TagQuickPickItem } from './items/gitCommands';
+import { createRefQuickPickItem } from './items/gitCommands';
 
 export type ReferencesQuickPickItem = BranchQuickPickItem | TagQuickPickItem | RefQuickPickItem;
 
@@ -190,11 +190,11 @@ export namespace ReferencePicker {
 		}
 
 		if (include & ReferencesQuickPickIncludes.HEAD) {
-			items.splice(0, 0, RefQuickPickItem.create('HEAD', repoPath, undefined, { icon: true }));
+			items.splice(0, 0, createRefQuickPickItem('HEAD', repoPath, undefined, { icon: true }));
 		}
 
 		if (include & ReferencesQuickPickIncludes.WorkingTree) {
-			items.splice(0, 0, RefQuickPickItem.create('', repoPath, undefined, { icon: true }));
+			items.splice(0, 0, createRefQuickPickItem('', repoPath, undefined, { icon: true }));
 		}
 
 		return items;

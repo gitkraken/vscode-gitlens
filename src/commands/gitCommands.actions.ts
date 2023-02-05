@@ -6,6 +6,7 @@ import type {
 	DiffWithPreviousCommandArgs,
 	DiffWithWorkingCommandArgs,
 	GitCommandsCommandArgs,
+	GitCommandsCommandArgsWithCompletion,
 	OpenFileOnRemoteCommandArgs,
 	OpenWorkingFileCommandArgs,
 	ShowQuickCommitCommandArgs,
@@ -30,22 +31,21 @@ import type { GitRemote } from '../git/models/remote';
 import type { Repository } from '../git/models/repository';
 import type { GitWorktree } from '../git/models/worktree';
 import type { ShowInCommitGraphCommandArgs } from '../plus/webviews/graph/graphWebview';
-import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { ensure } from '../system/array';
 import { executeCommand, executeCoreCommand, executeEditorCommand } from '../system/command';
+import { defer } from '../system/promise';
 import type { OpenWorkspaceLocation } from '../system/utils';
 import { findOrOpenEditor, findOrOpenEditors, openWorkspace } from '../system/utils';
 import type { ViewsWithRepositoryFolders } from '../views/viewBase';
 import type { ResetGitCommandArgs } from './git/reset';
 
 export async function executeGitCommand(args: GitCommandsCommandArgs): Promise<void> {
-	void (await executeCommand<GitCommandsCommandArgs>(Commands.GitCommands, args));
-}
-
-function ensureRepo(repo: string | Repository): Repository {
-	const repository = typeof repo === 'string' ? Container.instance.git.getRepository(repo) : repo;
-	if (repository == null) throw new Error('Repository not found');
-	return repository;
+	const deferred = defer<void>();
+	void (await executeCommand<GitCommandsCommandArgsWithCompletion>(Commands.GitCommands, {
+		...args,
+		completion: deferred,
+	}));
+	return deferred.promise;
 }
 
 export namespace GitActions {
@@ -822,38 +822,17 @@ export namespace GitActions {
 	}
 
 	export namespace Remote {
-		export async function add(repo?: string | Repository) {
-			if (repo == null) {
-				repo = Container.instance.git.highlander;
-
-				if (repo == null) {
-					const pick = await RepositoryPicker.show(undefined, 'Choose a repository to add a remote to');
-					repo = pick?.item;
-					if (repo == null) return undefined;
-				}
-			}
-
-			const name = await window.showInputBox({
-				prompt: 'Please provide a name for the remote',
-				placeHolder: 'Remote name',
-				value: undefined,
-				ignoreFocusOut: true,
+		export function add(repo?: string | Repository, name?: string, url?: string, options?: { fetch?: boolean }) {
+			return executeGitCommand({
+				command: 'remote',
+				state: {
+					repo: repo,
+					subcommand: 'add',
+					name: name,
+					url: url,
+					flags: options?.fetch ? ['-f'] : undefined,
+				},
 			});
-			if (name == null || name.length === 0) return undefined;
-
-			const url = await window.showInputBox({
-				prompt: 'Please provide the repository url for the remote',
-				placeHolder: 'Remote repository url',
-				value: undefined,
-				ignoreFocusOut: true,
-			});
-			if (url == null || url.length === 0) return undefined;
-
-			repo = ensureRepo(repo);
-			await Container.instance.git.addRemote(repo.path, name, url);
-			await repo.fetch({ remote: name });
-
-			return name;
 		}
 
 		export async function fetch(repo: string | Repository, remote: string) {
@@ -868,11 +847,21 @@ export namespace GitActions {
 		}
 
 		export async function prune(repo: string | Repository, remote: string) {
-			await Container.instance.git.pruneRemote(typeof repo === 'string' ? repo : repo.path, remote);
+			return executeGitCommand({
+				command: 'remote',
+				state: { repo: repo, subcommand: 'prune', remote: remote },
+			});
+		}
+
+		export async function remove(repo: string | Repository, remote: string) {
+			return executeGitCommand({
+				command: 'remote',
+				state: { repo: repo, subcommand: 'remove', remote: remote },
+			});
 		}
 
 		export async function reveal(
-			remote: GitRemote,
+			remote: GitRemote | undefined,
 			options?: {
 				select?: boolean;
 				focus?: boolean;
@@ -880,9 +869,12 @@ export namespace GitActions {
 			},
 		) {
 			const view = Container.instance.remotesView;
-			const node = view.canReveal
-				? await view.revealRemote(remote, options)
-				: await Container.instance.repositoriesView.revealRemote(remote, options);
+			const node =
+				remote != null
+					? view.canReveal
+						? await view.revealRemote(remote, options)
+						: await Container.instance.repositoriesView.revealRemote(remote, options)
+					: undefined;
 			if (node == null) {
 				void view.show({ preserveFocus: !options?.focus });
 			}
@@ -890,7 +882,7 @@ export namespace GitActions {
 		}
 	}
 
-	export namespace Repository {
+	export namespace Repo {
 		export async function reveal(
 			repoPath: string,
 			view?: ViewsWithRepositoryFolders,
