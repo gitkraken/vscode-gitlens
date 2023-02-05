@@ -1665,6 +1665,27 @@
 						"scope": "resource",
 						"order": 11
 					},
+					"gitlens.worktrees.openAfterCreate": {
+						"type": "string",
+						"default": "prompt",
+						"enum": [
+							"always",
+							"alwaysNewWindow",
+							"onlyWhenEmpty",
+							"never",
+							"prompt"
+						],
+						"enumDescriptions": [
+							"Always open the new worktree in the current window",
+							"Always open the new worktree in a new window",
+							"Only open the new worktree in the current window when no folder is opened",
+							"Never open the new worktree",
+							"Always prompt to open the new worktree"
+						],
+						"markdownDescription": "Specifies how and when to open a worktree after it is created",
+						"scope": "resource",
+						"order": 12
+					},
 					"gitlens.views.worktrees.showBranchComparison": {
 						"type": [
 							"boolean",

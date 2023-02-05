@@ -169,6 +169,10 @@ export namespace GitActions {
 			const node = view.canReveal
 				? await view.revealBranch(branch, options)
 				: await Container.instance.repositoriesView.revealBranch(branch, options);
+
+			if (node == null) {
+				void view.show({ preserveFocus: !options?.focus });
+			}
 			return node;
 		}
 	}
@@ -745,6 +749,7 @@ export namespace GitActions {
 				if (node != null) return node;
 			}
 
+			void views[0].show({ preserveFocus: !options?.focus });
 			return undefined;
 		}
 
@@ -809,6 +814,9 @@ export namespace GitActions {
 			const node = view.canReveal
 				? await view.revealContributor(contributor, options)
 				: await Container.instance.repositoriesView.revealContributor(contributor, options);
+			if (node == null) {
+				void view.show({ preserveFocus: !options?.focus });
+			}
 			return node;
 		}
 	}
@@ -875,6 +883,9 @@ export namespace GitActions {
 			const node = view.canReveal
 				? await view.revealRemote(remote, options)
 				: await Container.instance.repositoriesView.revealRemote(remote, options);
+			if (node == null) {
+				void view.show({ preserveFocus: !options?.focus });
+			}
 			return node;
 		}
 	}
@@ -892,6 +903,9 @@ export namespace GitActions {
 			const node = view?.canReveal
 				? await view.revealRepository(repoPath, options)
 				: await Container.instance.repositoriesView.revealRepository(repoPath, options);
+			if (node == null) {
+				void (view ?? Container.instance.repositoriesView).show({ preserveFocus: !options?.focus });
+			}
 			return node;
 		}
 	}
@@ -943,6 +957,9 @@ export namespace GitActions {
 			const node = view.canReveal
 				? await view.revealStash(stash, options)
 				: await Container.instance.repositoriesView.revealStash(stash, options);
+			if (node == null) {
+				void view.show({ preserveFocus: !options?.focus });
+			}
 			return node;
 		}
 
@@ -990,6 +1007,9 @@ export namespace GitActions {
 			const node = view.canReveal
 				? await view.revealTag(tag, options)
 				: await Container.instance.repositoriesView.revealTag(tag, options);
+			if (node == null) {
+				void view.show({ preserveFocus: !options?.focus });
+			}
 			return node;
 		}
 	}
@@ -1014,13 +1034,19 @@ export namespace GitActions {
 		}
 
 		export async function reveal(
-			worktree: GitWorktree,
+			worktree: GitWorktree | undefined,
 			options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
 		) {
 			const view = Container.instance.worktreesView;
-			const node = view.canReveal
-				? await view.revealWorktree(worktree, options)
-				: await Container.instance.repositoriesView.revealWorktree(worktree, options);
+			const node =
+				worktree != null
+					? view.canReveal
+						? await view.revealWorktree(worktree, options)
+						: await Container.instance.repositoriesView.revealWorktree(worktree, options)
+					: undefined;
+			if (node == null) {
+				void view.show({ preserveFocus: !options?.focus });
+			}
 			return node;
 		}
 

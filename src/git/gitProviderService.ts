@@ -2003,7 +2003,10 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log<GitProviderService['getOrOpenRepository']>({ exit: r => `returned ${r?.path}` })
-	async getOrOpenRepository(uri: Uri, detectNested?: boolean): Promise<Repository | undefined> {
+	async getOrOpenRepository(
+		uri: Uri,
+		options?: { closeOnOpen?: boolean; detectNested?: boolean },
+	): Promise<Repository | undefined> {
 		const scope = getLogScope();
 
 		const path = getBestPath(uri);
@@ -2012,7 +2015,7 @@ export class GitProviderService implements Disposable {
 
 		let isDirectory: boolean | undefined;
 
-		detectNested = detectNested ?? configuration.get('detectNestedRepositories', uri);
+		const detectNested = options?.detectNested ?? configuration.get('detectNestedRepositories', uri);
 		if (!detectNested) {
 			if (repository != null) return repository;
 		} else if (this._visitedPaths.has(path)) {
@@ -2053,7 +2056,9 @@ export class GitProviderService implements Disposable {
 						CoreGitConfiguration.AutoRepositoryDetection,
 					) ?? true;
 
-				const closed = autoRepositoryDetection !== true && autoRepositoryDetection !== 'openEditors';
+				const closed =
+					options?.closeOnOpen ??
+					(autoRepositoryDetection !== true && autoRepositoryDetection !== 'openEditors');
 
 				Logger.log(scope, `Repository found in '${repoUri.toString(true)}'`);
 				const repositories = provider.openRepository(root?.folder, repoUri, false, undefined, closed);

@@ -624,6 +624,15 @@ export class Repository implements Disposable {
 		return this._lastFetched ?? 0;
 	}
 
+	@gate()
+	async getMainRepository(): Promise<Repository | undefined> {
+		const gitDir = await this.getGitDir();
+		if (gitDir?.commonUri == null) return this;
+
+		// If the repository isn't already opened, then open it as a "closed" repo (won't show up in the UI)
+		return this.container.git.getOrOpenRepository(gitDir.commonUri, { closeOnOpen: true });
+	}
+
 	getMergeStatus(): Promise<GitMergeStatus | undefined> {
 		return this.container.git.getMergeStatus(this.path);
 	}
@@ -689,11 +698,13 @@ export class Repository implements Disposable {
 		return this.container.git.getTags(this.path, options);
 	}
 
-	createWorktree(
+	async createWorktree(
 		uri: Uri,
 		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
-	): Promise<void> {
-		return this.container.git.createWorktree(this.path, uri.fsPath, options);
+	): Promise<GitWorktree | undefined> {
+		await this.container.git.createWorktree(this.path, uri.fsPath, options);
+		const url = uri.toString();
+		return this.container.git.getWorktree(this.path, w => w.uri.toString() === url);
 	}
 
 	getWorktrees(): Promise<GitWorktree[]> {
@@ -721,6 +732,10 @@ export class Repository implements Disposable {
 	async hasUpstreamBranch(): Promise<boolean> {
 		const branch = await this.getBranch();
 		return branch?.upstream != null;
+	}
+
+	async isWorktree(): Promise<boolean> {
+		return (await this.getGitDir())?.commonUri != null;
 	}
 
 	@log()

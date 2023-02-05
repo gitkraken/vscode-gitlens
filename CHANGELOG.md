@@ -18,6 +18,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Improves tooltips in the graph:
     - Author and avatar tooltips now also show the contributor's email address, if available
     - Date tooltips now always show both the absolute date and relative date
+- Improves the Worktree creation experience
+  - Adds a `worktrees.openAfterCreate` setting to specify how and when to open a worktree after it is created
+  - Creates new worktrees from the "main" repo, if already in a worktree
+  - Shows the _Worktrees_ view after creating a new worktree
 
 ### Changed
 
