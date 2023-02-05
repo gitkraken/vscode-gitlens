@@ -1,12 +1,11 @@
 import type { TextEditor, Uri } from 'vscode';
-import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models/reference';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
-import { showFileNotUnderSourceControlWarningMessage } from '../messages';
+import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/command';
 import type { CommandContext } from './base';
@@ -106,9 +105,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenCommitOnRemoteCommand');
-			void window.showErrorMessage(
-				'Unable to open commit on remote provider. See output channel for more details',
-			);
+			void showGenericErrorMessage('Unable to open commit on remote provider');
 		}
 	}
 }

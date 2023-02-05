@@ -137,8 +137,6 @@ async function toggleFileAnnotations<TArgs extends ToggleFileAnnotationCommandAr
 		));
 	} catch (ex) {
 		Logger.error(ex, 'ToggleFileAnnotationsCommand');
-		void window.showErrorMessage(
-			`Unable to toggle file ${args.type} annotations. See output channel for more details`,
-		);
+		void showGenericErrorMessage(`Unable to toggle file ${args.type} annotations`);
 	}
 }

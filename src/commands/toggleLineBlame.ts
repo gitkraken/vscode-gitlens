@@ -1,8 +1,8 @@
 import type { TextEditor, Uri } from 'vscode';
-import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
+import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
 import { ActiveEditorCommand } from './base';
 
@@ -17,9 +17,7 @@ export class ToggleLineBlameCommand extends ActiveEditorCommand {
 			await this.container.lineAnnotations.toggle(editor);
 		} catch (ex) {
 			Logger.error(ex, 'ToggleLineBlameCommand');
-			void window.showErrorMessage(
-				'Unable to toggle line blame annotations. See output channel for more details',
-			);
+			void showGenericErrorMessage('Unable to toggle line blame annotations');
 		}
 	}
 }

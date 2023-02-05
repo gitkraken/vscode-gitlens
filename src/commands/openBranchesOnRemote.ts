@@ -1,10 +1,10 @@
 import type { TextEditor, Uri } from 'vscode';
-import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
+import { showGenericErrorMessage } from '../messages';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/command';
 import type { CommandContext } from './base';
@@ -63,9 +63,7 @@ export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenBranchesOnRemoteCommand');
-			void window.showErrorMessage(
-				'Unable to open branches on remote provider. See output channel for more details',
-			);
+			void showGenericErrorMessage('Unable to open branches on remote provider');
 		}
 	}
 }

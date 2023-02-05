@@ -1,8 +1,10 @@
 import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, env, Uri, window } from 'vscode';
 import { configuration, SuppressedMessages } from './configuration';
+import { Commands } from './constants';
 import type { GitCommit } from './git/models/commit';
-import { Logger } from './logger';
+import { Logger, LogLevel } from './logger';
+import { executeCommand } from './system/command';
 
 export function showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit): Promise<MessageItem | undefined> {
 	if (commit == null) {
@@ -44,20 +46,30 @@ export async function showDebugLoggingWarningMessage(): Promise<boolean> {
 	return result === disable;
 }
 
-export async function showGenericErrorMessage(message: string): Promise<MessageItem | undefined> {
-	const actions: MessageItem[] = [{ title: 'Open Output Channel' }];
-	const result = await showMessage(
-		'error',
-		`${message}. See output channel for more details`,
-		undefined,
-		null,
-		...actions,
-	);
+export async function showGenericErrorMessage(message: string): Promise<void> {
+	if (Logger.enabled(LogLevel.Error)) {
+		const result = await showMessage('error', `${message}. See output channel for more details.`, undefined, null, {
+			title: 'Open Output Channel',
+		});
 
-	if (result !== undefined) {
-		Logger.showOutputChannel();
+		if (result != null) {
+			Logger.showOutputChannel();
+		}
+	} else {
+		const result = await showMessage(
+			'error',
+			`${message}. If the error persists, please enable debug logging and try again.`,
+			undefined,
+			null,
+			{
+				title: 'Enable Debug Logging',
+			},
+		);
+
+		if (result != null) {
+			void executeCommand(Commands.EnableDebugLogging);
+		}
 	}
-	return result;
 }
 
 export function showFileNotUnderSourceControlWarningMessage(message: string): Promise<MessageItem | undefined> {
