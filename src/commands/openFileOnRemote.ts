@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { Range, window } from 'vscode';
+import { Range } from 'vscode';
 import { UriComparer } from '../comparers';
 import { BranchSorting, TagSorting } from '../configuration';
 import { Commands, GlyphChars } from '../constants';
@@ -9,6 +9,7 @@ import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/
 import { GitRevision } from '../git/models/reference';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
+import { showGenericErrorMessage } from '../messages';
 import { ReferencePicker } from '../quickpicks/referencePicker';
 import { command, executeCommand } from '../system/command';
 import { pad, splitSingle } from '../system/string';
@@ -206,7 +207,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenFileOnRemoteCommand');
-			void window.showErrorMessage('Unable to open file on remote provider. See output channel for more details');
+			void showGenericErrorMessage('Unable to open file on remote provider');
 		}
 	}
 }

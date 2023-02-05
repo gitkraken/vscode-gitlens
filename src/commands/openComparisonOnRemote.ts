@@ -1,8 +1,8 @@
-import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
+import { showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/command';
 import { ResultsCommitsNode } from '../views/nodes/resultsCommitsNode';
 import type { CommandContext } from './base';
@@ -58,9 +58,7 @@ export class OpenComparisonOnRemoteCommand extends Command {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenComparisonOnRemoteCommand');
-			void window.showErrorMessage(
-				'Unable to open comparison on remote provider. See output channel for more details',
-			);
+			void showGenericErrorMessage('Unable to open comparison on remote provider');
 		}
 	}
 }

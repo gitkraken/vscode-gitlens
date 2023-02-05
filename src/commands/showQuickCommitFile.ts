@@ -1,5 +1,5 @@
 import type { TextEditor } from 'vscode';
-import { Uri, window } from 'vscode';
+import { Uri } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -100,7 +100,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 				args.commit = blame.commit;
 			} catch (ex) {
 				Logger.error(ex, 'ShowQuickCommitFileDetailsCommand', `getBlameForLine(${blameLine})`);
-				void window.showErrorMessage('Unable to show commit file details. See output channel for more details');
+				void showGenericErrorMessage('Unable to show commit file details');
 
 				return;
 			}
