@@ -4084,7 +4084,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						// If we didn't find it, check it as close to the file as possible (will find nested repos)
 						tracked = Boolean(await this.git.ls_files(newRepoPath, newRelativePath));
 						if (tracked) {
-							repository = await this.container.git.getOrOpenRepository(Uri.file(path), true);
+							repository = await this.container.git.getOrOpenRepository(Uri.file(path), {
+								detectNested: true,
+							});
 							if (repository != null) {
 								return splitPath(path, repository.path);
 							}
@@ -4109,7 +4111,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						const index = relativePath.indexOf('/');
 						if (index < 0 || index === relativePath.length - 1) return undefined;
 
-						const nested = await this.container.git.getOrOpenRepository(Uri.file(path), true);
+						const nested = await this.container.git.getOrOpenRepository(Uri.file(path), {
+							detectNested: true,
+						});
 						if (nested != null && nested !== repository) {
 							[relativePath, repoPath] = splitPath(path, repository.path);
 							repository = undefined;

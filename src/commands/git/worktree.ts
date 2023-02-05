@@ -1,5 +1,6 @@
 import type { MessageItem } from 'vscode';
 import { QuickInputButtons, Uri, window } from 'vscode';
+import type { Config } from '../../configuration';
 import { configuration } from '../../configuration';
 import type { Container } from '../../container';
 import { PlusFeatures } from '../../features';
@@ -206,6 +207,9 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				}
 			}
 
+			// Ensure we use the "main" repository if we are in a worktree already
+			state.repo = await state.repo.getMainRepository();
+
 			const result = yield* ensureAccessStep(state as any, context, PlusFeatures.Worktrees);
 			if (result === StepResult.Break) break;
 
@@ -365,11 +369,61 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				  );
 
 			try {
-				await state.repo.createWorktree(uri, {
+				const worktree = await state.repo.createWorktree(uri, {
 					commitish: state.reference?.name,
 					createBranch: state.flags.includes('-b') ? state.createBranch : undefined,
 					detach: state.flags.includes('--detach'),
 					force: state.flags.includes('--force'),
+				});
+
+				void GitActions.Worktree.reveal(worktree, {
+					select: true,
+					focus: true,
+				});
+
+				if (worktree == null) return;
+
+				type OpenAction = Config['worktrees']['openAfterCreate'] | 'addToWorkspace';
+				let action: OpenAction = configuration.get('worktrees.openAfterCreate');
+				if (action === 'never') return;
+
+				queueMicrotask(async () => {
+					if (action === 'prompt') {
+						type ActionMessageItem = MessageItem & { action: OpenAction };
+						const open: ActionMessageItem = { title: 'Open', action: 'always' };
+						const openNewWindow: ActionMessageItem = {
+							title: 'Open in New Window',
+							action: 'alwaysNewWindow',
+						};
+						const addToWorkspace: ActionMessageItem = {
+							title: 'Add to Workspace',
+							action: 'addToWorkspace',
+						};
+						const cancel: ActionMessageItem = { title: 'Cancel', isCloseAffordance: true, action: 'never' };
+
+						const result = await window.showInformationMessage(
+							`Would you like to open the new worktree, or add it to the current workspace?`,
+							{ modal: true },
+							open,
+							openNewWindow,
+							addToWorkspace,
+							cancel,
+						);
+
+						action = result?.action ?? 'never';
+					}
+
+					switch (action) {
+						case 'always':
+							GitActions.Worktree.open(worktree, { location: OpenWorkspaceLocation.CurrentWindow });
+							break;
+						case 'alwaysNewWindow':
+							GitActions.Worktree.open(worktree, { location: OpenWorkspaceLocation.NewWindow });
+							break;
+						case 'addToWorkspace':
+							GitActions.Worktree.open(worktree, { location: OpenWorkspaceLocation.AddToWorkspace });
+							break;
+					}
 				});
 			} catch (ex) {
 				if (
@@ -505,6 +559,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			60,
 		);
 
+		const isRemoteBranch = state.reference?.refType === 'branch' && state.reference?.remote;
+
 		const step: QuickPickStep<FlagsQuickPickItem<CreateFlags, Uri>> = QuickCommand.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
@@ -512,7 +568,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					state.flags,
 					[],
 					{
-						label: context.title,
+						label: isRemoteBranch ? 'Create Local Branch and Worktree' : context.title,
 						description: ` for ${GitReference.toString(state.reference)}`,
 						detail: `Will create worktree in $(folder) ${recommendedFriendlyPath}`,
 					},
@@ -522,7 +578,9 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					state.flags,
 					['-b'],
 					{
-						label: 'Create New Branch and Worktree',
+						label: isRemoteBranch
+							? 'Create New Local Branch and Worktree'
+							: 'Create New Branch and Worktree',
 						description: ` from ${GitReference.toString(state.reference)}`,
 						detail: `Will create worktree in $(folder) ${recommendedNewBranchFriendlyPath}`,
 					},
@@ -535,7 +593,9 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 								state.flags,
 								['--direct'],
 								{
-									label: `${context.title} (directly in folder)`,
+									label: `${
+										isRemoteBranch ? 'Create Local Branch and Worktree' : context.title
+									} (directly in folder)`,
 									description: ` for ${GitReference.toString(state.reference)}`,
 									detail: `Will create worktree directly in $(folder) ${pickedFriendlyPath}`,
 								},
@@ -545,7 +605,11 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 								state.flags,
 								['-b', '--direct'],
 								{
-									label: 'Create New Branch and Worktree (directly in folder)',
+									label: `${
+										isRemoteBranch
+											? 'Create New Local Branch and Worktree'
+											: 'Create New Branch and Worktree'
+									} (directly in folder)`,
 									description: ` from ${GitReference.toString(state.reference)}`,
 									detail: `Will create worktree directly in $(folder) ${pickedFriendlyPath}`,
 								},

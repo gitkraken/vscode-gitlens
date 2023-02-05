@@ -173,6 +173,7 @@ export interface Config {
 	};
 	worktrees: {
 		defaultLocation: string | null;
+		openAfterCreate: 'always' | 'alwaysNewWindow' | 'onlyWhenEmpty' | 'never' | 'prompt';
 		promptForLocation: boolean;
 	};
 	advanced: AdvancedConfig;
