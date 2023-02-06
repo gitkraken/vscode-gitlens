@@ -562,14 +562,21 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		const isRemoteBranch = state.reference?.refType === 'branch' && state.reference?.remote;
 
 		const step: QuickPickStep<FlagsQuickPickItem<CreateFlags, Uri>> = QuickCommand.createConfirmStep(
-			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			appendReposToTitle(
+				`Confirm ${context.title} \u2022 ${GitReference.toString(state.reference, {
+					icon: false,
+					label: false,
+				})}`,
+				state,
+				context,
+			),
 			[
 				FlagsQuickPickItem.create<CreateFlags, Uri>(
 					state.flags,
 					[],
 					{
 						label: isRemoteBranch ? 'Create Local Branch and Worktree' : context.title,
-						description: ` for ${GitReference.toString(state.reference)}`,
+						description: ' in subfolder',
 						detail: `Will create worktree in $(folder) ${recommendedFriendlyPath}`,
 					},
 					recommendedRootUri,
@@ -581,7 +588,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						label: isRemoteBranch
 							? 'Create New Local Branch and Worktree'
 							: 'Create New Branch and Worktree',
-						description: ` from ${GitReference.toString(state.reference)}`,
+						description: ' in subfolder',
 						detail: `Will create worktree in $(folder) ${recommendedNewBranchFriendlyPath}`,
 					},
 					recommendedRootUri,
@@ -593,10 +600,8 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 								state.flags,
 								['--direct'],
 								{
-									label: `${
-										isRemoteBranch ? 'Create Local Branch and Worktree' : context.title
-									} (directly in folder)`,
-									description: ` for ${GitReference.toString(state.reference)}`,
+									label: isRemoteBranch ? 'Create Local Branch and Worktree' : context.title,
+									description: ' directly in folder',
 									detail: `Will create worktree directly in $(folder) ${pickedFriendlyPath}`,
 								},
 								pickedUri,
@@ -605,12 +610,10 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 								state.flags,
 								['-b', '--direct'],
 								{
-									label: `${
-										isRemoteBranch
-											? 'Create New Local Branch and Worktree'
-											: 'Create New Branch and Worktree'
-									} (directly in folder)`,
-									description: ` from ${GitReference.toString(state.reference)}`,
+									label: isRemoteBranch
+										? 'Create New Local Branch and Worktree'
+										: 'Create New Branch and Worktree',
+									description: ' directly in folder',
 									detail: `Will create worktree directly in $(folder) ${pickedFriendlyPath}`,
 								},
 								pickedUri,
