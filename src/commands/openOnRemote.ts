@@ -100,7 +100,7 @@ export class OpenOnRemoteCommand extends Command {
 			let placeHolder = `Choose which remote to ${args.clipboard ? 'copy the URL for' : 'open on'}`;
 
 			const getCopyPrefix = (type: string): string => {
-				return args.deepLink ? `Copy link to ${type} on ${provider}` : `Copy ${provider} ${type} URL`;
+				return args.deepLink ? `Copy deep link to ${type} on ${provider}` : `Copy ${provider} ${type} URL`;
 			};
 
 			switch (args.resource.type) {

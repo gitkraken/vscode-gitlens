@@ -41,7 +41,7 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 	}
 
 	getCopyLabelFromTargetType(targetType: DeepLinkType): string {
-		let copyLabel = 'Copy Link to ';
+		let copyLabel = 'Copy Deep Link to ';
 		switch (targetType) {
 			case DeepLinkType.Branch:
 				copyLabel += 'Branch';

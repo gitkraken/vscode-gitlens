@@ -4863,25 +4863,25 @@
 			},
 			{
 				"command": "gitlens.copyDeepLinkToBranch",
-				"title": "Copy Link to Branch on Remote",
+				"title": "Copy Deep Link to Branch on Remote",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.copyDeepLinkToCommit",
-				"title": "Copy Link to Commit on Remote",
+				"title": "Copy Deep Link to Commit on Remote",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.copyDeepLinkToRepo",
-				"title": "Copy Link to Repo on Remote",
+				"title": "Copy Deep Link to Repo on Remote",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.copyDeepLinkToTag",
-				"title": "Copy Link to Tag on Remote",
+				"title": "Copy Deep Link to Tag on Remote",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
@@ -6586,25 +6586,25 @@
 			},
 			{
 				"command": "gitlens.graph.copyDeepLinkToBranch",
-				"title": "Copy Link to Branch on Remote",
+				"title": "Copy Deep Link to Branch on Remote",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.graph.copyDeepLinkToCommit",
-				"title": "Copy Link to Commit on Remote",
+				"title": "Copy Deep Link to Commit on Remote",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.graph.copyDeepLinkToRepo",
-				"title": "Copy Link to Repo on Remote",
+				"title": "Copy Deep Link to Repo on Remote",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.graph.copyDeepLinkToTag",
-				"title": "Copy Link to Tag on Remote",
+				"title": "Copy Deep Link to Tag on Remote",
 				"category": "GitLens",
 				"icon": "$(copy)"
 			},
