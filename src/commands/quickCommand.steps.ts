@@ -150,6 +150,7 @@ export async function getRemotes(
 				(typeof options.picked === 'string' ? r.name === options.picked : options.picked.includes(r.name)),
 			{
 				buttons: options?.buttons,
+				upstream: true,
 			},
 		),
 	);
