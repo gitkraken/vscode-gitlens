@@ -322,6 +322,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 							icon: false,
 							label: state.reference.refType !== 'branch',
 						})}`,
+						defaultUri: context.defaultUri,
 					});
 					if (result === StepResult.Break) continue;
 
@@ -478,21 +479,28 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	private async *createCommandChoosePathStep(
 		state: CreateStepState,
 		context: Context,
-		options?: { titleContext?: string },
+		options: { titleContext: string; defaultUri?: Uri },
 	): AsyncStepResultGenerator<Uri> {
 		const step = QuickCommand.createCustomStep<Uri>({
 			show: async (_step: CustomStep<Uri>) => {
+				const hasDefault = options?.defaultUri != null;
+				const result = await window.showInformationMessage(
+					`Choose a location in which to create the worktree${options.titleContext}.`,
+					{ modal: true },
+					{ title: 'Choose Location' },
+					...(hasDefault ? [{ title: 'Use Default Location' }] : []),
+				);
+
+				if (result == null) return Directive.Back;
+				if (result.title === 'Use Default Location') return options.defaultUri!;
+
 				const uris = await window.showOpenDialog({
 					canSelectFiles: false,
 					canSelectFolders: true,
 					canSelectMany: false,
 					defaultUri: context.pickedUri ?? state.uri ?? context.defaultUri,
 					openLabel: 'Select Worktree Location',
-					title: `${appendReposToTitle(
-						`Choose Worktree Location${options?.titleContext ?? ''}`,
-						state,
-						context,
-					)}`,
+					title: `${appendReposToTitle(`Choose a Worktree Location${options.titleContext}`, state, context)}`,
 				});
 
 				if (uris == null || uris.length === 0) return Directive.Back;
