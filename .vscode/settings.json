@@ -19,7 +19,7 @@
 		},
 		{
 			"label": "Current",
-			"query": "state:open repo:${owner}/${repository} milestone:\"January 2023\" sort:updated-desc"
+			"query": "state:open repo:${owner}/${repository} milestone:\"13.3\" sort:updated-desc"
 		},
 		{
 			"label": "Soon™",
