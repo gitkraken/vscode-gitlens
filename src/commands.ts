@@ -16,6 +16,7 @@ export * from './commands/diffWithRevision';
 export * from './commands/diffWithRevisionFrom';
 export * from './commands/diffWithWorking';
 export * from './commands/externalDiff';
+export * from './commands/ghpr/createWorktree';
 export * from './commands/gitCommands';
 export * from './commands/inviteToLiveShare';
 export * from './commands/logging';

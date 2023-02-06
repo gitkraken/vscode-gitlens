@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Creates new worktrees from the "main" repo, if already in a worktree
   - Shows the _Worktrees_ view after creating a new worktree
 - Adds a new _remote_ command to the _Git Command Palette_ to add, prune, and remove remotes
+- Adds a _Create Worktree for Pull Request via GitLens..._ context menu command on pull requests in the _GitHub Pull Requests and Issues_ extension's views
 
 ### Changed
 

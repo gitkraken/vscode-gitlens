@@ -229,6 +229,8 @@ export const enum Commands {
 	ViewsOpenDirectoryDiff = 'gitlens.views.openDirectoryDiff',
 	ViewsOpenDirectoryDiffWithWorking = 'gitlens.views.openDirectoryDiffWithWorking',
 
+	CreateWorktreeForGHPR = 'gitlens.ghpr.views.createWorktree',
+
 	Deprecated_DiffHeadWith = 'gitlens.diffHeadWith',
 	Deprecated_DiffWorkingWith = 'gitlens.diffWorkingWith',
 	Deprecated_OpenBranchesInRemote = 'gitlens.openBranchesInRemote',

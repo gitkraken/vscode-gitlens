@@ -5460,6 +5460,11 @@
 				"icon": "$(add)"
 			},
 			{
+				"command": "gitlens.ghpr.views.createWorktree",
+				"title": "Create Worktree for Pull Request via GitLens...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.title.createWorktree",
 				"title": "Create Worktree...",
 				"category": "GitLens",
@@ -7849,6 +7854,10 @@
 				},
 				{
 					"command": "gitlens.views.createWorktree",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.ghpr.views.createWorktree",
 					"when": "false"
 				},
 				{
@@ -11236,6 +11245,11 @@
 					"command": "gitlens.views.setShowRelativeDateMarkersOff",
 					"when": "viewItem == gitlens:date-marker && config.gitlens.views.showRelativeDateMarkers",
 					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.ghpr.views.createWorktree",
+					"when": "view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive|description/",
+					"group": "pullrequest@2"
 				}
 			],
 			"webview/context": [
