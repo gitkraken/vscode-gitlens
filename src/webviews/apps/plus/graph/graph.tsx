@@ -383,6 +383,16 @@ export class GraphApp extends App<State> {
 		bodyStyle.setProperty('--color-graph-text-secondary', opacity(e.colors.foreground, 65));
 		bodyStyle.setProperty('--color-graph-text-disabled', opacity(e.colors.foreground, 50));
 
+		// TODO@ramint: Set the right colors for these
+		bodyStyle.setProperty('--color-graph-scroll-marker-current', '#ff0000');
+		bodyStyle.setProperty('--color-graph-scroll-marker-head-local', '#00ff00');
+		bodyStyle.setProperty('--color-graph-scroll-marker-head-upstream', '#90ee90');
+		bodyStyle.setProperty('--color-graph-scroll-marker-local-branch', '#0000ff');
+		bodyStyle.setProperty('--color-graph-scroll-marker-remote-branch', '#add8e6');
+		bodyStyle.setProperty('--color-graph-scroll-marker-search', '#ffff00');
+		bodyStyle.setProperty('--color-graph-scroll-marker-stash', '#800080');
+		bodyStyle.setProperty('--color-graph-scroll-marker-tag', '#ffa500');
+
 		// minimap
 
 		const resultColor = Color.fromHex('#ffff00');
@@ -538,7 +548,14 @@ export class GraphApp extends App<State> {
 				'--hover-row-border': isHighContrastTheme
 					? `1px dashed ${computedStyle.getPropertyValue('--color-graph-contrast-border')}`
 					: 'none',
-
+				'--scroll-marker-current': computedStyle.getPropertyValue('--color-graph-scroll-marker-current'),
+				'--scroll-marker-head-local': computedStyle.getPropertyValue('--color-graph-scroll-marker-head-local'),
+				'--scroll-marker-head-upstream': computedStyle.getPropertyValue('--color-graph-scroll-marker-head-upstream'),
+				'--scroll-marker-local-branch': computedStyle.getPropertyValue('--color-graph-scroll-marker-local-branch'),
+				'--scroll-marker-remote-branch': computedStyle.getPropertyValue('--color-graph-scroll-marker-remote-branch'),
+				'--scroll-marker-search': computedStyle.getPropertyValue('--color-graph-scroll-marker-search'),
+				'--scroll-marker-stash': computedStyle.getPropertyValue('--color-graph-scroll-marker-stash'),
+				'--scroll-marker-tag': computedStyle.getPropertyValue('--color-graph-scroll-marker-tag'),
 				'--text-selected': computedStyle.getPropertyValue('--color-graph-text-selected'),
 				'--text-selected-row': computedStyle.getPropertyValue('--color-graph-text-selected-row'),
 				'--text-hovered': computedStyle.getPropertyValue('--color-graph-text-hovered'),
