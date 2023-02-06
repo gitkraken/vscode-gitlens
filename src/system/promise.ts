@@ -250,7 +250,11 @@ export async function raceAll<TPromise, T>(
 }
 
 export async function wait(ms: number): Promise<void> {
-	await new Promise(resolve => setTimeout(resolve, ms));
+	await new Promise<void>(resolve => setTimeout(resolve, ms));
+}
+
+export async function waitUntilNextTick(): Promise<void> {
+	await new Promise<void>(resolve => queueMicrotask(resolve));
 }
 
 export class AggregateError extends Error {
