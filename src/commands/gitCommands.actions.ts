@@ -822,9 +822,15 @@ export namespace GitActions {
 	}
 
 	export namespace Remote {
-		export function add(repo?: string | Repository, name?: string, url?: string, options?: { fetch?: boolean }) {
+		export function add(
+			repo?: string | Repository,
+			name?: string,
+			url?: string,
+			options?: { confirm?: boolean; fetch?: boolean },
+		) {
 			return executeGitCommand({
 				command: 'remote',
+				confirm: options?.confirm,
 				state: {
 					repo: repo,
 					subcommand: 'add',

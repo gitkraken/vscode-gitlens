@@ -76,7 +76,15 @@ export class CreateWorktreeCommand extends Command {
 		let remote: GitRemote | undefined;
 		[remote] = await repo.getRemotes({ filter: r => r.url === remoteUrl });
 		if (remote == null) {
-			await GitActions.Remote.add(repo, remoteOwner, remoteUrl, { fetch: true });
+			const result = await window.showInformationMessage(
+				`Unable to find a remote for '${remoteUrl}'. Would you like to add a new remote?`,
+				{ modal: true },
+				{ title: 'Yes' },
+				{ title: 'No', isCloseAffordance: true },
+			);
+			if (result?.title !== 'Yes') return;
+
+			await GitActions.Remote.add(repo, remoteOwner, remoteUrl, { confirm: false, fetch: true });
 			[remote] = await repo.getRemotes({ filter: r => r.url === remoteUrl });
 			if (remote == null) return;
 		} else {
