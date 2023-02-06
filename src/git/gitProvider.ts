@@ -236,7 +236,6 @@ export interface GitProvider extends Disposable {
 			ref?: string;
 		},
 	): Promise<GitGraph>;
-	getOldestUnpushedRefForFile(repoPath: string, uri: Uri): Promise<string | undefined>;
 	getContributors(
 		repoPath: string,
 		options?: { all?: boolean | undefined; ref?: string | undefined; stats?: boolean | undefined },
@@ -335,6 +334,7 @@ export interface GitProvider extends Disposable {
 		ref: string | undefined,
 		skip?: number,
 	): Promise<NextComparisonUrisResult | undefined>;
+	getOldestUnpushedRefForFile(repoPath: string, uri: Uri): Promise<string | undefined>;
 	getPreviousComparisonUris(
 		repoPath: string,
 		uri: Uri,
