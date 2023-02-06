@@ -3,7 +3,7 @@ import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import type { GitRemote } from '../../git/models/remote';
-import { GitRemoteType } from '../../git/models/remote';
+import { getRemoteUpstreamDescription } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import { makeHierarchical } from '../../system/array';
 import { log } from '../../system/decorators/log';
@@ -83,38 +83,13 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		let arrows;
-		let left;
-		let right;
-		for (const { type } of this.remote.urls) {
-			if (type === GitRemoteType.Fetch) {
-				left = true;
-
-				if (right) break;
-			} else if (type === GitRemoteType.Push) {
-				right = true;
-
-				if (left) break;
-			}
-		}
-
-		if (left && right) {
-			arrows = GlyphChars.ArrowsRightLeft;
-		} else if (right) {
-			arrows = GlyphChars.ArrowRight;
-		} else if (left) {
-			arrows = GlyphChars.ArrowLeft;
-		} else {
-			arrows = GlyphChars.Dash;
-		}
-
 		const item = new TreeItem(this.remote.name, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
+		item.description = getRemoteUpstreamDescription(this.remote);
 
 		if (this.remote.provider != null) {
 			const { provider } = this.remote;
 
-			item.description = `${arrows}${GlyphChars.Space} ${provider.name} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${provider.displayPath}`;
 			item.iconPath =
 				provider.avatarUri != null && this.view.config.avatars
 					? provider.avatarUri
@@ -137,11 +112,6 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 				item.tooltip = `${this.remote.name} (${provider.name})\n${provider.displayPath}\n`;
 			}
 		} else {
-			item.description = `${arrows}${GlyphChars.Space} ${
-				this.remote.domain
-					? `${this.remote.domain} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `
-					: ''
-			}${this.remote.path}`;
 			item.contextValue = ContextValues.Remote;
 			item.iconPath = new ThemeIcon('cloud');
 			item.tooltip = `${this.remote.name} (${this.remote.domain})\n${this.remote.path}\n`;

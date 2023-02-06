@@ -1,5 +1,6 @@
 import type { ColorTheme } from 'vscode';
 import { Uri, window } from 'vscode';
+import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { sortCompare } from '../../system/string';
 import { isLightTheme } from '../../system/utils';
@@ -90,6 +91,48 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		const repository = Container.instance.git.getRepository(this.repoPath);
 		await repository?.setRemoteAsDefault(this, value);
 	}
+}
+
+export function getRemoteArrowsGlyph(remote: GitRemote): GlyphChars {
+	let arrows;
+	let left;
+	let right;
+	for (const { type } of remote.urls) {
+		if (type === GitRemoteType.Fetch) {
+			left = true;
+
+			if (right) break;
+		} else if (type === GitRemoteType.Push) {
+			right = true;
+
+			if (left) break;
+		}
+	}
+
+	if (left && right) {
+		arrows = GlyphChars.ArrowsRightLeft;
+	} else if (right) {
+		arrows = GlyphChars.ArrowRight;
+	} else if (left) {
+		arrows = GlyphChars.ArrowLeft;
+	} else {
+		arrows = GlyphChars.Dash;
+	}
+
+	return arrows;
+}
+
+export function getRemoteUpstreamDescription(remote: GitRemote): string {
+	const arrows = getRemoteArrowsGlyph(remote);
+
+	const { provider } = remote;
+	if (provider != null) {
+		return `${arrows}${GlyphChars.Space} ${provider.name} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${provider.displayPath}`;
+	}
+
+	return `${arrows}${GlyphChars.Space} ${
+		remote.domain ? `${remote.domain} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ` : ''
+	}${remote.path}`;
 }
 
 export function getRemoteIconUri(

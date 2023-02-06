@@ -10,7 +10,7 @@ import { isStash } from '../../git/models/commit';
 import type { GitContributor } from '../../git/models/contributor';
 import { GitReference, GitRevision } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
-import { GitRemoteType } from '../../git/models/remote';
+import { getRemoteUpstreamDescription, GitRemoteType } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { GitStatus } from '../../git/models/status';
 import type { GitTag } from '../../git/models/tag';
@@ -321,11 +321,17 @@ export function createRemoteQuickPickItem(
 		buttons?: QuickInputButton[];
 		checked?: boolean;
 		type?: boolean;
+		upstream?: boolean;
 	},
 ) {
 	let description = '';
 	if (options?.type) {
 		description = 'remote';
+	}
+
+	if (options?.upstream) {
+		const upstream = getRemoteUpstreamDescription(remote);
+		description = description ? `${description}${pad(GlyphChars.Dot, 2, 2)}${upstream}` : upstream;
 	}
 
 	const item: RemoteQuickPickItem = {
