@@ -1611,6 +1611,12 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
+	async getOldestUnpushedRefForFile(repoPath: string | Uri, uri: Uri): Promise<string | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getOldestUnpushedRefForFile(path, uri);
+	}
+
+	@log()
 	getPreviousComparisonUris(
 		repoPath: string | Uri,
 		uri: Uri,

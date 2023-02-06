@@ -2134,23 +2134,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getOldestUnpushedRefForFile(repoPath: string, uri: Uri): Promise<string | undefined> {
-		const [relativePath, root] = splitPath(uri, repoPath);
-
-		const data = await this.git.log__file(root, relativePath, '@{push}..', {
-			argsOrFormat: ['-z', '--format=%H'],
-			fileMode: 'none',
-			ordering: configuration.get('advanced.commitOrdering'),
-			renames: true,
-		});
-		if (!data) return undefined;
-
-		// -2 to skip the ending null
-		const index = data.lastIndexOf('\0', data.length - 2);
-		return index === -1 ? undefined : data.slice(index + 1, data.length - 2);
-	}
-
-	@log()
 	async getContributors(
 		repoPath: string,
 		options?: { all?: boolean; ref?: string; stats?: boolean },
@@ -3408,6 +3391,23 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		return GitUri.fromFile(file ?? relativePath, repoPath, nextRef);
+	}
+
+	@log()
+	async getOldestUnpushedRefForFile(repoPath: string, uri: Uri): Promise<string | undefined> {
+		const [relativePath, root] = splitPath(uri, repoPath);
+
+		const data = await this.git.log__file(root, relativePath, '@{push}..', {
+			argsOrFormat: ['-z', '--format=%H'],
+			fileMode: 'none',
+			ordering: configuration.get('advanced.commitOrdering'),
+			renames: true,
+		});
+		if (!data) return undefined;
+
+		// -2 to skip the ending null
+		const index = data.lastIndexOf('\0', data.length - 2);
+		return index === -1 ? undefined : data.slice(index + 1, data.length - 2);
 	}
 
 	@log()

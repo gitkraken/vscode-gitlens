@@ -1371,12 +1371,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getOldestUnpushedRefForFile(_repoPath: string, _uri: Uri): Promise<string | undefined> {
-		// TODO@eamodio until we have access to the RemoteHub change store there isn't anything we can do here
-		return undefined;
-	}
-
-	@log()
 	async getContributors(
 		repoPath: string,
 		_options?: { all?: boolean; ref?: string; stats?: boolean },
@@ -2149,6 +2143,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			throw ex;
 		}
+	}
+
+	@log()
+	async getOldestUnpushedRefForFile(_repoPath: string, _uri: Uri): Promise<string | undefined> {
+		// TODO@eamodio until we have access to the RemoteHub change store there isn't anything we can do here
+		return undefined;
 	}
 
 	@log()
