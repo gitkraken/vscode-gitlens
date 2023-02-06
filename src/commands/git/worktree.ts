@@ -343,6 +343,12 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			state.confirm = true;
 			this.canSkipConfirmOverride = undefined;
 
+			const isRemoteBranch = state.reference?.refType === 'branch' && state.reference?.remote;
+			if (isRemoteBranch && !state.flags.includes('-b')) {
+				state.flags.push('-b');
+				state.createBranch = GitReference.getNameWithoutRemote(state.reference);
+			}
+
 			if (state.flags.includes('-b') && state.createBranch == null) {
 				const result = yield* inputBranchNameStep(state, context, {
 					placeholder: 'Please provide a name for the new branch',
@@ -558,7 +564,10 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 		const recommendedUri =
 			state.reference != null
-				? Uri.joinPath(recommendedRootUri, ...state.reference.name.replace(/\\/g, '/').split('/'))
+				? Uri.joinPath(
+						recommendedRootUri,
+						...GitReference.getNameWithoutRemote(state.reference).replace(/\\/g, '/').split('/'),
+				  )
 				: recommendedRootUri;
 		const recommendedFriendlyPath = truncateLeft(GitWorktree.getFriendlyPath(recommendedUri), 65);
 
