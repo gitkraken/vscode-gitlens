@@ -5059,25 +5059,29 @@
 				"command": "gitlens.stashApply",
 				"title": "Apply Stash",
 				"category": "GitLens",
-				"icon": "$(gitlens-stash-pop)"
+				"icon": "$(gitlens-stash-pop)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.deleteStash",
 				"title": "Delete Stash...",
 				"category": "GitLens",
-				"icon": "$(trash)"
+				"icon": "$(trash)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.stashSave",
 				"title": "Stash All Changes",
 				"category": "GitLens",
-				"icon": "$(gitlens-stash-save)"
+				"icon": "$(gitlens-stash-save)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.stashSaveFiles",
 				"title": "Stash Changes",
 				"category": "GitLens",
-				"icon": "$(gitlens-stash-save)"
+				"icon": "$(gitlens-stash-save)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.externalDiff",
@@ -5166,25 +5170,29 @@
 				"command": "gitlens.fetchRepositories",
 				"title": "Fetch",
 				"category": "GitLens",
-				"icon": "$(sync)"
+				"icon": "$(sync)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.pullRepositories",
 				"title": "Pull",
 				"category": "GitLens",
-				"icon": "$(arrow-down)"
+				"icon": "$(arrow-down)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.pushRepositories",
 				"title": "Push",
 				"category": "GitLens",
-				"icon": "$(arrow-up)"
+				"icon": "$(arrow-up)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.addRemote",
 				"title": "Add Remote",
 				"category": "GitLens",
-				"icon": "$(add)"
+				"icon": "$(add)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.highlightChanges",
@@ -5206,25 +5214,29 @@
 				"command": "gitlens.views.switchToAnotherBranch",
 				"title": "Switch to Another Branch...",
 				"category": "GitLens",
-				"icon": "$(gitlens-switch)"
+				"icon": "$(gitlens-switch)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.switchToBranch",
 				"title": "Switch to Branch...",
 				"category": "GitLens",
-				"icon": "$(gitlens-switch)"
+				"icon": "$(gitlens-switch)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.switchToCommit",
 				"title": "Switch to Commit...",
 				"category": "GitLens",
-				"icon": "$(gitlens-switch)"
+				"icon": "$(gitlens-switch)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.switchToTag",
 				"title": "Switch to Tag...",
 				"category": "GitLens",
-				"icon": "$(gitlens-switch)"
+				"icon": "$(gitlens-switch)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.copy",
@@ -5235,43 +5247,50 @@
 			{
 				"command": "gitlens.views.pruneRemote",
 				"title": "Prune",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.fetch",
 				"title": "Fetch",
 				"category": "GitLens",
-				"icon": "$(sync)"
+				"icon": "$(sync)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.publishBranch",
 				"title": "Publish Branch",
 				"category": "GitLens",
-				"icon": "$(cloud-upload)"
+				"icon": "$(cloud-upload)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.publishRepository",
 				"title": "Publish Repository",
 				"category": "GitLens",
-				"icon": "$(cloud-upload)"
+				"icon": "$(cloud-upload)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.pull",
 				"title": "Pull",
 				"category": "GitLens",
-				"icon": "$(arrow-down)"
+				"icon": "$(arrow-down)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.push",
 				"title": "Push",
 				"category": "GitLens",
-				"icon": "$(arrow-up)"
+				"icon": "$(arrow-up)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.pushWithForce",
 				"title": "Push (force)",
 				"category": "GitLens",
-				"icon": "$(gitlens-arrow-up-force)"
+				"icon": "$(gitlens-arrow-up-force)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.openInTerminal",
@@ -5292,25 +5311,29 @@
 				"command": "gitlens.views.stageDirectory",
 				"title": "Stage All Changes",
 				"category": "GitLens",
-				"icon": "$(add)"
+				"icon": "$(add)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.stageFile",
 				"title": "Stage Changes",
 				"category": "GitLens",
-				"icon": "$(add)"
+				"icon": "$(add)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.unstageDirectory",
 				"title": "Unstage All Changes",
 				"category": "GitLens",
-				"icon": "$(remove)"
+				"icon": "$(remove)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.unstageFile",
 				"title": "Unstage Changes",
 				"category": "GitLens",
-				"icon": "$(remove)"
+				"icon": "$(remove)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.star",
@@ -5386,7 +5409,8 @@
 			{
 				"command": "gitlens.views.applyChanges",
 				"title": "Apply Changes",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.closeRepository",
@@ -5451,30 +5475,35 @@
 				"command": "gitlens.views.title.applyStash",
 				"title": "Apply a Stash...",
 				"category": "GitLens",
-				"icon": "$(gitlens-stash-pop)"
+				"icon": "$(gitlens-stash-pop)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.createWorktree",
 				"title": "Create Worktree...",
 				"category": "GitLens",
-				"icon": "$(add)"
+				"icon": "$(add)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.ghpr.views.createWorktree",
 				"title": "Create Worktree for Pull Request via GitLens...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.title.createWorktree",
 				"title": "Create Worktree...",
 				"category": "GitLens",
-				"icon": "$(add)"
+				"icon": "$(add)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.deleteWorktree",
 				"title": "Delete Worktree...",
 				"category": "GitLens",
-				"icon": "$(trash)"
+				"icon": "$(trash)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.openWorktree",
@@ -5496,100 +5525,118 @@
 			{
 				"command": "gitlens.views.cherryPick",
 				"title": "Cherry Pick Commit...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.createBranch",
 				"title": "Create Branch...",
 				"category": "GitLens",
-				"icon": "$(add)"
+				"icon": "$(add)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.title.createBranch",
 				"title": "Create Branch...",
 				"category": "GitLens",
-				"icon": "$(add)"
+				"icon": "$(add)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.deleteBranch",
 				"title": "Delete Branch...",
 				"category": "GitLens",
-				"icon": "$(trash)"
+				"icon": "$(trash)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.renameBranch",
 				"title": "Rename Branch...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.createTag",
 				"title": "Create Tag...",
 				"category": "GitLens",
-				"icon": "$(add)"
+				"icon": "$(add)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.title.createTag",
 				"title": "Create Tag...",
 				"category": "GitLens",
-				"icon": "$(add)"
+				"icon": "$(add)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.deleteTag",
 				"title": "Delete Tag...",
 				"category": "GitLens",
-				"icon": "$(trash)"
+				"icon": "$(trash)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.mergeBranchInto",
 				"title": "Merge Branch into Current Branch...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.pushToCommit",
 				"title": "Push to Commit...",
 				"category": "GitLens",
-				"icon": "$(arrow-up)"
+				"icon": "$(arrow-up)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.rebaseOntoBranch",
 				"title": "Rebase Current Branch onto Branch...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.rebaseOntoCommit",
 				"title": "Rebase Current Branch onto Commit...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.rebaseOntoUpstream",
 				"title": "Rebase Current Branch onto Upstream...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
+			},
+			{
+				"command": "gitlens.views.removeRemote",
+				"title": "Remove Remote...",
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.resetCommit",
 				"title": "Reset Current Branch to Previous Commit...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.resetToCommit",
 				"title": "Reset Current Branch to Commit...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.revert",
 				"title": "Revert Commit...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.undoCommit",
 				"title": "Undo Commit",
 				"category": "GitLens",
-				"icon": "$(discard)"
-			},
-			{
-				"command": "gitlens.views.removeRemote",
-				"title": "Remove Remote...",
-				"category": "GitLens"
+				"icon": "$(discard)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.views.setBranchComparisonToWorking",
@@ -6483,25 +6530,29 @@
 				"command": "gitlens.graph.push",
 				"title": "Push",
 				"category": "GitLens",
-				"icon": "$(arrow-up)"
+				"icon": "$(arrow-up)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.pull",
 				"title": "Pull",
 				"category": "GitLens",
-				"icon": "$(arrow-down)"
+				"icon": "$(arrow-down)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.fetch",
 				"title": "Fetch",
 				"category": "GitLens",
-				"icon": "$(sync)"
+				"icon": "$(sync)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.switchToAnotherBranch",
 				"title": "Switch to Another Branch...",
 				"category": "GitLens",
-				"icon": "$(gitlens-switch)"
+				"icon": "$(gitlens-switch)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.refresh",
@@ -6519,13 +6570,15 @@
 				"command": "gitlens.graph.createBranch",
 				"title": "Create Branch...",
 				"category": "GitLens",
-				"icon": "$(add)"
+				"icon": "$(add)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.deleteBranch",
 				"title": "Delete Branch...",
 				"category": "GitLens",
-				"icon": "$(trash)"
+				"icon": "$(trash)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.openBranchOnRemote",
@@ -6536,28 +6589,33 @@
 			{
 				"command": "gitlens.graph.mergeBranchInto",
 				"title": "Merge Branch into Current Branch...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.rebaseOntoBranch",
 				"title": "Rebase Current Branch onto Branch...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.rebaseOntoUpstream",
 				"title": "Rebase Current Branch onto Upstream...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.renameBranch",
 				"title": "Rename Branch...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.switchToBranch",
 				"title": "Switch to Branch...",
 				"category": "GitLens",
-				"icon": "$(gitlens-switch)"
+				"icon": "$(gitlens-switch)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.hideLocalBranch",
@@ -6587,7 +6645,8 @@
 			{
 				"command": "gitlens.graph.cherryPick",
 				"title": "Cherry Pick Commit...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.copyMessage",
@@ -6627,76 +6686,89 @@
 			{
 				"command": "gitlens.graph.rebaseOntoCommit",
 				"title": "Rebase Current Branch onto Commit...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.resetCommit",
 				"title": "Reset Current Branch to Previous Commit...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.resetToCommit",
 				"title": "Reset Current Branch to Commit...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.revert",
 				"title": "Revert Commit...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.switchToCommit",
 				"title": "Switch to Commit...",
 				"category": "GitLens",
-				"icon": "$(gitlens-switch)"
+				"icon": "$(gitlens-switch)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.undoCommit",
 				"title": "Undo Commit",
 				"category": "GitLens",
-				"icon": "$(discard)"
+				"icon": "$(discard)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.saveStash",
 				"title": "Stash All Changes",
 				"category": "GitLens",
-				"icon": "$(gitlens-stash-save)"
+				"icon": "$(gitlens-stash-save)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.applyStash",
 				"title": "Apply Stash",
 				"category": "GitLens",
-				"icon": "$(gitlens-stash-pop)"
+				"icon": "$(gitlens-stash-pop)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.deleteStash",
 				"title": "Delete Stash...",
 				"category": "GitLens",
-				"icon": "$(trash)"
+				"icon": "$(trash)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.createTag",
 				"title": "Create Tag...",
 				"category": "GitLens",
-				"icon": "$(add)"
+				"icon": "$(add)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.deleteTag",
 				"title": "Delete Tag...",
 				"category": "GitLens",
-				"icon": "$(trash)"
+				"icon": "$(trash)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.switchToTag",
 				"title": "Switch to Tag...",
 				"category": "GitLens",
-				"icon": "$(gitlens-switch)"
+				"icon": "$(gitlens-switch)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.createWorktree",
 				"title": "Create Worktree...",
 				"category": "GitLens",
-				"icon": "$(add)"
+				"icon": "$(add)",
+				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.graph.createPullRequest",
