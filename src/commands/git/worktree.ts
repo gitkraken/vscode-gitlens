@@ -36,6 +36,13 @@ import type {
 } from '../quickCommand';
 import {
 	appendReposToTitle,
+	canInputStepContinue,
+	canPickStepContinue,
+	canStepContinue,
+	createConfirmStep,
+	createCustomStep,
+	createPickStep,
+	endSteps,
 	ensureAccessStep,
 	inputBranchNameStep,
 	pickBranchOrTagStep,
@@ -238,7 +245,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					break;
 				}
 				default:
-					QuickCommand.endSteps(state);
+					endSteps(state);
 					break;
 			}
 
@@ -252,7 +259,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	}
 
 	private *pickSubcommandStep(state: PartialStepState<State>): StepResultGenerator<State['subcommand']> {
-		const step = QuickCommand.createPickStep<QuickPickItemOfT<State['subcommand']>>({
+		const step = createPickStep<QuickPickItemOfT<State['subcommand']>>({
 			title: this.title,
 			placeholder: `Choose a ${this.label} command`,
 			items: [
@@ -278,7 +285,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			buttons: [QuickInputButtons.Back],
 		});
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 
 	private async *createCommandSteps(state: CreateStepState, context: Context): AsyncStepResultGenerator<void> {
@@ -487,7 +494,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			QuickCommand.endSteps(state);
+			endSteps(state);
 		}
 	}
 
@@ -496,7 +503,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		context: Context,
 		options: { titleContext: string; defaultUri?: Uri },
 	): AsyncStepResultGenerator<Uri> {
-		const step = QuickCommand.createCustomStep<Uri>({
+		const step = createCustomStep<Uri>({
 			show: async (_step: CustomStep<Uri>) => {
 				const hasDefault = options?.defaultUri != null;
 				const result = await window.showInformationMessage(
@@ -526,10 +533,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 		const value: StepSelection<typeof step> = yield step;
 
-		if (
-			!QuickCommand.canStepContinue(step, state, value) ||
-			!(await QuickCommand.canInputStepContinue(step, state, value))
-		) {
+		if (!canStepContinue(step, state, value) || !(await canInputStepContinue(step, state, value))) {
 			return StepResult.Break;
 		}
 
@@ -587,7 +591,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 		const isRemoteBranch = state.reference?.refType === 'branch' && state.reference?.remote;
 
-		const step: QuickPickStep<FlagsQuickPickItem<CreateFlags, Uri>> = QuickCommand.createConfirmStep(
+		const step: QuickPickStep<FlagsQuickPickItem<CreateFlags, Uri>> = createConfirmStep(
 			appendReposToTitle(
 				`Confirm ${context.title} \u2022 ${GitReference.toString(state.reference, {
 					icon: false,
@@ -650,7 +654,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			context,
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection)
+		return canPickStepContinue(step, state, selection)
 			? [selection[0].context, selection[0].item]
 			: StepResult.Break;
 	}
@@ -685,7 +689,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 			state.flags = result;
 
-			QuickCommand.endSteps(state);
+			endSteps(state);
 
 			for (const uri of state.uris) {
 				let retry = false;
@@ -743,7 +747,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	}
 
 	private *deleteCommandConfirmStep(state: DeleteStepState, context: Context): StepResultGenerator<DeleteFlags[]> {
-		const step: QuickPickStep<FlagsQuickPickItem<DeleteFlags>> = QuickCommand.createConfirmStep(
+		const step: QuickPickStep<FlagsQuickPickItem<DeleteFlags>> = createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
 				createFlagsQuickPickItem<DeleteFlags>(state.flags, [], {
@@ -766,7 +770,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		);
 
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 
 	private async *openCommandSteps(state: OpenStepState, context: Context): StepGenerator {
@@ -798,7 +802,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 			state.flags = result;
 
-			QuickCommand.endSteps(state);
+			endSteps(state);
 
 			const worktree = context.worktrees.find(wt => wt.uri.toString() === state.uri.toString())!;
 			if (state.flags.includes('--reveal-explorer')) {
@@ -814,7 +818,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 	}
 
 	private *openCommandConfirmStep(state: OpenStepState, context: Context): StepResultGenerator<OpenFlags[]> {
-		const step: QuickPickStep<FlagsQuickPickItem<OpenFlags>> = QuickCommand.createConfirmStep(
+		const step: QuickPickStep<FlagsQuickPickItem<OpenFlags>> = createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
 				createFlagsQuickPickItem<OpenFlags>(state.flags, [], {
@@ -840,6 +844,6 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		);
 
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 }

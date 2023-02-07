@@ -8,7 +8,7 @@ import { CommandQuickPickItem } from '../../quickpicks/items/common';
 import { GitCommandQuickPickItem } from '../../quickpicks/items/gitCommands';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type { PartialStepState, StepGenerator } from '../quickCommand';
-import {
+import { endSteps ,
 	pickCommitStep,
 	pickRepositoryStep,
 	QuickCommand,
@@ -186,14 +186,14 @@ export class ShowGitCommand extends QuickCommand<State> {
 					const r = yield* result.executeSteps(this.pickedVia);
 					state.counter--;
 					if (r === StepResult.Break) {
-						QuickCommand.endSteps(state);
+						endSteps(state);
 					}
 
 					continue;
 				}
 
 				if (result instanceof CommandQuickPickItem && !(result instanceof CommitFilesQuickPickItem)) {
-					QuickCommand.endSteps(state);
+					endSteps(state);
 
 					void result.execute();
 					break;
@@ -236,7 +236,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 			}
 
 			if (result instanceof CommandQuickPickItem) {
-				QuickCommand.endSteps(state);
+				endSteps(state);
 
 				void result.execute();
 				break;

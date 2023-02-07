@@ -31,8 +31,8 @@ import type { SwitchGitCommandArgs } from './git/switch';
 import type { TagGitCommandArgs } from './git/tag';
 import type { WorktreeGitCommandArgs } from './git/worktree';
 import { PickCommandStep } from './gitCommands.utils';
-import type { CustomStep, QuickInputStep, QuickPickStep, StepSelection } from './quickCommand';
-import { isCustomStep, isQuickInputStep, isQuickPickStep, QuickCommand, StepResult } from './quickCommand';
+import type { CustomStep, QuickCommand, QuickInputStep, QuickPickStep, StepSelection } from './quickCommand';
+import { isCustomStep , isQuickCommand, isQuickInputStep, isQuickPickStep, StepResult } from './quickCommand';
 import { QuickCommandButtons, ToggleQuickInputButton } from './quickCommand.buttons';
 
 const sanitizeLabel = /\$\(.+?\)|\s/g;
@@ -538,7 +538,7 @@ export class GitCommandsCommand extends Command {
 							let activeCommand;
 							if (commandsStep.command == null && quickpick.activeItems.length !== 0) {
 								const active = quickpick.activeItems[0];
-								if (QuickCommand.is(active)) {
+								if (isQuickCommand(active)) {
 									activeCommand = active;
 								}
 							}
@@ -657,7 +657,7 @@ export class GitCommandsCommand extends Command {
 						if (commandsStep.command != null || quickpick.activeItems.length === 0) return;
 
 						const command = quickpick.activeItems[0];
-						if (!QuickCommand.is(command)) return;
+						if (!isQuickCommand(command)) return;
 
 						quickpick.buttons = this.getButtons(undefined, command);
 					}),
@@ -744,7 +744,7 @@ export class GitCommandsCommand extends Command {
 
 						if (commandsStep.command == null) {
 							const [command] = items;
-							if (!QuickCommand.is(command)) return;
+							if (!isQuickCommand(command)) return;
 
 							commandsStep.setCommand(command, this.startedWith);
 						}

@@ -6,7 +6,7 @@ import { executeCoreCommand } from '../../system/command';
 import { normalizePath } from '../../system/path';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type { PartialStepState, StepGenerator, StepState } from '../quickCommand';
-import { pickContributorsStep, pickRepositoryStep, QuickCommand, StepResult } from '../quickCommand';
+import { endSteps , pickContributorsStep, pickRepositoryStep, QuickCommand, StepResult } from '../quickCommand';
 
 interface Context {
 	repos: Repository[];
@@ -154,7 +154,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 				state.contributors = result;
 			}
 
-			QuickCommand.endSteps(state);
+			endSteps(state);
 			void this.execute(state as CoAuthorStepState);
 		}
 

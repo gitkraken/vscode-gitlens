@@ -17,7 +17,15 @@ import type {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { appendReposToTitle, pickRepositoriesStep, QuickCommand, StepResult } from '../quickCommand';
+import {
+	appendReposToTitle,
+	canPickStepContinue,
+	createConfirmStep,
+	endSteps,
+	pickRepositoriesStep,
+	QuickCommand,
+	StepResult,
+} from '../quickCommand';
 
 interface Context {
 	repos: Repository[];
@@ -122,7 +130,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 				state.flags = result;
 			}
 
-			QuickCommand.endSteps(state);
+			endSteps(state);
 			void this.execute(state as FetchStepState);
 		}
 
@@ -156,7 +164,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 					? `$(repo) ${state.repos[0].formattedName}`
 					: `${state.repos.length} repositories`;
 
-			step = QuickCommand.createConfirmStep(
+			step = createConfirmStep(
 				appendReposToTitle(`Confirm ${this.title}`, state, context, lastFetchedOn),
 				[
 					createFlagsQuickPickItem<Flags>(state.flags, [], {
@@ -184,6 +192,6 @@ export class FetchGitCommand extends QuickCommand<State> {
 		}
 
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 }

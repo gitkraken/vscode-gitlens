@@ -3,7 +3,7 @@ import { configuration } from '../configuration';
 import type { Container } from '../container';
 import type { Keys } from '../keyboard';
 import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
-import { createDirectiveQuickPickItem , Directive, isDirective } from '../quickpicks/items/directive';
+import { createDirectiveQuickPickItem, Directive, isDirective } from '../quickpicks/items/directive';
 
 export * from './quickCommand.buttons';
 export * from './quickCommand.steps';
@@ -243,7 +243,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 		cancel?: DirectiveQuickPickItem,
 		options: Partial<QuickPickStep<T>> = {},
 	): QuickPickStep<T> {
-		return QuickCommand.createConfirmStep(title, confirmations, { title: this.title }, cancel, options);
+		return createConfirmStep(title, confirmations, { title: this.title }, cancel, options);
 	}
 
 	protected getStepState(limitBackNavigation: boolean): PartialStepState<State> {
@@ -257,103 +257,101 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 	}
 }
 
-export namespace QuickCommand {
-	export function is(item: QuickPickItem): item is QuickCommand {
-		return item instanceof QuickCommand;
-	}
+export function isQuickCommand(item: QuickPickItem): item is QuickCommand {
+	return item instanceof QuickCommand;
+}
 
-	export async function canInputStepContinue<T extends QuickInputStep>(
-		step: T,
-		state: PartialStepState,
-		value: Directive | StepItemType<T>,
-	) {
-		if (!canStepContinue(step, state, value)) return false;
+export async function canInputStepContinue<T extends QuickInputStep>(
+	step: T,
+	state: PartialStepState,
+	value: Directive | StepItemType<T>,
+) {
+	if (!canStepContinue(step, state, value)) return false;
 
-		const [valid] = (await step.validate?.(value)) ?? [true];
-		if (valid) {
-			state.counter++;
-			return true;
-		}
-
-		return false;
-	}
-
-	export function canPickStepContinue<T extends QuickPickStep>(
-		step: T,
-		state: PartialStepState,
-		selection: StepItemType<T> | Directive,
-	): selection is StepItemType<T> {
-		if (!canStepContinue(step, state, selection)) return false;
-
-		if (step.validate?.(selection) ?? true) {
-			state.counter++;
-			return true;
-		}
-
-		return false;
-	}
-
-	export function canStepContinue<T extends QuickInputStep | QuickPickStep>(
-		step: T,
-		state: PartialStepState,
-		result: Directive | StepItemType<T>,
-	): result is StepItemType<T> {
-		if (result == null) return false;
-		if (isDirective(result)) {
-			switch (result) {
-				case Directive.Back:
-					state.counter--;
-					if (state.counter <= (state.startingStep ?? 0)) {
-						state.counter = 0;
-					}
-					break;
-				case Directive.Cancel:
-					endSteps(state);
-					break;
-				// case Directive.Noop:
-				// case Directive.RequiresVerification:
-				// case Directive.RequiresFreeSubscription:
-				// case Directive.RequiresProSubscription:
-				// 	break;
-			}
-			return false;
-		}
-
+	const [valid] = (await step.validate?.(value)) ?? [true];
+	if (valid) {
+		state.counter++;
 		return true;
 	}
 
-	export function createConfirmStep<T extends QuickPickItem, Context extends { title: string }>(
-		title: string,
-		confirmations: T[],
-		context: Context,
-		cancel?: DirectiveQuickPickItem,
-		options: Partial<QuickPickStep<T>> = {},
-	): QuickPickStep<T> {
-		return createPickStep<T>({
-			placeholder: `Confirm ${context.title}`,
-			title: title,
-			ignoreFocusOut: true,
-			items: [...confirmations, cancel ?? createDirectiveQuickPickItem(Directive.Cancel)],
-			selectedItems: [confirmations.find(c => c.picked) ?? confirmations[0]],
-			...options,
-		});
+	return false;
+}
+
+export function canPickStepContinue<T extends QuickPickStep>(
+	step: T,
+	state: PartialStepState,
+	selection: StepItemType<T> | Directive,
+): selection is StepItemType<T> {
+	if (!canStepContinue(step, state, selection)) return false;
+
+	if (step.validate?.(selection) ?? true) {
+		state.counter++;
+		return true;
 	}
 
-	export function createInputStep(step: QuickInputStep): QuickInputStep {
-		// Make sure any input steps won't close on focus loss
-		step.ignoreFocusOut = true;
-		return step;
+	return false;
+}
+
+export function canStepContinue<T extends QuickInputStep | QuickPickStep>(
+	step: T,
+	state: PartialStepState,
+	result: Directive | StepItemType<T>,
+): result is StepItemType<T> {
+	if (result == null) return false;
+	if (isDirective(result)) {
+		switch (result) {
+			case Directive.Back:
+				state.counter--;
+				if (state.counter <= (state.startingStep ?? 0)) {
+					state.counter = 0;
+				}
+				break;
+			case Directive.Cancel:
+				endSteps(state);
+				break;
+			// case Directive.Noop:
+			// case Directive.RequiresVerification:
+			// case Directive.RequiresFreeSubscription:
+			// case Directive.RequiresProSubscription:
+			// 	break;
+		}
+		return false;
 	}
 
-	export function createPickStep<T extends QuickPickItem>(step: QuickPickStep<T>): QuickPickStep<T> {
-		return step;
-	}
+	return true;
+}
 
-	export function createCustomStep<T>(step: CustomStep<T>): CustomStep<T> {
-		return step;
-	}
+export function createConfirmStep<T extends QuickPickItem, Context extends { title: string }>(
+	title: string,
+	confirmations: T[],
+	context: Context,
+	cancel?: DirectiveQuickPickItem,
+	options: Partial<QuickPickStep<T>> = {},
+): QuickPickStep<T> {
+	return createPickStep<T>({
+		placeholder: `Confirm ${context.title}`,
+		title: title,
+		ignoreFocusOut: true,
+		items: [...confirmations, cancel ?? createDirectiveQuickPickItem(Directive.Cancel)],
+		selectedItems: [confirmations.find(c => c.picked) ?? confirmations[0]],
+		...options,
+	});
+}
 
-	export function endSteps(state: PartialStepState) {
-		state.counter = -1;
-	}
+export function createInputStep(step: QuickInputStep): QuickInputStep {
+	// Make sure any input steps won't close on focus loss
+	step.ignoreFocusOut = true;
+	return step;
+}
+
+export function createPickStep<T extends QuickPickItem>(step: QuickPickStep<T>): QuickPickStep<T> {
+	return step;
+}
+
+export function createCustomStep<T>(step: CustomStep<T>): CustomStep<T> {
+	return step;
+}
+
+export function endSteps(state: PartialStepState) {
+	state.counter = -1;
 }

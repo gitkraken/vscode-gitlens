@@ -99,7 +99,16 @@ import type {
 	StepSelection,
 	StepState,
 } from './quickCommand';
-import { QuickCommand, QuickCommandButtons, StepResult } from './quickCommand';
+import {
+	canInputStepContinue,
+	canPickStepContinue,
+	canStepContinue,
+	createInputStep,
+	createPickStep,
+	endSteps,
+	QuickCommandButtons,
+	StepResult,
+} from './quickCommand';
 
 export function appendReposToTitle<
 	State extends { repo: Repository } | { repos: Repository[] },
@@ -485,7 +494,7 @@ export async function* inputBranchNameStep<
 	context: Context,
 	options: { placeholder: string; titleContext?: string; value?: string },
 ): AsyncStepResultGenerator<string> {
-	const step = QuickCommand.createInputStep({
+	const step = createInputStep({
 		title: appendReposToTitle(`${context.title}${options.titleContext ?? ''}`, state, context),
 		placeholder: options.placeholder,
 		value: options.value,
@@ -515,10 +524,7 @@ export async function* inputBranchNameStep<
 	});
 
 	const value: StepSelection<typeof step> = yield step;
-	if (
-		!QuickCommand.canStepContinue(step, state, value) ||
-		!(await QuickCommand.canInputStepContinue(step, state, value))
-	) {
+	if (!canStepContinue(step, state, value) || !(await canInputStepContinue(step, state, value))) {
 		return StepResult.Break;
 	}
 
@@ -533,7 +539,7 @@ export async function* inputRemoteNameStep<
 	context: Context,
 	options: { placeholder: string; titleContext?: string; value?: string },
 ): AsyncStepResultGenerator<string> {
-	const step = QuickCommand.createInputStep({
+	const step = createInputStep({
 		title: appendReposToTitle(`${context.title}${options.titleContext ?? ''}`, state, context),
 		placeholder: options.placeholder,
 		value: options.value,
@@ -559,10 +565,7 @@ export async function* inputRemoteNameStep<
 	});
 
 	const value: StepSelection<typeof step> = yield step;
-	if (
-		!QuickCommand.canStepContinue(step, state, value) ||
-		!(await QuickCommand.canInputStepContinue(step, state, value))
-	) {
+	if (!canStepContinue(step, state, value) || !(await canInputStepContinue(step, state, value))) {
 		return StepResult.Break;
 	}
 
@@ -577,7 +580,7 @@ export async function* inputRemoteUrlStep<
 	context: Context,
 	options: { placeholder: string; titleContext?: string; value?: string },
 ): AsyncStepResultGenerator<string> {
-	const step = QuickCommand.createInputStep({
+	const step = createInputStep({
 		title: appendReposToTitle(`${context.title}${options.titleContext ?? ''}`, state, context),
 		placeholder: options.placeholder,
 		value: options.value,
@@ -594,10 +597,7 @@ export async function* inputRemoteUrlStep<
 	});
 
 	const value: StepSelection<typeof step> = yield step;
-	if (
-		!QuickCommand.canStepContinue(step, state, value) ||
-		!(await QuickCommand.canInputStepContinue(step, state, value))
-	) {
+	if (!canStepContinue(step, state, value) || !(await canInputStepContinue(step, state, value))) {
 		return StepResult.Break;
 	}
 
@@ -612,7 +612,7 @@ export async function* inputTagNameStep<
 	context: Context,
 	options: { placeholder: string; titleContext?: string; value?: string },
 ): AsyncStepResultGenerator<string> {
-	const step = QuickCommand.createInputStep({
+	const step = createInputStep({
 		title: appendReposToTitle(`${context.title}${options.titleContext ?? ''}`, state, context),
 		placeholder: options.placeholder,
 		value: options.value,
@@ -642,10 +642,7 @@ export async function* inputTagNameStep<
 	});
 
 	const value: StepSelection<typeof step> = yield step;
-	if (
-		!QuickCommand.canStepContinue(step, state, value) ||
-		!(await QuickCommand.canInputStepContinue(step, state, value))
-	) {
+	if (!canStepContinue(step, state, value) || !(await canInputStepContinue(step, state, value))) {
 		return StepResult.Break;
 	}
 
@@ -676,7 +673,7 @@ export async function* pickBranchStep<
 		picked: picked,
 	});
 
-	const step = QuickCommand.createPickStep<BranchQuickPickItem>({
+	const step = createPickStep<BranchQuickPickItem>({
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
 		placeholder: branches.length === 0 ? `No branches found in ${state.repo.formattedName}` : placeholder,
 		matchOnDetail: true,
@@ -701,7 +698,7 @@ export async function* pickBranchStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 }
 
 export async function* pickBranchesStep<
@@ -731,7 +728,7 @@ export async function* pickBranchesStep<
 		sort: sort,
 	});
 
-	const step = QuickCommand.createPickStep<BranchQuickPickItem>({
+	const step = createPickStep<BranchQuickPickItem>({
 		multiselect: branches.length !== 0,
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
 		placeholder: branches.length === 0 ? `No branches found in ${state.repo.formattedName}` : placeholder,
@@ -757,7 +754,7 @@ export async function* pickBranchesStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return QuickCommand.canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
 }
 
 export async function* pickBranchOrTagStep<
@@ -801,7 +798,7 @@ export async function* pickBranchOrTagStep<
 	};
 	const branchesAndOrTags = await getBranchesAndOrTagsFn();
 
-	const step = QuickCommand.createPickStep<ReferencesQuickPickItem>({
+	const step = createPickStep<ReferencesQuickPickItem>({
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
 		placeholder:
 			branchesAndOrTags.length === 0
@@ -872,7 +869,7 @@ export async function* pickBranchOrTagStep<
 		onValidateValue: getValidateGitReferenceFn(state.repo, { ranges: ranges }),
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 }
 
 export async function* pickBranchOrTagStepMultiRepo<
@@ -910,7 +907,7 @@ export async function* pickBranchOrTagStepMultiRepo<
 	};
 	const branchesAndOrTags = await getBranchesAndOrTagsFn();
 
-	const step = QuickCommand.createPickStep<ReferencesQuickPickItem>({
+	const step = createPickStep<ReferencesQuickPickItem>({
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
 		placeholder:
 			branchesAndOrTags.length === 0
@@ -986,7 +983,7 @@ export async function* pickBranchOrTagStepMultiRepo<
 	});
 
 	const selection: StepSelection<typeof step> = yield step;
-	return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 }
 
 export async function* pickCommitStep<
@@ -1038,7 +1035,7 @@ export async function* pickCommitStep<
 			  ];
 	}
 
-	const step = QuickCommand.createPickStep<CommandQuickPickItem | CommitQuickPickItem>({
+	const step = createPickStep<CommandQuickPickItem | CommitQuickPickItem>({
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
 		placeholder: typeof placeholder === 'string' ? placeholder : placeholder(context, log),
 		ignoreFocusOut: ignoreFocusOut,
@@ -1111,10 +1108,10 @@ export async function* pickCommitStep<
 		}),
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	if (!QuickCommand.canPickStepContinue(step, state, selection)) return StepResult.Break;
+	if (!canPickStepContinue(step, state, selection)) return StepResult.Break;
 
 	if (CommandQuickPickItem.is(selection[0])) {
-		QuickCommand.endSteps(state);
+		endSteps(state);
 
 		await selection[0].execute();
 		return StepResult.Break;
@@ -1164,7 +1161,7 @@ export function* pickCommitsStep<
 			  ];
 	}
 
-	const step = QuickCommand.createPickStep<CommitQuickPickItem>({
+	const step = createPickStep<CommitQuickPickItem>({
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
 		multiselect: log != null,
 		placeholder: typeof placeholder === 'string' ? placeholder : placeholder(context, log),
@@ -1215,7 +1212,7 @@ export function* pickCommitsStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return QuickCommand.canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
 }
 
 export async function* pickContributorsStep<
@@ -1228,7 +1225,7 @@ export async function* pickContributorsStep<
 ): AsyncStepResultGenerator<GitContributor[]> {
 	const message = (await Container.instance.git.getOrOpenScmRepository(state.repo.path))?.inputBox.value;
 
-	const step = QuickCommand.createPickStep<ContributorQuickPickItem>({
+	const step = createPickStep<ContributorQuickPickItem>({
 		title: appendReposToTitle(context.title, state, context),
 		allowEmpty: true,
 		multiselect: true,
@@ -1256,7 +1253,7 @@ export async function* pickContributorsStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return QuickCommand.canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
 }
 
 export async function* pickRemoteStep<
@@ -1283,7 +1280,7 @@ export async function* pickRemoteStep<
 		picked: picked,
 	});
 
-	const step = QuickCommand.createPickStep<RemoteQuickPickItem>({
+	const step = createPickStep<RemoteQuickPickItem>({
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
 		placeholder: remotes.length === 0 ? `No remotes found in ${state.repo.formattedName}` : placeholder,
 		matchOnDetail: true,
@@ -1308,7 +1305,7 @@ export async function* pickRemoteStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 }
 
 export async function* pickRemotesStep<
@@ -1335,7 +1332,7 @@ export async function* pickRemotesStep<
 		picked: picked,
 	});
 
-	const step = QuickCommand.createPickStep<RemoteQuickPickItem>({
+	const step = createPickStep<RemoteQuickPickItem>({
 		multiselect: remotes.length !== 0,
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
 		placeholder: remotes.length === 0 ? `No remotes found in ${state.repo.formattedName}` : placeholder,
@@ -1361,7 +1358,7 @@ export async function* pickRemotesStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return QuickCommand.canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
 }
 
 export async function* pickRepositoryStep<
@@ -1374,7 +1371,7 @@ export async function* pickRepositoryStep<
 	}
 	const active = state.repo ?? (await Container.instance.git.getOrOpenRepositoryForEditor());
 
-	const step = QuickCommand.createPickStep<RepositoryQuickPickItem>({
+	const step = createPickStep<RepositoryQuickPickItem>({
 		title: context.title,
 		placeholder: placeholder,
 		items:
@@ -1411,7 +1408,7 @@ export async function* pickRepositoryStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 }
 
 export async function* pickRepositoriesStep<
@@ -1439,7 +1436,7 @@ export async function* pickRepositoriesStep<
 		actives = active != null ? [active] : [];
 	}
 
-	const step = QuickCommand.createPickStep<RepositoryQuickPickItem>({
+	const step = createPickStep<RepositoryQuickPickItem>({
 		multiselect: true,
 		title: context.title,
 		placeholder: options.placeholder,
@@ -1481,7 +1478,7 @@ export async function* pickRepositoriesStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return QuickCommand.canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
 }
 
 export function* pickStashStep<
@@ -1504,7 +1501,7 @@ export function* pickStashStep<
 		titleContext?: string;
 	},
 ): StepResultGenerator<GitStashCommit> {
-	const step = QuickCommand.createPickStep<CommitQuickPickItem<GitStashCommit>>({
+	const step = createPickStep<CommitQuickPickItem<GitStashCommit>>({
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
 		placeholder: typeof placeholder === 'string' ? placeholder : placeholder(context, stash),
 		ignoreFocusOut: ignoreFocusOut,
@@ -1540,7 +1537,7 @@ export function* pickStashStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 }
 
 export async function* pickTagsStep<
@@ -1567,7 +1564,7 @@ export async function* pickTagsStep<
 		picked: picked,
 	});
 
-	const step = QuickCommand.createPickStep<TagQuickPickItem>({
+	const step = createPickStep<TagQuickPickItem>({
 		multiselect: tags.length !== 0,
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
 		placeholder: tags.length === 0 ? `No tags found in ${state.repo.formattedName}` : placeholder,
@@ -1597,7 +1594,7 @@ export async function* pickTagsStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return QuickCommand.canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
 }
 
 export async function* pickWorktreeStep<
@@ -1627,7 +1624,7 @@ export async function* pickWorktreeStep<
 		picked: picked,
 	});
 
-	const step = QuickCommand.createPickStep<WorktreeQuickPickItem>({
+	const step = createPickStep<WorktreeQuickPickItem>({
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
 		placeholder: worktrees.length === 0 ? `No worktrees found in ${state.repo.formattedName}` : placeholder,
 		matchOnDetail: true,
@@ -1657,7 +1654,7 @@ export async function* pickWorktreeStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 }
 
 export async function* pickWorktreesStep<
@@ -1687,7 +1684,7 @@ export async function* pickWorktreesStep<
 		picked: picked,
 	});
 
-	const step = QuickCommand.createPickStep<WorktreeQuickPickItem>({
+	const step = createPickStep<WorktreeQuickPickItem>({
 		multiselect: worktrees.length !== 0,
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
 		placeholder: worktrees.length === 0 ? `No worktrees found in ${state.repo.formattedName}` : placeholder,
@@ -1718,7 +1715,7 @@ export async function* pickWorktreesStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return QuickCommand.canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
 }
 
 export async function* showCommitOrStashStep<
@@ -1729,7 +1726,7 @@ export async function* showCommitOrStashStep<
 	context: Context,
 ): AsyncStepResultGenerator<CommitFilesQuickPickItem | GitCommandQuickPickItem | CommandQuickPickItem> {
 	const step: QuickPickStep<CommitFilesQuickPickItem | GitCommandQuickPickItem | CommandQuickPickItem> =
-		QuickCommand.createPickStep({
+		createPickStep({
 			title: appendReposToTitle(
 				GitReference.toString(state.reference, {
 					capitalize: true,
@@ -1779,7 +1776,7 @@ export async function* showCommitOrStashStep<
 			},
 		});
 	const selection: StepSelection<typeof step> = yield step;
-	return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0] : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0] : StepResult.Break;
 }
 
 async function getShowCommitOrStashStepItems<
@@ -2003,7 +2000,7 @@ export function* showCommitOrStashFilesStep<
 		debugger;
 	}
 
-	const step: QuickPickStep<CommitFilesQuickPickItem | CommitFileQuickPickItem> = QuickCommand.createPickStep({
+	const step: QuickPickStep<CommitFilesQuickPickItem | CommitFileQuickPickItem> = createPickStep({
 		title: appendReposToTitle(
 			GitReference.toString(state.reference, {
 				capitalize: true,
@@ -2063,7 +2060,7 @@ export function* showCommitOrStashFilesStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0] : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0] : StepResult.Break;
 }
 
 export async function* showCommitOrStashFileStep<
@@ -2074,7 +2071,7 @@ export async function* showCommitOrStashFileStep<
 	},
 	Context extends { repos: Repository[]; title: string },
 >(state: State, context: Context): AsyncStepResultGenerator<CommandQuickPickItem> {
-	const step: QuickPickStep<CommandQuickPickItem> = QuickCommand.createPickStep<CommandQuickPickItem>({
+	const step: QuickPickStep<CommandQuickPickItem> = createPickStep<CommandQuickPickItem>({
 		title: appendReposToTitle(
 			GitReference.toString(state.reference, {
 				capitalize: true,
@@ -2130,7 +2127,7 @@ export async function* showCommitOrStashFileStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0] : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0] : StepResult.Break;
 }
 
 async function getShowCommitOrStashFileStepItems<
@@ -2242,7 +2239,7 @@ export function* showRepositoryStatusStep<
 >(state: State, context: Context): StepResultGenerator<CommandQuickPickItem> {
 	const upstream = context.status.getUpstreamStatus({ expand: true, separator: ', ' });
 	const working = context.status.getFormattedDiffStatus({ expand: true, separator: ', ' });
-	const step: QuickPickStep<CommandQuickPickItem> = QuickCommand.createPickStep<CommandQuickPickItem>({
+	const step: QuickPickStep<CommandQuickPickItem> = createPickStep<CommandQuickPickItem>({
 		title: appendReposToTitle(context.title, state, context),
 		placeholder: `${upstream ? `${upstream}, ${working}` : working}`, //'Changes to be committed',
 		ignoreFocusOut: true,
@@ -2255,7 +2252,7 @@ export function* showRepositoryStatusStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0] : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0] : StepResult.Break;
 }
 
 function getShowRepositoryStatusStepItems<
@@ -2415,12 +2412,12 @@ export async function* ensureAccessStep<
 		}
 	}
 
-	const step = QuickCommand.createPickStep<DirectiveQuickPickItem>({
+	const step = createPickStep<DirectiveQuickPickItem>({
 		title: appendReposToTitle(context.title, state, context),
 		placeholder: placeholder,
 		items: [...directives, createDirectiveQuickPickItem(Directive.Cancel)],
 	});
 
 	const selection: StepSelection<typeof step> = yield step;
-	return QuickCommand.canPickStepContinue(step, state, selection) ? undefined : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? undefined : StepResult.Break;
 }

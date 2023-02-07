@@ -10,7 +10,7 @@ import { pad } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { getSteps } from '../gitCommands.utils';
 import type { PartialStepState, StepGenerator } from '../quickCommand';
-import { pickBranchOrTagStep, pickCommitStep, pickRepositoryStep, QuickCommand, StepResult } from '../quickCommand';
+import { endSteps , pickBranchOrTagStep, pickCommitStep, pickRepositoryStep, QuickCommand, StepResult } from '../quickCommand';
 
 interface Context {
 	repos: Repository[];
@@ -213,7 +213,7 @@ export class LogGitCommand extends QuickCommand<State> {
 
 			state.counter--;
 			if (result === StepResult.Break) {
-				QuickCommand.endSteps(state);
+				endSteps(state);
 			}
 		}
 

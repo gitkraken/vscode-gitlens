@@ -16,6 +16,8 @@ import type {
 } from '../quickCommand';
 import {
 	appendReposToTitle,
+	canPickStepContinue,
+	endSteps,
 	inputBranchNameStep,
 	pickBranchOrTagStepMultiRepo,
 	pickRepositoriesStep,
@@ -191,7 +193,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			QuickCommand.endSteps(state);
+			endSteps(state);
 			void this.execute(state as SwitchStepState);
 		}
 
@@ -244,6 +246,6 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			{ placeholder: `Confirm ${context.title}` },
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 }

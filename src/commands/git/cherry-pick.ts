@@ -16,6 +16,9 @@ import type {
 } from '../quickCommand';
 import {
 	appendReposToTitle,
+	canPickStepContinue,
+	createConfirmStep,
+	endSteps,
 	pickBranchOrTagStep,
 	pickCommitsStep,
 	pickRepositoryStep,
@@ -203,7 +206,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				state.flags = result;
 			}
 
-			QuickCommand.endSteps(state);
+			endSteps(state);
 			this.execute(state as CherryPickStepState<State<GitReference[]>>);
 		}
 
@@ -211,7 +214,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 	}
 
 	private *confirmStep(state: CherryPickStepState, context: Context): StepResultGenerator<Flags[]> {
-		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = QuickCommand.createConfirmStep(
+		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
 				createFlagsQuickPickItem<Flags>(state.flags, [], {
@@ -238,6 +241,6 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 			context,
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 }
