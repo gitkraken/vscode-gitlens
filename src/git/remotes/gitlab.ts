@@ -13,8 +13,8 @@ import { encodeUrl } from '../../system/encoding';
 import { equalsIgnoreCase } from '../../system/string';
 import type { Account } from '../models/author';
 import type { DefaultBranch } from '../models/defaultBranch';
-import type { IssueOrPullRequest } from '../models/issue';
-import type { PullRequest, PullRequestState } from '../models/pullRequest';
+import type { IssueOrPullRequest, SearchedIssue } from '../models/issue';
+import type { PullRequest, PullRequestState, SearchedPullRequest } from '../models/pullRequest';
 import { GitRevision } from '../models/reference';
 import type { Repository } from '../models/repository';
 import { ensurePaidPlan, RichRemoteProvider } from './richRemoteProvider';
@@ -364,6 +364,16 @@ export class GitLabRemote extends RichRemoteProvider {
 		return (await this.container.gitlab)?.getPullRequestForCommit(this, accessToken, owner, repo, ref, {
 			baseUrl: this.apiBaseUrl,
 		});
+	}
+
+	protected async searchProviderMyPullRequests(
+		_session: AuthenticationSession,
+	): Promise<SearchedPullRequest[] | undefined> {
+		return Promise.resolve(undefined);
+	}
+
+	protected async searchProviderMyIssues(_session: AuthenticationSession): Promise<SearchedIssue[] | undefined> {
+		return Promise.resolve(undefined);
 	}
 }
 

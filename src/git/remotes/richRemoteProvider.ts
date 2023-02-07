@@ -15,8 +15,8 @@ import { debug, log } from '../../system/decorators/log';
 import { isPromise } from '../../system/promise';
 import type { Account } from '../models/author';
 import type { DefaultBranch } from '../models/defaultBranch';
-import type { IssueOrPullRequest } from '../models/issue';
-import type { PullRequest, PullRequestState } from '../models/pullRequest';
+import type { IssueOrPullRequest, SearchedIssue } from '../models/issue';
+import type { PullRequest, PullRequestState, SearchedPullRequest } from '../models/pullRequest';
 import { RemoteProvider } from './remoteProvider';
 import { RichRemoteProviders } from './remoteProviderConnections';
 
@@ -286,6 +286,48 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 	protected abstract getProviderDefaultBranch({
 		accessToken,
 	}: AuthenticationSession): Promise<DefaultBranch | undefined>;
+
+	@gate()
+	@debug()
+	async searchMyPullRequests(): Promise<SearchedPullRequest[] | undefined> {
+		const scope = getLogScope();
+
+		try {
+			const pullRequests = await this.searchProviderMyPullRequests(this._session!);
+			this.resetRequestExceptionCount();
+			return pullRequests;
+		} catch (ex) {
+			Logger.error(ex, scope);
+
+			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
+				this.trackRequestException();
+			}
+			return undefined;
+		}
+	}
+	protected abstract searchProviderMyPullRequests(
+		session: AuthenticationSession,
+	): Promise<SearchedPullRequest[] | undefined>;
+
+	@gate()
+	@debug()
+	async searchMyIssues(): Promise<SearchedIssue[] | undefined> {
+		const scope = getLogScope();
+
+		try {
+			const issues = await this.searchProviderMyIssues(this._session!);
+			this.resetRequestExceptionCount();
+			return issues;
+		} catch (ex) {
+			Logger.error(ex, scope);
+
+			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
+				this.trackRequestException();
+			}
+			return undefined;
+		}
+	}
+	protected abstract searchProviderMyIssues(session: AuthenticationSession): Promise<SearchedIssue[] | undefined>;
 
 	@gate()
 	@debug()
