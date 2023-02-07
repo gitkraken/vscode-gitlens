@@ -54,7 +54,8 @@ import {
 	CommitRestoreFileChangesCommandQuickPickItem,
 	OpenChangedFilesCommandQuickPickItem,
 } from '../quickpicks/items/commits';
-import { CommandQuickPickItem, QuickPickSeparator } from '../quickpicks/items/common';
+import type { QuickPickSeparator } from '../quickpicks/items/common';
+import { CommandQuickPickItem, createQuickPickSeparator } from '../quickpicks/items/common';
 import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../quickpicks/items/directive';
 import type {
@@ -305,7 +306,7 @@ export async function getBranchesAndOrTags(
 
 	if (branches != null && branches.length !== 0 && (tags == null || tags.length === 0)) {
 		return [
-			QuickPickSeparator.create('Branches'),
+			createQuickPickSeparator('Branches'),
 			...(await Promise.all(
 				branches
 					.filter(b => !b.remote)
@@ -323,7 +324,7 @@ export async function getBranchesAndOrTags(
 						),
 					),
 			)),
-			QuickPickSeparator.create('Remote Branches'),
+			createQuickPickSeparator('Remote Branches'),
 			...(await Promise.all(
 				branches
 					.filter(b => b.remote)
@@ -359,7 +360,7 @@ export async function getBranchesAndOrTags(
 	}
 
 	return [
-		QuickPickSeparator.create('Branches'),
+		createQuickPickSeparator('Branches'),
 		...(await Promise.all(
 			branches!
 				.filter(b => !b.remote)
@@ -376,7 +377,7 @@ export async function getBranchesAndOrTags(
 					),
 				),
 		)),
-		QuickPickSeparator.create('Tags'),
+		createQuickPickSeparator('Tags'),
 		...tags!.map(t =>
 			createTagQuickPickItem(
 				t,
@@ -389,7 +390,7 @@ export async function getBranchesAndOrTags(
 				},
 			),
 		),
-		QuickPickSeparator.create('Remote Branches'),
+		createQuickPickSeparator('Remote Branches'),
 		...(await Promise.all(
 			branches!
 				.filter(b => b.remote)
@@ -1793,7 +1794,7 @@ async function getShowCommitOrStashStepItems<
 
 	if (isStash(state.reference)) {
 		items.push(
-			QuickPickSeparator.create('Actions'),
+			createQuickPickSeparator('Actions'),
 			new GitCommandQuickPickItem('Apply Stash...', {
 				command: 'stash',
 				state: {
@@ -1811,14 +1812,14 @@ async function getShowCommitOrStashStepItems<
 				},
 			}),
 
-			QuickPickSeparator.create(),
+			createQuickPickSeparator(),
 			new CommitCopyMessageQuickPickItem(state.reference),
 		);
 	} else {
 		const remotes = await Container.instance.git.getRemotesWithProviders(state.repo.path, { sort: true });
 		if (remotes?.length) {
 			items.push(
-				QuickPickSeparator.create(GitRemote.getHighlanderProviderName(remotes) ?? 'Remote'),
+				createQuickPickSeparator(GitRemote.getHighlanderProviderName(remotes) ?? 'Remote'),
 				new OpenRemoteResourceCommandQuickPickItem(remotes, {
 					type: RemoteResourceType.Commit,
 					sha: state.reference.sha,
@@ -1830,7 +1831,7 @@ async function getShowCommitOrStashStepItems<
 			);
 		}
 
-		items.push(QuickPickSeparator.create('Actions'));
+		items.push(createQuickPickSeparator('Actions'));
 
 		const branch = await Container.instance.git.getBranch(state.repo.path);
 		const [branches, published] = await Promise.all([
@@ -1915,7 +1916,7 @@ async function getShowCommitOrStashStepItems<
 				},
 			}),
 
-			QuickPickSeparator.create(),
+			createQuickPickSeparator(),
 			new GitCommandQuickPickItem('Create Branch at Commit...', {
 				command: 'branch',
 				state: {
@@ -1933,36 +1934,36 @@ async function getShowCommitOrStashStepItems<
 				},
 			}),
 
-			QuickPickSeparator.create('Copy'),
+			createQuickPickSeparator('Copy'),
 			new CommitCopyIdQuickPickItem(state.reference),
 			new CommitCopyMessageQuickPickItem(state.reference),
 		);
 	}
 
 	items.push(
-		QuickPickSeparator.create('Open'),
+		createQuickPickSeparator('Open'),
 		new CommitOpenAllChangesCommandQuickPickItem(state.reference),
 		new CommitOpenAllChangesWithWorkingCommandQuickPickItem(state.reference),
 		new CommitOpenAllChangesWithDiffToolCommandQuickPickItem(state.reference),
-		QuickPickSeparator.create(),
+		createQuickPickSeparator(),
 		new CommitOpenFilesCommandQuickPickItem(state.reference),
 		new CommitOpenRevisionsCommandQuickPickItem(state.reference),
 	);
 
 	items.push(
-		QuickPickSeparator.create('Compare'),
+		createQuickPickSeparator('Compare'),
 		new CommitCompareWithHEADCommandQuickPickItem(state.reference),
 		new CommitCompareWithWorkingCommandQuickPickItem(state.reference),
 	);
 
 	items.push(
-		QuickPickSeparator.create(),
+		createQuickPickSeparator(),
 		new CommitOpenDirectoryCompareCommandQuickPickItem(state.reference),
 		new CommitOpenDirectoryCompareWithWorkingCommandQuickPickItem(state.reference),
 	);
 
 	items.push(
-		QuickPickSeparator.create('Browse'),
+		createQuickPickSeparator('Browse'),
 		new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, { openInNewWindow: false }),
 		new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, {
 			before: true,
@@ -2018,7 +2019,7 @@ export function* showCommitOrStashFilesStep<
 				picked: state.fileName == null,
 				hint: `Click to see ${isStash(state.reference) ? 'stash' : 'commit'} actions`,
 			}),
-			QuickPickSeparator.create('Files'),
+			createQuickPickSeparator('Files'),
 			...(state.reference.files?.map(
 				fs => new CommitFileQuickPickItem(state.reference, fs, options?.picked === fs.path),
 			) ?? []),
@@ -2149,19 +2150,19 @@ async function getShowCommitOrStashFileStepItems<
 
 	if (isStash(state.reference)) {
 		items.push(
-			QuickPickSeparator.create(),
+			createQuickPickSeparator(),
 			new CommitCopyMessageQuickPickItem(state.reference),
-			QuickPickSeparator.create('Actions'),
+			createQuickPickSeparator('Actions'),
 			new CommitApplyFileChangesCommandQuickPickItem(state.reference, file),
 			new CommitRestoreFileChangesCommandQuickPickItem(state.reference, file),
-			QuickPickSeparator.create(),
+			createQuickPickSeparator(),
 			new CommitCopyMessageQuickPickItem(state.reference),
 		);
 	} else {
 		const remotes = await Container.instance.git.getRemotesWithProviders(state.repo.path, { sort: true });
 		if (remotes?.length) {
 			items.push(
-				QuickPickSeparator.create(GitRemote.getHighlanderProviderName(remotes) ?? 'Remote'),
+				createQuickPickSeparator(GitRemote.getHighlanderProviderName(remotes) ?? 'Remote'),
 				new OpenRemoteResourceCommandQuickPickItem(remotes, {
 					type: RemoteResourceType.Revision,
 					fileName: state.fileName,
@@ -2172,7 +2173,7 @@ async function getShowCommitOrStashFileStepItems<
 					fileName: state.fileName,
 					commit: state.reference,
 				}),
-				QuickPickSeparator.create(),
+				createQuickPickSeparator(),
 				new OpenRemoteResourceCommandQuickPickItem(remotes, {
 					type: RemoteResourceType.Commit,
 					sha: state.reference.ref,
@@ -2185,21 +2186,21 @@ async function getShowCommitOrStashFileStepItems<
 		}
 
 		items.push(
-			QuickPickSeparator.create('Actions'),
+			createQuickPickSeparator('Actions'),
 			new CommitApplyFileChangesCommandQuickPickItem(state.reference, file),
 			new CommitRestoreFileChangesCommandQuickPickItem(state.reference, file),
-			QuickPickSeparator.create('Copy'),
+			createQuickPickSeparator('Copy'),
 			new CommitCopyIdQuickPickItem(state.reference),
 			new CommitCopyMessageQuickPickItem(state.reference),
 		);
 	}
 
 	items.push(
-		QuickPickSeparator.create('Open'),
+		createQuickPickSeparator('Open'),
 		new CommitOpenChangesCommandQuickPickItem(state.reference, state.fileName),
 		new CommitOpenChangesWithWorkingCommandQuickPickItem(state.reference, state.fileName),
 		new CommitOpenChangesWithDiffToolCommandQuickPickItem(state.reference, state.fileName),
-		QuickPickSeparator.create(),
+		createQuickPickSeparator(),
 	);
 
 	if (file.status !== 'D') {
@@ -2208,13 +2209,13 @@ async function getShowCommitOrStashFileStepItems<
 	items.push(new CommitOpenRevisionCommandQuickPickItem(state.reference, file));
 
 	items.push(
-		QuickPickSeparator.create('Compare'),
+		createQuickPickSeparator('Compare'),
 		new CommitCompareWithHEADCommandQuickPickItem(state.reference),
 		new CommitCompareWithWorkingCommandQuickPickItem(state.reference),
 	);
 
 	items.push(
-		QuickPickSeparator.create('Browse'),
+		createQuickPickSeparator('Browse'),
 		new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, { openInNewWindow: false }),
 		new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, {
 			before: true,
