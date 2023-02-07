@@ -19,6 +19,10 @@ import type {
 } from '../quickCommand';
 import {
 	appendReposToTitle,
+	canPickStepContinue,
+	createConfirmStep,
+	createPickStep,
+	endSteps,
 	inputBranchNameStep,
 	pickBranchesStep,
 	pickBranchOrTagStep,
@@ -243,7 +247,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 					state.name = undefined!;
 					break;
 				default:
-					QuickCommand.endSteps(state);
+					endSteps(state);
 					break;
 			}
 
@@ -257,7 +261,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 	}
 
 	private *pickSubcommandStep(state: PartialStepState<State>): StepResultGenerator<State['subcommand']> {
-		const step = QuickCommand.createPickStep<QuickPickItemOfT<State['subcommand']>>({
+		const step = createPickStep<QuickPickItemOfT<State['subcommand']>>({
 			title: this.title,
 			placeholder: `Choose a ${this.label} command`,
 			items: [
@@ -283,7 +287,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 			buttons: [QuickInputButtons.Back],
 		});
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 
 	private async *createCommandSteps(state: CreateStepState, context: Context): AsyncStepResultGenerator<void> {
@@ -328,7 +332,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 				state.flags = result;
 			}
 
-			QuickCommand.endSteps(state);
+			endSteps(state);
 			if (state.flags.includes('--switch')) {
 				await state.repo.switch(state.reference.ref, { createBranch: state.name });
 			} else {
@@ -341,7 +345,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 		state: CreateStepState<CreateState>,
 		context: Context,
 	): StepResultGenerator<CreateFlags[]> {
-		const step: QuickPickStep<FlagsQuickPickItem<CreateFlags>> = QuickCommand.createConfirmStep(
+		const step: QuickPickStep<FlagsQuickPickItem<CreateFlags>> = createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
 				createFlagsQuickPickItem<CreateFlags>(state.flags, [], {
@@ -361,7 +365,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 			context,
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 
 	private async *deleteCommandSteps(state: DeleteStepState, context: Context): AsyncStepResultGenerator<void> {
@@ -404,7 +408,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 
 			state.flags = result;
 
-			QuickCommand.endSteps(state);
+			endSteps(state);
 			state.repo.branchDelete(state.references, {
 				force: state.flags.includes('--force'),
 				remote: state.flags.includes('--remotes'),
@@ -455,13 +459,13 @@ export class BranchGitCommand extends QuickCommand<State> {
 			}
 		}
 
-		const step: QuickPickStep<FlagsQuickPickItem<DeleteFlags>> = QuickCommand.createConfirmStep(
+		const step: QuickPickStep<FlagsQuickPickItem<DeleteFlags>> = createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			confirmations,
 			context,
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 
 	private async *renameCommandSteps(state: RenameStepState, context: Context): AsyncStepResultGenerator<void> {
@@ -500,7 +504,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 
 			state.flags = result;
 
-			QuickCommand.endSteps(state);
+			endSteps(state);
 			state.repo.branch(...state.flags, state.reference.ref, state.name);
 		}
 	}
@@ -509,7 +513,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 		state: RenameStepState<RenameState>,
 		context: Context,
 	): StepResultGenerator<RenameFlags[]> {
-		const step: QuickPickStep<FlagsQuickPickItem<RenameFlags>> = QuickCommand.createConfirmStep(
+		const step: QuickPickStep<FlagsQuickPickItem<RenameFlags>> = createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
 				createFlagsQuickPickItem<RenameFlags>(state.flags, ['-m'], {
@@ -520,6 +524,6 @@ export class BranchGitCommand extends QuickCommand<State> {
 			context,
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 }

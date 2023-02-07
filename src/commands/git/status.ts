@@ -8,7 +8,7 @@ import { GitCommandQuickPickItem } from '../../quickpicks/items/gitCommands';
 import { pad } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type { PartialStepState, StepGenerator, StepState } from '../quickCommand';
-import { pickRepositoryStep, QuickCommand, showRepositoryStatusStep, StepResult } from '../quickCommand';
+import { endSteps, pickRepositoryStep, QuickCommand, showRepositoryStatusStep, StepResult } from '../quickCommand';
 
 interface Context {
 	repos: Repository[];
@@ -109,14 +109,14 @@ export class StatusGitCommand extends QuickCommand<State> {
 				const r = yield* result.executeSteps(this.pickedVia);
 				state.counter--;
 				if (r === StepResult.Break) {
-					QuickCommand.endSteps(state);
+					endSteps(state);
 				}
 
 				continue;
 			}
 
 			if (result instanceof CommandQuickPickItem) {
-				QuickCommand.endSteps(state);
+				endSteps(state);
 
 				void result.execute();
 				break;

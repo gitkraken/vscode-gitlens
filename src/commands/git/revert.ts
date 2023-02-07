@@ -15,7 +15,15 @@ import type {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { appendReposToTitle, pickCommitsStep, pickRepositoryStep, QuickCommand, StepResult } from '../quickCommand';
+import {
+	appendReposToTitle,
+	canPickStepContinue,
+	endSteps,
+	pickCommitsStep,
+	pickRepositoryStep,
+	QuickCommand,
+	StepResult,
+} from '../quickCommand';
 
 interface Context {
 	repos: Repository[];
@@ -157,7 +165,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 
 			state.flags = result;
 
-			QuickCommand.endSteps(state);
+			endSteps(state);
 			this.execute(state as RevertStepState<State<GitRevisionReference[]>>);
 		}
 
@@ -181,6 +189,6 @@ export class RevertGitCommand extends QuickCommand<State> {
 			],
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 }

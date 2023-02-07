@@ -17,6 +17,9 @@ import { getSteps } from '../gitCommands.utils';
 import type { PartialStepState, StepGenerator, StepResultGenerator, StepSelection, StepState } from '../quickCommand';
 import {
 	appendReposToTitle,
+	canPickStepContinue,
+	createPickStep,
+	endSteps,
 	pickCommitStep,
 	pickRepositoryStep,
 	QuickCommand,
@@ -266,7 +269,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 
 			state.counter--;
 			if (result === StepResult.Break) {
-				QuickCommand.endSteps(state);
+				endSteps(state);
 			}
 		}
 
@@ -310,7 +313,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 		const matchAllButton = new QuickCommandButtons.MatchAllToggle(state.matchAll);
 		const matchRegexButton = new QuickCommandButtons.MatchRegexToggle(state.matchRegex);
 
-		const step = QuickCommand.createPickStep<QuickPickItemOfT<SearchOperators>>({
+		const step = createPickStep<QuickPickItemOfT<SearchOperators>>({
 			title: appendReposToTitle(context.title, state, context),
 			placeholder: 'e.g. "Updates dependencies" author:eamodio',
 			matchOnDescription: true,
@@ -386,7 +389,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			},
 		});
 		const selection: StepSelection<typeof step> = yield step;
-		if (!QuickCommand.canPickStepContinue(step, state, selection)) {
+		if (!canPickStepContinue(step, state, selection)) {
 			// Since we simulated a step above, we need to remove it here
 			state.counter--;
 			return StepResult.Break;

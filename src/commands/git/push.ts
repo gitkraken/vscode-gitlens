@@ -22,6 +22,8 @@ import type {
 } from '../quickCommand';
 import {
 	appendReposToTitle,
+	canPickStepContinue,
+	endSteps,
 	pickRepositoriesStep,
 	pickRepositoryStep,
 	QuickCommand,
@@ -150,7 +152,7 @@ export class PushGitCommand extends QuickCommand<State> {
 				state.flags = result;
 			}
 
-			QuickCommand.endSteps(state);
+			endSteps(state);
 			void this.execute(state as State<Repository[]>);
 		}
 
@@ -410,6 +412,6 @@ export class PushGitCommand extends QuickCommand<State> {
 		}
 
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 }

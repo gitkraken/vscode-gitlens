@@ -4,7 +4,7 @@ import type { GitLog } from '../../git/models/log';
 import { GitReference, GitRevision } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
-import { createDirectiveQuickPickItem , Directive } from '../../quickpicks/items/directive';
+import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { pluralize } from '../../system/string';
@@ -20,6 +20,8 @@ import type {
 } from '../quickCommand';
 import {
 	appendReposToTitle,
+	canPickStepContinue,
+	endSteps,
 	pickBranchOrTagStep,
 	pickCommitStep,
 	pickRepositoryStep,
@@ -209,7 +211,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 			state.flags = result;
 
-			QuickCommand.endSteps(state);
+			endSteps(state);
 			void this.execute(state as RebaseStepState);
 		}
 
@@ -236,7 +238,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				}),
 			);
 			const selection: StepSelection<typeof step> = yield step;
-			QuickCommand.canPickStepContinue(step, state, selection);
+			canPickStepContinue(step, state, selection);
 			return StepResult.Break;
 		}
 
@@ -260,6 +262,6 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			],
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 }
