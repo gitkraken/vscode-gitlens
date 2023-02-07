@@ -44,9 +44,9 @@ export function mix(color1: string, color2: string, percentage: number) {
 	)}, ${mixChannel(a1, a2, percentage)})`;
 }
 
-const mixChannel = (channel1: number, channel2: number, percentage: number) => {
+function mixChannel(channel1: number, channel2: number, percentage: number) {
 	return channel1 + ((channel2 - channel1) * percentage) / 100;
-};
+}
 
 export function scale(value1: string, value2: string, steps: number): string[] {
 	const colors = [];
