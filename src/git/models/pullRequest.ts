@@ -14,6 +14,20 @@ export const enum PullRequestState {
 	Merged = 'Merged',
 }
 
+export interface PullRequestRef {
+	owner: string;
+	repo: string;
+	branch: string;
+	sha: string;
+	exists: boolean;
+}
+
+export interface PullRequestRefs {
+	base: PullRequestRef;
+	head: PullRequestRef;
+	isCrossRepository: boolean;
+}
+
 export interface PullRequestShape extends IssueOrPullRequest {
 	readonly author: {
 		readonly name: string;
@@ -22,6 +36,13 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	};
 	readonly state: PullRequestState;
 	readonly mergedDate?: Date;
+	readonly refs?: PullRequestRefs;
+	readonly isDraft?: boolean;
+}
+
+export interface SearchedPullRequest {
+	pullRequest: PullRequest;
+	reasons: string[];
 }
 
 export function serializePullRequest(value: PullRequest): PullRequestShape {
@@ -46,6 +67,26 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 		},
 		state: value.state,
 		mergedDate: value.mergedDate,
+		refs: value.refs
+			? {
+					head: {
+						exists: value.refs.head.exists,
+						owner: value.refs.head.owner,
+						repo: value.refs.head.repo,
+						sha: value.refs.head.sha,
+						branch: value.refs.head.branch,
+					},
+					base: {
+						exists: value.refs.base.exists,
+						owner: value.refs.base.owner,
+						repo: value.refs.base.repo,
+						sha: value.refs.base.sha,
+						branch: value.refs.base.branch,
+					},
+					isCrossRepository: value.refs.isCrossRepository,
+			  }
+			: undefined,
+		isDraft: value.isDraft,
 	};
 	return serialized;
 }
@@ -103,6 +144,8 @@ export class PullRequest implements PullRequestShape {
 		public readonly date: Date,
 		public readonly closedDate?: Date,
 		public readonly mergedDate?: Date,
+		public readonly refs?: PullRequestRefs,
+		public readonly isDraft?: boolean,
 	) {}
 
 	get closed(): boolean {

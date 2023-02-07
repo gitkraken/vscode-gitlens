@@ -13,8 +13,8 @@ import { encodeUrl } from '../../system/encoding';
 import { equalsIgnoreCase } from '../../system/string';
 import type { Account } from '../models/author';
 import type { DefaultBranch } from '../models/defaultBranch';
-import type { IssueOrPullRequest } from '../models/issue';
-import type { PullRequest, PullRequestState } from '../models/pullRequest';
+import type { IssueOrPullRequest, SearchedIssue } from '../models/issue';
+import type { PullRequest, PullRequestState, SearchedPullRequest } from '../models/pullRequest';
 import { GitRevision } from '../models/reference';
 import type { Repository } from '../models/repository';
 import { ensurePaidPlan, RichRemoteProvider } from './richRemoteProvider';
@@ -332,6 +332,22 @@ export class GitHubRemote extends RichRemoteProvider {
 		const [owner, repo] = this.splitPath();
 		return (await this.container.github)?.getPullRequestForCommit(this, accessToken, owner, repo, ref, {
 			baseUrl: this.apiBaseUrl,
+		});
+	}
+
+	protected async searchProviderMyPullRequests({
+		accessToken,
+	}: AuthenticationSession): Promise<SearchedPullRequest[] | undefined> {
+		return (await this.container.github)?.searchMyPullRequests(this, accessToken, {
+			repos: [this.path],
+		});
+	}
+
+	protected async searchProviderMyIssues({
+		accessToken,
+	}: AuthenticationSession): Promise<SearchedIssue[] | undefined> {
+		return (await this.container.github)?.searchMyIssues(this, accessToken, {
+			repos: [this.path],
 		});
 	}
 }

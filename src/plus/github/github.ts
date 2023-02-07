@@ -21,8 +21,8 @@ import type { PagedResult } from '../../git/gitProvider';
 import { RepositoryVisibility } from '../../git/gitProvider';
 import type { Account } from '../../git/models/author';
 import type { DefaultBranch } from '../../git/models/defaultBranch';
-import type { IssueOrPullRequest } from '../../git/models/issue';
-import type { PullRequest } from '../../git/models/pullRequest';
+import type { IssueOrPullRequest, SearchedIssue } from '../../git/models/issue';
+import type { PullRequest, SearchedPullRequest } from '../../git/models/pullRequest';
 import { GitRevision } from '../../git/models/reference';
 import type { GitUser } from '../../git/models/user';
 import { getGitHubNoReplyAddressParts } from '../../git/remotes/github';
@@ -34,6 +34,7 @@ import {
 	showIntegrationRequestFailed500WarningMessage,
 	showIntegrationRequestTimedOutWarningMessage,
 } from '../../messages';
+import { uniqueBy } from '../../system/array';
 import { debug } from '../../system/decorators/log';
 import { Stopwatch } from '../../system/stopwatch';
 import { base64 } from '../../system/string';
@@ -46,13 +47,14 @@ import type {
 	GitHubCommit,
 	GitHubCommitRef,
 	GitHubContributor,
+	GitHubDetailedPullRequest,
 	GitHubIssueOrPullRequest,
 	GitHubPagedResult,
 	GitHubPageInfo,
 	GitHubPullRequestState,
 	GitHubTag,
 } from './models';
-import { GitHubPullRequest } from './models';
+import { GitHubDetailedIssue, GitHubPullRequest } from './models';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const emptyBlameResult: GitHubBlame = Object.freeze({ ranges: [] });
@@ -2257,8 +2259,313 @@ export class GitHubApi implements Disposable {
 		// The /u/e endpoint automatically falls back to gravatar if not found
 		return `https://avatars.githubusercontent.com/u/e?email=${encodeURIComponent(email)}&s=${avatarSize}`;
 	}
+
+	@debug<GitHubApi['searchMyPullRequests']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async searchMyPullRequests(
+		provider: RichRemoteProvider,
+		token: string,
+		options?: { search?: string; user?: string; repos?: string[] },
+	): Promise<SearchedPullRequest[]> {
+		const scope = getLogScope();
+
+		interface SearchResult {
+			related: {
+				nodes: GitHubDetailedPullRequest[];
+			};
+			authored: {
+				nodes: GitHubDetailedPullRequest[];
+			};
+			assigned: {
+				nodes: GitHubDetailedPullRequest[];
+			};
+			reviewRequested: {
+				nodes: GitHubDetailedPullRequest[];
+			};
+			mentioned: {
+				nodes: GitHubDetailedPullRequest[];
+			};
+		}
+		try {
+			const query = `query searchPullRequests(
+	$related: String!
+	$authored: String!
+	$assigned: String!
+	$reviewRequested: String!
+	$mentioned: String!
+) {
+	related: search(first: 100, query: $related, type: ISSUE) {
+		nodes {
+			...on PullRequest {
+				${prNodeProperties}
+			}
+		}
+	}
+	authored: search(first: 100, query: $authored, type: ISSUE) {
+		nodes {
+			...on PullRequest {
+				${prNodeProperties}
+			}
+		}
+	}
+	assigned: search(first: 100, query: $assigned, type: ISSUE) {
+		nodes {
+			...on PullRequest {
+				${prNodeProperties}
+			}
+		}
+	}
+	reviewRequested: search(first: 100, query: $reviewRequested, type: ISSUE) {
+		nodes {
+			...on PullRequest {
+				${prNodeProperties}
+			}
+		}
+	}
+	mentioned: search(first: 100, query: $mentioned, type: ISSUE) {
+		nodes {
+			...on PullRequest {
+				${prNodeProperties}
+			}
+		}
+	}
+}`;
+
+			let search = options?.search?.trim() ?? '';
+
+			if (options?.user) {
+				search += ` user:${options.user}`;
+			}
+
+			if (options?.repos != null && options.repos.length > 0) {
+				const repo = '  repo:';
+				search += `${repo}${options.repos.join(repo)}`;
+			}
+
+			const baseFilters = 'is:pr is:open archived:false';
+			const resp = await this.graphql<SearchResult>(
+				undefined,
+				token,
+				query,
+				{
+					related: `${search} ${baseFilters} user:@me`.trim(),
+					authored: `${search} ${baseFilters} author:@me`.trim(),
+					assigned: `${search} ${baseFilters} assignee:@me`.trim(),
+					reviewRequested: `${search} ${baseFilters} review-requested:@me`.trim(),
+					mentioned: `${search} ${baseFilters} mentions:@me`.trim(),
+				},
+				scope,
+			);
+			if (resp === undefined) return [];
+
+			function toQueryResult(pr: GitHubDetailedPullRequest, reason?: string): SearchedPullRequest {
+				return {
+					pullRequest: GitHubPullRequest.fromDetailed(pr, provider),
+					reasons: reason ? [reason] : [],
+				};
+			}
+
+			const results: SearchedPullRequest[] = uniqueWithReasons(
+				[
+					...resp.assigned.nodes.map(pr => toQueryResult(pr, 'assigned')),
+					...resp.reviewRequested.nodes.map(pr => toQueryResult(pr, 'review requested')),
+					...resp.mentioned.nodes.map(pr => toQueryResult(pr, 'mentioned')),
+					...resp.authored.nodes.map(pr => toQueryResult(pr, 'authored')),
+					...resp.related.nodes.map(pr => toQueryResult(pr)),
+				],
+				r => r.pullRequest.url,
+			);
+			return results;
+		} catch (ex) {
+			throw this.handleException(ex, undefined, scope);
+		}
+	}
+
+	@debug<GitHubApi['searchMyIssues']>({ args: { 0: '<token>' } })
+	async searchMyIssues(
+		provider: RichRemoteProvider,
+		token: string,
+		options?: { search?: string; user?: string; repos?: string[] },
+	): Promise<SearchedIssue[] | undefined> {
+		const scope = getLogScope();
+		interface SearchResult {
+			related: {
+				nodes: GitHubDetailedIssue[];
+			};
+			authored: {
+				nodes: GitHubDetailedIssue[];
+			};
+			assigned: {
+				nodes: GitHubDetailedIssue[];
+			};
+			mentioned: {
+				nodes: GitHubDetailedIssue[];
+			};
+		}
+
+		const query = `query searchIssues(
+				$related: String!
+				$authored: String!
+				$assigned: String!
+				$mentioned: String!
+			) {
+				related: search(first: 100, query: $related, type: ISSUE) {
+					nodes {
+						${issueNodeProperties}
+					}
+				}
+				authored: search(first: 100, query: $authored, type: ISSUE) {
+					nodes {
+						${issueNodeProperties}
+					}
+				}
+				assigned: search(first: 100, query: $assigned, type: ISSUE) {
+					nodes {
+						${issueNodeProperties}
+					}
+				}
+				mentioned: search(first: 100, query: $mentioned, type: ISSUE) {
+					nodes {
+						${issueNodeProperties}
+					}
+				}
+			}`;
+
+		let search = options?.search?.trim() ?? '';
+
+		if (options?.user) {
+			search += ` user:${options.user}`;
+		}
+
+		if (options?.repos != null && options.repos.length > 0) {
+			const repo = '  repo:';
+			search += `${repo}${options.repos.join(repo)}`;
+		}
+
+		const baseFilters = 'type:issue is:open archived:false';
+		try {
+			const resp = await this.graphql<SearchResult>(
+				undefined,
+				token,
+				query,
+				{
+					related: `${search} ${baseFilters} user:@me`.trim(),
+					authored: `${search} ${baseFilters} author:@me`.trim(),
+					assigned: `${search} ${baseFilters} assignee:@me`.trim(),
+					mentioned: `${search} ${baseFilters} mentions:@me`.trim(),
+				},
+				scope,
+			);
+
+			function toQueryResult(issue: GitHubDetailedIssue, reason?: string): SearchedIssue {
+				return {
+					issue: GitHubDetailedIssue.from(issue, provider),
+					reasons: reason ? [reason] : [],
+				};
+			}
+
+			if (resp === undefined) return [];
+
+			const results: SearchedIssue[] = uniqueWithReasons(
+				[
+					...resp.assigned.nodes.map(pr => toQueryResult(pr, 'assigned')),
+					...resp.mentioned.nodes.map(pr => toQueryResult(pr, 'mentioned')),
+					...resp.authored.nodes.map(pr => toQueryResult(pr, 'authored')),
+					...resp.related.nodes.map(pr => toQueryResult(pr)),
+				],
+				r => r.issue.url,
+			);
+			return results;
+		} catch (ex) {
+			throw this.handleException(ex, undefined, scope);
+		}
+	}
 }
 
 function isGitHubDotCom(options?: { baseUrl?: string }) {
 	return options?.baseUrl == null || options.baseUrl === 'https://api.github.com';
 }
+
+function uniqueWithReasons<T extends { reasons: string[] }>(items: T[], lookup: (item: T) => unknown): T[] {
+	return uniqueBy(items, lookup, (original, current) => {
+		if (current.reasons.length !== 0) {
+			original.reasons.push(...current.reasons);
+		}
+		return original;
+	});
+}
+
+const prNodeProperties = `
+author {
+  login
+  avatarUrl
+  url
+}
+permalink
+number
+title
+state
+updatedAt
+closedAt
+mergedAt
+repository {
+  isFork
+  owner {
+	login
+  }
+}
+reviewDecision
+mergedBy {
+  login
+}
+baseRefName
+baseRefOid
+baseRepository {
+  name
+  owner {
+	login
+  }
+}
+headRefName
+headRefOid
+headRepository {
+  name
+  owner {
+	login
+  }
+}
+`;
+
+const issueNodeProperties = `
+... on Issue {
+	number
+	title
+	url
+	createdAt
+	closedAt
+	updatedAt
+	author {
+		login
+		avatarUrl
+		url
+	}
+	repository {
+		name
+		owner {
+			login
+		}
+	}
+	assignees(first: 100) {
+		nodes {
+			login
+			url
+			avatarUrl
+		}
+	}
+	labels(first: 20) {
+		nodes {
+			color
+			name
+		}
+	}
+}
+`;

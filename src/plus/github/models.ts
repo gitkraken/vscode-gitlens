@@ -1,6 +1,7 @@
 import type { Endpoints } from '@octokit/types';
 import { GitFileIndexStatus } from '../../git/models/file';
-import type { IssueOrPullRequestType } from '../../git/models/issue';
+import type { IssueLabel, IssueMember, IssueOrPullRequestType } from '../../git/models/issue';
+import { Issue } from '../../git/models/issue';
 import { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
 
@@ -87,6 +88,48 @@ export interface GitHubPullRequest {
 	};
 }
 
+export interface GitHubDetailedIssue extends GitHubIssueOrPullRequest {
+	date: Date;
+	updatedDate: Date;
+	closedDate: Date;
+	author: {
+		login: string;
+		avatarUrl: string;
+		url: string;
+	};
+	assignees: { nodes: IssueMember[] };
+	labels?: { nodes: IssueLabel[] };
+}
+
+export type GitHubPullRequestReviewDecision = 'CHANGES_REQUESTED' | 'APPROVED' | 'REVIEW_REQUIRED';
+export type GitHubPullRequestMergeableState = 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN';
+
+export interface GitHubDetailedPullRequest extends GitHubPullRequest {
+	baseRefName: string;
+	baseRefOid: string;
+	baseRepository: {
+		name: string;
+		owner: {
+			login: string;
+		};
+	};
+	headRefName: string;
+	headRefOid: string;
+	headRepository: {
+		name: string;
+		owner: {
+			login: string;
+		};
+	};
+	reviewDecision: GitHubPullRequestReviewDecision;
+	isReadByViewer: boolean;
+	isDraft: boolean;
+	isCrossRepository: boolean;
+	checksUrl: string;
+	totalCommentsCount: number;
+	mergeable: GitHubPullRequestMergeableState;
+}
+
 export namespace GitHubPullRequest {
 	export function from(pr: GitHubPullRequest, provider: RichRemoteProvider): PullRequest {
 		return new PullRequest(
@@ -116,6 +159,78 @@ export namespace GitHubPullRequest {
 
 	export function toState(state: PullRequestState): GitHubPullRequestState {
 		return state === PullRequestState.Merged ? 'MERGED' : state === PullRequestState.Closed ? 'CLOSED' : 'OPEN';
+	}
+
+	export function fromDetailed(pr: GitHubDetailedPullRequest, provider: RichRemoteProvider): PullRequest {
+		return new PullRequest(
+			provider,
+			{
+				name: pr.author.login,
+				avatarUrl: pr.author.avatarUrl,
+				url: pr.author.url,
+			},
+			String(pr.number),
+			pr.title,
+			pr.permalink,
+			fromState(pr.state),
+			new Date(pr.updatedAt),
+			pr.closedAt == null ? undefined : new Date(pr.closedAt),
+			pr.mergedAt == null ? undefined : new Date(pr.mergedAt),
+			{
+				head: {
+					exists: pr.headRepository != null,
+					owner: pr.headRepository?.owner.login,
+					repo: pr.baseRepository?.name,
+					sha: pr.headRefOid,
+					branch: pr.headRefName,
+				},
+				base: {
+					exists: pr.baseRepository != null,
+					owner: pr.baseRepository?.owner.login,
+					repo: pr.baseRepository?.name,
+					sha: pr.baseRefOid,
+					branch: pr.baseRefName,
+				},
+				isCrossRepository: pr.isCrossRepository,
+			},
+			pr.isDraft,
+		);
+	}
+}
+
+export namespace GitHubDetailedIssue {
+	export function from(value: GitHubDetailedIssue, provider: RichRemoteProvider): Issue {
+		return new Issue(
+			{
+				id: provider.id,
+				name: provider.name,
+				domain: provider.domain,
+				icon: provider.icon,
+			},
+			String(value.number),
+			value.title,
+			value.url,
+			value.date,
+			value.closed,
+			value.updatedDate,
+			{
+				name: value.author.login,
+				avatarUrl: value.author.avatarUrl,
+				url: value.author.url,
+			},
+			value.assignees.nodes.map(assignee => ({
+				name: assignee.name,
+				avatarUrl: assignee.avatarUrl,
+				url: assignee.url,
+			})),
+			value.closedDate,
+			value.labels?.nodes == null
+				? undefined
+				: value.labels.nodes.map(label => ({
+						color: label.color,
+						name: label.name,
+				  })),
+		);
 	}
 }
 

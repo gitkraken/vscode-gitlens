@@ -52,9 +52,10 @@ import type { GitContributor } from './models/contributor';
 import type { GitDiff, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from './models/diff';
 import type { GitFile } from './models/file';
 import type { GitGraph } from './models/graph';
+import type { SearchedIssue } from './models/issue';
 import type { GitLog } from './models/log';
 import type { GitMergeStatus } from './models/merge';
-import type { PullRequest, PullRequestState } from './models/pullRequest';
+import type { PullRequest, PullRequestState, SearchedPullRequest } from './models/pullRequest';
 import type { GitRebaseStatus } from './models/rebase';
 import type { GitBranchReference, GitReference } from './models/reference';
 import { GitRevision } from './models/reference';
@@ -1748,6 +1749,78 @@ export class GitProviderService implements Disposable {
 
 		try {
 			return await promiseOrPR;
+		} catch (ex) {
+			if (ex instanceof PromiseCancelledError) throw ex;
+
+			return undefined;
+		}
+	}
+
+	@debug<GitProviderService['getMyPullRequests']>({ args: { 0: remoteOrProvider => remoteOrProvider.name } })
+	async getMyPullRequests(
+		remoteOrProvider: GitRemote | RichRemoteProvider,
+		options?: { timeout?: number },
+	): Promise<SearchedPullRequest[] | undefined> {
+		let provider;
+		if (GitRemote.is(remoteOrProvider)) {
+			({ provider } = remoteOrProvider);
+			if (!provider?.hasRichIntegration()) return undefined;
+		} else {
+			provider = remoteOrProvider;
+		}
+
+		let timeout;
+		if (options != null) {
+			({ timeout, ...options } = options);
+		}
+
+		let promiseOrPRs = provider.searchMyPullRequests();
+		if (promiseOrPRs == null || !isPromise(promiseOrPRs)) {
+			return promiseOrPRs;
+		}
+
+		if (timeout != null && timeout > 0) {
+			promiseOrPRs = cancellable(promiseOrPRs, timeout);
+		}
+
+		try {
+			return await promiseOrPRs;
+		} catch (ex) {
+			if (ex instanceof PromiseCancelledError) throw ex;
+
+			return undefined;
+		}
+	}
+
+	@debug<GitProviderService['getMyIssues']>({ args: { 0: remoteOrProvider => remoteOrProvider.name } })
+	async getMyIssues(
+		remoteOrProvider: GitRemote | RichRemoteProvider,
+		options?: { timeout?: number },
+	): Promise<SearchedIssue[] | undefined> {
+		let provider;
+		if (GitRemote.is(remoteOrProvider)) {
+			({ provider } = remoteOrProvider);
+			if (!provider?.hasRichIntegration()) return undefined;
+		} else {
+			provider = remoteOrProvider;
+		}
+
+		let timeout;
+		if (options != null) {
+			({ timeout, ...options } = options);
+		}
+
+		let promiseOrPRs = provider.searchMyIssues();
+		if (promiseOrPRs == null || !isPromise(promiseOrPRs)) {
+			return promiseOrPRs;
+		}
+
+		if (timeout != null && timeout > 0) {
+			promiseOrPRs = cancellable(promiseOrPRs, timeout);
+		}
+
+		try {
+			return await promiseOrPRs;
 		} catch (ex) {
 			if (ex instanceof PromiseCancelledError) throw ex;
 
