@@ -1412,9 +1412,15 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getOldestUnpushedRefForFile(repoPath: string | Uri, uri: Uri): Promise<string | undefined> {
+	async getConfig(repoPath: string, key: string): Promise<string | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.getOldestUnpushedRefForFile(path, uri);
+		return provider.getConfig?.(path, key);
+	}
+
+	@log()
+	async setConfig(repoPath: string, key: string, value: string | undefined): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.setConfig?.(path, key, value);
 	}
 
 	@log()

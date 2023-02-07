@@ -2133,6 +2133,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return getCommitsForGraphCore.call(this, defaultLimit, selectSha);
 	}
 
+	getConfig(repoPath: string, key: string): Promise<string | undefined> {
+		return this.git.config__get(key, repoPath);
+	}
+
+	setConfig(repoPath: string, key: string, value: string | undefined): Promise<void> {
+		return this.git.config__set(key, value, repoPath);
+	}
+
 	@log()
 	async getContributors(
 		repoPath: string,

@@ -236,6 +236,8 @@ export interface GitProvider extends Disposable {
 			ref?: string;
 		},
 	): Promise<GitGraph>;
+	getConfig?(repoPath: string, key: string): Promise<string | undefined>;
+	setConfig?(repoPath: string, key: string, value: string | undefined): Promise<void>;
 	getContributors(
 		repoPath: string,
 		options?: { all?: boolean | undefined; ref?: string | undefined; stats?: boolean | undefined },

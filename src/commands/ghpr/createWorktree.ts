@@ -15,6 +15,12 @@ interface PullRequestNode {
 }
 
 interface PullRequest {
+	readonly base: {
+		readonly repositoryCloneUrl: {
+			readonly owner: string;
+			readonly repositoryName: string;
+		};
+	};
 	readonly githubRepository: {
 		readonly rootUri: Uri;
 	};
@@ -48,26 +54,26 @@ export class CreateWorktreeCommand extends Command {
 		}
 
 		const {
+			base: {
+				repositoryCloneUrl: { owner: rootOwner, repositoryName: rootRepository },
+			},
 			githubRepository: { rootUri },
 			head: {
 				repositoryCloneUrl: { url: remoteUri, owner: remoteOwner },
 				ref,
 			},
+			item: { number },
 		} = pr;
 
 		let repo = this.container.git.getRepository(rootUri);
 		if (repo == null) {
-			void window.showWarningMessage(
-				`Unable to find repository(${rootUri.toString()}) for PR #${pr.item.number}`,
-			);
+			void window.showWarningMessage(`Unable to find repository(${rootUri.toString()}) for PR #${number}`);
 			return;
 		}
 
 		repo = await repo.getMainRepository();
 		if (repo == null) {
-			void window.showWarningMessage(
-				`Unable to find main repository(${rootUri.toString()}) for PR #${pr.item.number}`,
-			);
+			void window.showWarningMessage(`Unable to find main repository(${rootUri.toString()}) for PR #${number}`);
 			return;
 		}
 
@@ -103,6 +109,17 @@ export class CreateWorktreeCommand extends Command {
 					remote: true,
 				}),
 			);
+
+			// Save the PR number in the branch config
+			const cfg = await this.container.git.getConfig(repo.path, `branch.${ref}.remote`);
+			if (cfg != null) {
+				// https://github.com/Microsoft/vscode-pull-request-github/blob/0c556c48c69a3df2f9cf9a45ed2c40909791b8ab/src/github/pullRequestGitHelper.ts#L18
+				void this.container.git.setConfig(
+					repo.path,
+					`branch.${ref}.github-pr-owner-number`,
+					`${rootOwner}#${rootRepository}#${number}`,
+				);
+			}
 		} catch (ex) {
 			Logger.error(ex, 'CreateWorktreeCommand', 'Unable to create worktree');
 			void window.showErrorMessage(`Unable to create worktree for ${ref}`);
