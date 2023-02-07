@@ -3,7 +3,8 @@ import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import { GitReference, GitRevision } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
-import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	PartialStepState,
@@ -213,20 +214,20 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = QuickCommand.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
-				FlagsQuickPickItem.create<Flags>(state.flags, [], {
+				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
 					detail: `Will apply ${GitReference.toString(state.references)} to ${GitReference.toString(
 						context.destination,
 					)}`,
 				}),
-				FlagsQuickPickItem.create<Flags>(state.flags, ['--edit'], {
+				createFlagsQuickPickItem<Flags>(state.flags, ['--edit'], {
 					label: `${this.title} & Edit`,
 					description: '--edit',
 					detail: `Will edit and apply ${GitReference.toString(state.references)} to ${GitReference.toString(
 						context.destination,
 					)}`,
 				}),
-				FlagsQuickPickItem.create<Flags>(state.flags, ['--no-commit'], {
+				createFlagsQuickPickItem<Flags>(state.flags, ['--no-commit'], {
 					label: `${this.title} without Committing`,
 					description: '--no-commit',
 					detail: `Will apply ${GitReference.toString(state.references)} to ${GitReference.toString(

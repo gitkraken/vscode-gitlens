@@ -4,7 +4,8 @@ import type { GitLog } from '../../git/models/log';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
-import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	PartialStepState,
@@ -163,20 +164,20 @@ export class ResetGitCommand extends QuickCommand<State> {
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
-				FlagsQuickPickItem.create<Flags>(state.flags, [], {
+				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
 					detail: `Will reset (leaves changes in the working tree) ${GitReference.toString(
 						context.destination,
 					)} to ${GitReference.toString(state.reference)}`,
 				}),
-				FlagsQuickPickItem.create<Flags>(state.flags, ['--soft'], {
+				createFlagsQuickPickItem<Flags>(state.flags, ['--soft'], {
 					label: `Soft ${this.title}`,
 					description: '--soft',
 					detail: `Will soft reset (leaves changes in the index and working tree) ${GitReference.toString(
 						context.destination,
 					)} to ${GitReference.toString(state.reference)}`,
 				}),
-				FlagsQuickPickItem.create<Flags>(state.flags, ['--hard'], {
+				createFlagsQuickPickItem<Flags>(state.flags, ['--hard'], {
 					label: `Hard ${this.title}`,
 					description: '--hard',
 					detail: `Will hard reset (discards all changes) ${GitReference.toString(

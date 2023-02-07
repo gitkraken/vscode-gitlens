@@ -4,7 +4,8 @@ import type { GitBranchReference } from '../../git/models/reference';
 import { GitReference } from '../../git/models/reference';
 import { Repository } from '../../git/models/repository';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
@@ -343,13 +344,13 @@ export class BranchGitCommand extends QuickCommand<State> {
 		const step: QuickPickStep<FlagsQuickPickItem<CreateFlags>> = QuickCommand.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
-				FlagsQuickPickItem.create<CreateFlags>(state.flags, [], {
+				createFlagsQuickPickItem<CreateFlags>(state.flags, [], {
 					label: context.title,
 					detail: `Will create a new branch named ${state.name} from ${GitReference.toString(
 						state.reference,
 					)}`,
 				}),
-				FlagsQuickPickItem.create<CreateFlags>(state.flags, ['--switch'], {
+				createFlagsQuickPickItem<CreateFlags>(state.flags, ['--switch'], {
 					label: `${context.title} and Switch`,
 					description: '--switch',
 					detail: `Will create and switch to a new branch named ${state.name} from ${GitReference.toString(
@@ -416,14 +417,14 @@ export class BranchGitCommand extends QuickCommand<State> {
 		context: Context,
 	): StepResultGenerator<DeleteFlags[]> {
 		const confirmations: FlagsQuickPickItem<DeleteFlags>[] = [
-			FlagsQuickPickItem.create<DeleteFlags>(state.flags, [], {
+			createFlagsQuickPickItem<DeleteFlags>(state.flags, [], {
 				label: context.title,
 				detail: `Will delete ${GitReference.toString(state.references)}`,
 			}),
 		];
 		if (!state.references.every(b => b.remote)) {
 			confirmations.push(
-				FlagsQuickPickItem.create<DeleteFlags>(state.flags, ['--force'], {
+				createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--force'], {
 					label: `Force ${context.title}`,
 					description: '--force',
 					detail: `Will forcibly delete ${GitReference.toString(state.references)}`,
@@ -432,7 +433,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 
 			if (state.references.some(b => b.upstream != null)) {
 				confirmations.push(
-					FlagsQuickPickItem.create<DeleteFlags>(state.flags, ['--remotes'], {
+					createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--remotes'], {
 						label: `${context.title} & Remote${
 							state.references.filter(b => !b.remote).length > 1 ? 's' : ''
 						}`,
@@ -441,7 +442,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 							state.references,
 						)} and any remote tracking branches`,
 					}),
-					FlagsQuickPickItem.create<DeleteFlags>(state.flags, ['--force', '--remotes'], {
+					createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--force', '--remotes'], {
 						label: `Force ${context.title} & Remote${
 							state.references.filter(b => !b.remote).length > 1 ? 's' : ''
 						}`,
@@ -511,7 +512,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 		const step: QuickPickStep<FlagsQuickPickItem<RenameFlags>> = QuickCommand.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
-				FlagsQuickPickItem.create<RenameFlags>(state.flags, ['-m'], {
+				createFlagsQuickPickItem<RenameFlags>(state.flags, ['-m'], {
 					label: context.title,
 					detail: `Will rename ${GitReference.toString(state.reference)} to ${state.name}`,
 				}),

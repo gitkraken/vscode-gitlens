@@ -6,7 +6,8 @@ import type { GitBranchReference } from '../../git/models/reference';
 import { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { Directive, DirectiveQuickPickItem } from '../../quickpicks/items/directive';
-import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { isStringArray } from '../../system/array';
 import { fromNow } from '../../system/date';
 import { pad, pluralize } from '../../system/string';
@@ -163,11 +164,11 @@ export class PushGitCommand extends QuickCommand<State> {
 
 		if (state.repos.length > 1) {
 			step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
-				FlagsQuickPickItem.create<Flags>(state.flags, [], {
+				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
 					detail: `Will push ${state.repos.length} repositories`,
 				}),
-				FlagsQuickPickItem.create<Flags>(state.flags, ['--force'], {
+				createFlagsQuickPickItem<Flags>(state.flags, ['--force'], {
 					label: `Force ${this.title}${useForceWithLease ? ' (with lease)' : ''}`,
 					description: `--force${useForceWithLease ? '-with-lease' : ''}`,
 					detail: `Will force push${useForceWithLease ? ' (with lease)' : ''} ${
@@ -196,7 +197,7 @@ export class PushGitCommand extends QuickCommand<State> {
 					if (branch != null && branch?.upstream == null) {
 						for (const remote of await repo.getRemotes()) {
 							items.push(
-								FlagsQuickPickItem.create<Flags>(
+								createFlagsQuickPickItem<Flags>(
 									state.flags,
 									['--set-upstream', remote.name, branch.name],
 									{
@@ -229,7 +230,7 @@ export class PushGitCommand extends QuickCommand<State> {
 						step = this.createConfirmStep(
 							appendReposToTitle(`Confirm ${context.title}`, state, context),
 							[
-								FlagsQuickPickItem.create<Flags>(state.flags, ['--force'], {
+								createFlagsQuickPickItem<Flags>(state.flags, ['--force'], {
 									label: `Force ${this.title}${useForceWithLease ? ' (with lease)' : ''}`,
 									description: `--force${useForceWithLease ? '-with-lease' : ''}`,
 									detail: `Will force push${useForceWithLease ? ' (with lease)' : ''} ${
@@ -252,7 +253,7 @@ export class PushGitCommand extends QuickCommand<State> {
 						);
 					} else if (branch != null && branch?.state.ahead > 0) {
 						step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
-							FlagsQuickPickItem.create<Flags>(state.flags, [branch.getRemoteName()!], {
+							createFlagsQuickPickItem<Flags>(state.flags, [branch.getRemoteName()!], {
 								label: this.title,
 								detail: `Will push ${pluralize(
 									'commit',
@@ -288,7 +289,7 @@ export class PushGitCommand extends QuickCommand<State> {
 
 						for (const remote of await repo.getRemotes()) {
 							items.push(
-								FlagsQuickPickItem.create<Flags>(
+								createFlagsQuickPickItem<Flags>(
 									state.flags,
 									['--set-upstream', remote.name, status.branch],
 									{
@@ -358,12 +359,12 @@ export class PushGitCommand extends QuickCommand<State> {
 							...(status?.state.behind
 								? []
 								: [
-										FlagsQuickPickItem.create<Flags>(state.flags, [], {
+										createFlagsQuickPickItem<Flags>(state.flags, [], {
 											label: this.title,
 											detail: `Will push${pushDetails}`,
 										}),
 								  ]),
-							FlagsQuickPickItem.create<Flags>(state.flags, ['--force'], {
+							createFlagsQuickPickItem<Flags>(state.flags, ['--force'], {
 								label: `Force ${this.title}${useForceWithLease ? ' (with lease)' : ''}`,
 								description: `--force${useForceWithLease ? '-with-lease' : ''}`,
 								detail: `Will force push${useForceWithLease ? ' (with lease)' : ''} ${pushDetails}${

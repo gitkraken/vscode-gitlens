@@ -3,7 +3,8 @@ import type { Container } from '../../container';
 import type { GitBranchReference } from '../../git/models/reference';
 import { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
-import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { isStringArray } from '../../system/array';
 import { fromNow } from '../../system/date';
 import { pad } from '../../system/string';
@@ -143,7 +144,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 			step = this.createConfirmStep(
 				appendReposToTitle(`Confirm ${context.title}`, state, context, lastFetchedOn),
 				[
-					FlagsQuickPickItem.create<Flags>(state.flags, [], {
+					createFlagsQuickPickItem<Flags>(state.flags, [], {
 						label: this.title,
 						detail: `Will fetch ${GitReference.toString(state.reference)}`,
 					}),
@@ -158,21 +159,21 @@ export class FetchGitCommand extends QuickCommand<State> {
 			step = QuickCommand.createConfirmStep(
 				appendReposToTitle(`Confirm ${this.title}`, state, context, lastFetchedOn),
 				[
-					FlagsQuickPickItem.create<Flags>(state.flags, [], {
+					createFlagsQuickPickItem<Flags>(state.flags, [], {
 						label: this.title,
 						detail: `Will fetch ${reposToFetch}`,
 					}),
-					FlagsQuickPickItem.create<Flags>(state.flags, ['--prune'], {
+					createFlagsQuickPickItem<Flags>(state.flags, ['--prune'], {
 						label: `${this.title} & Prune`,
 						description: '--prune',
 						detail: `Will fetch and prune ${reposToFetch}`,
 					}),
-					FlagsQuickPickItem.create<Flags>(state.flags, ['--all'], {
+					createFlagsQuickPickItem<Flags>(state.flags, ['--all'], {
 						label: `${this.title} All`,
 						description: '--all',
 						detail: `Will fetch all remotes of ${reposToFetch}`,
 					}),
-					FlagsQuickPickItem.create<Flags>(state.flags, ['--all', '--prune'], {
+					createFlagsQuickPickItem<Flags>(state.flags, ['--all', '--prune'], {
 						label: `${this.title} All & Prune`,
 						description: '--all --prune',
 						detail: `Will fetch and prune all remotes of ${reposToFetch}`,

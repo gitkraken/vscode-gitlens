@@ -18,7 +18,8 @@ import { showGenericErrorMessage } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { QuickPickSeparator } from '../../quickpicks/items/common';
 import { Directive } from '../../quickpicks/items/directive';
-import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { basename, isDescendent } from '../../system/path';
 import { pluralize, truncateLeft } from '../../system/string';
 import { OpenWorkspaceLocation } from '../../system/utils';
@@ -596,7 +597,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				context,
 			),
 			[
-				FlagsQuickPickItem.create<CreateFlags, Uri>(
+				createFlagsQuickPickItem<CreateFlags, Uri>(
 					state.flags,
 					[],
 					{
@@ -606,7 +607,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					},
 					recommendedRootUri,
 				),
-				FlagsQuickPickItem.create<CreateFlags, Uri>(
+				createFlagsQuickPickItem<CreateFlags, Uri>(
 					state.flags,
 					['-b'],
 					{
@@ -621,7 +622,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				...(canCreateDirectlyInPicked
 					? [
 							QuickPickSeparator.create(),
-							FlagsQuickPickItem.create<CreateFlags, Uri>(
+							createFlagsQuickPickItem<CreateFlags, Uri>(
 								state.flags,
 								['--direct'],
 								{
@@ -631,7 +632,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 								},
 								pickedUri,
 							),
-							FlagsQuickPickItem.create<CreateFlags, Uri>(
+							createFlagsQuickPickItem<CreateFlags, Uri>(
 								state.flags,
 								['-b', '--direct'],
 								{
@@ -745,13 +746,13 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		const step: QuickPickStep<FlagsQuickPickItem<DeleteFlags>> = QuickCommand.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
-				FlagsQuickPickItem.create<DeleteFlags>(state.flags, [], {
+				createFlagsQuickPickItem<DeleteFlags>(state.flags, [], {
 					label: context.title,
 					detail: `Will delete ${pluralize('worktree', state.uris.length, {
 						only: state.uris.length === 1,
 					})}${state.uris.length === 1 ? ` in $(folder) ${GitWorktree.getFriendlyPath(state.uris[0])}` : ''}`,
 				}),
-				FlagsQuickPickItem.create<DeleteFlags>(state.flags, ['--force'], {
+				createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--force'], {
 					label: `Force ${context.title}`,
 					description: 'including ANY UNCOMMITTED changes',
 					detail: `Will forcibly delete ${pluralize('worktree', state.uris.length, {
@@ -816,19 +817,19 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		const step: QuickPickStep<FlagsQuickPickItem<OpenFlags>> = QuickCommand.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
-				FlagsQuickPickItem.create<OpenFlags>(state.flags, [], {
+				createFlagsQuickPickItem<OpenFlags>(state.flags, [], {
 					label: context.title,
 					detail: `Will open, in the current window, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
 						state.uri,
 					)}`,
 				}),
-				FlagsQuickPickItem.create<OpenFlags>(state.flags, ['--new-window'], {
+				createFlagsQuickPickItem<OpenFlags>(state.flags, ['--new-window'], {
 					label: `${context.title} in a New Window`,
 					detail: `Will open, in a new window, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
 						state.uri,
 					)}`,
 				}),
-				FlagsQuickPickItem.create<OpenFlags>(state.flags, ['--reveal-explorer'], {
+				createFlagsQuickPickItem<OpenFlags>(state.flags, ['--reveal-explorer'], {
 					label: `Reveal in File Explorer`,
 					detail: `Will open, in the File Explorer, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
 						state.uri,

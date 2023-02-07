@@ -4,7 +4,8 @@ import type { GitLog } from '../../git/models/log';
 import { GitReference, GitRevision } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { Directive, DirectiveQuickPickItem } from '../../quickpicks/items/directive';
-import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
@@ -229,27 +230,27 @@ export class MergeGitCommand extends QuickCommand<State> {
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
-				FlagsQuickPickItem.create<Flags>(state.flags, [], {
+				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
 					detail: `Will merge ${pluralize('commit', count)} from ${GitReference.toString(
 						state.reference,
 					)} into ${GitReference.toString(context.destination)}`,
 				}),
-				FlagsQuickPickItem.create<Flags>(state.flags, ['--ff-only'], {
+				createFlagsQuickPickItem<Flags>(state.flags, ['--ff-only'], {
 					label: `Fast-forward ${this.title}`,
 					description: '--ff-only',
 					detail: `Will fast-forward merge ${pluralize('commit', count)} from ${GitReference.toString(
 						state.reference,
 					)} into ${GitReference.toString(context.destination)}`,
 				}),
-				FlagsQuickPickItem.create<Flags>(state.flags, ['--squash'], {
+				createFlagsQuickPickItem<Flags>(state.flags, ['--squash'], {
 					label: `Squash ${this.title}`,
 					description: '--squash',
 					detail: `Will squash ${pluralize('commit', count)} from ${GitReference.toString(
 						state.reference,
 					)} into one when merging into ${GitReference.toString(context.destination)}`,
 				}),
-				FlagsQuickPickItem.create<Flags>(state.flags, ['--no-ff'], {
+				createFlagsQuickPickItem<Flags>(state.flags, ['--no-ff'], {
 					label: `${this.title} without Fast-Forwarding`,
 					description: '--no-ff',
 					detail: `Will create a merge commit when merging ${pluralize(
@@ -259,7 +260,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 						context.destination,
 					)}`,
 				}),
-				FlagsQuickPickItem.create<Flags>(state.flags, ['--no-ff', '--no-commit'], {
+				createFlagsQuickPickItem<Flags>(state.flags, ['--no-ff', '--no-commit'], {
 					label: `${this.title} without Fast-Forwarding or Committing`,
 					description: '--no-ff --no-commit',
 					detail: `Will merge ${pluralize('commit', count)} from ${GitReference.toString(

@@ -12,7 +12,8 @@ import type { Repository } from '../../git/models/repository';
 import { Logger } from '../../logger';
 import { showGenericErrorMessage } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { formatPath } from '../../system/formatPath';
 import { pad } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
@@ -570,23 +571,23 @@ export class StashGitCommand extends QuickCommand<State> {
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			state.uris == null || state.uris.length === 0
 				? [
-						FlagsQuickPickItem.create<PushFlags>(state.flags, [], {
+						createFlagsQuickPickItem<PushFlags>(state.flags, [], {
 							label: context.title,
 							detail: 'Will stash uncommitted changes',
 						}),
-						FlagsQuickPickItem.create<PushFlags>(state.flags, ['--include-untracked'], {
+						createFlagsQuickPickItem<PushFlags>(state.flags, ['--include-untracked'], {
 							label: `${context.title} & Include Untracked`,
 							description: '--include-untracked',
 							detail: 'Will stash uncommitted changes, including untracked files',
 						}),
-						FlagsQuickPickItem.create<PushFlags>(state.flags, ['--keep-index'], {
+						createFlagsQuickPickItem<PushFlags>(state.flags, ['--keep-index'], {
 							label: `${context.title} & Keep Staged`,
 							description: '--keep-index',
 							detail: 'Will stash uncommitted changes, but will keep staged files intact',
 						}),
 				  ]
 				: [
-						FlagsQuickPickItem.create<PushFlags>(state.flags, [], {
+						createFlagsQuickPickItem<PushFlags>(state.flags, [], {
 							label: context.title,
 							detail: `Will stash changes from ${
 								state.uris.length === 1
@@ -594,7 +595,7 @@ export class StashGitCommand extends QuickCommand<State> {
 									: `${state.uris.length} files`
 							}`,
 						}),
-						FlagsQuickPickItem.create<PushFlags>(state.flags, ['--keep-index'], {
+						createFlagsQuickPickItem<PushFlags>(state.flags, ['--keep-index'], {
 							label: `${context.title} & Keep Staged`,
 							detail: `Will stash changes from ${
 								state.uris.length === 1
