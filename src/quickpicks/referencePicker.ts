@@ -1,9 +1,11 @@
 import type { Disposable, QuickPick } from 'vscode';
 import { CancellationTokenSource, window } from 'vscode';
-import { GitActions } from '../commands/gitCommands.actions';
 import { getBranchesAndOrTags, getValidateGitReferenceFn, QuickCommandButtons } from '../commands/quickCommand';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
+import { reveal as revealBranch } from '../git/actions/branch';
+import { showDetailsView } from '../git/actions/commit';
+import { reveal as revealTag } from '../git/actions/tag';
 import type { BranchSortOptions, GitBranch } from '../git/models/branch';
 import { GitReference } from '../git/models/reference';
 import type { GitTag, TagSortOptions } from '../git/models/tag';
@@ -133,11 +135,11 @@ export namespace ReferencePicker {
 					quickpick.onDidTriggerItemButton(({ button, item: { item } }) => {
 						if (button === QuickCommandButtons.RevealInSideBar) {
 							if (GitReference.isBranch(item)) {
-								void GitActions.Branch.reveal(item, { select: true, expand: true });
+								void revealBranch(item, { select: true, expand: true });
 							} else if (GitReference.isTag(item)) {
-								void GitActions.Tag.reveal(item, { select: true, expand: true });
+								void revealTag(item, { select: true, expand: true });
 							} else if (GitReference.isRevision(item)) {
-								void GitActions.Commit.showDetailsView(item, {
+								void showDetailsView(item, {
 									pin: false,
 									preserveFocus: true,
 								});

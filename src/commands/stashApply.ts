@@ -1,12 +1,12 @@
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { apply, pop } from '../git/actions/stash';
 import type { GitStashCommit } from '../git/models/commit';
 import type { GitStashReference } from '../git/models/reference';
 import type { CommandQuickPickItem } from '../quickpicks/items/common';
 import { command } from '../system/command';
 import type { CommandContext } from './base';
 import { Command, isCommandContextViewNodeHasCommit, isCommandContextViewNodeHasRepository } from './base';
-import { GitActions } from './gitCommands.actions';
 
 export interface StashApplyCommandArgs {
 	deleteAfter?: boolean;
@@ -37,9 +37,9 @@ export class StashApplyCommand extends Command {
 
 	async execute(args?: StashApplyCommandArgs) {
 		if (args?.deleteAfter) {
-			return GitActions.Stash.pop(args?.repoPath ?? args?.stashItem?.repoPath, args?.stashItem);
+			return pop(args?.repoPath ?? args?.stashItem?.repoPath, args?.stashItem);
 		}
 
-		return GitActions.Stash.apply(args?.repoPath ?? args?.stashItem?.repoPath, args?.stashItem);
+		return apply(args?.repoPath ?? args?.stashItem?.repoPath, args?.stashItem);
 	}
 }

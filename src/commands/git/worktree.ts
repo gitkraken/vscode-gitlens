@@ -4,6 +4,7 @@ import type { Config } from '../../configuration';
 import { configuration } from '../../configuration';
 import type { Container } from '../../container';
 import { PlusFeatures } from '../../features';
+import { open, reveal, revealInFileExplorer } from '../../git/actions/worktree';
 import {
 	WorktreeCreateError,
 	WorktreeCreateErrorReason,
@@ -22,7 +23,6 @@ import { basename, isDescendent } from '../../system/path';
 import { pluralize, truncateLeft } from '../../system/string';
 import { OpenWorkspaceLocation } from '../../system/utils';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { GitActions } from '../gitCommands.actions';
 import type {
 	AsyncStepResultGenerator,
 	CustomStep,
@@ -386,7 +386,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				});
 
 				if (state.reveal !== false) {
-					void GitActions.Worktree.reveal(undefined, {
+					void reveal(undefined, {
 						select: true,
 						focus: true,
 					});
@@ -426,13 +426,17 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 					switch (action) {
 						case 'always':
-							GitActions.Worktree.open(worktree, { location: OpenWorkspaceLocation.CurrentWindow });
+							open(worktree, {
+								location: OpenWorkspaceLocation.CurrentWindow,
+							});
 							break;
 						case 'alwaysNewWindow':
-							GitActions.Worktree.open(worktree, { location: OpenWorkspaceLocation.NewWindow });
+							open(worktree, { location: OpenWorkspaceLocation.NewWindow });
 							break;
 						case 'addToWorkspace':
-							GitActions.Worktree.open(worktree, { location: OpenWorkspaceLocation.AddToWorkspace });
+							open(worktree, {
+								location: OpenWorkspaceLocation.AddToWorkspace,
+							});
 							break;
 					}
 				});
@@ -797,9 +801,9 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 			const worktree = context.worktrees.find(wt => wt.uri.toString() === state.uri.toString())!;
 			if (state.flags.includes('--reveal-explorer')) {
-				void GitActions.Worktree.revealInFileExplorer(worktree);
+				void revealInFileExplorer(worktree);
 			} else {
-				GitActions.Worktree.open(worktree, {
+				open(worktree, {
 					location: state.flags.includes('--new-window')
 						? OpenWorkspaceLocation.NewWindow
 						: OpenWorkspaceLocation.CurrentWindow,

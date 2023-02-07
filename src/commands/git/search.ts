@@ -2,6 +2,7 @@ import { configuration } from '../../configuration';
 import { ContextKeys, GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { getContext } from '../../context';
+import { showDetailsView } from '../../git/actions/commit';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitLog } from '../../git/models/log';
 import type { Repository } from '../../git/models/repository';
@@ -12,7 +13,6 @@ import { ActionQuickPickItem } from '../../quickpicks/items/common';
 import { pluralize } from '../../system/string';
 import { SearchResultsNode } from '../../views/nodes/searchResultsNode';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { GitActions } from '../gitCommands.actions';
 import { getSteps } from '../gitCommands.utils';
 import type { PartialStepState, StepGenerator, StepResultGenerator, StepSelection, StepState } from '../quickCommand';
 import {
@@ -245,7 +245,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 
 			let result: StepResult<ReturnType<typeof getSteps>>;
 			if (state.openPickInView) {
-				void GitActions.Commit.showDetailsView(context.commit, {
+				void showDetailsView(context.commit, {
 					pin: false,
 					preserveFocus: false,
 				});

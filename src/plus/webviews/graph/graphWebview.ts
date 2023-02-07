@@ -27,13 +27,18 @@ import type {
 	ShowCommitsInViewCommandArgs,
 } from '../../../commands';
 import { parseCommandContext } from '../../../commands/base';
-import { GitActions } from '../../../commands/gitCommands.actions';
 import type { Config } from '../../../configuration';
 import { configuration } from '../../../configuration';
 import { Commands, ContextKeys, CoreCommands, CoreGitCommands, GlyphChars } from '../../../constants';
 import type { Container } from '../../../container';
 import { getContext, onDidChangeContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
+import * as BranchActions from '../../../git/actions/branch';
+import * as ContributorActions from '../../../git/actions/contributor';
+import * as RepoActions from '../../../git/actions/repository';
+import * as StashActions from '../../../git/actions/stash';
+import * as TagActions from '../../../git/actions/tag';
+import * as WorktreeActions from '../../../git/actions/worktree';
 import { GitSearchError } from '../../../git/errors';
 import { getBranchId, getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../../../git/models/branch';
 import { GitContributor } from '../../../git/models/contributor';
@@ -698,11 +703,11 @@ export class GraphWebview extends WebviewBase<State> {
 			if (isGraphItemRefContext(item)) {
 				const { ref } = item.webviewItemValue;
 				if (e.ref.refType === 'head' && e.ref.isCurrentHead) {
-					return GitActions.switchTo(ref.repoPath);
+					return RepoActions.switchTo(ref.repoPath);
 				}
 
 				// Override the default confirmation if the setting is unset
-				return GitActions.switchTo(
+				return RepoActions.switchTo(
 					ref.repoPath,
 					ref,
 					configuration.isUnset('gitCommands.skipConfirmations') ? true : undefined,
@@ -1926,17 +1931,17 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private fetch() {
-		void GitActions.fetch(this.repository);
+		void RepoActions.fetch(this.repository);
 	}
 
 	@debug()
 	private pull() {
-		void GitActions.pull(this.repository);
+		void RepoActions.pull(this.repository);
 	}
 
 	@debug()
 	private push() {
-		void GitActions.push(this.repository);
+		void RepoActions.push(this.repository);
 	}
 
 	@debug()
@@ -1944,14 +1949,14 @@ export class GraphWebview extends WebviewBase<State> {
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		return GitActions.Branch.create(ref.repoPath, ref);
+		return BranchActions.create(ref.repoPath, ref);
 	}
 
 	@debug()
 	private deleteBranch(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
-			return GitActions.Branch.remove(ref.repoPath, ref);
+			return BranchActions.remove(ref.repoPath, ref);
 		}
 
 		return Promise.resolve();
@@ -1961,7 +1966,7 @@ export class GraphWebview extends WebviewBase<State> {
 	private mergeBranchInto(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
-			return GitActions.merge(ref.repoPath, ref);
+			return RepoActions.merge(ref.repoPath, ref);
 		}
 
 		return Promise.resolve();
@@ -1986,7 +1991,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		return GitActions.rebase(ref.repoPath, ref);
+		return RepoActions.rebase(ref.repoPath, ref);
 	}
 
 	@debug()
@@ -1994,7 +1999,7 @@ export class GraphWebview extends WebviewBase<State> {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 			if (ref.upstream != null) {
-				return GitActions.rebase(
+				return RepoActions.rebase(
 					ref.repoPath,
 					GitReference.create(ref.upstream.name, ref.repoPath, {
 						refType: 'branch',
@@ -2012,7 +2017,7 @@ export class GraphWebview extends WebviewBase<State> {
 	private renameBranch(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
-			return GitActions.Branch.rename(ref.repoPath, ref);
+			return BranchActions.rename(ref.repoPath, ref);
 		}
 
 		return Promise.resolve();
@@ -2023,7 +2028,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
 
-		return GitActions.cherryPick(ref.repoPath, ref);
+		return RepoActions.cherryPick(ref.repoPath, ref);
 	}
 
 	@debug()
@@ -2106,7 +2111,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
 
-		return GitActions.reset(
+		return RepoActions.reset(
 			ref.repoPath,
 			GitReference.create(`${ref.ref}^`, ref.repoPath, {
 				refType: 'revision',
@@ -2121,7 +2126,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
 
-		return GitActions.reset(ref.repoPath, ref);
+		return RepoActions.reset(ref.repoPath, ref);
 	}
 
 	@debug()
@@ -2129,7 +2134,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
 
-		return GitActions.revert(ref.repoPath, ref);
+		return RepoActions.revert(ref.repoPath, ref);
 	}
 
 	@debug()
@@ -2137,7 +2142,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		return GitActions.switchTo(ref.repoPath, ref);
+		return RepoActions.switchTo(ref.repoPath, ref);
 	}
 
 	@debug()
@@ -2174,9 +2179,9 @@ export class GraphWebview extends WebviewBase<State> {
 	@debug()
 	private switchToAnother(item?: GraphItemContext | unknown) {
 		const ref = this.getGraphItemRef(item);
-		if (ref == null) return GitActions.switchTo(this.repository?.path);
+		if (ref == null) return RepoActions.switchTo(this.repository?.path);
 
-		return GitActions.switchTo(ref.repoPath);
+		return RepoActions.switchTo(ref.repoPath);
 	}
 
 	@debug()
@@ -2206,7 +2211,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		return GitActions.Stash.push(ref.repoPath);
+		return StashActions.push(ref.repoPath);
 	}
 
 	@debug()
@@ -2214,7 +2219,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const ref = this.getGraphItemRef(item, 'stash');
 		if (ref == null) return Promise.resolve();
 
-		return GitActions.Stash.apply(ref.repoPath, ref);
+		return StashActions.apply(ref.repoPath, ref);
 	}
 
 	@debug()
@@ -2222,7 +2227,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const ref = this.getGraphItemRef(item, 'stash');
 		if (ref == null) return Promise.resolve();
 
-		return GitActions.Stash.drop(ref.repoPath, ref);
+		return StashActions.drop(ref.repoPath, ref);
 	}
 
 	@debug()
@@ -2230,14 +2235,14 @@ export class GraphWebview extends WebviewBase<State> {
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		return GitActions.Tag.create(ref.repoPath, ref);
+		return TagActions.create(ref.repoPath, ref);
 	}
 
 	@debug()
 	private deleteTag(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'tag')) {
 			const { ref } = item.webviewItemValue;
-			return GitActions.Tag.remove(ref.repoPath, ref);
+			return TagActions.remove(ref.repoPath, ref);
 		}
 
 		return Promise.resolve();
@@ -2248,7 +2253,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const ref = this.getGraphItemRef(item);
 		if (ref == null) return Promise.resolve();
 
-		return GitActions.Worktree.create(ref.repoPath, undefined, ref);
+		return WorktreeActions.create(ref.repoPath, undefined, ref);
 	}
 
 	@debug()
@@ -2355,7 +2360,7 @@ export class GraphWebview extends WebviewBase<State> {
 	private addAuthor(item?: GraphItemContext) {
 		if (isGraphItemTypedContext(item, 'contributor')) {
 			const { repoPath, name, email, current } = item.webviewItemValue;
-			return GitActions.Contributor.addAuthors(
+			return ContributorActions.addAuthors(
 				repoPath,
 				new GitContributor(repoPath, name, email, 0, undefined, current),
 			);

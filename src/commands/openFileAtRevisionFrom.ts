@@ -2,6 +2,7 @@ import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import type { FileAnnotationType } from '../configuration';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
+import { openFileAtRevision } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
 import type { GitReference } from '../git/models/reference';
 import { showNoRepositoryWarningMessage } from '../messages';
@@ -10,7 +11,6 @@ import { ReferencePicker } from '../quickpicks/referencePicker';
 import { command } from '../system/command';
 import { pad } from '../system/string';
 import { ActiveEditorCommand, getCommandUri } from './base';
-import { GitActions } from './gitCommands.actions';
 
 export interface OpenFileAtRevisionFromCommandArgs {
 	reference?: GitReference;
@@ -69,7 +69,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 						onDidPressKey: async (key, quickpick) => {
 							const [item] = quickpick.activeItems;
 							if (item != null) {
-								await GitActions.Commit.openFileAtRevision(
+								await openFileAtRevision(
 									this.container.git.getRevisionUri(item.ref, gitUri.fsPath, gitUri.repoPath!),
 									{
 										annotationType: args!.annotationType,
@@ -88,7 +88,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 			}
 		}
 
-		await GitActions.Commit.openFileAtRevision(
+		await openFileAtRevision(
 			this.container.git.getRevisionUri(args.reference.ref, gitUri.fsPath, gitUri.repoPath),
 			{
 				annotationType: args.annotationType,

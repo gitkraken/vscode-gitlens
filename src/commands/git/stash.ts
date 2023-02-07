@@ -3,6 +3,7 @@ import { QuickInputButtons, window } from 'vscode';
 import { ContextKeys, GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { getContext } from '../../context';
+import { reveal, showDetailsView } from '../../git/actions/stash';
 import { StashApplyError, StashApplyErrorReason } from '../../git/errors';
 import type { GitStashCommit } from '../../git/models/commit';
 import type { GitStashReference } from '../../git/models/reference';
@@ -15,7 +16,6 @@ import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { formatPath } from '../../system/formatPath';
 import { pad } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { GitActions } from '../gitCommands.actions';
 import { getSteps } from '../gitCommands.utils';
 import type {
 	AsyncStepResultGenerator,
@@ -367,12 +367,12 @@ export class StashGitCommand extends QuickCommand<State> {
 				additionalButtons: [QuickCommandButtons.ShowDetailsView, QuickCommandButtons.RevealInSideBar],
 				onDidClickButton: (quickpick, button) => {
 					if (button === QuickCommandButtons.ShowDetailsView) {
-						void GitActions.Stash.showDetailsView(state.reference, {
+						void showDetailsView(state.reference, {
 							pin: false,
 							preserveFocus: true,
 						});
 					} else if (button === QuickCommandButtons.RevealInSideBar) {
-						void GitActions.Stash.reveal(state.reference, {
+						void reveal(state.reference, {
 							select: true,
 							expand: true,
 						});
@@ -431,12 +431,12 @@ export class StashGitCommand extends QuickCommand<State> {
 				additionalButtons: [QuickCommandButtons.ShowDetailsView, QuickCommandButtons.RevealInSideBar],
 				onDidClickButton: (quickpick, button) => {
 					if (button === QuickCommandButtons.ShowDetailsView) {
-						void GitActions.Stash.showDetailsView(state.reference, {
+						void showDetailsView(state.reference, {
 							pin: false,
 							preserveFocus: true,
 						});
 					} else if (button === QuickCommandButtons.RevealInSideBar) {
-						void GitActions.Stash.reveal(state.reference, {
+						void reveal(state.reference, {
 							select: true,
 							expand: true,
 						});

@@ -3,6 +3,7 @@ import { Uri } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
+import { openFileAtRevision } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models/reference';
 import { Logger } from '../logger';
@@ -13,7 +14,6 @@ import { command } from '../system/command';
 import { pad } from '../system/string';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri } from './base';
-import { GitActions } from './gitCommands.actions';
 import type { OpenFileAtRevisionFromCommandArgs } from './openFileAtRevisionFrom';
 
 export interface OpenFileAtRevisionCommandArgs {
@@ -135,7 +135,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 						picked: gitUri.sha,
 						keys: ['right', 'alt+right', 'ctrl+right'],
 						onDidPressKey: async (key, item) => {
-							await GitActions.Commit.openFileAtRevision(item.item.file!, item.item, {
+							await openFileAtRevision(item.item.file!, item.item, {
 								annotationType: args!.annotationType,
 								line: args!.line,
 								preserveFocus: true,
@@ -157,7 +157,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 				);
 				if (pick?.file == null) return;
 
-				await GitActions.Commit.openFileAtRevision(pick.file, pick, {
+				await openFileAtRevision(pick.file, pick, {
 					annotationType: args.annotationType,
 					line: args.line,
 					...args.showOptions,
@@ -166,7 +166,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 				return;
 			}
 
-			await GitActions.Commit.openFileAtRevision(args.revisionUri, {
+			await openFileAtRevision(args.revisionUri, {
 				annotationType: args.annotationType,
 				line: args.line,
 				...args.showOptions,

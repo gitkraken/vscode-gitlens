@@ -1,8 +1,8 @@
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { executeGitCommand } from '../git/actions';
 import { command } from '../system/command';
 import { Command } from './base';
-import { executeGitCommand } from './gitCommands.actions';
 
 export interface ShowQuickRepoStatusCommandArgs {
 	repoPath?: string;

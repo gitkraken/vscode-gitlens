@@ -1,6 +1,7 @@
 import type { Range, TextEditor, Uri } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { executeGitCommand } from '../git/actions';
 import { GitUri } from '../git/gitUri';
 import type { GitBranch } from '../git/models/branch';
 import type { GitLog } from '../git/models/log';
@@ -10,7 +11,6 @@ import type { CommandQuickPickItem } from '../quickpicks/items/common';
 import { command } from '../system/command';
 import type { CommandContext } from './base';
 import { ActiveEditorCachedCommand, getCommandUri } from './base';
-import { executeGitCommand } from './gitCommands.actions';
 
 export interface ShowQuickFileHistoryCommandArgs {
 	reference?: GitBranch | GitTag | GitReference;

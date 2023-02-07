@@ -1,6 +1,7 @@
 import type { QuickPickItem } from 'vscode';
 import { QuickInputButtons } from 'vscode';
 import type { Container } from '../../container';
+import { reveal } from '../../git/actions/remote';
 import type { GitRemote } from '../../git/models/remote';
 import { Repository } from '../../git/models/repository';
 import { Logger } from '../../logger';
@@ -8,7 +9,6 @@ import { showGenericErrorMessage } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { GitActions } from '../gitCommands.actions';
 import type {
 	AsyncStepResultGenerator,
 	PartialStepState,
@@ -320,7 +320,7 @@ export class RemoteGitCommand extends QuickCommand<State> {
 
 			await state.repo.addRemote(state.name, state.url, state.flags.includes('-f') ? { fetch: true } : undefined);
 			if (state.reveal !== false) {
-				void GitActions.Remote.reveal(undefined, {
+				void reveal(undefined, {
 					focus: true,
 					select: true,
 				});

@@ -1,5 +1,6 @@
 import { GlyphChars, quickPickTitleMaxChars } from '../../constants';
 import type { Container } from '../../container';
+import { showDetailsView } from '../../git/actions/commit';
 import { GitCommit } from '../../git/models/commit';
 import type { GitLog } from '../../git/models/log';
 import { GitReference } from '../../git/models/reference';
@@ -7,7 +8,6 @@ import { Repository } from '../../git/models/repository';
 import { formatPath } from '../../system/formatPath';
 import { pad } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import { GitActions } from '../gitCommands.actions';
 import { getSteps } from '../gitCommands.utils';
 import type { PartialStepState, StepGenerator } from '../quickCommand';
 import { pickBranchOrTagStep, pickCommitStep, pickRepositoryStep, QuickCommand, StepResult } from '../quickCommand';
@@ -191,7 +191,7 @@ export class LogGitCommand extends QuickCommand<State> {
 
 			let result: StepResult<ReturnType<typeof getSteps>>;
 			if (state.openPickInView) {
-				void GitActions.Commit.showDetailsView(state.reference as GitCommit, {
+				void showDetailsView(state.reference as GitCommit, {
 					pin: false,
 					preserveFocus: false,
 				});

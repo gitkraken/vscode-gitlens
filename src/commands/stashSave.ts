@@ -3,6 +3,7 @@ import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType } from '../@types/vscode.git.resources.enums';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { push } from '../git/actions/stash';
 import { GitUri } from '../git/gitUri';
 import { command } from '../system/command';
 import type { CommandContext } from './base';
@@ -12,7 +13,6 @@ import {
 	isCommandContextViewNodeHasRepoPath,
 	isCommandContextViewNodeHasRepository,
 } from './base';
-import { GitActions } from './gitCommands.actions';
 
 export interface StashSaveCommandArgs {
 	message?: string;
@@ -73,6 +73,6 @@ export class StashSaveCommand extends Command {
 	}
 
 	execute(args?: StashSaveCommandArgs) {
-		return GitActions.Stash.push(args?.repoPath, args?.uris, args?.message, args?.keepStaged);
+		return push(args?.repoPath, args?.uris, args?.message, args?.keepStaged);
 	}
 }

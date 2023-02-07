@@ -1,6 +1,8 @@
 import type { TextEditor, Uri } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { executeGitCommand } from '../git/actions';
+import { showDetailsView } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
 import { GitReference } from '../git/models/reference';
 import { createSearchQueryForCommits } from '../git/search';
@@ -10,7 +12,6 @@ import { command } from '../system/command';
 import { filterMap } from '../system/iterable';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
-import { executeGitCommand, GitActions } from './gitCommands.actions';
 
 export interface ShowCommitsInViewCommandArgs {
 	refs?: string[];
@@ -80,9 +81,7 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 		}
 
 		if (args.refs.length === 1) {
-			return GitActions.Commit.showDetailsView(
-				GitReference.create(args.refs[0], args.repoPath!, { refType: 'revision' }),
-			);
+			return showDetailsView(GitReference.create(args.refs[0], args.repoPath!, { refType: 'revision' }));
 		}
 
 		return executeGitCommand({

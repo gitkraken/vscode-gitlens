@@ -1,6 +1,7 @@
 import type { TextEditor, Uri } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { openDirectoryCompare } from '../git/actions/commit';
 import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
 import { ReferencePicker } from '../quickpicks/referencePicker';
@@ -9,7 +10,6 @@ import { command } from '../system/command';
 import { CompareResultsNode } from '../views/nodes/compareResultsNode';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasRef } from './base';
-import { GitActions } from './gitCommands.actions';
 
 export interface OpenDirectoryCompareCommandArgs {
 	ref1?: string;
@@ -80,7 +80,7 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 				if (args.ref1 == null) return;
 			}
 
-			void GitActions.Commit.openDirectoryCompare(repoPath, args.ref1, args.ref2);
+			void openDirectoryCompare(repoPath, args.ref1, args.ref2);
 		} catch (ex) {
 			Logger.error(ex, 'OpenDirectoryCompareCommand');
 			void showGenericErrorMessage('Unable to open directory compare');
