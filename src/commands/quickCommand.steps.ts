@@ -97,7 +97,9 @@ export function appendReposToTitle<
 	Context extends { repos: Repository[] },
 >(title: string, state: State, context: Context, additionalContext?: string) {
 	if (context.repos.length === 1) {
-		return `${title}${truncate(additionalContext ?? '', quickPickTitleMaxChars - title.length)}`;
+		return additionalContext
+			? `${title}${truncate(additionalContext, quickPickTitleMaxChars - title.length)}`
+			: title;
 	}
 
 	let repoContext;

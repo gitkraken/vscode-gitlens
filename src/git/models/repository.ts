@@ -178,7 +178,11 @@ export class Repository implements Disposable {
 		return this._onDidChangeFileSystem.event;
 	}
 
-	readonly formattedName: string;
+	get formattedName(): string {
+		// return this.isMaybeWorktree() === true ? `${this.name} (worktree)` : this.name;
+		return this.name;
+	}
+
 	readonly id: string;
 	readonly index: number;
 	readonly name: string;
@@ -232,7 +236,6 @@ export class Repository implements Disposable {
 			// 	index: container.git.repositoryCount,
 			// };
 		}
-		this.formattedName = this.name;
 		this.index = folder?.index ?? container.git.repositoryCount;
 
 		this.id = asRepoComparisonKey(uri);
@@ -613,12 +616,13 @@ export class Repository implements Disposable {
 		return this.container.git.getContributors(this.path, options);
 	}
 
-	private _gitDir: Promise<GitDir | undefined> | undefined;
+	private _gitDir: GitDir | undefined;
+	private _gitDirPromise: Promise<GitDir | undefined> | undefined;
 	private getGitDir(): Promise<GitDir | undefined> {
-		if (this._gitDir == null) {
-			this._gitDir = this.container.git.getGitDir(this.path);
+		if (this._gitDirPromise == null) {
+			this._gitDirPromise = this.container.git.getGitDir(this.path).then(gd => (this._gitDir = gd));
 		}
-		return this._gitDir;
+		return this._gitDirPromise;
 	}
 
 	private _lastFetched: number | undefined;
@@ -749,6 +753,12 @@ export class Repository implements Disposable {
 	async hasUpstreamBranch(): Promise<boolean> {
 		const branch = await this.getBranch();
 		return branch?.upstream != null;
+	}
+
+	isMaybeWorktree(): boolean | undefined {
+		if (this._gitDir == null) return undefined;
+
+		return this._gitDir.commonUri != null;
 	}
 
 	async isWorktree(): Promise<boolean> {
