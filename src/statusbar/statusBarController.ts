@@ -7,7 +7,7 @@ import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitCommit } from '../git/models/commit';
 import type { PullRequest } from '../git/models/pullRequest';
-import { Hovers } from '../hovers/hovers';
+import { detailsMessage } from '../hovers/hovers';
 import type { LogScope } from '../logger';
 import { Logger } from '../logger';
 import { asCommand } from '../system/command';
@@ -372,7 +372,7 @@ export class StatusBarController implements Disposable {
 	) {
 		if (cancellationToken.isCancellationRequested) return;
 
-		const tooltip = await Hovers.detailsMessage(
+		const tooltip = await detailsMessage(
 			commit,
 			commit.getGitUri(),
 			commit.lines[0].line,

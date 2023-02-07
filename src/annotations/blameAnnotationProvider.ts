@@ -6,7 +6,7 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitBlame } from '../git/models/blame';
 import type { GitCommit } from '../git/models/commit';
-import { Hovers } from '../hovers/hovers';
+import { changesMessage, detailsMessage } from '../hovers/hovers';
 import { log } from '../system/decorators/log';
 import type { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { AnnotationProviderBase } from './annotationProvider';
@@ -172,7 +172,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			await Promise.all([
 				providers.details ? this.getDetailsHoverMessage(commit, document) : undefined,
 				providers.changes
-					? Hovers.changesMessage(commit, await GitUri.fromUri(document.uri), position.line, document)
+					? changesMessage(commit, await GitUri.fromUri(document.uri), position.line, document)
 					: undefined,
 			])
 		).filter(<T>(m?: T): m is T => Boolean(m));
@@ -190,7 +190,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		editorLine = commitLine.originalLine - 1;
 
 		const cfg = configuration.get('hovers');
-		return Hovers.detailsMessage(
+		return detailsMessage(
 			commit,
 			await GitUri.fromUri(document.uri),
 			editorLine,
