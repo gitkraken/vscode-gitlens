@@ -5,7 +5,8 @@ import type { GitTagReference } from '../../git/models/reference';
 import { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
@@ -315,12 +316,12 @@ export class TagGitCommand extends QuickCommand<State> {
 		const step: QuickPickStep<FlagsQuickPickItem<CreateFlags>> = QuickCommand.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
-				FlagsQuickPickItem.create<CreateFlags>(state.flags, state.message.length !== 0 ? ['-m'] : [], {
+				createFlagsQuickPickItem<CreateFlags>(state.flags, state.message.length !== 0 ? ['-m'] : [], {
 					label: context.title,
 					description: state.message.length !== 0 ? '-m' : '',
 					detail: `Will create a new tag named ${state.name} at ${GitReference.toString(state.reference)}`,
 				}),
-				FlagsQuickPickItem.create<CreateFlags>(
+				createFlagsQuickPickItem<CreateFlags>(
 					state.flags,
 					state.message.length !== 0 ? ['--force', '-m'] : ['--force'],
 					{

@@ -4,7 +4,8 @@ import type { GitLog } from '../../git/models/log';
 import { GitReference, GitRevision } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { Directive, DirectiveQuickPickItem } from '../../quickpicks/items/directive';
-import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { pluralize } from '../../system/string';
 import { getEditorCommand } from '../../system/utils';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
@@ -241,14 +242,14 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
-				FlagsQuickPickItem.create<Flags>(state.flags, [], {
+				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
 					detail: `Will update ${GitReference.toString(context.destination)} by applying ${pluralize(
 						'commit',
 						count,
 					)} on top of ${GitReference.toString(state.reference)}`,
 				}),
-				FlagsQuickPickItem.create<Flags>(state.flags, ['--interactive'], {
+				createFlagsQuickPickItem<Flags>(state.flags, ['--interactive'], {
 					label: `Interactive ${this.title}`,
 					description: '--interactive',
 					detail: `Will interactively update ${GitReference.toString(

@@ -5,7 +5,8 @@ import type { GitBranchReference } from '../../git/models/reference';
 import { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { Directive, DirectiveQuickPickItem } from '../../quickpicks/items/directive';
-import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { isStringArray } from '../../system/array';
 import { fromNow } from '../../system/date';
 import { pad, pluralize } from '../../system/string';
@@ -146,11 +147,11 @@ export class PullGitCommand extends QuickCommand<State> {
 
 		if (state.repos.length > 1) {
 			step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
-				FlagsQuickPickItem.create<Flags>(state.flags, [], {
+				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
 					detail: `Will pull ${state.repos.length} repositories`,
 				}),
-				FlagsQuickPickItem.create<Flags>(state.flags, ['--rebase'], {
+				createFlagsQuickPickItem<Flags>(state.flags, ['--rebase'], {
 					label: `${this.title} with Rebase`,
 					description: '--rebase',
 					detail: `Will pull ${state.repos.length} repositories by rebasing`,
@@ -181,7 +182,7 @@ export class PullGitCommand extends QuickCommand<State> {
 					);
 				} else {
 					step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
-						FlagsQuickPickItem.create<Flags>(state.flags, [], {
+						createFlagsQuickPickItem<Flags>(state.flags, [], {
 							label: this.title,
 							detail: `Will pull${
 								branch.state.behind
@@ -211,11 +212,11 @@ export class PullGitCommand extends QuickCommand<State> {
 			step = this.createConfirmStep(
 				appendReposToTitle(`Confirm ${context.title}`, state, context, lastFetchedOn),
 				[
-					FlagsQuickPickItem.create<Flags>(state.flags, [], {
+					createFlagsQuickPickItem<Flags>(state.flags, [], {
 						label: this.title,
 						detail: `Will pull${pullDetails}`,
 					}),
-					FlagsQuickPickItem.create<Flags>(state.flags, ['--rebase'], {
+					createFlagsQuickPickItem<Flags>(state.flags, ['--rebase'], {
 						label: `${this.title} with Rebase`,
 						description: '--rebase',
 						detail: `Will pull and rebase${pullDetails}`,

@@ -7,7 +7,8 @@ import { Repository } from '../../git/models/repository';
 import { Logger } from '../../logger';
 import { showGenericErrorMessage } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -332,11 +333,11 @@ export class RemoteGitCommand extends QuickCommand<State> {
 		const step: QuickPickStep<FlagsQuickPickItem<AddFlags>> = QuickCommand.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
-				FlagsQuickPickItem.create<AddFlags>(state.flags, [], {
+				createFlagsQuickPickItem<AddFlags>(state.flags, [], {
 					label: context.title,
 					detail: `Will add remote '${state.name}' for ${state.url}`,
 				}),
-				FlagsQuickPickItem.create<AddFlags>(state.flags, ['-f'], {
+				createFlagsQuickPickItem<AddFlags>(state.flags, ['-f'], {
 					label: `${context.title} and Fetch`,
 					description: '-f',
 					detail: `Will add and fetch remote '${state.name}' for ${state.url}`,
