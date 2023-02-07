@@ -30,7 +30,7 @@ import {
 	pickRemoteStep,
 	pickRepositoryStep,
 	QuickCommand,
-	StepResult,
+	StepResultBreak,
 } from '../quickCommand';
 
 interface Context {
@@ -196,7 +196,7 @@ export class RemoteGitCommand extends QuickCommand<State> {
 
 				const result = yield* this.pickSubcommandStep(state);
 				// Always break on the first step (so we will go back)
-				if (result === StepResult.Break) break;
+				if (result === StepResultBreak) break;
 
 				state.subcommand = result;
 			}
@@ -214,7 +214,7 @@ export class RemoteGitCommand extends QuickCommand<State> {
 					state.repo = context.repos[0];
 				} else {
 					const result = yield* pickRepositoryStep(state, context);
-					if (result === StepResult.Break) continue;
+					if (result === StepResultBreak) continue;
 
 					state.repo = result;
 				}
@@ -247,7 +247,7 @@ export class RemoteGitCommand extends QuickCommand<State> {
 			}
 		}
 
-		return state.counter < 0 ? StepResult.Break : undefined;
+		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
 	private *pickSubcommandStep(state: PartialStepState<State>): StepResultGenerator<State['subcommand']> {
@@ -277,7 +277,7 @@ export class RemoteGitCommand extends QuickCommand<State> {
 			buttons: [QuickInputButtons.Back],
 		});
 		const selection: StepSelection<typeof step> = yield step;
-		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 
 	private async *addCommandSteps(state: AddStepState, context: Context): AsyncStepResultGenerator<void> {
@@ -293,7 +293,7 @@ export class RemoteGitCommand extends QuickCommand<State> {
 					placeholder: 'Please provide a name for the remote',
 					value: state.name,
 				});
-				if (result === StepResult.Break) continue;
+				if (result === StepResultBreak) continue;
 
 				alreadyExists = (await state.repo.getRemotes({ filter: r => r.name === result })).length !== 0;
 				if (alreadyExists) {
@@ -309,14 +309,14 @@ export class RemoteGitCommand extends QuickCommand<State> {
 					placeholder: 'Please provide a URL for the remote',
 					value: state.url,
 				});
-				if (result === StepResult.Break) continue;
+				if (result === StepResultBreak) continue;
 
 				state.url = result;
 			}
 
 			if (this.confirm(state.confirm)) {
 				const result = yield* this.addCommandConfirmStep(state, context);
-				if (result === StepResult.Break) continue;
+				if (result === StepResultBreak) continue;
 
 				state.flags = result;
 			}
@@ -350,7 +350,7 @@ export class RemoteGitCommand extends QuickCommand<State> {
 			context,
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 
 	private async *removeCommandSteps(state: RemoveStepState, context: Context): AsyncStepResultGenerator<void> {
@@ -374,14 +374,14 @@ export class RemoteGitCommand extends QuickCommand<State> {
 					placeholder: 'Choose remote to remove',
 				});
 				// Always break on the first step (so we will go back)
-				if (result === StepResult.Break) break;
+				if (result === StepResultBreak) break;
 
 				state.remote = result;
 			}
 
 			assertStateStepRemoveRemotes(state);
 			const result = yield* this.removeCommandConfirmStep(state, context);
-			if (result === StepResult.Break) continue;
+			if (result === StepResultBreak) continue;
 
 			endSteps(state);
 			try {
@@ -408,7 +408,7 @@ export class RemoteGitCommand extends QuickCommand<State> {
 			context,
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return canPickStepContinue(step, state, selection) ? undefined : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? undefined : StepResultBreak;
 	}
 
 	private async *pruneCommandSteps(state: PruneStepState, context: Context): AsyncStepResultGenerator<void> {
@@ -430,14 +430,14 @@ export class RemoteGitCommand extends QuickCommand<State> {
 					placeholder: 'Choose a remote to prune',
 				});
 				// Always break on the first step (so we will go back)
-				if (result === StepResult.Break) break;
+				if (result === StepResultBreak) break;
 
 				state.remote = result;
 			}
 
 			assertStateStepPruneRemotes(state);
 			const result = yield* this.pruneCommandConfirmStep(state, context);
-			if (result === StepResult.Break) continue;
+			if (result === StepResultBreak) continue;
 
 			endSteps(state);
 			void state.repo.pruneRemote(state.remote.name);
@@ -459,6 +459,6 @@ export class RemoteGitCommand extends QuickCommand<State> {
 			context,
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return canPickStepContinue(step, state, selection) ? undefined : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? undefined : StepResultBreak;
 	}
 }

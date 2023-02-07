@@ -8,14 +8,15 @@ import { CommandQuickPickItem } from '../../quickpicks/items/common';
 import { GitCommandQuickPickItem } from '../../quickpicks/items/gitCommands';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type { PartialStepState, StepGenerator } from '../quickCommand';
-import { endSteps ,
+import {
+	endSteps,
 	pickCommitStep,
 	pickRepositoryStep,
 	QuickCommand,
 	showCommitOrStashFilesStep,
 	showCommitOrStashFileStep,
 	showCommitOrStashStep,
-	StepResult,
+	StepResultBreak,
 } from '../quickCommand';
 
 interface Context {
@@ -127,7 +128,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 				} else {
 					const result = yield* pickRepositoryStep(state, context);
 					// Always break on the first step (so we will go back)
-					if (result === StepResult.Break) break;
+					if (result === StepResultBreak) break;
 
 					state.repo = result;
 				}
@@ -159,7 +160,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 						placeholder: 'Enter a reference or commit SHA',
 						picked: state.reference?.ref,
 					});
-					if (result === StepResult.Break) {
+					if (result === StepResultBreak) {
 						// If we skipped the previous step, make sure we back up past it
 						if (skippedStepOne) {
 							state.counter--;
@@ -180,12 +181,12 @@ export class ShowGitCommand extends QuickCommand<State> {
 				}
 
 				const result = yield* showCommitOrStashStep(state, context);
-				if (result === StepResult.Break) continue;
+				if (result === StepResultBreak) continue;
 
 				if (result instanceof GitCommandQuickPickItem) {
 					const r = yield* result.executeSteps(this.pickedVia);
 					state.counter--;
-					if (r === StepResult.Break) {
+					if (r === StepResultBreak) {
 						endSteps(state);
 					}
 
@@ -204,7 +205,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 				const result = yield* showCommitOrStashFilesStep(state, context, {
 					picked: state.fileName,
 				});
-				if (result === StepResult.Break) continue;
+				if (result === StepResultBreak) continue;
 
 				if (result instanceof CommitFilesQuickPickItem) {
 					// Since this is a sort of toggle button, back up 2 steps
@@ -219,7 +220,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 			assertsStateStepFileName(state);
 
 			const result = yield* showCommitOrStashFileStep(state, context);
-			if (result === StepResult.Break) continue;
+			if (result === StepResultBreak) continue;
 
 			if (result instanceof CommitFilesQuickPickItem) {
 				// Since this is a sort of toggle button, back up 2 steps
@@ -243,6 +244,6 @@ export class ShowGitCommand extends QuickCommand<State> {
 			}
 		}
 
-		return state.counter < 0 ? StepResult.Break : undefined;
+		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 }

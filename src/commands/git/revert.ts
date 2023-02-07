@@ -11,6 +11,7 @@ import type {
 	PartialStepState,
 	QuickPickStep,
 	StepGenerator,
+	StepResult,
 	StepResultGenerator,
 	StepSelection,
 	StepState,
@@ -22,7 +23,7 @@ import {
 	pickCommitsStep,
 	pickRepositoryStep,
 	QuickCommand,
-	StepResult,
+	StepResultBreak,
 } from '../quickCommand';
 
 interface Context {
@@ -115,7 +116,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 				} else {
 					const result = yield* pickRepositoryStep(state, context);
 					// Always break on the first step (so we will go back)
-					if (result === StepResult.Break) break;
+					if (result === StepResultBreak) break;
 
 					state.repo = result;
 				}
@@ -148,7 +149,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 						picked: state.references?.map(r => r.ref),
 					},
 				);
-				if (result === StepResult.Break) {
+				if (result === StepResultBreak) {
 					// If we skipped the previous step, make sure we back up past it
 					if (skippedStepOne) {
 						state.counter--;
@@ -161,7 +162,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 			}
 
 			const result = yield* this.confirmStep(state as RevertStepState, context);
-			if (result === StepResult.Break) continue;
+			if (result === StepResultBreak) continue;
 
 			state.flags = result;
 
@@ -169,7 +170,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 			this.execute(state as RevertStepState<State<GitRevisionReference[]>>);
 		}
 
-		return state.counter < 0 ? StepResult.Break : undefined;
+		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
 	private *confirmStep(state: RevertStepState, context: Context): StepResultGenerator<Flags[]> {
@@ -189,6 +190,6 @@ export class RevertGitCommand extends QuickCommand<State> {
 			],
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 }

@@ -14,6 +14,7 @@ import type {
 	PartialStepState,
 	QuickPickStep,
 	StepGenerator,
+	StepResult,
 	StepSelection,
 	StepState,
 } from '../quickCommand';
@@ -26,7 +27,7 @@ import {
 	pickRepositoryStep,
 	QuickCommand,
 	QuickCommandButtons,
-	StepResult,
+	StepResultBreak,
 } from '../quickCommand';
 
 interface Context {
@@ -120,7 +121,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 				} else {
 					const result = yield* pickRepositoryStep(state, context);
 					// Always break on the first step (so we will go back)
-					if (result === StepResult.Break) break;
+					if (result === StepResultBreak) break;
 
 					state.repo = result;
 				}
@@ -148,7 +149,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 					value: context.selectedBranchOrTag == null ? state.reference?.ref : undefined,
 					additionalButtons: [pickCommitToggle],
 				});
-				if (result === StepResult.Break) {
+				if (result === StepResultBreak) {
 					// If we skipped the previous step, make sure we back up past it
 					if (skippedStepOne) {
 						state.counter--;
@@ -192,13 +193,13 @@ export class MergeGitCommand extends QuickCommand<State> {
 							  })}`,
 					picked: state.reference?.ref,
 				});
-				if (result === StepResult.Break) continue;
+				if (result === StepResultBreak) continue;
 
 				state.reference = result;
 			}
 
 			const result = yield* this.confirmStep(state as MergeStepState, context);
-			if (result === StepResult.Break) continue;
+			if (result === StepResultBreak) continue;
 
 			state.flags = result;
 
@@ -206,7 +207,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 			this.execute(state as MergeStepState);
 		}
 
-		return state.counter < 0 ? StepResult.Break : undefined;
+		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
 	private async *confirmStep(state: MergeStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
@@ -227,7 +228,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 			);
 			const selection: StepSelection<typeof step> = yield step;
 			canPickStepContinue(step, state, selection);
-			return StepResult.Break;
+			return StepResultBreak;
 		}
 
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
@@ -273,6 +274,6 @@ export class MergeGitCommand extends QuickCommand<State> {
 			],
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 }

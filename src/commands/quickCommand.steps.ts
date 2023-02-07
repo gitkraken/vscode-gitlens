@@ -107,7 +107,7 @@ import {
 	createPickStep,
 	endSteps,
 	QuickCommandButtons,
-	StepResult,
+	StepResultBreak,
 } from './quickCommand';
 
 export function appendReposToTitle<
@@ -525,7 +525,7 @@ export async function* inputBranchNameStep<
 
 	const value: StepSelection<typeof step> = yield step;
 	if (!canStepContinue(step, state, value) || !(await canInputStepContinue(step, state, value))) {
-		return StepResult.Break;
+		return StepResultBreak;
 	}
 
 	return value;
@@ -566,7 +566,7 @@ export async function* inputRemoteNameStep<
 
 	const value: StepSelection<typeof step> = yield step;
 	if (!canStepContinue(step, state, value) || !(await canInputStepContinue(step, state, value))) {
-		return StepResult.Break;
+		return StepResultBreak;
 	}
 
 	return value;
@@ -598,7 +598,7 @@ export async function* inputRemoteUrlStep<
 
 	const value: StepSelection<typeof step> = yield step;
 	if (!canStepContinue(step, state, value) || !(await canInputStepContinue(step, state, value))) {
-		return StepResult.Break;
+		return StepResultBreak;
 	}
 
 	return value;
@@ -643,7 +643,7 @@ export async function* inputTagNameStep<
 
 	const value: StepSelection<typeof step> = yield step;
 	if (!canStepContinue(step, state, value) || !(await canInputStepContinue(step, state, value))) {
-		return StepResult.Break;
+		return StepResultBreak;
 	}
 
 	return value;
@@ -698,7 +698,7 @@ export async function* pickBranchStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 }
 
 export async function* pickBranchesStep<
@@ -754,7 +754,7 @@ export async function* pickBranchesStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResultBreak;
 }
 
 export async function* pickBranchOrTagStep<
@@ -869,7 +869,7 @@ export async function* pickBranchOrTagStep<
 		onValidateValue: getValidateGitReferenceFn(state.repo, { ranges: ranges }),
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 }
 
 export async function* pickBranchOrTagStepMultiRepo<
@@ -983,7 +983,7 @@ export async function* pickBranchOrTagStepMultiRepo<
 	});
 
 	const selection: StepSelection<typeof step> = yield step;
-	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 }
 
 export async function* pickCommitStep<
@@ -1108,13 +1108,13 @@ export async function* pickCommitStep<
 		}),
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	if (!canPickStepContinue(step, state, selection)) return StepResult.Break;
+	if (!canPickStepContinue(step, state, selection)) return StepResultBreak;
 
 	if (CommandQuickPickItem.is(selection[0])) {
 		endSteps(state);
 
 		await selection[0].execute();
-		return StepResult.Break;
+		return StepResultBreak;
 	}
 
 	return selection[0].item;
@@ -1212,7 +1212,7 @@ export function* pickCommitsStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResultBreak;
 }
 
 export async function* pickContributorsStep<
@@ -1253,7 +1253,7 @@ export async function* pickContributorsStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResultBreak;
 }
 
 export async function* pickRemoteStep<
@@ -1305,7 +1305,7 @@ export async function* pickRemoteStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 }
 
 export async function* pickRemotesStep<
@@ -1358,7 +1358,7 @@ export async function* pickRemotesStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResultBreak;
 }
 
 export async function* pickRepositoryStep<
@@ -1408,7 +1408,7 @@ export async function* pickRepositoryStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 }
 
 export async function* pickRepositoriesStep<
@@ -1478,7 +1478,7 @@ export async function* pickRepositoriesStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResultBreak;
 }
 
 export function* pickStashStep<
@@ -1537,7 +1537,7 @@ export function* pickStashStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 }
 
 export async function* pickTagsStep<
@@ -1594,7 +1594,7 @@ export async function* pickTagsStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResultBreak;
 }
 
 export async function* pickWorktreeStep<
@@ -1654,7 +1654,7 @@ export async function* pickWorktreeStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 }
 
 export async function* pickWorktreesStep<
@@ -1715,7 +1715,7 @@ export async function* pickWorktreesStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection.map(i => i.item) : StepResultBreak;
 }
 
 export async function* showCommitOrStashStep<
@@ -1776,7 +1776,7 @@ export async function* showCommitOrStashStep<
 			},
 		});
 	const selection: StepSelection<typeof step> = yield step;
-	return canPickStepContinue(step, state, selection) ? selection[0] : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0] : StepResultBreak;
 }
 
 async function getShowCommitOrStashStepItems<
@@ -2060,7 +2060,7 @@ export function* showCommitOrStashFilesStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return canPickStepContinue(step, state, selection) ? selection[0] : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0] : StepResultBreak;
 }
 
 export async function* showCommitOrStashFileStep<
@@ -2127,7 +2127,7 @@ export async function* showCommitOrStashFileStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return canPickStepContinue(step, state, selection) ? selection[0] : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0] : StepResultBreak;
 }
 
 async function getShowCommitOrStashFileStepItems<
@@ -2252,7 +2252,7 @@ export function* showRepositoryStatusStep<
 		},
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return canPickStepContinue(step, state, selection) ? selection[0] : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? selection[0] : StepResultBreak;
 }
 
 function getShowRepositoryStatusStepItems<
@@ -2419,5 +2419,5 @@ export async function* ensureAccessStep<
 	});
 
 	const selection: StepSelection<typeof step> = yield step;
-	return canPickStepContinue(step, state, selection) ? undefined : StepResult.Break;
+	return canPickStepContinue(step, state, selection) ? undefined : StepResultBreak;
 }

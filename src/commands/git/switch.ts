@@ -22,7 +22,7 @@ import {
 	pickBranchOrTagStepMultiRepo,
 	pickRepositoriesStep,
 	QuickCommand,
-	StepResult,
+	StepResultBreak,
 } from '../quickCommand';
 
 interface Context {
@@ -133,7 +133,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 						{ skipIfPossible: state.counter >= 1 },
 					);
 					// Always break on the first step (so we will go back)
-					if (result === StepResult.Break) break;
+					if (result === StepResultBreak) break;
 
 					state.repos = result;
 				}
@@ -143,7 +143,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				const result = yield* pickBranchOrTagStepMultiRepo(state as SwitchStepState, context, {
 					placeholder: context => `Choose a branch${context.showTags ? ' or tag' : ''} to switch to`,
 				});
-				if (result === StepResult.Break) {
+				if (result === StepResultBreak) {
 					// If we skipped the previous step, make sure we back up past it
 					if (skippedStepOne) {
 						state.counter--;
@@ -171,7 +171,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 						})}`,
 						value: state.createBranch ?? GitReference.getNameWithoutRemote(state.reference),
 					});
-					if (result === StepResult.Break) continue;
+					if (result === StepResultBreak) continue;
 
 					state.createBranch = result;
 				} else {
@@ -186,7 +186,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 
 			if (this.confirm(state.confirm || context.switchToLocalFrom != null)) {
 				const result = yield* this.confirmStep(state as SwitchStepState, context);
-				if (result === StepResult.Break) continue;
+				if (result === StepResultBreak) continue;
 
 				if (result === 'switch+fast-forward') {
 					state.fastForwardTo = context.switchToLocalFrom;
@@ -197,7 +197,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			void this.execute(state as SwitchStepState);
 		}
 
-		return state.counter < 0 ? StepResult.Break : undefined;
+		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
 	private *confirmStep(state: SwitchStepState, context: Context): StepResultGenerator<ConfirmationChoice> {
@@ -246,6 +246,6 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			{ placeholder: `Confirm ${context.title}` },
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 }

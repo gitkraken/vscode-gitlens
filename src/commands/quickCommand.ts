@@ -15,7 +15,7 @@ export interface CustomStep<T = unknown> {
 }
 
 export function isCustomStep(
-	step: QuickPickStep | QuickInputStep | CustomStep | typeof StepResult.Break,
+	step: QuickPickStep | QuickInputStep | CustomStep | typeof StepResultBreak,
 ): step is CustomStep {
 	return typeof step === 'object' && (step as CustomStep).show != null;
 }
@@ -36,7 +36,7 @@ export interface QuickInputStep {
 }
 
 export function isQuickInputStep(
-	step: QuickPickStep | QuickInputStep | typeof StepResult.Break,
+	step: QuickPickStep | QuickInputStep | typeof StepResultBreak,
 ): step is QuickInputStep {
 	return typeof step === 'object' && (step as QuickPickStep).items == null && (step as CustomStep).show == null;
 }
@@ -75,7 +75,7 @@ export interface QuickPickStep<T extends QuickPickItem = QuickPickItem> {
 }
 
 export function isQuickPickStep(
-	step: QuickPickStep | QuickInputStep | CustomStep | typeof StepResult.Break,
+	step: QuickPickStep | QuickInputStep | CustomStep | typeof StepResultBreak,
 ): step is QuickPickStep {
 	return typeof step === 'object' && (step as QuickPickStep).items != null;
 }
@@ -92,10 +92,8 @@ export type StepItemType<T> = T extends CustomStep<infer U>
 	? string
 	: never;
 export type StepNavigationKeys = Exclude<Keys, 'left' | 'alt+left' | 'ctrl+left'>;
-export namespace StepResult {
-	export const Break = Symbol('BreakStep');
-}
-export type StepResult<T> = typeof StepResult.Break | T;
+export const StepResultBreak = Symbol('BreakStep');
+export type StepResult<T> = typeof StepResultBreak | T;
 export type StepResultGenerator<T> = Generator<
 	QuickPickStep | QuickInputStep | CustomStep,
 	StepResult<T>,
@@ -219,12 +217,12 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 			this._stepsIterator = undefined;
 		}
 
-		if (result.value === StepResult.Break) {
+		if (result.value === StepResultBreak) {
 			this._currentStep = undefined;
 			return { ...result, value: undefined };
 		}
 
-		this._currentStep = result.value as Exclude<typeof result.value, void | typeof StepResult.Break>;
+		this._currentStep = result.value as Exclude<typeof result.value, void | typeof StepResultBreak>;
 		return result;
 	}
 
