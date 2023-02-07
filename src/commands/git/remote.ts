@@ -42,6 +42,8 @@ interface AddState {
 	name: string;
 	url: string;
 	flags: AddFlags[];
+
+	reveal?: boolean;
 }
 
 interface RemoveState {
@@ -315,18 +317,14 @@ export class RemoteGitCommand extends QuickCommand<State> {
 			}
 
 			QuickCommand.endSteps(state);
-			const remote = await state.repo.addRemote(
-				state.name,
-				state.url,
-				state.flags.includes('-f') ? { fetch: true } : undefined,
-			);
-			queueMicrotask(
-				() =>
-					void GitActions.Remote.reveal(remote, {
-						focus: true,
-						select: true,
-					}),
-			);
+
+			await state.repo.addRemote(state.name, state.url, state.flags.includes('-f') ? { fetch: true } : undefined);
+			if (state.reveal !== false) {
+				void GitActions.Remote.reveal(undefined, {
+					focus: true,
+					select: true,
+				});
+			}
 		}
 	}
 
