@@ -16,7 +16,7 @@ import type { Repository } from '../../git/models/repository';
 import { GitWorktree } from '../../git/models/worktree';
 import { showGenericErrorMessage } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { QuickPickSeparator } from '../../quickpicks/items/common';
+import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import { Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -621,7 +621,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				),
 				...(canCreateDirectlyInPicked
 					? [
-							QuickPickSeparator.create(),
+							createQuickPickSeparator(),
 							createFlagsQuickPickItem<CreateFlags, Uri>(
 								state.flags,
 								['--direct'],

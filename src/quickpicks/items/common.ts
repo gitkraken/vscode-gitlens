@@ -14,10 +14,8 @@ export interface QuickPickSeparator extends QuickPickItem {
 	kind: QuickPickItemKind.Separator;
 }
 
-export namespace QuickPickSeparator {
-	export function create(label?: string): QuickPickSeparator {
-		return { kind: QuickPickItemKind.Separator, label: label ?? '' };
-	}
+export function createQuickPickSeparator(label?: string): QuickPickSeparator {
+	return { kind: QuickPickItemKind.Separator, label: label ?? '' };
 }
 
 export interface QuickPickItemOfT<T = any> extends QuickPickItem {
