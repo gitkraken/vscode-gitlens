@@ -13,10 +13,8 @@ export enum Directive {
 	StartPreviewTrial,
 }
 
-export namespace Directive {
-	export function is<T>(value: Directive | T): value is Directive {
-		return typeof value === 'number' && Directive[value] != null;
-	}
+export function isDirective<T>(value: Directive | T): value is Directive {
+	return typeof value === 'number' && Directive[value] != null;
 }
 
 export interface DirectiveQuickPickItem extends QuickPickItem {
