@@ -62,7 +62,7 @@ import {
 	canEditNode,
 	canViewDismissNode,
 	getNodeRepoPath,
-	PageableViewNode,
+	isPageableViewNode,
 	RepositoryFolderNode,
 	ViewNode,
 	ViewRefFileNode,
@@ -151,7 +151,7 @@ export class ViewCommands {
 		registerViewCommand(
 			'gitlens.views.refreshNode',
 			(n: ViewNode, reset?: boolean) => {
-				if (reset == null && PageableViewNode.is(n)) {
+				if (reset == null && isPageableViewNode(n)) {
 					n.limit = undefined;
 					n.view.resetNodeLastKnownLimit(n);
 				}

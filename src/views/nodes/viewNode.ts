@@ -223,10 +223,8 @@ export interface PageableViewNode {
 	loadMore(limit?: number | { until?: string | undefined }, context?: Record<string, unknown>): Promise<void>;
 }
 
-export namespace PageableViewNode {
-	export function is(node: ViewNode): node is ViewNode & PageableViewNode {
-		return isA<ViewNode & PageableViewNode>(node, 'loadMore');
-	}
+export function isPageableViewNode(node: ViewNode): node is ViewNode & PageableViewNode {
+	return isA<ViewNode & PageableViewNode>(node, 'loadMore');
 }
 
 export abstract class SubscribeableViewNode<TView extends View = View> extends ViewNode<TView> {
