@@ -34,7 +34,7 @@ export class WorkspacesApi implements Disposable {
 		return session.accessToken;
 	}
 
-	private async getRichProvider(): Promise<GitRemote<RichRemoteProvider> | undefined> {
+	private async getRichProviders(): Promise<GitRemote<RichRemoteProvider>[]> {
 		const remotes: GitRemote<RichRemoteProvider>[] = [];
 		for (const repo of this.container.git.openRepositories) {
 			const richRemote = await repo.getRichRemote(true);
@@ -43,6 +43,12 @@ export class WorkspacesApi implements Disposable {
 			}
 			remotes.push(richRemote);
 		}
+
+		return remotes;
+	}
+
+	private async getRichProvider(): Promise<GitRemote<RichRemoteProvider> | undefined> {
+		const remotes = await this.getRichProviders();
 
 		if (remotes.length === 0) {
 			return undefined;

@@ -18,6 +18,29 @@ export interface IssueOrPullRequest {
 	readonly closed: boolean;
 }
 
+export interface IssueLabel {
+	color: string;
+	name: string;
+}
+
+export interface IssueMember {
+	name: string;
+	avatarUrl: string;
+	url: string;
+}
+
+export interface IssueShape extends IssueOrPullRequest {
+	updatedDate: Date;
+	author: IssueMember;
+	assignees: IssueMember[];
+	labels?: IssueLabel[];
+}
+
+export interface SearchedIssue {
+	issue: IssueShape;
+	reasons: string[];
+}
+
 export function serializeIssueOrPullRequest(value: IssueOrPullRequest): IssueOrPullRequest {
 	const serialized: IssueOrPullRequest = {
 		type: value.type,
@@ -95,4 +118,59 @@ export namespace IssueOrPullRequest {
 		}
 		return new ThemeIcon('issues', new ThemeColor(Colors.OpenAutolinkedIssueIconColor));
 	}
+}
+
+export function serializeIssue(value: IssueShape): IssueShape {
+	const serialized: IssueShape = {
+		type: value.type,
+		provider: {
+			id: value.provider.id,
+			name: value.provider.name,
+			domain: value.provider.domain,
+			icon: value.provider.icon,
+		},
+		id: value.id,
+		title: value.title,
+		url: value.url,
+		date: value.date,
+		closedDate: value.closedDate,
+		closed: value.closed,
+		updatedDate: value.updatedDate,
+		author: {
+			name: value.author.name,
+			avatarUrl: value.author.avatarUrl,
+			url: value.author.url,
+		},
+		assignees: value.assignees.map(assignee => ({
+			name: assignee.name,
+			avatarUrl: assignee.avatarUrl,
+			url: assignee.url,
+		})),
+		labels:
+			value.labels == null
+				? undefined
+				: value.labels.map(label => ({
+						color: label.color,
+						name: label.name,
+				  })),
+	};
+	return serialized;
+}
+
+export class Issue implements IssueShape {
+	readonly type = IssueOrPullRequestType.Issue;
+
+	constructor(
+		public readonly provider: RemoteProviderReference,
+		public readonly id: string,
+		public readonly title: string,
+		public readonly url: string,
+		public readonly date: Date,
+		public readonly closed: boolean,
+		public readonly updatedDate: Date,
+		public readonly author: IssueMember,
+		public readonly assignees: IssueMember[],
+		public readonly closedDate?: Date,
+		public readonly labels?: IssueLabel[],
+	) {}
 }

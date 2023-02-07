@@ -18,6 +18,7 @@ export class WorkspacesApp extends App<State> {
 	override onInitialize() {
 		this.log(`${this.appName}.onInitialize`);
 		this.renderContent();
+		console.log(this.state);
 	}
 
 	renderContent() {}
