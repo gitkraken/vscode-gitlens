@@ -502,9 +502,9 @@ export class Git {
 		return this.git<string>({ cwd: repoPath }, ...params);
 	}
 
-	async config__get(key: string, repoPath?: string, options: { local?: boolean } = {}) {
+	async config__get(key: string, repoPath?: string, options?: { local?: boolean }) {
 		const data = await this.git<string>(
-			{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, local: options.local },
+			{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, local: options?.local },
 			'config',
 			'--get',
 			key,
@@ -512,14 +512,24 @@ export class Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	async config__get_regex(pattern: string, repoPath?: string, options: { local?: boolean } = {}) {
+	async config__get_regex(pattern: string, repoPath?: string, options?: { local?: boolean }) {
 		const data = await this.git<string>(
-			{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, local: options.local },
+			{ cwd: repoPath ?? '', errors: GitErrorHandling.Ignore, local: options?.local },
 			'config',
 			'--get-regex',
 			pattern,
 		);
 		return data.length === 0 ? undefined : data.trim();
+	}
+
+	async config__set(key: string, value: string | undefined, repoPath?: string) {
+		const params = ['config', '--local'];
+		if (value == null) {
+			params.push('--unset', key);
+		} else {
+			params.push(key, value);
+		}
+		await this.git<string>({ cwd: repoPath ?? '', local: true }, ...params);
 	}
 
 	async diff(
