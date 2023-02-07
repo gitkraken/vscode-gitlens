@@ -1,11 +1,11 @@
 'use strict';
 import type { Disposable, TextEditor, ViewColumn } from 'vscode';
 import { Uri, window } from 'vscode';
-import { GitActions } from '../../../commands/gitCommands.actions';
 import { configuration } from '../../../configuration';
 import { Commands, ContextKeys } from '../../../constants';
 import type { Container } from '../../../container';
 import { PlusFeatures } from '../../../features';
+import { showDetailsView } from '../../../git/actions/commit';
 import { GitUri } from '../../../git/gitUri';
 import { getChangedFilesCount } from '../../../git/models/commit';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
@@ -139,7 +139,7 @@ export class TimelineWebview extends WebviewBase<State> {
 					const commit = await repository.getCommit(params.data.id);
 					if (commit == null) return;
 
-					void GitActions.Commit.showDetailsView(commit, { pin: false, preserveFocus: true });
+					void showDetailsView(commit, { pin: false, preserveFocus: true });
 				});
 
 				break;

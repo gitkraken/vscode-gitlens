@@ -1,12 +1,12 @@
 import type { TextEditor, Uri } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { executeGitCommand } from '../git/actions';
 import { GitUri } from '../git/gitUri';
 import { GitReference } from '../git/models/reference';
 import { command } from '../system/command';
 import type { CommandContext } from './base';
 import { ActiveEditorCachedCommand, getCommandUri } from './base';
-import { executeGitCommand } from './gitCommands.actions';
 
 export interface ShowQuickBranchHistoryCommandArgs {
 	repoPath?: string;

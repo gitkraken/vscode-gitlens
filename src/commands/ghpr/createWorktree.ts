@@ -2,13 +2,14 @@ import type { Uri } from 'vscode';
 import { window } from 'vscode';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
+import { add as addRemote } from '../../git/actions/remote';
+import { create as createWorktree } from '../../git/actions/worktree';
 import { GitReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import { Logger } from '../../logger';
 import { command } from '../../system/command';
 import { waitUntilNextTick } from '../../system/promise';
 import { Command } from '../base';
-import { GitActions } from '../gitCommands.actions';
 
 interface PullRequestNode {
 	readonly pullRequestModel: PullRequest;
@@ -90,7 +91,11 @@ export class CreateWorktreeCommand extends Command {
 			);
 			if (result?.title !== 'Yes') return;
 
-			await GitActions.Remote.add(repo, remoteOwner, remoteUrl, { confirm: false, fetch: true, reveal: false });
+			await addRemote(repo, remoteOwner, remoteUrl, {
+				confirm: false,
+				fetch: true,
+				reveal: false,
+			});
 			[remote] = await repo.getRemotes({ filter: r => r.url === remoteUrl });
 			if (remote == null) return;
 		} else {
@@ -100,7 +105,7 @@ export class CreateWorktreeCommand extends Command {
 		await waitUntilNextTick();
 
 		try {
-			await GitActions.Worktree.create(
+			await createWorktree(
 				repo,
 				undefined,
 				GitReference.create(`${remote.name}/${ref}`, repo.path, {

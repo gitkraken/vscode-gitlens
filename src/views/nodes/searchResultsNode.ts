@@ -1,6 +1,6 @@
 import type { TreeItem } from 'vscode';
 import { ThemeIcon } from 'vscode';
-import { executeGitCommand } from '../../commands/gitCommands.actions';
+import { executeGitCommand } from '../../git/actions';
 import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
 import type { SearchQuery, StoredSearchQuery } from '../../git/search';

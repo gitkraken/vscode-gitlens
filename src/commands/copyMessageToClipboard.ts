@@ -2,6 +2,7 @@ import type { TextEditor, Uri } from 'vscode';
 import { env } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { copyMessageToClipboard } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
@@ -15,7 +16,6 @@ import {
 	isCommandContextViewNodeHasCommit,
 	isCommandContextViewNodeHasTag,
 } from './base';
-import { GitActions } from './gitCommands.actions';
 
 export interface CopyMessageToClipboardCommandArgs {
 	message?: string;
@@ -62,7 +62,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 		try {
 			if (!args.message) {
 				if (args.repoPath != null && args.sha != null) {
-					await GitActions.Commit.copyMessageToClipboard({ ref: args.sha, repoPath: args.repoPath });
+					await copyMessageToClipboard({ ref: args.sha, repoPath: args.repoPath });
 					return;
 				}
 
@@ -92,7 +92,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 							const blame = await this.container.git.getBlameForLine(gitUri, blameline, editor?.document);
 							if (blame == null || blame.commit.isUncommitted) return;
 
-							await GitActions.Commit.copyMessageToClipboard(blame.commit);
+							await copyMessageToClipboard(blame.commit);
 							return;
 						} catch (ex) {
 							Logger.error(ex, 'CopyMessageToClipboardCommand', `getBlameForLine(${blameline})`);
@@ -101,7 +101,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 							return;
 						}
 					} else {
-						await GitActions.Commit.copyMessageToClipboard({ ref: args.sha, repoPath: repoPath! });
+						await copyMessageToClipboard({ ref: args.sha, repoPath: repoPath! });
 						return;
 					}
 				}

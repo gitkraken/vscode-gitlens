@@ -1,12 +1,12 @@
 import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { executeGitCommand } from '../git/actions';
 import type { SearchQuery } from '../git/search';
 import { command } from '../system/command';
 import { SearchResultsNode } from '../views/nodes/searchResultsNode';
 import type { CommandContext } from './base';
 import { Command, isCommandContextViewNodeHasRepository } from './base';
-import { executeGitCommand } from './gitCommands.actions';
 
 export interface SearchCommitsCommandArgs {
 	search?: Partial<SearchQuery>;
