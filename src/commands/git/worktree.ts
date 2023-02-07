@@ -64,6 +64,8 @@ interface CreateState {
 	reference?: GitReference;
 	createBranch: string;
 	flags: CreateFlags[];
+
+	reveal?: boolean;
 }
 
 type DeleteFlags = '--force';
@@ -383,10 +385,12 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					force: state.flags.includes('--force'),
 				});
 
-				void GitActions.Worktree.reveal(worktree, {
-					select: true,
-					focus: true,
-				});
+				if (state.reveal !== false) {
+					void GitActions.Worktree.reveal(undefined, {
+						select: true,
+						focus: true,
+					});
+				}
 
 				if (worktree == null) return;
 

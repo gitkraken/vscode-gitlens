@@ -90,7 +90,7 @@ export class CreateWorktreeCommand extends Command {
 			);
 			if (result?.title !== 'Yes') return;
 
-			await GitActions.Remote.add(repo, remoteOwner, remoteUrl, { confirm: false, fetch: true });
+			await GitActions.Remote.add(repo, remoteOwner, remoteUrl, { confirm: false, fetch: true, reveal: false });
 			[remote] = await repo.getRemotes({ filter: r => r.url === remoteUrl });
 			if (remote == null) return;
 		} else {
@@ -110,16 +110,17 @@ export class CreateWorktreeCommand extends Command {
 				}),
 			);
 
+			// Ensure that the worktree was created
+			const worktree = await this.container.git.getWorktree(repo.path, w => w.branch === ref);
+			if (worktree == null) return;
+
 			// Save the PR number in the branch config
-			const cfg = await this.container.git.getConfig(repo.path, `branch.${ref}.remote`);
-			if (cfg != null) {
-				// https://github.com/Microsoft/vscode-pull-request-github/blob/0c556c48c69a3df2f9cf9a45ed2c40909791b8ab/src/github/pullRequestGitHelper.ts#L18
-				void this.container.git.setConfig(
-					repo.path,
-					`branch.${ref}.github-pr-owner-number`,
-					`${rootOwner}#${rootRepository}#${number}`,
-				);
-			}
+			// https://github.com/Microsoft/vscode-pull-request-github/blob/0c556c48c69a3df2f9cf9a45ed2c40909791b8ab/src/github/pullRequestGitHelper.ts#L18
+			void this.container.git.setConfig(
+				repo.path,
+				`branch.${ref}.github-pr-owner-number`,
+				`${rootOwner}#${rootRepository}#${number}`,
+			);
 		} catch (ex) {
 			Logger.error(ex, 'CreateWorktreeCommand', 'Unable to create worktree');
 			void window.showErrorMessage(`Unable to create worktree for ${ref}`);

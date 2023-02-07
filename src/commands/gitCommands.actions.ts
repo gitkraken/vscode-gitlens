@@ -826,7 +826,7 @@ export namespace GitActions {
 			repo?: string | Repository,
 			name?: string,
 			url?: string,
-			options?: { confirm?: boolean; fetch?: boolean },
+			options?: { confirm?: boolean; fetch?: boolean; reveal?: boolean },
 		) {
 			return executeGitCommand({
 				command: 'remote',
@@ -837,6 +837,7 @@ export namespace GitActions {
 					name: name,
 					url: url,
 					flags: options?.fetch ? ['-f'] : undefined,
+					reveal: options?.reveal,
 				},
 			});
 		}
@@ -1013,10 +1014,15 @@ export namespace GitActions {
 	}
 
 	export namespace Worktree {
-		export function create(repo?: string | Repository, uri?: Uri, ref?: GitReference) {
+		export function create(
+			repo?: string | Repository,
+			uri?: Uri,
+			ref?: GitReference,
+			options?: { reveal?: boolean },
+		) {
 			return executeGitCommand({
 				command: 'worktree',
-				state: { subcommand: 'create', repo: repo, uri: uri, reference: ref },
+				state: { subcommand: 'create', repo: repo, uri: uri, reference: ref, reveal: options?.reveal },
 			});
 		}
 
