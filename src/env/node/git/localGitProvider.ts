@@ -1708,6 +1708,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const branches = getSettledValue(branchesResult)?.values;
 		const branchMap = branches != null ? new Map(branches.map(r => [r.name, r])) : new Map<string, GitBranch>();
+		const headBranch = branches?.find(b => b.current);
+		const headRefUpstreamName = headBranch?.upstream?.name;
 
 		const currentUser = getSettledValue(currentUserResult);
 
@@ -1939,6 +1941,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 									url: remote.url,
 									avatarUrl: avatarUrl,
 									context: serializeWebviewItemContext<GraphItemRefContext>(context),
+									current: tip === headRefUpstreamName,
 								};
 								refRemoteHeads.push(refRemoteHead);
 
@@ -1979,6 +1982,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							name: tip,
 							isCurrentHead: head,
 							context: serializeWebviewItemContext<GraphItemRefContext>(context),
+							upstream: branch?.upstream?.name,
 						};
 						refHeads.push(refHead);
 

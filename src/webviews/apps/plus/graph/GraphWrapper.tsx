@@ -367,7 +367,6 @@ export function GraphWrapper({
 		let day;
 		let prevDay;
 
-		let head: Head | undefined;
 		let markers;
 		let headMarkers;
 		let remoteMarkers;
@@ -398,7 +397,6 @@ export function GraphWrapper({
 				// eslint-disable-next-line no-loop-func
 				headMarkers = row.heads.map<GraphMinimapMarker>(h => {
 					if (h.isCurrentHead) {
-						head = h;
 						rankedShas.head = row.sha;
 					}
 
@@ -423,7 +421,7 @@ export function GraphWrapper({
 				// eslint-disable-next-line no-loop-func
 				remoteMarkers = row.remotes.map<GraphMinimapMarker>(r => {
 					let current = false;
-					if (r.name === head?.name) {
+					if (r.current) {
 						rankedShas.remote = row.sha;
 						current = true;
 					}

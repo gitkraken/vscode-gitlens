@@ -1216,6 +1216,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 								}),
 							},
 						}),
+						upstream: branch.upstream?.name,
 					},
 				];
 				refRemoteHeads = [
@@ -1240,6 +1241,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 								}),
 							},
 						}),
+						current: true,
 					},
 				];
 			} else {
