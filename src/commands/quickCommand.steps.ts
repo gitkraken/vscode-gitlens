@@ -55,7 +55,8 @@ import {
 	OpenChangedFilesCommandQuickPickItem,
 } from '../quickpicks/items/commits';
 import { CommandQuickPickItem, QuickPickSeparator } from '../quickpicks/items/common';
-import { Directive, DirectiveQuickPickItem } from '../quickpicks/items/directive';
+import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
+import { createDirectiveQuickPickItem, Directive } from '../quickpicks/items/directive';
 import type {
 	BranchQuickPickItem,
 	CommitQuickPickItem,
@@ -442,7 +443,7 @@ export function getValidateGitReferenceFn(
 		if (!(await Container.instance.git.validateReference(repos.path, value))) {
 			if (inRefMode) {
 				quickpick.items = [
-					DirectiveQuickPickItem.create(Directive.Back, true, {
+					createDirectiveQuickPickItem(Directive.Back, true, {
 						label: 'Enter a reference or commit SHA',
 					}),
 				];
@@ -680,7 +681,7 @@ export async function* pickBranchStep<
 		matchOnDetail: true,
 		items:
 			branches.length === 0
-				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
+				? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 				: branches,
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			if (button === QuickCommandButtons.RevealInSideBar) {
@@ -736,7 +737,7 @@ export async function* pickBranchesStep<
 		matchOnDetail: true,
 		items:
 			branches.length === 0
-				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
+				? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 				: branches,
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			if (button === QuickCommandButtons.RevealInSideBar) {
@@ -813,7 +814,7 @@ export async function* pickBranchOrTagStep<
 		selectValueWhenShown: true,
 		items:
 			branchesAndOrTags.length === 0
-				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
+				? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 				: branchesAndOrTags,
 		additionalButtons: [...(additionalButtons ?? []), showTagsButton],
 		onDidClickItemButton: (quickpick, button, { item }) => {
@@ -926,7 +927,7 @@ export async function* pickBranchOrTagStepMultiRepo<
 		selectValueWhenShown: true,
 		items:
 			branchesAndOrTags.length === 0
-				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
+				? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 				: branchesAndOrTags,
 		additionalButtons: [showTagsButton],
 		onDidClickItemButton: (quickpick, button, { item }) => {
@@ -1018,7 +1019,7 @@ export async function* pickCommitStep<
 ): AsyncStepResultGenerator<GitCommit> {
 	function getItems(log: GitLog | undefined) {
 		return log == null
-			? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
+			? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 			: [
 					...map(log.commits.values(), commit =>
 						createCommitQuickPickItem(
@@ -1032,7 +1033,7 @@ export async function* pickCommitStep<
 							},
 						),
 					),
-					...(log?.hasMore ? [DirectiveQuickPickItem.create(Directive.LoadMore)] : []),
+					...(log?.hasMore ? [createDirectiveQuickPickItem(Directive.LoadMore)] : []),
 			  ];
 	}
 
@@ -1143,7 +1144,7 @@ export function* pickCommitsStep<
 ): StepResultGenerator<GitRevisionReference[]> {
 	function getItems(log: GitLog | undefined) {
 		return log == null
-			? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
+			? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 			: [
 					...map(log.commits.values(), commit =>
 						createCommitQuickPickItem(
@@ -1287,7 +1288,7 @@ export async function* pickRemoteStep<
 		matchOnDetail: true,
 		items:
 			remotes.length === 0
-				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
+				? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 				: remotes,
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			if (button === QuickCommandButtons.RevealInSideBar) {
@@ -1340,7 +1341,7 @@ export async function* pickRemotesStep<
 		matchOnDetail: true,
 		items:
 			remotes.length === 0
-				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
+				? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 				: remotes,
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			if (button === QuickCommandButtons.RevealInSideBar) {
@@ -1377,7 +1378,7 @@ export async function* pickRepositoryStep<
 		placeholder: placeholder,
 		items:
 			context.repos.length === 0
-				? [DirectiveQuickPickItem.create(Directive.Cancel)]
+				? [createDirectiveQuickPickItem(Directive.Cancel)]
 				: await Promise.all(
 						context.repos.map(r =>
 							createRepositoryQuickPickItem(r, r.id === active?.id, {
@@ -1443,7 +1444,7 @@ export async function* pickRepositoriesStep<
 		placeholder: options.placeholder,
 		items:
 			context.repos.length === 0
-				? [DirectiveQuickPickItem.create(Directive.Cancel)]
+				? [createDirectiveQuickPickItem(Directive.Cancel)]
 				: await Promise.all(
 						context.repos.map(repo =>
 							createRepositoryQuickPickItem(
@@ -1510,7 +1511,7 @@ export function* pickStashStep<
 		matchOnDetail: true,
 		items:
 			stash == null
-				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
+				? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 				: [
 						...map(stash.commits.values(), commit =>
 							createCommitQuickPickItem(
@@ -1572,7 +1573,7 @@ export async function* pickTagsStep<
 		matchOnDetail: true,
 		items:
 			tags.length === 0
-				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
+				? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 				: tags,
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			if (button === QuickCommandButtons.RevealInSideBar) {
@@ -1631,7 +1632,7 @@ export async function* pickWorktreeStep<
 		matchOnDetail: true,
 		items:
 			worktrees.length === 0
-				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
+				? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 				: worktrees,
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			switch (button) {
@@ -1692,7 +1693,7 @@ export async function* pickWorktreesStep<
 		matchOnDetail: true,
 		items:
 			worktrees.length === 0
-				? [DirectiveQuickPickItem.create(Directive.Back, true), DirectiveQuickPickItem.create(Directive.Cancel)]
+				? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
 				: worktrees,
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			switch (button) {
@@ -2282,28 +2283,28 @@ function getShowRepositoryStatusStepItems<
 	if (context.status.upstream) {
 		if (context.status.state.ahead === 0 && context.status.state.behind === 0) {
 			items.push(
-				DirectiveQuickPickItem.create(Directive.Noop, true, {
+				createDirectiveQuickPickItem(Directive.Noop, true, {
 					label: `$(git-branch) ${context.status.branch} is up to date with $(git-branch) ${context.status.upstream}`,
 					detail: workingTreeStatus,
 				}),
 			);
 		} else if (context.status.state.ahead !== 0 && context.status.state.behind !== 0) {
 			items.push(
-				DirectiveQuickPickItem.create(Directive.Noop, true, {
+				createDirectiveQuickPickItem(Directive.Noop, true, {
 					label: `$(git-branch) ${context.status.branch} has diverged from $(git-branch) ${context.status.upstream}`,
 					detail: workingTreeStatus,
 				}),
 			);
 		} else if (context.status.state.ahead !== 0) {
 			items.push(
-				DirectiveQuickPickItem.create(Directive.Noop, true, {
+				createDirectiveQuickPickItem(Directive.Noop, true, {
 					label: `$(git-branch) ${context.status.branch} is ahead of $(git-branch) ${context.status.upstream}`,
 					detail: workingTreeStatus,
 				}),
 			);
 		} else if (context.status.state.behind !== 0) {
 			items.push(
-				DirectiveQuickPickItem.create(Directive.Noop, true, {
+				createDirectiveQuickPickItem(Directive.Noop, true, {
 					label: `$(git-branch) ${context.status.branch} is behind $(git-branch) ${context.status.upstream}`,
 					detail: workingTreeStatus,
 				}),
@@ -2347,7 +2348,7 @@ function getShowRepositoryStatusStepItems<
 		}
 	} else {
 		items.push(
-			DirectiveQuickPickItem.create(Directive.Noop, true, {
+			createDirectiveQuickPickItem(Directive.Noop, true, {
 				label: `$(git-branch) ${context.status.branch} has no upstream`,
 				detail: workingTreeStatus,
 			}),
@@ -2395,28 +2396,28 @@ export async function* ensureAccessStep<
 	const directives: DirectiveQuickPickItem[] = [];
 	let placeholder: string;
 	if (access.subscription.current.account?.verified === false) {
-		directives.push(DirectiveQuickPickItem.create(Directive.RequiresVerification, true));
+		directives.push(createDirectiveQuickPickItem(Directive.RequiresVerification, true));
 		placeholder = 'You must verify your email address before you can continue';
 	} else {
 		if (access.subscription.required == null) return undefined;
 
 		placeholder = 'You need GitLens Pro to access GitLens+ features on this repo';
 		if (isSubscriptionPaidPlan(access.subscription.required) && access.subscription.current.account != null) {
-			directives.push(DirectiveQuickPickItem.create(Directive.RequiresPaidSubscription, true));
+			directives.push(createDirectiveQuickPickItem(Directive.RequiresPaidSubscription, true));
 		} else if (
 			access.subscription.current.account == null &&
 			!isSubscriptionPreviewTrialExpired(access.subscription.current)
 		) {
-			directives.push(DirectiveQuickPickItem.create(Directive.StartPreviewTrial, true));
+			directives.push(createDirectiveQuickPickItem(Directive.StartPreviewTrial, true));
 		} else {
-			directives.push(DirectiveQuickPickItem.create(Directive.ExtendTrial));
+			directives.push(createDirectiveQuickPickItem(Directive.ExtendTrial));
 		}
 	}
 
 	const step = QuickCommand.createPickStep<DirectiveQuickPickItem>({
 		title: appendReposToTitle(context.title, state, context),
 		placeholder: placeholder,
-		items: [...directives, DirectiveQuickPickItem.create(Directive.Cancel)],
+		items: [...directives, createDirectiveQuickPickItem(Directive.Cancel)],
 	});
 
 	const selection: StepSelection<typeof step> = yield step;

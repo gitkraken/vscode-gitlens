@@ -4,7 +4,7 @@ import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import { Container } from '../container';
 import type { KeyMapping } from '../keyboard';
-import { Directive, DirectiveQuickPickItem, isDirective } from '../quickpicks/items/directive';
+import { Directive, isDirective, isDirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { command } from '../system/command';
 import { log } from '../system/decorators/log';
 import type { Deferred } from '../system/promise';
@@ -482,7 +482,7 @@ export class GitCommandsCommand extends Command {
 							activeIndex = quickpick.items.indexOf(active);
 
 							// If the active item is the "Load more" directive, then select the previous item
-							if (DirectiveQuickPickItem.is(active)) {
+							if (isDirectiveQuickPickItem(active)) {
 								activeIndex--;
 							}
 						}
@@ -705,7 +705,7 @@ export class GitCommandsCommand extends Command {
 
 						if (items.length === 1) {
 							const [item] = items;
-							if (DirectiveQuickPickItem.is(item)) {
+							if (isDirectiveQuickPickItem(item)) {
 								switch (item.directive) {
 									case Directive.Cancel:
 										resolve(undefined);

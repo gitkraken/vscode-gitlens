@@ -10,7 +10,8 @@ import { filter, map } from '../system/iterable';
 import { isPromise } from '../system/promise';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import { CommandQuickPickItem } from './items/common';
-import { Directive, DirectiveQuickPickItem } from './items/directive';
+import type { DirectiveQuickPickItem} from './items/directive';
+import { createDirectiveQuickPickItem, Directive , isDirectiveQuickPickItem } from './items/directive';
 import type { CommitQuickPickItem } from './items/gitCommands';
 import { createCommitQuickPickItem } from './items/gitCommands';
 
@@ -53,7 +54,7 @@ export namespace CommitPicker {
 
 		function getItems(log: GitLog | undefined) {
 			return log == null
-				? [DirectiveQuickPickItem.create(Directive.Cancel)]
+				? [createDirectiveQuickPickItem(Directive.Cancel)]
 				: [
 						...(options?.showOtherReferences ?? []),
 						...map(log.commits.values(), commit =>
@@ -62,7 +63,7 @@ export namespace CommitPicker {
 								icon: true,
 							}),
 						),
-						...(log?.hasMore ? [DirectiveQuickPickItem.create(Directive.LoadMore)] : []),
+						...(log?.hasMore ? [createDirectiveQuickPickItem(Directive.LoadMore)] : []),
 				  ];
 		}
 
@@ -79,7 +80,7 @@ export namespace CommitPicker {
 					activeIndex = quickpick.items.indexOf(active);
 
 					// If the active item is the "Load more" directive, then select the previous item
-					if (DirectiveQuickPickItem.is(active)) {
+					if (isDirectiveQuickPickItem(active)) {
 						activeIndex--;
 					}
 				}
@@ -108,7 +109,7 @@ export namespace CommitPicker {
 									const [item] = quickpick.activeItems;
 									if (
 										item != null &&
-										!DirectiveQuickPickItem.is(item) &&
+										!isDirectiveQuickPickItem(item) &&
 										!CommandQuickPickItem.is(item)
 									) {
 										void options.onDidPressKey!(key, item);
@@ -132,7 +133,7 @@ export namespace CommitPicker {
 					quickpick.onDidAccept(() => {
 						if (quickpick.activeItems.length !== 0) {
 							const [item] = quickpick.activeItems;
-							if (DirectiveQuickPickItem.is(item)) {
+							if (isDirectiveQuickPickItem(item)) {
 								switch (item.directive) {
 									case Directive.LoadMore:
 										void loadMore();
@@ -163,7 +164,7 @@ export namespace CommitPicker {
 
 				quickpick.show();
 			});
-			if (pick == null || DirectiveQuickPickItem.is(pick)) return undefined;
+			if (pick == null || isDirectiveQuickPickItem(pick)) return undefined;
 
 			if (pick instanceof CommandQuickPickItem) {
 				void (await pick.execute());
@@ -226,7 +227,7 @@ export namespace StashPicker {
 
 		if (stash == null || quickpick.items.length <= (options?.showOtherReferences?.length ?? 0)) {
 			quickpick.placeholder = stash == null ? 'No stashes found' : options?.empty ?? `No matching stashes found`;
-			quickpick.items = [DirectiveQuickPickItem.create(Directive.Cancel)];
+			quickpick.items = [createDirectiveQuickPickItem(Directive.Cancel)];
 		}
 
 		if (options?.picked) {
@@ -247,7 +248,7 @@ export namespace StashPicker {
 									const [item] = quickpick.activeItems;
 									if (
 										item != null &&
-										!DirectiveQuickPickItem.is(item) &&
+										!isDirectiveQuickPickItem(item) &&
 										!CommandQuickPickItem.is(item)
 									) {
 										void options.onDidPressKey!(key, item);
@@ -271,7 +272,7 @@ export namespace StashPicker {
 					quickpick.onDidAccept(() => {
 						if (quickpick.activeItems.length !== 0) {
 							const [item] = quickpick.activeItems;
-							if (DirectiveQuickPickItem.is(item)) {
+							if (isDirectiveQuickPickItem(item)) {
 								resolve(undefined);
 								return;
 							}
@@ -295,7 +296,7 @@ export namespace StashPicker {
 
 				quickpick.show();
 			});
-			if (pick == null || DirectiveQuickPickItem.is(pick)) return undefined;
+			if (pick == null || isDirectiveQuickPickItem(pick)) return undefined;
 
 			if (pick instanceof CommandQuickPickItem) {
 				void (await pick.execute());
