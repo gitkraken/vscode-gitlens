@@ -7,7 +7,7 @@ import { Logger } from '../logger';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import type { LinesChangeEvent } from '../trackers/gitLineTracker';
-import { Hovers } from './hovers';
+import { changesMessage, detailsMessage } from './hovers';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 
@@ -123,7 +123,7 @@ export class LineHoverController implements Disposable {
 		const trackedDocument = await this.container.tracker.get(document);
 		if (trackedDocument == null) return undefined;
 
-		const message = await Hovers.detailsMessage(
+		const message = await detailsMessage(
 			commit,
 			trackedDocument.uri,
 			editorLine,
@@ -182,12 +182,7 @@ export class LineHoverController implements Disposable {
 		const trackedDocument = await this.container.tracker.get(document);
 		if (trackedDocument == null) return undefined;
 
-		const message = await Hovers.changesMessage(
-			commit,
-			trackedDocument.uri,
-			position.line,
-			trackedDocument.document,
-		);
+		const message = await changesMessage(commit, trackedDocument.uri, position.line, trackedDocument.document);
 		if (message == null) return undefined;
 
 		return new Hover(message, range);

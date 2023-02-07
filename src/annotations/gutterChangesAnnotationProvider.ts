@@ -11,7 +11,7 @@ import { configuration, FileAnnotationType } from '../configuration';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import type { GitDiff } from '../git/models/diff';
-import { Hovers } from '../hovers/hovers';
+import { localChangesMessage } from '../hovers/hovers';
 import { getLogScope, log } from '../system/decorators/log';
 import { Stopwatch } from '../system/stopwatch';
 import type { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
@@ -306,12 +306,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 					position.line >= hunk.current.position.start - 1 &&
 					position.line <= hunk.current.position.end - (hasMoreDeletedLines ? 0 : 1)
 				) {
-					const markdown = await Hovers.localChangesMessage(
-						commit,
-						this.trackedDocument.uri,
-						position.line,
-						hunk,
-					);
+					const markdown = await localChangesMessage(commit, this.trackedDocument.uri, position.line, hunk);
 					if (markdown == null) return undefined;
 
 					return new Hover(
