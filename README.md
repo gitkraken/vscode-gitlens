@@ -27,7 +27,7 @@ GitLens is **powerful**, **feature rich**, and [highly customizable](#gitlens-se
 
 Here are just some of the **features** that GitLens provides,
 
-- effortless [**revision navigation**](#revision-navigation- 'Jump to Revision Navigation') (backwards and forwards) through the history of a file
+- effortless [**revision navigation**](#revision-navigation 'Jump to Revision Navigation') (backwards and forwards) through the history of a file
 - an unobtrusive [**current line blame**](#current-line-blame- 'Jump to Current Line Blame') annotation at the end of the line showing the commit and author who last modified the line, with more detailed blame information accessible on [**hover**](#hovers- 'Jump to Hovers')
 - [**authorship CodeLens**](#git-codelens- 'Jump to Git CodeLens') showing the most recent commit and number of authors at the top of files and/or on code blocks
 - a [**status bar blame**](#status-bar-blame- 'Jump to Status Bar Blame') annotation showing the commit and author who last modified the current line
@@ -112,7 +112,7 @@ You can create multiple working trees, each of which can be opened in individual
 
 # Features
 
-## Revision Navigation [#](#revision-navigation- 'Revision Navigation')
+## Revision Navigation [#](#revision-navigation 'Revision Navigation')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/revision-navigation.gif" alt="Revision Navigation" />
