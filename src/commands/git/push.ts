@@ -5,7 +5,7 @@ import { getRemoteNameFromBranchName } from '../../git/models/branch';
 import type { GitBranchReference } from '../../git/models/reference';
 import { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
-import { Directive, DirectiveQuickPickItem } from '../../quickpicks/items/directive';
+import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { isStringArray } from '../../system/array';
@@ -186,7 +186,7 @@ export class PushGitCommand extends QuickCommand<State> {
 					step = this.createConfirmStep(
 						appendReposToTitle(`Confirm ${context.title}`, state, context),
 						[],
-						DirectiveQuickPickItem.create(Directive.Cancel, true, {
+						createDirectiveQuickPickItem(Directive.Cancel, true, {
 							label: `Cancel ${this.title}`,
 							detail: 'Cannot push remote branch',
 						}),
@@ -219,7 +219,7 @@ export class PushGitCommand extends QuickCommand<State> {
 							step = this.createConfirmStep(
 								appendReposToTitle('Confirm Publish', state, context),
 								[],
-								DirectiveQuickPickItem.create(Directive.Cancel, true, {
+								createDirectiveQuickPickItem(Directive.Cancel, true, {
 									label: 'Cancel Publish',
 									detail: 'Cannot publish; No remotes found',
 								}),
@@ -244,7 +244,7 @@ export class PushGitCommand extends QuickCommand<State> {
 									}`,
 								}),
 							],
-							DirectiveQuickPickItem.create(Directive.Cancel, true, {
+							createDirectiveQuickPickItem(Directive.Cancel, true, {
 								label: `Cancel ${this.title}`,
 								detail: `Cannot push; ${GitReference.toString(
 									branch,
@@ -265,7 +265,7 @@ export class PushGitCommand extends QuickCommand<State> {
 						step = this.createConfirmStep(
 							appendReposToTitle(`Confirm ${context.title}`, state, context),
 							[],
-							DirectiveQuickPickItem.create(Directive.Cancel, true, {
+							createDirectiveQuickPickItem(Directive.Cancel, true, {
 								label: `Cancel ${this.title}`,
 								detail: 'No commits found to push',
 							}),
@@ -312,7 +312,7 @@ export class PushGitCommand extends QuickCommand<State> {
 						step = this.createConfirmStep(
 							appendReposToTitle('Confirm Publish', state, context),
 							[],
-							DirectiveQuickPickItem.create(Directive.Cancel, true, {
+							createDirectiveQuickPickItem(Directive.Cancel, true, {
 								label: 'Cancel Publish',
 								detail: 'Cannot publish; No remotes found',
 							}),
@@ -322,7 +322,7 @@ export class PushGitCommand extends QuickCommand<State> {
 						step = this.createConfirmStep(
 							appendReposToTitle('Confirm Push', state, context),
 							[],
-							DirectiveQuickPickItem.create(Directive.Cancel, true, {
+							createDirectiveQuickPickItem(Directive.Cancel, true, {
 								label: `Cancel ${this.title}`,
 								detail: `Cannot push; No commits ahead of ${getRemoteNameFromBranchName(
 									status.upstream,
@@ -379,7 +379,7 @@ export class PushGitCommand extends QuickCommand<State> {
 							}),
 						],
 						status?.state.behind
-							? DirectiveQuickPickItem.create(Directive.Cancel, true, {
+							? createDirectiveQuickPickItem(Directive.Cancel, true, {
 									label: `Cancel ${this.title}`,
 									detail: `Cannot push; ${GitReference.toString(branch)} is behind${
 										status?.upstream ? ` ${getRemoteNameFromBranchName(status.upstream)}` : ''

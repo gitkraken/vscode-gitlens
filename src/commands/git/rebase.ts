@@ -3,7 +3,8 @@ import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import { GitReference, GitRevision } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
-import { Directive, DirectiveQuickPickItem } from '../../quickpicks/items/directive';
+import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
+import { createDirectiveQuickPickItem , Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { pluralize } from '../../system/string';
@@ -227,7 +228,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			const step: QuickPickStep<DirectiveQuickPickItem> = this.createConfirmStep(
 				appendReposToTitle(`Confirm ${context.title}`, state, context),
 				[],
-				DirectiveQuickPickItem.create(Directive.Cancel, true, {
+				createDirectiveQuickPickItem(Directive.Cancel, true, {
 					label: `Cancel ${this.title}`,
 					detail: `${GitReference.toString(context.destination, {
 						capitalize: true,

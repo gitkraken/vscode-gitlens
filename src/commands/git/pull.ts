@@ -4,7 +4,7 @@ import { isBranch } from '../../git/models/branch';
 import type { GitBranchReference } from '../../git/models/reference';
 import { GitReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
-import { Directive, DirectiveQuickPickItem } from '../../quickpicks/items/directive';
+import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { isStringArray } from '../../system/array';
@@ -162,7 +162,7 @@ export class PullGitCommand extends QuickCommand<State> {
 				step = this.createConfirmStep(
 					appendReposToTitle(`Confirm ${context.title}`, state, context),
 					[],
-					DirectiveQuickPickItem.create(Directive.Cancel, true, {
+					createDirectiveQuickPickItem(Directive.Cancel, true, {
 						label: `Cancel ${this.title}`,
 						detail: 'Cannot pull a remote branch',
 					}),
@@ -175,7 +175,7 @@ export class PullGitCommand extends QuickCommand<State> {
 					step = this.createConfirmStep(
 						appendReposToTitle(`Confirm ${context.title}`, state, context),
 						[],
-						DirectiveQuickPickItem.create(Directive.Cancel, true, {
+						createDirectiveQuickPickItem(Directive.Cancel, true, {
 							label: `Cancel ${this.title}`,
 							detail: 'Cannot pull a branch until it has been published',
 						}),

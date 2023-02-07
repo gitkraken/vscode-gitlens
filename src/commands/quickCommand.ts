@@ -2,7 +2,8 @@ import type { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscod
 import { configuration } from '../configuration';
 import type { Container } from '../container';
 import type { Keys } from '../keyboard';
-import { Directive, DirectiveQuickPickItem, isDirective } from '../quickpicks/items/directive';
+import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
+import { createDirectiveQuickPickItem , Directive, isDirective } from '../quickpicks/items/directive';
 
 export * from './quickCommand.buttons';
 export * from './quickCommand.steps';
@@ -332,7 +333,7 @@ export namespace QuickCommand {
 			placeholder: `Confirm ${context.title}`,
 			title: title,
 			ignoreFocusOut: true,
-			items: [...confirmations, cancel ?? DirectiveQuickPickItem.create(Directive.Cancel)],
+			items: [...confirmations, cancel ?? createDirectiveQuickPickItem(Directive.Cancel)],
 			selectedItems: [confirmations.find(c => c.picked) ?? confirmations[0]],
 			...options,
 		});
