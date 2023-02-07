@@ -24,7 +24,7 @@ import {
 	endSteps,
 	pickRepositoriesStep,
 	QuickCommand,
-	StepResult,
+	StepResultBreak,
 } from '../quickCommand';
 
 interface Context {
@@ -110,7 +110,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 						{ skipIfPossible: state.counter >= 1 },
 					);
 					// Always break on the first step (so we will go back)
-					if (result === StepResult.Break) break;
+					if (result === StepResultBreak) break;
 
 					state.repos = result;
 				}
@@ -118,7 +118,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 
 			if (this.confirm(state.confirm)) {
 				const result = yield* this.confirmStep(state as FetchStepState, context);
-				if (result === StepResult.Break) {
+				if (result === StepResultBreak) {
 					// If we skipped the previous step, make sure we back up past it
 					if (skippedStepOne) {
 						state.counter--;
@@ -134,7 +134,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 			void this.execute(state as FetchStepState);
 		}
 
-		return state.counter < 0 ? StepResult.Break : undefined;
+		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
 	private async *confirmStep(state: FetchStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
@@ -192,6 +192,6 @@ export class FetchGitCommand extends QuickCommand<State> {
 		}
 
 		const selection: StepSelection<typeof step> = yield step;
-		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 }

@@ -28,7 +28,7 @@ import {
 	pickRepositoryStep,
 	QuickCommand,
 	QuickCommandButtons,
-	StepResult,
+	StepResultBreak,
 } from '../quickCommand';
 
 interface Context {
@@ -122,7 +122,7 @@ export class PushGitCommand extends QuickCommand<State> {
 						context,
 					);
 					// Always break on the first step (so we will go back)
-					if (result === StepResult.Break) break;
+					if (result === StepResultBreak) break;
 
 					state.repos = [result];
 				} else {
@@ -132,7 +132,7 @@ export class PushGitCommand extends QuickCommand<State> {
 						{ skipIfPossible: state.counter >= 1 },
 					);
 					// Always break on the first step (so we will go back)
-					if (result === StepResult.Break) break;
+					if (result === StepResultBreak) break;
 
 					state.repos = result;
 				}
@@ -140,7 +140,7 @@ export class PushGitCommand extends QuickCommand<State> {
 
 			if (this.confirm(state.confirm)) {
 				const result = yield* this.confirmStep(state as PushStepState, context);
-				if (result === StepResult.Break) {
+				if (result === StepResultBreak) {
 					// If we skipped the previous step, make sure we back up past it
 					if (skippedStepOne) {
 						state.counter--;
@@ -156,7 +156,7 @@ export class PushGitCommand extends QuickCommand<State> {
 			void this.execute(state as State<Repository[]>);
 		}
 
-		return state.counter < 0 ? StepResult.Break : undefined;
+		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
 	private async *confirmStep(state: PushStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
@@ -412,6 +412,6 @@ export class PushGitCommand extends QuickCommand<State> {
 		}
 
 		const selection: StepSelection<typeof step> = yield step;
-		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 }

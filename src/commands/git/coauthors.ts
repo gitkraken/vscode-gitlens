@@ -6,7 +6,7 @@ import { executeCoreCommand } from '../../system/command';
 import { normalizePath } from '../../system/path';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type { PartialStepState, StepGenerator, StepState } from '../quickCommand';
-import { endSteps , pickContributorsStep, pickRepositoryStep, QuickCommand, StepResult } from '../quickCommand';
+import { endSteps, pickContributorsStep, pickRepositoryStep, QuickCommand, StepResultBreak } from '../quickCommand';
 
 interface Context {
 	repos: Repository[];
@@ -130,7 +130,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 				} else {
 					const result = yield* pickRepositoryStep(state, context);
 					// Always break on the first step (so we will go back)
-					if (result === StepResult.Break) break;
+					if (result === StepResultBreak) break;
 
 					state.repo = result;
 				}
@@ -142,7 +142,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 					context,
 					'Choose contributors to add as co-authors',
 				);
-				if (result === StepResult.Break) {
+				if (result === StepResultBreak) {
 					// If we skipped the previous step, make sure we back up past it
 					if (skippedStepOne) {
 						state.counter--;
@@ -158,6 +158,6 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 			void this.execute(state as CoAuthorStepState);
 		}
 
-		return state.counter < 0 ? StepResult.Break : undefined;
+		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 }

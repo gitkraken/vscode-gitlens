@@ -32,7 +32,7 @@ import type { TagGitCommandArgs } from './git/tag';
 import type { WorktreeGitCommandArgs } from './git/worktree';
 import { PickCommandStep } from './gitCommands.utils';
 import type { CustomStep, QuickCommand, QuickInputStep, QuickPickStep, StepSelection } from './quickCommand';
-import { isCustomStep , isQuickCommand, isQuickInputStep, isQuickPickStep, StepResult } from './quickCommand';
+import { isCustomStep, isQuickCommand, isQuickInputStep, isQuickPickStep, StepResultBreak } from './quickCommand';
 import { QuickCommandButtons, ToggleQuickInputButton } from './quickCommand.buttons';
 
 const sanitizeLabel = /\$\(.+?\)|\s/g;
@@ -293,7 +293,7 @@ export class GitCommandsCommand extends Command {
 
 	private async showCustomStep(step: CustomStep, commandsStep: PickCommandStep) {
 		const result = await step.show(step);
-		if (result === StepResult.Break) return undefined;
+		if (result === StepResultBreak) return undefined;
 
 		if (isDirective(result)) {
 			switch (result) {

@@ -11,6 +11,7 @@ import type {
 	PartialStepState,
 	QuickPickStep,
 	StepGenerator,
+	StepResult,
 	StepResultGenerator,
 	StepSelection,
 	StepState,
@@ -22,7 +23,7 @@ import {
 	pickCommitStep,
 	pickRepositoryStep,
 	QuickCommand,
-	StepResult,
+	StepResultBreak,
 } from '../quickCommand';
 
 interface Context {
@@ -109,7 +110,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 				} else {
 					const result = yield* pickRepositoryStep(state, context);
 					// Always break on the first step (so we will go back)
-					if (result === StepResult.Break) break;
+					if (result === StepResultBreak) break;
 
 					state.repo = result;
 				}
@@ -142,7 +143,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 							: `Choose a commit to reset ${context.destination.name} to`,
 					picked: state.reference?.ref,
 				});
-				if (result === StepResult.Break) {
+				if (result === StepResultBreak) {
 					// If we skipped the previous step, make sure we back up past it
 					if (skippedStepOne) {
 						state.counter--;
@@ -156,7 +157,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 
 			if (this.confirm(state.confirm)) {
 				const result = yield* this.confirmStep(state as ResetStepState, context);
-				if (result === StepResult.Break) continue;
+				if (result === StepResultBreak) continue;
 
 				state.flags = result;
 			}
@@ -165,7 +166,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 			this.execute(state as ResetStepState);
 		}
 
-		return state.counter < 0 ? StepResult.Break : undefined;
+		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
 	private *confirmStep(state: ResetStepState, context: Context): StepResultGenerator<Flags[]> {
@@ -195,6 +196,6 @@ export class ResetGitCommand extends QuickCommand<State> {
 			],
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 }

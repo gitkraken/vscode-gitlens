@@ -14,7 +14,14 @@ import { pluralize } from '../../system/string';
 import { SearchResultsNode } from '../../views/nodes/searchResultsNode';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { getSteps } from '../gitCommands.utils';
-import type { PartialStepState, StepGenerator, StepResultGenerator, StepSelection, StepState } from '../quickCommand';
+import type {
+	PartialStepState,
+	StepGenerator,
+	StepResult,
+	StepResultGenerator,
+	StepSelection,
+	StepState,
+} from '../quickCommand';
 import {
 	appendReposToTitle,
 	canPickStepContinue,
@@ -24,7 +31,7 @@ import {
 	pickRepositoryStep,
 	QuickCommand,
 	QuickCommandButtons,
-	StepResult,
+	StepResultBreak,
 } from '../quickCommand';
 
 interface Context {
@@ -141,7 +148,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 				} else {
 					const result = yield* pickRepositoryStep(state, context);
 					// Always break on the first step (so we will go back)
-					if (result === StepResult.Break) break;
+					if (result === StepResultBreak) break;
 
 					state.repo = result;
 				}
@@ -149,7 +156,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 
 			if (state.counter < 2 || state.query == null) {
 				const result = yield* this.pickSearchOperatorStep(state as SearchStepState, context);
-				if (result === StepResult.Break) {
+				if (result === StepResultBreak) {
 					// If we skipped the previous step, make sure we back up past it
 					if (skippedStepOne) {
 						state.counter--;
@@ -238,7 +245,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 							),
 					},
 				});
-				if (result === StepResult.Break) {
+				if (result === StepResultBreak) {
 					state.counter--;
 					continue;
 				}
@@ -252,7 +259,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 					pin: false,
 					preserveFocus: false,
 				});
-				result = StepResult.Break;
+				result = StepResultBreak;
 			} else {
 				result = yield* getSteps(
 					this.container,
@@ -268,12 +275,12 @@ export class SearchGitCommand extends QuickCommand<State> {
 			}
 
 			state.counter--;
-			if (result === StepResult.Break) {
+			if (result === StepResultBreak) {
 				endSteps(state);
 			}
 		}
 
-		return state.counter < 0 ? StepResult.Break : undefined;
+		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
 	private *pickSearchOperatorStep(state: SearchStepState, context: Context): StepResultGenerator<string> {
@@ -392,7 +399,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 		if (!canPickStepContinue(step, state, selection)) {
 			// Since we simulated a step above, we need to remove it here
 			state.counter--;
-			return StepResult.Break;
+			return StepResultBreak;
 		}
 
 		// Since we simulated a step above, we need to remove it here

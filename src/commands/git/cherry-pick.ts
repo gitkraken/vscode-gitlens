@@ -10,6 +10,7 @@ import type {
 	PartialStepState,
 	QuickPickStep,
 	StepGenerator,
+	StepResult,
 	StepResultGenerator,
 	StepSelection,
 	StepState,
@@ -23,7 +24,7 @@ import {
 	pickCommitsStep,
 	pickRepositoryStep,
 	QuickCommand,
-	StepResult,
+	StepResultBreak,
 } from '../quickCommand';
 
 interface Context {
@@ -124,7 +125,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				} else {
 					const result = yield* pickRepositoryStep(state, context);
 					// Always break on the first step (so we will go back)
-					if (result === StepResult.Break) break;
+					if (result === StepResultBreak) break;
 
 					state.repo = result;
 				}
@@ -151,7 +152,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 						value: context.selectedBranchOrTag == null ? state.references?.[0]?.ref : undefined,
 					},
 				);
-				if (result === StepResult.Break) {
+				if (result === StepResultBreak) {
 					// If we skipped the previous step, make sure we back up past it
 					if (skippedStepOne) {
 						state.counter--;
@@ -194,14 +195,14 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 								  })}`,
 					},
 				);
-				if (result === StepResult.Break) continue;
+				if (result === StepResultBreak) continue;
 
 				state.references = result;
 			}
 
 			if (this.confirm(state.confirm)) {
 				const result = yield* this.confirmStep(state as CherryPickStepState, context);
-				if (result === StepResult.Break) continue;
+				if (result === StepResultBreak) continue;
 
 				state.flags = result;
 			}
@@ -210,7 +211,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 			this.execute(state as CherryPickStepState<State<GitReference[]>>);
 		}
 
-		return state.counter < 0 ? StepResult.Break : undefined;
+		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
 	private *confirmStep(state: CherryPickStepState, context: Context): StepResultGenerator<Flags[]> {
@@ -241,6 +242,6 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 			context,
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 }

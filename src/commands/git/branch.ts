@@ -29,7 +29,7 @@ import {
 	pickBranchStep,
 	pickRepositoryStep,
 	QuickCommand,
-	StepResult,
+	StepResultBreak,
 } from '../quickCommand';
 
 interface Context {
@@ -205,7 +205,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 
 				const result = yield* this.pickSubcommandStep(state);
 				// Always break on the first step (so we will go back)
-				if (result === StepResult.Break) break;
+				if (result === StepResultBreak) break;
 
 				state.subcommand = result;
 			}
@@ -223,7 +223,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 					state.repo = context.repos[0];
 				} else {
 					const result = yield* pickRepositoryStep(state, context);
-					if (result === StepResult.Break) continue;
+					if (result === StepResultBreak) continue;
 
 					state.repo = result;
 				}
@@ -257,7 +257,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 			}
 		}
 
-		return state.counter < 0 ? StepResult.Break : undefined;
+		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
 	private *pickSubcommandStep(state: PartialStepState<State>): StepResultGenerator<State['subcommand']> {
@@ -287,7 +287,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 			buttons: [QuickInputButtons.Back],
 		});
 		const selection: StepSelection<typeof step> = yield step;
-		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 
 	private async *createCommandSteps(state: CreateStepState, context: Context): AsyncStepResultGenerator<void> {
@@ -305,7 +305,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 					value: GitReference.isRevision(state.reference) ? state.reference.ref : undefined,
 				});
 				// Always break on the first step (so we will go back)
-				if (result === StepResult.Break) break;
+				if (result === StepResultBreak) break;
 
 				state.reference = result;
 			}
@@ -320,14 +320,14 @@ export class BranchGitCommand extends QuickCommand<State> {
 					})}`,
 					value: state.name ?? GitReference.getNameWithoutRemote(state.reference),
 				});
-				if (result === StepResult.Break) continue;
+				if (result === StepResultBreak) continue;
 
 				state.name = result;
 			}
 
 			if (this.confirm(state.confirm)) {
 				const result = yield* this.createCommandConfirmStep(state, context);
-				if (result === StepResult.Break) continue;
+				if (result === StepResultBreak) continue;
 
 				state.flags = result;
 			}
@@ -365,7 +365,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 			context,
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 
 	private async *deleteCommandSteps(state: DeleteStepState, context: Context): AsyncStepResultGenerator<void> {
@@ -392,7 +392,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 					sort: { current: false, missingUpstream: true },
 				});
 				// Always break on the first step (so we will go back)
-				if (result === StepResult.Break) break;
+				if (result === StepResultBreak) break;
 
 				state.references = result;
 			}
@@ -404,7 +404,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 
 			assertStateStepDeleteBranches(state);
 			const result = yield* this.deleteCommandConfirmStep(state, context);
-			if (result === StepResult.Break) continue;
+			if (result === StepResultBreak) continue;
 
 			state.flags = result;
 
@@ -465,7 +465,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 			context,
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 
 	private async *renameCommandSteps(state: RenameStepState, context: Context): AsyncStepResultGenerator<void> {
@@ -481,7 +481,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 					placeholder: 'Choose a branch to rename',
 				});
 				// Always break on the first step (so we will go back)
-				if (result === StepResult.Break) break;
+				if (result === StepResultBreak) break;
 
 				state.reference = result;
 			}
@@ -494,13 +494,13 @@ export class BranchGitCommand extends QuickCommand<State> {
 					titleContext: ` ${GitReference.toString(state.reference, false)}`,
 					value: state.name ?? state.reference.name,
 				});
-				if (result === StepResult.Break) continue;
+				if (result === StepResultBreak) continue;
 
 				state.name = result;
 			}
 
 			const result = yield* this.renameCommandConfirmStep(state, context);
-			if (result === StepResult.Break) continue;
+			if (result === StepResultBreak) continue;
 
 			state.flags = result;
 
@@ -524,6 +524,6 @@ export class BranchGitCommand extends QuickCommand<State> {
 			context,
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 }
