@@ -4,7 +4,7 @@ import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import { Container } from '../container';
 import type { KeyMapping } from '../keyboard';
-import { Directive, DirectiveQuickPickItem } from '../quickpicks/items/directive';
+import { Directive, DirectiveQuickPickItem, isDirective } from '../quickpicks/items/directive';
 import { command } from '../system/command';
 import { log } from '../system/decorators/log';
 import type { Deferred } from '../system/promise';
@@ -295,7 +295,7 @@ export class GitCommandsCommand extends Command {
 		const result = await step.show(step);
 		if (result === StepResult.Break) return undefined;
 
-		if (Directive.is(result)) {
+		if (isDirective(result)) {
 			switch (result) {
 				case Directive.Back:
 					return (await commandsStep?.command?.previous()) ?? commandsStep;

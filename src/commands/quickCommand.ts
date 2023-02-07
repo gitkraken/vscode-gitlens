@@ -2,7 +2,7 @@ import type { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscod
 import { configuration } from '../configuration';
 import type { Container } from '../container';
 import type { Keys } from '../keyboard';
-import { Directive, DirectiveQuickPickItem } from '../quickpicks/items/directive';
+import { Directive, DirectiveQuickPickItem, isDirective } from '../quickpicks/items/directive';
 
 export * from './quickCommand.buttons';
 export * from './quickCommand.steps';
@@ -298,7 +298,7 @@ export namespace QuickCommand {
 		result: Directive | StepItemType<T>,
 	): result is StepItemType<T> {
 		if (result == null) return false;
-		if (Directive.is(result)) {
+		if (isDirective(result)) {
 			switch (result) {
 				case Directive.Back:
 					state.counter--;
