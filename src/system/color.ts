@@ -53,7 +53,7 @@ export function scale(value1: string, value2: string, steps: number): string[] {
 }
 
 export function toRgba(color: string) {
-	const result = parseString(color);
+	const result = parseColor(color);
 	if (result == null) return null;
 
 	return [result.rgba.r, result.rgba.g, result.rgba.b, result.rgba.a];
@@ -360,13 +360,13 @@ export class HSVA {
 
 export class Color {
 	static fromHex(hex: string): Color {
-		return parseHex(hex) || Color.red;
+		return parseHexColor(hex) || Color.red;
 	}
 
 	static from(value: string | Color): Color {
 		if (value instanceof Color) return value;
 
-		return parseString(value) || Color.red;
+		return parseColor(value) || Color.red;
 	}
 
 	static equals(a: Color | null, b: Color | null): boolean {
@@ -674,7 +674,7 @@ export function format(color: Color): string {
 }
 
 const cssColorRegex = /^((?:rgb|hsl)a?)\((-?\d+%?)[,\s]+(-?\d+%?)[,\s]+(-?\d+%?)[,\s]*(-?[\d.]+%?)?\)$/i;
-export function parseString(value: string): Color | null {
+export function parseColor(value: string): Color | null {
 	const length = value.length;
 
 	// Invalid color
@@ -684,7 +684,7 @@ export function parseString(value: string): Color | null {
 
 	// Begin with a #
 	if (value.charCodeAt(0) === CharCode.Hash) {
-		return parseHex(value);
+		return parseHexColor(value);
 	}
 
 	const result = cssColorRegex.exec(value);
@@ -720,11 +720,11 @@ export function parseString(value: string): Color | null {
 }
 
 /**
- * Converts an Hex color value to a Color.
+ * Converts a Hex color value to a Color.
  * returns r, g, and b are contained in the set [0, 255]
  * @param hex string (#RGB, #RGBA, #RRGGBB or #RRGGBBAA).
  */
-export function parseHex(hex: string): Color | null {
+export function parseHexColor(hex: string): Color | null {
 	hex = hex.trim();
 
 	const length = hex.length;
