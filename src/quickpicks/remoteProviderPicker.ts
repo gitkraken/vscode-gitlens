@@ -1,6 +1,7 @@
 import type { Disposable, QuickInputButton } from 'vscode';
-import { env, ThemeIcon, Uri, window } from 'vscode';
+import { env, Uri, window } from 'vscode';
 import type { OpenOnRemoteCommandArgs } from '../commands';
+import { QuickCommandButtons } from '../commands/quickCommand.buttons';
 import { Commands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/models/branch';
@@ -11,16 +12,11 @@ import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import type { Keys } from '../keyboard';
 import { getSettledValue } from '../system/promise';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
-import { DeepLinkType } from '../uris/deepLinks/deepLink';
 import { CommandQuickPickItem } from './items/common';
 
 export class ConfigureCustomRemoteProviderCommandQuickPickItem extends CommandQuickPickItem {
 	constructor() {
 		super({ label: 'See how to configure a custom remote provider...' });
-	}
-
-	get name(): string {
-		return this.label;
 	}
 
 	override async execute(): Promise<void> {
@@ -35,7 +31,6 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 		private readonly remote: GitRemote<RemoteProvider>,
 		private readonly resource: RemoteResource,
 		private readonly clipboard?: boolean,
-		private readonly deepLink?: boolean,
 		buttons?: QuickInputButton[],
 	) {
 		super({
@@ -43,10 +38,6 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 			description: remote.name,
 			buttons: buttons,
 		});
-	}
-
-	get name(): string {
-		return this.remote.name;
 	}
 
 	override async execute(): Promise<void> {
@@ -95,42 +86,7 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 			}
 		}
 
-		if (this.clipboard) {
-			if (this.deepLink) {
-				let targetType: DeepLinkType | undefined;
-				let targetId: string | undefined;
-				let repoId: string | undefined;
-				switch (resource.type) {
-					case RemoteResourceType.Branch:
-						targetType = DeepLinkType.Branch;
-						targetId = resource.branch;
-						repoId = resource.repoId;
-						break;
-					case RemoteResourceType.Commit:
-						targetType = DeepLinkType.Commit;
-						targetId = resource.sha;
-						repoId = resource.repoId;
-						break;
-					case RemoteResourceType.Tag:
-						targetType = DeepLinkType.Tag;
-						targetId = resource.tag;
-						repoId = resource.repoId;
-						break;
-					case RemoteResourceType.Repo:
-						targetType = DeepLinkType.Repository;
-						repoId = resource.repoId;
-						break;
-				}
-				if (!targetType) return;
-				await Container.instance.deepLinks.copyDeepLinkUrl(repoId!, this.remote.url, targetType, targetId);
-				return;
-			}
-
-			await this.remote.provider.copy(resource);
-			return;
-		}
-
-		await this.remote.provider.open(resource);
+		void (await (this.clipboard ? this.remote.provider.copy(resource) : this.remote.provider.open(resource)));
 	}
 
 	setAsDefault(): Promise<void> {
@@ -139,19 +95,16 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 }
 
 export class CopyRemoteResourceCommandQuickPickItem extends CommandQuickPickItem {
-	constructor(remotes: GitRemote<RemoteProvider>[], resource: RemoteResource, deepLink?: boolean) {
+	constructor(remotes: GitRemote<RemoteProvider>[], resource: RemoteResource) {
 		const providers = GitRemote.getHighlanderProviders(remotes);
 		const commandArgs: OpenOnRemoteCommandArgs = {
 			resource: resource,
 			remotes: remotes,
 			clipboard: true,
-			deepLink: deepLink,
 		};
-		const label: string = deepLink
-			? `$(copy) Copy Link to ${getNameFromRemoteResource(resource)}`
-			: `$(copy) Copy ${providers?.length ? providers[0].name : 'Remote'} ${getNameFromRemoteResource(
-					resource,
-			  )} URL${providers?.length === 1 ? '' : GlyphChars.Ellipsis}`;
+		const label = `$(copy) Copy Link to ${getNameFromRemoteResource(resource)} for ${
+			providers?.length ? providers[0].name : 'Remote'
+		}${providers?.length === 1 ? '' : GlyphChars.Ellipsis}`;
 		super(label, Commands.OpenOnRemote, [commandArgs]);
 	}
 
@@ -181,44 +134,29 @@ export class OpenRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 	}
 }
 
-namespace QuickCommandButtons {
-	export const SetRemoteAsDefault: QuickInputButton = {
-		iconPath: new ThemeIcon('settings-gear'),
-		tooltip: 'Set as Default Remote',
-	};
-}
-
 export namespace RemoteProviderPicker {
 	export async function show(
 		title: string,
-		placeHolder: string,
+		placeholder: string,
 		resource: RemoteResource,
 		remotes: GitRemote<RemoteProvider>[],
 		options?: {
 			autoPick?: 'default' | boolean;
 			clipboard?: boolean;
-			deepLink?: boolean;
 			setDefault?: boolean;
-			preSelected?: string;
 		},
 	): Promise<ConfigureCustomRemoteProviderCommandQuickPickItem | CopyOrOpenRemoteCommandQuickPickItem | undefined> {
-		const { autoPick, clipboard, deepLink, setDefault, preSelected } = {
+		const { autoPick, clipboard, setDefault } = {
 			autoPick: false,
 			clipboard: false,
-			deepLink: false,
 			setDefault: true,
-			preSelected: undefined,
 			...options,
 		};
 
 		let items: (ConfigureCustomRemoteProviderCommandQuickPickItem | CopyOrOpenRemoteCommandQuickPickItem)[];
-		let preSelectedItem:
-			| ConfigureCustomRemoteProviderCommandQuickPickItem
-			| CopyOrOpenRemoteCommandQuickPickItem
-			| undefined;
 		if (remotes.length === 0) {
 			items = [new ConfigureCustomRemoteProviderCommandQuickPickItem()];
-			placeHolder = 'No auto-detected or configured remote providers found';
+			placeholder = 'No auto-detected or configured remote providers found';
 		} else {
 			if (autoPick === 'default' && remotes.length > 1) {
 				// If there is a default just execute it directly
@@ -234,14 +172,9 @@ export namespace RemoteProviderPicker {
 						r,
 						resource,
 						clipboard,
-						deepLink,
 						setDefault ? [QuickCommandButtons.SetRemoteAsDefault] : undefined,
 					),
 			);
-
-			if (preSelected != null) {
-				preSelectedItem = items.find(i => i.name === preSelected);
-			}
 		}
 
 		if (autoPick && remotes.length === 1) return items[0];
@@ -276,12 +209,9 @@ export namespace RemoteProviderPicker {
 				);
 
 				quickpick.title = title;
-				quickpick.placeholder = placeHolder;
+				quickpick.placeholder = placeholder;
 				quickpick.matchOnDetail = true;
 				quickpick.items = items;
-				if (preSelectedItem != null) {
-					quickpick.activeItems = [preSelectedItem];
-				}
 
 				quickpick.show();
 			});

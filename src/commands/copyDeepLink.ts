@@ -1,17 +1,15 @@
 import type { TextEditor, Uri } from 'vscode';
-import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { getRemoteNameFromBranchName } from '../git/models/branch';
+import { splitBranchNameAndRemote } from '../git/models/branch';
 import type { GitReference } from '../git/models/reference';
-import type { RemoteResource } from '../git/models/remoteResource';
-import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
+import { showGenericErrorMessage } from '../messages';
+import { RemotePicker } from '../quickpicks/remotePicker';
 import { RepositoryPicker } from '../quickpicks/repositoryPicker';
-import { command, executeCommand } from '../system/command';
-import { splitSingle } from '../system/string';
-import { DeepLinkType } from '../uris/deepLinks/deepLink';
+import { command } from '../system/command';
+import { DeepLinkType, deepLinkTypeToString, refTypeToDeepLinkType } from '../uris/deepLinks/deepLink';
 import type { CommandContext } from './base';
 import {
 	ActiveEditorCommand,
@@ -20,13 +18,11 @@ import {
 	isCommandContextViewNodeHasCommit,
 	isCommandContextViewNodeHasTag,
 } from './base';
-import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface CopyDeepLinkCommandArgs {
-	targetType?: DeepLinkType;
-	targetId?: string;
+	ref?: GitReference;
 	remote?: string;
-	preSelectRemote?: boolean;
+	prePickRemote?: boolean;
 }
 
 @command()
@@ -40,150 +36,80 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	getCopyLabelFromTargetType(targetType: DeepLinkType): string {
-		let copyLabel = 'Copy Deep Link to ';
-		switch (targetType) {
-			case DeepLinkType.Branch:
-				copyLabel += 'Branch';
-				break;
-			case DeepLinkType.Commit:
-				copyLabel += 'Commit';
-				break;
-			case DeepLinkType.Repository:
-				copyLabel += 'Repository';
-				break;
-			case DeepLinkType.Tag:
-				copyLabel += 'Tag';
-				break;
-			default:
-				copyLabel += 'Unknown';
-		}
-
-		return copyLabel;
-	}
-
-	getCopyDeepLinkCommandArgs(context: CommandContext, ref?: GitReference): CopyDeepLinkCommandArgs | undefined {
-		if (ref == null) return undefined;
-
-		let args: CopyDeepLinkCommandArgs | undefined;
-		if (context.command === Commands.CopyDeepLinkToBranch && ref.refType === 'branch') {
-			args = {
-				targetId: ref.name,
-				targetType: DeepLinkType.Branch,
-			};
-
-			// If the branch is remote, or has an upstream, pre-select the remote
-			if (ref.remote || ref.upstream?.name != null) {
-				const [remoteName, branchName] = splitSingle(ref.remote ? ref.name : ref.upstream!.name, '/');
-				if (branchName != null) {
-					args.remote = remoteName;
-					args.preSelectRemote = true;
-				}
-			}
-		} else if (context.command === Commands.CopyDeepLinkToCommit && ref.refType === 'revision') {
-			args = {
-				targetId: ref.ref,
-				targetType: DeepLinkType.Commit,
-			};
-		} else if (context.command === Commands.CopyDeepLinkToRepo && ref.refType === 'branch' && ref.remote) {
-			args = {
-				remote: getRemoteNameFromBranchName(ref.name),
-				targetType: DeepLinkType.Repository,
-			};
-		} else if (context.command === Commands.CopyDeepLinkToTag && ref.refType === 'tag') {
-			args = {
-				targetId: ref.name,
-				targetType: DeepLinkType.Tag,
-			};
-		}
-
-		return args;
-	}
-
-	getRemoteResourceFromTarget(repoId: string, targetType: DeepLinkType, targetId?: string): RemoteResource {
-		switch (targetType) {
-			case DeepLinkType.Branch:
-				return {
-					type: RemoteResourceType.Branch,
-					repoId: repoId,
-					branch: targetId!,
-				};
-			case DeepLinkType.Commit:
-				return {
-					type: RemoteResourceType.Commit,
-					repoId: repoId,
-					sha: targetId!,
-				};
-			case DeepLinkType.Tag:
-				return {
-					type: RemoteResourceType.Tag,
-					repoId: repoId,
-					tag: targetId!,
-				};
-			default:
-				return {
-					type: RemoteResourceType.Repo,
-					repoId: repoId,
-				};
-		}
-	}
-
-	protected override preExecute(context: CommandContext, args?: GitReference) {
-		let targetRef: GitReference | undefined = args;
-
-		if (targetRef == null) {
+	protected override preExecute(context: CommandContext, args?: CopyDeepLinkCommandArgs) {
+		if (args == null) {
 			if (isCommandContextViewNodeHasCommit(context)) {
-				targetRef = context.node.commit;
+				args = { ref: context.node.commit };
 			} else if (isCommandContextViewNodeHasBranch(context)) {
-				targetRef = context.node.branch;
+				args = { ref: context.node.branch };
 			} else if (isCommandContextViewNodeHasTag(context)) {
-				targetRef = context.node.tag;
+				args = { ref: context.node.tag };
 			}
 		}
 
-		const deepLinkArgs: CopyDeepLinkCommandArgs | undefined = this.getCopyDeepLinkCommandArgs(context, targetRef);
-
-		return this.execute(context.editor, context.uri, deepLinkArgs);
+		return this.execute(context.editor, context.uri, args);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: CopyDeepLinkCommandArgs) {
-		uri = getCommandUri(uri, editor);
+		let type;
+		let repoPath;
+		if (args?.ref == null) {
+			uri = getCommandUri(uri, editor);
+			const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
-
-		const repoPath = (
-			await RepositoryPicker.getBestRepositoryOrShow(
-				gitUri,
-				editor,
-				this.getCopyLabelFromTargetType(args?.targetType ?? DeepLinkType.Repository),
-			)
-		)?.path;
+			type = DeepLinkType.Repository;
+			repoPath = (
+				await RepositoryPicker.getBestRepositoryOrShow(
+					gitUri,
+					editor,
+					`Copy Link to ${deepLinkTypeToString(type)}`,
+				)
+			)?.path;
+		} else {
+			type = refTypeToDeepLinkType(args.ref.refType);
+			repoPath = args.ref.repoPath;
+		}
 		if (!repoPath) return;
 
 		args = { ...args };
 
-		const repoId: string | undefined =
-			(await this.container.git.getFirstCommitSha(repoPath)) ??
-			this.container.git.getRepository(repoPath)?.id?.replace(/\//g, '_');
+		if (!args.remote) {
+			if (args.ref?.refType === 'branch') {
+				// If the branch is remote, or has an upstream, pre-select the remote
+				if (args.ref.remote || args.ref.upstream?.name != null) {
+					const [branchName, remoteName] = splitBranchNameAndRemote(
+						args.ref.remote ? args.ref.name : args.ref.upstream!.name,
+					);
 
-		if (repoId == null) return;
+					if (branchName != null) {
+						args.remote = remoteName;
+						args.prePickRemote = true;
+					}
+				}
+			}
+		}
 
 		try {
-			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
-				resource: this.getRemoteResourceFromTarget(
-					repoId,
-					args.targetType ?? DeepLinkType.Repository,
-					args.targetId,
-				),
-				repoPath: repoPath,
-				remote: args.remote,
-				preSelectRemote: args.preSelectRemote,
-				clipboard: true,
-				deepLink: true,
-			}));
+			const pick = await RemotePicker.show(
+				`Copy Link to ${deepLinkTypeToString(type)}`,
+				`Choose which remote to copy the link for`,
+				await this.container.git.getRemotes(repoPath, { sort: true }),
+				{
+					autoPick: true,
+					picked: args.remote,
+					setDefault: true,
+				},
+			);
+			if (pick == null) return;
+
+			if (args.ref == null) {
+				await this.container.deepLinks.copyDeepLinkUrl(repoPath, pick.item.url);
+			} else {
+				await this.container.deepLinks.copyDeepLinkUrl(args.ref, pick.item.url);
+			}
 		} catch (ex) {
 			Logger.error(ex, 'CopyDeepLinkCommand');
-			void window.showErrorMessage('Unable to copy deep link. See output channel for more details');
+			void showGenericErrorMessage('Unable to copy link');
 		}
 	}
 }

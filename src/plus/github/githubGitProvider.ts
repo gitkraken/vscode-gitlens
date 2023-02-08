@@ -956,11 +956,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	async getFirstCommitSha(_repoPath: string): Promise<string | undefined> {
-		// TODO@ramint implement this if there is a way.
-		return undefined;
-	}
-
 	@log()
 	async getCommitBranches(
 		repoPath: string,
@@ -2498,6 +2493,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		// TODO@eamodio: Implement this
 		return [];
+	}
+
+	async getUniqueRepositoryId(_repoPath: string): Promise<string | undefined> {
+		// TODO@ramint implement this if there is a way.
+		return undefined;
 	}
 
 	@log()

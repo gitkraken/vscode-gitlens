@@ -1369,12 +1369,6 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getFirstCommitSha(repoPath: string | Uri): Promise<string | undefined> {
-		const { provider, path } = this.getProvider(repoPath);
-		return provider.getFirstCommitSha(path);
-	}
-
-	@log()
 	getCommitBranches(
 		repoPath: string | Uri,
 		ref: string,
@@ -2210,6 +2204,16 @@ export class GitProviderService implements Disposable {
 	getRevisionContent(repoPath: string | Uri, path: string, ref: string): Promise<Uint8Array | undefined> {
 		const { provider, path: rp } = this.getProvider(repoPath);
 		return provider.getRevisionContent(rp, path, ref);
+	}
+
+	@log()
+	async getUniqueRepositoryId(repoPath: string | Uri): Promise<string | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		const id = await provider.getUniqueRepositoryId(path);
+		if (id != null) return id;
+
+		// TODO@axosoft-ramint should we be using the repo.id here? Maybe repo.idHash instead? or just 0s?
+		return this.getRepository(repoPath)?.id?.replace(/\//g, '_');
 	}
 
 	@log({ args: { 1: false } })

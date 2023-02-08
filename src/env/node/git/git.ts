@@ -1366,38 +1366,18 @@ export class Git {
 		return this.git<string>({ cwd: repoPath }, 'reset', '-q', '--', fileName);
 	}
 
-	async rev_list__count(repoPath: string, ref: string, all?: boolean): Promise<number | undefined> {
-		const params = ['rev-list', '--count'];
-		if (all) {
-			params.push('--all');
-		}
-
-		let data = await this.git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params, ref, '--');
-		data = data.trim();
-		if (data.length === 0) return undefined;
-
-		const result = parseInt(data, 10);
-		return isNaN(result) ? undefined : result;
-	}
-
 	async rev_list(
 		repoPath: string,
 		ref: string,
-		{
-			all,
-			maxParents,
-		}: {
-			all?: boolean;
-			maxParents?: number;
-		} = {},
+		options?: { all?: boolean; maxParents?: number },
 	): Promise<string[] | undefined> {
 		const params = ['rev-list'];
-		if (all) {
+		if (options?.all) {
 			params.push('--all');
 		}
 
-		if (maxParents != null) {
-			params.push(`--max-parents=${maxParents}`);
+		if (options?.maxParents != null) {
+			params.push(`--max-parents=${options.maxParents}`);
 		}
 
 		const rawData = await this.git<string>(
@@ -1410,6 +1390,20 @@ export class Git {
 		if (data.length === 0) return undefined;
 
 		return data;
+	}
+
+	async rev_list__count(repoPath: string, ref: string, all?: boolean): Promise<number | undefined> {
+		const params = ['rev-list', '--count'];
+		if (all) {
+			params.push('--all');
+		}
+
+		let data = await this.git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params, ref, '--');
+		data = data.trim();
+		if (data.length === 0) return undefined;
+
+		const result = parseInt(data, 10);
+		return isNaN(result) ? undefined : result;
 	}
 
 	async rev_list__left_right(
