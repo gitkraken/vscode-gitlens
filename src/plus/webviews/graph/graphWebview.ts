@@ -19,6 +19,7 @@ import {
 import type { CreatePullRequestActionContext } from '../../../api/gitlens';
 import { getAvatarUri } from '../../../avatars';
 import type {
+	CopyDeepLinkCommandArgs,
 	CopyMessageToClipboardCommandArgs,
 	CopyShaToClipboardCommandArgs,
 	OpenOnRemoteCommandArgs,
@@ -410,6 +411,11 @@ export class GraphWebview extends WebviewBase<State> {
 			registerCommand('gitlens.graph.columnDateTimeOff', () => this.toggleColumn('datetime', false)),
 			registerCommand('gitlens.graph.columnShaOn', () => this.toggleColumn('sha', true)),
 			registerCommand('gitlens.graph.columnShaOff', () => this.toggleColumn('sha', false)),
+
+			registerCommand('gitlens.graph.copyDeepLinkToBranch', this.copyDeepLinkToBranch, this),
+			registerCommand('gitlens.graph.copyDeepLinkToCommit', this.copyDeepLinkToCommit, this),
+			registerCommand('gitlens.graph.copyDeepLinkToRepo', this.copyDeepLinkToRepo, this),
+			registerCommand('gitlens.graph.copyDeepLinkToTag', this.copyDeepLinkToTag, this),
 		];
 	}
 
@@ -2112,6 +2118,49 @@ export class GraphWebview extends WebviewBase<State> {
 			},
 			clipboard: clipboard,
 		});
+	}
+
+	@debug()
+	private copyDeepLinkToBranch(item?: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref } = item.webviewItemValue;
+			return executeCommand<CopyDeepLinkCommandArgs>(Commands.CopyDeepLinkToBranch, { refOrRepoPath: ref });
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private copyDeepLinkToCommit(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'revision');
+		if (ref == null) return Promise.resolve();
+
+		return executeCommand<CopyDeepLinkCommandArgs>(Commands.CopyDeepLinkToCommit, { refOrRepoPath: ref });
+	}
+
+	@debug()
+	private copyDeepLinkToRepo(item?: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref } = item.webviewItemValue;
+			if (!ref.remote) return Promise.resolve();
+
+			return executeCommand<CopyDeepLinkCommandArgs>(Commands.CopyDeepLinkToRepo, {
+				refOrRepoPath: ref.repoPath,
+				remote: getRemoteNameFromBranchName(ref.name),
+			});
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private copyDeepLinkToTag(item?: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'tag')) {
+			const { ref } = item.webviewItemValue;
+			return executeCommand<CopyDeepLinkCommandArgs>(Commands.CopyDeepLinkToTag, { refOrRepoPath: ref });
+		}
+
+		return Promise.resolve();
 	}
 
 	@debug()

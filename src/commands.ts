@@ -3,6 +3,7 @@ export * from './commands/browseRepoAtRevision';
 export * from './commands/closeUnchangedFiles';
 export * from './commands/compareWith';
 export * from './commands/copyCurrentBranch';
+export * from './commands/copyDeepLink';
 export * from './commands/copyMessageToClipboard';
 export * from './commands/copyShaToClipboard';
 export * from './commands/createPullRequestOnRemote';

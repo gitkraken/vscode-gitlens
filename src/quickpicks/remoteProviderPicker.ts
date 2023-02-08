@@ -1,6 +1,7 @@
 import type { Disposable, QuickInputButton } from 'vscode';
-import { env, ThemeIcon, Uri, window } from 'vscode';
+import { env, Uri, window } from 'vscode';
 import type { OpenOnRemoteCommandArgs } from '../commands';
+import { QuickCommandButtons } from '../commands/quickCommand.buttons';
 import { Commands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/models/branch';
@@ -101,13 +102,10 @@ export class CopyRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 			remotes: remotes,
 			clipboard: true,
 		};
-		super(
-			`$(copy) Copy ${providers?.length ? providers[0].name : 'Remote'} ${getNameFromRemoteResource(
-				resource,
-			)} URL${providers?.length === 1 ? '' : GlyphChars.Ellipsis}`,
-			Commands.OpenOnRemote,
-			[commandArgs],
-		);
+		const label = `$(copy) Copy Link to ${getNameFromRemoteResource(resource)} for ${
+			providers?.length ? providers[0].name : 'Remote'
+		}${providers?.length === 1 ? '' : GlyphChars.Ellipsis}`;
+		super(label, Commands.OpenOnRemote, [commandArgs]);
 	}
 
 	override async onDidPressKey(key: Keys): Promise<void> {
@@ -136,27 +134,29 @@ export class OpenRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 	}
 }
 
-namespace QuickCommandButtons {
-	export const SetRemoteAsDefault: QuickInputButton = {
-		iconPath: new ThemeIcon('settings-gear'),
-		tooltip: 'Set as Default Remote',
-	};
-}
-
 export namespace RemoteProviderPicker {
 	export async function show(
 		title: string,
-		placeHolder: string,
+		placeholder: string,
 		resource: RemoteResource,
 		remotes: GitRemote<RemoteProvider>[],
-		options?: { autoPick?: 'default' | boolean; clipboard?: boolean; setDefault?: boolean },
+		options?: {
+			autoPick?: 'default' | boolean;
+			clipboard?: boolean;
+			setDefault?: boolean;
+		},
 	): Promise<ConfigureCustomRemoteProviderCommandQuickPickItem | CopyOrOpenRemoteCommandQuickPickItem | undefined> {
-		const { autoPick, clipboard, setDefault } = { autoPick: false, clipboard: false, setDefault: true, ...options };
+		const { autoPick, clipboard, setDefault } = {
+			autoPick: false,
+			clipboard: false,
+			setDefault: true,
+			...options,
+		};
 
 		let items: (ConfigureCustomRemoteProviderCommandQuickPickItem | CopyOrOpenRemoteCommandQuickPickItem)[];
 		if (remotes.length === 0) {
 			items = [new ConfigureCustomRemoteProviderCommandQuickPickItem()];
-			placeHolder = 'No auto-detected or configured remote providers found';
+			placeholder = 'No auto-detected or configured remote providers found';
 		} else {
 			if (autoPick === 'default' && remotes.length > 1) {
 				// If there is a default just execute it directly
@@ -209,7 +209,7 @@ export namespace RemoteProviderPicker {
 				);
 
 				quickpick.title = title;
-				quickpick.placeholder = placeHolder;
+				quickpick.placeholder = placeholder;
 				quickpick.matchOnDetail = true;
 				quickpick.items = items;
 

@@ -3983,6 +3983,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return GitTreeParser.parse(data) ?? [];
 	}
 
+	@log()
+	async getUniqueRepositoryId(repoPath: string): Promise<string | undefined> {
+		const data = await this.git.rev_list(repoPath, 'HEAD', { maxParents: 0 });
+		return data?.[0];
+	}
+
 	@log({ args: { 1: false } })
 	async hasBranchOrTag(
 		repoPath: string | undefined,

@@ -84,34 +84,31 @@ export class OpenOnRemoteCommand extends Command {
 				clipboard: args.clipboard,
 				setDefault: true,
 			};
+
 			let title;
-			let placeHolder = `Choose which remote to ${args.clipboard ? 'copy the URL for' : 'open on'}`;
+			let placeHolder = `Choose which remote to ${args.clipboard ? 'copy the link for' : 'open on'}`;
+
+			function getTitlePrefix(type: string): string {
+				return args?.clipboard ? `Copy Link to ${type} for ${provider}` : `Open Branch on ${provider}`;
+			}
 
 			switch (args.resource.type) {
 				case RemoteResourceType.Branch:
-					title = `${args.clipboard ? `Copy ${provider} Branch URL` : `Open Branch on ${provider}`}${pad(
-						GlyphChars.Dot,
-						2,
-						2,
-					)}${args.resource.branch}`;
+					title = `${getTitlePrefix('Branch')}${pad(GlyphChars.Dot, 2, 2)}${args.resource.branch}`;
 					break;
 
 				case RemoteResourceType.Branches:
-					title = `${args.clipboard ? `Copy ${provider} Branches URL` : `Open Branches on ${provider}`}`;
+					title = getTitlePrefix('Branches');
 					break;
 
 				case RemoteResourceType.Commit:
-					title = `${args.clipboard ? `Copy ${provider} Commit URL` : `Open Commit on ${provider}`}${pad(
-						GlyphChars.Dot,
-						2,
-						2,
-					)}${GitRevision.shorten(args.resource.sha)}`;
+					title = `${getTitlePrefix('Commit')}${pad(GlyphChars.Dot, 2, 2)}${GitRevision.shorten(
+						args.resource.sha,
+					)}`;
 					break;
 
 				case RemoteResourceType.Comparison:
-					title = `${
-						args.clipboard ? `Copy ${provider} Comparison URL` : `Open Comparison on ${provider}`
-					}${pad(GlyphChars.Dot, 2, 2)}${GitRevision.createRange(
+					title = `${getTitlePrefix('Comparison')}${pad(GlyphChars.Dot, 2, 2)}${GitRevision.createRange(
 						args.resource.base,
 						args.resource.compare,
 						args.resource.notation ?? '...',
@@ -124,7 +121,7 @@ export class OpenOnRemoteCommand extends Command {
 
 					title = `${
 						args.clipboard
-							? `Copy ${provider} Create Pull Request URL`
+							? `Copy Create Pull Request Link for ${provider}`
 							: `Create Pull Request on ${provider}`
 					}${pad(GlyphChars.Dot, 2, 2)}${
 						args.resource.base?.branch
@@ -133,30 +130,29 @@ export class OpenOnRemoteCommand extends Command {
 					}`;
 
 					placeHolder = `Choose which remote to ${
-						args.clipboard ? 'copy the create pull request URL for' : 'create the pull request on'
+						args.clipboard ? 'copy the create pull request link for' : 'create the pull request on'
 					}`;
 					break;
 
 				case RemoteResourceType.File:
-					title = `${args.clipboard ? `Copy ${provider} File URL` : `Open File on ${provider}`}${pad(
-						GlyphChars.Dot,
-						2,
-						2,
-					)}${args.resource.fileName}`;
+					title = `${getTitlePrefix('File')}${pad(GlyphChars.Dot, 2, 2)}${args.resource.fileName}`;
 					break;
 
 				case RemoteResourceType.Repo:
-					title = `${args.clipboard ? `Copy ${provider} Repository URL` : `Open Repository on ${provider}`}`;
+					title = getTitlePrefix('Repository');
 					break;
 
 				case RemoteResourceType.Revision: {
-					title = `${args.clipboard ? `Copy ${provider} File URL` : `Open File on ${provider}`}${pad(
-						GlyphChars.Dot,
-						2,
-						2,
-					)}${GitRevision.shorten(args.resource.sha)}${pad(GlyphChars.Dot, 1, 1)}${args.resource.fileName}`;
+					title = `${getTitlePrefix('File')}${pad(GlyphChars.Dot, 2, 2)}${GitRevision.shorten(
+						args.resource.sha,
+					)}${pad(GlyphChars.Dot, 1, 1)}${args.resource.fileName}`;
 					break;
 				}
+
+				// case RemoteResourceType.Tag: {
+				// 	title = `${getTitlePrefix('Tag')}${pad(GlyphChars.Dot, 2, 2)}${args.resource.tag}`;
+				// 	break;
+				// }
 			}
 
 			const pick = await RemoteProviderPicker.show(title, placeHolder, args.resource, remotes, options);

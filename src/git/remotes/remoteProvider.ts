@@ -95,6 +95,9 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 					resource.sha != null ? resource.sha : undefined,
 					resource.range,
 				);
+			// TODO@axosoft-ramint needs to be implemented to support remote urls for tags
+			// case RemoteResourceType.Tag:
+			// 	return this.getUrlForTag(resource.tag);
 			default:
 				return undefined;
 		}

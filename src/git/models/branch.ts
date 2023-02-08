@@ -240,6 +240,13 @@ export function isOfBranchRefType(branch: GitReference | undefined) {
 	return branch?.refType === 'branch';
 }
 
+export function splitBranchNameAndRemote(name: string): [name: string, remote: string | undefined] {
+	const index = name.indexOf('/');
+	if (index === -1) return [name, undefined];
+
+	return [name.substring(index + 1), name.substring(0, index)];
+}
+
 export function sortBranches(branches: GitBranch[], options?: BranchSortOptions) {
 	options = { current: true, orderBy: configuration.get('sortBranchesBy'), ...options };
 

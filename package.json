@@ -3610,6 +3610,16 @@
 						"scope": "window",
 						"order": 100
 					},
+					"gitlens.deepLinks.schemeOverride": {
+						"type": [
+							"boolean",
+							"string"
+						],
+						"default": false,
+						"markdownDescription": "Specifies whether to override the default deep link scheme (vscode://) with the environment value or a specified value",
+						"scope": "window",
+						"order": 110
+					},
 					"gitlens.advanced.useSymmetricDifferenceNotation": {
 						"deprecationMessage": "Deprecated. This setting is no longer used",
 						"markdownDescription": "Deprecated. This setting is no longer used"
@@ -4860,6 +4870,30 @@
 				"title": "Open Branches on Remote",
 				"category": "GitLens",
 				"icon": "$(globe)"
+			},
+			{
+				"command": "gitlens.copyDeepLinkToBranch",
+				"title": "Copy Link to Branch",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.copyDeepLinkToCommit",
+				"title": "Copy Link to Commit",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.copyDeepLinkToRepo",
+				"title": "Copy Link to Repository",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.copyDeepLinkToTag",
+				"title": "Copy Link to Tag",
+				"category": "GitLens",
+				"icon": "$(copy)"
 			},
 			{
 				"command": "gitlens.copyRemoteBranchesUrl",
@@ -6561,6 +6595,30 @@
 				"icon": "$(refresh)"
 			},
 			{
+				"command": "gitlens.graph.copyDeepLinkToBranch",
+				"title": "Copy Link to Branch",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.graph.copyDeepLinkToCommit",
+				"title": "Copy Link to Commit",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.graph.copyDeepLinkToRepo",
+				"title": "Copy Link to Repository",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
+				"command": "gitlens.graph.copyDeepLinkToTag",
+				"title": "Copy Link to Tag",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
 				"command": "gitlens.graph.copyRemoteBranchUrl",
 				"title": "Copy Remote Branch URL",
 				"category": "GitLens",
@@ -7535,6 +7593,22 @@
 				{
 					"command": "gitlens.openCurrentBranchOnRemote",
 					"when": "gitlens:hasRemotes"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToBranch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToCommit",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToRepo",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToTag",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.copyRemoteBranchUrl",
@@ -8678,6 +8752,22 @@
 				},
 				{
 					"command": "gitlens.graph.refresh",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.copyDeepLinkToBranch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.copyDeepLinkToCommit",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.copyDeepLinkToRepo",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.copyDeepLinkToTag",
 					"when": "false"
 				},
 				{
@@ -10403,8 +10493,13 @@
 					"alt": "gitlens.copyRemoteCommitUrl"
 				},
 				{
+					"submenu": "gitlens/share",
+					"when": "viewItem =~ /gitlens:(branch|commit|remote|repo-folder|repository|stash|tag|file\\b(?=.*?\\b\\+committed\\b))\\b/",
+					"group": "6_gitlens_share@1"
+				},
+				{
 					"submenu": "gitlens/commit/copy",
-					"when": "viewItem =~ /gitlens:(branch|commit|stash|tag|file\\b(?=.*?\\b\\+committed\\b))\\b/",
+					"when": "viewItem =~ /gitlens:(branch|commit|remote|repo-folder|repository|stash|tag|file\\b(?=.*?\\b\\+committed\\b))\\b/",
 					"group": "7_gitlens_cutcopypaste@2"
 				},
 				{
@@ -11468,6 +11563,11 @@
 					"alt": "gitlens.copyRemoteCommitUrl"
 				},
 				{
+					"submenu": "gitlens/share",
+					"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
+					"group": "6_gitlens_share@1"
+				},
+				{
 					"submenu": "gitlens/commit/copy",
 					"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
 					"group": "7_gitlens_cutcopypaste@2"
@@ -11594,12 +11694,12 @@
 			"gitlens/commit/copy": [
 				{
 					"command": "gitlens.copyShaToClipboard",
-					"when": "viewItem =~ /gitlens:(?!stash\\b)/",
+					"when": "viewItem =~ /gitlens:(?!(remote|repo-folder|repository|stash)\\b)/",
 					"group": "1_gitlens@1"
 				},
 				{
 					"command": "gitlens.copyMessageToClipboard",
-					"when": "viewItem",
+					"when": "viewItem =~ /gitlens:(?!(remote|repo-folder|repository)\\b)/",
 					"group": "1_gitlens@2"
 				},
 				{
@@ -11610,6 +11710,11 @@
 				{
 					"command": "gitlens.copyRemoteBranchUrl",
 					"when": "gitlens:hasRemotes && viewItem =~ /gitlens:branch/",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.copyRemoteRepositoryUrl",
+					"when": "gitlens:hasRemotes && viewItem =~ /gitlens:(remote|repo-folder|repository)\\b/",
 					"group": "2_gitlens@1"
 				},
 				{
@@ -11636,6 +11741,48 @@
 					"command": "gitlens.graph.copyRemoteBranchUrl",
 					"when": "gitlens:hasRemotes && webviewItem =~ /gitlens:branch/",
 					"group": "2_gitlens@1"
+				}
+			],
+			"gitlens/share": [
+				{
+					"command": "gitlens.copyDeepLinkToBranch",
+					"when": "viewItem =~ /gitlens:branch\\b/",
+					"group": "2_gitlens@3"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToCommit",
+					"when": "viewItem =~ /gitlens:commit\\b/",
+					"group": "2_gitlens@3"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToRepo",
+					"when": "viewItem =~ /gitlens:(remote|repo-folder|repository)\\b/",
+					"group": "2_gitlens@3"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToTag",
+					"when": "viewItem =~ /gitlens:tag\\b/",
+					"group": "2_gitlens@3"
+				},
+				{
+					"command": "gitlens.graph.copyDeepLinkToBranch",
+					"when": "webviewItem =~ /gitlens:branch\\b/",
+					"group": "3_gitlens@1"
+				},
+				{
+					"command": "gitlens.graph.copyDeepLinkToCommit",
+					"when": "webviewItem =~ /gitlens:commit\\b/",
+					"group": "3_gitlens@1"
+				},
+				{
+					"command": "gitlens.graph.copyDeepLinkToRepo",
+					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+remote\\b)(?!.*?\\b\\+current\\b)/",
+					"group": "3_gitlens@2"
+				},
+				{
+					"command": "gitlens.graph.copyDeepLinkToTag",
+					"when": "webviewItem =~ /gitlens:tag\\b/",
+					"group": "3_gitlens@1"
 				}
 			],
 			"gitlens/commit/changes": [
@@ -12111,6 +12258,10 @@
 			{
 				"id": "gitlens/scm/resourceState/changes",
 				"label": "Open Changes"
+			},
+			{
+				"id": "gitlens/share",
+				"label": "Share"
 			},
 			{
 				"id": "gitlens/view/repositories/sections",
