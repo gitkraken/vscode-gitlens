@@ -16,6 +16,7 @@ import {
 	getCommandUri,
 	isCommandContextViewNodeHasBranch,
 	isCommandContextViewNodeHasCommit,
+	isCommandContextViewNodeHasRemote,
 	isCommandContextViewNodeHasTag,
 } from './base';
 
@@ -44,6 +45,8 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 				args = { ref: context.node.branch };
 			} else if (isCommandContextViewNodeHasTag(context)) {
 				args = { ref: context.node.tag };
+			} else if (isCommandContextViewNodeHasRemote(context)) {
+				args = { remote: context.node.remote.name };
 			}
 		}
 

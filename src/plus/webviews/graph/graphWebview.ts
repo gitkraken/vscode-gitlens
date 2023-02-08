@@ -2136,7 +2136,6 @@ export class GraphWebview extends WebviewBase<State> {
 			if (!ref.remote) return Promise.resolve();
 
 			return executeCommand(Commands.CopyDeepLinkToRepo, {
-				ref: ref,
 				remote: getRemoteNameFromBranchName(ref.name),
 			});
 		}
