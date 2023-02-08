@@ -465,6 +465,10 @@ export class GraphApp extends App<State> {
 		bodyStyle.setProperty('--color-graph-minimap-remoteMarker', opacity(branchMarker, 30));
 		bodyStyle.setProperty('--color-graph-scroll-marker-remote-branches', opacity(branchMarker, 60));
 
+		bodyStyle.setProperty('--color-graph-stats-deleted', '#ff0000');
+		bodyStyle.setProperty('--color-graph-stats-added', '#00ff00');
+		bodyStyle.setProperty('--color-graph-stats-files', '#b4b466');
+
 		bodyStyle.setProperty(
 			'--color-graph-minimap-tagBackground',
 			tagColor.luminance(themeLuminance(e.isLightTheme ? 0.8 : 0.2)).toString(),
@@ -568,6 +572,10 @@ export class GraphApp extends App<State> {
 				'--text-accent': computedStyle.getPropertyValue('--color-link-foreground'),
 				'--text-inverse': computedStyle.getPropertyValue('--vscode-input-background'),
 				'--text-bright': computedStyle.getPropertyValue('--vscode-input-background'),
+
+				'--stats-added': computedStyle.getPropertyValue('--color-graph-stats-added'),
+				'--stats-deleted': computedStyle.getPropertyValue('--color-graph-stats-deleted'),
+				'--stats-files': computedStyle.getPropertyValue('--color-graph-stats-files'),
 				...mixedGraphColors,
 			},
 			themeOpacityFactor: parseInt(computedStyle.getPropertyValue('--graph-theme-opacity-factor')) || 1,
