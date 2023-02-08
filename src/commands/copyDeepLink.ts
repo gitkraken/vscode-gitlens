@@ -90,22 +90,31 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 		}
 
 		try {
-			const pick = await RemotePicker.show(
-				`Copy Link to ${deepLinkTypeToString(type)}`,
-				`Choose which remote to copy the link for`,
-				await this.container.git.getRemotes(repoPath, { sort: true }),
-				{
-					autoPick: true,
-					picked: args.remote,
-					setDefault: true,
-				},
-			);
-			if (pick == null) return;
+			let chosenRemote;
+			const remotes = await this.container.git.getRemotes(repoPath, { sort: true });
+			if (args.remote && !args.prePickRemote) {
+				chosenRemote = remotes.find(r => r.name === args?.remote);
+			} else {
+				const pick = await RemotePicker.show(
+					`Copy Link to ${deepLinkTypeToString(type)}`,
+					`Choose which remote to copy the link for`,
+					remotes,
+					{
+						autoPick: true,
+						picked: args.remote,
+						setDefault: true,
+					},
+				);
+				if (pick == null) return;
+				chosenRemote = pick.item;
+			}
+
+			if (chosenRemote == null) return;
 
 			if (args.ref == null) {
-				await this.container.deepLinks.copyDeepLinkUrl(repoPath, pick.item.url);
+				await this.container.deepLinks.copyDeepLinkUrl(repoPath, chosenRemote.url);
 			} else {
-				await this.container.deepLinks.copyDeepLinkUrl(args.ref, pick.item.url);
+				await this.container.deepLinks.copyDeepLinkUrl(args.ref, chosenRemote.url);
 			}
 		} catch (ex) {
 			Logger.error(ex, 'CopyDeepLinkCommand');
