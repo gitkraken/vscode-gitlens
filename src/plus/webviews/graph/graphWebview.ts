@@ -2115,7 +2115,7 @@ export class GraphWebview extends WebviewBase<State> {
 	private copyDeepLinkToBranch(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
-			return executeCommand(Commands.CopyDeepLinkToBranch, ref);
+			return executeCommand(Commands.CopyDeepLinkToBranch, { ref: ref });
 		}
 
 		return Promise.resolve();
@@ -2126,7 +2126,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
 
-		return executeCommand(Commands.CopyDeepLinkToCommit, ref);
+		return executeCommand(Commands.CopyDeepLinkToCommit, { ref: ref });
 	}
 
 	@debug()
@@ -2135,7 +2135,10 @@ export class GraphWebview extends WebviewBase<State> {
 			const { ref } = item.webviewItemValue;
 			if (!ref.remote) return Promise.resolve();
 
-			return executeCommand(Commands.CopyDeepLinkToRepo, ref);
+			return executeCommand(Commands.CopyDeepLinkToRepo, {
+				ref: ref,
+				remote: getRemoteNameFromBranchName(ref.name),
+			});
 		}
 
 		return Promise.resolve();
@@ -2145,7 +2148,7 @@ export class GraphWebview extends WebviewBase<State> {
 	private copyDeepLinkToTag(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'tag')) {
 			const { ref } = item.webviewItemValue;
-			return executeCommand(Commands.CopyDeepLinkToTag, ref);
+			return executeCommand(Commands.CopyDeepLinkToTag, { ref: ref });
 		}
 
 		return Promise.resolve();
