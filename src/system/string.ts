@@ -380,9 +380,12 @@ export function splitLast(s: string, splitter: string) {
 }
 
 export function splitSingle(s: string, splitter: string) {
-	const parts = s.split(splitter, 1);
-	const first = parts[0];
-	return first.length === s.length ? parts : [first, s.substr(first.length + 1)];
+	const index = s.indexOf(splitter);
+	if (index === -1) return [s];
+
+	const start = s.substring(0, index);
+	const rest = s.substring(index + splitter.length);
+	return rest != null ? [start, rest] : [start];
 }
 
 export function truncate(s: string, truncateTo: number, ellipsis: string = '\u2026', width?: number) {
