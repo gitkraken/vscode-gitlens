@@ -1,5 +1,6 @@
 import type { Disposable, Uri } from 'vscode';
-import { window } from 'vscode';
+import { env, window } from 'vscode';
+import { configuration } from '../../configuration';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { GitReference } from '../../git/models/reference';
@@ -14,6 +15,7 @@ import {
 	deepLinkStateTransitionTable,
 	DeepLinkType,
 	parseDeepLinkUri,
+	UriTypes,
 } from './deepLink';
 
 export class DeepLinkService implements Disposable {
@@ -32,19 +34,19 @@ export class DeepLinkService implements Disposable {
 			if (this._context.state === DeepLinkServiceState.Idle) {
 				if (!link.repoId || !link.type || !link.remoteUrl) {
 					void window.showErrorMessage('Unable to resolve link');
-					Logger.warn(`Unable to resolve link - missing basic properties: ${link.uri.toString()}`);
+					Logger.warn(`Unable to resolve link - missing basic properties: ${uri.toString()}`);
 					return;
 				}
 
 				if (!Object.values(DeepLinkType).includes(link.type)) {
 					void window.showErrorMessage('Unable to resolve link');
-					Logger.warn(`Unable to resolve link - unknown link type: ${link.uri.toString()}`);
+					Logger.warn(`Unable to resolve link - unknown link type: ${uri.toString()}`);
 					return;
 				}
 
 				if (link.type !== DeepLinkType.Repository && !link.targetId) {
 					void window.showErrorMessage('Unable to resolve link');
-					Logger.warn(`Unable to resolve link - no target id provided: ${link.uri.toString()}`);
+					Logger.warn(`Unable to resolve link - no target id provided: ${uri.toString()}`);
 					return;
 				}
 
@@ -52,7 +54,7 @@ export class DeepLinkService implements Disposable {
 					...this._context,
 					repoId: link.repoId,
 					targetType: link.type,
-					uri: link.uri,
+					uri: uri,
 					remoteUrl: link.remoteUrl,
 					targetId: link.targetId,
 				};
@@ -294,5 +296,75 @@ export class DeepLinkService implements Disposable {
 					break;
 			}
 		}
+	}
+
+	async copyDeepLinkUrl(ref: GitReference, remoteUrl: string): Promise<void>;
+	async copyDeepLinkUrl(repoPath: string, remoteUrl: string): Promise<void>;
+	async copyDeepLinkUrl(
+		repoPath: string,
+		remoteUrl: string,
+		targetType: DeepLinkType,
+		targetId?: string,
+	): Promise<void>;
+	async copyDeepLinkUrl(
+		refOrRepoPath: string | GitReference,
+		remoteUrl: string,
+		targetType?: DeepLinkType,
+		targetId?: string,
+	): Promise<void> {
+		const url = await (typeof refOrRepoPath !== 'string'
+			? this.generateDeepLinkUrl(refOrRepoPath, remoteUrl)
+			: this.generateDeepLinkUrl(refOrRepoPath, remoteUrl, targetType!, targetId));
+		await env.clipboard.writeText(url.toString());
+	}
+
+	async generateDeepLinkUrl(ref: GitReference, remoteUrl: string): Promise<URL>;
+	async generateDeepLinkUrl(repoPath: string, remoteUrl: string): Promise<URL>;
+	async generateDeepLinkUrl(
+		repoPath: string,
+		remoteUrl: string,
+		targetType: DeepLinkType,
+		targetId?: string,
+	): Promise<URL>;
+	async generateDeepLinkUrl(
+		refOrRepoPath: string | GitReference,
+		remoteUrl: string,
+		targetType?: DeepLinkType,
+		targetId?: string,
+	): Promise<URL> {
+		const repoPath = typeof refOrRepoPath !== 'string' ? refOrRepoPath.repoPath : refOrRepoPath;
+		const repoId = (await this.container.git.getUniqueRepositoryId(repoPath)) ?? '0';
+
+		if (typeof refOrRepoPath !== 'string') {
+			switch (refOrRepoPath.refType) {
+				case 'branch':
+					targetType = DeepLinkType.Branch;
+					targetId = refOrRepoPath.name;
+					break;
+				case 'revision':
+					targetType = DeepLinkType.Commit;
+					targetId = refOrRepoPath.ref;
+					break;
+				case 'tag':
+					targetType = DeepLinkType.Tag;
+					targetId = refOrRepoPath.name;
+					break;
+			}
+		}
+
+		const schemeOverride = configuration.get('deepLinks.schemeOverride');
+		const scheme = !schemeOverride ? 'vscode' : schemeOverride === true ? env.uriScheme : schemeOverride;
+		const target = targetType != null && targetType !== DeepLinkType.Repository ? `/${targetType}/${targetId}` : '';
+
+		// Start with the prefix, add the repo prefix and the repo ID to the URL, and then add the target tag and target ID to the URL (if applicable)
+		const url = new URL(
+			`${scheme}://${this.container.context.extension.id}/${UriTypes.DeepLink}/${DeepLinkType.Repository}/${repoId}${target}`,
+		);
+
+		// Add the remote URL as a query parameter
+		url.searchParams.set('url', remoteUrl);
+		const params = new URLSearchParams();
+		params.set('url', remoteUrl);
+		return url;
 	}
 }

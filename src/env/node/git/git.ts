@@ -1366,6 +1366,32 @@ export class Git {
 		return this.git<string>({ cwd: repoPath }, 'reset', '-q', '--', fileName);
 	}
 
+	async rev_list(
+		repoPath: string,
+		ref: string,
+		options?: { all?: boolean; maxParents?: number },
+	): Promise<string[] | undefined> {
+		const params = ['rev-list'];
+		if (options?.all) {
+			params.push('--all');
+		}
+
+		if (options?.maxParents != null) {
+			params.push(`--max-parents=${options.maxParents}`);
+		}
+
+		const rawData = await this.git<string>(
+			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+			...params,
+			ref,
+			'--',
+		);
+		const data = rawData.trim().split('\n');
+		if (data.length === 0) return undefined;
+
+		return data;
+	}
+
 	async rev_list__count(repoPath: string, ref: string, all?: boolean): Promise<number | undefined> {
 		const params = ['rev-list', '--count'];
 		if (all) {

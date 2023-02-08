@@ -1,4 +1,5 @@
 import type { Uri } from 'vscode';
+import type { GitReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 
@@ -13,9 +14,37 @@ export enum DeepLinkType {
 	Tag = 't',
 }
 
+export function deepLinkTypeToString(type: DeepLinkType): string {
+	switch (type) {
+		case DeepLinkType.Branch:
+			return 'Branch';
+		case DeepLinkType.Commit:
+			return 'Commit';
+		case DeepLinkType.Repository:
+			return 'Repository';
+		case DeepLinkType.Tag:
+			return 'Tag';
+		default:
+			debugger;
+			return 'Unknown';
+	}
+}
+
+export function refTypeToDeepLinkType(refType: GitReference['refType']): DeepLinkType {
+	switch (refType) {
+		case 'branch':
+			return DeepLinkType.Branch;
+		case 'revision':
+			return DeepLinkType.Commit;
+		case 'tag':
+			return DeepLinkType.Tag;
+		default:
+			return DeepLinkType.Repository;
+	}
+}
+
 export interface DeepLink {
 	type: DeepLinkType;
-	uri: Uri;
 	repoId: string;
 	remoteUrl: string;
 	targetId?: string;
@@ -34,7 +63,6 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 	if (target == null) {
 		return {
 			type: DeepLinkType.Repository,
-			uri: uri,
 			repoId: repoId,
 			remoteUrl: remoteUrl,
 		};
@@ -42,7 +70,6 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 
 	return {
 		type: target as DeepLinkType,
-		uri: uri,
 		repoId: repoId,
 		remoteUrl: remoteUrl,
 		targetId: targetId.join('/'),

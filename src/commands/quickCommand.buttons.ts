@@ -113,14 +113,19 @@ export namespace QuickCommandButtons {
 		tooltip: 'Open in New Window',
 	};
 
-	export const ShowDetailsView: QuickInputButton = {
-		iconPath: new ThemeIcon('eye'),
-		tooltip: 'Open Details',
-	};
-
 	export const RevealInSideBar: QuickInputButton = {
 		iconPath: new ThemeIcon('search'),
 		tooltip: 'Reveal in Side Bar',
+	};
+
+	export const SetRemoteAsDefault: QuickInputButton = {
+		iconPath: new ThemeIcon('settings-gear'),
+		tooltip: 'Set as Default Remote',
+	};
+
+	export const ShowDetailsView: QuickInputButton = {
+		iconPath: new ThemeIcon('eye'),
+		tooltip: 'Open Details',
 	};
 
 	export const ShowResultsInSideBar: QuickInputButton = {

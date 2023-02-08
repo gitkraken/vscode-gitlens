@@ -35,6 +35,9 @@ export interface Config {
 		scrollable: boolean;
 	};
 	debug: boolean;
+	deepLinks: {
+		schemeOverride: boolean | string | null;
+	};
 	defaultDateFormat: DateTimeFormat | string | null;
 	defaultDateLocale: string | null;
 	defaultDateShortFormat: DateTimeFormat | string | null;
