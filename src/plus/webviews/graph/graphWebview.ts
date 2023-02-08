@@ -21,8 +21,7 @@ import { getAvatarUri } from '../../../avatars';
 import type {
 	CopyMessageToClipboardCommandArgs,
 	CopyShaToClipboardCommandArgs,
-	OpenBranchOnRemoteCommandArgs,
-	OpenCommitOnRemoteCommandArgs,
+	OpenOnRemoteCommandArgs,
 	OpenPullRequestOnRemoteCommandArgs,
 	ShowCommitsInViewCommandArgs,
 } from '../../../commands';
@@ -52,6 +51,7 @@ import type {
 } from '../../../git/models/reference';
 import { GitReference, GitRevision } from '../../../git/models/reference';
 import { getRemoteIconUri } from '../../../git/models/remote';
+import { RemoteResourceType } from '../../../git/models/remoteResource';
 import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import type { GitSearch } from '../../../git/search';
@@ -1976,8 +1976,12 @@ export class GraphWebview extends WebviewBase<State> {
 	private openBranchOnRemote(item?: GraphItemContext, clipboard?: boolean) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
-			return executeCommand<OpenBranchOnRemoteCommandArgs>(Commands.OpenBranchOnRemote, {
-				branch: ref.name,
+			return executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+				repoPath: ref.repoPath,
+				resource: {
+					type: RemoteResourceType.Branch,
+					branch: ref.name,
+				},
 				remote: ref.upstream?.name,
 				clipboard: clipboard,
 			});
@@ -2100,8 +2104,12 @@ export class GraphWebview extends WebviewBase<State> {
 		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
 
-		return executeCommand<OpenCommitOnRemoteCommandArgs>(Commands.OpenCommitOnRemote, {
-			sha: ref.ref,
+		return executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+			repoPath: ref.repoPath,
+			resource: {
+				type: RemoteResourceType.Commit,
+				sha: ref.ref,
+			},
 			clipboard: clipboard,
 		});
 	}
