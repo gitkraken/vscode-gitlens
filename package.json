@@ -3610,6 +3610,16 @@
 						"scope": "window",
 						"order": 100
 					},
+					"gitlens.deepLinks.schemeOverride": {
+						"type": [
+							"boolean",
+							"string"
+						],
+						"default": false,
+						"markdownDescription": "Specifies whether to override the default deep link scheme (vscode://) with the environment value or a specified value",
+						"scope": "window",
+						"order": 110
+					},
 					"gitlens.advanced.useSymmetricDifferenceNotation": {
 						"deprecationMessage": "Deprecated. This setting is no longer used",
 						"markdownDescription": "Deprecated. This setting is no longer used"

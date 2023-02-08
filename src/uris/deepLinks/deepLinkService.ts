@@ -1,5 +1,6 @@
 import type { Disposable, Uri } from 'vscode';
 import { env, window } from 'vscode';
+import { configuration } from '../../configuration';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { GitReference } from '../../git/models/reference';
@@ -351,14 +352,13 @@ export class DeepLinkService implements Disposable {
 			}
 		}
 
-		// TODO@axosoft-ramint this gets a bit tricky I might be on vscode-insiders:// and you are on vscode:// so we might need to allow an override
-		// e.g. a setting to to override the current scheme
-
+		const schemeOverride = configuration.get('deepLinks.schemeOverride');
+		const scheme = !schemeOverride ? 'vscode' : schemeOverride === true ? env.uriScheme : schemeOverride;
 		const target = targetType != null && targetType !== DeepLinkType.Repository ? `/${targetType}/${targetId}` : '';
 
 		// Start with the prefix, add the repo prefix and the repo ID to the URL, and then add the target tag and target ID to the URL (if applicable)
 		const url = new URL(
-			`${env.uriScheme}://${this.container.context.extension.id}/${UriTypes.DeepLink}/${DeepLinkType.Repository}/${repoId}${target}`,
+			`${scheme}://${this.container.context.extension.id}/${UriTypes.DeepLink}/${DeepLinkType.Repository}/${repoId}${target}`,
 		);
 
 		// Add the remote URL as a query parameter
