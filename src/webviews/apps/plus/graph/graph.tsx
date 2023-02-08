@@ -370,6 +370,7 @@ export class GraphApp extends App<State> {
 		bodyStyle.setProperty('--color-graph-contrast-border', color);
 		color = e.computedStyle.getPropertyValue('--vscode-list-activeSelectionBackground').trim();
 		bodyStyle.setProperty('--color-graph-selected-row', color);
+		bodyStyle.setProperty('--color-graph-scroll-marker-current', color);
 		color = e.computedStyle.getPropertyValue('--vscode-list-hoverBackground').trim();
 		bodyStyle.setProperty('--color-graph-hover-row', color);
 		color = e.computedStyle.getPropertyValue('--vscode-list-activeSelectionForeground').trim();
@@ -384,7 +385,6 @@ export class GraphApp extends App<State> {
 		bodyStyle.setProperty('--color-graph-text-disabled', opacity(e.colors.foreground, 50));
 
 		// TODO@ramint: Set the right colors for these
-		bodyStyle.setProperty('--color-graph-scroll-marker-current', '#ff0000');
 		bodyStyle.setProperty('--color-graph-scroll-marker-head-local', '#00ff00');
 		bodyStyle.setProperty('--color-graph-scroll-marker-head-upstream', '#90ee90');
 		bodyStyle.setProperty('--color-graph-scroll-marker-local-branch', '#0000ff');
