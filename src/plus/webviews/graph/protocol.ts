@@ -50,6 +50,17 @@ export enum GraphRefMetadataTypes {
 	PullRequest = 'pullRequest',
 }
 
+export enum GraphScrollMarkerTypes {
+	CurrentSelection = 'currentSelection',
+	Head = 'head',
+	HeadUpstream = 'headUpstream',
+	LocalBranch = 'localBranch',
+	RemoteBranch = 'remoteBranch',
+	SearchResult = 'searchResult',
+	Stash = 'stash',
+	Tag = 'tag',
+}
+
 export const supportedRefMetadataTypes: GraphRefMetadataType[] = Object.values(GraphRefMetadataTypes);
 
 export type GraphCommitDateTimeSource = CommitDateTimeSource;
@@ -139,6 +150,7 @@ export interface GraphComponentConfig {
 	highlightRowsOnRefHover?: boolean;
 	minimap?: boolean;
 	scrollRowPadding?: number;
+	showScrollMarkers?: boolean;
 	showGhostRefsOnRowHover?: boolean;
 	showRemoteNamesOnRefs?: boolean;
 	idLength?: number;

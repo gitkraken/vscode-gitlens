@@ -602,6 +602,7 @@ export class GraphWebview extends WebviewBase<State> {
 			configuration.changed(e, 'graph.dimMergeCommits') ||
 			configuration.changed(e, 'graph.highlightRowsOnRefHover') ||
 			configuration.changed(e, 'graph.scrollRowPadding') ||
+			configuration.changed(e, 'graph.scrollMarkers.enabled') ||
 			configuration.changed(e, 'graph.showGhostRefsOnRowHover') ||
 			configuration.changed(e, 'graph.pullRequests.enabled') ||
 			configuration.changed(e, 'graph.showRemoteNames') ||
@@ -1652,6 +1653,7 @@ export class GraphWebview extends WebviewBase<State> {
 			highlightRowsOnRefHover: configuration.get('graph.highlightRowsOnRefHover'),
 			minimap: configuration.get('graph.experimental.minimap.enabled'),
 			scrollRowPadding: configuration.get('graph.scrollRowPadding'),
+			showScrollMarkers: configuration.get('graph.scrollMarkers.enabled'),
 			showGhostRefsOnRowHover: configuration.get('graph.showGhostRefsOnRowHover'),
 			showRemoteNamesOnRefs: configuration.get('graph.showRemoteNames'),
 			idLength: configuration.get('advanced.abbreviatedShaLength'),

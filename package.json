@@ -2216,6 +2216,47 @@
 						"scope": "window",
 						"order": 12
 					},
+					"gitlens.graph.scrollMarkers.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show markers on the scrollbar in the _Commit Graph_",
+						"scope": "window",
+						"order": 13
+					},
+					"gitlens.graph.scrollMarkers.types": {
+						"type": "array",
+						"default": [
+							"currentSelection",
+							"head"
+						],
+						"items": {
+							"type": "string",
+							"enum": [
+								"currentSelection",
+								"head",
+								"searchResult",
+								"localBranch",
+								"remoteBranch",
+								"tag",
+								"stash"
+							],
+							"enumDescriptions": [
+								"Marks the location of selected rows",
+								"Marks the location of the current HEAD and its upstream",
+								"Marks the location of search results",
+								"Marks the location of local branches",
+								"Marks the location of remote branches",
+								"Marks the location of tags",
+								"Marks the location of stashes"
+							]
+						},
+						"minItems": 0,
+						"maxItems": 7,
+						"uniqueItems": true,
+						"markdownDescription": "Specifies which markers to show in the _Commit Graph_",
+						"scope": "window",
+						"order": 14
+					},
 					"gitlens.graph.scrollRowPadding": {
 						"type": "number",
 						"default": 0,

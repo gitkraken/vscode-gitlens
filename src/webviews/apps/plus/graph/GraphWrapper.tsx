@@ -8,7 +8,6 @@ import type {
 	GraphRefOptData,
 	GraphRow,
 	GraphZoneType,
-	Head,
 	OnFormatCommitDateTime,
 } from '@gitkraken/gitkraken-components';
 import GraphContainer, { GRAPH_ZONE_TYPE, REF_ZONE_TYPE } from '@gitkraken/gitkraken-components';
@@ -54,6 +53,7 @@ import {
 	DidFetchNotificationType,
 	DidSearchNotificationType,
 	GraphCommitDateTimeSources,
+	GraphScrollMarkerTypes,
 } from '../../../../plus/webviews/graph/protocol';
 import type { Subscription } from '../../../../subscription';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../subscription';
@@ -1263,6 +1263,9 @@ export function GraphWrapper({
 							cssVariables={styleProps?.cssVariables}
 							dimMergeCommits={graphConfig?.dimMergeCommits}
 							enabledRefMetadataTypes={graphConfig?.enabledRefMetadataTypes}
+							enabledScrollMarkerTypes={
+								graphConfig?.showScrollMarkers ? Object.values(GraphScrollMarkerTypes) : []
+							}
 							enableMultiSelection={graphConfig?.enableMultiSelection}
 							excludeRefsById={excludeRefsById}
 							excludeByType={excludeTypes}

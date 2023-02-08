@@ -550,9 +550,15 @@ export class GraphApp extends App<State> {
 					: 'none',
 				'--scroll-marker-current': computedStyle.getPropertyValue('--color-graph-scroll-marker-current'),
 				'--scroll-marker-head-local': computedStyle.getPropertyValue('--color-graph-scroll-marker-head-local'),
-				'--scroll-marker-head-upstream': computedStyle.getPropertyValue('--color-graph-scroll-marker-head-upstream'),
-				'--scroll-marker-local-branch': computedStyle.getPropertyValue('--color-graph-scroll-marker-local-branch'),
-				'--scroll-marker-remote-branch': computedStyle.getPropertyValue('--color-graph-scroll-marker-remote-branch'),
+				'--scroll-marker-head-upstream': computedStyle.getPropertyValue(
+					'--color-graph-scroll-marker-head-upstream',
+				),
+				'--scroll-marker-local-branch': computedStyle.getPropertyValue(
+					'--color-graph-scroll-marker-local-branch',
+				),
+				'--scroll-marker-remote-branch': computedStyle.getPropertyValue(
+					'--color-graph-scroll-marker-remote-branch',
+				),
 				'--scroll-marker-search': computedStyle.getPropertyValue('--color-graph-scroll-marker-search'),
 				'--scroll-marker-stash': computedStyle.getPropertyValue('--color-graph-scroll-marker-stash'),
 				'--scroll-marker-tag': computedStyle.getPropertyValue('--color-graph-scroll-marker-tag'),
