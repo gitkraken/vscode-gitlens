@@ -21,7 +21,7 @@ import {
 } from './base';
 
 export interface CopyDeepLinkCommandArgs {
-	ref?: GitReference;
+	refOrRepoPath?: GitReference | string;
 	remote?: string;
 	prePickRemote?: boolean;
 }
@@ -40,13 +40,13 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 	protected override preExecute(context: CommandContext, args?: CopyDeepLinkCommandArgs) {
 		if (args == null) {
 			if (isCommandContextViewNodeHasCommit(context)) {
-				args = { ref: context.node.commit };
+				args = { refOrRepoPath: context.node.commit };
 			} else if (isCommandContextViewNodeHasBranch(context)) {
-				args = { ref: context.node.branch };
+				args = { refOrRepoPath: context.node.branch };
 			} else if (isCommandContextViewNodeHasTag(context)) {
-				args = { ref: context.node.tag };
+				args = { refOrRepoPath: context.node.tag };
 			} else if (isCommandContextViewNodeHasRemote(context)) {
-				args = { remote: context.node.remote.name };
+				args = { refOrRepoPath: context.node.remote.repoPath, remote: context.node.remote.name };
 			}
 		}
 
@@ -54,9 +54,11 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: CopyDeepLinkCommandArgs) {
+		args = { ...args };
+
 		let type;
 		let repoPath;
-		if (args?.ref == null) {
+		if (args?.refOrRepoPath == null) {
 			uri = getCommandUri(uri, editor);
 			const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
@@ -68,20 +70,22 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 					`Copy Link to ${deepLinkTypeToString(type)}`,
 				)
 			)?.path;
+		} else if (typeof args.refOrRepoPath === 'string') {
+			type = DeepLinkType.Repository;
+			repoPath = args.refOrRepoPath;
+			args.refOrRepoPath = undefined;
 		} else {
-			type = refTypeToDeepLinkType(args.ref.refType);
-			repoPath = args.ref.repoPath;
+			type = refTypeToDeepLinkType(args.refOrRepoPath.refType);
+			repoPath = args.refOrRepoPath.repoPath;
 		}
 		if (!repoPath) return;
 
-		args = { ...args };
-
 		if (!args.remote) {
-			if (args.ref?.refType === 'branch') {
+			if (args.refOrRepoPath?.refType === 'branch') {
 				// If the branch is remote, or has an upstream, pre-select the remote
-				if (args.ref.remote || args.ref.upstream?.name != null) {
+				if (args.refOrRepoPath.remote || args.refOrRepoPath.upstream?.name != null) {
 					const [branchName, remoteName] = splitBranchNameAndRemote(
-						args.ref.remote ? args.ref.name : args.ref.upstream!.name,
+						args.refOrRepoPath.remote ? args.refOrRepoPath.name : args.refOrRepoPath.upstream!.name,
 					);
 
 					if (branchName != null) {
@@ -114,10 +118,10 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 
 			if (chosenRemote == null) return;
 
-			if (args.ref == null) {
+			if (args.refOrRepoPath == null) {
 				await this.container.deepLinks.copyDeepLinkUrl(repoPath, chosenRemote.url);
 			} else {
-				await this.container.deepLinks.copyDeepLinkUrl(args.ref, chosenRemote.url);
+				await this.container.deepLinks.copyDeepLinkUrl(args.refOrRepoPath, chosenRemote.url);
 			}
 		} catch (ex) {
 			Logger.error(ex, 'CopyDeepLinkCommand');

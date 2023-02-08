@@ -19,6 +19,7 @@ import {
 import type { CreatePullRequestActionContext } from '../../../api/gitlens';
 import { getAvatarUri } from '../../../avatars';
 import type {
+	CopyDeepLinkCommandArgs,
 	CopyMessageToClipboardCommandArgs,
 	CopyShaToClipboardCommandArgs,
 	OpenBranchOnRemoteCommandArgs,
@@ -2115,7 +2116,7 @@ export class GraphWebview extends WebviewBase<State> {
 	private copyDeepLinkToBranch(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
-			return executeCommand(Commands.CopyDeepLinkToBranch, { ref: ref });
+			return executeCommand<CopyDeepLinkCommandArgs>(Commands.CopyDeepLinkToBranch, { refOrRepoPath: ref });
 		}
 
 		return Promise.resolve();
@@ -2126,7 +2127,7 @@ export class GraphWebview extends WebviewBase<State> {
 		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
 
-		return executeCommand(Commands.CopyDeepLinkToCommit, { ref: ref });
+		return executeCommand<CopyDeepLinkCommandArgs>(Commands.CopyDeepLinkToCommit, { refOrRepoPath: ref });
 	}
 
 	@debug()
@@ -2135,7 +2136,8 @@ export class GraphWebview extends WebviewBase<State> {
 			const { ref } = item.webviewItemValue;
 			if (!ref.remote) return Promise.resolve();
 
-			return executeCommand(Commands.CopyDeepLinkToRepo, {
+			return executeCommand<CopyDeepLinkCommandArgs>(Commands.CopyDeepLinkToRepo, {
+				refOrRepoPath: ref.repoPath,
 				remote: getRemoteNameFromBranchName(ref.name),
 			});
 		}
@@ -2147,7 +2149,7 @@ export class GraphWebview extends WebviewBase<State> {
 	private copyDeepLinkToTag(item?: GraphItemContext) {
 		if (isGraphItemRefContext(item, 'tag')) {
 			const { ref } = item.webviewItemValue;
-			return executeCommand(Commands.CopyDeepLinkToTag, { ref: ref });
+			return executeCommand<CopyDeepLinkCommandArgs>(Commands.CopyDeepLinkToTag, { refOrRepoPath: ref });
 		}
 
 		return Promise.resolve();
