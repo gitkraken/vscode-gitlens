@@ -84,6 +84,8 @@ const weightedDefaultBranches = new Map<string, number>([
 	['development', 1],
 ]);
 
+const defaultRepositoryId = '0';
+
 export type GitProvidersChangeEvent = {
 	readonly added: readonly GitProvider[];
 	readonly removed: readonly GitProvider[];
@@ -2212,8 +2214,7 @@ export class GitProviderService implements Disposable {
 		const id = await provider.getUniqueRepositoryId(path);
 		if (id != null) return id;
 
-		// TODO@axosoft-ramint should we be using the repo.id here? Maybe repo.idHash instead? or just 0s?
-		return this.getRepository(repoPath)?.id?.replace(/\//g, '_');
+		return defaultRepositoryId;
 	}
 
 	@log({ args: { 1: false } })
