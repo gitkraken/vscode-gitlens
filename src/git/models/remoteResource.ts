@@ -10,7 +10,7 @@ export const enum RemoteResourceType {
 	File = 'file',
 	Repo = 'repo',
 	Revision = 'revision',
-	Tag = 'tag',
+	// Tag = 'tag',
 }
 
 export type RemoteResource =
@@ -58,11 +58,11 @@ export type RemoteResource =
 			fileName: string;
 			range?: Range;
 			sha?: string;
-	  }
-	| {
-			type: RemoteResourceType.Tag;
-			tag: string;
 	  };
+// | {
+// 		type: RemoteResourceType.Tag;
+// 		tag: string;
+//   };
 
 export function getNameFromRemoteResource(resource: RemoteResource) {
 	switch (resource.type) {
@@ -82,8 +82,8 @@ export function getNameFromRemoteResource(resource: RemoteResource) {
 			return 'Repository';
 		case RemoteResourceType.Revision:
 			return 'File';
-		case RemoteResourceType.Tag:
-			return 'Tag';
+		// case RemoteResourceType.Tag:
+		// 	return 'Tag';
 		default:
 			return '';
 	}

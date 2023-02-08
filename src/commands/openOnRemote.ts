@@ -149,10 +149,10 @@ export class OpenOnRemoteCommand extends Command {
 					break;
 				}
 
-				case RemoteResourceType.Tag: {
-					title = `${getTitlePrefix('Tag')}${pad(GlyphChars.Dot, 2, 2)}${args.resource.tag}`;
-					break;
-				}
+				// case RemoteResourceType.Tag: {
+				// 	title = `${getTitlePrefix('Tag')}${pad(GlyphChars.Dot, 2, 2)}${args.resource.tag}`;
+				// 	break;
+				// }
 			}
 
 			const pick = await RemoteProviderPicker.show(title, placeHolder, args.resource, remotes, options);
