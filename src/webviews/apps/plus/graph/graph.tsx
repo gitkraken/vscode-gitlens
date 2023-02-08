@@ -465,8 +465,8 @@ export class GraphApp extends App<State> {
 		bodyStyle.setProperty('--color-graph-minimap-remoteMarker', opacity(branchMarker, 30));
 		bodyStyle.setProperty('--color-graph-scroll-marker-remote-branches', opacity(branchMarker, 60));
 
-		bodyStyle.setProperty('--color-graph-stats-deleted', '#ff0000');
-		bodyStyle.setProperty('--color-graph-stats-added', '#00ff00');
+		bodyStyle.setProperty('--color-graph-stats-deleted', '#c45478');
+		bodyStyle.setProperty('--color-graph-stats-added', '#558152');
 		bodyStyle.setProperty('--color-graph-stats-files', '#b4b466');
 
 		bodyStyle.setProperty(
