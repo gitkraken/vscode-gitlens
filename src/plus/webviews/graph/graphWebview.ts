@@ -1339,6 +1339,7 @@ export class GraphWebview extends WebviewBase<State> {
 		[DidChangeSubscriptionNotificationType, this.notifyDidChangeSubscription],
 		[DidChangeWorkingTreeNotificationType, this.notifyDidChangeWorkingTree],
 		[DidChangeWindowFocusNotificationType, this.notifyDidChangeWindowFocus],
+		[DidFetchNotificationType, this.notifyDidFetch],
 	]);
 
 	private addPendingIpcNotification(type: IpcNotificationType<any>, msg?: IpcMessage) {

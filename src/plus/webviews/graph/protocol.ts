@@ -270,7 +270,7 @@ export const UpdateSelectionCommandType = new IpcCommandType<UpdateSelectionPara
 export interface DidChangeParams {
 	state: State;
 }
-export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('graph/didChange');
+export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('graph/didChange', true);
 
 export interface DidChangeGraphConfigurationParams {
 	config: GraphComponentConfig;
@@ -381,4 +381,4 @@ export const DidSearchNotificationType = new IpcNotificationType<DidSearchParams
 export interface DidFetchParams {
 	lastFetched: Date;
 }
-export const DidFetchNotificationType = new IpcNotificationType<DidFetchParams>('graph/didFetch');
+export const DidFetchNotificationType = new IpcNotificationType<DidFetchParams>('graph/didFetch', true);
