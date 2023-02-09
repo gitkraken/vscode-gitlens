@@ -289,7 +289,7 @@ export const enum GitCommandSorting {
 }
 
 export const enum GraphScrollMarkerTypes {
-	CurrentSelection = 'currentSelection',
+	Selection = 'selection',
 	Head = 'head',
 	LocalBranch = 'localBranch',
 	RemoteBranch = 'remoteBranch',

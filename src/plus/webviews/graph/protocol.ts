@@ -51,14 +51,14 @@ export enum GraphRefMetadataTypes {
 }
 
 export enum GraphScrollMarkerTypes {
-	CurrentSelection = 'currentSelection',
+	Selection = 'selection',
 	Head = 'head',
-	HeadUpstream = 'headUpstream',
+	Highlight = 'highlight',
 	LocalBranch = 'localBranch',
 	RemoteBranch = 'remoteBranch',
-	SearchResult = 'searchResult',
 	Stash = 'stash',
 	Tag = 'tag',
+	Upstream = 'upstream',
 }
 
 export const supportedRefMetadataTypes: GraphRefMetadataType[] = Object.values(GraphRefMetadataTypes);

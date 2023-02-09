@@ -2226,15 +2226,15 @@
 					"gitlens.graph.scrollMarkers.types": {
 						"type": "array",
 						"default": [
-							"currentSelection",
+							"selection",
 							"head"
 						],
 						"items": {
 							"type": "string",
 							"enum": [
-								"currentSelection",
+								"selection",
 								"head",
-								"searchResult",
+								"highlight",
 								"localBranch",
 								"remoteBranch",
 								"tag",
