@@ -10,18 +10,22 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds new _Commit Graph_ features and improvements
   - Adds a new experimental minimap of commit activity to the _Commit Graph_
-  - Adds the ability to show upstream status (ahead/behind) on local branches with remotes
-  - Adds a context menu to the WIP row &mdash; closes [#2458](https://github.com/gitkraken/vscode-gitlens/issues/2458)
-  - Adds new settings
+  - Adds the ability to show upstream (ahead/behind) status on local branches with remotes
+    - Adds a double-click action on the status to pull (when behind) or push (when ahead) pending changes
+    - Adds context menu actions to _Push_, _Pull_, and _Fetch_ the local branch
+    - Adds a `gitlens.graph.showUpstreamStatus` setting to toggle upstream (ahead/behind) indicators on branches
+  - Adds the ability to show any associated pull requests with branches
+    - Adds a double-click action on the PR icon to open the PR in the browser
+    - Adds context menu actions to _Open Pull Request on Remote_ and _Copy_ the PR URL
     - Adds a `gitlens.graph.pullRequests.enabled` setting to toggle PR icons &mdash; closes [#2450](https://github.com/gitkraken/vscode-gitlens/issues/2450)
-    - Adds a `gitlens.graph.showUpstreamStatus` setting to toggle upstream indicators on branches
-  - Improves tooltips in the graph:
-    - Author and avatar tooltips now also show the contributor's email address, if available
-    - Date tooltips now always show both the absolute date and relative date
+  - Adds a context menu to the WIP row &mdash; closes [#2458](https://github.com/gitkraken/vscode-gitlens/issues/2458)
+  - Adds a double-click action on commit rows to open the _Commit Details_ view
+  - Improves Author and Avatar tooltips to now also show the contributor's email address, if available
+  - Improves Date tooltips to now always show both the absolute and relative date
 - Improves the Worktree creation experience
-  - Adds a `worktrees.openAfterCreate` setting to specify how and when to open a worktree after it is created
-  - Creates new worktrees from the "main" repo, if already in a worktree
-  - Shows the _Worktrees_ view after creating a new worktree
+  - Adds a prompt after the worktree is created to choose how to open the worktree
+    - Adds a `worktrees.openAfterCreate` setting to specify how and when to open a worktree after it is created
+  - Ensures new worktrees are created from the "main" repo, if already in a worktree
 - Adds a new _remote_ command to the _Git Command Palette_ to add, prune, and remove remotes
 - Adds a _Create Worktree for Pull Request via GitLens..._ context menu command on pull requests in the _GitHub Pull Requests and Issues_ extension's views
 
