@@ -692,16 +692,16 @@ export function parseColor(value: string): Color | null {
 		return null;
 	}
 
-	const mode = result[3];
+	const mode = result[1];
 	let colors: number[];
 	switch (mode) {
 		case 'rgb':
 		case 'hsl':
-			colors = [parseInt(result[4], 10), parseInt(result[5], 10), parseInt(result[6], 10), 1];
+			colors = [parseInt(result[2], 10), parseInt(result[3], 10), parseInt(result[4], 10), 1];
 			break;
 		case 'rgba':
 		case 'hsla':
-			colors = [parseInt(result[4], 10), parseInt(result[5], 10), parseInt(result[6], 10), parseFloat(result[7])];
+			colors = [parseInt(result[2], 10), parseInt(result[3], 10), parseInt(result[4], 10), parseFloat(result[5])];
 			break;
 		default:
 			return null;
