@@ -11,6 +11,7 @@ import type {
 	GraphExcludedRef,
 	GraphExcludeTypes,
 	GraphMissingRefsMetadata,
+	GraphRefMetadataItem,
 	InternalNotificationType,
 	State,
 	UpdateGraphConfigurationParams,
@@ -101,7 +102,7 @@ export class GraphApp extends App<State> {
 						this.onRefsVisibilityChanged(refs, visible)
 					}
 					onChooseRepository={debounce<GraphApp['onChooseRepository']>(() => this.onChooseRepository(), 250)}
-					onDoubleClickRef={ref => this.onDoubleClickRef(ref)}
+					onDoubleClickRef={(ref, metadata) => this.onDoubleClickRef(ref, metadata)}
 					onDoubleClickRow={(row, preserveFocus) => this.onDoubleClickRow(row, preserveFocus)}
 					onMissingAvatars={(...params) => this.onGetMissingAvatars(...params)}
 					onMissingRefsMetadata={(...params) => this.onGetMissingRefsMetadata(...params)}
@@ -583,10 +584,11 @@ export class GraphApp extends App<State> {
 		});
 	}
 
-	private onDoubleClickRef(ref: GraphRef) {
+	private onDoubleClickRef(ref: GraphRef, metadata?: GraphRefMetadataItem) {
 		this.sendCommand(DoubleClickedCommandType, {
 			type: 'ref',
 			ref: ref,
+			metadata: metadata,
 		});
 	}
 

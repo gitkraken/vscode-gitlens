@@ -702,11 +702,25 @@ export class GraphWebview extends WebviewBase<State> {
 
 	private onDoubleClick(e: DoubleClickedParams) {
 		if (e.type === 'ref' && e.ref.context) {
-			const item = typeof e.ref.context === 'string' ? JSON.parse(e.ref.context) : e.ref.context;
-			if (!('webview' in item)) {
-				item.webview = this.id;
-			}
+			let item = this.getGraphItemContext(e.ref.context);
 			if (isGraphItemRefContext(item)) {
+				if (e.metadata != null) {
+					item = this.getGraphItemContext(e.metadata.data.context);
+					if (e.metadata.type === 'upstream' && isGraphItemTypedContext(item, 'upstreamStatus')) {
+						const { ahead, behind, ref } = item.webviewItemValue;
+						if (behind > 0) {
+							return void RepoActions.pull(ref.repoPath, ref);
+						}
+						if (ahead > 0) {
+							return void RepoActions.push(ref.repoPath, false, ref);
+						}
+					} else if (e.metadata.type === 'pullRequest' && isGraphItemTypedContext(item, 'pullrequest')) {
+						return void this.openPullRequestOnRemote(item);
+					}
+
+					return;
+				}
+
 				const { ref } = item.webviewItemValue;
 				if (e.ref.refType === 'head' && e.ref.isCurrentHead) {
 					return RepoActions.switchTo(ref.repoPath);
@@ -817,8 +831,8 @@ export class GraphWebview extends WebviewBase<State> {
 					const pr = await branch?.getAssociatedPullRequest();
 
 					if (pr == null) {
-						if (metadata.pullRequests === undefined || metadata.pullRequests?.length === 0) {
-							metadata.pullRequests = null;
+						if (metadata.pullRequest === undefined || metadata.pullRequest?.length === 0) {
+							metadata.pullRequest = null;
 						}
 
 						this._refsMetadata.set(id, metadata);
@@ -844,7 +858,7 @@ export class GraphWebview extends WebviewBase<State> {
 						}),
 					};
 
-					metadata.pullRequests = [prMetadata];
+					metadata.pullRequest = [prMetadata];
 
 					this._refsMetadata.set(id, metadata);
 					continue;
@@ -864,6 +878,15 @@ export class GraphWebview extends WebviewBase<State> {
 						owner: getRemoteNameFromBranchName(upstream.name),
 						ahead: branch.state.ahead,
 						behind: branch.state.behind,
+						context: serializeWebviewItemContext<GraphItemContext>({
+							webviewItem: 'gitlens:upstreamStatus',
+							webviewItemValue: {
+								type: 'upstreamStatus',
+								ref: GitReference.fromBranch(branch),
+								ahead: branch.state.ahead,
+								behind: branch.state.behind,
+							},
+						}),
 					};
 
 					metadata.upstream = upstreamMetadata;
@@ -1667,6 +1690,15 @@ export class GraphWebview extends WebviewBase<State> {
 		return [access, visibility] as const;
 	}
 
+	private getGraphItemContext(context: unknown): unknown | undefined {
+		const item = typeof context === 'string' ? JSON.parse(context) : context;
+		// Add the `webview` prop to the context if its missing (e.g. when this context doesn't come through via the context menus)
+		if (item != null && !('webview' in item)) {
+			item.webview = this.id;
+		}
+		return item;
+	}
+
 	private async getWorkingTreeStats(): Promise<GraphWorkingTreeStats | undefined> {
 		if (this.repository == null || this.container.git.repositoryCount === 0) return undefined;
 
@@ -1937,18 +1969,21 @@ export class GraphWebview extends WebviewBase<State> {
 	}
 
 	@debug()
-	private fetch() {
-		void RepoActions.fetch(this.repository);
+	private fetch(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'branch');
+		void RepoActions.fetch(this.repository, ref);
 	}
 
 	@debug()
-	private pull() {
-		void RepoActions.pull(this.repository);
+	private pull(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'branch');
+		void RepoActions.pull(this.repository, ref);
 	}
 
 	@debug()
-	private push() {
-		void RepoActions.push(this.repository);
+	private push(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		void RepoActions.push(this.repository, undefined, ref);
 	}
 
 	@debug()
@@ -2446,15 +2481,20 @@ export class GraphWebview extends WebviewBase<State> {
 	private getGraphItemRef(item?: GraphItemContext | unknown | undefined): GitReference | undefined;
 	private getGraphItemRef(
 		item: GraphItemContext | unknown | undefined,
+		refType: 'branch',
+	): GitBranchReference | undefined;
+	private getGraphItemRef(
+		item: GraphItemContext | unknown | undefined,
 		refType: 'revision',
 	): GitRevisionReference | undefined;
 	private getGraphItemRef(
 		item: GraphItemContext | unknown | undefined,
 		refType: 'stash',
 	): GitStashReference | undefined;
+	private getGraphItemRef(item: GraphItemContext | unknown | undefined, refType: 'tag'): GitTagReference | undefined;
 	private getGraphItemRef(
 		item?: GraphItemContext | unknown,
-		refType?: 'revision' | 'stash',
+		refType?: 'branch' | 'revision' | 'stash' | 'tag',
 	): GitReference | undefined {
 		if (item == null) {
 			const ref = this.activeSelection;
@@ -2462,10 +2502,16 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		switch (refType) {
+			case 'branch':
+				return isGraphItemRefContext(item, 'branch') || isGraphItemTypedContext(item, 'upstreamStatus')
+					? item.webviewItemValue.ref
+					: undefined;
 			case 'revision':
 				return isGraphItemRefContext(item, 'revision') ? item.webviewItemValue.ref : undefined;
 			case 'stash':
 				return isGraphItemRefContext(item, 'stash') ? item.webviewItemValue.ref : undefined;
+			case 'tag':
+				return isGraphItemRefContext(item, 'tag') ? item.webviewItemValue.ref : undefined;
 			default:
 				return isGraphItemRefContext(item) ? item.webviewItemValue.ref : undefined;
 		}
@@ -2504,7 +2550,10 @@ export interface GraphItemRefGroupContextValue {
 }
 
 export type GraphItemTypedContext<T = GraphItemTypedContextValue> = WebviewItemContext<T>;
-export type GraphItemTypedContextValue = GraphContributorContextValue | GraphPullRequestContextValue;
+export type GraphItemTypedContextValue =
+	| GraphContributorContextValue
+	| GraphPullRequestContextValue
+	| GraphUpstreamStatusContextValue;
 
 export type GraphColumnsContextValue = string;
 
@@ -2542,6 +2591,13 @@ export interface GraphTagContextValue {
 	ref: GitTagReference;
 }
 
+export interface GraphUpstreamStatusContextValue {
+	type: 'upstreamStatus';
+	ref: GitBranchReference;
+	ahead: number;
+	behind: number;
+}
+
 function isGraphItemContext(item: unknown): item is GraphItemContext {
 	if (item == null) return false;
 
@@ -2562,6 +2618,10 @@ function isGraphItemTypedContext(
 	item: unknown,
 	type: 'pullrequest',
 ): item is GraphItemTypedContext<GraphPullRequestContextValue>;
+function isGraphItemTypedContext(
+	item: unknown,
+	type: 'upstreamStatus',
+): item is GraphItemTypedContext<GraphUpstreamStatusContextValue>;
 function isGraphItemTypedContext(
 	item: unknown,
 	type: GraphItemTypedContextValue['type'],
