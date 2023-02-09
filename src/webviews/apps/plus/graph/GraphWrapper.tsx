@@ -31,6 +31,7 @@ import type {
 	GraphExcludedRef,
 	GraphExcludeTypes,
 	GraphMissingRefsMetadata,
+	GraphRefMetadataItem,
 	GraphRepository,
 	GraphSearchResults,
 	GraphSearchResultsError,
@@ -81,7 +82,7 @@ export interface GraphWrapperProps {
 	onChooseRepository?: () => void;
 	onColumnsChange?: (colsSettings: GraphColumnsConfig) => void;
 	onDimMergeCommits?: (dim: boolean) => void;
-	onDoubleClickRef?: (ref: GraphRef) => void;
+	onDoubleClickRef?: (ref: GraphRef, metadata?: GraphRefMetadataItem) => void;
 	onDoubleClickRow?: (row: GraphRow, preserveFocus?: boolean) => void;
 	onMissingAvatars?: (emails: { [email: string]: string }) => void;
 	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
@@ -835,9 +836,10 @@ export function GraphWrapper({
 		_event: React.MouseEvent<HTMLButtonElement, globalThis.MouseEvent>,
 		refGroup: GraphRefGroup,
 		_row: GraphRow,
+		metadata?: GraphRefMetadataItem,
 	) => {
 		if (refGroup.length > 0) {
-			onDoubleClickRef?.(refGroup[0]);
+			onDoubleClickRef?.(refGroup[0], metadata);
 		}
 	};
 
