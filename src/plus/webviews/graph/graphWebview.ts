@@ -174,7 +174,7 @@ const defaultGraphColumnsSettings: GraphColumnsSettings = {
 	author: { width: 130, isHidden: false },
 	datetime: { width: 130, isHidden: false },
 	sha: { width: 130, isHidden: false },
-	activity: { width: 130, isHidden: false },
+	changes: { width: 130, isHidden: false },
 };
 
 export class GraphWebview extends WebviewBase<State> {
@@ -413,8 +413,8 @@ export class GraphWebview extends WebviewBase<State> {
 			registerCommand('gitlens.graph.columnDateTimeOff', () => this.toggleColumn('datetime', false)),
 			registerCommand('gitlens.graph.columnShaOn', () => this.toggleColumn('sha', true)),
 			registerCommand('gitlens.graph.columnShaOff', () => this.toggleColumn('sha', false)),
-			registerCommand('gitlens.graph.columnActivityOn', () => this.toggleColumn('activity', true)),
-			registerCommand('gitlens.graph.columnActivityOff', () => this.toggleColumn('activity', false)),
+			registerCommand('gitlens.graph.columnChangesOn', () => this.toggleColumn('changes', true)),
+			registerCommand('gitlens.graph.columnChangesOff', () => this.toggleColumn('changes', false)),
 
 			registerCommand('gitlens.graph.copyDeepLinkToBranch', this.copyDeepLinkToBranch, this),
 			registerCommand('gitlens.graph.copyDeepLinkToCommit', this.copyDeepLinkToCommit, this),
@@ -1784,7 +1784,7 @@ export class GraphWebview extends WebviewBase<State> {
 			this.repository.path,
 			this._panel!.webview.asWebviewUri.bind(this._panel!.webview),
 			{
-				include: { stats: configuration.get('graph.experimental.minimap.enabled') || !columnSettings.activity.isHidden },
+				include: { stats: configuration.get('graph.experimental.minimap.enabled') || !columnSettings.changes.isHidden },
 				limit: limit,
 				ref: ref,
 			},

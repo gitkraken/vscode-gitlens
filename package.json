@@ -6956,13 +6956,13 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.graph.columnActivityOn",
-				"title": "Show Activity",
+				"command": "gitlens.graph.columnChangesOn",
+				"title": "Show Changes",
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.graph.columnActivityOff",
-				"title": "Hide Activity",
+				"command": "gitlens.graph.columnChangesOff",
+				"title": "Hide Changes",
 				"category": "GitLens"
 			}
 		],
@@ -9016,11 +9016,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.graph.columnActivityOn",
+					"command": "gitlens.graph.columnChangesOn",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.graph.columnActivityOff",
+					"command": "gitlens.graph.columnChangesOff",
 					"when": "false"
 				},
 				{
@@ -11757,13 +11757,13 @@
 					"group": "1_columns@3"
 				},
 				{
-					"command": "gitlens.graph.columnActivityOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bactivity\\b/",
+					"command": "gitlens.graph.columnChangesOn",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bchanges\\b/",
 					"group": "1_columns@4"
 				},
 				{
-					"command": "gitlens.graph.columnActivityOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\bactivity\\b).)*$/",
+					"command": "gitlens.graph.columnChangesOff",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\bchanges\\b).)*$/",
 					"group": "1_columns@4"
 				}
 			],
