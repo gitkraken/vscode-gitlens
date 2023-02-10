@@ -572,10 +572,6 @@ export class GraphApp extends App<State> {
 				'--text-accent': computedStyle.getPropertyValue('--color-link-foreground'),
 				'--text-inverse': computedStyle.getPropertyValue('--vscode-input-background'),
 				'--text-bright': computedStyle.getPropertyValue('--vscode-input-background'),
-
-				'--stats-added': computedStyle.getPropertyValue('--color-graph-stats-added'),
-				'--stats-deleted': computedStyle.getPropertyValue('--color-graph-stats-deleted'),
-				'--stats-files': computedStyle.getPropertyValue('--color-graph-stats-files'),
 				...mixedGraphColors,
 			},
 			themeOpacityFactor: parseInt(computedStyle.getPropertyValue('--graph-theme-opacity-factor')) || 1,
