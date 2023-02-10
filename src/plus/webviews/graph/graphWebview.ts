@@ -174,7 +174,7 @@ const defaultGraphColumnsSettings: GraphColumnsSettings = {
 	author: { width: 130, isHidden: false },
 	datetime: { width: 130, isHidden: false },
 	sha: { width: 130, isHidden: false },
-	changes: { width: 130, isHidden: false },
+	changes: { width: 130, isHidden: true },
 };
 
 export class GraphWebview extends WebviewBase<State> {
