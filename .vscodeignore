@@ -20,6 +20,7 @@ test/**
 **/*.map
 **/*.pdn
 **/*.js.LICENSE.txt
+.browserslistrc
 .eslintcache
 .eslintignore
 .eslintrc*.json
