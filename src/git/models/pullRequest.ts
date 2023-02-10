@@ -28,16 +28,27 @@ export interface PullRequestRefs {
 	isCrossRepository: boolean;
 }
 
+export interface PullRequestMember {
+	name: string;
+	avatarUrl: string;
+	url: string;
+}
+
+export interface PullRequestReviewer {
+	isCodeOwner: boolean;
+	reviewer: PullRequestMember;
+}
+
 export interface PullRequestShape extends IssueOrPullRequest {
-	readonly author: {
-		readonly name: string;
-		readonly avatarUrl: string;
-		readonly url: string;
-	};
+	readonly author: PullRequestMember;
 	readonly state: PullRequestState;
 	readonly mergedDate?: Date;
 	readonly refs?: PullRequestRefs;
 	readonly isDraft?: boolean;
+	readonly additions?: number;
+	readonly deletions?: number;
+	readonly reviewRequests?: { isCodeOwner: boolean; reviewer: PullRequestMember }[];
+	readonly assignees?: PullRequestMember[];
 }
 
 export interface SearchedPullRequest {
@@ -87,6 +98,10 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 			  }
 			: undefined,
 		isDraft: value.isDraft,
+		additions: value.additions,
+		deletions: value.deletions,
+		reviewRequests: value.reviewRequests,
+		assignees: value.assignees,
 	};
 	return serialized;
 }
@@ -146,6 +161,10 @@ export class PullRequest implements PullRequestShape {
 		public readonly mergedDate?: Date,
 		public readonly refs?: PullRequestRefs,
 		public readonly isDraft?: boolean,
+		public readonly additions?: number,
+		public readonly deletions?: number,
+		public readonly reviewRequests?: PullRequestReviewer[],
+		public readonly assignees?: PullRequestMember[],
 	) {}
 
 	get closed(): boolean {

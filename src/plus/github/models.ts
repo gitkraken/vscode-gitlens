@@ -99,6 +99,12 @@ export interface GitHubDetailedIssue extends GitHubIssueOrPullRequest {
 	};
 	assignees: { nodes: IssueMember[] };
 	labels?: { nodes: IssueLabel[] };
+	reactions?: {
+		totalCount: number;
+	};
+	comments?: {
+		totalCount: number;
+	};
 }
 
 export type GitHubPullRequestReviewDecision = 'CHANGES_REQUESTED' | 'APPROVED' | 'REVIEW_REQUIRED';
@@ -128,6 +134,25 @@ export interface GitHubDetailedPullRequest extends GitHubPullRequest {
 	checksUrl: string;
 	totalCommentsCount: number;
 	mergeable: GitHubPullRequestMergeableState;
+	additions: number;
+	deletions: number;
+	reviewRequests: {
+		nodes: {
+			asCodeOwner: boolean;
+			requestedReviewer: {
+				login: string;
+				avatarUrl: string;
+				url: string;
+			};
+		}[];
+	};
+	assignees: {
+		nodes: {
+			login: string;
+			avatarUrl: string;
+			url: string;
+		}[];
+	};
 }
 
 export namespace GitHubPullRequest {
@@ -194,6 +219,21 @@ export namespace GitHubPullRequest {
 				isCrossRepository: pr.isCrossRepository,
 			},
 			pr.isDraft,
+			pr.additions,
+			pr.deletions,
+			pr.reviewRequests.nodes.map(r => ({
+				isCodeOwner: r.asCodeOwner,
+				reviewer: {
+					name: r.requestedReviewer.login,
+					avatarUrl: r.requestedReviewer.avatarUrl,
+					url: r.requestedReviewer.url,
+				},
+			})),
+			pr.assignees.nodes.map(r => ({
+				name: r.login,
+				avatarUrl: r.avatarUrl,
+				url: r.url,
+			})),
 		);
 	}
 }
@@ -230,6 +270,8 @@ export namespace GitHubDetailedIssue {
 						color: label.color,
 						name: label.name,
 				  })),
+			value.comments?.totalCount,
+			value.reactions?.totalCount,
 		);
 	}
 }

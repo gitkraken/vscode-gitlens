@@ -2504,6 +2504,8 @@ permalink
 number
 title
 state
+additions
+deletions
 updatedAt
 closedAt
 mergedAt
@@ -2531,6 +2533,26 @@ headRepository {
   name
   owner {
 	login
+  }
+}
+reviewRequests {
+  nodes {
+	asCodeOwner
+	id
+	requestedReviewer {
+	  ... on User {
+		login
+		avatarUrl
+		url
+	  }
+	}
+  }
+}
+assignees(first: 10) {
+  nodes {
+	login
+	avatarUrl
+	url
   }
 }
 `;
@@ -2566,6 +2588,12 @@ const issueNodeProperties = `
 			color
 			name
 		}
+	}
+	reactions(content: THUMBS_UP) {
+	  totalCount
+	}
+	comments {
+	  totalCount
 	}
 }
 `;
