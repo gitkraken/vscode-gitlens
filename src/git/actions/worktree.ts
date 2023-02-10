@@ -3,7 +3,7 @@ import { CoreCommands } from '../../constants';
 import { Container } from '../../container';
 import { ensure } from '../../system/array';
 import { executeCoreCommand } from '../../system/command';
-import type { OpenWorkspaceLocation} from '../../system/utils';
+import type { OpenWorkspaceLocation } from '../../system/utils';
 import { openWorkspace } from '../../system/utils';
 import { executeGitCommand } from '../actions';
 import type { GitReference } from '../models/reference';
