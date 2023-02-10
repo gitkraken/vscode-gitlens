@@ -90,11 +90,15 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		return this.provider?.hasRichIntegration() ?? false;
 	}
 
-	matches(url: string): boolean {
-		if (equalsIgnoreCase(url, this.url)) return true;
+	matches(url: string): boolean;
+	matches(domain: string, path: string): boolean;
+	matches(urlOrDomain: string, path?: string): boolean {
+		if (path == null) {
+			if (equalsIgnoreCase(urlOrDomain, this.url)) return true;
+			[, urlOrDomain, path] = parseGitRemoteUrl(urlOrDomain);
+		}
 
-		const [, domain, path] = parseGitRemoteUrl(url);
-		return equalsIgnoreCase(domain, this.domain) && equalsIgnoreCase(path, this.path);
+		return equalsIgnoreCase(urlOrDomain, this.domain) && equalsIgnoreCase(path, this.path);
 	}
 
 	async setAsDefault(value: boolean = true) {

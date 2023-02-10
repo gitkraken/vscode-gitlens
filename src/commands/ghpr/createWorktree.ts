@@ -6,6 +6,7 @@ import { add as addRemote } from '../../git/actions/remote';
 import { create as createWorktree } from '../../git/actions/worktree';
 import { GitReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
+import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import { Logger } from '../../logger';
 import { command } from '../../system/command';
 import { waitUntilNextTick } from '../../system/promise';
@@ -79,9 +80,10 @@ export class CreateWorktreeCommand extends Command {
 		}
 
 		const remoteUrl = remoteUri.toString();
+		const [, remoteDomain, remotePath] = parseGitRemoteUrl(remoteUrl);
 
 		let remote: GitRemote | undefined;
-		[remote] = await repo.getRemotes({ filter: r => r.matches(remoteUrl) });
+		[remote] = await repo.getRemotes({ filter: r => r.matches(remoteDomain, remotePath) });
 		if (remote == null) {
 			const result = await window.showInformationMessage(
 				`Unable to find a remote for '${remoteUrl}'. Would you like to add a new remote?`,
