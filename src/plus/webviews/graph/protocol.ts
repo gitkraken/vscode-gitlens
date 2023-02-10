@@ -53,11 +53,11 @@ export enum GraphRefMetadataTypes {
 export enum GraphScrollMarkerTypes {
 	Selection = 'selection',
 	Head = 'head',
-	Highlight = 'highlight',
-	LocalBranch = 'localBranch',
-	RemoteBranch = 'remoteBranch',
-	Stash = 'stash',
-	Tag = 'tag',
+	Highlights = 'highlights',
+	LocalBranches = 'localBranches',
+	RemoteBranches = 'remoteBranches',
+	Stashes = 'stashes',
+	Tags = 'tags',
 	Upstream = 'upstream',
 }
 

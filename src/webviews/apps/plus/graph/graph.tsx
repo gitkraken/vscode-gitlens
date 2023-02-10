@@ -370,7 +370,7 @@ export class GraphApp extends App<State> {
 		bodyStyle.setProperty('--color-graph-contrast-border', color);
 		color = e.computedStyle.getPropertyValue('--vscode-list-activeSelectionBackground').trim();
 		bodyStyle.setProperty('--color-graph-selected-row', color);
-		bodyStyle.setProperty('--color-graph-scroll-marker-current', color);
+		bodyStyle.setProperty('--color-graph-scroll-marker-selection', color);
 		color = e.computedStyle.getPropertyValue('--vscode-list-hoverBackground').trim();
 		bodyStyle.setProperty('--color-graph-hover-row', color);
 		color = e.computedStyle.getPropertyValue('--vscode-list-activeSelectionForeground').trim();
@@ -385,13 +385,13 @@ export class GraphApp extends App<State> {
 		bodyStyle.setProperty('--color-graph-text-disabled', opacity(e.colors.foreground, 50));
 
 		// TODO@ramint: Set the right colors for these
-		bodyStyle.setProperty('--color-graph-scroll-marker-head-local', '#00ff00');
-		bodyStyle.setProperty('--color-graph-scroll-marker-head-upstream', '#90ee90');
-		bodyStyle.setProperty('--color-graph-scroll-marker-local-branch', '#0000ff');
-		bodyStyle.setProperty('--color-graph-scroll-marker-remote-branch', '#add8e6');
-		bodyStyle.setProperty('--color-graph-scroll-marker-search', '#ffff00');
-		bodyStyle.setProperty('--color-graph-scroll-marker-stash', '#800080');
-		bodyStyle.setProperty('--color-graph-scroll-marker-tag', '#ffa500');
+		bodyStyle.setProperty('--color-graph-scroll-marker-head', '#00ff00');
+		bodyStyle.setProperty('--color-graph-scroll-marker-upstream', '#90ee90');
+		bodyStyle.setProperty('--color-graph-scroll-marker-local-branches', '#0000ff');
+		bodyStyle.setProperty('--color-graph-scroll-marker-remote-branches', '#add8e6');
+		bodyStyle.setProperty('--color-graph-scroll-marker-highlights', '#ffff00');
+		bodyStyle.setProperty('--color-graph-scroll-marker-stashes', '#800080');
+		bodyStyle.setProperty('--color-graph-scroll-marker-tags', '#ffa500');
 
 		// minimap
 
@@ -548,20 +548,20 @@ export class GraphApp extends App<State> {
 				'--hover-row-border': isHighContrastTheme
 					? `1px dashed ${computedStyle.getPropertyValue('--color-graph-contrast-border')}`
 					: 'none',
-				'--scroll-marker-current': computedStyle.getPropertyValue('--color-graph-scroll-marker-current'),
-				'--scroll-marker-head-local': computedStyle.getPropertyValue('--color-graph-scroll-marker-head-local'),
-				'--scroll-marker-head-upstream': computedStyle.getPropertyValue(
-					'--color-graph-scroll-marker-head-upstream',
+				'--scroll-marker-selection': computedStyle.getPropertyValue('--color-graph-scroll-marker-selection'),
+				'--scroll-marker-head': computedStyle.getPropertyValue('--color-graph-scroll-marker-head'),
+				'--scroll-marker-upstream': computedStyle.getPropertyValue(
+					'--color-graph-scroll-marker-upstream',
 				),
-				'--scroll-marker-local-branch': computedStyle.getPropertyValue(
-					'--color-graph-scroll-marker-local-branch',
+				'--scroll-marker-local-branches': computedStyle.getPropertyValue(
+					'--color-graph-scroll-marker-local-branches',
 				),
-				'--scroll-marker-remote-branch': computedStyle.getPropertyValue(
-					'--color-graph-scroll-marker-remote-branch',
+				'--scroll-marker-remote-branches': computedStyle.getPropertyValue(
+					'--color-graph-scroll-marker-remote-branches',
 				),
-				'--scroll-marker-search': computedStyle.getPropertyValue('--color-graph-scroll-marker-search'),
-				'--scroll-marker-stash': computedStyle.getPropertyValue('--color-graph-scroll-marker-stash'),
-				'--scroll-marker-tag': computedStyle.getPropertyValue('--color-graph-scroll-marker-tag'),
+				'--scroll-marker-highlights': computedStyle.getPropertyValue('--color-graph-scroll-marker-highlights'),
+				'--scroll-marker-stashes': computedStyle.getPropertyValue('--color-graph-scroll-marker-stashes'),
+				'--scroll-marker-tags': computedStyle.getPropertyValue('--color-graph-scroll-marker-tags'),
 				'--text-selected': computedStyle.getPropertyValue('--color-graph-text-selected'),
 				'--text-selected-row': computedStyle.getPropertyValue('--color-graph-text-selected-row'),
 				'--text-hovered': computedStyle.getPropertyValue('--color-graph-text-hovered'),

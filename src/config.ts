@@ -291,11 +291,11 @@ export const enum GitCommandSorting {
 export const enum GraphScrollMarkerTypes {
 	Selection = 'selection',
 	Head = 'head',
-	LocalBranch = 'localBranch',
-	RemoteBranch = 'remoteBranch',
-	SearchResult = 'searchResult',
-	Stash = 'stash',
-	Tag = 'tag',
+	LocalBranches = 'localBranches',
+	RemoteBranches = 'remoteBranches',
+	Highlights = 'hightlights',
+	Stashes = 'stashes',
+	Tags = 'tags',
 }
 
 export const enum GravatarDefaultStyle {

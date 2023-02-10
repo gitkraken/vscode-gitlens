@@ -235,7 +235,7 @@ export function GraphWrapper({
 	const ensuredSkippedIds = useRef<Set<string>>(new Set());
 
 	// TODO@ramint Remove/update this logic once markers are individually configurable
-	const disabledScrollMarkers = [GraphScrollMarkerTypes.Tag];
+	const disabledScrollMarkers = [GraphScrollMarkerTypes.Tags];
 	const enabledScrollMarkers = Object.values(GraphScrollMarkerTypes).filter(
 		marker => !disabledScrollMarkers.includes(marker),
 	);

@@ -2234,11 +2234,11 @@
 							"enum": [
 								"selection",
 								"head",
-								"highlight",
-								"localBranch",
-								"remoteBranch",
-								"tag",
-								"stash"
+								"highlights",
+								"localBranches",
+								"remoteBranches",
+								"tags",
+								"stashes"
 							],
 							"enumDescriptions": [
 								"Marks the location of selected rows",
