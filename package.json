@@ -164,7 +164,7 @@
 		"onCommand:gitlens.addAuthors",
 		"onCommand:gitlens.connectRemoteProvider",
 		"onCommand:gitlens.disconnectRemoteProvider",
-		"oncommand:gitlens.copyCurrentBranch",
+		"onCommand:gitlens.copyCurrentBranch",
 		"onCommand:gitlens.copyMessageToClipboard",
 		"onCommand:gitlens.copyShaToClipboard",
 		"onCommand:gitlens.closeUnchangedFiles",
