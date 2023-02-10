@@ -10,8 +10,8 @@ import { filter, map } from '../system/iterable';
 import { isPromise } from '../system/promise';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import { CommandQuickPickItem } from './items/common';
-import type { DirectiveQuickPickItem} from './items/directive';
-import { createDirectiveQuickPickItem, Directive , isDirectiveQuickPickItem } from './items/directive';
+import type { DirectiveQuickPickItem } from './items/directive';
+import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } from './items/directive';
 import type { CommitQuickPickItem } from './items/gitCommands';
 import { createCommitQuickPickItem } from './items/gitCommands';
 
