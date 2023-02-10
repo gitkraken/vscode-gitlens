@@ -1,5 +1,5 @@
 import type { Disposable, Uri } from 'vscode';
-import { env, window } from 'vscode';
+import { env, ProgressLocation, window, workspace } from 'vscode';
 import { configuration } from '../../configuration';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
@@ -8,8 +8,12 @@ import type { GitRemote } from '../../git/models/remote';
 import { Logger } from '../../logger';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
 import { executeCommand } from '../../system/command';
+import { once } from '../../system/event';
+import { openWorkspace } from '../../system/utils';
 import type { DeepLinkServiceContext } from './deepLink';
 import {
+	DeepLinkRepoOpenAction,
+	deepLinkRepoOpenActionToOpenWorkspaceLocation,
 	DeepLinkServiceAction,
 	DeepLinkServiceState,
 	deepLinkStateTransitionTable,
@@ -19,7 +23,8 @@ import {
 } from './deepLink';
 
 export class DeepLinkService implements Disposable {
-	private _disposable: Disposable;
+	private _onDeepLinkEvent: Disposable | undefined;
+	private _onRepositoryChanged: Disposable | undefined;
 	private _context: DeepLinkServiceContext;
 
 	constructor(private readonly container: Container) {
@@ -27,7 +32,7 @@ export class DeepLinkService implements Disposable {
 			state: DeepLinkServiceState.Idle,
 		};
 
-		this._disposable = container.uri.onDidReceiveUri(async (uri: Uri) => {
+		this._onDeepLinkEvent = container.uri.onDidReceiveUri(async (uri: Uri) => {
 			const link = parseDeepLinkUri(uri);
 			if (link == null) return;
 
@@ -54,7 +59,7 @@ export class DeepLinkService implements Disposable {
 					...this._context,
 					repoId: link.repoId,
 					targetType: link.type,
-					uri: uri,
+					uri: uri.toString(),
 					remoteUrl: link.remoteUrl,
 					targetId: link.targetId,
 				};
@@ -62,10 +67,28 @@ export class DeepLinkService implements Disposable {
 				await this.processDeepLink();
 			}
 		});
+
+		const pendingDeepLink = this.container.storage.get('deepLinks:pending');
+		if (pendingDeepLink != null) {
+			void this.container.storage.delete('deepLinks:pending');
+			this._context = {
+				state: pendingDeepLink.state,
+				uri: pendingDeepLink.uri,
+				repoId: pendingDeepLink.repoId,
+				remoteUrl: pendingDeepLink.remoteUrl,
+				targetId: pendingDeepLink.targetId,
+				targetType: pendingDeepLink.targetType as DeepLinkType,
+			};
+
+			queueMicrotask(() => {
+				void this.processDeepLink(pendingDeepLink.action);
+			});
+		}
 	}
 
 	dispose() {
-		this._disposable.dispose();
+		this._onDeepLinkEvent?.dispose();
+		this._onRepositoryChanged?.dispose();
 	}
 
 	private resetContext() {
@@ -119,10 +142,27 @@ export class DeepLinkService implements Disposable {
 		return undefined;
 	}
 
-	private async processDeepLink(): Promise<void> {
+	private async showOpenRepoPrompt(): Promise<DeepLinkRepoOpenAction> {
+		const result = await window.showInformationMessage(
+			`No matching repository found. Please choose an option to open the repository.`,
+			{ modal: true },
+			{ title: DeepLinkRepoOpenAction.OpenInCurrentWindow },
+			{ title: DeepLinkRepoOpenAction.OpenInNewWindow },
+			{ title: DeepLinkRepoOpenAction.AddToWorkspace },
+			{ title: DeepLinkRepoOpenAction.Cancel, isCloseAffordance: true },
+		);
+
+		return result?.title ?? DeepLinkRepoOpenAction.Cancel;
+	}
+
+	private async processDeepLink(
+		initialAction: DeepLinkServiceAction = DeepLinkServiceAction.DeepLinkEventFired,
+	): Promise<void> {
 		let message = '';
 		let matchingRemotes: GitRemote[] = [];
-		let action: DeepLinkServiceAction = DeepLinkServiceAction.DeepLinkEventFired;
+		let action = initialAction;
+		let repoOpenAction = DeepLinkRepoOpenAction.Cancel;
+		let repoOpenUri: Uri | undefined = undefined;
 		while (true) {
 			this._context.state = deepLinkStateTransitionTable[this._context.state][action];
 			const { state, repoId, repo, uri, remoteUrl, remote, targetSha, targetType } = this._context;
@@ -130,7 +170,7 @@ export class DeepLinkService implements Disposable {
 				case DeepLinkServiceState.Idle:
 					if (action === DeepLinkServiceAction.DeepLinkErrored) {
 						void window.showErrorMessage('Unable to resolve link');
-						Logger.warn(`Unable to resolve link - ${message}: ${uri?.toString()}`);
+						Logger.warn(`Unable to resolve link - ${message}: ${uri}`);
 					}
 
 					// Deep link processing complete. Reset the context and return.
@@ -182,12 +222,82 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					// TODO@ramint Instead of erroring, prompt the user to clone or add the repo, wait for the response,
-					// and then choose an action based on whether the repo is successfully cloned/added, of the user
-					// cancels, or if there is an error.
-					action = DeepLinkServiceAction.DeepLinkErrored;
-					message = 'No matching repo found.';
+					repoOpenAction = await this.showOpenRepoPrompt();
+					if (repoOpenAction === DeepLinkRepoOpenAction.Cancel) {
+						action = DeepLinkServiceAction.DeepLinkCancelled;
+						break;
+					}
+
+					// TODO@ramint Add cloning
+					repoOpenUri = (
+						await window.showOpenDialog({
+							title: 'Open Repository for Link',
+							canSelectFiles: false,
+							canSelectFolders: true,
+							canSelectMany: false,
+						})
+					)?.[0];
+
+					if (!repoOpenUri) {
+						action = DeepLinkServiceAction.DeepLinkCancelled;
+						break;
+					}
+
+					if (
+						repoOpenAction === DeepLinkRepoOpenAction.AddToWorkspace &&
+						(workspace.workspaceFolders?.length || 0) > 1
+					) {
+						action = DeepLinkServiceAction.OpenRepo;
+					} else {
+						// Deep link will resolve in a different service instance
+						await this.container.storage.store('deepLinks:pending', {
+							state: this._context.state,
+							action: DeepLinkServiceAction.OpenRepo,
+							uri: this._context.uri,
+							repoId: this._context.repoId,
+							remoteUrl: this._context.remoteUrl,
+							targetType: this._context.targetType,
+							targetId: this._context.targetId,
+						});
+						action = DeepLinkServiceAction.DeepLinkCancelled;
+					}
+
+					openWorkspace(repoOpenUri, {
+						location: deepLinkRepoOpenActionToOpenWorkspaceLocation[repoOpenAction],
+					});
 					break;
+
+				case DeepLinkServiceState.OpeningRepo:
+					queueMicrotask(
+						() =>
+							void window.withProgress(
+								{
+									cancellable: true,
+									location: ProgressLocation.Notification,
+									title: `Opening repo for link: ${uri}`,
+								},
+								(progress, token) => {
+									return new Promise<void>(resolve => {
+										token.onCancellationRequested(() => {
+											queueMicrotask(() =>
+												this.processDeepLink(DeepLinkServiceAction.DeepLinkCancelled),
+											);
+											resolve();
+										});
+
+										this._onRepositoryChanged = once(this.container.git.onDidChangeRepositories)(
+											() => {
+												queueMicrotask(() =>
+													this.processDeepLink(DeepLinkServiceAction.RepoAdded),
+												);
+												resolve();
+											},
+										);
+									});
+								},
+							),
+					);
+					return;
 
 				case DeepLinkServiceState.RemoteMatch:
 					if (!repo || !remoteUrl) {

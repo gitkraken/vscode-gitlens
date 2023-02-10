@@ -119,6 +119,7 @@ export type DeprecatedGlobalStorage = {
 
 export type GlobalStorage = {
 	avatars: [string, StoredAvatar][];
+	'deepLinks:pending': StoredDeepLinkContext;
 	'home:actions:completed': CompletedActions[];
 	'home:steps:completed': string[];
 	'home:sections:dismissed': string[];
@@ -185,6 +186,16 @@ export interface StoredBranchComparison {
 
 export interface StoredBranchComparisons {
 	[id: string]: string | StoredBranchComparison;
+}
+
+export interface StoredDeepLinkContext {
+	state: number;
+	action?: number;
+	uri?: string | undefined;
+	repoId?: string | undefined;
+	remoteUrl?: string | undefined;
+	targetId?: string | undefined;
+	targetType?: string | undefined;
 }
 
 export interface StoredGraphColumn {

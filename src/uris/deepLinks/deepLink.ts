@@ -2,6 +2,7 @@ import type { Uri } from 'vscode';
 import type { GitReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
+import { OpenWorkspaceLocation } from '../../system/utils';
 
 export const enum UriTypes {
 	DeepLink = 'link',
@@ -80,6 +81,8 @@ export const enum DeepLinkServiceState {
 	Idle,
 	RepoMatch,
 	CloneOrAddRepo,
+	OpenedRepo,
+	OpeningRepo,
 	AddedRepoMatch,
 	RemoteMatch,
 	AddRemote,
@@ -94,6 +97,7 @@ export const enum DeepLinkServiceAction {
 	DeepLinkCancelled,
 	DeepLinkResolved,
 	DeepLinkErrored,
+	OpenRepo,
 	RepoMatchedWithId,
 	RepoMatchedWithRemoteUrl,
 	RepoMatchFailed,
@@ -107,9 +111,22 @@ export const enum DeepLinkServiceAction {
 	TargetFetched,
 }
 
+export enum DeepLinkRepoOpenAction {
+	OpenInCurrentWindow = 'Open in Current Window',
+	OpenInNewWindow = 'Open in New Window',
+	AddToWorkspace = 'Add to Workspace',
+	Cancel = 'Cancel',
+}
+
+export const deepLinkRepoOpenActionToOpenWorkspaceLocation = {
+	[DeepLinkRepoOpenAction.OpenInCurrentWindow]: OpenWorkspaceLocation.CurrentWindow,
+	[DeepLinkRepoOpenAction.OpenInNewWindow]: OpenWorkspaceLocation.NewWindow,
+	[DeepLinkRepoOpenAction.AddToWorkspace]: OpenWorkspaceLocation.AddToWorkspace,
+};
+
 export interface DeepLinkServiceContext {
 	state: DeepLinkServiceState;
-	uri?: Uri | undefined;
+	uri?: string | undefined;
 	repoId?: string | undefined;
 	repo?: Repository | undefined;
 	remoteUrl?: string | undefined;
@@ -129,6 +146,11 @@ export const deepLinkStateTransitionTable: { [state: string]: { [action: string]
 		[DeepLinkServiceAction.RepoMatchFailed]: DeepLinkServiceState.CloneOrAddRepo,
 	},
 	[DeepLinkServiceState.CloneOrAddRepo]: {
+		[DeepLinkServiceAction.OpenRepo]: DeepLinkServiceState.OpeningRepo,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.OpeningRepo]: {
 		[DeepLinkServiceAction.RepoAdded]: DeepLinkServiceState.AddedRepoMatch,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
