@@ -203,7 +203,7 @@ function getExtensionConfig(target, mode, env) {
 								loader: 'esbuild-loader',
 								options: {
 									implementation: esbuild,
-									target: ['es2022', 'chrome102', 'node16.14.2'],
+									target: ['es2021', 'chrome102', 'node16.14.2'],
 									tsconfig: path.join(
 										__dirname,
 										target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json',
