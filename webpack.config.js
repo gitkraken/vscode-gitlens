@@ -19,6 +19,7 @@ const { validate } = require('schema-utils');
 const TerserPlugin = require('terser-webpack-plugin');
 const { WebpackError, webpack, optimize } = require('webpack');
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
+const { EsbuildPlugin } = require('esbuild-loader');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
 module.exports =
@@ -144,35 +145,29 @@ function getExtensionConfig(target, mode, env) {
 		},
 		optimization: {
 			minimizer: [
-				new TerserPlugin(
-					env.esbuild
-						? {
-								minify: TerserPlugin.esbuildMinify,
-								terserOptions: {
-									// @ts-ignore
-									drop: ['debugger'],
-									format: 'cjs',
-									minify: true,
-									treeShaking: true,
-									// Keep the class names otherwise @log won't provide a useful name
-									keepNames: true,
-									target: 'es2020',
+				env.esbuild
+					? new EsbuildPlugin({
+							drop: ['debugger'],
+							format: 'cjs',
+							// Keep the class names otherwise @log won't provide a useful name
+							keepNames: true,
+							minify: true,
+							target: 'es2022',
+							treeShaking: true,
+					  })
+					: new TerserPlugin({
+							extractComments: false,
+							parallel: true,
+							terserOptions: {
+								compress: {
+									drop_debugger: true,
 								},
-						  }
-						: {
-								extractComments: false,
-								parallel: true,
-								terserOptions: {
-									compress: {
-										drop_debugger: true,
-									},
-									ecma: 2020,
-									// Keep the class names otherwise @log won't provide a useful name
-									keep_classnames: true,
-									module: true,
-								},
-						  },
-				),
+								ecma: 2020,
+								// Keep the class names otherwise @log won't provide a useful name
+								keep_classnames: true,
+								module: true,
+							},
+					  }),
 			],
 			splitChunks:
 				target === 'webworker'
@@ -200,13 +195,10 @@ function getExtensionConfig(target, mode, env) {
 								loader: 'esbuild-loader',
 								options: {
 									implementation: esbuild,
-									loader: 'tsx',
-									target: ['es2020', 'chrome91', 'node14.16'],
-									tsconfigRaw: resolveTSConfig(
-										path.join(
-											__dirname,
-											target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json',
-										),
+									target: ['es2022', 'chrome102', 'node16.14.2'],
+									tsconfig: path.join(
+										__dirname,
+										target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json',
 									),
 								},
 						  }
@@ -360,38 +352,32 @@ function getWebviewsConfig(mode, env) {
 			minimizer:
 				mode === 'production'
 					? [
-							new TerserPlugin(
-								env.esbuild
-									? {
-											minify: TerserPlugin.esbuildMinify,
-											terserOptions: {
-												// @ts-ignore
-												drop: ['debugger', 'console'],
-												// @ts-ignore
-												format: 'esm',
-												minify: true,
-												treeShaking: true,
-												// // Keep the class names otherwise @log won't provide a useful name
-												// keepNames: true,
-												target: 'es2020',
+							env.esbuild
+								? new EsbuildPlugin({
+										css: true,
+										drop: ['debugger', 'console'],
+										format: 'esm',
+										// Keep the class names otherwise @log won't provide a useful name
+										// keepNames: true,
+										minify: true,
+										target: 'es2022',
+										treeShaking: true,
+								  })
+								: new TerserPlugin({
+										extractComments: false,
+										parallel: true,
+										// @ts-ignore
+										terserOptions: {
+											compress: {
+												drop_debugger: true,
+												drop_console: true,
 											},
-									  }
-									: {
-											extractComments: false,
-											parallel: true,
-											// @ts-ignore
-											terserOptions: {
-												compress: {
-													drop_debugger: true,
-													drop_console: true,
-												},
-												ecma: 2020,
-												// // Keep the class names otherwise @log won't provide a useful name
-												// keep_classnames: true,
-												module: true,
-											},
-									  },
-							),
+											ecma: 2020,
+											// // Keep the class names otherwise @log won't provide a useful name
+											// keep_classnames: true,
+											module: true,
+										},
+								  }),
 							new ImageMinimizerPlugin({
 								deleteOriginalAssets: true,
 								generator: [imageGeneratorConfig],
@@ -422,9 +408,8 @@ function getWebviewsConfig(mode, env) {
 								loader: 'esbuild-loader',
 								options: {
 									implementation: esbuild,
-									loader: 'tsx',
-									target: 'es2020',
-									tsconfigRaw: resolveTSConfig(path.join(basePath, 'tsconfig.json')),
+									target: 'es2022',
+									tsconfig: path.join(basePath, 'tsconfig.json'),
 								},
 						  }
 						: {
