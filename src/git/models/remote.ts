@@ -2,8 +2,10 @@ import type { ColorTheme } from 'vscode';
 import { Uri, window } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { sortCompare } from '../../system/string';
+import { memoize } from '../../system/decorators/memoize';
+import { equalsIgnoreCase, sortCompare } from '../../system/string';
 import { isLightTheme } from '../../system/utils';
+import { parseGitRemoteUrl } from '../parsers/remoteParser';
 import type { RemoteProvider } from '../remotes/remoteProvider';
 import type { RichRemoteProvider } from '../remotes/richRemoteProvider';
 
@@ -68,6 +70,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		return this.id === defaultRemote;
 	}
 
+	@memoize()
 	get url(): string {
 		let bestUrl: string | undefined;
 		for (const remoteUrl of this.urls) {
@@ -85,6 +88,13 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 
 	hasRichProvider(): this is GitRemote<RichRemoteProvider> {
 		return this.provider?.hasRichIntegration() ?? false;
+	}
+
+	matches(url: string): boolean {
+		if (equalsIgnoreCase(url, this.url)) return true;
+
+		const [, domain, path] = parseGitRemoteUrl(url);
+		return equalsIgnoreCase(domain, this.domain) && equalsIgnoreCase(path, this.path);
 	}
 
 	async setAsDefault(value: boolean = true) {
