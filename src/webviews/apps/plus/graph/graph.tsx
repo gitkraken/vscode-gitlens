@@ -548,20 +548,6 @@ export class GraphApp extends App<State> {
 				'--hover-row-border': isHighContrastTheme
 					? `1px dashed ${computedStyle.getPropertyValue('--color-graph-contrast-border')}`
 					: 'none',
-				'--scroll-marker-selection': computedStyle.getPropertyValue('--color-graph-scroll-marker-selection'),
-				'--scroll-marker-head': computedStyle.getPropertyValue('--color-graph-scroll-marker-head'),
-				'--scroll-marker-upstream': computedStyle.getPropertyValue(
-					'--color-graph-scroll-marker-upstream',
-				),
-				'--scroll-marker-local-branches': computedStyle.getPropertyValue(
-					'--color-graph-scroll-marker-local-branches',
-				),
-				'--scroll-marker-remote-branches': computedStyle.getPropertyValue(
-					'--color-graph-scroll-marker-remote-branches',
-				),
-				'--scroll-marker-highlights': computedStyle.getPropertyValue('--color-graph-scroll-marker-highlights'),
-				'--scroll-marker-stashes': computedStyle.getPropertyValue('--color-graph-scroll-marker-stashes'),
-				'--scroll-marker-tags': computedStyle.getPropertyValue('--color-graph-scroll-marker-tags'),
 				'--text-selected': computedStyle.getPropertyValue('--color-graph-text-selected'),
 				'--text-selected-row': computedStyle.getPropertyValue('--color-graph-text-selected-row'),
 				'--text-hovered': computedStyle.getPropertyValue('--color-graph-text-hovered'),
