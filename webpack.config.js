@@ -24,7 +24,7 @@ const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPl
 
 module.exports =
 	/**
-	 * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; useSharpForImageOptimization?: boolean } | undefined } env
+	 * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; esbuildMinify?: boolean; useSharpForImageOptimization?: boolean } | undefined } env
 	 * @param {{ mode: 'production' | 'development' | 'none' | undefined }} argv
 	 * @returns { WebpackConfig[] }
 	 */
@@ -35,6 +35,7 @@ module.exports =
 			analyzeBundle: false,
 			analyzeDeps: false,
 			esbuild: true,
+			esbuildMinify: false,
 			useSharpForImageOptimization: true,
 			...env,
 		};
@@ -49,7 +50,7 @@ module.exports =
 /**
  * @param { 'node' | 'webworker' } target
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; useSharpForImageOptimization?: boolean } } env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; esbuildMinify?: boolean; useSharpForImageOptimization?: boolean }} env
  * @returns { WebpackConfig }
  */
 function getExtensionConfig(target, mode, env) {
@@ -145,12 +146,13 @@ function getExtensionConfig(target, mode, env) {
 		},
 		optimization: {
 			minimizer: [
-				env.esbuild
+				env.esbuildMinify
 					? new EsbuildPlugin({
 							drop: ['debugger'],
 							format: 'cjs',
 							// Keep the class names otherwise @log won't provide a useful name
 							keepNames: true,
+							legalComments: 'none',
 							minify: true,
 							target: 'es2022',
 							treeShaking: true,
@@ -161,8 +163,14 @@ function getExtensionConfig(target, mode, env) {
 							terserOptions: {
 								compress: {
 									drop_debugger: true,
+									ecma: 2020,
+									module: true,
 								},
 								ecma: 2020,
+								format: {
+									comments: false,
+									ecma: 2020,
+								},
 								// Keep the class names otherwise @log won't provide a useful name
 								keep_classnames: true,
 								module: true,
@@ -250,7 +258,7 @@ function getExtensionConfig(target, mode, env) {
 
 /**
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; useSharpForImageOptimization?: boolean } } env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; esbuildMinify?: boolean; useSharpForImageOptimization?: boolean }} env
  * @returns { WebpackConfig }
  */
 function getWebviewsConfig(mode, env) {
@@ -352,13 +360,14 @@ function getWebviewsConfig(mode, env) {
 			minimizer:
 				mode === 'production'
 					? [
-							env.esbuild
+							env.esbuildMinify
 								? new EsbuildPlugin({
 										css: true,
 										drop: ['debugger', 'console'],
 										format: 'esm',
 										// Keep the class names otherwise @log won't provide a useful name
 										// keepNames: true,
+										legalComments: 'none',
 										minify: true,
 										target: 'es2022',
 										treeShaking: true,
@@ -366,13 +375,18 @@ function getWebviewsConfig(mode, env) {
 								: new TerserPlugin({
 										extractComments: false,
 										parallel: true,
-										// @ts-ignore
 										terserOptions: {
 											compress: {
 												drop_debugger: true,
 												drop_console: true,
+												ecma: 2020,
+												module: true,
 											},
 											ecma: 2020,
+											format: {
+												comments: false,
+												ecma: 2020,
+											},
 											// // Keep the class names otherwise @log won't provide a useful name
 											// keep_classnames: true,
 											module: true,
