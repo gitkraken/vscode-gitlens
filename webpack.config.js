@@ -422,7 +422,7 @@ function getWebviewsConfig(mode, env) {
 								loader: 'esbuild-loader',
 								options: {
 									implementation: esbuild,
-									target: 'es2022',
+									target: 'es2021',
 									tsconfig: path.join(basePath, 'tsconfig.json'),
 								},
 						  }
