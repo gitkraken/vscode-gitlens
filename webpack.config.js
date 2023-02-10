@@ -229,6 +229,11 @@ function getExtensionConfig(target, mode, env) {
 				'@env': path.resolve(__dirname, 'src', 'env', target === 'webworker' ? 'browser' : target),
 				// This dependency is very large, and isn't needed for our use-case
 				tr46: path.resolve(__dirname, 'patches', 'tr46.js'),
+				// Stupid dependency that is used by `http-proxy-agent`
+				debug:
+					target === 'webworker'
+						? path.resolve(__dirname, 'node_modules', 'debug', 'src', 'browser.js')
+						: path.resolve(__dirname, 'node_modules', 'debug', 'src', 'node.js'),
 			},
 			fallback:
 				target === 'webworker'
@@ -640,24 +645,6 @@ class InlineChunkHtmlPlugin {
 			});
 		});
 	}
-}
-
-/**
- * @param { string } configFile
- * @returns { string }
- */
-function resolveTSConfig(configFile) {
-	const result = spawnSync('yarn', ['tsc', `-p ${configFile}`, '--showConfig'], {
-		cwd: __dirname,
-		encoding: 'utf8',
-		shell: true,
-	});
-
-	const data = result.stdout;
-	const start = data.indexOf('{');
-	const end = data.lastIndexOf('}') + 1;
-	const json = JSON5.parse(data.substring(start, end));
-	return json;
 }
 
 const schema = {
