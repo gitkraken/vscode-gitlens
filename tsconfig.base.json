@@ -20,7 +20,7 @@
 		"sourceMap": true,
 		"strict": true,
 		"target": "es2020",
-		"useDefineForClassFields": true,
+		"useDefineForClassFields": false,
 		"useUnknownInCatchVariables": false
 	},
 	"include": ["src/**/*"]
