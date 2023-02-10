@@ -28,7 +28,7 @@ import type {
 } from '../../../commands';
 import { parseCommandContext } from '../../../commands/base';
 import type { Config } from '../../../configuration';
-import { configuration } from '../../../configuration';
+import { configuration, GraphScrollMarkerTypes as GraphSettingsScrollMarkerTypes } from '../../../configuration';
 import { Commands, ContextKeys, CoreCommands, CoreGitCommands, GlyphChars } from '../../../constants';
 import type { Container } from '../../../container';
 import { getContext, onDidChangeContext } from '../../../context';
@@ -145,6 +145,7 @@ import {
 	GetMissingAvatarsCommandType,
 	GetMissingRefsMetadataCommandType,
 	GetMoreRowsCommandType,
+	GraphScrollMarkerTypes as GraphComponentScrollMarkerTypes,
 	GraphRefMetadataTypes,
 	SearchCommandType,
 	SearchOpenInViewCommandType,
@@ -603,6 +604,7 @@ export class GraphWebview extends WebviewBase<State> {
 			configuration.changed(e, 'graph.highlightRowsOnRefHover') ||
 			configuration.changed(e, 'graph.scrollRowPadding') ||
 			configuration.changed(e, 'graph.scrollMarkers.enabled') ||
+			configuration.changed(e, 'graph.scrollMarkers.additionalTypes') ||
 			configuration.changed(e, 'graph.showGhostRefsOnRowHover') ||
 			configuration.changed(e, 'graph.pullRequests.enabled') ||
 			configuration.changed(e, 'graph.showRemoteNames') ||
@@ -1653,12 +1655,34 @@ export class GraphWebview extends WebviewBase<State> {
 			highlightRowsOnRefHover: configuration.get('graph.highlightRowsOnRefHover'),
 			minimap: configuration.get('graph.experimental.minimap.enabled'),
 			scrollRowPadding: configuration.get('graph.scrollRowPadding'),
-			showScrollMarkers: configuration.get('graph.scrollMarkers.enabled'),
+			enabledScrollMarkerTypes: this.getEnabledGraphScrollMarkers(),
 			showGhostRefsOnRowHover: configuration.get('graph.showGhostRefsOnRowHover'),
 			showRemoteNamesOnRefs: configuration.get('graph.showRemoteNames'),
 			idLength: configuration.get('advanced.abbreviatedShaLength'),
 		};
 		return config;
+	}
+
+	private getEnabledGraphScrollMarkers(): GraphComponentScrollMarkerTypes[] {
+		const markersEnabled = configuration.get('graph.scrollMarkers.enabled');
+		if (!markersEnabled) return [];
+
+		let markers: GraphComponentScrollMarkerTypes[] = [
+			GraphComponentScrollMarkerTypes.Selection,
+			GraphComponentScrollMarkerTypes.Highlights,
+		];
+
+		const additionalMarkersFromSettings: GraphSettingsScrollMarkerTypes[] = configuration.get(
+			'graph.scrollMarkers.additionalTypes',
+		);
+
+		markers = [...markers, ...(additionalMarkersFromSettings as unknown as GraphComponentScrollMarkerTypes[])];
+		// Head and upstream are under the same setting, but separate markers in the component
+		if (additionalMarkersFromSettings.includes(GraphSettingsScrollMarkerTypes.Head)) {
+			markers.push(GraphComponentScrollMarkerTypes.Upstream);
+		}
+
+		return markers;
 	}
 
 	private getEnabledRefMetadataTypes(): GraphRefMetadataType[] {

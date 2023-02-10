@@ -150,7 +150,7 @@ export interface GraphComponentConfig {
 	highlightRowsOnRefHover?: boolean;
 	minimap?: boolean;
 	scrollRowPadding?: number;
-	showScrollMarkers?: boolean;
+	enabledScrollMarkerTypes?: GraphScrollMarkerTypes[];
 	showGhostRefsOnRowHover?: boolean;
 	showRemoteNamesOnRefs?: boolean;
 	idLength?: number;

@@ -413,7 +413,7 @@ export interface GraphConfig {
 	showGhostRefsOnRowHover: boolean;
 	scrollMarkers: {
 		enabled: boolean;
-		types: GraphScrollMarkerTypes[];
+		additionalTypes: GraphScrollMarkerTypes[];
 	};
 	pullRequests: {
 		enabled: boolean;

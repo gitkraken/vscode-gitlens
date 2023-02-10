@@ -2223,27 +2223,23 @@
 						"scope": "window",
 						"order": 13
 					},
-					"gitlens.graph.scrollMarkers.types": {
+					"gitlens.graph.scrollMarkers.additionalTypes": {
 						"type": "array",
 						"default": [
-							"selection",
-							"head"
+							"head",
+							"localBranches"
 						],
 						"items": {
 							"type": "string",
 							"enum": [
-								"selection",
 								"head",
-								"highlights",
 								"localBranches",
 								"remoteBranches",
 								"tags",
 								"stashes"
 							],
 							"enumDescriptions": [
-								"Marks the location of selected rows",
 								"Marks the location of the current HEAD and its upstream",
-								"Marks the location of search results",
 								"Marks the location of local branches",
 								"Marks the location of remote branches",
 								"Marks the location of tags",
@@ -2251,9 +2247,9 @@
 							]
 						},
 						"minItems": 0,
-						"maxItems": 7,
+						"maxItems": 5,
 						"uniqueItems": true,
-						"markdownDescription": "Specifies which markers to show in the _Commit Graph_",
+						"markdownDescription": "Specifies additional markers to show in the _Commit Graph_",
 						"scope": "window",
 						"order": 14
 					},

@@ -53,7 +53,6 @@ import {
 	DidFetchNotificationType,
 	DidSearchNotificationType,
 	GraphCommitDateTimeSources,
-	GraphScrollMarkerTypes,
 } from '../../../../plus/webviews/graph/protocol';
 import type { Subscription } from '../../../../subscription';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../subscription';
@@ -233,12 +232,6 @@ export function GraphWrapper({
 
 	const ensuredIds = useRef<Set<string>>(new Set());
 	const ensuredSkippedIds = useRef<Set<string>>(new Set());
-
-	// TODO@ramint Remove/update this logic once markers are individually configurable
-	const disabledScrollMarkers = [GraphScrollMarkerTypes.Tags];
-	const enabledScrollMarkers = Object.values(GraphScrollMarkerTypes).filter(
-		marker => !disabledScrollMarkers.includes(marker),
-	);
 
 	function updateState(
 		state: State,
@@ -1269,9 +1262,7 @@ export function GraphWrapper({
 							cssVariables={styleProps?.cssVariables}
 							dimMergeCommits={graphConfig?.dimMergeCommits}
 							enabledRefMetadataTypes={graphConfig?.enabledRefMetadataTypes}
-							enabledScrollMarkerTypes={
-								graphConfig?.showScrollMarkers ? enabledScrollMarkers : []
-							}
+							enabledScrollMarkerTypes={graphConfig?.enabledScrollMarkerTypes}
 							enableMultiSelection={graphConfig?.enableMultiSelection}
 							excludeRefsById={excludeRefsById}
 							excludeByType={excludeTypes}
