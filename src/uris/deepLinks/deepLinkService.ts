@@ -5,6 +5,7 @@ import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { GitReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
+import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import { Logger } from '../../logger';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
 import { executeCommand } from '../../system/command';
@@ -159,10 +160,17 @@ export class DeepLinkService implements Disposable {
 		initialAction: DeepLinkServiceAction = DeepLinkServiceAction.DeepLinkEventFired,
 	): Promise<void> {
 		let message = '';
-		let matchingRemotes: GitRemote[] = [];
 		let action = initialAction;
+
+		// Remote match
+		let matchingRemotes: GitRemote[] = [];
+		let remoteDomain = '';
+		let remotePath = '';
+
+		// Repo open
 		let repoOpenAction = DeepLinkRepoOpenAction.Cancel;
 		let repoOpenUri: Uri | undefined = undefined;
+
 		while (true) {
 			this._context.state = deepLinkStateTransitionTable[this._context.state][action];
 			const { state, repoId, repo, uri, remoteUrl, remote, targetSha, targetType } = this._context;
@@ -178,16 +186,18 @@ export class DeepLinkService implements Disposable {
 					return;
 				case DeepLinkServiceState.RepoMatch:
 				case DeepLinkServiceState.AddedRepoMatch:
-					if (!repoId) {
+					if (!repoId || !remoteUrl) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
-						message = 'No repo id was provided.';
+						message = 'No repo id or remote url was provided.';
 						break;
 					}
 
+					[, remoteDomain, remotePath] = parseGitRemoteUrl(remoteUrl);
 					// Try to match a repo using the remote URL first, since that saves us some steps.
 					// As a fallback, try to match using the repo id.
 					for (const repo of this.container.git.repositories) {
-						matchingRemotes = await repo.getRemotes({ filter: r => r.url === remoteUrl });
+						// eslint-disable-next-line no-loop-func
+						matchingRemotes = await repo.getRemotes({ filter: r => r.matches(remoteDomain, remotePath) });
 						if (matchingRemotes.length > 0) {
 							this._context.repo = repo;
 							this._context.remote = matchingRemotes[0];
