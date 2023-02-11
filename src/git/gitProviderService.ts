@@ -1,4 +1,3 @@
-import { encodingExists } from 'iconv-lite';
 import type {
 	CancellationToken,
 	ConfigurationChangeEvent,
@@ -2514,10 +2513,5 @@ export class GitProviderService implements Disposable {
 	getOrOpenScmRepository(repoPath: string): Promise<ScmRepository | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getOrOpenScmRepository(path);
-	}
-
-	static getEncoding(uri: Uri): string {
-		const encoding = configuration.getAny<string>('files.encoding', uri);
-		return encoding != null && encodingExists(encoding) ? encoding : 'utf8';
 	}
 }
