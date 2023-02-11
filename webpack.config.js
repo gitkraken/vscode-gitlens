@@ -2,6 +2,7 @@
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
 const { spawnSync } = require('child_process');
+const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 const CircularDependencyPlugin = require('circular-dependency-plugin');
 const { CleanWebpackPlugin: CleanPlugin } = require('clean-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
@@ -12,15 +13,13 @@ const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const fs = require('fs');
 const HtmlPlugin = require('html-webpack-plugin');
 const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');
-const JSON5 = require('json5');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const path = require('path');
 const { validate } = require('schema-utils');
 const TerserPlugin = require('terser-webpack-plugin');
-const { WebpackError, webpack, optimize } = require('webpack');
+const { WebpackError, optimize } = require('webpack');
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const { EsbuildPlugin } = require('esbuild-loader');
-const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
 module.exports =
 	/**
@@ -339,6 +338,10 @@ function getWebviewsConfig(mode, env) {
 				generator: [imageGeneratorConfig],
 			}),
 		);
+	}
+
+	if (env.analyzeBundle) {
+		plugins.push(new BundleAnalyzerPlugin({ analyzerPort: 'auto' }));
 	}
 
 	return {
