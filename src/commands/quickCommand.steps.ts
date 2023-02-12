@@ -302,12 +302,12 @@ export async function getBranchesAndOrTags(
 
 		if (include.includes('branches') && branchesByRepo != null) {
 			branches = sortBranches(
-				intersection(...branchesByRepo, (b1: GitBranch, b2: GitBranch) => b1.name === b2.name),
+				intersection(branchesByRepo, (b1: GitBranch, b2: GitBranch) => b1.name === b2.name),
 			);
 		}
 
 		if (include.includes('tags') && tagsByRepo != null) {
-			tags = sortTags(intersection(...tagsByRepo, (t1: GitTag, t2: GitTag) => t1.name === t2.name));
+			tags = sortTags(intersection(tagsByRepo, (t1: GitTag, t2: GitTag) => t1.name === t2.name));
 		}
 	}
 

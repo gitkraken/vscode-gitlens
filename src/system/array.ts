@@ -1,5 +1,3 @@
-// eslint-disable-next-line no-restricted-imports
-export { findLastIndex, intersectionWith as intersection } from 'lodash-es';
 import { join } from './iterable';
 
 export function chunk<T>(source: T[], size: number): T[][] {
@@ -64,6 +62,14 @@ export function filterMapAsync<T, TMapped>(
 	}, []);
 }
 
+export function findLastIndex<T>(source: T[], predicate: (value: T, index: number, obj: T[]) => boolean): number {
+	let l = source.length;
+	while (l--) {
+		if (predicate(source[l], l, source)) return l;
+	}
+	return -1;
+}
+
 export function groupBy<T>(source: readonly T[], groupingKey: (item: T) => string): Record<string, T[]> {
 	return source.reduce<Record<string, T[]>>((groupings, current) => {
 		const value = groupingKey(current);
@@ -111,6 +117,24 @@ export function groupByFilterMap<TKey, TValue, TMapped>(
 		}
 		return groupings;
 	}, new Map<TKey, TMapped[]>());
+}
+
+export function intersection<T>(sources: T[][], comparator: (a: T, b: T) => boolean): T[] {
+	const results: T[] = [];
+
+	const length = sources.length;
+	outer: for (const item of sources[0]) {
+		let i = length - 1;
+		while (i--) {
+			if (!sources[i + 1].some(v => comparator(v, item))) break outer;
+		}
+
+		if (!results.some(v => comparator(v, item))) {
+			results.push(item);
+		}
+	}
+
+	return results;
 }
 
 export function isStringArray<T extends any[]>(array: readonly string[] | T): array is string[] {
