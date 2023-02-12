@@ -251,6 +251,8 @@ function getExtensionConfig(target, mode, env) {
 		stats: {
 			preset: 'errors-warnings',
 			assets: true,
+			assetsSort: 'name',
+			assetsSpace: 100,
 			colors: true,
 			env: true,
 			errorsCount: true,
@@ -484,9 +486,12 @@ function getWebviewsConfig(mode, env) {
 		stats: {
 			preset: 'errors-warnings',
 			assets: true,
+			assetsSort: 'name',
+			assetsSpace: 100,
 			colors: true,
 			env: true,
 			errorsCount: true,
+			excludeAssets: [/\.(ttf|webp)/],
 			warningsCount: true,
 			timings: true,
 		},
