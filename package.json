@@ -13049,7 +13049,6 @@
 		"iconv-lite": "0.6.3",
 		"lit": "2.6.1",
 		"lodash-es": "4.17.21",
-		"md5.js": "1.3.5",
 		"node-fetch": "2.6.9",
 		"os-browserify": "0.3.0",
 		"path-browserify": "1.0.1",

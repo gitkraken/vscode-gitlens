@@ -1,5 +1,4 @@
 import ansiRegex from 'ansi-regex';
-import { md5 as _md5 } from '@env/crypto';
 import { hrtime } from '@env/hrtime';
 import { CharCode } from '../constants';
 
@@ -293,10 +292,6 @@ export function isLowerAsciiLetter(code: number): boolean {
 
 export function isUpperAsciiLetter(code: number): boolean {
 	return code >= CharCode.A && code <= CharCode.Z;
-}
-
-export function md5(s: string, encoding: 'base64' | 'hex' = 'base64'): string {
-	return _md5(s, encoding);
 }
 
 export function pad(s: string, before: number = 0, after: number = 0, padding: string = '\u00a0') {

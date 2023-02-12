@@ -1,4 +1,5 @@
 import { EventEmitter, Uri } from 'vscode';
+import { md5 } from '@env/crypto';
 import { GravatarDefaultStyle } from './config';
 import { configuration } from './configuration';
 import { ContextKeys } from './constants';
@@ -8,7 +9,7 @@ import { getGitHubNoReplyAddressParts } from './git/remotes/github';
 import type { StoredAvatar } from './storage';
 import { debounce } from './system/function';
 import { filterMap } from './system/iterable';
-import { base64, equalsIgnoreCase, md5 } from './system/string';
+import { base64, equalsIgnoreCase } from './system/string';
 import type { ContactPresenceStatus } from './vsls/vsls';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
@@ -121,7 +122,7 @@ function getAvatarUriCore(
 		return avatar.uri ?? avatar.fallback!;
 	}
 
-	const hash = md5(email.trim().toLowerCase(), 'hex');
+	const hash = md5(email.trim().toLowerCase());
 	const key = `${hash}:${size}`;
 
 	const avatar = createOrUpdateAvatar(key, email, size, hash, options?.defaultStyle);
@@ -194,7 +195,7 @@ function getAvatarUriFromGravatar(hash: string, size: number, defaultStyle?: Gra
 }
 
 export function getAvatarUriFromGravatarEmail(email: string, size: number, defaultStyle?: GravatarDefaultStyle): Uri {
-	return getAvatarUriFromGravatar(md5(email.trim().toLowerCase(), 'hex'), size, defaultStyle);
+	return getAvatarUriFromGravatar(md5(email.trim().toLowerCase()), size, defaultStyle);
 }
 
 function getAvatarUriFromGitHubNoReplyAddress(email: string, size: number = 16): Uri | undefined {
@@ -240,7 +241,7 @@ async function getAvatarUriFromRemoteProvider(
 		avatar.retries = 0;
 
 		if (account.email != null && equalsIgnoreCase(email, account.email)) {
-			avatarCache.set(`${md5(account.email.trim().toLowerCase(), 'hex')}:${size}`, { ...avatar });
+			avatarCache.set(`${md5(account.email.trim().toLowerCase())}:${size}`, { ...avatar });
 		}
 
 		_onDidFetchAvatar.fire({ email: email });

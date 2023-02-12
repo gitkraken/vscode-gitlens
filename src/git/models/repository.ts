@@ -1,5 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent, Event, WorkspaceFolder } from 'vscode';
 import { Disposable, EventEmitter, ProgressLocation, RelativePattern, Uri, window, workspace } from 'vscode';
+import { md5 } from '@env/crypto';
 import { ForcePushMode } from '../../@types/vscode.git.enums';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import { configuration } from '../../configuration';
@@ -18,7 +19,6 @@ import { debounce } from '../../system/function';
 import { filter, join, some } from '../../system/iterable';
 import { updateRecordValue } from '../../system/object';
 import { basename, normalizePath } from '../../system/path';
-import { md5 } from '../../system/string';
 import { runGitCommandInTerminal } from '../../terminal';
 import type { GitDir, GitProviderDescriptor, GitRepositoryCaches } from '../gitProvider';
 import type { RemoteProviders } from '../remotes/remoteProviders';

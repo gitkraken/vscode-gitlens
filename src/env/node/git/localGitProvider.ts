@@ -5,6 +5,7 @@ import { env as process_env } from 'process';
 import { encodingExists } from 'iconv-lite';
 import type { CancellationToken, Event, TextDocument, WorkspaceFolder } from 'vscode';
 import { Disposable, env, EventEmitter, extensions, FileType, Range, Uri, window, workspace } from 'vscode';
+import { md5 } from '@env/crypto';
 import { fetch, getProxyAgent } from '@env/fetch';
 import { hrtime } from '@env/hrtime';
 import { isLinux, isWindows } from '@env/platform';
@@ -150,7 +151,7 @@ import {
 } from '../../../system/path';
 import type { PromiseOrValue } from '../../../system/promise';
 import { any, fastestSettled, getSettledValue } from '../../../system/promise';
-import { equalsIgnoreCase, getDurationMilliseconds, interpolate, md5, splitSingle } from '../../../system/string';
+import { equalsIgnoreCase, getDurationMilliseconds, interpolate, splitSingle } from '../../../system/string';
 import { PathTrie } from '../../../system/trie';
 import { compare, fromString } from '../../../system/version';
 import { serializeWebviewItemContext } from '../../../system/webview';
