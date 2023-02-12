@@ -201,6 +201,7 @@ function getExtensionConfig(target, mode, env) {
 						? {
 								loader: 'esbuild-loader',
 								options: {
+									format: 'esm',
 									implementation: esbuild,
 									target: ['es2022', 'chrome102', 'node16.14.2'],
 									tsconfig: path.join(
@@ -363,8 +364,12 @@ function getWebviewsConfig(mode, env) {
 		devtool: mode === 'production' ? false : 'source-map',
 		output: {
 			filename: '[name].js',
+			libraryTarget: 'module',
 			path: path.join(__dirname, 'dist', 'webviews'),
 			publicPath: '#{root}/dist/webviews/',
+		},
+		experiments: {
+			outputModule: true,
 		},
 		optimization: {
 			minimizer:
@@ -431,6 +436,7 @@ function getWebviewsConfig(mode, env) {
 						? {
 								loader: 'esbuild-loader',
 								options: {
+									format: 'esm',
 									implementation: esbuild,
 									target: 'es2021',
 									tsconfig: path.join(basePath, 'tsconfig.json'),
