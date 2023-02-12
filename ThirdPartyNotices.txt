@@ -17,16 +17,15 @@ This project incorporates components from the projects listed below.
 12. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
 13. lit version 2.6.1 (https://github.com/lit/lit)
 14. lodash-es version 4.17.21 (https://github.com/lodash/lodash)
-15. md5.js version 1.3.5 (https://github.com/crypto-browserify/md5.js)
-16. microsoft/vscode (https://github.com/microsoft/vscode)
-17. node-fetch version 2.6.9 (https://github.com/bitinn/node-fetch)
-18. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
-19. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
-20. react-dom version 16.8.4 (https://github.com/facebook/react)
-21. react version 16.8.4 (https://github.com/facebook/react)
-22. sindresorhus/is-fullwidth-code-point (https://github.com/sindresorhus/is-fullwidth-code-point)
-23. sindresorhus/string-width (https://github.com/sindresorhus/string-width)
-24. sortablejs version 1.15.0 (https://github.com/SortableJS/Sortable)
+15. microsoft/vscode (https://github.com/microsoft/vscode)
+16. node-fetch version 2.6.9 (https://github.com/bitinn/node-fetch)
+17. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
+18. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
+19. react-dom version 16.8.4 (https://github.com/facebook/react)
+20. react version 16.8.4 (https://github.com/facebook/react)
+21. sindresorhus/is-fullwidth-code-point (https://github.com/sindresorhus/is-fullwidth-code-point)
+22. sindresorhus/string-width (https://github.com/sindresorhus/string-width)
+23. sortablejs version 1.15.0 (https://github.com/SortableJS/Sortable)
 
 %% @microsoft/fast-element NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -1504,33 +1503,6 @@ terms above.
 
 =========================================
 END OF  lodash-es NOTICES AND INFORMATION
-
-%% md5.js NOTICES AND INFORMATION BEGIN HERE
-=========================================
-The MIT License (MIT)
-
-Copyright (c) 2016 Kirill Fomichev
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
-=========================================
-END OF  md5.js NOTICES AND INFORMATION
 
 %% microsoft/vscode NOTICES AND INFORMATION BEGIN HERE
 =========================================
