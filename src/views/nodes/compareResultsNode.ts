@@ -1,11 +1,12 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { md5 } from '@env/crypto';
 import { GitUri } from '../../git/gitUri';
 import { GitRevision } from '../../git/models/reference';
 import type { StoredNamedRef } from '../../storage';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { getSettledValue } from '../../system/promise';
-import { md5, pluralize } from '../../system/string';
+import { pluralize } from '../../system/string';
 import type { SearchAndCompareView } from '../searchAndCompareView';
 import { RepositoryNode } from './repositoryNode';
 import type { CommitsQueryResults } from './resultsCommitsNode';
@@ -23,7 +24,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 	}
 
 	static getPinnableId(repoPath: string, ref1: string, ref2: string) {
-		return md5(`${repoPath}|${ref1}|${ref2}`);
+		return md5(`${repoPath}|${ref1}|${ref2}`, 'base64');
 	}
 
 	private _children: ViewNode[] | undefined;
