@@ -2,7 +2,7 @@
 	"extends": "../../../tsconfig.base.json",
 	"compilerOptions": {
 		"jsx": "react",
-		"lib": ["dom", "dom.iterable", "es2020"],
+		"lib": ["dom", "dom.iterable", "es2022"],
 		"outDir": "../../",
 		"paths": {
 			"@env/*": ["src/env/browser/*"]
