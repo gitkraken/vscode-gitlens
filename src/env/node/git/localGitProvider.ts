@@ -2,8 +2,10 @@ import { readdir, realpath } from 'fs';
 import { homedir, hostname, userInfo } from 'os';
 import { resolve as resolvePath } from 'path';
 import { env as process_env } from 'process';
+import { encodingExists } from 'iconv-lite';
 import type { CancellationToken, Event, TextDocument, WorkspaceFolder } from 'vscode';
 import { Disposable, env, EventEmitter, extensions, FileType, Range, Uri, window, workspace } from 'vscode';
+import { md5 } from '@env/crypto';
 import { fetch, getProxyAgent } from '@env/fetch';
 import { hrtime } from '@env/hrtime';
 import { isLinux, isWindows } from '@env/platform';
@@ -44,7 +46,6 @@ import type {
 	ScmRepository,
 } from '../../../git/gitProvider';
 import { GitProviderId, RepositoryVisibility } from '../../../git/gitProvider';
-import { GitProviderService } from '../../../git/gitProviderService';
 import { encodeGitLensRevisionUriAuthority, GitUri } from '../../../git/gitUri';
 import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../../git/models/blame';
 import type { BranchSortOptions } from '../../../git/models/branch';
@@ -150,7 +151,7 @@ import {
 } from '../../../system/path';
 import type { PromiseOrValue } from '../../../system/promise';
 import { any, fastestSettled, getSettledValue } from '../../../system/promise';
-import { equalsIgnoreCase, getDurationMilliseconds, interpolate, md5, splitSingle } from '../../../system/string';
+import { equalsIgnoreCase, getDurationMilliseconds, interpolate, splitSingle } from '../../../system/string';
 import { PathTrie } from '../../../system/trie';
 import { compare, fromString } from '../../../system/version';
 import { serializeWebviewItemContext } from '../../../system/webview';
@@ -2336,7 +2337,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			uri.fsPath,
 			ref1,
 			ref2,
-			{ encoding: GitProviderService.getEncoding(uri) },
+			{ encoding: getEncoding(uri) },
 			doc,
 			key,
 			scope,
@@ -2424,7 +2425,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			uri.fsPath,
 			ref,
 			contents,
-			{ encoding: GitProviderService.getEncoding(uri) },
+			{ encoding: getEncoding(uri) },
 			doc,
 			key,
 			scope,
@@ -4837,4 +4838,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			`${prefix} requires a newer version of Git (>= ${version}) than is currently installed (${await this.git.version()}).${suffix}`,
 		);
 	}
+}
+
+function getEncoding(uri: Uri): string {
+	const encoding = configuration.getAny<string>('files.encoding', uri);
+	return encoding != null && encodingExists(encoding) ? encoding : 'utf8';
 }

@@ -2,6 +2,7 @@
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
 const { spawnSync } = require('child_process');
+const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 const CircularDependencyPlugin = require('circular-dependency-plugin');
 const { CleanWebpackPlugin: CleanPlugin } = require('clean-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
@@ -12,15 +13,13 @@ const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const fs = require('fs');
 const HtmlPlugin = require('html-webpack-plugin');
 const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');
-const JSON5 = require('json5');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const path = require('path');
 const { validate } = require('schema-utils');
 const TerserPlugin = require('terser-webpack-plugin');
-const { WebpackError, webpack, optimize } = require('webpack');
+const { WebpackError, optimize } = require('webpack');
 const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const { EsbuildPlugin } = require('esbuild-loader');
-const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
 module.exports =
 	/**
@@ -202,6 +201,7 @@ function getExtensionConfig(target, mode, env) {
 						? {
 								loader: 'esbuild-loader',
 								options: {
+									format: 'esm',
 									implementation: esbuild,
 									target: ['es2022', 'chrome102', 'node16.14.2'],
 									tsconfig: path.join(
@@ -229,6 +229,11 @@ function getExtensionConfig(target, mode, env) {
 				'@env': path.resolve(__dirname, 'src', 'env', target === 'webworker' ? 'browser' : target),
 				// This dependency is very large, and isn't needed for our use-case
 				tr46: path.resolve(__dirname, 'patches', 'tr46.js'),
+				// Stupid dependency that is used by `http-proxy-agent`
+				debug:
+					target === 'webworker'
+						? path.resolve(__dirname, 'node_modules', 'debug', 'src', 'browser.js')
+						: path.resolve(__dirname, 'node_modules', 'debug', 'src', 'node.js'),
 			},
 			fallback:
 				target === 'webworker'
@@ -247,6 +252,8 @@ function getExtensionConfig(target, mode, env) {
 		stats: {
 			preset: 'errors-warnings',
 			assets: true,
+			assetsSort: 'name',
+			assetsSpace: 100,
 			colors: true,
 			env: true,
 			errorsCount: true,
@@ -336,6 +343,10 @@ function getWebviewsConfig(mode, env) {
 		);
 	}
 
+	if (env.analyzeBundle) {
+		plugins.push(new BundleAnalyzerPlugin({ analyzerPort: 'auto' }));
+	}
+
 	return {
 		name: 'webviews',
 		context: basePath,
@@ -353,8 +364,12 @@ function getWebviewsConfig(mode, env) {
 		devtool: mode === 'production' ? false : 'source-map',
 		output: {
 			filename: '[name].js',
+			libraryTarget: 'module',
 			path: path.join(__dirname, 'dist', 'webviews'),
 			publicPath: '#{root}/dist/webviews/',
+		},
+		experiments: {
+			outputModule: true,
 		},
 		optimization: {
 			minimizer:
@@ -421,8 +436,9 @@ function getWebviewsConfig(mode, env) {
 						? {
 								loader: 'esbuild-loader',
 								options: {
+									format: 'esm',
 									implementation: esbuild,
-									target: 'es2022',
+									target: 'es2021',
 									tsconfig: path.join(basePath, 'tsconfig.json'),
 								},
 						  }
@@ -462,6 +478,8 @@ function getWebviewsConfig(mode, env) {
 		resolve: {
 			alias: {
 				'@env': path.resolve(__dirname, 'src', 'env', 'browser'),
+				react: path.resolve(__dirname, 'node_modules', 'react'),
+				'react-dom': path.resolve(__dirname, 'node_modules', 'react-dom'),
 			},
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			modules: [basePath, 'node_modules'],
@@ -476,9 +494,12 @@ function getWebviewsConfig(mode, env) {
 		stats: {
 			preset: 'errors-warnings',
 			assets: true,
+			assetsSort: 'name',
+			assetsSpace: 100,
 			colors: true,
 			env: true,
 			errorsCount: true,
+			excludeAssets: [/\.(ttf|webp)/],
 			warningsCount: true,
 			timings: true,
 		},
@@ -640,24 +661,6 @@ class InlineChunkHtmlPlugin {
 			});
 		});
 	}
-}
-
-/**
- * @param { string } configFile
- * @returns { string }
- */
-function resolveTSConfig(configFile) {
-	const result = spawnSync('yarn', ['tsc', `-p ${configFile}`, '--showConfig'], {
-		cwd: __dirname,
-		encoding: 'utf8',
-		shell: true,
-	});
-
-	const data = result.stdout;
-	const start = data.indexOf('{');
-	const end = data.lastIndexOf('}') + 1;
-	const json = JSON5.parse(data.substring(start, end));
-	return json;
 }
 
 const schema = {
