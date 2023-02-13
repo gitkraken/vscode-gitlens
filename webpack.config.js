@@ -478,8 +478,17 @@ function getWebviewsConfig(mode, env) {
 		resolve: {
 			alias: {
 				'@env': path.resolve(__dirname, 'src', 'env', 'browser'),
+				'@microsoft/fast-foundation': path.resolve(
+					__dirname,
+					'node_modules/@microsoft/fast-foundation/dist/esm/index.js',
+				),
+				'@microsoft/fast-react-wrapper': path.resolve(
+					__dirname,
+					'node_modules/@microsoft/fast-react-wrapper/dist/esm/index.js',
+				),
 				react: path.resolve(__dirname, 'node_modules', 'react'),
 				'react-dom': path.resolve(__dirname, 'node_modules', 'react-dom'),
+				tslib: path.resolve(__dirname, 'node_modules/tslib/tslib.es6.js'),
 			},
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			modules: [basePath, 'node_modules'],
