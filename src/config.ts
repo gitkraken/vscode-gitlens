@@ -293,7 +293,7 @@ export const enum GraphScrollMarkerTypes {
 	Head = 'head',
 	LocalBranches = 'localBranches',
 	RemoteBranches = 'remoteBranches',
-	Highlights = 'hightlights',
+	Highlights = 'highlights',
 	Stashes = 'stashes',
 	Tags = 'tags',
 }
