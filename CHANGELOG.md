@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Ensures new worktrees are created from the "main" repo, if already in a worktree
 - Adds a new _remote_ command to the _Git Command Palette_ to add, prune, and remove remotes
 - Adds a _Create Worktree for Pull Request via GitLens..._ context menu command on pull requests in the _GitHub Pull Requests and Issues_ extension's views
+- Adds sugested options for date and time formats &mdash; closes [#1040](https://github.com/gitkraken/vscode-gitlens/issues/1040)
 
 ### Changed
 

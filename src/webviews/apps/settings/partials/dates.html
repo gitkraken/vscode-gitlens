@@ -69,9 +69,10 @@
 						</span>
 					</div>
 
-					<div class="setting">
-						<div class="setting__input">
+					<div class="setting" data-enablement="currentLine.enabled">
+						<div class="setting__input setting__input--format">
 							<label for="defaultDateFormat">Date&nbsp;format</label>
+
 							<input
 								id="defaultDateFormat"
 								name="defaultDateFormat"
@@ -79,7 +80,12 @@
 								placeholder="defaults to MMMM Do, YYYY h:mma"
 								data-setting
 								data-setting-preview
+								data-popup-trigger
+								disabled
 							/>
+							<label for="defaultDateFormat" title="See some sugested date/time formats">
+								<i class="icon icon__chevron-down"></i>
+							</label>
 							<a
 								class="link__learn-more"
 								title="See Moment.js docs for supported date formats"
@@ -88,6 +94,7 @@
 								<i class="icon icon__info"></i>
 							</a>
 						</div>
+						<div id="defaultDateFormat.popup" class="popup hidden"></div>
 						<span class="setting__hint"
 							>Example date:
 							<span
@@ -98,8 +105,8 @@
 						</span>
 					</div>
 
-					<div class="setting">
-						<div class="setting__input">
+					<div class="setting" data-enablement="currentLine.enabled">
+						<div class="setting__input setting__input--format">
 							<label for="defaultDateShortFormat">Short&nbsp;date&nbsp;format</label>
 							<input
 								id="defaultDateShortFormat"
@@ -108,7 +115,11 @@
 								placeholder="defaults to system short date format"
 								data-setting
 								data-setting-preview
+								data-popup-trigger
 							/>
+							<label for="defaultDateShortFormat" title="See some sugested date/time formats">
+								<i class="icon icon__chevron-down"></i>
+							</label>
 							<a
 								class="link__learn-more"
 								title="See Moment.js docs for supported date formats"
@@ -117,6 +128,7 @@
 								<i class="icon icon__info"></i>
 							</a>
 						</div>
+						<div id="defaultDateShortFormat.popup" class="popup hidden"></div>
 						<span class="setting__hint"
 							>Example short date:
 							<span
@@ -137,7 +149,11 @@
 								placeholder="defaults to h:mma"
 								data-setting
 								data-setting-preview
+								data-popup-trigger
 							/>
+							<label for="defaultTimeFormat" title="See some sugested date/time formats">
+								<i class="icon icon__chevron-down"></i>
+							</label>
 							<a
 								class="link__learn-more"
 								title="See Moment.js docs for supported date formats"
@@ -146,6 +162,7 @@
 								<i class="icon icon__info"></i>
 							</a>
 						</div>
+						<div id="defaultTimeFormat.popup" class="popup hidden"></div>
 						<span class="setting__hint"
 							>Example time:
 							<span

@@ -62,6 +62,7 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 			),
 			DOM.on('select[data-setting]', 'change', (e, target: HTMLSelectElement) => this.onInputSelected(target)),
 			DOM.on('.token[data-token]', 'mousedown', (e, target: HTMLElement) => this.onTokenMouseDown(target, e)),
+			DOM.on('.date[data-token]', 'mousedown', (e, target: HTMLElement) => this.onTokenMouseDown(target, e)),
 		);
 
 		return disposables;
@@ -278,7 +279,16 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 		const $popup = document.getElementById(`${element.name}.popup`);
 		if ($popup != null) {
 			if ($popup.childElementCount === 0) {
-				const $template = document.querySelector<HTMLTemplateElement>('#token-popup')?.content.cloneNode(true);
+				let $template;
+				if (
+					element.name == 'defaultDateShortFormat' ||
+					element.name == 'defaultTimeFormat' ||
+					element.name == 'defaultDateFormat'
+				) {
+					$template = document.querySelector<HTMLTemplateElement>('#date-popup')?.content.cloneNode(true);
+				} else {
+					$template = document.querySelector<HTMLTemplateElement>('#token-popup')?.content.cloneNode(true);
+				}
 				if ($template != null) {
 					$popup.appendChild($template);
 				}
@@ -309,13 +319,29 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 
 		const input = setting.querySelector<HTMLInputElement>('input[type=text], input:not([type])');
 		if (input == null) return;
-
-		const token = `\${${element.dataset.token}}`;
+		let token!: string;
+		if (
+			input.name == 'defaultDateShortFormat' ||
+			input.name == 'defaultTimeFormat' ||
+			input.name == 'defaultDateFormat'
+		) {
+			token = `${element.dataset.token}`;
+		} else {
+			token = `\${${element.dataset.token}}`;
+		}
 		let selectionStart = input.selectionStart;
 		if (selectionStart != null) {
-			input.value = `${input.value.substring(0, selectionStart)}${token}${input.value.substr(
-				input.selectionEnd ?? selectionStart,
-			)}`;
+			if (
+				input.name == 'defaultDateShortFormat' ||
+				input.name == 'defaultTimeFormat' ||
+				input.name == 'defaultDateFormat'
+			) {
+				input.value = token;
+			} else {
+				input.value = `${input.value.substring(0, selectionStart)}${token}${input.value.substr(
+					input.selectionEnd ?? selectionStart,
+				)}`;
+			}
 
 			selectionStart += token.length;
 		} else {
