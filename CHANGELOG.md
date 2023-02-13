@@ -31,6 +31,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Greatly reduces the size of many of GitLens' bundles which improves startup time
+  - GitLens' extension bundle for desktop (node) is now ~18% smaller
+  - GitLens' extension bundle for web (vscode.dev/github.dev) is now ~37% smaller
+  - GitLens' Commit Graph webview bundle is now ~31% smaller
 - Changes the _Contributors_ view to be shown by default on the _GitLens_ sidebar
 
 ### Removed
