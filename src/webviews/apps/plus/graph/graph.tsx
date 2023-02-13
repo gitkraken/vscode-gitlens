@@ -557,6 +557,7 @@ export class GraphApp extends App<State> {
 				'--hover-row-border': isHighContrastTheme
 					? `1px dashed ${computedStyle.getPropertyValue('--color-graph-contrast-border')}`
 					: 'none',
+
 				'--text-selected': computedStyle.getPropertyValue('--color-graph-text-selected'),
 				'--text-selected-row': computedStyle.getPropertyValue('--color-graph-text-selected-row'),
 				'--text-hovered': computedStyle.getPropertyValue('--color-graph-text-hovered'),
