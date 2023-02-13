@@ -13110,7 +13110,8 @@
 		"webpack": "5.75.0",
 		"webpack-bundle-analyzer": "4.8.0",
 		"webpack-cli": "5.0.1",
-		"webpack-node-externals": "3.0.0"
+		"webpack-node-externals": "3.0.0",
+		"webpack-require-from": "1.8.6"
 	},
 	"resolutions": {
 		"node-fetch": "2.6.9",

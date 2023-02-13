@@ -7,7 +7,9 @@ const CircularDependencyPlugin = require('circular-dependency-plugin');
 const { CleanWebpackPlugin: CleanPlugin } = require('clean-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 const CspHtmlPlugin = require('csp-html-webpack-plugin');
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const esbuild = require('esbuild');
+const { EsbuildPlugin } = require('esbuild-loader');
 const { generateFonts } = require('fantasticon');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const fs = require('fs');
@@ -17,9 +19,8 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const path = require('path');
 const { validate } = require('schema-utils');
 const TerserPlugin = require('terser-webpack-plugin');
-const { WebpackError, optimize } = require('webpack');
-const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
-const { EsbuildPlugin } = require('esbuild-loader');
+const { WebpackError, optimize, webpack } = require('webpack');
+const WebpackRequireFromPlugin = require('webpack-require-from');
 
 module.exports =
 	/**
@@ -138,10 +139,10 @@ function getExtensionConfig(target, mode, env) {
 		target: target,
 		devtool: mode === 'production' ? false : 'source-map',
 		output: {
-			path: target === 'webworker' ? path.join(__dirname, 'dist', 'browser') : path.join(__dirname, 'dist'),
-			libraryTarget: 'commonjs2',
-			filename: 'gitlens.js',
 			chunkFilename: 'feature-[name].js',
+			filename: 'gitlens.js',
+			libraryTarget: 'commonjs2',
+			path: target === 'webworker' ? path.join(__dirname, 'dist', 'browser') : path.join(__dirname, 'dist'),
 		},
 		optimization: {
 			minimizer: [
@@ -301,6 +302,9 @@ function getWebviewsConfig(mode, env) {
 				configFile: path.join(basePath, 'tsconfig.json'),
 			},
 		}),
+		new WebpackRequireFromPlugin({
+			variableName: 'webpackResourceBasePath',
+		}),
 		new MiniCssExtractPlugin({ filename: '[name].css' }),
 		getHtmlPlugin('commitDetails', false, mode, env),
 		getHtmlPlugin('graph', true, mode, env),
@@ -363,6 +367,7 @@ function getWebviewsConfig(mode, env) {
 		target: 'web',
 		devtool: mode === 'production' ? false : 'source-map',
 		output: {
+			chunkFilename: 'feature-[name].js',
 			filename: '[name].js',
 			libraryTarget: 'module',
 			path: path.join(__dirname, 'dist', 'webviews'),
@@ -421,6 +426,14 @@ function getWebviewsConfig(mode, env) {
 							}),
 					  ]
 					: [],
+			splitChunks: {
+				// Disable all non-async code splitting
+				// chunks: () => false,
+				cacheGroups: {
+					default: false,
+					vendors: false,
+				},
+			},
 		},
 		module: {
 			rules: [
