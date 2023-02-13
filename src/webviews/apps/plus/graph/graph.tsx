@@ -370,7 +370,6 @@ export class GraphApp extends App<State> {
 		bodyStyle.setProperty('--color-graph-contrast-border', color);
 		color = e.computedStyle.getPropertyValue('--vscode-list-activeSelectionBackground').trim();
 		bodyStyle.setProperty('--color-graph-selected-row', color);
-		bodyStyle.setProperty('--color-graph-scroll-marker-selection', color);
 		color = e.computedStyle.getPropertyValue('--vscode-list-hoverBackground').trim();
 		bodyStyle.setProperty('--color-graph-hover-row', color);
 		color = e.computedStyle.getPropertyValue('--vscode-list-activeSelectionForeground').trim();
@@ -384,21 +383,13 @@ export class GraphApp extends App<State> {
 		bodyStyle.setProperty('--color-graph-text-secondary', opacity(e.colors.foreground, 65));
 		bodyStyle.setProperty('--color-graph-text-disabled', opacity(e.colors.foreground, 50));
 
-		// TODO@ramint: Set the right colors for these
-		bodyStyle.setProperty('--color-graph-scroll-marker-head', '#00ff00');
-		bodyStyle.setProperty('--color-graph-scroll-marker-upstream', '#90ee90');
-		bodyStyle.setProperty('--color-graph-scroll-marker-local-branches', '#0000ff');
-		bodyStyle.setProperty('--color-graph-scroll-marker-remote-branches', '#add8e6');
-		bodyStyle.setProperty('--color-graph-scroll-marker-highlights', '#ffff00');
-		bodyStyle.setProperty('--color-graph-scroll-marker-stashes', '#800080');
-		bodyStyle.setProperty('--color-graph-scroll-marker-tags', '#ffa500');
-
-		// minimap
+		// minimap and scroll markers
 
 		const resultColor = Color.fromHex('#ffff00');
 		const headColor = Color.fromHex('#00ff00');
 		const branchColor = Color.fromHex('#ff7f50');
 		const tagColor = Color.fromHex('#15a0bf');
+		const stashColor = Color.fromHex('#800080');
 
 		color = e.computedStyle.getPropertyValue('--vscode-progressBar-background').trim();
 		const activityColor = Color.from(color);
@@ -431,10 +422,15 @@ export class GraphApp extends App<State> {
 			.toString();
 		// color = e.computedStyle.getPropertyValue('--vscode-editorCursor-foreground').trim();
 		bodyStyle.setProperty('--color-graph-minimap-selectedMarker', color);
+		bodyStyle.setProperty('--color-graph-scroll-marker-selection', color);
 		bodyStyle.setProperty('--color-graph-minimap-highlightedMarker', opacity(color, 60));
 
 		bodyStyle.setProperty(
 			'--color-graph-minimap-resultMarker',
+			resultColor.luminance(themeLuminance(0.6)).toString(),
+		);
+		bodyStyle.setProperty(
+			'--color-graph-scroll-marker-highlights',
 			resultColor.luminance(themeLuminance(0.6)).toString(),
 		);
 
@@ -447,11 +443,13 @@ export class GraphApp extends App<State> {
 		bodyStyle.setProperty('--color-graph-minimap-headBorder', headBorder);
 		bodyStyle.setProperty('--color-graph-minimap-headForeground', pillLabel);
 		bodyStyle.setProperty('--color-graph-minimap-headMarker', opacity(headMarker, 80));
+		bodyStyle.setProperty('--color-graph-scroll-marker-head', opacity(headMarker, 90));
 
 		bodyStyle.setProperty('--color-graph-minimap-upstreamBackground', headBackground);
 		bodyStyle.setProperty('--color-graph-minimap-upstreamBorder', headBorder);
 		bodyStyle.setProperty('--color-graph-minimap-upstreamForeground', pillLabel);
 		bodyStyle.setProperty('--color-graph-minimap-upstreamMarker', opacity(headMarker, 60));
+		bodyStyle.setProperty('--color-graph-scroll-marker-upstream', opacity(headMarker, 60));
 
 		const branchBackground = branchColor.luminance(themeLuminance(e.isLightTheme ? 0.8 : 0.3)).toString();
 		const branchBorder = branchColor.luminance(themeLuminance(e.isLightTheme ? 0.2 : 0.4)).toString();
@@ -461,11 +459,13 @@ export class GraphApp extends App<State> {
 		bodyStyle.setProperty('--color-graph-minimap-branchBorder', branchBorder);
 		bodyStyle.setProperty('--color-graph-minimap-branchForeground', pillLabel);
 		bodyStyle.setProperty('--color-graph-minimap-branchMarker', opacity(branchMarker, 70));
+		bodyStyle.setProperty('--color-graph-scroll-marker-local-branches', opacity(branchMarker, 90));
 
 		bodyStyle.setProperty('--color-graph-minimap-remoteBackground', opacity(branchBackground, 80));
 		bodyStyle.setProperty('--color-graph-minimap-remoteBorder', opacity(branchBorder, 80));
 		bodyStyle.setProperty('--color-graph-minimap-remoteForeground', pillLabel);
 		bodyStyle.setProperty('--color-graph-minimap-remoteMarker', opacity(branchMarker, 30));
+		bodyStyle.setProperty('--color-graph-scroll-marker-remote-branches', opacity(branchMarker, 60));
 
 		bodyStyle.setProperty(
 			'--color-graph-minimap-tagBackground',
@@ -479,6 +479,15 @@ export class GraphApp extends App<State> {
 		bodyStyle.setProperty(
 			'--color-graph-minimap-tagMarker',
 			opacity(tagColor.luminance(themeLuminance(0.5)).toString(), 60),
+		);
+		bodyStyle.setProperty(
+			'--color-graph-scroll-marker-tags',
+			opacity(tagColor.luminance(themeLuminance(0.9)).toString(), 90),
+		);
+
+		bodyStyle.setProperty(
+			'--color-graph-scroll-marker-stashes',
+			opacity(stashColor.luminance(themeLuminance(0.9)).toString(), 90),
 		);
 
 		if (e.isInitializing) return;
