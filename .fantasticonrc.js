@@ -24,8 +24,8 @@ const config = {
 	},
 	pathOptions: {
 		woff2: './dist/glicons.woff2',
-		scss: './src/webviews//apps/shared/glicons.scss',
-		html: './icons-contribution.json',
+		scss: './dist/glicons.scss',
+		html: './dist/icons-contribution.json',
 		json: './images/icons/template/mapping.json',
 	},
 };
