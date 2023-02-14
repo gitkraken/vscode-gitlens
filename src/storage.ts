@@ -189,13 +189,8 @@ export interface StoredBranchComparisons {
 }
 
 export interface StoredDeepLinkContext {
-	state: number;
-	action?: number;
-	uri?: string | undefined;
-	repoId?: string | undefined;
-	remoteUrl?: string | undefined;
-	targetId?: string | undefined;
-	targetType?: string | undefined;
+	url?: string | undefined;
+	repoPath?: string | undefined;
 }
 
 export interface StoredGraphColumn {
