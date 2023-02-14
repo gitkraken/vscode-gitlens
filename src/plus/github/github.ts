@@ -2495,29 +2495,17 @@ function uniqueWithReasons<T extends { reasons: string[] }>(items: T[], lookup: 
 }
 
 const prNodeProperties = `
+assignees(first: 10) {
+  nodes {
+	login
+	avatarUrl
+	url
+  }
+}
 author {
   login
   avatarUrl
   url
-}
-permalink
-number
-title
-state
-additions
-deletions
-updatedAt
-closedAt
-mergedAt
-repository {
-  isFork
-  owner {
-	login
-  }
-}
-reviewDecision
-mergedBy {
-  login
 }
 baseRefName
 baseRefOid
@@ -2527,6 +2515,10 @@ baseRepository {
 	login
   }
 }
+checksUrl
+isDraft
+isCrossRepository
+isReadByViewer
 headRefName
 headRefOid
 headRepository {
@@ -2535,7 +2527,33 @@ headRepository {
 	login
   }
 }
-reviewRequests {
+permalink
+number
+title
+state
+additions
+deletions
+updatedAt
+closedAt
+mergeable
+mergedAt
+mergedBy {
+  login
+}
+repository {
+  isFork
+  owner {
+	login
+  }
+}
+repository {
+  isFork
+  owner {
+	login
+  }
+}
+reviewDecision
+reviewRequests(first: 10) {
   nodes {
 	asCodeOwner
 	id
@@ -2548,13 +2566,7 @@ reviewRequests {
 	}
   }
 }
-assignees(first: 10) {
-  nodes {
-	login
-	avatarUrl
-	url
-  }
-}
+totalCommentsCount
 `;
 
 const issueNodeProperties = `
