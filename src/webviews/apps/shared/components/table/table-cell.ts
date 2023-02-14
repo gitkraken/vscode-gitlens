@@ -36,6 +36,7 @@ const styles = css`
 		background-color: var(--table-pinned-background);
 		position: sticky;
 		top: 0;
+		z-index: 3;
 	}
 `;
 
