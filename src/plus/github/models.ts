@@ -95,14 +95,19 @@ export interface GitHubPullRequest {
 
 export interface GitHubDetailedIssue extends GitHubIssueOrPullRequest {
 	date: Date;
-	updatedDate: Date;
-	closedDate: Date;
+	updatedAt: Date;
 	author: {
 		login: string;
 		avatarUrl: string;
 		url: string;
 	};
 	assignees: { nodes: IssueMember[] };
+	repository: {
+		name: string;
+		owner: {
+			login: string;
+		};
+	};
 	labels?: { nodes: IssueLabel[] };
 	reactions?: {
 		totalCount: number;
@@ -302,20 +307,24 @@ export namespace GitHubDetailedIssue {
 			String(value.number),
 			value.title,
 			value.url,
-			value.date,
+			new Date(value.createdAt),
 			value.closed,
-			value.updatedDate,
+			new Date(value.updatedAt),
 			{
 				name: value.author.login,
 				avatarUrl: value.author.avatarUrl,
 				url: value.author.url,
+			},
+			{
+				owner: value.repository.owner.login,
+				repo: value.repository.name,
 			},
 			value.assignees.nodes.map(assignee => ({
 				name: assignee.name,
 				avatarUrl: assignee.avatarUrl,
 				url: assignee.url,
 			})),
-			value.closedDate,
+			value.closedAt == null ? undefined : new Date(value.closedAt),
 			value.labels?.nodes == null
 				? undefined
 				: value.labels.nodes.map(label => ({

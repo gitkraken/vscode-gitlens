@@ -2571,23 +2571,6 @@ totalCommentsCount
 
 const issueNodeProperties = `
 ... on Issue {
-	number
-	title
-	url
-	createdAt
-	closedAt
-	updatedAt
-	author {
-		login
-		avatarUrl
-		url
-	}
-	repository {
-		name
-		owner {
-			login
-		}
-	}
 	assignees(first: 100) {
 		nodes {
 			login
@@ -2595,6 +2578,21 @@ const issueNodeProperties = `
 			avatarUrl
 		}
 	}
+	author {
+		login
+		avatarUrl
+		url
+	}
+	comments {
+	  totalCount
+	}
+	number
+	title
+	url
+	createdAt
+	closedAt
+	closed
+	updatedAt
 	labels(first: 20) {
 		nodes {
 			color
@@ -2604,8 +2602,11 @@ const issueNodeProperties = `
 	reactions(content: THUMBS_UP) {
 	  totalCount
 	}
-	comments {
-	  totalCount
+	repository {
+		name
+		owner {
+			login
+		}
 	}
 }
 `;

@@ -29,10 +29,16 @@ export interface IssueMember {
 	url: string;
 }
 
+export interface IssueRepository {
+	owner: string;
+	repo: string;
+}
+
 export interface IssueShape extends IssueOrPullRequest {
 	updatedDate: Date;
 	author: IssueMember;
 	assignees: IssueMember[];
+	repository: IssueRepository;
 	labels?: IssueLabel[];
 	commentsCount?: number;
 	thumbsUpCount?: number;
@@ -143,6 +149,10 @@ export function serializeIssue(value: IssueShape): IssueShape {
 			avatarUrl: value.author.avatarUrl,
 			url: value.author.url,
 		},
+		repository: {
+			owner: value.repository.owner,
+			repo: value.repository.repo,
+		},
 		assignees: value.assignees.map(assignee => ({
 			name: assignee.name,
 			avatarUrl: assignee.avatarUrl,
@@ -173,6 +183,7 @@ export class Issue implements IssueShape {
 		public readonly closed: boolean,
 		public readonly updatedDate: Date,
 		public readonly author: IssueMember,
+		public readonly repository: IssueRepository,
 		public readonly assignees: IssueMember[],
 		public readonly closedDate?: Date,
 		public readonly labels?: IssueLabel[],
