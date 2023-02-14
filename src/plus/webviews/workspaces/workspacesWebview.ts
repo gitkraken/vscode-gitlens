@@ -3,9 +3,13 @@ import { Commands, ContextKeys } from '../../../constants';
 import type { Container } from '../../../container';
 import { setContext } from '../../../context';
 import type { SearchedIssue } from '../../../git/models/issue';
-import { serializeIssue } from '../../../git/models/issue';
+// import { serializeIssue } from '../../../git/models/issue';
 import type { SearchedPullRequest } from '../../../git/models/pullRequest';
-import { serializePullRequest } from '../../../git/models/pullRequest';
+import {
+	PullRequestMergeableState,
+	PullRequestReviewDecision,
+	serializePullRequest,
+} from '../../../git/models/pullRequest';
 import type { GitRemote } from '../../../git/models/remote';
 import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
 import { registerCommand } from '../../../system/command';
@@ -53,22 +57,24 @@ export class WorkspacesWebview extends WebviewBase<State> {
 	}
 
 	private async getState(): Promise<State> {
+		// return Promise.resolve({});
+
 		const prs = await this.getMyPullRequests();
 		const serializedPrs = prs.map(pr => ({
 			pullRequest: serializePullRequest(pr.pullRequest),
 			reasons: pr.reasons,
 		}));
 
-		const issues = await this.getMyIssues();
-		const serializedIssues = issues.map(issue => ({
-			issue: serializeIssue(issue.issue),
-			reasons: issue.reasons,
-		}));
+		// const issues = await this.getMyIssues();
+		// const serializedIssues = issues.map(issue => ({
+		// 	issue: serializeIssue(issue.issue),
+		// 	reasons: issue.reasons,
+		// }));
 
 		return {
 			// workspaces: await this.getWorkspaces(),
-			myPullRequests: serializedPrs,
-			myIssues: serializedIssues,
+			pullRequests: serializedPrs,
+			// myIssues: serializedIssues,
 		};
 	}
 
@@ -97,10 +103,45 @@ export class WorkspacesWebview extends WebviewBase<State> {
 			if (prs == null) {
 				continue;
 			}
-			allPrs.push(...prs);
+			allPrs.push(...prs.filter(pr => pr.reasons.length > 0));
 		}
 
-		return allPrs;
+		function getScore(pr: SearchedPullRequest) {
+			let score = 0;
+			if (pr.reasons.includes('author')) {
+				score += 1000;
+			} else if (pr.reasons.includes('assignee')) {
+				score += 900;
+			} else if (pr.reasons.includes('reviewer')) {
+				score += 800;
+			} else if (pr.reasons.includes('mentioned')) {
+				score += 700;
+			}
+
+			if (pr.pullRequest.reviewDecision === PullRequestReviewDecision.Approved) {
+				if (pr.pullRequest.mergeableState === PullRequestMergeableState.Mergeable) {
+					score += 100;
+				} else if (pr.pullRequest.mergeableState === PullRequestMergeableState.Conflicting) {
+					score += 90;
+				} else {
+					score += 80;
+				}
+			} else if (pr.pullRequest.reviewDecision === PullRequestReviewDecision.ChangesRequested) {
+				score += 70;
+			}
+
+			return score;
+		}
+
+		return allPrs.sort((a, b) => {
+			const scoreA = getScore(a);
+			const scoreB = getScore(b);
+
+			if (scoreA === scoreB) {
+				return a.pullRequest.date.getTime() - b.pullRequest.date.getTime();
+			}
+			return (scoreB ?? 0) - (scoreA ?? 0);
+		});
 	}
 
 	private async getMyIssues(): Promise<SearchedIssue[]> {
@@ -111,9 +152,9 @@ export class WorkspacesWebview extends WebviewBase<State> {
 			if (issues == null) {
 				continue;
 			}
-			allIssues.push(...issues);
+			allIssues.push(...issues.filter(pr => pr.reasons.length > 0));
 		}
 
-		return allIssues;
+		return allIssues.sort((a, b) => b.issue.date.getTime() - a.issue.date.getTime());
 	}
 }
