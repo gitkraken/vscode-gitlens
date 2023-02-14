@@ -82,6 +82,17 @@ code-icon {
 	font-size: inherit;
 }
 
+.tag {
+	display: inline-block;
+	padding: 0.1rem 0.2rem;
+	background-color: var(--color-background--lighten-05);
+	color: var(--color-foreground--85);
+
+	code-icon {
+		margin-right: 0.2rem;
+	}
+}
+
 .button {
 	width: 2.4rem;
 	height: 2.4rem;
@@ -147,5 +158,57 @@ code-icon {
 	&__section {
 		min-height: 15rem;
 		flex: 0 1 auto;
+	}
+}
+
+.tag {
+	display: inline-block;
+	padding: 0.1rem 0.2rem;
+	background-color: var(--background-05);
+	color: var(--color-foreground--85);
+	white-space: nowrap;
+}
+.tag code-icon {
+	margin-right: 0.2rem;
+}
+
+.stat-added {
+	white-space: nowrap;
+	color: var(--vscode-gitDecoration-addedResourceForeground);
+}
+.stat-deleted {
+	white-space: nowrap;
+	color: var(--vscode-gitDecoration-deletedResourceForeground);
+}
+.stat-modified {
+	white-space: nowrap;
+	color: var(--vscode-gitDecoration-modifiedResourceForeground);
+}
+
+.pr {
+	&-status {
+		width: 5rem;
+	}
+	&-time {
+		width: 4rem;
+	}
+	&-body {
+	}
+	&-author {
+		width: 8.8rem;
+	}
+	&-assigned {
+		width: 8.8rem;
+	}
+	&-comments {
+		width: 4rem;
+	}
+	&-checks {
+		width: 3.2rem;
+	}
+	&-stats {
+		width: 9.2rem;
+	}
+	&-actions {
 	}
 }
