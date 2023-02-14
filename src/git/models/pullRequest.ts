@@ -14,6 +14,18 @@ export const enum PullRequestState {
 	Merged = 'Merged',
 }
 
+export const enum PullRequestReviewDecision {
+	Approved = 'Approved',
+	ChangesRequested = 'ChangesRequested',
+	ReviewRequired = 'ReviewRequired',
+}
+
+export const enum PullRequestMergeableState {
+	Unknown = 'Unknown',
+	Mergeable = 'Mergeable',
+	Conflicting = 'Conflicting',
+}
+
 export interface PullRequestRef {
 	owner: string;
 	repo: string;
@@ -47,6 +59,9 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	readonly isDraft?: boolean;
 	readonly additions?: number;
 	readonly deletions?: number;
+	readonly comments?: number;
+	readonly mergeableState?: PullRequestMergeableState;
+	readonly reviewDecision?: PullRequestReviewDecision;
 	readonly reviewRequests?: { isCodeOwner: boolean; reviewer: PullRequestMember }[];
 	readonly assignees?: PullRequestMember[];
 }
@@ -78,6 +93,7 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 		},
 		state: value.state,
 		mergedDate: value.mergedDate,
+		mergeableState: value.mergeableState,
 		refs: value.refs
 			? {
 					head: {
@@ -100,6 +116,8 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 		isDraft: value.isDraft,
 		additions: value.additions,
 		deletions: value.deletions,
+		comments: value.comments,
+		reviewDecision: value.reviewDecision,
 		reviewRequests: value.reviewRequests,
 		assignees: value.assignees,
 	};
@@ -159,10 +177,13 @@ export class PullRequest implements PullRequestShape {
 		public readonly date: Date,
 		public readonly closedDate?: Date,
 		public readonly mergedDate?: Date,
+		public readonly mergeableState?: PullRequestMergeableState,
 		public readonly refs?: PullRequestRefs,
 		public readonly isDraft?: boolean,
 		public readonly additions?: number,
 		public readonly deletions?: number,
+		public readonly comments?: number,
+		public readonly reviewDecision?: PullRequestReviewDecision,
 		public readonly reviewRequests?: PullRequestReviewer[],
 		public readonly assignees?: PullRequestMember[],
 	) {}

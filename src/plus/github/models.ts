@@ -2,7 +2,12 @@ import type { Endpoints } from '@octokit/types';
 import { GitFileIndexStatus } from '../../git/models/file';
 import type { IssueLabel, IssueMember, IssueOrPullRequestType } from '../../git/models/issue';
 import { Issue } from '../../git/models/issue';
-import { PullRequest, PullRequestState } from '../../git/models/pullRequest';
+import {
+	PullRequest,
+	PullRequestMergeableState,
+	PullRequestReviewDecision,
+	PullRequestState,
+} from '../../git/models/pullRequest';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
 
 export interface GitHubBlame {
@@ -186,6 +191,50 @@ export namespace GitHubPullRequest {
 		return state === PullRequestState.Merged ? 'MERGED' : state === PullRequestState.Closed ? 'CLOSED' : 'OPEN';
 	}
 
+	export function fromReviewDecision(reviewDecision: GitHubPullRequestReviewDecision): PullRequestReviewDecision {
+		switch (reviewDecision) {
+			case 'APPROVED':
+				return PullRequestReviewDecision.Approved;
+			case 'CHANGES_REQUESTED':
+				return PullRequestReviewDecision.ChangesRequested;
+			case 'REVIEW_REQUIRED':
+				return PullRequestReviewDecision.ReviewRequired;
+		}
+	}
+
+	export function toReviewDecision(reviewDecision: PullRequestReviewDecision): GitHubPullRequestReviewDecision {
+		switch (reviewDecision) {
+			case PullRequestReviewDecision.Approved:
+				return 'APPROVED';
+			case PullRequestReviewDecision.ChangesRequested:
+				return 'CHANGES_REQUESTED';
+			case PullRequestReviewDecision.ReviewRequired:
+				return 'REVIEW_REQUIRED';
+		}
+	}
+
+	export function fromMergeableState(mergeableState: GitHubPullRequestMergeableState): PullRequestMergeableState {
+		switch (mergeableState) {
+			case 'MERGEABLE':
+				return PullRequestMergeableState.Mergeable;
+			case 'CONFLICTING':
+				return PullRequestMergeableState.Conflicting;
+			case 'UNKNOWN':
+				return PullRequestMergeableState.Unknown;
+		}
+	}
+
+	export function toMergeableState(mergeableState: PullRequestMergeableState): GitHubPullRequestMergeableState {
+		switch (mergeableState) {
+			case PullRequestMergeableState.Mergeable:
+				return 'MERGEABLE';
+			case PullRequestMergeableState.Conflicting:
+				return 'CONFLICTING';
+			case PullRequestMergeableState.Unknown:
+				return 'UNKNOWN';
+		}
+	}
+
 	export function fromDetailed(pr: GitHubDetailedPullRequest, provider: RichRemoteProvider): PullRequest {
 		return new PullRequest(
 			provider,
@@ -201,6 +250,7 @@ export namespace GitHubPullRequest {
 			new Date(pr.updatedAt),
 			pr.closedAt == null ? undefined : new Date(pr.closedAt),
 			pr.mergedAt == null ? undefined : new Date(pr.mergedAt),
+			fromMergeableState(pr.mergeable),
 			{
 				head: {
 					exists: pr.headRepository != null,
@@ -221,6 +271,8 @@ export namespace GitHubPullRequest {
 			pr.isDraft,
 			pr.additions,
 			pr.deletions,
+			pr.totalCommentsCount,
+			fromReviewDecision(pr.reviewDecision),
 			pr.reviewRequests.nodes.map(r => ({
 				isCodeOwner: r.asCodeOwner,
 				reviewer: {
