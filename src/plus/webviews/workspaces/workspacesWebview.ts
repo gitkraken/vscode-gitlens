@@ -3,7 +3,7 @@ import { Commands, ContextKeys } from '../../../constants';
 import type { Container } from '../../../container';
 import { setContext } from '../../../context';
 import type { SearchedIssue } from '../../../git/models/issue';
-// import { serializeIssue } from '../../../git/models/issue';
+import { serializeIssue } from '../../../git/models/issue';
 import type { SearchedPullRequest } from '../../../git/models/pullRequest';
 import {
 	PullRequestMergeableState,
@@ -65,16 +65,16 @@ export class WorkspacesWebview extends WebviewBase<State> {
 			reasons: pr.reasons,
 		}));
 
-		// const issues = await this.getMyIssues();
-		// const serializedIssues = issues.map(issue => ({
-		// 	issue: serializeIssue(issue.issue),
-		// 	reasons: issue.reasons,
-		// }));
+		const issues = await this.getMyIssues();
+		const serializedIssues = issues.map(issue => ({
+			issue: serializeIssue(issue.issue),
+			reasons: issue.reasons,
+		}));
 
 		return {
 			// workspaces: await this.getWorkspaces(),
 			pullRequests: serializedPrs,
-			// myIssues: serializedIssues,
+			issues: serializedIssues,
 		};
 	}
 
@@ -155,6 +155,6 @@ export class WorkspacesWebview extends WebviewBase<State> {
 			allIssues.push(...issues.filter(pr => pr.reasons.length > 0));
 		}
 
-		return allIssues.sort((a, b) => b.issue.date.getTime() - a.issue.date.getTime());
+		return allIssues.sort((a, b) => b.issue.updatedDate.getTime() - a.issue.updatedDate.getTime());
 	}
 }

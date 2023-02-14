@@ -4,6 +4,7 @@ import type { PullRequestShape } from '../../../git/models/pullRequest';
 export type State = {
 	pullRequests?: PullRequestResult[];
 	issues?: IssueResult[];
+	repos?: IssueResult[];
 	[key: string]: unknown;
 };
 

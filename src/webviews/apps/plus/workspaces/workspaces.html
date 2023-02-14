@@ -49,8 +49,11 @@
 					<h2>My Issues</h2>
 				</header>
 				<div class="workspace-section__content">
-					<table-container>
+					<table-container id="issues">
 						<table-row slot="head">
+							<table-cell class="pr-status" header="column" pinned title="PR status">
+								<code-icon icon="issues"></code-icon>
+							</table-cell>
 							<table-cell class="pr-time" header="column" pinned title="Last updated">
 								<code-icon icon="gl-clock"></code-icon>
 							</table-cell>
@@ -63,34 +66,6 @@
 							<table-cell class="pr-checks" header="column" pinned title="Thumbs up">
 								<code-icon icon="thumbsup"></code-icon>
 							</table-cell>
-						</table-row>
-						<table-row>
-							<table-cell>6d</table-cell>
-							<table-cell>
-								Improve git blame contrast <a href="#">#2058</a><br />
-								<small>
-									<span class="tag"><code-icon icon="repo"></code-icon>vscode-gitlens</span>
-								</small>
-							</table-cell>
-							<table-cell>
-								<avatar-stack>
-									<avatar-item
-										media="https://www.gravatar.com/avatar/00000000000000000000000000000000?s=32&d=robohash"
-										title="eamodio"
-									></avatar-item>
-								</avatar-stack>
-							</table-cell>
-							<table-cell>
-								<avatar-stack>
-									<avatar-item
-										media="https://www.gravatar.com/avatar/00000000000000000000000000000000?s=32&d=robohash"
-										title="d13"
-									></avatar-item>
-									<avatar-item title="ramint and jschmoe">+2</avatar-item>
-								</avatar-stack>
-							</table-cell>
-							<table-cell>2</table-cell>
-							<table-cell>0</table-cell>
 						</table-row>
 					</table-container>
 				</div>
