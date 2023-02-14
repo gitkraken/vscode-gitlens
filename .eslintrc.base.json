@@ -12,11 +12,12 @@
 	],
 	"parser": "@typescript-eslint/parser",
 	"parserOptions": {
-		"ecmaVersion": 2019,
+		"ecmaVersion": 2022,
 		"sourceType": "module",
 		"ecmaFeatures": {
 			"impliedStrict": true
-		}
+		},
+		"project": true
 	},
 	"plugins": ["anti-trojan-source", "import", "@typescript-eslint"],
 	"reportUnusedDisableDirectives": true,
