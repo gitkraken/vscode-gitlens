@@ -432,13 +432,6 @@ export class GraphApp extends App<State> {
 			resultColor.luminance(themeLuminance(0.6)).toString(),
 		);
 
-		color = e.computedStyle.getPropertyValue('--vscode-gitDecoration-deletedResourceForeground').trim();
-		bodyStyle.setProperty('--color-graph-stats-deleted', color);
-		color = e.computedStyle.getPropertyValue('--vscode-gitDecoration-addedResourceForeground').trim();
-		bodyStyle.setProperty('--color-graph-stats-added', color);
-		color = e.computedStyle.getPropertyValue('--vscode-gitDecoration-modifiedResourceForeground').trim();
-		bodyStyle.setProperty('--color-graph-stats-files', color);
-
 		const pillLabel = foregroundColor.luminance(themeLuminance(e.isLightTheme ? 0 : 1)).toString();
 		const headBackground = headColor.luminance(themeLuminance(e.isLightTheme ? 0.9 : 0.2)).toString();
 		const headBorder = headColor.luminance(themeLuminance(e.isLightTheme ? 0.2 : 0.4)).toString();
