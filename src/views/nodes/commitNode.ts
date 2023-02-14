@@ -269,21 +269,17 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 			}
 		}
 
-		const tooltip = await CommitFormatter.fromTemplateAsync(
-			`\${link}\${' via 'pullRequest}\${'&nbsp;&nbsp;\u2022&nbsp;&nbsp;'changesDetail}\${'&nbsp;&nbsp;&nbsp;&nbsp;'tips}\n\n\${avatar} &nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\${\n\n---\n\nfootnotes}`,
-			this.commit,
-			{
-				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
-				dateFormat: configuration.get('defaultDateFormat'),
-				getBranchAndTagTips: this.getBranchAndTagTips,
-				messageAutolinks: true,
-				messageIndent: 4,
-				pullRequestOrRemote: pr,
-				outputFormat: 'markdown',
-				remotes: remotes,
-				unpublished: this.unpublished,
-			},
-		);
+		const tooltip = await CommitFormatter.fromTemplateAsync(this.view.config.formats.commits.tooltip, this.commit, {
+			autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
+			dateFormat: configuration.get('defaultDateFormat'),
+			getBranchAndTagTips: this.getBranchAndTagTips,
+			messageAutolinks: true,
+			messageIndent: 4,
+			pullRequestOrRemote: pr,
+			outputFormat: 'markdown',
+			remotes: remotes,
+			unpublished: this.unpublished,
+		});
 
 		const markdown = new MarkdownString(tooltip, true);
 		markdown.supportHtml = true;

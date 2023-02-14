@@ -775,40 +775,54 @@
 						"scope": "window",
 						"order": 31
 					},
+					"gitlens.views.formats.commits.tooltip": {
+						"type": "string",
+						"default": "${link}${' via 'pullRequest}${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail}${'&nbsp;&nbsp;&nbsp;&nbsp;'tips}\n\n${avatar} &nbsp;__${author}__, ${ago} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}",
+						"markdownDescription": "Specifies the tooltip format (in markdown) of commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.formats.commits.tooltipWithStatus": {
+						"type": "string",
+						"default": "${link}${' via 'pullRequest}&nbsp;&nbsp;•&nbsp;&nbsp;{{slot-status}}${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail}${'&nbsp;&nbsp;&nbsp;&nbsp;'tips}\n\n${avatar} &nbsp;__${author}__, ${ago} &nbsp; _(${date})_ \n\n${message}${\n\n---\n\nfootnotes}",
+						"markdownDescription": "Specifies the tooltip format (in markdown) of \"file\" commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+						"scope": "window",
+						"order": 32
+					},
 					"gitlens.views.formats.files.label": {
 						"type": "string",
 						"default": "${working  }${file}",
 						"markdownDescription": "Specifies the format of a file in the views. See [_File Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
 						"scope": "window",
-						"order": 32
+						"order": 40
 					},
 					"gitlens.views.formats.files.description": {
 						"type": "string",
 						"default": "${directory}${  ←  originalPath}",
 						"markdownDescription": "Specifies the description format of a file in the views. See [_File Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
 						"scope": "window",
-						"order": 33
+						"order": 41
 					},
 					"gitlens.views.formats.stashes.label": {
 						"type": "string",
 						"default": "${message}",
 						"markdownDescription": "Specifies the format of stashes in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
-						"order": 34
+						"order": 50
 					},
 					"gitlens.views.formats.stashes.description": {
 						"type": "string",
 						"default": "${stashOnRef, }${agoOrDate}",
 						"markdownDescription": "Specifies the description format of stashes in the views. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 						"scope": "window",
-						"order": 35
+						"order": 51
 					},
 					"gitlens.views.experimental.multiSelect.enabled": {
 						"type": "boolean",
 						"default": false,
 						"markdownDescription": "Specifies whether to enable experimental multi-select support in the views.\n**NOTE**: Requires a restart to take effect.",
 						"scope": "window",
-						"order": 35
+						"order": 60
 					},
 					"gitlens.views.commitFileFormat": {
 						"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",

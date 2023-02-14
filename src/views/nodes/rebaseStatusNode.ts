@@ -225,7 +225,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 		}
 
 		const tooltip = await CommitFormatter.fromTemplateAsync(
-			`Rebase paused at \${link}\${' via 'pullRequest}\${'&nbsp;&nbsp;\u2022&nbsp;&nbsp;'changesDetail}\${'&nbsp;&nbsp;&nbsp;&nbsp;'tips}\n\n\${avatar} &nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\${\n\n---\n\nfootnotes}`,
+			`Rebase paused at ${this.view.config.formats.commits.tooltip}`,
 			this.commit,
 			{
 				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
