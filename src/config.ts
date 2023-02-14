@@ -580,6 +580,8 @@ export interface ViewsCommonConfig {
 		commits: {
 			label: string;
 			description: string;
+			tooltip: string;
+			tooltipWithStatus: string;
 		};
 		files: {
 			label: string;

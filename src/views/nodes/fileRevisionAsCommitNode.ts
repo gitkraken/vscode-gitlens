@@ -229,9 +229,12 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 			}
 		}
 
-		const status = StatusFileFormatter.fromTemplate(`\${status}\${ (originalPath)}`, this.file);
+		const status = StatusFileFormatter.fromTemplate(
+			`\${status}\${ (originalPath)}\${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail}`,
+			this.file,
+		);
 		const tooltip = await CommitFormatter.fromTemplateAsync(
-			`\${link}\${' via 'pullRequest} \u2022 ${status}\${ \u2022 changesDetail}\${'&nbsp;&nbsp;&nbsp;'tips}\n\n\${avatar} &nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\${\n\n---\n\nfootnotes}`,
+			this.view.config.formats.commits.tooltipWithStatus.replace('{{slot-status}}', status),
 			this.commit,
 			{
 				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
