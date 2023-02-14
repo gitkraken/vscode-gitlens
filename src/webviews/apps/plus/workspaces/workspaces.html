@@ -6,159 +6,38 @@
 
 	<body class="preload app">
 		<header class="app__header">
-			<h1><code-icon icon="layers"></code-icon> Workspaces</h1>
+			<h1>Focus View</h1>
 		</header>
 
 		<main class="app__main">
 			<section class="workspace-section app__section">
 				<header class="workspace-section__header">
-					<h2>My Pull Requests Issues</h2>
+					<h2>My Pull Requests</h2>
 				</header>
 				<div class="workspace-section__content">
-					<table-container>
+					<table-container id="pull-requests">
 						<table-row slot="head">
-							<table-cell header="column" pinned>
+							<table-cell class="pr-status" header="column" pinned title="PR status"
+								><code-icon icon="git-pull-request"></code-icon
+							></table-cell>
+							<table-cell class="pr-time" header="column" pinned title="Last updated">
 								<code-icon icon="gl-clock"></code-icon>
 							</table-cell>
-							<table-cell header="column" pinned>Repo</table-cell>
-							<table-cell header="column" pinned>Title</table-cell>
-							<table-cell header="column" pinned>Author</table-cell>
-							<table-cell header="column" pinned>Assigned</table-cell>
-							<table-cell header="column" pinned>
+							<table-cell class="pr-body" header="column" pinned>Pull Request</table-cell>
+							<table-cell class="pr-author" header="column" pinned>Author</table-cell>
+							<table-cell class="pr-assigned" header="column" pinned>Assigned</table-cell>
+							<table-cell class="pr-comments" header="column" pinned title="Comments">
 								<code-icon icon="comment-discussion"></code-icon>
 							</table-cell>
-							<table-cell header="column" pinned>
-								<code-icon icon="pass"></code-icon>
-							</table-cell>
-							<table-cell header="column" pinned>
+							<table-cell class="pr-checks" header="column" pinned title="Checks">
 								<code-icon icon="tasklist"></code-icon>
 							</table-cell>
-							<table-cell header="column" pinned>
+							<table-cell class="pr-stats" header="column" pinned title="Change stats">
 								<code-icon icon="add"></code-icon>
-							</table-cell>
-							<table-cell header="column" pinned>
 								<code-icon icon="dash"></code-icon>
 							</table-cell>
-							<table-cell header="column" pinned>Links</table-cell>
-						</table-row>
-						<table-row>
-							<table-cell>7h</table-cell>
-							<table-cell><a href="#">GitKraken</a></table-cell>
-							<table-cell><a href="#">#7094</a> GK-1769 Engine Mods</table-cell>
-							<table-cell>eamodio</table-cell>
-							<table-cell>d13 +2</table-cell>
-							<table-cell>10</table-cell>
-							<table-cell><code-icon icon="check"></code-icon></table-cell>
-							<table-cell><code-icon icon="close"></code-icon></table-cell>
-							<table-cell>471</table-cell>
-							<table-cell>-206</table-cell>
-							<table-cell
-								><a href="#"><code-icon icon="link"></code-icon></a
-							></table-cell>
-						</table-row>
-						<table-row>
-							<table-cell>7h</table-cell>
-							<table-cell><a href="#">GitKraken</a></table-cell>
-							<table-cell><a href="#">#7094</a> GK-1769 Engine Mods</table-cell>
-							<table-cell>eamodio</table-cell>
-							<table-cell>d13 +2</table-cell>
-							<table-cell>10</table-cell>
-							<table-cell><code-icon icon="check"></code-icon></table-cell>
-							<table-cell><code-icon icon="close"></code-icon></table-cell>
-							<table-cell>471</table-cell>
-							<table-cell>-206</table-cell>
-							<table-cell
-								><a href="#"><code-icon icon="link"></code-icon></a
-							></table-cell>
-						</table-row>
-						<table-row>
-							<table-cell>7h</table-cell>
-							<table-cell><a href="#">GitKraken</a></table-cell>
-							<table-cell><a href="#">#7094</a> GK-1769 Engine Mods</table-cell>
-							<table-cell>eamodio</table-cell>
-							<table-cell>d13 +2</table-cell>
-							<table-cell>10</table-cell>
-							<table-cell><code-icon icon="check"></code-icon></table-cell>
-							<table-cell><code-icon icon="close"></code-icon></table-cell>
-							<table-cell>471</table-cell>
-							<table-cell>-206</table-cell>
-							<table-cell
-								><a href="#"><code-icon icon="link"></code-icon></a
-							></table-cell>
-						</table-row>
-						<table-row>
-							<table-cell>7h</table-cell>
-							<table-cell><a href="#">GitKraken</a></table-cell>
-							<table-cell><a href="#">#7094</a> GK-1769 Engine Mods</table-cell>
-							<table-cell>eamodio</table-cell>
-							<table-cell>d13 +2</table-cell>
-							<table-cell>10</table-cell>
-							<table-cell><code-icon icon="check"></code-icon></table-cell>
-							<table-cell><code-icon icon="close"></code-icon></table-cell>
-							<table-cell>471</table-cell>
-							<table-cell>-206</table-cell>
-							<table-cell
-								><a href="#"><code-icon icon="link"></code-icon></a
-							></table-cell>
-						</table-row>
-						<table-row>
-							<table-cell>7h</table-cell>
-							<table-cell><a href="#">GitKraken</a></table-cell>
-							<table-cell><a href="#">#7094</a> GK-1769 Engine Mods</table-cell>
-							<table-cell>eamodio</table-cell>
-							<table-cell>d13 +2</table-cell>
-							<table-cell>10</table-cell>
-							<table-cell><code-icon icon="check"></code-icon></table-cell>
-							<table-cell><code-icon icon="close"></code-icon></table-cell>
-							<table-cell>471</table-cell>
-							<table-cell>-206</table-cell>
-							<table-cell
-								><a href="#"><code-icon icon="link"></code-icon></a
-							></table-cell>
-						</table-row>
-						<table-row>
-							<table-cell>7h</table-cell>
-							<table-cell><a href="#">GitKraken</a></table-cell>
-							<table-cell><a href="#">#7094</a> GK-1769 Engine Mods</table-cell>
-							<table-cell>eamodio</table-cell>
-							<table-cell>d13 +2</table-cell>
-							<table-cell>10</table-cell>
-							<table-cell><code-icon icon="check"></code-icon></table-cell>
-							<table-cell><code-icon icon="close"></code-icon></table-cell>
-							<table-cell>471</table-cell>
-							<table-cell>-206</table-cell>
-							<table-cell
-								><a href="#"><code-icon icon="link"></code-icon></a
-							></table-cell>
-						</table-row>
-						<table-row>
-							<table-cell>7h</table-cell>
-							<table-cell><a href="#">GitKraken</a></table-cell>
-							<table-cell><a href="#">#7094</a> GK-1769 Engine Mods</table-cell>
-							<table-cell>eamodio</table-cell>
-							<table-cell>d13 +2</table-cell>
-							<table-cell>10</table-cell>
-							<table-cell><code-icon icon="check"></code-icon></table-cell>
-							<table-cell><code-icon icon="close"></code-icon></table-cell>
-							<table-cell>471</table-cell>
-							<table-cell>-206</table-cell>
-							<table-cell
-								><a href="#"><code-icon icon="link"></code-icon></a
-							></table-cell>
-						</table-row>
-						<table-row>
-							<table-cell>7h</table-cell>
-							<table-cell><a href="#">GitKraken</a></table-cell>
-							<table-cell><a href="#">#7094</a> GK-1769 Engine Mods</table-cell>
-							<table-cell>eamodio</table-cell>
-							<table-cell>d13 +2</table-cell>
-							<table-cell>10</table-cell>
-							<table-cell><code-icon icon="check"></code-icon></table-cell>
-							<table-cell><code-icon icon="close"></code-icon></table-cell>
-							<table-cell>471</table-cell>
-							<table-cell>-206</table-cell>
-							<table-cell
-								><a href="#"><code-icon icon="link"></code-icon></a
+							<table-cell class="pr-actions" header="column" pinned
+								><code-icon icon="blank" title="actions"></code-icon
 							></table-cell>
 						</table-row>
 					</table-container>
@@ -172,89 +51,44 @@
 				<div class="workspace-section__content">
 					<table-container>
 						<table-row slot="head">
-							<table-cell header="column" pinned>
+							<table-cell class="pr-time" header="column" pinned title="Last updated">
 								<code-icon icon="gl-clock"></code-icon>
 							</table-cell>
-							<table-cell header="column" pinned>Repo</table-cell>
 							<table-cell header="column" pinned>Title</table-cell>
-							<table-cell header="column" pinned>Author</table-cell>
-							<table-cell header="column" pinned>Assigned</table-cell>
-							<table-cell header="column" pinned>
+							<table-cell class="pr-author" header="column" pinned>Author</table-cell>
+							<table-cell class="pr-assigned" header="column" pinned>Assignees</table-cell>
+							<table-cell class="pr-comments" header="column" pinned title="Comments">
 								<code-icon icon="comment-discussion"></code-icon>
 							</table-cell>
-							<table-cell header="column" pinned>
+							<table-cell class="pr-checks" header="column" pinned title="Thumbs up">
 								<code-icon icon="thumbsup"></code-icon>
 							</table-cell>
 						</table-row>
 						<table-row>
 							<table-cell>6d</table-cell>
-							<table-cell><a href="#">vscode-gitlens</a></table-cell>
-							<table-cell><a href="#">#2058</a> Improve git blame contrast</table-cell>
-							<table-cell>mejiaj</table-cell>
-							<table-cell>d13</table-cell>
-							<table-cell>2</table-cell>
-							<table-cell>0</table-cell>
-						</table-row>
-						<table-row>
-							<table-cell>6d</table-cell>
-							<table-cell><a href="#">vscode-gitlens</a></table-cell>
-							<table-cell><a href="#">#2058</a> Improve git blame contrast</table-cell>
-							<table-cell>mejiaj</table-cell>
-							<table-cell>d13</table-cell>
-							<table-cell>2</table-cell>
-							<table-cell>0</table-cell>
-						</table-row>
-						<table-row>
-							<table-cell>6d</table-cell>
-							<table-cell><a href="#">vscode-gitlens</a></table-cell>
-							<table-cell><a href="#">#2058</a> Improve git blame contrast</table-cell>
-							<table-cell>mejiaj</table-cell>
-							<table-cell>d13</table-cell>
-							<table-cell>2</table-cell>
-							<table-cell>0</table-cell>
-						</table-row>
-						<table-row>
-							<table-cell>6d</table-cell>
-							<table-cell><a href="#">vscode-gitlens</a></table-cell>
-							<table-cell><a href="#">#2058</a> Improve git blame contrast</table-cell>
-							<table-cell>mejiaj</table-cell>
-							<table-cell>d13</table-cell>
-							<table-cell>2</table-cell>
-							<table-cell>0</table-cell>
-						</table-row>
-						<table-row>
-							<table-cell>6d</table-cell>
-							<table-cell><a href="#">vscode-gitlens</a></table-cell>
-							<table-cell><a href="#">#2058</a> Improve git blame contrast</table-cell>
-							<table-cell>mejiaj</table-cell>
-							<table-cell>d13</table-cell>
-							<table-cell>2</table-cell>
-							<table-cell>0</table-cell>
-						</table-row>
-						<table-row>
-							<table-cell>6d</table-cell>
-							<table-cell><a href="#">vscode-gitlens</a></table-cell>
-							<table-cell><a href="#">#2058</a> Improve git blame contrast</table-cell>
-							<table-cell>mejiaj</table-cell>
-							<table-cell>d13</table-cell>
-							<table-cell>2</table-cell>
-							<table-cell>0</table-cell>
-						</table-row>
-						<table-row>
-							<table-cell>6d</table-cell>
-							<table-cell><a href="#">vscode-gitlens</a></table-cell>
-							<table-cell><a href="#">#2058</a> Improve git blame contrast</table-cell>
-							<table-cell>mejiaj</table-cell>
-							<table-cell>d13</table-cell>
-							<table-cell>2</table-cell>
-							<table-cell>0</table-cell>
-						</table-row>
-						<table-row>
-							<table-cell>6d</table-cell>
-							<table-cell><a href="#">vscode-gitlens</a></table-cell>
-							<table-cell><a href="#">#2058</a> Improve git blame contrast</table-cell>
-							<table-cell>mejiaj</table-cell>
-							<table-cell>d13</table-cell>
+							<table-cell>
+								Improve git blame contrast <a href="#">#2058</a><br />
+								<small>
+									<span class="tag"><code-icon icon="repo"></code-icon>vscode-gitlens</span>
+								</small>
+							</table-cell>
+							<table-cell>
+								<avatar-stack>
+									<avatar-item
+										media="https://www.gravatar.com/avatar/00000000000000000000000000000000?s=32&d=robohash"
+										title="eamodio"
+									></avatar-item>
+								</avatar-stack>
+							</table-cell>
+							<table-cell>
+								<avatar-stack>
+									<avatar-item
+										media="https://www.gravatar.com/avatar/00000000000000000000000000000000?s=32&d=robohash"
+										title="d13"
+									></avatar-item>
+									<avatar-item title="ramint and jschmoe">+2</avatar-item>
+								</avatar-stack>
+							</table-cell>
 							<table-cell>2</table-cell>
 							<table-cell>0</table-cell>
 						</table-row>
@@ -270,15 +104,26 @@
 					<table-container>
 						<table-row slot="head">
 							<table-cell header="column" pinned>Repo</table-cell>
-							<table-cell header="column" pinned>Branch</table-cell>
 							<table-cell header="column" pinned>Stats</table-cell>
+							<table-cell header="column" pinned>Branch</table-cell>
 							<table-cell header="column" pinned>Remote</table-cell>
 						</table-row>
 						<table-row>
-							<table-cell><a href="#">vscode-gitlens</a></table-cell>
-							<table-cell><code-icon icon="source-control"></code-icon> feature/workspaces</table-cell>
-							<table-cell>+100 -50</table-cell>
-							<table-cell><a href="#">gitkraken/vscode-gitlens</a></table-cell>
+							<table-cell>vscode-gitlens</table-cell>
+							<table-cell
+								><span class="stat-added">+50</span> <span class="stat-modified">~100</span>
+								<span class="stat-deleted">-206</span></table-cell
+							>
+							<table-cell
+								><span class="tag"
+									><code-icon icon="source-control"></code-icon>feature/workspaces</span
+								></table-cell
+							>
+							<table-cell
+								><span class="tag"
+									><code-icon icon="repo"></code-icon>gitkraken/vscode-gitlens</span
+								></table-cell
+							>
 						</table-row>
 					</table-container>
 				</div>
