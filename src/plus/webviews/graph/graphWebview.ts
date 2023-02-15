@@ -1225,9 +1225,10 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		const columns = this.getColumns();
+		const columnSettings = this.getColumnSettings(columns);
 		return this.notify(DidChangeColumnsNotificationType, {
-			columns: this.getColumnSettings(columns),
-			context: this.getColumnHeaderContext(columns),
+			columns: columnSettings,
+			context: this.getColumnHeaderContext(columnSettings),
 		});
 	}
 
@@ -1631,13 +1632,11 @@ export class GraphWebview extends WebviewBase<State> {
 		return columnsSettings;
 	}
 
-	private getColumnHeaderContext(columns: Record<GraphColumnName, GraphColumnConfig> | undefined): string {
+	private getColumnHeaderContext(columnSettings: GraphColumnsSettings): string {
 		const hidden: string[] = [];
-		if (columns != null) {
-			for (const [name, cfg] of Object.entries(columns)) {
-				if (cfg.isHidden) {
-					hidden.push(name);
-				}
+		for (const [name, settings] of Object.entries(columnSettings)) {
+			if (settings.isHidden) {
+				hidden.push(name);
 			}
 		}
 		return serializeWebviewItemContext<GraphItemContext>({
@@ -1784,7 +1783,9 @@ export class GraphWebview extends WebviewBase<State> {
 			this.repository.path,
 			this._panel!.webview.asWebviewUri.bind(this._panel!.webview),
 			{
-				include: { stats: configuration.get('graph.experimental.minimap.enabled') || !columnSettings.changes.isHidden },
+				include: {
+					stats: configuration.get('graph.experimental.minimap.enabled') || !columnSettings.changes.isHidden,
+				},
 				limit: limit,
 				ref: ref,
 			},
@@ -1841,7 +1842,7 @@ export class GraphWebview extends WebviewBase<State> {
 			columns: columnSettings,
 			config: this.getComponentConfig(),
 			context: {
-				header: this.getColumnHeaderContext(columns),
+				header: this.getColumnHeaderContext(columnSettings),
 			},
 			excludeRefs: data != null ? this.getExcludedRefs(data) ?? {} : {},
 			excludeTypes: this.getExcludedTypes(data) ?? {},
@@ -2502,6 +2503,10 @@ export class GraphWebview extends WebviewBase<State> {
 		await this.container.storage.storeWorkspace('graph:columns', columns);
 
 		void this.notifyDidChangeColumns();
+
+		if (name === 'changes' && !column.isHidden && !this._graph?.includes?.stats) {
+			this.updateState();
+		}
 	}
 
 	private getGraphItemRef(item?: GraphItemContext | unknown | undefined): GitReference | undefined;
