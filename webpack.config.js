@@ -19,7 +19,7 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const path = require('path');
 const { validate } = require('schema-utils');
 const TerserPlugin = require('terser-webpack-plugin');
-const { WebpackError, optimize, webpack } = require('webpack');
+const { DefinePlugin, optimize, WebpackError } = require('webpack');
 const WebpackRequireFromPlugin = require('webpack-require-from');
 
 module.exports =
@@ -285,6 +285,9 @@ function getWebviewsConfig(mode, env) {
 				  }
 				: undefined,
 		),
+		new DefinePlugin({
+			DEBUG: mode === 'development',
+		}),
 		new ForkTsCheckerPlugin({
 			async: false,
 			eslint: {
