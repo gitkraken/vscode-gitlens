@@ -13,6 +13,7 @@ import { once } from '../../system/event';
 import { openWorkspace, OpenWorkspaceLocation } from '../../system/utils';
 import type { DeepLink, DeepLinkServiceContext } from './deepLink';
 import {
+	DeepLinkRepoOpenType,
 	DeepLinkServiceAction,
 	DeepLinkServiceState,
 	deepLinkStateTransitionTable,
@@ -161,17 +162,37 @@ export class DeepLinkService implements Disposable {
 		return undefined;
 	}
 
-	private async showOpenRepoPrompt(): Promise<OpenWorkspaceLocation | undefined> {
-		const result = await window.showInformationMessage(
-			`No matching repository found. Please choose an option to open the repository.`,
+	private async showOpenTypePrompt(): Promise<DeepLinkRepoOpenType | undefined> {
+		const openTypeResult = await window.showInformationMessage(
+			'No matching repository found. Please choose an option.',
 			{ modal: true },
-			{ title: 'Open in Current Window', action: OpenWorkspaceLocation.CurrentWindow },
-			{ title: 'Open in New Window', action: OpenWorkspaceLocation.NewWindow },
-			{ title: 'Add to Workspace', action: OpenWorkspaceLocation.AddToWorkspace },
+			{ title: 'Open Folder', action: DeepLinkRepoOpenType.Folder },
+			{ title: 'Open Workspace', action: DeepLinkRepoOpenType.Workspace },
 			{ title: 'Cancel', isCloseAffordance: true },
 		);
 
-		return result?.action;
+		return openTypeResult?.action;
+	}
+
+	private async showOpenLocationPrompt(openType: DeepLinkRepoOpenType): Promise<OpenWorkspaceLocation | undefined> {
+		// Only add the "add to workspace" option if openType is DeepLinkRepoOpenType.Folder
+		const openOptions: { title: string; action?: OpenWorkspaceLocation; isCloseAffordance?: boolean }[] = [
+			{ title: 'Open', action: OpenWorkspaceLocation.CurrentWindow },
+			{ title: 'Open in New Window', action: OpenWorkspaceLocation.NewWindow },
+		];
+
+		if (openType === DeepLinkRepoOpenType.Folder) {
+			openOptions.push({ title: 'Add to Workspace', action: OpenWorkspaceLocation.AddToWorkspace });
+		}
+
+		openOptions.push({ title: 'Cancel', isCloseAffordance: true });
+		const openLocationResult = await window.showInformationMessage(
+			`Please choose an option to open the repository ${openType}.`,
+			{ modal: true },
+			...openOptions,
+		);
+
+		return openLocationResult?.action;
 	}
 
 	private async processDeepLink(
@@ -186,6 +207,7 @@ export class DeepLinkService implements Disposable {
 		let remotePath = '';
 
 		// Repo open
+		let repoOpenType;
 		let repoOpenLocation;
 		let repoOpenUri: Uri | undefined = undefined;
 
@@ -250,7 +272,13 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					repoOpenLocation = await this.showOpenRepoPrompt();
+					repoOpenType = await this.showOpenTypePrompt();
+					if (!repoOpenType) {
+						action = DeepLinkServiceAction.DeepLinkCancelled;
+						break;
+					}
+
+					repoOpenLocation = await this.showOpenLocationPrompt(repoOpenType);
 					if (!repoOpenLocation) {
 						action = DeepLinkServiceAction.DeepLinkCancelled;
 						break;
@@ -259,10 +287,13 @@ export class DeepLinkService implements Disposable {
 					// TODO@ramint Add cloning
 					repoOpenUri = (
 						await window.showOpenDialog({
-							title: 'Open Repository for Link',
-							canSelectFiles: false,
-							canSelectFolders: true,
+							title: `Open ${repoOpenType} for link`,
+							canSelectFiles: repoOpenType === DeepLinkRepoOpenType.Workspace,
+							canSelectFolders: repoOpenType === DeepLinkRepoOpenType.Folder,
 							canSelectMany: false,
+							...(repoOpenType === DeepLinkRepoOpenType.Workspace && {
+								filters: { Workspaces: ['code-workspace'] },
+							}),
 						})
 					)?.[0];
 

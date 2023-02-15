@@ -111,6 +111,11 @@ export const enum DeepLinkServiceAction {
 	TargetFetched,
 }
 
+export const enum DeepLinkRepoOpenType {
+	Folder = 'folder',
+	Workspace = 'workspace',
+}
+
 export interface DeepLinkServiceContext {
 	state: DeepLinkServiceState;
 	url?: string | undefined;
