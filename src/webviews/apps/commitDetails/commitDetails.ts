@@ -50,7 +50,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 	}
 
 	override onInitialize() {
-		this.log(`${this.appName}.onInitialize`);
+		this.log(`onInitialize()`);
 		this.renderContent();
 	}
 
@@ -90,7 +90,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 
 	protected override onMessageReceived(e: MessageEvent) {
 		const msg = e.data as IpcMessage;
-		this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
+		this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
 
 		switch (msg.method) {
 			// case DidChangeRichStateNotificationType.method:

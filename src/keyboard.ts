@@ -2,8 +2,9 @@ import { Disposable } from 'vscode';
 import { ContextKeys } from './constants';
 import { setContext } from './context';
 import { Logger } from './logger';
+import { getLogScope } from './logScope';
 import { registerCommand } from './system/command';
-import { getLogScope, log } from './system/decorators/log';
+import { log } from './system/decorators/log';
 
 export declare interface KeyCommand {
 	onDidPressKey?(key: Keys): void | Promise<void>;

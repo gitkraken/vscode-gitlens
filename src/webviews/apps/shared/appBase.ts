@@ -1,4 +1,6 @@
 /*global window document*/
+import { LogLevel } from '../../../constants';
+import { Logger } from '../../../logger';
 import { debounce } from '../../../system/function';
 import type {
 	IpcCommandType,
@@ -42,8 +44,29 @@ export abstract class App<State = undefined> {
 		this.state = (window as any).bootstrap;
 		(window as any).bootstrap = undefined;
 
-		this.log(`${this.appName}()`);
-		// this.log(`${this.appName}(${this.state ? JSON.stringify(this.state) : ''})`);
+		Logger.configure(
+			{
+				name: appName,
+				createChannel: function (name: string) {
+					return {
+						name: name,
+						appendLine: function (value: string) {
+							console.log(`[${name}] ${value}`);
+						},
+						dispose: function () {
+							// noop
+						},
+						show: function (_preserveFocus?: boolean) {
+							// noop
+						},
+					};
+				},
+			},
+			LogLevel.Debug,
+		);
+
+		this.log(`ctor()`);
+		// this.log(`ctor(${this.state ? JSON.stringify(this.state) : ''})`);
 
 		this._api = acquireVsCodeApi();
 
@@ -55,7 +78,7 @@ export abstract class App<State = undefined> {
 		disposables.push(initializeAndWatchThemeColors());
 
 		requestAnimationFrame(() => {
-			this.log(`${this.appName}.initializing`);
+			this.log(`ctor(): initializing...`);
 
 			try {
 				this.onInitialize?.();
@@ -129,7 +152,7 @@ export abstract class App<State = undefined> {
 	}
 
 	protected log(message: string, ...optionalParams: any[]) {
-		console.log(message, ...optionalParams);
+		Logger.log(message, ...optionalParams);
 	}
 
 	protected getState(): State {
@@ -141,7 +164,7 @@ export abstract class App<State = undefined> {
 		params: IpcMessageParams<TCommand>,
 	): void {
 		const id = nextIpcId();
-		this.log(`${this.appName}.sendCommand(${id}): name=${command.method}`);
+		this.log(`sendCommand(${id}): name=${command.method}`);
 
 		this.postMessage({ id: id, method: command.method, params: params });
 	}
@@ -155,7 +178,7 @@ export abstract class App<State = undefined> {
 		completion: TCompletion,
 	): Promise<IpcMessageParams<TCompletion>> {
 		const id = nextIpcId();
-		this.log(`${this.appName}.sendCommandWithCompletion(${id}): name=${command.method}`);
+		this.log(`sendCommandWithCompletion(${id}): name=${command.method}`);
 
 		const promise = new Promise<IpcMessageParams<TCompletion>>((resolve, reject) => {
 			let timeout: ReturnType<typeof setTimeout> | undefined;

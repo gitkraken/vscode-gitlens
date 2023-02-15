@@ -4,7 +4,8 @@ import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
-import { debug, getLogScope } from '../system/decorators/log';
+import { getLogScope } from '../logScope';
+import { debug } from '../system/decorators/log';
 import type {
 	DocumentBlameStateChangeEvent,
 	DocumentContentChangeEvent,

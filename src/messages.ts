@@ -1,9 +1,9 @@
 import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, env, Uri, window } from 'vscode';
 import { configuration, SuppressedMessages } from './configuration';
-import { Commands } from './constants';
+import { Commands, LogLevel } from './constants';
 import type { GitCommit } from './git/models/commit';
-import { Logger, LogLevel } from './logger';
+import { Logger } from './logger';
 import { executeCommand } from './system/command';
 
 export function showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit): Promise<MessageItem | undefined> {

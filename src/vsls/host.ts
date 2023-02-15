@@ -4,7 +4,8 @@ import { git } from '@env/providers';
 import type { LiveShare, SharedService } from '../@types/vsls';
 import type { Container } from '../container';
 import { Logger } from '../logger';
-import { debug, getLogScope, log } from '../system/decorators/log';
+import { getLogScope } from '../logScope';
+import { debug, log } from '../system/decorators/log';
 import { join } from '../system/iterable';
 import { isVslsRoot, normalizePath } from '../system/path';
 import type {

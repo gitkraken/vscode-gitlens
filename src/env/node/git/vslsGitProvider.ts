@@ -6,7 +6,7 @@ import type { GitProviderDescriptor } from '../../../git/gitProvider';
 import { GitProviderId } from '../../../git/gitProvider';
 import type { Repository } from '../../../git/models/repository';
 import { Logger } from '../../../logger';
-import { getLogScope } from '../../../system/decorators/log';
+import { getLogScope } from '../../../logScope';
 import { addVslsPrefixIfNeeded } from '../../../system/path';
 import { Git } from './git';
 import { LocalGitProvider } from './localGitProvider';

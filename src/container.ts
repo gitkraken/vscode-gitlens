@@ -9,7 +9,7 @@ import { setDefaultGravatarsStyle } from './avatars';
 import { GitCodeLensController } from './codelens/codeLensController';
 import type { ToggleFileAnnotationCommandArgs } from './commands';
 import type { FileAnnotationType, ModeConfig } from './configuration';
-import { AnnotationsToggleMode, configuration, DateSource, DateStyle } from './configuration';
+import { AnnotationsToggleMode, configuration, DateSource, DateStyle, fromOutputLevel } from './configuration';
 import { Commands } from './constants';
 import { EventBus } from './eventBus';
 import { GitFileSystemProvider } from './git/fsProvider';
@@ -259,7 +259,7 @@ export class Container {
 		this._mode = undefined;
 
 		if (configuration.changed(e, 'outputLevel')) {
-			Logger.logLevel = configuration.get('outputLevel');
+			Logger.logLevel = fromOutputLevel(configuration.get('outputLevel'));
 		}
 
 		if (configuration.changed(e, 'defaultGravatarsStyle')) {

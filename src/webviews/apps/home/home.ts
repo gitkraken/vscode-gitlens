@@ -85,7 +85,7 @@ export class HomeApp extends App<State> {
 
 		switch (msg.method) {
 			case DidChangeSubscriptionNotificationType.method:
-				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
+				this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
 
 				onIpc(DidChangeSubscriptionNotificationType, msg, params => {
 					this.state.subscription = params.subscription;
@@ -96,7 +96,7 @@ export class HomeApp extends App<State> {
 				});
 				break;
 			case DidChangeExtensionEnabledType.method:
-				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
+				this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
 
 				onIpc(DidChangeExtensionEnabledType, msg, params => {
 					this.state.extensionEnabled = params.extensionEnabled;
@@ -104,7 +104,7 @@ export class HomeApp extends App<State> {
 				});
 				break;
 			case DidChangeConfigurationType.method:
-				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
+				this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
 
 				onIpc(DidChangeConfigurationType, msg, params => {
 					this.state.plusEnabled = params.plusEnabled;
@@ -112,7 +112,7 @@ export class HomeApp extends App<State> {
 				});
 				break;
 			case DidChangeLayoutType.method:
-				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
+				this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
 
 				onIpc(DidChangeLayoutType, msg, params => {
 					this.state.layout = params.layout;

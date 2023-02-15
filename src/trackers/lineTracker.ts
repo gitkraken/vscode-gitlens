@@ -1,7 +1,8 @@
 import type { Event, Selection, TextEditor, TextEditorSelectionChangeEvent } from 'vscode';
 import { Disposable, EventEmitter, window } from 'vscode';
 import { Logger } from '../logger';
-import { debug, getLogScope } from '../system/decorators/log';
+import { getLogScope } from '../logScope';
+import { debug } from '../system/decorators/log';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
 import { isTextEditor } from '../system/utils';
