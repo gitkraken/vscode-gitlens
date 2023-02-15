@@ -5,105 +5,190 @@
 	</head>
 
 	<body class="preload app">
-		<header class="app__header">
+		<header class="app__header" style="display: none">
 			<h1>Focus View</h1>
 		</header>
 
-		<main class="app__main">
-			<section class="workspace-section app__section">
-				<header class="workspace-section__header">
-					<h2>My Pull Requests</h2>
-				</header>
-				<div class="workspace-section__content">
-					<table-container id="pull-requests">
-						<table-row slot="head">
-							<table-cell class="pr-status" header="column" pinned title="PR status"
-								><code-icon icon="git-pull-request"></code-icon
-							></table-cell>
-							<table-cell class="pr-time" header="column" pinned title="Last updated">
-								<code-icon icon="gl-clock"></code-icon>
-							</table-cell>
-							<table-cell class="pr-body" header="column" pinned>Pull Request</table-cell>
-							<table-cell class="pr-author" header="column" pinned>Author</table-cell>
-							<table-cell class="pr-assigned" header="column" pinned>Assigned</table-cell>
-							<table-cell class="pr-comments" header="column" pinned title="Comments">
-								<code-icon icon="comment-discussion"></code-icon>
-							</table-cell>
-							<table-cell class="pr-checks" header="column" pinned title="Checks">
-								<code-icon icon="tasklist"></code-icon>
-							</table-cell>
-							<table-cell class="pr-stats" header="column" pinned title="Change stats">
-								<code-icon icon="add"></code-icon>
-								<code-icon icon="dash"></code-icon>
-							</table-cell>
-							<table-cell class="pr-actions" header="column" pinned
-								><code-icon icon="blank" title="actions"></code-icon
-							></table-cell>
-						</table-row>
-					</table-container>
-				</div>
-			</section>
+		<div class="app__content">
+			<main class="app__main">
+				<section class="workspace-section app__section">
+					<header class="workspace-section__header">
+						<h2>My Pull Requests</h2>
+					</header>
+					<div class="workspace-section__content">
+						<table-container id="pull-requests">
+							<table-row slot="head">
+								<table-cell class="pr-status" header="column" pinned title="PR status"
+									><code-icon icon="git-pull-request"></code-icon
+								></table-cell>
+								<table-cell class="pr-time" header="column" pinned title="Last updated">
+									<code-icon icon="gl-clock"></code-icon>
+								</table-cell>
+								<table-cell class="pr-body" header="column" pinned>Pull Request</table-cell>
+								<table-cell class="pr-author" header="column" pinned>Author</table-cell>
+								<table-cell class="pr-assigned" header="column" pinned>Assigned</table-cell>
+								<table-cell class="pr-comments" header="column" pinned title="Comments">
+									<code-icon icon="comment-discussion"></code-icon>
+								</table-cell>
+								<table-cell class="pr-checks" header="column" pinned title="Checks">
+									<code-icon icon="tasklist"></code-icon>
+								</table-cell>
+								<table-cell class="pr-stats" header="column" pinned title="Change stats">
+									<code-icon icon="add"></code-icon>
+									<code-icon icon="dash"></code-icon>
+								</table-cell>
+								<table-cell class="pr-actions" header="column" pinned
+									><code-icon icon="blank" title="actions"></code-icon
+								></table-cell>
+							</table-row>
+						</table-container>
+					</div>
+				</section>
 
-			<section class="workspace-section app__section">
-				<header class="workspace-section__header">
-					<h2>My Issues</h2>
-				</header>
-				<div class="workspace-section__content">
-					<table-container id="issues">
-						<table-row slot="head">
-							<table-cell class="pr-status" header="column" pinned title="PR status">
-								<code-icon icon="issues"></code-icon>
-							</table-cell>
-							<table-cell class="pr-time" header="column" pinned title="Last updated">
-								<code-icon icon="gl-clock"></code-icon>
-							</table-cell>
-							<table-cell header="column" pinned>Title</table-cell>
-							<table-cell class="pr-author" header="column" pinned>Author</table-cell>
-							<table-cell class="pr-assigned" header="column" pinned>Assignees</table-cell>
-							<table-cell class="pr-comments" header="column" pinned title="Comments">
-								<code-icon icon="comment-discussion"></code-icon>
-							</table-cell>
-							<table-cell class="pr-checks" header="column" pinned title="Thumbs up">
-								<code-icon icon="thumbsup"></code-icon>
-							</table-cell>
-						</table-row>
-					</table-container>
-				</div>
-			</section>
+				<section class="workspace-section app__section">
+					<header class="workspace-section__header">
+						<h2>My Issues</h2>
+					</header>
+					<div class="workspace-section__content">
+						<table-container id="issues">
+							<table-row slot="head">
+								<table-cell class="pr-status" header="column" pinned title="PR status">
+									<code-icon icon="issues"></code-icon>
+								</table-cell>
+								<table-cell class="pr-time" header="column" pinned title="Last updated">
+									<code-icon icon="gl-clock"></code-icon>
+								</table-cell>
+								<table-cell header="column" pinned>Title</table-cell>
+								<table-cell class="pr-author" header="column" pinned>Author</table-cell>
+								<table-cell class="pr-assigned" header="column" pinned>Assignees</table-cell>
+								<table-cell class="pr-comments" header="column" pinned title="Comments">
+									<code-icon icon="comment-discussion"></code-icon>
+								</table-cell>
+								<table-cell class="pr-checks" header="column" pinned title="Thumbs up">
+									<code-icon icon="thumbsup"></code-icon>
+								</table-cell>
+							</table-row>
+						</table-container>
+					</div>
+				</section>
 
-			<section class="workspace-section app__section">
-				<header class="workspace-section__header">
-					<h2>Work in Progress</h2>
-				</header>
-				<div class="workspace-section__content">
-					<table-container>
-						<table-row slot="head">
-							<table-cell header="column" pinned>Repo</table-cell>
-							<table-cell header="column" pinned>Stats</table-cell>
-							<table-cell header="column" pinned>Branch</table-cell>
-							<table-cell header="column" pinned>Remote</table-cell>
-						</table-row>
-						<table-row>
-							<table-cell>vscode-gitlens</table-cell>
-							<table-cell
-								><span class="stat-added">+50</span> <span class="stat-modified">~100</span>
-								<span class="stat-deleted">-206</span></table-cell
-							>
-							<table-cell
-								><span class="tag"
-									><code-icon icon="source-control"></code-icon>feature/workspaces</span
-								></table-cell
-							>
-							<table-cell
-								><span class="tag"
-									><code-icon icon="repo"></code-icon>gitkraken/vscode-gitlens</span
-								></table-cell
-							>
-						</table-row>
-					</table-container>
-				</div>
-			</section>
-		</main>
+				<section class="workspace-section app__section">
+					<header class="workspace-section__header">
+						<h2>Work in Progress</h2>
+					</header>
+					<div class="workspace-section__content">
+						<table-container>
+							<table-row slot="head">
+								<table-cell header="column" pinned>Repo</table-cell>
+								<table-cell header="column" pinned>Stats</table-cell>
+								<table-cell header="column" pinned>Branch</table-cell>
+								<table-cell header="column" pinned>Remote</table-cell>
+							</table-row>
+							<table-row>
+								<table-cell>vscode-gitlens</table-cell>
+								<table-cell
+									><span class="stat-added">+50</span> <span class="stat-modified">~100</span>
+									<span class="stat-deleted">-206</span></table-cell
+								>
+								<table-cell
+									><span class="tag"
+										><code-icon icon="source-control"></code-icon>feature/workspaces</span
+									></table-cell
+								>
+								<table-cell
+									><span class="tag"
+										><code-icon icon="repo"></code-icon>gitkraken/vscode-gitlens</span
+									></table-cell
+								>
+							</table-row>
+						</table-container>
+					</div>
+				</section>
+			</main>
+			<menu-list class="app__controls">
+				<menu-label>Type</menu-label>
+				<menu-item role="none">
+					<div class="choice">
+						<input class="choice__input" type="checkbox" id="filter-prs" value="mentioned" checked />
+						<span class="choice__indicator"
+							><code-icon class="choice__indicator" icon="check"></code-icon
+						></span>
+						<label class="choice__label" for="filter-prs">Pull requests</label>
+					</div>
+				</menu-item>
+				<menu-item role="none">
+					<div class="choice">
+						<input class="choice__input" type="checkbox" id="filter-issues" value="mentioned" checked />
+						<span class="choice__indicator"
+							><code-icon class="choice__indicator" icon="check"></code-icon
+						></span>
+						<label class="choice__label" for="filter-issues">Issues</label>
+					</div>
+				</menu-item>
+				<menu-divider></menu-divider>
+				<menu-label>Association</menu-label>
+				<menu-item role="none">
+					<div class="choice">
+						<input class="choice__input" type="checkbox" id="filter-assigned" value="assigned" checked />
+						<span class="choice__indicator"
+							><code-icon class="choice__indicator" icon="check"></code-icon
+						></span>
+						<label class="choice__label" for="filter-assigned">Assigned to me</label>
+					</div>
+				</menu-item>
+				<menu-item role="none">
+					<div class="choice">
+						<input class="choice__input" type="checkbox" id="filter-created" value="authored" checked />
+						<span class="choice__indicator"
+							><code-icon class="choice__indicator" icon="check"></code-icon
+						></span>
+						<label class="choice__label" for="filter-created">Created by me</label>
+					</div>
+				</menu-item>
+				<menu-item role="none">
+					<div class="choice">
+						<input
+							class="choice__input"
+							type="checkbox"
+							id="filter-review-requested"
+							value="review-requested"
+							checked
+						/>
+						<span class="choice__indicator"
+							><code-icon class="choice__indicator" icon="check"></code-icon
+						></span>
+						<label class="choice__label" for="filter-review-requested">Review requested</label>
+					</div>
+				</menu-item>
+				<menu-item role="none">
+					<div class="choice">
+						<input class="choice__input" type="checkbox" id="filter-mentioned" value="mentioned" checked />
+						<span class="choice__indicator"
+							><code-icon class="choice__indicator" icon="check"></code-icon
+						></span>
+						<label class="choice__label" for="filter-mentioned">Mentioned</label>
+					</div>
+				</menu-item>
+				<menu-divider></menu-divider>
+				<menu-label>Repos</menu-label>
+				<menu-item role="none">
+					<div class="choice">
+						<input
+							class="choice__input"
+							type="checkbox"
+							id="filter-repo-1"
+							value="mentioned"
+							checked
+							readonly
+						/>
+						<span class="choice__indicator"
+							><code-icon class="choice__indicator" icon="check"></code-icon
+						></span>
+						<label class="choice__label" for="filter-repo-1">vscode-gitlens</label>
+					</div>
+				</menu-item>
+			</menu-list>
+		</div>
 		#{endOfBody}
 		<style nonce="#{cspNonce}">
 			@font-face {

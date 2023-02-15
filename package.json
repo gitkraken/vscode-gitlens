@@ -4488,7 +4488,7 @@
 			},
 			{
 				"command": "gitlens.showWorkspacesPage",
-				"title": "Show Workspaces",
+				"title": "Show Focus View",
 				"category": "GitLens+",
 				"icon": "$(layers)"
 			},

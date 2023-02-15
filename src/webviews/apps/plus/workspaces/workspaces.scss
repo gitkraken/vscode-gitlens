@@ -144,9 +144,22 @@ code-icon {
 	flex-direction: column;
 	height: 100vh;
 	overflow: hidden;
+	padding-right: 0;
 
 	&__header {
 		flex: none;
+	}
+
+	&__content {
+		flex: 1 1 auto;
+		display: flex;
+		flex-direction: row;
+		overflow: hidden;
+		gap: 1rem;
+	}
+
+	&__controls {
+		flex: 0 0 20rem;
 	}
 
 	&__main {
@@ -210,5 +223,65 @@ code-icon {
 		width: 9.2rem;
 	}
 	&-actions {
+	}
+}
+
+.choice {
+	display: inline-flex;
+	flex-direction: row;
+	align-items: center;
+	color: var(--vscode-checkbox-foreground);
+	margin: 0.4rem 0;
+	user-select: none;
+
+	&:focus-within {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: -1px;
+	}
+
+	&__input {
+		clip: rect(0 0 0 0);
+		clip-path: inset(50%);
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		position: absolute;
+		white-space: nowrap;
+	}
+
+	&__indicator {
+		position: relative;
+		box-sizing: border-box;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		background: var(--vscode-checkbox-background);
+		border: 0.1rem solid var(--vscode-checkbox-border);
+		width: 1.8rem;
+		height: 1.8rem;
+		outline: none;
+		cursor: pointer;
+
+		&,
+		code-icon {
+			border-radius: 0.3rem;
+			overflow: hidden;
+		}
+	}
+
+	&__input[type='radio'] + &__indicator {
+		border-radius: 99.9rem;
+	}
+
+	&__input:not(:checked) + &__indicator code-icon {
+		opacity: 0;
+	}
+
+	&__label {
+		font-family: var(--font-family);
+		color: var(--vscode-checkbox-foreground);
+		padding-inline-start: 1rem;
+		margin-inline-end: 1rem;
+		cursor: pointer;
 	}
 }
