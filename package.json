@@ -2249,7 +2249,7 @@
 						"minItems": 0,
 						"maxItems": 5,
 						"uniqueItems": true,
-						"markdownDescription": "Specifies additional markers to show in the _Commit Graph_",
+						"markdownDescription": "Specifies additional markers to show on the scrollbar in the _Commit Graph_",
 						"scope": "window",
 						"order": 14
 					},
