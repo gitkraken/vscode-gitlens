@@ -730,10 +730,10 @@ export class GraphMinimap extends FASTElement {
 					// 	// },
 					// },
 				},
-				bar: {
-					zerobased: false,
-					width: { max: 3 },
-				},
+				// bar: {
+				// 	zerobased: false,
+				// 	width: { max: 3 },
+				// },
 				clipPath: false,
 				grid: {
 					front: false,
@@ -851,6 +851,7 @@ export class GraphMinimap extends FASTElement {
 							}
 						</div>`;
 					},
+					grouped: true,
 					position: (_data, width, _height, element, pos) => {
 						const { x } = pos;
 						const rect = (element as HTMLElement).getBoundingClientRect();
