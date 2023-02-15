@@ -289,6 +289,16 @@ export const enum GitCommandSorting {
 	Usage = 'usage',
 }
 
+export const enum GraphScrollMarkerTypes {
+	Selection = 'selection',
+	Head = 'head',
+	LocalBranches = 'localBranches',
+	RemoteBranches = 'remoteBranches',
+	Highlights = 'highlights',
+	Stashes = 'stashes',
+	Tags = 'tags',
+}
+
 export const enum GravatarDefaultStyle {
 	Faces = 'wavatar',
 	Geometric = 'identicon',
@@ -402,6 +412,10 @@ export interface GraphConfig {
 	scrollRowPadding: number;
 	showDetailsView: 'open' | 'selection' | false;
 	showGhostRefsOnRowHover: boolean;
+	scrollMarkers: {
+		enabled: boolean;
+		additionalTypes: GraphScrollMarkerTypes[];
+	};
 	pullRequests: {
 		enabled: boolean;
 	};

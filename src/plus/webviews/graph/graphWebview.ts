@@ -146,6 +146,7 @@ import {
 	GetMissingRefsMetadataCommandType,
 	GetMoreRowsCommandType,
 	GraphRefMetadataTypes,
+	GraphScrollMarkerTypes,
 	SearchCommandType,
 	SearchOpenInViewCommandType,
 	supportedRefMetadataTypes,
@@ -602,6 +603,8 @@ export class GraphWebview extends WebviewBase<State> {
 			configuration.changed(e, 'graph.dimMergeCommits') ||
 			configuration.changed(e, 'graph.highlightRowsOnRefHover') ||
 			configuration.changed(e, 'graph.scrollRowPadding') ||
+			configuration.changed(e, 'graph.scrollMarkers.enabled') ||
+			configuration.changed(e, 'graph.scrollMarkers.additionalTypes') ||
 			configuration.changed(e, 'graph.showGhostRefsOnRowHover') ||
 			configuration.changed(e, 'graph.pullRequests.enabled') ||
 			configuration.changed(e, 'graph.showRemoteNames') ||
@@ -1652,11 +1655,30 @@ export class GraphWebview extends WebviewBase<State> {
 			highlightRowsOnRefHover: configuration.get('graph.highlightRowsOnRefHover'),
 			minimap: configuration.get('graph.experimental.minimap.enabled'),
 			scrollRowPadding: configuration.get('graph.scrollRowPadding'),
+			enabledScrollMarkerTypes: this.getEnabledGraphScrollMarkers(),
 			showGhostRefsOnRowHover: configuration.get('graph.showGhostRefsOnRowHover'),
 			showRemoteNamesOnRefs: configuration.get('graph.showRemoteNames'),
 			idLength: configuration.get('advanced.abbreviatedShaLength'),
 		};
 		return config;
+	}
+
+	private getEnabledGraphScrollMarkers(): GraphScrollMarkerTypes[] {
+		const markersEnabled = configuration.get('graph.scrollMarkers.enabled');
+		if (!markersEnabled) return [];
+
+		const markers: GraphScrollMarkerTypes[] = [
+			GraphScrollMarkerTypes.Selection,
+			GraphScrollMarkerTypes.Highlights,
+			...(configuration.get('graph.scrollMarkers.additionalTypes') as unknown as GraphScrollMarkerTypes[]),
+		];
+
+		// Head and upstream are under the same setting, but separate markers in the component
+		if (markers.includes(GraphScrollMarkerTypes.Head)) {
+			markers.push(GraphScrollMarkerTypes.Upstream);
+		}
+
+		return markers;
 	}
 
 	private getEnabledRefMetadataTypes(): GraphRefMetadataType[] {
