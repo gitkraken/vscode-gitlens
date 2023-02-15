@@ -1,6 +1,7 @@
 import { css, customElement, FASTElement, html, observable, ref } from '@microsoft/fast-element';
 import type { Chart, DataItem, RegionOptions } from 'billboard.js';
 import { groupByMap } from '../../../../../system/array';
+import { debug } from '../../../../../system/decorators/log';
 import { debounce } from '../../../../../system/function';
 import { first, flatMap, map, some, union } from '../../../../../system/iterable';
 import { pluralize } from '../../../../../system/string';
@@ -336,12 +337,14 @@ export class GraphMinimap extends FASTElement {
 
 	@observable
 	activeDay: number | undefined;
+	@debug({ singleLine: true })
 	protected activeDayChanged() {
 		this.select(this.activeDay);
 	}
 
 	@observable
 	data: Map<number, GraphMinimapStats | null> | undefined;
+	@debug({ singleLine: true })
 	protected dataChanged(
 		_oldVal?: Map<number, GraphMinimapStats | null>,
 		_newVal?: Map<number, GraphMinimapStats | null>,
@@ -377,6 +380,7 @@ export class GraphMinimap extends FASTElement {
 
 	@observable
 	visibleDays: { top: number; bottom: number } | undefined;
+	@debug({ singleLine: true })
 	protected visibleDaysChanged() {
 		this._chart?.regions.remove({ classes: ['visible-area'] });
 		if (this.visibleDays == null) return;
@@ -401,6 +405,7 @@ export class GraphMinimap extends FASTElement {
 		return (this._chart as any).internal;
 	}
 
+	@debug({ singleLine: true })
 	select(date: number | Date | undefined, trackOnly: boolean = false) {
 		if (date == null) {
 			this.unselect();
@@ -422,6 +427,7 @@ export class GraphMinimap extends FASTElement {
 		}
 	}
 
+	@debug({ singleLine: true })
 	unselect(date?: number | Date, focus: boolean = false) {
 		if (focus) {
 			this.getInternalChart().hideGridFocus();
@@ -523,6 +529,7 @@ export class GraphMinimap extends FASTElement {
 		}
 	}
 
+	@debug({ singleLine: true })
 	private async loadChartCore() {
 		if (!this.data?.size) {
 			this._chart?.destroy();
