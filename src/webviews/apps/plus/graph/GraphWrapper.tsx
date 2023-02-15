@@ -1222,8 +1222,8 @@ export function GraphWrapper({
 							<button
 								type="button"
 								className="action-button action-button--narrow"
-								title="Toggle Minimap (experimental)"
-								aria-label="Toggle Minimap (experimental)"
+								title="Toggle Minimap (Experimental)"
+								aria-label="Toggle Minimap (Experimental)"
 								onClick={handleOnToggleMinimap}
 							>
 								<span className="codicon codicon-graph-line action-button__icon"></span>

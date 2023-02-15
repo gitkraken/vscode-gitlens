@@ -375,7 +375,7 @@ The Repositories view lists opened Git repositories, and additionally provides:
 - **Stashes** &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows the stashes, similar to the [Stashes view](#stashes-view- 'Stashes view')
 - **Tags** &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows the tags, similar to the [Tags view](#tags-view- 'Tags view')
 - **Contributors** &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows the contributors, similar to the [Contributors view](#contributors-view- 'Contributors view')
-- **Incoming Activity** (experimental) &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows any incoming activity, which lists the command, branch (if available), and date of recent incoming activity (merges and pulls) to your local repository
+- **Incoming Activity** (Experimental) &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows any incoming activity, which lists the command, branch (if available), and date of recent incoming activity (merges and pulls) to your local repository
 
 ---
 
