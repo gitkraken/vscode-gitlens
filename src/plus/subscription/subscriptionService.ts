@@ -29,6 +29,7 @@ import { setContext } from '../../context';
 import { AccountValidationError } from '../../errors';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { Logger } from '../../logger';
+import { getLogScope } from '../../logScope';
 import type { Subscription } from '../../subscription';
 import {
 	computeSubscriptionState,
@@ -46,7 +47,7 @@ import {
 import { executeCommand, registerCommand } from '../../system/command';
 import { createFromDateDelta } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
-import { debug, getLogScope, log } from '../../system/decorators/log';
+import { debug, log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import type { Deferrable } from '../../system/function';
 import { debounce, once } from '../../system/function';

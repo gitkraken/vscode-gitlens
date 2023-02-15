@@ -323,7 +323,7 @@ class RebaseEditor extends App<State> {
 
 		switch (msg.method) {
 			case DidChangeNotificationType.method:
-				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
+				this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
 
 				onIpc(DidChangeNotificationType, msg, params => {
 					this.setState(params.state);

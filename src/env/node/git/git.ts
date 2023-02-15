@@ -1,10 +1,10 @@
 import type { ChildProcess, SpawnOptions } from 'child_process';
 import { spawn } from 'child_process';
 import * as process from 'process';
-import type { CancellationToken } from 'vscode';
+import type { CancellationToken, OutputChannel } from 'vscode';
 import { Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
-import { GlyphChars } from '../../../constants';
+import { GlyphChars, LogLevel, slowCallWarningThreshold } from '../../../constants';
 import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
 import { GitErrorHandling } from '../../../git/commandOptions';
 import type { GitDiffFilter } from '../../../git/models/diff';
@@ -25,6 +25,7 @@ import { fsExists, run, RunError } from './shell';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyObj = Object.freeze({});
+const emptyStr = '';
 
 const gitBranchDefaultConfigs = Object.freeze(['-c', 'color.branch=false']);
 const gitDiffDefaultConfigs = Object.freeze(['-c', 'color.diff=false']);
@@ -186,7 +187,7 @@ export class Git {
 			this.pendingCommands.delete(command);
 
 			const duration = getDurationMilliseconds(start);
-			const slow = duration > Logger.slowCallWarningThreshold;
+			const slow = duration > slowCallWarningThreshold;
 			const status =
 				slow || waiting
 					? ` (${slow ? `slow${waiting ? ', waiting' : ''}` : ''}${waiting ? 'waiting' : ''})`
@@ -205,7 +206,7 @@ export class Git {
 			} else {
 				Logger.log(`[GIT  ] ${gitCommand} ${GlyphChars.Dot} ${duration} ms${status}`);
 			}
-			Logger.logGitCommand(
+			this.logGitCommand(
 				`${gitCommand}${exception != null ? ` ${GlyphChars.Dot} FAILED` : ''}${waiting ? ' (waited)' : ''}`,
 				duration,
 				exception,
@@ -266,7 +267,7 @@ export class Git {
 		proc.once('error', e => (exception = e));
 		proc.once('exit', () => {
 			const duration = getDurationMilliseconds(start);
-			const slow = duration > Logger.slowCallWarningThreshold;
+			const slow = duration > slowCallWarningThreshold;
 			const status = slow ? ' (slow)' : '';
 
 			if (exception != null) {
@@ -282,7 +283,7 @@ export class Git {
 			} else {
 				Logger.log(`[SGIT ] ${gitCommand} ${GlyphChars.Dot} ${duration} ms${status}`);
 			}
-			Logger.logGitCommand(
+			this.logGitCommand(
 				`${gitCommand}${exception != null ? ` ${GlyphChars.Dot} FAILED` : ''}`,
 				duration,
 				exception,
@@ -1895,6 +1896,33 @@ export class Git {
 
 			return undefined;
 		}
+	}
+
+	private _gitOutput: OutputChannel | undefined;
+
+	private logGitCommand(command: string, duration: number, ex?: Error): void {
+		if (Logger.enabled(LogLevel.Debug) && !Logger.isDebugging) return;
+
+		const slow = duration > slowCallWarningThreshold;
+
+		if (Logger.isDebugging) {
+			if (ex != null) {
+				console.error(Logger.timestamp, '[GitLens (Git)]', command ?? emptyStr, ex);
+			} else if (slow) {
+				console.warn(Logger.timestamp, '[GitLens (Git)]', command ?? emptyStr);
+			} else {
+				console.log(Logger.timestamp, '[GitLens (Git)]', command ?? emptyStr);
+			}
+		}
+
+		if (this._gitOutput == null) {
+			this._gitOutput = window.createOutputChannel('GitLens (Git)');
+		}
+		this._gitOutput.appendLine(
+			`${Logger.timestamp} [${slow ? '*' : ' '}${duration.toString().padStart(6)}ms] ${command}${
+				ex != null ? `\n\n${ex.toString()}` : emptyStr
+			}`,
+		);
 	}
 }
 

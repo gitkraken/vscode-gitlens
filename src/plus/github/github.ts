@@ -8,6 +8,7 @@ import { Disposable, EventEmitter, Uri, window } from 'vscode';
 import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
 import { configuration } from '../../configuration';
+import { LogLevel } from '../../constants';
 import type { Container } from '../../container';
 import {
 	AuthenticationError,
@@ -26,13 +27,14 @@ import { GitRevision } from '../../git/models/reference';
 import type { GitUser } from '../../git/models/user';
 import { getGitHubNoReplyAddressParts } from '../../git/remotes/github';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
-import type { LogScope } from '../../logger';
-import { Logger, LogLevel } from '../../logger';
+import { Logger } from '../../logger';
+import type { LogScope } from '../../logScope';
+import { getLogScope } from '../../logScope';
 import {
 	showIntegrationRequestFailed500WarningMessage,
 	showIntegrationRequestTimedOutWarningMessage,
 } from '../../messages';
-import { debug, getLogScope } from '../../system/decorators/log';
+import { debug } from '../../system/decorators/log';
 import { Stopwatch } from '../../system/stopwatch';
 import { base64 } from '../../system/string';
 import type { Version } from '../../system/version';

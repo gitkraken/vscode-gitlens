@@ -82,7 +82,7 @@ export class GraphApp extends App<State> {
 		const disposables = super.onBind?.() ?? [];
 		// disposables.push(DOM.on(window, 'keyup', e => this.onKeyUp(e)));
 
-		this.log(`${this.appName}.onBind`);
+		this.log(`onBind()`);
 
 		this.ensureTheming(this.state);
 
@@ -141,7 +141,7 @@ export class GraphApp extends App<State> {
 
 	protected override onMessageReceived(e: MessageEvent) {
 		const msg = e.data as IpcMessage;
-		this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
+		this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
 
 		switch (msg.method) {
 			case DidChangeNotificationType.method:
@@ -215,7 +215,7 @@ export class GraphApp extends App<State> {
 						const newRowsLength = params.rows.length;
 
 						this.log(
-							`${this.appName}.onMessageReceived(${msg.id}:${msg.method}): paging in ${newRowsLength} rows into existing ${previousRowsLength} rows at ${params.paging.startingCursor} (last existing row: ${lastId})`,
+							`onMessageReceived(${msg.id}:${msg.method}): paging in ${newRowsLength} rows into existing ${previousRowsLength} rows at ${params.paging.startingCursor} (last existing row: ${lastId})`,
 						);
 
 						rows = [];
@@ -224,7 +224,7 @@ export class GraphApp extends App<State> {
 
 						if (params.paging.startingCursor !== lastId) {
 							this.log(
-								`${this.appName}.onMessageReceived(${msg.id}:${msg.method}): searching for ${params.paging.startingCursor} in existing rows`,
+								`onMessageReceived(${msg.id}:${msg.method}): searching for ${params.paging.startingCursor} in existing rows`,
 							);
 
 							let i = 0;
@@ -233,7 +233,7 @@ export class GraphApp extends App<State> {
 								rows[i++] = row;
 								if (row.sha === params.paging.startingCursor) {
 									this.log(
-										`${this.appName}.onMessageReceived(${msg.id}:${msg.method}): found ${params.paging.startingCursor} in existing rows`,
+										`onMessageReceived(${msg.id}:${msg.method}): found ${params.paging.startingCursor} in existing rows`,
 									);
 
 									previousRowsLength = i;
@@ -256,9 +256,7 @@ export class GraphApp extends App<State> {
 							rows[previousRowsLength + i] = params.rows[i];
 						}
 					} else {
-						this.log(
-							`${this.appName}.onMessageReceived(${msg.id}:${msg.method}): setting to ${params.rows.length} rows`,
-						);
+						this.log(`onMessageReceived(${msg.id}:${msg.method}): setting to ${params.rows.length} rows`);
 
 						if (params.rows.length === 0) {
 							rows = this.state.rows;
@@ -478,7 +476,7 @@ export class GraphApp extends App<State> {
 	}
 
 	protected override setState(state: State, type?: IpcNotificationType<any> | InternalNotificationType) {
-		this.log(`${this.appName}.setState`);
+		this.log(`setState()`);
 		const themingChanged = this.ensureTheming(state);
 
 		// Avoid calling the base for now, since we aren't using the vscode state

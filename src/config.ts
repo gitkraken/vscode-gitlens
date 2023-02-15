@@ -1,3 +1,4 @@
+import { LogLevel } from './constants';
 import type { DateTimeFormat } from './system/date';
 
 export interface Config {
@@ -783,4 +784,19 @@ export interface ViewsFilesConfig {
 	compact: boolean;
 	layout: ViewFilesLayout;
 	threshold: number;
+}
+
+export function fromOutputLevel(level: LogLevel | OutputLevel): LogLevel {
+	switch (level) {
+		case OutputLevel.Silent:
+			return LogLevel.Off;
+		case OutputLevel.Errors:
+			return LogLevel.Error;
+		case OutputLevel.Verbose:
+			return LogLevel.Info;
+		case OutputLevel.Debug:
+			return LogLevel.Debug;
+		default:
+			return level;
+	}
 }

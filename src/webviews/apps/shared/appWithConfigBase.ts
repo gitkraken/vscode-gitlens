@@ -70,7 +70,7 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 	protected override onMessageReceived(e: MessageEvent) {
 		const msg = e.data as IpcMessage;
 
-		this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
+		this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
 
 		switch (msg.method) {
 			case DidOpenAnchorNotificationType.method: {
@@ -108,7 +108,7 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 	}
 
 	protected onInputBlurred(element: HTMLInputElement) {
-		this.log(`${this.appName}.onInputBlurred: name=${element.name}, value=${element.value}`);
+		this.log(`onInputBlurred(${element.name}): value=${element.value})`);
 
 		const $popup = document.getElementById(`${element.name}.popup`);
 		if ($popup != null) {
@@ -191,9 +191,7 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 	protected onInputChecked(element: HTMLInputElement) {
 		if (this._updating) return;
 
-		this.log(
-			`${this.appName}.onInputChecked: name=${element.name}, checked=${element.checked}, value=${element.value}`,
-		);
+		this.log(`onInputChecked(${element.name}): checked=${element.checked}, value=${element.value})`);
 
 		switch (element.dataset.settingType) {
 			case 'object': {
@@ -273,7 +271,7 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 	}
 
 	protected onInputFocused(element: HTMLInputElement) {
-		this.log(`${this.appName}.onInputFocused: name=${element.name}, value=${element.value}`);
+		this.log(`onInputFocused(${element.name}): value=${element.value}`);
 
 		const $popup = document.getElementById(`${element.name}.popup`);
 		if ($popup != null) {
@@ -292,7 +290,7 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 
 		const value = element.options[element.selectedIndex].value;
 
-		this.log(`${this.appName}.onInputSelected: name=${element.name}, value=${value}`);
+		this.log(`onInputSelected(${element.name}): value=${value}`);
 
 		this._changes[element.name] = ensureIfBooleanOrNull(value);
 
@@ -302,7 +300,7 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 	protected onTokenMouseDown(element: HTMLElement, e: MouseEvent) {
 		if (this._updating) return;
 
-		this.log(`${this.appName}.onTokenClicked: id=${element.id}`);
+		this.log(`onTokenMouseDown(${element.id})`);
 
 		const setting = element.closest('.setting');
 		if (setting == null) return;

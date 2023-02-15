@@ -1,19 +1,19 @@
 import type { ExtensionContext } from 'vscode';
-import { version as codeVersion, env, extensions, window, workspace } from 'vscode';
+import { version as codeVersion, env, ExtensionMode, extensions, Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { isWeb } from '@env/platform';
 import { Api } from './api/api';
 import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';
 import type { CreatePullRequestOnRemoteCommandArgs, OpenPullRequestOnRemoteCommandArgs } from './commands';
-import { configuration, Configuration, OutputLevel } from './configuration';
-import { Commands, ContextKeys, CoreCommands } from './constants';
+import { configuration, Configuration, fromOutputLevel, OutputLevel } from './configuration';
+import { Commands, ContextKeys, CoreCommands, LogLevel } from './constants';
 import { Container } from './container';
 import { setContext } from './context';
 import { isGitUri } from './git/gitUri';
 import { getBranchNameWithoutRemote, isBranch } from './git/models/branch';
 import { isCommit } from './git/models/commit';
 import { isTag } from './git/models/tag';
-import { Logger, LogLevel } from './logger';
+import { Logger } from './logger';
 import {
 	showDebugLoggingWarningMessage,
 	showInsidersErrorMessage,
@@ -36,17 +36,28 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	const prerelease = insiders || satisfies(gitlensVersion, '> 2020.0.0');
 
 	const outputLevel = configuration.get('outputLevel');
-	Logger.configure(context, configuration.get('outputLevel'), o => {
-		if (isGitUri(o)) {
-			return `GitUri(${o.toString(true)}${o.repoPath ? ` repoPath=${o.repoPath}` : ''}${
-				o.sha ? ` sha=${o.sha}` : ''
-			})`;
-		}
+	Logger.configure(
+		{
+			name: 'GitLens',
+			createChannel: function (name: string) {
+				return window.createOutputChannel(name);
+			},
+			toLoggable: function (o: any) {
+				if (isGitUri(o)) {
+					return `GitUri(${o.toString(true)}${o.repoPath ? ` repoPath=${o.repoPath}` : ''}${
+						o.sha ? ` sha=${o.sha}` : ''
+					})`;
+				}
+				if (o instanceof Uri) return `Uri(${o.toString(true)})`;
 
-		if (isBranch(o) || isCommit(o) || isTag(o) || isViewNode(o)) return o.toString();
+				if (isBranch(o) || isCommit(o) || isTag(o) || isViewNode(o)) return o.toString();
 
-		return undefined;
-	});
+				return undefined;
+			},
+		},
+		fromOutputLevel(configuration.get('outputLevel')),
+		context.extensionMode === ExtensionMode.Development,
+	);
 
 	const sw = new Stopwatch(
 		`GitLens${prerelease ? (insiders ? ' (Insiders)' : ' (pre-release)') : ''} v${gitlensVersion}`,

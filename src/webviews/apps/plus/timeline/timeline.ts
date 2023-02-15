@@ -49,7 +49,7 @@ export class TimelineApp extends App<State> {
 
 		switch (msg.method) {
 			case DidChangeNotificationType.method:
-				this.log(`${this.appName}.onMessageReceived(${msg.id}): name=${msg.method}`);
+				this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
 
 				onIpc(DidChangeNotificationType, msg, params => {
 					this.state = params.state;
@@ -79,11 +79,11 @@ export class TimelineApp extends App<State> {
 		}
 	}
 
-	private onPeriodChanged(e: Event, element: HTMLSelectElement) {
+	private onPeriodChanged(_e: Event, element: HTMLSelectElement) {
 		const value = element.options[element.selectedIndex].value;
 		assertPeriod(value);
 
-		this.log(`${this.appName}.onPeriodChanged: name=${element.name}, value=${value}`);
+		this.log(`onPeriodChanged(): name=${element.name}, value=${value}`);
 
 		this.sendCommand(UpdatePeriodCommandType, { period: value });
 	}

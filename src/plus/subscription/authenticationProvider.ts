@@ -7,7 +7,8 @@ import { authentication, Disposable, EventEmitter, extensions, window } from 'vs
 import { uuid } from '@env/crypto';
 import type { Container } from '../../container';
 import { Logger } from '../../logger';
-import { debug, getLogScope } from '../../system/decorators/log';
+import { getLogScope } from '../../logScope';
+import { debug } from '../../system/decorators/log';
 import type { ServerConnection } from './serverConnection';
 
 interface StoredSession {

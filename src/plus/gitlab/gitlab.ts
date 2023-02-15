@@ -4,6 +4,7 @@ import type { RequestInit, Response } from '@env/fetch';
 import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
 import { configuration } from '../../configuration';
+import { LogLevel } from '../../constants';
 import type { Container } from '../../container';
 import {
 	AuthenticationError,
@@ -19,13 +20,14 @@ import type { IssueOrPullRequest } from '../../git/models/issue';
 import { IssueOrPullRequestType } from '../../git/models/issue';
 import { PullRequest } from '../../git/models/pullRequest';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
-import type { LogScope } from '../../logger';
-import { Logger, LogLevel } from '../../logger';
+import { Logger } from '../../logger';
+import type { LogScope } from '../../logScope';
+import { getLogScope } from '../../logScope';
 import {
 	showIntegrationRequestFailed500WarningMessage,
 	showIntegrationRequestTimedOutWarningMessage,
 } from '../../messages';
-import { debug, getLogScope } from '../../system/decorators/log';
+import { debug } from '../../system/decorators/log';
 import { Stopwatch } from '../../system/stopwatch';
 import { equalsIgnoreCase } from '../../system/string';
 import type { GitLabCommit, GitLabIssue, GitLabUser } from './models';

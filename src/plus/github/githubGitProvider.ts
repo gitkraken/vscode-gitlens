@@ -78,10 +78,11 @@ import { getRemoteProviderMatcher, loadRemoteProviders } from '../../git/remotes
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
 import type { GitSearch, GitSearchResultData, GitSearchResults, SearchQuery } from '../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../git/search';
-import type { LogScope } from '../../logger';
 import { Logger } from '../../logger';
+import type { LogScope } from '../../logScope';
+import { getLogScope } from '../../logScope';
 import { gate } from '../../system/decorators/gate';
-import { debug, getLogScope, log } from '../../system/decorators/log';
+import { debug, log } from '../../system/decorators/log';
 import { filterMap, first, last, some } from '../../system/iterable';
 import { isAbsolute, isFolderGlob, maybeUri, normalizePath, relative } from '../../system/path';
 import { fastestSettled, getSettledValue } from '../../system/promise';

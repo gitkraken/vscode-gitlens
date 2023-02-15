@@ -28,8 +28,9 @@ import type {
 import { configuration, viewsCommonConfigKeys, viewsConfigKeys } from '../configuration';
 import type { Container } from '../container';
 import { Logger } from '../logger';
+import { getLogScope } from '../logScope';
 import { executeCommand } from '../system/command';
-import { debug, getLogScope, log } from '../system/decorators/log';
+import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import { debounce } from '../system/function';
 import { cancellable, isPromise } from '../system/promise';

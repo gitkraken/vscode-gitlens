@@ -1,4 +1,6 @@
 export const quickPickTitleMaxChars = 80;
+export const slowCallWarningThreshold = 500;
+
 export const ImageMimetypes: Record<string, string> = {
 	'.png': 'image/png',
 	'.gif': 'image/gif',
@@ -397,6 +399,14 @@ export const enum GlyphChars {
 	SquareWithTopShadow = '\u2750',
 	Warning = '\u26a0',
 	ZeroWidthSpace = '\u200b',
+}
+
+export const enum LogLevel {
+	Off = 'off',
+	Error = 'error',
+	Warn = 'warn',
+	Info = 'info',
+	Debug = 'debug',
 }
 
 export const enum Schemes {

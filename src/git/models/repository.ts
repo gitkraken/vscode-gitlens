@@ -8,13 +8,14 @@ import { CoreGitCommands, CoreGitConfiguration, Schemes } from '../../constants'
 import type { Container } from '../../container';
 import type { FeatureAccess, Features, PlusFeatures } from '../../features';
 import { Logger } from '../../logger';
+import { getLogScope } from '../../logScope';
 import { showCreatePullRequestPrompt, showGenericErrorMessage } from '../../messages';
 import { asRepoComparisonKey } from '../../repositories';
 import { filterMap, groupByMap } from '../../system/array';
 import { executeActionCommand, executeCoreGitCommand } from '../../system/command';
 import { formatDate, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
-import { debug, getLogScope, log, logName } from '../../system/decorators/log';
+import { debug, log, logName } from '../../system/decorators/log';
 import { debounce } from '../../system/function';
 import { filter, join, some } from '../../system/iterable';
 import { updateRecordValue } from '../../system/object';

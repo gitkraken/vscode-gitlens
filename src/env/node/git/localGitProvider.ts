@@ -116,8 +116,9 @@ import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../git/remo
 import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
 import type { GitSearch, GitSearchResultData, GitSearchResults, SearchQuery } from '../../../git/search';
 import { getGitArgsFromSearchQuery, getSearchQueryComparisonKey } from '../../../git/search';
-import type { LogScope } from '../../../logger';
 import { Logger } from '../../../logger';
+import type { LogScope } from '../../../logScope';
+import { getLogScope } from '../../../logScope';
 import {
 	showGenericErrorMessage,
 	showGitDisabledErrorMessage,
@@ -135,7 +136,7 @@ import type {
 import { countStringLength, filterMap } from '../../../system/array';
 import { TimedCancellationSource } from '../../../system/cancellation';
 import { gate } from '../../../system/decorators/gate';
-import { debug, getLogScope, log } from '../../../system/decorators/log';
+import { debug, log } from '../../../system/decorators/log';
 import { filterMap as filterMapIterable, find, first, join, last, map, some } from '../../../system/iterable';
 import {
 	commonBaseIndex,

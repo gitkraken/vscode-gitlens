@@ -1,47 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { hrtime } from '@env/hrtime';
-import type { LogScope } from '../../logger';
-import { getLoggableName, Logger, LogLevel } from '../../logger';
+import { LogLevel, slowCallWarningThreshold } from '../../constants';
+import { getLoggableName, Logger } from '../../logger';
+import type { LogScope } from '../../logScope';
+import { clearLogScope, getNextLogScopeId, setLogScope } from '../../logScope';
 import { getParameters } from '../function';
 import { isPromise } from '../promise';
 import { getDurationMilliseconds } from '../string';
 
 const emptyStr = '';
-const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
-
-const scopes = new Map<number, LogScope>();
-let scopeCounter = 0;
-
-export function getLogScope(): LogScope | undefined {
-	return scopes.get(scopeCounter);
-}
-
-export function getNewLogScope(prefix: string): LogScope {
-	const scopeId = getNextLogScopeId();
-	return {
-		scopeId: scopeId,
-		prefix: `[${String(scopeId).padStart(5)}] ${prefix}`,
-	};
-}
-
-export function getLogScopeId(): number {
-	return scopeCounter;
-}
-
-export function getNextLogScopeId(): number {
-	if (scopeCounter === maxSmallIntegerV8) {
-		scopeCounter = 0;
-	}
-	return ++scopeCounter;
-}
-
-function clearLogScope(scopeId: number) {
-	scopes.delete(scopeId);
-}
-
-function setLogScope(scopeId: number, scope: LogScope) {
-	scopes.set(scopeId, scope);
-}
 
 export interface LogContext {
 	id: number;
@@ -277,7 +244,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 					let timing;
 					if (start != null) {
 						duration = getDurationMilliseconds(start);
-						if (duration > Logger.slowCallWarningThreshold) {
+						if (duration > slowCallWarningThreshold) {
 							exitLogFn = warnFn;
 							timing = ` \u2022 ${duration} ms (slow)`;
 						} else {
