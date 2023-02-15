@@ -80,6 +80,7 @@ export const enum DeepLinkServiceState {
 	Idle,
 	RepoMatch,
 	CloneOrAddRepo,
+	OpeningRepo,
 	AddedRepoMatch,
 	RemoteMatch,
 	AddRemote,
@@ -93,11 +94,14 @@ export const enum DeepLinkServiceAction {
 	DeepLinkEventFired,
 	DeepLinkCancelled,
 	DeepLinkResolved,
+	DeepLinkStored,
 	DeepLinkErrored,
+	OpenRepo,
 	RepoMatchedWithId,
 	RepoMatchedWithRemoteUrl,
 	RepoMatchFailed,
 	RepoAdded,
+	RepoOpened,
 	RemoteMatched,
 	RemoteMatchFailed,
 	RemoteAdded,
@@ -107,9 +111,14 @@ export const enum DeepLinkServiceAction {
 	TargetFetched,
 }
 
+export const enum DeepLinkRepoOpenType {
+	Folder = 'folder',
+	Workspace = 'workspace',
+}
+
 export interface DeepLinkServiceContext {
 	state: DeepLinkServiceState;
-	uri?: Uri | undefined;
+	url?: string | undefined;
 	repoId?: string | undefined;
 	repo?: Repository | undefined;
 	remoteUrl?: string | undefined;
@@ -129,6 +138,13 @@ export const deepLinkStateTransitionTable: { [state: string]: { [action: string]
 		[DeepLinkServiceAction.RepoMatchFailed]: DeepLinkServiceState.CloneOrAddRepo,
 	},
 	[DeepLinkServiceState.CloneOrAddRepo]: {
+		[DeepLinkServiceAction.OpenRepo]: DeepLinkServiceState.OpeningRepo,
+		[DeepLinkServiceAction.RepoOpened]: DeepLinkServiceState.RemoteMatch,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkStored]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.OpeningRepo]: {
 		[DeepLinkServiceAction.RepoAdded]: DeepLinkServiceState.AddedRepoMatch,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
