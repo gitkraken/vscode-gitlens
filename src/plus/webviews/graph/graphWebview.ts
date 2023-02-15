@@ -28,7 +28,7 @@ import type {
 } from '../../../commands';
 import { parseCommandContext } from '../../../commands/base';
 import type { Config } from '../../../configuration';
-import { configuration, GraphScrollMarkerTypes as GraphSettingsScrollMarkerTypes } from '../../../configuration';
+import { configuration } from '../../../configuration';
 import { Commands, ContextKeys, CoreCommands, CoreGitCommands, GlyphChars } from '../../../constants';
 import type { Container } from '../../../container';
 import { getContext, onDidChangeContext } from '../../../context';
@@ -145,8 +145,8 @@ import {
 	GetMissingAvatarsCommandType,
 	GetMissingRefsMetadataCommandType,
 	GetMoreRowsCommandType,
-	GraphScrollMarkerTypes as GraphComponentScrollMarkerTypes,
 	GraphRefMetadataTypes,
+	GraphScrollMarkerTypes,
 	SearchCommandType,
 	SearchOpenInViewCommandType,
 	supportedRefMetadataTypes,
@@ -1663,23 +1663,19 @@ export class GraphWebview extends WebviewBase<State> {
 		return config;
 	}
 
-	private getEnabledGraphScrollMarkers(): GraphComponentScrollMarkerTypes[] {
+	private getEnabledGraphScrollMarkers(): GraphScrollMarkerTypes[] {
 		const markersEnabled = configuration.get('graph.scrollMarkers.enabled');
 		if (!markersEnabled) return [];
 
-		let markers: GraphComponentScrollMarkerTypes[] = [
-			GraphComponentScrollMarkerTypes.Selection,
-			GraphComponentScrollMarkerTypes.Highlights,
+		const markers: GraphScrollMarkerTypes[] = [
+			GraphScrollMarkerTypes.Selection,
+			GraphScrollMarkerTypes.Highlights,
+			...(configuration.get('graph.scrollMarkers.additionalTypes') as unknown as GraphScrollMarkerTypes[]),
 		];
 
-		const additionalMarkersFromSettings: GraphSettingsScrollMarkerTypes[] = configuration.get(
-			'graph.scrollMarkers.additionalTypes',
-		);
-
-		markers = [...markers, ...(additionalMarkersFromSettings as unknown as GraphComponentScrollMarkerTypes[])];
 		// Head and upstream are under the same setting, but separate markers in the component
-		if (additionalMarkersFromSettings.includes(GraphSettingsScrollMarkerTypes.Head)) {
-			markers.push(GraphComponentScrollMarkerTypes.Upstream);
+		if (markers.includes(GraphScrollMarkerTypes.Head)) {
+			markers.push(GraphScrollMarkerTypes.Upstream);
 		}
 
 		return markers;

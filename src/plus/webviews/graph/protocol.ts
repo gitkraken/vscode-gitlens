@@ -50,7 +50,7 @@ export enum GraphRefMetadataTypes {
 	PullRequest = 'pullRequest',
 }
 
-export enum GraphScrollMarkerTypes {
+export const enum GraphScrollMarkerTypes {
 	Selection = 'selection',
 	Head = 'head',
 	Highlights = 'highlights',
