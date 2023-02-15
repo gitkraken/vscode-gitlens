@@ -11,19 +11,25 @@ import {
 	serializePullRequest,
 } from '../../../git/models/pullRequest';
 import type { GitRemote } from '../../../git/models/remote';
+import type { Repository } from '../../../git/models/repository';
 import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
 import { registerCommand } from '../../../system/command';
 import { WebviewBase } from '../../../webviews/webviewBase';
+import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import type { State } from './protocol';
+import { DidChangeStateNotificationType } from './protocol';
 
 export class WorkspacesWebview extends WebviewBase<State> {
+	private _pullRequests: SearchedPullRequest[] = [];
+	private _issues: SearchedIssue[] = [];
+
 	constructor(container: Container) {
 		super(
 			container,
 			'gitlens.workspaces',
 			'workspaces.html',
 			'images/gitlens-icon.png',
-			'Workspaces',
+			'Focus View',
 			`${ContextKeys.WebviewPrefix}workspaces`,
 			'workspacesWebview',
 			Commands.ShowWorkspacesPage,
@@ -56,9 +62,7 @@ export class WorkspacesWebview extends WebviewBase<State> {
 		return {};
 	}
 
-	private async getState(): Promise<State> {
-		// return Promise.resolve({});
-
+	private async getState(deferState = false): Promise<State> {
 		const prs = await this.getMyPullRequests();
 		const serializedPrs = prs.map(pr => ({
 			pullRequest: serializePullRequest(pr.pullRequest),
@@ -82,79 +86,102 @@ export class WorkspacesWebview extends WebviewBase<State> {
 		return this.getState();
 	}
 
-	private async getRichProviders(): Promise<GitRemote<RichRemoteProvider>[]> {
-		const remotes: GitRemote<RichRemoteProvider>[] = [];
+	private async getRichRepos(): Promise<{ repo: Repository; provider: GitRemote<RichRemoteProvider> }[]> {
+		const repos: { repo: Repository; provider: GitRemote<RichRemoteProvider> }[] = [];
 		for (const repo of this.container.git.openRepositories) {
 			const richRemote = await repo.getRichRemote(true);
-			if (richRemote == null || remotes.includes(richRemote)) {
+			if (richRemote == null || repos.findIndex(repo => repo.provider === richRemote) > -1) {
 				continue;
 			}
-			remotes.push(richRemote);
+			repos.push({
+				repo: repo,
+				provider: richRemote,
+			});
 		}
 
-		return remotes;
+		return repos;
 	}
 
 	private async getMyPullRequests(): Promise<SearchedPullRequest[]> {
-		const providers = await this.getRichProviders();
-		const allPrs = [];
-		for (const provider of providers) {
-			const prs = await this.container.git.getMyPullRequests(provider);
-			if (prs == null) {
-				continue;
-			}
-			allPrs.push(...prs.filter(pr => pr.reasons.length > 0));
-		}
-
-		function getScore(pr: SearchedPullRequest) {
-			let score = 0;
-			if (pr.reasons.includes('author')) {
-				score += 1000;
-			} else if (pr.reasons.includes('assignee')) {
-				score += 900;
-			} else if (pr.reasons.includes('reviewer')) {
-				score += 800;
-			} else if (pr.reasons.includes('mentioned')) {
-				score += 700;
-			}
-
-			if (pr.pullRequest.reviewDecision === PullRequestReviewDecision.Approved) {
-				if (pr.pullRequest.mergeableState === PullRequestMergeableState.Mergeable) {
-					score += 100;
-				} else if (pr.pullRequest.mergeableState === PullRequestMergeableState.Conflicting) {
-					score += 90;
-				} else {
-					score += 80;
+		if (this._pullRequests.length === 0) {
+			const richRepos = await this.getRichRepos();
+			const allPrs = [];
+			for (const { provider } of richRepos) {
+				const prs = await this.container.git.getMyPullRequests(provider);
+				if (prs == null) {
+					continue;
 				}
-			} else if (pr.pullRequest.reviewDecision === PullRequestReviewDecision.ChangesRequested) {
-				score += 70;
+				allPrs.push(...prs.filter(pr => pr.reasons.length > 0));
 			}
 
-			return score;
+			function getScore(pr: SearchedPullRequest) {
+				let score = 0;
+				if (pr.reasons.includes('author')) {
+					score += 1000;
+				} else if (pr.reasons.includes('assignee')) {
+					score += 900;
+				} else if (pr.reasons.includes('reviewer')) {
+					score += 800;
+				} else if (pr.reasons.includes('mentioned')) {
+					score += 700;
+				}
+
+				if (pr.pullRequest.reviewDecision === PullRequestReviewDecision.Approved) {
+					if (pr.pullRequest.mergeableState === PullRequestMergeableState.Mergeable) {
+						score += 100;
+					} else if (pr.pullRequest.mergeableState === PullRequestMergeableState.Conflicting) {
+						score += 90;
+					} else {
+						score += 80;
+					}
+				} else if (pr.pullRequest.reviewDecision === PullRequestReviewDecision.ChangesRequested) {
+					score += 70;
+				}
+
+				return score;
+			}
+
+			this._pullRequests = allPrs.sort((a, b) => {
+				const scoreA = getScore(a);
+				const scoreB = getScore(b);
+
+				if (scoreA === scoreB) {
+					return a.pullRequest.date.getTime() - b.pullRequest.date.getTime();
+				}
+				return (scoreB ?? 0) - (scoreA ?? 0);
+			});
 		}
 
-		return allPrs.sort((a, b) => {
-			const scoreA = getScore(a);
-			const scoreB = getScore(b);
-
-			if (scoreA === scoreB) {
-				return a.pullRequest.date.getTime() - b.pullRequest.date.getTime();
-			}
-			return (scoreB ?? 0) - (scoreA ?? 0);
-		});
+		return this._pullRequests;
 	}
 
 	private async getMyIssues(): Promise<SearchedIssue[]> {
-		const providers = await this.getRichProviders();
-		const allIssues = [];
-		for (const provider of providers) {
-			const issues = await this.container.git.getMyIssues(provider);
-			if (issues == null) {
-				continue;
+		if (this._issues.length === 0) {
+			const richRepos = await this.getRichRepos();
+			const allIssues = [];
+			for (const { provider } of richRepos) {
+				const issues = await this.container.git.getMyIssues(provider);
+				if (issues == null) {
+					continue;
+				}
+				allIssues.push(...issues.filter(pr => pr.reasons.length > 0));
 			}
-			allIssues.push(...issues.filter(pr => pr.reasons.length > 0));
+
+			this._issues = allIssues.sort((a, b) => b.issue.updatedDate.getTime() - a.issue.updatedDate.getTime());
 		}
 
-		return allIssues.sort((a, b) => b.issue.updatedDate.getTime() - a.issue.updatedDate.getTime());
+		return this._issues;
+	}
+	override async show(options?: {
+		preserveFocus?: boolean | undefined;
+		preserveVisibility?: boolean | undefined;
+	}): Promise<void> {
+		if (!(await ensurePlusFeaturesEnabled())) return;
+
+		return super.show(options);
+	}
+
+	private async notifyDidChangeState() {
+		return this.notify(DidChangeStateNotificationType, { state: await this.getState() });
 	}
 }

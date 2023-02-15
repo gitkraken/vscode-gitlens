@@ -2358,7 +2358,7 @@ export class GitHubApi implements Disposable {
 			const results: SearchedPullRequest[] = uniqueWithReasons(
 				[
 					...resp.assigned.nodes.map(pr => toQueryResult(pr, 'assigned')),
-					...resp.reviewRequested.nodes.map(pr => toQueryResult(pr, 'review requested')),
+					...resp.reviewRequested.nodes.map(pr => toQueryResult(pr, 'review-requested')),
 					...resp.mentioned.nodes.map(pr => toQueryResult(pr, 'mentioned')),
 					...resp.authored.nodes.map(pr => toQueryResult(pr, 'authored')),
 				],

@@ -1,5 +1,6 @@
 import type { IssueShape } from '../../../git/models/issue';
 import type { PullRequestShape } from '../../../git/models/pullRequest';
+import { IpcNotificationType } from '../../../webviews/protocol';
 
 export type State = {
 	pullRequests?: PullRequestResult[];
@@ -19,3 +20,12 @@ export interface IssueResult extends SearchResultBase {
 export interface PullRequestResult extends SearchResultBase {
 	pullRequest: PullRequestShape;
 }
+
+export interface DidChangeStateNotificationParams {
+	state: State;
+}
+
+export const DidChangeStateNotificationType = new IpcNotificationType<DidChangeStateNotificationParams>(
+	'focus/state/didChange',
+	true,
+);
