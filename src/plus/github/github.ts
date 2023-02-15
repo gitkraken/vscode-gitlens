@@ -2287,19 +2287,11 @@ export class GitHubApi implements Disposable {
 		}
 		try {
 			const query = `query searchPullRequests(
-	$related: String!
 	$authored: String!
 	$assigned: String!
 	$reviewRequested: String!
 	$mentioned: String!
 ) {
-	related: search(first: 100, query: $related, type: ISSUE) {
-		nodes {
-			...on PullRequest {
-				${prNodeProperties}
-			}
-		}
-	}
 	authored: search(first: 100, query: $authored, type: ISSUE) {
 		nodes {
 			...on PullRequest {
@@ -2347,7 +2339,6 @@ export class GitHubApi implements Disposable {
 				token,
 				query,
 				{
-					related: `${search} ${baseFilters} user:@me`.trim(),
 					authored: `${search} ${baseFilters} author:@me`.trim(),
 					assigned: `${search} ${baseFilters} assignee:@me`.trim(),
 					reviewRequested: `${search} ${baseFilters} review-requested:@me`.trim(),
@@ -2370,7 +2361,6 @@ export class GitHubApi implements Disposable {
 					...resp.reviewRequested.nodes.map(pr => toQueryResult(pr, 'review requested')),
 					...resp.mentioned.nodes.map(pr => toQueryResult(pr, 'mentioned')),
 					...resp.authored.nodes.map(pr => toQueryResult(pr, 'authored')),
-					...resp.related.nodes.map(pr => toQueryResult(pr)),
 				],
 				r => r.pullRequest.url,
 			);
@@ -2403,16 +2393,10 @@ export class GitHubApi implements Disposable {
 		}
 
 		const query = `query searchIssues(
-				$related: String!
 				$authored: String!
 				$assigned: String!
 				$mentioned: String!
 			) {
-				related: search(first: 100, query: $related, type: ISSUE) {
-					nodes {
-						${issueNodeProperties}
-					}
-				}
 				authored: search(first: 100, query: $authored, type: ISSUE) {
 					nodes {
 						${issueNodeProperties}
@@ -2448,7 +2432,6 @@ export class GitHubApi implements Disposable {
 				token,
 				query,
 				{
-					related: `${search} ${baseFilters} user:@me`.trim(),
 					authored: `${search} ${baseFilters} author:@me`.trim(),
 					assigned: `${search} ${baseFilters} assignee:@me`.trim(),
 					mentioned: `${search} ${baseFilters} mentions:@me`.trim(),
@@ -2470,7 +2453,6 @@ export class GitHubApi implements Disposable {
 					...resp.assigned.nodes.map(pr => toQueryResult(pr, 'assigned')),
 					...resp.mentioned.nodes.map(pr => toQueryResult(pr, 'mentioned')),
 					...resp.authored.nodes.map(pr => toQueryResult(pr, 'authored')),
-					...resp.related.nodes.map(pr => toQueryResult(pr)),
 				],
 				r => r.issue.url,
 			);
