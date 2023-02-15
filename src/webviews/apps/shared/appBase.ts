@@ -15,6 +15,8 @@ import type { Disposable } from './events';
 import type { ThemeChangeEvent } from './theme';
 import { initializeAndWatchThemeColors, onDidChangeTheme } from './theme';
 
+declare const DEBUG: boolean;
+
 interface VsCodeApi {
 	postMessage(msg: unknown): void;
 	setState(state: unknown): void;
@@ -53,16 +55,10 @@ export abstract class App<State = undefined> {
 						appendLine: function (value: string) {
 							console.log(`[${name}] ${value}`);
 						},
-						dispose: function () {
-							// noop
-						},
-						show: function (_preserveFocus?: boolean) {
-							// noop
-						},
 					};
 				},
 			},
-			LogLevel.Debug,
+			DEBUG ? LogLevel.Debug : LogLevel.Off,
 		);
 
 		this.log(`ctor()`);

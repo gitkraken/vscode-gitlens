@@ -20,8 +20,8 @@ export interface LogChannelProvider {
 export interface LogChannel {
 	readonly name: string;
 	appendLine(value: string): void;
-	dispose(): void;
-	show(preserveFocus?: boolean): void;
+	dispose?(): void;
+	show?(preserveFocus?: boolean): void;
 }
 
 export const Logger = new (class Logger {
@@ -54,7 +54,7 @@ export const Logger = new (class Logger {
 		this.level = toOrderedLevel(this._logLevel);
 
 		if (value === LogLevel.Off) {
-			this.output?.dispose();
+			this.output?.dispose?.();
 			this.output = undefined;
 		} else {
 			this.output = this.output ?? this.provider!.createChannel(this.provider!.name);
@@ -170,7 +170,7 @@ export const Logger = new (class Logger {
 	}
 
 	showOutputChannel(preserveFocus?: boolean): void {
-		this.output?.show(preserveFocus);
+		this.output?.show?.(preserveFocus);
 	}
 
 	toLoggable(o: any, sanitize?: ((key: string, value: any) => any) | undefined) {
