@@ -1,6 +1,7 @@
 import { css, customElement, FASTElement, html, observable, ref } from '@microsoft/fast-element';
 import type { Chart, DataItem, RegionOptions } from 'billboard.js';
 import { groupByMap } from '../../../../../system/array';
+import { debounce } from '../../../../../system/function';
 import { first, flatMap, map, some, union } from '../../../../../system/iterable';
 import { pluralize } from '../../../../../system/string';
 import { formatDate, formatNumeric, fromNow } from '../../../shared/date';
@@ -583,157 +584,198 @@ export class GraphMinimap extends FASTElement {
 
 		const regions = this.getAllRegions();
 
-		// calculate the max value for the y-axis to avoid flattening the graph because of outlier changes
-		const p98 = [...activity].sort((a, b) => a - b)[Math.floor(activity.length * 0.98)];
-		const yMax = p98 + Math.min(changesMax - p98, p98 * 0.02) + 100;
+		// Calculate the max value for the y-axis to avoid flattening the graph by calculating a z-score of the activity data to identify outliers
+
+		const sortedStats = [];
+
+		let sum = 0;
+		let sumOfSquares = 0;
+		for (const s of activity) {
+			// Remove all the 0s
+			if (s === 0) continue;
+
+			sortedStats.push(s);
+			sum += s;
+			sumOfSquares += s ** 2;
+		}
+
+		sortedStats.sort((a, b) => a - b);
+
+		const length = sortedStats.length;
+		const mean = sum / length;
+		const stdDev = Math.sqrt(sumOfSquares / length - mean ** 2);
+
+		// Loop backwards through the sorted stats to find the first non-outlier
+		let outlierBorderIndex = -1;
+		for (let i = length - 1; i >= 0; i--) {
+			// If the z-score ((p: number) => (p - mean) / stdDev) is less than or equal to 3, it's not an outlier
+			if (Math.abs((sortedStats[i] - mean) / stdDev) <= 3) {
+				outlierBorderIndex = i;
+				break;
+			}
+		}
+
+		const q1 = sortedStats[Math.floor(length * 0.25)];
+		const q3 = sortedStats[Math.floor(length * 0.75)];
+		const max = sortedStats[length - 1];
+
+		const iqr = q3 - q1;
+		const upperFence = q3 + 3 * iqr;
+		const outlierBorderMax = sortedStats[outlierBorderIndex];
+
+		// Use a mix of z-score vs IQR -- z-score seems to do better for smaller outliers, but IQR seems to do better for larger outliers
+		const yMax = Math.floor(
+			Math.min(
+				max,
+				upperFence > max - upperFence ? outlierBorderMax : upperFence + (outlierBorderMax - upperFence) / 2,
+			) +
+				upperFence * 0.1,
+		);
 
 		if (this._chart == null) {
-			try {
-				const { bb, selection, spline, zoom } = await import(
-					/* webpackChunkName: "billboard" */ 'billboard.js'
-				);
-				this._chart = bb.generate({
-					bindto: this.chart,
-					data: {
-						x: 'date',
-						xSort: false,
-						axes: {
-							activity: 'y',
-							additions: 'y',
-							deletions: 'y',
-						},
-						columns: [
-							['date', ...dates],
-							['activity', ...activity],
-							// ['additions', ...additions],
-							// ['deletions', ...deletions],
-						],
-						names: {
-							activity: 'Activity',
-							// additions: 'Additions',
-							// deletions: 'Deletions',
-						},
-						// hide: ['additions', 'deletions'],
-						onclick: d => {
-							if (d.id !== 'activity') return;
-
-							const date = new Date(d.x);
-							const day = getDay(date);
-							const sha = this.searchResults?.get(day)?.sha ?? this.data?.get(day)?.sha;
-
-							queueMicrotask(() => {
-								this.$emit('selected', {
-									date: date,
-									sha: sha,
-								} satisfies GraphMinimapDaySelectedEventDetail);
-							});
-						},
-						selection: {
-							enabled: selection(),
-							grouped: true,
-							multiple: false,
-							// isselectable: d => {
-							// 	if (d.id !== 'activity') return false;
-
-							// 	return (this.data?.get(getDay(new Date(d.x)))?.commits ?? 0) > 0;
-							// },
-						},
-						colors: {
-							activity: 'var(--color-graph-minimap-line0)',
-							// additions: 'rgba(73, 190, 71, 0.7)',
-							// deletions: 'rgba(195, 32, 45, 0.7)',
-						},
-						groups: [['additions', 'deletions']],
-						types: {
-							activity: spline(),
-							// additions: bar(),
-							// deletions: bar(),
-						},
+			const { bb, selection, spline, zoom } = await import(/* webpackChunkName: "billboard" */ 'billboard.js');
+			this._chart = bb.generate({
+				bindto: this.chart,
+				data: {
+					x: 'date',
+					xSort: false,
+					axes: {
+						activity: 'y',
+						additions: 'y',
+						deletions: 'y',
 					},
-					area: {
-						linearGradient: true,
-						front: true,
-						below: true,
-						zerobased: true,
+					columns: [
+						['date', ...dates],
+						['activity', ...activity],
+						// ['additions', ...additions],
+						// ['deletions', ...deletions],
+					],
+					names: {
+						activity: 'Activity',
+						// additions: 'Additions',
+						// deletions: 'Deletions',
 					},
-					axis: {
-						x: {
-							show: false,
-							localtime: true,
-							type: 'timeseries',
-						},
-						y: {
-							min: 0,
-							max: yMax,
-							show: true,
-							padding: {
-								// 	top: 10,
-								bottom: 8,
-							},
-						},
-						// y2: {
-						// 	min: y2Min,
-						// 	max: yMax,
-						// 	show: true,
-						// 	// padding: {
-						// 	// 	top: 10,
-						// 	// 	bottom: 0,
-						// 	// },
+					// hide: ['additions', 'deletions'],
+					onclick: d => {
+						if (d.id !== 'activity') return;
+
+						const date = new Date(d.x);
+						const day = getDay(date);
+						const sha = this.searchResults?.get(day)?.sha ?? this.data?.get(day)?.sha;
+
+						queueMicrotask(() => {
+							this.$emit('selected', {
+								date: date,
+								sha: sha,
+							} satisfies GraphMinimapDaySelectedEventDetail);
+						});
+					},
+					selection: {
+						enabled: selection(),
+						grouped: true,
+						multiple: false,
+						// isselectable: d => {
+						// 	if (d.id !== 'activity') return false;
+
+						// 	return (this.data?.get(getDay(new Date(d.x)))?.commits ?? 0) > 0;
 						// },
 					},
-					bar: {
-						zerobased: false,
-						width: { max: 3 },
+					colors: {
+						activity: 'var(--color-graph-minimap-line0)',
+						// additions: 'rgba(73, 190, 71, 0.7)',
+						// deletions: 'rgba(195, 32, 45, 0.7)',
 					},
-					clipPath: false,
-					grid: {
-						front: false,
-						focus: {
-							show: true,
-						},
+					groups: [['additions', 'deletions']],
+					types: {
+						activity: spline(),
+						// additions: bar(),
+						// deletions: bar(),
 					},
-					legend: {
+				},
+				area: {
+					linearGradient: true,
+					front: true,
+					below: true,
+					zerobased: true,
+				},
+				axis: {
+					x: {
 						show: false,
+						localtime: true,
+						type: 'timeseries',
 					},
-					line: {
-						point: true,
-						zerobased: true,
-					},
-					point: {
+					y: {
+						min: 0,
+						max: yMax,
 						show: true,
-						select: {
-							r: 5,
-						},
-						focus: {
-							only: true,
-							expand: {
-								enabled: true,
-								r: 3,
-							},
-						},
-						sensitivity: 100,
-					},
-					regions: regions,
-					resize: {
-						auto: true,
-					},
-					spline: {
-						interpolation: {
-							type: 'catmull-rom',
+						padding: {
+							// 	top: 10,
+							bottom: 8,
 						},
 					},
-					tooltip: {
-						contents: (data, _defaultTitleFormat, _defaultValueFormat, _color) => {
-							const date = new Date(data[0].x);
+					// y2: {
+					// 	min: y2Min,
+					// 	max: yMax,
+					// 	show: true,
+					// 	// padding: {
+					// 	// 	top: 10,
+					// 	// 	bottom: 0,
+					// 	// },
+					// },
+				},
+				bar: {
+					zerobased: false,
+					width: { max: 3 },
+				},
+				clipPath: false,
+				grid: {
+					front: false,
+					focus: {
+						show: true,
+					},
+				},
+				legend: {
+					show: false,
+				},
+				line: {
+					point: true,
+					zerobased: true,
+				},
+				point: {
+					show: true,
+					select: {
+						r: 5,
+					},
+					focus: {
+						only: true,
+						expand: {
+							enabled: true,
+							r: 3,
+						},
+					},
+					sensitivity: 100,
+				},
+				regions: regions,
+				resize: {
+					auto: true,
+				},
+				spline: {
+					interpolation: {
+						type: 'monotone-x',
+					},
+				},
+				tooltip: {
+					contents: (data, _defaultTitleFormat, _defaultValueFormat, _color) => {
+						const date = new Date(data[0].x);
 
-							const stat = this.data?.get(getDay(date));
-							const markers = this.markers?.get(getDay(date));
-							let groups;
-							if (markers?.length) {
-								groups = groupByMap(markers, m => m.type);
-							}
+						const stat = this.data?.get(getDay(date));
+						const markers = this.markers?.get(getDay(date));
+						let groups;
+						if (markers?.length) {
+							groups = groupByMap(markers, m => m.type);
+						}
 
-							return /*html*/ `<div class="bb-tooltip">
+						return /*html*/ `<div class="bb-tooltip">
 							<div class="header">
 								<span class="header--title">${formatDate(date, 'MMMM Do, YYYY')}</span>
 								<span class="header--description">(${capitalize(fromNow(date))})</span>
@@ -801,51 +843,46 @@ export class GraphMinimap extends FASTElement {
 									: ''
 							}
 						</div>`;
-						},
-						position: (_data, width, _height, element, pos) => {
-							const { x } = pos;
-							const rect = (element as HTMLElement).getBoundingClientRect();
-							let left = rect.right - x;
-							if (left + width > rect.right) {
-								left = rect.right - width;
-							}
-							return { top: 0, left: left };
-						},
 					},
-					transition: {
-						duration: 0,
+					position: (_data, width, _height, element, pos) => {
+						const { x } = pos;
+						const rect = (element as HTMLElement).getBoundingClientRect();
+						let left = rect.right - x;
+						if (left + width > rect.right) {
+							left = rect.right - width;
+						}
+						return { top: 0, left: left };
 					},
-					zoom: {
-						enabled: zoom(),
-						rescale: false,
-						resetButton: {
-							text: '',
-						},
-						type: 'wheel',
-						onzoom: () => {
-							// Reset the active day when zooming because it fails to update properly
-							queueMicrotask(() => this.activeDayChanged());
-						},
-					},
-					onafterinit: function () {
-						const xAxis = this.$.main.selectAll<Element, any>('.bb-axis-x').node();
-						xAxis?.remove();
+				},
+				transition: {
+					duration: 0,
+				},
+				zoom: {
+					enabled: zoom(),
+					rescale: false,
+					// resetButton: {
+					// 	text: '',
+					// },
+					type: 'wheel',
+					// Reset the active day when zooming because it fails to update properly
+					onzoom: debounce(() => this.activeDayChanged(), 250),
+				},
+				onafterinit: function () {
+					const xAxis = this.$.main.selectAll<Element, any>('.bb-axis-x').node();
+					xAxis?.remove();
 
-						const yAxis = this.$.main.selectAll<Element, any>('.bb-axis-y').node();
-						yAxis?.remove();
+					const yAxis = this.$.main.selectAll<Element, any>('.bb-axis-y').node();
+					yAxis?.remove();
 
-						const grid = this.$.main.selectAll<Element, any>('.bb-grid').node();
-						grid?.removeAttribute('clip-path');
+					const grid = this.$.main.selectAll<Element, any>('.bb-grid').node();
+					grid?.removeAttribute('clip-path');
 
-						// Move the regions to be on top of the bars
-						const bars = this.$.main.selectAll<Element, any>('.bb-chart-bars').node();
-						const regions = this.$.main.selectAll<Element, any>('.bb-regions').node();
-						bars?.insertAdjacentElement('afterend', regions!);
-					},
-				});
-			} catch (ex) {
-				debugger;
-			}
+					// Move the regions to be on top of the bars
+					const bars = this.$.main.selectAll<Element, any>('.bb-chart-bars').node();
+					const regions = this.$.main.selectAll<Element, any>('.bb-regions').node();
+					bars?.insertAdjacentElement('afterend', regions!);
+				},
+			});
 		} else {
 			this._chart.load({
 				columns: [
