@@ -6954,6 +6954,16 @@
 				"command": "gitlens.graph.columnShaOff",
 				"title": "Hide SHA",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.columnChangesOn",
+				"title": "Show Changes",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.columnChangesOff",
+				"title": "Hide Changes",
+				"category": "GitLens"
 			}
 		],
 		"icons": {
@@ -9003,6 +9013,14 @@
 				},
 				{
 					"command": "gitlens.graph.columnShaOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.columnChangesOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.columnChangesOff",
 					"when": "false"
 				},
 				{
@@ -11737,6 +11755,16 @@
 					"command": "gitlens.graph.columnShaOff",
 					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\bsha\\b).)*$/",
 					"group": "1_columns@3"
+				},
+				{
+					"command": "gitlens.graph.columnChangesOn",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bchanges\\b/",
+					"group": "1_columns@4"
+				},
+				{
+					"command": "gitlens.graph.columnChangesOff",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\bchanges\\b).)*$/",
+					"group": "1_columns@4"
 				}
 			],
 			"gitlens/commit/browse": [
@@ -13085,7 +13113,7 @@
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "5.0.0",
+		"@gitkraken/gitkraken-components": "6.0.0",
 		"@microsoft/fast-element": "1.11.0",
 		"@microsoft/fast-react-wrapper": "0.3.16-0",
 		"@octokit/core": "4.2.0",

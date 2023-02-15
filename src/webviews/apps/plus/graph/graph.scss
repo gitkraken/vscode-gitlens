@@ -33,6 +33,12 @@ body {
 			border-color: var(--vscode-scrollbarSlider-background);
 		}
 	}
+
+	--color-graph-stats-added: var(--vscode-gitDecoration-addedResourceForeground);
+	--color-graph-stats-deleted: var(--vscode-gitDecoration-deletedResourceForeground);
+	--color-graph-stats-files: var(--vscode-gitDecoration-modifiedResourceForeground);
+	--graph-stats-bar-height: 40%;
+	--graph-stats-bar-border-radius: 5px;
 }
 
 ::-webkit-scrollbar-corner {
