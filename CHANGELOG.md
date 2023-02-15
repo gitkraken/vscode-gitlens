@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds new _Commit Graph_ features and improvements
   - Adds a new experimental minimap of commit activity to the _Commit Graph_
+  - Adds a new experimental _Changes_ column visualizing commit changes
+  - Adds markers to the _Commit Graph_ scroll area indicating the location of the selected row, search results, current branch, upstream, and more
   - Adds the ability to show upstream (ahead/behind) status on local branches with remotes
     - Adds a double-click action on the status to pull (when behind) or push (when ahead) pending changes
     - Adds context menu actions to _Push_, _Pull_, and _Fetch_ the local branch
