@@ -7,7 +7,7 @@ import { configuration } from '../../configuration';
 import { CoreGitCommands, CoreGitConfiguration, Schemes } from '../../constants';
 import type { Container } from '../../container';
 import type { FeatureAccess, Features, PlusFeatures } from '../../features';
-import { Logger } from '../../logger';
+import { getLoggableName, Logger } from '../../logger';
 import { getLogScope } from '../../logScope';
 import { showCreatePullRequestPrompt, showGenericErrorMessage } from '../../messages';
 import { asRepoComparisonKey } from '../../repositories';
@@ -315,6 +315,10 @@ export class Repository implements Disposable {
 
 		this._remotesDisposable?.dispose();
 		this._disposable.dispose();
+	}
+
+	toString(): string {
+		return `${getLoggableName(this)}(${this.id})`;
 	}
 
 	get virtual(): boolean {
@@ -1203,4 +1207,8 @@ export class Repository implements Disposable {
 
 		setTimeout(() => this.fireChange(RepositoryChange.Unknown), 2500);
 	}
+}
+
+export function isRepository(repository: unknown): repository is Repository {
+	return repository instanceof Repository;
 }
