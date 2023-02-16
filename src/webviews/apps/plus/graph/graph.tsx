@@ -383,11 +383,18 @@ export class GraphApp extends App<State> {
 
 		// minimap and scroll markers
 
-		const resultColor = Color.fromHex('#ffff00');
-		const headColor = Color.fromHex('#00ff00');
-		const branchColor = Color.fromHex('#ff7f50');
-		const tagColor = Color.fromHex('#15a0bf');
-		const stashColor = Color.fromHex('#800080');
+		const headColor = Color.from(e.computedStyle.getPropertyValue('--color-graph-scroll-marker-head').trim());
+		// const highlightsColor = Color.from(
+		// 	e.computedStyle.getPropertyValue('--color-graph-scroll-marker-highlights').trim(),
+		// );
+		const branchColor = Color.from(
+			e.computedStyle.getPropertyValue('--color-graph-scroll-marker-local-branches').trim(),
+		);
+		const remoteBranchColor = Color.from(
+			e.computedStyle.getPropertyValue('--color-graph-scroll-marker-remote-branches').trim(),
+		);
+		const stashColor = Color.from(e.computedStyle.getPropertyValue('--color-graph-scroll-marker-stashes').trim());
+		const tagColor = Color.from(e.computedStyle.getPropertyValue('--color-graph-scroll-marker-tags').trim());
 
 		color = e.computedStyle.getPropertyValue('--vscode-progressBar-background').trim();
 		const activityColor = Color.from(color);
@@ -407,30 +414,15 @@ export class GraphApp extends App<State> {
 				.toString(),
 		);
 
-		color = e.computedStyle.getPropertyValue('--vscode-scrollbarSlider-hoverBackground').trim();
-		bodyStyle.setProperty(
-			'--color-graph-minimap-visibleAreaHoverBackground',
-			Color.from(color)
-				.luminance(themeLuminance(e.isLightTheme ? 0.6 : 0.15))
-				.toString(),
-		);
+		// color = Color.from(e.computedStyle.getPropertyValue('--vscode-editorCursor-foreground').trim())
+		// 	.luminance(themeLuminance(e.isLightTheme ? 0.45 : 0.32))
+		// 	.toString();
+		// bodyStyle.setProperty('--color-graph-scroll-marker-selection', color);
 
-		color = Color.from(e.computedStyle.getPropertyValue('--vscode-list-activeSelectionBackground').trim())
-			.luminance(themeLuminance(e.isLightTheme ? 0.45 : 0.32))
-			.toString();
-		// color = e.computedStyle.getPropertyValue('--vscode-editorCursor-foreground').trim();
-		bodyStyle.setProperty('--color-graph-minimap-selectedMarker', color);
-		bodyStyle.setProperty('--color-graph-scroll-marker-selection', color);
-		bodyStyle.setProperty('--color-graph-minimap-highlightedMarker', opacity(color, 60));
-
-		bodyStyle.setProperty(
-			'--color-graph-minimap-resultMarker',
-			resultColor.luminance(themeLuminance(0.6)).toString(),
-		);
-		bodyStyle.setProperty(
-			'--color-graph-scroll-marker-highlights',
-			resultColor.luminance(themeLuminance(0.6)).toString(),
-		);
+		// bodyStyle.setProperty(
+		// 	'--color-graph-scroll-marker-highlights',
+		// 	highlightsColor.luminance(themeLuminance(0.6)).toString(),
+		// );
 
 		const pillLabel = foregroundColor.luminance(themeLuminance(e.isLightTheme ? 0 : 1)).toString();
 		const headBackground = headColor.luminance(themeLuminance(e.isLightTheme ? 0.9 : 0.2)).toString();
@@ -440,13 +432,14 @@ export class GraphApp extends App<State> {
 		bodyStyle.setProperty('--color-graph-minimap-headBackground', headBackground);
 		bodyStyle.setProperty('--color-graph-minimap-headBorder', headBorder);
 		bodyStyle.setProperty('--color-graph-minimap-headForeground', pillLabel);
-		bodyStyle.setProperty('--color-graph-minimap-headMarker', opacity(headMarker, 80));
+
+		// bodyStyle.setProperty('--color-graph-minimap-marker-head', opacity(headMarker, 80));
 		bodyStyle.setProperty('--color-graph-scroll-marker-head', opacity(headMarker, 90));
 
 		bodyStyle.setProperty('--color-graph-minimap-upstreamBackground', headBackground);
 		bodyStyle.setProperty('--color-graph-minimap-upstreamBorder', headBorder);
 		bodyStyle.setProperty('--color-graph-minimap-upstreamForeground', pillLabel);
-		bodyStyle.setProperty('--color-graph-minimap-upstreamMarker', opacity(headMarker, 60));
+		// bodyStyle.setProperty('--color-graph-minimap-marker-upstream', opacity(headMarker, 60));
 		bodyStyle.setProperty('--color-graph-scroll-marker-upstream', opacity(headMarker, 60));
 
 		const branchBackground = branchColor.luminance(themeLuminance(e.isLightTheme ? 0.8 : 0.3)).toString();
@@ -456,14 +449,38 @@ export class GraphApp extends App<State> {
 		bodyStyle.setProperty('--color-graph-minimap-branchBackground', branchBackground);
 		bodyStyle.setProperty('--color-graph-minimap-branchBorder', branchBorder);
 		bodyStyle.setProperty('--color-graph-minimap-branchForeground', pillLabel);
-		bodyStyle.setProperty('--color-graph-minimap-branchMarker', opacity(branchMarker, 70));
+		// bodyStyle.setProperty('--color-graph-minimap-marker-local-branches', opacity(branchMarker, 70));
 		bodyStyle.setProperty('--color-graph-scroll-marker-local-branches', opacity(branchMarker, 90));
 
-		bodyStyle.setProperty('--color-graph-minimap-remoteBackground', opacity(branchBackground, 80));
-		bodyStyle.setProperty('--color-graph-minimap-remoteBorder', opacity(branchBorder, 80));
+		const remoteBranchBackground = remoteBranchColor
+			.luminance(themeLuminance(e.isLightTheme ? 0.8 : 0.3))
+			.toString();
+		const remoteBranchBorder = remoteBranchColor.luminance(themeLuminance(e.isLightTheme ? 0.2 : 0.4)).toString();
+		const remoteBranchMarker = remoteBranchColor.luminance(themeLuminance(0.6)).toString();
+
+		bodyStyle.setProperty('--color-graph-minimap-remoteBackground', opacity(remoteBranchBackground, 80));
+		bodyStyle.setProperty('--color-graph-minimap-remoteBorder', opacity(remoteBranchBorder, 80));
 		bodyStyle.setProperty('--color-graph-minimap-remoteForeground', pillLabel);
-		bodyStyle.setProperty('--color-graph-minimap-remoteMarker', opacity(branchMarker, 30));
-		bodyStyle.setProperty('--color-graph-scroll-marker-remote-branches', opacity(branchMarker, 60));
+		// bodyStyle.setProperty('--color-graph-minimap-marker-remote-branches', opacity(remoteBranchMarker, 30));
+		bodyStyle.setProperty('--color-graph-scroll-marker-remote-branches', opacity(remoteBranchMarker, 60));
+
+		bodyStyle.setProperty(
+			'--color-graph-minimap-stashBackground',
+			stashColor.luminance(themeLuminance(e.isLightTheme ? 0.8 : 0.2)).toString(),
+		);
+		bodyStyle.setProperty(
+			'--color-graph-minimap-stashBorder',
+			stashColor.luminance(themeLuminance(e.isLightTheme ? 0.2 : 0.4)).toString(),
+		);
+		bodyStyle.setProperty('--color-graph-minimap-stashForeground', pillLabel);
+		// bodyStyle.setProperty(
+		// 	'--color-graph-minimap-marker-stashes',
+		// 	opacity(stashColor.luminance(themeLuminance(0.5)).toString(), 60),
+		// );
+		bodyStyle.setProperty(
+			'--color-graph-scroll-marker-stashes',
+			opacity(stashColor.luminance(themeLuminance(0.9)).toString(), 90),
+		);
 
 		bodyStyle.setProperty(
 			'--color-graph-minimap-tagBackground',
@@ -474,18 +491,13 @@ export class GraphApp extends App<State> {
 			tagColor.luminance(themeLuminance(e.isLightTheme ? 0.2 : 0.4)).toString(),
 		);
 		bodyStyle.setProperty('--color-graph-minimap-tagForeground', pillLabel);
-		bodyStyle.setProperty(
-			'--color-graph-minimap-tagMarker',
-			opacity(tagColor.luminance(themeLuminance(0.5)).toString(), 60),
-		);
+		// bodyStyle.setProperty(
+		// 	'--color-graph-minimap-marker-tags',
+		// 	opacity(tagColor.luminance(themeLuminance(0.5)).toString(), 60),
+		// );
 		bodyStyle.setProperty(
 			'--color-graph-scroll-marker-tags',
 			opacity(tagColor.luminance(themeLuminance(0.9)).toString(), 90),
-		);
-
-		bodyStyle.setProperty(
-			'--color-graph-scroll-marker-stashes',
-			opacity(stashColor.luminance(themeLuminance(0.9)).toString(), 90),
 		);
 
 		if (e.isInitializing) return;

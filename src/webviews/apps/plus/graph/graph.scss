@@ -37,6 +37,25 @@ body {
 	--color-graph-stats-added: var(--vscode-gitDecoration-addedResourceForeground);
 	--color-graph-stats-deleted: var(--vscode-gitDecoration-deletedResourceForeground);
 	--color-graph-stats-files: var(--vscode-gitDecoration-modifiedResourceForeground);
+
+	--color-graph-scroll-marker-head: #16c216;
+	--color-graph-scroll-marker-highlights: var(--vscode-editorOverviewRuler-findMatchForeground);
+	--color-graph-scroll-marker-local-branches: #0000ff;
+	--color-graph-scroll-marker-remote-branches: #0000ff;
+	--color-graph-scroll-marker-selection: var(--vscode-editorCursor-foreground);
+	--color-graph-scroll-marker-stashes: #00ffff;
+	--color-graph-scroll-marker-tags: #7c470a;
+	--color-graph-scroll-marker-upstream: #16c216;
+
+	--color-graph-minimap-marker-head: var(--color-graph-scroll-marker-head);
+	--color-graph-minimap-marker-highlights: var(--color-graph-scroll-marker-highlights);
+	--color-graph-minimap-marker-local-branches: var(--color-graph-scroll-marker-local-branches);
+	--color-graph-minimap-marker-remote-branches: var(--color-graph-scroll-remote-branches);
+	--color-graph-minimap-marker-selection: var(--color-graph-scroll-marker-selection);
+	--color-graph-minimap-marker-stashes: var(--color-graph-scroll-marker-stashes);
+	--color-graph-minimap-marker-tags: var(--color-graph-scroll-marker-tags);
+	--color-graph-minimap-marker-upstream: var(--color-graph-scroll-marker-upstream);
+
 	--graph-stats-bar-height: 40%;
 	--graph-stats-bar-border-radius: 3px;
 }

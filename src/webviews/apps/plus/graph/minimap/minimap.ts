@@ -124,21 +124,15 @@ const styles = css`
 
 	.bb-region.visible-area {
 		fill: var(--color-graph-minimap-visibleAreaBackground);
-		/* transform: translateY(26px); */
 		transform: translateY(-4px);
 		z-index: 0;
 	}
 	.bb-region.visible-area > rect {
-		/* height: 10px; */
 		height: 100%;
 	}
 
-	/* :host(:hover) .bb-region.visible-area {
-		fill: var(--color-graph-minimap-visibleAreaHoverBackground);
-	} */
-
 	.bb-region.marker-result {
-		fill: var(--color-graph-minimap-resultMarker);
+		fill: var(--color-graph-minimap-marker-highlights);
 		transform: translate(-1px, -4px);
 		z-index: 10;
 	}
@@ -148,8 +142,8 @@ const styles = css`
 	}
 
 	.bb-region.marker-head {
-		fill: var(--color-graph-minimap-headMarker);
-		transform: translate(0px, -4px);
+		fill: var(--color-graph-minimap-marker-head);
+		transform: translate(-2px, -4px);
 		z-index: 5;
 	}
 	.bb-region.marker-head > rect {
@@ -158,8 +152,8 @@ const styles = css`
 	}
 
 	.bb-region.marker-upstream {
-		fill: var(--color-graph-minimap-upstreamMarker);
-		transform: translate(0px, -4px);
+		fill: var(--color-graph-minimap-marker-upstream);
+		transform: translate(2px, -4px);
 		z-index: 4;
 	}
 	.bb-region.marker-upstream > rect {
@@ -168,7 +162,7 @@ const styles = css`
 	}
 
 	.bb-region.marker-branch {
-		fill: var(--color-graph-minimap-branchMarker);
+		fill: var(--color-graph-minimap-marker-local-branches);
 		transform: translate(-2px, 26px);
 		z-index: 3;
 	}
@@ -178,8 +172,8 @@ const styles = css`
 	}
 
 	.bb-region.marker-remote {
-		fill: var(--color-graph-minimap-remoteMarker);
-		transform: translate(-3px, 31px);
+		fill: var(--color-graph-minimap-marker-remote-branches);
+		transform: translate(2px, 31px);
 		z-index: 2;
 	}
 	.bb-region.marker-remote > rect {
@@ -187,13 +181,23 @@ const styles = css`
 		height: 4px;
 	}
 
+	.bb-region.marker-stash {
+		fill: var(--color-graph-minimap-marker-stashes);
+		transform: translate(-2px, 26px);
+		z-index: 3;
+	}
+	.bb-region.marker-stash > rect {
+		width: 2px;
+		height: 10px;
+	}
+
 	.bb-region.marker-tag {
-		fill: var(--color-graph-minimap-tagMarker);
-		transform: translate(1px, 31px);
+		fill: var(--color-graph-minimap-marker-tags);
+		transform: translate(2px, 31px);
 		z-index: 1;
 	}
 	.bb-region.marker-tag > rect {
-		width: 1px;
+		width: 2px;
 		height: 4px;
 	}
 
