@@ -89,7 +89,7 @@ import { formatPath } from '../system/formatPath';
 import { map } from '../system/iterable';
 import { getSettledValue } from '../system/promise';
 import { pad, pluralize, truncate } from '../system/string';
-import { OpenWorkspaceLocation } from '../system/utils';
+import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';
 import type { ViewsWithRepositoryFolders } from '../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -1635,7 +1635,7 @@ export async function* pickWorktreeStep<
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			switch (button) {
 				case QuickCommandButtons.OpenInNewWindow:
-					WorktreeActions.open(item, { location: OpenWorkspaceLocation.NewWindow });
+					openWorkspace(item.uri, { location: OpenWorkspaceLocation.NewWindow });
 					break;
 				case QuickCommandButtons.RevealInSideBar:
 					void WorktreeActions.reveal(item, { select: true, focus: false, expand: true });
@@ -1696,7 +1696,7 @@ export async function* pickWorktreesStep<
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			switch (button) {
 				case QuickCommandButtons.OpenInNewWindow:
-					WorktreeActions.open(item, { location: OpenWorkspaceLocation.NewWindow });
+					openWorkspace(item.uri, { location: OpenWorkspaceLocation.NewWindow });
 					break;
 				case QuickCommandButtons.RevealInSideBar:
 					void WorktreeActions.reveal(item, { select: true, focus: false, expand: true });
