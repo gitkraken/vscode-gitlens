@@ -12,6 +12,7 @@ import { setContext } from './context';
 import { isGitUri } from './git/gitUri';
 import { getBranchNameWithoutRemote, isBranch } from './git/models/branch';
 import { isCommit } from './git/models/commit';
+import { isRepository } from './git/models/repository';
 import { isTag } from './git/models/tag';
 import { Logger } from './logger';
 import {
@@ -50,7 +51,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 				}
 				if (o instanceof Uri) return `Uri(${o.toString(true)})`;
 
-				if (isBranch(o) || isCommit(o) || isTag(o) || isViewNode(o)) return o.toString();
+				if (isRepository(o) || isBranch(o) || isCommit(o) || isTag(o) || isViewNode(o)) return o.toString();
 
 				return undefined;
 			},
