@@ -5571,8 +5571,8 @@
 				"enablement": "!operationInProgress"
 			},
 			{
-				"command": "gitlens.ghpr.views.createWorktree",
-				"title": "Create Worktree for Pull Request via GitLens...",
+				"command": "gitlens.ghpr.views.openOrCreateWorktree",
+				"title": "Open Worktree for Pull Request via GitLens...",
 				"category": "GitLens",
 				"enablement": "!operationInProgress"
 			},
@@ -8064,7 +8064,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.ghpr.views.createWorktree",
+					"command": "gitlens.ghpr.views.openOrCreateWorktree",
 					"when": "false"
 				},
 				{
@@ -11483,7 +11483,7 @@
 					"group": "1_gitlens@0"
 				},
 				{
-					"command": "gitlens.ghpr.views.createWorktree",
+					"command": "gitlens.ghpr.views.openOrCreateWorktree",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive|description/",
 					"group": "pullrequest@2"
 				}

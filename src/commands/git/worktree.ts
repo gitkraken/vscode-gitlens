@@ -1,10 +1,10 @@
 import type { MessageItem } from 'vscode';
-import { QuickInputButtons, Uri, window } from 'vscode';
+import { QuickInputButtons, Uri, window, workspace } from 'vscode';
 import type { Config } from '../../configuration';
 import { configuration } from '../../configuration';
 import type { Container } from '../../container';
 import { PlusFeatures } from '../../features';
-import { open, reveal, revealInFileExplorer } from '../../git/actions/worktree';
+import { convertOpenFlagsToLocation, reveal, revealInFileExplorer } from '../../git/actions/worktree';
 import {
 	WorktreeCreateError,
 	WorktreeCreateErrorReason,
@@ -22,7 +22,7 @@ import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { basename, isDescendent } from '../../system/path';
 import { pluralize, truncateLeft } from '../../system/string';
-import { OpenWorkspaceLocation } from '../../system/utils';
+import { openWorkspace, OpenWorkspaceLocation } from '../../system/utils';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -85,7 +85,7 @@ interface DeleteState {
 	flags: DeleteFlags[];
 }
 
-type OpenFlags = '--new-window' | '--reveal-explorer';
+type OpenFlags = '--add-to-workspace' | '--new-window' | '--reveal-explorer';
 
 interface OpenState {
 	subcommand: 'open';
@@ -385,8 +385,9 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						...(state.createBranch ?? state.reference.name).replace(/\\/g, '/').split('/'),
 				  );
 
+			let worktree: GitWorktree | undefined;
 			try {
-				const worktree = await state.repo.createWorktree(uri, {
+				worktree = await state.repo.createWorktree(uri, {
 					commitish: state.reference?.name,
 					createBranch: state.flags.includes('-b') ? state.createBranch : undefined,
 					detach: state.flags.includes('--detach'),
@@ -399,55 +400,6 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						focus: true,
 					});
 				}
-
-				if (worktree == null) return;
-
-				type OpenAction = Config['worktrees']['openAfterCreate'] | 'addToWorkspace';
-				let action: OpenAction = configuration.get('worktrees.openAfterCreate');
-				if (action === 'never') return;
-
-				queueMicrotask(async () => {
-					if (action === 'prompt') {
-						type ActionMessageItem = MessageItem & { action: OpenAction };
-						const open: ActionMessageItem = { title: 'Open', action: 'always' };
-						const openNewWindow: ActionMessageItem = {
-							title: 'Open in New Window',
-							action: 'alwaysNewWindow',
-						};
-						const addToWorkspace: ActionMessageItem = {
-							title: 'Add to Workspace',
-							action: 'addToWorkspace',
-						};
-						const cancel: ActionMessageItem = { title: 'Cancel', isCloseAffordance: true, action: 'never' };
-
-						const result = await window.showInformationMessage(
-							`Would you like to open the new worktree, or add it to the current workspace?`,
-							{ modal: true },
-							open,
-							openNewWindow,
-							addToWorkspace,
-							cancel,
-						);
-
-						action = result?.action ?? 'never';
-					}
-
-					switch (action) {
-						case 'always':
-							open(worktree, {
-								location: OpenWorkspaceLocation.CurrentWindow,
-							});
-							break;
-						case 'alwaysNewWindow':
-							open(worktree, { location: OpenWorkspaceLocation.NewWindow });
-							break;
-						case 'addToWorkspace':
-							open(worktree, {
-								location: OpenWorkspaceLocation.AddToWorkspace,
-							});
-							break;
-					}
-				});
 			} catch (ex) {
 				if (
 					WorktreeCreateError.is(ex, WorktreeCreateErrorReason.AlreadyCheckedOut) &&
@@ -495,6 +447,44 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			}
 
 			endSteps(state);
+			if (worktree == null) break;
+
+			type OpenAction = Config['worktrees']['openAfterCreate'];
+			const action: OpenAction = configuration.get('worktrees.openAfterCreate');
+			if (action === 'never') break;
+
+			if (action === 'prompt') {
+				yield* this.openCommandSteps(
+					{
+						subcommand: 'open',
+						repo: state.repo,
+						uri: worktree.uri,
+						counter: 3,
+						confirm: true,
+					} as OpenStepState,
+					context,
+				);
+
+				break;
+			}
+
+			queueMicrotask(() => {
+				switch (action) {
+					case 'always':
+						openWorkspace(worktree!.uri, { location: OpenWorkspaceLocation.CurrentWindow });
+						break;
+					case 'alwaysNewWindow':
+						openWorkspace(worktree!.uri, { location: OpenWorkspaceLocation.NewWindow });
+						break;
+					case 'onlyWhenEmpty':
+						openWorkspace(worktree!.uri, {
+							location: workspace.workspaceFolders?.length
+								? OpenWorkspaceLocation.CurrentWindow
+								: OpenWorkspaceLocation.NewWindow,
+						});
+						break;
+				}
+			});
 		}
 	}
 
@@ -804,15 +794,13 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 			endSteps(state);
 
-			const worktree = context.worktrees.find(wt => wt.uri.toString() === state.uri.toString())!;
+			const worktree = context.worktrees.find(wt => wt.uri.toString() === state.uri.toString());
+			if (worktree == null) break;
+
 			if (state.flags.includes('--reveal-explorer')) {
 				void revealInFileExplorer(worktree);
 			} else {
-				open(worktree, {
-					location: state.flags.includes('--new-window')
-						? OpenWorkspaceLocation.NewWindow
-						: OpenWorkspaceLocation.CurrentWindow,
-				});
+				openWorkspace(worktree.uri, { location: convertOpenFlagsToLocation(state.flags) });
 			}
 		}
 	}
@@ -823,19 +811,25 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			[
 				createFlagsQuickPickItem<OpenFlags>(state.flags, [], {
 					label: context.title,
-					detail: `Will open, in the current window, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
+					detail: `Will open in the current window, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
 						state.uri,
 					)}`,
 				}),
 				createFlagsQuickPickItem<OpenFlags>(state.flags, ['--new-window'], {
 					label: `${context.title} in a New Window`,
-					detail: `Will open, in a new window, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
+					detail: `Will open in a new window, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
+						state.uri,
+					)}`,
+				}),
+				createFlagsQuickPickItem<OpenFlags>(state.flags, ['--add-to-workspace'], {
+					label: `Add Worktree to Workspace`,
+					detail: `Will add into the current workspace, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
 						state.uri,
 					)}`,
 				}),
 				createFlagsQuickPickItem<OpenFlags>(state.flags, ['--reveal-explorer'], {
 					label: `Reveal in File Explorer`,
-					detail: `Will open, in the File Explorer, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
+					detail: `Will open in the File Explorer, the worktree in $(folder) ${GitWorktree.getFriendlyPath(
 						state.uri,
 					)}`,
 				}),

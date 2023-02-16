@@ -170,6 +170,7 @@ export const enum Commands {
 	GitCommandsSwitch = 'gitlens.gitCommands.switch',
 	GitCommandsTag = 'gitlens.gitCommands.tag',
 	GitCommandsWorktree = 'gitlens.gitCommands.worktree',
+	OpenOrCreateWorktreeForGHPR = 'gitlens.ghpr.views.openOrCreateWorktree',
 	PlusHide = 'gitlens.plus.hide',
 	PlusLearn = 'gitlens.plus.learn',
 	PlusLoginOrSignUp = 'gitlens.plus.loginOrSignUp',
@@ -258,8 +259,6 @@ export const enum Commands {
 	ViewsCopy = 'gitlens.views.copy',
 	ViewsOpenDirectoryDiff = 'gitlens.views.openDirectoryDiff',
 	ViewsOpenDirectoryDiffWithWorking = 'gitlens.views.openDirectoryDiffWithWorking',
-
-	CreateWorktreeForGHPR = 'gitlens.ghpr.views.createWorktree',
 
 	Deprecated_DiffHeadWith = 'gitlens.diffHeadWith',
 	Deprecated_DiffWorkingWith = 'gitlens.diffWorkingWith',

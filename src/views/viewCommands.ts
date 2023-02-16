@@ -33,7 +33,7 @@ import {
 } from '../system/command';
 import { debug } from '../system/decorators/log';
 import { sequentialize } from '../system/function';
-import { OpenWorkspaceLocation } from '../system/utils';
+import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';
 import type { BranchesNode } from './nodes/branchesNode';
 import { BranchNode } from './nodes/branchNode';
 import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
@@ -572,7 +572,7 @@ export class ViewCommands {
 	private openWorktree(node: WorktreeNode, options?: { location?: OpenWorkspaceLocation }) {
 		if (!(node instanceof WorktreeNode)) return undefined;
 
-		return WorktreeActions.open(node.worktree, options);
+		return openWorkspace(node.worktree.uri, options);
 	}
 
 	@debug()

@@ -1,10 +1,10 @@
 import type { Uri } from 'vscode';
+import type { WorktreeGitCommandArgs } from '../../commands/git/worktree';
 import { CoreCommands } from '../../constants';
 import { Container } from '../../container';
 import { ensure } from '../../system/array';
 import { executeCoreCommand } from '../../system/command';
-import type { OpenWorkspaceLocation } from '../../system/utils';
-import { openWorkspace } from '../../system/utils';
+import { OpenWorkspaceLocation } from '../../system/utils';
 import { executeGitCommand } from '../actions';
 import type { GitReference } from '../models/reference';
 import type { Repository } from '../models/repository';
@@ -18,7 +18,15 @@ export function create(repo?: string | Repository, uri?: Uri, ref?: GitReference
 }
 
 export function open(worktree: GitWorktree, options?: { location?: OpenWorkspaceLocation }) {
-	return openWorkspace(worktree.uri, options);
+	return executeGitCommand({
+		command: 'worktree',
+		state: {
+			subcommand: 'open',
+			repo: worktree.repoPath,
+			uri: worktree.uri,
+			flags: convertLocationToOpenFlags(options?.location),
+		},
+	});
 }
 
 export function remove(repo?: string | Repository, uri?: Uri) {
@@ -47,4 +55,28 @@ export async function reveal(
 
 export async function revealInFileExplorer(worktree: GitWorktree) {
 	void (await executeCoreCommand(CoreCommands.RevealInFileExplorer, worktree.uri));
+}
+
+type OpenFlagsArray = Extract<NonNullable<Required<WorktreeGitCommandArgs['state']>>, { subcommand: 'open' }>['flags'];
+
+export function convertLocationToOpenFlags(location: OpenWorkspaceLocation | undefined): OpenFlagsArray | undefined {
+	if (location == null) return undefined;
+
+	switch (location) {
+		case OpenWorkspaceLocation.NewWindow:
+			return ['--new-window'];
+		case OpenWorkspaceLocation.AddToWorkspace:
+			return ['--add-to-workspace'];
+		case OpenWorkspaceLocation.CurrentWindow:
+		default:
+			return [];
+	}
+}
+
+export function convertOpenFlagsToLocation(flags: OpenFlagsArray | undefined): OpenWorkspaceLocation | undefined {
+	if (flags == null) return undefined;
+
+	if (flags.includes('--new-window')) return OpenWorkspaceLocation.NewWindow;
+	if (flags.includes('--add-to-workspace')) return OpenWorkspaceLocation.AddToWorkspace;
+	return OpenWorkspaceLocation.CurrentWindow;
 }

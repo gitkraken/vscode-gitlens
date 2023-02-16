@@ -3,7 +3,7 @@ import { window } from 'vscode';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { add as addRemote } from '../../git/actions/remote';
-import { create as createWorktree } from '../../git/actions/worktree';
+import { create as createWorktree, open as openWorktree } from '../../git/actions/worktree';
 import { GitReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
@@ -41,9 +41,9 @@ interface PullRequest {
 }
 
 @command()
-export class CreateWorktreeCommand extends Command {
+export class OpenOrCreateWorktreeCommand extends Command {
 	constructor(private readonly container: Container) {
-		super(Commands.CreateWorktreeForGHPR);
+		super(Commands.OpenOrCreateWorktreeForGHPR);
 	}
 
 	async execute(...args: [PullRequestNode | PullRequest, ...unknown[]]) {
@@ -76,6 +76,14 @@ export class CreateWorktreeCommand extends Command {
 		repo = await repo.getMainRepository();
 		if (repo == null) {
 			void window.showWarningMessage(`Unable to find main repository(${rootUri.toString()}) for PR #${number}`);
+			return;
+		}
+
+		const worktrees = await repo.getWorktrees();
+		const worktree = worktrees.find(w => w.branch === ref);
+		if (worktree != null) {
+			void openWorktree(worktree);
+
 			return;
 		}
 

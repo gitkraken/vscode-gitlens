@@ -29,7 +29,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     - Adds a `worktrees.openAfterCreate` setting to specify how and when to open a worktree after it is created
   - Ensures new worktrees are created from the "main" repo, if already in a worktree
 - Adds a new _remote_ command to the _Git Command Palette_ to add, prune, and remove remotes
-- Adds a _Create Worktree for Pull Request via GitLens..._ context menu command on pull requests in the _GitHub Pull Requests and Issues_ extension's views
+- Adds a _Open Worktree for Pull Request via GitLens..._ context menu command on pull requests in the _GitHub Pull Requests and Issues_ extension's views
+  - Opens an associated worktree, if one exists, otherwise it creates a new worktree for the pull request
 - Adds settings to control the format of commits in the GitLens views
 
 ### Changed
