@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a double-click action on commit rows to open the _Commit Details_ view
   - Improves Author and Avatar tooltips to now also show the contributor's email address, if available
   - Improves Date tooltips to now always show both the absolute and relative date
+- Adds the ability to copy and share links directly to repositories, branches, commits, and tags in the _Commit Graph_
+  - Adds context menu actions to copy direct links in the _Share_ submenu
 - Improves the Worktree creation experience
   - Adds a prompt after the worktree is created to choose how to open the worktree
     - Adds a `worktrees.openAfterCreate` setting to specify how and when to open a worktree after it is created
