@@ -444,7 +444,7 @@ export class GraphApp extends App<State> {
 
 		const branchBackground = branchColor.luminance(themeLuminance(e.isLightTheme ? 0.8 : 0.3)).toString();
 		const branchBorder = branchColor.luminance(themeLuminance(e.isLightTheme ? 0.2 : 0.4)).toString();
-		const branchMarker = branchColor.luminance(themeLuminance(0.6)).toString();
+		const branchMarker = branchColor.luminance(themeLuminance(e.isLightTheme ? 0.2 : 0.6)).toString();
 
 		bodyStyle.setProperty('--color-graph-minimap-branchBackground', branchBackground);
 		bodyStyle.setProperty('--color-graph-minimap-branchBorder', branchBorder);
@@ -456,13 +456,13 @@ export class GraphApp extends App<State> {
 			.luminance(themeLuminance(e.isLightTheme ? 0.8 : 0.3))
 			.toString();
 		const remoteBranchBorder = remoteBranchColor.luminance(themeLuminance(e.isLightTheme ? 0.2 : 0.4)).toString();
-		const remoteBranchMarker = remoteBranchColor.luminance(themeLuminance(0.6)).toString();
+		const remoteBranchMarker = remoteBranchColor.luminance(themeLuminance(e.isLightTheme ? 0.3 : 0.6)).toString();
 
 		bodyStyle.setProperty('--color-graph-minimap-remoteBackground', opacity(remoteBranchBackground, 80));
 		bodyStyle.setProperty('--color-graph-minimap-remoteBorder', opacity(remoteBranchBorder, 80));
 		bodyStyle.setProperty('--color-graph-minimap-remoteForeground', pillLabel);
 		// bodyStyle.setProperty('--color-graph-minimap-marker-remote-branches', opacity(remoteBranchMarker, 30));
-		bodyStyle.setProperty('--color-graph-scroll-marker-remote-branches', opacity(remoteBranchMarker, 60));
+		bodyStyle.setProperty('--color-graph-scroll-marker-remote-branches', opacity(remoteBranchMarker, 80));
 
 		bodyStyle.setProperty(
 			'--color-graph-minimap-stashBackground',
@@ -479,7 +479,7 @@ export class GraphApp extends App<State> {
 		// );
 		bodyStyle.setProperty(
 			'--color-graph-scroll-marker-stashes',
-			opacity(stashColor.luminance(themeLuminance(0.9)).toString(), 90),
+			opacity(stashColor.luminance(themeLuminance(e.isLightTheme ? 0.5 : 0.9)).toString(), 90),
 		);
 
 		bodyStyle.setProperty(
@@ -497,7 +497,7 @@ export class GraphApp extends App<State> {
 		// );
 		bodyStyle.setProperty(
 			'--color-graph-scroll-marker-tags',
-			opacity(tagColor.luminance(themeLuminance(0.9)).toString(), 90),
+			opacity(tagColor.luminance(themeLuminance(e.isLightTheme ? 0.3 : 0.9)).toString(), 90),
 		);
 
 		if (e.isInitializing) return;
