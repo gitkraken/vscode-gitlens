@@ -22,6 +22,7 @@ import { asRepoComparisonKey, Repositories } from '../repositories';
 import type { Subscription } from '../subscription';
 import { isSubscriptionPaidPlan, SubscriptionPlanId } from '../subscription';
 import { groupByFilterMap, groupByMap, joinUnique } from '../system/array';
+import { registerCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
@@ -199,6 +200,7 @@ export class GitProviderService implements Disposable {
 				this.resetCaches('providers');
 				this.updateContext();
 			}),
+			...this.registerCommands(),
 		);
 
 		this.container.BranchDateFormatting.reset();
@@ -244,6 +246,13 @@ export class GitProviderService implements Disposable {
 		if (e != null && configuration.changed(e, 'integrations.enabled')) {
 			this.updateContext();
 		}
+	}
+
+	private registerCommands(): Disposable[] {
+		return [
+			registerCommand('gitlens.plus.resetRepositoryAccess', () => this.clearAllRepoVisibilityCaches()),
+			registerCommand('gitlens.plus.refreshRepositoryAccess', () => this.clearAllOpenRepoVisibilityCaches()),
+		];
 	}
 
 	@debug()
@@ -728,12 +737,12 @@ export class GitProviderService implements Disposable {
 		}
 	}
 
-	private clearRepoVisibilityCache(key?: string): void {
-		if (key == null) {
+	private clearRepoVisibilityCache(keys?: string[]): void {
+		if (keys == null) {
 			this._repoVisibilityCache = undefined;
 			void this.container.storage.delete('repoVisibility');
 		} else {
-			this._repoVisibilityCache?.delete(key);
+			keys?.forEach(key => this._repoVisibilityCache?.delete(key));
 			const repoVisibility = Array.from(this._repoVisibilityCache?.entries() ?? []);
 			if (repoVisibility.length === 0) {
 				void this.container.storage.delete('repoVisibility');
@@ -750,7 +759,7 @@ export class GitProviderService implements Disposable {
 
 		const now = Date.now();
 		if (now - visibilityInfo.timestamp > 1000 * 60 * 60 * 24 * 30 /* TTL is 30 days */) {
-			this.clearRepoVisibilityCache(key);
+			this.clearRepoVisibilityCache([key]);
 			return undefined;
 		}
 
@@ -766,7 +775,7 @@ export class GitProviderService implements Disposable {
 
 		if (visibilityInfo.visibility === RepositoryVisibility.Public) {
 			if (remotes.length == 0 || !remotes.some(r => r.id === visibilityInfo.remotesHash)) {
-				this.clearRepoVisibilityCache(key);
+				this.clearRepoVisibilityCache([key]);
 				return false;
 			}
 		} else if (visibilityInfo.visibility === RepositoryVisibility.Private) {
@@ -775,7 +784,7 @@ export class GitProviderService implements Disposable {
 				.sort()
 				.join(',');
 			if (remotesHash !== visibilityInfo.remotesHash) {
-				this.clearRepoVisibilityCache(key);
+				this.clearRepoVisibilityCache([key]);
 				return false;
 			}
 		}
@@ -787,6 +796,15 @@ export class GitProviderService implements Disposable {
 		this.ensureRepoVisibilityCache();
 		this._repoVisibilityCache?.set(key, visibilityInfo);
 		void this.container.storage.store('repoVisibility', Array.from(this._repoVisibilityCache!.entries()));
+	}
+
+	clearAllRepoVisibilityCaches(): void {
+		this.clearRepoVisibilityCache();
+	}
+
+	clearAllOpenRepoVisibilityCaches(): void {
+		const openRepoProviderPaths = this.openRepositories.map(r => this.getProvider(r.path).path);
+		this.clearRepoVisibilityCache(openRepoProviderPaths);
 	}
 
 	visibility(): Promise<RepositoriesVisibility>;
