@@ -127,7 +127,20 @@ function getExtensionConfig(target, mode, env) {
 	}
 
 	if (env.analyzeBundle) {
-		plugins.push(new BundleAnalyzerPlugin({ analyzerPort: 'auto' }));
+		const out = path.join(__dirname, 'out');
+		if (!fs.existsSync(out)) {
+			fs.mkdirSync(out);
+		}
+
+		plugins.push(
+			new BundleAnalyzerPlugin({
+				analyzerMode: 'static',
+				generateStatsFile: true,
+				openAnalyzer: false,
+				reportFilename: path.join(out, `extension-${target}-bundle-report.html`),
+				statsFilename: path.join(out, 'stats.json'),
+			}),
+		);
 	}
 
 	return {
@@ -351,7 +364,20 @@ function getWebviewsConfig(mode, env) {
 	}
 
 	if (env.analyzeBundle) {
-		plugins.push(new BundleAnalyzerPlugin({ analyzerPort: 'auto' }));
+		const out = path.join(__dirname, 'out');
+		if (!fs.existsSync(out)) {
+			fs.mkdirSync(out);
+		}
+
+		plugins.push(
+			new BundleAnalyzerPlugin({
+				analyzerMode: 'static',
+				generateStatsFile: true,
+				openAnalyzer: false,
+				reportFilename: path.join(out, 'webview-bundle-report.html'),
+				statsFilename: path.join(out, 'stats.json'),
+			}),
+		);
 	}
 
 	return {
