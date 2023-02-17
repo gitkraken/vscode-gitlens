@@ -2226,20 +2226,18 @@
 					"gitlens.graph.scrollMarkers.additionalTypes": {
 						"type": "array",
 						"default": [
-							"head",
-							"localBranches"
+							"localBranches",
+							"stashes"
 						],
 						"items": {
 							"type": "string",
 							"enum": [
-								"head",
 								"localBranches",
 								"remoteBranches",
 								"tags",
 								"stashes"
 							],
 							"enumDescriptions": [
-								"Marks the location of the current HEAD and its upstream",
 								"Marks the location of local branches",
 								"Marks the location of remote branches",
 								"Marks the location of tags",
@@ -2247,7 +2245,7 @@
 							]
 						},
 						"minItems": 0,
-						"maxItems": 5,
+						"maxItems": 4,
 						"uniqueItems": true,
 						"markdownDescription": "Specifies additional markers to show on the scrollbar in the _Commit Graph_",
 						"scope": "window",

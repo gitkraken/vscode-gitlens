@@ -1672,13 +1672,10 @@ export class GraphWebview extends WebviewBase<State> {
 		const markers: GraphScrollMarkerTypes[] = [
 			GraphScrollMarkerTypes.Selection,
 			GraphScrollMarkerTypes.Highlights,
+			GraphScrollMarkerTypes.Head,
+			GraphScrollMarkerTypes.Upstream,
 			...(configuration.get('graph.scrollMarkers.additionalTypes') as unknown as GraphScrollMarkerTypes[]),
 		];
-
-		// Head and upstream are under the same setting, but separate markers in the component
-		if (markers.includes(GraphScrollMarkerTypes.Head)) {
-			markers.push(GraphScrollMarkerTypes.Upstream);
-		}
 
 		return markers;
 	}
