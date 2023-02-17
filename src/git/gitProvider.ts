@@ -98,6 +98,12 @@ export const enum RepositoryVisibility {
 	Local = 'local',
 }
 
+export interface RepositoryVisibilityInfo {
+	visibility: RepositoryVisibility;
+	timestamp: number;
+	remotesHash?: string;
+}
+
 export interface GitProvider extends Disposable {
 	get onDidChangeRepository(): Event<RepositoryChangeEvent>;
 	get onDidCloseRepository(): Event<RepositoryCloseEvent>;
@@ -118,7 +124,7 @@ export interface GitProvider extends Disposable {
 	openRepositoryInitWatcher?(): RepositoryInitWatcher;
 
 	supports(feature: Features): Promise<boolean>;
-	visibility(repoPath: string): Promise<RepositoryVisibility>;
+	visibility(repoPath: string, remotes?: GitRemote[]): Promise<[RepositoryVisibility, string | undefined]>;
 
 	getOpenScmRepositories(): Promise<ScmRepository[]>;
 	getScmRepository(repoPath: string): Promise<ScmRepository | undefined>;

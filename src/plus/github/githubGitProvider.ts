@@ -229,17 +229,23 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	async visibility(repoPath: string): Promise<RepositoryVisibility> {
+	async visibility(repoPath: string): Promise<[RepositoryVisibility, string | undefined]> {
 		const remotes = await this.getRemotes(repoPath, { sort: true });
-		if (remotes.length === 0) return RepositoryVisibility.Local;
+		if (remotes.length === 0) return [RepositoryVisibility.Local, undefined];
 
-		for await (const result of fastestSettled(remotes.map(r => this.getRemoteVisibility(r)))) {
+		for await (const result of fastestSettled(remotes.map(async r => [await this.getRemoteVisibility(r), r.id]))) {
 			if (result.status !== 'fulfilled') continue;
 
-			if (result.value === RepositoryVisibility.Public) return RepositoryVisibility.Public;
+			if (result.value[0] === RepositoryVisibility.Public) return [RepositoryVisibility.Public, result.value[1]];
 		}
 
-		return RepositoryVisibility.Private;
+		return [
+			RepositoryVisibility.Private,
+			remotes
+				.map(r => r.id)
+				.sort()
+				.join(','),
+		];
 	}
 
 	private async getRemoteVisibility(
