@@ -30,6 +30,7 @@ import { AccountValidationError } from '../../errors';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { Logger } from '../../logger';
 import { getLogScope } from '../../logScope';
+import { showMessage } from '../../messages';
 import type { Subscription } from '../../subscription';
 import {
 	computeSubscriptionState,
@@ -898,6 +899,18 @@ export class SubscriptionService implements Disposable {
 		this._subscription = subscription;
 		this._etag = Date.now();
 
+		setTimeout(() => {
+			if (
+				subscription?.account != null &&
+				subscription.plan.actual.id === SubscriptionPlanId.Pro &&
+				!subscription.plan.actual.bundle &&
+				new Date(subscription.plan.actual.startedOn) >= new Date('2022-02-28T00:00:00.000Z') &&
+				new Date(subscription.plan.actual.startedOn) <= new Date('2022-04-31T00:00:00.000Z')
+			) {
+				showRenewalDiscountNotification(this.container);
+			}
+		}, 5000);
+
 		if (!silent) {
 			this.updateContext();
 
@@ -1157,4 +1170,17 @@ function licenseStatusPriority(status: GKLicense['latestStatus']): number {
 		case 'non_renewing':
 			return 0;
 	}
+}
+
+function showRenewalDiscountNotification(container: Container): void {
+	if (container.storage.get('plus:renewalDiscountNotificationShown', false)) return;
+
+	void container.storage.store('plus:renewalDiscountNotificationShown', true);
+
+	void showMessage(
+		'info',
+		'60% off your GitLens Pro renewal — as a thank you for being an early adopter of GitLens+. So there will be no change to your price for an additional year!',
+		undefined,
+		undefined,
+	);
 }

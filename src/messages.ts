@@ -197,7 +197,7 @@ export async function showWhatsNewMessage(version: string) {
 	}
 }
 
-async function showMessage(
+export async function showMessage(
 	type: 'info' | 'warn' | 'error',
 	message: string,
 	suppressionKey?: SuppressedMessages,
