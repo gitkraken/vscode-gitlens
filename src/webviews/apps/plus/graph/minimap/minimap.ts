@@ -19,13 +19,19 @@ export interface RemoteMarker {
 	current?: boolean;
 }
 
+export interface StashMarker {
+	type: 'stash';
+	name: string;
+	current?: undefined;
+}
+
 export interface TagMarker {
 	type: 'tag';
 	name: string;
 	current?: undefined;
 }
 
-export type GraphMinimapMarker = BranchMarker | RemoteMarker | TagMarker;
+export type GraphMinimapMarker = BranchMarker | RemoteMarker | StashMarker | TagMarker;
 
 export interface GraphMinimapSearchResultMarker {
 	type: 'search-result';
@@ -85,6 +91,10 @@ const styles = css`
 	}
 
 	/*-- Grid --*/
+	.bb-grid {
+		pointer-events: none;
+	}
+
 	.bb-xgrid-focus line {
 		stroke: var(--color-graph-minimap-focusLine);
 	}
@@ -122,10 +132,17 @@ const styles = css`
 
 	/*-- Regions --*/
 
+	.bb-regions {
+		pointer-events: none;
+	}
+
+	.bb-region > rect:not([x]) {
+		display: none;
+	}
+
 	.bb-region.visible-area {
 		fill: var(--color-graph-minimap-visibleAreaBackground);
 		transform: translateY(-4px);
-		z-index: 0;
 	}
 	.bb-region.visible-area > rect {
 		height: 100%;
@@ -143,62 +160,82 @@ const styles = css`
 
 	.bb-region.marker-head {
 		fill: var(--color-graph-minimap-marker-head);
-		transform: translate(-2px, -4px);
-		z-index: 5;
+		stroke: var(--color-graph-minimap-marker-head);
+		transform: translate(-1px, -4px);
 	}
 	.bb-region.marker-head > rect {
-		width: 2px;
+		width: 1px;
 		height: 100%;
+	}
+
+	.bb-region.marker-head-arrow-left {
+		fill: var(--color-graph-minimap-marker-head);
+		stroke: var(--color-graph-minimap-marker-head);
+		transform: translate(-5px, -5px) skewX(45deg);
+	}
+	.bb-region.marker-head-arrow-left > rect {
+		width: 3px;
+		height: 3px;
+	}
+
+	.bb-region.marker-head-arrow-right {
+		fill: var(--color-graph-minimap-marker-head);
+		stroke: var(--color-graph-minimap-marker-head);
+		transform: translate(1px, -5px) skewX(-45deg);
+	}
+	.bb-region.marker-head-arrow-right > rect {
+		width: 3px;
+		height: 3px;
 	}
 
 	.bb-region.marker-upstream {
 		fill: var(--color-graph-minimap-marker-upstream);
-		transform: translate(2px, -4px);
-		z-index: 4;
+		stroke: var(--color-graph-minimap-marker-upstream);
+		transform: translate(-1px, -4px);
 	}
 	.bb-region.marker-upstream > rect {
-		width: 2px;
+		width: 1px;
 		height: 100%;
 	}
 
 	.bb-region.marker-branch {
 		fill: var(--color-graph-minimap-marker-local-branches);
-		transform: translate(-2px, 26px);
-		z-index: 3;
+		stroke: var(--color-graph-minimap-marker-local-branches);
+		transform: translate(-2px, 32px);
 	}
 	.bb-region.marker-branch > rect {
-		width: 2px;
-		height: 10px;
+		width: 3px;
+		height: 3px;
 	}
 
 	.bb-region.marker-remote {
 		fill: var(--color-graph-minimap-marker-remote-branches);
-		transform: translate(2px, 31px);
-		z-index: 2;
+		stroke: var(--color-graph-minimap-marker-remote-branches);
+		transform: translate(-2px, 26px);
 	}
 	.bb-region.marker-remote > rect {
-		width: 2px;
-		height: 4px;
+		width: 3px;
+		height: 3px;
 	}
 
 	.bb-region.marker-stash {
 		fill: var(--color-graph-minimap-marker-stashes);
-		transform: translate(-2px, 26px);
-		z-index: 3;
+		stroke: var(--color-graph-minimap-marker-stashes);
+		transform: translate(-2px, 32px);
 	}
 	.bb-region.marker-stash > rect {
-		width: 2px;
-		height: 10px;
+		width: 3px;
+		height: 3px;
 	}
 
 	.bb-region.marker-tag {
 		fill: var(--color-graph-minimap-marker-tags);
-		transform: translate(2px, 31px);
-		z-index: 1;
+		stroke: var(--color-graph-minimap-marker-tags);
+		transform: translate(-2px, 26px);
 	}
 	.bb-region.marker-tag > rect {
-		width: 2px;
-		height: 4px;
+		width: 3px;
+		height: 3px;
 	}
 
 	/*-- Zoom region --*/
@@ -299,35 +336,55 @@ const styles = css`
 	.bb-tooltip .refs .branch {
 		border-radius: 3px;
 		padding: 0 4px;
-		background-color: var(--color-graph-minimap-branchBackground);
-		border: 1px solid var(--color-graph-minimap-branchBorder);
-		color: var(--color-graph-minimap-branchForeground);
+		background-color: var(--color-graph-minimap-tip-branchBackground);
+		border: 1px solid var(--color-graph-minimap-tip-branchBorder);
+		color: var(--color-graph-minimap-tip-branchForeground);
 	}
 	.bb-tooltip .refs .branch.current {
-		background-color: var(--color-graph-minimap-headBackground);
-		border: 1px solid var(--color-graph-minimap-headBorder);
-		color: var(--color-graph-minimap-headForeground);
+		background-color: var(--color-graph-minimap-tip-headBackground);
+		border: 1px solid var(--color-graph-minimap-tip-headBorder);
+		color: var(--color-graph-minimap-tip-headForeground);
 	}
 	.bb-tooltip .refs .remote {
 		border-radius: 3px;
 		padding: 0 4px;
-		background-color: var(--color-graph-minimap-remoteBackground);
-		border: 1px solid var(--color-graph-minimap-remoteBorder);
-		color: var(--color-graph-minimap-remoteForeground);
+		background-color: var(--color-graph-minimap-tip-remoteBackground);
+		border: 1px solid var(--color-graph-minimap-tip-remoteBorder);
+		color: var(--color-graph-minimap-tip-remoteForeground);
 	}
 	.bb-tooltip .refs .remote.current {
-		background-color: var(--color-graph-minimap-upstreamBackground);
-		border: 1px solid var(--color-graph-minimap-upstreamBorder);
-		color: var(--color-graph-minimap-upstreamForeground);
+		background-color: var(--color-graph-minimap-tip-upstreamBackground);
+		border: 1px solid var(--color-graph-minimap-tip-upstreamBorder);
+		color: var(--color-graph-minimap-tip-upstreamForeground);
+	}
+	.bb-tooltip .refs .stash {
+		border-radius: 3px;
+		padding: 0 4px;
+		background-color: var(--color-graph-minimap-tip-stashBackground);
+		border: 1px solid var(--color-graph-minimap-tip-stashBorder);
+		color: var(--color-graph-minimap-tip-stashForeground);
 	}
 	.bb-tooltip .refs .tag {
 		border-radius: 3px;
 		padding: 0 4px;
-		background-color: var(--color-graph-minimap-tagBackground);
-		border: 1px solid var(--color-graph-minimap-tagBorder);
-		color: var(--color-graph-minimap-tagForeground);
+		background-color: var(--color-graph-minimap-tip-tagBackground);
+		border: 1px solid var(--color-graph-minimap-tip-tagBorder);
+		color: var(--color-graph-minimap-tip-tagForeground);
 	}
 `;
+
+const markerZOrder = [
+	'marker-result',
+	'marker-head-arrow-left',
+	'marker-head-arrow-right',
+	'marker-head',
+	'marker-upstream',
+	'marker-branch',
+	'marker-stash',
+	'marker-remote',
+	'marker-tag',
+	'visible-area',
+];
 
 @customElement({ name: 'graph-minimap', template: template, styles: styles })
 export class GraphMinimap extends FASTElement {
@@ -464,19 +521,37 @@ export class GraphMinimap extends FASTElement {
 		if (this._markerRegions == null) {
 			if (this.markers != null) {
 				const regions = flatMap(this.markers, ([day, markers]) =>
-					map<GraphMinimapMarker, RegionOptions>(
-						markers,
-						m =>
-							({
-								axis: 'x',
-								start: day,
-								end: day,
-								class: m.current
-									? m.type === 'branch'
-										? 'marker-head'
-										: 'marker-upstream'
-									: `marker-${m.type}`,
-							} satisfies RegionOptions),
+					flatMap<GraphMinimapMarker, RegionOptions>(markers, m =>
+						m.current && m.type === 'branch'
+							? [
+									{
+										axis: 'x',
+										start: day,
+										end: day,
+										class: 'marker-head',
+									} satisfies RegionOptions,
+									{
+										axis: 'x',
+										start: day,
+										end: day,
+										class: 'marker-head-arrow-left',
+									} satisfies RegionOptions,
+									{
+										axis: 'x',
+										start: day,
+										end: day,
+										class: 'marker-head-arrow-right',
+									} satisfies RegionOptions,
+							  ]
+							: [
+									{
+										axis: 'x',
+										start: day,
+										end: day,
+										class:
+											m.current && m.type === 'remote' ? 'marker-upstream' : `marker-${m.type}`,
+									} satisfies RegionOptions,
+							  ],
 					),
 				);
 				this._markerRegions = regions;
@@ -492,14 +567,16 @@ export class GraphMinimap extends FASTElement {
 			let regions: Iterable<RegionOptions> = this.getMarkerRegions();
 
 			if (this.visibleDays != null) {
-				regions = union(regions, [this.getVisibleAreaRegion(this.visibleDays)]);
+				regions = union([this.getVisibleAreaRegion(this.visibleDays)], regions);
 			}
 
 			if (this.searchResults != null) {
 				regions = union(regions, this.getSearchResultsRegions(this.searchResults));
 			}
 
-			this._regions = [...regions];
+			this._regions = [...regions].sort(
+				(a, b) => markerZOrder.indexOf(b.class ?? '') - markerZOrder.indexOf(a.class ?? ''),
+			);
 		}
 		return this._regions;
 	}
@@ -786,6 +863,8 @@ export class GraphMinimap extends FASTElement {
 							groups = groupByMap(markers, m => m.type);
 						}
 
+						const stashesCount = groups?.get('stash')?.length ?? 0;
+
 						return /*html*/ `<div class="bb-tooltip">
 							<div class="header">
 								<span class="header--title">${formatDate(date, 'MMMM Do, YYYY')}</span>
@@ -844,6 +923,7 @@ export class GraphMinimap extends FASTElement {
 										)
 										.join('') ?? ''
 								}
+								${stashesCount ? /*html*/ `<span class="stash">${pluralize('stash', stashesCount, { plural: 'stashes' })}</span>` : ''}
 								${
 									groups
 										?.get('tag')
@@ -889,10 +969,11 @@ export class GraphMinimap extends FASTElement {
 					const grid = this.$.main.selectAll<Element, any>('.bb-grid').node();
 					grid?.removeAttribute('clip-path');
 
-					// Move the regions to be on top of the bars
-					const bars = this.$.main.selectAll<Element, any>('.bb-chart-bars').node();
+					// Move the grid & chart to be behind the regions
 					const regions = this.$.main.selectAll<Element, any>('.bb-regions').node();
-					bars?.insertAdjacentElement('afterend', regions!);
+					regions?.insertAdjacentElement('beforebegin', grid!);
+					const chart = this.$.main.selectAll<Element, any>('.bb-chart').node();
+					regions?.insertAdjacentElement('beforebegin', chart!);
 				},
 			});
 		} else {
