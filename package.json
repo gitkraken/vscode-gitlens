@@ -11737,33 +11737,33 @@
 					"group": "1_columns@1"
 				},
 				{
-					"command": "gitlens.graph.columnDateTimeOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bdatetime\\b/",
-					"group": "1_columns@2"
-				},
-				{
-					"command": "gitlens.graph.columnDateTimeOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\bdatetime\\b).)*$/",
-					"group": "1_columns@2"
-				},
-				{
-					"command": "gitlens.graph.columnShaOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bsha\\b/",
-					"group": "1_columns@3"
-				},
-				{
-					"command": "gitlens.graph.columnShaOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\bsha\\b).)*$/",
-					"group": "1_columns@3"
-				},
-				{
 					"command": "gitlens.graph.columnChangesOn",
 					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bchanges\\b/",
-					"group": "1_columns@4"
+					"group": "1_columns@2"
 				},
 				{
 					"command": "gitlens.graph.columnChangesOff",
 					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\bchanges\\b).)*$/",
+					"group": "1_columns@2"
+				},
+				{
+					"command": "gitlens.graph.columnDateTimeOn",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bdatetime\\b/",
+					"group": "1_columns@3"
+				},
+				{
+					"command": "gitlens.graph.columnDateTimeOff",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\bdatetime\\b).)*$/",
+					"group": "1_columns@3"
+				},
+				{
+					"command": "gitlens.graph.columnShaOn",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bsha\\b/",
+					"group": "1_columns@4"
+				},
+				{
+					"command": "gitlens.graph.columnShaOff",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\bsha\\b).)*$/",
 					"group": "1_columns@4"
 				}
 			],
