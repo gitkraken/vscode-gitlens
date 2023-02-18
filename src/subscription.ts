@@ -27,8 +27,10 @@ export interface Subscription {
 export interface SubscriptionPlan {
 	readonly id: SubscriptionPlanId;
 	readonly name: string;
+	readonly bundle: boolean;
 	readonly startedOn: string;
 	readonly expiresOn?: string | undefined;
+	readonly organizationId: string | undefined;
 }
 
 export interface SubscriptionAccount {
@@ -36,6 +38,8 @@ export interface SubscriptionAccount {
 	readonly name: string;
 	readonly email: string | undefined;
 	readonly verified: boolean;
+	readonly createdOn: string;
+	readonly organizationIds: string[];
 }
 
 export interface SubscriptionPreviewTrial {
@@ -102,10 +106,18 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 	}
 }
 
-export function getSubscriptionPlan(id: SubscriptionPlanId, startedOn?: Date, expiresOn?: Date): SubscriptionPlan {
+export function getSubscriptionPlan(
+	id: SubscriptionPlanId,
+	bundle: boolean,
+	organizationId: string | undefined,
+	startedOn?: Date,
+	expiresOn?: Date,
+): SubscriptionPlan {
 	return {
 		id: id,
 		name: getSubscriptionPlanName(id),
+		bundle: bundle,
+		organizationId: organizationId,
 		startedOn: (startedOn ?? new Date()).toISOString(),
 		expiresOn: expiresOn != null ? expiresOn.toISOString() : undefined,
 	};
