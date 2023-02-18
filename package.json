@@ -13113,7 +13113,7 @@
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "6.0.1",
+		"@gitkraken/gitkraken-components": "6.0.2",
 		"@microsoft/fast-element": "1.11.0",
 		"@microsoft/fast-react-wrapper": "0.3.16-0",
 		"@octokit/core": "4.2.0",
@@ -13156,7 +13156,7 @@
 		"csp-html-webpack-plugin": "5.1.0",
 		"css-loader": "6.7.3",
 		"css-minimizer-webpack-plugin": "4.2.2",
-		"cssnano-preset-advanced": "5.3.9",
+		"cssnano-preset-advanced": "5.3.10",
 		"esbuild": "0.17.8",
 		"esbuild-loader": "3.0.1",
 		"esbuild-sass-plugin": "2.5.0",
@@ -13177,7 +13177,7 @@
 		"mini-css-extract-plugin": "2.7.2",
 		"mocha": "10.2.0",
 		"prettier": "2.8.4",
-		"sass": "1.58.1",
+		"sass": "1.58.3",
 		"sass-loader": "13.2.0",
 		"schema-utils": "4.0.0",
 		"sharp": "0.31.3",
