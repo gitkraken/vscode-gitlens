@@ -71,6 +71,7 @@ import type {
 	GraphMinimapSearchResultMarker,
 	GraphMinimapStats,
 	GraphMinimap as GraphMinimapType,
+	StashMarker,
 } from './minimap/minimap';
 import { GraphMinimap } from './minimap/react';
 
@@ -369,6 +370,7 @@ export function GraphWrapper({
 		let markers;
 		let headMarkers;
 		let remoteMarkers;
+		let stashMarker: StashMarker | undefined;
 		let tagMarkers;
 		let row: GraphRow;
 		let stat;
@@ -437,6 +439,16 @@ export function GraphWrapper({
 					markersByDay.set(day, remoteMarkers);
 				} else {
 					markers.push(...remoteMarkers);
+				}
+			}
+
+			if (row.type === 'stash-node') {
+				stashMarker = { type: 'stash', name: row.message };
+				markers = markersByDay.get(day);
+				if (markers == null) {
+					markersByDay.set(day, [stashMarker]);
+				} else {
+					markers.push(stashMarker);
 				}
 			}
 

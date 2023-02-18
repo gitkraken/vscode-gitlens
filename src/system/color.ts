@@ -359,14 +359,18 @@ export class HSVA {
 }
 
 export class Color {
-	static fromHex(hex: string): Color {
-		return parseHexColor(hex) || Color.red;
-	}
-
 	static from(value: string | Color): Color {
 		if (value instanceof Color) return value;
 
 		return parseColor(value) || Color.red;
+	}
+
+	static fromCssVariable(variable: string, css: { getPropertyValue(property: string): string }): Color {
+		return parseColor(css.getPropertyValue(variable).trim()) || Color.red;
+	}
+
+	static fromHex(hex: string): Color {
+		return parseHexColor(hex) || Color.red;
 	}
 
 	static equals(a: Color | null, b: Color | null): boolean {
