@@ -129,6 +129,7 @@ export type GlobalStorage = {
 	pendingWhatsNewOnFocus: boolean;
 	'plus:migratedAuthentication': boolean;
 	'plus:discountNotificationShown': boolean;
+	'plus:renewalDiscountNotificationShown': boolean;
 	// Don't change this key name ('premium`) as its the stored subscription
 	'premium:subscription': Stored<Subscription>;
 	'synced:version': string;
