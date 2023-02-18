@@ -1158,17 +1158,3 @@ function licenseStatusPriority(status: GKLicense['latestStatus']): number {
 			return 0;
 	}
 }
-
-interface GKLicense {
-	latestStatus: 'active' | 'canceled' | 'cancelled' | 'expired' | 'in_trial' | 'non_renewing' | 'trial';
-	latestStartDate: string;
-	latestEndDate: string;
-}
-
-interface GKUser {
-	id: string;
-	name: string;
-	email: string;
-	status: 'activated' | 'pending';
-	firstGitLensCheckIn?: string;
-}
