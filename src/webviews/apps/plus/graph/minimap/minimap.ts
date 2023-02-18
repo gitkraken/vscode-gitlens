@@ -729,21 +729,14 @@ export class GraphMinimap extends FASTElement {
 					xSort: false,
 					axes: {
 						activity: 'y',
-						additions: 'y',
-						deletions: 'y',
 					},
 					columns: [
 						['date', ...dates],
 						['activity', ...activity],
-						// ['additions', ...additions],
-						// ['deletions', ...deletions],
 					],
 					names: {
 						activity: 'Activity',
-						// additions: 'Additions',
-						// deletions: 'Deletions',
 					},
-					// hide: ['additions', 'deletions'],
 					onclick: d => {
 						if (d.id !== 'activity') return;
 
@@ -762,29 +755,13 @@ export class GraphMinimap extends FASTElement {
 						enabled: selection(),
 						grouped: true,
 						multiple: false,
-						// isselectable: d => {
-						// 	if (d.id !== 'activity') return false;
-
-						// 	return (this.data?.get(getDay(new Date(d.x)))?.commits ?? 0) > 0;
-						// },
 					},
 					colors: {
 						activity: 'var(--color-graph-minimap-line0)',
-						// additions: 'rgba(73, 190, 71, 0.7)',
-						// deletions: 'rgba(195, 32, 45, 0.7)',
 					},
-					groups: [['additions', 'deletions']],
 					types: {
 						activity: spline(),
-						// additions: bar(),
-						// deletions: bar(),
 					},
-				},
-				area: {
-					linearGradient: true,
-					front: true,
-					below: true,
-					zerobased: true,
 				},
 				axis: {
 					x: {
@@ -797,24 +774,10 @@ export class GraphMinimap extends FASTElement {
 						max: yMax,
 						show: true,
 						padding: {
-							// 	top: 10,
 							bottom: 8,
 						},
 					},
-					// y2: {
-					// 	min: y2Min,
-					// 	max: yMax,
-					// 	show: true,
-					// 	// padding: {
-					// 	// 	top: 10,
-					// 	// 	bottom: 0,
-					// 	// },
-					// },
 				},
-				// bar: {
-				// 	zerobased: false,
-				// 	width: { max: 3 },
-				// },
 				clipPath: false,
 				grid: {
 					front: false,
@@ -952,9 +915,6 @@ export class GraphMinimap extends FASTElement {
 				zoom: {
 					enabled: zoom(),
 					rescale: false,
-					// resetButton: {
-					// 	text: '',
-					// },
 					type: 'wheel',
 					// Reset the active day when zooming because it fails to update properly
 					onzoom: debounce(() => this.activeDayChanged(), 250),
@@ -967,13 +927,16 @@ export class GraphMinimap extends FASTElement {
 					yAxis?.remove();
 
 					const grid = this.$.main.selectAll<Element, any>('.bb-grid').node();
-					grid?.removeAttribute('clip-path');
+					try {
+						grid?.removeAttribute('clip-path');
+					} catch {}
 
-					// Move the grid & chart to be behind the regions
+					// Move the regions to be after (on top of) the chart
 					const regions = this.$.main.selectAll<Element, any>('.bb-regions').node();
-					regions?.insertAdjacentElement('beforebegin', grid!);
 					const chart = this.$.main.selectAll<Element, any>('.bb-chart').node();
-					regions?.insertAdjacentElement('beforebegin', chart!);
+					if (regions != null && chart != null) {
+						chart.insertAdjacentElement('afterend', regions);
+					}
 				},
 			});
 		} else {
@@ -981,12 +944,9 @@ export class GraphMinimap extends FASTElement {
 				columns: [
 					['date', ...dates],
 					['activity', ...activity],
-					// ['additions', ...additions],
-					// ['deletions', ...deletions],
 				],
 			});
-			// this._chart.axis.min({ y: 0, y2: y2Min });
-			this._chart.axis.max({ y: yMax /*, y2: yMax*/ });
+			this._chart.axis.max({ y: yMax });
 
 			this._chart.regions(regions);
 		}
