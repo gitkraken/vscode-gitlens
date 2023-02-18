@@ -34,9 +34,82 @@ body {
 		}
 	}
 
+	--color-graph-contrast-border: var(--vscode-list-focusOutline);
+	--color-graph-selected-row: var(--vscode-list-activeSelectionBackground);
+	--color-graph-hover-row: var(--vscode-list-hoverBackground);
+	--color-graph-text-selected-row: var(--vscode-list-activeSelectionForeground);
+	--color-graph-text-dimmed-selected: var(--vscode-list-activeSelectionForeground);
+	--color-graph-text-dimmed: var(--vscode-list-activeSelectionForeground);
+
+	--color-graph-text-hovered: var(--vscode-list-hoverForeground);
+	--color-graph-text-selected: var(--vscode-editor-foreground, var(--vscode-foreground));
+	--color-graph-text-normal: var(--color-graph-text-selected);
+	--color-graph-text-secondary: var(--color-graph-text-selected);
+	--color-graph-text-disabled: var(--color-graph-text-selected);
+
 	--color-graph-stats-added: var(--vscode-gitDecoration-addedResourceForeground);
 	--color-graph-stats-deleted: var(--vscode-gitDecoration-deletedResourceForeground);
 	--color-graph-stats-files: var(--vscode-gitDecoration-modifiedResourceForeground);
+
+	--color-graph-minimap-line0: var(--vscode-progressBar-background);
+	--color-graph-minimap-focusLine: var(--vscode-foreground);
+	--color-graph-minimap-visibleAreaBackground: var(--vscode-scrollbarSlider-background);
+
+	--color-graph-scroll-marker-head: hsl(125, 96%, 46%);
+	--color-graph-scroll-marker-highlights: hsl(61, 100%, 52%);
+	--color-graph-scroll-marker-local-branches: hsl(207, 62%, 50%);
+	--color-graph-scroll-marker-remote-branches: hsl(207, 52%, 35%);
+	--color-graph-scroll-marker-stashes: hsl(300, 40%, 50%);
+	--color-graph-scroll-marker-tags: hsl(39, 40%, 30%);
+	--color-graph-scroll-marker-upstream: hsl(125, 90%, 36%);
+	--color-graph-minimap-marker-upstream: hsl(125, 90%, 36%);
+
+	&.vscode-light,
+	&.vscode-high-contrast-light {
+		--color-graph-scroll-marker-head: hsl(125, 96%, 40%);
+		--color-graph-scroll-marker-highlights: hsl(50, 100%, 48%);
+		--color-graph-scroll-marker-local-branches: hsl(207, 80%, 55%);
+		--color-graph-scroll-marker-remote-branches: hsl(207, 70%, 65%);
+		--color-graph-scroll-marker-stashes: hsl(300, 70%, 65%);
+		--color-graph-scroll-marker-tags: hsl(28, 50%, 65%);
+		--color-graph-scroll-marker-upstream: hsl(125, 50%, 70%);
+		--color-graph-minimap-marker-upstream: hsl(125, 50%, 70%);
+	}
+
+	--color-graph-minimap-marker-head: var(--color-graph-scroll-marker-head);
+	--color-graph-minimap-tip-headBackground: var(--color-graph-scroll-marker-head);
+	--color-graph-minimap-tip-headBorder: var(--color-graph-scroll-marker-head);
+	--color-graph-minimap-tip-headForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
+
+	--color-graph-minimap-marker-highlights: var(--color-graph-scroll-marker-highlights);
+
+	--color-graph-minimap-marker-local-branches: var(--color-graph-scroll-marker-local-branches);
+	--color-graph-minimap-tip-branchBackground: var(--color-graph-scroll-marker-local-branches);
+	--color-graph-minimap-tip-branchBorder: var(--color-graph-scroll-marker-local-branches);
+	--color-graph-minimap-tip-branchForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
+
+	--color-graph-minimap-marker-remote-branches: var(--color-graph-scroll-marker-remote-branches);
+	--color-graph-minimap-tip-remoteBackground: var(--color-graph-scroll-marker-remote-branches);
+	--color-graph-minimap-tip-remoteBorder: var(--color-graph-scroll-marker-remote-branches);
+	--color-graph-minimap-tip-remoteForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
+
+	--color-graph-scroll-marker-selection: var(--vscode-editorCursor-foreground);
+	--color-graph-minimap-marker-selection: var(--color-graph-scroll-marker-selection);
+
+	--color-graph-minimap-marker-stashes: var(--color-graph-scroll-marker-stashes);
+	--color-graph-minimap-tip-stashBackground: var(--color-graph-scroll-marker-stashes);
+	--color-graph-minimap-tip-stashBorder: var(--color-graph-scroll-marker-stashes);
+	--color-graph-minimap-tip-stashForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
+
+	--color-graph-minimap-marker-tags: var(--color-graph-scroll-marker-tags);
+	--color-graph-minimap-tip-tagBackground: var(--color-graph-scroll-marker-tags);
+	--color-graph-minimap-tip-tagBorder: var(--color-graph-scroll-marker-tags);
+	--color-graph-minimap-tip-tagForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
+
+	--color-graph-minimap-tip-upstreamBackground: var(--color-graph-scroll-marker-upstream);
+	--color-graph-minimap-tip-upstreamBorder: var(--color-graph-scroll-marker-upstream);
+	--color-graph-minimap-tip-upstreamForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
+
 	--graph-stats-bar-height: 40%;
 	--graph-stats-bar-border-radius: 3px;
 }
@@ -607,6 +680,7 @@ button:not([disabled]),
 		flex: none;
 		z-index: 2000;
 		position: relative;
+		margin-right: 2px;
 	}
 
 	&__footer {
