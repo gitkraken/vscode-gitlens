@@ -765,6 +765,10 @@ button:not([disabled]),
 		align-items: center;
 		justify-content: center;
 	}
+
+	& .changes-zone.changes-bar .changes-sub-bar.deleted {
+		margin-left: 2px;
+	}
 }
 
 .mr-loose {
