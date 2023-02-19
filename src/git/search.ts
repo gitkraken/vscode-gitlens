@@ -226,11 +226,8 @@ export function getGitArgsFromSearchQuery(
 						if (value.startsWith('"')) {
 							value = value.replace(doubleQuoteRegex, '');
 							if (!value) continue;
-
-							searchArgs.add(search.matchRegex ? `-G${value}` : `-S${value}`);
-						} else {
-							searchArgs.add(search.matchRegex ? `-G"${value}"` : `-S"${value}"`);
 						}
+						searchArgs.add(search.matchRegex ? `-G${value}` : `-S${value}`);
 					}
 
 					break;
