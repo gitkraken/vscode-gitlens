@@ -4233,6 +4233,166 @@
 					"dark": "#2ece9d",
 					"highContrast": "#2ece9d"
 				}
+			},
+			{
+				"id": "gitlens.graphChangesColumnAddedColor",
+				"description": "Specifies the color for denoting lines added in the _Changes_ column on the _Commit Graph_",
+				"defaults": {
+					"light": "#2da44e",
+					"highContrastLight": "#2da44e",
+					"dark": "#347d39",
+					"highContrast": "#347d39"
+				}
+			},
+			{
+				"id": "gitlens.graphChangesColumnDeletedColor",
+				"description": "Specifies the color for denoting lines deleted in the _Changes_ column on the _Commit Graph_",
+				"defaults": {
+					"light": "#cf222e",
+					"highContrastLight": "#cf222e",
+					"dark": "#c93c37",
+					"highContrast": "#c93c37"
+				}
+			},
+			{
+				"id": "gitlens.graphMinimapMarkerHeadColor",
+				"description": "Specifies the color marking HEAD on the minimap of the _Commit Graph_",
+				"defaults": {
+					"light": "#04c814",
+					"highContrastLight": "#04c814",
+					"dark": "#05e617",
+					"highContrast": "#05e617"
+				}
+			},
+			{
+				"id": "gitlens.graphScrollMarkerHeadColor",
+				"description": "Specifies the color marking HEAD on the scrollbar of the _Commit Graph_",
+				"defaults": {
+					"light": "#04c814",
+					"highContrastLight": "#04c814",
+					"dark": "#05e617",
+					"highContrast": "#05e617"
+				}
+			},
+			{
+				"id": "gitlens.graphMinimapMarkerUpstreamColor",
+				"description": "Specifies the color marking HEAD's upstream on the minimap of the _Commit Graph_",
+				"defaults": {
+					"light": "#8cd993",
+					"highContrastLight": "#8cd993",
+					"dark": "#09ae17",
+					"highContrast": "#09ae17"
+				}
+			},
+			{
+				"id": "gitlens.graphScrollMarkerUpstreamColor",
+				"description": "Specifies the color marking HEAD's upstream on the scrollbar of the _Commit Graph_",
+				"defaults": {
+					"light": "#8cd993",
+					"highContrastLight": "#8cd993",
+					"dark": "#09ae17",
+					"highContrast": "#09ae17"
+				}
+			},
+			{
+				"id": "gitlens.graphMinimapMarkerHighlightsColor",
+				"description": "Specifies the color marking highlights (matches) on the minimap of the _Commit Graph_",
+				"defaults": {
+					"light": "#f5cc00",
+					"highContrastLight": "#f5cc00",
+					"dark": "#fbff0a",
+					"highContrast": "#fbff0a"
+				}
+			},
+			{
+				"id": "gitlens.graphScrollMarkerHighlightsColor",
+				"description": "Specifies the color marking highlights (matches) on the scrollbar of the _Commit Graph_",
+				"defaults": {
+					"light": "#f5cc00",
+					"highContrastLight": "#f5cc00",
+					"dark": "#fbff0a",
+					"highContrast": "#fbff0a"
+				}
+			},
+			{
+				"id": "gitlens.graphMinimapMarkerLocalBranchesColor",
+				"description": "Specifies the color marking local branches on the minimap of the _Commit Graph_",
+				"defaults": {
+					"light": "#3095e8",
+					"highContrastLight": "#3095e8",
+					"dark": "#3087cf",
+					"highContrast": "#3087cf"
+				}
+			},
+			{
+				"id": "gitlens.graphScrollMarkerLocalBranchesColor",
+				"description": "Specifies the color marking local branches on the scrollbar of the _Commit Graph_",
+				"defaults": {
+					"light": "#3095e8",
+					"highContrastLight": "#3095e8",
+					"dark": "#3087cf",
+					"highContrast": "#3087cf"
+				}
+			},
+			{
+				"id": "gitlens.graphMinimapMarkerRemoteBranchesColor",
+				"description": "Specifies the color marking remote branches on the minimap of the _Commit Graph_",
+				"defaults": {
+					"light": "#67ace4",
+					"highContrastLight": "#67ace4",
+					"dark": "#2b5e88",
+					"highContrast": "#2b5e88"
+				}
+			},
+			{
+				"id": "gitlens.graphScrollMarkerRemoteBranchesColor",
+				"description": "Specifies the color marking remote branches on the scrollbar of the _Commit Graph_",
+				"defaults": {
+					"light": "#67ace4",
+					"highContrastLight": "#67ace4",
+					"dark": "#2b5e88",
+					"highContrast": "#2b5e88"
+				}
+			},
+			{
+				"id": "gitlens.graphMinimapMarkerStashesColor",
+				"description": "Specifies the color marking stashes on the minimap of the _Commit Graph_",
+				"defaults": {
+					"light": "#e467e4",
+					"highContrastLight": "#e467e4",
+					"dark": "#b34db3",
+					"highContrast": "#b34db3"
+				}
+			},
+			{
+				"id": "gitlens.graphScrollMarkerStashesColor",
+				"description": "Specifies the color marking stashes on the scrollbar of the _Commit Graph_",
+				"defaults": {
+					"light": "#e467e4",
+					"highContrastLight": "#e467e4",
+					"dark": "#b34db3",
+					"highContrast": "#b34db3"
+				}
+			},
+			{
+				"id": "gitlens.graphMinimapMarkerTagsColor",
+				"description": "Specifies the color marking tags on the minimap of the _Commit Graph_",
+				"defaults": {
+					"light": "#d2a379",
+					"highContrastLight": "#d2a379",
+					"dark": "#6b562e",
+					"highContrast": "#6b562e"
+				}
+			},
+			{
+				"id": "gitlens.graphScrollMarkerTagsColor",
+				"description": "Specifies the color marking tags on the scrollbar of the _Commit Graph_",
+				"defaults": {
+					"light": "#d2a379",
+					"highContrastLight": "#d2a379",
+					"dark": "#6b562e",
+					"highContrast": "#6b562e"
+				}
 			}
 		],
 		"commands": [
