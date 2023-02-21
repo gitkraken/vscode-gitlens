@@ -35,4 +35,5 @@ export const enum PlusFeatures {
 	Timeline = 'timeline',
 	Worktrees = 'worktrees',
 	Graph = 'graph',
+	Focus = 'focus',
 }
