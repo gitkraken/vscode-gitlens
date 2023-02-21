@@ -1692,7 +1692,9 @@ export class GraphWebview extends WebviewBase<State> {
 			GraphMinimapMarkerTypes.Highlights,
 			GraphMinimapMarkerTypes.Head,
 			GraphMinimapMarkerTypes.Upstream,
-			...(configuration.get('graph.experimental.minimap.additionalTypes') as unknown as GraphMinimapMarkerTypes[]),
+			...(configuration.get(
+				'graph.experimental.minimap.additionalTypes',
+			) as unknown as GraphMinimapMarkerTypes[]),
 		];
 
 		return markers;
