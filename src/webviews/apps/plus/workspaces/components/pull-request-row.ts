@@ -37,6 +37,7 @@ const template = html<PullRequestRow>`
 					title="cannot be merged due to merge conflicts"
 				></code-icon>`,
 			)}
+			${when(x => x.indicator === 'checks', html`<code-icon icon="error" title="checks failed"></code-icon>`)}
 		</table-cell>
 		<table-cell class="time">${x => x.lastUpdated}</table-cell>
 		<table-cell>
@@ -84,11 +85,6 @@ const template = html<PullRequestRow>`
 			<git-avatars :avatars="${x => x.pullRequest!.assignees}"></git-avatars>
 		</table-cell>
 		<table-cell>${x => x.pullRequest!.comments}</table-cell>
-		<table-cell class="icon-only">
-			${when(x => x.checks == null, html`<code-icon icon="dash" title="none"></code-icon>`)}
-			${when(x => x.checks === false, html`<code-icon icon="error" title="failed"></code-icon>`)}
-			${when(x => x.checks === true, html`<code-icon icon="pass" title="passed"></code-icon>`)}
-		</table-cell>
 		<table-cell class="stats"
 			><span class="stat-added">+${x => x.pullRequest!.additions}</span>
 			<span class="stat-deleted">-${x => x.pullRequest!.deletions}</span></table-cell
@@ -229,7 +225,9 @@ export class PullRequestRow extends FASTElement {
 		if (this.pullRequest == null) return '';
 
 		console.log(this.pullRequest);
-		if (this.pullRequest.reviewDecision === 'ChangesRequested') {
+		if (this.checks === false) {
+			return 'checks';
+		} else if (this.pullRequest.reviewDecision === 'ChangesRequested') {
 			return 'changes';
 		} else if (this.pullRequest.reviewDecision === 'Approved' && this.pullRequest.mergeableState === 'Mergeable') {
 			return 'ready';

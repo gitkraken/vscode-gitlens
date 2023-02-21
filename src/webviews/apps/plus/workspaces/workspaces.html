@@ -5,15 +5,25 @@
 	</head>
 
 	<body class="preload app">
-		<header class="app__header" style="display: none">
-			<h1>Focus View</h1>
+		<header class="app__header" id="header">
+			<account-badge id="account-badge"></account-badge>
 		</header>
 
-		<div class="app__content">
+		<div class="app__content" id="content">
+			<div class="app__cover"></div>
 			<main class="app__main">
 				<section class="workspace-section app__section">
 					<header class="workspace-section__header">
 						<h2>My Pull Requests</h2>
+						<nav class="tab-filter" id="pr-filter">
+							<button class="tab-filter__tab is-active" type="button" data-tab="">All</button>
+							<button class="tab-filter__tab" type="button" data-tab="authored">Opened by Me</button>
+							<button class="tab-filter__tab" type="button" data-tab="assigned">Assigned to Me</button>
+							<button class="tab-filter__tab" type="button" data-tab="review-requested">
+								Needs my Review
+							</button>
+							<button class="tab-filter__tab" type="button" data-tab="mentioned">Mentions Me</button>
+						</nav>
 					</header>
 					<div class="workspace-section__content">
 						<table-container id="pull-requests">
@@ -30,9 +40,6 @@
 								<table-cell class="pr-comments" header="column" pinned title="Comments">
 									<code-icon icon="comment-discussion"></code-icon>
 								</table-cell>
-								<table-cell class="pr-checks" header="column" pinned title="Checks">
-									<code-icon icon="tasklist"></code-icon>
-								</table-cell>
 								<table-cell class="pr-stats" header="column" pinned title="Change stats">
 									<code-icon icon="add"></code-icon>
 									<code-icon icon="dash"></code-icon>
@@ -42,12 +49,26 @@
 								></table-cell>
 							</table-row>
 						</table-container>
+						<div class="alert" id="loading-pull-requests">
+							<span class="alert__content"
+								><code-icon modifier="spin" icon="loading"></code-icon> Loading</span
+							>
+						</div>
+						<div class="alert" id="no-pull-requests">
+							<span class="alert__content">No pull requests found</span>
+						</div>
 					</div>
 				</section>
 
 				<section class="workspace-section app__section">
 					<header class="workspace-section__header">
 						<h2>My Issues</h2>
+						<nav class="tab-filter" id="issue-filter">
+							<button class="tab-filter__tab is-active" type="button" data-tab="">All</button>
+							<button class="tab-filter__tab" type="button" data-tab="authored">Opened by Me</button>
+							<button class="tab-filter__tab" type="button" data-tab="assigned">Assigned to Me</button>
+							<button class="tab-filter__tab" type="button" data-tab="mentioned">Mentions Me</button>
+						</nav>
 					</header>
 					<div class="workspace-section__content">
 						<table-container id="issues">
@@ -60,19 +81,30 @@
 								</table-cell>
 								<table-cell header="column" pinned>Title</table-cell>
 								<table-cell class="pr-author" header="column" pinned>Author</table-cell>
-								<table-cell class="pr-assigned" header="column" pinned>Assignees</table-cell>
+								<table-cell class="pr-assigned" header="column" pinned>Assigned</table-cell>
 								<table-cell class="pr-comments" header="column" pinned title="Comments">
 									<code-icon icon="comment-discussion"></code-icon>
 								</table-cell>
 								<table-cell class="pr-checks" header="column" pinned title="Thumbs up">
 									<code-icon icon="thumbsup"></code-icon>
 								</table-cell>
+								<table-cell class="pr-actions" header="column" pinned
+									><code-icon icon="blank" title="actions"></code-icon
+								></table-cell>
 							</table-row>
 						</table-container>
+						<div class="alert" id="loading-issues">
+							<span class="alert__content"
+								><code-icon modifier="spin" icon="loading"></code-icon> Loading</span
+							>
+						</div>
+						<div class="alert" id="no-issues" hidden>
+							<span class="alert__content">No issues found</span>
+						</div>
 					</div>
 				</section>
 
-				<section class="workspace-section app__section">
+				<!-- <section class="workspace-section app__section">
 					<header class="workspace-section__header">
 						<h2>Work in Progress</h2>
 					</header>
@@ -103,25 +135,21 @@
 							</table-row>
 						</table-container>
 					</div>
-				</section>
+				</section> -->
 			</main>
-			<menu-list class="app__controls">
+			<!-- <menu-list class="app__controls">
 				<menu-label>Type</menu-label>
 				<menu-item role="none">
 					<div class="choice">
 						<input class="choice__input" type="checkbox" id="filter-prs" value="mentioned" checked />
-						<span class="choice__indicator"
-							><code-icon class="choice__indicator" icon="check"></code-icon
-						></span>
+						<span class="choice__indicator"><code-icon icon="check"></code-icon></span>
 						<label class="choice__label" for="filter-prs">Pull requests</label>
 					</div>
 				</menu-item>
 				<menu-item role="none">
 					<div class="choice">
 						<input class="choice__input" type="checkbox" id="filter-issues" value="mentioned" checked />
-						<span class="choice__indicator"
-							><code-icon class="choice__indicator" icon="check"></code-icon
-						></span>
+						<span class="choice__indicator"><code-icon icon="check"></code-icon></span>
 						<label class="choice__label" for="filter-issues">Issues</label>
 					</div>
 				</menu-item>
@@ -130,18 +158,14 @@
 				<menu-item role="none">
 					<div class="choice">
 						<input class="choice__input" type="checkbox" id="filter-assigned" value="assigned" checked />
-						<span class="choice__indicator"
-							><code-icon class="choice__indicator" icon="check"></code-icon
-						></span>
+						<span class="choice__indicator"><code-icon icon="check"></code-icon></span>
 						<label class="choice__label" for="filter-assigned">Assigned to me</label>
 					</div>
 				</menu-item>
 				<menu-item role="none">
 					<div class="choice">
 						<input class="choice__input" type="checkbox" id="filter-created" value="authored" checked />
-						<span class="choice__indicator"
-							><code-icon class="choice__indicator" icon="check"></code-icon
-						></span>
+						<span class="choice__indicator"><code-icon icon="check"></code-icon></span>
 						<label class="choice__label" for="filter-created">Created by me</label>
 					</div>
 				</menu-item>
@@ -154,18 +178,14 @@
 							value="review-requested"
 							checked
 						/>
-						<span class="choice__indicator"
-							><code-icon class="choice__indicator" icon="check"></code-icon
-						></span>
+						<span class="choice__indicator"><code-icon icon="check"></code-icon></span>
 						<label class="choice__label" for="filter-review-requested">Review requested</label>
 					</div>
 				</menu-item>
 				<menu-item role="none">
 					<div class="choice">
 						<input class="choice__input" type="checkbox" id="filter-mentioned" value="mentioned" checked />
-						<span class="choice__indicator"
-							><code-icon class="choice__indicator" icon="check"></code-icon
-						></span>
+						<span class="choice__indicator"><code-icon icon="check"></code-icon></span>
 						<label class="choice__label" for="filter-mentioned">Mentioned</label>
 					</div>
 				</menu-item>
@@ -181,15 +201,26 @@
 							checked
 							readonly
 						/>
-						<span class="choice__indicator"
-							><code-icon class="choice__indicator" icon="check"></code-icon
-						></span>
+						<span class="choice__indicator"><code-icon icon="check"></code-icon></span>
 						<label class="choice__label" for="filter-repo-1">vscode-gitlens</label>
 					</div>
 				</menu-item>
-			</menu-list>
+			</menu-list> -->
 		</div>
+
+		<div class="overlay" id="overlay" hidden>
+			<div class="overlay__content">
+				The Focus view helps you focus on the work that matters most. It shows you the pull requests and issues
+				that you are involved in, and hides everything else.
+			</div>
+		</div>
+
 		#{endOfBody}
+		<style nonce="#{cspNonce}">
+			:root {
+				--gl-plus-bg: url(#{webroot}/media/gitlens-backdrop.webp);
+			}
+		</style>
 		<style nonce="#{cspNonce}">
 			@font-face {
 				font-family: 'codicon';

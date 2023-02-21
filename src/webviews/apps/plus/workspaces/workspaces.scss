@@ -1,3 +1,8 @@
+@mixin focusStyles() {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
 :root {
 	--gitlens-z-inline: 1000;
 	--gitlens-z-sticky: 1100;
@@ -26,6 +31,7 @@ body {
 	--background-15: var(--color-background--lighten-15);
 	--background-30: var(--color-background--lighten-30);
 	--background-50: var(--color-background--lighten-50);
+	--popover-bg: var(--color-background--lighten-15);
 }
 
 .vscode-high-contrast-light,
@@ -37,6 +43,7 @@ body {
 	--background-15: var(--color-background--darken-15);
 	--background-30: var(--color-background--darken-30);
 	--background-50: var(--color-background--darken-50);
+	--popover-bg: var(--color-background--darken-15);
 }
 
 :root {
@@ -71,10 +78,13 @@ a {
 	&:hover {
 		text-decoration: underline;
 	}
+}
 
+a,
+button:not([disabled]),
+[tabindex]:not([tabindex='-1']) {
 	&:focus {
-		outline: 1px solid var(--focus-color);
-		outline-offset: -1px;
+		@include focusStyles();
 	}
 }
 
@@ -119,6 +129,51 @@ code-icon {
 	background-color: var(--vscode-toolbar-hoverBackground);
 }
 
+.alert {
+	display: flex;
+	flex-direction: row;
+	padding: 0.8rem 1.2rem;
+	background-color: var(--color-alert-neutralBackground);
+	border-left: 0.3rem solid var(--color-foreground--50);
+	color: var(--color-alert-foreground);
+
+	code-icon {
+		margin-right: 0.4rem;
+		vertical-align: baseline;
+	}
+
+	&__content {
+		font-size: 1.2rem;
+		line-height: 1.2;
+		text-align: left;
+	}
+}
+
+.tab-filter {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: flex-start;
+	gap: 1rem;
+
+	&__tab {
+		padding: 0.2rem 0;
+		text-transform: uppercase;
+		color: var(--color-foreground--65);
+		border: none;
+		background: none;
+		text-align: center;
+		font-size: 1.1rem;
+		border-bottom: 0.1rem solid transparent;
+		cursor: pointer;
+
+		&.is-active {
+			color: var(--vscode-foreground);
+			border-bottom-color: var(--color-foreground);
+		}
+	}
+}
+
 .workspace-icon {
 	font-size: 1.6rem;
 	vertical-align: sub;
@@ -130,6 +185,10 @@ code-icon {
 
 	&__header {
 		flex: none;
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
 	}
 
 	&__content {
@@ -144,13 +203,15 @@ code-icon {
 	flex-direction: column;
 	height: 100vh;
 	overflow: hidden;
-	padding-right: 0;
+	// padding-right: 0;
 
 	&__header {
 		flex: none;
+		text-align: right;
 	}
 
 	&__content {
+		position: relative;
 		flex: 1 1 auto;
 		display: flex;
 		flex-direction: row;
@@ -170,7 +231,20 @@ code-icon {
 	}
 	&__section {
 		min-height: 15rem;
-		flex: 0 1 auto;
+		flex: 0 1 50%;
+	}
+
+	&__cover {
+		[aria-hidden='true'] & {
+			position: absolute;
+			top: 0px;
+			left: 0px;
+			width: 100%;
+			height: 100%;
+			backdrop-filter: blur(4px) saturate(0.8);
+			z-index: var(--gitlens-z-cover);
+			pointer-events: none;
+		}
 	}
 }
 
@@ -283,5 +357,40 @@ code-icon {
 		padding-inline-start: 1rem;
 		margin-inline-end: 1rem;
 		cursor: pointer;
+	}
+}
+
+.overlay {
+	z-index: var(--gitlens-z-modal);
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	font-size: 1.3em;
+	min-height: 100%;
+	padding: 0 2rem 2rem 2rem;
+
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+
+	&__content {
+		max-width: 600px;
+		background: var(--color-hover-background) no-repeat left top;
+		background-image: var(--gl-plus-bg);
+		border: 1px solid var(--color-hover-border);
+		border-radius: 0.4rem;
+		margin: 1rem;
+		padding: 1.2rem;
+
+		> p:first-child {
+			margin-top: 0;
+		}
+
+		vscode-button:not([appearance='icon']) {
+			align-self: center !important;
+		}
 	}
 }
