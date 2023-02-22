@@ -6,6 +6,7 @@
 
 	<body class="preload app">
 		<header class="app__header" id="header">
+			<span class="badge">Preview</span>
 			<account-badge id="account-badge"></account-badge>
 		</header>
 
@@ -212,8 +213,8 @@
 			<div class="overlay__content">
 				<h2>Focus View ✨</h2>
 				<p>
-					This GitLens+ feature gives you a comprehensive list of all your most important work across your
-					connected GitHub repos:
+					This GitLens+ feature provides you with a comprehensive list of all your most important work across
+					your connected GitHub repos:
 				</p>
 				<ul>
 					<li>
@@ -232,16 +233,41 @@
 
 		<div class="overlay" id="connect-overlay" hidden>
 			<div class="overlay__content">
-				<p>Your GitHub remotes are not connected.</p>
+				<h2>Focus View ✨</h2>
+				<p>
+					This GitLens+ feature provides you with a comprehensive list of all your most important work across
+					your connected GitHub repos:
+				</p>
+				<ul>
+					<li>
+						<strong>My Pull Requests:</strong> shows all GitHub PRs opened by you, assigned to you, or
+						awaiting your review.
+					</li>
+					<li>
+						<strong>My Issues:</strong> shows all issues created by you, assigned to you, or that mention
+						you.
+					</li>
+				</ul>
 
-				<vscode-button data-action="command:gitlens.connectRemoteProvider">Connect Now</vscode-button>
+				<div class="overlay__actions">
+					<hr class="divider" />
+					<h3>GitHub remotes are not connected</h3>
+
+					<p>
+						This enables access to Pull Requests and Issues in the Focus View as well as provide additional
+						information inside hovers and the Commit Details view, such as auto-linked issues and pull
+						requests and avatars.
+					</p>
+
+					<vscode-button data-action="command:gitlens.connectRemoteProvider">Connect to GitHub</vscode-button>
+				</div>
 			</div>
 		</div>
 
 		#{endOfBody}
 		<style nonce="#{cspNonce}">
 			:root {
-				--gl-plus-bg: url(#{webroot}/media/gitlens-backdrop.webp);
+				--gl-plus-bg: url(#{webroot}/media/gitlens-backdrop-opacity.webp);
 			}
 		</style>
 		<style nonce="#{cspNonce}">
