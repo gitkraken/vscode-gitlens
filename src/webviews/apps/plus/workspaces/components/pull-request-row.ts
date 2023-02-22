@@ -3,12 +3,12 @@ import type { PullRequestShape } from '../../../../../git/models/pullRequest';
 import { fromNow } from '../../../../../system/date';
 import { focusOutline, srOnly } from '../../../shared/components/styles/a11y';
 import { elementBase } from '../../../shared/components/styles/base';
-
 import '../../../shared/components/table/table-cell';
 import '../../../shared/components/avatars/avatar-item';
 import '../../../shared/components/avatars/avatar-stack';
 import '../../../shared/components/code-icon';
 import './git-avatars';
+import { fromDateRange } from './helpers';
 
 const template = html<PullRequestRow>`
 	<template role="row">
@@ -39,7 +39,11 @@ const template = html<PullRequestRow>`
 			)}
 			${when(x => x.indicator === 'checks', html`<code-icon icon="error" title="checks failed"></code-icon>`)}
 		</table-cell>
-		<table-cell class="time">${x => x.lastUpdated}</table-cell>
+		<table-cell class="time"
+			><span class="${x => x.lastUpdatedClass}" title="${x => x.lastUpdatedLabel}"
+				>${x => x.lastUpdated}</span
+			></table-cell
+		>
 		<table-cell>
 			${x => x.pullRequest!.title} <a href="${x => x.pullRequest!.url}">#${x => x.pullRequest!.id}</a><br />
 			<small>
@@ -138,6 +142,7 @@ const styles = css`
 	}
 
 	.status {
+		font-size: 1.6rem;
 	}
 
 	.time {
@@ -168,13 +173,13 @@ const styles = css`
 	}
 
 	.indicator-info {
-		color: var(--color-alert-infoBorder);
+		color: var(--vscode-problemsInfoIcon-foreground);
 	}
 	.indicator-warning {
-		color: var(--color-alert-warningBorder);
+		color: var(--vscode-problemsWarningIcon-foreground);
 	}
 	.indicator-error {
-		color: var(--color-alert-errorBorder);
+		color: var(--vscode-problemsErrorIcon-foreground);
 	}
 	.indicator-neutral {
 		color: var(--color-alert-neutralBorder);
@@ -216,8 +221,35 @@ export class PullRequestRow extends FASTElement {
 	public checks?: boolean;
 
 	@volatile
+	get lastUpdatedDate() {
+		return new Date(this.pullRequest!.date);
+	}
+
+	@volatile
+	get lastUpdatedState() {
+		return fromDateRange(this.lastUpdatedDate);
+	}
+
+	@volatile
 	get lastUpdated() {
-		return fromNow(new Date(this.pullRequest!.date), true);
+		return fromNow(this.lastUpdatedDate, true);
+	}
+
+	@volatile
+	get lastUpdatedLabel() {
+		return fromNow(this.lastUpdatedDate);
+	}
+
+	@volatile
+	get lastUpdatedClass() {
+		switch (this.lastUpdatedState.status) {
+			case 'danger':
+				return 'indicator-error';
+			case 'warning':
+				return 'indicator-warning';
+			default:
+				return '';
+		}
 	}
 
 	@volatile
