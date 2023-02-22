@@ -1,9 +1,9 @@
 import { provideVSCodeDesignSystem, vsCodeButton } from '@vscode/webview-ui-toolkit';
-import type { State } from '../../../../plus/webviews/workspaces/protocol';
+import type { State } from '../../../../plus/webviews/focus/protocol';
 import {
 	DidChangeStateNotificationType,
 	DidChangeSubscriptionNotificationType,
-} from '../../../../plus/webviews/workspaces/protocol';
+} from '../../../../plus/webviews/focus/protocol';
 import type { IpcMessage } from '../../../protocol';
 import { ExecuteCommandType, onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
@@ -15,10 +15,6 @@ import type { PullRequestRow } from './components/pull-request-row';
 import '../../shared/components/code-icon';
 import '../../shared/components/avatars/avatar-item';
 import '../../shared/components/avatars/avatar-stack';
-import '../../shared/components/menu/menu-list';
-import '../../shared/components/menu/menu-item';
-import '../../shared/components/menu/menu-label';
-import '../../shared/components/menu/menu-divider';
 import '../../shared/components/table/table-container';
 import '../../shared/components/table/table-row';
 import '../../shared/components/table/table-cell';
@@ -26,11 +22,11 @@ import '../../shared/components/account/account-badge';
 import './components/issue-row';
 import './components/plus-content';
 import './components/pull-request-row';
-import './workspaces.scss';
+import './focus.scss';
 
-export class WorkspacesApp extends App<State> {
+export class FocusApp extends App<State> {
 	constructor() {
-		super('WorkspacesApp');
+		super('FocusApp');
 	}
 
 	_prFilter?: string;
@@ -216,4 +212,4 @@ export class WorkspacesApp extends App<State> {
 	}
 }
 
-new WorkspacesApp();
+new FocusApp();

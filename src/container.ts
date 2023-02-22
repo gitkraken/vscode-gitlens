@@ -23,11 +23,10 @@ import { IntegrationAuthenticationService } from './plus/integrationAuthenticati
 import { SubscriptionAuthenticationProvider } from './plus/subscription/authenticationProvider';
 import { ServerConnection } from './plus/subscription/serverConnection';
 import { SubscriptionService } from './plus/subscription/subscriptionService';
+import { FocusWebview } from './plus/webviews/focus/focusWebview';
 import { GraphWebview } from './plus/webviews/graph/graphWebview';
 import { TimelineWebview } from './plus/webviews/timeline/timelineWebview';
 import { TimelineWebviewView } from './plus/webviews/timeline/timelineWebviewView';
-import { WorkspacesWebview } from './plus/webviews/workspaces/workspacesWebview';
-import { WorkspacesApi } from './plus/workspaces/workspaces';
 import { StatusBarController } from './statusbar/statusBarController';
 import type { Storage } from './storage';
 import { executeCommand } from './system/command';
@@ -176,7 +175,6 @@ export class Container {
 			(this._subscriptionAuthentication = new SubscriptionAuthenticationProvider(this, server)),
 		);
 		context.subscriptions.push((this._subscription = new SubscriptionService(this, previousVersion)));
-		context.subscriptions.push((this._workspaces = new WorkspacesApi(this, server)));
 
 		context.subscriptions.push((this._git = new GitProviderService(this)));
 		context.subscriptions.push(new GitFileSystemProvider(this));
@@ -203,7 +201,7 @@ export class Container {
 		context.subscriptions.push((this._welcomeWebview = new WelcomeWebview(this)));
 		context.subscriptions.push((this._rebaseEditor = new RebaseEditorProvider(this)));
 		context.subscriptions.push((this._graphWebview = new GraphWebview(this)));
-		context.subscriptions.push((this._workspacesWebview = new WorkspacesWebview(this)));
+		context.subscriptions.push((this._focusWebview = new FocusWebview(this)));
 
 		context.subscriptions.push(new ViewFileDecorationProvider());
 
@@ -532,11 +530,6 @@ export class Container {
 		return this._searchAndCompareView;
 	}
 
-	private _workspaces: WorkspacesApi;
-	get workspaces() {
-		return this._workspaces;
-	}
-
 	private _subscription: SubscriptionService;
 	get subscription() {
 		return this._subscription;
@@ -557,9 +550,9 @@ export class Container {
 		return this._graphWebview;
 	}
 
-	private _workspacesWebview: WorkspacesWebview;
-	get workspacesWebview() {
-		return this._workspacesWebview;
+	private _focusWebview: FocusWebview;
+	get focusWebview() {
+		return this._focusWebview;
 	}
 
 	private _stashesView: StashesView | undefined;

@@ -13,8 +13,8 @@
 		<div class="app__content" id="content">
 			<div class="app__cover"></div>
 			<main class="app__main">
-				<section class="workspace-section app__section">
-					<header class="workspace-section__header">
+				<section class="focus-section app__section">
+					<header class="focus-section__header">
 						<h2>My Pull Requests</h2>
 						<nav class="tab-filter" id="pr-filter">
 							<button class="tab-filter__tab is-active" type="button" data-tab="">All</button>
@@ -26,7 +26,7 @@
 							<button class="tab-filter__tab" type="button" data-tab="mentioned">Mentions Me</button>
 						</nav>
 					</header>
-					<div class="workspace-section__content">
+					<div class="focus-section__content">
 						<table-container id="pull-requests">
 							<table-row slot="head">
 								<table-cell class="data-status" header="column" pinned title="PR status"
@@ -60,9 +60,8 @@
 						</div>
 					</div>
 				</section>
-
-				<section class="workspace-section app__section">
-					<header class="workspace-section__header">
+				<section class="focus-section app__section">
+					<header class="focus-section__header">
 						<h2>My Issues</h2>
 						<nav class="tab-filter" id="issue-filter">
 							<button class="tab-filter__tab is-active" type="button" data-tab="">All</button>
@@ -71,7 +70,7 @@
 							<button class="tab-filter__tab" type="button" data-tab="mentioned">Mentions Me</button>
 						</nav>
 					</header>
-					<div class="workspace-section__content">
+					<div class="focus-section__content">
 						<table-container id="issues">
 							<table-row slot="head">
 								<table-cell class="data-status" header="column" pinned title="PR status">
@@ -104,109 +103,7 @@
 						</div>
 					</div>
 				</section>
-
-				<!-- <section class="workspace-section app__section">
-					<header class="workspace-section__header">
-						<h2>Work in Progress</h2>
-					</header>
-					<div class="workspace-section__content">
-						<table-container>
-							<table-row slot="head">
-								<table-cell header="column" pinned>Repo</table-cell>
-								<table-cell header="column" pinned>Stats</table-cell>
-								<table-cell header="column" pinned>Branch</table-cell>
-								<table-cell header="column" pinned>Remote</table-cell>
-							</table-row>
-							<table-row>
-								<table-cell>vscode-gitlens</table-cell>
-								<table-cell
-									><span class="stat-added">+50</span> <span class="stat-modified">~100</span>
-									<span class="stat-deleted">-206</span></table-cell
-								>
-								<table-cell
-									><span class="tag"
-										><code-icon icon="source-control"></code-icon>feature/workspaces</span
-									></table-cell
-								>
-								<table-cell
-									><span class="tag"
-										><code-icon icon="repo"></code-icon>gitkraken/vscode-gitlens</span
-									></table-cell
-								>
-							</table-row>
-						</table-container>
-					</div>
-				</section> -->
 			</main>
-			<!-- <menu-list class="app__controls">
-				<menu-label>Type</menu-label>
-				<menu-item role="none">
-					<div class="choice">
-						<input class="choice__input" type="checkbox" id="filter-prs" value="mentioned" checked />
-						<span class="choice__indicator"><code-icon icon="check"></code-icon></span>
-						<label class="choice__label" for="filter-prs">Pull requests</label>
-					</div>
-				</menu-item>
-				<menu-item role="none">
-					<div class="choice">
-						<input class="choice__input" type="checkbox" id="filter-issues" value="mentioned" checked />
-						<span class="choice__indicator"><code-icon icon="check"></code-icon></span>
-						<label class="choice__label" for="filter-issues">Issues</label>
-					</div>
-				</menu-item>
-				<menu-divider></menu-divider>
-				<menu-label>Association</menu-label>
-				<menu-item role="none">
-					<div class="choice">
-						<input class="choice__input" type="checkbox" id="filter-assigned" value="assigned" checked />
-						<span class="choice__indicator"><code-icon icon="check"></code-icon></span>
-						<label class="choice__label" for="filter-assigned">Assigned to me</label>
-					</div>
-				</menu-item>
-				<menu-item role="none">
-					<div class="choice">
-						<input class="choice__input" type="checkbox" id="filter-created" value="authored" checked />
-						<span class="choice__indicator"><code-icon icon="check"></code-icon></span>
-						<label class="choice__label" for="filter-created">Created by me</label>
-					</div>
-				</menu-item>
-				<menu-item role="none">
-					<div class="choice">
-						<input
-							class="choice__input"
-							type="checkbox"
-							id="filter-review-requested"
-							value="review-requested"
-							checked
-						/>
-						<span class="choice__indicator"><code-icon icon="check"></code-icon></span>
-						<label class="choice__label" for="filter-review-requested">Review requested</label>
-					</div>
-				</menu-item>
-				<menu-item role="none">
-					<div class="choice">
-						<input class="choice__input" type="checkbox" id="filter-mentioned" value="mentioned" checked />
-						<span class="choice__indicator"><code-icon icon="check"></code-icon></span>
-						<label class="choice__label" for="filter-mentioned">Mentioned</label>
-					</div>
-				</menu-item>
-				<menu-divider></menu-divider>
-				<menu-label>Repos</menu-label>
-				<menu-item role="none">
-					<div class="choice">
-						<input
-							class="choice__input"
-							type="checkbox"
-							id="filter-repo-1"
-							value="mentioned"
-							checked
-							readonly
-						/>
-						<span class="choice__indicator"><code-icon icon="check"></code-icon></span>
-						<label class="choice__label" for="filter-repo-1">vscode-gitlens</label>
-					</div>
-				</menu-item>
-			</menu-list> -->
 		</div>
 
 		<div class="overlay" id="account-overlay" hidden>
