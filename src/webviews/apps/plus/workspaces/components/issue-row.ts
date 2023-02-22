@@ -1,4 +1,4 @@
-import { css, customElement, FASTElement, html, observable, ref, volatile, when } from '@microsoft/fast-element';
+import { css, customElement, FASTElement, html, observable, volatile, when } from '@microsoft/fast-element';
 import type { IssueShape } from '../../../../../git/models/issue';
 import { fromNow } from '../../../../../system/date';
 import { focusOutline, srOnly } from '../../../shared/components/styles/a11y';

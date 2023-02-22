@@ -1,9 +1,8 @@
-import { attr, css, customElement, FASTElement, html, observable, ref, volatile, when } from '@microsoft/fast-element';
+import { attr, css, customElement, FASTElement, html, observable, volatile, when } from '@microsoft/fast-element';
 import type { Subscription } from '../../../../../subscription';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../../subscription';
-import { fromNow } from '../../../../../system/date';
 import { pluralize } from '../../../../../system/string';
-import { focusOutline, srOnly } from '../styles/a11y';
+import { focusOutline } from '../styles/a11y';
 import { elementBase } from '../styles/base';
 import '../overlays/pop-over';
 
