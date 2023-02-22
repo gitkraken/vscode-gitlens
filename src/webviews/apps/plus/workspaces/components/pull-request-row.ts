@@ -1,14 +1,14 @@
-import { css, customElement, FASTElement, html, observable, ref, volatile, when } from '@microsoft/fast-element';
+import { css, customElement, FASTElement, html, observable, volatile, when } from '@microsoft/fast-element';
 import type { PullRequestShape } from '../../../../../git/models/pullRequest';
 import { fromNow } from '../../../../../system/date';
 import { focusOutline, srOnly } from '../../../shared/components/styles/a11y';
 import { elementBase } from '../../../shared/components/styles/base';
+import { fromDateRange } from './helpers';
 import '../../../shared/components/table/table-cell';
 import '../../../shared/components/avatars/avatar-item';
 import '../../../shared/components/avatars/avatar-stack';
 import '../../../shared/components/code-icon';
 import './git-avatars';
-import { fromDateRange } from './helpers';
 
 const template = html<PullRequestRow>`
 	<template role="row">

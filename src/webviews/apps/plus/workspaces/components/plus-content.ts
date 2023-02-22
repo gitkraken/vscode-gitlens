@@ -1,7 +1,7 @@
-import { attr, css, customElement, FASTElement, html, observable, volatile, when } from '@microsoft/fast-element';
+import { css, customElement, FASTElement, html, observable, volatile, when } from '@microsoft/fast-element';
 import type { Subscription } from '../../../../../subscription';
 import { SubscriptionState } from '../../../../../subscription';
-import { focusOutline, srOnly } from '../../../shared/components/styles/a11y';
+import { focusOutline } from '../../../shared/components/styles/a11y';
 import { elementBase } from '../../../shared/components/styles/base';
 import '../../../shared/components/code-icon';
 
