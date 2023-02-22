@@ -196,13 +196,8 @@ export class WorkspacesApp extends App<State> {
 			connectOverlay.setAttribute('hidden', 'true');
 		}
 
-		// const badgeEl = document.getElementById('account-badge')! as AccountBadge;
-		const badgeEl = document.createElement('account-badge') as AccountBadge;
+		const badgeEl = document.getElementById('account-badge')! as AccountBadge;
 		badgeEl.subscription = this.state.subscription;
-
-		const headerEl = document.getElementById('header')!;
-		headerEl.innerHTML = '';
-		headerEl.append(badgeEl);
 	}
 
 	onSelectTab(e: Event, callback?: (val?: string) => void) {

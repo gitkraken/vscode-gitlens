@@ -92,7 +92,9 @@ code-icon {
 	font-size: inherit;
 }
 
-h2 {
+h2,
+h3,
+p {
 	margin-top: 0;
 }
 
@@ -186,6 +188,7 @@ h2 {
 .workspace-section {
 	display: flex;
 	flex-direction: column;
+	gap: 0.8rem;
 
 	&__header {
 		flex: none;
@@ -193,6 +196,11 @@ h2 {
 		flex-direction: row;
 		align-items: center;
 		justify-content: space-between;
+		padding: 0.4rem 0;
+
+		h2 {
+			margin: 0;
+		}
 	}
 
 	&__content {
@@ -211,14 +219,24 @@ h2 {
 
 	&__header {
 		flex: none;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0.4rem 2rem;
+		margin: {
+			left: -2rem;
+			right: -2rem;
+		}
+
 		text-align: right;
+		background-color: var(--background-05);
 	}
 
 	&__content {
 		position: relative;
 		flex: 1 1 auto;
-		display: flex;
-		flex-direction: row;
+		// display: flex;
+		// flex-direction: row;
 		overflow: hidden;
 		gap: 1rem;
 	}
@@ -228,10 +246,11 @@ h2 {
 	}
 
 	&__main {
-		flex: 1 1 auto;
+		// flex: 1 1 auto;
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+		height: 100%;
 	}
 	&__section {
 		min-height: 15rem;
@@ -382,9 +401,11 @@ h2 {
 
 	&__content {
 		max-width: 600px;
-		background: var(--color-hover-background) no-repeat left top;
+		background: var(--background-05) no-repeat left top;
 		background-image: var(--gl-plus-bg);
-		border: 1px solid var(--color-hover-border);
+		background-position: left -20rem center;
+		background-size: 100%;
+		border: 1px solid var(--background-15);
 		border-radius: 0.4rem;
 		margin: 1rem;
 		padding: 1.2rem;
@@ -397,4 +418,24 @@ h2 {
 			align-self: center !important;
 		}
 	}
+
+	&__actions {
+		text-align: center;
+		margin: 3rem 0;
+	}
+}
+
+.divider {
+	display: block;
+	height: 0;
+	margin: 0.6rem;
+	border: none;
+	border-top: 0.1rem solid var(--vscode-menu-separatorBackground);
+}
+
+.badge {
+	font-size: 1rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	color: var(--color-foreground);
 }

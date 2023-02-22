@@ -6,6 +6,7 @@ import { elementBase } from '../../../shared/components/styles/base';
 import '../../../shared/components/code-icon';
 
 const template = html<PlusContent>`
+	${when(x => x.state !== SubscriptionState.Free, html<PlusContent>` <hr class="divider" /> `)}
 	<div class="main">
 		${when(
 			x => x.state === SubscriptionState.Free,
@@ -31,7 +32,7 @@ const template = html<PlusContent>`
 				<h3>Extend Your GitLens Pro Trial</h3>
 				<p>
 					Your free 3-day GitLens Pro trial has ended, extend your trial to get an additional free 7-days of
-					GitLens+ features on private repos.
+					the Focus View and other GitLens+ features on private repos.
 				</p>
 				<p class="mb-1">
 					<vscode-button @click="${x => x.fireAction('command:gitlens.plus.loginOrSignUp')}"
@@ -45,8 +46,8 @@ const template = html<PlusContent>`
 			html<PlusContent>`
 				<h3>GitLens Pro Trial Expired</h3>
 				<p>
-					Your GitLens Pro trial has ended, please upgrade to GitLens Pro to continue to use GitLens+ features
-					on private repos.
+					Your GitLens Pro trial has ended, please upgrade to GitLens Pro to continue to use the Focus View
+					and other GitLens+ features on private repos.
 				</p>
 				<p class="mb-1">
 					<vscode-button @click="${x => x.fireAction('command:gitlens.plus.purchase')}"
@@ -60,7 +61,8 @@ const template = html<PlusContent>`
 			html<PlusContent>`
 				<h3>Please verify your email</h3>
 				<p class="alert__message">
-					Before you can also use GitLens+ features on private repos, please verify your email address.
+					Before you can also use the Focus View and other GitLens+ features on private repos, please verify
+					your email address.
 				</p>
 				<p class="mb-1">
 					<vscode-button @click="${x => x.fireAction('command:gitlens.plus.resendVerification')}"
@@ -129,7 +131,7 @@ const styles = css`
 	}
 
 	.mb-1 {
-		margin-bottom: 0.4rem;
+		margin-bottom: 0.6rem;
 	}
 	.mb-0 {
 		margin-bottom: 0;
@@ -142,6 +144,14 @@ const styles = css`
 
 	.secondary {
 		font-size: 1.4rem;
+	}
+
+	.divider {
+		display: block;
+		height: 0;
+		margin: 0.6rem;
+		border: none;
+		border-top: 0.1rem solid var(--vscode-menu-separatorBackground);
 	}
 `;
 
