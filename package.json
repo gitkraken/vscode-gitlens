@@ -67,7 +67,7 @@
 		"onWebviewPanel:gitlens.welcome",
 		"onWebviewPanel:gitlens.settings",
 		"onWebviewPanel:gitlens.graph",
-		"onWebviewPanel:gitlens.workspaces",
+		"onWebviewPanel:gitlens.focus",
 		"onCommand:gitlens.plus.learn",
 		"onCommand:gitlens.plus.loginOrSignUp",
 		"onCommand:gitlens.plus.logout",
@@ -76,7 +76,7 @@
 		"onCommand:gitlens.plus.purchase",
 		"onCommand:gitlens.getStarted",
 		"onCommand:gitlens.showGraphPage",
-		"onCommand:gitlens.showWorkspacesPage",
+		"onCommand:gitlens.showFocusPage",
 		"onCommand:gitlens.showSettingsPage",
 		"onCommand:gitlens.showSettingsPage#views",
 		"onCommand:gitlens.showSettingsPage#autolinks",
@@ -4487,7 +4487,7 @@
 				"icon": "$(gitlens-graph)"
 			},
 			{
-				"command": "gitlens.showWorkspacesPage",
+				"command": "gitlens.showFocusPage",
 				"title": "Show Focus View",
 				"category": "GitLens+",
 				"icon": "$(layers)"
@@ -6864,7 +6864,7 @@
 				"icon": "$(copy)"
 			},
 			{
-				"command": "gitlens.workspaces.refresh",
+				"command": "gitlens.focus.refresh",
 				"title": "Refresh",
 				"category": "GitLens",
 				"icon": "$(refresh)"
@@ -7424,7 +7424,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.showWorkspacesPage",
+					"command": "gitlens.showFocusPage",
 					"when": "gitlens:enabled"
 				},
 				{
@@ -9036,7 +9036,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.workspaces.refresh",
+					"command": "gitlens.focus.refresh",
 					"when": "false"
 				},
 				{
@@ -9470,8 +9470,8 @@
 					"group": "navigation@-98"
 				},
 				{
-					"command": "gitlens.workspaces.refresh",
-					"when": "gitlens:workspaces:focused",
+					"command": "gitlens.focus.refresh",
+					"when": "gitlens:focus:focused",
 					"group": "navigation@-98"
 				}
 			],

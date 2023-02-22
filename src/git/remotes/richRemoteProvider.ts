@@ -79,8 +79,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 	}
 
 	protected _session: AuthenticationSession | null | undefined;
-	// TODO: exposing this is rough approach for workspaces
-	session() {
+	protected session() {
 		if (this._session === undefined) {
 			return this.ensureSession(false);
 		}

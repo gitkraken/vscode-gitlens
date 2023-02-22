@@ -31,7 +31,7 @@ interface RepoWithRichRemote {
 	isGitHub: boolean;
 }
 
-export class WorkspacesWebview extends WebviewBase<State> {
+export class FocusWebview extends WebviewBase<State> {
 	private _bootstrapping = true;
 	private _pullRequests: SearchedPullRequest[] = [];
 	private _issues: SearchedIssue[] = [];
@@ -42,13 +42,13 @@ export class WorkspacesWebview extends WebviewBase<State> {
 	constructor(container: Container) {
 		super(
 			container,
-			'gitlens.workspaces',
-			'workspaces.html',
+			'gitlens.focus',
+			'focus.html',
 			'images/gitlens-icon.png',
 			'Focus View',
-			`${ContextKeys.WebviewPrefix}workspaces`,
-			'workspacesWebview',
-			Commands.ShowWorkspacesPage,
+			`${ContextKeys.WebviewPrefix}focus`,
+			'focusWebview',
+			Commands.ShowFocusPage,
 		);
 
 		this.disposables.push(this.container.subscription.onDidChange(this.onSubscriptionChanged, this));
@@ -56,18 +56,18 @@ export class WorkspacesWebview extends WebviewBase<State> {
 	}
 
 	protected override registerCommands(): Disposable[] {
-		return [registerCommand(Commands.RefreshWorkspaces, () => this.refresh(true))];
+		return [registerCommand(Commands.RefreshFocus, () => this.refresh(true))];
 	}
 
 	protected override onFocusChanged(focused: boolean): void {
 		if (focused) {
 			// If we are becoming focused, delay it a bit to give the UI time to update
-			setTimeout(() => void setContext(ContextKeys.WorkspacesFocused, focused), 0);
+			setTimeout(() => void setContext(ContextKeys.FocusFocused, focused), 0);
 
 			return;
 		}
 
-		void setContext(ContextKeys.WorkspacesFocused, focused);
+		void setContext(ContextKeys.FocusFocused, focused);
 	}
 
 	private async onSubscriptionChanged(e: SubscriptionChangeEvent) {
@@ -84,17 +84,6 @@ export class WorkspacesWebview extends WebviewBase<State> {
 			subscription: subscription,
 			isPlus: isPlus,
 		});
-	}
-
-	private async getWorkspaces() {
-		try {
-			const rsp = await this.container.workspaces.getWorkspacesWithPullRequests();
-			console.log(rsp);
-		} catch (ex) {
-			console.log(ex);
-		}
-
-		return {};
 	}
 
 	private async getSubscription(subscription?: Subscription) {

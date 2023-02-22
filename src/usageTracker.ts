@@ -30,7 +30,7 @@ export type TrackedUsageFeatures =
 	| 'timelineView'
 	| 'welcomeWebview'
 	| 'workspaceView'
-	| 'workspacesWebview';
+	| 'focusWebview';
 export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown`;
 
 export type UsageChangeEvent = {
