@@ -529,8 +529,9 @@ export function GraphWrapper({
 		if (
 			!graphConfig?.minimap ||
 			!graphConfig.enabledMinimapMarkerTypes?.includes(GraphMinimapMarkerTypes.Highlights)
-		)
-			{return undefined;}
+		) {
+			return undefined;
+		}
 
 		const searchResultsByDay = new Map<number, GraphMinimapSearchResultMarker>();
 
