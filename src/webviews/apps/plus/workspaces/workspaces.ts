@@ -1,14 +1,16 @@
+import { provideVSCodeDesignSystem, vsCodeButton } from '@vscode/webview-ui-toolkit';
 import type { State } from '../../../../plus/webviews/workspaces/protocol';
 import {
 	DidChangeStateNotificationType,
 	DidChangeSubscriptionNotificationType,
 } from '../../../../plus/webviews/workspaces/protocol';
 import type { IpcMessage } from '../../../protocol';
-import { onIpc } from '../../../protocol';
+import { ExecuteCommandType, onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
 import type { AccountBadge } from '../../shared/components/account/account-badge';
 import { DOM } from '../../shared/dom';
 import type { IssueRow } from './components/issue-row';
+import type { PlusContent } from './components/plus-content';
 import type { PullRequestRow } from './components/pull-request-row';
 import '../../shared/components/code-icon';
 import '../../shared/components/avatars/avatar-item';
@@ -22,6 +24,7 @@ import '../../shared/components/table/table-row';
 import '../../shared/components/table/table-cell';
 import '../../shared/components/account/account-badge';
 import './components/issue-row';
+import './components/plus-content';
 import './components/pull-request-row';
 import './workspaces.scss';
 
@@ -35,6 +38,7 @@ export class WorkspacesApp extends App<State> {
 
 	override onInitialize() {
 		this.log(`${this.appName}.onInitialize`);
+		provideVSCodeDesignSystem().register(vsCodeButton());
 		this.renderContent();
 		console.log(this.state);
 	}
@@ -58,7 +62,31 @@ export class WorkspacesApp extends App<State> {
 				}),
 			),
 		);
+		disposables.push(
+			DOM.on('[data-action]', 'click', (e, target: HTMLElement) => this.onDataActionClicked(e, target)),
+		);
+		disposables.push(
+			DOM.on<PlusContent, string>('plus-content', 'action', (e, target: HTMLElement) =>
+				this.onPlusActionClicked(e, target),
+			),
+		);
+
 		return disposables;
+	}
+
+	private onDataActionClicked(_e: MouseEvent, target: HTMLElement) {
+		const action = target.dataset.action;
+		this.onActionClickedCore(action);
+	}
+
+	private onPlusActionClicked(e: CustomEvent<string>, _target: HTMLElement) {
+		this.onActionClickedCore(e.detail);
+	}
+
+	private onActionClickedCore(action?: string) {
+		if (action?.startsWith('command:')) {
+			this.sendCommand(ExecuteCommandType, { command: action.slice(8) });
+		}
 	}
 
 	protected override onMessageReceived(e: MessageEvent) {
@@ -151,13 +179,21 @@ export class WorkspacesApp extends App<State> {
 
 	renderAccountState() {
 		const content = document.getElementById('content')!;
-		const overlay = document.getElementById('overlay')!;
-		if (this.state.isPlus) {
-			content.removeAttribute('aria-hidden');
-			overlay.setAttribute('hidden', 'true');
-		} else {
+		const accountOverlay = document.getElementById('account-overlay')!;
+		const connectOverlay = document.getElementById('connect-overlay')!;
+
+		if (!this.state.isPlus) {
 			content.setAttribute('aria-hidden', 'true');
-			overlay.removeAttribute('hidden');
+			accountOverlay.removeAttribute('hidden');
+			connectOverlay.setAttribute('hidden', 'true');
+		} else if (this.state.repos != null && this.state.repos.some(repo => repo.isConnected) === false) {
+			content.setAttribute('aria-hidden', 'true');
+			accountOverlay.setAttribute('hidden', 'true');
+			connectOverlay.removeAttribute('hidden');
+		} else {
+			content.removeAttribute('aria-hidden');
+			accountOverlay.setAttribute('hidden', 'true');
+			connectOverlay.setAttribute('hidden', 'true');
 		}
 
 		// const badgeEl = document.getElementById('account-badge')! as AccountBadge;

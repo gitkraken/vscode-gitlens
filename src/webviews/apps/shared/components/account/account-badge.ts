@@ -59,7 +59,7 @@ const styles = css`
 		text-align: left;
 	}
 
-	.badge:not(:hover) + .badge-popover {
+	.badge:not(:hover) ~ .badge-popover {
 		display: none;
 	}
 `;

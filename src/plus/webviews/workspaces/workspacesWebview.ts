@@ -1,4 +1,4 @@
-import type { Disposable } from 'vscode';
+import { Disposable } from 'vscode';
 import { Commands, ContextKeys } from '../../../constants';
 import type { Container } from '../../../container';
 import { setContext } from '../../../context';
@@ -12,7 +12,8 @@ import {
 	serializePullRequest,
 } from '../../../git/models/pullRequest';
 import type { GitRemote } from '../../../git/models/remote';
-import type { Repository } from '../../../git/models/repository';
+import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
 import type { Subscription } from '../../../subscription';
 import { SubscriptionState } from '../../../subscription';
@@ -35,6 +36,8 @@ export class WorkspacesWebview extends WebviewBase<State> {
 	private _pullRequests: SearchedPullRequest[] = [];
 	private _issues: SearchedIssue[] = [];
 	private _etagSubscription?: number;
+	private _repositoryEventsDisposable?: Disposable;
+	private _repos?: RepoWithRichRemote[];
 
 	constructor(container: Container) {
 		super(
@@ -49,6 +52,7 @@ export class WorkspacesWebview extends WebviewBase<State> {
 		);
 
 		this.disposables.push(this.container.subscription.onDidChange(this.onSubscriptionChanged, this));
+		this.disposables.push(this.container.git.onDidChangeRepositories(() => void this.refresh(true)));
 	}
 
 	protected override registerCommands(): Disposable[] {
@@ -110,22 +114,33 @@ export class WorkspacesWebview extends WebviewBase<State> {
 
 	private async getState(deferState = false): Promise<State> {
 		const { subscription, isPlus } = await this.getSubscription();
-		if (deferState || !isPlus) {
+		if (!isPlus) {
 			return {
 				isPlus: isPlus,
 				subscription: subscription,
 			};
 		}
 
-		const richRepos = await this.getRichRepos();
+		const allRichRepos = await this.getRichRepos();
+		const githubRepos = filterGithubRepos(allRichRepos);
+		const connectedRepos = filterUsableRepos(githubRepos);
+		const hasConnectedRepos = connectedRepos.length > 0;
 
-		const prs = await this.getMyPullRequests(richRepos);
+		if (deferState || !hasConnectedRepos) {
+			return {
+				isPlus: isPlus,
+				subscription: subscription,
+				repos: (hasConnectedRepos ? connectedRepos : githubRepos).map(r => serializeRepoWithRichRemote(r)),
+			};
+		}
+
+		const prs = await this.getMyPullRequests(connectedRepos);
 		const serializedPrs = prs.map(pr => ({
 			pullRequest: serializePullRequest(pr.pullRequest),
 			reasons: pr.reasons,
 		}));
 
-		const issues = await this.getMyIssues(richRepos);
+		const issues = await this.getMyIssues(connectedRepos);
 		const serializedIssues = issues.map(issue => ({
 			issue: serializeIssue(issue.issue),
 			reasons: issue.reasons,
@@ -136,6 +151,7 @@ export class WorkspacesWebview extends WebviewBase<State> {
 			subscription: subscription,
 			pullRequests: serializedPrs,
 			issues: serializedIssues,
+			repos: connectedRepos.map(r => serializeRepoWithRichRemote(r)),
 		};
 	}
 
@@ -151,28 +167,44 @@ export class WorkspacesWebview extends WebviewBase<State> {
 		return this.getState();
 	}
 
-	private async getRichRepos(): Promise<RepoWithRichRemote[]> {
-		const repos = [];
-		for (const repo of this.container.git.openRepositories) {
-			const richRemote = await repo.getRichRemote(true);
-			if (richRemote == null || repos.findIndex(repo => repo.remote === richRemote) > -1) {
-				continue;
-			}
+	private async getRichRepos(force?: boolean): Promise<RepoWithRichRemote[]> {
+		if (this._repos == null || force === true) {
+			const repos = [];
+			const disposables = [];
+			for (const repo of this.container.git.openRepositories) {
+				const richRemote = await repo.getRichRemote();
+				if (richRemote == null || repos.findIndex(repo => repo.remote === richRemote) > -1) {
+					continue;
+				}
 
-			repos.push({
-				repo: repo,
-				remote: richRemote,
-				isConnected: await richRemote.provider.isConnected(),
-				isGitHub: richRemote.provider.name === 'GitHub',
-			});
+				disposables.push(repo.onDidChange(this.onRepositoryChanged, this));
+
+				repos.push({
+					repo: repo,
+					remote: richRemote,
+					isConnected: await richRemote.provider.isConnected(),
+					isGitHub: richRemote.provider.name === 'GitHub',
+				});
+			}
+			if (this._repositoryEventsDisposable) {
+				this._repositoryEventsDisposable.dispose();
+				this._repositoryEventsDisposable = undefined;
+			}
+			this._repositoryEventsDisposable = Disposable.from(...disposables);
+			this._repos = repos;
 		}
 
-		return repos;
+		return this._repos;
 	}
 
-	private async getMyPullRequests(richReposWithRemote?: RepoWithRichRemote[]): Promise<SearchedPullRequest[]> {
-		// if (this._pullRequests.length === 0) {
-		const richRepos = richReposWithRemote ?? (await this.getRichRepos());
+	private async onRepositoryChanged(e: RepositoryChangeEvent) {
+		if (e.changed(RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
+			await this.getRichRepos(true);
+			void this.notifyDidChangeState();
+		}
+	}
+
+	private async getMyPullRequests(richRepos: RepoWithRichRemote[]): Promise<SearchedPullRequest[]> {
 		const allPrs = [];
 		for (const { remote } of richRepos) {
 			const prs = await this.container.git.getMyPullRequests(remote);
@@ -223,9 +255,8 @@ export class WorkspacesWebview extends WebviewBase<State> {
 		return this._pullRequests;
 	}
 
-	private async getMyIssues(richReposWithRemote?: RepoWithRichRemote[]): Promise<SearchedIssue[]> {
+	private async getMyIssues(richRepos: RepoWithRichRemote[]): Promise<SearchedIssue[]> {
 		// if (this._issues.length === 0) {
-		const richRepos = richReposWithRemote ?? (await this.getRichRepos());
 		const allIssues = [];
 		for (const { remote } of richRepos) {
 			const issues = await this.container.git.getMyIssues(remote);
@@ -257,4 +288,20 @@ export class WorkspacesWebview extends WebviewBase<State> {
 		this._bootstrapping = false;
 		void this.notify(DidChangeStateNotificationType, { state: state });
 	}
+}
+
+function filterGithubRepos(list: RepoWithRichRemote[]): RepoWithRichRemote[] {
+	return list.filter(entry => entry.isGitHub);
+}
+
+function filterUsableRepos(list: RepoWithRichRemote[]): RepoWithRichRemote[] {
+	return list.filter(entry => entry.isConnected && entry.isGitHub);
+}
+
+function serializeRepoWithRichRemote(entry: RepoWithRichRemote) {
+	return {
+		repo: entry.repo.path,
+		isGitHub: entry.isGitHub,
+		isConnected: entry.isConnected,
+	};
 }

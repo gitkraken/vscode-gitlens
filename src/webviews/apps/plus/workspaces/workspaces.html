@@ -208,10 +208,33 @@
 			</menu-list> -->
 		</div>
 
-		<div class="overlay" id="overlay" hidden>
+		<div class="overlay" id="account-overlay" hidden>
 			<div class="overlay__content">
-				The Focus view helps you focus on the work that matters most. It shows you the pull requests and issues
-				that you are involved in, and hides everything else.
+				<h2>Focus View ✨</h2>
+				<p>
+					This GitLens+ feature gives you a comprehensive list of all your most important work across your
+					connected GitHub repos:
+				</p>
+				<ul>
+					<li>
+						<strong>My Pull Requests:</strong> shows all GitHub PRs opened by you, assigned to you, or
+						awaiting your review.
+					</li>
+					<li>
+						<strong>My Issues:</strong> shows all issues created by you, assigned to you, or that mention
+						you.
+					</li>
+				</ul>
+
+				<plus-content id="plus-content"></plus-content>
+			</div>
+		</div>
+
+		<div class="overlay" id="connect-overlay" hidden>
+			<div class="overlay__content">
+				<p>Your GitHub remotes are not connected.</p>
+
+				<vscode-button data-action="command:gitlens.connectRemoteProvider">Connect Now</vscode-button>
 			</div>
 		</div>
 
