@@ -2,6 +2,7 @@ import { Disposable, env, ProgressLocation, Uri, window, workspace } from 'vscod
 import { configuration } from '../../configuration';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
+import { getBranchNameWithoutRemote } from '../../git/models/branch';
 import { GitReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
@@ -134,7 +135,13 @@ export class DeepLinkService implements Disposable {
 		if (targetType === DeepLinkType.Branch) {
 			// Form the target branch name using the remote name and branch name
 			const branchName = `${remote.name}/${targetId}`;
-			const branch = await repo.getBranch(branchName);
+			let branch = await repo.getBranch(branchName);
+			if (branch) {
+				return branch.sha;
+			}
+
+			// If it doesn't exist on the target remote, it may still exist locally.
+			branch = await repo.getBranch(targetId);
 			if (branch) {
 				return branch.sha;
 			}
@@ -501,7 +508,9 @@ export class DeepLinkService implements Disposable {
 			switch (refOrRepoPath.refType) {
 				case 'branch':
 					targetType = DeepLinkType.Branch;
-					targetId = refOrRepoPath.name;
+					targetId = refOrRepoPath.remote
+						? getBranchNameWithoutRemote(refOrRepoPath.name)
+						: refOrRepoPath.name;
 					break;
 				case 'revision':
 					targetType = DeepLinkType.Commit;
