@@ -61,6 +61,17 @@ export const enum GraphScrollMarkerTypes {
 	Upstream = 'upstream',
 }
 
+export const enum GraphMinimapMarkerTypes {
+	Selection = 'selection',
+	Head = 'head',
+	Highlights = 'highlights',
+	LocalBranches = 'localBranches',
+	RemoteBranches = 'remoteBranches',
+	Stashes = 'stashes',
+	Tags = 'tags',
+	Upstream = 'upstream',
+}
+
 export const supportedRefMetadataTypes: GraphRefMetadataType[] = Object.values(GraphRefMetadataTypes);
 
 export type GraphCommitDateTimeSource = CommitDateTimeSource;
@@ -149,6 +160,7 @@ export interface GraphComponentConfig {
 	enableMultiSelection?: boolean;
 	highlightRowsOnRefHover?: boolean;
 	minimap?: boolean;
+	enabledMinimapMarkerTypes?: GraphMinimapMarkerTypes[];
 	scrollRowPadding?: number;
 	enabledScrollMarkerTypes?: GraphScrollMarkerTypes[];
 	showGhostRefsOnRowHover?: boolean;

@@ -2226,20 +2226,18 @@
 					"gitlens.graph.scrollMarkers.additionalTypes": {
 						"type": "array",
 						"default": [
-							"head",
-							"localBranches"
+							"localBranches",
+							"stashes"
 						],
 						"items": {
 							"type": "string",
 							"enum": [
-								"head",
 								"localBranches",
 								"remoteBranches",
 								"tags",
 								"stashes"
 							],
 							"enumDescriptions": [
-								"Marks the location of the current HEAD and its upstream",
 								"Marks the location of local branches",
 								"Marks the location of remote branches",
 								"Marks the location of tags",
@@ -2247,7 +2245,7 @@
 							]
 						},
 						"minItems": 0,
-						"maxItems": 5,
+						"maxItems": 4,
 						"uniqueItems": true,
 						"markdownDescription": "Specifies additional markers to show on the scrollbar in the _Commit Graph_",
 						"scope": "window",
@@ -2387,6 +2385,34 @@
 						"markdownDescription": "Specifies whether to show an experimental minimap of commit activity above the _Commit Graph_",
 						"scope": "window",
 						"order": 100
+					},
+					"gitlens.graph.experimental.minimap.additionalTypes": {
+						"type": "array",
+						"default": [
+							"localBranches",
+							"stashes"
+						],
+						"items": {
+							"type": "string",
+							"enum": [
+								"localBranches",
+								"remoteBranches",
+								"tags",
+								"stashes"
+							],
+							"enumDescriptions": [
+								"Marks the location of local branches",
+								"Marks the location of remote branches",
+								"Marks the location of tags",
+								"Marks the location of stashes"
+							]
+						},
+						"minItems": 0,
+						"maxItems": 4,
+						"uniqueItems": true,
+						"markdownDescription": "Specifies additional markers to show on the minimap in the _Commit Graph_",
+						"scope": "window",
+						"order": 101
 					}
 				}
 			},
