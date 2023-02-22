@@ -145,6 +145,7 @@ import {
 	GetMissingAvatarsCommandType,
 	GetMissingRefsMetadataCommandType,
 	GetMoreRowsCommandType,
+	GraphMinimapMarkerTypes,
 	GraphRefMetadataTypes,
 	GraphScrollMarkerTypes,
 	SearchCommandType,
@@ -612,7 +613,8 @@ export class GraphWebview extends WebviewBase<State> {
 			configuration.changed(e, 'graph.pullRequests.enabled') ||
 			configuration.changed(e, 'graph.showRemoteNames') ||
 			configuration.changed(e, 'graph.showUpstreamStatus') ||
-			configuration.changed(e, 'graph.experimental.minimap.enabled')
+			configuration.changed(e, 'graph.experimental.minimap.enabled') ||
+			configuration.changed(e, 'graph.experimental.minimap.additionalTypes')
 		) {
 			void this.notifyDidChangeConfiguration();
 
@@ -1656,6 +1658,7 @@ export class GraphWebview extends WebviewBase<State> {
 			enableMultiSelection: false,
 			highlightRowsOnRefHover: configuration.get('graph.highlightRowsOnRefHover'),
 			minimap: configuration.get('graph.experimental.minimap.enabled'),
+			enabledMinimapMarkerTypes: this.getEnabledGraphMinimapMarkers(),
 			scrollRowPadding: configuration.get('graph.scrollRowPadding'),
 			enabledScrollMarkerTypes: this.getEnabledGraphScrollMarkers(),
 			showGhostRefsOnRowHover: configuration.get('graph.showGhostRefsOnRowHover'),
@@ -1672,13 +1675,27 @@ export class GraphWebview extends WebviewBase<State> {
 		const markers: GraphScrollMarkerTypes[] = [
 			GraphScrollMarkerTypes.Selection,
 			GraphScrollMarkerTypes.Highlights,
+			GraphScrollMarkerTypes.Head,
+			GraphScrollMarkerTypes.Upstream,
 			...(configuration.get('graph.scrollMarkers.additionalTypes') as unknown as GraphScrollMarkerTypes[]),
 		];
 
-		// Head and upstream are under the same setting, but separate markers in the component
-		if (markers.includes(GraphScrollMarkerTypes.Head)) {
-			markers.push(GraphScrollMarkerTypes.Upstream);
-		}
+		return markers;
+	}
+
+	private getEnabledGraphMinimapMarkers(): GraphMinimapMarkerTypes[] {
+		const markersEnabled = configuration.get('graph.experimental.minimap.enabled');
+		if (!markersEnabled) return [];
+
+		const markers: GraphMinimapMarkerTypes[] = [
+			GraphMinimapMarkerTypes.Selection,
+			GraphMinimapMarkerTypes.Highlights,
+			GraphMinimapMarkerTypes.Head,
+			GraphMinimapMarkerTypes.Upstream,
+			...(configuration.get(
+				'graph.experimental.minimap.additionalTypes',
+			) as unknown as GraphMinimapMarkerTypes[]),
+		];
 
 		return markers;
 	}

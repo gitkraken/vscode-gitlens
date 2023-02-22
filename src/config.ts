@@ -299,6 +299,16 @@ export const enum GraphScrollMarkerTypes {
 	Tags = 'tags',
 }
 
+export const enum GraphMinimapTypes {
+	Selection = 'selection',
+	Head = 'head',
+	LocalBranches = 'localBranches',
+	RemoteBranches = 'remoteBranches',
+	Highlights = 'highlights',
+	Stashes = 'stashes',
+	Tags = 'tags',
+}
+
 export const enum GravatarDefaultStyle {
 	Faces = 'wavatar',
 	Geometric = 'identicon',
@@ -406,6 +416,7 @@ export interface GraphConfig {
 	experimental: {
 		minimap: {
 			enabled: boolean;
+			additionalTypes: GraphMinimapTypes[];
 		};
 	};
 	highlightRowsOnRefHover: boolean;
