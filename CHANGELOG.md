@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- ✨ Adds an all-new preview of the **Focus view**, a [GitLens+ feature](https://gitkraken.com/gitlens/plus-features) &mdash; provides you with a comprehensive list of all your most important work across your connected GitHub repos:
+  - **My Pull Requests:** shows all GitHub PRs opened by you, assigned to you, or awaiting your review
+  - **My Issues:** shows all issues created by you, assigned to you, or that mention you
 - Adds new _Commit Graph_ features and improvements
   - Adds a new experimental minimap of commit activity to the _Commit Graph_
   - Adds a new experimental _Changes_ column visualizing commit changes
