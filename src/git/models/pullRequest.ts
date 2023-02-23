@@ -62,7 +62,7 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	readonly comments?: number;
 	readonly mergeableState?: PullRequestMergeableState;
 	readonly reviewDecision?: PullRequestReviewDecision;
-	readonly reviewRequests?: { isCodeOwner: boolean; reviewer: PullRequestMember }[];
+	readonly reviewRequests?: PullRequestReviewer[];
 	readonly assignees?: PullRequestMember[];
 }
 
