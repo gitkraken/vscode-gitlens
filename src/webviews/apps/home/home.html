@@ -242,6 +242,21 @@
 			</div>
 			<!-- check for gitlens+ -->
 			<div id="plus-sections">
+				<card-section dismissable id="focus-view-preview">
+					<span slot="heading">Focus View ✨ (preview)</span>
+					<a title="Open the Focus view" href="command:gitlens.showFocusPage"
+						><img
+							src="#{webroot}/media/plus-focus-view-preview.webp"
+							alt="Focus view Screenshot"
+							class="plus-section-thumb mb-1"
+					/></a>
+					<p class="mb-0">
+						The
+						<a title="Open the Focus view" href="command:gitlens.showFocusPage">Focus View</a>
+						provides you with a comprehensive list of all your most important work across your connected
+						GitHub repos.
+					</p>
+				</card-section>
 				<card-section dismissable id="commit-graph">
 					<span slot="heading">Commit Graph ✨</span>
 					<a
@@ -250,7 +265,7 @@
 						><img
 							src="#{webroot}/media/plus-commit-graph-illustrated.webp"
 							alt="Commit Graph illustration"
-							class="mb-1"
+							class="plus-section-thumb mb-1"
 					/></a>
 					<p>
 						The
@@ -275,7 +290,7 @@
 						><img
 							src="#{webroot}/media/plus-visual-file-history-illustrated.webp"
 							alt="Visual File History illustration"
-							class="mb-1"
+							class="plus-section-thumb mb-1"
 					/></a>
 					<p>
 						The
@@ -300,7 +315,7 @@
 						><img
 							src="#{webroot}/media/plus-worktrees-illustrated.webp"
 							alt="Worktrees illustration"
-							class="mb-1"
+							class="plus-section-thumb mb-1"
 					/></a>
 					<p>
 						<a
