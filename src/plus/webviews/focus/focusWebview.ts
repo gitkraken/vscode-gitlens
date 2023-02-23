@@ -239,13 +239,11 @@ export class FocusWebview extends WebviewBase<State> {
 			}
 			return (scoreB ?? 0) - (scoreA ?? 0);
 		});
-		// }
 
 		return this._pullRequests;
 	}
 
 	private async getMyIssues(richRepos: RepoWithRichRemote[]): Promise<SearchedIssue[]> {
-		// if (this._issues.length === 0) {
 		const allIssues = [];
 		for (const { remote } of richRepos) {
 			const issues = await this.container.git.getMyIssues(remote);
@@ -256,7 +254,6 @@ export class FocusWebview extends WebviewBase<State> {
 		}
 
 		this._issues = allIssues.sort((a, b) => b.issue.updatedDate.getTime() - a.issue.updatedDate.getTime());
-		// }
 
 		return this._issues;
 	}
