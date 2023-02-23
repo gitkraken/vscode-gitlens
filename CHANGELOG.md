@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [13.3.0] - 2023-02-23
+
 ### Added
 
 - ✨ Adds a preview of the all-new **Focus View**, a [GitLens+ feature](https://gitkraken.com/gitlens/plus-features) &mdash; provides you with a comprehensive list of all your most important work across your connected GitHub repos:
@@ -4567,7 +4569,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v13.2.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v13.3.0...HEAD
+[13.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v13.2.0...gitkraken:v13.3.0
 [13.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v13.1.1...gitkraken:v13.2.0
 [13.1.1]: https://github.com/gitkraken/vscode-gitlens/compare/v13.1.0...gitkraken:v13.1.1
 [13.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v13.0.4...gitkraken:v13.1.0
