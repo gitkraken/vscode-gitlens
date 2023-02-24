@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [13.3.1] - 2023-02-24
+
+### Fixed
+
+- Fixes graph issue where scroll markers do not update until mouseover when changing the `gitlens.graph.scrollMarkers.additionalTypes` setting.
+
 ## [13.3.0] - 2023-02-23
 
 ### Added
@@ -4570,6 +4576,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Initial release but still heavily a work in progress.
 
 [unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v13.3.0...HEAD
+[13.3.1]: https://github.com/gitkraken/vscode-gitlens/compare/v13.3.0...gitkraken:v13.3.1
 [13.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v13.2.0...gitkraken:v13.3.0
 [13.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v13.1.1...gitkraken:v13.2.0
 [13.1.1]: https://github.com/gitkraken/vscode-gitlens/compare/v13.1.0...gitkraken:v13.1.1
