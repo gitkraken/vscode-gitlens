@@ -844,8 +844,23 @@ export class SubscriptionService implements Disposable {
 			};
 		}
 
-		// Check if the preview has expired, if not apply it
-		if (subscription.previewTrial != null && (getTimeRemaining(subscription.previewTrial.expiresOn) ?? 0) > 0) {
+		// If the effective plan has expired, then replace it with the actual plan
+		if (isSubscriptionExpired(subscription)) {
+			subscription = {
+				...subscription,
+				plan: {
+					...subscription.plan,
+					effective: subscription.plan.actual,
+				},
+			};
+		}
+
+		// If we don't have a paid plan (or a non-preview trial), check if the preview trial has expired, if not apply it
+		if (
+			!isSubscriptionPaid(subscription) &&
+			subscription.previewTrial != null &&
+			(getTimeRemaining(subscription.previewTrial.expiresOn) ?? 0) > 0
+		) {
 			subscription = {
 				...subscription,
 				plan: {
@@ -857,17 +872,6 @@ export class SubscriptionService implements Disposable {
 						new Date(subscription.previewTrial.startedOn),
 						new Date(subscription.previewTrial.expiresOn),
 					),
-				},
-			};
-		}
-
-		// If the effective plan has expired, then replace it with the actual plan
-		if (isSubscriptionExpired(subscription)) {
-			subscription = {
-				...subscription,
-				plan: {
-					...subscription.plan,
-					effective: subscription.plan.actual,
 				},
 			};
 		}
