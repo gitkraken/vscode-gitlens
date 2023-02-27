@@ -645,6 +645,7 @@ export class SubscriptionService implements Disposable {
 				license.organizationId,
 				new Date(license.latestStartDate),
 				new Date(license.latestEndDate),
+				license.latestStatus === 'cancelled',
 			);
 		}
 
@@ -676,6 +677,7 @@ export class SubscriptionService implements Disposable {
 				license.organizationId,
 				new Date(license.latestStartDate),
 				new Date(license.latestEndDate),
+				license.latestStatus === 'cancelled',
 			);
 		}
 
