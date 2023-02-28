@@ -4,8 +4,8 @@ import type { Container } from '../container';
 import { openDirectoryCompare } from '../git/actions/commit';
 import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
-import { ReferencePicker } from '../quickpicks/referencePicker';
-import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { showReferencePicker } from '../quickpicks/referencePicker';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
 import { CompareResultsNode } from '../views/nodes/compareResultsNode';
 import type { CommandContext } from './base';
@@ -59,13 +59,12 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 		args = { ...args };
 
 		try {
-			const repoPath = (
-				await RepositoryPicker.getBestRepositoryOrShow(uri, editor, 'Directory Compare Working Tree With')
-			)?.path;
+			const repoPath = (await getBestRepositoryOrShowPicker(uri, editor, 'Directory Compare Working Tree With'))
+				?.path;
 			if (!repoPath) return;
 
 			if (!args.ref1) {
-				const pick = await ReferencePicker.show(
+				const pick = await showReferencePicker(
 					repoPath,
 					'Directory Compare Working Tree with',
 					'Choose a branch or tag to compare with',

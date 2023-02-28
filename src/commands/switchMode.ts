@@ -3,7 +3,7 @@ import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { getLogScope } from '../logScope';
-import { ModePicker } from '../quickpicks/modePicker';
+import { showModePicker } from '../quickpicks/modePicker';
 import { command } from '../system/command';
 import { log } from '../system/decorators/log';
 import { Command } from './base';
@@ -18,7 +18,7 @@ export class SwitchModeCommand extends Command {
 	async execute() {
 		const scope = getLogScope();
 
-		const pick = await ModePicker.show();
+		const pick = await showModePicker();
 		if (pick === undefined) return;
 
 		if (scope != null) {

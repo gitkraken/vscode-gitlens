@@ -8,7 +8,7 @@ import { GitUri, unknownGitUri } from '../../git/gitUri';
 import { GitReference, GitRevision } from '../../git/models/reference';
 import { Logger } from '../../logger';
 import { getLogScope } from '../../logScope';
-import { ReferencePicker } from '../../quickpicks/referencePicker';
+import { showReferencePicker } from '../../quickpicks/referencePicker';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { debounce } from '../../system/function';
@@ -116,7 +116,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	@gate()
 	@log()
 	async changeBase() {
-		const pick = await ReferencePicker.show(
+		const pick = await showReferencePicker(
 			this.uri.repoPath!,
 			'Change Line History Base',
 			'Choose a reference to set as the new base',

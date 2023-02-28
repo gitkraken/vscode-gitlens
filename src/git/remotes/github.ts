@@ -316,11 +316,11 @@ export class GitHubRemote extends RichRemoteProvider {
 		const [owner, repo] = this.splitPath();
 		const { include, ...opts } = options ?? {};
 
-		const GitHubPullRequest = (await import(/* webpackChunkName: "github" */ '../../plus/github/models'))
-			.GitHubPullRequest;
+		const toGitHubPullRequestState = (await import(/* webpackChunkName: "github" */ '../../plus/github/models'))
+			.toGitHubPullRequestState;
 		return (await this.container.github)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
 			...opts,
-			include: include?.map(s => GitHubPullRequest.toState(s)),
+			include: include?.map(s => toGitHubPullRequestState(s)),
 			baseUrl: this.apiBaseUrl,
 		});
 	}

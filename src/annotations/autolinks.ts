@@ -4,7 +4,8 @@ import type { AutolinkReference, AutolinkType } from '../configuration';
 import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import type { Container } from '../container';
-import { IssueOrPullRequest } from '../git/models/issue';
+import type { IssueOrPullRequest } from '../git/models/issue';
+import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/models/issue';
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteProviderReference } from '../git/models/remoteProvider';
 import { Logger } from '../logger';
@@ -322,7 +323,7 @@ export class Autolinks implements Disposable {
 											footnoteIndex = footnotes.size + 1;
 											footnotes.set(
 												footnoteIndex,
-												`[${IssueOrPullRequest.getMarkdownIcon(
+												`[${getIssueOrPullRequestMarkdownIcon(
 													issue,
 												)} **${issueTitle}**](${url}${title}")\\\n${GlyphChars.Space.repeat(
 													5,
@@ -365,7 +366,7 @@ export class Autolinks implements Disposable {
 											footnoteIndex = footnotes.size + 1;
 											footnotes.set(
 												footnoteIndex,
-												`<a href="${url}" title=${title}>${IssueOrPullRequest.getHtmlIcon(
+												`<a href="${url}" title=${title}>${getIssueOrPullRequestHtmlIcon(
 													issue,
 												)} <b>${issueTitle}</b></a><br /><span>${GlyphChars.Space.repeat(
 													5,

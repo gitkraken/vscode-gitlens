@@ -5,7 +5,7 @@ import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models/reference';
 import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
-import { CommitPicker } from '../quickpicks/commitPicker';
+import { showCommitPicker } from '../quickpicks/commitPicker';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
 import { command, executeCommand } from '../system/command';
 import { pad } from '../system/string';
@@ -47,7 +47,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 				);
 
 			const title = `Open Changes with Revision${pad(GlyphChars.Dot, 2, 2)}`;
-			const pick = await CommitPicker.show(
+			const pick = await showCommitPicker(
 				log,
 				`${title}${gitUri.getFormattedFileName({
 					suffix: gitUri.sha ? `:${GitRevision.shorten(gitUri.sha)}` : undefined,

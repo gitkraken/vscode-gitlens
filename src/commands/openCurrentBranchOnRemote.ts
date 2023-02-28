@@ -5,7 +5,7 @@ import { GitUri } from '../git/gitUri';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
-import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/command';
 import { ActiveEditorCommand, getCommandUri } from './base';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
@@ -21,7 +21,7 @@ export class OpenCurrentBranchOnRemoteCommand extends ActiveEditorCommand {
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-		const repository = await RepositoryPicker.getBestRepositoryOrShow(gitUri, editor, 'Open Current Branch Name');
+		const repository = await getBestRepositoryOrShowPicker(gitUri, editor, 'Open Current Branch Name');
 		if (repository == null) return;
 
 		try {

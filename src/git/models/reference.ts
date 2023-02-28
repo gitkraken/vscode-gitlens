@@ -14,6 +14,7 @@ function isMatch(regex: RegExp, ref: string | undefined) {
 	return !ref ? false : regex.test(ref);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace GitRevision {
 	export const deletedOrMissing = '0000000000000000000000000000000000000000-';
 	export const uncommitted = '0000000000000000000000000000000000000000';
@@ -145,6 +146,7 @@ export interface GitTagReference {
 
 export type GitReference = GitBranchReference | GitRevisionReference | GitStashReference | GitTagReference;
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace GitReference {
 	export function create(
 		ref: string,

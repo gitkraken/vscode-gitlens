@@ -8,83 +8,81 @@ import { CommandQuickPickItem } from './items/common';
 import type { RepositoryQuickPickItem } from './items/gitCommands';
 import { createRepositoryQuickPickItem } from './items/gitCommands';
 
-export namespace RepositoryPicker {
-	export async function getBestRepositoryOrShow(
-		uri: Uri | undefined,
-		editor: TextEditor | undefined,
-		title: string,
-	): Promise<Repository | undefined> {
-		const repository = Container.instance.git.getBestRepository(uri, editor);
-		if (repository != null) return repository;
+export async function getBestRepositoryOrShowPicker(
+	uri: Uri | undefined,
+	editor: TextEditor | undefined,
+	title: string,
+): Promise<Repository | undefined> {
+	const repository = Container.instance.git.getBestRepository(uri, editor);
+	if (repository != null) return repository;
 
-		const pick = await RepositoryPicker.show(title);
-		if (pick instanceof CommandQuickPickItem) {
-			await pick.execute();
-			return undefined;
-		}
-
-		return pick?.item;
+	const pick = await showRepositoryPicker(title);
+	if (pick instanceof CommandQuickPickItem) {
+		await pick.execute();
+		return undefined;
 	}
 
-	export async function getRepositoryOrShow(title: string, uri?: Uri): Promise<Repository | undefined> {
-		let repository;
-		if (uri == null) {
-			repository = Container.instance.git.highlander;
-		} else {
-			repository = await Container.instance.git.getOrOpenRepository(uri);
-		}
-		if (repository != null) return repository;
+	return pick?.item;
+}
 
-		const pick = await RepositoryPicker.show(title);
-		if (pick instanceof CommandQuickPickItem) {
-			void (await pick.execute());
-			return undefined;
-		}
+export async function getRepositoryOrShowPicker(title: string, uri?: Uri): Promise<Repository | undefined> {
+	let repository;
+	if (uri == null) {
+		repository = Container.instance.git.highlander;
+	} else {
+		repository = await Container.instance.git.getOrOpenRepository(uri);
+	}
+	if (repository != null) return repository;
 
-		return pick?.item;
+	const pick = await showRepositoryPicker(title);
+	if (pick instanceof CommandQuickPickItem) {
+		void (await pick.execute());
+		return undefined;
 	}
 
-	export async function show(
-		title: string | undefined,
-		placeholder: string = 'Choose a repository',
-		repositories?: Repository[],
-	): Promise<RepositoryQuickPickItem | undefined> {
-		const items = await Promise.all<Promise<RepositoryQuickPickItem>>([
-			...map(repositories ?? Container.instance.git.openRepositories, r =>
-				createRepositoryQuickPickItem(r, undefined, { branch: true, status: true }),
-			),
-		]);
+	return pick?.item;
+}
 
-		const quickpick = window.createQuickPick<RepositoryQuickPickItem>();
-		quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
+export async function showRepositoryPicker(
+	title: string | undefined,
+	placeholder: string = 'Choose a repository',
+	repositories?: Repository[],
+): Promise<RepositoryQuickPickItem | undefined> {
+	const items = await Promise.all<Promise<RepositoryQuickPickItem>>([
+		...map(repositories ?? Container.instance.git.openRepositories, r =>
+			createRepositoryQuickPickItem(r, undefined, { branch: true, status: true }),
+		),
+	]);
 
-		const disposables: Disposable[] = [];
+	const quickpick = window.createQuickPick<RepositoryQuickPickItem>();
+	quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
 
-		try {
-			const pick = await new Promise<RepositoryQuickPickItem | undefined>(resolve => {
-				disposables.push(
-					quickpick.onDidHide(() => resolve(undefined)),
-					quickpick.onDidAccept(() => {
-						if (quickpick.activeItems.length !== 0) {
-							resolve(quickpick.activeItems[0]);
-						}
-					}),
-				);
+	const disposables: Disposable[] = [];
 
-				quickpick.title = title;
-				quickpick.placeholder = placeholder;
-				quickpick.matchOnDescription = true;
-				quickpick.matchOnDetail = true;
-				quickpick.items = items;
+	try {
+		const pick = await new Promise<RepositoryQuickPickItem | undefined>(resolve => {
+			disposables.push(
+				quickpick.onDidHide(() => resolve(undefined)),
+				quickpick.onDidAccept(() => {
+					if (quickpick.activeItems.length !== 0) {
+						resolve(quickpick.activeItems[0]);
+					}
+				}),
+			);
 
-				quickpick.show();
-			});
-			if (pick == null) return undefined;
+			quickpick.title = title;
+			quickpick.placeholder = placeholder;
+			quickpick.matchOnDescription = true;
+			quickpick.matchOnDetail = true;
+			quickpick.items = items;
 
-			return pick;
-		} finally {
-			quickpick.dispose();
-			disposables.forEach(d => void d.dispose());
-		}
+			quickpick.show();
+		});
+		if (pick == null) return undefined;
+
+		return pick;
+	} finally {
+		quickpick.dispose();
+		disposables.forEach(d => void d.dispose());
 	}
 }

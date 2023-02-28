@@ -67,22 +67,20 @@ export enum GitLabMergeRequestState {
 	LOCKED = 'locked',
 }
 
-export namespace GitLabMergeRequest {
-	export function fromState(state: GitLabMergeRequestState): PullRequestState {
-		return state === GitLabMergeRequestState.MERGED
-			? PullRequestState.Merged
-			: state === GitLabMergeRequestState.CLOSED || state === GitLabMergeRequestState.LOCKED
-			? PullRequestState.Closed
-			: PullRequestState.Open;
-	}
+export function fromGitLabMergeRequestState(state: GitLabMergeRequestState): PullRequestState {
+	return state === GitLabMergeRequestState.MERGED
+		? PullRequestState.Merged
+		: state === GitLabMergeRequestState.CLOSED || state === GitLabMergeRequestState.LOCKED
+		? PullRequestState.Closed
+		: PullRequestState.Open;
+}
 
-	export function toState(state: PullRequestState): GitLabMergeRequestState {
-		return state === PullRequestState.Merged
-			? GitLabMergeRequestState.MERGED
-			: state === PullRequestState.Closed
-			? GitLabMergeRequestState.CLOSED
-			: GitLabMergeRequestState.OPEN;
-	}
+export function toGitLabMergeRequestState(state: PullRequestState): GitLabMergeRequestState {
+	return state === PullRequestState.Merged
+		? GitLabMergeRequestState.MERGED
+		: state === PullRequestState.Closed
+		? GitLabMergeRequestState.CLOSED
+		: GitLabMergeRequestState.OPEN;
 }
 
 export interface GitLabMergeRequestREST {
@@ -103,22 +101,20 @@ export interface GitLabMergeRequestREST {
 	web_url: string;
 }
 
-export namespace GitLabMergeRequestREST {
-	export function from(pr: GitLabMergeRequestREST, provider: RichRemoteProvider): PullRequest {
-		return new PullRequest(
-			provider,
-			{
-				name: pr.author?.name ?? 'Unknown',
-				avatarUrl: pr.author?.avatar_url ?? '',
-				url: pr.author?.web_url ?? '',
-			},
-			String(pr.iid),
-			pr.title,
-			pr.web_url,
-			GitLabMergeRequest.fromState(pr.state),
-			new Date(pr.updated_at),
-			pr.closed_at == null ? undefined : new Date(pr.closed_at),
-			pr.merged_at == null ? undefined : new Date(pr.merged_at),
-		);
-	}
+export function fromGitLabMergeRequestREST(pr: GitLabMergeRequestREST, provider: RichRemoteProvider): PullRequest {
+	return new PullRequest(
+		provider,
+		{
+			name: pr.author?.name ?? 'Unknown',
+			avatarUrl: pr.author?.avatar_url ?? '',
+			url: pr.author?.web_url ?? '',
+		},
+		String(pr.iid),
+		pr.title,
+		pr.web_url,
+		fromGitLabMergeRequestState(pr.state),
+		new Date(pr.updated_at),
+		pr.closed_at == null ? undefined : new Date(pr.closed_at),
+		pr.merged_at == null ? undefined : new Date(pr.merged_at),
+	);
 }

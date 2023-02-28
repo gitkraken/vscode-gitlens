@@ -93,7 +93,7 @@ export interface GitHubPullRequest {
 	};
 }
 
-export interface GitHubDetailedIssue extends GitHubIssueOrPullRequest {
+export interface GitHubIssueDetailed extends GitHubIssueOrPullRequest {
 	date: Date;
 	updatedAt: Date;
 	author: {
@@ -165,176 +165,183 @@ export interface GitHubDetailedPullRequest extends GitHubPullRequest {
 	};
 }
 
-export namespace GitHubPullRequest {
-	export function from(pr: GitHubPullRequest, provider: RichRemoteProvider): PullRequest {
-		return new PullRequest(
-			provider,
-			{
-				name: pr.author.login,
-				avatarUrl: pr.author.avatarUrl,
-				url: pr.author.url,
-			},
-			String(pr.number),
-			pr.title,
-			pr.permalink,
-			fromState(pr.state),
-			new Date(pr.updatedAt),
-			pr.closedAt == null ? undefined : new Date(pr.closedAt),
-			pr.mergedAt == null ? undefined : new Date(pr.mergedAt),
-		);
-	}
+export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: RichRemoteProvider): PullRequest {
+	return new PullRequest(
+		provider,
+		{
+			name: pr.author.login,
+			avatarUrl: pr.author.avatarUrl,
+			url: pr.author.url,
+		},
+		String(pr.number),
+		pr.title,
+		pr.permalink,
+		fromGitHubPullRequestState(pr.state),
+		new Date(pr.updatedAt),
+		pr.closedAt == null ? undefined : new Date(pr.closedAt),
+		pr.mergedAt == null ? undefined : new Date(pr.mergedAt),
+	);
+}
 
-	export function fromState(state: GitHubPullRequestState): PullRequestState {
-		return state === 'MERGED'
-			? PullRequestState.Merged
-			: state === 'CLOSED'
-			? PullRequestState.Closed
-			: PullRequestState.Open;
-	}
+export function fromGitHubPullRequestState(state: GitHubPullRequestState): PullRequestState {
+	return state === 'MERGED'
+		? PullRequestState.Merged
+		: state === 'CLOSED'
+		? PullRequestState.Closed
+		: PullRequestState.Open;
+}
 
-	export function toState(state: PullRequestState): GitHubPullRequestState {
-		return state === PullRequestState.Merged ? 'MERGED' : state === PullRequestState.Closed ? 'CLOSED' : 'OPEN';
-	}
+export function toGitHubPullRequestState(state: PullRequestState): GitHubPullRequestState {
+	return state === PullRequestState.Merged ? 'MERGED' : state === PullRequestState.Closed ? 'CLOSED' : 'OPEN';
+}
 
-	export function fromReviewDecision(reviewDecision: GitHubPullRequestReviewDecision): PullRequestReviewDecision {
-		switch (reviewDecision) {
-			case 'APPROVED':
-				return PullRequestReviewDecision.Approved;
-			case 'CHANGES_REQUESTED':
-				return PullRequestReviewDecision.ChangesRequested;
-			case 'REVIEW_REQUIRED':
-				return PullRequestReviewDecision.ReviewRequired;
-		}
-	}
-
-	export function toReviewDecision(reviewDecision: PullRequestReviewDecision): GitHubPullRequestReviewDecision {
-		switch (reviewDecision) {
-			case PullRequestReviewDecision.Approved:
-				return 'APPROVED';
-			case PullRequestReviewDecision.ChangesRequested:
-				return 'CHANGES_REQUESTED';
-			case PullRequestReviewDecision.ReviewRequired:
-				return 'REVIEW_REQUIRED';
-		}
-	}
-
-	export function fromMergeableState(mergeableState: GitHubPullRequestMergeableState): PullRequestMergeableState {
-		switch (mergeableState) {
-			case 'MERGEABLE':
-				return PullRequestMergeableState.Mergeable;
-			case 'CONFLICTING':
-				return PullRequestMergeableState.Conflicting;
-			case 'UNKNOWN':
-				return PullRequestMergeableState.Unknown;
-		}
-	}
-
-	export function toMergeableState(mergeableState: PullRequestMergeableState): GitHubPullRequestMergeableState {
-		switch (mergeableState) {
-			case PullRequestMergeableState.Mergeable:
-				return 'MERGEABLE';
-			case PullRequestMergeableState.Conflicting:
-				return 'CONFLICTING';
-			case PullRequestMergeableState.Unknown:
-				return 'UNKNOWN';
-		}
-	}
-
-	export function fromDetailed(pr: GitHubDetailedPullRequest, provider: RichRemoteProvider): PullRequest {
-		return new PullRequest(
-			provider,
-			{
-				name: pr.author.login,
-				avatarUrl: pr.author.avatarUrl,
-				url: pr.author.url,
-			},
-			String(pr.number),
-			pr.title,
-			pr.permalink,
-			fromState(pr.state),
-			new Date(pr.updatedAt),
-			pr.closedAt == null ? undefined : new Date(pr.closedAt),
-			pr.mergedAt == null ? undefined : new Date(pr.mergedAt),
-			fromMergeableState(pr.mergeable),
-			{
-				head: {
-					exists: pr.headRepository != null,
-					owner: pr.headRepository?.owner.login,
-					repo: pr.baseRepository?.name,
-					sha: pr.headRefOid,
-					branch: pr.headRefName,
-				},
-				base: {
-					exists: pr.baseRepository != null,
-					owner: pr.baseRepository?.owner.login,
-					repo: pr.baseRepository?.name,
-					sha: pr.baseRefOid,
-					branch: pr.baseRefName,
-				},
-				isCrossRepository: pr.isCrossRepository,
-			},
-			pr.isDraft,
-			pr.additions,
-			pr.deletions,
-			pr.totalCommentsCount,
-			fromReviewDecision(pr.reviewDecision),
-			pr.reviewRequests.nodes.map(r => ({
-				isCodeOwner: r.asCodeOwner,
-				reviewer: {
-					name: r.requestedReviewer.login,
-					avatarUrl: r.requestedReviewer.avatarUrl,
-					url: r.requestedReviewer.url,
-				},
-			})),
-			pr.assignees.nodes.map(r => ({
-				name: r.login,
-				avatarUrl: r.avatarUrl,
-				url: r.url,
-			})),
-		);
+export function fromGitHubPullRequestReviewDecision(
+	reviewDecision: GitHubPullRequestReviewDecision,
+): PullRequestReviewDecision {
+	switch (reviewDecision) {
+		case 'APPROVED':
+			return PullRequestReviewDecision.Approved;
+		case 'CHANGES_REQUESTED':
+			return PullRequestReviewDecision.ChangesRequested;
+		case 'REVIEW_REQUIRED':
+			return PullRequestReviewDecision.ReviewRequired;
 	}
 }
 
-export namespace GitHubDetailedIssue {
-	export function from(value: GitHubDetailedIssue, provider: RichRemoteProvider): Issue {
-		return new Issue(
-			{
-				id: provider.id,
-				name: provider.name,
-				domain: provider.domain,
-				icon: provider.icon,
-			},
-			String(value.number),
-			value.title,
-			value.url,
-			new Date(value.createdAt),
-			value.closed,
-			new Date(value.updatedAt),
-			{
-				name: value.author.login,
-				avatarUrl: value.author.avatarUrl,
-				url: value.author.url,
-			},
-			{
-				owner: value.repository.owner.login,
-				repo: value.repository.name,
-			},
-			value.assignees.nodes.map(assignee => ({
-				name: assignee.name,
-				avatarUrl: assignee.avatarUrl,
-				url: assignee.url,
-			})),
-			value.closedAt == null ? undefined : new Date(value.closedAt),
-			value.labels?.nodes == null
-				? undefined
-				: value.labels.nodes.map(label => ({
-						color: label.color,
-						name: label.name,
-				  })),
-			value.comments?.totalCount,
-			value.reactions?.totalCount,
-		);
+export function toGitHubPullRequestReviewDecision(
+	reviewDecision: PullRequestReviewDecision,
+): GitHubPullRequestReviewDecision {
+	switch (reviewDecision) {
+		case PullRequestReviewDecision.Approved:
+			return 'APPROVED';
+		case PullRequestReviewDecision.ChangesRequested:
+			return 'CHANGES_REQUESTED';
+		case PullRequestReviewDecision.ReviewRequired:
+			return 'REVIEW_REQUIRED';
 	}
+}
+
+export function fromGitHubPullRequestMergeableState(
+	mergeableState: GitHubPullRequestMergeableState,
+): PullRequestMergeableState {
+	switch (mergeableState) {
+		case 'MERGEABLE':
+			return PullRequestMergeableState.Mergeable;
+		case 'CONFLICTING':
+			return PullRequestMergeableState.Conflicting;
+		case 'UNKNOWN':
+			return PullRequestMergeableState.Unknown;
+	}
+}
+
+export function toGitHubPullRequestMergeableState(
+	mergeableState: PullRequestMergeableState,
+): GitHubPullRequestMergeableState {
+	switch (mergeableState) {
+		case PullRequestMergeableState.Mergeable:
+			return 'MERGEABLE';
+		case PullRequestMergeableState.Conflicting:
+			return 'CONFLICTING';
+		case PullRequestMergeableState.Unknown:
+			return 'UNKNOWN';
+	}
+}
+
+export function fromGitHubPullRequestDetailed(
+	pr: GitHubDetailedPullRequest,
+	provider: RichRemoteProvider,
+): PullRequest {
+	return new PullRequest(
+		provider,
+		{
+			name: pr.author.login,
+			avatarUrl: pr.author.avatarUrl,
+			url: pr.author.url,
+		},
+		String(pr.number),
+		pr.title,
+		pr.permalink,
+		fromGitHubPullRequestState(pr.state),
+		new Date(pr.updatedAt),
+		pr.closedAt == null ? undefined : new Date(pr.closedAt),
+		pr.mergedAt == null ? undefined : new Date(pr.mergedAt),
+		fromGitHubPullRequestMergeableState(pr.mergeable),
+		{
+			head: {
+				exists: pr.headRepository != null,
+				owner: pr.headRepository?.owner.login,
+				repo: pr.baseRepository?.name,
+				sha: pr.headRefOid,
+				branch: pr.headRefName,
+			},
+			base: {
+				exists: pr.baseRepository != null,
+				owner: pr.baseRepository?.owner.login,
+				repo: pr.baseRepository?.name,
+				sha: pr.baseRefOid,
+				branch: pr.baseRefName,
+			},
+			isCrossRepository: pr.isCrossRepository,
+		},
+		pr.isDraft,
+		pr.additions,
+		pr.deletions,
+		pr.totalCommentsCount,
+		fromGitHubPullRequestReviewDecision(pr.reviewDecision),
+		pr.reviewRequests.nodes.map(r => ({
+			isCodeOwner: r.asCodeOwner,
+			reviewer: {
+				name: r.requestedReviewer.login,
+				avatarUrl: r.requestedReviewer.avatarUrl,
+				url: r.requestedReviewer.url,
+			},
+		})),
+		pr.assignees.nodes.map(r => ({
+			name: r.login,
+			avatarUrl: r.avatarUrl,
+			url: r.url,
+		})),
+	);
+}
+
+export function fromGitHubIssueDetailed(value: GitHubIssueDetailed, provider: RichRemoteProvider): Issue {
+	return new Issue(
+		{
+			id: provider.id,
+			name: provider.name,
+			domain: provider.domain,
+			icon: provider.icon,
+		},
+		String(value.number),
+		value.title,
+		value.url,
+		new Date(value.createdAt),
+		value.closed,
+		new Date(value.updatedAt),
+		{
+			name: value.author.login,
+			avatarUrl: value.author.avatarUrl,
+			url: value.author.url,
+		},
+		{
+			owner: value.repository.owner.login,
+			repo: value.repository.name,
+		},
+		value.assignees.nodes.map(assignee => ({
+			name: assignee.name,
+			avatarUrl: assignee.avatarUrl,
+			url: assignee.url,
+		})),
+		value.closedAt == null ? undefined : new Date(value.closedAt),
+		value.labels?.nodes == null
+			? undefined
+			: value.labels.nodes.map(label => ({
+					color: label.color,
+					name: label.name,
+			  })),
+		value.comments?.totalCount,
+		value.reactions?.totalCount,
+	);
 }
 
 export interface GitHubTag {

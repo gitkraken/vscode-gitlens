@@ -6,8 +6,17 @@ import { pluralize } from '../../system/string';
 import type { GitTrackingState } from './branch';
 import { formatDetachedHeadName, getRemoteNameFromBranchName, isDetachedHead } from './branch';
 import { GitCommit, GitCommitIdentity } from './commit';
-import type { GitFileStatus } from './file';
-import { GitFile, GitFileChange, GitFileConflictStatus, GitFileIndexStatus, GitFileWorkingTreeStatus } from './file';
+import type { GitFile, GitFileStatus } from './file';
+import {
+	getGitFileFormattedDirectory,
+	getGitFileFormattedPath,
+	getGitFileStatusCodicon,
+	getGitFileStatusText,
+	GitFileChange,
+	GitFileConflictStatus,
+	GitFileIndexStatus,
+	GitFileWorkingTreeStatus,
+} from './file';
 import { GitRevision } from './reference';
 import type { GitRemote } from './remote';
 import type { GitUser } from './user';
@@ -418,19 +427,19 @@ export class GitStatusFile implements GitFile {
 	}
 
 	getFormattedDirectory(includeOriginal: boolean = false): string {
-		return GitFile.getFormattedDirectory(this, includeOriginal);
+		return getGitFileFormattedDirectory(this, includeOriginal);
 	}
 
 	getFormattedPath(options: { relativeTo?: string; suffix?: string; truncateTo?: number } = {}): string {
-		return GitFile.getFormattedPath(this, options);
+		return getGitFileFormattedPath(this, options);
 	}
 
 	getOcticon() {
-		return GitFile.getStatusCodicon(this.status);
+		return getGitFileStatusCodicon(this.status);
 	}
 
 	getStatusText(): string {
-		return GitFile.getStatusText(this.status);
+		return getGitFileStatusText(this.status);
 	}
 
 	getPseudoCommits(container: Container, user: GitUser | undefined): GitCommit[] {

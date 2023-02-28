@@ -6,8 +6,8 @@ import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
-import { ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks/referencePicker';
-import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/command';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasBranch } from './base';
@@ -47,7 +47,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
 		const repoPath = (
-			await RepositoryPicker.getBestRepositoryOrShow(
+			await getBestRepositoryOrShowPicker(
 				gitUri,
 				editor,
 				args?.clipboard ? 'Copy Remote Branch URL' : 'Open Branch On Remote',
@@ -59,7 +59,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 
 		try {
 			if (args.branch == null) {
-				const pick = await ReferencePicker.show(
+				const pick = await showReferencePicker(
 					repoPath,
 					args.clipboard ? 'Copy Remote Branch URL' : 'Open Branch On Remote',
 					args.clipboard ? 'Choose a branch to copy the URL from' : 'Choose a branch to open',

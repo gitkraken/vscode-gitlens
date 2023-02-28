@@ -5,7 +5,7 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
-import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
 import { ActiveEditorCommand, getCommandUri } from './base';
 
@@ -20,7 +20,7 @@ export class CopyCurrentBranchCommand extends ActiveEditorCommand {
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-		const repository = await RepositoryPicker.getBestRepositoryOrShow(gitUri, editor, 'Copy Current Branch Name');
+		const repository = await getBestRepositoryOrShowPicker(gitUri, editor, 'Copy Current Branch Name');
 		if (repository == null) return;
 
 		try {

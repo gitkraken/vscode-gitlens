@@ -1,6 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { Avatars } from '../avatars';
+import { onDidFetchAvatar } from '../avatars';
 import type { ContributorsViewConfig } from '../configuration';
 import { configuration, ViewFilesLayout } from '../configuration';
 import { Commands } from '../constants';
@@ -33,7 +33,7 @@ export class ContributorsRepositoryNode extends RepositoryFolderNode<Contributor
 	protected override async subscribe() {
 		return Disposable.from(
 			await super.subscribe(),
-			Avatars.onDidFetch(e => this.child?.updateAvatar(e.email)),
+			onDidFetchAvatar(e => this.child?.updateAvatar(e.email)),
 		);
 	}
 

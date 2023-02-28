@@ -33,7 +33,12 @@ import type { WorktreeGitCommandArgs } from './git/worktree';
 import { PickCommandStep } from './gitCommands.utils';
 import type { CustomStep, QuickCommand, QuickInputStep, QuickPickStep, StepSelection } from './quickCommand';
 import { isCustomStep, isQuickCommand, isQuickInputStep, isQuickPickStep, StepResultBreak } from './quickCommand';
-import { QuickCommandButtons, ToggleQuickInputButton } from './quickCommand.buttons';
+import {
+	LoadMoreQuickInputButton,
+	ToggleQuickInputButton,
+	WillConfirmForcedQuickInputButton,
+	WillConfirmToggleQuickInputButton,
+} from './quickCommand.buttons';
 
 const sanitizeLabel = /\$\(.+?\)|\s/g;
 const showLoadingSymbol = Symbol('ShowLoading');
@@ -240,7 +245,7 @@ export class GitCommandsCommand extends Command {
 
 		if (command?.canConfirm) {
 			if (command.canSkipConfirm) {
-				const willConfirmToggle = new QuickCommandButtons.WillConfirmToggle(command.confirm(), async () => {
+				const willConfirmToggle = new WillConfirmToggleQuickInputButton(command.confirm(), async () => {
 					if (command?.skipConfirmKey == null) return;
 
 					const skipConfirmations = configuration.get('gitCommands.skipConfirmations') ?? [];
@@ -256,7 +261,7 @@ export class GitCommandsCommand extends Command {
 				});
 				buttons.push(willConfirmToggle);
 			} else {
-				buttons.push(QuickCommandButtons.WillConfirmForced);
+				buttons.push(WillConfirmForcedQuickInputButton);
 			}
 		}
 
@@ -362,7 +367,7 @@ export class GitCommandsCommand extends Command {
 							return;
 						}
 
-						if (e === QuickCommandButtons.WillConfirmForced) return;
+						if (e === WillConfirmForcedQuickInputButton) return;
 
 						if (e instanceof ToggleQuickInputButton && e.onDidClick != null) {
 							const result = e.onDidClick(input);
@@ -527,9 +532,9 @@ export class GitCommandsCommand extends Command {
 							return;
 						}
 
-						if (e === QuickCommandButtons.WillConfirmForced) return;
+						if (e === WillConfirmForcedQuickInputButton) return;
 
-						if (e === QuickCommandButtons.LoadMore) {
+						if (e === LoadMoreQuickInputButton) {
 							void loadMore();
 							return;
 						}

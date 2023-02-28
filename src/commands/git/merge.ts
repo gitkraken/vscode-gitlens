@@ -24,9 +24,9 @@ import {
 	endSteps,
 	pickBranchOrTagStep,
 	pickCommitStep,
+	PickCommitToggleQuickInputButton,
 	pickRepositoryStep,
 	QuickCommand,
-	QuickCommandButtons,
 	StepResultBreak,
 } from '../quickCommand';
 
@@ -138,7 +138,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 			context.pickCommitForItem = false;
 
 			if (state.counter < 2 || state.reference == null) {
-				const pickCommitToggle = new QuickCommandButtons.PickCommitToggle(context.pickCommit, context, () => {
+				const pickCommitToggle = new PickCommitToggleQuickInputButton(context.pickCommit, context, () => {
 					context.pickCommit = !context.pickCommit;
 					pickCommitToggle.on = context.pickCommit;
 				});

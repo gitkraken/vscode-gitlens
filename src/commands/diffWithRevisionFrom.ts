@@ -4,8 +4,8 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { GitReference, GitRevision } from '../git/models/reference';
 import { showNoRepositoryWarningMessage } from '../messages';
-import { StashPicker } from '../quickpicks/commitPicker';
-import { ReferencePicker } from '../quickpicks/referencePicker';
+import { showStashPicker } from '../quickpicks/commitPicker';
+import { showReferencePicker } from '../quickpicks/referencePicker';
 import { command, executeCommand } from '../system/command';
 import { basename } from '../system/path';
 import { pad } from '../system/string';
@@ -46,7 +46,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 		let sha;
 		if (args?.stash) {
 			const title = `Open Changes with Stash${pad(GlyphChars.Dot, 2, 2)}`;
-			const pick = await StashPicker.show(
+			const pick = await showStashPicker(
 				this.container.git.getStash(gitUri.repoPath),
 				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
 				'Choose a stash to compare with',
@@ -62,7 +62,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			sha = ref;
 		} else {
 			const title = `Open Changes with Branch or Tag${pad(GlyphChars.Dot, 2, 2)}`;
-			const pick = await ReferencePicker.show(
+			const pick = await showReferencePicker(
 				gitUri.repoPath,
 				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
 				'Choose a branch or tag to compare with',

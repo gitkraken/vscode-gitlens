@@ -1,7 +1,7 @@
 import type { Disposable, QuickInputButton } from 'vscode';
 import { env, Uri, window } from 'vscode';
 import type { OpenOnRemoteCommandArgs } from '../commands';
-import { QuickCommandButtons } from '../commands/quickCommand.buttons';
+import { SetRemoteAsDefaultQuickInputButton } from '../commands/quickCommand.buttons';
 import { Commands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/models/branch';
@@ -134,93 +134,91 @@ export class OpenRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 	}
 }
 
-export namespace RemoteProviderPicker {
-	export async function show(
-		title: string,
-		placeholder: string,
-		resource: RemoteResource,
-		remotes: GitRemote<RemoteProvider>[],
-		options?: {
-			autoPick?: 'default' | boolean;
-			clipboard?: boolean;
-			setDefault?: boolean;
-		},
-	): Promise<ConfigureCustomRemoteProviderCommandQuickPickItem | CopyOrOpenRemoteCommandQuickPickItem | undefined> {
-		const { autoPick, clipboard, setDefault } = {
-			autoPick: false,
-			clipboard: false,
-			setDefault: true,
-			...options,
-		};
+export async function showRemoteProviderPicker(
+	title: string,
+	placeholder: string,
+	resource: RemoteResource,
+	remotes: GitRemote<RemoteProvider>[],
+	options?: {
+		autoPick?: 'default' | boolean;
+		clipboard?: boolean;
+		setDefault?: boolean;
+	},
+): Promise<ConfigureCustomRemoteProviderCommandQuickPickItem | CopyOrOpenRemoteCommandQuickPickItem | undefined> {
+	const { autoPick, clipboard, setDefault } = {
+		autoPick: false,
+		clipboard: false,
+		setDefault: true,
+		...options,
+	};
 
-		let items: (ConfigureCustomRemoteProviderCommandQuickPickItem | CopyOrOpenRemoteCommandQuickPickItem)[];
-		if (remotes.length === 0) {
-			items = [new ConfigureCustomRemoteProviderCommandQuickPickItem()];
-			placeholder = 'No auto-detected or configured remote providers found';
-		} else {
-			if (autoPick === 'default' && remotes.length > 1) {
-				// If there is a default just execute it directly
-				const remote = remotes.find(r => r.default);
-				if (remote != null) {
-					remotes = [remote];
-				}
+	let items: (ConfigureCustomRemoteProviderCommandQuickPickItem | CopyOrOpenRemoteCommandQuickPickItem)[];
+	if (remotes.length === 0) {
+		items = [new ConfigureCustomRemoteProviderCommandQuickPickItem()];
+		placeholder = 'No auto-detected or configured remote providers found';
+	} else {
+		if (autoPick === 'default' && remotes.length > 1) {
+			// If there is a default just execute it directly
+			const remote = remotes.find(r => r.default);
+			if (remote != null) {
+				remotes = [remote];
 			}
+		}
 
-			items = remotes.map(
-				r =>
-					new CopyOrOpenRemoteCommandQuickPickItem(
-						r,
-						resource,
-						clipboard,
-						setDefault ? [QuickCommandButtons.SetRemoteAsDefault] : undefined,
-					),
+		items = remotes.map(
+			r =>
+				new CopyOrOpenRemoteCommandQuickPickItem(
+					r,
+					resource,
+					clipboard,
+					setDefault ? [SetRemoteAsDefaultQuickInputButton] : undefined,
+				),
+		);
+	}
+
+	if (autoPick && remotes.length === 1) return items[0];
+
+	const quickpick = window.createQuickPick<
+		ConfigureCustomRemoteProviderCommandQuickPickItem | CopyOrOpenRemoteCommandQuickPickItem
+	>();
+	quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
+
+	const disposables: Disposable[] = [];
+
+	try {
+		const pick = await new Promise<
+			ConfigureCustomRemoteProviderCommandQuickPickItem | CopyOrOpenRemoteCommandQuickPickItem | undefined
+		>(resolve => {
+			disposables.push(
+				quickpick.onDidHide(() => resolve(undefined)),
+				quickpick.onDidAccept(() => {
+					if (quickpick.activeItems.length !== 0) {
+						resolve(quickpick.activeItems[0]);
+					}
+				}),
+				quickpick.onDidTriggerItemButton(async e => {
+					if (
+						e.button === SetRemoteAsDefaultQuickInputButton &&
+						e.item instanceof CopyOrOpenRemoteCommandQuickPickItem
+					) {
+						await e.item.setAsDefault();
+						resolve(e.item);
+					}
+				}),
 			);
-		}
 
-		if (autoPick && remotes.length === 1) return items[0];
+			quickpick.title = title;
+			quickpick.placeholder = placeholder;
+			quickpick.matchOnDetail = true;
+			quickpick.items = items;
 
-		const quickpick = window.createQuickPick<
-			ConfigureCustomRemoteProviderCommandQuickPickItem | CopyOrOpenRemoteCommandQuickPickItem
-		>();
-		quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
+			quickpick.show();
+		});
+		if (pick == null) return undefined;
 
-		const disposables: Disposable[] = [];
-
-		try {
-			const pick = await new Promise<
-				ConfigureCustomRemoteProviderCommandQuickPickItem | CopyOrOpenRemoteCommandQuickPickItem | undefined
-			>(resolve => {
-				disposables.push(
-					quickpick.onDidHide(() => resolve(undefined)),
-					quickpick.onDidAccept(() => {
-						if (quickpick.activeItems.length !== 0) {
-							resolve(quickpick.activeItems[0]);
-						}
-					}),
-					quickpick.onDidTriggerItemButton(async e => {
-						if (
-							e.button === QuickCommandButtons.SetRemoteAsDefault &&
-							e.item instanceof CopyOrOpenRemoteCommandQuickPickItem
-						) {
-							await e.item.setAsDefault();
-							resolve(e.item);
-						}
-					}),
-				);
-
-				quickpick.title = title;
-				quickpick.placeholder = placeholder;
-				quickpick.matchOnDetail = true;
-				quickpick.items = items;
-
-				quickpick.show();
-			});
-			if (pick == null) return undefined;
-
-			return pick;
-		} finally {
-			quickpick.dispose();
-			disposables.forEach(d => void d.dispose());
-		}
+		return pick;
+	} finally {
+		quickpick.dispose();
+		disposables.forEach(d => void d.dispose());
 	}
 }

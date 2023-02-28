@@ -9,7 +9,7 @@ import { GitUri } from '../git/gitUri';
 import { GitRevision } from '../git/models/reference';
 import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
-import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { filterMap } from '../system/array';
 import { command } from '../system/command';
 import type { CommandContext } from './base';
@@ -85,7 +85,7 @@ export class ExternalDiffCommand extends Command {
 
 		if (context.command === Commands.ExternalDiffAll) {
 			if (args.files == null) {
-				const repository = await RepositoryPicker.getRepositoryOrShow('Open All Changes (difftool)');
+				const repository = await getRepositoryOrShowPicker('Open All Changes (difftool)');
 				if (repository == null) return undefined;
 
 				const status = await this.container.git.getStatusForRepo(repository.uri);
