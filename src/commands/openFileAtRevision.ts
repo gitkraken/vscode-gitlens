@@ -5,7 +5,7 @@ import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
 import { openFileAtRevision } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
-import { GitRevision } from '../git/models/reference';
+import { shortenRevision } from '../git/models/reference';
 import { Logger } from '../logger';
 import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
 import { showCommitPicker } from '../quickpicks/commitPicker';
@@ -125,7 +125,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 				const pick = await showCommitPicker(
 					log,
 					`${title}${gitUri.getFormattedFileName({
-						suffix: gitUri.sha ? `:${GitRevision.shorten(gitUri.sha)}` : undefined,
+						suffix: gitUri.sha ? `:${shortenRevision(gitUri.sha)}` : undefined,
 						truncateTo: quickPickTitleMaxChars - title.length,
 					})}`,
 					`Choose a commit to ${

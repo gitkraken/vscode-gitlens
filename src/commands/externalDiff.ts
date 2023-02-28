@@ -6,7 +6,7 @@ import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitRevision } from '../git/models/reference';
+import { isUncommitted } from '../git/models/reference';
 import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
@@ -37,7 +37,7 @@ export class ExternalDiffCommand extends Command {
 
 		if (isCommandContextViewNodeHasFileCommit(context)) {
 			const previousSha = await context.node.commit.getPreviousSha();
-			const ref1 = GitRevision.isUncommitted(previousSha) ? '' : previousSha;
+			const ref1 = isUncommitted(previousSha) ? '' : previousSha;
 			const ref2 = context.node.commit.isUncommitted ? '' : context.node.commit.sha;
 
 			args.files = [

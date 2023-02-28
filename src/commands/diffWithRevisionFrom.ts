@@ -2,7 +2,7 @@ import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitReference, GitRevision } from '../git/models/reference';
+import { isBranchReference, shortenRevision } from '../git/models/reference';
 import { showNoRepositoryWarningMessage } from '../messages';
 import { showStashPicker } from '../quickpicks/commitPicker';
 import { showReferencePicker } from '../quickpicks/referencePicker';
@@ -74,7 +74,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			if (pick == null) return;
 
 			ref = pick.ref;
-			sha = GitReference.isBranch(pick) && pick.remote ? `remotes/${ref}` : ref;
+			sha = isBranchReference(pick) && pick.remote ? `remotes/${ref}` : ref;
 		}
 
 		if (ref == null) return;
@@ -88,7 +88,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			const rename = files.find(s => s.path === path);
 			if (rename?.originalPath != null) {
 				renamedUri = this.container.git.getAbsoluteUri(rename.originalPath, gitUri.repoPath);
-				renamedTitle = `${basename(rename.originalPath)} (${GitRevision.shorten(ref)})`;
+				renamedTitle = `${basename(rename.originalPath)} (${shortenRevision(ref)})`;
 			}
 		}
 
@@ -97,7 +97,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			lhs: {
 				sha: sha,
 				uri: renamedUri ?? gitUri,
-				title: renamedTitle ?? `${basename(gitUri.fsPath)} (${GitRevision.shorten(ref)})`,
+				title: renamedTitle ?? `${basename(gitUri.fsPath)} (${shortenRevision(ref)})`,
 			},
 			rhs: {
 				sha: '',

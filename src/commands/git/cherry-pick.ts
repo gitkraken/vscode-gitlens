@@ -1,7 +1,8 @@
 import type { Container } from '../../container';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
-import { GitReference, GitRevision } from '../../git/models/reference';
+import type { GitReference } from '../../git/models/reference';
+import { createRevisionRange, getReferenceLabel, isRevisionReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -138,7 +139,9 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				context.destination = branch;
 			}
 
-			context.title = `${this.title} into ${GitReference.toString(context.destination, { icon: false })}`;
+			context.title = `${this.title} into ${getReferenceLabel(context.destination, {
+				icon: false,
+			})}`;
 
 			if (state.counter < 2 || state.references == null || state.references.length === 0) {
 				const result: StepResult<GitReference> = yield* pickBranchOrTagStep(
@@ -161,7 +164,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 					continue;
 				}
 
-				if (GitReference.isRevision(result)) {
+				if (isRevisionReference(result)) {
 					state.references = [result];
 					context.selectedBranchOrTag = undefined;
 				} else {
@@ -170,7 +173,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 			}
 
 			if (state.counter < 3 && context.selectedBranchOrTag != null) {
-				const ref = GitRevision.createRange(context.destination.ref, context.selectedBranchOrTag.ref);
+				const ref = createRevisionRange(context.destination.ref, context.selectedBranchOrTag.ref);
 
 				let log = context.cache.get(ref);
 				if (log == null) {
@@ -187,10 +190,10 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 						picked: state.references?.map(r => r.ref),
 						placeholder: (context, log) =>
 							log == null
-								? `No pickable commits found on ${GitReference.toString(context.selectedBranchOrTag, {
+								? `No pickable commits found on ${getReferenceLabel(context.selectedBranchOrTag, {
 										icon: false,
 								  })}`
-								: `Choose commits to cherry-pick into ${GitReference.toString(context.destination, {
+								: `Choose commits to cherry-pick into ${getReferenceLabel(context.destination, {
 										icon: false,
 								  })}`,
 					},
@@ -220,21 +223,21 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 			[
 				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
-					detail: `Will apply ${GitReference.toString(state.references)} to ${GitReference.toString(
+					detail: `Will apply ${getReferenceLabel(state.references)} to ${getReferenceLabel(
 						context.destination,
 					)}`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--edit'], {
 					label: `${this.title} & Edit`,
 					description: '--edit',
-					detail: `Will edit and apply ${GitReference.toString(state.references)} to ${GitReference.toString(
+					detail: `Will edit and apply ${getReferenceLabel(state.references)} to ${getReferenceLabel(
 						context.destination,
 					)}`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--no-commit'], {
 					label: `${this.title} without Committing`,
 					description: '--no-commit',
-					detail: `Will apply ${GitReference.toString(state.references)} to ${GitReference.toString(
+					detail: `Will apply ${getReferenceLabel(state.references)} to ${getReferenceLabel(
 						context.destination,
 					)} without Committing`,
 				}),

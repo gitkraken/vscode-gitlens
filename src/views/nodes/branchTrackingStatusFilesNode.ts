@@ -3,7 +3,7 @@ import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitFileWithCommit } from '../../git/models/file';
-import { GitRevision } from '../../git/models/reference';
+import { createRevisionRange } from '../../git/models/reference';
 import { groupBy, makeHierarchical } from '../../system/array';
 import { filter, flatMap, map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
@@ -50,11 +50,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 	async getChildren(): Promise<ViewNode[]> {
 		const log = await this.view.container.git.getLog(this.repoPath, {
 			limit: 0,
-			ref: GitRevision.createRange(
-				this.status.upstream,
-				this.branch.ref,
-				this.direction === 'behind' ? '...' : '..',
-			),
+			ref: createRevisionRange(this.status.upstream, this.branch.ref, this.direction === 'behind' ? '...' : '..'),
 		});
 
 		let files: GitFileWithCommit[];

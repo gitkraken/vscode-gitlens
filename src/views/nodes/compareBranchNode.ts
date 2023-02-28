@@ -3,7 +3,7 @@ import { ViewShowBranchComparison } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
-import { GitRevision } from '../../git/models/reference';
+import { createRevisionRange, shortenRevision } from '../../git/models/reference';
 import { CommandQuickPickItem } from '../../quickpicks/items/common';
 import { showReferencePicker } from '../../quickpicks/referencePicker';
 import type { StoredBranchComparison, StoredBranchComparisons } from '../../storage';
@@ -75,7 +75,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 			const behind = this.behind;
 
 			const aheadBehindCounts = await this.view.container.git.getAheadBehindCommitCount(this.branch.repoPath, [
-				GitRevision.createRange(behind.ref1, behind.ref2, '...'),
+				createRevisionRange(behind.ref1, behind.ref2, '...'),
 			]);
 			const mergeBase =
 				(await this.view.container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2, {
@@ -89,7 +89,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 					this.repoPath,
 					'Behind',
 					{
-						query: this.getCommitsQuery(GitRevision.createRange(behind.ref1, behind.ref2, '..')),
+						query: this.getCommitsQuery(createRevisionRange(behind.ref1, behind.ref2, '..')),
 						comparison: behind,
 						direction: 'behind',
 						files: {
@@ -111,7 +111,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 					'Ahead',
 					{
 						query: this.getCommitsQuery(
-							GitRevision.createRange(ahead.ref1, this.compareWithWorkingTree ? '' : ahead.ref2, '..'),
+							createRevisionRange(ahead.ref1, this.compareWithWorkingTree ? '' : ahead.ref2, '..'),
 						),
 						comparison: ahead,
 						direction: 'ahead',
@@ -157,11 +157,12 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 				this.compareWithWorkingTree ? 'Working Tree' : this.branch.name
 			} with a branch, tag, or ref`;
 		} else {
-			label = `Compare ${
-				this.compareWithWorkingTree ? 'Working Tree' : this.branch.name
-			} with ${GitRevision.shorten(this._compareWith.ref, {
-				strings: { working: 'Working Tree' },
-			})}`;
+			label = `Compare ${this.compareWithWorkingTree ? 'Working Tree' : this.branch.name} with ${shortenRevision(
+				this._compareWith.ref,
+				{
+					strings: { working: 'Working Tree' },
+				},
+			)}`;
 			state = TreeItemCollapsibleState.Collapsed;
 		}
 
@@ -253,7 +254,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	}
 
 	private async getAheadFilesQuery(): Promise<FilesQueryResults> {
-		const comparison = GitRevision.createRange(this._compareWith?.ref || 'HEAD', this.branch.ref || 'HEAD', '...');
+		const comparison = createRevisionRange(this._compareWith?.ref || 'HEAD', this.branch.ref || 'HEAD', '...');
 
 		const [filesResult, workingFilesResult, statsResult, workingStatsResult] = await Promise.allSettled([
 			this.view.container.git.getDiffStatus(this.repoPath, comparison),
@@ -307,7 +308,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	}
 
 	private async getBehindFilesQuery(): Promise<FilesQueryResults> {
-		const comparison = GitRevision.createRange(this.branch.ref, this._compareWith?.ref || 'HEAD', '...');
+		const comparison = createRevisionRange(this.branch.ref, this._compareWith?.ref || 'HEAD', '...');
 
 		const [filesResult, statsResult] = await Promise.allSettled([
 			this.view.container.git.getDiffStatus(this.repoPath, comparison),

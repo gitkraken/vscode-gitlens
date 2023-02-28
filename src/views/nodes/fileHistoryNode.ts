@@ -2,8 +2,8 @@ import { Disposable, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vsc
 import { configuration } from '../../configuration';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
+import { deletedOrMissing } from '../../git/models/constants';
 import type { GitLog } from '../../git/models/log';
-import { GitRevision } from '../../git/models/reference';
 import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { Logger } from '../../logger';
@@ -156,15 +156,13 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 		if (this.folder && this.uri.fileName === '') {
 			return `${basename(this.uri.path)}${
 				this.uri.sha
-					? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
+					? ` ${this.uri.sha === deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
 					: ''
 			}`;
 		}
 
 		return `${this.uri.fileName}${
-			this.uri.sha
-				? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
-				: ''
+			this.uri.sha ? ` ${this.uri.sha === deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}` : ''
 		}`;
 	}
 

@@ -2,7 +2,7 @@ import type { Range, Uri } from 'vscode';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
 import { AutolinkType } from '../../config';
-import { GitRevision } from '../models/reference';
+import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
 import { RemoteProvider } from './remoteProvider';
 
@@ -79,7 +79,7 @@ export class GiteaRemote extends RemoteProvider {
 			index = path.indexOf('/', offset);
 			if (index !== -1) {
 				const sha = path.substring(offset, index);
-				if (GitRevision.isSha(sha)) {
+				if (isSha(sha)) {
 					const uri = repository.toAbsoluteUri(path.substr(index), { validate: options?.validate });
 					if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
 				}

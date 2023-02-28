@@ -6,10 +6,10 @@ import { normalizePath, relative } from '../../system/path';
 import { getLines } from '../../system/string';
 import type { GitCommitLine } from '../models/commit';
 import { GitCommit, GitCommitIdentity } from '../models/commit';
+import { uncommitted } from '../models/constants';
 import type { GitFile, GitFileChangeStats } from '../models/file';
 import { GitFileChange, GitFileIndexStatus } from '../models/file';
 import type { GitLog } from '../models/log';
-import { GitRevision } from '../models/reference';
 import type { GitUser } from '../models/user';
 import { isUserMatch } from '../models/user';
 
@@ -481,7 +481,7 @@ export class GitLogParser {
 					break;
 
 				case 97: // 'a': // author
-					if (GitRevision.uncommitted === entry.sha) {
+					if (uncommitted === entry.sha) {
 						entry.author = 'You';
 					} else {
 						entry.author = line.substring(4);

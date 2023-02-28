@@ -1,6 +1,6 @@
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
-import { GitReference } from '../../git/models/reference';
+import { createReference, getReferenceLabel } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import type { GitStatus } from '../../git/models/status';
 import { CommandQuickPickItem } from '../../quickpicks/items/common';
@@ -84,8 +84,8 @@ export class StatusGitCommand extends QuickCommand<State> {
 			context.status = (await state.repo.getStatus())!;
 			if (context.status == null) return;
 
-			context.title = `${this.title}${pad(GlyphChars.Dot, 2, 2)}${GitReference.toString(
-				GitReference.create(context.status.branch, state.repo.path, {
+			context.title = `${this.title}${pad(GlyphChars.Dot, 2, 2)}${getReferenceLabel(
+				createReference(context.status.branch, state.repo.path, {
 					refType: 'branch',
 					name: context.status.branch,
 					remote: false,

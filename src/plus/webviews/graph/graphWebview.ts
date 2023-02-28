@@ -41,16 +41,24 @@ import * as TagActions from '../../../git/actions/tag';
 import * as WorktreeActions from '../../../git/actions/worktree';
 import { GitSearchError } from '../../../git/errors';
 import { getBranchId, getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../../../git/models/branch';
+import { uncommitted } from '../../../git/models/constants';
 import { GitContributor } from '../../../git/models/contributor';
 import type { GitGraph } from '../../../git/models/graph';
 import { GitGraphRowType } from '../../../git/models/graph';
 import type {
 	GitBranchReference,
+	GitReference,
 	GitRevisionReference,
 	GitStashReference,
 	GitTagReference,
 } from '../../../git/models/reference';
-import { GitReference, GitRevision } from '../../../git/models/reference';
+import {
+	createReference,
+	getReferenceFromBranch,
+	getReferenceLabel,
+	isSha,
+	shortenRevision,
+} from '../../../git/models/reference';
 import { getRemoteIconUri } from '../../../git/models/remote';
 import { RemoteResourceType } from '../../../git/models/remoteResource';
 import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../../git/models/repository';
@@ -272,7 +280,7 @@ export class GraphWebview extends WebviewBase<State> {
 					} else {
 						this.repository = this.container.git.getRepository(args.ref.repoPath);
 						id = args.ref.ref;
-						if (!GitRevision.isSha(id)) {
+						if (!isSha(id)) {
 							id = await this.container.git.resolveReference(args.ref.repoPath, id, undefined, {
 								force: true,
 							});
@@ -890,7 +898,7 @@ export class GraphWebview extends WebviewBase<State> {
 							webviewItem: 'gitlens:upstreamStatus',
 							webviewItemValue: {
 								type: 'upstreamStatus',
-								ref: GitReference.fromBranch(branch),
+								ref: getReferenceFromBranch(branch),
 								ahead: branch.state.ahead,
 								behind: branch.state.behind,
 							},
@@ -1126,17 +1134,17 @@ export class GraphWebview extends WebviewBase<State> {
 
 		switch (type) {
 			case GitGraphRowType.Stash:
-				return GitReference.create(id, repoPath, {
+				return createReference(id, repoPath, {
 					refType: 'stash',
 					name: id,
 					number: undefined,
 				});
 
 			case GitGraphRowType.Working:
-				return GitReference.create(GitRevision.uncommitted, repoPath, { refType: 'revision' });
+				return createReference(uncommitted, repoPath, { refType: 'revision' });
 
 			default:
-				return GitReference.create(id, repoPath, { refType: 'revision' });
+				return createReference(id, repoPath, { refType: 'revision' });
 		}
 	}
 
@@ -1753,11 +1761,7 @@ export class GraphWebview extends WebviewBase<State> {
 				webviewItem: 'gitlens:wip',
 				webviewItemValue: {
 					type: 'commit',
-					ref: this.getRevisionReference(
-						this.repository.path,
-						GitRevision.uncommitted,
-						GitGraphRowType.Working,
-					)!,
+					ref: this.getRevisionReference(this.repository.path, uncommitted, GitGraphRowType.Working)!,
 				},
 			}),
 		};
@@ -1790,8 +1794,7 @@ export class GraphWebview extends WebviewBase<State> {
 		// If we have a set of data refresh to the same set
 		const limit = Math.max(defaultItemLimit, this._graph?.ids.size ?? defaultItemLimit);
 
-		const ref =
-			this._selectedId == null || this._selectedId === GitRevision.uncommitted ? 'HEAD' : this._selectedId;
+		const ref = this._selectedId == null || this._selectedId === uncommitted ? 'HEAD' : this._selectedId;
 
 		const columns = this.getColumns();
 		const columnSettings = this.getColumnSettings(columns);
@@ -1960,7 +1963,7 @@ export class GraphWebview extends WebviewBase<State> {
 		if (this._selectedId === id) return;
 
 		this._selectedId = id;
-		if (id === GitRevision.uncommitted) {
+		if (id === uncommitted) {
 			id = GitGraphRowType.Working;
 		}
 		this._selectedRows = id != null ? { [id]: true } : undefined;
@@ -2091,7 +2094,7 @@ export class GraphWebview extends WebviewBase<State> {
 			if (ref.upstream != null) {
 				return RepoActions.rebase(
 					ref.repoPath,
-					GitReference.create(ref.upstream.name, ref.repoPath, {
+					createReference(ref.upstream.name, ref.repoPath, {
 						refType: 'branch',
 						name: ref.upstream.name,
 						remote: true,
@@ -2157,7 +2160,7 @@ export class GraphWebview extends WebviewBase<State> {
 		if (ref == null) return Promise.resolve();
 
 		let sha = ref.ref;
-		if (!GitRevision.isSha(sha)) {
+		if (!isSha(sha)) {
 			sha = await this.container.git.resolveReference(ref.repoPath, sha, undefined, { force: true });
 		}
 
@@ -2250,7 +2253,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 		return RepoActions.reset(
 			ref.repoPath,
-			GitReference.create(`${ref.ref}^`, ref.repoPath, {
+			createReference(`${ref.ref}^`, ref.repoPath, {
 				refType: 'revision',
 				name: `${ref.name}^`,
 				message: ref.message,
@@ -2331,7 +2334,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 		if (commit?.hash !== ref.ref) {
 			void window.showWarningMessage(
-				`Commit ${GitReference.toString(ref, {
+				`Commit ${getReferenceLabel(ref, {
 					capitalize: true,
 					icon: false,
 				})} cannot be undone, because it is no longer the most recent commit.`,
@@ -2460,7 +2463,10 @@ export class GraphWebview extends WebviewBase<State> {
 
 		return this.container.searchAndCompareView.compare(
 			ref.repoPath,
-			{ ref: commonAncestor, label: `ancestry with ${ref.ref} (${GitRevision.shorten(commonAncestor)})` },
+			{
+				ref: commonAncestor,
+				label: `ancestry with ${ref.ref} (${shortenRevision(commonAncestor)})`,
+			},
 			'',
 		);
 	}

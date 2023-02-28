@@ -5,7 +5,8 @@ import { ContextKeys } from '../../constants';
 import { setContext } from '../../context';
 import type { GitCommitish } from '../../git/gitUri';
 import { GitUri, unknownGitUri } from '../../git/gitUri';
-import { GitReference, GitRevision } from '../../git/models/reference';
+import { deletedOrMissing } from '../../git/models/constants';
+import { isBranchReference, isSha } from '../../git/models/reference';
 import { Logger } from '../../logger';
 import { getLogScope } from '../../logScope';
 import { showReferencePicker } from '../../quickpicks/referencePicker';
@@ -59,11 +60,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 				this.view.message = 'There was no selection provided for line history.';
 				this.view.description = `${this.uri.fileName}${
 					this.uri.sha
-						? ` ${
-								this.uri.sha === GitRevision.deletedOrMissing
-									? this.uri.shortSha
-									: `(${this.uri.shortSha})`
-						  }`
+						? ` ${this.uri.sha === deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
 						: ''
 				}${!this.followingEditor ? ' (pinned)' : ''}`;
 				return [];
@@ -81,7 +78,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			let branch;
 			if (!commitish.sha || commitish.sha === 'HEAD') {
 				branch = await this.view.container.git.getBranch(this.uri.repoPath);
-			} else if (!GitRevision.isSha(commitish.sha)) {
+			} else if (!isSha(commitish.sha)) {
 				({
 					values: [branch],
 				} = await this.view.container.git.getBranches(this.uri.repoPath, {
@@ -129,7 +126,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		);
 		if (pick == null) return;
 
-		if (GitReference.isBranch(pick)) {
+		if (isBranchReference(pick)) {
 			const branch = await this.view.container.git.getBranch(this.uri.repoPath);
 			this._base = branch?.name === pick.name ? undefined : pick.ref;
 		} else {

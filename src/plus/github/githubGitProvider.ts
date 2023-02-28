@@ -43,6 +43,7 @@ import type { BranchSortOptions } from '../../git/models/branch';
 import { getBranchId, GitBranch, sortBranches } from '../../git/models/branch';
 import type { GitCommitLine, GitCommitStats } from '../../git/models/commit';
 import { getChangedFilesCount, GitCommit, GitCommitIdentity } from '../../git/models/commit';
+import { deletedOrMissing, uncommitted } from '../../git/models/constants';
 import { GitContributor } from '../../git/models/contributor';
 import type { GitDiff, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from '../../git/models/diff';
 import type { GitFile } from '../../git/models/file';
@@ -59,8 +60,8 @@ import { GitGraphRowType } from '../../git/models/graph';
 import type { GitLog } from '../../git/models/log';
 import type { GitMergeStatus } from '../../git/models/merge';
 import type { GitRebaseStatus } from '../../git/models/rebase';
-import type { GitBranchReference } from '../../git/models/reference';
-import { GitReference, GitRevision } from '../../git/models/reference';
+import type { GitBranchReference, GitReference } from '../../git/models/reference';
+import { createReference, isRevisionRange, isSha, isShaLike, isUncommitted } from '../../git/models/reference';
 import type { GitReflog } from '../../git/models/reflog';
 import { getRemoteIconUri, GitRemote, GitRemoteType } from '../../git/models/remote';
 import type { RepositoryChangeEvent } from '../../git/models/repository';
@@ -350,7 +351,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	getRevisionUri(repoPath: string, path: string, ref: string): Uri {
 		const uri = this.createProviderUri(repoPath, ref, path);
-		return ref === GitRevision.deletedOrMissing ? uri.with({ query: '~' }) : uri;
+		return ref === deletedOrMissing ? uri.with({ query: '~' }) : uri;
 	}
 
 	@log()
@@ -1209,7 +1210,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 							}`,
 							webviewItemValue: {
 								type: 'branch',
-								ref: GitReference.create(branch.name, repoPath, {
+								ref: createReference(branch.name, repoPath, {
 									refType: 'branch',
 									name: branch.name,
 									remote: false,
@@ -1234,7 +1235,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 							webviewItem: 'gitlens:branch+remote',
 							webviewItemValue: {
 								type: 'branch',
-								ref: GitReference.create(branch.name, repoPath, {
+								ref: createReference(branch.name, repoPath, {
 									refType: 'branch',
 									name: branch.name,
 									remote: true,
@@ -1263,7 +1264,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 								webviewItem: 'gitlens:tag',
 								webviewItemValue: {
 									type: 'tag',
-									ref: GitReference.create(t.name, repoPath, {
+									ref: createReference(t.name, repoPath, {
 										refType: 'tag',
 										name: t.name,
 									}),
@@ -1291,7 +1292,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					}+current`,
 					webviewItemValue: {
 						type: 'commit',
-						ref: GitReference.create(commit.sha, repoPath, {
+						ref: createReference(commit.sha, repoPath, {
 							refType: 'revision',
 							message: commit.message,
 						}),
@@ -1498,7 +1499,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getFileStatusForCommit(repoPath: string, uri: Uri, ref: string): Promise<GitFile | undefined> {
-		if (ref === GitRevision.deletedOrMissing || GitRevision.isUncommitted(ref)) return undefined;
+		if (ref === deletedOrMissing || isUncommitted(ref)) return undefined;
 
 		const commit = await this.getCommitForFile(repoPath, uri, { ref: ref });
 		if (commit == null) return undefined;
@@ -1657,7 +1658,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			moreLimit = this.getPagingLimit(moreLimit);
 
 			// // If the log is for a range, then just get everything prior + more
-			// if (GitRevision.isRange(log.sha)) {
+			// if (isRange(log.sha)) {
 			// 	const moreLog = await this.getLog(log.repoPath, {
 			// 		...options,
 			// 		limit: moreLimit === 0 ? 0 : (options?.limit ?? 0) + moreLimit,
@@ -2162,11 +2163,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		skip: number = 0,
 		_firstParent: boolean = false,
 	): Promise<PreviousComparisonUrisResult | undefined> {
-		if (ref === GitRevision.deletedOrMissing) return undefined;
+		if (ref === deletedOrMissing) return undefined;
 
 		const scope = getLogScope();
 
-		if (ref === GitRevision.uncommitted) {
+		if (ref === uncommitted) {
 			ref = undefined;
 		}
 
@@ -2199,10 +2200,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 							await this.getBestRevisionUri(
 								repoPath,
 								relativePath,
-								result.values[offset + skip - 1]?.oid ?? GitRevision.deletedOrMissing,
+								result.values[offset + skip - 1]?.oid ?? deletedOrMissing,
 							),
 					  );
-			if (current == null || current.sha === GitRevision.deletedOrMissing) return undefined;
+			if (current == null || current.sha === deletedOrMissing) return undefined;
 
 			return {
 				current: current,
@@ -2210,7 +2211,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					await this.getBestRevisionUri(
 						repoPath,
 						relativePath,
-						result.values[offset + skip]?.oid ?? GitRevision.deletedOrMissing,
+						result.values[offset + skip]?.oid ?? deletedOrMissing,
 					),
 				),
 			};
@@ -2230,7 +2231,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		ref: string | undefined,
 		skip: number = 0,
 	): Promise<PreviousLineComparisonUrisResult | undefined> {
-		if (ref === GitRevision.deletedOrMissing) return undefined;
+		if (ref === deletedOrMissing) return undefined;
 
 		const scope = getLogScope();
 
@@ -2573,9 +2574,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	) {
 		if (
 			!ref ||
-			ref === GitRevision.deletedOrMissing ||
-			(pathOrUri == null && GitRevision.isSha(ref)) ||
-			(pathOrUri != null && GitRevision.isUncommitted(ref))
+			ref === deletedOrMissing ||
+			(pathOrUri == null && isSha(ref)) ||
+			(pathOrUri != null && isUncommitted(ref))
 		) {
 			return ref;
 		}
@@ -2583,7 +2584,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		let relativePath;
 		if (pathOrUri != null) {
 			relativePath = this.getRelativePath(pathOrUri, repoPath);
-		} else if (!GitRevision.isShaLike(ref) || ref.endsWith('^3')) {
+		} else if (!isShaLike(ref) || ref.endsWith('^3')) {
 			// If it doesn't look like a sha at all (e.g. branch name) or is a stash ref (^3) don't try to resolve it
 			return ref;
 		}
@@ -2603,7 +2604,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		if (resolved != null) return resolved;
 
-		return relativePath ? GitRevision.deletedOrMissing : ref;
+		return relativePath ? deletedOrMissing : ref;
 	}
 
 	@log()
@@ -3100,7 +3101,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		if (typeof ref === 'string') {
 			if (ref) {
-				if (GitRevision.isSha(ref)) {
+				if (isSha(ref)) {
 					metadata = { v: 1, ref: { id: ref, type: 2 /* RepositoryRefType.Commit */ } };
 				} else {
 					metadata = { v: 1, ref: { id: ref, type: 4 /* RepositoryRefType.Tree */ } };
@@ -3168,10 +3169,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			return revision.revision;
 		}
 
-		if (GitRevision.isSha(ref)) return ref;
+		if (isSha(ref)) return ref;
 
 		// TODO@eamodio need to handle ranges
-		if (GitRevision.isRange(ref)) return undefined;
+		if (isRevisionRange(ref)) return undefined;
 
 		const [branchResults, tagResults] = await Promise.allSettled([
 			this.getBranches(repoPath, { filter: b => b.name === ref }),

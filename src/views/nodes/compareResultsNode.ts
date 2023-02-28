@@ -1,7 +1,7 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { md5 } from '@env/crypto';
 import { GitUri } from '../../git/gitUri';
-import { GitRevision } from '../../git/models/reference';
+import { createRevisionRange, shortenRevision } from '../../git/models/reference';
 import type { StoredNamedRef } from '../../storage';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
@@ -79,7 +79,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 			const behind = this.behind;
 
 			const aheadBehindCounts = await this.view.container.git.getAheadBehindCommitCount(this.repoPath, [
-				GitRevision.createRange(behind.ref1 || 'HEAD', behind.ref2, '...'),
+				createRevisionRange(behind.ref1 || 'HEAD', behind.ref2, '...'),
 			]);
 			const mergeBase =
 				(await this.view.container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2, {
@@ -93,7 +93,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 					this.repoPath,
 					'Behind',
 					{
-						query: this.getCommitsQuery(GitRevision.createRange(behind.ref1, behind.ref2, '..')),
+						query: this.getCommitsQuery(createRevisionRange(behind.ref1, behind.ref2, '..')),
 						comparison: behind,
 						direction: 'behind',
 						files: {
@@ -114,7 +114,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 					this.repoPath,
 					'Ahead',
 					{
-						query: this.getCommitsQuery(GitRevision.createRange(ahead.ref1, ahead.ref2, '..')),
+						query: this.getCommitsQuery(createRevisionRange(ahead.ref1, ahead.ref2, '..')),
 						comparison: ahead,
 						direction: 'ahead',
 						files: {
@@ -155,10 +155,10 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 
 		const item = new TreeItem(
 			`Comparing ${
-				this._ref.label ?? GitRevision.shorten(this._ref.ref, { strings: { working: 'Working Tree' } })
+				this._ref.label ?? shortenRevision(this._ref.ref, { strings: { working: 'Working Tree' } })
 			} with ${
 				this._compareWith.label ??
-				GitRevision.shorten(this._compareWith.ref, { strings: { working: 'Working Tree' } })
+				shortenRevision(this._compareWith.ref, { strings: { working: 'Working Tree' } })
 			}`,
 			TreeItemCollapsibleState.Collapsed,
 		);
@@ -239,14 +239,14 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 
 	private async getAheadFilesQuery(): Promise<FilesQueryResults> {
 		return this.getAheadBehindFilesQuery(
-			GitRevision.createRange(this._compareWith?.ref || 'HEAD', this._ref.ref || 'HEAD', '...'),
+			createRevisionRange(this._compareWith?.ref || 'HEAD', this._ref.ref || 'HEAD', '...'),
 			this._ref.ref === '',
 		);
 	}
 
 	private async getBehindFilesQuery(): Promise<FilesQueryResults> {
 		return this.getAheadBehindFilesQuery(
-			GitRevision.createRange(this._ref.ref || 'HEAD', this._compareWith.ref || 'HEAD', '...'),
+			createRevisionRange(this._ref.ref || 'HEAD', this._compareWith.ref || 'HEAD', '...'),
 			false,
 		);
 	}

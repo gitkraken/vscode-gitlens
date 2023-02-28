@@ -2,7 +2,7 @@ import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { isBranch } from '../../git/models/branch';
 import type { GitBranchReference } from '../../git/models/reference';
-import { GitReference } from '../../git/models/reference';
+import { getReferenceLabel, isBranchReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -70,7 +70,7 @@ export class PullGitCommand extends QuickCommand<State> {
 	}
 
 	async execute(state: PullStepState) {
-		if (GitReference.isBranch(state.reference)) {
+		if (isBranchReference(state.reference)) {
 			// Only resort to a branch fetch if the branch isn't the current one
 			if (!isBranch(state.reference) || !state.reference.current) {
 				const currentBranch = await state.repos[0].getBranch();
@@ -159,7 +159,7 @@ export class PullGitCommand extends QuickCommand<State> {
 					detail: `Will pull ${state.repos.length} repositories by rebasing`,
 				}),
 			]);
-		} else if (GitReference.isBranch(state.reference)) {
+		} else if (isBranchReference(state.reference)) {
 			if (state.reference.remote) {
 				step = this.createConfirmStep(
 					appendReposToTitle(`Confirm ${context.title}`, state, context),
@@ -188,10 +188,8 @@ export class PullGitCommand extends QuickCommand<State> {
 							label: this.title,
 							detail: `Will pull${
 								branch.state.behind
-									? ` ${pluralize('commit', branch.state.behind)} into ${GitReference.toString(
-											branch,
-									  )}`
-									: ` into ${GitReference.toString(branch)}`
+									? ` ${pluralize('commit', branch.state.behind)} into ${getReferenceLabel(branch)}`
+									: ` into ${getReferenceLabel(branch)}`
 							}`,
 						}),
 					]);

@@ -2,7 +2,7 @@ import type { TextEditor, Uri } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitRevision } from '../git/models/reference';
+import { deletedOrMissing } from '../git/models/constants';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
 import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
@@ -91,7 +91,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 
 				// If the line is uncommitted, use previous commit
 				args.sha = blame.commit.isUncommitted
-					? (await blame.commit.getPreviousSha()) ?? GitRevision.deletedOrMissing
+					? (await blame.commit.getPreviousSha()) ?? deletedOrMissing
 					: blame.commit.sha;
 			}
 

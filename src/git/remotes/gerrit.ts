@@ -1,7 +1,7 @@
 import type { Range, Uri } from 'vscode';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
-import { GitRevision } from '../models/reference';
+import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
 import { RemoteProvider } from './remoteProvider';
 
@@ -97,7 +97,7 @@ export class GerritRemote extends RemoteProvider {
 		let index = path.indexOf('/', 1);
 		if (index !== -1) {
 			const sha = path.substring(1, index);
-			if (GitRevision.isSha(sha) || sha == 'HEAD') {
+			if (isSha(sha) || sha == 'HEAD') {
 				const uri = repository.toAbsoluteUri(path.substr(index), { validate: options?.validate });
 				if (uri != null) return { uri: uri, startLine: startLine };
 			}

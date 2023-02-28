@@ -5,7 +5,7 @@ import { ContextKeys } from '../../constants';
 import { setContext } from '../../context';
 import type { GitCommitish } from '../../git/gitUri';
 import { GitUri, unknownGitUri } from '../../git/gitUri';
-import { GitReference, GitRevision } from '../../git/models/reference';
+import { isBranchReference, isSha } from '../../git/models/reference';
 import { Logger } from '../../logger';
 import { getLogScope } from '../../logScope';
 import { showReferencePicker } from '../../quickpicks/referencePicker';
@@ -73,7 +73,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			let branch;
 			if (!commitish.sha || commitish.sha === 'HEAD') {
 				branch = await this.view.container.git.getBranch(this.uri.repoPath);
-			} else if (!GitRevision.isSha(commitish.sha)) {
+			} else if (!isSha(commitish.sha)) {
 				({
 					values: [branch],
 				} = await this.view.container.git.getBranches(this.uri.repoPath, {
@@ -119,7 +119,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		);
 		if (pick == null) return;
 
-		if (GitReference.isBranch(pick)) {
+		if (isBranchReference(pick)) {
 			const branch = await this.view.container.git.getBranch(this.uri.repoPath);
 			this._base = branch?.name === pick.name ? undefined : pick.ref;
 		} else {

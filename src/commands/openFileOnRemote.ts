@@ -6,7 +6,7 @@ import { Commands, GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../git/models/branch';
-import { GitRevision } from '../git/models/reference';
+import { isSha } from '../git/models/reference';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
@@ -128,7 +128,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 					: undefined;
 			let sha = args.sha ?? gitUri.sha;
 
-			if (args.branchOrTag == null && sha != null && !GitRevision.isSha(sha) && remotes.length !== 0) {
+			if (args.branchOrTag == null && sha != null && !isSha(sha) && remotes.length !== 0) {
 				const [remoteName, branchName] = splitSingle(sha, '/');
 				if (branchName != null) {
 					const remote = remotes.find(r => r.name === remoteName);

@@ -3,7 +3,8 @@ import type { Container } from '../../container';
 import { showDetailsView } from '../../git/actions/commit';
 import { GitCommit } from '../../git/models/commit';
 import type { GitLog } from '../../git/models/log';
-import { GitReference } from '../../git/models/reference';
+import type { GitReference } from '../../git/models/reference';
+import { getReferenceLabel, isRevisionRangeReference, isRevisionReference } from '../../git/models/reference';
 import { Repository } from '../../git/models/repository';
 import { formatPath } from '../../system/formatPath';
 import { pad } from '../../system/string';
@@ -66,8 +67,8 @@ export class LogGitCommand extends QuickCommand<State> {
 			counter++;
 			if (
 				args.state.reference !== 'HEAD' &&
-				GitReference.isRevision(args.state.reference) &&
-				!GitReference.isRevisionRange(args.state.reference)
+				isRevisionReference(args.state.reference) &&
+				!isRevisionRangeReference(args.state.reference)
 			) {
 				counter++;
 			}
@@ -147,14 +148,13 @@ export class LogGitCommand extends QuickCommand<State> {
 				context.selectedBranchOrTag = undefined;
 			}
 
-			if (!GitReference.isRevision(state.reference) || GitReference.isRevisionRange(state.reference)) {
+			if (!isRevisionReference(state.reference) || isRevisionRangeReference(state.reference)) {
 				context.selectedBranchOrTag = state.reference;
 			}
 
-			context.title = `${this.title}${pad(GlyphChars.Dot, 2, 2)}${GitReference.toString(
-				context.selectedBranchOrTag,
-				{ icon: false },
-			)}`;
+			context.title = `${this.title}${pad(GlyphChars.Dot, 2, 2)}${getReferenceLabel(context.selectedBranchOrTag, {
+				icon: false,
+			})}`;
 
 			if (state.fileName) {
 				context.title += `${pad(GlyphChars.Dot, 2, 2)}${formatPath(state.fileName, {
@@ -181,7 +181,7 @@ export class LogGitCommand extends QuickCommand<State> {
 					onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
 					placeholder: (context, log) =>
 						log == null
-							? `No commits found in ${GitReference.toString(context.selectedBranchOrTag, {
+							? `No commits found in ${getReferenceLabel(context.selectedBranchOrTag, {
 									icon: false,
 							  })}`
 							: 'Choose a commit',

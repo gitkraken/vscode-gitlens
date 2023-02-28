@@ -5,7 +5,7 @@ import { emojify } from '../../emojis';
 import type { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
 import type { GitTagReference } from '../../git/models/reference';
-import { GitRevision } from '../../git/models/reference';
+import { shortenRevision } from '../../git/models/reference';
 import type { GitTag } from '../../git/models/tag';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
@@ -79,7 +79,7 @@ export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagRefe
 		item.id = this.id;
 		item.contextValue = ContextValues.Tag;
 		item.description = emojify(this.tag.message);
-		item.tooltip = `${this.tag.name}${pad(GlyphChars.Dash, 2, 2)}${GitRevision.shorten(this.tag.sha, {
+		item.tooltip = `${this.tag.name}${pad(GlyphChars.Dash, 2, 2)}${shortenRevision(this.tag.sha, {
 			force: true,
 		})}${
 			this.tag.date != null

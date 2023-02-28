@@ -3,7 +3,7 @@ import { ViewFilesLayout } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitMergeStatus } from '../../git/models/merge';
-import { GitReference } from '../../git/models/reference';
+import { getReferenceLabel } from '../../git/models/reference';
 import type { GitStatus } from '../../git/models/status';
 import { makeHierarchical } from '../../system/array';
 import { joinPaths, normalizePath } from '../../system/path';
@@ -69,9 +69,9 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 		const item = new TreeItem(
 			`${this.status?.hasConflicts ? 'Resolve conflicts before merging' : 'Merging'} ${
 				this.mergeStatus.incoming != null
-					? `${GitReference.toString(this.mergeStatus.incoming, { expand: false, icon: false })} `
+					? `${getReferenceLabel(this.mergeStatus.incoming, { expand: false, icon: false })} `
 					: ''
-			}into ${GitReference.toString(this.mergeStatus.current, { expand: false, icon: false })}`,
+			}into ${getReferenceLabel(this.mergeStatus.current, { expand: false, icon: false })}`,
 			TreeItemCollapsibleState.Expanded,
 		);
 		item.id = this.id;
@@ -83,8 +83,8 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 
 		const markdown = new MarkdownString(
 			`${`Merging ${
-				this.mergeStatus.incoming != null ? GitReference.toString(this.mergeStatus.incoming) : ''
-			}into ${GitReference.toString(this.mergeStatus.current)}`}${
+				this.mergeStatus.incoming != null ? getReferenceLabel(this.mergeStatus.incoming) : ''
+			}into ${getReferenceLabel(this.mergeStatus.current)}`}${
 				this.status?.hasConflicts ? `\n\n${pluralize('conflicted file', this.status.conflicts.length)}` : ''
 			}`,
 			true,

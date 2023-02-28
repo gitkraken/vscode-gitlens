@@ -1,7 +1,8 @@
 import { ProgressLocation, window } from 'vscode';
 import { BranchSorting } from '../../config';
 import type { Container } from '../../container';
-import { GitReference } from '../../git/models/reference';
+import type { GitReference } from '../../git/models/reference';
+import { getNameWithoutRemote, getReferenceLabel, isBranchReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { isStringArray } from '../../system/array';
@@ -155,7 +156,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				state.reference = result;
 			}
 
-			if (GitReference.isBranch(state.reference) && state.reference.remote) {
+			if (isBranchReference(state.reference) && state.reference.remote) {
 				context.title = `Create Branch and ${this.title}`;
 
 				const { values: branches } = await this.container.git.getBranches(state.reference.repoPath, {
@@ -166,10 +167,10 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				if (branches.length === 0) {
 					const result = yield* inputBranchNameStep(state as SwitchStepState, context, {
 						placeholder: 'Please provide a name for the new branch',
-						titleContext: ` based on ${GitReference.toString(state.reference, {
+						titleContext: ` based on ${getReferenceLabel(state.reference, {
 							icon: false,
 						})}`,
-						value: state.createBranch ?? GitReference.getNameWithoutRemote(state.reference),
+						value: state.createBranch ?? getNameWithoutRemote(state.reference),
 					});
 					if (result === StepResultBreak) continue;
 
@@ -207,9 +208,9 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				{
 					label: `${context.title} and Fast-Forward`,
 					description: '',
-					detail: `Will switch to and fast-forward local ${GitReference.toString(
-						state.reference,
-					)} in $(repo) ${state.repos[0].formattedName}`,
+					detail: `Will switch to and fast-forward local ${getReferenceLabel(state.reference)} in $(repo) ${
+						state.repos[0].formattedName
+					}`,
 					item: 'switch+fast-forward',
 				},
 			];
@@ -227,10 +228,10 @@ export class SwitchGitCommand extends QuickCommand<State> {
 					description: state.createBranch ? '-b' : '',
 					detail: `Will ${
 						state.createBranch
-							? `create and switch to a new branch named ${
-									state.createBranch
-							  } from ${GitReference.toString(state.reference)}`
-							: `switch to ${context.switchToLocalFrom != null ? 'local ' : ''}${GitReference.toString(
+							? `create and switch to a new branch named ${state.createBranch} from ${getReferenceLabel(
+									state.reference,
+							  )}`
+							: `switch to ${context.switchToLocalFrom != null ? 'local ' : ''}${getReferenceLabel(
 									state.reference,
 							  )}`
 					} in ${

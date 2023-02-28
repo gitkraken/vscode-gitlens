@@ -10,7 +10,7 @@ import type { RemoteProvider } from '../remotes/remoteProvider';
 import type { RichRemoteProvider } from '../remotes/richRemoteProvider';
 import type { PullRequest, PullRequestState } from './pullRequest';
 import type { GitBranchReference, GitReference } from './reference';
-import { GitRevision } from './reference';
+import { shortenRevision } from './reference';
 import type { GitRemote } from './remote';
 import { getUpstreamStatus } from './status';
 
@@ -215,7 +215,7 @@ export class GitBranch implements GitBranchReference {
 }
 
 export function formatDetachedHeadName(sha: string): string {
-	return `(${GitRevision.shorten(sha)}...)`;
+	return `(${shortenRevision(sha)}...)`;
 }
 
 export function getBranchNameWithoutRemote(name: string): string {

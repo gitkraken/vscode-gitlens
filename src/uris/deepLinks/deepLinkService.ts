@@ -3,7 +3,8 @@ import { configuration } from '../../configuration';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { getBranchNameWithoutRemote } from '../../git/models/branch';
-import { GitReference } from '../../git/models/reference';
+import type { GitReference } from '../../git/models/reference';
+import { createReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import { Logger } from '../../logger';
@@ -453,7 +454,7 @@ export class DeepLinkService implements Disposable {
 					}
 
 					void (await executeCommand<ShowInCommitGraphCommandArgs>(Commands.ShowInCommitGraph, {
-						ref: GitReference.create(targetSha, repo.path),
+						ref: createReference(targetSha, repo.path),
 					}));
 
 					action = DeepLinkServiceAction.DeepLinkResolved;

@@ -4,8 +4,9 @@ import { getLines } from '../../system/string';
 import type { GitBlame, GitBlameAuthor } from '../models/blame';
 import type { GitCommitLine } from '../models/commit';
 import { GitCommit, GitCommitIdentity } from '../models/commit';
+import { uncommitted } from '../models/constants';
 import { GitFileChange, GitFileIndexStatus } from '../models/file';
-import { GitRevision } from '../models/reference';
+import { isUncommitted } from '../models/reference';
 import type { GitUser } from '../models/user';
 
 interface BlameEntry {
@@ -71,7 +72,7 @@ export class GitBlameParser {
 
 			switch (key) {
 				case 'author':
-					if (entry.sha === GitRevision.uncommitted) {
+					if (entry.sha === uncommitted) {
 						entry.author = 'You';
 					} else {
 						entry.author = line.slice(key.length + 1).trim();
@@ -79,7 +80,7 @@ export class GitBlameParser {
 					break;
 
 				case 'author-mail': {
-					if (entry.sha === GitRevision.uncommitted) {
+					if (entry.sha === uncommitted) {
 						entry.authorEmail = currentUser?.email;
 						continue;
 					}
@@ -106,7 +107,7 @@ export class GitBlameParser {
 					break;
 
 				case 'committer':
-					if (GitRevision.isUncommitted(entry.sha)) {
+					if (isUncommitted(entry.sha)) {
 						entry.committer = 'You';
 					} else {
 						entry.committer = line.slice(key.length + 1).trim();
@@ -114,7 +115,7 @@ export class GitBlameParser {
 					break;
 
 				case 'committer-mail': {
-					if (GitRevision.isUncommitted(entry.sha)) {
+					if (isUncommitted(entry.sha)) {
 						entry.committerEmail = currentUser?.email;
 						continue;
 					}

@@ -2,7 +2,7 @@ import { DateStyle } from '../../config';
 import { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
-import { GitRevision } from './reference';
+import { shortenRevision } from './reference';
 
 export interface GitReflog {
 	readonly repoPath: string;
@@ -64,7 +64,7 @@ export class GitReflogRecord {
 
 	@memoize()
 	get previousShortSha() {
-		return GitRevision.shorten(this._previousSha);
+		return shortenRevision(this._previousSha);
 	}
 
 	get selector() {
@@ -73,7 +73,7 @@ export class GitReflogRecord {
 
 	@memoize()
 	get shortSha() {
-		return GitRevision.shorten(this.sha);
+		return shortenRevision(this.sha);
 	}
 
 	update(previousSha?: string, selector?: string) {

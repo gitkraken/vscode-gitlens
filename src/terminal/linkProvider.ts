@@ -12,7 +12,7 @@ import type { Container } from '../container';
 import type { PagedResult } from '../git/gitProvider';
 import type { GitBranch } from '../git/models/branch';
 import { getBranchNameWithoutRemote } from '../git/models/branch';
-import { GitReference } from '../git/models/reference';
+import { createReference } from '../git/models/reference';
 import type { GitTag } from '../git/models/tag';
 
 const commandsRegexShared =
@@ -157,7 +157,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 								command: 'log',
 								state: {
 									repo: repoPath,
-									reference: GitReference.create(ref, repoPath, { refType: 'revision' }),
+									reference: createReference(ref, repoPath, { refType: 'revision' }),
 								},
 							},
 						},

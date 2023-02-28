@@ -34,8 +34,8 @@ import type { GitDiffShortStat } from './diff';
 import type { GitLog } from './log';
 import type { GitMergeStatus } from './merge';
 import type { GitRebaseStatus } from './rebase';
-import type { GitBranchReference, GitTagReference } from './reference';
-import { GitReference } from './reference';
+import type { GitBranchReference, GitReference, GitTagReference } from './reference';
+import { getNameWithoutRemote, isBranchReference } from './reference';
 import type { GitRemote } from './remote';
 import type { GitStash } from './stash';
 import type { GitStatus } from './status';
@@ -526,12 +526,7 @@ export class Repository implements Disposable {
 			const branchesByOrigin = groupByMap(remoteBranches, b => getRemoteNameFromBranchName(b.name));
 
 			for (const [remote, branches] of branchesByOrigin.entries()) {
-				this.runTerminalCommand(
-					'push',
-					'-d',
-					remote,
-					...branches.map(b => GitReference.getNameWithoutRemote(b)),
-				);
+				this.runTerminalCommand('push', '-d', remote, ...branches.map(b => getNameWithoutRemote(b)));
 			}
 		}
 	}
@@ -825,7 +820,7 @@ export class Repository implements Disposable {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: GitReference.isBranch(opts.reference)
+				title: isBranchReference(opts.reference)
 					? `${opts.publish != null ? 'Publishing ' : 'Pushing '}${opts.reference.name}...`
 					: `Pushing ${this.formattedName}...`,
 			},
@@ -872,7 +867,7 @@ export class Repository implements Disposable {
 		};
 	}) {
 		try {
-			if (GitReference.isBranch(options?.reference)) {
+			if (isBranchReference(options?.reference)) {
 				const repo = await this.container.git.getOrOpenScmRepository(this.path);
 				if (repo == null) return;
 

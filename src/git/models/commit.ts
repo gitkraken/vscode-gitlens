@@ -13,11 +13,12 @@ import { pad, pluralize } from '../../system/string';
 import type { PreviousLineComparisonUrisResult } from '../gitProvider';
 import { GitUri } from '../gitUri';
 import type { RichRemoteProvider } from '../remotes/richRemoteProvider';
+import { uncommitted } from './constants';
 import type { GitFile } from './file';
 import { GitFileChange, GitFileWorkingTreeStatus } from './file';
 import type { PullRequest } from './pullRequest';
 import type { GitReference, GitRevisionReference, GitStashReference } from './reference';
-import { GitRevision } from './reference';
+import { isSha, isUncommitted, isUncommittedParent, isUncommittedStaged } from './reference';
 import type { GitRemote } from './remote';
 import type { Repository } from './repository';
 
@@ -140,12 +141,12 @@ export class GitCommit implements GitRevisionReference {
 
 	@memoize()
 	get isUncommitted(): boolean {
-		return GitRevision.isUncommitted(this.sha);
+		return isUncommitted(this.sha);
 	}
 
 	@memoize()
 	get isUncommittedStaged(): boolean {
-		return GitRevision.isUncommittedStaged(this.sha);
+		return isUncommittedStaged(this.sha);
 	}
 
 	private _message: string | undefined;
@@ -177,7 +178,7 @@ export class GitCommit implements GitRevisionReference {
 			this._resolvedPreviousSha ??
 			(this.file != null ? this.file.previousSha : this.parents[0]) ??
 			`${this.sha}^`;
-		return GitRevision.isUncommittedParent(previousSha) ? 'HEAD' : previousSha;
+		return isUncommittedParent(previousSha) ? 'HEAD' : previousSha;
 	}
 
 	private _etagFileSystem: number | undefined;
@@ -488,7 +489,7 @@ export class GitCommit implements GitRevisionReference {
 					this.repoPath,
 					this.file.uri,
 					editorLine,
-					ref ?? (this.sha === GitRevision.uncommitted ? undefined : this.sha),
+					ref ?? (this.sha === uncommitted ? undefined : this.sha),
 			  )
 			: Promise.resolve(undefined);
 	}
@@ -498,13 +499,13 @@ export class GitCommit implements GitRevisionReference {
 		if (this._previousShaPromise == null) {
 			async function getCore(this: GitCommit) {
 				if (this.file != null) {
-					if (this.file.previousSha != null && GitRevision.isSha(this.file.previousSha)) {
+					if (this.file.previousSha != null && isSha(this.file.previousSha)) {
 						return this.file.previousSha;
 					}
 
 					const sha = await this.container.git.resolveReference(
 						this.repoPath,
-						GitRevision.isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`,
+						isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`,
 						this.file.originalPath ?? this.file.path,
 					);
 
@@ -513,11 +514,11 @@ export class GitCommit implements GitRevisionReference {
 				}
 
 				const parent = this.parents[0];
-				if (parent != null && GitRevision.isSha(parent)) return parent;
+				if (parent != null && isSha(parent)) return parent;
 
 				const sha = await this.container.git.resolveReference(
 					this.repoPath,
-					GitRevision.isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`,
+					isUncommitted(this.sha, true) ? 'HEAD' : `${this.sha}^`,
 				);
 
 				this._resolvedPreviousSha = sha;

@@ -8,7 +8,7 @@ import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
 import type { GitBranchReference, GitRevisionReference } from '../git/models/reference';
-import { GitReference } from '../git/models/reference';
+import { getReferenceLabel } from '../git/models/reference';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { executeCommand } from '../system/command';
@@ -259,7 +259,10 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(branch, { icon: false, quoted: true })} in the side bar...`,
+				title: `Revealing ${getReferenceLabel(branch, {
+					icon: false,
+					quoted: true,
+				})} in the side bar...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -285,7 +288,10 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(commit, { icon: false, quoted: true })} in the side bar...`,
+				title: `Revealing ${getReferenceLabel(commit, {
+					icon: false,
+					quoted: true,
+				})} in the side bar...`,
 				cancellable: true,
 			},
 			async (progress, token) => {

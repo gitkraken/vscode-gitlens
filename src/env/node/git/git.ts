@@ -8,7 +8,7 @@ import { GlyphChars, LogLevel, slowCallWarningThreshold } from '../../../constan
 import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
 import { GitErrorHandling } from '../../../git/commandOptions';
 import type { GitDiffFilter } from '../../../git/models/diff';
-import { GitRevision } from '../../../git/models/reference';
+import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/models/reference';
 import type { GitUser } from '../../../git/models/user';
 import { GitBranchParser } from '../../../git/parsers/branchParser';
 import { GitLogParser } from '../../../git/parsers/logParser';
@@ -378,7 +378,7 @@ export class Git {
 
 		let stdin;
 		if (ref) {
-			if (GitRevision.isUncommittedStaged(ref)) {
+			if (isUncommittedStaged(ref)) {
 				// Pipe the blame contents to stdin
 				params.push('--contents', '-');
 
@@ -565,10 +565,10 @@ export class Git {
 			if (ref1.endsWith('^3^')) {
 				ref1 = rootSha;
 			}
-			params.push(GitRevision.isUncommittedStaged(ref1) ? '--staged' : ref1);
+			params.push(isUncommittedStaged(ref1) ? '--staged' : ref1);
 		}
 		if (ref2) {
-			params.push(GitRevision.isUncommittedStaged(ref2) ? '--staged' : ref2);
+			params.push(isUncommittedStaged(ref2) ? '--staged' : ref2);
 		}
 
 		try {
@@ -620,7 +620,7 @@ export class Git {
 		// if (ref.endsWith('^3^')) {
 		// 	ref = rootSha;
 		// }
-		// params.push(GitRevision.isUncommittedStaged(ref) ? '--staged' : ref);
+		// params.push(isUncommittedStaged(ref) ? '--staged' : ref);
 
 		params.push('--no-index');
 
@@ -866,7 +866,7 @@ export class Git {
 			params.push('--all', '--single-worktree');
 		}
 
-		if (ref && !GitRevision.isUncommittedStaged(ref)) {
+		if (ref && !isUncommittedStaged(ref)) {
 			params.push(ref);
 		}
 
@@ -895,7 +895,7 @@ export class Git {
 			'log',
 			...(options?.stdin ? ['--stdin'] : emptyArray),
 			...args,
-			...(options?.ref && !GitRevision.isUncommittedStaged(options.ref) ? [options.ref] : emptyArray),
+			...(options?.ref && !isUncommittedStaged(options.ref) ? [options.ref] : emptyArray),
 			...(!args.includes('--') ? ['--'] : emptyArray),
 		);
 	}
@@ -1078,7 +1078,7 @@ export class Git {
 			}
 		}
 
-		if (ref && !GitRevision.isUncommittedStaged(ref)) {
+		if (ref && !isUncommittedStaged(ref)) {
 			// If we are reversing, we must add a range (with HEAD) because we are using --ancestry-path for better reverse walking
 			if (reverse) {
 				params.push('--reverse', '--ancestry-path', `${ref}..HEAD`);
@@ -1235,7 +1235,7 @@ export class Git {
 
 	//  log__shortstat(repoPath: string, options: { ref?: string }) {
 	//     const params = ['log', '--shortstat', '--oneline'];
-	//     if (options.ref && !GitRevision.isUncommittedStaged(options.ref)) {
+	//     if (options.ref && !isUncommittedStaged(options.ref)) {
 	//         params.push(options.ref);
 	//     }
 	//     return this.git<string>({ cwd: repoPath, configs: gitLogDefaultConfigs }, ...params, '--');
@@ -1247,7 +1247,7 @@ export class Git {
 		{ ref, untracked }: { ref?: string; untracked?: boolean } = {},
 	): Promise<string | undefined> {
 		const params = ['ls-files'];
-		if (ref && !GitRevision.isUncommitted(ref)) {
+		if (ref && !isUncommitted(ref)) {
 			params.push(`--with-tree=${ref}`);
 		}
 
@@ -1511,7 +1511,7 @@ export class Git {
 				const sha = await this.log__recent(repoPath, ordering);
 				if (sha === undefined) return undefined;
 
-				return [`(HEAD detached at ${GitRevision.shorten(sha)})`, sha];
+				return [`(HEAD detached at ${shortenRevision(sha)})`, sha];
 			}
 
 			defaultExceptionHandler(ex, repoPath);
@@ -1606,10 +1606,10 @@ export class Git {
 	): Promise<TOut | undefined> {
 		const [file, root] = splitPath(fileName, repoPath, true);
 
-		if (GitRevision.isUncommittedStaged(ref)) {
+		if (isUncommittedStaged(ref)) {
 			ref = ':';
 		}
-		if (GitRevision.isUncommitted(ref)) throw new Error(`ref=${ref} is uncommitted`);
+		if (isUncommitted(ref)) throw new Error(`ref=${ref} is uncommitted`);
 
 		const opts: GitCommandOptions = {
 			configs: gitLogDefaultConfigs,

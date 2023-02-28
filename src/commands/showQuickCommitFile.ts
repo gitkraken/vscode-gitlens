@@ -142,7 +142,7 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 				}
 			}
 
-			// const shortSha = GitRevision.shorten(args.sha);
+			// const shortSha = shorten(args.sha);
 
 			// if (args.commit instanceof GitBlameCommit) {
 			// 	args.commit = (await this.container.git.getCommit(args.commit.repoPath, args.commit.ref))!;

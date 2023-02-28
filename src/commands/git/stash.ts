@@ -7,7 +7,7 @@ import { reveal, showDetailsView } from '../../git/actions/stash';
 import { StashApplyError, StashApplyErrorReason } from '../../git/errors';
 import type { GitStashCommit } from '../../git/models/commit';
 import type { GitStashReference } from '../../git/models/reference';
-import { GitReference } from '../../git/models/reference';
+import { getReferenceLabel } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { Logger } from '../../logger';
 import { showGenericErrorMessage } from '../../messages';
@@ -348,12 +348,10 @@ export class StashGitCommand extends QuickCommand<State> {
 					label: context.title,
 					detail:
 						state.subcommand === 'pop'
-							? `Will delete ${GitReference.toString(
+							? `Will delete ${getReferenceLabel(
 									state.reference,
 							  )} and apply the changes to the working tree`
-							: `Will apply the changes from ${GitReference.toString(
-									state.reference,
-							  )} to the working tree`,
+							: `Will apply the changes from ${getReferenceLabel(state.reference)} to the working tree`,
 					item: state.subcommand,
 				},
 				// Alternate confirmation (if pop then apply, and vice versa)
@@ -361,10 +359,8 @@ export class StashGitCommand extends QuickCommand<State> {
 					label: getTitle(this.title, state.subcommand === 'pop' ? 'apply' : 'pop'),
 					detail:
 						state.subcommand === 'pop'
-							? `Will apply the changes from ${GitReference.toString(
-									state.reference,
-							  )} to the working tree`
-							: `Will delete ${GitReference.toString(
+							? `Will apply the changes from ${getReferenceLabel(state.reference)} to the working tree`
+							: `Will delete ${getReferenceLabel(
 									state.reference,
 							  )} and apply the changes to the working tree`,
 					item: state.subcommand === 'pop' ? 'apply' : 'pop',
@@ -431,7 +427,7 @@ export class StashGitCommand extends QuickCommand<State> {
 			[
 				{
 					label: context.title,
-					detail: `Will delete ${GitReference.toString(state.reference)}`,
+					detail: `Will delete ${getReferenceLabel(state.reference)}`,
 				},
 			],
 			undefined,
