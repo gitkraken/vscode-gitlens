@@ -108,12 +108,6 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	if (!workspace.isTrusted) {
 		void setContext(ContextKeys.Untrusted, true);
-		context.subscriptions.push(
-			workspace.onDidGrantWorkspaceTrust(() => {
-				void setContext(ContextKeys.Untrusted, undefined);
-				container.telemetry.setGlobalAttribute('workspace.isTrusted', workspace.isTrusted);
-			}),
-		);
 	}
 
 	setKeysForSync(context);
@@ -160,6 +154,15 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		context.subscriptions.push(...registerCommands(container));
 		registerBuiltInActionRunners(container);
 		registerPartnerActionRunners(context);
+
+		if (!workspace.isTrusted) {
+			context.subscriptions.push(
+				workspace.onDidGrantWorkspaceTrust(() => {
+					void setContext(ContextKeys.Untrusted, undefined);
+					container.telemetry.setGlobalAttribute('workspace.isTrusted', workspace.isTrusted);
+				}),
+			);
+		}
 
 		void showWelcomeOrWhatsNew(container, gitlensVersion, previousVersion);
 
