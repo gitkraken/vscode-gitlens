@@ -4,7 +4,8 @@ import type { DiffWithCommandArgs } from '../../commands';
 import { Commands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
-import { GitFile } from '../../git/models/file';
+import type { GitFile } from '../../git/models/file';
+import { getGitFileStatusIcon } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { GitReference } from '../../git/models/reference';
 import { joinPaths, relativeDir } from '../../system/path';
@@ -47,7 +48,7 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 			this.file,
 		);
 
-		const statusIcon = GitFile.getStatusIcon(this.file.status);
+		const statusIcon = getGitFileStatusIcon(this.file.status);
 		item.iconPath = {
 			dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', statusIcon)),
 			light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', statusIcon)),

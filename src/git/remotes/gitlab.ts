@@ -347,11 +347,11 @@ export class GitLabRemote extends RichRemoteProvider {
 		const [owner, repo] = this.splitPath();
 		const { include, ...opts } = options ?? {};
 
-		const GitLabMergeRequest = (await import(/* webpackChunkName: "gitlab" */ '../../plus/gitlab/models'))
-			.GitLabMergeRequest;
+		const toGitLabMergeRequestState = (await import(/* webpackChunkName: "gitlab" */ '../../plus/gitlab/models'))
+			.toGitLabMergeRequestState;
 		return (await this.container.gitlab)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
 			...opts,
-			include: include?.map(s => GitLabMergeRequest.toState(s)),
+			include: include?.map(s => toGitLabMergeRequestState(s)),
 			baseUrl: this.apiBaseUrl,
 		});
 	}

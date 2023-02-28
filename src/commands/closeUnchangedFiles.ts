@@ -5,7 +5,7 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
-import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
 import { Command } from './base';
 
@@ -24,7 +24,7 @@ export class CloseUnchangedFilesCommand extends Command {
 
 		try {
 			if (args.uris == null) {
-				const repository = await RepositoryPicker.getRepositoryOrShow('Close All Unchanged Files');
+				const repository = await getRepositoryOrShowPicker('Close All Unchanged Files');
 				if (repository == null) return;
 
 				const status = await this.container.git.getStatusForRepo(repository.uri);

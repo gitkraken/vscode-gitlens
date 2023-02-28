@@ -19,7 +19,7 @@ import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitCommit } from '../../git/models/commit';
 import { isCommit } from '../../git/models/commit';
 import type { GitFileChange } from '../../git/models/file';
-import { GitFile } from '../../git/models/file';
+import { getGitFileStatusIcon } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import { serializeIssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
@@ -724,7 +724,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			author: { ...commit.author, avatar: avatarUri?.toString(true) },
 			// committer: { ...commit.committer, avatar: committerAvatar?.toString(true) },
 			files: commit.files?.map(({ status, repoPath, path, originalPath }) => {
-				const icon = GitFile.getStatusIcon(status);
+				const icon = getGitFileStatusIcon(status);
 				return {
 					path: path,
 					originalPath: originalPath,

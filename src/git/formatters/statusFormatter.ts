@@ -1,8 +1,15 @@
 import { GlyphChars } from '../../constants';
 import { basename } from '../../system/path';
 import type { TokenOptions } from '../../system/string';
-import type { GitFileWithCommit } from '../models/file';
-import { GitFile, GitFileChange } from '../models/file';
+import type { GitFile, GitFileWithCommit } from '../models/file';
+import {
+	getGitFileFormattedDirectory,
+	getGitFileFormattedPath,
+	getGitFileOriginalRelativePath,
+	getGitFileRelativePath,
+	getGitFileStatusText,
+	GitFileChange,
+} from '../models/file';
 import type { FormatOptions } from './formatter';
 import { Formatter } from './formatter';
 
@@ -25,7 +32,7 @@ export interface StatusFormatOptions extends FormatOptions {
 
 export class StatusFileFormatter extends Formatter<GitFile, StatusFormatOptions> {
 	get directory() {
-		const directory = GitFile.getFormattedDirectory(this._item, false, this._options.relativePath);
+		const directory = getGitFileFormattedDirectory(this._item, false, this._options.relativePath);
 		return this._padOrTruncate(directory, this._options.tokenOptions.directory);
 	}
 
@@ -35,7 +42,7 @@ export class StatusFileFormatter extends Formatter<GitFile, StatusFormatOptions>
 	}
 
 	get filePath() {
-		const filePath = GitFile.getFormattedPath(this._item, {
+		const filePath = getGitFileFormattedPath(this._item, {
 			relativeTo: this._options.relativePath,
 			truncateTo: this._options.tokenOptions.filePath?.truncateTo,
 		});
@@ -51,17 +58,17 @@ export class StatusFileFormatter extends Formatter<GitFile, StatusFormatOptions>
 		//     return '';
 		// }
 
-		const originalPath = GitFile.getOriginalRelativePath(this._item, this._options.relativePath);
+		const originalPath = getGitFileOriginalRelativePath(this._item, this._options.relativePath);
 		return this._padOrTruncate(originalPath, this._options.tokenOptions.originalPath);
 	}
 
 	get path() {
-		const directory = GitFile.getRelativePath(this._item, this._options.relativePath);
+		const directory = getGitFileRelativePath(this._item, this._options.relativePath);
 		return this._padOrTruncate(directory, this._options.tokenOptions.path);
 	}
 
 	get status() {
-		const status = GitFile.getStatusText(this._item.status);
+		const status = getGitFileStatusText(this._item.status);
 		return this._padOrTruncate(status, this._options.tokenOptions.status);
 	}
 

@@ -1,15 +1,15 @@
 import type { QuickPickItem } from 'vscode';
 import { window } from 'vscode';
 import type { OpenChangedFilesCommandArgs } from '../../commands/openChangedFiles';
-import { QuickCommandButtons } from '../../commands/quickCommand.buttons';
+import { RevealInSideBarQuickInputButton, ShowDetailsViewQuickInputButton } from '../../commands/quickCommand.buttons';
 import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { browseAtRevision } from '../../git/actions';
 import * as CommitActions from '../../git/actions/commit';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitCommit } from '../../git/models/commit';
-import type { GitFileChange } from '../../git/models/file';
-import { GitFile } from '../../git/models/file';
+import type { GitFile, GitFileChange } from '../../git/models/file';
+import { getGitFileFormattedDirectory, getGitFileStatusCodicon } from '../../git/models/file';
 import type { GitStatusFile } from '../../git/models/status';
 import type { Keys } from '../../keyboard';
 import { basename } from '../../system/path';
@@ -47,7 +47,7 @@ export class CommitFilesQuickPickItem extends CommandQuickPickItem {
 				}${options?.hint != null ? `${pad(GlyphChars.Dash, 4, 2, GlyphChars.Space)}${options.hint}` : ''}`,
 				alwaysShow: true,
 				picked: options?.picked ?? true,
-				buttons: [QuickCommandButtons.ShowDetailsView, QuickCommandButtons.RevealInSideBar],
+				buttons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
 			},
 			undefined,
 			undefined,
@@ -63,8 +63,8 @@ export class CommitFilesQuickPickItem extends CommandQuickPickItem {
 export class CommitFileQuickPickItem extends CommandQuickPickItem {
 	constructor(readonly commit: GitCommit, readonly file: GitFile, picked?: boolean) {
 		super({
-			label: `${pad(GitFile.getStatusCodicon(file.status), 0, 2)}${basename(file.path)}`,
-			description: GitFile.getFormattedDirectory(file, true),
+			label: `${pad(getGitFileStatusCodicon(file.status), 0, 2)}${basename(file.path)}`,
+			description: getGitFileFormattedDirectory(file, true),
 			picked: picked,
 		});
 

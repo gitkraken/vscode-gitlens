@@ -57,7 +57,7 @@ import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey } from '../../../git/search';
-import { RepositoryPicker } from '../../../quickpicks/repositoryPicker';
+import { showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
 import type { StoredGraphFilters, StoredGraphIncludeOnlyRef } from '../../../storage';
 import {
 	executeActionCommand,
@@ -1064,7 +1064,7 @@ export class GraphWebview extends WebviewBase<State> {
 				a.index - b.index,
 		);
 
-		const pick = await RepositoryPicker.show(
+		const pick = await showRepositoryPicker(
 			`Switch Repository ${GlyphChars.Dot} ${this.repository?.name}`,
 			'Choose a repository to switch to',
 			repositories,

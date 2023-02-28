@@ -6,7 +6,7 @@ import { GitRevision } from '../git/models/reference';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
 import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
-import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/command';
 import type { CommandContext } from './base';
 import {
@@ -63,7 +63,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 		let gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
 		const repoPath = (
-			await RepositoryPicker.getBestRepositoryOrShow(
+			await getBestRepositoryOrShowPicker(
 				gitUri,
 				editor,
 				args?.clipboard ? 'Copy Remote Commit URL' : 'Open Commit On Remote',

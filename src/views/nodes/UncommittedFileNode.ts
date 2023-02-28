@@ -4,7 +4,8 @@ import type { DiffWithPreviousCommandArgs } from '../../commands';
 import { Commands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
-import { GitFile } from '../../git/models/file';
+import type { GitFile } from '../../git/models/file';
+import { getGitFileStatusIcon } from '../../git/models/file';
 import { dirname, joinPaths } from '../../system/path';
 import type { ViewsWithCommits } from '../viewBase';
 import type { FileNode } from './folderNode';
@@ -35,7 +36,7 @@ export class UncommittedFileNode extends ViewFileNode<ViewsWithCommits> implemen
 		// Use the file icon and decorations
 		item.resourceUri = this.view.container.git.getAbsoluteUri(this.file.path, this.repoPath);
 
-		const icon = GitFile.getStatusIcon(this.file.status);
+		const icon = getGitFileStatusIcon(this.file.status);
 		item.iconPath = {
 			dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon)),
 			light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon)),

@@ -2,7 +2,12 @@ import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'v
 import type { Autolink } from '../../annotations/autolinks';
 import { AutolinkType } from '../../config';
 import { GitUri } from '../../git/gitUri';
-import { IssueOrPullRequest, IssueOrPullRequestType } from '../../git/models/issue';
+import type { IssueOrPullRequest } from '../../git/models/issue';
+import {
+	getIssueOrPullRequestMarkdownIcon,
+	getIssueOrPullRequestThemeIcon,
+	IssueOrPullRequestType,
+} from '../../git/models/issue';
 import { fromNow } from '../../system/date';
 import type { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode } from './viewNode';
@@ -63,7 +68,7 @@ export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 
 		const item = new TreeItem(`${this.item.id}: ${this.item.title}`, TreeItemCollapsibleState.None);
 		item.description = relativeTime;
-		item.iconPath = IssueOrPullRequest.getThemeIcon(this.item);
+		item.iconPath = getIssueOrPullRequestThemeIcon(this.item);
 		item.contextValue =
 			this.item.type === IssueOrPullRequestType.PullRequest
 				? ContextValues.PullRequest
@@ -73,7 +78,7 @@ export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 			this.item.type === IssueOrPullRequestType.PullRequest ? 'Pull Request' : 'Issue'
 		} \\#${this.item.id} on ${this.item.provider.name}"`;
 		const tooltip = new MarkdownString(
-			`${IssueOrPullRequest.getMarkdownIcon(this.item)} [**${this.item.title.trim()}**](${
+			`${getIssueOrPullRequestMarkdownIcon(this.item)} [**${this.item.title.trim()}**](${
 				this.item.url
 			}${linkTitle}) \\\n[#${this.item.id}](${this.item.url}${linkTitle}) was ${
 				this.item.closed ? 'closed' : 'opened'

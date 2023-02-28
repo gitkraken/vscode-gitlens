@@ -40,9 +40,7 @@ _onDidFetchAvatar.event(
 	}, 1000),
 );
 
-export namespace Avatars {
-	export const onDidFetch = _onDidFetchAvatar.event;
-}
+export const onDidFetchAvatar = _onDidFetchAvatar.event;
 
 interface Avatar {
 	uri?: Uri;

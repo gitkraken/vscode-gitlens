@@ -6,7 +6,8 @@ import { Commands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitCommit } from '../../git/models/commit';
-import { GitFile } from '../../git/models/file';
+import type { GitFile} from '../../git/models/file';
+import { getGitFileStatusIcon } from '../../git/models/file';
 import { joinPaths, relativeDir } from '../../system/path';
 import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
@@ -118,7 +119,7 @@ export class StatusFileNode extends ViewFileNode<ViewsWithCommits> implements Fi
 			} else {
 				item.contextValue = ContextValues.StatusFileCommits;
 
-				const icon = GitFile.getStatusIcon(this.file.status);
+				const icon = getGitFileStatusIcon(this.file.status);
 				item.iconPath = {
 					dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon)),
 					light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon)),

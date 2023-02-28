@@ -27,10 +27,13 @@ import {
 	canPickStepContinue,
 	createPickStep,
 	endSteps,
+	MatchAllToggleQuickInputButton,
+	MatchCaseToggleQuickInputButton,
+	MatchRegexToggleQuickInputButton,
 	pickCommitStep,
 	pickRepositoryStep,
 	QuickCommand,
-	QuickCommandButtons,
+	ShowResultsInSideBarQuickInputButton,
 	StepResultBreak,
 } from '../quickCommand';
 
@@ -228,7 +231,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 							),
 					),
 					showInSideBarButton: {
-						button: QuickCommandButtons.ShowResultsInSideBar,
+						button: ShowResultsInSideBarQuickInputButton,
 						onDidClick: () =>
 							void this.container.searchAndCompareView.search(
 								repoPath,
@@ -316,9 +319,9 @@ export class SearchGitCommand extends QuickCommand<State> {
 				  },
 		].filter(<T>(i?: T): i is T => i != null);
 
-		const matchCaseButton = new QuickCommandButtons.MatchCaseToggle(state.matchCase);
-		const matchAllButton = new QuickCommandButtons.MatchAllToggle(state.matchAll);
-		const matchRegexButton = new QuickCommandButtons.MatchRegexToggle(state.matchRegex);
+		const matchCaseButton = new MatchCaseToggleQuickInputButton(state.matchCase);
+		const matchAllButton = new MatchAllToggleQuickInputButton(state.matchAll);
+		const matchRegexButton = new MatchRegexToggleQuickInputButton(state.matchRegex);
 
 		const step = createPickStep<QuickPickItemOfT<SearchOperators>>({
 			title: appendReposToTitle(context.title, state, context),

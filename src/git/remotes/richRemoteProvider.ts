@@ -18,7 +18,6 @@ import type { DefaultBranch } from '../models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../models/issue';
 import type { PullRequest, PullRequestState, SearchedPullRequest } from '../models/pullRequest';
 import { RemoteProvider } from './remoteProvider';
-import { RichRemoteProviders } from './remoteProviderConnections';
 
 // TODO@eamodio revisit how once authenticated, all remotes are always connected, even after a restart
 
@@ -47,7 +46,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 				}
 			}),
 			// TODO@eamodio revisit how connections are linked or not
-			RichRemoteProviders.onDidChangeConnectionState(e => {
+			container.richRemoteProviders.onDidChangeConnectionState(e => {
 				if (e.key !== this.key) return;
 
 				if (e.reason === 'disconnected') {
@@ -154,7 +153,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 			this._onDidChange.fire();
 			if (!options?.silent && !options?.currentSessionOnly) {
-				RichRemoteProviders.disconnected(this.key);
+				this.container.richRemoteProviders.disconnected(this.key);
 			}
 		}
 	}
@@ -503,7 +502,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 			queueMicrotask(() => {
 				this._onDidChange.fire();
-				RichRemoteProviders.connected(this.key);
+				this.container.richRemoteProviders.connected(this.key);
 			});
 		}
 

@@ -7,7 +7,7 @@ import { RemoteResourceType } from '../git/models/remoteResource';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
-import { RemoteProviderPicker } from '../quickpicks/remoteProviderPicker';
+import { showRemoteProviderPicker } from '../quickpicks/remoteProviderPicker';
 import { command } from '../system/command';
 import { pad, splitSingle } from '../system/string';
 import { Command } from './base';
@@ -79,7 +79,7 @@ export class OpenOnRemoteCommand extends Command {
 			const providers = GitRemote.getHighlanderProviders(remotes);
 			const provider = providers?.length ? providers[0].name : 'Remote';
 
-			const options: Parameters<typeof RemoteProviderPicker.show>[4] = {
+			const options: Parameters<typeof showRemoteProviderPicker>[4] = {
 				autoPick: 'default',
 				clipboard: args.clipboard,
 				setDefault: true,
@@ -155,7 +155,7 @@ export class OpenOnRemoteCommand extends Command {
 				// }
 			}
 
-			const pick = await RemoteProviderPicker.show(title, placeHolder, args.resource, remotes, options);
+			const pick = await showRemoteProviderPicker(title, placeHolder, args.resource, remotes, options);
 			await pick?.execute();
 		} catch (ex) {
 			Logger.error(ex, 'OpenOnRemoteCommand');

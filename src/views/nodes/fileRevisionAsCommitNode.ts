@@ -8,7 +8,8 @@ import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
-import { GitFile } from '../../git/models/file';
+import type { GitFile } from '../../git/models/file';
+import { getGitFileStatusIcon } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { joinPaths } from '../../system/path';
 import { getSettledValue } from '../../system/promise';
@@ -111,7 +112,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		}
 
 		if (item.iconPath == null) {
-			const icon = GitFile.getStatusIcon(this.file.status);
+			const icon = getGitFileStatusIcon(this.file.status);
 			item.iconPath = {
 				dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon)),
 				light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon)),

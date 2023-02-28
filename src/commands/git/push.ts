@@ -24,10 +24,10 @@ import {
 	appendReposToTitle,
 	canPickStepContinue,
 	endSteps,
+	FetchQuickInputButton,
 	pickRepositoriesStep,
 	pickRepositoryStep,
 	QuickCommand,
-	QuickCommandButtons,
 	StepResultBreak,
 } from '../quickCommand';
 
@@ -390,9 +390,9 @@ export class PushGitCommand extends QuickCommand<State> {
 							: undefined,
 					);
 
-					step.additionalButtons = [QuickCommandButtons.Fetch];
+					step.additionalButtons = [FetchQuickInputButton];
 					step.onDidClickButton = async (quickpick, button) => {
-						if (button !== QuickCommandButtons.Fetch || quickpick.busy) return false;
+						if (button !== FetchQuickInputButton || quickpick.busy) return false;
 
 						quickpick.title = `Confirm ${context.title}${pad(GlyphChars.Dot, 2, 2)}Fetching${
 							GlyphChars.Ellipsis

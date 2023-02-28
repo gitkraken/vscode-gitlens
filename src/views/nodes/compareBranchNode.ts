@@ -5,7 +5,7 @@ import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import { GitRevision } from '../../git/models/reference';
 import { CommandQuickPickItem } from '../../quickpicks/items/common';
-import { ReferencePicker } from '../../quickpicks/referencePicker';
+import { showReferencePicker } from '../../quickpicks/referencePicker';
 import type { StoredBranchComparison, StoredBranchComparisons } from '../../storage';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
@@ -229,7 +229,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	}
 
 	private async compareWith() {
-		const pick = await ReferencePicker.show(
+		const pick = await showReferencePicker(
 			this.branch.repoPath,
 			`Compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''} with`,
 			'Choose a reference to compare with',

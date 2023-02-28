@@ -16,6 +16,7 @@ import { GitFileSystemProvider } from './git/fsProvider';
 import { GitProviderService } from './git/gitProviderService';
 import { GitHubAuthenticationProvider } from './git/remotes/github';
 import { GitLabAuthenticationProvider } from './git/remotes/gitlab';
+import { RichRemoteProviderService } from './git/remotes/remoteProviderService';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
 import { Logger } from './logger';
@@ -168,6 +169,8 @@ export class Container {
 		context.subscriptions.splice(0, 0, (this._usage = new UsageTracker(this, storage)));
 
 		context.subscriptions.splice(0, 0, configuration.onWillChange(this.onConfigurationChanging, this));
+
+		this._richRemoteProviders = new RichRemoteProviderService(this);
 
 		const server = new ServerConnection(this);
 		context.subscriptions.splice(0, 0, server);
@@ -568,6 +571,11 @@ export class Container {
 	private _focusWebview: FocusWebview;
 	get focusWebview() {
 		return this._focusWebview;
+	}
+
+	private readonly _richRemoteProviders: RichRemoteProviderService;
+	get richRemoteProviders(): RichRemoteProviderService {
+		return this._richRemoteProviders;
 	}
 
 	private _stashesView: StashesView | undefined;

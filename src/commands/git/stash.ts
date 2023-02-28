@@ -39,7 +39,8 @@ import {
 	pickRepositoryStep,
 	pickStashStep,
 	QuickCommand,
-	QuickCommandButtons,
+	RevealInSideBarQuickInputButton,
+	ShowDetailsViewQuickInputButton,
 	StepResultBreak,
 } from '../quickCommand';
 
@@ -372,14 +373,14 @@ export class StashGitCommand extends QuickCommand<State> {
 			undefined,
 			{
 				placeholder: `Confirm ${context.title}`,
-				additionalButtons: [QuickCommandButtons.ShowDetailsView, QuickCommandButtons.RevealInSideBar],
+				additionalButtons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
 				onDidClickButton: (quickpick, button) => {
-					if (button === QuickCommandButtons.ShowDetailsView) {
+					if (button === ShowDetailsViewQuickInputButton) {
 						void showDetailsView(state.reference, {
 							pin: false,
 							preserveFocus: true,
 						});
-					} else if (button === QuickCommandButtons.RevealInSideBar) {
+					} else if (button === RevealInSideBarQuickInputButton) {
 						void reveal(state.reference, {
 							select: true,
 							expand: true,
@@ -436,14 +437,14 @@ export class StashGitCommand extends QuickCommand<State> {
 			undefined,
 			{
 				placeholder: `Confirm ${context.title}`,
-				additionalButtons: [QuickCommandButtons.ShowDetailsView, QuickCommandButtons.RevealInSideBar],
+				additionalButtons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
 				onDidClickButton: (quickpick, button) => {
-					if (button === QuickCommandButtons.ShowDetailsView) {
+					if (button === ShowDetailsViewQuickInputButton) {
 						void showDetailsView(state.reference, {
 							pin: false,
 							preserveFocus: true,
 						});
-					} else if (button === QuickCommandButtons.RevealInSideBar) {
+					} else if (button === RevealInSideBarQuickInputButton) {
 						void reveal(state.reference, {
 							select: true,
 							expand: true,

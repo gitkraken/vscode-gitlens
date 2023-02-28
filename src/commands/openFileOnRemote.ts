@@ -10,7 +10,7 @@ import { GitRevision } from '../git/models/reference';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
-import { ReferencePicker } from '../quickpicks/referencePicker';
+import { showReferencePicker } from '../quickpicks/referencePicker';
 import { command, executeCommand } from '../system/command';
 import { pad, splitSingle } from '../system/string';
 import { StatusFileNode } from '../views/nodes/statusFileNode';
@@ -148,7 +148,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 				}
 
 				if (branch?.upstream == null) {
-					const pick = await ReferencePicker.show(
+					const pick = await showReferencePicker(
 						gitUri.repoPath,
 						args.clipboard
 							? `Copy Remote File URL From${pad(GlyphChars.Dot, 2, 2)}${gitUri.relativePath}`

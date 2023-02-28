@@ -48,13 +48,15 @@ import type {
 	GitHubCommitRef,
 	GitHubContributor,
 	GitHubDetailedPullRequest,
+	GitHubIssueDetailed,
 	GitHubIssueOrPullRequest,
 	GitHubPagedResult,
 	GitHubPageInfo,
+	GitHubPullRequest,
 	GitHubPullRequestState,
 	GitHubTag,
 } from './models';
-import { GitHubDetailedIssue, GitHubPullRequest } from './models';
+import { fromGitHubIssueDetailed, fromGitHubPullRequest, fromGitHubPullRequestDetailed } from './models';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const emptyBlameResult: GitHubBlame = Object.freeze({ ranges: [] });
@@ -634,7 +636,7 @@ export class GitHubApi implements Disposable {
 				);
 			}
 
-			return GitHubPullRequest.from(prs[0], provider);
+			return fromGitHubPullRequest(prs[0], provider);
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
@@ -734,7 +736,7 @@ export class GitHubApi implements Disposable {
 				);
 			}
 
-			return GitHubPullRequest.from(prs[0], provider);
+			return fromGitHubPullRequest(prs[0], provider);
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
@@ -2467,7 +2469,7 @@ export class GitHubApi implements Disposable {
 
 			function toQueryResult(pr: GitHubDetailedPullRequest, reason?: string): SearchedPullRequest {
 				return {
-					pullRequest: GitHubPullRequest.fromDetailed(pr, provider),
+					pullRequest: fromGitHubPullRequestDetailed(pr, provider),
 					reasons: reason ? [reason] : [],
 				};
 			}
@@ -2496,16 +2498,16 @@ export class GitHubApi implements Disposable {
 		const scope = getLogScope();
 		interface SearchResult {
 			related: {
-				nodes: GitHubDetailedIssue[];
+				nodes: GitHubIssueDetailed[];
 			};
 			authored: {
-				nodes: GitHubDetailedIssue[];
+				nodes: GitHubIssueDetailed[];
 			};
 			assigned: {
-				nodes: GitHubDetailedIssue[];
+				nodes: GitHubIssueDetailed[];
 			};
 			mentioned: {
-				nodes: GitHubDetailedIssue[];
+				nodes: GitHubIssueDetailed[];
 			};
 		}
 
@@ -2556,9 +2558,9 @@ export class GitHubApi implements Disposable {
 				scope,
 			);
 
-			function toQueryResult(issue: GitHubDetailedIssue, reason?: string): SearchedIssue {
+			function toQueryResult(issue: GitHubIssueDetailed, reason?: string): SearchedIssue {
 				return {
-					issue: GitHubDetailedIssue.from(issue, provider),
+					issue: fromGitHubIssueDetailed(issue, provider),
 					reasons: reason ? [reason] : [],
 				};
 			}

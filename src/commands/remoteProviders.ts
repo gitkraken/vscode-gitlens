@@ -4,7 +4,7 @@ import type { GitCommit } from '../git/models/commit';
 import { GitRemote } from '../git/models/remote';
 import type { Repository } from '../git/models/repository';
 import type { RichRemoteProvider } from '../git/remotes/richRemoteProvider';
-import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { showRepositoryPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
 import { first } from '../system/iterable';
 import type { CommandContext } from './base';
@@ -65,7 +65,7 @@ export class ConnectRemoteProviderCommand extends Command {
 				[repo, remote] = first(repos)!;
 				repoPath = repo.path;
 			} else {
-				const pick = await RepositoryPicker.show(
+				const pick = await showRepositoryPicker(
 					undefined,
 					'Choose which repository to connect to the remote provider',
 					[...repos.keys()],
@@ -156,7 +156,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 				[repo, remote] = first(repos)!;
 				repoPath = repo.path;
 			} else {
-				const pick = await RepositoryPicker.show(
+				const pick = await showRepositoryPicker(
 					undefined,
 					'Choose which repository to disconnect from the remote provider',
 					[...repos.keys()],

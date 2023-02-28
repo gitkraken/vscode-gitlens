@@ -10,8 +10,8 @@ import type { GitLog } from '../git/models/log';
 import { GitRevision } from '../git/models/reference';
 import type { SearchQuery } from '../git/search';
 import { getSearchQuery } from '../git/search';
-import { ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks/referencePicker';
-import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
+import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import type { StoredNamedRef, StoredPinnedItem, StoredPinnedItems } from '../storage';
 import { filterMap } from '../system/array';
 import { executeCommand } from '../system/command';
@@ -139,7 +139,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 		}
 
 		if (ref == null) {
-			const pick = await ReferencePicker.show(
+			const pick = await showReferencePicker(
 				repoPath,
 				`Compare ${this.getRefName(selectedRef.ref)} with`,
 				'Choose a reference to compare with',
@@ -169,7 +169,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 
 	async selectForCompare(repoPath?: string, ref?: string | StoredNamedRef, options?: { prompt?: boolean }) {
 		if (repoPath == null) {
-			repoPath = (await RepositoryPicker.getRepositoryOrShow('Compare'))?.path;
+			repoPath = (await getRepositoryOrShowPicker('Compare'))?.path;
 		}
 		if (repoPath == null) return;
 
@@ -178,7 +178,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 		let prompt = options?.prompt ?? false;
 		let ref2;
 		if (ref == null) {
-			const pick = await ReferencePicker.show(repoPath, 'Compare', 'Choose a reference to compare', {
+			const pick = await showReferencePicker(repoPath, 'Compare', 'Choose a reference to compare', {
 				allowEnteringRefs: { ranges: true },
 				// checkmarks: false,
 				include:
