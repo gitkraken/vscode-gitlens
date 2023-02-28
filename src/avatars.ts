@@ -14,6 +14,9 @@ import type { ContactPresenceStatus } from './vsls/vsls';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 
+let avatarCache: Map<string, Avatar> | undefined;
+const avatarQueue = new Map<string, Promise<Uri>>();
+
 const _onDidFetchAvatar = new EventEmitter<{ email: string }>();
 _onDidFetchAvatar.event(
 	debounce(() => {
@@ -47,9 +50,6 @@ interface Avatar {
 	timestamp: number;
 	retries: number;
 }
-
-let avatarCache: Map<string, Avatar> | undefined;
-const avatarQueue = new Map<string, Promise<Uri>>();
 
 const missingGravatarHash = '00000000000000000000000000000000';
 

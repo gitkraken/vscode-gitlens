@@ -338,6 +338,22 @@ export function GraphWrapper({
 
 	useEffect(() => subscriber?.(updateState), []);
 
+	const handleKeyDown = (e: KeyboardEvent) => {
+		if (e.key === 'Enter' || e.key === ' ') {
+			const sha = getActiveRowInfo(activeRow ?? state.activeRow)?.id;
+			if (sha == null) return;
+
+			// TODO@eamodio a bit of a hack since the graph container ref isn't exposed in the types
+			const graph = (graphRef.current as any)?.graphContainerRef.current;
+			if (!e.composedPath().some(el => el === graph)) return;
+
+			const row = rows.find(r => r.sha === sha);
+			if (row == null) return;
+
+			onDoubleClickRow?.(row, e.key !== 'Enter');
+		}
+	};
+
 	useEffect(() => {
 		window.addEventListener('keydown', handleKeyDown);
 
@@ -583,22 +599,6 @@ export function GraphWrapper({
 		minimap.current?.select(graphRow.date, true);
 	};
 
-	const handleKeyDown = (e: KeyboardEvent) => {
-		if (e.key === 'Enter' || e.key === ' ') {
-			const sha = getActiveRowInfo(activeRow ?? state.activeRow)?.id;
-			if (sha == null) return;
-
-			// TODO@eamodio a bit of a hack since the graph container ref isn't exposed in the types
-			const graph = (graphRef.current as any)?.graphContainerRef.current;
-			if (!e.composedPath().some(el => el === graph)) return;
-
-			const row = rows.find(r => r.sha === sha);
-			if (row == null) return;
-
-			onDoubleClickRow?.(row, e.key !== 'Enter');
-		}
-	};
-
 	useEffect(() => {
 		if (searchResultsError != null || searchResults == null || searchResults.count === 0 || searchQuery == null) {
 			return;
@@ -657,6 +657,34 @@ export function GraphWrapper({
 		if (searchQuery == null) return;
 
 		onSearchOpenInView?.(searchQuery);
+	};
+
+	const ensureSearchResultRow = async (id: string): Promise<string | undefined> => {
+		if (onEnsureRowPromise == null) return id;
+		if (ensuredIds.current.has(id)) return id;
+		if (ensuredSkippedIds.current.has(id)) return undefined;
+
+		let timeout: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
+			timeout = undefined;
+			setIsLoading(true);
+		}, 500);
+
+		const e = await onEnsureRowPromise(id, false);
+		if (timeout == null) {
+			setIsLoading(false);
+		} else {
+			clearTimeout(timeout);
+		}
+
+		if (e?.id === id) {
+			ensuredIds.current.add(id);
+			return id;
+		}
+
+		if (e != null) {
+			ensuredSkippedIds.current.add(id);
+		}
+		return undefined;
 	};
 
 	const handleSearchNavigation = async (e: CustomEvent<SearchNavigationEventDetail>) => {
@@ -746,34 +774,6 @@ export function GraphWrapper({
 		if (id != null) {
 			queueMicrotask(() => graphRef.current?.selectCommits([id!], false, true));
 		}
-	};
-
-	const ensureSearchResultRow = async (id: string): Promise<string | undefined> => {
-		if (onEnsureRowPromise == null) return id;
-		if (ensuredIds.current.has(id)) return id;
-		if (ensuredSkippedIds.current.has(id)) return undefined;
-
-		let timeout: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
-			timeout = undefined;
-			setIsLoading(true);
-		}, 500);
-
-		const e = await onEnsureRowPromise(id, false);
-		if (timeout == null) {
-			setIsLoading(false);
-		} else {
-			clearTimeout(timeout);
-		}
-
-		if (e?.id === id) {
-			ensuredIds.current.add(id);
-			return id;
-		}
-
-		if (e != null) {
-			ensuredSkippedIds.current.add(id);
-		}
-		return undefined;
 	};
 
 	const handleChooseRepository = () => {

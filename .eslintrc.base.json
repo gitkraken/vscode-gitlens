@@ -131,7 +131,7 @@
 			"error",
 			{
 				"destructuring": "all",
-				"ignoreReadBeforeAssign": false
+				"ignoreReadBeforeAssign": true
 			}
 		],
 		"prefer-numeric-literals": "error",
@@ -140,7 +140,6 @@
 		"prefer-spread": "error",
 		"prefer-template": "error",
 		"quotes": ["error", "single", { "avoidEscape": true, "allowTemplateLiterals": true }],
-		// Turn off until fix for: https://github.com/eslint/eslint/issues/11899
 		"require-atomic-updates": "off",
 		"semi": ["error", "always"],
 		"semi-style": ["error", "last"],
@@ -301,6 +300,7 @@
 				"varsIgnorePattern": "^_$"
 			}
 		],
+		"@typescript-eslint/no-use-before-define": ["error", { "functions": false, "classes": false }],
 		"@typescript-eslint/non-nullable-type-assertion-style": "error",
 		"@typescript-eslint/prefer-for-of": "warn",
 		"@typescript-eslint/prefer-includes": "warn",

@@ -59,6 +59,123 @@ import { GitHubDetailedIssue, GitHubPullRequest } from './models';
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const emptyBlameResult: GitHubBlame = Object.freeze({ ranges: [] });
 
+const prNodeProperties = `
+assignees(first: 10) {
+  nodes {
+	login
+	avatarUrl
+	url
+  }
+}
+author {
+  login
+  avatarUrl
+  url
+}
+baseRefName
+baseRefOid
+baseRepository {
+  name
+  owner {
+	login
+  }
+}
+checksUrl
+isDraft
+isCrossRepository
+isReadByViewer
+headRefName
+headRefOid
+headRepository {
+  name
+  owner {
+	login
+  }
+}
+permalink
+number
+title
+state
+additions
+deletions
+updatedAt
+closedAt
+mergeable
+mergedAt
+mergedBy {
+  login
+}
+repository {
+  isFork
+  owner {
+	login
+  }
+}
+repository {
+  isFork
+  owner {
+	login
+  }
+}
+reviewDecision
+reviewRequests(first: 10) {
+  nodes {
+	asCodeOwner
+	id
+	requestedReviewer {
+	  ... on User {
+		login
+		avatarUrl
+		url
+	  }
+	}
+  }
+}
+totalCommentsCount
+`;
+
+const issueNodeProperties = `
+... on Issue {
+	assignees(first: 100) {
+		nodes {
+			login
+			url
+			avatarUrl
+		}
+	}
+	author {
+		login
+		avatarUrl
+		url
+	}
+	comments {
+	  totalCount
+	}
+	number
+	title
+	url
+	createdAt
+	closedAt
+	closed
+	updatedAt
+	labels(first: 20) {
+		nodes {
+			color
+			name
+		}
+	}
+	reactions(content: THUMBS_UP) {
+	  totalCount
+	}
+	repository {
+		name
+		owner {
+			login
+		}
+	}
+}
+`;
+
 export class GitHubApi implements Disposable {
 	private readonly _onDidReauthenticate = new EventEmitter<void>();
 	get onDidReauthenticate(): Event<void> {
@@ -2475,120 +2592,3 @@ function uniqueWithReasons<T extends { reasons: string[] }>(items: T[], lookup: 
 		return original;
 	});
 }
-
-const prNodeProperties = `
-assignees(first: 10) {
-  nodes {
-	login
-	avatarUrl
-	url
-  }
-}
-author {
-  login
-  avatarUrl
-  url
-}
-baseRefName
-baseRefOid
-baseRepository {
-  name
-  owner {
-	login
-  }
-}
-checksUrl
-isDraft
-isCrossRepository
-isReadByViewer
-headRefName
-headRefOid
-headRepository {
-  name
-  owner {
-	login
-  }
-}
-permalink
-number
-title
-state
-additions
-deletions
-updatedAt
-closedAt
-mergeable
-mergedAt
-mergedBy {
-  login
-}
-repository {
-  isFork
-  owner {
-	login
-  }
-}
-repository {
-  isFork
-  owner {
-	login
-  }
-}
-reviewDecision
-reviewRequests(first: 10) {
-  nodes {
-	asCodeOwner
-	id
-	requestedReviewer {
-	  ... on User {
-		login
-		avatarUrl
-		url
-	  }
-	}
-  }
-}
-totalCommentsCount
-`;
-
-const issueNodeProperties = `
-... on Issue {
-	assignees(first: 100) {
-		nodes {
-			login
-			url
-			avatarUrl
-		}
-	}
-	author {
-		login
-		avatarUrl
-		url
-	}
-	comments {
-	  totalCount
-	}
-	number
-	title
-	url
-	createdAt
-	closedAt
-	closed
-	updatedAt
-	labels(first: 20) {
-		nodes {
-			color
-			name
-		}
-	}
-	reactions(content: THUMBS_UP) {
-	  totalCount
-	}
-	repository {
-		name
-		owner {
-			login
-		}
-	}
-}
-`;
