@@ -437,17 +437,24 @@ export class GitProviderService implements Disposable {
 					}
 				}
 
-				this.updateContext();
+				const { deactivating } = this.container;
+				if (!deactivating) {
+					this.updateContext();
+				}
 
 				if (removed.length) {
 					// Defer the event trigger enough to let everything unwind
 					queueMicrotask(() => {
-						this.fireRepositoriesChanged([], removed);
+						if (!deactivating) {
+							this.fireRepositoriesChanged([], removed);
+						}
 						removed.forEach(r => r.dispose());
 					});
 				}
 
-				this.fireProvidersChanged([], [provider]);
+				if (!deactivating) {
+					this.fireProvidersChanged([], [provider]);
+				}
 			},
 		};
 	}
@@ -820,11 +827,13 @@ export class GitProviderService implements Disposable {
 		await Promise.allSettled(promises);
 
 		if (!this._initializing) {
-			void this.container.storage.storeWorkspace('assumeRepositoriesOnStartup', enabled);
+			void this.container.storage.storeWorkspace('assumeRepositoriesOnStartup', enabled).catch();
 		}
 	}
 
 	private updateContext() {
+		if (this.container.deactivating) return;
+
 		const openRepositoryCount = this.openRepositoryCount;
 		const hasRepositories = openRepositoryCount !== 0;
 
