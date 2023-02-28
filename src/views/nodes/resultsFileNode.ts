@@ -7,7 +7,7 @@ import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
 import { getGitFileStatusIcon } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
-import { GitReference } from '../../git/models/reference';
+import { createReference } from '../../git/models/reference';
 import { joinPaths, relativeDir } from '../../system/path';
 import type { View } from '../viewBase';
 import type { FileNode } from './folderNode';
@@ -32,7 +32,7 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 	}
 
 	get ref(): GitRevisionReference {
-		return GitReference.create(this.ref1 || this.ref2, this.uri.repoPath!);
+		return createReference(this.ref1 || this.ref2, this.uri.repoPath!);
 	}
 
 	getChildren(): ViewNode[] {

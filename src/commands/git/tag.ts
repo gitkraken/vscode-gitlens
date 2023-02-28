@@ -1,8 +1,8 @@
 import type { QuickPickItem } from 'vscode';
 import { QuickInputButtons } from 'vscode';
 import type { Container } from '../../container';
-import type { GitTagReference } from '../../git/models/reference';
-import { GitReference } from '../../git/models/reference';
+import type { GitReference, GitTagReference } from '../../git/models/reference';
+import { getNameWithoutRemote, getReferenceLabel, isRevisionReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -242,7 +242,7 @@ export class TagGitCommand extends QuickCommand<State> {
 						`Choose a branch${context.showTags ? ' or tag' : ''} to create the new tag from`,
 					picked: state.reference?.ref ?? (await state.repo.getBranch())?.ref,
 					titleContext: ' from',
-					value: GitReference.isRevision(state.reference) ? state.reference.ref : undefined,
+					value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
 				});
 				// Always break on the first step (so we will go back)
 				if (result === StepResultBreak) break;
@@ -253,8 +253,11 @@ export class TagGitCommand extends QuickCommand<State> {
 			if (state.counter < 4 || state.name == null) {
 				const result = yield* inputTagNameStep(state, context, {
 					placeholder: 'Please provide a name for the new tag',
-					titleContext: ` at ${GitReference.toString(state.reference, { capitalize: true, icon: false })}`,
-					value: state.name ?? GitReference.getNameWithoutRemote(state.reference),
+					titleContext: ` at ${getReferenceLabel(state.reference, {
+						capitalize: true,
+						icon: false,
+					})}`,
+					value: state.name ?? getNameWithoutRemote(state.reference),
 				});
 				if (result === StepResultBreak) continue;
 
@@ -295,7 +298,10 @@ export class TagGitCommand extends QuickCommand<State> {
 	): AsyncStepResultGenerator<string> {
 		const step = createInputStep({
 			title: appendReposToTitle(
-				`${context.title} at ${GitReference.toString(state.reference, { capitalize: true, icon: false })}`,
+				`${context.title} at ${getReferenceLabel(state.reference, {
+					capitalize: true,
+					icon: false,
+				})}`,
 				state,
 				context,
 			),
@@ -323,7 +329,7 @@ export class TagGitCommand extends QuickCommand<State> {
 				createFlagsQuickPickItem<CreateFlags>(state.flags, state.message.length !== 0 ? ['-m'] : [], {
 					label: context.title,
 					description: state.message.length !== 0 ? '-m' : '',
-					detail: `Will create a new tag named ${state.name} at ${GitReference.toString(state.reference)}`,
+					detail: `Will create a new tag named ${state.name} at ${getReferenceLabel(state.reference)}`,
 				}),
 				createFlagsQuickPickItem<CreateFlags>(
 					state.flags,
@@ -331,7 +337,7 @@ export class TagGitCommand extends QuickCommand<State> {
 					{
 						label: `Force ${context.title}`,
 						description: `--force${state.message.length !== 0 ? ' -m' : ''}`,
-						detail: `Will forcibly create a new tag named ${state.name} at ${GitReference.toString(
+						detail: `Will forcibly create a new tag named ${state.name} at ${getReferenceLabel(
 							state.reference,
 						)}`,
 					},
@@ -381,7 +387,7 @@ export class TagGitCommand extends QuickCommand<State> {
 			[
 				{
 					label: context.title,
-					detail: `Will delete ${GitReference.toString(state.references)}`,
+					detail: `Will delete ${getReferenceLabel(state.references)}`,
 				},
 			],
 			context,

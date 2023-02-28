@@ -8,7 +8,7 @@ import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
 import type { GitMergeStatus } from '../../git/models/merge';
 import type { GitRebaseStatus } from '../../git/models/rebase';
-import { GitReference } from '../../git/models/reference';
+import { getReferenceLabel } from '../../git/models/reference';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import type { ViewsWithCommits } from '../viewBase';
@@ -36,10 +36,13 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 
 		const item = new TreeItem('Incoming changes', TreeItemCollapsibleState.None);
 		item.contextValue = ContextValues.MergeConflictIncomingChanges;
-		item.description = `${GitReference.toString(this.status.incoming, { expand: false, icon: false })}${
+		item.description = `${getReferenceLabel(this.status.incoming, { expand: false, icon: false })}${
 			this.status.type === 'rebase'
-				? ` (${GitReference.toString(this.status.steps.current.commit, { expand: false, icon: false })})`
-				: ` (${GitReference.toString(this.status.HEAD, { expand: false, icon: false })})`
+				? ` (${getReferenceLabel(this.status.steps.current.commit, {
+						expand: false,
+						icon: false,
+				  })})`
+				: ` (${getReferenceLabel(this.status.HEAD, { expand: false, icon: false })})`
 		}`;
 		item.iconPath = this.view.config.avatars
 			? (await commit?.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })) ??
@@ -49,7 +52,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 		const markdown = new MarkdownString(
 			`Incoming changes to $(file)${GlyphChars.Space}${this.file.path}${
 				this.status.incoming != null
-					? ` from ${GitReference.toString(this.status.incoming)}${
+					? ` from ${getReferenceLabel(this.status.incoming)}${
 							commit != null
 								? `\n\n${await CommitFormatter.fromTemplateAsync(
 										`\${avatar}&nbsp;__\${author}__, \${ago} &nbsp; _(\${date})_ \n\n\${message}\n\n\${link}\${' via 'pullRequest}`,
@@ -63,11 +66,14 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 										},
 								  )}`
 								: this.status.type === 'rebase'
-								? `\n\n${GitReference.toString(this.status.steps.current.commit, {
+								? `\n\n${getReferenceLabel(this.status.steps.current.commit, {
 										capitalize: true,
 										label: false,
 								  })}`
-								: `\n\n${GitReference.toString(this.status.HEAD, { capitalize: true, label: false })}`
+								: `\n\n${getReferenceLabel(this.status.HEAD, {
+										capitalize: true,
+										label: false,
+								  })}`
 					  }`
 					: ''
 			}`,
@@ -104,7 +110,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 				uri: GitUri.fromFile(this.file, this.status.repoPath),
 				title: `${this.file.path} (${
 					this.status.incoming != null
-						? GitReference.toString(this.status.incoming, { expand: false, icon: false })
+						? getReferenceLabel(this.status.incoming, { expand: false, icon: false })
 						: 'incoming'
 				})`,
 			},

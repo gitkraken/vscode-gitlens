@@ -8,7 +8,7 @@ import { map } from '../system/iterable';
 import { normalizePath, relative } from '../system/path';
 import { TernarySearchTree } from '../system/searchTree';
 import { GitUri, isGitUri } from './gitUri';
-import { GitRevision } from './models/reference';
+import { deletedOrMissing } from './models/constants';
 import type { GitTreeEntry } from './models/tree';
 
 const emptyArray = new Uint8Array(0);
@@ -70,7 +70,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 	async readFile(uri: Uri): Promise<Uint8Array> {
 		const { path, ref, repoPath } = fromGitLensFSUri(uri);
 
-		if (ref === GitRevision.deletedOrMissing) return emptyArray;
+		if (ref === deletedOrMissing) return emptyArray;
 
 		const data = await this.container.git.getRevisionContent(repoPath, path, ref);
 		return data != null ? data : emptyArray;
@@ -84,7 +84,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 	async stat(uri: Uri): Promise<FileStat> {
 		const { path, ref, repoPath } = fromGitLensFSUri(uri);
 
-		if (ref === GitRevision.deletedOrMissing) {
+		if (ref === deletedOrMissing) {
 			return {
 				type: FileType.File,
 				size: 0,

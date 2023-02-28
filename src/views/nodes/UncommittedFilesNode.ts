@@ -4,9 +4,9 @@ import { ViewFilesLayout } from '../../config';
 import { GitUri } from '../../git/gitUri';
 import type { GitTrackingState } from '../../git/models/branch';
 import { GitCommit, GitCommitIdentity } from '../../git/models/commit';
+import { uncommitted, uncommittedStaged } from '../../git/models/constants';
 import type { GitFileWithCommit } from '../../git/models/file';
 import { GitFileChange } from '../../git/models/file';
-import { GitRevision } from '../../git/models/reference';
 import type { GitStatus, GitStatusFile } from '../../git/models/status';
 import { groupBy, makeHierarchical } from '../../system/array';
 import { flatMap } from '../../system/iterable';
@@ -59,14 +59,14 @@ export class UncommittedFilesNode extends ViewNode<RepositoriesView | WorktreesV
 					older.setMilliseconds(older.getMilliseconds() - 1);
 
 					return [
-						this.getFileWithPseudoCommit(f, GitRevision.uncommitted, GitRevision.uncommittedStaged),
-						this.getFileWithPseudoCommit(f, GitRevision.uncommittedStaged, 'HEAD', older),
+						this.getFileWithPseudoCommit(f, uncommitted, uncommittedStaged),
+						this.getFileWithPseudoCommit(f, uncommittedStaged, 'HEAD', older),
 					];
 				} else if (f.indexStatus != null) {
-					return [this.getFileWithPseudoCommit(f, GitRevision.uncommittedStaged, 'HEAD')];
+					return [this.getFileWithPseudoCommit(f, uncommittedStaged, 'HEAD')];
 				}
 
-				return [this.getFileWithPseudoCommit(f, GitRevision.uncommitted, 'HEAD')];
+				return [this.getFileWithPseudoCommit(f, uncommitted, 'HEAD')];
 			}),
 		];
 

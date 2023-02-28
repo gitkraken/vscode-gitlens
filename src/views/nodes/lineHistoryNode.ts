@@ -1,10 +1,11 @@
 import { Disposable, Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
+import { deletedOrMissing } from '../../git/models/constants';
 import type { GitFile } from '../../git/models/file';
 import { GitFileIndexStatus } from '../../git/models/file';
 import type { GitLog } from '../../git/models/log';
-import { GitRevision } from '../../git/models/reference';
+import { isUncommitted } from '../../git/models/reference';
 import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { Logger } from '../../logger';
@@ -66,7 +67,7 @@ export class LineHistoryNode
 		const range = this.branch != null ? await this.view.container.git.getBranchAheadRange(this.branch) : undefined;
 		const [log, blame, getBranchAndTagTips, unpublishedCommits] = await Promise.all([
 			this.getLog(selection),
-			this.uri.sha == null || GitRevision.isUncommitted(this.uri.sha)
+			this.uri.sha == null || isUncommitted(this.uri.sha)
 				? this.editorContents
 					? await this.view.container.git.getBlameForRangeContents(this.uri, selection, this.editorContents)
 					: await this.view.container.git.getBlameForRange(this.uri, selection)
@@ -177,9 +178,7 @@ export class LineHistoryNode
 
 	get label() {
 		return `${this.uri.fileName}${this.lines}${
-			this.uri.sha
-				? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
-				: ''
+			this.uri.sha ? ` ${this.uri.sha === deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}` : ''
 		}`;
 	}
 

@@ -1,7 +1,7 @@
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import type { GitBranchReference } from '../../git/models/reference';
-import { GitReference } from '../../git/models/reference';
+import { getReferenceLabel, isBranchReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -66,7 +66,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 	}
 
 	execute(state: FetchStepState) {
-		if (GitReference.isBranch(state.reference)) {
+		if (isBranchReference(state.reference)) {
 			return state.repos[0].fetch({ branch: state.reference });
 		}
 
@@ -148,13 +148,13 @@ export class FetchGitCommand extends QuickCommand<State> {
 
 		let step: QuickPickStep<FlagsQuickPickItem<Flags>>;
 
-		if (state.repos.length === 1 && GitReference.isBranch(state.reference)) {
+		if (state.repos.length === 1 && isBranchReference(state.reference)) {
 			step = this.createConfirmStep(
 				appendReposToTitle(`Confirm ${context.title}`, state, context, lastFetchedOn),
 				[
 					createFlagsQuickPickItem<Flags>(state.flags, [], {
 						label: this.title,
-						detail: `Will fetch ${GitReference.toString(state.reference)}`,
+						detail: `Will fetch ${getReferenceLabel(state.reference)}`,
 					}),
 				],
 			);

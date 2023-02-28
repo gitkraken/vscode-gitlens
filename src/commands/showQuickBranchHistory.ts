@@ -3,7 +3,8 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
 import { GitUri } from '../git/gitUri';
-import { GitReference } from '../git/models/reference';
+import type { GitReference } from '../git/models/reference';
+import { createReference } from '../git/models/reference';
 import { command } from '../system/command';
 import type { CommandContext } from './base';
 import { ActiveEditorCachedCommand, getCommandUri } from './base';
@@ -41,13 +42,13 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 				ref =
 					args.branch === 'HEAD'
 						? 'HEAD'
-						: GitReference.create(args.branch, repoPath, {
+						: createReference(args.branch, repoPath, {
 								refType: 'branch',
 								name: args.branch,
 								remote: false,
 						  });
 			} else if (args?.tag != null) {
-				ref = GitReference.create(args.tag, repoPath, { refType: 'tag', name: args.tag });
+				ref = createReference(args.tag, repoPath, { refType: 'tag', name: args.tag });
 			}
 		}
 

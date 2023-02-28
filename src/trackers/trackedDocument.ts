@@ -4,7 +4,7 @@ import { ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
-import { GitRevision } from '../git/models/reference';
+import { deletedOrMissing } from '../git/models/constants';
 import { Logger } from '../logger';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
@@ -88,7 +88,7 @@ export class TrackedDocument<T> implements Disposable {
 	}
 
 	get isRevision() {
-		return this._uri != null ? Boolean(this._uri.sha) && this._uri.sha !== GitRevision.deletedOrMissing : false;
+		return this._uri != null ? Boolean(this._uri.sha) && this._uri.sha !== deletedOrMissing : false;
 	}
 
 	private _isTracked: boolean = false;

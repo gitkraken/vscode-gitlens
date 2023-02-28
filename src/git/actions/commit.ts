@@ -18,9 +18,10 @@ import { findOrOpenEditor, findOrOpenEditors } from '../../system/utils';
 import { GitUri } from '../gitUri';
 import type { GitCommit } from '../models/commit';
 import { isCommit } from '../models/commit';
+import { deletedOrMissing } from '../models/constants';
 import type { GitFile } from '../models/file';
 import type { GitRevisionReference } from '../models/reference';
-import { GitReference, GitRevision } from '../models/reference';
+import { getReferenceFromRevision, isUncommitted, isUncommittedStaged } from '../models/reference';
 
 export async function applyChanges(file: string | GitFile, ref1: GitRevisionReference, ref2?: GitRevisionReference) {
 	// Open the working file to ensure undo will work
@@ -270,9 +271,9 @@ export async function openChangesWithDiffTool(
 		commitOrRef.repoPath,
 		GitUri.fromFile(file, file.repoPath ?? commitOrRef.repoPath),
 		{
-			ref1: GitRevision.isUncommitted(commitOrRef.ref) ? '' : `${commitOrRef.ref}^`,
-			ref2: GitRevision.isUncommitted(commitOrRef.ref) ? '' : commitOrRef.ref,
-			staged: GitRevision.isUncommittedStaged(commitOrRef.ref) || file.indexStatus != null,
+			ref1: isUncommitted(commitOrRef.ref) ? '' : `${commitOrRef.ref}^`,
+			ref2: isUncommitted(commitOrRef.ref) ? '' : commitOrRef.ref,
+			staged: isUncommittedStaged(commitOrRef.ref) || file.indexStatus != null,
 			tool: tool,
 		},
 	);
@@ -410,7 +411,7 @@ export async function openFileAtRevision(
 		}
 
 		uri = Container.instance.git.getRevisionUri(
-			file.status === 'D' ? (await commit.getPreviousSha()) ?? GitRevision.deletedOrMissing : commit.sha,
+			file.status === 'D' ? (await commit.getPreviousSha()) ?? deletedOrMissing : commit.sha,
 			file,
 			commit.repoPath,
 		);
@@ -596,7 +597,7 @@ export async function showInCommitGraph(
 	options?: { preserveFocus?: boolean },
 ): Promise<void> {
 	void (await executeCommand<ShowInCommitGraphCommandArgs>(Commands.ShowInCommitGraph, {
-		ref: GitReference.fromRevision(commit),
+		ref: getReferenceFromRevision(commit),
 		preserveFocus: options?.preserveFocus,
 	}));
 }

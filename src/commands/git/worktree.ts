@@ -11,7 +11,8 @@ import {
 	WorktreeDeleteError,
 	WorktreeDeleteErrorReason,
 } from '../../git/errors';
-import { GitReference } from '../../git/models/reference';
+import type { GitReference } from '../../git/models/reference';
+import { getNameWithoutRemote, getReferenceLabel, isRevisionReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { GitWorktree } from '../../git/models/worktree';
 import { showGenericErrorMessage } from '../../messages';
@@ -310,7 +311,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 						`Choose a branch${context.showTags ? ' or tag' : ''} to create the new worktree for`,
 					picked: state.reference?.ref ?? (await state.repo.getBranch())?.ref,
 					titleContext: ' for',
-					value: GitReference.isRevision(state.reference) ? state.reference.ref : undefined,
+					value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
 				});
 				// Always break on the first step (so we will go back)
 				if (result === StepResultBreak) break;
@@ -327,7 +328,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					state.uri = context.defaultUri;
 				} else {
 					const result = yield* this.createCommandChoosePathStep(state, context, {
-						titleContext: ` for ${GitReference.toString(state.reference, {
+						titleContext: ` for ${getReferenceLabel(state.reference, {
 							capitalize: true,
 							icon: false,
 							label: state.reference.refType !== 'branch',
@@ -356,18 +357,18 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			const isRemoteBranch = state.reference?.refType === 'branch' && state.reference?.remote;
 			if (isRemoteBranch && !state.flags.includes('-b')) {
 				state.flags.push('-b');
-				state.createBranch = GitReference.getNameWithoutRemote(state.reference);
+				state.createBranch = getNameWithoutRemote(state.reference);
 			}
 
 			if (state.flags.includes('-b') && state.createBranch == null) {
 				const result = yield* inputBranchNameStep(state, context, {
 					placeholder: 'Please provide a name for the new branch',
-					titleContext: ` from ${GitReference.toString(state.reference, {
+					titleContext: ` from ${getReferenceLabel(state.reference, {
 						capitalize: true,
 						icon: false,
 						label: state.reference.refType !== 'branch',
 					})}`,
-					value: state.createBranch ?? GitReference.getNameWithoutRemote(state.reference),
+					value: state.createBranch ?? getNameWithoutRemote(state.reference),
 				});
 				if (result === StepResultBreak) {
 					// Clear the flags, since we can backup after the confirm step below (which is non-standard)
@@ -409,7 +410,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					const force: MessageItem = { title: 'Create Anyway' };
 					const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 					const result = await window.showWarningMessage(
-						`Unable to create the new worktree because ${GitReference.toString(state.reference, {
+						`Unable to create the new worktree because ${getReferenceLabel(state.reference, {
 							icon: false,
 							quoted: true,
 						})} is already checked out.\n\nWould you like to create a new branch for this worktree or forcibly create it anyway?`,
@@ -569,7 +570,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			state.reference != null
 				? Uri.joinPath(
 						recommendedRootUri,
-						...GitReference.getNameWithoutRemote(state.reference).replace(/\\/g, '/').split('/'),
+						...getNameWithoutRemote(state.reference).replace(/\\/g, '/').split('/'),
 				  )
 				: recommendedRootUri;
 		const recommendedFriendlyPath = truncateLeft(GitWorktree.getFriendlyPath(recommendedUri), 65);
@@ -583,7 +584,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 		const step: QuickPickStep<FlagsQuickPickItem<CreateFlags, Uri>> = createConfirmStep(
 			appendReposToTitle(
-				`Confirm ${context.title} \u2022 ${GitReference.toString(state.reference, {
+				`Confirm ${context.title} \u2022 ${getReferenceLabel(state.reference, {
 					icon: false,
 					label: false,
 				})}`,

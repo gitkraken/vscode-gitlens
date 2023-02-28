@@ -2,7 +2,7 @@ import type { Container } from '../../container';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { GitRevisionReference } from '../../git/models/reference';
-import { GitReference } from '../../git/models/reference';
+import { getReferenceLabel } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -180,12 +180,12 @@ export class RevertGitCommand extends QuickCommand<State> {
 				createFlagsQuickPickItem<Flags>(state.flags, ['--no-edit'], {
 					label: this.title,
 					description: '--no-edit',
-					detail: `Will revert ${GitReference.toString(state.references)}`,
+					detail: `Will revert ${getReferenceLabel(state.references)}`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--edit'], {
 					label: `${this.title} & Edit`,
 					description: '--edit',
-					detail: `Will revert and edit ${GitReference.toString(state.references)}`,
+					detail: `Will revert and edit ${getReferenceLabel(state.references)}`,
 				}),
 			],
 		);

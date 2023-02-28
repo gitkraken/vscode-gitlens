@@ -1,5 +1,5 @@
 import type { GitRevisionReference } from './models/reference';
-import { GitRevision } from './models/reference';
+import { isSha, shortenRevision } from './models/reference';
 import type { GitUser } from './models/user';
 
 export type SearchOperators =
@@ -91,13 +91,13 @@ export function getSearchQueryComparisonKey(search: SearchQuery | StoredSearchQu
 export function createSearchQueryForCommit(ref: string): string;
 export function createSearchQueryForCommit(commit: GitRevisionReference): string;
 export function createSearchQueryForCommit(refOrCommit: string | GitRevisionReference) {
-	return `#:${typeof refOrCommit === 'string' ? GitRevision.shorten(refOrCommit) : refOrCommit.name}`;
+	return `#:${typeof refOrCommit === 'string' ? shortenRevision(refOrCommit) : refOrCommit.name}`;
 }
 
 export function createSearchQueryForCommits(refs: string[]): string;
 export function createSearchQueryForCommits(commits: GitRevisionReference[]): string;
 export function createSearchQueryForCommits(refsOrCommits: (string | GitRevisionReference)[]) {
-	return refsOrCommits.map(r => `#:${typeof r === 'string' ? GitRevision.shorten(r) : r.name}`).join(' ');
+	return refsOrCommits.map(r => `#:${typeof r === 'string' ? shortenRevision(r) : r.name}`).join(' ');
 }
 
 const normalizeSearchOperatorsMap = new Map<SearchOperators, SearchOperators>([
@@ -133,7 +133,7 @@ export function parseSearchQuery(search: SearchQuery): Map<string, string[]> {
 		({ value, text } = match.groups);
 
 		if (text) {
-			op = text === '@me' ? 'author:' : GitRevision.isSha(text) ? 'commit:' : 'message:';
+			op = text === '@me' ? 'author:' : isSha(text) ? 'commit:' : 'message:';
 			value = text;
 		}
 

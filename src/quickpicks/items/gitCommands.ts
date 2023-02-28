@@ -8,7 +8,8 @@ import type { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
 import { isStash } from '../../git/models/commit';
 import type { GitContributor } from '../../git/models/contributor';
-import { GitReference, GitRevision } from '../../git/models/reference';
+import type { GitReference } from '../../git/models/reference';
+import { createReference, isRevisionRange, shortenRevision } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import { getRemoteUpstreamDescription, GitRemoteType } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
@@ -107,8 +108,8 @@ export async function createBranchQuickPickItem(
 	if (options?.ref) {
 		if (branch.sha) {
 			description = description
-				? `${description} $(git-commit)${GlyphChars.Space}${GitRevision.shorten(branch.sha)}`
-				: `$(git-commit)${GlyphChars.Space}${GitRevision.shorten(branch.sha)}`;
+				? `${description} $(git-commit)${GlyphChars.Space}${shortenRevision(branch.sha)}`
+				: `$(git-commit)${GlyphChars.Space}${shortenRevision(branch.sha)}`;
 		}
 
 		if (branch.date !== undefined) {
@@ -253,7 +254,7 @@ export function createRefQuickPickItem(
 			alwaysShow: options?.alwaysShow,
 			buttons: options?.buttons,
 			picked: picked,
-			item: GitReference.create(ref, repoPath, { refType: 'revision', name: 'Working Tree' }),
+			item: createReference(ref, repoPath, { refType: 'revision', name: 'Working Tree' }),
 			current: false,
 			ref: ref,
 			remote: false,
@@ -267,7 +268,7 @@ export function createRefQuickPickItem(
 			alwaysShow: options?.alwaysShow,
 			buttons: options?.buttons,
 			picked: picked,
-			item: GitReference.create(ref, repoPath, { refType: 'revision', name: 'HEAD' }),
+			item: createReference(ref, repoPath, { refType: 'revision', name: 'HEAD' }),
 			current: false,
 			ref: ref,
 			remote: false,
@@ -276,13 +277,13 @@ export function createRefQuickPickItem(
 
 	let gitRef;
 	if (typeof ref === 'string') {
-		gitRef = GitReference.create(ref, repoPath);
+		gitRef = createReference(ref, repoPath);
 	} else {
 		gitRef = ref;
 		ref = gitRef.ref;
 	}
 
-	if (GitRevision.isRange(ref)) {
+	if (isRevisionRange(ref)) {
 		return {
 			label: `Range ${gitRef.name}`,
 			description: '',
@@ -435,7 +436,7 @@ export function createTagQuickPickItem(
 	}
 
 	if (options?.ref) {
-		description = `${description}${pad('$(git-commit)', description ? 2 : 0, 1)}${GitRevision.shorten(tag.sha)}`;
+		description = `${description}${pad('$(git-commit)', description ? 2 : 0, 1)}${shortenRevision(tag.sha)}`;
 
 		description = `${description ? `${description}${pad(GlyphChars.Dot, 2, 2)}` : ''}${tag.formattedDate}`;
 	}
@@ -501,7 +502,7 @@ export function createWorktreeQuickPickItem(
 			icon = '$(git-branch)';
 			break;
 		case 'detached':
-			label = GitRevision.shorten(worktree.sha);
+			label = shortenRevision(worktree.sha);
 			icon = '$(git-commit)';
 			break;
 	}

@@ -1,7 +1,8 @@
 import type { Container } from '../../container';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
-import { GitReference, GitRevision } from '../../git/models/reference';
+import type { GitReference } from '../../git/models/reference';
+import { createRevisionRange, getReferenceLabel, isRevisionReference } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive';
@@ -143,7 +144,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				context.destination = branch;
 			}
 
-			context.title = `${this.title} ${GitReference.toString(context.destination, { icon: false })}`;
+			context.title = `${this.title} ${getReferenceLabel(context.destination, { icon: false })}`;
 			context.pickCommitForItem = false;
 
 			if (state.counter < 2 || state.reference == null) {
@@ -171,7 +172,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				context.selectedBranchOrTag = undefined;
 			}
 
-			if (!GitReference.isRevision(state.reference)) {
+			if (!isRevisionReference(state.reference)) {
 				context.selectedBranchOrTag = state.reference;
 			}
 
@@ -194,10 +195,10 @@ export class RebaseGitCommand extends QuickCommand<State> {
 					onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
 					placeholder: (context, log) =>
 						log == null
-							? `No commits found on ${GitReference.toString(context.selectedBranchOrTag, {
+							? `No commits found on ${getReferenceLabel(context.selectedBranchOrTag, {
 									icon: false,
 							  })}`
-							: `Choose a commit to rebase ${GitReference.toString(context.destination, {
+							: `Choose a commit to rebase ${getReferenceLabel(context.destination, {
 									icon: false,
 							  })} onto`,
 					picked: state.reference?.ref,
@@ -222,8 +223,8 @@ export class RebaseGitCommand extends QuickCommand<State> {
 	private async *confirmStep(state: RebaseStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
 		const aheadBehind = await this.container.git.getAheadBehindCommitCount(state.repo.path, [
 			state.reference.refType === 'revision'
-				? GitRevision.createRange(state.reference.ref, context.destination.ref)
-				: GitRevision.createRange(context.destination.name, state.reference.name),
+				? createRevisionRange(state.reference.ref, context.destination.ref)
+				: createRevisionRange(context.destination.name, state.reference.name),
 		]);
 
 		const count = aheadBehind != null ? aheadBehind.ahead + aheadBehind.behind : 0;
@@ -233,9 +234,9 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				[],
 				createDirectiveQuickPickItem(Directive.Cancel, true, {
 					label: `Cancel ${this.title}`,
-					detail: `${GitReference.toString(context.destination, {
+					detail: `${getReferenceLabel(context.destination, {
 						capitalize: true,
-					})} is up to date with ${GitReference.toString(state.reference)}`,
+					})} is up to date with ${getReferenceLabel(state.reference)}`,
 				}),
 			);
 			const selection: StepSelection<typeof step> = yield step;
@@ -248,17 +249,17 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			[
 				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
-					detail: `Will update ${GitReference.toString(context.destination)} by applying ${pluralize(
+					detail: `Will update ${getReferenceLabel(context.destination)} by applying ${pluralize(
 						'commit',
 						count,
-					)} on top of ${GitReference.toString(state.reference)}`,
+					)} on top of ${getReferenceLabel(state.reference)}`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--interactive'], {
 					label: `Interactive ${this.title}`,
 					description: '--interactive',
-					detail: `Will interactively update ${GitReference.toString(
+					detail: `Will interactively update ${getReferenceLabel(
 						context.destination,
-					)} by applying ${pluralize('commit', count)} on top of ${GitReference.toString(state.reference)}`,
+					)} by applying ${pluralize('commit', count)} on top of ${getReferenceLabel(state.reference)}`,
 				}),
 			],
 		);

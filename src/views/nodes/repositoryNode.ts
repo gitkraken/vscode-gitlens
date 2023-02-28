@@ -120,7 +120,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				}
 
 				if (this.view.config.includeWorkingTree && status.files.length !== 0) {
-					const range = undefined; //status.upstream ? GitRevision.createRange(status.upstream, branch.ref) : undefined;
+					const range = undefined; //status.upstream ? createRange(status.upstream, branch.ref) : undefined;
 					children.push(new StatusFilesNode(this.view, this, status, range));
 				}
 
@@ -376,7 +376,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 					index++;
 				}
 
-				const range = undefined; //status.upstream ? GitRevision.createRange(status.upstream, status.sha) : undefined;
+				const range = undefined; //status.upstream ? createRange(status.upstream, status.sha) : undefined;
 				this._children.splice(index, deleteCount, new StatusFilesNode(this.view, this, status, range));
 			} else if (index !== -1) {
 				this._children.splice(index, 1);

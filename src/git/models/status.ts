@@ -6,6 +6,7 @@ import { pluralize } from '../../system/string';
 import type { GitTrackingState } from './branch';
 import { formatDetachedHeadName, getRemoteNameFromBranchName, isDetachedHead } from './branch';
 import { GitCommit, GitCommitIdentity } from './commit';
+import { uncommitted, uncommittedStaged } from './constants';
 import type { GitFile, GitFileStatus } from './file';
 import {
 	getGitFileFormattedDirectory,
@@ -17,7 +18,6 @@ import {
 	GitFileIndexStatus,
 	GitFileWorkingTreeStatus,
 } from './file';
-import { GitRevision } from './reference';
 import type { GitRemote } from './remote';
 import type { GitUser } from './user';
 
@@ -452,19 +452,13 @@ export class GitStatusFile implements GitFile {
 				new GitCommit(
 					container,
 					this.repoPath,
-					GitRevision.uncommitted,
+					uncommitted,
 					new GitCommitIdentity('You', user?.email ?? undefined, now),
 					new GitCommitIdentity('You', user?.email ?? undefined, now),
 					'Uncommitted changes',
-					[GitRevision.uncommittedStaged],
+					[uncommittedStaged],
 					'Uncommitted changes',
-					new GitFileChange(
-						this.repoPath,
-						this.path,
-						this.status,
-						this.originalPath,
-						GitRevision.uncommittedStaged,
-					),
+					new GitFileChange(this.repoPath, this.path, this.status, this.originalPath, uncommittedStaged),
 					undefined,
 					[],
 				),
@@ -483,26 +477,20 @@ export class GitStatusFile implements GitFile {
 				new GitCommit(
 					container,
 					this.repoPath,
-					GitRevision.uncommitted,
+					uncommitted,
 					new GitCommitIdentity('You', user?.email ?? undefined, now),
 					new GitCommitIdentity('You', user?.email ?? undefined, now),
 					'Uncommitted changes',
-					[GitRevision.uncommittedStaged],
+					[uncommittedStaged],
 					'Uncommitted changes',
-					new GitFileChange(
-						this.repoPath,
-						this.path,
-						this.status,
-						this.originalPath,
-						GitRevision.uncommittedStaged,
-					),
+					new GitFileChange(this.repoPath, this.path, this.status, this.originalPath, uncommittedStaged),
 					undefined,
 					[],
 				),
 				new GitCommit(
 					container,
 					this.repoPath,
-					GitRevision.uncommittedStaged,
+					uncommittedStaged,
 					new GitCommitIdentity('You', user?.email ?? undefined, older),
 					new GitCommitIdentity('You', user?.email ?? undefined, older),
 					'Uncommitted changes',
@@ -518,7 +506,7 @@ export class GitStatusFile implements GitFile {
 				new GitCommit(
 					container,
 					this.repoPath,
-					this.workingTreeStatus != null ? GitRevision.uncommitted : GitRevision.uncommittedStaged,
+					this.workingTreeStatus != null ? uncommitted : uncommittedStaged,
 					new GitCommitIdentity('You', user?.email ?? undefined, now),
 					new GitCommitIdentity('You', user?.email ?? undefined, now),
 					'Uncommitted changes',

@@ -1,8 +1,8 @@
 import type { Container } from '../../container';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
-import type { GitRevisionReference } from '../../git/models/reference';
-import { GitReference } from '../../git/models/reference';
+import type { GitReference, GitRevisionReference } from '../../git/models/reference';
+import { getReferenceLabel } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -123,7 +123,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 				context.destination = branch;
 			}
 
-			context.title = `${this.title} ${GitReference.toString(context.destination, { icon: false })}`;
+			context.title = `${this.title} ${getReferenceLabel(context.destination, { icon: false })}`;
 
 			if (state.counter < 2 || state.reference == null) {
 				const ref = context.destination.ref;
@@ -175,23 +175,23 @@ export class ResetGitCommand extends QuickCommand<State> {
 			[
 				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
-					detail: `Will reset (leaves changes in the working tree) ${GitReference.toString(
+					detail: `Will reset (leaves changes in the working tree) ${getReferenceLabel(
 						context.destination,
-					)} to ${GitReference.toString(state.reference)}`,
+					)} to ${getReferenceLabel(state.reference)}`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--soft'], {
 					label: `Soft ${this.title}`,
 					description: '--soft',
-					detail: `Will soft reset (leaves changes in the index and working tree) ${GitReference.toString(
+					detail: `Will soft reset (leaves changes in the index and working tree) ${getReferenceLabel(
 						context.destination,
-					)} to ${GitReference.toString(state.reference)}`,
+					)} to ${getReferenceLabel(state.reference)}`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--hard'], {
 					label: `Hard ${this.title}`,
 					description: '--hard',
-					detail: `Will hard reset (discards all changes) ${GitReference.toString(
+					detail: `Will hard reset (discards all changes) ${getReferenceLabel(
 						context.destination,
-					)} to ${GitReference.toString(state.reference)}`,
+					)} to ${getReferenceLabel(state.reference)}`,
 				}),
 			],
 		);

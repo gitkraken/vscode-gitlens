@@ -5,8 +5,8 @@ import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import type { GitUri } from '../../git/gitUri';
 import { unknownGitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
-import type { GitRevisionReference } from '../../git/models/reference';
-import { GitReference } from '../../git/models/reference';
+import type { GitReference, GitRevisionReference } from '../../git/models/reference';
+import { getReferenceLabel } from '../../git/models/reference';
 import { GitRemote } from '../../git/models/remote';
 import type { RepositoryChangeEvent } from '../../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
@@ -197,7 +197,7 @@ export abstract class ViewRefNode<
 	}
 
 	override toString(): string {
-		return `${super.toString()}:${GitReference.toString(this.ref, false)}`;
+		return `${super.toString()}:${getReferenceLabel(this.ref, false)}`;
 	}
 }
 

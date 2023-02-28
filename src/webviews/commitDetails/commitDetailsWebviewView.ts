@@ -25,7 +25,7 @@ import { serializeIssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
 import { serializePullRequest } from '../../git/models/pullRequest';
 import type { GitRevisionReference } from '../../git/models/reference';
-import { GitReference } from '../../git/models/reference';
+import { getReferenceFromRevision } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import { Logger } from '../../logger';
 import { getLogScope } from '../../logScope';
@@ -305,7 +305,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 							if (this._context.commit == null) return;
 
 							void executeCommand<ShowInCommitGraphCommandArgs>(Commands.ShowInCommitGraph, {
-								ref: GitReference.fromRevision(this._context.commit),
+								ref: getReferenceFromRevision(this._context.commit),
 							});
 							break;
 						case 'more':

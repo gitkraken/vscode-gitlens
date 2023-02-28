@@ -8,9 +8,10 @@ import { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
+import { uncommittedStaged } from '../git/models/constants';
 import type { GitDiffHunk, GitDiffHunkLine } from '../git/models/diff';
 import type { PullRequest } from '../git/models/pullRequest';
-import { GitRevision } from '../git/models/reference';
+import { isUncommittedStaged, shortenRevision } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
 import { Logger } from '../logger';
 import { getNewLogScope } from '../logScope';
@@ -34,7 +35,7 @@ export async function changesMessage(
 		// TODO: Figure out how to optimize this
 		let ref;
 		if (commit.isUncommitted) {
-			if (GitRevision.isUncommittedStaged(documentRef)) {
+			if (isUncommittedStaged(documentRef)) {
 				ref = documentRef;
 			}
 		} else {
@@ -60,13 +61,8 @@ export async function changesMessage(
 		let hunkLine = await Container.instance.git.getDiffForLine(uri, editorLine, ref, documentRef);
 
 		// If we didn't find a diff & ref is undefined (meaning uncommitted), check for a staged diff
-		if (hunkLine == null && ref == null && documentRef !== GitRevision.uncommittedStaged) {
-			hunkLine = await Container.instance.git.getDiffForLine(
-				uri,
-				editorLine,
-				undefined,
-				GitRevision.uncommittedStaged,
-			);
+		if (hunkLine == null && ref == null && documentRef !== uncommittedStaged) {
+			hunkLine = await Container.instance.git.getDiffForLine(uri, editorLine, undefined, uncommittedStaged);
 		}
 
 		return hunkLine != null ? getDiffFromHunkLine(hunkLine) : undefined;
@@ -97,10 +93,10 @@ export async function changesMessage(
 
 		previous =
 			compareUris.previous.sha == null || compareUris.previous.isUncommitted
-				? `  &nbsp;_${GitRevision.shorten(compareUris.previous.sha, {
+				? `  &nbsp;_${shortenRevision(compareUris.previous.sha, {
 						strings: { working: 'Working Tree' },
 				  })}_ &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; `
-				: `  &nbsp;[$(git-commit) ${GitRevision.shorten(
+				: `  &nbsp;[$(git-commit) ${shortenRevision(
 						compareUris.previous.sha || '',
 				  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
 						compareUris.previous.sha || '',
@@ -108,12 +104,12 @@ export async function changesMessage(
 
 		current =
 			compareUris.current.sha == null || compareUris.current.isUncommitted
-				? `_${GitRevision.shorten(compareUris.current.sha, {
+				? `_${shortenRevision(compareUris.current.sha, {
 						strings: {
 							working: 'Working Tree',
 						},
 				  })}_`
-				: `[$(git-commit) ${GitRevision.shorten(
+				: `[$(git-commit) ${shortenRevision(
 						compareUris.current.sha || '',
 				  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(compareUris.current.sha || '')} "Show Commit")`;
 	} else {
@@ -123,7 +119,7 @@ export async function changesMessage(
 			previousSha = await commit.getPreviousSha();
 		}
 		if (previousSha) {
-			previous = `  &nbsp;[$(git-commit) ${GitRevision.shorten(
+			previous = `  &nbsp;[$(git-commit) ${shortenRevision(
 				previousSha,
 			)}](${ShowQuickCommitCommand.getMarkdownCommandArgs(previousSha)} "Show Commit") &nbsp;${
 				GlyphChars.ArrowLeftRightLong

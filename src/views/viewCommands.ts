@@ -21,8 +21,9 @@ import * as StashActions from '../git/actions/stash';
 import * as TagActions from '../git/actions/tag';
 import * as WorktreeActions from '../git/actions/worktree';
 import { GitUri } from '../git/gitUri';
+import { deletedOrMissing } from '../git/models/constants';
 import type { GitStashReference } from '../git/models/reference';
-import { GitReference, GitRevision } from '../git/models/reference';
+import { createReference, getReferenceLabel, shortenRevision } from '../git/models/reference';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -323,8 +324,8 @@ export class ViewCommands {
 		if (node instanceof ResultsFileNode) {
 			return CommitActions.applyChanges(
 				node.file,
-				GitReference.create(node.ref1, node.repoPath),
-				GitReference.create(node.ref2, node.repoPath),
+				createReference(node.ref1, node.repoPath),
+				createReference(node.ref2, node.repoPath),
 			);
 		}
 
@@ -675,7 +676,7 @@ export class ViewCommands {
 
 		return RepoActions.rebase(
 			node.repoPath,
-			GitReference.create(upstream, node.repoPath, {
+			createReference(upstream, node.repoPath, {
 				refType: 'branch',
 				name: upstream,
 				remote: true,
@@ -696,7 +697,7 @@ export class ViewCommands {
 
 		return RepoActions.reset(
 			node.repoPath,
-			GitReference.create(`${node.ref.ref}^`, node.ref.repoPath, {
+			createReference(`${node.ref.ref}^`, node.ref.repoPath, {
 				refType: 'revision',
 				name: `${node.ref.name}^`,
 				message: node.ref.message,
@@ -812,7 +813,7 @@ export class ViewCommands {
 
 		if (commit?.hash !== node.ref.ref) {
 			void window.showWarningMessage(
-				`Commit ${GitReference.toString(node.ref, {
+				`Commit ${getReferenceLabel(node.ref, {
 					capitalize: true,
 					icon: false,
 				})} cannot be undone, because it is no longer the most recent commit.`,
@@ -900,7 +901,10 @@ export class ViewCommands {
 
 		return this.container.searchAndCompareView.compare(
 			node.repoPath,
-			{ ref: commonAncestor, label: `ancestry with ${node.ref.ref} (${GitRevision.shorten(commonAncestor)})` },
+			{
+				ref: commonAncestor,
+				label: `ancestry with ${node.ref.ref} (${shortenRevision(commonAncestor)})`,
+			},
 			'',
 		);
 	}
@@ -1234,7 +1238,7 @@ export class ViewCommands {
 				uri =
 					node.commit.file?.status === 'D'
 						? this.container.git.getRevisionUri(
-								(await node.commit.getPreviousSha()) ?? GitRevision.deletedOrMissing,
+								(await node.commit.getPreviousSha()) ?? deletedOrMissing,
 								node.commit.file.path,
 								node.commit.repoPath,
 						  )

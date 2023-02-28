@@ -23,7 +23,7 @@ import type { Account } from '../../git/models/author';
 import type { DefaultBranch } from '../../git/models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../../git/models/issue';
 import type { PullRequest, SearchedPullRequest } from '../../git/models/pullRequest';
-import { GitRevision } from '../../git/models/reference';
+import { isSha } from '../../git/models/reference';
 import type { GitUser } from '../../git/models/user';
 import { getGitHubNoReplyAddressParts } from '../../git/remotes/github';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
@@ -978,7 +978,7 @@ export class GitHubApi implements Disposable {
 		ref: string,
 		path: string,
 	): Promise<(GitHubCommit & { viewer?: string }) | undefined> {
-		if (GitRevision.isSha(ref)) return this.getCommit(token, owner, repo, ref);
+		if (isSha(ref)) return this.getCommit(token, owner, repo, ref);
 
 		// TODO: optimize this -- only need to get the sha for the ref
 		const results = await this.getCommits(token, owner, repo, ref, { limit: 1, path: path });

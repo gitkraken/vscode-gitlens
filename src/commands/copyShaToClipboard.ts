@@ -4,7 +4,7 @@ import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitRevision } from '../git/models/reference';
+import { shortenRevision } from '../git/models/reference';
 import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
@@ -86,7 +86,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 			}
 
 			await env.clipboard.writeText(
-				configuration.get('advanced.abbreviateShaOnCopy') ? GitRevision.shorten(args.sha) : args.sha,
+				configuration.get('advanced.abbreviateShaOnCopy') ? shortenRevision(args.sha) : args.sha,
 			);
 		} catch (ex) {
 			Logger.error(ex, 'CopyShaToClipboardCommand');

@@ -59,6 +59,7 @@ import {
 } from '../../../git/models/branch';
 import type { GitStashCommit } from '../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../git/models/commit';
+import { deletedOrMissing, uncommitted, uncommittedStaged } from '../../../git/models/constants';
 import { GitContributor } from '../../../git/models/contributor';
 import type { GitDiff, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from '../../../git/models/diff';
 import type { GitFile, GitFileStatus } from '../../../git/models/file';
@@ -76,7 +77,17 @@ import type { GitLog } from '../../../git/models/log';
 import type { GitMergeStatus } from '../../../git/models/merge';
 import type { GitRebaseStatus } from '../../../git/models/rebase';
 import type { GitBranchReference } from '../../../git/models/reference';
-import { GitReference, GitRevision } from '../../../git/models/reference';
+import {
+	createReference,
+	getReferenceFromBranch,
+	isBranchReference,
+	isRevisionRange,
+	isSha,
+	isShaLike,
+	isUncommitted,
+	isUncommittedStaged,
+	shortenRevision,
+} from '../../../git/models/reference';
 import type { GitReflog } from '../../../git/models/reflog';
 import { getRemoteIconUri, GitRemote } from '../../../git/models/remote';
 import { RemoteResourceType } from '../../../git/models/remoteResource';
@@ -728,10 +739,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getBestRevisionUri(repoPath: string, path: string, ref: string | undefined): Promise<Uri | undefined> {
-		if (ref === GitRevision.deletedOrMissing) return undefined;
+		if (ref === deletedOrMissing) return undefined;
 
 		// TODO@eamodio Align this with isTrackedCore?
-		if (!ref || (GitRevision.isUncommitted(ref) && !GitRevision.isUncommittedStaged(ref))) {
+		if (!ref || (isUncommitted(ref) && !isUncommittedStaged(ref))) {
 			// Make sure the file exists in the repo
 			let data = await this.git.ls_files(repoPath, path);
 			if (data != null) return this.getAbsoluteUri(path, repoPath);
@@ -743,7 +754,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			return undefined;
 		}
 
-		if (GitRevision.isUncommittedStaged(ref)) return this.getScmGitUri(path, repoPath);
+		if (isUncommittedStaged(ref)) return this.getScmGitUri(path, repoPath);
 
 		return this.getRevisionUri(repoPath, path, ref);
 	}
@@ -785,10 +796,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	getRevisionUri(repoPath: string, path: string, ref: string): Uri {
-		if (GitRevision.isUncommitted(ref)) {
-			return GitRevision.isUncommittedStaged(ref)
-				? this.getScmGitUri(path, repoPath)
-				: this.getAbsoluteUri(path, repoPath);
+		if (isUncommitted(ref)) {
+			return isUncommittedStaged(ref) ? this.getScmGitUri(path, repoPath) : this.getAbsoluteUri(path, repoPath);
 		}
 
 		path = normalizePath(this.getAbsoluteUri(path, repoPath).fsPath);
@@ -805,7 +814,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			scheme: Schemes.GitLens,
 			authority: encodeGitLensRevisionUriAuthority(metadata),
 			path: path,
-			query: ref ? JSON.stringify({ ref: GitRevision.shorten(ref) }) : undefined,
+			query: ref ? JSON.stringify({ ref: shortenRevision(ref) }) : undefined,
 		});
 		return uri;
 	}
@@ -1029,7 +1038,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		options?: { all?: boolean; branch?: GitBranchReference; prune?: boolean; pull?: boolean; remote?: string },
 	): Promise<void> {
 		const { branch: branchRef, ...opts } = options ?? {};
-		if (GitReference.isBranch(branchRef)) {
+		if (isBranchReference(branchRef)) {
 			const repo = this.container.git.getRepository(repoPath);
 			const branch = await repo?.getBranch(branchRef?.name);
 			if (!branch?.remote && branch?.upstream == null) return undefined;
@@ -1677,7 +1686,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				const commit = log.commits.get(options.ref);
 				if (commit == null && !options?.firstIfNotFound) {
 					// If the ref isn't a valid sha we will never find it, so let it fall through so we return the first
-					if (GitRevision.isSha(options.ref) || GitRevision.isUncommitted(options.ref)) return undefined;
+					if (isSha(options.ref) || isUncommitted(options.ref)) return undefined;
 				}
 			}
 
@@ -1887,7 +1896,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 								webviewItem: 'gitlens:tag',
 								webviewItemValue: {
 									type: 'tag',
-									ref: GitReference.create(tagName, repoPath, {
+									ref: createReference(tagName, repoPath, {
 										id: tagId,
 										refType: 'tag',
 										name: tagName,
@@ -1932,7 +1941,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 									webviewItem: 'gitlens:branch+remote',
 									webviewItemValue: {
 										type: 'branch',
-										ref: GitReference.create(tip, repoPath, {
+										ref: createReference(tip, repoPath, {
 											id: remoteBranchId,
 											refType: 'branch',
 											name: tip,
@@ -1975,7 +1984,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							}`,
 							webviewItemValue: {
 								type: 'branch',
-								ref: GitReference.create(tip, repoPath, {
+								ref: createReference(tip, repoPath, {
 									id: branchId,
 									refType: 'branch',
 									name: tip,
@@ -2057,7 +2066,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						webviewItem: 'gitlens:stash',
 						webviewItemValue: {
 							type: 'stash',
-							ref: GitReference.create(commit.sha, repoPath, {
+							ref: createReference(commit.sha, repoPath, {
 								refType: 'stash',
 								name: stashCommit.name,
 								number: stashCommit.number,
@@ -2071,7 +2080,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						}`,
 						webviewItemValue: {
 							type: 'commit',
-							ref: GitReference.create(commit.sha, repoPath, {
+							ref: createReference(commit.sha, repoPath, {
 								refType: 'revision',
 								message: commit.message,
 							}),
@@ -2539,7 +2548,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getFileStatusForCommit(repoPath: string, uri: Uri, ref: string): Promise<GitFile | undefined> {
-		if (ref === GitRevision.deletedOrMissing || GitRevision.isUncommitted(ref)) return undefined;
+		if (ref === deletedOrMissing || isUncommitted(ref)) return undefined;
 
 		const [relativePath, root] = splitPath(uri, repoPath);
 
@@ -2799,7 +2808,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			moreLimit = moreLimit ?? configuration.get('advanced.maxSearchItems') ?? 0;
 
 			// If the log is for a range, then just get everything prior + more
-			if (GitRevision.isRange(log.sha)) {
+			if (isRevisionRange(log.sha)) {
 				const moreLog = await this.getLog(log.repoPath, {
 					...options,
 					limit: moreLimit === 0 ? 0 : (options?.limit ?? 0) + moreLimit,
@@ -3215,11 +3224,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					type: 'merge',
 					repoPath: repoPath,
 					mergeBase: mergeBase,
-					HEAD: GitReference.create(merge, repoPath, { refType: 'revision' }),
-					current: GitReference.fromBranch(branch!),
+					HEAD: createReference(merge, repoPath, { refType: 'revision' }),
+					current: getReferenceFromBranch(branch!),
 					incoming:
 						possibleSourceBranches?.length === 1
-							? GitReference.create(possibleSourceBranches[0], repoPath, {
+							? createReference(possibleSourceBranches[0], repoPath, {
 									refType: 'branch',
 									name: possibleSourceBranches[0],
 									remote: false,
@@ -3274,18 +3283,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					type: 'rebase',
 					repoPath: repoPath,
 					mergeBase: mergeBase,
-					HEAD: GitReference.create(rebase, repoPath, { refType: 'revision' }),
-					onto: GitReference.create(onto, repoPath, { refType: 'revision' }),
+					HEAD: createReference(rebase, repoPath, { refType: 'revision' }),
+					onto: createReference(onto, repoPath, { refType: 'revision' }),
 					current:
 						possibleSourceBranch != null
-							? GitReference.create(possibleSourceBranch, repoPath, {
+							? createReference(possibleSourceBranch, repoPath, {
 									refType: 'branch',
 									name: possibleSourceBranch,
 									remote: false,
 							  })
 							: undefined,
 
-					incoming: GitReference.create(branch, repoPath, {
+					incoming: createReference(branch, repoPath, {
 						refType: 'branch',
 						name: branch,
 						remote: false,
@@ -3293,7 +3302,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					steps: {
 						current: {
 							number: stepsNumber ?? 0,
-							commit: GitReference.create(rebase, repoPath, {
+							commit: createReference(rebase, repoPath, {
 								refType: 'revision',
 								message: stepsMessage,
 							}),
@@ -3323,7 +3332,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const relativePath = this.getRelativePath(uri, repoPath);
 
-		if (GitRevision.isUncommittedStaged(ref)) {
+		if (isUncommittedStaged(ref)) {
 			return {
 				current: GitUri.fromFile(relativePath, repoPath, ref),
 				next: GitUri.fromFile(relativePath, repoPath, undefined),
@@ -3338,7 +3347,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				if (status.indexStatus != null) {
 					return {
 						current: GitUri.fromFile(relativePath, repoPath, ref),
-						next: GitUri.fromFile(relativePath, repoPath, GitRevision.uncommittedStaged),
+						next: GitUri.fromFile(relativePath, repoPath, uncommittedStaged),
 					};
 				}
 			}
@@ -3367,10 +3376,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		// editorLine?: number
 	): Promise<GitUri | undefined> {
 		// If we have no ref (or staged ref) there is no next commit
-		if (!ref || GitRevision.isUncommittedStaged(ref)) return undefined;
+		if (!ref || isUncommittedStaged(ref)) return undefined;
 
 		let filters: GitDiffFilter[] | undefined;
-		if (ref === GitRevision.deletedOrMissing) {
+		if (ref === deletedOrMissing) {
 			// If we are trying to move next from a deleted or missing ref then get the first commit
 			ref = undefined;
 			filters = ['A'];
@@ -3407,7 +3416,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			return GitUri.fromFile(
 				renamedFile ?? file ?? relativePath,
 				repoPath,
-				nextRenamedRef ?? nextRef ?? GitRevision.deletedOrMissing,
+				nextRenamedRef ?? nextRef ?? deletedOrMissing,
 			);
 		}
 
@@ -3439,7 +3448,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		skip: number = 0,
 		firstParent: boolean = false,
 	): Promise<PreviousComparisonUrisResult | undefined> {
-		if (ref === GitRevision.deletedOrMissing) return undefined;
+		if (ref === deletedOrMissing) return undefined;
 
 		const relativePath = this.getRelativePath(uri, repoPath);
 
@@ -3460,13 +3469,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						// Diff working with staged
 						return {
 							current: GitUri.fromFile(relativePath, repoPath, undefined),
-							previous: GitUri.fromFile(relativePath, repoPath, GitRevision.uncommittedStaged),
+							previous: GitUri.fromFile(relativePath, repoPath, uncommittedStaged),
 						};
 					}
 
 					return {
 						// Diff staged with HEAD (or prior if more skips)
-						current: GitUri.fromFile(relativePath, repoPath, GitRevision.uncommittedStaged),
+						current: GitUri.fromFile(relativePath, repoPath, uncommittedStaged),
 						previous: await this.getPreviousUri(repoPath, uri, ref, skip - 1, undefined, firstParent),
 					};
 				} else if (status.workingTreeStatus != null) {
@@ -3482,12 +3491,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 		}
 		// If we are at the index (staged), diff staged with HEAD
-		else if (GitRevision.isUncommittedStaged(ref)) {
+		else if (isUncommittedStaged(ref)) {
 			const current =
 				skip === 0
 					? GitUri.fromFile(relativePath, repoPath, ref)
 					: (await this.getPreviousUri(repoPath, uri, undefined, skip - 1, undefined, firstParent))!;
-			if (current == null || current.sha === GitRevision.deletedOrMissing) return undefined;
+			if (current == null || current.sha === deletedOrMissing) return undefined;
 
 			return {
 				current: current,
@@ -3500,7 +3509,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			skip === 0
 				? GitUri.fromFile(relativePath, repoPath, ref)
 				: (await this.getPreviousUri(repoPath, uri, ref, skip - 1, undefined, firstParent))!;
-		if (current == null || current.sha === GitRevision.deletedOrMissing) return undefined;
+		if (current == null || current.sha === deletedOrMissing) return undefined;
 
 		return {
 			current: current,
@@ -3516,7 +3525,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		ref: string | undefined,
 		skip: number = 0,
 	): Promise<PreviousLineComparisonUrisResult | undefined> {
-		if (ref === GitRevision.deletedOrMissing) return undefined;
+		if (ref === deletedOrMissing) return undefined;
 
 		let relativePath = this.getRelativePath(uri, repoPath);
 
@@ -3546,7 +3555,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							// Diff working with staged
 							return {
 								current: GitUri.fromFile(relativePath, repoPath, undefined),
-								previous: GitUri.fromFile(relativePath, repoPath, GitRevision.uncommittedStaged),
+								previous: GitUri.fromFile(relativePath, repoPath, uncommittedStaged),
 								line: editorLine,
 							};
 						}
@@ -3564,10 +3573,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				let hunkLine = await this.getDiffForLine(gitUri, editorLine, undefined);
 				if (hunkLine == null) {
 					// Next, check if we have a diff in the index (staged)
-					hunkLine = await this.getDiffForLine(gitUri, editorLine, undefined, GitRevision.uncommittedStaged);
+					hunkLine = await this.getDiffForLine(gitUri, editorLine, undefined, uncommittedStaged);
 
 					if (hunkLine != null) {
-						ref = GitRevision.uncommittedStaged;
+						ref = uncommittedStaged;
 					} else {
 						skip++;
 					}
@@ -3585,12 +3594,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				}
 			}
 		} else {
-			if (GitRevision.isUncommittedStaged(ref)) {
+			if (isUncommittedStaged(ref)) {
 				const current =
 					skip === 0
 						? GitUri.fromFile(relativePath, repoPath, ref)
 						: (await this.getPreviousUri(repoPath, uri, undefined, skip - 1, editorLine))!;
-				if (current.sha === GitRevision.deletedOrMissing) return undefined;
+				if (current.sha === deletedOrMissing) return undefined;
 
 				return {
 					current: current,
@@ -3618,7 +3627,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			skip === 0
 				? GitUri.fromFile(relativePath, repoPath, ref)
 				: (await this.getPreviousUri(repoPath, uri, ref, skip - 1, editorLine))!;
-		if (current.sha === GitRevision.deletedOrMissing) return undefined;
+		if (current.sha === deletedOrMissing) return undefined;
 
 		return {
 			current: current,
@@ -3636,11 +3645,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		editorLine?: number,
 		firstParent: boolean = false,
 	): Promise<GitUri | undefined> {
-		if (ref === GitRevision.deletedOrMissing) return undefined;
+		if (ref === deletedOrMissing) return undefined;
 
 		const scope = getLogScope();
 
-		if (ref === GitRevision.uncommitted) {
+		if (ref === uncommitted) {
 			ref = undefined;
 		}
 
@@ -3660,18 +3669,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			// If the line count is invalid just fallback to the most recent commit
-			if ((ref == null || GitRevision.isUncommittedStaged(ref)) && GitErrors.invalidLineCount.test(msg)) {
+			if ((ref == null || isUncommittedStaged(ref)) && GitErrors.invalidLineCount.test(msg)) {
 				if (ref == null) {
 					const status = await this.getStatusForFile(repoPath, uri);
 					if (status?.indexStatus != null) {
-						return GitUri.fromFile(relativePath, repoPath, GitRevision.uncommittedStaged);
+						return GitUri.fromFile(relativePath, repoPath, uncommittedStaged);
 					}
 				}
 
 				ref = await this.git.log__file_recent(repoPath, relativePath, {
 					ordering: configuration.get('advanced.commitOrdering'),
 				});
-				return GitUri.fromFile(relativePath, repoPath, ref ?? GitRevision.deletedOrMissing);
+				return GitUri.fromFile(relativePath, repoPath, ref ?? deletedOrMissing);
 			}
 
 			Logger.error(ex, scope);
@@ -3683,7 +3692,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		// If the previous ref matches the ref we asked for assume we are at the end of the history
 		if (ref != null && ref === previousRef) return undefined;
 
-		return GitUri.fromFile(file ?? relativePath, repoPath, previousRef ?? GitRevision.deletedOrMissing);
+		return GitUri.fromFile(file ?? relativePath, repoPath, previousRef ?? deletedOrMissing);
 	}
 
 	@log()
@@ -4054,7 +4063,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let repository: Repository | undefined;
 
 		if (typeof pathOrUri === 'string') {
-			if (ref === GitRevision.deletedOrMissing) return undefined;
+			if (ref === deletedOrMissing) return undefined;
 
 			repository = this.container.git.getRepository(Uri.file(pathOrUri));
 			repoPath = repoPath || repository?.path;
@@ -4066,7 +4075,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (pathOrUri instanceof GitUri) {
 				// Always use the ref of the GitUri
 				ref = pathOrUri.sha;
-				if (ref === GitRevision.deletedOrMissing) return undefined;
+				if (ref === deletedOrMissing) return undefined;
 			}
 
 			repository = this.container.git.getRepository(pathOrUri);
@@ -4099,7 +4108,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		ref: string | undefined,
 		repository: Repository | undefined,
 	): Promise<[string, string] | undefined> {
-		if (ref === GitRevision.deletedOrMissing) return undefined;
+		if (ref === deletedOrMissing) return undefined;
 
 		try {
 			while (true) {
@@ -4129,7 +4138,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					}
 				}
 
-				if (!tracked && ref && !GitRevision.isUncommitted(ref)) {
+				if (!tracked && ref && !isUncommitted(ref)) {
 					tracked = Boolean(await this.git.ls_files(repoPath, relativePath, { ref: ref }));
 					// If we still haven't found this file, make sure it wasn't deleted in that ref (i.e. check the previous)
 					if (!tracked) {
@@ -4260,16 +4269,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	) {
 		if (
 			!ref ||
-			ref === GitRevision.deletedOrMissing ||
-			(pathOrUri == null && GitRevision.isSha(ref)) ||
-			(pathOrUri != null && GitRevision.isUncommitted(ref))
+			ref === deletedOrMissing ||
+			(pathOrUri == null && isSha(ref)) ||
+			(pathOrUri != null && isUncommitted(ref))
 		) {
 			return ref;
 		}
 
 		if (pathOrUri == null) {
 			// If it doesn't look like a sha at all (e.g. branch name) or is a stash ref (^3) don't try to resolve it
-			if ((!options?.force && !GitRevision.isShaLike(ref)) || ref.endsWith('^3')) return ref;
+			if ((!options?.force && !isShaLike(ref)) || ref.endsWith('^3')) return ref;
 
 			return (await this.git.rev_parse__verify(repoPath, ref)) ?? ref;
 		}
@@ -4290,7 +4299,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		]);
 
 		const verified = getSettledValue(verifiedResult);
-		if (verified == null) return GitRevision.deletedOrMissing;
+		if (verified == null) return deletedOrMissing;
 
 		const resolved = getSettledValue(resolvedResult);
 
@@ -4563,7 +4572,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async validateReference(repoPath: string, ref: string): Promise<boolean> {
 		if (ref == null || ref.length === 0) return false;
-		if (ref === GitRevision.deletedOrMissing || GitRevision.isUncommitted(ref)) return true;
+		if (ref === deletedOrMissing || isUncommitted(ref)) return true;
 
 		return (await this.git.rev_parse__verify(repoPath, ref)) != null;
 	}

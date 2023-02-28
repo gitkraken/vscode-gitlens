@@ -3,7 +3,7 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
-import { GitRevision } from '../git/models/reference';
+import { deletedOrMissing } from '../git/models/constants';
 import { Logger } from '../logger';
 import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/command';
@@ -112,7 +112,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				diffUris.previous = GitUri.fromFile(
 					diffUris.current.fileName,
 					diffUris.current.repoPath!,
-					GitRevision.deletedOrMissing,
+					deletedOrMissing,
 				);
 			}
 

@@ -4,7 +4,7 @@ import { Container } from '../../container';
 import { memoize } from '../../system/decorators/memoize';
 import { normalizePath, relative } from '../../system/path';
 import type { GitBranch } from './branch';
-import { GitRevision } from './reference';
+import { shortenRevision } from './reference';
 import type { GitStatus } from './status';
 
 export class GitWorktree {
@@ -32,7 +32,7 @@ export class GitWorktree {
 			case 'bare':
 				return '(bare)';
 			case 'detached':
-				return GitRevision.shorten(this.sha);
+				return shortenRevision(this.sha);
 			default:
 				return this.branch || this.friendlyPath;
 		}

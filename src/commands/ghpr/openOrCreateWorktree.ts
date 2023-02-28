@@ -4,7 +4,7 @@ import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { add as addRemote } from '../../git/actions/remote';
 import { create as createWorktree, open as openWorktree } from '../../git/actions/worktree';
-import { GitReference } from '../../git/models/reference';
+import { createReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import { Logger } from '../../logger';
@@ -118,7 +118,7 @@ export class OpenOrCreateWorktreeCommand extends Command {
 			await createWorktree(
 				repo,
 				undefined,
-				GitReference.create(`${remote.name}/${ref}`, repo.path, {
+				createReference(`${remote.name}/${ref}`, repo.path, {
 					refType: 'branch',
 					name: `${remote.name}/${ref}`,
 					remote: true,

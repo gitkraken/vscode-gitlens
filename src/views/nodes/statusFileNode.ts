@@ -6,7 +6,7 @@ import { Commands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitCommit } from '../../git/models/commit';
-import type { GitFile} from '../../git/models/file';
+import type { GitFile } from '../../git/models/file';
 import { getGitFileStatusIcon } from '../../git/models/file';
 import { joinPaths, relativeDir } from '../../system/path';
 import { pluralize } from '../../system/string';

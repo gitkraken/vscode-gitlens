@@ -4,7 +4,7 @@ import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
 import { showDetailsView } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
-import { GitReference } from '../git/models/reference';
+import { createReference } from '../git/models/reference';
 import { createSearchQueryForCommits } from '../git/search';
 import { Logger } from '../logger';
 import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
@@ -81,7 +81,7 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 		}
 
 		if (args.refs.length === 1) {
-			return showDetailsView(GitReference.create(args.refs[0], args.repoPath!, { refType: 'revision' }));
+			return showDetailsView(createReference(args.refs[0], args.repoPath!, { refType: 'revision' }));
 		}
 
 		return executeGitCommand({

@@ -1,7 +1,7 @@
 import { QuickInputButtons } from 'vscode';
 import type { Container } from '../../container';
-import type { GitBranchReference } from '../../git/models/reference';
-import { GitReference } from '../../git/models/reference';
+import type { GitBranchReference, GitReference } from '../../git/models/reference';
+import { getNameWithoutRemote, getReferenceLabel, isRevisionReference } from '../../git/models/reference';
 import { Repository } from '../../git/models/repository';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
@@ -302,7 +302,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 						`Choose a branch${context.showTags ? ' or tag' : ''} to create the new branch from`,
 					picked: state.reference?.ref ?? (await state.repo.getBranch())?.ref,
 					titleContext: ' from',
-					value: GitReference.isRevision(state.reference) ? state.reference.ref : undefined,
+					value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
 				});
 				// Always break on the first step (so we will go back)
 				if (result === StepResultBreak) break;
@@ -313,12 +313,12 @@ export class BranchGitCommand extends QuickCommand<State> {
 			if (state.counter < 4 || state.name == null) {
 				const result = yield* inputBranchNameStep(state, context, {
 					placeholder: 'Please provide a name for the new branch',
-					titleContext: ` from ${GitReference.toString(state.reference, {
+					titleContext: ` from ${getReferenceLabel(state.reference, {
 						capitalize: true,
 						icon: false,
 						label: state.reference.refType !== 'branch',
 					})}`,
-					value: state.name ?? GitReference.getNameWithoutRemote(state.reference),
+					value: state.name ?? getNameWithoutRemote(state.reference),
 				});
 				if (result === StepResultBreak) continue;
 
@@ -350,14 +350,12 @@ export class BranchGitCommand extends QuickCommand<State> {
 			[
 				createFlagsQuickPickItem<CreateFlags>(state.flags, [], {
 					label: context.title,
-					detail: `Will create a new branch named ${state.name} from ${GitReference.toString(
-						state.reference,
-					)}`,
+					detail: `Will create a new branch named ${state.name} from ${getReferenceLabel(state.reference)}`,
 				}),
 				createFlagsQuickPickItem<CreateFlags>(state.flags, ['--switch'], {
 					label: `${context.title} and Switch`,
 					description: '--switch',
-					detail: `Will create and switch to a new branch named ${state.name} from ${GitReference.toString(
+					detail: `Will create and switch to a new branch named ${state.name} from ${getReferenceLabel(
 						state.reference,
 					)}`,
 				}),
@@ -423,7 +421,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 		const confirmations: FlagsQuickPickItem<DeleteFlags>[] = [
 			createFlagsQuickPickItem<DeleteFlags>(state.flags, [], {
 				label: context.title,
-				detail: `Will delete ${GitReference.toString(state.references)}`,
+				detail: `Will delete ${getReferenceLabel(state.references)}`,
 			}),
 		];
 		if (!state.references.every(b => b.remote)) {
@@ -431,7 +429,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 				createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--force'], {
 					label: `Force ${context.title}`,
 					description: '--force',
-					detail: `Will forcibly delete ${GitReference.toString(state.references)}`,
+					detail: `Will forcibly delete ${getReferenceLabel(state.references)}`,
 				}),
 			);
 
@@ -442,16 +440,14 @@ export class BranchGitCommand extends QuickCommand<State> {
 							state.references.filter(b => !b.remote).length > 1 ? 's' : ''
 						}`,
 						description: '--remotes',
-						detail: `Will delete ${GitReference.toString(
-							state.references,
-						)} and any remote tracking branches`,
+						detail: `Will delete ${getReferenceLabel(state.references)} and any remote tracking branches`,
 					}),
 					createFlagsQuickPickItem<DeleteFlags>(state.flags, ['--force', '--remotes'], {
 						label: `Force ${context.title} & Remote${
 							state.references.filter(b => !b.remote).length > 1 ? 's' : ''
 						}`,
 						description: '--force --remotes',
-						detail: `Will forcibly delete ${GitReference.toString(
+						detail: `Will forcibly delete ${getReferenceLabel(
 							state.references,
 						)} and any remote tracking branches`,
 					}),
@@ -488,10 +484,10 @@ export class BranchGitCommand extends QuickCommand<State> {
 
 			if (state.counter < 4 || state.name == null) {
 				const result = yield* inputBranchNameStep(state, context, {
-					placeholder: `Please provide a new name for ${GitReference.toString(state.reference, {
+					placeholder: `Please provide a new name for ${getReferenceLabel(state.reference, {
 						icon: false,
 					})}`,
-					titleContext: ` ${GitReference.toString(state.reference, false)}`,
+					titleContext: ` ${getReferenceLabel(state.reference, false)}`,
 					value: state.name ?? state.reference.name,
 				});
 				if (result === StepResultBreak) continue;
@@ -518,7 +514,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 			[
 				createFlagsQuickPickItem<RenameFlags>(state.flags, ['-m'], {
 					label: context.title,
-					detail: `Will rename ${GitReference.toString(state.reference)} to ${state.name}`,
+					detail: `Will rename ${getReferenceLabel(state.reference)} to ${state.name}`,
 				}),
 			],
 			context,

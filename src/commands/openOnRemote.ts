@@ -1,6 +1,6 @@
 import { Commands, GlyphChars } from '../constants';
 import type { Container } from '../container';
-import { GitRevision } from '../git/models/reference';
+import { createRevisionRange, shortenRevision } from '../git/models/reference';
 import { GitRemote } from '../git/models/remote';
 import type { RemoteResource } from '../git/models/remoteResource';
 import { RemoteResourceType } from '../git/models/remoteResource';
@@ -102,13 +102,13 @@ export class OpenOnRemoteCommand extends Command {
 					break;
 
 				case RemoteResourceType.Commit:
-					title = `${getTitlePrefix('Commit')}${pad(GlyphChars.Dot, 2, 2)}${GitRevision.shorten(
+					title = `${getTitlePrefix('Commit')}${pad(GlyphChars.Dot, 2, 2)}${shortenRevision(
 						args.resource.sha,
 					)}`;
 					break;
 
 				case RemoteResourceType.Comparison:
-					title = `${getTitlePrefix('Comparison')}${pad(GlyphChars.Dot, 2, 2)}${GitRevision.createRange(
+					title = `${getTitlePrefix('Comparison')}${pad(GlyphChars.Dot, 2, 2)}${createRevisionRange(
 						args.resource.base,
 						args.resource.compare,
 						args.resource.notation ?? '...',
@@ -125,7 +125,7 @@ export class OpenOnRemoteCommand extends Command {
 							: `Create Pull Request on ${provider}`
 					}${pad(GlyphChars.Dot, 2, 2)}${
 						args.resource.base?.branch
-							? GitRevision.createRange(args.resource.base.branch, args.resource.compare.branch, '...')
+							? createRevisionRange(args.resource.base.branch, args.resource.compare.branch, '...')
 							: args.resource.compare.branch
 					}`;
 
@@ -143,7 +143,7 @@ export class OpenOnRemoteCommand extends Command {
 					break;
 
 				case RemoteResourceType.Revision: {
-					title = `${getTitlePrefix('File')}${pad(GlyphChars.Dot, 2, 2)}${GitRevision.shorten(
+					title = `${getTitlePrefix('File')}${pad(GlyphChars.Dot, 2, 2)}${shortenRevision(
 						args.resource.sha,
 					)}${pad(GlyphChars.Dot, 1, 1)}${args.resource.fileName}`;
 					break;

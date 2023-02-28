@@ -7,7 +7,7 @@ import type { Container } from '../container';
 import { setContext } from '../context';
 import { unknownGitUri } from '../git/gitUri';
 import type { GitLog } from '../git/models/log';
-import { GitRevision } from '../git/models/reference';
+import { isRevisionRange, shortenRevision, splitRevisionRange } from '../git/models/reference';
 import type { SearchQuery } from '../git/search';
 import { getSearchQuery } from '../git/search';
 import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
@@ -195,8 +195,8 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 
 			ref = pick.ref;
 
-			if (GitRevision.isRange(ref)) {
-				const range = GitRevision.splitRange(ref);
+			if (isRevisionRange(ref)) {
+				const range = splitRevisionRange(ref);
 				if (range != null) {
 					ref = range.ref1 || 'HEAD';
 					ref2 = range.ref2 || 'HEAD';
@@ -225,8 +225,8 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 
 	private getRefName(ref: string | StoredNamedRef): string {
 		return typeof ref === 'string'
-			? GitRevision.shorten(ref, { strings: { working: 'Working Tree' } })!
-			: ref.label ?? GitRevision.shorten(ref.ref)!;
+			? shortenRevision(ref, { strings: { working: 'Working Tree' } })!
+			: ref.label ?? shortenRevision(ref.ref)!;
 	}
 
 	private removeComparePicker(silent: boolean = false) {

@@ -14,7 +14,7 @@ import type { Container } from '../../container';
 import { setContext } from '../../context';
 import { emojify } from '../../emojis';
 import type { GitCommit } from '../../git/models/commit';
-import { GitReference } from '../../git/models/reference';
+import { createReference } from '../../git/models/reference';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { Logger } from '../../logger';
 import { showRebaseSwitchToTextWarningMessage } from '../../messages';
@@ -514,7 +514,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		this.container.events.fire(
 			'commit:selected',
 			{
-				commit: GitReference.create(sha, context.repoPath, { refType: 'revision' }),
+				commit: createReference(sha, context.repoPath, { refType: 'revision' }),
 				pin: false,
 				preserveFocus: true,
 				preserveVisibility: context.firstSelection

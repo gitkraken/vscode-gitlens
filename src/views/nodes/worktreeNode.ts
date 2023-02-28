@@ -6,7 +6,7 @@ import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { PullRequest } from '../../git/models/pullRequest';
 import { PullRequestState } from '../../git/models/pullRequest';
-import { GitRevision } from '../../git/models/reference';
+import { shortenRevision } from '../../git/models/reference';
 import { GitRemote, GitRemoteType } from '../../git/models/remote';
 import type { GitWorktree } from '../../git/models/worktree';
 import { gate } from '../../system/decorators/gate';
@@ -310,7 +310,7 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView, Sta
 			case 'detached': {
 				icon = new ThemeIcon('git-commit');
 				tooltip.appendMarkdown(
-					`${this.worktree.main ? '$(pass) ' : ''}Detached Worktree at $(git-commit) ${GitRevision.shorten(
+					`${this.worktree.main ? '$(pass) ' : ''}Detached Worktree at $(git-commit) ${shortenRevision(
 						this.worktree.sha,
 					)}${indicators}\\\n\`${this.worktree.friendlyPath}\``,
 				);

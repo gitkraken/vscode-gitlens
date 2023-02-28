@@ -15,7 +15,7 @@ import type {
 	GitStashReference,
 	GitTagReference,
 } from '../git/models/reference';
-import { GitReference } from '../git/models/reference';
+import { getReferenceLabel } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
 import type { GitWorktree } from '../git/models/worktree';
 import { executeCommand } from '../system/command';
@@ -508,7 +508,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(branch, {
+				title: `Revealing ${getReferenceLabel(branch, {
 					icon: false,
 					quoted: true,
 				})} in the Repositories view...`,
@@ -569,7 +569,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(commit, {
+				title: `Revealing ${getReferenceLabel(commit, {
 					icon: false,
 					quoted: true,
 				})} in the Repositories view...`,
@@ -673,7 +673,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(stash, {
+				title: `Revealing ${getReferenceLabel(stash, {
 					icon: false,
 					quoted: true,
 				})} in the Repositories view...`,
@@ -734,7 +734,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(tag, {
+				title: `Revealing ${getReferenceLabel(tag, {
 					icon: false,
 					quoted: true,
 				})} in the Repositories view...`,

@@ -8,7 +8,7 @@ import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
 import type { GitMergeStatus } from '../../git/models/merge';
 import type { GitRebaseStatus } from '../../git/models/rebase';
-import { GitReference } from '../../git/models/reference';
+import { getReferenceLabel } from '../../git/models/reference';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import type { ViewsWithCommits } from '../viewBase';
@@ -33,8 +33,8 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 
 		const item = new TreeItem('Current changes', TreeItemCollapsibleState.None);
 		item.contextValue = ContextValues.MergeConflictCurrentChanges;
-		item.description = `${GitReference.toString(this.status.current, { expand: false, icon: false })}${
-			commit != null ? ` (${GitReference.toString(commit, { expand: false, icon: false })})` : ' (HEAD)'
+		item.description = `${getReferenceLabel(this.status.current, { expand: false, icon: false })}${
+			commit != null ? ` (${getReferenceLabel(commit, { expand: false, icon: false })})` : ' (HEAD)'
 		}`;
 		item.iconPath = this.view.config.avatars
 			? (await commit?.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })) ??
@@ -42,7 +42,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 			: new ThemeIcon('diff');
 
 		const markdown = new MarkdownString(
-			`Current changes to $(file)${GlyphChars.Space}${this.file.path} on ${GitReference.toString(
+			`Current changes to $(file)${GlyphChars.Space}${this.file.path} on ${getReferenceLabel(
 				this.status.current,
 			)}${
 				commit != null
@@ -88,7 +88,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 			rhs: {
 				sha: 'HEAD',
 				uri: GitUri.fromFile(this.file, this.status.repoPath),
-				title: `${this.file.path} (${GitReference.toString(this.status.current, {
+				title: `${this.file.path} (${getReferenceLabel(this.status.current, {
 					expand: false,
 					icon: false,
 				})})`,

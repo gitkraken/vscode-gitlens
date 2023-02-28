@@ -11,7 +11,8 @@ import { reveal as revealBranch } from '../git/actions/branch';
 import { showDetailsView } from '../git/actions/commit';
 import { reveal as revealTag } from '../git/actions/tag';
 import type { BranchSortOptions, GitBranch } from '../git/models/branch';
-import { GitReference } from '../git/models/reference';
+import type { GitReference } from '../git/models/reference';
+import { isBranchReference, isRevisionReference, isTagReference } from '../git/models/reference';
 import type { GitTag, TagSortOptions } from '../git/models/tag';
 import type { KeyboardScope, Keys } from '../keyboard';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
@@ -137,11 +138,11 @@ export async function showReferencePicker(
 				}),
 				quickpick.onDidTriggerItemButton(({ button, item: { item } }) => {
 					if (button === RevealInSideBarQuickInputButton) {
-						if (GitReference.isBranch(item)) {
+						if (isBranchReference(item)) {
 							void revealBranch(item, { select: true, expand: true });
-						} else if (GitReference.isTag(item)) {
+						} else if (isTagReference(item)) {
 							void revealTag(item, { select: true, expand: true });
-						} else if (GitReference.isRevision(item)) {
+						} else if (isRevisionReference(item)) {
 							void showDetailsView(item, {
 								pin: false,
 								preserveFocus: true,

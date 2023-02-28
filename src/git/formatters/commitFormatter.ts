@@ -30,9 +30,10 @@ import type { ContactPresence } from '../../vsls/vsls';
 import type { PreviousLineComparisonUrisResult } from '../gitProvider';
 import type { GitCommit } from '../models/commit';
 import { isCommit } from '../models/commit';
+import { uncommitted, uncommittedStaged } from '../models/constants';
 import type { IssueOrPullRequest } from '../models/issue';
 import { PullRequest } from '../models/pullRequest';
-import { GitReference, GitRevision } from '../models/reference';
+import { getReferenceFromRevision, isUncommittedStaged, shortenRevision } from '../models/reference';
 import { GitRemote } from '../models/remote';
 import type { RemoteProvider } from '../remotes/remoteProvider';
 import type { FormatOptions, RequiredTokenOptions } from './formatter';
@@ -362,11 +363,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			const { previousLineComparisonUris: diffUris } = this._options;
 			if (diffUris?.previous != null) {
 				commands = `[\`${this._padOrTruncate(
-					GitRevision.shorten(
-						GitRevision.isUncommittedStaged(diffUris.current.sha)
-							? diffUris.current.sha
-							: GitRevision.uncommitted,
-					)!,
+					shortenRevision(isUncommittedStaged(diffUris.current.sha) ? diffUris.current.sha : uncommitted)!,
 					this._options.tokenOptions.commands,
 				)}\`](${ShowCommitsInViewCommand.getMarkdownCommandArgs(
 					this._item.sha,
@@ -393,9 +390,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				)} "Open Blame Prior to this Change")`;
 			} else {
 				commands = `[\`${this._padOrTruncate(
-					GitRevision.shorten(
-						this._item.isUncommittedStaged ? GitRevision.uncommittedStaged : GitRevision.uncommitted,
-					)!,
+					shortenRevision(this._item.isUncommittedStaged ? uncommittedStaged : uncommitted)!,
 					this._options.tokenOptions.commands,
 				)}\`](${ShowCommitsInViewCommand.getMarkdownCommandArgs(
 					this._item.sha,
@@ -443,7 +438,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		if (arePlusFeaturesEnabled()) {
 			commands += ` &nbsp;[$(gitlens-graph)](${Command.getMarkdownCommandArgsCore<ShowInCommitGraphCommandArgs>(
 				Commands.ShowInCommitGraph,
-				{ ref: GitReference.fromRevision(this._item) },
+				{ ref: getReferenceFromRevision(this._item) },
 			)} "Open in Commit Graph")`;
 		}
 

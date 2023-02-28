@@ -4,7 +4,7 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { openFileAtRevision } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
-import { GitRevision } from '../git/models/reference';
+import { deletedOrMissing } from '../git/models/constants';
 import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
@@ -43,7 +43,7 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 					args.revisionUri =
 						commit?.file?.status === 'D'
 							? this.container.git.getRevisionUri(
-									(await commit.getPreviousSha()) ?? GitRevision.deletedOrMissing,
+									(await commit.getPreviousSha()) ?? deletedOrMissing,
 									commit.file,
 									commit.repoPath,
 							  )

@@ -4,7 +4,7 @@ import { GitUri } from '../../git/gitUri';
 import type { GitBranch, GitTrackingState } from '../../git/models/branch';
 import { getRemoteNameFromBranchName } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
-import { GitRevision } from '../../git/models/reference';
+import { createRevisionRange } from '../../git/models/reference';
 import { GitRemote } from '../../git/models/remote';
 import { fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
@@ -282,8 +282,8 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 		if (this._log == null) {
 			const range =
 				this.upstreamType === 'ahead'
-					? GitRevision.createRange(this.status.upstream, this.status.ref)
-					: GitRevision.createRange(this.status.ref, this.status.upstream);
+					? createRevisionRange(this.status.upstream, this.status.ref)
+					: createRevisionRange(this.status.ref, this.status.upstream);
 
 			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,
