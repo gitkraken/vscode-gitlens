@@ -236,8 +236,8 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 }
 
 export function deactivate() {
-	// nothing to do
-	Logger.log('GitLens deactivated');
+	Logger.log('GitLens deactivating...');
+	Container.instance.deactivate();
 }
 
 // async function migrateSettings(context: ExtensionContext, previousVersion: string | undefined) {

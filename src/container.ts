@@ -241,6 +241,15 @@ export class Container {
 		);
 	}
 
+	deactivate() {
+		this._deactivating = true;
+	}
+
+	private _deactivating: boolean = false;
+	get deactivating() {
+		return this._deactivating;
+	}
+
 	private _ready: boolean = false;
 
 	async ready() {

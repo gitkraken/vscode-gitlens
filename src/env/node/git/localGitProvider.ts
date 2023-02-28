@@ -137,6 +137,7 @@ import { countStringLength, filterMap } from '../../../system/array';
 import { TimedCancellationSource } from '../../../system/cancellation';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
+import { debounce } from '../../../system/function';
 import { filterMap as filterMapIterable, find, first, join, last, map, some } from '../../../system/iterable';
 import {
 	commonBaseIndex,
@@ -309,7 +310,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (scmGit == null) return;
 
 			this._disposables.push(
-				scmGit.onDidCloseRepository(e => this._onDidCloseRepository.fire({ uri: e.rootUri })),
+				// Since we will get "close" events for repos when vscode is shutting down, debounce the event so ensure we aren't shutting down
+				scmGit.onDidCloseRepository(
+					debounce(e => {
+						if (this.container.deactivating) return;
+						this._onDidCloseRepository.fire({ uri: e.rootUri });
+					}, 1000),
+				),
 				scmGit.onDidOpenRepository(e => this._onDidOpenRepository.fire({ uri: e.rootUri })),
 			);
 
