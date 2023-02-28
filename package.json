@@ -13359,7 +13359,7 @@
 		"@types/vscode": "1.72.0",
 		"@typescript-eslint/eslint-plugin": "5.54.0",
 		"@typescript-eslint/parser": "5.54.0",
-		"@vscode/test-electron": "2.2.3",
+		"@vscode/test-electron": "2.3.0",
 		"@vscode/test-web": "0.0.35",
 		"@vscode/vsce": "2.18.0",
 		"circular-dependency-plugin": "5.2.2",
