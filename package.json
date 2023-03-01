@@ -12634,9 +12634,19 @@
 				"when": "gitlens:key:."
 			},
 			{
+				"command": "gitlens.key.alt+enter",
+				"key": "alt+enter",
+				"when": "gitlens:key:alt+enter"
+			},
+			{
+				"command": "gitlens.key.ctrl+enter",
+				"key": "ctrl+enter",
+				"when": "gitlens:key:ctrl+enter"
+			},
+			{
 				"command": "gitlens.key.escape",
 				"key": "escape",
-				"when": "gitlens:key:escape && editorTextFocus && !findWidgetVisible && !renameInputVisible && !suggestWidgetVisible && !isInEmbeddedEditor"
+				"when": "gitlens:key:escape && editorTextFocus && !findWidgetVisible && !quickFixWidgetVisible && !renameInputVisible && !suggestWidgetVisible && !isInEmbeddedEditor"
 			},
 			{
 				"command": "gitlens.gitCommands",

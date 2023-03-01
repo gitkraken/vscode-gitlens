@@ -22,6 +22,8 @@ export const keys = [
 	'ctrl+right',
 	'alt+,',
 	'alt+.',
+	'alt+enter',
+	'ctrl+enter',
 	'escape',
 ] as const;
 export type Keys = (typeof keys)[number];
