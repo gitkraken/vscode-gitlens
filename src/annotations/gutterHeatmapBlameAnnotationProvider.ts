@@ -1,10 +1,10 @@
 import type { TextEditor, TextEditorDecorationType } from 'vscode';
 import { Range } from 'vscode';
-import { FileAnnotationType } from '../configuration';
+import { FileAnnotationType } from '../config';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
-import { getLogScope } from '../logScope';
 import { log } from '../system/decorators/log';
+import { getLogScope } from '../system/logger.scope';
 import { Stopwatch } from '../system/stopwatch';
 import type { GitDocumentState } from '../trackers/gitDocumentTracker';
 import type { TrackedDocument } from '../trackers/trackedDocument';

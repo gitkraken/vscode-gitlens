@@ -11,7 +11,6 @@ import type {
 } from 'vscode';
 import { authentication, EventEmitter, FileType, Uri, window, workspace } from 'vscode';
 import { encodeUtf8Hex } from '@env/hex';
-import { configuration } from '../../configuration';
 import { CharCode, ContextKeys, Schemes } from '../../constants';
 import type { Container } from '../../container';
 import { setContext } from '../../context';
@@ -79,12 +78,13 @@ import { getRemoteProviderMatcher, loadRemoteProviders } from '../../git/remotes
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
 import type { GitSearch, GitSearchResultData, GitSearchResults, SearchQuery } from '../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../git/search';
-import { Logger } from '../../logger';
-import type { LogScope } from '../../logScope';
-import { getLogScope } from '../../logScope';
+import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { filterMap, first, last, some } from '../../system/iterable';
+import { Logger } from '../../system/logger';
+import type { LogScope } from '../../system/logger.scope';
+import { getLogScope } from '../../system/logger.scope';
 import { isAbsolute, isFolderGlob, maybeUri, normalizePath, relative } from '../../system/path';
 import { fastestSettled, getSettledValue } from '../../system/promise';
 import { serializeWebviewItemContext } from '../../system/webview';

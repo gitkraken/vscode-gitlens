@@ -1,7 +1,7 @@
 import type { Command } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
-import { configuration, ViewFilesLayout } from '../../configuration';
+import { ViewFilesLayout } from '../../config';
 import { Commands, CoreCommands } from '../../constants';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { GitUri } from '../../git/gitUri';
@@ -13,6 +13,7 @@ import { getReferenceLabel } from '../../git/models/reference';
 import type { GitStatus } from '../../git/models/status';
 import { makeHierarchical } from '../../system/array';
 import { executeCoreCommand } from '../../system/command';
+import { configuration } from '../../system/configuration';
 import { joinPaths, normalizePath } from '../../system/path';
 import { getSettledValue } from '../../system/promise';
 import { pluralize, sortCompare } from '../../system/string';

@@ -1,6 +1,6 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
-import type { ViewShowBranchComparison } from '../../configuration';
-import { ViewBranchesLayout } from '../../configuration';
+import type { ViewShowBranchComparison } from '../../config';
+import { ViewBranchesLayout } from '../../config';
 import { Colors, ContextKeys, GlyphChars } from '../../constants';
 import { getContext } from '../../context';
 import type { GitUri } from '../../git/gitUri';

@@ -22,14 +22,11 @@ import {
 } from 'vscode';
 import { fetch, getProxyAgent } from '@env/fetch';
 import { getPlatform } from '@env/platform';
-import { configuration } from '../../configuration';
 import { Commands, ContextKeys } from '../../constants';
 import type { Container } from '../../container';
 import { setContext } from '../../context';
 import { AccountValidationError } from '../../errors';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
-import { Logger } from '../../logger';
-import { getLogScope } from '../../logScope';
 import { showMessage } from '../../messages';
 import type { Subscription } from '../../subscription';
 import {
@@ -46,12 +43,15 @@ import {
 	SubscriptionState,
 } from '../../subscription';
 import { executeCommand, registerCommand } from '../../system/command';
+import { configuration } from '../../system/configuration';
 import { createFromDateDelta } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import type { Deferrable } from '../../system/function';
 import { debounce, once } from '../../system/function';
+import { Logger } from '../../system/logger';
+import { getLogScope } from '../../system/logger.scope';
 import { flatten } from '../../system/object';
 import { pluralize } from '../../system/string';
 import { openWalkthrough } from '../../system/utils';

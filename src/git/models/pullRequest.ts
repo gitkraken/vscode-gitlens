@@ -1,5 +1,5 @@
 import { ColorThemeKind, ThemeColor, ThemeIcon, window } from 'vscode';
-import { DateStyle } from '../../configuration';
+import { DateStyle } from '../../config';
 import { Colors } from '../../constants';
 import { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';

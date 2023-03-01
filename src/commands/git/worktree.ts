@@ -1,7 +1,6 @@
 import type { MessageItem } from 'vscode';
 import { QuickInputButtons, Uri, window, workspace } from 'vscode';
-import type { Config } from '../../configuration';
-import { configuration } from '../../configuration';
+import type { Config } from '../../config';
 import type { Container } from '../../container';
 import { PlusFeatures } from '../../features';
 import { convertOpenFlagsToLocation, reveal, revealInFileExplorer } from '../../git/actions/worktree';
@@ -21,6 +20,7 @@ import { createQuickPickSeparator } from '../../quickpicks/items/common';
 import { Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { configuration } from '../../system/configuration';
 import { basename, isDescendent } from '../../system/path';
 import { pluralize, truncateLeft } from '../../system/string';
 import { openWorkspace, OpenWorkspaceLocation } from '../../system/utils';

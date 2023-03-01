@@ -2,11 +2,11 @@ import type { Uri } from 'vscode';
 import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { filterMap } from '../system/array';
 import { command } from '../system/command';
+import { Logger } from '../system/logger';
 import { findOrOpenEditors } from '../system/utils';
 import { Command } from './base';
 

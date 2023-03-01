@@ -1,8 +1,8 @@
 import { workspace } from 'vscode';
-import { configuration } from '../../configuration';
 import { Commands, ContextKeys } from '../../constants';
 import type { Container } from '../../container';
 import { registerCommand } from '../../system/command';
+import { configuration } from '../../system/configuration';
 import { DidOpenAnchorNotificationType } from '../protocol';
 import { WebviewWithConfigBase } from '../webviewWithConfigBase';
 import type { State } from './protocol';

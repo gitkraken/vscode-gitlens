@@ -2,13 +2,13 @@ import type { TextEditor, TextEditorEdit, Uri } from 'vscode';
 import { window } from 'vscode';
 import type { AnnotationContext } from '../annotations/annotationProvider';
 import type { ChangesAnnotationContext } from '../annotations/gutterChangesAnnotationProvider';
-import { UriComparer } from '../comparers';
-import { FileAnnotationType } from '../configuration';
+import { FileAnnotationType } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
+import { UriComparer } from '../system/comparers';
+import { Logger } from '../system/logger';
 import { isTextEditor } from '../system/utils';
 import { ActiveEditorCommand, EditorCommand } from './base';
 

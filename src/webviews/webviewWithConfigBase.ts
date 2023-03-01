@@ -1,15 +1,15 @@
 import type { ConfigurationChangeEvent, WebviewPanelOnDidChangeViewStateEvent } from 'vscode';
 import { ConfigurationTarget } from 'vscode';
-import type { Path, PathValue } from '../configuration';
-import { configuration } from '../configuration';
 import type { Commands, ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import { GitCommit, GitCommitIdentity } from '../git/models/commit';
 import { GitFileChange, GitFileIndexStatus } from '../git/models/file';
 import { PullRequest, PullRequestState } from '../git/models/pullRequest';
-import { Logger } from '../logger';
-import type { TrackedUsageFeatures } from '../usageTracker';
+import type { Path, PathValue } from '../system/configuration';
+import { configuration } from '../system/configuration';
+import { Logger } from '../system/logger';
+import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
 import type { IpcMessage } from './protocol';
 import {
 	DidChangeConfigurationNotificationType,

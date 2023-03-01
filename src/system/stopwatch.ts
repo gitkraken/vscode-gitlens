@@ -1,9 +1,10 @@
 import { hrtime } from '@env/hrtime';
-import { GlyphChars, LogLevel } from '../constants';
-import type { LogProvider } from '../logger';
-import { defaultLogProvider } from '../logger';
-import type { LogScope } from '../logScope';
-import { getNextLogScopeId } from '../logScope';
+import { GlyphChars } from '../constants';
+import type { LogProvider } from './logger';
+import { defaultLogProvider } from './logger';
+import { LogLevel } from './logger.constants';
+import type { LogScope } from './logger.scope';
+import { getNextLogScopeId } from './logger.scope';
 
 type StopwatchLogOptions = { message?: string; suffix?: string };
 type StopwatchOptions = {

@@ -1,5 +1,5 @@
 import { window } from 'vscode';
-import { viewsConfigKeys } from '../configuration';
+import { viewsConfigKeys } from '../config';
 import { Commands, CoreCommands } from '../constants';
 import type { Container } from '../container';
 import { command, executeCommand, executeCoreCommand } from '../system/command';

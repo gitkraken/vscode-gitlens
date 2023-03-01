@@ -1,7 +1,7 @@
 import type { QuickPickItem } from 'vscode';
 import { commands, QuickPickItemKind } from 'vscode';
 import type { Commands } from '../../constants';
-import type { Keys } from '../../keyboard';
+import type { Keys } from '../../system/keyboard';
 
 declare module 'vscode' {
 	interface QuickPickItem {

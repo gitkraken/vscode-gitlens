@@ -5,8 +5,8 @@ import type {
 	TreeViewVisibilityChangeEvent,
 } from 'vscode';
 import { Disposable, ProgressLocation, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import type { CommitsViewConfig } from '../configuration';
-import { configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
+import type { CommitsViewConfig } from '../config';
+import { ViewFilesLayout, ViewShowBranchComparison } from '../config';
 import { Commands, ContextKeys, GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
@@ -18,10 +18,11 @@ import { getReferenceLabel } from '../git/models/reference';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { executeCommand } from '../system/command';
+import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
 import { disposableInterval } from '../system/function';
-import type { UsageChangeEvent } from '../usageTracker';
+import type { UsageChangeEvent } from '../telemetry/usageTracker';
 import { BranchNode } from './nodes/branchNode';
 import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
 import { CommitFileNode } from './nodes/commitFileNode';

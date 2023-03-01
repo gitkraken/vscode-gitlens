@@ -1,9 +1,7 @@
-export * from './config';
-
 import type { ConfigurationChangeEvent, ConfigurationScope, Event, ExtensionContext } from 'vscode';
 import { ConfigurationTarget, EventEmitter, workspace } from 'vscode';
-import type { Config } from './config';
-import { areEqual } from './system/object';
+import type { Config } from '../config';
+import { areEqual } from './object';
 
 const configPrefix = 'gitlens';
 

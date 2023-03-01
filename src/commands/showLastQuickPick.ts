@@ -1,9 +1,9 @@
 import { commands } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
+import { Logger } from '../system/logger';
 import { Command, getLastCommand } from './base';
 
 @command()

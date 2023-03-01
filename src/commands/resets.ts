@@ -1,9 +1,9 @@
 import { ConfigurationTarget } from 'vscode';
 import { resetAvatarCache } from '../avatars';
-import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { command } from '../system/command';
+import { configuration } from '../system/configuration';
 import { Command } from './base';
 
 @command()

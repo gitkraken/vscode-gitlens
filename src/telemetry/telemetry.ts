@@ -3,8 +3,8 @@ import type { Disposable } from 'vscode';
 import { version as codeVersion, env } from 'vscode';
 import { getProxyAgent } from '@env/fetch';
 import { getPlatform } from '@env/platform';
-import { configuration } from '../configuration';
 import type { Container } from '../container';
+import { configuration } from '../system/configuration';
 
 export interface TelemetryContext {
 	env: string;

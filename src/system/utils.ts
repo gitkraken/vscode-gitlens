@@ -1,10 +1,10 @@
 import type { ColorTheme, TextDocument, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { ColorThemeKind, env, ViewColumn, window, workspace } from 'vscode';
-import { configuration } from '../configuration';
 import { CoreCommands, ImageMimetypes, Schemes } from '../constants';
 import { isGitUri } from '../git/gitUri';
-import { Logger } from '../logger';
 import { executeCoreCommand } from './command';
+import { configuration } from './configuration';
+import { Logger } from './logger';
 import { extname } from './path';
 
 export function findTextDocument(uri: Uri): TextDocument | undefined {

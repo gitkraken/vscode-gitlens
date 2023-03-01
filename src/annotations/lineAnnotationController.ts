@@ -6,18 +6,18 @@ import type {
 	TextEditorDecorationType,
 } from 'vscode';
 import { CancellationTokenSource, DecorationRangeBehavior, Disposable, Range, window } from 'vscode';
-import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitCommit } from '../git/models/commit';
 import type { PullRequest } from '../git/models/pullRequest';
-import { Logger } from '../logger';
-import type { LogScope } from '../logScope';
-import { getLogScope } from '../logScope';
+import { configuration } from '../system/configuration';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import { count, every, filter } from '../system/iterable';
+import { Logger } from '../system/logger';
+import type { LogScope } from '../system/logger.scope';
+import { getLogScope } from '../system/logger.scope';
 import type { PromiseCancelledErrorWithId } from '../system/promise';
 import { PromiseCancelledError, raceAll } from '../system/promise';
 import { isTextEditor } from '../system/utils';

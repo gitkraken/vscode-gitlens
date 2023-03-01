@@ -1,11 +1,11 @@
 import type { TextEditor } from 'vscode';
 import { Disposable } from 'vscode';
-import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
-import { getLogScope } from '../logScope';
+import { configuration } from '../system/configuration';
 import { debug } from '../system/decorators/log';
+import { getLogScope } from '../system/logger.scope';
 import type {
 	DocumentBlameStateChangeEvent,
 	DocumentContentChangeEvent,

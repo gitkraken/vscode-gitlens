@@ -6,7 +6,6 @@ import type {
 	ShowQuickBranchHistoryCommandArgs,
 	ShowQuickCommitCommandArgs,
 } from '../commands';
-import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import type { PagedResult } from '../git/gitProvider';
@@ -14,6 +13,7 @@ import type { GitBranch } from '../git/models/branch';
 import { getBranchNameWithoutRemote } from '../git/models/branch';
 import { createReference } from '../git/models/reference';
 import type { GitTag } from '../git/models/tag';
+import { configuration } from '../system/configuration';
 
 const commandsRegexShared =
 	/\b(g(?:it)?\b\s*)\b(branch|checkout|cherry-pick|fetch|grep|log|merge|pull|push|rebase|reset|revert|show|stash|status|tag)\b/gi;

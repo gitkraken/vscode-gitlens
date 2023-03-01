@@ -1,12 +1,12 @@
 import type { Disposable, InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { InputBoxValidationSeverity, QuickInputButtons, window } from 'vscode';
-import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import { Container } from '../container';
-import type { KeyMapping } from '../keyboard';
 import { Directive, isDirective, isDirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { command } from '../system/command';
+import { configuration } from '../system/configuration';
 import { log } from '../system/decorators/log';
+import type { KeyMapping } from '../system/keyboard';
 import type { Deferred } from '../system/promise';
 import { isPromise } from '../system/promise';
 import type { CommandContext } from './base';

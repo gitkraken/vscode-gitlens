@@ -6,9 +6,9 @@ import type { GitCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
 import { deletedOrMissing } from '../git/models/constants';
 import { isShaLike, isUncommitted, shortenRevision } from '../git/models/reference';
-import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
 import { command, executeCoreCommand } from '../system/command';
+import { Logger } from '../system/logger';
 import { basename } from '../system/path';
 import { Command } from './base';
 

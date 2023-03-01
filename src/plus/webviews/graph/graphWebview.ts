@@ -27,8 +27,7 @@ import type {
 	ShowCommitsInViewCommandArgs,
 } from '../../../commands';
 import { parseCommandContext } from '../../../commands/base';
-import type { Config } from '../../../configuration';
-import { configuration } from '../../../configuration';
+import type { Config } from '../../../config';
 import { Commands, ContextKeys, CoreCommands, CoreGitCommands, GlyphChars } from '../../../constants';
 import type { Container } from '../../../container';
 import { getContext, onDidChangeContext } from '../../../context';
@@ -74,6 +73,7 @@ import {
 	executeCoreGitCommand,
 	registerCommand,
 } from '../../../system/command';
+import { configuration } from '../../../system/configuration';
 import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';

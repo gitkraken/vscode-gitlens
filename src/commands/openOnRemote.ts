@@ -5,10 +5,10 @@ import { GitRemote } from '../git/models/remote';
 import type { RemoteResource } from '../git/models/remoteResource';
 import { RemoteResourceType } from '../git/models/remoteResource';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
-import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
 import { showRemoteProviderPicker } from '../quickpicks/remoteProviderPicker';
 import { command } from '../system/command';
+import { Logger } from '../system/logger';
 import { pad, splitSingle } from '../system/string';
 import { Command } from './base';
 

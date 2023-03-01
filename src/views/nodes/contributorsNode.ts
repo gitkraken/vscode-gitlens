@@ -1,8 +1,8 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { configuration } from '../../configuration';
 import type { GitUri } from '../../git/gitUri';
 import { GitContributor } from '../../git/models/contributor';
 import type { Repository } from '../../git/models/repository';
+import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { timeout } from '../../system/decorators/timeout';

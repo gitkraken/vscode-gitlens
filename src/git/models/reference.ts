@@ -1,5 +1,5 @@
-import { configuration } from '../../configuration';
 import { GlyphChars } from '../../constants';
+import { configuration } from '../../system/configuration';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName, splitBranchNameAndRemote } from './branch';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from './constants';
 

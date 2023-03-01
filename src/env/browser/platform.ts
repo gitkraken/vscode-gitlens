@@ -8,14 +8,8 @@ export const isMac = _platform === 'macOS' || _userAgent.indexOf('Macintosh') >=
 export const isWindows = _platform === 'Windows' || _userAgent.indexOf('Windows') >= 0;
 
 export function getPlatform(): string {
-	if (isWindows) {
-		return 'web-windows';
-	}
-	if (isMac) {
-		return 'web-macOS';
-	}
-	if (isLinux) {
-		return 'web-linux';
-	}
+	if (isWindows) return 'web-windows';
+	if (isMac) return 'web-macOS';
+	if (isLinux) return 'web-linux';
 	return 'web';
 }

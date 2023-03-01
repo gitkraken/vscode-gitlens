@@ -1,5 +1,5 @@
-import { LogLevel } from './constants';
-import type { LogScope } from './logScope';
+import { LogLevel } from './logger.constants';
+import type { LogScope } from './logger.scope';
 
 const emptyStr = '';
 

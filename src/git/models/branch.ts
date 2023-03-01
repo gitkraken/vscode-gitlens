@@ -1,9 +1,10 @@
-import { BranchSorting, configuration, DateStyle } from '../../configuration';
+import { BranchSorting, DateStyle } from '../../config';
 import { Container } from '../../container';
-import { getLoggableName } from '../../logger';
+import { configuration } from '../../system/configuration';
 import { formatDate, fromNow } from '../../system/date';
 import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
+import { getLoggableName } from '../../system/logger';
 import { cancellable } from '../../system/promise';
 import { sortCompare } from '../../system/string';
 import type { RemoteProvider } from '../remotes/remoteProvider';

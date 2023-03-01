@@ -1,9 +1,9 @@
 import { GitCommandSorting } from '../config';
-import { configuration } from '../configuration';
 import { ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { getContext } from '../context';
 import type { RecentUsage } from '../storage';
+import { configuration } from '../system/configuration';
 import { BranchGitCommand } from './git/branch';
 import { CherryPickGitCommand } from './git/cherry-pick';
 import { CoAuthorsGitCommand } from './git/coauthors';

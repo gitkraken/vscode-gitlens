@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { hrtime } from '@env/hrtime';
-import { LogLevel, slowCallWarningThreshold } from '../../constants';
-import { getLoggableName, Logger } from '../../logger';
-import type { LogScope } from '../../logScope';
-import { clearLogScope, getNextLogScopeId, setLogScope } from '../../logScope';
 import { getParameters } from '../function';
+import { getLoggableName, Logger } from '../logger';
+import { LogLevel, slowCallWarningThreshold } from '../logger.constants';
+import type { LogScope } from '../logger.scope';
+import { clearLogScope, getNextLogScopeId, setLogScope } from '../logger.scope';
 import { isPromise } from '../promise';
 import { getDurationMilliseconds } from '../string';
 
@@ -89,9 +89,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 		scoped = true;
 	}
 
-	const logFn = (debug ? Logger.debug.bind(Logger) : Logger.log.bind(Logger)) as
-		| typeof Logger.debug
-		| typeof Logger.log;
+	const logFn = debug ? Logger.debug.bind(Logger) : Logger.log.bind(Logger);
 	const warnFn = Logger.warn.bind(Logger);
 
 	return (target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => {

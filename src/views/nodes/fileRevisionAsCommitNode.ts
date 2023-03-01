@@ -1,7 +1,6 @@
 import type { Command, Selection } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
-import { configuration } from '../../configuration';
 import { Colors, Commands } from '../../constants';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
@@ -11,6 +10,7 @@ import type { GitCommit } from '../../git/models/commit';
 import type { GitFile } from '../../git/models/file';
 import { getGitFileStatusIcon } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
+import { configuration } from '../../system/configuration';
 import { joinPaths } from '../../system/path';
 import { getSettledValue } from '../../system/promise';
 import type { FileHistoryView } from '../fileHistoryView';

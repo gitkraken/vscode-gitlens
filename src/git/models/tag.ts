@@ -1,8 +1,9 @@
-import { configuration, DateStyle, TagSorting } from '../../configuration';
+import { DateStyle, TagSorting } from '../../config';
 import { Container } from '../../container';
-import { getLoggableName } from '../../logger';
+import { configuration } from '../../system/configuration';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
+import { getLoggableName } from '../../system/logger';
 import { sortCompare } from '../../system/string';
 import type { GitReference, GitTagReference } from './reference';
 

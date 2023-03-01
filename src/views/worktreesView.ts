@@ -1,7 +1,7 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable, TreeViewVisibilityChangeEvent } from 'vscode';
 import { ProgressLocation, ThemeColor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import type { WorktreesViewConfig } from '../configuration';
-import { configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
+import type { WorktreesViewConfig } from '../config';
+import { ViewFilesLayout, ViewShowBranchComparison } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { PlusFeatures } from '../features';
@@ -12,6 +12,7 @@ import type { GitWorktree } from '../git/models/worktree';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../subscription';
 import { executeCommand } from '../system/command';
+import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
 import { pluralize } from '../system/string';
 import { RepositoryNode } from './nodes/repositoryNode';

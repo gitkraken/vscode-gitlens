@@ -7,8 +7,6 @@ import type { Event } from 'vscode';
 import { Disposable, EventEmitter, Uri, window } from 'vscode';
 import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
-import { configuration } from '../../configuration';
-import { LogLevel } from '../../constants';
 import type { Container } from '../../container';
 import {
 	AuthenticationError,
@@ -27,15 +25,17 @@ import { isSha } from '../../git/models/reference';
 import type { GitUser } from '../../git/models/user';
 import { getGitHubNoReplyAddressParts } from '../../git/remotes/github';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
-import { Logger } from '../../logger';
-import type { LogScope } from '../../logScope';
-import { getLogScope } from '../../logScope';
 import {
 	showIntegrationRequestFailed500WarningMessage,
 	showIntegrationRequestTimedOutWarningMessage,
 } from '../../messages';
 import { uniqueBy } from '../../system/array';
+import { configuration } from '../../system/configuration';
 import { debug } from '../../system/decorators/log';
+import { Logger } from '../../system/logger';
+import { LogLevel } from '../../system/logger.constants';
+import type { LogScope } from '../../system/logger.scope';
+import { getLogScope } from '../../system/logger.scope';
 import { Stopwatch } from '../../system/stopwatch';
 import { base64 } from '../../system/string';
 import type { Version } from '../../system/version';

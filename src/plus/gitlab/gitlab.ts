@@ -3,8 +3,6 @@ import { Disposable, Uri, window } from 'vscode';
 import type { RequestInit, Response } from '@env/fetch';
 import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
-import { configuration } from '../../configuration';
-import { LogLevel } from '../../constants';
 import type { Container } from '../../container';
 import {
 	AuthenticationError,
@@ -20,14 +18,16 @@ import type { IssueOrPullRequest } from '../../git/models/issue';
 import { IssueOrPullRequestType } from '../../git/models/issue';
 import { PullRequest } from '../../git/models/pullRequest';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
-import { Logger } from '../../logger';
-import type { LogScope } from '../../logScope';
-import { getLogScope } from '../../logScope';
 import {
 	showIntegrationRequestFailed500WarningMessage,
 	showIntegrationRequestTimedOutWarningMessage,
 } from '../../messages';
+import { configuration } from '../../system/configuration';
 import { debug } from '../../system/decorators/log';
+import { Logger } from '../../system/logger';
+import { LogLevel } from '../../system/logger.constants';
+import type { LogScope } from '../../system/logger.scope';
+import { getLogScope } from '../../system/logger.scope';
 import { Stopwatch } from '../../system/stopwatch';
 import { equalsIgnoreCase } from '../../system/string';
 import type { GitLabCommit, GitLabIssue, GitLabMergeRequest, GitLabMergeRequestREST, GitLabUser } from './models';

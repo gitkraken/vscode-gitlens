@@ -1,16 +1,16 @@
 import type { TextDocumentShowOptions, TextEditor } from 'vscode';
 import { Uri } from 'vscode';
-import { FileAnnotationType } from '../configuration';
+import { FileAnnotationType } from '../config';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
 import { openFileAtRevision } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
 import { shortenRevision } from '../git/models/reference';
-import { Logger } from '../logger';
 import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
 import { showCommitPicker } from '../quickpicks/commitPicker';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
 import { command } from '../system/command';
+import { Logger } from '../system/logger';
 import { pad } from '../system/string';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri } from './base';

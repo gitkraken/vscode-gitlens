@@ -14,7 +14,7 @@ import { setContext } from '../context';
 import { executeCommand, registerCommand } from '../system/command';
 import { debug, log, logName } from '../system/decorators/log';
 import { serialize } from '../system/decorators/serialize';
-import type { TrackedUsageFeatures } from '../usageTracker';
+import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
 import type { IpcMessage, IpcMessageParams, IpcNotificationType, WebviewFocusChangedParams } from './protocol';
 import { ExecuteCommandType, onIpc, WebviewFocusChangedCommandType, WebviewReadyCommandType } from './protocol';
 

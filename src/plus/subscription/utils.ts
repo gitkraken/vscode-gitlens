@@ -1,8 +1,8 @@
 import type { MessageItem } from 'vscode';
 import { window } from 'vscode';
-import { configuration } from '../../configuration';
 import { ContextKeys } from '../../constants';
 import { getContext } from '../../context';
+import { configuration } from '../../system/configuration';
 
 export function arePlusFeaturesEnabled(): boolean {
 	return getContext(ContextKeys.PlusEnabled, configuration.get('plusFeatures.enabled', undefined, true));

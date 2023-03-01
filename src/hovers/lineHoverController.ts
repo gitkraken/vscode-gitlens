@@ -1,11 +1,12 @@
 import type { CancellationToken, ConfigurationChangeEvent, Position, TextDocument, TextEditor, Uri } from 'vscode';
 import { Disposable, Hover, languages, Range, window } from 'vscode';
-import { UriComparer } from '../comparers';
-import { configuration, FileAnnotationType } from '../configuration';
+import { FileAnnotationType } from '../config';
 import type { Container } from '../container';
-import { Logger } from '../logger';
+import { UriComparer } from '../system/comparers';
+import { configuration } from '../system/configuration';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
+import { Logger } from '../system/logger';
 import type { LinesChangeEvent } from '../trackers/gitLineTracker';
 import { changesMessage, detailsMessage } from './hovers';
 

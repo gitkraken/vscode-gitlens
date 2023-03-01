@@ -1,5 +1,5 @@
 import type { Range, Uri } from 'vscode';
-import type { RemotesUrlsConfig } from '../../configuration';
+import type { RemotesUrlsConfig } from '../../config';
 import { interpolate } from '../../system/string';
 import type { Repository } from '../models/repository';
 import { RemoteProvider } from './remoteProvider';

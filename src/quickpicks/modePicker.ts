@@ -1,7 +1,7 @@
 import type { QuickPickItem } from 'vscode';
 import { window } from 'vscode';
-import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
+import { configuration } from '../system/configuration';
 
 export interface ModesQuickPickItem extends QuickPickItem {
 	key: string | undefined;

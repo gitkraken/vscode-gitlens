@@ -1,7 +1,7 @@
-import type { RemotesConfig } from '../../configuration';
-import { CustomRemoteType } from '../../configuration';
+import type { RemotesConfig } from '../../config';
+import { CustomRemoteType } from '../../config';
 import type { Container } from '../../container';
-import { Logger } from '../../logger';
+import { Logger } from '../../system/logger';
 import { AzureDevOpsRemote } from './azure-devops';
 import { BitbucketRemote } from './bitbucket';
 import { BitbucketServerRemote } from './bitbucket-server';

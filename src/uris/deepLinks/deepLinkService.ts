@@ -1,5 +1,4 @@
 import { Disposable, env, ProgressLocation, Uri, window, workspace } from 'vscode';
-import { configuration } from '../../configuration';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { getBranchNameWithoutRemote } from '../../git/models/branch';
@@ -7,11 +6,12 @@ import type { GitReference } from '../../git/models/reference';
 import { createReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
-import { Logger } from '../../logger';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
 import type { StoredDeepLinkContext } from '../../storage';
 import { executeCommand } from '../../system/command';
+import { configuration } from '../../system/configuration';
 import { once } from '../../system/event';
+import { Logger } from '../../system/logger';
 import { openWorkspace, OpenWorkspaceLocation } from '../../system/utils';
 import type { DeepLink, DeepLinkServiceContext } from './deepLink';
 import {

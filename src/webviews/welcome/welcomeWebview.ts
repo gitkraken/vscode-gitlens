@@ -1,6 +1,6 @@
-import { configuration } from '../../configuration';
 import { Commands, ContextKeys } from '../../constants';
 import type { Container } from '../../container';
+import { configuration } from '../../system/configuration';
 import { WebviewWithConfigBase } from '../webviewWithConfigBase';
 import type { State } from './protocol';
 

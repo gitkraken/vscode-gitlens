@@ -1,7 +1,6 @@
 'use strict';
 import type { Disposable, TextEditor } from 'vscode';
 import { commands, Uri, window } from 'vscode';
-import { configuration } from '../../../configuration';
 import { Commands, ContextKeys } from '../../../constants';
 import type { Container } from '../../../container';
 import type { FileSelectedEvent } from '../../../eventBus';
@@ -12,6 +11,7 @@ import { getChangedFilesCount } from '../../../git/models/commit';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import { registerCommand } from '../../../system/command';
+import { configuration } from '../../../system/configuration';
 import { createFromDateDelta } from '../../../system/date';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
