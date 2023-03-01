@@ -1,5 +1,4 @@
 import type {
-	CommitDateTimeSource,
 	CssVariables,
 	ExcludeByType,
 	ExcludeRefsById,
@@ -73,12 +72,6 @@ export const enum GraphMinimapMarkerTypes {
 }
 
 export const supportedRefMetadataTypes: GraphRefMetadataType[] = Object.values(GraphRefMetadataTypes);
-
-export type GraphCommitDateTimeSource = CommitDateTimeSource;
-export enum GraphCommitDateTimeSources {
-	RowEntry = 'rowEntry',
-	Tooltip = 'tooltip',
-}
 
 export interface State {
 	windowFocused?: boolean;

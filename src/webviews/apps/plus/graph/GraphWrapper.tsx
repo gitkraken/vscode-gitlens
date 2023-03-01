@@ -2,6 +2,7 @@ import type {
 	GraphColumnSetting,
 	GraphColumnsSettings,
 	GraphContainerProps,
+	GraphMarkerType,
 	GraphPlatform,
 	GraphRef,
 	GraphRefGroup,
@@ -10,7 +11,7 @@ import type {
 	GraphZoneType,
 	OnFormatCommitDateTime,
 } from '@gitkraken/gitkraken-components';
-import GraphContainer, { GRAPH_ZONE_TYPE, REF_ZONE_TYPE } from '@gitkraken/gitkraken-components';
+import GraphContainer, { CommitDateTimeSources, commitZone, refZone } from '@gitkraken/gitkraken-components';
 import { VSCodeCheckbox, VSCodeRadio, VSCodeRadioGroup } from '@vscode/webview-ui-toolkit/react';
 import type { FormEvent, ReactElement } from 'react';
 import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
@@ -25,7 +26,6 @@ import type {
 	GraphAvatars,
 	GraphColumnName,
 	GraphColumnsConfig,
-	GraphCommitDateTimeSource,
 	GraphComponentConfig,
 	GraphExcludedRef,
 	GraphExcludeTypes,
@@ -52,7 +52,6 @@ import {
 	DidChangeWorkingTreeNotificationType,
 	DidFetchNotificationType,
 	DidSearchNotificationType,
-	GraphCommitDateTimeSources,
 	GraphMinimapMarkerTypes,
 } from '../../../../plus/webviews/graph/protocol';
 import type { Subscription } from '../../../../subscription';
@@ -104,7 +103,7 @@ export interface GraphWrapperProps {
 }
 
 const getGraphDateFormatter = (config?: GraphComponentConfig): OnFormatCommitDateTime => {
-	return (commitDateTime: number, source?: GraphCommitDateTimeSource) =>
+	return (commitDateTime: number, source?: CommitDateTimeSources) =>
 		formatCommitDateTime(commitDateTime, config?.dateStyle, config?.dateFormat, source);
 };
 
@@ -594,7 +593,7 @@ export function GraphWrapper({
 	};
 
 	const handleOnGraphRowHovered = (_event: any, graphZoneType: GraphZoneType, graphRow: GraphRow) => {
-		if (graphZoneType === REF_ZONE_TYPE || minimap.current == null) return;
+		if (graphZoneType === refZone || minimap.current == null) return;
 
 		minimap.current?.select(graphRow.date, true);
 	};
@@ -886,7 +885,7 @@ export function GraphWrapper({
 		graphZoneType: GraphZoneType,
 		row: GraphRow,
 	) => {
-		if (graphZoneType === REF_ZONE_TYPE || graphZoneType === GRAPH_ZONE_TYPE) return;
+		if (graphZoneType === refZone || graphZoneType === commitZone) return;
 
 		onDoubleClickRow?.(row, true);
 	};
@@ -1303,7 +1302,9 @@ export function GraphWrapper({
 							cssVariables={styleProps?.cssVariables}
 							dimMergeCommits={graphConfig?.dimMergeCommits}
 							enabledRefMetadataTypes={graphConfig?.enabledRefMetadataTypes}
-							enabledScrollMarkerTypes={graphConfig?.enabledScrollMarkerTypes}
+							enabledScrollMarkerTypes={
+								graphConfig?.enabledScrollMarkerTypes as GraphMarkerType[] | undefined
+							}
 							enableMultiSelection={graphConfig?.enableMultiSelection}
 							excludeRefsById={excludeRefsById}
 							excludeByType={excludeTypes}
@@ -1366,12 +1367,12 @@ function formatCommitDateTime(
 	date: number,
 	style: DateStyle = DateStyle.Absolute,
 	format: DateTimeFormat | string = 'short+short',
-	source?: GraphCommitDateTimeSource,
+	source?: CommitDateTimeSources,
 ): string {
 	switch (source) {
-		case GraphCommitDateTimeSources.Tooltip:
+		case CommitDateTimeSources.Tooltip:
 			return `${formatDate(date, format)} (${fromNow(date)})`;
-		case GraphCommitDateTimeSources.RowEntry:
+		case CommitDateTimeSources.RowEntry:
 		default:
 			return style === DateStyle.Relative ? fromNow(date) : formatDate(date, format);
 	}
