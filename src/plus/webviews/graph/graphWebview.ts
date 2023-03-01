@@ -65,7 +65,7 @@ import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '..
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey } from '../../../git/search';
 import { showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
-import type { StoredGraphFilters, StoredGraphIncludeOnlyRef } from '../../../storage';
+import type { StoredGraphFilters, StoredGraphIncludeOnlyRef, StoredGraphRefType } from '../../../storage';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -1129,7 +1129,7 @@ export class GraphWebview extends WebviewBase<State> {
 		repoPath: string | undefined,
 		id: string | undefined,
 		type: GitGraphRowType | undefined,
-	) {
+	): GitStashReference | GitRevisionReference | undefined {
 		if (repoPath == null || id == null) return undefined;
 
 		switch (type) {
@@ -1890,7 +1890,9 @@ export class GraphWebview extends WebviewBase<State> {
 			storedExcludeRefs = updateRecordValue(
 				storedExcludeRefs,
 				ref.id,
-				visible ? undefined : { id: ref.id, type: ref.type, name: ref.name, owner: ref.owner },
+				visible
+					? undefined
+					: { id: ref.id, type: ref.type as StoredGraphRefType, name: ref.name, owner: ref.owner },
 			);
 		}
 
@@ -1920,7 +1922,7 @@ export class GraphWebview extends WebviewBase<State> {
 			for (const ref of refs) {
 				storedIncludeOnlyRefs[ref.id] = {
 					id: ref.id,
-					type: ref.type,
+					type: ref.type as StoredGraphRefType,
 					name: ref.name,
 					owner: ref.owner,
 				};
