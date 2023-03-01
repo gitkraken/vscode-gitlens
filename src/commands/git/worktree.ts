@@ -101,6 +101,15 @@ type CreateStepState<T extends CreateState = CreateState> = WorktreeStepState<Ex
 type DeleteStepState<T extends DeleteState = DeleteState> = WorktreeStepState<ExcludeSome<T, 'repo', string>>;
 type OpenStepState<T extends OpenState = OpenState> = WorktreeStepState<ExcludeSome<T, 'repo', string>>;
 
+function assertStateStepRepository(
+	state: PartialStepState<State>,
+): asserts state is PartialStepState<State> & { repo: Repository } {
+	if (state.repo != null && typeof state.repo !== 'string') return;
+
+	debugger;
+	throw new Error('Missing repository');
+}
+
 const subcommandToTitleMap = new Map<State['subcommand'], string>([
 	['create', 'Create'],
 	['delete', 'Delete'],
@@ -220,8 +229,9 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 
 			// Ensure we use the "main" repository if we are in a worktree already
 			state.repo = await state.repo.getMainRepository();
+			assertStateStepRepository(state);
 
-			const result = yield* ensureAccessStep(state as any, context, PlusFeatures.Worktrees);
+			const result = yield* ensureAccessStep(state, context, PlusFeatures.Worktrees);
 			if (result === StepResultBreak) break;
 
 			context.title = getTitle(state.subcommand === 'delete' ? 'Worktrees' : this.title, state.subcommand);

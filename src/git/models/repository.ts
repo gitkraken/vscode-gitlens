@@ -646,6 +646,7 @@ export class Repository implements Disposable {
 	}
 
 	@gate()
+	@log<Repository['getMainRepository']>({ exit: r => `returned ${r?.path}` })
 	async getMainRepository(): Promise<Repository | undefined> {
 		const gitDir = await this.getGitDir();
 		if (gitDir?.commonUri == null) return this;
@@ -719,6 +720,7 @@ export class Repository implements Disposable {
 		return this.container.git.getTags(this.path, options);
 	}
 
+	@log()
 	async createWorktree(
 		uri: Uri,
 		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
