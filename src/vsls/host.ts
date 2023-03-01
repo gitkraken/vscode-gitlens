@@ -3,10 +3,10 @@ import { Disposable, Uri, workspace } from 'vscode';
 import { git } from '@env/providers';
 import type { LiveShare, SharedService } from '../@types/vsls';
 import type { Container } from '../container';
-import { Logger } from '../logger';
-import { getLogScope } from '../logScope';
 import { debug, log } from '../system/decorators/log';
 import { join } from '../system/iterable';
+import { Logger } from '../system/logger';
+import { getLogScope } from '../system/logger.scope';
 import { isVslsRoot, normalizePath } from '../system/path';
 import type {
 	GetRepositoriesForUriRequest,

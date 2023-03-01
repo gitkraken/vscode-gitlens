@@ -4,12 +4,12 @@ import { uuid } from '@env/crypto';
 import type { RequestInfo, RequestInit, Response } from '@env/fetch';
 import { fetch, getProxyAgent } from '@env/fetch';
 import type { Container } from '../../container';
-import { Logger } from '../../logger';
-import { getLogScope } from '../../logScope';
 import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import type { DeferredEvent, DeferredEventExecutor } from '../../system/event';
 import { promisifyDeferred } from '../../system/event';
+import { Logger } from '../../system/logger';
+import { getLogScope } from '../../system/logger.scope';
 
 export const AuthenticationUriPathPrefix = 'did-authenticate';
 // TODO: What user-agent should we use?

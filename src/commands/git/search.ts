@@ -1,4 +1,3 @@
-import { configuration } from '../../configuration';
 import { ContextKeys, GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { getContext } from '../../context';
@@ -10,6 +9,7 @@ import type { SearchOperators, SearchQuery } from '../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery, searchOperators } from '../../git/search';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { ActionQuickPickItem } from '../../quickpicks/items/common';
+import { configuration } from '../../system/configuration';
 import { pluralize } from '../../system/string';
 import { SearchResultsNode } from '../../views/nodes/searchResultsNode';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';

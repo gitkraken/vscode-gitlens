@@ -7,8 +7,8 @@ import { create as createWorktree, open as openWorktree } from '../../git/action
 import { createReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
-import { Logger } from '../../logger';
 import { command } from '../../system/command';
+import { Logger } from '../../system/logger';
 import { waitUntilNextTick } from '../../system/promise';
 import { Command } from '../base';
 

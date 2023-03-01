@@ -1,7 +1,7 @@
 /*global window document*/
-import { LogLevel } from '../../../constants';
-import { Logger } from '../../../logger';
 import { debounce } from '../../../system/function';
+import { Logger } from '../../../system/logger';
+import { LogLevel } from '../../../system/logger.constants';
 import type {
 	IpcCommandType,
 	IpcMessage,

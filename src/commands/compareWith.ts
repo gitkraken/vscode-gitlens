@@ -1,10 +1,10 @@
 import type { TextEditor, Uri } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
+import { Logger } from '../system/logger';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri } from './base';
 

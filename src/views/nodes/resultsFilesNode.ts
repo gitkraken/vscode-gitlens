@@ -1,5 +1,5 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ViewFilesLayout } from '../../configuration';
+import { ViewFilesLayout } from '../../config';
 import { GitUri } from '../../git/gitUri';
 import type { GitDiffShortStat } from '../../git/models/diff';
 import type { GitFile } from '../../git/models/file';

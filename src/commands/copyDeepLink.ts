@@ -4,11 +4,11 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { splitBranchNameAndRemote } from '../git/models/branch';
 import type { GitReference } from '../git/models/reference';
-import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
 import { showRemotePicker } from '../quickpicks/remotePicker';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
+import { Logger } from '../system/logger';
 import { DeepLinkType, deepLinkTypeToString, refTypeToDeepLinkType } from '../uris/deepLinks/deepLink';
 import type { CommandContext } from './base';
 import {

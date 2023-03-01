@@ -7,14 +7,14 @@ import type {
 	ThemableDecorationRenderOptions,
 } from 'vscode';
 import { OverviewRulerLane, ThemeColor, Uri, window } from 'vscode';
+import type { Config } from '../config';
 import { HeatmapLocations } from '../config';
-import type { Config } from '../configuration';
-import { configuration } from '../configuration';
 import { Colors, GlyphChars } from '../constants';
 import type { CommitFormatOptions } from '../git/formatters/commitFormatter';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitCommit } from '../git/models/commit';
 import { scale, toRgba } from '../system/color';
+import { configuration } from '../system/configuration';
 import { getWidth, interpolate, pad } from '../system/string';
 
 export interface ComputedHeatmap {

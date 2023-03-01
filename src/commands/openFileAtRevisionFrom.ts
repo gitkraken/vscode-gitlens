@@ -1,5 +1,5 @@
 import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import type { FileAnnotationType } from '../configuration';
+import type { FileAnnotationType } from '../config';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
 import { openFileAtRevision } from '../git/actions/commit';

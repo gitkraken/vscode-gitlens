@@ -1,10 +1,10 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../config';
-import { configuration } from '../../configuration';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitStashCommit } from '../../git/models/commit';
 import type { GitStashReference } from '../../git/models/reference';
 import { makeHierarchical } from '../../system/array';
+import { configuration } from '../../system/configuration';
 import { joinPaths, normalizePath } from '../../system/path';
 import { sortCompare } from '../../system/string';
 import type { RepositoriesView } from '../repositoriesView';

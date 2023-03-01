@@ -1,8 +1,8 @@
 import type { Command, ThemeIcon, Uri } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { configuration } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { unknownGitUri } from '../../git/gitUri';
+import { configuration } from '../../system/configuration';
 import type { View } from '../viewBase';
 import type { PageableViewNode } from './viewNode';
 import { ContextValues, ViewNode } from './viewNode';

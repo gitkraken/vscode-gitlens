@@ -6,7 +6,6 @@ import { reveal } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit, GitStashCommit } from '../git/models/commit';
 import type { GitLog } from '../git/models/log';
-import { Logger } from '../logger';
 import {
 	showCommitNotFoundWarningMessage,
 	showFileNotUnderSourceControlWarningMessage,
@@ -14,6 +13,7 @@ import {
 	showLineUncommittedWarningMessage,
 } from '../messages';
 import { command } from '../system/command';
+import { Logger } from '../system/logger';
 import type { CommandContext } from './base';
 import { ActiveEditorCachedCommand, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
 

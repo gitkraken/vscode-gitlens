@@ -4,7 +4,7 @@ import type { ViewShowBranchComparison } from './config';
 import type { StoredSearchQuery } from './git/search';
 import type { Subscription } from './subscription';
 import { debug } from './system/decorators/log';
-import type { TrackedUsage, TrackedUsageKeys } from './usageTracker';
+import type { TrackedUsage, TrackedUsageKeys } from './telemetry/usageTracker';
 import type { CompletedActions } from './webviews/home/protocol';
 
 export type StorageChangeEvent =

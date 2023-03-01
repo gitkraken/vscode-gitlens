@@ -6,9 +6,9 @@ import type {
 import { authentication, Disposable, EventEmitter, extensions, window } from 'vscode';
 import { uuid } from '@env/crypto';
 import type { Container } from '../../container';
-import { Logger } from '../../logger';
-import { getLogScope } from '../../logScope';
 import { debug } from '../../system/decorators/log';
+import { Logger } from '../../system/logger';
+import { getLogScope } from '../../system/logger.scope';
 import type { ServerConnection } from './serverConnection';
 
 interface StoredSession {

@@ -4,10 +4,10 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { deletedOrMissing } from '../git/models/constants';
 import { RemoteResourceType } from '../git/models/remoteResource';
-import { Logger } from '../logger';
 import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/command';
+import { Logger } from '../system/logger';
 import type { CommandContext } from './base';
 import {
 	ActiveEditorCommand,

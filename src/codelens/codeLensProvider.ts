@@ -18,18 +18,19 @@ import type {
 	ShowQuickFileHistoryCommandArgs,
 	ToggleFileChangesAnnotationCommandArgs,
 } from '../commands';
-import type { CodeLensConfig, CodeLensLanguageScope } from '../configuration';
-import { CodeLensCommand, CodeLensScopes, configuration, FileAnnotationType } from '../configuration';
+import type { CodeLensConfig, CodeLensLanguageScope } from '../config';
+import { CodeLensCommand, CodeLensScopes, FileAnnotationType } from '../config';
 import { Commands, CoreCommands, Schemes } from '../constants';
 import type { Container } from '../container';
 import type { GitUri } from '../git/gitUri';
 import type { GitBlame, GitBlameLines } from '../git/models/blame';
 import type { GitCommit } from '../git/models/commit';
 import { RemoteResourceType } from '../git/models/remoteResource';
-import { Logger } from '../logger';
 import { asCommand, executeCoreCommand } from '../system/command';
+import { configuration } from '../system/configuration';
 import { is, once } from '../system/function';
 import { filterMap, find, first, join, map } from '../system/iterable';
+import { Logger } from '../system/logger';
 import { isVirtualUri } from '../system/utils';
 
 export class GitRecentChangeCodeLens extends CodeLens {

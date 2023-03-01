@@ -16,12 +16,13 @@ import {
 	ShowQuickCommitFileCommand,
 } from '../../commands';
 import { Command } from '../../commands/base';
-import { configuration, DateStyle, FileAnnotationType } from '../../configuration';
+import { DateStyle, FileAnnotationType } from '../../config';
 import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
 import { arePlusFeaturesEnabled } from '../../plus/subscription/utils';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
+import { configuration } from '../../system/configuration';
 import { join, map } from '../../system/iterable';
 import { PromiseCancelledError } from '../../system/promise';
 import type { TokenOptions } from '../../system/string';

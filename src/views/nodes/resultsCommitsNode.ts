@@ -1,7 +1,7 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { configuration } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
+import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';

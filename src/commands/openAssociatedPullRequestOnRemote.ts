@@ -2,8 +2,8 @@ import type { TextEditor, Uri } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
 import { command, executeCommand } from '../system/command';
+import { Logger } from '../system/logger';
 import { ActiveEditorCommand, getCommandUri } from './base';
 import type { OpenPullRequestOnRemoteCommandArgs } from './openPullRequestOnRemote';
 

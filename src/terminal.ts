@@ -1,7 +1,7 @@
 import type { Disposable, Terminal } from 'vscode';
 import { window } from 'vscode';
-import { configuration } from './configuration';
 import { Container } from './container';
+import { configuration } from './system/configuration';
 import { getEditorCommand } from './system/utils';
 
 let _terminal: Terminal | undefined;

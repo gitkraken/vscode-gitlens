@@ -15,7 +15,6 @@ import type {
 	GitExtension,
 } from '../../../@types/vscode.git';
 import { getCachedAvatarUri } from '../../../avatars';
-import { configuration } from '../../../configuration';
 import { CoreGitConfiguration, GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
 import { emojify } from '../../../emojis';
@@ -127,9 +126,6 @@ import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../git/remo
 import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
 import type { GitSearch, GitSearchResultData, GitSearchResults, SearchQuery } from '../../../git/search';
 import { getGitArgsFromSearchQuery, getSearchQueryComparisonKey } from '../../../git/search';
-import { Logger } from '../../../logger';
-import type { LogScope } from '../../../logScope';
-import { getLogScope } from '../../../logScope';
 import {
 	showGenericErrorMessage,
 	showGitDisabledErrorMessage,
@@ -146,10 +142,14 @@ import type {
 } from '../../../plus/webviews/graph/graphWebview';
 import { countStringLength, filterMap } from '../../../system/array';
 import { TimedCancellationSource } from '../../../system/cancellation';
+import { configuration } from '../../../system/configuration';
 import { gate } from '../../../system/decorators/gate';
 import { debug, log } from '../../../system/decorators/log';
 import { debounce } from '../../../system/function';
 import { filterMap as filterMapIterable, find, first, join, last, map, some } from '../../../system/iterable';
+import { Logger } from '../../../system/logger';
+import type { LogScope } from '../../../system/logger.scope';
+import { getLogScope } from '../../../system/logger.scope';
 import {
 	commonBaseIndex,
 	dirname,

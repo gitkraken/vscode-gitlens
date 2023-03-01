@@ -1,7 +1,7 @@
 import type { Command } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
-import { configuration, ViewFilesLayout } from '../../configuration';
+import { ViewFilesLayout } from '../../config';
 import { Colors, Commands, ContextKeys } from '../../constants';
 import { getContext } from '../../context';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
@@ -12,6 +12,7 @@ import type { GitRevisionReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
 import { makeHierarchical } from '../../system/array';
+import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
 import { joinPaths, normalizePath } from '../../system/path';
 import type { Deferred } from '../../system/promise';

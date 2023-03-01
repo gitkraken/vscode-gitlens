@@ -1,11 +1,11 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
-import type { FileHistoryViewConfig } from '../configuration';
-import { configuration } from '../configuration';
+import type { FileHistoryViewConfig } from '../config';
 import { Commands, ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import type { GitUri } from '../git/gitUri';
 import { executeCommand } from '../system/command';
+import { configuration } from '../system/configuration';
 import { FileHistoryTrackerNode } from './nodes/fileHistoryTrackerNode';
 import { LineHistoryTrackerNode } from './nodes/lineHistoryTrackerNode';
 import { ViewBase } from './viewBase';

@@ -1,9 +1,9 @@
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { RemoteResourceType } from '../git/models/remoteResource';
-import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/command';
+import { Logger } from '../system/logger';
 import { ResultsCommitsNode } from '../views/nodes/resultsCommitsNode';
 import type { CommandContext } from './base';
 import { Command } from './base';

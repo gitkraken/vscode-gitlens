@@ -8,10 +8,10 @@ import type {
 	Uri,
 } from 'vscode';
 import { Disposable, window } from 'vscode';
-import type { FileAnnotationType } from '../configuration';
+import type { FileAnnotationType } from '../config';
 import { ContextKeys } from '../constants';
 import { setContext } from '../context';
-import { Logger } from '../logger';
+import { Logger } from '../system/logger';
 import type { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 
 export const enum AnnotationStatus {

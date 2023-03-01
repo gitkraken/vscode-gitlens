@@ -24,17 +24,18 @@ import type {
 	ViewsCommonConfig,
 	ViewsConfigKeys,
 	WorktreesViewConfig,
-} from '../configuration';
-import { configuration, viewsCommonConfigKeys, viewsConfigKeys } from '../configuration';
+} from '../config';
+import { viewsCommonConfigKeys, viewsConfigKeys } from '../config';
 import type { Container } from '../container';
-import { Logger } from '../logger';
-import { getLogScope } from '../logScope';
 import { executeCommand } from '../system/command';
+import { configuration } from '../system/configuration';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import { debounce } from '../system/function';
+import { Logger } from '../system/logger';
+import { getLogScope } from '../system/logger.scope';
 import { cancellable, isPromise } from '../system/promise';
-import type { TrackedUsageFeatures } from '../usageTracker';
+import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
 import type { BranchesView } from './branchesView';
 import type { CommitsView } from './commitsView';
 import type { ContributorsView } from './contributorsView';

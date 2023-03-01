@@ -1,7 +1,6 @@
 import type { Command } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands';
-import { configuration } from '../../configuration';
 import { Commands, CoreCommands, GlyphChars } from '../../constants';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { GitUri } from '../../git/gitUri';
@@ -9,6 +8,7 @@ import type { GitFile } from '../../git/models/file';
 import type { GitMergeStatus } from '../../git/models/merge';
 import type { GitRebaseStatus } from '../../git/models/rebase';
 import { getReferenceLabel } from '../../git/models/reference';
+import { configuration } from '../../system/configuration';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import type { ViewsWithCommits } from '../viewBase';

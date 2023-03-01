@@ -7,13 +7,14 @@ import type {
 	TextEditorDecorationType,
 } from 'vscode';
 import { Hover, languages, Position, Range, Selection, TextEditorRevealType } from 'vscode';
-import { configuration, FileAnnotationType } from '../configuration';
+import { FileAnnotationType } from '../config';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import type { GitDiff } from '../git/models/diff';
 import { localChangesMessage } from '../hovers/hovers';
-import { getLogScope } from '../logScope';
+import { configuration } from '../system/configuration';
 import { log } from '../system/decorators/log';
+import { getLogScope } from '../system/logger.scope';
 import { Stopwatch } from '../system/stopwatch';
 import type { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import type { AnnotationContext } from './annotationProvider';

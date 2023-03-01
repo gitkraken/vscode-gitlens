@@ -1,5 +1,5 @@
-import { LogLevel } from './constants';
 import type { DateTimeFormat } from './system/date';
+import { LogLevel } from './system/logger.constants';
 
 export interface Config {
 	autolinks: AutolinkReference[] | null;

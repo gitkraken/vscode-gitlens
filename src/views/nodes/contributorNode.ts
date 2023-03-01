@@ -1,10 +1,10 @@
 import { MarkdownString, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { getPresenceDataUri } from '../../avatars';
-import { configuration } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import type { GitUri } from '../../git/gitUri';
 import type { GitContributor } from '../../git/models/contributor';
 import type { GitLog } from '../../git/models/log';
+import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';

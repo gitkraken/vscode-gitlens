@@ -2,16 +2,16 @@ import type { SourceControlResourceState } from 'vscode';
 import { env, Uri, window } from 'vscode';
 import type { ScmResource } from '../@types/vscode.git.resources';
 import { ScmResourceGroupType, ScmStatus } from '../@types/vscode.git.resources.enums';
-import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { isUncommitted } from '../git/models/reference';
-import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { filterMap } from '../system/array';
 import { command } from '../system/command';
+import { configuration } from '../system/configuration';
+import { Logger } from '../system/logger';
 import type { CommandContext } from './base';
 import { Command, isCommandContextViewNodeHasFileCommit, isCommandContextViewNodeHasFileRefs } from './base';
 

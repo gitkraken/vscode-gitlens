@@ -1,7 +1,7 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { SearchAndCompareViewConfig } from '../configuration';
-import { configuration, ViewFilesLayout } from '../configuration';
+import type { SearchAndCompareViewConfig } from '../config';
+import { ViewFilesLayout } from '../config';
 import { Commands, ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
@@ -15,6 +15,7 @@ import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import type { StoredNamedRef, StoredPinnedItem, StoredPinnedItems } from '../storage';
 import { filterMap } from '../system/array';
 import { executeCommand } from '../system/command';
+import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
 import { updateRecordValue } from '../system/object';

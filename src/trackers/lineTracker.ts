@@ -1,10 +1,10 @@
 import type { Event, Selection, TextEditor, TextEditorSelectionChangeEvent } from 'vscode';
 import { Disposable, EventEmitter, window } from 'vscode';
-import { Logger } from '../logger';
-import { getLogScope } from '../logScope';
 import { debug } from '../system/decorators/log';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
+import { Logger } from '../system/logger';
+import { getLogScope } from '../system/logger.scope';
 import { isTextEditor } from '../system/utils';
 
 export interface LinesChangeEvent {

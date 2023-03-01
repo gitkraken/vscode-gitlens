@@ -1,7 +1,7 @@
 import type { Uri } from 'vscode';
 import { extensions } from 'vscode';
 import { ExtensionNotFoundError } from '../errors';
-import { Logger } from '../logger';
+import { Logger } from '../system/logger';
 
 export async function getRemoteHubApi(): Promise<RemoteHubApi>;
 export async function getRemoteHubApi(silent: false): Promise<RemoteHubApi>;

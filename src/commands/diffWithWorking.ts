@@ -4,9 +4,9 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { deletedOrMissing, uncommittedStaged } from '../git/models/constants';
-import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/command';
+import { Logger } from '../system/logger';
 import { ActiveEditorCommand, getCommandUri } from './base';
 import type { DiffWithCommandArgs } from './diffWith';
 

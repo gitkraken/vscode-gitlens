@@ -4,11 +4,11 @@ import type { Container } from '../../container';
 import { reveal } from '../../git/actions/remote';
 import type { GitRemote } from '../../git/models/remote';
 import { Repository } from '../../git/models/repository';
-import { Logger } from '../../logger';
 import { showGenericErrorMessage } from '../../messages';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { Logger } from '../../system/logger';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,

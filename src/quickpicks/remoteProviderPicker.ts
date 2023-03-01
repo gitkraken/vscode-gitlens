@@ -9,7 +9,7 @@ import { GitRemote } from '../git/models/remote';
 import type { RemoteResource } from '../git/models/remoteResource';
 import { getNameFromRemoteResource, RemoteResourceType } from '../git/models/remoteResource';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
-import type { Keys } from '../keyboard';
+import type { Keys } from '../system/keyboard';
 import { getSettledValue } from '../system/promise';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import { CommandQuickPickItem } from './items/common';

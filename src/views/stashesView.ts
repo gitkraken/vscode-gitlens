@@ -6,8 +6,8 @@ import type {
 	TreeViewVisibilityChangeEvent,
 } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import type { StashesViewConfig } from '../configuration';
-import { configuration, ViewFilesLayout } from '../configuration';
+import type { StashesViewConfig } from '../config';
+import { ViewFilesLayout } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -16,6 +16,7 @@ import { getReferenceLabel } from '../git/models/reference';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { executeCommand } from '../system/command';
+import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
 import { RepositoryNode } from './nodes/repositoryNode';
 import { StashesNode } from './nodes/stashesNode';

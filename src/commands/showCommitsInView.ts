@@ -6,10 +6,10 @@ import { showDetailsView } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
 import { createReference } from '../git/models/reference';
 import { createSearchQueryForCommits } from '../git/search';
-import { Logger } from '../logger';
 import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
 import { filterMap } from '../system/iterable';
+import { Logger } from '../system/logger';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
 

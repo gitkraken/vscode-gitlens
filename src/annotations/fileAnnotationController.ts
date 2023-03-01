@@ -20,21 +20,16 @@ import {
 	window,
 	workspace,
 } from 'vscode';
-import {
-	AnnotationsToggleMode,
-	BlameHighlightLocations,
-	ChangesLocations,
-	configuration,
-	FileAnnotationType,
-} from '../configuration';
+import { AnnotationsToggleMode, BlameHighlightLocations, ChangesLocations, FileAnnotationType } from '../config';
 import { Colors, ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
-import type { KeyboardScope } from '../keyboard';
-import { Logger } from '../logger';
+import { configuration } from '../system/configuration';
 import { once } from '../system/event';
 import { debounce } from '../system/function';
 import { find } from '../system/iterable';
+import type { KeyboardScope } from '../system/keyboard';
+import { Logger } from '../system/logger';
 import { basename } from '../system/path';
 import { isTextEditor } from '../system/utils';
 import type {

@@ -1,5 +1,5 @@
 import type { Config } from '../config';
-import type { ConfigPath, ConfigPathValue } from '../configuration';
+import type { ConfigPath, ConfigPathValue } from '../system/configuration';
 import type { CustomConfigPath, CustomConfigPathValue } from './webviewWithConfigBase';
 
 export interface IpcMessage {

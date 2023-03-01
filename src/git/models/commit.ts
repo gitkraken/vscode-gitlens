@@ -1,13 +1,13 @@
 import { Uri } from 'vscode';
 import { getAvatarUri, getCachedAvatarUri } from '../../avatars';
-import type { GravatarDefaultStyle } from '../../configuration';
-import { DateSource, DateStyle } from '../../configuration';
+import type { GravatarDefaultStyle } from '../../config';
+import { DateSource, DateStyle } from '../../config';
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
-import { getLoggableName } from '../../logger';
 import { formatDate, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { memoize } from '../../system/decorators/memoize';
+import { getLoggableName } from '../../system/logger';
 import { cancellable } from '../../system/promise';
 import { pad, pluralize } from '../../system/string';
 import type { PreviousLineComparisonUrisResult } from '../gitProvider';

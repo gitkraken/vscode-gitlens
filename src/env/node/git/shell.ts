@@ -6,7 +6,7 @@ import { join as joinPaths } from 'path';
 import * as process from 'process';
 import { decode } from 'iconv-lite';
 import type { CancellationToken } from 'vscode';
-import { Logger } from '../../../logger';
+import { Logger } from '../../../system/logger';
 
 export const isWindows = process.platform === 'win32';
 

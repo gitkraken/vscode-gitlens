@@ -1,5 +1,5 @@
 import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { ViewBranchesLayout } from '../../configuration';
+import { ViewBranchesLayout } from '../../config';
 import { GlyphChars } from '../../constants';
 import { emojify } from '../../emojis';
 import type { GitUri } from '../../git/gitUri';

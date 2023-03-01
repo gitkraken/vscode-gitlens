@@ -5,9 +5,9 @@ import type { Container } from '../container';
 import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
 import { deletedOrMissing } from '../git/models/constants';
-import { Logger } from '../logger';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
+import { Logger } from '../system/logger';
 import { getEditorIfActive, isActiveDocument } from '../system/utils';
 
 export interface DocumentBlameStateChangeEvent<T> {

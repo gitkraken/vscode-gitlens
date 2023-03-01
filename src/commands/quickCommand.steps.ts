@@ -1,5 +1,5 @@
 import type { QuickInputButton, QuickPick } from 'vscode';
-import { BranchSorting, configuration, TagSorting } from '../configuration';
+import { BranchSorting, TagSorting } from '../config';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
 import type { PlusFeatures } from '../features';
@@ -94,6 +94,7 @@ import {
 } from '../quickpicks/remoteProviderPicker';
 import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../subscription';
 import { filterMap, intersection, isStringArray } from '../system/array';
+import { configuration } from '../system/configuration';
 import { formatPath } from '../system/formatPath';
 import { map } from '../system/iterable';
 import { getSettledValue } from '../system/promise';

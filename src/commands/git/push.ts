@@ -1,4 +1,3 @@
-import { configuration } from '../../configuration';
 import { CoreGitConfiguration, GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { getRemoteNameFromBranchName } from '../../git/models/branch';
@@ -9,6 +8,7 @@ import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { isStringArray } from '../../system/array';
+import { configuration } from '../../system/configuration';
 import { fromNow } from '../../system/date';
 import { pad, pluralize } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';

@@ -10,11 +10,11 @@ import { getReferenceLabel } from '../../git/models/reference';
 import { GitRemote } from '../../git/models/remote';
 import type { RepositoryChangeEvent } from '../../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
-import { getLoggableName } from '../../logger';
 import type { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
 import { gate } from '../../system/decorators/gate';
 import { debug, log, logName } from '../../system/decorators/log';
 import { is as isA, szudzikPairing } from '../../system/function';
+import { getLoggableName } from '../../system/logger';
 import { pad } from '../../system/string';
 import type { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
 

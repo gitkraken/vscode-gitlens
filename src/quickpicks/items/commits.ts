@@ -11,7 +11,7 @@ import type { GitCommit } from '../../git/models/commit';
 import type { GitFile, GitFileChange } from '../../git/models/file';
 import { getGitFileFormattedDirectory, getGitFileStatusCodicon } from '../../git/models/file';
 import type { GitStatusFile } from '../../git/models/status';
-import type { Keys } from '../../keyboard';
+import type { Keys } from '../../system/keyboard';
 import { basename } from '../../system/path';
 import { pad } from '../../system/string';
 import { CommandQuickPickItem } from './common';

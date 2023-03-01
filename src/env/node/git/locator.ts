@@ -1,6 +1,7 @@
 import { join as joinPaths } from 'path';
 import * as process from 'process';
-import { GlyphChars, LogLevel } from '../../../constants';
+import { GlyphChars } from '../../../constants';
+import { LogLevel } from '../../../system/logger.constants';
 import { any } from '../../../system/promise';
 import { Stopwatch } from '../../../system/stopwatch';
 import { findExecutable, run } from './shell';

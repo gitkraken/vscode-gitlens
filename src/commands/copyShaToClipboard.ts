@@ -1,14 +1,14 @@
 import type { TextEditor, Uri } from 'vscode';
 import { env } from 'vscode';
-import { configuration } from '../configuration';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { shortenRevision } from '../git/models/reference';
-import { Logger } from '../logger';
 import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
+import { configuration } from '../system/configuration';
 import { first } from '../system/iterable';
+import { Logger } from '../system/logger';
 import type { CommandContext } from './base';
 import {
 	ActiveEditorCommand,

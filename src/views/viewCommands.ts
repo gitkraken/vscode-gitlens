@@ -7,7 +7,7 @@ import type {
 	DiffWithWorkingCommandArgs,
 	OpenFileAtRevisionCommandArgs,
 } from '../commands';
-import { configuration, FileAnnotationType, ViewShowBranchComparison } from '../configuration';
+import { FileAnnotationType, ViewShowBranchComparison } from '../config';
 import { Commands, ContextKeys, CoreCommands, CoreGitCommands } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
@@ -32,6 +32,7 @@ import {
 	executeEditorCommand,
 	registerCommand,
 } from '../system/command';
+import { configuration } from '../system/configuration';
 import { debug } from '../system/decorators/log';
 import { sequentialize } from '../system/function';
 import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';

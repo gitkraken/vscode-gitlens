@@ -11,12 +11,12 @@ import { getNonce } from '@env/crypto';
 import type { Commands, ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
-import { Logger } from '../logger';
-import { getLogScope } from '../logScope';
 import { executeCommand } from '../system/command';
 import { debug, log, logName } from '../system/decorators/log';
 import { serialize } from '../system/decorators/serialize';
-import type { TrackedUsageFeatures } from '../usageTracker';
+import { Logger } from '../system/logger';
+import { getLogScope } from '../system/logger.scope';
+import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
 import type { IpcMessage, IpcMessageParams, IpcNotificationType, WebviewFocusChangedParams } from './protocol';
 import { ExecuteCommandType, onIpc, WebviewFocusChangedCommandType, WebviewReadyCommandType } from './protocol';
 

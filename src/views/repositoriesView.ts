@@ -1,7 +1,7 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable, Event } from 'vscode';
 import { EventEmitter, ProgressLocation, window } from 'vscode';
-import type { RepositoriesViewConfig } from '../configuration';
-import { configuration, ViewBranchesLayout, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
+import type { RepositoriesViewConfig } from '../config';
+import { ViewBranchesLayout, ViewFilesLayout, ViewShowBranchComparison } from '../config';
 import { Commands, ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
@@ -19,6 +19,7 @@ import { getReferenceLabel } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
 import type { GitWorktree } from '../git/models/worktree';
 import { executeCommand } from '../system/command';
+import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
 import { BranchesNode } from './nodes/branchesNode';
 import { BranchNode } from './nodes/branchNode';

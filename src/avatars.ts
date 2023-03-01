@@ -1,12 +1,12 @@
 import { EventEmitter, Uri } from 'vscode';
 import { md5 } from '@env/crypto';
 import { GravatarDefaultStyle } from './config';
-import { configuration } from './configuration';
 import { ContextKeys } from './constants';
 import { Container } from './container';
 import { getContext } from './context';
 import { getGitHubNoReplyAddressParts } from './git/remotes/github';
 import type { StoredAvatar } from './storage';
+import { configuration } from './system/configuration';
 import { debounce } from './system/function';
 import { filterMap } from './system/iterable';
 import { base64, equalsIgnoreCase } from './system/string';

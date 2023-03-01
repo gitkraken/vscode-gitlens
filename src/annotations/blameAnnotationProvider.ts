@@ -1,12 +1,12 @@
 import type { CancellationToken, Disposable, Position, TextDocument, TextEditor } from 'vscode';
 import { Hover, languages, Range } from 'vscode';
 import type { FileAnnotationType } from '../config';
-import { configuration } from '../configuration';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitBlame } from '../git/models/blame';
 import type { GitCommit } from '../git/models/commit';
 import { changesMessage, detailsMessage } from '../hovers/hovers';
+import { configuration } from '../system/configuration';
 import { log } from '../system/decorators/log';
 import type { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { AnnotationProviderBase } from './annotationProvider';

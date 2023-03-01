@@ -1,6 +1,6 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { ViewsFilesConfig } from '../../configuration';
-import { ViewFilesLayout } from '../../configuration';
+import type { ViewsFilesConfig } from '../../config';
+import { ViewFilesLayout } from '../../config';
 import { GitUri } from '../../git/gitUri';
 import type { HierarchicalItem } from '../../system/array';
 import { sortCompare } from '../../system/string';

@@ -1,8 +1,8 @@
 import type { Disposable, Event } from 'vscode';
 import { EventEmitter } from 'vscode';
-import type { Container } from './container';
-import type { Storage } from './storage';
-import { updateRecordValue } from './system/object';
+import type { Container } from '../container';
+import type { Storage } from '../storage';
+import { updateRecordValue } from '../system/object';
 
 export interface TrackedUsage {
 	count: number;
