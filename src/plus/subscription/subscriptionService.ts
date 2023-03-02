@@ -1132,16 +1132,16 @@ function convertLicenseTypeToPlanId(licenseType: GKLicenseType): SubscriptionPla
 			return SubscriptionPlanId.Pro;
 		case 'gitlens-teams':
 		case 'bundle-teams':
-			return SubscriptionPlanId.Teams;
+			return SubscriptionPlanId.Pro;
 		case 'gitlens-hosted-enterprise':
 		case 'gitlens-self-hosted-enterprise':
 		case 'gitlens-standalone-enterprise':
 		case 'bundle-hosted-enterprise':
 		case 'bundle-self-hosted-enterprise':
 		case 'bundle-standalone-enterprise':
-			return SubscriptionPlanId.Enterprise;
+			return SubscriptionPlanId.Pro;
 		default:
-			return SubscriptionPlanId.FreePlus;
+			return SubscriptionPlanId.Pro;
 	}
 }
 

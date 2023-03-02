@@ -77,11 +77,7 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 	if (actual.id === effective.id) {
 		switch (effective.id) {
 			case SubscriptionPlanId.Free:
-				return preview == null ? SubscriptionState.Free : SubscriptionState.FreePreviewTrialExpired;
-
 			case SubscriptionPlanId.FreePlus:
-				return SubscriptionState.FreePlusTrialExpired;
-
 			case SubscriptionPlanId.Pro:
 			case SubscriptionPlanId.Teams:
 			case SubscriptionPlanId.Enterprise:
@@ -91,16 +87,8 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 
 	switch (effective.id) {
 		case SubscriptionPlanId.Free:
-			return preview == null ? SubscriptionState.Free : SubscriptionState.FreeInPreviewTrial;
-
 		case SubscriptionPlanId.FreePlus:
-			return SubscriptionState.FreePlusTrialExpired;
-
 		case SubscriptionPlanId.Pro:
-			return actual.id === SubscriptionPlanId.Free
-				? SubscriptionState.FreeInPreviewTrial
-				: SubscriptionState.FreePlusInTrial;
-
 		case SubscriptionPlanId.Teams:
 		case SubscriptionPlanId.Enterprise:
 			return SubscriptionState.Paid;
