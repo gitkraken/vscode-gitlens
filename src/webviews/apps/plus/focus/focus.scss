@@ -210,6 +210,32 @@ p {
 	}
 }
 
+.feedback-button {
+	position: relative;
+	appearance: none;
+	font-family: inherit;
+	font-size: 1.2rem;
+	line-height: 2.2rem;
+	background-color: transparent;
+	border: none;
+	color: inherit;
+	padding: 0 0.75rem;
+	cursor: pointer;
+	border-radius: 0.3rem;
+	height: auto;
+
+	&:hover {
+		background-color: var(--background-10);
+		color: var(--color-foreground);
+		text-decoration: none;
+	}
+
+	code-icon {
+		font-size: 1.6rem;
+		vertical-align: middle;
+	}
+}
+
 .app {
 	display: flex;
 	flex-direction: column;
@@ -230,6 +256,14 @@ p {
 
 		text-align: right;
 		background-color: var(--background-05);
+
+		&-group {
+			flex: none;
+			display: flex;
+			flex-direction: row;
+			align-items: center;
+			gap: 0.5rem;
+		}
 	}
 
 	&__content {
