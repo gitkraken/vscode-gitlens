@@ -1537,7 +1537,11 @@ export class GraphWebview extends WebviewBase<State> {
 				if (remote != null) {
 					ref.avatarUrl = (
 						(useAvatars ? remote.provider?.avatarUri : undefined) ??
-						getRemoteIconUri(this.container, remote, this._panel!.webview.asWebviewUri.bind(this))
+						getRemoteIconUri(
+							this.container,
+							remote,
+							this._panel!.webview.asWebviewUri.bind(this._panel!.webview),
+						)
 					)?.toString(true);
 				}
 			}
