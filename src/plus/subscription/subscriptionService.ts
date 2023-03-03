@@ -909,7 +909,7 @@ export class SubscriptionService implements Disposable {
 				new Date(subscription.plan.actual.startedOn) >= new Date('2022-02-28T00:00:00.000Z') &&
 				new Date(subscription.plan.actual.startedOn) <= new Date('2022-04-31T00:00:00.000Z')
 			) {
-				showRenewalDiscountNotification(this.container);
+				void showRenewalDiscountNotification(this.container, subscription);
 			}
 		}, 5000);
 
@@ -1174,10 +1174,35 @@ function licenseStatusPriority(status: GKLicense['latestStatus']): number {
 	}
 }
 
-function showRenewalDiscountNotification(container: Container): void {
+async function showRenewalDiscountNotification(
+	container: Container,
+	subscription: Optional<Subscription, 'state'>,
+): Promise<void> {
 	if (container.storage.get('plus:renewalDiscountNotificationShown', false)) return;
 
 	void container.storage.store('plus:renewalDiscountNotificationShown', true);
+
+	if (subscription.plan.effective.cancelled) {
+		const supportUrl = `https://help.gitkraken.com/gitlens/gl-contact-support/?email=${encodeURIComponent(
+			subscription.account!.email!,
+		)}&subject=${encodeURIComponent('GitLens Pro Reactivation Discount')}&content=${encodeURIComponent(
+			'I would like to reactivate my GitLens Pro subscription at the discounted 60% off rate.',
+		)}&issue_category__customer_facing_field_=Billing`;
+
+		const support = { title: 'Contact Support' };
+		const result = await showMessage(
+			'info',
+			`While we are sorry to see that you have cancelled your GitLens+ subscription, we'd like to offer to renew your subscription at your original rate — 60% off as a thank you for being an early adopter of GitLens+. If you'd like to take advantage of this offer, please [Contact Support](${supportUrl}).`,
+			undefined,
+			undefined,
+			support,
+		);
+
+		if (result === support) {
+			void env.openExternal(Uri.parse(supportUrl));
+		}
+		return;
+	}
 
 	void showMessage(
 		'info',
