@@ -1,5 +1,5 @@
 import { css, customElement, FASTElement, html, observable, volatile, when } from '@microsoft/fast-element';
-import type { IssueShape } from '../../../../../git/models/issue';
+import type { IssueMember, IssueShape } from '../../../../../git/models/issue';
 import { fromNow } from '../../../../../system/date';
 import { focusOutline, srOnly } from '../../../shared/components/styles/a11y';
 import { elementBase } from '../../../shared/components/styles/base';
@@ -28,15 +28,21 @@ const template = html<IssueRow>`
 			</small>
 		</table-cell>
 		<table-cell>
-			<avatar-stack>
-				<avatar-item
-					media="${x => x.issue!.author?.avatarUrl}"
-					title="${x => x.issue!.author?.name}"
-				></avatar-item>
-			</avatar-stack>
-		</table-cell>
-		<table-cell>
-			<git-avatars :avatars="${x => x.issue!.assignees}"></git-avatars>
+			${when(
+				x => x.issue!.author != null,
+				html<IssueRow>`
+					<avatar-stack>
+						<avatar-item
+							media="${x => x.issue!.author?.avatarUrl}"
+							title="${x => x.issue!.author?.name} (author)"
+						></avatar-item>
+					</avatar-stack>
+				`,
+			)}
+			${when(
+				x => x.assignees.length > 0,
+				html<IssueRow>`<git-avatars :avatars="${x => x.issue!.assignees}"></git-avatars>`,
+			)}
 		</table-cell>
 		<table-cell>${x => x.issue!.commentsCount}</table-cell>
 		<table-cell>${x => x.issue!.thumbsUpCount}</table-cell>
@@ -202,5 +208,19 @@ export class IssueRow extends FASTElement {
 	@volatile
 	get indicatorLabel() {
 		return undefined;
+	}
+
+	@volatile
+	get assignees() {
+		const assignees = this.issue?.assignees;
+		if (assignees == null) {
+			return [];
+		}
+		const author: IssueMember | undefined = this.issue!.author;
+		if (author != null) {
+			return assignees.filter(assignee => assignee.url !== author.url);
+		}
+
+		return assignees;
 	}
 }
