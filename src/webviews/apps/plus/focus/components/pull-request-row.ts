@@ -256,7 +256,6 @@ export class PullRequestRow extends FASTElement {
 	get indicator() {
 		if (this.pullRequest == null) return '';
 
-		console.log(this.pullRequest);
 		if (this.checks === false) {
 			return 'checks';
 		} else if (this.pullRequest.reviewDecision === 'ChangesRequested') {
