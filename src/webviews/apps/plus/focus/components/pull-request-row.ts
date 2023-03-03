@@ -1,5 +1,5 @@
 import { css, customElement, FASTElement, html, observable, volatile, when } from '@microsoft/fast-element';
-import type { PullRequestShape } from '../../../../../git/models/pullRequest';
+import type { PullRequestMember, PullRequestShape } from '../../../../../git/models/pullRequest';
 import { fromNow } from '../../../../../system/date';
 import { focusOutline, srOnly } from '../../../shared/components/styles/a11y';
 import { elementBase } from '../../../shared/components/styles/base';
@@ -78,15 +78,21 @@ const template = html<PullRequestRow>`
 			</small>
 		</table-cell>
 		<table-cell>
-			<avatar-stack>
-				<avatar-item
-					media="${x => x.pullRequest!.author?.avatarUrl}"
-					title="${x => x.pullRequest!.author?.name}"
-				></avatar-item>
-			</avatar-stack>
-		</table-cell>
-		<table-cell>
-			<git-avatars :avatars="${x => x.pullRequest!.assignees}"></git-avatars>
+			${when(
+				x => x.pullRequest!.author != null,
+				html<PullRequestRow>`
+					<avatar-stack>
+						<avatar-item
+							media="${x => x.pullRequest!.author.avatarUrl}"
+							title="${x => x.pullRequest!.author.name} (author)"
+						></avatar-item>
+					</avatar-stack>
+				`,
+			)}
+			${when(
+				x => x.assignees.length > 0,
+				html<PullRequestRow>`<git-avatars :avatars="${x => x.pullRequest!.assignees}"></git-avatars>`,
+			)}
 		</table-cell>
 		<table-cell>${x => x.pullRequest!.comments}</table-cell>
 		<table-cell class="stats"
@@ -274,5 +280,19 @@ export class PullRequestRow extends FASTElement {
 	@volatile
 	get indicatorLabel() {
 		return undefined;
+	}
+
+	@volatile
+	get assignees() {
+		const assignees = this.pullRequest?.assignees;
+		if (assignees == null) {
+			return [];
+		}
+		const author: PullRequestMember | undefined = this.pullRequest!.author;
+		if (author != null) {
+			return assignees.filter(assignee => assignee.name !== author.name);
+		}
+
+		return assignees;
 	}
 }
