@@ -36,7 +36,6 @@ export class FocusApp extends App<State> {
 		this.log(`${this.appName}.onInitialize`);
 		provideVSCodeDesignSystem().register(vsCodeButton());
 		this.renderContent();
-		console.log(this.state);
 	}
 
 	protected override onBind() {
