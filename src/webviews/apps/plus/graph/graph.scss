@@ -11,11 +11,13 @@
 .vscode-high-contrast,
 .vscode-dark {
 	--popover-bg: var(--color-background--lighten-15);
+	--titlebar-bg: var(--color-background--lighten-075);
 }
 
 .vscode-high-contrast-light,
 .vscode-light {
 	--popover-bg: var(--color-background--darken-15);
+	--titlebar-bg: var(--color-background--darken-075);
 }
 
 body {
@@ -34,6 +36,7 @@ body {
 		}
 	}
 
+	--titlebar-fg: var(--color-foreground--65);
 	--color-graph-contrast-border: var(--vscode-list-focusOutline);
 	--color-graph-selected-row: var(--vscode-list-activeSelectionBackground);
 	--color-graph-hover-row: var(--vscode-list-hoverBackground);
@@ -248,7 +251,7 @@ button:not([disabled]),
 	width: 0.1rem;
 	height: 2.2rem;
 	vertical-align: middle;
-	background-color: var(--vscode-titleBar-inactiveForeground);
+	background-color: var(--titlebar-fg);
 	opacity: 0.4;
 	margin: {
 		// left: 0.2rem;
@@ -573,8 +576,8 @@ button:not([disabled]),
 }
 
 .titlebar {
-	background: var(--vscode-titleBar-inactiveBackground);
-	color: var(--vscode-titleBar-inactiveForeground);
+	background: var(--titlebar-bg);
+	color: var(--titlebar-fg);
 	padding: {
 		left: 0.8rem;
 		right: 0.8rem;
