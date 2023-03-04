@@ -1,4 +1,5 @@
 import type { Uri } from 'vscode';
+import type { PushFlags } from '../../commands/git/stash';
 import { Container } from '../../container';
 import { executeGitCommand } from '../actions';
 import type { GitStashCommit } from '../models/commit';
@@ -26,7 +27,13 @@ export function pop(repo?: string | Repository, ref?: GitStashReference) {
 	});
 }
 
-export function push(repo?: string | Repository, uris?: Uri[], message?: string, keepStaged: boolean = false) {
+export function push(
+	repo?: string | Repository,
+	uris?: Uri[],
+	message?: string,
+	keepStaged: boolean = false,
+	onlyStaged: boolean = false,
+) {
 	return executeGitCommand({
 		command: 'stash',
 		state: {
@@ -34,7 +41,7 @@ export function push(repo?: string | Repository, uris?: Uri[], message?: string,
 			repo: repo,
 			uris: uris,
 			message: message,
-			flags: keepStaged ? ['--keep-index'] : undefined,
+			flags: [...(keepStaged ? ['--keep-index'] : []), ...(onlyStaged ? ['--staged'] : [])] as PushFlags[],
 		},
 	});
 }
