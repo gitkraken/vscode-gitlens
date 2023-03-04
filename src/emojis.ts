@@ -1,7 +1,12 @@
-import emojis from './emojis.json';
+import { emojis as compressed } from './emojis.compressed';
+import { decompressFromBase64LZString } from './system/string';
 
 const emojiRegex = /:([-+_a-z0-9]+):/g;
 
+let emojis: Record<string, string> | undefined = undefined;
 export function emojify(message: string) {
-	return message.replace(emojiRegex, (s, code) => (emojis as Record<string, string>)[code] || s);
+	if (emojis == null) {
+		emojis = JSON.parse(decompressFromBase64LZString(compressed));
+	}
+	return message.replace(emojiRegex, (s, code) => emojis![code] || s);
 }
