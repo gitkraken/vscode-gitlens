@@ -4676,7 +4676,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		message?: string,
 		uris?: Uri[],
-		options?: { includeUntracked?: boolean; keepIndex?: boolean },
+		options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
 	): Promise<void> {
 		if (uris == null) {
 			await this.git.stash__push(repoPath, message, options);

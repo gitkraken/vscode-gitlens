@@ -75,7 +75,7 @@ interface PopState {
 	reference: GitStashReference;
 }
 
-type PushFlags = '--include-untracked' | '--keep-index';
+export type PushFlags = '--include-untracked' | '--keep-index' | '--staged';
 
 interface PushState {
 	subcommand: 'push';
@@ -519,6 +519,7 @@ export class StashGitCommand extends QuickCommand<State> {
 				await state.repo.stashSave(state.message, state.uris, {
 					includeUntracked: state.flags.includes('--include-untracked'),
 					keepIndex: state.flags.includes('--keep-index'),
+					onlyStaged: state.flags.includes('--staged'),
 				});
 			} catch (ex) {
 				Logger.error(ex, context.title);

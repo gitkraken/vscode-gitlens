@@ -1811,9 +1811,16 @@ export class Git {
 		{
 			includeUntracked,
 			keepIndex,
+			onlyStaged,
 			pathspecs,
 			stdin,
-		}: { includeUntracked?: boolean; keepIndex?: boolean; pathspecs?: string[]; stdin?: boolean } = {},
+		}: {
+			includeUntracked?: boolean;
+			keepIndex?: boolean;
+			onlyStaged?: boolean;
+			pathspecs?: string[];
+			stdin?: boolean;
+		} = {},
 	): Promise<void> {
 		const params = ['stash', 'push'];
 
@@ -1823,6 +1830,10 @@ export class Git {
 
 		if (keepIndex) {
 			params.push('-k');
+		}
+
+		if (onlyStaged) {
+			params.push('--staged');
 		}
 
 		if (message) {

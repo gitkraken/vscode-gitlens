@@ -1014,7 +1014,11 @@ export class Repository implements Disposable {
 
 	@gate()
 	@log()
-	async stashSave(message?: string, uris?: Uri[], options?: { includeUntracked?: boolean; keepIndex?: boolean }) {
+	async stashSave(
+		message?: string,
+		uris?: Uri[],
+		options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
+	) {
 		await this.container.git.stashSave(this.path, message, uris, options);
 
 		this.fireChange(RepositoryChange.Stash);

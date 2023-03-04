@@ -451,7 +451,7 @@ export interface GitProvider extends Disposable {
 		repoPath: string,
 		message?: string,
 		uris?: Uri[],
-		options?: { includeUntracked?: boolean | undefined; keepIndex?: boolean | undefined },
+		options?: { includeUntracked?: boolean | undefined; keepIndex?: boolean | undefined; onlyStaged?: boolean },
 	): Promise<void>;
 
 	createWorktree?(

@@ -19,6 +19,7 @@ export interface StashSaveCommandArgs {
 	repoPath?: string;
 	uris?: Uri[];
 	keepStaged?: boolean;
+	onlyStaged?: boolean;
 }
 
 @command()
@@ -55,16 +56,21 @@ export class StashSaveCommand extends Command {
 			}
 		} else if (context.type === 'scm-groups') {
 			args = { ...args };
-			args.uris = context.scmResourceGroups.reduce<Uri[]>(
-				(a, b) => a.concat(b.resourceStates.map(s => s.resourceUri)),
-				[],
-			);
-			args.repoPath = (await this.container.git.getOrOpenRepository(args.uris[0]))?.path;
 
-			const status = await this.container.git.getStatusForRepo(args.repoPath);
-			if (status?.computeWorkingTreeStatus().staged) {
-				if (!context.scmResourceGroups.some(g => g.id === 'index')) {
-					args.keepStaged = true;
+			if (context.scmResourceGroups.every(g => g.id === 'index')) {
+				args.onlyStaged = true;
+			} else {
+				args.uris = context.scmResourceGroups.reduce<Uri[]>(
+					(a, b) => a.concat(b.resourceStates.map(s => s.resourceUri)),
+					[],
+				);
+				args.repoPath = (await this.container.git.getOrOpenRepository(args.uris[0]))?.path;
+
+				const status = await this.container.git.getStatusForRepo(args.repoPath);
+				if (status?.computeWorkingTreeStatus().staged) {
+					if (!context.scmResourceGroups.some(g => g.id === 'index')) {
+						args.keepStaged = true;
+					}
 				}
 			}
 		}
@@ -73,6 +79,6 @@ export class StashSaveCommand extends Command {
 	}
 
 	execute(args?: StashSaveCommandArgs) {
-		return push(args?.repoPath, args?.uris, args?.message, args?.keepStaged);
+		return push(args?.repoPath, args?.uris, args?.message, args?.keepStaged, args?.onlyStaged);
 	}
 }
