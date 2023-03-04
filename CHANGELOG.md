@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Reduces the size of the GitLens bundle which improves startup time
+  - GitLens' extension bundle for desktop (node) is now ~24% smaller (1.58MB -> 1.21MB)
+  - GitLens' extension bundle for web (vscode.dev/github.dev) is now ~6% smaller (1.32MB -> 1.24MB)
+
 ### Fixed
 
 - Fixes [#2533](https://github.com/gitkraken/vscode-gitlens/issues/2533) - Current Branch Only graph filter sometimes fails
