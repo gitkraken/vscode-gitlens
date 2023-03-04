@@ -2933,7 +2933,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		_repoPath: string,
 		_message?: string,
 		_uris?: Uri[],
-		_options?: { includeUntracked?: boolean; keepIndex?: boolean },
+		_options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
 	): Promise<void> {}
 
 	@gate()

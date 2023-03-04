@@ -2534,7 +2534,7 @@ export class GitProviderService implements Disposable {
 		repoPath: string | Uri,
 		message?: string,
 		uris?: Uri[],
-		options?: { includeUntracked?: boolean; keepIndex?: boolean },
+		options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
 	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.stashSave(path, message, uris, options);
