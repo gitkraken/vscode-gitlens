@@ -55,13 +55,12 @@ async function buildExtension(target, mode) {
 
 	const alias = {
 		'@env': path.resolve(__dirname, 'src', 'env', target === 'webworker' ? 'browser' : target),
+		// Stupid dependency that is used by `http[s]-proxy-agent`
+		debug: path.resolve(__dirname, 'patches', 'debug.js'),
 		// This dependency is very large, and isn't needed for our use-case
 		tr46: path.resolve(__dirname, 'patches', 'tr46.js'),
-		// Stupid dependency that is used by `http-proxy-agent`
-		debug:
-			target === 'webworker'
-				? path.resolve(__dirname, 'node_modules', 'debug', 'src', 'browser.js')
-				: path.resolve(__dirname, 'node_modules', 'debug', 'src', 'node.js'),
+		// This dependency is unnecessary for our use-case
+		'whatwg-url': path.resolve(__dirname, 'patches', 'whatwg-url.js'),
 	};
 
 	if (target === 'webworker') {
@@ -84,11 +83,11 @@ async function buildExtension(target, mode) {
 		logLevel: 'info',
 		mainFields: target === 'webworker' ? ['browser', 'module', 'main'] : ['module', 'main'],
 		metafile: true,
-		minify: mode === 'production' ? true : false,
+		minify: mode === 'production',
 		outdir: out,
 		platform: target === 'webworker' ? 'browser' : target,
-		sourcemap: mode === 'production' ? false : true,
-		// splitting: target === 'webworker' ? false : true,
+		sourcemap: mode !== 'production',
+		// splitting: target !== 'webworker',
 		// chunkNames: 'feature-[name]-[hash]',
 		target: ['es2022', 'chrome102', 'node16.14.2'],
 		treeShaking: true,
@@ -97,6 +96,9 @@ async function buildExtension(target, mode) {
 		plugins: plugins,
 	});
 
+	if (!fs.existsSync(path.join('dist', 'meta'))) {
+		fs.mkdirSync(path.join('dist', 'meta'));
+	}
 	fs.writeFileSync(
 		path.join('dist', 'meta', `gitlens${target === 'webworker' ? '.browser' : ''}.json`),
 		JSON.stringify(result.metafile),

@@ -4,7 +4,6 @@ import type { Stats } from 'fs';
 import { exists, existsSync, statSync } from 'fs';
 import { join as joinPaths } from 'path';
 import * as process from 'process';
-import { decode } from 'iconv-lite';
 import type { CancellationToken } from 'vscode';
 import { Logger } from '../../../system/logger';
 
@@ -218,7 +217,7 @@ export function run<T extends number | string | Buffer>(
 
 	let killed = false;
 	return new Promise<T>((resolve, reject) => {
-		const proc = execFile(command, args, opts, (error: ExecException | null, stdout, stderr) => {
+		const proc = execFile(command, args, opts, async (error: ExecException | null, stdout, stderr) => {
 			if (killed) return;
 
 			if (options?.exitCodeOnly) {
@@ -232,17 +231,17 @@ export function run<T extends number | string | Buffer>(
 					error.message = `Command output exceeded the allocated stdout buffer. Set 'options.maxBuffer' to a larger value than ${opts.maxBuffer} bytes`;
 				}
 
-				reject(
-					new RunError(
-						error,
-						encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer'
-							? stdout
-							: decode(Buffer.from(stdout, 'binary'), encoding),
-						encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer'
-							? stderr
-							: decode(Buffer.from(stderr, 'binary'), encoding),
-					),
-				);
+				let stdoutDecoded;
+				let stderrDecoded;
+				if (encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer') {
+					stdoutDecoded = stdout;
+					stderrDecoded = stderr;
+				} else {
+					const decode = (await import(/* webpackChunkName: "encoding" */ 'iconv-lite')).decode;
+					stdoutDecoded = decode(Buffer.from(stdout, 'binary'), encoding);
+					stderrDecoded = decode(Buffer.from(stderr, 'binary'), encoding);
+				}
+				reject(new RunError(error, stdoutDecoded, stderrDecoded));
 
 				return;
 			}
@@ -251,11 +250,12 @@ export function run<T extends number | string | Buffer>(
 				Logger.warn(`Warning(${command} ${args.join(' ')}): ${stderr}`);
 			}
 
-			resolve(
-				encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer'
-					? (stdout as T)
-					: (decode(Buffer.from(stdout, 'binary'), encoding) as T),
-			);
+			if (encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer') {
+				resolve(stdout as T);
+			} else {
+				const decode = (await import(/* webpackChunkName: "encoding" */ 'iconv-lite')).decode;
+				resolve(decode(Buffer.from(stdout, 'binary'), encoding) as T);
+			}
 		});
 
 		options?.cancellation?.onCancellationRequested(() => {

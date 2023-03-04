@@ -241,13 +241,12 @@ function getExtensionConfig(target, mode, env) {
 		resolve: {
 			alias: {
 				'@env': path.resolve(__dirname, 'src', 'env', target === 'webworker' ? 'browser' : target),
+				// Stupid dependency that is used by `http[s]-proxy-agent`
+				debug: path.resolve(__dirname, 'patches', 'debug.js'),
 				// This dependency is very large, and isn't needed for our use-case
 				tr46: path.resolve(__dirname, 'patches', 'tr46.js'),
-				// Stupid dependency that is used by `http-proxy-agent`
-				debug:
-					target === 'webworker'
-						? path.resolve(__dirname, 'node_modules', 'debug', 'src', 'browser.js')
-						: path.resolve(__dirname, 'node_modules', 'debug', 'src', 'node.js'),
+				// This dependency is unnecessary for our use-case
+				'whatwg-url': path.resolve(__dirname, 'patches', 'whatwg-url.js'),
 			},
 			fallback:
 				target === 'webworker'

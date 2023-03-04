@@ -3,7 +3,8 @@
 	"compilerOptions": {
 		"paths": {
 			"@env/*": ["src/env/node/*"]
-		}
+		},
+		"tsBuildInfoFile": "tsconfig.tsbuildinfo"
 	},
 	"include": ["src/**/*"],
 	"exclude": ["src/test/**/*", "src/webviews/apps/**/*", "src/env/browser/**/*"]

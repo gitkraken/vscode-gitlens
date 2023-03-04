@@ -13416,6 +13416,7 @@
 		"webpack-require-from": "1.8.6"
 	},
 	"resolutions": {
+		"iconv-lite": "0.6.3",
 		"node-fetch": "2.6.9",
 		"semver-regex": "4.0.5"
 	}
