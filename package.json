@@ -13330,7 +13330,7 @@
 		"web:tunnel": "npx localtunnel -p 5000",
 		"update-dts": "pushd \"src/@types\" && npx vscode-dts dev && popd",
 		"update-dts:master": "pushd \"src/@types\" && npx vscode-dts master && popd",
-		"update-emoji": "node ./scripts/generateEmojiShortcodeMap.js",
+		"update-emoji": "node ./scripts/generateEmojiShortcodeMap.mjs",
 		"update-licenses": "node ./scripts/generateLicenses.mjs",
 		"-pretest": "yarn run build:tests",
 		"vscode:prepublish": "yarn run bundle"
@@ -13397,6 +13397,7 @@
 		"html-webpack-plugin": "5.5.0",
 		"image-minimizer-webpack-plugin": "3.8.1",
 		"license-checker-rseidelsohn": "4.1.1",
+		"lz-string": "github:pieroxy/lz-string#1.4.4",
 		"mini-css-extract-plugin": "2.7.2",
 		"mocha": "10.2.0",
 		"prettier": "2.8.4",

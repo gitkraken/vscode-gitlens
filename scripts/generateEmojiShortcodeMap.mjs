@@ -1,7 +1,7 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
-const fs = require('fs');
-const https = require('https');
-const path = require('path');
+import * as fs from 'fs';
+import * as https from 'https';
+import * as path from 'path';
+import LZString from 'lz-string';
 
 async function generate() {
 	/**
@@ -23,8 +23,7 @@ async function generate() {
 		/**
 		 * @type {Record<string, string | string[]>}}
 		 */
-		// eslint-disable-next-line import/no-dynamic-require
-		const data = require(path.join(process.cwd(), file));
+		const data = JSON.parse(fs.readFileSync(path.join(process.cwd(), file), 'utf8'));
 		for (const [emojis, codes] of Object.entries(data)) {
 			const emoji = emojis
 				.split('-')
@@ -45,15 +44,14 @@ async function generate() {
 	// Get gitmoji data from https://github.com/carloscuesta/gitmoji
 	// https://github.com/carloscuesta/gitmoji/blob/master/src/data/gitmojis.json
 	await download(
-		'https://raw.githubusercontent.com/carloscuesta/gitmoji/master/src/data/gitmojis.json',
+		'https://raw.githubusercontent.com/carloscuesta/gitmoji/master/packages/gitmojis/src/gitmojis.json',
 		'gitmojis.json',
 	);
 
 	/**
 	 * @type {({ code: string; emoji: string })[]}
 	 */
-	// eslint-disable-next-line import/no-dynamic-require
-	const gitmojis = require(path.join(process.cwd(), 'gitmojis.json')).gitmojis;
+	const gitmojis = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'gitmojis.json'), 'utf8')).gitmojis;
 	for (const emoji of gitmojis) {
 		if (emoji.code.startsWith(':') && emoji.code.endsWith(':')) {
 			emoji.code = emoji.code.substring(1, emoji.code.length - 2);
@@ -77,7 +75,11 @@ async function generate() {
 		return m;
 	}, Object.create(null));
 
-	fs.writeFileSync(path.join(process.cwd(), 'src/emojis.json'), JSON.stringify(map), 'utf8');
+	fs.writeFileSync(
+		path.join(process.cwd(), 'src/emojis.compressed.ts'),
+		`export const emojis = '${LZString.compressToBase64(JSON.stringify(map))}';\n`,
+		'utf8',
+	);
 }
 
 function download(url, destination) {
