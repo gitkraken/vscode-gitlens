@@ -1,4 +1,5 @@
 export const commandPrefix = 'gitlens';
+export const configPrefix = 'gitlens';
 export const quickPickTitleMaxChars = 80;
 
 export const ImageMimetypes: Record<string, string> = {

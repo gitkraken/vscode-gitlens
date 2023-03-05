@@ -1,9 +1,8 @@
 import type { ConfigurationChangeEvent, ConfigurationScope, Event, ExtensionContext } from 'vscode';
 import { ConfigurationTarget, EventEmitter, workspace } from 'vscode';
 import type { Config } from '../config';
+import { configPrefix } from '../constants';
 import { areEqual } from './object';
-
-const configPrefix = 'gitlens';
 
 interface ConfigurationOverrides {
 	get<T extends ConfigPath>(section: T, value: ConfigPathValue<T>): ConfigPathValue<T>;
