@@ -3837,8 +3837,8 @@
 						"order": 70
 					},
 					"gitlens.insiders": {
-						"deprecationMessage": "Deprecated. Use the Insiders edition of GitLens instead",
-						"markdownDeprecationMessage": "Deprecated. Use the [Insiders edition](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens-insiders) of GitLens instead"
+						"deprecationMessage": "Deprecated. Use the pre-release edition of GitLens instead",
+						"markdownDeprecationMessage": "Deprecated. Use the pre-release of GitLens instead"
 					}
 				}
 			}
