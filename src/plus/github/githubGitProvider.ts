@@ -62,7 +62,7 @@ import type { GitRebaseStatus } from '../../git/models/rebase';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
 import { createReference, isRevisionRange, isSha, isShaLike, isUncommitted } from '../../git/models/reference';
 import type { GitReflog } from '../../git/models/reflog';
-import { getRemoteIconUri, GitRemote, GitRemoteType } from '../../git/models/remote';
+import { getRemoteIconUri, getVisibilityCacheKey, GitRemote, GitRemoteType } from '../../git/models/remote';
 import type { RepositoryChangeEvent } from '../../git/models/repository';
 import { Repository } from '../../git/models/repository';
 import type { GitStash } from '../../git/models/stash';
@@ -229,28 +229,24 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	async visibility(repoPath: string): Promise<[RepositoryVisibility, string | undefined]> {
+	async visibility(repoPath: string): Promise<[visibility: RepositoryVisibility, cacheKey: string | undefined]> {
 		const remotes = await this.getRemotes(repoPath, { sort: true });
 		if (remotes.length === 0) return [RepositoryVisibility.Local, undefined];
 
-		for await (const result of fastestSettled(remotes.map(async r => [await this.getRemoteVisibility(r), r.id]))) {
+		for await (const result of fastestSettled(remotes.map(r => this.getRemoteVisibility(r)))) {
 			if (result.status !== 'fulfilled') continue;
 
-			if (result.value[0] === RepositoryVisibility.Public) return [RepositoryVisibility.Public, result.value[1]];
+			if (result.value[0] === RepositoryVisibility.Public) {
+				return [RepositoryVisibility.Public, getVisibilityCacheKey(result.value[1])];
+			}
 		}
 
-		return [
-			RepositoryVisibility.Private,
-			remotes
-				.map(r => r.id)
-				.sort()
-				.join(','),
-		];
+		return [RepositoryVisibility.Private, getVisibilityCacheKey(remotes)];
 	}
 
 	private async getRemoteVisibility(
 		remote: GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
-	): Promise<RepositoryVisibility> {
+	): Promise<[visibility: RepositoryVisibility, remote: GitRemote]> {
 		switch (remote.provider?.id) {
 			case 'github': {
 				const { github, metadata, session } = await this.ensureRepositoryContext(remote.repoPath);
@@ -260,10 +256,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					metadata.repo.name,
 				);
 
-				return visibility ?? RepositoryVisibility.Private;
+				return [visibility ?? RepositoryVisibility.Private, remote];
 			}
 			default:
-				return RepositoryVisibility.Private;
+				return [RepositoryVisibility.Private, remote];
 		}
 	}
 

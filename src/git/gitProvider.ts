@@ -124,7 +124,7 @@ export interface GitProvider extends Disposable {
 	openRepositoryInitWatcher?(): RepositoryInitWatcher;
 
 	supports(feature: Features): Promise<boolean>;
-	visibility(repoPath: string, remotes?: GitRemote[]): Promise<[RepositoryVisibility, string | undefined]>;
+	visibility(repoPath: string, remotes?: GitRemote[]): Promise<[visibility: RepositoryVisibility, cacheKey: string | undefined]>;
 
 	getOpenScmRepositories(): Promise<ScmRepository[]>;
 	getScmRepository(repoPath: string): Promise<ScmRepository | undefined>;
