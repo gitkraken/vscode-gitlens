@@ -1448,7 +1448,7 @@ export class GitProviderService implements Disposable {
 
 	@gate()
 	@log()
-	async getCurrentUser(repoPath: string | Uri): Promise<GitUser | undefined> {
+	getCurrentUser(repoPath: string | Uri): Promise<GitUser | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getCurrentUser(path);
 	}
@@ -1468,7 +1468,7 @@ export class GitProviderService implements Disposable {
 	 * @param ref1 Commit to diff from
 	 * @param ref2 Commit to diff to
 	 */
-	async getDiffForFile(uri: GitUri, ref1: string | undefined, ref2?: string): Promise<GitDiff | undefined> {
+	getDiffForFile(uri: GitUri, ref1: string | undefined, ref2?: string): Promise<GitDiff | undefined> {
 		const { provider } = this.getProvider(uri);
 		return provider.getDiffForFile(uri, ref1, ref2);
 	}
@@ -1480,7 +1480,7 @@ export class GitProviderService implements Disposable {
 	 * @param ref Commit to diff from
 	 * @param contents Contents to use for the diff
 	 */
-	async getDiffForFileContents(uri: GitUri, ref: string, contents: string): Promise<GitDiff | undefined> {
+	getDiffForFileContents(uri: GitUri, ref: string, contents: string): Promise<GitDiff | undefined> {
 		const { provider } = this.getProvider(uri);
 		return provider.getDiffForFileContents(uri, ref, contents);
 	}
@@ -1493,7 +1493,7 @@ export class GitProviderService implements Disposable {
 	 * @param ref1 Commit to diff from
 	 * @param ref2 Commit to diff to
 	 */
-	async getDiffForLine(
+	getDiffForLine(
 		uri: GitUri,
 		editorLine: number,
 		ref1: string | undefined,
@@ -1504,7 +1504,7 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getDiffStatus(
+	getDiffStatus(
 		repoPath: string | Uri,
 		ref1?: string,
 		ref2?: string,
