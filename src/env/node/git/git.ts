@@ -1902,7 +1902,7 @@ export class Git {
 	private _gitOutput: OutputChannel | undefined;
 
 	private logGitCommand(command: string, duration: number, ex?: Error): void {
-		if (Logger.enabled(LogLevel.Debug) && !Logger.isDebugging) return;
+		if (!Logger.enabled(LogLevel.Debug) && !Logger.isDebugging) return;
 
 		const slow = duration > slowCallWarningThreshold;
 
