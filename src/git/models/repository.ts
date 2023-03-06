@@ -652,7 +652,11 @@ export class Repository implements Disposable {
 		if (gitDir?.commonUri == null) return this;
 
 		// If the repository isn't already opened, then open it as a "closed" repo (won't show up in the UI)
-		return this.container.git.getOrOpenRepository(gitDir.commonUri, { closeOnOpen: true });
+		return this.container.git.getOrOpenRepository(gitDir.commonUri, {
+			detectNested: false,
+			force: true,
+			closeOnOpen: true,
+		});
 	}
 
 	getMergeStatus(): Promise<GitMergeStatus | undefined> {

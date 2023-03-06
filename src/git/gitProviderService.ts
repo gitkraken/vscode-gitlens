@@ -2103,7 +2103,7 @@ export class GitProviderService implements Disposable {
 	@log<GitProviderService['getOrOpenRepository']>({ exit: r => `returned ${r?.path}` })
 	async getOrOpenRepository(
 		uri: Uri,
-		options?: { closeOnOpen?: boolean; detectNested?: boolean },
+		options?: { closeOnOpen?: boolean; detectNested?: boolean; force?: boolean },
 	): Promise<Repository | undefined> {
 		const scope = getLogScope();
 
@@ -2116,14 +2116,14 @@ export class GitProviderService implements Disposable {
 		const detectNested = options?.detectNested ?? configuration.get('detectNestedRepositories', uri);
 		if (!detectNested) {
 			if (repository != null) return repository;
-		} else if (this._visitedPaths.has(path)) {
+		} else if (!options?.force && this._visitedPaths.has(path)) {
 			return repository;
 		} else {
 			const stats = await workspace.fs.stat(uri);
 			// If the uri isn't a directory, go up one level
 			if ((stats.type & FileType.Directory) !== FileType.Directory) {
 				uri = Uri.joinPath(uri, '..');
-				if (this._visitedPaths.has(getBestPath(uri))) return repository;
+				if (!options?.force && this._visitedPaths.has(getBestPath(uri))) return repository;
 			}
 
 			isDirectory = true;
