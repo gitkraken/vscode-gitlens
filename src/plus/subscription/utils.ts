@@ -5,7 +5,7 @@ import { getContext } from '../../context';
 import { configuration } from '../../system/configuration';
 
 export function arePlusFeaturesEnabled(): boolean {
-	return getContext(ContextKeys.PlusEnabled, configuration.get('plusFeatures.enabled', undefined, true));
+	return true;//getContext(ContextKeys.PlusEnabled, configuration.get('plusFeatures.enabled', undefined, true));
 }
 
 export async function ensurePlusFeaturesEnabled(): Promise<boolean> {

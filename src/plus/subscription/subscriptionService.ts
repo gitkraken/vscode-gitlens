@@ -240,9 +240,9 @@ export class SubscriptionService implements Disposable {
 		await this.container.subscriptionAuthentication.abort();
 		void this.showHomeView();
 
-		const session = await this.ensureSession(true);
-		const loggedIn = Boolean(session);
-		if (loggedIn) {
+		// const session = await this.ensureSession(true);
+		// const loggedIn = Boolean(session);
+		if (false) {
 			const {
 				account,
 				plan: { actual, effective },
@@ -292,7 +292,7 @@ export class SubscriptionService implements Disposable {
 				);
 			}
 		}
-		return loggedIn;
+		return false;
 	}
 
 	@log()
@@ -533,7 +533,7 @@ export class SubscriptionService implements Disposable {
 	private _lastCheckInDate: Date | undefined;
 	@gate<SubscriptionService['checkInAndValidate']>(s => s.account.id)
 	private async checkInAndValidate(session: AuthenticationSession, showSlowProgress: boolean = false): Promise<void> {
-		if (!showSlowProgress) return this.checkInAndValidateCore(session);
+		if (true) return ;//this.checkInAndValidateCore(session);
 
 		const validating = this.checkInAndValidateCore(session);
 		const result = await Promise.race([
@@ -703,12 +703,12 @@ export class SubscriptionService implements Disposable {
 	@gate()
 	@debug()
 	private async ensureSession(createIfNeeded: boolean, force?: boolean): Promise<AuthenticationSession | undefined> {
-		if (this._sessionPromise != null && this._session === undefined) {
-			void (await this._sessionPromise);
-		}
+		// if (this._sessionPromise != null && this._session === undefined) {
+		// 	void (await this._sessionPromise);
+		// }
 
-		if (!force && this._session != null) return this._session;
-		if (this._session === null && !createIfNeeded) return undefined;
+		// if (!force && this._session != null) return this._session;
+		// if (this._session === null && !createIfNeeded) return undefined;
 
 		if (this._sessionPromise === undefined) {
 			this._sessionPromise = this.getOrCreateSession(createIfNeeded).then(

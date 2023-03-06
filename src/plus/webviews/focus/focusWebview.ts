@@ -88,12 +88,13 @@ export class FocusWebview extends WebviewBase<State> {
 
 	private async getSubscription(subscription?: Subscription) {
 		const currentSubscription = subscription ?? (await this.container.subscription.getSubscription(true));
-		const isPlus = ![
-			SubscriptionState.Free,
-			SubscriptionState.FreePreviewTrialExpired,
-			SubscriptionState.FreePlusTrialExpired,
-			SubscriptionState.VerificationRequired,
-		].includes(currentSubscription.state);
+		const isPlus = true;
+		// const isPlus = ![
+		// 	SubscriptionState.Free,
+		// 	SubscriptionState.FreePreviewTrialExpired,
+		// 	SubscriptionState.FreePlusTrialExpired,
+		// 	SubscriptionState.VerificationRequired,
+		// ].includes(currentSubscription.state);
 
 		return {
 			subscription: currentSubscription,
