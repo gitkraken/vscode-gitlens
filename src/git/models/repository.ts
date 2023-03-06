@@ -647,12 +647,16 @@ export class Repository implements Disposable {
 
 	@gate()
 	@log<Repository['getMainRepository']>({ exit: r => `returned ${r?.path}` })
-	async getMainRepository(options?: { detectNested?: boolean; force?: boolean }): Promise<Repository | undefined> {
+	async getMainRepository(): Promise<Repository | undefined> {
 		const gitDir = await this.getGitDir();
 		if (gitDir?.commonUri == null) return this;
 
 		// If the repository isn't already opened, then open it as a "closed" repo (won't show up in the UI)
-		return this.container.git.getOrOpenRepository(gitDir.commonUri, { ...options, closeOnOpen: true });
+		return this.container.git.getOrOpenRepository(gitDir.commonUri, {
+			detectNested: false,
+			force: true,
+			closeOnOpen: true,
+		});
 	}
 
 	getMergeStatus(): Promise<GitMergeStatus | undefined> {
