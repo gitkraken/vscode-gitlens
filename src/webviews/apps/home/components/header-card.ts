@@ -36,7 +36,7 @@ const template = html<HeaderCard>`
 				${x =>
 					x.isPro
 						? 'You have access to all GitLens and GitLens+ features on any repo.'
-						: 'You have access to GitLens+ features on local & public repos, and all other GitLens features on any repo.'}
+						: 'This is the green free edition, You have access to GitLens+ features on local & public repos, and all other GitLens features on any repo.'}
 				<br /><br />
 				✨ indicates GitLens+ features, <a class="link-inline" href="command:gitlens.plus.learn">learn more</a>
 			</pop-over>
