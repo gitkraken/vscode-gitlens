@@ -5,7 +5,7 @@ import type {
 } from 'vscode';
 import { authentication, Disposable, EventEmitter, extensions, window } from 'vscode';
 import { uuid } from '@env/crypto';
-import type { Container } from '../../container';
+import type { Container, Environment } from '../../container';
 import { debug } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
@@ -50,7 +50,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 		this._disposable.dispose();
 	}
 
-	private get secretStorageKey(): string {
+	private get secretStorageKey(): `gitlens.plus.auth:${Environment}` {
 		return `gitlens.plus.auth:${this.container.env}`;
 	}
 

@@ -1,6 +1,7 @@
 import type { Disposable, Event, ExtensionContext, SecretStorageChangeEvent } from 'vscode';
 import { EventEmitter } from 'vscode';
 import type { ViewShowBranchComparison } from './config';
+import type { Environment } from './container';
 import type { StoredSearchQuery } from './git/search';
 import type { Subscription } from './subscription';
 import { debug } from './system/decorators/log';
@@ -104,7 +105,7 @@ export class Storage implements Disposable {
 	}
 }
 
-export type SecretKeys = string;
+export type SecretKeys = `gitlens.integration.auth:${string}` | `gitlens.plus.auth:${Environment}`;
 
 export const enum SyncedStorageKeys {
 	Version = 'gitlens:synced:version',
