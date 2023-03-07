@@ -188,13 +188,17 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		}
 	});
 
+	if (container.debugging) {
+		// Set context to only show some commands when using the pre-release version or debugging
+		void setContext(ContextKeys.Debugging, true);
+		void setContext(ContextKeys.PreRelease, true);
+	} else if (container.prerelease) {
+		// Set context to only show some commands when using the pre-release version
+		void setContext(ContextKeys.PreRelease, true);
+	}
+
 	// Signal that the container is now ready
 	await container.ready();
-
-	// Set a context to only show some commands when debugging
-	if (container.debugging) {
-		void setContext(ContextKeys.Debugging, true);
-	}
 
 	// TODO@eamodio do we want to capture any vscode settings that are relevant to GitLens?
 	const flatCfg = flatten(configuration.getAll(true), { prefix: 'config', stringify: 'all' });
