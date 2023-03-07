@@ -199,10 +199,10 @@ After the version commit and new tags are pushed to GitHub, the [Publish Stable 
 
 If the action fails, the VSIX will need to be built locally with `yarn package` and uploaded manually in the marketplace.
 
-### Pre-release edition (currently disabled until VS Code's marketplace supports pre-releases)
+### Pre-release edition
 
 The [Publish Pre-release workflow](.github/workflows/cd-pre.yml) is automatically run every AM unless no new changes have been committed to `main`.
 
-### Insiders edition
+### Insiders edition (deprecated use pre-release instead)
 
 The [Publish Insiders workflow](.github/workflows/cd-insiders.yml) is automatically run every AM unless no new changes have been committed to `main`.
