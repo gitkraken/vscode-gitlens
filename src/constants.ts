@@ -291,6 +291,7 @@ export const enum ContextKeys {
 	HasRemotes = 'gitlens:hasRemotes',
 	HasRichRemotes = 'gitlens:hasRichRemotes',
 	HasVirtualFolders = 'gitlens:hasVirtualFolders',
+	PreRelease = 'gitlens:prerelease',
 	Readonly = 'gitlens:readonly',
 	Untrusted = 'gitlens:untrusted',
 	ViewsCanCompare = 'gitlens:views:canCompare',
