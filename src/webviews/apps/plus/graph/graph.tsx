@@ -375,120 +375,43 @@ export class GraphApp extends App<State> {
 
 		// minimap and scroll markers
 
-		let c = Color.fromCssVariable('--color-graph-minimap-visibleAreaBackground', e.computedStyle);
+		let c = Color.fromCssVariable('--vscode-scrollbarSlider-background', e.computedStyle);
 		bodyStyle.setProperty(
 			'--color-graph-minimap-visibleAreaBackground',
 			c.luminance(themeLuminance(e.isLightTheme ? 0.6 : 0.1)).toString(),
 		);
 
 		if (!e.isLightTheme) {
-			c = Color.fromCssVariable('--color-graph-minimap-tip-headForeground', e.computedStyle);
-			bodyStyle.setProperty('--color-graph-minimap-tip-headForeground', c.opposite().toString());
+			c = Color.fromCssVariable('--color-graph-scroll-marker-local-branches', e.computedStyle);
+			bodyStyle.setProperty(
+				'--color-graph-minimap-tip-branchBackground',
+				c.luminance(themeLuminance(0.55)).toString(),
+			);
 
-			c = Color.fromCssVariable('--color-graph-minimap-tip-upstreamForeground', e.computedStyle);
-			bodyStyle.setProperty('--color-graph-minimap-tip-upstreamForeground', c.opposite().toString());
+			c = Color.fromCssVariable('--color-graph-scroll-marker-local-branches', e.computedStyle);
+			bodyStyle.setProperty(
+				'--color-graph-minimap-tip-branchBorder',
+				c.luminance(themeLuminance(0.55)).toString(),
+			);
 
-			c = Color.fromCssVariable('--color-graph-minimap-tip-branchForeground', e.computedStyle);
-			bodyStyle.setProperty('--color-graph-minimap-tip-branchForeground', c.opposite().toString());
+			c = Color.fromCssVariable('--vscode-editor-foreground', e.computedStyle);
+			bodyStyle.setProperty(
+				'--color-graph-minimap-tip-branchForeground',
+				c.isLighter() ? c.luminance(0.01).toString() : c.luminance(0.99).toString(),
+			);
+
+			c = Color.fromCssVariable('--vscode-editor-foreground', e.computedStyle);
+			bodyStyle.setProperty(
+				'--color-graph-minimap-tip-headForeground',
+				c.isLighter() ? c.luminance(0.01).toString() : c.luminance(0.99).toString(),
+			);
+
+			c = Color.fromCssVariable('--vscode-editor-foreground', e.computedStyle);
+			bodyStyle.setProperty(
+				'--color-graph-minimap-tip-upstreamForeground',
+				c.isLighter() ? c.luminance(0.01).toString() : c.luminance(0.99).toString(),
+			);
 		}
-
-		// const highlightsColor = Color.from(
-		// 	e.computedStyle.getPropertyValue('--color-graph-scroll-marker-highlights').trim(),
-		// );
-		// const branchColor = Color.from(
-		// 	e.computedStyle.getPropertyValue('--color-graph-scroll-marker-local-branches').trim(),
-		// );
-		// const remoteBranchColor = Color.from(
-		// 	e.computedStyle.getPropertyValue('--color-graph-scroll-marker-remote-branches').trim(),
-		// );
-		// const stashColor = Color.from(e.computedStyle.getPropertyValue('--color-graph-scroll-marker-stashes').trim());
-		// const tagColor = Color.from(e.computedStyle.getPropertyValue('--color-graph-scroll-marker-tags').trim());
-
-		// color = e.computedStyle.getPropertyValue('--vscode-progressBar-background').trim();
-		// const activityColor = Color.from(color);
-		// bodyStyle.setProperty('--color-graph-minimap-line0', activityColor.luminance(themeLuminance(0.5)).toString());
-
-		// bodyStyle.setProperty(
-		// 	'--color-graph-minimap-focusLine',
-		// 	backgroundColor.luminance(themeLuminance(e.isLightTheme ? 0.6 : 0.2)).toString(),
-		// );
-
-		// color = e.computedStyle.getPropertyValue('--vscode-scrollbarSlider-background').trim();
-		// bodyStyle.setProperty(
-		// 	'--color-graph-minimap-visibleAreaBackground',
-		// 	Color.from(color)
-		// 		.luminance(themeLuminance(e.isLightTheme ? 0.6 : 0.15))
-		// 		.toString(),
-		// );
-
-		// bodyStyle.setProperty(
-		// 	'--color-graph-scroll-marker-highlights',
-		// 	highlightsColor.luminance(themeLuminance(e.isLightTheme ? 0.6 : 1.0)).toString(),
-		// );
-
-		// const pillLabel = foregroundColor.luminance(themeLuminance(e.isLightTheme ? 0 : 1)).toString();
-		// const headBackground = headColor.luminance(themeLuminance(e.isLightTheme ? 0.9 : 0.2)).toString();
-		// const headBorder = headColor.luminance(themeLuminance(e.isLightTheme ? 0.2 : 0.4)).toString();
-		// const headMarker = headColor.luminance(themeLuminance(0.5)).toString();
-
-		// bodyStyle.setProperty('--color-graph-minimap-headBackground', headBackground);
-		// bodyStyle.setProperty('--color-graph-minimap-headBorder', headBorder);
-		// bodyStyle.setProperty('--color-graph-minimap-headForeground', pillLabel);
-
-		// bodyStyle.setProperty('--color-graph-scroll-marker-head', opacity(headMarker, 90));
-
-		// bodyStyle.setProperty('--color-graph-minimap-upstreamBackground', headBackground);
-		// bodyStyle.setProperty('--color-graph-minimap-upstreamBorder', headBorder);
-		// bodyStyle.setProperty('--color-graph-minimap-upstreamForeground', pillLabel);
-		// bodyStyle.setProperty('--color-graph-scroll-marker-upstream', opacity(headMarker, 60));
-
-		// const branchBackground = branchColor.luminance(themeLuminance(e.isLightTheme ? 0.8 : 0.3)).toString();
-		// const branchBorder = branchColor.luminance(themeLuminance(e.isLightTheme ? 0.2 : 0.4)).toString();
-		// const branchMarker = branchColor.luminance(themeLuminance(e.isLightTheme ? 0.2 : 0.6)).toString();
-
-		// bodyStyle.setProperty('--color-graph-minimap-branchBackground', branchBackground);
-		// bodyStyle.setProperty('--color-graph-minimap-branchBorder', branchBorder);
-		// bodyStyle.setProperty('--color-graph-minimap-branchForeground', pillLabel);
-		// bodyStyle.setProperty('--color-graph-scroll-marker-local-branches', opacity(branchMarker, 90));
-
-		// const remoteBranchBackground = remoteBranchColor
-		// 	.luminance(themeLuminance(e.isLightTheme ? 0.8 : 0.3))
-		// 	.toString();
-		// const remoteBranchBorder = remoteBranchColor.luminance(themeLuminance(e.isLightTheme ? 0.2 : 0.4)).toString();
-		// const remoteBranchMarker = remoteBranchColor.luminance(themeLuminance(e.isLightTheme ? 0.3 : 0.6)).toString();
-
-		// bodyStyle.setProperty('--color-graph-minimap-remoteBackground', opacity(remoteBranchBackground, 80));
-		// bodyStyle.setProperty('--color-graph-minimap-remoteBorder', opacity(remoteBranchBorder, 80));
-		// bodyStyle.setProperty('--color-graph-minimap-remoteForeground', pillLabel);
-		// bodyStyle.setProperty('--color-graph-scroll-marker-remote-branches', opacity(remoteBranchMarker, 70));
-
-		// bodyStyle.setProperty(
-		// 	'--color-graph-minimap-stashBackground',
-		// 	stashColor.luminance(themeLuminance(e.isLightTheme ? 0.8 : 0.2)).toString(),
-		// );
-		// bodyStyle.setProperty(
-		// 	'--color-graph-minimap-stashBorder',
-		// 	stashColor.luminance(themeLuminance(e.isLightTheme ? 0.2 : 0.4)).toString(),
-		// );
-		// bodyStyle.setProperty('--color-graph-minimap-stashForeground', pillLabel);
-		// bodyStyle.setProperty(
-		// 	'--color-graph-scroll-marker-stashes',
-		// 	opacity(stashColor.luminance(themeLuminance(e.isLightTheme ? 0.5 : 0.9)).toString(), 90),
-		// );
-
-		// bodyStyle.setProperty(
-		// 	'--color-graph-minimap-tagBackground',
-		// 	tagColor.luminance(themeLuminance(e.isLightTheme ? 0.8 : 0.2)).toString(),
-		// );
-		// bodyStyle.setProperty(
-		// 	'--color-graph-minimap-tagBorder',
-		// 	tagColor.luminance(themeLuminance(e.isLightTheme ? 0.2 : 0.4)).toString(),
-		// );
-		// bodyStyle.setProperty('--color-graph-minimap-tagForeground', pillLabel);
-		// bodyStyle.setProperty(
-		// 	'--color-graph-scroll-marker-tags',
-		// 	opacity(tagColor.luminance(themeLuminance(e.isLightTheme ? 0.3 : 0.5)).toString(), 60),
-		// );
 
 		if (e.isInitializing) return;
 
