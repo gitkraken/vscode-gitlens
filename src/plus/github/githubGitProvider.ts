@@ -1157,6 +1157,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const includes = { ...options?.include, stats: true }; // stats are always available, so force it
 		const branchMap = branch != null ? new Map([[branch.name, branch]]) : new Map<string, GitBranch>();
 		const remoteMap = remote != null ? new Map([[remote.name, remote]]) : new Map<string, GitRemote>();
+		const downstreamMap = new Map<string, string[]>();
 		if (log == null) {
 			return {
 				repoPath: repoPath,
@@ -1165,6 +1166,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				includes: includes,
 				branches: branchMap,
 				remotes: remoteMap,
+				downstreams: downstreamMap,
 				rows: [],
 			};
 		}
@@ -1178,6 +1180,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				includes: includes,
 				branches: branchMap,
 				remotes: remoteMap,
+				downstreams: downstreamMap,
 				rows: [],
 			};
 		}
@@ -1246,6 +1249,17 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						current: true,
 					},
 				];
+
+				if (branch.upstream?.name != null) {
+					// Add the branch name (tip) to the upstream name entry in the downstreams map
+					let downstreams = downstreamMap.get(branch.upstream.name);
+					if (downstreams == null) {
+						downstreams = [];
+					}
+
+					downstreams.push(branch.name);
+					downstreamMap.set(branch.upstream.name, downstreams);
+				}
 			} else {
 				refHeads = [];
 				refRemoteHeads = [];
@@ -1348,6 +1362,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			includes: includes,
 			branches: branchMap,
 			remotes: remoteMap,
+			downstreams: downstreamMap,
 			rows: rows,
 			id: options?.ref,
 

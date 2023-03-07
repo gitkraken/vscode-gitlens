@@ -33,6 +33,7 @@ export type { GraphRefType } from '@gitkraken/gitkraken-components';
 export type GraphColumnsSettings = Record<GraphColumnName, GraphColumnSetting>;
 export type GraphSelectedRows = Record</*id*/ string, true>;
 export type GraphAvatars = Record</*email*/ string, /*url*/ string>;
+export type GraphDownstreams = Record</*upstreamName*/ string, /*downstreamNames*/ string[]>;
 
 export type GraphRefMetadata = RefMetadata | null;
 export type GraphUpstreamMetadata = UpstreamMetadata | null;
@@ -87,6 +88,7 @@ export interface State {
 	loading?: boolean;
 	refsMetadata?: GraphRefsMetadata | null;
 	rows?: GraphRow[];
+	downstreams?: GraphDownstreams;
 	paging?: GraphPaging;
 	columns?: GraphColumnsSettings;
 	config?: GraphComponentConfig;
@@ -354,6 +356,7 @@ export const DidChangeRefsVisibilityNotificationType = new IpcNotificationType<D
 
 export interface DidChangeRowsParams {
 	rows: GraphRow[];
+	downstreams: { [upstreamName: string]: string[] };
 	avatars: { [email: string]: string };
 	paging?: GraphPaging;
 	refsMetadata?: GraphRefsMetadata | null;
