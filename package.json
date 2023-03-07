@@ -4488,7 +4488,7 @@
 			},
 			{
 				"command": "gitlens.plus.resetRepositoryAccess",
-				"title": "Reset Repository Access",
+				"title": "Reset Repository Access Cache",
 				"category": "GitLens+"
 			},
 			{
