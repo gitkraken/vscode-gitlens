@@ -47,6 +47,9 @@ export interface Config {
 	defaultGravatarsStyle: GravatarDefaultStyle;
 	defaultTimeFormat: DateTimeFormat | string | null;
 	detectNestedRepositories: boolean;
+	experimental: {
+		generateCommitMessagePrompt: string;
+	};
 	fileAnnotations: {
 		command: string | null;
 	};

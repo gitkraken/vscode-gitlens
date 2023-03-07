@@ -598,6 +598,31 @@ export class Git {
 		}
 	}
 
+	async diff2(
+		repoPath: string,
+		options?: {
+			cancellation?: CancellationToken;
+			configs?: readonly string[];
+			errors?: GitErrorHandling;
+			stdin?: string;
+		},
+		...args: string[]
+	) {
+		return this.git<string>(
+			{
+				cwd: repoPath,
+				cancellation: options?.cancellation,
+				configs: options?.configs ?? gitLogDefaultConfigs,
+				errors: options?.errors,
+				stdin: options?.stdin,
+			},
+			'diff',
+			...(options?.stdin ? ['--stdin'] : emptyArray),
+			...args,
+			...(!args.includes('--') ? ['--'] : emptyArray),
+		);
+	}
+
 	async diff__contents(
 		repoPath: string,
 		fileName: string,

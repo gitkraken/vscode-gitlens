@@ -1462,6 +1462,17 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
+	async getDiff(
+		repoPath: string | Uri,
+		ref1: string,
+		ref2?: string,
+		options?: { includeRawDiff?: boolean },
+	): Promise<GitDiff | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getDiff?.(path, ref1, ref2, options);
+	}
+
+	@log()
 	/**
 	 * Returns a file diff between two commits
 	 * @param uri Uri of the file to diff

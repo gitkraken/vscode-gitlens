@@ -105,7 +105,10 @@ export class Storage implements Disposable {
 	}
 }
 
-export type SecretKeys = `gitlens.integration.auth:${string}` | `gitlens.plus.auth:${Environment}`;
+export type SecretKeys =
+	| `gitlens.integration.auth:${string}`
+	| 'gitlens.openai.key'
+	| `gitlens.plus.auth:${Environment}`;
 
 export const enum SyncedStorageKeys {
 	Version = 'gitlens:synced:version',
@@ -120,6 +123,7 @@ export type DeprecatedGlobalStorage = {
 
 export type GlobalStorage = {
 	avatars: [string, StoredAvatar][];
+	'confirm:sendToOpenAI': boolean;
 	'deepLinks:pending': StoredDeepLinkContext;
 	'home:actions:completed': CompletedActions[];
 	'home:steps:completed': string[];
@@ -155,6 +159,7 @@ export type DeprecatedWorkspaceStorage = {
 export type WorkspaceStorage = {
 	assumeRepositoriesOnStartup?: boolean;
 	'branch:comparisons': StoredBranchComparisons;
+	'confirm:sendToOpenAI': boolean;
 	'gitComandPalette:usage': RecentUsage;
 	gitPath: string;
 	'graph:banners:dismissed': Record<string, boolean>;
