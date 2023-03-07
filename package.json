@@ -3634,6 +3634,13 @@
 						"scope": "window",
 						"order": 50
 					},
+					"gitlens.experimental.generateCommitMessagePrompt": {
+						"type": "string",
+						"default": "The commit message must have a short description that is less than 50 characters long followed by a more detailed description on a new line.",
+						"markdownDescription": "Specifies the prompt to use to tell OpenAI how to structure or format the generated commit message",
+						"scope": "window",
+						"order": 55
+					},
 					"gitlens.advanced.externalDiffTool": {
 						"type": [
 							"string",
@@ -4424,6 +4431,16 @@
 			}
 		],
 		"commands": [
+			{
+				"command": "gitlens.generateCommitMessage",
+				"title": "Generate Commit Message (Experimental)",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.resetOpenAIKey",
+				"title": "Reset Stored OpenAI Key",
+				"category": "GitLens"
+			},
 			{
 				"command": "gitlens.plus.learn",
 				"title": "Learn about GitLens+ Features",
@@ -9238,6 +9255,14 @@
 				{
 					"command": "gitlens.disableDebugLogging",
 					"when": "config.gitlens.outputLevel != errors"
+				},
+				{
+					"command": "gitlens.generateCommitMessage",
+					"when": "gitlens:prerelease"
+				},
+				{
+					"command": "gitlens.resetOpenAIKey",
+					"when": "gitlens:prerelease"
 				}
 			],
 			"editor/context": [

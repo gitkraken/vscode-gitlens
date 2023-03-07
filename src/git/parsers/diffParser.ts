@@ -10,7 +10,7 @@ const unifiedDiffRegex = /^@@ -([\d]+)(?:,([\d]+))? \+([\d]+)(?:,([\d]+))? @@(?:
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class GitDiffParser {
 	@debug({ args: false, singleLine: true })
-	static parse(data: string, debug: boolean = false): GitDiff | undefined {
+	static parse(data: string, includeRawDiff: boolean = false): GitDiff | undefined {
 		if (!data) return undefined;
 
 		const hunks: GitDiffHunk[] = [];
@@ -58,7 +58,7 @@ export class GitDiffParser {
 		if (!hunks.length) return undefined;
 
 		const diff: GitDiff = {
-			diff: debug ? data : undefined,
+			diff: includeRawDiff ? data : undefined,
 			hunks: hunks,
 		};
 		return diff;

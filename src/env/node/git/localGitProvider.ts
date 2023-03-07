@@ -2324,6 +2324,38 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
+	async getDiff(
+		repoPath: string,
+		ref1: string,
+		ref2?: string,
+		options?: { includeRawDiff?: boolean },
+	): Promise<GitDiff | undefined> {
+		let data;
+		if (ref1 === uncommitted) {
+			if (ref2 == null) {
+				data = await this.git.diff2(repoPath, undefined, '-U3');
+			} else {
+				data = await this.git.diff2(repoPath, undefined, '-U3', ref2);
+			}
+		} else if (ref1 === uncommittedStaged) {
+			if (ref2 == null) {
+				data = await this.git.diff2(repoPath, undefined, '-U3', '--staged');
+			} else {
+				data = await this.git.diff2(repoPath, undefined, '-U3', '--staged', ref2);
+			}
+		} else if (ref2 == null) {
+			data = await this.git.diff2(repoPath, undefined, '-U3', `${ref1}^`, ref1);
+		} else {
+			data = await this.git.diff2(repoPath, undefined, '-U3', ref1, ref2);
+		}
+
+		if (!data) return undefined;
+
+		const diff = GitDiffParser.parse(data, options?.includeRawDiff);
+		return diff;
+	}
+
+	@log()
 	async getDiffForFile(uri: GitUri, ref1: string | undefined, ref2?: string): Promise<GitDiff | undefined> {
 		const scope = getLogScope();
 
