@@ -333,6 +333,10 @@ const styles = css`
 		margin: 0.5rem 0;
 		max-width: fit-content;
 	}
+	.bb-tooltip .refs:empty {
+		margin: 0;
+	}
+
 	.bb-tooltip .refs .branch {
 		border-radius: 3px;
 		padding: 0 4px;
@@ -861,39 +865,41 @@ export class GraphMinimap extends FASTElement {
 							${
 								groups != null
 									? /*html*/ `
-							<div class="refs">
-								${
-									groups
-										?.get('branch')
-										?.sort((a, b) => (a.current ? -1 : 1) - (b.current ? -1 : 1))
-										.map(
-											m =>
-												/*html*/ `<span class="branch${m.current ? ' current' : ''}">${
-													m.name
-												}</span>`,
-										)
-										.join('') ?? ''
-								}
-								${
-									groups
-										?.get('remote')
-										?.sort((a, b) => (a.current ? -1 : 1) - (b.current ? -1 : 1))
-										?.map(
-											m =>
-												/*html*/ `<span class="remote${m.current ? ' current' : ''}">${
-													m.name
-												}</span>`,
-										)
-										.join('') ?? ''
-								}
-								${stashesCount ? /*html*/ `<span class="stash">${pluralize('stash', stashesCount, { plural: 'stashes' })}</span>` : ''}
-								${
-									groups
-										?.get('tag')
-										?.map(m => /*html*/ `<span class="tag">${m.name}</span>`)
-										.join('') ?? ''
-								}
-							</div>`
+							<div class="refs">${
+								stashesCount
+									? /*html*/ `<span class="stash">${pluralize('stash', stashesCount, {
+											plural: 'stashes',
+									  })}</span>`
+									: ''
+							}${
+											groups
+												?.get('branch')
+												?.sort((a, b) => (a.current ? -1 : 1) - (b.current ? -1 : 1))
+												.map(
+													m =>
+														/*html*/ `<span class="branch${m.current ? ' current' : ''}">${
+															m.name
+														}</span>`,
+												)
+												.join('') ?? ''
+									  }</div>
+							<div class="refs">${
+								groups
+									?.get('remote')
+									?.sort((a, b) => (a.current ? -1 : 1) - (b.current ? -1 : 1))
+									?.map(
+										m =>
+											/*html*/ `<span class="remote${m.current ? ' current' : ''}">${
+												m.name
+											}</span>`,
+									)
+									.join('') ?? ''
+							}${
+											groups
+												?.get('tag')
+												?.map(m => /*html*/ `<span class="tag">${m.name}</span>`)
+												.join('') ?? ''
+									  }</div>`
 									: ''
 							}
 						</div>`;
