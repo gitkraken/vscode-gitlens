@@ -186,6 +186,7 @@ export function GraphWrapper({
 
 	const [rows, setRows] = useState(state.rows ?? []);
 	const [avatars, setAvatars] = useState(state.avatars);
+	const [downstreams, setDownstreams] = useState(state.downstreams ?? {});
 	const [refsMetadata, setRefsMetadata] = useState(state.refsMetadata);
 	const [repos, setRepos] = useState(state.repositories ?? []);
 	const [repo, setRepo] = useState<GraphRepository | undefined>(
@@ -266,6 +267,7 @@ export function GraphWrapper({
 				setRows(state.rows ?? []);
 				setSelectedRows(state.selectedRows);
 				setAvatars(state.avatars);
+				setDownstreams(state.downstreams ?? {});
 				setRefsMetadata(state.refsMetadata);
 				setPagingHasMore(state.paging?.hasMore ?? false);
 				setIsLoading(state.loading);
@@ -316,6 +318,7 @@ export function GraphWrapper({
 				setIncludeOnlyRefsById(state.includeOnlyRefs);
 				setContext(state.context);
 				setAvatars(state.avatars ?? {});
+				setDownstreams(state.downstreams ?? {});
 				setRefsMetadata(state.refsMetadata);
 				setPagingHasMore(state.paging?.hasMore ?? false);
 				setRepos(state.repositories ?? []);
@@ -447,7 +450,8 @@ export function GraphWrapper({
 			if (
 				row.remotes?.length &&
 				(enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.Upstream) ||
-					enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.RemoteBranches))
+					enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.RemoteBranches) ||
+					enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.LocalBranches))
 			) {
 				rankedShas.remote = row.sha;
 
@@ -456,6 +460,7 @@ export function GraphWrapper({
 				// eslint-disable-next-line no-loop-func
 				row.remotes.forEach(r => {
 					let current = false;
+					const hasDownstream = downstreams?.[`${r.owner}/${r.name}`]?.length;
 					if (r.current) {
 						rankedShas.remote = row.sha;
 						current = true;
@@ -463,7 +468,8 @@ export function GraphWrapper({
 
 					if (
 						enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.RemoteBranches) ||
-						(enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.Upstream) && current)
+						(enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.Upstream) && current) ||
+						(enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.LocalBranches) && hasDownstream)
 					) {
 						remoteMarkers.push({
 							type: 'remote',
@@ -538,7 +544,7 @@ export function GraphWrapper({
 		}
 
 		return { stats: statsByDayMap, markers: markersByDay };
-	}, [rows, graphConfig?.minimap, graphConfig?.enabledMinimapMarkerTypes]);
+	}, [rows, downstreams, graphConfig?.minimap, graphConfig?.enabledMinimapMarkerTypes]);
 
 	const minimapSearchResults = useMemo(() => {
 		if (
@@ -1301,6 +1307,7 @@ export function GraphWrapper({
 							contexts={context}
 							cssVariables={styleProps?.cssVariables}
 							dimMergeCommits={graphConfig?.dimMergeCommits}
+							downstreamsByUpstream={downstreams}
 							enabledRefMetadataTypes={graphConfig?.enabledRefMetadataTypes}
 							enabledScrollMarkerTypes={
 								graphConfig?.enabledScrollMarkerTypes as GraphMarkerType[] | undefined
