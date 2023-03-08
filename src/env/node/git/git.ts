@@ -1604,6 +1604,17 @@ export class Git {
 			// Keep trailing spaces which are part of the directory name
 			return data.length === 0 ? undefined : normalizePath(data.trimStart().replace(/[\r|\n]+$/, ''));
 		} catch (ex) {
+			const unsafeMatch =
+				/^fatal: detected dubious ownership in repository at '([^']+)'[\s\S]*git config --global --add safe\.directory '?([^'\n]+)'?$/m.exec(
+					ex.stderr,
+				);
+			if (unsafeMatch?.length === 3) {
+				Logger.log(
+					`Skipping; unsafe repository detected in '${unsafeMatch[1]}'; run 'git config --global --add safe.directory ${unsafeMatch[2]}' to allow it`,
+				);
+				return undefined;
+			}
+
 			const inDotGit = /this operation must be run in a work tree/.test(ex.stderr);
 			// Check if we are in a bare clone
 			if (inDotGit && workspace.isTrusted) {
