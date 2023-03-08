@@ -2010,10 +2010,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							let downstreams = downstreamMap.get(branch.upstream.name);
 							if (downstreams == null) {
 								downstreams = [];
+								downstreamMap.set(branch.upstream.name, downstreams);
 							}
 
 							downstreams.push(tip);
-							downstreamMap.set(branch.upstream.name, downstreams);
 						}
 
 						group = groupedRefs.get(tip);

@@ -1255,10 +1255,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					let downstreams = downstreamMap.get(branch.upstream.name);
 					if (downstreams == null) {
 						downstreams = [];
+						downstreamMap.set(branch.upstream.name, downstreams);
 					}
 
 					downstreams.push(branch.name);
-					downstreamMap.set(branch.upstream.name, downstreams);
 				}
 			} else {
 				refHeads = [];
