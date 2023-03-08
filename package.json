@@ -4953,6 +4953,11 @@
 				"category": "GitLens+"
 			},
 			{
+				"command": "gitlens.gitCommands.worktree.open",
+				"title": "Open Git Worktree...",
+				"category": "GitLens+"
+			},
+			{
 				"command": "gitlens.switchMode",
 				"title": "Switch Mode",
 				"category": "GitLens"
@@ -7734,6 +7739,10 @@
 				},
 				{
 					"command": "gitlens.gitCommands.worktree",
+					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.gitCommands.worktree.open",
 					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{

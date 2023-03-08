@@ -172,6 +172,7 @@ export const enum Commands {
 	GitCommandsSwitch = 'gitlens.gitCommands.switch',
 	GitCommandsTag = 'gitlens.gitCommands.tag',
 	GitCommandsWorktree = 'gitlens.gitCommands.worktree',
+	GitCommandsWorktreeOpen = 'gitlens.gitCommands.worktree.open',
 	OpenOrCreateWorktreeForGHPR = 'gitlens.ghpr.views.openOrCreateWorktree',
 	PlusHide = 'gitlens.plus.hide',
 	PlusLearn = 'gitlens.plus.learn',
