@@ -100,9 +100,6 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		// Since we can't currently blame edited virtual documents, don't even attempt anything if dirty
 		if (document.isDirty && isVirtualUri(document.uri)) return [];
 
-		const cfg = configuration.get('codeLens', document);
-		if (!cfg.enabled) return [];
-
 		const trackedDocument = await this.container.tracker.getOrAdd(document);
 		if (!trackedDocument.isBlameable) return [];
 
@@ -119,6 +116,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			}
 		}
 
+		const cfg = configuration.get('codeLens', document);
 		let languageScope = cfg.scopesByLanguage?.find(ll => ll.language?.toLowerCase() === document.languageId);
 		if (languageScope == null) {
 			languageScope = {
