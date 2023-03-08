@@ -37,6 +37,7 @@ import type { GitStatus } from '../git/models/status';
 import type { GitTag, TagSortOptions } from '../git/models/tag';
 import { sortTags } from '../git/models/tag';
 import type { GitWorktree } from '../git/models/worktree';
+import { remoteUrlRegex } from '../git/parsers/remoteParser';
 import {
 	CommitApplyFileChangesCommandQuickPickItem,
 	CommitBrowseRepositoryFromHereCommandQuickPickItem,
@@ -606,7 +607,7 @@ export async function* inputRemoteUrlStep<
 			value = value.trim();
 			if (value.length === 0) return [false, 'Please enter a valid remote URL'];
 
-			const valid = /^(https?|git|ssh|rsync):\/\//.test(value);
+			const valid = remoteUrlRegex.test(value);
 			return [valid, valid ? undefined : `'${value}' isn't a valid remote URL`];
 		},
 	});
