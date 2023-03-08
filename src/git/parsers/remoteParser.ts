@@ -109,11 +109,11 @@ user:password@host.xz:project.git
 user:password@host.xz:/path/to/repo.git
 user:password@host.xz:/path/to/repo.git/
 */
-const urlRegex =
+export const remoteUrlRegex =
 	/^(?:(git:\/\/)(.*?)\/|(https?:\/\/)(?:.*?@)?(.*?)\/|git@(.*):|(ssh:\/\/)(?:.*@)?(.*?)(?::.*?)?(?:\/|(?=~))|(?:.*?@)(.*?):)(.*)$/;
 
 export function parseGitRemoteUrl(url: string): [scheme: string, domain: string, path: string] {
-	const match = urlRegex.exec(url);
+	const match = remoteUrlRegex.exec(url);
 	if (match == null) return [emptyStr, emptyStr, url];
 
 	return [
