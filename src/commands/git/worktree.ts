@@ -228,7 +228,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			}
 
 			// Ensure we use the "main" repository if we are in a worktree already
-			state.repo = await state.repo.getMainRepository();
+			state.repo = (await state.repo.getMainRepository()) ?? state.repo;
 			assertStateStepRepository(state);
 
 			const result = yield* ensureAccessStep(state, context, PlusFeatures.Worktrees);
