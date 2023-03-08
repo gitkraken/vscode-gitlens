@@ -36,6 +36,7 @@ export interface GitGraph {
 	readonly skippedIds?: Set<string>;
 	readonly branches: Map<string, GitBranch>;
 	readonly remotes: Map<string, GitRemote>;
+	readonly downstreams: Map<string, string[]>;
 	/** The rows for the set of commits requested */
 	readonly rows: GitGraphRow[];
 	readonly id?: string;

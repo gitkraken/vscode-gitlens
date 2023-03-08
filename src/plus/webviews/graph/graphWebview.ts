@@ -1290,6 +1290,7 @@ export class GraphWebview extends WebviewBase<State> {
 			DidChangeRowsNotificationType,
 			{
 				rows: data.rows,
+				downstreams: Object.fromEntries(data.downstreams),
 				avatars: Object.fromEntries(data.avatars),
 				refsMetadata: this._refsMetadata != null ? Object.fromEntries(this._refsMetadata) : this._refsMetadata,
 				selectedRows: sendSelectedRows ? this._selectedRows : undefined,
@@ -1590,8 +1591,6 @@ export class GraphWebview extends WebviewBase<State> {
 		const storedIncludeOnlyRefs = storedFilters?.includeOnlyRefs;
 		if (storedIncludeOnlyRefs == null || Object.keys(storedIncludeOnlyRefs).length === 0) return undefined;
 
-		const includeRemotes = !(storedFilters?.excludeTypes?.remotes ?? false);
-
 		const includeOnlyRefs: Record<string, StoredGraphIncludeOnlyRef> = {};
 
 		for (const [key, value] of Object.entries(storedIncludeOnlyRefs)) {
@@ -1605,8 +1604,8 @@ export class GraphWebview extends WebviewBase<State> {
 				includeOnlyRefs[key] = value;
 			}
 
-			// Add the upstream branches for any local branches if there are any and we aren't excluding them
-			if (includeRemotes && value.type === 'head') {
+			// Add the upstream branches for any local branches if there are any
+			if (value.type === 'head') {
 				branch = branch ?? graph.branches.get(value.name);
 				if (branch?.upstream != null && !branch.upstream.missing) {
 					const id = getBranchId(graph.repoPath, true, branch.upstream.name);
@@ -1856,6 +1855,7 @@ export class GraphWebview extends WebviewBase<State> {
 			refsMetadata: this.resetRefsMetadata() === null ? null : {},
 			loading: deferRows,
 			rows: data?.rows,
+			downstreams: data != null ? Object.fromEntries(data.downstreams) : undefined,
 			paging:
 				data != null
 					? {

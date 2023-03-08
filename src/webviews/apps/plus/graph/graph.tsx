@@ -266,6 +266,7 @@ export class GraphApp extends App<State> {
 					}
 
 					this.state.avatars = params.avatars;
+					this.state.downstreams = params.downstreams;
 					if (params.refsMetadata !== undefined) {
 						this.state.refsMetadata = params.refsMetadata;
 					}

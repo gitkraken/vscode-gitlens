@@ -1733,6 +1733,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const remoteMap = remotes != null ? new Map(remotes.map(r => [r.name, r])) : new Map<string, GitRemote>();
 		const selectSha = first(refParser.parse(getSettledValue(refResult) ?? ''));
 
+		const downstreamMap = new Map<string, string[]>();
+
 		let stdin: string | undefined;
 		// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
 		const stash = getSettledValue(stashResult);
@@ -1795,6 +1797,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 									includes: options?.include,
 									branches: branchMap,
 									remotes: remoteMap,
+									downstreams: downstreamMap,
 									rows: [],
 								};
 							}
@@ -1816,6 +1819,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						includes: options?.include,
 						branches: branchMap,
 						remotes: remoteMap,
+						downstreams: downstreamMap,
 						rows: [],
 					};
 				}
@@ -2001,6 +2005,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							upstream: branch?.upstream?.name,
 						};
 						refHeads.push(refHead);
+						if (branch?.upstream?.name != null) {
+							// Add the branch name (tip) to the upstream name entry in the downstreams map
+							let downstreams = downstreamMap.get(branch.upstream.name);
+							if (downstreams == null) {
+								downstreams = [];
+								downstreamMap.set(branch.upstream.name, downstreams);
+							}
+
+							downstreams.push(tip);
+						}
 
 						group = groupedRefs.get(tip);
 						if (group == null) {
@@ -2138,6 +2152,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				skippedIds: skippedIds,
 				branches: branchMap,
 				remotes: remoteMap,
+				downstreams: downstreamMap,
 				rows: rows,
 				id: sha,
 
