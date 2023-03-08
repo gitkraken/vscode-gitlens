@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds an experimental _Generate Commit Message (Experimental)_ command to use OpenAI to generate a commit message for staged changes &mdash; currently only available in the pre-release edition
+- Adds a _Open Git Worktree..._ command to jump directly to opening a worktree in the _Git Command Palette_
 
 ### Fixed
 

@@ -82,6 +82,7 @@ export class GitCommandsCommand extends Command {
 			Commands.GitCommandsSwitch,
 			Commands.GitCommandsTag,
 			Commands.GitCommandsWorktree,
+			Commands.GitCommandsWorktreeOpen,
 		]);
 	}
 
@@ -113,6 +114,9 @@ export class GitCommandsCommand extends Command {
 				break;
 			case Commands.GitCommandsWorktree:
 				args = { command: 'worktree' };
+				break;
+			case Commands.GitCommandsWorktreeOpen:
+				args = { command: 'worktree', state: { subcommand: 'open' } };
 				break;
 		}
 
