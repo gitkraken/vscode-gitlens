@@ -1286,7 +1286,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						name: headBranch.name,
 						isCurrentHead: true,
 						context: serializeWebviewItemContext<GraphItemRefContext>(context),
-						upstream: headBranch.upstream?.name,
+						...(headBranch.upstream && {
+							upstream: {
+								name: headBranch.upstream.name,
+								id: getBranchId(repoPath, true, headBranch.upstream.name),
+							},
+						}),
 					},
 				];
 
