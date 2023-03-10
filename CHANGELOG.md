@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds an experimental _Generate Commit Message (Experimental)_ command to use OpenAI to generate a commit message for staged changes &mdash; currently only available in the pre-release edition
+  - Adds a `gitlens.experimental.generateCommitMessagePrompt` setting to specify the prompt to use to tell OpenAI how to structure or format the generated commit message &mdash; can have fun with it and make your commit messages in the style of a pirate, etc
 - Adds a _Open Git Worktree..._ command to jump directly to opening a worktree in the _Git Command Palette_
 - Adds auto-detection for `.git-blame-ignore-revs` files and excludes the commits listed within from the blame annotations
 
