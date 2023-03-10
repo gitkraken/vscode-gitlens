@@ -294,22 +294,42 @@ export class Git {
 		return proc;
 	}
 
-	private gitLocator!: () => Promise<GitLocation>;
+	private _gitLocation: GitLocation | undefined;
+	private _gitLocationPromise: Promise<GitLocation> | undefined;
+	private async getLocation(): Promise<GitLocation> {
+		if (this._gitLocation == null) {
+			if (this._gitLocationPromise == null) {
+				this._gitLocationPromise = this._gitLocator();
+			}
+			this._gitLocation = await this._gitLocationPromise;
+		}
+		return this._gitLocation;
+	}
+
+	private _gitLocator!: () => Promise<GitLocation>;
 	setLocator(locator: () => Promise<GitLocation>): void {
-		this.gitLocator = locator;
+		this._gitLocator = locator;
+		this._gitLocationPromise = undefined;
+		this._gitLocation = undefined;
 	}
 
 	async path(): Promise<string> {
-		return (await this.gitLocator()).path;
+		return (await this.getLocation()).path;
 	}
 
 	async version(): Promise<string> {
-		return (await this.gitLocator()).version;
+		return (await this.getLocation()).version;
 	}
 
 	async isAtLeastVersion(minimum: string): Promise<boolean> {
 		const result = compare(fromString(await this.version()), fromString(minimum));
 		return result !== -1;
+	}
+
+	maybeIsAtLeastVersion(minimum: string): boolean | undefined {
+		return this._gitLocation != null
+			? compare(fromString(this._gitLocation.version), fromString(minimum)) !== -1
+			: undefined;
 	}
 
 	// Git commands
@@ -346,36 +366,46 @@ export class Git {
 		}
 		if (options.args != null) {
 			params.push(...options.args);
+		}
 
-			const index = params.indexOf('--ignore-revs-file');
-			if (index !== -1) {
-				// Ensure the version of Git supports the --ignore-revs-file flag, otherwise the blame will fail
-				let supported = await this.isAtLeastVersion('2.23');
-				if (supported) {
-					let ignoreRevsFile = params[index + 1];
-					if (!isAbsolute(ignoreRevsFile)) {
-						ignoreRevsFile = joinPaths(repoPath ?? '', ignoreRevsFile);
-					}
+		// Ensure the version of Git supports the --ignore-revs-file flag, otherwise the blame will fail
+		let supportsIgnoreRevsFile = this.maybeIsAtLeastVersion('2.23');
+		if (supportsIgnoreRevsFile === undefined) {
+			supportsIgnoreRevsFile = await this.isAtLeastVersion('2.23');
+		}
 
-					const exists = this.ignoreRevsFileMap.get(ignoreRevsFile);
-					if (exists !== undefined) {
-						supported = exists;
-					} else {
-						// Ensure the specified --ignore-revs-file exists, otherwise the blame will fail
-						try {
-							supported = await fsExists(ignoreRevsFile);
-						} catch {
-							supported = false;
-						}
+		const ignoreRevsIndex = params.indexOf('--ignore-revs-file');
 
-						this.ignoreRevsFileMap.set(ignoreRevsFile, supported);
-					}
+		if (supportsIgnoreRevsFile) {
+			let ignoreRevsFile;
+			if (ignoreRevsIndex !== -1) {
+				ignoreRevsFile = params[ignoreRevsIndex + 1];
+				if (!isAbsolute(ignoreRevsFile)) {
+					ignoreRevsFile = joinPaths(root, ignoreRevsFile);
 				}
-
-				if (!supported) {
-					params.splice(index, 2);
-				}
+			} else {
+				ignoreRevsFile = joinPaths(root, '.git-blame-ignore-revs');
 			}
+
+			const exists = this.ignoreRevsFileMap.get(ignoreRevsFile);
+			if (exists !== undefined) {
+				supportsIgnoreRevsFile = exists;
+			} else {
+				// Ensure the specified --ignore-revs-file exists, otherwise the blame will fail
+				try {
+					supportsIgnoreRevsFile = await fsExists(ignoreRevsFile);
+				} catch {
+					supportsIgnoreRevsFile = false;
+				}
+
+				this.ignoreRevsFileMap.set(ignoreRevsFile, supportsIgnoreRevsFile);
+			}
+		}
+
+		if (!supportsIgnoreRevsFile && ignoreRevsIndex !== -1) {
+			params.splice(ignoreRevsIndex, 2);
+		} else if (supportsIgnoreRevsFile && ignoreRevsIndex === -1) {
+			params.push('--ignore-revs-file', '.git-blame-ignore-revs');
 		}
 
 		let stdin;

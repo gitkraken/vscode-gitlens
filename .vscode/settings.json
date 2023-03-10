@@ -38,7 +38,6 @@
 			"query": "state:open repo:${owner}/${repository} sort:updated-desc"
 		}
 	],
-	"gitlens.advanced.blame.customArguments": ["--ignore-revs-file", ".gitignore-revs"],
 	"[html][javascript][json][jsonc][markdown][scss][svg][typescript][typescriptreact]": {
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
