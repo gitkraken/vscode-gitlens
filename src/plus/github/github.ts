@@ -860,7 +860,7 @@ export class GitHubApi implements Disposable {
 	$limit: Int = 100
 ) {
 	repository(owner: $owner, name: $repo) {
-		refs(query: $branchQuery, refPrefix: "refs/heads/", first: $limit, after: $cursor, orderBy: { field: TAG_COMMIT_DATE, direction: DESC }) {
+		refs(query: $branchQuery, refPrefix: "refs/heads/", first: $limit, after: $cursor) {
 			pageInfo {
 				endCursor
 				hasNextPage
@@ -869,7 +869,6 @@ export class GitHubApi implements Disposable {
 				name
 				target {
 					oid
-					commitUrl
 					...on Commit {
 						authoredDate
 						committedDate
@@ -1015,7 +1014,7 @@ export class GitHubApi implements Disposable {
 	$until: GitTimestamp!
 ) {
 	repository(owner: $owner, name: $repo) {
-		refs(first: 20, refPrefix: "refs/heads/", orderBy: { field: TAG_COMMIT_DATE, direction: DESC }) {
+		refs(first: 20, refPrefix: "refs/heads/") {
 			nodes {
 				name
 				target {
@@ -1798,15 +1797,17 @@ export class GitHubApi implements Disposable {
 				name
 				target {
 					oid
-					commitUrl
+					...on Tag {
+						message
+						tagger { date }
+						target {
 					...on Commit {
+								oid
 						authoredDate
 						committedDate
 						message
 					}
-					...on Tag {
-						message
-						tagger { date }
+						}
 					}
 				}
 			}
