@@ -25,7 +25,6 @@ export interface GitHubBranch {
 	name: string;
 	target: {
 		oid: string;
-		commitUrl: string;
 		authoredDate: string;
 		committedDate: string;
 	};
@@ -348,13 +347,19 @@ export interface GitHubTag {
 	name: string;
 	target: {
 		oid: string;
-		commitUrl: string;
-		authoredDate: string;
-		committedDate: string;
+		authoredDate?: string;
+		committedDate?: string;
 		message?: string | null;
 		tagger?: {
 			date: string;
 		} | null;
+
+		target?: {
+			oid?: string;
+			authoredDate?: string;
+			committedDate?: string;
+			message?: string | null;
+		};
 	};
 }
 

@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a `gitlens.experimental.generateCommitMessagePrompt` setting to specify the prompt to use to tell OpenAI how to structure or format the generated commit message &mdash; can have fun with it and make your commit messages in the style of a pirate, etc
 - Adds a _Open Git Worktree..._ command to jump directly to opening a worktree in the _Git Command Palette_
 - Adds auto-detection for `.git-blame-ignore-revs` files and excludes the commits listed within from the blame annotations
+- Adds the ability to see branches and tags on remote repositories (e.g. GitHub) on the _Commit Graph_
+  - Currently limited to only showing them for commits on the current branch, as we aren't yet able to show all commits on all branches
 
 ### Fixed
 

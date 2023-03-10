@@ -39,7 +39,7 @@ import { GitProviderId, RepositoryVisibility } from '../../git/gitProvider';
 import { GitUri } from '../../git/gitUri';
 import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../git/models/blame';
 import type { BranchSortOptions } from '../../git/models/branch';
-import { getBranchId, GitBranch, sortBranches } from '../../git/models/branch';
+import { getBranchId, getBranchNameWithoutRemote, GitBranch, sortBranches } from '../../git/models/branch';
 import type { GitCommitLine, GitCommitStats } from '../../git/models/commit';
 import { getChangedFilesCount, GitCommit, GitCommitIdentity } from '../../git/models/commit';
 import { deletedOrMissing, uncommitted } from '../../git/models/constants';
@@ -68,7 +68,7 @@ import { Repository } from '../../git/models/repository';
 import type { GitStash } from '../../git/models/stash';
 import type { GitStatus, GitStatusFile } from '../../git/models/status';
 import type { TagSortOptions } from '../../git/models/tag';
-import { GitTag, sortTags } from '../../git/models/tag';
+import { getTagId, GitTag, sortTags } from '../../git/models/tag';
 import type { GitTreeEntry } from '../../git/models/tree';
 import type { GitUser } from '../../git/models/user';
 import { isUserMatch } from '../../git/models/user';
@@ -93,7 +93,12 @@ import { GitDocumentState } from '../../trackers/gitDocumentTracker';
 import type { TrackedDocument } from '../../trackers/trackedDocument';
 import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../remotehub';
 import { getRemoteHubApi } from '../remotehub';
-import type { GraphItemContext, GraphItemRefContext } from '../webviews/graph/graphWebview';
+import type {
+	GraphBranchContextValue,
+	GraphItemContext,
+	GraphItemRefContext,
+	GraphTagContextValue,
+} from '../webviews/graph/graphWebview';
 import type { GitHubApi } from './github';
 import { fromCommitFileStatus } from './models';
 
@@ -1113,24 +1118,72 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const ordering = configuration.get('graph.commitOrdering', undefined, 'date');
 		const useAvatars = configuration.get('graph.avatars', undefined, true);
 
-		const [logResult, branchResult, remotesResult, tagsResult, currentUserResult] = await Promise.allSettled([
-			this.getLog(repoPath, { all: true, ordering: ordering, limit: defaultLimit }),
-			this.getBranch(repoPath),
-			this.getRemotes(repoPath),
-			this.getTags(repoPath),
-			this.getCurrentUser(repoPath),
-		]);
+		const [logResult, headBranchResult, branchesResult, remotesResult, tagsResult, currentUserResult] =
+			await Promise.allSettled([
+				this.getLog(repoPath, { all: true, ordering: ordering, limit: defaultLimit }),
+				this.getBranch(repoPath),
+				this.getBranches(repoPath, { filter: b => b.remote }),
+				this.getRemotes(repoPath),
+				this.getTags(repoPath),
+				this.getCurrentUser(repoPath),
+			]);
 
 		const avatars = new Map<string, string>();
+		const headBranch = getSettledValue(headBranchResult)!;
+
+		const branchMap = new Map<string, GitBranch>();
+		const branchTips = new Map<string, string[]>();
+		if (headBranch != null) {
+			branchMap.set(headBranch.name, headBranch);
+			if (headBranch.sha != null) {
+				branchTips.set(headBranch.sha, [headBranch.name]);
+			}
+		}
+
+		const branches = getSettledValue(branchesResult)?.values;
+		if (branches != null) {
+			for (const branch of branches) {
+				branchMap.set(branch.name, branch);
+				if (branch.sha == null) continue;
+
+				const bts = branchTips.get(branch.sha);
+				if (bts == null) {
+					branchTips.set(branch.sha, [branch.name]);
+				} else {
+					bts.push(branch.name);
+				}
+			}
+		}
+
 		const ids = new Set<string>();
+		const remote = getSettledValue(remotesResult)![0]!;
+		const remoteMap = remote != null ? new Map([[remote.name, remote]]) : new Map<string, GitRemote>();
+
+		const tagTips = new Map<string, string[]>();
+		const tags = getSettledValue(tagsResult)?.values;
+		if (tags != null) {
+			for (const tag of tags) {
+				if (tag.sha == null) continue;
+
+				const tts = tagTips.get(tag.sha);
+				if (tts == null) {
+					tagTips.set(tag.sha, [tag.name]);
+				} else {
+					tts.push(tag.name);
+				}
+			}
+		}
 
 		return this.getCommitsForGraphCore(
 			repoPath,
 			asWebviewUri,
 			getSettledValue(logResult),
-			getSettledValue(branchResult),
-			getSettledValue(remotesResult)?.[0],
-			getSettledValue(tagsResult)?.values,
+			headBranch,
+			branchMap,
+			branchTips,
+			remote,
+			remoteMap,
+			tagTips,
 			getSettledValue(currentUserResult),
 			avatars,
 			ids,
@@ -1142,9 +1195,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		asWebviewUri: (uri: Uri) => Uri,
 		log: GitLog | undefined,
-		branch: GitBranch | undefined,
-		remote: GitRemote | undefined,
-		tags: GitTag[] | undefined,
+		headBranch: GitBranch,
+		branchMap: Map<string, GitBranch>,
+		branchTips: Map<string, string[]>,
+		remote: GitRemote,
+		remoteMap: Map<string, GitRemote>,
+		tagTips: Map<string, string[]>,
 		currentUser: GitUser | undefined,
 		avatars: Map<string, string>,
 		ids: Set<string>,
@@ -1157,8 +1213,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		},
 	): Promise<GitGraph> {
 		const includes = { ...options?.include, stats: true }; // stats are always available, so force it
-		const branchMap = branch != null ? new Map([[branch.name, branch]]) : new Map<string, GitBranch>();
-		const remoteMap = remote != null ? new Map([[remote.name, remote]]) : new Map<string, GitRemote>();
 		const downstreamMap = new Map<string, string[]>();
 		if (log == null) {
 			return {
@@ -1189,108 +1243,166 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		const rows: GitGraphRow[] = [];
 
+		let avatarUrl: string | undefined;
+		let branchName: string;
+		let context:
+			| GraphItemRefContext<GraphBranchContextValue>
+			| GraphItemRefContext<GraphTagContextValue>
+			| undefined;
+		let contexts: GitGraphRowContexts | undefined;
 		let head = false;
 		let isCurrentUser = false;
 		let refHeads: GitGraphRowHead[];
 		let refRemoteHeads: GitGraphRowRemoteHead[];
 		let refTags: GitGraphRowTag[];
-		let contexts: GitGraphRowContexts | undefined;
+		let remoteBranchId: string;
 		let stats: GitCommitStats | undefined;
+		let tagId: string;
 
-		const hasHeadShaAndRemote = branch?.sha != null && remote != null;
+		const headRefUpstreamName = headBranch.upstream?.name;
 
 		for (const commit of commits) {
 			ids.add(commit.sha);
 
-			head = commit.sha === branch?.sha;
-			if (hasHeadShaAndRemote && head) {
+			head = commit.sha === headBranch.sha;
+			if (head) {
+				context = {
+					webviewItem: `gitlens:branch${head ? '+current' : ''}${
+						headBranch?.upstream != null ? '+tracking' : ''
+					}`,
+					webviewItemValue: {
+						type: 'branch',
+						ref: createReference(headBranch.name, repoPath, {
+							id: headBranch.id,
+							refType: 'branch',
+							name: headBranch.name,
+							remote: false,
+							upstream: headBranch.upstream,
+						}),
+					},
+				};
+
 				refHeads = [
 					{
-						id: getBranchId(repoPath, false, branch.name),
-						name: branch.name,
+						id: headBranch.id,
+						name: headBranch.name,
 						isCurrentHead: true,
-						context: serializeWebviewItemContext<GraphItemRefContext>({
-							webviewItem: `gitlens:branch${head ? '+current' : ''}${
-								branch?.upstream != null ? '+tracking' : ''
-							}`,
-							webviewItemValue: {
-								type: 'branch',
-								ref: createReference(branch.name, repoPath, {
-									refType: 'branch',
-									name: branch.name,
-									remote: false,
-									upstream: branch.upstream,
-								}),
-							},
-						}),
-						upstream: branch.upstream?.name,
-					},
-				];
-				refRemoteHeads = [
-					{
-						id: getBranchId(repoPath, true, branch.name),
-						name: branch.name,
-						owner: remote.name,
-						url: remote.url,
-						avatarUrl: (
-							(options?.useAvatars ? remote.provider?.avatarUri : undefined) ??
-							getRemoteIconUri(this.container, remote, asWebviewUri)
-						)?.toString(true),
-						context: serializeWebviewItemContext<GraphItemRefContext>({
-							webviewItem: 'gitlens:branch+remote',
-							webviewItemValue: {
-								type: 'branch',
-								ref: createReference(branch.name, repoPath, {
-									refType: 'branch',
-									name: branch.name,
-									remote: true,
-									upstream: { name: remote.name, missing: false },
-								}),
-							},
-						}),
-						current: true,
+						context: serializeWebviewItemContext<GraphItemRefContext>(context),
+						upstream: headBranch.upstream?.name,
 					},
 				];
 
-				if (branch.upstream?.name != null) {
-					// Add the branch name (tip) to the upstream name entry in the downstreams map
-					let downstreams = downstreamMap.get(branch.upstream.name);
-					if (downstreams == null) {
-						downstreams = [];
-						downstreamMap.set(branch.upstream.name, downstreams);
+				if (headBranch.upstream != null) {
+					remoteBranchId = getBranchId(repoPath, true, headBranch.name);
+					avatarUrl = (
+						(options?.useAvatars ? remote.provider?.avatarUri : undefined) ??
+						getRemoteIconUri(this.container, remote, asWebviewUri)
+					)?.toString(true);
+					context = {
+						webviewItem: 'gitlens:branch+remote',
+						webviewItemValue: {
+							type: 'branch',
+							ref: createReference(headBranch.name, repoPath, {
+								id: remoteBranchId,
+								refType: 'branch',
+								name: headBranch.name,
+								remote: true,
+								upstream: { name: remote.name, missing: false },
+							}),
+						},
+					};
+
+					refRemoteHeads = [
+						{
+							id: remoteBranchId,
+							name: headBranch.name,
+							owner: remote.name,
+							url: remote.url,
+							avatarUrl: avatarUrl,
+							context: serializeWebviewItemContext<GraphItemRefContext>(context),
+							current: true,
+						},
+					];
+
+					if (headRefUpstreamName != null) {
+						// Add the branch name (tip) to the upstream name entry in the downstreams map
+						let downstreams = downstreamMap.get(headRefUpstreamName);
+						if (downstreams == null) {
+							downstreams = [];
+							downstreamMap.set(headRefUpstreamName, downstreams);
+						}
+
+						downstreams.push(headBranch.name);
 					}
-
-					downstreams.push(branch.name);
+				} else {
+					refRemoteHeads = [];
 				}
 			} else {
 				refHeads = [];
 				refRemoteHeads = [];
+
+				const bts = branchTips.get(commit.sha);
+				if (bts != null) {
+					for (const b of bts) {
+						remoteBranchId = getBranchId(repoPath, true, b);
+						branchName = getBranchNameWithoutRemote(b);
+
+						avatarUrl = (
+							(options?.useAvatars ? remote.provider?.avatarUri : undefined) ??
+							getRemoteIconUri(this.container, remote, asWebviewUri)
+						)?.toString(true);
+						context = {
+							webviewItem: 'gitlens:branch+remote',
+							webviewItemValue: {
+								type: 'branch',
+								ref: createReference(b, repoPath, {
+									id: remoteBranchId,
+									refType: 'branch',
+									name: b,
+									remote: true,
+									upstream: { name: remote.name, missing: false },
+								}),
+							},
+						};
+
+						refRemoteHeads.push({
+							id: remoteBranchId,
+							name: branchName,
+							owner: remote.name,
+							url: remote.url,
+							avatarUrl: avatarUrl,
+							context: serializeWebviewItemContext<GraphItemRefContext>(context),
+						});
+					}
+				}
 			}
 
-			if (tags != null) {
-				refTags = [
-					...filterMap(tags, t => {
-						if (t.sha !== commit.sha) return undefined;
+			refTags = [];
 
-						return {
-							id: t.id,
-							name: t.name,
-							annotated: Boolean(t.message),
-							context: serializeWebviewItemContext<GraphItemRefContext>({
-								webviewItem: 'gitlens:tag',
-								webviewItemValue: {
-									type: 'tag',
-									ref: createReference(t.name, repoPath, {
-										refType: 'tag',
-										name: t.name,
-									}),
-								},
+			const tts = tagTips.get(commit.sha);
+			if (tts != null) {
+				for (const t of tts) {
+					tagId = getTagId(repoPath, t);
+					context = {
+						webviewItem: 'gitlens:tag',
+						webviewItemValue: {
+							type: 'tag',
+							ref: createReference(t, repoPath, {
+								id: tagId,
+								refType: 'tag',
+								name: t,
 							}),
-						};
-					}),
-				];
-			} else {
-				refTags = [];
+						},
+					};
+
+					refTags.push({
+						id: tagId,
+						name: t,
+						// Not currently used, so don't bother looking it up
+						annotated: true,
+						context: serializeWebviewItemContext<GraphItemRefContext>(context),
+					});
+				}
 			}
 
 			if (commit.author.email && !avatars.has(commit.author.email)) {
@@ -1303,9 +1415,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			isCurrentUser = commit.author.name === 'You';
 			contexts = {
 				row: serializeWebviewItemContext<GraphItemRefContext>({
-					webviewItem: `gitlens:commit${
-						hasHeadShaAndRemote && commit.sha === branch.sha ? '+HEAD' : ''
-					}+current`,
+					webviewItem: `gitlens:commit${head ? '+HEAD' : ''}+current`,
 					webviewItemValue: {
 						type: 'commit',
 						ref: createReference(commit.sha, repoPath, {
@@ -1379,9 +1489,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					repoPath,
 					asWebviewUri,
 					moreLog,
-					branch,
+					headBranch,
+					branchMap,
+					branchTips,
 					remote,
-					tags,
+					remoteMap,
+					tagTips,
 					currentUser,
 					avatars,
 					ids,
@@ -2400,6 +2513,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					let cursor = options?.cursor;
 					const loadAll = cursor == null;
 
+					let authoredDate;
+					let committedDate;
+
 					while (true) {
 						const result = await github.getTags(
 							session.accessToken,
@@ -2409,14 +2525,19 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						);
 
 						for (const tag of result.values) {
+							authoredDate =
+								tag.target.authoredDate ?? tag.target.target?.authoredDate ?? tag.target.tagger?.date;
+							committedDate =
+								tag.target.committedDate ?? tag.target.target?.committedDate ?? tag.target.tagger?.date;
+
 							tags.push(
 								new GitTag(
 									repoPath!,
 									tag.name,
-									tag.target.oid,
-									tag.target.message ?? '',
-									new Date(tag.target.authoredDate ?? tag.target.tagger?.date),
-									new Date(tag.target.committedDate ?? tag.target.tagger?.date),
+									tag.target.target?.oid ?? tag.target.oid,
+									tag.target.message ?? tag.target.target?.message ?? '',
+									authoredDate != null ? new Date(authoredDate) : undefined,
+									committedDate != null ? new Date(committedDate) : undefined,
 								),
 							);
 						}
