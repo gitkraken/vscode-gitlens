@@ -4487,6 +4487,16 @@
 				"category": "GitLens+"
 			},
 			{
+				"command": "gitlens.plus.resetRepositoryAccess",
+				"title": "Reset Repository Access Cache",
+				"category": "GitLens+"
+			},
+			{
+				"command": "gitlens.plus.refreshRepositoryAccess",
+				"title": "Refresh Repository Access",
+				"category": "GitLens+"
+			},
+			{
 				"command": "gitlens.getStarted",
 				"title": "Get Started",
 				"category": "GitLens"
@@ -7436,6 +7446,14 @@
 				{
 					"command": "gitlens.plus.reset",
 					"when": "gitlens:debugging"
+				},
+				{
+					"command": "gitlens.plus.resetRepositoryAccess",
+					"when": "gitlens:plus"
+				},
+				{
+					"command": "gitlens.plus.refreshRepositoryAccess",
+					"when": "gitlens:plus"
 				},
 				{
 					"command": "gitlens.showGraphPage",

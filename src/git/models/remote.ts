@@ -163,3 +163,13 @@ export function getRemoteIconUri(
 	);
 	return asWebviewUri != null ? asWebviewUri(uri) : uri;
 }
+
+export function getVisibilityCacheKey(remote: GitRemote): string;
+export function getVisibilityCacheKey(remotes: GitRemote[]): string;
+export function getVisibilityCacheKey(remotes: GitRemote | GitRemote[]): string {
+	if (!Array.isArray(remotes)) return remotes.id;
+	return remotes
+		.map(r => r.id)
+		.sort()
+		.join(',');
+}
