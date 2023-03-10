@@ -87,7 +87,7 @@ import {
 	shortenRevision,
 } from '../../../git/models/reference';
 import type { GitReflog } from '../../../git/models/reflog';
-import { getRemoteIconUri, GitRemote } from '../../../git/models/remote';
+import { getRemoteIconUri, getVisibilityCacheKey, GitRemote } from '../../../git/models/remote';
 import { RemoteResourceType } from '../../../git/models/remoteResource';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
@@ -507,27 +507,31 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	async visibility(repoPath: string): Promise<RepositoryVisibility> {
+	async visibility(repoPath: string): Promise<[visibility: RepositoryVisibility, cacheKey: string | undefined]> {
 		const remotes = await this.getRemotes(repoPath, { sort: true });
-		if (remotes.length === 0) return RepositoryVisibility.Local;
+		if (remotes.length === 0) return [RepositoryVisibility.Local, undefined];
 
 		let local = true;
 		for await (const result of fastestSettled(remotes.map(r => this.getRemoteVisibility(r)))) {
 			if (result.status !== 'fulfilled') continue;
 
-			if (result.value === RepositoryVisibility.Public) return RepositoryVisibility.Public;
-			if (result.value !== RepositoryVisibility.Local) {
+			if (result.value[0] === RepositoryVisibility.Public) {
+				return [RepositoryVisibility.Public, getVisibilityCacheKey(result.value[1])];
+			}
+			if (result.value[0] !== RepositoryVisibility.Local) {
 				local = false;
 			}
 		}
 
-		return local ? RepositoryVisibility.Local : RepositoryVisibility.Private;
+		return local
+			? [RepositoryVisibility.Local, undefined]
+			: [RepositoryVisibility.Private, getVisibilityCacheKey(remotes)];
 	}
 
 	@debug<LocalGitProvider['getRemoteVisibility']>({ args: { 0: r => r.url } })
 	private async getRemoteVisibility(
 		remote: GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
-	): Promise<RepositoryVisibility> {
+	): Promise<[visibility: RepositoryVisibility, remote: GitRemote]> {
 		const scope = getLogScope();
 
 		switch (remote.provider?.id) {
@@ -539,22 +543,24 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			case 'gerrit':
 			case 'google-source': {
 				const url = remote.provider.url({ type: RemoteResourceType.Repo });
-				if (url == null) return RepositoryVisibility.Private;
+				if (url == null) return [RepositoryVisibility.Private, remote];
 
 				// Check if the url returns a 200 status code
 				try {
 					const rsp = await fetch(url, { method: 'HEAD', agent: getProxyAgent() });
-					if (rsp.ok) return RepositoryVisibility.Public;
+					if (rsp.ok) return [RepositoryVisibility.Public, remote];
 
 					Logger.debug(scope, `Response=${rsp.status}`);
 				} catch (ex) {
 					debugger;
 					Logger.error(ex, scope);
 				}
-				return RepositoryVisibility.Private;
+				return [RepositoryVisibility.Private, remote];
 			}
 			default:
-				return maybeUri(remote.url) ? RepositoryVisibility.Private : RepositoryVisibility.Local;
+				return maybeUri(remote.url)
+					? [RepositoryVisibility.Private, remote]
+					: [RepositoryVisibility.Local, remote];
 		}
 	}
 

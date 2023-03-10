@@ -22,6 +22,7 @@ import { asRepoComparisonKey, Repositories } from '../repositories';
 import type { Subscription } from '../subscription';
 import { isSubscriptionPaidPlan, SubscriptionPlanId } from '../subscription';
 import { groupByFilterMap, groupByMap, joinUnique } from '../system/array';
+import { registerCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
 import { debug, log } from '../system/decorators/log';
@@ -41,6 +42,7 @@ import type {
 	PagedResult,
 	PreviousComparisonUrisResult,
 	PreviousLineComparisonUrisResult,
+	RepositoryVisibilityInfo,
 	ScmRepository,
 } from './gitProvider';
 import { RepositoryVisibility } from './gitProvider';
@@ -149,10 +151,8 @@ export class GitProviderService implements Disposable {
 		this._etag = Date.now();
 
 		this._accessCache.clear();
-		this._visibilityCache.delete(undefined);
-		if (removed?.length) {
-			this._visibilityCache.clear();
-		}
+		this._reposVisibilityCache = undefined;
+
 		this._onDidChangeRepositories.fire({ added: added ?? [], removed: removed ?? [], etag: this._etag });
 
 		if (added?.length) {
@@ -200,6 +200,7 @@ export class GitProviderService implements Disposable {
 				this.resetCaches('providers');
 				this.updateContext();
 			}),
+			...this.registerCommands(),
 		);
 
 		this.container.BranchDateFormatting.reset();
@@ -245,6 +246,13 @@ export class GitProviderService implements Disposable {
 		if (e != null && configuration.changed(e, 'integrations.enabled')) {
 			this.updateContext();
 		}
+	}
+
+	private registerCommands(): Disposable[] {
+		return [
+			registerCommand('gitlens.plus.resetRepositoryAccess', () => this.clearAllRepoVisibilityCaches()),
+			registerCommand('gitlens.plus.refreshRepositoryAccess', () => this.clearAllOpenRepoVisibilityCaches()),
+		];
 	}
 
 	@debug()
@@ -379,7 +387,7 @@ export class GitProviderService implements Disposable {
 		const disposable = Disposable.from(
 			provider,
 			...disposables,
-			provider.onDidChangeRepository(e => {
+			provider.onDidChangeRepository(async e => {
 				if (
 					e.changed(
 						RepositoryChange.Remotes,
@@ -397,7 +405,14 @@ export class GitProviderService implements Disposable {
 					queueMicrotask(() => this.fireRepositoriesChanged([], [e.repository]));
 				}
 
-				this._visibilityCache.delete(e.repository.path);
+				if (e.changed(RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
+					const remotes = await provider.getRemotes(e.repository.path);
+					const visibilityInfo = this.getVisibilityInfoFromCache(e.repository.path);
+					if (visibilityInfo != null) {
+						this.checkVisibilityCachedRemotes(e.repository.path, visibilityInfo, remotes);
+					}
+				}
+
 				this._onDidChangeRepository.fire(e);
 			}),
 			provider.onDidCloseRepository(e => {
@@ -703,43 +718,125 @@ export class GitProviderService implements Disposable {
 		return provider.supports(feature);
 	}
 
-	private _visibilityCache: Map<undefined, Promise<RepositoriesVisibility>> &
-		Map<string, Promise<RepositoryVisibility>> = new Map();
+	private _reposVisibilityCache: RepositoriesVisibility | undefined;
+	private _repoVisibilityCache: Map<string, RepositoryVisibilityInfo> | undefined;
+
+	private ensureRepoVisibilityCache(): void {
+		if (this._repoVisibilityCache == null) {
+			const repoVisibility: [string, RepositoryVisibilityInfo][] | undefined = this.container.storage
+				.get('repoVisibility')
+				?.map<[string, RepositoryVisibilityInfo]>(([key, visibilityInfo]) => [
+					key,
+					{
+						visibility: visibilityInfo.visibility as RepositoryVisibility,
+						timestamp: visibilityInfo.timestamp,
+						remotesHash: visibilityInfo.remotesHash,
+					},
+				]);
+			this._repoVisibilityCache = new Map(repoVisibility);
+		}
+	}
+
+	private clearRepoVisibilityCache(keys?: string[]): void {
+		if (keys == null) {
+			this._repoVisibilityCache = undefined;
+			void this.container.storage.delete('repoVisibility');
+		} else {
+			keys?.forEach(key => this._repoVisibilityCache?.delete(key));
+			const repoVisibility = Array.from(this._repoVisibilityCache?.entries() ?? []);
+			if (repoVisibility.length === 0) {
+				void this.container.storage.delete('repoVisibility');
+			} else {
+				void this.container.storage.store('repoVisibility', repoVisibility);
+			}
+		}
+	}
+
+	private getVisibilityInfoFromCache(key: string): RepositoryVisibilityInfo | undefined {
+		this.ensureRepoVisibilityCache();
+		const visibilityInfo = this._repoVisibilityCache?.get(key);
+		if (visibilityInfo == null) return undefined;
+
+		const now = Date.now();
+		if (now - visibilityInfo.timestamp > 1000 * 60 * 60 * 24 * 30 /* TTL is 30 days */) {
+			this.clearRepoVisibilityCache([key]);
+			return undefined;
+		}
+
+		return visibilityInfo;
+	}
+
+	private checkVisibilityCachedRemotes(
+		key: string,
+		visibilityInfo: RepositoryVisibilityInfo | undefined,
+		remotes: GitRemote[],
+	): boolean {
+		if (visibilityInfo == null) return true;
+
+		if (visibilityInfo.visibility === RepositoryVisibility.Public) {
+			if (remotes.length == 0 || !remotes.some(r => r.id === visibilityInfo.remotesHash)) {
+				this.clearRepoVisibilityCache([key]);
+				return false;
+			}
+		} else if (visibilityInfo.visibility === RepositoryVisibility.Private) {
+			const remotesHash = remotes
+				.map(r => r.id)
+				.sort()
+				.join(',');
+			if (remotesHash !== visibilityInfo.remotesHash) {
+				this.clearRepoVisibilityCache([key]);
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	private updateVisibilityCache(key: string, visibilityInfo: RepositoryVisibilityInfo): void {
+		this.ensureRepoVisibilityCache();
+		this._repoVisibilityCache?.set(key, visibilityInfo);
+		void this.container.storage.store('repoVisibility', Array.from(this._repoVisibilityCache!.entries()));
+	}
+
+	clearAllRepoVisibilityCaches(): void {
+		this.clearRepoVisibilityCache();
+	}
+
+	clearAllOpenRepoVisibilityCaches(): void {
+		const openRepoProviderPaths = this.openRepositories.map(r => this.getProvider(r.path).path);
+		this.clearRepoVisibilityCache(openRepoProviderPaths);
+	}
+
 	visibility(): Promise<RepositoriesVisibility>;
 	visibility(repoPath: string | Uri): Promise<RepositoryVisibility>;
 	async visibility(repoPath?: string | Uri): Promise<RepositoriesVisibility | RepositoryVisibility> {
 		if (repoPath == null) {
-			let visibility = this._visibilityCache.get(undefined);
+			let visibility = this._reposVisibilityCache;
 			if (visibility == null) {
-				visibility = this.visibilityCore();
-				void visibility.then(v => {
-					this.container.telemetry.setGlobalAttribute('repositories.visibility', v);
-					this.container.telemetry.sendEvent('repositories/visibility');
-				});
-				this._visibilityCache.set(undefined, visibility);
+				visibility = await this.visibilityCore();
+				this.container.telemetry.setGlobalAttribute('repositories.visibility', visibility);
+				this.container.telemetry.sendEvent('repositories/visibility');
+				this._reposVisibilityCache = visibility;
 			}
 			return visibility;
 		}
 
 		const { path: cacheKey } = this.getProvider(repoPath);
 
-		let visibility = this._visibilityCache.get(cacheKey);
+		let visibility = this.getVisibilityInfoFromCache(cacheKey)?.visibility;
 		if (visibility == null) {
-			visibility = this.visibilityCore(repoPath);
-			void visibility.then(v =>
-				queueMicrotask(() => {
-					const repo = this.getRepository(repoPath);
-					this.container.telemetry.sendEvent('repository/visibility', {
-						'repository.visibility': v,
-						'repository.id': repo?.idHash,
-						'repository.scheme': repo?.uri.scheme,
-						'repository.closed': repo?.closed,
-						'repository.folder.scheme': repo?.folder?.uri.scheme,
-						'repository.provider.id': repo?.provider.id,
-					});
-				}),
-			);
-			this._visibilityCache.set(cacheKey, visibility);
+			visibility = await this.visibilityCore(repoPath);
+			queueMicrotask(() => {
+				const repo = this.getRepository(repoPath);
+				this.container.telemetry.sendEvent('repository/visibility', {
+					'repository.visibility': visibility,
+					'repository.id': repo?.idHash,
+					'repository.scheme': repo?.uri.scheme,
+					'repository.closed': repo?.closed,
+					'repository.folder.scheme': repo?.folder?.uri.scheme,
+					'repository.provider.id': repo?.provider.id,
+				});
+			});
 		}
 		return visibility;
 	}
@@ -748,16 +845,27 @@ export class GitProviderService implements Disposable {
 	private visibilityCore(repoPath: string | Uri): Promise<RepositoryVisibility>;
 	@debug()
 	private async visibilityCore(repoPath?: string | Uri): Promise<RepositoriesVisibility | RepositoryVisibility> {
-		function getRepoVisibility(this: GitProviderService, repoPath: string | Uri): Promise<RepositoryVisibility> {
+		async function getRepoVisibility(
+			this: GitProviderService,
+			repoPath: string | Uri,
+		): Promise<RepositoryVisibility> {
 			const { provider, path } = this.getProvider(repoPath);
+			const remotes = await provider.getRemotes(path, { sort: true });
+			const visibilityInfo = this.getVisibilityInfoFromCache(path);
+			if (visibilityInfo == null || !this.checkVisibilityCachedRemotes(path, visibilityInfo, remotes)) {
+				const [visibility, remotesHash] = await provider.visibility(path);
+				if (visibility !== RepositoryVisibility.Local) {
+					this.updateVisibilityCache(path, {
+						visibility: visibility,
+						timestamp: Date.now(),
+						remotesHash: remotesHash,
+					});
+				}
 
-			let visibility = this._visibilityCache.get(path);
-			if (visibility == null) {
-				visibility = provider.visibility(path);
-				this._visibilityCache.set(path, visibility);
+				return visibility;
 			}
 
-			return visibility;
+			return visibilityInfo.visibility;
 		}
 
 		if (repoPath == null) {
