@@ -1,13 +1,23 @@
-import { env, TextEditor, Uri } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
+import { env } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { command } from '../system/command';
-import { ActiveEditorCommand, getCommandUri } from './base';
+import type { CommandContext } from './base';
+import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasFileCommit } from './base';
 
 @command()
 export class CopyRelativePathToClipboardCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
 		super(Commands.CopyRelativePathToClipboard);
+	}
+
+	protected override preExecute(context: CommandContext) {
+		if (isCommandContextViewNodeHasFileCommit(context)) {
+			return this.execute(context.editor, context.node.commit.file!.uri);
+		}
+
+		return this.execute(context.editor, context.uri);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri) {
@@ -20,7 +30,7 @@ export class CopyRelativePathToClipboardCommand extends ActiveEditorCommand {
 			}
 		}
 
-		void (await env.clipboard.writeText(relativePath));
+		await env.clipboard.writeText(relativePath);
 		return undefined;
 	}
 }
