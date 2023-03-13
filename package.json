@@ -9362,17 +9362,17 @@
 				{
 					"command": "gitlens.copyRelativePathToClipboard",
 					"when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard",
-					"group": "1_gitlens@4"
+					"group": "2_gitlens@1"
 				},
 				{
 					"command": "gitlens.copyShaToClipboard",
 					"when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard",
-					"group": "2_gitlens@1"
+					"group": "3_gitlens@1"
 				},
 				{
 					"command": "gitlens.copyMessageToClipboard",
 					"when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard",
-					"group": "2_gitlens@2"
+					"group": "3_gitlens@2"
 				}
 			],
 			"editor/title": [
@@ -12080,27 +12080,27 @@
 				{
 					"command": "gitlens.copyRemoteCommitUrl",
 					"when": "gitlens:hasRemotes && viewItem =~ /gitlens:(commit|file\\b(?=.*?\\b\\+committed\\b))/",
-					"group": "2_gitlens@1"
+					"group": "3_gitlens@1"
 				},
 				{
 					"command": "gitlens.copyRemoteBranchUrl",
 					"when": "gitlens:hasRemotes && viewItem =~ /gitlens:branch/",
-					"group": "2_gitlens@1"
+					"group": "3_gitlens@1"
 				},
 				{
 					"command": "gitlens.copyRemoteRepositoryUrl",
 					"when": "gitlens:hasRemotes && viewItem =~ /gitlens:(remote|repo-folder|repository)\\b/",
-					"group": "2_gitlens@1"
+					"group": "3_gitlens@1"
 				},
 				{
 					"command": "gitlens.copyRemoteFileUrlWithoutRange",
 					"when": "gitlens:hasRemotes && viewItem =~ /gitlens:(file\\b(?=.*?\\b\\+committed\\b)|history:(file|line)|status:file)\\b/",
-					"group": "2_gitlens@2"
+					"group": "3_gitlens@2"
 				},
 				{
 					"command": "gitlens.copyRelativePathToClipboard",
 					"when": "viewItem =~ /gitlens:(file)\\b/",
-					"group": "2_gitlens@3"
+					"group": "2_gitlens@1"
 				},
 				{
 					"command": "gitlens.graph.copySha",
@@ -12115,12 +12115,12 @@
 				{
 					"command": "gitlens.graph.copyRemoteCommitUrl",
 					"when": "gitlens:hasRemotes && webviewItem =~ /gitlens:commit/",
-					"group": "2_gitlens@1"
+					"group": "3_gitlens@1"
 				},
 				{
 					"command": "gitlens.graph.copyRemoteBranchUrl",
 					"when": "gitlens:hasRemotes && webviewItem =~ /gitlens:branch/",
-					"group": "2_gitlens@1"
+					"group": "3_gitlens@1"
 				}
 			],
 			"gitlens/share": [
