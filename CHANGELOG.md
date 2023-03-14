@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds auto-detection for `.git-blame-ignore-revs` files and excludes the commits listed within from the blame annotations
 - Adds the ability to see branches and tags on remote repositories (e.g. GitHub) on the _Commit Graph_
   - Currently limited to only showing them for commits on the current branch, as we aren't yet able to show all commits on all branches
+- Adds a _Copy Relative Path_ context menu action for active editors and file nodes in sidebar views
 
 ### Fixed
 
