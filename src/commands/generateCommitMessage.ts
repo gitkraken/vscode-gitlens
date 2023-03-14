@@ -116,14 +116,22 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 			const currentMessage = scmRepo.inputBox.value;
 			const code = diff.diff.substring(0, maxCodeCharacters);
 
+			let customPrompt = configuration.get('experimental.generateCommitMessagePrompt');
+			if (!customPrompt.endsWith('.')) {
+				customPrompt += '.';
+			}
+
 			const data: OpenAIChatCompletionRequest = {
 				model: 'gpt-3.5-turbo',
 				messages: [
 					{
 						role: 'system',
-						content: `You are a highly skilled software engineer and are tasked with writing, in an informal tone, a concise but meaningful commit message summarizing the changes you made to a codebase. ${configuration.get(
-							'experimental.generateCommitMessagePrompt',
-						)} Don't repeat yourself and don't make anything up. Avoid specific names from the code. Avoid phrases like "this commit", "this change", etc.`,
+						content:
+							"You are an AI programming assistant tasked with writing a meaningful commit message by summarizing code changes.\n\n- Follow the user's instructions carefully & to the letter!\n- Don't repeat yourself or make anything up!\n- Minimize any other prose.",
+					},
+					{
+						role: 'user',
+						content: `${customPrompt}\n- Avoid phrases like "this commit", "this change", etc.`,
 					},
 				],
 			};
@@ -131,10 +139,13 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 			if (currentMessage) {
 				data.messages.push({
 					role: 'user',
-					content: `Use the following additional context to craft the commit message: ${currentMessage}`,
+					content: `Use "${currentMessage}" to help craft the commit message.`,
 				});
 			}
-			data.messages.push({ role: 'user', content: code });
+			data.messages.push({
+				role: 'user',
+				content: `Write a meaningful commit message for the following code changes:\n\n${code}`,
+			});
 
 			await window.withProgress(
 				{ location: ProgressLocation.Notification, title: 'Generating commit message...' },
