@@ -14,12 +14,7 @@ import { getBranchNameWithoutRemote, isBranch } from './git/models/branch';
 import { isCommit } from './git/models/commit';
 import { isRepository } from './git/models/repository';
 import { isTag } from './git/models/tag';
-import {
-	showDebugLoggingWarningMessage,
-	showInsidersErrorMessage,
-	showPreReleaseExpiredErrorMessage,
-	showWhatsNewMessage,
-} from './messages';
+import { showDebugLoggingWarningMessage, showPreReleaseExpiredErrorMessage, showWhatsNewMessage } from './messages';
 import { registerPartnerActionRunners } from './partners';
 import { Storage, SyncedStorageKeys } from './storage';
 import { executeCommand, executeCoreCommand, registerCommands } from './system/command';
@@ -35,8 +30,7 @@ import { isViewNode } from './views/nodes/viewNode';
 
 export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {
 	const gitlensVersion: string = context.extension.packageJSON.version;
-	const insiders = context.extension.id === 'eamodio.gitlens-insiders';
-	const prerelease = insiders || satisfies(gitlensVersion, '> 2020.0.0');
+	const prerelease = satisfies(gitlensVersion, '> 2020.0.0');
 
 	const outputLevel = configuration.get('outputLevel');
 	Logger.configure(
@@ -62,32 +56,16 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		context.extensionMode === ExtensionMode.Development,
 	);
 
-	const sw = new Stopwatch(
-		`GitLens${prerelease ? (insiders ? ' (Insiders)' : ' (pre-release)') : ''} v${gitlensVersion}`,
-		{
-			log: {
-				message: ` activating in ${env.appName}(${codeVersion}) on the ${isWeb ? 'web' : 'desktop'} (${
-					env.machineId
-				}|${env.sessionId})`,
-				//${context.extensionRuntime !== ExtensionRuntime.Node ? ' in a webworker' : ''}
-			},
+	const sw = new Stopwatch(`GitLens${prerelease ? ' (pre-release)' : ''} v${gitlensVersion}`, {
+		log: {
+			message: ` activating in ${env.appName}(${codeVersion}) on the ${isWeb ? 'web' : 'desktop'} (${
+				env.machineId
+			}|${env.sessionId})`,
+			//${context.extensionRuntime !== ExtensionRuntime.Node ? ' in a webworker' : ''}
 		},
-	);
+	});
 
-	// If we are using the separate insiders extension, ensure that stable isn't also installed
-	if (insiders) {
-		const stable = extensions.getExtension('eamodio.gitlens');
-		if (stable != null) {
-			sw.stop({ message: ' was NOT activated because GitLens is also enabled' });
-
-			// If we don't use a setTimeout here this notification will get lost for some reason
-			setTimeout(showInsidersErrorMessage, 0);
-
-			return undefined;
-		}
-	}
-
-	// Ensure that this pre-release or insiders version hasn't expired
+	// Ensure that this pre-release version hasn't expired
 	if (prerelease) {
 		const v = fromString(gitlensVersion);
 		// Get the build date from the version number
@@ -96,13 +74,11 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		// If the build date is older than 14 days then show the expired error message
 		if (date.getTime() < Date.now() - 14 * 24 * 60 * 60 * 1000) {
 			sw.stop({
-				message: ` was NOT activated because this ${
-					insiders ? 'insiders' : 'pre-release'
-				} version (${gitlensVersion}) has expired`,
+				message: ` was NOT activated because this pre-release version (${gitlensVersion}) has expired`,
 			});
 
 			// If we don't use a setTimeout here this notification will get lost for some reason
-			setTimeout(showPreReleaseExpiredErrorMessage, 0, gitlensVersion, insiders);
+			setTimeout(showPreReleaseExpiredErrorMessage, 0, gitlensVersion);
 
 			return undefined;
 		}
@@ -115,8 +91,8 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	setKeysForSync(context);
 
 	const storage = new Storage(context);
-	const syncedVersion = storage.get(prerelease && !insiders ? 'synced:preVersion' : 'synced:version');
-	const localVersion = storage.get(prerelease && !insiders ? 'preVersion' : 'version');
+	const syncedVersion = storage.get(prerelease ? 'synced:preVersion' : 'synced:version');
+	const localVersion = storage.get(prerelease ? 'preVersion' : 'version');
 
 	let previousVersion: string | undefined;
 	if (localVersion == null || syncedVersion == null) {
@@ -168,11 +144,11 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 		void showWelcomeOrWhatsNew(container, gitlensVersion, previousVersion);
 
-		void storage.store(prerelease && !insiders ? 'preVersion' : 'version', gitlensVersion);
+		void storage.store(prerelease ? 'preVersion' : 'version', gitlensVersion);
 
 		// Only update our synced version if the new version is greater
 		if (syncedVersion == null || compare(gitlensVersion, syncedVersion) === 1) {
-			void storage.store(prerelease && !insiders ? 'synced:preVersion' : 'synced:version', gitlensVersion);
+			void storage.store(prerelease ? 'synced:preVersion' : 'synced:version', gitlensVersion);
 		}
 
 		if (outputLevel === OutputLevel.Debug) {
@@ -205,7 +181,6 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	container.telemetry.setGlobalAttributes({
 		debugging: container.debugging,
-		insiders: insiders,
 		prerelease: prerelease,
 		install: previousVersion == null,
 		upgrade: previousVersion != null && gitlensVersion !== previousVersion,

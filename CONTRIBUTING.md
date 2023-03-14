@@ -205,4 +205,4 @@ The [Publish Pre-release workflow](.github/workflows/cd-pre.yml) is automaticall
 
 ### Insiders edition (deprecated use pre-release instead)
 
-The [Publish Insiders workflow](.github/workflows/cd-insiders.yml) is automatically run every AM unless no new changes have been committed to `main`.
+The Publish Insiders workflow is no longer available and replaced with the pre-release edition.

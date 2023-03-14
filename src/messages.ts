@@ -116,19 +116,10 @@ export function showGitVersionUnsupportedErrorMessage(
 	);
 }
 
-export function showInsidersErrorMessage() {
+export function showPreReleaseExpiredErrorMessage(version: string) {
 	return showMessage(
 		'error',
-		'GitLens (Insiders) cannot be used while GitLens is also enabled. Please ensure that only one version is enabled.',
-	);
-}
-
-export function showPreReleaseExpiredErrorMessage(version: string, insiders: boolean) {
-	return showMessage(
-		'error',
-		`This GitLens ${
-			insiders ? '(Insiders)' : 'pre-release'
-		} version (${version}) has expired. Please upgrade to a more recent version.`,
+		`This GitLens pre-release version (${version}) has expired. Please upgrade to a more recent version.`,
 	);
 }
 

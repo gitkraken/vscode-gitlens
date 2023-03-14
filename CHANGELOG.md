@@ -16,6 +16,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Currently limited to only showing them for commits on the current branch, as we aren't yet able to show all commits on all branches
 - Adds a _Copy Relative Path_ context menu action for active editors and file nodes in sidebar views
 
+### Changed
+
+- Removes Insiders edition
+
 ### Fixed
 
 - Fixes [#2549](https://github.com/gitkraken/vscode-gitlens/issues/2549) - toggle code lens does not work with gitlens.codeLens.enabled == false

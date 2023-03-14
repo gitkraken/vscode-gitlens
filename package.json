@@ -9624,17 +9624,17 @@
 			"extension/context": [
 				{
 					"command": "gitlens.getStarted",
-					"when": "extension =~ /^eamodio.gitlens(-insiders)?$/ && extensionStatus == installed",
+					"when": "extension =~ /^eamodio.gitlens?$/ && extensionStatus == installed",
 					"group": "9_gitlens@1"
 				},
 				{
 					"command": "gitlens.showWelcomePage",
-					"when": "extension =~ /^eamodio.gitlens(-insiders)?$/ && extensionStatus == installed",
+					"when": "extension =~ /^eamodio.gitlens?$/ && extensionStatus == installed",
 					"group": "9_gitlens@2"
 				},
 				{
 					"command": "gitlens.showSettingsPage",
-					"when": "extension =~ /^eamodio.gitlens(-insiders)?$/ && extensionStatus == installed",
+					"when": "extension =~ /^eamodio.gitlens?$/ && extensionStatus == installed",
 					"group": "9_gitlens@3"
 				}
 			],
@@ -13383,9 +13383,7 @@
 		"lint": "eslint \"src/**/*.ts?(x)\" --fix",
 		"lint:webviews": "eslint \"src/webviews/apps/**/*.ts?(x)\" --fix",
 		"package": "vsce package --yarn",
-		"package-insiders": "yarn run patch-insiders && yarn run package",
 		"package-pre": "yarn run patch-pre && yarn run package --pre-release",
-		"patch-insiders": "node ./scripts/applyInsidersPatch.js",
 		"patch-pre": "node ./scripts/applyPreReleasePatch.js",
 		"pretty": "prettier --config .prettierrc --loglevel warn --write .",
 		"pub": "vsce publish --yarn",
