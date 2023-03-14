@@ -9306,7 +9306,7 @@
 			"editor/context": [
 				{
 					"submenu": "gitlens/editor/context/changes",
-					"when": "editorTextFocus && config.gitlens.menus.editor.compare",
+					"when": "editorTextFocus && gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editor.compare",
 					"group": "2_gitlens@1"
 				},
 				{
