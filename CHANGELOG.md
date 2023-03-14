@@ -19,6 +19,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Removes Insiders edition
+- Improves the display of items in the _Commit Graph_
+  - Displays upstreams of visible local branches in the minimap, rich scrollbar, and graph rows
+  - Left-aligns the nodes in the graph column
 
 ### Fixed
 
