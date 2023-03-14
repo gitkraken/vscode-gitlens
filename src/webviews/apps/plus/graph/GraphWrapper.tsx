@@ -1208,7 +1208,7 @@ export function GraphWrapper({
 													onChange={handleExcludeTypeChange}
 													defaultChecked={excludeTypes?.remotes ?? false}
 												>
-													Hide Remote Branches
+													Hide Remote-only Branches
 												</VSCodeCheckbox>
 											</MenuItem>
 											<MenuItem role="none">
