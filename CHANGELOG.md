@@ -18,10 +18,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- Removes Insiders edition
+- Removes Insiders edition in favor of the pre-release edition
 - Improves the display of items in the _Commit Graph_
-  - Displays upstreams of visible local branches in the minimap, rich scrollbar, and graph rows
-  - Left-aligns the nodes in the graph column
+  - When showing local branches, we now always display the upstream branches in the minimap, scrollbar markers, and graph rows
+  - When laying out lanes in the Graph column, we now bias to be left aligned when possible for an easier to read and compact graph visualization
 
 ### Fixed
 
