@@ -510,7 +510,7 @@ export class GraphMinimap extends FASTElement {
 		}
 	}
 
-	private getData(date: number | Date): DataItem<number> | undefined {
+	private getData(date: number | Date): DataItem | undefined {
 		date = new Date(date).setHours(0, 0, 0, 0);
 		return this._chart
 			?.data()[0]

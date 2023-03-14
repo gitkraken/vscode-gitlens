@@ -405,10 +405,6 @@ export function parseCommandContext(
 export abstract class ActiveEditorCommand extends Command {
 	protected override readonly contextParsingOptions: CommandContextParsingOptions = { expectsEditor: true };
 
-	constructor(command: Commands | Commands[]) {
-		super(command);
-	}
-
 	protected override preExecute(context: CommandContext, ...args: any[]): Promise<any> {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 		return this.execute(context.editor, context.uri, ...args);
@@ -427,10 +423,6 @@ export function getLastCommand() {
 }
 
 export abstract class ActiveEditorCachedCommand extends ActiveEditorCommand {
-	constructor(command: Commands | Commands[]) {
-		super(command);
-	}
-
 	protected override _execute(command: string, ...args: any[]): any {
 		lastCommand = {
 			command: command,

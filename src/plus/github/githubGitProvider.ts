@@ -72,10 +72,8 @@ import { getTagId, GitTag, sortTags } from '../../git/models/tag';
 import type { GitTreeEntry } from '../../git/models/tree';
 import type { GitUser } from '../../git/models/user';
 import { isUserMatch } from '../../git/models/user';
-import type { RemoteProvider } from '../../git/remotes/remoteProvider';
 import type { RemoteProviders } from '../../git/remotes/remoteProviders';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../git/remotes/remoteProviders';
-import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
 import type { GitSearch, GitSearchResultData, GitSearchResults, SearchQuery } from '../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../git/search';
 import { configuration } from '../../system/configuration';
@@ -250,7 +248,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	private async getRemoteVisibility(
-		remote: GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
+		remote: GitRemote,
 	): Promise<[visibility: RepositoryVisibility, remote: GitRemote]> {
 		switch (remote.provider?.id) {
 			case 'github': {
@@ -2437,7 +2435,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async getRemotes(
 		repoPath: string | undefined,
 		options?: { providers?: RemoteProviders; sort?: boolean },
-	): Promise<GitRemote<RemoteProvider | RichRemoteProvider | undefined>[]> {
+	): Promise<GitRemote[]> {
 		if (repoPath == null) return [];
 
 		const providers = options?.providers ?? loadRemoteProviders(configuration.get('remotes', null));
@@ -3142,6 +3140,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	private _remotehub: RemoteHubApi | undefined;
 	private _remotehubPromise: Promise<RemoteHubApi> | undefined;
 	private async ensureRemoteHubApi(): Promise<RemoteHubApi>;
+	// eslint-disable-next-line @typescript-eslint/unified-signatures
 	private async ensureRemoteHubApi(silent: false): Promise<RemoteHubApi>;
 	private async ensureRemoteHubApi(silent: boolean): Promise<RemoteHubApi | undefined>;
 	private async ensureRemoteHubApi(silent?: boolean): Promise<RemoteHubApi | undefined> {

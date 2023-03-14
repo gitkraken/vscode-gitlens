@@ -2018,9 +2018,7 @@ export class GitProviderService implements Disposable {
 		if (remote !== undefined) return remote ?? undefined;
 
 		remotes = (remotes ?? (await this.getRemotesWithProviders(repoPath))).filter(
-			(
-				r: GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
-			): r is GitRemote<RemoteProvider | RichRemoteProvider> => r.provider != null,
+			(r: GitRemote): r is GitRemote<RemoteProvider | RichRemoteProvider> => r.provider != null,
 		);
 
 		if (remotes.length === 0) return undefined;
@@ -2149,7 +2147,7 @@ export class GitProviderService implements Disposable {
 	async getRemotes(
 		repoPath: string | Uri | undefined,
 		options?: { providers?: RemoteProviders; sort?: boolean },
-	): Promise<GitRemote<RemoteProvider | RichRemoteProvider | undefined>[]> {
+	): Promise<GitRemote[]> {
 		if (repoPath == null) return [];
 
 		const { provider, path } = this.getProvider(repoPath);
@@ -2169,16 +2167,15 @@ export class GitProviderService implements Disposable {
 			: this.getRemotes(repoPath, options));
 
 		return remotes.filter(
-			(
-				r: GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
-			): r is GitRemote<RemoteProvider | RichRemoteProvider> => r.provider != null,
+			(r: GitRemote): r is GitRemote<RemoteProvider | RichRemoteProvider> => r.provider != null,
 		);
 	}
 
 	getBestRepository(): Repository | undefined;
-	getBestRepository(uri?: Uri): Repository | undefined;
+	// eslint-disable-next-line @typescript-eslint/unified-signatures
+	getBestRepository(uri?: Uri, editor?: TextEditor): Repository | undefined;
+	// eslint-disable-next-line @typescript-eslint/unified-signatures
 	getBestRepository(editor?: TextEditor): Repository | undefined;
-	getBestRepository(uri?: TextEditor | Uri, editor?: TextEditor): Repository | undefined;
 	@log<GitProviderService['getBestRepository']>({ exit: r => `returned ${r?.path}` })
 	getBestRepository(editorOrUri?: TextEditor | Uri, editor?: TextEditor): Repository | undefined {
 		const count = this.repositoryCount;
@@ -2197,9 +2194,10 @@ export class GitProviderService implements Disposable {
 	}
 
 	getBestRepositoryOrFirst(): Repository | undefined;
-	getBestRepositoryOrFirst(uri?: Uri): Repository | undefined;
+	// eslint-disable-next-line @typescript-eslint/unified-signatures
+	getBestRepositoryOrFirst(uri?: Uri, editor?: TextEditor): Repository | undefined;
+	// eslint-disable-next-line @typescript-eslint/unified-signatures
 	getBestRepositoryOrFirst(editor?: TextEditor): Repository | undefined;
-	getBestRepositoryOrFirst(uri?: TextEditor | Uri, editor?: TextEditor): Repository | undefined;
 	@log<GitProviderService['getBestRepositoryOrFirst']>({ exit: r => `returned ${r?.path}` })
 	getBestRepositoryOrFirst(editorOrUri?: TextEditor | Uri, editor?: TextEditor): Repository | undefined {
 		const count = this.repositoryCount;

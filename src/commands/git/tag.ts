@@ -1,4 +1,3 @@
-import type { QuickPickItem } from 'vscode';
 import { QuickInputButtons } from 'vscode';
 import type { Container } from '../../container';
 import type { GitReference, GitTagReference } from '../../git/models/reference';
@@ -319,10 +318,7 @@ export class TagGitCommand extends QuickCommand<State> {
 		return value;
 	}
 
-	private *createCommandConfirmStep(
-		state: CreateStepState<CreateState>,
-		context: Context,
-	): StepResultGenerator<CreateFlags[]> {
+	private *createCommandConfirmStep(state: CreateStepState, context: Context): StepResultGenerator<CreateFlags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<CreateFlags>> = createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
@@ -378,11 +374,8 @@ export class TagGitCommand extends QuickCommand<State> {
 		}
 	}
 
-	private *deleteCommandConfirmStep(
-		state: DeleteStepState<DeleteState>,
-		context: Context,
-	): StepResultGenerator<void> {
-		const step: QuickPickStep<QuickPickItem> = createConfirmStep(
+	private *deleteCommandConfirmStep(state: DeleteStepState, context: Context): StepResultGenerator<void> {
+		const step: QuickPickStep = createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
 				{

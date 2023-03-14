@@ -469,11 +469,10 @@ export class DeepLinkService implements Disposable {
 	}
 
 	async copyDeepLinkUrl(ref: GitReference, remoteUrl: string): Promise<void>;
-	async copyDeepLinkUrl(repoPath: string, remoteUrl: string): Promise<void>;
 	async copyDeepLinkUrl(
 		repoPath: string,
 		remoteUrl: string,
-		targetType: DeepLinkType,
+		targetType?: DeepLinkType,
 		targetId?: string,
 	): Promise<void>;
 	async copyDeepLinkUrl(
@@ -484,16 +483,15 @@ export class DeepLinkService implements Disposable {
 	): Promise<void> {
 		const url = await (typeof refOrRepoPath !== 'string'
 			? this.generateDeepLinkUrl(refOrRepoPath, remoteUrl)
-			: this.generateDeepLinkUrl(refOrRepoPath, remoteUrl, targetType!, targetId));
+			: this.generateDeepLinkUrl(refOrRepoPath, remoteUrl, targetType, targetId));
 		await env.clipboard.writeText(url.toString());
 	}
 
 	async generateDeepLinkUrl(ref: GitReference, remoteUrl: string): Promise<URL>;
-	async generateDeepLinkUrl(repoPath: string, remoteUrl: string): Promise<URL>;
 	async generateDeepLinkUrl(
 		repoPath: string,
 		remoteUrl: string,
-		targetType: DeepLinkType,
+		targetType?: DeepLinkType,
 		targetId?: string,
 	): Promise<URL>;
 	async generateDeepLinkUrl(

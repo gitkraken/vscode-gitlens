@@ -27,10 +27,6 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 	private _changes = Object.create(null) as Record<string, any>;
 	private _updating: boolean = false;
 
-	constructor(appName: string) {
-		super(appName);
-	}
-
 	protected override onInitialized() {
 		this.updateState();
 	}

@@ -76,12 +76,10 @@ export class CommandMessageNode extends MessageNode {
 }
 
 export class UpdateableMessageNode extends ViewNode {
-	override readonly id: string;
-
 	constructor(
 		view: View,
 		parent: ViewNode,
-		id: string,
+		private _id: string,
 		private _message: string,
 		private _tooltip?: string,
 		private _iconPath?:
@@ -94,7 +92,10 @@ export class UpdateableMessageNode extends ViewNode {
 			| ThemeIcon,
 	) {
 		super(unknownGitUri, view, parent);
-		this.id = id;
+	}
+
+	override get id(): string {
+		return this._id;
 	}
 
 	getChildren(): ViewNode[] | Promise<ViewNode[]> {

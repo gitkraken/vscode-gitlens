@@ -80,16 +80,16 @@ export const enum ContextValues {
 	Worktrees = 'gitlens:worktrees',
 }
 
-export interface ViewNode {
-	readonly id?: string;
-}
-
 @logName<ViewNode>((c, name) => `${name}${c.id != null ? `(${c.id})` : ''}`)
 export abstract class ViewNode<TView extends View = View, State extends object = any> {
 	protected splatted = false;
 
 	constructor(uri: GitUri, public readonly view: TView, protected parent?: ViewNode) {
 		this._uri = uri;
+	}
+
+	get id(): string | undefined {
+		return undefined;
 	}
 
 	toClipboard?(): string;
@@ -205,10 +205,6 @@ export abstract class ViewRefFileNode<TView extends View = View, State extends o
 	TView,
 	State
 > {
-	constructor(uri: GitUri, view: TView, parent: ViewNode, file: GitFile) {
-		super(uri, view, parent, file);
-	}
-
 	abstract get ref(): GitRevisionReference;
 
 	override toString(): string {
@@ -216,7 +212,7 @@ export abstract class ViewRefFileNode<TView extends View = View, State extends o
 	}
 }
 
-export interface PageableViewNode {
+export interface PageableViewNode extends ViewNode {
 	readonly id: string;
 	limit?: number;
 	readonly hasMore: boolean;

@@ -1026,7 +1026,7 @@ export async function* pickCommitStep<
 		showInSideBarCommand?: CommandQuickPickItem;
 		showInSideBarButton?: {
 			button: QuickInputButton;
-			onDidClick: (items: Readonly<CommitQuickPickItem<GitCommit>[]>) => void;
+			onDidClick: (items: Readonly<CommitQuickPickItem[]>) => void;
 		};
 		titleContext?: string;
 	},
@@ -1093,8 +1093,8 @@ export async function* pickCommitStep<
 		onDidClickButton: (quickpick, button) => {
 			if (log == null) return;
 
-			const items = quickpick.activeItems.filter<CommitQuickPickItem<GitCommit>>(
-				(i): i is CommitQuickPickItem<GitCommit> => !CommandQuickPickItem.is(i),
+			const items = quickpick.activeItems.filter<CommitQuickPickItem>(
+				(i): i is CommitQuickPickItem => !CommandQuickPickItem.is(i),
 			);
 
 			if (button === showInSideBar?.button) {
@@ -1105,8 +1105,8 @@ export async function* pickCommitStep<
 		onDidPressKey: async (quickpick, key) => {
 			if (quickpick.activeItems.length === 0) return;
 
-			const items = quickpick.activeItems.filter<CommitQuickPickItem<GitCommit>>(
-				(i): i is CommitQuickPickItem<GitCommit> => !CommandQuickPickItem.is(i),
+			const items = quickpick.activeItems.filter<CommitQuickPickItem>(
+				(i): i is CommitQuickPickItem => !CommandQuickPickItem.is(i),
 			);
 
 			if (key === 'ctrl+right') {
