@@ -10,10 +10,23 @@ import type { GitReference } from '../models/reference';
 import type { Repository } from '../models/repository';
 import type { GitWorktree } from '../models/worktree';
 
-export function create(repo?: string | Repository, uri?: Uri, ref?: GitReference, options?: { reveal?: boolean }) {
+export function create(
+	repo?: string | Repository,
+	uri?: Uri,
+	ref?: GitReference,
+	options?: { createBranch?: string; reveal?: boolean },
+) {
 	return executeGitCommand({
 		command: 'worktree',
-		state: { subcommand: 'create', repo: repo, uri: uri, reference: ref, reveal: options?.reveal },
+		state: {
+			subcommand: 'create',
+			repo: repo,
+			uri: uri,
+			reference: ref,
+			createBranch: options?.createBranch,
+			flags: options?.createBranch ? ['-b'] : undefined,
+			reveal: options?.reveal,
+		},
 	});
 }
 

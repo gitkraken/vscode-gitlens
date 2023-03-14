@@ -367,7 +367,12 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			const isRemoteBranch = state.reference?.refType === 'branch' && state.reference?.remote;
 			if (isRemoteBranch && !state.flags.includes('-b')) {
 				state.flags.push('-b');
+
 				state.createBranch = getNameWithoutRemote(state.reference);
+				const branch = await state.repo.getBranch(state.createBranch);
+				if (branch != null) {
+					state.createBranch = state.reference.name;
+				}
 			}
 
 			if (state.flags.includes('-b') && state.createBranch == null) {
@@ -576,13 +581,12 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			canCreateDirectlyInPicked = false;
 		}
 
-		const recommendedUri =
-			state.reference != null
-				? Uri.joinPath(
-						recommendedRootUri,
-						...getNameWithoutRemote(state.reference).replace(/\\/g, '/').split('/'),
-				  )
-				: recommendedRootUri;
+		const branchName =
+			state.createBranch ?? (state.reference != null ? getNameWithoutRemote(state.reference) : undefined);
+
+		const recommendedUri = branchName
+			? Uri.joinPath(recommendedRootUri, ...branchName.replace(/\\/g, '/').split('/'))
+			: recommendedRootUri;
 		const recommendedFriendlyPath = truncateLeft(GitWorktree.getFriendlyPath(recommendedUri), 65);
 
 		const recommendedNewBranchFriendlyPath = truncateLeft(

@@ -11766,7 +11766,7 @@
 				{
 					"command": "gitlens.ghpr.views.openOrCreateWorktree",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive|description/",
-					"group": "pullrequest@2"
+					"group": "2_gitlens@1"
 				}
 			],
 			"webview/context": [

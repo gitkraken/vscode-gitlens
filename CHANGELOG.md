@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Improves the display of items in the _Commit Graph_
   - When showing local branches, we now always display the upstream branches in the minimap, scrollbar markers, and graph rows
   - When laying out lanes in the Graph column, we now bias to be left aligned when possible for an easier to read and compact graph visualization
+- Improves _Open Worktree for Pull Request via GitLens..._ command to use the qualified remote branch name, e.g. `owner/branch`, when creating the worktree
 - Removes Insiders edition in favor of the pre-release edition
 
 ### Fixed

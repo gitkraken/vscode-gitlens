@@ -79,8 +79,10 @@ export class OpenOrCreateWorktreeCommand extends Command {
 			return;
 		}
 
+		const branchName = `${remoteOwner}/${ref}`;
+
 		const worktrees = await repo.getWorktrees();
-		const worktree = worktrees.find(w => w.branch === ref);
+		const worktree = worktrees.find(w => w.branch === branchName);
 		if (worktree != null) {
 			void openWorktree(worktree);
 
@@ -118,27 +120,24 @@ export class OpenOrCreateWorktreeCommand extends Command {
 			await createWorktree(
 				repo,
 				undefined,
-				createReference(`${remote.name}/${ref}`, repo.path, {
-					refType: 'branch',
-					name: `${remote.name}/${ref}`,
-					remote: true,
-				}),
+				createReference(branchName, repo.path, { refType: 'branch', name: branchName, remote: true }),
+				{ createBranch: branchName },
 			);
 
 			// Ensure that the worktree was created
-			const worktree = await this.container.git.getWorktree(repo.path, w => w.branch === ref);
+			const worktree = await this.container.git.getWorktree(repo.path, w => w.branch === branchName);
 			if (worktree == null) return;
 
 			// Save the PR number in the branch config
 			// https://github.com/Microsoft/vscode-pull-request-github/blob/0c556c48c69a3df2f9cf9a45ed2c40909791b8ab/src/github/pullRequestGitHelper.ts#L18
 			void this.container.git.setConfig(
 				repo.path,
-				`branch.${ref}.github-pr-owner-number`,
+				`branch.${branchName}.github-pr-owner-number`,
 				`${rootOwner}#${rootRepository}#${number}`,
 			);
 		} catch (ex) {
 			Logger.error(ex, 'CreateWorktreeCommand', 'Unable to create worktree');
-			void window.showErrorMessage(`Unable to create worktree for ${ref}`);
+			void window.showErrorMessage(`Unable to create worktree for ${remoteOwner}:${ref}`);
 		}
 	}
 }
