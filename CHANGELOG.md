@@ -10,18 +10,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds an experimental _Generate Commit Message (Experimental)_ command to use OpenAI to generate a commit message for staged changes &mdash; currently only available in the pre-release edition
   - Adds a `gitlens.experimental.generateCommitMessagePrompt` setting to specify the prompt to use to tell OpenAI how to structure or format the generated commit message &mdash; can have fun with it and make your commit messages in the style of a pirate, etc
-- Adds a _Open Git Worktree..._ command to jump directly to opening a worktree in the _Git Command Palette_
 - Adds auto-detection for `.git-blame-ignore-revs` files and excludes the commits listed within from the blame annotations
+- Adds a _Open Git Worktree..._ command to jump directly to opening a worktree in the _Git Command Palette_
+- Adds a _Copy Relative Path_ context menu action for active editors and file nodes in sidebar views
 - Adds the ability to see branches and tags on remote repositories (e.g. GitHub) on the _Commit Graph_
   - Currently limited to only showing them for commits on the current branch, as we aren't yet able to show all commits on all branches
-- Adds a _Copy Relative Path_ context menu action for active editors and file nodes in sidebar views
 
 ### Changed
 
-- Removes Insiders edition in favor of the pre-release edition
 - Improves the display of items in the _Commit Graph_
   - When showing local branches, we now always display the upstream branches in the minimap, scrollbar markers, and graph rows
   - When laying out lanes in the Graph column, we now bias to be left aligned when possible for an easier to read and compact graph visualization
+- Removes Insiders edition in favor of the pre-release edition
 
 ### Fixed
 
