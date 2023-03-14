@@ -3637,7 +3637,7 @@
 					},
 					"gitlens.experimental.generateCommitMessagePrompt": {
 						"type": "string",
-						"default": "The commit message must have a short description that is less than 50 characters long followed by a more detailed description on a new line.",
+						"default": "Commit messages must have a short description that is less than 50 chars followed by a newline and a more detailed description.\n- Write concisely using an informal tone and avoid specific names from the code",
 						"markdownDescription": "Specifies the prompt to use to tell OpenAI how to structure or format the generated commit message",
 						"scope": "window",
 						"order": 55
@@ -9296,11 +9296,11 @@
 				},
 				{
 					"command": "gitlens.generateCommitMessage",
-					"when": "gitlens:prerelease"
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.resetOpenAIKey",
-					"when": "gitlens:prerelease"
+					"when": "gitlens:enabled"
 				}
 			],
 			"editor/context": [
