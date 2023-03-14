@@ -70,7 +70,7 @@ export interface TreeViewNodeCollapsibleStateChangeEvent<T> extends TreeViewExpa
 }
 
 export abstract class ViewBase<
-	RootNode extends ViewNode<View>,
+	RootNode extends ViewNode,
 	ViewConfig extends
 		| BranchesViewConfig
 		| ContributorsViewConfig
@@ -259,7 +259,7 @@ export abstract class ViewBase<
 	}
 
 	protected initialize(options: { canSelectMany?: boolean; showCollapseAll?: boolean } = {}) {
-		this.tree = window.createTreeView<ViewNode<View>>(this.id, {
+		this.tree = window.createTreeView<ViewNode>(this.id, {
 			...options,
 			treeDataProvider: this,
 		});
@@ -606,6 +606,7 @@ export abstract class ViewBase<
 		if (this._config == null) {
 			const cfg = { ...configuration.get('views') };
 			for (const view of viewsConfigKeys) {
+				// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
 				delete cfg[view];
 			}
 

@@ -119,10 +119,8 @@ import { GitStatusParser } from '../../../git/parsers/statusParser';
 import { GitTagParser } from '../../../git/parsers/tagParser';
 import { GitTreeParser } from '../../../git/parsers/treeParser';
 import { GitWorktreeParser } from '../../../git/parsers/worktreeParser';
-import type { RemoteProvider } from '../../../git/remotes/remoteProvider';
 import type { RemoteProviders } from '../../../git/remotes/remoteProviders';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../git/remotes/remoteProviders';
-import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
 import type { GitSearch, GitSearchResultData, GitSearchResults, SearchQuery } from '../../../git/search';
 import { getGitArgsFromSearchQuery, getSearchQueryComparisonKey } from '../../../git/search';
 import {
@@ -530,7 +528,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@debug<LocalGitProvider['getRemoteVisibility']>({ args: { 0: r => r.url } })
 	private async getRemoteVisibility(
-		remote: GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
+		remote: GitRemote,
 	): Promise<[visibility: RepositoryVisibility, remote: GitRemote]> {
 		const scope = getLogScope();
 
@@ -1866,7 +1864,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			let refTags: GitGraphRowTag[];
 			let parent: string;
 			let parents: string[];
-			let remote: GitRemote<RemoteProvider | RichRemoteProvider | undefined> | undefined;
+			let remote: GitRemote | undefined;
 			let remoteBranchId: string;
 			let remoteName: string;
 			let stashCommit: GitStashCommit | undefined;
@@ -3827,7 +3825,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getRemotes(
 		repoPath: string | undefined,
 		options?: { providers?: RemoteProviders; sort?: boolean },
-	): Promise<GitRemote<RemoteProvider | RichRemoteProvider | undefined>[]> {
+	): Promise<GitRemote[]> {
 		if (repoPath == null) return [];
 
 		const providers = options?.providers ?? loadRemoteProviders(configuration.get('remotes', null));

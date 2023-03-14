@@ -326,7 +326,6 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 }
 
 function getScopesKey(scopes: readonly string[]): string;
-function getScopesKey(scopes: undefined): string | undefined;
 function getScopesKey(scopes: readonly string[] | undefined): string | undefined;
 function getScopesKey(scopes: readonly string[] | undefined): string | undefined {
 	return scopes?.join('|');

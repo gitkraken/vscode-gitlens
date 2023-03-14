@@ -1,4 +1,3 @@
-import type { QuickPickItem } from 'vscode';
 import { QuickInputButtons } from 'vscode';
 import type { Container } from '../../container';
 import { reveal } from '../../git/actions/remote';
@@ -333,7 +332,7 @@ export class RemoteGitCommand extends QuickCommand<State> {
 		}
 	}
 
-	private *addCommandConfirmStep(state: AddStepState<AddState>, context: Context): StepResultGenerator<AddFlags[]> {
+	private *addCommandConfirmStep(state: AddStepState, context: Context): StepResultGenerator<AddFlags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<AddFlags>> = createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
@@ -397,7 +396,7 @@ export class RemoteGitCommand extends QuickCommand<State> {
 		state: RemoveStepState<ExcludeSome<RemoveState, 'remote', string>>,
 		context: Context,
 	): StepResultGenerator<void> {
-		const step: QuickPickStep<QuickPickItem> = createConfirmStep(
+		const step: QuickPickStep = createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
 				{
@@ -448,7 +447,7 @@ export class RemoteGitCommand extends QuickCommand<State> {
 		state: PruneStepState<ExcludeSome<PruneState, 'remote', string>>,
 		context: Context,
 	): StepResultGenerator<void> {
-		const step: QuickPickStep<QuickPickItem> = createConfirmStep(
+		const step: QuickPickStep = createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
 				{

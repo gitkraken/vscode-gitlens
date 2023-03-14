@@ -18,12 +18,14 @@ export function flatten(
 ): Record<string, NonNullable<any>>;
 export function flatten(
 	o: any,
-	options: { arrays?: 'join' | 'spread'; prefix?: string; skipPaths?: string[]; skipNulls?: false; stringify: true },
+	options: {
+		arrays?: 'join' | 'spread';
+		prefix?: string;
+		skipPaths?: string[];
+		skipNulls?: false;
+		stringify: true | 'all';
+	},
 ): Record<string, string | null>;
-export function flatten(
-	o: any,
-	options: { arrays?: 'join' | 'spread'; prefix?: string; skipPaths?: string[]; skipNulls?: false; stringify: 'all' },
-): Record<string, string>;
 export function flatten(
 	o: any,
 	options?: {

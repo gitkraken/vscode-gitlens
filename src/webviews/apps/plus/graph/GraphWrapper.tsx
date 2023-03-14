@@ -107,7 +107,7 @@ const getGraphDateFormatter = (config?: GraphComponentConfig): OnFormatCommitDat
 		formatCommitDateTime(commitDateTime, config?.dateStyle, config?.dateFormat, source);
 };
 
-const createIconElements = (): { [key: string]: ReactElement<any> } => {
+const createIconElements = (): { [key: string]: ReactElement } => {
 	const iconList = [
 		'head',
 		'remote',
@@ -128,7 +128,7 @@ const createIconElements = (): { [key: string]: ReactElement<any> } => {
 
 	const miniIconList = ['upstream-ahead', 'upstream-behind'];
 
-	const elementLibrary: { [key: string]: ReactElement<any> } = {};
+	const elementLibrary: { [key: string]: ReactElement } = {};
 	iconList.forEach(iconKey => {
 		elementLibrary[iconKey] = createElement('span', { className: `graph-icon icon--${iconKey}` });
 	});
@@ -828,7 +828,7 @@ export function GraphWrapper({
 		onMissingRefsMetadata?.(metadata);
 	};
 
-	const handleToggleColumnSettings = (event: React.MouseEvent<HTMLButtonElement, globalThis.MouseEvent>) => {
+	const handleToggleColumnSettings = (event: React.MouseEvent<HTMLButtonElement>) => {
 		const e = event.nativeEvent;
 		const evt = new MouseEvent('contextmenu', {
 			bubbles: true,
@@ -876,7 +876,7 @@ export function GraphWrapper({
 	};
 
 	const handleOnDoubleClickRef = (
-		_event: React.MouseEvent<HTMLButtonElement, globalThis.MouseEvent>,
+		_event: React.MouseEvent<HTMLButtonElement>,
 		refGroup: GraphRefGroup,
 		_row: GraphRow,
 		metadata?: GraphRefMetadataItem,
@@ -887,7 +887,7 @@ export function GraphWrapper({
 	};
 
 	const handleOnDoubleClickRow = (
-		_event: React.MouseEvent<HTMLButtonElement, globalThis.MouseEvent>,
+		_event: React.MouseEvent<HTMLButtonElement>,
 		graphZoneType: GraphZoneType,
 		row: GraphRow,
 	) => {

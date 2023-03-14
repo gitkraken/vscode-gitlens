@@ -7,6 +7,7 @@ import type { ViewNode } from './viewNode';
 import { ContextValues } from './viewNode';
 
 export class StashFileNode extends CommitFileNode<StashesView | RepositoriesView> {
+	// eslint-disable-next-line @typescript-eslint/no-useless-constructor
 	constructor(view: StashesView | RepositoriesView, parent: ViewNode, file: GitFile, commit: GitStashCommit) {
 		super(view, parent, file, commit);
 	}
