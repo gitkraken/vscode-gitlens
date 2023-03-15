@@ -608,7 +608,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			[
 				createFlagsQuickPickItem<CreateFlags, Uri>(
 					state.flags,
-					[],
+					isRemoteBranch ? ['-b'] : [],
 					{
 						label: isRemoteBranch ? 'Create Local Branch and Worktree' : context.title,
 						description: ' in subfolder',
