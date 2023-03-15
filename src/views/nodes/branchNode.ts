@@ -182,7 +182,7 @@ export class BranchNode
 
 						// Refresh this node to add the pull request node or remove the spinner
 						if (spinner || pr != null) {
-							this.view.triggerNodeChange(this);
+							this.view.triggerNodeChange(this.root ? this.parent ?? this : this);
 						}
 					});
 				}
