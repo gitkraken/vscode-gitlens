@@ -12,11 +12,11 @@ import { Logger } from '../../system/logger';
 import { waitUntilNextTick } from '../../system/promise';
 import { Command } from '../base';
 
-interface PullRequestNode {
-	readonly pullRequestModel: PullRequest;
+interface GHPRPullRequestNode {
+	readonly pullRequestModel: GHPRPullRequest;
 }
 
-interface PullRequest {
+interface GHPRPullRequest {
 	readonly base: {
 		readonly repositoryCloneUrl: {
 			readonly owner: string;
@@ -46,7 +46,7 @@ export class OpenOrCreateWorktreeCommand extends Command {
 		super(Commands.OpenOrCreateWorktreeForGHPR);
 	}
 
-	async execute(...args: [PullRequestNode | PullRequest, ...unknown[]]) {
+	async execute(...args: [GHPRPullRequestNode | GHPRPullRequest, ...unknown[]]) {
 		const [arg] = args;
 		let pr;
 		if ('pullRequestModel' in arg) {
@@ -80,9 +80,10 @@ export class OpenOrCreateWorktreeCommand extends Command {
 		}
 
 		const branchName = `${remoteOwner}/${ref}`;
+		const prBranchName = `pr/${branchName}`;
 
 		const worktrees = await repo.getWorktrees();
-		const worktree = worktrees.find(w => w.branch === branchName);
+		const worktree = worktrees.find(w => w.branch === branchName || w.branch === prBranchName);
 		if (worktree != null) {
 			void openWorktree(worktree);
 
@@ -121,18 +122,18 @@ export class OpenOrCreateWorktreeCommand extends Command {
 				repo,
 				undefined,
 				createReference(branchName, repo.path, { refType: 'branch', name: branchName, remote: true }),
-				{ createBranch: branchName },
+				{ createBranch: prBranchName },
 			);
 
 			// Ensure that the worktree was created
-			const worktree = await this.container.git.getWorktree(repo.path, w => w.branch === branchName);
+			const worktree = await this.container.git.getWorktree(repo.path, w => w.branch === prBranchName);
 			if (worktree == null) return;
 
 			// Save the PR number in the branch config
 			// https://github.com/Microsoft/vscode-pull-request-github/blob/0c556c48c69a3df2f9cf9a45ed2c40909791b8ab/src/github/pullRequestGitHelper.ts#L18
 			void this.container.git.setConfig(
 				repo.path,
-				`branch.${branchName}.github-pr-owner-number`,
+				`branch.${prBranchName}.github-pr-owner-number`,
 				`${rootOwner}#${rootRepository}#${number}`,
 			);
 		} catch (ex) {
