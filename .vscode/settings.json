@@ -19,7 +19,7 @@
 		},
 		{
 			"label": "Current",
-			"query": "state:open repo:${owner}/${repository} milestone:\"13.3\" sort:updated-desc"
+			"query": "state:open repo:${owner}/${repository} milestone:\"13.5\" sort:updated-desc"
 		},
 		{
 			"label": "Soon™",
@@ -32,6 +32,10 @@
 		{
 			"label": "Pending Release",
 			"query": "state:closed repo:${owner}/${repository} label:pending-release sort:updated-desc"
+		},
+		{
+			"label": "Debt",
+			"query": "state:open repo:${owner}/${repository} label:debt sort:updated-desc"
 		},
 		{
 			"label": "All",
