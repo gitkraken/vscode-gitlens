@@ -48,6 +48,14 @@ const millisecondsPerMinute = 60 * 1000;
 const millisecondsPerHour = 60 * 60 * 1000;
 const millisecondsPerDay = 24 * 60 * 60 * 1000;
 
+const dotGitWatcherGlobFiles = 'index,HEAD,*_HEAD,MERGE_*,rebase-merge/**,sequencer/**';
+const dotGitWatcherGlobWorktreeFiles =
+	'worktrees/**/index,worktrees/**/HEAD,worktrees/**/*_HEAD,worktrees/**/MERGE_*,worktrees/**/rebase-merge/**,worktrees/**/sequencer/**';
+
+const dotGitWatcherGlobRoot = `{${dotGitWatcherGlobFiles}}`;
+const dotGitWatcherGlobCommon = `{config,refs/**,${dotGitWatcherGlobWorktreeFiles}}`;
+const dotGitWatcherGlobCombined = `{${dotGitWatcherGlobFiles},config,refs/**,${dotGitWatcherGlobWorktreeFiles}}`;
+
 export const enum RepositoryChange {
 	Unknown = -1,
 
@@ -296,14 +304,10 @@ export class Repository implements Disposable {
 		const gitDir = await this.getGitDir();
 		if (gitDir != null) {
 			if (gitDir?.commonUri == null) {
-				watch.call(
-					this,
-					gitDir.uri,
-					'{index,HEAD,*_HEAD,MERGE_*,config,refs/**,rebase-merge/**,sequencer/**,worktrees/**}',
-				);
+				watch.call(this, gitDir.uri, dotGitWatcherGlobCombined);
 			} else {
-				watch.call(this, gitDir.uri, '{index,HEAD,*_HEAD,MERGE_*,rebase-merge/**,sequencer/**}');
-				watch.call(this, gitDir.commonUri, '{config,refs/**,worktrees/**}');
+				watch.call(this, gitDir.uri, dotGitWatcherGlobRoot);
+				watch.call(this, gitDir.commonUri, dotGitWatcherGlobCommon);
 			}
 		}
 
