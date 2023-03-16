@@ -7976,7 +7976,7 @@
 				},
 				{
 					"command": "gitlens.openAssociatedPullRequestOnRemote",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:activeFileStatus =~ /remotes/"
+					"when": "gitlens:hasRemotes"
 				},
 				{
 					"command": "gitlens.openFileFromRemote",

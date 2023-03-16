@@ -32,6 +32,16 @@ export function ensure<T>(source: T | T[] | undefined): T[] | undefined {
 	return source == null ? undefined : Array.isArray(source) ? source : [source];
 }
 
+export async function filterAsync<T>(source: T[], predicate: (item: T) => Promise<boolean>): Promise<T[]> {
+	const filtered = [];
+	for (const item of source) {
+		if (await predicate(item)) {
+			filtered.push(item);
+		}
+	}
+	return filtered;
+}
+
 export function filterMap<T, TMapped>(
 	source: T[],
 	predicateMapper: (item: T, index: number) => TMapped | null | undefined,
@@ -46,20 +56,18 @@ export function filterMap<T, TMapped>(
 	}, []);
 }
 
-export function filterMapAsync<T, TMapped>(
+export async function filterMapAsync<T, TMapped>(
 	source: T[],
-	predicateMapper: (item: T, index: number) => Promise<TMapped | null | undefined>,
+	predicateMapper: (item: T) => Promise<TMapped | null | undefined>,
 ): Promise<TMapped[]> {
-	let index = 0;
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-return
-	return source.reduce<any>(async (accumulator, current: T) => {
-		const mapped = await predicateMapper(current, index++);
+	const filteredAndMapped = [];
+	for (const item of source) {
+		const mapped = await predicateMapper(item);
 		if (mapped != null) {
-			accumulator.push(mapped);
+			filteredAndMapped.push(mapped);
 		}
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
-		return accumulator;
-	}, []);
+	}
+	return filteredAndMapped;
 }
 
 export function findLastIndex<T>(source: T[], predicate: (value: T, index: number, obj: T[]) => boolean): number {

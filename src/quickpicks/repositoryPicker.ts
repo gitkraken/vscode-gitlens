@@ -2,6 +2,7 @@ import type { Disposable, TextEditor, Uri } from 'vscode';
 import { window } from 'vscode';
 import { Container } from '../container';
 import type { Repository } from '../git/models/repository';
+import { filterMapAsync } from '../system/array';
 import { map } from '../system/iterable';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import { CommandQuickPickItem } from './items/common';
@@ -12,11 +13,18 @@ export async function getBestRepositoryOrShowPicker(
 	uri: Uri | undefined,
 	editor: TextEditor | undefined,
 	title: string,
+	options?: { filter?: (r: Repository) => Promise<boolean> },
 ): Promise<Repository | undefined> {
-	const repository = Container.instance.git.getBestRepository(uri, editor);
+	let repository = Container.instance.git.getBestRepository(uri, editor);
+
+	if (repository != null && options?.filter != null) {
+		if (!(await options.filter(repository))) {
+			repository = undefined;
+		}
+	}
 	if (repository != null) return repository;
 
-	const pick = await showRepositoryPicker(title);
+	const pick = await showRepositoryPicker(title, undefined, options);
 	if (pick instanceof CommandQuickPickItem) {
 		await pick.execute();
 		return undefined;
@@ -25,16 +33,26 @@ export async function getBestRepositoryOrShowPicker(
 	return pick?.item;
 }
 
-export async function getRepositoryOrShowPicker(title: string, uri?: Uri): Promise<Repository | undefined> {
+export async function getRepositoryOrShowPicker(
+	title: string,
+	uri?: Uri,
+	options?: { filter?: (r: Repository) => Promise<boolean> },
+): Promise<Repository | undefined> {
 	let repository;
 	if (uri == null) {
 		repository = Container.instance.git.highlander;
 	} else {
 		repository = await Container.instance.git.getOrOpenRepository(uri);
 	}
+
+	if (repository != null && options?.filter != null) {
+		if (!(await options.filter(repository))) {
+			repository = undefined;
+		}
+	}
 	if (repository != null) return repository;
 
-	const pick = await showRepositoryPicker(title);
+	const pick = await showRepositoryPicker(title, undefined, options);
 	if (pick instanceof CommandQuickPickItem) {
 		void (await pick.execute());
 		return undefined;
@@ -45,14 +63,44 @@ export async function getRepositoryOrShowPicker(title: string, uri?: Uri): Promi
 
 export async function showRepositoryPicker(
 	title: string | undefined,
-	placeholder: string = 'Choose a repository',
+	placeholder?: string,
 	repositories?: Repository[],
+): Promise<RepositoryQuickPickItem | undefined>;
+export async function showRepositoryPicker(
+	title: string | undefined,
+	placeholder?: string,
+	options?: { filter?: (r: Repository) => Promise<boolean> },
+): Promise<RepositoryQuickPickItem | undefined>;
+export async function showRepositoryPicker(
+	title: string | undefined,
+	placeholder: string = 'Choose a repository',
+	repositoriesOrOptions?: Repository[] | { filter?: (r: Repository) => Promise<boolean> },
 ): Promise<RepositoryQuickPickItem | undefined> {
-	const items = await Promise.all<Promise<RepositoryQuickPickItem>>([
-		...map(repositories ?? Container.instance.git.openRepositories, r =>
-			createRepositoryQuickPickItem(r, undefined, { branch: true, status: true }),
-		),
-	]);
+	if (
+		repositoriesOrOptions != null &&
+		!Array.isArray(repositoriesOrOptions) &&
+		repositoriesOrOptions.filter == null
+	) {
+		repositoriesOrOptions = undefined;
+	}
+
+	let items: RepositoryQuickPickItem[];
+	if (repositoriesOrOptions == null || Array.isArray(repositoriesOrOptions)) {
+		items = await Promise.all<Promise<RepositoryQuickPickItem>>([
+			...map(repositoriesOrOptions ?? Container.instance.git.openRepositories, r =>
+				createRepositoryQuickPickItem(r, undefined, { branch: true, status: true }),
+			),
+		]);
+	} else {
+		const { filter } = repositoriesOrOptions;
+		items = await filterMapAsync(Container.instance.git.openRepositories, async r =>
+			(await filter!(r))
+				? createRepositoryQuickPickItem(r, undefined, { branch: true, status: true })
+				: undefined,
+		);
+	}
+
+	if (items.length === 0) return undefined;
 
 	const quickpick = window.createQuickPick<RepositoryQuickPickItem>();
 	quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
