@@ -19,8 +19,9 @@ interface GHPRPullRequestNode {
 interface GHPRPullRequest {
 	readonly base: {
 		readonly repositoryCloneUrl: {
-			readonly owner: string;
 			readonly repositoryName: string;
+			readonly owner: string;
+			readonly url: Uri;
 		};
 	};
 	readonly githubRepository: {
@@ -30,6 +31,7 @@ interface GHPRPullRequest {
 		readonly ref: string;
 		readonly sha: string;
 		readonly repositoryCloneUrl: {
+			readonly repositoryName: string;
 			readonly owner: string;
 			readonly url: Uri;
 		};
@@ -57,9 +59,9 @@ export class OpenOrCreateWorktreeCommand extends Command {
 
 		const {
 			base: {
-				repositoryCloneUrl: { owner: rootOwner, repositoryName: rootRepository },
+				repositoryCloneUrl: { url: rootUri, owner: rootOwner, repositoryName: rootRepository },
 			},
-			githubRepository: { rootUri },
+			githubRepository: { rootUri: localUri },
 			head: {
 				repositoryCloneUrl: { url: remoteUri, owner: remoteOwner },
 				ref,
@@ -67,26 +69,15 @@ export class OpenOrCreateWorktreeCommand extends Command {
 			item: { number },
 		} = pr;
 
-		let repo = this.container.git.getRepository(rootUri);
+		let repo = this.container.git.getRepository(localUri);
 		if (repo == null) {
-			void window.showWarningMessage(`Unable to find repository(${rootUri.toString()}) for PR #${number}`);
+			void window.showWarningMessage(`Unable to find repository(${localUri.toString()}) for PR #${number}`);
 			return;
 		}
 
 		repo = await repo.getMainRepository();
 		if (repo == null) {
-			void window.showWarningMessage(`Unable to find main repository(${rootUri.toString()}) for PR #${number}`);
-			return;
-		}
-
-		const branchName = `${remoteOwner}/${ref}`;
-		const prBranchName = `pr/${branchName}`;
-
-		const worktrees = await repo.getWorktrees();
-		const worktree = worktrees.find(w => w.branch === branchName || w.branch === prBranchName);
-		if (worktree != null) {
-			void openWorktree(worktree);
-
+			void window.showWarningMessage(`Unable to find main repository(${localUri.toString()}) for PR #${number}`);
 			return;
 		}
 
@@ -95,7 +86,10 @@ export class OpenOrCreateWorktreeCommand extends Command {
 
 		let remote: GitRemote | undefined;
 		[remote] = await repo.getRemotes({ filter: r => r.matches(remoteDomain, remotePath) });
-		if (remote == null) {
+		if (remote != null) {
+			// Ensure we have the latest from the remote
+			await this.container.git.fetch(repo.path, { remote: remote.name });
+		} else {
 			const result = await window.showInformationMessage(
 				`Unable to find a remote for '${remoteUrl}'. Would you like to add a new remote?`,
 				{ modal: true },
@@ -111,8 +105,17 @@ export class OpenOrCreateWorktreeCommand extends Command {
 			});
 			[remote] = await repo.getRemotes({ filter: r => r.url === remoteUrl });
 			if (remote == null) return;
-		} else {
-			await this.container.git.fetch(repo.path, { remote: remote.name });
+		}
+
+		const remoteBranchName = `${remote.name}/${ref}`;
+		const localBranchName = `pr/${rootUri.toString() === remoteUri.toString() ? ref : remoteBranchName}`;
+
+		const worktrees = await repo.getWorktrees();
+		const worktree = worktrees.find(w => w.branch === localBranchName);
+		if (worktree != null) {
+			void openWorktree(worktree);
+
+			return;
 		}
 
 		await waitUntilNextTick();
@@ -121,19 +124,23 @@ export class OpenOrCreateWorktreeCommand extends Command {
 			await createWorktree(
 				repo,
 				undefined,
-				createReference(branchName, repo.path, { refType: 'branch', name: branchName, remote: true }),
-				{ createBranch: prBranchName },
+				createReference(remoteBranchName, repo.path, {
+					refType: 'branch',
+					name: remoteBranchName,
+					remote: true,
+				}),
+				{ createBranch: localBranchName },
 			);
 
 			// Ensure that the worktree was created
-			const worktree = await this.container.git.getWorktree(repo.path, w => w.branch === prBranchName);
+			const worktree = await this.container.git.getWorktree(repo.path, w => w.branch === localBranchName);
 			if (worktree == null) return;
 
 			// Save the PR number in the branch config
 			// https://github.com/Microsoft/vscode-pull-request-github/blob/0c556c48c69a3df2f9cf9a45ed2c40909791b8ab/src/github/pullRequestGitHelper.ts#L18
 			void this.container.git.setConfig(
 				repo.path,
-				`branch.${prBranchName}.github-pr-owner-number`,
+				`branch.${localBranchName}.github-pr-owner-number`,
 				`${rootOwner}#${rootRepository}#${number}`,
 			);
 		} catch (ex) {
