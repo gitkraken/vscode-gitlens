@@ -4,8 +4,12 @@ import { CharCode } from '../constants';
 
 export { fromBase64, base64 } from '@env/base64';
 
-const compareCollator = new Intl.Collator(undefined, { sensitivity: 'accent' });
+let compareCollator: Intl.Collator | undefined;
 export function compareIgnoreCase(a: string, b: string): 0 | -1 | 1 {
+	if (compareCollator == null) {
+		compareCollator = new Intl.Collator(undefined, { sensitivity: 'accent' });
+	}
+
 	const result = compareCollator.compare(a, b);
 	// Intl.Collator.compare isn't guaranteed to always return 1 or -1 on all platforms so normalize it
 	return result === 0 ? 0 : result > 0 ? 1 : -1;
@@ -18,8 +22,13 @@ export function equalsIgnoreCase(a: string | null | undefined, b: string | null 
 	return compareIgnoreCase(a, b) === 0;
 }
 
-export const sortCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
-export const sortCompare = sortCollator.compare;
+let sortCollator: Intl.Collator | undefined;
+export function sortCompare(x: string, y: string): number {
+	if (sortCollator == null) {
+		sortCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+	}
+	return sortCollator.compare(x, y);
+}
 
 export function compareSubstring(
 	a: string,
