@@ -2006,12 +2006,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							name: tip,
 							isCurrentHead: head,
 							context: serializeWebviewItemContext<GraphItemRefContext>(context),
-							...(branch?.upstream && {
-								upstream: {
-									name: branch.upstream.name,
-									id: getBranchId(repoPath, true, branch.upstream.name),
-								},
-							}),
+							upstream: branch?.upstream != null
+							  ? {
+								  name: branch.upstream.name,
+								  id: getBranchId(repoPath, true, branch.upstream.name),
+								}
+							  : undefined,
 						};
 						refHeads.push(refHead);
 						if (branch?.upstream?.name != null) {
