@@ -15,15 +15,13 @@ async function generate() {
 	const files = ['github.raw.json', 'emojibase.raw.json']; //, 'iamcal.raw.json', 'joypixels.raw.json'];
 
 	for (const file of files) {
-		await download(
-			`https://raw.githubusercontent.com/milesj/emojibase/master/packages/data/en/shortcodes/${file}`,
-			file,
-		);
-
 		/**
 		 * @type {Record<string, string | string[]>}}
 		 */
-		const data = JSON.parse(fs.readFileSync(path.join(process.cwd(), file), 'utf8'));
+		const data = await downloadToJSON(
+			`https://raw.githubusercontent.com/milesj/emojibase/master/packages/data/en/shortcodes/${file}`,
+		);
+
 		for (const [emojis, codes] of Object.entries(data)) {
 			const emoji = emojis
 				.split('-')
@@ -37,21 +35,19 @@ async function generate() {
 				shortcodeMap.set(code, emoji);
 			}
 		}
-
-		fs.unlink(file, () => {});
 	}
 
 	// Get gitmoji data from https://github.com/carloscuesta/gitmoji
 	// https://github.com/carloscuesta/gitmoji/blob/master/src/data/gitmojis.json
-	await download(
-		'https://raw.githubusercontent.com/carloscuesta/gitmoji/master/packages/gitmojis/src/gitmojis.json',
-		'gitmojis.json',
-	);
-
 	/**
 	 * @type {({ code: string; emoji: string })[]}
 	 */
-	const gitmojis = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'gitmojis.json'), 'utf8')).gitmojis;
+	const gitmojis = (
+		await downloadToJSON(
+			'https://raw.githubusercontent.com/carloscuesta/gitmoji/master/packages/gitmojis/src/gitmojis.json',
+		)
+	).gitmojis;
+
 	for (const emoji of gitmojis) {
 		if (emoji.code.startsWith(':') && emoji.code.endsWith(':')) {
 			emoji.code = emoji.code.substring(1, emoji.code.length - 2);
@@ -64,8 +60,6 @@ async function generate() {
 		shortcodeMap.set(emoji.code, emoji.emoji);
 	}
 
-	fs.unlink('gitmojis.json', () => {});
-
 	// Sort the emojis for easier diff checking
 	const list = [...shortcodeMap.entries()];
 	list.sort();
@@ -76,21 +70,20 @@ async function generate() {
 	}, Object.create(null));
 
 	fs.writeFileSync(
-		path.join(process.cwd(), 'src/emojis.compressed.ts'),
+		path.join(process.cwd(), 'src/emojis.generated.ts'),
 		`export const emojis = '${LZString.compressToBase64(JSON.stringify(map))}';\n`,
 		'utf8',
 	);
 }
 
-function download(url, destination) {
+function downloadToJSON(url) {
 	return new Promise(resolve => {
-		const stream = fs.createWriteStream(destination);
 		https.get(url, rsp => {
-			rsp.pipe(stream);
-			stream.on('finish', () => {
-				stream.close();
-				resolve();
-			});
+			rsp.setEncoding('utf8');
+
+			let data = '';
+			rsp.on('data', chunk => (data += chunk));
+			rsp.on('end', () => resolve(JSON.parse(data)));
 		});
 	});
 }
