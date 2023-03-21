@@ -1,4 +1,4 @@
-import { emojis as compressed } from './emojis.compressed';
+import { emojis as compressed } from './emojis.generated';
 import { decompressFromBase64LZString } from './system/string';
 
 const emojiRegex = /:([-+_a-z0-9]+):/g;
