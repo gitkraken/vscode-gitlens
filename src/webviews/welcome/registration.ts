@@ -2,7 +2,7 @@ import { Commands, ContextKeys } from '../../constants';
 import type { WebviewsController } from '../webviewsController';
 import type { State } from './protocol';
 
-export function registerWelcomeWebviewView(controller: WebviewsController) {
+export function registerWelcomeWebviewPanel(controller: WebviewsController) {
 	return controller.registerWebviewPanel<State>(Commands.ShowWelcomePage, 'gitlens.welcome', {
 		fileName: 'welcome.html',
 		iconPath: 'images/gitlens-icon.png',

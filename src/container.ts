@@ -58,10 +58,10 @@ import { VslsController } from './vsls/vsls';
 import { registerCommitDetailsWebviewView } from './webviews/commitDetails/registration';
 import { registerHomeWebviewView } from './webviews/home/registration';
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
-import { registerSettingsWebviewCommands, registerSettingsWebviewView } from './webviews/settings/registration';
+import { registerSettingsWebviewCommands, registerSettingsWebviewPanel } from './webviews/settings/registration';
 import type { WebviewViewProxy } from './webviews/webviewsController';
 import { WebviewsController } from './webviews/webviewsController';
-import { registerWelcomeWebviewView } from './webviews/welcome/registration';
+import { registerWelcomeWebviewPanel } from './webviews/welcome/registration';
 
 export type Environment = 'dev' | 'staging' | 'production';
 
@@ -218,10 +218,10 @@ export class Container {
 		// context.subscriptions.splice(0, 0, (this._graphView = registerGraphWebviewView(this._webviews)));
 		context.subscriptions.splice(0, 0, new GraphStatusBarController(this));
 
-		const settingsWebviewPanel = registerSettingsWebviewView(this._webviews);
+		const settingsWebviewPanel = registerSettingsWebviewPanel(this._webviews);
 		context.subscriptions.splice(0, 0, settingsWebviewPanel);
 		context.subscriptions.splice(0, 0, registerSettingsWebviewCommands(settingsWebviewPanel));
-		context.subscriptions.splice(0, 0, registerWelcomeWebviewView(this._webviews));
+		context.subscriptions.splice(0, 0, registerWelcomeWebviewPanel(this._webviews));
 		context.subscriptions.splice(0, 0, (this._rebaseEditor = new RebaseEditorProvider(this)));
 		context.subscriptions.splice(0, 0, new FocusWebview(this));
 
