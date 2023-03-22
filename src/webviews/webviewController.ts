@@ -353,12 +353,20 @@ export class WebviewController<State, SerializedState = State> implements Dispos
 		this.provider.onWindowFocusChanged?.(e.focused);
 	}
 
+	private _webRoot: string | undefined;
 	getWebRoot() {
-		return this.asWebviewUri(this.getWebRootUri()).toString();
+		if (this._webRoot == null) {
+			this._webRoot = this.asWebviewUri(this.getWebRootUri()).toString();
+		}
+		return this._webRoot;
 	}
 
+	private _webRootUri: Uri | undefined;
 	private getWebRootUri() {
-		return Uri.joinPath(this.container.context.extensionUri, 'dist', 'webviews');
+		if (this._webRootUri == null) {
+			this._webRootUri = Uri.joinPath(this.container.context.extensionUri, 'dist', 'webviews');
+		}
+		return this._webRootUri;
 	}
 
 	private async getHtml(webview: Webview): Promise<string> {
@@ -375,8 +383,8 @@ export class WebviewController<State, SerializedState = State> implements Dispos
 
 		const cspSource = webview.cspSource;
 
-		const root = webview.asWebviewUri(this.container.context.extensionUri).toString();
-		const webRoot = webview.asWebviewUri(webRootUri).toString();
+		const root = this.asWebviewUri(this.container.context.extensionUri).toString();
+		const webRoot = this.getWebRoot();
 
 		const html = content.replace(
 			/#{(head|body|endOfBody|placement|cspSource|cspNonce|root|webroot)}/g,
