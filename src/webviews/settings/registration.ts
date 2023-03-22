@@ -4,7 +4,7 @@ import { registerCommand } from '../../system/command';
 import type { WebviewPanelProxy, WebviewsController } from '../webviewsController';
 import type { State } from './protocol';
 
-export function registerSettingsWebviewView(controller: WebviewsController) {
+export function registerSettingsWebviewPanel(controller: WebviewsController) {
 	return controller.registerWebviewPanel<State>(Commands.ShowSettingsPage, 'gitlens.settings', {
 		fileName: 'settings.html',
 		iconPath: 'images/gitlens-icon.png',
