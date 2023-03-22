@@ -59,6 +59,7 @@ import { CommitDetailsWebviewView } from './webviews/commitDetails/commitDetails
 import { HomeWebviewView } from './webviews/home/homeWebviewView';
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
 import { SettingsWebview } from './webviews/settings/settingsWebview';
+import { WebviewsController } from './webviews/webviewsController';
 import { WelcomeWebview } from './webviews/welcome/welcomeWebview';
 
 export type Environment = 'dev' | 'staging' | 'production';
@@ -155,6 +156,8 @@ export class Container {
 	private _configAffectedByModeRegex: RegExp | undefined;
 	private _terminalLinks: GitTerminalLinkProvider | undefined;
 
+	private _webviews: WebviewsController;
+
 	private constructor(
 		context: ExtensionContext,
 		storage: Storage,
@@ -204,6 +207,7 @@ export class Container {
 		context.subscriptions.splice(0, 0, (this._statusBarController = new StatusBarController(this)));
 		context.subscriptions.splice(0, 0, (this._codeLensController = new GitCodeLensController(this)));
 
+		context.subscriptions.splice(0, 0, (this._webviews = new WebviewsController(this)));
 		context.subscriptions.splice(0, 0, (this._settingsWebview = new SettingsWebview(this)));
 		context.subscriptions.splice(0, 0, (this._timelineWebview = new TimelineWebview(this)));
 		context.subscriptions.splice(0, 0, (this._welcomeWebview = new WelcomeWebview(this)));

@@ -17,6 +17,7 @@ import { serialize } from '../system/decorators/serialize';
 import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
 import type { IpcMessage, IpcMessageParams, IpcNotificationType, WebviewFocusChangedParams } from './protocol';
 import { ExecuteCommandType, onIpc, WebviewFocusChangedCommandType, WebviewReadyCommandType } from './protocol';
+import type { WebviewIds } from './webviewsController';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 
@@ -30,8 +31,6 @@ function nextIpcId() {
 
 	return `host:${ipcSequence}`;
 }
-
-export type WebviewIds = 'graph' | 'settings' | 'timeline' | 'welcome' | 'focus';
 
 @logName<WebviewBase<any>>((c, name) => `${name}(${c.id})`)
 export abstract class WebviewBase<State> implements Disposable {
