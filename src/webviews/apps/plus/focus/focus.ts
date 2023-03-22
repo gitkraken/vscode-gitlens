@@ -1,8 +1,11 @@
 import { provideVSCodeDesignSystem, vsCodeButton } from '@vscode/webview-ui-toolkit';
+import type { PullRequestShape } from '../../../../git/models/pullRequest';
 import type { State } from '../../../../plus/webviews/focus/protocol';
 import {
 	DidChangeStateNotificationType,
 	DidChangeSubscriptionNotificationType,
+	OpenWorktreeCommandType,
+	SwitchToBranchCommandType,
 } from '../../../../plus/webviews/focus/protocol';
 import type { IpcMessage } from '../../../protocol';
 import { ExecuteCommandType, onIpc } from '../../../protocol';
@@ -65,8 +68,28 @@ export class FocusApp extends App<State> {
 				this.onPlusActionClicked(e, target),
 			),
 		);
+		disposables.push(
+			DOM.on<PullRequestRow, PullRequestShape>('pull-request-row', 'open-worktree', (e, target: HTMLElement) =>
+				this.onOpenWorktree(e, target),
+			),
+		);
+		disposables.push(
+			DOM.on<PullRequestRow, PullRequestShape>('pull-request-row', 'switch-branch', (e, target: HTMLElement) =>
+				this.onSwitchBranch(e, target),
+			),
+		);
 
 		return disposables;
+	}
+
+	private onSwitchBranch(e: CustomEvent<PullRequestShape>, _target: HTMLElement) {
+		if (e.detail?.refs?.head == null) return;
+		this.sendCommand(SwitchToBranchCommandType, { pullRequest: e.detail });
+	}
+
+	private onOpenWorktree(e: CustomEvent<PullRequestShape>, _target: HTMLElement) {
+		if (e.detail?.refs?.head == null) return;
+		this.sendCommand(OpenWorktreeCommandType, { pullRequest: e.detail });
 	}
 
 	private onDataActionClicked(_e: MouseEvent, target: HTMLElement) {

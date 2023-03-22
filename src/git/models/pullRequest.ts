@@ -32,6 +32,7 @@ export interface PullRequestRef {
 	branch: string;
 	sha: string;
 	exists: boolean;
+	url: string;
 }
 
 export interface PullRequestRefs {
@@ -102,6 +103,7 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 						repo: value.refs.head.repo,
 						sha: value.refs.head.sha,
 						branch: value.refs.head.branch,
+						url: value.refs.head.url,
 					},
 					base: {
 						exists: value.refs.base.exists,
@@ -109,6 +111,7 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 						repo: value.refs.base.repo,
 						sha: value.refs.base.sha,
 						branch: value.refs.base.branch,
+						url: value.refs.base.url,
 					},
 					isCrossRepository: value.refs.isCrossRepository,
 			  }

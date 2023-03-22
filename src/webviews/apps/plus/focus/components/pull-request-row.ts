@@ -100,8 +100,19 @@ const template = html<PullRequestRow>`
 			<span class="stat-deleted">-${x => x.pullRequest!.deletions}</span></table-cell
 		>
 		<table-cell class="actions">
-			<a href="${x => x.pullRequest!.url}" title="Open pull request on remote"
-				><code-icon icon="globe"></code-icon
+			<a
+				href="#"
+				title="Open Worktree..."
+				aria-label="Open Worktree..."
+				@click="${(x, c) => x.onOpenWorktreeClick(c.event)}"
+				><code-icon icon="gl-worktrees-view"></code-icon
+			></a>
+			<a
+				href="#"
+				title="Switch to Branch..."
+				aria-label="Switch to Branch..."
+				@click="${(x, c) => x.onSwitchBranchClick(c.event)}"
+				><code-icon icon="gl-switch"></code-icon
 			></a>
 		</table-cell>
 	</template>
@@ -294,5 +305,13 @@ export class PullRequestRow extends FASTElement {
 		}
 
 		return assignees;
+	}
+
+	onOpenWorktreeClick(_e: Event) {
+		this.$emit('open-worktree', this.pullRequest!);
+	}
+
+	onSwitchBranchClick(_e: Event) {
+		this.$emit('switch-branch', this.pullRequest!);
 	}
 }

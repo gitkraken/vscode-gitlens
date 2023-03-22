@@ -16,7 +16,7 @@ interface GHPRPullRequestNode {
 	readonly pullRequestModel: GHPRPullRequest;
 }
 
-interface GHPRPullRequest {
+export interface GHPRPullRequest {
 	readonly base: {
 		readonly repositoryCloneUrl: {
 			readonly repositoryName: string;

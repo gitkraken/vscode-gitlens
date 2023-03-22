@@ -127,6 +127,7 @@ export interface GitHubDetailedPullRequest extends GitHubPullRequest {
 		owner: {
 			login: string;
 		};
+		url: string;
 	};
 	headRefName: string;
 	headRefOid: string;
@@ -135,6 +136,7 @@ export interface GitHubDetailedPullRequest extends GitHubPullRequest {
 		owner: {
 			login: string;
 		};
+		url: string;
 	};
 	reviewDecision: GitHubPullRequestReviewDecision;
 	isReadByViewer: boolean;
@@ -272,6 +274,7 @@ export function fromGitHubPullRequestDetailed(
 				repo: pr.baseRepository?.name,
 				sha: pr.headRefOid,
 				branch: pr.headRefName,
+				url: pr.headRepository?.url,
 			},
 			base: {
 				exists: pr.baseRepository != null,
@@ -279,6 +282,7 @@ export function fromGitHubPullRequestDetailed(
 				repo: pr.baseRepository?.name,
 				sha: pr.baseRefOid,
 				branch: pr.baseRefName,
+				url: pr.baseRepository?.url,
 			},
 			isCrossRepository: pr.isCrossRepository,
 		},

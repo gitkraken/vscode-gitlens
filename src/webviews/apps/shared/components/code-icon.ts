@@ -1490,24 +1490,29 @@ const styles = css`
 	:host([icon='target']):before {
 		content: '\\ebf8';
 	}
-	:host([icon='gl-pinned-filled']):before {
+	:host([icon^='gl-']) {
 		font-family: 'glicons';
+	}
+	:host([icon='gl-pinned-filled']):before {
 		content: '\\f11c';
 		/* TODO: see relative positioning needed in every use-case */
 		position: relative;
 		left: 1px;
 	}
 	:host([icon='gl-graph']):before {
-		font-family: 'glicons';
 		content: '\\f102';
 	}
 	:host([icon='gl-list-auto']):before {
-		font-family: 'glicons';
 		content: '\\f11a';
 	}
 	:host([icon='gl-clock']):before {
-		font-family: 'glicons';
 		content: '\\f11d';
+	}
+	:host([icon='gl-worktrees-view']):before {
+		content: '\\f112';
+	}
+	:host([icon='gl-switch']):before {
+		content: '\\f118';
 	}
 
 	@keyframes codicon-spin {
