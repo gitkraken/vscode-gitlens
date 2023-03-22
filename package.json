@@ -13068,6 +13068,15 @@
 			"gitlensPanel": [
 				{
 					"type": "webview",
+					"id": "gitlens.views.graph",
+					"name": "Commit Graph",
+					"when": "!gitlens:disabled && gitlens:plus:enabled",
+					"contextualTitle": "GitLens",
+					"icon": "$(gitlens-graph)",
+					"visibility": "visible"
+				},
+				{
+					"type": "webview",
 					"id": "gitlens.views.timeline",
 					"name": "Visual File History",
 					"when": "!gitlens:disabled && gitlens:plus:enabled",

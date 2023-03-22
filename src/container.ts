@@ -23,7 +23,8 @@ import { SubscriptionAuthenticationProvider } from './plus/subscription/authenti
 import { ServerConnection } from './plus/subscription/serverConnection';
 import { SubscriptionService } from './plus/subscription/subscriptionService';
 import { FocusWebview } from './plus/webviews/focus/focusWebview';
-import { GraphWebview } from './plus/webviews/graph/graphWebview';
+import { registerGraphWebviewCommands, registerGraphWebviewPanel } from './plus/webviews/graph/registration';
+import { GraphStatusBarController } from './plus/webviews/graph/statusbar';
 import { registerTimelineWebviewPanel, registerTimelineWebviewView } from './plus/webviews/timeline/registration';
 import { StatusBarController } from './statusbar/statusBarController';
 import type { Storage } from './storage';
@@ -211,11 +212,16 @@ export class Container {
 		context.subscriptions.splice(0, 0, registerTimelineWebviewPanel(this._webviews));
 		context.subscriptions.splice(0, 0, (this._timelineView = registerTimelineWebviewView(this._webviews)));
 
-		context.subscriptions.splice(0, 0, (this._settingsWebview = new SettingsWebview(this)));
-		context.subscriptions.splice(0, 0, (this._welcomeWebview = new WelcomeWebview(this)));
+		const graphWebviewPanel = registerGraphWebviewPanel(this._webviews);
+		context.subscriptions.splice(0, 0, graphWebviewPanel);
+		context.subscriptions.splice(0, 0, registerGraphWebviewCommands(graphWebviewPanel));
+		// context.subscriptions.splice(0, 0, (this._graphView = registerGraphWebviewView(this._webviews)));
+		context.subscriptions.splice(0, 0, new GraphStatusBarController(this));
+
+		context.subscriptions.splice(0, 0, new SettingsWebview(this));
+		context.subscriptions.splice(0, 0, new WelcomeWebview(this));
 		context.subscriptions.splice(0, 0, (this._rebaseEditor = new RebaseEditorProvider(this)));
-		context.subscriptions.splice(0, 0, (this._graphWebview = new GraphWebview(this)));
-		context.subscriptions.splice(0, 0, (this._focusWebview = new FocusWebview(this)));
+		context.subscriptions.splice(0, 0, new FocusWebview(this));
 
 		context.subscriptions.splice(0, 0, new ViewFileDecorationProvider());
 
@@ -451,6 +457,11 @@ export class Container {
 		}
 	}
 
+	// private _graphView: WebviewViewProxy;
+	// get graphView() {
+	// 	return this._graphView;
+	// }
+
 	private _homeView: HomeWebviewView | undefined;
 	get homeView() {
 		if (this._homeView == null) {
@@ -566,21 +577,6 @@ export class Container {
 		return this._subscriptionAuthentication;
 	}
 
-	private _settingsWebview: SettingsWebview;
-	get settingsWebview() {
-		return this._settingsWebview;
-	}
-
-	private _graphWebview: GraphWebview;
-	get graphWebview() {
-		return this._graphWebview;
-	}
-
-	private _focusWebview: FocusWebview;
-	get focusWebview() {
-		return this._focusWebview;
-	}
-
 	private readonly _richRemoteProviders: RichRemoteProviderService;
 	get richRemoteProviders(): RichRemoteProviderService {
 		return this._richRemoteProviders;
@@ -650,11 +646,6 @@ export class Container {
 	private _vsls: VslsController;
 	get vsls() {
 		return this._vsls;
-	}
-
-	private _welcomeWebview: WelcomeWebview;
-	get welcomeWebview() {
-		return this._welcomeWebview;
 	}
 
 	private _worktreesView: WorktreesView | undefined;

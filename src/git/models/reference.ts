@@ -262,6 +262,18 @@ export function getNameWithoutRemote(ref: GitReference) {
 	return ref.name;
 }
 
+export function isGitReference(ref: unknown): ref is GitReference {
+	if (ref == null || typeof ref !== 'object') return false;
+
+	const r = ref as GitReference;
+	return (
+		typeof r.refType === 'string' &&
+		typeof r.repoPath === 'string' &&
+		typeof r.ref === 'string' &&
+		typeof r.name === 'string'
+	);
+}
+
 export function isBranchReference(ref: GitReference | undefined): ref is GitBranchReference {
 	return ref?.refType === 'branch';
 }
