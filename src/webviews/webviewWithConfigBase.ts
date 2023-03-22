@@ -18,8 +18,8 @@ import {
 	onIpc,
 	UpdateConfigurationCommandType,
 } from './protocol';
-import type { WebviewIds } from './webviewBase';
 import { WebviewBase } from './webviewBase';
+import type { WebviewIds } from './webviewsController';
 
 export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 	constructor(

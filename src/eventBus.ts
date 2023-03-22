@@ -4,8 +4,7 @@ import type { ViewsConfigKeys } from './config';
 import type { GitCaches } from './git/gitProvider';
 import type { GitCommit } from './git/models/commit';
 import type { GitRevisionReference } from './git/models/reference';
-import type { WebviewIds } from './webviews/webviewBase';
-import type { WebviewViewIds } from './webviews/webviewViewBase';
+import type { WebviewIds, WebviewViewIds } from './webviews/webviewsController';
 
 export type CommitSelectedEvent = EventBusEvent<'commit:selected'>;
 interface CommitSelectedEventArgs {

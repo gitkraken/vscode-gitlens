@@ -1,8 +1,7 @@
 import { commands, EventEmitter } from 'vscode';
 import type { ContextKeys } from './constants';
 import { CoreCommands } from './constants';
-import type { WebviewIds } from './webviews/webviewBase';
-import type { WebviewViewIds } from './webviews/webviewViewBase';
+import type { WebviewIds, WebviewViewIds } from './webviews/webviewsController';
 
 const contextStorage = new Map<string, unknown>();
 
