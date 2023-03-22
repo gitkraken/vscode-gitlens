@@ -1,6 +1,5 @@
 import type { Config } from '../config';
-import type { ConfigPath, ConfigPathValue } from '../system/configuration';
-import type { CustomConfigPath, CustomConfigPathValue } from './webviewWithConfigBase';
+import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/configuration';
 
 export interface IpcMessage {
 	id: string;
@@ -93,3 +92,24 @@ export interface DidOpenAnchorParams {
 	scrollBehavior: 'auto' | 'smooth';
 }
 export const DidOpenAnchorNotificationType = new IpcNotificationType<DidOpenAnchorParams>('webview/didOpenAnchor');
+
+interface CustomConfig {
+	rebaseEditor: {
+		enabled: boolean;
+	};
+	currentLine: {
+		useUncommittedChangesFormat: boolean;
+	};
+}
+
+export type CustomConfigPath = Path<CustomConfig>;
+export type CustomConfigPathValue<P extends CustomConfigPath> = PathValue<CustomConfig, P>;
+
+const customConfigKeys: readonly CustomConfigPath[] = [
+	'rebaseEditor.enabled',
+	'currentLine.useUncommittedChangesFormat',
+];
+
+export function isCustomConfigKey(key: string): key is CustomConfigPath {
+	return customConfigKeys.includes(key as CustomConfigPath);
+}
