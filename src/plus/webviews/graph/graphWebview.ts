@@ -1,21 +1,5 @@
-import type {
-	ColorTheme,
-	ConfigurationChangeEvent,
-	Event,
-	StatusBarItem,
-	WebviewOptions,
-	WebviewPanelOptions,
-} from 'vscode';
-import {
-	CancellationTokenSource,
-	Disposable,
-	env,
-	EventEmitter,
-	MarkdownString,
-	StatusBarAlignment,
-	ViewColumn,
-	window,
-} from 'vscode';
+import type { ColorTheme, ConfigurationChangeEvent, Uri } from 'vscode';
+import { CancellationTokenSource, Disposable, env, ViewColumn, window } from 'vscode';
 import type { CreatePullRequestActionContext } from '../../../api/gitlens';
 import { getAvatarUri } from '../../../avatars';
 import type {
@@ -55,6 +39,7 @@ import {
 	createReference,
 	getReferenceFromBranch,
 	getReferenceLabel,
+	isGitReference,
 	isSha,
 	shortenRevision,
 } from '../../../git/models/reference';
@@ -77,24 +62,20 @@ import { configuration } from '../../../system/configuration';
 import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
-import { debounce, disposableInterval, once } from '../../../system/function';
+import { debounce, disposableInterval } from '../../../system/function';
 import { find, last } from '../../../system/iterable';
 import { updateRecordValue } from '../../../system/object';
 import { getSettledValue } from '../../../system/promise';
 import { isDarkTheme, isLightTheme } from '../../../system/utils';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview';
 import { isWebviewItemContext, isWebviewItemGroupContext, serializeWebviewItemContext } from '../../../system/webview';
-import type { BranchNode } from '../../../views/nodes/branchNode';
-import type { CommitFileNode } from '../../../views/nodes/commitFileNode';
-import type { CommitNode } from '../../../views/nodes/commitNode';
-import type { StashNode } from '../../../views/nodes/stashNode';
-import type { TagNode } from '../../../views/nodes/tagNode';
 import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
 import type { IpcMessage, IpcMessageParams, IpcNotificationType } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
-import { WebviewBase } from '../../../webviews/webviewBase';
+import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
+import type { WebviewIds, WebviewViewIds } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
-import { arePlusFeaturesEnabled, ensurePlusFeaturesEnabled } from '../../subscription/utils';
+import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import type {
 	DimMergeCommitsParams,
 	DismissBannerParams,
@@ -186,18 +167,12 @@ const defaultGraphColumnsSettings: GraphColumnsSettings = {
 	changes: { width: 130, isHidden: true },
 };
 
-export class GraphWebview extends WebviewBase<State> {
-	private _onDidChangeSelection = new EventEmitter<GraphSelectionChangeEvent>();
-	get onDidChangeSelection(): Event<GraphSelectionChangeEvent> {
-		return this._onDidChangeSelection.event;
-	}
-
+export class GraphWebviewProvider implements WebviewProvider<State> {
 	private _repository?: Repository;
-	get repository(): Repository | undefined {
+	private get repository(): Repository | undefined {
 		return this._repository;
 	}
-
-	set repository(value: Repository | undefined) {
+	private set repository(value: Repository | undefined) {
 		if (this._repository === value) {
 			this.ensureRepositorySubscriptions();
 			return;
@@ -207,20 +182,17 @@ export class GraphWebview extends WebviewBase<State> {
 		this.resetRepositoryState();
 		this.ensureRepositorySubscriptions(true);
 
-		if (this.isReady) {
+		if (this.host.isReady) {
 			this.updateState();
 		}
 	}
 
 	private _selection: readonly GitRevisionReference[] | undefined;
-	get selection(): readonly GitRevisionReference[] | undefined {
-		return this._selection;
-	}
-
-	get activeSelection(): GitRevisionReference | undefined {
+	private get activeSelection(): GitRevisionReference | undefined {
 		return this._selection?.[0];
 	}
 
+	private readonly _disposable: Disposable;
 	private _etagSubscription?: number;
 	private _etagRepository?: number;
 	private _firstSelection = true;
@@ -232,7 +204,6 @@ export class GraphWebview extends WebviewBase<State> {
 	private _selectedId?: string;
 	private _selectedRows: GraphSelectedRows | undefined;
 	private _showDetailsView: Config['graph']['showDetailsView'];
-	private _statusBarItem: StatusBarItem | undefined;
 	private _theme: ColorTheme | undefined;
 	private _repositoryEventsDisposable: Disposable | undefined;
 	private _lastFetchedDisposable: Disposable | undefined;
@@ -240,91 +211,70 @@ export class GraphWebview extends WebviewBase<State> {
 	private trialBanner?: boolean;
 	private isWindowFocused: boolean = true;
 
-	constructor(container: Container) {
-		super(
-			container,
-			'gitlens.graph',
-			'graph.html',
-			'images/gitlens-icon.png',
-			'Commit Graph',
-			`${ContextKeys.WebviewPrefix}graph`,
-			'graphWebview',
-			Commands.ShowGraphPage,
-		);
-
+	constructor(
+		readonly container: Container,
+		readonly id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
+		readonly host: WebviewController<State>,
+	) {
 		this._showDetailsView = configuration.get('graph.showDetailsView');
+		this._theme = window.activeColorTheme;
+		this.ensureRepositorySubscriptions();
 
-		this.disposables.push(
+		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
-			once(container.onReady)(() => queueMicrotask(() => this.updateStatusBar())),
-			onDidChangeContext(key => {
-				if (key !== ContextKeys.Enabled && key !== ContextKeys.PlusEnabled) return;
-				this.updateStatusBar();
-			}),
-			{ dispose: () => this._statusBarItem?.dispose() },
-			registerCommand(
-				Commands.ShowInCommitGraph,
-				async (
-					args:
-						| ShowInCommitGraphCommandArgs
-						| Repository
-						| BranchNode
-						| CommitNode
-						| CommitFileNode
-						| StashNode
-						| TagNode,
-				) => {
-					let id;
-					if (args instanceof Repository) {
-						this.repository = args;
-					} else {
-						this.repository = this.container.git.getRepository(args.ref.repoPath);
-						id = args.ref.ref;
-						if (!isSha(id)) {
-							id = await this.container.git.resolveReference(args.ref.repoPath, id, undefined, {
-								force: true,
-							});
-						}
-						this.setSelectedRows(id);
-					}
-
-					const preserveFocus = 'preserveFocus' in args ? args.preserveFocus ?? false : false;
-					if (this._panel == null) {
-						void this.show({ preserveFocus: preserveFocus });
-					} else if (id) {
-						this._panel.reveal(this._panel.viewColumn ?? ViewColumn.Active, preserveFocus ?? false);
-						if (this._graph?.ids.has(id)) {
-							void this.notifyDidChangeSelection();
-							return;
-						}
-
-						this.setSelectedRows(id);
-						void this.onGetMoreRows({ id: id }, true);
-					}
+			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			this.container.git.onDidChangeRepositories(() => void this.host.refresh(true)),
+			window.onDidChangeActiveColorTheme(this.onThemeChanged, this),
+			{
+				dispose: () => {
+					if (this._repositoryEventsDisposable == null) return;
+					this._repositoryEventsDisposable.dispose();
+					this._repositoryEventsDisposable = undefined;
 				},
-			),
+			},
 		);
 	}
 
-	protected override onWindowFocusChanged(focused: boolean): void {
-		this.isWindowFocused = focused;
-		void this.notifyDidChangeWindowFocus();
+	dispose() {
+		this._disposable.dispose();
 	}
 
-	protected override get options(): WebviewPanelOptions & WebviewOptions {
-		return {
-			retainContextWhenHidden: true,
-			enableFindWidget: false,
-			enableCommandUris: true,
-			enableScripts: true,
-		};
-	}
-
-	override async show(options?: { column?: ViewColumn; preserveFocus?: boolean }, ...args: unknown[]): Promise<void> {
+	async canShowWebviewPanel(
+		firstTime: boolean,
+		options?: { column?: ViewColumn; preserveFocus?: boolean },
+		...args: unknown[]
+	): Promise<boolean> {
 		this._firstSelection = true;
-		if (!(await ensurePlusFeaturesEnabled())) return;
+		if (!(await ensurePlusFeaturesEnabled())) return false;
 
-		if (this.container.git.repositoryCount > 1) {
+		if (options?.column != null) {
+			options.column = ViewColumn.Active;
+		}
+
+		const context = args[0];
+		if (context instanceof Repository) {
+			this.repository = context;
+		} else if (hasGitReference(context)) {
+			this.repository = this.container.git.getRepository(context.ref.repoPath);
+
+			let id = context.ref.ref;
+			if (!isSha(id)) {
+				id = await this.container.git.resolveReference(context.ref.repoPath, id, undefined, {
+					force: true,
+				});
+			}
+
+			this.setSelectedRows(id);
+
+			if (this._graph != null) {
+				if (this._graph?.ids.has(id)) {
+					void this.notifyDidChangeSelection();
+					return true;
+				}
+
+				void this.onGetMoreRows({ id: id }, true);
+			}
+		} else if (this.container.git.repositoryCount > 1) {
 			const [contexts] = parseCommandContext(Commands.ShowGraphPage, undefined, ...args);
 			const context = Array.isArray(contexts) ? contexts[0] : contexts;
 
@@ -334,29 +284,28 @@ export class GraphWebview extends WebviewBase<State> {
 				this.repository = context.node.repo;
 			}
 
-			if (this.repository != null && this.isReady) {
+			if (this.repository != null && !firstTime && this.host.isReady) {
 				this.updateState();
 			}
 		}
 
-		return super.show({ column: ViewColumn.Active, ...options }, ...args);
+		return true;
 	}
 
-	protected override refresh(force?: boolean): Promise<void> {
+	onRefresh(force?: boolean) {
 		this.resetRepositoryState();
 		if (force) {
 			this._pendingIpcNotifications.clear();
 		}
-		return super.refresh(force);
 	}
 
-	protected override async includeBootstrap(): Promise<State> {
+	includeBootstrap(): Promise<State> {
 		return this.getState(true);
 	}
 
-	protected override registerCommands(): Disposable[] {
+	registerCommands(): Disposable[] {
 		return [
-			registerCommand(Commands.RefreshGraph, () => this.refresh(true)),
+			registerCommand(Commands.RefreshGraph, () => this.host.refresh(true)),
 
 			registerCommand('gitlens.graph.push', this.push, this),
 			registerCommand('gitlens.graph.pull', this.pull, this),
@@ -432,29 +381,47 @@ export class GraphWebview extends WebviewBase<State> {
 		];
 	}
 
-	protected override onInitializing(): Disposable[] | undefined {
-		this._theme = window.activeColorTheme;
-		this.ensureRepositorySubscriptions();
-
-		return [
-			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
-			this.container.git.onDidChangeRepositories(() => void this.refresh(true)),
-			window.onDidChangeActiveColorTheme(this.onThemeChanged, this),
-			{
-				dispose: () => {
-					if (this._repositoryEventsDisposable == null) return;
-					this._repositoryEventsDisposable.dispose();
-					this._repositoryEventsDisposable = undefined;
-				},
-			},
-		];
+	onWindowFocusChanged(focused: boolean): void {
+		this.isWindowFocused = focused;
+		void this.notifyDidChangeWindowFocus();
 	}
 
-	protected override onReady(): void {
+	onReady(): void {
 		this.sendPendingIpcNotifications();
 	}
 
-	protected override onMessageReceived(e: IpcMessage) {
+	onFocusChanged(focused: boolean): void {
+		if (!focused || this.activeSelection == null || !this.container.commitDetailsView.visible) {
+			this._showActiveSelectionDetailsDebounced?.cancel();
+			return;
+		}
+
+		this.showActiveSelectionDetails();
+	}
+
+	onVisibilityChanged(visible: boolean): void {
+		if (!visible) {
+			this._showActiveSelectionDetailsDebounced?.cancel();
+		}
+
+		if (visible && this.repository != null && this.repository.etag !== this._etagRepository) {
+			this.updateState(true);
+			return;
+		}
+
+		if (visible) {
+			if (this.host.isReady) {
+				this.sendPendingIpcNotifications();
+			}
+
+			const { activeSelection } = this;
+			if (activeSelection == null) return;
+
+			this.showActiveSelectionDetails();
+		}
+	}
+
+	onMessageReceived(e: IpcMessage) {
 		switch (e.method) {
 			case ChooseRepositoryCommandType.method:
 				onIpc(ChooseRepositoryCommandType, e, () => this.onChooseRepository());
@@ -527,17 +494,9 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 	}
 
-	protected override onFocusChanged(focused: boolean): void {
-		if (!focused || this.activeSelection == null || !this.container.commitDetailsView.visible) {
-			this._showActiveSelectionDetailsDebounced?.cancel();
-			return;
-		}
-
-		this.showActiveSelectionDetails();
-	}
-
-	private _showActiveSelectionDetailsDebounced: Deferrable<GraphWebview['showActiveSelectionDetails']> | undefined =
-		undefined;
+	private _showActiveSelectionDetailsDebounced:
+		| Deferrable<GraphWebviewProvider['showActiveSelectionDetails']>
+		| undefined = undefined;
 
 	private showActiveSelectionDetails() {
 		if (this._showActiveSelectionDetailsDebounced == null) {
@@ -565,39 +524,10 @@ export class GraphWebview extends WebviewBase<State> {
 		);
 	}
 
-	protected override onVisibilityChanged(visible: boolean): void {
-		if (!visible) {
-			this._showActiveSelectionDetailsDebounced?.cancel();
-		}
-
-		if (visible && this.repository != null && this.repository.etag !== this._etagRepository) {
-			this.updateState(true);
-			return;
-		}
-
-		if (visible) {
-			if (this.isReady) {
-				this.sendPendingIpcNotifications();
-			}
-
-			const { activeSelection } = this;
-			if (activeSelection == null) return;
-
-			this.showActiveSelectionDetails();
-		}
-	}
-
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'graph.showDetailsView')) {
 			this._showDetailsView = configuration.get('graph.showDetailsView');
 		}
-
-		if (configuration.changed(e, 'graph.statusBar.enabled') || configuration.changed(e, 'plusFeatures.enabled')) {
-			this.updateStatusBar();
-		}
-
-		// If we don't have an open webview ignore the rest
-		if (this._panel == null) return;
 
 		if (configuration.changed(e, 'graph.commitOrdering')) {
 			this.updateState();
@@ -636,7 +566,7 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 	}
 
-	@debug<GraphWebview['onRepositoryChanged']>({ args: { 0: e => e.toString() } })
+	@debug<GraphWebviewProvider['onRepositoryChanged']>({ args: { 0: e => e.toString() } })
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
 		if (
 			!e.changed(
@@ -677,7 +607,6 @@ export class GraphWebview extends WebviewBase<State> {
 
 		this._etagSubscription = e.etag;
 		void this.notifyDidChangeSubscription();
-		this.updateStatusBar();
 	}
 
 	private onThemeChanged(theme: ColorTheme) {
@@ -794,7 +723,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 		const repoPath = this._graph.repoPath;
 
-		async function getAvatar(this: GraphWebview, email: string, id: string) {
+		async function getAvatar(this: GraphWebviewProvider, email: string, id: string) {
 			const uri = await getAvatarUri(email, { ref: id, repoPath: repoPath });
 			this._graph!.avatars.set(email, uri.toString(true));
 		}
@@ -818,7 +747,11 @@ export class GraphWebview extends WebviewBase<State> {
 
 		const repoPath = this._graph.repoPath;
 
-		async function getRefMetadata(this: GraphWebview, id: string, missingTypes: GraphMissingRefsMetadataType[]) {
+		async function getRefMetadata(
+			this: GraphWebviewProvider,
+			id: string,
+			missingTypes: GraphMissingRefsMetadataType[],
+		) {
 			if (this._refsMetadata == null) {
 				this._refsMetadata = new Map();
 			}
@@ -1082,7 +1015,8 @@ export class GraphWebview extends WebviewBase<State> {
 		this.repository = pick.item;
 	}
 
-	private _fireSelectionChangedDebounced: Deferrable<GraphWebview['fireSelectionChanged']> | undefined = undefined;
+	private _fireSelectionChangedDebounced: Deferrable<GraphWebviewProvider['fireSelectionChanged']> | undefined =
+		undefined;
 
 	private onSelectionChanged(e: UpdateSelectionParams) {
 		const item = e.selection[0];
@@ -1102,7 +1036,6 @@ export class GraphWebview extends WebviewBase<State> {
 		const commits = commit != null ? [commit] : undefined;
 
 		this._selection = commits;
-		this._onDidChangeSelection.fire({ selection: commits ?? [] });
 
 		if (commits == null) return;
 
@@ -1123,7 +1056,8 @@ export class GraphWebview extends WebviewBase<State> {
 		this._firstSelection = false;
 	}
 
-	private _notifyDidChangeStateDebounced: Deferrable<GraphWebview['notifyDidChangeState']> | undefined = undefined;
+	private _notifyDidChangeStateDebounced: Deferrable<GraphWebviewProvider['notifyDidChangeState']> | undefined =
+		undefined;
 
 	private getRevisionReference(
 		repoPath: string | undefined,
@@ -1166,7 +1100,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async notifyDidChangeWindowFocus(): Promise<boolean> {
-		if (!this.isReady || !this.visible) {
+		if (!this.host.isReady || !this.host.visible) {
 			this.addPendingIpcNotification(DidChangeWindowFocusNotificationType);
 			return false;
 		}
@@ -1176,7 +1110,7 @@ export class GraphWebview extends WebviewBase<State> {
 		});
 	}
 
-	private _notifyDidChangeAvatarsDebounced: Deferrable<GraphWebview['notifyDidChangeAvatars']> | undefined =
+	private _notifyDidChangeAvatarsDebounced: Deferrable<GraphWebviewProvider['notifyDidChangeAvatars']> | undefined =
 		undefined;
 
 	@debug()
@@ -1203,8 +1137,9 @@ export class GraphWebview extends WebviewBase<State> {
 		});
 	}
 
-	private _notifyDidChangeRefsMetadataDebounced: Deferrable<GraphWebview['notifyDidChangeRefsMetadata']> | undefined =
-		undefined;
+	private _notifyDidChangeRefsMetadataDebounced:
+		| Deferrable<GraphWebviewProvider['notifyDidChangeRefsMetadata']>
+		| undefined = undefined;
 
 	@debug()
 	private updateRefsMetadata(immediate: boolean = false) {
@@ -1229,7 +1164,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async notifyDidChangeColumns() {
-		if (!this.isReady || !this.visible) {
+		if (!this.host.isReady || !this.host.visible) {
 			this.addPendingIpcNotification(DidChangeColumnsNotificationType);
 			return false;
 		}
@@ -1244,7 +1179,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async notifyDidChangeRefsVisibility() {
-		if (!this.isReady || !this.visible) {
+		if (!this.host.isReady || !this.host.visible) {
 			this.addPendingIpcNotification(DidChangeRefsVisibilityNotificationType);
 			return false;
 		}
@@ -1258,7 +1193,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async notifyDidChangeConfiguration() {
-		if (!this.isReady || !this.visible) {
+		if (!this.host.isReady || !this.host.visible) {
 			this.addPendingIpcNotification(DidChangeGraphConfigurationNotificationType);
 			return false;
 		}
@@ -1270,7 +1205,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async notifyDidFetch() {
-		if (!this.isReady || !this.visible) {
+		if (!this.host.isReady || !this.host.visible) {
 			this.addPendingIpcNotification(DidFetchNotificationType);
 			return false;
 		}
@@ -1305,7 +1240,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async notifyDidChangeWorkingTree() {
-		if (!this.isReady || !this.visible) {
+		if (!this.host.isReady || !this.host.visible) {
 			this.addPendingIpcNotification(DidChangeWorkingTreeNotificationType);
 			return false;
 		}
@@ -1317,7 +1252,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async notifyDidChangeSelection() {
-		if (!this.isReady || !this.visible) {
+		if (!this.host.isReady || !this.host.visible) {
 			this.addPendingIpcNotification(DidChangeSelectionNotificationType);
 			return false;
 		}
@@ -1329,7 +1264,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async notifyDidChangeSubscription() {
-		if (!this.isReady || !this.visible) {
+		if (!this.host.isReady || !this.host.visible) {
 			this.addPendingIpcNotification(DidChangeSubscriptionNotificationType);
 			return false;
 		}
@@ -1343,7 +1278,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 	@debug()
 	private async notifyDidChangeState() {
-		if (!this.isReady || !this.visible) {
+		if (!this.host.isReady || !this.host.visible) {
 			this.addPendingIpcNotification(DidChangeNotificationType);
 			return false;
 		}
@@ -1351,18 +1286,18 @@ export class GraphWebview extends WebviewBase<State> {
 		return this.notify(DidChangeNotificationType, { state: await this.getState() });
 	}
 
-	protected override async notify<T extends IpcNotificationType<any>>(
+	private async notify<T extends IpcNotificationType<any>>(
 		type: T,
 		params: IpcMessageParams<T>,
 		completionId?: string,
 	): Promise<boolean> {
 		const msg: IpcMessage = {
-			id: this.nextIpcId(),
+			id: this.host.nextIpcId(),
 			method: type.method,
 			params: params,
 			completionId: completionId,
 		};
-		const success = await this.postMessage(msg);
+		const success = await this.host.postMessage(msg);
 		if (success) {
 			this._pendingIpcNotifications.clear();
 		} else {
@@ -1412,7 +1347,7 @@ export class GraphWebview extends WebviewBase<State> {
 			if (typeof msgOrFn === 'function') {
 				void msgOrFn();
 			} else {
-				void this.postMessage(msgOrFn);
+				void this.host.postMessage(msgOrFn);
 			}
 		}
 	}
@@ -1531,6 +1466,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 		const excludeRefs: GraphExcludeRefs = {};
 
+		const asWebviewUri = (uri: Uri) => this.host.asWebviewUri(uri);
 		for (const id in storedExcludeRefs) {
 			const ref: GraphExcludedRef = { ...storedExcludeRefs[id] };
 			if (ref.type === 'remote' && ref.owner) {
@@ -1538,11 +1474,7 @@ export class GraphWebview extends WebviewBase<State> {
 				if (remote != null) {
 					ref.avatarUrl = (
 						(useAvatars ? remote.provider?.avatarUri : undefined) ??
-						getRemoteIconUri(
-							this.container,
-							remote,
-							this._panel!.webview.asWebviewUri.bind(this._panel!.webview),
-						)
+						getRemoteIconUri(this.container, remote, asWebviewUri)
 					)?.toString(true);
 				}
 			}
@@ -1790,7 +1722,7 @@ export class GraphWebview extends WebviewBase<State> {
 		}
 
 		this._etagRepository = this.repository?.etag;
-		this.title = `${this.originalTitle}: ${this.repository.formattedName}`;
+		this.host.title = `${this.host.originalTitle}: ${this.repository.formattedName}`;
 
 		const { defaultItemLimit } = configuration.get('graph');
 
@@ -1804,7 +1736,7 @@ export class GraphWebview extends WebviewBase<State> {
 
 		const dataPromise = this.container.git.getCommitsForGraph(
 			this.repository.path,
-			this._panel!.webview.asWebviewUri.bind(this._panel!.webview),
+			uri => this.host.asWebviewUri(uri),
 			{
 				include: {
 					stats: configuration.get('graph.experimental.minimap.enabled') || !columnSettings.changes.isHidden,
@@ -1871,7 +1803,7 @@ export class GraphWebview extends WebviewBase<State> {
 			excludeRefs: data != null ? this.getExcludedRefs(data) ?? {} : {},
 			excludeTypes: this.getExcludedTypes(data) ?? {},
 			includeOnlyRefs: data != null ? this.getIncludeOnlyRefs(data) ?? {} : {},
-			nonce: this.cspNonce,
+			nonce: this.host.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
 			debugging: this.container.debugging,
 		};
@@ -1997,27 +1929,6 @@ export class GraphWebview extends WebviewBase<State> {
 			}
 		} else {
 			debugger;
-		}
-	}
-
-	private updateStatusBar() {
-		const enabled =
-			configuration.get('graph.statusBar.enabled') && getContext(ContextKeys.Enabled) && arePlusFeaturesEnabled();
-		if (enabled) {
-			if (this._statusBarItem == null) {
-				this._statusBarItem = window.createStatusBarItem('gitlens.graph', StatusBarAlignment.Left, 10000 - 3);
-				this._statusBarItem.name = 'GitLens Commit Graph';
-				this._statusBarItem.command = Commands.ShowGraphPage;
-				this._statusBarItem.text = '$(gitlens-graph)';
-				this._statusBarItem.tooltip = new MarkdownString('Visualize commits on the Commit Graph ✨');
-				this._statusBarItem.accessibilityInformation = {
-					label: `Show the GitLens Commit Graph`,
-				};
-			}
-			this._statusBarItem.show();
-		} else {
-			this._statusBarItem?.dispose();
-			this._statusBarItem = undefined;
 		}
 	}
 
@@ -2722,4 +2633,11 @@ function isGraphItemRefContext(item: unknown, refType?: GitReference['refType'])
 
 function getRepoPathFromBranchOrTagId(id: string): string {
 	return id.split('|', 1)[0];
+}
+
+export function hasGitReference(o: unknown): o is { ref: GitReference } {
+	if (o == null || typeof o !== 'object') return false;
+	if (!('ref' in o)) return false;
+
+	return isGitReference(o.ref);
 }

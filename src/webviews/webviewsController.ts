@@ -14,7 +14,7 @@ import type { WebviewProvider } from './webviewController';
 import { WebviewController } from './webviewController';
 
 export type WebviewIds = 'graph' | 'settings' | 'timeline' | 'welcome' | 'focus';
-export type WebviewViewIds = 'commitDetails' | 'home' | 'timeline';
+export type WebviewViewIds = 'commitDetails' | 'graph' | 'home' | 'timeline';
 
 export interface WebviewPanelDescriptor<State = any> {
 	readonly fileName: string;
