@@ -1,10 +1,10 @@
-'use strict';
-import type { Disposable, TextEditor, ViewColumn } from 'vscode';
-import { Uri, window } from 'vscode';
-import { Commands, ContextKeys } from '../../../constants';
+import type { TextEditor, ViewColumn } from 'vscode';
+import { commands, Disposable, Uri, window } from 'vscode';
+import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
+import type { FileSelectedEvent } from '../../../eventBus';
 import { PlusFeatures } from '../../../features';
-import { showDetailsView } from '../../../git/actions/commit';
+import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import { GitUri } from '../../../git/gitUri';
 import { getChangedFilesCount } from '../../../git/models/commit';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
@@ -19,58 +19,40 @@ import { filter } from '../../../system/iterable';
 import { hasVisibleTextEditor, isTextEditor } from '../../../system/utils';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
-import { WebviewBase } from '../../../webviews/webviewBase';
+import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
+import type { WebviewIds, WebviewViewIds } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import type { Commit, Period, State } from './protocol';
 import { DidChangeNotificationType, OpenDataPointCommandType, UpdatePeriodCommandType } from './protocol';
-import { generateRandomTimelineDataset } from './timelineWebviewView';
 
 interface Context {
 	uri: Uri | undefined;
 	period: Period | undefined;
+	etagRepositories: number | undefined;
 	etagRepository: number | undefined;
 	etagSubscription: number | undefined;
 }
 
 const defaultPeriod: Period = '3|M';
 
-export class TimelineWebview extends WebviewBase<State> {
+export class TimelineWebviewProvider implements WebviewProvider<State> {
 	private _bootstraping = true;
 	/** The context the webview has */
 	private _context: Context;
 	/** The context the webview should have */
 	private _pendingContext: Partial<Context> | undefined;
+	private readonly _disposable: Disposable;
 
-	constructor(container: Container) {
-		super(
-			container,
-			'gitlens.timeline',
-			'timeline.html',
-			'images/gitlens-icon.png',
-			'Visual File History',
-			`${ContextKeys.WebviewPrefix}timeline`,
-			'timelineWebview',
-			Commands.ShowTimelinePage,
-		);
+	constructor(
+		readonly container: Container,
+		readonly id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
+		readonly host: WebviewController<State>,
+	) {
 		this._context = {
 			uri: undefined,
 			period: defaultPeriod,
-			etagRepository: 0,
-			etagSubscription: 0,
-		};
-	}
-
-	override async show(options?: { column?: ViewColumn; preserveFocus?: boolean }, ...args: unknown[]): Promise<void> {
-		if (!(await ensurePlusFeaturesEnabled())) return;
-
-		return super.show(options, ...args);
-	}
-
-	protected override onInitializing(): Disposable[] | undefined {
-		this._context = {
-			uri: undefined,
-			period: defaultPeriod,
+			etagRepositories: this.container.git.etag,
 			etagRepository: 0,
 			etagSubscription: this.container.subscription.etag,
 		};
@@ -79,25 +61,51 @@ export class TimelineWebview extends WebviewBase<State> {
 		this._context = { ...this._context, ...this._pendingContext };
 		this._pendingContext = undefined;
 
-		return [
-			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
-			this.container.git.onDidChangeRepository(this.onRepositoryChanged, this),
-		];
+		if (this.host.isType('tab')) {
+			this._disposable = Disposable.from(
+				this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+				this.container.git.onDidChangeRepository(this.onRepositoryChanged, this),
+			);
+		} else {
+			this._disposable = Disposable.from(
+				this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+				this.container.git.onDidChangeRepository(this.onRepositoryChanged, this),
+				this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
+				window.onDidChangeActiveTextEditor(debounce(this.onActiveEditorChanged, 250), this),
+				this.container.events.on('file:selected', debounce(this.onFileSelected, 250), this),
+			);
+		}
 	}
 
-	protected override onShowCommand(uri?: Uri): void {
-		if (uri != null) {
+	dispose() {
+		this._disposable.dispose();
+	}
+
+	async canShowWebviewPanel(
+		firstTime: boolean,
+		_options?: { column?: ViewColumn; preserveFocus?: boolean },
+		...args: unknown[]
+	): Promise<boolean> {
+		if (!(await ensurePlusFeaturesEnabled())) return false;
+
+		const [uri] = args;
+		if (uri != null && uri instanceof Uri) {
 			this.updatePendingUri(uri);
 		} else {
 			this.updatePendingEditor(window.activeTextEditor);
 		}
-		this._context = { ...this._context, ...this._pendingContext };
-		this._pendingContext = undefined;
 
-		super.onShowCommand();
+		if (firstTime) {
+			this._context = { ...this._context, ...this._pendingContext };
+			this._pendingContext = undefined;
+		} else {
+			this.updateState();
+		}
+
+		return true;
 	}
 
-	protected override async includeBootstrap(): Promise<State> {
+	includeBootstrap(): Promise<State> {
 		this._bootstraping = true;
 
 		this._context = { ...this._context, ...this._pendingContext };
@@ -106,11 +114,18 @@ export class TimelineWebview extends WebviewBase<State> {
 		return this.getState(this._context);
 	}
 
-	protected override registerCommands(): Disposable[] {
-		return [registerCommand(Commands.RefreshTimelinePage, () => this.refresh(true))];
+	registerCommands(): Disposable[] {
+		if (this.host.isType('tab')) {
+			return [registerCommand(Commands.RefreshTimelinePage, () => this.host.refresh(true))];
+		}
+
+		return [
+			registerCommand(`${this.id}.refresh`, () => this.host.refresh(true), this),
+			registerCommand(`${this.id}.openInTab`, () => this.openInTab(), this),
+		];
 	}
 
-	protected override onVisibilityChanged(visible: boolean) {
+	onVisibilityChanged(visible: boolean) {
 		if (!visible) return;
 
 		// Since this gets called even the first time the webview is shown, avoid sending an update, because the bootstrap has the data
@@ -127,7 +142,7 @@ export class TimelineWebview extends WebviewBase<State> {
 		this.updateState();
 	}
 
-	protected override onMessageReceived(e: IpcMessage) {
+	onMessageReceived(e: IpcMessage) {
 		switch (e.method) {
 			case OpenDataPointCommandType.method:
 				onIpc(OpenDataPointCommandType, e, async params => {
@@ -139,7 +154,16 @@ export class TimelineWebview extends WebviewBase<State> {
 					const commit = await repository.getCommit(params.data.id);
 					if (commit == null) return;
 
-					void showDetailsView(commit, { pin: false, preserveFocus: true });
+					this.container.events.fire(
+						'commit:selected',
+						{
+							commit: commit,
+							pin: false,
+							preserveFocus: false,
+							preserveVisibility: false,
+						},
+						{ source: this.id },
+					);
 				});
 
 				break;
@@ -152,6 +176,46 @@ export class TimelineWebview extends WebviewBase<State> {
 				});
 
 				break;
+		}
+	}
+
+	@debug({ args: false })
+	private onActiveEditorChanged(editor: TextEditor | undefined) {
+		if (editor != null) {
+			if (!isTextEditor(editor)) return;
+
+			if (!this.container.git.isTrackable(editor.document.uri)) {
+				editor = undefined;
+			}
+		}
+
+		if (!this.updatePendingEditor(editor)) return;
+
+		this.updateState();
+	}
+
+	@debug({ args: false })
+	private onFileSelected(e: FileSelectedEvent) {
+		if (e.data == null) return;
+
+		let uri: Uri | undefined = e.data.uri;
+		if (uri != null) {
+			if (!this.container.git.isTrackable(uri)) {
+				uri = undefined;
+			}
+		}
+
+		if (!this.updatePendingUri(uri)) return;
+
+		this.updateState();
+	}
+
+	@debug({ args: false })
+	private onRepositoriesChanged(e: RepositoriesChangeEvent) {
+		const changed = this.updatePendingUri(this._context.uri);
+
+		if (this.updatePendingContext({ etagRepositories: e.etag }) || changed) {
+			this.updateState();
 		}
 	}
 
@@ -209,14 +273,18 @@ export class TimelineWebview extends WebviewBase<State> {
 		}
 
 		const title = gitUri.relativePath;
-		this.title = `${this.originalTitle}: ${gitUri.fileName}`;
+		if (this.host.isType('tab')) {
+			this.host.title = `${this.host.originalTitle}: ${gitUri.fileName}`;
+		} else {
+			this.host.description = gitUri.fileName;
+		}
 
 		const [currentUser, log] = await Promise.all([
 			this.container.git.getCurrentUser(repoPath),
 			this.container.git.getLogForFile(repoPath, gitUri.fsPath, {
 				limit: 0,
 				ref: gitUri.sha,
-				since: this.getPeriodDate(period).toISOString(),
+				since: getPeriodDate(period).toISOString(),
 			}),
 		]);
 
@@ -291,21 +359,6 @@ export class TimelineWebview extends WebviewBase<State> {
 		};
 	}
 
-	private getPeriodDate(period: Period): Date {
-		const [number, unit] = period.split('|');
-
-		switch (unit) {
-			case 'D':
-				return createFromDateDelta(new Date(), { days: -parseInt(number, 10) });
-			case 'M':
-				return createFromDateDelta(new Date(), { months: -parseInt(number, 10) });
-			case 'Y':
-				return createFromDateDelta(new Date(), { years: -parseInt(number, 10) });
-			default:
-				return createFromDateDelta(new Date(), { months: -3 });
-		}
-	}
-
 	private updatePendingContext(context: Partial<Context>): boolean {
 		let changed = false;
 		for (const [key, value] of Object.entries(context)) {
@@ -351,7 +404,11 @@ export class TimelineWebview extends WebviewBase<State> {
 
 	@debug()
 	private updateState(immediate: boolean = false) {
-		if (!this.isReady || !this.visible) return;
+		if (!this.host.isReady || !this.host.visible) return;
+
+		if (this._pendingContext == null && this.host.isType('view')) {
+			this.updatePendingEditor(window.activeTextEditor);
+		}
 
 		if (immediate) {
 			void this.notifyDidChangeState();
@@ -367,7 +424,7 @@ export class TimelineWebview extends WebviewBase<State> {
 
 	@debug()
 	private async notifyDidChangeState() {
-		if (!this.isReady || !this.visible) return false;
+		if (!this.host.isReady || !this.host.visible) return false;
 
 		this._notifyDidChangeStateDebounced?.cancel();
 		if (this._pendingContext == null) return false;
@@ -375,7 +432,7 @@ export class TimelineWebview extends WebviewBase<State> {
 		const context = { ...this._context, ...this._pendingContext };
 
 		return window.withProgress({ location: { viewId: this.id } }, async () => {
-			const success = await this.notify(DidChangeNotificationType, {
+			const success = await this.host.notify(DidChangeNotificationType, {
 				state: await this.getState(context),
 			});
 			if (success) {
@@ -383,5 +440,51 @@ export class TimelineWebview extends WebviewBase<State> {
 				this._pendingContext = undefined;
 			}
 		});
+	}
+
+	private openInTab() {
+		const uri = this._context.uri;
+		if (uri == null) return;
+
+		void commands.executeCommand(Commands.ShowTimelinePage, uri);
+	}
+}
+
+function generateRandomTimelineDataset(): Commit[] {
+	const dataset: Commit[] = [];
+	const authors = ['Eric Amodio', 'Justin Roberts', 'Ada Lovelace', 'Grace Hopper'];
+
+	const count = 10;
+	for (let i = 0; i < count; i++) {
+		// Generate a random date between now and 3 months ago
+		const date = new Date(new Date().getTime() - Math.floor(Math.random() * (3 * 30 * 24 * 60 * 60 * 1000)));
+
+		dataset.push({
+			commit: String(i),
+			author: authors[Math.floor(Math.random() * authors.length)],
+			date: date.toISOString(),
+			message: '',
+			// Generate random additions/deletions between 1 and 20, but ensure we have a tiny and large commit
+			additions: i === 0 ? 2 : i === count - 1 ? 50 : Math.floor(Math.random() * 20) + 1,
+			deletions: i === 0 ? 1 : i === count - 1 ? 25 : Math.floor(Math.random() * 20) + 1,
+			sort: date.getTime(),
+		});
+	}
+
+	return dataset;
+}
+
+function getPeriodDate(period: Period): Date {
+	const [number, unit] = period.split('|');
+
+	switch (unit) {
+		case 'D':
+			return createFromDateDelta(new Date(), { days: -parseInt(number, 10) });
+		case 'M':
+			return createFromDateDelta(new Date(), { months: -parseInt(number, 10) });
+		case 'Y':
+			return createFromDateDelta(new Date(), { years: -parseInt(number, 10) });
+		default:
+			return createFromDateDelta(new Date(), { months: -3 });
 	}
 }

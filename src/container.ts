@@ -24,8 +24,7 @@ import { ServerConnection } from './plus/subscription/serverConnection';
 import { SubscriptionService } from './plus/subscription/subscriptionService';
 import { FocusWebview } from './plus/webviews/focus/focusWebview';
 import { GraphWebview } from './plus/webviews/graph/graphWebview';
-import { TimelineWebview } from './plus/webviews/timeline/timelineWebview';
-import { TimelineWebviewView } from './plus/webviews/timeline/timelineWebviewView';
+import { registerTimelineWebviewPanel, registerTimelineWebviewView } from './plus/webviews/timeline/registration';
 import { StatusBarController } from './statusbar/statusBarController';
 import type { Storage } from './storage';
 import { executeCommand } from './system/command';
@@ -59,6 +58,7 @@ import { CommitDetailsWebviewView } from './webviews/commitDetails/commitDetails
 import { HomeWebviewView } from './webviews/home/homeWebviewView';
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
 import { SettingsWebview } from './webviews/settings/settingsWebview';
+import type { WebviewViewProxy } from './webviews/webviewsController';
 import { WebviewsController } from './webviews/webviewsController';
 import { WelcomeWebview } from './webviews/welcome/welcomeWebview';
 
@@ -208,8 +208,10 @@ export class Container {
 		context.subscriptions.splice(0, 0, (this._codeLensController = new GitCodeLensController(this)));
 
 		context.subscriptions.splice(0, 0, (this._webviews = new WebviewsController(this)));
+		context.subscriptions.splice(0, 0, registerTimelineWebviewPanel(this._webviews));
+		context.subscriptions.splice(0, 0, (this._timelineView = registerTimelineWebviewView(this._webviews)));
+
 		context.subscriptions.splice(0, 0, (this._settingsWebview = new SettingsWebview(this)));
-		context.subscriptions.splice(0, 0, (this._timelineWebview = new TimelineWebview(this)));
 		context.subscriptions.splice(0, 0, (this._welcomeWebview = new WelcomeWebview(this)));
 		context.subscriptions.splice(0, 0, (this._rebaseEditor = new RebaseEditorProvider(this)));
 		context.subscriptions.splice(0, 0, (this._graphWebview = new GraphWebview(this)));
@@ -231,7 +233,6 @@ export class Container {
 		context.subscriptions.splice(0, 0, (this._searchAndCompareView = new SearchAndCompareView(this)));
 
 		context.subscriptions.splice(0, 0, (this._homeView = new HomeWebviewView(this)));
-		context.subscriptions.splice(0, 0, (this._timelineView = new TimelineWebviewView(this)));
 
 		if (configuration.get('terminalLinks.enabled')) {
 			context.subscriptions.splice(0, 0, (this._terminalLinks = new GitTerminalLinkProvider(this)));
@@ -618,14 +619,9 @@ export class Container {
 		return this._telemetry;
 	}
 
-	private _timelineView: TimelineWebviewView;
+	private _timelineView: WebviewViewProxy;
 	get timelineView() {
 		return this._timelineView;
-	}
-
-	private _timelineWebview: TimelineWebview;
-	get timelineWebview() {
-		return this._timelineWebview;
 	}
 
 	private _tracker: GitDocumentTracker;
