@@ -103,21 +103,29 @@ export class FocusWebview extends WebviewBase<State> {
 
 	private async getRemoteBranch(searchedPullRequest: SearchedPullRequestWithRemote) {
 		const pullRequest = searchedPullRequest.pullRequest;
-		const repo = await searchedPullRequest.repoAndRemote.repo.getMainRepository();
-		const remoteUri = Uri.parse(pullRequest.refs!.head.url);
-		const remoteUrl = remoteUri.toString();
+		const repoAndRemote = searchedPullRequest.repoAndRemote;
+		const localUri = repoAndRemote.repo.folder!.uri;
+
+		const repo = await repoAndRemote.repo.getMainRepository();
 		if (repo == null) {
-			void window.showWarningMessage(`Unable to find main repository(${remoteUrl}) for PR #${pullRequest.id}`);
+			void window.showWarningMessage(
+				`Unable to find main repository(${localUri.toString()}) for PR #${pullRequest.id}`,
+			);
 			return;
 		}
 
-		const [, remoteDomain, remotePath] = parseGitRemoteUrl(remoteUrl);
-		const remoteOwner = pullRequest.refs!.head.owner;
+		const rootOwner = pullRequest.refs!.base.owner;
+		const rootUri = Uri.parse(pullRequest.refs!.base.url);
 		const ref = pullRequest.refs!.head.branch;
+		const remoteUri = Uri.parse(pullRequest.refs!.head.url);
+		const remoteUrl = remoteUri.toString();
+		const [, remoteDomain, remotePath] = parseGitRemoteUrl(remoteUrl);
 
 		let remote: GitRemote | undefined;
 		[remote] = await repo.getRemotes({ filter: r => r.matches(remoteDomain, remotePath) });
+		let remoteBranchName;
 		if (remote != null) {
+			remoteBranchName = `${remote.name}/${ref}`;
 			// Ensure we have the latest from the remote
 			await this.container.git.fetch(repo.path, { remote: remote.name });
 		} else {
@@ -129,6 +137,7 @@ export class FocusWebview extends WebviewBase<State> {
 			);
 			if (result?.title !== 'Yes') return;
 
+			const remoteOwner = pullRequest.refs!.head.owner;
 			await addRemote(repo, remoteOwner, remoteUrl, {
 				confirm: false,
 				fetch: true,
@@ -136,9 +145,19 @@ export class FocusWebview extends WebviewBase<State> {
 			});
 			[remote] = await repo.getRemotes({ filter: r => r.url === remoteUrl });
 			if (remote == null) return;
+
+			remoteBranchName = `${remote.name}/${ref}`;
+			const rootRepository = pullRequest.refs!.base.repo;
+			const localBranchName = `pr/${rootUri.toString() === remoteUri.toString() ? ref : remoteBranchName}`;
+			// Save the PR number in the branch config
+			// https://github.com/Microsoft/vscode-pull-request-github/blob/0c556c48c69a3df2f9cf9a45ed2c40909791b8ab/src/github/pullRequestGitHelper.ts#L18
+			void this.container.git.setConfig(
+				repo.path,
+				`branch.${localBranchName}.github-pr-owner-number`,
+				`${rootOwner}#${rootRepository}#${pullRequest.id}`,
+			);
 		}
 
-		const remoteBranchName = `${remote.name}/${ref}`;
 		const reference = createReference(remoteBranchName, repo.path, {
 			refType: 'branch',
 			name: remoteBranchName,
