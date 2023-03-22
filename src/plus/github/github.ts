@@ -63,24 +63,25 @@ const emptyBlameResult: GitHubBlame = Object.freeze({ ranges: [] });
 
 const prNodeProperties = `
 assignees(first: 10) {
-  nodes {
+	nodes {
+		login
+		avatarUrl
+		url
+	}
+}
+author {
 	login
 	avatarUrl
 	url
-  }
-}
-author {
-  login
-  avatarUrl
-  url
 }
 baseRefName
 baseRefOid
 baseRepository {
-  name
-  owner {
-	login
-  }
+	name
+	owner {
+		login
+	}
+	url
 }
 checksUrl
 isDraft
@@ -89,10 +90,11 @@ isReadByViewer
 headRefName
 headRefOid
 headRepository {
-  name
-  owner {
-	login
-  }
+	name
+	owner {
+		login
+	}
+	url
 }
 permalink
 number
@@ -105,33 +107,33 @@ closedAt
 mergeable
 mergedAt
 mergedBy {
-  login
+	login
 }
 repository {
-  isFork
-  owner {
-	login
-  }
+	isFork
+	owner {
+		login
+	}
 }
 repository {
-  isFork
-  owner {
-	login
-  }
+	isFork
+	owner {
+		login
+	}
 }
 reviewDecision
 reviewRequests(first: 10) {
-  nodes {
-	asCodeOwner
-	id
-	requestedReviewer {
-	  ... on User {
-		login
-		avatarUrl
-		url
-	  }
+	nodes {
+		asCodeOwner
+		id
+		requestedReviewer {
+			... on User {
+				login
+				avatarUrl
+				url
+			}
+		}
 	}
-  }
 }
 totalCommentsCount
 `;

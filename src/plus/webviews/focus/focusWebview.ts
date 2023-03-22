@@ -1,28 +1,40 @@
-import { Disposable } from 'vscode';
+import { Disposable, Uri, window } from 'vscode';
+import type { GHPRPullRequest } from '../../../commands';
 import { Commands, ContextKeys } from '../../../constants';
 import type { Container } from '../../../container';
 import { setContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
+import { add as addRemote } from '../../../git/actions/remote';
+import * as RepoActions from '../../../git/actions/repository';
 import type { SearchedIssue } from '../../../git/models/issue';
 import { serializeIssue } from '../../../git/models/issue';
-import type { SearchedPullRequest } from '../../../git/models/pullRequest';
+import type { PullRequestShape, SearchedPullRequest } from '../../../git/models/pullRequest';
 import {
 	PullRequestMergeableState,
 	PullRequestReviewDecision,
 	serializePullRequest,
 } from '../../../git/models/pullRequest';
+import { createReference, getReferenceFromBranch } from '../../../git/models/reference';
 import type { GitRemote } from '../../../git/models/remote';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
 import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
 import type { Subscription } from '../../../subscription';
 import { SubscriptionState } from '../../../subscription';
-import { registerCommand } from '../../../system/command';
+import { executeCommand, registerCommand } from '../../../system/command';
+import type { IpcMessage } from '../../../webviews/protocol';
+import { onIpc } from '../../../webviews/protocol';
 import { WebviewBase } from '../../../webviews/webviewBase';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
-import type { State } from './protocol';
-import { DidChangeStateNotificationType, DidChangeSubscriptionNotificationType } from './protocol';
+import type { OpenWorktreeParams, State, SwitchToBranchParams } from './protocol';
+import {
+	DidChangeStateNotificationType,
+	DidChangeSubscriptionNotificationType,
+	OpenWorktreeCommandType,
+	SwitchToBranchCommandType,
+} from './protocol';
 
 interface RepoWithRichRemote {
 	repo: Repository;
@@ -31,9 +43,13 @@ interface RepoWithRichRemote {
 	isGitHub: boolean;
 }
 
+interface SearchedPullRequestWithRemote extends SearchedPullRequest {
+	repoAndRemote: RepoWithRichRemote;
+}
+
 export class FocusWebview extends WebviewBase<State> {
 	private _bootstrapping = true;
-	private _pullRequests: SearchedPullRequest[] = [];
+	private _pullRequests: SearchedPullRequestWithRemote[] = [];
 	private _issues: SearchedIssue[] = [];
 	private _etagSubscription?: number;
 	private _repositoryEventsDisposable?: Disposable;
@@ -68,6 +84,111 @@ export class FocusWebview extends WebviewBase<State> {
 		}
 
 		void setContext(ContextKeys.FocusFocused, focused);
+	}
+
+	protected override onMessageReceived(e: IpcMessage) {
+		switch (e.method) {
+			case SwitchToBranchCommandType.method:
+				onIpc(SwitchToBranchCommandType, e, params => this.onSwitchBranch(params));
+				break;
+			case OpenWorktreeCommandType.method:
+				onIpc(OpenWorktreeCommandType, e, params => this.onOpenWorktree(params));
+				break;
+		}
+	}
+
+	private findSearchedPullRequest(pullRequest: PullRequestShape): SearchedPullRequestWithRemote | undefined {
+		return this._pullRequests?.find(r => r.pullRequest.id === pullRequest.id);
+	}
+
+	private async getRemoteBranch(searchedPullRequest: SearchedPullRequestWithRemote) {
+		const pullRequest = searchedPullRequest.pullRequest;
+		const repo = await searchedPullRequest.repoAndRemote.repo.getMainRepository();
+		const remoteUri = Uri.parse(pullRequest.refs!.head.url);
+		const remoteUrl = remoteUri.toString();
+		if (repo == null) {
+			void window.showWarningMessage(`Unable to find main repository(${remoteUrl}) for PR #${pullRequest.id}`);
+			return;
+		}
+
+		const [, remoteDomain, remotePath] = parseGitRemoteUrl(remoteUrl);
+		const remoteOwner = pullRequest.refs!.head.owner;
+		const ref = pullRequest.refs!.head.branch;
+
+		let remote: GitRemote | undefined;
+		[remote] = await repo.getRemotes({ filter: r => r.matches(remoteDomain, remotePath) });
+		if (remote != null) {
+			// Ensure we have the latest from the remote
+			await this.container.git.fetch(repo.path, { remote: remote.name });
+		} else {
+			const result = await window.showInformationMessage(
+				`Unable to find a remote for '${remoteUrl}'. Would you like to add a new remote?`,
+				{ modal: true },
+				{ title: 'Yes' },
+				{ title: 'No', isCloseAffordance: true },
+			);
+			if (result?.title !== 'Yes') return;
+
+			await addRemote(repo, remoteOwner, remoteUrl, {
+				confirm: false,
+				fetch: true,
+				reveal: false,
+			});
+			[remote] = await repo.getRemotes({ filter: r => r.url === remoteUrl });
+			if (remote == null) return;
+		}
+
+		const remoteBranchName = `${remote.name}/${ref}`;
+		const reference = createReference(remoteBranchName, repo.path, {
+			refType: 'branch',
+			name: remoteBranchName,
+			remote: true,
+		});
+
+		return {
+			remote: remote,
+			reference: reference,
+		};
+	}
+
+	private async onSwitchBranch({ pullRequest }: SwitchToBranchParams) {
+		const searchedPullRequestWithRemote = this.findSearchedPullRequest(pullRequest);
+		if (searchedPullRequestWithRemote == null) return Promise.resolve();
+
+		const remoteBranch = await this.getRemoteBranch(searchedPullRequestWithRemote);
+		if (remoteBranch == null) return Promise.resolve();
+
+		return RepoActions.switchTo(remoteBranch.remote.repoPath, remoteBranch.reference);
+	}
+
+	private async onOpenWorktree({ pullRequest }: OpenWorktreeParams) {
+		const baseUri = Uri.parse(pullRequest.refs!.base.url);
+		const repoAndRemote = this.findSearchedPullRequest(pullRequest)?.repoAndRemote;
+		const localInfo = repoAndRemote!.repo.folder;
+		return executeCommand<GHPRPullRequest>(Commands.OpenOrCreateWorktreeForGHPR, {
+			base: {
+				repositoryCloneUrl: {
+					repositoryName: pullRequest.refs!.base.repo,
+					owner: pullRequest.refs!.base.owner,
+					url: baseUri,
+				},
+			},
+			githubRepository: {
+				rootUri: localInfo!.uri,
+			},
+			head: {
+				ref: pullRequest.refs!.head.branch,
+				sha: pullRequest.refs!.head.sha,
+				repositoryCloneUrl: {
+					repositoryName: pullRequest.refs!.head.repo,
+					owner: pullRequest.refs!.head.owner,
+					url: Uri.parse(pullRequest.refs!.head.url),
+				},
+			},
+			item: {
+				number: parseInt(pullRequest.id, 10),
+			},
+		});
 	}
 
 	private async onSubscriptionChanged(e: SubscriptionChangeEvent) {
@@ -193,14 +314,15 @@ export class FocusWebview extends WebviewBase<State> {
 		}
 	}
 
-	private async getMyPullRequests(richRepos: RepoWithRichRemote[]): Promise<SearchedPullRequest[]> {
+	private async getMyPullRequests(richRepos: RepoWithRichRemote[]): Promise<SearchedPullRequestWithRemote[]> {
 		const allPrs = [];
-		for (const { remote } of richRepos) {
+		for (const richRepo of richRepos) {
+			const { remote } = richRepo;
 			const prs = await this.container.git.getMyPullRequests(remote);
 			if (prs == null) {
 				continue;
 			}
-			allPrs.push(...prs.filter(pr => pr.reasons.length > 0));
+			allPrs.push(...prs.filter(pr => pr.reasons.length > 0).map(pr => ({ ...pr, repoAndRemote: richRepo })));
 		}
 
 		function getScore(pr: SearchedPullRequest) {

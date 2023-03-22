@@ -1,7 +1,7 @@
 import type { IssueShape } from '../../../git/models/issue';
 import type { PullRequestShape } from '../../../git/models/pullRequest';
 import type { Subscription } from '../../../subscription';
-import { IpcNotificationType } from '../../../webviews/protocol';
+import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
 
 export type State = {
 	isPlus: boolean;
@@ -29,6 +29,22 @@ export interface RepoWithRichProvider {
 	isGitHub: boolean;
 	isConnected: boolean;
 }
+
+// Commands
+
+export interface OpenWorktreeParams {
+	pullRequest: PullRequestShape;
+}
+
+export const OpenWorktreeCommandType = new IpcCommandType<OpenWorktreeParams>('focus/pr/openWorktree');
+
+export interface SwitchToBranchParams {
+	pullRequest: PullRequestShape;
+}
+
+export const SwitchToBranchCommandType = new IpcCommandType<SwitchToBranchParams>('focus/pr/switchToBranch');
+
+// Notifications
 
 export interface DidChangeStateNotificationParams {
 	state: State;
