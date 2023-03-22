@@ -119,7 +119,7 @@ export class WebviewsController implements Disposable {
 						webview,
 					);
 
-					void webview.show(true);
+					await webview.show(true);
 				},
 			}),
 		);
