@@ -56,7 +56,7 @@ import { ViewFileDecorationProvider } from './views/viewDecorationProvider';
 import { WorktreesView } from './views/worktreesView';
 import { VslsController } from './vsls/vsls';
 import { CommitDetailsWebviewView } from './webviews/commitDetails/commitDetailsWebviewView';
-import { HomeWebviewView } from './webviews/home/homeWebviewView';
+import { registerHomeWebviewView } from './webviews/home/registration';
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
 import { SettingsWebview } from './webviews/settings/settingsWebview';
 import type { WebviewViewProxy } from './webviews/webviewsController';
@@ -238,7 +238,7 @@ export class Container {
 		context.subscriptions.splice(0, 0, (this._contributorsView = new ContributorsView(this)));
 		context.subscriptions.splice(0, 0, (this._searchAndCompareView = new SearchAndCompareView(this)));
 
-		context.subscriptions.splice(0, 0, (this._homeView = new HomeWebviewView(this)));
+		context.subscriptions.splice(0, 0, (this._homeView = registerHomeWebviewView(this._webviews)));
 
 		if (configuration.get('terminalLinks.enabled')) {
 			context.subscriptions.splice(0, 0, (this._terminalLinks = new GitTerminalLinkProvider(this)));
@@ -462,12 +462,8 @@ export class Container {
 	// 	return this._graphView;
 	// }
 
-	private _homeView: HomeWebviewView | undefined;
+	private _homeView: WebviewViewProxy;
 	get homeView() {
-		if (this._homeView == null) {
-			this._context.subscriptions.splice(0, 0, (this._homeView = new HomeWebviewView(this)));
-		}
-
 		return this._homeView;
 	}
 
