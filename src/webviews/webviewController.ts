@@ -33,7 +33,7 @@ function nextIpcId() {
 	return `host:${ipcSequence}`;
 }
 
-export interface WebviewProvider<State> extends Disposable {
+export interface WebviewProvider<State, SerializedState = State> extends Disposable {
 	canShowWebviewPanel?(
 		firstTime: boolean,
 		options?: { column?: ViewColumn; preserveFocus?: boolean },
@@ -46,7 +46,7 @@ export interface WebviewProvider<State> extends Disposable {
 	): void | Promise<void>;
 	registerCommands?(): Disposable[];
 
-	includeBootstrap?(): State | Promise<State>;
+	includeBootstrap?(): SerializedState | Promise<SerializedState>;
 	includeHead?(): string | Promise<string>;
 	includeBody?(): string | Promise<string>;
 	includeEndOfBody?(): string | Promise<string>;
@@ -62,28 +62,28 @@ export interface WebviewProvider<State> extends Disposable {
 
 @logName<WebviewController<any>>((c, name) => `${name}(${c.id})`)
 export class WebviewController<State, SerializedState = State> implements Disposable {
-	static async create<State>(
+	static async create<State, SerializedState = State>(
 		container: Container,
 		id: `gitlens.${WebviewIds}`,
 		webview: Webview,
 		parent: WebviewPanel,
-		metadata: WebviewPanelDescriptor<State>,
-	): Promise<WebviewController<State>>;
-	static async create<State>(
+		metadata: WebviewPanelDescriptor<State, SerializedState>,
+	): Promise<WebviewController<State, SerializedState>>;
+	static async create<State, SerializedState = State>(
 		container: Container,
 		id: `gitlens.views.${WebviewViewIds}`,
 		webview: Webview,
 		parent: WebviewView,
-		metadata: WebviewViewDescriptor<State>,
-	): Promise<WebviewController<State>>;
-	static async create<State>(
+		metadata: WebviewViewDescriptor<State, SerializedState>,
+	): Promise<WebviewController<State, SerializedState>>;
+	static async create<State, SerializedState = State>(
 		container: Container,
 		id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
 		webview: Webview,
 		parent: WebviewPanel | WebviewView,
-		metadata: WebviewPanelDescriptor<State> | WebviewViewDescriptor<State>,
-	): Promise<WebviewController<State>> {
-		const controller = new WebviewController<State>(
+		metadata: WebviewPanelDescriptor<State, SerializedState> | WebviewViewDescriptor<State, SerializedState>,
+	): Promise<WebviewController<State, SerializedState>> {
+		const controller = new WebviewController<State, SerializedState>(
 			container,
 			id,
 			webview,
@@ -124,7 +124,7 @@ export class WebviewController<State, SerializedState = State> implements Dispos
 	}
 
 	private readonly disposables: Disposable[] = [];
-	private /*readonly*/ provider!: WebviewProvider<State>;
+	private /*readonly*/ provider!: WebviewProvider<State, SerializedState>;
 
 	private constructor(
 		private readonly container: Container,
@@ -137,7 +137,9 @@ export class WebviewController<State, SerializedState = State> implements Dispos
 			| `${ContextKeys.WebviewPrefix}${WebviewIds}`
 			| `${ContextKeys.WebviewViewPrefix}${WebviewViewIds}`,
 		private readonly trackingFeature: TrackedUsageFeatures,
-		resolveProvider: (host: WebviewController<State>) => Promise<WebviewProvider<State>>,
+		resolveProvider: (
+			host: WebviewController<State, SerializedState>,
+		) => Promise<WebviewProvider<State, SerializedState>>,
 	) {
 		const isInTab = 'onDidChangeViewState' in parent;
 		this.type = isInTab ? 'tab' : 'view';

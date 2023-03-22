@@ -16,7 +16,7 @@ import { WebviewController } from './webviewController';
 export type WebviewIds = 'graph' | 'settings' | 'timeline' | 'welcome' | 'focus';
 export type WebviewViewIds = 'commitDetails' | 'graph' | 'home' | 'timeline';
 
-export interface WebviewPanelDescriptor<State = any> {
+export interface WebviewPanelDescriptor<State = any, SerializedState = State> {
 	readonly fileName: string;
 	readonly iconPath: string;
 	readonly title: string;
@@ -27,11 +27,11 @@ export interface WebviewPanelDescriptor<State = any> {
 	resolveWebviewProvider(
 		container: Container,
 		id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
-		host: WebviewController<State>,
-	): Promise<WebviewProvider<State>>;
+		host: WebviewController<State, SerializedState>,
+	): Promise<WebviewProvider<State, SerializedState>>;
 }
 
-export interface WebviewViewDescriptor<State = any> {
+export interface WebviewViewDescriptor<State = any, SerializedState = State> {
 	readonly fileName: string;
 	readonly title: string;
 	readonly contextKeyPrefix: `${ContextKeys.WebviewViewPrefix}${WebviewViewIds}`;
@@ -40,20 +40,20 @@ export interface WebviewViewDescriptor<State = any> {
 	resolveWebviewProvider(
 		container: Container,
 		id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
-		host: WebviewController<State>,
-	): Promise<WebviewProvider<State>>;
+		host: WebviewController<State, SerializedState>,
+	): Promise<WebviewProvider<State, SerializedState>>;
 }
 
-interface WebviewPanelMetadata<State = any> {
+interface WebviewPanelMetadata<State = any, SerializedState = State> {
 	readonly id: `gitlens.${WebviewIds}`;
-	readonly descriptor: WebviewPanelDescriptor<State>;
-	webview?: WebviewController<State> | undefined;
+	readonly descriptor: WebviewPanelDescriptor<State, SerializedState>;
+	webview?: WebviewController<State, SerializedState> | undefined;
 }
 
-interface WebviewViewMetadata<State = any> {
+interface WebviewViewMetadata<State = any, SerializedState = State> {
 	readonly id: `gitlens.views.${WebviewViewIds}`;
-	readonly descriptor: WebviewViewDescriptor<State>;
-	webview?: WebviewController<State> | undefined;
+	readonly descriptor: WebviewViewDescriptor<State, SerializedState>;
+	webview?: WebviewController<State, SerializedState> | undefined;
 }
 
 export interface WebviewViewProxy extends Disposable {
@@ -83,9 +83,9 @@ export class WebviewsController implements Disposable {
 
 	registerWebviewView<State, SerializedState = State>(
 		id: `gitlens.views.${WebviewViewIds}`,
-		descriptor: Omit<WebviewViewDescriptor<State>, 'id'>,
+		descriptor: Omit<WebviewViewDescriptor<State, SerializedState>, 'id'>,
 	): WebviewViewProxy {
-		const metadata: WebviewViewMetadata<State> = { id: id, descriptor: descriptor };
+		const metadata: WebviewViewMetadata<State, SerializedState> = { id: id, descriptor: descriptor };
 		this._views.set(id, metadata);
 
 		const disposables: Disposable[] = [];
@@ -143,12 +143,12 @@ export class WebviewsController implements Disposable {
 		} satisfies WebviewViewProxy;
 	}
 
-	registerWebviewPanel<State>(
+	registerWebviewPanel<State, SerializedState = State>(
 		command: Commands,
 		id: `gitlens.${WebviewIds}`,
-		descriptor: Omit<WebviewPanelDescriptor<State>, 'id'>,
+		descriptor: Omit<WebviewPanelDescriptor<State, SerializedState>, 'id'>,
 	): WebviewPanelProxy {
-		const metadata: WebviewPanelMetadata<State> = { id: id, descriptor: descriptor };
+		const metadata: WebviewPanelMetadata<State, SerializedState> = { id: id, descriptor: descriptor };
 		this._panels.set(id, metadata);
 
 		const disposables: Disposable[] = [];
