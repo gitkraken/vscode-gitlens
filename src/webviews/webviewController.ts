@@ -467,9 +467,9 @@ function resetContextKeys(
 
 function setContextKeys(
 	contextKeyPrefix: `${ContextKeys.WebviewPrefix}${WebviewIds}` | `${ContextKeys.WebviewViewPrefix}${WebviewViewIds}`,
+	active?: boolean,
 	focus?: boolean,
 	inputFocus?: boolean,
-	active?: boolean,
 ): void {
 	if (contextKeyPrefix.startsWith(ContextKeys.WebviewPrefix)) {
 		if (active != null) {
