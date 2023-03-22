@@ -234,14 +234,17 @@ export class WebviewController<State, SerializedState = State> implements Dispos
 				this.parent.reveal(this.parent.viewColumn ?? ViewColumn.Active, options?.preserveFocus ?? false);
 			}
 		} else if (this.isType('view')) {
+			const result = await this.provider.canShowWebviewView?.(firstTime, options, ...args);
+			if (result === false) return;
+
 			if (firstTime) {
 				this.webview.html = await this.getHtml(this.webview);
 			}
 
+			await executeCommand(`${this.id}.focus`, options);
 			if (firstTime) {
-				void executeCommand(`${this.id}.focus`, options);
+				this.provider.onVisibilityChanged?.(true);
 			}
-			this.provider.onVisibilityChanged?.(true);
 		}
 	}
 

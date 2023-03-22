@@ -55,7 +55,7 @@ import { ViewCommands } from './views/viewCommands';
 import { ViewFileDecorationProvider } from './views/viewDecorationProvider';
 import { WorktreesView } from './views/worktreesView';
 import { VslsController } from './vsls/vsls';
-import { CommitDetailsWebviewView } from './webviews/commitDetails/commitDetailsWebviewView';
+import { registerCommitDetailsWebviewView } from './webviews/commitDetails/registration';
 import { registerHomeWebviewView } from './webviews/home/registration';
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
 import { registerSettingsWebviewCommands, registerSettingsWebviewView } from './webviews/settings/registration';
@@ -228,7 +228,11 @@ export class Container {
 		context.subscriptions.splice(0, 0, new ViewFileDecorationProvider());
 
 		context.subscriptions.splice(0, 0, (this._repositoriesView = new RepositoriesView(this)));
-		context.subscriptions.splice(0, 0, (this._commitDetailsView = new CommitDetailsWebviewView(this)));
+		context.subscriptions.splice(
+			0,
+			0,
+			(this._commitDetailsView = registerCommitDetailsWebviewView(this._webviews)),
+		);
 		context.subscriptions.splice(0, 0, (this._commitsView = new CommitsView(this)));
 		context.subscriptions.splice(0, 0, (this._fileHistoryView = new FileHistoryView(this)));
 		context.subscriptions.splice(0, 0, (this._lineHistoryView = new LineHistoryView(this)));
@@ -346,12 +350,8 @@ export class Container {
 		return this._commitsView;
 	}
 
-	private _commitDetailsView: CommitDetailsWebviewView | undefined;
+	private _commitDetailsView: WebviewViewProxy;
 	get commitDetailsView() {
-		if (this._commitDetailsView == null) {
-			this._context.subscriptions.splice(0, 0, (this._commitDetailsView = new CommitDetailsWebviewView(this)));
-		}
-
 		return this._commitDetailsView;
 	}
 

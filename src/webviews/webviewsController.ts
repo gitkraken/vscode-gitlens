@@ -54,6 +54,7 @@ interface WebviewViewMetadata<State = any, SerializedState = State> {
 	readonly id: `gitlens.views.${WebviewViewIds}`;
 	readonly descriptor: WebviewViewDescriptor<State, SerializedState>;
 	webview?: WebviewController<State, SerializedState> | undefined;
+	pendingShowArgs?: Parameters<WebviewViewProxy['show']> | undefined;
 }
 
 export interface WebviewViewProxy extends Disposable {
@@ -115,11 +116,19 @@ export class WebviewsController implements Disposable {
 
 					metadata.webview = webview;
 					disposables.push(
-						webview.onDidDispose(() => (metadata.webview = undefined), this),
+						webview.onDidDispose(() => {
+							metadata.pendingShowArgs = undefined;
+							metadata.webview = undefined;
+						}, this),
 						webview,
 					);
 
-					await webview.show(true);
+					if (metadata.pendingShowArgs != null) {
+						await webview.show(true, ...metadata.pendingShowArgs);
+						metadata.pendingShowArgs = undefined;
+					} else {
+						await webview.show(true);
+					}
 				},
 			}),
 		);
@@ -136,8 +145,10 @@ export class WebviewsController implements Disposable {
 			},
 			refresh: async force => metadata.webview?.refresh(force),
 			// eslint-disable-next-line @typescript-eslint/require-await
-			show: async (options?: { preserveFocus?: boolean }, ..._args) => {
-				if (metadata.webview != null) return void metadata.webview.show(false, options);
+			show: async (options?: { preserveFocus?: boolean }, ...args) => {
+				if (metadata.webview != null) return void metadata.webview.show(false, options, ...args);
+
+				metadata.pendingShowArgs = [options, ...args];
 				return void executeCommand(`${id}.focus`, options);
 			},
 		} satisfies WebviewViewProxy;

@@ -30,7 +30,7 @@ import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/gra
 import { executeCommand, executeCoreCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import type { DateTimeFormat } from '../../system/date';
-import { debug, log } from '../../system/decorators/log';
+import { debug } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
 import { map, union } from '../../system/iterable';
@@ -41,14 +41,10 @@ import { getSettledValue } from '../../system/promise';
 import type { Serialized } from '../../system/serialize';
 import { serialize } from '../../system/serialize';
 import type { LinesChangeEvent } from '../../trackers/lineTracker';
-import { CommitFileNode } from '../../views/nodes/commitFileNode';
-import { CommitNode } from '../../views/nodes/commitNode';
-import { FileRevisionAsCommitNode } from '../../views/nodes/fileRevisionAsCommitNode';
-import { StashFileNode } from '../../views/nodes/stashFileNode';
-import { StashNode } from '../../views/nodes/stashNode';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
-import { WebviewViewBase } from '../webviewViewBase';
+import type { WebviewController, WebviewProvider } from '../webviewController';
+import type { WebviewIds, WebviewViewIds } from '../webviewsController';
 import type { CommitDetails, FileActionParams, Preferences, State } from './protocol';
 import {
 	AutolinkSettingsCommandType,
@@ -81,29 +77,29 @@ interface Context {
 	indentGuides: 'none' | 'onHover' | 'always';
 }
 
-export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<State>> {
+export class CommitDetailsWebviewProvider implements WebviewProvider<State, Serialized<State>> {
 	private _bootstraping = true;
 	/** The context the webview has */
 	private _context: Context;
 	/** The context the webview should have */
 	private _pendingContext: Partial<Context> | undefined;
-
+	private readonly _disposable: Disposable;
 	private _pinned = false;
 
-	constructor(container: Container) {
-		super(
-			container,
-			'gitlens.views.commitDetails',
-			'commitDetails.html',
-			'Commit Details',
-			`${ContextKeys.WebviewViewPrefix}commitDetails`,
-			'commitDetailsView',
-		);
-
+	constructor(
+		readonly container: Container,
+		readonly id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
+		readonly host: WebviewController<State, Serialized<State>>,
+	) {
 		this._context = {
 			pinned: false,
 			commit: undefined,
-			preferences: undefined,
+			preferences: {
+				autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded'),
+				avatars: configuration.get('views.commitDetails.avatars'),
+				dismissed: this.container.storage.get('views:commitDetails:dismissed'),
+				files: configuration.get('views.commitDetails.files'),
+			},
 			richStateLoaded: false,
 			formattedMessage: undefined,
 			autolinkedIssues: undefined,
@@ -113,59 +109,56 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			indentGuides: configuration.getAny('workbench.tree.renderIndentGuides') ?? 'onHover',
 		};
 
-		this.disposables.push(
+		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
-			this.container.events.on('commit:selected', debounce(this.onCommitSelected, 250), this),
 		);
 	}
 
-	onCommitSelected(e: CommitSelectedEvent) {
-		if (e.data == null) return;
-
-		void this.show(e.data);
+	dispose() {
+		this._disposable.dispose();
 	}
 
-	@log<CommitDetailsWebviewView['show']>({
-		args: {
-			0: o =>
-				`{"commit":${o?.commit?.ref},"pin":${o?.pin},"preserveFocus":${o?.preserveFocus},"preserveVisibility":${o?.preserveVisibility}}`,
-		},
-	})
-	override async show(options?: {
-		commit?: GitRevisionReference | GitCommit;
-		pin?: boolean;
-		preserveFocus?: boolean | undefined;
-		preserveVisibility?: boolean | undefined;
-	}): Promise<void> {
-		if (this._pinned && !options?.pin && this.visible) return;
-
-		if (options != null) {
-			let commit;
-			let pin;
-			({ commit, pin, ...options } = options);
-			if (commit == null) {
-				commit = this.getBestCommitOrStash();
-			}
-			if (commit != null && !this._context.commit?.ref.startsWith(commit.ref)) {
-				if (!isCommit(commit)) {
-					if (commit.refType === 'stash') {
-						const stash = await this.container.git.getStash(commit.repoPath);
-						commit = stash?.commits.get(commit.ref);
-					} else {
-						commit = await this.container.git.getCommit(commit.repoPath, commit.ref);
-					}
-				}
-				this.updateCommit(commit, { pinned: pin ?? false });
-			}
+	async canShowWebviewView(
+		_firstTime: boolean,
+		options: { column?: ViewColumn; preserveFocus?: boolean },
+		...args: unknown[]
+	): Promise<boolean> {
+		let data = args[0] as Partial<CommitSelectedEvent['data']> | undefined;
+		if (typeof data !== 'object') {
+			data = undefined;
 		}
 
-		if (options?.preserveVisibility) return;
+		if (this._pinned && !data?.pin && this.host.visible) return false;
 
-		return super.show(options);
+		let commit;
+		let pin;
+		if (data != null) {
+			if (data.preserveFocus) {
+				options.preserveFocus = true;
+			}
+			({ commit, pin, ...data } = data);
+		}
+
+		if (commit == null) {
+			commit = this.getBestCommitOrStash();
+		}
+		if (commit != null && !this._context.commit?.ref.startsWith(commit.ref)) {
+			await this.updateCommit(commit, { pinned: pin ?? false });
+		}
+
+		if (data?.preserveVisibility) return false;
+
+		return true;
 	}
 
-	protected override async includeBootstrap(): Promise<Serialized<State>> {
+	private onCommitSelected(e: CommitSelectedEvent) {
+		if (e.data == null) return;
+
+		void this.canShowWebviewView(false, { preserveFocus: e.data.preserveFocus }, e.data);
+	}
+
+	includeBootstrap(): Promise<Serialized<State>> {
 		this._bootstraping = true;
 
 		this._context = { ...this._context, ...this._pendingContext };
@@ -174,30 +167,8 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		return this.getState(this._context);
 	}
 
-	protected override onInitializing(): Disposable[] | undefined {
-		if (this._context.preferences == null) {
-			this.updatePendingContext({
-				preferences: {
-					autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded'),
-					avatars: configuration.get('views.commitDetails.avatars'),
-					dismissed: this.container.storage.get('views:commitDetails:dismissed'),
-					files: configuration.get('views.commitDetails.files'),
-				},
-			});
-		}
-
-		if (this._context.commit == null) {
-			const commit = this.getBestCommitOrStash();
-			if (commit != null) {
-				this.updateCommit(commit, { immediate: false });
-			}
-		}
-
-		return undefined;
-	}
-
 	private _visibilityDisposable: Disposable | undefined;
-	protected override onVisibilityChanged(visible: boolean) {
+	onVisibilityChanged(visible: boolean) {
 		this.ensureTrackers();
 		if (!visible) return;
 
@@ -251,7 +222,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 				(configuration.changed(e, 'views.commitDetails.autolinks') ||
 					configuration.changed(e, 'views.commitDetails.pullRequests'))
 			) {
-				this.updateCommit(this._context.commit, { force: true });
+				void this.updateCommit(this._context.commit, { force: true });
 			}
 
 			this.updateState();
@@ -262,22 +233,27 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 		this._visibilityDisposable?.dispose();
 		this._visibilityDisposable = undefined;
 
-		if (this._pinned || !this.visible) return;
+		if (this._pinned || !this.host.visible) return;
 
 		const { lineTracker } = this.container;
 		this._visibilityDisposable = Disposable.from(
+			this.container.events.on('commit:selected', debounce(this.onCommitSelected, 250), this),
 			lineTracker.subscribe(this, lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this)),
 		);
-
-		const commit = this._pendingContext?.commit ?? this.getBestCommitOrStash();
-		this.updateCommit(commit, { immediate: false });
 	}
 
-	protected override onReady(): void {
+	onReady(): void {
 		this.updateState(false);
 	}
 
-	protected override onMessageReceived(e: IpcMessage) {
+	onRefresh(_force?: boolean | undefined): void {
+		if (this._pinned) return;
+
+		const commit = this._pendingContext?.commit ?? this.getBestCommitOrStash();
+		void this.updateCommit(commit, { immediate: false });
+	}
+
+	onMessageReceived(e: IpcMessage) {
 		switch (e.method) {
 			case OpenFileOnRemoteCommandType.method:
 				onIpc(OpenFileOnRemoteCommandType, e, params => void this.openFileOnRemote(params));
@@ -359,7 +335,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			commit =
 				e.selections != null ? this.container.lineTracker.getState(e.selections[0].active)?.commit : undefined;
 		}
-		this.updateCommit(commit);
+		void this.updateCommit(commit);
 	}
 
 	private _cancellationTokenSource: CancellationTokenSource | undefined = undefined;
@@ -461,14 +437,26 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 
 	private _commitDisposable: Disposable | undefined;
 
-	private updateCommit(
-		commit: GitCommit | undefined,
+	private async updateCommit(
+		commitish: GitCommit | GitRevisionReference | undefined,
 		options?: { force?: boolean; pinned?: boolean; immediate?: boolean },
 	) {
 		// this.commits = [commit];
-		if (!options?.force && this._context.commit?.sha === commit?.sha) return;
+		if (!options?.force && this._context.commit?.sha === commitish?.ref) return;
 
 		this._commitDisposable?.dispose();
+
+		let commit: GitCommit | undefined;
+		if (isCommit(commitish)) {
+			commit = commitish;
+		} else if (commitish != null) {
+			if (commitish.refType === 'stash') {
+				const stash = await this.container.git.getStash(commitish.repoPath);
+				commit = stash?.commits.get(commitish.ref);
+			} else {
+				commit = await this.container.git.getCommit(commitish.repoPath, commitish.ref);
+			}
+		}
 
 		if (commit?.isUncommitted) {
 			const repository = this.container.git.getRepository(commit.repoPath)!;
@@ -604,7 +592,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	private _notifyDidChangeStateDebounced: Deferrable<() => void> | undefined = undefined;
 
 	private updateState(immediate: boolean = false) {
-		if (!this.isReady || !this.visible) return;
+		if (!this.host.isReady || !this.host.visible) return;
 
 		if (immediate) {
 			void this.notifyDidChangeState();
@@ -619,7 +607,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	}
 
 	private async notifyDidChangeState() {
-		if (!this.isReady || !this.visible) return false;
+		if (!this.host.isReady || !this.host.visible) return false;
 
 		const scope = getLogScope();
 
@@ -630,7 +618,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 
 		return window.withProgress({ location: { viewId: this.id } }, async () => {
 			try {
-				const success = await this.notify(DidChangeNotificationType, {
+				const success = await this.host.notify(DidChangeNotificationType, {
 					state: await this.getState(context),
 				});
 				if (success) {
@@ -653,7 +641,7 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 	// 	}
 	// }
 
-	private getBestCommitOrStash(): GitCommit | undefined {
+	private getBestCommitOrStash(): GitCommit | GitRevisionReference | undefined {
 		if (this._pinned) return undefined;
 
 		let commit;
@@ -663,28 +651,13 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 			const line = lineTracker.selections?.[0].active;
 			if (line != null) {
 				commit = lineTracker.getState(line)?.commit;
-				if (commit != null) return commit;
 			}
-		} else if (getContext('gitlens:webview:graph:active') || getContext('gitlens:webview:rebaseEditor:active')) {
-			commit = this._pendingContext?.commit ?? this._context.commit;
-			if (commit != null) return commit;
-		}
-
-		const { commitsView } = this.container;
-		let node = commitsView.activeSelection;
-		if (
-			node != null &&
-			(node instanceof CommitNode || node instanceof FileRevisionAsCommitNode || node instanceof CommitFileNode)
-		) {
-			commit = node.commit;
-			if (commit != null) return commit;
-		}
-
-		const { stashesView } = this.container;
-		node = stashesView.activeSelection;
-		if (node != null && (node instanceof StashNode || node instanceof StashFileNode)) {
-			commit = node.commit;
-			if (commit != null) return commit;
+		} else {
+			commit = this._pendingContext?.commit;
+			if (commit == null) {
+				const args = this.container.events.getCachedEventArgs('commit:selected');
+				commit = args?.commit;
+			}
 		}
 
 		return commit;
@@ -731,12 +704,12 @@ export class CommitDetailsWebviewView extends WebviewViewBase<State, Serialized<
 					status: status,
 					repoPath: repoPath,
 					icon: {
-						dark: this._view!.webview.asWebviewUri(
-							Uri.joinPath(this.container.context.extensionUri, 'images', 'dark', icon),
-						).toString(),
-						light: this._view!.webview.asWebviewUri(
-							Uri.joinPath(this.container.context.extensionUri, 'images', 'light', icon),
-						).toString(),
+						dark: this.host
+							.asWebviewUri(Uri.joinPath(this.host.getRootUri(), 'images', 'dark', icon))
+							.toString(),
+						light: this.host
+							.asWebviewUri(Uri.joinPath(this.host.getRootUri(), 'images', 'light', icon))
+							.toString(),
 					},
 				};
 			}),
