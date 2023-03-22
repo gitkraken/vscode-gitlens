@@ -68,5 +68,6 @@ export function showDetailsView(
 	stash: GitStashReference | GitStashCommit,
 	options?: { pin?: boolean; preserveFocus?: boolean },
 ): Promise<void> {
-	return Container.instance.commitDetailsView.show({ ...options, commit: stash });
+	const { preserveFocus, ...opts } = { ...options, commit: stash };
+	return Container.instance.commitDetailsView.show({ preserveFocus: preserveFocus }, opts);
 }

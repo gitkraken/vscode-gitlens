@@ -27,15 +27,15 @@ interface GitCacheResetEventArgs {
 	readonly caches?: GitCaches[];
 }
 
-type EventBusEventMap = {
+type EventsMapping = {
 	'commit:selected': CommitSelectedEventArgs;
 	'file:selected': FileSelectedEventArgs;
 	'git:cache:reset': GitCacheResetEventArgs;
 };
 
-interface EventBusEvent<T extends keyof EventBusEventMap = keyof EventBusEventMap> {
+interface EventBusEvent<T extends keyof EventsMapping = keyof EventsMapping> {
 	name: T;
-	data: EventBusEventMap[T];
+	data: EventsMapping[T];
 	source?: EventBusSource | undefined;
 }
 
@@ -49,6 +49,14 @@ export type EventBusOptions = {
 	source?: EventBusSource;
 };
 
+type CacheableEventsMapping = {
+	'commit:selected': CommitSelectedEventArgs;
+	'file:selected': FileSelectedEventArgs;
+};
+
+const _cacheableEventNames = new Set<keyof CacheableEventsMapping>(['commit:selected', 'file:selected']);
+const _cachedEventArgs = new Map<keyof CacheableEventsMapping, CacheableEventsMapping[keyof CacheableEventsMapping]>();
+
 export class EventBus implements Disposable {
 	private readonly _emitter = new EventEmitter<EventBusEvent>();
 	private get event() {
@@ -59,7 +67,10 @@ export class EventBus implements Disposable {
 		this._emitter.dispose();
 	}
 
-	fire<T extends keyof EventBusEventMap>(name: T, data: EventBusEventMap[T], options?: EventBusOptions) {
+	fire<T extends keyof EventsMapping>(name: T, data: EventsMapping[T], options?: EventBusOptions) {
+		if (canCacheEventArgs(name)) {
+			_cachedEventArgs.set(name, data as CacheableEventsMapping[typeof name]);
+		}
 		this._emitter.fire({
 			name: name,
 			data: data,
@@ -67,12 +78,16 @@ export class EventBus implements Disposable {
 		});
 	}
 
-	fireAsync<T extends keyof EventBusEventMap>(name: T, data: EventBusEventMap[T], options?: EventBusOptions) {
+	fireAsync<T extends keyof EventsMapping>(name: T, data: EventsMapping[T], options?: EventBusOptions) {
 		queueMicrotask(() => this.fire(name, data, options));
 	}
 
-	on<T extends keyof EventBusEventMap>(
-		eventName: T,
+	getCachedEventArgs<T extends keyof CacheableEventsMapping>(name: T): CacheableEventsMapping[T] | undefined {
+		return _cachedEventArgs.get(name) as CacheableEventsMapping[T] | undefined;
+	}
+
+	on<T extends keyof EventsMapping>(
+		name: T,
 		handler: (e: EventBusEvent<T>) => void,
 		thisArgs?: unknown,
 		disposables?: Disposable[],
@@ -80,11 +95,15 @@ export class EventBus implements Disposable {
 		return this.event(
 			// eslint-disable-next-line prefer-arrow-callback
 			function (e) {
-				if (eventName !== e.name) return;
+				if (name !== e.name) return;
 				handler.call(thisArgs, e as EventBusEvent<T>);
 			},
 			thisArgs,
 			disposables,
 		);
 	}
+}
+
+function canCacheEventArgs(name: keyof EventsMapping): name is keyof CacheableEventsMapping {
+	return _cacheableEventNames.has(name as keyof CacheableEventsMapping);
 }

@@ -589,7 +589,8 @@ export function showDetailsView(
 	commit: GitRevisionReference | GitCommit,
 	options?: { pin?: boolean; preserveFocus?: boolean; preserveVisibility?: boolean },
 ): Promise<void> {
-	return Container.instance.commitDetailsView.show({ ...options, commit: commit });
+	const { preserveFocus, ...opts } = { ...options, commit: commit };
+	return Container.instance.commitDetailsView.show({ preserveFocus: preserveFocus }, opts);
 }
 
 export async function showInCommitGraph(
