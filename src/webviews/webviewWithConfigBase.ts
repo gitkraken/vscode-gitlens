@@ -1,72 +1,50 @@
-import type { ConfigurationChangeEvent, WebviewPanelOnDidChangeViewStateEvent } from 'vscode';
-import { ConfigurationTarget } from 'vscode';
-import type { Commands, ContextKeys } from '../constants';
+import type { ConfigurationChangeEvent } from 'vscode';
+import { ConfigurationTarget, Disposable } from 'vscode';
 import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import { GitCommit, GitCommitIdentity } from '../git/models/commit';
 import { GitFileChange, GitFileIndexStatus } from '../git/models/file';
 import { PullRequest, PullRequestState } from '../git/models/pullRequest';
-import type { Path, PathValue } from '../system/configuration';
 import { configuration } from '../system/configuration';
 import { Logger } from '../system/logger';
-import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
-import type { IpcMessage } from './protocol';
+import type { CustomConfigPath, IpcMessage } from './protocol';
 import {
 	DidChangeConfigurationNotificationType,
 	DidGenerateConfigurationPreviewNotificationType,
 	GenerateConfigurationPreviewCommandType,
+	isCustomConfigKey,
 	onIpc,
 	UpdateConfigurationCommandType,
 } from './protocol';
-import { WebviewBase } from './webviewBase';
-import type { WebviewIds } from './webviewsController';
+import type { WebviewController, WebviewProvider } from './webviewController';
+import type { WebviewIds, WebviewViewIds } from './webviewsController';
 
-export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
+export abstract class WebviewProviderWithConfigBase<State> implements WebviewProvider<State> {
+	private readonly _disposable: Disposable;
+
 	constructor(
-		container: Container,
-		id: `gitlens.${WebviewIds}`,
-		fileName: string,
-		iconPath: string,
-		title: string,
-		contextKeyPrefix: `${ContextKeys.WebviewPrefix}${WebviewIds}`,
-		trackingFeature: TrackedUsageFeatures,
-		showCommand: Commands,
+		readonly container: Container,
+		readonly id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
+		readonly host: WebviewController<State>,
 	) {
-		super(container, id, fileName, iconPath, title, contextKeyPrefix, trackingFeature, showCommand);
-		this.disposables.push(
+		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 		);
 	}
 
-	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
-		let notify = false;
-		for (const setting of this.customSettings.values()) {
-			if (e.affectsConfiguration(setting.name)) {
-				notify = true;
-				break;
-			}
-		}
-
-		if (!notify) return;
-
-		void this.notifyDidChangeConfiguration();
+	dispose() {
+		this._disposable.dispose();
 	}
 
-	protected onConfigurationChanged(_e: ConfigurationChangeEvent) {
-		void this.notifyDidChangeConfiguration();
-	}
-
-	protected override onViewStateChanged(e: WebviewPanelOnDidChangeViewStateEvent): void {
-		super.onViewStateChanged(e);
-
+	onActiveChanged(active: boolean): void {
 		// Anytime the webview becomes active, make sure it has the most up-to-date config
-		if (e.webviewPanel.active) {
+		if (active) {
 			void this.notifyDidChangeConfiguration();
 		}
 	}
 
-	protected override onMessageReceivedCore(e: IpcMessage): void {
+	onMessageReceived(e: IpcMessage): void {
 		if (e == null) return;
 
 		switch (e.method) {
@@ -182,7 +160,7 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 								preview = 'Invalid format';
 							}
 
-							await this.notify(
+							await this.host.notify(
 								DidGenerateConfigurationPreviewNotificationType,
 								{ preview: preview },
 								e.completionId,
@@ -191,10 +169,25 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 					}
 				});
 				break;
-
-			default:
-				super.onMessageReceivedCore(e);
 		}
+	}
+
+	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
+		let notify = false;
+		for (const setting of this.customSettings.values()) {
+			if (e.affectsConfiguration(setting.name)) {
+				notify = true;
+				break;
+			}
+		}
+
+		if (!notify) return;
+
+		void this.notifyDidChangeConfiguration();
+	}
+
+	private onConfigurationChanged(_e: ConfigurationChangeEvent) {
+		void this.notifyDidChangeConfiguration();
 	}
 
 	private _customSettings: Map<CustomConfigPath, CustomSetting> | undefined;
@@ -237,7 +230,7 @@ export abstract class WebviewWithConfigBase<State> extends WebviewBase<State> {
 
 	private notifyDidChangeConfiguration() {
 		// Make sure to get the raw config, not from the container which has the modes mixed in
-		return this.notify(DidChangeConfigurationNotificationType, {
+		return this.host.notify(DidChangeConfigurationNotificationType, {
 			config: configuration.getAll(true),
 			customSettings: this.getCustomSettings(),
 		});
@@ -248,25 +241,4 @@ interface CustomSetting {
 	name: string;
 	enabled: () => boolean;
 	update: (enabled: boolean) => Promise<void>;
-}
-
-interface CustomConfig {
-	rebaseEditor: {
-		enabled: boolean;
-	};
-	currentLine: {
-		useUncommittedChangesFormat: boolean;
-	};
-}
-
-export type CustomConfigPath = Path<CustomConfig>;
-export type CustomConfigPathValue<P extends CustomConfigPath> = PathValue<CustomConfig, P>;
-
-const customConfigKeys: readonly CustomConfigPath[] = [
-	'rebaseEditor.enabled',
-	'currentLine.useUncommittedChangesFormat',
-];
-
-export function isCustomConfigKey(key: string): key is CustomConfigPath {
-	return customConfigKeys.includes(key as CustomConfigPath);
 }
