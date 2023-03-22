@@ -60,7 +60,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 
 	async canShowWebviewPanel(
 		_firstTime: boolean,
-		_options?: { column?: ViewColumn; preserveFocus?: boolean },
+		_options: { column?: ViewColumn; preserveFocus?: boolean },
 		..._args: unknown[]
 	): Promise<boolean> {
 		if (!(await ensurePlusFeaturesEnabled())) return false;

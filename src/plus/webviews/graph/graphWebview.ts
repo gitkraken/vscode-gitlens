@@ -241,13 +241,13 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	async canShowWebviewPanel(
 		firstTime: boolean,
-		options?: { column?: ViewColumn; preserveFocus?: boolean },
+		options: { column?: ViewColumn; preserveFocus?: boolean },
 		...args: unknown[]
 	): Promise<boolean> {
 		this._firstSelection = true;
 		if (!(await ensurePlusFeaturesEnabled())) return false;
 
-		if (options?.column != null) {
+		if (options.column == null) {
 			options.column = ViewColumn.Active;
 		}
 

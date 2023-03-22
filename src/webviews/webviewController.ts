@@ -36,14 +36,19 @@ function nextIpcId() {
 export interface WebviewProvider<State, SerializedState = State> extends Disposable {
 	canShowWebviewPanel?(
 		firstTime: boolean,
-		options?: { column?: ViewColumn; preserveFocus?: boolean },
+		options: { column?: ViewColumn; preserveFocus?: boolean },
 		...args: unknown[]
 	): boolean | Promise<boolean>;
 	onShowWebviewPanel?(
 		firstTime: boolean,
-		options?: { column?: ViewColumn; preserveFocus?: boolean },
+		options: { column?: ViewColumn; preserveFocus?: boolean },
 		...args: unknown[]
 	): void | Promise<void>;
+	canShowWebviewView?(
+		firstTime: boolean,
+		options: { column?: ViewColumn; preserveFocus?: boolean },
+		...args: unknown[]
+	): boolean | Promise<boolean>;
 	registerCommands?(): Disposable[];
 
 	includeBootstrap?(): SerializedState | Promise<SerializedState>;
@@ -212,6 +217,10 @@ export class WebviewController<State, SerializedState = State> implements Dispos
 	}
 
 	async show(firstTime: boolean, options?: { column?: ViewColumn; preserveFocus?: boolean }, ...args: unknown[]) {
+		if (options == null) {
+			options = {};
+		}
+
 		if (this.isType('tab')) {
 			const result = await this.provider.canShowWebviewPanel?.(firstTime, options, ...args);
 			if (result === false) return;

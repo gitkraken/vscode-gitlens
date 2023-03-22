@@ -83,7 +83,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 
 	async canShowWebviewPanel(
 		firstTime: boolean,
-		_options?: { column?: ViewColumn; preserveFocus?: boolean },
+		_options: { column?: ViewColumn; preserveFocus?: boolean },
 		...args: unknown[]
 	): Promise<boolean> {
 		if (!(await ensurePlusFeaturesEnabled())) return false;
