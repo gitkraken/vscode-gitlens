@@ -9,7 +9,7 @@ import type { WebviewIds, WebviewViewIds } from './webviews/webviewsController';
 export type CommitSelectedEvent = EventBusEvent<'commit:selected'>;
 interface CommitSelectedEventArgs {
 	readonly commit: GitRevisionReference | GitCommit;
-	readonly pin?: boolean;
+	readonly interaction: 'active' | 'passive';
 	readonly preserveFocus?: boolean;
 	readonly preserveVisibility?: boolean;
 }

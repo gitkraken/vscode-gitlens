@@ -60,6 +60,7 @@ interface WebviewViewMetadata<State = any, SerializedState = State> {
 
 export interface WebviewViewProxy extends Disposable {
 	readonly id: string;
+	readonly loaded: boolean;
 	readonly visible: boolean;
 	refresh(force?: boolean): Promise<void>;
 	show(options?: { preserveFocus?: boolean }, ...args: unknown[]): Promise<void>;
@@ -138,6 +139,9 @@ export class WebviewsController implements Disposable {
 		this.disposables.push(disposable);
 		return {
 			id: id,
+			get loaded() {
+				return metadata.webview != null;
+			},
 			get visible() {
 				return metadata.webview?.visible ?? false;
 			},

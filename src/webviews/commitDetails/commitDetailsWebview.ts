@@ -85,6 +85,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 	private _pendingContext: Partial<Context> | undefined;
 	private readonly _disposable: Disposable;
 	private _pinned = false;
+	private _focused = false;
 
 	constructor(
 		readonly container: Container,
@@ -129,33 +130,33 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			data = undefined;
 		}
 
-		if (this._pinned && !data?.pin && this.host.visible) return false;
-
 		let commit;
-		let pin;
 		if (data != null) {
 			if (data.preserveFocus) {
 				options.preserveFocus = true;
 			}
-			({ commit, pin, ...data } = data);
+			({ commit, ...data } = data);
 		}
 
 		if (commit == null) {
+			if (this._pinned) return false;
+
 			commit = this.getBestCommitOrStash();
 		}
 		if (commit != null && !this._context.commit?.ref.startsWith(commit.ref)) {
-			await this.updateCommit(commit, { pinned: pin ?? false });
+			await this.updateCommit(commit, { pinned: false });
 		}
 
-		if (data?.preserveVisibility) return false;
+		if (data?.preserveVisibility && !this.host.visible) return false;
 
 		return true;
 	}
 
 	private onCommitSelected(e: CommitSelectedEvent) {
 		if (e.data == null) return;
+		if (this._pinned && e.data.interaction === 'passive') return;
 
-		void this.canShowWebviewView(false, { preserveFocus: e.data.preserveFocus }, e.data);
+		void this.host.show(false, { preserveFocus: e.data.preserveFocus }, e.data);
 	}
 
 	includeBootstrap(): Promise<Serialized<State>> {
@@ -167,7 +168,15 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		return this.getState(this._context);
 	}
 
-	private _visibilityDisposable: Disposable | undefined;
+	onFocusChanged(focused: boolean): void {
+		if (this._focused === focused) return;
+
+		this._focused = focused;
+		if (focused && this.isLineTrackerSuspended) {
+			this.ensureTrackers();
+		}
+	}
+
 	onVisibilityChanged(visible: boolean) {
 		this.ensureTrackers();
 		if (!visible) return;
@@ -229,21 +238,39 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		}
 	}
 
+	private _commitTrackerDisposable: Disposable | undefined;
+	private _lineTrackerDisposable: Disposable | undefined;
 	private ensureTrackers(): void {
-		this._visibilityDisposable?.dispose();
-		this._visibilityDisposable = undefined;
+		this._commitTrackerDisposable?.dispose();
+		this._commitTrackerDisposable = undefined;
+		this._lineTrackerDisposable?.dispose();
+		this._lineTrackerDisposable = undefined;
 
 		if (this._pinned || !this.host.visible) return;
 
+		this._commitTrackerDisposable = this.container.events.on(
+			'commit:selected',
+			debounce(this.onCommitSelected, 250),
+			this,
+		);
+
 		const { lineTracker } = this.container;
-		this._visibilityDisposable = Disposable.from(
-			this.container.events.on('commit:selected', debounce(this.onCommitSelected, 250), this),
-			lineTracker.subscribe(this, lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this)),
+		this._lineTrackerDisposable = lineTracker.subscribe(
+			this,
+			lineTracker.onDidChangeActiveLines(this.onActiveEditorLinesChanged, this),
 		);
 	}
 
-	onReady(): void {
-		this.updateState(false);
+	private get isLineTrackerSuspended() {
+		return this._lineTrackerDisposable == null;
+	}
+
+	private suspendLineTracker() {
+		// Defers the suspension of the line tracker, so that the focus change event can be handled first
+		setTimeout(() => {
+			this._lineTrackerDisposable?.dispose();
+			this._lineTrackerDisposable = undefined;
+		}, 100);
 	}
 
 	onRefresh(_force?: boolean | undefined): void {
@@ -320,21 +347,12 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		}
 	}
 
-	private onActiveLinesChanged(e: LinesChangeEvent) {
-		if (e.pending) return;
+	private onActiveEditorLinesChanged(e: LinesChangeEvent) {
+		if (e.pending || e.editor == null) return;
 
-		let commit;
-		if (e.editor == null) {
-			if (getContext('gitlens:webview:graph:active') || getContext('gitlens:webview:rebaseEditor:active')) {
-				commit = this._pendingContext?.commit ?? this._context.commit;
-				if (commit == null) return;
-			}
-		}
+		const line = e.selections?.[0]?.active;
+		const commit = line != null ? this.container.lineTracker.getState(line)?.commit : undefined;
 
-		if (commit == null) {
-			commit =
-				e.selections != null ? this.container.lineTracker.getState(e.selections[0].active)?.commit : undefined;
-		}
 		void this.updateCommit(commit);
 	}
 
@@ -483,6 +501,10 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 
 		if (options?.pinned != null) {
 			this.updatePinned(options?.pinned);
+		}
+
+		if (this.isLineTrackerSuspended) {
+			this.ensureTrackers();
 		}
 
 		this.updateState(options?.immediate ?? true);
@@ -777,7 +799,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 
 		const [commit, file] = result;
 
-		this.updatePinned(true, true);
+		this.suspendLineTracker();
 		void showDetailsQuickPick(commit, file);
 	}
 
@@ -787,7 +809,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 
 		const [commit, file] = result;
 
-		this.updatePinned(true, true);
+		this.suspendLineTracker();
 		void openChangesWithWorking(file.path, commit, {
 			preserveFocus: true,
 			preview: true,
@@ -801,7 +823,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 
 		const [commit, file] = result;
 
-		this.updatePinned(true, true);
+		this.suspendLineTracker();
 		void openChanges(file.path, commit, {
 			preserveFocus: true,
 			preview: true,
@@ -816,7 +838,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 
 		const [commit, file] = result;
 
-		this.updatePinned(true, true);
+		this.suspendLineTracker();
 		void openFile(file.path, commit, {
 			preserveFocus: true,
 			preview: true,

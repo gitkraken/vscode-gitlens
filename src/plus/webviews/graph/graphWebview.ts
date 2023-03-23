@@ -15,6 +15,7 @@ import type { Config } from '../../../config';
 import { Commands, ContextKeys, CoreCommands, CoreGitCommands, GlyphChars } from '../../../constants';
 import type { Container } from '../../../container';
 import { getContext, onDidChangeContext } from '../../../context';
+import type { CommitSelectedEvent } from '../../../eventBus';
 import { PlusFeatures } from '../../../features';
 import * as BranchActions from '../../../git/actions/branch';
 import * as ContributorActions from '../../../git/actions/contributor';
@@ -517,7 +518,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			'commit:selected',
 			{
 				commit: activeSelection,
-				pin: false,
+				interaction: 'passive',
 				preserveFocus: true,
 				preserveVisibility: this._showDetailsView === false,
 			},
@@ -688,6 +689,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 					'commit:selected',
 					{
 						commit: commit,
+						interaction: 'active',
 						preserveFocus: e.preserveFocus,
 						preserveVisibility: false,
 					},
@@ -695,6 +697,14 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 						source: this.id,
 					},
 				);
+
+				if (!this.container.commitDetailsView.loaded) {
+					void this.container.commitDetailsView.show({ preserveFocus: e.preserveFocus }, {
+						commit: commit,
+						interaction: 'active',
+						preserveVisibility: false,
+					} satisfies CommitSelectedEvent['data']);
+				}
 			}
 		}
 
@@ -1046,7 +1056,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			'commit:selected',
 			{
 				commit: commits[0],
-				pin: false,
+				interaction: 'passive',
 				preserveFocus: true,
 				preserveVisibility: this._firstSelection
 					? this._showDetailsView === false
