@@ -178,7 +178,7 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 				'commit:selected',
 				{
 					commit: node.commit,
-					pin: false,
+					interaction: 'passive',
 					preserveFocus: true,
 					preserveVisibility: true,
 				},

@@ -158,9 +158,9 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 						'commit:selected',
 						{
 							commit: commit,
-							pin: false,
-							preserveFocus: false,
-							preserveVisibility: false,
+							interaction: 'passive',
+							preserveFocus: true,
+							preserveVisibility: true,
 						},
 						{ source: this.id },
 					);
