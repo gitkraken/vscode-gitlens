@@ -48,6 +48,10 @@ export type State = {
 	dateFormat: string;
 	// indent: number;
 	indentGuides: 'none' | 'onHover' | 'always';
+	navigationStack: {
+		count: number;
+		position: number;
+	};
 };
 
 export type ShowCommitDetailsViewCommandArgs = string[];
@@ -80,6 +84,11 @@ export interface PinParams {
 	pin: boolean;
 }
 export const PinCommitCommandType = new IpcCommandType<PinParams>('commit/pin');
+
+export interface NavigateParams {
+	direction: 'back' | 'forward';
+}
+export const NavigateCommitCommandType = new IpcCommandType<NavigateParams>('commit/navigate');
 
 export interface PreferenceParams {
 	autolinksExpanded?: boolean;

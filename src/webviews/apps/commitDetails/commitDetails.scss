@@ -348,7 +348,7 @@ ul {
 		top: 0;
 		z-index: 1;
 		padding: {
-			top: 1rem;
+			top: 0;
 			left: var(--gitlens-gutter-width);
 			right: var(--gitlens-scrollbar-gutter-width);
 			bottom: 0.5rem;
@@ -358,8 +358,27 @@ ul {
 		&-menu {
 			display: flex;
 			flex-direction: row;
+			flex-wrap: wrap;
 			align-items: flex-start;
 			justify-content: space-between;
+		}
+
+		&-actions {
+			display: flex;
+			flex-direction: row;
+			flex-wrap: nowrap;
+			justify-content: space-between;
+			flex: 100% 0 0;
+
+			&-left {
+				display: flex;
+				flex: 100% 2 1;
+			}
+
+			&-right {
+				display: flex;
+				flex: auto 0 0;
+			}
 		}
 	}
 
@@ -431,6 +450,15 @@ ul {
 				background-color: var(--color-background--darken-10);
 			}
 		}
+
+		&.is-disabled {
+			opacity: 0.5;
+			pointer-events: none;
+		}
+
+		&.is-hidden {
+			display: none;
+		}
 	}
 
 	&__sha {
@@ -439,6 +467,7 @@ ul {
 
 	&__authors {
 		flex-basis: 100%;
+		padding-top: 0.5rem;
 	}
 	&__author {
 		& + & {

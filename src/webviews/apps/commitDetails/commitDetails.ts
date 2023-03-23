@@ -10,6 +10,7 @@ import {
 	DidChangeNotificationType,
 	FileActionsCommandType,
 	messageHeadlineSplitterToken,
+	NavigateCommitCommandType,
 	OpenFileCommandType,
 	OpenFileComparePreviousCommandType,
 	OpenFileCompareWorkingCommandType,
@@ -78,6 +79,8 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			DOM.on('[data-action="autolink-settings"]', 'click', e => this.onAutolinkSettings(e)),
 			DOM.on('[data-switch-value]', 'click', e => this.onToggleFilesLayout(e)),
 			DOM.on('[data-action="pin"]', 'click', e => this.onTogglePin(e)),
+			DOM.on('[data-action="back"]', 'click', e => this.onNavigate('back', e)),
+			DOM.on('[data-action="forward"]', 'click', e => this.onNavigate('forward', e)),
 			DOM.on<WebviewPane, WebviewPaneExpandedChangeEventDetail>(
 				'[data-region="rich-pane"]',
 				'expanded-change',
@@ -171,6 +174,11 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		this.sendCommand(PreferencesCommandType, { autolinksExpanded: e.expanded });
 	}
 
+	private onNavigate(direction: 'back' | 'forward', e: Event) {
+		e.preventDefault();
+		this.sendCommand(NavigateCommitCommandType, { direction: direction });
+	}
+
 	private onTogglePin(e: MouseEvent) {
 		e.preventDefault();
 		this.sendCommand(PinCommitCommandType, { pin: !this.state.pinned });
@@ -244,6 +252,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 
 		this.renderBanner(this.state);
 		this.renderActions(this.state);
+		this.renderNavigation(this.state);
 		this.renderPin(this.state);
 		this.renderSha(this.state);
 		this.renderMessage(this.state);
@@ -277,11 +286,44 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		document.querySelector('[data-action-type="scm"]')?.setAttribute('aria-hidden', (!isUncommitted).toString());
 	}
 
+	renderNavigation(state: CommitState) {
+		const $back = document.querySelector<HTMLElement>('[data-action="back"]');
+		const $forward = document.querySelector<HTMLElement>('[data-action="forward"]');
+		if ($back == null || $forward == null) return;
+
+		if (state.navigationStack.count <= 1) {
+			$back.setAttribute('aria-disabled', 'true');
+			$back.classList.toggle('is-disabled', true);
+			$forward.setAttribute('aria-hidden', 'true');
+			$forward.classList.toggle('is-hidden', true);
+		} else if (state.navigationStack.position === 0) {
+			$back.setAttribute('aria-disabled', 'false');
+			$back.classList.toggle('is-disabled', false);
+
+			$forward.setAttribute('aria-hidden', 'true');
+			$forward.classList.toggle('is-hidden', true);
+		} else if (state.navigationStack.position === state.navigationStack.count - 1) {
+			$back.setAttribute('aria-disabled', 'true');
+			$back.classList.toggle('is-disabled', true);
+
+			$forward.setAttribute('aria-hidden', 'false');
+			$forward.classList.toggle('is-hidden', false);
+		} else {
+			$back.setAttribute('aria-disabled', 'false');
+			$back.classList.toggle('is-disabled', false);
+
+			$forward.setAttribute('aria-hidden', 'false');
+			$forward.classList.toggle('is-hidden', false);
+		}
+	}
+
 	renderPin(state: CommitState) {
 		const $el = document.querySelector<HTMLElement>('[data-action="pin"]');
 		if ($el == null) return;
 
-		const label = state.pinned ? 'Unpin this Commit' : 'Pin this Commit';
+		const label = state.pinned
+			? 'Unpin this Commit\nRestores Automatic Following'
+			: 'Pin this Commit\nSuspends Automatic Following';
 		$el.setAttribute('aria-label', label);
 		$el.setAttribute('title', label);
 		$el.classList.toggle('is-active', state.pinned);

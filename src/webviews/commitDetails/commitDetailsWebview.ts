@@ -36,6 +36,7 @@ import { debounce } from '../../system/function';
 import { map, union } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
+import { MRU } from '../../system/mru';
 import type { PromiseCancelledError } from '../../system/promise';
 import { getSettledValue } from '../../system/promise';
 import type { Serialized } from '../../system/serialize';
@@ -52,6 +53,7 @@ import {
 	DidChangeNotificationType,
 	FileActionsCommandType,
 	messageHeadlineSplitterToken,
+	NavigateCommitCommandType,
 	OpenFileCommandType,
 	OpenFileComparePreviousCommandType,
 	OpenFileCompareWorkingCommandType,
@@ -75,6 +77,10 @@ interface Context {
 	dateFormat: DateTimeFormat | string;
 	// indent: number;
 	indentGuides: 'none' | 'onHover' | 'always';
+	navigationStack: {
+		count: number;
+		position: number;
+	};
 }
 
 export class CommitDetailsWebviewProvider implements WebviewProvider<State, Serialized<State>> {
@@ -86,6 +92,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 	private readonly _disposable: Disposable;
 	private _pinned = false;
 	private _focused = false;
+	private _commitStack = new MRU<GitRevisionReference>(10, (a, b) => a.ref === b.ref);
 
 	constructor(
 		readonly container: Container,
@@ -108,6 +115,10 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
 			// indent: configuration.getAny('workbench.tree.indent') ?? 8,
 			indentGuides: configuration.getAny('workbench.tree.renderIndentGuides') ?? 'onHover',
+			navigationStack: {
+				count: 0,
+				position: 0,
+			},
 		};
 
 		this._disposable = Disposable.from(
@@ -341,10 +352,20 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			case PinCommitCommandType.method:
 				onIpc(PinCommitCommandType, e, params => this.updatePinned(params.pin ?? false, true));
 				break;
+			case NavigateCommitCommandType.method:
+				onIpc(NavigateCommitCommandType, e, params => this.navigateStack(params.direction));
+				break;
 			case PreferencesCommandType.method:
 				onIpc(PreferencesCommandType, e, params => this.updatePreferences(params));
 				break;
 		}
+	}
+
+	private navigateStack(direction: 'back' | 'forward') {
+		const commit = this._commitStack.navigate(direction);
+		if (commit == null) return;
+
+		void this.updateCommit(commit, { immediate: true, skipStack: true });
 	}
 
 	private onActiveEditorLinesChanged(e: LinesChangeEvent) {
@@ -394,6 +415,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			dateFormat: current.dateFormat,
 			// indent: current.indent,
 			indentGuides: current.indentGuides,
+			navigationStack: current.navigationStack,
 		});
 		return state;
 	}
@@ -457,7 +479,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 
 	private async updateCommit(
 		commitish: GitCommit | GitRevisionReference | undefined,
-		options?: { force?: boolean; pinned?: boolean; immediate?: boolean },
+		options?: { force?: boolean; pinned?: boolean; immediate?: boolean; skipStack?: boolean },
 	) {
 		// this.commits = [commit];
 		if (!options?.force && this._context.commit?.sha === commitish?.ref) return;
@@ -507,6 +529,17 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			this.ensureTrackers();
 		}
 
+		if (commit != null) {
+			if (!options?.skipStack) {
+				this._commitStack.add(getReferenceFromRevision(commit));
+			}
+			this.updatePendingContext({
+				navigationStack: {
+					count: this._commitStack.count,
+					position: this._commitStack.position,
+				},
+			});
+		}
 		this.updateState(options?.immediate ?? true);
 	}
 
