@@ -22,7 +22,7 @@ import { IntegrationAuthenticationService } from './plus/integrationAuthenticati
 import { SubscriptionAuthenticationProvider } from './plus/subscription/authenticationProvider';
 import { ServerConnection } from './plus/subscription/serverConnection';
 import { SubscriptionService } from './plus/subscription/subscriptionService';
-import { FocusWebview } from './plus/webviews/focus/focusWebview';
+import { registerFocusWebviewPanel } from './plus/webviews/focus/registration';
 import { registerGraphWebviewCommands, registerGraphWebviewPanel } from './plus/webviews/graph/registration';
 import { GraphStatusBarController } from './plus/webviews/graph/statusbar';
 import { registerTimelineWebviewPanel, registerTimelineWebviewView } from './plus/webviews/timeline/registration';
@@ -223,7 +223,7 @@ export class Container {
 		context.subscriptions.splice(0, 0, registerSettingsWebviewCommands(settingsWebviewPanel));
 		context.subscriptions.splice(0, 0, registerWelcomeWebviewPanel(this._webviews));
 		context.subscriptions.splice(0, 0, (this._rebaseEditor = new RebaseEditorProvider(this)));
-		context.subscriptions.splice(0, 0, new FocusWebview(this));
+		context.subscriptions.splice(0, 0, registerFocusWebviewPanel(this._webviews));
 
 		context.subscriptions.splice(0, 0, new ViewFileDecorationProvider());
 
