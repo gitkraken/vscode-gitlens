@@ -1,3 +1,4 @@
+import type { ViewColumn } from 'vscode';
 import { Disposable, Uri, window } from 'vscode';
 import type { GHPRPullRequest } from '../../../commands';
 import { Commands, ContextKeys } from '../../../constants';
@@ -14,7 +15,7 @@ import {
 	PullRequestReviewDecision,
 	serializePullRequest,
 } from '../../../git/models/pullRequest';
-import { createReference, getReferenceFromBranch } from '../../../git/models/reference';
+import { createReference } from '../../../git/models/reference';
 import type { GitRemote } from '../../../git/models/remote';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
@@ -25,7 +26,8 @@ import { SubscriptionState } from '../../../subscription';
 import { executeCommand, registerCommand } from '../../../system/command';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
-import { WebviewBase } from '../../../webviews/webviewBase';
+import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
+import type { WebviewIds, WebviewViewIds } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import type { OpenWorktreeParams, State, SwitchToBranchParams } from './protocol';
@@ -47,35 +49,45 @@ interface SearchedPullRequestWithRemote extends SearchedPullRequest {
 	repoAndRemote: RepoWithRichRemote;
 }
 
-export class FocusWebview extends WebviewBase<State> {
+export class FocusWebviewProvider implements WebviewProvider<State> {
 	private _bootstrapping = true;
 	private _pullRequests: SearchedPullRequestWithRemote[] = [];
 	private _issues: SearchedIssue[] = [];
+	private readonly _disposable: Disposable;
 	private _etagSubscription?: number;
 	private _repositoryEventsDisposable?: Disposable;
 	private _repos?: RepoWithRichRemote[];
 
-	constructor(container: Container) {
-		super(
-			container,
-			'gitlens.focus',
-			'focus.html',
-			'images/gitlens-icon.png',
-			'Focus View',
-			`${ContextKeys.WebviewPrefix}focus`,
-			'focusWebview',
-			Commands.ShowFocusPage,
+	constructor(
+		readonly container: Container,
+		readonly id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
+		readonly host: WebviewController<State>,
+	) {
+		this._disposable = Disposable.from(
+			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			this.container.git.onDidChangeRepositories(() => void this.host.refresh(true)),
 		);
-
-		this.disposables.push(this.container.subscription.onDidChange(this.onSubscriptionChanged, this));
-		this.disposables.push(this.container.git.onDidChangeRepositories(() => void this.refresh(true)));
 	}
 
-	protected override registerCommands(): Disposable[] {
-		return [registerCommand(Commands.RefreshFocus, () => this.refresh(true))];
+	dispose() {
+		this._disposable.dispose();
 	}
 
-	protected override onFocusChanged(focused: boolean): void {
+	async canShowWebviewPanel(
+		_firstTime: boolean,
+		_options: { column?: ViewColumn; preserveFocus?: boolean },
+		..._args: unknown[]
+	): Promise<boolean> {
+		if (!(await ensurePlusFeaturesEnabled())) return false;
+
+		return true;
+	}
+
+	registerCommands(): Disposable[] {
+		return [registerCommand(Commands.RefreshFocus, () => this.host.refresh(true))];
+	}
+
+	onFocusChanged(focused: boolean): void {
 		if (focused) {
 			// If we are becoming focused, delay it a bit to give the UI time to update
 			setTimeout(() => void setContext(ContextKeys.FocusFocused, focused), 0);
@@ -86,7 +98,7 @@ export class FocusWebview extends WebviewBase<State> {
 		void setContext(ContextKeys.FocusFocused, focused);
 	}
 
-	protected override onMessageReceived(e: IpcMessage) {
+	onMessageReceived(e: IpcMessage) {
 		switch (e.method) {
 			case SwitchToBranchCommandType.method:
 				onIpc(SwitchToBranchCommandType, e, params => this.onSwitchBranch(params));
@@ -220,7 +232,7 @@ export class FocusWebview extends WebviewBase<State> {
 		if (isPlus) {
 			void this.notifyDidChangeState();
 		}
-		return this.notify(DidChangeSubscriptionNotificationType, {
+		return this.host.notify(DidChangeSubscriptionNotificationType, {
 			subscription: subscription,
 			isPlus: isPlus,
 		});
@@ -284,7 +296,7 @@ export class FocusWebview extends WebviewBase<State> {
 		};
 	}
 
-	protected override async includeBootstrap(): Promise<State> {
+	async includeBootstrap(): Promise<State> {
 		if (this._bootstrapping) {
 			const state = await this.getState(true);
 			if (state.isPlus) {
@@ -399,21 +411,12 @@ export class FocusWebview extends WebviewBase<State> {
 		return this._issues;
 	}
 
-	override async show(options?: {
-		preserveFocus?: boolean | undefined;
-		preserveVisibility?: boolean | undefined;
-	}): Promise<void> {
-		if (!(await ensurePlusFeaturesEnabled())) return;
-
-		return super.show(options);
-	}
-
 	private async notifyDidChangeState() {
-		if (!this.visible) return;
+		if (!this.host.visible) return;
 
 		const state = await this.getState();
 		this._bootstrapping = false;
-		void this.notify(DidChangeStateNotificationType, { state: state });
+		void this.host.notify(DidChangeStateNotificationType, { state: state });
 	}
 }
 
