@@ -117,9 +117,7 @@ export class LineHistoryNode
 					const pseudoCommits = status?.getPseudoCommits(this.view.container, currentUser);
 					if (pseudoCommits != null) {
 						for (const commit of pseudoCommits.reverse()) {
-							children.splice(
-								0,
-								0,
+							children.unshift(
 								new FileRevisionAsCommitNode(this.view, this, file, commit, {
 									selection: selection,
 								}),

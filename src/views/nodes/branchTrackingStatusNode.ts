@@ -135,9 +135,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 		}
 
 		if (showFiles) {
-			children.splice(
-				0,
-				0,
+			children.unshift(
 				new BranchTrackingStatusFilesNode(
 					this.view,
 					this,

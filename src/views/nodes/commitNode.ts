@@ -105,9 +105,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 
 						// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
 						if (pr != null && this._children != null) {
-							this._children.splice(
-								0,
-								0,
+							this._children.unshift(
 								new PullRequestNode(this.view as ViewsWithCommits, this, pr, commit),
 							);
 						}
@@ -140,7 +138,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 			}
 
 			if (pullRequest != null) {
-				children.splice(0, 0, new PullRequestNode(this.view as ViewsWithCommits, this, pullRequest, commit));
+				children.unshift(new PullRequestNode(this.view as ViewsWithCommits, this, pullRequest, commit));
 			}
 
 			this._children = children;

@@ -74,7 +74,7 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 			this.rebaseStatus.steps.current.commit.ref,
 		);
 		if (commit != null) {
-			children.splice(0, 0, new RebaseCommitNode(this.view, this, commit) as any);
+			children.unshift(new RebaseCommitNode(this.view, this, commit) as any);
 		}
 
 		return children;
