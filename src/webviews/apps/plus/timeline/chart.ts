@@ -1,4 +1,3 @@
-'use strict';
 /*global*/
 import type { Chart, ChartOptions, ChartTypes, DataItem } from 'billboard.js';
 import { bar, bb, bubble, zoom } from 'billboard.js';
