@@ -301,12 +301,8 @@ export class Container {
 		}
 	}
 
-	private _actionRunners: ActionRunners;
+	private readonly _actionRunners: ActionRunners;
 	get actionRunners() {
-		if (this._actionRunners == null) {
-			this._context.subscriptions.unshift((this._actionRunners = new ActionRunners(this)));
-		}
-
 		return this._actionRunners;
 	}
 
@@ -319,30 +315,22 @@ export class Container {
 		return this._autolinks;
 	}
 
-	private _codeLensController: GitCodeLensController;
+	private readonly _codeLensController: GitCodeLensController;
 	get codeLens() {
 		return this._codeLensController;
 	}
 
-	private _branchesView: BranchesView | undefined;
+	private readonly _branchesView: BranchesView;
 	get branchesView() {
-		if (this._branchesView == null) {
-			this._context.subscriptions.unshift((this._branchesView = new BranchesView(this)));
-		}
-
 		return this._branchesView;
 	}
 
-	private _commitsView: CommitsView | undefined;
+	private readonly _commitsView: CommitsView;
 	get commitsView() {
-		if (this._commitsView == null) {
-			this._context.subscriptions.unshift((this._commitsView = new CommitsView(this)));
-		}
-
 		return this._commitsView;
 	}
 
-	private _commitDetailsView: WebviewViewProxy;
+	private readonly _commitDetailsView: WebviewViewProxy;
 	get commitDetailsView() {
 		return this._commitDetailsView;
 	}
@@ -352,12 +340,8 @@ export class Container {
 		return this._context;
 	}
 
-	private _contributorsView: ContributorsView | undefined;
+	private readonly _contributorsView: ContributorsView;
 	get contributorsView() {
-		if (this._contributorsView == null) {
-			this._context.subscriptions.unshift((this._contributorsView = new ContributorsView(this)));
-		}
-
 		return this._contributorsView;
 	}
 
@@ -377,36 +361,32 @@ export class Container {
 		return 'production';
 	}
 
-	private _eventBus: EventBus;
+	private readonly _eventBus: EventBus;
 	get events() {
 		return this._eventBus;
 	}
 
-	private _fileAnnotationController: FileAnnotationController;
+	private readonly _fileAnnotationController: FileAnnotationController;
 	get fileAnnotations() {
 		return this._fileAnnotationController;
 	}
 
-	private _fileHistoryView: FileHistoryView | undefined;
+	private readonly _fileHistoryView: FileHistoryView;
 	get fileHistoryView() {
-		if (this._fileHistoryView == null) {
-			this._context.subscriptions.unshift((this._fileHistoryView = new FileHistoryView(this)));
-		}
-
 		return this._fileHistoryView;
 	}
 
-	private _git: GitProviderService;
+	private readonly _git: GitProviderService;
 	get git() {
 		return this._git;
 	}
 
-	private _uri: UriService;
+	private readonly _uri: UriService;
 	get uri() {
 		return this._uri;
 	}
 
-	private _deepLinks: DeepLinkService;
+	private readonly _deepLinks: DeepLinkService;
 	get deepLinks() {
 		return this._deepLinks;
 	}
@@ -451,12 +431,12 @@ export class Container {
 		}
 	}
 
-	// private _graphView: WebviewViewProxy;
+	// private readonly _graphView: WebviewViewProxy;
 	// get graphView() {
 	// 	return this._graphView;
 	// }
 
-	private _homeView: WebviewViewProxy;
+	private readonly _homeView: WebviewViewProxy;
 	get homeView() {
 		return this._homeView;
 	}
@@ -480,31 +460,27 @@ export class Container {
 		return this._integrationAuthentication;
 	}
 
-	private _keyboard: Keyboard;
+	private readonly _keyboard: Keyboard;
 	get keyboard() {
 		return this._keyboard;
 	}
 
-	private _lineAnnotationController: LineAnnotationController;
+	private readonly _lineAnnotationController: LineAnnotationController;
 	get lineAnnotations() {
 		return this._lineAnnotationController;
 	}
 
-	private _lineHistoryView: LineHistoryView | undefined;
+	private readonly _lineHistoryView: LineHistoryView;
 	get lineHistoryView() {
-		if (this._lineHistoryView == null) {
-			this._context.subscriptions.unshift((this._lineHistoryView = new LineHistoryView(this)));
-		}
-
 		return this._lineHistoryView;
 	}
 
-	private _lineHoverController: LineHoverController;
+	private readonly _lineHoverController: LineHoverController;
 	get lineHovers() {
 		return this._lineHoverController;
 	}
 
-	private _lineTracker: GitLineTracker;
+	private readonly _lineTracker: GitLineTracker;
 	get lineTracker() {
 		return this._lineTracker;
 	}
@@ -519,39 +495,23 @@ export class Container {
 		return this._prerelease || this.debugging;
 	}
 
-	private _rebaseEditor: RebaseEditorProvider | undefined;
+	private readonly _rebaseEditor: RebaseEditorProvider;
 	get rebaseEditor() {
-		if (this._rebaseEditor == null) {
-			this._context.subscriptions.unshift((this._rebaseEditor = new RebaseEditorProvider(this)));
-		}
-
 		return this._rebaseEditor;
 	}
 
-	private _remotesView: RemotesView | undefined;
+	private readonly _remotesView: RemotesView;
 	get remotesView() {
-		if (this._remotesView == null) {
-			this._context.subscriptions.unshift((this._remotesView = new RemotesView(this)));
-		}
-
 		return this._remotesView;
 	}
 
-	private _repositoriesView: RepositoriesView | undefined;
+	private readonly _repositoriesView: RepositoriesView;
 	get repositoriesView(): RepositoriesView {
-		if (this._repositoriesView == null) {
-			this._context.subscriptions.unshift((this._repositoriesView = new RepositoriesView(this)));
-		}
-
 		return this._repositoriesView;
 	}
 
-	private _searchAndCompareView: SearchAndCompareView | undefined;
+	private readonly _searchAndCompareView: SearchAndCompareView;
 	get searchAndCompareView() {
-		if (this._searchAndCompareView == null) {
-			this._context.subscriptions.unshift((this._searchAndCompareView = new SearchAndCompareView(this)));
-		}
-
 		return this._searchAndCompareView;
 	}
 
@@ -570,16 +530,12 @@ export class Container {
 		return this._richRemoteProviders;
 	}
 
-	private _stashesView: StashesView | undefined;
+	private readonly _stashesView: StashesView;
 	get stashesView() {
-		if (this._stashesView == null) {
-			this._context.subscriptions.unshift((this._stashesView = new StashesView(this)));
-		}
-
 		return this._stashesView;
 	}
 
-	private _statusBarController: StatusBarController;
+	private readonly _statusBarController: StatusBarController;
 	get statusBar() {
 		return this._statusBarController;
 	}
@@ -589,12 +545,8 @@ export class Container {
 		return this._storage;
 	}
 
-	private _tagsView: TagsView | undefined;
+	private readonly _tagsView: TagsView;
 	get tagsView() {
-		if (this._tagsView == null) {
-			this._context.subscriptions.unshift((this._tagsView = new TagsView(this)));
-		}
-
 		return this._tagsView;
 	}
 
@@ -603,12 +555,12 @@ export class Container {
 		return this._telemetry;
 	}
 
-	private _timelineView: WebviewViewProxy;
+	private readonly _timelineView: WebviewViewProxy;
 	get timelineView() {
 		return this._timelineView;
 	}
 
-	private _tracker: GitDocumentTracker;
+	private readonly _tracker: GitDocumentTracker;
 	get tracker() {
 		return this._tracker;
 	}
@@ -631,17 +583,13 @@ export class Container {
 		return this._viewCommands;
 	}
 
-	private _vsls: VslsController;
+	private readonly _vsls: VslsController;
 	get vsls() {
 		return this._vsls;
 	}
 
-	private _worktreesView: WorktreesView | undefined;
+	private readonly _worktreesView: WorktreesView;
 	get worktreesView() {
-		if (this._worktreesView == null) {
-			this._context.subscriptions.unshift((this._worktreesView = new WorktreesView(this)));
-		}
-
 		return this._worktreesView;
 	}
 
