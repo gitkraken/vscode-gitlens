@@ -21,7 +21,7 @@ import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
 import { arePlusFeaturesEnabled } from '../../plus/subscription/utils';
-import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
+import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { configuration } from '../../system/configuration';
 import { join, map } from '../../system/iterable';
 import { PromiseCancelledError } from '../../system/promise';

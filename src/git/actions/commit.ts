@@ -12,7 +12,7 @@ import type {
 import type { FileAnnotationType } from '../../config';
 import { Commands } from '../../constants';
 import { Container } from '../../container';
-import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
+import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { executeCommand, executeEditorCommand } from '../../system/command';
 import { findOrOpenEditor, findOrOpenEditors } from '../../system/utils';
 import { GitUri } from '../gitUri';

@@ -6,7 +6,7 @@ import type { GitReference } from '../../git/models/reference';
 import { createReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
-import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
+import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import type { StoredDeepLinkContext } from '../../storage';
 import { executeCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';

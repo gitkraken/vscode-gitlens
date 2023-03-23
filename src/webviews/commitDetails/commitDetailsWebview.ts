@@ -26,7 +26,7 @@ import { serializePullRequest } from '../../git/models/pullRequest';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { getReferenceFromRevision } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
-import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/graphWebview';
+import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { executeCommand, executeCoreCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import type { DateTimeFormat } from '../../system/date';

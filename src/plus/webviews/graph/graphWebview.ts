@@ -67,7 +67,6 @@ import { find, last } from '../../../system/iterable';
 import { updateRecordValue } from '../../../system/object';
 import { getSettledValue } from '../../../system/promise';
 import { isDarkTheme, isLightTheme } from '../../../system/utils';
-import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview';
 import { isWebviewItemContext, isWebviewItemGroupContext, serializeWebviewItemContext } from '../../../system/webview';
 import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
 import type { IpcMessage, IpcMessageParams, IpcNotificationType } from '../../../webviews/protocol';
@@ -84,23 +83,36 @@ import type {
 	GetMissingAvatarsParams,
 	GetMissingRefsMetadataParams,
 	GetMoreRowsParams,
+	GraphBranchContextValue,
 	GraphColumnConfig,
 	GraphColumnName,
 	GraphColumnsConfig,
 	GraphColumnsSettings,
+	GraphCommitContextValue,
 	GraphComponentConfig,
+	GraphContributorContextValue,
 	GraphExcludedRef,
 	GraphExcludeRefs,
 	GraphExcludeTypes,
 	GraphHostingServiceType,
 	GraphIncludeOnlyRef,
+	GraphItemContext,
+	GraphItemGroupContext,
+	GraphItemRefContext,
+	GraphItemRefGroupContext,
+	GraphItemTypedContext,
+	GraphItemTypedContextValue,
 	GraphMissingRefsMetadataType,
+	GraphPullRequestContextValue,
 	GraphPullRequestMetadata,
 	GraphRefMetadata,
 	GraphRefMetadataType,
 	GraphRepository,
 	GraphSelectedRows,
+	GraphStashContextValue,
+	GraphTagContextValue,
 	GraphUpstreamMetadata,
+	GraphUpstreamStatusContextValue,
 	GraphWorkingTreeStats,
 	SearchOpenInViewParams,
 	SearchParams,
@@ -147,15 +159,6 @@ import {
 	UpdateRefsVisibilityCommandType,
 	UpdateSelectionCommandType,
 } from './protocol';
-
-export interface ShowInCommitGraphCommandArgs {
-	ref: GitReference;
-	preserveFocus?: boolean;
-}
-
-export interface GraphSelectionChangeEvent {
-	readonly selection: GitRevisionReference[];
-}
 
 const defaultGraphColumnsSettings: GraphColumnsSettings = {
 	ref: { width: 150, isHidden: false },
@@ -2499,74 +2502,6 @@ function formatRepositories(repositories: Repository[]): GraphRepository[] {
 		path: r.path,
 		isVirtual: r.provider.virtual,
 	}));
-}
-
-export type GraphItemContext = WebviewItemContext<GraphItemContextValue>;
-export type GraphItemContextValue = GraphColumnsContextValue | GraphItemTypedContextValue | GraphItemRefContextValue;
-
-export type GraphItemGroupContext = WebviewItemGroupContext<GraphItemGroupContextValue>;
-export type GraphItemGroupContextValue = GraphItemRefGroupContextValue;
-
-export type GraphItemRefContext<T = GraphItemRefContextValue> = WebviewItemContext<T>;
-export type GraphItemRefContextValue =
-	| GraphBranchContextValue
-	| GraphCommitContextValue
-	| GraphStashContextValue
-	| GraphTagContextValue;
-
-export type GraphItemRefGroupContext<T = GraphItemRefGroupContextValue> = WebviewItemGroupContext<T>;
-export interface GraphItemRefGroupContextValue {
-	type: 'refGroup';
-	refs: (GitBranchReference | GitTagReference)[];
-}
-
-export type GraphItemTypedContext<T = GraphItemTypedContextValue> = WebviewItemContext<T>;
-export type GraphItemTypedContextValue =
-	| GraphContributorContextValue
-	| GraphPullRequestContextValue
-	| GraphUpstreamStatusContextValue;
-
-export type GraphColumnsContextValue = string;
-
-export interface GraphContributorContextValue {
-	type: 'contributor';
-	repoPath: string;
-	name: string;
-	email: string | undefined;
-	current?: boolean;
-}
-
-export interface GraphPullRequestContextValue {
-	type: 'pullrequest';
-	id: string;
-	url: string;
-}
-
-export interface GraphBranchContextValue {
-	type: 'branch';
-	ref: GitBranchReference;
-}
-
-export interface GraphCommitContextValue {
-	type: 'commit';
-	ref: GitRevisionReference;
-}
-
-export interface GraphStashContextValue {
-	type: 'stash';
-	ref: GitStashReference;
-}
-
-export interface GraphTagContextValue {
-	type: 'tag';
-	ref: GitTagReference;
-}
-
-export interface GraphUpstreamStatusContextValue {
-	type: 'upstreamStatus';
-	ref: GitBranchReference;
-	ahead: number;
-	behind: number;
 }
 
 function isGraphItemContext(item: unknown): item is GraphItemContext {

@@ -7,8 +7,7 @@ import type { CommitNode } from '../../../views/nodes/commitNode';
 import type { StashNode } from '../../../views/nodes/stashNode';
 import type { TagNode } from '../../../views/nodes/tagNode';
 import type { WebviewPanelProxy, WebviewsController } from '../../../webviews/webviewsController';
-import type { ShowInCommitGraphCommandArgs } from './graphWebview';
-import type { State } from './protocol';
+import type { ShowInCommitGraphCommandArgs, State } from './protocol';
 
 export function registerGraphWebviewPanel(controller: WebviewsController) {
 	return controller.registerWebviewPanel<State>(Commands.ShowGraphPage, 'gitlens.graph', {
