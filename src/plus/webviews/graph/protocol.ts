@@ -23,9 +23,17 @@ import type {
 import type { DateStyle } from '../../../config';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
 import type { GitGraphRowType } from '../../../git/models/graph';
+import type {
+	GitBranchReference,
+	GitReference,
+	GitRevisionReference,
+	GitStashReference,
+	GitTagReference,
+} from '../../../git/models/reference';
 import type { GitSearchResultData, SearchQuery } from '../../../git/search';
 import type { Subscription } from '../../../subscription';
 import type { DateTimeFormat } from '../../../system/date';
+import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
 
 export type { GraphRefType } from '@gitkraken/gitkraken-components';
@@ -405,3 +413,75 @@ export interface DidFetchParams {
 	lastFetched: Date;
 }
 export const DidFetchNotificationType = new IpcNotificationType<DidFetchParams>('graph/didFetch', true);
+
+export interface ShowInCommitGraphCommandArgs {
+	ref: GitReference;
+	preserveFocus?: boolean;
+}
+export type GraphItemContext = WebviewItemContext<GraphItemContextValue>;
+export type GraphItemContextValue = GraphColumnsContextValue | GraphItemTypedContextValue | GraphItemRefContextValue;
+
+export type GraphItemGroupContext = WebviewItemGroupContext<GraphItemGroupContextValue>;
+export type GraphItemGroupContextValue = GraphItemRefGroupContextValue;
+
+export type GraphItemRefContext<T = GraphItemRefContextValue> = WebviewItemContext<T>;
+export type GraphItemRefContextValue =
+	| GraphBranchContextValue
+	| GraphCommitContextValue
+	| GraphStashContextValue
+	| GraphTagContextValue;
+
+export type GraphItemRefGroupContext<T = GraphItemRefGroupContextValue> = WebviewItemGroupContext<T>;
+export interface GraphItemRefGroupContextValue {
+	type: 'refGroup';
+	refs: (GitBranchReference | GitTagReference)[];
+}
+
+export type GraphItemTypedContext<T = GraphItemTypedContextValue> = WebviewItemContext<T>;
+export type GraphItemTypedContextValue =
+	| GraphContributorContextValue
+	| GraphPullRequestContextValue
+	| GraphUpstreamStatusContextValue;
+
+export type GraphColumnsContextValue = string;
+
+export interface GraphContributorContextValue {
+	type: 'contributor';
+	repoPath: string;
+	name: string;
+	email: string | undefined;
+	current?: boolean;
+}
+
+export interface GraphPullRequestContextValue {
+	type: 'pullrequest';
+	id: string;
+	url: string;
+}
+
+export interface GraphBranchContextValue {
+	type: 'branch';
+	ref: GitBranchReference;
+}
+
+export interface GraphCommitContextValue {
+	type: 'commit';
+	ref: GitRevisionReference;
+}
+
+export interface GraphStashContextValue {
+	type: 'stash';
+	ref: GitStashReference;
+}
+
+export interface GraphTagContextValue {
+	type: 'tag';
+	ref: GitTagReference;
+}
+
+export interface GraphUpstreamStatusContextValue {
+	type: 'upstreamStatus';
+	ref: GitBranchReference;
+	ahead: number;
+	behind: number;
+}

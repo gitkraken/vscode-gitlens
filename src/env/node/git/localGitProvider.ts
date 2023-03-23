@@ -136,7 +136,7 @@ import type {
 	GraphItemRefContext,
 	GraphItemRefGroupContext,
 	GraphTagContextValue,
-} from '../../../plus/webviews/graph/graphWebview';
+} from '../../../plus/webviews/graph/protocol';
 import { countStringLength, filterMap } from '../../../system/array';
 import { TimedCancellationSource } from '../../../system/cancellation';
 import { configuration } from '../../../system/configuration';

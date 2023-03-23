@@ -96,7 +96,7 @@ import type {
 	GraphItemContext,
 	GraphItemRefContext,
 	GraphTagContextValue,
-} from '../webviews/graph/graphWebview';
+} from '../webviews/graph/protocol';
 import type { GitHubApi } from './github';
 import { fromCommitFileStatus } from './models';
 
