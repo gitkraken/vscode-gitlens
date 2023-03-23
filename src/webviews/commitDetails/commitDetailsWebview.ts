@@ -250,7 +250,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 
 		this._commitTrackerDisposable = this.container.events.on(
 			'commit:selected',
-			debounce(this.onCommitSelected, 250),
+			debounce(this.onCommitSelected, 50),
 			this,
 		);
 
