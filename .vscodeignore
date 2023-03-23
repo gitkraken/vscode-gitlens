@@ -25,9 +25,9 @@ test/**
 .eslintignore
 .eslintrc*.json
 .fantasticonrc.js
+.git-blame-ignore-revs
 .gitattributes
 .gitignore
-.gitignore-revs
 .mailmap
 .prettierignore
 .prettierrc
@@ -35,7 +35,7 @@ test/**
 BACKERS.md
 CODE_OF_CONDUCT.md
 CONTRIBUTING.md
-esbuild.js
+esbuild.mjs
 README.pre.md
 svgo.config.js
 tsconfig*.json
