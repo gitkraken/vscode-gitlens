@@ -1,7 +1,7 @@
 export class MRU<T> {
 	private stack: T[] = [];
 
-	constructor(public readonly maxSize: number = 10, private readonly compare?: (a: T, b: T) => boolean) {}
+	constructor(public readonly maxSize: number = 10, private readonly comparator?: (a: T, b: T) => boolean) {}
 
 	get count(): number {
 		return this.stack.length;
@@ -14,10 +14,10 @@ export class MRU<T> {
 
 	add(item: T): void {
 		const index =
-			this.compare != null ? this.stack.findIndex(i => this.compare!(item, i)) : this.stack.indexOf(item);
+			this.comparator != null ? this.stack.findIndex(i => this.comparator!(item, i)) : this.stack.indexOf(item);
 
-		if (this._position != null && this._position > 0) {
-			this.stack = this.stack.slice(0, this._position + 1);
+		if (this._position > 0) {
+			this.stack.splice(0, this._position);
 			this._position = 0;
 		}
 
