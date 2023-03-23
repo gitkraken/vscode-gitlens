@@ -143,9 +143,7 @@ export class Git {
 
 			// Fixes https://github.com/gitkraken/vscode-gitlens/issues/73 & https://github.com/gitkraken/vscode-gitlens/issues/161
 			// See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
-			args.splice(
-				0,
-				0,
+			args.unshift(
 				'-c',
 				'core.quotepath=false',
 				'-c',
@@ -154,7 +152,7 @@ export class Git {
 			);
 
 			if (process.platform === 'win32') {
-				args.splice(0, 0, '-c', 'core.longpaths=true');
+				args.unshift('-c', 'core.longpaths=true');
 			}
 
 			promise = run<T>(await this.path(), args, encoding ?? 'utf8', runOpts);
@@ -240,9 +238,7 @@ export class Git {
 
 		// Fixes https://github.com/gitkraken/vscode-gitlens/issues/73 & https://github.com/gitkraken/vscode-gitlens/issues/161
 		// See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
-		args.splice(
-			0,
-			0,
+		args.unshift(
 			'-c',
 			'core.quotepath=false',
 			'-c',
@@ -251,7 +247,7 @@ export class Git {
 		);
 
 		if (process.platform === 'win32') {
-			args.splice(0, 0, '-c', 'core.longpaths=true');
+			args.unshift('-c', 'core.longpaths=true');
 		}
 
 		if (cancellation) {

@@ -179,7 +179,7 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView, Sta
 			const status = getSettledValue(statusResult);
 
 			if (status?.hasChanges) {
-				children.splice(0, 0, new UncommittedFilesNode(this.view, this, status, undefined));
+				children.unshift(new UncommittedFilesNode(this.view, this, status, undefined));
 			}
 
 			this._children = children;

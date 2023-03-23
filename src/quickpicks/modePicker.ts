@@ -27,7 +27,7 @@ export async function showModePicker(): Promise<ModesQuickPickItem | undefined> 
 	});
 
 	if (mode && modes[mode] != null) {
-		items.splice(0, 0, {
+		items.unshift({
 			label: `Exit ${modes[mode].name} mode`,
 			key: undefined,
 		});

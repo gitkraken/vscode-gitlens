@@ -191,16 +191,16 @@ async function getItems(
 	if (picked) {
 		const index = items.findIndex(i => i.ref === picked);
 		if (index !== -1) {
-			items.splice(0, 0, ...items.splice(index, 1));
+			items.unshift(...items.splice(index, 1));
 		}
 	}
 
 	if (include & ReferencesQuickPickIncludes.HEAD) {
-		items.splice(0, 0, createRefQuickPickItem('HEAD', repoPath, undefined, { icon: true }));
+		items.unshift(createRefQuickPickItem('HEAD', repoPath, undefined, { icon: true }));
 	}
 
 	if (include & ReferencesQuickPickIncludes.WorkingTree) {
-		items.splice(0, 0, createRefQuickPickItem('', repoPath, undefined, { icon: true }));
+		items.unshift(createRefQuickPickItem('', repoPath, undefined, { icon: true }));
 	}
 
 	return items;

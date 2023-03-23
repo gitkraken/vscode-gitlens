@@ -1989,9 +1989,7 @@ async function getShowCommitOrStashStepItems<
 		}),
 	);
 
-	items.splice(
-		0,
-		0,
+	items.unshift(
 		new CommitFilesQuickPickItem(state.reference, {
 			unpublished: unpublished,
 			hint: 'Click to see all changed files',
@@ -2241,9 +2239,7 @@ async function getShowCommitOrStashFileStepItems<
 		}),
 	);
 
-	items.splice(
-		0,
-		0,
+	items.unshift(
 		new CommitFilesQuickPickItem(state.reference, { file: file, hint: 'Click to see all changed files' }),
 	);
 	return items as CommandQuickPickItem[];

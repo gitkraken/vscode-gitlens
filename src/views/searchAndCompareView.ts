@@ -212,7 +212,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 			repoPath: repoPath,
 			ref: ref,
 		});
-		this.children.splice(0, 0, this.comparePicker);
+		this.children.unshift(this.comparePicker);
 		void setContext(ContextKeys.ViewsCanCompare, true);
 
 		await this.triggerChange();

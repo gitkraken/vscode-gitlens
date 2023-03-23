@@ -76,9 +76,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView | WorktreesView> 
 			(this.view instanceof WorktreesView || this.view.config.includeWorkingTree) &&
 			this.status.files.length !== 0
 		) {
-			files.splice(
-				0,
-				0,
+			files.unshift(
 				...flatMap(this.status.files, f =>
 					map(f.getPseudoCommits(this.view.container, undefined), c => this.getFileWithPseudoCommit(f, c)),
 				),

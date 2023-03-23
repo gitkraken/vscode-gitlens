@@ -171,94 +171,86 @@ export class Container {
 		this._version = version;
 		this.ensureModeApplied();
 
-		context.subscriptions.splice(0, 0, (this._storage = storage));
-		context.subscriptions.splice(0, 0, (this._telemetry = new TelemetryService(this)));
-		context.subscriptions.splice(0, 0, (this._usage = new UsageTracker(this, storage)));
+		context.subscriptions.unshift((this._storage = storage));
+		context.subscriptions.unshift((this._telemetry = new TelemetryService(this)));
+		context.subscriptions.unshift((this._usage = new UsageTracker(this, storage)));
 
-		context.subscriptions.splice(0, 0, configuration.onWillChange(this.onConfigurationChanging, this));
+		context.subscriptions.unshift(configuration.onWillChange(this.onConfigurationChanging, this));
 
 		this._richRemoteProviders = new RichRemoteProviderService(this);
 
 		const server = new ServerConnection(this);
-		context.subscriptions.splice(0, 0, server);
-		context.subscriptions.splice(
-			0,
-			0,
+		context.subscriptions.unshift(server);
+		context.subscriptions.unshift(
 			(this._subscriptionAuthentication = new SubscriptionAuthenticationProvider(this, server)),
 		);
-		context.subscriptions.splice(0, 0, (this._subscription = new SubscriptionService(this, previousVersion)));
+		context.subscriptions.unshift((this._subscription = new SubscriptionService(this, previousVersion)));
 
-		context.subscriptions.splice(0, 0, (this._git = new GitProviderService(this)));
-		context.subscriptions.splice(0, 0, new GitFileSystemProvider(this));
+		context.subscriptions.unshift((this._git = new GitProviderService(this)));
+		context.subscriptions.unshift(new GitFileSystemProvider(this));
 
-		context.subscriptions.splice(0, 0, (this._uri = new UriService(this)));
+		context.subscriptions.unshift((this._uri = new UriService(this)));
 
-		context.subscriptions.splice(0, 0, (this._deepLinks = new DeepLinkService(this)));
+		context.subscriptions.unshift((this._deepLinks = new DeepLinkService(this)));
 
-		context.subscriptions.splice(0, 0, (this._actionRunners = new ActionRunners(this)));
-		context.subscriptions.splice(0, 0, (this._tracker = new GitDocumentTracker(this)));
-		context.subscriptions.splice(0, 0, (this._lineTracker = new GitLineTracker(this)));
-		context.subscriptions.splice(0, 0, (this._keyboard = new Keyboard()));
-		context.subscriptions.splice(0, 0, (this._vsls = new VslsController(this)));
-		context.subscriptions.splice(0, 0, (this._eventBus = new EventBus()));
+		context.subscriptions.unshift((this._actionRunners = new ActionRunners(this)));
+		context.subscriptions.unshift((this._tracker = new GitDocumentTracker(this)));
+		context.subscriptions.unshift((this._lineTracker = new GitLineTracker(this)));
+		context.subscriptions.unshift((this._keyboard = new Keyboard()));
+		context.subscriptions.unshift((this._vsls = new VslsController(this)));
+		context.subscriptions.unshift((this._eventBus = new EventBus()));
 
-		context.subscriptions.splice(0, 0, (this._fileAnnotationController = new FileAnnotationController(this)));
-		context.subscriptions.splice(0, 0, (this._lineAnnotationController = new LineAnnotationController(this)));
-		context.subscriptions.splice(0, 0, (this._lineHoverController = new LineHoverController(this)));
-		context.subscriptions.splice(0, 0, (this._statusBarController = new StatusBarController(this)));
-		context.subscriptions.splice(0, 0, (this._codeLensController = new GitCodeLensController(this)));
+		context.subscriptions.unshift((this._fileAnnotationController = new FileAnnotationController(this)));
+		context.subscriptions.unshift((this._lineAnnotationController = new LineAnnotationController(this)));
+		context.subscriptions.unshift((this._lineHoverController = new LineHoverController(this)));
+		context.subscriptions.unshift((this._statusBarController = new StatusBarController(this)));
+		context.subscriptions.unshift((this._codeLensController = new GitCodeLensController(this)));
 
-		context.subscriptions.splice(0, 0, (this._webviews = new WebviewsController(this)));
-		context.subscriptions.splice(0, 0, registerTimelineWebviewPanel(this._webviews));
-		context.subscriptions.splice(0, 0, (this._timelineView = registerTimelineWebviewView(this._webviews)));
+		context.subscriptions.unshift((this._webviews = new WebviewsController(this)));
+		context.subscriptions.unshift(registerTimelineWebviewPanel(this._webviews));
+		context.subscriptions.unshift((this._timelineView = registerTimelineWebviewView(this._webviews)));
 
 		const graphWebviewPanel = registerGraphWebviewPanel(this._webviews);
-		context.subscriptions.splice(0, 0, graphWebviewPanel);
-		context.subscriptions.splice(0, 0, registerGraphWebviewCommands(graphWebviewPanel));
-		// context.subscriptions.splice(0, 0, (this._graphView = registerGraphWebviewView(this._webviews)));
-		context.subscriptions.splice(0, 0, new GraphStatusBarController(this));
+		context.subscriptions.unshift(graphWebviewPanel);
+		context.subscriptions.unshift(registerGraphWebviewCommands(graphWebviewPanel));
+		// context.subscriptions.unshift((this._graphView = registerGraphWebviewView(this._webviews)));
+		context.subscriptions.unshift(new GraphStatusBarController(this));
 
 		const settingsWebviewPanel = registerSettingsWebviewPanel(this._webviews);
-		context.subscriptions.splice(0, 0, settingsWebviewPanel);
-		context.subscriptions.splice(0, 0, registerSettingsWebviewCommands(settingsWebviewPanel));
-		context.subscriptions.splice(0, 0, registerWelcomeWebviewPanel(this._webviews));
-		context.subscriptions.splice(0, 0, (this._rebaseEditor = new RebaseEditorProvider(this)));
-		context.subscriptions.splice(0, 0, registerFocusWebviewPanel(this._webviews));
+		context.subscriptions.unshift(settingsWebviewPanel);
+		context.subscriptions.unshift(registerSettingsWebviewCommands(settingsWebviewPanel));
+		context.subscriptions.unshift(registerWelcomeWebviewPanel(this._webviews));
+		context.subscriptions.unshift((this._rebaseEditor = new RebaseEditorProvider(this)));
+		context.subscriptions.unshift(registerFocusWebviewPanel(this._webviews));
 
-		context.subscriptions.splice(0, 0, new ViewFileDecorationProvider());
+		context.subscriptions.unshift(new ViewFileDecorationProvider());
 
-		context.subscriptions.splice(0, 0, (this._repositoriesView = new RepositoriesView(this)));
-		context.subscriptions.splice(
-			0,
-			0,
-			(this._commitDetailsView = registerCommitDetailsWebviewView(this._webviews)),
-		);
-		context.subscriptions.splice(0, 0, (this._commitsView = new CommitsView(this)));
-		context.subscriptions.splice(0, 0, (this._fileHistoryView = new FileHistoryView(this)));
-		context.subscriptions.splice(0, 0, (this._lineHistoryView = new LineHistoryView(this)));
-		context.subscriptions.splice(0, 0, (this._branchesView = new BranchesView(this)));
-		context.subscriptions.splice(0, 0, (this._remotesView = new RemotesView(this)));
-		context.subscriptions.splice(0, 0, (this._stashesView = new StashesView(this)));
-		context.subscriptions.splice(0, 0, (this._tagsView = new TagsView(this)));
-		context.subscriptions.splice(0, 0, (this._worktreesView = new WorktreesView(this)));
-		context.subscriptions.splice(0, 0, (this._contributorsView = new ContributorsView(this)));
-		context.subscriptions.splice(0, 0, (this._searchAndCompareView = new SearchAndCompareView(this)));
+		context.subscriptions.unshift((this._repositoriesView = new RepositoriesView(this)));
+		context.subscriptions.unshift((this._commitDetailsView = registerCommitDetailsWebviewView(this._webviews)));
+		context.subscriptions.unshift((this._commitsView = new CommitsView(this)));
+		context.subscriptions.unshift((this._fileHistoryView = new FileHistoryView(this)));
+		context.subscriptions.unshift((this._lineHistoryView = new LineHistoryView(this)));
+		context.subscriptions.unshift((this._branchesView = new BranchesView(this)));
+		context.subscriptions.unshift((this._remotesView = new RemotesView(this)));
+		context.subscriptions.unshift((this._stashesView = new StashesView(this)));
+		context.subscriptions.unshift((this._tagsView = new TagsView(this)));
+		context.subscriptions.unshift((this._worktreesView = new WorktreesView(this)));
+		context.subscriptions.unshift((this._contributorsView = new ContributorsView(this)));
+		context.subscriptions.unshift((this._searchAndCompareView = new SearchAndCompareView(this)));
 
-		context.subscriptions.splice(0, 0, (this._homeView = registerHomeWebviewView(this._webviews)));
+		context.subscriptions.unshift((this._homeView = registerHomeWebviewView(this._webviews)));
 
 		if (configuration.get('terminalLinks.enabled')) {
-			context.subscriptions.splice(0, 0, (this._terminalLinks = new GitTerminalLinkProvider(this)));
+			context.subscriptions.unshift((this._terminalLinks = new GitTerminalLinkProvider(this)));
 		}
 
-		context.subscriptions.splice(
-			0,
-			0,
+		context.subscriptions.unshift(
 			configuration.onDidChange(e => {
 				if (!configuration.changed(e, 'terminalLinks.enabled')) return;
 
 				this._terminalLinks?.dispose();
 				if (configuration.get('terminalLinks.enabled')) {
-					context.subscriptions.splice(0, 0, (this._terminalLinks = new GitTerminalLinkProvider(this)));
+					context.subscriptions.unshift((this._terminalLinks = new GitTerminalLinkProvider(this)));
 				}
 			}),
 		);
@@ -287,7 +279,7 @@ export class Container {
 	private async registerGitProviders() {
 		const providers = await getSupportedGitProviders(this);
 		for (const provider of providers) {
-			this._context.subscriptions.splice(0, 0, this._git.register(provider.descriptor.id, provider));
+			this._context.subscriptions.unshift(this._git.register(provider.descriptor.id, provider));
 		}
 
 		this._git.registrationComplete();
@@ -312,7 +304,7 @@ export class Container {
 	private _actionRunners: ActionRunners;
 	get actionRunners() {
 		if (this._actionRunners == null) {
-			this._context.subscriptions.splice(0, 0, (this._actionRunners = new ActionRunners(this)));
+			this._context.subscriptions.unshift((this._actionRunners = new ActionRunners(this)));
 		}
 
 		return this._actionRunners;
@@ -321,7 +313,7 @@ export class Container {
 	private _autolinks: Autolinks | undefined;
 	get autolinks() {
 		if (this._autolinks == null) {
-			this._context.subscriptions.splice(0, 0, (this._autolinks = new Autolinks(this)));
+			this._context.subscriptions.unshift((this._autolinks = new Autolinks(this)));
 		}
 
 		return this._autolinks;
@@ -335,7 +327,7 @@ export class Container {
 	private _branchesView: BranchesView | undefined;
 	get branchesView() {
 		if (this._branchesView == null) {
-			this._context.subscriptions.splice(0, 0, (this._branchesView = new BranchesView(this)));
+			this._context.subscriptions.unshift((this._branchesView = new BranchesView(this)));
 		}
 
 		return this._branchesView;
@@ -344,7 +336,7 @@ export class Container {
 	private _commitsView: CommitsView | undefined;
 	get commitsView() {
 		if (this._commitsView == null) {
-			this._context.subscriptions.splice(0, 0, (this._commitsView = new CommitsView(this)));
+			this._context.subscriptions.unshift((this._commitsView = new CommitsView(this)));
 		}
 
 		return this._commitsView;
@@ -363,7 +355,7 @@ export class Container {
 	private _contributorsView: ContributorsView | undefined;
 	get contributorsView() {
 		if (this._contributorsView == null) {
-			this._context.subscriptions.splice(0, 0, (this._contributorsView = new ContributorsView(this)));
+			this._context.subscriptions.unshift((this._contributorsView = new ContributorsView(this)));
 		}
 
 		return this._contributorsView;
@@ -398,7 +390,7 @@ export class Container {
 	private _fileHistoryView: FileHistoryView | undefined;
 	get fileHistoryView() {
 		if (this._fileHistoryView == null) {
-			this._context.subscriptions.splice(0, 0, (this._fileHistoryView = new FileHistoryView(this)));
+			this._context.subscriptions.unshift((this._fileHistoryView = new FileHistoryView(this)));
 		}
 
 		return this._fileHistoryView;
@@ -431,7 +423,7 @@ export class Container {
 	private async _loadGitHubApi() {
 		try {
 			const github = new (await import(/* webpackChunkName: "github" */ './plus/github/github')).GitHubApi(this);
-			this._context.subscriptions.splice(0, 0, github);
+			this._context.subscriptions.unshift(github);
 			return github;
 		} catch (ex) {
 			Logger.error(ex);
@@ -451,7 +443,7 @@ export class Container {
 	private async _loadGitLabApi() {
 		try {
 			const gitlab = new (await import(/* webpackChunkName: "gitlab" */ './plus/gitlab/gitlab')).GitLabApi(this);
-			this._context.subscriptions.splice(0, 0, gitlab);
+			this._context.subscriptions.unshift(gitlab);
 			return gitlab;
 		} catch (ex) {
 			Logger.error(ex);
@@ -477,9 +469,7 @@ export class Container {
 	private _integrationAuthentication: IntegrationAuthenticationService | undefined;
 	get integrationAuthentication() {
 		if (this._integrationAuthentication == null) {
-			this._context.subscriptions.splice(
-				0,
-				0,
+			this._context.subscriptions.unshift(
 				(this._integrationAuthentication = new IntegrationAuthenticationService(this)),
 				// Register any integration authentication providers
 				new GitHubAuthenticationProvider(this),
@@ -503,7 +493,7 @@ export class Container {
 	private _lineHistoryView: LineHistoryView | undefined;
 	get lineHistoryView() {
 		if (this._lineHistoryView == null) {
-			this._context.subscriptions.splice(0, 0, (this._lineHistoryView = new LineHistoryView(this)));
+			this._context.subscriptions.unshift((this._lineHistoryView = new LineHistoryView(this)));
 		}
 
 		return this._lineHistoryView;
@@ -532,7 +522,7 @@ export class Container {
 	private _rebaseEditor: RebaseEditorProvider | undefined;
 	get rebaseEditor() {
 		if (this._rebaseEditor == null) {
-			this._context.subscriptions.splice(0, 0, (this._rebaseEditor = new RebaseEditorProvider(this)));
+			this._context.subscriptions.unshift((this._rebaseEditor = new RebaseEditorProvider(this)));
 		}
 
 		return this._rebaseEditor;
@@ -541,7 +531,7 @@ export class Container {
 	private _remotesView: RemotesView | undefined;
 	get remotesView() {
 		if (this._remotesView == null) {
-			this._context.subscriptions.splice(0, 0, (this._remotesView = new RemotesView(this)));
+			this._context.subscriptions.unshift((this._remotesView = new RemotesView(this)));
 		}
 
 		return this._remotesView;
@@ -550,7 +540,7 @@ export class Container {
 	private _repositoriesView: RepositoriesView | undefined;
 	get repositoriesView(): RepositoriesView {
 		if (this._repositoriesView == null) {
-			this._context.subscriptions.splice(0, 0, (this._repositoriesView = new RepositoriesView(this)));
+			this._context.subscriptions.unshift((this._repositoriesView = new RepositoriesView(this)));
 		}
 
 		return this._repositoriesView;
@@ -559,7 +549,7 @@ export class Container {
 	private _searchAndCompareView: SearchAndCompareView | undefined;
 	get searchAndCompareView() {
 		if (this._searchAndCompareView == null) {
-			this._context.subscriptions.splice(0, 0, (this._searchAndCompareView = new SearchAndCompareView(this)));
+			this._context.subscriptions.unshift((this._searchAndCompareView = new SearchAndCompareView(this)));
 		}
 
 		return this._searchAndCompareView;
@@ -583,7 +573,7 @@ export class Container {
 	private _stashesView: StashesView | undefined;
 	get stashesView() {
 		if (this._stashesView == null) {
-			this._context.subscriptions.splice(0, 0, (this._stashesView = new StashesView(this)));
+			this._context.subscriptions.unshift((this._stashesView = new StashesView(this)));
 		}
 
 		return this._stashesView;
@@ -602,7 +592,7 @@ export class Container {
 	private _tagsView: TagsView | undefined;
 	get tagsView() {
 		if (this._tagsView == null) {
-			this._context.subscriptions.splice(0, 0, (this._tagsView = new TagsView(this)));
+			this._context.subscriptions.unshift((this._tagsView = new TagsView(this)));
 		}
 
 		return this._tagsView;
@@ -649,7 +639,7 @@ export class Container {
 	private _worktreesView: WorktreesView | undefined;
 	get worktreesView() {
 		if (this._worktreesView == null) {
-			this._context.subscriptions.splice(0, 0, (this._worktreesView = new WorktreesView(this)));
+			this._context.subscriptions.unshift((this._worktreesView = new WorktreesView(this)));
 		}
 
 		return this._worktreesView;
