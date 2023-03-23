@@ -11,6 +11,7 @@ import { log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { encodeUrl } from '../../system/encoding';
 import { equalsIgnoreCase } from '../../system/string';
+import { supportedInVSCodeVersion } from '../../system/utils';
 import type { Account } from '../models/author';
 import type { DefaultBranch } from '../models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../models/issue';
@@ -391,7 +392,7 @@ export class GitHubAuthenticationProvider implements Disposable, IntegrationAuth
 		try {
 			const infoButton: QuickInputButton = {
 				iconPath: new ThemeIcon(`link-external`),
-				tooltip: 'Open Access Tokens page on GitHub',
+				tooltip: 'Open the GitHub Access Tokens Page',
 			};
 
 			token = await new Promise<string | undefined>(resolve => {
@@ -419,7 +420,12 @@ export class GitHubAuthenticationProvider implements Disposable, IntegrationAuth
 				input.password = true;
 				input.title = `GitHub Authentication${descriptor?.domain ? `  \u2022 ${descriptor.domain}` : ''}`;
 				input.placeholder = `Requires ${descriptor?.scopes.join(', ') ?? 'all'} scopes`;
-				input.prompt = 'Paste your GitHub Personal Access Token';
+				input.prompt = supportedInVSCodeVersion('input-prompt-links')
+					? `Paste your [GitHub Personal Access Token](https://${
+							descriptor?.domain ?? 'github.com'
+					  }/settings/tokens "Get your GitHub Access Token")`
+					: 'Paste your GitHub Personal Access Token';
+
 				input.buttons = [infoButton];
 
 				input.show();

@@ -11,6 +11,7 @@ import type {
 import { log } from '../../system/decorators/log';
 import { encodeUrl } from '../../system/encoding';
 import { equalsIgnoreCase } from '../../system/string';
+import { supportedInVSCodeVersion } from '../../system/utils';
 import type { Account } from '../models/author';
 import type { DefaultBranch } from '../models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../models/issue';
@@ -404,7 +405,7 @@ export class GitLabAuthenticationProvider implements Disposable, IntegrationAuth
 		try {
 			const infoButton: QuickInputButton = {
 				iconPath: new ThemeIcon(`link-external`),
-				tooltip: 'Open Access Tokens page on GitLab',
+				tooltip: 'Open the GitLab Access Tokens Page',
 			};
 
 			token = await new Promise<string | undefined>(resolve => {
@@ -434,7 +435,11 @@ export class GitLabAuthenticationProvider implements Disposable, IntegrationAuth
 				input.password = true;
 				input.title = `GitLab Authentication${descriptor?.domain ? `  \u2022 ${descriptor.domain}` : ''}`;
 				input.placeholder = `Requires ${descriptor?.scopes.join(', ') ?? 'all'} scopes`;
-				input.prompt = 'Paste your GitLab Personal Access Token';
+				input.prompt = input.prompt = supportedInVSCodeVersion('input-prompt-links')
+					? `Paste your [GitLab Personal Access Token](https://${
+							descriptor?.domain ?? 'gitlab.com'
+					  }/-/profile/personal_access_tokens "Get your GitLab Access Token")`
+					: 'Paste your GitLab Personal Access Token';
 				input.buttons = [infoButton];
 
 				input.show();

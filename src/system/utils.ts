@@ -1,11 +1,12 @@
 import type { ColorTheme, TextDocument, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { ColorThemeKind, env, ViewColumn, window, workspace } from 'vscode';
+import { version as codeVersion, ColorThemeKind, env, ViewColumn, window, workspace } from 'vscode';
 import { CoreCommands, ImageMimetypes, Schemes } from '../constants';
 import { isGitUri } from '../git/gitUri';
 import { executeCoreCommand } from './command';
 import { configuration } from './configuration';
 import { Logger } from './logger';
 import { extname } from './path';
+import { satisfies } from './version';
 
 export function findTextDocument(uri: Uri): TextDocument | undefined {
 	const normalizedUri = uri.toString();
@@ -197,4 +198,13 @@ export function getEditorCommand() {
 			break;
 	}
 	return editor;
+}
+
+export function supportedInVSCodeVersion(feature: 'input-prompt-links') {
+	switch (feature) {
+		case 'input-prompt-links':
+			return satisfies(codeVersion, '>= 1.76');
+		default:
+			return false;
+	}
 }
