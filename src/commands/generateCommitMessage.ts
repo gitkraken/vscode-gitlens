@@ -11,6 +11,7 @@ import type { Storage } from '../storage';
 import { command, executeCoreCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { Logger } from '../system/logger';
+import { supportedInVSCodeVersion } from '../system/utils';
 import { ActiveEditorCommand, Command, getCommandUri } from './base';
 
 const maxCodeCharacters = 12000;
@@ -66,7 +67,7 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 				try {
 					const infoButton: QuickInputButton = {
 						iconPath: new ThemeIcon(`link-external`),
-						tooltip: 'Open OpenAI API key page',
+						tooltip: 'Open the OpenAI API Key Page',
 					};
 
 					openaiApiKey = await new Promise<string | undefined>(resolve => {
@@ -98,7 +99,9 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 						input.password = true;
 						input.title = 'Connect to OpenAI';
 						input.placeholder = 'Please enter your OpenAI API key to use this feature';
-						input.prompt = 'Enter your OpenAI API key';
+						input.prompt = supportedInVSCodeVersion('input-prompt-links')
+							? 'Enter your [OpenAI API Key](https://platform.openai.com/account/api-keys "Get your OpenAI API key")'
+							: 'Enter your OpenAI API Key';
 						input.buttons = [infoButton];
 
 						input.show();
