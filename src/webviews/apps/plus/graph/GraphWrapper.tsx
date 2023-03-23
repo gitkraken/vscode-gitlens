@@ -11,7 +11,7 @@ import type {
 	GraphZoneType,
 	OnFormatCommitDateTime,
 } from '@gitkraken/gitkraken-components';
-import GraphContainer, { CommitDateTimeSources, commitZone, refZone } from '@gitkraken/gitkraken-components';
+import GraphContainer, { CommitDateTimeSources, refZone } from '@gitkraken/gitkraken-components';
 import { VSCodeCheckbox, VSCodeRadio, VSCodeRadioGroup } from '@vscode/webview-ui-toolkit/react';
 import type { FormEvent, ReactElement } from 'react';
 import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
@@ -891,7 +891,7 @@ export function GraphWrapper({
 		graphZoneType: GraphZoneType,
 		row: GraphRow,
 	) => {
-		if (graphZoneType === refZone || graphZoneType === commitZone) return;
+		if (graphZoneType === refZone) return;
 
 		onDoubleClickRow?.(row, true);
 	};
