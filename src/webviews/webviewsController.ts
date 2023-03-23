@@ -13,6 +13,7 @@ import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
 import type { WebviewProvider } from './webviewController';
 import { WebviewController } from './webviewController';
 
+export type CustomEditorIds = 'rebaseEditor';
 export type WebviewIds = 'graph' | 'settings' | 'timeline' | 'welcome' | 'focus';
 export type WebviewViewIds = 'commitDetails' | 'graph' | 'home' | 'timeline';
 

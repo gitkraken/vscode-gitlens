@@ -18,9 +18,16 @@ import { serialize } from '../system/decorators/serialize';
 import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
 import type { IpcMessage, IpcMessageParams, IpcNotificationType, WebviewFocusChangedParams } from './protocol';
 import { ExecuteCommandType, onIpc, WebviewFocusChangedCommandType, WebviewReadyCommandType } from './protocol';
-import type { WebviewIds, WebviewPanelDescriptor, WebviewViewDescriptor, WebviewViewIds } from './webviewsController';
+import type {
+	CustomEditorIds,
+	WebviewIds,
+	WebviewPanelDescriptor,
+	WebviewViewDescriptor,
+	WebviewViewIds,
+} from './webviewsController';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
+const utf8TextDecoder = new TextDecoder('utf8');
 
 let ipcSequence = 0;
 function nextIpcId() {
@@ -390,52 +397,27 @@ export class WebviewController<State, SerializedState = State> implements Dispos
 	private async getHtml(webview: Webview): Promise<string> {
 		const webRootUri = this.getWebRootUri();
 		const uri = Uri.joinPath(webRootUri, this.fileName);
-		const content = new TextDecoder('utf8').decode(await workspace.fs.readFile(uri));
 
-		const [bootstrap, head, body, endOfBody] = await Promise.all([
+		const [bytes, bootstrap, head, body, endOfBody] = await Promise.all([
+			workspace.fs.readFile(uri),
 			this.provider.includeBootstrap?.(),
 			this.provider.includeHead?.(),
 			this.provider.includeBody?.(),
 			this.provider.includeEndOfBody?.(),
 		]);
 
-		const cspSource = webview.cspSource;
-
-		const root = this.asWebviewUri(this.getRootUri()).toString();
-		const webRoot = this.getWebRoot();
-
-		const html = content.replace(
-			/#{(head|body|endOfBody|placement|cspSource|cspNonce|root|webroot)}/g,
-			(_substring: string, token: string) => {
-				switch (token) {
-					case 'head':
-						return head ?? '';
-					case 'body':
-						return body ?? '';
-					case 'endOfBody':
-						return `${
-							bootstrap != null
-								? `<script type="text/javascript" nonce="${
-										this.cspNonce
-								  }">window.bootstrap=${JSON.stringify(bootstrap)};</script>`
-								: ''
-						}${endOfBody ?? ''}`;
-					case 'placement':
-						return 'view';
-					case 'cspSource':
-						return cspSource;
-					case 'cspNonce':
-						return this.cspNonce;
-					case 'root':
-						return root;
-					case 'webroot':
-						return webRoot;
-					default:
-						return '';
-				}
-			},
+		const html = replaceWebviewHtmlTokens(
+			utf8TextDecoder.decode(bytes),
+			webview.cspSource,
+			this._cspNonce,
+			this.asWebviewUri(this.getRootUri()).toString(),
+			this.getWebRoot(),
+			this.type,
+			bootstrap,
+			head,
+			body,
+			endOfBody,
 		);
-
 		return html;
 	}
 
@@ -473,25 +455,80 @@ export class WebviewController<State, SerializedState = State> implements Dispos
 	}
 }
 
-function resetContextKeys(
-	contextKeyPrefix: `${ContextKeys.WebviewPrefix}${WebviewIds}` | `${ContextKeys.WebviewViewPrefix}${WebviewViewIds}`,
+export function replaceWebviewHtmlTokens<SerializedState>(
+	html: string,
+	cspSource: string,
+	cspNonce: string,
+	root: string,
+	webRoot: string,
+	placement: WebviewController<any>['type'],
+	bootstrap?: SerializedState,
+	head?: string,
+	body?: string,
+	endOfBody?: string,
+) {
+	return html.replace(
+		/#{(head|body|endOfBody|placement|cspSource|cspNonce|root|webroot)}/g,
+		(_substring: string, token: string) => {
+			switch (token) {
+				case 'head':
+					return head ?? '';
+				case 'body':
+					return body ?? '';
+				case 'endOfBody':
+					return `${
+						bootstrap != null
+							? `<script type="text/javascript" nonce="${cspNonce}">window.bootstrap=${JSON.stringify(
+									bootstrap,
+							  )};</script>`
+							: ''
+					}${endOfBody ?? ''}`;
+				case 'placement':
+					return placement;
+				case 'cspSource':
+					return cspSource;
+				case 'cspNonce':
+					return cspNonce;
+				case 'root':
+					return root;
+				case 'webroot':
+					return webRoot;
+				default:
+					return '';
+			}
+		},
+	);
+}
+
+export function resetContextKeys(
+	contextKeyPrefix:
+		| `${ContextKeys.WebviewPrefix}${WebviewIds | CustomEditorIds}`
+		| `${ContextKeys.WebviewViewPrefix}${WebviewViewIds}`,
 ): void {
 	void setContext(`${contextKeyPrefix}:inputFocus`, false);
 	void setContext(`${contextKeyPrefix}:focus`, false);
 	if (contextKeyPrefix.startsWith(ContextKeys.WebviewPrefix)) {
-		void setContext(`${contextKeyPrefix as `${ContextKeys.WebviewPrefix}${WebviewIds}`}:active`, false);
+		void setContext(
+			`${contextKeyPrefix as `${ContextKeys.WebviewPrefix}${WebviewIds | CustomEditorIds}`}:active`,
+			false,
+		);
 	}
 }
 
-function setContextKeys(
-	contextKeyPrefix: `${ContextKeys.WebviewPrefix}${WebviewIds}` | `${ContextKeys.WebviewViewPrefix}${WebviewViewIds}`,
+export function setContextKeys(
+	contextKeyPrefix:
+		| `${ContextKeys.WebviewPrefix}${WebviewIds | CustomEditorIds}`
+		| `${ContextKeys.WebviewViewPrefix}${WebviewViewIds}`,
 	active?: boolean,
 	focus?: boolean,
 	inputFocus?: boolean,
 ): void {
 	if (contextKeyPrefix.startsWith(ContextKeys.WebviewPrefix)) {
 		if (active != null) {
-			void setContext(`${contextKeyPrefix as `${ContextKeys.WebviewPrefix}${WebviewIds}`}:active`, active);
+			void setContext(
+				`${contextKeyPrefix as `${ContextKeys.WebviewPrefix}${WebviewIds | CustomEditorIds}`}:active`,
+				active,
+			);
 
 			if (!active) {
 				focus = false;
