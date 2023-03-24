@@ -150,9 +150,9 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		}
 
 		if (commit == null) {
-			if (this._pinned) return false;
-
-			commit = this.getBestCommitOrStash();
+			if (!this._pinned) {
+				commit = this.getBestCommitOrStash();
+			}
 		}
 		if (commit != null && !this._context.commit?.ref.startsWith(commit.ref)) {
 			await this.updateCommit(commit, { pinned: false });
