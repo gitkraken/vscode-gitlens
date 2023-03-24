@@ -911,7 +911,7 @@ export class SubscriptionService implements Disposable {
 				subscription.plan.actual.id === SubscriptionPlanId.Pro &&
 				!subscription.plan.actual.bundle &&
 				new Date(subscription.plan.actual.startedOn) >= new Date('2022-02-28T00:00:00.000Z') &&
-				new Date(subscription.plan.actual.startedOn) <= new Date('2022-04-31T00:00:00.000Z')
+				new Date(subscription.plan.actual.startedOn) <= new Date('2022-04-30T00:00:00.000Z')
 			) {
 				void showRenewalDiscountNotification(this.container, subscription);
 			}
