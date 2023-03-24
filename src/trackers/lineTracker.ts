@@ -222,19 +222,15 @@ export class LineTracker<T> implements Disposable {
 		}
 
 		if (this._linesChangedDebounced == null) {
-			this._linesChangedDebounced = debounce(
-				(e: LinesChangeEvent) => {
-					if (e.editor !== window.activeTextEditor) return;
-					// Make sure we are still on the same lines
-					if (!LineTracker.includes(e.selections, LineTracker.toLineSelections(e.editor?.selections))) {
-						return;
-					}
+			this._linesChangedDebounced = debounce((e: LinesChangeEvent) => {
+				if (e.editor !== window.activeTextEditor) return;
+				// Make sure we are still on the same lines
+				if (!LineTracker.includes(e.selections, LineTracker.toLineSelections(e.editor?.selections))) {
+					return;
+				}
 
-					this.fireLinesChanged(e);
-				},
-				250,
-				{ track: true },
-			);
+				this.fireLinesChanged(e);
+			}, 250);
 		}
 
 		// If we have no pending moves, then fire an immediate pending event, and defer the real event

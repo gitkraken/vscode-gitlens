@@ -13422,7 +13422,6 @@
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
 		"lit": "2.6.1",
-		"lodash-es": "4.17.21",
 		"node-fetch": "2.6.9",
 		"os-browserify": "0.3.0",
 		"path-browserify": "1.0.1",
@@ -13432,7 +13431,6 @@
 	},
 	"devDependencies": {
 		"@types/glob": "8.0.1",
-		"@types/lodash-es": "4.17.7",
 		"@types/mocha": "10.0.1",
 		"@types/node": "16.11.47",
 		"@types/react": "17.0.47",

@@ -361,16 +361,12 @@ export class DocumentTracker<T> implements Disposable {
 
 			if (this._dirtyIdleTriggerDelay > 0) {
 				if (this._dirtyIdleTriggeredDebounced == null) {
-					this._dirtyIdleTriggeredDebounced = debounce(
-						(e: DocumentDirtyIdleTriggerEvent<T>) => {
-							if (this._dirtyIdleTriggeredDebounced?.pending!()) return;
+					this._dirtyIdleTriggeredDebounced = debounce((e: DocumentDirtyIdleTriggerEvent<T>) => {
+						if (this._dirtyIdleTriggeredDebounced?.pending!()) return;
 
-							e.document.isDirtyIdle = true;
-							this._onDidTriggerDirtyIdle.fire(e);
-						},
-						this._dirtyIdleTriggerDelay,
-						{ track: true },
-					);
+						e.document.isDirtyIdle = true;
+						this._onDidTriggerDirtyIdle.fire(e);
+					}, this._dirtyIdleTriggerDelay);
 				}
 
 				this._dirtyIdleTriggeredDebounced({ editor: e.editor, document: e.document });
