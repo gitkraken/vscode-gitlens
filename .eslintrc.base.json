@@ -56,8 +56,6 @@
 			"error",
 			{
 				"paths": [
-					"lodash",
-					"lodash-es",
 					// Disallow node imports below
 					"assert",
 					"buffer",
