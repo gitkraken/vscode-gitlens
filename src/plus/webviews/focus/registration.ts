@@ -9,6 +9,7 @@ export function registerFocusWebviewPanel(controller: WebviewsController) {
 		title: 'Focus View',
 		contextKeyPrefix: `${ContextKeys.WebviewPrefix}focus`,
 		trackingFeature: 'focusWebview',
+		plusFeature: true,
 		resolveWebviewProvider: async function (container, id, host) {
 			const { FocusWebviewProvider } = await import(/* webpackChunkName: "focus" */ './focusWebview');
 			return new FocusWebviewProvider(container, id, host);

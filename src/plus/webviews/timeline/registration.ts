@@ -9,6 +9,7 @@ export function registerTimelineWebviewPanel(controller: WebviewsController) {
 		title: 'Visual File History',
 		contextKeyPrefix: `${ContextKeys.WebviewPrefix}timeline`,
 		trackingFeature: 'timelineWebview',
+		plusFeature: true,
 		resolveWebviewProvider: async function (container, id, host) {
 			const { TimelineWebviewProvider } = await import(/* webpackChunkName: "timeline" */ './timelineWebview');
 			return new TimelineWebviewProvider(container, id, host);
@@ -22,6 +23,7 @@ export function registerTimelineWebviewView(controller: WebviewsController) {
 		title: 'Visual File History',
 		contextKeyPrefix: `${ContextKeys.WebviewViewPrefix}timeline`,
 		trackingFeature: 'timelineView',
+		plusFeature: true,
 		resolveWebviewProvider: async function (container, id, host) {
 			const { TimelineWebviewProvider } = await import(/* webpackChunkName: "timeline" */ './timelineWebview');
 			return new TimelineWebviewProvider(container, id, host);

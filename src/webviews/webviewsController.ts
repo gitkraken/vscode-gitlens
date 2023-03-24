@@ -8,6 +8,7 @@ import type {
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
 import type { Commands, ContextKeys } from '../constants';
 import type { Container } from '../container';
+import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
 import { executeCommand, registerCommand } from '../system/command';
 import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
 import type { WebviewProvider } from './webviewController';
@@ -23,6 +24,7 @@ export interface WebviewPanelDescriptor<State = any, SerializedState = State> {
 	readonly title: string;
 	readonly contextKeyPrefix: `${ContextKeys.WebviewPrefix}${WebviewIds}`;
 	readonly trackingFeature: TrackedUsageFeatures;
+	readonly plusFeature: boolean;
 	readonly options?: WebviewOptions;
 	readonly panelOptions?: WebviewPanelOptions;
 	resolveWebviewProvider(
@@ -37,6 +39,7 @@ export interface WebviewViewDescriptor<State = any, SerializedState = State> {
 	readonly title: string;
 	readonly contextKeyPrefix: `${ContextKeys.WebviewViewPrefix}${WebviewViewIds}`;
 	readonly trackingFeature: TrackedUsageFeatures;
+	readonly plusFeature: boolean;
 	readonly options?: WebviewOptions;
 	resolveWebviewProvider(
 		container: Container,
@@ -97,8 +100,13 @@ export class WebviewsController implements Disposable {
 				resolveWebviewView: async (
 					webviewView: WebviewView,
 					_context: WebviewViewResolveContext<SerializedState>,
-					_token: CancellationToken,
+					token: CancellationToken,
 				) => {
+					if (metadata.descriptor.plusFeature) {
+						if (!(await ensurePlusFeaturesEnabled())) return;
+						if (token.isCancellationRequested) return;
+					}
+
 					webviewView.webview.options = {
 						...descriptor.options,
 						enableCommandUris: true,
@@ -175,6 +183,10 @@ export class WebviewsController implements Disposable {
 			...args: unknown[]
 		): Promise<void> {
 			const { webview, descriptor } = metadata;
+
+			if (descriptor.plusFeature) {
+				if (!(await ensurePlusFeaturesEnabled())) return;
+			}
 
 			void container.usage.track(`${descriptor.trackingFeature}:shown`);
 

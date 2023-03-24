@@ -1,4 +1,3 @@
-import type { ViewColumn } from 'vscode';
 import { Disposable, Uri, window } from 'vscode';
 import type { GHPRPullRequest } from '../../../commands';
 import { Commands, ContextKeys } from '../../../constants';
@@ -29,7 +28,6 @@ import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
 import type { WebviewIds, WebviewViewIds } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
-import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import type { OpenWorktreeParams, State, SwitchToBranchParams } from './protocol';
 import {
 	DidChangeStateNotificationType,
@@ -71,16 +69,6 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 
 	dispose() {
 		this._disposable.dispose();
-	}
-
-	async canShowWebviewPanel(
-		_firstTime: boolean,
-		_options: { column?: ViewColumn; preserveFocus?: boolean },
-		..._args: unknown[]
-	): Promise<boolean> {
-		if (!(await ensurePlusFeaturesEnabled())) return false;
-
-		return true;
 	}
 
 	registerCommands(): Disposable[] {

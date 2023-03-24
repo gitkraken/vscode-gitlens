@@ -22,7 +22,6 @@ import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
 import type { WebviewIds, WebviewViewIds } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
-import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import type { Commit, Period, State } from './protocol';
 import { DidChangeNotificationType, OpenDataPointCommandType, UpdatePeriodCommandType } from './protocol';
 
@@ -81,13 +80,11 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		this._disposable.dispose();
 	}
 
-	async canShowWebviewPanel(
+	canShowWebviewPanel(
 		firstTime: boolean,
 		_options: { column?: ViewColumn; preserveFocus?: boolean },
 		...args: unknown[]
-	): Promise<boolean> {
-		if (!(await ensurePlusFeaturesEnabled())) return false;
-
+	): boolean {
 		const [uri] = args;
 		if (uri != null && uri instanceof Uri) {
 			this.updatePendingUri(uri);

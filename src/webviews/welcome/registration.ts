@@ -9,6 +9,7 @@ export function registerWelcomeWebviewPanel(controller: WebviewsController) {
 		title: 'Welcome to GitLens',
 		contextKeyPrefix: `${ContextKeys.WebviewPrefix}welcome`,
 		trackingFeature: 'welcomeWebview',
+		plusFeature: false,
 		resolveWebviewProvider: async function (container, id, host) {
 			const { WelcomeWebviewProvider } = await import(/* webpackChunkName: "welcome" */ './welcomeWebview');
 			return new WelcomeWebviewProvider(container, id, host);
