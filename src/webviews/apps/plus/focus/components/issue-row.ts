@@ -27,7 +27,7 @@ const template = html<IssueRow>`
 				<span class="tag"><code-icon icon="repo"></code-icon>${x => x.issue!.repository.repo}</span>
 			</small>
 		</table-cell>
-		<table-cell>
+		<table-cell class="vcenter participants">
 			${when(
 				x => x.issue!.author != null,
 				html<IssueRow>`
@@ -44,9 +44,9 @@ const template = html<IssueRow>`
 				html<IssueRow>`<git-avatars :avatars="${x => x.issue!.assignees}"></git-avatars>`,
 			)}
 		</table-cell>
-		<table-cell>${x => x.issue!.commentsCount}</table-cell>
-		<table-cell>${x => x.issue!.thumbsUpCount}</table-cell>
-		<table-cell class="actions">
+		<table-cell class="vcenter">${x => x.issue!.commentsCount}</table-cell>
+		<table-cell class="vcenter">${x => x.issue!.thumbsUpCount}</table-cell>
+		<table-cell class="vcenter actions">
 			<a href="${x => x.issue!.url}" title="Open issue on remote"><code-icon icon="globe"></code-icon></a>
 		</table-cell>
 	</template>
@@ -81,6 +81,10 @@ const styles = css`
 		font-size: inherit;
 	}
 
+	.vcenter {
+		vertical-align: middle;
+	}
+
 	.tag {
 		display: inline-block;
 		padding: 0.1rem 0.2rem;
@@ -102,11 +106,45 @@ const styles = css`
 	.icon-only {
 	}
 
+	.participants {
+		white-space: nowrap;
+	}
+
 	.stats {
 	}
 
 	.actions {
 		text-align: right;
+		white-space: nowrap;
+	}
+
+	.actions a {
+		box-sizing: border-box;
+		display: inline-flex;
+		justify-content: center;
+		align-items: center;
+		width: 3.2rem;
+		height: 3.2rem;
+		border-radius: 0.5rem;
+		color: inherit;
+		padding: 0.2rem;
+		vertical-align: text-bottom;
+		text-decoration: none;
+		cursor: pointer;
+	}
+	.actions a:focus {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: -1px;
+	}
+	.actions a:hover {
+		background-color: var(--vscode-toolbar-hoverBackground);
+	}
+	.actions a:active {
+		background-color: var(--vscode-toolbar-activeBackground);
+	}
+
+	.actions a code-icon {
+		font-size: 1.6rem;
 	}
 
 	.stat-added {
