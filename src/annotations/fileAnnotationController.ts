@@ -39,10 +39,7 @@ import type {
 } from '../trackers/gitDocumentTracker';
 import type { AnnotationContext, AnnotationProviderBase, TextEditorCorrelationKey } from './annotationProvider';
 import { AnnotationStatus, getEditorCorrelationKey } from './annotationProvider';
-import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
 import type { ChangesAnnotationContext } from './gutterChangesAnnotationProvider';
-import { GutterChangesAnnotationProvider } from './gutterChangesAnnotationProvider';
-import { GutterHeatmapBlameAnnotationProvider } from './gutterHeatmapBlameAnnotationProvider';
 
 export const enum AnnotationClearReason {
 	User = 'User',
@@ -467,17 +464,27 @@ export class FileAnnotationController implements Disposable {
 
 		let provider: AnnotationProviderBase | undefined = undefined;
 		switch (type) {
-			case FileAnnotationType.Blame:
+			case FileAnnotationType.Blame: {
+				const { GutterBlameAnnotationProvider } = await import(
+					/* webpackChunkName: "annotations-blame" */ './gutterBlameAnnotationProvider'
+				);
 				provider = new GutterBlameAnnotationProvider(editor, trackedDocument, this.container);
 				break;
-
-			case FileAnnotationType.Changes:
+			}
+			case FileAnnotationType.Changes: {
+				const { GutterChangesAnnotationProvider } = await import(
+					/* webpackChunkName: "annotations-changes" */ './gutterChangesAnnotationProvider'
+				);
 				provider = new GutterChangesAnnotationProvider(editor, trackedDocument, this.container);
 				break;
-
-			case FileAnnotationType.Heatmap:
+			}
+			case FileAnnotationType.Heatmap: {
+				const { GutterHeatmapBlameAnnotationProvider } = await import(
+					/* webpackChunkName: "annotations-heatmap" */ './gutterHeatmapBlameAnnotationProvider'
+				);
 				provider = new GutterHeatmapBlameAnnotationProvider(editor, trackedDocument, this.container);
 				break;
+			}
 		}
 		if (provider == null || !(await provider.validate())) return undefined;
 
