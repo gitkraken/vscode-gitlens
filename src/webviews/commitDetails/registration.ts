@@ -9,6 +9,7 @@ export function registerCommitDetailsWebviewView(controller: WebviewsController)
 		title: 'Commit Details',
 		contextKeyPrefix: `${ContextKeys.WebviewViewPrefix}commitDetails`,
 		trackingFeature: 'commitDetailsView',
+		plusFeature: false,
 		resolveWebviewProvider: async function (container, id, host) {
 			const { CommitDetailsWebviewProvider } = await import(
 				/* webpackChunkName: "commitDetails" */ './commitDetailsWebview'

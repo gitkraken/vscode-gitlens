@@ -11,6 +11,7 @@ export function registerSettingsWebviewPanel(controller: WebviewsController) {
 		title: 'GitLens Settings',
 		contextKeyPrefix: `${ContextKeys.WebviewPrefix}settings`,
 		trackingFeature: 'settingsWebview',
+		plusFeature: false,
 		resolveWebviewProvider: async function (container, id, host) {
 			const { SettingsWebviewProvider } = await import(/* webpackChunkName: "settings" */ './settingsWebview');
 			return new SettingsWebviewProvider(container, id, host);

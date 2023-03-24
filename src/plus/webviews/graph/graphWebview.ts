@@ -75,7 +75,6 @@ import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
 import type { WebviewIds, WebviewViewIds } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
-import { ensurePlusFeaturesEnabled } from '../../subscription/utils';
 import type {
 	DimMergeCommitsParams,
 	DismissBannerParams,
@@ -249,8 +248,6 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		...args: unknown[]
 	): Promise<boolean> {
 		this._firstSelection = true;
-		if (!(await ensurePlusFeaturesEnabled())) return false;
-
 		if (options.column == null) {
 			options.column = ViewColumn.Active;
 		}

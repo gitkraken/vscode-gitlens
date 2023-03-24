@@ -1,4 +1,4 @@
-import type { ConfigurationChangeEvent, ViewColumn } from 'vscode';
+import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, window } from 'vscode';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import { ViewsLayout } from '../../commands/setViewsLayout';
@@ -7,7 +7,6 @@ import type { Container } from '../../container';
 import { getContext, onDidChangeContext } from '../../context';
 import type { RepositoriesVisibility } from '../../git/gitProviderService';
 import type { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
-import { ensurePlusFeaturesEnabled } from '../../plus/subscription/utils';
 import type { StorageChangeEvent } from '../../storage';
 import type { Subscription } from '../../subscription';
 import { executeCoreCommand, registerCommand } from '../../system/command';
@@ -56,15 +55,6 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 
 	dispose() {
 		this._disposable.dispose();
-	}
-
-	async canShowWebviewPanel(
-		_firstTime: boolean,
-		_options: { column?: ViewColumn; preserveFocus?: boolean },
-		..._args: unknown[]
-	): Promise<boolean> {
-		if (!(await ensurePlusFeaturesEnabled())) return false;
-		return true;
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {

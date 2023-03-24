@@ -16,6 +16,7 @@ export function registerGraphWebviewPanel(controller: WebviewsController) {
 		title: 'Commit Graph',
 		contextKeyPrefix: `${ContextKeys.WebviewPrefix}graph`,
 		trackingFeature: 'graphWebview',
+		plusFeature: true,
 		panelOptions: {
 			retainContextWhenHidden: true,
 			enableFindWidget: false,
@@ -33,6 +34,7 @@ export function registerGraphWebviewView(controller: WebviewsController) {
 		title: 'Commit Graph',
 		contextKeyPrefix: `${ContextKeys.WebviewViewPrefix}graph`,
 		trackingFeature: 'graphView',
+		plusFeature: true,
 		resolveWebviewProvider: async function (container, id, host) {
 			const { GraphWebviewProvider } = await import(/* webpackChunkName: "graph" */ './graphWebview');
 			return new GraphWebviewProvider(container, id, host);

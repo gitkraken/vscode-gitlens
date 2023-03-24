@@ -8,6 +8,7 @@ export function registerHomeWebviewView(controller: WebviewsController) {
 		title: 'Home',
 		contextKeyPrefix: `${ContextKeys.WebviewViewPrefix}home`,
 		trackingFeature: 'homeView',
+		plusFeature: false,
 		resolveWebviewProvider: async function (container, id, host) {
 			const { HomeWebviewProvider } = await import(/* webpackChunkName: "home" */ './homeWebview');
 			return new HomeWebviewProvider(container, id, host);
