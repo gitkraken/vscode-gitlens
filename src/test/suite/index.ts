@@ -11,7 +11,6 @@ export async function run(): Promise<void> {
 
 	const testsRoot = path.resolve(__dirname, '..');
 
-	// eslint-disable-next-line @typescript-eslint/await-thenable
 	const files = await glob('**/**.test.js', { cwd: testsRoot });
 
 	// Add files to the test suite
