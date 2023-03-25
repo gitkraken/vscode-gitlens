@@ -144,9 +144,9 @@ export class GiteaRemote extends RemoteProvider {
 			line = '';
 		}
 
-		if (sha) return this.encodeUrl(`${this.baseUrl}/src/commit/${sha}/${fileName}${line}`);
-		if (branch) return this.encodeUrl(`${this.baseUrl}/src/branch/${branch}/${fileName}${line}`);
+		if (sha) return `${this.encodeUrl(`${this.baseUrl}/src/commit/${sha}/${fileName}`)}${line}`;
+		if (branch) return `${this.encodeUrl(`${this.baseUrl}/src/branch/${branch}/${fileName}`)}${line}`;
 		// this route is deprecated but there is no alternative
-		return this.encodeUrl(`${this.baseUrl}/src/${fileName}${line}`);
+		return `${this.encodeUrl(`${this.baseUrl}/src/${fileName}`)}${line}`;
 	}
 }
