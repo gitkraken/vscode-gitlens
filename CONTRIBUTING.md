@@ -142,15 +142,26 @@ If a pull request is submitted which contains changes to files in or under any d
 
 ### Update the CHANGELOG
 
-The [Change Log](CHANGELOG.md) is updated manually and an entry should be added for each change. Changes are grouped in lists by `added`, `changed` or `fixed`.
+The [Change Log](CHANGELOG.md) is updated manually and an entry should be added for each change. Changes are grouped in lists by `added`, `changed`, `removed`, or `fixed`.
 
 Entries should be written in future tense:
 
-> - Adds [Gravatar](https://en.gravatar.com/) support to gutter and hover blame annotations
+> Be sure to give yourself much deserved credit by adding your name and user in the entry:
 
-Be sure to give yourself much deserved credit by adding your name and user in the entry:
-
+> Added
+>
+> - Adds support for new feature X &mdash; closes #\<num\>
 > - Adds `gitlens.statusBar.alignment` settings to control the alignment of the status bar &mdash; thanks to [PR #72](https://github.com/gitkraken/vscode-gitlens/pull/72) by Zack Schuster ([@zackschuster](https://github.com/zackschuster))!
+>
+> Changed
+>
+> - Changes or improves an existing feature &mdash; closes #\<num\>
+> - Changes to uses VS Code as Git's `core.editor` for terminal run commands &mdash; closes [#2134](https://github.com/gitkraken/vscode-gitlens/issues/2134) thanks to [PR #2135](https://github.com/gitkraken/vscode-gitlens/pull/2135) by Nafiur Rahman Khadem ([@ShafinKhadem](https://github.com/ShafinKhadem))> - Changes previous Gerrit remote support to Google Source remote support &mdash; thanks to [PR #1954](https://github.com/gitkraken/vscode-gitlens/pull/1954) by Felipe Santos ([@felipecrs](https://github.com/felipecrs))
+>
+> Fixed
+>
+> - Fixes #\<num\> a bug or regression
+> - Fixes [#2346](https://github.com/gitkraken/vscode-gitlens/issues/2346) - Multiple cursors on the same line duplicate inline annotations &mdash; thanks to [PR #2347](https://github.com/gitkraken/vscode-gitlens/pull/2347) by Yonatan Greenfeld ([@YonatanGreenfeld](https://github.com/YonatanGreenfeld))
 
 ### Update the README
 
@@ -205,4 +216,4 @@ The [Publish Pre-release workflow](.github/workflows/cd-pre.yml) is automaticall
 
 ### Insiders edition (deprecated use pre-release instead)
 
-The Publish Insiders workflow is no longer available and replaced with the pre-release edition.
+The Publish Insiders workflow is no longer available and was replaced with the pre-release edition.
