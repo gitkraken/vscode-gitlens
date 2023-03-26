@@ -123,7 +123,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
-			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
+			configuration.onDidChangeOther(this.onOtherConfigurationChanged, this),
 		);
 	}
 
@@ -202,7 +202,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		this.updateState(true);
 	}
 
-	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
+	private onOtherConfigurationChanged(e: ConfigurationChangeEvent) {
 		// if (e.affectsConfiguration('workbench.tree.indent')) {
 		// 	this.updatePendingContext({ indent: configuration.getAny('workbench.tree.indent') ?? 8 });
 		// 	this.updateState();

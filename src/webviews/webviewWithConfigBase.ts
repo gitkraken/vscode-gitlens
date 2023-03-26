@@ -29,7 +29,7 @@ export abstract class WebviewProviderWithConfigBase<State> implements WebviewPro
 	) {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
-			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
+			configuration.onDidChangeOther(this.onOtherConfigurationChanged, this),
 		);
 	}
 
@@ -172,7 +172,7 @@ export abstract class WebviewProviderWithConfigBase<State> implements WebviewPro
 		}
 	}
 
-	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
+	private onOtherConfigurationChanged(e: ConfigurationChangeEvent) {
 		let notify = false;
 		for (const setting of this.customSettings.values()) {
 			if (e.affectsConfiguration(setting.name)) {

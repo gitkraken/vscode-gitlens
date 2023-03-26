@@ -45,7 +45,7 @@ export class GitLabApi implements Disposable {
 					this._proxyAgents.clear();
 				}
 			}),
-			configuration.onDidChangeAny(e => {
+			configuration.onDidChangeOther(e => {
 				if (e.affectsConfiguration('http.proxy') || e.affectsConfiguration('http.proxyStrictSSL')) {
 					this._projectIds.clear();
 					this._proxyAgents.clear();
