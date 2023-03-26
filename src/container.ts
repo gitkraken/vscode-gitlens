@@ -306,6 +306,15 @@ export class Container {
 		if (configuration.changed(e, 'mode')) {
 			this.ensureModeApplied();
 		}
+
+		if (configuration.changed(e, 'graph.experimental.location')) {
+			if (configuration.get('graph.experimental.location') === 'view') {
+				this._graphView = registerGraphWebviewView(this._webviews);
+			} else {
+				this._graphView?.dispose();
+				this._graphView = undefined;
+			}
+		}
 	}
 
 	private readonly _actionRunners: ActionRunners;

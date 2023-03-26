@@ -13109,7 +13109,7 @@
 					"when": "!gitlens:disabled && gitlens:plus:enabled && config.gitlens.graph.experimental.location == view",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-graph)",
-					"visibility": "hidden"
+					"visibility": "collapsed"
 				},
 				{
 					"id": "gitlens.views.contributors",
