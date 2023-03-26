@@ -195,7 +195,7 @@ export class GitHubApi implements Disposable {
 					this.resetCaches();
 				}
 			}),
-			configuration.onDidChangeAny(e => {
+			configuration.onDidChangeOther(e => {
 				if (e.affectsConfiguration('http.proxy') || e.affectsConfiguration('http.proxyStrictSSL')) {
 					this.resetCaches();
 				}

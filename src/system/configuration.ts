@@ -7,7 +7,7 @@ import { areEqual } from './object';
 interface ConfigurationOverrides {
 	get<T extends ConfigPath>(section: T, value: ConfigPathValue<T>): ConfigPathValue<T>;
 	getAll(config: Config): Config;
-	onChange(e: ConfigurationChangeEvent): ConfigurationChangeEvent;
+	onDidChange(e: ConfigurationChangeEvent): ConfigurationChangeEvent;
 }
 
 export class Configuration {
@@ -23,30 +23,29 @@ export class Configuration {
 		return this._onDidChange.event;
 	}
 
-	private _onDidChangeAny = new EventEmitter<ConfigurationChangeEvent>();
-	get onDidChangeAny(): Event<ConfigurationChangeEvent> {
-		return this._onDidChangeAny.event;
+	private _onDidChangeBeforeOverrides = new EventEmitter<ConfigurationChangeEvent>();
+	get onDidChangeBeforeOverrides(): Event<ConfigurationChangeEvent> {
+		return this._onDidChangeBeforeOverrides.event;
 	}
 
-	private _onWillChange = new EventEmitter<ConfigurationChangeEvent>();
-	get onWillChange(): Event<ConfigurationChangeEvent> {
-		return this._onWillChange.event;
+	private _onDidChangeOther = new EventEmitter<ConfigurationChangeEvent>();
+	get onDidChangeOther(): Event<ConfigurationChangeEvent> {
+		return this._onDidChangeOther.event;
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (!e.affectsConfiguration(configPrefix)) {
-			this._onDidChangeAny.fire(e);
+			this._onDidChangeOther.fire(e);
 
 			return;
 		}
 
-		this._onWillChange.fire(e);
+		this._onDidChangeBeforeOverrides.fire(e);
 
-		if (this._overrides?.onChange != null) {
-			e = this._overrides.onChange(e);
+		if (this._overrides?.onDidChange != null) {
+			e = this._overrides.onDidChange(e);
 		}
 
-		this._onDidChangeAny.fire(e);
 		this._onDidChange.fire(e);
 	}
 
@@ -75,12 +74,13 @@ export class Configuration {
 		section: T,
 		scope?: ConfigurationScope | null,
 		defaultValue?: NonNullable<ConfigPathValue<T>>,
+		skipOverrides?: boolean,
 	): ConfigPathValue<T> {
 		const value =
 			defaultValue === undefined
 				? workspace.getConfiguration(configPrefix, scope).get<ConfigPathValue<T>>(section)!
 				: workspace.getConfiguration(configPrefix, scope).get<ConfigPathValue<T>>(section, defaultValue)!;
-		return this._overrides?.get == null ? value : this._overrides.get<T>(section, value);
+		return skipOverrides || this._overrides?.get == null ? value : this._overrides.get<T>(section, value);
 	}
 
 	getAll(skipOverrides?: boolean): Config {

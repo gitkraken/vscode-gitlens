@@ -158,7 +158,6 @@ export class Container {
 		},
 	};
 
-	private _configAffectedByModeRegex: RegExp | undefined;
 	private _terminalLinks: GitTerminalLinkProvider | undefined;
 
 	private _webviews: WebviewsController;
@@ -179,7 +178,9 @@ export class Container {
 		context.subscriptions.unshift((this._telemetry = new TelemetryService(this)));
 		context.subscriptions.unshift((this._usage = new UsageTracker(this, storage)));
 
-		context.subscriptions.unshift(configuration.onWillChange(this.onConfigurationChanging, this));
+		context.subscriptions.unshift(
+			configuration.onDidChangeBeforeOverrides(this.onConfigurationChangedBeforeOverrides, this),
+		);
 
 		this._richRemoteProviders = new RichRemoteProviderService(this);
 
@@ -291,7 +292,7 @@ export class Container {
 		this._git.registrationComplete();
 	}
 
-	private onConfigurationChanging(e: ConfigurationChangeEvent) {
+	private onConfigurationChangedBeforeOverrides(e: ConfigurationChangeEvent) {
 		this._mode = undefined;
 
 		if (configuration.changed(e, 'outputLevel')) {
@@ -695,28 +696,15 @@ export class Container {
 
 				return cfg;
 			},
-			onChange: e => {
+			onDidChange: e => {
 				// When the mode or modes change, we will simulate that all the affected configuration also changed
-				if (configuration.changed(e, ['mode', 'modes'])) {
-					if (this._configAffectedByModeRegex == null) {
-						this._configAffectedByModeRegex = new RegExp(
-							`^gitlens\\.(?:${configuration.name('mode')}|${configuration.name(
-								'modes',
-							)}|${configuration.name('blame')}|${configuration.name('changes')}|${configuration.name(
-								'heatmap',
-							)}|${configuration.name('codeLens')}|${configuration.name(
-								'currentLine',
-							)}|${configuration.name('hovers')}|${configuration.name('statusBar')})\\b`,
-						);
-					}
+				if (!configuration.changed(e, ['mode', 'modes'])) return e;
 
-					const original = e.affectsConfiguration;
-					e = {
-						...e,
-						affectsConfiguration: (section, scope) =>
-							this._configAffectedByModeRegex!.test(section) ? true : original(section, scope),
-					};
-				}
+				const originalAffectsConfiguration = e.affectsConfiguration;
+				e.affectsConfiguration = (section, scope) =>
+					/^gitlens\\.(?:modes?|blame|changes|heatmap|codeLens|currentLine|hovers|statusBar)\\b/.test(section)
+						? true
+						: originalAffectsConfiguration(section, scope);
 				return e;
 			},
 		});
