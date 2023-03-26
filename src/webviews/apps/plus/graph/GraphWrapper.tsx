@@ -1092,74 +1092,71 @@ export function GraphWrapper({
 			{renderAlertContent()}
 			<header className="titlebar graph-app__header">
 				<div className="titlebar__row titlebar__row--wrap">
-					<div className="titlebar__group titlebar__group--fixed">
-						<button
-							type="button"
-							className="action-button"
-							slot="trigger"
-							title="Switch to Another Repository..."
-							disabled={repos.length < 2}
-							onClick={() => handleChooseRepository()}
-						>
-							{repo?.formattedName ?? 'none selected'}
-							{repos.length > 1 && (
+					<button
+						type="button"
+						className="action-button"
+						slot="trigger"
+						title="Switch to Another Repository..."
+						disabled={repos.length < 2}
+						onClick={() => handleChooseRepository()}
+					>
+						{repo?.formattedName ?? 'none selected'}
+						{repos.length > 1 && (
+							<span
+								className="codicon codicon-chevron-down action-button__more"
+								aria-hidden="true"
+							></span>
+						)}
+					</button>
+					{repo && (
+						<>
+							<span>
+								<span className="codicon codicon-chevron-right"></span>
+							</span>
+							<a
+								href="command:gitlens.graph.switchToAnotherBranch"
+								className="action-button"
+								title="Switch to Another Branch..."
+							>
+								{branchName}
 								<span
 									className="codicon codicon-chevron-down action-button__more"
 									aria-hidden="true"
 								></span>
-							)}
-						</button>
-						{repo && (
-							<>
-								<span>
-									<span className="codicon codicon-chevron-right"></span>
-								</span>
-								<a
-									href="command:gitlens.graph.switchToAnotherBranch"
-									className="action-button"
-									title="Switch to Another Branch..."
-								>
-									{branchName}
-									<span
-										className="codicon codicon-chevron-down action-button__more"
-										aria-hidden="true"
-									></span>
-								</a>
-								<span>
-									<span className="codicon codicon-chevron-right"></span>
-								</span>
-								<a
-									href="command:gitlens.graph.fetch"
-									className="action-button"
-									title="Fetch Repository"
-								>
-									<span className="codicon codicon-sync action-button__icon"></span> Fetch{' '}
-									{lastFetched && <small>(Last fetched {fromNow(new Date(lastFetched))})</small>}
-								</a>
-							</>
-						)}
-					</div>
-					<div className="titlebar__group titlebar__group--fixed">
-						{state.debugging && (
-							<span className="titlebar__group titlebar__debugging">
-								{isLoading && <span className="icon--loading icon-modifier--spin" />}
-								{rows.length > 0 && (
-									<span>
-										showing {rows.length} item{rows.length ? 's' : ''}
+							</a>
+							<span>
+								<span className="codicon codicon-chevron-right"></span>
+							</span>
+							<a href="command:gitlens.graph.fetch" className="action-button" title="Fetch Repository">
+								<span className="codicon codicon-sync action-button__icon"></span>
+								Fetch
+								{lastFetched && (
+									<span className="action-button__small">
+										(Last fetched {fromNow(new Date(lastFetched))})
 									</span>
 								)}
-							</span>
-						)}
-						{renderAccountState()}
-						<a
-							href="https://github.com/gitkraken/vscode-gitlens/discussions/2158"
-							title="Commit Graph Feedback"
-							aria-label="Commit Graph Feedback"
-							className="action-button"
-						>
-							<span className="codicon codicon-feedback"></span>
-						</a>
-					</div>
+							</a>
+						</>
+					)}
+					{!state.debugging && (
+						<span className="titlebar__debugging">
+							{isLoading && <span className="icon--loading icon-modifier--spin" />}
+							{rows.length > 0 && (
+								<span>
+									showing {rows.length} item{rows.length ? 's' : ''}
+								</span>
+							)}
+						</span>
+					)}
+					{renderAccountState()}
+					<a
+						href="https://github.com/gitkraken/vscode-gitlens/discussions/2158"
+						title="Commit Graph Feedback"
+						aria-label="Commit Graph Feedback"
+						className="action-button"
+					>
+						<span className="codicon codicon-feedback"></span>
+					</a>
 				</div>
 				{isAccessAllowed && (
 					<div className="titlebar__row">
@@ -1267,7 +1264,7 @@ export function GraphWrapper({
 							</span>
 							<button
 								type="button"
-								className="action-button action-button--narrow"
+								className="action-button"
 								title="Toggle Minimap (Experimental)"
 								aria-label="Toggle Minimap (Experimental)"
 								onClick={handleOnToggleMinimap}

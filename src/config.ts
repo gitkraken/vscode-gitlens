@@ -417,6 +417,7 @@ export interface GraphConfig {
 	defaultItemLimit: number;
 	dimMergeCommits: boolean;
 	experimental: {
+		location: 'tab' | 'view';
 		minimap: {
 			enabled: boolean;
 			additionalTypes: GraphMinimapTypes[];

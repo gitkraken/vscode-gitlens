@@ -186,6 +186,12 @@ button:not([disabled]),
 	border-radius: 3px;
 	height: auto;
 
+	display: grid;
+	grid-auto-flow: column;
+	grid-gap: 0.5rem;
+	gap: 0.5rem;
+	max-width: fit-content;
+
 	&[disabled] {
 		pointer-events: none;
 		cursor: default;
@@ -203,10 +209,6 @@ button:not([disabled]),
 		vertical-align: bottom;
 	}
 
-	&__icon,
-	&__icon.codicon[class*='codicon-'] {
-		margin-right: 0.4rem;
-	}
 	&__icon:not(.codicon) {
 		display: inline-block;
 		width: 1.6rem;
@@ -215,7 +217,6 @@ button:not([disabled]),
 	&__more,
 	&__more.codicon[class*='codicon-'] {
 		font-size: 1rem;
-		margin-left: 0.4rem;
 		margin-right: -0.35rem;
 	}
 
@@ -230,8 +231,11 @@ button:not([disabled]),
 		background-color: var(--vscode-progressBar-background);
 	}
 
-	small {
+	&__small {
+		font-size: smaller;
 		opacity: 0.6;
+		text-overflow: ellipsis;
+		overflow: hidden;
 	}
 }
 
@@ -609,16 +613,17 @@ button:not([disabled]),
 		flex: 0 0 100%;
 
 		&--wrap {
-			flex-wrap: wrap;
+			display: grid;
+			grid-auto-flow: column;
+			white-space: nowrap;
+			justify-content: start;
+			grid-template-columns: min-content min-content min-content min-content minmax(min-content, 1fr);
+			overflow: hidden;
 		}
 	}
 
 	&__group {
 		flex: auto 1 1;
-
-		&--fixed {
-			flex: none;
-		}
 	}
 
 	&__debugging {

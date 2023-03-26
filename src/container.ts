@@ -23,7 +23,11 @@ import { SubscriptionAuthenticationProvider } from './plus/subscription/authenti
 import { ServerConnection } from './plus/subscription/serverConnection';
 import { SubscriptionService } from './plus/subscription/subscriptionService';
 import { registerFocusWebviewPanel } from './plus/webviews/focus/registration';
-import { registerGraphWebviewCommands, registerGraphWebviewPanel } from './plus/webviews/graph/registration';
+import {
+	registerGraphWebviewCommands,
+	registerGraphWebviewPanel,
+	registerGraphWebviewView,
+} from './plus/webviews/graph/registration';
 import { GraphStatusBarController } from './plus/webviews/graph/statusbar';
 import { registerTimelineWebviewPanel, registerTimelineWebviewView } from './plus/webviews/timeline/registration';
 import { StatusBarController } from './statusbar/statusBarController';
@@ -212,8 +216,10 @@ export class Container {
 
 		const graphWebviewPanel = registerGraphWebviewPanel(this._webviews);
 		context.subscriptions.unshift(graphWebviewPanel);
-		context.subscriptions.unshift(registerGraphWebviewCommands(graphWebviewPanel));
-		// context.subscriptions.unshift((this._graphView = registerGraphWebviewView(this._webviews)));
+		context.subscriptions.unshift(registerGraphWebviewCommands(this, graphWebviewPanel));
+		if (configuration.get('graph.experimental.location') === 'view') {
+			context.subscriptions.unshift((this._graphView = registerGraphWebviewView(this._webviews)));
+		}
 		context.subscriptions.unshift(new GraphStatusBarController(this));
 
 		const settingsWebviewPanel = registerSettingsWebviewPanel(this._webviews);
@@ -431,10 +437,14 @@ export class Container {
 		}
 	}
 
-	// private readonly _graphView: WebviewViewProxy;
-	// get graphView() {
-	// 	return this._graphView;
-	// }
+	private _graphView: WebviewViewProxy | undefined;
+	get graphView() {
+		if (this._graphView == null) {
+			this.context.subscriptions.unshift((this._graphView = registerGraphWebviewView(this._webviews)));
+		}
+
+		return this._graphView;
+	}
 
 	private readonly _homeView: WebviewViewProxy;
 	get homeView() {
