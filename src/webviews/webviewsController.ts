@@ -27,6 +27,11 @@ export interface WebviewPanelDescriptor<State = any, SerializedState = State> {
 	readonly plusFeature: boolean;
 	readonly options?: WebviewOptions;
 	readonly panelOptions?: WebviewPanelOptions;
+
+	canResolveWebviewProvider?(
+		container: Container,
+		id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
+	): boolean | Promise<boolean>;
 	resolveWebviewProvider(
 		container: Container,
 		id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
@@ -41,6 +46,11 @@ export interface WebviewViewDescriptor<State = any, SerializedState = State> {
 	readonly trackingFeature: TrackedUsageFeatures;
 	readonly plusFeature: boolean;
 	readonly options?: WebviewOptions;
+
+	canResolveWebviewProvider?(
+		container: Container,
+		id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
+	): boolean | Promise<boolean>;
 	resolveWebviewProvider(
 		container: Container,
 		id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
@@ -102,6 +112,10 @@ export class WebviewsController implements Disposable {
 					_context: WebviewViewResolveContext<SerializedState>,
 					token: CancellationToken,
 				) => {
+					if (metadata.descriptor.canResolveWebviewProvider != null) {
+						if ((await metadata.descriptor.canResolveWebviewProvider(this.container, id)) === false) return;
+					}
+
 					if (metadata.descriptor.plusFeature) {
 						if (!(await ensurePlusFeaturesEnabled())) return;
 						if (token.isCancellationRequested) return;
@@ -183,6 +197,10 @@ export class WebviewsController implements Disposable {
 			...args: unknown[]
 		): Promise<void> {
 			const { webview, descriptor } = metadata;
+
+			if (descriptor.canResolveWebviewProvider != null) {
+				if ((await descriptor.canResolveWebviewProvider(container, id)) === false) return;
+			}
 
 			if (descriptor.plusFeature) {
 				if (!(await ensurePlusFeaturesEnabled())) return;

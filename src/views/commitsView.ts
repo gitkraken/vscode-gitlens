@@ -146,7 +146,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 				? new CommandMessageNode(
 						this.view,
 						this,
-						{ command: Commands.ShowGraphPage, title: 'Show Commit Graph' },
+						{ command: Commands.ShowGraph, title: 'Show Commit Graph' },
 						'Visualize commits on the Commit Graph',
 						'✨ GitLens+ feature',
 						'Visualize commits on the Commit Graph ✨',

@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds experimental support to show the _Commit Graph_ in the side bar, secondary side bar, or panel
+  - Adds a `gitlens.graph.experimental.location` setting to specify the location in which the _Commit Graph_ will be shown
+    - `tab` - Shows the _Commit Graph_ in a tab in the editor area
+    - `view` - Shows the _Commit Graph_ in the side bar and can be dragged and dropped into any side bar, secondary side bar, or panel locations
+
 ### Changed
 
 - Changes _Open Associated Pull Request_ command to support opening associated pull requests with the current branch or the HEAD commit if no branch association was found &mdash; closes [#2559](https://github.com/gitkraken/vscode-gitlens/issues/2559)

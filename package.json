@@ -75,8 +75,20 @@
 		"onCommand:gitlens.plus.manage",
 		"onCommand:gitlens.plus.purchase",
 		"onCommand:gitlens.getStarted",
-		"onCommand:gitlens.showGraphPage",
+		"onCommand:gitlens.showBranchesView",
+		"onCommand:gitlens.showCommitDetailsView",
+		"onCommand:gitlens.showCommitsView",
+		"onCommand:gitlens.showContributorsView",
+		"onCommand:gitlens.showFileHistoryView",
 		"onCommand:gitlens.showFocusPage",
+		"onCommand:gitlens.showGraph",
+		"onCommand:gitlens.showGraphPage",
+		"onCommand:gitlens.showGraphView",
+		"onCommand:gitlens.showHomeView",
+		"onCommand:gitlens.showLineHistoryView",
+		"onCommand:gitlens.showRemotesView",
+		"onCommand:gitlens.showRepositoriesView",
+		"onCommand:gitlens.showSearchAndCompareView",
 		"onCommand:gitlens.showSettingsPage",
 		"onCommand:gitlens.showSettingsPage#views",
 		"onCommand:gitlens.showSettingsPage#autolinks",
@@ -92,20 +104,10 @@
 		"onCommand:gitlens.showSettingsPage#tags-view",
 		"onCommand:gitlens.showSettingsPage#worktrees-view",
 		"onCommand:gitlens.showSettingsPage#commit-graph",
-		"onCommand:gitlens.showWelcomePage",
-		"onCommand:gitlens.showBranchesView",
-		"onCommand:gitlens.showCommitDetailsView",
-		"onCommand:gitlens.showCommitsView",
-		"onCommand:gitlens.showContributorsView",
-		"onCommand:gitlens.showFileHistoryView",
-		"onCommand:gitlens.showHomeView",
-		"onCommand:gitlens.showLineHistoryView",
-		"onCommand:gitlens.showRemotesView",
-		"onCommand:gitlens.showRepositoriesView",
-		"onCommand:gitlens.showSearchAndCompareView",
 		"onCommand:gitlens.showStashesView",
 		"onCommand:gitlens.showTagsView",
 		"onCommand:gitlens.showTimelineView",
+		"onCommand:gitlens.showWelcomePage",
 		"onCommand:gitlens.showWorktreesView",
 		"onCommand:gitlens.compareWith",
 		"onCommand:gitlens.compareHeadWith",
@@ -2380,7 +2382,22 @@
 						"default": true,
 						"markdownDescription": "Specifies whether to show the _Commit Graph_ in the status bar",
 						"scope": "window",
-						"order": 100
+						"order": 50
+					},
+					"gitlens.graph.experimental.location": {
+						"type": "string",
+						"default": "tab",
+						"enum": [
+							"tab",
+							"view"
+						],
+						"enumDescriptions": [
+							"Shows the Commit Graph in an editor tab",
+							"Shows the Commit Graph in a view (side bar, panel, etc)"
+						],
+						"markdownDescription": "Specifies the location in which the _Commit Graph_ will be shown",
+						"scope": "window",
+						"order": 99
 					},
 					"gitlens.graph.experimental.minimap.enabled": {
 						"type": "boolean",
@@ -4503,10 +4520,58 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.showBranchesView",
+				"title": "Show Branches View",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.showCommitDetailsView",
+				"title": "Show Commit Details View",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.showCommitsView",
+				"title": "Show Commits View",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.showContributorsView",
+				"title": "Show Contributors View",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.showFileHistoryView",
+				"title": "Show File History View",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.showFocusPage",
+				"title": "Show Focus View",
+				"category": "GitLens+",
+				"icon": "$(layers)"
+			},
+			{
+				"command": "gitlens.showGraph",
+				"title": "Show Commit Graph",
+				"category": "GitLens+",
+				"icon": "$(gitlens-graph)"
+			},
+			{
 				"command": "gitlens.showGraphPage",
 				"title": "Show Commit Graph",
 				"category": "GitLens+",
 				"icon": "$(gitlens-graph)"
+			},
+			{
+				"command": "gitlens.showGraphView",
+				"title": "Show Commit Graph View",
+				"category": "GitLens+",
+				"icon": "$(gitlens-graph)"
+			},
+			{
+				"command": "gitlens.showHomeView",
+				"title": "Show Home View",
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showInCommitGraph",
@@ -4515,10 +4580,24 @@
 				"icon": "$(gitlens-graph)"
 			},
 			{
-				"command": "gitlens.showFocusPage",
-				"title": "Show Focus View",
-				"category": "GitLens+",
-				"icon": "$(layers)"
+				"command": "gitlens.showLineHistoryView",
+				"title": "Show Line History View",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.showRemotesView",
+				"title": "Show Remotes View",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.showRepositoriesView",
+				"title": "Show Repositories View",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.showSearchAndCompareView",
+				"title": "Show Search And Compare Commits View",
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showSettingsPage",
@@ -4617,67 +4696,6 @@
 				"icon": "$(gitlens-history)"
 			},
 			{
-				"command": "gitlens.refreshTimelinePage",
-				"title": "Refresh",
-				"category": "GitLens",
-				"icon": "$(refresh)"
-			},
-			{
-				"command": "gitlens.showWelcomePage",
-				"title": "Welcome (Quick Setup)",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.showBranchesView",
-				"title": "Show Branches View",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.showCommitDetailsView",
-				"title": "Show Commit Details View",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.showCommitsView",
-				"title": "Show Commits View",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.showContributorsView",
-				"title": "Show Contributors View",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.showFileHistoryView",
-				"title": "Show File History View",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.showHomeView",
-				"title": "Show Home View",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.showLineHistoryView",
-				"title": "Show Line History View",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.showRemotesView",
-				"title": "Show Remotes View",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.showRepositoriesView",
-				"title": "Show Repositories View",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.showSearchAndCompareView",
-				"title": "Show Search And Compare Commits View",
-				"category": "GitLens"
-			},
-			{
 				"command": "gitlens.showStashesView",
 				"title": "Show Stashes View",
 				"category": "GitLens"
@@ -4691,6 +4709,11 @@
 				"command": "gitlens.showTimelineView",
 				"title": "Show Visual File History View",
 				"category": "GitLens+"
+			},
+			{
+				"command": "gitlens.showWelcomePage",
+				"title": "Welcome (Quick Setup)",
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showWorktreesView",
@@ -6845,6 +6868,12 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.focus.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "gitlens.graph.push",
 				"title": "Push",
 				"category": "GitLens",
@@ -6901,12 +6930,6 @@
 				"title": "Copy Link to Tag",
 				"category": "GitLens",
 				"icon": "$(copy)"
-			},
-			{
-				"command": "gitlens.focus.refresh",
-				"title": "Refresh",
-				"category": "GitLens",
-				"icon": "$(refresh)"
 			},
 			{
 				"command": "gitlens.graph.copyRemoteBranchUrl",
@@ -7203,6 +7226,12 @@
 				"command": "gitlens.graph.columnChangesOff",
 				"title": "Hide Changes",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.timeline.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
 			}
 		],
 		"icons": {
@@ -7463,7 +7492,47 @@
 					"when": "gitlens:plus"
 				},
 				{
+					"command": "gitlens.timeline.refresh",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.showBranchesView",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showCommitDetailsView",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showCommitsView",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showContributorsView",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showFileHistoryView",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showFocusPage",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showGraph",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.showGraphPage",
+					"when": "gitlens:enabled && config.gitlens.graph.experimental.location == tab"
+				},
+				{
+					"command": "gitlens.showGraphView",
+					"when": "gitlens:enabled && config.gitlens.graph.experimental.location == view"
+				},
+				{
+					"command": "gitlens.showHomeView",
 					"when": "gitlens:enabled"
 				},
 				{
@@ -7471,7 +7540,19 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.showFocusPage",
+					"command": "gitlens.showLineHistoryView",
+					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.showRemotesView",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showRepositoriesView",
+					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.showSearchAndCompareView",
 					"when": "gitlens:enabled"
 				},
 				{
@@ -7527,60 +7608,16 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.showTimelinePage",
-					"when": "gitlens:enabled && gitlens:activeFileStatus =~ /tracked/"
-				},
-				{
-					"command": "gitlens.refreshTimelinePage",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.showBranchesView",
-					"when": "gitlens:enabled"
-				},
-				{
-					"command": "gitlens.showCommitDetailsView",
-					"when": "gitlens:enabled"
-				},
-				{
-					"command": "gitlens.showCommitsView",
-					"when": "gitlens:enabled"
-				},
-				{
-					"command": "gitlens.showContributorsView",
-					"when": "gitlens:enabled"
-				},
-				{
-					"command": "gitlens.showFileHistoryView",
-					"when": "gitlens:enabled"
-				},
-				{
-					"command": "gitlens.showHomeView",
-					"when": "gitlens:enabled"
-				},
-				{
-					"command": "gitlens.showLineHistoryView",
-					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
-				},
-				{
-					"command": "gitlens.showRemotesView",
-					"when": "gitlens:enabled"
-				},
-				{
-					"command": "gitlens.showRepositoriesView",
-					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
-				},
-				{
-					"command": "gitlens.showSearchAndCompareView",
-					"when": "gitlens:enabled"
-				},
-				{
 					"command": "gitlens.showStashesView",
 					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
 				},
 				{
 					"command": "gitlens.showTagsView",
 					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showTimelinePage",
+					"when": "gitlens:enabled && gitlens:activeFileStatus =~ /tracked/"
 				},
 				{
 					"command": "gitlens.showTimelineView",
@@ -9503,7 +9540,7 @@
 					"group": "navigation@100"
 				},
 				{
-					"command": "gitlens.refreshTimelinePage",
+					"command": "gitlens.timeline.refresh",
 					"when": "gitlens:webview:timeline:active",
 					"group": "navigation@-99"
 				},
@@ -9659,14 +9696,14 @@
 			],
 			"scm/sourceControl": [
 				{
-					"command": "gitlens.showGraphPage",
+					"command": "gitlens.showGraph",
 					"when": "gitlens:enabled && config.gitlens.menus.scm.graph && gitlens:plus:enabled && scmProvider == git && scmProviderRootUri not in gitlens:plus:disallowedRepos",
 					"group": "6_gitlens@1"
 				}
 			],
 			"scm/title": [
 				{
-					"command": "gitlens.showGraphPage",
+					"command": "gitlens.showGraph",
 					"when": "gitlens:enabled && config.gitlens.menus.scmRepositoryInline.graph && gitlens:plus:enabled && scmProvider == git && scmProviderRootUri not in gitlens:plus:disallowedRepos",
 					"group": "navigation@-1000"
 				},
@@ -9676,7 +9713,7 @@
 					"group": "2_z_gitlens@1"
 				},
 				{
-					"command": "gitlens.showGraphPage",
+					"command": "gitlens.showGraph",
 					"when": "gitlens:enabled && config.gitlens.menus.scmRepository.graph && gitlens:plus:enabled && scmProvider == git && scmProviderRootUri not in gitlens:plus:disallowedRepos",
 					"group": "2_z_gitlens@2"
 				}
@@ -9852,7 +9889,7 @@
 					"group": "navigation@10"
 				},
 				{
-					"command": "gitlens.showGraphPage",
+					"command": "gitlens.showGraph",
 					"when": "view =~ /^gitlens\\.views\\.commits/ && gitlens:plus:enabled",
 					"group": "navigation@11"
 				},
@@ -9922,7 +9959,7 @@
 					"group": "5_gitlens@2"
 				},
 				{
-					"command": "gitlens.showGraphPage",
+					"command": "gitlens.showGraph",
 					"when": "view =~ /^gitlens\\.views\\.commits/ && gitlens:plus:enabled",
 					"group": "8_gitlens_toggles@0"
 				},
@@ -10410,6 +10447,16 @@
 					"command": "gitlens.views.setShowRelativeDateMarkersOff",
 					"when": "view =~ /^gitlens\\.views\\.(branches|commits|fileHistory|lineHistory|remotes|repositories|tags|worktrees)/ && config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@3"
+				},
+				{
+					"command": "gitlens.graph.refresh",
+					"when": "view =~ /^gitlens\\.views\\.graph/",
+					"group": "navigation@-99"
+				},
+				{
+					"command": "gitlens.showSettingsPage#commit-graph",
+					"when": "view =~ /^gitlens\\.views\\.graph/",
+					"group": "navigation@-98"
 				},
 				{
 					"command": "gitlens.showSettingsPage#branches-view",
@@ -11286,7 +11333,7 @@
 					"group": "inline@99"
 				},
 				{
-					"command": "gitlens.showGraphPage",
+					"command": "gitlens.showGraph",
 					"when": "viewItem =~ /gitlens:repo-folder\\b/ && gitlens:plus:enabled",
 					"group": "inline@100"
 				},
@@ -11322,7 +11369,7 @@
 					"alt": "gitlens.copyRemoteRepositoryUrl"
 				},
 				{
-					"command": "gitlens.showGraphPage",
+					"command": "gitlens.showGraph",
 					"when": "viewItem =~ /gitlens:repo-folder\\b/ && gitlens:plus:enabled",
 					"group": "3_gitlens_explore@1"
 				},
@@ -13056,6 +13103,15 @@
 					"initialSize": 5
 				},
 				{
+					"type": "webview",
+					"id": "gitlens.views.graph",
+					"name": "Commit Graph",
+					"when": "!gitlens:disabled && gitlens:plus:enabled && config.gitlens.graph.experimental.location == view",
+					"contextualTitle": "GitLens",
+					"icon": "$(gitlens-graph)",
+					"visibility": "hidden"
+				},
+				{
 					"id": "gitlens.views.contributors",
 					"name": "Contributors",
 					"when": "!gitlens:disabled",
@@ -13296,7 +13352,7 @@
 					{
 						"id": "gitlens.plus.commitGraph",
 						"title": "Commit Graph (new)",
-						"description": "The Commit Graph helps you to easily visualize branch structure and commit history.\n\n[Open Commit Graph](command:gitlens.showGraphPage)",
+						"description": "The Commit Graph helps you to easily visualize branch structure and commit history.\n\n[Open Commit Graph](command:gitlens.showGraph)",
 						"media": {
 							"markdown": "walkthroughs/plus/commit-graph.md"
 						}

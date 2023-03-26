@@ -276,7 +276,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 				void this.onGetMoreRows({ id: id }, true);
 			}
 		} else if (this.container.git.repositoryCount > 1) {
-			const [contexts] = parseCommandContext(Commands.ShowGraphPage, undefined, ...args);
+			const [contexts] = parseCommandContext(Commands.ShowGraph, undefined, ...args);
 			const context = Array.isArray(contexts) ? contexts[0] : contexts;
 
 			if (context.type === 'scm' && context.scm.rootUri != null) {
