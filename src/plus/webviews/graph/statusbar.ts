@@ -1,6 +1,6 @@
 import type { ConfigurationChangeEvent, StatusBarItem } from 'vscode';
 import { Disposable, MarkdownString, StatusBarAlignment, window } from 'vscode';
-import { Commands, ContextKeys } from '../../../constants';
+import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
 import { getContext, onDidChangeContext } from '../../../context';
 import { configuration } from '../../../system/configuration';
@@ -18,7 +18,7 @@ export class GraphStatusBarController implements Disposable {
 			container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			once(container.onReady)(() => queueMicrotask(() => this.updateStatusBar())),
 			onDidChangeContext(key => {
-				if (key !== ContextKeys.Enabled && key !== ContextKeys.PlusEnabled) return;
+				if (key !== 'gitlens:enabled' && key !== 'gitlens:plus:enabled') return;
 				this.updateStatusBar();
 			}),
 			{ dispose: () => this._statusBarItem?.dispose() },
@@ -41,7 +41,7 @@ export class GraphStatusBarController implements Disposable {
 
 	private updateStatusBar() {
 		const enabled =
-			configuration.get('graph.statusBar.enabled') && getContext(ContextKeys.Enabled) && arePlusFeaturesEnabled();
+			configuration.get('graph.statusBar.enabled') && getContext('gitlens:enabled') && arePlusFeaturesEnabled();
 		if (enabled) {
 			if (this._statusBarItem == null) {
 				this._statusBarItem = window.createStatusBarItem('gitlens.graph', StatusBarAlignment.Left, 10000 - 3);

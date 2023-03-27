@@ -1,6 +1,7 @@
 import { Disposable, Uri, window } from 'vscode';
 import type { GHPRPullRequest } from '../../../commands';
-import { Commands, ContextKeys } from '../../../constants';
+import type { WebviewIds, WebviewViewIds } from '../../../constants';
+import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
 import { setContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
@@ -26,7 +27,6 @@ import { executeCommand, registerCommand } from '../../../system/command';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
-import type { WebviewIds, WebviewViewIds } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import type { OpenWorktreeParams, State, SwitchToBranchParams } from './protocol';
 import {
@@ -78,12 +78,12 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	onFocusChanged(focused: boolean): void {
 		if (focused) {
 			// If we are becoming focused, delay it a bit to give the UI time to update
-			setTimeout(() => void setContext(ContextKeys.FocusFocused, focused), 0);
+			setTimeout(() => void setContext('gitlens:focus:focused', focused), 0);
 
 			return;
 		}
 
-		void setContext(ContextKeys.FocusFocused, focused);
+		void setContext('gitlens:focus:focused', focused);
 	}
 
 	onMessageReceived(e: IpcMessage) {

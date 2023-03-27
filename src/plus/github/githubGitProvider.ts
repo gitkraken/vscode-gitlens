@@ -11,7 +11,7 @@ import type {
 } from 'vscode';
 import { authentication, EventEmitter, FileType, Uri, window, workspace } from 'vscode';
 import { encodeUtf8Hex } from '@env/hex';
-import { CharCode, ContextKeys, Schemes } from '../../constants';
+import { CharCode, Schemes } from '../../constants';
 import type { Container } from '../../container';
 import { setContext } from '../../context';
 import { emojify } from '../../emojis';
@@ -194,7 +194,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	updateContext(): void {
-		void setContext(ContextKeys.HasVirtualFolders, this.container.git.hasOpenRepositories(this.descriptor.id));
+		void setContext('gitlens:hasVirtualFolders', this.container.git.hasOpenRepositories(this.descriptor.id));
 	}
 
 	openRepository(

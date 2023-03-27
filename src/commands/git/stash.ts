@@ -1,6 +1,6 @@
 import type { QuickPickItem, Uri } from 'vscode';
 import { QuickInputButtons, window } from 'vscode';
-import { ContextKeys, GlyphChars } from '../../constants';
+import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { getContext } from '../../context';
 import { reveal, showDetailsView } from '../../git/actions/stash';
@@ -168,9 +168,9 @@ export class StashGitCommand extends QuickCommand<State> {
 			repos: this.container.git.openRepositories,
 			associatedView: this.container.stashesView,
 			readonly:
-				getContext<boolean>(ContextKeys.Readonly, false) ||
-				getContext<boolean>(ContextKeys.Untrusted, false) ||
-				getContext<boolean>(ContextKeys.HasVirtualFolders, false),
+				getContext<boolean>('gitlens:readonly', false) ||
+				getContext<boolean>('gitlens:untrusted', false) ||
+				getContext<boolean>('gitlens:hasVirtualFolders', false),
 			title: this.title,
 		};
 

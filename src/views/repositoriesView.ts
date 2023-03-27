@@ -2,7 +2,7 @@ import type { CancellationToken, ConfigurationChangeEvent, Disposable, Event } f
 import { EventEmitter, ProgressLocation, window } from 'vscode';
 import type { RepositoriesViewConfig } from '../config';
 import { ViewBranchesLayout, ViewFilesLayout, ViewShowBranchComparison } from '../config';
-import { Commands, ContextKeys } from '../constants';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { getRemoteNameFromBranchName } from '../git/models/branch';
@@ -851,7 +851,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 			}
 		}
 
-		void setContext(ContextKeys.ViewsRepositoriesAutoRefresh, enabled && workspaceEnabled);
+		void setContext('gitlens:views:repositories:autoRefresh', enabled && workspaceEnabled);
 
 		this._onDidChangeAutoRefresh.fire();
 	}

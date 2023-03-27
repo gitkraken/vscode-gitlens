@@ -9,7 +9,7 @@ export function registerSettingsWebviewPanel(controller: WebviewsController) {
 		fileName: 'settings.html',
 		iconPath: 'images/gitlens-icon.png',
 		title: 'GitLens Settings',
-		contextKeyPrefix: `${ContextKeys.WebviewPrefix}settings`,
+		contextKeyPrefix: `gitlens:webview:settings`,
 		trackingFeature: 'settingsWebview',
 		plusFeature: false,
 		resolveWebviewProvider: async function (container, id, host) {

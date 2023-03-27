@@ -6,7 +6,7 @@ import type {
 	WebviewViewResolveContext,
 } from 'vscode';
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
-import type { Commands, ContextKeys } from '../constants';
+import type { Commands, WebviewIds, WebviewViewIds } from '../constants';
 import type { Container } from '../container';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
 import { executeCommand, registerCommand } from '../system/command';
@@ -14,15 +14,11 @@ import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
 import type { WebviewProvider } from './webviewController';
 import { WebviewController } from './webviewController';
 
-export type CustomEditorIds = 'rebaseEditor';
-export type WebviewIds = 'graph' | 'settings' | 'timeline' | 'welcome' | 'focus';
-export type WebviewViewIds = 'commitDetails' | 'graph' | 'home' | 'timeline';
-
 export interface WebviewPanelDescriptor<State = any, SerializedState = State> {
 	readonly fileName: string;
 	readonly iconPath: string;
 	readonly title: string;
-	readonly contextKeyPrefix: `${ContextKeys.WebviewPrefix}${WebviewIds}`;
+	readonly contextKeyPrefix: `gitlens:webview:${WebviewIds}`;
 	readonly trackingFeature: TrackedUsageFeatures;
 	readonly plusFeature: boolean;
 	readonly options?: WebviewOptions;
@@ -42,7 +38,7 @@ export interface WebviewPanelDescriptor<State = any, SerializedState = State> {
 export interface WebviewViewDescriptor<State = any, SerializedState = State> {
 	readonly fileName: string;
 	readonly title: string;
-	readonly contextKeyPrefix: `${ContextKeys.WebviewViewPrefix}${WebviewViewIds}`;
+	readonly contextKeyPrefix: `gitlens:webviewView:${WebviewViewIds}`;
 	readonly trackingFeature: TrackedUsageFeatures;
 	readonly plusFeature: boolean;
 	readonly options?: WebviewOptions;

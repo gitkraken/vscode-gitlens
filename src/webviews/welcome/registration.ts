@@ -7,7 +7,7 @@ export function registerWelcomeWebviewPanel(controller: WebviewsController) {
 		fileName: 'welcome.html',
 		iconPath: 'images/gitlens-icon.png',
 		title: 'Welcome to GitLens',
-		contextKeyPrefix: `${ContextKeys.WebviewPrefix}welcome`,
+		contextKeyPrefix: `gitlens:webview:welcome`,
 		trackingFeature: 'welcomeWebview',
 		plusFeature: false,
 		resolveWebviewProvider: async function (container, id, host) {

@@ -21,7 +21,7 @@ import {
 	workspace,
 } from 'vscode';
 import { AnnotationsToggleMode, BlameHighlightLocations, ChangesLocations, FileAnnotationType } from '../config';
-import { Colors, ContextKeys } from '../constants';
+import { Colors } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { configuration } from '../system/configuration';
@@ -175,10 +175,10 @@ export class FileAnnotationController implements Disposable {
 
 		const provider = this.getProvider(editor);
 		if (provider == null) {
-			void setContext(ContextKeys.AnnotationStatus, undefined);
+			void setContext('gitlens:annotationStatus', undefined);
 			void this.detachKeyboardHook();
 		} else {
-			void setContext(ContextKeys.AnnotationStatus, provider.status);
+			void setContext('gitlens:annotationStatus', provider.status);
 			void this.attachKeyboardHook();
 		}
 	}
@@ -323,13 +323,13 @@ export class FileAnnotationController implements Disposable {
 		const provider = await window.withProgress(
 			{ location: ProgressLocation.Window },
 			async (progress: Progress<{ message: string }>) => {
-				await setContext(ContextKeys.AnnotationStatus, AnnotationStatus.Computing);
+				await setContext('gitlens:annotationStatus', AnnotationStatus.Computing);
 
 				const computingAnnotations = this.showAnnotationsCore(currentProvider, editor, type, context, progress);
 				const provider = await computingAnnotations;
 
 				if (editor === this._editor) {
-					await setContext(ContextKeys.AnnotationStatus, provider?.status);
+					await setContext('gitlens:annotationStatus', provider?.status);
 				}
 
 				return computingAnnotations;
@@ -408,7 +408,7 @@ export class FileAnnotationController implements Disposable {
 		provider.dispose();
 
 		if (this._annotationProviders.size === 0 || key === getEditorCorrelationKey(this._editor)) {
-			await setContext(ContextKeys.AnnotationStatus, undefined);
+			await setContext('gitlens:annotationStatus', undefined);
 			await this.detachKeyboardHook();
 		}
 

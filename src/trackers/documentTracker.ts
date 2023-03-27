@@ -112,7 +112,7 @@ export class DocumentTracker<T> implements Disposable {
 			this._timer = setTimeout(() => {
 				this._timer = undefined;
 
-				void setContext(ContextKeys.ActiveFileStatus, undefined);
+				void setContext('gitlens:activeFileStatus', undefined);
 			}, 250);
 
 			return;

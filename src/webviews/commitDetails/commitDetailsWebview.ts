@@ -2,8 +2,8 @@ import type { CancellationToken, ConfigurationChangeEvent, TextDocumentShowOptio
 import { CancellationTokenSource, Disposable, Uri, ViewColumn, window } from 'vscode';
 import { serializeAutolink } from '../../annotations/autolinks';
 import type { CopyShaToClipboardCommandArgs } from '../../commands';
-import type { CoreConfiguration } from '../../constants';
-import { Commands, ContextKeys } from '../../constants';
+import type { CoreConfiguration, WebviewIds, WebviewViewIds } from '../../constants';
+import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { getContext } from '../../context';
 import type { CommitSelectedEvent } from '../../eventBus';
@@ -46,7 +46,6 @@ import type { LinesChangeEvent } from '../../trackers/lineTracker';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
 import type { WebviewController, WebviewProvider } from '../webviewController';
-import type { WebviewIds, WebviewViewIds } from '../webviewsController';
 import type { CommitDetails, FileActionParams, Preferences, State } from './protocol';
 import {
 	AutolinkSettingsCommandType,
@@ -519,7 +518,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		this.updatePendingContext(
 			{
 				commit: commit,
-				richStateLoaded: Boolean(commit?.isUncommitted) || !getContext(ContextKeys.HasConnectedRemotes),
+				richStateLoaded: Boolean(commit?.isUncommitted) || !getContext('gitlens:hasConnectedRemotes'),
 				formattedMessage: undefined,
 				autolinkedIssues: undefined,
 				pullRequest: undefined,

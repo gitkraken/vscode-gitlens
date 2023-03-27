@@ -1,4 +1,4 @@
-import { Commands, ContextKeys } from '../../../constants';
+import { Commands } from '../../../constants';
 import type { WebviewsController } from '../../../webviews/webviewsController';
 import type { State } from './protocol';
 
@@ -7,7 +7,7 @@ export function registerTimelineWebviewPanel(controller: WebviewsController) {
 		fileName: 'timeline.html',
 		iconPath: 'images/gitlens-icon.png',
 		title: 'Visual File History',
-		contextKeyPrefix: `${ContextKeys.WebviewPrefix}timeline`,
+		contextKeyPrefix: `gitlens:webview:timeline`,
 		trackingFeature: 'timelineWebview',
 		plusFeature: true,
 		resolveWebviewProvider: async function (container, id, host) {
@@ -21,7 +21,7 @@ export function registerTimelineWebviewView(controller: WebviewsController) {
 	return controller.registerWebviewView<State>('gitlens.views.timeline', {
 		fileName: 'timeline.html',
 		title: 'Visual File History',
-		contextKeyPrefix: `${ContextKeys.WebviewViewPrefix}timeline`,
+		contextKeyPrefix: `gitlens:webviewView:timeline`,
 		trackingFeature: 'timelineView',
 		plusFeature: true,
 		resolveWebviewProvider: async function (container, id, host) {

@@ -1,7 +1,6 @@
 import { EventEmitter, Uri } from 'vscode';
 import { md5 } from '@env/crypto';
 import { GravatarDefaultStyle } from './config';
-import { ContextKeys } from './constants';
 import { Container } from './container';
 import { getContext } from './context';
 import { getGitHubNoReplyAddressParts } from './git/remotes/github';
@@ -126,7 +125,7 @@ function getAvatarUriCore(
 	const avatar = createOrUpdateAvatar(key, email, size, hash, options?.defaultStyle);
 	if (avatar.uri != null) return avatar.uri;
 
-	if (!options?.cached && repoPathOrCommit != null && getContext(ContextKeys.HasConnectedRemotes)) {
+	if (!options?.cached && repoPathOrCommit != null && getContext('gitlens:hasConnectedRemotes')) {
 		let query = avatarQueue.get(key);
 		if (query == null && hasAvatarExpired(avatar)) {
 			query = getAvatarUriFromRemoteProvider(avatar, key, email, repoPathOrCommit, { size: size }).then(

@@ -1,6 +1,5 @@
 import type { Selection } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { ContextKeys } from '../../constants';
 import { setContext } from '../../context';
 import type { GitCommitish } from '../../git/gitUri';
 import { GitUri, unknownGitUri } from '../../git/gitUri';
@@ -257,6 +256,6 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 	setUri(uri?: GitUri) {
 		this._uri = uri ?? unknownGitUri;
-		void setContext(ContextKeys.ViewsFileHistoryCanPin, this.hasUri);
+		void setContext('gitlens:views:fileHistory:canPin', this.hasUri);
 	}
 }

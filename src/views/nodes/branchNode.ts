@@ -1,7 +1,7 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import type { ViewShowBranchComparison } from '../../config';
 import { ViewBranchesLayout } from '../../config';
-import { Colors, ContextKeys, GlyphChars } from '../../constants';
+import { Colors, GlyphChars } from '../../constants';
 import { getContext } from '../../context';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
@@ -148,7 +148,7 @@ export class BranchNode
 				this.view.config.pullRequests.enabled &&
 				this.view.config.pullRequests.showForBranches &&
 				(branch.upstream != null || branch.remote) &&
-				getContext(ContextKeys.HasConnectedRemotes)
+				getContext('gitlens:hasConnectedRemotes')
 			) {
 				pullRequest = this.getState('pullRequest');
 				if (pullRequest === undefined && this.getState('pendingPullRequest') === undefined) {

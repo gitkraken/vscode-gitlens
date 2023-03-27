@@ -1,5 +1,6 @@
 export const commandPrefix = 'gitlens';
 export const configPrefix = 'gitlens';
+export const keyPrefix = 'gitlens:key';
 export const storagePrefix = 'gitlens';
 export const quickPickTitleMaxChars = 80;
 
@@ -281,43 +282,44 @@ export const enum Commands {
 	Deprecated_ShowFileHistoryInView = 'gitlens.showFileHistoryInView',
 }
 
-export const enum ContextKeys {
-	ActionPrefix = 'gitlens:action:',
-	KeyPrefix = 'gitlens:key:',
-	WebviewPrefix = `gitlens:webview:`,
-	WebviewViewPrefix = `gitlens:webviewView:`,
+export type CustomEditorIds = 'rebaseEditor';
+export type WebviewIds = 'graph' | 'settings' | 'timeline' | 'welcome' | 'focus';
+export type WebviewViewIds = 'commitDetails' | 'graph' | 'home' | 'timeline';
 
-	ActiveFileStatus = 'gitlens:activeFileStatus',
-	AnnotationStatus = 'gitlens:annotationStatus',
-	Debugging = 'gitlens:debugging',
-	DisabledToggleCodeLens = 'gitlens:disabledToggleCodeLens',
-	Disabled = 'gitlens:disabled',
-	Enabled = 'gitlens:enabled',
-	FocusFocused = 'gitlens:focus:focused',
-	HasConnectedRemotes = 'gitlens:hasConnectedRemotes',
-	HasRemotes = 'gitlens:hasRemotes',
-	HasRichRemotes = 'gitlens:hasRichRemotes',
-	HasVirtualFolders = 'gitlens:hasVirtualFolders',
-	PreRelease = 'gitlens:prerelease',
-	Readonly = 'gitlens:readonly',
-	Untrusted = 'gitlens:untrusted',
-	ViewsCanCompare = 'gitlens:views:canCompare',
-	ViewsCanCompareFile = 'gitlens:views:canCompare:file',
-	ViewsCommitsMyCommitsOnly = 'gitlens:views:commits:myCommitsOnly',
-	ViewsFileHistoryCanPin = 'gitlens:views:fileHistory:canPin',
-	ViewsFileHistoryCursorFollowing = 'gitlens:views:fileHistory:cursorFollowing',
-	ViewsFileHistoryEditorFollowing = 'gitlens:views:fileHistory:editorFollowing',
-	ViewsLineHistoryEditorFollowing = 'gitlens:views:lineHistory:editorFollowing',
-	ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
-	ViewsSearchAndCompareKeepResults = 'gitlens:views:searchAndCompare:keepResults',
-	Vsls = 'gitlens:vsls',
-
-	Plus = 'gitlens:plus',
-	PlusDisallowedRepos = 'gitlens:plus:disallowedRepos',
-	PlusEnabled = 'gitlens:plus:enabled',
-	PlusRequired = 'gitlens:plus:required',
-	PlusState = 'gitlens:plus:state',
-}
+export type ContextKeys =
+	| `gitlens:action:${string}`
+	| `${typeof keyPrefix}:${string}`
+	| `gitlens:webview:${WebviewIds | CustomEditorIds}:${'active' | 'focus' | 'inputFocus'}`
+	| `gitlens:webviewView:${WebviewViewIds}:${'active' | 'focus' | 'inputFocus'}`
+	| 'gitlens:activeFileStatus'
+	| 'gitlens:annotationStatus'
+	| 'gitlens:debugging'
+	| 'gitlens:disabledToggleCodeLens'
+	| 'gitlens:disabled'
+	| 'gitlens:enabled'
+	| 'gitlens:focus:focused' // TODO@eamodio do we need this?
+	| 'gitlens:hasConnectedRemotes'
+	| 'gitlens:hasRemotes'
+	| 'gitlens:hasRichRemotes'
+	| 'gitlens:hasVirtualFolders'
+	| 'gitlens:prerelease'
+	| 'gitlens:readonly'
+	| 'gitlens:untrusted'
+	| 'gitlens:views:canCompare'
+	| 'gitlens:views:canCompare:file'
+	| 'gitlens:views:commits:myCommitsOnly'
+	| 'gitlens:views:fileHistory:canPin'
+	| 'gitlens:views:fileHistory:cursorFollowing'
+	| 'gitlens:views:fileHistory:editorFollowing'
+	| 'gitlens:views:lineHistory:editorFollowing'
+	| 'gitlens:views:repositories:autoRefresh'
+	| 'gitlens:views:searchAndCompare:keepResults'
+	| 'gitlens:vsls'
+	| 'gitlens:plus'
+	| 'gitlens:plus:disallowedRepos'
+	| 'gitlens:plus:enabled'
+	| 'gitlens:plus:required'
+	| 'gitlens:plus:state';
 
 export type CoreCommands =
 	| 'cursorMove'

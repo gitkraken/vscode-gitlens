@@ -1,4 +1,4 @@
-import { ContextKeys, GlyphChars } from '../../constants';
+import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { getContext } from '../../context';
 import { showDetailsView } from '../../git/actions/commit';
@@ -114,7 +114,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			repos: this.container.git.openRepositories,
 			associatedView: this.container.searchAndCompareView,
 			commit: undefined,
-			hasVirtualFolders: getContext<boolean>(ContextKeys.HasVirtualFolders, false),
+			hasVirtualFolders: getContext<boolean>('gitlens:hasVirtualFolders', false),
 			resultsKey: undefined,
 			resultsPromise: undefined,
 			title: this.title,

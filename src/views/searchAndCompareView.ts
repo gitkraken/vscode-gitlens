@@ -2,7 +2,7 @@ import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { SearchAndCompareViewConfig } from '../config';
 import { ViewFilesLayout } from '../config';
-import { Commands, ContextKeys } from '../constants';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { unknownGitUri } from '../git/gitUri';
@@ -213,7 +213,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 			ref: ref,
 		});
 		this.children.unshift(this.comparePicker);
-		void setContext(ContextKeys.ViewsCanCompare, true);
+		void setContext('gitlens:views:canCompare', true);
 
 		await this.triggerChange();
 
@@ -231,7 +231,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 	}
 
 	private removeComparePicker(silent: boolean = false) {
-		void setContext(ContextKeys.ViewsCanCompare, false);
+		void setContext('gitlens:views:canCompare', false);
 		if (this.comparePicker != null) {
 			const index = this.children.indexOf(this.comparePicker);
 			if (index !== -1) {
@@ -251,7 +251,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 	constructor(container: Container) {
 		super(container, 'gitlens.views.searchAndCompare', 'Search & Compare', 'searchAndCompareView');
 
-		void setContext(ContextKeys.ViewsSearchAndCompareKeepResults, this.keepResults);
+		void setContext('gitlens:views:searchAndCompare:keepResults', this.keepResults);
 	}
 
 	protected getRoot() {
@@ -537,7 +537,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 
 	private setKeepResults(enabled: boolean) {
 		void this.container.storage.storeWorkspace('views:searchAndCompare:keepResults', enabled);
-		void setContext(ContextKeys.ViewsSearchAndCompareKeepResults, enabled);
+		void setContext('gitlens:views:searchAndCompare:keepResults', enabled);
 	}
 
 	private setShowAvatars(enabled: boolean) {

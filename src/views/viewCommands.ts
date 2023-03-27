@@ -8,7 +8,7 @@ import type {
 	OpenFileAtRevisionCommandArgs,
 } from '../commands';
 import { FileAnnotationType, ViewShowBranchComparison } from '../config';
-import { Commands, ContextKeys } from '../constants';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { browseAtRevision } from '../git/actions';
@@ -938,7 +938,7 @@ export class ViewCommands {
 		const selected = this._selectedFile;
 
 		this._selectedFile = undefined;
-		void setContext(ContextKeys.ViewsCanCompareFile, false);
+		void setContext('gitlens:views:canCompare:file', false);
 
 		return executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 			repoPath: selected.repoPath,
@@ -964,7 +964,7 @@ export class ViewCommands {
 			repoPath: node.repoPath,
 			uri: node.uri,
 		};
-		void setContext(ContextKeys.ViewsCanCompareFile, true);
+		void setContext('gitlens:views:canCompare:file', true);
 	}
 
 	@debug()

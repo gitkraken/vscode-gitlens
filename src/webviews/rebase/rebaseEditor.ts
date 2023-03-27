@@ -134,7 +134,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	}
 
 	private get contextKeyPrefix() {
-		return `${ContextKeys.WebviewPrefix}rebaseEditor` as const;
+		return `gitlens:webview:rebaseEditor` as const;
 	}
 
 	get enabled(): boolean {

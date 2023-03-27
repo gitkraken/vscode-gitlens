@@ -1,4 +1,3 @@
-import { ContextKeys } from '../../constants';
 import type { WebviewsController } from '../webviewsController';
 import type { State } from './protocol';
 
@@ -6,7 +5,7 @@ export function registerHomeWebviewView(controller: WebviewsController) {
 	return controller.registerWebviewView<State>('gitlens.views.home', {
 		fileName: 'home.html',
 		title: 'Home',
-		contextKeyPrefix: `${ContextKeys.WebviewViewPrefix}home`,
+		contextKeyPrefix: `gitlens:webviewView:home`,
 		trackingFeature: 'homeView',
 		plusFeature: false,
 		resolveWebviewProvider: async function (container, id, host) {
