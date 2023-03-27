@@ -14,7 +14,8 @@ import type {
 	GitExtension,
 } from '../../../@types/vscode.git';
 import { getCachedAvatarUri } from '../../../avatars';
-import { CoreGitConfiguration, GlyphChars, Schemes } from '../../../constants';
+import type { CoreConfiguration, CoreGitConfiguration } from '../../../constants';
+import { GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
 import { emojify } from '../../../emojis';
 import { Features } from '../../../features';
@@ -304,7 +305,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private async findGit(): Promise<GitLocation> {
 		const scope = getLogScope();
 
-		if (!configuration.getAny<boolean>('git.enabled', null, true)) {
+		if (!configuration.getAny<CoreGitConfiguration, boolean>('git.enabled', null, true)) {
 			Logger.log(scope, 'Built-in Git is disabled ("git.enabled": false)');
 			void showGitDisabledErrorMessage();
 
@@ -335,7 +336,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		void subscribeToScmOpenCloseRepository.call(this);
 
 		const potentialGitPaths =
-			configuration.getAny<string | string[]>('git.path') ?? this.container.storage.getWorkspace('gitPath');
+			configuration.getAny<CoreGitConfiguration, string | string[]>('git.path') ??
+			this.container.storage.getWorkspace('gitPath');
 
 		const start = hrtime();
 
@@ -389,8 +391,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			void (await this.ensureGit());
 
 			const autoRepositoryDetection =
-				configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
-					CoreGitConfiguration.AutoRepositoryDetection,
+				configuration.getAny<CoreGitConfiguration, boolean | 'subFolders' | 'openEditors'>(
+					'git.autoRepositoryDetection',
 				) ?? true;
 
 			const folder = workspace.getWorkspaceFolder(uri);
@@ -576,7 +578,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		depth =
 			depth ??
 			configuration.get('advanced.repositorySearchDepth', folder.uri) ??
-			configuration.getAny<number>(CoreGitConfiguration.RepositoryScanMaxDepth, folder.uri, 1);
+			configuration.getAny<CoreGitConfiguration, number>('git.repositoryScanMaxDepth', folder.uri, 1);
 
 		Logger.log(scope, `searching (depth=${depth})...`);
 
@@ -602,8 +604,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		// Get any specified excludes -- this is a total hack, but works for some simple cases and something is better than nothing :)
 		const excludedConfig = {
-			...configuration.getAny<Record<string, boolean>>('files.exclude', folder.uri, {}),
-			...configuration.getAny<Record<string, boolean>>('search.exclude', folder.uri, {}),
+			...configuration.getAny<CoreConfiguration, Record<string, boolean>>('files.exclude', folder.uri, {}),
+			...configuration.getAny<CoreConfiguration, Record<string, boolean>>('search.exclude', folder.uri, {}),
 		};
 
 		const excludedPaths = [
@@ -4920,7 +4922,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 }
 
 async function getEncoding(uri: Uri): Promise<string> {
-	const encoding = configuration.getAny<string>('files.encoding', uri);
+	const encoding = configuration.getAny<CoreConfiguration, string>('files.encoding', uri);
 	if (encoding == null || encoding === 'utf8') return 'utf8';
 
 	const encodingExists = (await import(/* webpackChunkName: "encoding" */ 'iconv-lite')).encodingExists;

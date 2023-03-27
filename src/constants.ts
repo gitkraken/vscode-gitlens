@@ -357,12 +357,24 @@ export type CoreGitCommands =
 	| 'git.pushForce'
 	| 'git.undoCommit';
 
-export const enum CoreGitConfiguration {
-	AutoRepositoryDetection = 'git.autoRepositoryDetection',
-	RepositoryScanMaxDepth = 'git.repositoryScanMaxDepth',
-	FetchOnPull = 'git.fetchOnPull',
-	UseForcePushWithLease = 'git.useForcePushWithLease',
-}
+export type CoreConfiguration =
+	| 'editor.letterSpacing'
+	| 'files.encoding'
+	| 'files.exclude'
+	| 'http.proxy'
+	| 'http.proxySupport'
+	| 'http.proxyStrictSSL'
+	| 'search.exclude'
+	| 'workbench.editorAssociations'
+	| 'workbench.tree.renderIndentGuides';
+
+export type CoreGitConfiguration =
+	| 'git.autoRepositoryDetection'
+	| 'git.enabled'
+	| 'git.fetchOnPull'
+	| 'git.path'
+	| 'git.repositoryScanMaxDepth'
+	| 'git.useForcePushWithLease';
 
 export const enum GlyphChars {
 	AngleBracketLeftHeavy = '\u2770',

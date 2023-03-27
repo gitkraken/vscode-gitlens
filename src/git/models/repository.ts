@@ -3,7 +3,8 @@ import { Disposable, EventEmitter, ProgressLocation, RelativePattern, Uri, windo
 import { md5 } from '@env/crypto';
 import { ForcePushMode } from '../../@types/vscode.git.enums';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
-import { CoreGitConfiguration, Schemes } from '../../constants';
+import type { CoreGitConfiguration } from '../../constants';
+import { Schemes } from '../../constants';
 import type { Container } from '../../container';
 import type { FeatureAccess, Features, PlusFeatures } from '../../features';
 import { showCreatePullRequestPrompt, showGenericErrorMessage } from '../../messages';
@@ -804,7 +805,7 @@ export class Repository implements Disposable {
 			const upstream = await this.hasUpstreamBranch();
 			if (upstream) {
 				void (await executeCoreGitCommand(options?.rebase ? 'git.pullRebase' : 'git.pull', this.path));
-			} else if (configuration.getAny<boolean>(CoreGitConfiguration.FetchOnPull, Uri.file(this.path))) {
+			} else if (configuration.getAny<CoreGitConfiguration, boolean>('git.fetchOnPull', Uri.file(this.path))) {
 				await this.container.git.fetch(this.path);
 			}
 

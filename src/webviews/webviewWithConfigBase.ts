@@ -1,11 +1,14 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { ConfigurationTarget, Disposable } from 'vscode';
+import type { CoreConfiguration } from '../constants';
 import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import { GitCommit, GitCommitIdentity } from '../git/models/commit';
 import { GitFileChange, GitFileIndexStatus } from '../git/models/file';
 import { PullRequest, PullRequestState } from '../git/models/pullRequest';
+import type { ConfigPath } from '../system/configuration';
 import { configuration } from '../system/configuration';
+import { map } from '../system/iterable';
 import { Logger } from '../system/logger';
 import type { CustomConfigPath, IpcMessage } from './protocol';
 import {
@@ -173,14 +176,9 @@ export abstract class WebviewProviderWithConfigBase<State> implements WebviewPro
 	}
 
 	private onOtherConfigurationChanged(e: ConfigurationChangeEvent) {
-		let notify = false;
-		for (const setting of this.customSettings.values()) {
-			if (e.affectsConfiguration(setting.name)) {
-				notify = true;
-				break;
-			}
-		}
-
+		const notify = configuration.changedAny<CustomSetting['name']>(e, [
+			...map(this.customSettings.values(), s => s.name),
+		]);
 		if (!notify) return;
 
 		void this.notifyDidChangeConfiguration();
@@ -205,7 +203,7 @@ export abstract class WebviewProviderWithConfigBase<State> implements WebviewPro
 				[
 					'currentLine.useUncommittedChangesFormat',
 					{
-						name: 'currentLine.useUncommittedChangesFormat',
+						name: 'currentLine.uncommittedChangesFormat',
 						enabled: () => configuration.get('currentLine.uncommittedChangesFormat') != null,
 						update: async enabled =>
 							configuration.updateEffective(
@@ -238,7 +236,7 @@ export abstract class WebviewProviderWithConfigBase<State> implements WebviewPro
 }
 
 interface CustomSetting {
-	name: string;
+	name: ConfigPath | CoreConfiguration;
 	enabled: () => boolean;
 	update: (enabled: boolean) => Promise<void>;
 }

@@ -7,6 +7,7 @@ import type { Event } from 'vscode';
 import { Disposable, EventEmitter, Uri, window } from 'vscode';
 import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
+import type { CoreConfiguration } from '../../constants';
 import type { Container } from '../../container';
 import {
 	AuthenticationError,
@@ -196,7 +197,7 @@ export class GitHubApi implements Disposable {
 				}
 			}),
 			configuration.onDidChangeOther(e => {
-				if (e.affectsConfiguration('http.proxy') || e.affectsConfiguration('http.proxyStrictSSL')) {
+				if (configuration.changedAny<CoreConfiguration>(e, ['http.proxy', 'http.proxyStrictSSL'])) {
 					this.resetCaches();
 				}
 			}),
