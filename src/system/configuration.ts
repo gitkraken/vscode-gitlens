@@ -23,24 +23,14 @@ export class Configuration {
 		return this._onDidChange.event;
 	}
 
-	private _onDidChangeBeforeOverrides = new EventEmitter<ConfigurationChangeEvent>();
-	get onDidChangeBeforeOverrides(): Event<ConfigurationChangeEvent> {
-		return this._onDidChangeBeforeOverrides.event;
-	}
-
-	private _onDidChangeOther = new EventEmitter<ConfigurationChangeEvent>();
-	get onDidChangeOther(): Event<ConfigurationChangeEvent> {
-		return this._onDidChangeOther.event;
+	private _onDidChangeAny = new EventEmitter<ConfigurationChangeEvent>();
+	get onDidChangeAny(): Event<ConfigurationChangeEvent> {
+		return this._onDidChangeAny.event;
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (!e.affectsConfiguration(extensionPrefix)) {
-			this._onDidChangeOther.fire(e);
-
-			return;
-		}
-
-		this._onDidChangeBeforeOverrides.fire(e);
+		this._onDidChangeAny.fire(e);
+		if (!e.affectsConfiguration(extensionPrefix)) return;
 
 		if (this._overrides?.onDidChange != null) {
 			e = this._overrides.onDidChange(e);

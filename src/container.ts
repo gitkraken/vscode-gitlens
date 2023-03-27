@@ -10,7 +10,7 @@ import { GitCodeLensController } from './codelens/codeLensController';
 import type { ToggleFileAnnotationCommandArgs } from './commands';
 import type { FileAnnotationType, ModeConfig } from './config';
 import { AnnotationsToggleMode, DateSource, DateStyle, fromOutputLevel } from './config';
-import { Commands } from './constants';
+import { Commands, extensionPrefix } from './constants';
 import { EventBus } from './eventBus';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitProviderService } from './git/gitProviderService';
@@ -178,9 +178,7 @@ export class Container {
 		context.subscriptions.unshift((this._telemetry = new TelemetryService(this)));
 		context.subscriptions.unshift((this._usage = new UsageTracker(this, storage)));
 
-		context.subscriptions.unshift(
-			configuration.onDidChangeBeforeOverrides(this.onConfigurationChangedBeforeOverrides, this),
-		);
+		context.subscriptions.unshift(configuration.onDidChangeAny(this.onAnyConfigurationChanged, this));
 
 		this._richRemoteProviders = new RichRemoteProviderService(this);
 
@@ -292,7 +290,9 @@ export class Container {
 		this._git.registrationComplete();
 	}
 
-	private onConfigurationChangedBeforeOverrides(e: ConfigurationChangeEvent) {
+	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
+		if (!configuration.changedAny(e, extensionPrefix)) return;
+
 		this._mode = undefined;
 
 		if (configuration.changed(e, 'outputLevel')) {
@@ -710,11 +710,15 @@ export class Container {
 				if (!configuration.changed(e, ['mode', 'modes'])) return e;
 
 				const originalAffectsConfiguration = e.affectsConfiguration;
-				e.affectsConfiguration = (section, scope) =>
-					/^gitlens\\.(?:modes?|blame|changes|heatmap|codeLens|currentLine|hovers|statusBar)\\b/.test(section)
-						? true
-						: originalAffectsConfiguration(section, scope);
-				return e;
+				return {
+					...e,
+					affectsConfiguration: (section, scope) =>
+						/^gitlens\\.(?:modes?|blame|changes|heatmap|codeLens|currentLine|hovers|statusBar)\\b/.test(
+							section,
+						)
+							? true
+							: originalAffectsConfiguration(section, scope),
+				};
 			},
 		});
 	}
