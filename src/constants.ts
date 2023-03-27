@@ -470,3 +470,21 @@ export const enum Schemes {
 	VslsScc = 'vsls-scc',
 	Virtual = 'vscode-vfs',
 }
+
+export type TelemetryEvents =
+	| 'account/validation/failed'
+	| 'activate'
+	| 'command'
+	| 'command/core'
+	| 'remoteProviders/connected'
+	| 'remoteProviders/disconnected'
+	| 'providers/changed'
+	| 'providers/context'
+	| 'providers/registrationComplete'
+	| 'repositories/changed'
+	| 'repositories/visibility'
+	| 'repository/opened'
+	| 'repository/visibility'
+	| 'subscription'
+	| 'subscription/changed'
+	| 'usage/track';
