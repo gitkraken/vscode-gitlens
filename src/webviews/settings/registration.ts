@@ -1,5 +1,5 @@
 import { Disposable } from 'vscode';
-import { Commands, ContextKeys } from '../../constants';
+import { Commands } from '../../constants';
 import { registerCommand } from '../../system/command';
 import type { WebviewPanelProxy, WebviewsController } from '../webviewsController';
 import type { State } from './protocol';

@@ -1,6 +1,5 @@
 import type { TextEditor } from 'vscode';
 import { Disposable, FileType, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
-import { ContextKeys } from '../../constants';
 import { setContext } from '../../context';
 import type { GitCommitish } from '../../git/gitUri';
 import { GitUri, unknownGitUri } from '../../git/gitUri';

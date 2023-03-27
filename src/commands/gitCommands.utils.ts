@@ -1,5 +1,4 @@
 import { GitCommandSorting } from '../config';
-import { ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { getContext } from '../context';
 import type { RecentUsage } from '../storage';
