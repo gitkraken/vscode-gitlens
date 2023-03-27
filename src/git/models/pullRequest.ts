@@ -1,6 +1,6 @@
 import { ColorThemeKind, ThemeColor, ThemeIcon, window } from 'vscode';
 import { DateStyle } from '../../config';
-import { Colors } from '../../constants';
+import type { Colors } from '../../constants';
 import { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
@@ -154,11 +154,20 @@ export class PullRequest implements PullRequestShape {
 	static getThemeIcon(pullRequest: PullRequest): ThemeIcon {
 		switch (pullRequest.state) {
 			case PullRequestState.Open:
-				return new ThemeIcon('git-pull-request', new ThemeColor(Colors.OpenPullRequestIconColor));
+				return new ThemeIcon(
+					'git-pull-request',
+					new ThemeColor('gitlens.openPullRequestIconColor' satisfies Colors),
+				);
 			case PullRequestState.Closed:
-				return new ThemeIcon('git-pull-request-closed', new ThemeColor(Colors.ClosedPullRequestIconColor));
+				return new ThemeIcon(
+					'git-pull-request-closed',
+					new ThemeColor('gitlens.closedPullRequestIconColor' satisfies Colors),
+				);
 			case PullRequestState.Merged:
-				return new ThemeIcon('git-merge', new ThemeColor(Colors.MergedPullRequestIconColor));
+				return new ThemeIcon(
+					'git-merge',
+					new ThemeColor('gitlens.mergedPullRequestIconColor' satisfies Colors),
+				);
 			default:
 				return new ThemeIcon('git-pull-request');
 		}

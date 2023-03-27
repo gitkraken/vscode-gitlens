@@ -22,6 +22,7 @@ import {
 } from 'vscode';
 import { fetch, getProxyAgent } from '@env/fetch';
 import { getPlatform } from '@env/platform';
+import type { CoreColors } from '../../constants';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { setContext } from '../../context';
@@ -1040,7 +1041,9 @@ export class SubscriptionService implements Disposable {
 
 		if (account?.verified === false) {
 			this._statusBarSubscription.text = `$(warning) ${effective.name} (Unverified)`;
-			this._statusBarSubscription.backgroundColor = new ThemeColor('statusBarItem.warningBackground');
+			this._statusBarSubscription.backgroundColor = new ThemeColor(
+				'statusBarItem.warningBackground' satisfies CoreColors,
+			);
 			this._statusBarSubscription.tooltip = new MarkdownString(
 				trial
 					? `**Please verify your email**\n\nBefore you can start your **${effective.name}** trial, please verify your email address.\n\nClick for details`

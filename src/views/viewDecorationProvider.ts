@@ -1,5 +1,6 @@
 import type { CancellationToken, Event, FileDecoration, FileDecorationProvider, Uri } from 'vscode';
 import { Disposable, EventEmitter, ThemeColor, window } from 'vscode';
+import type { Colors } from '../constants';
 import { GlyphChars } from '../constants';
 import { GitBranchStatus } from '../git/models/branch';
 
@@ -56,43 +57,43 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 			case '!':
 				return {
 					badge: 'I',
-					color: new ThemeColor('gitlens.decorations.ignoredForegroundColor'),
+					color: new ThemeColor('gitlens.decorations.ignoredForegroundColor' satisfies Colors),
 					tooltip: 'Ignored',
 				};
 			case '?':
 				return {
 					badge: 'U',
-					color: new ThemeColor('gitlens.decorations.untrackedForegroundColor'),
+					color: new ThemeColor('gitlens.decorations.untrackedForegroundColor' satisfies Colors),
 					tooltip: 'Untracked',
 				};
 			case 'A':
 				return {
 					badge: 'A',
-					color: new ThemeColor('gitlens.decorations.addedForegroundColor'),
+					color: new ThemeColor('gitlens.decorations.addedForegroundColor' satisfies Colors),
 					tooltip: 'Added',
 				};
 			case 'C':
 				return {
 					badge: 'C',
-					color: new ThemeColor('gitlens.decorations.copiedForegroundColor'),
+					color: new ThemeColor('gitlens.decorations.copiedForegroundColor' satisfies Colors),
 					tooltip: 'Copied',
 				};
 			case 'D':
 				return {
 					badge: 'D',
-					color: new ThemeColor('gitlens.decorations.deletedForegroundColor'),
+					color: new ThemeColor('gitlens.decorations.deletedForegroundColor' satisfies Colors),
 					tooltip: 'Deleted',
 				};
 			case 'M':
 				return {
 					badge: 'M',
-					// color: new ThemeColor('gitlens.decorations.modifiedForegroundColor'),
+					// color: new ThemeColor('gitlens.decorations.modifiedForegroundColor' satisfies Colors),
 					tooltip: 'Modified',
 				};
 			case 'R':
 				return {
 					badge: 'R',
-					color: new ThemeColor('gitlens.decorations.renamedForegroundColor'),
+					color: new ThemeColor('gitlens.decorations.renamedForegroundColor' satisfies Colors),
 					tooltip: 'Renamed',
 				};
 			default:
@@ -107,37 +108,37 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 			case GitBranchStatus.Ahead:
 				return {
 					badge: '▲',
-					color: new ThemeColor('gitlens.decorations.branchAheadForegroundColor'),
+					color: new ThemeColor('gitlens.decorations.branchAheadForegroundColor' satisfies Colors),
 					tooltip: 'Ahead',
 				};
 			case GitBranchStatus.Behind:
 				return {
 					badge: '▼',
-					color: new ThemeColor('gitlens.decorations.branchBehindForegroundColor'),
+					color: new ThemeColor('gitlens.decorations.branchBehindForegroundColor' satisfies Colors),
 					tooltip: 'Behind',
 				};
 			case GitBranchStatus.Diverged:
 				return {
 					badge: '▼▲',
-					color: new ThemeColor('gitlens.decorations.branchDivergedForegroundColor'),
+					color: new ThemeColor('gitlens.decorations.branchDivergedForegroundColor' satisfies Colors),
 					tooltip: 'Diverged',
 				};
 			case GitBranchStatus.MissingUpstream:
 				return {
 					badge: '!',
-					color: new ThemeColor('gitlens.decorations.branchMissingUpstreamForegroundColor'),
+					color: new ThemeColor('gitlens.decorations.branchMissingUpstreamForegroundColor' satisfies Colors),
 					tooltip: 'Missing Upstream',
 				};
 			case GitBranchStatus.UpToDate:
 				return {
 					badge: '',
-					color: new ThemeColor('gitlens.decorations.branchUpToDateForegroundColor'),
+					color: new ThemeColor('gitlens.decorations.branchUpToDateForegroundColor' satisfies Colors),
 					tooltip: 'Up to Date',
 				};
 			case GitBranchStatus.Unpublished:
 				return {
 					badge: '▲+',
-					color: new ThemeColor('gitlens.decorations.branchUnpublishedForegroundColor'),
+					color: new ThemeColor('gitlens.decorations.branchUnpublishedForegroundColor' satisfies Colors),
 					tooltip: 'Unpublished',
 				};
 			default:
@@ -153,19 +154,19 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 		let color;
 		switch (status as GitBranchStatus) {
 			case GitBranchStatus.Ahead:
-				color = new ThemeColor('gitlens.decorations.branchAheadForegroundColor');
+				color = new ThemeColor('gitlens.decorations.branchAheadForegroundColor' satisfies Colors);
 				break;
 			case GitBranchStatus.Behind:
-				color = new ThemeColor('gitlens.decorations.branchBehindForegroundColor');
+				color = new ThemeColor('gitlens.decorations.branchBehindForegroundColor' satisfies Colors);
 				break;
 			case GitBranchStatus.Diverged:
-				color = new ThemeColor('gitlens.decorations.branchDivergedForegroundColor');
+				color = new ThemeColor('gitlens.decorations.branchDivergedForegroundColor' satisfies Colors);
 				break;
 			case GitBranchStatus.UpToDate:
-				color = new ThemeColor('gitlens.decorations.branchUpToDateForegroundColor');
+				color = new ThemeColor('gitlens.decorations.branchUpToDateForegroundColor' satisfies Colors);
 				break;
 			case GitBranchStatus.Unpublished:
-				color = new ThemeColor('gitlens.decorations.branchUnpublishedForegroundColor');
+				color = new ThemeColor('gitlens.decorations.branchUnpublishedForegroundColor' satisfies Colors);
 				break;
 		}
 

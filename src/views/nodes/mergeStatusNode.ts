@@ -1,5 +1,6 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../config';
+import type { CoreColors } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitMergeStatus } from '../../git/models/merge';
@@ -78,8 +79,8 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 		item.contextValue = ContextValues.Merge;
 		item.description = this.status?.hasConflicts ? pluralize('conflict', this.status.conflicts.length) : undefined;
 		item.iconPath = this.status?.hasConflicts
-			? new ThemeIcon('warning', new ThemeColor('list.warningForeground'))
-			: new ThemeIcon('debug-pause', new ThemeColor('list.foreground'));
+			? new ThemeIcon('warning', new ThemeColor('list.warningForeground' satisfies CoreColors))
+			: new ThemeIcon('debug-pause', new ThemeColor('list.foreground' satisfies CoreColors));
 
 		const markdown = new MarkdownString(
 			`${`Merging ${

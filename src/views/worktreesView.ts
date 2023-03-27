@@ -2,6 +2,7 @@ import type { CancellationToken, ConfigurationChangeEvent, Disposable, TreeViewV
 import { ProgressLocation, ThemeColor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { WorktreesViewConfig } from '../config';
 import { ViewFilesLayout, ViewShowBranchComparison } from '../config';
+import type { Colors} from '../constants';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { PlusFeatures } from '../features';
@@ -112,7 +113,9 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 
 					return {
 						badge: '●',
-						color: new ThemeColor('gitlens.decorations.worktreeView.hasUncommittedChangesForegroundColoSr'),
+						color: new ThemeColor(
+							'gitlens.decorations.worktreeView.hasUncommittedChangesForegroundColor' as Colors,
+						),
 						tooltip: 'Has Uncommitted Changes',
 					};
 				},

@@ -55,23 +55,44 @@ export const enum CharCode {
 	z = 122,
 }
 
-export const enum Colors {
-	GutterBackgroundColor = 'gitlens.gutterBackgroundColor',
-	GutterForegroundColor = 'gitlens.gutterForegroundColor',
-	GutterUncommittedForegroundColor = 'gitlens.gutterUncommittedForegroundColor',
-	TrailingLineBackgroundColor = 'gitlens.trailingLineBackgroundColor',
-	TrailingLineForegroundColor = 'gitlens.trailingLineForegroundColor',
-	LineHighlightBackgroundColor = 'gitlens.lineHighlightBackgroundColor',
-	LineHighlightOverviewRulerColor = 'gitlens.lineHighlightOverviewRulerColor',
-	ClosedAutolinkedIssueIconColor = 'gitlens.closedAutolinkedIssueIconColor',
-	ClosedPullRequestIconColor = 'gitlens.closedPullRequestIconColor',
-	OpenAutolinkedIssueIconColor = 'gitlens.openAutolinkedIssueIconColor',
-	OpenPullRequestIconColor = 'gitlens.openPullRequestIconColor',
-	MergedPullRequestIconColor = 'gitlens.mergedPullRequestIconColor',
-	UnpublishedChangesIconColor = 'gitlens.unpublishedChangesIconColor',
-	UnpublishedCommitIconColor = 'gitlens.unpublishedCommitIconColor',
-	UnpulledChangesIconColor = 'gitlens.unpulledChangesIconColor',
-}
+export type Colors =
+	| 'gitlens.closedAutolinkedIssueIconColor'
+	| 'gitlens.closedPullRequestIconColor'
+	| 'gitlens.decorations.addedForegroundColor'
+	| 'gitlens.decorations.branchAheadForegroundColor'
+	| 'gitlens.decorations.branchBehindForegroundColor'
+	| 'gitlens.decorations.branchDivergedForegroundColor'
+	| 'gitlens.decorations.branchMissingUpstreamForegroundColor'
+	| 'gitlens.decorations.branchUpToDateForegroundColor'
+	| 'gitlens.decorations.branchUnpublishedForegroundColor'
+	| 'gitlens.decorations.copiedForegroundColor'
+	| 'gitlens.decorations.deletedForegroundColor'
+	| 'gitlens.decorations.ignoredForegroundColor'
+	| 'gitlens.decorations.modifiedForegroundColor'
+	| 'gitlens.decorations.renamedForegroundColor'
+	| 'gitlens.decorations.untrackedForegroundColor'
+	| 'gitlens.decorations.worktreeView.hasUncommittedChangesForegroundColor'
+	| 'gitlens.gutterBackgroundColor'
+	| 'gitlens.gutterForegroundColor'
+	| 'gitlens.gutterUncommittedForegroundColor'
+	| 'gitlens.lineHighlightBackgroundColor'
+	| 'gitlens.lineHighlightOverviewRulerColor'
+	| 'gitlens.mergedPullRequestIconColor'
+	| 'gitlens.openAutolinkedIssueIconColor'
+	| 'gitlens.openPullRequestIconColor'
+	| 'gitlens.trailingLineBackgroundColor'
+	| 'gitlens.trailingLineForegroundColor'
+	| 'gitlens.unpublishedChangesIconColor'
+	| 'gitlens.unpublishedCommitIconColor'
+	| 'gitlens.unpulledChangesIconColor';
+
+export type CoreColors =
+	| 'editorOverviewRuler.addedForeground'
+	| 'editorOverviewRuler.deletedForeground'
+	| 'editorOverviewRuler.modifiedForeground'
+	| 'list.foreground'
+	| 'list.warningForeground'
+	| 'statusBarItem.warningBackground';
 
 export const enum Commands {
 	ActionPrefix = 'gitlens.action.',
