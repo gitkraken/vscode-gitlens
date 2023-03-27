@@ -2,6 +2,7 @@ import type { Command } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
 import { ViewFilesLayout } from '../../config';
+import type { CoreColors } from '../../constants';
 import { Commands } from '../../constants';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { GitUri } from '../../git/gitUri';
@@ -93,8 +94,8 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 		item.contextValue = ContextValues.Rebase;
 		item.description = this.status?.hasConflicts ? pluralize('conflict', this.status.conflicts.length) : undefined;
 		item.iconPath = this.status?.hasConflicts
-			? new ThemeIcon('warning', new ThemeColor('list.warningForeground'))
-			: new ThemeIcon('debug-pause', new ThemeColor('list.foreground'));
+			? new ThemeIcon('warning', new ThemeColor('list.warningForeground' satisfies CoreColors))
+			: new ThemeIcon('debug-pause', new ThemeColor('list.foreground' satisfies CoreColors));
 
 		const markdown = new MarkdownString(
 			`${`Rebasing ${

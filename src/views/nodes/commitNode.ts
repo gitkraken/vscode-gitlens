@@ -2,7 +2,8 @@ import type { Command } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
 import { ViewFilesLayout } from '../../config';
-import { Colors, Commands } from '../../constants';
+import type { Colors} from '../../constants';
+import { Commands } from '../../constants';
 import { getContext } from '../../context';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitBranch } from '../../git/models/branch';
@@ -176,7 +177,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 			pendingPullRequest != null
 				? new ThemeIcon('loading~spin')
 				: this.unpublished
-				? new ThemeIcon('arrow-up', new ThemeColor(Colors.UnpublishedCommitIconColor))
+				? new ThemeIcon('arrow-up', new ThemeColor('gitlens.unpublishedCommitIconColor' satisfies Colors))
 				: this.view.config.avatars
 				? await this.commit.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })
 				: new ThemeIcon('git-commit');

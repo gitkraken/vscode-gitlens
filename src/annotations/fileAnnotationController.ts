@@ -21,7 +21,7 @@ import {
 	workspace,
 } from 'vscode';
 import { AnnotationsToggleMode, BlameHighlightLocations, ChangesLocations, FileAnnotationType } from '../config';
-import { Colors } from '../constants';
+import type { Colors, CoreColors } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { configuration } from '../system/configuration';
@@ -591,7 +591,7 @@ export class FileAnnotationController implements Disposable {
 			gutterIconSize: 'contain',
 			overviewRulerLane: OverviewRulerLane.Left,
 			overviewRulerColor: locations.includes(ChangesLocations.Scrollbar)
-				? new ThemeColor('editorOverviewRuler.addedForeground')
+				? new ThemeColor('editorOverviewRuler.addedForeground' satisfies CoreColors)
 				: undefined,
 		});
 
@@ -612,7 +612,7 @@ export class FileAnnotationController implements Disposable {
 			gutterIconSize: 'contain',
 			overviewRulerLane: OverviewRulerLane.Left,
 			overviewRulerColor: locations.includes(ChangesLocations.Scrollbar)
-				? new ThemeColor('editorOverviewRuler.modifiedForeground')
+				? new ThemeColor('editorOverviewRuler.modifiedForeground' satisfies CoreColors)
 				: undefined,
 		});
 
@@ -629,7 +629,7 @@ export class FileAnnotationController implements Disposable {
 			gutterIconSize: 'contain',
 			overviewRulerLane: OverviewRulerLane.Left,
 			overviewRulerColor: locations.includes(ChangesLocations.Scrollbar)
-				? new ThemeColor('editorOverviewRuler.deletedForeground')
+				? new ThemeColor('editorOverviewRuler.deletedForeground' satisfies CoreColors)
 				: undefined,
 		});
 	}
@@ -643,7 +643,7 @@ export class FileAnnotationController implements Disposable {
 			const { locations } = highlight;
 
 			// TODO@eamodio: Read from the theme color when the API exists
-			const gutterHighlightColor = '#00bcf2'; // new ThemeColor(Colors.LineHighlightOverviewRulerColor)
+			const gutterHighlightColor = '#00bcf2'; // new ThemeColor('gitlens.lineHighlightOverviewRulerColor' satisfies Colors)
 			const gutterHighlightUri = locations.includes(BlameHighlightLocations.Gutter)
 				? Uri.parse(
 						`data:image/svg+xml,${encodeURIComponent(
@@ -658,10 +658,10 @@ export class FileAnnotationController implements Disposable {
 				isWholeLine: true,
 				overviewRulerLane: OverviewRulerLane.Right,
 				backgroundColor: locations.includes(BlameHighlightLocations.Line)
-					? new ThemeColor(Colors.LineHighlightBackgroundColor)
+					? new ThemeColor('gitlens.lineHighlightBackgroundColor' satisfies Colors)
 					: undefined,
 				overviewRulerColor: locations.includes(BlameHighlightLocations.Scrollbar)
-					? new ThemeColor(Colors.LineHighlightOverviewRulerColor)
+					? new ThemeColor('gitlens.lineHighlightOverviewRulerColor' satisfies Colors)
 					: undefined,
 			});
 		}

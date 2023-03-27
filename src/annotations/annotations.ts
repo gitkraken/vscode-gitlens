@@ -9,8 +9,8 @@ import type {
 import { OverviewRulerLane, ThemeColor, Uri, window } from 'vscode';
 import type { Config } from '../config';
 import { HeatmapLocations } from '../config';
-import type { CoreConfiguration } from '../constants';
-import { Colors, GlyphChars } from '../constants';
+import type { Colors, CoreConfiguration } from '../constants';
+import { GlyphChars } from '../constants';
 import type { CommitFormatOptions } from '../git/formatters/commitFormatter';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitCommit } from '../git/models/commit';
@@ -202,10 +202,10 @@ export function getGutterRenderOptions(
 	}
 
 	return {
-		backgroundColor: new ThemeColor(Colors.GutterBackgroundColor),
+		backgroundColor: new ThemeColor('gitlens.gutterBackgroundColor' satisfies Colors),
 		borderStyle: borderStyle,
 		borderWidth: borderWidth,
-		color: new ThemeColor(Colors.GutterForegroundColor),
+		color: new ThemeColor('gitlens.gutterForegroundColor' satisfies Colors),
 		fontWeight: 'normal',
 		fontStyle: 'normal',
 		height: '100%',
@@ -214,7 +214,7 @@ export function getGutterRenderOptions(
 			avatars ? ';padding: 0 0 0 18px' : ''
 		}`,
 		width: width,
-		uncommittedColor: new ThemeColor(Colors.GutterUncommittedForegroundColor),
+		uncommittedColor: new ThemeColor('gitlens.gutterUncommittedForegroundColor' satisfies Colors),
 	};
 }
 
@@ -241,8 +241,8 @@ export function getInlineDecoration(
 	return {
 		renderOptions: {
 			after: {
-				backgroundColor: new ThemeColor(Colors.TrailingLineBackgroundColor),
-				color: new ThemeColor(Colors.TrailingLineForegroundColor),
+				backgroundColor: new ThemeColor('gitlens.trailingLineBackgroundColor' satisfies Colors),
+				color: new ThemeColor('gitlens.trailingLineForegroundColor' satisfies Colors),
 				contentText: pad(message.replace(/ /g, GlyphChars.Space), 1, 1),
 				fontWeight: 'normal',
 				fontStyle: 'normal',

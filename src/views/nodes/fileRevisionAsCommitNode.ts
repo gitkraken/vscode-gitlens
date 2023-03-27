@@ -1,7 +1,8 @@
 import type { Command, Selection } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
-import { Colors, Commands } from '../../constants';
+import type { Colors } from '../../constants';
+import { Commands } from '../../constants';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
@@ -107,7 +108,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 
 		if (!this.commit.isUncommitted && this.view.config.avatars) {
 			item.iconPath = this._options.unpublished
-				? new ThemeIcon('arrow-up', new ThemeColor(Colors.UnpublishedCommitIconColor))
+				? new ThemeIcon('arrow-up', new ThemeColor('gitlens.unpublishedCommitIconColor' satisfies Colors))
 				: await this.commit.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') });
 		}
 

@@ -1,7 +1,8 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import type { ViewShowBranchComparison } from '../../config';
 import { ViewBranchesLayout } from '../../config';
-import { Colors, GlyphChars } from '../../constants';
+import type { Colors} from '../../constants';
+import { GlyphChars } from '../../constants';
 import { getContext } from '../../context';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
@@ -426,12 +427,12 @@ export class BranchNode
 				if (this.branch.state.ahead || this.branch.state.behind) {
 					if (this.branch.state.ahead) {
 						contextValue += '+ahead';
-						color = new ThemeColor(Colors.UnpublishedChangesIconColor);
+						color = new ThemeColor('gitlens.unpublishedChangesIconColor' satisfies Colors);
 						iconSuffix = '-green';
 					}
 					if (this.branch.state.behind) {
 						contextValue += '+behind';
-						color = new ThemeColor(Colors.UnpulledChangesIconColor);
+						color = new ThemeColor('gitlens.unpulledChangesIconColor' satisfies Colors);
 						iconSuffix = this.branch.state.ahead ? '-yellow' : '-red';
 					}
 				}

@@ -1,5 +1,5 @@
 import { ColorThemeKind, ThemeColor, ThemeIcon, window } from 'vscode';
-import { Colors } from '../../constants';
+import type { Colors } from '../../constants';
 import type { RemoteProviderReference } from './remoteProvider';
 
 export const enum IssueOrPullRequestType {
@@ -115,15 +115,18 @@ export function getIssueOrPullRequestMarkdownIcon(issue: IssueOrPullRequest): st
 export function getIssueOrPullRequestThemeIcon(issue: IssueOrPullRequest): ThemeIcon {
 	if (issue.type === IssueOrPullRequestType.PullRequest) {
 		if (issue.closed) {
-			return new ThemeIcon('git-pull-request', new ThemeColor(Colors.MergedPullRequestIconColor));
+			return new ThemeIcon(
+				'git-pull-request',
+				new ThemeColor('gitlens.mergedPullRequestIconColor' satisfies Colors),
+			);
 		}
-		return new ThemeIcon('git-pull-request', new ThemeColor(Colors.OpenPullRequestIconColor));
+		return new ThemeIcon('git-pull-request', new ThemeColor('gitlens.openPullRequestIconColor' satisfies Colors));
 	}
 
 	if (issue.closed) {
-		return new ThemeIcon('pass', new ThemeColor(Colors.ClosedAutolinkedIssueIconColor));
+		return new ThemeIcon('pass', new ThemeColor('gitlens.closedAutolinkedIssueIconColor' satisfies Colors));
 	}
-	return new ThemeIcon('issues', new ThemeColor(Colors.OpenAutolinkedIssueIconColor));
+	return new ThemeIcon('issues', new ThemeColor('gitlens.openAutolinkedIssueIconColor' satisfies Colors));
 }
 
 export function serializeIssue(value: IssueShape): IssueShape {
