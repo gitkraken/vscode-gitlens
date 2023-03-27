@@ -5,6 +5,7 @@ import {
 	getValidateGitReferenceFn,
 	RevealInSideBarQuickInputButton,
 } from '../commands/quickCommand';
+import type { Keys } from '../constants';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { reveal as revealBranch } from '../git/actions/branch';
@@ -14,7 +15,7 @@ import type { BranchSortOptions, GitBranch } from '../git/models/branch';
 import type { GitReference } from '../git/models/reference';
 import { isBranchReference, isRevisionReference, isTagReference } from '../git/models/reference';
 import type { GitTag, TagSortOptions } from '../git/models/tag';
-import type { KeyboardScope, Keys } from '../system/keyboard';
+import type { KeyboardScope } from '../system/keyboard';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import type { BranchQuickPickItem, RefQuickPickItem, TagQuickPickItem } from './items/gitCommands';
 import { createRefQuickPickItem } from './items/gitCommands';

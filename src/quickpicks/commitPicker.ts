@@ -1,12 +1,13 @@
 import type { Disposable } from 'vscode';
 import { window } from 'vscode';
+import type { Keys } from '../constants';
 import { Container } from '../container';
 import type { GitCommit, GitStashCommit } from '../git/models/commit';
 import type { GitLog } from '../git/models/log';
 import type { GitStash } from '../git/models/stash';
 import { configuration } from '../system/configuration';
 import { filter, map } from '../system/iterable';
-import type { KeyboardScope, Keys } from '../system/keyboard';
+import type { KeyboardScope } from '../system/keyboard';
 import { isPromise } from '../system/promise';
 import { getQuickPickIgnoreFocusOut } from '../system/utils';
 import { CommandQuickPickItem } from './items/common';

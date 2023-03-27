@@ -306,7 +306,7 @@ export type WebviewViewIds = 'commitDetails' | 'graph' | 'home' | 'timeline';
 
 export type ContextKeys =
 	| `${typeof extensionPrefix}:action:${string}`
-	| `${typeof extensionPrefix}:key:${string}`
+	| `${typeof extensionPrefix}:key:${Keys}`
 	| `${typeof extensionPrefix}:webview:${WebviewIds | CustomEditorIds}:${'active' | 'focus' | 'inputFocus'}`
 	| `${typeof extensionPrefix}:webviewView:${WebviewViewIds}:${'active' | 'focus' | 'inputFocus'}`
 	| `${typeof extensionPrefix}:activeFileStatus`
@@ -442,6 +442,21 @@ export const enum GlyphChars {
 	Warning = '\u26a0',
 	ZeroWidthSpace = '\u200b',
 }
+
+export const keys = [
+	'left',
+	'alt+left',
+	'ctrl+left',
+	'right',
+	'alt+right',
+	'ctrl+right',
+	'alt+,',
+	'alt+.',
+	'alt+enter',
+	'ctrl+enter',
+	'escape',
+] as const;
+export type Keys = (typeof keys)[number];
 
 export const enum Schemes {
 	DebugConsole = 'debug',
