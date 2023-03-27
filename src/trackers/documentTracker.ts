@@ -10,7 +10,6 @@ import type {
 	TextLine,
 } from 'vscode';
 import { Disposable, EndOfLine, env, EventEmitter, Uri, window, workspace } from 'vscode';
-import { ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import type { RepositoriesChangeEvent } from '../git/gitProviderService';

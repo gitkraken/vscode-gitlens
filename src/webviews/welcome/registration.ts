@@ -1,4 +1,4 @@
-import { Commands, ContextKeys } from '../../constants';
+import { Commands } from '../../constants';
 import type { WebviewsController } from '../webviewsController';
 import type { State } from './protocol';
 

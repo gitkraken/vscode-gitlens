@@ -9,7 +9,6 @@ import { ConfigurationTarget, Disposable, Position, Range, Uri, window, workspac
 import { getNonce } from '@env/crypto';
 import { ShowCommitsInViewCommand } from '../../commands';
 import type { CoreConfiguration } from '../../constants';
-import { ContextKeys } from '../../constants';
 import type { Container } from '../../container';
 import { emojify } from '../../emojis';
 import type { GitCommit } from '../../git/models/commit';
