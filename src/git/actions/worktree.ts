@@ -1,6 +1,5 @@
 import type { Uri } from 'vscode';
 import type { WorktreeGitCommandArgs } from '../../commands/git/worktree';
-import { CoreCommands } from '../../constants';
 import { Container } from '../../container';
 import { ensure } from '../../system/array';
 import { executeCoreCommand } from '../../system/command';
@@ -67,7 +66,7 @@ export async function reveal(
 }
 
 export async function revealInFileExplorer(worktree: GitWorktree) {
-	void (await executeCoreCommand(CoreCommands.RevealInFileExplorer, worktree.uri));
+	void (await executeCoreCommand('revealInExplorer', worktree.uri));
 }
 
 type OpenFlagsArray = Extract<NonNullable<Required<WorktreeGitCommandArgs['state']>>, { subcommand: 'open' }>['flags'];

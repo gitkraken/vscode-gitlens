@@ -2,8 +2,8 @@ import type { Command as CoreCommand, Disposable, Uri } from 'vscode';
 import { commands } from 'vscode';
 import type { Action, ActionContext } from '../api/gitlens';
 import type { Command } from '../commands/base';
-import type { CoreGitCommands } from '../constants';
-import { Commands, CoreCommands } from '../constants';
+import type { CoreCommands, CoreGitCommands } from '../constants';
+import { Commands } from '../constants';
 import { Container } from '../container';
 
 interface CommandConstructor {
@@ -44,6 +44,14 @@ export function executeActionCommand<T extends ActionContext>(action: Action<T>,
 
 type SupportedCommands = Commands | `gitlens.views.${string}.focus` | `gitlens.views.${string}.resetViewLocation`;
 
+export function createCommand<T extends unknown[]>(command: SupportedCommands, title: string, ...args: T): CoreCommand {
+	return {
+		command: command,
+		title: title,
+		arguments: args,
+	};
+}
+
 export function executeCommand<U = any>(command: SupportedCommands): Thenable<U>;
 export function executeCommand<T = unknown, U = any>(command: SupportedCommands, arg: T): Thenable<U>;
 export function executeCommand<T extends [...unknown[]] = [], U = any>(
@@ -57,6 +65,14 @@ export function executeCommand<T extends [...unknown[]] = [], U = any>(
 	return commands.executeCommand<U>(command, ...args);
 }
 
+export function createCoreCommand<T extends unknown[]>(command: CoreCommands, title: string, ...args: T): CoreCommand {
+	return {
+		command: command,
+		title: title,
+		arguments: args,
+	};
+}
+
 export function executeCoreCommand<T = unknown, U = any>(command: CoreCommands, arg: T): Thenable<U>;
 export function executeCoreCommand<T extends [...unknown[]] = [], U = any>(
 	command: CoreCommands,
@@ -66,10 +82,22 @@ export function executeCoreCommand<T extends [...unknown[]] = [], U = any>(
 	command: CoreCommands,
 	...args: T
 ): Thenable<U> {
-	if (command !== CoreCommands.ExecuteDocumentSymbolProvider) {
+	if (command != 'setContext' && command !== 'vscode.executeDocumentSymbolProvider') {
 		Container.instance.telemetry.sendEvent('command/core', { command: command });
 	}
 	return commands.executeCommand<U>(command, ...args);
+}
+
+export function createCoreGitCommand<T extends unknown[]>(
+	command: CoreGitCommands,
+	title: string,
+	...args: T
+): CoreCommand {
+	return {
+		command: command,
+		title: title,
+		arguments: args,
+	};
 }
 
 export function executeCoreGitCommand<U = any>(command: CoreGitCommands): Thenable<U>;

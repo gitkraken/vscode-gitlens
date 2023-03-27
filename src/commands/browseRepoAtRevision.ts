@@ -1,5 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
-import { Commands, CoreCommands } from '../constants';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { showGenericErrorMessage } from '../messages';
@@ -70,7 +70,7 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 			});
 
 			if (!args.openInNewWindow) {
-				void executeCoreCommand(CoreCommands.FocusFilesExplorer);
+				void executeCoreCommand('workbench.files.action.focusFilesExplorer');
 			}
 		} catch (ex) {
 			Logger.error(ex, 'BrowseRepoAtRevisionCommand');

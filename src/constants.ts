@@ -319,45 +319,43 @@ export const enum ContextKeys {
 	PlusState = 'gitlens:plus:state',
 }
 
-export const enum CoreCommands {
-	CloseActiveEditor = 'workbench.action.closeActiveEditor',
-	CloseAllEditors = 'workbench.action.closeAllEditors',
-	CursorMove = 'cursorMove',
-	CustomEditorShowFindWidget = 'editor.action.webvieweditor.showFind',
-	Diff = 'vscode.diff',
-	EditorScroll = 'editorScroll',
-	EditorShowHover = 'editor.action.showHover',
-	ExecuteDocumentSymbolProvider = 'vscode.executeDocumentSymbolProvider',
-	ExecuteCodeLensProvider = 'vscode.executeCodeLensProvider',
-	FocusFilesExplorer = 'workbench.files.action.focusFilesExplorer',
-	InstallExtension = 'workbench.extensions.installExtension',
-	MoveViews = 'vscode.moveViews',
-	Open = 'vscode.open',
-	OpenFolder = 'vscode.openFolder',
-	OpenInTerminal = 'openInTerminal',
-	OpenWalkthrough = 'workbench.action.openWalkthrough',
-	OpenWith = 'vscode.openWith',
-	NextEditor = 'workbench.action.nextEditor',
-	PreviewHtml = 'vscode.previewHtml',
-	RevealLine = 'revealLine',
-	RevealInExplorer = 'revealInExplorer',
-	RevealInFileExplorer = 'revealFileInOS',
-	SetContext = 'setContext',
-	ShowExplorer = 'workbench.view.explorer',
-	ShowReferences = 'editor.action.showReferences',
-	ShowSCM = 'workbench.view.scm',
-	UninstallExtension = 'workbench.extensions.uninstallExtension',
-}
+export type CoreCommands =
+	| 'cursorMove'
+	| 'editor.action.showHover'
+	| 'editor.action.showReferences'
+	| 'editor.action.webvieweditor.showFind'
+	| 'editorScroll'
+	| 'openInTerminal'
+	| 'revealFileInOS'
+	| 'revealInExplorer'
+	| 'revealLine'
+	| 'setContext'
+	| 'vscode.open'
+	| 'vscode.openFolder'
+	| 'vscode.openWith'
+	| 'vscode.diff'
+	| 'vscode.executeCodeLensProvider'
+	| 'vscode.executeDocumentSymbolProvider'
+	| 'vscode.moveViews'
+	| 'vscode.previewHtml'
+	| 'workbench.action.closeActiveEditor'
+	| 'workbench.action.openWalkthrough'
+	| 'workbench.action.closeAllEditors'
+	| 'workbench.action.nextEditor'
+	| 'workbench.extensions.installExtension'
+	| 'workbench.extensions.uninstallExtension'
+	| 'workbench.files.action.focusFilesExplorer'
+	| 'workbench.view.explorer'
+	| 'workbench.view.scm';
 
-export const enum CoreGitCommands {
-	Publish = 'git.publish',
-	Pull = 'git.pull',
-	PullRebase = 'git.pullRebase',
-	Push = 'git.push',
-	PushForce = 'git.pushForce',
-	UndoCommit = 'git.undoCommit',
-	Fetch = 'git.fetch',
-}
+export type CoreGitCommands =
+	| 'git.fetch'
+	| 'git.publish'
+	| 'git.pull'
+	| 'git.pullRebase'
+	| 'git.push'
+	| 'git.pushForce'
+	| 'git.undoCommit';
 
 export const enum CoreGitConfiguration {
 	AutoRepositoryDetection = 'git.autoRepositoryDetection',

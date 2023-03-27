@@ -1,6 +1,6 @@
 import { window } from 'vscode';
 import { viewsConfigKeys } from '../config';
-import { Commands, CoreCommands } from '../constants';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { command, executeCommand, executeCoreCommand } from '../system/command';
 import { Command } from './base';
@@ -57,7 +57,7 @@ export class SetViewsLayoutCommand extends Command {
 					// Because of https://github.com/microsoft/vscode/issues/105774, run the command twice which seems to fix things
 					let count = 0;
 					while (count++ < 2) {
-						void (await executeCoreCommand(CoreCommands.MoveViews, {
+						void (await executeCoreCommand('vscode.moveViews', {
 							viewIds: views.map(v => `gitlens.views.${v}`),
 							destinationId: 'workbench.view.extension.gitlens',
 						}));
@@ -70,7 +70,7 @@ export class SetViewsLayoutCommand extends Command {
 					// Because of https://github.com/microsoft/vscode/issues/105774, run the command twice which seems to fix things
 					let count = 0;
 					while (count++ < 2) {
-						void (await executeCoreCommand(CoreCommands.MoveViews, {
+						void (await executeCoreCommand('vscode.moveViews', {
 							viewIds: views.map(v => `gitlens.views.${v}`),
 							destinationId: 'workbench.view.scm',
 						}));

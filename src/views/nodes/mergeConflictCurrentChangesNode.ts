@@ -1,13 +1,14 @@
 import type { Command } from 'vscode';
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands';
-import { Commands, CoreCommands, GlyphChars } from '../../constants';
+import { Commands, GlyphChars } from '../../constants';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitFile } from '../../git/models/file';
 import type { GitMergeStatus } from '../../git/models/merge';
 import type { GitRebaseStatus } from '../../git/models/rebase';
 import { getReferenceLabel } from '../../git/models/reference';
+import { createCommand, createCoreCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
@@ -70,16 +71,16 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 		return item;
 	}
 
-	override getCommand(): Command | undefined {
+	override getCommand(): Command {
 		if (this.status.mergeBase == null) {
-			return {
-				title: 'Open Revision',
-				command: CoreCommands.Open,
-				arguments: [this.view.container.git.getRevisionUri('HEAD', this.file.path, this.status.repoPath)],
-			};
+			return createCoreCommand(
+				'vscode.open',
+				'Open Revision',
+				this.view.container.git.getRevisionUri('HEAD', this.file.path, this.status.repoPath),
+			);
 		}
 
-		const commandArgs: DiffWithCommandArgs = {
+		return createCommand<[DiffWithCommandArgs]>(Commands.DiffWith, 'Open Changes', {
 			lhs: {
 				sha: this.status.mergeBase,
 				uri: GitUri.fromFile(this.file, this.status.repoPath, undefined, true),
@@ -99,11 +100,6 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 				preserveFocus: true,
 				preview: true,
 			},
-		};
-		return {
-			title: 'Open Changes',
-			command: Commands.DiffWith,
-			arguments: [commandArgs],
-		};
+		});
 	}
 }

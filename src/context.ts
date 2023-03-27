@@ -1,6 +1,6 @@
-import { commands, EventEmitter } from 'vscode';
+import { EventEmitter } from 'vscode';
 import type { ContextKeys } from './constants';
-import { CoreCommands } from './constants';
+import { executeCoreCommand } from './system/command';
 import type { WebviewIds, WebviewViewIds } from './webviews/webviewsController';
 
 const contextStorage = new Map<string, unknown>();
@@ -35,6 +35,6 @@ export function getContext<T>(key: AllContextKeys, defaultValue?: T): T | undefi
 
 export async function setContext(key: AllContextKeys, value: unknown): Promise<void> {
 	contextStorage.set(key, value);
-	void (await commands.executeCommand(CoreCommands.SetContext, key, value));
+	void (await executeCoreCommand('setContext', key, value));
 	_onDidChangeContext.fire(key);
 }

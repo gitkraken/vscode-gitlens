@@ -1,6 +1,6 @@
 import type { TextDocumentShowOptions, Uri } from 'vscode';
 import { Range, ViewColumn } from 'vscode';
-import { Commands, CoreCommands, GlyphChars } from '../constants';
+import { Commands, GlyphChars } from '../constants';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
@@ -180,7 +180,7 @@ export class DiffWithCommand extends Command {
 			}
 
 			void (await executeCoreCommand(
-				CoreCommands.Diff,
+				'vscode.diff',
 				lhs ?? this.container.git.getRevisionUri(deletedOrMissing, args.lhs.uri.fsPath, args.repoPath),
 				rhs ?? this.container.git.getRevisionUri(deletedOrMissing, args.rhs.uri.fsPath, args.repoPath),
 				title,

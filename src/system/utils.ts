@@ -1,6 +1,6 @@
 import type { ColorTheme, TextDocument, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { version as codeVersion, ColorThemeKind, env, ViewColumn, window, workspace } from 'vscode';
-import { CoreCommands, ImageMimetypes, Schemes } from '../constants';
+import { ImageMimetypes, Schemes } from '../constants';
 import { isGitUri } from '../git/gitUri';
 import { executeCoreCommand } from './command';
 import { configuration } from './configuration';
@@ -54,7 +54,7 @@ export function findOrOpenEditors(uris: Uri[]): void {
 	}
 
 	for (const uri of normalizedUris.values()) {
-		void executeCoreCommand(CoreCommands.Open, uri, { background: true, preview: false });
+		void executeCoreCommand('vscode.open', uri, { background: true, preview: false });
 	}
 }
 
@@ -112,7 +112,7 @@ export async function openEditor(
 		}
 
 		if (uri.scheme === Schemes.GitLens && ImageMimetypes[extname(uri.fsPath)]) {
-			await executeCoreCommand(CoreCommands.Open, uri);
+			await executeCoreCommand('vscode.open', uri);
 
 			return undefined;
 		}
@@ -127,7 +127,7 @@ export async function openEditor(
 	} catch (ex) {
 		const msg: string = ex?.toString() ?? '';
 		if (msg.includes('File seems to be binary and cannot be opened as text')) {
-			await executeCoreCommand(CoreCommands.Open, uri);
+			await executeCoreCommand('vscode.open', uri);
 
 			return undefined;
 		}
@@ -152,7 +152,7 @@ export async function openWalkthrough(
 
 	// Takes the following params: walkthroughID: string | { category: string, step: string } | undefined, toSide: boolean | undefined
 	void (await executeCoreCommand(
-		CoreCommands.OpenWalkthrough,
+		'workbench.action.openWalkthrough',
 		{
 			category: `${extensionId}#${walkthroughId}`,
 			step: stepId ? `${extensionId}#${walkthroughId}#${stepId}` : undefined,
@@ -176,7 +176,7 @@ export function openWorkspace(
 		return void workspace.updateWorkspaceFolders(count, 0, { uri: uri, name: options?.name });
 	}
 
-	return void executeCoreCommand(CoreCommands.OpenFolder, uri, {
+	return void executeCoreCommand('vscode.openFolder', uri, {
 		forceNewWindow: options?.location === OpenWorkspaceLocation.NewWindow,
 	});
 }

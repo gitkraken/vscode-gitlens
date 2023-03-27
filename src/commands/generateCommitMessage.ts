@@ -1,7 +1,7 @@
 import type { Disposable, MessageItem, QuickInputButton, TextEditor } from 'vscode';
 import { env, ProgressLocation, ThemeIcon, Uri, window } from 'vscode';
 import { fetch } from '@env/fetch';
-import { Commands, CoreCommands } from '../constants';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { uncommittedStaged } from '../git/models/constants';
@@ -172,7 +172,7 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 
 					const completion: OpenAIChatCompletionResponse = await rsp.json();
 
-					void executeCoreCommand(CoreCommands.ShowSCM);
+					void executeCoreCommand('workbench.view.scm');
 
 					const message = completion.choices[0].message.content.trim();
 					scmRepo.inputBox.value = `${currentMessage ? `${currentMessage}\n\n` : ''}${message}`;

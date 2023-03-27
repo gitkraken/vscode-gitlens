@@ -8,7 +8,7 @@ import type {
 import { ConfigurationTarget, Disposable, Position, Range, Uri, window, workspace, WorkspaceEdit } from 'vscode';
 import { getNonce } from '@env/crypto';
 import { ShowCommitsInViewCommand } from '../../commands';
-import { ContextKeys, CoreCommands } from '../../constants';
+import { ContextKeys } from '../../constants';
 import type { Container } from '../../container';
 import { emojify } from '../../emojis';
 import type { GitCommit } from '../../git/models/commit';
@@ -320,7 +320,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 				break;
 
 			case SearchCommandType.method:
-				onIpc(SearchCommandType, e, () => executeCoreCommand(CoreCommands.CustomEditorShowFindWidget));
+				onIpc(SearchCommandType, e, () => executeCoreCommand('editor.action.webvieweditor.showFind'));
 				break;
 
 			case StartCommandType.method:
@@ -582,7 +582,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		void showRebaseSwitchToTextWarningMessage();
 
 		// Open the text version of the document
-		void executeCoreCommand(CoreCommands.Open, context.document.uri, {
+		void executeCoreCommand('vscode.open', context.document.uri, {
 			override: false,
 			preview: false,
 		});
