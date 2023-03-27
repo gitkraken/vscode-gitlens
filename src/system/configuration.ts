@@ -1,7 +1,7 @@
 import type { ConfigurationChangeEvent, ConfigurationScope, Event, ExtensionContext } from 'vscode';
 import { ConfigurationTarget, EventEmitter, workspace } from 'vscode';
 import type { Config } from '../config';
-import { configPrefix } from '../constants';
+import { extensionPrefix } from '../constants';
 import { areEqual } from './object';
 
 interface ConfigurationOverrides {
@@ -34,7 +34,7 @@ export class Configuration {
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (!e.affectsConfiguration(configPrefix)) {
+		if (!e.affectsConfiguration(extensionPrefix)) {
 			this._onDidChangeOther.fire(e);
 
 			return;
@@ -78,13 +78,13 @@ export class Configuration {
 	): ConfigPathValue<S> {
 		const value =
 			defaultValue === undefined
-				? workspace.getConfiguration(configPrefix, scope).get<ConfigPathValue<S>>(section)!
-				: workspace.getConfiguration(configPrefix, scope).get<ConfigPathValue<S>>(section, defaultValue)!;
+				? workspace.getConfiguration(extensionPrefix, scope).get<ConfigPathValue<S>>(section)!
+				: workspace.getConfiguration(extensionPrefix, scope).get<ConfigPathValue<S>>(section, defaultValue)!;
 		return skipOverrides || this._overrides?.get == null ? value : this._overrides.get<S>(section, value);
 	}
 
 	getAll(skipOverrides?: boolean): Config {
-		const config = workspace.getConfiguration().get<Config>(configPrefix)!;
+		const config = workspace.getConfiguration().get<Config>(extensionPrefix)!;
 		return skipOverrides || this._overrides?.getAll == null ? config : this._overrides.getAll(config);
 	}
 
@@ -104,8 +104,8 @@ export class Configuration {
 		if (e == null) return true;
 
 		return Array.isArray(section)
-			? section.some(s => e.affectsConfiguration(`${configPrefix}.${s}`, scope!))
-			: e.affectsConfiguration(`${configPrefix}.${section}`, scope!);
+			? section.some(s => e.affectsConfiguration(`${extensionPrefix}.${s}`, scope!))
+			: e.affectsConfiguration(`${extensionPrefix}.${section}`, scope!);
 	}
 
 	changedAny<S extends string>(
@@ -122,8 +122,8 @@ export class Configuration {
 
 	inspect<S extends ConfigPath, V extends ConfigPathValue<S>>(section: S, scope?: ConfigurationScope | null) {
 		return workspace
-			.getConfiguration(configPrefix, scope)
-			.inspect<V>(section === undefined ? configPrefix : section);
+			.getConfiguration(extensionPrefix, scope)
+			.inspect<V>(section === undefined ? extensionPrefix : section);
 	}
 
 	inspectAny<S extends string, T>(section: S, scope?: ConfigurationScope | null) {
@@ -288,7 +288,7 @@ export class Configuration {
 		value: ConfigPathValue<S> | undefined,
 		target: ConfigurationTarget,
 	): Thenable<void> {
-		return workspace.getConfiguration(configPrefix).update(section, value, target);
+		return workspace.getConfiguration(extensionPrefix).update(section, value, target);
 	}
 
 	updateAny<S extends string, T>(

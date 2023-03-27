@@ -1,7 +1,7 @@
 import type { Disposable, Event, ExtensionContext, SecretStorageChangeEvent } from 'vscode';
 import { EventEmitter } from 'vscode';
 import type { ViewShowBranchComparison } from './config';
-import { storagePrefix } from './constants';
+import { extensionPrefix } from './constants';
 import type { Environment } from './container';
 import type { StoredSearchQuery } from './git/search';
 import type { Subscription } from './subscription';
@@ -51,18 +51,18 @@ export class Storage implements Disposable {
 	get<T extends keyof GlobalStorage>(key: T, defaultValue: GlobalStorage[T]): GlobalStorage[T];
 	@debug({ logThreshold: 50 })
 	get(key: keyof (GlobalStorage & DeprecatedGlobalStorage), defaultValue?: unknown): unknown | undefined {
-		return this.context.globalState.get(`${storagePrefix}:${key}`, defaultValue);
+		return this.context.globalState.get(`${extensionPrefix}:${key}`, defaultValue);
 	}
 
 	@debug({ logThreshold: 250 })
 	async delete(key: keyof (GlobalStorage & DeprecatedGlobalStorage)): Promise<void> {
-		await this.context.globalState.update(`${storagePrefix}:${key}`, undefined);
+		await this.context.globalState.update(`${extensionPrefix}:${key}`, undefined);
 		this._onDidChange.fire({ key: key, workspace: false });
 	}
 
 	@debug({ args: { 1: false }, logThreshold: 250 })
 	async store<T extends keyof GlobalStorage>(key: T, value: GlobalStorage[T] | undefined): Promise<void> {
-		await this.context.globalState.update(`${storagePrefix}:${key}`, value);
+		await this.context.globalState.update(`${extensionPrefix}:${key}`, value);
 		this._onDidChange.fire({ key: key, workspace: false });
 	}
 
@@ -90,18 +90,18 @@ export class Storage implements Disposable {
 		key: keyof (WorkspaceStorage & DeprecatedWorkspaceStorage),
 		defaultValue?: unknown,
 	): unknown | undefined {
-		return this.context.workspaceState.get(`${storagePrefix}:${key}`, defaultValue);
+		return this.context.workspaceState.get(`${extensionPrefix}:${key}`, defaultValue);
 	}
 
 	@debug({ logThreshold: 250 })
 	async deleteWorkspace(key: keyof (WorkspaceStorage & DeprecatedWorkspaceStorage)): Promise<void> {
-		await this.context.workspaceState.update(`${storagePrefix}:${key}`, undefined);
+		await this.context.workspaceState.update(`${extensionPrefix}:${key}`, undefined);
 		this._onDidChange.fire({ key: key, workspace: true });
 	}
 
 	@debug({ args: { 1: false }, logThreshold: 250 })
 	async storeWorkspace(key: keyof WorkspaceStorage, value: unknown | undefined): Promise<void> {
-		await this.context.workspaceState.update(`${storagePrefix}:${key}`, value);
+		await this.context.workspaceState.update(`${extensionPrefix}:${key}`, value);
 		this._onDidChange.fire({ key: key, workspace: true });
 	}
 }

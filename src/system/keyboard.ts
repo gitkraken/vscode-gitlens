@@ -1,5 +1,5 @@
 import { Disposable } from 'vscode';
-import { commandPrefix, keyPrefix } from '../constants';
+import { extensionPrefix } from '../constants';
 import { setContext } from '../context';
 import { registerCommand } from './command';
 import { log } from './decorators/log';
@@ -88,7 +88,7 @@ export class KeyboardScope implements Disposable {
 		}
 
 		mapping[key] = undefined;
-		await setContext(`${keyPrefix}:${key}`, false);
+		await setContext(`${extensionPrefix}:key:${key}`, false);
 	}
 
 	@log({
@@ -142,12 +142,12 @@ export class KeyboardScope implements Disposable {
 
 		mapping[key] = command;
 		if (!set) {
-			await setContext(`${keyPrefix}:${key}`, true);
+			await setContext(`${extensionPrefix}:key:${key}`, true);
 		}
 	}
 
 	private async updateKeyCommandsContext(mapping: KeyMapping) {
-		await Promise.all(keys.map(key => setContext(`${keyPrefix}:${key}`, Boolean(mapping?.[key]))));
+		await Promise.all(keys.map(key => setContext(`${extensionPrefix}:key:${key}`, Boolean(mapping?.[key]))));
 	}
 }
 
@@ -156,7 +156,7 @@ export class Keyboard implements Disposable {
 
 	constructor() {
 		const subscriptions = keys.map(key =>
-			registerCommand(`${commandPrefix}.key.${key}`, () => this.execute(key), this),
+			registerCommand(`${extensionPrefix}.key.${key}`, () => this.execute(key), this),
 		);
 		this._disposable = Disposable.from(...subscriptions);
 	}

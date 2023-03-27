@@ -1,7 +1,4 @@
-export const commandPrefix = 'gitlens';
-export const configPrefix = 'gitlens';
-export const keyPrefix = 'gitlens:key';
-export const storagePrefix = 'gitlens';
+export const extensionPrefix = 'gitlens';
 export const quickPickTitleMaxChars = 80;
 
 export const ImageMimetypes: Record<string, string> = {
@@ -56,35 +53,35 @@ export const enum CharCode {
 }
 
 export type Colors =
-	| 'gitlens.closedAutolinkedIssueIconColor'
-	| 'gitlens.closedPullRequestIconColor'
-	| 'gitlens.decorations.addedForegroundColor'
-	| 'gitlens.decorations.branchAheadForegroundColor'
-	| 'gitlens.decorations.branchBehindForegroundColor'
-	| 'gitlens.decorations.branchDivergedForegroundColor'
-	| 'gitlens.decorations.branchMissingUpstreamForegroundColor'
-	| 'gitlens.decorations.branchUpToDateForegroundColor'
-	| 'gitlens.decorations.branchUnpublishedForegroundColor'
-	| 'gitlens.decorations.copiedForegroundColor'
-	| 'gitlens.decorations.deletedForegroundColor'
-	| 'gitlens.decorations.ignoredForegroundColor'
-	| 'gitlens.decorations.modifiedForegroundColor'
-	| 'gitlens.decorations.renamedForegroundColor'
-	| 'gitlens.decorations.untrackedForegroundColor'
-	| 'gitlens.decorations.worktreeView.hasUncommittedChangesForegroundColor'
-	| 'gitlens.gutterBackgroundColor'
-	| 'gitlens.gutterForegroundColor'
-	| 'gitlens.gutterUncommittedForegroundColor'
-	| 'gitlens.lineHighlightBackgroundColor'
-	| 'gitlens.lineHighlightOverviewRulerColor'
-	| 'gitlens.mergedPullRequestIconColor'
-	| 'gitlens.openAutolinkedIssueIconColor'
-	| 'gitlens.openPullRequestIconColor'
-	| 'gitlens.trailingLineBackgroundColor'
-	| 'gitlens.trailingLineForegroundColor'
-	| 'gitlens.unpublishedChangesIconColor'
-	| 'gitlens.unpublishedCommitIconColor'
-	| 'gitlens.unpulledChangesIconColor';
+	| `${typeof extensionPrefix}.closedAutolinkedIssueIconColor`
+	| `${typeof extensionPrefix}.closedPullRequestIconColor`
+	| `${typeof extensionPrefix}.decorations.addedForegroundColor`
+	| `${typeof extensionPrefix}.decorations.branchAheadForegroundColor`
+	| `${typeof extensionPrefix}.decorations.branchBehindForegroundColor`
+	| `${typeof extensionPrefix}.decorations.branchDivergedForegroundColor`
+	| `${typeof extensionPrefix}.decorations.branchMissingUpstreamForegroundColor`
+	| `${typeof extensionPrefix}.decorations.branchUpToDateForegroundColor`
+	| `${typeof extensionPrefix}.decorations.branchUnpublishedForegroundColor`
+	| `${typeof extensionPrefix}.decorations.copiedForegroundColor`
+	| `${typeof extensionPrefix}.decorations.deletedForegroundColor`
+	| `${typeof extensionPrefix}.decorations.ignoredForegroundColor`
+	| `${typeof extensionPrefix}.decorations.modifiedForegroundColor`
+	| `${typeof extensionPrefix}.decorations.renamedForegroundColor`
+	| `${typeof extensionPrefix}.decorations.untrackedForegroundColor`
+	| `${typeof extensionPrefix}.decorations.worktreeView.hasUncommittedChangesForegroundColor`
+	| `${typeof extensionPrefix}.gutterBackgroundColor`
+	| `${typeof extensionPrefix}.gutterForegroundColor`
+	| `${typeof extensionPrefix}.gutterUncommittedForegroundColor`
+	| `${typeof extensionPrefix}.lineHighlightBackgroundColor`
+	| `${typeof extensionPrefix}.lineHighlightOverviewRulerColor`
+	| `${typeof extensionPrefix}.mergedPullRequestIconColor`
+	| `${typeof extensionPrefix}.openAutolinkedIssueIconColor`
+	| `${typeof extensionPrefix}.openPullRequestIconColor`
+	| `${typeof extensionPrefix}.trailingLineBackgroundColor`
+	| `${typeof extensionPrefix}.trailingLineForegroundColor`
+	| `${typeof extensionPrefix}.unpublishedChangesIconColor`
+	| `${typeof extensionPrefix}.unpublishedCommitIconColor`
+	| `${typeof extensionPrefix}.unpulledChangesIconColor`;
 
 export type CoreColors =
 	| 'editorOverviewRuler.addedForeground'
@@ -308,39 +305,39 @@ export type WebviewIds = 'graph' | 'settings' | 'timeline' | 'welcome' | 'focus'
 export type WebviewViewIds = 'commitDetails' | 'graph' | 'home' | 'timeline';
 
 export type ContextKeys =
-	| `gitlens:action:${string}`
-	| `${typeof keyPrefix}:${string}`
-	| `gitlens:webview:${WebviewIds | CustomEditorIds}:${'active' | 'focus' | 'inputFocus'}`
-	| `gitlens:webviewView:${WebviewViewIds}:${'active' | 'focus' | 'inputFocus'}`
-	| 'gitlens:activeFileStatus'
-	| 'gitlens:annotationStatus'
-	| 'gitlens:debugging'
-	| 'gitlens:disabledToggleCodeLens'
-	| 'gitlens:disabled'
-	| 'gitlens:enabled'
-	| 'gitlens:focus:focused' // TODO@eamodio do we need this?
-	| 'gitlens:hasConnectedRemotes'
-	| 'gitlens:hasRemotes'
-	| 'gitlens:hasRichRemotes'
-	| 'gitlens:hasVirtualFolders'
-	| 'gitlens:prerelease'
-	| 'gitlens:readonly'
-	| 'gitlens:untrusted'
-	| 'gitlens:views:canCompare'
-	| 'gitlens:views:canCompare:file'
-	| 'gitlens:views:commits:myCommitsOnly'
-	| 'gitlens:views:fileHistory:canPin'
-	| 'gitlens:views:fileHistory:cursorFollowing'
-	| 'gitlens:views:fileHistory:editorFollowing'
-	| 'gitlens:views:lineHistory:editorFollowing'
-	| 'gitlens:views:repositories:autoRefresh'
-	| 'gitlens:views:searchAndCompare:keepResults'
-	| 'gitlens:vsls'
-	| 'gitlens:plus'
-	| 'gitlens:plus:disallowedRepos'
-	| 'gitlens:plus:enabled'
-	| 'gitlens:plus:required'
-	| 'gitlens:plus:state';
+	| `${typeof extensionPrefix}:action:${string}`
+	| `${typeof extensionPrefix}:key:${string}`
+	| `${typeof extensionPrefix}:webview:${WebviewIds | CustomEditorIds}:${'active' | 'focus' | 'inputFocus'}`
+	| `${typeof extensionPrefix}:webviewView:${WebviewViewIds}:${'active' | 'focus' | 'inputFocus'}`
+	| `${typeof extensionPrefix}:activeFileStatus`
+	| `${typeof extensionPrefix}:annotationStatus`
+	| `${typeof extensionPrefix}:debugging`
+	| `${typeof extensionPrefix}:disabledToggleCodeLens`
+	| `${typeof extensionPrefix}:disabled`
+	| `${typeof extensionPrefix}:enabled`
+	| `${typeof extensionPrefix}:focus:focused` // TODO@eamodio do we need this
+	| `${typeof extensionPrefix}:hasConnectedRemotes`
+	| `${typeof extensionPrefix}:hasRemotes`
+	| `${typeof extensionPrefix}:hasRichRemotes`
+	| `${typeof extensionPrefix}:hasVirtualFolders`
+	| `${typeof extensionPrefix}:prerelease`
+	| `${typeof extensionPrefix}:readonly`
+	| `${typeof extensionPrefix}:untrusted`
+	| `${typeof extensionPrefix}:views:canCompare`
+	| `${typeof extensionPrefix}:views:canCompare:file`
+	| `${typeof extensionPrefix}:views:commits:myCommitsOnly`
+	| `${typeof extensionPrefix}:views:fileHistory:canPin`
+	| `${typeof extensionPrefix}:views:fileHistory:cursorFollowing`
+	| `${typeof extensionPrefix}:views:fileHistory:editorFollowing`
+	| `${typeof extensionPrefix}:views:lineHistory:editorFollowing`
+	| `${typeof extensionPrefix}:views:repositories:autoRefresh`
+	| `${typeof extensionPrefix}:views:searchAndCompare:keepResults`
+	| `${typeof extensionPrefix}:vsls`
+	| `${typeof extensionPrefix}:plus`
+	| `${typeof extensionPrefix}:plus:disallowedRepos`
+	| `${typeof extensionPrefix}:plus:enabled`
+	| `${typeof extensionPrefix}:plus:required`
+	| `${typeof extensionPrefix}:plus:state`;
 
 export type CoreCommands =
 	| 'cursorMove'
