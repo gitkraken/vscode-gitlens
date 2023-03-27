@@ -102,14 +102,16 @@ const template = html<PullRequestRow>`
 		<table-cell class="vcenter actions">
 			<a
 				href="#"
-				title="Open Worktree..."
-				aria-label="Open Worktree..."
+				tabindex="${x => (x.iscurrentWorktree ? -1 : null)}"
+				title="${x => (x.iscurrentWorktree ? 'On this Workree' : 'Open Worktree...')}"
+				aria-label="${x => (x.iscurrentWorktree ? 'On this Workree' : 'Open Worktree...')}"
 				@click="${(x, c) => x.onOpenWorktreeClick(c.event)}"
 				><code-icon icon="gl-worktrees-view"></code-icon></a
 			><a
 				href="#"
-				title="Switch to Branch..."
-				aria-label="Switch to Branch..."
+				tabindex="${x => (x.isCurrentBranch ? -1 : null)}"
+				title="${x => (x.isCurrentBranch ? 'On this Branch' : 'Switch to Branch...')}"
+				aria-label="${x => (x.isCurrentBranch ? 'On this Branch' : 'Switch to Branch...')}"
 				@click="${(x, c) => x.onSwitchBranchClick(c.event)}"
 				><code-icon icon="gl-switch"></code-icon
 			></a>
@@ -208,6 +210,11 @@ const styles = css`
 	.actions a:active {
 		background-color: var(--vscode-toolbar-activeBackground);
 	}
+	.actions a[tabindex='-1'] {
+		opacity: 0.5;
+		cursor: default;
+		pointer-events: none;
+	}
 
 	.actions a code-icon {
 		font-size: 1.6rem;
@@ -274,6 +281,12 @@ export class PullRequestRow extends FASTElement {
 
 	@observable
 	public checks?: boolean;
+
+	@observable
+	public isCurrentBranch = false;
+
+	@observable
+	public iscurrentWorktree = false;
 
 	@volatile
 	get lastUpdatedDate() {

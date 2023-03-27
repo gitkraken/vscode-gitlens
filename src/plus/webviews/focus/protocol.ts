@@ -22,6 +22,8 @@ export interface IssueResult extends SearchResultBase {
 
 export interface PullRequestResult extends SearchResultBase {
 	pullRequest: PullRequestShape;
+	isCurrentBranch: boolean;
+	iscurrentWorktree: boolean;
 }
 
 export interface RepoWithRichProvider {
