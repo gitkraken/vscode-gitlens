@@ -9,7 +9,6 @@ import type {
 } from 'vscode';
 import { Disposable, window } from 'vscode';
 import type { FileAnnotationType } from '../config';
-import { ContextKeys } from '../constants';
 import { setContext } from '../context';
 import { Logger } from '../system/logger';
 import type { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
@@ -116,7 +115,7 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 
 		this.status = AnnotationStatus.Computing;
 		if (editor === window.activeTextEditor) {
-			await setContext(ContextKeys.AnnotationStatus, this.status);
+			await setContext('gitlens:annotationStatus', this.status);
 		}
 
 		this.editor = editor;
@@ -131,7 +130,7 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 
 		this.status = AnnotationStatus.Computed;
 		if (editor === window.activeTextEditor) {
-			await setContext(ContextKeys.AnnotationStatus, this.status);
+			await setContext('gitlens:annotationStatus', this.status);
 		}
 	}
 

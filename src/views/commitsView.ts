@@ -7,7 +7,7 @@ import type {
 import { Disposable, ProgressLocation, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { CommitsViewConfig } from '../config';
 import { ViewFilesLayout, ViewShowBranchComparison } from '../config';
-import { Commands, ContextKeys, GlyphChars } from '../constants';
+import { Commands, GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
@@ -440,7 +440,7 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 	}
 
 	private setMyCommitsOnly(enabled: boolean) {
-		void setContext(ContextKeys.ViewsCommitsMyCommitsOnly, enabled);
+		void setContext('gitlens:views:commits:myCommitsOnly', enabled);
 		this.state.myCommitsOnly = enabled;
 		void this.refresh(true);
 	}

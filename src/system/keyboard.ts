@@ -1,5 +1,5 @@
 import { Disposable } from 'vscode';
-import { commandPrefix, ContextKeys } from '../constants';
+import { commandPrefix, keyPrefix } from '../constants';
 import { setContext } from '../context';
 import { registerCommand } from './command';
 import { log } from './decorators/log';
@@ -88,7 +88,7 @@ export class KeyboardScope implements Disposable {
 		}
 
 		mapping[key] = undefined;
-		await setContext(`${ContextKeys.KeyPrefix}${key}`, false);
+		await setContext(`${keyPrefix}:${key}`, false);
 	}
 
 	@log({
@@ -142,12 +142,12 @@ export class KeyboardScope implements Disposable {
 
 		mapping[key] = command;
 		if (!set) {
-			await setContext(`${ContextKeys.KeyPrefix}${key}`, true);
+			await setContext(`${keyPrefix}:${key}`, true);
 		}
 	}
 
 	private async updateKeyCommandsContext(mapping: KeyMapping) {
-		await Promise.all(keys.map(key => setContext(`${ContextKeys.KeyPrefix}${key}`, Boolean(mapping?.[key]))));
+		await Promise.all(keys.map(key => setContext(`${keyPrefix}:${key}`, Boolean(mapping?.[key]))));
 	}
 }
 

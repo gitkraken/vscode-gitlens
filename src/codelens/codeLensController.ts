@@ -1,6 +1,5 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, languages } from 'vscode';
-import { ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { configuration } from '../system/configuration';
@@ -49,7 +48,7 @@ export class GitCodeLensController implements Disposable {
 			}
 
 			this._canToggle = cfg.recentChange.enabled || cfg.authors.enabled;
-			void setContext(ContextKeys.DisabledToggleCodeLens, !this._canToggle);
+			void setContext('gitlens:disabledToggleCodeLens', !this._canToggle);
 		}
 	}
 

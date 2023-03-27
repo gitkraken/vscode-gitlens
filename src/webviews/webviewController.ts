@@ -8,8 +8,7 @@ import type {
 } from 'vscode';
 import { EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
 import { getNonce } from '@env/crypto';
-import type { Commands } from '../constants';
-import { ContextKeys } from '../constants';
+import type { Commands, CustomEditorIds, WebviewIds, WebviewViewIds } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { executeCommand } from '../system/command';
@@ -18,13 +17,7 @@ import { serialize } from '../system/decorators/serialize';
 import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
 import type { IpcMessage, IpcMessageParams, IpcNotificationType, WebviewFocusChangedParams } from './protocol';
 import { ExecuteCommandType, onIpc, WebviewFocusChangedCommandType, WebviewReadyCommandType } from './protocol';
-import type {
-	CustomEditorIds,
-	WebviewIds,
-	WebviewPanelDescriptor,
-	WebviewViewDescriptor,
-	WebviewViewIds,
-} from './webviewsController';
+import type { WebviewPanelDescriptor, WebviewViewDescriptor } from './webviewsController';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 const utf8TextDecoder = new TextDecoder('utf8');
@@ -145,9 +138,7 @@ export class WebviewController<State, SerializedState = State> implements Dispos
 		public readonly parent: WebviewPanel | WebviewView,
 		title: string,
 		private readonly fileName: string,
-		private readonly contextKeyPrefix:
-			| `${ContextKeys.WebviewPrefix}${WebviewIds}`
-			| `${ContextKeys.WebviewViewPrefix}${WebviewViewIds}`,
+		private readonly contextKeyPrefix: `gitlens:webview:${WebviewIds}` | `gitlens:webviewView:${WebviewViewIds}`,
 		private readonly trackingFeature: TrackedUsageFeatures,
 		resolveProvider: (
 			host: WebviewController<State, SerializedState>,
@@ -501,34 +492,24 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 }
 
 export function resetContextKeys(
-	contextKeyPrefix:
-		| `${ContextKeys.WebviewPrefix}${WebviewIds | CustomEditorIds}`
-		| `${ContextKeys.WebviewViewPrefix}${WebviewViewIds}`,
+	contextKeyPrefix: `gitlens:webview:${WebviewIds | CustomEditorIds}` | `gitlens:webviewView:${WebviewViewIds}`,
 ): void {
 	void setContext(`${contextKeyPrefix}:inputFocus`, false);
 	void setContext(`${contextKeyPrefix}:focus`, false);
-	if (contextKeyPrefix.startsWith(ContextKeys.WebviewPrefix)) {
-		void setContext(
-			`${contextKeyPrefix as `${ContextKeys.WebviewPrefix}${WebviewIds | CustomEditorIds}`}:active`,
-			false,
-		);
+	if (contextKeyPrefix.startsWith('gitlens:webview:')) {
+		void setContext(`${contextKeyPrefix as `gitlens:webview:${WebviewIds | CustomEditorIds}`}:active`, false);
 	}
 }
 
 export function setContextKeys(
-	contextKeyPrefix:
-		| `${ContextKeys.WebviewPrefix}${WebviewIds | CustomEditorIds}`
-		| `${ContextKeys.WebviewViewPrefix}${WebviewViewIds}`,
+	contextKeyPrefix: `gitlens:webview:${WebviewIds | CustomEditorIds}` | `gitlens:webviewView:${WebviewViewIds}`,
 	active?: boolean,
 	focus?: boolean,
 	inputFocus?: boolean,
 ): void {
-	if (contextKeyPrefix.startsWith(ContextKeys.WebviewPrefix)) {
+	if (contextKeyPrefix.startsWith('gitlens:webview:')) {
 		if (active != null) {
-			void setContext(
-				`${contextKeyPrefix as `${ContextKeys.WebviewPrefix}${WebviewIds | CustomEditorIds}`}:active`,
-				active,
-			);
+			void setContext(`${contextKeyPrefix as `gitlens:webview:${WebviewIds | CustomEditorIds}`}:active`, active);
 
 			if (!active) {
 				focus = false;

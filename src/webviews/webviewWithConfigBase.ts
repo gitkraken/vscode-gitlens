@@ -1,6 +1,6 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { ConfigurationTarget, Disposable } from 'vscode';
-import type { CoreConfiguration } from '../constants';
+import type { CoreConfiguration, WebviewIds, WebviewViewIds } from '../constants';
 import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import { GitCommit, GitCommitIdentity } from '../git/models/commit';
@@ -20,7 +20,6 @@ import {
 	UpdateConfigurationCommandType,
 } from './protocol';
 import type { WebviewController, WebviewProvider } from './webviewController';
-import type { WebviewIds, WebviewViewIds } from './webviewsController';
 
 export abstract class WebviewProviderWithConfigBase<State> implements WebviewProvider<State> {
 	private readonly _disposable: Disposable;

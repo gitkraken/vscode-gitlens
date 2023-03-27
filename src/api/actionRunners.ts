@@ -1,7 +1,7 @@
 import type { Event, QuickPickItem } from 'vscode';
 import { Disposable, EventEmitter, window } from 'vscode';
 import type { Config } from '../config';
-import { Commands, ContextKeys } from '../constants';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { registerCommand } from '../system/command';
@@ -326,7 +326,7 @@ export class ActionRunners implements Disposable {
 	}
 
 	private async _updateContextKeys(action: Actions) {
-		await setContext(`${ContextKeys.ActionPrefix}${action}`, this.count(action));
+		await setContext(`gitlens:action:${action}`, this.count(action));
 	}
 
 	private async _updateAllContextKeys() {

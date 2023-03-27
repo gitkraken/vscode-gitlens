@@ -1,5 +1,6 @@
 import type { TextEditor, ViewColumn } from 'vscode';
 import { commands, Disposable, Uri, window } from 'vscode';
+import type { WebviewIds, WebviewViewIds } from '../../../constants';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
 import type { FileSelectedEvent } from '../../../eventBus';
@@ -20,7 +21,6 @@ import { hasVisibleTextEditor, isTextEditor } from '../../../system/utils';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
-import type { WebviewIds, WebviewViewIds } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import type { Commit, Period, State } from './protocol';
 import { DidChangeNotificationType, OpenDataPointCommandType, UpdatePeriodCommandType } from './protocol';

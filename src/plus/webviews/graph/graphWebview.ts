@@ -12,7 +12,8 @@ import type {
 } from '../../../commands';
 import { parseCommandContext } from '../../../commands/base';
 import type { Config } from '../../../config';
-import { Commands, ContextKeys, GlyphChars } from '../../../constants';
+import type { WebviewIds, WebviewViewIds } from '../../../constants';
+import { Commands, GlyphChars } from '../../../constants';
 import type { Container } from '../../../container';
 import { getContext, onDidChangeContext } from '../../../context';
 import type { CommitSelectedEvent } from '../../../eventBus';
@@ -73,7 +74,6 @@ import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
 import type { IpcMessage, IpcMessageParams, IpcNotificationType } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
-import type { WebviewIds, WebviewViewIds } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import type {
 	DimMergeCommitsParams,
@@ -753,7 +753,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private async onGetMissingRefMetadata(e: GetMissingRefsMetadataParams) {
-		if (this._graph == null || this._refsMetadata === null || !getContext(ContextKeys.HasConnectedRemotes)) return;
+		if (this._graph == null || this._refsMetadata === null || !getContext('gitlens:hasConnectedRemotes')) return;
 
 		const repoPath = this._graph.repoPath;
 
@@ -1379,7 +1379,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			repo.startWatchingFileSystem(),
 			repo.onDidChangeFileSystem(this.onRepositoryFileSystemChanged, this),
 			onDidChangeContext(key => {
-				if (key !== ContextKeys.HasConnectedRemotes) return;
+				if (key !== 'gitlens:hasConnectedRemotes') return;
 
 				this.resetRefsMetadata();
 				this.updateRefsMetadata();
@@ -1892,7 +1892,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private resetRefsMetadata(): null | undefined {
-		this._refsMetadata = getContext(ContextKeys.HasConnectedRemotes) ? undefined : null;
+		this._refsMetadata = getContext('gitlens:hasConnectedRemotes') ? undefined : null;
 		return this._refsMetadata;
 	}
 

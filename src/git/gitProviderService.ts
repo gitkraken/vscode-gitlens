@@ -12,7 +12,7 @@ import type {
 import { Disposable, EventEmitter, FileType, ProgressLocation, Uri, window, workspace } from 'vscode';
 import { resetAvatarCache } from '../avatars';
 import type { CoreGitConfiguration } from '../constants';
-import { ContextKeys, GlyphChars, Schemes } from '../constants';
+import { GlyphChars, Schemes } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { AccessDeniedError, ProviderNotFoundError } from '../errors';
@@ -948,12 +948,12 @@ export class GitProviderService implements Disposable {
 
 		if (this._context.enabled !== enabled) {
 			this._context.enabled = enabled;
-			promises.push(setContext(ContextKeys.Enabled, enabled));
+			promises.push(setContext('gitlens:enabled', enabled));
 		}
 
 		if (this._context.disabled !== disabled) {
 			this._context.disabled = disabled;
-			promises.push(setContext(ContextKeys.Disabled, disabled));
+			promises.push(setContext('gitlens:disabled', disabled));
 		}
 
 		await Promise.allSettled(promises);
@@ -1045,9 +1045,9 @@ export class GitProviderService implements Disposable {
 			}
 
 			await Promise.allSettled([
-				setContext(ContextKeys.HasRemotes, hasRemotes),
-				setContext(ContextKeys.HasRichRemotes, hasRichRemotes),
-				setContext(ContextKeys.HasConnectedRemotes, hasConnectedRemotes),
+				setContext('gitlens:hasRemotes', hasRemotes),
+				setContext('gitlens:hasRichRemotes', hasRichRemotes),
+				setContext('gitlens:hasConnectedRemotes', hasConnectedRemotes),
 			]);
 		}
 

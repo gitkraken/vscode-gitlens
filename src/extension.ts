@@ -6,7 +6,7 @@ import { Api } from './api/api';
 import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';
 import type { CreatePullRequestOnRemoteCommandArgs, OpenPullRequestOnRemoteCommandArgs } from './commands';
 import { fromOutputLevel, OutputLevel } from './config';
-import { Commands, ContextKeys } from './constants';
+import { Commands } from './constants';
 import { Container } from './container';
 import { setContext } from './context';
 import { isGitUri } from './git/gitUri';
@@ -85,7 +85,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	}
 
 	if (!workspace.isTrusted) {
-		void setContext(ContextKeys.Untrusted, true);
+		void setContext('gitlens:untrusted', true);
 	}
 
 	setKeysForSync(context);
@@ -136,7 +136,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		if (!workspace.isTrusted) {
 			context.subscriptions.push(
 				workspace.onDidGrantWorkspaceTrust(() => {
-					void setContext(ContextKeys.Untrusted, undefined);
+					void setContext('gitlens:untrusted', undefined);
 					container.telemetry.setGlobalAttribute('workspace.isTrusted', workspace.isTrusted);
 				}),
 			);
@@ -166,11 +166,11 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	if (container.debugging) {
 		// Set context to only show some commands when using the pre-release version or debugging
-		void setContext(ContextKeys.Debugging, true);
-		void setContext(ContextKeys.PreRelease, true);
+		void setContext('gitlens:debugging', true);
+		void setContext('gitlens:prerelease', true);
 	} else if (container.prerelease) {
 		// Set context to only show some commands when using the pre-release version
-		void setContext(ContextKeys.PreRelease, true);
+		void setContext('gitlens:prerelease', true);
 	}
 
 	// Signal that the container is now ready

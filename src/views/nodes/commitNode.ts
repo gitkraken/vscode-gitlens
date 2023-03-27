@@ -2,7 +2,7 @@ import type { Command } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
 import { ViewFilesLayout } from '../../config';
-import { Colors, Commands, ContextKeys } from '../../constants';
+import { Colors, Commands } from '../../constants';
 import { getContext } from '../../context';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitBranch } from '../../git/models/branch';
@@ -81,7 +81,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 				!(this.view instanceof TagsView) &&
 				!(this.view instanceof FileHistoryView) &&
 				!this.unpublished &&
-				getContext(ContextKeys.HasConnectedRemotes) &&
+				getContext('gitlens:hasConnectedRemotes') &&
 				this.view.config.pullRequests.enabled &&
 				this.view.config.pullRequests.showForCommits
 			) {

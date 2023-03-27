@@ -2,7 +2,7 @@ import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, window } from 'vscode';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import { ViewsLayout } from '../../commands/setViewsLayout';
-import { ContextKeys } from '../../constants';
+import type { WebviewIds, WebviewViewIds } from '../../constants';
 import type { Container } from '../../container';
 import { getContext, onDidChangeContext } from '../../context';
 import type { RepositoriesVisibility } from '../../git/gitProviderService';
@@ -16,7 +16,6 @@ import { debounce } from '../../system/function';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
 import type { WebviewController, WebviewProvider } from '../webviewController';
-import type { WebviewIds, WebviewViewIds } from '../webviewsController';
 import type { CompleteStepParams, DismissBannerParams, DismissSectionParams, State } from './protocol';
 import {
 	CompletedActions,
@@ -41,7 +40,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		this._disposable = Disposable.from(
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			onDidChangeContext(key => {
-				if (key !== ContextKeys.Disabled) return;
+				if (key !== 'gitlens:disabled') return;
 				this.notifyExtensionEnabled();
 			}),
 			configuration.onDidChange(e => {
@@ -262,7 +261,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private getExtensionEnabled() {
-		return !getContext(ContextKeys.Disabled, false);
+		return !getContext('gitlens:disabled', false);
 	}
 
 	private notifyExtensionEnabled() {

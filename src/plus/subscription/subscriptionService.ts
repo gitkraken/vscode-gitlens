@@ -22,7 +22,7 @@ import {
 } from 'vscode';
 import { fetch, getProxyAgent } from '@env/fetch';
 import { getPlatform } from '@env/platform';
-import { Commands, ContextKeys } from '../../constants';
+import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { setContext } from '../../context';
 import { AccountValidationError } from '../../errors';
@@ -973,8 +973,8 @@ export class SubscriptionService implements Disposable {
 			state,
 		} = this._subscription;
 
-		void setContext(ContextKeys.Plus, actual.id != SubscriptionPlanId.Free ? actual.id : undefined);
-		void setContext(ContextKeys.PlusState, state);
+		void setContext('gitlens:plus', actual.id != SubscriptionPlanId.Free ? actual.id : undefined);
+		void setContext('gitlens:plus:state', state);
 	}
 
 	private async updateAccessContext(cancellation: CancellationToken): Promise<void> {
@@ -1003,9 +1003,9 @@ export class SubscriptionService implements Disposable {
 			}
 		}
 
-		void setContext(ContextKeys.PlusEnabled, Boolean(allowed) || plusFeatures);
-		void setContext(ContextKeys.PlusRequired, allowed === false);
-		void setContext(ContextKeys.PlusDisallowedRepos, disallowedRepos);
+		void setContext('gitlens:plus:enabled', Boolean(allowed) || plusFeatures);
+		void setContext('gitlens:plus:required', allowed === false);
+		void setContext('gitlens:plus:disallowedRepos', disallowedRepos);
 	}
 
 	private updateStatusBar(): void {

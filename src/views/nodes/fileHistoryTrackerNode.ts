@@ -258,6 +258,6 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 	setUri(uri?: GitUri) {
 		this._uri = uri ?? unknownGitUri;
-		void setContext(ContextKeys.ViewsFileHistoryCanPin, this.hasUri);
+		void setContext('gitlens:views:fileHistory:canPin', this.hasUri);
 	}
 }

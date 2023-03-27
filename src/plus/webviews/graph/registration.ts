@@ -1,5 +1,5 @@
 import { Disposable } from 'vscode';
-import { Commands, ContextKeys } from '../../../constants';
+import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
 import type { Repository } from '../../../git/models/repository';
 import { executeCommand, registerCommand } from '../../../system/command';
@@ -17,7 +17,7 @@ export function registerGraphWebviewPanel(controller: WebviewsController) {
 		fileName: 'graph.html',
 		iconPath: 'images/gitlens-icon.png',
 		title: 'Commit Graph',
-		contextKeyPrefix: `${ContextKeys.WebviewPrefix}graph`,
+		contextKeyPrefix: `gitlens:webview:graph`,
 		trackingFeature: 'graphWebview',
 		plusFeature: true,
 		panelOptions: {
@@ -38,7 +38,7 @@ export function registerGraphWebviewView(controller: WebviewsController) {
 	return controller.registerWebviewView<State>('gitlens.views.graph', {
 		fileName: 'graph.html',
 		title: 'Commit Graph',
-		contextKeyPrefix: `${ContextKeys.WebviewViewPrefix}graph`,
+		contextKeyPrefix: `gitlens:webviewView:graph`,
 		trackingFeature: 'graphView',
 		plusFeature: true,
 		canResolveWebviewProvider: function (_container, _id) {

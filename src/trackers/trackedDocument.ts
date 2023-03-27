@@ -1,6 +1,5 @@
 import type { Disposable, Event, TextDocument, TextEditor } from 'vscode';
 import { EventEmitter } from 'vscode';
-import { ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
@@ -108,7 +107,7 @@ export class TrackedDocument<T> implements Disposable {
 		if (this._requiresUpdate) {
 			await this.update();
 		}
-		void setContext(ContextKeys.ActiveFileStatus, this.getStatus());
+		void setContext('gitlens:activeFileStatus', this.getStatus());
 	}
 
 	is(document: TextDocument) {
@@ -188,7 +187,7 @@ export class TrackedDocument<T> implements Disposable {
 		if (active != null) {
 			const blameable = this.isBlameable;
 
-			void setContext(ContextKeys.ActiveFileStatus, this.getStatus());
+			void setContext('gitlens:activeFileStatus', this.getStatus());
 
 			if (!this.initializing && wasBlameable !== blameable) {
 				const e: DocumentBlameStateChangeEvent<T> = { editor: active, document: this, blameable: blameable };

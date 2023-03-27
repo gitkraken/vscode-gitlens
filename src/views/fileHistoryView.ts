@@ -1,6 +1,6 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import type { FileHistoryViewConfig } from '../config';
-import { Commands, ContextKeys } from '../constants';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import type { GitUri } from '../git/gitUri';
@@ -22,8 +22,8 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 	constructor(container: Container) {
 		super(container, 'gitlens.views.fileHistory', 'File History', 'fileHistoryView');
 
-		void setContext(ContextKeys.ViewsFileHistoryCursorFollowing, this._followCursor);
-		void setContext(ContextKeys.ViewsFileHistoryEditorFollowing, this._followEditor);
+		void setContext('gitlens:views:fileHistory:cursorFollowing', this._followCursor);
+		void setContext('gitlens:views:fileHistory:editorFollowing', this._followEditor);
 	}
 
 	protected override get showCollapseAll(): boolean {
@@ -132,7 +132,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		const uri = !this._followEditor && this.root?.hasUri ? this.root.uri : undefined;
 
 		this._followCursor = enabled;
-		void setContext(ContextKeys.ViewsFileHistoryCursorFollowing, enabled);
+		void setContext('gitlens:views:fileHistory:cursorFollowing', enabled);
 
 		this.title = this._followCursor ? 'Line History' : 'File History';
 
@@ -150,7 +150,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		if (!root.hasUri) return;
 
 		this._followEditor = enabled;
-		void setContext(ContextKeys.ViewsFileHistoryEditorFollowing, enabled);
+		void setContext('gitlens:views:fileHistory:editorFollowing', enabled);
 
 		root.setEditorFollowing(enabled);
 

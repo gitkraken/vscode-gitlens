@@ -1,6 +1,6 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import type { LineHistoryViewConfig } from '../config';
-import { Commands, ContextKeys } from '../constants';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { executeCommand } from '../system/command';
@@ -17,7 +17,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 	constructor(container: Container) {
 		super(container, 'gitlens.views.lineHistory', 'Line History', 'lineHistoryView');
 
-		void setContext(ContextKeys.ViewsLineHistoryEditorFollowing, true);
+		void setContext('gitlens:views:lineHistory:editorFollowing', true);
 	}
 
 	protected override get showCollapseAll(): boolean {
@@ -80,7 +80,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 		const root = this.ensureRoot();
 		if (!root.hasUri) return;
 
-		void setContext(ContextKeys.ViewsLineHistoryEditorFollowing, enabled);
+		void setContext('gitlens:views:lineHistory:editorFollowing', enabled);
 
 		this.root?.setEditorFollowing(enabled);
 
