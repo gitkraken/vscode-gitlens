@@ -1,4 +1,5 @@
-import { CoreGitConfiguration, GlyphChars } from '../../constants';
+import type { CoreGitConfiguration } from '../../constants';
+import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { getRemoteNameFromBranchName } from '../../git/models/branch';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
@@ -160,7 +161,8 @@ export class PushGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(state: PushStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
-		const useForceWithLease = configuration.getAny<boolean>(CoreGitConfiguration.UseForcePushWithLease) ?? false;
+		const useForceWithLease =
+			configuration.getAny<CoreGitConfiguration, boolean>('git.useForcePushWithLease') ?? false;
 
 		let step: QuickPickStep<FlagsQuickPickItem<Flags>>;
 

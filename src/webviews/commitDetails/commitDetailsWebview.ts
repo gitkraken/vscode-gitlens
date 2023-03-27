@@ -2,6 +2,7 @@ import type { CancellationToken, ConfigurationChangeEvent, TextDocumentShowOptio
 import { CancellationTokenSource, Disposable, Uri, ViewColumn, window } from 'vscode';
 import { serializeAutolink } from '../../annotations/autolinks';
 import type { CopyShaToClipboardCommandArgs } from '../../commands';
+import type { CoreConfiguration } from '../../constants';
 import { Commands, ContextKeys } from '../../constants';
 import type { Container } from '../../container';
 import { getContext } from '../../context';
@@ -114,7 +115,9 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			pullRequest: undefined,
 			dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
 			// indent: configuration.getAny('workbench.tree.indent') ?? 8,
-			indentGuides: configuration.getAny('workbench.tree.renderIndentGuides') ?? 'onHover',
+			indentGuides:
+				configuration.getAny<CoreConfiguration, Context['indentGuides']>('workbench.tree.renderIndentGuides') ??
+				'onHover',
 			navigationStack: {
 				count: 0,
 				position: 0,
@@ -203,14 +206,17 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 	}
 
 	private onOtherConfigurationChanged(e: ConfigurationChangeEvent) {
-		// if (e.affectsConfiguration('workbench.tree.indent')) {
+		// if (configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.indent')) {
 		// 	this.updatePendingContext({ indent: configuration.getAny('workbench.tree.indent') ?? 8 });
 		// 	this.updateState();
 		// }
 
-		if (e.affectsConfiguration('workbench.tree.renderIndentGuides')) {
+		if (configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.renderIndentGuides')) {
 			this.updatePendingContext({
-				indentGuides: configuration.getAny('workbench.tree.renderIndentGuides') ?? 'onHover',
+				indentGuides:
+					configuration.getAny<CoreConfiguration, Context['indentGuides']>(
+						'workbench.tree.renderIndentGuides',
+					) ?? 'onHover',
 			});
 			this.updateState();
 		}

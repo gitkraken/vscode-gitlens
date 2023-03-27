@@ -50,7 +50,7 @@ export class TelemetryService implements Disposable {
 	constructor(private readonly container: Container) {
 		container.context.subscriptions.push(
 			configuration.onDidChange(e => {
-				if (!e.affectsConfiguration('telemetry.enabled')) return;
+				if (!configuration.changed(e, 'telemetry.enabled')) return;
 
 				this.ensureTelemetry(container);
 			}),

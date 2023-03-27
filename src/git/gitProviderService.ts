@@ -11,7 +11,8 @@ import type {
 } from 'vscode';
 import { Disposable, EventEmitter, FileType, ProgressLocation, Uri, window, workspace } from 'vscode';
 import { resetAvatarCache } from '../avatars';
-import { ContextKeys, CoreGitConfiguration, GlyphChars, Schemes } from '../constants';
+import type { CoreGitConfiguration } from '../constants';
+import { ContextKeys, GlyphChars, Schemes } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { AccessDeniedError, ProviderNotFoundError } from '../errors';
@@ -505,9 +506,10 @@ export class GitProviderService implements Disposable {
 			this.updateContext();
 		}
 
-		const autoRepositoryDetection = configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
-			CoreGitConfiguration.AutoRepositoryDetection,
-		);
+		const autoRepositoryDetection = configuration.getAny<
+			CoreGitConfiguration,
+			boolean | 'subFolders' | 'openEditors'
+		>('git.autoRepositoryDetection');
 
 		if (this.container.telemetry.enabled) {
 			queueMicrotask(() =>
@@ -2311,8 +2313,8 @@ export class GitProviderService implements Disposable {
 				}
 
 				const autoRepositoryDetection =
-					configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
-						CoreGitConfiguration.AutoRepositoryDetection,
+					configuration.getAny<CoreGitConfiguration, boolean | 'subFolders' | 'openEditors'>(
+						'git.autoRepositoryDetection',
 					) ?? true;
 
 				const closed =

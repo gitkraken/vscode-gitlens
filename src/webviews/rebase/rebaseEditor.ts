@@ -8,6 +8,7 @@ import type {
 import { ConfigurationTarget, Disposable, Position, Range, Uri, window, workspace, WorkspaceEdit } from 'vscode';
 import { getNonce } from '@env/crypto';
 import { ShowCommitsInViewCommand } from '../../commands';
+import type { CoreConfiguration } from '../../constants';
 import { ContextKeys } from '../../constants';
 import type { Container } from '../../container';
 import { emojify } from '../../emojis';
@@ -138,6 +139,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 	get enabled(): boolean {
 		const associations = configuration.inspectAny<
+			CoreConfiguration,
 			{ [key: string]: string } | { viewType: string; filenamePattern: string }[]
 		>('workbench.editorAssociations')?.globalValue;
 		if (associations == null || associations.length === 0) return true;
@@ -163,6 +165,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		this._disableAfterNextUse = false;
 
 		const inspection = configuration.inspectAny<
+			CoreConfiguration,
 			{ [key: string]: string } | { viewType: string; filenamePattern: string }[]
 		>('workbench.editorAssociations');
 

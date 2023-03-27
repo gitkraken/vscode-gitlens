@@ -64,23 +64,23 @@ export class Configuration {
 		queueMicrotask(() => (this._overrides = undefined));
 	}
 
-	get<T extends ConfigPath>(section: T, scope?: ConfigurationScope | null): ConfigPathValue<T>;
-	get<T extends ConfigPath>(
-		section: T,
+	get<S extends ConfigPath>(section: S, scope?: ConfigurationScope | null): ConfigPathValue<S>;
+	get<S extends ConfigPath>(
+		section: S,
 		scope: ConfigurationScope | null | undefined,
-		defaultValue: NonNullable<ConfigPathValue<T>>,
-	): NonNullable<ConfigPathValue<T>>;
-	get<T extends ConfigPath>(
-		section: T,
+		defaultValue: NonNullable<ConfigPathValue<S>>,
+	): NonNullable<ConfigPathValue<S>>;
+	get<S extends ConfigPath>(
+		section: S,
 		scope?: ConfigurationScope | null,
-		defaultValue?: NonNullable<ConfigPathValue<T>>,
+		defaultValue?: NonNullable<ConfigPathValue<S>>,
 		skipOverrides?: boolean,
-	): ConfigPathValue<T> {
+	): ConfigPathValue<S> {
 		const value =
 			defaultValue === undefined
-				? workspace.getConfiguration(configPrefix, scope).get<ConfigPathValue<T>>(section)!
-				: workspace.getConfiguration(configPrefix, scope).get<ConfigPathValue<T>>(section, defaultValue)!;
-		return skipOverrides || this._overrides?.get == null ? value : this._overrides.get<T>(section, value);
+				? workspace.getConfiguration(configPrefix, scope).get<ConfigPathValue<S>>(section)!
+				: workspace.getConfiguration(configPrefix, scope).get<ConfigPathValue<S>>(section, defaultValue)!;
+		return skipOverrides || this._overrides?.get == null ? value : this._overrides.get<S>(section, value);
 	}
 
 	getAll(skipOverrides?: boolean): Config {
@@ -88,17 +88,17 @@ export class Configuration {
 		return skipOverrides || this._overrides?.getAll == null ? config : this._overrides.getAll(config);
 	}
 
-	getAny<T>(section: string, scope?: ConfigurationScope | null): T | undefined;
-	getAny<T>(section: string, scope: ConfigurationScope | null | undefined, defaultValue: T): T;
-	getAny<T>(section: string, scope?: ConfigurationScope | null, defaultValue?: T): T | undefined {
+	getAny<S extends string, T>(section: S, scope?: ConfigurationScope | null): T | undefined;
+	getAny<S extends string, T>(section: S, scope: ConfigurationScope | null | undefined, defaultValue: T): T;
+	getAny<S extends string, T>(section: S, scope?: ConfigurationScope | null, defaultValue?: T): T | undefined {
 		return defaultValue === undefined
 			? workspace.getConfiguration(undefined, scope).get<T>(section)
 			: workspace.getConfiguration(undefined, scope).get<T>(section, defaultValue);
 	}
 
-	changed<T extends ConfigPath>(
+	changed<S extends ConfigPath>(
 		e: ConfigurationChangeEvent | undefined,
-		section: T | T[],
+		section: S | S[],
 		scope?: ConfigurationScope | null | undefined,
 	): boolean {
 		if (e == null) return true;
@@ -108,17 +108,29 @@ export class Configuration {
 			: e.affectsConfiguration(`${configPrefix}.${section}`, scope!);
 	}
 
-	inspect<T extends ConfigPath, V extends ConfigPathValue<T>>(section: T, scope?: ConfigurationScope | null) {
+	changedAny<S extends string>(
+		e: ConfigurationChangeEvent | undefined,
+		section: S | S[],
+		scope?: ConfigurationScope | null | undefined,
+	): boolean {
+		if (e == null) return true;
+
+		return Array.isArray(section)
+			? section.some(s => e.affectsConfiguration(s, scope!))
+			: e.affectsConfiguration(section, scope!);
+	}
+
+	inspect<S extends ConfigPath, V extends ConfigPathValue<S>>(section: S, scope?: ConfigurationScope | null) {
 		return workspace
 			.getConfiguration(configPrefix, scope)
 			.inspect<V>(section === undefined ? configPrefix : section);
 	}
 
-	inspectAny<T>(section: string, scope?: ConfigurationScope | null) {
+	inspectAny<S extends string, T>(section: S, scope?: ConfigurationScope | null) {
 		return workspace.getConfiguration(undefined, scope).inspect<T>(section);
 	}
 
-	isUnset<T extends ConfigPath>(section: T, scope?: ConfigurationScope | null): boolean {
+	isUnset<S extends ConfigPath>(section: S, scope?: ConfigurationScope | null): boolean {
 		const inspect = this.inspect(section, scope)!;
 		if (inspect.workspaceFolderValue !== undefined) return false;
 		if (inspect.workspaceValue !== undefined) return false;
@@ -127,10 +139,10 @@ export class Configuration {
 		return true;
 	}
 
-	async migrate<T extends ConfigPath>(
+	async migrate<S extends ConfigPath>(
 		from: string,
-		to: T,
-		options: { fallbackValue?: ConfigPathValue<T>; migrationFn?(value: any): ConfigPathValue<T> },
+		to: S,
+		options: { fallbackValue?: ConfigPathValue<S>; migrationFn?(value: any): ConfigPathValue<S> },
 	): Promise<boolean> {
 		const inspection = this.inspect(from as any);
 		if (inspection === undefined) return false;
@@ -196,10 +208,10 @@ export class Configuration {
 		return migrated;
 	}
 
-	async migrateIfMissing<T extends ConfigPath>(
+	async migrateIfMissing<S extends ConfigPath>(
 		from: string,
-		to: T,
-		options: { migrationFn?(value: any): ConfigPathValue<T> },
+		to: S,
+		options: { migrationFn?(value: any): ConfigPathValue<S> },
 	): Promise<void> {
 		const fromInspection = this.inspect(from as any);
 		if (fromInspection === undefined) return;
@@ -263,25 +275,25 @@ export class Configuration {
 		}
 	}
 
-	matches<T extends ConfigPath>(match: T, section: ConfigPath, value: unknown): value is ConfigPathValue<T> {
+	matches<S extends ConfigPath>(match: S, section: ConfigPath, value: unknown): value is ConfigPathValue<S> {
 		return match === section;
 	}
 
-	name<T extends ConfigPath>(section: T): string {
+	name<S extends ConfigPath>(section: S): string {
 		return section;
 	}
 
-	update<T extends ConfigPath>(
-		section: T,
-		value: ConfigPathValue<T> | undefined,
+	update<S extends ConfigPath>(
+		section: S,
+		value: ConfigPathValue<S> | undefined,
 		target: ConfigurationTarget,
 	): Thenable<void> {
 		return workspace.getConfiguration(configPrefix).update(section, value, target);
 	}
 
-	updateAny(
-		section: string,
-		value: any,
+	updateAny<S extends string, T>(
+		section: S,
+		value: T,
 		target: ConfigurationTarget,
 		scope?: ConfigurationScope | null,
 	): Thenable<void> {
@@ -290,7 +302,7 @@ export class Configuration {
 			.update(section, value, target);
 	}
 
-	updateEffective<T extends ConfigPath>(section: T, value: ConfigPathValue<T> | undefined): Thenable<void> {
+	updateEffective<S extends ConfigPath>(section: S, value: ConfigPathValue<S> | undefined): Thenable<void> {
 		const inspect = this.inspect(section)!;
 		if (inspect.workspaceFolderValue !== undefined) {
 			if (value === inspect.workspaceFolderValue) return Promise.resolve(undefined);

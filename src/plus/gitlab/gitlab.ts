@@ -3,6 +3,7 @@ import { Disposable, Uri, window } from 'vscode';
 import type { RequestInit, Response } from '@env/fetch';
 import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
+import type { CoreConfiguration } from '../../constants';
 import type { Container } from '../../container';
 import {
 	AuthenticationError,
@@ -46,7 +47,7 @@ export class GitLabApi implements Disposable {
 				}
 			}),
 			configuration.onDidChangeOther(e => {
-				if (e.affectsConfiguration('http.proxy') || e.affectsConfiguration('http.proxyStrictSSL')) {
+				if (configuration.changedAny<CoreConfiguration>(e, ['http.proxy', 'http.proxyStrictSSL'])) {
 					this._projectIds.clear();
 					this._proxyAgents.clear();
 				}
