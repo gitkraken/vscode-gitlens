@@ -1,9 +1,9 @@
 import type { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
+import type { Keys } from '../constants';
 import type { Container } from '../container';
 import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive, isDirective } from '../quickpicks/items/directive';
 import { configuration } from '../system/configuration';
-import type { Keys } from '../system/keyboard';
 
 export * from './quickCommand.buttons';
 export * from './quickCommand.steps';
