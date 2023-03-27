@@ -1,6 +1,7 @@
-import type { ConfigurationChangeEvent } from 'vscode';
-import { ConfigurationTarget, Disposable } from 'vscode';
+import type { ConfigurationChangeEvent, Disposable } from 'vscode';
+import { ConfigurationTarget } from 'vscode';
 import type { CoreConfiguration, WebviewIds, WebviewViewIds } from '../constants';
+import { extensionPrefix } from '../constants';
 import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import { GitCommit, GitCommitIdentity } from '../git/models/commit';
@@ -29,10 +30,7 @@ export abstract class WebviewProviderWithConfigBase<State> implements WebviewPro
 		readonly id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
 		readonly host: WebviewController<State>,
 	) {
-		this._disposable = Disposable.from(
-			configuration.onDidChange(this.onConfigurationChanged, this),
-			configuration.onDidChangeOther(this.onOtherConfigurationChanged, this),
-		);
+		this._disposable = configuration.onDidChangeAny(this.onAnyConfigurationChanged, this);
 	}
 
 	dispose() {
@@ -174,16 +172,14 @@ export abstract class WebviewProviderWithConfigBase<State> implements WebviewPro
 		}
 	}
 
-	private onOtherConfigurationChanged(e: ConfigurationChangeEvent) {
-		const notify = configuration.changedAny<CustomSetting['name']>(e, [
-			...map(this.customSettings.values(), s => s.name),
-		]);
-		if (!notify) return;
+	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
+		if (!configuration.changedAny(e, extensionPrefix)) {
+			const notify = configuration.changedAny<CustomSetting['name']>(e, [
+				...map(this.customSettings.values(), s => s.name),
+			]);
+			if (!notify) return;
+		}
 
-		void this.notifyDidChangeConfiguration();
-	}
-
-	private onConfigurationChanged(_e: ConfigurationChangeEvent) {
 		void this.notifyDidChangeConfiguration();
 	}
 

@@ -123,10 +123,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			},
 		};
 
-		this._disposable = Disposable.from(
-			configuration.onDidChange(this.onConfigurationChanged, this),
-			configuration.onDidChangeOther(this.onOtherConfigurationChanged, this),
-		);
+		this._disposable = configuration.onDidChangeAny(this.onAnyConfigurationChanged, this);
 	}
 
 	dispose() {
@@ -204,24 +201,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		this.updateState(true);
 	}
 
-	private onOtherConfigurationChanged(e: ConfigurationChangeEvent) {
-		// if (configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.indent')) {
-		// 	this.updatePendingContext({ indent: configuration.getAny('workbench.tree.indent') ?? 8 });
-		// 	this.updateState();
-		// }
-
-		if (configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.renderIndentGuides')) {
-			this.updatePendingContext({
-				indentGuides:
-					configuration.getAny<CoreConfiguration, Context['indentGuides']>(
-						'workbench.tree.renderIndentGuides',
-					) ?? 'onHover',
-			});
-			this.updateState();
-		}
-	}
-
-	private onConfigurationChanged(e: ConfigurationChangeEvent) {
+	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'defaultDateFormat')) {
 			this.updatePendingContext({ dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma' });
 			this.updateState();
@@ -250,6 +230,21 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 				void this.updateCommit(this._context.commit, { force: true });
 			}
 
+			this.updateState();
+		}
+
+		// if (configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.indent')) {
+		// 	this.updatePendingContext({ indent: configuration.getAny('workbench.tree.indent') ?? 8 });
+		// 	this.updateState();
+		// }
+
+		if (configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.renderIndentGuides')) {
+			this.updatePendingContext({
+				indentGuides:
+					configuration.getAny<CoreConfiguration, Context['indentGuides']>(
+						'workbench.tree.renderIndentGuides',
+					) ?? 'onHover',
+			});
 			this.updateState();
 		}
 	}

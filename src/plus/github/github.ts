@@ -3,8 +3,8 @@ import { GraphqlResponseError } from '@octokit/graphql';
 import { RequestError } from '@octokit/request-error';
 import type { Endpoints, OctokitResponse, RequestParameters } from '@octokit/types';
 import type { HttpsProxyAgent } from 'https-proxy-agent';
-import type { Event } from 'vscode';
-import { Disposable, EventEmitter, Uri, window } from 'vscode';
+import type { Disposable, Event } from 'vscode';
+import { EventEmitter, Uri, window } from 'vscode';
 import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
 import type { CoreConfiguration } from '../../constants';
@@ -187,25 +187,21 @@ export class GitHubApi implements Disposable {
 		return this._onDidReauthenticate.event;
 	}
 
-	private _disposable: Disposable | undefined;
+	private readonly _disposable: Disposable;
 
 	constructor(_container: Container) {
-		this._disposable = Disposable.from(
-			configuration.onDidChange(e => {
-				if (configuration.changed(e, 'proxy') || configuration.changed(e, 'outputLevel')) {
-					this.resetCaches();
-				}
-			}),
-			configuration.onDidChangeOther(e => {
-				if (configuration.changedAny<CoreConfiguration>(e, ['http.proxy', 'http.proxyStrictSSL'])) {
-					this.resetCaches();
-				}
-			}),
-		);
+		this._disposable = configuration.onDidChangeAny(e => {
+			if (
+				configuration.changedAny<CoreConfiguration>(e, ['http.proxy', 'http.proxyStrictSSL']) ||
+				configuration.changed(e, ['outputLevel', 'proxy'])
+			) {
+				this.resetCaches();
+			}
+		});
 	}
 
 	dispose(): void {
-		this._disposable?.dispose();
+		this._disposable.dispose();
 	}
 
 	private resetCaches(): void {

@@ -1,5 +1,6 @@
 import type { HttpsProxyAgent } from 'https-proxy-agent';
-import { Disposable, Uri, window } from 'vscode';
+import type { Disposable } from 'vscode';
+import { Uri, window } from 'vscode';
 import type { RequestInit, Response } from '@env/fetch';
 import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
@@ -35,28 +36,27 @@ import type { GitLabCommit, GitLabIssue, GitLabMergeRequest, GitLabMergeRequestR
 import { fromGitLabMergeRequestREST, fromGitLabMergeRequestState, GitLabMergeRequestState } from './models';
 
 export class GitLabApi implements Disposable {
-	private _disposable: Disposable | undefined;
+	private readonly _disposable: Disposable;
 	private _projectIds = new Map<string, Promise<string | undefined>>();
 
 	constructor(_container: Container) {
-		this._disposable = Disposable.from(
-			configuration.onDidChange(e => {
-				if (configuration.changed(e, 'proxy') || configuration.changed(e, 'remotes')) {
-					this._projectIds.clear();
-					this._proxyAgents.clear();
-				}
-			}),
-			configuration.onDidChangeOther(e => {
-				if (configuration.changedAny<CoreConfiguration>(e, ['http.proxy', 'http.proxyStrictSSL'])) {
-					this._projectIds.clear();
-					this._proxyAgents.clear();
-				}
-			}),
-		);
+		this._disposable = configuration.onDidChangeAny(e => {
+			if (
+				configuration.changedAny<CoreConfiguration>(e, ['http.proxy', 'http.proxyStrictSSL']) ||
+				configuration.changed(e, ['proxy', 'remotes'])
+			) {
+				this.resetCaches();
+			}
+		});
 	}
 
 	dispose(): void {
-		this._disposable?.dispose();
+		this._disposable.dispose();
+	}
+
+	private resetCaches(): void {
+		this._projectIds.clear();
+		this._proxyAgents.clear();
 	}
 
 	private _proxyAgents = new Map<string, HttpsProxyAgent | null | undefined>();
