@@ -347,7 +347,7 @@ async function getAutoLinkedIssuesOrPullRequests(message: string, remotes: GitRe
 				// 		scope,
 				// 		`${GlyphChars.Dot} ${count} issue/pull request queries completed; refreshing...`,
 				// 	);
-				// 	void executeCoreCommand(CoreCommands.EditorShowHover);
+				// 	void executeCoreCommand('editor.action.showHover');
 				// });
 
 				return autolinks;

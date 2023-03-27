@@ -3,7 +3,7 @@ import { Disposable, EventEmitter, ProgressLocation, RelativePattern, Uri, windo
 import { md5 } from '@env/crypto';
 import { ForcePushMode } from '../../@types/vscode.git.enums';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
-import { CoreGitCommands, CoreGitConfiguration, Schemes } from '../../constants';
+import { CoreGitConfiguration, Schemes } from '../../constants';
 import type { Container } from '../../container';
 import type { FeatureAccess, Features, PlusFeatures } from '../../features';
 import { showCreatePullRequestPrompt, showGenericErrorMessage } from '../../messages';
@@ -580,7 +580,7 @@ export class Repository implements Disposable {
 			if (options?.branch != null) {
 				await this.container.git.fetch(this.path, options);
 			} else {
-				void (await executeCoreGitCommand(CoreGitCommands.Fetch, this.path));
+				void (await executeCoreGitCommand('git.fetch', this.path));
 			}
 
 			this.fireChange(RepositoryChange.Unknown);
@@ -803,10 +803,7 @@ export class Repository implements Disposable {
 		try {
 			const upstream = await this.hasUpstreamBranch();
 			if (upstream) {
-				void (await executeCoreGitCommand(
-					options?.rebase ? CoreGitCommands.PullRebase : CoreGitCommands.Pull,
-					this.path,
-				));
+				void (await executeCoreGitCommand(options?.rebase ? 'git.pullRebase' : 'git.pull', this.path));
 			} else if (configuration.getAny<boolean>(CoreGitConfiguration.FetchOnPull, Uri.file(this.path))) {
 				await this.container.git.fetch(this.path);
 			}
@@ -913,10 +910,7 @@ export class Repository implements Disposable {
 					options?.force ? ForcePushMode.ForceWithLease : undefined,
 				);
 			} else {
-				void (await executeCoreGitCommand(
-					options?.force ? CoreGitCommands.PushForce : CoreGitCommands.Push,
-					this.path,
-				));
+				void (await executeCoreGitCommand(options?.force ? 'git.pushForce' : 'git.push', this.path));
 			}
 
 			this.fireChange(RepositoryChange.Unknown);

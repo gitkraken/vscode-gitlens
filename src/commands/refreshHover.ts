@@ -1,4 +1,4 @@
-import { Commands, CoreCommands } from '../constants';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { command, executeCoreCommand } from '../system/command';
 import { Command } from './base';
@@ -11,6 +11,6 @@ export class RefreshHoverCommand extends Command {
 
 	async execute() {
 		// TODO@eamodio figure out how to really refresh/update a hover
-		await executeCoreCommand(CoreCommands.EditorShowHover);
+		await executeCoreCommand('editor.action.showHover');
 	}
 }

@@ -2,7 +2,7 @@ import type { CancellationToken, ConfigurationChangeEvent, TextDocumentShowOptio
 import { CancellationTokenSource, Disposable, Uri, ViewColumn, window } from 'vscode';
 import { serializeAutolink } from '../../annotations/autolinks';
 import type { CopyShaToClipboardCommandArgs } from '../../commands';
-import { Commands, ContextKeys, CoreCommands } from '../../constants';
+import { Commands, ContextKeys } from '../../constants';
 import type { Container } from '../../container';
 import { getContext } from '../../context';
 import type { CommitSelectedEvent } from '../../eventBus';
@@ -326,7 +326,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 							this.showCommitActions();
 							break;
 						case 'scm':
-							void executeCoreCommand(CoreCommands.ShowSCM);
+							void executeCoreCommand('workbench.view.scm');
 							break;
 						case 'sha':
 							if (params.alt) {

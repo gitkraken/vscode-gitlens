@@ -2,7 +2,7 @@ import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, window } from 'vscode';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import { ViewsLayout } from '../../commands/setViewsLayout';
-import { ContextKeys, CoreCommands } from '../../constants';
+import { ContextKeys } from '../../constants';
 import type { Container } from '../../container';
 import { getContext, onDidChangeContext } from '../../context';
 import type { RepositoriesVisibility } from '../../git/gitProviderService';
@@ -124,7 +124,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 					void this.notifyDidChangeData();
 				}
 
-				await executeCoreCommand(CoreCommands.ShowSCM);
+				await executeCoreCommand('workbench.view.scm');
 			}),
 		];
 	}

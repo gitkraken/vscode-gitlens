@@ -1,4 +1,3 @@
-import { CoreCommands } from '../../constants';
 import type { Container } from '../../container';
 import type { GitContributor } from '../../git/models/contributor';
 import type { Repository } from '../../git/models/repository';
@@ -85,7 +84,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 		}
 
 		repo.inputBox.value = message;
-		void (await executeCoreCommand(CoreCommands.ShowSCM));
+		void (await executeCoreCommand('workbench.view.scm'));
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {

@@ -12,7 +12,7 @@ import type {
 } from '../../../commands';
 import { parseCommandContext } from '../../../commands/base';
 import type { Config } from '../../../config';
-import { Commands, ContextKeys, CoreCommands, CoreGitCommands, GlyphChars } from '../../../constants';
+import { Commands, ContextKeys, GlyphChars } from '../../../constants';
 import type { Container } from '../../../container';
 import { getContext, onDidChangeContext } from '../../../context';
 import type { CommitSelectedEvent } from '../../../eventBus';
@@ -2112,7 +2112,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
 
-		return executeCoreCommand(CoreCommands.ShowSCM);
+		return executeCoreCommand('workbench.view.scm');
 	}
 
 	@debug()
@@ -2270,7 +2270,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			return;
 		}
 
-		return void executeCoreGitCommand(CoreGitCommands.UndoCommit, ref.repoPath);
+		return void executeCoreGitCommand('git.undoCommit', ref.repoPath);
 	}
 
 	@debug()

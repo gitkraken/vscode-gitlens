@@ -8,7 +8,7 @@ import type {
 	OpenFileAtRevisionCommandArgs,
 } from '../commands';
 import { FileAnnotationType, ViewShowBranchComparison } from '../config';
-import { Commands, ContextKeys, CoreCommands, CoreGitCommands } from '../constants';
+import { Commands, ContextKeys } from '../constants';
 import type { Container } from '../container';
 import { setContext } from '../context';
 import { browseAtRevision } from '../git/actions';
@@ -549,7 +549,7 @@ export class ViewCommands {
 	private openInTerminal(node: RepositoryNode | RepositoryFolderNode) {
 		if (!(node instanceof RepositoryNode) && !(node instanceof RepositoryFolderNode)) return Promise.resolve();
 
-		return executeCoreCommand(CoreCommands.OpenInTerminal, Uri.file(node.repo.path));
+		return executeCoreCommand('openInTerminal', Uri.file(node.repo.path));
 	}
 
 	@debug()
@@ -602,7 +602,7 @@ export class ViewCommands {
 	@debug()
 	private publishRepository(node: BranchNode | BranchTrackingStatusNode) {
 		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
-			return executeCoreGitCommand(CoreGitCommands.Publish, Uri.file(node.repoPath));
+			return executeCoreGitCommand('git.publish', Uri.file(node.repoPath));
 		}
 		return Promise.resolve();
 	}
@@ -823,7 +823,7 @@ export class ViewCommands {
 			return;
 		}
 
-		await executeCoreGitCommand(CoreGitCommands.UndoCommit, node.repoPath);
+		await executeCoreGitCommand('git.undoCommit', node.repoPath);
 	}
 
 	@debug()

@@ -6,7 +6,7 @@ import { Api } from './api/api';
 import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';
 import type { CreatePullRequestOnRemoteCommandArgs, OpenPullRequestOnRemoteCommandArgs } from './commands';
 import { fromOutputLevel, OutputLevel } from './config';
-import { Commands, ContextKeys, CoreCommands } from './constants';
+import { Commands, ContextKeys } from './constants';
 import { Container } from './container';
 import { setContext } from './context';
 import { isGitUri } from './git/gitUri';
@@ -351,5 +351,5 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 function uninstallDeprecatedAuthentication() {
 	if (extensions.getExtension('gitkraken.gitkraken-authentication') == null) return;
 
-	void executeCoreCommand(CoreCommands.UninstallExtension, 'gitkraken.gitkraken-authentication');
+	void executeCoreCommand('workbench.extensions.uninstallExtension', 'gitkraken.gitkraken-authentication');
 }

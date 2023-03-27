@@ -20,7 +20,7 @@ import type {
 } from '../commands';
 import type { CodeLensConfig, CodeLensLanguageScope } from '../config';
 import { CodeLensCommand, CodeLensScopes, FileAnnotationType } from '../config';
-import { Commands, CoreCommands, Schemes } from '../constants';
+import { Commands, Schemes } from '../constants';
 import type { Container } from '../container';
 import type { GitUri } from '../git/gitUri';
 import type { GitBlame, GitBlameLines } from '../git/models/blame';
@@ -150,7 +150,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 				[blame, symbols] = await Promise.all([
 					this.container.git.getBlame(gitUri, document),
 					executeCoreCommand<[Uri], SymbolInformation[]>(
-						CoreCommands.ExecuteDocumentSymbolProvider,
+						'vscode.executeDocumentSymbolProvider',
 						document.uri,
 					),
 				]);
@@ -161,10 +161,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			let tracked;
 			[tracked, symbols] = await Promise.all([
 				this.container.git.isTracked(gitUri),
-				executeCoreCommand<[Uri], SymbolInformation[]>(
-					CoreCommands.ExecuteDocumentSymbolProvider,
-					document.uri,
-				),
+				executeCoreCommand<[Uri], SymbolInformation[]>('vscode.executeDocumentSymbolProvider', document.uri),
 			]);
 
 			if (!tracked) return lenses;
