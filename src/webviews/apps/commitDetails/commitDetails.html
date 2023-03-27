@@ -87,7 +87,7 @@
 						/>
 					</svg>
 					<a
-						class="commit-banner__icon commit-details__commit-action"
+						class="commit-banner__icon commit-action"
 						href="#"
 						data-action="dismiss-banner"
 						aria-label="Dismiss"
@@ -97,36 +97,31 @@
 				</div>
 				<div class="commit-details__top">
 					<div class="commit-details__top-menu">
-						<div class="commit-details__top-actions">
-							<div class="commit-details__top-actions-left">
+						<div class="commit-details__actionbar">
+							<div class="commit-details__actionbar-group">
 								<a
-									class="commit-details__commit-action"
-									href="#"
-									data-action="back"
-									aria-label="Back"
-									title="Back"
-									><code-icon icon="arrow-left" data-region="commit-back"></code-icon
-								></a>
-								<a
-									class="commit-details__commit-action"
-									href="#"
-									data-action="forward"
-									aria-label="Forward"
-									title="Forward"
-									><code-icon icon="arrow-right" data-region="commit-forward"></code-icon
-								></a>
-								<a
-									class="commit-details__commit-action"
+									class="commit-action"
 									href="#"
 									data-action="pin"
 									aria-label="Pin this Commit"
 									title="Pin this Commit"
 									><code-icon icon="pin" data-region="commit-pin"></code-icon
 								></a>
-							</div>
-							<div class="commit-details__top-actions-right">
+								<a class="commit-action" href="#" data-action="back" aria-label="Back" title="Back"
+									><code-icon icon="arrow-left" data-region="commit-back"></code-icon
+								></a>
 								<a
-									class="commit-details__commit-action"
+									class="commit-action"
+									href="#"
+									data-action="forward"
+									aria-label="Forward"
+									title="Forward"
+									><code-icon icon="arrow-right" data-region="commit-forward"></code-icon
+								></a>
+							</div>
+							<div class="commit-details__actionbar-group">
+								<a
+									class="commit-action"
 									href="#"
 									data-action="commit-actions"
 									data-action-type="sha"
@@ -139,7 +134,7 @@
 									<span class="commit-details__sha" data-region="shortsha"></span
 								></a>
 								<a
-									class="commit-details__commit-action"
+									class="commit-action"
 									href="#"
 									data-action="commit-actions"
 									data-action-type="scm"
@@ -148,7 +143,7 @@
 									><code-icon icon="source-control"></code-icon
 								></a>
 								<a
-									class="commit-details__commit-action"
+									class="commit-action"
 									href="#"
 									data-action="commit-actions"
 									data-action-type="graph"
@@ -157,7 +152,7 @@
 									><code-icon icon="gl-graph"></code-icon
 								></a>
 								<a
-									class="commit-details__commit-action"
+									class="commit-action"
 									href="#"
 									data-action="commit-actions"
 									data-action-type="more"

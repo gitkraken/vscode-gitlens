@@ -342,42 +342,91 @@ ul {
 	}
 }
 
+.commit-action {
+	display: inline-flex;
+	justify-content: center;
+	align-items: center;
+	height: 21px;
+	border-radius: 0.25em;
+	color: inherit;
+	padding: 0.2rem;
+	vertical-align: text-bottom;
+	text-decoration: none;
+
+	> * {
+		pointer-events: none;
+	}
+
+	&:focus {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: -1px;
+	}
+
+	&:hover {
+		color: var(--vscode-foreground);
+		text-decoration: none;
+
+		.vscode-dark & {
+			background-color: var(--color-background--lighten-15);
+		}
+		.vscode-light & {
+			background-color: var(--color-background--darken-15);
+		}
+	}
+
+	&.is-active {
+		.vscode-dark & {
+			background-color: var(--color-background--lighten-10);
+		}
+		.vscode-light & {
+			background-color: var(--color-background--darken-10);
+		}
+	}
+
+	&.is-disabled {
+		opacity: 0.5;
+		pointer-events: none;
+	}
+
+	&.is-hidden {
+		display: none;
+	}
+}
+
 .commit-details {
 	&__top {
 		position: sticky;
 		top: 0;
 		z-index: 1;
 		padding: {
-			top: 0;
+			top: 0.1rem;
 			left: var(--gitlens-gutter-width);
 			right: var(--gitlens-scrollbar-gutter-width);
 			bottom: 0.5rem;
 		}
 		background-color: var(--vscode-sideBar-background);
+	}
 
-		&-menu {
+	&__actionbar {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+
+		&-group {
 			display: flex;
-			flex-direction: row;
-			flex-wrap: wrap;
-			align-items: flex-start;
-			justify-content: space-between;
+			flex: none;
 		}
 
-		&-actions {
-			display: flex;
-			flex-direction: row;
-			flex-wrap: nowrap;
-			justify-content: space-between;
-			flex: 100% 0 0;
+		&.is-pinned {
+			background-color: var(--color-alert-warningBackground);
+			box-shadow: 0 0 0 0.1rem var(--color-alert-warningBorder);
+			border-radius: 0.3rem;
 
-			&-left {
-				display: flex;
-				flex: 100% 2 1;
-			}
-
-			&-right {
-				display: flex;
-				flex: auto 0 0;
+			.commit-action:hover,
+			.commit-action.is-active {
+				background-color: var(--color-alert-warningHoverBackground);
 			}
 		}
 	}
@@ -408,56 +457,6 @@ ul {
 		strong {
 			font-weight: 600;
 			font-size: 1.4rem;
-		}
-	}
-
-	&__commit-action {
-		display: inline-flex;
-		justify-content: center;
-		align-items: center;
-		height: 21px;
-		border-radius: 0.25em;
-		color: inherit;
-		padding: 0.2rem;
-		vertical-align: text-bottom;
-		text-decoration: none;
-
-		> * {
-			pointer-events: none;
-		}
-
-		&:focus {
-			outline: 1px solid var(--vscode-focusBorder);
-			outline-offset: -1px;
-		}
-
-		&:hover {
-			color: var(--vscode-foreground);
-			text-decoration: none;
-			.vscode-dark & {
-				background-color: var(--color-background--lighten-15);
-			}
-			.vscode-light & {
-				background-color: var(--color-background--darken-15);
-			}
-		}
-
-		&.is-active {
-			.vscode-dark & {
-				background-color: var(--color-background--lighten-10);
-			}
-			.vscode-light & {
-				background-color: var(--color-background--darken-10);
-			}
-		}
-
-		&.is-disabled {
-			opacity: 0.5;
-			pointer-events: none;
-		}
-
-		&.is-hidden {
-			display: none;
 		}
 	}
 
