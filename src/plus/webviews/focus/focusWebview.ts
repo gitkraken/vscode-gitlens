@@ -19,6 +19,7 @@ import { createReference } from '../../../git/models/reference';
 import type { GitRemote } from '../../../git/models/remote';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+import type { GitWorktree } from '../../../git/models/worktree';
 import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
 import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
 import type { Subscription } from '../../../subscription';
@@ -45,6 +46,8 @@ interface RepoWithRichRemote {
 
 interface SearchedPullRequestWithRemote extends SearchedPullRequest {
 	repoAndRemote: RepoWithRichRemote;
+	isCurrentBranch?: boolean;
+	isCurrentWorktree?: boolean;
 }
 
 export class FocusWebviewProvider implements WebviewProvider<State> {
@@ -267,6 +270,8 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		const serializedPrs = prs.map(pr => ({
 			pullRequest: serializePullRequest(pr.pullRequest),
 			reasons: pr.reasons,
+			isCurrentBranch: pr.isCurrentBranch ?? false,
+			iscurrentWorktree: pr.isCurrentWorktree ?? false,
 		}));
 
 		const issues = await this.getMyIssues(connectedRepos);
@@ -333,15 +338,42 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		}
 	}
 
+	private async getWorktreeForPullRequest(
+		searchedPullRequest: SearchedPullRequestWithRemote,
+	): Promise<GitWorktree | undefined> {
+		const worktree = await this.container.git.getWorktree(
+			searchedPullRequest.repoAndRemote.remote.repoPath,
+			w => w.branch === searchedPullRequest.pullRequest.refs!.head.branch,
+		);
+		return worktree;
+	}
+
 	private async getMyPullRequests(richRepos: RepoWithRichRemote[]): Promise<SearchedPullRequestWithRemote[]> {
-		const allPrs = [];
+		const allPrs: SearchedPullRequestWithRemote[] = [];
 		for (const richRepo of richRepos) {
 			const { remote } = richRepo;
 			const prs = await this.container.git.getMyPullRequests(remote);
 			if (prs == null) {
 				continue;
 			}
-			allPrs.push(...prs.filter(pr => pr.reasons.length > 0).map(pr => ({ ...pr, repoAndRemote: richRepo })));
+
+			for (const pr of prs) {
+				if (pr.reasons.length === 0) {
+					continue;
+				}
+				const entry: SearchedPullRequestWithRemote = {
+					...pr,
+					repoAndRemote: richRepo,
+					isCurrentWorktree: false,
+					isCurrentBranch: false,
+				};
+				const worktree = await this.getWorktreeForPullRequest(entry);
+				entry.isCurrentWorktree = worktree?.opened === true;
+				const branch = await richRepo.repo.getBranch();
+				entry.isCurrentBranch = branch?.name === entry.pullRequest.refs!.head.branch;
+
+				allPrs.push(entry);
+			}
 		}
 
 		function getScore(pr: SearchedPullRequest) {
