@@ -3,6 +3,7 @@ import type { Disposable } from 'vscode';
 import { version as codeVersion, env } from 'vscode';
 import { getProxyAgent } from '@env/fetch';
 import { getPlatform } from '@env/platform';
+import type { TelemetryEvents } from '../constants';
 import type { Container } from '../container';
 import { configuration } from '../system/configuration';
 
@@ -30,7 +31,7 @@ export interface TelemetryProvider extends Disposable {
 
 interface QueuedEvent {
 	type: 'sendEvent';
-	name: string;
+	name: TelemetryEvents;
 	data?: Record<string, AttributeValue | null | undefined>;
 	global: Map<string, AttributeValue>;
 	startTime: TimeInput;
@@ -129,7 +130,7 @@ export class TelemetryService implements Disposable {
 	}
 
 	sendEvent(
-		name: string,
+		name: TelemetryEvents,
 		data?: Record<string, AttributeValue | null | undefined>,
 		startTime?: TimeInput,
 		endTime?: TimeInput,
@@ -152,7 +153,7 @@ export class TelemetryService implements Disposable {
 	}
 
 	startEvent(
-		name: string,
+		name: TelemetryEvents,
 		data?: Record<string, AttributeValue | null | undefined>,
 		startTime?: TimeInput,
 	): Disposable | undefined {
