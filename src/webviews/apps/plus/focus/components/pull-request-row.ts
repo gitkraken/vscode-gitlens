@@ -103,15 +103,15 @@ const template = html<PullRequestRow>`
 			<a
 				href="#"
 				tabindex="${x => (x.iscurrentWorktree ? -1 : null)}"
-				title="${x => (x.iscurrentWorktree ? 'On this Workree' : 'Open Worktree...')}"
-				aria-label="${x => (x.iscurrentWorktree ? 'On this Workree' : 'Open Worktree...')}"
+				title="${x => (x.iscurrentWorktree ? 'Already on this workree' : 'Open Worktree...')}"
+				aria-label="${x => (x.iscurrentWorktree ? 'Already on this workree' : 'Open Worktree...')}"
 				@click="${(x, c) => x.onOpenWorktreeClick(c.event)}"
 				><code-icon icon="gl-worktrees-view"></code-icon></a
 			><a
 				href="#"
 				tabindex="${x => (x.isCurrentBranch ? -1 : null)}"
-				title="${x => (x.isCurrentBranch ? 'On this Branch' : 'Switch to Branch...')}"
-				aria-label="${x => (x.isCurrentBranch ? 'On this Branch' : 'Switch to Branch...')}"
+				title="${x => (x.isCurrentBranch ? 'Already on this branch' : 'Switch to Branch...')}"
+				aria-label="${x => (x.isCurrentBranch ? 'Already on this branch' : 'Switch to Branch...')}"
 				@click="${(x, c) => x.onSwitchBranchClick(c.event)}"
 				><code-icon icon="gl-switch"></code-icon
 			></a>
@@ -213,7 +213,6 @@ const styles = css`
 	.actions a[tabindex='-1'] {
 		opacity: 0.5;
 		cursor: default;
-		pointer-events: none;
 	}
 
 	.actions a code-icon {
@@ -358,11 +357,21 @@ export class PullRequestRow extends FASTElement {
 		return assignees;
 	}
 
-	onOpenWorktreeClick(_e: Event) {
+	onOpenWorktreeClick(e: Event) {
+		if (this.iscurrentWorktree) {
+			e.preventDefault();
+			e.stopImmediatePropagation();
+			return;
+		}
 		this.$emit('open-worktree', this.pullRequest!);
 	}
 
-	onSwitchBranchClick(_e: Event) {
+	onSwitchBranchClick(e: Event) {
+		if (this.isCurrentBranch) {
+			e.preventDefault();
+			e.stopImmediatePropagation();
+			return;
+		}
 		this.$emit('switch-branch', this.pullRequest!);
 	}
 }
