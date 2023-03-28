@@ -173,6 +173,7 @@ export interface GraphComponentConfig {
 
 export interface GraphColumnConfig {
 	isHidden?: boolean;
+	mode?: string;
 	width?: number;
 	order?: number;
 }
