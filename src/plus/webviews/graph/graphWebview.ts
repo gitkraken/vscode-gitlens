@@ -289,8 +289,8 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 	}
 
 	onRefresh(force?: boolean) {
-		this.resetRepositoryState();
 		if (force) {
+			this.resetRepositoryState();
 			this._pendingIpcNotifications.clear();
 		}
 	}
@@ -400,7 +400,11 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			this._showActiveSelectionDetailsDebounced?.cancel();
 		}
 
-		if (visible && this.repository != null && this.repository.etag !== this._etagRepository) {
+		if (
+			visible &&
+			((this.repository != null && this.repository.etag !== this._etagRepository) ||
+				this.container.subscription.etag !== this._etagSubscription)
+		) {
 			this.updateState(true);
 			return;
 		}
