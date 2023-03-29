@@ -300,7 +300,7 @@ export const enum Commands {
 	Deprecated_ShowFileHistoryInView = 'gitlens.showFileHistoryInView',
 }
 
-export type CustomEditorIds = 'rebaseEditor';
+export type CustomEditorIds = 'rebase';
 export type WebviewIds = 'graph' | 'settings' | 'timeline' | 'welcome' | 'focus';
 export type WebviewViewIds = 'commitDetails' | 'graph' | 'home' | 'timeline';
 
