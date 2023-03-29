@@ -133,6 +133,10 @@ body {
 		flex: none;
 		padding: 0 2rem;
 		position: relative;
+
+		[aria-hidden='false'] + header-card {
+			display: none;
+		}
 	}
 	&__main {
 		flex: 1;
@@ -271,6 +275,10 @@ ul {
 	text-align: center;
 }
 
+.one-line {
+	white-space: nowrap;
+}
+
 .foreground {
 	color: var(--color-view-foreground);
 }
@@ -373,6 +381,21 @@ ul {
 	&__description {
 		font-size: 1.2rem;
 		margin: 0.4rem 0 0;
+	}
+
+	&--info {
+		background-color: var(--color-alert-infoBackground);
+		border-left-color: var(--color-alert-infoBorder);
+	}
+
+	&--warning {
+		background-color: var(--color-alert-warningBackground);
+		border-left-color: var(--color-alert-warningBorder);
+	}
+
+	&--danger {
+		background-color: var(--color-alert-errorBackground);
+		border-left-color: var(--color-alert-errorBorder);
 	}
 }
 

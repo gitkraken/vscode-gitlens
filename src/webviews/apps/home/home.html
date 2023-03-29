@@ -65,6 +65,25 @@
 			</nav>
 		</div>
 		<header class="home__header">
+			<div id="no-repo-alert" class="alert alert--info mb-0" aria-hidden="true">
+				<h1 class="alert__title">No repository detected</h1>
+				<div class="alert__description">
+					<p>
+						To use GitLens, open a folder containing a git repository or clone from a URL from the Explorer.
+					</p>
+					<p class="centered">
+						<vscode-button data-action="command:workbench.view.explorer"
+							>Open a Folder or Repository</vscode-button
+						>
+					</p>
+					<p class="mb-0">
+						If you have opened a folder with a repository, please let us know by
+						<a class="one-line" href="https://github.com/gitkraken/vscode-gitlens/issues/new/choose"
+							>creating an Issue</a
+						>.
+					</p>
+				</div>
+			</div>
 			<header-card id="header-card" image="#{webroot}/media/gitlens-logo.webp"></header-card>
 		</header>
 		<main class="home__main scrollable" id="main" tabindex="-1">
@@ -115,16 +134,10 @@
 						views. Learn more in the <a href="command:gitlens.getStarted">Feature Walkthrough</a>.
 					</p>
 					<card-section no-heading id="no-repo" aria-hidden="true">
-						<div class="centered">
-							<p>
-								To use GitLens, open a folder containing a git repository or clone from a URL from the
-								Explorer.
-							</p>
-
-							<vscode-button class="mb-1" data-action="command:workbench.view.explorer"
-								>Open a Folder or Repository</vscode-button
-							>
-						</div>
+						<p class="centered mb-0">
+							To use GitLens, open a folder containing a git repository or clone from a URL from the
+							Explorer.
+						</p>
 					</card-section>
 					<div class="activitybar-banner">
 						<div class="activitybar-banner__content">

@@ -1,4 +1,4 @@
-import { attr, css, customElement, FASTElement, html, volatile, when } from '@microsoft/fast-element';
+import { attr, css, customElement, FASTElement, html, observable, volatile, when } from '@microsoft/fast-element';
 import { SubscriptionState } from '../../../../subscription';
 import { pluralize } from '../../../../system/string';
 import { numberConverter } from '../../shared/components/converters/number-converter';
@@ -15,11 +15,16 @@ const template = html<PlusBanner>`
 				that enhance your GitLens experience.
 			</h3>
 
-			<p class="mb-1">
-				<vscode-button @click="${x => x.fireAction('command:gitlens.plus.startPreviewTrial')}"
-					>Try GitLens+ features on private repos</vscode-button
-				>
-			</p>
+			${when(
+				y => y.extensionEnabled,
+				html<PlusBanner>`
+					<p class="mb-1">
+						<vscode-button @click="${x => x.fireAction('command:gitlens.plus.startPreviewTrial')}"
+							>Try GitLens+ features on private repos</vscode-button
+						>
+					</p>
+				`,
+			)}
 		`,
 	)}
 	${when(
@@ -43,11 +48,16 @@ const template = html<PlusBanner>`
 				<a title="Learn more about GitLens+ features" href="command:gitlens.plus.learn">GitLens+ features</a> on
 				private repos.
 			</p>
-			<p class="mb-1">
-				<vscode-button @click="${x => x.fireAction('command:gitlens.plus.purchase')}"
-					>Upgrade to Pro</vscode-button
-				>
-			</p>
+			${when(
+				y => y.extensionEnabled,
+				html<PlusBanner>`
+					<p class="mb-1">
+						<vscode-button @click="${x => x.fireAction('command:gitlens.plus.purchase')}"
+							>Upgrade to Pro</vscode-button
+						>
+					</p>
+				`,
+			)}
 		`,
 	)}
 	${when(
@@ -70,11 +80,16 @@ const template = html<PlusBanner>`
 				Your free 3-day GitLens Pro trial has ended, extend your trial to get an additional free 7-days of
 				GitLens+ features on private repos.
 			</p>
-			<p class="mb-1">
-				<vscode-button @click="${x => x.fireAction('command:gitlens.plus.loginOrSignUp')}"
-					>Extend Pro Trial</vscode-button
-				>
-			</p>
+			${when(
+				y => y.extensionEnabled,
+				html<PlusBanner>`
+					<p class="mb-1">
+						<vscode-button @click="${x => x.fireAction('command:gitlens.plus.loginOrSignUp')}"
+							>Extend Pro Trial</vscode-button
+						>
+					</p>
+				`,
+			)}
 		`,
 	)}
 	${when(
@@ -85,11 +100,16 @@ const template = html<PlusBanner>`
 				Your GitLens Pro trial has ended, please upgrade to GitLens Pro to continue to use GitLens+ features on
 				private repos.
 			</p>
-			<p class="mb-1">
-				<vscode-button @click="${x => x.fireAction('command:gitlens.plus.purchase')}"
-					>Upgrade to Pro</vscode-button
-				>
-			</p>
+			${when(
+				y => y.extensionEnabled,
+				html<PlusBanner>`
+					<p class="mb-1">
+						<vscode-button @click="${x => x.fireAction('command:gitlens.plus.purchase')}"
+							>Upgrade to Pro</vscode-button
+						>
+					</p>
+				`,
+			)}
 		`,
 	)}
 	${when(
@@ -117,7 +137,7 @@ const template = html<PlusBanner>`
 				SubscriptionState.Free,
 				SubscriptionState.FreePreviewTrialExpired,
 				SubscriptionState.FreePlusTrialExpired,
-			].includes(x.state),
+			].includes(x.state) && x.extensionEnabled,
 		html<PlusBanner>`
 			<p class="mb-0">
 				${when(
@@ -128,6 +148,14 @@ const template = html<PlusBanner>`
 					x => !x.plus,
 					html<PlusBanner>`<a href="command:gitlens.plus.restore">Restore GitLens+ features</a>`,
 				)}
+			</p>
+		`,
+	)}
+	${when(
+		x => !x.extensionEnabled,
+		html<PlusBanner>`
+			<p class="mb-0">
+				To use GitLens+, open a folder containing a git repository or clone from a URL from the Explorer.
 			</p>
 		`,
 	)}
@@ -200,6 +228,9 @@ export class PlusBanner extends FASTElement {
 
 	@attr({ mode: 'boolean' })
 	plus = true;
+
+	@observable
+	extensionEnabled = true;
 
 	get daysRemaining() {
 		if (this.days < 1) {
