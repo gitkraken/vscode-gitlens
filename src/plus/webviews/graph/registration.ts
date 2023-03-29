@@ -1,4 +1,4 @@
-import { Disposable } from 'vscode';
+import { Disposable, ViewColumn } from 'vscode';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
 import type { Repository } from '../../../git/models/repository';
@@ -13,42 +13,49 @@ import type { WebviewPanelProxy, WebviewsController } from '../../../webviews/we
 import type { ShowInCommitGraphCommandArgs, State } from './protocol';
 
 export function registerGraphWebviewPanel(controller: WebviewsController) {
-	return controller.registerWebviewPanel<State>(Commands.ShowGraphPage, 'gitlens.graph', {
-		fileName: 'graph.html',
-		iconPath: 'images/gitlens-icon.png',
-		title: 'Commit Graph',
-		contextKeyPrefix: `gitlens:webview:graph`,
-		trackingFeature: 'graphWebview',
-		plusFeature: true,
-		panelOptions: {
-			retainContextWhenHidden: true,
-			enableFindWidget: false,
+	return controller.registerWebviewPanel<State>(
+		Commands.ShowGraphPage,
+		{
+			id: 'gitlens.graph',
+			fileName: 'graph.html',
+			iconPath: 'images/gitlens-icon.png',
+			title: 'Commit Graph',
+			contextKeyPrefix: `gitlens:webview:graph`,
+			trackingFeature: 'graphWebview',
+			plusFeature: true,
+			column: ViewColumn.Active,
+			panelOptions: {
+				retainContextWhenHidden: true,
+				enableFindWidget: false,
+			},
 		},
-		canResolveWebviewProvider: function (_container, _id) {
-			return configuration.get('graph.experimental.location') === 'tab';
-		},
-		resolveWebviewProvider: async function (container, id, host) {
+		async (container, host) => {
 			const { GraphWebviewProvider } = await import(/* webpackChunkName: "graph" */ './graphWebview');
-			return new GraphWebviewProvider(container, id, host);
+			return new GraphWebviewProvider(container, host);
 		},
-	});
+		() => configuration.get('graph.experimental.location') === 'tab',
+	);
 }
 
 export function registerGraphWebviewView(controller: WebviewsController) {
-	return controller.registerWebviewView<State>('gitlens.views.graph', {
-		fileName: 'graph.html',
-		title: 'Commit Graph',
-		contextKeyPrefix: `gitlens:webviewView:graph`,
-		trackingFeature: 'graphView',
-		plusFeature: true,
-		canResolveWebviewProvider: function (_container, _id) {
-			return configuration.get('graph.experimental.location') === 'view';
+	return controller.registerWebviewView<State>(
+		{
+			id: 'gitlens.views.graph',
+			fileName: 'graph.html',
+			title: 'Commit Graph',
+			contextKeyPrefix: `gitlens:webviewView:graph`,
+			trackingFeature: 'graphView',
+			plusFeature: true,
+			webviewViewOptions: {
+				retainContextWhenHidden: true,
+			},
 		},
-		resolveWebviewProvider: async function (container, id, host) {
+		async (container, host) => {
 			const { GraphWebviewProvider } = await import(/* webpackChunkName: "graph" */ './graphWebview');
-			return new GraphWebviewProvider(container, id, host);
+			return new GraphWebviewProvider(container, host);
 		},
-	});
+		() => configuration.get('graph.experimental.location') === 'view',
+	);
 }
 
 export function registerGraphWebviewCommands(container: Container, webview: WebviewPanelProxy) {

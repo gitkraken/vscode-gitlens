@@ -12,7 +12,6 @@ import type {
 } from '../../../commands';
 import { parseCommandContext } from '../../../commands/base';
 import type { Config } from '../../../config';
-import type { WebviewIds, WebviewViewIds } from '../../../constants';
 import { Commands, GlyphChars } from '../../../constants';
 import type { Container } from '../../../container';
 import { getContext, onDidChangeContext } from '../../../context';
@@ -214,11 +213,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 	private trialBanner?: boolean;
 	private isWindowFocused: boolean = true;
 
-	constructor(
-		readonly container: Container,
-		readonly id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
-		readonly host: WebviewController<State>,
-	) {
+	constructor(private readonly container: Container, private readonly host: WebviewController<State>) {
 		this._showDetailsView = configuration.get('graph.showDetailsView');
 		this._theme = window.activeColorTheme;
 		this.ensureRepositorySubscriptions();
@@ -520,7 +515,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 				preserveVisibility: this._showDetailsView === false,
 			},
 			{
-				source: this.id,
+				source: this.host.id,
 			},
 		);
 	}
@@ -691,7 +686,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 						preserveVisibility: false,
 					},
 					{
-						source: this.id,
+						source: this.host.id,
 					},
 				);
 
@@ -1060,7 +1055,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 					: this._showDetailsView !== 'selection',
 			},
 			{
-				source: this.id,
+				source: this.host.id,
 			},
 		);
 		this._firstSelection = false;
@@ -1688,7 +1683,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		const item = typeof context === 'string' ? JSON.parse(context) : context;
 		// Add the `webview` prop to the context if its missing (e.g. when this context doesn't come through via the context menus)
 		if (item != null && !('webview' in item)) {
-			item.webview = this.id;
+			item.webview = this.host.id;
 		}
 		return item;
 	}

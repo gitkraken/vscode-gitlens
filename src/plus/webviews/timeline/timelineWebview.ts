@@ -1,6 +1,5 @@
 import type { TextEditor, ViewColumn } from 'vscode';
 import { commands, Disposable, Uri, window } from 'vscode';
-import type { WebviewIds, WebviewViewIds } from '../../../constants';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
 import type { FileSelectedEvent } from '../../../eventBus';
@@ -43,11 +42,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 	private _pendingContext: Partial<Context> | undefined;
 	private readonly _disposable: Disposable;
 
-	constructor(
-		readonly container: Container,
-		readonly id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
-		readonly host: WebviewController<State>,
-	) {
+	constructor(private readonly container: Container, private readonly host: WebviewController<State>) {
 		this._context = {
 			uri: undefined,
 			period: defaultPeriod,
@@ -60,7 +55,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		this._context = { ...this._context, ...this._pendingContext };
 		this._pendingContext = undefined;
 
-		if (this.host.isType('tab')) {
+		if (this.host.isTab()) {
 			this._disposable = Disposable.from(
 				this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 				this.container.git.onDidChangeRepository(this.onRepositoryChanged, this),
@@ -112,13 +107,13 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 	}
 
 	registerCommands(): Disposable[] {
-		if (this.host.isType('tab')) {
+		if (this.host.isTab()) {
 			return [registerCommand(Commands.RefreshTimelinePage, () => this.host.refresh(true))];
 		}
 
 		return [
-			registerCommand(`${this.id}.refresh`, () => this.host.refresh(true), this),
-			registerCommand(`${this.id}.openInTab`, () => this.openInTab(), this),
+			registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this),
+			registerCommand(`${this.host.id}.openInTab`, () => this.openInTab(), this),
 		];
 	}
 
@@ -159,7 +154,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 							preserveFocus: true,
 							preserveVisibility: true,
 						},
-						{ source: this.id },
+						{ source: this.host.id },
 					);
 				});
 
@@ -270,7 +265,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		}
 
 		const title = gitUri.relativePath;
-		if (this.host.isType('tab')) {
+		if (this.host.isTab()) {
 			this.host.title = `${this.host.originalTitle}: ${gitUri.fileName}`;
 		} else {
 			this.host.description = gitUri.fileName;
@@ -403,7 +398,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 	private updateState(immediate: boolean = false) {
 		if (!this.host.isReady || !this.host.visible) return;
 
-		if (this._pendingContext == null && this.host.isType('view')) {
+		if (this._pendingContext == null && this.host.isView()) {
 			this.updatePendingEditor(window.activeTextEditor);
 		}
 
@@ -428,7 +423,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 
 		const context = { ...this._context, ...this._pendingContext };
 
-		return window.withProgress({ location: { viewId: this.id } }, async () => {
+		return window.withProgress({ location: { viewId: this.host.id } }, async () => {
 			const success = await this.host.notify(DidChangeNotificationType, {
 				state: await this.getState(context),
 			});

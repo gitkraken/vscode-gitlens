@@ -2,7 +2,6 @@ import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, window } from 'vscode';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import { ViewsLayout } from '../../commands/setViewsLayout';
-import type { WebviewIds, WebviewViewIds } from '../../constants';
 import type { Container } from '../../container';
 import { getContext, onDidChangeContext } from '../../context';
 import type { RepositoriesVisibility } from '../../git/gitProviderService';
@@ -32,11 +31,7 @@ import {
 export class HomeWebviewProvider implements WebviewProvider<State> {
 	private readonly _disposable: Disposable;
 
-	constructor(
-		readonly container: Container,
-		readonly id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
-		readonly host: WebviewController<State>,
-	) {
+	constructor(private readonly container: Container, private readonly host: WebviewController<State>) {
 		this._disposable = Disposable.from(
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			onDidChangeContext(key => {
@@ -95,7 +90,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 
 	registerCommands(): Disposable[] {
 		return [
-			registerCommand(`${this.id}.refresh`, () => this.host.refresh(), this),
+			registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(), this),
 			registerCommand('gitlens.home.toggleWelcome', async () => {
 				const welcomeVisible = !this.welcomeVisible;
 				await this.container.storage.store('views:welcome:visible', welcomeVisible);
@@ -255,7 +250,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			};
 		};
 
-		return window.withProgress({ location: { viewId: this.id } }, async () =>
+		return window.withProgress({ location: { viewId: this.host.id } }, async () =>
 			this.host.notify(DidChangeSubscriptionNotificationType, await getSub()),
 		);
 	}
