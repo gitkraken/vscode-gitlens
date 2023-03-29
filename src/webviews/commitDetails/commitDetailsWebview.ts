@@ -81,6 +81,8 @@ interface Context {
 		count: number;
 		position: number;
 	};
+
+	visible: boolean;
 }
 
 export class CommitDetailsWebviewProvider implements WebviewProvider<State, Serialized<State>> {
@@ -120,6 +122,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 				count: 0,
 				position: 0,
 			},
+			visible: false,
 		};
 
 		this._disposable = configuration.onDidChangeAny(this.onAnyConfigurationChanged, this);
@@ -188,6 +191,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 
 	onVisibilityChanged(visible: boolean) {
 		this.ensureTrackers();
+		this.updatePendingContext({ visible: visible });
 		if (!visible) return;
 
 		// Since this gets called even the first time the webview is shown, avoid sending an update, because the bootstrap has the data
@@ -197,6 +201,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			if (this._pendingContext == null) return;
 		}
 
+		this.onRefresh();
 		this.updateState(true);
 	}
 
