@@ -244,10 +244,13 @@ export class HomeApp extends App<State> {
 	private updateNoRepo() {
 		const { extensionEnabled } = this.state;
 
-		const $el = document.getElementById('no-repo');
-		if ($el) {
-			$el.setAttribute('aria-hidden', extensionEnabled ? 'true' : 'false');
-		}
+		const value = extensionEnabled ? 'true' : 'false';
+
+		let $el = document.getElementById('no-repo');
+		$el?.setAttribute('aria-hidden', value);
+
+		$el = document.getElementById('no-repo-alert');
+		$el?.setAttribute('aria-hidden', value);
 	}
 
 	private updateLayout() {
@@ -270,6 +273,7 @@ export class HomeApp extends App<State> {
 			$plusContent.setAttribute('visibility', visibility);
 			$plusContent.setAttribute('plan', subscription.plan.effective.name);
 			$plusContent.setAttribute('plus', plusEnabled.toString());
+			($plusContent as PlusBanner).extensionEnabled = this.state.extensionEnabled;
 		}
 
 		$plusContent = document.getElementById('plus-content');
