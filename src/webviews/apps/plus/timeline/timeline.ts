@@ -172,10 +172,13 @@ export class TimelineApp extends App<State> {
 		const $periods = document.getElementById('periods') as HTMLSelectElement;
 		if ($periods != null) {
 			const period = this.state?.period;
-			for (let i = 0, len = $periods.options.length; i < len; ++i) {
-				if ($periods.options[i].value === period) {
-					$periods.selectedIndex = i;
-					break;
+
+			const $periodOptions = $periods.getElementsByTagName('vscode-option');
+			for (const $option of $periodOptions) {
+				if (period === $option.getAttribute('value')) {
+					$option.setAttribute('selected', '');
+				} else {
+					$option.removeAttribute('selected');
 				}
 			}
 		}
