@@ -15,7 +15,7 @@ export function registerWelcomeWebviewPanel(controller: WebviewsController) {
 			trackingFeature: 'welcomeWebview',
 			plusFeature: false,
 			column: ViewColumn.Beside,
-			panelOptions: {
+			webviewPanelOptions: {
 				retainContextWhenHidden: false,
 				enableFindWidget: true,
 			},

@@ -24,7 +24,7 @@ export function registerGraphWebviewPanel(controller: WebviewsController) {
 			trackingFeature: 'graphWebview',
 			plusFeature: true,
 			column: ViewColumn.Active,
-			panelOptions: {
+			webviewPanelOptions: {
 				retainContextWhenHidden: true,
 				enableFindWidget: false,
 			},
