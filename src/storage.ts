@@ -212,6 +212,7 @@ export interface StoredDeepLinkContext {
 
 export interface StoredGraphColumn {
 	isHidden?: boolean;
+	mode?: string;
 	width?: number;
 }
 
