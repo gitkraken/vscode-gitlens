@@ -40,7 +40,7 @@ interface EventBusEvent<T extends keyof EventsMapping = keyof EventsMapping> {
 }
 
 export type EventBusSource =
-	| 'gitlens.rebase'
+	| `gitlens.${CustomEditorIds}`
 	| `gitlens.${WebviewIds}`
 	| `gitlens.views.${WebviewViewIds}`
 	| `gitlens.views.${ViewsConfigKeys}`;
