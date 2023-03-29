@@ -893,7 +893,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 	}
 
 	private getShowOptions(params: FileActionParams): TextDocumentShowOptions | undefined {
-		return getContext('gitlens:webview:graph:active') || getContext('gitlens:webview:rebaseEditor:active')
+		return getContext('gitlens:webview:graph:active') || getContext('gitlens:webview:rebase:active')
 			? { ...params.showOptions, viewColumn: ViewColumn.Beside }
 			: params.showOptions;
 	}
