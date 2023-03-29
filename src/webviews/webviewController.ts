@@ -14,7 +14,6 @@ import { setContext } from '../context';
 import { executeCommand } from '../system/command';
 import { debug, logName } from '../system/decorators/log';
 import { serialize } from '../system/decorators/serialize';
-import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
 import type { IpcMessage, IpcMessageParams, IpcNotificationType, WebviewFocusChangedParams } from './protocol';
 import { ExecuteCommandType, onIpc, WebviewFocusChangedCommandType, WebviewReadyCommandType } from './protocol';
 import type { WebviewPanelDescriptor, WebviewViewDescriptor } from './webviewsController';
@@ -32,6 +31,12 @@ function nextIpcId() {
 
 	return `host:${ipcSequence}`;
 }
+
+type GetParentType<T extends WebviewPanelDescriptor | WebviewViewDescriptor> = T extends WebviewPanelDescriptor
+	? WebviewPanel
+	: T extends WebviewViewDescriptor
+	? WebviewView
+	: never;
 
 export interface WebviewProvider<State, SerializedState = State> extends Disposable {
 	canShowWebviewPanel?(
@@ -65,95 +70,99 @@ export interface WebviewProvider<State, SerializedState = State> extends Disposa
 	onWindowFocusChanged?(focused: boolean): void;
 }
 
+type WebviewPanelController<State, SerializedState = State> = WebviewController<
+	State,
+	SerializedState,
+	WebviewPanelDescriptor
+>;
+type WebviewViewController<State, SerializedState = State> = WebviewController<
+	State,
+	SerializedState,
+	WebviewViewDescriptor
+>;
+
 @logName<WebviewController<any>>((c, name) => `${name}(${c.id})`)
-export class WebviewController<State, SerializedState = State> implements Disposable {
+export class WebviewController<
+	State,
+	SerializedState = State,
+	Descriptor extends WebviewPanelDescriptor | WebviewViewDescriptor = WebviewPanelDescriptor | WebviewViewDescriptor,
+> implements Disposable
+{
 	static async create<State, SerializedState = State>(
 		container: Container,
-		id: `gitlens.${WebviewIds}`,
-		webview: Webview,
+		descriptor: WebviewPanelDescriptor,
 		parent: WebviewPanel,
-		metadata: WebviewPanelDescriptor<State, SerializedState>,
-	): Promise<WebviewController<State, SerializedState>>;
+		resolveProvider: (
+			container: Container,
+			controller: WebviewController<State, SerializedState>,
+		) => Promise<WebviewProvider<State, SerializedState>>,
+	): Promise<WebviewController<State, SerializedState, WebviewPanelDescriptor>>;
 	static async create<State, SerializedState = State>(
 		container: Container,
-		id: `gitlens.views.${WebviewViewIds}`,
-		webview: Webview,
+		descriptor: WebviewViewDescriptor,
 		parent: WebviewView,
-		metadata: WebviewViewDescriptor<State, SerializedState>,
-	): Promise<WebviewController<State, SerializedState>>;
+		resolveProvider: (
+			container: Container,
+			controller: WebviewController<State, SerializedState>,
+		) => Promise<WebviewProvider<State, SerializedState>>,
+	): Promise<WebviewController<State, SerializedState, WebviewViewDescriptor>>;
 	static async create<State, SerializedState = State>(
 		container: Container,
-		id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
-		webview: Webview,
+		descriptor: WebviewPanelDescriptor | WebviewViewDescriptor,
 		parent: WebviewPanel | WebviewView,
-		metadata: WebviewPanelDescriptor<State, SerializedState> | WebviewViewDescriptor<State, SerializedState>,
+		resolveProvider: (
+			container: Container,
+			controller: WebviewController<State, SerializedState>,
+		) => Promise<WebviewProvider<State, SerializedState>>,
 	): Promise<WebviewController<State, SerializedState>> {
 		const controller = new WebviewController<State, SerializedState>(
 			container,
-			id,
-			webview,
+			descriptor,
 			parent,
-			metadata.title,
-			metadata.fileName,
-			metadata.contextKeyPrefix,
-			metadata.trackingFeature,
-			host => metadata.resolveWebviewProvider(container, id, host),
+			resolveProvider,
 		);
 		await controller.initialize();
 		return controller;
 	}
 
-	private readonly _onDidDispose = new EventEmitter<WebviewController<State, SerializedState>>();
+	private readonly _onDidDispose = new EventEmitter<void>();
 	get onDidDispose() {
 		return this._onDidDispose.event;
 	}
+
+	public readonly id: Descriptor['id'];
 
 	private _isReady: boolean = false;
 	get isReady() {
 		return this._isReady;
 	}
 
-	readonly type: 'tab' | 'view';
-	isType(type: 'tab'): this is WebviewController<State, SerializedState> & {
-		type: 'tab';
-		id: `gitlens.${WebviewIds}`;
-		parent: WebviewPanel;
-	};
-	isType(type: 'view'): this is WebviewController<State, SerializedState> & {
-		type: 'view';
-		id: `gitlens.views.${WebviewViewIds}`;
-		parent: WebviewView;
-	};
-	isType(type: 'tab' | 'view') {
-		return this.type === type;
-	}
-
 	private readonly disposables: Disposable[] = [];
 	private /*readonly*/ provider!: WebviewProvider<State, SerializedState>;
+	private readonly webview: Webview;
 
 	private constructor(
 		private readonly container: Container,
-		public readonly id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
-		public readonly webview: Webview,
-		public readonly parent: WebviewPanel | WebviewView,
-		title: string,
-		private readonly fileName: string,
-		private readonly contextKeyPrefix: `gitlens:webview:${WebviewIds}` | `gitlens:webviewView:${WebviewViewIds}`,
-		private readonly trackingFeature: TrackedUsageFeatures,
+		private readonly descriptor: Descriptor,
+		public readonly parent: GetParentType<Descriptor>,
 		resolveProvider: (
+			container: Container,
 			host: WebviewController<State, SerializedState>,
 		) => Promise<WebviewProvider<State, SerializedState>>,
 	) {
-		const isInTab = 'onDidChangeViewState' in parent;
-		this.type = isInTab ? 'tab' : 'view';
-		this._originalTitle = title;
-		parent.title = title;
+		this.id = descriptor.id;
+		this.webview = parent.webview;
 
-		this._initializing = resolveProvider(this).then(provider => {
+		const isInTab = 'onDidChangeViewState' in parent;
+		this._isTab = isInTab;
+		this._originalTitle = descriptor.title;
+		parent.title = descriptor.title;
+
+		this._initializing = resolveProvider(container, this).then(provider => {
 			this.provider = provider;
 			this.disposables.push(
 				window.onDidChangeWindowState(this.onWindowStateChanged, this),
-				webview.onDidReceiveMessage(this.onMessageReceivedCore, this),
+				parent.webview.onDidReceiveMessage(this.onMessageReceivedCore, this),
 				isInTab
 					? parent.onDidChangeViewState(this.onParentViewStateChanged, this)
 					: parent.onDidChangeVisibility(() => this.onParentVisibilityChanged(this.visible), this),
@@ -164,6 +173,18 @@ export class WebviewController<State, SerializedState = State> implements Dispos
 		});
 	}
 
+	dispose() {
+		resetContextKeys(this.descriptor.contextKeyPrefix);
+
+		this.provider.onFocusChanged?.(false);
+		this.provider.onVisibilityChanged?.(false);
+
+		this._isReady = false;
+
+		this._onDidDispose.fire();
+		this.disposables.forEach(d => void d.dispose());
+	}
+
 	private _initializing: Promise<void> | undefined;
 	private async initialize() {
 		if (this._initializing == null) return;
@@ -172,16 +193,12 @@ export class WebviewController<State, SerializedState = State> implements Dispos
 		this._initializing = undefined;
 	}
 
-	dispose() {
-		resetContextKeys(this.contextKeyPrefix);
-
-		this.provider.onFocusChanged?.(false);
-		this.provider.onVisibilityChanged?.(false);
-
-		this._isReady = false;
-
-		this._onDidDispose.fire(this);
-		this.disposables.forEach(d => void d.dispose());
+	private _isTab: boolean;
+	isTab(): this is WebviewPanelController<State, SerializedState> {
+		return this._isTab;
+	}
+	isView(): this is WebviewViewController<State, SerializedState> {
+		return !this._isTab;
 	}
 
 	private _description: string | undefined;
@@ -219,7 +236,7 @@ export class WebviewController<State, SerializedState = State> implements Dispos
 			options = {};
 		}
 
-		if (this.isType('tab')) {
+		if (this.isTab()) {
 			const result = await this.provider.canShowWebviewPanel?.(firstTime, options, ...args);
 			if (result === false) return;
 
@@ -228,10 +245,13 @@ export class WebviewController<State, SerializedState = State> implements Dispos
 			}
 
 			await this.provider.onShowWebviewPanel?.(firstTime, options, ...args);
-			if (firstTime) {
-				this.parent.reveal(this.parent.viewColumn ?? ViewColumn.Active, options?.preserveFocus ?? false);
+			if (!firstTime) {
+				this.parent.reveal(
+					options?.column ?? this.parent.viewColumn ?? this.descriptor.column ?? ViewColumn.Beside,
+					options?.preserveFocus ?? false,
+				);
 			}
-		} else if (this.isType('view')) {
+		} else if (this.isView()) {
 			const result = await this.provider.canShowWebviewView?.(firstTime, options, ...args);
 			if (result === false) return;
 
@@ -322,7 +342,7 @@ export class WebviewController<State, SerializedState = State> implements Dispos
 		args: { 0: e => `focused=${e.focused}, inputFocused=${e.inputFocused}` },
 	})
 	onViewFocusChanged(e: WebviewFocusChangedParams): void {
-		setContextKeys(this.contextKeyPrefix, undefined, e.focused, e.inputFocused);
+		setContextKeys(this.descriptor.contextKeyPrefix, undefined, e.focused, e.inputFocused);
 		this.provider.onFocusChanged?.(e.focused);
 	}
 
@@ -332,13 +352,13 @@ export class WebviewController<State, SerializedState = State> implements Dispos
 	private onParentViewStateChanged(e: WebviewPanelOnDidChangeViewStateEvent): void {
 		const { active, visible } = e.webviewPanel;
 		if (visible) {
-			setContextKeys(this.contextKeyPrefix, active);
+			setContextKeys(this.descriptor.contextKeyPrefix, active);
 			this.provider.onActiveChanged?.(active);
 			if (!active) {
 				this.provider.onFocusChanged?.(false);
 			}
 		} else {
-			resetContextKeys(this.contextKeyPrefix);
+			resetContextKeys(this.descriptor.contextKeyPrefix);
 
 			this.provider.onActiveChanged?.(false);
 			this.provider.onFocusChanged?.(false);
@@ -348,12 +368,11 @@ export class WebviewController<State, SerializedState = State> implements Dispos
 	}
 
 	@debug()
-	private async onParentVisibilityChanged(visible: boolean) {
+	private onParentVisibilityChanged(visible: boolean) {
 		if (visible) {
-			void this.container.usage.track(`${this.trackingFeature}:shown`);
-			await this.refresh();
+			void this.container.usage.track(`${this.descriptor.trackingFeature}:shown`);
 		} else {
-			resetContextKeys(this.contextKeyPrefix);
+			resetContextKeys(this.descriptor.contextKeyPrefix);
 			this.provider.onFocusChanged?.(false);
 		}
 		this.provider.onVisibilityChanged?.(visible);
@@ -387,7 +406,7 @@ export class WebviewController<State, SerializedState = State> implements Dispos
 
 	private async getHtml(webview: Webview): Promise<string> {
 		const webRootUri = this.getWebRootUri();
-		const uri = Uri.joinPath(webRootUri, this.fileName);
+		const uri = Uri.joinPath(webRootUri, this.descriptor.fileName);
 
 		const [bytes, bootstrap, head, body, endOfBody] = await Promise.all([
 			workspace.fs.readFile(uri),
@@ -403,7 +422,7 @@ export class WebviewController<State, SerializedState = State> implements Dispos
 			this._cspNonce,
 			this.asWebviewUri(this.getRootUri()).toString(),
 			this.getWebRoot(),
-			this.type,
+			this.isTab() ? 'tab' : 'view',
 			bootstrap,
 			head,
 			body,
@@ -452,7 +471,7 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 	cspNonce: string,
 	root: string,
 	webRoot: string,
-	placement: WebviewController<any>['type'],
+	placement: 'tab' | 'view',
 	bootstrap?: SerializedState,
 	head?: string,
 	body?: string,

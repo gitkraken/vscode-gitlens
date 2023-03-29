@@ -2,7 +2,7 @@ import type { CancellationToken, ConfigurationChangeEvent, TextDocumentShowOptio
 import { CancellationTokenSource, Disposable, Uri, ViewColumn, window } from 'vscode';
 import { serializeAutolink } from '../../annotations/autolinks';
 import type { CopyShaToClipboardCommandArgs } from '../../commands';
-import type { CoreConfiguration, WebviewIds, WebviewViewIds } from '../../constants';
+import type { CoreConfiguration } from '../../constants';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { getContext } from '../../context';
@@ -95,9 +95,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 	private _commitStack = new MRU<GitRevisionReference>(10, (a, b) => a.ref === b.ref);
 
 	constructor(
-		readonly container: Container,
-		readonly id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
-		readonly host: WebviewController<State, Serialized<State>>,
+		private readonly container: Container,
+		private readonly host: WebviewController<State, Serialized<State>>,
 	) {
 		this._context = {
 			pinned: false,
@@ -671,7 +670,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 
 		const context = { ...this._context, ...this._pendingContext };
 
-		return window.withProgress({ location: { viewId: this.id } }, async () => {
+		return window.withProgress({ location: { viewId: this.host.id } }, async () => {
 			try {
 				const success = await this.host.notify(DidChangeNotificationType, {
 					state: await this.getState(context),
@@ -862,7 +861,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			preview: true,
 			...this.getShowOptions(params),
 		});
-		this.container.events.fire('file:selected', { uri: file.uri }, { source: this.id });
+		this.container.events.fire('file:selected', { uri: file.uri }, { source: this.host.id });
 	}
 
 	private async openFile(params: FileActionParams) {

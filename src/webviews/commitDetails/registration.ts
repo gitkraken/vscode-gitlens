@@ -3,17 +3,23 @@ import type { WebviewsController } from '../webviewsController';
 import type { State } from './protocol';
 
 export function registerCommitDetailsWebviewView(controller: WebviewsController) {
-	return controller.registerWebviewView<State, Serialized<State>>('gitlens.views.commitDetails', {
-		fileName: 'commitDetails.html',
-		title: 'Commit Details',
-		contextKeyPrefix: `gitlens:webviewView:commitDetails`,
-		trackingFeature: 'commitDetailsView',
-		plusFeature: false,
-		resolveWebviewProvider: async function (container, id, host) {
+	return controller.registerWebviewView<State, Serialized<State>>(
+		{
+			id: 'gitlens.views.commitDetails',
+			fileName: 'commitDetails.html',
+			title: 'Commit Details',
+			contextKeyPrefix: `gitlens:webviewView:commitDetails`,
+			trackingFeature: 'commitDetailsView',
+			plusFeature: false,
+			webviewViewOptions: {
+				retainContextWhenHidden: false,
+			},
+		},
+		async (container, host) => {
 			const { CommitDetailsWebviewProvider } = await import(
 				/* webpackChunkName: "commitDetails" */ './commitDetailsWebview'
 			);
-			return new CommitDetailsWebviewProvider(container, id, host);
+			return new CommitDetailsWebviewProvider(container, host);
 		},
-	});
+	);
 }

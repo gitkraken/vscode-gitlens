@@ -1,22 +1,31 @@
-import { Disposable } from 'vscode';
+import { Disposable, ViewColumn } from 'vscode';
 import { Commands } from '../../constants';
 import { registerCommand } from '../../system/command';
 import type { WebviewPanelProxy, WebviewsController } from '../webviewsController';
 import type { State } from './protocol';
 
 export function registerSettingsWebviewPanel(controller: WebviewsController) {
-	return controller.registerWebviewPanel<State>(Commands.ShowSettingsPage, 'gitlens.settings', {
-		fileName: 'settings.html',
-		iconPath: 'images/gitlens-icon.png',
-		title: 'GitLens Settings',
-		contextKeyPrefix: `gitlens:webview:settings`,
-		trackingFeature: 'settingsWebview',
-		plusFeature: false,
-		resolveWebviewProvider: async function (container, id, host) {
-			const { SettingsWebviewProvider } = await import(/* webpackChunkName: "settings" */ './settingsWebview');
-			return new SettingsWebviewProvider(container, id, host);
+	return controller.registerWebviewPanel<State>(
+		Commands.ShowSettingsPage,
+		{
+			id: 'gitlens.settings',
+			fileName: 'settings.html',
+			iconPath: 'images/gitlens-icon.png',
+			title: 'GitLens Settings',
+			contextKeyPrefix: `gitlens:webview:settings`,
+			trackingFeature: 'settingsWebview',
+			plusFeature: false,
+			column: ViewColumn.Beside,
+			panelOptions: {
+				retainContextWhenHidden: false,
+				enableFindWidget: true,
+			},
 		},
-	});
+		async (container, host) => {
+			const { SettingsWebviewProvider } = await import(/* webpackChunkName: "settings" */ './settingsWebview');
+			return new SettingsWebviewProvider(container, host);
+		},
+	);
 }
 
 export function registerSettingsWebviewCommands(webview: WebviewPanelProxy) {

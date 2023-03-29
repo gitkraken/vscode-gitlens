@@ -1,6 +1,6 @@
 import type { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ConfigurationTarget } from 'vscode';
-import type { CoreConfiguration, WebviewIds, WebviewViewIds } from '../constants';
+import type { CoreConfiguration } from '../constants';
 import { extensionPrefix } from '../constants';
 import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
@@ -25,11 +25,7 @@ import type { WebviewController, WebviewProvider } from './webviewController';
 export abstract class WebviewProviderWithConfigBase<State> implements WebviewProvider<State> {
 	private readonly _disposable: Disposable;
 
-	constructor(
-		readonly container: Container,
-		readonly id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
-		readonly host: WebviewController<State>,
-	) {
+	constructor(protected readonly container: Container, protected readonly host: WebviewController<State>) {
 		this._disposable = configuration.onDidChangeAny(this.onAnyConfigurationChanged, this);
 	}
 
@@ -49,7 +45,7 @@ export abstract class WebviewProviderWithConfigBase<State> implements WebviewPro
 
 		switch (e.method) {
 			case UpdateConfigurationCommandType.method:
-				Logger.debug(`Webview(${this.id}).onMessageReceived: method=${e.method}`);
+				Logger.debug(`Webview(${this.host.id}).onMessageReceived: method=${e.method}`);
 
 				onIpc(UpdateConfigurationCommandType, e, async params => {
 					const target =
@@ -96,7 +92,7 @@ export abstract class WebviewProviderWithConfigBase<State> implements WebviewPro
 				break;
 
 			case GenerateConfigurationPreviewCommandType.method:
-				Logger.debug(`Webview(${this.id}).onMessageReceived: method=${e.method}`);
+				Logger.debug(`Webview(${this.host.id}).onMessageReceived: method=${e.method}`);
 
 				onIpc(GenerateConfigurationPreviewCommandType, e, async params => {
 					switch (params.type) {

@@ -1,6 +1,5 @@
 import { Disposable, Uri, window } from 'vscode';
 import type { GHPRPullRequest } from '../../../commands';
-import type { WebviewIds, WebviewViewIds } from '../../../constants';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
 import { setContext } from '../../../context';
@@ -59,11 +58,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	private _repositoryEventsDisposable?: Disposable;
 	private _repos?: RepoWithRichRemote[];
 
-	constructor(
-		readonly container: Container,
-		readonly id: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`,
-		readonly host: WebviewController<State>,
-	) {
+	constructor(private readonly container: Container, private readonly host: WebviewController<State>) {
 		this._disposable = Disposable.from(
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			this.container.git.onDidChangeRepositories(() => void this.host.refresh(true)),
