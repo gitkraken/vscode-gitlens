@@ -63,7 +63,7 @@ import { registerCommitDetailsWebviewView } from './webviews/commitDetails/regis
 import { registerHomeWebviewView } from './webviews/home/registration';
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
 import { registerSettingsWebviewCommands, registerSettingsWebviewPanel } from './webviews/settings/registration';
-import type { WebviewViewProxy } from './webviews/webviewsController';
+import type { WebviewPanelProxy, WebviewViewProxy } from './webviews/webviewsController';
 import { WebviewsController } from './webviews/webviewsController';
 import { registerWelcomeWebviewPanel } from './webviews/welcome/registration';
 
@@ -213,9 +213,8 @@ export class Container {
 		context.subscriptions.unshift(registerTimelineWebviewPanel(this._webviews));
 		context.subscriptions.unshift((this._timelineView = registerTimelineWebviewView(this._webviews)));
 
-		const graphWebviewPanel = registerGraphWebviewPanel(this._webviews);
-		context.subscriptions.unshift(graphWebviewPanel);
-		context.subscriptions.unshift(registerGraphWebviewCommands(this, graphWebviewPanel));
+		context.subscriptions.unshift((this._graphPanel = registerGraphWebviewPanel(this._webviews)));
+		context.subscriptions.unshift(registerGraphWebviewCommands(this, this._graphPanel));
 		if (configuration.get('graph.experimental.location') === 'view') {
 			context.subscriptions.unshift((this._graphView = registerGraphWebviewView(this._webviews)));
 		}
@@ -309,6 +308,7 @@ export class Container {
 
 		if (configuration.changed(e, 'graph.experimental.location')) {
 			if (configuration.get('graph.experimental.location') === 'view') {
+				this._graphPanel?.close();
 				this._graphView = registerGraphWebviewView(this._webviews);
 			} else {
 				this._graphView?.dispose();
@@ -447,6 +447,7 @@ export class Container {
 		}
 	}
 
+	private readonly _graphPanel: WebviewPanelProxy;
 	private _graphView: WebviewViewProxy | undefined;
 	get graphView() {
 		if (this._graphView == null) {
