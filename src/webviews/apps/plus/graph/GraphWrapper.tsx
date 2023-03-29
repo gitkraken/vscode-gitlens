@@ -1,4 +1,5 @@
 import type {
+	GraphColumnMode,
 	GraphColumnSetting,
 	GraphColumnsSettings,
 	GraphContainerProps,
@@ -850,6 +851,7 @@ export function GraphWrapper({
 				[columnName]: {
 					width: columnSettings.width,
 					isHidden: columnSettings.isHidden,
+					mode: columnSettings.mode as GraphColumnMode,
 					order: columnSettings.order,
 				},
 			});

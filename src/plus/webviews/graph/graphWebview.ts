@@ -369,6 +369,8 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			registerCommand('gitlens.graph.columnShaOff', () => this.toggleColumn('sha', false)),
 			registerCommand('gitlens.graph.columnChangesOn', () => this.toggleColumn('changes', true)),
 			registerCommand('gitlens.graph.columnChangesOff', () => this.toggleColumn('changes', false)),
+			registerCommand('gitlens.graph.columnGraphCompact', () => this.setColumnMode('graph', 'compact')),
+			registerCommand('gitlens.graph.columnGraphDefault', () => this.setColumnMode('graph', undefined)),
 
 			registerCommand('gitlens.graph.copyDeepLinkToBranch', this.copyDeepLinkToBranch, this),
 			registerCommand('gitlens.graph.copyDeepLinkToCommit', this.copyDeepLinkToCommit, this),
@@ -1587,15 +1589,19 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private getColumnHeaderContext(columnSettings: GraphColumnsSettings): string {
-		const hidden: string[] = [];
+		const contextItems: string[] = [];
 		for (const [name, settings] of Object.entries(columnSettings)) {
 			if (settings.isHidden) {
-				hidden.push(name);
+				contextItems.push(`hidden:${name}`);
+			}
+
+			if (settings.mode) {
+				contextItems.push(`${settings.mode}:${name}`);
 			}
 		}
 		return serializeWebviewItemContext<GraphItemContext>({
 			webviewItem: 'gitlens:graph:columns',
-			webviewItemValue: hidden.join(','),
+			webviewItemValue: contextItems.join(','),
 		});
 	}
 
@@ -2456,6 +2462,22 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		if (name === 'changes' && !column.isHidden && !this._graph?.includes?.stats) {
 			this.updateState();
 		}
+	}
+
+	@debug()
+	private async setColumnMode(name: GraphColumnName, mode?: string) {
+		let columns = this.container.storage.getWorkspace('graph:columns');
+		let column = columns?.[name];
+		if (column != null) {
+			column.mode = mode;
+		} else {
+			column = { mode: mode };
+		}
+
+		columns = updateRecordValue(columns, name, column);
+		await this.container.storage.storeWorkspace('graph:columns', columns);
+
+		void this.notifyDidChangeColumns();
 	}
 
 	private getGraphItemRef(item?: GraphItemContext | unknown | undefined): GitReference | undefined;
