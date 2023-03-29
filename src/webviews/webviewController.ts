@@ -147,7 +147,7 @@ export class WebviewController<
 		public readonly parent: GetParentType<Descriptor>,
 		resolveProvider: (
 			container: Container,
-			host: WebviewController<State, SerializedState>,
+			controller: WebviewController<State, SerializedState>,
 		) => Promise<WebviewProvider<State, SerializedState>>,
 	) {
 		this.id = descriptor.id;

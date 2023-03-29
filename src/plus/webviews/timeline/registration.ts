@@ -15,7 +15,7 @@ export function registerTimelineWebviewPanel(controller: WebviewsController) {
 			trackingFeature: 'timelineWebview',
 			plusFeature: true,
 			column: ViewColumn.Active,
-			panelOptions: {
+			webviewPanelOptions: {
 				retainContextWhenHidden: true,
 				enableFindWidget: false,
 			},

@@ -23,8 +23,8 @@ export interface WebviewPanelDescriptor {
 	readonly trackingFeature: TrackedUsageFeatures;
 	readonly plusFeature: boolean;
 	readonly column?: ViewColumn;
-	readonly options?: WebviewOptions;
-	readonly panelOptions?: WebviewPanelOptions;
+	readonly webviewOptions?: WebviewOptions;
+	readonly webviewPanelOptions?: WebviewPanelOptions;
 }
 
 interface WebviewPanelRegistration<State, SerializedState = State> {
@@ -48,7 +48,7 @@ export interface WebviewViewDescriptor {
 	readonly contextKeyPrefix: `gitlens:webviewView:${WebviewViewIds}`;
 	readonly trackingFeature: TrackedUsageFeatures;
 	readonly plusFeature: boolean;
-	readonly options?: WebviewOptions;
+	readonly webviewOptions?: WebviewOptions;
 	readonly webviewViewOptions?: {
 		readonly retainContextWhenHidden?: boolean;
 	};
@@ -83,7 +83,7 @@ export class WebviewsController implements Disposable {
 		descriptor: WebviewViewDescriptor,
 		resolveProvider: (
 			container: Container,
-			host: WebviewController<State, SerializedState>,
+			controller: WebviewController<State, SerializedState>,
 		) => Promise<WebviewProvider<State, SerializedState>>,
 		canResolveProvider?: () => boolean | Promise<boolean>,
 	): WebviewViewProxy {
@@ -113,7 +113,7 @@ export class WebviewsController implements Disposable {
 							enableCommandUris: true,
 							enableScripts: true,
 							localResourceRoots: [Uri.file(this.container.context.extensionPath)],
-							...descriptor.options,
+							...descriptor.webviewOptions,
 						};
 
 						webviewView.title = descriptor.title;
@@ -175,7 +175,7 @@ export class WebviewsController implements Disposable {
 		descriptor: WebviewPanelDescriptor,
 		resolveProvider: (
 			container: Container,
-			host: WebviewController<State, SerializedState>,
+			controller: WebviewController<State, SerializedState>,
 		) => Promise<WebviewProvider<State, SerializedState>>,
 		canResolveProvider?: () => boolean | Promise<boolean>,
 	): WebviewPanelProxy {
@@ -218,8 +218,8 @@ export class WebviewsController implements Disposable {
 							enableScripts: true,
 							localResourceRoots: [Uri.file(container.context.extensionPath)],
 						},
-						...descriptor.options,
-						...descriptor.panelOptions,
+						...descriptor.webviewOptions,
+						...descriptor.webviewPanelOptions,
 					},
 				);
 				panel.iconPath = Uri.file(container.context.asAbsolutePath(descriptor.iconPath));
