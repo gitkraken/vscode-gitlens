@@ -153,8 +153,8 @@ export class WebviewController<
 		this.id = descriptor.id;
 		this.webview = parent.webview;
 
-		const isInTab = 'onDidChangeViewState' in parent;
-		this._isTab = isInTab;
+		const isInEditor = 'onDidChangeViewState' in parent;
+		this._isEditor = isInEditor;
 		this._originalTitle = descriptor.title;
 		parent.title = descriptor.title;
 
@@ -163,7 +163,7 @@ export class WebviewController<
 			this.disposables.push(
 				window.onDidChangeWindowState(this.onWindowStateChanged, this),
 				parent.webview.onDidReceiveMessage(this.onMessageReceivedCore, this),
-				isInTab
+				isInEditor
 					? parent.onDidChangeViewState(this.onParentViewStateChanged, this)
 					: parent.onDidChangeVisibility(() => this.onParentVisibilityChanged(this.visible), this),
 				parent.onDidDispose(this.onParentDisposed, this),
@@ -193,12 +193,12 @@ export class WebviewController<
 		this._initializing = undefined;
 	}
 
-	private _isTab: boolean;
-	isTab(): this is WebviewPanelController<State, SerializedState> {
-		return this._isTab;
+	private _isEditor: boolean;
+	isEditor(): this is WebviewPanelController<State, SerializedState> {
+		return this._isEditor;
 	}
 	isView(): this is WebviewViewController<State, SerializedState> {
-		return !this._isTab;
+		return !this._isEditor;
 	}
 
 	private _description: string | undefined;
@@ -236,7 +236,7 @@ export class WebviewController<
 			options = {};
 		}
 
-		if (this.isTab()) {
+		if (this.isEditor()) {
 			const result = await this.provider.canShowWebviewPanel?.(firstTime, options, ...args);
 			if (result === false) return;
 
@@ -422,7 +422,7 @@ export class WebviewController<
 			this._cspNonce,
 			this.asWebviewUri(this.getRootUri()).toString(),
 			this.getWebRoot(),
-			this.isTab() ? 'tab' : 'view',
+			this.isEditor() ? 'editor' : 'view',
 			bootstrap,
 			head,
 			body,
@@ -471,7 +471,7 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 	cspNonce: string,
 	root: string,
 	webRoot: string,
-	placement: 'tab' | 'view',
+	placement: 'editor' | 'view',
 	bootstrap?: SerializedState,
 	head?: string,
 	body?: string,
