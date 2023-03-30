@@ -396,7 +396,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 
 	@debug()
 	private updateState(immediate: boolean = false) {
-		if (!this.host.isReady || !this.host.visible) return;
+		if (!this.host.ready || !this.host.visible) return;
 
 		if (this._pendingContext == null && this.host.isView()) {
 			this.updatePendingEditor(window.activeTextEditor);
@@ -416,7 +416,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 
 	@debug()
 	private async notifyDidChangeState() {
-		if (!this.host.isReady || !this.host.visible) return false;
+		if (!this.host.ready || !this.host.visible) return false;
 
 		this._notifyDidChangeStateDebounced?.cancel();
 		if (this._pendingContext == null) return false;

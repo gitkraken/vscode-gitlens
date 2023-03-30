@@ -16,7 +16,7 @@ export class SettingsWebviewProvider extends WebviewProviderWithConfigBase<State
 	): boolean | Promise<boolean> {
 		const anchor = args[0];
 		if (anchor && typeof anchor === 'string') {
-			if (!loading && this.host.isReady && this.host.visible) {
+			if (!loading && this.host.ready && this.host.visible) {
 				queueMicrotask(
 					() =>
 						void this.host.notify(DidOpenAnchorNotificationType, {

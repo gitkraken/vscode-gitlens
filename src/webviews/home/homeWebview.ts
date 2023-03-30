@@ -239,7 +239,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private notifyDidChangeData(subscription?: Subscription) {
-		if (!this.host.isReady) return false;
+		if (!this.host.ready) return false;
 
 		return window.withProgress({ location: { viewId: this.host.id } }, async () => {
 			const sub = await this.getSubscription(subscription);
@@ -255,7 +255,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private notifyExtensionEnabled() {
-		if (!this.host.isReady) return;
+		if (!this.host.ready) return;
 
 		void this.host.notify(DidChangeExtensionEnabledType, {
 			extensionEnabled: this.getExtensionEnabled(),
@@ -267,7 +267,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private notifyDidChangeConfiguration() {
-		if (!this.host.isReady) return;
+		if (!this.host.ready) return;
 
 		void this.host.notify(DidChangeConfigurationType, {
 			plusEnabled: this.getPlusEnabled(),
@@ -280,7 +280,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private notifyDidChangeLayout() {
-		if (!this.host.isReady) return;
+		if (!this.host.ready) return;
 
 		void this.host.notify(DidChangeLayoutType, { layout: this.getLayout() });
 	}

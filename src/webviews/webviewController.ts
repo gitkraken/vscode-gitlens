@@ -123,10 +123,10 @@ export class WebviewController<
 
 	public readonly id: Descriptor['id'];
 
-	private _isReady: boolean = false;
+	private _ready: boolean = false;
 	private _suspended: boolean = false;
-	get isReady() {
-		return this._isReady;
+	get ready() {
+		return this._ready;
 	}
 
 	private readonly disposables: Disposable[] = [];
@@ -171,7 +171,7 @@ export class WebviewController<
 		this.provider.onFocusChanged?.(false);
 		this.provider.onVisibilityChanged?.(false);
 
-		this._isReady = false;
+		this._ready = false;
 		this._suspended = false;
 
 		this._onDidDispose.fire();
@@ -271,7 +271,7 @@ export class WebviewController<
 		this.provider.onRefresh?.(force);
 
 		// Mark the webview as not ready, until we know if we are changing the html
-		this._isReady = false;
+		this._ready = false;
 		this._suspended = false;
 
 		const html = await this.getHtml(this.webview);
@@ -282,7 +282,7 @@ export class WebviewController<
 
 		// If we aren't changing the html, mark the webview as ready again
 		if (this.webview.html === html) {
-			this._isReady = true;
+			this._ready = true;
 			return;
 		}
 
@@ -302,7 +302,7 @@ export class WebviewController<
 		switch (e.method) {
 			case WebviewReadyCommandType.method:
 				onIpc(WebviewReadyCommandType, e, () => {
-					this._isReady = true;
+					this._ready = true;
 					this._suspended = false;
 					this.provider.onReady?.();
 				});
@@ -349,12 +349,12 @@ export class WebviewController<
 		if (this.descriptor.webviewHostOptions?.retainContextWhenHidden !== true) {
 			if (visible) {
 				if (this._suspended) {
-					this._isReady = true;
+					this._ready = true;
 					this._suspended = false;
 					this.provider.onReady?.();
 				}
 			} else {
-				this._isReady = false;
+				this._ready = false;
 				this._suspended = true;
 			}
 		}
@@ -380,12 +380,12 @@ export class WebviewController<
 		if (this.descriptor.webviewHostOptions?.retainContextWhenHidden !== true) {
 			if (visible) {
 				if (this._suspended) {
-					this._isReady = true;
+					this._ready = true;
 					this._suspended = false;
 					this.provider.onReady?.();
 				}
 			} else {
-				this._isReady = false;
+				this._ready = false;
 				this._suspended = true;
 			}
 		}
@@ -476,7 +476,7 @@ export class WebviewController<
 		},
 	})
 	async postMessage(message: IpcMessage): Promise<boolean> {
-		if (!this._isReady) return Promise.resolve(false);
+		if (!this._ready) return Promise.resolve(false);
 
 		// It looks like there is a bug where `postMessage` can sometimes just hang infinitely. Not sure why, but ensure we don't hang
 		const success = await Promise.race<boolean>([

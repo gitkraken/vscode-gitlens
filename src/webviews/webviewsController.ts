@@ -151,7 +151,7 @@ export class WebviewsController implements Disposable {
 		return {
 			id: descriptor.id,
 			get ready() {
-				return registration.controller?.isReady ?? false;
+				return registration.controller?.ready ?? false;
 			},
 			get visible() {
 				return registration.controller?.visible ?? false;
@@ -246,7 +246,7 @@ export class WebviewsController implements Disposable {
 		return {
 			id: descriptor.id,
 			get ready() {
-				return registration.controller?.isReady ?? false;
+				return registration.controller?.ready ?? false;
 			},
 			get visible() {
 				return registration.controller?.visible ?? false;
