@@ -25,7 +25,7 @@ import { serializeIssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
 import { serializePullRequest } from '../../git/models/pullRequest';
 import type { GitRevisionReference } from '../../git/models/reference';
-import { getReferenceFromRevision } from '../../git/models/reference';
+import { getReferenceFromRevision, shortenRevision } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { executeCommand, executeCoreCommand } from '../../system/command';
@@ -80,6 +80,7 @@ interface Context {
 	navigationStack: {
 		count: number;
 		position: number;
+		hint?: string;
 	};
 
 	visible: boolean;
@@ -537,10 +538,16 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			if (!options?.skipStack) {
 				this._commitStack.add(getReferenceFromRevision(commit));
 			}
+
+			let sha = this._commitStack.get(this._commitStack.position + 1)?.ref;
+			if (sha != null) {
+				sha = shortenRevision(sha);
+			}
 			this.updatePendingContext({
 				navigationStack: {
 					count: this._commitStack.count,
 					position: this._commitStack.position,
+					hint: sha,
 				},
 			});
 		}

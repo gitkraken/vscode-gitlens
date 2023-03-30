@@ -31,7 +31,11 @@ export class MRU<T> {
 		this._position = 0;
 	}
 
-	get(): T | undefined {
+	get(position?: number): T | undefined {
+		if (position != null) {
+			if (position < 0 || position >= this.stack.length) return undefined;
+			return this.stack[position];
+		}
 		return this.stack.length > 0 ? this.stack[0] : undefined;
 	}
 
