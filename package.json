@@ -3466,7 +3466,7 @@
 					"gitlens.telemetry.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to allow the collection of product usage telemetry",
+						"markdownDescription": "Specifies whether to allow GitLens to send product usage telemetry.\n\n_**Note:** For GitLens to send any telemetry BOTH this setting and VS Code telemetry must be enabled. If either one is disabled no telemetry will be sent._",
 						"scope": "window",
 						"order": 1
 					},
