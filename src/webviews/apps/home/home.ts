@@ -248,9 +248,19 @@ export class HomeApp extends App<State> {
 
 		let $el = document.getElementById('no-repo');
 		$el?.setAttribute('aria-hidden', value);
+		if (extensionEnabled) {
+			$el?.setAttribute('hidden', value);
+		} else {
+			$el?.removeAttribute('hidden');
+		}
 
 		$el = document.getElementById('no-repo-alert');
 		$el?.setAttribute('aria-hidden', value);
+		if (extensionEnabled) {
+			$el?.setAttribute('hidden', value);
+		} else {
+			$el?.removeAttribute('hidden');
+		}
 	}
 
 	private updateLayout() {
