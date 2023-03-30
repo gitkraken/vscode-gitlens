@@ -38,12 +38,8 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 				if (key !== 'gitlens:disabled') return;
 				this.notifyExtensionEnabled();
 			}),
-			configuration.onDidChange(e => {
-				this.onConfigurationChanged(e);
-			}, this),
-			this.container.storage.onDidChange(e => {
-				this.onStorageChanged(e);
-			}),
+			configuration.onDidChange(this.onConfigurationChanged, this),
+			this.container.storage.onDidChange(this.onStorageChanged, this),
 		);
 	}
 
@@ -90,21 +86,25 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 
 	registerCommands(): Disposable[] {
 		return [
-			registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(), this),
+			registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this),
 			registerCommand('gitlens.home.toggleWelcome', async () => {
 				const welcomeVisible = !this.welcomeVisible;
 				await this.container.storage.store('views:welcome:visible', welcomeVisible);
 				if (welcomeVisible) {
-					await this.container.storage.store('home:actions:completed', []);
-					await this.container.storage.store('home:steps:completed', []);
-					await this.container.storage.store('home:sections:dismissed', []);
+					await Promise.allSettled([
+						this.container.storage.store('home:actions:completed', []),
+						this.container.storage.store('home:steps:completed', []),
+						this.container.storage.store('home:sections:dismissed', []),
+					]);
 				}
 
 				void this.host.refresh();
 			}),
 			registerCommand('gitlens.home.restoreWelcome', async () => {
-				await this.container.storage.store('home:steps:completed', []);
-				await this.container.storage.store('home:sections:dismissed', []);
+				await Promise.allSettled([
+					this.container.storage.store('home:steps:completed', []),
+					this.container.storage.store('home:sections:dismissed', []),
+				]);
 
 				void this.host.refresh();
 			}),
@@ -196,17 +196,17 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			completedActions.push(CompletedActions.DismissedWelcome);
 		}
 
-		const subscriptionState = subscription ?? (await this.container.subscription.getSubscription(true));
+		const sub = subscription ?? (await this.container.subscription.getSubscription(true));
 
 		let avatar;
-		if (subscriptionState.account?.email) {
-			avatar = getAvatarUriFromGravatarEmail(subscriptionState.account.email, 34).toString();
+		if (sub.account?.email) {
+			avatar = getAvatarUriFromGravatarEmail(sub.account.email, 34).toString();
 		} else {
 			avatar = `${this.host.getWebRoot() ?? ''}/media/gitlens-logo.webp`;
 		}
 
 		return {
-			subscription: subscriptionState,
+			subscription: sub,
 			completedActions: completedActions,
 			avatar: avatar,
 		};
@@ -217,7 +217,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private async getState(subscription?: Subscription): Promise<State> {
-		const subscriptionState = await this.getSubscription(subscription);
+		const sub = await this.getSubscription(subscription);
 		const steps = this.container.storage.get('home:steps:completed', []);
 		const sections = this.container.storage.get('home:sections:dismissed', []);
 		const dismissedBanners = this.container.storage.get('home:banners:dismissed', []);
@@ -225,13 +225,13 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		return {
 			extensionEnabled: this.getExtensionEnabled(),
 			webroot: this.host.getWebRoot(),
-			subscription: subscriptionState.subscription,
-			completedActions: subscriptionState.completedActions,
+			subscription: sub.subscription,
+			completedActions: sub.completedActions,
 			plusEnabled: this.getPlusEnabled(),
 			visibility: await this.getRepoVisibility(),
 			completedSteps: steps,
 			dismissedSections: sections,
-			avatar: subscriptionState.avatar,
+			avatar: sub.avatar,
 			layout: this.getLayout(),
 			pinStatus: this.getPinStatus(),
 			dismissedBanners: dismissedBanners,
@@ -241,18 +241,13 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	private notifyDidChangeData(subscription?: Subscription) {
 		if (!this.host.isReady) return false;
 
-		const getSub = async () => {
+		return window.withProgress({ location: { viewId: this.host.id } }, async () => {
 			const sub = await this.getSubscription(subscription);
-
-			return {
+			return this.host.notify(DidChangeSubscriptionNotificationType, {
 				...sub,
 				pinStatus: this.getPinStatus(),
-			};
-		};
-
-		return window.withProgress({ location: { viewId: this.host.id } }, async () =>
-			this.host.notify(DidChangeSubscriptionNotificationType, await getSub()),
-		);
+			});
+		});
 	}
 
 	private getExtensionEnabled() {
