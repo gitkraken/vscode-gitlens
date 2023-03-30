@@ -11,6 +11,7 @@ import { IpcCommandType, IpcNotificationType } from '../protocol';
 export const messageHeadlineSplitterToken = '\x00\n\x00';
 
 export type FileShowOptions = TextDocumentShowOptions;
+export type CommitDetailsDismissed = 'sidebar';
 
 export type CommitSummary = {
 	sha: string;
@@ -31,7 +32,7 @@ export type CommitDetails = CommitSummary & {
 export type Preferences = {
 	autolinksExpanded?: boolean;
 	avatars?: boolean;
-	dismissed?: string[];
+	dismissed?: CommitDetailsDismissed[];
 	files?: Config['views']['commitDetails']['files'];
 };
 
@@ -93,7 +94,7 @@ export const NavigateCommitCommandType = new IpcCommandType<NavigateParams>('com
 export interface PreferenceParams {
 	autolinksExpanded?: boolean;
 	avatars?: boolean;
-	dismissed?: string[];
+	dismissed?: CommitDetailsDismissed[];
 	files?: Config['views']['commitDetails']['files'];
 }
 export const PreferencesCommandType = new IpcCommandType<PreferenceParams>('commit/preferences');

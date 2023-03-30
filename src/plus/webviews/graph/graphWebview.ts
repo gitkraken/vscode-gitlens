@@ -1,5 +1,5 @@
-import type { ColorTheme, ConfigurationChangeEvent, Uri } from 'vscode';
-import { CancellationTokenSource, Disposable, env, ViewColumn, window } from 'vscode';
+import type { ColorTheme, ConfigurationChangeEvent, Uri, ViewColumn } from 'vscode';
+import { CancellationTokenSource, Disposable, env, window } from 'vscode';
 import type { CreatePullRequestActionContext } from '../../../api/gitlens';
 import { getAvatarUri } from '../../../avatars';
 import type {
@@ -47,7 +47,12 @@ import {
 import { getRemoteIconUri } from '../../../git/models/remote';
 import { RemoteResourceType } from '../../../git/models/remoteResource';
 import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../../git/models/repository';
-import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+import {
+	isRepository,
+	Repository,
+	RepositoryChange,
+	RepositoryChangeComparisonMode,
+} from '../../../git/models/repository';
 import type { GitSearch } from '../../../git/search';
 import { getSearchQueryComparisonKey } from '../../../git/search';
 import { showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
@@ -237,18 +242,15 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		this._disposable.dispose();
 	}
 
-	async canShowWebviewPanel(
-		firstTime: boolean,
-		options: { column?: ViewColumn; preserveFocus?: boolean },
+	async onShowing(
+		loading: boolean,
+		_options: { column?: ViewColumn; preserveFocus?: boolean },
 		...args: unknown[]
 	): Promise<boolean> {
 		this._firstSelection = true;
-		if (options.column == null) {
-			options.column = ViewColumn.Active;
-		}
 
 		const context = args[0];
-		if (context instanceof Repository) {
+		if (isRepository(context)) {
 			this.repository = context;
 		} else if (hasGitReference(context)) {
 			this.repository = this.container.git.getRepository(context.ref.repoPath);
@@ -280,7 +282,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 				this.repository = context.node.repo;
 			}
 
-			if (this.repository != null && !firstTime && this.host.isReady) {
+			if (this.repository != null && !loading && this.host.isReady) {
 				this.updateState();
 			}
 		}
@@ -696,8 +698,12 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 					},
 				);
 
-				if (!this.container.commitDetailsView.loaded) {
-					void this.container.commitDetailsView.show({ preserveFocus: e.preserveFocus }, {
+				const details =
+					configuration.get('graph.layout') === 'panel'
+						? this.container.graphDetailsView
+						: this.container.commitDetailsView;
+				if (!details.ready) {
+					void details.show({ preserveFocus: e.preserveFocus }, {
 						commit: commit,
 						interaction: 'active',
 						preserveVisibility: false,

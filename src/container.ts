@@ -59,7 +59,10 @@ import { ViewCommands } from './views/viewCommands';
 import { ViewFileDecorationProvider } from './views/viewDecorationProvider';
 import { WorktreesView } from './views/worktreesView';
 import { VslsController } from './vsls/vsls';
-import { registerCommitDetailsWebviewView } from './webviews/commitDetails/registration';
+import {
+	registerCommitDetailsWebviewView,
+	registerGraphDetailsWebviewView,
+} from './webviews/commitDetails/registration';
 import { registerHomeWebviewView } from './webviews/home/registration';
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
 import { registerSettingsWebviewCommands, registerSettingsWebviewPanel } from './webviews/settings/registration';
@@ -215,7 +218,7 @@ export class Container {
 
 		context.subscriptions.unshift((this._graphPanel = registerGraphWebviewPanel(this._webviews)));
 		context.subscriptions.unshift(registerGraphWebviewCommands(this, this._graphPanel));
-		if (configuration.get('graph.experimental.location') === 'view') {
+		if (configuration.get('graph.layout') === 'panel') {
 			context.subscriptions.unshift((this._graphView = registerGraphWebviewView(this._webviews)));
 		}
 		context.subscriptions.unshift(new GraphStatusBarController(this));
@@ -231,6 +234,7 @@ export class Container {
 
 		context.subscriptions.unshift((this._repositoriesView = new RepositoriesView(this)));
 		context.subscriptions.unshift((this._commitDetailsView = registerCommitDetailsWebviewView(this._webviews)));
+		context.subscriptions.unshift((this._graphDetailsView = registerGraphDetailsWebviewView(this._webviews)));
 		context.subscriptions.unshift((this._commitsView = new CommitsView(this)));
 		context.subscriptions.unshift((this._fileHistoryView = new FileHistoryView(this)));
 		context.subscriptions.unshift((this._lineHistoryView = new LineHistoryView(this)));
@@ -306,8 +310,8 @@ export class Container {
 			this.ensureModeApplied();
 		}
 
-		if (configuration.changed(e, 'graph.experimental.location')) {
-			if (configuration.get('graph.experimental.location') === 'view') {
+		if (configuration.changed(e, 'graph.layout')) {
+			if (configuration.get('graph.layout') === 'panel') {
 				this._graphPanel?.close();
 				this._graphView = registerGraphWebviewView(this._webviews);
 			} else {
@@ -445,6 +449,11 @@ export class Container {
 			Logger.error(ex);
 			return undefined;
 		}
+	}
+
+	private readonly _graphDetailsView: WebviewViewProxy;
+	get graphDetailsView() {
+		return this._graphDetailsView;
 	}
 
 	private readonly _graphPanel: WebviewPanelProxy;

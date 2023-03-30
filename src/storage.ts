@@ -7,6 +7,7 @@ import type { StoredSearchQuery } from './git/search';
 import type { Subscription } from './subscription';
 import { debug } from './system/decorators/log';
 import type { TrackedUsage, TrackedUsageKeys } from './telemetry/usageTracker';
+import type { CommitDetailsDismissed } from './webviews/commitDetails/protocol';
 import type { CompletedActions } from './webviews/home/protocol';
 
 export type StorageChangeEvent =
@@ -148,7 +149,7 @@ export type GlobalStorage = {
 	preVersion: string;
 	'views:layout': StoredViewsLayout;
 	'views:welcome:visible': boolean;
-	'views:commitDetails:dismissed': string[];
+	'views:commitDetails:dismissed': CommitDetailsDismissed[];
 } & { [key in `provider:authentication:skip:${string}`]: boolean };
 
 export type DeprecatedWorkspaceStorage = {

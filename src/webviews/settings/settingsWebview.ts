@@ -2,20 +2,21 @@ import type { ViewColumn } from 'vscode';
 import { workspace } from 'vscode';
 import { configuration } from '../../system/configuration';
 import { DidOpenAnchorNotificationType } from '../protocol';
+import type { WebviewProvider } from '../webviewController';
 import { WebviewProviderWithConfigBase } from '../webviewWithConfigBase';
 import type { State } from './protocol';
 
-export class SettingsWebviewProvider extends WebviewProviderWithConfigBase<State> {
+export class SettingsWebviewProvider extends WebviewProviderWithConfigBase<State> implements WebviewProvider<State> {
 	private _pendingJumpToAnchor: string | undefined;
 
-	canShowWebviewPanel?(
-		firstTime: boolean,
+	onShowing?(
+		loading: boolean,
 		_options: { column?: ViewColumn; preserveFocus?: boolean },
 		...args: unknown[]
 	): boolean | Promise<boolean> {
 		const anchor = args[0];
 		if (anchor && typeof anchor === 'string') {
-			if (!firstTime && this.host.isReady && this.host.visible) {
+			if (!loading && this.host.isReady && this.host.visible) {
 				queueMicrotask(
 					() =>
 						void this.host.notify(DidOpenAnchorNotificationType, {

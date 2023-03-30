@@ -417,13 +417,13 @@ export interface GraphConfig {
 	defaultItemLimit: number;
 	dimMergeCommits: boolean;
 	experimental: {
-		location: 'tab' | 'view';
 		minimap: {
 			enabled: boolean;
 			additionalTypes: GraphMinimapTypes[];
 		};
 	};
 	highlightRowsOnRefHover: boolean;
+	layout: 'editor' | 'panel';
 	scrollRowPadding: number;
 	showDetailsView: 'open' | 'selection' | false;
 	showGhostRefsOnRowHover: boolean;

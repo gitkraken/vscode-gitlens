@@ -24,7 +24,7 @@ export function registerGraphWebviewPanel(controller: WebviewsController) {
 			trackingFeature: 'graphWebview',
 			plusFeature: true,
 			column: ViewColumn.Active,
-			webviewPanelOptions: {
+			webviewHostOptions: {
 				retainContextWhenHidden: true,
 				enableFindWidget: false,
 			},
@@ -33,7 +33,7 @@ export function registerGraphWebviewPanel(controller: WebviewsController) {
 			const { GraphWebviewProvider } = await import(/* webpackChunkName: "graph" */ './graphWebview');
 			return new GraphWebviewProvider(container, host);
 		},
-		() => configuration.get('graph.experimental.location') === 'tab',
+		() => configuration.get('graph.layout') === 'editor',
 	);
 }
 
@@ -46,7 +46,7 @@ export function registerGraphWebviewView(controller: WebviewsController) {
 			contextKeyPrefix: `gitlens:webviewView:graph`,
 			trackingFeature: 'graphView',
 			plusFeature: true,
-			webviewViewOptions: {
+			webviewHostOptions: {
 				retainContextWhenHidden: true,
 			},
 		},
@@ -54,17 +54,29 @@ export function registerGraphWebviewView(controller: WebviewsController) {
 			const { GraphWebviewProvider } = await import(/* webpackChunkName: "graph" */ './graphWebview');
 			return new GraphWebviewProvider(container, host);
 		},
-		() => configuration.get('graph.experimental.location') === 'view',
+		() => configuration.get('graph.layout') === 'panel',
 	);
 }
 
 export function registerGraphWebviewCommands(container: Container, webview: WebviewPanelProxy) {
 	return Disposable.from(
 		registerCommand(Commands.ShowGraph, (...args: any[]) =>
-			configuration.get('graph.experimental.location') === 'view'
+			configuration.get('graph.layout') === 'panel'
 				? executeCommand(Commands.ShowGraphView, ...args)
 				: executeCommand(Commands.ShowGraphPage, ...args),
 		),
+		registerCommand('gitlens.graph.switchToEditorLayout', async () => {
+			await configuration.updateEffective('graph.layout', 'editor');
+			queueMicrotask(() => void executeCommand(Commands.ShowGraphPage));
+		}),
+		registerCommand('gitlens.graph.switchToPanelLayout', async () => {
+			await configuration.updateEffective('graph.layout', 'panel');
+			queueMicrotask(async () => {
+				await executeCommand('gitlens.views.graph.resetViewLocation');
+				await executeCommand('gitlens.views.graphDetails.resetViewLocation');
+				void executeCommand(Commands.ShowGraphView);
+			});
+		}),
 		registerCommand(
 			Commands.ShowInCommitGraph,
 			(
@@ -78,7 +90,7 @@ export function registerGraphWebviewCommands(container: Container, webview: Webv
 					| TagNode,
 			) => {
 				const preserveFocus = 'preserveFocus' in args ? args.preserveFocus ?? false : false;
-				if (configuration.get('graph.experimental.location') === 'view') {
+				if (configuration.get('graph.layout') === 'panel') {
 					void container.graphView.show({ preserveFocus: preserveFocus }, args);
 				} else {
 					void webview.show({ preserveFocus: preserveFocus }, args);

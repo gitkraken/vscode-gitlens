@@ -14,6 +14,7 @@ import { setContext } from '../context';
 import { executeCommand } from '../system/command';
 import { debug, logName } from '../system/decorators/log';
 import { serialize } from '../system/decorators/serialize';
+import { isPromise } from '../system/promise';
 import type { IpcMessage, IpcMessageParams, IpcNotificationType, WebviewFocusChangedParams } from './protocol';
 import { ExecuteCommandType, onIpc, WebviewFocusChangedCommandType, WebviewReadyCommandType } from './protocol';
 import type { WebviewPanelDescriptor, WebviewViewDescriptor } from './webviewsController';
@@ -39,18 +40,8 @@ type GetParentType<T extends WebviewPanelDescriptor | WebviewViewDescriptor> = T
 	: never;
 
 export interface WebviewProvider<State, SerializedState = State> extends Disposable {
-	canShowWebviewPanel?(
-		firstTime: boolean,
-		options: { column?: ViewColumn; preserveFocus?: boolean },
-		...args: unknown[]
-	): boolean | Promise<boolean>;
-	onShowWebviewPanel?(
-		firstTime: boolean,
-		options: { column?: ViewColumn; preserveFocus?: boolean },
-		...args: unknown[]
-	): void | Promise<void>;
-	canShowWebviewView?(
-		firstTime: boolean,
+	onShowing?(
+		loading: boolean,
 		options: { column?: ViewColumn; preserveFocus?: boolean },
 		...args: unknown[]
 	): boolean | Promise<boolean>;
@@ -133,6 +124,7 @@ export class WebviewController<
 	public readonly id: Descriptor['id'];
 
 	private _isReady: boolean = false;
+	private _suspended: boolean = false;
 	get isReady() {
 		return this._isReady;
 	}
@@ -180,6 +172,7 @@ export class WebviewController<
 		this.provider.onVisibilityChanged?.(false);
 
 		this._isReady = false;
+		this._suspended = false;
 
 		this._onDidDispose.fire();
 		this.disposables.forEach(d => void d.dispose());
@@ -231,36 +224,34 @@ export class WebviewController<
 		return this.parent.visible;
 	}
 
-	async show(firstTime: boolean, options?: { column?: ViewColumn; preserveFocus?: boolean }, ...args: unknown[]) {
+	async show(loading: boolean, options?: { column?: ViewColumn; preserveFocus?: boolean }, ...args: unknown[]) {
 		if (options == null) {
 			options = {};
 		}
 
-		if (this.isEditor()) {
-			const result = await this.provider.canShowWebviewPanel?.(firstTime, options, ...args);
-			if (result === false) return;
-
-			if (firstTime) {
-				this.webview.html = await this.getHtml(this.webview);
+		const result = this.provider.onShowing?.(loading, options, ...args);
+		if (result != null) {
+			if (isPromise(result)) {
+				if ((await result) === false) return;
+			} else if (result === false) {
+				return;
 			}
+		}
 
-			await this.provider.onShowWebviewPanel?.(firstTime, options, ...args);
-			if (!firstTime) {
+		if (loading) {
+			this.webview.html = await this.getHtml(this.webview);
+		}
+
+		if (this.isEditor()) {
+			if (!loading) {
 				this.parent.reveal(
-					options?.column ?? this.parent.viewColumn ?? this.descriptor.column ?? ViewColumn.Beside,
-					options?.preserveFocus ?? false,
+					options.column ?? this.parent.viewColumn ?? this.descriptor.column ?? ViewColumn.Beside,
+					options.preserveFocus ?? false,
 				);
 			}
 		} else if (this.isView()) {
-			const result = await this.provider.canShowWebviewView?.(firstTime, options, ...args);
-			if (result === false) return;
-
-			if (firstTime) {
-				this.webview.html = await this.getHtml(this.webview);
-			}
-
 			await executeCommand(`${this.id}.focus`, options);
-			if (firstTime) {
+			if (loading) {
 				this.provider.onVisibilityChanged?.(true);
 			}
 		}
@@ -281,6 +272,8 @@ export class WebviewController<
 
 		// Mark the webview as not ready, until we know if we are changing the html
 		this._isReady = false;
+		this._suspended = false;
+
 		const html = await this.getHtml(this.webview);
 		if (force) {
 			// Reset the html to get the webview to reload
@@ -310,6 +303,7 @@ export class WebviewController<
 			case WebviewReadyCommandType.method:
 				onIpc(WebviewReadyCommandType, e, () => {
 					this._isReady = true;
+					this._suspended = false;
 					this.provider.onReady?.();
 				});
 
@@ -351,6 +345,20 @@ export class WebviewController<
 	})
 	private onParentViewStateChanged(e: WebviewPanelOnDidChangeViewStateEvent): void {
 		const { active, visible } = e.webviewPanel;
+
+		if (this.descriptor.webviewHostOptions?.retainContextWhenHidden !== true) {
+			if (visible) {
+				if (this._suspended) {
+					this._isReady = true;
+					this._suspended = false;
+					this.provider.onReady?.();
+				}
+			} else {
+				this._isReady = false;
+				this._suspended = true;
+			}
+		}
+
 		if (visible) {
 			setContextKeys(this.descriptor.contextKeyPrefix, active);
 			this.provider.onActiveChanged?.(active);
@@ -369,6 +377,19 @@ export class WebviewController<
 
 	@debug()
 	private onParentVisibilityChanged(visible: boolean) {
+		if (this.descriptor.webviewHostOptions?.retainContextWhenHidden !== true) {
+			if (visible) {
+				if (this._suspended) {
+					this._isReady = true;
+					this._suspended = false;
+					this.provider.onReady?.();
+				}
+			} else {
+				this._isReady = false;
+				this._suspended = true;
+			}
+		}
+
 		if (visible) {
 			void this.container.usage.track(`${this.descriptor.trackingFeature}:shown`);
 		} else {
@@ -454,14 +475,15 @@ export class WebviewController<
 			0: m => `{"id":${m.id},"method":${m.method}${m.completionId ? `,"completionId":${m.completionId}` : ''}}`,
 		},
 	})
-	postMessage(message: IpcMessage): Promise<boolean> {
+	async postMessage(message: IpcMessage): Promise<boolean> {
 		if (!this._isReady) return Promise.resolve(false);
 
 		// It looks like there is a bug where `postMessage` can sometimes just hang infinitely. Not sure why, but ensure we don't hang
-		return Promise.race<boolean>([
+		const success = await Promise.race<boolean>([
 			this.webview.postMessage(message),
 			new Promise<boolean>(resolve => setTimeout(resolve, 5000, false)),
 		]);
+		return success;
 	}
 }
 
