@@ -2,7 +2,7 @@ import type { TextEditor, ViewColumn } from 'vscode';
 import { commands, Disposable, Uri, window } from 'vscode';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
-import type { FileSelectedEvent } from '../../../eventBus';
+import type { CommitSelectedEvent, FileSelectedEvent } from '../../../eventBus';
 import { PlusFeatures } from '../../../features';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import { GitUri } from '../../../git/gitUri';
@@ -150,12 +150,20 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 						'commit:selected',
 						{
 							commit: commit,
-							interaction: 'passive',
+							interaction: 'active',
 							preserveFocus: true,
-							preserveVisibility: true,
+							preserveVisibility: false,
 						},
 						{ source: this.host.id },
 					);
+
+					if (!this.container.commitDetailsView.ready) {
+						void this.container.commitDetailsView.show({ preserveFocus: true }, {
+							commit: commit,
+							interaction: 'active',
+							preserveVisibility: false,
+						} satisfies CommitSelectedEvent['data']);
+					}
 				});
 
 				break;
