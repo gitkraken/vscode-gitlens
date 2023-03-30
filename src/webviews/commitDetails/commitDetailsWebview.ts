@@ -1,5 +1,5 @@
-import type { CancellationToken, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
-import { CancellationTokenSource, Disposable, Uri, ViewColumn, window } from 'vscode';
+import type { CancellationToken, ConfigurationChangeEvent, TextDocumentShowOptions, ViewColumn } from 'vscode';
+import { CancellationTokenSource, Disposable, Uri, window } from 'vscode';
 import { serializeAutolink } from '../../annotations/autolinks';
 import type { CopyShaToClipboardCommandArgs } from '../../commands';
 import type { CoreConfiguration } from '../../constants';
@@ -916,9 +916,10 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 	}
 
 	private getShowOptions(params: FileActionParams): TextDocumentShowOptions | undefined {
-		return getContext('gitlens:webview:graph:active') || getContext('gitlens:webview:rebase:active')
-			? { ...params.showOptions, viewColumn: ViewColumn.Beside }
-			: params.showOptions;
+		return params.showOptions;
+
+		// return getContext('gitlens:webview:graph:active') || getContext('gitlens:webview:rebase:active')
+		// 	? { ...params.showOptions, viewColumn: ViewColumn.Beside } : params.showOptions;
 	}
 }
 
