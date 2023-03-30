@@ -15,7 +15,7 @@ export function registerFocusWebviewPanel(controller: WebviewsController) {
 			trackingFeature: 'focusWebview',
 			plusFeature: true,
 			column: ViewColumn.Active,
-			webviewPanelOptions: {
+			webviewHostOptions: {
 				retainContextWhenHidden: true,
 				enableFindWidget: true,
 			},

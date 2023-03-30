@@ -675,7 +675,7 @@ button:not([disabled]),
 		flex: none;
 		z-index: 2000;
 		position: relative;
-		margin-right: 2px;
+		margin: -1px -1px 0 -1px;
 	}
 
 	&__footer {

@@ -24,7 +24,7 @@ export interface WebviewPanelDescriptor {
 	readonly plusFeature: boolean;
 	readonly column?: ViewColumn;
 	readonly webviewOptions?: WebviewOptions;
-	readonly webviewPanelOptions?: WebviewPanelOptions;
+	readonly webviewHostOptions?: WebviewPanelOptions;
 }
 
 interface WebviewPanelRegistration<State, SerializedState = State> {
@@ -34,7 +34,7 @@ interface WebviewPanelRegistration<State, SerializedState = State> {
 
 export interface WebviewPanelProxy extends Disposable {
 	readonly id: `gitlens.${WebviewIds}`;
-	readonly loaded: boolean;
+	readonly ready: boolean;
 	readonly visible: boolean;
 	close(): void;
 	refresh(force?: boolean): Promise<void>;
@@ -49,7 +49,7 @@ export interface WebviewViewDescriptor {
 	readonly trackingFeature: TrackedUsageFeatures;
 	readonly plusFeature: boolean;
 	readonly webviewOptions?: WebviewOptions;
-	readonly webviewViewOptions?: {
+	readonly webviewHostOptions?: {
 		readonly retainContextWhenHidden?: boolean;
 	};
 }
@@ -62,7 +62,7 @@ interface WebviewViewRegistration<State, SerializedState = State> {
 
 export interface WebviewViewProxy extends Disposable {
 	readonly id: `gitlens.views.${WebviewViewIds}`;
-	readonly loaded: boolean;
+	readonly ready: boolean;
 	readonly visible: boolean;
 	refresh(force?: boolean): Promise<void>;
 	show(options?: { preserveFocus?: boolean }, ...args: unknown[]): Promise<void>;
@@ -142,7 +142,7 @@ export class WebviewsController implements Disposable {
 						}
 					},
 				},
-				descriptor.webviewViewOptions != null ? { webviewOptions: descriptor.webviewViewOptions } : undefined,
+				descriptor.webviewHostOptions != null ? { webviewOptions: descriptor.webviewHostOptions } : undefined,
 			),
 		);
 
@@ -150,8 +150,8 @@ export class WebviewsController implements Disposable {
 		this.disposables.push(disposable);
 		return {
 			id: descriptor.id,
-			get loaded() {
-				return registration.controller != null;
+			get ready() {
+				return registration.controller?.isReady ?? false;
 			},
 			get visible() {
 				return registration.controller?.visible ?? false;
@@ -219,7 +219,7 @@ export class WebviewsController implements Disposable {
 							localResourceRoots: [Uri.file(container.context.extensionPath)],
 						},
 						...descriptor.webviewOptions,
-						...descriptor.webviewPanelOptions,
+						...descriptor.webviewHostOptions,
 					},
 				);
 				panel.iconPath = Uri.file(container.context.asAbsolutePath(descriptor.iconPath));
@@ -245,8 +245,8 @@ export class WebviewsController implements Disposable {
 		this.disposables.push(disposable);
 		return {
 			id: descriptor.id,
-			get loaded() {
-				return registration.controller != null;
+			get ready() {
+				return registration.controller?.isReady ?? false;
 			},
 			get visible() {
 				return registration.controller?.visible ?? false;

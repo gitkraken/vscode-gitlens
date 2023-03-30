@@ -16,7 +16,7 @@ export function registerSettingsWebviewPanel(controller: WebviewsController) {
 			trackingFeature: 'settingsWebview',
 			plusFeature: false,
 			column: ViewColumn.Beside,
-			webviewPanelOptions: {
+			webviewHostOptions: {
 				retainContextWhenHidden: false,
 				enableFindWidget: true,
 			},

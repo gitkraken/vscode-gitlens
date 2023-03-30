@@ -302,7 +302,7 @@ export const enum Commands {
 
 export type CustomEditorIds = 'rebase';
 export type WebviewIds = 'graph' | 'settings' | 'timeline' | 'welcome' | 'focus';
-export type WebviewViewIds = 'commitDetails' | 'graph' | 'home' | 'timeline';
+export type WebviewViewIds = 'commitDetails' | 'graph' | 'graphDetails' | 'home' | 'timeline';
 
 export type ContextKeys =
 	| `${typeof extensionPrefix}:action:${string}`

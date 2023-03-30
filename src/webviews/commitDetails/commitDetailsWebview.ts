@@ -100,14 +100,22 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 	constructor(
 		private readonly container: Container,
 		private readonly host: WebviewController<State, Serialized<State>>,
+		private readonly options: { mode: 'default' | 'graph' },
 	) {
+		let dismissed = this.container.storage.get('views:commitDetails:dismissed');
+		if (options.mode === 'graph') {
+			if (dismissed == null) {
+				dismissed = ['sidebar'];
+			}
+		}
+
 		this._context = {
 			pinned: false,
 			commit: undefined,
 			preferences: {
 				autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded'),
 				avatars: configuration.get('views.commitDetails.avatars'),
-				dismissed: this.container.storage.get('views:commitDetails:dismissed'),
+				dismissed: dismissed,
 				files: configuration.get('views.commitDetails.files'),
 			},
 			richStateLoaded: false,
@@ -133,8 +141,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		this._disposable.dispose();
 	}
 
-	async canShowWebviewView(
-		_firstTime: boolean,
+	async onShowing(
+		_loading: boolean,
 		options: { column?: ViewColumn; preserveFocus?: boolean },
 		...args: unknown[]
 	): Promise<boolean> {
@@ -166,8 +174,14 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 	}
 
 	private onCommitSelected(e: CommitSelectedEvent) {
-		if (e.data == null) return;
-		if (this._pinned && e.data.interaction === 'passive') return;
+		if (
+			e.data == null ||
+			(this._pinned && e.data.interaction === 'passive') ||
+			(this.options.mode === 'graph' && e.source !== 'gitlens.views.graph') ||
+			(this.options.mode === 'default' && e.source === 'gitlens.views.graph')
+		) {
+			return;
+		}
 
 		void this.host.show(false, { preserveFocus: e.data.preserveFocus }, e.data);
 	}
@@ -270,11 +284,13 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			this,
 		);
 
-		const { lineTracker } = this.container;
-		this._lineTrackerDisposable = lineTracker.subscribe(
-			this,
-			lineTracker.onDidChangeActiveLines(this.onActiveEditorLinesChanged, this),
-		);
+		if (this.options.mode !== 'graph') {
+			const { lineTracker } = this.container;
+			this._lineTrackerDisposable = lineTracker.subscribe(
+				this,
+				lineTracker.onDidChangeActiveLines(this.onActiveEditorLinesChanged, this),
+			);
+		}
 	}
 
 	private get isLineTrackerSuspended() {

@@ -75,8 +75,8 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		this._disposable.dispose();
 	}
 
-	canShowWebviewPanel(
-		firstTime: boolean,
+	onShowing(
+		loading: boolean,
 		_options: { column?: ViewColumn; preserveFocus?: boolean },
 		...args: unknown[]
 	): boolean {
@@ -87,7 +87,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 			this.updatePendingEditor(window.activeTextEditor);
 		}
 
-		if (firstTime) {
+		if (loading) {
 			this._context = { ...this._context, ...this._pendingContext };
 			this._pendingContext = undefined;
 		} else {

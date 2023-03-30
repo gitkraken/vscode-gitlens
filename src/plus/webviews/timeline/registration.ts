@@ -15,7 +15,7 @@ export function registerTimelineWebviewPanel(controller: WebviewsController) {
 			trackingFeature: 'timelineWebview',
 			plusFeature: true,
 			column: ViewColumn.Active,
-			webviewPanelOptions: {
+			webviewHostOptions: {
 				retainContextWhenHidden: true,
 				enableFindWidget: false,
 			},
@@ -36,7 +36,7 @@ export function registerTimelineWebviewView(controller: WebviewsController) {
 			contextKeyPrefix: `gitlens:webviewView:timeline`,
 			trackingFeature: 'timelineView',
 			plusFeature: true,
-			webviewViewOptions: {
+			webviewHostOptions: {
 				retainContextWhenHidden: false,
 			},
 		},
