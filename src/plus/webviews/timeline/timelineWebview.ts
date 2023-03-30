@@ -55,7 +55,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		this._context = { ...this._context, ...this._pendingContext };
 		this._pendingContext = undefined;
 
-		if (this.host.isTab()) {
+		if (this.host.isEditor()) {
 			this._disposable = Disposable.from(
 				this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 				this.container.git.onDidChangeRepository(this.onRepositoryChanged, this),
@@ -107,7 +107,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 	}
 
 	registerCommands(): Disposable[] {
-		if (this.host.isTab()) {
+		if (this.host.isEditor()) {
 			return [registerCommand(Commands.RefreshTimelinePage, () => this.host.refresh(true))];
 		}
 
@@ -265,7 +265,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		}
 
 		const title = gitUri.relativePath;
-		if (this.host.isTab()) {
+		if (this.host.isEditor()) {
 			this.host.title = `${this.host.originalTitle}: ${gitUri.fileName}`;
 		} else {
 			this.host.description = gitUri.fileName;

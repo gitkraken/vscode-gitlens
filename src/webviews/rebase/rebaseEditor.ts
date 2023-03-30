@@ -602,7 +602,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			getNonce(),
 			context.panel.webview.asWebviewUri(this.container.context.extensionUri).toString(),
 			context.panel.webview.asWebviewUri(webRootUri).toString(),
-			'tab',
+			'editor',
 			bootstrap,
 		);
 		return html;
