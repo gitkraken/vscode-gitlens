@@ -189,7 +189,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		this.resetRepositoryState();
 		this.ensureRepositorySubscriptions(true);
 
-		if (this.host.isReady) {
+		if (this.host.ready) {
 			this.updateState();
 		}
 	}
@@ -282,7 +282,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 				this.repository = context.node.repo;
 			}
 
-			if (this.repository != null && !loading && this.host.isReady) {
+			if (this.repository != null && !loading && this.host.ready) {
 				this.updateState();
 			}
 		}
@@ -414,7 +414,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		}
 
 		if (visible) {
-			if (this.host.isReady) {
+			if (this.host.ready) {
 				this.sendPendingIpcNotifications();
 			}
 
@@ -1117,7 +1117,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	@debug()
 	private async notifyDidChangeWindowFocus(): Promise<boolean> {
-		if (!this.host.isReady || !this.host.visible) {
+		if (!this.host.ready || !this.host.visible) {
 			this.addPendingIpcNotification(DidChangeWindowFocusNotificationType);
 			return false;
 		}
@@ -1181,7 +1181,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	@debug()
 	private async notifyDidChangeColumns() {
-		if (!this.host.isReady || !this.host.visible) {
+		if (!this.host.ready || !this.host.visible) {
 			this.addPendingIpcNotification(DidChangeColumnsNotificationType);
 			return false;
 		}
@@ -1196,7 +1196,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	@debug()
 	private async notifyDidChangeRefsVisibility() {
-		if (!this.host.isReady || !this.host.visible) {
+		if (!this.host.ready || !this.host.visible) {
 			this.addPendingIpcNotification(DidChangeRefsVisibilityNotificationType);
 			return false;
 		}
@@ -1210,7 +1210,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	@debug()
 	private async notifyDidChangeConfiguration() {
-		if (!this.host.isReady || !this.host.visible) {
+		if (!this.host.ready || !this.host.visible) {
 			this.addPendingIpcNotification(DidChangeGraphConfigurationNotificationType);
 			return false;
 		}
@@ -1222,7 +1222,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	@debug()
 	private async notifyDidFetch() {
-		if (!this.host.isReady || !this.host.visible) {
+		if (!this.host.ready || !this.host.visible) {
 			this.addPendingIpcNotification(DidFetchNotificationType);
 			return false;
 		}
@@ -1257,7 +1257,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	@debug()
 	private async notifyDidChangeWorkingTree() {
-		if (!this.host.isReady || !this.host.visible) {
+		if (!this.host.ready || !this.host.visible) {
 			this.addPendingIpcNotification(DidChangeWorkingTreeNotificationType);
 			return false;
 		}
@@ -1269,7 +1269,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	@debug()
 	private async notifyDidChangeSelection() {
-		if (!this.host.isReady || !this.host.visible) {
+		if (!this.host.ready || !this.host.visible) {
 			this.addPendingIpcNotification(DidChangeSelectionNotificationType);
 			return false;
 		}
@@ -1281,7 +1281,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	@debug()
 	private async notifyDidChangeSubscription() {
-		if (!this.host.isReady || !this.host.visible) {
+		if (!this.host.ready || !this.host.visible) {
 			this.addPendingIpcNotification(DidChangeSubscriptionNotificationType);
 			return false;
 		}
@@ -1295,7 +1295,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	@debug()
 	private async notifyDidChangeState() {
-		if (!this.host.isReady || !this.host.visible) {
+		if (!this.host.ready || !this.host.visible) {
 			this.addPendingIpcNotification(DidChangeNotificationType);
 			return false;
 		}
