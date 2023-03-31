@@ -86,6 +86,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 				'expanded-change',
 				e => this.onExpandedChange(e.detail),
 			),
+			DOM.on('[data-action="explain-commit"]', 'click', e => this.onExplainCommit(e)),
 		];
 
 		return disposables;
@@ -129,6 +130,21 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			default:
 				super.onMessageReceived?.(e);
 		}
+	}
+
+	onExplainCommit(e: MouseEvent) {
+		const el = e.target as HTMLButtonElement;
+		if (el.getAttribute('aria-busy') === 'true') return;
+
+		el.setAttribute('aria-busy', 'true');
+		setTimeout(() => {
+			el.removeAttribute('aria-busy');
+			const explanationEL = document.querySelector('[data-region="commit-explanation"]')!;
+			explanationEL.innerHTML = `
+				<p class="mb-0">No explanation available</p>
+			`;
+			explanationEL.scrollIntoView();
+		}, 2000);
 	}
 
 	onDismissBanner(e: MouseEvent) {

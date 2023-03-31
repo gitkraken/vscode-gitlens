@@ -226,9 +226,37 @@ ul {
 	}
 }
 
+.pane-content {
+	padding: 0 var(--gitlens-scrollbar-gutter-width) 1.5rem var(--gitlens-gutter-width);
+
+	> :first-child {
+		margin-top: 0;
+	}
+}
+
+[data-action='explain-commit'] {
+	code-icon {
+		margin-right: 0.5rem;
+	}
+
+	&[aria-busy='true'] {
+		opacity: 0.5;
+	}
+
+	&:not([aria-busy='true']) {
+		code-icon {
+			display: none;
+		}
+	}
+}
+
 // webview-specific styles
+.ai-content {
+}
+
 .change-list {
 	list-style: none;
+	margin-bottom: 1rem;
 
 	&__item {
 		// & + & {
@@ -539,7 +567,7 @@ ul {
 	}
 
 	&__main {
-		padding-bottom: 1rem;
+		// padding-bottom: 1rem;
 	}
 }
 
