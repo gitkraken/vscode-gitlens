@@ -12,6 +12,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a `gitlens.graph.experimental.location` setting to specify the location in which the _Commit Graph_ will be shown
     - `tab` - Shows the _Commit Graph_ in a tab in the editor area
     - `view` - Shows the _Commit Graph_ in the side bar and can be dragged and dropped into any side bar, secondary side bar, or panel locations
+- Adds new _Commit Graph_ features and improvements
+  - Adds a "Compact" layout to the Graph column of the _Commit Graph_
+    - Adds a context menu option to the header to toggle between the "Compact" and "Default" layouts
+  - Shows pull request icons on local branches when their upstream branch is associated with a pull request
+  - Adds tooltips to WIP and stash nodes
 
 ### Changed
 
@@ -23,6 +28,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#2583](https://github.com/gitkraken/vscode-gitlens/issues/2583) - Regression with _Open Worktree for Pull Request via GitLens..._ command
 - Fixes [#2252](https://github.com/gitkraken/vscode-gitlens/issues/2252) - "Copy As"/"Copy Remote File Url" copies %23 instead of # in case of Gitea &mdash; thanks to [PR #2603](https://github.com/gitkraken/vscode-gitlens/pull/2603) by WofWca ([@WofWca](https://github.com/WofWca))
 - Fixes [#2582](https://github.com/gitkraken/vscode-gitlens/issues/2582) - _Visual File History_ background color when in a panel
+- Fixes [#2609](https://github.com/gitkraken/vscode-gitlens/issues/2609) - If you check out a branch that is hidden, GitLens should show the branch still
+- Fixes tooltips sometimes failing to show in _Commit Graph_ rows when the Date column is hidden
 
 ## [13.4.0] - 2023-03-16
 
