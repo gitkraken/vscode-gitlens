@@ -6975,6 +6975,13 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.graph.publishBranch",
+				"title": "Publish Branch",
+				"category": "GitLens",
+				"icon": "$(cloud-upload)",
+				"enablement": "!operationInProgress"
+			},
+			{
 				"command": "gitlens.graph.rebaseOntoBranch",
 				"title": "Rebase Current Branch onto Branch...",
 				"category": "GitLens",
@@ -9178,6 +9185,10 @@
 				},
 				{
 					"command": "gitlens.graph.mergeBranchInto",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.publishBranch",
 					"when": "false"
 				},
 				{
@@ -11934,6 +11945,11 @@
 					"when": "gitlens:hasRemotes && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
 					"group": "2_gitlens_quickopen@1",
 					"alt": "gitlens.copyRemoteBranchUrl"
+				},
+				{
+					"command": "gitlens.graph.publishBranch",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+tracking\\b)/",
+					"group": "8_gitlens_actions@13"
 				},
 				{
 					"command": "gitlens.graph.cherryPick",
