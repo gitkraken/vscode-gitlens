@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     - Adds a context menu option to the header to toggle between the "Compact" and "Default" layouts
   - Shows pull request icons on local branches when their upstream branch is associated with a pull request
   - Adds tooltips to WIP and stash nodes
+  - Adds a "Publish Branch" context menu action to local branches without an upstream branch
 
 ### Changed
 
