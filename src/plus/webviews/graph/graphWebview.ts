@@ -2541,13 +2541,15 @@ function formatRepositories(repositories: Repository[]): GraphRepository[] {
 function isGraphItemContext(item: unknown): item is GraphItemContext {
 	if (item == null) return false;
 
-	return isWebviewItemContext(item) && item.webview === 'gitlens.graph';
+	return isWebviewItemContext(item) && (item.webview === 'gitlens.graph' || item.webview === 'gitlens.views.graph');
 }
 
 function isGraphItemGroupContext(item: unknown): item is GraphItemGroupContext {
 	if (item == null) return false;
 
-	return isWebviewItemGroupContext(item) && item.webview === 'gitlens.graph';
+	return (
+		isWebviewItemGroupContext(item) && (item.webview === 'gitlens.graph' || item.webview === 'gitlens.views.graph')
+	);
 }
 
 function isGraphItemTypedContext(
