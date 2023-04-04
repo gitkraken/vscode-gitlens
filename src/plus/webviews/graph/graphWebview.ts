@@ -308,6 +308,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			registerCommand('gitlens.graph.push', this.push, this),
 			registerCommand('gitlens.graph.pull', this.pull, this),
 			registerCommand('gitlens.graph.fetch', this.fetch, this),
+			registerCommand('gitlens.graph.publishBranch', this.publishBranch, this),
 			registerCommand('gitlens.graph.switchToAnotherBranch', this.switchToAnother, this),
 
 			registerCommand('gitlens.graph.createBranch', this.createBranch, this),
@@ -2012,6 +2013,16 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 				remote: ref.upstream?.name,
 				clipboard: clipboard,
 			});
+		}
+
+		return Promise.resolve();
+	}
+
+	@debug()
+	private publishBranch(item?: GraphItemContext) {
+		if (isGraphItemRefContext(item, 'branch')) {
+			const { ref } = item.webviewItemValue;
+			return RepoActions.push(ref.repoPath, undefined, ref);
 		}
 
 		return Promise.resolve();
