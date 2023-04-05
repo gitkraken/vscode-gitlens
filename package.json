@@ -3049,6 +3049,23 @@
 											}
 										]
 									},
+									"ghpr": {
+										"anyOf": [
+											{
+												"enum": [
+													false
+												]
+											},
+											{
+												"type": "object",
+												"properties": {
+													"worktree": {
+														"type": "boolean"
+													}
+												}
+											}
+										]
+									},
 									"scm": {
 										"anyOf": [
 											{
@@ -3219,6 +3236,9 @@
 								"compare": true,
 								"history": true,
 								"remote": true
+							},
+							"ghpr": {
+								"worktree": true
 							},
 							"scm": {
 								"graph": true
@@ -11874,7 +11894,7 @@
 				},
 				{
 					"command": "gitlens.ghpr.views.openOrCreateWorktree",
-					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive|description/",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && view == pr:github && viewItem =~ /pullrequest(:local)?:nonactive|description/ && config.gitlens.menus.ghpr.worktree",
 					"group": "2_gitlens@1"
 				}
 			],

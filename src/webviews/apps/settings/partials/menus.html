@@ -317,6 +317,40 @@
 					<div class="setting__input">
 						<div class="setting__expander"></div>
 						<input
+							id="menus.ghpr"
+							name="menus.ghpr"
+							type="checkbox"
+							value="undefined"
+							data-setting
+							data-setting-type="object"
+							disabled
+						/>
+						<label for="menus.scm"
+							>Add to the GitHub Pull Request and Issues' pull request context menu</label
+						>
+					</div>
+				</div>
+
+				<div class="settings ml-4">
+					<div class="setting" data-enablement="menus.scm">
+						<div class="setting__input">
+							<input
+								id="menus.ghpr.worktree"
+								name="menus.ghpr.worktree"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.ghpr.worktree">Add <i>Open Worktree for Pull Request</i> command</label>
+						</div>
+					</div>
+				</div>
+
+				<div class="setting setting--expandable" data-enablement="menus">
+					<div class="setting__input">
+						<div class="setting__expander"></div>
+						<input
 							id="menus.scm"
 							name="menus.scm"
 							type="checkbox"

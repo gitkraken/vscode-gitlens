@@ -498,6 +498,11 @@ export interface MenuConfig {
 				history: boolean;
 				remote: boolean;
 		  };
+	ghpr:
+		| false
+		| {
+				worktree: boolean;
+		  };
 	scm:
 		| false
 		| {
