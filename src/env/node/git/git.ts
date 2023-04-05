@@ -8,6 +8,7 @@ import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';
 import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
 import { GitErrorHandling } from '../../../git/commandOptions';
+import { StashPushError, StashPushErrorReason } from '../../../git/errors';
 import type { GitDiffFilter } from '../../../git/models/diff';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/models/reference';
 import type { GitUser } from '../../../git/models/user';
@@ -1859,7 +1860,11 @@ export class Git {
 		}
 
 		if (onlyStaged) {
-			params.push('--staged');
+			if (await this.isAtLeastVersion('2.35')) {
+				params.push('--staged');
+			} else {
+				throw new Error('Git version 2.35 or higher is required for --staged');
+			}
 		}
 
 		if (message) {
@@ -1882,7 +1887,18 @@ export class Git {
 			params.push(...pathspecs);
 		}
 
-		void (await this.git<string>({ cwd: repoPath }, ...params));
+		try {
+			void (await this.git<string>({ cwd: repoPath }, ...params));
+		} catch (ex) {
+			if (
+				ex instanceof RunError &&
+				ex.stdout.includes('Saved working directory and index state') &&
+				ex.stderr.includes('Cannot remove worktree changes')
+			) {
+				throw new StashPushError(StashPushErrorReason.ConflictingStagedAndUnstagedLines);
+			}
+			throw ex;
+		}
 	}
 
 	async status(

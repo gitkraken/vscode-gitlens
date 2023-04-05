@@ -4,7 +4,7 @@ import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { getContext } from '../../context';
 import { reveal, showDetailsView } from '../../git/actions/stash';
-import { StashApplyError, StashApplyErrorReason } from '../../git/errors';
+import { StashApplyError, StashApplyErrorReason, StashPushError, StashPushErrorReason } from '../../git/errors';
 import type { GitStashCommit } from '../../git/models/commit';
 import type { GitStashReference } from '../../git/models/reference';
 import { getReferenceLabel } from '../../git/models/reference';
@@ -82,6 +82,7 @@ interface PushState {
 	repo: string | Repository;
 	message?: string;
 	uris?: Uri[];
+	onlyStagedUris?: Uri[];
 	flags: PushFlags[];
 }
 
@@ -514,15 +515,41 @@ export class StashGitCommand extends QuickCommand<State> {
 				state.flags = result;
 			}
 
-			endSteps(state);
 			try {
 				await state.repo.stashSave(state.message, state.uris, {
 					includeUntracked: state.flags.includes('--include-untracked'),
 					keepIndex: state.flags.includes('--keep-index'),
 					onlyStaged: state.flags.includes('--staged'),
 				});
+
+				endSteps(state);
 			} catch (ex) {
 				Logger.error(ex, context.title);
+
+				if (
+					ex instanceof StashPushError &&
+					ex.reason === StashPushErrorReason.ConflictingStagedAndUnstagedLines &&
+					state.flags.includes('--staged')
+				) {
+					const confirm = { title: 'Yes' };
+					const cancel = { title: 'No', isCloseAffordance: true };
+					const result = await window.showErrorMessage(
+						ex.message,
+						{
+							modal: true,
+						},
+						confirm,
+						cancel,
+					);
+
+					if (result === confirm) {
+						state.uris = state.onlyStagedUris;
+						state.flags.splice(state.flags.indexOf('--staged'), 1);
+						continue;
+					}
+
+					return;
+				}
 
 				const msg: string = ex?.message ?? ex?.toString() ?? '';
 				if (msg.includes('newer version of Git')) {

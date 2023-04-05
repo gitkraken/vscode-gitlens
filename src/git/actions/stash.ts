@@ -33,6 +33,7 @@ export function push(
 	message?: string,
 	keepStaged: boolean = false,
 	onlyStaged: boolean = false,
+	onlyStagedUris?: Uri[],
 ) {
 	return executeGitCommand({
 		command: 'stash',
@@ -40,6 +41,7 @@ export function push(
 			subcommand: 'push',
 			repo: repo,
 			uris: uris,
+			onlyStagedUris: onlyStagedUris,
 			message: message,
 			flags: [...(keepStaged ? ['--keep-index'] : []), ...(onlyStaged ? ['--staged'] : [])] as PushFlags[],
 		},

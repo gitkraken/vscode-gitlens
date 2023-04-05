@@ -41,6 +41,46 @@ export class StashApplyError extends Error {
 	}
 }
 
+export const enum StashPushErrorReason {
+	ConflictingStagedAndUnstagedLines = 1,
+}
+
+export class StashPushError extends Error {
+	static is(ex: any, reason?: StashPushErrorReason): ex is StashPushError {
+		return ex instanceof StashPushError && (reason == null || ex.reason === reason);
+	}
+
+	readonly original?: Error;
+	readonly reason: StashPushErrorReason | undefined;
+
+	constructor(reason?: StashPushErrorReason, original?: Error);
+	constructor(message?: string, original?: Error);
+	constructor(messageOrReason: string | StashPushErrorReason | undefined, original?: Error) {
+		let message;
+		let reason: StashPushErrorReason | undefined;
+		if (messageOrReason == null) {
+			message = 'Unable to stash';
+		} else if (typeof messageOrReason === 'string') {
+			message = messageOrReason;
+			reason = undefined;
+		} else {
+			reason = messageOrReason;
+			switch (reason) {
+				case StashPushErrorReason.ConflictingStagedAndUnstagedLines:
+					message =
+						'Stash was created, but the working tree cannot be updated because at least one file has staged and unstaged changes on the same line(s).\n\nDo you want to try again by stashing both your staged and unstaged changes?';
+					break;
+				default:
+					message = 'Unable to stash';
+			}
+		}
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		Error.captureStackTrace?.(this, StashApplyError);
+	}
+}
 export const enum WorktreeCreateErrorReason {
 	AlreadyCheckedOut = 1,
 	AlreadyExists = 2,

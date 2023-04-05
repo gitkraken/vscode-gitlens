@@ -226,6 +226,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		switch (feature) {
 			case Features.Stashes:
 			case Features.Worktrees:
+			case Features.StashOnlyStaged:
 				return false;
 			default:
 				return true;

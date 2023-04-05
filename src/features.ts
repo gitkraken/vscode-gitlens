@@ -5,6 +5,7 @@ export const enum Features {
 	Stashes = 'stashes',
 	Timeline = 'timeline',
 	Worktrees = 'worktrees',
+	StashOnlyStaged = 'stashOnlyStaged',
 }
 
 export type FeatureAccess =
