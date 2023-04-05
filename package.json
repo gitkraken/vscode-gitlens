@@ -3096,6 +3096,9 @@
 													"authors": {
 														"type": "boolean"
 													},
+													"generateCommitMessage": {
+														"type": "boolean"
+													},
 													"graph": {
 														"type": "boolean"
 													}
@@ -3225,6 +3228,7 @@
 							},
 							"scmRepository": {
 								"authors": true,
+								"generateCommitMessage": true,
 								"graph": false
 							},
 							"scmGroupInline": {
@@ -4452,7 +4456,7 @@
 		"commands": [
 			{
 				"command": "gitlens.generateCommitMessage",
-				"title": "Generate Commit Message (Experimental)",
+				"title": "Generate Commit Message (Experimental)...",
 				"category": "GitLens"
 			},
 			{
@@ -9381,7 +9385,7 @@
 				},
 				{
 					"command": "gitlens.generateCommitMessage",
-					"when": "gitlens:enabled"
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
 					"command": "gitlens.resetOpenAIKey",
@@ -9728,6 +9732,11 @@
 					"command": "gitlens.addAuthors",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmRepository.authors",
 					"group": "4_gitlens@1"
+				},
+				{
+					"command": "gitlens.generateCommitMessage",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmRepository.generateCommitMessage",
+					"group": "4_gitlens@2"
 				}
 			],
 			"menuBar/edit/copy": [
@@ -9757,13 +9766,18 @@
 				},
 				{
 					"command": "gitlens.addAuthors",
-					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmRepository.authors && scmProvider == git",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && scmProvider == git && config.gitlens.menus.scmRepository.authors",
 					"group": "2_z_gitlens@1"
+				},
+				{
+					"command": "gitlens.generateCommitMessage",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && scmProvider == git && config.gitlens.menus.scmRepository.generateCommitMessage",
+					"group": "2_z_gitlens@2"
 				},
 				{
 					"command": "gitlens.showGraph",
 					"when": "gitlens:enabled && config.gitlens.menus.scmRepository.graph && gitlens:plus:enabled && scmProvider == git && scmProviderRootUri not in gitlens:plus:disallowedRepos",
-					"group": "2_z_gitlens@2"
+					"group": "2_z_gitlens@3"
 				}
 			],
 			"scm/resourceGroup/context": [
