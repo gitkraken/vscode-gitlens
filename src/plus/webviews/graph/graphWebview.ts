@@ -18,6 +18,7 @@ import { getContext, onDidChangeContext } from '../../../context';
 import type { CommitSelectedEvent } from '../../../eventBus';
 import { PlusFeatures } from '../../../features';
 import * as BranchActions from '../../../git/actions/branch';
+import { showGraphDetailsView } from '../../../git/actions/commit';
 import * as ContributorActions from '../../../git/actions/contributor';
 import * as RepoActions from '../../../git/actions/repository';
 import * as StashActions from '../../../git/actions/stash';
@@ -2122,6 +2123,10 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 	private openInDetailsView(item?: GraphItemContext) {
 		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
+
+		if (this.host.isView()) {
+			return void showGraphDetailsView(ref, { preserveFocus: true, preserveVisibility: false });
+		}
 
 		return executeCommand<ShowCommitsInViewCommandArgs>(Commands.ShowInDetailsView, {
 			repoPath: ref.repoPath,
