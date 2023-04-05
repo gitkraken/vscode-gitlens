@@ -28,8 +28,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     - Allows for very minimal code to be loaded for each webview/webview-view until its used, so if you never use a webview you never "pay" the cost of loading it
 - Changes _Open Associated Pull Request_ command to support opening associated pull requests with the current branch or the HEAD commit if no branch association was found &mdash; closes [#2559](https://github.com/gitkraken/vscode-gitlens/issues/2559)
 - Improves the "pinning" of the _Commit Details_ view
-  - Avoids automatically pinning the _Commit Details_ view
-  - Changes the pinned state of the _Commit Details_ view to be much more apparent
+  - Avoids automatically pinning
+  - Changes the pinned state to be much more apparent
 - Changes _Commit Details_ to always open diffs in the same editor group as the currently active editor &mdash; closes [#2537](https://github.com/gitkraken/vscode-gitlens/issues/2537)
 
 ### Fixed
