@@ -1190,7 +1190,7 @@ export function GraphWrapper({
 													value="branch-all"
 													onChange={handleLocalBranchFiltering}
 												>
-													Show All Local Branches
+													Show All Branches
 												</VSCodeRadio>
 											)}
 											<VSCodeRadio name="branching-toggle" value="branch-current">
