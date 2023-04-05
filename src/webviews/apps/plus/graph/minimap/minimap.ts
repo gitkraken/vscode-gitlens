@@ -77,7 +77,6 @@ const styles = css`
 	.bb svg {
 		font: 10px var(--font-family);
 		-webkit-tap-highlight-color: rgba(0, 0, 0, 0);
-		transform: translateX(2.5em) rotateY(180deg);
 	}
 
 	.bb-chart {
@@ -142,7 +141,7 @@ const styles = css`
 
 	.bb-region.visible-area {
 		fill: var(--color-graph-minimap-visibleAreaBackground);
-		transform: translateY(-4px);
+		/* transform: translateY(-4px); */
 	}
 	.bb-region.visible-area > rect {
 		height: 100%;
@@ -150,7 +149,7 @@ const styles = css`
 
 	.bb-region.marker-result {
 		fill: var(--color-graph-minimap-marker-highlights);
-		transform: translate(-1px, -4px);
+		transform: translateX(-1px);
 		z-index: 10;
 	}
 	.bb-region.marker-result > rect {
@@ -161,7 +160,7 @@ const styles = css`
 	.bb-region.marker-head {
 		fill: var(--color-graph-minimap-marker-head);
 		stroke: var(--color-graph-minimap-marker-head);
-		transform: translate(-1px, -4px);
+		transform: translateX(-1px);
 	}
 	.bb-region.marker-head > rect {
 		width: 1px;
@@ -171,7 +170,7 @@ const styles = css`
 	.bb-region.marker-head-arrow-left {
 		fill: var(--color-graph-minimap-marker-head);
 		stroke: var(--color-graph-minimap-marker-head);
-		transform: translate(-5px, -5px) skewX(45deg);
+		transform: translate(-5px, -1px) skewX(45deg);
 	}
 	.bb-region.marker-head-arrow-left > rect {
 		width: 3px;
@@ -181,7 +180,7 @@ const styles = css`
 	.bb-region.marker-head-arrow-right {
 		fill: var(--color-graph-minimap-marker-head);
 		stroke: var(--color-graph-minimap-marker-head);
-		transform: translate(1px, -5px) skewX(-45deg);
+		transform: translate(1px, -1px) skewX(-45deg);
 	}
 	.bb-region.marker-head-arrow-right > rect {
 		width: 3px;
@@ -191,7 +190,7 @@ const styles = css`
 	.bb-region.marker-upstream {
 		fill: var(--color-graph-minimap-marker-upstream);
 		stroke: var(--color-graph-minimap-marker-upstream);
-		transform: translate(-1px, -4px);
+		transform: translateX(-1px);
 	}
 	.bb-region.marker-upstream > rect {
 		width: 1px;
@@ -201,7 +200,7 @@ const styles = css`
 	.bb-region.marker-branch {
 		fill: var(--color-graph-minimap-marker-local-branches);
 		stroke: var(--color-graph-minimap-marker-local-branches);
-		transform: translate(-2px, 32px);
+		transform: translate(-2px, 35px);
 	}
 	.bb-region.marker-branch > rect {
 		width: 3px;
@@ -211,7 +210,7 @@ const styles = css`
 	.bb-region.marker-remote {
 		fill: var(--color-graph-minimap-marker-remote-branches);
 		stroke: var(--color-graph-minimap-marker-remote-branches);
-		transform: translate(-2px, 26px);
+		transform: translate(-2px, 29px);
 	}
 	.bb-region.marker-remote > rect {
 		width: 3px;
@@ -221,7 +220,7 @@ const styles = css`
 	.bb-region.marker-stash {
 		fill: var(--color-graph-minimap-marker-stashes);
 		stroke: var(--color-graph-minimap-marker-stashes);
-		transform: translate(-2px, 32px);
+		transform: translate(-2px, 35px);
 	}
 	.bb-region.marker-stash > rect {
 		width: 3px;
@@ -231,7 +230,7 @@ const styles = css`
 	.bb-region.marker-tag {
 		fill: var(--color-graph-minimap-marker-tags);
 		stroke: var(--color-graph-minimap-marker-tags);
-		transform: translate(-2px, 26px);
+		transform: translate(-2px, 29px);
 	}
 	.bb-region.marker-tag > rect {
 		width: 3px;
@@ -601,8 +600,8 @@ export class GraphMinimap extends FASTElement {
 	private getVisibleAreaRegion(visibleDays: NonNullable<typeof this.visibleDays>): RegionOptions {
 		return {
 			axis: 'x',
-			start: visibleDays.bottom,
-			end: visibleDays.top,
+			start: visibleDays.top,
+			end: visibleDays.bottom,
 			class: 'visible-area',
 		} satisfies RegionOptions;
 	}
@@ -730,7 +729,6 @@ export class GraphMinimap extends FASTElement {
 				bindto: this.chart,
 				data: {
 					x: 'date',
-					xSort: false,
 					axes: {
 						activity: 'y',
 					},
@@ -769,17 +767,13 @@ export class GraphMinimap extends FASTElement {
 				},
 				axis: {
 					x: {
-						show: false,
+						inverted: true,
 						localtime: true,
 						type: 'timeseries',
 					},
 					y: {
 						min: 0,
 						max: yMax,
-						show: true,
-						padding: {
-							bottom: 8,
-						},
 					},
 				},
 				clipPath: false,
@@ -795,6 +789,13 @@ export class GraphMinimap extends FASTElement {
 				line: {
 					point: true,
 					zerobased: true,
+				},
+				padding: {
+					mode: 'fit',
+					bottom: -8,
+					left: 0,
+					right: 0,
+					top: 0,
 				},
 				point: {
 					show: true,
@@ -906,13 +907,12 @@ export class GraphMinimap extends FASTElement {
 					},
 					grouped: true,
 					position: (_data, width, _height, element, pos) => {
-						const { x } = pos;
+						let { x } = pos;
 						const rect = (element as HTMLElement).getBoundingClientRect();
-						let left = rect.right - x;
-						if (left + width > rect.right) {
-							left = rect.right - width;
+						if (x + width > rect.right) {
+							x = rect.right - width;
 						}
-						return { top: 0, left: left };
+						return { top: 0, left: x };
 					},
 				},
 				transition: {
