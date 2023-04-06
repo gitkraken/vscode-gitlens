@@ -1,5 +1,6 @@
 /*global document*/
 import type { Config } from '../../../config';
+import { defaultDateOrTimeFormat } from '../../../config';
 import type { IpcMessage } from '../../protocol';
 import {
 	DidChangeConfigurationNotificationType,
@@ -274,11 +275,7 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 		if ($popup != null) {
 			if ($popup.childElementCount === 0) {
 				let $template;
-				if (
-					element.name == 'defaultDateShortFormat' ||
-					element.name == 'defaultTimeFormat' ||
-					element.name == 'defaultDateFormat'
-				) {
+				if (defaultDateOrTimeFormat.includes(element.name)) {
 					$template = document.querySelector<HTMLTemplateElement>('#date-popup')?.content.cloneNode(true);
 				} else {
 					$template = document.querySelector<HTMLTemplateElement>('#token-popup')?.content.cloneNode(true);
@@ -314,22 +311,14 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 		const input = setting.querySelector<HTMLInputElement>('input[type=text], input:not([type])');
 		if (input == null) return;
 		let token!: string;
-		if (
-			input.name == 'defaultDateShortFormat' ||
-			input.name == 'defaultTimeFormat' ||
-			input.name == 'defaultDateFormat'
-		) {
+		if (defaultDateOrTimeFormat.includes(input.name)) {
 			token = `${element.dataset.token}`;
 		} else {
 			token = `\${${element.dataset.token}}`;
 		}
 		let selectionStart = input.selectionStart;
 		if (selectionStart != null) {
-			if (
-				input.name == 'defaultDateShortFormat' ||
-				input.name == 'defaultTimeFormat' ||
-				input.name == 'defaultDateFormat'
-			) {
+			if (defaultDateOrTimeFormat.includes(input.name)) {
 				input.value = token;
 			} else {
 				input.value = `${input.value.substring(0, selectionStart)}${token}${input.value.substr(

@@ -831,3 +831,9 @@ export function fromOutputLevel(level: LogLevel | OutputLevel): LogLevel {
 			return level;
 	}
 }
+
+export const defaultDateOrTimeFormat: string[] = [
+	'defaultDateShortFormat',
+	'defaultTimeFormat',
+	'defaultDateFormat'
+];
