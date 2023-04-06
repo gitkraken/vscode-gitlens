@@ -20,6 +20,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds tooltips to work-in-progress (WIP) and stash nodes
   - Adds a "Publish Branch" context menu action to local branches without an upstream branch &mdash; closes [#2619](https://github.com/gitkraken/vscode-gitlens/pull/2619)
   - Lowers the minimum width of the "Branch / Tag" column
+- Adds actions to _Focus View_ Pull Requests
+  - Switch to or create a local branch
+  - Create or open a worktree from the branch
 
 ### Changed
 
