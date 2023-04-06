@@ -154,17 +154,21 @@ export class FocusApp extends App<State> {
 		} else {
 			noneEl.setAttribute('hidden', 'true');
 			loadingEl.setAttribute('hidden', 'true');
-			this.state.pullRequests.forEach(({ pullRequest, reasons, isCurrentBranch, iscurrentWorktree }) => {
-				if (this._prFilter == null || this._prFilter === '' || reasons.includes(this._prFilter)) {
-					const rowEl = document.createElement('pull-request-row') as PullRequestRow;
-					rowEl.pullRequest = pullRequest;
-					rowEl.reasons = reasons;
-					rowEl.isCurrentBranch = isCurrentBranch;
-					rowEl.iscurrentWorktree = iscurrentWorktree;
+			this.state.pullRequests.forEach(
+				({ pullRequest, reasons, isCurrentBranch, isCurrentWorktree, hasWorktree, hasLocalBranch }) => {
+					if (this._prFilter == null || this._prFilter === '' || reasons.includes(this._prFilter)) {
+						const rowEl = document.createElement('pull-request-row') as PullRequestRow;
+						rowEl.pullRequest = pullRequest;
+						rowEl.reasons = reasons;
+						rowEl.isCurrentBranch = isCurrentBranch;
+						rowEl.isCurrentWorktree = isCurrentWorktree;
+						rowEl.hasWorktree = hasWorktree;
+						rowEl.hasLocalBranch = hasLocalBranch;
 
-					tableEl.append(rowEl);
-				}
-			});
+						tableEl.append(rowEl);
+					}
+				},
+			);
 		}
 	}
 

@@ -102,14 +102,14 @@ const template = html<PullRequestRow>`
 		<table-cell class="vcenter actions">
 			<a
 				href="#"
-				tabindex="${x => (x.iscurrentWorktree ? -1 : null)}"
-				title="${x => (x.iscurrentWorktree ? 'Already on this workree' : 'Open Worktree...')}"
-				aria-label="${x => (x.iscurrentWorktree ? 'Already on this workree' : 'Open Worktree...')}"
+				tabindex="${x => (x.isCurrentWorktree || x.isCurrentBranch ? -1 : null)}"
+				title="${x => (x.isCurrentWorktree ? 'Already on this workree' : 'Open Worktree...')}"
+				aria-label="${x => (x.isCurrentWorktree ? 'Already on this workree' : 'Open Worktree...')}"
 				@click="${(x, c) => x.onOpenWorktreeClick(c.event)}"
 				><code-icon icon="gl-worktrees-view"></code-icon></a
 			><a
 				href="#"
-				tabindex="${x => (x.isCurrentBranch ? -1 : null)}"
+				tabindex="${x => (x.hasWorktree || x.isCurrentBranch ? -1 : null)}"
 				title="${x => (x.isCurrentBranch ? 'Already on this branch' : 'Switch to Branch...')}"
 				aria-label="${x => (x.isCurrentBranch ? 'Already on this branch' : 'Switch to Branch...')}"
 				@click="${(x, c) => x.onSwitchBranchClick(c.event)}"
@@ -285,7 +285,13 @@ export class PullRequestRow extends FASTElement {
 	public isCurrentBranch = false;
 
 	@observable
-	public iscurrentWorktree = false;
+	public isCurrentWorktree = false;
+
+	@observable
+	public hasWorktree = false;
+
+	@observable
+	public hasLocalBranch = false;
 
 	@volatile
 	get lastUpdatedDate() {
@@ -358,7 +364,7 @@ export class PullRequestRow extends FASTElement {
 	}
 
 	onOpenWorktreeClick(e: Event) {
-		if (this.iscurrentWorktree) {
+		if (this.isCurrentWorktree) {
 			e.preventDefault();
 			e.stopImmediatePropagation();
 			return;

@@ -4,8 +4,11 @@ import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { add as addRemote } from '../../git/actions/remote';
 import { create as createWorktree, open as openWorktree } from '../../git/actions/worktree';
-import { createReference } from '../../git/models/reference';
+import { getLocalBranchByNameOrUpstream } from '../../git/models/branch';
+import type { GitBranchReference } from '../../git/models/reference';
+import { createReference, getReferenceFromBranch } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
+import { getWorktreeForBranch } from '../../git/models/worktree';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import { command } from '../../system/command';
 import { Logger } from '../../system/logger';
@@ -109,28 +112,34 @@ export class OpenOrCreateWorktreeCommand extends Command {
 
 		const remoteBranchName = `${remote.name}/${ref}`;
 		const localBranchName = `pr/${rootUri.toString() === remoteUri.toString() ? ref : remoteBranchName}`;
+		const qualifiedRemoteBranchName = `remotes/${remoteBranchName}`;
 
-		const worktrees = await repo.getWorktrees();
-		const worktree = worktrees.find(w => w.branch === localBranchName);
+		const worktree = await getWorktreeForBranch(repo, localBranchName, remoteBranchName);
 		if (worktree != null) {
 			void openWorktree(worktree);
-
 			return;
+		}
+
+		let branchRef: GitBranchReference;
+		let createBranch: string | undefined;
+
+		const localBranch = await getLocalBranchByNameOrUpstream(repo, localBranchName, remoteBranchName);
+		if (localBranch != null) {
+			branchRef = getReferenceFromBranch(localBranch);
+			// TODO@eamodio check if we are behind and if so ask the user to fast-forward
+		} else {
+			branchRef = createReference(qualifiedRemoteBranchName, repo.path, {
+				refType: 'branch',
+				name: qualifiedRemoteBranchName,
+				remote: true,
+			});
+			createBranch = localBranchName;
 		}
 
 		await waitUntilNextTick();
 
 		try {
-			await createWorktree(
-				repo,
-				undefined,
-				createReference(remoteBranchName, repo.path, {
-					refType: 'branch',
-					name: remoteBranchName,
-					remote: true,
-				}),
-				{ createBranch: localBranchName },
-			);
+			await createWorktree(repo, undefined, branchRef, { createBranch: createBranch });
 
 			// Ensure that the worktree was created
 			const worktree = await this.container.git.getWorktree(repo.path, w => w.branch === localBranchName);
