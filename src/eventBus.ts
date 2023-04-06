@@ -59,9 +59,6 @@ const _cachedEventArgs = new Map<keyof CacheableEventsMapping, CacheableEventsMa
 
 export class EventBus implements Disposable {
 	private readonly _emitter = new EventEmitter<EventBusEvent>();
-	private get event() {
-		return this._emitter.event;
-	}
 
 	dispose() {
 		this._emitter.dispose();
@@ -92,7 +89,7 @@ export class EventBus implements Disposable {
 		thisArgs?: unknown,
 		disposables?: Disposable[],
 	) {
-		return this.event(
+		return this._emitter.event(
 			// eslint-disable-next-line prefer-arrow-callback
 			function (e) {
 				if (name !== e.name) return;
