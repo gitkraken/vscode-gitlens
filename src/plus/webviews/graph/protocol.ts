@@ -308,7 +308,6 @@ export interface DidChangeGraphConfigurationParams {
 }
 export const DidChangeGraphConfigurationNotificationType = new IpcNotificationType<DidChangeGraphConfigurationParams>(
 	'graph/configuration/didChange',
-	true,
 );
 
 export interface DidChangeSubscriptionParams {
@@ -317,7 +316,6 @@ export interface DidChangeSubscriptionParams {
 }
 export const DidChangeSubscriptionNotificationType = new IpcNotificationType<DidChangeSubscriptionParams>(
 	'graph/subscription/didChange',
-	true,
 );
 
 export interface DidChangeAvatarsParams {
@@ -325,7 +323,6 @@ export interface DidChangeAvatarsParams {
 }
 export const DidChangeAvatarsNotificationType = new IpcNotificationType<DidChangeAvatarsParams>(
 	'graph/avatars/didChange',
-	true,
 );
 
 export interface DidChangeRefsMetadataParams {
@@ -333,7 +330,6 @@ export interface DidChangeRefsMetadataParams {
 }
 export const DidChangeRefsMetadataNotificationType = new IpcNotificationType<DidChangeRefsMetadataParams>(
 	'graph/refs/didChangeMetadata',
-	true,
 );
 
 export interface DidChangeColumnsParams {
@@ -342,7 +338,6 @@ export interface DidChangeColumnsParams {
 }
 export const DidChangeColumnsNotificationType = new IpcNotificationType<DidChangeColumnsParams>(
 	'graph/columns/didChange',
-	true,
 );
 
 export interface DidChangeWindowFocusParams {
@@ -350,7 +345,6 @@ export interface DidChangeWindowFocusParams {
 }
 export const DidChangeWindowFocusNotificationType = new IpcNotificationType<DidChangeWindowFocusParams>(
 	'graph/window/focus/didChange',
-	true,
 );
 
 export interface DidChangeRefsVisibilityParams {
@@ -360,7 +354,6 @@ export interface DidChangeRefsVisibilityParams {
 }
 export const DidChangeRefsVisibilityNotificationType = new IpcNotificationType<DidChangeRefsVisibilityParams>(
 	'graph/refs/didChangeVisibility',
-	true,
 );
 
 export interface DidChangeRowsParams {
@@ -378,7 +371,6 @@ export interface DidChangeSelectionParams {
 }
 export const DidChangeSelectionNotificationType = new IpcNotificationType<DidChangeSelectionParams>(
 	'graph/selection/didChange',
-	true,
 );
 
 export interface DidChangeWorkingTreeParams {
@@ -386,7 +378,6 @@ export interface DidChangeWorkingTreeParams {
 }
 export const DidChangeWorkingTreeNotificationType = new IpcNotificationType<DidChangeWorkingTreeParams>(
 	'graph/workingTree/didChange',
-	true,
 );
 
 export interface DidEnsureRowParams {
@@ -408,12 +399,12 @@ export interface DidSearchParams {
 	results: GraphSearchResults | GraphSearchResultsError | undefined;
 	selectedRows?: GraphSelectedRows;
 }
-export const DidSearchNotificationType = new IpcNotificationType<DidSearchParams>('graph/didSearch', true);
+export const DidSearchNotificationType = new IpcNotificationType<DidSearchParams>('graph/didSearch');
 
 export interface DidFetchParams {
 	lastFetched: Date;
 }
-export const DidFetchNotificationType = new IpcNotificationType<DidFetchParams>('graph/didFetch', true);
+export const DidFetchNotificationType = new IpcNotificationType<DidFetchParams>('graph/didFetch');
 
 export interface ShowInCommitGraphCommandArgs {
 	ref: GitReference;

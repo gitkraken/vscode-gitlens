@@ -104,7 +104,7 @@ export const PreferencesCommandType = new IpcCommandType<PreferenceParams>('comm
 export interface DidChangeParams {
 	state: Serialized<State>;
 }
-export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('commit/didChange');
+export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('commit/didChange', true);
 
 export type DidChangeRichStateParams = {
 	formattedMessage?: string;

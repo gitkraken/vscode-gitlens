@@ -653,8 +653,6 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 	private _notifyDidChangeStateDebounced: Deferrable<() => void> | undefined = undefined;
 
 	private updateState(immediate: boolean = false) {
-		if (!this.host.ready || !this.host.visible) return;
-
 		if (immediate) {
 			void this.notifyDidChangeState();
 			return;
@@ -668,8 +666,6 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 	}
 
 	private async notifyDidChangeState() {
-		if (!this.host.ready || !this.host.visible) return false;
-
 		const scope = getLogScope();
 
 		this._notifyDidChangeStateDebounced?.cancel();
