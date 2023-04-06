@@ -20,6 +20,7 @@ import { hasVisibleTextEditor, isTextEditor } from '../../../system/utils';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
+import { updatePendingContext } from '../../../webviews/webviewController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import type { Commit, Period, State } from './protocol';
 import { DidChangeNotificationType, OpenDataPointCommandType, UpdatePeriodCommandType } from './protocol';
@@ -360,22 +361,9 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private updatePendingContext(context: Partial<Context>): boolean {
-		let changed = false;
-		for (const [key, value] of Object.entries(context)) {
-			const current = (this._context as unknown as Record<string, unknown>)[key];
-			if (
-				current === value ||
-				((current instanceof Uri || value instanceof Uri) && (current as any)?.toString() === value?.toString())
-			) {
-				continue;
-			}
-
-			if (this._pendingContext == null) {
-				this._pendingContext = {};
-			}
-
-			(this._pendingContext as Record<string, unknown>)[key] = value;
-			changed = true;
+		const [changed, pending] = updatePendingContext(this._context, this._pendingContext, context);
+		if (changed) {
+			this._pendingContext = pending;
 		}
 
 		return changed;
