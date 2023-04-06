@@ -277,13 +277,11 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		this._lineTrackerDisposable?.dispose();
 		this._lineTrackerDisposable = undefined;
 
-		if (this._pinned || !this.host.visible) return;
+		if (!this.host.visible) return;
 
-		this._commitTrackerDisposable = this.container.events.on(
-			'commit:selected',
-			debounce(this.onCommitSelected, 50),
-			this,
-		);
+		this._commitTrackerDisposable = this.container.events.on('commit:selected', this.onCommitSelected, this);
+
+		if (this._pinned) return;
 
 		if (this.options.mode !== 'graph') {
 			const { lineTracker } = this.container;
