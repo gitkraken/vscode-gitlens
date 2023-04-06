@@ -8,13 +8,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds the ability to switch to an alternate "Panel" layout for the _Commit Graph_ &mdash; closes [#2602](https://github.com/gitkraken/vscode-gitlens/issues/2602) and [#2537](https://github.com/gitkraken/vscode-gitlens/issues/2537)
+- Adds the ability to switch to an alternate panel layout for the _Commit Graph_ &mdash; closes [#2602](https://github.com/gitkraken/vscode-gitlens/issues/2602) and [#2537](https://github.com/gitkraken/vscode-gitlens/issues/2537)
   - Adds a new context menu from the _Commit Graph Settings_ (cog) to switch between the "Editor" and "Panel" layouts
   - Adds a `gitlens.graph.layout` setting to specify the layout of the _Commit Graph_
     - `editor` - Shows the _Commit Graph_ in an editor tab
-    - `panel` - Shows the _Commit Graph_ in the bottom panel with an additional _Commit Graph Details_ view positioned on the right side of the _Commit Graph_
+    - `panel` - Shows the _Commit Graph_ in the bottom panel with an additional _Commit Graph Details_ view alongside on the right
 - Adds new _Commit Graph_ features and improvements
-  - Adds a "Compact" layout to the Graph column of the _Commit Graph_
+  - Adds a compact layout to the Graph column of the _Commit Graph_
     - Adds a context menu option to the header to toggle between the "Compact" and "Default" layouts &mdash; closes [#2611](https://github.com/gitkraken/vscode-gitlens/pull/2611)
   - Shows pull request icons on local branches when their upstream branch is associated with a pull request
   - Adds tooltips to work-in-progress (WIP) and stash nodes
@@ -23,7 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds actions to _Focus View_ Pull Requests
   - Switch to or create a local branch
   - Create or open a worktree from the branch
-- Adds _Generate Commit Message (Experimental)..._ command to the SCM context menus
+- Adds a _Generate Commit Message (Experimental)..._ command to the SCM context menus
 
 ### Changed
 
