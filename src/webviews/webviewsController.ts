@@ -10,6 +10,9 @@ import type { Commands, WebviewIds, WebviewViewIds } from '../constants';
 import type { Container } from '../container';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
 import { executeCommand, registerCommand } from '../system/command';
+import { debug } from '../system/decorators/log';
+import { Logger } from '../system/logger';
+import { getLogScope } from '../system/logger.scope';
 import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
 import type { WebviewProvider } from './webviewController';
 import { WebviewController } from './webviewController';
@@ -79,6 +82,13 @@ export class WebviewsController implements Disposable {
 		this.disposables.forEach(d => void d.dispose());
 	}
 
+	@debug<WebviewsController['registerWebviewView']>({
+		args: {
+			0: d => d.id,
+			1: false,
+			2: false,
+		},
+	})
 	registerWebviewView<State, SerializedState = State>(
 		descriptor: WebviewViewDescriptor,
 		resolveProvider: (
@@ -87,6 +97,8 @@ export class WebviewsController implements Disposable {
 		) => Promise<WebviewProvider<State, SerializedState>>,
 		canResolveProvider?: () => boolean | Promise<boolean>,
 	): WebviewViewProxy {
+		const scope = getLogScope();
+
 		const registration: WebviewViewRegistration<State, SerializedState> = { descriptor: descriptor };
 		this._views.set(descriptor.id, registration);
 
@@ -109,6 +121,8 @@ export class WebviewsController implements Disposable {
 							if (token.isCancellationRequested) return;
 						}
 
+						Logger.debug(scope, `Resolving webview view (${descriptor.id})`);
+
 						webviewView.webview.options = {
 							enableCommandUris: true,
 							enableScripts: true,
@@ -124,13 +138,17 @@ export class WebviewsController implements Disposable {
 							webviewView,
 							resolveProvider,
 						);
+
+						registration.controller?.dispose();
 						registration.controller = controller;
 
 						disposables.push(
 							controller.onDidDispose(() => {
+								Logger.debug(scope, `Disposing webview view (${descriptor.id})`);
+
 								registration.pendingShowArgs = undefined;
 								registration.controller = undefined;
-							}, this),
+							}),
 							controller,
 						);
 
@@ -164,12 +182,22 @@ export class WebviewsController implements Disposable {
 			show: async (options?: { preserveFocus?: boolean }, ...args) => {
 				if (registration.controller != null) return void registration.controller.show(false, options, ...args);
 
+				Logger.debug(scope, `Showing webview view (${descriptor.id})`);
+
 				registration.pendingShowArgs = [options, ...args];
 				return void executeCommand(`${descriptor.id}.focus`, options);
 			},
 		} satisfies WebviewViewProxy;
 	}
 
+	@debug<WebviewsController['registerWebviewPanel']>({
+		args: {
+			0: c => c,
+			1: d => d.id,
+			2: false,
+			3: false,
+		},
+	})
 	registerWebviewPanel<State, SerializedState = State>(
 		command: Commands,
 		descriptor: WebviewPanelDescriptor,
@@ -179,6 +207,8 @@ export class WebviewsController implements Disposable {
 		) => Promise<WebviewProvider<State, SerializedState>>,
 		canResolveProvider?: () => boolean | Promise<boolean>,
 	): WebviewPanelProxy {
+		const scope = getLogScope();
+
 		const registration: WebviewPanelRegistration<State, SerializedState> = { descriptor: descriptor };
 		this._panels.set(descriptor.id, registration);
 
@@ -208,6 +238,8 @@ export class WebviewsController implements Disposable {
 
 			let { controller } = registration;
 			if (controller == null) {
+				Logger.debug(scope, `Creating webview panel (${descriptor.id})`);
+
 				const panel = window.createWebviewPanel(
 					descriptor.id,
 					descriptor.title,
@@ -228,12 +260,17 @@ export class WebviewsController implements Disposable {
 				registration.controller = controller;
 
 				disposables.push(
-					controller.onDidDispose(() => (registration.controller = undefined)),
+					controller.onDidDispose(() => {
+						Logger.debug(scope, `Disposing webview panel (${descriptor.id})`);
+
+						registration.controller = undefined;
+					}),
 					controller,
 				);
 
 				await controller.show(true, options, ...args);
 			} else {
+				Logger.debug(scope, `Showing webview panel (${descriptor.id})`);
 				await controller.show(false, options, ...args);
 			}
 		}
