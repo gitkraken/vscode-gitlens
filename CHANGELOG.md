@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds actions to _Focus View_ Pull Requests
   - Switch to or create a local branch
   - Create or open a worktree from the branch
+- Adds _Generate Commit Message (Experimental)..._ command to the SCM context menus
 
 ### Changed
 
