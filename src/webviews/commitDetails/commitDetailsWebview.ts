@@ -46,6 +46,7 @@ import type { LinesChangeEvent } from '../../trackers/lineTracker';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
 import type { WebviewController, WebviewProvider } from '../webviewController';
+import { updatePendingContext } from '../webviewController';
 import type { CommitDetails, FileActionParams, Preferences, State } from './protocol';
 import {
 	AutolinkSettingsCommandType,
@@ -441,6 +442,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		return state;
 	}
 
+	@debug({ args: false })
 	private async updateRichState(current: Context, cancellation: CancellationToken): Promise<void> {
 		const { commit } = current;
 		if (commit == null) return;
@@ -640,32 +642,9 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 	}
 
 	private updatePendingContext(context: Partial<Context>, force: boolean = false): boolean {
-		let changed = false;
-		for (const [key, value] of Object.entries(context)) {
-			const current = (this._context as unknown as Record<string, unknown>)[key];
-			if (
-				!force &&
-				(current instanceof Uri || value instanceof Uri) &&
-				(current as any)?.toString() === value?.toString()
-			) {
-				continue;
-			}
-
-			if (!force && current === value) {
-				if (
-					(value !== undefined || key in this._context) &&
-					(this._pendingContext == null || !(key in this._pendingContext))
-				) {
-					continue;
-				}
-			}
-
-			if (this._pendingContext == null) {
-				this._pendingContext = {};
-			}
-
-			(this._pendingContext as Record<string, unknown>)[key] = value;
-			changed = true;
+		const [changed, pending] = updatePendingContext(this._context, this._pendingContext, context, force);
+		if (changed) {
+			this._pendingContext = pending;
 		}
 
 		return changed;

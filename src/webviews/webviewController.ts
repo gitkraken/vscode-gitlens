@@ -568,3 +568,37 @@ export function setContextKeys(
 		void setContext(`${contextKeyPrefix}:inputFocus`, inputFocus);
 	}
 }
+
+export function updatePendingContext<Context extends object>(
+	current: Context,
+	pending: Partial<Context> | undefined,
+	update: Partial<Context>,
+	force: boolean = false,
+): [changed: boolean, pending: Partial<Context> | undefined] {
+	let changed = false;
+	for (const [key, value] of Object.entries(update)) {
+		const currentValue = (current as unknown as Record<string, unknown>)[key];
+		if (
+			!force &&
+			(currentValue instanceof Uri || value instanceof Uri) &&
+			(currentValue as any)?.toString() === value?.toString()
+		) {
+			continue;
+		}
+
+		if (!force && currentValue === value) {
+			if ((value !== undefined || key in current) && (pending == null || !(key in pending))) {
+				continue;
+			}
+		}
+
+		if (pending == null) {
+			pending = {};
+		}
+
+		(pending as Record<string, unknown>)[key] = value;
+		changed = true;
+	}
+
+	return [changed, pending];
+}
