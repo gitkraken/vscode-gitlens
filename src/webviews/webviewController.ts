@@ -1,4 +1,4 @@
-import type { Webview, WebviewPanel, WebviewPanelOnDidChangeViewStateEvent, WebviewView, WindowState } from 'vscode';
+import type { Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
 import { Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
 import { getNonce } from '@env/crypto';
 import type { Commands, CustomEditorIds, WebviewIds, WebviewViewIds } from '../constants';
@@ -154,8 +154,10 @@ export class WebviewController<
 				window.onDidChangeWindowState(this.onWindowStateChanged, this),
 				parent.webview.onDidReceiveMessage(this.onMessageReceivedCore, this),
 				isInEditor
-					? parent.onDidChangeViewState(this.onParentViewStateChanged, this)
-					: parent.onDidChangeVisibility(() => this.onParentVisibilityChanged(this.visible), this),
+					? parent.onDidChangeViewState(({ webviewPanel: { visible, active } }) =>
+							this.onParentVisibilityChanged(visible, active),
+					  )
+					: parent.onDidChangeVisibility(() => this.onParentVisibilityChanged(this.visible)),
 				parent.onDidDispose(this.onParentDisposed, this),
 				...(this.provider.registerCommands?.() ?? []),
 				this.provider,
@@ -342,43 +344,8 @@ export class WebviewController<
 		this.provider.onFocusChanged?.(e.focused);
 	}
 
-	@debug<WebviewController<State>['onParentViewStateChanged']>({
-		args: { 0: e => `active=${e.webviewPanel.active}, visible=${e.webviewPanel.visible}` },
-	})
-	private onParentViewStateChanged(e: WebviewPanelOnDidChangeViewStateEvent): void {
-		const { active, visible } = e.webviewPanel;
-
-		if (this.descriptor.webviewHostOptions?.retainContextWhenHidden !== true) {
-			if (visible) {
-				if (this._suspended) {
-					this._ready = true;
-					this._suspended = false;
-					this.provider.onReady?.();
-				}
-			} else {
-				this._ready = false;
-				this._suspended = true;
-			}
-		}
-
-		if (visible) {
-			setContextKeys(this.descriptor.contextKeyPrefix, active);
-			this.provider.onActiveChanged?.(active);
-			if (!active) {
-				this.provider.onFocusChanged?.(false);
-			}
-		} else {
-			resetContextKeys(this.descriptor.contextKeyPrefix);
-
-			this.provider.onActiveChanged?.(false);
-			this.provider.onFocusChanged?.(false);
-		}
-
-		this.provider.onVisibilityChanged?.(visible);
-	}
-
 	@debug()
-	private onParentVisibilityChanged(visible: boolean) {
+	private onParentVisibilityChanged(visible: boolean, active?: boolean) {
 		if (this.descriptor.webviewHostOptions?.retainContextWhenHidden !== true) {
 			if (visible) {
 				if (this._suspended) {
@@ -394,10 +361,23 @@ export class WebviewController<
 
 		if (visible) {
 			void this.container.usage.track(`${this.descriptor.trackingFeature}:shown`);
+
+			if (active != null) {
+				setContextKeys(this.descriptor.contextKeyPrefix, active);
+				this.provider.onActiveChanged?.(active);
+				if (!active) {
+					this.provider.onFocusChanged?.(false);
+				}
+			}
 		} else {
 			resetContextKeys(this.descriptor.contextKeyPrefix);
+
+			if (active != null) {
+				this.provider.onActiveChanged?.(false);
+			}
 			this.provider.onFocusChanged?.(false);
 		}
+
 		this.provider.onVisibilityChanged?.(visible);
 	}
 
