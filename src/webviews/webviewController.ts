@@ -117,7 +117,6 @@ export class WebviewController<
 	public readonly id: Descriptor['id'];
 
 	private _ready: boolean = false;
-	private _suspended: boolean = false;
 	get ready() {
 		return this._ready;
 	}
@@ -174,7 +173,6 @@ export class WebviewController<
 		this.provider?.onVisibilityChanged?.(false);
 
 		this._ready = false;
-		this._suspended = false;
 
 		this._onDidDispose.fire();
 		this.disposable?.dispose();
@@ -271,11 +269,13 @@ export class WebviewController<
 
 	@debug()
 	async refresh(force?: boolean): Promise<void> {
+		if (force) {
+			this.clearPendingIpcNotifications();
+		}
 		this.provider.onRefresh?.(force);
 
 		// Mark the webview as not ready, until we know if we are changing the html
 		this._ready = false;
-		this._suspended = false;
 
 		const html = await this.getHtml(this.webview);
 		if (force) {
@@ -307,7 +307,7 @@ export class WebviewController<
 			case WebviewReadyCommandType.method:
 				onIpc(WebviewReadyCommandType, e, () => {
 					this._ready = true;
-					this._suspended = false;
+					this.sendPendingIpcNotifications();
 					this.provider.onReady?.();
 				});
 
@@ -348,14 +348,11 @@ export class WebviewController<
 	private onParentVisibilityChanged(visible: boolean, active?: boolean) {
 		if (this.descriptor.webviewHostOptions?.retainContextWhenHidden !== true) {
 			if (visible) {
-				if (this._suspended) {
-					this._ready = true;
-					this._suspended = false;
-					this.provider.onReady?.();
+				if (this._ready) {
+					this.sendPendingIpcNotifications();
 				}
 			} else {
 				this._ready = false;
-				this._suspended = true;
 			}
 		}
 
@@ -438,17 +435,24 @@ export class WebviewController<
 		return nextIpcId();
 	}
 
-	notify<T extends IpcNotificationType<any>>(
+	async notify<T extends IpcNotificationType<any>>(
 		type: T,
 		params: IpcMessageParams<T>,
 		completionId?: string,
 	): Promise<boolean> {
-		return this.postMessage({
+		const msg: IpcMessage = {
 			id: this.nextIpcId(),
 			method: type.method,
 			params: params,
 			completionId: completionId,
-		});
+		};
+		const success = await this.postMessage(msg);
+		if (success) {
+			this._pendingIpcNotifications.clear();
+		} else {
+			this.addPendingIpcNotificationCore(type, msg);
+		}
+		return success;
 	}
 
 	@serialize()
@@ -457,7 +461,7 @@ export class WebviewController<
 			0: m => `{"id":${m.id},"method":${m.method}${m.completionId ? `,"completionId":${m.completionId}` : ''}}`,
 		},
 	})
-	async postMessage(message: IpcMessage): Promise<boolean> {
+	private async postMessage(message: IpcMessage): Promise<boolean> {
 		if (!this._ready) return Promise.resolve(false);
 
 		// It looks like there is a bug where `postMessage` can sometimes just hang infinitely. Not sure why, but ensure we don't hang
@@ -466,6 +470,49 @@ export class WebviewController<
 			new Promise<boolean>(resolve => setTimeout(resolve, 5000, false)),
 		]);
 		return success;
+	}
+
+	private _pendingIpcNotifications = new Map<IpcNotificationType, IpcMessage | (() => Promise<boolean>)>();
+
+	addPendingIpcNotification(
+		type: IpcNotificationType<any>,
+		mapping: Map<IpcNotificationType<any>, () => Promise<boolean>>,
+		thisArg: any,
+	) {
+		this.addPendingIpcNotificationCore(type, mapping.get(type)?.bind(thisArg));
+	}
+
+	private addPendingIpcNotificationCore(
+		type: IpcNotificationType<any>,
+		msgOrFn: IpcMessage | (() => Promise<boolean>) | undefined,
+	) {
+		if (type.reset) {
+			this._pendingIpcNotifications.clear();
+		}
+
+		if (msgOrFn == null) {
+			debugger;
+			return;
+		}
+		this._pendingIpcNotifications.set(type, msgOrFn);
+	}
+
+	clearPendingIpcNotifications() {
+		this._pendingIpcNotifications.clear();
+	}
+
+	sendPendingIpcNotifications() {
+		if (this._pendingIpcNotifications.size === 0) return;
+
+		const ipcs = new Map(this._pendingIpcNotifications);
+		this._pendingIpcNotifications.clear();
+		for (const msgOrFn of ipcs.values()) {
+			if (typeof msgOrFn === 'function') {
+				void msgOrFn();
+			} else {
+				void this.postMessage(msgOrFn);
+			}
+		}
 	}
 }
 

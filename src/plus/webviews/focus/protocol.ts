@@ -63,5 +63,4 @@ export interface DidChangeSubscriptionParams {
 }
 export const DidChangeSubscriptionNotificationType = new IpcNotificationType<DidChangeSubscriptionParams>(
 	'graph/subscription/didChange',
-	true,
 );
