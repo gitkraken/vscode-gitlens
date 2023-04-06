@@ -1,12 +1,5 @@
-import type {
-	Disposable,
-	Webview,
-	WebviewPanel,
-	WebviewPanelOnDidChangeViewStateEvent,
-	WebviewView,
-	WindowState,
-} from 'vscode';
-import { EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
+import type { Webview, WebviewPanel, WebviewPanelOnDidChangeViewStateEvent, WebviewView, WindowState } from 'vscode';
+import { Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
 import { getNonce } from '@env/crypto';
 import type { Commands, CustomEditorIds, WebviewIds, WebviewViewIds } from '../constants';
 import type { Container } from '../container';
@@ -72,7 +65,7 @@ type WebviewViewController<State, SerializedState = State> = WebviewController<
 	WebviewViewDescriptor
 >;
 
-@logName<WebviewController<any>>((c, name) => `${name}(${c.id})`)
+@logName<WebviewController<any>>(c => `WebviewController(${c.id})`)
 export class WebviewController<
 	State,
 	SerializedState = State,
@@ -129,7 +122,7 @@ export class WebviewController<
 		return this._ready;
 	}
 
-	private readonly disposables: Disposable[] = [];
+	private disposable: Disposable | undefined;
 	private /*readonly*/ provider!: WebviewProvider<State, SerializedState>;
 	private readonly webview: Webview;
 
@@ -152,7 +145,12 @@ export class WebviewController<
 
 		this._initializing = resolveProvider(container, this).then(provider => {
 			this.provider = provider;
-			this.disposables.push(
+			if (this._disposed) {
+				provider.dispose();
+				return;
+			}
+
+			this.disposable = Disposable.from(
 				window.onDidChangeWindowState(this.onWindowStateChanged, this),
 				parent.webview.onDidReceiveMessage(this.onMessageReceivedCore, this),
 				isInEditor
@@ -165,17 +163,19 @@ export class WebviewController<
 		});
 	}
 
+	private _disposed: boolean = false;
 	dispose() {
+		this._disposed = true;
 		resetContextKeys(this.descriptor.contextKeyPrefix);
 
-		this.provider.onFocusChanged?.(false);
-		this.provider.onVisibilityChanged?.(false);
+		this.provider?.onFocusChanged?.(false);
+		this.provider?.onVisibilityChanged?.(false);
 
 		this._ready = false;
 		this._suspended = false;
 
 		this._onDidDispose.fire();
-		this.disposables.forEach(d => void d.dispose());
+		this.disposable?.dispose();
 	}
 
 	private _initializing: Promise<void> | undefined;
@@ -221,9 +221,10 @@ export class WebviewController<
 	}
 
 	get visible() {
-		return this.parent.visible;
+		return this._disposed ? false : this.parent.visible;
 	}
 
+	@debug()
 	async show(loading: boolean, options?: { column?: ViewColumn; preserveFocus?: boolean }, ...args: unknown[]) {
 		if (options == null) {
 			options = {};
@@ -289,6 +290,7 @@ export class WebviewController<
 		this.webview.html = html;
 	}
 
+	@debug()
 	private onParentDisposed() {
 		this.dispose();
 	}
