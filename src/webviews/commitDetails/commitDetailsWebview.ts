@@ -294,7 +294,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 	}
 
 	private get isLineTrackerSuspended() {
-		return this._lineTrackerDisposable == null;
+		return this.options.mode !== 'graph' ? this._lineTrackerDisposable == null : false;
 	}
 
 	private suspendLineTracker() {
