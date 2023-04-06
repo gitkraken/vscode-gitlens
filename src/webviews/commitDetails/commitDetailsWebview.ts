@@ -701,7 +701,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 
 		let commit;
 
-		if (window.activeTextEditor != null) {
+		if (this.options.mode !== 'graph' && window.activeTextEditor != null) {
 			const { lineTracker } = this.container;
 			const line = lineTracker.selections?.[0].active;
 			if (line != null) {
