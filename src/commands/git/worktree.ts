@@ -71,7 +71,7 @@ interface CreateState {
 	repo: string | Repository;
 	uri: Uri;
 	reference?: GitReference;
-	createBranch: string;
+	createBranch?: string;
 	flags: CreateFlags[];
 
 	reveal?: boolean;
@@ -375,23 +375,39 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			if (state.flags.includes('-b') && state.createBranch == null) {
-				const result = yield* inputBranchNameStep(state, context, {
-					placeholder: 'Please provide a name for the new branch',
-					titleContext: ` from ${getReferenceLabel(state.reference, {
-						capitalize: true,
-						icon: false,
-						label: state.reference.refType !== 'branch',
-					})}`,
-					value: state.createBranch ?? getNameWithoutRemote(state.reference),
-				});
-				if (result === StepResultBreak) {
-					// Clear the flags, since we can backup after the confirm step below (which is non-standard)
-					state.flags = [];
-					continue;
+			if (state.flags.includes('-b')) {
+				let createBranchOverride: string | undefined;
+				if (state.createBranch != null) {
+					let valid = await this.container.git.validateBranchOrTagName(state.repo.path, state.createBranch);
+					if (valid) {
+						const alreadyExists = await state.repo.getBranch(state.createBranch);
+						valid = alreadyExists == null;
+					}
+
+					if (!valid) {
+						createBranchOverride = state.createBranch;
+						state.createBranch = undefined;
+					}
 				}
 
-				state.createBranch = result;
+				if (state.createBranch == null) {
+					const result = yield* inputBranchNameStep(state, context, {
+						placeholder: 'Please provide a name for the new branch',
+						titleContext: ` from ${getReferenceLabel(state.reference, {
+							capitalize: true,
+							icon: false,
+							label: state.reference.refType !== 'branch',
+						})}`,
+						value: createBranchOverride ?? state.createBranch ?? getNameWithoutRemote(state.reference),
+					});
+					if (result === StepResultBreak) {
+						// Clear the flags, since we can backup after the confirm step below (which is non-standard)
+						state.flags = [];
+						continue;
+					}
+
+					state.createBranch = result;
+				}
 			}
 
 			const uri = state.flags.includes('--direct')

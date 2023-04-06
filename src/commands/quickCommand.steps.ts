@@ -523,7 +523,16 @@ export async function* inputBranchNameStep<
 
 			if ('repo' in state) {
 				const valid = await Container.instance.git.validateBranchOrTagName(state.repo.path, value);
-				return [valid, valid ? undefined : `'${value}' isn't a valid branch name`];
+				if (!valid) {
+					return [false, `'${value}' isn't a valid branch name`];
+				}
+
+				const alreadyExists = await state.repo.getBranch(value);
+				if (alreadyExists) {
+					return [false, `A branch named '${value}' already exists`];
+				}
+
+				return [true, undefined];
 			}
 
 			let valid = true;
@@ -532,6 +541,11 @@ export async function* inputBranchNameStep<
 				valid = await Container.instance.git.validateBranchOrTagName(repo.path, value);
 				if (!valid) {
 					return [false, `'${value}' isn't a valid branch name`];
+				}
+
+				const alreadyExists = await repo.getBranch(value);
+				if (alreadyExists) {
+					return [false, `A branch named '${value}' already exists`];
 				}
 			}
 
@@ -572,7 +586,7 @@ export async function* inputRemoteNameStep<
 			if ('repo' in state) {
 				const alreadyExists = (await state.repo.getRemotes({ filter: r => r.name === value })).length !== 0;
 				if (alreadyExists) {
-					return [false, `Remote named '${value}' already exists`];
+					return [false, `A remote named '${value}' already exists`];
 				}
 			}
 

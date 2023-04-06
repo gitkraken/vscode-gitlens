@@ -13,6 +13,7 @@ import type { PullRequest, PullRequestState } from './pullRequest';
 import type { GitBranchReference, GitReference } from './reference';
 import { shortenRevision } from './reference';
 import type { GitRemote } from './remote';
+import type { Repository } from './repository';
 import { getUpstreamStatus } from './status';
 
 const whitespaceRegex = /\s/;
@@ -133,12 +134,12 @@ export class GitBranch implements GitBranchReference {
 
 	@memoize()
 	getNameWithoutRemote(): string {
-		return this.remote ? this.name.substring(this.name.indexOf('/') + 1) : this.name;
+		return this.remote ? this.name.substring(getRemoteNameSlashIndex(this.name) + 1) : this.name;
 	}
 
 	@memoize()
 	getTrackingWithoutRemote(): string | undefined {
-		return this.upstream?.name.substring(this.upstream.name.indexOf('/') + 1);
+		return this.upstream?.name.substring(getRemoteNameSlashIndex(this.upstream.name) + 1);
 	}
 
 	@memoize()
@@ -219,12 +220,16 @@ export function formatDetachedHeadName(sha: string): string {
 	return `(${shortenRevision(sha)}...)`;
 }
 
+function getRemoteNameSlashIndex(name: string): number {
+	return name.startsWith('remotes/') ? name.indexOf('/', 8) : name.indexOf('/');
+}
+
 export function getBranchNameWithoutRemote(name: string): string {
-	return name.substring(name.indexOf('/') + 1);
+	return name.substring(getRemoteNameSlashIndex(name) + 1);
 }
 
 export function getRemoteNameFromBranchName(name: string): string {
-	return name.substring(0, name.indexOf('/'));
+	return name.substring(0, getRemoteNameSlashIndex(name));
 }
 
 export function isBranch(branch: any): branch is GitBranch {
@@ -242,7 +247,7 @@ export function isOfBranchRefType(branch: GitReference | undefined) {
 }
 
 export function splitBranchNameAndRemote(name: string): [name: string, remote: string | undefined] {
-	const index = name.indexOf('/');
+	const index = getRemoteNameSlashIndex(name);
 	if (index === -1) return [name, undefined];
 
 	return [name.substring(index + 1), name.substring(0, index)];
@@ -296,4 +301,33 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 					(b.date == null ? -1 : b.date.getTime()) - (a.date == null ? -1 : a.date.getTime()),
 			);
 	}
+}
+
+export async function getLocalBranchByNameOrUpstream(
+	repo: Repository,
+	branchName: string,
+	upstreamNames?: string | string[],
+): Promise<GitBranch | undefined> {
+	if (upstreamNames != null && !Array.isArray(upstreamNames)) {
+		upstreamNames = [upstreamNames];
+	}
+
+	let branches;
+	do {
+		branches = await repo.getBranches(branches != null ? { paging: branches.paging } : undefined);
+		for (const branch of branches.values) {
+			if (
+				branch.name === branchName ||
+				(upstreamNames != null &&
+					branch.upstream?.name != null &&
+					(upstreamNames.includes(branch.upstream?.name) ||
+						(branch.upstream.name.startsWith('remotes/') &&
+							upstreamNames.includes(branch.upstream.name.substring(8)))))
+			) {
+				return branch;
+			}
+		}
+	} while (branches.paging?.more);
+
+	return undefined;
 }
