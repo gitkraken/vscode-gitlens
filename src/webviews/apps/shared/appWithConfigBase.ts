@@ -310,12 +310,14 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 
 		const input = setting.querySelector<HTMLInputElement>('input[type=text], input:not([type])');
 		if (input == null) return;
+
 		let token!: string;
 		if (defaultDateOrTimeFormat.includes(input.name)) {
-			token = `${element.dataset.token}`;
+			token = element.dataset.token as string;
 		} else {
 			token = `\${${element.dataset.token}}`;
 		}
+
 		let selectionStart = input.selectionStart;
 		if (selectionStart != null) {
 			if (defaultDateOrTimeFormat.includes(input.name)) {
