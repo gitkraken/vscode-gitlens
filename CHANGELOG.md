@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [13.5.0] - 2023-04-07
+
 ### Added
 
 - Adds the ability to switch to an alternate panel layout for the _Commit Graph_ &mdash; closes [#2602](https://github.com/gitkraken/vscode-gitlens/issues/2602) and [#2537](https://github.com/gitkraken/vscode-gitlens/issues/2537)
@@ -4664,7 +4666,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v13.4.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v13.5.0...HEAD
+[13.5.0]: https://github.com/gitkraken/vscode-gitlens/compare/v13.4.0...gitkraken:v13.5.0
 [13.4.0]: https://github.com/gitkraken/vscode-gitlens/compare/v13.3.2...gitkraken:v13.4.0
 [13.3.2]: https://github.com/gitkraken/vscode-gitlens/compare/v13.3.1...gitkraken:v13.3.2
 [13.3.1]: https://github.com/gitkraken/vscode-gitlens/compare/v13.3.0...gitkraken:v13.3.1
