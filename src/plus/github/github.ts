@@ -554,13 +554,14 @@ export class GitHubApi implements Disposable {
 		interface QueryResult {
 			repository:
 				| {
-						refs: {
-							nodes: {
-								associatedPullRequests?: {
-									nodes?: GitHubPullRequest[];
-								};
-							}[];
-						};
+						ref:
+							| {
+									associatedPullRequests?: {
+										nodes?: GitHubPullRequest[];
+									};
+							  }
+							| null
+							| undefined;
 				  }
 				| null
 				| undefined;
@@ -576,27 +577,25 @@ export class GitHubApi implements Disposable {
 	$avatarSize: Int
 ) {
 	repository(name: $repo, owner: $owner) {
-		refs(query: $branch, refPrefix: "refs/heads/", first: 1) {
-			nodes {
-				associatedPullRequests(first: $limit, orderBy: {field: UPDATED_AT, direction: DESC}, states: $include) {
-					nodes {
-						author {
+		ref(qualifiedName: $branch) {
+			associatedPullRequests(first: $limit, orderBy: {field: UPDATED_AT, direction: DESC}, states: $include) {
+				nodes {
+					author {
+						login
+						avatarUrl(size: $avatarSize)
+						url
+					}
+					permalink
+					number
+					title
+					state
+					updatedAt
+					closedAt
+					mergedAt
+					repository {
+						isFork
+						owner {
 							login
-							avatarUrl(size: $avatarSize)
-							url
-						}
-						permalink
-						number
-						title
-						state
-						updatedAt
-						closedAt
-						mergedAt
-						repository {
-							isFork
-							owner {
-								login
-							}
 						}
 					}
 				}
@@ -613,7 +612,7 @@ export class GitHubApi implements Disposable {
 					...options,
 					owner: owner,
 					repo: repo,
-					branch: branch,
+					branch: `refs/heads/${branch}`,
 					// Since GitHub sort doesn't seem to really work, look for a max of 10 PRs and then sort them ourselves
 					limit: 10,
 				},
@@ -621,7 +620,7 @@ export class GitHubApi implements Disposable {
 			);
 
 			// If the pr is not from a fork, keep it e.g. show root pr's on forks, otherwise, ensure the repo owners match
-			const prs = rsp?.repository?.refs.nodes[0]?.associatedPullRequests?.nodes?.filter(
+			const prs = rsp?.repository?.ref?.associatedPullRequests?.nodes?.filter(
 				pr => pr != null && (!pr.repository.isFork || pr.repository.owner.login === owner),
 			);
 			if (prs == null || prs.length === 0) return undefined;
