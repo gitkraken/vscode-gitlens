@@ -315,6 +315,22 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			$forward.setAttribute('aria-hidden', 'false');
 			$forward.classList.toggle('is-hidden', false);
 		}
+
+		const $hint = document.querySelector<HTMLElement>('[data-region="commit-hint"]');
+		if ($hint == null) return;
+		const $hintAction = $hint.closest('.commit-action')!;
+		if (state.navigationStack.hint) {
+			$hint.innerText = state.navigationStack.hint;
+			$hintAction.setAttribute('aria-hidden', 'false');
+			$hintAction.classList.toggle('is-hidden', false);
+			$hintAction.setAttribute('data-action', state.pinned ? 'forward' : 'back');
+		} else {
+			$hint.innerText = '';
+			$hintAction.removeAttribute('data-action');
+			$hintAction.removeAttribute('title');
+			$hintAction.setAttribute('aria-hidden', 'true');
+			$hintAction.classList.toggle('is-hidden', true);
+		}
 	}
 
 	renderPin(state: CommitState) {

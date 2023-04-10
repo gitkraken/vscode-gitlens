@@ -39,6 +39,22 @@ export class MRU<T> {
 		return this.stack.length > 0 ? this.stack[0] : undefined;
 	}
 
+	insert(item: T, ref?: T): void {
+		const index =
+			ref == null
+				? -1
+				: this.comparator != null
+				? this.stack.findIndex(i => this.comparator!(ref, i))
+				: this.stack.indexOf(ref);
+		if (index === -1) {
+			this.add(item);
+			this._position = 1;
+		} else {
+			this.stack.splice(index, 0, item);
+			this._position = index + 1;
+		}
+	}
+
 	navigate(direction: 'back' | 'forward'): T | undefined {
 		if (this.stack.length <= 1) return undefined;
 

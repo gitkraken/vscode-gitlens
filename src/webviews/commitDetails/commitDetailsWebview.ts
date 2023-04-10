@@ -177,14 +177,20 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 	private onCommitSelected(e: CommitSelectedEvent) {
 		if (
 			e.data == null ||
-			(this._pinned && e.data.interaction === 'passive') ||
 			(this.options.mode === 'graph' && e.source !== 'gitlens.views.graph') ||
 			(this.options.mode === 'default' && e.source === 'gitlens.views.graph')
 		) {
 			return;
 		}
 
-		void this.host.show(false, { preserveFocus: e.data.preserveFocus }, e.data);
+		if (this._pinned && e.data.interaction === 'passive') {
+			console.log('[stack] add to stack');
+			const current = this._commitStack.get();
+			this._commitStack.insert(getReferenceFromRevision(e.data.commit), current);
+			this.updateNavigationStack();
+		} else {
+			void this.host.show(false, { preserveFocus: e.data.preserveFocus }, e.data);
+		}
 	}
 
 	includeBootstrap(): Promise<Serialized<State>> {
@@ -280,6 +286,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		if (!this.host.visible) return;
 
 		this._commitTrackerDisposable = this.container.events.on('commit:selected', this.onCommitSelected, this);
+
+		if (this._pinned) return;
 
 		if (this._pinned) return;
 
@@ -555,7 +563,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 				this._commitStack.add(getReferenceFromRevision(commit));
 			}
 
-			let sha = this._commitStack.get(this._commitStack.position + 1)?.ref;
+			const hintPosition = this._pinned ? this._commitStack.position - 1 : this._commitStack.position + 1;
+			let sha = this._commitStack.get(hintPosition)?.ref;
 			if (sha != null) {
 				sha = shortenRevision(sha);
 			}
@@ -661,6 +670,22 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		}
 
 		this._notifyDidChangeStateDebounced();
+	}
+
+	private updateNavigationStack() {
+		const hintPosition = this._pinned ? this._commitStack.position - 1 : this._commitStack.position + 1;
+		let sha = this._commitStack.get(hintPosition)?.ref;
+		if (sha != null) {
+			sha = shortenRevision(sha);
+		}
+		this.updatePendingContext({
+			navigationStack: {
+				count: this._commitStack.count,
+				position: this._commitStack.position,
+				hint: sha,
+			},
+		});
+		this.updateState();
 	}
 
 	private async notifyDidChangeState() {
