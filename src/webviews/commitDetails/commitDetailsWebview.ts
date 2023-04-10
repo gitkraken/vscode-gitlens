@@ -47,11 +47,13 @@ import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
 import type { WebviewController, WebviewProvider } from '../webviewController';
 import { updatePendingContext } from '../webviewController';
-import type { CommitDetails, FileActionParams, Preferences, State } from './protocol';
+import type { CommitDetails, DidExplainCommitParams, FileActionParams, Preferences, State } from './protocol';
 import {
 	AutolinkSettingsCommandType,
 	CommitActionsCommandType,
 	DidChangeNotificationType,
+	DidExplainCommitCommandType,
+	ExplainCommitCommandType,
 	FileActionsCommandType,
 	messageHeadlineSplitterToken,
 	NavigateCommitCommandType,
@@ -382,7 +384,23 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			case PreferencesCommandType.method:
 				onIpc(PreferencesCommandType, e, params => this.updatePreferences(params));
 				break;
+			case ExplainCommitCommandType.method:
+				onIpc(ExplainCommitCommandType, e, () => this.explainCommit(e.completionId));
 		}
+	}
+
+	private async explainCommit(completionId?: string) {
+		let params: DidExplainCommitParams;
+		try {
+			const summary = await this.container.ai.explainCommit(this._context.commit!, {
+				progress: { location: { viewId: this.host.id } },
+			});
+			params = { summary: summary };
+		} catch (ex) {
+			debugger;
+			params = { error: ex.message };
+		}
+		void this.host.notify(DidExplainCommitCommandType, params, completionId);
 	}
 
 	private navigateStack(direction: 'back' | 'forward') {

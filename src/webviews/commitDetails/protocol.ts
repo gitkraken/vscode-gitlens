@@ -82,6 +82,8 @@ export const PickCommitCommandType = new IpcCommandType<undefined>('commit/pickC
 export const SearchCommitCommandType = new IpcCommandType<undefined>('commit/searchCommit');
 export const AutolinkSettingsCommandType = new IpcCommandType<undefined>('commit/autolinkSettings');
 
+export const ExplainCommitCommandType = new IpcCommandType<undefined>('commit/explain');
+
 export interface PinParams {
 	pin: boolean;
 }
@@ -115,3 +117,11 @@ export type DidChangeRichStateParams = {
 export const DidChangeRichStateNotificationType = new IpcNotificationType<DidChangeRichStateParams>(
 	'commit/didChange/rich',
 );
+
+export type DidExplainCommitParams =
+	| {
+			summary: string | undefined;
+			error?: undefined;
+	  }
+	| { error: { message: string } };
+export const DidExplainCommitCommandType = new IpcNotificationType<DidExplainCommitParams>('commit/didExplain');

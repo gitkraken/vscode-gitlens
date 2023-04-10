@@ -8,6 +8,8 @@ import {
 	AutolinkSettingsCommandType,
 	CommitActionsCommandType,
 	DidChangeNotificationType,
+	DidExplainCommitCommandType,
+	ExplainCommitCommandType,
 	FileActionsCommandType,
 	messageHeadlineSplitterToken,
 	NavigateCommitCommandType,
@@ -132,19 +134,29 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		}
 	}
 
-	onExplainCommit(e: MouseEvent) {
+	async onExplainCommit(e: MouseEvent) {
 		const el = e.target as HTMLButtonElement;
 		if (el.getAttribute('aria-busy') === 'true') return;
 
 		el.setAttribute('aria-busy', 'true');
-		setTimeout(() => {
-			el.removeAttribute('aria-busy');
-			const explanationEL = document.querySelector('[data-region="commit-explanation"]')!;
-			explanationEL.innerHTML = `
-				<p class="mb-0">No explanation available</p>
-			`;
-			explanationEL.scrollIntoView();
-		}, 2000);
+
+		e.preventDefault();
+		const result = await this.sendCommandWithCompletion(
+			ExplainCommitCommandType,
+			undefined,
+			DidExplainCommitCommandType,
+		);
+
+		el.removeAttribute('aria-busy');
+		const explanationEL = document.querySelector('[data-region="commit-explanation"]')!;
+		if (result.error) {
+			explanationEL.innerHTML = `<p class="ai-content--summary error scrollable">${result.error.message}</p>`;
+		} else if (result.summary) {
+			explanationEL.innerHTML = `<p class="ai-content--summary scrollable">${result.summary}</p>`;
+		} else {
+			explanationEL.innerHTML = '';
+		}
+		explanationEL.scrollIntoView();
 	}
 
 	onDismissBanner(e: MouseEvent) {

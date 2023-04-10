@@ -1,6 +1,7 @@
 import type { ConfigurationChangeEvent, Disposable, Event, ExtensionContext } from 'vscode';
 import { EventEmitter, ExtensionMode } from 'vscode';
 import { getSupportedGitProviders } from '@env/providers';
+import { AIService } from './aiService';
 import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
@@ -206,6 +207,7 @@ export class Container {
 		this._disposables.push((this._keyboard = new Keyboard()));
 		this._disposables.push((this._vsls = new VslsController(this)));
 		this._disposables.push((this._eventBus = new EventBus()));
+		this._disposables.push((this._ai = new AIService(this)));
 
 		this._disposables.push((this._fileAnnotationController = new FileAnnotationController(this)));
 		this._disposables.push((this._lineAnnotationController = new LineAnnotationController(this)));
@@ -331,6 +333,11 @@ export class Container {
 		return this._actionRunners;
 	}
 
+	private readonly _ai: AIService;
+	get ai() {
+		return this._ai;
+	}
+
 	private _autolinks: Autolinks | undefined;
 	get autolinks() {
 		if (this._autolinks == null) {
@@ -340,14 +347,14 @@ export class Container {
 		return this._autolinks;
 	}
 
-	private readonly _codeLensController: GitCodeLensController;
-	get codeLens() {
-		return this._codeLensController;
-	}
-
 	private readonly _branchesView: BranchesView;
 	get branchesView() {
 		return this._branchesView;
+	}
+
+	private readonly _codeLensController: GitCodeLensController;
+	get codeLens() {
+		return this._codeLensController;
 	}
 
 	private readonly _commitsView: CommitsView;
