@@ -52,6 +52,7 @@ export type State = {
 	navigationStack: {
 		count: number;
 		position: number;
+		hint?: string;
 	};
 };
 

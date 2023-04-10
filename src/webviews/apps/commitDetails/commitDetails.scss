@@ -391,6 +391,10 @@ ul {
 	&.is-hidden {
 		display: none;
 	}
+
+	&--emphasis-low:not(:hover, :focus, :active) {
+		opacity: 0.5;
+	}
 }
 
 .commit-details {
