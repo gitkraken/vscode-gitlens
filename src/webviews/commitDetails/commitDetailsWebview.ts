@@ -184,10 +184,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		}
 
 		if (this._pinned && e.data.interaction === 'passive') {
-			console.log('[stack] add to stack');
-			const current = this._commitStack.get();
-			this._commitStack.insert(getReferenceFromRevision(e.data.commit), current);
-			this.updateNavigationStack();
+			this._commitStack.insert(getReferenceFromRevision(e.data.commit));
+			this.updateNavigation();
 		} else {
 			void this.host.show(false, { preserveFocus: e.data.preserveFocus }, e.data);
 		}
@@ -286,8 +284,6 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		if (!this.host.visible) return;
 
 		this._commitTrackerDisposable = this.container.events.on('commit:selected', this.onCommitSelected, this);
-
-		if (this._pinned) return;
 
 		if (this._pinned) return;
 
@@ -563,18 +559,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 				this._commitStack.add(getReferenceFromRevision(commit));
 			}
 
-			const hintPosition = this._pinned ? this._commitStack.position - 1 : this._commitStack.position + 1;
-			let sha = this._commitStack.get(hintPosition)?.ref;
-			if (sha != null) {
-				sha = shortenRevision(sha);
-			}
-			this.updatePendingContext({
-				navigationStack: {
-					count: this._commitStack.count,
-					position: this._commitStack.position,
-					hint: sha,
-				},
-			});
+			this.updateNavigation();
 		}
 		this.updateState(options?.immediate ?? true);
 	}
@@ -672,9 +657,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		this._notifyDidChangeStateDebounced();
 	}
 
-	private updateNavigationStack() {
-		const hintPosition = this._pinned ? this._commitStack.position - 1 : this._commitStack.position + 1;
-		let sha = this._commitStack.get(hintPosition)?.ref;
+	private updateNavigation() {
+		let sha = this._commitStack.get(this._commitStack.position - 1)?.ref;
 		if (sha != null) {
 			sha = shortenRevision(sha);
 		}
