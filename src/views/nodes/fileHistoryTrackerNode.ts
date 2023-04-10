@@ -1,11 +1,11 @@
 import type { TextEditor } from 'vscode';
 import { Disposable, FileType, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
-import { setContext } from '../../context';
 import type { GitCommitish } from '../../git/gitUri';
 import { GitUri, unknownGitUri } from '../../git/gitUri';
 import { isBranchReference, isSha } from '../../git/models/reference';
 import { showReferencePicker } from '../../quickpicks/referencePicker';
 import { UriComparer } from '../../system/comparers';
+import { setContext } from '../../system/context';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';

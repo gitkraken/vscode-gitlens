@@ -5,7 +5,6 @@ import type { CopyShaToClipboardCommandArgs } from '../../commands';
 import type { CoreConfiguration } from '../../constants';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
-import { getContext } from '../../context';
 import type { CommitSelectedEvent } from '../../eventBus';
 import { executeGitCommand } from '../../git/actions';
 import {
@@ -30,6 +29,7 @@ import type { GitRemote } from '../../git/models/remote';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { executeCommand, executeCoreCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
+import { getContext } from '../../system/context';
 import type { DateTimeFormat } from '../../system/date';
 import { debug } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';

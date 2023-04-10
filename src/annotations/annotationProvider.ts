@@ -9,7 +9,7 @@ import type {
 } from 'vscode';
 import { Disposable, window } from 'vscode';
 import type { FileAnnotationType } from '../config';
-import { setContext } from '../context';
+import { setContext } from '../system/context';
 import { Logger } from '../system/logger';
 import type { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 

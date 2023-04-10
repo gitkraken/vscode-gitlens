@@ -1,8 +1,8 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, languages } from 'vscode';
 import type { Container } from '../container';
-import { setContext } from '../context';
 import { configuration } from '../system/configuration';
+import { setContext } from '../system/context';
 import { once } from '../system/event';
 import { Logger } from '../system/logger';
 import type {

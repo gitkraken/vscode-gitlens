@@ -11,13 +11,13 @@ import type {
 } from 'vscode';
 import { Disposable, EndOfLine, env, EventEmitter, Uri, window, workspace } from 'vscode';
 import type { Container } from '../container';
-import { setContext } from '../context';
 import type { RepositoriesChangeEvent } from '../git/gitProviderService';
 import type { GitUri } from '../git/gitUri';
 import { isGitUri } from '../git/gitUri';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { configuration } from '../system/configuration';
+import { setContext } from '../system/context';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import type { Deferrable } from '../system/function';

@@ -7,10 +7,10 @@ import { GitUri } from '../git/gitUri';
 import { uncommittedStaged } from '../git/models/constants';
 import { showGenericErrorMessage } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
-import type { Storage } from '../storage';
 import { command, executeCoreCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { Logger } from '../system/logger';
+import type { Storage } from '../system/storage';
 import { supportedInVSCodeVersion } from '../system/utils';
 import { ActiveEditorCommand, Command, getCommandUri } from './base';
 

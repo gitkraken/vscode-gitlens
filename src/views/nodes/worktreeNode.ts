@@ -1,6 +1,5 @@
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { getContext } from '../../context';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
@@ -9,6 +8,7 @@ import { PullRequestState } from '../../git/models/pullRequest';
 import { shortenRevision } from '../../git/models/reference';
 import { GitRemote, GitRemoteType } from '../../git/models/remote';
 import type { GitWorktree } from '../../git/models/worktree';
+import { getContext } from '../../system/context';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';

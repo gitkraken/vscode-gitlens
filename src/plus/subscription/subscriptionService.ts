@@ -25,7 +25,6 @@ import { getPlatform } from '@env/platform';
 import type { CoreColors } from '../../constants';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
-import { setContext } from '../../context';
 import { AccountValidationError } from '../../errors';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { showMessage } from '../../messages';
@@ -45,6 +44,7 @@ import {
 } from '../../subscription';
 import { executeCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
+import { setContext } from '../../system/context';
 import { createFromDateDelta } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';

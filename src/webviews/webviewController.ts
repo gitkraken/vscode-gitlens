@@ -3,8 +3,8 @@ import { Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vs
 import { getNonce } from '@env/crypto';
 import type { Commands, CustomEditorIds, WebviewIds, WebviewViewIds } from '../constants';
 import type { Container } from '../container';
-import { setContext } from '../context';
 import { executeCommand } from '../system/command';
+import { setContext } from '../system/context';
 import { debug, logName } from '../system/decorators/log';
 import { serialize } from '../system/decorators/serialize';
 import { isPromise } from '../system/promise';

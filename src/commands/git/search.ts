@@ -1,6 +1,5 @@
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
-import { getContext } from '../../context';
 import { showDetailsView } from '../../git/actions/commit';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitLog } from '../../git/models/log';
@@ -10,6 +9,7 @@ import { getSearchQueryComparisonKey, parseSearchQuery, searchOperators } from '
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { ActionQuickPickItem } from '../../quickpicks/items/common';
 import { configuration } from '../../system/configuration';
+import { getContext } from '../../system/context';
 import { pluralize } from '../../system/string';
 import { SearchResultsNode } from '../../views/nodes/searchResultsNode';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';

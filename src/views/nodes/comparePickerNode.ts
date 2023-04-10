@@ -1,7 +1,7 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { StoredNamedRef } from '../../constants';
 import { GlyphChars } from '../../constants';
 import { unknownGitUri } from '../../git/gitUri';
-import type { StoredNamedRef } from '../../storage';
 import type { SearchAndCompareView, SearchAndCompareViewNode } from '../searchAndCompareView';
 import { ContextValues, ViewNode } from './viewNode';
 

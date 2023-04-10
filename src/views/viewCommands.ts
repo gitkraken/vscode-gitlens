@@ -10,7 +10,6 @@ import type {
 import { FileAnnotationType, ViewShowBranchComparison } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { setContext } from '../context';
 import { browseAtRevision } from '../git/actions';
 import * as BranchActions from '../git/actions/branch';
 import * as CommitActions from '../git/actions/commit';
@@ -33,6 +32,7 @@ import {
 	registerCommand,
 } from '../system/command';
 import { configuration } from '../system/configuration';
+import { setContext } from '../system/context';
 import { debug } from '../system/decorators/log';
 import { sequentialize } from '../system/function';
 import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';

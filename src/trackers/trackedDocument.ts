@@ -1,9 +1,9 @@
 import type { Disposable, Event, TextDocument, TextEditor } from 'vscode';
 import { EventEmitter } from 'vscode';
 import type { Container } from '../container';
-import { setContext } from '../context';
 import { GitUri } from '../git/gitUri';
 import { deletedOrMissing } from '../git/models/constants';
+import { setContext } from '../system/context';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
 import { Logger } from '../system/logger';

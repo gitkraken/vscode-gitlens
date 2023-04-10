@@ -1,3 +1,11 @@
+import type { ViewShowBranchComparison } from './config';
+import type { Environment } from './container';
+import type { StoredSearchQuery } from './git/search';
+import type { Subscription } from './subscription';
+import type { TrackedUsage, TrackedUsageKeys } from './telemetry/usageTracker';
+import type { CommitDetailsDismissed } from './webviews/commitDetails/protocol';
+import type { CompletedActions } from './webviews/home/protocol';
+
 export const extensionPrefix = 'gitlens';
 export const quickPickTitleMaxChars = 80;
 
@@ -488,3 +496,177 @@ export type TelemetryEvents =
 	| 'subscription'
 	| 'subscription/changed'
 	| 'usage/track';
+
+export type SecretKeys =
+	| `gitlens.integration.auth:${string}`
+	| 'gitlens.openai.key'
+	| `gitlens.plus.auth:${Environment}`;
+
+export const enum SyncedStorageKeys {
+	Version = 'gitlens:synced:version',
+	PreReleaseVersion = 'gitlens:synced:preVersion',
+	HomeViewWelcomeVisible = 'gitlens:views:welcome:visible',
+}
+
+export type DeprecatedGlobalStorage = {
+	/** @deprecated */
+	[key in `disallow:connection:${string}`]: any;
+};
+
+export type GlobalStorage = {
+	avatars: [string, StoredAvatar][];
+	repoVisibility: [string, StoredRepoVisibilityInfo][];
+	'confirm:sendToOpenAI': boolean;
+	'deepLinks:pending': StoredDeepLinkContext;
+	'home:actions:completed': CompletedActions[];
+	'home:steps:completed': string[];
+	'home:sections:dismissed': string[];
+	'home:status:pinned': boolean;
+	'home:banners:dismissed': string[];
+	pendingWelcomeOnFocus: boolean;
+	pendingWhatsNewOnFocus: boolean;
+	'plus:migratedAuthentication': boolean;
+	'plus:discountNotificationShown': boolean;
+	'plus:renewalDiscountNotificationShown': boolean;
+	// Don't change this key name ('premium`) as its the stored subscription
+	'premium:subscription': Stored<Subscription>;
+	'synced:version': string;
+	// Keep the pre-release version separate from the released version
+	'synced:preVersion': string;
+	usages: Record<TrackedUsageKeys, TrackedUsage>;
+	version: string;
+	// Keep the pre-release version separate from the released version
+	preVersion: string;
+	'views:layout': StoredViewsLayout;
+	'views:welcome:visible': boolean;
+	'views:commitDetails:dismissed': CommitDetailsDismissed[];
+} & { [key in `provider:authentication:skip:${string}`]: boolean };
+
+export type DeprecatedWorkspaceStorage = {
+	/** @deprecated use `graph:filtersByRepo.excludeRefs` */
+	'graph:hiddenRefs': Record<string, StoredGraphExcludedRef>;
+	/** @deprecated use `views:searchAndCompare:pinned` */
+	'pinned:comparisons': Record<string, DeprecatedPinnedComparison>;
+};
+
+export type WorkspaceStorage = {
+	assumeRepositoriesOnStartup?: boolean;
+	'branch:comparisons': StoredBranchComparisons;
+	'confirm:sendToOpenAI': boolean;
+	'gitComandPalette:usage': RecentUsage;
+	gitPath: string;
+	'graph:banners:dismissed': Record<string, boolean>;
+	'graph:columns': Record<string, StoredGraphColumn>;
+	'graph:filtersByRepo': Record<string, StoredGraphFilters>;
+	'remote:default': string;
+	'starred:branches': StoredStarred;
+	'starred:repositories': StoredStarred;
+	'views:repositories:autoRefresh': boolean;
+	'views:searchAndCompare:keepResults': boolean;
+	'views:searchAndCompare:pinned': StoredPinnedItems;
+	'views:commitDetails:autolinksExpanded': boolean;
+} & { [key in `connected:${string}`]: boolean };
+
+export type StoredViewsLayout = 'gitlens' | 'scm';
+export interface Stored<T, SchemaVersion extends number = 1> {
+	v: SchemaVersion;
+	data: T;
+}
+
+export interface StoredAvatar {
+	uri: string;
+	timestamp: number;
+}
+
+export type StoredRepositoryVisibility = 'private' | 'public' | 'local';
+
+export interface StoredRepoVisibilityInfo {
+	visibility: StoredRepositoryVisibility;
+	timestamp: number;
+	remotesHash?: string;
+}
+
+export interface StoredBranchComparison {
+	ref: string;
+	notation: '..' | '...' | undefined;
+	type: Exclude<ViewShowBranchComparison, false> | undefined;
+}
+
+export interface StoredBranchComparisons {
+	[id: string]: string | StoredBranchComparison;
+}
+
+export interface StoredDeepLinkContext {
+	url?: string | undefined;
+	repoPath?: string | undefined;
+}
+
+export interface StoredGraphColumn {
+	isHidden?: boolean;
+	mode?: string;
+	width?: number;
+}
+
+export interface StoredGraphFilters {
+	includeOnlyRefs?: Record<string, StoredGraphIncludeOnlyRef>;
+	excludeRefs?: Record<string, StoredGraphExcludedRef>;
+	excludeTypes?: Record<string, boolean>;
+}
+
+export type StoredGraphRefType = 'head' | 'remote' | 'tag';
+
+export interface StoredGraphExcludedRef {
+	id: string;
+	type: StoredGraphRefType;
+	name: string;
+	owner?: string;
+}
+
+export interface StoredGraphIncludeOnlyRef {
+	id: string;
+	type: StoredGraphRefType;
+	name: string;
+	owner?: string;
+}
+
+export interface StoredNamedRef {
+	label?: string;
+	ref: string;
+}
+
+export interface StoredPinnedComparison {
+	type: 'comparison';
+	timestamp: number;
+	path: string;
+	ref1: StoredNamedRef;
+	ref2: StoredNamedRef;
+	notation?: '..' | '...';
+}
+
+export interface StoredPinnedSearch {
+	type: 'search';
+	timestamp: number;
+	path: string;
+	labels: {
+		label: string;
+		queryLabel:
+			| string
+			| {
+					label: string;
+					resultsType?: { singular: string; plural: string };
+			  };
+	};
+	search: StoredSearchQuery;
+}
+
+export type StoredPinnedItem = StoredPinnedComparison | StoredPinnedSearch;
+export type StoredPinnedItems = Record<string, StoredPinnedItem>;
+export type StoredStarred = Record<string, boolean>;
+export type RecentUsage = Record<string, number>;
+
+interface DeprecatedPinnedComparison {
+	path: string;
+	ref1: StoredNamedRef;
+	ref2: StoredNamedRef;
+	notation?: '..' | '...';
+}

@@ -1,9 +1,8 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import type { ViewShowBranchComparison } from '../../config';
 import { ViewBranchesLayout } from '../../config';
-import type { Colors} from '../../constants';
+import type { Colors } from '../../constants';
 import { GlyphChars } from '../../constants';
-import { getContext } from '../../context';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
@@ -12,6 +11,7 @@ import { PullRequestState } from '../../git/models/pullRequest';
 import type { GitBranchReference } from '../../git/models/reference';
 import { GitRemote, GitRemoteType } from '../../git/models/remote';
 import type { GitUser } from '../../git/models/user';
+import { getContext } from '../../system/context';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { map } from '../../system/iterable';

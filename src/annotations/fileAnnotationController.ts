@@ -23,8 +23,8 @@ import {
 import { AnnotationsToggleMode, BlameHighlightLocations, ChangesLocations, FileAnnotationType } from '../config';
 import type { Colors, CoreColors } from '../constants';
 import type { Container } from '../container';
-import { setContext } from '../context';
 import { configuration } from '../system/configuration';
+import { setContext } from '../system/context';
 import { once } from '../system/event';
 import { debounce } from '../system/function';
 import { find } from '../system/iterable';
