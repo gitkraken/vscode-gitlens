@@ -1,4 +1,4 @@
-@mixin focusStyles() {
+@mixin focus-styles() {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: -1px;
 }
@@ -10,6 +10,10 @@
 	--gitlens-z-cover: 1300;
 	--gitlens-z-dialog: 1400;
 	--gitlens-z-modal: 1500;
+
+	font-size: 62.5%;
+	font-family: var(--font-family);
+	box-sizing: border-box;
 }
 
 body {
@@ -20,6 +24,10 @@ body {
 	--table-text: var(--color-foreground--65);
 	--table-pinned-background: var(--color-background);
 	--layout-gutter-outer: 20px;
+
+	font-family: var(--font-family);
+	font-size: var(--font-size);
+	color: var(--color-foreground);
 }
 
 .vscode-high-contrast,
@@ -46,18 +54,6 @@ body {
 	--popover-bg: var(--color-background--darken-15);
 }
 
-:root {
-	font-size: 62.5%;
-	font-family: var(--font-family);
-	box-sizing: border-box;
-}
-
-body {
-	font-family: var(--font-family);
-	font-size: var(--font-size);
-	color: var(--color-foreground);
-}
-
 *,
 *::before,
 *::after {
@@ -78,13 +74,16 @@ a {
 	&:hover {
 		text-decoration: underline;
 	}
+
+	&:focus {
+		@include focus-styles;
+	}
 }
 
-a,
 button:not([disabled]),
 [tabindex]:not([tabindex='-1']) {
 	&:focus {
-		@include focusStyles();
+		@include focus-styles;
 	}
 }
 
@@ -119,17 +118,21 @@ p {
 	text-align: center;
 	font-size: 1.6rem;
 }
+
 .button[disabled] {
 	color: var(--vscode-disabledForeground);
 }
+
 .button:focus {
 	background-color: var(--vscode-toolbar-activeBackground);
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: -1px;
 }
+
 .button:not([disabled]) {
 	cursor: pointer;
 }
+
 .button:hover:not([disabled]) {
 	color: var(--vscode-foreground);
 	background-color: var(--vscode-toolbar-hoverBackground);
@@ -241,6 +244,7 @@ p {
 	flex-direction: column;
 	height: 100vh;
 	overflow: hidden;
+
 	// padding-right: 0;
 
 	&__header {
@@ -269,6 +273,7 @@ p {
 	&__content {
 		position: relative;
 		flex: 1 1 auto;
+
 		// display: flex;
 		// flex-direction: row;
 		overflow: hidden;
@@ -286,6 +291,7 @@ p {
 		overflow: hidden;
 		height: 100%;
 	}
+
 	&__section {
 		min-height: 15rem;
 		flex: 0 1 50%;
@@ -294,8 +300,8 @@ p {
 	&__cover {
 		[aria-hidden='true'] & {
 			position: absolute;
-			top: 0px;
-			left: 0px;
+			top: 0;
+			left: 0;
 			width: 100%;
 			height: 100%;
 			backdrop-filter: blur(4px) saturate(0.8);
@@ -305,25 +311,16 @@ p {
 	}
 }
 
-.tag {
-	display: inline-block;
-	padding: 0.1rem 0.2rem;
-	background-color: var(--background-05);
-	color: var(--color-foreground--85);
-	white-space: nowrap;
-}
-.tag code-icon {
-	margin-right: 0.2rem;
-}
-
 .stat-added {
 	white-space: nowrap;
 	color: var(--vscode-gitDecoration-addedResourceForeground);
 }
+
 .stat-deleted {
 	white-space: nowrap;
 	color: var(--vscode-gitDecoration-deletedResourceForeground);
 }
+
 .stat-modified {
 	white-space: nowrap;
 	color: var(--vscode-gitDecoration-modifiedResourceForeground);
@@ -333,26 +330,34 @@ p {
 	&-status {
 		width: 5.8rem;
 	}
+
 	&-time {
 		width: 4rem;
 	}
+
 	&-body {
 	}
+
 	&-author {
 		width: 8.8rem;
 	}
+
 	&-assigned {
 		width: 8.8rem;
 	}
+
 	&-comments {
 		width: 4rem;
 	}
+
 	&-checks {
 		width: 3.2rem;
 	}
+
 	&-stats {
 		width: 9.2rem;
 	}
+
 	&-actions {
 	}
 }
@@ -426,8 +431,7 @@ p {
 	height: 100%;
 	font-size: 1.3em;
 	min-height: 100%;
-	padding: 0 2rem 2rem 2rem;
-
+	padding: 0 2rem 2rem;
 	display: flex;
 	flex-direction: column;
 	align-items: center;

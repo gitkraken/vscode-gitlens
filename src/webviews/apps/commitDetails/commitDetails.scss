@@ -6,13 +6,14 @@
 // generic resets
 html {
 	font-size: 62.5%;
+
 	// box-sizing: border-box;
 	font-family: var(--font-family);
 }
 
 *,
-*:before,
-*:after {
+*::before,
+*::after {
 	box-sizing: border-box;
 }
 
@@ -67,6 +68,7 @@ body {
 
 a {
 	text-decoration: none;
+
 	&:hover {
 		text-decoration: underline;
 	}
@@ -81,6 +83,7 @@ ul {
 .bulleted {
 	list-style: disc;
 	padding-left: 1.2em;
+
 	> li + li {
 		margin-top: 0.25em;
 	}
@@ -167,6 +170,7 @@ ul {
 	.vscode-dark & {
 		background-color: var(--color-background--lighten-075);
 	}
+
 	.vscode-high-contrast-light &,
 	.vscode-light & {
 		background-color: var(--color-background--darken-075);
@@ -196,10 +200,12 @@ ul {
 		&:hover {
 			color: var(--vscode-foreground);
 			text-decoration: none;
+
 			.vscode-high-contrast &,
 			.vscode-dark & {
 				background-color: var(--color-background--lighten-10);
 			}
+
 			.vscode-high-contrast-light &,
 			.vscode-light & {
 				background-color: var(--color-background--darken-10);
@@ -208,10 +214,12 @@ ul {
 
 		&.is-selected {
 			color: var(--vscode-foreground);
+
 			.vscode-high-contrast &,
 			.vscode-dark & {
 				background-color: var(--color-background--lighten-15);
 			}
+
 			.vscode-high-contrast-light &,
 			.vscode-light & {
 				background-color: var(--color-background--darken-15);
@@ -263,6 +271,7 @@ ul {
 		//     margin-top: 0.25rem;
 		// }
 	}
+
 	&__link {
 		width: 100%;
 		color: inherit;
@@ -270,16 +279,21 @@ ul {
 		text-overflow: ellipsis;
 		overflow: hidden;
 	}
+
 	&__type {
 	}
+
 	&__filename {
 	}
+
 	&__path {
 		font-size: 0.9em;
 	}
+
 	&__actions {
 		flex: none;
 	}
+
 	&__action {
 	}
 }
@@ -297,11 +311,13 @@ ul {
 		justify-content: center;
 		align-items: center;
 	}
+
 	&__media &__icon {
 		width: 2.8rem;
 		height: 2.8rem;
 		font-size: 2.8rem;
 	}
+
 	&__date {
 		font-size: 1.2rem;
 	}
@@ -343,6 +359,7 @@ ul {
 				bottom: 0.4rem;
 			}
 		}
+
 		p {
 			margin: 0;
 			opacity: 0.5;
@@ -397,6 +414,7 @@ ul {
 		.vscode-dark & {
 			background-color: var(--color-background--lighten-15);
 		}
+
 		.vscode-light & {
 			background-color: var(--color-background--darken-15);
 		}
@@ -406,6 +424,7 @@ ul {
 		.vscode-dark & {
 			background-color: var(--color-background--lighten-10);
 		}
+
 		.vscode-light & {
 			background-color: var(--color-background--darken-10);
 		}
@@ -436,6 +455,7 @@ ul {
 			right: var(--gitlens-scrollbar-gutter-width);
 			bottom: 0.5rem;
 		}
+
 		background-color: var(--vscode-sideBar-background);
 	}
 
@@ -480,7 +500,6 @@ ul {
 		flex: 1;
 		margin: 0;
 		display: block;
-
 		overflow-y: auto;
 		overflow-x: hidden;
 		max-height: 9rem;
@@ -500,6 +519,7 @@ ul {
 		flex-basis: 100%;
 		padding-top: 0.5rem;
 	}
+
 	&__author {
 		& + & {
 			margin-top: 0.5rem;
@@ -512,13 +532,16 @@ ul {
 		> :first-child {
 			margin-top: 0;
 		}
+
 		> :last-child {
 			margin-top: 0.5rem;
 			margin-bottom: 0;
 		}
 	}
+
 	&__pull-request {
 	}
+
 	&__issue {
 		> :not(:first-child) {
 			margin-top: 0.5rem;
@@ -533,9 +556,11 @@ ul {
 			top: 1px;
 			bottom: 1px;
 		}
+
 		line-height: 22px;
 		height: 22px;
 	}
+
 	&__item-skeleton {
 		padding: {
 			left: var(--gitlens-gutter-width);

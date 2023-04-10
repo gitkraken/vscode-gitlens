@@ -4,12 +4,14 @@
 
 body {
 	--avatar-size: 2.2rem;
+
 	overflow: overlay;
 }
 
 .vscode-dark {
 	--avatar-bg: var(--color-background--lighten-30);
 }
+
 .vscode-light {
 	--avatar-bg: var(--color-background--darken-30);
 }
@@ -28,7 +30,6 @@ body {
 
 header {
 	grid-area: header;
-
 	display: flex;
 	align-items: baseline;
 	flex-wrap: wrap;
@@ -51,7 +52,7 @@ header {
 	h3,
 	h4#subhead-status {
 		flex: 100% 1 1;
-		margin: 0.25em 0 0.5em 0;
+		margin: 0.25em 0 0.5em;
 	}
 
 	& > *[class^='icon--'],
@@ -76,7 +77,6 @@ h4#subhead {
 
 footer {
 	grid-area: footer;
-
 	display: grid;
 	grid-template-areas: 'shortcuts' 'actions';
 	border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
@@ -109,7 +109,7 @@ footer {
 
 .actions {
 	grid-area: actions;
-	margin: 0.5rem 0 1rem 0;
+	margin: 0.5rem 0 1rem;
 	display: flex;
 	flex-wrap: wrap;
 }
@@ -131,7 +131,7 @@ footer {
 	padding: 0.5rem 1rem;
 
 	.shortcut {
-		margin: 0.1rem 0 0 0;
+		margin: 0.1rem 0 0;
 	}
 }
 
@@ -167,6 +167,7 @@ $entry-padding: 7px;
 		.vscode-dark & {
 			border-right-color: var(--color-background--lighten-15);
 		}
+
 		.vscode-light & {
 			border-right-color: var(--color-background--darken-15);
 		}
@@ -284,6 +285,7 @@ $entry-padding: 7px;
 			padding-top: 1px;
 			padding-bottom: 9px;
 		}
+
 		.entries:not(.entries--ascending) & {
 			padding-top: 9px;
 			padding-bottom: 1px;
@@ -291,7 +293,7 @@ $entry-padding: 7px;
 	}
 
 	.entries--base:not(.entries--ascending) &:nth-last-of-type(2),
-	.entries:not(.entries--base):not(.entries--ascending) &:nth-last-of-type(1),
+	.entries:not(.entries--base, .entries--ascending) &:nth-last-of-type(1),
 	.entries--base.entries--ascending &:nth-of-type(2),
 	.entries--ascending:not(.entries--base) &:nth-of-type(1) {
 		& select {
@@ -316,12 +318,12 @@ $entry-padding: 7px;
 
 	.vscode-dark & {
 		background: rgba(255, 255, 255, 0.1);
-		box-shadow: 0px -1px 0px 0px rgba(255, 255, 255, 0.2);
+		box-shadow: 0 -1px 0 0 rgba(255, 255, 255, 0.2);
 	}
 
 	.vscode-light & {
 		background: rgba(0, 0, 0, 0.1);
-		box-shadow: 0px -1px 0px 0px rgba(0, 0, 0, 0.2);
+		box-shadow: 0 -1px 0 0 rgba(0, 0, 0, 0.2);
 	}
 }
 

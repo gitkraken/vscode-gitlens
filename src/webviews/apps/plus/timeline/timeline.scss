@@ -14,9 +14,8 @@ body {
 	line-height: 1.4;
 	font-size: 100% !important;
 	overflow: hidden;
-	margin: 0 20px 20px 20px;
+	margin: 0 20px 20px;
 	padding: 0;
-
 	min-width: 400px;
 	overflow-x: scroll;
 }
@@ -54,7 +53,7 @@ h3 {
 h4 {
 	font-size: 1.5rem;
 	font-weight: 400;
-	margin: 0.5rem 0 1rem 0;
+	margin: 0.5rem 0 1rem;
 }
 
 a {
@@ -93,6 +92,7 @@ span.button-subaction {
 	vscode-button:not([appearance='icon']) {
 		align-self: flex-start;
 	}
+
 	span.button-subaction {
 		align-self: flex-start;
 	}
@@ -174,7 +174,6 @@ span.button-subaction {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-
 	position: absolute;
 	top: 0;
 	left: 0;
@@ -199,10 +198,8 @@ span.button-subaction {
 	height: 100%;
 	font-size: 1.3em;
 	min-height: 100%;
-	padding: 0 2rem 2rem 2rem;
-
+	padding: 0 2rem 2rem;
 	backdrop-filter: blur(3px) saturate(0.8);
-
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -232,8 +229,8 @@ span.button-subaction {
 }
 
 @import './chart';
-@import '../../shared/codicons.scss';
-@import '../../shared/glicons.scss';
+@import '../../shared/codicons';
+@import '../../shared/glicons';
 
 .glicon {
 	vertical-align: middle;

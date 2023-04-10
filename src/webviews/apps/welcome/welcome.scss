@@ -85,7 +85,7 @@ header {
 	margin-bottom: 90vh;
 
 	.section--settings {
-		margin: 0 0 1em 0;
+		margin: 0 0 1em;
 	}
 }
 
@@ -133,7 +133,7 @@ header {
 	}
 
 	@media all and (max-width: 768px) {
-		margin: 0 0 0.75rem 0;
+		margin: 0 0 0.75rem;
 	}
 }
 
@@ -179,7 +179,7 @@ header {
 
 .image__preview {
 	border-radius: 8px;
-	box-shadow: 0px 0px 1px 0px rgba(0, 0, 0, 0.8), 0px 0px 12px 1px rgba(0, 0, 0, 0.5);
+	box-shadow: 0 0 1px 0 rgba(0, 0, 0, 0.8), 0 0 12px 1px rgba(0, 0, 0, 0.5);
 	width: 600px;
 }
 
@@ -212,7 +212,7 @@ header {
 		display: block;
 		font-weight: 200;
 		font-size: 1.3rem;
-		margin: -0.5em 1em 0.5em 1em;
+		margin: -0.5em 1em 0.5em;
 		text-align: center;
 	}
 
@@ -226,13 +226,11 @@ header {
 section {
 	display: flex;
 	flex-wrap: wrap;
-
 	margin-bottom: 1em;
 	padding: 1em;
 
 	h2 {
 		flex: 1 0 auto;
-
 		display: flex;
 		margin-top: 0;
 		margin-bottom: 1em;
@@ -245,10 +243,8 @@ section {
 
 .section--settings {
 	flex: 0 1 auto;
-
 	display: flex;
 	flex-wrap: wrap;
-
 	border-radius: 6px;
 	margin: 1em;
 	padding: 1em;
@@ -264,7 +260,6 @@ section {
 
 .section__content {
 	flex: 1 1 auto;
-
 	display: flex;
 	flex-flow: column wrap;
 }
@@ -303,7 +298,6 @@ section {
 
 .section__hint {
 	flex: 0 0 auto;
-
 	color: var(--color-foreground--75);
 	font-weight: 200;
 	margin: 0;
@@ -328,7 +322,7 @@ section {
 }
 
 .section__title--break {
-	margin: 0.3em 15% 0 15%;
+	margin: 0.3em 15% 0;
 	padding-top: 1em;
 	justify-content: center;
 
@@ -352,7 +346,7 @@ section {
 		width: 100%;
 		max-width: 600px;
 		border-radius: 8px;
-		box-shadow: 0px 0px 1px 0px rgba(0, 0, 0, 0.8), 0px 0px 12px 1px rgba(0, 0, 0, 0.5);
+		box-shadow: 0 0 1px 0 rgba(0, 0, 0, 0.8), 0 0 12px 1px rgba(0, 0, 0, 0.5);
 		margin-bottom: 2rem;
 	}
 
@@ -476,14 +470,14 @@ section {
 	display: block;
 	font-weight: 200;
 	font-size: 1.3rem;
-	margin: 0 1em 0.5em 1em;
+	margin: 0 1em 0.5em;
 }
 
 .settings {
 	flex: 1 0 auto;
-
 	display: flex;
 	flex-wrap: wrap;
+
 	// align-items: baseline;
 	// justify-content: space-between;
 
@@ -535,7 +529,7 @@ section {
 	&.active {
 		font-weight: 700;
 
-		&:before {
+		&::before {
 			content: ' ';
 			border-left: 4px solid var(--color-link-foreground--darken-20);
 			position: absolute;
@@ -570,6 +564,7 @@ section {
 }
 
 @import '../shared/utils';
+
 // @import '../shared/snow';
 
 .sidebar {
