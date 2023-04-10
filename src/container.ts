@@ -1,4 +1,4 @@
-import type { ConfigurationChangeEvent, Event, ExtensionContext } from 'vscode';
+import type { ConfigurationChangeEvent, Disposable, Event, ExtensionContext } from 'vscode';
 import { EventEmitter, ExtensionMode } from 'vscode';
 import { getSupportedGitProviders } from '@env/providers';
 import { Autolinks } from './annotations/autolinks';
@@ -161,8 +161,8 @@ export class Container {
 		},
 	};
 
+	private _disposables: Disposable[];
 	private _terminalLinks: GitTerminalLinkProvider | undefined;
-
 	private _webviews: WebviewsController;
 
 	private constructor(
@@ -177,91 +177,96 @@ export class Container {
 		this._version = version;
 		this.ensureModeApplied();
 
-		context.subscriptions.unshift((this._storage = storage));
-		context.subscriptions.unshift((this._telemetry = new TelemetryService(this)));
-		context.subscriptions.unshift((this._usage = new UsageTracker(this, storage)));
-
-		context.subscriptions.unshift(configuration.onDidChangeAny(this.onAnyConfigurationChanged, this));
+		this._disposables = [
+			(this._storage = storage),
+			(this._telemetry = new TelemetryService(this)),
+			(this._usage = new UsageTracker(this, storage)),
+			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
+		];
 
 		this._richRemoteProviders = new RichRemoteProviderService(this);
 
 		const server = new ServerConnection(this);
-		context.subscriptions.unshift(server);
-		context.subscriptions.unshift(
+		this._disposables.push(server);
+		this._disposables.push(
 			(this._subscriptionAuthentication = new SubscriptionAuthenticationProvider(this, server)),
 		);
-		context.subscriptions.unshift((this._subscription = new SubscriptionService(this, previousVersion)));
+		this._disposables.push((this._subscription = new SubscriptionService(this, previousVersion)));
 
-		context.subscriptions.unshift((this._git = new GitProviderService(this)));
-		context.subscriptions.unshift(new GitFileSystemProvider(this));
+		this._disposables.push((this._git = new GitProviderService(this)));
+		this._disposables.push(new GitFileSystemProvider(this));
 
-		context.subscriptions.unshift((this._uri = new UriService(this)));
+		this._disposables.push((this._uri = new UriService(this)));
 
-		context.subscriptions.unshift((this._deepLinks = new DeepLinkService(this)));
+		this._disposables.push((this._deepLinks = new DeepLinkService(this)));
 
-		context.subscriptions.unshift((this._actionRunners = new ActionRunners(this)));
-		context.subscriptions.unshift((this._tracker = new GitDocumentTracker(this)));
-		context.subscriptions.unshift((this._lineTracker = new GitLineTracker(this)));
-		context.subscriptions.unshift((this._keyboard = new Keyboard()));
-		context.subscriptions.unshift((this._vsls = new VslsController(this)));
-		context.subscriptions.unshift((this._eventBus = new EventBus()));
+		this._disposables.push((this._actionRunners = new ActionRunners(this)));
+		this._disposables.push((this._tracker = new GitDocumentTracker(this)));
+		this._disposables.push((this._lineTracker = new GitLineTracker(this)));
+		this._disposables.push((this._keyboard = new Keyboard()));
+		this._disposables.push((this._vsls = new VslsController(this)));
+		this._disposables.push((this._eventBus = new EventBus()));
 
-		context.subscriptions.unshift((this._fileAnnotationController = new FileAnnotationController(this)));
-		context.subscriptions.unshift((this._lineAnnotationController = new LineAnnotationController(this)));
-		context.subscriptions.unshift((this._lineHoverController = new LineHoverController(this)));
-		context.subscriptions.unshift((this._statusBarController = new StatusBarController(this)));
-		context.subscriptions.unshift((this._codeLensController = new GitCodeLensController(this)));
+		this._disposables.push((this._fileAnnotationController = new FileAnnotationController(this)));
+		this._disposables.push((this._lineAnnotationController = new LineAnnotationController(this)));
+		this._disposables.push((this._lineHoverController = new LineHoverController(this)));
+		this._disposables.push((this._statusBarController = new StatusBarController(this)));
+		this._disposables.push((this._codeLensController = new GitCodeLensController(this)));
 
-		context.subscriptions.unshift((this._webviews = new WebviewsController(this)));
-		context.subscriptions.unshift(registerTimelineWebviewPanel(this._webviews));
-		context.subscriptions.unshift((this._timelineView = registerTimelineWebviewView(this._webviews)));
+		this._disposables.push((this._webviews = new WebviewsController(this)));
+		this._disposables.push(registerTimelineWebviewPanel(this._webviews));
+		this._disposables.push((this._timelineView = registerTimelineWebviewView(this._webviews)));
 
-		context.subscriptions.unshift((this._graphPanel = registerGraphWebviewPanel(this._webviews)));
-		context.subscriptions.unshift(registerGraphWebviewCommands(this, this._graphPanel));
+		this._disposables.push((this._graphPanel = registerGraphWebviewPanel(this._webviews)));
+		this._disposables.push(registerGraphWebviewCommands(this, this._graphPanel));
 		if (configuration.get('graph.layout') === 'panel') {
-			context.subscriptions.unshift((this._graphView = registerGraphWebviewView(this._webviews)));
+			this._disposables.push((this._graphView = registerGraphWebviewView(this._webviews)));
 		}
-		context.subscriptions.unshift(new GraphStatusBarController(this));
+		this._disposables.push(new GraphStatusBarController(this));
 
 		const settingsWebviewPanel = registerSettingsWebviewPanel(this._webviews);
-		context.subscriptions.unshift(settingsWebviewPanel);
-		context.subscriptions.unshift(registerSettingsWebviewCommands(settingsWebviewPanel));
-		context.subscriptions.unshift(registerWelcomeWebviewPanel(this._webviews));
-		context.subscriptions.unshift((this._rebaseEditor = new RebaseEditorProvider(this)));
-		context.subscriptions.unshift(registerFocusWebviewPanel(this._webviews));
+		this._disposables.push(settingsWebviewPanel);
+		this._disposables.push(registerSettingsWebviewCommands(settingsWebviewPanel));
+		this._disposables.push(registerWelcomeWebviewPanel(this._webviews));
+		this._disposables.push((this._rebaseEditor = new RebaseEditorProvider(this)));
+		this._disposables.push(registerFocusWebviewPanel(this._webviews));
 
-		context.subscriptions.unshift(new ViewFileDecorationProvider());
+		this._disposables.push(new ViewFileDecorationProvider());
 
-		context.subscriptions.unshift((this._repositoriesView = new RepositoriesView(this)));
-		context.subscriptions.unshift((this._commitDetailsView = registerCommitDetailsWebviewView(this._webviews)));
-		context.subscriptions.unshift((this._graphDetailsView = registerGraphDetailsWebviewView(this._webviews)));
-		context.subscriptions.unshift((this._commitsView = new CommitsView(this)));
-		context.subscriptions.unshift((this._fileHistoryView = new FileHistoryView(this)));
-		context.subscriptions.unshift((this._lineHistoryView = new LineHistoryView(this)));
-		context.subscriptions.unshift((this._branchesView = new BranchesView(this)));
-		context.subscriptions.unshift((this._remotesView = new RemotesView(this)));
-		context.subscriptions.unshift((this._stashesView = new StashesView(this)));
-		context.subscriptions.unshift((this._tagsView = new TagsView(this)));
-		context.subscriptions.unshift((this._worktreesView = new WorktreesView(this)));
-		context.subscriptions.unshift((this._contributorsView = new ContributorsView(this)));
-		context.subscriptions.unshift((this._searchAndCompareView = new SearchAndCompareView(this)));
+		this._disposables.push((this._repositoriesView = new RepositoriesView(this)));
+		this._disposables.push((this._commitDetailsView = registerCommitDetailsWebviewView(this._webviews)));
+		this._disposables.push((this._graphDetailsView = registerGraphDetailsWebviewView(this._webviews)));
+		this._disposables.push((this._commitsView = new CommitsView(this)));
+		this._disposables.push((this._fileHistoryView = new FileHistoryView(this)));
+		this._disposables.push((this._lineHistoryView = new LineHistoryView(this)));
+		this._disposables.push((this._branchesView = new BranchesView(this)));
+		this._disposables.push((this._remotesView = new RemotesView(this)));
+		this._disposables.push((this._stashesView = new StashesView(this)));
+		this._disposables.push((this._tagsView = new TagsView(this)));
+		this._disposables.push((this._worktreesView = new WorktreesView(this)));
+		this._disposables.push((this._contributorsView = new ContributorsView(this)));
+		this._disposables.push((this._searchAndCompareView = new SearchAndCompareView(this)));
 
-		context.subscriptions.unshift((this._homeView = registerHomeWebviewView(this._webviews)));
+		this._disposables.push((this._homeView = registerHomeWebviewView(this._webviews)));
 
 		if (configuration.get('terminalLinks.enabled')) {
-			context.subscriptions.unshift((this._terminalLinks = new GitTerminalLinkProvider(this)));
+			this._disposables.push((this._terminalLinks = new GitTerminalLinkProvider(this)));
 		}
 
-		context.subscriptions.unshift(
+		this._disposables.push(
 			configuration.onDidChange(e => {
 				if (!configuration.changed(e, 'terminalLinks.enabled')) return;
 
 				this._terminalLinks?.dispose();
 				if (configuration.get('terminalLinks.enabled')) {
-					context.subscriptions.unshift((this._terminalLinks = new GitTerminalLinkProvider(this)));
+					this._disposables.push((this._terminalLinks = new GitTerminalLinkProvider(this)));
 				}
 			}),
 		);
+
+		context.subscriptions.push({
+			dispose: () => this._disposables.reverse().forEach(d => void d.dispose()),
+		});
 	}
 
 	deactivate() {
@@ -287,7 +292,7 @@ export class Container {
 	private async registerGitProviders() {
 		const providers = await getSupportedGitProviders(this);
 		for (const provider of providers) {
-			this._context.subscriptions.unshift(this._git.register(provider.descriptor.id, provider));
+			this._disposables.push(this._git.register(provider.descriptor.id, provider));
 		}
 
 		this._git.registrationComplete();
@@ -329,7 +334,7 @@ export class Container {
 	private _autolinks: Autolinks | undefined;
 	get autolinks() {
 		if (this._autolinks == null) {
-			this._context.subscriptions.unshift((this._autolinks = new Autolinks(this)));
+			this._disposables.push((this._autolinks = new Autolinks(this)));
 		}
 
 		return this._autolinks;
@@ -423,7 +428,7 @@ export class Container {
 	private async _loadGitHubApi() {
 		try {
 			const github = new (await import(/* webpackChunkName: "github" */ './plus/github/github')).GitHubApi(this);
-			this._context.subscriptions.unshift(github);
+			this._disposables.push(github);
 			return github;
 		} catch (ex) {
 			Logger.error(ex);
@@ -443,7 +448,7 @@ export class Container {
 	private async _loadGitLabApi() {
 		try {
 			const gitlab = new (await import(/* webpackChunkName: "gitlab" */ './plus/gitlab/gitlab')).GitLabApi(this);
-			this._context.subscriptions.unshift(gitlab);
+			this._disposables.push(gitlab);
 			return gitlab;
 		} catch (ex) {
 			Logger.error(ex);
@@ -460,7 +465,7 @@ export class Container {
 	private _graphView: WebviewViewProxy | undefined;
 	get graphView() {
 		if (this._graphView == null) {
-			this.context.subscriptions.unshift((this._graphView = registerGraphWebviewView(this._webviews)));
+			this._disposables.push((this._graphView = registerGraphWebviewView(this._webviews)));
 		}
 
 		return this._graphView;
@@ -479,7 +484,7 @@ export class Container {
 	private _integrationAuthentication: IntegrationAuthenticationService | undefined;
 	get integrationAuthentication() {
 		if (this._integrationAuthentication == null) {
-			this._context.subscriptions.unshift(
+			this._disposables.push(
 				(this._integrationAuthentication = new IntegrationAuthenticationService(this)),
 				// Register any integration authentication providers
 				new GitHubAuthenticationProvider(this),
