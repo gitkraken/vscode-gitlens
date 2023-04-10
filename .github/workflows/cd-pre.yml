@@ -31,7 +31,7 @@ jobs:
                     echo $headRef
                     if [ "$preRef" = "$headRef" ]; then
                       echo "No changes since last pre-release build. Exiting."
-                      echo "::set-output name=status::unchanged"
+                      echo "status=unchanged" >> $GITHUB_OUTPUT
                       exit 0
                     else
                       echo "Updating pre"
@@ -44,7 +44,7 @@ jobs:
                     git checkout -b pre
                     git push origin pre
                   fi
-                  echo "::set-output name=status::changed"
+                  echo "status=changed" >> $GITHUB_OUTPUT
 
     publish:
         name: Publish pre-release
