@@ -210,36 +210,36 @@ export function relativeDir(relativePath: string, relativeTo?: string): string {
 
 export function splitPath(
 	pathOrUri: string | Uri,
-	repoPath: string | undefined,
+	root: string | undefined,
 	splitOnBaseIfMissing: boolean = false,
 	ignoreCase?: boolean,
 ): [string, string] {
 	pathOrUri = getBestPath(pathOrUri);
 
-	if (repoPath) {
+	if (root) {
 		let repoUri;
-		if (hasSchemeRegex.test(repoPath)) {
-			repoUri = Uri.parse(repoPath, true);
-			repoPath = getBestPath(repoUri);
+		if (hasSchemeRegex.test(root)) {
+			repoUri = Uri.parse(root, true);
+			root = getBestPath(repoUri);
 		} else {
-			repoPath = normalizePath(repoPath);
+			root = normalizePath(root);
 		}
 
-		const index = commonBaseIndex(`${repoPath}/`, `${pathOrUri}/`, '/', ignoreCase);
+		const index = commonBaseIndex(`${root}/`, `${pathOrUri}/`, '/', ignoreCase);
 		if (index > 0) {
-			repoPath = pathOrUri.substring(0, index);
+			root = pathOrUri.substring(0, index);
 			pathOrUri = pathOrUri.substring(index + 1);
 		} else if (pathOrUri.charCodeAt(0) === slash) {
 			pathOrUri = pathOrUri.slice(1);
 		}
 
 		if (repoUri != null) {
-			repoPath = repoUri.with({ path: repoPath }).toString();
+			root = repoUri.with({ path: root }).toString();
 		}
 	} else {
-		repoPath = normalizePath(splitOnBaseIfMissing ? dirname(pathOrUri) : '');
+		root = normalizePath(splitOnBaseIfMissing ? dirname(pathOrUri) : '');
 		pathOrUri = splitOnBaseIfMissing ? basename(pathOrUri) : pathOrUri;
 	}
 
-	return [pathOrUri, repoPath];
+	return [pathOrUri, root];
 }
