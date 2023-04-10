@@ -1,8 +1,8 @@
 import { Disposable } from 'vscode';
 import type { Keys } from '../constants';
 import { extensionPrefix, keys } from '../constants';
-import { setContext } from '../context';
 import { registerCommand } from './command';
+import { setContext } from './context';
 import { log } from './decorators/log';
 import { Logger } from './logger';
 import { getLogScope } from './logger.scope';

@@ -2,7 +2,6 @@ import { Disposable, Uri, window } from 'vscode';
 import type { GHPRPullRequest } from '../../../commands';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
-import { setContext } from '../../../context';
 import { PlusFeatures } from '../../../features';
 import { add as addRemote } from '../../../git/actions/remote';
 import * as RepoActions from '../../../git/actions/repository';
@@ -26,6 +25,7 @@ import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider
 import type { Subscription } from '../../../subscription';
 import { SubscriptionState } from '../../../subscription';
 import { executeCommand, registerCommand } from '../../../system/command';
+import { setContext } from '../../../system/context';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';

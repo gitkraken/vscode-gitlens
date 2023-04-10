@@ -1,7 +1,7 @@
 import type { MessageItem } from 'vscode';
 import { window } from 'vscode';
-import { getContext } from '../../context';
 import { configuration } from '../../system/configuration';
+import { getContext } from '../../system/context';
 
 export function arePlusFeaturesEnabled(): boolean {
 	return getContext('gitlens:plus:enabled', configuration.get('plusFeatures.enabled', undefined, true));

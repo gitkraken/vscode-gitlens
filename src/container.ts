@@ -31,13 +31,13 @@ import {
 import { GraphStatusBarController } from './plus/webviews/graph/statusbar';
 import { registerTimelineWebviewPanel, registerTimelineWebviewView } from './plus/webviews/timeline/registration';
 import { StatusBarController } from './statusbar/statusBarController';
-import type { Storage } from './storage';
 import { executeCommand } from './system/command';
 import { configuration } from './system/configuration';
 import { log } from './system/decorators/log';
 import { memoize } from './system/decorators/memoize';
 import { Keyboard } from './system/keyboard';
 import { Logger } from './system/logger';
+import type { Storage } from './system/storage';
 import { TelemetryService } from './telemetry/telemetry';
 import { UsageTracker } from './telemetry/usageTracker';
 import { GitTerminalLinkProvider } from './terminal/linkProvider';

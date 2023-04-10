@@ -1,8 +1,8 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { md5 } from '@env/crypto';
+import type { StoredNamedRef } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import { createRevisionRange, shortenRevision } from '../../git/models/reference';
-import type { StoredNamedRef } from '../../storage';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { getSettledValue } from '../../system/promise';

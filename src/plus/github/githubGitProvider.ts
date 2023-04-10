@@ -13,7 +13,6 @@ import { authentication, EventEmitter, FileType, Uri, window, workspace } from '
 import { encodeUtf8Hex } from '@env/hex';
 import { CharCode, Schemes } from '../../constants';
 import type { Container } from '../../container';
-import { setContext } from '../../context';
 import { emojify } from '../../emojis';
 import {
 	AuthenticationError,
@@ -77,6 +76,7 @@ import { getRemoteProviderMatcher, loadRemoteProviders } from '../../git/remotes
 import type { GitSearch, GitSearchResultData, GitSearchResults, SearchQuery } from '../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../git/search';
 import { configuration } from '../../system/configuration';
+import { setContext } from '../../system/context';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { filterMap, first, last, some } from '../../system/iterable';

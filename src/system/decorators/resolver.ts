@@ -21,9 +21,7 @@ function replacer(key: string, value: any): any {
 	if (isBranch(value) || isCommit(value) || isTag(value) || isViewNode(value)) {
 		return value.toString();
 	}
-	if (isContainer(value)) {
-		return '<container>';
-	}
+	if (isContainer(value)) return '<container>';
 
 	return value;
 }
@@ -58,9 +56,7 @@ export function defaultResolver(...args: any[]): string {
 			if (isBranch(arg0) || isCommit(arg0) || isTag(arg0) || isViewNode(arg0)) {
 				return arg0.toString();
 			}
-			if (isContainer(arg0)) {
-				return '<container>';
-			}
+			if (isContainer(arg0)) return '<container>';
 
 			return JSON.stringify(arg0, replacer);
 	}
