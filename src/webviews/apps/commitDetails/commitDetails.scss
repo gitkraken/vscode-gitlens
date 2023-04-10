@@ -571,5 +571,19 @@ ul {
 	}
 }
 
+.ai-content--summary {
+	font-size: 1.3rem;
+	border: 1px solid var(--vscode-input-border);
+	background: var(--vscode-input-background);
+	margin-top: 1rem;
+	padding: 1rem 0 0 1rem;
+	overflow: scroll;
+	white-space: break-spaces;
+}
+
+.ai-content--summary.error {
+	border-color: var(--color-alert-errorBorder);
+}
+
 @import '../shared/codicons';
 @import '../shared/glicons';
