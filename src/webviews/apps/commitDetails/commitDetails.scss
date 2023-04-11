@@ -573,13 +573,15 @@ ul {
 
 .ai-content {
 	font-size: 1.3rem;
-	border: 1px solid var(--vscode-input-border, transparent);
+	border: 0.1rem solid var(--vscode-input-border, transparent);
 	background: var(--vscode-input-background);
 	margin-top: 1rem;
 	padding: 0.5rem;
 
 	&.has-error {
-		border-color: var(--color-alert-errorBorder);
+		border-left-color: var(--color-alert-errorBorder);
+		border-left-width: 0.3rem;
+		padding-left: 0.8rem;
 	}
 
 	&:empty {
@@ -592,6 +594,10 @@ ul {
 		overflow-x: hidden;
 		// max-height: 9rem;
 		white-space: break-spaces;
+
+		.has-error & {
+			white-space: normal;
+		}
 	}
 }
 
