@@ -571,18 +571,28 @@ ul {
 	}
 }
 
-.ai-content--summary {
+.ai-content {
 	font-size: 1.3rem;
-	border: 1px solid var(--vscode-input-border);
+	border: 1px solid var(--vscode-input-border, transparent);
 	background: var(--vscode-input-background);
 	margin-top: 1rem;
-	padding: 1rem 0 0 1rem;
-	overflow: scroll;
-	white-space: break-spaces;
-}
+	padding: 0.5rem;
 
-.ai-content--summary.error {
-	border-color: var(--color-alert-errorBorder);
+	&.has-error {
+		border-color: var(--color-alert-errorBorder);
+	}
+
+	&:empty {
+		display: none;
+	}
+
+	&__summary {
+		margin: 0;
+		overflow-y: auto;
+		overflow-x: hidden;
+		// max-height: 9rem;
+		white-space: break-spaces;
+	}
 }
 
 @import '../shared/codicons';
