@@ -141,22 +141,31 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		el.setAttribute('aria-busy', 'true');
 
 		e.preventDefault();
-		const result = await this.sendCommandWithCompletion(
-			ExplainCommitCommandType,
-			undefined,
-			DidExplainCommitCommandType,
-		);
-
-		el.removeAttribute('aria-busy');
 		const explanationEL = document.querySelector('[data-region="commit-explanation"]')!;
-		if (result.error) {
-			explanationEL.innerHTML = `<p class="ai-content--summary error scrollable">${result.error.message}</p>`;
-		} else if (result.summary) {
-			explanationEL.innerHTML = `<p class="ai-content--summary scrollable">${result.summary}</p>`;
-		} else {
-			explanationEL.innerHTML = '';
+		try {
+			const result = await this.sendCommandWithCompletion(
+				ExplainCommitCommandType,
+				undefined,
+				DidExplainCommitCommandType,
+			);
+
+			explanationEL.classList.toggle('has-error', result.error != null);
+			if (result.error) {
+				explanationEL.innerHTML = `<p class="ai-content__summary scrollable">${
+					result.error.message ?? 'Error retrieving content'
+				}</p>`;
+			} else if (result.summary) {
+				explanationEL.innerHTML = `<p class="ai-content__summary scrollable">${result.summary}</p>`;
+			} else {
+				explanationEL.innerHTML = '';
+			}
+		} catch (ex) {
+			explanationEL.classList.add('has-error');
+			explanationEL.innerHTML = `<p class="ai-content__summary scrollable">Error retrieving content</p>`;
+		} finally {
+			el.removeAttribute('aria-busy');
+			explanationEL.scrollIntoView();
 		}
-		explanationEL.scrollIntoView();
 	}
 
 	onDismissBanner(e: MouseEvent) {

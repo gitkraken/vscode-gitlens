@@ -398,7 +398,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			params = { summary: summary };
 		} catch (ex) {
 			debugger;
-			params = { error: ex.message };
+			params = { error: { message: ex.message } };
 		}
 		void this.host.notify(DidExplainCommitCommandType, params, completionId);
 	}
