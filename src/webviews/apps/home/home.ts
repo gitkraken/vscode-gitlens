@@ -243,10 +243,7 @@ export class HomeApp extends App<State> {
 
 	private updateNoRepo() {
 		const { repositories } = this.state;
-		const hasRepos = repositories.count > 0;
-
-		// TODO@d13 provide better feedback if there are unsafe repos (maybe even if there are no "open" repos?)
-
+		const hasRepos = repositories.openCount > 0;
 		const value = hasRepos ? 'true' : 'false';
 
 		let $el = document.getElementById('no-repo');
@@ -258,11 +255,22 @@ export class HomeApp extends App<State> {
 		}
 
 		$el = document.getElementById('no-repo-alert');
-		$el?.setAttribute('aria-hidden', value);
-		if (hasRepos) {
-			$el?.setAttribute('hidden', value);
+		const showUnsafe = repositories.hasUnsafe && !hasRepos;
+		const $unsafeEl = document.getElementById('unsafe-repo-alert');
+		if (showUnsafe) {
+			$el?.setAttribute('aria-hidden', 'true');
+			$el?.setAttribute('hidden', 'true');
+			$unsafeEl?.setAttribute('aria-hidden', 'false');
+			$unsafeEl?.removeAttribute('hidden');
 		} else {
-			$el?.removeAttribute('hidden');
+			$unsafeEl?.setAttribute('aria-hidden', 'true');
+			$unsafeEl?.setAttribute('hidden', 'true');
+			$el?.setAttribute('aria-hidden', value);
+			if (hasRepos) {
+				$el?.setAttribute('hidden', value);
+			} else {
+				$el?.removeAttribute('hidden');
+			}
 		}
 	}
 

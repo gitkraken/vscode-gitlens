@@ -134,7 +134,7 @@ body {
 		padding: 0 2rem;
 		position: relative;
 
-		[aria-hidden='false'] + header-card {
+		[aria-hidden='false'] ~ header-card {
 			display: none;
 		}
 	}
