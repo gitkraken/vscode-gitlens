@@ -91,7 +91,6 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	}
 
 	matches(url: string): boolean;
-	// eslint-disable-next-line @typescript-eslint/unified-signatures
 	matches(domain: string, path: string): boolean;
 	matches(urlOrDomain: string, path?: string): boolean {
 		if (path == null) {
