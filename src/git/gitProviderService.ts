@@ -10,6 +10,7 @@ import type {
 	WorkspaceFoldersChangeEvent,
 } from 'vscode';
 import { Disposable, EventEmitter, FileType, ProgressLocation, Uri, window, workspace } from 'vscode';
+import { isWeb } from '@env/platform';
 import { resetAvatarCache } from '../avatars';
 import type { CoreGitConfiguration } from '../constants';
 import { GlyphChars, Schemes } from '../constants';
@@ -494,14 +495,24 @@ export class GitProviderService implements Disposable {
 	private _initializing: boolean = true;
 
 	@log({ singleLine: true })
-	registrationComplete() {
+	async registrationComplete() {
 		const scope = getLogScope();
 
 		this._initializing = false;
 
-		const { workspaceFolders } = workspace;
+		let { workspaceFolders } = workspace;
 		if (workspaceFolders?.length) {
-			void this.discoverRepositories(workspaceFolders);
+			await this.discoverRepositories(workspaceFolders);
+
+			// This is a hack to work around some issue with remote repositories on the web not being discovered on the initial load
+			if (this.repositoryCount === 0 && isWeb) {
+				setTimeout(() => {
+					({ workspaceFolders } = workspace);
+					if (workspaceFolders?.length) {
+						void this.discoverRepositories(workspaceFolders, { force: true });
+					}
+				}, 1000);
+			}
 		} else {
 			this.updateContext();
 		}
