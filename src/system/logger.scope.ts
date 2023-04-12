@@ -39,3 +39,9 @@ export function getNextLogScopeId(): number {
 export function setLogScope(scopeId: number, scope: LogScope) {
 	scopes.set(scopeId, scope);
 }
+
+export function setLogScopeExit(scope: LogScope | undefined, details: string): void {
+	if (scope == null) return;
+
+	scope.exitDetails = details;
+}

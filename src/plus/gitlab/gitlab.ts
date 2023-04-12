@@ -29,7 +29,7 @@ import { debug } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import { LogLevel } from '../../system/logger.constants';
 import type { LogScope } from '../../system/logger.scope';
-import { getLogScope } from '../../system/logger.scope';
+import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
 import { Stopwatch } from '../../system/stopwatch';
 import { equalsIgnoreCase } from '../../system/string';
 import type { GitLabCommit, GitLabIssue, GitLabMergeRequest, GitLabMergeRequestREST, GitLabUser } from './models';
@@ -674,9 +674,7 @@ $search: String!
 
 			const projectId = match[1];
 
-			if (scope != null) {
-				scope.exitDetails = `\u2022 projectId=${projectId}`;
-			}
+			setLogScopeExit(scope, ` \u2022 projectId=${projectId}`);
 			return projectId;
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;

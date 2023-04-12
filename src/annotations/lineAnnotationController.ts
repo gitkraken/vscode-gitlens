@@ -16,8 +16,8 @@ import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import { count, every, filter } from '../system/iterable';
 import { Logger } from '../system/logger';
-import type { LogScope } from '../system/logger.scope';
-import { getLogScope } from '../system/logger.scope';
+import type { LogScope} from '../system/logger.scope';
+import { getLogScope , setLogScopeExit } from '../system/logger.scope';
 import type { PromiseCancelledErrorWithId } from '../system/promise';
 import { PromiseCancelledError, raceAll } from '../system/promise';
 import { isTextEditor } from '../system/utils';
@@ -191,9 +191,10 @@ export class LineAnnotationController implements Disposable {
 
 		const selections = this.container.lineTracker.selections;
 		if (editor == null || selections == null || !isTextEditor(editor)) {
-			if (scope != null) {
-				scope.exitDetails = ` ${GlyphChars.Dot} Skipped because there is no valid editor or no valid selections`;
-			}
+			setLogScopeExit(
+				scope,
+				` ${GlyphChars.Dot} Skipped because there is no valid editor or no valid selections`,
+			);
 
 			this.clear(this._editor);
 			return;
@@ -208,9 +209,7 @@ export class LineAnnotationController implements Disposable {
 
 		const cfg = configuration.get('currentLine');
 		if (this.suspended) {
-			if (scope != null) {
-				scope.exitDetails = ` ${GlyphChars.Dot} Skipped because the controller is suspended`;
-			}
+			setLogScopeExit(scope, ` ${GlyphChars.Dot} Skipped because the controller is suspended`);
 
 			this.clear(editor);
 			return;

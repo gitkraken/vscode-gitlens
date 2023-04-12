@@ -31,7 +31,7 @@ import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
 import { count, filter, first, flatMap, join, map, some } from '../system/iterable';
 import { Logger } from '../system/logger';
-import { getLogScope } from '../system/logger.scope';
+import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import { getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
 import { cancellable, fastestSettled, getSettledValue, isPromise, PromiseCancelledError } from '../system/promise';
 import { VisitedPathsTrie } from '../system/trie';
@@ -519,9 +519,10 @@ export class GitProviderService implements Disposable {
 			);
 		}
 
-		if (scope != null) {
-			scope.exitDetails = ` ${GlyphChars.Dot} workspaceFolders=${workspaceFolders?.length}, git.autoRepositoryDetection=${autoRepositoryDetection}`;
-		}
+		setLogScopeExit(
+			scope,
+			` ${GlyphChars.Dot} workspaceFolders=${workspaceFolders?.length}, git.autoRepositoryDetection=${autoRepositoryDetection}`,
+		);
 	}
 
 	getOpenProviders(): GitProvider[] {

@@ -8,7 +8,7 @@ import { uuid } from '@env/crypto';
 import type { Container, Environment } from '../../container';
 import { debug } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
-import { getLogScope } from '../../system/logger.scope';
+import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
 import type { ServerConnection } from './serverConnection';
 
 interface StoredSession {
@@ -102,9 +102,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 		const sessions = await this._sessionsPromise;
 		const filtered = scopes != null ? sessions.filter(s => getScopesKey(s.scopes) === scopesKey) : sessions;
 
-		if (scope != null) {
-			scope.exitDetails = ` \u2022 Found ${filtered.length} sessions`;
-		}
+		setLogScopeExit(scope, ` \u2022 Found ${filtered.length} sessions`);
 
 		return filtered;
 	}
