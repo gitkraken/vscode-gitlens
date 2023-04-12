@@ -65,7 +65,7 @@
 			</nav>
 		</div>
 		<header class="home__header">
-			<div id="no-repo-alert" class="alert alert--info mb-0" aria-hidden="true">
+			<div id="no-repo-alert" class="alert alert--info mb-0" aria-hidden="true" hidden>
 				<h1 class="alert__title">No repository detected</h1>
 				<div class="alert__description">
 					<p>
@@ -81,6 +81,18 @@
 						<a class="one-line" href="https://github.com/gitkraken/vscode-gitlens/issues/new/choose"
 							>creating an Issue</a
 						>.
+					</p>
+				</div>
+			</div>
+			<div id="unsafe-repo-alert" class="alert alert--info mb-0" aria-hidden="true" hidden>
+				<h1 class="alert__title">Unsafe repository</h1>
+				<div class="alert__description">
+					<p>
+						Unable to open any repositories as Git blocked them as potentially unsafe, due to the folder(s)
+						not being owned by the current user.
+					</p>
+					<p class="centered">
+						<vscode-button data-action="command:workbench.view.scm">Manage in Source Control</vscode-button>
 					</p>
 				</div>
 			</div>
