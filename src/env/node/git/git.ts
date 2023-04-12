@@ -1604,7 +1604,7 @@ export class Git {
 		return { path: dotGitPath };
 	}
 
-	async rev_parse__show_toplevel(cwd: string): Promise<string | undefined> {
+	async rev_parse__show_toplevel(cwd: string): Promise<[safe: true, repoPath: string] | [safe: false] | []> {
 		let data;
 
 		if (!workspace.isTrusted) {
@@ -1618,7 +1618,7 @@ export class Git {
 				);
 				if (data.trim() === '') {
 					Logger.log(`Skipping (untrusted workspace); bare clone repository detected in '${cwd}'`);
-					return undefined;
+					return emptyArray as [];
 				}
 			} catch {
 				// If this throw, we should be good to open the repo (e.g. HEAD doesn't exist)
@@ -1629,7 +1629,9 @@ export class Git {
 			data = await this.git<string>({ cwd: cwd, errors: GitErrorHandling.Throw }, 'rev-parse', '--show-toplevel');
 			// Make sure to normalize: https://github.com/git-for-windows/git/issues/2478
 			// Keep trailing spaces which are part of the directory name
-			return data.length === 0 ? undefined : normalizePath(data.trimStart().replace(/[\r|\n]+$/, ''));
+			return data.length === 0
+				? (emptyArray as [])
+				: [true, normalizePath(data.trimStart().replace(/[\r|\n]+$/, ''))];
 		} catch (ex) {
 			const unsafeMatch =
 				/^fatal: detected dubious ownership in repository at '([^']+)'[\s\S]*git config --global --add safe\.directory '?([^'\n]+)'?$/m.exec(
@@ -1639,7 +1641,7 @@ export class Git {
 				Logger.log(
 					`Skipping; unsafe repository detected in '${unsafeMatch[1]}'; run 'git config --global --add safe.directory ${unsafeMatch[2]}' to allow it`,
 				);
-				return undefined;
+				return [false];
 			}
 
 			const inDotGit = /this operation must be run in a work tree/.test(ex.stderr);
@@ -1659,7 +1661,7 @@ export class Git {
 					);
 					data = data.trim();
 					if (data.length) {
-						return normalizePath((data === '.' ? cwd : data).trimStart().replace(/[\r|\n]+$/, ''));
+						return [true, normalizePath((data === '.' ? cwd : data).trimStart().replace(/[\r|\n]+$/, ''))];
 					}
 				}
 			}
@@ -1670,7 +1672,7 @@ export class Git {
 				if (!exists) {
 					do {
 						const parent = dirname(cwd);
-						if (parent === cwd || parent.length === 0) return undefined;
+						if (parent === cwd || parent.length === 0) return emptyArray as [];
 
 						cwd = parent;
 						exists = await fsExists(cwd);
@@ -1679,7 +1681,7 @@ export class Git {
 					return this.rev_parse__show_toplevel(cwd);
 				}
 			}
-			return undefined;
+			return emptyArray as [];
 		}
 	}
 

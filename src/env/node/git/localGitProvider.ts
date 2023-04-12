@@ -1066,6 +1066,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private readonly toCanonicalMap = new Map<string, Uri>();
 	private readonly fromCanonicalMap = new Map<string, Uri>();
+	protected readonly unsafePaths = new Set<string>();
 
 	@gate()
 	@debug()
@@ -1084,7 +1085,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				uri = Uri.joinPath(uri, '..');
 			}
 
-			repoPath = await this.git.rev_parse__show_toplevel(uri.fsPath);
+			let safe;
+			[safe, repoPath] = await this.git.rev_parse__show_toplevel(uri.fsPath);
+			if (safe) {
+				this.unsafePaths.delete(uri.fsPath);
+			} else {
+				this.unsafePaths.add(uri.fsPath);
+			}
 			if (!repoPath) return undefined;
 
 			const repoUri = Uri.file(repoPath);
@@ -4101,6 +4108,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (repoPath == null) return false;
 
 		return this.git.merge_base__is_ancestor(repoPath, ref, '@{u}');
+	}
+
+	hasUnsafeRepositories(): boolean {
+		return this.unsafePaths.size !== 0;
 	}
 
 	isTrackable(uri: Uri): boolean {

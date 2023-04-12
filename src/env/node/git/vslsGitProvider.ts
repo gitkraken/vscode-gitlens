@@ -93,7 +93,13 @@ export class VslsGitProvider extends LocalGitProvider {
 				uri = Uri.joinPath(uri, '..');
 			}
 
-			repoPath = await this.git.rev_parse__show_toplevel(uri.fsPath);
+			let safe;
+			[safe, repoPath] = await this.git.rev_parse__show_toplevel(uri.fsPath);
+			if (safe) {
+				this.unsafePaths.delete(uri.fsPath);
+			} else {
+				this.unsafePaths.add(uri.fsPath);
+			}
 			if (!repoPath) return undefined;
 
 			return repoPath ? Uri.parse(repoPath, true) : undefined;

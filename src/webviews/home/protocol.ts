@@ -9,7 +9,11 @@ export const enum CompletedActions {
 }
 
 export interface State {
-	extensionEnabled: boolean;
+	repositories: {
+		count: number;
+		openCount: number;
+		hasUnsafe: boolean;
+	};
 	webroot?: string;
 	subscription: Subscription;
 	completedActions: CompletedActions[];
@@ -51,12 +55,12 @@ export const DidChangeSubscriptionNotificationType = new IpcNotificationType<Did
 	'subscription/didChange',
 );
 
-export interface DidChangeExtensionEnabledParams {
-	extensionEnabled: boolean;
+export interface DidChangeRepositoriesParams {
+	count: number;
+	openCount: number;
+	hasUnsafe: boolean;
 }
-export const DidChangeExtensionEnabledType = new IpcNotificationType<DidChangeExtensionEnabledParams>(
-	'extensionEnabled/didChange',
-);
+export const DidChangeRepositoriesType = new IpcNotificationType<DidChangeRepositoriesParams>('repositories/didChange');
 
 export interface DidChangeConfigurationParams {
 	plusEnabled: boolean;

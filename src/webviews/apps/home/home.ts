@@ -7,8 +7,8 @@ import type { State } from '../../home/protocol';
 import {
 	CompleteStepCommandType,
 	DidChangeConfigurationType,
-	DidChangeExtensionEnabledType,
 	DidChangeLayoutType,
+	DidChangeRepositoriesType,
 	DidChangeSubscriptionNotificationType,
 	DismissBannerCommandType,
 	DismissSectionCommandType,
@@ -95,11 +95,11 @@ export class HomeApp extends App<State> {
 					this.updateState();
 				});
 				break;
-			case DidChangeExtensionEnabledType.method:
+			case DidChangeRepositoriesType.method:
 				this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
 
-				onIpc(DidChangeExtensionEnabledType, msg, params => {
-					this.state.extensionEnabled = params.extensionEnabled;
+				onIpc(DidChangeRepositoriesType, msg, params => {
+					this.state.repositories = { ...params };
 					this.updateNoRepo();
 				});
 				break;
@@ -242,13 +242,16 @@ export class HomeApp extends App<State> {
 	}
 
 	private updateNoRepo() {
-		const { extensionEnabled } = this.state;
+		const { repositories } = this.state;
+		const hasRepos = repositories.count > 0;
 
-		const value = extensionEnabled ? 'true' : 'false';
+		// TODO@d13 provide better feedback if there are unsafe repos (maybe even if there are no "open" repos?)
+
+		const value = hasRepos ? 'true' : 'false';
 
 		let $el = document.getElementById('no-repo');
 		$el?.setAttribute('aria-hidden', value);
-		if (extensionEnabled) {
+		if (hasRepos) {
 			$el?.setAttribute('hidden', value);
 		} else {
 			$el?.removeAttribute('hidden');
@@ -256,7 +259,7 @@ export class HomeApp extends App<State> {
 
 		$el = document.getElementById('no-repo-alert');
 		$el?.setAttribute('aria-hidden', value);
-		if (extensionEnabled) {
+		if (hasRepos) {
 			$el?.setAttribute('hidden', value);
 		} else {
 			$el?.removeAttribute('hidden');
@@ -283,7 +286,7 @@ export class HomeApp extends App<State> {
 			$plusContent.setAttribute('visibility', visibility);
 			$plusContent.setAttribute('plan', subscription.plan.effective.name);
 			$plusContent.setAttribute('plus', plusEnabled.toString());
-			($plusContent as PlusBanner).extensionEnabled = this.state.extensionEnabled;
+			($plusContent as PlusBanner).hasRepositories = this.state.repositories.count > 0;
 		}
 
 		$plusContent = document.getElementById('plus-content');

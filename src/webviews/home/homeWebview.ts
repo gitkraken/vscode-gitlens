@@ -8,7 +8,6 @@ import type { SubscriptionChangeEvent } from '../../plus/subscription/subscripti
 import type { Subscription } from '../../subscription';
 import { executeCoreCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
-import { getContext, onDidChangeContext } from '../../system/context';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
 import type { StorageChangeEvent } from '../../system/storage';
@@ -20,8 +19,8 @@ import {
 	CompletedActions,
 	CompleteStepCommandType,
 	DidChangeConfigurationType,
-	DidChangeExtensionEnabledType,
 	DidChangeLayoutType,
+	DidChangeRepositoriesType,
 	DidChangeSubscriptionNotificationType,
 	DismissBannerCommandType,
 	DismissSectionCommandType,
@@ -34,10 +33,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	constructor(private readonly container: Container, private readonly host: WebviewController<State>) {
 		this._disposable = Disposable.from(
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
-			onDidChangeContext(key => {
-				if (key !== 'gitlens:disabled') return;
-				this.notifyExtensionEnabled();
-			}),
+			this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			this.container.storage.onDidChange(this.onStorageChanged, this),
 		);
@@ -53,6 +49,10 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		}
 
 		this.notifyDidChangeConfiguration();
+	}
+
+	private onRepositoriesChanged() {
+		this.notifyDidChangeRepositories();
 	}
 
 	private onStorageChanged(e: StorageChangeEvent) {
@@ -223,7 +223,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		const dismissedBanners = this.container.storage.get('home:banners:dismissed', []);
 
 		return {
-			extensionEnabled: this.getExtensionEnabled(),
+			repositories: this.getRepositoriesState(),
 			webroot: this.host.getWebRoot(),
 			subscription: sub.subscription,
 			completedActions: sub.completedActions,
@@ -250,16 +250,18 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		});
 	}
 
-	private getExtensionEnabled() {
-		return !getContext('gitlens:disabled', false);
+	private getRepositoriesState() {
+		return {
+			count: this.container.git.repositoryCount,
+			openCount: this.container.git.openRepositoryCount,
+			hasUnsafe: this.container.git.hasUnsafeRepositories(),
+		};
 	}
 
-	private notifyExtensionEnabled() {
+	private notifyDidChangeRepositories() {
 		if (!this.host.ready) return;
 
-		void this.host.notify(DidChangeExtensionEnabledType, {
-			extensionEnabled: this.getExtensionEnabled(),
-		});
+		void this.host.notify(DidChangeRepositoriesType, this.getRepositoriesState());
 	}
 
 	private getPlusEnabled() {
