@@ -65,7 +65,8 @@ import { getRemoteIconUri, getVisibilityCacheKey, GitRemote, GitRemoteType } fro
 import type { RepositoryChangeEvent } from '../../git/models/repository';
 import { Repository } from '../../git/models/repository';
 import type { GitStash } from '../../git/models/stash';
-import type { GitStatus, GitStatusFile } from '../../git/models/status';
+import type { GitStatusFile } from '../../git/models/status';
+import { GitStatus } from '../../git/models/status';
 import type { TagSortOptions } from '../../git/models/tag';
 import { getTagId, GitTag, sortTags } from '../../git/models/tag';
 import type { GitTreeEntry } from '../../git/models/tree';
@@ -90,7 +91,7 @@ import type { CachedBlame, CachedLog } from '../../trackers/gitDocumentTracker';
 import { GitDocumentState } from '../../trackers/gitDocumentTracker';
 import type { TrackedDocument } from '../../trackers/trackedDocument';
 import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../remotehub';
-import { getRemoteHubApi } from '../remotehub';
+import { getRemoteHubApi, HeadType } from '../remotehub';
 import type {
 	GraphBranchContextValue,
 	GraphItemContext,
@@ -2494,8 +2495,25 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getStatusForRepo(_repoPath: string | undefined): Promise<GitStatus | undefined> {
-		return undefined;
+	async getStatusForRepo(repoPath: string | undefined): Promise<GitStatus | undefined> {
+		if (repoPath == null) return undefined;
+
+		const context = await this.ensureRepositoryContext(repoPath);
+		if (context == null) return undefined;
+
+		const revision = await context.metadata.getRevision();
+		if (revision == null) return undefined;
+
+		return new GitStatus(
+			repoPath,
+			revision.name,
+			revision.revision,
+			[],
+			{ ahead: 0, behind: 0 },
+			revision.type === HeadType.Branch || revision.type === HeadType.RemoteBranch
+				? `origin/${revision.name}`
+				: undefined,
+		);
 	}
 
 	@log({ args: { 1: false } })

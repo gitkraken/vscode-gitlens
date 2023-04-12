@@ -165,7 +165,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				children.push(new ContributorsNode(this.uri, this.view, this, this.repo));
 			}
 
-			if (this.view.config.showIncomingActivity) {
+			if (this.view.config.showIncomingActivity && !this.repo.provider.virtual) {
 				children.push(new ReflogNode(this.uri, this.view, this, this.repo));
 			}
 

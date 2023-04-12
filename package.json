@@ -13266,7 +13266,7 @@
 				{
 					"id": "gitlens.views.repositories",
 					"name": "Repositories",
-					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders",
+					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-repositories-view)",
 					"visibility": "hidden"
