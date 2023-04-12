@@ -297,7 +297,7 @@ export class Container {
 			this._disposables.push(this._git.register(provider.descriptor.id, provider));
 		}
 
-		this._git.registrationComplete();
+		await this._git.registrationComplete();
 	}
 
 	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
