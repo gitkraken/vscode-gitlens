@@ -5,7 +5,7 @@ import { registerCommand } from './command';
 import { setContext } from './context';
 import { log } from './decorators/log';
 import { Logger } from './logger';
-import { getLogScope } from './logger.scope';
+import { getLogScope, setLogScopeExit } from './logger.scope';
 
 export declare interface KeyCommand {
 	onDidPressKey?(key: Keys): void | Promise<void>;
@@ -40,9 +40,7 @@ export class KeyboardScope implements Disposable {
 		const index = mappings.indexOf(this._mapping);
 
 		const scope = getLogScope();
-		if (scope != null) {
-			scope.exitDetails = ` \u2022 index=${index}`;
-		}
+		setLogScopeExit(scope, ` \u2022 index=${index}`);
 
 		if (index === mappings.length - 1) {
 			mappings.pop();
@@ -66,9 +64,7 @@ export class KeyboardScope implements Disposable {
 
 		const mapping = mappings[mappings.length - 1];
 		if (mapping !== this._mapping || mapping[key] == null) {
-			if (scope != null) {
-				scope.exitDetails = ' \u2022 skipped';
-			}
+			setLogScopeExit(scope, ' \u2022 skipped');
 
 			return;
 		}
@@ -117,9 +113,7 @@ export class KeyboardScope implements Disposable {
 
 		const mapping = mappings[mappings.length - 1];
 		if (mapping !== this._mapping) {
-			if (scope != null) {
-				scope.exitDetails = ' \u2022 skipped';
-			}
+			setLogScopeExit(scope, ' \u2022 skipped');
 
 			return;
 		}
@@ -176,9 +170,7 @@ export class Keyboard implements Disposable {
 		const scope = getLogScope();
 
 		if (!mappings.length) {
-			if (scope != null) {
-				scope.exitDetails = ' \u2022 skipped, no mappings';
-			}
+			setLogScopeExit(scope, ' \u2022 skipped, no mappings');
 
 			return;
 		}
@@ -191,9 +183,7 @@ export class Keyboard implements Disposable {
 				command = await command();
 			}
 			if (typeof command?.onDidPressKey !== 'function') {
-				if (scope != null) {
-					scope.exitDetails = ' \u2022 skipped, no callback';
-				}
+				setLogScopeExit(scope, ' \u2022 skipped, no callback');
 
 				return;
 			}

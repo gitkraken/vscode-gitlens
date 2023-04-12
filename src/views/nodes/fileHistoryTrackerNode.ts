@@ -11,7 +11,7 @@ import { debug, log } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
 import { Logger } from '../../system/logger';
-import { getLogScope } from '../../system/logger.scope';
+import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
 import { isVirtualUri } from '../../system/utils';
 import type { FileHistoryView } from '../fileHistoryView';
 import { FileHistoryNode } from './fileHistoryNode';
@@ -159,16 +159,12 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 			this.reset();
 
-			if (scope != null) {
-				scope.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
-			}
+			setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
 			return false;
 		}
 
 		if (editor.document.uri.path === this.uri.path) {
-			if (scope != null) {
-				scope.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
-			}
+			setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
 			return true;
 		}
 
@@ -199,9 +195,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			this.resetChild();
 		}
 
-		if (scope != null) {
-			scope.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
-		}
+		setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
 		return false;
 	}
 

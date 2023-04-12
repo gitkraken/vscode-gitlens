@@ -5,7 +5,7 @@ import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import { configuration } from '../system/configuration';
 import { debug } from '../system/decorators/log';
-import { getLogScope } from '../system/logger.scope';
+import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import type {
 	DocumentBlameStateChangeEvent,
 	DocumentContentChangeEvent,
@@ -133,18 +133,14 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		const scope = getLogScope();
 
 		if (!this.includes(selections)) {
-			if (scope != null) {
-				scope.exitDetails = ` ${GlyphChars.Dot} lines no longer match`;
-			}
+			setLogScopeExit(scope, ` ${GlyphChars.Dot} lines no longer match`);
 
 			return false;
 		}
 
 		const trackedDocument = await this.container.tracker.getOrAdd(editor.document);
 		if (!trackedDocument.isBlameable) {
-			if (scope != null) {
-				scope.exitDetails = ` ${GlyphChars.Dot} document is not blameable`;
-			}
+			setLogScopeExit(scope, ` ${GlyphChars.Dot} document is not blameable`);
 
 			return false;
 		}
@@ -156,9 +152,7 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 				editor?.document,
 			);
 			if (blameLine == null) {
-				if (scope != null) {
-					scope.exitDetails = ` ${GlyphChars.Dot} blame failed`;
-				}
+				setLogScopeExit(scope, ` ${GlyphChars.Dot} blame failed`);
 
 				return false;
 			}
@@ -167,9 +161,7 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		} else {
 			const blame = await this.container.git.getBlame(trackedDocument.uri, editor.document);
 			if (blame == null) {
-				if (scope != null) {
-					scope.exitDetails = ` ${GlyphChars.Dot} blame failed`;
-				}
+				setLogScopeExit(scope, ` ${GlyphChars.Dot} blame failed`);
 
 				return false;
 			}
@@ -183,17 +175,13 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		// Check again because of the awaits above
 
 		if (!this.includes(selections)) {
-			if (scope != null) {
-				scope.exitDetails = ` ${GlyphChars.Dot} lines no longer match`;
-			}
+			setLogScopeExit(scope, ` ${GlyphChars.Dot} lines no longer match`);
 
 			return false;
 		}
 
 		if (!trackedDocument.isBlameable) {
-			if (scope != null) {
-				scope.exitDetails = ` ${GlyphChars.Dot} document is not blameable`;
-			}
+			setLogScopeExit(scope, ` ${GlyphChars.Dot} document is not blameable`);
 
 			return false;
 		}

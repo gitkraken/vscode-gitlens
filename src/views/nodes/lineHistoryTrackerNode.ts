@@ -11,7 +11,7 @@ import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { debounce } from '../../system/function';
 import { Logger } from '../../system/logger';
-import { getLogScope } from '../../system/logger.scope';
+import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
 import type { LinesChangeEvent } from '../../trackers/gitLineTracker';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
@@ -166,9 +166,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 			this.reset();
 
-			if (scope != null) {
-				scope.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
-			}
+			setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
 			return false;
 		}
 
@@ -177,9 +175,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			this._selection != null &&
 			editor.selection.isEqual(this._selection)
 		) {
-			if (scope != null) {
-				scope.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
-			}
+			setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
 			return true;
 		}
 
@@ -204,9 +200,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			this.resetChild();
 		}
 
-		if (scope != null) {
-			scope.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
-		}
+		setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
 		return false;
 	}
 

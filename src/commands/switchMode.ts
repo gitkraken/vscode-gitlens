@@ -5,7 +5,7 @@ import { showModePicker } from '../quickpicks/modePicker';
 import { command } from '../system/command';
 import { configuration } from '../system/configuration';
 import { log } from '../system/decorators/log';
-import { getLogScope } from '../system/logger.scope';
+import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import { Command } from './base';
 
 @command()
@@ -21,9 +21,7 @@ export class SwitchModeCommand extends Command {
 		const pick = await showModePicker();
 		if (pick === undefined) return;
 
-		if (scope != null) {
-			scope.exitDetails = ` \u2014 mode=${pick.key ?? ''}`;
-		}
+		setLogScopeExit(scope, ` \u2014 mode=${pick.key ?? ''}`);
 
 		const active = configuration.get('mode.active');
 		if (active === pick.key) return;
