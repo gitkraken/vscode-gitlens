@@ -497,6 +497,8 @@ export type TelemetryEvents =
 	| 'subscription/changed'
 	| 'usage/track';
 
+export type AIProviders = 'openai';
+
 export type SecretKeys =
 	| `gitlens.integration.auth:${string}`
 	| 'gitlens.openai.key'
@@ -509,6 +511,9 @@ export const enum SyncedStorageKeys {
 }
 
 export type DeprecatedGlobalStorage = {
+	/** @deprecated use `confirm:ai:send:openai` */
+	'confirm:sendToOpenAI': boolean;
+} & {
 	/** @deprecated */
 	[key in `disallow:connection:${string}`]: any;
 };
@@ -516,7 +521,6 @@ export type DeprecatedGlobalStorage = {
 export type GlobalStorage = {
 	avatars: [string, StoredAvatar][];
 	repoVisibility: [string, StoredRepoVisibilityInfo][];
-	'confirm:sendToOpenAI': boolean;
 	'deepLinks:pending': StoredDeepLinkContext;
 	'home:actions:completed': CompletedActions[];
 	'home:steps:completed': string[];
@@ -540,9 +544,13 @@ export type GlobalStorage = {
 	'views:layout': StoredViewsLayout;
 	'views:welcome:visible': boolean;
 	'views:commitDetails:dismissed': CommitDetailsDismissed[];
-} & { [key in `provider:authentication:skip:${string}`]: boolean };
+} & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
+	[key in `provider:authentication:skip:${string}`]: boolean;
+};
 
 export type DeprecatedWorkspaceStorage = {
+	/** @deprecated use `confirm:ai:send:openai` */
+	'confirm:sendToOpenAI': boolean;
 	/** @deprecated use `graph:filtersByRepo.excludeRefs` */
 	'graph:hiddenRefs': Record<string, StoredGraphExcludedRef>;
 	/** @deprecated use `views:searchAndCompare:pinned` */
@@ -552,7 +560,6 @@ export type DeprecatedWorkspaceStorage = {
 export type WorkspaceStorage = {
 	assumeRepositoriesOnStartup?: boolean;
 	'branch:comparisons': StoredBranchComparisons;
-	'confirm:sendToOpenAI': boolean;
 	'gitComandPalette:usage': RecentUsage;
 	gitPath: string;
 	'graph:banners:dismissed': Record<string, boolean>;
@@ -565,7 +572,7 @@ export type WorkspaceStorage = {
 	'views:searchAndCompare:keepResults': boolean;
 	'views:searchAndCompare:pinned': StoredPinnedItems;
 	'views:commitDetails:autolinksExpanded': boolean;
-} & { [key in `connected:${string}`]: boolean };
+} & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & { [key in `connected:${string}`]: boolean };
 
 export type StoredViewsLayout = 'gitlens' | 'scm';
 export interface Stored<T, SchemaVersion extends number = 1> {
