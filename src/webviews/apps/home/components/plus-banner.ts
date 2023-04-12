@@ -16,7 +16,7 @@ const template = html<PlusBanner>`
 			</h3>
 
 			${when(
-				y => y.extensionEnabled,
+				y => y.hasRepositories,
 				html<PlusBanner>`
 					<p class="mb-1">
 						<vscode-button @click="${x => x.fireAction('command:gitlens.plus.startPreviewTrial')}"
@@ -49,7 +49,7 @@ const template = html<PlusBanner>`
 				private repos.
 			</p>
 			${when(
-				y => y.extensionEnabled,
+				y => y.hasRepositories,
 				html<PlusBanner>`
 					<p class="mb-1">
 						<vscode-button @click="${x => x.fireAction('command:gitlens.plus.purchase')}"
@@ -81,7 +81,7 @@ const template = html<PlusBanner>`
 				GitLens+ features on private repos.
 			</p>
 			${when(
-				y => y.extensionEnabled,
+				y => y.hasRepositories,
 				html<PlusBanner>`
 					<p class="mb-1">
 						<vscode-button @click="${x => x.fireAction('command:gitlens.plus.loginOrSignUp')}"
@@ -101,7 +101,7 @@ const template = html<PlusBanner>`
 				private repos.
 			</p>
 			${when(
-				y => y.extensionEnabled,
+				y => y.hasRepositories,
 				html<PlusBanner>`
 					<p class="mb-1">
 						<vscode-button @click="${x => x.fireAction('command:gitlens.plus.purchase')}"
@@ -137,7 +137,7 @@ const template = html<PlusBanner>`
 				SubscriptionState.Free,
 				SubscriptionState.FreePreviewTrialExpired,
 				SubscriptionState.FreePlusTrialExpired,
-			].includes(x.state) && x.extensionEnabled,
+			].includes(x.state) && x.hasRepositories,
 		html<PlusBanner>`
 			<p class="mb-0">
 				${when(
@@ -152,7 +152,7 @@ const template = html<PlusBanner>`
 		`,
 	)}
 	${when(
-		x => !x.extensionEnabled,
+		x => !x.hasRepositories,
 		html<PlusBanner>`
 			<p class="mb-0">
 				To use GitLens+, open a folder containing a git repository or clone from a URL from the Explorer.
@@ -230,7 +230,7 @@ export class PlusBanner extends FASTElement {
 	plus = true;
 
 	@observable
-	extensionEnabled = true;
+	hasRepositories = false;
 
 	get daysRemaining() {
 		if (this.days < 1) {

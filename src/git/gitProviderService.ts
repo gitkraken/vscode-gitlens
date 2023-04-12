@@ -2515,6 +2515,14 @@ export class GitProviderService implements Disposable {
 		return repository.hasUpstreamBranch();
 	}
 
+	@log()
+	hasUnsafeRepositories(): boolean {
+		for (const provider of this._providers.values()) {
+			if (provider.hasUnsafeRepositories?.()) return true;
+		}
+		return false;
+	}
+
 	@log<GitProviderService['isRepositoryForEditor']>({
 		args: {
 			0: r => r.uri.toString(true),

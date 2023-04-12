@@ -404,6 +404,7 @@ export interface GitProvider extends Disposable {
 	): Promise<boolean>;
 
 	hasCommitBeenPushed(repoPath: string, ref: string): Promise<boolean>;
+	hasUnsafeRepositories?(): boolean;
 	isTrackable(uri: Uri): boolean;
 	isTracked(uri: Uri): Promise<boolean>;
 
