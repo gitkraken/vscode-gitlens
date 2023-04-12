@@ -1,4 +1,4 @@
-import type { MessageItem, TextEditor, Uri } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
 import { ProgressLocation, window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
@@ -7,7 +7,6 @@ import { showGenericErrorMessage } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCoreCommand } from '../system/command';
 import { Logger } from '../system/logger';
-import type { Storage } from '../system/storage';
 import { ActiveEditorCommand, Command, getCommandUri } from './base';
 
 export interface GenerateCommitMessageCommandArgs {
@@ -69,39 +68,10 @@ export class ResetOpenAIKeyCommand extends Command {
 
 	execute() {
 		void this.container.storage.deleteSecret('gitlens.openai.key');
+		void this.container.storage.deleteWithPrefix('confirm:ai:tos');
+		void this.container.storage.deleteWorkspaceWithPrefix('confirm:ai:tos');
+
 		void this.container.storage.delete('confirm:sendToOpenAI');
 		void this.container.storage.deleteWorkspace('confirm:sendToOpenAI');
 	}
-}
-
-export async function confirmSendToOpenAI(storage: Storage): Promise<boolean> {
-	const confirmed = storage.get('confirm:sendToOpenAI', false) || storage.getWorkspace('confirm:sendToOpenAI', false);
-	if (confirmed) return true;
-
-	const accept: MessageItem = { title: 'Yes' };
-	const acceptWorkspace: MessageItem = { title: 'Always for this Workspace' };
-	const acceptAlways: MessageItem = { title: 'Always' };
-	const decline: MessageItem = { title: 'No', isCloseAffordance: true };
-	const result = await window.showInformationMessage(
-		'This GitLens experimental feature automatically generates commit messages by sending the diff of your staged changes to OpenAI. This may contain sensitive information.\n\nDo you want to continue?',
-		{ modal: true },
-		accept,
-		acceptWorkspace,
-		acceptAlways,
-		decline,
-	);
-
-	if (result === accept) return true;
-
-	if (result === acceptWorkspace) {
-		void storage.storeWorkspace('confirm:sendToOpenAI', true);
-		return true;
-	}
-
-	if (result === acceptAlways) {
-		void storage.store('confirm:sendToOpenAI', true);
-		return true;
-	}
-
-	return false;
 }

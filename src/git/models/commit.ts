@@ -183,7 +183,7 @@ export class GitCommit implements GitRevisionReference {
 
 	private _etagFileSystem: number | undefined;
 
-	hasFullDetails(): this is GitCommit & SomeNonNullable<GitCommit, 'message' | 'files'> {
+	hasFullDetails(): this is GitCommitWithFullDetails {
 		return (
 			this.message != null &&
 			this.files != null &&
@@ -193,12 +193,6 @@ export class GitCommit implements GitRevisionReference {
 				this.parents.length !== 0) &&
 			(this.refType !== 'stash' || this._stashUntrackedFilesLoaded)
 		);
-	}
-
-	assertsFullDetails(): asserts this is GitCommit & SomeNonNullable<GitCommit, 'message' | 'files'> {
-		if (!this.hasFullDetails()) {
-			throw new Error(`GitCommit(${this.sha}) is not fully loaded`);
-		}
 	}
 
 	@gate()
@@ -663,4 +657,12 @@ export interface GitStashCommit extends GitCommit {
 	readonly refType: GitStashReference['refType'];
 	readonly stashName: string;
 	readonly number: string;
+}
+
+type GitCommitWithFullDetails = GitCommit & SomeNonNullable<GitCommit, 'message' | 'files'>;
+
+export function assertsCommitHasFullDetails(commit: GitCommit): asserts commit is GitCommitWithFullDetails {
+	if (!commit.hasFullDetails()) {
+		throw new Error(`GitCommit(${commit.sha}) is not fully loaded`);
+	}
 }

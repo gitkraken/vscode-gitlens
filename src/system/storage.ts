@@ -10,19 +10,22 @@ import type {
 import { extensionPrefix } from '../constants';
 import { debug } from './decorators/log';
 
+type GlobalStorageKeys = keyof (GlobalStorage & DeprecatedGlobalStorage);
+type WorkspaceStorageKeys = keyof (WorkspaceStorage & DeprecatedWorkspaceStorage);
+
 export type StorageChangeEvent =
 	| {
 			/**
 			 * The key of the stored value that has changed.
 			 */
-			readonly key: keyof (GlobalStorage & DeprecatedGlobalStorage);
+			readonly key: GlobalStorageKeys;
 			readonly workspace: false;
 	  }
 	| {
 			/**
 			 * The key of the stored value that has changed.
 			 */
-			readonly key: keyof (WorkspaceStorage & DeprecatedWorkspaceStorage);
+			readonly key: WorkspaceStorageKeys;
 			readonly workspace: true;
 	  };
 
@@ -51,14 +54,27 @@ export class Storage implements Disposable {
 	get<T extends keyof DeprecatedGlobalStorage>(key: T): DeprecatedGlobalStorage[T] | undefined;
 	get<T extends keyof GlobalStorage>(key: T, defaultValue: GlobalStorage[T]): GlobalStorage[T];
 	@debug({ logThreshold: 50 })
-	get(key: keyof (GlobalStorage & DeprecatedGlobalStorage), defaultValue?: unknown): unknown | undefined {
+	get(key: GlobalStorageKeys, defaultValue?: unknown): unknown | undefined {
 		return this.context.globalState.get(`${extensionPrefix}:${key}`, defaultValue);
 	}
 
 	@debug({ logThreshold: 250 })
-	async delete(key: keyof (GlobalStorage & DeprecatedGlobalStorage)): Promise<void> {
+	async delete(key: GlobalStorageKeys): Promise<void> {
 		await this.context.globalState.update(`${extensionPrefix}:${key}`, undefined);
 		this._onDidChange.fire({ key: key, workspace: false });
+	}
+
+	@debug({ logThreshold: 250 })
+	async deleteWithPrefix(prefix: ExtractPrefixes<GlobalStorageKeys, ':'>): Promise<void> {
+		const qualifiedKey = `${extensionPrefix}:${prefix}`;
+		const qualifiedPrefix = `${qualifiedKey}:`;
+
+		for (const key of this.context.globalState.keys() as GlobalStorageKeys[]) {
+			if (key === qualifiedKey || key.startsWith(qualifiedPrefix)) {
+				await this.context.globalState.update(key, undefined);
+				this._onDidChange.fire({ key: key, workspace: false });
+			}
+		}
 	}
 
 	@debug({ args: { 1: false }, logThreshold: 250 })
@@ -87,17 +103,27 @@ export class Storage implements Disposable {
 	getWorkspace<T extends keyof DeprecatedWorkspaceStorage>(key: T): DeprecatedWorkspaceStorage[T] | undefined;
 	getWorkspace<T extends keyof WorkspaceStorage>(key: T, defaultValue: WorkspaceStorage[T]): WorkspaceStorage[T];
 	@debug({ logThreshold: 25 })
-	getWorkspace(
-		key: keyof (WorkspaceStorage & DeprecatedWorkspaceStorage),
-		defaultValue?: unknown,
-	): unknown | undefined {
+	getWorkspace(key: WorkspaceStorageKeys, defaultValue?: unknown): unknown | undefined {
 		return this.context.workspaceState.get(`${extensionPrefix}:${key}`, defaultValue);
 	}
 
 	@debug({ logThreshold: 250 })
-	async deleteWorkspace(key: keyof (WorkspaceStorage & DeprecatedWorkspaceStorage)): Promise<void> {
+	async deleteWorkspace(key: WorkspaceStorageKeys): Promise<void> {
 		await this.context.workspaceState.update(`${extensionPrefix}:${key}`, undefined);
 		this._onDidChange.fire({ key: key, workspace: true });
+	}
+
+	@debug({ logThreshold: 250 })
+	async deleteWorkspaceWithPrefix(prefix: ExtractPrefixes<WorkspaceStorageKeys, ':'>): Promise<void> {
+		const qualifiedKey = `${extensionPrefix}:${prefix}`;
+		const qualifiedPrefix = `${qualifiedKey}:`;
+
+		for (const key of this.context.workspaceState.keys() as WorkspaceStorageKeys[]) {
+			if (key === qualifiedKey || key.startsWith(qualifiedPrefix)) {
+				await this.context.workspaceState.update(key, undefined);
+				this._onDidChange.fire({ key: key, workspace: true });
+			}
+		}
 	}
 
 	@debug({ args: { 1: false }, logThreshold: 250 })

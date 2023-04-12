@@ -1,7 +1,7 @@
 import type { ConfigurationChangeEvent, Disposable, Event, ExtensionContext } from 'vscode';
 import { EventEmitter, ExtensionMode } from 'vscode';
 import { getSupportedGitProviders } from '@env/providers';
-import { AIService } from './aiService';
+import { AIProviderService } from './ai/aiProviderService';
 import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
@@ -207,7 +207,7 @@ export class Container {
 		this._disposables.push((this._keyboard = new Keyboard()));
 		this._disposables.push((this._vsls = new VslsController(this)));
 		this._disposables.push((this._eventBus = new EventBus()));
-		this._disposables.push((this._ai = new AIService(this)));
+		this._disposables.push((this._ai = new AIProviderService(this)));
 
 		this._disposables.push((this._fileAnnotationController = new FileAnnotationController(this)));
 		this._disposables.push((this._lineAnnotationController = new LineAnnotationController(this)));
@@ -333,7 +333,7 @@ export class Container {
 		return this._actionRunners;
 	}
 
-	private readonly _ai: AIService;
+	private readonly _ai: AIProviderService;
 	get ai() {
 		return this._ai;
 	}
