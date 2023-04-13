@@ -300,6 +300,16 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		// if (this.state.includeRichContent) {
 		this.renderPullRequestAndAutolinks(this.state);
 		// }
+		this.resetExplainCommit();
+	}
+
+	resetExplainCommit() {
+		const $explainPanel = document.querySelector('[data-region="explain-pane"]')!;
+		$explainPanel.removeAttribute('expanded');
+		$explainPanel.querySelector('button')!.removeAttribute('aria-busy');
+		const $explanation = $explainPanel.querySelector('[data-region="commit-explanation"]')!;
+		$explanation.classList.remove('has-error');
+		$explanation.innerHTML = '';
 	}
 
 	renderBanner(state: CommitState, target?: HTMLElement) {
