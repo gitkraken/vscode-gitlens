@@ -65,8 +65,10 @@ export function promisifyDeferred<T, U>(
 	let cancel: ((reason?: any) => void) | undefined;
 	let disposable: Disposable;
 
+	let pending = true;
 	const promise = new Promise<U>((resolve, reject) => {
 		cancel = () => {
+			pending = false;
 			cancel = undefined;
 			reject();
 		};
@@ -74,7 +76,9 @@ export function promisifyDeferred<T, U>(
 		disposable = event(async (value: T) => {
 			try {
 				await executor(value, resolve, reject);
+				pending = false;
 			} catch (ex) {
+				pending = false;
 				reject(ex);
 			}
 		});
@@ -90,6 +94,9 @@ export function promisifyDeferred<T, U>(
 	);
 
 	return {
+		get pending() {
+			return pending;
+		},
 		promise: promise,
 		cancel: () => cancel?.(),
 	};
