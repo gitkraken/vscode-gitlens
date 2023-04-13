@@ -297,7 +297,8 @@ export class Container {
 			this._disposables.push(this._git.register(provider.descriptor.id, provider));
 		}
 
-		await this._git.registrationComplete();
+		// Don't wait here otherwise will we deadlock in certain places
+		void this._git.registrationComplete();
 	}
 
 	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
