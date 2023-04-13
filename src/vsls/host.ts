@@ -90,9 +90,17 @@ export class VslsHostService implements Disposable {
 		requestType: RequestType<TRequest, TResponse>,
 		handler: (request: TRequest, cancellation: CancellationToken) => Promise<TResponse>,
 	) {
-		this._service.onRequest(requestType.name, (args: any[], cancellation: CancellationToken) =>
-			handler(args[0], cancellation),
-		);
+		// eslint-disable-next-line prefer-arrow-callback
+		this._service.onRequest(requestType.name, function (args: any[], cancellation: CancellationToken) {
+			let request;
+			for (const arg of args) {
+				if (typeof arg === 'object' && '__type' in arg) {
+					request = arg;
+					break;
+				}
+			}
+			return handler(request ?? args[0], cancellation);
+		});
 	}
 
 	@log()
