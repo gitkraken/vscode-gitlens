@@ -1,7 +1,8 @@
+import type { ChildProcess } from 'child_process';
 import { FileType, Uri, workspace } from 'vscode';
 import { Schemes } from '../../../constants';
 import { Container } from '../../../container';
-import type { GitCommandOptions } from '../../../git/commandOptions';
+import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
 import type { GitProviderDescriptor } from '../../../git/gitProvider';
 import { GitProviderId } from '../../../git/gitProvider';
 import type { Repository } from '../../../git/models/repository';
@@ -30,6 +31,28 @@ export class VslsGit extends Git {
 		}
 
 		return guest.git<TOut>(options, ...args);
+	}
+
+	// eslint-disable-next-line @typescript-eslint/require-await
+	override async gitSpawn(_options: GitSpawnOptions, ..._args: any[]): Promise<ChildProcess> {
+		debugger;
+		throw new Error('Git spawn not supported in Live Share');
+	}
+
+	override async logStreamTo(
+		repoPath: string,
+		sha: string,
+		limit: number,
+		options?: { configs?: readonly string[]; stdin?: string },
+		...args: string[]
+	): Promise<[data: string[], count: number]> {
+		const guest = await Container.instance.vsls.guest();
+		if (guest == null) {
+			debugger;
+			throw new Error('No guest');
+		}
+
+		return guest.gitLogStreamTo(repoPath, sha, limit, options, ...args);
 	}
 }
 
