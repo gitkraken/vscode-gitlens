@@ -56,8 +56,12 @@ export class VslsGuestService implements Disposable {
 	}
 
 	@log()
-	async git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]) {
-		const response = await this.sendRequest(GitCommandRequestType, { options: options, args: args });
+	async git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<TOut> {
+		const response = await this.sendRequest(GitCommandRequestType, {
+			__type: 'gitlens',
+			options: options,
+			args: args,
+		});
 
 		if (response.isBuffer) {
 			return Buffer.from(response.data, 'binary') as TOut;
@@ -68,6 +72,7 @@ export class VslsGuestService implements Disposable {
 	@log()
 	async getRepositoriesForUri(uri: Uri): Promise<RepositoryProxy[]> {
 		const response = await this.sendRequest(GetRepositoriesForUriRequestType, {
+			__type: 'gitlens',
 			folderUri: uri.toString(),
 		});
 
@@ -77,10 +82,9 @@ export class VslsGuestService implements Disposable {
 	@debug()
 	private sendRequest<TRequest, TResponse>(
 		requestType: RequestType<TRequest, TResponse>,
-		request: TRequest,
-		_cancellation?: CancellationToken,
+		request: TRequest & { __type: string },
+		cancellation?: CancellationToken,
 	): Promise<TResponse> {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
-		return this._service.request(requestType.name, [request]);
+		return this._service.request<TResponse>(requestType.name, [request], cancellation);
 	}
 }

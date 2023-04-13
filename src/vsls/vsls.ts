@@ -119,7 +119,9 @@ export class VslsController implements Disposable {
 				this.setReadonly(false);
 				void setContext('gitlens:vsls', true);
 
-				this._ready = defer<void>();
+				if (!this._ready.pending) {
+					this._ready = defer<void>();
+				}
 
 				break;
 		}
@@ -132,8 +134,9 @@ export class VslsController implements Disposable {
 				const vslsExtension = extension.isActive ? extension.exports : await extension.activate();
 				return (await vslsExtension.getApi('1.0.4753')) ?? undefined;
 			}
-		} catch {
+		} catch (ex) {
 			debugger;
+			Logger.error(ex);
 		}
 
 		return undefined;
