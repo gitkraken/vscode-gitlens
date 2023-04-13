@@ -6,18 +6,19 @@ import type {
 	TextEditorDecorationType,
 } from 'vscode';
 import { CancellationTokenSource, DecorationRangeBehavior, Disposable, Range, window } from 'vscode';
-import { GlyphChars } from '../constants';
+import { GlyphChars, Schemes } from '../constants';
 import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import type { GitCommit } from '../git/models/commit';
 import type { PullRequest } from '../git/models/pullRequest';
+import { detailsMessage } from '../hovers/hovers';
 import { configuration } from '../system/configuration';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
 import { count, every, filter } from '../system/iterable';
 import { Logger } from '../system/logger';
-import type { LogScope} from '../system/logger.scope';
-import { getLogScope , setLogScopeExit } from '../system/logger.scope';
+import type { LogScope } from '../system/logger.scope';
+import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import type { PromiseCancelledErrorWithId } from '../system/promise';
 import { PromiseCancelledError, raceAll } from '../system/promise';
 import { isTextEditor } from '../system/utils';
@@ -290,9 +291,24 @@ export class LineAnnotationController implements Disposable {
 
 		const decorations = [];
 
+		let hoverOptions: RequireSome<Parameters<typeof detailsMessage>[3], 'autolinks' | 'pullRequests'> | undefined;
+		// Live Share (vsls schemes) don't support `languages.registerHoverProvider` so we'll need to add them to the decoration directly
+		if (editor.document.uri.scheme === Schemes.Vsls || editor.document.uri.scheme === Schemes.VslsScc) {
+			const hoverCfg = configuration.get('hovers');
+			hoverOptions = {
+				autolinks: hoverCfg.autolinks.enabled,
+				dateFormat: configuration.get('defaultDateFormat'),
+				format: hoverCfg.detailsMarkdownFormat,
+				pullRequests: {
+					enabled: hoverCfg.pullRequests.enabled,
+				},
+			};
+		}
+
 		for (const [l, commit] of commitLines) {
 			if (commit.isUncommitted && cfg.uncommittedChangesFormat === '') continue;
 
+			const pr = prs?.get(commit.ref);
 			const decoration = getInlineDecoration(
 				commit,
 				// await GitUri.fromUri(editor.document.uri),
@@ -301,12 +317,26 @@ export class LineAnnotationController implements Disposable {
 				{
 					dateFormat: cfg.dateFormat === null ? configuration.get('defaultDateFormat') : cfg.dateFormat,
 					getBranchAndTagTips: getBranchAndTagTips,
-					pullRequestOrRemote: prs?.get(commit.ref),
+					pullRequestOrRemote: pr,
 					pullRequestPendingMessage: `PR ${GlyphChars.Ellipsis}`,
 				},
 				cfg.scrollable,
 			) as DecorationOptions;
 			decoration.range = editor.document.validateRange(new Range(l, maxSmallIntegerV8, l, maxSmallIntegerV8));
+
+			if (hoverOptions != null) {
+				decoration.hoverMessage = await detailsMessage(
+					commit,
+					trackedDocument.uri,
+					l,
+					pr != null
+						? {
+								...hoverOptions,
+								pullRequests: { ...hoverOptions.pullRequests, pr: pr },
+						  }
+						: hoverOptions,
+				);
+			}
 
 			decorations.push(decoration);
 		}
