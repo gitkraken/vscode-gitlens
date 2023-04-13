@@ -2,7 +2,7 @@ import type { CancellationToken, ConfigurationChangeEvent, Disposable, TreeViewV
 import { ProgressLocation, ThemeColor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { WorktreesViewConfig } from '../config';
 import { ViewFilesLayout, ViewShowBranchComparison } from '../config';
-import type { Colors} from '../constants';
+import type { Colors } from '../constants';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { PlusFeatures } from '../features';
