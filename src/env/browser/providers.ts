@@ -8,6 +8,16 @@ export function git(_options: GitCommandOptions, ..._args: any[]): Promise<strin
 	return Promise.resolve('');
 }
 
+export function gitLogStreamTo(
+	_repoPath: string,
+	_sha: string,
+	_limit: number,
+	_options?: { configs?: readonly string[]; stdin?: string },
+	..._args: string[]
+): Promise<[data: string[], count: number]> {
+	return Promise.resolve([[''], 0]);
+}
+
 export async function getSupportedGitProviders(container: Container): Promise<GitProvider[]> {
 	return [new GitHubGitProvider(container)];
 }
