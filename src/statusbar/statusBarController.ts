@@ -374,19 +374,14 @@ export class StatusBarController implements Disposable {
 	) {
 		if (cancellationToken.isCancellationRequested) return;
 
-		const tooltip = await detailsMessage(
-			commit,
-			commit.getGitUri(),
-			commit.lines[0].line,
-			configuration.get('statusBar.tooltipFormat'),
-			configuration.get('defaultDateFormat'),
-			{
-				autolinks: true,
-				cancellationToken: cancellationToken,
-				getBranchAndTagTips: getBranchAndTagTips,
-				pullRequests: pullRequests,
-			},
-		);
+		const tooltip = await detailsMessage(commit, commit.getGitUri(), commit.lines[0].line, {
+			autolinks: true,
+			cancellationToken: cancellationToken,
+			dateFormat: configuration.get('defaultDateFormat'),
+			format: configuration.get('statusBar.tooltipFormat'),
+			getBranchAndTagTips: getBranchAndTagTips,
+			pullRequests: pullRequests,
+		});
 
 		if (cancellationToken.isCancellationRequested) return;
 

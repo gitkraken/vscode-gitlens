@@ -191,25 +191,21 @@ export async function detailsMessage(
 	commit: GitCommit,
 	uri: GitUri,
 	editorLine: number, // 0-based, Git is 1-based
-	format: string,
-	dateFormat: string | null,
-	options?: {
+	options: Readonly<{
 		autolinks?: boolean;
 		cancellationToken?: CancellationToken;
-		pullRequests?: {
+		dateFormat: string | null;
+		format: string;
+		pullRequests?: Readonly<{
 			enabled: boolean;
 			pr?: PullRequest | PromiseCancelledError<Promise<PullRequest | undefined>>;
-		};
+		}>;
 		getBranchAndTagTips?: (
 			sha: string,
 			options?: { compact?: boolean | undefined; icons?: boolean | undefined },
 		) => string | undefined;
-	},
+	}>,
 ): Promise<MarkdownString> {
-	if (dateFormat === null) {
-		dateFormat = 'MMMM Do, YYYY h:mma';
-	}
-
 	let message = commit.message ?? commit.summary;
 	if (commit.message == null && !commit.isUncommitted) {
 		await commit.ensureFullDetails();
@@ -231,7 +227,7 @@ export async function detailsMessage(
 					pullRequests:
 						options?.pullRequests?.enabled !== false &&
 						CommitFormatter.has(
-							format,
+							options.format,
 							'pullRequest',
 							'pullRequestAgo',
 							'pullRequestAgoOrDate',
@@ -254,9 +250,9 @@ export async function detailsMessage(
 		autolinkedIssuesOrPullRequests?.delete(pr.id);
 	}
 
-	const details = await CommitFormatter.fromTemplateAsync(format, commit, {
+	const details = await CommitFormatter.fromTemplateAsync(options.format, commit, {
 		autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
-		dateFormat: dateFormat,
+		dateFormat: options.dateFormat === null ? 'MMMM Do, YYYY h:mma' : options.dateFormat,
 		editor: {
 			line: editorLine,
 			uri: uri,
