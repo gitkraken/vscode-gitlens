@@ -124,19 +124,14 @@ export class LineHoverController implements Disposable {
 		const trackedDocument = await this.container.tracker.get(document);
 		if (trackedDocument == null) return undefined;
 
-		const message = await detailsMessage(
-			commit,
-			trackedDocument.uri,
-			editorLine,
-			cfg.detailsMarkdownFormat,
-			configuration.get('defaultDateFormat'),
-			{
-				autolinks: cfg.autolinks.enabled,
-				pullRequests: {
-					enabled: cfg.pullRequests.enabled,
-				},
+		const message = await detailsMessage(commit, trackedDocument.uri, editorLine, {
+			autolinks: cfg.autolinks.enabled,
+			dateFormat: configuration.get('defaultDateFormat'),
+			format: cfg.detailsMarkdownFormat,
+			pullRequests: {
+				enabled: cfg.pullRequests.enabled,
 			},
-		);
+		});
 		return new Hover(message, range);
 	}
 

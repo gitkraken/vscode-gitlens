@@ -190,19 +190,14 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		editorLine = commitLine.originalLine - 1;
 
 		const cfg = configuration.get('hovers');
-		return detailsMessage(
-			commit,
-			await GitUri.fromUri(document.uri),
-			editorLine,
-			cfg.detailsMarkdownFormat,
-			configuration.get('defaultDateFormat'),
-			{
-				autolinks: cfg.autolinks.enabled,
-				pullRequests: {
-					enabled: cfg.pullRequests.enabled,
-				},
+		return detailsMessage(commit, await GitUri.fromUri(document.uri), editorLine, {
+			autolinks: cfg.autolinks.enabled,
+			dateFormat: configuration.get('defaultDateFormat'),
+			format: cfg.detailsMarkdownFormat,
+			pullRequests: {
+				enabled: cfg.pullRequests.enabled,
 			},
-		);
+		});
 	}
 }
 
