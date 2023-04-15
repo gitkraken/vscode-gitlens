@@ -12,12 +12,15 @@ const maxCodeCharacters = 12000;
 export class OpenAIProvider implements AIProvider {
 	readonly id = 'openai';
 	readonly name = 'OpenAI';
+	private model: OpenAIChatCompletionModels = 'gpt-3.5-turbo';
 
 	constructor(private readonly container: Container) {}
 
 	dispose() {}
 
 	async generateCommitMessage(diff: string, options?: { context?: string }): Promise<string | undefined> {
+		this.model = configuration.get('experimental.openAIModel') || 'gpt-3.5-turbo';
+
 		const openaiApiKey = await getApiKey(this.container.storage);
 		if (openaiApiKey == null) return undefined;
 
@@ -34,7 +37,7 @@ export class OpenAIProvider implements AIProvider {
 		}
 
 		const data: OpenAIChatCompletionRequest = {
-			model: 'gpt-3.5-turbo',
+			model: this.model,
 			messages: [
 				{
 					role: 'system',
@@ -79,6 +82,8 @@ export class OpenAIProvider implements AIProvider {
 	}
 
 	async explainChanges(message: string, diff: string): Promise<string | undefined> {
+		this.model = configuration.get('experimental.openAIModel') || 'gpt-3.5-turbo';
+
 		const openaiApiKey = await getApiKey(this.container.storage);
 		if (openaiApiKey == null) return undefined;
 
@@ -90,7 +95,7 @@ export class OpenAIProvider implements AIProvider {
 		}
 
 		const data: OpenAIChatCompletionRequest = {
-			model: 'gpt-3.5-turbo',
+			model: this.model,
 			messages: [
 				{
 					role: 'system',
@@ -195,8 +200,10 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 	return openaiApiKey;
 }
 
+export type OpenAIChatCompletionModels = 'gpt-3.5-turbo' | 'gpt-3.5-turbo-0301' | 'gpt-4' | 'gpt-4-0314' | 'gpt-4-32k' | 'gpt-4-32k-0314';
+
 interface OpenAIChatCompletionRequest {
-	model: 'gpt-3.5-turbo' | 'gpt-3.5-turbo-0301';
+	model: OpenAIChatCompletionModels;
 	messages: { role: 'system' | 'user' | 'assistant'; content: string }[];
 	temperature?: number;
 	top_p?: number;

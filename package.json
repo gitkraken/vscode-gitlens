@@ -3667,6 +3667,13 @@
 						"scope": "window",
 						"order": 55
 					},
+					"gitlens.experimental.openAIModel": {
+						"type": "string",
+						"default": "gpt-3.5-turbo",
+						"markdownDescription": "Specifies the OpenAI model to use to generate commit messages when using the `GitLens: Generate Commit Message` command",
+						"scope": "window",
+						"order": 56
+					},
 					"gitlens.advanced.externalDiffTool": {
 						"type": [
 							"string",
