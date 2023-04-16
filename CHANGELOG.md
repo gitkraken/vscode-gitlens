@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+- Adds GitLab Avatar support — closes [#302](https://github.com/gitkraken/vscode-gitlens/issues/302) via [#2640](https://github.com/gitkraken/vscode-gitlens/pull/2640)
+
 ## [13.5.0] - 2023-04-07
 
 ### Added
