@@ -22,6 +22,7 @@ import type {
 } from '@gitkraken/gitkraken-components';
 import type { DateStyle } from '../../../config';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
+import type { GitTrackingState } from '../../../git/models/branch';
 import type { GitGraphRowType } from '../../../git/models/graph';
 import type {
 	GitBranchReference,
@@ -88,6 +89,7 @@ export interface State {
 	selectedRepository?: string;
 	selectedRepositoryVisibility?: RepositoryVisibility;
 	branchName?: string;
+	branchState?: GitTrackingState;
 	lastFetched?: Date;
 	selectedRows?: GraphSelectedRows;
 	subscription?: Subscription;
