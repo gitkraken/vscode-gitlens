@@ -1746,7 +1746,6 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			branchState = {
 				...branch.state,
 			};
-			console.log(branchState);
 		}
 
 		return {
