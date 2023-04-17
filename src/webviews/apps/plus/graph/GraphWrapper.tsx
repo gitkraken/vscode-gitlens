@@ -1137,14 +1137,6 @@ export function GraphWrapper({
 				)}
 			</a>
 		);
-
-		return (
-			<a href="command:gitlens.graph.fetch" className="action-button" title="Fetch Repository">
-				<span className="codicon codicon-sync action-button__icon"></span>
-				Fetch
-				{fetchedText && <span className="action-button__small">(Last fetched {fetchedText})</span>}
-			</a>
-		);
 	};
 
 	return (
