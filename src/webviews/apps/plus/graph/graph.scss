@@ -139,6 +139,23 @@ button:not([disabled]),
 	}
 }
 
+.pill {
+	display: inline-block;
+	padding: 0.2rem 0.5rem;
+	border-radius: 0.5rem;
+	font-size: 1rem;
+	font-weight: 500;
+	line-height: 1;
+	text-transform: uppercase;
+	color: var(--vscode-foreground);
+	background-color: var(--vscode-editorWidget-background);
+
+	.codicon[class*='codicon-'] {
+		font-size: inherit !important;
+		line-height: inherit !important;
+	}
+}
+
 .badge {
 	font-size: 1rem;
 	font-weight: 700;

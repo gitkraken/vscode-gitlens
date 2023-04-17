@@ -1089,6 +1089,64 @@ export function GraphWrapper({
 		);
 	};
 
+	const renderFetchAction = () => {
+		const fetchedText = lastFetched && fromNow(new Date(lastFetched));
+
+		let icon = 'sync';
+		let label = 'Fetch';
+		let action = 'command:gitlens.graph.fetch';
+
+		const isBehind = state.branchState && state.branchState.behind > 0;
+		const isAhead = state.branchState && state.branchState.ahead > 0;
+		if (isBehind) {
+			action = 'command:gitlens.graph.pull';
+			icon = 'arrow-down';
+			label = 'Pull';
+		} else if (isAhead) {
+			action = 'command:gitlens.graph.push';
+			icon = 'arrow-up';
+			label = 'Push';
+		}
+
+		return (
+			<a href={action} className="action-button" title={`${label} Repository`}>
+				<span className={`codicon codicon-${icon} action-button__icon`}></span>
+				{label}
+				{fetchedText && <span className="action-button__small">(Last fetched {fetchedText})</span>}
+				{(isAhead || isBehind) && (
+					<span>
+						<span className="pill">
+							{isAhead && (
+								<span
+									title={`Commits ahead by ${state.branchState!.ahead}`}
+									aria-label={`Commits ahead by ${state.branchState!.ahead}`}
+								>
+									{state.branchState!.ahead} <span className="codicon codicon-arrow-up"></span>
+								</span>
+							)}
+							{isBehind && (
+								<span
+									title={`Commits behind by ${state.branchState!.behind}`}
+									aria-label={`Commits behind by ${state.branchState!.behind}`}
+								>
+									{state.branchState!.behind} <span className="codicon codicon-arrow-down"></span>
+								</span>
+							)}
+						</span>
+					</span>
+				)}
+			</a>
+		);
+
+		return (
+			<a href="command:gitlens.graph.fetch" className="action-button" title="Fetch Repository">
+				<span className="codicon codicon-sync action-button__icon"></span>
+				Fetch
+				{fetchedText && <span className="action-button__small">(Last fetched {fetchedText})</span>}
+			</a>
+		);
+	};
+
 	return (
 		<>
 			{renderAlertContent()}
@@ -1129,15 +1187,7 @@ export function GraphWrapper({
 							<span>
 								<span className="codicon codicon-chevron-right"></span>
 							</span>
-							<a href="command:gitlens.graph.fetch" className="action-button" title="Fetch Repository">
-								<span className="codicon codicon-sync action-button__icon"></span>
-								Fetch
-								{lastFetched && (
-									<span className="action-button__small">
-										(Last fetched {fromNow(new Date(lastFetched))})
-									</span>
-								)}
-							</a>
+							{renderFetchAction()}
 						</>
 					)}
 					{!state.debugging && (

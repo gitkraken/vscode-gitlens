@@ -1741,6 +1741,13 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 		const lastFetched = await this.repository.getLastFetched();
 		const branch = await this.repository.getBranch();
+		let branchState;
+		if (branch != null) {
+			branchState = {
+				...branch.state,
+			};
+			console.log(branchState);
+		}
 
 		return {
 			windowFocused: this.isWindowFocused,
@@ -1749,6 +1756,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			selectedRepository: this.repository.path,
 			selectedRepositoryVisibility: visibility,
 			branchName: branch?.name,
+			branchState: branchState,
 			lastFetched: new Date(lastFetched),
 			selectedRows: this._selectedRows,
 			subscription: access?.subscription.current,
