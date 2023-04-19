@@ -180,6 +180,7 @@ button:not([disabled]),
 		width: max-content;
 		right: 0;
 		top: 100%;
+		white-space: normal;
 	}
 
 	&:not(:hover) + &-popover {
@@ -635,7 +636,6 @@ button:not([disabled]),
 			white-space: nowrap;
 			justify-content: start;
 			grid-template-columns: min-content min-content min-content min-content minmax(min-content, 1fr);
-			overflow: hidden;
 		}
 	}
 
