@@ -220,9 +220,7 @@ export class VslsHostService implements Disposable {
 		return { repositories: repositories };
 	}
 
-	@debug({
-		exit: result => `returned ${result.toString(true)}`,
-	})
+	@debug({ exit: true })
 	private convertLocalUriToShared(localUri: Uri) {
 		const scope = getLogScope();
 

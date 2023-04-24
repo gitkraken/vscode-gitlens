@@ -598,6 +598,7 @@ export class GitProviderService implements Disposable {
 		queueMicrotask(() => this.fireRepositoriesChanged(added));
 	}
 
+	@debug({ exit: true })
 	private async discoverRepositoriesCore(folder: WorkspaceFolder): Promise<Repository[]> {
 		const { provider } = this.getProvider(folder.uri);
 
@@ -626,6 +627,7 @@ export class GitProviderService implements Disposable {
 		Map<undefined, Promise<FeatureAccess | RepoFeatureAccess>> = new Map();
 	async access(feature: PlusFeatures | undefined, repoPath: string | Uri): Promise<RepoFeatureAccess>;
 	async access(feature?: PlusFeatures, repoPath?: string | Uri): Promise<FeatureAccess | RepoFeatureAccess>;
+	@debug({ exit: true })
 	async access(feature?: PlusFeatures, repoPath?: string | Uri): Promise<FeatureAccess | RepoFeatureAccess> {
 		if (repoPath == null) {
 			let access = this._accessCache.get(undefined);
@@ -653,7 +655,7 @@ export class GitProviderService implements Disposable {
 		feature?: PlusFeatures,
 		repoPath?: string | Uri,
 	): Promise<FeatureAccess | RepoFeatureAccess>;
-	@debug()
+	@debug({ exit: true })
 	private async accessCore(
 		_feature?: PlusFeatures,
 		repoPath?: string | Uri,
@@ -745,6 +747,7 @@ export class GitProviderService implements Disposable {
 		if (allowed === false) throw new AccessDeniedError(subscription.current, subscription.required);
 	}
 
+	@debug({ exit: true })
 	supports(repoPath: string | Uri, feature: Features): Promise<boolean> {
 		const { provider } = this.getProvider(repoPath);
 		return provider.supports(feature);
@@ -784,6 +787,7 @@ export class GitProviderService implements Disposable {
 		}
 	}
 
+	@debug<GitProviderService['getVisibilityInfoFromCache']>({ exit: r => `returned ${r?.visibility}` })
 	private getVisibilityInfoFromCache(key: string): RepositoryVisibilityInfo | undefined {
 		this.ensureRepoVisibilityCache();
 		const visibilityInfo = this._repoVisibilityCache?.get(key);
@@ -830,10 +834,12 @@ export class GitProviderService implements Disposable {
 		void this.container.storage.store('repoVisibility', Array.from(this._repoVisibilityCache!.entries()));
 	}
 
+	@debug()
 	clearAllRepoVisibilityCaches(): void {
 		this.clearRepoVisibilityCache();
 	}
 
+	@debug()
 	clearAllOpenRepoVisibilityCaches(): void {
 		const openRepoProviderPaths = this.openRepositories.map(r => this.getProvider(r.path).path);
 		this.clearRepoVisibilityCache(openRepoProviderPaths);
@@ -841,6 +847,7 @@ export class GitProviderService implements Disposable {
 
 	visibility(): Promise<RepositoriesVisibility>;
 	visibility(repoPath: string | Uri): Promise<RepositoryVisibility>;
+	@debug({ exit: true })
 	async visibility(repoPath?: string | Uri): Promise<RepositoriesVisibility | RepositoryVisibility> {
 		if (repoPath == null) {
 			let visibility = this._reposVisibilityCache;
@@ -879,7 +886,7 @@ export class GitProviderService implements Disposable {
 
 	private visibilityCore(): Promise<RepositoriesVisibility>;
 	private visibilityCore(repoPath: string | Uri): Promise<RepositoryVisibility>;
-	@debug()
+	@debug({ exit: true })
 	private async visibilityCore(repoPath?: string | Uri): Promise<RepositoriesVisibility | RepositoryVisibility> {
 		async function getRepoVisibility(
 			this: GitProviderService,
@@ -2234,7 +2241,7 @@ export class GitProviderService implements Disposable {
 	getBestRepository(uri?: Uri, editor?: TextEditor): Repository | undefined;
 	// eslint-disable-next-line @typescript-eslint/unified-signatures
 	getBestRepository(editor?: TextEditor): Repository | undefined;
-	@log<GitProviderService['getBestRepository']>({ exit: r => `returned ${r?.path}` })
+	@log({ exit: true })
 	getBestRepository(editorOrUri?: TextEditor | Uri, editor?: TextEditor): Repository | undefined {
 		const count = this.repositoryCount;
 		if (count === 0) return undefined;
@@ -2256,7 +2263,7 @@ export class GitProviderService implements Disposable {
 	getBestRepositoryOrFirst(uri?: Uri, editor?: TextEditor): Repository | undefined;
 	// eslint-disable-next-line @typescript-eslint/unified-signatures
 	getBestRepositoryOrFirst(editor?: TextEditor): Repository | undefined;
-	@log<GitProviderService['getBestRepositoryOrFirst']>({ exit: r => `returned ${r?.path}` })
+	@log({ exit: true })
 	getBestRepositoryOrFirst(editorOrUri?: TextEditor | Uri, editor?: TextEditor): Repository | undefined {
 		const count = this.repositoryCount;
 		if (count === 0) return undefined;
@@ -2275,7 +2282,7 @@ export class GitProviderService implements Disposable {
 		);
 	}
 
-	@log<GitProviderService['getOrOpenRepository']>({ exit: r => `returned ${r?.path}` })
+	@log({ exit: true })
 	async getOrOpenRepository(
 		uri: Uri,
 		options?: { closeOnOpen?: boolean; detectNested?: boolean; force?: boolean },
@@ -2370,7 +2377,7 @@ export class GitProviderService implements Disposable {
 	getRepository(uri: Uri): Repository | undefined;
 	getRepository(path: string): Repository | undefined;
 	getRepository(pathOrUri: string | Uri): Repository | undefined;
-	@log<GitProviderService['getRepository']>({ exit: r => `returned ${r?.path}` })
+	@log({ exit: true })
 	getRepository(pathOrUri?: string | Uri): Repository | undefined {
 		if (this.repositoryCount === 0) return undefined;
 		if (pathOrUri == null) return undefined;

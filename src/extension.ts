@@ -20,7 +20,7 @@ import { configuration, Configuration } from './system/configuration';
 import { setContext } from './system/context';
 import { setDefaultDateLocales } from './system/date';
 import { once } from './system/event';
-import { Logger } from './system/logger';
+import { getLoggableName, Logger } from './system/logger';
 import { LogLevel } from './system/logger.constants';
 import { flatten } from './system/object';
 import { Stopwatch } from './system/stopwatch';
@@ -48,6 +48,12 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 				if (o instanceof Uri) return `Uri(${o.toString(true)})`;
 
 				if (isRepository(o) || isBranch(o) || isCommit(o) || isTag(o) || isViewNode(o)) return o.toString();
+
+				if ('uri' in o && o.uri instanceof Uri) {
+					return `${
+						'name' in o && 'index' in o ? 'WorkspaceFolder' : getLoggableName(o)
+					}(uri=${o.uri.toString(true)})`;
+				}
 
 				return undefined;
 			},
