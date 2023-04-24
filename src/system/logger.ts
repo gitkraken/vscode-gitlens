@@ -173,8 +173,12 @@ export const Logger = new (class Logger {
 		this.output?.show?.(preserveFocus);
 	}
 
-	toLoggable(o: any, sanitize?: ((key: string, value: any) => any) | undefined) {
+	toLoggable(o: any, sanitize?: ((key: string, value: any) => any) | undefined): string {
 		if (typeof o !== 'object') return String(o);
+
+		if (Array.isArray(o)) {
+			return `[${o.map(i => this.toLoggable(i, sanitize)).join(', ')}]`;
+		}
 
 		const loggable = this.provider!.toLoggable?.(o);
 		if (loggable != null) return loggable;

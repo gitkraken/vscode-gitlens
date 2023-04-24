@@ -31,7 +31,7 @@ interface LogOptions<T extends (...arg: any) => any> {
 		  };
 	condition?(...args: Parameters<T>): boolean;
 	enter?(...args: Parameters<T>): string;
-	exit?(result: PromiseType<ReturnType<T>>): string;
+	exit?: ((result: PromiseType<ReturnType<T>>) => string) | boolean;
 	prefix?(context: LogContext, ...args: Parameters<T>): string;
 	sanitize?(key: string, value: any): any;
 	logThreshold?: number;
@@ -61,10 +61,10 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 	let exitFn: LogOptions<T>['exit'] | undefined;
 	let prefixFn: LogOptions<T>['prefix'] | undefined;
 	let sanitizeFn: LogOptions<T>['sanitize'] | undefined;
-	let logThreshold = 0;
-	let scoped = false;
-	let singleLine = false;
-	let timed = true;
+	let logThreshold: NonNullable<LogOptions<T>['logThreshold']> = 0;
+	let scoped: NonNullable<LogOptions<T>['scoped']> = false;
+	let singleLine: NonNullable<LogOptions<T>['singleLine']> = false;
+	let timed: NonNullable<LogOptions<T>['timed']> = true;
 	if (options != null) {
 		({
 			args: overrides,
@@ -256,10 +256,14 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 
 					let exit;
 					if (exitFn != null) {
-						try {
-							exit = exitFn(r);
-						} catch (ex) {
-							exit = `@log.exit error: ${ex}`;
+						if (typeof exitFn === 'function') {
+							try {
+								exit = exitFn(r);
+							} catch (ex) {
+								exit = `@log.exit error: ${ex}`;
+							}
+						} else if (exitFn === true) {
+							exit = `returned ${Logger.toLoggable(r)}`;
 						}
 					} else {
 						exit = 'completed';

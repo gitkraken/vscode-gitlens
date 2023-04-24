@@ -7,7 +7,6 @@ import { UriComparer } from '../system/comparers';
 import { debug } from '../system/decorators/log';
 import { memoize } from '../system/decorators/memoize';
 import { formatPath } from '../system/formatPath';
-import { Logger } from '../system/logger';
 import { basename, getBestPath, normalizePath, relativeDir, splitPath } from '../system/path';
 // import { CharCode } from '../system/string';
 import { isVirtualUri } from '../system/utils';
@@ -246,9 +245,7 @@ export class GitUri extends (Uri as any as UriEx) {
 		return new GitUri(uri);
 	}
 
-	@debug({
-		exit: uri => `returned ${Logger.toLoggable(uri)}`,
-	})
+	@debug({ exit: true })
 	static async fromUri(uri: Uri): Promise<GitUri> {
 		if (isGitUri(uri)) return uri;
 		if (!Container.instance.git.isTrackable(uri)) return new GitUri(uri);

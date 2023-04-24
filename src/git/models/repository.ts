@@ -655,7 +655,7 @@ export class Repository implements Disposable {
 	}
 
 	@gate()
-	@log<Repository['getMainRepository']>({ exit: r => `returned ${r?.path}` })
+	@log({ exit: true })
 	async getMainRepository(): Promise<Repository | undefined> {
 		const gitDir = await this.getGitDir();
 		if (gitDir?.commonUri == null) return this;

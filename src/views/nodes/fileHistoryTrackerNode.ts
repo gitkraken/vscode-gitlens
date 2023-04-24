@@ -131,9 +131,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	}
 
 	@gate()
-	@debug({
-		exit: r => `returned ${r}`,
-	})
+	@debug({ exit: true })
 	override async refresh(reset: boolean = false) {
 		const scope = getLogScope();
 

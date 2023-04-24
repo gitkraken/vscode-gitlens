@@ -182,9 +182,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 	}
 
 	@gate()
-	@debug<RichRemoteProvider['isConnected']>({
-		exit: connected => `returned ${connected}`,
-	})
+	@debug({ exit: true })
 	async isConnected(): Promise<boolean> {
 		return (await this.session()) != null;
 	}

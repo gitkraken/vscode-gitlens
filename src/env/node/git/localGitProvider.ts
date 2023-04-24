@@ -384,12 +384,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return location;
 	}
 
+	@debug({ exit: true })
 	async discoverRepositories(uri: Uri): Promise<Repository[]> {
 		if (uri.scheme !== Schemes.File) return [];
 
 		try {
-			void (await this.ensureGit());
-
 			const autoRepositoryDetection =
 				configuration.getAny<CoreGitConfiguration, boolean | 'subFolders' | 'openEditors'>(
 					'git.autoRepositoryDetection',
@@ -397,6 +396,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			const folder = workspace.getWorkspaceFolder(uri);
 			if (folder == null) return [];
+
+			void (await this.ensureGit());
 
 			const repositories = await this.repositorySearch(
 				folder,
@@ -430,6 +431,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
+	@debug({ exit: true })
 	openRepository(
 		folder: WorkspaceFolder | undefined,
 		uri: Uri,
@@ -484,6 +486,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		];
 	}
 
+	@debug()
 	openRepositoryInitWatcher(): RepositoryInitWatcher {
 		const watcher = workspace.createFileSystemWatcher('**/.git', false, true, true);
 		return {
@@ -511,6 +514,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
+	@debug<LocalGitProvider['visibility']>({ exit: r => `returned ${r[0]}` })
 	async visibility(repoPath: string): Promise<[visibility: RepositoryVisibility, cacheKey: string | undefined]> {
 		const remotes = await this.getRemotes(repoPath, { sort: true });
 		if (remotes.length === 0) return [RepositoryVisibility.Local, undefined];
@@ -532,7 +536,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			: [RepositoryVisibility.Private, getVisibilityCacheKey(remotes)];
 	}
 
-	@debug<LocalGitProvider['getRemoteVisibility']>({ args: { 0: r => r.url } })
+	@debug<LocalGitProvider['getRemoteVisibility']>({ args: { 0: r => r.url }, exit: r => `returned ${r[0]}` })
 	private async getRemoteVisibility(
 		remote: GitRemote,
 	): Promise<[visibility: RepositoryVisibility, remote: GitRemote]> {
@@ -572,10 +576,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		args: false,
 		singleLine: true,
 		prefix: (context, folder) => `${context.prefix}(${folder.uri.fsPath})`,
-		exit: result =>
-			`returned ${result.length} repositories${
-				result.length !== 0 ? ` (${result.map(r => r.path).join(', ')})` : ''
-			}`,
+		exit: r => `returned ${r.length} repositories ${r.length !== 0 ? Logger.toLoggable(r) : ''}`,
 	})
 	private async repositorySearch(folder: WorkspaceFolder, depth?: number): Promise<Repository[]> {
 		const scope = getLogScope();
@@ -669,7 +670,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return repositories;
 	}
 
-	@debug<LocalGitProvider['repositorySearchCore']>({ args: { 2: false, 3: false } })
+	@debug<LocalGitProvider['repositorySearchCore']>({ args: { 2: false, 3: false }, exit: true })
 	private repositorySearchCore(
 		root: string,
 		depth: number,
@@ -746,7 +747,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return Uri.joinPath(base, relativePath);
 	}
 
-	@log()
+	@log({ exit: true })
 	async getBestRevisionUri(repoPath: string, path: string, ref: string | undefined): Promise<Uri | undefined> {
 		if (ref === deletedOrMissing) return undefined;
 
@@ -828,7 +829,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return uri;
 	}
 
-	@log()
+	@log({ exit: true })
 	async getWorkingUri(repoPath: string, uri: Uri) {
 		let relativePath = this.getRelativePath(uri, repoPath);
 
