@@ -34,7 +34,7 @@ import { count, filter, first, flatMap, join, map, some } from '../system/iterab
 import { Logger } from '../system/logger';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import { getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
-import { cancellable, fastestSettled, getSettledValue, isPromise, PromiseCancelledError } from '../system/promise';
+import { asSettled, cancellable, getSettledValue, isPromise, PromiseCancelledError } from '../system/promise';
 import { VisitedPathsTrie } from '../system/trie';
 import type {
 	GitCaches,
@@ -923,7 +923,7 @@ export class GitProviderService implements Disposable {
 			let isPrivate = false;
 			let isLocal = false;
 
-			for await (const result of fastestSettled(repositories.map(r => getRepoVisibility.call(this, r.path)))) {
+			for await (const result of asSettled(repositories.map(r => getRepoVisibility.call(this, r.path)))) {
 				if (result.status !== 'fulfilled') continue;
 
 				if (result.value === RepositoryVisibility.Public) {

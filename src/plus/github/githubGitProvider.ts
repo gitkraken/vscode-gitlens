@@ -85,7 +85,7 @@ import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
 import { isAbsolute, isFolderGlob, maybeUri, normalizePath, relative } from '../../system/path';
-import { fastestSettled, getSettledValue } from '../../system/promise';
+import { asSettled, getSettledValue } from '../../system/promise';
 import { serializeWebviewItemContext } from '../../system/webview';
 import type { CachedBlame, CachedLog } from '../../trackers/gitDocumentTracker';
 import { GitDocumentState } from '../../trackers/gitDocumentTracker';
@@ -238,7 +238,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const remotes = await this.getRemotes(repoPath, { sort: true });
 		if (remotes.length === 0) return [RepositoryVisibility.Local, undefined];
 
-		for await (const result of fastestSettled(remotes.map(r => this.getRemoteVisibility(r)))) {
+		for await (const result of asSettled(remotes.map(r => this.getRemoteVisibility(r)))) {
 			if (result.status !== 'fulfilled') continue;
 
 			if (result.value[0] === RepositoryVisibility.Public) {
