@@ -161,7 +161,7 @@ import {
 	splitPath,
 } from '../../../system/path';
 import type { PromiseOrValue } from '../../../system/promise';
-import { any, fastestSettled, getSettledValue } from '../../../system/promise';
+import { any, asSettled, getSettledValue } from '../../../system/promise';
 import { equalsIgnoreCase, getDurationMilliseconds, interpolate, splitSingle } from '../../../system/string';
 import { PathTrie } from '../../../system/trie';
 import { compare, fromString } from '../../../system/version';
@@ -520,7 +520,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (remotes.length === 0) return [RepositoryVisibility.Local, undefined];
 
 		let local = true;
-		for await (const result of fastestSettled(remotes.map(r => this.getRemoteVisibility(r)))) {
+		for await (const result of asSettled(remotes.map(r => this.getRemoteVisibility(r)))) {
 			if (result.status !== 'fulfilled') continue;
 
 			if (result.value[0] === RepositoryVisibility.Public) {

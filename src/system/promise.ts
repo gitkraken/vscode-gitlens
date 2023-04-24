@@ -32,7 +32,7 @@ export function any<T>(...promises: Promise<T>[]): Promise<T> {
 	});
 }
 
-export async function* fastestSettled<T>(promises: Promise<T>[]): AsyncIterable<PromiseSettledResult<T>> {
+export async function* asSettled<T>(promises: Promise<T>[]): AsyncIterable<PromiseSettledResult<T>> {
 	const map = new Map(
 		promises.map((promise, i) => [
 			i,
