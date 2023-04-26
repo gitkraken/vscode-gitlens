@@ -7482,11 +7482,11 @@
 				},
 				{
 					"command": "gitlens.plus.resetRepositoryAccess",
-					"when": "gitlens:plus"
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.plus.refreshRepositoryAccess",
-					"when": "gitlens:plus"
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.timeline.refresh",
