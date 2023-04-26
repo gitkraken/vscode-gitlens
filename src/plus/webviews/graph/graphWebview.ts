@@ -1743,8 +1743,11 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		const branch = await this.repository.getBranch();
 		let branchState;
 		if (branch != null) {
+			const remote = await branch.getRemote();
 			branchState = {
 				...branch.state,
+				upstream: branch.upstream?.name,
+				provider: remote?.provider?.name,
 			};
 		}
 

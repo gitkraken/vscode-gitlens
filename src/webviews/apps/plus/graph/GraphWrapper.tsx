@@ -193,6 +193,7 @@ export function GraphWrapper({
 	const [repo, setRepo] = useState<GraphRepository | undefined>(
 		repos.find(item => item.path === state.selectedRepository),
 	);
+	const [branchState, setBranchState] = useState(state.branchState);
 	const [selectedRows, setSelectedRows] = useState(state.selectedRows);
 	const [activeRow, setActiveRow] = useState(state.activeRow);
 	const [activeDay, setActiveDay] = useState(state.activeDay);
@@ -320,6 +321,7 @@ export function GraphWrapper({
 				setContext(state.context);
 				setAvatars(state.avatars ?? {});
 				setDownstreams(state.downstreams ?? {});
+				setBranchState(state.branchState);
 				setRefsMetadata(state.refsMetadata);
 				setPagingHasMore(state.paging?.hasMore ?? false);
 				setRepos(state.repositories ?? []);
@@ -1095,21 +1097,32 @@ export function GraphWrapper({
 		let icon = 'sync';
 		let label = 'Fetch';
 		let action = 'command:gitlens.graph.fetch';
+		let tooltip;
+		let isBehind = false;
+		let isAhead = false;
 
-		const isBehind = state.branchState && state.branchState.behind > 0;
-		const isAhead = state.branchState && state.branchState.ahead > 0;
-		if (isBehind) {
-			action = 'command:gitlens.graph.pull';
-			icon = 'arrow-down';
-			label = 'Pull';
-		} else if (isAhead) {
-			action = 'command:gitlens.graph.push';
-			icon = 'arrow-up';
-			label = 'Push';
+		if (branchState) {
+			isBehind = branchState.behind > 0;
+			isAhead = branchState.ahead > 0;
+			tooltip = `Branch ${branchName} is`;
+			if (isBehind) {
+				action = 'command:gitlens.graph.pull';
+				icon = 'arrow-down';
+				label = 'Pull';
+				tooltip += ` ${pluralize('commit', branchState.behind)} behind of`;
+			} else if (isAhead) {
+				action = 'command:gitlens.graph.push';
+				icon = 'arrow-up';
+				label = 'Push';
+				tooltip += ` ${pluralize('commit', branchState.ahead)} ahead of`;
+			} else {
+				tooltip += ' up to date with';
+			}
+			tooltip += ` ${branchState.upstream}${branchState.provider ? ` on ${branchState.provider}` : ''}`;
 		}
 
 		return (
-			<a href={action} className="action-button" title={`${label} Repository`}>
+			<a href={action} className="action-button" title={tooltip}>
 				<span className={`codicon codicon-${icon} action-button__icon`}></span>
 				{label}
 				{fetchedText && <span className="action-button__small">(Last fetched {fetchedText})</span>}
@@ -1117,19 +1130,13 @@ export function GraphWrapper({
 					<span>
 						<span className="pill">
 							{isAhead && (
-								<span
-									title={`Commits ahead by ${state.branchState!.ahead}`}
-									aria-label={`Commits ahead by ${state.branchState!.ahead}`}
-								>
-									{state.branchState!.ahead} <span className="codicon codicon-arrow-up"></span>
+								<span>
+									{branchState!.ahead} <span className="codicon codicon-arrow-up"></span>
 								</span>
 							)}
 							{isBehind && (
-								<span
-									title={`Commits behind by ${state.branchState!.behind}`}
-									aria-label={`Commits behind by ${state.branchState!.behind}`}
-								>
-									{state.branchState!.behind} <span className="codicon codicon-arrow-down"></span>
+								<span>
+									{branchState!.behind} <span className="codicon codicon-arrow-down"></span>
 								</span>
 							)}
 						</span>

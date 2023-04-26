@@ -89,7 +89,7 @@ export interface State {
 	selectedRepository?: string;
 	selectedRepositoryVisibility?: RepositoryVisibility;
 	branchName?: string;
-	branchState?: GitTrackingState;
+	branchState?: BranchState;
 	lastFetched?: Date;
 	selectedRows?: GraphSelectedRows;
 	subscription?: Subscription;
@@ -120,6 +120,11 @@ export interface State {
 		bottom: number;
 	};
 	theming?: { cssVariables: CssVariables; themeOpacityFactor: number };
+}
+
+export interface BranchState extends GitTrackingState {
+	upstream?: string;
+	provider?: string;
 }
 
 export type GraphWorkingTreeStats = WorkDirStats;
