@@ -382,6 +382,12 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			registerCommand('gitlens.graph.columnShaOff', () => this.toggleColumn('sha', false)),
 			registerCommand('gitlens.graph.columnChangesOn', () => this.toggleColumn('changes', true)),
 			registerCommand('gitlens.graph.columnChangesOff', () => this.toggleColumn('changes', false)),
+			registerCommand('gitlens.graph.columnGraphOn', () => this.toggleColumn('graph', true)),
+			registerCommand('gitlens.graph.columnGraphOff', () => this.toggleColumn('graph', false)),
+			registerCommand('gitlens.graph.columnMessageOn', () => this.toggleColumn('message', true)),
+			registerCommand('gitlens.graph.columnMessageOff', () => this.toggleColumn('message', false)),
+			registerCommand('gitlens.graph.columnRefOn', () => this.toggleColumn('ref', true)),
+			registerCommand('gitlens.graph.columnRefOff', () => this.toggleColumn('ref', false)),
 			registerCommand('gitlens.graph.columnGraphCompact', () => this.setColumnMode('graph', 'compact')),
 			registerCommand('gitlens.graph.columnGraphDefault', () => this.setColumnMode('graph', undefined)),
 
@@ -1545,15 +1551,30 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	private getColumnHeaderContext(columnSettings: GraphColumnsSettings): string {
 		const contextItems: string[] = [];
+		// Old column settings that didn't get cleaned up can mess with calculation of only visible column.
+		// All currently used ones are listed here.
+		const validColumns = ['author', 'changes', 'datetime', 'graph', 'message', 'ref', 'sha'];
+
+		let onlyVisibleColumn: string | undefined;
 		for (const [name, settings] of Object.entries(columnSettings)) {
+			if (!validColumns.includes(name)) continue;
 			if (settings.isHidden) {
 				contextItems.push(`hidden:${name}`);
+			} else if (onlyVisibleColumn == null) {
+				onlyVisibleColumn = name;
+			} else {
+				onlyVisibleColumn = undefined;
 			}
 
 			if (settings.mode) {
 				contextItems.push(`${settings.mode}:${name}`);
 			}
 		}
+
+		if (onlyVisibleColumn != null) {
+			contextItems.push(`only:${onlyVisibleColumn}`);
+		}
+
 		return serializeWebviewItemContext<GraphItemContext>({
 			webviewItem: 'gitlens:graph:columns',
 			webviewItemValue: contextItems.join(','),
