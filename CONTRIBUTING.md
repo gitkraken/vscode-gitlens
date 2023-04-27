@@ -106,6 +106,8 @@ yarn run package
 2. Ensure the required [dependencies](#dependencies) are installed
 3. Choose the `Watch & Run` launch configuration from the launch dropdown in the Run and Debug viewlet and press `F5`.
 
+_Note: If you see a pop-up with a message similar to "The task cannot be tracked. Make sure to have a problem matcher defined.", you will need to install the [TypeScript + Webpack Problem Matchers](https://marketplace.visualstudio.com/items?itemName=amodio.tsl-problem-matcher) extension._
+
 #### Using VS Code (desktop webworker)
 
 1. Open the `vscode-gitlens` folder
