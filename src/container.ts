@@ -736,7 +736,7 @@ export class Container {
 				return {
 					...e,
 					affectsConfiguration: (section, scope) =>
-						/^gitlens\\.(?:modes?|blame|changes|heatmap|codeLens|currentLine|hovers|statusBar)\\b/.test(
+						/^gitlens\.(?:modes?|blame|changes|heatmap|codeLens|currentLine|hovers|statusBar)\b/.test(
 							section,
 						)
 							? true
