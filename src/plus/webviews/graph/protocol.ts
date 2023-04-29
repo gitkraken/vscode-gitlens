@@ -389,6 +389,7 @@ export const DidChangeWorkingTreeNotificationType = new IpcNotificationType<DidC
 
 export interface DidEnsureRowParams {
 	id?: string; // `undefined` if the row was not found
+	remapped?: string;
 }
 export const DidEnsureRowNotificationType = new IpcNotificationType<DidEnsureRowParams>('graph/rows/didEnsure');
 

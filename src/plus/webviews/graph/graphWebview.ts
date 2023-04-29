@@ -70,7 +70,7 @@ import { gate } from '../../../system/decorators/gate';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce, disposableInterval } from '../../../system/function';
-import { find, last } from '../../../system/iterable';
+import { find, last, map } from '../../../system/iterable';
 import { updateRecordValue } from '../../../system/object';
 import { getSettledValue } from '../../../system/promise';
 import { isDarkTheme, isLightTheme } from '../../../system/utils';
@@ -726,20 +726,23 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 	private async onEnsureRow(e: EnsureRowParams, completionId?: string) {
 		if (this._graph == null) return;
 
+		const ensureId = this._graph.remappedIds?.get(e.id) ?? e.id;
+
 		let id: string | undefined;
-		if (!this._graph.skippedIds?.has(e.id)) {
-			if (this._graph.ids.has(e.id)) {
+		let remapped: string | undefined;
+		if (this._graph.ids.has(ensureId)) {
+			id = e.id;
+			remapped = e.id !== ensureId ? ensureId : undefined;
+		} else {
+			await this.updateGraphWithMoreRows(this._graph, ensureId, this._search);
+			void this.notifyDidChangeRows();
+			if (this._graph.ids.has(ensureId)) {
 				id = e.id;
-			} else {
-				await this.updateGraphWithMoreRows(this._graph, e.id, this._search);
-				void this.notifyDidChangeRows();
-				if (this._graph.ids.has(e.id)) {
-					id = e.id;
-				}
+				remapped = e.id !== ensureId ? ensureId : undefined;
 			}
 		}
 
-		void this.host.notify(DidEnsureRowNotificationType, { id: id }, completionId);
+		void this.host.notify(DidEnsureRowNotificationType, { id: id, remapped: remapped }, completionId);
 	}
 
 	private async onGetMissingAvatars(e: GetMissingAvatarsParams) {
@@ -921,7 +924,9 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 						results:
 							search.results.size > 0
 								? {
-										ids: Object.fromEntries(search.results),
+										ids: Object.fromEntries(
+											map(search.results, ([k, v]) => [this._graph?.remappedIds?.get(k) ?? k, v]),
+										),
 										count: search.results.size,
 										paging: { hasMore: search.paging?.hasMore ?? false },
 								  }
@@ -997,7 +1002,9 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 					search.results.size === 0
 						? { count: 0 }
 						: {
-								ids: Object.fromEntries(search.results),
+								ids: Object.fromEntries(
+									map(search.results, ([k, v]) => [this._graph?.remappedIds?.get(k) ?? k, v]),
+								),
 								count: search.results.size,
 								paging: { hasMore: search.paging?.hasMore ?? false },
 						  },
@@ -1375,10 +1382,10 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 		let firstResult: string | undefined;
 		for (const id of search.results.keys()) {
-			if (graph.ids.has(id)) return id;
-			if (graph.skippedIds?.has(id)) continue;
+			const remapped = graph.remappedIds?.get(id) ?? id;
+			if (graph.ids.has(remapped)) return remapped;
 
-			firstResult = id;
+			firstResult = remapped;
 			break;
 		}
 
@@ -1901,11 +1908,14 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		if (updatedGraph != null) {
 			this.setGraph(updatedGraph);
 
-			if (search?.paging?.hasMore) {
-				const lastId = last(search.results)?.[0];
-				if (lastId != null && (updatedGraph.ids.has(lastId) || updatedGraph.skippedIds?.has(lastId))) {
-					queueMicrotask(() => void this.onSearch({ search: search.query, more: true }));
-				}
+			if (!search?.paging?.hasMore) return;
+
+			const lastId = last(search.results)?.[0];
+			if (lastId == null) return;
+
+			const remapped = updatedGraph.remappedIds?.get(lastId) ?? lastId;
+			if (updatedGraph.ids.has(remapped)) {
+				queueMicrotask(() => void this.onSearch({ search: search.query, more: true }));
 			}
 		} else {
 			debugger;

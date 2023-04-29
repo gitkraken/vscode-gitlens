@@ -1768,7 +1768,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const avatars = new Map<string, string>();
 		const ids = new Set<string>();
 		const reachableFromHEAD = new Set<string>();
-		const skippedIds = new Set<string>();
+		const remappedIds = new Map<string, string>();
 		let total = 0;
 		let iterations = 0;
 
@@ -1894,7 +1894,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				if (ids.has(commit.sha)) continue;
 
 				total++;
-				if (skippedIds.has(commit.sha)) continue;
+				if (remappedIds.has(commit.sha)) continue;
 
 				ids.add(commit.sha);
 
@@ -2082,10 +2082,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 				// Remove the second & third parent, if exists, from each stash commit as it is a Git implementation for the index and untracked files
 				if (stashCommit != null && parents.length > 1) {
-					// Skip the "index commit" (e.g. contains staged files) of the stash
-					skippedIds.add(parents[1]);
-					// Skip the "untracked commit" (e.g. contains untracked files) of the stash
-					skippedIds.add(parents[2]);
+					// Remap the "index commit" (e.g. contains staged files) of the stash
+					remappedIds.set(parents[1], commit.sha);
+					// Remap the "untracked commit" (e.g. contains untracked files) of the stash
+					remappedIds.set(parents[2], commit.sha);
 					parents.splice(1, 2);
 				}
 
@@ -2173,7 +2173,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				avatars: avatars,
 				ids: ids,
 				includes: options?.include,
-				skippedIds: skippedIds,
+				remappedIds: remappedIds,
 				branches: branchMap,
 				remotes: remoteMap,
 				downstreams: downstreamMap,
