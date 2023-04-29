@@ -250,6 +250,10 @@ export function joinUnique<T>(source: readonly T[], separator: string): string {
 	return join(new Set(source), separator);
 }
 
+export function splitAt<T>(source: T[], index: number): [T[], T[]] {
+	return index < 0 ? [source, []] : [source.slice(0, index), source.slice(index)];
+}
+
 export function uniqueBy<TKey, TValue>(
 	source: readonly TValue[],
 	uniqueKey: (item: TValue) => TKey,
