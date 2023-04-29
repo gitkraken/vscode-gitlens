@@ -180,7 +180,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 				? new ThemeIcon('arrow-up', new ThemeColor('gitlens.unpublishedCommitIconColor' satisfies Colors))
 				: this.view.config.avatars
 				? await this.commit.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })
-				: new ThemeIcon('git-commit');
+				: undefined;
 		// item.tooltip = this.tooltip;
 
 		return item;
