@@ -1,5 +1,6 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
+import { isStash } from '../../git/models/commit';
 import type { GitLog } from '../../git/models/log';
 import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
@@ -13,6 +14,7 @@ import { LoadMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
 import type { FilesQueryResults } from './resultsFilesNode';
 import { ResultsFilesNode } from './resultsFilesNode';
+import { StashNode } from './stashNode';
 import type { PageableViewNode } from './viewNode';
 import { ContextValues, ViewNode } from './viewNode';
 
@@ -105,9 +107,10 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 
 		children.push(
 			...insertDateMarkers(
-				map(
-					log.commits.values(),
-					c => new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips, options),
+				map(log.commits.values(), c =>
+					isStash(c)
+						? new StashNode(this.view, this, c, { icon: true })
+						: new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips, options),
 				),
 				this,
 				undefined,

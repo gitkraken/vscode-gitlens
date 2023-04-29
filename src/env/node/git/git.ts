@@ -16,6 +16,7 @@ import { GitBranchParser } from '../../../git/parsers/branchParser';
 import { GitLogParser } from '../../../git/parsers/logParser';
 import { GitReflogParser } from '../../../git/parsers/reflogParser';
 import { GitTagParser } from '../../../git/parsers/tagParser';
+import { splitAt } from '../../../system/array';
 import { join } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
 import { LogLevel, slowCallWarningThreshold } from '../../../system/logger.constants';
@@ -1258,6 +1259,7 @@ export class Git {
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			skip?: number;
 			shas?: Set<string>;
+			stdin?: string;
 		},
 	) {
 		if (options?.shas != null) {
@@ -1272,18 +1274,21 @@ export class Git {
 			);
 		}
 
+		let files;
+		[search, files] = splitAt(search, search.indexOf('--'));
+
 		return this.git<string>(
-			{ cwd: repoPath, configs: ['-C', repoPath, ...gitLogDefaultConfigs] },
+			{ cwd: repoPath, configs: ['-C', repoPath, ...gitLogDefaultConfigs], stdin: options?.stdin },
 			'log',
+			...(options?.stdin ? ['--stdin'] : emptyArray),
 			'--name-status',
 			`--format=${GitLogParser.defaultFormat}`,
 			'--use-mailmap',
-			'--full-history',
-			'-m',
+			...search,
+			...(options?.ordering ? [`--${options.ordering}-order`] : emptyArray),
 			...(options?.limit ? [`-n${options.limit + 1}`] : emptyArray),
 			...(options?.skip ? [`--skip=${options.skip}`] : emptyArray),
-			...(options?.ordering ? [`--${options.ordering}-order`] : emptyArray),
-			...search,
+			...files,
 		);
 	}
 

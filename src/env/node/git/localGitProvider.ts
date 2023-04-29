@@ -2796,6 +2796,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				limit,
 				false,
 				undefined,
+				undefined,
 				hasMoreOverride,
 			);
 
@@ -4413,11 +4414,33 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				args.push(...files);
 			}
 
+			let stashes: Map<string, GitStashCommit> | undefined;
+			let stdin: string | undefined;
+			if (shas == null) {
+				const stash = await this.getStash(repoPath);
+				// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
+				if (stash?.commits.size) {
+					stashes = new Map();
+					for (const commit of stash.commits.values()) {
+						stashes.set(commit.sha, commit);
+						for (const p of commit.parents) {
+							stashes.set(p, commit);
+						}
+					}
+
+					stdin = join(
+						map(stash.commits.values(), c => c.sha.substring(0, 9)),
+						'\n',
+					);
+				}
+			}
+
 			const data = await this.git.log__search(repoPath, shas?.size ? undefined : args, {
 				ordering: configuration.get('advanced.commitOrdering'),
 				...options,
 				limit: limit,
 				shas: shas,
+				stdin: stdin,
 			});
 			const log = GitLogParser.parse(
 				this.container,
@@ -4430,6 +4453,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				limit,
 				false,
 				undefined,
+				stashes,
 			);
 
 			if (log != null) {
@@ -4537,7 +4561,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const stash = await this.getStash(repoPath);
 			let stdin: string | undefined;
 			// TODO@eamodio this is insanity -- there *HAS* to be a better way to get git log to return stashes
-			if (stash != null && stash.commits.size !== 0) {
+			if (stash?.commits.size) {
 				stdin = join(
 					map(stash.commits.values(), c => c.sha.substring(0, 9)),
 					'\n',

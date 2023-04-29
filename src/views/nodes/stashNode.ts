@@ -1,4 +1,4 @@
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../config';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitStashCommit } from '../../git/models/commit';
@@ -9,6 +9,7 @@ import { joinPaths, normalizePath } from '../../system/path';
 import { sortCompare } from '../../system/string';
 import type { RepositoriesView } from '../repositoriesView';
 import type { StashesView } from '../stashesView';
+import type { ViewsWithCommits } from '../viewBase';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
 import { RepositoryNode } from './repositoryNode';
@@ -16,13 +17,18 @@ import { StashFileNode } from './stashFileNode';
 import type { ViewNode } from './viewNode';
 import { ContextValues, ViewRefNode } from './viewNode';
 
-export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitStashReference> {
+export class StashNode extends ViewRefNode<ViewsWithCommits | StashesView | RepositoriesView, GitStashReference> {
 	static key = ':stash';
 	static getId(repoPath: string, ref: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${ref})`;
 	}
 
-	constructor(view: StashesView | RepositoriesView, parent: ViewNode, public readonly commit: GitStashCommit) {
+	constructor(
+		view: ViewsWithCommits | StashesView | RepositoriesView,
+		parent: ViewNode,
+		public readonly commit: GitStashCommit,
+		private readonly options?: { icon?: boolean },
+	) {
 		super(commit.getGitUri(), view, parent);
 	}
 
@@ -73,6 +79,9 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 			dateFormat: configuration.get('defaultDateFormat'),
 		});
 		item.contextValue = ContextValues.Stash;
+		if (this.options?.icon) {
+			item.iconPath = new ThemeIcon('gitlens-stashes');
+		}
 		item.tooltip = CommitFormatter.fromTemplate(
 			`\${'On 'stashOnRef\n}\${ago} (\${date})\n\n\${message}`,
 			this.commit,

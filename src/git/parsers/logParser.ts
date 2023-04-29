@@ -4,7 +4,7 @@ import { filterMap } from '../../system/array';
 import { debug } from '../../system/decorators/log';
 import { normalizePath, relative } from '../../system/path';
 import { getLines } from '../../system/string';
-import type { GitCommitLine } from '../models/commit';
+import type { GitCommitLine, GitStashCommit } from '../models/commit';
 import { GitCommit, GitCommitIdentity } from '../models/commit';
 import { uncommitted } from '../models/constants';
 import type { GitFile, GitFileChangeStats } from '../models/file';
@@ -431,6 +431,7 @@ export class GitLogParser {
 		limit: number | undefined,
 		reverse: boolean,
 		range: Range | undefined,
+		stashes?: Map<string, GitStashCommit>,
 		hasMoreOverride?: boolean,
 	): GitLog | undefined {
 		if (!data) return undefined;
@@ -718,6 +719,7 @@ export class GitLogParser {
 						relativeFileName,
 						commits,
 						currentUser,
+						stashes,
 					);
 
 					break;
@@ -746,6 +748,7 @@ export class GitLogParser {
 		relativeFileName: string | undefined,
 		commits: Map<string, GitCommit>,
 		currentUser: GitUser | undefined,
+		stashes: Map<string, GitStashCommit> | undefined,
 	): void {
 		if (commit == null) {
 			if (entry.author != null) {
@@ -776,24 +779,50 @@ export class GitLogParser {
 				);
 			}
 
-			commit = new GitCommit(
-				container,
-				repoPath!,
-				entry.sha!,
-				new GitCommitIdentity(entry.author!, entry.authorEmail, new Date((entry.authorDate! as any) * 1000)),
-				new GitCommitIdentity(
-					entry.committer!,
-					entry.committerEmail,
-					new Date((entry.committedDate! as any) * 1000),
-				),
-				entry.summary?.split('\n', 1)[0] ?? '',
-				entry.parentShas ?? [],
-				entry.summary ?? '',
-				files,
-				undefined,
-				entry.line != null ? [entry.line] : [],
-				entry.tips,
-			);
+			const stash = stashes?.get(entry.sha!);
+			if (stash != null) {
+				commit = new GitCommit(
+					container,
+					repoPath!,
+					stash.sha,
+					stash.author,
+					stash.committer,
+					stash.summary,
+					stash.parents,
+					stash.message,
+					files,
+					undefined,
+					entry.line != null ? [entry.line] : [],
+					entry.tips,
+					stash.stashName,
+					stash.stashOnRef,
+				);
+			} else {
+				commit = new GitCommit(
+					container,
+					repoPath!,
+					entry.sha!,
+
+					new GitCommitIdentity(
+						entry.author!,
+						entry.authorEmail,
+						new Date((entry.authorDate! as any) * 1000),
+					),
+
+					new GitCommitIdentity(
+						entry.committer!,
+						entry.committerEmail,
+						new Date((entry.committedDate! as any) * 1000),
+					),
+					entry.summary?.split('\n', 1)[0] ?? '',
+					entry.parentShas ?? [],
+					entry.summary ?? '',
+					files,
+					undefined,
+					entry.line != null ? [entry.line] : [],
+					entry.tips,
+				);
+			}
 
 			commits.set(entry.sha!, commit);
 		}
