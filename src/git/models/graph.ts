@@ -32,8 +32,10 @@ export interface GitGraph {
 	/** A set of all "seen" commit ids */
 	readonly ids: Set<string>;
 	readonly includes: { stats?: boolean } | undefined;
-	/** A set of all skipped commit ids -- typically for stash index/untracked commits */
-	readonly skippedIds?: Set<string>;
+	/** A set of all remapped commit ids -- typically for stash index/untracked commits
+	 * (key = remapped from id, value = remapped to id)
+	 */
+	readonly remappedIds?: Map<string, string>;
 	readonly branches: Map<string, GitBranch>;
 	readonly remotes: Map<string, GitRemote>;
 	readonly downstreams: Map<string, string[]>;
