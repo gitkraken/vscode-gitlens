@@ -348,9 +348,7 @@ export class GitCommandsCommand extends Command {
 					}
 				};
 
-				const mapping: KeyMapping = {
-					left: { onDidPressKey: goBack },
-				};
+				const mapping: KeyMapping = {};
 				if (step.onDidPressKey != null && step.keys != null && step.keys.length !== 0) {
 					for (const key of step.keys) {
 						mapping[key] = {
