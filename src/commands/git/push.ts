@@ -114,7 +114,9 @@ export class PushGitCommand extends QuickCommand<State> {
 				skippedStepOne = false;
 				if (context.repos.length === 1) {
 					skippedStepOne = true;
-					state.counter++;
+					if (state.repos == null) {
+						state.counter++;
+					}
 
 					state.repos = [context.repos[0]];
 				} else if (state.reference != null) {
