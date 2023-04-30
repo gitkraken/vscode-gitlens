@@ -20,6 +20,13 @@ export function drop(repo?: string | Repository, ref?: GitStashReference) {
 	});
 }
 
+export function rename(repo?: string | Repository, ref?: GitStashReference, message?: string) {
+	return executeGitCommand({
+		command: 'stash',
+		state: { subcommand: 'rename', repo: repo, reference: ref, message: message },
+	});
+}
+
 export function pop(repo?: string | Repository, ref?: GitStashReference) {
 	return executeGitCommand({
 		command: 'stash',

@@ -263,7 +263,8 @@ export class ViewCommands {
 		registerViewCommand('gitlens.views.renameBranch', this.renameBranch, this);
 
 		registerViewCommand('gitlens.views.title.applyStash', () => this.applyStash());
-		registerViewCommand('gitlens.views.deleteStash', this.deleteStash, this, ViewCommandMultiSelectMode.Custom);
+		registerViewCommand('gitlens.views.stash.delete', this.deleteStash, this, ViewCommandMultiSelectMode.Custom);
+		registerViewCommand('gitlens.views.stash.rename', this.renameStash, this);
 
 		registerViewCommand('gitlens.views.title.createTag', () => this.createTag());
 		registerViewCommand('gitlens.views.createTag', this.createTag, this);
@@ -295,7 +296,6 @@ export class ViewCommands {
 			this,
 		);
 	}
-
 	@debug()
 	private addAuthors(node?: ViewNode) {
 		return ContributorActions.addAuthors(getNodeRepoPath(node));
@@ -469,6 +469,13 @@ export class ViewCommands {
 			);
 		}
 		return StashActions.drop(node.repoPath, node.commit);
+	}
+
+	@debug()
+	private renameStash(node: StashNode) {
+		if (!(node instanceof StashNode)) return Promise.resolve();
+
+		return StashActions.rename(node.repoPath, node.commit);
 	}
 
 	@debug()

@@ -1803,6 +1803,18 @@ export class Git {
 		return this.git<string>({ cwd: repoPath }, 'stash', deleteAfter ? 'pop' : 'apply', stashName);
 	}
 
+	async stash__rename(repoPath: string, stashName: string, ref: string, message: string, stashOnRef?: string) {
+		await this.stash__delete(repoPath, stashName, ref);
+		return this.git<string>(
+			{ cwd: repoPath },
+			'stash',
+			'store',
+			'-m',
+			stashOnRef ? `On ${stashOnRef}: ${message}` : message,
+			ref,
+		);
+	}
+
 	async stash__delete(repoPath: string, stashName: string, ref?: string) {
 		if (!stashName) return undefined;
 
