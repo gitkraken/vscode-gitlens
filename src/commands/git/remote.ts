@@ -208,7 +208,9 @@ export class RemoteGitCommand extends QuickCommand<State> {
 				skippedStepTwo = false;
 				if (context.repos.length === 1) {
 					skippedStepTwo = true;
-					state.counter++;
+					if (state.repo == null) {
+						state.counter++;
+					}
 
 					state.repo = context.repos[0];
 				} else {
