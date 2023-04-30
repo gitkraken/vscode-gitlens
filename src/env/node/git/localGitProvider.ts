@@ -3500,7 +3500,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getOldestUnpushedRefForFile(repoPath: string, uri: Uri): Promise<string | undefined> {
 		const [relativePath, root] = splitPath(uri, repoPath);
 
-		const data = await this.git.log__file(root, relativePath, '@{push}..', {
+		const data = await this.git.log__file(root, relativePath, '@{u}..', {
 			argsOrFormat: ['-z', '--format=%H'],
 			fileMode: 'none',
 			ordering: configuration.get('advanced.commitOrdering'),
