@@ -7236,12 +7236,12 @@
 			},
 			{
 				"command": "gitlens.graph.columnRefOn",
-				"title": "Show Branch/Tag Column",
+				"title": "Show Branch / Tag Column",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.graph.columnRefOff",
-				"title": "Hide Branch/Tag Column",
+				"title": "Hide Branch / Tag Column",
 				"category": "GitLens"
 			},
 			{
@@ -12151,53 +12151,53 @@
 					"group": "1_columns@1"
 				},
 				{
-					"command": "gitlens.graph.columnChangesOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bhidden:changes\\b/",
-					"group": "1_columns@2"
-				},
-				{
-					"command": "gitlens.graph.columnChangesOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\b(hidden|only):changes\\b).)*$/",
-					"group": "1_columns@2"
-				},
-				{
-					"command": "gitlens.graph.columnDateTimeOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bhidden:datetime\\b/",
-					"group": "1_columns@3"
-				},
-				{
-					"command": "gitlens.graph.columnDateTimeOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\b(hidden|only):datetime\\b).)*$/",
-					"group": "1_columns@3"
-				},
-				{
-					"command": "gitlens.graph.columnGraphOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bhidden:graph\\b/",
-					"group": "1_columns@4"
-				},
-				{
-					"command": "gitlens.graph.columnGraphOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\b(hidden|only):graph\\b).)*$/",
-					"group": "1_columns@4"
-				},
-				{
-					"command": "gitlens.graph.columnMessageOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bhidden:message\\b/",
-					"group": "1_columns@5"
-				},
-				{
-					"command": "gitlens.graph.columnMessageOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\b(hidden|only):message\\b).)*$/",
-					"group": "1_columns@5"
-				},
-				{
 					"command": "gitlens.graph.columnRefOn",
 					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bhidden:ref\\b/",
-					"group": "1_columns@6"
+					"group": "1_columns@2"
 				},
 				{
 					"command": "gitlens.graph.columnRefOff",
 					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\b(hidden|only):ref\\b).)*$/",
+					"group": "1_columns@2"
+				},
+				{
+					"command": "gitlens.graph.columnChangesOn",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bhidden:changes\\b/",
+					"group": "1_columns@3"
+				},
+				{
+					"command": "gitlens.graph.columnChangesOff",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\b(hidden|only):changes\\b).)*$/",
+					"group": "1_columns@3"
+				},
+				{
+					"command": "gitlens.graph.columnMessageOn",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bhidden:message\\b/",
+					"group": "1_columns@4"
+				},
+				{
+					"command": "gitlens.graph.columnMessageOff",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\b(hidden|only):message\\b).)*$/",
+					"group": "1_columns@4"
+				},
+				{
+					"command": "gitlens.graph.columnDateTimeOn",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bhidden:datetime\\b/",
+					"group": "1_columns@5"
+				},
+				{
+					"command": "gitlens.graph.columnDateTimeOff",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\b(hidden|only):datetime\\b).)*$/",
+					"group": "1_columns@5"
+				},
+				{
+					"command": "gitlens.graph.columnGraphOn",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bhidden:graph\\b/",
+					"group": "1_columns@6"
+				},
+				{
+					"command": "gitlens.graph.columnGraphOff",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\b(hidden|only):graph\\b).)*$/",
 					"group": "1_columns@6"
 				},
 				{
