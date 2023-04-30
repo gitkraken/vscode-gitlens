@@ -352,7 +352,8 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 			registerCommand('gitlens.graph.saveStash', this.saveStash, this),
 			registerCommand('gitlens.graph.applyStash', this.applyStash, this),
-			registerCommand('gitlens.graph.deleteStash', this.deleteStash, this),
+			registerCommand('gitlens.graph.stash.delete', this.deleteStash, this),
+			registerCommand('gitlens.graph.stash.rename', this.renameStash, this),
 
 			registerCommand('gitlens.graph.createTag', this.createTag, this),
 			registerCommand('gitlens.graph.deleteTag', this.deleteTag, this),
@@ -2289,6 +2290,14 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		if (ref == null) return Promise.resolve();
 
 		return StashActions.drop(ref.repoPath, ref);
+	}
+
+	@debug()
+	private renameStash(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'stash');
+		if (ref == null) return Promise.resolve();
+
+		return StashActions.rename(ref.repoPath, ref);
 	}
 
 	@debug()

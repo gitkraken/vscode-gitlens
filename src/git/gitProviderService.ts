@@ -2697,26 +2697,38 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	stashApply(repoPath: string | Uri, stashName: string, options?: { deleteAfter?: boolean }): Promise<void> {
+	async stashApply(repoPath: string | Uri, stashName: string, options?: { deleteAfter?: boolean }): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.stashApply(path, stashName, options);
+		return provider.stashApply?.(path, stashName, options);
 	}
 
 	@log()
-	stashDelete(repoPath: string | Uri, stashName: string, ref?: string): Promise<void> {
+	async stashDelete(repoPath: string | Uri, stashName: string, ref?: string): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.stashDelete(path, stashName, ref);
+		return provider.stashDelete?.(path, stashName, ref);
+	}
+
+	@log()
+	async stashRename(
+		repoPath: string | Uri,
+		stashName: string,
+		ref: string,
+		message: string,
+		stashOnRef?: string,
+	): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.stashRename?.(path, stashName, ref, message, stashOnRef);
 	}
 
 	@log<GitProviderService['stashSave']>({ args: { 2: uris => uris?.length } })
-	stashSave(
+	async stashSave(
 		repoPath: string | Uri,
 		message?: string,
 		uris?: Uri[],
 		options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
 	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.stashSave(path, message, uris, options);
+		return provider.stashSave?.(path, message, uris, options);
 	}
 
 	@log()

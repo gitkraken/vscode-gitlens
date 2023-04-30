@@ -128,6 +128,7 @@ export interface GitStashReference {
 	number: string | undefined;
 
 	message?: string | undefined;
+	stashOnRef?: string | undefined;
 }
 
 export interface GitTagReference {
@@ -159,7 +160,7 @@ export function createReference(
 export function createReference(
 	ref: string,
 	repoPath: string,
-	options: { refType: 'stash'; name: string; number: string | undefined; message?: string },
+	options: { refType: 'stash'; name: string; number: string | undefined; message?: string; stashOnRef?: string },
 ): GitStashReference;
 export function createReference(
 	ref: string,
@@ -178,7 +179,7 @@ export function createReference(
 				upstream?: { name: string; missing: boolean };
 		  }
 		| { refType?: 'revision'; name?: string; message?: string }
-		| { refType: 'stash'; name: string; number: string | undefined; message?: string }
+		| { refType: 'stash'; name: string; number: string | undefined; message?: string; stashOnRef?: string }
 		| { id?: string; refType: 'tag'; name: string } = { refType: 'revision' },
 ): GitReference {
 	switch (options.refType) {
@@ -200,6 +201,7 @@ export function createReference(
 				name: options.name,
 				number: options.number,
 				message: options.message,
+				stashOnRef: options.stashOnRef,
 			};
 		case 'tag':
 			return {
@@ -329,7 +331,7 @@ export function getReferenceLabel(
 				if (isStashReference(ref)) {
 					let message;
 					if (options.expand && ref.message) {
-						message = `${ref.number != null ? `${ref.number}: ` : ''}${
+						message = `${ref.number != null ? `#${ref.number}: ` : ''}${
 							ref.message.length > 20
 								? `${ref.message.substring(0, 20).trimRight()}${GlyphChars.Ellipsis}`
 								: ref.message
@@ -339,7 +341,7 @@ export function getReferenceLabel(
 					result = `${options.label ? 'stash ' : ''}${
 						options.icon
 							? `$(archive)${GlyphChars.Space}${message ?? ref.name}`
-							: `${message ?? ref.number ?? ref.name}`
+							: `${message ?? (ref.number ? `#${ref.number}` : ref.name)}`
 					}`;
 				} else if (isRevisionRange(ref.ref)) {
 					result = refName;

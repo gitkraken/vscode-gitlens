@@ -80,7 +80,7 @@ export class StashNode extends ViewRefNode<ViewsWithCommits | StashesView | Repo
 		});
 		item.contextValue = ContextValues.Stash;
 		if (this.options?.icon) {
-			item.iconPath = new ThemeIcon('gitlens-stashes');
+			item.iconPath = new ThemeIcon('archive');
 		}
 		item.tooltip = CommitFormatter.fromTemplate(
 			`\${'On 'stashOnRef\n}\${ago} (\${date})\n\n\${message}`,

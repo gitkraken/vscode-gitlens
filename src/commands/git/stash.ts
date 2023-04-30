@@ -86,13 +86,21 @@ interface PushState {
 	flags: PushFlags[];
 }
 
-type State = ApplyState | DropState | ListState | PopState | PushState;
+interface RenameState {
+	subcommand: 'rename';
+	repo: string | Repository;
+	reference: GitStashReference;
+	message: string;
+}
+
+type State = ApplyState | DropState | ListState | PopState | PushState | RenameState;
 type StashStepState<T extends State> = SomeNonNullable<StepState<T>, 'subcommand'>;
 type ApplyStepState<T extends ApplyState = ApplyState> = StashStepState<ExcludeSome<T, 'repo', string>>;
 type DropStepState<T extends DropState = DropState> = StashStepState<ExcludeSome<T, 'repo', string>>;
 type ListStepState<T extends ListState = ListState> = StashStepState<ExcludeSome<T, 'repo', string>>;
 type PopStepState<T extends PopState = PopState> = StashStepState<ExcludeSome<T, 'repo', string>>;
 type PushStepState<T extends PushState = PushState> = StashStepState<ExcludeSome<T, 'repo', string>>;
+type RenameStepState<T extends RenameState = RenameState> = StashStepState<ExcludeSome<T, 'repo', string>>;
 
 const subcommandToTitleMap = new Map<State['subcommand'], string>([
 	['apply', 'Apply'],
@@ -100,6 +108,7 @@ const subcommandToTitleMap = new Map<State['subcommand'], string>([
 	['list', 'List'],
 	['pop', 'Pop'],
 	['push', 'Push'],
+	['rename', 'Rename'],
 ]);
 function getTitle(title: string, subcommand: State['subcommand'] | undefined) {
 	return subcommand == null ? title : `${subcommandToTitleMap.get(subcommand)} ${title}`;
@@ -131,12 +140,20 @@ export class StashGitCommand extends QuickCommand<State> {
 						counter++;
 					}
 					break;
-
 				case 'push':
 					if (args.state.message != null) {
 						counter++;
 					}
 
+					break;
+				case 'rename':
+					if (args.state.reference != null) {
+						counter++;
+					}
+
+					if (args.state.message != null) {
+						counter++;
+					}
 					break;
 			}
 		}
@@ -229,6 +246,11 @@ export class StashGitCommand extends QuickCommand<State> {
 				case 'push':
 					yield* this.pushCommandSteps(state as PushStepState, context);
 					break;
+				case 'rename':
+					yield* this.renameCommandSteps(state as RenameStepState, context);
+					// Clear any chosen message, since we are exiting this subcommand
+					state.message = undefined!;
+					break;
 				default:
 					endSteps(state);
 					break;
@@ -279,6 +301,12 @@ export class StashGitCommand extends QuickCommand<State> {
 						'saves your local changes to a new stash and discards them from the working tree and index',
 					picked: state.subcommand === 'push',
 					item: 'push',
+				},
+				{
+					label: 'rename',
+					description: 'renames the specified stash',
+					picked: state.subcommand === 'rename',
+					item: 'rename',
 				},
 			],
 			buttons: [QuickInputButtons.Back],
@@ -637,6 +665,101 @@ export class StashGitCommand extends QuickCommand<State> {
 				  ],
 			undefined,
 			{ placeholder: `Confirm ${context.title}` },
+		);
+		const selection: StepSelection<typeof step> = yield step;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
+	}
+
+	private async *renameCommandSteps(state: RenameStepState, context: Context): StepGenerator {
+		while (this.canStepsContinue(state)) {
+			if (state.counter < 3 || state.reference == null) {
+				const result: StepResult<GitStashReference> = yield* pickStashStep(state, context, {
+					stash: await this.container.git.getStash(state.repo.path),
+					placeholder: (context, stash) =>
+						stash == null ? `No stashes found in ${state.repo.formattedName}` : 'Choose a stash to rename',
+					picked: state.reference?.ref,
+				});
+				// Always break on the first step (so we will go back)
+				if (result === StepResultBreak) break;
+
+				state.reference = result;
+			}
+
+			if (state.counter < 4 || state.message == null) {
+				const result: StepResult<string> = yield* this.renameCommandInputMessageStep(state, context);
+				if (result === StepResultBreak) continue;
+
+				state.message = result;
+			}
+
+			if (this.confirm(state.confirm)) {
+				const result = yield* this.renameCommandConfirmStep(state, context);
+				if (result === StepResultBreak) continue;
+			}
+
+			endSteps(state);
+
+			try {
+				await state.repo.stashRename(
+					state.reference.name,
+					state.reference.ref,
+					state.message,
+					state.reference.stashOnRef,
+				);
+			} catch (ex) {
+				Logger.error(ex, context.title);
+				void showGenericErrorMessage(ex.message);
+			}
+		}
+	}
+
+	private async *renameCommandInputMessageStep(
+		state: RenameStepState,
+		context: Context,
+	): AsyncStepResultGenerator<string> {
+		const step = createInputStep({
+			title: appendReposToTitle(context.title, state, context),
+			placeholder: `Please provide a new message for ${getReferenceLabel(state.reference, { icon: false })}`,
+			value: state.message ?? state.reference?.message,
+			prompt: 'Enter new stash message',
+		});
+
+		const value: StepSelection<typeof step> = yield step;
+		if (!canStepContinue(step, state, value) || !(await canInputStepContinue(step, state, value))) {
+			return StepResultBreak;
+		}
+
+		return value;
+	}
+
+	private *renameCommandConfirmStep(state: RenameStepState, context: Context): StepResultGenerator<'rename'> {
+		const step = this.createConfirmStep(
+			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			[
+				{
+					label: context.title,
+					detail: `Will rename ${getReferenceLabel(state.reference)}`,
+					item: state.subcommand,
+				},
+			],
+			undefined,
+			{
+				placeholder: `Confirm ${context.title}`,
+				additionalButtons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
+				onDidClickButton: (quickpick, button) => {
+					if (button === ShowDetailsViewQuickInputButton) {
+						void showDetailsView(state.reference, {
+							pin: false,
+							preserveFocus: true,
+						});
+					} else if (button === RevealInSideBarQuickInputButton) {
+						void reveal(state.reference, {
+							select: true,
+							expand: true,
+						});
+					}
+				},
+			},
 		);
 		const selection: StepSelection<typeof step> = yield step;
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;

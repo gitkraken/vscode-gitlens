@@ -1017,6 +1017,14 @@ export class Repository implements Disposable {
 
 	@gate()
 	@log()
+	async stashRename(stashName: string, ref: string, message: string, stashOnRef?: string) {
+		await this.container.git.stashRename(this.path, stashName, ref, message, stashOnRef);
+
+		this.fireChange(RepositoryChange.Stash);
+	}
+
+	@gate()
+	@log()
 	async stashSave(
 		message?: string,
 		uris?: Uri[],

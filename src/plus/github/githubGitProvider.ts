@@ -3068,20 +3068,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@log()
 	async unStageDirectory(_repoPath: string, _directoryOrUri: string | Uri): Promise<void> {}
 
-	@log()
-	async stashApply(_repoPath: string, _stashName: string, _options?: { deleteAfter?: boolean }): Promise<void> {}
-
-	@log()
-	async stashDelete(_repoPath: string, _stashName: string, _ref?: string): Promise<void> {}
-
-	@log<GitHubGitProvider['stashSave']>({ args: { 2: uris => uris?.length } })
-	async stashSave(
-		_repoPath: string,
-		_message?: string,
-		_uris?: Uri[],
-		_options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
-	): Promise<void> {}
-
 	@gate()
 	private async ensureRepositoryContext(
 		repoPath: string,

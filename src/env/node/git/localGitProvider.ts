@@ -3895,7 +3895,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				committedDate: '%ct',
 				parents: '%P',
 				stashName: '%gd',
-				summary: '%B',
+				summary: '%gs',
 			});
 			const data = await this.git.stash__list(repoPath, {
 				args: parser.arguments,
@@ -4735,6 +4735,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async stashDelete(repoPath: string, stashName: string, ref?: string): Promise<void> {
 		await this.git.stash__delete(repoPath, stashName, ref);
+		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes'] });
+	}
+
+	@log()
+	async stashRename(
+		repoPath: string,
+		stashName: string,
+		ref: string,
+		message: string,
+		stashOnRef?: string,
+	): Promise<void> {
+		await this.git.stash__rename(repoPath, stashName, ref, message, stashOnRef);
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['stashes'] });
 	}
 
