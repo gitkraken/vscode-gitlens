@@ -298,14 +298,14 @@ async function getAutoLinkedIssuesOrPullRequests(message: string, remotes: GitRe
 		!cfg.autolinks.enhanced ||
 		!CommitFormatter.has(cfg.detailsMarkdownFormat, 'message')
 	) {
-		Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+		Logger.debug(scope, `completed [${getDurationMilliseconds(start)}ms]`);
 
 		return undefined;
 	}
 
 	const remote = await Container.instance.git.getBestRemoteWithRichProvider(remotes);
 	if (remote?.provider == null) {
-		Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+		Logger.debug(scope, `completed [${getDurationMilliseconds(start)}ms]`);
 
 		return undefined;
 	}
@@ -326,9 +326,9 @@ async function getAutoLinkedIssuesOrPullRequests(message: string, remotes: GitRe
 					scope,
 					`timed out ${
 						GlyphChars.Dash
-					} ${prCount} issue/pull request queries took too long (over ${timeout} ms) ${
-						GlyphChars.Dot
-					} ${getDurationMilliseconds(start)} ms`,
+					} ${prCount} issue/pull request queries took too long (over ${timeout} ms) [${getDurationMilliseconds(
+						start,
+					)}ms]`,
 				);
 
 				// const pending = [
@@ -350,11 +350,11 @@ async function getAutoLinkedIssuesOrPullRequests(message: string, remotes: GitRe
 			}
 		}
 
-		Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+		Logger.debug(scope, `completed [${getDurationMilliseconds(start)}ms]`);
 
 		return autolinks;
 	} catch (ex) {
-		Logger.error(ex, scope, `failed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+		Logger.error(ex, scope, `failed [${getDurationMilliseconds(start)}ms]`);
 
 		return undefined;
 	}
@@ -373,7 +373,7 @@ async function getPullRequestForCommit(
 	const start = hrtime();
 
 	if (!options?.pullRequests) {
-		Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+		Logger.debug(scope, `completed [${getDurationMilliseconds(start)}ms]`);
 
 		return undefined;
 	}
@@ -382,7 +382,7 @@ async function getPullRequestForCommit(
 		includeDisconnected: true,
 	});
 	if (remote?.provider == null) {
-		Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+		Logger.debug(scope, `completed [${getDurationMilliseconds(start)}ms]`);
 
 		return undefined;
 	}
@@ -390,7 +390,7 @@ async function getPullRequestForCommit(
 	const { provider } = remote;
 	const connected = provider.maybeConnected ?? (await provider.isConnected());
 	if (!connected) {
-		Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+		Logger.debug(scope, `completed [${getDurationMilliseconds(start)}ms]`);
 
 		return remote;
 	}
@@ -398,17 +398,17 @@ async function getPullRequestForCommit(
 	try {
 		const pr = await Container.instance.git.getPullRequestForCommit(ref, provider, { timeout: 250 });
 
-		Logger.debug(scope, `completed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+		Logger.debug(scope, `completed [${getDurationMilliseconds(start)}ms]`);
 
 		return pr;
 	} catch (ex) {
 		if (ex instanceof PromiseCancelledError) {
-			Logger.debug(scope, `timed out ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+			Logger.debug(scope, `timed out [${getDurationMilliseconds(start)}ms]`);
 
 			return ex;
 		}
 
-		Logger.error(ex, scope, `failed ${GlyphChars.Dot} ${getDurationMilliseconds(start)} ms`);
+		Logger.error(ex, scope, `failed [${getDurationMilliseconds(start)}ms]`);
 
 		return undefined;
 	}

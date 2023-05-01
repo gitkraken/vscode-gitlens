@@ -1,5 +1,4 @@
 import { hrtime } from '@env/hrtime';
-import { GlyphChars } from '../constants';
 import type { LogProvider } from './logger';
 import { defaultLogProvider } from './logger';
 import { LogLevel } from './logger.constants';
@@ -111,7 +110,7 @@ export class Stopwatch {
 		this.logProvider.log(
 			ms > 250 ? LogLevel.Warn : this.logLevel,
 			logScope,
-			`${prefix ? `${prefix} ${GlyphChars.Dot} ` : ''}${ms} ms${options?.suffix ?? ''}`,
+			`${prefix ? `${prefix} ` : ''}[${ms}ms]${options?.suffix ?? ''}`,
 		);
 	}
 

@@ -84,12 +84,12 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 	if (msg != null && msg.length !== 0) {
 		for (const warning of Object.values(GitWarnings)) {
 			if (warning.test(msg)) {
-				const duration = start !== undefined ? `${getDurationMilliseconds(start)} ms` : '';
+				const duration = start !== undefined ? ` [${getDurationMilliseconds(start)}ms]` : '';
 				Logger.warn(
 					`[${cwd}] Git ${msg
 						.trim()
 						.replace(/fatal: /g, '')
-						.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} ${GlyphChars.Dot} ${duration}`,
+						.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)}${duration}`,
 				);
 				return '';
 			}
@@ -201,12 +201,12 @@ export class Git {
 					`[GIT  ] ${gitCommand} ${GlyphChars.Dot} ${(exception.message || String(exception) || '')
 						.trim()
 						.replace(/fatal: /g, '')
-						.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} ${GlyphChars.Dot} ${duration} ms${status}`,
+						.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} [${duration}ms]${status}`,
 				);
 			} else if (slow) {
-				Logger.warn(`[GIT  ] ${gitCommand} ${GlyphChars.Dot} ${duration} ms${status}`);
+				Logger.warn(`[GIT  ] ${gitCommand} [*${duration}ms]${status}`);
 			} else {
-				Logger.log(`[GIT  ] ${gitCommand} ${GlyphChars.Dot} ${duration} ms${status}`);
+				Logger.log(`[GIT  ] ${gitCommand} [${duration}ms]${status}`);
 			}
 			this.logGitCommand(
 				`${gitCommand}${exception != null ? ` ${GlyphChars.Dot} FAILED` : ''}${waiting ? ' (waited)' : ''}`,
@@ -276,12 +276,12 @@ export class Git {
 					`[SGIT ] ${gitCommand} ${GlyphChars.Dot} ${(exception.message || String(exception) || '')
 						.trim()
 						.replace(/fatal: /g, '')
-						.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} ${GlyphChars.Dot} ${duration} ms${status}`,
+						.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} [${duration}ms]${status}`,
 				);
 			} else if (slow) {
-				Logger.warn(`[SGIT ] ${gitCommand} ${GlyphChars.Dot} ${duration} ms${status}`);
+				Logger.warn(`[SGIT ] ${gitCommand} [*${duration}ms]${status}`);
 			} else {
-				Logger.log(`[SGIT ] ${gitCommand} ${GlyphChars.Dot} ${duration} ms${status}`);
+				Logger.log(`[SGIT ] ${gitCommand} [${duration}ms]${status}`);
 			}
 			this.logGitCommand(
 				`${gitCommand}${exception != null ? ` ${GlyphChars.Dot} FAILED` : ''}`,

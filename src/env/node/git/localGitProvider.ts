@@ -369,9 +369,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		} else {
 			Logger.log(
 				scope,
-				`Git (${location.version}) found in ${location.path === 'git' ? 'PATH' : location.path} ${
-					GlyphChars.Dot
-				} ${getDurationMilliseconds(start)} ms`,
+				`Git (${location.version}) found in ${location.path === 'git' ? 'PATH' : location.path} [${getDurationMilliseconds(start)}ms]`,
 			);
 		}
 
