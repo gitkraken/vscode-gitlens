@@ -17,15 +17,19 @@ import { GitLogParser } from '../../../git/parsers/logParser';
 import { GitReflogParser } from '../../../git/parsers/reflogParser';
 import { GitTagParser } from '../../../git/parsers/tagParser';
 import { splitAt } from '../../../system/array';
+import { configuration } from '../../../system/configuration';
 import { join } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
 import { LogLevel, slowCallWarningThreshold } from '../../../system/logger.constants';
 import { dirname, isAbsolute, isFolderGlob, joinPaths, normalizePath, splitPath } from '../../../system/path';
 import { getDurationMilliseconds } from '../../../system/string';
+import { getEditorCommand } from '../../../system/utils';
 import { compare, fromString } from '../../../system/version';
+import { ensureGitTerminal } from '../../../terminal';
+import { isWindows } from '../platform';
 import type { GitLocation } from './locator';
 import type { RunOptions } from './shell';
-import { fsExists, run, RunError } from './shell';
+import { fsExists, getWindowsShortPath, run, RunError } from './shell';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyObj = Object.freeze({});
@@ -2043,6 +2047,33 @@ export class Git {
 
 			return undefined;
 		}
+	}
+
+	async runCommandViaTerminal(cwd: string, command: string, args: string[], options?: { execute?: boolean }) {
+		const location = await this.getLocation();
+		const git = location.path ?? 'git';
+
+		const coreEditorConfig = configuration.get('terminal.overrideGitEditor')
+			? `-c "core.editor=${getEditorCommand()}" `
+			: '';
+
+		const parsedArgs = args.map(arg => (arg.startsWith('#') || /['();$|>&<]/.test(arg) ? `"${arg}"` : arg));
+
+		let text;
+		if (git.includes(' ') && isWindows) {
+			const shortenedPath = await getWindowsShortPath(git);
+			text = `${shortenedPath} -C "${cwd}" ${coreEditorConfig}${command} ${parsedArgs.join(' ')}`;
+		} else {
+			text = `${git.includes(' ') ? `"${git}"` : git} -C "${cwd}" ${coreEditorConfig}${command} ${parsedArgs.join(
+				' ',
+			)}`;
+		}
+
+		this.logGitCommand(`[TERM] ${text}`, 0);
+
+		const terminal = ensureGitTerminal();
+		terminal.show(false);
+		terminal.sendText(text, options?.execute ?? false);
 	}
 
 	private _gitOutput: OutputChannel | undefined;

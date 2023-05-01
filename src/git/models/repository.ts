@@ -21,7 +21,6 @@ import { getLoggableName, Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import { updateRecordValue } from '../../system/object';
 import { basename, normalizePath } from '../../system/path';
-import { runGitCommandInTerminal } from '../../terminal';
 import type { GitDir, GitProviderDescriptor, GitRepositoryCaches } from '../gitProvider';
 import type { RemoteProviders } from '../remotes/remoteProviders';
 import { loadRemoteProviders } from '../remotes/remoteProviders';
@@ -490,7 +489,7 @@ export class Repository implements Disposable {
 
 	@log()
 	branch(...args: string[]) {
-		this.runTerminalCommand('branch', ...args);
+		void this.runTerminalCommand('branch', ...args);
 	}
 
 	@log()
@@ -505,7 +504,7 @@ export class Repository implements Disposable {
 			if (options?.force) {
 				args.push('--force');
 			}
-			this.runTerminalCommand('branch', ...args, ...branches.map(b => b.ref));
+			void this.runTerminalCommand('branch', ...args, ...branches.map(b => b.ref));
 
 			if (options?.remote) {
 				const trackingBranches = localBranches.filter(b => b.upstream != null);
@@ -515,7 +514,7 @@ export class Repository implements Disposable {
 					);
 
 					for (const [remote, branches] of branchesByOrigin.entries()) {
-						this.runTerminalCommand(
+						void this.runTerminalCommand(
 							'push',
 							'-d',
 							remote,
@@ -531,14 +530,14 @@ export class Repository implements Disposable {
 			const branchesByOrigin = groupByMap(remoteBranches, b => getRemoteNameFromBranchName(b.name));
 
 			for (const [remote, branches] of branchesByOrigin.entries()) {
-				this.runTerminalCommand('push', '-d', remote, ...branches.map(b => getNameWithoutRemote(b)));
+				void this.runTerminalCommand('push', '-d', remote, ...branches.map(b => getNameWithoutRemote(b)));
 			}
 		}
 	}
 
 	@log()
 	cherryPick(...args: string[]) {
-		this.runTerminalCommand('cherry-pick', ...args);
+		void this.runTerminalCommand('cherry-pick', ...args);
 	}
 
 	containsUri(uri: Uri) {
@@ -782,7 +781,7 @@ export class Repository implements Disposable {
 
 	@log()
 	merge(...args: string[]) {
-		this.runTerminalCommand('merge', ...args);
+		void this.runTerminalCommand('merge', ...args);
 	}
 
 	@gate()
@@ -923,7 +922,7 @@ export class Repository implements Disposable {
 
 	@log()
 	rebase(configs: string[] | undefined, ...args: string[]) {
-		this.runTerminalCommand(
+		void this.runTerminalCommand(
 			configs != null && configs.length !== 0 ? `${configs.join(' ')} rebase` : 'rebase',
 			...args,
 		);
@@ -931,7 +930,7 @@ export class Repository implements Disposable {
 
 	@log()
 	reset(...args: string[]) {
-		this.runTerminalCommand('reset', ...args);
+		void this.runTerminalCommand('reset', ...args);
 	}
 
 	@log({ singleLine: true })
@@ -965,7 +964,7 @@ export class Repository implements Disposable {
 
 	@log()
 	revert(...args: string[]) {
-		this.runTerminalCommand('revert', ...args);
+		void this.runTerminalCommand('revert', ...args);
 	}
 
 	@debug()
@@ -1128,7 +1127,7 @@ export class Repository implements Disposable {
 
 	@log()
 	tag(...args: string[]) {
-		this.runTerminalCommand('tag', ...args);
+		void this.runTerminalCommand('tag', ...args);
 	}
 
 	@log()
@@ -1138,7 +1137,7 @@ export class Repository implements Disposable {
 		}
 
 		const args = ['--delete'];
-		this.runTerminalCommand('tag', ...args, ...tags.map(t => t.ref));
+		void this.runTerminalCommand('tag', ...args, ...tags.map(t => t.ref));
 	}
 
 	@debug()
@@ -1217,9 +1216,8 @@ export class Repository implements Disposable {
 		this._onDidChangeFileSystem.fire(e);
 	}
 
-	private runTerminalCommand(command: string, ...args: string[]) {
-		const parsedArgs = args.map(arg => (arg.startsWith('#') || /['();$|>&<]/.test(arg) ? `"${arg}"` : arg));
-		runGitCommandInTerminal(command, parsedArgs.join(' '), this.path, true);
+	private async runTerminalCommand(command: string, ...args: string[]) {
+		await this.container.git.runGitCommandViaTerminal?.(this.uri, command, args, { execute: true });
 
 		setTimeout(() => this.fireChange(RepositoryChange.Unknown), 2500);
 	}

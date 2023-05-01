@@ -2649,6 +2649,17 @@ export class GitProviderService implements Disposable {
 		return provider.searchCommits(path, search, options);
 	}
 
+	@log({ args: false })
+	async runGitCommandViaTerminal(
+		repoPath: string | Uri,
+		command: string,
+		args: string[],
+		options?: { execute?: boolean },
+	): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.runGitCommandViaTerminal?.(path, command, args, options);
+	}
+
 	@log()
 	validateBranchOrTagName(repoPath: string | Uri, ref: string): Promise<boolean> {
 		const { provider, path } = this.getProvider(repoPath);

@@ -1,5 +1,5 @@
 import type { ExecException } from 'child_process';
-import { execFile } from 'child_process';
+import { exec, execFile } from 'child_process';
 import type { Stats } from 'fs';
 import { exists, existsSync, statSync } from 'fs';
 import { join as joinPaths } from 'path';
@@ -114,6 +114,19 @@ export function findExecutable(exe: string, args: string[]): { cmd: string; args
 	}
 
 	return { cmd: exe, args: args };
+}
+
+export async function getWindowsShortPath(path: string): Promise<string> {
+	return new Promise<string>((resolve, reject) => {
+		exec(`for %I in ("${path}") do @echo %~sI`, (error, stdout, _stderr) => {
+			if (error != null) {
+				reject(error);
+				return;
+			}
+
+			resolve(stdout.trim().replace(/\\/g, '/'));
+		});
+	});
 }
 
 export interface RunOptions<TEncoding = BufferEncoding | 'buffer'> {
