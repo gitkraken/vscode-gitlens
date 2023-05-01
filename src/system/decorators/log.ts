@@ -212,7 +212,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 				const start = timed ? hrtime() : undefined;
 
 				const logError = (ex: Error) => {
-					const timing = start !== undefined ? ` \u2022 ${getDurationMilliseconds(start)} ms` : emptyStr;
+					const timing = start !== undefined ? ` [${getDurationMilliseconds(start)}ms]` : emptyStr;
 					if (singleLine) {
 						Logger.error(
 							ex,
@@ -244,10 +244,10 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 						duration = getDurationMilliseconds(start);
 						if (duration > slowCallWarningThreshold) {
 							exitLogFn = warnFn;
-							timing = ` \u2022 ${duration} ms (slow)`;
+							timing = ` [*${duration}ms] (slow)`;
 						} else {
 							exitLogFn = logFn;
-							timing = ` \u2022 ${duration} ms`;
+							timing = ` [${duration}ms]`;
 						}
 					} else {
 						timing = emptyStr;
