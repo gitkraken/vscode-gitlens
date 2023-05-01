@@ -17,6 +17,7 @@ import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
 import { filter } from '../../../system/iterable';
 import { hasVisibleTextEditor, isTextEditor } from '../../../system/utils';
+import { isViewFileNode } from '../../../views/nodes/viewNode';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
@@ -81,9 +82,13 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		_options: { column?: ViewColumn; preserveFocus?: boolean },
 		...args: unknown[]
 	): boolean {
-		const [uri] = args;
-		if (uri != null && uri instanceof Uri) {
-			this.updatePendingUri(uri);
+		const [uriOrNode] = args;
+		if (uriOrNode != null) {
+			if (uriOrNode instanceof Uri) {
+				this.updatePendingUri(uriOrNode);
+			} else if (isViewFileNode(uriOrNode)) {
+				this.updatePendingUri(uriOrNode.uri);
+			}
 		} else {
 			this.updatePendingEditor(window.activeTextEditor);
 		}
