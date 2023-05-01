@@ -437,7 +437,7 @@ export interface GitProvider extends Disposable {
 		},
 	): Promise<GitLog | undefined>;
 	searchCommits(
-		repoPath: string | Uri,
+		repoPath: string,
 		search: SearchQuery,
 		options?: {
 			cancellation?: CancellationToken;
@@ -445,6 +445,14 @@ export interface GitProvider extends Disposable {
 			ordering?: 'date' | 'author-date' | 'topo';
 		},
 	): Promise<GitSearch>;
+
+	runGitCommandViaTerminal?(
+		repoPath: string,
+		command: string,
+		args: string[],
+		options?: { execute?: boolean },
+	): Promise<void>;
+
 	validateBranchOrTagName(repoPath: string, ref: string): Promise<boolean>;
 	validateReference(repoPath: string, ref: string): Promise<boolean>;
 

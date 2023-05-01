@@ -369,7 +369,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		} else {
 			Logger.log(
 				scope,
-				`Git (${location.version}) found in ${location.path === 'git' ? 'PATH' : location.path} [${getDurationMilliseconds(start)}ms]`,
+				`Git (${location.version}) found in ${
+					location.path === 'git' ? 'PATH' : location.path
+				} [${getDurationMilliseconds(start)}ms]`,
 			);
 		}
 
@@ -4658,6 +4660,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 			throw new GitSearchError(ex);
 		}
+	}
+
+	@log({ args: { 2: false } })
+	async runGitCommandViaTerminal(
+		repoPath: string,
+		command: string,
+		args: string[],
+		options?: { execute?: boolean },
+	): Promise<void> {
+		await this.git.runCommandViaTerminal(repoPath, command, args, options);
+
+		// Right now we are reliant on the Repository class to fire the change event (as a stop gap if we don't detect a change through the normal mechanisms)
+		// setTimeout(() => this.fireChange(RepositoryChange.Unknown), 2500);
 	}
 
 	@log()
