@@ -4661,7 +4661,7 @@
 			},
 			{
 				"command": "gitlens.showTimelinePage",
-				"title": "Open Visual File History of Active File",
+				"title": "Open Visual File History",
 				"category": "GitLens+",
 				"icon": "$(gitlens-history)"
 			},
@@ -9463,9 +9463,14 @@
 					"group": "2_gitlens_1@1"
 				},
 				{
-					"command": "gitlens.quickOpenFileHistory",
+					"command": "gitlens.showTimelinePage",
 					"when": "gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editor.history && resourceScheme != output",
 					"group": "2_gitlens_1@2"
+				},
+				{
+					"command": "gitlens.quickOpenFileHistory",
+					"when": "gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editor.history && resourceScheme != output",
+					"group": "2_gitlens_1@3"
 				},
 				{
 					"submenu": "gitlens/editor/annotations",
@@ -9707,9 +9712,14 @@
 					"group": "2_gitlens_1@1"
 				},
 				{
-					"command": "gitlens.quickOpenFileHistory",
+					"command": "gitlens.showTimelinePage",
 					"when": "gitlens:enabled && config.gitlens.menus.editorTab.history && isFileSystemResource",
 					"group": "2_gitlens_1@2"
+				},
+				{
+					"command": "gitlens.quickOpenFileHistory",
+					"when": "gitlens:enabled && config.gitlens.menus.editorTab.history && isFileSystemResource",
+					"group": "2_gitlens_1@3"
 				}
 			],
 			"explorer/context": [
@@ -9741,9 +9751,14 @@
 					"group": "4_timeline@2"
 				},
 				{
-					"command": "gitlens.quickOpenFileHistory",
+					"command": "gitlens.showTimelinePage",
 					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
 					"group": "4_timeline@3"
+				},
+				{
+					"command": "gitlens.quickOpenFileHistory",
+					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
+					"group": "4_timeline@4"
 				},
 				{
 					"command": "gitlens.copyRemoteFileUrlWithoutRange",
@@ -9887,9 +9902,14 @@
 					"group": "4_timeline@2"
 				},
 				{
-					"command": "gitlens.quickOpenFileHistory",
+					"command": "gitlens.showTimelinePage",
 					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.history",
 					"group": "4_timeline@3"
+				},
+				{
+					"command": "gitlens.quickOpenFileHistory",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.history",
+					"group": "4_timeline@4"
 				}
 			],
 			"timeline/item/context": [
@@ -11116,6 +11136,11 @@
 					"command": "gitlens.openFileHistory",
 					"when": "view != gitlens.views.fileHistory && viewItem =~ /gitlens:file\\b/",
 					"group": "2_gitlens_quickopen@6"
+				},
+				{
+					"command": "gitlens.showTimelinePage",
+					"when": "viewItem =~ /gitlens:file\\b/",
+					"group": "2_gitlens_quickopen@7"
 				},
 				{
 					"submenu": "gitlens/commit/file/commit",

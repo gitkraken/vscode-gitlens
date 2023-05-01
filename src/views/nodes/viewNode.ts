@@ -165,6 +165,10 @@ export function isViewNode(node: any): node is ViewNode {
 	return node instanceof ViewNode;
 }
 
+export function isViewFileNode(node: any): node is ViewFileNode {
+	return node instanceof ViewFileNode;
+}
+
 type StateKey<T> = keyof T;
 type StateValue<T, P extends StateKey<T>> = P extends keyof T ? T[P] : never;
 
