@@ -401,6 +401,7 @@ export type CoreGitConfiguration =
 	| 'git.enabled'
 	| 'git.fetchOnPull'
 	| 'git.path'
+	| 'git.repositoryScanIgnoredFolders'
 	| 'git.repositoryScanMaxDepth'
 	| 'git.useForcePushWithLease';
 

@@ -608,23 +608,21 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (depth <= 0) return repositories;
 
 		// Get any specified excludes -- this is a total hack, but works for some simple cases and something is better than nothing :)
-		const excludedConfig = {
+		const excludes = new Set<string>(
+			configuration.getAny<CoreGitConfiguration, string[]>('git.repositoryScanIgnoredFolders', folder.uri, []),
+		);
+		for (let [key, value] of Object.entries({
 			...configuration.getAny<CoreConfiguration, Record<string, boolean>>('files.exclude', folder.uri, {}),
 			...configuration.getAny<CoreConfiguration, Record<string, boolean>>('search.exclude', folder.uri, {}),
-		};
+		})) {
+			if (!value) continue;
+			if (key.includes('*.')) continue;
 
-		const excludedPaths = [
-			...filterMapIterable(Object.entries(excludedConfig), ([key, value]) => {
-				if (!value) return undefined;
-				if (key.startsWith('**/')) return key.substring(3);
-				return key;
-			}),
-		];
-
-		const excludes = excludedPaths.reduce((accumulator, current) => {
-			accumulator.add(current);
-			return accumulator;
-		}, new Set<string>());
+			if (key.startsWith('**/')) {
+				key = key.substring(3);
+			}
+			excludes.add(key);
+		}
 
 		let repoPaths;
 		try {
