@@ -540,6 +540,7 @@ export interface MenuConfig {
 				compare: boolean;
 				history: boolean;
 				remote: boolean;
+				share: boolean;
 				stash: boolean;
 		  };
 }
