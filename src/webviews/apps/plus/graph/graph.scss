@@ -281,6 +281,16 @@ button:not([disabled]),
 	}
 }
 
+.action-button[aria-checked] {
+	border: 1px solid transparent;
+}
+
+.action-button[aria-checked='true'] {
+	background-color: var(--vscode-inputOption-activeBackground);
+	color: var(--vscode-inputOption-activeForeground);
+	border-color: var(--vscode-inputOption-activeBorder);
+}
+
 .repo-access {
 	font-size: 1.1em;
 	margin-right: 0.2rem;
