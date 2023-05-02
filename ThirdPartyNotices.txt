@@ -9,7 +9,7 @@ This project incorporates components from the projects listed below.
 4. @opentelemetry/api version 1.4.1 (https://github.com/open-telemetry/opentelemetry-js)
 5. @opentelemetry/exporter-trace-otlp-http version 0.38.0 (https://github.com/open-telemetry/opentelemetry-js)
 6. @opentelemetry/sdk-trace-base version 1.12.0 (https://github.com/open-telemetry/opentelemetry-js)
-7. @vscode/codicons version 0.0.32 (https://github.com/microsoft/vscode-codicons)
+7. @vscode/codicons version 0.0.33 (https://github.com/microsoft/vscode-codicons)
 8. @vscode/webview-ui-toolkit version 1.2.2 (https://github.com/microsoft/vscode-webview-ui-toolkit)
 9. ansi-regex version 6.0.1 (https://github.com/chalk/ansi-regex)
 10. billboard.js version 3.8.0 (https://github.com/naver/billboard.js)
