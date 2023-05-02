@@ -595,6 +595,66 @@ button:not([disabled]),
 			content: '\ea9a';
 		}
 	}
+
+	&--branch {
+		&::before {
+			// codicon-git-branch
+			font-family: codicon;
+			content: '\ea68';
+			top: 0px;
+			margin: 0 0 0 0;
+		}
+	}
+
+	&--graph {
+		&::before {
+			// glicon-graph
+			font-family: glicons;
+			content: '\f102';
+		}
+	}
+
+	&--commit {
+		&::before {
+			// codicon-git-commit
+			font-family: codicon;
+			content: '\eafc';
+			top: 0px;
+			margin: 0 0 0 0;
+		}
+	}
+
+	&--author {
+		&::before {
+			// codicon-account
+			font-family: codicon;
+			content: '\eb99';
+		}
+	}
+
+	&--datetime {
+		&::before {
+			// glicon-clock
+			font-family: glicons;
+			content: '\f11d';
+		}
+	}
+
+	&--message {
+		&::before {
+			// codicon-comment
+			font-family: codicon;
+			content: '\ea6b';
+		}
+	}
+
+	&--changes {
+		&::before {
+			// codicon-request-changes
+			font-family: codicon;
+			content: '\eb43';
+		}
+	}
 }
 
 .titlebar {

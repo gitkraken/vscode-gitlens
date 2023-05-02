@@ -125,6 +125,13 @@ const createIconElements = (): { [key: string]: ReactElement } => {
 		'pull-request',
 		'show',
 		'hide',
+		'branch',
+		'graph',
+		'commit',
+		'author',
+		'datetime',
+		'message',
+		'changes',
 	];
 
 	const miniIconList = ['upstream-ahead', 'upstream-behind'];
