@@ -1196,16 +1196,6 @@ export function GraphWrapper({
 							{renderFetchAction()}
 						</>
 					)}
-					{!state.debugging && (
-						<span className="titlebar__debugging">
-							{isLoading && <span className="icon--loading icon-modifier--spin" />}
-							{rows.length > 0 && (
-								<span>
-									showing {rows.length} item{rows.length ? 's' : ''}
-								</span>
-							)}
-						</span>
-					)}
 					{renderAccountState()}
 					<a
 						href="https://github.com/gitkraken/vscode-gitlens/discussions/2158"
