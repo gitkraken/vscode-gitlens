@@ -327,6 +327,8 @@ button:not([disabled]),
 
 	.codicon[class*='codicon-'] {
 		font-size: 1.1rem;
+		position: relative;
+		top: 2px;
 	}
 }
 
@@ -772,6 +774,8 @@ button:not([disabled]),
 }
 
 .graph-header {
+	padding-top: 1px;
+
 	& .resizable-handle.horizontal {
 		--sash-size: 4px;
 		--sash-hover-size: 4px;
@@ -832,6 +836,12 @@ button:not([disabled]),
 			background-color: var(--vscode-toolbar-activeBackground);
 			color: var(--color-foreground);
 		}
+	}
+
+	.graph-icon {
+		position: relative;
+		top: -3px;
+		color: var(--text-disabled, hsla(0, 0%, 100%, 0.4));
 	}
 }
 
