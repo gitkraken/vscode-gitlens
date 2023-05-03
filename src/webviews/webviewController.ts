@@ -275,6 +275,7 @@ export class WebviewController<
 		this.provider.onRefresh?.(force);
 
 		// Mark the webview as not ready, until we know if we are changing the html
+		const wasReady = this._ready;
 		this._ready = false;
 
 		const html = await this.getHtml(this.webview);
@@ -285,7 +286,9 @@ export class WebviewController<
 
 		// If we aren't changing the html, mark the webview as ready again
 		if (this.webview.html === html) {
-			this._ready = true;
+			if (wasReady) {
+				this._ready = true;
+			}
 			return;
 		}
 
