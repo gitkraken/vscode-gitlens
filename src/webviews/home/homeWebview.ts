@@ -140,7 +140,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		}
 	}
 
-	private completeStep({ id, completed = false }: CompleteStepParams) {
+	private async completeStep({ id, completed = false }: CompleteStepParams) {
 		const steps = this.container.storage.get('home:steps:completed', []);
 
 		const hasStep = steps.includes(id);
@@ -149,31 +149,35 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		} else if (hasStep && !completed) {
 			steps.splice(steps.indexOf(id), 1);
 		}
-		void this.container.storage.store('home:steps:completed', steps);
+
+		await this.container.storage.store('home:steps:completed', steps);
+		void this.notifyDidChangeData();
 	}
 
-	private dismissSection(params: DismissSectionParams) {
+	private async dismissSection(params: DismissSectionParams) {
 		const sections = this.container.storage.get('home:sections:dismissed', []);
-		if (sections.includes(params.id)) {
-			return;
-		}
+		if (sections.includes(params.id)) return;
 
 		sections.push(params.id);
-		void this.container.storage.store('home:sections:dismissed', sections);
+
+		await this.container.storage.store('home:sections:dismissed', sections);
+		void this.notifyDidChangeData();
 	}
 
-	private dismissBanner(params: DismissBannerParams) {
+	private async dismissBanner(params: DismissBannerParams) {
 		const banners = this.container.storage.get('home:banners:dismissed', []);
 
 		if (!banners.includes(params.id)) {
 			banners.push(params.id);
 		}
 
-		void this.container.storage.store('home:banners:dismissed', banners);
+		await this.container.storage.store('home:banners:dismissed', banners);
+		void this.notifyDidChangeData();
 	}
 
-	private dismissPinStatus() {
-		void this.container.storage.store('home:status:pinned', false);
+	private async dismissPinStatus() {
+		await this.container.storage.store('home:status:pinned', false);
+		void this.notifyDidChangeData();
 	}
 
 	includeBootstrap(): Promise<State> {

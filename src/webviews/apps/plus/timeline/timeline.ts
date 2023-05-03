@@ -27,6 +27,7 @@ export class TimelineApp extends App<State> {
 	protected override onInitialize() {
 		provideVSCodeDesignSystem().register(vsCodeButton(), vsCodeDropdown(), vsCodeOption());
 
+		this.state = this.getState() ?? this.state;
 		this.updateState();
 	}
 
@@ -53,6 +54,7 @@ export class TimelineApp extends App<State> {
 
 				onIpc(DidChangeNotificationType, msg, params => {
 					this.state = params.state;
+					this.setState(this.state);
 					this.updateState();
 				});
 				break;

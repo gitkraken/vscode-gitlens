@@ -44,6 +44,7 @@ export class HomeApp extends App<State> {
 		this.$steps = [...document.querySelectorAll<SteppedSection>('stepped-section[id]')];
 		this.$cards = [...document.querySelectorAll<CardSection>('card-section[id]')];
 
+		this.state = this.getState() ?? this.state;
 		this.updateState();
 	}
 
@@ -92,6 +93,7 @@ export class HomeApp extends App<State> {
 					this.state.completedActions = params.completedActions;
 					this.state.avatar = params.avatar;
 					this.state.pinStatus = params.pinStatus;
+					this.setState(this.state);
 					this.updateState();
 				});
 				break;
@@ -100,6 +102,7 @@ export class HomeApp extends App<State> {
 
 				onIpc(DidChangeRepositoriesType, msg, params => {
 					this.state.repositories = { ...params };
+					this.setState(this.state);
 					this.updateNoRepo();
 				});
 				break;
@@ -108,6 +111,7 @@ export class HomeApp extends App<State> {
 
 				onIpc(DidChangeConfigurationType, msg, params => {
 					this.state.plusEnabled = params.plusEnabled;
+					this.setState(this.state);
 					this.updatePlusContent();
 				});
 				break;
@@ -116,6 +120,7 @@ export class HomeApp extends App<State> {
 
 				onIpc(DidChangeLayoutType, msg, params => {
 					this.state.layout = params.layout;
+					this.setState(this.state);
 					this.updateLayout();
 				});
 				break;
