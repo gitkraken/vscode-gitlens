@@ -53,7 +53,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 	}
 
 	override onInitialize() {
-		this.log(`onInitialize()`);
+		this.state = this.getState() ?? this.state;
 		this.renderContent();
 	}
 
@@ -117,6 +117,8 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			// 		// }
 
 			// 		this.state = newState;
+			// 		this.setState(this.state);
+
 			// 		this.renderRichContent();
 			// 	});
 			// 	break;
@@ -125,6 +127,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 					assertsSerialized<typeof params.state>(params.state);
 
 					this.state = params.state;
+					this.setState(this.state);
 					this.renderContent();
 				});
 				break;
