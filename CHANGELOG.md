@@ -15,6 +15,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds an _Open Visual File History_ command to the new _File History_ submenu on existing context menus
 - Honors the `git.repositoryScanIgnoredFolders` VS Code setting
 - Allows the _Repositories_ view for virtual repositories
+- Adds new _Commit Graph_ features and improvements
+  - Unlocks columns in the _Commit Graph_ that were previously locked, including the Branch/Tag column, the Graph column, and the Commit Message column, allowing all columns to be rearranged
+  - Column headers now show icons instead of text when their width is sufficiently small
 
 ### Changed
 
@@ -25,7 +28,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Renames the _Commit Changes_ submenu to _Open Changes_
 - Renames _Delete Stash..._ command to _Drop Stash..._ in the _Stashes_ view
 - Removes the commit icon when hiding avatars in the _Commits_ view to allow for a more compact layout
-- Limits Git CodeLens on docker files &mdash; closes [#2153]((https://github.com/gitkraken/vscode-gitlens/issues/2153)
+- Limits Git CodeLens on docker files &mdash; closes [#2153](https://github.com/gitkraken/vscode-gitlens/issues/2153)
+- Shows progress notification for deep links earlier in the process &mdash; closes [#2662](https://github.com/gitkraken/vscode-gitlens/issues/2662)
 
 ### Fixed
 
