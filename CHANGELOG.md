@@ -6,6 +6,44 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds the ability to rename stashes &mdash; closes [#2538](https://github.com/gitkraken/vscode-gitlens/issues/2538)
+  - Adds a new _Rename Stash..._ command to the _Stashes_ view
+- Adds the ability to search stashes when using the commit search via the _Commit Graph_, _Search & Compare_ view, or the _Search Commits_ command
+- Adds support for the _Commit Graph_ over [Visual Studio Live Share](https://visualstudio.microsoft.com/services/live-share/) sessions
+- Adds an _Open Visual File History_ command to the new _File History_ submenu on existing context menus
+- Honors the `git.repositoryScanIgnoredFolders` VS Code setting
+- Allows the _Repositories_ view for virtual repositories
+
+### Changed
+
+- Refines and reorders many of the GitLens context menus and additions to VS Code context menus
+  - Adds a _Share_ submenu to Source Control items
+  - Consolidates existing file history commands into a _File History_ submenu
+  - Consolidates existing "Open on Remote" commands into _Open on Remote (Web)_ submenu
+  - Renames the _Commit Changes_ submenu to _Open Changes_
+- Renames _Delete Stash..._ command to _Drop Stash..._ in the _Stashes_ view
+- Removes the commit icon when hiding avatars in the _Commits_ view to allow for a more compact layout
+- Limits Git CodeLens on docker files &mdash; closes [#2153]((https://github.com/gitkraken/vscode-gitlens/issues/2153)
+
+### Fixed
+
+- Fixes [#2664](https://github.com/gitkraken/vscode-gitlens/issues/2664) - Terminal run Git command can be "corrupted" if there is previous text waiting in the terminal
+- Fixes [#2660](https://github.com/gitkraken/vscode-gitlens/issues/2660) - Commands executed in the terminal fail to honor found Git path
+- Fixes [#2654](https://github.com/gitkraken/vscode-gitlens/issues/2654) - Toggle zen mode not working until you restart vscode
+- Fixes [#2629](https://github.com/gitkraken/vscode-gitlens/issues/2629) - When on VSCode web, add handling for failing repo discovery
+- Fixes many issues with using GitLens over [Visual Studio Live Share](https://visualstudio.microsoft.com/services/live-share/) sessions
+- Fixes mouse scrubbing issues with the minimap on the _Commit Graph_
+- Fixes _Refresh Repository Access_ and _Reset Repository Access Cache_ commands to always be available
+- Fixes state not being restored on the Home webview
+- Fixes getting the oldest unpushed commit when there is more than 1 remote
+- Fixes an issue with the quick input on the _Git Command Palette_ unexpectedly going back to the previous step
+
+### Removed
+
+- Removes "Open Commit on Remote" command from the VS Code Timeline view as it can no longer be supported &mdash; see https://github.com/microsoft/vscode/issues/177319
+
 ## [13.5.0] - 2023-04-07
 
 ### Added
