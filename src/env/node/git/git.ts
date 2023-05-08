@@ -2073,6 +2073,8 @@ export class Git {
 
 		const terminal = ensureGitTerminal();
 		terminal.show(false);
+		// Sends ansi codes to remove any text on the current input line
+		terminal.sendText('\x1b[2K\x1b', false);
 		terminal.sendText(text, options?.execute ?? false);
 	}
 
