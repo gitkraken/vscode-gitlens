@@ -377,6 +377,17 @@ export class GitLabRemote extends RichRemoteProvider {
 		return Promise.resolve(undefined);
 	}
 }
+const gitLabNoReplyAddressRegex = /^(?:(\d+)-)?([a-zA-Z\d-]{1,39})@users\.noreply\.(.*)$/i;
+
+export function getGitLabNoReplyAddressParts(
+	email: string,
+): { userId: string; login: string; authority: string } | undefined {
+	const match = gitLabNoReplyAddressRegex.exec(email);
+	if (match == null) return undefined;
+
+	const [, userId, login, authority] = match;
+	return { userId: userId, login: login, authority: authority };
+}
 
 export class GitLabAuthenticationProvider implements Disposable, IntegrationAuthenticationProvider {
 	private readonly _disposable: Disposable;

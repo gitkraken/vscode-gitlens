@@ -4,6 +4,7 @@ import { GravatarDefaultStyle } from './config';
 import type { StoredAvatar } from './constants';
 import { Container } from './container';
 import { getGitHubNoReplyAddressParts } from './git/remotes/github';
+import { getGitLabNoReplyAddressParts } from './git/remotes/gitlab';
 import { configuration } from './system/configuration';
 import { getContext } from './system/context';
 import { debounce } from './system/function';
@@ -153,7 +154,7 @@ function createOrUpdateAvatar(
 	let avatar = avatarCache!.get(key);
 	if (avatar == null) {
 		avatar = {
-			uri: email != null && email.length !== 0 ? getAvatarUriFromGitHubNoReplyAddress(email, size) : undefined,
+			uri: email != null && email.length !== 0 ? getAvatarUriFromNoReplyAddress(email, size) : undefined,
 			fallback: getAvatarUriFromGravatar(hash, size, defaultStyle),
 			timestamp: 0,
 			retries: 0,
@@ -195,13 +196,24 @@ export function getAvatarUriFromGravatarEmail(email: string, size: number, defau
 	return getAvatarUriFromGravatar(md5(email.trim().toLowerCase()), size, defaultStyle);
 }
 
-function getAvatarUriFromGitHubNoReplyAddress(email: string, size: number = 16): Uri | undefined {
-	const parts = getGitHubNoReplyAddressParts(email);
-	if (parts == null || !equalsIgnoreCase(parts.authority, 'github.com')) return undefined;
+function getAvatarUriFromNoReplyAddress(email: string, size: number = 16): Uri | undefined {
+	const domain = email.split('@')[1];
 
-	return Uri.parse(
-		`https://avatars.githubusercontent.com/${parts.userId ? `u/${parts.userId}` : parts.login}?size=${size}`,
-	);
+	if (domain === 'users.noreply.github.com') {
+		const parts = getGitHubNoReplyAddressParts(email);
+		if (parts == null || !equalsIgnoreCase(parts.authority, 'github.com')) return undefined;
+
+		return Uri.parse(
+			`https://avatars.githubusercontent.com/${parts.userId ? `u/${parts.userId}` : parts.login}?size=${size}`,
+		);
+	} else if (domain === 'users.noreply.gitlab.com') {
+		const parts = getGitLabNoReplyAddressParts(email);
+		if (parts == null || !equalsIgnoreCase(parts.authority, 'gitlab.com')) return undefined;
+
+		return Uri.parse(`https://gitlab.com/uploads/-/system/user/avatar/${parts.userId}/avatar.png?width=${size}`);
+	}
+
+	return undefined;
 }
 
 async function getAvatarUriFromRemoteProvider(
