@@ -182,3 +182,22 @@ export const deepLinkStateTransitionTable: { [state: string]: { [action: string]
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 	},
 };
+
+export interface DeepLinkProgress {
+	message: string;
+	increment: number;
+}
+
+export const deepLinkStateToProgress: { [state: string]: DeepLinkProgress } = {
+	[DeepLinkServiceState.Idle]: { message: 'Done.', increment: 100 },
+	[DeepLinkServiceState.RepoMatch]: { message: 'Finding a matching repository...', increment: 10 },
+	[DeepLinkServiceState.CloneOrAddRepo]: { message: 'Adding repository...', increment: 20 },
+	[DeepLinkServiceState.OpeningRepo]: { message: 'Opening repository...', increment: 30 },
+	[DeepLinkServiceState.AddedRepoMatch]: { message: 'Finding a matching repository...', increment: 40 },
+	[DeepLinkServiceState.RemoteMatch]: { message: 'Finding a matching remote...', increment: 50 },
+	[DeepLinkServiceState.AddRemote]: { message: 'Adding remote...', increment: 60 },
+	[DeepLinkServiceState.TargetMatch]: { message: 'finding a matching target...', increment: 70 },
+	[DeepLinkServiceState.Fetch]: { message: 'Fetching...', increment: 80 },
+	[DeepLinkServiceState.FetchedTargetMatch]: { message: 'Finding a matching target...', increment: 90 },
+	[DeepLinkServiceState.OpenGraph]: { message: 'Opening graph...', increment: 95 },
+};
