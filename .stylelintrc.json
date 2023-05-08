@@ -1,0 +1,19 @@
+{
+	"extends": ["stylelint-config-standard-scss", "stylelint-config-prettier-scss"],
+	"plugins": ["stylelint-order"],
+	"rules": {
+		"alpha-value-notation": "number",
+		"block-no-empty": null,
+		"color-function-notation": "legacy",
+		"custom-property-pattern": null,
+		"font-family-no-missing-generic-family-keyword": [
+			true,
+			{
+				"ignoreFontFamilies": ["codicon", "glicons"]
+			}
+		],
+		"order/order": ["custom-properties", "declarations"],
+		"no-invalid-position-at-import-rule": null,
+		"selector-class-pattern": null
+	}
+}
