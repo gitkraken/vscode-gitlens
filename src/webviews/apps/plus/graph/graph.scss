@@ -234,10 +234,10 @@ button:not([disabled]),
 
 	&__icon {
 		&.is-ahead {
-			color: var(--vscode-gitlens-unpublishedChangesIconColor);
+			color: var(--vscode-gitlens-decorations\.branchAheadForegroundColor);
 		}
 		&.is-behind {
-			color: var(--vscode-gitlens-unpulledChangesIconColor);
+			color: var(--vscode-gitlens-decorations\.branchBehindForegroundColor);
 		}
 		&.is-ahead.is-behind {
 			color: var(--vscode-gitlens-decorations\.branchDivergedForegroundColor);
