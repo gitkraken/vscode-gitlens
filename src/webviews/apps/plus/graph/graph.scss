@@ -232,6 +232,18 @@ button:not([disabled]),
 		width: 1.6rem;
 	}
 
+	&__icon {
+		&.is-ahead {
+			color: var(--vscode-gitlens-unpublishedChangesIconColor);
+		}
+		&.is-behind {
+			color: var(--vscode-gitlens-unpulledChangesIconColor);
+		}
+		&.is-ahead.is-behind {
+			color: var(--vscode-gitlens-decorations\.branchDivergedForegroundColor);
+		}
+	}
+
 	&__more,
 	&__more.codicon[class*='codicon-'] {
 		font-size: 1rem;
