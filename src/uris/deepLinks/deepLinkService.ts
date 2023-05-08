@@ -1,4 +1,4 @@
-import { Disposable, env, ProgressLocation, Uri, window, workspace } from 'vscode';
+import { Disposable, env, EventEmitter, ProgressLocation, Uri, window, workspace } from 'vscode';
 import type { StoredDeepLinkContext } from '../../constants';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
@@ -13,11 +13,12 @@ import { configuration } from '../../system/configuration';
 import { once } from '../../system/event';
 import { Logger } from '../../system/logger';
 import { openWorkspace, OpenWorkspaceLocation } from '../../system/utils';
-import type { DeepLink, DeepLinkServiceContext } from './deepLink';
+import type { DeepLink, DeepLinkProgress, DeepLinkServiceContext } from './deepLink';
 import {
 	DeepLinkRepoOpenType,
 	DeepLinkServiceAction,
 	DeepLinkServiceState,
+	deepLinkStateToProgress,
 	deepLinkStateTransitionTable,
 	DeepLinkType,
 	parseDeepLinkUri,
@@ -27,11 +28,14 @@ import {
 export class DeepLinkService implements Disposable {
 	private readonly _disposables: Disposable[] = [];
 	private _context: DeepLinkServiceContext;
+	private readonly _onDeepLinkProgressUpdated: EventEmitter<DeepLinkProgress>;
 
 	constructor(private readonly container: Container) {
 		this._context = {
 			state: DeepLinkServiceState.Idle,
 		};
+
+		this._onDeepLinkProgressUpdated = new EventEmitter<DeepLinkProgress>();
 
 		this._disposables.push(
 			container.uri.onDidReceiveUri(async (uri: Uri) => {
@@ -219,9 +223,39 @@ export class DeepLinkService implements Disposable {
 		let repoOpenLocation;
 		let repoOpenUri: Uri | undefined = undefined;
 
+		queueMicrotask(
+			() =>
+				void window.withProgress(
+					{
+						cancellable: true,
+						location: ProgressLocation.Notification,
+						title: `Opening repository for link: ${this._context.url}}`,
+					},
+					(progress, token) => {
+						progress.report({ increment: 0 });
+						return new Promise<void>(resolve => {
+							token.onCancellationRequested(() => {
+								queueMicrotask(() => this.processDeepLink(DeepLinkServiceAction.DeepLinkCancelled));
+								resolve();
+							});
+
+							this._disposables.push(
+								this._onDeepLinkProgressUpdated.event(({ message, increment }) => {
+									progress.report({ message: message, increment: increment });
+									if (increment === 100) {
+										resolve();
+									}
+								}),
+							);
+						});
+					},
+				),
+		);
+
 		while (true) {
 			this._context.state = deepLinkStateTransitionTable[this._context.state][action];
 			const { state, repoId, repo, url, remoteUrl, remote, targetSha, targetType } = this._context;
+			this._onDeepLinkProgressUpdated.fire(deepLinkStateToProgress[state]);
 			switch (state) {
 				case DeepLinkServiceState.Idle:
 					if (action === DeepLinkServiceAction.DeepLinkErrored) {
@@ -328,34 +362,10 @@ export class DeepLinkService implements Disposable {
 					break;
 
 				case DeepLinkServiceState.OpeningRepo:
-					queueMicrotask(
-						() =>
-							void window.withProgress(
-								{
-									cancellable: true,
-									location: ProgressLocation.Notification,
-									title: `Opening repository for link: ${url}`,
-								},
-								(progress, token) => {
-									return new Promise<void>(resolve => {
-										token.onCancellationRequested(() => {
-											queueMicrotask(() =>
-												this.processDeepLink(DeepLinkServiceAction.DeepLinkCancelled),
-											);
-											resolve();
-										});
-
-										this._disposables.push(
-											once(this.container.git.onDidChangeRepositories)(() => {
-												queueMicrotask(() =>
-													this.processDeepLink(DeepLinkServiceAction.RepoAdded),
-												);
-												resolve();
-											}),
-										);
-									});
-								},
-							),
+					this._disposables.push(
+						once(this.container.git.onDidChangeRepositories)(() => {
+							queueMicrotask(() => this.processDeepLink(DeepLinkServiceAction.RepoAdded));
+						}),
 					);
 					return;
 
