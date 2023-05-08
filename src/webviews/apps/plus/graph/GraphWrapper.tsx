@@ -1130,7 +1130,11 @@ export function GraphWrapper({
 
 		return (
 			<a href={action} className="action-button" title={tooltip}>
-				<span className={`codicon codicon-${icon} action-button__icon`}></span>
+				<span
+					className={`codicon codicon-${icon} action-button__icon${isBehind ? ' is-behind' : ''}${
+						isAhead ? ' is-ahead' : ''
+					}`}
+				></span>
 				{label}
 				{fetchedText && <span className="action-button__small">(Last fetched {fetchedText})</span>}
 				{(isAhead || isBehind) && (
