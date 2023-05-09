@@ -103,6 +103,66 @@
 					<div class="setting__input">
 						<div class="setting__expander"></div>
 						<input
+							id="menus.editorGutter"
+							name="menus.editorGutter"
+							type="checkbox"
+							value="undefined"
+							data-setting
+							data-setting-type="object"
+							disabled
+						/>
+						<label for="menus.editorGutter">Add to the editor's line number (gutter) context menu</label>
+					</div>
+				</div>
+
+				<div class="settings ml-4">
+					<div class="setting" data-enablement="menus.editorGutter">
+						<div class="setting__input">
+							<input
+								id="menus.editorGutter.share"
+								name="menus.editorGutter.share"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.editorGutter.share">Add a <i>Share</i> submenu</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.editorGutter">
+						<div class="setting__input">
+							<input
+								id="menus.editorGutter.compare"
+								name="menus.editorGutter.compare"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.editorGutter.compare">Add an <i>Open Changes</i> submenu</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.editorGutter">
+						<div class="setting__input">
+							<input
+								id="menus.editorGutter.remote"
+								name="menus.editorGutter.remote"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.editorGutter.remote">Add an <i>Open on Remote (Web)</i> submenu</label>
+						</div>
+					</div>
+				</div>
+
+				<div class="setting setting--expandable" data-enablement="menus">
+					<div class="setting__input">
+						<div class="setting__expander"></div>
+						<input
 							id="menus.editorTab"
 							name="menus.editorTab"
 							type="checkbox"

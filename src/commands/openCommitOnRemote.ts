@@ -19,6 +19,7 @@ import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenCommitOnRemoteCommandArgs {
 	clipboard?: boolean;
+	line?: number;
 	sha?: string;
 }
 
@@ -37,6 +38,10 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 
 	protected override preExecute(context: CommandContext, args?: OpenCommitOnRemoteCommandArgs) {
 		let uri = context.uri;
+
+		if (context.type === 'editorLine') {
+			args = { ...args, line: context.line };
+		}
 
 		if (isCommandContextViewNodeHasCommit(context)) {
 			if (context.node.commit.isUncommitted) return Promise.resolve(undefined);
@@ -79,10 +84,10 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 
 		try {
 			if (args.sha == null) {
-				const blameline = editor == null ? 0 : editor.selection.active.line;
-				if (blameline < 0) return;
+				const blameLine = args.line ?? editor?.selection.active.line;
+				if (blameLine == null) return;
 
-				const blame = await this.container.git.getBlameForLine(gitUri, blameline, editor?.document);
+				const blame = await this.container.git.getBlameForLine(gitUri, blameLine, editor?.document);
 				if (blame == null) {
 					void showFileNotUnderSourceControlWarningMessage('Unable to open commit on remote provider');
 
