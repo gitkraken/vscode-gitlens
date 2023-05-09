@@ -89,7 +89,7 @@ export class OpenOnRemoteCommand extends Command {
 			let placeHolder = `Choose which remote to ${args.clipboard ? 'copy the link for' : 'open on'}`;
 
 			function getTitlePrefix(type: string): string {
-				return args?.clipboard ? `Copy Link to ${type} for ${provider}` : `Open Branch on ${provider}`;
+				return args?.clipboard ? `Copy Link to ${type} for ${provider}` : `Open ${type} on ${provider}`;
 			}
 
 			switch (args.resource.type) {
