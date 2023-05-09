@@ -482,6 +482,13 @@ export interface MenuConfig {
 				blame: boolean;
 				compare: boolean;
 		  };
+	editorGutter:
+		| false
+		| {
+				compare: boolean;
+				remote: boolean;
+				share: boolean;
+		  };
 	editorTab:
 		| false
 		| {

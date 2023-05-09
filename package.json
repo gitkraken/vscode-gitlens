@@ -2827,6 +2827,29 @@
 											}
 										]
 									},
+									"editorGutter": {
+										"anyOf": [
+											{
+												"enum": [
+													false
+												]
+											},
+											{
+												"type": "object",
+												"properties": {
+													"compare": {
+														"type": "boolean"
+													},
+													"remote": {
+														"type": "boolean"
+													},
+													"share": {
+														"type": "boolean"
+													}
+												}
+											}
+										]
+									},
 									"editorTab": {
 										"anyOf": [
 											{
@@ -3057,6 +3080,11 @@
 							"editorGroup": {
 								"blame": true,
 								"compare": true
+							},
+							"editorGutter": {
+								"compare": true,
+								"remote": true,
+								"share": true
 							},
 							"editorTab": {
 								"clipboard": true,
@@ -4840,6 +4868,12 @@
 				"icon": "$(eye)"
 			},
 			{
+				"command": "gitlens.showLineCommitInView",
+				"title": "Open Line Commit Details",
+				"category": "GitLens",
+				"icon": "$(eye)"
+			},
+			{
 				"command": "gitlens.showInDetailsView",
 				"title": "Open Details",
 				"category": "GitLens",
@@ -4867,12 +4901,12 @@
 			},
 			{
 				"command": "gitlens.showQuickCommitDetails",
-				"title": "Show Commit",
+				"title": "Quick Show Commit",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showQuickCommitFileDetails",
-				"title": "Show Line Commit",
+				"title": "Quick Show Line Commit",
 				"category": "GitLens"
 			},
 			{
@@ -7737,6 +7771,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.showLineCommitInView",
+					"when": "gitlens:activeFileStatus =~ /blameable/"
+				},
+				{
 					"command": "gitlens.showQuickCommitFileDetails",
 					"when": "gitlens:activeFileStatus =~ /blameable/"
 				},
@@ -9325,6 +9363,23 @@
 				{
 					"command": "gitlens.copyMessageToClipboard",
 					"when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard && resourceScheme != output",
+					"group": "3_gitlens@2"
+				}
+			],
+			"editor/lineNumber/context": [
+				{
+					"submenu": "gitlens/editor/lineNumber/context/share",
+					"when": "gitlens:hasRemotes && config.gitlens.menus.editorGutter.share && resourceScheme != output",
+					"group": "2_gitlens@2"
+				},
+				{
+					"submenu": "gitlens/editor/lineNumber/context/changes",
+					"when": "config.gitlens.menus.editorGutter.compare && resourceScheme != output",
+					"group": "3_gitlens@1"
+				},
+				{
+					"submenu": "gitlens/editor/lineNumber/context/openOn",
+					"when": "gitlens:hasRemotes && config.gitlens.menus.editorGutter.remote && resourceScheme != output",
 					"group": "3_gitlens@2"
 				}
 			],
@@ -12428,8 +12483,12 @@
 					"group": "2_gitlens@4"
 				},
 				{
-					"command": "gitlens.showQuickCommitFileDetails",
+					"command": "gitlens.showLineCommitInView",
 					"group": "3_gitlens@1"
+				},
+				{
+					"command": "gitlens.showQuickCommitFileDetails",
+					"group": "3_gitlens@2"
 				},
 				{
 					"command": "gitlens.showQuickRevisionDetails",
@@ -12507,6 +12566,55 @@
 					"command": "gitlens.openFileOnRemoteFrom",
 					"group": "1_gitlens@2",
 					"alt": "gitlens.copyRemoteFileUrlFrom"
+				}
+			],
+			"gitlens/editor/lineNumber/context/changes": [
+				{
+					"command": "gitlens.diffLineWithPrevious",
+					"group": "1_gitlens@1"
+				},
+				{
+					"command": "gitlens.diffLineWithWorking",
+					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.showLineCommitInView",
+					"group": "3_gitlens@1"
+				},
+				{
+					"command": "gitlens.showQuickCommitFileDetails",
+					"group": "3_gitlens@2"
+				}
+			],
+			"gitlens/editor/lineNumber/context/openOn": [
+				{
+					"command": "gitlens.openFileOnRemote",
+					"group": "1_gitlens@2",
+					"alt": "gitlens.copyRemoteFileUrlToClipboard"
+				},
+				{
+					"command": "gitlens.openFileOnRemoteFrom",
+					"group": "1_gitlens@3",
+					"alt": "gitlens.copyRemoteFileUrlFrom"
+				},
+				{
+					"command": "gitlens.openCommitOnRemote",
+					"group": "1_gitlens_commit@1",
+					"alt": "gitlens.copyRemoteCommitUrl"
+				}
+			],
+			"gitlens/editor/lineNumber/context/share": [
+				{
+					"command": "gitlens.copyRemoteFileUrlToClipboard",
+					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.copyRemoteFileUrlFrom",
+					"group": "1_gitlens@3"
+				},
+				{
+					"command": "gitlens.copyRemoteCommitUrl",
+					"group": "1_gitlens_commit@1"
 				}
 			],
 			"gitlens/explorer/changes": [
@@ -12828,6 +12936,18 @@
 			{
 				"id": "gitlens/editor/openOn",
 				"label": "Open on Remote (Web)"
+			},
+			{
+				"id": "gitlens/editor/lineNumber/context/changes",
+				"label": "Open Changes"
+			},
+			{
+				"id": "gitlens/editor/lineNumber/context/openOn",
+				"label": "Open on Remote (Web)"
+			},
+			{
+				"id": "gitlens/editor/lineNumber/context/share",
+				"label": "Share"
 			},
 			{
 				"id": "gitlens/explorer/changes",

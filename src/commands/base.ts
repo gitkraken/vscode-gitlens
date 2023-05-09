@@ -40,6 +40,12 @@ export interface CommandBaseContext {
 	uri?: Uri;
 }
 
+export interface CommandEditorLineContext extends CommandBaseContext {
+	readonly type: 'editorLine';
+	readonly line: number;
+	readonly uri: Uri;
+}
+
 export interface CommandGitTimelineItemContext extends CommandBaseContext {
 	readonly type: 'timeline-item:git';
 	readonly item: GitTimelineItem;
@@ -87,6 +93,10 @@ export interface CommandViewNodesContext extends CommandBaseContext {
 	readonly type: 'viewItems';
 	readonly node: ViewNode;
 	readonly nodes: ViewNode[];
+}
+
+export function isCommandContextEditorLine(context: CommandContext): context is CommandEditorLineContext {
+	return context.type === 'editorLine';
 }
 
 export function isCommandContextGitTimelineItem(context: CommandContext): context is CommandGitTimelineItemContext {
@@ -188,6 +198,7 @@ export function isCommandContextViewNodeHasTag(
 }
 
 export type CommandContext =
+	| CommandEditorLineContext
 	| CommandGitTimelineItemContext
 	| CommandScmContext
 	| CommandScmGroupsContext
@@ -333,6 +344,20 @@ export function parseCommandContext(
 
 			args = args.slice(1);
 		} else if (editor == null) {
+			if (firstArg != null && typeof firstArg === 'object' && 'lineNumber' in firstArg && 'uri' in firstArg) {
+				const [, ...rest] = args;
+				return [
+					{
+						command: command,
+						type: 'editorLine',
+						editor: undefined,
+						line: firstArg.lineNumber - 1, // convert to zero-based
+						uri: firstArg.uri,
+					},
+					rest,
+				];
+			}
+
 			// If we are expecting an editor and we have no uri, then pass the active editor
 			editor = window.activeTextEditor;
 		}

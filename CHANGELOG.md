@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds new _Commit Graph_ features and improvements
   - Unlocks columns in the _Commit Graph_ that were previously locked, including the Branch/Tag column, the Graph column, and the Commit Message column, allowing all columns to be rearranged
   - Column headers now show icons instead of text when their width is sufficiently small
+- Adds _Share_, _Open Changes_, and _Open on Remote (Web)_ submenus to the new editor line numbers (gutter) context menu
+- Adds an _Open Line Commit Details_ command to the _Open Changes_ submenus on editor context menus
 
 ### Changed
 
@@ -26,6 +28,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Consolidates existing file history commands into a _File History_ submenu
   - Consolidates existing "Open on Remote" commands into _Open on Remote (Web)_ submenu
   - Renames the _Commit Changes_ submenu to _Open Changes_
+  - Renames _Show Commit_ command to _Quick Show Commit_ and _Show Line Commit_ command to _Quick Show Line Commit_ for better clarity as it opens a quick pick menu
 - Renames _Delete Stash..._ command to _Drop Stash..._ in the _Stashes_ view
 - Removes the commit icon when hiding avatars in the _Commits_ view to allow for a more compact layout
 - Limits Git CodeLens on docker files &mdash; closes [#2153](https://github.com/gitkraken/vscode-gitlens/issues/2153)
