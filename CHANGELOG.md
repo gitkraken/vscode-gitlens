@@ -33,6 +33,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Removes the commit icon when hiding avatars in the _Commits_ view to allow for a more compact layout
 - Limits Git CodeLens on docker files &mdash; closes [#2153](https://github.com/gitkraken/vscode-gitlens/issues/2153)
 - Shows progress notification for deep links earlier in the process &mdash; closes [#2662](https://github.com/gitkraken/vscode-gitlens/issues/2662)
+- Changes the _Fetch_ action in the _Commit Graph_ to _Push_ or _Pull_ depending the current branch being ahead or behind it's upstream
 
 ### Fixed
 
@@ -46,6 +47,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes state not being restored on the Home webview
 - Fixes getting the oldest unpushed commit when there is more than 1 remote
 - Fixes an issue with the quick input on the _Git Command Palette_ unexpectedly going back to the previous step
+- Fixes GitLens access tooltip not being visible when hovering in the _Commit Graph_
 
 ### Removed
 
