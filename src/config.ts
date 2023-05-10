@@ -735,7 +735,6 @@ export interface ContributorsViewConfig {
 
 export interface FileHistoryViewConfig {
 	avatars: boolean;
-	files: ViewsFilesConfig;
 }
 
 export interface LineHistoryViewConfig {
@@ -821,6 +820,7 @@ export interface WorktreesViewConfig {
 
 export interface ViewsFilesConfig {
 	compact: boolean;
+	icon: 'status' | 'type';
 	layout: ViewFilesLayout;
 	threshold: number;
 }

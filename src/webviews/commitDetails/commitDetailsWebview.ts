@@ -599,6 +599,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			this._context.preferences?.dismissed === preferences.dismissed &&
 			this._context.preferences?.files === preferences.files &&
 			this._context.preferences?.files?.compact === preferences.files?.compact &&
+			this._context.preferences?.files?.icon === preferences.files?.icon &&
 			this._context.preferences?.files?.layout === preferences.files?.layout &&
 			this._context.preferences?.files?.threshold === preferences.files?.threshold
 		) {
@@ -637,6 +638,9 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		if (preferences.files != null && this._context.preferences?.files !== preferences.files) {
 			if (this._context.preferences?.files?.compact !== preferences.files?.compact) {
 				void configuration.updateEffective('views.commitDetails.files.compact', preferences.files?.compact);
+			}
+			if (this._context.preferences?.files?.icon !== preferences.files?.icon) {
+				void configuration.updateEffective('views.commitDetails.files.icon', preferences.files?.icon);
 			}
 			if (this._context.preferences?.files?.layout !== preferences.files?.layout) {
 				void configuration.updateEffective('views.commitDetails.files.layout', preferences.files?.layout);

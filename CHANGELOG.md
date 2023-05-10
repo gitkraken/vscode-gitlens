@@ -35,6 +35,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Moves _Open \* on Remote_ commands into _Open on Remote (Web)_ submenu
   - Renames the _Commit Changes_ submenu to _Open Changes_
   - Renames _Show Commit_ command to _Quick Show Commit_ and _Show Line Commit_ command to _Quick Show Line Commit_ for better clarity as it opens a quick pick menu
+- Changes the file icons shown in many GitLens views to use the file type's theme icon (by default) rather than the status icon
+  - Adds a `gitlens.views.commits.files.icon` setting to specify how the _Commits_ view will display file icons
+  - Adds a `gitlens.views.repositories.files.icon` setting to specify how the _Repositories_ view will display file icons
+  - Adds a `gitlens.views.branches.files.icon` setting to specify how the _Branches_ view will display file icons
+  - Adds a `gitlens.views.remotes.files.icon` setting to specify how the _Remotes_ view will display file icons
+  - Adds a `gitlens.views.stashes.files.icon` setting to specify how the _Stashes_ view will display file icons
+  - Adds a `gitlens.views.tags.files.icon` setting to specify how the _Tags_ view will display file icons
+  - Adds a `gitlens.views.worktrees.files.icon` setting to specify how the _Worktrees_ view will display file icons
+  - Adds a `gitlens.views.contributors.files.icon` setting to specify how the _Contributors_ view will display file icons
+  - Adds a `gitlens.views.searchAndCompare.files.icon` setting to specify how the _Search & Compare_ view will display file icons
 - Renames _Delete Stash..._ command to _Drop Stash..._ in the _Stashes_ view
 - Removes the commit icon when hiding avatars in the _Commits_ view to allow for a more compact layout
 - Limits Git CodeLens on docker files &mdash; closes [#2153](https://github.com/gitkraken/vscode-gitlens/issues/2153)

@@ -1,7 +1,7 @@
 import type { Command, Selection } from 'vscode';
 import { MarkdownString, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
-import { Commands } from '../../constants';
+import { Commands, Schemes } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
@@ -10,12 +10,14 @@ import type { GitFile } from '../../git/models/file';
 import { getGitFileStatusIcon } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { joinPaths, relativeDir } from '../../system/path';
-import type { FileHistoryView } from '../fileHistoryView';
-import type { View, ViewsWithCommits } from '../viewBase';
+import type { StashesView } from '../stashesView';
+import type { ViewsWithCommits } from '../viewBase';
 import type { ViewNode } from './viewNode';
 import { ContextValues, ViewRefFileNode } from './viewNode';
 
-export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryView> extends ViewRefFileNode<TView> {
+export class CommitFileNode<
+	TView extends ViewsWithCommits | StashesView = ViewsWithCommits | StashesView,
+> extends ViewRefFileNode<TView> {
 	static key = ':file';
 	static getId(parent: ViewNode, path: string): string {
 		return `${parent.id}${this.key}(${path})`;
@@ -76,15 +78,27 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 		item.id = this.id;
 		item.contextValue = this.contextValue;
 		item.description = this.description;
-		item.resourceUri = Uri.parse(`gitlens-view://commit-file/status/${this.file.status}`);
+		if (this.view.config.files.icon === 'type') {
+			item.resourceUri = Uri.from({
+				scheme: Schemes.Git,
+				authority: 'gitlens-view',
+				path: this.uri.path,
+				query: JSON.stringify({
+					// Ensure we use the fsPath here, otherwise the url won't open properly
+					path: this.uri.fsPath,
+					ref: this.uri.sha,
+					decoration: `gitlens-view://commit-file/status/${this.file.status}`,
+				}),
+			});
+		} else {
+			item.resourceUri = Uri.parse(`gitlens-view://commit-file/status/${this.file.status}`);
+			const icon = getGitFileStatusIcon(this.file.status);
+			item.iconPath = {
+				dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon)),
+				light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon)),
+			};
+		}
 		item.tooltip = this.tooltip;
-
-		const icon = getGitFileStatusIcon(this.file.status);
-		item.iconPath = {
-			dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon)),
-			light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon)),
-		};
-
 		item.command = this.getCommand();
 
 		// Only cache the label for a single refresh (its only cached because it is used externally for sorting)

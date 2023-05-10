@@ -1,5 +1,6 @@
 import { Uri } from 'vscode';
 import { decodeUtf8Hex, encodeUtf8Hex } from '@env/hex';
+import { getQueryDataFromScmGitUri } from '../@types/vscode.git.uri';
 import { Schemes } from '../constants';
 import { Container } from '../container';
 import type { GitHubAuthorityMetadata } from '../plus/remotehub';
@@ -253,11 +254,7 @@ export class GitUri extends (Uri as any as UriEx) {
 
 		// If this is a git uri, find its repoPath
 		if (uri.scheme === Schemes.Git) {
-			let data: { path: string; ref: string } | undefined;
-			try {
-				data = JSON.parse(uri.query);
-			} catch {}
-
+			const data = getQueryDataFromScmGitUri(uri);
 			if (data?.path) {
 				const repository = await Container.instance.git.getOrOpenRepository(Uri.file(data.path));
 				if (repository == null) {

@@ -71,6 +71,8 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 	private _children: (PullRequestNode | FileNode)[] | undefined;
 
 	async getChildren(): Promise<ViewNode[]> {
+		if (this.view instanceof FileHistoryView) return [];
+
 		if (this._children == null) {
 			const commit = this.commit;
 
@@ -80,7 +82,6 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 
 			if (
 				!(this.view instanceof TagsView) &&
-				!(this.view instanceof FileHistoryView) &&
 				!this.unpublished &&
 				getContext('gitlens:hasConnectedRemotes') &&
 				this.view.config.pullRequests.enabled &&

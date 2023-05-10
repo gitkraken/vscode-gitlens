@@ -1,7 +1,8 @@
-import type { CancellationToken, Event, FileDecoration, FileDecorationProvider, Uri } from 'vscode';
-import { Disposable, EventEmitter, ThemeColor, window } from 'vscode';
+import type { CancellationToken, Event, FileDecoration, FileDecorationProvider } from 'vscode';
+import { Disposable, EventEmitter, ThemeColor, Uri, window } from 'vscode';
+import { getQueryDataFromScmGitUri } from '../@types/vscode.git.uri';
 import type { Colors } from '../constants';
-import { GlyphChars } from '../constants';
+import { GlyphChars, Schemes } from '../constants';
 import { GitBranchStatus } from '../git/models/branch';
 
 export class ViewFileDecorationProvider implements FileDecorationProvider, Disposable {
@@ -38,6 +39,12 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 	}
 
 	provideFileDecoration(uri: Uri, token: CancellationToken): FileDecoration | undefined {
+		if (uri.scheme === Schemes.Git) {
+			const data = getQueryDataFromScmGitUri(uri);
+			if (data?.decoration != null) {
+				uri = Uri.parse(data?.decoration);
+			}
+		}
 		if (uri.scheme !== 'gitlens-view') return undefined;
 
 		switch (uri.authority) {
@@ -87,6 +94,8 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 			case 'M':
 				return {
 					badge: 'M',
+					// Commented out until we can control the color to only apply to the badge, as the color is applied to the entire decoration and its too much
+					// https://github.com/microsoft/vscode/issues/182098
 					// color: new ThemeColor('gitlens.decorations.modifiedForegroundColor' satisfies Colors),
 					tooltip: 'Modified',
 				};

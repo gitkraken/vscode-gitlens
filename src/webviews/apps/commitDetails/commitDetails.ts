@@ -193,6 +193,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			layout: layout ?? ViewFilesLayout.Auto,
 			compact: this.state.preferences?.files?.compact ?? true,
 			threshold: this.state.preferences?.files?.threshold ?? 5,
+			icon: this.state.preferences?.files?.icon ?? 'type',
 		};
 
 		this.state.preferences = {
