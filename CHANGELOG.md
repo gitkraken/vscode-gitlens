@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Column headers now show icons instead of text when their width is sufficiently small
 - Adds _Share_, _Open Changes_, and _Open on Remote (Web)_ submenus to the new editor line numbers (gutter) context menu
 - Adds an _Open Line Commit Details_ command to the _Open Changes_ submenus on editor context menus
+- Adds an _Open Changes_ submenu to the row context menu on the _Commit Graph_
 
 ### Changed
 

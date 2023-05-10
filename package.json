@@ -7047,6 +7047,26 @@
 				"icon": "$(gitlens-compare-ref-working)"
 			},
 			{
+				"command": "gitlens.graph.openChangedFiles",
+				"title": "Open Files",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.openChangedFileDiffs",
+				"title": "Open All Changes",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.openChangedFileDiffsWithWorking",
+				"title": "Open All Changes with Working Tree",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.openChangedFileRevisions",
+				"title": "Open Files at Revision",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.graph.addAuthor",
 				"title": "Add as Co-author",
 				"category": "GitLens",
@@ -9223,6 +9243,22 @@
 				},
 				{
 					"command": "gitlens.graph.compareWithWorking",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.openChangedFiles",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.openChangedFileDiffs",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.openChangedFileDiffsWithWorking",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.openChangedFileRevisions",
 					"when": "false"
 				},
 				{
@@ -11921,6 +11957,11 @@
 					"group": "1_gitlens_actions_1@2"
 				},
 				{
+					"submenu": "gitlens/graph/commit/changes",
+					"when": "webviewItem =~ /gitlens:(commit|stash|wip)\\b/",
+					"group": "2_gitlens_quickopen@1"
+				},
+				{
 					"command": "gitlens.graph.showInDetailsView",
 					"when": "webviewItem =~ /gitlens:(commit|stash|wip)\\b/",
 					"group": "3_gitlens_explore@0"
@@ -12299,6 +12340,25 @@
 					"command": "gitlens.views.openChangedFileRevisions",
 					"when": "viewItem =~ /gitlens:(commit|stash|results:files)\\b/",
 					"group": "2_gitlens_quickopen_1@2"
+				}
+			],
+			"gitlens/graph/commit/changes": [
+				{
+					"command": "gitlens.graph.openChangedFileDiffs",
+					"group": "1_gitlens@1"
+				},
+				{
+					"command": "gitlens.graph.openChangedFileDiffsWithWorking",
+					"when": "webviewItem != gitlens:wip",
+					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.graph.openChangedFiles",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.graph.openChangedFileRevisions",
+					"group": "2_gitlens@2"
 				}
 			],
 			"gitlens/commit/file/commit": [
@@ -12901,8 +12961,8 @@
 				"label": "Open Changes"
 			},
 			{
-				"id": "gitlens/commit/file/copy",
-				"label": "Copy As"
+				"id": "gitlens/graph/commit/changes",
+				"label": "Open Changes"
 			},
 			{
 				"id": "gitlens/commit/file/commit",
