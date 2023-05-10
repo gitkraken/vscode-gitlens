@@ -4,7 +4,6 @@ import { ViewFilesLayout } from '../../config';
 import { GitUri } from '../../git/gitUri';
 import type { HierarchicalItem } from '../../system/array';
 import { sortCompare } from '../../system/string';
-import type { FileHistoryView } from '../fileHistoryView';
 import type { StashesView } from '../stashesView';
 import type { ViewsWithCommits } from '../viewBase';
 import type { ViewFileNode } from './viewNode';
@@ -20,7 +19,7 @@ export interface FileNode extends ViewFileNode {
 	// root?: HierarchicalItem<FileNode>;
 }
 
-export class FolderNode extends ViewNode<ViewsWithCommits | FileHistoryView | StashesView> {
+export class FolderNode extends ViewNode<ViewsWithCommits | StashesView> {
 	static key = ':folder';
 	static getId(parent: ViewNode, path: string): string {
 		return `${parent.id}${this.key}(${path})`;
@@ -29,7 +28,7 @@ export class FolderNode extends ViewNode<ViewsWithCommits | FileHistoryView | St
 	readonly priority: number = 1;
 
 	constructor(
-		view: ViewsWithCommits | FileHistoryView | StashesView,
+		view: ViewsWithCommits | StashesView,
 		protected override parent: ViewNode,
 		public readonly repoPath: string,
 		public readonly folderName: string,
