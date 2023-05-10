@@ -18,7 +18,13 @@ import type { Container } from '../../../container';
 import type { CommitSelectedEvent } from '../../../eventBus';
 import { PlusFeatures } from '../../../features';
 import * as BranchActions from '../../../git/actions/branch';
-import { showGraphDetailsView } from '../../../git/actions/commit';
+import {
+	openAllChanges,
+	openAllChangesWithWorking,
+	openFiles,
+	openFilesAtRevision,
+	showGraphDetailsView,
+} from '../../../git/actions/commit';
 import * as ContributorActions from '../../../git/actions/contributor';
 import * as RepoActions from '../../../git/actions/repository';
 import * as StashActions from '../../../git/actions/stash';
@@ -26,6 +32,7 @@ import * as TagActions from '../../../git/actions/tag';
 import * as WorktreeActions from '../../../git/actions/worktree';
 import { GitSearchError } from '../../../git/errors';
 import { getBranchId, getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '../../../git/models/branch';
+import type { GitCommit } from '../../../git/models/commit';
 import { uncommitted } from '../../../git/models/constants';
 import { GitContributor } from '../../../git/models/contributor';
 import type { GitGraph } from '../../../git/models/graph';
@@ -396,6 +403,11 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			registerCommand('gitlens.graph.copyDeepLinkToCommit', this.copyDeepLinkToCommit, this),
 			registerCommand('gitlens.graph.copyDeepLinkToRepo', this.copyDeepLinkToRepo, this),
 			registerCommand('gitlens.graph.copyDeepLinkToTag', this.copyDeepLinkToTag, this),
+
+			registerCommand('gitlens.graph.openChangedFiles', this.openFiles, this),
+			registerCommand('gitlens.graph.openChangedFileDiffs', this.openAllChanges, this),
+			registerCommand('gitlens.graph.openChangedFileDiffsWithWorking', this.openAllChangesWithWorking, this),
+			registerCommand('gitlens.graph.openChangedFileRevisions', this.openRevisions, this),
 		];
 	}
 
@@ -2447,6 +2459,38 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 	}
 
 	@debug()
+	private async openFiles(item?: GraphItemContext) {
+		const commit = await this.getCommitFromGraphItemRef(item);
+		if (commit == null) return;
+
+		return openFiles(commit);
+	}
+
+	@debug()
+	private async openAllChanges(item?: GraphItemContext) {
+		const commit = await this.getCommitFromGraphItemRef(item);
+		if (commit == null) return;
+
+		return openAllChanges(commit);
+	}
+
+	@debug()
+	private async openAllChangesWithWorking(item?: GraphItemContext) {
+		const commit = await this.getCommitFromGraphItemRef(item);
+		if (commit == null) return;
+
+		return openAllChangesWithWorking(commit);
+	}
+
+	@debug()
+	private async openRevisions(item?: GraphItemContext) {
+		const commit = await this.getCommitFromGraphItemRef(item);
+		if (commit == null) return;
+
+		return openFilesAtRevision(commit);
+	}
+
+	@debug()
 	private addAuthor(item?: GraphItemContext) {
 		if (isGraphItemTypedContext(item, 'contributor')) {
 			const { repoPath, name, email, current } = item.webviewItemValue;
@@ -2493,6 +2537,16 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		await this.container.storage.storeWorkspace('graph:columns', columns);
 
 		void this.notifyDidChangeColumns();
+	}
+
+	private getCommitFromGraphItemRef(item?: GraphItemContext): Promise<GitCommit | undefined> {
+		let ref: GitRevisionReference | GitStashReference | undefined = this.getGraphItemRef(item, 'revision');
+		if (ref != null) return this.container.git.getCommit(ref.repoPath, ref.ref);
+
+		ref = this.getGraphItemRef(item, 'stash');
+		if (ref != null) return this.container.git.getCommit(ref.repoPath, ref.ref);
+
+		return Promise.resolve(undefined);
 	}
 
 	private getGraphItemRef(item?: GraphItemContext | unknown | undefined): GitReference | undefined;
