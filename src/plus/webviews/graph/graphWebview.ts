@@ -1563,24 +1563,20 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		// All currently used ones are listed here.
 		const validColumns = ['author', 'changes', 'datetime', 'graph', 'message', 'ref', 'sha'];
 
-		let onlyVisibleColumn: string | undefined;
+		let visibleColumns = 0;
 		for (const [name, settings] of Object.entries(columnSettings)) {
 			if (!validColumns.includes(name)) continue;
-			if (settings.isHidden) {
-				contextItems.push(`hidden:${name}`);
-			} else if (onlyVisibleColumn == null) {
-				onlyVisibleColumn = name;
-			} else {
-				onlyVisibleColumn = undefined;
-			}
 
-			if (settings.mode) {
-				contextItems.push(`${settings.mode}:${name}`);
+			if (!settings.isHidden) {
+				visibleColumns++;
 			}
+			contextItems.push(
+				`${name}:${settings.isHidden ? 'hidden' : 'visible'}${settings.mode ? `+${settings.mode}` : ''}`,
+			);
 		}
 
-		if (onlyVisibleColumn != null) {
-			contextItems.push(`only:${onlyVisibleColumn}`);
+		if (visibleColumns > 1) {
+			contextItems.push('columns:canHide');
 		}
 
 		return serializeWebviewItemContext<GraphItemContext>({

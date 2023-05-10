@@ -7066,7 +7066,8 @@
 			{
 				"command": "gitlens.graph.columnAuthorOff",
 				"title": "Hide Author Column",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "webviewItemValue =~ /\\bcolumns:canHide\\b/"
 			},
 			{
 				"command": "gitlens.graph.columnDateTimeOn",
@@ -7076,7 +7077,8 @@
 			{
 				"command": "gitlens.graph.columnDateTimeOff",
 				"title": "Hide Date Column",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "webviewItemValue =~ /\\bcolumns:canHide\\b/"
 			},
 			{
 				"command": "gitlens.graph.columnShaOn",
@@ -7086,7 +7088,8 @@
 			{
 				"command": "gitlens.graph.columnShaOff",
 				"title": "Hide SHA Column",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "webviewItemValue =~ /\\bcolumns:canHide\\b/"
 			},
 			{
 				"command": "gitlens.graph.columnChangesOn",
@@ -7096,7 +7099,8 @@
 			{
 				"command": "gitlens.graph.columnChangesOff",
 				"title": "Hide Changes Column",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "webviewItemValue =~ /\\bcolumns:canHide\\b/"
 			},
 			{
 				"command": "gitlens.graph.columnGraphOn",
@@ -7106,7 +7110,8 @@
 			{
 				"command": "gitlens.graph.columnGraphOff",
 				"title": "Hide Graph Column",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "webviewItemValue =~ /\\bcolumns:canHide\\b/"
 			},
 			{
 				"command": "gitlens.graph.columnMessageOn",
@@ -7116,7 +7121,8 @@
 			{
 				"command": "gitlens.graph.columnMessageOff",
 				"title": "Hide Commit Message Column",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "webviewItemValue =~ /\\bcolumns:canHide\\b/"
 			},
 			{
 				"command": "gitlens.graph.columnRefOn",
@@ -7126,7 +7132,8 @@
 			{
 				"command": "gitlens.graph.columnRefOff",
 				"title": "Hide Branch / Tag Column",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "webviewItemValue =~ /\\bcolumns:canHide\\b/"
 			},
 			{
 				"command": "gitlens.graph.columnGraphCompact",
@@ -12031,82 +12038,82 @@
 				},
 				{
 					"command": "gitlens.graph.columnAuthorOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bhidden:author\\b/",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bauthor:hidden\\b/",
 					"group": "1_columns@1"
 				},
 				{
 					"command": "gitlens.graph.columnAuthorOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\b(hidden|only):author\\b).)*$/",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bauthor:visible\\b/",
 					"group": "1_columns@1"
 				},
 				{
 					"command": "gitlens.graph.columnRefOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bhidden:ref\\b/",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bref:hidden\\b/",
 					"group": "1_columns@2"
 				},
 				{
 					"command": "gitlens.graph.columnRefOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\b(hidden|only):ref\\b).)*$/",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bref:visible\\b/",
 					"group": "1_columns@2"
 				},
 				{
 					"command": "gitlens.graph.columnChangesOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bhidden:changes\\b/",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bchanges:hidden\\b/",
 					"group": "1_columns@3"
 				},
 				{
 					"command": "gitlens.graph.columnChangesOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\b(hidden|only):changes\\b).)*$/",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bchanges:visible\\b/",
 					"group": "1_columns@3"
 				},
 				{
 					"command": "gitlens.graph.columnMessageOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bhidden:message\\b/",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bmessage:hidden\\b/",
 					"group": "1_columns@4"
 				},
 				{
 					"command": "gitlens.graph.columnMessageOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\b(hidden|only):message\\b).)*$/",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bmessage:visible\\b/",
 					"group": "1_columns@4"
 				},
 				{
 					"command": "gitlens.graph.columnDateTimeOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bhidden:datetime\\b/",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bdatetime:hidden\\b/",
 					"group": "1_columns@5"
 				},
 				{
 					"command": "gitlens.graph.columnDateTimeOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\b(hidden|only):datetime\\b).)*$/",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bdatetime:visible\\b/",
 					"group": "1_columns@5"
 				},
 				{
 					"command": "gitlens.graph.columnGraphOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bhidden:graph\\b/",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bgraph:hidden\\b/",
 					"group": "1_columns@6"
 				},
 				{
 					"command": "gitlens.graph.columnGraphOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\b(hidden|only):graph\\b).)*$/",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bgraph:visible\\b/",
 					"group": "1_columns@6"
 				},
 				{
 					"command": "gitlens.graph.columnShaOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bhidden:sha\\b/",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bsha:hidden\\b/",
 					"group": "1_columns@7"
 				},
 				{
 					"command": "gitlens.graph.columnShaOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\b(hidden|only):sha\\b).)*$/",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bsha:visible\\b/",
 					"group": "1_columns@7"
 				},
 				{
 					"command": "gitlens.graph.columnGraphDefault",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bcompact:graph\\b/",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bgraph:visible[^,]*\\+compact\\b/",
 					"group": "2_columns@1"
 				},
 				{
 					"command": "gitlens.graph.columnGraphCompact",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /^(?:(?!\\bcompact:graph\\b).)*$/",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bgraph:visible(?![^,]*\\+compact\\b)/",
 					"group": "2_columns@1"
 				}
 			],
