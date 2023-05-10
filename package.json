@@ -10893,9 +10893,24 @@
 					"group": "7_gitlens_a_share@1"
 				},
 				{
+					"command": "gitlens.copyRelativePathToClipboard",
+					"when": "viewItem =~ /gitlens:file\\b/",
+					"group": "7_gitlens_cutcopypaste@2"
+				},
+				{
+					"command": "gitlens.copyShaToClipboard",
+					"when": "(viewItem =~ /gitlens:commit\\b/) || (viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /gitlens\\.views\\.(file|line)History/)",
+					"group": "7_gitlens_cutcopypaste@3"
+				},
+				{
+					"command": "gitlens.copyMessageToClipboard",
+					"when": "(viewItem =~ /gitlens:(commit|stash)\\b/) || (viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /gitlens\\.views\\.(file|line)History/)",
+					"group": "7_gitlens_cutcopypaste@4"
+				},
+				{
 					"submenu": "gitlens/commit/copy",
 					"when": "viewItem =~ /gitlens:(branch|commit|remote|repo-folder|repository|stash|tag|file\\b(?=.*?\\b\\+committed\\b))\\b/",
-					"group": "7_gitlens_cutcopypaste@2"
+					"group": "7_gitlens_cutcopypaste@10"
 				},
 				{
 					"command": "gitlens.views.openFile",
@@ -11008,13 +11023,13 @@
 					"alt": "gitlens.copyRemoteFileUrlWithoutRange"
 				},
 				{
-					"submenu": "gitlens/commit/file/history",
-					"when": "viewItem =~ /gitlens:file\\b/",
+					"submenu": "gitlens/commit/file/commit",
+					"when": "view =~ /^gitlens\\.views\\.(fileHistory|lineHistory)/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
 					"group": "3_gitlens_explore@1"
 				},
 				{
-					"submenu": "gitlens/commit/file/commit",
-					"when": "view =~ /^gitlens\\.views\\.(fileHistory|lineHistory)/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"submenu": "gitlens/commit/file/history",
+					"when": "viewItem =~ /gitlens:file\\b/",
 					"group": "3_gitlens_explore@2"
 				},
 				{
@@ -11983,9 +11998,14 @@
 					"group": "7_gitlens_a_share@1"
 				},
 				{
-					"submenu": "gitlens/commit/copy",
-					"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
+					"command": "gitlens.graph.copySha",
+					"when": "webviewItem =~ /gitlens:(branch|commit|tag)\\b/",
 					"group": "7_gitlens_cutcopypaste@2"
+				},
+				{
+					"command": "gitlens.graph.copyMessage",
+					"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
+					"group": "7_gitlens_cutcopypaste@3"
 				},
 				{
 					"command": "gitlens.graph.applyStash",
@@ -12178,59 +12198,14 @@
 			],
 			"gitlens/commit/copy": [
 				{
-					"command": "gitlens.copyRelativePathToClipboard",
-					"when": "viewItem =~ /gitlens:file\\b/",
-					"group": "1_gitlens@1"
-				},
-				{
-					"command": "gitlens.copyRemoteFileUrlWithoutRange",
-					"when": "gitlens:hasRemotes && viewItem =~ /gitlens:(file\\b(?=.*?\\b\\+committed\\b)|history:(file|line)|status:file)\\b/",
-					"group": "2_gitlens@1"
-				},
-				{
 					"command": "gitlens.copyShaToClipboard",
-					"when": "viewItem =~ /gitlens:(?!(remote|repo-folder|repository|stash)\\b)/",
-					"group": "1_gitlens@2"
-				},
-				{
-					"command": "gitlens.graph.copySha",
-					"when": "webviewItem =~ /gitlens:(?!stash\\b)/",
+					"when": "viewItem =~ /gitlens:(?!(commit|file|remote|repo-folder|repository|stash)\\b)/",
 					"group": "1_gitlens@2"
 				},
 				{
 					"command": "gitlens.copyMessageToClipboard",
-					"when": "viewItem =~ /gitlens:(?!(remote|repo-folder|repository)\\b)/",
+					"when": "viewItem =~ /gitlens:(?!(commit|file|remote|repo-folder|repository|stash)\\b)/",
 					"group": "1_gitlens@3"
-				},
-				{
-					"command": "gitlens.graph.copyMessage",
-					"when": "webviewItem",
-					"group": "1_gitlens@3"
-				},
-				{
-					"command": "gitlens.copyRemoteCommitUrl",
-					"when": "gitlens:hasRemotes && viewItem =~ /gitlens:(commit|file\\b(?=.*?\\b\\+committed\\b))/",
-					"group": "2_gitlens@25"
-				},
-				{
-					"command": "gitlens.graph.copyRemoteCommitUrl",
-					"when": "gitlens:hasRemotes && webviewItem =~ /gitlens:commit\\b/",
-					"group": "2_gitlens@25"
-				},
-				{
-					"command": "gitlens.copyRemoteBranchUrl",
-					"when": "gitlens:hasRemotes && viewItem =~ /gitlens:branch\\b/",
-					"group": "2_gitlens@50"
-				},
-				{
-					"command": "gitlens.graph.copyRemoteBranchUrl",
-					"when": "gitlens:hasRemotes && webviewItem =~ /gitlens:branch\\b/",
-					"group": "2_gitlens@50"
-				},
-				{
-					"command": "gitlens.copyRemoteRepositoryUrl",
-					"when": "gitlens:hasRemotes && viewItem =~ /gitlens:(remote|repo-folder|repository)\\b/",
-					"group": "2_gitlens@99"
 				}
 			],
 			"gitlens/share": [
@@ -12323,23 +12298,19 @@
 			"gitlens/commit/changes": [
 				{
 					"command": "gitlens.views.openChangedFileDiffs",
-					"when": "viewItem =~ /gitlens:(commit|stash|results:files)\\b/",
-					"group": "2_gitlens_quickopen@1"
+					"group": "1_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.openChangedFileDiffsWithWorking",
-					"when": "viewItem =~ /gitlens:(commit|stash|results:files)\\b/",
-					"group": "2_gitlens_quickopen@2"
+					"group": "1_gitlens@2"
 				},
 				{
 					"command": "gitlens.views.openChangedFiles",
-					"when": "viewItem =~ /gitlens:(commit|stash|results:files)\\b/",
-					"group": "2_gitlens_quickopen_1@1"
+					"group": "2_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.openChangedFileRevisions",
-					"when": "viewItem =~ /gitlens:(commit|stash|results:files)\\b/",
-					"group": "2_gitlens_quickopen_1@2"
+					"group": "2_gitlens@2"
 				}
 			],
 			"gitlens/graph/commit/changes": [

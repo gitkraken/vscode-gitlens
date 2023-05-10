@@ -26,9 +26,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Refines and reorders many of the GitLens context menus and additions to VS Code context menus
+  - Moves _Copy Remote \* URL_ commands from the _Copy As_ submenu into the _Share_ submenu in GitLens views
   - Adds a _Share_ submenu to Source Control items
-  - Consolidates existing file history commands into a _File History_ submenu
-  - Consolidates existing "Open on Remote" commands into _Open on Remote (Web)_ submenu
+  - Moves _Copy SHA_ and _Copy Message_ commands on commits from the _Copy As_ submenu into the root of the context menu
+  - Moves _Copy Relative Path_ command on files from the _Copy As_ submenu into the root of the context menu
+  - Moves file history commands into a _File History_ submenu
+  - Moves _Open \* on Remote_ commands into _Open on Remote (Web)_ submenu
   - Renames the _Commit Changes_ submenu to _Open Changes_
   - Renames _Show Commit_ command to _Quick Show Commit_ and _Show Line Commit_ command to _Quick Show Line Commit_ for better clarity as it opens a quick pick menu
 - Renames _Delete Stash..._ command to _Drop Stash..._ in the _Stashes_ view
