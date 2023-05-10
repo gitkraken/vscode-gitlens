@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds new _Commit Graph_ features and improvements
   - Unlocks columns in the _Commit Graph_ that were previously locked, including the Branch/Tag column, the Graph column, and the Commit Message column, allowing all columns to be rearranged
   - Column headers now show icons instead of text when their width is sufficiently small
+  - The Author column now shows avatars for authors when the column's width is sufficiently small
 - Adds _Share_, _Open Changes_, and _Open on Remote (Web)_ submenus to the new editor line numbers (gutter) context menu
 - Adds an _Open Line Commit Details_ command to the _Open Changes_ submenus on editor context menus
 - Adds an _Open Changes_ submenu to the row context menu on the _Commit Graph_
