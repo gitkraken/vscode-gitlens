@@ -356,7 +356,7 @@ export abstract class AppWithConfig<State extends AppStateWithConfig> extends Ap
 
 				const newTop =
 					el.getBoundingClientRect().top - document.body.getBoundingClientRect().top - (offset ?? 0);
-				if (top === newTop) return;
+				if (Math.abs(top - newTop) < 2) return;
 
 				this.scrollTo(el, behavior, offset);
 			}, 50);
