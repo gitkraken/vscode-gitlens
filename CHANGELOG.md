@@ -10,15 +10,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds the ability to rename stashes &mdash; closes [#2538](https://github.com/gitkraken/vscode-gitlens/issues/2538)
   - Adds a new _Rename Stash..._ command to the _Stashes_ view
-- Adds the ability to search stashes when using the commit search via the _Commit Graph_, _Search & Compare_ view, or the _Search Commits_ command
-- Adds support for the _Commit Graph_ over [Visual Studio Live Share](https://visualstudio.microsoft.com/services/live-share/) sessions
-- Adds an _Open Visual File History_ command to the new _File History_ submenu on existing context menus
-- Honors the `git.repositoryScanIgnoredFolders` VS Code setting
-- Allows the _Repositories_ view for virtual repositories
 - Adds new _Commit Graph_ features and improvements
-  - Unlocks columns in the _Commit Graph_ that were previously locked, including the Branch/Tag column, the Graph column, and the Commit Message column, allowing all columns to be rearranged
-  - Column headers now show icons instead of text when their width is sufficiently small
-  - The Author column now shows avatars for authors when the column's width is sufficiently small
+  - Changes the _Fetch_ toolbar button to _Push_ or _Pull_ depending the current branch being ahead or behind it's upstream
+  - Adds support for the _Commit Graph_ over [Visual Studio Live Share](https://visualstudio.microsoft.com/services/live-share/) sessions
+  - Adds the ability to move all of the columns, including the ones that were previously unmovable
+  - Automatically switches column headers from text to icons when the column's width is too small for the text to be useful
+  - Automatically switches the Author column to shows avatars rather than text when the column is sized to its minimum width
+- Adds the ability to search stashes when using the commit search via the _Commit Graph_, _Search & Compare_ view, or the _Search Commits_ command
+- Adds an _Open Visual File History_ command to the new _File History_ submenu on existing context menus
+- Allows the _Repositories_ view for virtual repositories
+- Honors the `git.repositoryScanIgnoredFolders` VS Code setting
 - Adds _Share_, _Open Changes_, and _Open on Remote (Web)_ submenus to the new editor line numbers (gutter) context menu
 - Adds an _Open Line Commit Details_ command to the _Open Changes_ submenus on editor context menus
 - Adds an _Open Changes_ submenu to the row context menu on the _Commit Graph_
@@ -38,7 +39,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Removes the commit icon when hiding avatars in the _Commits_ view to allow for a more compact layout
 - Limits Git CodeLens on docker files &mdash; closes [#2153](https://github.com/gitkraken/vscode-gitlens/issues/2153)
 - Shows progress notification for deep links earlier in the process &mdash; closes [#2662](https://github.com/gitkraken/vscode-gitlens/issues/2662)
-- Changes the _Fetch_ action in the _Commit Graph_ to _Push_ or _Pull_ depending the current branch being ahead or behind it's upstream
 
 ### Fixed
 
