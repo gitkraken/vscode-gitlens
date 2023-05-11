@@ -1130,9 +1130,12 @@ export function GraphWrapper({
 			tooltip += ` ${remote}`;
 			fetchTooltip += ` ${remote}`;
 		}
-		const lastFetchedText = fetchedText ? `\nLast fetched ${fetchedText}` : '\nNever fetched';
-		tooltip += lastFetchedText;
-		fetchTooltip += lastFetchedText;
+
+		if (fetchedText != null) {
+			const lastFetchedText = `\nLast fetched ${fetchedText}`;
+			tooltip += lastFetchedText;
+			fetchTooltip += lastFetchedText;
+		}
 
 		return (
 			<div className="titlebar__group">
