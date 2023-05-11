@@ -1099,7 +1099,8 @@ export function GraphWrapper({
 	};
 
 	const renderFetchAction = () => {
-		const fetchedText = lastFetched && fromNow(new Date(lastFetched));
+		const lastFetchedDate = lastFetched && new Date(lastFetched);
+		const fetchedText = lastFetchedDate && lastFetchedDate.getTime() !== 0 ? fromNow(lastFetchedDate) : undefined;
 
 		let icon = 'sync';
 		let label = 'Fetch';
@@ -1129,7 +1130,7 @@ export function GraphWrapper({
 			tooltip += ` ${remote}`;
 			fetchTooltip += ` ${remote}`;
 		}
-		const lastFetchedText = `\nLast fetched ${fetchedText}`;
+		const lastFetchedText = fetchedText ? `\nLast fetched ${fetchedText}` : '\nNever fetched';
 		tooltip += lastFetchedText;
 		fetchTooltip += lastFetchedText;
 
