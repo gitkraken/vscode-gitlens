@@ -141,6 +141,7 @@ const styles = css`
 		padding: 0;
 		color: inherit;
 		border: none;
+		border-radius: 3px;
 		background: none;
 		text-align: center;
 	}

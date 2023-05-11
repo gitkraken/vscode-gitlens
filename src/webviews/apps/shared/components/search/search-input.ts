@@ -193,9 +193,14 @@ const styles = css`
 		height: 2.4rem;
 		color: var(--vscode-input-foreground);
 		cursor: pointer;
+		border-radius: 3px;
 	}
 	label:hover {
-		background-color: var(--vscode-input-background);
+		background-color: var(--vscode-toolbar-hoverBackground);
+	}
+	label:focus {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: -1px;
 	}
 
 	.icon-small {
