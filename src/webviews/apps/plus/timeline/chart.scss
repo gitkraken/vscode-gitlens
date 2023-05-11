@@ -10,6 +10,7 @@
 	path,
 	line {
 		fill: none;
+
 		// stroke: #000;
 	}
 
@@ -26,6 +27,7 @@
 	text,
 	.bb-button {
 		user-select: none;
+
 		// fill: var(--color-foreground--75);
 		fill: var(--color-view-foreground);
 		font-size: 11px;
@@ -37,7 +39,7 @@
 	.bb-ygrid,
 	.bb-event-rect,
 	.bb-bars path {
-		shape-rendering: crispEdges;
+		shape-rendering: crispedges;
 	}
 
 	.bb-chart-arc {
@@ -60,9 +62,9 @@
 		}
 	}
 
-	/*-- Axis --*/
+	/* -- Axis -- */
 	.bb-axis {
-		shape-rendering: crispEdges;
+		shape-rendering: crispedges;
 	}
 
 	// .bb-axis-y,
@@ -88,7 +90,7 @@
 	// 	fill: #00c83c !important;
 	// }
 
-	/*-- Grid --*/
+	/* -- Grid -- */
 	.bb-grid {
 		pointer-events: none;
 
@@ -129,24 +131,25 @@
 			.vscode-dark & {
 				stroke: var(--color-background--lighten-30);
 			}
+
 			.vscode-light & {
 				stroke: var(--color-background--darken-30);
 			}
 		}
 	}
 
-	/*-- Text on Chart --*/
+	/* -- Text on Chart -- */
 	.bb-text.bb-empty {
 		fill: #808080;
 		font-size: 2em;
 	}
 
-	/*-- Line --*/
+	/* -- Line -- */
 	.bb-line {
 		stroke-width: 1px;
 	}
 
-	/*-- Point --*/
+	/* -- Point -- */
 	.bb-circle {
 		&._expanded_ {
 			opacity: 1 !important;
@@ -182,7 +185,7 @@
 	// 	}
 	// }
 
-	/*-- Bar --*/
+	/* -- Bar -- */
 	.bb-bar {
 		stroke-width: 0;
 		opacity: 0.9 !important;
@@ -194,7 +197,7 @@
 		}
 	}
 
-	/*-- Candlestick --*/
+	/* -- Candlestick -- */
 	.bb-candlestick {
 		stroke-width: 1px;
 
@@ -203,7 +206,7 @@
 		}
 	}
 
-	/*-- Focus --*/
+	/* -- Focus -- */
 	.bb-target.bb-focused,
 	.bb-circles.bb-focused {
 		opacity: 1;
@@ -220,18 +223,19 @@
 	.bb-circles.bb-defocused {
 		opacity: 0.2 !important;
 	}
+
 	.bb-target.bb-defocused .text-overlapping,
 	.bb-circles.bb-defocused .text-overlapping {
 		opacity: 0.05 !important;
 	}
 
-	/*-- Region --*/
+	/* -- Region -- */
 	.bb-region {
 		fill: steelblue;
 		fill-opacity: 0.1;
 	}
 
-	/*-- Zoom region --*/
+	/* -- Zoom region -- */
 	.bb-zoom-brush {
 		.vscode-dark & {
 			fill: white;
@@ -244,14 +248,14 @@
 		}
 	}
 
-	/*-- Brush --*/
+	/* -- Brush -- */
 	.bb-brush {
 		.extent {
 			fill-opacity: 0.1;
 		}
 	}
 
-	/*-- Legend --*/
+	/* -- Legend -- */
 	.bb-legend-item {
 		font-size: 12px;
 		user-select: none;
@@ -268,12 +272,12 @@
 		stroke-width: 1;
 	}
 
-	/*-- Title --*/
+	/* -- Title -- */
 	.bb-title {
 		font: 14px sans-serif;
 	}
 
-	/*-- Tooltip --*/
+	/* -- Tooltip -- */
 	.bb-tooltip-container {
 		z-index: 10;
 		user-select: none;
@@ -288,7 +292,6 @@
 		empty-cells: show;
 		opacity: 1;
 		box-shadow: 7px 7px 12px -9px var(--color-hover-border);
-
 		font-size: var(--font-size);
 		font-family: var(--font-family);
 
@@ -319,7 +322,7 @@
 						padding: 0.5rem;
 						line-height: 2rem;
 
-						&:before {
+						&::before {
 							font: normal normal normal 16px/1 codicon;
 							display: inline-block;
 							text-decoration: none;
@@ -328,11 +331,9 @@
 							-webkit-font-smoothing: antialiased;
 							-moz-osx-font-smoothing: grayscale;
 							user-select: none;
-
 							vertical-align: middle;
 							line-height: 2rem;
 							padding-right: 0.25rem;
-
 							content: '\eafc';
 						}
 
@@ -343,7 +344,7 @@
 
 					&.value {
 						display: flex;
-						padding: 0.25rem 2rem 1rem 2rem;
+						padding: 0.25rem 2rem 1rem;
 						white-space: pre-line;
 						word-wrap: break-word;
 						overflow-wrap: break-word;
@@ -361,12 +362,13 @@
 				flex-direction: row-reverse;
 				justify-content: center;
 				width: calc(50% - 2rem);
-				margin: 0px 1rem;
+				margin: 0 1rem;
 
 				td {
 					&.name {
 						text-transform: lowercase;
 					}
+
 					&.value {
 						margin-right: 0.25rem;
 					}
@@ -383,13 +385,13 @@
 		// }
 	}
 
-	/*-- Area --*/
+	/* -- Area -- */
 	.bb-area {
 		stroke-width: 0;
 		opacity: 0.2;
 	}
 
-	/*-- Arc --*/
+	/* -- Arc -- */
 	.bb-chart-arcs-title {
 		dominant-baseline: middle;
 		font-size: 1.3em;
@@ -418,7 +420,7 @@
 		fill: #777;
 	}
 
-	/*-- Radar --*/
+	/* -- Radar -- */
 	.bb-chart-radars .bb-levels polygon {
 		fill: none;
 		stroke: #848282;
@@ -444,16 +446,14 @@
 		stroke-width: 1px;
 	}
 
-	/*-- Button --*/
+	/* -- Button -- */
 	.bb-button {
 		position: absolute;
 		top: 0;
 		right: 2rem;
-
 		border: 1px solid var(--color-button-background);
 		background-color: var(--color-button-background);
 		color: var(--color-button-foreground);
-
 		font-size: var(--font-size);
 		font-family: var(--font-family);
 

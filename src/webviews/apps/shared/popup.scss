@@ -1,5 +1,5 @@
 .popup {
-	box-shadow: 0px 0px 28px 0 rgba(0, 0, 0, 0.5);
+	box-shadow: 0 0 28px 0 rgba(0, 0, 0, 0.5);
 	cursor: default;
 	padding: 1em;
 	position: absolute;
@@ -9,7 +9,7 @@
 	max-width: 472px;
 	z-index: 1;
 
-	&:before {
+	&::before {
 		background: transparent;
 		border: 12px solid transparent;
 		content: '';
@@ -54,7 +54,7 @@
 .token-popup__title {
 	color: var(--color-foreground);
 	font-weight: 400;
-	margin: 0.25em 0 1em 0;
+	margin: 0.25em 0 1em;
 	text-align: center;
 }
 
@@ -100,11 +100,11 @@
 	display: inline-block;
 	padding: 1px 8px !important;
 
-	&:before {
+	&::before {
 		content: '${';
 	}
 
-	&:after {
+	&::after {
 		content: '}';
 	}
 

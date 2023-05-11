@@ -20,13 +20,11 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 	user-select: none;
-	-webkit-user-select: none;
-	-ms-user-select: none;
 }
 
-/*---------------------
+/* ---------------------
  *  Modifiers
- *-------------------*/
+ *------------------- */
 
 @keyframes glicon-spin {
 	100% {
@@ -55,100 +53,130 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 	animation-timing-function: cubic-bezier(0.53, 0.21, 0.29, 0.67) !important;
 }
 
-/*---------------------
+/* ---------------------
  *  Icons
- *-------------------*/
+ *------------------- */
 
-.glicon-commit-horizontal:before {
+.glicon-commit-horizontal::before {
 	content: '\f101';
 }
-.glicon-graph:before {
+
+.glicon-graph::before {
 	content: '\f102';
 }
-.glicon-next-commit:before {
+
+.glicon-next-commit::before {
 	content: '\f103';
 }
-.glicon-prev-commit-menu:before {
+
+.glicon-prev-commit-menu::before {
 	content: '\f104';
 }
-.glicon-prev-commit:before {
+
+.glicon-prev-commit::before {
 	content: '\f105';
 }
-.glicon-compare-ref-working:before {
+
+.glicon-compare-ref-working::before {
 	content: '\f106';
 }
-.glicon-branches-view:before {
+
+.glicon-branches-view::before {
 	content: '\f107';
 }
-.glicon-commit-view:before {
+
+.glicon-commit-view::before {
 	content: '\f108';
 }
-.glicon-commits-view:before {
+
+.glicon-commits-view::before {
 	content: '\f109';
 }
-.glicon-compare-view:before {
+
+.glicon-compare-view::before {
 	content: '\f10a';
 }
-.glicon-contributors-view:before {
+
+.glicon-contributors-view::before {
 	content: '\f10b';
 }
-.glicon-history-view:before {
+
+.glicon-history-view::before {
 	content: '\f10c';
 }
-.glicon-history:before {
+
+.glicon-history::before {
 	content: '\f10c';
 }
-.glicon-remotes-view:before {
+
+.glicon-remotes-view::before {
 	content: '\f10d';
 }
-.glicon-repositories-view:before {
+
+.glicon-repositories-view::before {
 	content: '\f10e';
 }
-.glicon-search-view:before {
+
+.glicon-search-view::before {
 	content: '\f10f';
 }
-.glicon-stashes-view:before {
+
+.glicon-stashes-view::before {
 	content: '\f110';
 }
-.glicon-stashes:before {
+
+.glicon-stashes::before {
 	content: '\f110';
 }
-.glicon-tags-view:before {
+
+.glicon-tags-view::before {
 	content: '\f111';
 }
-.glicon-worktrees-view:before {
+
+.glicon-worktrees-view::before {
 	content: '\f112';
 }
-.glicon-gitlens:before {
+
+.glicon-gitlens::before {
 	content: '\f113';
 }
-.glicon-stash-pop:before {
+
+.glicon-stash-pop::before {
 	content: '\f114';
 }
-.glicon-stash-save:before {
+
+.glicon-stash-save::before {
 	content: '\f115';
 }
-.glicon-unplug:before {
+
+.glicon-unplug::before {
 	content: '\f116';
 }
-.glicon-open-revision:before {
+
+.glicon-open-revision::before {
 	content: '\f117';
 }
-.glicon-switch:before {
+
+.glicon-switch::before {
 	content: '\f118';
 }
-.glicon-expand:before {
+
+.glicon-expand::before {
 	content: '\f119';
 }
-.glicon-list-auto:before {
+
+.glicon-list-auto::before {
 	content: '\f11a';
 }
-.glicon-arrow-up-force:before {
+
+.glicon-arrow-up-force::before {
 	content: '\f11b';
 }
-.glicon-pinned-filled:before {
+
+.glicon-pinned-filled::before {
 	content: '\f11c';
 }
-.glicon-clock:before {
+
+.glicon-clock::before {
 	content: '\f11d';
 }

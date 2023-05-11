@@ -3,7 +3,7 @@
 @import '../../shared/glicons';
 @import '../../../../../node_modules/@gitkraken/gitkraken-components/dist/styles.css';
 
-@mixin focusStyles() {
+@mixin focus-styles() {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: -1px;
 }
@@ -43,21 +43,17 @@ body {
 	--color-graph-text-selected-row: var(--vscode-list-activeSelectionForeground);
 	--color-graph-text-dimmed-selected: var(--vscode-list-activeSelectionForeground);
 	--color-graph-text-dimmed: var(--vscode-list-activeSelectionForeground);
-
 	--color-graph-text-hovered: var(--vscode-list-hoverForeground);
 	--color-graph-text-selected: var(--vscode-editor-foreground, var(--vscode-foreground));
 	--color-graph-text-normal: var(--color-graph-text-selected);
 	--color-graph-text-secondary: var(--color-graph-text-selected);
 	--color-graph-text-disabled: var(--color-graph-text-selected);
-
 	--color-graph-stats-added: var(--vscode-gitlens-graphChangesColumnAddedColor);
 	--color-graph-stats-deleted: var(--vscode-gitlens-graphChangesColumnDeletedColor);
 	--color-graph-stats-files: var(--vscode-gitDecoration-modifiedResourceForeground);
-
 	--color-graph-minimap-line0: var(--vscode-progressBar-background);
 	--color-graph-minimap-focusLine: var(--vscode-foreground);
 	--color-graph-minimap-visibleAreaBackground: var(--vscode-scrollbarSlider-background);
-
 	--color-graph-minimap-marker-head: var(--vscode-gitlens-graphMinimapMarkerHeadColor);
 	--color-graph-scroll-marker-head: var(--vscode-gitlens-graphScrollMarkerHeadColor);
 	--color-graph-minimap-marker-upstream: var(--vscode-gitlens-graphMinimapMarkerUpstreamColor);
@@ -72,34 +68,26 @@ body {
 	--color-graph-scroll-marker-stashes: var(--vscode-gitlens-graphScrollMarkerStashesColor);
 	--color-graph-minimap-marker-tags: var(--vscode-gitlens-graphMinimapMarkerTagsColor);
 	--color-graph-scroll-marker-tags: var(--vscode-gitlens-graphScrollMarkerTagsColor);
-
 	--color-graph-minimap-tip-headBackground: var(--color-graph-scroll-marker-head);
 	--color-graph-minimap-tip-headBorder: var(--color-graph-scroll-marker-head);
 	--color-graph-minimap-tip-headForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
-
 	--color-graph-minimap-tip-branchBackground: var(--color-graph-scroll-marker-local-branches);
 	--color-graph-minimap-tip-branchBorder: var(--color-graph-scroll-marker-local-branches);
 	--color-graph-minimap-tip-branchForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
-
 	--color-graph-minimap-tip-remoteBackground: var(--color-graph-scroll-marker-remote-branches);
 	--color-graph-minimap-tip-remoteBorder: var(--color-graph-scroll-marker-remote-branches);
 	--color-graph-minimap-tip-remoteForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
-
 	--color-graph-scroll-marker-selection: var(--vscode-editorCursor-foreground);
 	--color-graph-minimap-marker-selection: var(--color-graph-scroll-marker-selection);
-
 	--color-graph-minimap-tip-stashBackground: var(--color-graph-scroll-marker-stashes);
 	--color-graph-minimap-tip-stashBorder: var(--color-graph-scroll-marker-stashes);
 	--color-graph-minimap-tip-stashForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
-
 	--color-graph-minimap-tip-tagBackground: var(--color-graph-scroll-marker-tags);
 	--color-graph-minimap-tip-tagBorder: var(--color-graph-scroll-marker-tags);
 	--color-graph-minimap-tip-tagForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
-
 	--color-graph-minimap-tip-upstreamBackground: var(--color-graph-scroll-marker-upstream);
 	--color-graph-minimap-tip-upstreamBorder: var(--color-graph-scroll-marker-upstream);
 	--color-graph-minimap-tip-upstreamForeground: var(--vscode-editor-foreground, var(--vscode-foreground));
-
 	--graph-stats-bar-height: 40%;
 	--graph-stats-bar-border-radius: 3px;
 
@@ -130,6 +118,7 @@ body {
 
 a {
 	text-decoration: none;
+
 	&:hover {
 		text-decoration: underline;
 	}
@@ -139,7 +128,7 @@ a,
 button:not([disabled]),
 [tabindex]:not([tabindex='-1']) {
 	&:focus {
-		@include focusStyles();
+		@include focus-styles;
 	}
 }
 
@@ -198,6 +187,7 @@ button:not([disabled]),
 	font-family: inherit;
 	font-size: 1.2rem;
 	line-height: 2.2rem;
+
 	// background-color: var(--color-graph-actionbar-background);
 	background-color: transparent;
 	border: none;
@@ -207,7 +197,6 @@ button:not([disabled]),
 	cursor: pointer;
 	border-radius: 3px;
 	height: auto;
-
 	display: grid;
 	grid-auto-flow: column;
 	grid-gap: 0.5rem;
@@ -357,12 +346,10 @@ button:not([disabled]),
 	top: 1px;
 	right: 0;
 	z-index: 2;
-
 	appearance: none;
 	font-family: inherit;
-	background-color: transparent;
 	border: none;
-	color: var(--text-disabled, hsla(0, 0%, 100%, 0.4));
+	color: var(--text-disabled, hsla(0deg, 0%, 100%, 0.4));
 	margin: 0;
 	padding: 0 4px;
 	height: var(--column-button-height);
@@ -377,7 +364,7 @@ button:not([disabled]),
 	}
 
 	&:focus {
-		@include focusStyles;
+		@include focus-styles;
 	}
 
 	&[disabled] {
@@ -397,6 +384,7 @@ button:not([disabled]),
 	--alert-background: var(--color-alert-infoBackground);
 	--alert-border-color: var(--color-alert-infoBorder);
 	--alert-hover-background: var(--color-alert-infoHoverBackground);
+
 	display: flex;
 	flex-direction: row;
 	justify-content: flex-start;
@@ -408,6 +396,7 @@ button:not([disabled]),
 	background-color: var(--alert-background);
 	color: var(--alert-foreground);
 	font-size: 1.2rem;
+
 	// remove max-width and margin when converting to a web component or make it a variant/property
 	max-width: 100rem;
 	margin: {
@@ -435,7 +424,7 @@ button:not([disabled]),
 		}
 
 		& a:not([class]) {
-			color: currentColor;
+			color: currentcolor;
 			font-weight: 600;
 			text-decoration: underline;
 		}
@@ -457,6 +446,7 @@ button:not([disabled]),
 			vertical-align: bottom;
 		}
 	}
+
 	&__accent + &__accent {
 		margin-top: 0.2rem;
 	}
@@ -530,9 +520,6 @@ button:not([disabled]),
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 	user-select: none;
-	-webkit-user-select: none;
-	-ms-user-select: none;
-
 	vertical-align: middle;
 	line-height: 2rem;
 	letter-spacing: normal;
@@ -551,6 +538,7 @@ button:not([disabled]),
 			content: '\ea7a';
 		}
 	}
+
 	&--remote {
 		&::before {
 			// codicon-cloud
@@ -558,6 +546,7 @@ button:not([disabled]),
 			content: '\ebaa';
 		}
 	}
+
 	&--tag {
 		&::before {
 			// codicon-tag
@@ -565,6 +554,7 @@ button:not([disabled]),
 			content: '\ea66';
 		}
 	}
+
 	&--stash {
 		&::before {
 			// codicon-inbox
@@ -572,6 +562,7 @@ button:not([disabled]),
 			content: '\eb09';
 		}
 	}
+
 	&--check {
 		&::before {
 			// codicon-check
@@ -579,14 +570,17 @@ button:not([disabled]),
 			content: '\eab2';
 		}
 	}
+
 	&--warning {
-		:before {
+		::before {
 			// codicon-vm
 			font-family: codicon;
 			content: '\ea6c';
 		}
+
 		color: #de9b43;
 	}
+
 	&--added {
 		&::before {
 			// codicon-add
@@ -594,6 +588,7 @@ button:not([disabled]),
 			content: '\ea60';
 		}
 	}
+
 	&--modified {
 		&::before {
 			// codicon-edit
@@ -601,6 +596,7 @@ button:not([disabled]),
 			content: '\ea73';
 		}
 	}
+
 	&--deleted {
 		&::before {
 			// codicon-dash
@@ -608,6 +604,7 @@ button:not([disabled]),
 			content: '\eacc';
 		}
 	}
+
 	&--renamed {
 		&::before {
 			// codicon-file
@@ -615,6 +612,7 @@ button:not([disabled]),
 			content: '\eb60';
 		}
 	}
+
 	&--resolved {
 		&::before {
 			// codicon-pass-filled
@@ -622,6 +620,7 @@ button:not([disabled]),
 			content: '\ebb3';
 		}
 	}
+
 	&--hide {
 		&::before {
 			// codicon-eye-closed
@@ -629,6 +628,7 @@ button:not([disabled]),
 			content: '\eae7';
 		}
 	}
+
 	&--show {
 		&::before {
 			// codicon-eye
@@ -636,6 +636,7 @@ button:not([disabled]),
 			content: '\ea70';
 		}
 	}
+
 	&--pull-request {
 		&::before {
 			// codicon-git-pull-request
@@ -643,6 +644,7 @@ button:not([disabled]),
 			content: '\ea64';
 		}
 	}
+
 	&--upstream-ahead {
 		&::before {
 			// codicon-arrow-up
@@ -650,6 +652,7 @@ button:not([disabled]),
 			content: '\eaa1';
 		}
 	}
+
 	&--upstream-behind {
 		&::before {
 			// codicon-arrow-down
@@ -728,6 +731,7 @@ button:not([disabled]),
 		top: 0.6rem;
 		bottom: 0.6rem;
 	}
+
 	font-size: 1.3rem;
 	flex-wrap: wrap;
 
@@ -800,6 +804,7 @@ button:not([disabled]),
 			margin-top: 0.5rem;
 		}
 	}
+
 	&__cover {
 		position: absolute;
 		top: 0;
@@ -814,7 +819,7 @@ button:not([disabled]),
 		flex: none;
 		z-index: 2000;
 		position: relative;
-		margin: -1px -1px 0 -1px;
+		margin: -1px -1px 0;
 	}
 
 	&__footer {
@@ -845,28 +850,26 @@ button:not([disabled]),
 		height: 100vh !important;
 		z-index: 1000;
 
-		&:before {
+		&::before {
 			content: '';
 			pointer-events: none;
 			position: absolute;
-			width: 100%;
 			height: 100vh;
 			transition: background-color 0.1s ease-out;
 			background: transparent;
-
 			width: var(--sash-hover-size);
 			left: calc(50% - var(--sash-hover-size) / 2);
 		}
 
 		&:hover,
 		&:active {
-			&:before {
+			&::before {
 				transition-delay: 0.2s;
 				background-color: var(--vscode-sash-hoverBorder);
 			}
 		}
 
-		&:active:after {
+		&:active::after {
 			content: '';
 			position: absolute;
 			top: 0;
@@ -888,7 +891,7 @@ button:not([disabled]),
 		}
 
 		&:focus {
-			@include focusStyles;
+			@include focus-styles;
 		}
 
 		&.active,
@@ -979,7 +982,7 @@ button:not([disabled]),
 		transform: translateX(2500%) scaleX(3);
 	}
 
-	to {
+	100% {
 		transform: translateX(4900%) scaleX(1);
 	}
 }
@@ -1025,9 +1028,42 @@ button:not([disabled]),
 	&.in {
 		opacity: 1;
 	}
+
+	&.top .tooltip-arrow {
+		border-top-color: var(--color-hover-border);
+	}
+
+	&.top-left .tooltip-arrow {
+		border-top-color: var(--color-hover-border);
+	}
+
+	&.top-right .tooltip-arrow {
+		border-top-color: var(--color-hover-border);
+	}
+
+	&.right .tooltip-arrow {
+		border-right-color: var(--color-hover-border);
+	}
+
+	&.left .tooltip-arrow {
+		border-left-color: var(--color-hover-border);
+	}
+
+	&.bottom .tooltip-arrow {
+		border-bottom-color: var(--color-hover-border);
+	}
+
+	&.bottom-left .tooltip-arrow {
+		border-bottom-color: var(--color-hover-border);
+	}
+
+	&.bottom-right .tooltip-arrow {
+		border-bottom-color: var(--color-hover-border);
+	}
+
 	&-inner {
 		font-size: var(--vscode-font-size);
-		padding: 4px 10px 5px 10px;
+		padding: 4px 10px 5px;
 		color: var(--color-hover-foreground);
 		background-color: var(--color-hover-background);
 		border: 1px solid var(--color-hover-border);

@@ -110,8 +110,9 @@ body {
 	padding: 0.2rem 0.4rem;
 	background-color: var(--color-view-background);
 }
+
 .sr-only,
-.sr-only-focusable:not(:active):not(:focus) {
+.sr-only-focusable:not(:active, :focus) {
 	clip: rect(0 0 0 0);
 	clip-path: inset(50%);
 	width: 1px;
@@ -138,11 +139,11 @@ body {
 			display: none;
 		}
 	}
+
 	&__main {
 		flex: 1;
 		overflow: auto;
 		padding: 2rem 2rem 0.4rem;
-
 		background: linear-gradient(var(--color-view-background) 33%, var(--color-view-background)),
 			linear-gradient(var(--color-view-background), var(--color-view-background) 66%) 0 100%,
 			linear-gradient(to bottom, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0)),
@@ -152,6 +153,7 @@ body {
 		background-attachment: local, local, scroll, scroll;
 		background-size: 100% 12px, 100% 12px, 100% 6px, 100% 6px;
 	}
+
 	&__nav {
 		flex: none;
 		padding: 0 2rem;
@@ -168,7 +170,6 @@ body {
 	max-width: 30rem;
 	padding: 0.8rem 1.2rem 1.2rem;
 	z-index: 10;
-
 	display: flex;
 	flex-direction: column;
 	gap: 0.4rem;
@@ -299,6 +300,7 @@ ul {
 		align-items: center;
 		width: 2.2rem;
 		height: 2.2rem;
+
 		// line-height: 2.2rem;
 		color: inherit;
 		border-radius: 0.3rem;
@@ -314,6 +316,7 @@ ul {
 			.vscode-dark & {
 				background-color: var(--color-background--lighten-10);
 			}
+
 			.vscode-light & {
 				background-color: var(--color-background--darken-10);
 			}
@@ -332,6 +335,7 @@ ul {
 					left: 0.3rem;
 					right: 0.3rem;
 				}
+
 				gap: 0.2rem;
 				min-width: 2.2rem;
 				width: fit-content;
@@ -453,6 +457,7 @@ ul {
 			left: 0.5rem;
 			width: 4.6rem;
 			height: 3.2rem;
+
 			// background-color: #ff000066;
 
 			&:first-of-type {
@@ -560,6 +565,7 @@ vscode-button {
 .mb-1 {
 	margin-bottom: 0.4rem;
 }
+
 .mb-0 {
 	margin-bottom: 0;
 }
@@ -606,19 +612,24 @@ vscode-button {
 
 	&__indicator {
 		fill: transparent;
+
 		&.is-active {
 			fill: var(--vscode-activityBar-activeBorder);
 		}
 	}
+
 	&__icon {
 		transition: all ease 100ms;
 		fill: var(--vscode-activityBar-inactiveForeground);
+
 		&.is-active {
 			fill: var(--vscode-activityBar-foreground);
 		}
 	}
+
 	&__arrow {
 		fill: transparent;
+
 		&.is-active {
 			fill: var(--vscode-textLink-foreground);
 		}
