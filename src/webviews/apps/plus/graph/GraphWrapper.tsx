@@ -1104,56 +1104,69 @@ export function GraphWrapper({
 		let icon = 'sync';
 		let label = 'Fetch';
 		let action = 'command:gitlens.graph.fetch';
-		let tooltip;
 		let isBehind = false;
 		let isAhead = false;
 
+		let tooltip = '';
+		let fetchTooltip = 'Fetch from';
+		let remote = 'remote';
 		if (branchState) {
 			isBehind = branchState.behind > 0;
 			isAhead = branchState.ahead > 0;
-			tooltip = `Branch ${branchName} is`;
+			const branchPrefix = `Branch ${branchName} is`;
+			remote = `${branchState.upstream}${branchState.provider ? ` on ${branchState.provider}` : ''}`;
 			if (isBehind) {
 				action = 'command:gitlens.graph.pull';
 				icon = 'arrow-down';
 				label = 'Pull';
-				tooltip += ` ${pluralize('commit', branchState.behind)} behind of`;
+				tooltip = `Pull from ${remote}\n${branchPrefix} ${pluralize('commit', branchState.behind)} behind of`;
 			} else if (isAhead) {
 				action = 'command:gitlens.graph.push';
 				icon = 'arrow-up';
 				label = 'Push';
-				tooltip += ` ${pluralize('commit', branchState.ahead)} ahead of`;
-			} else {
-				tooltip += ' up to date with';
+				tooltip = `Push to ${remote}\n${branchPrefix} ${pluralize('commit', branchState.ahead)} ahead of`;
 			}
-			tooltip += ` ${branchState.upstream}${branchState.provider ? ` on ${branchState.provider}` : ''}`;
+			tooltip += ` ${remote}`;
+			fetchTooltip += ` ${remote}`;
 		}
+		const lastFetchedText = `\nLast fetched ${fetchedText}`;
+		tooltip += lastFetchedText;
+		fetchTooltip += lastFetchedText;
 
 		return (
-			<a href={action} className="action-button" title={tooltip}>
-				<span
-					className={`codicon codicon-${icon} action-button__icon${isBehind ? ' is-behind' : ''}${
-						isAhead ? ' is-ahead' : ''
-					}`}
-				></span>
-				{label}
-				{fetchedText && <span className="action-button__small">(Last fetched {fetchedText})</span>}
-				{(isAhead || isBehind) && (
-					<span>
-						<span className="pill">
-							{isAhead && (
-								<span>
-									{branchState!.ahead} <span className="codicon codicon-arrow-up"></span>
+			<div className="titlebar__group">
+				{(isBehind || isAhead) && (
+					<a
+						href={action}
+						className={`action-button${isBehind ? ' is-behind' : ''}${isAhead ? ' is-ahead' : ''}`}
+						title={tooltip}
+					>
+						<span className={`codicon codicon-${icon} action-button__icon`}></span>
+						{label}
+						{(isAhead || isBehind) && (
+							<span>
+								<span className="pill action-button__pill">
+									{isAhead && (
+										<span>
+											{branchState!.ahead} <span className="codicon codicon-arrow-up"></span>
+										</span>
+									)}
+									{isBehind && (
+										<span>
+											{branchState!.behind} <span className="codicon codicon-arrow-down"></span>
+										</span>
+									)}
 								</span>
-							)}
-							{isBehind && (
-								<span>
-									{branchState!.behind} <span className="codicon codicon-arrow-down"></span>
-								</span>
-							)}
-						</span>
-					</span>
+							</span>
+						)}
+					</a>
 				)}
-			</a>
+				<a href="command:gitlens.graph.fetch" className="action-button" title={fetchTooltip}>
+					<span className="codicon codicon-sync action-button__icon"></span>
+					Fetch
+					{fetchedText && <span className="action-button__small">({fetchedText})</span>}
+				</a>
+			</div>
 		);
 	};
 

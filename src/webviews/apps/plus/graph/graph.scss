@@ -102,6 +102,10 @@ body {
 
 	--graph-stats-bar-height: 40%;
 	--graph-stats-bar-border-radius: 3px;
+
+	--branch-status-ahead-foreground: var(--vscode-gitlens-decorations\.branchAheadForegroundColor);
+	--branch-status-behind-foreground: var(--vscode-gitlens-decorations\.branchBehindForegroundColor);
+	--branch-status-both-foreground: var(--vscode-gitlens-decorations\.branchDivergedForegroundColor);
 }
 
 ::-webkit-scrollbar-corner {
@@ -232,17 +236,29 @@ button:not([disabled]),
 		width: 1.6rem;
 	}
 
-	&__icon {
-		&.is-ahead {
-			color: var(--vscode-gitlens-decorations\.branchAheadForegroundColor);
+	&__pill {
+		.is-ahead & {
+			background-color: var(--branch-status-ahead-pill-background);
 		}
-		&.is-behind {
-			color: var(--vscode-gitlens-decorations\.branchBehindForegroundColor);
+		.is-behind & {
+			background-color: var(--branch-status-behind-pill-background);
 		}
-		&.is-ahead.is-behind {
-			color: var(--vscode-gitlens-decorations\.branchDivergedForegroundColor);
+		.is-ahead.is-behind & {
+			background-color: var(--branch-status-both-pill-background);
 		}
 	}
+
+	// &__icon {
+	// 	.is-ahead & {
+	// 		color: var(--branch-status-ahead-foreground);
+	// 	}
+	// 	.is-behind & {
+	// 		color: var(--branch-status-behind-foreground);
+	// 	}
+	// 	.is-ahead.is-behind & {
+	// 		color: var(--branch-status-both-foreground);
+	// 	}
+	// }
 
 	&__more,
 	&__more.codicon[class*='codicon-'] {
@@ -266,6 +282,28 @@ button:not([disabled]),
 		opacity: 0.6;
 		text-overflow: ellipsis;
 		overflow: hidden;
+	}
+
+	&.is-ahead {
+		background-color: var(--branch-status-ahead-background);
+
+		&:hover {
+			background-color: var(--branch-status-ahead-hover-background);
+		}
+	}
+	&.is-behind {
+		background-color: var(--branch-status-behind-background);
+
+		&:hover {
+			background-color: var(--branch-status-behind-hover-background);
+		}
+	}
+	&.is-ahead.is-behind {
+		background-color: var(--branch-status-both-background);
+
+		&:hover {
+			background-color: var(--branch-status-both-hover-background);
+		}
 	}
 }
 

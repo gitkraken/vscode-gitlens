@@ -414,6 +414,45 @@ export class GraphApp extends App<State> {
 			);
 		}
 
+		const branchStatusLuminance = themeLuminance(e.isLightTheme ? 0.72 : 0.064);
+		const branchStatusHoverLuminance = themeLuminance(e.isLightTheme ? 0.64 : 0.076);
+		const branchStatusPillLuminance = themeLuminance(e.isLightTheme ? 0.92 : 0.02);
+		// branch status ahead
+		c = Color.fromCssVariable('--branch-status-ahead-foreground', e.computedStyle);
+		bodyStyle.setProperty('--branch-status-ahead-background', c.luminance(branchStatusLuminance).toString());
+		bodyStyle.setProperty(
+			'--branch-status-ahead-hover-background',
+			c.luminance(branchStatusHoverLuminance).toString(),
+		);
+		bodyStyle.setProperty(
+			'--branch-status-ahead-pill-background',
+			c.luminance(branchStatusPillLuminance).toString(),
+		);
+
+		// branch status behind
+		c = Color.fromCssVariable('--branch-status-behind-foreground', e.computedStyle);
+		bodyStyle.setProperty('--branch-status-behind-background', c.luminance(branchStatusLuminance).toString());
+		bodyStyle.setProperty(
+			'--branch-status-behind-hover-background',
+			c.luminance(branchStatusHoverLuminance).toString(),
+		);
+		bodyStyle.setProperty(
+			'--branch-status-behind-pill-background',
+			c.luminance(branchStatusPillLuminance).toString(),
+		);
+
+		// branch status both
+		c = Color.fromCssVariable('--branch-status-both-foreground', e.computedStyle);
+		bodyStyle.setProperty('--branch-status-both-background', c.luminance(branchStatusLuminance).toString());
+		bodyStyle.setProperty(
+			'--branch-status-both-hover-background',
+			c.luminance(branchStatusHoverLuminance).toString(),
+		);
+		bodyStyle.setProperty(
+			'--branch-status-both-pill-background',
+			c.luminance(branchStatusPillLuminance).toString(),
+		);
+
 		if (e.isInitializing) return;
 
 		this.state.theming = undefined;
