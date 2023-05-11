@@ -332,10 +332,6 @@ export class GraphApp extends App<State> {
 			'--color-graph-actionbar-background',
 			e.isLightTheme ? darken(e.colors.background, 5) : lighten(e.colors.background, 5),
 		);
-		bodyStyle.setProperty(
-			'--color-graph-actionbar-selectedBackground',
-			e.isLightTheme ? darken(e.colors.background, 10) : lighten(e.colors.background, 10),
-		);
 
 		bodyStyle.setProperty(
 			'--color-graph-background',

@@ -43,6 +43,7 @@ body {
 	--color-graph-text-selected-row: var(--vscode-list-activeSelectionForeground);
 	--color-graph-text-dimmed-selected: var(--vscode-list-activeSelectionForeground);
 	--color-graph-text-dimmed: var(--vscode-list-activeSelectionForeground);
+	--color-graph-actionbar-selectedBackground: var(--vscode-toolbar-hoverBackground);
 
 	--color-graph-text-hovered: var(--vscode-list-hoverForeground);
 	--color-graph-text-selected: var(--vscode-editor-foreground, var(--vscode-foreground));
