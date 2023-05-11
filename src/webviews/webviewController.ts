@@ -1,4 +1,4 @@
-import type { Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
+import type { ViewBadge, Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
 import { Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
 import { getNonce } from '@env/crypto';
 import type { Commands, CustomEditorIds, WebviewIds, WebviewViewIds } from '../constants';
@@ -192,6 +192,17 @@ export class WebviewController<
 	}
 	isView(): this is WebviewViewController<State, SerializedState> {
 		return !this._isEditor;
+	}
+
+	get badge(): ViewBadge | undefined {
+		return 'badge' in this.parent ? this.parent.badge : undefined;
+	}
+	set badge(value: ViewBadge | undefined) {
+		if ('badge' in this.parent) {
+			this.parent.badge = value;
+		} else {
+			throw new Error("The 'badge' property not supported on Webview parent");
+		}
 	}
 
 	private _description: string | undefined;

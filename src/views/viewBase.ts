@@ -8,6 +8,7 @@ import type {
 	TreeViewExpansionEvent,
 	TreeViewSelectionChangeEvent,
 	TreeViewVisibilityChangeEvent,
+	ViewBadge,
 } from 'vscode';
 import { Disposable, EventEmitter, MarkdownString, TreeItemCollapsibleState, window } from 'vscode';
 import type {
@@ -213,6 +214,16 @@ export abstract class ViewBase<
 
 		return false;
 	}
+
+	get badge(): ViewBadge | undefined {
+		return this.tree?.badge;
+	}
+	set badge(value: ViewBadge | undefined) {
+		if (this.tree != null) {
+			this.tree.badge = value;
+		}
+	}
+
 	private _title: string | undefined;
 	get title(): string | undefined {
 		return this._title;
