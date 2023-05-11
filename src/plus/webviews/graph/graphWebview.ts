@@ -88,6 +88,7 @@ import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import type {
+	BranchState,
 	DimMergeCommitsParams,
 	DismissBannerParams,
 	DoubleClickedParams,
@@ -1754,11 +1755,12 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		);
 
 		// Check for GitLens+ access and working tree stats
-		const [accessResult, workingStatsResult] = await Promise.allSettled([
+		const promises = Promise.allSettled([
 			this.getGraphAccess(),
 			this.getWorkingTreeStats(),
+			this.repository.getBranch(),
+			this.repository.getLastFetched(),
 		]);
-		const [access, visibility] = getSettledValue(accessResult) ?? [];
 
 		let data;
 		if (deferRows) {
@@ -1776,16 +1778,23 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			this.setSelectedRows(data.id);
 		}
 
-		const lastFetched = await this.repository.getLastFetched();
-		const branch = await this.repository.getBranch();
-		let branchState;
+		const [accessResult, workingStatsResult, branchResult, lastFetchedResult] = await promises;
+		const [access, visibility] = getSettledValue(accessResult) ?? [];
+
+		let branchState: BranchState | undefined;
+
+		const branch = getSettledValue(branchResult);
 		if (branch != null) {
-			const remote = await branch.getRemote();
-			branchState = {
-				...branch.state,
-				upstream: branch.upstream?.name,
-				provider: remote?.provider?.name,
-			};
+			branchState = { ...branch.state };
+
+			if (branch.upstream != null) {
+				branchState.upstream = branch.upstream.name;
+
+				const remote = await branch.getRemote();
+				if (remote?.provider != null) {
+					branchState.provider = remote.provider.name;
+				}
+			}
 		}
 
 		return {
@@ -1796,7 +1805,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			selectedRepositoryVisibility: visibility,
 			branchName: branch?.name,
 			branchState: branchState,
-			lastFetched: new Date(lastFetched),
+			lastFetched: new Date(getSettledValue(lastFetchedResult)!),
 			selectedRows: this._selectedRows,
 			subscription: access?.subscription.current,
 			allowed: (access?.allowed ?? false) !== false,
