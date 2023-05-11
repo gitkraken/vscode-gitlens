@@ -11,7 +11,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds the ability to rename stashes &mdash; closes [#2538](https://github.com/gitkraken/vscode-gitlens/issues/2538)
   - Adds a new _Rename Stash..._ command to the _Stashes_ view
 - Adds new _Commit Graph_ features and improvements
-  - Changes the _Fetch_ toolbar button to _Push_ or _Pull_ depending the current branch being ahead or behind it's upstream
+  - Adds a _Push_ or _Pull_ toolbar button depending the current branch being ahead or behind it's upstream
   - Adds support for the _Commit Graph_ over [Visual Studio Live Share](https://visualstudio.microsoft.com/services/live-share/) sessions
   - Adds the ability to move all of the columns, including the ones that were previously unmovable
   - Automatically switches column headers from text to icons when the column's width is too small for the text to be useful
