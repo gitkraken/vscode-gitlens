@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [13.6.0] - 2023-05-11
+
 ### Added
 
 - Adds the ability to rename stashes &mdash; closes [#2538](https://github.com/gitkraken/vscode-gitlens/issues/2538)
@@ -67,7 +69,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Removed
 
-- Removes "Open Commit on Remote" command from the VS Code Timeline view as it can no longer be supported &mdash; see https://github.com/microsoft/vscode/issues/177319
+- Removes "Open Commit on Remote" command from the VS Code Timeline view as it can no longer be supported &mdash; see [microsoft/vscode/#177319](https://github.com/microsoft/vscode/issues/177319)
 
 ## [13.5.0] - 2023-04-07
 
@@ -4729,7 +4731,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v13.5.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v13.6.0...HEAD
+[13.6.0]: https://github.com/gitkraken/vscode-gitlens/compare/v13.5.0...gitkraken:v13.6.0
 [13.5.0]: https://github.com/gitkraken/vscode-gitlens/compare/v13.4.0...gitkraken:v13.5.0
 [13.4.0]: https://github.com/gitkraken/vscode-gitlens/compare/v13.3.2...gitkraken:v13.4.0
 [13.3.2]: https://github.com/gitkraken/vscode-gitlens/compare/v13.3.1...gitkraken:v13.3.2
