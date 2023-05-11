@@ -63,6 +63,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes getting the oldest unpushed commit when there is more than 1 remote
 - Fixes an issue with the quick input on the _Git Command Palette_ unexpectedly going back to the previous step
 - Fixes GitLens access tooltip not being visible when hovering in the _Commit Graph_
+- Fixes last fetched messaging in the _Commit Graph_ when its never been fetched
 
 ### Removed
 
