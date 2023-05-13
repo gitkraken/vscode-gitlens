@@ -79,10 +79,13 @@ export type ParsedEntryWithFiles<T> = { [K in keyof T]: string } & { files: Pars
 export type ParserWithFiles<T> = Parser<ParsedEntryWithFiles<T>>;
 
 export type ParsedStats = { files: number; additions: number; deletions: number };
-export type ParsedEntryWithStats<T> = T & { stats?: ParsedStats };
+export type ParsedEntryWithMaybeStats<T> = T & { stats?: ParsedStats };
+export type ParserWithMaybeStats<T> = Parser<ParsedEntryWithMaybeStats<T>>;
+
+export type ParsedEntryWithStats<T> = T & { stats: ParsedStats };
 export type ParserWithStats<T> = Parser<ParsedEntryWithStats<T>>;
 
-type ContributorsParserMaybeWithStats = ParserWithStats<{
+type ContributorsParserMaybeWithStats = ParserWithMaybeStats<{
 	sha: string;
 	author: string;
 	email: string;
@@ -115,7 +118,7 @@ export function getContributorsParser(stats?: boolean): ContributorsParserMaybeW
 	return _contributorsParser;
 }
 
-type GraphParserMaybeWithStats = ParserWithStats<{
+type GraphParserMaybeWithStats = ParserWithMaybeStats<{
 	sha: string;
 	author: string;
 	authorEmail: string;
@@ -159,6 +162,15 @@ export function getGraphParser(stats?: boolean): GraphParserMaybeWithStats {
 		});
 	}
 	return _graphParser;
+}
+
+let _graphStatsParser: ParserWithStats<{ sha: string }> | undefined;
+
+export function getGraphStatsParser(): ParserWithStats<{ sha: string }> {
+	if (_graphStatsParser == null) {
+		_graphStatsParser = createLogParserWithStats({ sha: '%H' });
+	}
+	return _graphStatsParser;
 }
 
 type RefParser = Parser<string>;
@@ -327,7 +339,7 @@ export function createLogParserWithFiles<T extends Record<string, unknown>>(
 export function createLogParserWithStats<T extends Record<string, unknown>>(
 	fieldMapping: ExtractAll<T, string>,
 ): ParserWithStats<T> {
-	function parseStats(fields: IterableIterator<string>, entry: ParsedEntryWithStats<T>) {
+	function parseStats(fields: IterableIterator<string>, entry: ParsedEntryWithMaybeStats<T>) {
 		const stats = fields.next().value;
 		const match = shortstatRegex.exec(stats);
 		if (match?.groups != null) {

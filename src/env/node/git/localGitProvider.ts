@@ -69,6 +69,8 @@ import type {
 	GitGraphRowContexts,
 	GitGraphRowHead,
 	GitGraphRowRemoteHead,
+	GitGraphRowsStats,
+	GitGraphRowStats,
 	GitGraphRowTag,
 } from '../../../git/models/graph';
 import { GitGraphRowType } from '../../../git/models/graph';
@@ -109,6 +111,7 @@ import {
 	createLogParserWithFiles,
 	getContributorsParser,
 	getGraphParser,
+	getGraphStatsParser,
 	getRefAndDateParser,
 	getRefParser,
 	GitLogParser,
@@ -1723,12 +1726,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			ref?: string;
 		},
 	): Promise<GitGraph> {
-		const parser = getGraphParser(options?.include?.stats);
-		const refParser = getRefParser();
-
 		const defaultLimit = options?.limit ?? configuration.get('graph.defaultItemLimit') ?? 5000;
 		const defaultPageLimit = configuration.get('graph.pageItemLimit') ?? 1000;
 		const ordering = configuration.get('graph.commitOrdering', undefined, 'date');
+
+		const deferStats = options?.include?.stats; // && defaultLimit > 1000;
+
+		const parser = getGraphParser(options?.include?.stats && !deferStats);
+		const refParser = getRefParser();
+		const statsParser = getGraphStatsParser();
 
 		const [refResult, stashResult, branchesResult, remotesResult, currentUserResult] = await Promise.allSettled([
 			this.git.log2(repoPath, undefined, ...refParser.arguments, '-n1', options?.ref ?? 'HEAD'),
@@ -1769,6 +1775,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const remappedIds = new Map<string, string>();
 		let total = 0;
 		let iterations = 0;
+		let pendingRowsStatsCount = 0;
 
 		async function getCommitsForGraphCore(
 			this: LocalGitProvider,
@@ -1776,6 +1783,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			sha?: string,
 			cursor?: { sha: string; skip: number },
 		): Promise<GitGraph> {
+			const startTotal = total;
+
 			iterations++;
 
 			let log: string | string[] | undefined;
@@ -1880,6 +1889,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			let remoteBranchId: string;
 			let remoteName: string;
 			let stashCommit: GitStashCommit | undefined;
+			let stats: GitGraphRowsStats | undefined;
 			let tagId: string;
 			let tagName: string;
 			let tip: string;
@@ -2152,8 +2162,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					remotes: refRemoteHeads,
 					tags: refTags,
 					contexts: contexts,
-					stats: commit.stats,
 				});
+
+				if (commit.stats != null) {
+					if (stats == null) {
+						stats = new Map<string, GitGraphRowStats>();
+					}
+					stats.set(commit.sha, commit.stats);
+				}
 			}
 
 			const startingCursor = cursor?.sha;
@@ -2166,6 +2182,44 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					  }
 					: undefined;
 
+			let rowsStatsDeferred: GitGraph['rowsStatsDeferred'];
+
+			if (deferStats) {
+				if (stats == null) {
+					stats = new Map<string, GitGraphRowStats>();
+				}
+				pendingRowsStatsCount++;
+
+				// eslint-disable-next-line no-async-promise-executor
+				const promise = new Promise<void>(async resolve => {
+					try {
+						const args = [...statsParser.arguments];
+						if (startTotal === 0) {
+							args.push(`-n${total}`);
+						} else {
+							args.push(`-n${total - startTotal}`, `--skip=${startTotal}`);
+						}
+						args.push(`--${ordering}-order`, '--all');
+
+						const statsData = await this.git.log2(repoPath, stdin ? { stdin: stdin } : undefined, ...args);
+						if (statsData) {
+							const commitStats = statsParser.parse(statsData);
+							for (const stat of commitStats) {
+								stats!.set(stat.sha, stat.stats);
+							}
+						}
+					} finally {
+						pendingRowsStatsCount--;
+						resolve();
+					}
+				});
+
+				rowsStatsDeferred = {
+					isLoaded: () => pendingRowsStatsCount === 0,
+					promise: promise,
+				};
+			}
+
 			return {
 				repoPath: repoPath,
 				avatars: avatars,
@@ -2177,6 +2231,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				downstreams: downstreamMap,
 				rows: rows,
 				id: sha,
+				rowsStats: stats,
+				rowsStatsDeferred: rowsStatsDeferred,
 
 				paging: {
 					limit: limit === 0 ? count : limit,

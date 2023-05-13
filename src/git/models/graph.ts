@@ -22,7 +22,6 @@ export interface GitGraphRow extends GraphRow {
 	remotes?: GitGraphRowRemoteHead[];
 	tags?: GitGraphRowTag[];
 	contexts?: GitGraphRowContexts;
-	stats?: GitGraphRowStats;
 }
 
 export interface GitGraph {
@@ -43,6 +42,9 @@ export interface GitGraph {
 	readonly rows: GitGraphRow[];
 	readonly id?: string;
 
+	readonly rowsStats?: GitGraphRowsStats;
+	readonly rowsStatsDeferred?: { isLoaded: () => boolean; promise: Promise<void> };
+
 	readonly paging?: {
 		readonly limit: number | undefined;
 		readonly startingCursor: string | undefined;
@@ -51,3 +53,5 @@ export interface GitGraph {
 
 	more?(limit: number, id?: string): Promise<GitGraph | undefined>;
 }
+
+export type GitGraphRowsStats = Map<string, GitGraphRowStats>;

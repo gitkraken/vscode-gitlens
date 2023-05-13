@@ -2189,14 +2189,14 @@
 							"enum": [
 								"localBranches",
 								"remoteBranches",
-								"tags",
-								"stashes"
+								"stashes",
+								"tags"
 							],
 							"enumDescriptions": [
 								"Marks the location of local branches",
 								"Marks the location of remote branches",
-								"Marks the location of tags",
-								"Marks the location of stashes"
+								"Marks the location of stashes",
+								"Marks the location of tags"
 							]
 						},
 						"minItems": 0,
@@ -2349,14 +2349,29 @@
 						"scope": "window",
 						"order": 99
 					},
-					"gitlens.graph.experimental.minimap.enabled": {
+					"gitlens.graph.minimap.enabled": {
 						"type": "boolean",
 						"default": false,
-						"markdownDescription": "Specifies whether to show an experimental minimap of commit activity above the _Commit Graph_",
+						"markdownDescription": "Specifies whether to show a minimap of commit activity above the _Commit Graph_",
 						"scope": "window",
 						"order": 100
 					},
-					"gitlens.graph.experimental.minimap.additionalTypes": {
+					"gitlens.graph.minimap.dataType": {
+						"type": "string",
+						"default": "commits",
+						"enum": [
+							"commits",
+							"lines"
+						],
+						"enumDescriptions": [
+							"Shows the number of commits per day in the minimap",
+							"Shows the number of lines changed per day in the minimap"
+						],
+						"markdownDescription": "Specifies the data to show on the minimap in the _Commit Graph_",
+						"scope": "window",
+						"order": 101
+					},
+					"gitlens.graph.minimap.additionalTypes": {
 						"type": "array",
 						"default": [
 							"localBranches",
@@ -2367,14 +2382,14 @@
 							"enum": [
 								"localBranches",
 								"remoteBranches",
-								"tags",
-								"stashes"
+								"stashes",
+								"tags"
 							],
 							"enumDescriptions": [
 								"Marks the location of local branches",
 								"Marks the location of remote branches",
-								"Marks the location of tags",
-								"Marks the location of stashes"
+								"Marks the location of stashes",
+								"Marks the location of tags"
 							]
 						},
 						"minItems": 0,
@@ -2382,7 +2397,7 @@
 						"uniqueItems": true,
 						"markdownDescription": "Specifies additional markers to show on the minimap in the _Commit Graph_",
 						"scope": "window",
-						"order": 101
+						"order": 102
 					}
 				}
 			},
@@ -14041,7 +14056,7 @@
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "9.1.5",
+		"@gitkraken/gitkraken-components": "10.0.0",
 		"@microsoft/fast-element": "1.12.0",
 		"@microsoft/fast-react-wrapper": "0.3.18",
 		"@octokit/core": "4.2.1",

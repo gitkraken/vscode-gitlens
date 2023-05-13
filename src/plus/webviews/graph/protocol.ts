@@ -16,11 +16,12 @@ import type {
 	RefMetadataItem,
 	RefMetadataType,
 	Remote,
+	RowStats,
 	Tag,
 	UpstreamMetadata,
 	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
-import type { DateStyle } from '../../../config';
+import type { Config, DateStyle } from '../../../config';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
 import type { GitTrackingState } from '../../../git/models/branch';
 import type { GitGraphRowType } from '../../../git/models/graph';
@@ -59,27 +60,25 @@ export enum GraphRefMetadataTypes {
 	PullRequest = 'pullRequest',
 }
 
-export const enum GraphScrollMarkerTypes {
-	Selection = 'selection',
-	Head = 'head',
-	Highlights = 'highlights',
-	LocalBranches = 'localBranches',
-	RemoteBranches = 'remoteBranches',
-	Stashes = 'stashes',
-	Tags = 'tags',
-	Upstream = 'upstream',
-}
+export type GraphScrollMarkerTypes =
+	| 'selection'
+	| 'head'
+	| 'highlights'
+	| 'localBranches'
+	| 'remoteBranches'
+	| 'stashes'
+	| 'tags'
+	| 'upstream';
 
-export const enum GraphMinimapMarkerTypes {
-	Selection = 'selection',
-	Head = 'head',
-	Highlights = 'highlights',
-	LocalBranches = 'localBranches',
-	RemoteBranches = 'remoteBranches',
-	Stashes = 'stashes',
-	Tags = 'tags',
-	Upstream = 'upstream',
-}
+export type GraphMinimapMarkerTypes =
+	| 'selection'
+	| 'head'
+	| 'highlights'
+	| 'localBranches'
+	| 'remoteBranches'
+	| 'stashes'
+	| 'tags'
+	| 'upstream';
 
 export const supportedRefMetadataTypes: GraphRefMetadataType[] = Object.values(GraphRefMetadataTypes);
 
@@ -100,6 +99,8 @@ export interface State {
 	loading?: boolean;
 	refsMetadata?: GraphRefsMetadata | null;
 	rows?: GraphRow[];
+	rowsStats?: Record<string, GraphRowStats>;
+	rowsStatsLoading?: boolean;
 	downstreams?: GraphDownstreams;
 	paging?: GraphPaging;
 	columns?: GraphColumnsSettings;
@@ -176,9 +177,10 @@ export interface GraphComponentConfig {
 	enableMultiSelection?: boolean;
 	highlightRowsOnRefHover?: boolean;
 	minimap?: boolean;
-	enabledMinimapMarkerTypes?: GraphMinimapMarkerTypes[];
+	minimapDataType?: Config['graph']['minimap']['dataType'];
+	minimapMarkerTypes?: GraphMinimapMarkerTypes[];
+	scrollMarkerTypes?: GraphScrollMarkerTypes[];
 	scrollRowPadding?: number;
-	enabledScrollMarkerTypes?: GraphScrollMarkerTypes[];
 	showGhostRefsOnRowHover?: boolean;
 	showRemoteNamesOnRefs?: boolean;
 	idLength?: number;
@@ -200,6 +202,7 @@ export type GraphIncludeOnlyRefs = IncludeOnlyRefsById;
 export type GraphIncludeOnlyRef = GraphRefOptData;
 
 export type GraphColumnName = GraphZoneType;
+export type GraphRowStats = RowStats;
 
 export type InternalNotificationType = 'didChangeTheme';
 
@@ -371,13 +374,23 @@ export const DidChangeRefsVisibilityNotificationType = new IpcNotificationType<D
 
 export interface DidChangeRowsParams {
 	rows: GraphRow[];
-	downstreams: { [upstreamName: string]: string[] };
 	avatars: { [email: string]: string };
+	downstreams: { [upstreamName: string]: string[] };
 	paging?: GraphPaging;
 	refsMetadata?: GraphRefsMetadata | null;
+	rowsStats?: Record<string, GraphRowStats>;
+	rowsStatsLoading: boolean;
 	selectedRows?: GraphSelectedRows;
 }
 export const DidChangeRowsNotificationType = new IpcNotificationType<DidChangeRowsParams>('graph/rows/didChange');
+
+export interface DidChangeRowsStatsParams {
+	rowsStats: Record<string, GraphRowStats>;
+	rowsStatsLoading: boolean;
+}
+export const DidChangeRowsStatsNotificationType = new IpcNotificationType<DidChangeRowsStatsParams>(
+	'graph/rows/stats/didChange',
+);
 
 export interface DidChangeSelectionParams {
 	selection: GraphSelectedRows;

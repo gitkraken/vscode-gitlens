@@ -20,6 +20,7 @@ const styles = css`
 		margin: 0px;
 		color: var(--vscode-menu-foreground);
 		opacity: 0.6;
+		user-select: none;
 	}
 `;
 

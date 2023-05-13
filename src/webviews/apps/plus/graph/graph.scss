@@ -233,6 +233,10 @@ button:not([disabled]),
 		vertical-align: bottom;
 	}
 
+	.codicon[class*='codicon-graph-line'] {
+		transform: translateY(1px);
+	}
+
 	&__pill {
 		.is-ahead & {
 			background-color: var(--branch-status-ahead-pill-background);
@@ -244,18 +248,6 @@ button:not([disabled]),
 			background-color: var(--branch-status-both-pill-background);
 		}
 	}
-
-	// &__icon {
-	// 	.is-ahead & {
-	// 		color: var(--branch-status-ahead-foreground);
-	// 	}
-	// 	.is-behind & {
-	// 		color: var(--branch-status-behind-foreground);
-	// 	}
-	// 	.is-ahead.is-behind & {
-	// 		color: var(--branch-status-both-foreground);
-	// 	}
-	// }
 
 	&__more,
 	&__more.codicon[class*='codicon-'] {
@@ -338,6 +330,38 @@ button:not([disabled]),
 	border-color: var(--vscode-inputOption-activeBorder);
 }
 
+.button-group {
+	display: flex;
+	flex-direction: row;
+	align-items: stretch;
+
+	&:hover {
+		background-color: var(--color-graph-actionbar-selectedBackground);
+	}
+
+	> *:not(:first-child),
+	> *:not(:first-child) .action-button {
+		display: flex;
+		border-top-left-radius: 0;
+		border-bottom-left-radius: 0;
+	}
+
+	> *:not(:first-child) .action-button {
+		padding-left: 0.25rem;
+	}
+
+	> *:not(:last-child),
+	> *:not(:last-child) .action-button {
+		padding-right: 0.5rem;
+		border-top-right-radius: 0;
+		border-bottom-right-radius: 0;
+	}
+
+	// > *:not(:first-child) {
+	// 	border-left: 0.1rem solid var(--titlebar-fg);
+	// }
+}
+
 .repo-access {
 	font-size: 1.1em;
 	margin-right: 0.2rem;
@@ -348,10 +372,10 @@ button:not([disabled]),
 }
 
 .column-button {
-	--column-button-height: 20px;
+	--column-button-height: 19px;
 
 	position: absolute;
-	top: 1px;
+	top: 3px;
 	right: 0;
 	z-index: 2;
 
@@ -361,7 +385,7 @@ button:not([disabled]),
 	border: none;
 	color: var(--text-disabled, hsla(0, 0%, 100%, 0.4));
 	margin: 0;
-	padding: 0 4px;
+	padding: 0 2px;
 	height: var(--column-button-height);
 	cursor: pointer;
 	background-color: var(--color-graph-actionbar-background);
@@ -385,7 +409,6 @@ button:not([disabled]),
 	.codicon[class*='codicon-'] {
 		font-size: 1.1rem;
 		position: relative;
-		top: 2px;
 	}
 }
 

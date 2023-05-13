@@ -30,6 +30,7 @@ import type {
 	GraphComponentConfig,
 	GraphExcludedRef,
 	GraphExcludeTypes,
+	GraphMinimapMarkerTypes,
 	GraphMissingRefsMetadata,
 	GraphRefMetadataItem,
 	GraphRepository,
@@ -47,13 +48,13 @@ import {
 	DidChangeRefsMetadataNotificationType,
 	DidChangeRefsVisibilityNotificationType,
 	DidChangeRowsNotificationType,
+	DidChangeRowsStatsNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
 	DidChangeWindowFocusNotificationType,
 	DidChangeWorkingTreeNotificationType,
 	DidFetchNotificationType,
 	DidSearchNotificationType,
-	GraphMinimapMarkerTypes,
 } from '../../../../plus/webviews/graph/protocol';
 import type { Subscription } from '../../../../subscription';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../subscription';
@@ -193,6 +194,8 @@ export function GraphWrapper({
 	const graphRef = useRef<GraphContainer>(null);
 
 	const [rows, setRows] = useState(state.rows ?? []);
+	const [rowsStats, setRowsStats] = useState(state.rowsStats);
+	const [rowsStatsLoading, setRowsStatsLoading] = useState(state.rowsStatsLoading);
 	const [avatars, setAvatars] = useState(state.avatars);
 	const [downstreams, setDownstreams] = useState(state.downstreams ?? {});
 	const [refsMetadata, setRefsMetadata] = useState(state.refsMetadata);
@@ -274,12 +277,18 @@ export function GraphWrapper({
 				break;
 			case DidChangeRowsNotificationType:
 				setRows(state.rows ?? []);
+				setRowsStats(state.rowsStats);
+				setRowsStatsLoading(state.rowsStatsLoading);
 				setSelectedRows(state.selectedRows);
 				setAvatars(state.avatars);
 				setDownstreams(state.downstreams ?? {});
 				setRefsMetadata(state.refsMetadata);
 				setPagingHasMore(state.paging?.hasMore ?? false);
 				setIsLoading(state.loading);
+				break;
+			case DidChangeRowsStatsNotificationType:
+				setRowsStats(state.rowsStats);
+				setRowsStatsLoading(state.rowsStatsLoading);
 				break;
 			case DidSearchNotificationType: {
 				const { results, resultsError } = getSearchResultModel(state);
@@ -319,6 +328,8 @@ export function GraphWrapper({
 				setLastFetched(state.lastFetched);
 				setColumns(state.columns);
 				setRows(state.rows ?? []);
+				setRowsStats(state.rowsStats);
+				setRowsStatsLoading(state.rowsStatsLoading);
 				setWorkingTreeStats(state.workingTreeStats ?? { added: 0, modified: 0, deleted: 0 });
 				setGraphConfig(state.config);
 				setSelectedRows(state.selectedRows);
@@ -377,10 +388,13 @@ export function GraphWrapper({
 	const minimapData = useMemo(() => {
 		if (!graphConfig?.minimap) return undefined;
 
+		const showLinesChanged = (graphConfig?.minimapDataType ?? 'commits') === 'lines';
+		if (showLinesChanged && rowsStats == null) return undefined;
+
 		// Loops through all the rows and group them by day and aggregate the row.stats
 		const statsByDayMap = new Map<number, GraphMinimapStats>();
 		const markersByDay = new Map<number, GraphMinimapMarker[]>();
-		const enabledMinimapMarkers: GraphMinimapMarkerTypes[] = graphConfig?.enabledMinimapMarkerTypes ?? [];
+		const enabledMinimapMarkers: GraphMinimapMarkerTypes[] = graphConfig?.minimapMarkerTypes ?? [];
 
 		let rankedShas: {
 			head: string | undefined;
@@ -409,7 +423,6 @@ export function GraphWrapper({
 		// Iterate in reverse order so that we can track the HEAD upstream properly
 		for (let i = rows.length - 1; i >= 0; i--) {
 			row = rows[i];
-			stats = row.stats;
 
 			day = getDay(row.date);
 			if (day !== prevDay) {
@@ -424,8 +437,7 @@ export function GraphWrapper({
 
 			if (
 				row.heads?.length &&
-				(enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.Head) ||
-					enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.LocalBranches))
+				(enabledMinimapMarkers.includes('head') || enabledMinimapMarkers.includes('localBranches'))
 			) {
 				rankedShas.branch = row.sha;
 
@@ -438,13 +450,13 @@ export function GraphWrapper({
 					}
 
 					if (
-						enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.LocalBranches) ||
-						(enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.Head) && h.isCurrentHead)
+						enabledMinimapMarkers.includes('localBranches') ||
+						(enabledMinimapMarkers.includes('head') && h.isCurrentHead)
 					) {
 						headMarkers.push({
 							type: 'branch',
 							name: h.name,
-							current: h.isCurrentHead && enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.Head),
+							current: h.isCurrentHead && enabledMinimapMarkers.includes('head'),
 						});
 					}
 				});
@@ -459,9 +471,9 @@ export function GraphWrapper({
 
 			if (
 				row.remotes?.length &&
-				(enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.Upstream) ||
-					enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.RemoteBranches) ||
-					enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.LocalBranches))
+				(enabledMinimapMarkers.includes('upstream') ||
+					enabledMinimapMarkers.includes('remoteBranches') ||
+					enabledMinimapMarkers.includes('localBranches'))
 			) {
 				rankedShas.remote = row.sha;
 
@@ -477,14 +489,14 @@ export function GraphWrapper({
 					}
 
 					if (
-						enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.RemoteBranches) ||
-						(enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.Upstream) && current) ||
-						(enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.LocalBranches) && hasDownstream)
+						enabledMinimapMarkers.includes('remoteBranches') ||
+						(enabledMinimapMarkers.includes('upstream') && current) ||
+						(enabledMinimapMarkers.includes('localBranches') && hasDownstream)
 					) {
 						remoteMarkers.push({
 							type: 'remote',
 							name: `${r.owner}/${r.name}`,
-							current: current && enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.Upstream),
+							current: current && enabledMinimapMarkers.includes('upstream'),
 						});
 					}
 				});
@@ -497,7 +509,7 @@ export function GraphWrapper({
 				}
 			}
 
-			if (row.type === 'stash-node' && enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.Stashes)) {
+			if (row.type === 'stash-node' && enabledMinimapMarkers.includes('stashes')) {
 				stashMarker = { type: 'stash', name: row.message };
 				markers = markersByDay.get(day);
 				if (markers == null) {
@@ -507,7 +519,7 @@ export function GraphWrapper({
 				}
 			}
 
-			if (row.tags?.length && enabledMinimapMarkers.includes(GraphMinimapMarkerTypes.Tags)) {
+			if (row.tags?.length && enabledMinimapMarkers.includes('tags')) {
 				rankedShas.tag = row.sha;
 
 				tagMarkers = row.tags.map<GraphMinimapMarker>(t => ({
@@ -525,42 +537,54 @@ export function GraphWrapper({
 
 			stat = statsByDayMap.get(day);
 			if (stat == null) {
-				stat =
-					stats != null
-						? {
-								activity: { additions: stats.additions, deletions: stats.deletions },
-								commits: 1,
-								files: stats.files,
-								sha: row.sha,
-						  }
-						: {
-								commits: 1,
-								sha: row.sha,
-						  };
-				statsByDayMap.set(day, stat);
+				if (showLinesChanged) {
+					stats = rowsStats![row.sha];
+					if (stats != null) {
+						stat = {
+							activity: { additions: stats.additions, deletions: stats.deletions },
+							commits: 1,
+							files: stats.files,
+							sha: row.sha,
+						};
+						statsByDayMap.set(day, stat);
+					}
+				} else {
+					stat = {
+						commits: 1,
+						sha: row.sha,
+					};
+					statsByDayMap.set(day, stat);
+				}
 			} else {
 				stat.commits++;
 				stat.sha = rankedShas.head ?? rankedShas.branch ?? rankedShas.remote ?? rankedShas.tag ?? stat.sha;
-				if (stats != null) {
-					if (stat.activity == null) {
-						stat.activity = { additions: stats.additions, deletions: stats.deletions };
-					} else {
-						stat.activity.additions += stats.additions;
-						stat.activity.deletions += stats.deletions;
+				if (showLinesChanged) {
+					stats = rowsStats![row.sha];
+					if (stats != null) {
+						if (stat.activity == null) {
+							stat.activity = { additions: stats.additions, deletions: stats.deletions };
+						} else {
+							stat.activity.additions += stats.additions;
+							stat.activity.deletions += stats.deletions;
+						}
+						stat.files = (stat.files ?? 0) + stats.files;
 					}
-					stat.files = (stat.files ?? 0) + stats.files;
 				}
 			}
 		}
 
 		return { stats: statsByDayMap, markers: markersByDay };
-	}, [rows, downstreams, graphConfig?.minimap, graphConfig?.enabledMinimapMarkerTypes]);
+	}, [
+		rows,
+		rowsStats,
+		downstreams,
+		graphConfig?.minimap,
+		graphConfig?.minimapDataType,
+		graphConfig?.minimapMarkerTypes,
+	]);
 
 	const minimapSearchResults = useMemo(() => {
-		if (
-			!graphConfig?.minimap ||
-			!graphConfig.enabledMinimapMarkerTypes?.includes(GraphMinimapMarkerTypes.Highlights)
-		) {
+		if (!graphConfig?.minimap || !graphConfig.minimapMarkerTypes?.includes('highlights')) {
 			return undefined;
 		}
 
@@ -582,7 +606,7 @@ export function GraphWrapper({
 		}
 
 		return searchResultsByDay;
-	}, [searchResults, graphConfig?.minimap, graphConfig?.enabledMinimapMarkerTypes]);
+	}, [searchResults, graphConfig?.minimap, graphConfig?.minimapMarkerTypes]);
 
 	const handleOnMinimapDaySelected = (e: CustomEvent<GraphMinimapDaySelectedEventDetail>) => {
 		let { sha } = e.detail;
@@ -600,8 +624,43 @@ export function GraphWrapper({
 		graphRef.current?.selectCommits([sha], false, true);
 	};
 
-	const handleOnToggleMinimap = (_e: React.MouseEvent) => {
+	const handleOnMinimapToggle = (_e: React.MouseEvent) => {
 		onUpdateGraphConfiguration?.({ minimap: !graphConfig?.minimap });
+	};
+
+	// This can only be applied to one radio button for now due to a bug in the component: https://github.com/microsoft/fast/issues/6381
+	const handleOnMinimapDataTypeChange = (e: Event | FormEvent<HTMLElement>) => {
+		if (graphConfig == null) return;
+
+		const $el = e.target as HTMLInputElement;
+		if ($el.value === 'commits') {
+			const minimapDataType = $el.checked ? 'commits' : 'lines';
+			if (graphConfig.minimapDataType === minimapDataType) return;
+
+			setGraphConfig({ ...graphConfig, minimapDataType: minimapDataType });
+			onUpdateGraphConfiguration?.({ minimapDataType: minimapDataType });
+		}
+	};
+
+	const handleOnMinimapAdditionalTypesChange = (e: Event | FormEvent<HTMLElement>) => {
+		if (graphConfig?.minimapMarkerTypes == null) return;
+
+		const $el = e.target as HTMLInputElement;
+		const value = $el.value as GraphMinimapMarkerTypes;
+
+		if ($el.checked) {
+			const index = graphConfig.minimapMarkerTypes.indexOf(value);
+			if (index !== -1) {
+				const minimapMarkerTypes = [...graphConfig.minimapMarkerTypes];
+				minimapMarkerTypes.splice(index, 1);
+				setGraphConfig({ ...graphConfig, minimapMarkerTypes: minimapMarkerTypes });
+				onUpdateGraphConfiguration?.({ minimapMarkerTypes: minimapMarkerTypes });
+			}
+		} else if (!graphConfig.minimapMarkerTypes.includes(value)) {
+			const minimapMarkerTypes = [...graphConfig.minimapMarkerTypes, value];
+			setGraphConfig({ ...graphConfig, minimapMarkerTypes: minimapMarkerTypes });
+			onUpdateGraphConfiguration?.({ minimapMarkerTypes: minimapMarkerTypes });
+		}
 	};
 
 	const handleOnGraphMouseLeave = (_event: any) => {
@@ -1351,21 +1410,111 @@ export function GraphWrapper({
 							<span>
 								<span className="action-divider"></span>
 							</span>
-							<button
-								type="button"
-								role="checkbox"
-								className="action-button"
-								title="Toggle Minimap (Experimental)"
-								aria-label="Toggle Minimap (Experimental)"
-								aria-checked={graphConfig?.minimap ?? false}
-								onClick={handleOnToggleMinimap}
-							>
-								<span className="codicon codicon-graph-line action-button__icon"></span>
-							</button>
+							<span className="button-group">
+								<button
+									type="button"
+									role="checkbox"
+									className="action-button"
+									title="Toggle Minimap"
+									aria-label="Toggle Minimap"
+									aria-checked={graphConfig?.minimap ?? false}
+									onClick={handleOnMinimapToggle}
+								>
+									<span className="codicon codicon-graph-line action-button__icon"></span>
+								</button>
+								<PopMenu position="right" className="split-button-dropdown">
+									<button
+										type="button"
+										className="action-button"
+										slot="trigger"
+										title="Minimap Options"
+									>
+										<span
+											className="codicon codicon-chevron-down action-button__more"
+											aria-hidden="true"
+										></span>
+									</button>
+									<MenuList slot="content">
+										<MenuLabel>Show by day</MenuLabel>
+										<MenuItem role="none">
+											<VSCodeRadioGroup
+												orientation="vertical"
+												value={graphConfig?.minimapDataType ?? 'commits'}
+											>
+												<VSCodeRadio
+													name="minimap-datatype"
+													value="commits"
+													onChange={handleOnMinimapDataTypeChange}
+												>
+													Commits
+												</VSCodeRadio>
+												<VSCodeRadio name="minimap-datatype" value="lines">
+													Lines Changed (can take a while)
+												</VSCodeRadio>
+											</VSCodeRadioGroup>
+										</MenuItem>
+										<MenuDivider></MenuDivider>
+										<MenuLabel>Markers</MenuLabel>
+										<MenuItem role="none">
+											<VSCodeCheckbox
+												value="localBranches"
+												onChange={handleOnMinimapAdditionalTypesChange}
+												defaultChecked={
+													!(
+														graphConfig?.minimapMarkerTypes?.includes('localBranches') ??
+														false
+													)
+												}
+											>
+												Hide Local Branches
+											</VSCodeCheckbox>
+										</MenuItem>
+										<MenuItem role="none">
+											<VSCodeCheckbox
+												value="remoteBranches"
+												onChange={handleOnMinimapAdditionalTypesChange}
+												defaultChecked={
+													!(
+														graphConfig?.minimapMarkerTypes?.includes('remoteBranches') ??
+														true
+													)
+												}
+											>
+												Hide Remote Branches
+											</VSCodeCheckbox>
+										</MenuItem>
+										<MenuItem role="none">
+											<VSCodeCheckbox
+												value="stashes"
+												onChange={handleOnMinimapAdditionalTypesChange}
+												defaultChecked={
+													!(graphConfig?.minimapMarkerTypes?.includes('stashes') ?? false)
+												}
+											>
+												Hide Stashes
+											</VSCodeCheckbox>
+										</MenuItem>
+										<MenuItem role="none">
+											<VSCodeCheckbox
+												value="tags"
+												onChange={handleOnMinimapAdditionalTypesChange}
+												defaultChecked={
+													!(graphConfig?.minimapMarkerTypes?.includes('tags') ?? true)
+												}
+											>
+												Hide Tags
+											</VSCodeCheckbox>
+										</MenuItem>
+									</MenuList>
+								</PopMenu>
+							</span>
 						</div>
 					</div>
 				)}
-				<div className={`progress-container infinite${isLoading ? ' active' : ''}`} role="progressbar">
+				<div
+					className={`progress-container infinite${isLoading || rowsStatsLoading ? ' active' : ''}`}
+					role="progressbar"
+				>
 					<div className="progress-bar"></div>
 				</div>
 			</header>
@@ -1374,6 +1523,7 @@ export function GraphWrapper({
 					ref={minimap as any}
 					activeDay={activeDay}
 					data={minimapData?.stats}
+					dataType={graphConfig?.minimapDataType ?? 'commits'}
 					markers={minimapData?.markers}
 					searchResults={minimapSearchResults}
 					visibleDays={visibleDays}
@@ -1397,9 +1547,7 @@ export function GraphWrapper({
 							dimMergeCommits={graphConfig?.dimMergeCommits}
 							downstreamsByUpstream={downstreams}
 							enabledRefMetadataTypes={graphConfig?.enabledRefMetadataTypes}
-							enabledScrollMarkerTypes={
-								graphConfig?.enabledScrollMarkerTypes as GraphMarkerType[] | undefined
-							}
+							enabledScrollMarkerTypes={graphConfig?.scrollMarkerTypes as GraphMarkerType[] | undefined}
 							enableMultiSelection={graphConfig?.enableMultiSelection}
 							excludeRefsById={excludeRefsById}
 							excludeByType={excludeTypes}
@@ -1432,6 +1580,8 @@ export function GraphWrapper({
 							onGraphVisibleRowsChanged={minimap.current ? handleOnGraphVisibleRowsChanged : undefined}
 							platform={clientPlatform}
 							refMetadataById={refsMetadata}
+							rowsStats={rowsStats}
+							rowsStatsLoading={rowsStatsLoading}
 							shaLength={graphConfig?.idLength}
 							themeOpacityFactor={styleProps?.themeOpacityFactor}
 							useAuthorInitialsForAvatars={!graphConfig?.avatars}
@@ -1448,10 +1598,7 @@ export function GraphWrapper({
 					data-vscode-context={context?.header || JSON.stringify({ webviewItem: 'gitlens:graph:columns' })}
 					onClick={handleToggleColumnSettings}
 				>
-					<span
-						className="codicon codicon-settings-gear columnsettings__icon"
-						aria-label="Column Settings"
-					></span>
+					<span className="codicon codicon-settings-gear" aria-label="Column Settings"></span>
 				</button>
 			</main>
 		</>

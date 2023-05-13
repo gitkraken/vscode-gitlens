@@ -11,7 +11,7 @@ import type {
 	ShowCommitsInViewCommandArgs,
 } from '../../../commands';
 import { parseCommandContext } from '../../../commands/base';
-import type { Config } from '../../../config';
+import type { Config, GraphMinimapMarkersAdditionalTypes } from '../../../config';
 import type { StoredGraphFilters, StoredGraphIncludeOnlyRef, StoredGraphRefType } from '../../../constants';
 import { Commands, GlyphChars } from '../../../constants';
 import type { Container } from '../../../container';
@@ -115,12 +115,14 @@ import type {
 	GraphItemRefGroupContext,
 	GraphItemTypedContext,
 	GraphItemTypedContextValue,
+	GraphMinimapMarkerTypes,
 	GraphMissingRefsMetadataType,
 	GraphPullRequestContextValue,
 	GraphPullRequestMetadata,
 	GraphRefMetadata,
 	GraphRefMetadataType,
 	GraphRepository,
+	GraphScrollMarkerTypes,
 	GraphSelectedRows,
 	GraphStashContextValue,
 	GraphTagContextValue,
@@ -145,6 +147,7 @@ import {
 	DidChangeRefsMetadataNotificationType,
 	DidChangeRefsVisibilityNotificationType,
 	DidChangeRowsNotificationType,
+	DidChangeRowsStatsNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
 	DidChangeWindowFocusNotificationType,
@@ -159,9 +162,7 @@ import {
 	GetMissingAvatarsCommandType,
 	GetMissingRefsMetadataCommandType,
 	GetMoreRowsCommandType,
-	GraphMinimapMarkerTypes,
 	GraphRefMetadataTypes,
-	GraphScrollMarkerTypes,
 	SearchCommandType,
 	SearchOpenInViewCommandType,
 	supportedRefMetadataTypes,
@@ -514,8 +515,28 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			if (config[key] !== params.changes[key]) {
 				switch (key) {
 					case 'minimap':
-						void configuration.updateEffective('graph.experimental.minimap.enabled', params.changes[key]);
+						void configuration.updateEffective('graph.minimap.enabled', params.changes[key]);
 						break;
+					case 'minimapDataType':
+						void configuration.updateEffective('graph.minimap.dataType', params.changes[key]);
+						break;
+					case 'minimapMarkerTypes': {
+						const additionalTypes: GraphMinimapMarkersAdditionalTypes[] = [];
+
+						const markers = params.changes[key] ?? [];
+						for (const marker of markers) {
+							switch (marker) {
+								case 'localBranches':
+								case 'remoteBranches':
+								case 'stashes':
+								case 'tags':
+									additionalTypes.push(marker);
+									break;
+							}
+						}
+						void configuration.updateEffective('graph.minimap.additionalTypes', additionalTypes);
+						break;
+					}
 					default:
 						// TODO:@eamodio add more config options as needed
 						debugger;
@@ -582,14 +603,17 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			configuration.changed(e, 'graph.pullRequests.enabled') ||
 			configuration.changed(e, 'graph.showRemoteNames') ||
 			configuration.changed(e, 'graph.showUpstreamStatus') ||
-			configuration.changed(e, 'graph.experimental.minimap.enabled') ||
-			configuration.changed(e, 'graph.experimental.minimap.additionalTypes')
+			configuration.changed(e, 'graph.minimap.enabled') ||
+			configuration.changed(e, 'graph.minimap.dataType') ||
+			configuration.changed(e, 'graph.minimap.additionalTypes')
 		) {
 			void this.notifyDidChangeConfiguration();
 
 			if (
-				configuration.changed(e, 'graph.experimental.minimap.enabled') &&
-				configuration.get('graph.experimental.minimap.enabled') &&
+				(configuration.changed(e, 'graph.minimap.enabled') ||
+					configuration.changed(e, 'graph.minimap.dataType')) &&
+				configuration.get('graph.minimap.enabled') &&
+				configuration.get('graph.minimap.dataType') === 'lines' &&
 				!this._graph?.includes?.stats
 			) {
 				this.updateState();
@@ -1279,22 +1303,35 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 	private async notifyDidChangeRows(sendSelectedRows: boolean = false, completionId?: string) {
 		if (this._graph == null) return;
 
-		const data = this._graph;
+		const graph = this._graph;
 		return this.host.notify(
 			DidChangeRowsNotificationType,
 			{
-				rows: data.rows,
-				downstreams: Object.fromEntries(data.downstreams),
-				avatars: Object.fromEntries(data.avatars),
+				rows: graph.rows,
+				avatars: Object.fromEntries(graph.avatars),
+				downstreams: Object.fromEntries(graph.downstreams),
 				refsMetadata: this._refsMetadata != null ? Object.fromEntries(this._refsMetadata) : this._refsMetadata,
+				rowsStats: graph.rowsStats?.size ? Object.fromEntries(graph.rowsStats) : undefined,
+				rowsStatsLoading:
+					graph.rowsStatsDeferred?.isLoaded != null ? !graph.rowsStatsDeferred.isLoaded() : false,
 				selectedRows: sendSelectedRows ? this._selectedRows : undefined,
 				paging: {
-					startingCursor: data.paging?.startingCursor,
-					hasMore: data.paging?.hasMore ?? false,
+					startingCursor: graph.paging?.startingCursor,
+					hasMore: graph.paging?.hasMore ?? false,
 				},
 			},
 			completionId,
 		);
+	}
+
+	@debug()
+	private async notifyDidChangeRowsStats(graph: GitGraph) {
+		if (graph.rowsStats == null) return;
+
+		return this.host.notify(DidChangeRowsStatsNotificationType, {
+			rowsStats: Object.fromEntries(graph.rowsStats),
+			rowsStatsLoading: graph.rowsStatsDeferred?.isLoaded != null ? !graph.rowsStatsDeferred.isLoaded() : false,
+		});
 	}
 
 	@debug()
@@ -1608,10 +1645,11 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			dimMergeCommits: configuration.get('graph.dimMergeCommits'),
 			enableMultiSelection: false,
 			highlightRowsOnRefHover: configuration.get('graph.highlightRowsOnRefHover'),
-			minimap: configuration.get('graph.experimental.minimap.enabled'),
-			enabledMinimapMarkerTypes: this.getEnabledGraphMinimapMarkers(),
+			minimap: configuration.get('graph.minimap.enabled'),
+			minimapDataType: configuration.get('graph.minimap.dataType'),
+			minimapMarkerTypes: this.getMinimapMarkerTypes(),
 			scrollRowPadding: configuration.get('graph.scrollRowPadding'),
-			enabledScrollMarkerTypes: this.getEnabledGraphScrollMarkers(),
+			scrollMarkerTypes: this.getScrollMarkerTypes(),
 			showGhostRefsOnRowHover: configuration.get('graph.showGhostRefsOnRowHover'),
 			showRemoteNamesOnRefs: configuration.get('graph.showRemoteNames'),
 			idLength: configuration.get('advanced.abbreviatedShaLength'),
@@ -1619,33 +1657,29 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		return config;
 	}
 
-	private getEnabledGraphScrollMarkers(): GraphScrollMarkerTypes[] {
-		const markersEnabled = configuration.get('graph.scrollMarkers.enabled');
-		if (!markersEnabled) return [];
+	private getScrollMarkerTypes(): GraphScrollMarkerTypes[] {
+		if (!configuration.get('graph.scrollMarkers.enabled')) return [];
 
 		const markers: GraphScrollMarkerTypes[] = [
-			GraphScrollMarkerTypes.Selection,
-			GraphScrollMarkerTypes.Highlights,
-			GraphScrollMarkerTypes.Head,
-			GraphScrollMarkerTypes.Upstream,
-			...(configuration.get('graph.scrollMarkers.additionalTypes') as unknown as GraphScrollMarkerTypes[]),
+			'selection',
+			'highlights',
+			'head',
+			'upstream',
+			...configuration.get('graph.scrollMarkers.additionalTypes'),
 		];
 
 		return markers;
 	}
 
-	private getEnabledGraphMinimapMarkers(): GraphMinimapMarkerTypes[] {
-		const markersEnabled = configuration.get('graph.experimental.minimap.enabled');
-		if (!markersEnabled) return [];
+	private getMinimapMarkerTypes(): GraphMinimapMarkerTypes[] {
+		if (!configuration.get('graph.minimap.enabled')) return [];
 
 		const markers: GraphMinimapMarkerTypes[] = [
-			GraphMinimapMarkerTypes.Selection,
-			GraphMinimapMarkerTypes.Highlights,
-			GraphMinimapMarkerTypes.Head,
-			GraphMinimapMarkerTypes.Upstream,
-			...(configuration.get(
-				'graph.experimental.minimap.additionalTypes',
-			) as unknown as GraphMinimapMarkerTypes[]),
+			'selection',
+			'highlights',
+			'head',
+			'upstream',
+			...configuration.get('graph.minimap.additionalTypes'),
 		];
 
 		return markers;
@@ -1747,7 +1781,10 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			uri => this.host.asWebviewUri(uri),
 			{
 				include: {
-					stats: configuration.get('graph.experimental.minimap.enabled') || !columnSettings.changes.isHidden,
+					stats:
+						(configuration.get('graph.minimap.enabled') &&
+							configuration.get('graph.minimap.dataType') === 'lines') ||
+						!columnSettings.changes.isHidden,
 				},
 				limit: limit,
 				ref: ref,
@@ -1817,6 +1854,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			avatars: data != null ? Object.fromEntries(data.avatars) : undefined,
 			refsMetadata: this.resetRefsMetadata() === null ? null : {},
 			loading: deferRows,
+			rowsStatsLoading: data?.rowsStatsDeferred?.isLoaded != null ? !data.rowsStatsDeferred.isLoaded() : false,
 			rows: data?.rows,
 			downstreams: data != null ? Object.fromEntries(data.downstreams) : undefined,
 			paging:
@@ -1943,6 +1981,8 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		if (graph == null) {
 			this.resetRefsMetadata();
 			this.resetSearchState();
+		} else {
+			void graph.rowsStatsDeferred?.promise.then(() => void this.notifyDidChangeRowsStats(graph));
 		}
 	}
 

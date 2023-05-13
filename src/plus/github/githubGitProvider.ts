@@ -39,7 +39,7 @@ import { GitUri } from '../../git/gitUri';
 import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../git/models/blame';
 import type { BranchSortOptions } from '../../git/models/branch';
 import { getBranchId, getBranchNameWithoutRemote, GitBranch, sortBranches } from '../../git/models/branch';
-import type { GitCommitLine, GitCommitStats } from '../../git/models/commit';
+import type { GitCommitLine } from '../../git/models/commit';
 import { getChangedFilesCount, GitCommit, GitCommitIdentity } from '../../git/models/commit';
 import { deletedOrMissing, uncommitted } from '../../git/models/constants';
 import { GitContributor } from '../../git/models/contributor';
@@ -52,6 +52,8 @@ import type {
 	GitGraphRowContexts,
 	GitGraphRowHead,
 	GitGraphRowRemoteHead,
+	GitGraphRowsStats,
+	GitGraphRowStats,
 	GitGraphRowTag,
 } from '../../git/models/graph';
 import { GitGraphRowType } from '../../git/models/graph';
@@ -1256,7 +1258,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		let refRemoteHeads: GitGraphRowRemoteHead[];
 		let refTags: GitGraphRowTag[];
 		let remoteBranchId: string;
-		let stats: GitCommitStats | undefined;
+		let stats: GitGraphRowsStats | undefined;
 		let tagId: string;
 
 		const headRefUpstreamName = headBranch.upstream?.name;
@@ -1442,7 +1444,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				}),
 			};
 
-			stats = commit.stats;
 			rows.push({
 				sha: commit.sha,
 				parents: commit.parents,
@@ -1456,15 +1457,18 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				remotes: refRemoteHeads,
 				tags: refTags,
 				contexts: contexts,
-				stats:
-					stats != null
-						? {
-								files: getChangedFilesCount(stats.changedFiles),
-								additions: stats.additions,
-								deletions: stats.deletions,
-						  }
-						: undefined,
 			});
+
+			if (commit.stats != null) {
+				if (stats == null) {
+					stats = new Map<string, GitGraphRowStats>();
+				}
+				stats.set(commit.sha, {
+					files: getChangedFilesCount(commit.stats.changedFiles),
+					additions: commit.stats.additions,
+					deletions: commit.stats.deletions,
+				});
+			}
 		}
 
 		if (options?.ref === 'HEAD') {
