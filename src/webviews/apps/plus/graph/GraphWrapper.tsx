@@ -1115,7 +1115,7 @@ export function GraphWrapper({
 			isBehind = branchState.behind > 0;
 			isAhead = branchState.ahead > 0;
 			const branchPrefix = `Branch ${branchName} is`;
-			remote = `${branchState.upstream}${branchState.provider ? ` on ${branchState.provider}` : ''}`;
+			remote = `${branchState.upstream}${branchState.provider?.name ? ` on ${branchState.provider?.name}` : ''}`;
 			if (isBehind) {
 				action = 'command:gitlens.graph.pull';
 				icon = 'arrow-down';
@@ -1179,11 +1179,30 @@ export function GraphWrapper({
 			{renderAlertContent()}
 			<header className="titlebar graph-app__header">
 				<div className="titlebar__row titlebar__row--wrap">
+					{repo && branchState?.provider?.url && (
+						<a
+							href={branchState.provider.url}
+							className="action-button"
+							style={{ marginRight: '-0.5rem' }}
+							title={`Open Repository on ${branchState.provider.name}`}
+							aria-label={`Open Repository on ${branchState.provider.name}`}
+						>
+							<span
+								className={
+									branchState.provider.icon === 'cloud'
+										? 'codicon codicon-cloud action-button__icon'
+										: `glicon glicon-provider-${branchState.provider.icon} action-button__icon`
+								}
+								aria-hidden="true"
+							></span>
+						</a>
+					)}
 					<button
 						type="button"
 						className="action-button"
 						slot="trigger"
 						title="Switch to Another Repository..."
+						aria-label="Switch to Another Repository..."
 						disabled={repos.length < 2}
 						onClick={() => handleChooseRepository()}
 					>
@@ -1204,6 +1223,7 @@ export function GraphWrapper({
 								href="command:gitlens.graph.switchToAnotherBranch"
 								className="action-button"
 								title="Switch to Another Branch..."
+								aria-label="Switch to Another Branch..."
 							>
 								{branchName}
 								<span

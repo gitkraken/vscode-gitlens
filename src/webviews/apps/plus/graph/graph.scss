@@ -227,14 +227,10 @@ button:not([disabled]),
 		text-decoration: none;
 	}
 
-	.codicon[class*='codicon-'] {
+	.codicon[class*='codicon-'],
+	.glicon[class*='glicon-'] {
 		line-height: 2.2rem;
 		vertical-align: bottom;
-	}
-
-	&__icon:not(.codicon) {
-		display: inline-block;
-		width: 1.6rem;
 	}
 
 	&__pill {
@@ -758,7 +754,7 @@ button:not([disabled]),
 			grid-auto-flow: column;
 			white-space: nowrap;
 			justify-content: start;
-			grid-template-columns: min-content min-content min-content min-content minmax(min-content, 1fr);
+			grid-template-columns: min-content min-content min-content min-content min-content minmax(min-content, 1fr);
 		}
 	}
 
