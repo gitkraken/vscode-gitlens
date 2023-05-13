@@ -26,6 +26,7 @@ import {
 	DidChangeRefsMetadataNotificationType,
 	DidChangeRefsVisibilityNotificationType,
 	DidChangeRowsNotificationType,
+	DidChangeRowsStatsNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
 	DidChangeWindowFocusNotificationType,
@@ -272,10 +273,22 @@ export class GraphApp extends App<State> {
 					}
 					this.state.rows = rows;
 					this.state.paging = params.paging;
+					if (params.rowsStats != null) {
+						this.state.rowsStats = { ...this.state.rowsStats, ...params.rowsStats };
+					}
+					this.state.rowsStatsLoading = params.rowsStatsLoading;
 					if (params.selectedRows != null) {
 						this.state.selectedRows = params.selectedRows;
 					}
 					this.state.loading = false;
+					this.setState(this.state, type);
+				});
+				break;
+
+			case DidChangeRowsStatsNotificationType.method:
+				onIpc(DidChangeRowsStatsNotificationType, msg, (params, type) => {
+					this.state.rowsStats = { ...this.state.rowsStats, ...params.rowsStats };
+					this.state.rowsStatsLoading = params.rowsStatsLoading;
 					this.setState(this.state, type);
 				});
 				break;

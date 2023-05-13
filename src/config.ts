@@ -305,25 +305,8 @@ export const enum GitCommandSorting {
 	Usage = 'usage',
 }
 
-export const enum GraphScrollMarkerTypes {
-	Selection = 'selection',
-	Head = 'head',
-	LocalBranches = 'localBranches',
-	RemoteBranches = 'remoteBranches',
-	Highlights = 'highlights',
-	Stashes = 'stashes',
-	Tags = 'tags',
-}
-
-export const enum GraphMinimapTypes {
-	Selection = 'selection',
-	Head = 'head',
-	LocalBranches = 'localBranches',
-	RemoteBranches = 'remoteBranches',
-	Highlights = 'highlights',
-	Stashes = 'stashes',
-	Tags = 'tags',
-}
+export type GraphScrollMarkersAdditionalTypes = 'localBranches' | 'remoteBranches' | 'stashes' | 'tags';
+export type GraphMinimapMarkersAdditionalTypes = 'localBranches' | 'remoteBranches' | 'stashes' | 'tags';
 
 export const enum GravatarDefaultStyle {
 	Faces = 'wavatar',
@@ -429,11 +412,10 @@ export interface GraphConfig {
 	dateStyle: DateStyle | null;
 	defaultItemLimit: number;
 	dimMergeCommits: boolean;
-	experimental: {
-		minimap: {
-			enabled: boolean;
-			additionalTypes: GraphMinimapTypes[];
-		};
+	minimap: {
+		enabled: boolean;
+		dataType: 'commits' | 'lines';
+		additionalTypes: GraphMinimapMarkersAdditionalTypes[];
 	};
 	highlightRowsOnRefHover: boolean;
 	layout: 'editor' | 'panel';
@@ -442,7 +424,7 @@ export interface GraphConfig {
 	showGhostRefsOnRowHover: boolean;
 	scrollMarkers: {
 		enabled: boolean;
-		additionalTypes: GraphScrollMarkerTypes[];
+		additionalTypes: GraphScrollMarkersAdditionalTypes[];
 	};
 	pullRequests: {
 		enabled: boolean;

@@ -342,6 +342,32 @@ const styles = css`
 		display: block;
 	}
 
+	.helper::before {
+		font: normal normal normal 14px/1 codicon;
+		display: inline-block;
+		text-decoration: none;
+		text-rendering: auto;
+		text-align: center;
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+		user-select: none;
+		-webkit-user-select: none;
+		-ms-user-select: none;
+
+		vertical-align: middle;
+		line-height: 2rem;
+		letter-spacing: normal;
+
+		content: '\\ea76';
+		position: absolute;
+		top: 2px;
+		right: 5px;
+		cursor: pointer;
+		pointer-events: all;
+		z-index: 10001;
+		opacity: 0.6;
+	}
+
 	.helper-label {
 		text-transform: uppercase;
 		font-size: 0.84em;
@@ -350,6 +376,7 @@ const styles = css`
 		padding-right: 0.6rem;
 		margin: 0;
 		opacity: 0.6;
+		user-select: none;
 	}
 
 	.helper-button {
@@ -429,7 +456,12 @@ export class SearchInput extends FASTElement {
 		if (this.showHelp === false) return;
 
 		const composedPath = e.composedPath();
-		if (!composedPath.includes(this)) {
+		if (
+			!composedPath.includes(this) ||
+			// If the ::before element is clicked and is the close icon, close the menu
+			(e.type === 'click' &&
+				window.getComputedStyle(composedPath[0] as Element, '::before').content === '"\uEA76"')
+		) {
 			this.showHelp = false;
 		}
 	}

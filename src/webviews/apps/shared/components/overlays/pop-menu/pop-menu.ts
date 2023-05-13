@@ -16,11 +16,42 @@ const styles = css`
 		position: relative;
 	}
 
+	slot[name='content']::slotted(*)::before {
+		font: normal normal normal 14px/1 codicon;
+		display: inline-block;
+		text-decoration: none;
+		text-rendering: auto;
+		text-align: center;
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+		user-select: none;
+		-webkit-user-select: none;
+		-ms-user-select: none;
+
+		vertical-align: middle;
+		line-height: 2rem;
+		letter-spacing: normal;
+		content: '\\ea76';
+		position: absolute;
+		top: 2px;
+		right: 5px;
+		cursor: pointer;
+		pointer-events: all;
+		z-index: 10001;
+	}
+
 	slot[name='content']::slotted(*) {
 		position: absolute;
-		left: 0;
 		top: 100%;
 		z-index: 10000;
+	}
+
+	:host([position='left']) slot[name='content']::slotted(*) {
+		left: 0;
+	}
+
+	:host([position='right']) slot[name='content']::slotted(*) {
+		right: 0;
 	}
 
 	:host(:not([open])) slot[name='content']::slotted(*) {
@@ -32,6 +63,9 @@ const styles = css`
 export class PopMenu extends FASTElement {
 	@attr({ mode: 'boolean' })
 	open = false;
+
+	@attr()
+	position: 'left' | 'right' = 'left';
 
 	@observable
 	triggerNodes?: HTMLElement[];
@@ -96,7 +130,12 @@ export class PopMenu extends FASTElement {
 		if (this.open === false) return;
 
 		const composedPath = e.composedPath();
-		if (!composedPath.includes(this)) {
+		if (
+			!composedPath.includes(this) ||
+			// If the ::before element is clicked and is the close icon, close the menu
+			(e.type === 'click' &&
+				window.getComputedStyle(composedPath[0] as Element, '::before').content === '"\uEA76"')
+		) {
 			this.open = false;
 			this.disposeTrackOutside();
 		}
