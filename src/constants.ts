@@ -394,6 +394,7 @@ export type CoreConfiguration =
 	| 'http.proxySupport'
 	| 'http.proxyStrictSSL'
 	| 'search.exclude'
+	| 'terminal.integrated.defaultProfile.windows'
 	| 'workbench.editorAssociations'
 	| 'workbench.tree.renderIndentGuides';
 
