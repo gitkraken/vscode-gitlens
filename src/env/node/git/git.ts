@@ -5,6 +5,7 @@ import * as process from 'process';
 import type { CancellationToken, OutputChannel } from 'vscode';
 import { Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
+import type { CoreConfiguration } from '../../../constants';
 import { GlyphChars } from '../../../constants';
 import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
 import { GitErrorHandling } from '../../../git/commandOptions';
@@ -18,11 +19,13 @@ import { GitReflogParser } from '../../../git/parsers/reflogParser';
 import { GitTagParser } from '../../../git/parsers/tagParser';
 import { splitAt } from '../../../system/array';
 import { configuration } from '../../../system/configuration';
+import { log } from '../../../system/decorators/log';
 import { join } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
 import { LogLevel, slowCallWarningThreshold } from '../../../system/logger.constants';
+import { getLogScope } from '../../../system/logger.scope';
 import { dirname, isAbsolute, isFolderGlob, joinPaths, normalizePath, splitPath } from '../../../system/path';
-import { getDurationMilliseconds } from '../../../system/string';
+import { equalsIgnoreCase, getDurationMilliseconds } from '../../../system/string';
 import { getEditorCommand } from '../../../system/utils';
 import { compare, fromString } from '../../../system/version';
 import { ensureGitTerminal } from '../../../terminal';
@@ -2048,8 +2051,10 @@ export class Git {
 			return undefined;
 		}
 	}
+	@log()
+	async runGitCommandViaTerminal(cwd: string, command: string, args: string[], options?: { execute?: boolean }) {
+		const scope = getLogScope();
 
-	async runCommandViaTerminal(cwd: string, command: string, args: string[], options?: { execute?: boolean }) {
 		const location = await this.getLocation();
 		const git = location.path ?? 'git';
 
@@ -2061,7 +2066,18 @@ export class Git {
 
 		let text;
 		if (git.includes(' ') && isWindows) {
-			const shortenedPath = await getWindowsShortPath(git);
+			let shortenedPath = await getWindowsShortPath(git);
+			Logger.log(scope, `\u2022 using short Git path '${shortenedPath}' rather than '${git}'`);
+
+			if (shortenedPath.includes(' ')) {
+				const profile = configuration.getAny<CoreConfiguration, string | null>(
+					'terminal.integrated.defaultProfile.windows',
+				);
+				if (equalsIgnoreCase(profile, 'Powershell')) {
+					shortenedPath = `& "${shortenedPath}"`;
+				}
+			}
+
 			text = `${shortenedPath} -C "${cwd}" ${coreEditorConfig}${command} ${parsedArgs.join(' ')}`;
 		} else {
 			text = `${git.includes(' ') ? `"${git}"` : git} -C "${cwd}" ${coreEditorConfig}${command} ${parsedArgs.join(
@@ -2069,6 +2085,7 @@ export class Git {
 			)}`;
 		}
 
+		Logger.log(scope, `\u2022 '${text}'`);
 		this.logGitCommand(`[TERM] ${text}`, 0);
 
 		const terminal = ensureGitTerminal();
