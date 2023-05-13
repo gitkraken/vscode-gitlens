@@ -7508,6 +7508,48 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f11d"
 				}
+			},
+			"gitlens-provider-azdo": {
+				"description": "provider-azdo icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f11e"
+				}
+			},
+			"gitlens-provider-bitbucket": {
+				"description": "provider-bitbucket icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f11f"
+				}
+			},
+			"gitlens-provider-gerrit": {
+				"description": "provider-gerrit icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f120"
+				}
+			},
+			"gitlens-provider-gitea": {
+				"description": "provider-gitea icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f121"
+				}
+			},
+			"gitlens-provider-github": {
+				"description": "provider-github icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f122"
+				}
+			},
+			"gitlens-provider-gitlab": {
+				"description": "provider-gitlab icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f123"
+				}
 			}
 		},
 		"menus": {

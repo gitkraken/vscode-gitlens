@@ -1792,7 +1792,11 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 				const remote = await branch.getRemote();
 				if (remote?.provider != null) {
-					branchState.provider = remote.provider.name;
+					branchState.provider = {
+						name: remote.provider.name,
+						icon: remote.provider.icon === 'remote' ? 'cloud' : remote.provider.icon,
+						url: remote.provider.url({ type: RemoteResourceType.Repo }),
+					};
 				}
 			}
 		}

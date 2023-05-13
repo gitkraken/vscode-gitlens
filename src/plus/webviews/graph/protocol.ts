@@ -124,7 +124,11 @@ export interface State {
 
 export interface BranchState extends GitTrackingState {
 	upstream?: string;
-	provider?: string;
+	provider?: {
+		name: string;
+		icon?: string;
+		url?: string;
+	};
 }
 
 export type GraphWorkingTreeStats = WorkDirStats;

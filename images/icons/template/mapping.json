@@ -29,5 +29,11 @@
   "list-auto": 61722,
   "arrow-up-force": 61723,
   "pinned-filled": 61724,
-  "clock": 61725
+  "clock": 61725,
+  "provider-azdo": 61726,
+  "provider-bitbucket": 61727,
+  "provider-gerrit": 61728,
+  "provider-gitea": 61729,
+  "provider-github": 61730,
+  "provider-gitlab": 61731
 }
