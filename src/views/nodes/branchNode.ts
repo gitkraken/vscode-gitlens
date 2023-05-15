@@ -39,8 +39,8 @@ type State = {
 
 export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReference, State> implements PageableViewNode {
 	static key = ':branch';
-	static getId(repoPath: string, name: string, root: boolean): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${name})${root ? ':root' : ''}`;
+	static getId(repoPath: string, name: string, root: boolean, workspaceId?: string): string {
+		return `${RepositoryNode.getId(repoPath, workspaceId)}${this.key}(${name})${root ? ':root' : ''}`;
 	}
 
 	private readonly options: {
@@ -52,6 +52,7 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 		showStatus: boolean;
 		showTracking: boolean;
 		authors?: GitUser[];
+		workspaceId?: string;
 	};
 	protected override splatted = true;
 
@@ -72,6 +73,7 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 			showStatus?: boolean;
 			showTracking?: boolean;
 			authors?: GitUser[];
+			workspaceId?: string;
 		},
 	) {
 		super(uri, view, parent);
@@ -96,7 +98,7 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 	}
 
 	override get id(): string {
-		return BranchNode.getId(this.branch.repoPath, this.branch.name, this.root);
+		return BranchNode.getId(this.branch.repoPath, this.branch.name, this.root, this.options?.workspaceId);
 	}
 
 	compacted: boolean = false;
@@ -226,6 +228,7 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 						branch,
 						this.options.showComparison,
 						this.splatted,
+						{ workspaceId: this.options.workspaceId },
 					),
 				);
 			}
@@ -247,6 +250,7 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 						mergeStatus,
 						status ?? (await this.view.container.git.getStatusForRepo(this.uri.repoPath)),
 						this.root,
+						{ workspaceId: this.options?.workspaceId },
 					),
 				);
 			} else if (
@@ -262,6 +266,7 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 						rebaseStatus,
 						status ?? (await this.view.container.git.getStatusForRepo(this.uri.repoPath)),
 						this.root,
+						{ workspaceId: this.options?.workspaceId },
 					),
 				);
 			} else if (this.options.showTracking) {
@@ -274,22 +279,34 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 
 				if (branch.upstream != null) {
 					if (this.root && !status.state.behind && !status.state.ahead) {
-						children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'same', this.root));
+						children.push(
+							new BranchTrackingStatusNode(this.view, this, branch, status, 'same', this.root, {
+								workspaceId: this.options?.workspaceId,
+							}),
+						);
 					} else {
 						if (status.state.behind) {
 							children.push(
-								new BranchTrackingStatusNode(this.view, this, branch, status, 'behind', this.root),
+								new BranchTrackingStatusNode(this.view, this, branch, status, 'behind', this.root, {
+									workspaceId: this.options?.workspaceId,
+								}),
 							);
 						}
 
 						if (status.state.ahead) {
 							children.push(
-								new BranchTrackingStatusNode(this.view, this, branch, status, 'ahead', this.root),
+								new BranchTrackingStatusNode(this.view, this, branch, status, 'ahead', this.root, {
+									workspaceId: this.options?.workspaceId,
+								}),
 							);
 						}
 					}
 				} else {
-					children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'none', this.root));
+					children.push(
+						new BranchTrackingStatusNode(this.view, this, branch, status, 'none', this.root, {
+							workspaceId: this.options?.workspaceId,
+						}),
+					);
 				}
 			}
 

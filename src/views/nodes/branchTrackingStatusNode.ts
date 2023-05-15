@@ -35,12 +35,14 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 		root: boolean,
 		upstream: string | undefined,
 		upstreamType: string,
+		workspaceId?: string,
 	): string {
-		return `${BranchNode.getId(repoPath, name, root)}${this.key}(${upstream ?? ''}):${upstreamType}`;
+		return `${BranchNode.getId(repoPath, name, root, workspaceId)}${this.key}(${upstream ?? ''}):${upstreamType}`;
 	}
 
 	private readonly options: {
 		showAheadCommits?: boolean;
+		workspaceId?: string;
 	};
 
 	constructor(
@@ -53,6 +55,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 		public readonly root: boolean = false,
 		options?: {
 			showAheadCommits?: boolean;
+			workspaceId?: string;
 		},
 	) {
 		super(GitUri.fromRepoPath(status.repoPath), view, parent);
@@ -67,6 +70,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 			this.root,
 			this.status.upstream,
 			this.upstreamType,
+			this.options?.workspaceId,
 		);
 	}
 
@@ -118,6 +122,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 					this.status as Required<BranchTrackingStatus>,
 					this.upstreamType,
 					this.root,
+					{ workspaceId: this.options?.workspaceId },
 				).getChildren()),
 			);
 		} else {
@@ -143,6 +148,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 					this.status as Required<BranchTrackingStatus>,
 					this.upstreamType,
 					this.root,
+					{ workspaceId: this.options?.workspaceId },
 				),
 			);
 		}

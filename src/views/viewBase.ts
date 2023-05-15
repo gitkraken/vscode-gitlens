@@ -24,6 +24,7 @@ import type {
 	TagsViewConfig,
 	ViewsCommonConfig,
 	ViewsConfigKeys,
+	WorkspacesViewConfig,
 	WorktreesViewConfig,
 } from '../config';
 import { viewsCommonConfigKeys, viewsConfigKeys } from '../config';
@@ -49,6 +50,7 @@ import type { RepositoriesView } from './repositoriesView';
 import type { SearchAndCompareView } from './searchAndCompareView';
 import type { StashesView } from './stashesView';
 import type { TagsView } from './tagsView';
+import type { WorkspacesView } from './workspacesView';
 import type { WorktreesView } from './worktreesView';
 
 export type View =
@@ -62,25 +64,29 @@ export type View =
 	| SearchAndCompareView
 	| StashesView
 	| TagsView
+	| WorkspacesView
 	| WorktreesView;
 
-export type ViewsWithBranches = BranchesView | CommitsView | RemotesView | RepositoriesView;
-export type ViewsWithBranchesNode = BranchesView | RepositoriesView;
+export type ViewsWithBranches = BranchesView | CommitsView | RemotesView | RepositoriesView | WorkspacesView;
+export type ViewsWithBranchesNode = BranchesView | RepositoriesView | WorkspacesView;
 export type ViewsWithCommits = Exclude<View, FileHistoryView | LineHistoryView | StashesView>;
-export type ViewsWithContributors = ContributorsView | RepositoriesView;
-export type ViewsWithContributorsNode = ContributorsView | RepositoriesView;
-export type ViewsWithRemotes = RemotesView | RepositoriesView;
-export type ViewsWithRemotesNode = RemotesView | RepositoriesView;
-export type ViewsWithRepositories = RepositoriesView;
+export type ViewsWithContributors = ContributorsView | RepositoriesView | WorkspacesView;
+export type ViewsWithContributorsNode = ContributorsView | RepositoriesView | WorkspacesView;
+export type ViewsWithRemotes = RemotesView | RepositoriesView | WorkspacesView;
+export type ViewsWithRemotesNode = RemotesView | RepositoriesView | WorkspacesView;
+export type ViewsWithRepositories = RepositoriesView | WorkspacesView;
 export type ViewsWithRepositoriesNode = RepositoriesView;
-export type ViewsWithRepositoryFolders = Exclude<View, FileHistoryView | LineHistoryView | RepositoriesView>;
+export type ViewsWithRepositoryFolders = Exclude<
+	View,
+	FileHistoryView | LineHistoryView | RepositoriesView | WorkspacesView
+>;
 export type ViewsWithStashes = StashesView | ViewsWithCommits;
-export type ViewsWithStashesNode = RepositoriesView | StashesView;
-export type ViewsWithTags = RepositoriesView | TagsView;
-export type ViewsWithTagsNode = RepositoriesView | TagsView;
-export type ViewsWithWorkingTree = RepositoriesView | WorktreesView;
-export type ViewsWithWorktrees = RepositoriesView | WorktreesView;
-export type ViewsWithWorktreesNode = RepositoriesView | WorktreesView;
+export type ViewsWithStashesNode = RepositoriesView | StashesView | WorkspacesView;
+export type ViewsWithTags = RepositoriesView | TagsView | WorkspacesView;
+export type ViewsWithTagsNode = RepositoriesView | TagsView | WorkspacesView;
+export type ViewsWithWorkingTree = RepositoriesView | WorktreesView | WorkspacesView;
+export type ViewsWithWorktrees = RepositoriesView | WorktreesView | WorkspacesView;
+export type ViewsWithWorktreesNode = RepositoriesView | WorktreesView | WorkspacesView;
 
 export interface TreeViewNodeCollapsibleStateChangeEvent<T> extends TreeViewExpansionEvent<T> {
 	state: TreeItemCollapsibleState;
@@ -99,6 +105,7 @@ export abstract class ViewBase<
 		| SearchAndCompareViewConfig
 		| StashesViewConfig
 		| TagsViewConfig
+		| WorkspacesViewConfig
 		| WorktreesViewConfig,
 > implements TreeDataProvider<ViewNode>, Disposable
 {

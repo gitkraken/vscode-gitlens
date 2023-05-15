@@ -11,18 +11,26 @@ import { ContextValues, ViewNode } from './viewNode';
 
 export class RemotesNode extends ViewNode<ViewsWithRemotesNode> {
 	static key = ':remotes';
-	static getId(repoPath: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}`;
+	static getId(repoPath: string, workspaceId?: string): string {
+		return `${RepositoryNode.getId(repoPath, workspaceId)}${this.key}`;
 	}
 
 	private _children: ViewNode[] | undefined;
 
-	constructor(uri: GitUri, view: ViewsWithRemotesNode, parent: ViewNode, public readonly repo: Repository) {
+	constructor(
+		uri: GitUri,
+		view: ViewsWithRemotesNode,
+		parent: ViewNode,
+		public readonly repo: Repository,
+		private readonly options?: {
+			workspaceId?: string;
+		},
+	) {
 		super(uri, view, parent);
 	}
 
 	override get id(): string {
-		return RemotesNode.getId(this.repo.path);
+		return RemotesNode.getId(this.repo.path, this.options?.workspaceId);
 	}
 
 	get repoPath(): string {
@@ -36,7 +44,10 @@ export class RemotesNode extends ViewNode<ViewsWithRemotesNode> {
 				return [new MessageNode(this.view, this, 'No remotes could be found')];
 			}
 
-			this._children = remotes.map(r => new RemoteNode(this.uri, this.view, this, r, this.repo));
+			this._children = remotes.map(
+				r =>
+					new RemoteNode(this.uri, this.view, this, r, this.repo, { workspaceId: this.options?.workspaceId }),
+			);
 		}
 
 		return this._children;

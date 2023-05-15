@@ -21,11 +21,19 @@ import { ContextValues, ViewRefNode } from './viewNode';
 
 export class TagNode extends ViewRefNode<ViewsWithTags, GitTagReference> implements PageableViewNode {
 	static key = ':tag';
-	static getId(repoPath: string, name: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${name})`;
+	static getId(repoPath: string, name: string, workspaceId?: string): string {
+		return `${RepositoryNode.getId(repoPath, workspaceId)}${this.key}(${name})`;
 	}
 
-	constructor(uri: GitUri, view: ViewsWithTags, public override parent: ViewNode, public readonly tag: GitTag) {
+	constructor(
+		uri: GitUri,
+		view: ViewsWithTags,
+		public override parent: ViewNode,
+		public readonly tag: GitTag,
+		private readonly options?: {
+			workspaceId?: string;
+		},
+	) {
 		super(uri, view, parent);
 	}
 
@@ -34,7 +42,7 @@ export class TagNode extends ViewRefNode<ViewsWithTags, GitTagReference> impleme
 	}
 
 	override get id(): string {
-		return TagNode.getId(this.tag.repoPath, this.tag.name);
+		return TagNode.getId(this.tag.repoPath, this.tag.name, this.options?.workspaceId);
 	}
 
 	get label(): string {

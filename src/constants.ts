@@ -7,6 +7,8 @@ import type { CommitDetailsDismissed } from './webviews/commitDetails/protocol';
 import type { CompletedActions } from './webviews/home/protocol';
 
 export const extensionPrefix = 'gitlens';
+export const localGKSharedDataFolder = '.gk';
+export const localGKSharedDataLegacyFolder = '.gitkraken';
 export const quickPickTitleMaxChars = 80;
 
 export const ImageMimetypes: Record<string, string> = {
@@ -76,6 +78,7 @@ export type Colors =
 	| `${typeof extensionPrefix}.decorations.modifiedForegroundColor`
 	| `${typeof extensionPrefix}.decorations.renamedForegroundColor`
 	| `${typeof extensionPrefix}.decorations.untrackedForegroundColor`
+	| `${typeof extensionPrefix}.decorations.workspaceRepoOpenForegroundColor`
 	| `${typeof extensionPrefix}.decorations.worktreeView.hasUncommittedChangesForegroundColor`
 	| `${typeof extensionPrefix}.gutterBackgroundColor`
 	| `${typeof extensionPrefix}.gutterForegroundColor`

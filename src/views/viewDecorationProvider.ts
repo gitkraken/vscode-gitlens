@@ -27,6 +27,10 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 						return this.provideRemoteDefaultDecoration(uri, token);
 					}
 
+					if (uri.authority === 'workspaces') {
+						return this.provideWorkspaceDecoration(uri, token);
+					}
+
 					return undefined;
 				},
 			}),
@@ -36,6 +40,21 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 
 	dispose(): void {
 		this.disposable.dispose();
+	}
+
+	provideWorkspaceDecoration(uri: Uri, _token: CancellationToken): FileDecoration | undefined {
+		const [, type, status] = uri.path.split('/');
+		if (type === 'repository') {
+			if (status === 'open') {
+				return {
+					badge: 'O',
+					color: new ThemeColor('gitlens.decorations.workspaceRepoOpenForegroundColor' satisfies Colors),
+					tooltip: 'Open',
+				};
+			}
+		}
+
+		return undefined;
 	}
 
 	provideFileDecoration(uri: Uri, token: CancellationToken): FileDecoration | undefined {
