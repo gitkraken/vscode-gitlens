@@ -207,6 +207,39 @@ export class DeepLinkService implements Disposable {
 		return openLocationResult?.action;
 	}
 
+	private async showFetchPrompt(): Promise<boolean> {
+		const fetchResult = await window.showInformationMessage(
+			"The link target couldn't be found. Would you like to fetch from the remote?",
+			{ modal: true },
+			{ title: 'Fetch', action: true },
+			{ title: 'Cancel', isCloseAffordance: true },
+		);
+
+		return fetchResult?.action || false;
+	}
+
+	private async showAddRemotePrompt(remoteUrl: string, existingRemoteNames: string[]): Promise<string | undefined> {
+		let remoteName = undefined;
+		const result = await window.showInformationMessage(
+			`Unable to find a remote for '${remoteUrl}'. Would you like to add a new remote?`,
+			{ modal: true },
+			{ title: 'Yes' },
+			{ title: 'No', isCloseAffordance: true },
+		);
+		if (result?.title !== 'Yes') return remoteName;
+
+		remoteName = await window.showInputBox({
+			prompt: 'Enter a name for the remote',
+			validateInput: value => {
+				if (!value) return 'A name is required';
+				if (existingRemoteNames.includes(value)) return 'A remote with that name already exists';
+				return undefined;
+			},
+		});
+
+		return remoteName;
+	}
+
 	private async processDeepLink(
 		initialAction: DeepLinkServiceAction = DeepLinkServiceAction.DeepLinkEventFired,
 	): Promise<void> {
@@ -217,6 +250,7 @@ export class DeepLinkService implements Disposable {
 		let matchingRemotes: GitRemote[] = [];
 		let remoteDomain = '';
 		let remotePath = '';
+		let remoteName = undefined;
 
 		// Repo open
 		let repoOpenType;
@@ -396,11 +430,32 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					// TODO@ramint Instead of erroring here, prompt the user to add the remote, wait for the response,
-					// and then choose an action based on whether the remote is successfully added, of the user
-					// cancels, or if there is an error.
-					action = DeepLinkServiceAction.DeepLinkErrored;
-					message = 'No matching remote found.';
+					remoteName = await this.showAddRemotePrompt(
+						remoteUrl,
+						(await repo.getRemotes()).map(r => r.name),
+					);
+
+					if (!remoteName) {
+						action = DeepLinkServiceAction.DeepLinkCancelled;
+						break;
+					}
+
+					try {
+						await repo.addRemote(remoteName, remoteUrl, { fetch: true });
+					} catch {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Failed to add remote.';
+						break;
+					}
+
+					[this._context.remote] = await repo.getRemotes({ filter: r => r.url === remoteUrl });
+					if (!this._context.remote) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Failed to add remote.';
+						break;
+					}
+
+					action = DeepLinkServiceAction.RemoteAdded;
 					break;
 
 				case DeepLinkServiceState.TargetMatch:
@@ -437,11 +492,20 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					// TODO@ramint Instead of erroring here, prompt the user to fetch, wait for the response,
-					// and then choose an action based on whether the fetch was successful, of the user
-					// cancels, or if there is an error.
-					action = DeepLinkServiceAction.DeepLinkErrored;
-					message = 'No matching target found.';
+					if (!(await this.showFetchPrompt())) {
+						action = DeepLinkServiceAction.DeepLinkCancelled;
+						break;
+					}
+
+					try {
+						await repo.fetch({ remote: remote.name, progress: true });
+					} catch {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Error fetching remote.';
+						break;
+					}
+
+					action = DeepLinkServiceAction.TargetFetched;
 					break;
 
 				case DeepLinkServiceState.OpenGraph:
