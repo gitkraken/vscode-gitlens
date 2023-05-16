@@ -2073,9 +2073,8 @@ export class Git {
 				const profile = configuration.getAny<CoreConfiguration, string | null>(
 					'terminal.integrated.defaultProfile.windows',
 				);
-				if (equalsIgnoreCase(profile, 'Powershell')) {
-					shortenedPath = `& "${shortenedPath}"`;
-				}
+				Logger.debug(scope, `\u2022 short path '${shortenedPath}' contains spaces, profile '${profile}'`);
+				shortenedPath = `${equalsIgnoreCase(profile, 'powershell') ? '& ' : ''}"${shortenedPath}"`;
 			}
 
 			text = `${shortenedPath} -C "${cwd}" ${coreEditorConfig}${command} ${parsedArgs.join(' ')}`;
