@@ -477,6 +477,7 @@ export const enum Schemes {
 	GitLens = 'gitlens',
 	Output = 'output',
 	PRs = 'pr',
+	Terminal = 'vscode-terminal',
 	Vsls = 'vsls',
 	VslsScc = 'vsls-scc',
 	Virtual = 'vscode-vfs',

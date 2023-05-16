@@ -98,7 +98,7 @@ export function isVisibleDocument(document: TextDocument): boolean {
 
 export function isTextEditor(editor: TextEditor): boolean {
 	const scheme = editor.document.uri.scheme;
-	return scheme !== Schemes.Output && scheme !== Schemes.DebugConsole;
+	return scheme !== Schemes.DebugConsole && scheme !== Schemes.Output && scheme !== Schemes.Terminal;
 }
 
 export async function openEditor(
