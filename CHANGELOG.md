@@ -74,7 +74,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ## [13.5.0] - 2023-04-07
 
 ### Added
-
+- Adds suggested options for date and time formats &mdash; closes [#1040](https://github.com/gitkraken/vscode-gitlens/issues/1040)
 - Adds the ability to switch to an alternate panel layout for the _Commit Graph_ &mdash; closes [#2602](https://github.com/gitkraken/vscode-gitlens/issues/2602) and [#2537](https://github.com/gitkraken/vscode-gitlens/issues/2537)
   - Adds a new context menu from the _Commit Graph Settings_ (cog) to switch between the "Editor" and "Panel" layouts
   - Adds a `gitlens.graph.layout` setting to specify the layout of the _Commit Graph_

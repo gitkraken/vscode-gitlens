@@ -100,16 +100,18 @@
 	display: inline-block;
 	padding: 1px 8px !important;
 
+	.vscode-light & {
+		background: var(--color-link-foreground--lighten-20);
+		border-bottom-color: var(--color-link-foreground--lighten-20);
+	}
+}
+
+.token-item {
 	&:before {
 		content: '${';
 	}
 
 	&:after {
 		content: '}';
-	}
-
-	.vscode-light & {
-		background: var(--color-link-foreground--lighten-20);
-		border-bottom-color: var(--color-link-foreground--lighten-20);
 	}
 }
