@@ -99,7 +99,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	}
 
 	get hasUri(): boolean {
-		return this._uri != unknownGitUri;
+		return this._uri != unknownGitUri && this._uri.repoPath != null;
 	}
 
 	@gate()
