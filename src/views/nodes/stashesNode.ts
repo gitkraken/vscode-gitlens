@@ -4,14 +4,13 @@ import type { Repository } from '../../git/models/repository';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
-import type { RepositoriesView } from '../repositoriesView';
-import type { StashesView } from '../stashesView';
+import type { ViewsWithStashesNode } from '../viewBase';
 import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
 import { StashNode } from './stashNode';
 import { ContextValues, ViewNode } from './viewNode';
 
-export class StashesNode extends ViewNode<StashesView | RepositoriesView> {
+export class StashesNode extends ViewNode<ViewsWithStashesNode> {
 	static key = ':stashes';
 	static getId(repoPath: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}`;
@@ -19,7 +18,7 @@ export class StashesNode extends ViewNode<StashesView | RepositoriesView> {
 
 	private _children: ViewNode[] | undefined;
 
-	constructor(uri: GitUri, view: StashesView | RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
+	constructor(uri: GitUri, view: ViewsWithStashesNode, parent: ViewNode, public readonly repo: Repository) {
 		super(uri, view, parent);
 	}
 

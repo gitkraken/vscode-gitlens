@@ -18,7 +18,7 @@ import { ContextValues, ViewNode } from './viewNode';
 export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits | FileHistoryView | LineHistoryView> {
 	constructor(
 		view: ViewsWithCommits | FileHistoryView | LineHistoryView,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		private readonly status: GitMergeStatus | GitRebaseStatus,
 		private readonly file: GitFile,
 	) {

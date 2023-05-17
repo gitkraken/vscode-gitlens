@@ -15,8 +15,7 @@ import { map } from '../../system/iterable';
 import type { Deferred } from '../../system/promise';
 import { defer, getSettledValue } from '../../system/promise';
 import { pad } from '../../system/string';
-import type { RepositoriesView } from '../repositoriesView';
-import type { WorktreesView } from '../worktreesView';
+import type { ViewsWithWorktrees } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { CompareBranchNode } from './compareBranchNode';
@@ -31,7 +30,7 @@ type State = {
 	pendingPullRequest: Promise<PullRequest | undefined> | undefined;
 };
 
-export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView, State> {
+export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 	static key = ':worktree';
 	static getId(repoPath: string, uri: Uri): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${uri.path})`;
@@ -41,8 +40,8 @@ export class WorktreeNode extends ViewNode<WorktreesView | RepositoriesView, Sta
 
 	constructor(
 		uri: GitUri,
-		view: WorktreesView | RepositoriesView,
-		parent: ViewNode,
+		view: ViewsWithWorktrees,
+		protected override readonly parent: ViewNode,
 		public readonly worktree: GitWorktree,
 	) {
 		super(uri, view, parent);

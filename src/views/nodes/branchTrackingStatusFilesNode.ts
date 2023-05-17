@@ -26,7 +26,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 
 	constructor(
 		view: ViewsWithCommits,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly branch: GitBranch,
 		public readonly status: Required<BranchTrackingStatus>,
 		public readonly direction: 'ahead' | 'behind',

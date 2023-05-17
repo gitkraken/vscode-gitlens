@@ -11,9 +11,7 @@ import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { getSettledValue } from '../../system/promise';
 import { pluralize } from '../../system/string';
-import type { BranchesView } from '../branchesView';
-import type { CommitsView } from '../commitsView';
-import type { RepositoriesView } from '../repositoriesView';
+import type { ViewsWithBranches } from '../viewBase';
 import type { WorktreesView } from '../worktreesView';
 import { RepositoryNode } from './repositoryNode';
 import type { CommitsQueryResults } from './resultsCommitsNode';
@@ -22,7 +20,7 @@ import type { FilesQueryResults } from './resultsFilesNode';
 import { ResultsFilesNode } from './resultsFilesNode';
 import { ContextValues, ViewNode } from './viewNode';
 
-export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | RepositoriesView | WorktreesView> {
+export class CompareBranchNode extends ViewNode<ViewsWithBranches | WorktreesView> {
 	static key = ':compare-branch';
 	static getId(repoPath: string, name: string, root: boolean): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${name})${root ? ':root' : ''}`;
@@ -33,8 +31,8 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 
 	constructor(
 		uri: GitUri,
-		view: BranchesView | CommitsView | RepositoriesView | WorktreesView,
-		parent: ViewNode,
+		view: ViewsWithBranches | WorktreesView,
+		protected override readonly parent: ViewNode,
 		public readonly branch: GitBranch,
 		private showComparison: ViewShowBranchComparison,
 		// Specifies that the node is shown as a root

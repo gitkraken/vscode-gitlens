@@ -24,7 +24,7 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 
 	constructor(
 		view: ViewsWithCommits,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly branch: GitBranch,
 		public readonly mergeStatus: GitMergeStatus,
 		public readonly status: GitStatus | undefined,

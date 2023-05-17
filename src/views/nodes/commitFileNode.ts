@@ -10,13 +10,12 @@ import type { GitFile } from '../../git/models/file';
 import { getGitFileStatusIcon } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { joinPaths, relativeDir } from '../../system/path';
-import type { StashesView } from '../stashesView';
-import type { ViewsWithCommits } from '../viewBase';
+import type { ViewsWithCommits, ViewsWithStashes } from '../viewBase';
 import type { ViewNode } from './viewNode';
 import { ContextValues, ViewRefFileNode } from './viewNode';
 
 export class CommitFileNode<
-	TView extends ViewsWithCommits | StashesView = ViewsWithCommits | StashesView,
+	TView extends ViewsWithCommits | ViewsWithStashes = ViewsWithCommits,
 > extends ViewRefFileNode<TView> {
 	static key = ':file';
 	static getId(parent: ViewNode, path: string): string {

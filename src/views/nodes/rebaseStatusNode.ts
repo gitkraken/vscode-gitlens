@@ -34,7 +34,7 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 
 	constructor(
 		view: ViewsWithCommits,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly branch: GitBranch,
 		public readonly rebaseStatus: GitRebaseStatus,
 		public readonly status: GitStatus | undefined,

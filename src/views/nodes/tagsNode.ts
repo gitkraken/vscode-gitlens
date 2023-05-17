@@ -5,15 +5,14 @@ import type { Repository } from '../../git/models/repository';
 import { makeHierarchical } from '../../system/array';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
-import type { RepositoriesView } from '../repositoriesView';
-import type { TagsView } from '../tagsView';
+import type { ViewsWithTagsNode } from '../viewBase';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
 import { TagNode } from './tagNode';
 import { ContextValues, ViewNode } from './viewNode';
 
-export class TagsNode extends ViewNode<TagsView | RepositoriesView> {
+export class TagsNode extends ViewNode<ViewsWithTagsNode> {
 	static key = ':tags';
 	static getId(repoPath: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}`;
@@ -21,7 +20,12 @@ export class TagsNode extends ViewNode<TagsView | RepositoriesView> {
 
 	private _children: ViewNode[] | undefined;
 
-	constructor(uri: GitUri, view: TagsView | RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
+	constructor(
+		uri: GitUri,
+		view: ViewsWithTagsNode,
+		protected override readonly parent: ViewNode,
+		public readonly repo: Repository,
+	) {
 		super(uri, view, parent);
 	}
 

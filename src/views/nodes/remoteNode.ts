@@ -7,15 +7,14 @@ import { getRemoteUpstreamDescription } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import { makeHierarchical } from '../../system/array';
 import { log } from '../../system/decorators/log';
-import type { RemotesView } from '../remotesView';
-import type { RepositoriesView } from '../repositoriesView';
+import type { ViewsWithRemotes } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
 
-export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
+export class RemoteNode extends ViewNode<ViewsWithRemotes> {
 	static key = ':remote';
 	static getId(repoPath: string, name: string, id: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${name}|${id})`;
@@ -23,8 +22,8 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 
 	constructor(
 		uri: GitUri,
-		view: RemotesView | RepositoriesView,
-		parent: ViewNode,
+		view: ViewsWithRemotes,
+		protected override readonly parent: ViewNode,
 		public readonly remote: GitRemote,
 		public readonly repo: Repository,
 	) {

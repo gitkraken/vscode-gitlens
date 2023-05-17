@@ -40,7 +40,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 	private _instanceId: number;
 	constructor(
 		view: SearchAndCompareView,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly repoPath: string,
 		search: SearchQuery,
 		private _labels: {
