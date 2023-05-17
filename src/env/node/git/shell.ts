@@ -6,6 +6,7 @@ import { join as joinPaths } from 'path';
 import * as process from 'process';
 import type { CancellationToken } from 'vscode';
 import { Logger } from '../../../system/logger';
+import { normalizePath } from '../../../system/path';
 
 export const isWindows = process.platform === 'win32';
 
@@ -124,7 +125,7 @@ export async function getWindowsShortPath(path: string): Promise<string> {
 				return;
 			}
 
-			resolve(stdout.trim().replace(/\\/g, '/'));
+			resolve(normalizePath(stdout.trim()));
 		});
 	});
 }
