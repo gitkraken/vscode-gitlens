@@ -9419,6 +9419,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.saveStash",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.graph.applyStash",
 					"when": "false"
 				},
