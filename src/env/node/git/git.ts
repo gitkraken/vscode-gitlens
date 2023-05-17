@@ -2056,7 +2056,7 @@ export class Git {
 		const scope = getLogScope();
 
 		const location = await this.getLocation();
-		const git = location.path ?? 'git';
+		const git = normalizePath(location.path ?? 'git');
 
 		const coreEditorConfig = configuration.get('terminal.overrideGitEditor')
 			? `-c "core.editor=${getEditorCommand()}" `
