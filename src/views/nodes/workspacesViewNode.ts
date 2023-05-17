@@ -1,7 +1,7 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { WorkspacesView } from '../workspacesView';
 import { MessageNode } from './common';
-import { ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 import { WorkspaceNode } from './workspaceNode';
 
 export class WorkspacesViewNode extends ViewNode<WorkspacesView> {
@@ -30,7 +30,17 @@ export class WorkspacesViewNode extends ViewNode<WorkspacesView> {
 			}
 
 			if (cloudWorkspaceInfo != null) {
-				children.push(new MessageNode(this.view, this, cloudWorkspaceInfo));
+				children.push(
+					new MessageNode(
+						this.view,
+						this,
+						cloudWorkspaceInfo,
+						undefined,
+						undefined,
+						undefined,
+						ContextValues.MessageSignIn,
+					),
+				);
 			}
 
 			if (cloudWorkspaces.length === 0 && cloudWorkspaceInfo == null) {

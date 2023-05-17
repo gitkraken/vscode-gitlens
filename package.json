@@ -10903,8 +10903,8 @@
 			],
 			"view/item/context": [
 				{
-					"command": "gitlens.views.workspaces.open",
-					"when": "viewItem =~ /gitlens:workspace/",
+					"command": "gitlens.plus.loginOrSignUp",
+					"when": "viewItem == gitlens:message:signin",
 					"group": "inline@1"
 				},
 				{

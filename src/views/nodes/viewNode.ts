@@ -50,6 +50,7 @@ export const enum ContextValues {
 	MergeConflictCurrentChanges = 'gitlens:merge-conflict:current',
 	MergeConflictIncomingChanges = 'gitlens:merge-conflict:incoming',
 	Message = 'gitlens:message',
+	MessageSignIn = 'gitlens:message:signin',
 	Pager = 'gitlens:pager',
 	PullRequest = 'gitlens:pullrequest',
 	Rebase = 'gitlens:rebase',
