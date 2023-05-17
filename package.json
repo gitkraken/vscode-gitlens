@@ -2806,6 +2806,43 @@
 				}
 			},
 			{
+				"id": "ai",
+				"title": "AI",
+				"order": 113,
+				"properties": {
+					"gitlens.experimental.generateCommitMessagePrompt": {
+						"type": "string",
+						"default": "Commit messages must have a short description that is less than 50 chars followed by a newline and a more detailed description.\n- Write concisely using an informal tone and avoid specific names from the code",
+						"markdownDescription": "Specifies the prompt to use to tell OpenAI how to structure or format the generated commit message",
+						"scope": "window",
+						"order": 1
+					},
+					"gitlens.ai.experimental.openai.model": {
+						"type": "string",
+						"default": "gpt-3.5-turbo",
+						"enum": [
+							"gpt-3.5-turbo",
+							"gpt-3.5-turbo-0301",
+							"gpt-4",
+							"gpt-4-0314",
+							"gpt-4-32k",
+							"gpt-4-32k-0314"
+						],
+						"enumDescriptions": [
+							"GPT 3.5 Turbo",
+							"GPT 3.5 Turbo (March 1, 2021)",
+							"GPT 4",
+							"GPT 4 (March 14, 2021)",
+							"GPT 4 32k",
+							"GPT 4 32k (March 14, 2021)"
+						],
+						"markdownDescription": "Specifies the OpenAI model to use for GitLens' experimental AI features",
+						"scope": "window",
+						"order": 100
+					}
+				}
+			},
+			{
 				"id": "date-times",
 				"title": "Date & Times",
 				"order": 120,
@@ -3659,20 +3696,6 @@
 						"markdownDescription": "Specifies the amount (percent) of similarity a deleted and added file pair must have to be considered a rename",
 						"scope": "window",
 						"order": 50
-					},
-					"gitlens.experimental.generateCommitMessagePrompt": {
-						"type": "string",
-						"default": "Commit messages must have a short description that is less than 50 chars followed by a newline and a more detailed description.\n- Write concisely using an informal tone and avoid specific names from the code",
-						"markdownDescription": "Specifies the prompt to use to tell OpenAI how to structure or format the generated commit message",
-						"scope": "window",
-						"order": 55
-					},
-					"gitlens.experimental.openAIModel": {
-						"type": "string",
-						"default": "gpt-3.5-turbo",
-						"markdownDescription": "Specifies the OpenAI model to use to generate commit messages when using the `GitLens: Generate Commit Message` command",
-						"scope": "window",
-						"order": 56
 					},
 					"gitlens.advanced.externalDiffTool": {
 						"type": [
