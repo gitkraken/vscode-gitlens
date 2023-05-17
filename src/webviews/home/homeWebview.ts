@@ -1,5 +1,5 @@
 import type { ConfigurationChangeEvent } from 'vscode';
-import { Disposable, window } from 'vscode';
+import { Disposable, window, workspace } from 'vscode';
 import { getAvatarUriFromGravatarEmail } from '../../avatars';
 import { ViewsLayout } from '../../commands/setViewsLayout';
 import type { Container } from '../../container';
@@ -10,11 +10,18 @@ import { executeCoreCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
+import { getSettledValue } from '../../system/promise';
 import type { StorageChangeEvent } from '../../system/storage';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
 import type { WebviewController, WebviewProvider } from '../webviewController';
-import type { CompleteStepParams, DismissBannerParams, DismissSectionParams, State } from './protocol';
+import type {
+	CompleteStepParams,
+	DidChangeRepositoriesParams,
+	DismissBannerParams,
+	DismissSectionParams,
+	State,
+} from './protocol';
 import {
 	CompletedActions,
 	CompleteStepCommandType,
@@ -27,6 +34,12 @@ import {
 	DismissStatusCommandType,
 } from './protocol';
 
+const emptyDisposable = Object.freeze({
+	dispose: () => {
+		/* noop */
+	},
+});
+
 export class HomeWebviewProvider implements WebviewProvider<State> {
 	private readonly _disposable: Disposable;
 
@@ -36,6 +49,9 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			this.container.storage.onDidChange(this.onStorageChanged, this),
+			!workspace.isTrusted
+				? workspace.onDidGrantWorkspaceTrust(this.notifyDidChangeRepositories, this)
+				: emptyDisposable,
 		);
 	}
 
@@ -221,7 +237,12 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private async getState(subscription?: Subscription): Promise<State> {
-		const sub = await this.getSubscription(subscription);
+		const [visibilityResult, subscriptionResult] = await Promise.allSettled([
+			this.getRepoVisibility(),
+			this.getSubscription(subscription),
+		]);
+
+		const sub = getSettledValue(subscriptionResult)!;
 		const steps = this.container.storage.get('home:steps:completed', []);
 		const sections = this.container.storage.get('home:sections:dismissed', []);
 		const dismissedBanners = this.container.storage.get('home:banners:dismissed', []);
@@ -233,7 +254,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 			subscription: sub.subscription,
 			completedActions: sub.completedActions,
 			plusEnabled: this.getPlusEnabled(),
-			visibility: await this.getRepoVisibility(),
+			visibility: getSettledValue(visibilityResult)!,
 			completedSteps: steps,
 			dismissedSections: sections,
 			avatar: sub.avatar,
@@ -255,11 +276,12 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		});
 	}
 
-	private getRepositoriesState() {
+	private getRepositoriesState(): DidChangeRepositoriesParams {
 		return {
 			count: this.container.git.repositoryCount,
 			openCount: this.container.git.openRepositoryCount,
 			hasUnsafe: this.container.git.hasUnsafeRepositories(),
+			trusted: workspace.isTrusted,
 		};
 	}
 

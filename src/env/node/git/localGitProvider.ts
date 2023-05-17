@@ -1088,7 +1088,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			[safe, repoPath] = await this.git.rev_parse__show_toplevel(uri.fsPath);
 			if (safe) {
 				this.unsafePaths.delete(uri.fsPath);
-			} else {
+			} else if (safe === false) {
 				this.unsafePaths.add(uri.fsPath);
 			}
 			if (!repoPath) return undefined;

@@ -82,6 +82,12 @@ import type { RichRemoteProvider } from './remotes/richRemoteProvider';
 import type { GitSearch, SearchQuery } from './search';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
+const emptyDisposable = Object.freeze({
+	dispose: () => {
+		/* noop */
+	},
+});
+
 const maxDefaultBranchWeight = 100;
 const weightedDefaultBranches = new Map<string, number>([
 	['master', maxDefaultBranchWeight],
@@ -216,6 +222,13 @@ export class GitProviderService implements Disposable {
 				this.resetCaches('providers');
 				this.updateContext();
 			}),
+			!workspace.isTrusted
+				? workspace.onDidGrantWorkspaceTrust(() => {
+						if (workspace.isTrusted && workspace.workspaceFolders?.length) {
+							void this.discoverRepositories(workspace.workspaceFolders, { force: true });
+						}
+				  })
+				: emptyDisposable,
 			...this.registerCommands(),
 		);
 
