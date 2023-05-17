@@ -6899,7 +6899,7 @@
 				"command": "gitlens.views.workspaces.open",
 				"title": "Open As Code Workspace...",
 				"category": "GitLens",
-				"icon": "$(file-code)"
+				"icon": "$(window)"
 			},
 			{
 				"command": "gitlens.views.workspaces.removeRepo",
@@ -10910,12 +10910,12 @@
 				{
 					"command": "gitlens.views.workspaces.addRepo",
 					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+cloud\\b)/",
-					"group": "inline@2"
+					"group": "inline@1"
 				},
 				{
-					"command": "gitlens.views.workspaces.delete",
-					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+cloud\\b)/",
-					"group": "inline@3"
+					"command": "gitlens.views.workspaces.open",
+					"when": "viewItem =~ /gitlens:workspace/",
+					"group": "inline@2"
 				},
 				{
 					"command": "gitlens.views.switchToAnotherBranch",
@@ -12089,11 +12089,6 @@
 					"command": "gitlens.views.workspaces.locateRepo",
 					"when": "viewItem =~ /gitlens:repository\\b(?=.*?\\b\\+workspace\\b)(?!.*?\\b\\+local\\b)/ || viewItem =~ /gitlens:workspaceMissingRepository\\b/",
 					"group": "inline@1"
-				},
-				{
-					"command": "gitlens.views.workspaces.removeRepo",
-					"when": "viewItem =~ /gitlens:repository\\b(?=.*?\\b\\+workspace\\b)(?!.*?\\b\\+local\\b)/ || viewItem =~ /gitlens:workspaceMissingRepository\\b/",
-					"group": "inline@2"
 				},
 				{
 					"command": "gitlens.views.workspaces.locateRepo",
