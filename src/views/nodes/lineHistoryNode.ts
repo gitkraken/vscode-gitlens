@@ -61,6 +61,7 @@ export class LineHistoryNode
 		}`;
 
 		const children: ViewNode[] = [];
+		if (this.uri.repoPath == null) return children;
 
 		let selection = this.selection;
 
@@ -76,7 +77,7 @@ export class LineHistoryNode
 				? this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name)
 				: undefined,
 			range
-				? this.view.container.git.getLogRefsOnly(this.uri.repoPath!, {
+				? this.view.container.git.getLogRefsOnly(this.uri.repoPath, {
 						limit: 0,
 						ref: range,
 				  })
@@ -100,7 +101,7 @@ export class LineHistoryNode
 					selection.active.character,
 				);
 
-				const status = await this.view.container.git.getStatusForFile(this.uri.repoPath!, this.uri);
+				const status = await this.view.container.git.getStatusForFile(this.uri.repoPath, this.uri);
 
 				if (status != null) {
 					const file: GitFile = {
@@ -108,12 +109,12 @@ export class LineHistoryNode
 						path: commit.file?.path ?? '',
 						indexStatus: status?.indexStatus,
 						originalPath: commit.file?.originalPath,
-						repoPath: this.uri.repoPath!,
+						repoPath: this.uri.repoPath,
 						status: status?.status ?? GitFileIndexStatus.Modified,
 						workingTreeStatus: status?.workingTreeStatus,
 					};
 
-					const currentUser = await this.view.container.git.getCurrentUser(this.uri.repoPath!);
+					const currentUser = await this.view.container.git.getCurrentUser(this.uri.repoPath);
 					const pseudoCommits = status?.getPseudoCommits(this.view.container, currentUser);
 					if (pseudoCommits != null) {
 						for (const commit of pseudoCommits.reverse()) {
