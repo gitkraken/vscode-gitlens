@@ -19,6 +19,8 @@ const date = new Date(
 );
 
 interface AppStateWithConfig {
+	timestamp: number;
+
 	config: Config;
 	customSettings?: Record<string, boolean>;
 }

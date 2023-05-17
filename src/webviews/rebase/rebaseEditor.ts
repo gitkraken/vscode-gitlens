@@ -691,6 +691,7 @@ async function parseRebaseTodo(
 	}
 
 	return {
+		timestamp: Date.now(),
 		branch: context.branchName ?? '',
 		onto: onto
 			? {

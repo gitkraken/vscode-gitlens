@@ -38,7 +38,7 @@ function nextIpcId() {
 	return `webview:${ipcSequence}`;
 }
 
-export abstract class App<State = undefined> {
+export abstract class App<State extends { timestamp: number } = { timestamp: number }> {
 	private readonly _api: VsCodeApi;
 	protected state: State;
 
@@ -65,6 +65,16 @@ export abstract class App<State = undefined> {
 		// this.log(`ctor(${this.state ? JSON.stringify(this.state) : ''})`);
 
 		this._api = acquireVsCodeApi();
+		if (this.state != null) {
+			const state = this.getState();
+			if (state != null) {
+				if (this.state.timestamp > (state.timestamp ?? 0)) {
+					this._api.setState(this.state);
+				} else {
+					this.state = state;
+				}
+			}
+		}
 
 		const disposables: Disposable[] = [];
 
@@ -151,8 +161,8 @@ export abstract class App<State = undefined> {
 		Logger.log(message, ...optionalParams);
 	}
 
-	protected getState(): State {
-		return this._api.getState() as State;
+	protected getState(): State | undefined {
+		return this._api.getState() as State | undefined;
 	}
 
 	protected sendCommand<TCommand extends IpcCommandType<any>>(

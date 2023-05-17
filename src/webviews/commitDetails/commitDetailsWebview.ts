@@ -447,6 +447,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		// const commitChoices = await Promise.all(this.commits.map(async commit => summaryModel(commit)));
 
 		const state = serialize<State>({
+			timestamp: Date.now(),
 			pinned: current.pinned,
 			includeRichContent: current.richStateLoaded,
 			// commits: commitChoices,

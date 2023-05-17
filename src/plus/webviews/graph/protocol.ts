@@ -84,6 +84,8 @@ export const enum GraphMinimapMarkerTypes {
 export const supportedRefMetadataTypes: GraphRefMetadataType[] = Object.values(GraphRefMetadataTypes);
 
 export interface State {
+	timestamp: number;
+
 	windowFocused?: boolean;
 	repositories?: GraphRepository[];
 	selectedRepository?: string;

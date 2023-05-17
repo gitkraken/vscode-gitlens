@@ -37,6 +37,8 @@ export type Preferences = {
 };
 
 export type State = {
+	timestamp: number;
+
 	pinned: boolean;
 	preferences?: Preferences;
 	// commits?: CommitSummary[];

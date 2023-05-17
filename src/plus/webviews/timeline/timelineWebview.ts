@@ -252,6 +252,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		if (current.uri == null) {
 			const access = await this.container.git.access(PlusFeatures.Timeline);
 			return {
+				timestamp: Date.now(),
 				emptyMessage: 'There are no editors open that can provide file history information',
 				period: period,
 				title: '',
@@ -268,6 +269,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		if (access.allowed === false) {
 			const dataset = generateRandomTimelineDataset();
 			return {
+				timestamp: Date.now(),
 				dataset: dataset.sort((a, b) => b.sort - a.sort),
 				period: period,
 				title: 'src/app/index.ts',
@@ -296,6 +298,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 
 		if (log == null) {
 			return {
+				timestamp: Date.now(),
 				dataset: [],
 				emptyMessage: 'No commits found for the specified time period',
 				period: period,
@@ -354,6 +357,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		dataset.sort((a, b) => b.sort - a.sort);
 
 		return {
+			timestamp: Date.now(),
 			dataset: dataset,
 			period: period,
 			title: title,

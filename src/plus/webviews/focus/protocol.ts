@@ -4,6 +4,8 @@ import type { Subscription } from '../../../subscription';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
 
 export type State = {
+	timestamp: number;
+
 	isPlus: boolean;
 	subscription: Subscription;
 	pullRequests?: PullRequestResult[];
