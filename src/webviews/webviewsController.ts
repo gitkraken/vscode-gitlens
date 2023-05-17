@@ -1,6 +1,7 @@
 import type {
 	CancellationToken,
 	WebviewOptions,
+	WebviewPanel,
 	WebviewPanelOptions,
 	WebviewView,
 	WebviewViewResolveContext,
@@ -215,6 +216,8 @@ export class WebviewsController implements Disposable {
 		const disposables: Disposable[] = [];
 		const { container } = this;
 
+		let serialized: { panel: WebviewPanel; state: SerializedState } | undefined;
+
 		async function show(
 			options?: { column?: ViewColumn; preserveFocus?: boolean },
 			...args: unknown[]
@@ -238,22 +241,31 @@ export class WebviewsController implements Disposable {
 
 			let { controller } = registration;
 			if (controller == null) {
-				Logger.debug(scope, `Creating webview panel (${descriptor.id})`);
+				let panel;
+				if (serialized != null) {
+					Logger.debug(scope, `Restoring webview panel (${descriptor.id})`);
 
-				const panel = window.createWebviewPanel(
-					descriptor.id,
-					descriptor.title,
-					{ viewColumn: column, preserveFocus: options?.preserveFocus ?? false },
-					{
-						...{
-							enableCommandUris: true,
-							enableScripts: true,
-							localResourceRoots: [Uri.file(container.context.extensionPath)],
+					panel = serialized.panel;
+					serialized = undefined;
+				} else {
+					Logger.debug(scope, `Creating webview panel (${descriptor.id})`);
+
+					panel = window.createWebviewPanel(
+						descriptor.id,
+						descriptor.title,
+						{ viewColumn: column, preserveFocus: options?.preserveFocus ?? false },
+						{
+							...{
+								enableCommandUris: true,
+								enableScripts: true,
+								localResourceRoots: [Uri.file(container.context.extensionPath)],
+							},
+							...descriptor.webviewOptions,
+							...descriptor.webviewHostOptions,
 						},
-						...descriptor.webviewOptions,
-						...descriptor.webviewHostOptions,
-					},
-				);
+					);
+				}
+
 				panel.iconPath = Uri.file(container.context.asAbsolutePath(descriptor.iconPath));
 
 				controller = await WebviewController.create(container, descriptor, panel, resolveProvider);
@@ -275,8 +287,19 @@ export class WebviewsController implements Disposable {
 			}
 		}
 
+		async function deserializeWebviewPanel(panel: WebviewPanel, state: SerializedState) {
+			// TODO@eamodio: We aren't currently using the state, but we should start storing maybe both "client" and "server" state
+			// Where as right now our webviews are only saving "client" state, e.g. the entire state sent to the webview, rather than key pieces of state
+			// We probably need to separate state into actual "state" and all the data that is sent to the webview, e.g. for the Graph state might be the selected repo, selected sha, etc vs the entire data set to render the Graph
+			serialized = { panel: panel, state: state };
+			await show({ column: panel.viewColumn, preserveFocus: true });
+		}
+
 		const disposable = Disposable.from(
 			...disposables,
+			window.registerWebviewPanelSerializer(descriptor.id, {
+				deserializeWebviewPanel: deserializeWebviewPanel,
+			}),
 			registerCommand(command, (...args) => show(undefined, ...args), this),
 		);
 		this.disposables.push(disposable);
