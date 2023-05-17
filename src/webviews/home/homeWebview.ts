@@ -227,6 +227,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		const dismissedBanners = this.container.storage.get('home:banners:dismissed', []);
 
 		return {
+			timestamp: Date.now(),
 			repositories: this.getRepositoriesState(),
 			webroot: this.host.getWebRoot(),
 			subscription: sub.subscription,

@@ -9,11 +9,9 @@ export const enum CompletedActions {
 }
 
 export interface State {
-	repositories: {
-		count: number;
-		openCount: number;
-		hasUnsafe: boolean;
-	};
+	timestamp: number;
+
+	repositories: DidChangeRepositoriesParams;
 	webroot?: string;
 	subscription: Subscription;
 	completedActions: CompletedActions[];

@@ -1,6 +1,8 @@
 import { IpcCommandType, IpcNotificationType } from '../protocol';
 
 export interface State {
+	timestamp: number;
+
 	branch: string;
 	onto: { sha: string; commit?: Commit } | undefined;
 

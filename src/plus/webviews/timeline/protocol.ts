@@ -2,6 +2,8 @@ import type { FeatureAccess } from '../../../features';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
 
 export interface State {
+	timestamp: number;
+
 	dataset?: Commit[];
 	emptyMessage?: string;
 	period: Period;

@@ -261,6 +261,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		const { subscription, isPlus } = await this.getSubscription();
 		if (!isPlus) {
 			return {
+				timestamp: Date.now(),
 				isPlus: isPlus,
 				subscription: subscription,
 			};
@@ -273,6 +274,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 
 		if (deferState || !hasConnectedRepos) {
 			return {
+				timestamp: Date.now(),
 				isPlus: isPlus,
 				subscription: subscription,
 				repos: (hasConnectedRepos ? connectedRepos : githubRepos).map(r => serializeRepoWithRichRemote(r)),
@@ -296,6 +298,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		}));
 
 		return {
+			timestamp: Date.now(),
 			isPlus: isPlus,
 			subscription: subscription,
 			pullRequests: serializedPrs,
