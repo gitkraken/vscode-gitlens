@@ -32,7 +32,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 
 	constructor(
 		view: SearchAndCompareView,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly repoPath: string,
 		private _ref: StoredNamedRef,
 		private _compareWith: StoredNamedRef,

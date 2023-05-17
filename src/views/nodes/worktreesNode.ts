@@ -5,14 +5,13 @@ import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
-import type { RepositoriesView } from '../repositoriesView';
-import type { WorktreesView } from '../worktreesView';
+import type { ViewsWithWorktreesNode } from '../viewBase';
 import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
 import { WorktreeNode } from './worktreeNode';
 
-export class WorktreesNode extends ViewNode<WorktreesView | RepositoriesView> {
+export class WorktreesNode extends ViewNode<ViewsWithWorktreesNode> {
 	static key = ':worktrees';
 	static getId(repoPath: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}`;
@@ -22,8 +21,8 @@ export class WorktreesNode extends ViewNode<WorktreesView | RepositoriesView> {
 
 	constructor(
 		uri: GitUri,
-		view: WorktreesView | RepositoriesView,
-		parent: ViewNode,
+		view: ViewsWithWorktreesNode,
+		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
 	) {
 		super(uri, view, parent);

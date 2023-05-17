@@ -6,14 +6,13 @@ import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { timeout } from '../../system/decorators/timeout';
-import type { ContributorsView } from '../contributorsView';
-import type { RepositoriesView } from '../repositoriesView';
+import type { ViewsWithContributorsNode } from '../viewBase';
 import { MessageNode } from './common';
 import { ContributorNode } from './contributorNode';
 import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
 
-export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesView> {
+export class ContributorsNode extends ViewNode<ViewsWithContributorsNode> {
 	static key = ':contributors';
 	static getId(repoPath: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}`;
@@ -25,8 +24,8 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 
 	constructor(
 		uri: GitUri,
-		view: ContributorsView | RepositoriesView,
-		parent: ViewNode,
+		view: ViewsWithContributorsNode,
+		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
 	) {
 		super(uri, view, parent);

@@ -6,16 +6,16 @@ import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { debounce, szudzikPairing } from '../../system/function';
 import { Logger } from '../../system/logger';
-import type { RepositoriesView } from '../repositoriesView';
+import type { ViewsWithRepositoriesNode } from '../viewBase';
 import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
 import type { ViewNode } from './viewNode';
 import { ContextValues, SubscribeableViewNode } from './viewNode';
 
-export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
+export class RepositoriesNode extends SubscribeableViewNode<ViewsWithRepositoriesNode> {
 	private _children: (RepositoryNode | MessageNode)[] | undefined;
 
-	constructor(view: RepositoriesView) {
+	constructor(view: ViewsWithRepositoriesNode) {
 		super(unknownGitUri, view);
 	}
 

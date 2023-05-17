@@ -45,7 +45,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 
 	constructor(
 		view: ViewsWithCommits,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly branch: GitBranch,
 		public readonly status: BranchTrackingStatus,
 		public readonly upstreamType: 'ahead' | 'behind' | 'same' | 'none',

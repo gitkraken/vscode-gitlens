@@ -10,15 +10,14 @@ import type { GitStatus, GitStatusFile } from '../../git/models/status';
 import { groupBy, makeHierarchical } from '../../system/array';
 import { flatMap } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
-import type { RepositoriesView } from '../repositoriesView';
-import type { WorktreesView } from '../worktreesView';
+import type { ViewsWithWorkingTree } from '../viewBase';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
 import { RepositoryNode } from './repositoryNode';
 import { UncommittedFileNode } from './UncommittedFileNode';
 import { ContextValues, ViewNode } from './viewNode';
 
-export class UncommittedFilesNode extends ViewNode<RepositoriesView | WorktreesView> {
+export class UncommittedFilesNode extends ViewNode<ViewsWithWorkingTree> {
 	static key = ':uncommitted-files';
 	static getId(repoPath: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}`;
@@ -27,8 +26,8 @@ export class UncommittedFilesNode extends ViewNode<RepositoriesView | WorktreesV
 	readonly repoPath: string;
 
 	constructor(
-		view: RepositoriesView | WorktreesView,
-		parent: ViewNode,
+		view: ViewsWithWorkingTree,
+		protected override readonly parent: ViewNode,
 		public readonly status:
 			| GitStatus
 			| {

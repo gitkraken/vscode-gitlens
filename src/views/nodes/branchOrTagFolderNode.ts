@@ -16,7 +16,7 @@ export class BranchOrTagFolderNode extends ViewNode {
 
 	constructor(
 		view: View,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly type: 'branch' | 'remote-branch' | 'tag',
 		public readonly repoPath: string,
 		public readonly folderName: string,
@@ -48,7 +48,7 @@ export class BranchOrTagFolderNode extends ViewNode {
 				children.push(
 					new BranchOrTagFolderNode(
 						this.view,
-						this.folderName ? this : this.parent!,
+						this.folderName ? this : this.parent,
 						this.type,
 						this.repoPath,
 						folder.name,
@@ -62,7 +62,7 @@ export class BranchOrTagFolderNode extends ViewNode {
 			}
 
 			// Make sure to set the parent
-			(folder.value as any).parent = this.folderName ? this : this.parent!;
+			folder.value.parent = this.folderName ? this : this.parent;
 			children.push(folder.value);
 		}
 

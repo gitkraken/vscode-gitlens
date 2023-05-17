@@ -194,6 +194,10 @@ export abstract class ViewRefNode<
 	TReference extends GitReference = GitReference,
 	State extends object = any,
 > extends ViewNode<TView, State> {
+	constructor(uri: GitUri, view: TView, protected override readonly parent: ViewNode) {
+		super(uri, view, parent);
+	}
+
 	abstract get ref(): TReference;
 
 	get repoPath(): string {
@@ -397,7 +401,7 @@ export abstract class RepositoryFolderNode<
 	constructor(
 		uri: GitUri,
 		view: TView,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
 		splatted: boolean,
 		private readonly options?: { showBranchAndLastFetched?: boolean },

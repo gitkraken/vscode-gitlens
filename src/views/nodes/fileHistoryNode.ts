@@ -33,7 +33,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 	constructor(
 		uri: GitUri,
 		view: FileHistoryView,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		private readonly folder: boolean,
 		private readonly branch: GitBranch | undefined,
 	) {

@@ -39,7 +39,7 @@ export class LineHistoryNode
 	constructor(
 		uri: GitUri,
 		view: FileHistoryView | LineHistoryView,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		private readonly branch: GitBranch | undefined,
 		public readonly selection: Selection,
 		private readonly editorContents: string | undefined,

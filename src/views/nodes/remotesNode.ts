@@ -3,14 +3,13 @@ import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
-import type { RemotesView } from '../remotesView';
-import type { RepositoriesView } from '../repositoriesView';
+import type { ViewsWithRemotesNode } from '../viewBase';
 import { MessageNode } from './common';
 import { RemoteNode } from './remoteNode';
 import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
 
-export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
+export class RemotesNode extends ViewNode<ViewsWithRemotesNode> {
 	static key = ':remotes';
 	static getId(repoPath: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}`;
@@ -18,7 +17,7 @@ export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
 
 	private _children: ViewNode[] | undefined;
 
-	constructor(uri: GitUri, view: RemotesView | RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
+	constructor(uri: GitUri, view: ViewsWithRemotesNode, parent: ViewNode, public readonly repo: Repository) {
 		super(uri, view, parent);
 	}
 

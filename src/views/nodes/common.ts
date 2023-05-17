@@ -10,7 +10,7 @@ import { ContextValues, ViewNode } from './viewNode';
 export class MessageNode extends ViewNode {
 	constructor(
 		view: View,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		private readonly _message: string,
 		private readonly _description?: string,
 		private readonly _tooltip?: string,
@@ -44,7 +44,7 @@ export class MessageNode extends ViewNode {
 export class CommandMessageNode extends MessageNode {
 	constructor(
 		view: View,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		private readonly _command: Command,
 		message: string,
 		description?: string,
@@ -78,7 +78,7 @@ export class CommandMessageNode extends MessageNode {
 export class UpdateableMessageNode extends ViewNode {
 	constructor(
 		view: View,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		private _id: string,
 		private _message: string,
 		private _tooltip?: string,

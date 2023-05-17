@@ -63,8 +63,24 @@ export type View =
 	| StashesView
 	| TagsView
 	| WorktreesView;
+
+export type ViewsWithBranches = BranchesView | CommitsView | RemotesView | RepositoriesView;
+export type ViewsWithBranchesNode = BranchesView | RepositoriesView;
 export type ViewsWithCommits = Exclude<View, FileHistoryView | LineHistoryView | StashesView>;
-export type ViewsWithRepositoryFolders = Exclude<View, RepositoriesView | FileHistoryView | LineHistoryView>;
+export type ViewsWithContributors = ContributorsView | RepositoriesView;
+export type ViewsWithContributorsNode = ContributorsView | RepositoriesView;
+export type ViewsWithRemotes = RemotesView | RepositoriesView;
+export type ViewsWithRemotesNode = RemotesView | RepositoriesView;
+export type ViewsWithRepositories = RepositoriesView;
+export type ViewsWithRepositoriesNode = RepositoriesView;
+export type ViewsWithRepositoryFolders = Exclude<View, FileHistoryView | LineHistoryView | RepositoriesView>;
+export type ViewsWithStashes = StashesView | ViewsWithCommits;
+export type ViewsWithStashesNode = RepositoriesView | StashesView;
+export type ViewsWithTags = RepositoriesView | TagsView;
+export type ViewsWithTagsNode = RepositoriesView | TagsView;
+export type ViewsWithWorkingTree = RepositoriesView | WorktreesView;
+export type ViewsWithWorktrees = RepositoriesView | WorktreesView;
+export type ViewsWithWorktreesNode = RepositoriesView | WorktreesView;
 
 export interface TreeViewNodeCollapsibleStateChangeEvent<T> extends TreeViewExpansionEvent<T> {
 	state: TreeItemCollapsibleState;

@@ -7,9 +7,7 @@ import { makeHierarchical } from '../../system/array';
 import { configuration } from '../../system/configuration';
 import { joinPaths, normalizePath } from '../../system/path';
 import { sortCompare } from '../../system/string';
-import type { RepositoriesView } from '../repositoriesView';
-import type { StashesView } from '../stashesView';
-import type { ViewsWithCommits } from '../viewBase';
+import type { ViewsWithStashes } from '../viewBase';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
 import { RepositoryNode } from './repositoryNode';
@@ -17,14 +15,14 @@ import { StashFileNode } from './stashFileNode';
 import type { ViewNode } from './viewNode';
 import { ContextValues, ViewRefNode } from './viewNode';
 
-export class StashNode extends ViewRefNode<ViewsWithCommits | StashesView | RepositoriesView, GitStashReference> {
+export class StashNode extends ViewRefNode<ViewsWithStashes, GitStashReference> {
 	static key = ':stash';
 	static getId(repoPath: string, ref: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${ref})`;
 	}
 
 	constructor(
-		view: ViewsWithCommits | StashesView | RepositoriesView,
+		view: ViewsWithStashes,
 		parent: ViewNode,
 		public readonly commit: GitStashCommit,
 		private readonly options?: { icon?: boolean },

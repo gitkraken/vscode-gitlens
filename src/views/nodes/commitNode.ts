@@ -42,7 +42,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 
 	constructor(
 		view: ViewsWithCommits | FileHistoryView,
-		protected override readonly parent: ViewNode,
+		parent: ViewNode,
 		public readonly commit: GitCommit,
 		private readonly unpublished?: boolean,
 		public readonly branch?: GitBranch,

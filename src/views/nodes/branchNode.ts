@@ -18,10 +18,8 @@ import { map } from '../../system/iterable';
 import type { Deferred } from '../../system/promise';
 import { defer, getSettledValue } from '../../system/promise';
 import { pad } from '../../system/string';
-import type { BranchesView } from '../branchesView';
-import type { CommitsView } from '../commitsView';
 import { RemotesView } from '../remotesView';
-import type { RepositoriesView } from '../repositoriesView';
+import type { ViewsWithBranches } from '../viewBase';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
@@ -39,10 +37,7 @@ type State = {
 	pendingPullRequest: Promise<PullRequest | undefined> | undefined;
 };
 
-export class BranchNode
-	extends ViewRefNode<BranchesView | CommitsView | RemotesView | RepositoriesView, GitBranchReference, State>
-	implements PageableViewNode
-{
+export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReference, State> implements PageableViewNode {
 	static key = ':branch';
 	static getId(repoPath: string, name: string, root: boolean): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${name})${root ? ':root' : ''}`;
@@ -62,8 +57,8 @@ export class BranchNode
 
 	constructor(
 		uri: GitUri,
-		view: BranchesView | CommitsView | RemotesView | RepositoriesView,
-		parent: ViewNode,
+		view: ViewsWithBranches,
+		public override parent: ViewNode,
 		public readonly branch: GitBranch,
 		// Specifies that the node is shown as a root
 		public readonly root: boolean,
