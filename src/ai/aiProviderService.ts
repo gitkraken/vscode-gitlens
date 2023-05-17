@@ -8,7 +8,9 @@ import { uncommittedStaged } from '../git/models/constants';
 import type { GitRevisionReference } from '../git/models/reference';
 import type { Repository } from '../git/models/repository';
 import { isRepository } from '../git/models/repository';
+import { configuration } from '../system/configuration';
 import type { Storage } from '../system/storage';
+import { AnthropicProvider } from './anthropicProvider';
 import { OpenAIProvider } from './openaiProvider';
 
 export interface AIProvider extends Disposable {
@@ -20,14 +22,27 @@ export interface AIProvider extends Disposable {
 }
 
 export class AIProviderService implements Disposable {
-	private _provider: AIProvider;
+	private _provider: AIProvider | undefined;
 
-	constructor(private readonly container: Container) {
-		this._provider = new OpenAIProvider(container);
+	private get provider() {
+		const providerId = configuration.get('ai.experimental.provider');
+		if (providerId === this._provider?.id) return this._provider;
+
+		this._provider?.dispose();
+
+		if (providerId === 'anthropic') {
+			this._provider = new AnthropicProvider(this.container);
+		} else {
+			this._provider = new OpenAIProvider(this.container);
+		}
+
+		return this._provider;
 	}
 
+	constructor(private readonly container: Container) {}
+
 	dispose() {
-		this._provider.dispose();
+		this._provider?.dispose();
 	}
 
 	public async generateCommitMessage(
@@ -50,15 +65,17 @@ export class AIProviderService implements Disposable {
 		});
 		if (diff?.diff == null) throw new Error('No staged changes to generate a commit message from.');
 
-		const confirmed = await confirmAIProviderToS(this._provider, this.container.storage);
+		const provider = this.provider;
+
+		const confirmed = await confirmAIProviderToS(provider, this.container.storage);
 		if (!confirmed) return undefined;
 
 		if (options?.progress != null) {
 			return window.withProgress(options.progress, async () =>
-				this._provider.generateCommitMessage(diff.diff!, { context: options?.context }),
+				provider.generateCommitMessage(diff.diff!, { context: options?.context }),
 			);
 		}
-		return this._provider.generateCommitMessage(diff.diff, { context: options?.context });
+		return provider.generateCommitMessage(diff.diff, { context: options?.context });
 	}
 
 	async explainCommit(
@@ -95,7 +112,9 @@ export class AIProviderService implements Disposable {
 		});
 		if (diff?.diff == null) throw new Error('No changes found to explain.');
 
-		const confirmed = await confirmAIProviderToS(this._provider, this.container.storage);
+		const provider = this.provider;
+
+		const confirmed = await confirmAIProviderToS(provider, this.container.storage);
 		if (!confirmed) return undefined;
 
 		if (!commit.hasFullDetails()) {
@@ -105,10 +124,10 @@ export class AIProviderService implements Disposable {
 
 		if (options?.progress != null) {
 			return window.withProgress(options.progress, async () =>
-				this._provider.explainChanges(commit!.message!, diff.diff!),
+				provider.explainChanges(commit!.message!, diff.diff!),
 			);
 		}
-		return this._provider.explainChanges(commit.message, diff.diff);
+		return provider.explainChanges(commit.message, diff.diff);
 	}
 }
 

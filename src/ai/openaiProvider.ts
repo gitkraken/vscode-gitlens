@@ -20,8 +20,8 @@ export class OpenAIProvider implements AIProvider {
 	dispose() {}
 
 	async generateCommitMessage(diff: string, options?: { context?: string }): Promise<string | undefined> {
-		const openaiApiKey = await getApiKey(this.container.storage);
-		if (openaiApiKey == null) return undefined;
+		const apiKey = await getApiKey(this.container.storage);
+		if (apiKey == null) return undefined;
 
 		const model = this.model;
 		const maxCodeCharacters = getMaxCharacters(model);
@@ -38,7 +38,7 @@ export class OpenAIProvider implements AIProvider {
 			customPrompt += '.';
 		}
 
-		const data: OpenAIChatCompletionRequest = {
+		const request: OpenAIChatCompletionRequest = {
 			model: model,
 			messages: [
 				{
@@ -54,23 +54,24 @@ export class OpenAIProvider implements AIProvider {
 		};
 
 		if (options?.context) {
-			data.messages.push({
+			request.messages.push({
 				role: 'user',
 				content: `Use "${options.context}" to help craft the commit message.`,
 			});
 		}
-		data.messages.push({
+		request.messages.push({
 			role: 'user',
 			content: `Write a meaningful commit message for the following code changes:\n\n${code}`,
 		});
 
 		const rsp = await fetch('https://api.openai.com/v1/chat/completions', {
 			headers: {
-				Authorization: `Bearer ${openaiApiKey}`,
+				Accept: 'application/json',
+				Authorization: `Bearer ${apiKey}`,
 				'Content-Type': 'application/json',
 			},
 			method: 'POST',
-			body: JSON.stringify(data),
+			body: JSON.stringify(request),
 		});
 
 		if (!rsp.ok) {
@@ -78,14 +79,14 @@ export class OpenAIProvider implements AIProvider {
 			throw new Error(`Unable to generate commit message: ${rsp.status}: ${rsp.statusText}`);
 		}
 
-		const completion: OpenAIChatCompletionResponse = await rsp.json();
-		const message = completion.choices[0].message.content.trim();
+		const data: OpenAIChatCompletionResponse = await rsp.json();
+		const message = data.choices[0].message.content.trim();
 		return message;
 	}
 
 	async explainChanges(message: string, diff: string): Promise<string | undefined> {
-		const openaiApiKey = await getApiKey(this.container.storage);
-		if (openaiApiKey == null) return undefined;
+		const apiKey = await getApiKey(this.container.storage);
+		if (apiKey == null) return undefined;
 
 		const model = this.model;
 		const maxCodeCharacters = getMaxCharacters(model);
@@ -97,13 +98,13 @@ export class OpenAIProvider implements AIProvider {
 			);
 		}
 
-		const data: OpenAIChatCompletionRequest = {
+		const request: OpenAIChatCompletionRequest = {
 			model: model,
 			messages: [
 				{
 					role: 'system',
 					content:
-						"You are an AI programming assistant tasked with providing a detailed explanation of a commit by summarizing the code changes while also using the commit message as additional context and framing.\n\n- Don't make anything up!",
+						"You are an AI programming assistant tasked with providing an easy to understand but detailed explanation of a commit by summarizing the code changes while also using the commit message as additional context and framing.\n\n- Don't make anything up!",
 				},
 				{
 					role: 'user',
@@ -122,11 +123,12 @@ export class OpenAIProvider implements AIProvider {
 
 		const rsp = await fetch('https://api.openai.com/v1/chat/completions', {
 			headers: {
-				Authorization: `Bearer ${openaiApiKey}`,
+				Accept: 'application/json',
+				Authorization: `Bearer ${apiKey}`,
 				'Content-Type': 'application/json',
 			},
 			method: 'POST',
-			body: JSON.stringify(data),
+			body: JSON.stringify(request),
 		});
 
 		if (!rsp.ok) {
@@ -134,8 +136,8 @@ export class OpenAIProvider implements AIProvider {
 			throw new Error(`Unable to explain commit: ${rsp.status}: ${rsp.statusText}`);
 		}
 
-		const completion: OpenAIChatCompletionResponse = await rsp.json();
-		const summary = completion.choices[0].message.content.trim();
+		const data: OpenAIChatCompletionResponse = await rsp.json();
+		const summary = data.choices[0].message.content.trim();
 		return summary;
 	}
 }

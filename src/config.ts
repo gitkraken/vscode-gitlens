@@ -1,3 +1,4 @@
+import type { AnthropicModels } from './ai/anthropicProvider';
 import type { OpenAIModels } from './ai/openaiProvider';
 import type { DateTimeFormat } from './system/date';
 import { LogLevel } from './system/logger.constants';
@@ -5,8 +6,12 @@ import { LogLevel } from './system/logger.constants';
 export interface Config {
 	ai: {
 		experimental: {
+			provider: 'openai' | 'anthropic';
 			openai: {
 				model?: OpenAIModels;
+			};
+			anthropic: {
+				model?: AnthropicModels;
 			};
 		};
 	};
