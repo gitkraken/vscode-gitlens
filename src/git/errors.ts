@@ -81,6 +81,15 @@ export class StashPushError extends Error {
 		Error.captureStackTrace?.(this, StashApplyError);
 	}
 }
+
+export class WorkspaceUntrustedError extends Error {
+	constructor() {
+		super('Unable to perform Git operations because the current workspace is untrusted');
+
+		Error.captureStackTrace?.(this, WorkspaceUntrustedError);
+	}
+}
+
 export const enum WorktreeCreateErrorReason {
 	AlreadyCheckedOut = 1,
 	AlreadyExists = 2,

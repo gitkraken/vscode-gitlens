@@ -9,7 +9,7 @@ import type { CoreConfiguration } from '../../../constants';
 import { GlyphChars } from '../../../constants';
 import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
 import { GitErrorHandling } from '../../../git/commandOptions';
-import { StashPushError, StashPushErrorReason } from '../../../git/errors';
+import { StashPushError, StashPushErrorReason, WorkspaceUntrustedError } from '../../../git/errors';
 import type { GitDiffFilter } from '../../../git/models/diff';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/models/reference';
 import type { GitUser } from '../../../git/models/user';
@@ -123,6 +123,8 @@ export class Git {
 	async git(options: ExitCodeOnlyGitCommandOptions, ...args: any[]): Promise<number>;
 	async git<T extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<T>;
 	async git<T extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<T> {
+		if (!workspace.isTrusted) throw new WorkspaceUntrustedError();
+
 		const start = hrtime();
 
 		const { configs, correlationKey, errors: errorHandling, encoding, ...opts } = options;
@@ -224,6 +226,8 @@ export class Git {
 	}
 
 	async gitSpawn(options: GitSpawnOptions, ...args: any[]): Promise<ChildProcess> {
+		if (!workspace.isTrusted) throw new WorkspaceUntrustedError();
+
 		const start = hrtime();
 
 		const { cancellation, configs, stdin, stdinEncoding, ...opts } = options;
@@ -1645,6 +1649,8 @@ export class Git {
 				? (emptyArray as [])
 				: [true, normalizePath(data.trimStart().replace(/[\r|\n]+$/, ''))];
 		} catch (ex) {
+			if (ex instanceof WorkspaceUntrustedError) return emptyArray as [];
+
 			const unsafeMatch =
 				/^fatal: detected dubious ownership in repository at '([^']+)'[\s\S]*git config --global --add safe\.directory '?([^'\n]+)'?$/m.exec(
 					ex.stderr,

@@ -57,6 +57,7 @@ export interface DidChangeRepositoriesParams {
 	count: number;
 	openCount: number;
 	hasUnsafe: boolean;
+	trusted: boolean;
 }
 export const DidChangeRepositoriesType = new IpcNotificationType<DidChangeRepositoriesParams>('repositories/didChange');
 

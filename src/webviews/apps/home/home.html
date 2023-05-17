@@ -96,6 +96,17 @@
 					</p>
 				</div>
 			</div>
+			<div id="untrusted-alert" class="alert alert--info mb-0" aria-hidden="true" hidden>
+				<h1 class="alert__title">Untrusted workspace</h1>
+				<div class="alert__description">
+					<p>Unable to open repositories in Restricted Mode.</p>
+					<p class="centered">
+						<vscode-button data-action="command:workbench.trust.manage"
+							>Manage Workspace Trust</vscode-button
+						>
+					</p>
+				</div>
+			</div>
 			<header-card id="header-card" image="#{webroot}/media/gitlens-logo.webp"></header-card>
 		</header>
 		<main class="home__main scrollable" id="main" tabindex="-1">

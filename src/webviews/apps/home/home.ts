@@ -247,36 +247,26 @@ export class HomeApp extends App<State> {
 	}
 
 	private updateNoRepo() {
-		const { repositories } = this.state;
-		const hasRepos = repositories.openCount > 0;
-		const value = hasRepos ? 'true' : 'false';
+		const {
+			repositories: { openCount, hasUnsafe, trusted },
+		} = this.state;
 
-		let $el = document.getElementById('no-repo');
-		$el?.setAttribute('aria-hidden', value);
-		if (hasRepos) {
-			$el?.setAttribute('hidden', value);
-		} else {
-			$el?.removeAttribute('hidden');
+		if (!trusted) {
+			setElementVisibility('untrusted-alert', true);
+			setElementVisibility('no-repo', false);
+			setElementVisibility('no-repo-alert', false);
+			setElementVisibility('unsafe-repo-alert', false);
+
+			return;
 		}
 
-		$el = document.getElementById('no-repo-alert');
-		const showUnsafe = repositories.hasUnsafe && !hasRepos;
-		const $unsafeEl = document.getElementById('unsafe-repo-alert');
-		if (showUnsafe) {
-			$el?.setAttribute('aria-hidden', 'true');
-			$el?.setAttribute('hidden', 'true');
-			$unsafeEl?.setAttribute('aria-hidden', 'false');
-			$unsafeEl?.removeAttribute('hidden');
-		} else {
-			$unsafeEl?.setAttribute('aria-hidden', 'true');
-			$unsafeEl?.setAttribute('hidden', 'true');
-			$el?.setAttribute('aria-hidden', value);
-			if (hasRepos) {
-				$el?.setAttribute('hidden', value);
-			} else {
-				$el?.removeAttribute('hidden');
-			}
-		}
+		setElementVisibility('untrusted-alert', false);
+
+		const noRepos = openCount === 0;
+
+		setElementVisibility('no-repo', noRepos);
+		setElementVisibility('no-repo-alert', noRepos && !hasUnsafe);
+		setElementVisibility('unsafe-repo-alert', hasUnsafe);
 	}
 
 	private updateLayout() {
@@ -368,6 +358,24 @@ export class HomeApp extends App<State> {
 
 		this.updateSections();
 		this.updateBanners();
+	}
+}
+
+function setElementVisibility(elementOrId: string | HTMLElement | null | undefined, visible: boolean) {
+	let el;
+	if (typeof elementOrId === 'string') {
+		el = document.getElementById(elementOrId);
+	} else {
+		el = elementOrId;
+	}
+	if (el == null) return;
+
+	if (visible) {
+		el.setAttribute('aria-hidden', 'false');
+		el.removeAttribute('hidden');
+	} else {
+		el.setAttribute('aria-hidden', 'true');
+		el?.setAttribute('hidden', 'true');
 	}
 }
 
