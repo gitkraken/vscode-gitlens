@@ -501,11 +501,11 @@ export type TelemetryEvents =
 	| 'subscription/changed'
 	| 'usage/track';
 
-export type AIProviders = 'openai';
+export type AIProviders = 'anthropic' | 'openai';
 
 export type SecretKeys =
 	| `gitlens.integration.auth:${string}`
-	| 'gitlens.openai.key'
+	| `gitlens.${AIProviders}.key`
 	| `gitlens.plus.auth:${Environment}`;
 
 export const enum SyncedStorageKeys {

@@ -2817,6 +2817,21 @@
 						"scope": "window",
 						"order": 1
 					},
+					"gitlens.ai.experimental.provider": {
+						"type": "string",
+						"default": "openai",
+						"enum": [
+							"openai",
+							"anthropic"
+						],
+						"enumDescriptions": [
+							"OpenAI",
+							"Anthropic"
+						],
+						"markdownDescription": "Specifies the AI provider to use for GitLens' experimental AI features",
+						"scope": "window",
+						"order": 100
+					},
 					"gitlens.ai.experimental.openai.model": {
 						"type": "string",
 						"default": "gpt-3.5-turbo",
@@ -2838,7 +2853,26 @@
 						],
 						"markdownDescription": "Specifies the OpenAI model to use for GitLens' experimental AI features",
 						"scope": "window",
-						"order": 100
+						"order": 101
+					},
+					"gitlens.ai.experimental.anthropic.model": {
+						"type": "string",
+						"default": "claude-v1",
+						"enum": [
+							"claude-v1",
+							"claude-v1-100k",
+							"claude-instant-v1",
+							"claude-instant-v1-100k"
+						],
+						"enumDescriptions": [
+							"Claude v1",
+							"Claude v1 with 100k token context",
+							"Claude Instant v1",
+							"Claude Instant v1 with 100k token context"
+						],
+						"markdownDescription": "Specifies the Anthropic model to use for GitLens' experimental AI features",
+						"scope": "window",
+						"order": 102
 					}
 				}
 			},
