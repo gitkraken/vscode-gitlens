@@ -180,6 +180,7 @@ export class DeepLinkService implements Disposable {
 			{ modal: true },
 			{ title: 'Open Folder', action: DeepLinkRepoOpenType.Folder },
 			{ title: 'Open Workspace', action: DeepLinkRepoOpenType.Workspace },
+			{ title: 'Clone Repository', action: DeepLinkRepoOpenType.Clone },
 			{ title: 'Cancel', isCloseAffordance: true },
 		);
 
@@ -193,13 +194,15 @@ export class DeepLinkService implements Disposable {
 			{ title: 'Open in New Window', action: OpenWorkspaceLocation.NewWindow },
 		];
 
-		if (openType === DeepLinkRepoOpenType.Folder) {
+		if (openType !== DeepLinkRepoOpenType.Workspace) {
 			openOptions.push({ title: 'Add to Workspace', action: OpenWorkspaceLocation.AddToWorkspace });
 		}
 
 		openOptions.push({ title: 'Cancel', isCloseAffordance: true });
 		const openLocationResult = await window.showInformationMessage(
-			`Please choose an option to open the repository ${openType}.`,
+			`Please choose an option to open the repository ${
+				openType === DeepLinkRepoOpenType.Clone ? 'after cloning' : openType
+			}.`,
 			{ modal: true },
 			...openOptions,
 		);
@@ -252,10 +255,11 @@ export class DeepLinkService implements Disposable {
 		let remotePath = '';
 		let remoteName = undefined;
 
-		// Repo open
+		// Repo open/clone
 		let repoOpenType;
 		let repoOpenLocation;
 		let repoOpenUri: Uri | undefined = undefined;
+		let repoClonePath: string | undefined = undefined;
 
 		queueMicrotask(
 			() =>
@@ -360,12 +364,17 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					// TODO@ramint Add cloning
 					repoOpenUri = (
 						await window.showOpenDialog({
-							title: `Open ${repoOpenType} for link`,
+							title: `Choose a ${
+								repoOpenType === DeepLinkRepoOpenType.Workspace ? 'workspace' : 'folder'
+							} to ${
+								repoOpenType === DeepLinkRepoOpenType.Clone
+									? 'clone the repository to'
+									: 'open the repository'
+							}`,
 							canSelectFiles: repoOpenType === DeepLinkRepoOpenType.Workspace,
-							canSelectFolders: repoOpenType === DeepLinkRepoOpenType.Folder,
+							canSelectFolders: repoOpenType !== DeepLinkRepoOpenType.Workspace,
 							canSelectMany: false,
 							...(repoOpenType === DeepLinkRepoOpenType.Workspace && {
 								filters: { Workspaces: ['code-workspace'] },
@@ -376,6 +385,32 @@ export class DeepLinkService implements Disposable {
 					if (!repoOpenUri) {
 						action = DeepLinkServiceAction.DeepLinkCancelled;
 						break;
+					}
+
+					if (repoOpenUri != null && repoOpenType === DeepLinkRepoOpenType.Clone) {
+						// clone the repository, then set repoOpenUri to the repo path
+						try {
+							repoClonePath = await window.withProgress(
+								{
+									location: ProgressLocation.Notification,
+									title: `Cloning repository for link: ${this._context.url}}`,
+								},
+								// eslint-disable-next-line no-loop-func
+								async () => this.container.git.clone(remoteUrl, repoOpenUri?.fsPath ?? ''),
+							);
+						} catch {
+							action = DeepLinkServiceAction.DeepLinkErrored;
+							message = 'Unable to clone repository';
+							break;
+						}
+
+						if (!repoClonePath) {
+							action = DeepLinkServiceAction.DeepLinkErrored;
+							message = 'Unable to clone repository';
+							break;
+						}
+
+						repoOpenUri = Uri.file(repoClonePath);
 					}
 
 					if (

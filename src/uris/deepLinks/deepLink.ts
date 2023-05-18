@@ -111,6 +111,7 @@ export const enum DeepLinkServiceAction {
 }
 
 export const enum DeepLinkRepoOpenType {
+	Clone = 'clone',
 	Folder = 'folder',
 	Workspace = 'workspace',
 }
