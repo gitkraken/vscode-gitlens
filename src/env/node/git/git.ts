@@ -1,6 +1,7 @@
 import type { ChildProcess, SpawnOptions } from 'child_process';
 import { spawn } from 'child_process';
 import { accessSync } from 'fs';
+import { join as joinPath } from 'path';
 import * as process from 'process';
 import type { CancellationToken, OutputChannel } from 'vscode';
 import { env, Uri, window, workspace } from 'vscode';
@@ -15,6 +16,7 @@ import type { GitUser } from '../../../git/models/user';
 import { GitBranchParser } from '../../../git/parsers/branchParser';
 import { GitLogParser } from '../../../git/parsers/logParser';
 import { GitReflogParser } from '../../../git/parsers/reflogParser';
+import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
 import { GitTagParser } from '../../../git/parsers/tagParser';
 import { splitAt } from '../../../system/array';
 import { configuration } from '../../../system/configuration';
@@ -540,6 +542,24 @@ export class Git {
 		}
 
 		return this.git<string>({ cwd: repoPath }, ...params);
+	}
+
+	// TODO: Expand to include options and other params
+	async clone(url: string, parentPath: string): Promise<string | undefined> {
+		let count = 0;
+		const [, , remotePath] = parseGitRemoteUrl(url);
+		const remoteName = remotePath.split('/').pop();
+		if (!remoteName) return undefined;
+
+		let folderPath = joinPath(parentPath, remoteName);
+		while ((await fsExists(folderPath)) && count < 20) {
+			count++;
+			folderPath = joinPath(parentPath, `${remotePath}-${count}`);
+		}
+
+		await this.git<string>({ cwd: parentPath }, 'clone', url, folderPath);
+
+		return folderPath;
 	}
 
 	async config__get(key: string, repoPath?: string, options?: { local?: boolean }) {

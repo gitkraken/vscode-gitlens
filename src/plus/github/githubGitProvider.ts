@@ -392,6 +392,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		_options?: { createBranch?: string } | { path?: string },
 	): Promise<void> {}
 
+	@log()
+	async clone(_url: string, _parentPath: string): Promise<string | undefined> {
+		return undefined;
+	}
+
 	@log({ singleLine: true })
 	private resetCache(
 		repoPath: string,

@@ -148,6 +148,7 @@ export interface GitProvider extends Disposable {
 		ref: string,
 		options?: { createBranch?: string | undefined } | { path?: string | undefined },
 	): Promise<void>;
+	clone(url: string, parentPath: string): Promise<string | undefined>;
 	excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]>;
 	fetch(
 		repoPath: string,

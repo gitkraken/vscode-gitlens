@@ -964,6 +964,20 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
+	@log()
+	async clone(url: string, parentPath: string): Promise<string | undefined> {
+		const scope = getLogScope();
+
+		try {
+			return this.git.clone(url, parentPath);
+		} catch (ex) {
+			Logger.error(ex, scope);
+			void showGenericErrorMessage(`Unable to clone '${url}'`);
+		}
+
+		return undefined;
+	}
+
 	@log({ singleLine: true })
 	private resetCache(
 		repoPath: string,

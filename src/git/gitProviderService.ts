@@ -1243,6 +1243,12 @@ export class GitProviderService implements Disposable {
 		return provider.checkout(path, ref, options);
 	}
 
+	@log()
+	async clone(url: string, parentPath: string): Promise<string | undefined> {
+		const { provider } = this.getProvider(parentPath);
+		return provider.clone(url, parentPath);
+	}
+
 	@log({ singleLine: true })
 	resetCaches(...caches: GitCaches[]): void {
 		if (caches.length === 0 || caches.includes('providers')) {
