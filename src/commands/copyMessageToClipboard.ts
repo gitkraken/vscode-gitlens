@@ -83,6 +83,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 				} else if (args.message == null) {
 					const gitUri = await GitUri.fromUri(uri);
 					repoPath = gitUri.repoPath;
+					if (!repoPath) return;
 
 					if (args.sha == null) {
 						const blameline = editor?.selection.active.line ?? 0;
@@ -101,7 +102,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 							return;
 						}
 					} else {
-						await copyMessageToClipboard({ ref: args.sha, repoPath: repoPath! });
+						await copyMessageToClipboard({ ref: args.sha, repoPath: repoPath });
 						return;
 					}
 				}

@@ -68,7 +68,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 				if (uri == null) return;
 
 				gitUri = await GitUri.fromUri(uri);
-				repoPath = gitUri.repoPath;
+				repoPath = gitUri.repoPath!;
 			}
 		} else {
 			if (args.sha == null) {
@@ -128,7 +128,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 				}
 
 				if (args.repoLog == null) {
-					args.commit = await this.container.git.getCommit(repoPath!, args.sha);
+					args.commit = await this.container.git.getCommit(repoPath, args.sha);
 				}
 			}
 
