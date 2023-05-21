@@ -197,11 +197,18 @@ export function getSuperscript(num: number) {
 	return superscripts[num - 1] ?? '';
 }
 
-const tokenRegex = /\$\{('.*?[^\\]'|\W*)?([^|]*?)(?:\|(\d+)(-|\?)?)?('.*?[^\\]'|\W*)?\}/g;
+const tokenRegex = /\$\{(?:'(.*?[^\\])'|(\W*))?([^|]*?)(?:\|(\d+)(-|\?)?)?(?:'(.*?[^\\])'|(\W*))?\}/g;
 const tokenSanitizeRegex = /\$\{(?:'.*?[^\\]'|\W*)?(\w*?)(?:'.*?[^\\]'|[\W\d]*)\}/g;
 const tokenGroupCharacter = "'";
 const tokenGroupCharacterEscapedRegex = /(\\')/g;
-const tokenGroupRegex = /^'?(.*?)'?$/s;
+
+interface TokenMatch {
+	key: string;
+	start: number;
+	end: number;
+	options: TokenOptions;
+}
+const templateTokenMap = new Map<string, TokenMatch[]>();
 
 export interface TokenOptions {
 	collapseWhitespace: boolean;
@@ -211,88 +218,205 @@ export interface TokenOptions {
 	truncateTo: number | undefined;
 }
 
-export function getTokensFromTemplate(template: string) {
-	const tokens: { key: string; options: TokenOptions }[] = [];
+function isWordChar(code: number): boolean {
+	return (
+		code === 95 /* _ */ ||
+		(code >= 0x61 && code <= 0x7a) || // lowercase letters
+		(code >= 0x41 && code <= 0x5a) || // uppercase letters
+		(code >= 0x30 && code <= 0x39) // digits
+	);
+}
 
-	let match;
-	do {
-		match = tokenRegex.exec(template);
-		if (match == null) break;
+export function getTokensFromTemplate(template: string): TokenMatch[] {
+	let tokens = templateTokenMap.get(template);
+	if (tokens != null) return tokens;
 
-		let [, prefix, key, truncateTo, option, suffix] = match;
-		// Check for a prefix group
-		if (prefix != null) {
-			match = tokenGroupRegex.exec(prefix);
-			if (match != null) {
-				[, prefix] = match;
-				prefix = prefix.replace(tokenGroupCharacterEscapedRegex, tokenGroupCharacter);
+	tokens = [];
+	const length = template.length;
+
+	let position = 0;
+	while (position < length) {
+		const tokenStart = template.indexOf('${', position);
+		if (tokenStart === -1) break;
+
+		const tokenEnd = template.indexOf('}', tokenStart);
+		if (tokenEnd === -1) break;
+
+		let tokenPos = tokenStart + 2;
+
+		let key = '';
+		let prefix = '';
+		let truncateTo = '';
+		let collapseWhitespace = false;
+		let padDirection: 'left' | 'right' = 'right';
+		let suffix = '';
+
+		if (template[tokenPos] === "'") {
+			const start = ++tokenPos;
+			tokenPos = template.indexOf("'", tokenPos);
+			if (tokenPos === -1) break;
+
+			if (start !== tokenPos) {
+				prefix = template.slice(start, tokenPos);
+			}
+			tokenPos++;
+		} else if (!isWordChar(template.charCodeAt(tokenPos))) {
+			const start = tokenPos++;
+			while (tokenPos < tokenEnd && !isWordChar(template.charCodeAt(tokenPos))) {
+				tokenPos++;
+			}
+
+			if (start !== tokenPos) {
+				prefix = template.slice(start, tokenPos);
 			}
 		}
 
-		// Check for a suffix group
-		if (suffix != null) {
-			match = tokenGroupRegex.exec(suffix);
-			if (match != null) {
-				[, suffix] = match;
-				suffix = suffix.replace(tokenGroupCharacterEscapedRegex, tokenGroupCharacter);
+		while (tokenPos < tokenEnd) {
+			let code = template.charCodeAt(tokenPos);
+			if (isWordChar(code)) {
+				key += template[tokenPos++];
+			} else {
+				if (code !== 0x7c /* | */) break;
+
+				while (tokenPos < tokenEnd) {
+					code = template.charCodeAt(++tokenPos);
+					if (code >= 0x30 && code <= 0x39 /* digits */) {
+						truncateTo += template[tokenPos];
+						continue;
+					}
+
+					if (code === 0x3f /* ? */) {
+						collapseWhitespace = true;
+						tokenPos++;
+					} else if (code === 0x2d /* - */) {
+						padDirection = 'left';
+						tokenPos++;
+					}
+
+					break;
+				}
 			}
+		}
+
+		if (tokenPos < tokenEnd) {
+			if (template[tokenPos] === "'") {
+				const start = ++tokenPos;
+				tokenPos = template.indexOf("'", tokenPos);
+				if (tokenPos === -1) break;
+
+				if (start !== tokenPos) {
+					suffix = template.slice(start, tokenPos);
+				}
+				tokenPos++;
+			} else if (!isWordChar(template.charCodeAt(tokenPos))) {
+				const start = tokenPos++;
+				while (tokenPos < tokenEnd && !isWordChar(template.charCodeAt(tokenPos))) {
+					tokenPos++;
+				}
+
+				if (start !== tokenPos) {
+					suffix = template.slice(start, tokenPos);
+				}
+			}
+		}
+
+		position = tokenEnd + 1;
+		tokens.push({
+			key: key,
+			start: tokenStart,
+			end: position,
+			options: {
+				prefix: prefix || undefined,
+				suffix: suffix || undefined,
+				truncateTo: truncateTo ? parseInt(truncateTo, 10) : undefined,
+				collapseWhitespace: collapseWhitespace,
+				padDirection: padDirection,
+			},
+		});
+	}
+
+	templateTokenMap.set(template, tokens);
+	return tokens;
+}
+
+// FYI, this is about twice as slow as getTokensFromTemplate
+export function getTokensFromTemplateRegex(template: string): TokenMatch[] {
+	let tokens = templateTokenMap.get(template);
+	if (tokens != null) return tokens;
+
+	tokens = [];
+
+	let match;
+	while ((match = tokenRegex.exec(template))) {
+		const [, prefixGroup, prefixNonGroup, key, truncateTo, option, suffixGroup, suffixNonGroup] = match;
+		const start = match.index;
+		const end = start + match[0].length;
+
+		let prefix = prefixGroup || prefixNonGroup || undefined;
+		if (prefix) {
+			prefix = prefix.replace(tokenGroupCharacterEscapedRegex, tokenGroupCharacter);
+		}
+
+		let suffix = suffixGroup || suffixNonGroup || undefined;
+		if (suffix) {
+			suffix = suffix.replace(tokenGroupCharacterEscapedRegex, tokenGroupCharacter);
 		}
 
 		tokens.push({
 			key: key,
+			start: start,
+			end: end,
 			options: {
 				collapseWhitespace: option === '?',
 				padDirection: option === '-' ? 'left' : 'right',
-				prefix: prefix || undefined,
-				suffix: suffix || undefined,
+				prefix: prefix,
+				suffix: suffix,
 				truncateTo: truncateTo == null ? undefined : parseInt(truncateTo, 10),
 			},
 		});
-	} while (true);
+	}
 
+	templateTokenMap.set(template, tokens);
 	return tokens;
 }
-
-const tokenSanitizeReplacement = `$\${$1=this.$1,($1 == null ? '' : $1)}`;
-const interpolationMap = new Map<string, Function>();
 
 export function interpolate(template: string, context: object | undefined): string {
 	if (template == null || template.length === 0) return template;
 	if (context == null) return template.replace(tokenSanitizeRegex, '');
 
-	let fn = interpolationMap.get(template);
-	if (fn == null) {
-		// eslint-disable-next-line @typescript-eslint/no-implied-eval
-		fn = new Function(`return \`${template.replace(tokenSanitizeRegex, tokenSanitizeReplacement)}\`;`);
-		interpolationMap.set(template, fn);
+	const tokens = getTokensFromTemplate(template);
+	if (tokens.length === 0) return template;
+
+	let position = 0;
+	let result = '';
+	for (const token of tokens) {
+		result += template.slice(position, token.start) + ((context as Record<string, string>)[token.key] ?? '');
+		position = token.end;
 	}
-
-	return fn.call(context) as string;
+	return result;
 }
-
-// eslint-disable-next-line prefer-arrow-callback
-const AsyncFunction = Object.getPrototypeOf(async function () {
-	/* noop */
-}).constructor;
-
-const tokenSanitizeReplacementAsync = `$\${$1=this.$1,($1 == null ? '' : typeof $1.then === 'function' ? (($1 = await $1),$1 == null ? '' : $1) : $1)}`;
-
-const interpolationAsyncMap = new Map<string, typeof AsyncFunction>();
 
 export async function interpolateAsync(template: string, context: object | undefined): Promise<string> {
 	if (template == null || template.length === 0) return template;
 	if (context == null) return template.replace(tokenSanitizeRegex, '');
 
-	let fn = interpolationAsyncMap.get(template);
-	if (fn == null) {
-		// // eslint-disable-next-line @typescript-eslint/no-implied-eval
-		const body = `return \`${template.replace(tokenSanitizeRegex, tokenSanitizeReplacementAsync)}\`;`;
-		fn = new AsyncFunction(body);
-		interpolationAsyncMap.set(template, fn);
-	}
+	const tokens = getTokensFromTemplate(template);
+	if (tokens.length === 0) return template;
 
-	const value = await fn.call(context);
-	return value as string;
+	let position = 0;
+	let result = '';
+	let value;
+	for (const token of tokens) {
+		value = (context as Record<string, any>)[token.key];
+		if (value != null && typeof value === 'object' && typeof value.then === 'function') {
+			value = await value;
+		}
+
+		// eslint-disable-next-line @typescript-eslint/restrict-plus-operands
+		result += template.slice(position, token.start) + (value ?? '');
+		position = token.end;
+	}
+	return result;
 }
 
 export function isLowerAsciiLetter(code: number): boolean {
