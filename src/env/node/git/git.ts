@@ -3,9 +3,8 @@ import { spawn } from 'child_process';
 import { accessSync } from 'fs';
 import * as process from 'process';
 import type { CancellationToken, OutputChannel } from 'vscode';
-import { Uri, window, workspace } from 'vscode';
+import { env, Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
-import type { CoreConfiguration } from '../../../constants';
 import { GlyphChars } from '../../../constants';
 import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
 import { GitErrorHandling } from '../../../git/commandOptions';
@@ -25,14 +24,13 @@ import { Logger } from '../../../system/logger';
 import { LogLevel, slowCallWarningThreshold } from '../../../system/logger.constants';
 import { getLogScope } from '../../../system/logger.scope';
 import { dirname, isAbsolute, isFolderGlob, joinPaths, normalizePath, splitPath } from '../../../system/path';
-import { equalsIgnoreCase, getDurationMilliseconds } from '../../../system/string';
+import { getDurationMilliseconds } from '../../../system/string';
 import { getEditorCommand } from '../../../system/utils';
 import { compare, fromString } from '../../../system/version';
 import { ensureGitTerminal } from '../../../terminal';
-import { isWindows } from '../platform';
 import type { GitLocation } from './locator';
 import type { RunOptions } from './shell';
-import { fsExists, getWindowsShortPath, run, RunError } from './shell';
+import { fsExists, isWindows, run, RunError } from './shell';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyObj = Object.freeze({});
@@ -2071,23 +2069,15 @@ export class Git {
 		const parsedArgs = args.map(arg => (arg.startsWith('#') || /['();$|>&<]/.test(arg) ? `"${arg}"` : arg));
 
 		let text;
-		if (git.includes(' ') && isWindows) {
-			let shortenedPath = await getWindowsShortPath(git);
-			Logger.log(scope, `\u2022 using short Git path '${shortenedPath}' rather than '${git}'`);
+		if (git.includes(' ')) {
+			const shell = env.shell;
+			Logger.debug(scope, `\u2022 git path '${git}' contains spaces, detected shell: '${shell}'`);
 
-			if (shortenedPath.includes(' ')) {
-				const profile = configuration.getAny<CoreConfiguration, string | null>(
-					'terminal.integrated.defaultProfile.windows',
-				);
-				Logger.debug(scope, `\u2022 short path '${shortenedPath}' contains spaces, profile '${profile}'`);
-				shortenedPath = `${equalsIgnoreCase(profile, 'powershell') ? '& ' : ''}"${shortenedPath}"`;
-			}
-
-			text = `${shortenedPath} -C "${cwd}" ${coreEditorConfig}${command} ${parsedArgs.join(' ')}`;
+			text = `${
+				(isWindows ? /(pwsh|powershell)\.exe/i : /pwsh/i).test(shell) ? '&' : ''
+			} "${git}" -C "${cwd}" ${coreEditorConfig}${command} ${parsedArgs.join(' ')}`;
 		} else {
-			text = `${git.includes(' ') ? `"${git}"` : git} -C "${cwd}" ${coreEditorConfig}${command} ${parsedArgs.join(
-				' ',
-			)}`;
+			text = `${git} -C "${cwd}" ${coreEditorConfig}${command} ${parsedArgs.join(' ')}`;
 		}
 
 		Logger.log(scope, `\u2022 '${text}'`);
