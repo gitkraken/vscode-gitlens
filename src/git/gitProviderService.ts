@@ -34,7 +34,7 @@ import { count, filter, first, flatMap, join, map, some } from '../system/iterab
 import { Logger } from '../system/logger';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import { getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
-import { asSettled, cancellable, getSettledValue, isPromise, PromiseCancelledError } from '../system/promise';
+import { asSettled, cancellable, defer, getSettledValue, isPromise, PromiseCancelledError } from '../system/promise';
 import { VisitedPathsTrie } from '../system/trie';
 import type {
 	GitCaches,
@@ -571,44 +571,58 @@ export class GitProviderService implements Disposable {
 
 	private _discoveredWorkspaceFolders = new Map<WorkspaceFolder, Promise<Repository[]>>();
 
+	private _isDiscoveringRepositories: Promise<void> | undefined;
+
 	@log<GitProviderService['discoverRepositories']>({ args: { 0: folders => folders.length } })
 	async discoverRepositories(folders: readonly WorkspaceFolder[], options?: { force?: boolean }): Promise<void> {
-		const promises = [];
-
-		for (const folder of folders) {
-			if (!options?.force && this._discoveredWorkspaceFolders.has(folder)) continue;
-
-			const promise = this.discoverRepositoriesCore(folder);
-			promises.push(promise);
-			this._discoveredWorkspaceFolders.set(folder, promise);
+		if (this._isDiscoveringRepositories != null) {
+			await this._isDiscoveringRepositories;
+			this._isDiscoveringRepositories = undefined;
 		}
 
-		if (promises.length === 0) return;
+		const deferred = defer<void>();
+		this._isDiscoveringRepositories = deferred.promise;
 
-		const results = await Promise.allSettled(promises);
+		try {
+			const promises = [];
 
-		const repositories = flatMap<PromiseFulfilledResult<Repository[]>, Repository>(
-			filter<PromiseSettledResult<Repository[]>, PromiseFulfilledResult<Repository[]>>(
-				results,
-				(r): r is PromiseFulfilledResult<Repository[]> => r.status === 'fulfilled',
-			),
-			r => r.value,
-		);
+			for (const folder of folders) {
+				if (!options?.force && this._discoveredWorkspaceFolders.has(folder)) continue;
 
-		const added: Repository[] = [];
-
-		for (const repository of repositories) {
-			if (this._repositories.add(repository)) {
-				added.push(repository);
+				const promise = this.discoverRepositoriesCore(folder);
+				promises.push(promise);
+				this._discoveredWorkspaceFolders.set(folder, promise);
 			}
+
+			if (promises.length === 0) return;
+
+			const results = await Promise.allSettled(promises);
+
+			const repositories = flatMap<PromiseFulfilledResult<Repository[]>, Repository>(
+				filter<PromiseSettledResult<Repository[]>, PromiseFulfilledResult<Repository[]>>(
+					results,
+					(r): r is PromiseFulfilledResult<Repository[]> => r.status === 'fulfilled',
+				),
+				r => r.value,
+			);
+
+			const added: Repository[] = [];
+
+			for (const repository of repositories) {
+				if (this._repositories.add(repository)) {
+					added.push(repository);
+				}
+			}
+
+			this.updateContext();
+
+			if (added.length === 0) return;
+
+			// Defer the event trigger enough to let everything unwind
+			queueMicrotask(() => this.fireRepositoriesChanged(added));
+		} finally {
+			deferred.fulfill();
 		}
-
-		this.updateContext();
-
-		if (added.length === 0) return;
-
-		// Defer the event trigger enough to let everything unwind
-		queueMicrotask(() => this.fireRepositoriesChanged(added));
 	}
 
 	@debug({ exit: true })
@@ -2305,6 +2319,11 @@ export class GitProviderService implements Disposable {
 		const path = getBestPath(uri);
 		let repository: Repository | undefined;
 		repository = this.getRepository(uri);
+
+		if (repository == null && this._isDiscoveringRepositories != null) {
+			await this._isDiscoveringRepositories;
+			repository = this.getRepository(uri);
+		}
 
 		let isDirectory: boolean | undefined;
 
