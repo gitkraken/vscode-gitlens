@@ -13891,6 +13891,15 @@
 					"visibility": "visible"
 				},
 				{
+					"id": "gitlens.views.workspaces",
+					"name": "GitKraken Workspaces",
+					"when": "!gitlens:untrusted",
+					"contextualTitle": "GitLens",
+					"icon": "$(gitlens-worktrees-view)",
+					"visibility": "visible",
+					"initialSize": 2
+				},
+				{
 					"id": "gitlens.views.contributors",
 					"name": "Contributors",
 					"when": "!gitlens:disabled",
@@ -14027,14 +14036,6 @@
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-tags-view)",
-					"visibility": "collapsed"
-				},
-				{
-					"id": "gitlens.views.workspaces",
-					"name": "Workspaces",
-					"when": "!gitlens:disabled",
-					"contextualTitle": "GitLens",
-					"icon": "$(gitlens-worktrees-view)",
 					"visibility": "collapsed"
 				},
 				{
