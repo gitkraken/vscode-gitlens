@@ -6897,7 +6897,7 @@
 			},
 			{
 				"command": "gitlens.views.workspaces.open",
-				"title": "Open As Code Workspace...",
+				"title": "Open As VS Code Workspace...",
 				"category": "GitLens",
 				"icon": "$(window)"
 			},
