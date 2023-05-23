@@ -315,7 +315,10 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 			}
 		}
 
-		const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem(
+			label,
+			this.options?.workspace ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.Expanded,
+		);
 		item.id = this.id;
 		item.contextValue = contextValue;
 		item.description = `${description ?? ''}${
