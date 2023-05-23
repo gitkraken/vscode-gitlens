@@ -6914,6 +6914,11 @@
 				"icon": "$(folder-opened)"
 			},
 			{
+				"command": "gitlens.views.workspaces.openRepoWorkspace",
+				"title": "Add Repository to Current VS Code Workspace",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.workspaces.removeRepo",
 				"title": "Remove Repository from Workspace...",
 				"category": "GitLens",
@@ -9370,6 +9375,10 @@
 				},
 				{
 					"command": "gitlens.views.workspaces.openRepoCurrentWindow",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.workspaces.openRepoWorkspace",
 					"when": "false"
 				},
 				{
@@ -12130,6 +12139,11 @@
 					"command": "gitlens.views.workspaces.openRepoCurrentWindow",
 					"when": "viewItem =~ /gitlens:repository\\b(?=.*?\\b\\+workspace\\b)/",
 					"group": "0_gitlens_actions@12"
+				},
+				{
+					"command": "gitlens.views.workspaces.openRepoWorkspace",
+					"when": "viewItem =~ /gitlens:repository\\b(?=.*?\\b\\+workspace\\b)/",
+					"group": "0_gitlens_actions@13"
 				},
 				{
 					"command": "gitlens.views.workspaces.removeRepo",

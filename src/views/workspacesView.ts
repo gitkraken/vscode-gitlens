@@ -162,6 +162,18 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 				},
 				this,
 			),
+			registerViewCommand(
+				this.getQualifiedCommand('openRepoWorkspace'),
+				(node: RepositoryNode) => {
+					const workspaceNode = node.getParent();
+					if (workspaceNode == null || !(workspaceNode instanceof WorkspaceNode)) {
+						return;
+					}
+
+					openWorkspace(node.repo.uri, { location: OpenWorkspaceLocation.AddToWorkspace });
+				},
+				this,
+			),
 			registerViewCommand(this.getQualifiedCommand('addRepo'), async (node: WorkspaceNode) => {
 				await this.container.workspaces.addCloudWorkspaceRepo(node.workspaceId);
 				void node.getParent()?.triggerChange(true);
