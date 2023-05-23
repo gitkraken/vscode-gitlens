@@ -1,15 +1,12 @@
 import type { Disposable } from 'vscode';
 import { Uri, window } from 'vscode';
-import { encodeUtf8Hex } from '@env/hex';
 import { getSupportedWorkspacesPathProvider } from '@env/providers';
-import { Schemes } from '../../constants';
 import type { Container } from '../../container';
 import { RemoteResourceType } from '../../git/models/remoteResource';
 import type { Repository } from '../../git/models/repository';
 import { showRepositoryPicker } from '../../quickpicks/repositoryPicker';
 import { SubscriptionState } from '../../subscription';
 import { openWorkspace, OpenWorkspaceLocation } from '../../system/utils';
-import type { GitHubAuthorityMetadata } from '../remotehub';
 import type { ServerConnection } from '../subscription/serverConnection';
 import type {
 	AddWorkspaceRepoDescriptor,
@@ -708,7 +705,9 @@ export class WorkspacesService implements Disposable {
 				}
 			}
 
-			if (!repo) {
+			// TODO: Add this logic back in once we think through virtual repository support a bit more.
+			// We want to support virtual repositories not just as an automatic backup, but as a user choice.
+			/*if (!repo) {
 				let uri: Uri | undefined = undefined;
 				if (repoLocalPath) {
 					uri = Uri.file(repoLocalPath);
@@ -723,6 +722,9 @@ export class WorkspacesService implements Disposable {
 				if (uri) {
 					repo = await this.container.git.getOrOpenRepository(uri, { closeOnOpen: true });
 				}
+			}*/
+			if (repoLocalPath != null && !repo) {
+				repo = await this.container.git.getOrOpenRepository(Uri.file(repoLocalPath), { closeOnOpen: true });
 			}
 
 			if (!repoName || !repo) {
@@ -798,6 +800,7 @@ export class WorkspacesService implements Disposable {
 	}
 }
 
-function encodeAuthority<T>(scheme: string, metadata?: T): string {
+// TODO: Add back in once we think through virtual repository support a bit more.
+/* function encodeAuthority<T>(scheme: string, metadata?: T): string {
 	return `${scheme}${metadata != null ? `+${encodeUtf8Hex(JSON.stringify(metadata))}` : ''}`;
-}
+} */
