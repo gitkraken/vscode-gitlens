@@ -6,6 +6,7 @@ import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
 import { GKCloudWorkspace } from '../plus/workspaces/models';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../subscription';
 import { pluralize } from '../system/string';
+import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';
 import { RepositoryNode } from './nodes/repositoryNode';
 import type { WorkspaceMissingRepositoryNode } from './nodes/workspaceMissingRepositoryNode';
 import { WorkspaceNode } from './nodes/workspaceNode';
@@ -134,6 +135,30 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 					await this.container.workspaces.locateWorkspaceRepo(repoName, workspaceNode.workspaceId);
 
 					void workspaceNode.triggerChange(true);
+				},
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('openRepoNewWindow'),
+				(node: RepositoryNode) => {
+					const workspaceNode = node.getParent();
+					if (workspaceNode == null || !(workspaceNode instanceof WorkspaceNode)) {
+						return;
+					}
+
+					openWorkspace(node.repo.uri, { location: OpenWorkspaceLocation.NewWindow });
+				},
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('openRepoCurrentWindow'),
+				(node: RepositoryNode) => {
+					const workspaceNode = node.getParent();
+					if (workspaceNode == null || !(workspaceNode instanceof WorkspaceNode)) {
+						return;
+					}
+
+					openWorkspace(node.repo.uri, { location: OpenWorkspaceLocation.CurrentWindow });
 				},
 				this,
 			),

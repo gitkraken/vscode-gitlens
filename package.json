@@ -6893,13 +6893,25 @@
 				"command": "gitlens.views.workspaces.locateRepo",
 				"title": "Locate Repository...",
 				"category": "GitLens",
-				"icon": "$(folder-opened)"
+				"icon": "$(location)"
 			},
 			{
 				"command": "gitlens.views.workspaces.open",
 				"title": "Open As VS Code Workspace...",
 				"category": "GitLens",
 				"icon": "$(window)"
+			},
+			{
+				"command": "gitlens.views.workspaces.openRepoNewWindow",
+				"title": "Open Repository in New Window",
+				"category": "GitLens",
+				"icon": "$(folder-opened)"
+			},
+			{
+				"command": "gitlens.views.workspaces.openRepoCurrentWindow",
+				"title": "Open Repository in Current Window",
+				"category": "GitLens",
+				"icon": "$(folder-opened)"
 			},
 			{
 				"command": "gitlens.views.workspaces.removeRepo",
@@ -9350,6 +9362,14 @@
 				},
 				{
 					"command": "gitlens.views.workspaces.open",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.workspaces.openRepoNewWindow",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.workspaces.openRepoCurrentWindow",
 					"when": "false"
 				},
 				{
@@ -12094,6 +12114,22 @@
 					"command": "gitlens.views.workspaces.locateRepo",
 					"when": "viewItem =~ /gitlens:repository\\b(?=.*?\\b\\+workspace\\b)(?!.*?\\b\\+local\\b)/ || viewItem =~ /gitlens:workspaceMissingRepository\\b/",
 					"group": "0_gitlens_actions@10"
+				},
+				{
+					"command": "gitlens.views.workspaces.openRepoNewWindow",
+					"when": "viewItem =~ /gitlens:repository\\b(?=.*?\\b\\+workspace\\b)/",
+					"group": "inline@2",
+					"alt": "gitlens.views.workspaces.openRepoCurrentWindow"
+				},
+				{
+					"command": "gitlens.views.workspaces.openRepoNewWindow",
+					"when": "viewItem =~ /gitlens:repository\\b(?=.*?\\b\\+workspace\\b)/",
+					"group": "0_gitlens_actions@11"
+				},
+				{
+					"command": "gitlens.views.workspaces.openRepoCurrentWindow",
+					"when": "viewItem =~ /gitlens:repository\\b(?=.*?\\b\\+workspace\\b)/",
+					"group": "0_gitlens_actions@12"
 				},
 				{
 					"command": "gitlens.views.workspaces.removeRepo",
