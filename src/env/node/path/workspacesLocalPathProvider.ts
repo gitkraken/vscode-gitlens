@@ -121,7 +121,7 @@ export class WorkspacesLocalPathProvider implements WorkspacesPathProvider {
 
 		codeWorkspaceFileContents.folders = workspaceRepoFilePaths.map(repoFilePath => ({ path: repoFilePath }));
 		if (options?.workspaceId != null) {
-			codeWorkspaceFileContents.settings['gitlens.workspaceId'] = options.workspaceId;
+			codeWorkspaceFileContents.settings['gitkraken.workspaceId'] = options.workspaceId;
 		}
 
 		const outputData = new Uint8Array(Buffer.from(JSON.stringify(codeWorkspaceFileContents)));
