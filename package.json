@@ -10914,7 +10914,7 @@
 				},
 				{
 					"command": "gitlens.views.workspaces.open",
-					"when": "viewItem =~ /gitlens:workspace/",
+					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+(cloud|local)\\b)/",
 					"group": "inline@2"
 				},
 				{
