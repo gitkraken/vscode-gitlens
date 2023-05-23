@@ -51,10 +51,6 @@ export class WorkspacesViewNode extends ViewNode<WorkspacesView> {
 				children.push(new MessageNode(this.view, this, localWorkspaceInfo));
 			}
 
-			if (localWorkspaces.length === 0 && localWorkspaceInfo == null) {
-				children.push(new MessageNode(this.view, this, 'No local workspaces found.'));
-			}
-
 			this._children = children;
 		}
 
