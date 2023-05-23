@@ -8,5 +8,9 @@ export interface WorkspacesPathProvider {
 
 	getLocalWorkspaceData(): Promise<LocalWorkspaceFileData>;
 
-	writeCodeWorkspaceFile(uri: Uri, workspaceRepoFilePaths: string[]): Promise<boolean>;
+	writeCodeWorkspaceFile(
+		uri: Uri,
+		workspaceRepoFilePaths: string[],
+		options?: { workspaceId?: string },
+	): Promise<boolean>;
 }

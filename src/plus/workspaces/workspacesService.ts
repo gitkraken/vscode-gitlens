@@ -787,6 +787,7 @@ export class WorkspacesService implements Disposable {
 		const created = await this._workspacesPathProvider.writeCodeWorkspaceFile(
 			newWorkspaceUri,
 			workspaceFolderPaths,
+			{ workspaceId: workspaceId },
 		);
 
 		if (!created) {

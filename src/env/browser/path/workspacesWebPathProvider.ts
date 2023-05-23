@@ -17,7 +17,11 @@ export class WorkspacesWebPathProvider implements WorkspacesPathProvider {
 		return { workspaces: {} };
 	}
 
-	async writeCodeWorkspaceFile(_uri: Uri, _workspaceRepoFilePaths: string[]): Promise<boolean> {
+	async writeCodeWorkspaceFile(
+		_uri: Uri,
+		_workspaceRepoFilePaths: string[],
+		_options?: { workspaceId?: string },
+	): Promise<boolean> {
 		return false;
 	}
 }

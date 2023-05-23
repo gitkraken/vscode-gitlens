@@ -105,7 +105,11 @@ export class WorkspacesLocalPathProvider implements WorkspacesPathProvider {
 		return { workspaces: {} };
 	}
 
-	async writeCodeWorkspaceFile(uri: Uri, workspaceRepoFilePaths: string[]): Promise<boolean> {
+	async writeCodeWorkspaceFile(
+		uri: Uri,
+		workspaceRepoFilePaths: string[],
+		options?: { workspaceId?: string },
+	): Promise<boolean> {
 		let codeWorkspaceFileContents: CodeWorkspaceFileContents;
 		let data;
 		try {
@@ -116,6 +120,9 @@ export class WorkspacesLocalPathProvider implements WorkspacesPathProvider {
 		}
 
 		codeWorkspaceFileContents.folders = workspaceRepoFilePaths.map(repoFilePath => ({ path: repoFilePath }));
+		if (options?.workspaceId != null) {
+			codeWorkspaceFileContents.settings['gitlens.workspaceId'] = options.workspaceId;
+		}
 
 		const outputData = new Uint8Array(Buffer.from(JSON.stringify(codeWorkspaceFileContents)));
 		try {
