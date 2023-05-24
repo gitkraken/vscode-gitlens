@@ -649,6 +649,12 @@ export function GraphWrapper({
 		const value = $el.value as GraphMinimapMarkerTypes;
 
 		if ($el.checked) {
+			if (!graphConfig.minimapMarkerTypes.includes(value)) {
+				const minimapMarkerTypes = [...graphConfig.minimapMarkerTypes, value];
+				setGraphConfig({ ...graphConfig, minimapMarkerTypes: minimapMarkerTypes });
+				onUpdateGraphConfiguration?.({ minimapMarkerTypes: minimapMarkerTypes });
+			}
+		} else {
 			const index = graphConfig.minimapMarkerTypes.indexOf(value);
 			if (index !== -1) {
 				const minimapMarkerTypes = [...graphConfig.minimapMarkerTypes];
@@ -656,10 +662,6 @@ export function GraphWrapper({
 				setGraphConfig({ ...graphConfig, minimapMarkerTypes: minimapMarkerTypes });
 				onUpdateGraphConfiguration?.({ minimapMarkerTypes: minimapMarkerTypes });
 			}
-		} else if (!graphConfig.minimapMarkerTypes.includes(value)) {
-			const minimapMarkerTypes = [...graphConfig.minimapMarkerTypes, value];
-			setGraphConfig({ ...graphConfig, minimapMarkerTypes: minimapMarkerTypes });
-			onUpdateGraphConfiguration?.({ minimapMarkerTypes: minimapMarkerTypes });
 		}
 	};
 
@@ -1435,7 +1437,7 @@ export function GraphWrapper({
 										></span>
 									</button>
 									<MenuList slot="content">
-										<MenuLabel>Show by day</MenuLabel>
+										<MenuLabel>Chart</MenuLabel>
 										<MenuItem role="none">
 											<VSCodeRadioGroup
 												orientation="vertical"
@@ -1449,7 +1451,7 @@ export function GraphWrapper({
 													Commits
 												</VSCodeRadio>
 												<VSCodeRadio name="minimap-datatype" value="lines">
-													Lines Changed (can take a while)
+													Lines Changed
 												</VSCodeRadio>
 											</VSCodeRadioGroup>
 										</MenuItem>
@@ -1460,13 +1462,10 @@ export function GraphWrapper({
 												value="localBranches"
 												onChange={handleOnMinimapAdditionalTypesChange}
 												defaultChecked={
-													!(
-														graphConfig?.minimapMarkerTypes?.includes('localBranches') ??
-														false
-													)
+													graphConfig?.minimapMarkerTypes?.includes('localBranches') ?? false
 												}
 											>
-												Hide Local Branches
+												Local Branches
 											</VSCodeCheckbox>
 										</MenuItem>
 										<MenuItem role="none">
@@ -1474,13 +1473,10 @@ export function GraphWrapper({
 												value="remoteBranches"
 												onChange={handleOnMinimapAdditionalTypesChange}
 												defaultChecked={
-													!(
-														graphConfig?.minimapMarkerTypes?.includes('remoteBranches') ??
-														true
-													)
+													graphConfig?.minimapMarkerTypes?.includes('remoteBranches') ?? true
 												}
 											>
-												Hide Remote Branches
+												Remote Branches
 											</VSCodeCheckbox>
 										</MenuItem>
 										<MenuItem role="none">
@@ -1488,10 +1484,10 @@ export function GraphWrapper({
 												value="stashes"
 												onChange={handleOnMinimapAdditionalTypesChange}
 												defaultChecked={
-													!(graphConfig?.minimapMarkerTypes?.includes('stashes') ?? false)
+													graphConfig?.minimapMarkerTypes?.includes('stashes') ?? false
 												}
 											>
-												Hide Stashes
+												Stashes
 											</VSCodeCheckbox>
 										</MenuItem>
 										<MenuItem role="none">
@@ -1499,10 +1495,10 @@ export function GraphWrapper({
 												value="tags"
 												onChange={handleOnMinimapAdditionalTypesChange}
 												defaultChecked={
-													!(graphConfig?.minimapMarkerTypes?.includes('tags') ?? true)
+													graphConfig?.minimapMarkerTypes?.includes('tags') ?? true
 												}
 											>
-												Hide Tags
+												Tags
 											</VSCodeCheckbox>
 										</MenuItem>
 									</MenuList>
