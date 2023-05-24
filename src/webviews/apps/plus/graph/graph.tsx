@@ -21,6 +21,7 @@ import {
 	ChooseRepositoryCommandType,
 	DidChangeAvatarsNotificationType,
 	DidChangeColumnsNotificationType,
+	DidChangeFocusNotificationType,
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
 	DidChangeRefsMetadataNotificationType,
@@ -162,6 +163,11 @@ export class GraphApp extends App<State> {
 				onIpc(DidChangeAvatarsNotificationType, msg, (params, type) => {
 					this.state.avatars = params.avatars;
 					this.setState(this.state, type);
+				});
+				break;
+			case DidChangeFocusNotificationType.method:
+				onIpc(DidChangeFocusNotificationType, msg, params => {
+					window.dispatchEvent(new CustomEvent(params.focused ? 'webview-focus' : 'webview-blur'));
 				});
 				break;
 

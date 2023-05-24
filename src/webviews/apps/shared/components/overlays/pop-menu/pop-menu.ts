@@ -92,16 +92,30 @@ export class PopMenu extends FASTElement {
 	}
 
 	private isTrackingOutside = false;
+	private _toggleHandler: ((e: MouseEvent) => void) | undefined;
 
 	override connectedCallback() {
 		super.connectedCallback();
+
 		this.updateToggle();
-		this.addEventListener('click', this.handleToggle.bind(this), false);
+		if (this._toggleHandler == null) {
+			this._toggleHandler = this.handleToggle.bind(this);
+		}
+		this.addEventListener('click', this._toggleHandler, false);
 	}
 
 	override disconnectedCallback() {
 		super.disconnectedCallback();
-		this.removeEventListener('click', this.handleToggle.bind(this), false);
+
+		if (this._toggleHandler != null) {
+			this.removeEventListener('click', this._toggleHandler, false);
+			this._toggleHandler = undefined;
+		}
+		this.disposeTrackOutside();
+	}
+
+	close() {
+		this.open = false;
 		this.disposeTrackOutside();
 	}
 
@@ -136,26 +150,47 @@ export class PopMenu extends FASTElement {
 			(e.type === 'click' &&
 				window.getComputedStyle(composedPath[0] as Element, '::before').content === '"\uEA76"')
 		) {
-			this.open = false;
-			this.disposeTrackOutside();
+			this.close();
 		}
 	}
+
+	private _documentEventHandler: ((e: MouseEvent | FocusEvent) => void) | undefined;
+	private _webviewBlurEventHandler: ((e: Event) => void) | undefined;
 
 	trackOutside() {
 		if (this.isTrackingOutside || !this.open) return;
 
 		this.isTrackingOutside = true;
-		const boundHandleDocumentEvent = this.handleDocumentEvent.bind(this);
-		document.addEventListener('click', boundHandleDocumentEvent, false);
-		document.addEventListener('focusin', boundHandleDocumentEvent, false);
+		if (this._documentEventHandler == null) {
+			this._documentEventHandler = this.handleDocumentEvent.bind(this);
+		}
+
+		document.addEventListener('click', this._documentEventHandler, false);
+		document.addEventListener('focusin', this._documentEventHandler, false);
+
+		if (this._webviewBlurEventHandler == null) {
+			this._webviewBlurEventHandler = () => this.close();
+		}
+
+		window.addEventListener('webview-blur', this._webviewBlurEventHandler, false);
 	}
 
 	disposeTrackOutside() {
 		if (!this.isTrackingOutside) return;
 
 		this.isTrackingOutside = false;
-		const boundHandleDocumentEvent = this.handleDocumentEvent.bind(this);
-		document.removeEventListener('click', boundHandleDocumentEvent, false);
-		window.removeEventListener('focusin', boundHandleDocumentEvent, false);
+
+		if (this._documentEventHandler != null) {
+			document.removeEventListener('click', this._documentEventHandler, false);
+			window.removeEventListener('focusin', this._documentEventHandler, false);
+
+			this._documentEventHandler = undefined;
+		}
+
+		if (this._webviewBlurEventHandler != null) {
+			window.removeEventListener('webview-blur', this._webviewBlurEventHandler, false);
+
+			this._webviewBlurEventHandler = undefined;
+		}
 	}
 }

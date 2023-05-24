@@ -356,6 +356,11 @@ export const DidChangeColumnsNotificationType = new IpcNotificationType<DidChang
 	'graph/columns/didChange',
 );
 
+export interface DidChangeFocusParams {
+	focused: boolean;
+}
+export const DidChangeFocusNotificationType = new IpcNotificationType<DidChangeFocusParams>('graph/focus/didChange');
+
 export interface DidChangeWindowFocusParams {
 	focused: boolean;
 }
