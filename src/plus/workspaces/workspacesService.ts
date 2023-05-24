@@ -202,28 +202,101 @@ export class WorkspacesService implements Disposable {
 		await this._workspacesPathProvider.writeCloudWorkspaceDiskPathToMap(workspaceId, repoId, localPath);
 	}
 
-	async locateWorkspaceRepo(repoName: string, workspaceId?: string) {
-		const repoLocatedUri = (
+	async locateAllCloudWorkspaceRepos(workspaceId: string) {
+		const workspace = this.getCloudWorkspace(workspaceId);
+		if (workspace == null) {
+			return;
+		}
+
+		const repos = workspace.repositories;
+		if (repos == null || repos.length === 0) {
+			return;
+		}
+
+		const parentUri = (
 			await window.showOpenDialog({
-				title: `Choose a location for ${repoName}`,
+				title: `Choose a folder containing the repositories in this workspace`,
 				canSelectFiles: false,
 				canSelectFolders: true,
 				canSelectMany: false,
 			})
 		)?.[0];
 
-		if (repoLocatedUri == null) {
+		if (parentUri == null) {
 			return;
 		}
 
-		const repo = await this.container.git.getOrOpenRepository(repoLocatedUri, {
-			closeOnOpen: true,
-			detectNested: false,
-		});
+		let foundRepos;
+		try {
+			foundRepos = await this.container.git.findRepositories(parentUri, { depth: 1, silent: true });
+		} catch (ex) {
+			foundRepos = [];
+			return;
+		}
+
+		if (foundRepos.length === 0) {
+			return;
+		}
+
+		// Map repos by provider/owner/name
+		const foundReposMap = new Map<string, Repository>();
+		const foundReposNameMap = new Map<string, Repository>();
+		for (const repo of foundRepos) {
+			foundReposNameMap.set(repo.name.toLowerCase(), repo);
+			const remotes = await repo.getRemotes();
+			for (const remote of remotes) {
+				if (remote.provider == null || remote.provider.owner == null) continue;
+				foundReposMap.set(
+					`${remote.provider.id.toLowerCase()}/${remote.provider.owner.toLowerCase()}/${remote.provider.path
+						.split('/')
+						.pop()
+						?.toLowerCase()}`,
+					repo,
+				);
+			}
+		}
+
+		for (const repo of repos) {
+			const foundRepo =
+				foundReposMap.get(
+					`${repo.provider.toLowerCase()}/${repo.provider_organization_id.toLowerCase()}/${repo.name.toLowerCase()}`,
+				) ?? foundReposNameMap.get(repo.name.toLowerCase());
+			if (foundRepo != null) {
+				await this.locateWorkspaceRepo(repo.name, { repo: foundRepo, workspaceId: workspaceId });
+			}
+		}
+	}
+
+	async locateWorkspaceRepo(repoName: string, options?: { uri?: Uri; repo?: Repository; workspaceId?: string }) {
+		let repo = options?.repo;
+		if (repo == null) {
+			let repoLocatedUri = options?.uri;
+			if (repoLocatedUri == null) {
+				repoLocatedUri = (
+					await window.showOpenDialog({
+						title: `Choose a location for ${repoName}`,
+						canSelectFiles: false,
+						canSelectFolders: true,
+						canSelectMany: false,
+					})
+				)?.[0];
+			}
+
+			if (repoLocatedUri == null) {
+				return;
+			}
+
+			repo = await this.container.git.getOrOpenRepository(repoLocatedUri, {
+				closeOnOpen: true,
+				detectNested: false,
+			});
+		}
 
 		if (repo == null) {
 			return;
 		}
+
+		const repoPath = repo.uri.fsPath;
 
 		const remoteUrls: string[] = [];
 		for (const remote of await repo.getRemotes()) {
@@ -234,13 +307,13 @@ export class WorkspacesService implements Disposable {
 		}
 
 		for (const remoteUrl of remoteUrls) {
-			await this.container.path.writeLocalRepoPath({ remoteUrl: remoteUrl }, repoLocatedUri.path);
+			await this.container.path.writeLocalRepoPath({ remoteUrl: remoteUrl }, repoPath);
 		}
 
-		if (workspaceId != null) {
-			let workspaceRepo = this.getCloudWorkspace(workspaceId)?.getRepository(repo.name);
+		if (options?.workspaceId != null) {
+			let workspaceRepo = this.getCloudWorkspace(options?.workspaceId)?.getRepository(repo.name);
 			if (workspaceRepo == null) {
-				workspaceRepo = this.getCloudWorkspace(workspaceId)?.getRepository(repoName);
+				workspaceRepo = this.getCloudWorkspace(options?.workspaceId)?.getRepository(repoName);
 			}
 			if (workspaceRepo != null) {
 				await this.container.path.writeLocalRepoPath(
@@ -252,9 +325,9 @@ export class WorkspacesService implements Disposable {
 							repoName: workspaceRepo.name,
 						},
 					},
-					repoLocatedUri.path,
+					repoPath,
 				);
-				await this.updateCloudWorkspaceRepoLocalPath(workspaceId, workspaceRepo.id, repoLocatedUri.path);
+				await this.updateCloudWorkspaceRepoLocalPath(options?.workspaceId, workspaceRepo.id, repoPath);
 			}
 		}
 	}

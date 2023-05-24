@@ -3,7 +3,7 @@ import type { WorkspacesViewConfig } from '../config';
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
-import { GKCloudWorkspace } from '../plus/workspaces/models';
+import { GKCloudWorkspace, WorkspaceType } from '../plus/workspaces/models';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../subscription';
 import { pluralize } from '../system/string';
 import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';
@@ -132,9 +132,21 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 						return;
 					}
 
-					await this.container.workspaces.locateWorkspaceRepo(repoName, workspaceNode.workspaceId);
+					await this.container.workspaces.locateWorkspaceRepo(repoName, {
+						workspaceId: workspaceNode.workspaceId,
+					});
 
 					void workspaceNode.triggerChange(true);
+				},
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('locateAllRepos'),
+				async (node: WorkspaceNode) => {
+					if (node.type !== WorkspaceType.Cloud) return;
+					await this.container.workspaces.locateAllCloudWorkspaceRepos(node.workspaceId);
+
+					void node.triggerChange(true);
 				},
 				this,
 			),

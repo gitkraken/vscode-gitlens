@@ -39,6 +39,10 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 		return 'remote';
 	}
 
+	get owner(): string | undefined {
+		return this.path.split('/')[0];
+	}
+
 	abstract get id(): string;
 	abstract get name(): string;
 

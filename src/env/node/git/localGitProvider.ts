@@ -388,7 +388,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@debug({ exit: true })
-	async discoverRepositories(uri: Uri): Promise<Repository[]> {
+	async discoverRepositories(uri: Uri, options?: { depth?: number; silent?: boolean }): Promise<Repository[]> {
 		if (uri.scheme !== Schemes.File) return [];
 
 		try {
@@ -398,22 +398,24 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				) ?? true;
 
 			const folder = workspace.getWorkspaceFolder(uri);
-			if (folder == null) return [];
+			if (folder == null && !options?.silent) return [];
 
 			void (await this.ensureGit());
 
 			const repositories = await this.repositorySearch(
-				folder,
-				autoRepositoryDetection === false || autoRepositoryDetection === 'openEditors' ? 0 : undefined,
+				folder ?? uri,
+				options?.depth ??
+					(autoRepositoryDetection === false || autoRepositoryDetection === 'openEditors' ? 0 : undefined),
+				options?.silent,
 			);
 
-			if (autoRepositoryDetection === true || autoRepositoryDetection === 'subFolders') {
+			if (!options?.silent && (autoRepositoryDetection === true || autoRepositoryDetection === 'subFolders')) {
 				for (const repository of repositories) {
 					void this.openScmRepository(repository.uri);
 				}
 			}
 
-			if (repositories.length > 0) {
+			if (!options?.silent && repositories.length > 0) {
 				this._trackedPaths.clear();
 			}
 
@@ -425,7 +427,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				void showGitMissingErrorMessage();
 			} else {
 				const msg: string = ex?.message ?? '';
-				if (msg) {
+				if (msg && !options?.silent) {
 					void window.showErrorMessage(`Unable to initialize Git; ${msg}`);
 				}
 			}
@@ -578,15 +580,29 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log<LocalGitProvider['repositorySearch']>({
 		args: false,
 		singleLine: true,
-		prefix: (context, folder) => `${context.prefix}(${folder.uri.fsPath})`,
+		prefix: (context, folder) => `${context.prefix}(${(folder instanceof Uri ? folder : folder.uri).fsPath})`,
 		exit: r => `returned ${r.length} repositories ${r.length !== 0 ? Logger.toLoggable(r) : ''}`,
 	})
-	private async repositorySearch(folder: WorkspaceFolder, depth?: number): Promise<Repository[]> {
+	private async repositorySearch(
+		folderOrUri: Uri | WorkspaceFolder,
+		depth?: number,
+		silent?: boolean | undefined,
+	): Promise<Repository[]> {
 		const scope = getLogScope();
+
+		let folder;
+		let rootUri;
+		if (folderOrUri instanceof Uri) {
+			rootUri = folderOrUri;
+			folder = workspace.getWorkspaceFolder(rootUri);
+		} else {
+			rootUri = folderOrUri.uri;
+		}
+
 		depth =
 			depth ??
-			configuration.get('advanced.repositorySearchDepth', folder.uri) ??
-			configuration.getAny<CoreGitConfiguration, number>('git.repositoryScanMaxDepth', folder.uri, 1);
+			configuration.get('advanced.repositorySearchDepth', rootUri) ??
+			configuration.getAny<CoreGitConfiguration, number>('git.repositoryScanMaxDepth', rootUri, 1);
 
 		Logger.log(scope, `searching (depth=${depth})...`);
 
@@ -595,7 +611,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let rootPath;
 		let canonicalRootPath;
 
-		const uri = await this.findRepositoryUri(folder.uri, true);
+		const uri = await this.findRepositoryUri(rootUri, true);
 		if (uri != null) {
 			rootPath = normalizePath(uri.fsPath);
 
@@ -605,18 +621,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 
 			Logger.log(scope, `found root repository in '${uri.fsPath}'`);
-			repositories.push(...this.openRepository(folder, uri, true));
+			repositories.push(...this.openRepository(folder, uri, true, undefined, silent));
 		}
 
 		if (depth <= 0) return repositories;
 
 		// Get any specified excludes -- this is a total hack, but works for some simple cases and something is better than nothing :)
 		const excludes = new Set<string>(
-			configuration.getAny<CoreGitConfiguration, string[]>('git.repositoryScanIgnoredFolders', folder.uri, []),
+			configuration.getAny<CoreGitConfiguration, string[]>('git.repositoryScanIgnoredFolders', rootUri, []),
 		);
 		for (let [key, value] of Object.entries({
-			...configuration.getAny<CoreConfiguration, Record<string, boolean>>('files.exclude', folder.uri, {}),
-			...configuration.getAny<CoreConfiguration, Record<string, boolean>>('search.exclude', folder.uri, {}),
+			...configuration.getAny<CoreConfiguration, Record<string, boolean>>('files.exclude', rootUri, {}),
+			...configuration.getAny<CoreConfiguration, Record<string, boolean>>('search.exclude', rootUri, {}),
 		})) {
 			if (!value) continue;
 			if (key.includes('*.')) continue;
@@ -629,7 +645,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		let repoPaths;
 		try {
-			repoPaths = await this.repositorySearchCore(folder.uri.fsPath, depth, excludes);
+			repoPaths = await this.repositorySearchCore(rootUri.fsPath, depth, excludes);
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (RepoSearchWarnings.doesNotExist.test(msg)) {
@@ -665,7 +681,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (rp == null) continue;
 
 			Logger.log(scope, `found repository in '${rp.fsPath}'`);
-			repositories.push(...this.openRepository(folder, rp, false));
+			repositories.push(...this.openRepository(folder, rp, false, undefined, silent));
 		}
 
 		return repositories;

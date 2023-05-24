@@ -182,7 +182,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		this._onDidChangeRepository.fire(e);
 	}
 
-	async discoverRepositories(uri: Uri): Promise<Repository[]> {
+	async discoverRepositories(uri: Uri, options?: { depth?: number; silent?: boolean }): Promise<Repository[]> {
 		if (!this.supportedSchemes.has(uri.scheme)) return [];
 
 		try {
@@ -190,7 +190,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const workspaceUri = remotehub.getVirtualWorkspaceUri(uri);
 			if (workspaceUri == null) return [];
 
-			return this.openRepository(undefined, workspaceUri, true);
+			return this.openRepository(undefined, workspaceUri, true, undefined, options?.silent);
 		} catch {
 			return [];
 		}
