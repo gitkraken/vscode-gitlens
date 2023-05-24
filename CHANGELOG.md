@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds ability to choose the OpenAI model used for GitLens' experimental AI features &mdash; closes [#2636](https://github.com/gitkraken/vscode-gitlens/issues/2636) thanks to [PR #2637](https://github.com/gitkraken/vscode-gitlens/pull/2637) by Daniel Rodríguez ([@sadasant](https://github.com/sadasant))
   - Adds a `gitlens.ai.experimental.openai.model` setting to specify the OpenAI model (defaults to `gpt-3.5-turbo`)
 
+### Fixed
+
+- Fixes [#2336](https://github.com/gitkraken/vscode-gitlens/issues/2336) - Apply encodeURIComponent() to pieces of the custom remote URL
+
 ## [13.6.0] - 2023-05-11
 
 ### Added
