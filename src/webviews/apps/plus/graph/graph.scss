@@ -339,8 +339,10 @@ button:not([disabled]),
 	flex-direction: row;
 	align-items: stretch;
 
-	&:hover {
+	&:hover,
+	&:focus-within {
 		background-color: var(--color-graph-actionbar-selectedBackground);
+		border-radius: 3px;
 	}
 
 	> *:not(:first-child),
@@ -351,12 +353,21 @@ button:not([disabled]),
 	}
 
 	> *:not(:first-child) .action-button {
-		padding-left: 0.25rem;
+		padding-left: 0.5rem;
+		padding-right: 0.5rem;
 	}
 
 	> *:not(:last-child),
 	> *:not(:last-child) .action-button {
 		padding-right: 0.5rem;
+	}
+
+	&:hover > *:not(:last-child),
+	&:active > *:not(:last-child),
+	&:focus-within > *:not(:last-child),
+	&:hover > *:not(:last-child) .action-button,
+	&:active > *:not(:last-child) .action-button,
+	&:focus-within > *:not(:last-child) .action-button {
 		border-top-right-radius: 0;
 		border-bottom-right-radius: 0;
 	}
