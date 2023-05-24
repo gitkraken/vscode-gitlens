@@ -363,7 +363,7 @@ export class SubscriptionService implements Disposable {
 			this.showPlans();
 		} else {
 			void env.openExternal(
-				Uri.joinPath(this.baseAccountUri, 'purchase-license').with({ query: 'product=gitlens&license=PRO' }),
+				Uri.joinPath(this.baseAccountUri, 'subscription').with({ query: 'product=gitlens&license=PRO' }),
 			);
 		}
 		await this.showHomeView();
