@@ -60,7 +60,6 @@ export class RepositoriesNode extends SubscribeableViewNode<ViewsWithRepositorie
 			contextValue += '+workspaces';
 		}
 
-		console.log('HOORJ CONTEXT: ', contextValue);
 		item.contextValue = contextValue;
 		return item;
 	}

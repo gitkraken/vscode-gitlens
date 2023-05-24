@@ -19,7 +19,6 @@ export class WorkspacesViewNode extends ViewNode<WorkspacesView> {
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
-			console.log('HOORJ A');
 			const children: (WorkspaceNode | MessageNode | RepositoriesNode)[] = [];
 			children.push(new RepositoriesNode(this.view));
 

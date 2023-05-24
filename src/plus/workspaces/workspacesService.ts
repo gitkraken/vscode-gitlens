@@ -298,8 +298,9 @@ export class WorkspacesService implements Disposable {
 
 		const repoPath = repo.uri.fsPath;
 
+		const remotes = await repo.getRemotes();
 		const remoteUrls: string[] = [];
-		for (const remote of await repo.getRemotes()) {
+		for (const remote of remotes) {
 			const remoteUrl = remote.provider?.url({ type: RemoteResourceType.Repo });
 			if (remoteUrl != null) {
 				remoteUrls.push(remoteUrl);
@@ -315,6 +316,13 @@ export class WorkspacesService implements Disposable {
 			if (workspaceRepo == null) {
 				workspaceRepo = this.getCloudWorkspace(options?.workspaceId)?.getRepository(repoName);
 			}
+
+			if (workspaceRepo == null && remotes.length) {
+				workspaceRepo = this.getCloudWorkspace(options?.workspaceId)?.getRepository(
+					remotes[0].provider?.path.split('/').pop() ?? '',
+				);
+			}
+
 			if (workspaceRepo != null) {
 				await this.container.path.writeLocalRepoPath(
 					{
