@@ -64,9 +64,9 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	const sw = new Stopwatch(`GitLens${prerelease ? ' (pre-release)' : ''} v${gitlensVersion}`, {
 		log: {
-			message: ` activating in ${env.appName}(${codeVersion}) on the ${isWeb ? 'web' : 'desktop'} (${
-				env.machineId
-			}|${env.sessionId})`,
+			message: ` activating in ${env.appName} (${codeVersion}) on the ${
+				isWeb ? 'web' : 'desktop'
+			} using language '${env.language}' (${env.machineId}|${env.sessionId})`,
 			//${context.extensionRuntime !== ExtensionRuntime.Node ? ' in a webworker' : ''}
 		},
 	});
