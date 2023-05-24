@@ -1,6 +1,7 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { WorkspacesView } from '../workspacesView';
 import { MessageNode } from './common';
+import { RepositoriesNode } from './repositoriesNode';
 import { ContextValues, ViewNode } from './viewNode';
 import { WorkspaceNode } from './workspaceNode';
 
@@ -10,7 +11,7 @@ export class WorkspacesViewNode extends ViewNode<WorkspacesView> {
 		return `gitlens${this.key}`;
 	}
 
-	private _children: (WorkspaceNode | MessageNode)[] | undefined;
+	private _children: (WorkspaceNode | MessageNode | RepositoriesNode)[] | undefined;
 
 	override get id(): string {
 		return WorkspacesViewNode.getId();
@@ -18,7 +19,10 @@ export class WorkspacesViewNode extends ViewNode<WorkspacesView> {
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
-			const children: (WorkspaceNode | MessageNode)[] = [];
+			console.log('HOORJ A');
+			const children: (WorkspaceNode | MessageNode | RepositoriesNode)[] = [];
+			children.push(new RepositoriesNode(this.view));
+
 			const { cloudWorkspaces, cloudWorkspaceInfo, localWorkspaces, localWorkspaceInfo } =
 				await this.view.container.workspaces.getWorkspaces();
 			for (const workspace of cloudWorkspaces) {

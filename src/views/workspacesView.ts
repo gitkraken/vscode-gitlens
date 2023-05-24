@@ -2,11 +2,13 @@ import type { Disposable } from 'vscode';
 import type { WorkspacesViewConfig } from '../config';
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
+import type { Repository } from '../git/models/repository';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
 import { GKCloudWorkspace, WorkspaceType } from '../plus/workspaces/models';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../subscription';
 import { pluralize } from '../system/string';
 import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';
+import type { RepositoriesNode } from './nodes/repositoriesNode';
 import { RepositoryNode } from './nodes/repositoryNode';
 import type { WorkspaceMissingRepositoryNode } from './nodes/workspaceMissingRepositoryNode';
 import { WorkspaceNode } from './nodes/workspaceNode';
@@ -94,6 +96,22 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 						resetCloudWorkspaces: true,
 						resetLocalWorkspaces: true,
 					});
+					void this.ensureRoot().triggerChange(true);
+				},
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('convert'),
+				async (node: RepositoriesNode) => {
+					const repos: Repository[] = [];
+					for (const child of node.getChildren()) {
+						if (child instanceof RepositoryNode) {
+							repos.push(child.repo);
+						}
+					}
+
+					if (repos.length === 0) return;
+					await this.container.workspaces.createCloudWorkspace({ repos: repos });
 					void this.ensureRoot().triggerChange(true);
 				},
 				this,

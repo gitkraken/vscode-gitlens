@@ -332,7 +332,7 @@ export class WorkspacesService implements Disposable {
 		}
 	}
 
-	async createCloudWorkspace(): Promise<void> {
+	async createCloudWorkspace(options?: { repos?: Repository[] }): Promise<void> {
 		const input = window.createInputBox();
 		input.title = 'Create Cloud Workspace';
 		const quickpick = window.createQuickPick();
@@ -353,11 +353,29 @@ export class WorkspacesService implements Disposable {
 
 		let workspaceName: string | undefined;
 		let workspaceDescription = '';
-		let workspaceProvider: CloudWorkspaceProviderInputType | undefined;
+
 		let hostUrl: string | undefined;
 		let azureOrganizationName: string | undefined;
 		let azureProjectName: string | undefined;
-		const matchingProviderRepos: Repository[] = [];
+		let workspaceProvider: CloudWorkspaceProviderInputType | undefined;
+		let matchingProviderRepos: Repository[] = [];
+		if (options?.repos != null && options.repos.length > 0) {
+			// Currently only GitHub is supported.
+			for (const repo of options.repos) {
+				const repoRemotes = await repo.getRemotes({ filter: r => r.domain === 'github.com' });
+				if (repoRemotes.length === 0) {
+					await window.showErrorMessage(
+						`Only GitHub is supported for this operation. Please ensure all open repositories are hosted on GitHub.`,
+						{ modal: true },
+					);
+					return;
+				}
+			}
+
+			workspaceProvider = CloudWorkspaceProviderInputType.GitHub;
+			matchingProviderRepos = options.repos;
+		}
+
 		let includeReposResponse;
 		try {
 			workspaceName = await new Promise<string | undefined>(resolve => {
@@ -397,21 +415,23 @@ export class WorkspacesService implements Disposable {
 				input.show();
 			});
 
-			workspaceProvider = await new Promise<CloudWorkspaceProviderInputType | undefined>(resolve => {
-				disposables.push(
-					quickpick.onDidHide(() => resolve(undefined)),
-					quickpick.onDidAccept(() => {
-						if (quickpick.activeItems.length !== 0) {
-							resolve(quickpickLabelToProviderType[quickpick.activeItems[0].label]);
-						}
-					}),
-				);
+			if (workspaceProvider == null) {
+				workspaceProvider = await new Promise<CloudWorkspaceProviderInputType | undefined>(resolve => {
+					disposables.push(
+						quickpick.onDidHide(() => resolve(undefined)),
+						quickpick.onDidAccept(() => {
+							if (quickpick.activeItems.length !== 0) {
+								resolve(quickpickLabelToProviderType[quickpick.activeItems[0].label]);
+							}
+						}),
+					);
 
-				quickpick.placeholder = 'Please select a provider for the new workspace';
-				quickpick.items = Object.keys(quickpickLabelToProviderType).map(label => ({ label: label }));
-				quickpick.canSelectMany = false;
-				quickpick.show();
-			});
+					quickpick.placeholder = 'Please select a provider for the new workspace';
+					quickpick.items = Object.keys(quickpickLabelToProviderType).map(label => ({ label: label }));
+					quickpick.canSelectMany = false;
+					quickpick.show();
+				});
+			}
 
 			if (!workspaceProvider) return;
 
@@ -489,7 +509,7 @@ export class WorkspacesService implements Disposable {
 				if (!azureProjectName) return;
 			}
 
-			if (workspaceProvider != null) {
+			if (workspaceProvider != null && matchingProviderRepos.length === 0) {
 				for (const repo of this.container.git.openRepositories) {
 					const matchingRemotes = await repo.getRemotes({
 						filter: r =>
@@ -515,7 +535,7 @@ export class WorkspacesService implements Disposable {
 			disposables.forEach(d => void d.dispose());
 		}
 
-		const options = {
+		const createOptions = {
 			name: workspaceName,
 			description: workspaceDescription,
 			provider: workspaceProvider,
@@ -526,7 +546,7 @@ export class WorkspacesService implements Disposable {
 
 		let createdProjectData: CloudWorkspaceData | null | undefined;
 		try {
-			const response = await this._workspacesApi.createWorkspace(options);
+			const response = await this._workspacesApi.createWorkspace(createOptions);
 			createdProjectData = response?.data?.create_project;
 		} catch {
 			return;
@@ -550,7 +570,7 @@ export class WorkspacesService implements Disposable {
 			);
 
 			const newWorkspace = this.getCloudWorkspace(createdProjectData.id);
-			if (newWorkspace != null && includeReposResponse?.title === 'Yes') {
+			if (newWorkspace != null && (includeReposResponse?.title === 'Yes' || options?.repos)) {
 				const repoInputs: AddWorkspaceRepoDescriptor[] = [];
 				for (const repo of matchingProviderRepos) {
 					const remote = (await repo.getRemote('origin')) || (await repo.getRemotes())?.[0];

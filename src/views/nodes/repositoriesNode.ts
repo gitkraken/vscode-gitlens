@@ -7,6 +7,7 @@ import { debug } from '../../system/decorators/log';
 import { debounce, szudzikPairing } from '../../system/function';
 import { Logger } from '../../system/logger';
 import type { ViewsWithRepositoriesNode } from '../viewBase';
+import { WorkspacesView } from '../workspacesView';
 import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
 import type { ViewNode } from './viewNode';
@@ -49,9 +50,18 @@ export class RepositoriesNode extends SubscribeableViewNode<ViewsWithRepositorie
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Repositories', TreeItemCollapsibleState.Expanded);
-		item.contextValue = ContextValues.Repositories;
+		const isInWorkspacesView = this.view instanceof WorkspacesView;
+		const item = new TreeItem(
+			isInWorkspacesView ? 'Current Window' : 'Repositories',
+			isInWorkspacesView ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.Expanded,
+		);
+		let contextValue: string = ContextValues.Repositories;
+		if (isInWorkspacesView) {
+			contextValue += '+workspaces';
+		}
 
+		console.log('HOORJ CONTEXT: ', contextValue);
+		item.contextValue = contextValue;
 		return item;
 	}
 

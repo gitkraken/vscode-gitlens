@@ -75,7 +75,7 @@ export type ViewsWithContributorsNode = ContributorsView | RepositoriesView | Wo
 export type ViewsWithRemotes = RemotesView | RepositoriesView | WorkspacesView;
 export type ViewsWithRemotesNode = RemotesView | RepositoriesView | WorkspacesView;
 export type ViewsWithRepositories = RepositoriesView | WorkspacesView;
-export type ViewsWithRepositoriesNode = RepositoriesView;
+export type ViewsWithRepositoriesNode = RepositoriesView | WorkspacesView;
 export type ViewsWithRepositoryFolders = Exclude<
 	View,
 	FileHistoryView | LineHistoryView | RepositoriesView | WorkspacesView
