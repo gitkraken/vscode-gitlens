@@ -142,6 +142,7 @@ import {
 	ChooseRepositoryCommandType,
 	DidChangeAvatarsNotificationType,
 	DidChangeColumnsNotificationType,
+	DidChangeFocusNotificationType,
 	DidChangeGraphConfigurationNotificationType,
 	DidChangeNotificationType,
 	DidChangeRefsMetadataNotificationType,
@@ -419,6 +420,8 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 	}
 
 	onFocusChanged(focused: boolean): void {
+		void this.notifyDidChangeFocus(focused);
+
 		if (!focused || this.activeSelection == null || !this.container.commitDetailsView.visible) {
 			this._showActiveSelectionDetailsDebounced?.cancel();
 			return;
@@ -1171,6 +1174,15 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		}
 
 		void this._notifyDidChangeStateDebounced();
+	}
+
+	@debug()
+	private async notifyDidChangeFocus(focused: boolean): Promise<boolean> {
+		if (!this.host.ready || !this.host.visible) return false;
+
+		return this.host.notify(DidChangeFocusNotificationType, {
+			focused: focused,
+		});
 	}
 
 	@debug()

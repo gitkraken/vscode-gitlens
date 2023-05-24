@@ -227,6 +227,16 @@ button:not([disabled]),
 		text-decoration: none;
 	}
 
+	&[aria-checked] {
+		border: 1px solid transparent;
+	}
+
+	&[aria-checked='true'] {
+		background-color: var(--vscode-inputOption-activeBackground);
+		color: var(--vscode-inputOption-activeForeground);
+		border-color: var(--vscode-inputOption-activeBorder);
+	}
+
 	.codicon[class*='codicon-'],
 	.glicon[class*='glicon-'] {
 		line-height: 2.2rem;
@@ -252,7 +262,11 @@ button:not([disabled]),
 	&__more,
 	&__more.codicon[class*='codicon-'] {
 		font-size: 1rem;
-		margin-right: -0.35rem;
+		margin-right: -0.25rem;
+	}
+
+	&__more.codicon[class*='codicon-']::before {
+		margin-left: -0.25rem;
 	}
 
 	&__indicator {
@@ -318,16 +332,6 @@ button:not([disabled]),
 		// left: 0.2rem;
 		right: 0.2rem;
 	}
-}
-
-.action-button[aria-checked] {
-	border: 1px solid transparent;
-}
-
-.action-button[aria-checked='true'] {
-	background-color: var(--vscode-inputOption-activeBackground);
-	color: var(--vscode-inputOption-activeForeground);
-	border-color: var(--vscode-inputOption-activeBorder);
 }
 
 .button-group {

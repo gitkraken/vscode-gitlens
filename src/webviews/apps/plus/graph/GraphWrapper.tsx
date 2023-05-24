@@ -1422,7 +1422,7 @@ export function GraphWrapper({
 								>
 									<span className="codicon codicon-graph-line action-button__icon"></span>
 								</button>
-								<PopMenu position="right" className="split-button-dropdown">
+								<PopMenu position="right">
 									<button
 										type="button"
 										className="action-button"
