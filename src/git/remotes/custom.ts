@@ -1,4 +1,3 @@
-import { url } from 'inspector';
 import type { Range, Uri } from 'vscode';
 import type { RemotesUrlsConfig } from '../../config';
 import { getTokensFromTemplate, interpolate } from '../../system/string';
