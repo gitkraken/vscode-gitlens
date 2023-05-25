@@ -16,6 +16,7 @@ import { DOM } from '../../shared/dom';
 import type { DataPointClickEvent } from './chart';
 import { TimelineChart } from './chart';
 import '../../shared/components/code-icon';
+import '../../shared/components/progress';
 
 export class TimelineApp extends App<State> {
 	private _chart: TimelineChart | undefined;
@@ -87,6 +88,7 @@ export class TimelineApp extends App<State> {
 
 		this.log(`onPeriodChanged(): name=${element.name}, value=${value}`);
 
+		this.updateLoading(true);
 		this.sendCommand(UpdatePeriodCommandType, { period: value });
 	}
 
@@ -186,6 +188,11 @@ export class TimelineApp extends App<State> {
 		}
 
 		this._chart.updateChart(this.state);
+		setTimeout(() => this.updateLoading(false), 250);
+	}
+
+	private updateLoading(loading: boolean) {
+		document.getElementById('spinner')?.setAttribute('active', loading ? 'true' : 'false');
 	}
 }
 
