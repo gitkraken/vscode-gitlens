@@ -180,7 +180,7 @@ export class DeepLinkService implements Disposable {
 			{ modal: true },
 			{ title: 'Open Folder', action: DeepLinkRepoOpenType.Folder },
 			{ title: 'Open Workspace', action: DeepLinkRepoOpenType.Workspace },
-			{ title: 'Clone Repository', action: DeepLinkRepoOpenType.Clone },
+			{ title: 'Clone', action: DeepLinkRepoOpenType.Clone },
 			{ title: 'Cancel', isCloseAffordance: true },
 		);
 
