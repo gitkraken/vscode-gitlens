@@ -474,14 +474,26 @@ function generateRandomTimelineDataset(): Commit[] {
 function getPeriodDate(period: Period): Date {
 	const [number, unit] = period.split('|');
 
+	let date;
 	switch (unit) {
 		case 'D':
-			return createFromDateDelta(new Date(), { days: -parseInt(number, 10) });
+			date = createFromDateDelta(new Date(), { days: -parseInt(number, 10) });
+			break;
 		case 'M':
-			return createFromDateDelta(new Date(), { months: -parseInt(number, 10) });
+			date = createFromDateDelta(new Date(), { months: -parseInt(number, 10) });
+			break;
 		case 'Y':
-			return createFromDateDelta(new Date(), { years: -parseInt(number, 10) });
+			date = createFromDateDelta(new Date(), { years: -parseInt(number, 10) });
+			break;
 		default:
-			return createFromDateDelta(new Date(), { months: -3 });
+			date = createFromDateDelta(new Date(), { months: -3 });
+			break;
 	}
+
+	// If we are more than 1/2 way through the day, then set the date to the next day
+	if (date.getHours() >= 12) {
+		date.setDate(date.getDate() + 1);
+	}
+	date.setHours(0, 0, 0, 0);
+	return date;
 }
