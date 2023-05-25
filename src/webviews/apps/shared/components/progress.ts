@@ -14,11 +14,18 @@ const styles = css`
 	:host {
 		position: absolute;
 		left: 0;
-		bottom: 0;
 		z-index: 5;
 		height: 2px;
 		width: 100%;
 		overflow: hidden;
+	}
+
+	:host([position='bottom']) {
+		bottom: 0;
+	}
+
+	:host([position='top']) {
+		top: 0;
 	}
 
 	.progress-bar {
@@ -73,4 +80,7 @@ export class ProgressIndicator extends FASTElement {
 
 	@attr({ mode: 'boolean' })
 	active = false;
+
+	@attr()
+	position: 'top' | 'bottom' = 'bottom';
 }

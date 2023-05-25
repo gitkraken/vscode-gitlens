@@ -428,7 +428,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 
 		const context = { ...this._context, ...this._pendingContext };
 
-		return window.withProgress({ location: { viewId: this.host.id } }, async () => {
+		const task = async () => {
 			const success = await this.host.notify(DidChangeNotificationType, {
 				state: await this.getState(context),
 			});
@@ -436,7 +436,10 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 				this._context = context;
 				this._pendingContext = undefined;
 			}
-		});
+		};
+
+		if (!this.host.isView()) return task();
+		return window.withProgress({ location: { viewId: this.host.id } }, task);
 	}
 
 	private openInTab() {
