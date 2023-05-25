@@ -1246,7 +1246,7 @@ export class GitProviderService implements Disposable {
 	@log()
 	async clone(url: string, parentPath: string): Promise<string | undefined> {
 		const { provider } = this.getProvider(parentPath);
-		return provider.clone(url, parentPath);
+		return provider.clone?.(url, parentPath);
 	}
 
 	@log({ singleLine: true })
