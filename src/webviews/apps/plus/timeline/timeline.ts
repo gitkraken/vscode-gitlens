@@ -2,7 +2,7 @@
 import './timeline.scss';
 import { provideVSCodeDesignSystem, vsCodeButton, vsCodeDropdown, vsCodeOption } from '@vscode/webview-ui-toolkit';
 import { GlyphChars } from '../../../../constants';
-import type { State } from '../../../../plus/webviews/timeline/protocol';
+import type { Period, State } from '../../../../plus/webviews/timeline/protocol';
 import {
 	DidChangeNotificationType,
 	OpenDataPointCommandType,
@@ -189,7 +189,9 @@ export class TimelineApp extends App<State> {
 	}
 }
 
-function assertPeriod(period: string): asserts period is `${number}|${'D' | 'M' | 'Y'}` {
+function assertPeriod(period: string): asserts period is Period {
+	if (period === 'all') return;
+
 	const [value, unit] = period.split('|');
 	if (isNaN(Number(value)) || (unit !== 'D' && unit !== 'M' && unit !== 'Y')) {
 		throw new Error(`Invalid period: ${period}`);
