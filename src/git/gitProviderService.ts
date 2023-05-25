@@ -97,7 +97,7 @@ const weightedDefaultBranches = new Map<string, number>([
 	['development', 1],
 ]);
 
-const defaultRepositoryId = '0';
+const missingRepositoryId = '-';
 
 export type GitProvidersChangeEvent = {
 	readonly added: readonly GitProvider[];
@@ -2511,12 +2511,12 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getUniqueRepositoryId(repoPath: string | Uri): Promise<string | undefined> {
+	async getUniqueRepositoryId(repoPath: string | Uri): Promise<string> {
 		const { provider, path } = this.getProvider(repoPath);
 		const id = await provider.getUniqueRepositoryId(path);
 		if (id != null) return id;
 
-		return defaultRepositoryId;
+		return missingRepositoryId;
 	}
 
 	@log({ args: { 1: false } })

@@ -610,7 +610,7 @@ export class DeepLinkService implements Disposable {
 		targetId?: string,
 	): Promise<URL> {
 		const repoPath = typeof refOrRepoPath !== 'string' ? refOrRepoPath.repoPath : refOrRepoPath;
-		const repoId = (await this.container.git.getUniqueRepositoryId(repoPath)) ?? '0';
+		const repoId = await this.container.git.getUniqueRepositoryId(repoPath);
 
 		if (typeof refOrRepoPath !== 'string') {
 			switch (refOrRepoPath.refType) {
