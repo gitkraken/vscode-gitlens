@@ -4221,6 +4221,15 @@
 				}
 			},
 			{
+				"id": "gitlens.decorations.workspaceRepoMissingForegroundColor",
+				"description": "Specifies the decoration foreground color of workspace repos which are missing a local path",
+				"defaults": {
+					"dark": "#909090",
+					"light": "#949494",
+					"highContrast": "#d3d3d3"
+				}
+			},
+			{
 				"id": "gitlens.decorations.workspaceRepoOpenForegroundColor",
 				"description": "Specifies the decoration foreground color of workspace repos which are open in the current workspace",
 				"defaults": {
@@ -10978,11 +10987,6 @@
 					"group": "inline@3"
 				},
 				{
-					"command": "gitlens.views.workspaces.delete",
-					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+cloud\\b)/",
-					"group": "inline@4"
-				},
-				{
 					"command": "gitlens.views.switchToAnotherBranch",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branches\\b/",
 					"group": "inline@10"
@@ -11739,7 +11743,7 @@
 				},
 				{
 					"command": "gitlens.views.star",
-					"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+starred\\b)/",
+					"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+(starred|workspace)\\b)/",
 					"group": "inline@99"
 				},
 				{
@@ -12168,7 +12172,7 @@
 				{
 					"command": "gitlens.views.workspaces.openRepoNewWindow",
 					"when": "viewItem =~ /gitlens:repository\\b(?=.*?\\b\\+workspace\\b)/",
-					"group": "inline@2",
+					"group": "inline@100",
 					"alt": "gitlens.views.workspaces.openRepoCurrentWindow"
 				},
 				{

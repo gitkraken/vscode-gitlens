@@ -51,6 +51,11 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 					color: new ThemeColor('gitlens.decorations.workspaceRepoOpenForegroundColor' satisfies Colors),
 					tooltip: 'Open',
 				};
+			} else if (status === 'missing') {
+				return {
+					color: new ThemeColor('gitlens.decorations.workspaceRepoMissingForegroundColor' satisfies Colors),
+					tooltip: 'Missing',
+				};
 			}
 		}
 

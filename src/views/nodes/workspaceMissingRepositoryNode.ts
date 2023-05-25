@@ -1,4 +1,4 @@
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { unknownGitUri } from '../../git/gitUri';
 import type { WorkspacesView } from '../workspacesView';
 import { ContextValues, ViewNode } from './viewNode';
@@ -39,10 +39,9 @@ export class WorkspaceMissingRepositoryNode extends ViewNode<WorkspacesView> {
 	}
 
 	getTreeItem(): TreeItem {
-		const description = 'missing';
+		const description = 'repo not found \u2022 please locate';
 
-		// TODO@ramint Use a better icon for this
-		const icon: ThemeIcon = new ThemeIcon('folder');
+		const icon: ThemeIcon = new ThemeIcon('question');
 
 		const item = new TreeItem(this.name, TreeItemCollapsibleState.None);
 		item.id = this.id;
@@ -50,6 +49,7 @@ export class WorkspaceMissingRepositoryNode extends ViewNode<WorkspacesView> {
 		item.tooltip = `${this.name} (missing)`;
 		item.contextValue = ContextValues.WorkspaceMissingRepository;
 		item.iconPath = icon;
+		item.resourceUri = Uri.parse(`gitlens-view://workspaces/repository/missing`);
 		return item;
 	}
 }
