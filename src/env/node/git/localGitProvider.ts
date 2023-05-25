@@ -3095,7 +3095,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					return cachedLog.item;
 				}
 
-				if (options.ref != null || options.limit != null) {
+				if (options.ref != null || (options.limit != null && options.limit !== 0)) {
 					// Since we are looking for partial log, see if we have the log of the whole file
 					const cachedLog = doc.state.getLog(
 						`log${options.renames ? ':follow' : ''}${options.reverse ? ':reverse' : ''}`,
