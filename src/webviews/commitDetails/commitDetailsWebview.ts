@@ -24,7 +24,7 @@ import { serializeIssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
 import { serializePullRequest } from '../../git/models/pullRequest';
 import type { GitRevisionReference } from '../../git/models/reference';
-import { getReferenceFromRevision, shortenRevision } from '../../git/models/reference';
+import { createReference, getReferenceFromRevision, shortenRevision } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { executeCommand, executeCoreCommand } from '../../system/command';
@@ -47,6 +47,7 @@ import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
 import type { WebviewController, WebviewProvider } from '../webviewController';
 import { updatePendingContext } from '../webviewController';
+import { isSerializedState } from '../webviewsController';
 import type { CommitDetails, DidExplainCommitParams, FileActionParams, Preferences, State } from './protocol';
 import {
 	AutolinkSettingsCommandType,
@@ -147,10 +148,34 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 	async onShowing(
 		_loading: boolean,
 		options: { column?: ViewColumn; preserveFocus?: boolean },
-		...args: unknown[]
+		...args: [Partial<CommitSelectedEvent['data']> | { state: Partial<Serialized<State>> }] | unknown[]
 	): Promise<boolean> {
-		let data = args[0] as Partial<CommitSelectedEvent['data']> | undefined;
-		if (typeof data !== 'object') {
+		let data: Partial<CommitSelectedEvent['data']> | undefined;
+
+		const [arg] = args;
+		if (isSerializedState<Serialized<State>>(arg)) {
+			const { selected } = arg.state;
+			if (selected?.repoPath != null && selected?.sha != null) {
+				if (selected.stashNumber != null) {
+					data = {
+						commit: createReference(selected.sha, selected.repoPath, {
+							refType: 'stash',
+							name: selected.message,
+							number: selected.stashNumber,
+						}),
+					};
+				} else {
+					data = {
+						commit: createReference(selected.sha, selected.repoPath, {
+							refType: 'revision',
+							message: selected.message,
+						}),
+					};
+				}
+			}
+		} else if (arg != null && typeof arg === 'object') {
+			data = arg as Partial<CommitSelectedEvent['data']> | undefined;
+		} else {
 			data = undefined;
 		}
 
@@ -702,16 +727,14 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		if (this._pendingContext == null) return false;
 
 		const context = { ...this._context, ...this._pendingContext };
+		this._context = context;
+		this._pendingContext = undefined;
 
 		return window.withProgress({ location: { viewId: this.host.id } }, async () => {
 			try {
-				const success = await this.host.notify(DidChangeNotificationType, {
+				await this.host.notify(DidChangeNotificationType, {
 					state: await this.getState(context),
 				});
-				if (success) {
-					this._context = context;
-					this._pendingContext = undefined;
-				}
 			} catch (ex) {
 				Logger.error(scope, ex);
 				debugger;
@@ -777,12 +800,13 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		}
 
 		return {
+			repoPath: commit.repoPath,
 			sha: commit.sha,
 			shortSha: commit.shortSha,
-			isStash: commit.refType === 'stash',
-			message: formattedMessage,
 			author: { ...commit.author, avatar: avatarUri?.toString(true) },
 			// committer: { ...commit.committer, avatar: committerAvatar?.toString(true) },
+			message: formattedMessage,
+			stashNumber: commit.refType === 'stash' ? commit.number : undefined,
 			files: commit.files?.map(({ status, repoPath, path, originalPath }) => {
 				const icon = getGitFileStatusIcon(status);
 				return {

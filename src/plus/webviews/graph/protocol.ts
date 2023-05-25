@@ -113,7 +113,6 @@ export interface State {
 	excludeRefs?: GraphExcludeRefs;
 	excludeTypes?: GraphExcludeTypes;
 	includeOnlyRefs?: GraphIncludeOnlyRefs;
-	debugging: boolean;
 
 	// Props below are computed in the webview (not passed)
 	activeDay?: number;

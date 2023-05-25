@@ -110,7 +110,7 @@ export class WebviewsController implements Disposable {
 				{
 					resolveWebviewView: async (
 						webviewView: WebviewView,
-						_context: WebviewViewResolveContext<SerializedState>,
+						context: WebviewViewResolveContext<SerializedState>,
 						token: CancellationToken,
 					) => {
 						if (canResolveProvider != null) {
@@ -153,9 +153,14 @@ export class WebviewsController implements Disposable {
 							controller,
 						);
 
-						if (registration.pendingShowArgs != null) {
-							await controller.show(true, ...registration.pendingShowArgs);
-							registration.pendingShowArgs = undefined;
+						let args = registration.pendingShowArgs;
+						registration.pendingShowArgs = undefined;
+						if (args == null && isSerializedState<State>(context)) {
+							args = [undefined, context];
+						}
+
+						if (args != null) {
+							await controller.show(true, ...args);
 						} else {
 							await controller.show(true);
 						}
@@ -216,7 +221,7 @@ export class WebviewsController implements Disposable {
 		const disposables: Disposable[] = [];
 		const { container } = this;
 
-		let serialized: { panel: WebviewPanel; state: SerializedState } | undefined;
+		let serializedPanel: WebviewPanel | undefined;
 
 		async function show(
 			options?: { column?: ViewColumn; preserveFocus?: boolean },
@@ -242,11 +247,11 @@ export class WebviewsController implements Disposable {
 			let { controller } = registration;
 			if (controller == null) {
 				let panel;
-				if (serialized != null) {
+				if (serializedPanel != null) {
 					Logger.debug(scope, `Restoring webview panel (${descriptor.id})`);
 
-					panel = serialized.panel;
-					serialized = undefined;
+					panel = serializedPanel;
+					serializedPanel = undefined;
 				} else {
 					Logger.debug(scope, `Creating webview panel (${descriptor.id})`);
 
@@ -288,11 +293,15 @@ export class WebviewsController implements Disposable {
 		}
 
 		async function deserializeWebviewPanel(panel: WebviewPanel, state: SerializedState) {
-			// TODO@eamodio: We aren't currently using the state, but we should start storing maybe both "client" and "server" state
+			// TODO@eamodio: We are currently storing nothing or way too much in serialized state. We should start storing maybe both "client" and "server" state
 			// Where as right now our webviews are only saving "client" state, e.g. the entire state sent to the webview, rather than key pieces of state
 			// We probably need to separate state into actual "state" and all the data that is sent to the webview, e.g. for the Graph state might be the selected repo, selected sha, etc vs the entire data set to render the Graph
-			serialized = { panel: panel, state: state };
-			await show({ column: panel.viewColumn, preserveFocus: true });
+			serializedPanel = panel;
+			if (state != null) {
+				await show({ column: panel.viewColumn, preserveFocus: true }, { state: state });
+			} else {
+				await show({ column: panel.viewColumn, preserveFocus: true });
+			}
 		}
 
 		const disposable = Disposable.from(
@@ -319,4 +328,8 @@ export class WebviewsController implements Disposable {
 			show: show,
 		} satisfies WebviewPanelProxy;
 	}
+}
+
+export function isSerializedState<State>(o: unknown): o is { state: Partial<State> } {
+	return o != null && typeof o === 'object' && 'state' in o && o.state != null && typeof o.state === 'object';
 }

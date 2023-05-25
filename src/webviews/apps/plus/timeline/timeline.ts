@@ -28,7 +28,6 @@ export class TimelineApp extends App<State> {
 	protected override onInitialize() {
 		provideVSCodeDesignSystem().register(vsCodeButton(), vsCodeDropdown(), vsCodeOption());
 
-		this.state = this.getState() ?? this.state;
 		this.updateState();
 	}
 
@@ -63,6 +62,10 @@ export class TimelineApp extends App<State> {
 			default:
 				super.onMessageReceived?.(e);
 		}
+	}
+
+	protected override setState(state: Partial<State>) {
+		super.setState({ period: state.period, uri: state.uri });
 	}
 
 	private onActionClicked(e: MouseEvent, target: HTMLElement) {

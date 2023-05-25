@@ -478,9 +478,8 @@ export class GraphApp extends App<State> {
 		this.log(`setState()`);
 		const themingChanged = this.ensureTheming(state);
 
-		// Avoid calling the base for now, since we aren't using the vscode state
 		this.state = state;
-		// super.setState(state);
+		super.setState({ selectedRepository: state.selectedRepository });
 
 		this.callback?.(this.state, type, themingChanged);
 	}

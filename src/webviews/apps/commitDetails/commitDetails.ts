@@ -46,14 +46,12 @@ import '../shared/components/list/file-change-list-item';
 const uncommittedSha = '0000000000000000000000000000000000000000';
 
 type CommitState = SomeNonNullable<Serialized<State>, 'selected'>;
-
 export class CommitDetailsApp extends App<Serialized<State>> {
 	constructor() {
 		super('CommitDetailsApp');
 	}
 
 	override onInitialize() {
-		this.state = this.getState() ?? this.state;
 		this.renderContent();
 	}
 
@@ -124,7 +122,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			// 	break;
 			case DidChangeNotificationType.method:
 				onIpc(DidChangeNotificationType, msg, params => {
-					assertsSerialized<typeof params.state>(params.state);
+					assertsSerialized<State>(params.state);
 
 					this.state = params.state;
 					this.setState(this.state);
@@ -135,6 +133,15 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			default:
 				super.onMessageReceived?.(e);
 		}
+	}
+
+	protected override setState(state: Partial<Serialized<State>>) {
+		super.setState({
+			selected:
+				state.selected != null
+					? { ...state.selected, autolinks: undefined, files: undefined, stats: undefined }
+					: undefined,
+		});
 	}
 
 	async onExplainCommit(e: MouseEvent) {
@@ -517,11 +524,8 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			isTree = layout === ViewFilesLayout.Tree;
 		}
 
-		const stashAttr = state.selected.isStash
-			? 'stash '
-			: state.selected.sha === uncommittedSha
-			? 'uncommitted '
-			: '';
+		const stashAttr =
+			state.selected.stashNumber != null ? 'stash ' : state.selected.sha === uncommittedSha ? 'uncommitted ' : '';
 
 		if (isTree) {
 			const tree = makeHierarchical(
@@ -592,7 +596,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		const $el = document.querySelector<HTMLElement>('[data-region="author"]');
 		if ($el == null) return;
 
-		if (state.selected?.isStash === true) {
+		if (state.selected?.stashNumber != null) {
 			$el.innerHTML = /*html*/ `
 				<div class="commit-stashed">
 					<span class="commit-stashed__media"><code-icon class="commit-stashed__icon" icon="inbox"></code-icon></span>
