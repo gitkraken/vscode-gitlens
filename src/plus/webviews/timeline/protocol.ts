@@ -28,7 +28,7 @@ export interface Commit {
 	sort: number;
 }
 
-export type Period = `${number}|${'D' | 'M' | 'Y'}`;
+export type Period = `${number}|${'D' | 'M' | 'Y'}` | 'all';
 
 export interface DidChangeParams {
 	state: State;

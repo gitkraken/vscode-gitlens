@@ -292,7 +292,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 			this.container.git.getLogForFile(repoPath, gitUri.fsPath, {
 				limit: 0,
 				ref: gitUri.sha,
-				since: getPeriodDate(period).toISOString(),
+				since: getPeriodDate(period)?.toISOString(),
 			}),
 		]);
 
@@ -471,7 +471,9 @@ function generateRandomTimelineDataset(): Commit[] {
 	return dataset;
 }
 
-function getPeriodDate(period: Period): Date {
+function getPeriodDate(period: Period): Date | undefined {
+	if (period == 'all') return undefined;
+
 	const [number, unit] = period.split('|');
 
 	let date;
