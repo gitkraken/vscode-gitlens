@@ -86,6 +86,7 @@ import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
 import type { IpcMessage, IpcNotificationType } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
+import { isSerializedState } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import type {
 	BranchState,
@@ -266,19 +267,19 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 	async onShowing(
 		loading: boolean,
 		_options: { column?: ViewColumn; preserveFocus?: boolean },
-		...args: unknown[]
+		...args: [Repository, { ref: GitReference }, { state: Partial<State> }] | unknown[]
 	): Promise<boolean> {
 		this._firstSelection = true;
 
-		const context = args[0];
-		if (isRepository(context)) {
-			this.repository = context;
-		} else if (hasGitReference(context)) {
-			this.repository = this.container.git.getRepository(context.ref.repoPath);
+		const [arg] = args;
+		if (isRepository(arg)) {
+			this.repository = arg;
+		} else if (hasGitReference(arg)) {
+			this.repository = this.container.git.getRepository(arg.ref.repoPath);
 
-			let id = context.ref.ref;
+			let id = arg.ref.ref;
 			if (!isSha(id)) {
-				id = await this.container.git.resolveReference(context.ref.repoPath, id, undefined, {
+				id = await this.container.git.resolveReference(arg.ref.repoPath, id, undefined, {
 					force: true,
 				});
 			}
@@ -293,18 +294,24 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 				void this.onGetMoreRows({ id: id }, true);
 			}
-		} else if (this.container.git.repositoryCount > 1) {
-			const [contexts] = parseCommandContext(Commands.ShowGraph, undefined, ...args);
-			const context = Array.isArray(contexts) ? contexts[0] : contexts;
-
-			if (context.type === 'scm' && context.scm.rootUri != null) {
-				this.repository = this.container.git.getRepository(context.scm.rootUri);
-			} else if (context.type === 'viewItem' && context.node instanceof RepositoryFolderNode) {
-				this.repository = context.node.repo;
+		} else {
+			if (isSerializedState<State>(arg) && arg.state.selectedRepository != null) {
+				this.repository = this.container.git.getRepository(arg.state.selectedRepository);
 			}
 
-			if (this.repository != null && !loading && this.host.ready) {
-				this.updateState();
+			if (this.repository == null && this.container.git.repositoryCount > 1) {
+				const [contexts] = parseCommandContext(Commands.ShowGraph, undefined, ...args);
+				const context = Array.isArray(contexts) ? contexts[0] : contexts;
+
+				if (context.type === 'scm' && context.scm.rootUri != null) {
+					this.repository = this.container.git.getRepository(context.scm.rootUri);
+				} else if (context.type === 'viewItem' && context.node instanceof RepositoryFolderNode) {
+					this.repository = context.node.repo;
+				}
+
+				if (this.repository != null && !loading && this.host.ready) {
+					this.updateState();
+				}
 			}
 		}
 
@@ -1758,7 +1765,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	private async getState(deferRows?: boolean): Promise<State> {
 		if (this.container.git.repositoryCount === 0) {
-			return { timestamp: Date.now(), debugging: this.container.debugging, allowed: true, repositories: [] };
+			return { timestamp: Date.now(), allowed: true, repositories: [] };
 		}
 
 		if (this.trialBanner == null) {
@@ -1771,7 +1778,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		if (this.repository == null) {
 			this.repository = this.container.git.getBestRepositoryOrFirst();
 			if (this.repository == null) {
-				return { timestamp: Date.now(), debugging: this.container.debugging, allowed: true, repositories: [] };
+				return { timestamp: Date.now(), allowed: true, repositories: [] };
 			}
 		}
 
@@ -1886,7 +1893,6 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			includeOnlyRefs: data != null ? this.getIncludeOnlyRefs(data) ?? {} : {},
 			nonce: this.host.cspNonce,
 			workingTreeStats: getSettledValue(workingStatsResult) ?? { added: 0, deleted: 0, modified: 0 },
-			debugging: this.container.debugging,
 		};
 	}
 

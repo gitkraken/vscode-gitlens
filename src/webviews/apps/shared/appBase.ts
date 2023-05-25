@@ -220,10 +220,7 @@ export abstract class App<State extends { timestamp: number } = { timestamp: num
 		return promise;
 	}
 
-	protected setState(state: State) {
-		this.state = state;
-		if (state == null) return;
-
+	protected setState(state: Partial<State>) {
 		this._api.setState(state);
 	}
 

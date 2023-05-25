@@ -114,13 +114,15 @@ export class FocusApp extends App<State> {
 		switch (msg.method) {
 			case DidChangeStateNotificationType.method:
 				onIpc(DidChangeStateNotificationType, msg, params => {
-					this.setState({ ...this.state, ...params.state });
+					this.state = { ...this.state, ...params.state };
+					this.setState(this.state);
 					this.renderContent();
 				});
 				break;
 			case DidChangeSubscriptionNotificationType.method:
 				onIpc(DidChangeSubscriptionNotificationType, msg, params => {
-					this.setState({ ...this.state, subscription: params.subscription, isPlus: params.isPlus });
+					this.state = { ...this.state, subscription: params.subscription, isPlus: params.isPlus };
+					this.setState(this.state);
 					this.renderContent();
 				});
 				break;

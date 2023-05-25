@@ -17,11 +17,13 @@ import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
 import { filter } from '../../../system/iterable';
 import { hasVisibleTextEditor, isTextEditor } from '../../../system/utils';
+import type { ViewFileNode } from '../../../views/nodes/viewNode';
 import { isViewFileNode } from '../../../views/nodes/viewNode';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
 import { updatePendingContext } from '../../../webviews/webviewController';
+import { isSerializedState } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import type { Commit, Period, State } from './protocol';
 import { DidChangeNotificationType, OpenDataPointCommandType, UpdatePeriodCommandType } from './protocol';
@@ -80,14 +82,19 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 	onShowing(
 		loading: boolean,
 		_options: { column?: ViewColumn; preserveFocus?: boolean },
-		...args: unknown[]
+		...args: [Uri | ViewFileNode | { state: Partial<State> }] | unknown[]
 	): boolean {
-		const [uriOrNode] = args;
-		if (uriOrNode != null) {
-			if (uriOrNode instanceof Uri) {
-				this.updatePendingUri(uriOrNode);
-			} else if (isViewFileNode(uriOrNode)) {
-				this.updatePendingUri(uriOrNode.uri);
+		const [arg] = args;
+		if (arg != null) {
+			if (arg instanceof Uri) {
+				this.updatePendingUri(arg);
+			} else if (isViewFileNode(arg)) {
+				this.updatePendingUri(arg.uri);
+			} else if (isSerializedState<State>(arg)) {
+				this.updatePendingContext({
+					period: arg.state.period,
+					uri: arg.state.uri != null ? Uri.parse(arg.state.uri) : undefined,
+				});
 			}
 		} else {
 			this.updatePendingEditor(window.activeTextEditor);

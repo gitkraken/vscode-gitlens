@@ -13,30 +13,31 @@ export const messageHeadlineSplitterToken = '\x00\n\x00';
 export type FileShowOptions = TextDocumentShowOptions;
 export type CommitDetailsDismissed = 'sidebar';
 
-export type CommitSummary = {
+export interface CommitSummary {
 	sha: string;
 	shortSha: string;
 	// summary: string;
 	message: string;
 	author: GitCommitIdentityShape & { avatar: string | undefined };
 	// committer: GitCommitIdentityShape & { avatar: string | undefined };
-	isStash: boolean;
-};
+	repoPath: string;
+	stashNumber?: string;
+}
 
-export type CommitDetails = CommitSummary & {
+export interface CommitDetails extends CommitSummary {
 	autolinks?: Autolink[];
 	files?: (GitFileChangeShape & { icon: { dark: string; light: string } })[];
 	stats?: GitCommitStats;
-};
+}
 
-export type Preferences = {
+export interface Preferences {
 	autolinksExpanded?: boolean;
 	avatars?: boolean;
 	dismissed?: CommitDetailsDismissed[];
 	files?: Config['views']['commitDetails']['files'];
-};
+}
 
-export type State = {
+export interface State {
 	timestamp: number;
 
 	pinned: boolean;
@@ -56,7 +57,7 @@ export type State = {
 		position: number;
 		hint?: string;
 	};
-};
+}
 
 export type ShowCommitDetailsViewCommandArgs = string[];
 
