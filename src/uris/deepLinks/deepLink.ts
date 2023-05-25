@@ -105,13 +105,13 @@ export const enum DeepLinkServiceAction {
 	RemoteMatched,
 	RemoteMatchFailed,
 	RemoteAdded,
-	TargetIsRemote,
 	TargetMatched,
 	TargetMatchFailed,
 	TargetFetched,
 }
 
 export const enum DeepLinkRepoOpenType {
+	Clone = 'clone',
 	Folder = 'folder',
 	Workspace = 'workspace',
 }
@@ -133,6 +133,7 @@ export const deepLinkStateTransitionTable: { [state: string]: { [action: string]
 		[DeepLinkServiceAction.DeepLinkEventFired]: DeepLinkServiceState.RepoMatch,
 	},
 	[DeepLinkServiceState.RepoMatch]: {
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.RepoMatchedWithId]: DeepLinkServiceState.RemoteMatch,
 		[DeepLinkServiceAction.RepoMatchedWithRemoteUrl]: DeepLinkServiceState.TargetMatch,
 		[DeepLinkServiceAction.RepoMatchFailed]: DeepLinkServiceState.CloneOrAddRepo,
@@ -155,16 +156,17 @@ export const deepLinkStateTransitionTable: { [state: string]: { [action: string]
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.RemoteMatch]: {
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.RemoteMatched]: DeepLinkServiceState.TargetMatch,
 		[DeepLinkServiceAction.RemoteMatchFailed]: DeepLinkServiceState.AddRemote,
 	},
 	[DeepLinkServiceState.AddRemote]: {
-		[DeepLinkServiceAction.RemoteAdded]: DeepLinkServiceState.OpenGraph,
+		[DeepLinkServiceAction.RemoteAdded]: DeepLinkServiceState.TargetMatch,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.TargetMatch]: {
-		[DeepLinkServiceAction.TargetIsRemote]: DeepLinkServiceState.OpenGraph,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.TargetMatched]: DeepLinkServiceState.OpenGraph,
 		[DeepLinkServiceAction.TargetMatchFailed]: DeepLinkServiceState.Fetch,
 	},
