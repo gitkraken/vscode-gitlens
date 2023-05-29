@@ -135,15 +135,6 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		}
 	}
 
-	protected override setState(state: Partial<Serialized<State>>) {
-		super.setState({
-			selected:
-				state.selected != null
-					? { ...state.selected, autolinks: undefined, files: undefined, stats: undefined }
-					: undefined,
-		});
-	}
-
 	async onExplainCommit(e: MouseEvent) {
 		const el = e.target as HTMLButtonElement;
 		if (el.getAttribute('aria-busy') === 'true') return;

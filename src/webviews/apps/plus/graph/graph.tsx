@@ -479,7 +479,7 @@ export class GraphApp extends App<State> {
 		const themingChanged = this.ensureTheming(state);
 
 		this.state = state;
-		super.setState({ selectedRepository: state.selectedRepository });
+		super.setState({ timestamp: state.timestamp, selectedRepository: state.selectedRepository });
 
 		this.callback?.(this.state, type, themingChanged);
 	}
