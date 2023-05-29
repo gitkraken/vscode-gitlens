@@ -41,10 +41,13 @@ function nextIpcId() {
 export abstract class App<State extends { timestamp: number } = { timestamp: number }> {
 	private readonly _api: VsCodeApi;
 	protected state: State;
+	protected readonly placement: 'editor' | 'view';
 
 	constructor(protected readonly appName: string) {
 		this.state = (window as any).bootstrap;
 		(window as any).bootstrap = undefined;
+
+		this.placement = (document.body.getAttribute('data-placement') ?? 'editor') as 'editor' | 'view';
 
 		Logger.configure(
 			{
