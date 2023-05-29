@@ -70,12 +70,10 @@ export abstract class App<State extends { timestamp: number } = { timestamp: num
 		this._api = acquireVsCodeApi();
 		if (this.state != null) {
 			const state = this.getState();
-			if (state != null) {
-				if (this.state.timestamp > (state.timestamp ?? 0)) {
-					this._api.setState(this.state);
-				} else {
-					this.state = state;
-				}
+			if (this.state.timestamp >= (state?.timestamp ?? 0)) {
+				this._api.setState(this.state);
+			} else {
+				this.state = state!;
 			}
 		}
 
