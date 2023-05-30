@@ -752,6 +752,14 @@ button:not([disabled]),
 			content: '\eb43';
 		}
 	}
+
+	&--files {
+		&::before {
+			// codicon-files
+			font-family: codicon;
+			content: '\eaf0';
+		}
+	}
 }
 
 .titlebar {

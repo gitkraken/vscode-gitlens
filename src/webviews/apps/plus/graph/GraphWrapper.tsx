@@ -133,6 +133,7 @@ const createIconElements = (): { [key: string]: ReactElement } => {
 		'datetime',
 		'message',
 		'changes',
+		'files',
 	];
 
 	const miniIconList = ['upstream-ahead', 'upstream-behind'];
