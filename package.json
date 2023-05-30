@@ -13619,7 +13619,7 @@
 				{
 					"id": "gitlensPanel",
 					"title": "GitLens",
-					"icon": "$(gitlens-gitlens)"
+					"icon": "$(gitlens-graph)"
 				}
 			]
 		},
@@ -13677,8 +13677,8 @@
 					"name": "Home",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-gitlens)",
-					"visibility": "visible",
-					"initialSize": 5
+					"initialSize": 6,
+					"visibility": "visible"
 				},
 				{
 					"id": "gitlens.views.contributors",
@@ -13686,8 +13686,8 @@
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-contributors-view)",
-					"visibility": "visible",
-					"initialSize": 1
+					"initialSize": 1,
+					"visibility": "collapsed"
 				}
 			],
 			"gitlensPanel": [
@@ -13698,8 +13698,8 @@
 					"when": "!gitlens:disabled && gitlens:plus:enabled && config.gitlens.graph.layout == panel",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-graph)",
-					"visibility": "visible",
-					"initialSize": 12
+					"initialSize": 4,
+					"visibility": "visible"
 				},
 				{
 					"type": "webview",
@@ -13708,8 +13708,8 @@
 					"when": "!gitlens:disabled && gitlens:plus:enabled && config.gitlens.graph.layout == panel",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-commit-view)",
-					"visibility": "visible",
-					"initialSize": 4
+					"initialSize": 1,
+					"visibility": "visible"
 				},
 				{
 					"type": "webview",
@@ -13717,9 +13717,9 @@
 					"name": "Visual File History",
 					"when": "!gitlens:disabled && gitlens:plus:enabled",
 					"contextualTitle": "GitLens",
-					"icon": "$(gitlens-history-view)",
-					"visibility": "collapsed",
-					"initialSize": 0
+					"icon": "$(graph-scatter)",
+					"initialSize": 1,
+					"visibility": "collapsed"
 				}
 			],
 			"scm": [
