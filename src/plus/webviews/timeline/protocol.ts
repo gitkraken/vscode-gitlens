@@ -5,9 +5,8 @@ export interface State {
 	timestamp: number;
 
 	dataset?: Commit[];
-	emptyMessage?: string;
 	period: Period;
-	title: string;
+	title?: string;
 	sha?: string;
 	uri?: string;
 

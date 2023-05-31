@@ -10,12 +10,20 @@
 	</head>
 
 	<body class="preload" data-placement="#{placement}">
+		<plus-feature-welcome class="scrollable">
+			<p>
+				Visualize the evolution of a file, including when changes were made, how large they were, and who made
+				them.
+			</p>
+		</plus-feature-welcome>
 		<div class="container">
 			<progress-indicator id="spinner" position="top" active="true"></progress-indicator>
-			<section class="header">
-				<h2 data-bind="title"></h2>
-				<h2 data-bind="sha"></h2>
-				<h2 data-bind="description"></h2>
+			<section id="header" class="header">
+				<div class="header--context">
+					<h2 data-bind="title"></h2>
+					<h2 data-bind="sha"></h2>
+					<h2 data-bind="description"></h2>
+				</div>
 				<div class="toolbox">
 					<div class="select-container">
 						<label for="periods">Timeframe</label>
@@ -31,39 +39,25 @@
 							<vscode-option value="all">Full history</vscode-option>
 						</vscode-dropdown>
 					</div>
+					<gk-button
+						data-placement-visible="view"
+						href="command:gitlens.views.timeline.openInTab"
+						title="Open in Editor Area"
+						aria-label="Open in Editor Area"
+						appearance="toolbar"
+					>
+						<code-icon icon="link-external"></code-icon>
+					</gk-button>
 				</div>
 			</section>
 			<section id="content">
+				<div id="empty" hidden></div>
 				<div id="chart"></div>
-				<div id="chart-empty-overlay" class="hidden">
-					<h1 data-bind="empty"></h1>
-				</div>
 			</section>
 			<section id="footer"></section>
 		</div>
-		<div id="overlay" class="hidden">
-			<div class="modal">
-				<p>
-					The Visual File History, a
-					<a title="Learn more about GitLens+ features" href="command:gitlens.plus.learn"
-						>✨GitLens+ feature</a
-					>, allows you to quickly see the evolution of a file, including when changes were made, how large
-					they were, and who made them.
-				</p>
-				<p>
-					Use it to quickly find when the most impactful changes were made to a file or who best to talk to
-					about file changes and more.
-				</p>
-				<div id="overlay-slot"></div>
-			</div>
-		</div>
 		#{endOfBody}
 
-		<style nonce="#{cspNonce}">
-			:root {
-				--gl-plus-bg: url(#{webroot}/media/gitlens-backdrop.webp);
-			}
-		</style>
 		<style nonce="#{cspNonce}">
 			@font-face {
 				font-family: 'codicon';
@@ -77,10 +71,4 @@
 			}
 		</style>
 	</body>
-
-	<!-- prettier-ignore -->
-	<%= require('html-loader?{"esModule":false}!./partials/state.free.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.free-preview-trial-expired.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.plus-trial-expired.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.verify-email.html') %>
 </html>

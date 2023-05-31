@@ -1,0 +1,17 @@
+:root {
+	--gitlens-gutter-width: 20px;
+	--gk-action-radius: 0.2rem;
+	--gk-card-radius: 0.4rem;
+}
+
+.vscode-high-contrast,
+.vscode-dark {
+	--gk-card-background: var(--color-background--lighten-05);
+	--gk-card-hover-background: var(--color-background--lighten-075);
+}
+
+.vscode-high-contrast-light,
+.vscode-light {
+	--gk-card-background: var(--color-background--darken-05);
+	--gk-card-hover-background: var(--color-background--darken-075);
+}
