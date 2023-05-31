@@ -15,7 +15,7 @@ export function registerSettingsWebviewPanel(controller: WebviewsController) {
 			contextKeyPrefix: `gitlens:webview:settings`,
 			trackingFeature: 'settingsWebview',
 			plusFeature: false,
-			column: ViewColumn.Beside,
+			column: ViewColumn.Active,
 			webviewHostOptions: {
 				retainContextWhenHidden: false,
 				enableFindWidget: true,
