@@ -27,7 +27,6 @@ import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { AccountValidationError } from '../../errors';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
-import { showMessage } from '../../messages';
 import type { Subscription } from '../../subscription';
 import {
 	computeSubscriptionState,
@@ -57,6 +56,7 @@ import { flatten } from '../../system/object';
 import { pluralize } from '../../system/string';
 import { openWalkthrough } from '../../system/utils';
 import { satisfies } from '../../system/version';
+import { authenticationProviderId } from './authenticationProvider';
 import { ensurePlusFeaturesEnabled } from './utils';
 
 // TODO: What user-agent should we use?
@@ -69,7 +69,6 @@ export interface SubscriptionChangeEvent {
 }
 
 export class SubscriptionService implements Disposable {
-	private static authenticationProviderId = 'gitlens+';
 	private static authenticationScopes = ['gitlens'];
 
 	private _onDidChange = new EventEmitter<SubscriptionChangeEvent>();
@@ -546,7 +545,7 @@ export class SubscriptionService implements Disposable {
 			await window.withProgress(
 				{
 					location: ProgressLocation.Notification,
-					title: 'Validating your GitLens+ account...',
+					title: 'Validating your GitKraken account...',
 				},
 				() => validating,
 			);
@@ -738,7 +737,7 @@ export class SubscriptionService implements Disposable {
 
 		try {
 			session = await authentication.getSession(
-				SubscriptionService.authenticationProviderId,
+				authenticationProviderId,
 				SubscriptionService.authenticationScopes,
 				{
 					createIfNone: createIfNeeded,
@@ -804,7 +803,7 @@ export class SubscriptionService implements Disposable {
 						queueMicrotask(async () => {
 							const confirm: MessageItem = { title: 'Retry Sign In' };
 							const result = await window.showErrorMessage(
-								`Unable to sign in to your (${name}) GitLens+ account. Please try again. If this issue persists, please contact support.${
+								`Unable to sign in to your (${name}) GitKraken account. Please try again. If this issue persists, please contact support.${
 									unauthorized ? '' : ` Error=${ex.message}`
 								}`,
 								confirm,
@@ -820,7 +819,7 @@ export class SubscriptionService implements Disposable {
 
 					// if ((ex.original as any)?.code !== 'ENOTFOUND') {
 					// 	void window.showErrorMessage(
-					// 		`Unable to sign in to your (${name}) GitLens+ account right now. Please try again in a few minutes. If this issue persists, please contact support. Error=${ex.message}`,
+					// 		`Unable to sign in to your (${name}) GitKraken account right now. Please try again in a few minutes. If this issue persists, please contact support. Error=${ex.message}`,
 					// 		'OK',
 					// 	);
 					// }
@@ -905,18 +904,6 @@ export class SubscriptionService implements Disposable {
 
 		this._subscription = subscription;
 		this._etag = Date.now();
-
-		setTimeout(() => {
-			if (
-				subscription?.account != null &&
-				subscription.plan.actual.id === SubscriptionPlanId.Pro &&
-				!subscription.plan.actual.bundle &&
-				new Date(subscription.plan.actual.startedOn) >= new Date('2022-02-28T00:00:00.000Z') &&
-				new Date(subscription.plan.actual.startedOn) <= new Date('2022-04-30T00:00:00.000Z')
-			) {
-				void showRenewalDiscountNotification(this.container, subscription);
-			}
-		}, 5000);
 
 		if (!silent) {
 			this.updateContext();
@@ -1036,7 +1023,7 @@ export class SubscriptionService implements Disposable {
 			);
 		}
 
-		this._statusBarSubscription.name = 'GitLens+ Subscription';
+		this._statusBarSubscription.name = 'GitKraken Subscription';
 		this._statusBarSubscription.command = Commands.ShowHomeView;
 
 		if (account?.verified === false) {
@@ -1179,42 +1166,4 @@ function licenseStatusPriority(status: GKLicense['latestStatus']): number {
 		case 'non_renewing':
 			return 0;
 	}
-}
-
-async function showRenewalDiscountNotification(
-	container: Container,
-	subscription: Optional<Subscription, 'state'>,
-): Promise<void> {
-	if (container.storage.get('plus:renewalDiscountNotificationShown', false)) return;
-
-	void container.storage.store('plus:renewalDiscountNotificationShown', true);
-
-	if (subscription.plan.effective.cancelled) {
-		const supportUrl = `https://help.gitkraken.com/gitlens/gl-contact-support/?email=${encodeURIComponent(
-			subscription.account!.email!,
-		)}&subject=${encodeURIComponent('GitLens Pro Reactivation Discount')}&content=${encodeURIComponent(
-			'I would like to reactivate my GitLens Pro subscription at the discounted 60% off rate.',
-		)}&issue_category__customer_facing_field_=Billing`;
-
-		const support = { title: 'Contact Support' };
-		const result = await showMessage(
-			'info',
-			`While we are sorry to see that you have cancelled your GitLens+ subscription, we'd like to offer to renew your subscription at your original rate — 60% off as a thank you for being an early adopter of GitLens+. If you'd like to take advantage of this offer, please [Contact Support](${supportUrl}).`,
-			undefined,
-			undefined,
-			support,
-		);
-
-		if (result === support) {
-			void env.openExternal(Uri.parse(supportUrl));
-		}
-		return;
-	}
-
-	void showMessage(
-		'info',
-		'60% off your GitLens Pro renewal — as a thank you for being an early adopter of GitLens+. So there will be no change to your price for an additional year!',
-		undefined,
-		undefined,
-	);
 }

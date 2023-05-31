@@ -190,7 +190,7 @@ export class ServerConnection implements Disposable {
 					input.onDidAccept(() => resolve(Uri.parse(input.value.trim()))),
 				);
 
-				input.title = 'GitLens+ Sign In';
+				input.title = 'GitKraken Sign In';
 				input.placeholder = 'Please enter the provided authorization URL';
 				input.prompt = 'If the auto-redirect fails, paste the authorization URL';
 
@@ -241,8 +241,8 @@ export class ServerConnection implements Disposable {
 	private updateStatusBarItem(signingIn?: boolean) {
 		if (signingIn && this._statusBarItem == null) {
 			this._statusBarItem = window.createStatusBarItem('gitlens.plus.signIn', StatusBarAlignment.Left);
-			this._statusBarItem.name = 'GitLens+ Sign in';
-			this._statusBarItem.text = 'Signing in to GitLens+...';
+			this._statusBarItem.name = 'GitKraken Sign in';
+			this._statusBarItem.text = 'Signing in to GitKraken...';
 			this._statusBarItem.show();
 		}
 
