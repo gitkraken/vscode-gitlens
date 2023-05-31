@@ -239,7 +239,7 @@ export class SubscriptionService implements Disposable {
 
 		// Abort any waiting authentication to ensure we can start a new flow
 		await this.container.subscriptionAuthentication.abort();
-		void this.showHomeView();
+		void this.showAccountView();
 
 		const session = await this.ensureSession(true);
 		const loggedIn = Boolean(session);
@@ -366,7 +366,7 @@ export class SubscriptionService implements Disposable {
 				Uri.joinPath(this.baseAccountUri, 'subscription').with({ query: 'product=gitlens&license=PRO' }),
 			);
 		}
-		await this.showHomeView();
+		await this.showAccountView();
 	}
 
 	@gate()
@@ -376,7 +376,7 @@ export class SubscriptionService implements Disposable {
 
 		const scope = getLogScope();
 
-		void this.showHomeView(true);
+		void this.showAccountView(true);
 
 		const session = await this.ensureSession(false);
 		if (session == null) return false;
@@ -429,11 +429,11 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@log()
-	async showHomeView(silent: boolean = false): Promise<void> {
+	async showAccountView(silent: boolean = false): Promise<void> {
 		if (silent && !configuration.get('plusFeatures.enabled', undefined, true)) return;
 
-		if (!this.container.homeView.visible) {
-			await executeCommand(Commands.ShowHomeView);
+		if (!this.container.accountView.visible) {
+			await executeCommand(Commands.ShowAccountView);
 		}
 	}
 
@@ -448,7 +448,7 @@ export class SubscriptionService implements Disposable {
 
 		let { plan, previewTrial } = this._subscription;
 		if (previewTrial != null) {
-			void this.showHomeView();
+			void this.showAccountView();
 
 			if (!silent && plan.effective.id === SubscriptionPlanId.Free) {
 				const confirm: MessageItem = { title: 'Extend Your Trial', isCloseAffordance: true };

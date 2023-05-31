@@ -4606,6 +4606,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.showAccountView",
+				"title": "Show Account View",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.showInCommitGraph",
 				"title": "Open in Commit Graph",
 				"category": "GitLens+",
@@ -6381,6 +6386,12 @@
 				"icon": "$(refresh)"
 			},
 			{
+				"command": "gitlens.views.account.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "gitlens.views.lineHistory.changeBase",
 				"title": "Change Base...",
 				"category": "GitLens",
@@ -6830,12 +6841,6 @@
 				"command": "gitlens.views.tags.setShowAvatarsOff",
 				"title": "Hide Avatars",
 				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.views.timeline.openInTab",
-				"title": "Open in Editor Area",
-				"category": "GitLens",
-				"icon": "$(link-external)"
 			},
 			{
 				"command": "gitlens.views.timeline.refresh",
@@ -7718,6 +7723,10 @@
 				},
 				{
 					"command": "gitlens.showHomeView",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showAccountView",
 					"when": "gitlens:enabled"
 				},
 				{
@@ -8905,6 +8914,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.account.refresh",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.lineHistory.changeBase",
 					"when": "false"
 				},
@@ -9230,10 +9243,6 @@
 				},
 				{
 					"command": "gitlens.views.tags.setShowAvatarsOff",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.timeline.openInTab",
 					"when": "false"
 				},
 				{
@@ -10343,6 +10352,11 @@
 					"group": "navigation@99"
 				},
 				{
+					"command": "gitlens.views.account.refresh",
+					"when": "view =~ /^gitlens\\.views\\.account/",
+					"group": "navigation@99"
+				},
+				{
 					"command": "gitlens.showLineHistoryView",
 					"when": "!gitlens:hasVirtualFolders && view =~ /^gitlens\\.views\\.fileHistory/",
 					"group": "8_gitlens_toggles@0"
@@ -10616,11 +10630,6 @@
 					"command": "gitlens.views.tags.setShowAvatarsOff",
 					"when": "view =~ /^gitlens\\.views\\.tags/ && config.gitlens.views.tags.avatars",
 					"group": "5_gitlens@0"
-				},
-				{
-					"command": "gitlens.views.timeline.openInTab",
-					"when": "view =~ /^gitlens\\.views\\.timeline/",
-					"group": "navigation@98"
 				},
 				{
 					"command": "gitlens.views.timeline.refresh",
@@ -13699,6 +13708,15 @@
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-contributors-view)",
+					"initialSize": 1,
+					"visibility": "collapsed"
+				},
+				{
+					"type": "webview",
+					"id": "gitlens.views.account",
+					"name": "GitKraken Account",
+					"contextualTitle": "GitLens",
+					"icon": "$(gitlens-gitlens)",
 					"initialSize": 1,
 					"visibility": "collapsed"
 				}

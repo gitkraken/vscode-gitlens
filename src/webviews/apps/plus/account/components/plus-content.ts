@@ -1,8 +1,8 @@
 import { attr, css, customElement, FASTElement, html, volatile, when } from '@microsoft/fast-element';
-import { SubscriptionState } from '../../../../subscription';
-import { pluralize } from '../../../../system/string';
-import { numberConverter } from '../../shared/components/converters/number-converter';
-import '../../shared/components/code-icon';
+import { SubscriptionState } from '../../../../../subscription';
+import { pluralize } from '../../../../../system/string';
+import { numberConverter } from '../../../shared/components/converters/number-converter';
+import '../../../shared/components/code-icon';
 
 const template = html<PlusContent>`
 	<div class="icon"><code-icon icon="info"></code-icon></div>

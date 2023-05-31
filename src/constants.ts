@@ -239,6 +239,7 @@ export const enum Commands {
 	ShowGraphPage = 'gitlens.showGraphPage',
 	ShowGraphView = 'gitlens.showGraphView',
 	ShowHomeView = 'gitlens.showHomeView',
+	ShowAccountView = 'gitlens.showAccountView',
 	ShowInCommitGraph = 'gitlens.showInCommitGraph',
 	ShowInDetailsView = 'gitlens.showInDetailsView',
 	ShowLastQuickPick = 'gitlens.showLastQuickPick',
@@ -311,7 +312,7 @@ export const enum Commands {
 
 export type CustomEditorIds = 'rebase';
 export type WebviewIds = 'graph' | 'settings' | 'timeline' | 'welcome' | 'focus';
-export type WebviewViewIds = 'commitDetails' | 'graph' | 'graphDetails' | 'home' | 'timeline';
+export type WebviewViewIds = 'commitDetails' | 'graph' | 'graphDetails' | 'home' | 'timeline' | 'account';
 
 export type ContextKeys =
 	| `${typeof extensionPrefix}:action:${string}`

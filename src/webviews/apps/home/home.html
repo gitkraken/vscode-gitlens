@@ -15,21 +15,21 @@
 						href="https://help.gitkraken.com/gitlens/gitlens-release-notes-current/"
 						aria-label="What's New"
 						title="What's New"
-						><span class="codicon codicon-rocket"></span><span>What's New</span></a
+						><code-icon icon="rocket"></code-icon><span>What's New</span></a
 					>
 					<a
 						class="inline-nav__link inline-nav__link--text"
 						href="https://help.gitkraken.com/gitlens/gitlens-home/"
 						aria-label="Help Center"
 						title="Help Center"
-						><span class="codicon codicon-question"></span><span>Help</span></a
+						><code-icon icon="question"></code-icon><span>Help</span></a
 					>
 					<a
 						class="inline-nav__link inline-nav__link--text"
 						href="https://github.com/gitkraken/vscode-gitlens/issues"
 						aria-label="Feedback"
 						title="Feedback"
-						><span class="codicon codicon-feedback"></span><span>Feedback</span></a
+						><code-icon icon="feedback"></code-icon><span>Feedback</span></a
 					>
 				</div>
 				<div class="inline-nav__group">
@@ -38,33 +38,33 @@
 						href="https://github.com/gitkraken/vscode-gitlens/discussions"
 						aria-label="GitHub Discussions"
 						title="GitHub Discussions"
-						><span class="codicon codicon-comment-discussion"></span
+						><code-icon icon="comment-discussion"></code-icon
 					></a>
 					<a
 						class="inline-nav__link"
 						href="https://github.com/gitkraken/vscode-gitlens"
 						aria-label="GitHub Repo"
 						title="GitHub Repo"
-						><span class="codicon codicon-github"></span
+						><code-icon icon="github"></code-icon
 					></a>
 					<a
 						class="inline-nav__link"
 						href="https://twitter.com/gitlens"
 						aria-label="@gitlens on Twitter"
 						title="@gitlens on Twitter"
-						><span class="codicon codicon-twitter"></span
+						><code-icon icon="twitter"></code-icon
 					></a>
 					<a
 						class="inline-nav__link"
 						href="https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links"
 						aria-label="GitLens Website"
 						title="GitLens Website"
-						><span class="codicon codicon-globe"></span
+						><code-icon icon="globe"></code-icon
 					></a>
 				</div>
 			</nav>
 		</div>
-		<header class="home__header">
+		<header class="home__header" id="header" hidden>
 			<div id="no-repo-alert" class="alert alert--info mb-0" aria-hidden="true" hidden>
 				<h1 class="alert__title">No repository detected</h1>
 				<div class="alert__description">
@@ -72,9 +72,7 @@
 						To use GitLens, open a folder containing a git repository or clone from a URL from the Explorer.
 					</p>
 					<p class="centered">
-						<vscode-button data-action="command:workbench.view.explorer"
-							>Open a Folder or Repository</vscode-button
-						>
+						<gk-button data-action="command:workbench.view.explorer">Open a Folder or Repository</gk-button>
 					</p>
 					<p class="mb-0">
 						If you have opened a folder with a repository, please let us know by
@@ -92,7 +90,7 @@
 						not being owned by the current user.
 					</p>
 					<p class="centered">
-						<vscode-button data-action="command:workbench.view.scm">Manage in Source Control</vscode-button>
+						<gk-button data-action="command:workbench.view.scm">Manage in Source Control</gk-button>
 					</p>
 				</div>
 			</div>
@@ -101,282 +99,109 @@
 				<div class="alert__description">
 					<p>Unable to open repositories in Restricted Mode.</p>
 					<p class="centered">
-						<vscode-button data-action="command:workbench.trust.manage"
-							>Manage Workspace Trust</vscode-button
-						>
+						<gk-button data-action="command:workbench.trust.manage">Manage Workspace Trust</gk-button>
 					</p>
 				</div>
 			</div>
-			<header-card id="header-card" image="#{webroot}/media/gitlens-logo.webp"></header-card>
 		</header>
 		<main class="home__main scrollable" id="main" tabindex="-1">
-			<style nonce="#{cspNonce}">
-				.video-banner {
-					--video-banner-bg: url(#{webroot}/media/getting-started.webp);
-				}
-				.vscode-high-contrast .video-banner,
-				.vscode-dark .video-banner {
-					--video-banner-play: url(#{webroot}/media/play-button.webp);
-				}
-				.vscode-high-contrast-light .video-banner,
-				.vscode-light .video-banner {
-					--video-banner-play: url(#{webroot}/media/play-button-dark.webp);
-				}
-				.gl-plus-banner {
-					background-image: url(#{webroot}/media/gitlens-backdrop-opacity.webp);
-				}
-			</style>
-			<div class="stepped-sections">
-				<stepped-section id="welcome">
-					<span slot="heading">Welcome to GitLens 13</span>
-					<p>
-						GitLens supercharges Git inside VS Code and unlocks the untapped knowledge within each
-						repository.
-					</p>
-					<a class="video-banner" href="https://www.youtube.com/watch?v=UQPb73Zz9qk">
-						<span>Get Started</span> <small>Tutorial Video</small>
-					</a>
-					<ul class="icon-list mb-0">
-						<li>
-							<code-icon icon="circle-filled"></code-icon>
-							<a href="command:gitlens.showWelcomePage?%22quick-setup%22">Quick Setup</a> &mdash; quickly
-							personalize GitLens to your needs.
-						</li>
-						<li>
-							<code-icon icon="circle-filled"></code-icon>
-							<a href="command:gitlens.showSettingsPage">Interactive Settings editor</a> &mdash; fine-tune
-							your GitLens experience.
-						</li>
-					</ul>
-				</stepped-section>
-				<stepped-section id="features">
-					<span slot="heading">Features</span>
-					<span slot="description">always free and accessible</span>
-					<p>
-						GitLens is deeply integrated into many areas and aspects of VS Code, especially editors and
-						views. Learn more in the <a href="command:gitlens.getStarted">Feature Walkthrough</a>.
-					</p>
-					<card-section no-heading id="no-repo" aria-hidden="true">
-						<p class="centered mb-0">
-							To use GitLens, open a folder containing a git repository or clone from a URL from the
-							Explorer.
-						</p>
-					</card-section>
-					<div class="activitybar-banner">
-						<div class="activitybar-banner__content">
-							<p>
-								Find many features by opening the
-								<a href="command:workbench.view.scm">Source Control Side Bar</a>.
-							</p>
-							<p>
-								Click on
-								<span aria-hidden="true"
-									>the icon <span class="not-small">to the left</span
-									><span class="only-small">below</span></span
-								><span class="sr-only">a layout option</span> to set the location of your GitLens views.
-							</p>
-						</div>
-						<nav class="activitybar-banner__media" aria-label="GitLens Layout">
-							<a
-								href="command:gitlens.setViewsLayout?%7B%22layout%22%3A%22scm%22%7D"
-								class="activitybar-banner__nav-item"
-								title="Move views to the Source Control side bar"
-								aria-label="Move views to the Source Control side bar"
-							></a>
-							<a
-								href="command:gitlens.setViewsLayout?%7B%22layout%22%3A%22gitlens%22%7D"
-								class="activitybar-banner__nav-item"
-								title="Move views to the GitLens side bar"
-								aria-label="Move views to the GitLens side bar"
-							></a>
-							<svg
-								class="svg"
-								fill="none"
-								xmlns="http://www.w3.org/2000/svg"
-								viewBox="0 0 68 91"
-								aria-hidden="true"
-								style="max-width: 9.2rem"
-							>
-								<rect x=".5" y=".5" width="40" height="90" rx="16.5" stroke="url(#a)" />
-								<rect x="3" y="3" width="35" height="85" rx="14" fill="#333" class="svg__bar" />
-								<g clip-path="url(#b)" class="svg__icon" data-gitlens-layout="gitlens">
-									<path
-										d="m22.08 63-2.14-2.14.75-.75 2.14 2.13-.75.76ZM18.73 66.08v-5.16h1.06v5.16h-1.06Z"
-									/>
-									<path
-										d="M19.26 69.17a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2ZM23.51 65.27a1.6 1.6 0 1 0 0-3.19 1.6 1.6 0 0 0 0 3.2ZM19.26 61.02a1.6 1.6 0 1 0 0-3.19 1.6 1.6 0 0 0 0 3.2Z"
-									/>
-									<path
-										d="M20.5 55.89a7.61 7.61 0 1 0 0 15.22 7.61 7.61 0 0 0 0-15.22ZM12 63.5a8.5 8.5 0 1 1 17 0 8.5 8.5 0 0 1-17 0Z"
-									/>
-								</g>
-								<path
-									fill="#fff"
-									d="M3 52h1v23H3z"
-									class="svg__indicator"
-									data-gitlens-layout="gitlens"
-								/>
-								<g clip-path="url(#c)" class="svg__icon" data-gitlens-layout="scm">
-									<path
-										d="M26.76 25.17a2.8 2.8 0 1 0-3.6 2.67 2.24 2.24 0 0 1-2.01 1.25h-2.24c-.83 0-1.63.31-2.24.87v-5.41a2.8 2.8 0 1 0-1.13 0v6.84a2.83 2.83 0 1 0 1.37.07 2.24 2.24 0 0 1 2-1.25h2.24a3.36 3.36 0 0 0 3.17-2.28 2.8 2.8 0 0 0 2.44-2.76ZM14.42 21.8a1.68 1.68 0 1 1 3.37 0 1.68 1.68 0 0 1-3.37 0Zm3.37 12.33a1.68 1.68 0 1 1-3.37 0 1.68 1.68 0 0 1 3.37 0Zm6.16-7.28a1.68 1.68 0 1 1 0-3.37 1.68 1.68 0 0 1 0 3.37Z"
-									/>
-								</g>
-								<path fill="#fff" d="M3 16h1v24H3z" class="svg__indicator" data-gitlens-layout="scm" />
-								<path
-									d="M67.67 64a2.67 2.67 0 1 0-5.34 0 2.67 2.67 0 0 0 5.34 0ZM49 64l5 2.89V61.1L49 64Zm16-.5H53.5v1H65v-1Z"
-									fill="red"
-									class="svg__arrow"
-									data-gitlens-layout="gitlens"
-								/>
-								<path
-									d="M67.67 28a2.67 2.67 0 1 0-5.34 0 2.67 2.67 0 0 0 5.34 0ZM49 28l5 2.89V25.1L49 28Zm16-.5H53.5v1H65v-1Z"
-									fill="#007FD5"
-									class="svg__arrow"
-									data-gitlens-layout="scm"
-								/>
-								<defs>
-									<clipPath id="b">
-										<path fill="#fff" transform="translate(12 55)" d="M0 0h17v17H0z" />
-									</clipPath>
-									<clipPath id="c">
-										<path fill="#fff" transform="translate(11 19)" d="M0 0h18v18H0z" />
-									</clipPath>
-									<linearGradient
-										id="a"
-										x1="20.5"
-										y1="-23.19"
-										x2="20.5"
-										y2="91"
-										gradientUnits="userSpaceOnUse"
-									>
-										<stop stop-color="#333" class="svg__outline" />
-										<stop offset="1" stop-color="#333" stop-opacity="0" class="svg__outline" />
-										<stop offset="1" stop-color="#333" stop-opacity="0" class="svg__outline" />
-									</linearGradient>
-								</defs>
-							</svg>
-						</nav>
-					</div>
-				</stepped-section>
-				<stepped-section id="plus">
-					<span slot="heading">GitLens+ Features</span>
-					<span slot="description">want even more from GitLens?</span>
-					<card-section class="gl-plus-banner mb-1" no-heading>
-						<div class="centered plus-banner-text">
-							<plus-banner id="plus-banner"></plus-banner>
-						</div>
-					</card-section>
-					<plus-content id="plus-content"></plus-content>
-				</stepped-section>
-				<stepped-section id="integrations">
-					<span slot="heading">Integrations</span>
-					<p>GitLens provides issue and pull request auto-linking with many Git hosting services.</p>
-					<p class="mb-0">
-						Rich integrations with GitHub & GitLab provide more detailed hover information for auto-linked
-						issues and pull requests, pull requests associated with branches and commits, and avatars.
-					</p>
-				</stepped-section>
-			</div>
-			<!-- check for gitlens+ -->
-			<div id="plus-sections">
-				<card-section dismissable id="focus-view-preview">
-					<span slot="heading">Focus View ✨ (preview)</span>
-					<a title="Open the Focus view" href="command:gitlens.showFocusPage"
-						><img
-							src="#{webroot}/media/plus-focus-view-preview.webp"
-							alt="Focus view Screenshot"
-							class="plus-section-thumb mb-1"
-					/></a>
-					<p class="mb-0">
-						The
-						<a title="Open the Focus view" href="command:gitlens.showFocusPage">Focus View</a>
-						provides you with a comprehensive list of all your most important work across your connected
-						GitHub repos.
-					</p>
-				</card-section>
-				<card-section dismissable id="commit-graph">
-					<span slot="heading">Commit Graph ✨</span>
-					<a
-						title="Learn more about the Commit Graph"
-						href="command:gitlens.openWalkthrough?%22gitlens.plus%7Cgitlens.plus.commitGraph%22"
-						><img
-							src="#{webroot}/media/plus-commit-graph-illustrated.webp"
-							alt="Commit Graph illustration"
-							class="plus-section-thumb mb-1"
-					/></a>
-					<p>
-						The
-						<a
-							title="Learn more about the Commit Graph"
-							href="command:gitlens.openWalkthrough?%22gitlens.plus%7Cgitlens.plus.commitGraph%22"
-							>Commit Graph</a
-						>
-						helps you easily visualize and keep track of all work in progress.
-					</p>
-					<p class="mb-0">
-						Use the rich commit search to find exactly what you're looking for. It's powerful filters allow
-						you to search by a specific commit, message, author, a changed file or files, or even a specific
-						code change.
-					</p>
-				</card-section>
-				<card-section dismissable id="visual-file-history">
-					<span slot="heading">Visual File History ✨</span>
-					<a
-						title="Learn more about the Visual File History"
-						href="command:gitlens.openWalkthrough?%22gitlens.plus%7Cgitlens.plus.visualFileHistory%22"
-						><img
-							src="#{webroot}/media/plus-visual-file-history-illustrated.webp"
-							alt="Visual File History illustration"
-							class="plus-section-thumb mb-1"
-					/></a>
-					<p>
-						The
-						<a
-							title="Learn more about the Visual File History"
-							href="command:gitlens.openWalkthrough?%22gitlens.plus%7Cgitlens.plus.visualFileHistory%22"
-							>Visual File History</a
-						>
-						allows you to quickly see the evolution of a file, including when changes were made, how large
-						they were, and who made them.
-					</p>
-					<p class="mb-0">
-						Use it to quickly find when the most impactful changes were made to a file or who best to talk
-						to about file changes and more.
-					</p>
-				</card-section>
-				<card-section dismissable id="worktrees">
-					<span slot="heading">Worktrees ✨</span>
-					<a
-						title="Learn more about Worktrees"
-						href="command:gitlens.openWalkthrough?%22gitlens.plus%7Cgitlens.plus.worktrees%22"
-						><img
-							src="#{webroot}/media/plus-worktrees-illustrated.webp"
-							alt="Worktrees illustration"
-							class="plus-section-thumb mb-1"
-					/></a>
-					<p>
-						<a
-							title="Learn more about Worktrees"
-							href="command:gitlens.openWalkthrough?%22gitlens.plus%7Cgitlens.plus.worktrees%22"
-							>Worktrees</a
-						>
-						help you multitask by minimizing the context switching between branches, allowing you to easily
-						work on different branches of a repository simultaneously.
-					</p>
-					<p class="mb-0">
-						Avoid interrupting your work in progress when needing to review a pull request. Simply create a
-						new worktree and open it in a new VS Code window, all without impacting your other work
-					</p>
-				</card-section>
-			</div>
-			<div class="button-container">
-				<vscode-button appearance="secondary" data-action="command:workbench.action.toggleSidebarVisibility"
-					>Close</vscode-button
+			<nav class="nav-list">
+				<h3 class="nav-list__title t-eyebrow">Popular views</h3>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showGraph"
+					title="Show Commit Graph"
+					aria-label="Show Commit Graph"
+					><code-icon class="nav-list__icon" icon="gl-graph"></code-icon
+					><span class="nav-list__label">Commit Graph ✨</span></a
 				>
-				<a id="restore-welcome" class="link-minimal" href="command:gitlens.home.restoreWelcome"
-					>Restore Home view state</a
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showCommitDetailsView"
+					title="Show Commit Details view"
+					aria-label="Show Commit Details view"
+					><code-icon class="nav-list__icon" icon="gl-commit-view"></code-icon
+					><span class="nav-list__label">Commit Details view</span></a
 				>
-			</div>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showFocusPage"
+					title="Open Focus"
+					aria-label="Open Focus"
+					><code-icon class="nav-list__icon" icon="target"></code-icon
+					><span class="nav-list__label">Focus ✨</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showTimelineView"
+					title="Show Visual File History view"
+					aria-label="Show Visual File History view"
+					><code-icon class="nav-list__icon" icon="graph-scatter"></code-icon
+					><span class="nav-list__label">Visual File History ✨</span></a
+				>
+			</nav>
+			<nav class="nav-list">
+				<h3 class="nav-list__title t-eyebrow">Activity Bar</h3>
+				<a
+					class="nav-list__item"
+					href="command:workbench.view.extension.gitlens"
+					title="Show GitLens Side Bar"
+					aria-label="Show GitLens Side Bar"
+					><code-icon class="nav-list__icon" icon="gl-gitlens"></code-icon
+					><span class="nav-list__label">GitLens</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:workbench.view.extension.gitlensInspect"
+					title="Show GitLens Inspect Side Bar"
+					aria-label="Show GitLens Inspect Side Bar"
+					><code-icon class="nav-list__icon" icon="gl-gitlens-inspect"></code-icon
+					><span class="nav-list__label">GitLens Inspect</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:workbench.view.scm"
+					title="Show Source Control Side Bar"
+					aria-label="Show GitLens Side Bar"
+					><code-icon class="nav-list__icon" icon="source-control"></code-icon
+					><span class="nav-list__label">Source Control</span></a
+				>
+			</nav>
+			<nav class="nav-list">
+				<h3 class="nav-list__title t-eyebrow">Getting Started</h3>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showWelcomePage"
+					title="Open GitLens Welcome"
+					aria-label="Open GitLens Welcome"
+					><code-icon class="nav-list__icon" icon="play"></code-icon
+					><span class="nav-list__label">Welcome</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.getStarted"
+					title="Open GitLens Feature Walkthrough"
+					aria-label="Open GitLens Feature Walkthrough"
+					><code-icon class="nav-list__icon" icon="info"></code-icon
+					><span class="nav-list__label">Feature Walkthrough</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="https://www.youtube.com/watch?v=UQPb73Zz9qk"
+					title="Open GitLens Settings"
+					aria-label="Open GitLens Settings"
+					><code-icon class="nav-list__icon" icon="vm-running"></code-icon
+					><span class="nav-list__label">Tutorial Video</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showSettingsPage"
+					title="Open GitLens Settings"
+					aria-label="Open GitLens Settings"
+					><code-icon class="nav-list__icon" icon="gear"></code-icon
+					><span class="nav-list__label">GitLens Settings</span></a
+				>
+			</nav>
 		</main>
 
 		#{endOfBody}

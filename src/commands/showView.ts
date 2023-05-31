@@ -44,6 +44,8 @@ export class ShowViewCommand extends Command {
 				return this.container.fileHistoryView.show();
 			case Commands.ShowHomeView:
 				return this.container.homeView.show();
+			case Commands.ShowAccountView:
+				return this.container.accountView.show();
 			case Commands.ShowGraphView:
 				return this.container.graphView.show();
 			case Commands.ShowLineHistoryView:

@@ -1,9 +1,8 @@
 import { attr, css, customElement, FASTElement, html, ref, volatile, when } from '@microsoft/fast-element';
-import { SubscriptionState } from '../../../../subscription';
-import { pluralize } from '../../../../system/string';
-import { numberConverter } from '../../shared/components/converters/number-converter';
-import '../../shared/components/code-icon';
-import '../../shared/components/overlays/pop-over';
+import { SubscriptionState } from '../../../../../subscription';
+import { pluralize } from '../../../../../system/string';
+import { numberConverter } from '../../../shared/components/converters/number-converter';
+import '../../../shared/components/code-icon';
 
 const template = html<HeaderCard>`
 	<div class="header-card__media"><img class="header-card__image" src="${x => x.image}" alt="GitLens Logo" /></div>
@@ -17,29 +16,6 @@ const template = html<HeaderCard>`
 				><span class="repo-access${x => (x.isPro ? ' is-pro' : '')}">✨</span>${x =>
 					`${x.planName}${x.daysLeft}`}</span
 			>
-			<pop-over class="${x => (x.pinStatus ? 'is-pinned' : null)}">
-				${when(
-					x => x.pinStatus,
-					html<HeaderCard>`
-						<span slot="type">${x => x.planName}</span>
-						<a
-							href="#"
-							class="action is-icon"
-							slot="actions"
-							@click="${(x, c) => x.dismissStatus(c.event as MouseEvent)}"
-							title="Dismiss"
-							aria-label="Dismiss"
-							><code-icon icon="close"></code-icon
-						></a>
-					`,
-				)}
-				${x =>
-					x.isPro
-						? 'You have access to all GitLens and GitLens+ features on any repo.'
-						: 'You have access to GitLens+ features on local & public repos, and all other GitLens features on any repo.'}
-				<br /><br />
-				✨ indicates GitLens+ features, <a class="link-inline" href="command:gitlens.plus.learn">learn more</a>
-			</pop-over>
 		</span>
 		<span class="account-actions">
 			${when(
@@ -66,12 +42,22 @@ const template = html<HeaderCard>`
 			)}
 		</span>
 	</p>
+	<p class="features">
+		${x =>
+			x.isPro
+				? 'You have access to all GitLens features on any repo.'
+				: 'You have access to ✨ features on local & public repos, and all other GitLens features on any repo.'}
+		<br /><br />
+		✨ indicates a subscription is required to use this feature on privately hosted repos.
+		<a class="link-inline" href="command:gitlens.plus.learn">learn more</a>
+	</p>
 	<div
 		class="progress header-card__progress"
 		role="progressbar"
 		aria-valuemax="${x => x.progressMax}"
 		aria-valuenow="${x => x.progressNow}"
 		aria-label="${x => x.progressNow} of ${x => x.progressMax} steps completed"
+		hidden
 	>
 		<div ${ref('progressNode')} class="progress__indicator"></div>
 	</div>
@@ -118,11 +104,6 @@ const styles = css`
 	:host {
 		position: relative;
 		display: grid;
-		/*
-		padding: 1rem 1rem 1.2rem;
-		background-color: var(--card-background);
-		border-radius: 0.4rem;
-		*/
 		padding: 1rem 0 1.2rem;
 		gap: 0 0.8rem;
 		grid-template-columns: 3.4rem auto;
@@ -175,6 +156,11 @@ const styles = css`
 		gap: 0 0.4rem;
 	}
 
+	.features {
+		grid-column: 1 / 3;
+		grid-row: 3;
+	}
+
 	.progress {
 		width: 100%;
 		overflow: hidden;
@@ -199,10 +185,6 @@ const styles = css`
 		position: absolute;
 		bottom: 0;
 		left: 0;
-		/*
-		border-bottom-left-radius: 0.4rem;
-		border-bottom-right-radius: 0.4rem;
-		*/
 	}
 
 	.brand {
@@ -210,18 +192,6 @@ const styles = css`
 	}
 	.status {
 		color: var(--color-foreground--65);
-	}
-
-	.status-label {
-		cursor: help;
-	}
-
-	.status pop-over {
-		top: 1.6em;
-		left: 0;
-	}
-	.status-label:not(:hover) + pop-over:not(.is-pinned) {
-		display: none;
 	}
 
 	.repo-access {
@@ -275,10 +245,6 @@ const styles = css`
 	:host-context(.vscode-high-contrast-light) .action:hover,
 	:host-context(.vscode-light) .action:hover {
 		background-color: var(--color-background--darken-10);
-	}
-
-	pop-over .action {
-		margin-right: -0.2rem;
 	}
 
 	.link-inline {
