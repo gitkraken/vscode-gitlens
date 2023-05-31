@@ -35,5 +35,6 @@
   "provider-gerrit": 61728,
   "provider-gitea": 61729,
   "provider-github": 61730,
-  "provider-gitlab": 61731
+  "provider-gitlab": 61731,
+  "gitlens-inspect": 61732
 }

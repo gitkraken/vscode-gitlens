@@ -6,7 +6,7 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 	@font-face {
 		font-family: 'glicons';
 		font-display: block;
-		src: url("#{root}/dist/glicons.woff2?495b1efe1f760fa9e4da234675d2bbe6") format("woff2");
+		src: url("#{root}/dist/glicons.woff2?ab6c9110fb0444acd9ba719c4c55fa68") format("woff2");
 	}
 </style>
 */
@@ -169,4 +169,7 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 }
 .glicon-provider-gitlab:before {
 	content: '\f123';
+}
+.glicon-gitlens-inspect:before {
+	content: '\f124';
 }
