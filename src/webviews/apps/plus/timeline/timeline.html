@@ -10,12 +10,12 @@
 	</head>
 
 	<body class="preload" data-placement="#{placement}">
-		<plus-feature-welcome class="scrollable">
-			<p>
+		<gk-feature-gate id="subscription-gate" class="scrollable"
+			><p slot="feature">
 				Visualize the evolution of a file, including when changes were made, how large they were, and who made
 				them.
-			</p>
-		</plus-feature-welcome>
+			</p></gk-feature-gate
+		>
 		<div class="container">
 			<progress-indicator id="spinner" position="top" active="true"></progress-indicator>
 			<section id="header" class="header">

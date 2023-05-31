@@ -10,14 +10,14 @@ import {
 import type { IpcMessage } from '../../../protocol';
 import { onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
+import type { FeatureGate } from '../../shared/components/feature-gate';
 import { DOM } from '../../shared/dom';
-import type { PlusFeatureWelcome } from '../shared/components/plus-feature-welcome';
 import type { DataPointClickEvent } from './chart';
 import { TimelineChart } from './chart';
 import '../../shared/components/code-icon';
 import '../../shared/components/progress';
 import '../../shared/components/button';
-import '../shared/components/plus-feature-welcome';
+import '../../shared/components/feature-gate';
 
 export class TimelineApp extends App<State> {
 	private _chart: TimelineChart | undefined;
@@ -86,10 +86,10 @@ export class TimelineApp extends App<State> {
 	}
 
 	private updateState(): void {
-		const $welcome = document.getElementsByTagName('plus-feature-welcome')?.[0] as PlusFeatureWelcome;
-		if ($welcome != null) {
-			$welcome.state = this.state.access.subscription.current.state;
-			$welcome.allowed = this.state.access.allowed === true || this.state.uri == null;
+		const $gate = document.getElementById('subscription-gate')! as FeatureGate;
+		if ($gate != null) {
+			$gate.state = this.state.access.subscription.current.state;
+			$gate.visible = this.state.access.allowed !== true && this.state.uri != null;
 		}
 
 		if (this._chart == null) {

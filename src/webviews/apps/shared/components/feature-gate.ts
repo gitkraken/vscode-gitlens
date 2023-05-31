@@ -1,10 +1,10 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { isSubscriptionStatePaidOrTrial, SubscriptionState } from '../../../../../subscription';
-import './plus-feature-gate';
+import { isSubscriptionStatePaidOrTrial, SubscriptionState } from '../../../../subscription';
+import '../../plus/shared/components/feature-gate-plus-state';
 
-@customElement('plus-feature-welcome')
-export class PlusFeatureWelcome extends LitElement {
+@customElement('gk-feature-gate')
+export class FeatureGate extends LitElement {
 	static override styles = css`
 		:host {
 			--background: var(--vscode-sideBar-background);
@@ -30,6 +30,14 @@ export class PlusFeatureWelcome extends LitElement {
 
 			backdrop-filter: blur(3px) saturate(0.8);
 			padding: 0 2rem;
+		}
+
+		::slotted(p) {
+			margin: revert !important;
+		}
+
+		::slotted(p:first-child) {
+			margin-top: 0 !important;
 		}
 
 		section {
@@ -60,15 +68,21 @@ export class PlusFeatureWelcome extends LitElement {
 			max-width: 600px;
 			max-height: min-content;
 			margin: 0.2rem auto;
-			padding: 0 1.3rem;
+			padding: 1.3rem;
+		}
+
+		:host-context(body[data-placement='editor']) section ::slotted(gk-button) {
+			display: block;
+			margin-left: auto;
+			margin-right: auto;
 		}
 	`;
 
-	@property({ type: Boolean })
-	allowed?: boolean;
-
-	@property({ type: Number })
+	@property({ attribute: false, type: Number })
 	state?: SubscriptionState;
+
+	@property({ type: Boolean })
+	visible?: boolean;
 
 	@property({ reflect: true })
 	get appearance() {
@@ -76,7 +90,7 @@ export class PlusFeatureWelcome extends LitElement {
 	}
 
 	override render() {
-		if (this.allowed || this.state == null || isSubscriptionStatePaidOrTrial(this.state)) {
+		if (!this.visible || (this.state != null && isSubscriptionStatePaidOrTrial(this.state))) {
 			this.hidden = true;
 			return undefined;
 		}
@@ -84,8 +98,13 @@ export class PlusFeatureWelcome extends LitElement {
 		this.hidden = false;
 		return html`
 			<section>
-				<slot hidden=${this.state === SubscriptionState.Free ? nothing : ''}></slot>
-				<plus-feature-gate appearance=${this.appearance} state=${this.state}></plus-feature-gate>
+				<slot>
+					<slot name="feature" hidden=${this.state === SubscriptionState.Free ? nothing : ''}></slot>
+				</slot>
+				<gk-feature-gate-plus-state
+					appearance=${this.appearance}
+					.state=${this.state}
+				></gk-feature-gate-plus-state>
 			</section>
 		`;
 	}

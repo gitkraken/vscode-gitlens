@@ -4,8 +4,8 @@ import { SubscriptionState } from '../../../../../subscription';
 import '../../../shared/components/button';
 import { linkStyles } from './vscode.css';
 
-@customElement('plus-feature-gate')
-export class PlusFeatureGate extends LitElement {
+@customElement('gk-feature-gate-plus-state')
+export class FeatureGatePlusState extends LitElement {
 	static override styles = [
 		linkStyles,
 		css`
@@ -13,17 +13,31 @@ export class PlusFeatureGate extends LitElement {
 				container-type: inline-size;
 			}
 
-			gk-button {
+			:host([appearance='welcome']) gk-button {
 				width: 100%;
 				max-width: 300px;
 			}
 
-			@container (max-width: 640px) {
-				gk-button {
+			@container (max-width: 600px) {
+				:host([appearance='welcome']) gk-button {
 					display: block;
 					margin-left: auto;
 					margin-right: auto;
 				}
+			}
+
+			:host([appearance='alert']) gk-button {
+				display: block;
+				margin-left: auto;
+				margin-right: auto;
+			}
+
+			:host-context([appearance='alert']) p:first-child {
+				margin-top: 0;
+			}
+
+			:host-context([appearance='alert']) p:last-child {
+				margin-bottom: 0;
 			}
 		`,
 	];
@@ -31,10 +45,16 @@ export class PlusFeatureGate extends LitElement {
 	@property({ type: String })
 	appearance?: 'alert' | 'welcome';
 
-	@property({ type: Number })
+	@property({ attribute: false, type: Number })
 	state?: SubscriptionState;
 
 	override render() {
+		if (this.state == null) {
+			this.hidden = true;
+			return undefined;
+		}
+
+		this.hidden = false;
 		const appearance = (this.appearance ?? 'alert') === 'alert' ? 'alert' : nothing;
 
 		switch (this.state) {
