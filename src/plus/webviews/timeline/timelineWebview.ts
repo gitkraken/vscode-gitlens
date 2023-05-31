@@ -55,7 +55,6 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 			etagSubscription: this.container.subscription.etag,
 		};
 
-		this.updatePendingEditor(window.activeTextEditor);
 		this._context = { ...this._context, ...this._pendingContext };
 		this._pendingContext = undefined;
 
@@ -133,6 +132,10 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 
 	onVisibilityChanged(visible: boolean) {
 		if (!visible) return;
+
+		if (this.host.isView()) {
+			this.updatePendingEditor(window.activeTextEditor);
+		}
 
 		// Since this gets called even the first time the webview is shown, avoid sending an update, because the bootstrap has the data
 		if (this._bootstraping) {
@@ -257,42 +260,30 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		const shortDateFormat = configuration.get('defaultDateShortFormat') ?? 'short';
 		const period = current.period ?? defaultPeriod;
 
-		if (current.uri == null) {
-			const access = await this.container.git.access(PlusFeatures.Timeline);
-			return {
-				timestamp: Date.now(),
-				emptyMessage: 'There are no editors open that can provide file history information',
-				period: period,
-				title: '',
-				dateFormat: dateFormat,
-				shortDateFormat: shortDateFormat,
-				access: access,
-			};
-		}
+		const gitUri = current.uri != null ? await GitUri.fromUri(current.uri) : undefined;
+		const repoPath = gitUri?.repoPath;
 
-		const gitUri = await GitUri.fromUri(current.uri);
-		const repoPath = gitUri.repoPath!;
+		if (this.host.isEditor()) {
+			this.host.title =
+				gitUri == null ? this.host.originalTitle : `${this.host.originalTitle}: ${gitUri.fileName}`;
+		} else {
+			this.host.description = gitUri?.fileName ?? '✨';
+		}
 
 		const access = await this.container.git.access(PlusFeatures.Timeline, repoPath);
-		if (access.allowed === false) {
-			const dataset = generateRandomTimelineDataset();
+
+		if (current.uri == null || gitUri == null || repoPath == null || access.allowed === false) {
+			const access = await this.container.git.access(PlusFeatures.Timeline, repoPath);
 			return {
 				timestamp: Date.now(),
-				dataset: dataset.sort((a, b) => b.sort - a.sort),
 				period: period,
-				title: 'src/app/index.ts',
-				uri: Uri.file('src/app/index.ts').toString(),
+				title: gitUri?.relativePath,
+				sha: gitUri?.shortSha,
+				uri: current.uri?.toString(),
 				dateFormat: dateFormat,
 				shortDateFormat: shortDateFormat,
 				access: access,
 			};
-		}
-
-		const title = gitUri.relativePath;
-		if (this.host.isEditor()) {
-			this.host.title = `${this.host.originalTitle}: ${gitUri.fileName}`;
-		} else {
-			this.host.description = gitUri.fileName;
 		}
 
 		const [currentUser, log] = await Promise.all([
@@ -308,9 +299,8 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 			return {
 				timestamp: Date.now(),
 				dataset: [],
-				emptyMessage: 'No commits found for the specified time period',
 				period: period,
-				title: title,
+				title: gitUri.relativePath,
 				sha: gitUri.shortSha,
 				uri: current.uri.toString(),
 				dateFormat: dateFormat,
@@ -368,7 +358,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 			timestamp: Date.now(),
 			dataset: dataset,
 			period: period,
-			title: title,
+			title: gitUri.relativePath,
 			sha: gitUri.shortSha,
 			uri: current.uri.toString(),
 			dateFormat: dateFormat,
@@ -377,8 +367,8 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		};
 	}
 
-	private updatePendingContext(context: Partial<Context>): boolean {
-		const [changed, pending] = updatePendingContext(this._context, this._pendingContext, context);
+	private updatePendingContext(context: Partial<Context>, force?: boolean): boolean {
+		const [changed, pending] = updatePendingContext(this._context, this._pendingContext, context, force);
 		if (changed) {
 			this._pendingContext = pending;
 		}
@@ -386,14 +376,14 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		return changed;
 	}
 
-	private updatePendingEditor(editor: TextEditor | undefined): boolean {
-		if (editor == null && hasVisibleTextEditor()) return false;
+	private updatePendingEditor(editor: TextEditor | undefined, force?: boolean): boolean {
+		if (editor == null && hasVisibleTextEditor(this._context.uri ?? this._pendingContext?.uri)) return false;
 		if (editor != null && !isTextEditor(editor)) return false;
 
-		return this.updatePendingUri(editor?.document.uri);
+		return this.updatePendingUri(editor?.document.uri, force);
 	}
 
-	private updatePendingUri(uri: Uri | undefined): boolean {
+	private updatePendingUri(uri: Uri | undefined, force?: boolean): boolean {
 		let etag;
 		if (uri != null) {
 			const repository = this.container.git.getRepository(uri);
@@ -402,19 +392,13 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 			etag = 0;
 		}
 
-		return this.updatePendingContext({ uri: uri, etagRepository: etag });
+		return this.updatePendingContext({ uri: uri, etagRepository: etag }, force);
 	}
 
 	private _notifyDidChangeStateDebounced: Deferrable<() => void> | undefined = undefined;
 
 	@debug()
 	private updateState(immediate: boolean = false) {
-		if (!this.host.ready || !this.host.visible) return;
-
-		if (this._pendingContext == null && this.host.isView()) {
-			this.updatePendingEditor(window.activeTextEditor);
-		}
-
 		if (immediate) {
 			void this.notifyDidChangeState();
 			return;
@@ -429,22 +413,17 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 
 	@debug()
 	private async notifyDidChangeState() {
-		if (!this.host.ready || !this.host.visible) return false;
-
 		this._notifyDidChangeStateDebounced?.cancel();
 		if (this._pendingContext == null) return false;
 
 		const context = { ...this._context, ...this._pendingContext };
+		this._context = context;
+		this._pendingContext = undefined;
 
-		const task = async () => {
-			const success = await this.host.notify(DidChangeNotificationType, {
+		const task = async () =>
+			this.host.notify(DidChangeNotificationType, {
 				state: await this.getState(context),
 			});
-			if (success) {
-				this._context = context;
-				this._pendingContext = undefined;
-			}
-		};
 
 		if (!this.host.isView()) return task();
 		return window.withProgress({ location: { viewId: this.host.id } }, task);
@@ -456,30 +435,6 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 
 		void commands.executeCommand(Commands.ShowTimelinePage, uri);
 	}
-}
-
-function generateRandomTimelineDataset(): Commit[] {
-	const dataset: Commit[] = [];
-	const authors = ['Eric Amodio', 'Justin Roberts', 'Ada Lovelace', 'Grace Hopper'];
-
-	const count = 10;
-	for (let i = 0; i < count; i++) {
-		// Generate a random date between now and 3 months ago
-		const date = new Date(new Date().getTime() - Math.floor(Math.random() * (3 * 30 * 24 * 60 * 60 * 1000)));
-
-		dataset.push({
-			commit: String(i),
-			author: authors[Math.floor(Math.random() * authors.length)],
-			date: date.toISOString(),
-			message: '',
-			// Generate random additions/deletions between 1 and 20, but ensure we have a tiny and large commit
-			additions: i === 0 ? 2 : i === count - 1 ? 50 : Math.floor(Math.random() * 20) + 1,
-			deletions: i === 0 ? 1 : i === count - 1 ? 25 : Math.floor(Math.random() * 20) + 1,
-			sort: date.getTime(),
-		});
-	}
-
-	return dataset;
 }
 
 function getPeriodDate(period: Period): Date | undefined {

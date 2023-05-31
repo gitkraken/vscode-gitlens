@@ -190,3 +190,11 @@ export function isSubscriptionPreviewTrialExpired(subscription: Optional<Subscri
 	const remaining = getTimeRemaining(subscription.previewTrial?.expiresOn);
 	return remaining != null ? remaining <= 0 : undefined;
 }
+
+export function isSubscriptionStatePaidOrTrial(state: SubscriptionState): boolean {
+	return (
+		state === SubscriptionState.Paid ||
+		state === SubscriptionState.FreeInPreviewTrial ||
+		state === SubscriptionState.FreePlusInTrial
+	);
+}

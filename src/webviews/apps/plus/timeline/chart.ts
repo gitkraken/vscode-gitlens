@@ -5,7 +5,7 @@ import { bar, bb, bubble, zoom } from 'billboard.js';
 // import { scaleSqrt } from 'd3-scale';
 import type { Commit, State } from '../../../../plus/webviews/timeline/protocol';
 import { formatDate, fromNow } from '../../shared/date';
-import type { Event } from '../../shared/events';
+import type { Disposable, Event } from '../../shared/events';
 import { Emitter } from '../../shared/events';
 
 export interface DataPointClickEvent {
@@ -15,7 +15,7 @@ export interface DataPointClickEvent {
 	};
 }
 
-export class TimelineChart {
+export class TimelineChart implements Disposable {
 	private _onDidClickDataPoint = new Emitter<DataPointClickEvent>();
 	get onDidClickDataPoint(): Event<DataPointClickEvent> {
 		return this._onDidClickDataPoint.event;
@@ -23,9 +23,9 @@ export class TimelineChart {
 
 	private readonly $container: HTMLElement;
 	private _chart: Chart | undefined;
-	private _chartDimensions: { height: number; width: number };
 	private readonly _resizeObserver: ResizeObserver;
 	private readonly _selector: string;
+	private _size: { height: number; width: number };
 
 	private readonly _commitsByTimestamp = new Map<string, Commit>();
 	private readonly _authorsByIndex = new Map<number, string>();
@@ -34,53 +34,75 @@ export class TimelineChart {
 	private _dateFormat: string = undefined!;
 	private _shortDateFormat: string = undefined!;
 
-	constructor(selector: string) {
+	private get compact(): boolean {
+		return this.placement !== 'editor';
+	}
+
+	constructor(selector: string, private readonly placement: 'editor' | 'view') {
 		this._selector = selector;
 
-		let idleRequest: number | undefined;
-
 		const fn = () => {
-			idleRequest = undefined;
-
-			const dimensions = this._chartDimensions;
+			const size = this._size;
 			this._chart?.resize({
-				width: dimensions.width,
-				height: dimensions.height - 10,
+				width: size.width,
+				height: size.height,
 			});
 		};
 
-		this._resizeObserver = new ResizeObserver(entries => {
-			const size = entries[0].borderBoxSize[0];
-			const dimensions = {
-				width: Math.floor(size.inlineSize),
-				height: Math.floor(size.blockSize),
-			};
-
-			if (
-				this._chartDimensions.height === dimensions.height &&
-				this._chartDimensions.width === dimensions.width
-			) {
-				return;
-			}
-
-			this._chartDimensions = dimensions;
-			if (idleRequest != null) {
-				cancelIdleCallback(idleRequest);
-				idleRequest = undefined;
-			}
-			idleRequest = requestIdleCallback(fn, { timeout: 1000 });
-		});
+		const widthOffset = this.compact ? 32 : 0;
+		const heightOffset = this.compact ? 16 : 0;
 
 		this.$container = document.querySelector(selector)!.parentElement!;
-		const rect = this.$container.getBoundingClientRect();
-		this._chartDimensions = { height: Math.floor(rect.height), width: Math.floor(rect.width) };
+		this._resizeObserver = new ResizeObserver(entries => {
+			const boxSize = entries[0].borderBoxSize[0];
+			const size = {
+				width: Math.floor(boxSize.inlineSize) + widthOffset,
+				height: Math.floor(boxSize.blockSize) + heightOffset,
+			};
 
-		this._resizeObserver.observe(this.$container);
+			this._size = size;
+			requestAnimationFrame(fn);
+		});
+
+		const rect = this.$container.getBoundingClientRect();
+		this._size = {
+			height: Math.floor(rect.height) + widthOffset,
+			width: Math.floor(rect.width) + heightOffset,
+		};
+
+		this._resizeObserver.observe(this.$container, { box: 'border-box' });
+	}
+
+	dispose(): void {
+		this._resizeObserver.disconnect();
+		this._chart?.destroy();
 	}
 
 	reset() {
 		this._chart?.unselect();
 		this._chart?.unzoom();
+	}
+
+	private setEmptyState(dataset: Commit[] | undefined, state: State) {
+		const $empty = document.getElementById('empty')!;
+		const $header = document.getElementById('header')!;
+
+		if (state.uri != null) {
+			if (dataset?.length === 0) {
+				$empty.innerHTML = '<p>No commits found for the specified time period.</p>';
+				$empty.removeAttribute('hidden');
+			} else {
+				$empty.setAttribute('hidden', '');
+			}
+			$header.removeAttribute('hidden');
+		} else if (dataset == null) {
+			$empty.innerHTML = '<p>There are no editors open that can provide file history information.</p>';
+			$empty.removeAttribute('hidden');
+			$header.setAttribute('hidden', '');
+		} else {
+			$empty.setAttribute('hidden', '');
+			$header.removeAttribute('hidden');
+		}
 	}
 
 	updateChart(state: State) {
@@ -91,21 +113,18 @@ export class TimelineChart {
 		this._authorsByIndex.clear();
 		this._indexByAuthors.clear();
 
-		if (state?.dataset == null || state.dataset.length === 0) {
+		let dataset = state?.dataset;
+		if (dataset == null && !state.access.allowed && this.placement === 'editor') {
+			dataset = generateRandomTimelineDataset();
+		}
+
+		this.setEmptyState(dataset, state);
+		if (dataset == null || dataset.length === 0) {
 			this._chart?.destroy();
 			this._chart = undefined;
 
-			const $overlay = document.getElementById('chart-empty-overlay') as HTMLDivElement;
-			$overlay?.classList.toggle('hidden', false);
-
-			const $emptyMessage = $overlay.querySelector<HTMLHeadingElement>('[data-bind="empty"]')!;
-			$emptyMessage.textContent = state.emptyMessage ?? '';
-
 			return;
 		}
-
-		const $overlay = document.getElementById('chart-empty-overlay') as HTMLDivElement;
-		$overlay?.classList.toggle('hidden', true);
 
 		const xs: { [key: string]: string } = {};
 		const colors: { [key: string]: string } = {};
@@ -128,7 +147,7 @@ export class TimelineChart {
 		// let minChanges = Infinity;
 		// let maxChanges = -Infinity;
 
-		// for (const commit of state.dataset) {
+		// for (const commit of dataset) {
 		// 	const changes = commit.additions + commit.deletions;
 		// 	if (changes < minChanges) {
 		// 		minChanges = changes;
@@ -140,7 +159,7 @@ export class TimelineChart {
 
 		// const bubbleScale = scaleSqrt([minChanges, maxChanges], [6, 100]);
 
-		for (commit of state.dataset) {
+		for (commit of dataset) {
 			({ author, date, additions, deletions } = commit);
 
 			if (!this._indexByAuthors.has(author)) {
@@ -211,48 +230,52 @@ export class TimelineChart {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 		const columns = Object.entries(series).map(([key, value]) => [key, ...value]);
 
-		if (this._chart == null) {
-			const options = this.getChartOptions();
+		try {
+			if (this._chart == null) {
+				const options = this.getChartOptions();
 
-			if (options.axis == null) {
-				options.axis = { y: { tick: {} } };
+				if (options.axis == null) {
+					options.axis = { y: { tick: {} } };
+				}
+				if (options.axis.y == null) {
+					options.axis.y = { tick: {} };
+				}
+				if (options.axis.y.tick == null) {
+					options.axis.y.tick = {};
+				}
+
+				options.axis.y.min = index - 2;
+				options.axis.y.tick.values = [...this._authorsByIndex.keys()];
+
+				options.data = {
+					...options.data,
+					axes: axes,
+					colors: colors,
+					columns: columns,
+					groups: groups,
+					names: names,
+					types: types,
+					xs: xs,
+				};
+
+				this._chart = bb.generate(options);
+			} else {
+				this._chart.config('axis.y.tick.values', [...this._authorsByIndex.keys()], false);
+				this._chart.config('axis.y.min', index - 2, false);
+				this._chart.groups(groups);
+
+				this._chart.load({
+					axes: axes,
+					colors: colors,
+					columns: columns,
+					names: names,
+					types: types,
+					xs: xs,
+					unload: true,
+				});
 			}
-			if (options.axis.y == null) {
-				options.axis.y = { tick: {} };
-			}
-			if (options.axis.y.tick == null) {
-				options.axis.y.tick = {};
-			}
-
-			options.axis.y.min = index - 2;
-			options.axis.y.tick.values = [...this._authorsByIndex.keys()];
-
-			options.data = {
-				...options.data,
-				axes: axes,
-				colors: colors,
-				columns: columns,
-				groups: groups,
-				names: names,
-				types: types,
-				xs: xs,
-			};
-
-			this._chart = bb.generate(options);
-		} else {
-			this._chart.config('axis.y.tick.values', [...this._authorsByIndex.keys()], false);
-			this._chart.config('axis.y.min', index - 2, false);
-			this._chart.groups(groups);
-
-			this._chart.load({
-				axes: axes,
-				colors: colors,
-				columns: columns,
-				names: names,
-				types: types,
-				xs: xs,
-				unload: true,
-			});
+		} catch (ex) {
+			debugger;
 		}
 	}
 
@@ -275,16 +298,20 @@ export class TimelineChart {
 					type: 'timeseries',
 					clipPath: false,
 					localtime: true,
+					show: true,
 					tick: {
-						// autorotate: true,
 						centered: true,
 						culling: false,
 						fit: false,
 						format: (x: number | Date) =>
-							typeof x === 'number' ? x : formatDate(x, this._shortDateFormat ?? 'short'),
+							this.compact
+								? ''
+								: typeof x === 'number'
+								? x
+								: formatDate(x, this._shortDateFormat ?? 'short'),
 						multiline: false,
-						// rotate: 15,
 						show: false,
+						outer: !this.compact,
 					},
 				},
 				y: {
@@ -295,22 +322,30 @@ export class TimelineChart {
 					},
 					show: true,
 					tick: {
-						format: (y: number) => this._authorsByIndex.get(y) ?? '',
-						outer: false,
+						format: (y: number) => (this.compact ? '' : this._authorsByIndex.get(y) ?? ''),
+						outer: !this.compact,
+						show: this.compact,
 					},
 				},
 				y2: {
-					label: {
-						text: 'Lines changed',
-						position: 'outer-middle',
-					},
+					padding: this.compact
+						? {
+								top: 0,
+								bottom: 0,
+						  }
+						: undefined,
+					label: this.compact
+						? undefined
+						: {
+								text: 'Lines changed',
+								position: 'outer-middle',
+						  },
 					// min: 0,
 					show: true,
-					// tick: {
-					// 	outer: true,
-					// 	// culling: true,
-					// 	// stepSize: 1,
-					// },
+					tick: {
+						format: (y: number) => (this.compact ? '' : y),
+						outer: !this.compact,
+					},
 				},
 			},
 			bar: {
@@ -340,16 +375,14 @@ export class TimelineChart {
 				},
 			},
 			legend: {
-				show: true,
+				show: !this.compact,
+				// hide: this.compact ? [...this._authorsByIndex.values()] : undefined,
 				padding: 10,
 			},
 			resize: {
 				auto: false,
 			},
-			size: {
-				height: this._chartDimensions.height - 10,
-				width: this._chartDimensions.width,
-			},
+			size: this._size,
 			tooltip: {
 				grouped: true,
 				format: {
@@ -435,4 +468,28 @@ export class TimelineChart {
 
 function capitalize(s: string): string {
 	return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function generateRandomTimelineDataset(): Commit[] {
+	const dataset: Commit[] = [];
+	const authors = ['Eric Amodio', 'Justin Roberts', 'Keith Daulton', 'Ramin Tadayon', 'Ada Lovelace', 'Grace Hopper'];
+
+	const count = 10;
+	for (let i = 0; i < count; i++) {
+		// Generate a random date between now and 3 months ago
+		const date = new Date(new Date().getTime() - Math.floor(Math.random() * (3 * 30 * 24 * 60 * 60 * 1000)));
+
+		dataset.push({
+			commit: String(i),
+			author: authors[Math.floor(Math.random() * authors.length)],
+			date: date.toISOString(),
+			message: '',
+			// Generate random additions/deletions between 1 and 20, but ensure we have a tiny and large commit
+			additions: i === 0 ? 2 : i === count - 1 ? 50 : Math.floor(Math.random() * 20) + 1,
+			deletions: i === 0 ? 1 : i === count - 1 ? 25 : Math.floor(Math.random() * 20) + 1,
+			sort: date.getTime(),
+		});
+	}
+
+	return dataset.sort((a, b) => b.sort - a.sort);
 }

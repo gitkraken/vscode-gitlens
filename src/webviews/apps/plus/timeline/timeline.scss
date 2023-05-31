@@ -1,3 +1,5 @@
+@use '../../shared/styles/properties';
+
 * {
 	box-sizing: border-box;
 }
@@ -14,11 +16,8 @@ body {
 	line-height: 1.4;
 	font-size: 100% !important;
 	overflow: hidden;
-	margin: 0 20px 20px 20px;
+	margin: 0;
 	padding: 0;
-
-	min-width: 400px;
-	overflow-x: scroll;
 }
 
 body[data-placement='editor'] {
@@ -57,72 +56,38 @@ h4 {
 	margin: 0.5rem 0 1rem 0;
 }
 
-a {
-	text-decoration: none;
-
-	&:focus {
-		outline-color: var(--focus-border);
-	}
-
-	&:hover {
-		text-decoration: underline;
-	}
-}
-
-b {
-	font-weight: 600;
-}
-
-p {
-	margin-bottom: 0;
-}
-
-vscode-button:not([appearance='icon']) {
-	align-self: center;
-	margin-top: 1.5rem;
-	max-width: 300px;
-	width: 100%;
-}
-
-span.button-subaction {
-	align-self: center;
-	margin-top: 0.75rem;
-}
-
-@media (min-width: 640px) {
-	vscode-button:not([appearance='icon']) {
-		align-self: flex-start;
-	}
-	span.button-subaction {
-		align-self: flex-start;
-	}
-}
-
 .header {
 	display: grid;
-	grid-template-columns: max-content min-content minmax(min-content, 1fr) max-content;
+	grid-template-columns: 1fr min-content;
 	align-items: baseline;
-	grid-template-areas: 'title sha description toolbox';
-	justify-content: start;
-	margin-bottom: 1rem;
+	grid-template-areas: 'context toolbox';
+	margin: 1rem;
 
-	@media all and (max-width: 500px) {
-		grid-template-areas:
-			'title sha description'
-			'empty toolbox';
-		grid-template-columns: max-content min-content minmax(min-content, 1fr);
+	body[data-placement='editor'] & {
+		margin-top: 0;
 	}
 
-	h2[data-bind='title'] {
-		grid-area: title;
-		margin-bottom: 0;
+	&--context {
+		grid-area: context;
+		display: grid;
+		grid-template-columns: minmax(0, min-content) minmax(0, min-content) minmax(0, 1fr);
+		gap: 0.5rem;
+		align-items: baseline;
+
+		h2 {
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			overflow: hidden;
+		}
+
+		body:not([data-placement='editor']) & {
+			display: none;
+		}
 	}
 
 	h2[data-bind='sha'] {
-		grid-area: sha;
 		font-size: 1.3em;
 		font-weight: 200;
-		margin-left: 1.5rem;
 		opacity: 0.7;
 		white-space: nowrap;
 
@@ -132,17 +97,16 @@ span.button-subaction {
 	}
 
 	h2[data-bind='description'] {
-		grid-area: description;
 		font-size: 1.3em;
 		font-weight: 200;
-		margin-left: 1.5rem;
+		margin-left: 0.5rem;
 		opacity: 0.7;
-		overflow-wrap: anywhere;
 	}
 
 	.toolbox {
 		grid-area: toolbox;
 		display: flex;
+		gap: 0.3rem;
 	}
 }
 
@@ -160,30 +124,32 @@ span.button-subaction {
 
 #content {
 	position: relative;
-	overflow: hidden;
 	width: 100%;
+	height: 100%;
 }
 
 #chart {
+	position: absolute !important;
 	height: 100%;
 	width: 100%;
-	overflow: hidden;
+
+	body:not([data-placement='editor']) & {
+		left: -16px;
+	}
 }
 
-#chart-empty-overlay {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-
+#empty {
 	position: absolute;
 	top: 0;
 	left: 0;
-	width: 100vw;
-	height: 60vh;
+	bottom: 0;
+	right: 0;
+	padding: 0.4rem 2rem 1.3rem 2rem;
 
-	h1 {
-		font-size: var(--font-size);
-		font-weight: 400;
+	font-size: var(--font-size);
+
+	p {
+		margin-top: 0;
 	}
 }
 
@@ -191,60 +157,28 @@ span.button-subaction {
 	display: none;
 }
 
-#overlay {
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-	font-size: 1.3em;
-	min-height: 100%;
-	padding: 0 2rem 2rem 2rem;
-
-	backdrop-filter: blur(3px) saturate(0.8);
-
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-}
-
-.modal {
-	max-width: 600px;
-	background: var(--color-hover-background) no-repeat left top;
-	background-image: var(--gl-plus-bg);
-	border: 1px solid var(--color-hover-border);
-	border-radius: 0.4rem;
-	margin: 1rem;
-	padding: 1.2rem;
-
-	> p:first-child {
-		margin-top: 0;
-	}
-
-	vscode-button:not([appearance='icon']) {
-		align-self: center !important;
+body[data-placement='editor'] {
+	[data-placement-hidden='editor'],
+	[data-placement-visible]:not([data-placement-visible='editor']) {
+		display: none !important;
 	}
 }
 
-.hidden {
+body[data-placement='view'] {
+	[data-placement-hidden='view'],
+	[data-placement-visible]:not([data-placement-visible='view']) {
+		display: none !important;
+	}
+}
+
+body:not([data-placement='editor']) {
+	.bb-tooltip-container {
+		padding-left: 16px;
+	}
+}
+
+[hidden] {
 	display: none !important;
 }
 
 @import './chart';
-@import '../../shared/codicons.scss';
-@import '../../shared/glicons.scss';
-
-.glicon {
-	vertical-align: middle;
-}
-
-.glicon,
-.codicon {
-	position: relative;
-	top: -1px;
-}
-
-.mt-tight {
-	margin-top: 0.3rem;
-}

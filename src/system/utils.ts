@@ -67,10 +67,13 @@ export function getQuickPickIgnoreFocusOut() {
 	return !configuration.get('advanced.quickPick.closeOnFocusOut');
 }
 
-export function hasVisibleTextEditor(): boolean {
+export function hasVisibleTextEditor(uri?: Uri): boolean {
 	if (window.visibleTextEditors.length === 0) return false;
 
-	return window.visibleTextEditors.some(e => isTextEditor(e));
+	if (uri == null) return window.visibleTextEditors.some(e => isTextEditor(e));
+
+	const url = uri.toString();
+	return window.visibleTextEditors.some(e => e.document.uri.toString() === url && isTextEditor(e));
 }
 
 export function isActiveDocument(document: TextDocument): boolean {
