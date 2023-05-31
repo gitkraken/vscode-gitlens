@@ -22,8 +22,8 @@ interface StoredSession {
 	scopes: string[];
 }
 
-const authenticationId = 'gitlens+';
-const authenticationLabel = 'GitLens+';
+export const authenticationProviderId = 'gitlens+';
+const authenticationLabel = 'GitKraken: GitLens';
 
 export class SubscriptionAuthenticationProvider implements AuthenticationProvider, Disposable {
 	private _onDidChangeSessions = new EventEmitter<AuthenticationProviderAuthenticationSessionsChangeEvent>();
@@ -39,7 +39,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 		this._sessionsPromise = this.getSessionsFromStorage();
 
 		this._disposable = Disposable.from(
-			authentication.registerAuthenticationProvider(authenticationId, authenticationLabel, this, {
+			authentication.registerAuthenticationProvider(authenticationProviderId, authenticationLabel, this, {
 				supportsMultipleAccounts: false,
 			}),
 			this.container.storage.onDidChangeSecrets(() => this.checkForUpdates()),
@@ -87,7 +87,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 			if (ex === 'Cancelled') throw ex;
 
 			Logger.error(ex, scope);
-			void window.showErrorMessage(`Unable to sign in to GitLens+: ${ex}`);
+			void window.showErrorMessage(`Unable to sign in to GitKraken: ${ex}`);
 			throw ex;
 		}
 	}
@@ -127,7 +127,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 			this._onDidChangeSessions.fire({ added: [], removed: [session], changed: [] });
 		} catch (ex) {
 			Logger.error(ex, scope);
-			void window.showErrorMessage(`Unable to sign out of GitLens+: ${ex}`);
+			void window.showErrorMessage(`Unable to sign out of GitKraken: ${ex}`);
 			throw ex;
 		}
 	}
@@ -163,7 +163,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 			this._onDidChangeSessions.fire({ added: [], removed: removed, changed: [] });
 		} catch (ex) {
 			Logger.error(ex, scope);
-			void window.showErrorMessage(`Unable to sign out of GitLens+: ${ex}`);
+			void window.showErrorMessage(`Unable to sign out of GitKraken: ${ex}`);
 			throw ex;
 		}
 	}

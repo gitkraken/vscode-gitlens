@@ -4498,12 +4498,12 @@
 			},
 			{
 				"command": "gitlens.plus.loginOrSignUp",
-				"title": "Sign In to GitLens+...",
+				"title": "Sign In to GitKraken...",
 				"category": "GitLens+"
 			},
 			{
 				"command": "gitlens.plus.logout",
-				"title": "Sign out of GitLens+",
+				"title": "Sign Out of GitKraken",
 				"category": "GitLens+"
 			},
 			{
@@ -4723,14 +4723,14 @@
 			{
 				"command": "gitlens.showSettingsPage#commit-graph",
 				"title": "Open Commit Graph Settings",
-				"category": "GitLens+",
+				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
 				"command": "gitlens.showTimelinePage",
 				"title": "Open Visual File History",
 				"category": "GitLens+",
-				"icon": "$(gitlens-history)"
+				"icon": "$(graph-scatter)"
 			},
 			{
 				"command": "gitlens.showStashesView",
@@ -6926,12 +6926,12 @@
 			{
 				"command": "gitlens.graph.switchToEditorLayout",
 				"title": "Switch Commit Graph to Editor Layout",
-				"category": "GitLens+"
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.graph.switchToPanelLayout",
 				"title": "Switch Commit Graph to Panel Layout",
-				"category": "GitLens+"
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.graph.push",
