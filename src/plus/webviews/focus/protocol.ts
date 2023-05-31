@@ -1,18 +1,16 @@
+import type { FeatureAccess } from '../../../features';
 import type { IssueShape } from '../../../git/models/issue';
 import type { PullRequestShape } from '../../../git/models/pullRequest';
-import type { Subscription } from '../../../subscription';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
 
-export type State = {
+export interface State {
 	timestamp: number;
 
-	isPlus: boolean;
-	subscription: Subscription;
+	access: FeatureAccess;
 	pullRequests?: PullRequestResult[];
 	issues?: IssueResult[];
 	repos?: RepoWithRichProvider[];
-	[key: string]: unknown;
-};
+}
 
 export interface SearchResultBase {
 	reasons: string[];
@@ -41,30 +39,16 @@ export interface RepoWithRichProvider {
 export interface OpenWorktreeParams {
 	pullRequest: PullRequestShape;
 }
-
 export const OpenWorktreeCommandType = new IpcCommandType<OpenWorktreeParams>('focus/pr/openWorktree');
 
 export interface SwitchToBranchParams {
 	pullRequest: PullRequestShape;
 }
-
 export const SwitchToBranchCommandType = new IpcCommandType<SwitchToBranchParams>('focus/pr/switchToBranch');
 
 // Notifications
 
-export interface DidChangeStateNotificationParams {
+export interface DidChangeParams {
 	state: State;
 }
-
-export const DidChangeStateNotificationType = new IpcNotificationType<DidChangeStateNotificationParams>(
-	'focus/state/didChange',
-	true,
-);
-
-export interface DidChangeSubscriptionParams {
-	subscription: Subscription;
-	isPlus: boolean;
-}
-export const DidChangeSubscriptionNotificationType = new IpcNotificationType<DidChangeSubscriptionParams>(
-	'graph/subscription/didChange',
-);
+export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('focus/didChange', true);
