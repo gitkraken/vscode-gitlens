@@ -22,8 +22,6 @@ import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/m
 import { getWorktreeForBranch } from '../../../git/models/worktree';
 import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
 import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
-import type { Subscription } from '../../../subscription';
-import { SubscriptionState } from '../../../subscription';
 import { executeCommand, registerCommand } from '../../../system/command';
 import { setContext } from '../../../system/context';
 import type { IpcMessage } from '../../../webviews/protocol';
@@ -31,12 +29,7 @@ import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import type { OpenWorktreeParams, State, SwitchToBranchParams } from './protocol';
-import {
-	DidChangeStateNotificationType,
-	DidChangeSubscriptionNotificationType,
-	OpenWorktreeCommandType,
-	SwitchToBranchCommandType,
-} from './protocol';
+import { DidChangeNotificationType, OpenWorktreeCommandType, SwitchToBranchCommandType } from './protocol';
 
 interface RepoWithRichRemote {
 	repo: Repository;
@@ -226,44 +219,19 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		});
 	}
 
-	private async onSubscriptionChanged(e: SubscriptionChangeEvent) {
+	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
 		if (e.etag === this._etagSubscription) return;
 
 		this._etagSubscription = e.etag;
-
-		const access = await this.container.git.access(PlusFeatures.Focus);
-		const { subscription, isPlus } = await this.getSubscription(access.subscription.current);
-		if (isPlus) {
-			void this.notifyDidChangeState();
-		}
-		return this.host.notify(DidChangeSubscriptionNotificationType, {
-			subscription: subscription,
-			isPlus: isPlus,
-		});
-	}
-
-	private async getSubscription(subscription?: Subscription) {
-		const currentSubscription = subscription ?? (await this.container.subscription.getSubscription(true));
-		const isPlus = ![
-			SubscriptionState.Free,
-			SubscriptionState.FreePreviewTrialExpired,
-			SubscriptionState.FreePlusTrialExpired,
-			SubscriptionState.VerificationRequired,
-		].includes(currentSubscription.state);
-
-		return {
-			subscription: currentSubscription,
-			isPlus: isPlus,
-		};
+		void this.notifyDidChangeState();
 	}
 
 	private async getState(deferState = false): Promise<State> {
-		const { subscription, isPlus } = await this.getSubscription();
-		if (!isPlus) {
+		const access = await this.container.git.access(PlusFeatures.Focus);
+		if (access.allowed !== true) {
 			return {
 				timestamp: Date.now(),
-				isPlus: isPlus,
-				subscription: subscription,
+				access: access,
 			};
 		}
 
@@ -275,8 +243,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		if (deferState || !hasConnectedRepos) {
 			return {
 				timestamp: Date.now(),
-				isPlus: isPlus,
-				subscription: subscription,
+				access: access,
 				repos: (hasConnectedRepos ? connectedRepos : githubRepos).map(r => serializeRepoWithRichRemote(r)),
 			};
 		}
@@ -299,8 +266,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 
 		return {
 			timestamp: Date.now(),
-			isPlus: isPlus,
-			subscription: subscription,
+			access: access,
 			pullRequests: serializedPrs,
 			issues: serializedIssues,
 			repos: connectedRepos.map(r => serializeRepoWithRichRemote(r)),
@@ -310,7 +276,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	async includeBootstrap(): Promise<State> {
 		if (this._bootstrapping) {
 			const state = await this.getState(true);
-			if (state.isPlus) {
+			if (state.access.allowed === true) {
 				void this.notifyDidChangeState();
 			}
 			return state;
@@ -460,11 +426,11 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private async notifyDidChangeState() {
-		if (!this.host.visible) return;
+		// if (!this.host.visible) return;
 
 		const state = await this.getState();
 		this._bootstrapping = false;
-		void this.host.notify(DidChangeStateNotificationType, { state: state });
+		void this.host.notify(DidChangeNotificationType, { state: state });
 	}
 }
 

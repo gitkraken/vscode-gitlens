@@ -1,20 +1,19 @@
-import { provideVSCodeDesignSystem, vsCodeButton } from '@vscode/webview-ui-toolkit';
 import type { PullRequestShape } from '../../../../git/models/pullRequest';
 import type { State } from '../../../../plus/webviews/focus/protocol';
 import {
-	DidChangeStateNotificationType,
-	DidChangeSubscriptionNotificationType,
+	DidChangeNotificationType,
 	OpenWorktreeCommandType,
 	SwitchToBranchCommandType,
 } from '../../../../plus/webviews/focus/protocol';
 import type { IpcMessage } from '../../../protocol';
-import { ExecuteCommandType, onIpc } from '../../../protocol';
+import { onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
 import type { AccountBadge } from '../../shared/components/account/account-badge';
+import type { FeatureGate } from '../../shared/components/feature-gate';
 import { DOM } from '../../shared/dom';
 import type { IssueRow } from './components/issue-row';
-import type { PlusContent } from './components/plus-content';
 import type { PullRequestRow } from './components/pull-request-row';
+import '../../shared/components/button';
 import '../../shared/components/code-icon';
 import '../../shared/components/avatars/avatar-item';
 import '../../shared/components/avatars/avatar-stack';
@@ -23,8 +22,8 @@ import '../../shared/components/table/table-row';
 import '../../shared/components/table/table-cell';
 import '../../shared/components/account/account-badge';
 import './components/issue-row';
-import './components/plus-content';
 import './components/pull-request-row';
+import '../../shared/components/feature-gate';
 import './focus.scss';
 
 export class FocusApp extends App<State> {
@@ -32,12 +31,10 @@ export class FocusApp extends App<State> {
 		super('FocusApp');
 	}
 
-	_prFilter?: string;
-	_issueFilter?: string;
+	private _prFilter?: string;
+	private _issueFilter?: string;
 
 	override onInitialize() {
-		this.log(`${this.appName}.onInitialize`);
-		provideVSCodeDesignSystem().register(vsCodeButton());
 		this.renderContent();
 	}
 
@@ -51,29 +48,15 @@ export class FocusApp extends App<State> {
 					this.renderPullRequests();
 				}),
 			),
-		);
-		disposables.push(
 			DOM.on('#issue-filter [data-tab]', 'click', e =>
 				this.onSelectTab(e, val => {
 					this._issueFilter = val;
 					this.renderIssues();
 				}),
 			),
-		);
-		disposables.push(
-			DOM.on('[data-action]', 'click', (e, target: HTMLElement) => this.onDataActionClicked(e, target)),
-		);
-		disposables.push(
-			DOM.on<PlusContent, string>('plus-content', 'action', (e, target: HTMLElement) =>
-				this.onPlusActionClicked(e, target),
-			),
-		);
-		disposables.push(
 			DOM.on<PullRequestRow, PullRequestShape>('pull-request-row', 'open-worktree', (e, target: HTMLElement) =>
 				this.onOpenWorktree(e, target),
 			),
-		);
-		disposables.push(
 			DOM.on<PullRequestRow, PullRequestShape>('pull-request-row', 'switch-branch', (e, target: HTMLElement) =>
 				this.onSwitchBranch(e, target),
 			),
@@ -92,36 +75,14 @@ export class FocusApp extends App<State> {
 		this.sendCommand(OpenWorktreeCommandType, { pullRequest: e.detail });
 	}
 
-	private onDataActionClicked(_e: MouseEvent, target: HTMLElement) {
-		const action = target.dataset.action;
-		this.onActionClickedCore(action);
-	}
-
-	private onPlusActionClicked(e: CustomEvent<string>, _target: HTMLElement) {
-		this.onActionClickedCore(e.detail);
-	}
-
-	private onActionClickedCore(action?: string) {
-		if (action?.startsWith('command:')) {
-			this.sendCommand(ExecuteCommandType, { command: action.slice(8) });
-		}
-	}
-
 	protected override onMessageReceived(e: MessageEvent) {
 		const msg = e.data as IpcMessage;
 		this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
 
 		switch (msg.method) {
-			case DidChangeStateNotificationType.method:
-				onIpc(DidChangeStateNotificationType, msg, params => {
+			case DidChangeNotificationType.method:
+				onIpc(DidChangeNotificationType, msg, params => {
 					this.state = { ...this.state, ...params.state };
-					this.setState(this.state);
-					this.renderContent();
-				});
-				break;
-			case DidChangeSubscriptionNotificationType.method:
-				onIpc(DidChangeSubscriptionNotificationType, msg, params => {
-					this.state = { ...this.state, subscription: params.subscription, isPlus: params.isPlus };
 					this.setState(this.state);
 					this.renderContent();
 				});
@@ -130,9 +91,21 @@ export class FocusApp extends App<State> {
 	}
 
 	renderContent() {
-		this.renderAccountState();
+		let $gate = document.getElementById('subscription-gate')! as FeatureGate;
+		if ($gate != null) {
+			$gate.state = this.state.access.subscription.current.state;
+			$gate.visible = this.state.access.allowed !== true;
+		}
 
-		if (this.state.isPlus) {
+		$gate = document.getElementById('connection-gate')! as FeatureGate;
+		if ($gate != null) {
+			$gate.visible = !(this.state.repos?.some(r => r.isConnected) ?? false);
+		}
+
+		const badgeEl = document.getElementById('account-badge')! as AccountBadge;
+		badgeEl.subscription = this.state.access.subscription.current;
+
+		if (this.state.access.allowed === true) {
 			this.renderPullRequests();
 			this.renderIssues();
 		}
@@ -201,29 +174,6 @@ export class FocusApp extends App<State> {
 				}
 			});
 		}
-	}
-
-	renderAccountState() {
-		const content = document.getElementById('content')!;
-		const accountOverlay = document.getElementById('account-overlay')!;
-		const connectOverlay = document.getElementById('connect-overlay')!;
-
-		if (!this.state.isPlus) {
-			content.setAttribute('aria-hidden', 'true');
-			accountOverlay.removeAttribute('hidden');
-			connectOverlay.setAttribute('hidden', 'true');
-		} else if (this.state.repos != null && this.state.repos.some(repo => repo.isConnected) === false) {
-			content.setAttribute('aria-hidden', 'true');
-			accountOverlay.setAttribute('hidden', 'true');
-			connectOverlay.removeAttribute('hidden');
-		} else {
-			content.removeAttribute('aria-hidden');
-			accountOverlay.setAttribute('hidden', 'true');
-			connectOverlay.setAttribute('hidden', 'true');
-		}
-
-		const badgeEl = document.getElementById('account-badge')! as AccountBadge;
-		badgeEl.subscription = this.state.subscription;
 	}
 
 	onSelectTab(e: Event, callback?: (val?: string) => void) {
