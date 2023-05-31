@@ -3937,7 +3937,7 @@
 					"gitlens.plusFeatures.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to hide or show GitLens+ features that are not accessible given the opened repositories and current subscription",
+						"markdownDescription": "Specifies whether to hide or show features that require a trial or subscription and are not accessible given the opened repositories and current trial or subscription",
 						"scope": "window",
 						"order": 60
 					},
@@ -4508,17 +4508,17 @@
 			},
 			{
 				"command": "gitlens.plus.startPreviewTrial",
-				"title": "Try GitLens+ Features Now",
+				"title": "Start Free Pro Trial",
 				"category": "GitLens+"
 			},
 			{
 				"command": "gitlens.plus.manage",
-				"title": "Manage Your GitLens+ Account...",
+				"title": "Manage Your Account...",
 				"category": "GitLens+"
 			},
 			{
 				"command": "gitlens.plus.purchase",
-				"title": "Upgrade to GitLens Pro...",
+				"title": "Upgrade to Pro...",
 				"category": "GitLens+"
 			},
 			{
@@ -13641,7 +13641,8 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Worktrees, a [✨ GitLens+ feature](command:gitlens.plus.learn \"Learn more about GitLens+ features\"), help you multitask by minimizing the context switching between branches, allowing you to easily work on different branches of a repository simultaneously.\n\nYou can create multiple working trees, each of which can be opened in individual windows or all together in a single workspace."
+				"contents": "Worktrees help you multitask by minimizing the context switching between branches, allowing you to easily work on different branches of a repository simultaneously.\n\nYou can create multiple working trees, each of which can be opened in individual windows or all together in a single workspace.",
+				"when": "!gitlens:plus:required || gitlens:plus:state == 0"
 			},
 			{
 				"view": "gitlens.views.worktrees",
@@ -13650,22 +13651,22 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Please verify your email\n\nTo use Worktrees, please verify your email address.\n\n[Resend verification email](command:gitlens.plus.resendVerification)\n\n[Refresh verification status](command:gitlens.plus.validate)",
+				"contents": "You must verify your email before you can continue.\n\n[Resend verification email](command:gitlens.plus.resendVerification)\n\n[Refresh verification status](command:gitlens.plus.validate)",
 				"when": "gitlens:plus:state == -1"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Try worktrees on private repos](command:gitlens.plus.startPreviewTrial)\n\nTo use worktrees and other [GitLens+ features](command:gitlens.plus.learn) on private repos, start a free trial of GitLens Pro, without an account, or [sign in](command:gitlens.plus.loginOrSignUp).",
+				"contents": "[Start Free Pro Trial](command:gitlens.plus.startPreviewTrial)\n\nInstantly start a free 3-day Pro trial, or [sign in](command:gitlens.plus.loginOrSignUp).\n✨ A trial or subscription is required to use this on privately hosted repos.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 0"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Extend Pro Trial](command:gitlens.plus.loginOrSignUp)\n\nYour free 3-day GitLens Pro trial has ended, extend your trial to get an additional 7-days of worktrees and other [GitLens+ features](command:gitlens.plus.learn) on private repos.",
+				"contents": "Your free 3-day Pro trial has ended, extend your free trial to get an additional 7-days, or [sign in](command:gitlens.plus.loginOrSignUp).\n\n[Extend Free Pro Trial](command:gitlens.plus.loginOrSignUp)\n✨ A trial or subscription is required to use this on privately hosted repos.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 2"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Upgrade to Pro](command:gitlens.plus.purchase)\n\nYour GitLens Pro trial has ended, please upgrade to GitLens Pro to continue to use worktrees and other [GitLens+ features](command:gitlens.plus.learn) on private repos.",
+				"contents": "Your Pro trial has ended, please upgrade to continue to use this on privately hosted repos.\n\n[Upgrade to Pro](command:gitlens.plus.purchase)\n✨ A subscription is required to use this on privately hosted repos.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4"
 			}
 		],

@@ -517,7 +517,7 @@ export async function ensurePaidPlan(providerName: string, container: Container)
 			const resend = { title: 'Resend Verification' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				`${title}\n\nYou must verify your email address before you can continue.`,
+				`${title}\n\nYou must verify your email before you can continue.`,
 				{ modal: true },
 				resend,
 				cancel,
@@ -536,10 +536,10 @@ export async function ensurePaidPlan(providerName: string, container: Container)
 		if (isSubscriptionPaidPlan(plan)) break;
 
 		if (subscription.account == null && !isSubscriptionPreviewTrialExpired(subscription)) {
-			const startTrial = { title: 'Start a GitLens Pro Trial' };
+			const startTrial = { title: 'Start Free Pro Trial' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				`${title}\n\nDo you want to also try GitLens+ features on private repos, free for 3 days?`,
+				`${title}\n\nDo you want to also try GitLens+ features on privately hosted repos, free for 3 days?`,
 				{ modal: true },
 				startTrial,
 				cancel,
@@ -550,10 +550,10 @@ export async function ensurePaidPlan(providerName: string, container: Container)
 			void container.subscription.startPreviewTrial();
 			break;
 		} else if (subscription.account == null) {
-			const signIn = { title: 'Extend Your GitLens Pro Trial' };
+			const signIn = { title: 'Extend Free Pro Trial' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				`${title}\n\nDo you want to continue to use GitLens+ features on private repos, free for an additional 7-days?`,
+				`${title}\n\nDo you want to continue to use GitLens+ features on privately hosted repos, free for an additional 7-days?`,
 				{ modal: true },
 				signIn,
 				cancel,
@@ -568,7 +568,7 @@ export async function ensurePaidPlan(providerName: string, container: Container)
 			const upgrade = { title: 'Upgrade to Pro' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				`${title}\n\nDo you want to continue to use GitLens+ features on private repos?`,
+				`${title}\n\nDo you want to continue to use GitLens+ features on privately hosted repos?`,
 				{ modal: true },
 				upgrade,
 				cancel,

@@ -43,20 +43,20 @@ export function createDirectiveQuickPickItem(
 				label = 'Try again';
 				break;
 			case Directive.StartPreviewTrial:
-				label = 'Start a GitLens Pro Trial';
-				detail = 'Try GitLens+ features on private repos, free for 3 days, without an account';
+				label = 'Start Free Pro Trial';
+				detail = 'Instantly start a free 3-day Pro trial to use this on privately hosted repos';
 				break;
 			case Directive.ExtendTrial:
-				label = 'Extend Your GitLens Pro Trial';
-				detail = 'To continue to use GitLens+ features on private repos, free for an additional 7-days';
+				label = 'Extend Free Pro Trial';
+				detail = 'Continue to use this on privately hosted repos, free for an additional 7-days';
 				break;
 			case Directive.RequiresVerification:
 				label = 'Resend Verification Email';
-				detail = 'You must verify your email address before you can continue';
+				detail = 'You must verify your email before you can continue';
 				break;
 			case Directive.RequiresPaidSubscription:
 				label = 'Upgrade to Pro';
-				detail = 'To use GitLens+ features on private repos';
+				detail = 'A subscription is required to use this on privately hosted repos';
 				break;
 		}
 	}
