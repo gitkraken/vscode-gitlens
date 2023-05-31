@@ -13,13 +13,14 @@ export class GKButton extends LitElement {
 				--button-background: var(--vscode-button-background);
 				--button-hover-background: var(--vscode-button-hoverBackground);
 				--button-padding: 0.4rem 1.1rem;
+				--button-line-height: 1.694;
 				--button-border: var(--vscode-button-border, transparent);
 
 				display: inline-block;
 				border: none;
 				font-family: inherit;
 				font-size: inherit;
-				line-height: 1.694;
+				line-height: var(--button-line-height);
 				text-align: center;
 				text-decoration: none;
 				user-select: none;
@@ -68,7 +69,7 @@ export class GKButton extends LitElement {
 				--button-foreground: var(--vscode-foreground);
 				--button-hover-background: var(--vscode-toolbar-hoverBackground);
 				--button-padding: 0.45rem 0.4rem 0.14rem 0.4rem;
-				line-height: 1.64;
+				--button-line-height: 1.64;
 			}
 
 			:host([appearance='alert']) {
@@ -76,8 +77,13 @@ export class GKButton extends LitElement {
 				--button-border: var(--color-alert-infoBorder);
 				--button-foreground: var(--color-button-foreground);
 				--button-hover-background: var(--color-alert-infoBorder);
-				--button-padding: 0.4rem;
-				line-height: 1.64;
+				--button-line-height: 1.64;
+				width: max-content;
+			}
+
+			:host([appearance='alert'][href]) > a {
+				display: block;
+				width: max-content;
 			}
 		`,
 	];
