@@ -245,6 +245,10 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		this._theme = window.activeColorTheme;
 		this.ensureRepositorySubscriptions();
 
+		if (this.host.isView()) {
+			this.host.description = '✨';
+		}
+
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),

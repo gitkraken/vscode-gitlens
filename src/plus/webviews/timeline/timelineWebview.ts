@@ -65,6 +65,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 				this.container.git.onDidChangeRepository(this.onRepositoryChanged, this),
 			);
 		} else {
+			this.host.description = '✨';
 			this._disposable = Disposable.from(
 				this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 				this.container.git.onDidChangeRepository(this.onRepositoryChanged, this),

@@ -253,7 +253,7 @@ export class SubscriptionService implements Disposable {
 				const confirm: MessageItem = { title: 'Resend Verification', isCloseAffordance: true };
 				const cancel: MessageItem = { title: 'Cancel' };
 				const result = await window.showInformationMessage(
-					`Before you can access ${effective.name}, you must verify your email address.`,
+					`You must verify your email before you can access ${effective.name}.`,
 					confirm,
 					cancel,
 				);
@@ -269,7 +269,7 @@ export class SubscriptionService implements Disposable {
 				const result = await window.showInformationMessage(
 					`Welcome to ${
 						effective.name
-					} (Trial). You now have additional access to GitLens+ features on private repos for ${pluralize(
+					} (Trial). You now have additional access to GitLens+ features on privately hosted repos for ${pluralize(
 						'more day',
 						remaining ?? 0,
 					)}.`,
@@ -283,7 +283,7 @@ export class SubscriptionService implements Disposable {
 				}
 			} else if (isSubscriptionPaid(this._subscription)) {
 				void window.showInformationMessage(
-					`Welcome to ${actual.name}. You now have additional access to GitLens+ features on private repos.`,
+					`Welcome to ${actual.name}. You now have additional access to GitLens+ features on privately hosted repos.`,
 					'OK',
 				);
 			} else {
@@ -454,7 +454,7 @@ export class SubscriptionService implements Disposable {
 				const confirm: MessageItem = { title: 'Extend Your Trial', isCloseAffordance: true };
 				const cancel: MessageItem = { title: 'Cancel' };
 				const result = await window.showInformationMessage(
-					'Your 3-day trial has ended.\nExtend your GitLens Pro trial to continue to use GitLens+ features on private repos, free for an additional 7-days.',
+					'Your free 3-day trial has ended, extend your free trial to get an additional 7-days.\n\n✨ A trial or subscription is required to use GitLens+ features on privately hosted repos.',
 					{ modal: true },
 					confirm,
 					cancel,
@@ -500,7 +500,7 @@ export class SubscriptionService implements Disposable {
 			const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
 			const learn: MessageItem = { title: 'Learn More' };
 			const result = await window.showInformationMessage(
-				`You have started a ${days}-day GitLens Pro trial of GitLens+ features on private repos.`,
+				`You have started a free ${days}-day Pro trial of GitLens+ features on privately hosted repos.`,
 				{ modal: true },
 				confirm,
 				learn,
@@ -1046,8 +1046,8 @@ export class SubscriptionService implements Disposable {
 			);
 			this._statusBarSubscription.tooltip = new MarkdownString(
 				trial
-					? `**Please verify your email**\n\nBefore you can start your **${effective.name}** trial, please verify your email address.\n\nClick for details`
-					: `**Please verify your email**\n\nBefore you can also use GitLens+ features on private repos, please verify your email address.\n\nClick for details`,
+					? `**Please verify your email**\n\nYou must verify your email before you can start your **${effective.name}** trial.\n\nClick for details`
+					: `**Please verify your email**\n\nYou must verify your email before you can also use GitLens+ features on privately hosted repos.\n\nClick for details`,
 				true,
 			);
 		} else {
@@ -1055,9 +1055,9 @@ export class SubscriptionService implements Disposable {
 
 			this._statusBarSubscription.text = `${effective.name} (Trial)`;
 			this._statusBarSubscription.tooltip = new MarkdownString(
-				`You have ${pluralize('day', remaining ?? 0)} left in your **${
+				`You have ${pluralize('day', remaining ?? 0)} left in your free **${
 					effective.name
-				}** trial, which gives you additional access to GitLens+ features on private repos.\n\nClick for details`,
+				}** trial, which gives you additional access to GitLens+ features on privately hosted repos.\n\nClick for details`,
 				true,
 			);
 		}

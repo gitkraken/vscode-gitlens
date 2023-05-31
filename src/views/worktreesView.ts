@@ -11,11 +11,10 @@ import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import type { GitWorktree } from '../git/models/worktree';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
-import { getSubscriptionTimeRemaining, SubscriptionState } from '../subscription';
+import { SubscriptionState } from '../subscription';
 import { executeCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
-import { pluralize } from '../system/string';
 import { RepositoryNode } from './nodes/repositoryNode';
 import type { ViewNode } from './nodes/viewNode';
 import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
@@ -148,25 +147,7 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 
 	private async updateDescription() {
 		const subscription = await this.container.subscription.getSubscription();
-
-		switch (subscription.state) {
-			case SubscriptionState.Free:
-			case SubscriptionState.FreePreviewTrialExpired:
-			case SubscriptionState.FreePlusTrialExpired:
-				this.description = '✨ GitLens+ feature';
-				break;
-			case SubscriptionState.FreeInPreviewTrial:
-			case SubscriptionState.FreePlusInTrial: {
-				const days = getSubscriptionTimeRemaining(subscription, 'days')!;
-				this.description = `✨ GitLens Pro (Trial), ${days < 1 ? '<1 day' : pluralize('day', days)} left`;
-				break;
-			}
-			case SubscriptionState.VerificationRequired:
-				this.description = `✨ ${subscription.plan.effective.name} (Unverified)`;
-				break;
-			case SubscriptionState.Paid:
-				this.description = undefined;
-		}
+		this.description = subscription.state === SubscriptionState.Paid ? undefined : '✨';
 	}
 
 	protected getRoot() {

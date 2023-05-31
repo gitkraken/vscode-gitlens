@@ -2421,12 +2421,13 @@ export async function* ensureAccessStep<
 	let placeholder: string;
 	if (access.subscription.current.account?.verified === false) {
 		directives.push(createDirectiveQuickPickItem(Directive.RequiresVerification, true));
-		placeholder = 'You must verify your email address before you can continue';
+		placeholder = 'You must verify your email before you can continue';
 	} else {
 		if (access.subscription.required == null) return undefined;
 
-		placeholder = 'You need GitLens Pro to access GitLens+ features on this repo';
+		placeholder = '✨ Requires a trial or subscription for use on privately hosted repos';
 		if (isSubscriptionPaidPlan(access.subscription.required) && access.subscription.current.account != null) {
+			placeholder = '✨ Requires a subscription for use on privately hosted repos';
 			directives.push(createDirectiveQuickPickItem(Directive.RequiresPaidSubscription, true));
 		} else if (
 			access.subscription.current.account == null &&
