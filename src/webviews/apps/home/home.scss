@@ -1,3 +1,4 @@
+@use '../shared/styles/utils';
 @use '../shared/styles/properties';
 
 :root {
@@ -100,18 +101,9 @@ body {
 }
 
 :focus {
-	outline-color: var(--vscode-focusBorder);
+	@include utils.focus();
 }
 
-.sr-skip {
-	position: fixed;
-	z-index: var(--gitlens-z-popover);
-	top: 0.2rem;
-	left: 0.2rem;
-	display: inline-block;
-	padding: 0.2rem 0.4rem;
-	background-color: var(--color-view-background);
-}
 .sr-only,
 .sr-only-focusable:not(:active):not(:focus) {
 	clip: rect(0 0 0 0);
@@ -123,26 +115,11 @@ body {
 	white-space: nowrap;
 }
 
-h3 {
-	border: none;
-	color: var(--color-view-header-foreground);
-	font-size: 1.5rem;
-	font-weight: 600;
-	margin-bottom: 0;
-	white-space: nowrap;
-}
-
-h4 {
-	font-size: 1.5rem;
-	font-weight: 400;
-	margin: 1rem 0;
-}
-
 a {
 	text-decoration: none;
 
 	&:focus {
-		outline-color: var(--focus-border);
+		@include utils.focus();
 	}
 
 	&:hover {

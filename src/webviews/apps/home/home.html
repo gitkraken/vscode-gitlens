@@ -5,10 +5,8 @@
 	</head>
 
 	<body class="home preload" data-placement="#{placement}">
-		<a href="#links" class="sr-skip sr-only-focusable">skip to links</a>
-		<a href="#main" class="sr-skip sr-only-focusable">skip to main content</a>
 		<div class="home__nav">
-			<nav class="inline-nav" id="links" tabindex="-1" aria-label="Help and Resources">
+			<nav class="inline-nav" id="links" aria-label="Help and Resources">
 				<div class="inline-nav__group">
 					<a
 						class="inline-nav__link inline-nav__link--text"
@@ -104,9 +102,9 @@
 				</div>
 			</div>
 		</header>
-		<main class="home__main scrollable" id="main" tabindex="-1">
+		<main class="home__main scrollable" id="main">
 			<nav class="nav-list">
-				<h3 class="nav-list__title t-eyebrow">Popular views</h3>
+				<h2 class="nav-list__title t-eyebrow">Popular views</h2>
 				<a
 					class="nav-list__item"
 					href="command:gitlens.showGraph"
@@ -157,7 +155,7 @@
 				>
 			</nav>
 			<nav class="nav-list">
-				<h3 class="nav-list__title t-eyebrow">Activity Bar</h3>
+				<h2 class="nav-list__title t-eyebrow">Activity Bar</h2>
 				<a
 					class="nav-list__item"
 					href="command:workbench.view.extension.gitlens"
@@ -184,7 +182,7 @@
 				>
 			</nav>
 			<nav class="nav-list">
-				<h3 class="nav-list__title t-eyebrow">Configuration</h3>
+				<h2 class="nav-list__title t-eyebrow">Configuration</h2>
 				<a
 					class="nav-list__item"
 					href="command:gitlens.showSettingsPage"
@@ -193,9 +191,17 @@
 					><code-icon class="nav-list__icon" icon="gear"></code-icon
 					><span class="nav-list__label">GitLens Settings</span></a
 				>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showSettingsPage?%22autolinks%22"
+					title="Open Autolinks Settings"
+					aria-label="Open Autolinks Settings"
+					><code-icon class="nav-list__icon" icon="code"></code-icon
+					><span class="nav-list__label">Autolinks Settings</span></a
+				>
 			</nav>
 			<nav class="nav-list">
-				<h3 class="nav-list__title t-eyebrow">Getting Started</h3>
+				<h2 class="nav-list__title t-eyebrow">Getting Started</h2>
 				<a
 					class="nav-list__item"
 					href="command:gitlens.showWelcomePage"
