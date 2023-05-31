@@ -329,6 +329,7 @@ function getWebviewsConfig(mode, env) {
 		getHtmlPlugin('timeline', true, mode, env),
 		getHtmlPlugin('welcome', false, mode, env),
 		getHtmlPlugin('focus', true, mode, env),
+		getHtmlPlugin('account', true, mode, env),
 		getCspHtmlPlugin(mode, env),
 		new InlineChunkHtmlPlugin(HtmlPlugin, mode === 'production' ? ['\\.css$'] : []),
 		new CopyPlugin({
@@ -392,6 +393,7 @@ function getWebviewsConfig(mode, env) {
 			timeline: './plus/timeline/timeline.ts',
 			welcome: './welcome/welcome.ts',
 			focus: './plus/focus/focus.ts',
+			account: './plus/account/account.ts',
 		},
 		mode: mode,
 		target: 'web',

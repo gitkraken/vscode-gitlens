@@ -31,7 +31,8 @@ export type TrackedUsageFeatures =
 	| 'timelineView'
 	| 'welcomeWebview'
 	| 'workspaceView'
-	| 'focusWebview';
+	| 'focusWebview'
+	| 'accountView';
 export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown`;
 
 export type UsageChangeEvent = {

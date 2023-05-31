@@ -23,6 +23,7 @@ import { IntegrationAuthenticationService } from './plus/integrationAuthenticati
 import { SubscriptionAuthenticationProvider } from './plus/subscription/authenticationProvider';
 import { ServerConnection } from './plus/subscription/serverConnection';
 import { SubscriptionService } from './plus/subscription/subscriptionService';
+import { registerAccountWebviewView } from './plus/webviews/account/registration';
 import { registerFocusWebviewPanel } from './plus/webviews/focus/registration';
 import {
 	registerGraphWebviewCommands,
@@ -250,6 +251,7 @@ export class Container {
 		this._disposables.push((this._searchAndCompareView = new SearchAndCompareView(this)));
 
 		this._disposables.push((this._homeView = registerHomeWebviewView(this._webviews)));
+		this._disposables.push((this._accountView = registerAccountWebviewView(this._webviews)));
 
 		if (configuration.get('terminalLinks.enabled')) {
 			this._disposables.push((this._terminalLinks = new GitTerminalLinkProvider(this)));
@@ -482,6 +484,11 @@ export class Container {
 	private readonly _homeView: WebviewViewProxy;
 	get homeView() {
 		return this._homeView;
+	}
+
+	private readonly _accountView: WebviewViewProxy;
+	get accountView() {
+		return this._accountView;
 	}
 
 	@memoize()
