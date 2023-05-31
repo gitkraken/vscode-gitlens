@@ -14,7 +14,7 @@ export function registerWelcomeWebviewPanel(controller: WebviewsController) {
 			contextKeyPrefix: `gitlens:webview:welcome`,
 			trackingFeature: 'welcomeWebview',
 			plusFeature: false,
-			column: ViewColumn.Beside,
+			column: ViewColumn.Active,
 			webviewHostOptions: {
 				retainContextWhenHidden: false,
 				enableFindWidget: true,
