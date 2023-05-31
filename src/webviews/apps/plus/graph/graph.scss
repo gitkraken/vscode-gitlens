@@ -755,9 +755,9 @@ button:not([disabled]),
 
 	&--files {
 		&::before {
-			// codicon-files
+			// codicon-file
 			font-family: codicon;
-			content: '\eaf0';
+			content: '\eb60';
 		}
 	}
 }
