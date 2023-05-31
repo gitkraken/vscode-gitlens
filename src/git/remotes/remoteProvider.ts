@@ -1,5 +1,5 @@
-import type { Range } from 'vscode';
-import { env, Uri } from 'vscode';
+import type { Range, Uri } from 'vscode';
+import { env } from 'vscode';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
 import { encodeUrl } from '../../system/encoding';
@@ -139,17 +139,11 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 	}
 
 	private async openUrl(url?: string): Promise<boolean | undefined> {
-		if (url == null) {
-			return undefined;
-		}
+		if (url == null) return undefined;
 
-		const uri = Uri.parse(url);
 		// Pass a string to openExternal to avoid double encoding issues: https://github.com/microsoft/vscode/issues/85930
-		if (uri.path.includes('#')) {
-			// .d.ts currently says it only supports a Uri, but it actually accepts a string too
-			return (env.openExternal as unknown as (target: string) => Thenable<boolean>)(uri.toString());
-		}
-		return env.openExternal(uri);
+		// vscode.d.ts currently says it only supports a Uri, but it actually accepts a string too
+		return (env.openExternal as unknown as (target: string) => Thenable<boolean>)(url);
 	}
 
 	protected encodeUrl(url: string): string;
