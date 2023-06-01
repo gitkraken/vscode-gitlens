@@ -57,6 +57,8 @@
 					In-editor code annotations and rich hovers help you better understand how code changed and by whom
 				</p>
 
+				<!-- Don't reformat or let prettier reformat the SVG otherwise whitespace will get added incorrect and screw up the positioning -->
+				<!-- prettier-ignore -->
 				<svg
 					class="editor welcome__illustration"
 					width="600"
@@ -66,26 +68,10 @@
 					xmlns="http://www.w3.org/2000/svg"
 				>
 					<g class="editor-codelens" data-feature-codelens="on">
-						<text y="18">
-							<tspan x="38">Eric Amodio, 3 minutes ago | 1 author (Eric Amodio)</tspan>
-						</text>
+						<text y="18"><tspan x="38">Eric Amodio, 3 minutes ago | 1 author (Eric Amodio)</tspan></text>
 					</g>
 					<g class="editor-line">
-						<text y="34">
-							<tspan x="7" class="editor-line-number">12</tspan>
-							<tspan x="38" class="editor-function-declaration">function</tspan>
-							<tspan class="editor-function-name">gitlens</tspan>
-							<tspan dx="-6" class="editor-punctuation">(</tspan>
-							<tspan dx="-6" class="editor-function-argument">code</tspan>
-							<tspan dx="-6" class="editor-punctuation">:</tspan>
-							<tspan class="editor-function-argument-type">string</tspan>
-							<tspan dx="-6" class="editor-punctuation">)</tspan>
-							<tspan class="editor-punctuation">{</tspan>
-							<tspan dx="-6" class="editor-cursor">|</tspan>
-							<tspan dx="6" class="editor-blame" data-feature-blame="on">
-								You, 6 years ago via PR #1 • Supercharge Git
-							</tspan>
-						</text>
+						<text y="34"><tspan x="7" class="editor-line-number">12</tspan><tspan x="38" class="editor-function-declaration">function</tspan><tspan dx="6" class="editor-function-name">gitlens</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">:</tspan><tspan dx="6" class="editor-function-argument-type">object</tspan><tspan class="editor-punctuation">)</tspan><tspan dx="6" class="editor-punctuation">{</tspan><tspan class="editor-cursor">|</tspan><tspan dx="24" class="editor-blame" data-feature-blame="on">You, 6 years ago via PR #1 • Supercharge Git</tspan></text>
 					</g>
 				</svg>
 
@@ -151,6 +137,8 @@
 					</svg>
 				</p>
 
+				<!-- Don't reformat or let prettier reformat the SVG otherwise whitespace will get added incorrect and screw up the positioning -->
+				<!-- prettier-ignore -->
 				<svg
 					class="editor welcome__illustration"
 					width="600"
@@ -161,12 +149,8 @@
 				>
 					<g class="editor-line">
 						<rect class="editor-line-current" x="0" y="21" width="calc(100% - 1px)" height="21"></rect>
-						<text y="14">
-							<tspan x="7" class="editor-line-number">12</tspan>
-						</text>
-						<text y="36">
-							<tspan x="7" class="editor-line-number-active">13</tspan>
-						</text>
+						<text y="14"><tspan x="7" class="editor-line-number">12</tspan></text>
+						<text y="36"><tspan x="7" class="editor-line-number-active">13</tspan></text>
 					</g>
 					<g class="editor-blame-block">
 						<rect class="editor-gutter" x="28" y="0" width="242" height="100%"></rect>
@@ -175,42 +159,19 @@
 								<circle cx="42" cy="9" r="7"></circle>
 								<text x="42" y="11.5" text-anchor="middle">EA</text>
 							</g>
-							<text y="14">
-								<tspan x="58" class="editor-gutter-text">Hello GitLens</tspan>
-								<tspan x="274" dx="-12" text-anchor="end" class="editor-gutter-text">6 yrs ago</tspan>
-							</text>
+							<text y="14"><tspan x="58" class="editor-gutter-text">Hello GitLens</tspan><tspan x="274" dx="-12" text-anchor="end" class="editor-gutter-text">6 yrs ago</tspan></text>
 							<g class="editor-gutter-avatar">
 								<circle cx="42" cy="31" r="7"></circle>
 								<text x="42" y="33.5" text-anchor="middle">EA</text>
 							</g>
-							<text y="36">
-								<tspan x="58" class="editor-gutter-text">Supercharged</tspan>
-								<tspan x="274" dx="-12" text-anchor="end" class="editor-gutter-text">5 yrs ago</tspan>
-							</text>
+							<text y="36"><tspan x="58" class="editor-gutter-text">Supercharged</tspan><tspan x="274" dx="-12" text-anchor="end" class="editor-gutter-text">5 yrs ago</tspan></text>
 						</g>
 						<line class="editor-heatmap" x1="270" y1="0" x2="270" y2="100%" />
 					</g>
 					<g class="editor-code-block">
 						<g class="editor-line">
-							<text y="14">
-								<tspan x="278" class="editor-function-declaration">function</tspan>
-								<tspan class="editor-function-name">gitlens</tspan>
-								<tspan dx="-6" class="editor-punctuation">(</tspan>
-								<tspan dx="-6" class="editor-function-argument">code</tspan>
-								<tspan dx="-6" class="editor-punctuation">:</tspan>
-								<tspan class="editor-function-argument-type">string</tspan>
-								<tspan dx="-6" class="editor-punctuation">)</tspan>
-								<tspan class="editor-punctuation">{</tspan>
-							</text>
-							<text y="36">
-								<tspan x="278" dx="24" class="editor-function-return">return</tspan>
-								<tspan class="editor-function-name">supercharged</tspan>
-								<tspan dx="-6" class="editor-punctuation">(</tspan>
-								<tspan dx="-6" class="editor-function-argument">code</tspan>
-								<tspan dx="-6" class="editor-punctuation">)</tspan>
-								<tspan dx="-6" class="editor-punctuation">;</tspan>
-								<tspan dx="-6" class="editor-cursor">|</tspan>
-							</text>
+							<text y="14"><tspan x="278" class="editor-function-declaration">function</tspan><tspan dx="6" class="editor-function-name">gitlens</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">:</tspan><tspan dx="6" class="editor-function-argument-type">object</tspan><tspan class="editor-punctuation">)</tspan><tspan dx="6" class="editor-punctuation">{</tspan></text>
+							<text y="36"><tspan x="278" dx="24" class="editor-function-return">return</tspan><tspan dx="6" class="editor-function-name">supercharged</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">)</tspan><tspan class="editor-punctuation">;</tspan><tspan class="editor-cursor">|</tspan></text>
 						</g>
 					</g>
 				</svg>
@@ -258,6 +219,8 @@
 					</svg>
 				</p>
 
+				<!-- Don't reformat or let prettier reformat the SVG otherwise whitespace will get added incorrect and screw up the positioning -->
+				<!-- prettier-ignore -->
 				<svg
 					class="editor welcome__illustration"
 					width="600"
@@ -277,53 +240,12 @@
 					<!-- <rect class="editor-added-text" x="433" y="21" width="38" height="21"></rect> -->
 					<rect class="editor-line-current" x="0" y="21" width="calc(100% - 1px)" height="21"></rect>
 					<g class="editor-line editor-line-left" style="clip-path: url(#left-clip)">
-						<text y="14">
-							<tspan x="7" class="editor-line-number">12</tspan>
-							<tspan x="40" class="editor-function-declaration">function</tspan>
-							<tspan class="editor-function-name">gitlens</tspan>
-							<tspan dx="-6" class="editor-punctuation">(</tspan>
-							<tspan dx="-6" class="editor-function-argument">code</tspan>
-							<tspan dx="-6" class="editor-punctuation">:</tspan>
-							<tspan class="editor-function-argument-type">string</tspan>
-							<tspan dx="-6" class="editor-punctuation">)</tspan>
-							<tspan class="editor-punctuation">{</tspan>
-						</text>
-						<text y="36">
-							<tspan x="7" class="editor-line-number">13</tspan>
-							<tspan x="40" dx="24" class="editor-function-return">return</tspan>
-							<tspan class="editor-function-name">supercharged</tspan>
-							<tspan dx="-6" class="editor-punctuation">(</tspan>
-							<tspan dx="-6" class="editor-function-argument">code</tspan>
-							<tspan dx="-6" class="editor-punctuation">)</tspan>
-							<tspan dx="-6" class="editor-punctuation">;</tspan>
-						</text>
+						<text y="14"><tspan x="7" class="editor-line-number">12</tspan><tspan x="40" class="editor-function-declaration">function</tspan><tspan dx="6" class="editor-function-name">gitlens</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">:</tspan><tspan dx="6" class="editor-function-argument-type">object</tspan><tspan class="editor-punctuation">)</tspan><tspan dx="6" class="editor-punctuation">{</tspan></text>
+						<text y="36"><tspan x="7" class="editor-line-number">13</tspan><tspan x="40" dx="24" class="editor-function-return">return</tspan><tspan dx="6" class="editor-function-name">supercharged</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">)</tspan><tspan class="editor-punctuation">;</tspan></text>
 					</g>
 					<g class="editor-line editor-line-right">
-						<text y="14">
-							<tspan x="290" class="editor-line-number">12</tspan>
-							<tspan x="323" class="editor-function-declaration">function</tspan>
-							<tspan class="editor-function-name">gitlens</tspan>
-							<tspan dx="-6" class="editor-punctuation">(</tspan>
-							<tspan dx="-6" class="editor-function-argument">code</tspan>
-							<tspan dx="-6" class="editor-punctuation">:</tspan>
-							<tspan class="editor-function-argument-type">string</tspan>
-							<tspan dx="-6" class="editor-punctuation">)</tspan>
-							<tspan class="editor-punctuation">{</tspan>
-						</text>
-						<text y="36">
-							<tspan x="290" class="editor-line-number">13</tspan>
-							<tspan x="323" dx="24" class="editor-function-return">return</tspan>
-							<tspan class="editor-function-name">
-								<tspan>super</tspan>
-								<tspan dx="-6" class="editor-added-text">DuperC</tspan>
-								<tspan dx="-6">harged</tspan>
-							</tspan>
-							<tspan dx="-6" class="editor-punctuation">(</tspan>
-							<tspan dx="-6" class="editor-function-argument">code</tspan>
-							<tspan dx="-6" class="editor-punctuation">)</tspan>
-							<tspan dx="-6" class="editor-punctuation">;</tspan>
-							<tspan dx="-6" class="editor-cursor">|</tspan>
-						</text>
+						<text y="14"><tspan x="290" class="editor-line-number">12</tspan><tspan x="323" class="editor-function-declaration">function</tspan><tspan dx="6" class="editor-function-name">gitlens</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">:</tspan><tspan dx="6" class="editor-function-argument-type">object</tspan><tspan class="editor-punctuation">)</tspan><tspan dx="6" class="editor-punctuation">{</tspan></text>
+						<text y="36"><tspan x="290" class="editor-line-number">13</tspan><tspan x="323" dx="24" class="editor-function-return">return</tspan><tspan dx="6" class="editor-function-name"><tspan>super</tspan><tspan class="editor-added-text">DuperC</tspan><tspan>harged</tspan></tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">)</tspan><tspan class="editor-punctuation">;</tspan><tspan class="editor-cursor">|</tspan></text>
 					</g>
 					<line class="editor-splitter" x1="280" y1="0" x2="280" y2="100%" />
 				</svg>
