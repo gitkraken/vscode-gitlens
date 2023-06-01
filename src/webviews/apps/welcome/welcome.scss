@@ -39,10 +39,16 @@ p {
 
 h2 {
 	font-size: 1.8rem;
+	margin-top: 3.2rem;
+	margin-bottom: 0.6rem;
+
+	&:first-child {
+		margin-top: 0;
+	}
 }
 
 h3 {
-	margin-top: 2rem;
+	margin-top: 3.2rem;
 	margin-bottom: 0.4rem;
 	font-size: 1.6rem;
 	font-weight: 600;
@@ -300,7 +306,7 @@ gk-card p {
 	&__views-nav {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-		gap: 0.8rem 2rem;
+		gap: 0.64rem 2rem;
 		// width: min-content;
 		margin: 0 1rem;
 
@@ -312,17 +318,17 @@ gk-card p {
 			color: var(--color-foreground);
 		}
 		code-icon {
-			margin-right: 1rem;
+			margin-right: 0.8rem;
 			color: var(--color-foreground--50);
-			transform: translateY(-0.2rem);
-			vertical-align: middle;
+			transform: translateY(0.2rem);
+			vertical-align: text-bottom;
 		}
 	}
 
 	&__resources-nav {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
-		gap: 0.6rem 2rem;
+		gap: 0.64rem 2rem;
 
 		> * {
 			white-space: nowrap;
@@ -330,15 +336,16 @@ gk-card p {
 
 		h3 {
 			grid-column: 1 / -1;
-			margin-bottom: -0.6rem;
+			// margin-bottom: -0.6rem;
 		}
 
 		a {
-			font-size: 1.4rem;
+			// font-size: 1.4rem;
 			color: inherit;
 		}
 
 		code-icon {
+			color: var(--color-foreground--50);
 			margin-right: 0.8rem;
 		}
 	}
