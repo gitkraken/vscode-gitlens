@@ -7369,6 +7369,16 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.graph.resetColumnsDefault",
+				"title": "Reset Columns to Default Layout",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.resetColumnsCompact",
+				"title": "Reset Columns to Compact Layout",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.timeline.refresh",
 				"title": "Refresh",
 				"category": "GitLens",
@@ -9591,6 +9601,14 @@
 				},
 				{
 					"command": "gitlens.graph.columnRefOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.resetColumnsDefault",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.resetColumnsCompact",
 					"when": "false"
 				},
 				{
@@ -12436,6 +12454,16 @@
 					"command": "gitlens.graph.columnGraphCompact",
 					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bgraph:visible(?![^,]*\\+compact\\b)/",
 					"group": "2_columns@1"
+				},
+				{
+					"command": "gitlens.graph.resetColumnsDefault",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/",
+					"group": "3_columns@1"
+				},
+				{
+					"command": "gitlens.graph.resetColumnsCompact",
+					"when": "webviewItem =~ /gitlens:graph:columns\\b/",
+					"group": "3_columns@2"
 				}
 			],
 			"gitlens/commit/browse": [
@@ -14093,7 +14121,7 @@
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "10.1.0",
+		"@gitkraken/gitkraken-components": "10.1.2",
 		"@microsoft/fast-element": "1.12.0",
 		"@microsoft/fast-react-wrapper": "0.3.18",
 		"@octokit/core": "4.2.1",
