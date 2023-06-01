@@ -125,11 +125,27 @@
 				>
 				<a
 					class="nav-list__item"
+					href="command:gitlens.showCommitsView"
+					title="Show Commits view"
+					aria-label="Show Commits view"
+					><code-icon class="nav-list__icon" icon="gl-commits-view"></code-icon
+					><span class="nav-list__label">Commits view</span></a
+				>
+				<a
+					class="nav-list__item"
 					href="command:gitlens.showFocusPage"
 					title="Open Focus"
 					aria-label="Open Focus"
 					><code-icon class="nav-list__icon" icon="target"></code-icon
 					><span class="nav-list__label">Focus ✨</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showFileHistoryView"
+					title="Show File History view"
+					aria-label="Show File History view"
+					><code-icon class="nav-list__icon" icon="gl-history-view"></code-icon
+					><span class="nav-list__label">File History view</span></a
 				>
 				<a
 					class="nav-list__item"
@@ -168,6 +184,17 @@
 				>
 			</nav>
 			<nav class="nav-list">
+				<h3 class="nav-list__title t-eyebrow">Configuration</h3>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showSettingsPage"
+					title="Open GitLens Settings"
+					aria-label="Open GitLens Settings"
+					><code-icon class="nav-list__icon" icon="gear"></code-icon
+					><span class="nav-list__label">GitLens Settings</span></a
+				>
+			</nav>
+			<nav class="nav-list">
 				<h3 class="nav-list__title t-eyebrow">Getting Started</h3>
 				<a
 					class="nav-list__item"
@@ -192,14 +219,6 @@
 					aria-label="Open GitLens Settings"
 					><code-icon class="nav-list__icon" icon="vm-running"></code-icon
 					><span class="nav-list__label">Tutorial Video</span></a
-				>
-				<a
-					class="nav-list__item"
-					href="command:gitlens.showSettingsPage"
-					title="Open GitLens Settings"
-					aria-label="Open GitLens Settings"
-					><code-icon class="nav-list__icon" icon="gear"></code-icon
-					><span class="nav-list__label">GitLens Settings</span></a
 				>
 			</nav>
 		</main>
