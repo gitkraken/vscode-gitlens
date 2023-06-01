@@ -542,6 +542,59 @@ gk-card p {
 	}
 }
 
+.graph {
+	border: 0.1rem solid var(--vscode-editorWidget-border);
+
+	text {
+		font-family: var(--vscode-font-family);
+		font-weight: var(--vscode-font-weight);
+		font-size: 1.1rem;
+	}
+
+	&__container {
+		fill: var(--vscode-editor-background);
+	}
+
+	&__foreground {
+		fill: var(--vscode-editor-foreground);
+	}
+
+	&__lane-1-foreground {
+		stroke: var(--vscode-gitlens-graphLane1Color);
+	}
+	&__lane-1-background {
+		fill: var(--vscode-gitlens-graphLane1Color);
+	}
+
+	&__lane-2-foreground {
+		stroke: var(--vscode-gitlens-graphLane2Color);
+	}
+	&__lane-2-background {
+		fill: var(--vscode-gitlens-graphLane2Color);
+	}
+
+	&__lane-3-foreground {
+		stroke: var(--vscode-gitlens-graphLane3Color);
+	}
+	&__lane-3-background {
+		fill: var(--vscode-gitlens-graphLane3Color);
+	}
+
+	&__lane-4-foreground {
+		stroke: var(--vscode-gitlens-graphLane4Color);
+	}
+	&__lane-4-background {
+		fill: var(--vscode-gitlens-graphLane4Color);
+	}
+
+	&__lane-5-foreground {
+		stroke: var(--vscode-gitlens-graphLane5Color);
+	}
+	&__lane-5-background {
+		fill: var(--vscode-gitlens-graphLane5Color);
+	}
+}
+
 [data-action] {
 	cursor: pointer;
 }
