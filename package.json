@@ -5044,6 +5044,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.resetViewsLayout",
+				"title": "Reset Views Layout",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.setViewsLayout",
 				"title": "Set Views Layout",
 				"category": "GitLens"

@@ -223,6 +223,7 @@ export const enum Commands {
 	ResetOpenAIKey = 'gitlens.resetOpenAIKey',
 	ResetSuppressedWarnings = 'gitlens.resetSuppressedWarnings',
 	ResetTrackedUsage = 'gitlens.resetTrackedUsage',
+	ResetViewsLayout = 'gitlens.resetViewsLayout',
 	RevealCommitInView = 'gitlens.revealCommitInView',
 	SearchCommits = 'gitlens.showCommitSearch',
 	SearchCommitsInView = 'gitlens.views.searchAndCompare.searchCommits',
