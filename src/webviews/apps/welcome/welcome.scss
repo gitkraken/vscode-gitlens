@@ -489,12 +489,12 @@ gk-card p {
 	}
 
 	&-added-text {
-		outline: 1px solid green; //var(--vscode-diffEditor-insertedTextBackground)
-		fill: green; //var(--vscode-diffEditor-insertedTextBackground);
+		outline: 1px solid green;
+		fill: green;
 	}
 
 	&-splitter {
-		fill: var(--vscode-editorGroup-border);
+		stroke: var(--vscode-editorGroup-border);
 	}
 }
 
@@ -504,7 +504,7 @@ gk-card p {
 	&-icon {
 		fill: var(--vscode-icon-foreground);
 
-		&-annotations {
+		&__annotations {
 			path:first-child {
 				fill: #f05133;
 				stroke: none;
@@ -525,6 +525,20 @@ gk-card p {
 					fill: var(--vscode-icon-foreground);
 				}
 			}
+		}
+
+		&__revision {
+			body[data-feature-revision='off'] & {
+				fill: none;
+
+				path.active {
+					opacity: 0.6;
+				}
+			}
+		}
+
+		&__interactive {
+			cursor: pointer;
 		}
 
 		&-accent {
@@ -605,13 +619,15 @@ body[data-feature-blame='off'] {
 	}
 }
 
-.editor-blame-block,
+.editor-annotations-left,
+.editor-revision-left,
 [data-feature-blame='on'],
 [data-feature-codelens='on'] {
 	transition: opacity 150ms ease-in-out;
 }
 
-.editor-code-block {
+.editor-annotations-right,
+.editor-revision-right {
 	transition: transform 150ms ease-in-out;
 }
 
@@ -622,10 +638,24 @@ body[data-feature-codelens='off'] {
 }
 
 body[data-feature-annotations='off'] {
-	.editor-blame-block {
+	.editor-annotations-left {
 		opacity: 0;
 	}
-	.editor-code-block {
+	.editor-annotations-right {
 		transform: translateX(-242px);
+	}
+}
+
+body[data-feature-revision='off'] {
+	.editor-revision-left {
+		opacity: 0;
+	}
+	.editor-revision-right {
+		transform: translateX(-283px);
+
+		.editor-added-text {
+			outline-color: transparent;
+			fill: inherit;
+		}
 	}
 }
