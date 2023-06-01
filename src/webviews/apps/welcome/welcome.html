@@ -109,7 +109,7 @@
 								d="M63.7253 7.5C63.4744 4.9733 61.3427 3 58.75 3C56.1573 3 54.0256 4.9733 53.7747 7.5H53V8.5H53.7747C54.0256 11.0267 56.1573 13 58.75 13C61.3427 13 63.4745 11.0267 63.7253 8.5H67.4358L65 10.9358L65.7071 11.6429L69 8.35V7.6429L65.7071 4.35L65 5.0571L67.4393 7.4964V7.5H63.7253ZM58.75 4C60.9591 4 62.75 5.7909 62.75 8C62.75 10.2091 60.9591 12 58.75 12C56.5409 12 54.75 10.2091 54.75 8C54.75 5.7909 56.5409 4 58.75 4Z"
 							/>
 						</g>
-						<g class="toolbar-icon toolbar-icon-annotations">
+						<g class="toolbar-icon toolbar-icon__annotations">
 							<path
 								d="M95.5 8C95.5 12.1421 92.1421 15.5 88 15.5C83.8579 15.5 80.5 12.1421 80.5 8C80.5 3.85786 83.8579 0.5 88 0.5C92.1421 0.5 95.5 3.85786 95.5 8Z"
 							></path>
@@ -118,6 +118,7 @@
 							/>
 						</g>
 						<rect
+							class="toolbar-icon__interactive"
 							data-feature="annotations"
 							x="80"
 							y="0"
@@ -152,7 +153,7 @@
 						<text y="14"><tspan x="7" class="editor-line-number">12</tspan></text>
 						<text y="36"><tspan x="7" class="editor-line-number-active">13</tspan></text>
 					</g>
-					<g class="editor-blame-block">
+					<g class="editor-annotations-left">
 						<rect class="editor-gutter" x="28" y="0" width="242" height="100%"></rect>
 						<g class="editor-line">
 							<g class="editor-gutter-avatar">
@@ -168,7 +169,7 @@
 						</g>
 						<line class="editor-heatmap" x1="270" y1="0" x2="270" y2="100%" />
 					</g>
-					<g class="editor-code-block">
+					<g class="editor-annotations-right">
 						<g class="editor-line">
 							<text y="14"><tspan x="278" class="editor-function-declaration">function</tspan><tspan dx="6" class="editor-function-name">gitlens</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">:</tspan><tspan dx="6" class="editor-function-argument-type">object</tspan><tspan class="editor-punctuation">)</tspan><tspan dx="6" class="editor-punctuation">{</tspan></text>
 							<text y="36"><tspan x="278" dx="24" class="editor-function-return">return</tspan><tspan dx="6" class="editor-function-name">supercharged</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">)</tspan><tspan class="editor-punctuation">;</tspan><tspan class="editor-cursor">|</tspan></text>
@@ -187,12 +188,21 @@
 						fill="none"
 						xmlns="http://www.w3.org/2000/svg"
 					>
-						<rect class="toolbar-icon-accent" x="-3" y="-2" width="22" height="calc(100% + 4px)" rx="4" />
+						<rect
+							class="toolbar-icon-accent toolbar-icon__revision"
+							x="-3"
+							y="-2"
+							width="22"
+							height="calc(100% + 4px)"
+							rx="4"
+						/>
 						<g class="toolbar-icon">
 							<path
 								class="toolbar-icon active"
 								d="M5.2747 7.5C5.5256 4.9733 7.6573 3 10.25 3C12.8427 3 14.9745 4.9733 15.2253 7.5H16V8.5H15.2253C14.9745 11.0267 12.8427 13 10.25 13C7.6573 13 5.5255 11.0267 5.2747 8.5H1.5642L4 10.9358L3.2929 11.6429L0 8.35V7.6429L3.2929 4.35L4 5.0571L1.5607 7.4964V7.5H5.2747ZM10.25 4C8.0409 4 6.25 5.7909 6.25 8C6.25 10.2091 8.0409 12 10.25 12C12.4591 12 14.25 10.2091 14.25 8C14.25 5.7909 12.4591 4 10.25 4Z"
 							/>
+						</g>
+						<g class="toolbar-icon">
 							<path
 								d="M34.5 13C31.9073 13 29.7755 11.0267 29.5247 8.5H27V7.5H29.5247C29.7755 4.9733 31.9073 3 34.5 3C37.0927 3 39.2245 4.9733 39.4753 7.5H42V8.5H39.4753C39.2245 11.0267 37.0927 13 34.5 13ZM30.5 8C30.5 10.2091 32.2909 12 34.5 12C36.7091 12 38.5 10.2091 38.5 8C38.5 5.7909 36.7091 4 34.5 4C32.2909 4 30.5 5.7909 30.5 8Z"
 							/>
@@ -200,7 +210,18 @@
 								d="M63.7253 7.5C63.4744 4.9733 61.3427 3 58.75 3C56.1573 3 54.0256 4.9733 53.7747 7.5H53V8.5H53.7747C54.0256 11.0267 56.1573 13 58.75 13C61.3427 13 63.4745 11.0267 63.7253 8.5H67.4358L65 10.9358L65.7071 11.6429L69 8.35V7.6429L65.7071 4.35L65 5.0571L67.4393 7.4964V7.5H63.7253ZM58.75 4C60.9591 4 62.75 5.7909 62.75 8C62.75 10.2091 60.9591 12 58.75 12C56.5409 12 54.75 10.2091 54.75 8C54.75 5.7909 56.5409 4 58.75 4Z"
 							/>
 						</g>
-						<g class="toolbar-icon toolbar-icon-annotations inactive">
+						<rect
+							class="toolbar-icon__interactive"
+							data-feature="revision"
+							x="0"
+							y="0"
+							width="16"
+							height="16"
+							fill="transparent"
+							stroke="none"
+						></rect>
+
+						<g class="toolbar-icon toolbar-icon__annotations inactive">
 							<path
 								d="M95.5 8C95.5 12.1421 92.1421 15.5 88 15.5C83.8579 15.5 80.5 12.1421 80.5 8C80.5 3.85786 83.8579 0.5 88 0.5C92.1421 0.5 95.5 3.85786 95.5 8Z"
 							/>
@@ -235,19 +256,23 @@
 						</clipPath>
 					</defs>
 
-					<rect class="editor-removed-line" x="28" y="21" width="251" height="21"></rect>
-					<rect class="editor-added-line" x="311" y="21" width="309" height="21"></rect>
-					<!-- <rect class="editor-added-text" x="433" y="21" width="38" height="21"></rect> -->
-					<rect class="editor-line-current" x="0" y="21" width="calc(100% - 1px)" height="21"></rect>
-					<g class="editor-line editor-line-left" style="clip-path: url(#left-clip)">
-						<text y="14"><tspan x="7" class="editor-line-number">12</tspan><tspan x="40" class="editor-function-declaration">function</tspan><tspan dx="6" class="editor-function-name">gitlens</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">:</tspan><tspan dx="6" class="editor-function-argument-type">object</tspan><tspan class="editor-punctuation">)</tspan><tspan dx="6" class="editor-punctuation">{</tspan></text>
-						<text y="36"><tspan x="7" class="editor-line-number">13</tspan><tspan x="40" dx="24" class="editor-function-return">return</tspan><tspan dx="6" class="editor-function-name">supercharged</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">)</tspan><tspan class="editor-punctuation">;</tspan></text>
+					<g class="editor-revision-left">
+						<rect class="editor-removed-line" x="28" y="21" width="251" height="21"></rect>
+						<rect class="editor-added-line" x="311" y="21" width="309" height="21"></rect>
+						<!-- <rect class="editor-added-text" x="433" y="21" width="38" height="21"></rect> -->
+						<rect class="editor-line-current" x="0" y="21" width="calc(100% - 1px)" height="21"></rect>
+						<g class="editor-line editor-line-left" style="clip-path: url(#left-clip)">
+							<text y="14"><tspan x="7" class="editor-line-number">12</tspan><tspan x="40" class="editor-function-declaration">function</tspan><tspan dx="6" class="editor-function-name">gitlens</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">:</tspan><tspan dx="6" class="editor-function-argument-type">object</tspan><tspan class="editor-punctuation">)</tspan><tspan dx="6" class="editor-punctuation">{</tspan></text>
+							<text y="36"><tspan x="7" class="editor-line-number">13</tspan><tspan x="40" dx="24" class="editor-function-return">return</tspan><tspan dx="6" class="editor-function-name">supercharged</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">)</tspan><tspan class="editor-punctuation">;</tspan></text>
+						</g>
+						<line class="editor-splitter" x1="280" y1="0" x2="280" y2="100%" />
 					</g>
-					<g class="editor-line editor-line-right">
+					<g class="editor-revision-right">
+						<g class="editor-line editor-line-right">
 						<text y="14"><tspan x="290" class="editor-line-number">12</tspan><tspan x="323" class="editor-function-declaration">function</tspan><tspan dx="6" class="editor-function-name">gitlens</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">:</tspan><tspan dx="6" class="editor-function-argument-type">object</tspan><tspan class="editor-punctuation">)</tspan><tspan dx="6" class="editor-punctuation">{</tspan></text>
 						<text y="36"><tspan x="290" class="editor-line-number">13</tspan><tspan x="323" dx="24" class="editor-function-return">return</tspan><tspan dx="6" class="editor-function-name"><tspan>super</tspan><tspan class="editor-added-text">DuperC</tspan><tspan>harged</tspan></tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">)</tspan><tspan class="editor-punctuation">;</tspan><tspan class="editor-cursor">|</tspan></text>
 					</g>
-					<line class="editor-splitter" x1="280" y1="0" x2="280" y2="100%" />
+				</g>
 				</svg>
 
 				<h3>Side Bar Views</h3>
