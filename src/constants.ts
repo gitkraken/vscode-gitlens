@@ -293,6 +293,8 @@ export const enum Commands {
 	ToggleFileHeatmap = 'gitlens.toggleFileHeatmap',
 	ToggleFileHeatmapInDiffLeft = 'gitlens.toggleFileHeatmapInDiffLeft',
 	ToggleFileHeatmapInDiffRight = 'gitlens.toggleFileHeatmapInDiffRight',
+	ToggleGraph = 'gitlens.toggleGraph',
+	ToggleMaximizedGraph = 'gitlens.toggleMaximizedGraph',
 	ToggleLineBlame = 'gitlens.toggleLineBlame',
 	ToggleReviewMode = 'gitlens.toggleReviewMode',
 	ToggleZenMode = 'gitlens.toggleZenMode',
@@ -318,8 +320,12 @@ export type WebviewViewIds = 'commitDetails' | 'graph' | 'graphDetails' | 'home'
 export type ContextKeys =
 	| `${typeof extensionPrefix}:action:${string}`
 	| `${typeof extensionPrefix}:key:${Keys}`
-	| `${typeof extensionPrefix}:webview:${WebviewIds | CustomEditorIds}:${'active' | 'focus' | 'inputFocus'}`
-	| `${typeof extensionPrefix}:webviewView:${WebviewViewIds}:${'active' | 'focus' | 'inputFocus'}`
+	| `${typeof extensionPrefix}:webview:${WebviewIds | CustomEditorIds}:${
+			| 'active'
+			| 'focus'
+			| 'inputFocus'
+			| 'visible'}`
+	| `${typeof extensionPrefix}:webviewView:${WebviewViewIds}:${'active' | 'focus' | 'inputFocus' | 'visible'}`
 	| `${typeof extensionPrefix}:activeFileStatus`
 	| `${typeof extensionPrefix}:annotationStatus`
 	| `${typeof extensionPrefix}:debugging`
@@ -370,9 +376,11 @@ export type CoreCommands =
 	| 'vscode.moveViews'
 	| 'vscode.previewHtml'
 	| 'workbench.action.closeActiveEditor'
-	| 'workbench.action.openWalkthrough'
 	| 'workbench.action.closeAllEditors'
+	| 'workbench.action.closePanel'
 	| 'workbench.action.nextEditor'
+	| 'workbench.action.openWalkthrough'
+	| 'workbench.action.toggleMaximizedPanel'
 	| 'workbench.extensions.installExtension'
 	| 'workbench.extensions.uninstallExtension'
 	| 'workbench.files.action.focusFilesExplorer'

@@ -2,8 +2,9 @@ import { Disposable, ViewColumn } from 'vscode';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
 import type { Repository } from '../../../git/models/repository';
-import { executeCommand, registerCommand } from '../../../system/command';
+import { executeCommand, executeCoreCommand, registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
+import { getContext } from '../../../system/context';
 import type { BranchNode } from '../../../views/nodes/branchNode';
 import type { CommitFileNode } from '../../../views/nodes/commitFileNode';
 import type { CommitNode } from '../../../views/nodes/commitNode';
@@ -76,6 +77,22 @@ export function registerGraphWebviewCommands(container: Container, webview: Webv
 				await executeCommand('gitlens.views.graphDetails.resetViewLocation');
 				void executeCommand(Commands.ShowGraphView);
 			});
+		}),
+		registerCommand(Commands.ToggleGraph, (...args: any[]) => {
+			if (getContext('gitlens:webviewView:graph:visible')) {
+				void executeCoreCommand('workbench.action.closePanel');
+			} else {
+				void executeCommand(Commands.ShowGraphView, ...args);
+			}
+		}),
+		registerCommand(Commands.ToggleMaximizedGraph, (...args: any[]) => {
+			if (getContext('gitlens:webviewView:graph:visible')) {
+				void executeCoreCommand('workbench.action.toggleMaximizedPanel');
+				void executeCoreCommand('workbench.action.closePanel');
+			} else {
+				void executeCommand(Commands.ShowGraphView, ...args);
+				void executeCoreCommand('workbench.action.toggleMaximizedPanel');
+			}
 		}),
 		registerCommand(
 			Commands.ShowInCommitGraph,
