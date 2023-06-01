@@ -38,14 +38,14 @@ p {
 }
 
 h2 {
-	font-size: 1.6rem;
+	font-size: 1.8rem;
 }
 
 h3 {
 	margin-top: 2rem;
 	margin-bottom: 0.4rem;
-	font-size: 1.4rem;
-	font-weight: normal;
+	font-size: 1.6rem;
+	font-weight: 600;
 }
 
 h4 {
@@ -244,10 +244,6 @@ gk-card p {
 	}
 
 	&__section {
-		&:first-child {
-			margin: 0 3rem;
-		}
-
 		& + & {
 			// border-top: 1px solid var(--vscode-editorWidget-border);
 			padding-top: 0.5rem;
@@ -273,8 +269,9 @@ gk-card p {
 
 	&__illustration {
 		max-width: 69.2rem;
-		width: 100%;
+		width: calc(100% - 2rem);
 		height: auto;
+		margin: 0 1rem;
 
 		&--graph {
 			object-fit: cover;
@@ -305,6 +302,7 @@ gk-card p {
 		grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
 		gap: 0.8rem 2rem;
 		// width: min-content;
+		margin: 0 1rem;
 
 		> * {
 			white-space: nowrap;
