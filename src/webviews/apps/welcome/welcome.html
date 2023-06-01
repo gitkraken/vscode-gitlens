@@ -53,7 +53,9 @@
 						><input type="checkbox" id="codelens" data-feature="codelens" checked />Git CodeLens</label
 					>
 				</h3>
-				<p>In-editor code annotations help you better understand how code changed and by whom</p>
+				<p>
+					In-editor code annotations and rich hovers help you better understand how code changed and by whom
+				</p>
 
 				<svg
 					class="editor welcome__illustration"
@@ -87,8 +89,8 @@
 					</g>
 				</svg>
 
-				<h4>Want more control?</h4>
 				<p>
+					<strong>Want more control?</strong>
 					Use the interactive
 					<a
 						href="command:gitlens.showSettingsPage"
@@ -326,44 +328,17 @@
 					<line class="editor-splitter" x1="280" y1="0" x2="280" y2="100%" />
 				</svg>
 
-				<h3>Sidebar Views</h3>
+				<h3>Side Bar Views</h3>
 				<p>Powerful views into Git that don't come with VS Code</p>
 				<nav class="welcome__views-nav" aria-label="Sidebar view links">
+					<a href="command:gitlens.showCommitsView" title="Show Commits view" aria-label="Show Commits view"
+						><code-icon icon="gl-commits-view" size="24"></code-icon>Commits</a
+					>
 					<a
 						href="command:gitlens.showCommitDetailsView"
 						title="Show Commit Details view"
 						aria-label="Show Commit Details view"
 						><code-icon icon="gl-commit-view" size="24"></code-icon>Commit Details</a
-					>
-					<a
-						href="command:gitlens.showBranchesView"
-						title="Show Branches view"
-						aria-label="Show Branches view"
-						><code-icon icon="gl-branches-view" size="24"></code-icon>Branches</a
-					>
-					<a
-						href="command:gitlens.showSearchAndCompareView"
-						title="Show Search &amp; Compare view"
-						aria-label="Show Search &amp; Compare view"
-						><code-icon icon="gl-search-view" size="24"></code-icon>Search &amp; Compare</a
-					>
-					<a href="command:gitlens.showCommitsView" title="Show Commits view" aria-label="Show Commits view"
-						><code-icon icon="gl-commits-view" size="24"></code-icon>Commits</a
-					>
-					<a href="command:gitlens.showRemotesView" title="Show Remotes view" aria-label="Show Remotes view"
-						><code-icon icon="gl-remotes-view" size="24"></code-icon>Remotes</a
-					>
-					<a href="command:gitlens.showContributorsView"
-						><code-icon icon="gl-contributors-view" size="24"></code-icon>Contributors</a
-					>
-					<a
-						href="command:gitlens.showFileHistoryView"
-						title="Show File History view"
-						aria-label="Show File History view"
-						><code-icon icon="gl-history-view" size="24"></code-icon>File History</a
-					>
-					<a href="command:gitlens.showStashesView" title="Show Stashes view" aria-label="Show Stashes view"
-						><code-icon icon="gl-stashes-view" size="24"></code-icon>Stashes</a
 					>
 					<a
 						href="command:gitlens.showRepositoriesView"
@@ -372,10 +347,34 @@
 						><code-icon icon="gl-repositories-view" size="24"></code-icon>Repositories</a
 					>
 					<a
+						href="command:gitlens.showFileHistoryView"
+						title="Show File History view"
+						aria-label="Show File History view"
+						><code-icon icon="gl-history-view" size="24"></code-icon>File History</a
+					>
+					<a
+						href="command:gitlens.showTimelineView"
+						title="Show Visual File History view"
+						aria-label="Show Visual File History view"
+						><code-icon icon="graph-scatter" size="24"></code-icon>Visual File History ✨</a
+					>
+					<a
 						href="command:gitlens.showLineHistoryView"
 						title="Show Line History view"
 						aria-label="Show Line History view"
 						><code-icon icon="gl-history-view" size="24"></code-icon>Line History</a
+					>
+					<a
+						href="command:gitlens.showBranchesView"
+						title="Show Branches view"
+						aria-label="Show Branches view"
+						><code-icon icon="gl-branches-view" size="24"></code-icon>Branches</a
+					>
+					<a href="command:gitlens.showRemotesView" title="Show Remotes view" aria-label="Show Remotes view"
+						><code-icon icon="gl-remotes-view" size="24"></code-icon>Remotes</a
+					>
+					<a href="command:gitlens.showStashesView" title="Show Stashes view" aria-label="Show Stashes view"
+						><code-icon icon="gl-stashes-view" size="24"></code-icon>Stashes</a
 					>
 					<a href="command:gitlens.showTagsView" title="Show Tags view" aria-label="Show Tags view"
 						><code-icon icon="gl-tags-view" size="24"></code-icon>Tags</a
@@ -386,18 +385,24 @@
 						aria-label="Show Worktrees view"
 						><code-icon icon="gl-worktrees-view" size="24"></code-icon>Worktrees ✨</a
 					>
+					<a href="command:gitlens.showContributorsView"
+						><code-icon icon="gl-contributors-view" size="24"></code-icon>Contributors</a
+					>
 					<a
-						href="command:gitlens.showTimelineView"
-						title="Show Visual File History view"
-						aria-label="Show Visual File History view"
-						><code-icon icon="graph-scatter" size="24"></code-icon>Visual File History ✨</a
+						href="command:gitlens.showSearchAndCompareView"
+						title="Show Search &amp; Compare view"
+						aria-label="Show Search &amp; Compare view"
+						><code-icon icon="gl-search-view" size="24"></code-icon>Search &amp; Compare</a
 					>
 				</nav>
 
 				<h3>Commit Graph ✨</h3>
 				<p>
-					The <a href="command:gitlens.showGraph">Commit Graph</a> helps you easily visualize and keep track
-					of all work in progress<br />
+					The
+					<a href="command:gitlens.showGraph" title="Open Commit Graph" aria-label="Open Commit Graph"
+						>Commit Graph</a
+					>
+					helps you easily visualize and keep track of all work in progress<br />
 				</p>
 
 				<img
@@ -406,72 +411,22 @@
 					alt="Illustration of the Commit Graph"
 				/>
 				<p>✨ Requires a trial or subscription to use this on privately hosted repos</p>
-			</section>
-			<!-- <section class="welcome__section">
-				<h2><gitlens-plus-logo></gitlens-plus-logo></h2>
-				<p class="t-desc">
-					<strong>Powerful, additional features</strong> that enhance your GitLens experience
-				</p>
+
+				<h3>Focus ✨</h3>
 				<p>
-					<strong>Completely free</strong> for use on local or publicly hosted repos, while a paid
-					subscription is required for <strong>privately hosted repos</strong>
+					The
+					<a href="command:gitlens.showFocusPage" title="Open Focus" aria-label="Open Focus">Focus</a> view
+					helps you focus on what's important by providing you with a comprehensive list of all your pull
+					requests and issues on your GitHub repos.
 				</p>
-				<nav>
-					<gk-button data-command="command:gitlens.plus.learn">GitLens+ Walkthrough</gk-button>
-					<gk-button data-command="command:gitlens.plus.startPreviewTrial" appearance="secondary"
-						>Start your trial</gk-button
-					>
-				</nav>
 
-				<div class="welcome__plus-cards">
-					<gk-card tabindex="0" href="command:gitlens.showGraph">
-						<h3 slot="header">✨ Commit Graph</h3>
-						<p>Helps you easily visualize and keep track of all work in progress.</p>
-					</gk-card>
-
-					<gk-card tabindex="0" href="command:gitlens.showFocusPage">
-						<h3 slot="header">✨ Focus View</h3>
-						<p>
-							Provides you with a comprehensive list of all your most important work across your connected
-							GitHub repos.
-						</p>
-					</gk-card>
-
-					<gk-card tabindex="0" href="gitlens.showTimelineView">
-						<h3 slot="header">✨ Visual File History</h3>
-						<p>
-							Allows you to quickly see the evolution of a file, including when changes were made, how
-							large they were, and who made them.
-						</p>
-					</gk-card>
-
-					<gk-card tabindex="0" href="command:gitlens.showWorktreesView">
-						<h3 slot="header">✨ Worktrees</h3>
-						<p>
-							Helps you multitask by minimizing the context switching between branches, allowing you to
-							easily work on different branches of a repository simultaneously.
-						</p>
-					</gk-card>
-
-					<gk-card
-						tabindex="0"
-						href="command:gitlens.openWalkthrough?%22gitlens.plus%7Cgitlens.plus.richIntegrations%22"
-					>
-						<h3 slot="header">✨ Enterprise Integrations</h3>
-						<p>
-							Provides rich issue and pull request integrations with GitHub Enterprise and GitLab
-							Self-Managed Git hosts.
-						</p>
-					</gk-card>
-				</div>
-			</section> -->
-			<!-- <section class="welcome__section">
-				<h2>Integrations</h2>
-				<nav>
-					<gk-button>Connect GitHub</gk-button>
-					<gk-button>Connect GitLab</gk-button>
-				</nav>
-			</section> -->
+				<h3>Integrations</h3>
+				<p>GitLens provides issue and pull request auto-linking with many Git hosting services.</p>
+				<p>
+					Rich integrations with GitHub & GitLab provide more detailed hover information for auto-linked
+					issues and pull requests, pull requests associated with branches and commits, and avatars.
+				</p>
+			</section>
 			<section class="welcome__section">
 				<h2>Get Started</h2>
 				<p>
@@ -479,13 +434,14 @@
 					<strong>customizable</strong> to meet your needs. Check out our tutorial video and walkthrough to
 					get started.
 				</p>
-				<style nonce="#{cspNonce}">
-					.video-button {
-						--video-banner-bg: url(#{webroot}/media/getting-started.webp);
-					}
-				</style>
+
 				<h2>Tutorial Video</h2>
 				<nav class="welcome__starting-nav" aria-label="Getting started links">
+					<style nonce="#{cspNonce}">
+						.video-button {
+							--video-banner-bg: url(#{webroot}/media/getting-started.webp);
+						}
+					</style>
 					<a
 						class="video-button"
 						href="https://www.youtube.com/watch?v=UQPb73Zz9qk"
@@ -505,15 +461,10 @@
 					</a>
 					<span><gk-button href="command:gitlens.getStarted">Get Started Walkthrough</gk-button></span>
 				</nav>
-				<!-- <p>
-					<gk-button appearance="secondary"
-						>Tips &amp; Tricks</gk-button
-					>
-				</p> -->
 
 				<h2>Quick Access</h2>
 				<nav class="welcome__resources-nav">
-					<h3 class="t-eyebrow">Sidebar</h3>
+					<h3 class="t-eyebrow">Activity Bar</h3>
 					<a
 						class="nav-list__item"
 						href="command:workbench.view.extension.gitlens"
@@ -524,19 +475,19 @@
 					>
 					<a
 						class="nav-list__item"
-						href="command:workbench.view.extension.gitlensInspect"
-						title="Show GitLens Inspect Side Bar"
-						aria-label="Show GitLens Inspect Side Bar"
-						><code-icon class="nav-list__icon" icon="gl-gitlens-inspect"></code-icon
-						><span class="nav-list__label">GitLens Inspect</span></a
-					>
-					<a
-						class="nav-list__item"
 						href="command:workbench.view.scm"
 						title="Show Source Control Side Bar"
 						aria-label="Show GitLens Side Bar"
 						><code-icon class="nav-list__icon" icon="source-control"></code-icon
 						><span class="nav-list__label">Source Control</span></a
+					>
+					<a
+						class="nav-list__item"
+						href="command:workbench.view.extension.gitlensInspect"
+						title="Show GitLens Inspect Side Bar"
+						aria-label="Show GitLens Inspect Side Bar"
+						><code-icon class="nav-list__icon" icon="gl-gitlens-inspect"></code-icon
+						><span class="nav-list__label">GitLens Inspect</span></a
 					>
 				</nav>
 				<nav class="welcome__resources-nav">
@@ -551,6 +502,22 @@
 					>
 					<a
 						class="nav-list__item"
+						href="command:gitlens.showFocusPage"
+						title="Open Focus"
+						aria-label="Open Focus"
+						><code-icon class="nav-list__icon" icon="target"></code-icon
+						><span class="nav-list__label">Focus ✨</span></a
+					>
+					<a
+						class="nav-list__item"
+						href="command:gitlens.showCommitsView"
+						title="Show Commits view"
+						aria-label="Show Commits view"
+						><code-icon class="nav-list__icon" icon="gl-commits-view"></code-icon
+						><span class="nav-list__label">Commits view</span></a
+					>
+					<a
+						class="nav-list__item"
 						href="command:gitlens.showCommitDetailsView"
 						title="Show Commit Details view"
 						aria-label="Show Commit Details view"
@@ -559,11 +526,11 @@
 					>
 					<a
 						class="nav-list__item"
-						href="command:gitlens.showFocusPage"
-						title="Open Focus"
-						aria-label="Open Focus"
-						><code-icon class="nav-list__icon" icon="target"></code-icon
-						><span class="nav-list__label">Focus ✨</span></a
+						href="command:gitlens.showFileHistoryView"
+						title="Show File History view"
+						aria-label="Show File History view"
+						><code-icon class="nav-list__icon" icon="gl-history-view"></code-icon
+						><span class="nav-list__label">File History view</span></a
 					>
 					<a
 						class="nav-list__item"
@@ -594,20 +561,20 @@
 						title="Help Center"
 						><code-icon icon="question"></code-icon>Help</a
 					>
+					<a href="https://twitter.com/gitlens" aria-label="@gitlens on Twitter" title="@gitlens on Twitter"
+						><code-icon icon="twitter"></code-icon>Twitter</a
+					>
 					<a href="https://github.com/gitkraken/vscode-gitlens/issues" aria-label="Feedback" title="Feedback"
 						><code-icon icon="feedback"></code-icon>Issues</a
+					>
+					<a href="https://github.com/gitkraken/vscode-gitlens" aria-label="GitHub Repo" title="GitHub Repo"
+						><code-icon icon="github"></code-icon>GitHub</a
 					>
 					<a
 						href="https://github.com/gitkraken/vscode-gitlens/discussions"
 						aria-label="GitHub Discussions"
 						title="GitHub Discussions"
 						><code-icon icon="comment-discussion"></code-icon>Discussions</a
-					>
-					<a href="https://github.com/gitkraken/vscode-gitlens" aria-label="GitHub Repo" title="GitHub Repo"
-						><code-icon icon="github"></code-icon>GitHub</a
-					>
-					<a href="https://twitter.com/gitlens" aria-label="@gitlens on Twitter" title="@gitlens on Twitter"
-						><code-icon icon="twitter"></code-icon>Twitter</a
 					>
 					<a
 						href="https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links"

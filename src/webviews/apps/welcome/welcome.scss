@@ -302,13 +302,9 @@ gk-card p {
 
 	&__views-nav {
 		display: grid;
-		grid-template-columns: 1fr 1fr 1fr;
+		grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
 		gap: 0.8rem 2rem;
 		// width: min-content;
-
-		@container (max-width: 550px) {
-			grid-template-columns: 1fr 1fr 1fr 1fr;
-		}
 
 		> * {
 			white-space: nowrap;
@@ -326,14 +322,16 @@ gk-card p {
 	}
 
 	&__resources-nav {
-		display: flex;
-		flex-direction: row;
-		justify-content: flex-start;
-		flex-wrap: wrap;
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
 		gap: 0.6rem 2rem;
 
+		> * {
+			white-space: nowrap;
+		}
+
 		h3 {
-			flex-basis: 100%;
+			grid-column: 1 / -1;
 			margin-bottom: -0.6rem;
 		}
 
