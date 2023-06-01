@@ -4601,6 +4601,18 @@
 				"icon": "$(gitlens-graph)"
 			},
 			{
+				"command": "gitlens.toggleGraph",
+				"title": "Toggle Commit Graph",
+				"category": "GitLens+",
+				"icon": "$(gitlens-graph)"
+			},
+			{
+				"command": "gitlens.toggleMaximizedGraph",
+				"title": "Toggle Maximized Commit Graph",
+				"category": "GitLens+",
+				"icon": "$(gitlens-graph)"
+			},
+			{
 				"command": "gitlens.showHomeView",
 				"title": "Show Home View",
 				"category": "GitLens"
@@ -7734,6 +7746,14 @@
 				},
 				{
 					"command": "gitlens.showGraphView",
+					"when": "gitlens:enabled && config.gitlens.graph.layout == panel"
+				},
+				{
+					"command": "gitlens.toggleGraph",
+					"when": "gitlens:enabled && config.gitlens.graph.layout == panel"
+				},
+				{
+					"command": "gitlens.toggleMaximizedGraph",
 					"when": "gitlens:enabled && config.gitlens.graph.layout == panel"
 				},
 				{

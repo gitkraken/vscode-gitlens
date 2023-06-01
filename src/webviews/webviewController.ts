@@ -156,7 +156,7 @@ export class WebviewController<
 					? parent.onDidChangeViewState(({ webviewPanel: { visible, active } }) =>
 							this.onParentVisibilityChanged(visible, active),
 					  )
-					: parent.onDidChangeVisibility(() => this.onParentVisibilityChanged(this.visible)),
+					: parent.onDidChangeVisibility(() => this.onParentVisibilityChanged(this.visible, this.active)),
 				parent.onDidDispose(this.onParentDisposed, this),
 				...(this.provider.registerCommands?.() ?? []),
 				this.provider,
@@ -192,6 +192,13 @@ export class WebviewController<
 	}
 	isView(): this is WebviewViewController<State, SerializedState> {
 		return !this._isEditor;
+	}
+
+	get active() {
+		if ('active' in this.parent) {
+			return this._disposed ? false : this.parent.active;
+		}
+		return this._disposed ? false : undefined;
 	}
 
 	get badge(): ViewBadge | undefined {
@@ -267,6 +274,8 @@ export class WebviewController<
 				this.provider.onVisibilityChanged?.(true);
 			}
 		}
+
+		setContextKeys(this.descriptor.contextKeyPrefix, this.active);
 	}
 
 	private readonly _cspNonce = getNonce();
@@ -373,8 +382,8 @@ export class WebviewController<
 		if (visible) {
 			void this.container.usage.track(`${this.descriptor.trackingFeature}:shown`);
 
+			setContextKeys(this.descriptor.contextKeyPrefix, active);
 			if (active != null) {
-				setContextKeys(this.descriptor.contextKeyPrefix, active);
 				this.provider.onActiveChanged?.(active);
 				if (!active) {
 					this.provider.onFocusChanged?.(false);
@@ -578,6 +587,7 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 export function resetContextKeys(
 	contextKeyPrefix: `gitlens:webview:${WebviewIds | CustomEditorIds}` | `gitlens:webviewView:${WebviewViewIds}`,
 ): void {
+	void setContext(`${contextKeyPrefix}:visible`, false);
 	void setContext(`${contextKeyPrefix}:inputFocus`, false);
 	void setContext(`${contextKeyPrefix}:focus`, false);
 	if (contextKeyPrefix.startsWith('gitlens:webview:')) {
@@ -591,6 +601,7 @@ export function setContextKeys(
 	focus?: boolean,
 	inputFocus?: boolean,
 ): void {
+	void setContext(`${contextKeyPrefix}:visible`, true);
 	if (contextKeyPrefix.startsWith('gitlens:webview:')) {
 		if (active != null) {
 			void setContext(`${contextKeyPrefix as `gitlens:webview:${WebviewIds | CustomEditorIds}`}:active`, active);
