@@ -177,13 +177,23 @@ import {
 } from './protocol';
 
 const defaultGraphColumnsSettings: GraphColumnsSettings = {
-	ref: { width: 150, isHidden: false },
-	graph: { width: 150, isHidden: false },
-	message: { width: 300, isHidden: false },
-	author: { width: 130, isHidden: false },
-	datetime: { width: 130, isHidden: false },
-	sha: { width: 130, isHidden: false },
-	changes: { width: 130, isHidden: true },
+	ref: { width: 130, isHidden: false, order: 0 },
+	graph: { width: 150, mode: undefined, isHidden: false, order: 1 },
+	message: { width: 300, isHidden: false, order: 2 },
+	author: { width: 130, isHidden: false, order: 3 },
+	changes: { width: 200, isHidden: false, order: 4 },
+	datetime: { width: 130, isHidden: false, order: 5 },
+	sha: { width: 130, isHidden: false, order: 6 },
+};
+
+const compactGraphColumnsSettings: GraphColumnsSettings = {
+	ref: { width: 32, isHidden: false },
+	graph: { width: 150, mode: 'compact', isHidden: false },
+	author: { width: 32, isHidden: false, order: 2 },
+	message: { width: 500, isHidden: false, order: 3 },
+	changes: { width: 200, isHidden: false, order: 4 },
+	datetime: { width: 130, isHidden: true, order: 5 },
+	sha: { width: 130, isHidden: false, order: 6 },
 };
 
 export class GraphWebviewProvider implements WebviewProvider<State> {
@@ -422,6 +432,17 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			registerCommand('gitlens.graph.openChangedFileDiffs', this.openAllChanges, this),
 			registerCommand('gitlens.graph.openChangedFileDiffsWithWorking', this.openAllChangesWithWorking, this),
 			registerCommand('gitlens.graph.openChangedFileRevisions', this.openRevisions, this),
+
+			registerCommand(
+				'gitlens.graph.resetColumnsDefault',
+				() => this.updateColumns(defaultGraphColumnsSettings),
+				this,
+			),
+			registerCommand(
+				'gitlens.graph.resetColumnsCompact',
+				() => this.updateColumns(compactGraphColumnsSettings),
+				this,
+			),
 		];
 	}
 
