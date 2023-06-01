@@ -99,7 +99,8 @@ export class FocusApp extends App<State> {
 
 		$gate = document.getElementById('connection-gate')! as FeatureGate;
 		if ($gate != null) {
-			$gate.visible = !(this.state.repos?.some(r => r.isConnected) ?? false);
+			$gate.visible =
+				this.state.access.allowed === true && !(this.state.repos?.some(r => r.isConnected) ?? false);
 		}
 
 		const badgeEl = document.getElementById('account-badge')! as AccountBadge;
