@@ -631,9 +631,12 @@ gk-card p {
 	}
 
 	&__checkmark-icon,
-	&__pr-icon,
-	&__wip-icon {
+	&__pr-icon {
 		fill: white;
+	}
+
+	&__wip-icon {
+		fill: var(--vscode-editor-foreground);
 	}
 
 	&__messages {
