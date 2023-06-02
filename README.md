@@ -279,15 +279,7 @@ You can create multiple working trees, each of which can be opened in individual
 
 ## Side Bar Views [#](#side-bar-views- 'Side Bar Views')
 
-GitLens adds many side bar views to provide additional rich functionality. The default layout (location) of these views can be quickly customized via the _GitLens: Set Views Layout_ (`gitlens.setViewsLayout`) command from the [_Command Palette_](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette).
-
-- _Source Control Layout_ &mdash; shows all the views together on the Source Control side bar
-- _GitLens Layout_ &mdash; shows all the views together on the GitLens side bar
-
-<p style="display:flex;justify-content:space-around">
-  <img src="images/docs/views-layout-scm.png" alt="Views Layout: Source Control" />
-  <img src="images/docs/views-layout-gitlens.png" alt="Views Layout: GitLens" />
-</p>
+GitLens adds many side bar views to provide additional rich functionality.
 
 ### Commit Details View [#](#commit-details-view- 'Commits Details view')
 
