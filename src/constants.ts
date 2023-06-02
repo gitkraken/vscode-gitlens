@@ -227,7 +227,6 @@ export const enum Commands {
 	RevealCommitInView = 'gitlens.revealCommitInView',
 	SearchCommits = 'gitlens.showCommitSearch',
 	SearchCommitsInView = 'gitlens.views.searchAndCompare.searchCommits',
-	SetViewsLayout = 'gitlens.setViewsLayout',
 	ShowBranchesView = 'gitlens.showBranchesView',
 	ShowCommitDetailsView = 'gitlens.showCommitDetailsView',
 	ShowCommitInView = 'gitlens.showCommitInView',
@@ -526,6 +525,8 @@ export const enum SyncedStorageKeys {
 export type DeprecatedGlobalStorage = {
 	/** @deprecated use `confirm:ai:send:openai` */
 	'confirm:sendToOpenAI': boolean;
+	/** @deprecated not longer valid */
+	'views:layout': 'gitlens' | 'scm';
 } & {
 	/** @deprecated */
 	[key in `disallow:connection:${string}`]: any;
@@ -554,7 +555,6 @@ export type GlobalStorage = {
 	version: string;
 	// Keep the pre-release version separate from the released version
 	preVersion: string;
-	'views:layout': StoredViewsLayout;
 	'views:welcome:visible': boolean;
 	'views:commitDetails:dismissed': CommitDetailsDismissed[];
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
@@ -587,7 +587,6 @@ export type WorkspaceStorage = {
 	'views:commitDetails:autolinksExpanded': boolean;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & { [key in `connected:${string}`]: boolean };
 
-export type StoredViewsLayout = 'gitlens' | 'scm';
 export interface Stored<T, SchemaVersion extends number = 1> {
 	v: SchemaVersion;
 	data: T;

@@ -45,7 +45,7 @@ export * from './commands/refreshHover';
 export * from './commands/remoteProviders';
 export * from './commands/repositories';
 export * from './commands/resets';
-export * from './commands/setViewsLayout';
+export * from './commands/resetViewsLayout';
 export * from './commands/searchCommits';
 export * from './commands/showCommitsInView';
 export * from './commands/showLastQuickPick';

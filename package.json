@@ -5061,11 +5061,6 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.setViewsLayout",
-				"title": "Set Views Layout",
-				"category": "GitLens"
-			},
-			{
 				"command": "gitlens.showCommitSearch",
 				"title": "Search Commits",
 				"category": "GitLens",
