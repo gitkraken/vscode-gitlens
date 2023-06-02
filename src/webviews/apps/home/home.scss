@@ -152,10 +152,6 @@ ul {
 		flex: none;
 		padding: 0 2rem;
 		position: relative;
-
-		[aria-hidden='false'] ~ header-card {
-			display: none;
-		}
 	}
 	&__main {
 		flex: 1;
@@ -174,7 +170,6 @@ ul {
 	&__nav {
 		flex: none;
 		padding: 0 2rem;
-		margin-bottom: 0.6rem;
 	}
 }
 
