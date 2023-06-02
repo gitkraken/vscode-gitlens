@@ -6,16 +6,55 @@ body {
 	&.vscode-light {
 		background-color: var(--color-background--darken-05);
 	}
+
+	font-family: var(--vscode-font-family);
+	font-weight: var(--vscode-font-weight);
+	font-size: var(--vscode-font-size) !important;
+	line-height: 1.4;
 }
 
 header {
-	grid-area: header;
-	display: grid;
-	grid-template-columns: auto;
-	grid-gap: 1rem;
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
 	align-items: center;
-	justify-items: center;
-	margin: 0 2em;
+	flex-wrap: wrap;
+	gap: 1.6rem;
+	grid-column: 1/-1;
+
+	& #version {
+		color: var(--color-foreground);
+		font-weight: 600;
+	}
+
+	& .brand {
+		margin: 0;
+
+		small {
+			display: inline-block;
+			font-size: 1.6rem;
+			font-weight: 200;
+			color: var(--color-foreground--50);
+			transform: translateY(0.3rem);
+			margin-left: 1rem;
+		}
+	}
+
+	& .release {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		margin: 0;
+	}
+
+	a:hover {
+		text-decoration: underline;
+	}
+
+	p,
+	li {
+		color: var(--color-foreground--65);
+	}
 }
 
 .blurb {
@@ -167,7 +206,7 @@ header {
 }
 
 .hero__title {
-	font-size: 4rem;
+	font-size: 3rem;
 	margin: 0;
 }
 
