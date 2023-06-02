@@ -511,22 +511,21 @@ gk-card p {
 	}
 }
 
-@property --pulse-scale {
-	initial-value: 1.06;
-	inherits: false;
-	syntax: '<number>';
-}
-
-@keyframes pulse {
+@keyframes wiggle {
 	0%,
-	2%,
-	98%,
+	5%,
 	100% {
-		transform: scale(1);
+		transform: rotate(0) scale(1);
 	}
+
 	1%,
-	99% {
-		transform: scale(var(--pulse-scale));
+	3% {
+		transform: rotate(0.02turn) scale(var(--wiggle-scale-1));
+	}
+
+	2%,
+	4% {
+		transform: rotate(-0.02turn) scale(var(--wiggle-scale-2));
 	}
 }
 
@@ -538,10 +537,12 @@ gk-card p {
 
 		&__annotations {
 			&:not(.inactive) {
-				--pulse-scale: 1.06;
-				transform-origin: center center;
-				animation: pulse 8s ease-in-out 4s;
-				animation-iteration-count: infinite;
+				--wiggle-scale-1: 1.08;
+				--wiggle-scale-2: 1.15;
+
+				transform-origin: 60%;
+				animation: wiggle 8s ease-in-out 4s infinite;
+				animation-timing-function: steps(8);
 			}
 
 			path:first-child {
@@ -567,10 +568,12 @@ gk-card p {
 		}
 
 		&__revision {
-			--pulse-scale: 1.12;
-			transform-origin: center left;
-			animation: pulse 8s ease-in-out 6s;
-			animation-iteration-count: infinite;
+			--wiggle-scale-1: 1.08;
+			--wiggle-scale-2: 1.2;
+
+			transform-origin: 5%;
+			animation: wiggle 8s ease-in-out 6s infinite;
+			animation-timing-function: steps(8);
 		}
 
 		&__revision-bg {
