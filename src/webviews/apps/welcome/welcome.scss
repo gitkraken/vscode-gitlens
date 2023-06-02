@@ -622,6 +622,32 @@ gk-card p {
 		fill: var(--vscode-editor-foreground);
 	}
 
+	&__branch {
+		fill: white;
+	}
+
+	&__branch-current {
+		font-weight: 700 !important;
+	}
+
+	&__checkmark-icon,
+	&__pr-icon,
+	&__wip-icon {
+		fill: white;
+	}
+
+	&__messages {
+		opacity: 0.7;
+	}
+
+	&__authors {
+		opacity: 0.45;
+	}
+
+	&__wip {
+		opacity: 0.45;
+	}
+
 	&__lane-1-foreground {
 		stroke: var(--vscode-gitlens-graphLane1Color);
 	}
