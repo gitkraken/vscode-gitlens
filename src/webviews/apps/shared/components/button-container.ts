@@ -1,5 +1,5 @@
 import { css, html, LitElement } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import { elementBase } from './styles/lit/base.css';
 
 @customElement('button-container')
@@ -17,7 +17,7 @@ export class ButtonContainer extends LitElement {
 			}
 
 			@media (min-width: 640px) {
-				:host {
+				:host(:not([editor])) {
 					max-width: 100%;
 				}
 			}
@@ -30,6 +30,9 @@ export class ButtonContainer extends LitElement {
 			}
 		`,
 	];
+
+	@property({ type: Boolean })
+	editor = false;
 
 	override render() {
 		return html`<div class="group"><slot></slot></div>`;
