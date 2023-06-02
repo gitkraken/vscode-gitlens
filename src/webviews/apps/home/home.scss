@@ -317,6 +317,10 @@ gk-button {
 		color: var(--color-foreground--50);
 		margin: 0;
 	}
+
+	&-subtle {
+		color: var(--color-foreground--50);
+	}
 }
 
 .nav-list {
