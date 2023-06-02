@@ -17,18 +17,6 @@ export class GetStartedCommand extends Command {
 			walkthroughId = undefined;
 		}
 
-		void openWalkthrough(extensionId, walkthroughId ?? 'gitlens.welcome');
-	}
-}
-
-@command()
-export class OpenWalkthroughCommand extends Command {
-	constructor(private readonly container: Container) {
-		super(Commands.OpenWalkthrough);
-	}
-
-	execute(walkthroughAndStep?: string) {
-		const [walkthroughId, stepId] = walkthroughAndStep?.split('|') ?? 'gitlens.welcome';
-		void openWalkthrough(this.container.context.extension.id, walkthroughId, stepId);
+		void openWalkthrough(extensionId, walkthroughId ?? 'gitlens.welcome', undefined, false);
 	}
 }
