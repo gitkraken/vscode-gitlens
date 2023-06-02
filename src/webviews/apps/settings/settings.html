@@ -15,19 +15,24 @@
 
 		<div class="container">
 			<header>
-				<a
-					class="header__link"
-					title="Learn more about GitLens"
-					href="https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links"
-				>
-					<div class="header__logo">
-						<img class="image__logo" src="#{root}/images/gitlens-icon.png" />
-						<div>
-							<h1 class="header__title">Git<span class="header__title--highlight">Lens</span></h1>
-							<p class="header__subtitle">Git supercharged</p>
-						</div>
-					</div>
-				</a>
+				<h1 class="brand"><gitlens-logo></gitlens-logo> <small>Git Supercharged</small></h1>
+				<p class="release">
+					<span
+						>Version
+						<a
+							id="version"
+							href="https://github.com/gitkraken/vscode-gitlens/blob/main/CHANGELOG.md"
+							title="Open CHANGELOG"
+							aria-label="Open CHANGELOG"
+						></a
+					></span>
+					<a
+						href="https://help.gitkraken.com/gitlens/gitlens-release-notes-current"
+						title="Open Release Notes"
+						aria-label="Open Release Notes"
+						>Release notes</a
+					>
+				</p>
 			</header>
 
 			<div class="hero__area hero__area--sticky">
@@ -66,7 +71,10 @@
 				<%= require('html-loader?{"esModule":false}!./partials/code-lens.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/status-bar.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/hovers.html') %>
-				<%= require('html-loader?{"esModule":false}!./partials/views.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/blame.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/changes.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/heatmap.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/commit-graph.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/views.commits.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/views.commitDetails.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/views.repositories.html') %>
@@ -79,10 +87,6 @@
 				<%= require('html-loader?{"esModule":false}!./partials/views.worktrees.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/views.contributors.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/views.searchAndCompare.html') %>
-				<%= require('html-loader?{"esModule":false}!./partials/blame.html') %>
-				<%= require('html-loader?{"esModule":false}!./partials/changes.html') %>
-				<%= require('html-loader?{"esModule":false}!./partials/heatmap.html') %>
-				<%= require('html-loader?{"esModule":false}!./partials/commit-graph.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/rebase-editor.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/autolinks.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/terminal-links.html') %>
@@ -137,12 +141,41 @@
 							<a
 								class="sidebar__jump-link"
 								data-action="jump"
-								href="#views"
-								title="Jump to Views settings"
-								>Views</a
+								href="#blame"
+								title="Jump to File Blame settings"
+								>File Blame</a
 							>
 						</li>
 						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#changes"
+								title="Jump to File Changes settings"
+								>File Changes</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#heatmap"
+								title="Jump to File Heatmap settings"
+								>File Heatmap</a
+							>
+						</li>
+
+						<li class="mt-1">
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#commit-graph"
+								title="Jump to Commit Graph settings"
+								>Commit Graph ✨</a
+							>
+						</li>
+
+						<li class="mt-1">
 							<a
 								class="sidebar__jump-link"
 								data-action="jump"
@@ -229,7 +262,7 @@
 								data-action="jump"
 								href="#worktrees-view"
 								title="Jump to Worktrees view settings"
-								>✨ Worktrees view</a
+								>Worktrees view ✨</a
 							>
 						</li>
 						<li>
@@ -252,43 +285,6 @@
 						</li>
 
 						<li class="mt-1">
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#blame"
-								title="Jump to File Blame settings"
-								>File Blame</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#changes"
-								title="Jump to File Changes settings"
-								>File Changes</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#heatmap"
-								title="Jump to File Heatmap settings"
-								>File Heatmap</a
-							>
-						</li>
-
-						<li class="mt-1">
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#commit-graph"
-								title="Jump to Commit Graph settings"
-								>✨ Commit Graph</a
-							>
-						</li>
-						<li>
 							<a
 								class="sidebar__jump-link"
 								data-action="jump"
