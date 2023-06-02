@@ -154,7 +154,7 @@ export class Autolinks implements Disposable {
 				match = ref.messageRegex.exec(message);
 				if (match == null) break;
 
-				[, , num] = match;
+				[, , , num] = match;
 
 				autolinks.set(num, {
 					provider: provider,
@@ -305,114 +305,123 @@ export class Autolinks implements Disposable {
 				switch (outputFormat) {
 					case 'markdown':
 						ensureCachedRegex(ref, outputFormat);
-						return text.replace(ref.messageMarkdownRegex, (_: string, linkText: string, num: string) => {
-							const url = encodeUrl(ref.url.replace(numRegex, num));
+						return text.replace(
+							ref.messageMarkdownRegex,
+							(_: string, prefix: string, linkText: string, num: string) => {
+								const url = encodeUrl(ref.url.replace(numRegex, num));
 
-							let title = '';
-							if (ref.title) {
-								title = ` "${ref.title.replace(numRegex, num)}`;
+								let title = '';
+								if (ref.title) {
+									title = ` "${ref.title.replace(numRegex, num)}`;
 
-								const issue = issuesOrPullRequests?.get(num);
-								if (issue != null) {
-									if (issue instanceof PromiseCancelledError) {
-										title += `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`;
-									} else {
-										const issueTitle = escapeMarkdown(issue.title.trim());
+									const issue = issuesOrPullRequests?.get(num);
+									if (issue != null) {
+										if (issue instanceof PromiseCancelledError) {
+											title += `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`;
+										} else {
+											const issueTitle = escapeMarkdown(issue.title.trim());
 
-										if (footnotes != null) {
-											footnoteIndex = footnotes.size + 1;
-											footnotes.set(
-												footnoteIndex,
-												`[${getIssueOrPullRequestMarkdownIcon(
-													issue,
-												)} **${issueTitle}**](${url}${title}")\\\n${GlyphChars.Space.repeat(
-													5,
-												)}${linkText} ${issue.closed ? 'closed' : 'opened'} ${fromNow(
-													issue.closedDate ?? issue.date,
-												)}`,
-											);
+											if (footnotes != null) {
+												footnoteIndex = footnotes.size + 1;
+												footnotes.set(
+													footnoteIndex,
+													`[${getIssueOrPullRequestMarkdownIcon(
+														issue,
+													)} **${issueTitle}**](${url}${title}")\\\n${GlyphChars.Space.repeat(
+														5,
+													)}${linkText} ${issue.closed ? 'closed' : 'opened'} ${fromNow(
+														issue.closedDate ?? issue.date,
+													)}`,
+												);
+											}
+
+											title += `\n${GlyphChars.Dash.repeat(2)}\n${issueTitle}\n${
+												issue.closed ? 'Closed' : 'Opened'
+											}, ${fromNow(issue.closedDate ?? issue.date)}`;
 										}
-
-										title += `\n${GlyphChars.Dash.repeat(2)}\n${issueTitle}\n${
-											issue.closed ? 'Closed' : 'Opened'
-										}, ${fromNow(issue.closedDate ?? issue.date)}`;
 									}
+									title += '"';
 								}
-								title += '"';
-							}
 
-							const token = `\x00${tokenMapping.size}\x00`;
-							tokenMapping.set(token, `[${linkText}](${url}${title})`);
-							return token;
-						});
+								const token = `\x00${tokenMapping.size}\x00`;
+								tokenMapping.set(token, `[${linkText}](${url}${title})`);
+								return `${prefix}${token}`;
+							},
+						);
 
 					case 'html':
 						ensureCachedRegex(ref, outputFormat);
-						return text.replace(ref.messageHtmlRegex, (_: string, linkText: string, num: string) => {
-							const url = encodeUrl(ref.url.replace(numRegex, num));
+						return text.replace(
+							ref.messageHtmlRegex,
+							(_: string, prefix: string, linkText: string, num: string) => {
+								const url = encodeUrl(ref.url.replace(numRegex, num));
 
-							let title = '';
-							if (ref.title) {
-								title = `"${encodeHtmlWeak(ref.title.replace(numRegex, num))}`;
+								let title = '';
+								if (ref.title) {
+									title = `"${encodeHtmlWeak(ref.title.replace(numRegex, num))}`;
 
-								const issue = issuesOrPullRequests?.get(num);
-								if (issue != null) {
-									if (issue instanceof PromiseCancelledError) {
-										title += `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`;
-									} else {
-										const issueTitle = encodeHtmlWeak(issue.title.trim());
+									const issue = issuesOrPullRequests?.get(num);
+									if (issue != null) {
+										if (issue instanceof PromiseCancelledError) {
+											title += `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`;
+										} else {
+											const issueTitle = encodeHtmlWeak(issue.title.trim());
 
-										if (footnotes != null) {
-											footnoteIndex = footnotes.size + 1;
-											footnotes.set(
-												footnoteIndex,
-												`<a href="${url}" title=${title}>${getIssueOrPullRequestHtmlIcon(
-													issue,
-												)} <b>${issueTitle}</b></a><br /><span>${GlyphChars.Space.repeat(
-													5,
-												)}${linkText} ${issue.closed ? 'closed' : 'opened'} ${fromNow(
-													issue.closedDate ?? issue.date,
-												)}</span>`,
-											);
+											if (footnotes != null) {
+												footnoteIndex = footnotes.size + 1;
+												footnotes.set(
+													footnoteIndex,
+													`<a href="${url}" title=${title}>${getIssueOrPullRequestHtmlIcon(
+														issue,
+													)} <b>${issueTitle}</b></a><br /><span>${GlyphChars.Space.repeat(
+														5,
+													)}${linkText} ${issue.closed ? 'closed' : 'opened'} ${fromNow(
+														issue.closedDate ?? issue.date,
+													)}</span>`,
+												);
+											}
+
+											title += `\n${GlyphChars.Dash.repeat(2)}\n${issueTitle}\n${
+												issue.closed ? 'Closed' : 'Opened'
+											}, ${fromNow(issue.closedDate ?? issue.date)}`;
 										}
-
-										title += `\n${GlyphChars.Dash.repeat(2)}\n${issueTitle}\n${
-											issue.closed ? 'Closed' : 'Opened'
-										}, ${fromNow(issue.closedDate ?? issue.date)}`;
 									}
+									title += '"';
 								}
-								title += '"';
-							}
 
-							const token = `\x00${tokenMapping.size}\x00`;
-							tokenMapping.set(token, `<a href="${url}" title=${title}>${linkText}</a>`);
-							return token;
-						});
+								const token = `\x00${tokenMapping.size}\x00`;
+								tokenMapping.set(token, `<a href="${url}" title=${title}>${linkText}</a>`);
+								return `${prefix}${token}`;
+							},
+						);
 
 					default:
 						ensureCachedRegex(ref, outputFormat);
-						return text.replace(ref.messageRegex, (_: string, linkText: string, num: string) => {
-							const issue = issuesOrPullRequests?.get(num);
-							if (issue == null) return linkText;
+						return text.replace(
+							ref.messageRegex,
+							(_: string, prefix: string, linkText: string, num: string) => {
+								const issue = issuesOrPullRequests?.get(num);
+								if (issue == null) return linkText;
 
-							if (footnotes != null) {
-								footnoteIndex = footnotes.size + 1;
-								footnotes.set(
-									footnoteIndex,
-									`${linkText}: ${
-										issue instanceof PromiseCancelledError
-											? 'Details timed out'
-											: `${issue.title}  ${GlyphChars.Dot}  ${
-													issue.closed ? 'Closed' : 'Opened'
-											  }, ${fromNow(issue.closedDate ?? issue.date)}`
-									}`,
-								);
-							}
+								if (footnotes != null) {
+									footnoteIndex = footnotes.size + 1;
+									footnotes.set(
+										footnoteIndex,
+										`${linkText}: ${
+											issue instanceof PromiseCancelledError
+												? 'Details timed out'
+												: `${issue.title}  ${GlyphChars.Dot}  ${
+														issue.closed ? 'Closed' : 'Opened'
+												  }, ${fromNow(issue.closedDate ?? issue.date)}`
+										}`,
+									);
+								}
 
-							const token = `\x00${tokenMapping.size}\x00`;
-							tokenMapping.set(token, `${linkText}${getSuperscript(footnoteIndex)}`);
-							return token;
-						});
+								const token = `\x00${tokenMapping.size}\x00`;
+								tokenMapping.set(token, `${linkText}${getSuperscript(footnoteIndex)}`);
+								return `${prefix}${token}`;
+							},
+						);
 				}
 			};
 		} catch (ex) {
@@ -444,21 +453,19 @@ function ensureCachedRegex(ref: CacheableAutolinkReference, outputFormat: 'html'
 	if (outputFormat === 'markdown' && ref.messageMarkdownRegex == null) {
 		// Extra `\\\\` in `\\\\\\[` is because the markdown is escaped
 		ref.messageMarkdownRegex = new RegExp(
-			`(?<=^|\\s|\\(|\\[|\\{)(${escapeRegex(encodeHtmlWeak(escapeMarkdown(ref.prefix)))}(${
+			`(^|\\s|\\(|\\[|\\{)(${escapeRegex(encodeHtmlWeak(escapeMarkdown(ref.prefix)))}(${
 				ref.alphanumeric ? '\\w' : '\\d'
 			}+))\\b`,
 			ref.ignoreCase ? 'gi' : 'g',
 		);
 	} else if (outputFormat === 'html' && ref.messageHtmlRegex == null) {
 		ref.messageHtmlRegex = new RegExp(
-			`(?<=^|\\s|\\(|\\[|\\{)(${escapeRegex(encodeHtmlWeak(ref.prefix))}(${
-				ref.alphanumeric ? '\\w' : '\\d'
-			}+))\\b`,
+			`(^|\\s|\\(|\\[|\\{)(${escapeRegex(encodeHtmlWeak(ref.prefix))}(${ref.alphanumeric ? '\\w' : '\\d'}+))\\b`,
 			ref.ignoreCase ? 'gi' : 'g',
 		);
 	} else if (ref.messageRegex == null) {
 		ref.messageRegex = new RegExp(
-			`(?<=^|\\s|\\(|\\[|\\{)(${escapeRegex(ref.prefix)}(${ref.alphanumeric ? '\\w' : '\\d'}+))\\b`,
+			`(^|\\s|\\(|\\[|\\{)(${escapeRegex(ref.prefix)}(${ref.alphanumeric ? '\\w' : '\\d'}+))\\b`,
 			ref.ignoreCase ? 'gi' : 'g',
 		);
 	}
