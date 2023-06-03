@@ -26,6 +26,18 @@ export class WelcomeApp extends App<State> {
 			...(super.onBind?.() ?? []),
 			DOM.on('[data-feature]', 'change', (e, target: HTMLInputElement) => this.onFeatureToggled(e, target)),
 			DOM.on('[data-feature]', 'click', (e, target: HTMLElement) => this.onFeatureToggled(e, target)),
+			DOM.on('[data-hover]', 'mouseover', (e, target: HTMLElement) => {
+				const hoverTargetId = target.dataset.hover;
+				if (!hoverTargetId) return;
+
+				document.getElementById(hoverTargetId)?.classList.add('hovering');
+			}),
+			DOM.on('[data-hover]', 'mouseout', (e, target: HTMLElement) => {
+				const hoverTargetId = target.dataset.hover;
+				if (!hoverTargetId) return;
+
+				document.getElementById(hoverTargetId)?.classList.remove('hovering');
+			}),
 		];
 		return disposables;
 	}

@@ -282,15 +282,6 @@ gk-card p {
 		width: calc(100% - 2rem);
 		height: auto;
 		margin: 0 1rem;
-
-		&--graph {
-			object-fit: cover;
-			object-position: top;
-			aspect-ratio: 3.6;
-			border-radius: 0.9rem;
-			// box-shadow: 0 0 0 0.1rem #444444;
-			border: 0.1rem solid var(--vscode-editorWidget-border);
-		}
 	}
 
 	&__plus-cards {
@@ -411,6 +402,7 @@ gk-card p {
 
 	&-blame {
 		fill: var(--vscode-gitlens-trailingLineForegroundColor);
+		cursor: pointer;
 
 		&.is-disabled {
 			opacity: 0;
@@ -684,6 +676,74 @@ gk-card p {
 	}
 	&__lane-5-background {
 		fill: var(--vscode-gitlens-graphLane5Color);
+	}
+}
+
+.hover {
+	opacity: 0;
+	transition: opacity 200ms ease-in-out;
+	position: absolute;
+	bottom: 30px;
+	right: -30px;
+
+	&.hovering {
+		opacity: 1;
+	}
+
+	&__box {
+		position: relative;
+	}
+
+	rect {
+		fill: var(--vscode-editorHoverWidget-background);
+		stroke: var(--vscode-editorHoverWidget-border);
+		stroke-width: 1;
+	}
+
+	line {
+		stroke: var(--vscode-editorHoverWidget-border);
+		stroke-width: 1;
+	}
+
+	text {
+		font-family: var(--vscode-font-family);
+		font-weight: var(--vscode-font-weight);
+		font-size: 1.1rem;
+
+		fill: var(--vscode-editorHoverWidget-foreground);
+	}
+
+	&__diff {
+		tspan {
+			font-family: var(--vscode-editor-font-family);
+			font-weight: var(--vscode-editor-font-weight);
+			font-size: var(--vscode-editor-font-size);
+		}
+
+		&-removed {
+			fill: var(--vscode-gitDecoration-deletedResourceForeground);
+		}
+
+		&-added {
+			fill: var(--vscode-gitDecoration-addedResourceForeground);
+		}
+	}
+
+	&__author {
+		font-weight: 700;
+	}
+
+	&__date {
+		font-style: italic;
+	}
+
+	&__codicon {
+		fill: var(--vscode-editorHoverWidget-foreground);
+		font-family: codicon;
+	}
+
+	&__link {
+		fill: #3794ff !important;
 	}
 }
 

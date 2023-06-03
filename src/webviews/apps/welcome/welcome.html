@@ -55,23 +55,64 @@
 					In-editor code annotations and rich hovers help you better understand how code changed and by whom
 				</p>
 
-				<!-- Don't reformat or let prettier reformat the SVG otherwise whitespace will get added incorrect and screw up the positioning -->
-				<!-- prettier-ignore -->
-				<svg
-					class="editor welcome__illustration"
-					width="600"
-					height="45"
-					viewBox="0 0 600 43"
-					fill="none"
-					xmlns="http://www.w3.org/2000/svg"
-				>
-					<g class="editor-codelens" data-feature-codelens="on">
-						<text y="18"><tspan x="38">Eric Amodio, 3 minutes ago | 1 author (Eric Amodio)</tspan></text>
-					</g>
-					<g class="editor-line">
-						<text y="34"><tspan x="7" class="editor-line-number">12</tspan><tspan x="38" class="editor-function-declaration">function</tspan><tspan dx="6" class="editor-function-name">gitlens</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">:</tspan><tspan dx="6" class="editor-function-argument-type">object</tspan><tspan class="editor-punctuation">)</tspan><tspan dx="6" class="editor-punctuation">{</tspan><tspan class="editor-cursor">|</tspan><tspan dx="24" class="editor-blame" data-feature-blame="on">You, 6 years ago via PR #1 • Supercharge Git</tspan></text>
-					</g>
-				</svg>
+				<div class="hover__box">
+					<!-- Don't reformat or let prettier reformat the SVG otherwise whitespace will get added incorrect and screw up the positioning -->
+					<!-- prettier-ignore -->
+					<svg
+						id="blame-hover"
+						class="hover welcome__illustration"
+						width="600"
+						height="177"
+						viewBox="0 0 80 177"
+						fill="none"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<rect width="340" height="177" rx="3"></rect>
+						<text>
+							<tspan class="hover__author hover__link" x="47" y="23">You</tspan><tspan>, 6 years ago</tspan><tspan class="hover__date" dx="24">(November 12th, 2016 3:41pm)</tspan><tspan x="47" y="57">Supercharge Git</tspan>
+						</text>
+
+						<line x1="0" y1="70" x2="341" y2="70" />
+
+						<text y="89">
+							<tspan x="9" dy="1.5" class="hover__codicon hover__link">&#xeafc;</tspan><tspan dx="2" dy="-1.5" class="hover__link">29ad3a0</tspan><tspan dx="9" opacity="0.6">|</tspan><tspan dx="9" dy="1.5" class="hover__codicon hover__link">&#xeafd;</tspan><tspan dx="9" dy="-1.5" opacity="0.6">|</tspan><tspan dx="9" dy="1.5" class="hover__codicon hover__link">&#xea82;</tspan><tspan dx="9" dy="-1.5" opacity="0.6">|</tspan><tspan dx="9" dy="1.5" class="hover__codicon hover__link">&#xeb01;</tspan><tspan dx="9" dy="-1.5" opacity="0.6">|</tspan><tspan dx="9" dy="1.5" class="hover__codicon hover__link">&#xea7c;</tspan>
+						</text>
+
+						<line x1="0" y1="99" x2="341" y2="99" />
+
+						<text class="hover__diff">
+							<tspan class="hover__diff-removed" x="9" y="119">- return git;</tspan>
+							<tspan class="hover__diff-added" x="9" y="136">+ return supercharged(git);</tspan>
+						</text>
+
+						<line x1="0" y1="147" x2="341" y2="147" />
+
+						<text y="166">
+							<tspan x="9">Changes</tspan><tspan dx="12" dy="1.5" class="hover__codicon hover__link">&#xeafc;</tspan><tspan dx="2" dy="-1.5" class="hover__link">3ac1d3f</tspan><tspan dx="9" dy="1.5" class="hover__codicon">&#xea99;</tspan><tspan dx="6" class="hover__codicon hover__link">&#xeafc;</tspan><tspan dx="2" dy="-1.5" class="hover__link">29ad3a0</tspan><tspan dx="9" opacity="0.6">|</tspan><tspan dx="9" dy="1.5" class="hover__codicon hover__link">&#xeafd;</tspan>
+						</text>
+					</svg>
+
+					<!-- Don't reformat or let prettier reformat the SVG otherwise whitespace will get added incorrect and screw up the positioning -->
+					<!-- prettier-ignore -->
+					<svg
+						class="editor welcome__illustration"
+						width="600"
+						height="45"
+						viewBox="0 0 600 43"
+						fill="none"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<g class="editor-codelens" data-feature-codelens="on">
+							<text y="18"><tspan x="38">Eric Amodio, 3 minutes ago | 1 author (Eric Amodio)</tspan></text>
+						</g>
+						<g class="editor-line">
+							<text y="34"><tspan x="7" class="editor-line-number">13</tspan><tspan x="38" class="editor-function-return">return</tspan><tspan dx="6" class="editor-function-name">supercharged</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">)</tspan><tspan class="editor-punctuation">;</tspan><tspan class="editor-cursor">|</tspan><tspan dx="24" class="editor-blame" data-hover="blame-hover" data-feature-blame="on">You, 6 years ago via PR #1 • Supercharge Git</tspan></text>
+						</g>
+						<!-- <g class="editor-line">
+							<text y="34"><tspan x="7" class="editor-line-number">12</tspan><tspan x="38" class="editor-function-declaration">function</tspan><tspan dx="6" class="editor-function-name">gitlens</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">:</tspan><tspan dx="6" class="editor-function-argument-type">object</tspan><tspan class="editor-punctuation">)</tspan><tspan dx="6" class="editor-punctuation">{</tspan><tspan class="editor-cursor">|</tspan><tspan dx="24" class="editor-blame" data-feature-blame="on">You, 6 years ago via PR #1 • Supercharge Git</tspan></text>
+						</g> -->
+					</svg>
+				</div>
 
 				<p style="margin: 0.5rem 1rem 0 1rem">
 					<strong>Want more control?</strong>
@@ -163,7 +204,7 @@
 								<circle cx="42" cy="31" r="7"></circle>
 								<text x="42" y="33.5" text-anchor="middle">EA</text>
 							</g>
-							<text y="36"><tspan x="58" class="editor-gutter-text">Supercharged</tspan><tspan x="274" dx="-12" text-anchor="end" class="editor-gutter-text">5 yrs ago</tspan></text>
+							<text y="36"><tspan x="58" class="editor-gutter-text">Supercharged</tspan><tspan x="274" dx="-12" text-anchor="end" class="editor-gutter-text">6 yrs ago</tspan></text>
 						</g>
 						<line class="editor-heatmap" x1="270" y1="0" x2="270" y2="100%" />
 					</g>
