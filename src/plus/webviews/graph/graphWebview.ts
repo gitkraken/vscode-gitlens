@@ -2051,19 +2051,19 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	@debug()
 	private fetch(item?: GraphItemContext) {
-		const ref = this.getGraphItemRef(item, 'branch');
+		const ref = item != null ? this.getGraphItemRef(item, 'branch') : undefined;
 		void RepoActions.fetch(this.repository, ref);
 	}
 
 	@debug()
 	private pull(item?: GraphItemContext) {
-		const ref = this.getGraphItemRef(item, 'branch');
+		const ref = item != null ? this.getGraphItemRef(item, 'branch') : undefined;
 		void RepoActions.pull(this.repository, ref);
 	}
 
 	@debug()
 	private push(item?: GraphItemContext) {
-		const ref = this.getGraphItemRef(item);
+		const ref = item != null ? this.getGraphItemRef(item) : undefined;
 		void RepoActions.push(this.repository, undefined, ref);
 	}
 
