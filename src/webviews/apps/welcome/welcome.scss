@@ -521,11 +521,24 @@ gk-card p {
 	}
 }
 
+.codicon {
+	font-family: codicon;
+	cursor: default;
+	user-select: none;
+}
+
+.glicon {
+	font-family: glicons;
+	cursor: default;
+	user-select: none;
+}
+
 .toolbar {
 	fill: var(--vscode-menu-background);
 
 	&-icon {
 		fill: var(--vscode-icon-foreground);
+		font-size: 16px;
 
 		&__annotations {
 			&:not(.inactive) {
@@ -537,23 +550,23 @@ gk-card p {
 				animation-timing-function: steps(8);
 			}
 
-			path:first-child {
+			circle {
 				fill: #f05133;
 				stroke: none;
 			}
 
-			path:last-child {
+			path {
 				fill: var(--vscode-menu-background);
 			}
 
 			body[data-feature-annotations='off'] &,
 			&.inactive {
-				path:first-child {
+				circle {
 					fill: none;
 					stroke: var(--vscode-icon-foreground);
 				}
 
-				path:last-child {
+				path {
 					fill: var(--vscode-icon-foreground);
 				}
 			}
@@ -591,7 +604,8 @@ gk-card p {
 			fill: var(--color-foreground);
 		}
 
-		&.inactive {
+		&.inactive,
+		& .inactive {
 			opacity: 0.6;
 		}
 	}
@@ -620,15 +634,6 @@ gk-card p {
 
 	&__branch-current {
 		font-weight: 700 !important;
-	}
-
-	&__checkmark-icon,
-	&__pr-icon {
-		fill: white;
-	}
-
-	&__wip-icon {
-		fill: var(--vscode-editor-foreground);
 	}
 
 	&__messages {
@@ -735,11 +740,6 @@ gk-card p {
 
 	&__date {
 		font-style: italic;
-	}
-
-	&__codicon {
-		fill: var(--vscode-editorHoverWidget-foreground);
-		font-family: codicon;
 	}
 
 	&__link {
