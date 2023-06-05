@@ -88,7 +88,6 @@ export function registerGraphWebviewCommands(container: Container, webview: Webv
 		registerCommand(Commands.ToggleMaximizedGraph, (...args: any[]) => {
 			if (getContext('gitlens:webviewView:graph:visible')) {
 				void executeCoreCommand('workbench.action.toggleMaximizedPanel');
-				void executeCoreCommand('workbench.action.closePanel');
 			} else {
 				void executeCommand(Commands.ShowGraphView, ...args);
 				void executeCoreCommand('workbench.action.toggleMaximizedPanel');
