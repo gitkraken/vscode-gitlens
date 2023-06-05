@@ -96,8 +96,8 @@ export class SubscriptionService implements Disposable {
 		);
 
 		const subscription = this.getStoredSubscription();
-		// Resets the preview trial state on the upgrade to 13.0
-		if (subscription != null && satisfies(previousVersion, '< 13.0')) {
+		// Resets the preview trial state on the upgrade to 14.0
+		if (subscription != null && satisfies(previousVersion, '< 14.0')) {
 			subscription.previewTrial = undefined;
 		}
 
