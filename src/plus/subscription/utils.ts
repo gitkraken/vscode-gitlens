@@ -13,7 +13,7 @@ export async function ensurePlusFeaturesEnabled(): Promise<boolean> {
 	const confirm: MessageItem = { title: 'Enable' };
 	const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
 	const result = await window.showInformationMessage(
-		'GitLens+ features are currently disabled. Would you like to enable them?',
+		'Pro features are currently disabled. Would you like to enable them?',
 		{ modal: true },
 		confirm,
 		cancel,
