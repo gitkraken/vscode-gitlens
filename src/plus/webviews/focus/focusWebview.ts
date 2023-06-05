@@ -24,6 +24,7 @@ import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
 import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
 import { executeCommand, registerCommand } from '../../../system/command';
 import { setContext } from '../../../system/context';
+import { getSettledValue } from '../../../system/promise';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
@@ -48,7 +49,6 @@ interface SearchedPullRequestWithRemote extends SearchedPullRequest {
 }
 
 export class FocusWebviewProvider implements WebviewProvider<State> {
-	private _bootstrapping = true;
 	private _pullRequests: SearchedPullRequestWithRemote[] = [];
 	private _issues: SearchedIssue[] = [];
 	private readonly _disposable: Disposable;
@@ -223,10 +223,10 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		if (e.etag === this._etagSubscription) return;
 
 		this._etagSubscription = e.etag;
-		void this.notifyDidChangeState();
+		void this.notifyDidChangeState(true);
 	}
 
-	private async getState(deferState = false): Promise<State> {
+	private async getState(deferState?: boolean): Promise<State> {
 		const access = await this.container.git.access(PlusFeatures.Focus);
 		if (access.allowed !== true) {
 			return {
@@ -240,49 +240,61 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		const connectedRepos = filterUsableRepos(githubRepos);
 		const hasConnectedRepos = connectedRepos.length > 0;
 
-		if (deferState || !hasConnectedRepos) {
+		if (!hasConnectedRepos) {
 			return {
 				timestamp: Date.now(),
 				access: access,
-				repos: (hasConnectedRepos ? connectedRepos : githubRepos).map(r => serializeRepoWithRichRemote(r)),
+				repos: githubRepos.map(r => serializeRepoWithRichRemote(r)),
 			};
 		}
 
-		const prs = await this.getMyPullRequests(connectedRepos);
-		const serializedPrs = prs.map(pr => ({
-			pullRequest: serializePullRequest(pr.pullRequest),
-			reasons: pr.reasons,
-			isCurrentBranch: pr.isCurrentBranch ?? false,
-			isCurrentWorktree: pr.isCurrentWorktree ?? false,
-			hasWorktree: pr.hasWorktree ?? false,
-			hasLocalBranch: pr.hasLocalBranch ?? false,
-		}));
+		const repos = connectedRepos.map(r => serializeRepoWithRichRemote(r));
 
-		const issues = await this.getMyIssues(connectedRepos);
-		const serializedIssues = issues.map(issue => ({
-			issue: serializeIssue(issue.issue),
-			reasons: issue.reasons,
-		}));
+		const statePromise = Promise.allSettled([
+			this.getMyPullRequests(connectedRepos),
+			this.getMyIssues(connectedRepos),
+		]);
 
-		return {
-			timestamp: Date.now(),
-			access: access,
-			pullRequests: serializedPrs,
-			issues: serializedIssues,
-			repos: connectedRepos.map(r => serializeRepoWithRichRemote(r)),
-		};
+		async function getStateCore() {
+			const [prsResult, issuesResult] = await statePromise;
+			return {
+				timestamp: Date.now(),
+				access: access,
+				repos: repos,
+				pullRequests: getSettledValue(prsResult)?.map(pr => ({
+					pullRequest: serializePullRequest(pr.pullRequest),
+					reasons: pr.reasons,
+					isCurrentBranch: pr.isCurrentBranch ?? false,
+					isCurrentWorktree: pr.isCurrentWorktree ?? false,
+					hasWorktree: pr.hasWorktree ?? false,
+					hasLocalBranch: pr.hasLocalBranch ?? false,
+				})),
+				issues: getSettledValue(issuesResult)?.map(issue => ({
+					issue: serializeIssue(issue.issue),
+					reasons: issue.reasons,
+				})),
+			};
+		}
+
+		if (deferState) {
+			queueMicrotask(async () => {
+				const state = await getStateCore();
+				void this.host.notify(DidChangeNotificationType, { state: state });
+			});
+
+			return {
+				timestamp: Date.now(),
+				access: access,
+				repos: repos,
+			};
+		}
+
+		const state = await getStateCore();
+		return state;
 	}
 
 	async includeBootstrap(): Promise<State> {
-		if (this._bootstrapping) {
-			const state = await this.getState(true);
-			if (state.access.allowed === true) {
-				void this.notifyDidChangeState();
-			}
-			return state;
-		}
-
-		return this.getState();
+		return this.getState(true);
 	}
 
 	private async getRichRepos(force?: boolean): Promise<RepoWithRichRemote[]> {
@@ -425,12 +437,8 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		return this._issues;
 	}
 
-	private async notifyDidChangeState() {
-		// if (!this.host.visible) return;
-
-		const state = await this.getState();
-		this._bootstrapping = false;
-		void this.host.notify(DidChangeNotificationType, { state: state });
+	private async notifyDidChangeState(deferState?: boolean) {
+		void this.host.notify(DidChangeNotificationType, { state: await this.getState(deferState) });
 	}
 }
 

@@ -18,12 +18,10 @@ import type { FormEvent, ReactElement } from 'react';
 import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
 import { DateStyle } from '../../../../config';
-import { RepositoryVisibility } from '../../../../git/gitProvider';
 import type { SearchQuery } from '../../../../git/search';
 import type {
 	DidEnsureRowParams,
 	DidSearchParams,
-	DismissBannerParams,
 	GraphAvatars,
 	GraphColumnName,
 	GraphColumnsConfig,
@@ -57,12 +55,12 @@ import {
 	DidSearchNotificationType,
 } from '../../../../plus/webviews/graph/protocol';
 import type { Subscription } from '../../../../subscription';
-import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../subscription';
 import { pluralize } from '../../../../system/string';
 import type { IpcNotificationType } from '../../../protocol';
 import { MenuDivider, MenuItem, MenuLabel, MenuList } from '../../shared/components/menu/react';
 import { PopMenu } from '../../shared/components/overlays/pop-menu/react';
-import { PopOver } from '../../shared/components/overlays/react';
+import { FeatureGate } from '../../shared/components/react/feature-gate';
+import { FeatureGateBadge } from '../../shared/components/react/feature-gate-badge';
 import { SearchBox } from '../../shared/components/search/react';
 import type { SearchNavigationEventDetail } from '../../shared/components/search/search-box';
 import type { DateTimeFormat } from '../../shared/date';
@@ -96,7 +94,6 @@ export interface GraphWrapperProps {
 		options?: { limit?: number; more?: boolean },
 	) => Promise<DidSearchParams | undefined>;
 	onSearchOpenInView?: (search: SearchQuery) => void;
-	onDismissBanner?: (key: DismissBannerParams['key']) => void;
 	onSelectionChange?: (rows: GraphRow[]) => void;
 	onEnsureRowPromise?: (id: string, select: boolean) => Promise<DidEnsureRowParams | undefined>;
 	onExcludeType?: (key: keyof GraphExcludeTypes, value: boolean) => void;
@@ -187,7 +184,6 @@ export function GraphWrapper({
 	onSearchPromise,
 	onSearchOpenInView,
 	onSelectionChange,
-	onDismissBanner,
 	onExcludeType,
 	onIncludeOnlyRef,
 	onUpdateGraphConfiguration,
@@ -222,12 +218,7 @@ export function GraphWrapper({
 	const [branchName, setBranchName] = useState(state.branchName);
 	const [lastFetched, setLastFetched] = useState(state.lastFetched);
 	const [windowFocused, setWindowFocused] = useState(state.windowFocused);
-	// account
-	const [showAccount, setShowAccount] = useState(state.trialBanner);
-	const [isAccessAllowed, setIsAccessAllowed] = useState(state.allowed ?? false);
-	const [isRepoPrivate, setIsRepoPrivate] = useState(
-		state.selectedRepositoryVisibility === RepositoryVisibility.Private,
-	);
+	const [allowed, setAllowed] = useState(state.allowed ?? false);
 	const [subscription, setSubscription] = useState<Subscription | undefined>(state.subscription);
 	// search state
 	const searchEl = useRef<any>(null);
@@ -311,7 +302,7 @@ export function GraphWrapper({
 				setIncludeOnlyRefsById(state.includeOnlyRefs);
 				break;
 			case DidChangeSubscriptionNotificationType:
-				setIsAccessAllowed(state.allowed ?? false);
+				setAllowed(state.allowed ?? false);
 				setSubscription(state.subscription);
 				break;
 			case DidChangeWorkingTreeNotificationType:
@@ -321,7 +312,7 @@ export function GraphWrapper({
 				setLastFetched(state.lastFetched);
 				break;
 			default: {
-				setIsAccessAllowed(state.allowed ?? false);
+				setAllowed(state.allowed ?? false);
 				if (!themingChanged) {
 					setStyleProps(state.theming);
 				}
@@ -345,10 +336,8 @@ export function GraphWrapper({
 				setPagingHasMore(state.paging?.hasMore ?? false);
 				setRepos(state.repositories ?? []);
 				setRepo(repos.find(item => item.path === state.selectedRepository));
-				setIsRepoPrivate(state.selectedRepositoryVisibility === RepositoryVisibility.Private);
 				// setGraphDateFormatter(getGraphDateFormatter(config));
 				setSubscription(state.subscription);
-				setShowAccount(state.trialBanner ?? true);
 
 				const { results, resultsError } = getSearchResultModel(state);
 				setSearchResultsError(resultsError);
@@ -980,186 +969,6 @@ export function GraphWrapper({
 		onSelectionChange?.(rows);
 	};
 
-	const handleDismissAccount = () => {
-		setShowAccount(false);
-		onDismissBanner?.('trial');
-	};
-
-	const renderAccountState = () => {
-		if (!subscription) return;
-
-		let label = subscription.plan.effective.name;
-		let isPro = true;
-		let subText;
-		switch (subscription.state) {
-			case SubscriptionState.Free:
-			case SubscriptionState.FreePreviewTrialExpired:
-			case SubscriptionState.FreePlusTrialExpired:
-				isPro = false;
-				label = 'GitLens Free';
-				break;
-			case SubscriptionState.FreeInPreviewTrial:
-			case SubscriptionState.FreePlusInTrial: {
-				const days = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
-				label = 'GitLens Pro (Trial)';
-				subText = `${days < 1 ? '<1 day' : pluralize('day', days)} left`;
-				break;
-			}
-			case SubscriptionState.VerificationRequired:
-				isPro = false;
-				label = `${label} (Unverified)`;
-				break;
-		}
-
-		return (
-			<span className="badge-container mr-loose">
-				<span className="badge is-help">
-					<span className={`repo-access${isPro ? ' is-pro' : ''}`}>✨</span> {label}
-					{subText && (
-						<>
-							&nbsp;&nbsp;
-							<small>{subText}</small>
-						</>
-					)}
-				</span>
-				<PopOver placement="top end" className="badge-popover">
-					{isPro
-						? 'You have access to all GitLens features on any repo.'
-						: 'You have access to ✨ features on local & public repos, and all other GitLens features on any repo.'}
-					<br />
-					<br />✨ indicates a subscription is required to use this feature on privately hosted repos.
-				</PopOver>
-			</span>
-		);
-	};
-
-	const renderAlertContent = () => {
-		if (subscription == null || !isRepoPrivate || (isAccessAllowed && !showAccount)) return;
-
-		let icon = 'account';
-		let modifier = '';
-		let content;
-		let actions;
-		let days = 0;
-		if ([SubscriptionState.FreeInPreviewTrial, SubscriptionState.FreePlusInTrial].includes(subscription.state)) {
-			days = getSubscriptionTimeRemaining(subscription, 'days') ?? 0;
-		}
-
-		switch (subscription.state) {
-			case SubscriptionState.Free:
-			case SubscriptionState.Paid:
-				return;
-			case SubscriptionState.FreeInPreviewTrial:
-				icon = 'calendar';
-				modifier = 'neutral';
-				content = (
-					<>
-						<p className="alert__title">GitLens Pro Trial</p>
-						<p className="alert__message">
-							You have {days < 1 ? 'less than one day' : pluralize('day', days)} left in your 3-day
-							GitLens Pro trial. Don't worry if you need more time, you can extend your trial for an
-							additional free 7-days of the Commit Graph and other{' '}
-							<a href="command:gitlens.plus.learn">GitLens+ features</a> on private repos.
-						</p>
-					</>
-				);
-				break;
-			case SubscriptionState.FreePlusInTrial:
-				icon = 'calendar';
-				modifier = 'neutral';
-				content = (
-					<>
-						<p className="alert__title">GitLens Pro Trial</p>
-						<p className="alert__message">
-							You have {days < 1 ? 'less than one day' : pluralize('day', days)} left in your GitLens Pro
-							trial. Once your trial ends, you'll continue to have access to the Commit Graph and other{' '}
-							<a href="command:gitlens.plus.learn">GitLens+ features</a> on local and public repos, while
-							upgrading to GitLens Pro gives you access on private repos.
-						</p>
-					</>
-				);
-				break;
-			case SubscriptionState.FreePreviewTrialExpired:
-				icon = 'warning';
-				modifier = 'warning';
-				content = (
-					<>
-						<p className="alert__title">Extend Your GitLens Pro Trial</p>
-						<p className="alert__message">
-							Your free 3-day GitLens Pro trial has ended, extend your trial to get an additional free
-							7-days of the Commit Graph and other{' '}
-							<a href="command:gitlens.plus.learn">GitLens+ features</a> on private repos.
-						</p>
-					</>
-				);
-				actions = (
-					<a className="alert-action" href="command:gitlens.plus.loginOrSignUp">
-						Extend Pro Trial
-					</a>
-				);
-				break;
-			case SubscriptionState.FreePlusTrialExpired:
-				icon = 'warning';
-				modifier = 'warning';
-				content = (
-					<>
-						<p className="alert__title">GitLens Pro Trial Expired</p>
-						<p className="alert__message">
-							Your GitLens Pro trial has ended, please upgrade to GitLens Pro to continue to use the
-							Commit Graph and other <a href="command:gitlens.plus.learn">GitLens+ features</a> on private
-							repos.
-						</p>
-					</>
-				);
-				actions = (
-					<a className="alert-action" href="command:gitlens.plus.purchase">
-						Upgrade to Pro
-					</a>
-				);
-				break;
-			case SubscriptionState.VerificationRequired:
-				icon = 'unverified';
-				modifier = 'warning';
-				content = (
-					<>
-						<p className="alert__title">Please verify your email</p>
-						<p className="alert__message">
-							Before you can use <a href="command:gitlens.plus.learn">GitLens+ features</a> on private
-							repos, please verify your email address.
-						</p>
-					</>
-				);
-				actions = (
-					<>
-						<a className="alert-action" href="command:gitlens.plus.resendVerification">
-							Resend Verification Email
-						</a>
-						<a className="alert-action" href="command:gitlens.plus.validate">
-							Refresh Verification Status
-						</a>
-					</>
-				);
-				break;
-		}
-
-		return (
-			<section className="graph-app__banners">
-				<div className={`alert${modifier !== '' ? ` alert--${modifier}` : ''}`}>
-					<span className={`alert__icon codicon codicon-${icon}`}></span>
-					<div className="alert__content">
-						{content}
-						{actions && <div className="alert__actions">{actions}</div>}
-					</div>
-					{isAccessAllowed && (
-						<button className="alert__dismiss" type="button" onClick={() => handleDismissAccount()}>
-							<span className="codicon codicon-chrome-close"></span>
-						</button>
-					)}
-				</div>
-			</section>
-		);
-	};
-
 	const renderFetchAction = () => {
 		const lastFetchedDate = lastFetched && new Date(lastFetched);
 		const fetchedText = lastFetchedDate && lastFetchedDate.getTime() !== 0 ? fromNow(lastFetchedDate) : undefined;
@@ -1238,9 +1047,8 @@ export function GraphWrapper({
 
 	return (
 		<>
-			{renderAlertContent()}
 			<header className="titlebar graph-app__header">
-				<div className="titlebar__row titlebar__row--wrap">
+				<div className={`titlebar__row titlebar__row--wrap${allowed ? '' : ' disallowed'}`}>
 					{repo && branchState?.provider?.url && (
 						<a
 							href={branchState.provider.url}
@@ -1276,7 +1084,7 @@ export function GraphWrapper({
 							></span>
 						)}
 					</button>
-					{repo && (
+					{allowed && repo && (
 						<>
 							<span>
 								<span className="codicon codicon-chevron-right"></span>
@@ -1299,17 +1107,9 @@ export function GraphWrapper({
 							{renderFetchAction()}
 						</>
 					)}
-					{renderAccountState()}
-					<a
-						href="https://github.com/gitkraken/vscode-gitlens/discussions/2158"
-						title="Commit Graph Feedback"
-						aria-label="Commit Graph Feedback"
-						className="action-button"
-					>
-						<span className="codicon codicon-feedback"></span>
-					</a>
+					<FeatureGateBadge subscription={subscription}></FeatureGateBadge>
 				</div>
-				{isAccessAllowed && (
+				{allowed && (
 					<div className="titlebar__row">
 						<div className="titlebar__group">
 							<PopMenu>
@@ -1515,6 +1315,9 @@ export function GraphWrapper({
 					<div className="progress-bar"></div>
 				</div>
 			</header>
+			<FeatureGate className="graph-app__gate" appearance="alert" state={subscription?.state} visible={!allowed}>
+				<p slot="feature">Easily visualize your repository and keep track of all work in progress.</p>
+			</FeatureGate>
 			{graphConfig?.minimap && (
 				<GraphMinimap
 					ref={minimap as any}
@@ -1527,12 +1330,7 @@ export function GraphWrapper({
 					onSelected={e => handleOnMinimapDaySelected(e as CustomEvent<GraphMinimapDaySelectedEventDetail>)}
 				></GraphMinimap>
 			)}
-			<main
-				id="main"
-				className={`graph-app__main${!isAccessAllowed ? ' is-gated' : ''}`}
-				aria-hidden={!isAccessAllowed}
-			>
-				{!isAccessAllowed && <div className="graph-app__cover"></div>}
+			<main id="main" className="graph-app__main" aria-hidden={!allowed}>
 				{repo !== undefined ? (
 					<>
 						<GraphContainer

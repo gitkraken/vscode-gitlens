@@ -24,7 +24,8 @@ export class FeatureGate extends LitElement {
 			box-sizing: border-box;
 		}
 
-		:host-context(body[data-placement='editor']) {
+		:host-context(body[data-placement='editor']),
+		:host([appearance='alert']) {
 			--background: transparent;
 			--foreground: var(--vscode-editor-foreground);
 
@@ -55,7 +56,8 @@ export class FeatureGate extends LitElement {
 			height: min-content;
 		}
 
-		:host-context(body[data-placement='editor']) section {
+		:host-context(body[data-placement='editor']) section,
+		:host([appearance='alert']) section {
 			--section-foreground: var(--color-alert-foreground);
 			--section-background: var(--color-alert-infoBackground);
 			--section-border-color: var(--color-alert-infoBorder);
@@ -71,12 +73,16 @@ export class FeatureGate extends LitElement {
 			padding: 1.3rem;
 		}
 
-		:host-context(body[data-placement='editor']) section ::slotted(gk-button) {
+		:host-context(body[data-placement='editor']) section ::slotted(gk-button),
+		:host([appearance='alert']) section ::slotted(gk-button) {
 			display: block;
 			margin-left: auto;
 			margin-right: auto;
 		}
 	`;
+
+	@property()
+	appearance?: 'alert' | 'welcome';
 
 	@property({ attribute: false, type: Number })
 	state?: SubscriptionState;
@@ -84,16 +90,16 @@ export class FeatureGate extends LitElement {
 	@property({ type: Boolean })
 	visible?: boolean;
 
-	@property({ reflect: true })
-	get appearance() {
-		return (document.body.getAttribute('data-placement') ?? 'editor') === 'editor' ? 'alert' : 'welcome';
-	}
-
 	override render() {
 		if (!this.visible || (this.state != null && isSubscriptionStatePaidOrTrial(this.state))) {
 			this.hidden = true;
 			return undefined;
 		}
+
+		const appearance =
+			this.appearance ?? (document.body.getAttribute('data-placement') ?? 'editor') === 'editor'
+				? 'alert'
+				: 'welcome';
 
 		this.hidden = false;
 		return html`
@@ -101,10 +107,7 @@ export class FeatureGate extends LitElement {
 				<slot>
 					<slot name="feature" hidden=${this.state === SubscriptionState.Free ? nothing : ''}></slot>
 				</slot>
-				<gk-feature-gate-plus-state
-					appearance=${this.appearance}
-					.state=${this.state}
-				></gk-feature-gate-plus-state>
+				<gk-feature-gate-plus-state appearance=${appearance} .state=${this.state}></gk-feature-gate-plus-state>
 			</section>
 		`;
 	}

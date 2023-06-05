@@ -5,37 +5,38 @@
 	</head>
 
 	<body class="preload" data-placement="#{placement}">
-		<gk-feature-gate id="subscription-gate" class="scrollable"
-			><p slot="feature">
-				Helps you focus on what's important by providing you with a comprehensive list of all your pull requests
-				and issues on your GitHub repos.
-			</p></gk-feature-gate
-		>
-		<gk-feature-gate id="connection-gate" class="scrollable" visible="false">
-			<h3>No GitHub remotes are connected</h3>
-			<p>
-				This enables access to Pull Requests and Issues in the Focus View as well as provide additional
-				information inside hovers and the Commit Details view, such as auto-linked issues and pull requests and
-				avatars.
-			</p>
-			<gk-button appearance="alert" href="command:gitlens.connectRemoteProvider">Connect to GitHub</gk-button>
-		</gk-feature-gate>
 		<div class="app">
 			<header class="app__header" id="header">
 				<span class="badge">Preview</span>
-				<span class="app__header-group">
-					<account-badge id="account-badge"></account-badge>
-					<a
-						href="https://github.com/gitkraken/vscode-gitlens/discussions/2535"
-						title="Focus View Feedback"
-						aria-label="Focus View Feedback"
-						class="feedback-button"
-						><code-icon icon="feedback"></code-icon
-					></a>
-				</span>
+				<gk-feature-gate-badge id="subscription-gate-badge"></gk-feature-gate-badge>
+				<gk-button
+					appearance="toolbar"
+					href="https://github.com/gitkraken/vscode-gitlens/discussions/2535"
+					title="Focus View Feedback"
+					aria-label="Focus View Feedback"
+					><code-icon icon="feedback"></code-icon
+				></gk-button>
 			</header>
 
 			<div class="app__content" id="content">
+				<gk-feature-gate id="subscription-gate" class="scrollable"
+					><p slot="feature">
+						Helps you focus on what's important by providing you with a comprehensive list of all your pull
+						requests and issues on your GitHub repos.
+					</p></gk-feature-gate
+				>
+				<gk-feature-gate id="connection-gate" class="scrollable" visible="false">
+					<h3>No GitHub remotes are connected</h3>
+					<p>
+						This enables access to Pull Requests and Issues in the Focus View as well as provide additional
+						information inside hovers and the Commit Details view, such as auto-linked issues and pull
+						requests and avatars.
+					</p>
+					<gk-button appearance="alert" href="command:gitlens.connectRemoteProvider"
+						>Connect to GitHub</gk-button
+					>
+				</gk-feature-gate>
+
 				<main class="app__main">
 					<section class="focus-section app__section">
 						<header class="focus-section__header">

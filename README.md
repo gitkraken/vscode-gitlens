@@ -80,7 +80,7 @@ No, the introduction of GitLens+ features has no impact on existing GitLens feat
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/commit-graph-illustrated.png" alt="Commit Graph" />
 </p>
 
-The _Commit Graph_ helps you easily visualize and keep track of all work in progress. Not only does it help you verify your changes, but also easily see changes made by others and when. Selecting a row within the graph will open in-depth information about a commit or stash in the new [Commit Details view](#commit-details-view-).
+The _Commit Graph_ helps you easily visualize your repository and keep track of all work in progress. Not only does it help you verify your changes, but also easily see changes made by others and when. Selecting a row within the graph will open in-depth information about a commit or stash in the new [Commit Details view](#commit-details-view-).
 
 Use the rich commit search to find exactly what you're looking for. It's powerful filters allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change.
 
