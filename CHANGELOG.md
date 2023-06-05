@@ -10,6 +10,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds ability to choose the OpenAI model used for GitLens' experimental AI features &mdash; closes [#2636](https://github.com/gitkraken/vscode-gitlens/issues/2636) thanks to [PR #2637](https://github.com/gitkraken/vscode-gitlens/pull/2637) by Daniel Rodríguez ([@sadasant](https://github.com/sadasant))
   - Adds a `gitlens.ai.experimental.openai.model` setting to specify the OpenAI model (defaults to `gpt-3.5-turbo`)
+- Adds support for cloning, adding a remote, and fetching from the target remote during a deep link
+- Adds support for deep links using repository disk paths
+- Adds new _Commit Graph_ features and improvements
+  - Adds a file count to the _Changes_ column
+  - Adds two new options to the graph header context menu
+	  - `Reset Columns to Default Layout` - resets column widths, ordering, visibility, and graph column mode to default settings
+	  - `Reset Columns to Compact Layout` - resets column widths, ordering, visibility, and graph column mode to compact settings
+  - Makes the _Changes_ column visible by default (previously hidden)
+  - Adds extra width to the bar for outlier rows in the _Changes_ column so that they stand out a bit more
+  - Improves tooltips on _Branch/Tag_ icons to be more uniform and descriptive
+  - Fixes a bug where _Branch/Tag_ nodes sometimes wouldn't expand on hover
+  - Moves content in the last column out from behind the scrollbar
+  - Improves alignment of scroll markers with the scrollbar
 
 ### Fixed
 
