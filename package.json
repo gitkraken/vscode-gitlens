@@ -13725,12 +13725,12 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Preview Pro](command:gitlens.plus.startPreviewTrial)\n\nPreview Pro for 3-days, or [sign in](command:gitlens.plus.loginOrSignUp) to start a full 7-day Pro trial.\n✨ A trial or subscription is required to use this on privately hosted repos.",
+				"contents": "[Preview Pro](command:gitlens.plus.startPreviewTrial)\n\nPreview Pro for 3 days, or [sign in](command:gitlens.plus.loginOrSignUp) to start a full 7-day Pro trial.\n✨ A trial or subscription is required to use this on privately hosted repos.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 0"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Your free 3-day Pro trial has ended, extend your free trial to get an additional 7-days, or [sign in](command:gitlens.plus.loginOrSignUp).\n\n[Extend Free Pro Trial](command:gitlens.plus.loginOrSignUp)\n✨ A trial or subscription is required to use this on privately hosted repos.",
+				"contents": "Your 3-day Pro preview has ended, start a free Pro trial to get an additional 7 days, or [sign in](command:gitlens.plus.loginOrSignUp).\n\n[Start Free Pro Trial](command:gitlens.plus.loginOrSignUp)\n✨ A trial or subscription is required to use this on privately hosted repos.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 2"
 			},
 			{
@@ -14076,7 +14076,7 @@
 					{
 						"id": "gitlens.plus.trial.extend",
 						"title": "Extend GitLens Pro Trial",
-						"description": "Your free 3-day GitLens Pro trial has ended, extend your trial to get an additional free 7-days of [GitLens+ features](command:gitlens.plus.learn) on private repos.\n\n[Extend Pro Trial](command:gitlens.plus.loginOrSignUp)",
+						"description": "Your 3-day Pro preview has ended, start a free Pro trial to get an additional free 7 days of [GitLens+ features](command:gitlens.plus.learn) on private repos.\n\n[Extend Pro Trial](command:gitlens.plus.loginOrSignUp)",
 						"media": {
 							"markdown": "walkthroughs/plus/try-now.md"
 						},

@@ -1746,9 +1746,9 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		let access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
 		this._etagSubscription = this.container.subscription.etag;
 
-		// If we don't have access to GitLens+, but the preview trial hasn't been started, auto-start it
+		// If we don't have access, but the preview trial hasn't been started, auto-start it
 		if (access.allowed === false && access.subscription.current.previewTrial == null) {
-			await this.container.subscription.startPreviewTrial(true);
+			await this.container.subscription.startPreviewTrial();
 			access = await this.container.git.access(PlusFeatures.Graph, this.repository?.path);
 		}
 
@@ -1835,7 +1835,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			},
 		);
 
-		// Check for GitLens+ access and working tree stats
+		// Check for access and working tree stats
 		const promises = Promise.allSettled([
 			this.getGraphAccess(),
 			this.getWorkingTreeStats(),

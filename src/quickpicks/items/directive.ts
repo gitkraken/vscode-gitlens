@@ -43,12 +43,12 @@ export function createDirectiveQuickPickItem(
 				label = 'Try again';
 				break;
 			case Directive.StartPreviewTrial:
-				label = 'Start Free Pro Trial';
-				detail = 'Instantly start a free 3-day Pro trial to use this on privately hosted repos';
+				label = 'Preview Pro';
+				detail = 'Preview Pro for 3-days to use this on privately hosted repos';
 				break;
 			case Directive.ExtendTrial:
-				label = 'Extend Free Pro Trial';
-				detail = 'Continue to use this on privately hosted repos, free for an additional 7-days';
+				label = 'Start Free Pro Trial';
+				detail = 'Continue to use this on privately hosted repos, free for an additional 7 days';
 				break;
 			case Directive.RequiresVerification:
 				label = 'Resend Verification Email';
