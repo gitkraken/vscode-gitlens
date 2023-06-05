@@ -103,6 +103,9 @@
 			</div>
 		</header>
 		<main class="home__main scrollable" id="main">
+			<p data-requires="norepo">
+				<code-icon icon="question"></code-icon> Features which need a repository are currently unavailable
+			</p>
 			<nav class="nav-list">
 				<h2 class="nav-list__title t-eyebrow">Popular views</h2>
 				<a
@@ -110,6 +113,7 @@
 					href="command:gitlens.showGraph"
 					title="Show Commit Graph"
 					aria-label="Show Commit Graph"
+					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="gl-graph"></code-icon
 					><span class="nav-list__label">Commit Graph ✨</span></a
 				>
@@ -118,6 +122,7 @@
 					href="command:gitlens.showCommitDetailsView"
 					title="Show Commit Details view"
 					aria-label="Show Commit Details view"
+					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="gl-commit-view"></code-icon
 					><span class="nav-list__label">Commit Details view</span></a
 				>
@@ -126,6 +131,7 @@
 					href="command:gitlens.showCommitsView"
 					title="Show Commits view"
 					aria-label="Show Commits view"
+					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="gl-commits-view"></code-icon
 					><span class="nav-list__label">Commits view</span></a
 				>
@@ -134,6 +140,7 @@
 					href="command:gitlens.showFocusPage"
 					title="Open Focus"
 					aria-label="Open Focus"
+					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="target"></code-icon
 					><span class="nav-list__label">Focus ✨</span></a
 				>
@@ -142,6 +149,7 @@
 					href="command:gitlens.showFileHistoryView"
 					title="Show File History view"
 					aria-label="Show File History view"
+					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="gl-history-view"></code-icon
 					><span class="nav-list__label">File History view</span></a
 				>
@@ -150,6 +158,7 @@
 					href="command:gitlens.showTimelineView"
 					title="Show Visual File History view"
 					aria-label="Show Visual File History view"
+					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="graph-scatter"></code-icon
 					><span class="nav-list__label">Visual File History ✨</span></a
 				>
@@ -158,6 +167,7 @@
 					href="command:gitlens.showSearchAndCompareView"
 					title="Show Search &amp; Compare view"
 					aria-label="Show Search &amp; Compare view"
+					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="gl-search-view"></code-icon
 					><span class="nav-list__label">Search &amp; Compare</span></a
 				>
@@ -166,6 +176,7 @@
 					href="command:gitlens.showWorktreesView"
 					title="Show Worktrees view"
 					aria-label="Show Worktrees view"
+					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="gl-worktrees-view"></code-icon
 					><span class="nav-list__label">Worktrees ✨</span></a
 				>
@@ -185,6 +196,7 @@
 					href="command:workbench.view.extension.gitlensInspect"
 					title="Show GitLens Inspect Side Bar"
 					aria-label="Show GitLens Inspect Side Bar"
+					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="gl-gitlens-inspect"></code-icon
 					><span class="nav-list__label">GitLens Inspect</span></a
 				>
@@ -193,6 +205,7 @@
 					href="command:workbench.view.scm"
 					title="Show Source Control Side Bar"
 					aria-label="Show GitLens Side Bar"
+					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="source-control"></code-icon
 					><span class="nav-list__label">Source Control</span></a
 				>
@@ -212,6 +225,7 @@
 					href="command:gitlens.gitCommands"
 					title="Open Git Command Palette"
 					aria-label="Open Git Command Palette"
+					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="symbol-color"></code-icon
 					><span class="nav-list__label">Git Command Palette</span></a
 				>

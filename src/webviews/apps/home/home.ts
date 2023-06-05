@@ -15,6 +15,13 @@ export class HomeApp extends App<State> {
 		super('HomeApp');
 	}
 
+	private get blockRepoFeatures() {
+		const {
+			repositories: { openCount, hasUnsafe, trusted },
+		} = this.state;
+		return !trusted || openCount === 0 || hasUnsafe;
+	}
+
 	protected override onInitialize() {
 		this.state = this.getState() ?? this.state;
 		this.updateState();
@@ -25,6 +32,7 @@ export class HomeApp extends App<State> {
 
 		disposables.push(
 			DOM.on('[data-action]', 'click', (e, target: HTMLElement) => this.onDataActionClicked(e, target)),
+			DOM.on('[data-requires="repo"]', 'click', (e, target: HTMLElement) => this.onRepoFeatureClicked(e, target)),
 		);
 
 		return disposables;
@@ -47,6 +55,16 @@ export class HomeApp extends App<State> {
 				super.onMessageReceived?.(e);
 				break;
 		}
+	}
+
+	private onRepoFeatureClicked(e: MouseEvent, _target: HTMLElement) {
+		if (this.blockRepoFeatures) {
+			e.preventDefault();
+			e.stopPropagation();
+			return false;
+		}
+
+		return true;
 	}
 
 	private onDataActionClicked(_e: MouseEvent, target: HTMLElement) {
