@@ -11,6 +11,7 @@ import type { IpcMessage } from '../../../protocol';
 import { onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
 import type { FeatureGate } from '../../shared/components/feature-gate';
+import type { FeatureGateBadge } from '../../shared/components/feature-gate-badge';
 import { DOM } from '../../shared/dom';
 import type { DataPointClickEvent } from './chart';
 import { TimelineChart } from './chart';
@@ -18,6 +19,7 @@ import '../../shared/components/code-icon';
 import '../../shared/components/progress';
 import '../../shared/components/button';
 import '../../shared/components/feature-gate';
+import '../../shared/components/feature-gate-badge';
 
 export class TimelineApp extends App<State> {
 	private _chart: TimelineChart | undefined;
@@ -91,6 +93,9 @@ export class TimelineApp extends App<State> {
 			$gate.state = this.state.access.subscription.current.state;
 			$gate.visible = this.state.access.allowed !== true && this.state.uri != null;
 		}
+
+		const $badge = document.getElementById('subscription-gate-badge')! as FeatureGateBadge;
+		$badge.subscription = this.state.access.subscription.current;
 
 		if (this._chart == null) {
 			this._chart = new TimelineChart('#chart', this.placement);

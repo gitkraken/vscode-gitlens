@@ -4508,7 +4508,7 @@
 			},
 			{
 				"command": "gitlens.plus.startPreviewTrial",
-				"title": "Start Free Pro Trial",
+				"title": "Preview Pro",
 				"category": "GitLens+"
 			},
 			{
@@ -13725,7 +13725,7 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Start Free Pro Trial](command:gitlens.plus.startPreviewTrial)\n\nInstantly start a free 3-day Pro trial, or [sign in](command:gitlens.plus.loginOrSignUp).\n✨ A trial or subscription is required to use this on privately hosted repos.",
+				"contents": "[Preview Pro](command:gitlens.plus.startPreviewTrial)\n\nPreview Pro for 3-days, or [sign in](command:gitlens.plus.loginOrSignUp) to start a full 7-day Pro trial.\n✨ A trial or subscription is required to use this on privately hosted repos.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 0"
 			},
 			{

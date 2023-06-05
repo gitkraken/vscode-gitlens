@@ -72,11 +72,11 @@ export class FeatureGatePlusState extends LitElement {
 			case SubscriptionState.Free:
 				return html`
 					<gk-button appearance="${appearance}" href="command:gitlens.plus.startPreviewTrial"
-						>Start Free Pro Trial</gk-button
+						>Preview Now</gk-button
 					>
 					<p>
-						Instantly start a free 3-day Pro trial, or
-						<a href="command:gitlens.plus.loginOrSignUp">sign in</a>.
+						Preview Pro for 3-days, or
+						<a href="command:gitlens.plus.loginOrSignUp">sign in</a> to start a full 7-day Pro trial.
 					</p>
 					<p>✨ A trial or subscription is required to use this on privately hosted repos.</p>
 				`;
