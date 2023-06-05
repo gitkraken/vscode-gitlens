@@ -8,22 +8,22 @@ import {
 import type { IpcMessage } from '../../../protocol';
 import { onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
-import type { AccountBadge } from '../../shared/components/account/account-badge';
 import type { FeatureGate } from '../../shared/components/feature-gate';
+import type { FeatureGateBadge } from '../../shared/components/feature-gate-badge';
 import { DOM } from '../../shared/dom';
 import type { IssueRow } from './components/issue-row';
 import type { PullRequestRow } from './components/pull-request-row';
 import '../../shared/components/button';
 import '../../shared/components/code-icon';
+import '../../shared/components/feature-gate';
 import '../../shared/components/avatars/avatar-item';
 import '../../shared/components/avatars/avatar-stack';
 import '../../shared/components/table/table-container';
 import '../../shared/components/table/table-row';
 import '../../shared/components/table/table-cell';
-import '../../shared/components/account/account-badge';
+import '../../shared/components/feature-gate-badge';
 import './components/issue-row';
 import './components/pull-request-row';
-import '../../shared/components/feature-gate';
 import './focus.scss';
 
 export class FocusApp extends App<State> {
@@ -82,7 +82,7 @@ export class FocusApp extends App<State> {
 		switch (msg.method) {
 			case DidChangeNotificationType.method:
 				onIpc(DidChangeNotificationType, msg, params => {
-					this.state = { ...this.state, ...params.state };
+					this.state = params.state;
 					this.setState(this.state);
 					this.renderContent();
 				});
@@ -103,13 +103,11 @@ export class FocusApp extends App<State> {
 				this.state.access.allowed === true && !(this.state.repos?.some(r => r.isConnected) ?? false);
 		}
 
-		const badgeEl = document.getElementById('account-badge')! as AccountBadge;
-		badgeEl.subscription = this.state.access.subscription.current;
+		const $badge = document.getElementById('subscription-gate-badge')! as FeatureGateBadge;
+		$badge.subscription = this.state.access.subscription.current;
 
-		if (this.state.access.allowed === true) {
-			this.renderPullRequests();
-			this.renderIssues();
-		}
+		this.renderPullRequests();
+		this.renderIssues();
 	}
 
 	renderPullRequests() {
@@ -121,7 +119,7 @@ export class FocusApp extends App<State> {
 
 		const noneEl = document.getElementById('no-pull-requests')!;
 		const loadingEl = document.getElementById('loading-pull-requests')!;
-		if (this.state.pullRequests == null) {
+		if (this.state.pullRequests == null || this.state.access.allowed !== true) {
 			noneEl.setAttribute('hidden', 'true');
 			loadingEl.removeAttribute('hidden');
 		} else if (this.state.pullRequests.length === 0) {
@@ -156,7 +154,7 @@ export class FocusApp extends App<State> {
 
 		const noneEl = document.getElementById('no-issues')!;
 		const loadingEl = document.getElementById('loading-issues')!;
-		if (this.state.issues == null) {
+		if (this.state.issues == null || this.state.access.allowed !== true) {
 			noneEl.setAttribute('hidden', 'true');
 			loadingEl.removeAttribute('hidden');
 		} else if (this.state.issues.length === 0) {

@@ -116,7 +116,6 @@ export class GraphApp extends App<State> {
 						rows => this.onSelectionChanged(rows),
 						250,
 					)}
-					onDismissBanner={key => this.onDismissBanner(key)}
 					onEnsureRowPromise={this.onEnsureRowPromise.bind(this)}
 					onExcludeType={this.onExcludeType.bind(this)}
 					onIncludeOnlyRef={this.onIncludeOnlyRef.bind(this)}

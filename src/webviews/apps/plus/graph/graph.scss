@@ -800,7 +800,11 @@ button:not([disabled]),
 			grid-auto-flow: column;
 			white-space: nowrap;
 			justify-content: start;
-			grid-template-columns: min-content min-content min-content min-content min-content minmax(min-content, 1fr);
+			grid-template-columns: repeat(5, min-content) minmax(min-content, 1fr);
+
+			&.disallowed {
+				grid-template-columns: repeat(1, min-content) minmax(min-content, 1fr);
+			}
 		}
 	}
 
@@ -843,19 +847,14 @@ button:not([disabled]),
 			margin-top: 0.5rem;
 		}
 	}
-	&__cover {
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		z-index: 1999;
-		backdrop-filter: blur(4px) saturate(0.8);
+
+	&__gate {
+		top: 34px; /* height of the header bar */
 	}
 
 	&__header {
 		flex: none;
-		z-index: 2000;
+		z-index: 101;
 		position: relative;
 		margin: -1px -1px 0 -1px;
 	}

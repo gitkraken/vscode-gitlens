@@ -260,30 +260,17 @@ h3 {
 	display: flex;
 	flex-direction: column;
 	height: 100vh;
-	overflow: hidden;
-	// padding-right: 0;
 
 	&__header {
-		flex: none;
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 0.4rem 2rem;
-		margin: {
-			left: -2rem;
-			right: -2rem;
-		}
-
-		text-align: right;
 		background-color: var(--background-05);
-
-		&-group {
-			flex: none;
-			display: flex;
-			flex-direction: row;
-			align-items: center;
-			gap: 0.5rem;
-		}
+		display: grid;
+		align-items: baseline;
+		padding: 0rem 2rem;
+		margin-left: -2rem;
+		margin-right: -2rem;
+		grid-template-columns: 1fr min-content min-content;
+		gap: 0.5rem;
+		z-index: 101;
 	}
 
 	&__content {
