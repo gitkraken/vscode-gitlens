@@ -171,6 +171,18 @@ ul {
 		flex: none;
 		padding: 0 2rem;
 	}
+
+	&__header:not([hidden]) + &__main [data-requires='repo'] {
+		opacity: 0.5;
+		cursor: not-allowed;
+		&:after {
+			opacity: 0.5;
+		}
+	}
+
+	&__header[hidden] + &__main [data-requires='norepo'] {
+		display: none;
+	}
 }
 
 .centered {
