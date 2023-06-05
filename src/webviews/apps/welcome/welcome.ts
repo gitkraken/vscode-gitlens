@@ -30,13 +30,13 @@ export class WelcomeApp extends App<State> {
 				const hoverTargetId = target.dataset.hover;
 				if (!hoverTargetId) return;
 
-				document.getElementById(hoverTargetId)?.classList.add('hovering');
+				document.getElementById(hoverTargetId)?.setAttribute('hovering', 'true');
 			}),
 			DOM.on('[data-hover]', 'mouseout', (e, target: HTMLElement) => {
 				const hoverTargetId = target.dataset.hover;
 				if (!hoverTargetId) return;
 
-				document.getElementById(hoverTargetId)?.classList.remove('hovering');
+				document.getElementById(hoverTargetId)?.setAttribute('hovering', 'false');
 			}),
 		];
 		return disposables;
