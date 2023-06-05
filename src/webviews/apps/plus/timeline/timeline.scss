@@ -4,9 +4,24 @@
 	box-sizing: border-box;
 }
 
+.vscode-high-contrast,
+.vscode-dark {
+	--progress-bar-color: var(--color-background--lighten-15);
+	--card-background: var(--color-background--lighten-075);
+	--card-hover-background: var(--color-background--lighten-10);
+	--popover-bg: var(--color-background--lighten-15);
+}
+
+.vscode-high-contrast-light,
+.vscode-light {
+	--progress-bar-color: var(--color-background--darken-15);
+	--card-background: var(--color-background--darken-075);
+	--card-hover-background: var(--color-background--darken-10);
+	--popover-bg: var(--color-background--darken-15);
+}
+
 html {
 	height: 100%;
-	font-size: 62.5%;
 }
 
 body {
@@ -14,7 +29,6 @@ body {
 	font-family: var(--font-family);
 	height: 100%;
 	line-height: 1.4;
-	font-size: 100% !important;
 	overflow: hidden;
 	margin: 0;
 	padding: 0;
@@ -61,9 +75,9 @@ h4 {
 	grid-template-columns: 1fr min-content;
 	align-items: baseline;
 	grid-template-areas: 'context toolbox';
-	margin: 1rem;
+	margin: 0.5rem 0.75rem;
 
-	body[data-placement='editor'] & {
+	body[data-placement='view'] & {
 		margin-top: 0;
 	}
 
@@ -75,6 +89,7 @@ h4 {
 		align-items: baseline;
 
 		h2 {
+			margin: 0;
 			text-overflow: ellipsis;
 			white-space: nowrap;
 			overflow: hidden;
@@ -105,6 +120,7 @@ h4 {
 
 	.toolbox {
 		grid-area: toolbox;
+		align-items: center;
 		display: flex;
 		gap: 0.3rem;
 	}
@@ -117,7 +133,7 @@ h4 {
 	flex: 100% 0 1;
 
 	label {
-		margin: 0 1em;
+		margin: 0 1em 0 0.5rem;
 		font-size: var(--font-size);
 	}
 }

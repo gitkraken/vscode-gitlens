@@ -51,6 +51,14 @@ export class FeatureGateBadge extends LitElement {
 				white-space: break-spaces;
 			}
 
+			.badge-trial {
+				font-size: smaller;
+				font-weight: 700;
+				margin-right: 0.5rem;
+				text-transform: uppercase;
+				white-space: nowrap;
+			}
+
 			.badge-trial-left {
 				font-weight: 400;
 				opacity: 0.6;
@@ -71,10 +79,13 @@ export class FeatureGateBadge extends LitElement {
 
 	override render() {
 		const paidOrTrial = isSubscriptionStatePaidOrTrial(this.subscription?.state);
+		const trial = isSubscriptionStateTrial(this.subscription?.state);
 
 		return html`
 			<span class="badge-container">
-				<span class="badge ${paidOrTrial ? 'active' : 'inactive'}">✨</span>
+				<span class="badge ${paidOrTrial ? 'active' : 'inactive'}"
+					>${trial ? html`<span class="badge-trial">Trial</span>` : ''}✨</span
+				>
 				<pop-over placement="${this.placement}" class="badge-popover">
 					<span slot="heading"
 						>${getSubscriptionStatePlanName(
