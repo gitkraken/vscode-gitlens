@@ -41,7 +41,6 @@ export class FeatureGateBadge extends LitElement {
 
 			.badge-popover {
 				width: max-content;
-				right: 0;
 				top: 100%;
 				overflow: hidden;
 				text-align: left;
@@ -68,10 +67,18 @@ export class FeatureGateBadge extends LitElement {
 			.badge:not(:hover) ~ .badge-popover {
 				display: none;
 			}
+
+			:host(:not([placement~='end'])) .badge-popover {
+				left: 0;
+			}
+
+			:host([placement~='end']) .badge-popover {
+				right: 0;
+			}
 		`,
 	];
 
-	@property()
+	@property({ reflect: true })
 	placement?: `${'top' | 'bottom'} ${'start' | 'end'}` = 'top end';
 
 	@property({ attribute: false })
@@ -86,7 +93,7 @@ export class FeatureGateBadge extends LitElement {
 				<span class="badge ${paidOrTrial ? 'active' : 'inactive'}"
 					>${trial ? html`<span class="badge-trial">Trial</span>` : ''}✨</span
 				>
-				<pop-over placement="${this.placement}" class="badge-popover">
+				<pop-over .placement=${this.placement} class="badge-popover">
 					<span slot="heading"
 						>${getSubscriptionStatePlanName(
 							this.subscription?.state,
