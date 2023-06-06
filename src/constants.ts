@@ -316,8 +316,64 @@ export const enum Commands {
 }
 
 export type CustomEditorIds = 'rebase';
+export type TreeViewIds =
+	| 'branches'
+	| 'commits'
+	| 'contributors'
+	| 'fileHistory'
+	| 'lineHistory'
+	| 'remotes'
+	| 'repositories'
+	| 'searchAndCompare'
+	| 'stashes'
+	| 'tags'
+	| 'workspaces'
+	| 'worktrees';
 export type WebviewIds = 'graph' | 'settings' | 'timeline' | 'welcome' | 'focus';
-export type WebviewViewIds = 'commitDetails' | 'graph' | 'graphDetails' | 'home' | 'timeline' | 'account';
+export type WebviewViewIds = 'account' | 'commitDetails' | 'graph' | 'graphDetails' | 'home' | 'timeline';
+
+export type ViewIds = TreeViewIds | WebviewViewIds;
+export type QualifiedViewIds = `gitlens.views.${ViewIds}`;
+
+export type ViewContainerIds = 'gitlens' | 'gitlensInspect' | 'gitlensPanel';
+export type QualifiedViewContainerIds = `workbench.view.extension.${ViewContainerIds}`;
+
+export type CoreViewContainerIds = 'scm';
+export type QualifiedCoreViewContainerIds = `workbench.view.${CoreViewContainerIds}`;
+
+// export const viewIds: ViewIds[] = [
+// 	'account',
+// 	'branches',
+// 	'commits',
+// 	'commitDetails',
+// 	'contributors',
+// 	'fileHistory',
+// 	'graph',
+// 	'graphDetails',
+// 	'home',
+// 	'lineHistory',
+// 	'remotes',
+// 	'repositories',
+// 	'searchAndCompare',
+// 	'stashes',
+// 	'tags',
+// 	'timeline',
+// 	'workspaces',
+// 	'worktrees',
+// ];
+
+export const viewIdsByDefaultContainerId = new Map<
+	QualifiedViewContainerIds | QualifiedCoreViewContainerIds,
+	ViewIds[]
+>([
+	['workbench.view.scm', ['branches', 'commits', 'remotes', 'repositories', 'stashes', 'tags', 'worktrees']],
+	['workbench.view.extension.gitlensPanel', ['graph', 'graphDetails']],
+	[
+		'workbench.view.extension.gitlensInspect',
+		['commitDetails', 'fileHistory', 'lineHistory', 'timeline', 'searchAndCompare'],
+	],
+	['workbench.view.extension.gitlens', ['home', 'workspaces', 'contributors', 'account']],
+]);
 
 export type ContextKeys =
 	| `${typeof extensionPrefix}:action:${string}`
@@ -387,7 +443,9 @@ export type CoreCommands =
 	| 'workbench.extensions.uninstallExtension'
 	| 'workbench.files.action.focusFilesExplorer'
 	| 'workbench.view.explorer'
-	| 'workbench.view.scm';
+	| 'workbench.view.scm'
+	| `${QualifiedViewContainerIds | QualifiedCoreViewContainerIds}.resetViewContainerLocation`
+	| `${QualifiedViewIds}.${'focus' | 'removeView' | 'resetViewLocation' | 'toggleVisibility'}`;
 
 export type CoreGitCommands =
 	| 'git.fetch'

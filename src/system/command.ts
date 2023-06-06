@@ -42,9 +42,7 @@ export function executeActionCommand<T extends ActionContext>(action: Action<T>,
 	return commands.executeCommand(`${Commands.ActionPrefix}${action}`, { ...args, type: action });
 }
 
-type SupportedCommands = Commands | `gitlens.views.${string}.focus` | `gitlens.views.${string}.resetViewLocation`;
-
-export function createCommand<T extends unknown[]>(command: SupportedCommands, title: string, ...args: T): CoreCommand {
+export function createCommand<T extends unknown[]>(command: Commands, title: string, ...args: T): CoreCommand {
 	return {
 		command: command,
 		title: title,
@@ -52,16 +50,10 @@ export function createCommand<T extends unknown[]>(command: SupportedCommands, t
 	};
 }
 
-export function executeCommand<U = any>(command: SupportedCommands): Thenable<U>;
-export function executeCommand<T = unknown, U = any>(command: SupportedCommands, arg: T): Thenable<U>;
-export function executeCommand<T extends [...unknown[]] = [], U = any>(
-	command: SupportedCommands,
-	...args: T
-): Thenable<U>;
-export function executeCommand<T extends [...unknown[]] = [], U = any>(
-	command: SupportedCommands,
-	...args: T
-): Thenable<U> {
+export function executeCommand<U = any>(command: Commands): Thenable<U>;
+export function executeCommand<T = unknown, U = any>(command: Commands, arg: T): Thenable<U>;
+export function executeCommand<T extends [...unknown[]] = [], U = any>(command: Commands, ...args: T): Thenable<U>;
+export function executeCommand<T extends [...unknown[]] = [], U = any>(command: Commands, ...args: T): Thenable<U> {
 	return commands.executeCommand<U>(command, ...args);
 }
 

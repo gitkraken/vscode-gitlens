@@ -662,16 +662,18 @@ interface ViewsConfigs {
 
 export type ViewsConfigKeys = keyof ViewsConfigs;
 export const viewsConfigKeys: ViewsConfigKeys[] = [
+	'branches',
 	'commits',
-	'repositories',
+	'commitDetails',
+	'contributors',
 	'fileHistory',
 	'lineHistory',
-	'branches',
 	'remotes',
+	'repositories',
+	'searchAndCompare',
 	'stashes',
 	'tags',
-	'contributors',
-	'searchAndCompare',
+	'workspaces',
 	'worktrees',
 ];
 
