@@ -1,5 +1,5 @@
-import type { CancellationToken, Disposable } from 'vscode';
-import { Uri, window } from 'vscode';
+import type { CancellationToken, Event } from 'vscode';
+import { Disposable, EventEmitter, Uri, window } from 'vscode';
 import { getSupportedWorkspacesPathMappingProvider } from '@env/providers';
 import type { Container } from '../../container';
 import { RemoteResourceType } from '../../git/models/remoteResource';
@@ -8,6 +8,7 @@ import { showRepositoryPicker } from '../../quickpicks/repositoryPicker';
 import { SubscriptionState } from '../../subscription';
 import { openWorkspace, OpenWorkspaceLocation } from '../../system/utils';
 import type { ServerConnection } from '../subscription/serverConnection';
+import type { SubscriptionChangeEvent } from '../subscription/subscriptionService';
 import type {
 	AddWorkspaceRepoDescriptor,
 	CloudWorkspaceData,
@@ -38,6 +39,11 @@ export class WorkspacesService implements Disposable {
 	private _localWorkspaces: GKLocalWorkspace[] | undefined = undefined;
 	private _workspacesApi: WorkspacesApi;
 	private _workspacesPathProvider: WorkspacesPathMappingProvider;
+	private _onDidChangeWorkspaces: EventEmitter<void> = new EventEmitter<void>();
+	get onDidChangeWorkspaces(): Event<void> {
+		return this._onDidChangeWorkspaces.event;
+	}
+	private _disposable: Disposable;
 
 	// TODO@ramint Add error handling/logging when this is used.
 	private readonly _getCloudWorkspaceRepos: (workspaceId: string) => Promise<GetCloudWorkspaceRepositoriesResponse> =
@@ -59,9 +65,23 @@ export class WorkspacesService implements Disposable {
 	constructor(private readonly container: Container, private readonly server: ServerConnection) {
 		this._workspacesApi = new WorkspacesApi(this.container, this.server);
 		this._workspacesPathProvider = getSupportedWorkspacesPathMappingProvider();
+		this._disposable = Disposable.from(container.subscription.onDidChange(this.onSubscriptionChanged, this));
 	}
 
-	dispose(): void {}
+	dispose(): void {
+		this._disposable.dispose();
+	}
+
+	private onSubscriptionChanged(event: SubscriptionChangeEvent): void {
+		if (
+			event.current.account == null ||
+			event.current.account.id !== event.previous?.account?.id ||
+			event.current.state !== event.previous?.state
+		) {
+			this.resetWorkspaces({ cloud: true });
+			this._onDidChangeWorkspaces.fire();
+		}
+	}
 
 	private async loadCloudWorkspaces(excludeRepositories: boolean = false): Promise<LoadCloudWorkspacesResponse> {
 		const subscription = await this.container.subscription.getSubscription();

@@ -1,4 +1,4 @@
-import type { Disposable } from 'vscode';
+import type { Disposable, TreeViewVisibilityChangeEvent } from 'vscode';
 import { ProgressLocation, window } from 'vscode';
 import type { WorkspacesViewConfig } from '../config';
 import type { Container } from '../container';
@@ -18,27 +18,32 @@ import { registerViewCommand } from './viewCommands';
 
 export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewConfig> {
 	protected readonly configKey = 'repositories';
-	private _subscriptionDisposable: Disposable | undefined;
+	private _workspacesChangedDisposable: Disposable;
+	private _visibleDisposable: Disposable | undefined;
 
 	constructor(container: Container) {
 		super(container, 'gitlens.views.workspaces', 'Workspaces', 'workspaceView');
-		// TODO@ramint May want the view node to be in charge of resetting the workspaces
-		this._subscriptionDisposable = this.container.subscription.onDidChange(e => {
-			if (
-				e.current.account == null ||
-				e.current.account.id !== e.previous?.account?.id ||
-				e.current.state !== e.previous?.state
-			) {
-				this.container.workspaces.resetWorkspaces({ cloud: true });
-			}
-
+		this._workspacesChangedDisposable = this.container.workspaces.onDidChangeWorkspaces(() => {
 			void this.ensureRoot().triggerChange(true);
-			void this.updateDescription();
 		});
 	}
 
+	protected override onVisibilityChanged(e: TreeViewVisibilityChangeEvent): void {
+		if (e.visible) {
+			void this.updateDescription();
+			this._visibleDisposable?.dispose();
+			this._visibleDisposable = this.container.subscription.onDidChange(() => void this.updateDescription());
+		} else {
+			this._visibleDisposable?.dispose();
+			this._visibleDisposable = undefined;
+		}
+
+		super.onVisibilityChanged(e);
+	}
+
 	override dispose() {
-		this._subscriptionDisposable?.dispose();
+		this._workspacesChangedDisposable.dispose();
+		this._visibleDisposable?.dispose();
 		super.dispose();
 	}
 
