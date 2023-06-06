@@ -23,7 +23,7 @@ import {
 	SearchCommitCommandType,
 } from '../../commitDetails/protocol';
 import type { IpcMessage } from '../../protocol';
-import { onIpc } from '../../protocol';
+import { ExecuteCommandType, onIpc } from '../../protocol';
 import { App } from '../shared/appBase';
 import type { FileChangeListItem, FileChangeListItemDetail } from '../shared/components/list/file-change-list-item';
 import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../shared/components/webview-pane';
@@ -87,6 +87,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 				e => this.onExpandedChange(e.detail),
 			),
 			DOM.on('[data-action="explain-commit"]', 'click', e => this.onExplainCommit(e)),
+			DOM.on('[data-action="switch-ai"]', 'click', e => this.onSwitchAiModel(e)),
 		];
 
 		return disposables;
@@ -133,6 +134,17 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			default:
 				super.onMessageReceived?.(e);
 		}
+	}
+
+	private onCommandClickedCore(action?: string) {
+		const command = action?.startsWith('command:') ? action.slice(8) : action;
+		if (command == null) return;
+
+		this.sendCommand(ExecuteCommandType, { command: command });
+	}
+
+	private onSwitchAiModel(_e: MouseEvent) {
+		this.onCommandClickedCore('gitlens.switchAIModel');
 	}
 
 	async onExplainCommit(e: MouseEvent) {
@@ -183,7 +195,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 	}
 
 	private onToggleFilesLayout(e: MouseEvent) {
-		const layout = ((e.target as HTMLElement)?.getAttribute('data-switch-value') as ViewFilesLayout) ?? undefined;
+		const layout = ((e.target as HTMLElement)?.dataset.switchList as ViewFilesLayout) ?? undefined;
 		if (layout === this.state.preferences?.files?.layout) return;
 
 		const files = {
