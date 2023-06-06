@@ -72,7 +72,7 @@ export function getSharedLegacyLocalWorkspaceMappingFileUri() {
 	return Uri.file(
 		path.join(
 			os.homedir(),
-			`${getPlatform() === 'windows' ? '/AppData/Roaming/' : ''}'.gitkraken`,
+			`${getPlatform() === 'windows' ? '/AppData/Roaming/' : ''}.gitkraken`,
 			'workspaces',
 			'workspaces.json',
 		),
