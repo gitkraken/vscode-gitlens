@@ -96,6 +96,7 @@ export class TimelineApp extends App<State> {
 
 		const $badge = document.getElementById('subscription-gate-badge')! as FeatureGateBadge;
 		$badge.subscription = this.state.access.subscription.current;
+		$badge.placement = this.placement === 'view' ? 'top start' : 'top end';
 
 		if (this._chart == null) {
 			this._chart = new TimelineChart('#chart', this.placement);
