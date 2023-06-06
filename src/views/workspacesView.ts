@@ -6,8 +6,7 @@ import { unknownGitUri } from '../git/gitUri';
 import type { Repository } from '../git/models/repository';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
 import { WorkspaceType } from '../plus/workspaces/models';
-import { getSubscriptionTimeRemaining, SubscriptionState } from '../subscription';
-import { pluralize } from '../system/string';
+import { SubscriptionState } from '../subscription';
 import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';
 import type { RepositoriesNode } from './nodes/repositoriesNode';
 import { RepositoryNode } from './nodes/repositoryNode';
@@ -58,25 +57,7 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 
 	private async updateDescription() {
 		const subscription = await this.container.subscription.getSubscription();
-
-		switch (subscription.state) {
-			case SubscriptionState.Free:
-			case SubscriptionState.FreePreviewTrialExpired:
-			case SubscriptionState.FreePlusTrialExpired:
-				this.description = '✨ GitLens+ feature';
-				break;
-			case SubscriptionState.FreeInPreviewTrial:
-			case SubscriptionState.FreePlusInTrial: {
-				const days = getSubscriptionTimeRemaining(subscription, 'days')!;
-				this.description = `✨ GitLens Pro (Trial), ${days < 1 ? '<1 day' : pluralize('day', days)} left`;
-				break;
-			}
-			case SubscriptionState.VerificationRequired:
-				this.description = `✨ ${subscription.plan.effective.name} (Unverified)`;
-				break;
-			case SubscriptionState.Paid:
-				this.description = undefined;
-		}
+		this.description = subscription.state === SubscriptionState.Paid ? undefined : '✨';
 	}
 
 	override get canReveal(): boolean {
