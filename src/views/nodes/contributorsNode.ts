@@ -14,8 +14,8 @@ import { ContextValues, ViewNode } from './viewNode';
 
 export class ContributorsNode extends ViewNode<ViewsWithContributorsNode> {
 	static key = ':contributors';
-	static getId(repoPath: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}`;
+	static getId(repoPath: string, workspaceId?: string): string {
+		return `${RepositoryNode.getId(repoPath, workspaceId)}${this.key}`;
 	}
 
 	protected override splatted = true;
@@ -27,12 +27,15 @@ export class ContributorsNode extends ViewNode<ViewsWithContributorsNode> {
 		view: ViewsWithContributorsNode,
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
+		private readonly options?: {
+			workspaceId?: string;
+		},
 	) {
 		super(uri, view, parent);
 	}
 
 	override get id(): string {
-		return ContributorsNode.getId(this.repo.path);
+		return ContributorsNode.getId(this.repo.path, this.options?.workspaceId);
 	}
 
 	get repoPath(): string {
@@ -63,7 +66,13 @@ export class ContributorsNode extends ViewNode<ViewsWithContributorsNode> {
 			const presenceMap = await this.maybeGetPresenceMap(contributors);
 
 			this._children = contributors.map(
-				c => new ContributorNode(this.uri, this.view, this, c, { all: all, ref: ref, presence: presenceMap }),
+				c =>
+					new ContributorNode(this.uri, this.view, this, c, {
+						all: all,
+						ref: ref,
+						presence: presenceMap,
+						workspaceId: this.options?.workspaceId,
+					}),
 			);
 		}
 

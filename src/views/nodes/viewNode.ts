@@ -50,6 +50,7 @@ export const enum ContextValues {
 	MergeConflictCurrentChanges = 'gitlens:merge-conflict:current',
 	MergeConflictIncomingChanges = 'gitlens:merge-conflict:incoming',
 	Message = 'gitlens:message',
+	MessageSignIn = 'gitlens:message:signin',
 	Pager = 'gitlens:pager',
 	PullRequest = 'gitlens:pullrequest',
 	Rebase = 'gitlens:rebase',
@@ -76,6 +77,9 @@ export const enum ContextValues {
 	Tag = 'gitlens:tag',
 	Tags = 'gitlens:tags',
 	UncommittedFiles = 'gitlens:uncommitted:files',
+	Workspace = 'gitlens:workspace',
+	WorkspaceMissingRepository = 'gitlens:workspaceMissingRepository',
+	Workspaces = 'gitlens:workspaces',
 	Worktree = 'gitlens:worktree',
 	Worktrees = 'gitlens:worktrees',
 }

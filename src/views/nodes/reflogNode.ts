@@ -5,26 +5,35 @@ import type { Repository } from '../../git/models/repository';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import type { RepositoriesView } from '../repositoriesView';
+import type { WorkspacesView } from '../workspacesView';
 import { LoadMoreNode, MessageNode } from './common';
 import { ReflogRecordNode } from './reflogRecordNode';
 import { RepositoryNode } from './repositoryNode';
 import type { PageableViewNode } from './viewNode';
 import { ContextValues, ViewNode } from './viewNode';
 
-export class ReflogNode extends ViewNode<RepositoriesView> implements PageableViewNode {
+export class ReflogNode extends ViewNode<RepositoriesView | WorkspacesView> implements PageableViewNode {
 	static key = ':reflog';
-	static getId(repoPath: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}`;
+	static getId(repoPath: string, workspaceId?: string): string {
+		return `${RepositoryNode.getId(repoPath, workspaceId)}${this.key}`;
 	}
 
 	private _children: ViewNode[] | undefined;
 
-	constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
+	constructor(
+		uri: GitUri,
+		view: RepositoriesView | WorkspacesView,
+		parent: ViewNode,
+		public readonly repo: Repository,
+		private readonly options?: {
+			workspaceId?: string;
+		},
+	) {
 		super(uri, view, parent);
 	}
 
 	override get id(): string {
-		return ReflogNode.getId(this.repo.path);
+		return ReflogNode.getId(this.repo.path, this.options?.workspaceId);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
