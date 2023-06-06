@@ -220,6 +220,7 @@ h3 {
 
 		h2 {
 			margin: 0;
+			font-size: 1.5rem;
 		}
 	}
 
@@ -264,8 +265,8 @@ h3 {
 	&__header {
 		background-color: var(--background-05);
 		display: grid;
-		align-items: baseline;
-		padding: 0rem 2rem;
+		align-items: center;
+		padding: 0.2rem 2rem;
 		margin-left: -2rem;
 		margin-right: -2rem;
 		grid-template-columns: 1fr min-content min-content;

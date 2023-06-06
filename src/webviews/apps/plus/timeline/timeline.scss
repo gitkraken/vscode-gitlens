@@ -20,15 +20,18 @@
 	--popover-bg: var(--color-background--darken-15);
 }
 
-html {
+:root {
+	font-size: 62.5%;
+	font-family: var(--font-family);
+	box-sizing: border-box;
 	height: 100%;
 }
 
 body {
 	color: var(--color-view-foreground);
 	font-family: var(--font-family);
+	font-size: var(--font-size);
 	height: 100%;
-	line-height: 1.4;
 	overflow: hidden;
 	margin: 0;
 	padding: 0;
@@ -87,6 +90,7 @@ h4 {
 		grid-template-columns: minmax(0, min-content) minmax(0, min-content) minmax(0, 1fr);
 		gap: 0.5rem;
 		align-items: baseline;
+		font-size: 1rem;
 
 		h2 {
 			margin: 0;
