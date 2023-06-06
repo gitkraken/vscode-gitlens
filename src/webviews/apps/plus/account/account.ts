@@ -8,9 +8,8 @@ import type { IpcMessage } from '../../../protocol';
 import { ExecuteCommandType, onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
 import { DOM } from '../../shared/dom';
-import type { HeaderCard } from './components/header-card';
-import '../../shared/components/code-icon';
-import './components/header-card';
+import type { AccountContent } from './components/account-content';
+import './components/account-content';
 
 export class AccountApp extends App<State> {
 	constructor() {
@@ -76,29 +75,17 @@ export class AccountApp extends App<State> {
 		return getSubscriptionTimeRemaining(this.state.subscription, 'days') ?? 0;
 	}
 
-	private updateHeader(days = this.getDaysRemaining()) {
-		const { subscription, avatar } = this.state;
-
-		const $headerContent = document.getElementById('header-card')! as HeaderCard;
-		if (avatar) {
-			$headerContent.setAttribute('image', avatar);
-		}
-		$headerContent.setAttribute('name', subscription.account?.name ?? '');
-
-		// TODO: remove
-		const steps = 0;
-		const completed = 0;
-
-		$headerContent.setAttribute('steps', steps.toString());
-		$headerContent.setAttribute('completed', completed.toString());
-		$headerContent.setAttribute('state', subscription.state.toString());
-		$headerContent.setAttribute('plan', subscription.plan.effective.name);
-		$headerContent.setAttribute('days', days.toString());
-	}
-
 	private updateState() {
 		const days = this.getDaysRemaining();
-		this.updateHeader(days);
+		const { subscription, avatar } = this.state;
+
+		const $content = document.getElementById('account-content')! as AccountContent;
+
+		$content.image = avatar ?? '';
+		$content.name = subscription.account?.name ?? '';
+		$content.state = subscription.state;
+		$content.plan = subscription.plan.effective.name;
+		$content.days = days;
 	}
 }
 

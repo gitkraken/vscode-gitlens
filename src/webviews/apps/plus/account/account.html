@@ -4,10 +4,8 @@
 		<meta charset="utf-8" />
 	</head>
 
-	<body class="account preload" data-placement="#{placement}">
-		<header class="account__header">
-			<header-card id="header-card" image="#{webroot}/media/gitlens-logo.webp"></header-card>
-		</header>
+	<body class="account scrollable preload" data-placement="#{placement}">
+		<account-content id="account-content"></account-content>
 
 		#{endOfBody}
 		<style nonce="#{cspNonce}">

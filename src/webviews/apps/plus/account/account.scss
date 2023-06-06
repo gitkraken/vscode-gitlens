@@ -1,3 +1,5 @@
+@use '../../shared/styles/properties';
+
 :root {
 	--gitlens-z-inline: 1000;
 	--gitlens-z-sticky: 1100;
@@ -42,8 +44,6 @@ html {
 	height: 100%;
 	font-size: 62.5%;
 	text-size-adjust: 100%;
-	-webkit-font-smoothing: antialiased;
-	-moz-osx-font-smoothing: grayscale;
 }
 
 body {
@@ -101,21 +101,11 @@ body {
 	outline-color: var(--vscode-focusBorder);
 }
 
+account-content {
+	margin-top: 1.3rem;
+	margin-bottom: 1.3rem;
+}
+
 .account {
-	padding: 0;
 	height: 100%;
-	display: flex;
-	flex-direction: column;
-	gap: 0.4rem;
-	overflow: hidden;
-
-	&__header {
-		flex: none;
-		padding: 0 2rem;
-		position: relative;
-
-		[aria-hidden='false'] ~ header-card {
-			display: none;
-		}
-	}
 }
