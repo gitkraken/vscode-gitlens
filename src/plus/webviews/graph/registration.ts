@@ -73,8 +73,8 @@ export function registerGraphWebviewCommands(container: Container, webview: Webv
 		registerCommand('gitlens.graph.switchToPanelLayout', async () => {
 			await configuration.updateEffective('graph.layout', 'panel');
 			queueMicrotask(async () => {
-				await executeCommand('gitlens.views.graph.resetViewLocation');
-				await executeCommand('gitlens.views.graphDetails.resetViewLocation');
+				await executeCoreCommand('gitlens.views.graph.resetViewLocation');
+				await executeCoreCommand('gitlens.views.graphDetails.resetViewLocation');
 				void executeCommand(Commands.ShowGraphView);
 			});
 		}),

@@ -3,7 +3,7 @@ import { Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vs
 import { getNonce } from '@env/crypto';
 import type { Commands, CustomEditorIds, WebviewIds, WebviewViewIds } from '../constants';
 import type { Container } from '../container';
-import { executeCommand } from '../system/command';
+import { executeCommand, executeCoreCommand } from '../system/command';
 import { setContext } from '../system/context';
 import { debug, logName } from '../system/decorators/log';
 import { serialize } from '../system/decorators/serialize';
@@ -269,7 +269,7 @@ export class WebviewController<
 				);
 			}
 		} else if (this.isView()) {
-			await executeCommand(`${this.id}.focus`, options);
+			await executeCoreCommand(`${this.id}.focus`, options);
 			if (loading) {
 				this.provider.onVisibilityChanged?.(true);
 			}

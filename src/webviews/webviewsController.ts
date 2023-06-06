@@ -10,7 +10,7 @@ import { Disposable, Uri, ViewColumn, window } from 'vscode';
 import type { Commands, WebviewIds, WebviewViewIds } from '../constants';
 import type { Container } from '../container';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
-import { executeCommand, registerCommand } from '../system/command';
+import { executeCoreCommand, registerCommand } from '../system/command';
 import { debug } from '../system/decorators/log';
 import { Logger } from '../system/logger';
 import { getLogScope } from '../system/logger.scope';
@@ -191,7 +191,7 @@ export class WebviewsController implements Disposable {
 				Logger.debug(scope, `Showing webview view (${descriptor.id})`);
 
 				registration.pendingShowArgs = [options, ...args];
-				return void executeCommand(`${descriptor.id}.focus`, options);
+				return void executeCoreCommand(`${descriptor.id}.focus`, options);
 			},
 		} satisfies WebviewViewProxy;
 	}

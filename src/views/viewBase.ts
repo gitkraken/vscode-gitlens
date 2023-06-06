@@ -28,8 +28,9 @@ import type {
 	WorktreesViewConfig,
 } from '../config';
 import { viewsCommonConfigKeys, viewsConfigKeys } from '../config';
+import type { TreeViewIds } from '../constants';
 import type { Container } from '../container';
-import { executeCommand } from '../system/command';
+import { executeCoreCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
@@ -137,7 +138,7 @@ export abstract class ViewBase<
 
 	constructor(
 		public readonly container: Container,
-		public readonly id: `gitlens.views.${ViewsConfigKeys}`,
+		public readonly id: `gitlens.views.${TreeViewIds}`,
 		public readonly name: string,
 		private readonly trackingFeature: TrackedUsageFeatures,
 	) {
@@ -591,7 +592,7 @@ export abstract class ViewBase<
 		const scope = getLogScope();
 
 		try {
-			void (await executeCommand(`${this.id}.focus`, options));
+			void (await executeCoreCommand(`${this.id}.focus`, options));
 		} catch (ex) {
 			Logger.error(ex, scope);
 		}
