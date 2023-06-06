@@ -10816,7 +10816,7 @@
 				},
 				{
 					"command": "gitlens.views.workspaces.create",
-					"when": "view =~ /^gitlens\\.views\\.workspaces/",
+					"when": "view =~ /^gitlens\\.views\\.workspaces/ && !gitlens:plus:required",
 					"group": "navigation@1"
 				},
 				{
@@ -10968,7 +10968,7 @@
 				},
 				{
 					"command": "gitlens.views.workspaces.convert",
-					"when": "viewItem =~  /gitlens:repositories\\b(?=.*?\\b\\+workspaces\\b)/",
+					"when": "viewItem =~  /gitlens:repositories\\b(?=.*?\\b\\+workspaces\\b)/ && !gitlens:plus:required",
 					"group": "inline@1"
 				},
 				{
