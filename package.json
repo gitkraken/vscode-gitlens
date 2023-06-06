@@ -5059,6 +5059,11 @@
 				"category": "GitLens+"
 			},
 			{
+				"command": "gitlens.switchAIModel",
+				"title": "Switch AI Model",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.switchMode",
 				"title": "Switch Mode",
 				"category": "GitLens"
@@ -8122,6 +8127,10 @@
 				{
 					"command": "gitlens.gitCommands.worktree.open",
 					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.switchAIModel",
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.switchMode",

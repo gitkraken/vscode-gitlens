@@ -284,6 +284,7 @@ export const enum Commands {
 	StashApply = 'gitlens.stashApply',
 	StashSave = 'gitlens.stashSave',
 	StashSaveFiles = 'gitlens.stashSaveFiles',
+	SwitchAIModel = 'gitlens.switchAIModel',
 	SwitchMode = 'gitlens.switchMode',
 	ToggleCodeLens = 'gitlens.toggleCodeLens',
 	ToggleFileBlame = 'gitlens.toggleFileBlame',
