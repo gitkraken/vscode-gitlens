@@ -13941,7 +13941,12 @@
 			},
 			{
 				"view": "gitlens.views.workspaces",
-				"contents": "Workspaces allow you and your organizations to store and sync collections of repositories across your devices and across the full line of GitKraken products.\n\nYou can create multiple workspaces, each of which can contain multiple repositories. Cloud workspaces require an account, and shared cloud workspaces are included with a [✨ GitLens+](command:gitlens.plus.learn \"Learn more about GitLens+ features\") Pro account."
+				"contents": "Workspaces allow you and your organizations to store and sync collections of repositories across your devices and across the full line of GitKraken products.\n\nYou can create multiple workspaces, each of which can contain multiple repositories."
+			},
+			{
+				"view": "gitlens.views.workspaces",
+				"contents": "[Start Free Pro Trial](command:gitlens.plus.loginOrSignUp)\n\nStart a free 7-day Pro trial to use GitKraken Workspaces, or [sign in](command:gitlens.plus.loginOrSignUp).\n☁️ Cloud workspaces require a free account while shared cloud workspaces require a trial or subscription.",
+				"when": "!gitlens:plus"
 			},
 			{
 				"view": "gitlens.views.worktrees",
