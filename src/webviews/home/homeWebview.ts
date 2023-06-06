@@ -57,8 +57,6 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private notifyDidChangeRepositories() {
-		if (!this.host.ready) return;
-
 		void this.host.notify(DidChangeRepositoriesType, this.getRepositoriesState());
 	}
 }
