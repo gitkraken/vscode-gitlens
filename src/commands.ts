@@ -58,6 +58,7 @@ export * from './commands/showQuickStashList';
 export * from './commands/showView';
 export * from './commands/stashApply';
 export * from './commands/stashSave';
+export * from './commands/switchAIModel';
 export * from './commands/switchMode';
 export * from './commands/toggleCodeLens';
 export * from './commands/toggleFileAnnotations';
