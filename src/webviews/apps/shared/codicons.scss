@@ -240,6 +240,9 @@
 .codicon-debug-hint:before {
 	content: '\ea71';
 }
+.codicon-terminal-decoration-success:before {
+	content: '\ea71';
+}
 .codicon-primitive-square:before {
 	content: '\ea72';
 }
@@ -597,7 +600,13 @@
 .codicon-circle-outline:before {
 	content: '\eabc';
 }
+.codicon-circle:before {
+	content: '\eabc';
+}
 .codicon-debug-breakpoint-unverified:before {
+	content: '\eabc';
+}
+.codicon-terminal-decoration-incomplete:before {
 	content: '\eabc';
 }
 .codicon-circle-slash:before {
@@ -1218,7 +1227,13 @@
 .codicon-debug-stackframe-active:before {
 	content: '\eb89';
 }
+.codicon-circle-small-filled:before {
+	content: '\eb8a';
+}
 .codicon-debug-stackframe-dot:before {
+	content: '\eb8a';
+}
+.codicon-terminal-decoration-mark:before {
 	content: '\eb8a';
 }
 .codicon-debug-stackframe:before {
@@ -1352,6 +1367,9 @@
 }
 .codicon-circle-large-filled:before {
 	content: '\ebb4';
+}
+.codicon-circle-large:before {
+	content: '\ebb5';
 }
 .codicon-circle-large-outline:before {
 	content: '\ebb5';
@@ -1562,4 +1580,82 @@
 }
 .codicon-target:before {
 	content: '\ebf8';
+}
+.codicon-indent:before {
+	content: '\ebf9';
+}
+.codicon-record-small:before {
+	content: '\ebfa';
+}
+.codicon-error-small:before {
+	content: '\ebfb';
+}
+.codicon-terminal-decoration-error:before {
+	content: '\ebfb';
+}
+.codicon-arrow-circle-down:before {
+	content: '\ebfc';
+}
+.codicon-arrow-circle-left:before {
+	content: '\ebfd';
+}
+.codicon-arrow-circle-right:before {
+	content: '\ebfe';
+}
+.codicon-arrow-circle-up:before {
+	content: '\ebff';
+}
+.codicon-layout-sidebar-right-off:before {
+	content: '\ec00';
+}
+.codicon-layout-panel-off:before {
+	content: '\ec01';
+}
+.codicon-layout-sidebar-left-off:before {
+	content: '\ec02';
+}
+.codicon-blank:before {
+	content: '\ec03';
+}
+.codicon-heart-filled:before {
+	content: '\ec04';
+}
+.codicon-map:before {
+	content: '\ec05';
+}
+.codicon-map-filled:before {
+	content: '\ec06';
+}
+.codicon-circle-small:before {
+	content: '\ec07';
+}
+.codicon-bell-slash:before {
+	content: '\ec08';
+}
+.codicon-bell-slash-dot:before {
+	content: '\ec09';
+}
+.codicon-comment-unresolved:before {
+	content: '\ec0a';
+}
+.codicon-git-pull-request-go-to-changes:before {
+	content: '\ec0b';
+}
+.codicon-git-pull-request-new-changes:before {
+	content: '\ec0c';
+}
+.codicon-search-fuzzy:before {
+	content: '\ec0d';
+}
+.codicon-comment-draft:before {
+	content: '\ec0e';
+}
+.codicon-send:before {
+	content: '\ec0f';
+}
+.codicon-sparkle:before {
+	content: '\ec10';
+}
+.codicon-insert:before {
+	content: '\ec11';
 }
