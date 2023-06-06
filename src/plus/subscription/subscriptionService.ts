@@ -469,7 +469,7 @@ export class SubscriptionService implements Disposable {
 
 		const startedOn = new Date();
 
-		let days;
+		let days: number;
 		let expiresOn = new Date(startedOn);
 		if (!this.container.debugging) {
 			// Normalize the date to just before midnight on the same day
@@ -496,20 +496,22 @@ export class SubscriptionService implements Disposable {
 		});
 
 		if (!silent) {
-			const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
-			const learn: MessageItem = { title: 'Learn More' };
-			const result = await window.showInformationMessage(
-				`You can now preview Pro features for ${pluralize(
-					'day',
-					days,
-				)}. After which, you can start a free Pro trial for an additional 7 days.`,
-				confirm,
-				learn,
-			);
+			setTimeout(async () => {
+				const confirm: MessageItem = { title: 'OK', isCloseAffordance: true };
+				const learn: MessageItem = { title: 'Learn More' };
+				const result = await window.showInformationMessage(
+					`You can now preview Pro features for ${pluralize(
+						'day',
+						days,
+					)}. After which, you can start a free Pro trial for an additional 7 days.`,
+					confirm,
+					learn,
+				);
 
-			if (result === learn) {
-				this.learn();
-			}
+				if (result === learn) {
+					this.learn();
+				}
+			}, 1);
 		}
 	}
 
