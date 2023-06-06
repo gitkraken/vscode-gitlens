@@ -388,7 +388,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@debug({ exit: true })
-	async discoverRepositories(uri: Uri, options?: { depth?: number; silent?: boolean }): Promise<Repository[]> {
+	async discoverRepositories(
+		uri: Uri,
+		options?: { cancellation?: CancellationToken; depth?: number; silent?: boolean },
+	): Promise<Repository[]> {
 		if (uri.scheme !== Schemes.File) return [];
 
 		try {
@@ -402,10 +405,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			void (await this.ensureGit());
 
+			if (options?.cancellation?.isCancellationRequested) return [];
+
 			const repositories = await this.repositorySearch(
 				folder ?? uri,
 				options?.depth ??
 					(autoRepositoryDetection === false || autoRepositoryDetection === 'openEditors' ? 0 : undefined),
+				options?.cancellation,
 				options?.silent,
 			);
 
@@ -586,6 +592,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private async repositorySearch(
 		folderOrUri: Uri | WorkspaceFolder,
 		depth?: number,
+		cancellation?: CancellationToken,
 		silent?: boolean | undefined,
 	): Promise<Repository[]> {
 		const scope = getLogScope();
@@ -624,7 +631,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			repositories.push(...this.openRepository(folder, uri, true, undefined, silent));
 		}
 
-		if (depth <= 0) return repositories;
+		if (depth <= 0 || cancellation?.isCancellationRequested) return repositories;
 
 		// Get any specified excludes -- this is a total hack, but works for some simple cases and something is better than nothing :)
 		const excludes = new Set<string>(
@@ -645,7 +652,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		let repoPaths;
 		try {
-			repoPaths = await this.repositorySearchCore(rootUri.fsPath, depth, excludes);
+			repoPaths = await this.repositorySearchCore(rootUri.fsPath, depth, excludes, cancellation);
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (RepoSearchWarnings.doesNotExist.test(msg)) {
@@ -692,9 +699,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		root: string,
 		depth: number,
 		excludes: Set<string>,
+		cancellation?: CancellationToken,
 		repositories: string[] = [],
 	): Promise<string[]> {
 		const scope = getLogScope();
+
+		if (cancellation?.isCancellationRequested) return Promise.resolve(repositories);
 
 		return new Promise<string[]>((resolve, reject) => {
 			readdir(root, { withFileTypes: true }, async (err, files) => {
@@ -712,11 +722,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 				let f;
 				for (f of files) {
+					if (cancellation?.isCancellationRequested) break;
+
 					if (f.name === '.git') {
 						repositories.push(resolvePath(root, f.name));
 					} else if (depth >= 0 && f.isDirectory() && !excludes.has(f.name)) {
 						try {
-							await this.repositorySearchCore(resolvePath(root, f.name), depth, excludes, repositories);
+							await this.repositorySearchCore(
+								resolvePath(root, f.name),
+								depth,
+								excludes,
+								cancellation,
+								repositories,
+							);
 						} catch (ex) {
 							Logger.error(ex, scope, 'FAILED');
 						}

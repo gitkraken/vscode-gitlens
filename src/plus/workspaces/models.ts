@@ -514,11 +514,6 @@ export class GKLocalWorkspace {
 	}
 }
 
-// Local workspace file constants
-
-export const localWorkspaceDataFilePath = 'localWorkspaces.json';
-export const localWorkspaceDataLegacyFilePath = 'workspaces/workspaces.json';
-
 export interface LocalWorkspaceFileData {
 	workspaces: LocalWorkspaceData;
 }
@@ -541,12 +536,9 @@ export interface LocalWorkspaceRepositoryPath {
 }
 
 export interface LocalWorkspaceRepositoryDescriptor extends LocalWorkspaceRepositoryPath {
+	id?: undefined;
 	name: string;
 }
-
-// Cloud workspace file constants
-
-export const cloudWorkspaceDataFilePath = 'cloudWorkspaces.json';
 
 export interface CloudWorkspaceFileData {
 	workspaces: CloudWorkspacesPathMap;

@@ -646,7 +646,10 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async findRepositories(uri: Uri, options?: { depth?: number; silent?: boolean }): Promise<Repository[]> {
+	async findRepositories(
+		uri: Uri,
+		options?: { cancellation?: CancellationToken; depth?: number; silent?: boolean },
+	): Promise<Repository[]> {
 		const { provider } = this.getProvider(uri);
 		return provider.discoverRepositories(uri, options);
 	}

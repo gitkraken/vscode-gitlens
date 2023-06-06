@@ -10816,7 +10816,7 @@
 				},
 				{
 					"command": "gitlens.views.workspaces.create",
-					"when": "view =~ /^gitlens\\.views\\.workspaces/ && !gitlens:plus:required",
+					"when": "view =~ /^gitlens\\.views\\.workspaces/ && gitlens:plus",
 					"group": "navigation@1"
 				},
 				{
@@ -10968,7 +10968,7 @@
 				},
 				{
 					"command": "gitlens.views.workspaces.convert",
-					"when": "viewItem =~  /gitlens:repositories\\b(?=.*?\\b\\+workspaces\\b)/ && !gitlens:plus:required",
+					"when": "viewItem =~  /gitlens:repositories\\b(?=.*?\\b\\+workspaces\\b)/ && gitlens:plus",
 					"group": "inline@1"
 				},
 				{
@@ -13988,11 +13988,11 @@
 				{
 					"id": "gitlens.views.workspaces",
 					"name": "GitKraken Workspaces",
-					"when": "!gitlens:untrusted",
+					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-worktrees-view)",
-					"visibility": "visible",
-					"initialSize": 2
+					"initialSize": 2,
+					"visibility": "visible"
 				},
 				{
 					"id": "gitlens.views.contributors",

@@ -1,5 +1,9 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { unknownGitUri } from '../../git/gitUri';
+import type {
+	CloudWorkspaceRepositoryDescriptor,
+	LocalWorkspaceRepositoryDescriptor,
+} from '../../plus/workspaces/models';
 import type { WorkspacesView } from '../workspacesView';
 import { ContextValues, ViewNode } from './viewNode';
 
@@ -9,13 +13,15 @@ export class WorkspaceMissingRepositoryNode extends ViewNode<WorkspacesView> {
 		return `gitlens${this.key}(${workspaceId}/${repoName})`;
 	}
 
-	private _workspaceId: string;
-	private _repoName: string;
-
-	constructor(view: WorkspacesView, parent: ViewNode, workspaceId: string, repoName: string) {
+	constructor(
+		view: WorkspacesView,
+		parent: ViewNode,
+		public readonly workspaceId: string,
+		public readonly workspaceRepositoryDescriptor:
+			| CloudWorkspaceRepositoryDescriptor
+			| LocalWorkspaceRepositoryDescriptor,
+	) {
 		super(unknownGitUri, view, parent);
-		this._workspaceId = workspaceId;
-		this._repoName = repoName;
 	}
 
 	override toClipboard(): string {
@@ -23,15 +29,11 @@ export class WorkspaceMissingRepositoryNode extends ViewNode<WorkspacesView> {
 	}
 
 	override get id(): string {
-		return WorkspaceMissingRepositoryNode.getId(this._workspaceId, this._repoName);
+		return WorkspaceMissingRepositoryNode.getId(this.workspaceId, this.workspaceRepositoryDescriptor.name);
 	}
 
 	get name(): string {
-		return this._repoName;
-	}
-
-	get workspaceId(): string {
-		return this._workspaceId;
+		return this.workspaceRepositoryDescriptor.name;
 	}
 
 	getChildren(): ViewNode[] {

@@ -1,5 +1,3 @@
-export const localRepoMappingFilePath = 'repoMapping.json';
-
 export type LocalRepoDataMap = {
 	[key: string /* key can be remote url, provider/owner/name, or first commit SHA*/]: RepoLocalData;
 };

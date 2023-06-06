@@ -84,7 +84,7 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 					const repo = reposByName.get(repository.name);
 					if (!repo) {
 						this._children.push(
-							new WorkspaceMissingRepositoryNode(this.view, this, this.workspaceId, repository.name),
+							new WorkspaceMissingRepositoryNode(this.view, this, this.workspaceId, repository),
 						);
 						continue;
 					}
@@ -92,6 +92,7 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 					this._children.push(
 						new RepositoryNode(GitUri.fromRepoPath(repo.path), this.view, this, repo, {
 							workspace: this._workspace,
+							workspaceRepoDescriptor: repository,
 						}),
 					);
 				}

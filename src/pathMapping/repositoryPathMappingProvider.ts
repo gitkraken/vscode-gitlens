@@ -1,6 +1,6 @@
 import type { Disposable } from 'vscode';
 
-export interface PathProvider extends Disposable {
+export interface RepositoryPathMappingProvider extends Disposable {
 	getLocalRepoPaths(options: {
 		remoteUrl?: string;
 		repoInfo?: { provider: string; owner: string; repoName: string };

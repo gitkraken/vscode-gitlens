@@ -1,6 +1,6 @@
-import type { Disposable } from 'vscode';
+import type { CancellationToken, Disposable } from 'vscode';
 import { Uri, window } from 'vscode';
-import { getSupportedWorkspacesPathProvider } from '@env/providers';
+import { getSupportedWorkspacesPathMappingProvider } from '@env/providers';
 import type { Container } from '../../container';
 import { RemoteResourceType } from '../../git/models/remoteResource';
 import type { Repository } from '../../git/models/repository';
@@ -31,13 +31,13 @@ import {
 	WorkspaceType,
 } from './models';
 import { WorkspacesApi } from './workspacesApi';
-import type { WorkspacesPathProvider } from './workspacesPathProvider';
+import type { WorkspacesPathMappingProvider } from './workspacesPathMappingProvider';
 
 export class WorkspacesService implements Disposable {
 	private _cloudWorkspaces: GKCloudWorkspace[] | undefined = undefined;
 	private _localWorkspaces: GKLocalWorkspace[] | undefined = undefined;
 	private _workspacesApi: WorkspacesApi;
-	private _workspacesPathProvider: WorkspacesPathProvider;
+	private _workspacesPathProvider: WorkspacesPathMappingProvider;
 
 	// TODO@ramint Add error handling/logging when this is used.
 	private readonly _getCloudWorkspaceRepos: (workspaceId: string) => Promise<GetCloudWorkspaceRepositoriesResponse> =
@@ -58,7 +58,7 @@ export class WorkspacesService implements Disposable {
 
 	constructor(private readonly container: Container, private readonly server: ServerConnection) {
 		this._workspacesApi = new WorkspacesApi(this.container, this.server);
-		this._workspacesPathProvider = getSupportedWorkspacesPathProvider();
+		this._workspacesPathProvider = getSupportedWorkspacesPathMappingProvider();
 	}
 
 	dispose(): void {}
@@ -159,11 +159,7 @@ export class WorkspacesService implements Disposable {
 		return this._localWorkspaces?.find(workspace => workspace.id === workspaceId);
 	}
 
-	async getWorkspaces(options?: {
-		excludeCloudRepositories?: boolean;
-		resetCloudWorkspaces?: boolean;
-		resetLocalWorkspaces?: boolean;
-	}): Promise<GetWorkspacesResponse> {
+	async getWorkspaces(options?: { excludeRepositories?: boolean; force?: boolean }): Promise<GetWorkspacesResponse> {
 		const getWorkspacesResponse: GetWorkspacesResponse = {
 			cloudWorkspaces: [],
 			localWorkspaces: [],
@@ -171,13 +167,13 @@ export class WorkspacesService implements Disposable {
 			localWorkspaceInfo: undefined,
 		};
 
-		if (this._cloudWorkspaces == null || options?.resetCloudWorkspaces) {
-			const loadCloudWorkspacesResponse = await this.loadCloudWorkspaces(options?.excludeCloudRepositories);
+		if (this._cloudWorkspaces == null || options?.force) {
+			const loadCloudWorkspacesResponse = await this.loadCloudWorkspaces(options?.excludeRepositories);
 			this._cloudWorkspaces = loadCloudWorkspacesResponse.cloudWorkspaces;
 			getWorkspacesResponse.cloudWorkspaceInfo = loadCloudWorkspacesResponse.cloudWorkspaceInfo;
 		}
 
-		if (this._localWorkspaces == null || options?.resetLocalWorkspaces) {
+		if (this._localWorkspaces == null || options?.force) {
 			const loadLocalWorkspacesResponse = await this.loadLocalWorkspaces();
 			this._localWorkspaces = loadLocalWorkspacesResponse.localWorkspaces;
 			getWorkspacesResponse.localWorkspaceInfo = loadLocalWorkspacesResponse.localWorkspaceInfo;
@@ -189,9 +185,13 @@ export class WorkspacesService implements Disposable {
 		return getWorkspacesResponse;
 	}
 
-	resetWorkspaces() {
-		this._cloudWorkspaces = undefined;
-		this._localWorkspaces = undefined;
+	resetWorkspaces(options?: { cloud?: boolean; local?: boolean }) {
+		if (options?.cloud ?? true) {
+			this._cloudWorkspaces = undefined;
+		}
+		if (options?.local ?? true) {
+			this._localWorkspaces = undefined;
+		}
 	}
 
 	async getCloudWorkspaceRepoPath(cloudWorkspaceId: string, repoId: string): Promise<string | undefined> {
@@ -202,16 +202,12 @@ export class WorkspacesService implements Disposable {
 		await this._workspacesPathProvider.writeCloudWorkspaceDiskPathToMap(workspaceId, repoId, localPath);
 	}
 
-	async locateAllCloudWorkspaceRepos(workspaceId: string) {
+	async locateAllCloudWorkspaceRepos(workspaceId: string, cancellation?: CancellationToken): Promise<void> {
 		const workspace = this.getCloudWorkspace(workspaceId);
-		if (workspace == null) {
-			return;
-		}
+		if (workspace == null) return;
 
-		const repos = workspace.repositories;
-		if (repos == null || repos.length === 0) {
-			return;
-		}
+		const repoDescriptors = workspace.repositories;
+		if (repoDescriptors == null || repoDescriptors.length === 0) return;
 
 		const parentUri = (
 			await window.showOpenDialog({
@@ -222,30 +218,33 @@ export class WorkspacesService implements Disposable {
 			})
 		)?.[0];
 
-		if (parentUri == null) {
-			return;
-		}
+		if (parentUri == null || cancellation?.isCancellationRequested) return;
 
 		let foundRepos;
 		try {
-			foundRepos = await this.container.git.findRepositories(parentUri, { depth: 1, silent: true });
+			foundRepos = await this.container.git.findRepositories(parentUri, {
+				cancellation: cancellation,
+				depth: 1,
+				silent: true,
+			});
 		} catch (ex) {
 			foundRepos = [];
 			return;
 		}
 
-		if (foundRepos.length === 0) {
-			return;
-		}
+		if (foundRepos.length === 0 || cancellation?.isCancellationRequested) return;
 
 		// Map repos by provider/owner/name
 		const foundReposMap = new Map<string, Repository>();
 		const foundReposNameMap = new Map<string, Repository>();
 		for (const repo of foundRepos) {
 			foundReposNameMap.set(repo.name.toLowerCase(), repo);
+
+			if (cancellation?.isCancellationRequested) break;
+
 			const remotes = await repo.getRemotes();
 			for (const remote of remotes) {
-				if (remote.provider == null || remote.provider.owner == null) continue;
+				if (remote.provider?.owner == null) continue;
 				foundReposMap.set(
 					`${remote.provider.id.toLowerCase()}/${remote.provider.owner.toLowerCase()}/${remote.provider.path
 						.split('/')
@@ -256,25 +255,47 @@ export class WorkspacesService implements Disposable {
 			}
 		}
 
-		for (const repo of repos) {
+		for (const repoDescriptor of repoDescriptors) {
 			const foundRepo =
 				foundReposMap.get(
-					`${repo.provider.toLowerCase()}/${repo.provider_organization_id.toLowerCase()}/${repo.name.toLowerCase()}`,
-				) ?? foundReposNameMap.get(repo.name.toLowerCase());
+					`${repoDescriptor.provider.toLowerCase()}/${repoDescriptor.provider_organization_id.toLowerCase()}/${repoDescriptor.name.toLowerCase()}`,
+				) ?? foundReposNameMap.get(repoDescriptor.name.toLowerCase());
 			if (foundRepo != null) {
-				await this.locateWorkspaceRepo(repo.name, { repo: foundRepo, workspaceId: workspaceId });
+				await this.locateWorkspaceRepo(workspaceId, repoDescriptor, foundRepo);
+
+				if (cancellation?.isCancellationRequested) return;
 			}
 		}
 	}
 
-	async locateWorkspaceRepo(repoName: string, options?: { uri?: Uri; repo?: Repository; workspaceId?: string }) {
-		let repo = options?.repo;
-		if (repo == null) {
-			let repoLocatedUri = options?.uri;
+	async locateWorkspaceRepo(
+		workspaceId: string,
+		descriptor: CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor,
+	): Promise<void>;
+	async locateWorkspaceRepo(
+		workspaceId: string,
+		descriptor: CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor,
+		// eslint-disable-next-line @typescript-eslint/unified-signatures
+		uri: Uri,
+	): Promise<void>;
+	async locateWorkspaceRepo(
+		workspaceId: string,
+		descriptor: CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor,
+		// eslint-disable-next-line @typescript-eslint/unified-signatures
+		repository: Repository,
+	): Promise<void>;
+	async locateWorkspaceRepo(
+		workspaceId: string,
+		descriptor: CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor,
+		uriOrRepository?: Uri | Repository,
+	): Promise<void> {
+		let repo;
+		if (uriOrRepository == null || uriOrRepository instanceof Uri) {
+			let repoLocatedUri = uriOrRepository;
 			if (repoLocatedUri == null) {
 				repoLocatedUri = (
 					await window.showOpenDialog({
-						title: `Choose a location for ${repoName}`,
+						title: `Choose a location for ${descriptor.name}`,
 						canSelectFiles: false,
 						canSelectFolders: true,
 						canSelectMany: false,
@@ -282,18 +303,15 @@ export class WorkspacesService implements Disposable {
 				)?.[0];
 			}
 
-			if (repoLocatedUri == null) {
-				return;
-			}
+			if (repoLocatedUri == null) return;
 
 			repo = await this.container.git.getOrOpenRepository(repoLocatedUri, {
 				closeOnOpen: true,
 				detectNested: false,
 			});
-		}
-
-		if (repo == null) {
-			return;
+			if (repo == null) return;
+		} else {
+			repo = uriOrRepository;
 		}
 
 		const repoPath = repo.uri.fsPath;
@@ -308,35 +326,22 @@ export class WorkspacesService implements Disposable {
 		}
 
 		for (const remoteUrl of remoteUrls) {
-			await this.container.path.writeLocalRepoPath({ remoteUrl: remoteUrl }, repoPath);
+			await this.container.repositoryPathMapping.writeLocalRepoPath({ remoteUrl: remoteUrl }, repoPath);
 		}
 
-		if (options?.workspaceId != null) {
-			let workspaceRepo = this.getCloudWorkspace(options?.workspaceId)?.getRepository(repo.name);
-			if (workspaceRepo == null) {
-				workspaceRepo = this.getCloudWorkspace(options?.workspaceId)?.getRepository(repoName);
-			}
-
-			if (workspaceRepo == null && remotes.length) {
-				workspaceRepo = this.getCloudWorkspace(options?.workspaceId)?.getRepository(
-					remotes[0].provider?.path.split('/').pop() ?? '',
-				);
-			}
-
-			if (workspaceRepo != null) {
-				await this.container.path.writeLocalRepoPath(
-					{
-						remoteUrl: workspaceRepo.url,
-						repoInfo: {
-							provider: workspaceRepo.provider,
-							owner: workspaceRepo.provider_organization_id,
-							repoName: workspaceRepo.name,
-						},
+		if (descriptor.id != null) {
+			await this.container.repositoryPathMapping.writeLocalRepoPath(
+				{
+					remoteUrl: descriptor.url,
+					repoInfo: {
+						provider: descriptor.provider,
+						owner: descriptor.provider_organization_id,
+						repoName: descriptor.name,
 					},
-					repoPath,
-				);
-				await this.updateCloudWorkspaceRepoLocalPath(options?.workspaceId, workspaceRepo.id, repoPath);
-			}
+				},
+				repoPath,
+			);
+			await this.updateCloudWorkspaceRepoLocalPath(workspaceId, descriptor.id, repoPath);
 		}
 	}
 
@@ -612,7 +617,10 @@ export class WorkspacesService implements Disposable {
 						}
 
 						for (const remoteUrl of remoteUrls) {
-							await this.container.path.writeLocalRepoPath({ remoteUrl: remoteUrl }, repo.uri.fsPath);
+							await this.container.repositoryPathMapping.writeLocalRepoPath(
+								{ remoteUrl: remoteUrl },
+								repo.uri.fsPath,
+							);
 						}
 
 						const repoDescriptor = newWorkspace.getRepository(repo.name);
@@ -697,36 +705,15 @@ export class WorkspacesService implements Disposable {
 		if (newRepoDescriptors.length === 0) return;
 
 		workspace.addRepositories(newRepoDescriptors);
-		if (repo.uri.fsPath) {
-			const remoteUrls: string[] = [];
-			for (const remote of await repo.getRemotes()) {
-				const remoteUrl = remote.provider?.url({ type: RemoteResourceType.Repo });
-				if (remoteUrl != null) {
-					remoteUrls.push(remoteUrl);
-				}
-			}
-
-			for (const remoteUrl of remoteUrls) {
-				await this.container.path.writeLocalRepoPath({ remoteUrl: remoteUrl }, repo.uri.fsPath);
-			}
-
-			await this._workspacesPathProvider.writeCloudWorkspaceDiskPathToMap(
-				workspaceId,
-				newRepoDescriptors[0].id,
-				repo.uri.fsPath,
-			);
-		}
+		await this.locateWorkspaceRepo(workspaceId, newRepoDescriptors[0], repo);
 	}
 
-	async removeCloudWorkspaceRepo(workspaceId: string, repoName: string) {
+	async removeCloudWorkspaceRepo(workspaceId: string, descriptor: CloudWorkspaceRepositoryDescriptor) {
 		const workspace = this.getCloudWorkspace(workspaceId);
 		if (workspace == null) return;
 
-		const repo = workspace.getRepository(repoName);
-		if (repo == null) return;
-
 		const confirmation = await window.showWarningMessage(
-			`Are you sure you want to remove ${repoName} from this workspace? This cannot be undone.`,
+			`Are you sure you want to remove ${descriptor.name} from this workspace? This cannot be undone.`,
 			{ modal: true },
 			{ title: 'Confirm' },
 			{ title: 'Cancel', isCloseAffordance: true },
@@ -734,12 +721,12 @@ export class WorkspacesService implements Disposable {
 		if (confirmation == null || confirmation.title == 'Cancel') return;
 		try {
 			const response = await this._workspacesApi.removeReposFromWorkspace(workspaceId, [
-				{ owner: repo.provider_organization_id, repoName: repo.name },
+				{ owner: descriptor.provider_organization_id, repoName: descriptor.name },
 			]);
 
 			if (response?.data.remove_repositories_from_project == null) return;
 
-			workspace.removeRepositories([repoName]);
+			workspace.removeRepositories([descriptor.name]);
 		} catch {}
 	}
 
@@ -781,7 +768,7 @@ export class WorkspacesService implements Disposable {
 				repoOwner = (repository as CloudWorkspaceRepositoryDescriptor).provider_organization_id;
 
 				if (repoLocalPath == null) {
-					const repoLocalPaths = await this.container.path.getLocalRepoPaths({
+					const repoLocalPaths = await this.container.repositoryPathMapping.getLocalRepoPaths({
 						remoteUrl: repoRemoteUrl,
 						repoInfo: {
 							repoName: repoName,

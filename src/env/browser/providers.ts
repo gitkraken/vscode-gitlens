@@ -3,8 +3,8 @@ import { GitCommandOptions } from '../../git/commandOptions';
 // Force import of GitHub since dynamic imports are not supported in the WebWorker ExtensionHost
 import { GitHubGitProvider } from '../../plus/github/githubGitProvider';
 import { GitProvider } from '../../git/gitProvider';
-import { WebPathProvider } from './path/webPathProvider';
-import { WorkspacesWebPathProvider } from './path/workspacesWebPathProvider';
+import { RepositoryWebPathMappingProvider } from './pathMapping/repositoryWebPathMappingProvider';
+import { WorkspacesWebPathMappingProvider } from './pathMapping/workspacesWebPathMappingProvider';
 
 export function git(_options: GitCommandOptions, ..._args: any[]): Promise<string | Buffer> {
 	return Promise.resolve('');
@@ -24,10 +24,10 @@ export async function getSupportedGitProviders(container: Container): Promise<Gi
 	return [new GitHubGitProvider(container)];
 }
 
-export function getSupportedPathProvider(container: Container) {
-	return new WebPathProvider(container);
+export function getSupportedRepositoryPathMappingProvider(container: Container) {
+	return new RepositoryWebPathMappingProvider(container);
 }
 
-export function getSupportedWorkspacesPathProvider() {
-	return new WorkspacesWebPathProvider();
+export function getSupportedWorkspacesPathMappingProvider() {
+	return new WorkspacesWebPathMappingProvider();
 }

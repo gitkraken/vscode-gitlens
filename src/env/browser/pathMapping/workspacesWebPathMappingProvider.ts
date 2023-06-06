@@ -1,8 +1,8 @@
 import { Uri } from 'vscode';
 import type { LocalWorkspaceFileData } from '../../../plus/workspaces/models';
-import type { WorkspacesPathProvider } from '../../../plus/workspaces/workspacesPathProvider';
+import type { WorkspacesPathMappingProvider } from '../../../plus/workspaces/workspacesPathMappingProvider';
 
-export class WorkspacesWebPathProvider implements WorkspacesPathProvider {
+export class WorkspacesWebPathMappingProvider implements WorkspacesPathMappingProvider {
 	async getCloudWorkspaceRepoPath(_cloudWorkspaceId: string, _repoId: string): Promise<string | undefined> {
 		return undefined;
 	}

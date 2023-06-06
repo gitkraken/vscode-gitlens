@@ -1,16 +1,16 @@
-import os from 'os';
-import path from 'path';
 import type { Disposable } from 'vscode';
-import { Uri, workspace } from 'vscode';
-import { localGKSharedDataFolder } from '../../../constants';
+import { workspace } from 'vscode';
 import type { Container } from '../../../container';
-import type { LocalRepoDataMap } from '../../../path/models';
-import { localRepoMappingFilePath } from '../../../path/models';
-import type { PathProvider } from '../../../path/pathProvider';
+import type { LocalRepoDataMap } from '../../../pathMapping/models';
+import type { RepositoryPathMappingProvider } from '../../../pathMapping/repositoryPathMappingProvider';
 import { Logger } from '../../../system/logger';
-import { acquireSharedFolderWriteLock, releaseSharedFolderWriteLock } from './utils';
+import {
+	acquireSharedFolderWriteLock,
+	getSharedRepositoryMappingFileUri,
+	releaseSharedFolderWriteLock,
+} from './sharedGKDataFolder';
 
-export class LocalPathProvider implements PathProvider, Disposable {
+export class RepositoryLocalPathMappingProvider implements RepositoryPathMappingProvider, Disposable {
 	constructor(private readonly container: Container) {}
 
 	dispose() {}
@@ -56,9 +56,9 @@ export class LocalPathProvider implements PathProvider, Disposable {
 	}
 
 	private async loadLocalRepoDataMap() {
-		const localFilePath = path.join(os.homedir(), localGKSharedDataFolder, localRepoMappingFilePath);
+		const localFileUri = getSharedRepositoryMappingFileUri();
 		try {
-			const data = await workspace.fs.readFile(Uri.file(localFilePath));
+			const data = await workspace.fs.readFile(localFileUri);
 			this._localRepoDataMap = (JSON.parse(data.toString()) ?? {}) as LocalRepoDataMap;
 		} catch (error) {
 			Logger.error(error, 'loadLocalRepoDataMap');
@@ -98,10 +98,11 @@ export class LocalPathProvider implements PathProvider, Disposable {
 		} else if (!this._localRepoDataMap[key].paths.includes(localPath)) {
 			this._localRepoDataMap[key].paths.push(localPath);
 		}
-		const localFilePath = path.join(os.homedir(), localGKSharedDataFolder, localRepoMappingFilePath);
+
+		const localFileUri = getSharedRepositoryMappingFileUri();
 		const outputData = new Uint8Array(Buffer.from(JSON.stringify(this._localRepoDataMap)));
 		try {
-			await workspace.fs.writeFile(Uri.file(localFilePath), outputData);
+			await workspace.fs.writeFile(localFileUri, outputData);
 		} catch (error) {
 			Logger.error(error, 'writeLocalRepoPath');
 		}

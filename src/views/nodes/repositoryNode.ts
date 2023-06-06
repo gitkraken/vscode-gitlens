@@ -7,6 +7,10 @@ import { GitRemote } from '../../git/models/remote';
 import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import type { GitStatus } from '../../git/models/status';
+import type {
+	CloudWorkspaceRepositoryDescriptor,
+	LocalWorkspaceRepositoryDescriptor,
+} from '../../plus/workspaces/models';
 import { GKCloudWorkspace, GKLocalWorkspace } from '../../plus/workspaces/models';
 import { findLastIndex } from '../../system/array';
 import { gate } from '../../system/decorators/gate';
@@ -45,7 +49,10 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 		view: ViewsWithRepositories,
 		parent: ViewNode,
 		public readonly repo: Repository,
-		private readonly options?: { workspace?: GKCloudWorkspace | GKLocalWorkspace },
+		private readonly options?: {
+			workspace?: GKCloudWorkspace | GKLocalWorkspace;
+			workspaceRepoDescriptor: CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor;
+		},
 	) {
 		super(uri, view, parent);
 
@@ -58,6 +65,17 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 
 	override get id(): string {
 		return RepositoryNode.getId(this.repo.path, this.options?.workspace?.id);
+	}
+
+	get workspaceId(): string | undefined {
+		return this.options?.workspace?.id;
+	}
+
+	get workspaceRepositoryDescriptor():
+		| CloudWorkspaceRepositoryDescriptor
+		| LocalWorkspaceRepositoryDescriptor
+		| undefined {
+		return this.options?.workspaceRepoDescriptor;
 	}
 
 	async getChildren(): Promise<ViewNode[]> {

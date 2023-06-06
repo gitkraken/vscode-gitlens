@@ -1,23 +1,21 @@
-import os from 'os';
-import path from 'path';
-import { Uri, workspace } from 'vscode';
-import { getPlatform } from '@env/platform';
-import { localGKSharedDataFolder, localGKSharedDataLegacyFolder } from '../../../constants';
+import type { Uri } from 'vscode';
+import { workspace } from 'vscode';
 import type {
 	CloudWorkspacesPathMap,
 	CodeWorkspaceFileContents,
 	LocalWorkspaceFileData,
 } from '../../../plus/workspaces/models';
-import {
-	cloudWorkspaceDataFilePath,
-	localWorkspaceDataFilePath,
-	localWorkspaceDataLegacyFilePath,
-} from '../../../plus/workspaces/models';
-import type { WorkspacesPathProvider } from '../../../plus/workspaces/workspacesPathProvider';
+import type { WorkspacesPathMappingProvider } from '../../../plus/workspaces/workspacesPathMappingProvider';
 import { Logger } from '../../../system/logger';
-import { acquireSharedFolderWriteLock, releaseSharedFolderWriteLock } from './utils';
+import {
+	acquireSharedFolderWriteLock,
+	getSharedCloudWorkspaceMappingFileUri,
+	getSharedLegacyLocalWorkspaceMappingFileUri,
+	getSharedLocalWorkspaceMappingFileUri,
+	releaseSharedFolderWriteLock,
+} from './sharedGKDataFolder';
 
-export class WorkspacesLocalPathProvider implements WorkspacesPathProvider {
+export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMappingProvider {
 	private _cloudWorkspaceRepoPathMap: CloudWorkspacesPathMap | undefined = undefined;
 
 	private async ensureCloudWorkspaceRepoPathMap(): Promise<void> {
@@ -32,9 +30,9 @@ export class WorkspacesLocalPathProvider implements WorkspacesPathProvider {
 	}
 
 	private async loadCloudWorkspaceRepoPathMap(): Promise<void> {
-		const localFilePath = path.join(os.homedir(), localGKSharedDataFolder, cloudWorkspaceDataFilePath);
+		const localFileUri = getSharedCloudWorkspaceMappingFileUri();
 		try {
-			const data = await workspace.fs.readFile(Uri.file(localFilePath));
+			const data = await workspace.fs.readFile(localFileUri);
 			this._cloudWorkspaceRepoPathMap = (JSON.parse(data.toString())?.workspaces ?? {}) as CloudWorkspacesPathMap;
 		} catch (error) {
 			Logger.error(error, 'loadCloudWorkspaceRepoPathMap');
@@ -67,10 +65,10 @@ export class WorkspacesLocalPathProvider implements WorkspacesPathProvider {
 
 		this._cloudWorkspaceRepoPathMap[cloudWorkspaceId].repoPaths[repoId] = repoLocalPath;
 
-		const localFilePath = path.join(os.homedir(), localGKSharedDataFolder, cloudWorkspaceDataFilePath);
+		const localFileUri = getSharedCloudWorkspaceMappingFileUri();
 		const outputData = new Uint8Array(Buffer.from(JSON.stringify({ workspaces: this._cloudWorkspaceRepoPathMap })));
 		try {
-			await workspace.fs.writeFile(Uri.file(localFilePath), outputData);
+			await workspace.fs.writeFile(localFileUri, outputData);
 		} catch (error) {
 			Logger.error(error, 'writeCloudWorkspaceDiskPathToMap');
 		}
@@ -81,21 +79,17 @@ export class WorkspacesLocalPathProvider implements WorkspacesPathProvider {
 	async getLocalWorkspaceData(): Promise<LocalWorkspaceFileData> {
 		// Read from file at path defined in the constant localWorkspaceDataFilePath
 		// If file does not exist, create it and return an empty object
-		let localFilePath;
+		let localFileUri;
 		let data;
 		try {
-			localFilePath = path.join(os.homedir(), localGKSharedDataFolder, localWorkspaceDataFilePath);
-			data = await workspace.fs.readFile(Uri.file(localFilePath));
+			localFileUri = getSharedLocalWorkspaceMappingFileUri();
+			data = await workspace.fs.readFile(localFileUri);
 			return JSON.parse(data.toString()) as LocalWorkspaceFileData;
 		} catch (error) {
 			// Fall back to using legacy location for file
 			try {
-				localFilePath = path.join(
-					os.homedir(),
-					`${getPlatform() === 'windows' ? '/AppData/Roaming/' : null}${localGKSharedDataLegacyFolder}`,
-					localWorkspaceDataLegacyFilePath,
-				);
-				data = await workspace.fs.readFile(Uri.file(localFilePath));
+				localFileUri = getSharedLegacyLocalWorkspaceMappingFileUri();
+				data = await workspace.fs.readFile(localFileUri);
 				return JSON.parse(data.toString()) as LocalWorkspaceFileData;
 			} catch (error) {
 				Logger.error(error, 'getLocalWorkspaceData');

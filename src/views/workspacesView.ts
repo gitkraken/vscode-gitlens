@@ -1,10 +1,11 @@
 import type { Disposable } from 'vscode';
+import { ProgressLocation, window } from 'vscode';
 import type { WorkspacesViewConfig } from '../config';
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
 import type { Repository } from '../git/models/repository';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
-import { GKCloudWorkspace, WorkspaceType } from '../plus/workspaces/models';
+import { WorkspaceType } from '../plus/workspaces/models';
 import { getSubscriptionTimeRemaining, SubscriptionState } from '../subscription';
 import { pluralize } from '../system/string';
 import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';
@@ -23,16 +24,13 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 	constructor(container: Container) {
 		super(container, 'gitlens.views.workspaces', 'Workspaces', 'workspaceView');
 		// TODO@ramint May want the view node to be in charge of resetting the workspaces
-		this._subscriptionDisposable = this.container.subscription.onDidChange(async event => {
+		this._subscriptionDisposable = this.container.subscription.onDidChange(e => {
 			if (
-				event.current.account == null ||
-				event.current.account.id !== event.previous?.account?.id ||
-				event.current.state !== event.previous?.state
+				e.current.account == null ||
+				e.current.account.id !== e.previous?.account?.id ||
+				e.current.state !== e.previous?.state
 			) {
-				await this.container.workspaces.getWorkspaces({
-					resetCloudWorkspaces: true,
-					resetLocalWorkspaces: true,
-				});
+				this.container.workspaces.resetWorkspaces({ cloud: true });
 			}
 
 			void this.ensureRoot().triggerChange(true);
@@ -91,11 +89,8 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 		return [
 			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
-				async () => {
-					await this.container.workspaces.getWorkspaces({
-						resetCloudWorkspaces: true,
-						resetLocalWorkspaces: true,
-					});
+				() => {
+					this.container.workspaces.resetWorkspaces();
 					void this.ensureRoot().triggerChange(true);
 				},
 				this,
@@ -144,17 +139,12 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 			registerViewCommand(
 				this.getQualifiedCommand('locateRepo'),
 				async (node: RepositoryNode | WorkspaceMissingRepositoryNode) => {
-					const repoName = node instanceof RepositoryNode ? node.repo.name : node.name;
-					const workspaceNode = node.getParent();
-					if (workspaceNode == null || !(workspaceNode instanceof WorkspaceNode)) {
-						return;
-					}
+					const descriptor = node.workspaceRepositoryDescriptor;
+					if (descriptor == null || node.workspaceId == null) return;
 
-					await this.container.workspaces.locateWorkspaceRepo(repoName, {
-						workspaceId: workspaceNode.workspaceId,
-					});
+					await this.container.workspaces.locateWorkspaceRepo(node.workspaceId, descriptor);
 
-					void workspaceNode.triggerChange(true);
+					void node.getParent()?.triggerChange(true);
 				},
 				this,
 			),
@@ -162,7 +152,16 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 				this.getQualifiedCommand('locateAllRepos'),
 				async (node: WorkspaceNode) => {
 					if (node.type !== WorkspaceType.Cloud) return;
-					await this.container.workspaces.locateAllCloudWorkspaceRepos(node.workspaceId);
+
+					await window.withProgress(
+						{
+							location: ProgressLocation.Notification,
+							title: `Locating Repositories for '${node.workspace.name}'...`,
+							cancellable: true,
+						},
+						(_progress, token) =>
+							this.container.workspaces.locateAllCloudWorkspaceRepos(node.workspaceId, token),
+					);
 
 					void node.triggerChange(true);
 				},
@@ -211,19 +210,12 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 			registerViewCommand(
 				this.getQualifiedCommand('removeRepo'),
 				async (node: RepositoryNode | WorkspaceMissingRepositoryNode) => {
-					const repoName = node instanceof RepositoryNode ? node.repo.name : node.name;
-					const workspaceNode = node.getParent();
-					if (!(workspaceNode instanceof WorkspaceNode)) {
-						return;
-					}
+					const descriptor = node.workspaceRepositoryDescriptor;
+					if (descriptor?.id == null || node.workspaceId == null) return;
 
-					const workspace = workspaceNode.workspace;
-					if (!(workspace instanceof GKCloudWorkspace)) {
-						return;
-					}
-
-					await this.container.workspaces.removeCloudWorkspaceRepo(workspace.id, repoName);
-					void workspaceNode.getParent()?.triggerChange(true);
+					await this.container.workspaces.removeCloudWorkspaceRepo(node.workspaceId, descriptor);
+					// TODO@axosoft-ramint Do we need the grandparent here?
+					void node.getParent()?.getParent()?.triggerChange(true);
 				},
 			),
 		];

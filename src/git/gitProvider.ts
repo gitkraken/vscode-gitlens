@@ -110,7 +110,10 @@ export interface GitProvider extends Disposable {
 	readonly descriptor: GitProviderDescriptor;
 	readonly supportedSchemes: Set<string>;
 
-	discoverRepositories(uri: Uri, options?: { depth?: number; silent?: boolean }): Promise<Repository[]>;
+	discoverRepositories(
+		uri: Uri,
+		options?: { cancellation?: CancellationToken; depth?: number; silent?: boolean },
+	): Promise<Repository[]>;
 	updateContext?(): void;
 	openRepository(
 		folder: WorkspaceFolder | undefined,
