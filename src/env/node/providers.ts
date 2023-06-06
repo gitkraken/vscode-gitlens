@@ -6,6 +6,8 @@ import { configuration } from '../../system/configuration';
 import { Git } from './git/git';
 import { LocalGitProvider } from './git/localGitProvider';
 import { VslsGit, VslsGitProvider } from './git/vslsGitProvider';
+import { RepositoryLocalPathMappingProvider } from './pathMapping/repositoryLocalPathMappingProvider';
+import { WorkspacesLocalPathMappingProvider } from './pathMapping/workspacesLocalPathMappingProvider';
 
 let gitInstance: Git | undefined;
 function ensureGit() {
@@ -44,4 +46,12 @@ export async function getSupportedGitProviders(container: Container): Promise<Gi
 	}
 
 	return providers;
+}
+
+export function getSupportedRepositoryPathMappingProvider(container: Container) {
+	return new RepositoryLocalPathMappingProvider(container);
+}
+
+export function getSupportedWorkspacesPathMappingProvider() {
+	return new WorkspacesLocalPathMappingProvider();
 }

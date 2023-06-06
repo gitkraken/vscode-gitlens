@@ -28,8 +28,8 @@ import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
 
 export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 	static key = ':rebase';
-	static getId(repoPath: string, name: string, root: boolean): string {
-		return `${BranchNode.getId(repoPath, name, root)}${this.key}`;
+	static getId(repoPath: string, name: string, root: boolean, workspaceId?: string): string {
+		return `${BranchNode.getId(repoPath, name, root, workspaceId)}${this.key}`;
 	}
 
 	constructor(
@@ -40,12 +40,18 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 		public readonly status: GitStatus | undefined,
 		// Specifies that the node is shown as a root
 		public readonly root: boolean,
+		private readonly options?: { workspaceId?: string },
 	) {
 		super(GitUri.fromRepoPath(rebaseStatus.repoPath), view, parent);
 	}
 
 	override get id(): string {
-		return RebaseStatusNode.getId(this.rebaseStatus.repoPath, this.rebaseStatus.incoming.name, this.root);
+		return RebaseStatusNode.getId(
+			this.rebaseStatus.repoPath,
+			this.rebaseStatus.incoming.name,
+			this.root,
+			this.options?.workspaceId,
+		);
 	}
 
 	get repoPath(): string {

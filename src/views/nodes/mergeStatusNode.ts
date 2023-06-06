@@ -18,8 +18,8 @@ import { ContextValues, ViewNode } from './viewNode';
 
 export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 	static key = ':merge';
-	static getId(repoPath: string, name: string, root: boolean): string {
-		return `${BranchNode.getId(repoPath, name, root)}${this.key}`;
+	static getId(repoPath: string, name: string, root: boolean, workspaceId?: string): string {
+		return `${BranchNode.getId(repoPath, name, root, workspaceId)}${this.key}`;
 	}
 
 	constructor(
@@ -30,12 +30,18 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 		public readonly status: GitStatus | undefined,
 		// Specifies that the node is shown as a root
 		public readonly root: boolean,
+		private readonly options?: { workspaceId?: string },
 	) {
 		super(GitUri.fromRepoPath(mergeStatus.repoPath), view, parent);
 	}
 
 	override get id(): string {
-		return MergeStatusNode.getId(this.mergeStatus.repoPath, this.mergeStatus.current.name, this.root);
+		return MergeStatusNode.getId(
+			this.mergeStatus.repoPath,
+			this.mergeStatus.current.name,
+			this.root,
+			this.options?.workspaceId,
+		);
 	}
 
 	get repoPath(): string {

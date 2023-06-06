@@ -22,8 +22,8 @@ import { ContextValues, ViewNode } from './viewNode';
 
 export class CompareBranchNode extends ViewNode<ViewsWithBranches | WorktreesView> {
 	static key = ':compare-branch';
-	static getId(repoPath: string, name: string, root: boolean): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${name})${root ? ':root' : ''}`;
+	static getId(repoPath: string, name: string, root: boolean, workspaceId?: string): string {
+		return `${RepositoryNode.getId(repoPath, workspaceId)}${this.key}(${name})${root ? ':root' : ''}`;
 	}
 
 	private _children: ViewNode[] | undefined;
@@ -37,6 +37,7 @@ export class CompareBranchNode extends ViewNode<ViewsWithBranches | WorktreesVie
 		private showComparison: ViewShowBranchComparison,
 		// Specifies that the node is shown as a root
 		public readonly root: boolean = false,
+		private readonly options?: { workspaceId?: string },
 	) {
 		super(uri, view, parent);
 
@@ -58,7 +59,7 @@ export class CompareBranchNode extends ViewNode<ViewsWithBranches | WorktreesVie
 	}
 
 	override get id(): string {
-		return CompareBranchNode.getId(this.branch.repoPath, this.branch.name, this.root);
+		return CompareBranchNode.getId(this.branch.repoPath, this.branch.name, this.root, this.options?.workspaceId);
 	}
 
 	get repoPath(): string {

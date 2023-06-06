@@ -4221,6 +4221,24 @@
 				}
 			},
 			{
+				"id": "gitlens.decorations.workspaceRepoMissingForegroundColor",
+				"description": "Specifies the decoration foreground color of workspace repos which are missing a local path",
+				"defaults": {
+					"dark": "#909090",
+					"light": "#949494",
+					"highContrast": "#d3d3d3"
+				}
+			},
+			{
+				"id": "gitlens.decorations.workspaceRepoOpenForegroundColor",
+				"description": "Specifies the decoration foreground color of workspace repos which are open in the current workspace",
+				"defaults": {
+					"dark": "#35b15e",
+					"light": "#35b15e",
+					"highContrast": "#4dff88"
+				}
+			},
+			{
 				"id": "gitlens.decorations.worktreeView.hasUncommittedChangesForegroundColor",
 				"description": "Specifies the decoration foreground color for worktrees that have uncommitted changes",
 				"defaults": {
@@ -6861,6 +6879,80 @@
 				"icon": "$(refresh)"
 			},
 			{
+				"command": "gitlens.views.workspaces.convert",
+				"title": "Convert to GitKraken Workspace...",
+				"category": "GitLens",
+				"icon": "$(cloud-upload)",
+				"enablement": "!operationInProgress"
+			},
+			{
+				"command": "gitlens.views.workspaces.create",
+				"title": "Create Workspace...",
+				"category": "GitLens",
+				"icon": "$(add)",
+				"enablement": "!operationInProgress"
+			},
+			{
+				"command": "gitlens.views.workspaces.delete",
+				"title": "Delete Workspace...",
+				"category": "GitLens",
+				"icon": "$(trash)",
+				"enablement": "!operationInProgress"
+			},
+			{
+				"command": "gitlens.views.workspaces.addRepo",
+				"title": "Add Repository to Workspace...",
+				"category": "GitLens",
+				"icon": "$(add)"
+			},
+			{
+				"command": "gitlens.views.workspaces.locateRepo",
+				"title": "Locate Repository...",
+				"category": "GitLens",
+				"icon": "$(location)"
+			},
+			{
+				"command": "gitlens.views.workspaces.locateAllRepos",
+				"title": "Locate All Repositories for this Workspace...",
+				"category": "GitLens",
+				"icon": "$(location)"
+			},
+			{
+				"command": "gitlens.views.workspaces.open",
+				"title": "Open As VS Code Workspace...",
+				"category": "GitLens",
+				"icon": "$(window)"
+			},
+			{
+				"command": "gitlens.views.workspaces.openRepoNewWindow",
+				"title": "Open Repository in New Window",
+				"category": "GitLens",
+				"icon": "$(folder-opened)"
+			},
+			{
+				"command": "gitlens.views.workspaces.openRepoCurrentWindow",
+				"title": "Open Repository in Current Window",
+				"category": "GitLens",
+				"icon": "$(folder-opened)"
+			},
+			{
+				"command": "gitlens.views.workspaces.openRepoWorkspace",
+				"title": "Add Repository to Current VS Code Workspace",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.workspaces.removeRepo",
+				"title": "Remove Repository from Workspace...",
+				"category": "GitLens",
+				"icon": "$(trash)"
+			},
+			{
+				"command": "gitlens.views.workspaces.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "gitlens.views.worktrees.copy",
 				"title": "Copy",
 				"category": "GitLens"
@@ -9280,6 +9372,54 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.workspaces.convert",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.workspaces.create",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.workspaces.delete",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.workspaces.addRepo",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.workspaces.locateRepo",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.workspaces.locateAllRepos",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.workspaces.open",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.workspaces.openRepoNewWindow",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.workspaces.openRepoCurrentWindow",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.workspaces.openRepoWorkspace",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.workspaces.removeRepo",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.workspaces.refresh",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.worktrees.copy",
 					"when": "false"
 				},
@@ -10675,6 +10815,16 @@
 					"group": "navigation@99"
 				},
 				{
+					"command": "gitlens.views.workspaces.create",
+					"when": "view =~ /^gitlens\\.views\\.workspaces/ && gitlens:plus",
+					"group": "navigation@1"
+				},
+				{
+					"command": "gitlens.views.workspaces.refresh",
+					"when": "view =~ /^gitlens\\.views\\.workspaces/",
+					"group": "navigation@99"
+				},
+				{
 					"command": "gitlens.views.title.createWorktree",
 					"when": "view =~ /^gitlens\\.views\\.worktrees/",
 					"group": "navigation@10"
@@ -10812,6 +10962,31 @@
 			],
 			"view/item/context": [
 				{
+					"command": "gitlens.plus.loginOrSignUp",
+					"when": "viewItem == gitlens:message:signin",
+					"group": "inline@1"
+				},
+				{
+					"command": "gitlens.views.workspaces.convert",
+					"when": "viewItem =~  /gitlens:repositories\\b(?=.*?\\b\\+workspaces\\b)/ && gitlens:plus",
+					"group": "inline@1"
+				},
+				{
+					"command": "gitlens.views.workspaces.locateAllRepos",
+					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+cloud\\b)/",
+					"group": "inline@1"
+				},
+				{
+					"command": "gitlens.views.workspaces.addRepo",
+					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+cloud\\b)/",
+					"group": "inline@2"
+				},
+				{
+					"command": "gitlens.views.workspaces.open",
+					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+(cloud|local)\\b)/",
+					"group": "inline@3"
+				},
+				{
 					"command": "gitlens.views.switchToAnotherBranch",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branches\\b/",
 					"group": "inline@10"
@@ -10836,6 +11011,26 @@
 					"when": "viewItem =~ /gitlens:branches\\b(?=.*?\\b\\+remotes\\b)/",
 					"group": "inline@98",
 					"alt": "gitlens.copyRemoteBranchesUrl"
+				},
+				{
+					"command": "gitlens.views.workspaces.locateAllRepos",
+					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+cloud\\b)/",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.workspaces.open",
+					"when": "viewItem =~ /gitlens:workspace/",
+					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.views.workspaces.addRepo",
+					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+cloud\\b)/",
+					"group": "1_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.views.workspaces.delete",
+					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+cloud\\b)/",
+					"group": "1_gitlens_actions@4"
 				},
 				{
 					"command": "gitlens.views.switchToAnotherBranch",
@@ -11548,7 +11743,7 @@
 				},
 				{
 					"command": "gitlens.views.star",
-					"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+starred\\b)/",
+					"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+(starred|workspace)\\b)/",
 					"group": "inline@99"
 				},
 				{
@@ -11963,6 +12158,42 @@
 					"command": "gitlens.stashApply",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem == gitlens:stash",
 					"group": "inline@1"
+				},
+				{
+					"command": "gitlens.views.workspaces.locateRepo",
+					"when": "viewItem =~ /gitlens:repository\\b(?=.*?\\b\\+workspace\\b)(?!.*?\\b\\+local\\b)/ || viewItem =~ /gitlens:workspaceMissingRepository\\b/",
+					"group": "inline@1"
+				},
+				{
+					"command": "gitlens.views.workspaces.locateRepo",
+					"when": "viewItem =~ /gitlens:repository\\b(?=.*?\\b\\+workspace\\b)(?!.*?\\b\\+local\\b)/ || viewItem =~ /gitlens:workspaceMissingRepository\\b/",
+					"group": "0_gitlens_actions@10"
+				},
+				{
+					"command": "gitlens.views.workspaces.openRepoNewWindow",
+					"when": "viewItem =~ /gitlens:repository\\b(?=.*?\\b\\+workspace\\b)/",
+					"group": "inline@100",
+					"alt": "gitlens.views.workspaces.openRepoCurrentWindow"
+				},
+				{
+					"command": "gitlens.views.workspaces.openRepoNewWindow",
+					"when": "viewItem =~ /gitlens:repository\\b(?=.*?\\b\\+workspace\\b)/",
+					"group": "0_gitlens_actions@11"
+				},
+				{
+					"command": "gitlens.views.workspaces.openRepoCurrentWindow",
+					"when": "viewItem =~ /gitlens:repository\\b(?=.*?\\b\\+workspace\\b)/",
+					"group": "0_gitlens_actions@12"
+				},
+				{
+					"command": "gitlens.views.workspaces.openRepoWorkspace",
+					"when": "viewItem =~ /gitlens:repository\\b(?=.*?\\b\\+workspace\\b)/",
+					"group": "0_gitlens_actions@13"
+				},
+				{
+					"command": "gitlens.views.workspaces.removeRepo",
+					"when": "viewItem =~ /gitlens:repository\\b(?=.*?\\b\\+workspace\\b)(?!.*?\\b\\+local\\b)/ || viewItem =~ /gitlens:workspaceMissingRepository\\b/",
+					"group": "0_gitlens_actions@11"
 				},
 				{
 					"command": "gitlens.views.stash.rename",
@@ -13709,6 +13940,15 @@
 				"when": "!gitlens:hasVirtualFolders"
 			},
 			{
+				"view": "gitlens.views.workspaces",
+				"contents": "Workspaces allow you and your organizations to store and sync collections of repositories across your devices and across the full line of GitKraken products.\n\nYou can create multiple workspaces, each of which can contain multiple repositories."
+			},
+			{
+				"view": "gitlens.views.workspaces",
+				"contents": "[Start Free Pro Trial](command:gitlens.plus.loginOrSignUp)\n\nStart a free 7-day Pro trial to use GitKraken Workspaces, or [sign in](command:gitlens.plus.loginOrSignUp).\n☁️ Cloud workspaces require a free account while shared cloud workspaces require a trial or subscription.",
+				"when": "!gitlens:plus"
+			},
+			{
 				"view": "gitlens.views.worktrees",
 				"contents": "Worktrees help you multitask by minimizing the context switching between branches, allowing you to easily work on different branches of a repository simultaneously.\n\nYou can create multiple working trees, each of which can be opened in individual windows or all together in a single workspace.",
 				"when": "!gitlens:plus:required || gitlens:plus:state == 0"
@@ -13748,6 +13988,15 @@
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-gitlens)",
 					"initialSize": 6,
+					"visibility": "visible"
+				},
+				{
+					"id": "gitlens.views.workspaces",
+					"name": "GitKraken Workspaces",
+					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"contextualTitle": "GitLens",
+					"icon": "$(gitlens-worktrees-view)",
+					"initialSize": 2,
 					"visibility": "visible"
 				},
 				{

@@ -18,8 +18,15 @@ import { ContextValues, ViewNode } from './viewNode';
 
 export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 	static key = ':status-branch:files';
-	static getId(repoPath: string, name: string, root: boolean, upstream: string, direction: string): string {
-		return `${BranchNode.getId(repoPath, name, root)}${this.key}(${upstream}|${direction})`;
+	static getId(
+		repoPath: string,
+		name: string,
+		root: boolean,
+		upstream: string,
+		direction: string,
+		workspaceId?: string,
+	): string {
+		return `${BranchNode.getId(repoPath, name, root, workspaceId)}${this.key}(${upstream}|${direction})`;
 	}
 
 	readonly repoPath: string;
@@ -32,6 +39,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 		public readonly direction: 'ahead' | 'behind',
 		// Specifies that the node is shown as a root
 		private readonly root: boolean = false,
+		private readonly options?: { workspaceId?: string },
 	) {
 		super(GitUri.fromRepoPath(status.repoPath), view, parent);
 		this.repoPath = status.repoPath;
@@ -44,6 +52,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 			this.root,
 			this.status.upstream,
 			this.direction,
+			this.options?.workspaceId,
 		);
 	}
 
