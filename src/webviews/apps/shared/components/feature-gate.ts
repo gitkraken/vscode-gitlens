@@ -17,7 +17,6 @@ export class FeatureGate extends LitElement {
 			left: 0;
 			bottom: 0;
 			right: 0;
-			font-size: 1.3rem;
 			overflow: auto;
 			z-index: 100;
 
