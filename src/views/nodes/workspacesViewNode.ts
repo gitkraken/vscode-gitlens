@@ -1,9 +1,8 @@
-import { children } from '@microsoft/fast-element';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { WorkspacesView } from '../workspacesView';
 import { MessageNode } from './common';
 import { RepositoriesNode } from './repositoriesNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ViewNode } from './viewNode';
 import { WorkspaceNode } from './workspaceNode';
 
 export class WorkspacesViewNode extends ViewNode<WorkspacesView> {

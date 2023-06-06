@@ -584,18 +584,24 @@ export class WorkspacesService implements Disposable {
 
 			const newWorkspace = this.getCloudWorkspace(createdProjectData.id);
 			if (newWorkspace != null && (includeReposResponse?.title === 'Yes' || options?.repos)) {
-				const repoInputs: AddWorkspaceRepoDescriptor[] = [];
+				const repoInputs: { repo: Repository; inputDescriptor: AddWorkspaceRepoDescriptor }[] = [];
 				for (const repo of matchingProviderRepos) {
 					const remote = (await repo.getRemote('origin')) || (await repo.getRemotes())?.[0];
 					const remoteOwnerAndName = remote?.provider?.path?.split('/') || remote?.path?.split('/');
 					if (remoteOwnerAndName == null || remoteOwnerAndName.length !== 2) continue;
-					repoInputs.push({ owner: remoteOwnerAndName[0], repoName: remoteOwnerAndName[1] });
+					repoInputs.push({
+						repo: repo,
+						inputDescriptor: { owner: remoteOwnerAndName[0], repoName: remoteOwnerAndName[1] },
+					});
 				}
 
 				if (repoInputs.length) {
 					let newRepoDescriptors: CloudWorkspaceRepositoryDescriptor[] = [];
 					try {
-						const response = await this._workspacesApi.addReposToWorkspace(newWorkspace.id, repoInputs);
+						const response = await this._workspacesApi.addReposToWorkspace(
+							newWorkspace.id,
+							repoInputs.map(r => r.inputDescriptor),
+						);
 						if (response?.data.add_repositories_to_project == null) return;
 						newRepoDescriptors = Object.values(
 							response.data.add_repositories_to_project.provider_data,
@@ -606,31 +612,12 @@ export class WorkspacesService implements Disposable {
 
 					if (newRepoDescriptors.length === 0) return;
 					newWorkspace.addRepositories(newRepoDescriptors);
-					for (const repo of matchingProviderRepos) {
-						if (!repo.uri.fsPath) continue;
-						const remoteUrls: string[] = [];
-						for (const remote of await repo.getRemotes()) {
-							const remoteUrl = remote.provider?.url({ type: RemoteResourceType.Repo });
-							if (remoteUrl != null) {
-								remoteUrls.push(remoteUrl);
-							}
-						}
-
-						for (const remoteUrl of remoteUrls) {
-							await this.container.repositoryPathMapping.writeLocalRepoPath(
-								{ remoteUrl: remoteUrl },
-								repo.uri.fsPath,
-							);
-						}
-
-						const repoDescriptor = newWorkspace.getRepository(repo.name);
-						if (repoDescriptor == null) continue;
-
-						await this._workspacesPathProvider.writeCloudWorkspaceDiskPathToMap(
-							newWorkspace.id,
-							repoDescriptor.id,
-							repo.uri.fsPath,
+					for (const repoInput of repoInputs) {
+						const repoDescriptor = newRepoDescriptors.find(
+							r => r.name === repoInput.inputDescriptor.repoName,
 						);
+						if (!repoDescriptor) continue;
+						await this.locateWorkspaceRepo(newWorkspace.id, repoDescriptor, repoInput.repo);
 					}
 				}
 			}
