@@ -1079,3 +1079,28 @@ button:not([disabled]),
 		white-space: break-spaces;
 	}
 }
+
+.minimap-marker-swatch {
+	display: inline-block;
+	width: 1.6rem;
+	height: 1.6rem;
+	border-radius: 3px;
+	margin-right: 0.75rem;
+	vertical-align: bottom;
+
+	&[data-marker='localBranches'] {
+		background-color: var(--color-graph-minimap-marker-local-branches);
+	}
+
+	&[data-marker='remoteBranches'] {
+		background-color: var(--color-graph-minimap-marker-remote-branches);
+	}
+
+	&[data-marker='stashes'] {
+		background-color: var(--color-graph-minimap-marker-stashes);
+	}
+
+	&[data-marker='tags'] {
+		background-color: var(--color-graph-minimap-marker-tags);
+	}
+}

@@ -1266,6 +1266,10 @@ export function GraphWrapper({
 													graphConfig?.minimapMarkerTypes?.includes('localBranches') ?? false
 												}
 											>
+												<span
+													className="minimap-marker-swatch"
+													data-marker="localBranches"
+												></span>
 												Local Branches
 											</VSCodeCheckbox>
 										</MenuItem>
@@ -1277,6 +1281,10 @@ export function GraphWrapper({
 													graphConfig?.minimapMarkerTypes?.includes('remoteBranches') ?? true
 												}
 											>
+												<span
+													className="minimap-marker-swatch"
+													data-marker="remoteBranches"
+												></span>
 												Remote Branches
 											</VSCodeCheckbox>
 										</MenuItem>
@@ -1288,6 +1296,7 @@ export function GraphWrapper({
 													graphConfig?.minimapMarkerTypes?.includes('stashes') ?? false
 												}
 											>
+												<span className="minimap-marker-swatch" data-marker="stashes"></span>
 												Stashes
 											</VSCodeCheckbox>
 										</MenuItem>
@@ -1299,6 +1308,7 @@ export function GraphWrapper({
 													graphConfig?.minimapMarkerTypes?.includes('tags') ?? true
 												}
 											>
+												<span className="minimap-marker-swatch" data-marker="tags"></span>
 												Tags
 											</VSCodeCheckbox>
 										</MenuItem>
