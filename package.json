@@ -14009,15 +14009,6 @@
 					"visibility": "visible"
 				},
 				{
-					"id": "gitlens.views.contributors",
-					"name": "Contributors",
-					"when": "!gitlens:disabled",
-					"contextualTitle": "GitLens",
-					"icon": "$(gitlens-contributors-view)",
-					"initialSize": 1,
-					"visibility": "collapsed"
-				},
-				{
 					"type": "webview",
 					"id": "gitlens.views.account",
 					"name": "GitKraken Account",
@@ -14153,6 +14144,15 @@
 					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders && gitlens:plus:enabled",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-worktrees-view)",
+					"visibility": "collapsed"
+				},
+				{
+					"id": "gitlens.views.contributors",
+					"name": "Contributors",
+					"when": "!gitlens:disabled",
+					"contextualTitle": "GitLens",
+					"icon": "$(gitlens-contributors-view)",
+					"initialSize": 1,
 					"visibility": "collapsed"
 				}
 			]

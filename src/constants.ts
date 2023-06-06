@@ -366,13 +366,16 @@ export const viewIdsByDefaultContainerId = new Map<
 	QualifiedViewContainerIds | QualifiedCoreViewContainerIds,
 	ViewIds[]
 >([
-	['workbench.view.scm', ['branches', 'commits', 'remotes', 'repositories', 'stashes', 'tags', 'worktrees']],
+	[
+		'workbench.view.scm',
+		['branches', 'commits', 'remotes', 'repositories', 'stashes', 'tags', 'worktrees', 'contributors'],
+	],
 	['workbench.view.extension.gitlensPanel', ['graph', 'graphDetails']],
 	[
 		'workbench.view.extension.gitlensInspect',
 		['commitDetails', 'fileHistory', 'lineHistory', 'timeline', 'searchAndCompare'],
 	],
-	['workbench.view.extension.gitlens', ['home', 'workspaces', 'contributors', 'account']],
+	['workbench.view.extension.gitlens', ['home', 'workspaces', 'account']],
 ]);
 
 export type ContextKeys =
