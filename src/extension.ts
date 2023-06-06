@@ -315,17 +315,20 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 		Logger.log(`GitLens upgraded from v${previousVersion} to v${version}; window.focused=${window.state.focused}`);
 	}
 
-	const [major, minor] = version.split('.').map(v => parseInt(v, 10));
-	const [prevMajor, prevMinor] = previousVersion.split('.').map(v => parseInt(v, 10));
+	const current = fromString(version);
+	const previous = fromString(previousVersion);
 
 	// Don't notify on downgrades
-	if (major === prevMajor || major < prevMajor || (major === prevMajor && minor < prevMinor)) {
+	if (current.major < previous.major || (current.major === previous.major && current.minor < previous.minor)) {
 		return;
 	}
 
-	if (major !== prevMajor) {
-		version = String(major);
-	}
+	// TODO@eamodio GL14: uncomment when ready to release
+	const majorPrerelease = false; //satisfies(previous, '< 2023.6.0700');
+
+	if (current.major === previous.major && !majorPrerelease) return;
+
+	version = majorPrerelease ? '14' : String(current.major);
 
 	void executeCommand(Commands.ShowHomeView);
 

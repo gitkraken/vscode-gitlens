@@ -1,5 +1,5 @@
 import type { MessageItem } from 'vscode';
-import { ConfigurationTarget, env, Uri, window } from 'vscode';
+import { ConfigurationTarget, window } from 'vscode';
 import { SuppressedMessages } from './config';
 import { Commands } from './constants';
 import type { GitCommit } from './git/models/commit';
@@ -176,17 +176,18 @@ export function showIntegrationRequestTimedOutWarningMessage(providerName: strin
 }
 
 export async function showWhatsNewMessage(version: string) {
-	const whatsnew = { title: "See What's New" };
+	const reset = { title: 'Switch to New Layout' };
 	const result = await showMessage(
 		'info',
-		`GitLens ${version} is here — check out what's new!`,
+		// TODO@eamodio GL14: update links
+		`Upgraded to GitLens ${version} — [see what's new](https://help.gitkraken.com/gitlens/gitlens-release-notes-current/ "See what's new in GitLens ${version}").\nWe've rearranged our views for greater focus and productivity, and recommend switching to the new layout — [learn more](https://help.gitkraken.com/gitlens/gitlens-release-notes-current/ "Learn more about what's changed").`,
 		undefined,
 		null,
-		whatsnew,
+		reset,
 	);
 
-	if (result === whatsnew) {
-		void (await env.openExternal(Uri.parse('https://help.gitkraken.com/gitlens/gitlens-release-notes-current/')));
+	if (result === reset) {
+		void executeCommand(Commands.ResetViewsLayout);
 	}
 }
 
