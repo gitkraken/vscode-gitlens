@@ -62,11 +62,13 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		context.extensionMode === ExtensionMode.Development,
 	);
 
+	const defaultDateLocale = configuration.get('defaultDateLocale');
+
 	const sw = new Stopwatch(`GitLens${prerelease ? ' (pre-release)' : ''} v${gitlensVersion}`, {
 		log: {
-			message: ` activating in ${env.appName} (${codeVersion}) on the ${
-				isWeb ? 'web' : 'desktop'
-			} using language '${env.language}' (${env.machineId}|${env.sessionId})`,
+			message: ` activating in ${env.appName} (${codeVersion}) on the ${isWeb ? 'web' : 'desktop'}; language='${
+				env.language
+			}', defaultDateLocale='${defaultDateLocale}' (${env.machineId}|${env.sessionId})`,
 			//${context.extensionRuntime !== ExtensionRuntime.Node ? ' in a webworker' : ''}
 		},
 	});
@@ -122,11 +124,11 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 	Configuration.configure(context);
 
-	setDefaultDateLocales(configuration.get('defaultDateLocale') ?? env.language);
+	setDefaultDateLocales(defaultDateLocale ?? env.language);
 	context.subscriptions.push(
 		configuration.onDidChange(e => {
 			if (configuration.changed(e, 'defaultDateLocale')) {
-				setDefaultDateLocales(configuration.get('defaultDateLocale', undefined, env.language));
+				setDefaultDateLocales(configuration.get('defaultDateLocale') ?? env.language);
 			}
 		}),
 	);
