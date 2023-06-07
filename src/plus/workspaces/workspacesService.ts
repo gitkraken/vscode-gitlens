@@ -2,10 +2,12 @@ import type { CancellationToken, Event } from 'vscode';
 import { Disposable, EventEmitter, Uri, window } from 'vscode';
 import { getSupportedWorkspacesPathMappingProvider } from '@env/providers';
 import type { Container } from '../../container';
+import type { GitRemote } from '../../git/models/remote';
 import { RemoteResourceType } from '../../git/models/remoteResource';
 import type { Repository } from '../../git/models/repository';
 import { showRepositoryPicker } from '../../quickpicks/repositoryPicker';
 import { SubscriptionState } from '../../subscription';
+import { normalizePath } from '../../system/path';
 import { openWorkspace, OpenWorkspaceLocation } from '../../system/utils';
 import type { ServerConnection } from '../subscription/serverConnection';
 import type { SubscriptionChangeEvent } from '../subscription/subscriptionService';
@@ -20,6 +22,8 @@ import type {
 	LoadLocalWorkspacesResponse,
 	LocalWorkspaceData,
 	LocalWorkspaceRepositoryDescriptor,
+	RemoteDescriptor,
+	RepositoryMatch,
 	WorkspaceRepositoriesByName,
 	WorkspacesResponse,
 } from './models';
@@ -50,8 +54,12 @@ export class WorkspacesService implements Disposable {
 		async (workspaceId: string) => {
 			try {
 				const workspaceRepos = await this._workspacesApi.getWorkspaceRepositories(workspaceId);
+				const repoDescriptors = workspaceRepos?.data?.project?.provider_data?.repositories?.nodes;
 				return {
-					repositories: workspaceRepos?.data?.project?.provider_data?.repositories?.nodes ?? [],
+					repositories:
+						repoDescriptors != null
+							? repoDescriptors.map(descriptor => ({ ...descriptor, workspaceId: workspaceId }))
+							: [],
 					repositoriesInfo: undefined,
 				};
 			} catch {
@@ -119,8 +127,11 @@ export class WorkspacesService implements Disposable {
 					continue;
 				}
 
-				let repositories: CloudWorkspaceRepositoryDescriptor[] | undefined =
-					workspace.provider_data?.repositories?.nodes;
+				const repoDescriptors = workspace.provider_data?.repositories?.nodes;
+				let repositories =
+					repoDescriptors != null
+						? repoDescriptors.map(descriptor => ({ ...descriptor, workspaceId: workspace.id }))
+						: repoDescriptors;
 				if (repositories == null && !excludeRepositories) {
 					repositories = [];
 				}
@@ -160,6 +171,7 @@ export class WorkspacesService implements Disposable {
 					workspace.repositories.map(repositoryPath => ({
 						localPath: repositoryPath.localPath,
 						name: repositoryPath.localPath.split(/[\\/]/).pop() ?? 'unknown',
+						workspaceId: workspace.localId,
 					})),
 				),
 			);
@@ -225,9 +237,7 @@ export class WorkspacesService implements Disposable {
 	async locateAllCloudWorkspaceRepos(workspaceId: string, cancellation?: CancellationToken): Promise<void> {
 		const workspace = this.getCloudWorkspace(workspaceId);
 		if (workspace == null) return;
-
-		const repoDescriptors = workspace.repositories;
-		if (repoDescriptors == null || repoDescriptors.length === 0) return;
+		if (workspace.repositories == null || workspace.repositories.length === 0) return;
 
 		const parentUri = (
 			await window.showOpenDialog({
@@ -254,37 +264,15 @@ export class WorkspacesService implements Disposable {
 
 		if (foundRepos.length === 0 || cancellation?.isCancellationRequested) return;
 
-		// Map repos by provider/owner/name
-		const foundReposMap = new Map<string, Repository>();
-		const foundReposNameMap = new Map<string, Repository>();
-		for (const repo of foundRepos) {
-			foundReposNameMap.set(repo.name.toLowerCase(), repo);
+		for (const repoMatch of (
+			await this.resolveWorkspaceRepositoriesByName(workspaceId, {
+				cancellation: cancellation,
+				repositories: foundRepos,
+			})
+		).values()) {
+			await this.locateWorkspaceRepo(workspaceId, repoMatch.descriptor, repoMatch.repository);
 
-			if (cancellation?.isCancellationRequested) break;
-
-			const remotes = await repo.getRemotes();
-			for (const remote of remotes) {
-				if (remote.provider?.owner == null) continue;
-				foundReposMap.set(
-					`${remote.provider.id.toLowerCase()}/${remote.provider.owner.toLowerCase()}/${remote.provider.path
-						.split('/')
-						.pop()
-						?.toLowerCase()}`,
-					repo,
-				);
-			}
-		}
-
-		for (const repoDescriptor of repoDescriptors) {
-			const foundRepo =
-				foundReposMap.get(
-					`${repoDescriptor.provider.toLowerCase()}/${repoDescriptor.provider_organization_id.toLowerCase()}/${repoDescriptor.name.toLowerCase()}`,
-				) ?? foundReposNameMap.get(repoDescriptor.name.toLowerCase());
-			if (foundRepo != null) {
-				await this.locateWorkspaceRepo(workspaceId, repoDescriptor, foundRepo);
-
-				if (cancellation?.isCancellationRequested) return;
-			}
+			if (cancellation?.isCancellationRequested) return;
 		}
 	}
 
@@ -385,7 +373,7 @@ export class WorkspacesService implements Disposable {
 		const disposables: Disposable[] = [];
 
 		let workspaceName: string | undefined;
-		let workspaceDescription : string | undefined;
+		let workspaceDescription: string | undefined;
 
 		let hostUrl: string | undefined;
 		let azureOrganizationName: string | undefined;
@@ -614,11 +602,11 @@ export class WorkspacesService implements Disposable {
 				const repoInputs: { repo: Repository; inputDescriptor: AddWorkspaceRepoDescriptor }[] = [];
 				for (const repo of matchingProviderRepos) {
 					const remote = (await repo.getRemote('origin')) || (await repo.getRemotes())?.[0];
-					const remoteOwnerAndName = remote?.provider?.path?.split('/') || remote?.path?.split('/');
-					if (remoteOwnerAndName == null || remoteOwnerAndName.length !== 2) continue;
+					const remoteDescriptor = getRemoteDescriptor(remote);
+					if (remoteDescriptor == null) continue;
 					repoInputs.push({
 						repo: repo,
-						inputDescriptor: { owner: remoteOwnerAndName[0], repoName: remoteOwnerAndName[1] },
+						inputDescriptor: { owner: remoteDescriptor.owner, repoName: remoteDescriptor.repoName },
 					});
 				}
 
@@ -630,8 +618,8 @@ export class WorkspacesService implements Disposable {
 							repoInputs.map(r => r.inputDescriptor),
 						);
 						if (response?.data.add_repositories_to_project == null) return;
-						newRepoDescriptors = Object.values(
-							response.data.add_repositories_to_project.provider_data,
+						newRepoDescriptors = Object.values(response.data.add_repositories_to_project.provider_data).map(
+							descriptor => ({ ...descriptor, workspaceId: newWorkspace.id }),
 						) as CloudWorkspaceRepositoryDescriptor[];
 					} catch {
 						return;
@@ -709,8 +697,8 @@ export class WorkspacesService implements Disposable {
 			]);
 
 			if (response?.data.add_repositories_to_project == null) return;
-			newRepoDescriptors = Object.values(
-				response.data.add_repositories_to_project.provider_data,
+			newRepoDescriptors = Object.values(response.data.add_repositories_to_project.provider_data).map(
+				descriptor => ({ ...descriptor, workspaceId: workspaceId }),
 			) as CloudWorkspaceRepositoryDescriptor[];
 		} catch {
 			return;
@@ -746,94 +734,88 @@ export class WorkspacesService implements Disposable {
 
 	async resolveWorkspaceRepositoriesByName(
 		workspaceId: string,
-		workspaceType: WorkspaceType,
+		options?: {
+			cancellation?: CancellationToken;
+			repositories?: Repository[];
+			resolveFromPath?: boolean;
+			usePathMapping?: boolean;
+		},
 	): Promise<WorkspaceRepositoriesByName> {
-		const workspaceRepositoriesByName: WorkspaceRepositoriesByName = new Map<string, Repository>();
+		const workspaceRepositoriesByName: WorkspaceRepositoriesByName = new Map<string, RepositoryMatch>();
 		const workspace: GKCloudWorkspace | GKLocalWorkspace | undefined =
-			workspaceType === WorkspaceType.Cloud
-				? this.getCloudWorkspace(workspaceId)
-				: this.getLocalWorkspace(workspaceId);
+			this.getCloudWorkspace(workspaceId) ?? this.getLocalWorkspace(workspaceId);
 
-		if (workspace?.repositories == null) return workspaceRepositoriesByName;
-		for (const repository of workspace.repositories) {
-			const currentRepositories = this.container.git.repositories;
-			let repo: Repository | undefined = undefined;
-			let repoId: string | undefined = undefined;
-			let repoLocalPath: string | undefined = undefined;
-			let repoRemoteUrl: string | undefined = undefined;
-			let repoName: string | undefined = undefined;
-			let repoProvider: string | undefined = undefined;
-			let repoOwner: string | undefined = undefined;
-			if (workspaceType === WorkspaceType.Local) {
-				repoLocalPath = (repository as LocalWorkspaceRepositoryDescriptor).localPath;
-				// repo name in this case is the last part of the path after splitting from the path separator
-				repoName = (repository as LocalWorkspaceRepositoryDescriptor).name;
-				for (const currentRepository of currentRepositories) {
-					if (currentRepository.path.replaceAll('\\', '/') === repoLocalPath.replaceAll('\\', '/')) {
-						repo = currentRepository;
-					}
-				}
-			} else if (workspaceType === WorkspaceType.Cloud) {
-				repoId = (repository as CloudWorkspaceRepositoryDescriptor).id;
-				repoLocalPath = await this.getCloudWorkspaceRepoPath(workspaceId, repoId);
-				repoRemoteUrl = (repository as CloudWorkspaceRepositoryDescriptor).url;
-				repoName = (repository as CloudWorkspaceRepositoryDescriptor).name;
-				repoProvider = (repository as CloudWorkspaceRepositoryDescriptor).provider;
-				repoOwner = (repository as CloudWorkspaceRepositoryDescriptor).provider_organization_id;
+		if (workspace?.repositories == null || workspace.repositories.length === 0) return workspaceRepositoriesByName;
+		const currentRepositories = options?.repositories ?? this.container.git.repositories;
 
-				if (repoLocalPath == null) {
-					const repoLocalPaths = await this.container.repositoryPathMapping.getLocalRepoPaths({
-						remoteUrl: repoRemoteUrl,
-						repoInfo: {
-							repoName: repoName,
-							provider: repoProvider,
-							owner: repoOwner,
-						},
-					});
+		const reposProviderMap = new Map<string, Repository>();
+		const reposPathMap = new Map<string, Repository>();
+		for (const repo of currentRepositories) {
+			if (options?.cancellation?.isCancellationRequested) break;
+			reposPathMap.set(normalizePath(repo.uri.fsPath.toLowerCase()), repo);
 
-					// TODO@ramint: The user should be able to choose which path to use if multiple available
-					if (repoLocalPaths.length > 0) {
-						repoLocalPath = repoLocalPaths[0];
-					}
-				}
-
-				for (const currentRepository of currentRepositories) {
-					if (
-						repoLocalPath != null &&
-						currentRepository.path.replaceAll('\\', '/') === repoLocalPath.replaceAll('\\', '/')
-					) {
-						repo = currentRepository;
-					}
+			if (workspace instanceof GKCloudWorkspace) {
+				const remotes = await repo.getRemotes();
+				for (const remote of remotes) {
+					const remoteDescriptor = getRemoteDescriptor(remote);
+					if (remoteDescriptor == null) continue;
+					reposProviderMap.set(
+						`${remoteDescriptor.provider}/${remoteDescriptor.owner}/${remoteDescriptor.repoName}`,
+						repo,
+					);
 				}
 			}
+		}
 
-			// TODO: Add this logic back in once we think through virtual repository support a bit more.
-			// We want to support virtual repositories not just as an automatic backup, but as a user choice.
-			/*if (!repo) {
-				let uri: Uri | undefined = undefined;
-				if (repoLocalPath) {
-					uri = Uri.file(repoLocalPath);
-				} else if (repoRemoteUrl) {
-					uri = Uri.parse(repoRemoteUrl);
-					uri = uri.with({
-						scheme: Schemes.Virtual,
-						authority: encodeAuthority<GitHubAuthorityMetadata>('github'),
-						path: uri.path,
-					});
-				}
-				if (uri) {
-					repo = await this.container.git.getOrOpenRepository(uri, { closeOnOpen: true });
-				}
-			}*/
-			if (repoLocalPath != null && !repo) {
-				repo = await this.container.git.getOrOpenRepository(Uri.file(repoLocalPath), { closeOnOpen: true });
+		for (const descriptor of workspace.repositories) {
+			let repoLocalPath = null;
+			let foundRepo = null;
+
+			// Local workspace repo descriptors should match on local path
+			if (descriptor.id == null) {
+				repoLocalPath = descriptor.localPath;
+				// Cloud workspace repo descriptors should match on either provider/owner/name or url on any remote
+			} else if (options?.usePathMapping === true) {
+				repoLocalPath = await this.getMappedPathForCloudWorkspaceRepoDescriptor(descriptor);
 			}
 
-			if (!repoName || !repo) {
-				continue;
+			if (repoLocalPath != null) {
+				foundRepo = reposPathMap.get(normalizePath(repoLocalPath.toLowerCase()));
 			}
 
-			workspaceRepositoriesByName.set(repoName, repo);
+			if (foundRepo == null && descriptor.id != null && descriptor.provider != null) {
+				foundRepo = reposProviderMap.get(
+					`${descriptor.provider.toLowerCase()}/${descriptor.provider_organization_id.toLowerCase()}/${descriptor.name.toLowerCase()}`,
+				);
+			}
+
+			if (repoLocalPath != null && foundRepo == null && options?.resolveFromPath === true) {
+				foundRepo = await this.container.git.getOrOpenRepository(Uri.file(repoLocalPath), {
+					closeOnOpen: true,
+				});
+				// TODO: Add this logic back in once we think through virtual repository support a bit more.
+				// We want to support virtual repositories not just as an automatic backup, but as a user choice.
+				/*if (!foundRepo) {
+					let uri: Uri | undefined = undefined;
+					if (repoLocalPath) {
+						uri = Uri.file(repoLocalPath);
+					} else if (descriptor.url) {
+						uri = Uri.parse(descriptor.url);
+						uri = uri.with({
+							scheme: Schemes.Virtual,
+							authority: encodeAuthority<GitHubAuthorityMetadata>('github'),
+							path: uri.path,
+						});
+					}
+					if (uri) {
+						foundRepo = await this.container.git.getOrOpenRepository(uri, { closeOnOpen: true });
+					}
+				}*/
+			}
+
+			if (foundRepo != null) {
+				workspaceRepositoriesByName.set(descriptor.name, { descriptor: descriptor, repository: foundRepo });
+			}
 		}
 
 		return workspaceRepositoriesByName;
@@ -851,7 +833,10 @@ export class WorkspacesService implements Disposable {
 
 		if (workspace?.repositories == null) return;
 
-		const workspaceRepositoriesByName = await this.resolveWorkspaceRepositoriesByName(workspaceId, workspaceType);
+		const workspaceRepositoriesByName = await this.resolveWorkspaceRepositoriesByName(workspaceId, {
+			resolveFromPath: true,
+			usePathMapping: true,
+		});
 
 		if (workspaceRepositoriesByName.size === 0) {
 			void window.showErrorMessage('No repositories could be found in this workspace.', { modal: true });
@@ -859,9 +844,10 @@ export class WorkspacesService implements Disposable {
 		}
 
 		const workspaceFolderPaths: string[] = [];
-		for (const repo of workspaceRepositoriesByName.values()) {
-			if (!repo.virtual && repo.path != null) {
-				workspaceFolderPaths.push(repo.path);
+		for (const repoMatch of workspaceRepositoriesByName.values()) {
+			const repo = repoMatch.repository;
+			if (!repo.virtual) {
+				workspaceFolderPaths.push(repo.uri.fsPath);
 			}
 		}
 
@@ -901,6 +887,37 @@ export class WorkspacesService implements Disposable {
 			openWorkspace(newWorkspaceUri, { location: OpenWorkspaceLocation.NewWindow });
 		}
 	}
+
+	private async getMappedPathForCloudWorkspaceRepoDescriptor(
+		descriptor: CloudWorkspaceRepositoryDescriptor,
+	): Promise<string | undefined> {
+		let repoLocalPath = await this.getCloudWorkspaceRepoPath(descriptor.workspaceId, descriptor.id);
+		if (repoLocalPath == null) {
+			repoLocalPath = (
+				await this.container.repositoryPathMapping.getLocalRepoPaths({
+					remoteUrl: descriptor.url,
+					repoInfo: {
+						repoName: descriptor.name,
+						provider: descriptor.provider,
+						owner: descriptor.provider_organization_id,
+					},
+				})
+			)?.[0];
+		}
+
+		return repoLocalPath;
+	}
+}
+
+function getRemoteDescriptor(remote: GitRemote): RemoteDescriptor | undefined {
+	if (remote.provider?.owner == null) return undefined;
+	const remoteRepoName = remote.provider.path.split('/').pop();
+	if (remoteRepoName == null) return undefined;
+	return {
+		provider: remote.provider.id.toLowerCase(),
+		owner: remote.provider.owner.toLowerCase(),
+		repoName: remoteRepoName.toLowerCase(),
+	};
 }
 
 // TODO: Add back in once we think through virtual repository support a bit more.
