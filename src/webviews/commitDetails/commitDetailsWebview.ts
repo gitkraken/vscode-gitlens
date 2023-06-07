@@ -106,20 +106,12 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		private readonly host: WebviewController<State, Serialized<State>>,
 		private readonly options: { mode: 'default' | 'graph' },
 	) {
-		let dismissed = this.container.storage.get('views:commitDetails:dismissed');
-		if (options.mode === 'graph') {
-			if (dismissed == null) {
-				dismissed = ['sidebar'];
-			}
-		}
-
 		this._context = {
 			pinned: false,
 			commit: undefined,
 			preferences: {
 				autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded'),
 				avatars: configuration.get('views.commitDetails.avatars'),
-				dismissed: dismissed,
 				files: configuration.get('views.commitDetails.files'),
 			},
 			richStateLoaded: false,
@@ -622,7 +614,6 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		if (
 			this._context.preferences?.autolinksExpanded === preferences.autolinksExpanded &&
 			this._context.preferences?.avatars === preferences.avatars &&
-			this._context.preferences?.dismissed === preferences.dismissed &&
 			this._context.preferences?.files === preferences.files &&
 			this._context.preferences?.files?.compact === preferences.files?.compact &&
 			this._context.preferences?.files?.icon === preferences.files?.icon &&
@@ -653,12 +644,6 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			void configuration.updateEffective('views.commitDetails.avatars', preferences.avatars);
 
 			changes.avatars = preferences.avatars;
-		}
-
-		if (preferences.dismissed != null && this._context.preferences?.dismissed !== preferences.dismissed) {
-			void this.container.storage.store('views:commitDetails:dismissed', preferences.dismissed);
-
-			changes.dismissed = preferences.dismissed;
 		}
 
 		if (preferences.files != null && this._context.preferences?.files !== preferences.files) {

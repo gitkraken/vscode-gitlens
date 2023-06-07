@@ -3,7 +3,6 @@ import type { Environment } from './container';
 import type { StoredSearchQuery } from './git/search';
 import type { Subscription } from './subscription';
 import type { TrackedUsage, TrackedUsageKeys } from './telemetry/usageTracker';
-import type { CommitDetailsDismissed } from './webviews/commitDetails/protocol';
 import type { CompletedActions } from './webviews/home/protocol';
 
 export const extensionPrefix = 'gitlens';
@@ -591,6 +590,8 @@ export type DeprecatedGlobalStorage = {
 	'confirm:sendToOpenAI': boolean;
 	/** @deprecated not longer valid */
 	'views:layout': 'gitlens' | 'scm';
+	/** @deprecated not longer used */
+	'views:commitDetails:dismissed': 'sidebar'[];
 } & {
 	/** @deprecated */
 	[key in `disallow:connection:${string}`]: any;
@@ -620,7 +621,6 @@ export type GlobalStorage = {
 	// Keep the pre-release version separate from the released version
 	preVersion: string;
 	'views:welcome:visible': boolean;
-	'views:commitDetails:dismissed': CommitDetailsDismissed[];
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & {
 	[key in `provider:authentication:skip:${string}`]: boolean;
 };
