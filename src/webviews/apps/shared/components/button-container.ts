@@ -24,7 +24,7 @@ export class ButtonContainer extends LitElement {
 
 			.group {
 				display: inline-flex;
-				gap: 0.1rem;
+				gap: 0.4rem;
 				width: 100%;
 				max-width: 30rem;
 			}
