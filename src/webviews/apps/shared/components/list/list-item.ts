@@ -74,6 +74,9 @@ const styles = css`
 		justify-content: space-between;
 		font-size: var(--vscode-font-size);
 		color: var(--vscode-sideBar-foreground);
+
+		content-visibility: auto;
+		contain-intrinsic-size: auto 2.2rem;
 	}
 
 	:host(:hover) {
