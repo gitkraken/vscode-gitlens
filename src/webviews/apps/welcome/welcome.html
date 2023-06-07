@@ -294,7 +294,11 @@
 				<h3>Commit Graph ✨</h3>
 				<p>
 					The
-					<a href="command:gitlens.showGraph" title="Open Commit Graph" aria-label="Open Commit Graph"
+					<a
+						href="command:gitlens.showGraph"
+						data-requires="repo"
+						title="Open Commit Graph"
+						aria-label="Open Commit Graph"
 						>Commit Graph</a
 					>
 					helps you easily visualize and keep track of all work in progress<br />
@@ -401,76 +405,109 @@
 				<h3>Side Bar Views</h3>
 				<p>Powerful views into Git that don't come with VS Code</p>
 				<nav class="welcome__views-nav" aria-label="Sidebar view links">
-					<a href="command:gitlens.showCommitsView" title="Show Commits view" aria-label="Show Commits view"
+					<a
+						href="command:gitlens.showCommitsView"
+						data-requires="repo"
+						title="Show Commits view"
+						aria-label="Show Commits view"
 						><code-icon icon="gl-commits-view" size="20"></code-icon>Commits</a
 					>
 					<a
 						href="command:gitlens.showCommitDetailsView"
+						data-requires="repo"
 						title="Show Commit Details view"
 						aria-label="Show Commit Details view"
 						><code-icon icon="gl-commit-view" size="20"></code-icon>Commit Details</a
 					>
 					<a
 						href="command:gitlens.showRepositoriesView"
+						data-requires="repo"
 						title="Show Repositories view"
 						aria-label="Show Repositories view"
 						><code-icon icon="gl-repositories-view" size="20"></code-icon>Repositories</a
 					>
 					<a
 						href="command:gitlens.showFileHistoryView"
+						data-requires="repo"
 						title="Show File History view"
 						aria-label="Show File History view"
 						><code-icon icon="gl-history-view" size="20"></code-icon>File History</a
 					>
 					<a
 						href="command:gitlens.showTimelineView"
+						data-requires="repo"
 						title="Show Visual File History view"
 						aria-label="Show Visual File History view"
 						><code-icon icon="graph-scatter" size="20"></code-icon>Visual File History ✨</a
 					>
 					<a
 						href="command:gitlens.showLineHistoryView"
+						data-requires="repo"
 						title="Show Line History view"
 						aria-label="Show Line History view"
 						><code-icon icon="gl-history-view" size="20"></code-icon>Line History</a
 					>
 					<a
 						href="command:gitlens.showBranchesView"
+						data-requires="repo"
 						title="Show Branches view"
 						aria-label="Show Branches view"
 						><code-icon icon="gl-branches-view" size="20"></code-icon>Branches</a
 					>
-					<a href="command:gitlens.showRemotesView" title="Show Remotes view" aria-label="Show Remotes view"
+					<a
+						href="command:gitlens.showRemotesView"
+						data-requires="repo"
+						title="Show Remotes view"
+						aria-label="Show Remotes view"
 						><code-icon icon="gl-remotes-view" size="20"></code-icon>Remotes</a
 					>
-					<a href="command:gitlens.showStashesView" title="Show Stashes view" aria-label="Show Stashes view"
+					<a
+						href="command:gitlens.showStashesView"
+						data-requires="repo"
+						title="Show Stashes view"
+						aria-label="Show Stashes view"
 						><code-icon icon="gl-stashes-view" size="20"></code-icon>Stashes</a
 					>
-					<a href="command:gitlens.showTagsView" title="Show Tags view" aria-label="Show Tags view"
+					<a
+						href="command:gitlens.showTagsView"
+						data-requires="repo"
+						title="Show Tags view"
+						aria-label="Show Tags view"
 						><code-icon icon="gl-tags-view" size="20"></code-icon>Tags</a
 					>
 					<a
 						href="command:gitlens.showWorktreesView"
+						data-requires="repo"
 						title="Show Worktrees view"
 						aria-label="Show Worktrees view"
 						><code-icon icon="gl-worktrees-view" size="20"></code-icon>Worktrees ✨</a
 					>
-					<a href="command:gitlens.showContributorsView"
+					<a href="command:gitlens.showContributorsView" data-requires="repo"
 						><code-icon icon="gl-contributors-view" size="20"></code-icon>Contributors</a
 					>
 					<a
 						href="command:gitlens.showSearchAndCompareView"
+						data-requires="repo"
 						title="Show Search &amp; Compare view"
 						aria-label="Show Search &amp; Compare view"
 						><code-icon icon="gl-search-view" size="20"></code-icon>Search &amp; Compare</a
 					>
 				</nav>
+				<p data-requires="norepo">
+					<code-icon icon="question"></code-icon> Features which need a repository are currently unavailable
+				</p>
 
 				<h3>Focus ✨</h3>
 				<p>
 					The
-					<a href="command:gitlens.showFocusPage" title="Open Focus" aria-label="Open Focus">Focus</a> view
-					helps you focus on what's important by providing you with a comprehensive list of all your pull
+					<a
+						href="command:gitlens.showFocusPage"
+						data-requires="repo"
+						title="Open Focus"
+						aria-label="Open Focus"
+						>Focus</a
+					>
+					view helps you focus on what's important by providing you with a comprehensive list of all your pull
 					requests and issues on your GitHub repos.
 				</p>
 
@@ -522,12 +559,14 @@
 					>
 					<a
 						href="command:workbench.view.scm"
+						data-requires="repo"
 						title="Show Source Control Side Bar"
 						aria-label="Show GitLens Side Bar"
 						><code-icon icon="source-control"></code-icon><span>Source Control</span></a
 					>
 					<a
 						href="command:workbench.view.extension.gitlensInspect"
+						data-requires="repo"
 						title="Show GitLens Inspect Side Bar"
 						aria-label="Show GitLens Inspect Side Bar"
 						><code-icon icon="gl-gitlens-inspect"></code-icon><span>GitLens Inspect</span></a
@@ -535,41 +574,58 @@
 				</nav>
 				<nav class="welcome__resources-nav">
 					<h3 class="t-eyebrow">Popular views</h3>
-					<a href="command:gitlens.showGraph" title="Show Commit Graph" aria-label="Show Commit Graph"
+					<a
+						href="command:gitlens.showGraph"
+						data-requires="repo"
+						title="Show Commit Graph"
+						aria-label="Show Commit Graph"
 						><code-icon icon="gl-graph"></code-icon><span>Commit Graph ✨</span></a
 					>
-					<a href="command:gitlens.showFocusPage" title="Open Focus" aria-label="Open Focus"
+					<a
+						href="command:gitlens.showFocusPage"
+						data-requires="repo"
+						title="Open Focus"
+						aria-label="Open Focus"
 						><code-icon icon="target"></code-icon><span>Focus ✨</span></a
 					>
-					<a href="command:gitlens.showCommitsView" title="Show Commits view" aria-label="Show Commits view"
+					<a
+						href="command:gitlens.showCommitsView"
+						data-requires="repo"
+						title="Show Commits view"
+						aria-label="Show Commits view"
 						><code-icon icon="gl-commits-view"></code-icon><span>Commits view</span></a
 					>
 					<a
 						href="command:gitlens.showCommitDetailsView"
+						data-requires="repo"
 						title="Show Commit Details view"
 						aria-label="Show Commit Details view"
 						><code-icon icon="gl-commit-view"></code-icon><span>Commit Details view</span></a
 					>
 					<a
 						href="command:gitlens.showFileHistoryView"
+						data-requires="repo"
 						title="Show File History view"
 						aria-label="Show File History view"
 						><code-icon icon="gl-history-view"></code-icon><span>File History view</span></a
 					>
 					<a
 						href="command:gitlens.showTimelineView"
+						data-requires="repo"
 						title="Show Visual File History view"
 						aria-label="Show Visual File History view"
 						><code-icon icon="graph-scatter"></code-icon><span>Visual File History ✨</span></a
 					>
 					<a
 						href="command:gitlens.showSearchAndCompareView"
+						data-requires="repo"
 						title="Show Search &amp; Compare view"
 						aria-label="Show Search &amp; Compare view"
 						><code-icon icon="gl-search-view"></code-icon>Search &amp; Compare</a
 					>
 					<a
 						href="command:gitlens.showWorktreesView"
+						data-requires="repo"
 						title="Show Worktrees view"
 						aria-label="Show Worktrees view"
 						><code-icon icon="gl-worktrees-view"></code-icon>Worktrees ✨</a
@@ -585,6 +641,7 @@
 					>
 					<a
 						href="command:gitlens.gitCommands"
+						data-requires="repo"
 						title="Open Git Command Palette"
 						aria-label="Open Git Command Palette"
 						><code-icon icon="symbol-color"></code-icon><span>Git Command Palette</span></a
@@ -640,6 +697,9 @@
 		</main>
 		<footer>
 			<p>✨ Requires a trial or subscription to use this on privately hosted repos</p>
+			<p data-requires="norepo">
+				<code-icon icon="question"></code-icon> Features which need a repository are currently unavailable
+			</p>
 		</footer>
 		#{endOfBody}
 	</body>

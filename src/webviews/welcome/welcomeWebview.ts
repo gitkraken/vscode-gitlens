@@ -1,17 +1,28 @@
-import { Disposable } from 'vscode';
+import { Disposable, workspace } from 'vscode';
 import type { Container } from '../../container';
 import { configuration } from '../../system/configuration';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
 import type { WebviewController, WebviewProvider } from '../webviewController';
-import type { State, UpdateConfigurationParams } from './protocol';
-import { UpdateConfigurationCommandType } from './protocol';
+import type { DidChangeRepositoriesParams, State, UpdateConfigurationParams } from './protocol';
+import { DidChangeRepositoriesType, UpdateConfigurationCommandType } from './protocol';
+
+const emptyDisposable = Object.freeze({
+	dispose: () => {
+		/* noop */
+	},
+});
 
 export class WelcomeWebviewProvider implements WebviewProvider<State> {
 	private readonly _disposable: Disposable;
 
 	constructor(private readonly container: Container, private readonly host: WebviewController<State>) {
-		this._disposable = Disposable.from();
+		this._disposable = Disposable.from(
+			this.container.git.onDidChangeRepositories(this.notifyDidChangeRepositories, this),
+			!workspace.isTrusted
+				? workspace.onDidGrantWorkspaceTrust(this.notifyDidChangeRepositories, this)
+				: emptyDisposable,
+		);
 	}
 
 	dispose() {
@@ -19,6 +30,8 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	includeBootstrap(): State {
+		const { repoFeaturesBlocked } = this.getRepositoriesState();
+
 		return {
 			timestamp: Date.now(),
 			version: this.container.version,
@@ -27,6 +40,7 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 				codeLens: configuration.get('codeLens.enabled'),
 				currentLine: configuration.get('currentLine.enabled'),
 			},
+			repoFeaturesBlocked: repoFeaturesBlocked,
 		};
 	}
 
@@ -38,7 +52,22 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 		}
 	}
 
+	private getRepositoriesState(): DidChangeRepositoriesParams {
+		// const count = this.container.git.repositoryCount;
+		const openCount = this.container.git.openRepositoryCount;
+		const hasUnsafe = this.container.git.hasUnsafeRepositories();
+		const trusted = workspace.isTrusted;
+
+		return {
+			repoFeaturesBlocked: !trusted || openCount === 0 || hasUnsafe,
+		};
+	}
+
 	private updateConfiguration(params: UpdateConfigurationParams) {
 		void configuration.updateEffective(`${params.type}.enabled`, params.value);
+	}
+
+	private notifyDidChangeRepositories() {
+		void this.host.notify(DidChangeRepositoriesType, this.getRepositoriesState());
 	}
 }

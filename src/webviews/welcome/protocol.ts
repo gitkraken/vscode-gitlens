@@ -1,5 +1,5 @@
 import type { Config } from '../../config';
-import { IpcCommandType } from '../protocol';
+import { IpcCommandType, IpcNotificationType } from '../protocol';
 
 export interface State {
 	timestamp: number;
@@ -9,6 +9,7 @@ export interface State {
 		currentLine: Config['currentLine']['enabled'];
 	};
 	customSettings?: Record<string, boolean>;
+	repoFeaturesBlocked?: boolean;
 }
 
 export interface UpdateConfigurationParams {
@@ -18,3 +19,8 @@ export interface UpdateConfigurationParams {
 export const UpdateConfigurationCommandType = new IpcCommandType<UpdateConfigurationParams>(
 	'welcome/configuration/update',
 );
+
+export interface DidChangeRepositoriesParams {
+	repoFeaturesBlocked?: boolean;
+}
+export const DidChangeRepositoriesType = new IpcNotificationType<DidChangeRepositoriesParams>('repositories/didChange');
