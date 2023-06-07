@@ -325,8 +325,7 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 		return;
 	}
 
-	// TODO@eamodio GL14: uncomment when ready to release
-	const majorPrerelease = false; //satisfies(previous, '< 2023.6.0700');
+	const majorPrerelease = satisfies(previous, '< 2023.6.0899');
 
 	if (current.major === previous.major && !majorPrerelease) return;
 
