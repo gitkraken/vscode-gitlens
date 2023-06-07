@@ -535,6 +535,21 @@ export class GraphApp extends App<State> {
 					? `1px dashed ${getCssVariable('--color-graph-contrast-border', computedStyle)}`
 					: 'none',
 
+				'--scroll-marker-head-color':	getCssVariable('--color-graph-scroll-marker-head', computedStyle),
+				'--scroll-marker-upstream-color': getCssVariable('--color-graph-scroll-marker-upstream', computedStyle),
+				'--scroll-marker-highlights-color': getCssVariable('--color-graph-scroll-marker-highlights', computedStyle),
+				'--scroll-marker-local-branches-color': getCssVariable('--color-graph-scroll-marker-local-branches', computedStyle),
+				'--scroll-marker-remote-branches-color': getCssVariable('--color-graph-scroll-marker-remote-branches', computedStyle),
+				'--scroll-marker-stashes-color': getCssVariable('--color-graph-scroll-marker-stashes', computedStyle),
+				'--scroll-marker-tags-color': getCssVariable('--color-graph-scroll-marker-tags', computedStyle),
+				'--scroll-marker-selection-color': getCssVariable('--color-graph-scroll-marker-selection', computedStyle),
+
+				'--stats-added-color': getCssVariable('--color-graph-stats-added', computedStyle),
+				'--stats-deleted-color': getCssVariable('--color-graph-stats-deleted', computedStyle),
+				'--stats-files-color': getCssVariable('--color-graph-stats-files', computedStyle),
+				'--stats-bar-border-radius': getCssVariable('--graph-stats-bar-border-radius', computedStyle),
+				'--stats-bar-height': getCssVariable('--graph-stats-bar-height', computedStyle),
+
 				'--text-selected': getCssVariable('--color-graph-text-selected', computedStyle),
 				'--text-selected-row': getCssVariable('--color-graph-text-selected-row', computedStyle),
 				'--text-hovered': getCssVariable('--color-graph-text-hovered', computedStyle),
