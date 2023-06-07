@@ -116,11 +116,11 @@ function setElementVisibility(elementOrId: string | HTMLElement | null | undefin
 	if (el == null) return;
 
 	if (visible) {
-		el.setAttribute('aria-hidden', 'false');
+		el.removeAttribute('aria-hidden');
 		el.removeAttribute('hidden');
 	} else {
-		el.setAttribute('aria-hidden', 'true');
-		el?.setAttribute('hidden', 'true');
+		el.setAttribute('aria-hidden', '');
+		el?.setAttribute('hidden', '');
 	}
 }
 

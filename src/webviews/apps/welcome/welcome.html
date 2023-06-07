@@ -2,6 +2,22 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
+		<style nonce="#{cspNonce}">
+			@font-face {
+				font-family: 'codicon';
+				font-display: block;
+				src: url('#{webroot}/codicon.ttf?0e5b0adf625a37fbcd638d31f0fe72aa') format('truetype');
+			}
+			@font-face {
+				font-family: 'glicons';
+				font-display: block;
+				src: url('#{root}/dist/glicons.woff2?ab6c9110fb0444acd9ba719c4c55fa68') format('woff2');
+			}
+
+			.video-button {
+				--video-banner-bg: url(#{webroot}/media/getting-started.webp);
+			}
+		</style>
 	</head>
 
 	<body class="welcome scrollable preload" data-placement="#{placement}">
@@ -475,11 +491,6 @@
 
 				<h2>Tutorial Video</h2>
 				<nav class="welcome__starting-nav" aria-label="Getting started links">
-					<style nonce="#{cspNonce}">
-						.video-button {
-							--video-banner-bg: url(#{webroot}/media/getting-started.webp);
-						}
-					</style>
 					<a
 						class="video-button"
 						href="https://www.youtube.com/watch?v=UQPb73Zz9qk"
@@ -631,17 +642,5 @@
 			<p>✨ Requires a trial or subscription to use this on privately hosted repos</p>
 		</footer>
 		#{endOfBody}
-		<style nonce="#{cspNonce}">
-			@font-face {
-				font-family: 'codicon';
-				font-display: block;
-				src: url('#{webroot}/codicon.ttf?0e5b0adf625a37fbcd638d31f0fe72aa') format('truetype');
-			}
-			@font-face {
-				font-family: 'glicons';
-				font-display: block;
-				src: url('#{root}/dist/glicons.woff2?ab6c9110fb0444acd9ba719c4c55fa68') format('woff2');
-			}
-		</style>
 	</body>
 </html>

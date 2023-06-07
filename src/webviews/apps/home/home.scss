@@ -1,5 +1,6 @@
 @use '../shared/styles/utils';
 @use '../shared/styles/properties';
+@use '../shared/styles/theme';
 
 :root {
 	--gitlens-z-inline: 1000;

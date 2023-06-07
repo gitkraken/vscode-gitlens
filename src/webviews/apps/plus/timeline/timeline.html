@@ -2,9 +2,16 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<style>
-			.hidden {
-				display: none !important;
+		<style nonce="#{cspNonce}">
+			@font-face {
+				font-family: 'codicon';
+				font-display: block;
+				src: url('#{webroot}/codicon.ttf?0e5b0adf625a37fbcd638d31f0fe72aa') format('truetype');
+			}
+			@font-face {
+				font-family: 'glicons';
+				font-display: block;
+				src: url('#{root}/dist/glicons.woff2?ab6c9110fb0444acd9ba719c4c55fa68') format('woff2');
 			}
 		</style>
 	</head>
@@ -58,18 +65,5 @@
 			<section id="footer"></section>
 		</div>
 		#{endOfBody}
-
-		<style nonce="#{cspNonce}">
-			@font-face {
-				font-family: 'codicon';
-				font-display: block;
-				src: url('#{webroot}/codicon.ttf?0e5b0adf625a37fbcd638d31f0fe72aa') format('truetype');
-			}
-			@font-face {
-				font-family: 'glicons';
-				font-display: block;
-				src: url('#{root}/dist/glicons.woff2?ab6c9110fb0444acd9ba719c4c55fa68') format('woff2');
-			}
-		</style>
 	</body>
 </html>

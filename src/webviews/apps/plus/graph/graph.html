@@ -2,18 +2,6 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<script type="application/javascript" nonce="#{cspNonce}">
-			window.webpackResourceBasePath = '#{webroot}/';
-		</script>
-	</head>
-
-	<body
-		class="graph-app scrollable"
-		data-placement="#{placement}"
-		data-vscode-context='{ "preventDefaultContextMenuItems": true }'
-	>
-		<div id="root" class="graph-app__container"></div>
-		#{endOfBody}
 		<style nonce="#{cspNonce}">
 			@font-face {
 				font-family: 'codicon';
@@ -26,5 +14,17 @@
 				src: url('#{root}/dist/glicons.woff2?ab6c9110fb0444acd9ba719c4c55fa68') format('woff2');
 			}
 		</style>
+		<script type="application/javascript" nonce="#{cspNonce}">
+			window.webpackResourceBasePath = '#{webroot}/';
+		</script>
+	</head>
+
+	<body
+		class="graph-app scrollable"
+		data-placement="#{placement}"
+		data-vscode-context='{ "preventDefaultContextMenuItems": true }'
+	>
+		<div id="root" class="graph-app__container"></div>
+		#{endOfBody}
 	</body>
 </html>

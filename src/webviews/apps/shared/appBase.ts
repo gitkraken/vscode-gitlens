@@ -13,7 +13,7 @@ import { onIpc, WebviewFocusChangedCommandType, WebviewReadyCommandType } from '
 import { DOM } from './dom';
 import type { Disposable } from './events';
 import type { ThemeChangeEvent } from './theme';
-import { initializeAndWatchThemeColors, onDidChangeTheme } from './theme';
+import { computeThemeColors, onDidChangeTheme, watchThemeColors } from './theme';
 
 declare const DEBUG: boolean;
 
@@ -44,6 +44,14 @@ export abstract class App<State extends { timestamp: number } = { timestamp: num
 	protected readonly placement: 'editor' | 'view';
 
 	constructor(protected readonly appName: string) {
+		const disposables: Disposable[] = [];
+
+		const themeEvent = computeThemeColors();
+		if (this.onThemeUpdated != null) {
+			this.onThemeUpdated(themeEvent);
+			disposables.push(onDidChangeTheme(this.onThemeUpdated, this));
+		}
+
 		this.state = (window as any).bootstrap;
 		(window as any).bootstrap = undefined;
 
@@ -77,12 +85,7 @@ export abstract class App<State extends { timestamp: number } = { timestamp: num
 			}
 		}
 
-		const disposables: Disposable[] = [];
-
-		if (this.onThemeUpdated != null) {
-			disposables.push(onDidChangeTheme(this.onThemeUpdated, this));
-		}
-		disposables.push(initializeAndWatchThemeColors());
+		disposables.push(watchThemeColors());
 
 		requestAnimationFrame(() => {
 			this.log(`ctor(): initializing...`);

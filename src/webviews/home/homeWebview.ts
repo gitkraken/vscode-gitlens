@@ -35,16 +35,16 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		return [registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this)];
 	}
 
-	includeBootstrap(): Promise<State> {
+	includeBootstrap(): State {
 		return this.getState();
 	}
 
-	private async getState(): Promise<State> {
-		return Promise.resolve({
+	private getState(): State {
+		return {
 			timestamp: Date.now(),
 			repositories: this.getRepositoriesState(),
 			webroot: this.host.getWebRoot(),
-		});
+		};
 	}
 
 	private getRepositoriesState(): DidChangeRepositoriesParams {
