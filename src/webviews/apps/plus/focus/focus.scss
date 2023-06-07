@@ -1,3 +1,5 @@
+@use '../../shared/styles/theme';
+
 @mixin focusStyles() {
 	outline: 1px solid var(--vscode-focusBorder);
 	outline-offset: -1px;
