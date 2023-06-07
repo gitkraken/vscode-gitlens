@@ -28,6 +28,7 @@ import {
 	DidChangeRefsVisibilityNotificationType,
 	DidChangeRowsNotificationType,
 	DidChangeRowsStatsNotificationType,
+	DidChangeScrollMarkersNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
 	DidChangeWindowFocusNotificationType,
@@ -179,17 +180,11 @@ export class GraphApp extends App<State> {
 
 			case DidChangeColumnsNotificationType.method:
 				onIpc(DidChangeColumnsNotificationType, msg, (params, type) => {
-					this.state.columns = params.columns;
-					if (params.context != null) {
-						if (this.state.context == null) {
-							this.state.context = { header: params.context };
-						} else {
-							this.state.context.header = params.context;
-						}
-					} else if (this.state.context?.header != null) {
-						this.state.context.header = undefined;
-					}
-
+					this.state.context = {
+						...this.state.context,
+						header: params.context,
+						settings: params.settingsContext,
+					};
 					this.setState(this.state, type);
 				});
 				break;
@@ -294,6 +289,13 @@ export class GraphApp extends App<State> {
 				onIpc(DidChangeRowsStatsNotificationType, msg, (params, type) => {
 					this.state.rowsStats = { ...this.state.rowsStats, ...params.rowsStats };
 					this.state.rowsStatsLoading = params.rowsStatsLoading;
+					this.setState(this.state, type);
+				});
+				break;
+
+			case DidChangeScrollMarkersNotificationType.method:
+				onIpc(DidChangeScrollMarkersNotificationType, msg, (params, type) => {
+					this.state.context = { ...this.state.context, settings: params.context };
 					this.setState(this.state, type);
 				});
 				break;
