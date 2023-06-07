@@ -17,6 +17,7 @@ import type {
 	RefMetadataType,
 	Remote,
 	RowStats,
+	GraphItemContext as SerializedGraphItemContext,
 	Tag,
 	UpstreamMetadata,
 	WorkDirStats,
@@ -105,7 +106,7 @@ export interface State {
 	paging?: GraphPaging;
 	columns?: GraphColumnsSettings;
 	config?: GraphComponentConfig;
-	context?: GraphContexts;
+	context?: GraphContexts & { settings?: SerializedGraphItemContext };
 	nonce?: string;
 	trialBanner?: boolean;
 	workingTreeStats?: GraphWorkingTreeStats;
@@ -350,9 +351,17 @@ export const DidChangeRefsMetadataNotificationType = new IpcNotificationType<Did
 export interface DidChangeColumnsParams {
 	columns: GraphColumnsSettings | undefined;
 	context?: string;
+	settingsContext?: string;
 }
 export const DidChangeColumnsNotificationType = new IpcNotificationType<DidChangeColumnsParams>(
 	'graph/columns/didChange',
+);
+
+export interface DidChangeScrollMarkersParams {
+	context?: string;
+}
+export const DidChangeScrollMarkersNotificationType = new IpcNotificationType<DidChangeScrollMarkersParams>(
+	'graph/scrollMarkers/didChange',
 );
 
 export interface DidChangeFocusParams {

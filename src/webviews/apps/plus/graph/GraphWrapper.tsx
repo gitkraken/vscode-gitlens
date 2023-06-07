@@ -3,7 +3,6 @@ import type {
 	GraphColumnSetting,
 	GraphColumnsSettings,
 	GraphContainerProps,
-	GraphMarkerType,
 	GraphPlatform,
 	GraphRef,
 	GraphRefGroup,
@@ -1352,7 +1351,7 @@ export function GraphWrapper({
 							dimMergeCommits={graphConfig?.dimMergeCommits}
 							downstreamsByUpstream={downstreams}
 							enabledRefMetadataTypes={graphConfig?.enabledRefMetadataTypes}
-							enabledScrollMarkerTypes={graphConfig?.scrollMarkerTypes as GraphMarkerType[] | undefined}
+							enabledScrollMarkerTypes={graphConfig?.scrollMarkerTypes}
 							enableMultiSelection={graphConfig?.enableMultiSelection}
 							excludeRefsById={excludeRefsById}
 							excludeByType={excludeTypes}
@@ -1400,7 +1399,7 @@ export function GraphWrapper({
 					className="column-button"
 					type="button"
 					role="button"
-					data-vscode-context={context?.header || JSON.stringify({ webviewItem: 'gitlens:graph:columns' })}
+					data-vscode-context={context?.settings || JSON.stringify({ webviewItem: 'gitlens:graph:settings' })}
 					onClick={handleToggleColumnSettings}
 				>
 					<span className="codicon codicon-settings-gear" aria-label="Column Settings"></span>
