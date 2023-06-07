@@ -134,3 +134,77 @@ export async function showRepositoryPicker(
 		disposables.forEach(d => void d.dispose());
 	}
 }
+
+export async function showRepositoriesPicker(
+	title: string | undefined,
+	placeholder?: string,
+	repositories?: Repository[],
+): Promise<readonly RepositoryQuickPickItem[]>;
+export async function showRepositoriesPicker(
+	title: string | undefined,
+	placeholder?: string,
+	options?: { filter?: (r: Repository) => Promise<boolean> },
+): Promise<readonly RepositoryQuickPickItem[]>;
+export async function showRepositoriesPicker(
+	title: string | undefined,
+	placeholder: string = 'Choose a repository',
+	repositoriesOrOptions?: Repository[] | { filter?: (r: Repository) => Promise<boolean> },
+): Promise<readonly RepositoryQuickPickItem[]> {
+	if (
+		repositoriesOrOptions != null &&
+		!Array.isArray(repositoriesOrOptions) &&
+		repositoriesOrOptions.filter == null
+	) {
+		repositoriesOrOptions = undefined;
+	}
+
+	let items: RepositoryQuickPickItem[];
+	if (repositoriesOrOptions == null || Array.isArray(repositoriesOrOptions)) {
+		items = await Promise.all<Promise<RepositoryQuickPickItem>>([
+			...map(repositoriesOrOptions ?? Container.instance.git.openRepositories, r =>
+				createRepositoryQuickPickItem(r, undefined, { branch: true, status: true }),
+			),
+		]);
+	} else {
+		const { filter } = repositoriesOrOptions;
+		items = await filterMapAsync(Container.instance.git.openRepositories, async r =>
+			(await filter!(r))
+				? createRepositoryQuickPickItem(r, undefined, { branch: true, status: true })
+				: undefined,
+		);
+	}
+
+	if (items.length === 0) return [];
+
+	const quickpick = window.createQuickPick<RepositoryQuickPickItem>();
+	quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
+
+	const disposables: Disposable[] = [];
+
+	try {
+		const picks = await new Promise<readonly RepositoryQuickPickItem[] | undefined>(resolve => {
+			disposables.push(
+				quickpick.onDidHide(() => resolve(undefined)),
+				quickpick.onDidAccept(() => resolve(quickpick.selectedItems)),
+			);
+
+			quickpick.title = title;
+			quickpick.placeholder = placeholder;
+			quickpick.matchOnDescription = true;
+			quickpick.matchOnDetail = true;
+			quickpick.items = items;
+			quickpick.canSelectMany = true;
+
+			// Select all the repositories by default
+			quickpick.selectedItems = items;
+
+			quickpick.show();
+		});
+		if (picks == null) return [];
+
+		return picks;
+	} finally {
+		quickpick.dispose();
+		disposables.forEach(d => void d.dispose());
+	}
+}
