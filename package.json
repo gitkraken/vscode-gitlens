@@ -11473,7 +11473,7 @@
 				},
 				{
 					"command": "gitlens.copyShaToClipboard",
-					"when": "(viewItem =~ /gitlens:commit\\b/) || (viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /gitlens\\.views\\.(file|line)History/)",
+					"when": "(viewItem =~ /gitlens:(commit|stash)\\b/) || (viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && view =~ /gitlens\\.views\\.(file|line)History/)",
 					"group": "7_gitlens_cutcopypaste@3"
 				},
 				{
@@ -12609,7 +12609,7 @@
 				},
 				{
 					"command": "gitlens.graph.copySha",
-					"when": "webviewItem =~ /gitlens:(branch|commit|tag)\\b/",
+					"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
 					"group": "7_gitlens_cutcopypaste@2"
 				},
 				{
