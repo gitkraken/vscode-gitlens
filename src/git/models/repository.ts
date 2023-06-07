@@ -576,18 +576,19 @@ export class Repository implements Disposable {
 		pull?: boolean;
 		remote?: string;
 	}) {
-		try {
-			if (options?.branch != null) {
-				await this.container.git.fetch(this.path, options);
-			} else {
-				void (await executeCoreGitCommand('git.fetch', this.path));
-			}
+		await this.container.git.fetch(this.path, options);
+		// try {
+		// 	if (options?.branch != null) {
+		// 		await this.container.git.fetch(this.path, options);
+		// 	} else {
+		// 		void (await executeCoreGitCommand('git.fetch', this.path));
+		// 	}
 
-			this.fireChange(RepositoryChange.Unknown);
-		} catch (ex) {
-			Logger.error(ex);
-			void showGenericErrorMessage('Unable to fetch repository');
-		}
+		// 	this.fireChange(RepositoryChange.Unknown);
+		// } catch (ex) {
+		// 	Logger.error(ex);
+		// 	void showGenericErrorMessage('Unable to fetch repository');
+		// }
 	}
 
 	async getBranch(name?: string): Promise<GitBranch | undefined> {
