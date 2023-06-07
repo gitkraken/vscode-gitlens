@@ -1,5 +1,3 @@
-import { Logger } from './logger';
-
 // NOTE@eamodio If this changes we need to update the replacement function too (since its parameter number/order relies on the matching)
 const customDateTimeFormatParserRegex =
 	/(?<literal>\[.*?\])|(?<year>YYYY|YY)|(?<month>M{1,4})|(?<day>Do|DD?)|(?<weekday>d{2,4})|(?<hour>HH?|hh?)|(?<minute>mm?)|(?<second>ss?)|(?<fractionalSecond>SSS)|(?<dayPeriod>A|a)|(?<timeZoneName>ZZ?)/g;
@@ -83,68 +81,50 @@ export function createFromDateDelta(
 export function fromNow(date: Date | number, short?: boolean): string {
 	const elapsed = (typeof date === 'number' ? date : date.getTime()) - new Date().getTime();
 
-	let marker = 0;
-	try {
-		for (const [unit, threshold, divisor, shortUnit] of relativeUnitThresholds) {
-			const elapsedABS = Math.abs(elapsed);
-			if (elapsedABS >= threshold || threshold === 1000 /* second */) {
-				if (short) {
-					if (locale == null) {
-						if (defaultShortRelativeTimeFormat != null) {
-							marker = 1;
-							locale = defaultShortRelativeTimeFormat.resolvedOptions().locale;
-						} else if (defaultRelativeTimeFormat != null) {
-							marker = 2;
-							locale = defaultRelativeTimeFormat.resolvedOptions().locale;
-						} else {
-							marker = 3;
-							defaultShortRelativeTimeFormat = new Intl.RelativeTimeFormat(defaultLocales, {
-								localeMatcher: 'best fit',
-								numeric: 'always',
-								style: 'narrow',
-							});
-							marker = 4;
-							locale = defaultShortRelativeTimeFormat.resolvedOptions().locale;
-						}
-					}
-
-					if (locale === 'en' || locale?.startsWith('en-')) {
-						const value = Math.round(elapsedABS / divisor);
-						return `${value}${shortUnit}`;
-					}
-
-					if (defaultShortRelativeTimeFormat == null) {
-						marker = 5;
+	for (const [unit, threshold, divisor, shortUnit] of relativeUnitThresholds) {
+		const elapsedABS = Math.abs(elapsed);
+		if (elapsedABS >= threshold || threshold === 1000 /* second */) {
+			if (short) {
+				if (locale == null) {
+					if (defaultShortRelativeTimeFormat != null) {
+						locale = defaultShortRelativeTimeFormat.resolvedOptions().locale;
+					} else if (defaultRelativeTimeFormat != null) {
+						locale = defaultRelativeTimeFormat.resolvedOptions().locale;
+					} else {
 						defaultShortRelativeTimeFormat = new Intl.RelativeTimeFormat(defaultLocales, {
 							localeMatcher: 'best fit',
 							numeric: 'always',
 							style: 'narrow',
 						});
+						locale = defaultShortRelativeTimeFormat.resolvedOptions().locale;
 					}
-
-					marker = 6;
-					return defaultShortRelativeTimeFormat.format(Math.round(elapsed / divisor), unit);
 				}
 
-				if (defaultRelativeTimeFormat == null) {
-					marker = 7;
-					defaultRelativeTimeFormat = new Intl.RelativeTimeFormat(defaultLocales, {
+				if (locale === 'en' || locale?.startsWith('en-')) {
+					const value = Math.round(elapsedABS / divisor);
+					return `${value}${shortUnit}`;
+				}
+
+				if (defaultShortRelativeTimeFormat == null) {
+					defaultShortRelativeTimeFormat = new Intl.RelativeTimeFormat(defaultLocales, {
 						localeMatcher: 'best fit',
-						numeric: 'auto',
-						style: 'long',
+						numeric: 'always',
+						style: 'narrow',
 					});
 				}
-				marker = 8;
-				return defaultRelativeTimeFormat.format(Math.round(elapsed / divisor), unit);
+
+				return defaultShortRelativeTimeFormat.format(Math.round(elapsed / divisor), unit);
 			}
+
+			if (defaultRelativeTimeFormat == null) {
+				defaultRelativeTimeFormat = new Intl.RelativeTimeFormat(defaultLocales, {
+					localeMatcher: 'best fit',
+					numeric: 'auto',
+					style: 'long',
+				});
+			}
+			return defaultRelativeTimeFormat.format(Math.round(elapsed / divisor), unit);
 		}
-	} catch (ex) {
-		Logger.error(
-			ex,
-			// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-			`fromNow(${date}, ${short}) marker=${marker} defaultLocales=${defaultLocales?.join(',')} locale=${locale}`,
-		);
-		throw ex;
 	}
 
 	return '';
@@ -160,12 +140,35 @@ export function formatDate(
 
 	const key = `${locale ?? ''}:${format}`;
 
-	let marker = 0;
-	try {
+	let formatter = dateTimeFormatCache.get(key);
+	if (formatter == null) {
+		const options = getDateTimeFormatOptionsFromFormatString(format);
+
+		let locales;
+		if (locale == null) {
+			locales = defaultLocales;
+		} else if (locale === 'system') {
+			locales = undefined;
+		} else {
+			locales = [locale];
+		}
+
+		formatter = new Intl.DateTimeFormat(locales, options);
+		if (cache) {
+			dateTimeFormatCache.set(key, formatter);
+		}
+	}
+
+	if (format == null || dateTimeFormatRegex.test(format)) {
+		return formatter.format(date);
+	}
+
+	function getTimeFormatter(format: TimeStyle) {
+		const key = `${locale ?? ''}:time:${format}`;
+
 		let formatter = dateTimeFormatCache.get(key);
 		if (formatter == null) {
-			marker = 1;
-			const options = getDateTimeFormatOptionsFromFormatString(format);
+			const options: Intl.DateTimeFormatOptions = { localeMatcher: 'best fit', timeStyle: format };
 
 			let locales;
 			if (locale == null) {
@@ -176,99 +179,58 @@ export function formatDate(
 				locales = [locale];
 			}
 
-			marker = 2;
 			formatter = new Intl.DateTimeFormat(locales, options);
 			if (cache) {
 				dateTimeFormatCache.set(key, formatter);
 			}
 		}
 
-		if (format == null || dateTimeFormatRegex.test(format)) {
-			marker = 3;
-			return formatter.format(date);
-		}
+		return formatter;
+	}
 
-		function getTimeFormatter(format: TimeStyle) {
-			const key = `${locale ?? ''}:time:${format}`;
+	const parts = formatter.formatToParts(date);
+	return format.replace(
+		customDateTimeFormatParserRegex,
+		(
+			_match,
+			literal,
+			_year,
+			_month,
+			_day,
+			_weekday,
+			_hour,
+			_minute,
+			_second,
+			_fractionalSecond,
+			_dayPeriod,
+			_timeZoneName,
+			_offset,
+			_s,
+			groups,
+		) => {
+			if (literal != null) return (literal as string).substring(1, literal.length - 1);
 
-			let formatter = dateTimeFormatCache.get(key);
-			if (formatter == null) {
-				const options: Intl.DateTimeFormatOptions = { localeMatcher: 'best fit', timeStyle: format };
+			for (const key in groups) {
+				const value = groups[key];
+				if (value == null) continue;
 
-				let locales;
-				if (locale == null) {
-					locales = defaultLocales;
-				} else if (locale === 'system') {
-					locales = undefined;
-				} else {
-					locales = [locale];
+				const part = parts.find(p => p.type === key);
+
+				if (value === 'Do' && part?.type === 'day') {
+					return formatWithOrdinal(Number(part.value));
+				} else if (value === 'a' && part?.type === 'dayPeriod') {
+					// For some reason the Intl.DateTimeFormat doesn't honor the `dayPeriod` value and always returns the long version, so use the "short" timeStyle instead
+					const dayPeriod = getTimeFormatter('short')
+						.formatToParts(date)
+						.find(p => p.type === 'dayPeriod');
+					return ` ${(dayPeriod ?? part)?.value ?? ''}`;
 				}
-
-				marker = 6;
-				formatter = new Intl.DateTimeFormat(locales, options);
-				if (cache) {
-					dateTimeFormatCache.set(key, formatter);
-				}
+				return part?.value ?? '';
 			}
 
-			return formatter;
-		}
-
-		marker = 4;
-		const parts = formatter.formatToParts(date);
-		marker = 5;
-		return format.replace(
-			customDateTimeFormatParserRegex,
-			(
-				_match,
-				literal,
-				_year,
-				_month,
-				_day,
-				_weekday,
-				_hour,
-				_minute,
-				_second,
-				_fractionalSecond,
-				_dayPeriod,
-				_timeZoneName,
-				_offset,
-				_s,
-				groups,
-			) => {
-				if (literal != null) return (literal as string).substring(1, literal.length - 1);
-
-				for (const key in groups) {
-					const value = groups[key];
-					if (value == null) continue;
-
-					const part = parts.find(p => p.type === key);
-
-					if (value === 'Do' && part?.type === 'day') {
-						return formatWithOrdinal(Number(part.value));
-					} else if (value === 'a' && part?.type === 'dayPeriod') {
-						// For some reason the Intl.DateTimeFormat doesn't honor the `dayPeriod` value and always returns the long version, so use the "short" timeStyle instead
-						const dayPeriod = getTimeFormatter('short')
-							.formatToParts(date)
-							.find(p => p.type === 'dayPeriod');
-						return ` ${(dayPeriod ?? part)?.value ?? ''}`;
-					}
-					return part?.value ?? '';
-				}
-
-				return '';
-			},
-		);
-	} catch (ex) {
-		Logger.error(
-			ex,
-			// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-			`formatDate(${date}, ${format}, ${locale}, ${cache}) marker=${marker} defaultLocales=${defaultLocales?.join(
-				',',
-			)} locale=${locale}`,
-		);
-		throw ex;
-	}
+			return '';
+		},
+	);
 }
 
 export function getDateDifference(
@@ -402,33 +364,22 @@ export function formatNumeric(
 
 	const key = `${locale ?? ''}:${style}`;
 
-	let marker = 0;
-	try {
-		let formatter = numberFormatCache.get(key);
-		if (formatter == null) {
-			const options: Intl.NumberFormatOptions = { localeMatcher: 'best fit', style: style };
+	let formatter = numberFormatCache.get(key);
+	if (formatter == null) {
+		const options: Intl.NumberFormatOptions = { localeMatcher: 'best fit', style: style };
 
-			let locales;
-			if (locale == null) {
-				locales = defaultLocales;
-			} else if (locale === 'system') {
-				locales = undefined;
-			} else {
-				locales = [locale];
-			}
-
-			marker = 1;
-			formatter = new Intl.NumberFormat(locales, options);
-			numberFormatCache.set(key, formatter);
+		let locales;
+		if (locale == null) {
+			locales = defaultLocales;
+		} else if (locale === 'system') {
+			locales = undefined;
+		} else {
+			locales = [locale];
 		}
 
-		marker = 2;
-		return formatter.format(value);
-	} catch (ex) {
-		Logger.error(
-			ex,
-			`formatNumeric(${value}, ${style}, ${locale}) marker=${marker} defaultLocales=${defaultLocales?.join(',')}`,
-		);
-		throw ex;
+		formatter = new Intl.NumberFormat(locales, options);
+		numberFormatCache.set(key, formatter);
 	}
+
+	return formatter.format(value);
 }
