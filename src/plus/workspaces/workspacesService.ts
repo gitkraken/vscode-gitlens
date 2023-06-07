@@ -385,7 +385,7 @@ export class WorkspacesService implements Disposable {
 		const disposables: Disposable[] = [];
 
 		let workspaceName: string | undefined;
-		let workspaceDescription = '';
+		let workspaceDescription : string | undefined;
 
 		let hostUrl: string | undefined;
 		let azureOrganizationName: string | undefined;
@@ -432,12 +432,17 @@ export class WorkspacesService implements Disposable {
 
 			if (!workspaceName) return;
 
-			workspaceDescription = await new Promise<string>(resolve => {
+			workspaceDescription = await new Promise<string | undefined>(resolve => {
 				disposables.push(
-					input.onDidHide(() => resolve('')),
+					input.onDidHide(() => resolve(undefined)),
 					input.onDidAccept(() => {
 						const value = input.value.trim();
-						resolve(value || '');
+						if (!value) {
+							input.validationMessage = 'Please enter a non-empty description for the workspace';
+							return;
+						}
+
+						resolve(value);
 					}),
 				);
 
@@ -447,6 +452,8 @@ export class WorkspacesService implements Disposable {
 				input.prompt = 'Enter your workspace description';
 				input.show();
 			});
+
+			if (!workspaceDescription) return;
 
 			if (workspaceProvider == null) {
 				workspaceProvider = await new Promise<CloudWorkspaceProviderInputType | undefined>(resolve => {
