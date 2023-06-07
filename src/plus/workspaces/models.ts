@@ -174,6 +174,11 @@ export const cloudWorkspaceProviderInputTypeToRemoteProviderId = {
 	[CloudWorkspaceProviderInputType.GitLabSelfHosted]: 'gitlab',
 };
 
+export enum WorkspaceAddRepositoriesChoice {
+	CurrentWindow = 'Current Window',
+	ParentFolder = 'Parent Folder',
+}
+
 export const defaultWorkspaceCount = 100;
 export const defaultWorkspaceRepoCount = 100;
 

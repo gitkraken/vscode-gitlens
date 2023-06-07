@@ -32,6 +32,7 @@ import {
 	cloudWorkspaceProviderTypeToRemoteProviderId,
 	GKCloudWorkspace,
 	GKLocalWorkspace,
+	WorkspaceAddRepositoriesChoice,
 	WorkspaceType,
 } from './models';
 import { WorkspacesApi } from './workspacesApi';
@@ -233,6 +234,29 @@ export class WorkspacesService implements Disposable {
 		await this._workspacesPathProvider.writeCloudWorkspaceDiskPathToMap(workspaceId, repoId, localPath);
 	}
 
+	private async getRepositoriesInParentFolder(cancellation?: CancellationToken): Promise<Repository[] | undefined> {
+		const parentUri = (
+			await window.showOpenDialog({
+				title: `Choose a folder containing repositories for this workspace`,
+				canSelectFiles: false,
+				canSelectFolders: true,
+				canSelectMany: false,
+			})
+		)?.[0];
+
+		if (parentUri == null || cancellation?.isCancellationRequested) return undefined;
+
+		try {
+			return this.container.git.findRepositories(parentUri, {
+				cancellation: cancellation,
+				depth: 1,
+				silent: true,
+			});
+		} catch (ex) {
+			return undefined;
+		}
+	}
+
 	async locateAllCloudWorkspaceRepos(workspaceId: string, cancellation?: CancellationToken): Promise<void> {
 		const workspace = this.getCloudWorkspace(workspaceId);
 		if (workspace == null) return;
@@ -249,19 +273,8 @@ export class WorkspacesService implements Disposable {
 
 		if (parentUri == null || cancellation?.isCancellationRequested) return;
 
-		let foundRepos;
-		try {
-			foundRepos = await this.container.git.findRepositories(parentUri, {
-				cancellation: cancellation,
-				depth: 1,
-				silent: true,
-			});
-		} catch (ex) {
-			foundRepos = [];
-			return;
-		}
-
-		if (foundRepos.length === 0 || cancellation?.isCancellationRequested) return;
+		const foundRepos = await this.getRepositoriesInParentFolder(cancellation);
+		if (foundRepos == null || foundRepos.length === 0 || cancellation?.isCancellationRequested) return;
 
 		for (const repoMatch of (
 			await this.resolveWorkspaceRepositoriesByName(workspaceId, {
@@ -609,8 +622,37 @@ export class WorkspacesService implements Disposable {
 		const repoInputs: (AddWorkspaceRepoDescriptor & { repo: Repository })[] = [];
 		let reposOrRepoPaths: Repository[] | string[] | undefined = options?.repos;
 		if (!options?.repos) {
+			const repoChoice = await window.showQuickPick(
+				[
+					{
+						label: 'Choose repositories from the current window',
+						description: 'Choose repositories from the current window',
+						choice: WorkspaceAddRepositoriesChoice.CurrentWindow,
+						picked: true,
+					},
+					{
+						label: 'Choose repositories from a folder',
+						description: 'Choose repositories from a folder',
+						choice: WorkspaceAddRepositoriesChoice.ParentFolder,
+					},
+				],
+				{
+					placeHolder: 'Choose repositories from the current window or a folder',
+					ignoreFocusOut: true,
+				},
+			);
+
+			if (repoChoice == null) return;
+
+			let candidateRepositories = this.container.git.openRepositories;
+			if (repoChoice.choice === WorkspaceAddRepositoriesChoice.ParentFolder) {
+				const foundRepos = await this.getRepositoriesInParentFolder();
+				if (foundRepos == null) return;
+				candidateRepositories = foundRepos;
+			}
+
 			let validRepos = [];
-			for (const repo of this.container.git.openRepositories) {
+			for (const repo of candidateRepositories) {
 				const matchingRemotes = await repo.getRemotes({
 					filter: r => r.provider?.id === cloudWorkspaceProviderTypeToRemoteProviderId[workspace.provider],
 				});
@@ -622,7 +664,7 @@ export class WorkspacesService implements Disposable {
 			if (validRepos.length === 0) {
 				if (!options?.suppressNotifications) {
 					void window.showInformationMessage(
-						`No open repositories found for provider ${workspace.provider}.`,
+						`No matching repositories found for provider ${workspace.provider}.`,
 						{
 							modal: true,
 						},
@@ -643,7 +685,7 @@ export class WorkspacesService implements Disposable {
 
 			if (validRepos.length === 0) {
 				if (!options?.suppressNotifications) {
-					void window.showInformationMessage(`All open repositories are already in this workspace.`, {
+					void window.showInformationMessage(`All possible repositories are already in this workspace.`, {
 						modal: true,
 					});
 				}
@@ -661,7 +703,10 @@ export class WorkspacesService implements Disposable {
 
 		if (reposOrRepoPaths == null) return;
 		for (const repoOrPath of reposOrRepoPaths) {
-			const repo = repoOrPath instanceof Repository ? repoOrPath : this.container.git.getRepository(repoOrPath);
+			const repo =
+				repoOrPath instanceof Repository
+					? repoOrPath
+					: await this.container.git.getOrOpenRepository(Uri.file(repoOrPath), { closeOnOpen: true });
 			if (repo == null) continue;
 			const remote = (await repo.getRemote('origin')) || (await repo.getRemotes())?.[0];
 			const remoteDescriptor = getRemoteDescriptor(remote);
