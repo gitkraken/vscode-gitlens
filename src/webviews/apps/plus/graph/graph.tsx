@@ -180,6 +180,7 @@ export class GraphApp extends App<State> {
 
 			case DidChangeColumnsNotificationType.method:
 				onIpc(DidChangeColumnsNotificationType, msg, (params, type) => {
+					this.state.columns = params.columns;
 					this.state.context = {
 						...this.state.context,
 						header: params.context,
