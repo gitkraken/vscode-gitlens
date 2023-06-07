@@ -1,6 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { SubscriptionState } from '../../../../../subscription';
+import { hasAccountFromSubscriptionState, SubscriptionState } from '../../../../../subscription';
 import { pluralize } from '../../../../../system/string';
 import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
 import '../../../shared/components/button';
@@ -115,39 +115,10 @@ export class AccountContent extends LitElement {
 	}
 
 	get hasAccount() {
-		switch (this.state) {
-			case SubscriptionState.Free:
-			case SubscriptionState.FreePreviewTrialExpired:
-			case SubscriptionState.FreeInPreviewTrial:
-				return false;
-		}
-		return true;
-	}
-
-	get isPro() {
-		switch (this.state) {
-			case SubscriptionState.Free:
-			case SubscriptionState.FreePreviewTrialExpired:
-			case SubscriptionState.FreePlusTrialExpired:
-			case SubscriptionState.VerificationRequired:
-				return false;
-		}
-		return true;
+		return hasAccountFromSubscriptionState(this.state);
 	}
 
 	private renderAccountInfo() {
-		if (this.state === SubscriptionState.FreeInPreviewTrial) {
-			return html`
-				<div class="account">
-					<div class="account__media">
-						<code-icon icon="account" size="34"></code-icon>
-					</div>
-					<p class="account__title"></p>
-					<p class="account__access"><span class="repo-access">✨</span>${this.planName}${this.daysLeft}</p>
-				</div>
-			`;
-		}
-
 		if (!this.hasAccount) {
 			return nothing;
 		}
@@ -155,25 +126,16 @@ export class AccountContent extends LitElement {
 		return html`
 			<div class="account">
 				<div class="account__media">
-					${this.image ? html`<img src=${this.image} class="account__image" />` : nothing}
+					${this.image
+						? html`<img src=${this.image} class="account__image" />`
+						: html`<code-icon icon="account" size="34"></code-icon>`}
 				</div>
 				<p class="account__title">${this.name}</p>
-				<p class="account__access">
-					<span class="repo-access${this.isPro ? ' is-pro' : ''}">✨</span>${this.planName}${this.daysLeft}
-				</p>
+				<p class="account__access">${this.planName}${this.daysLeft}</p>
 			</div>
-		`;
-	}
-
-	private renderAccountNavigation() {
-		if (!this.hasAccount) {
-			return nothing;
-		}
-
-		return html`
 			<button-container>
-				<gk-button full href="command:gitlens.plus.manage">Manage Account</gk-button>
-				<gk-button href="command:gitlens.plus.logout"
+				<gk-button appearance="secondary" full href="command:gitlens.plus.manage">Manage Account</gk-button>
+				<gk-button appearance="secondary" href="command:gitlens.plus.logout"
 					><code-icon icon="sign-out" title="Sign Out" aria-label="Sign Out"></code-icon
 				></gk-button>
 			</button-container>
@@ -196,63 +158,54 @@ export class AccountContent extends LitElement {
 				`;
 
 			case SubscriptionState.Free:
-				return html`
-					<p>
-						A GitLens Pro subscription enables services that increase productivity, focus and collaboration.
-					</p>
-					<p>
-						Start a trial to access these services or
-						<a href="command:gitlens.plus.loginOrSignUp">sign in</a>.
-					</p>
-					<button-container>
-						<gk-button full href="command:gitlens.plus.loginOrSignUp">Start Free Pro Trial</gk-button>
-					</button-container>
-					<p>
-						☁️ A trial or subscription is required for use.<br />
-						✨ A trial or subscription is required for use on privately hosted repos.
-					</p>
-				`;
-
+			case SubscriptionState.FreeInPreviewTrial:
 			case SubscriptionState.FreePreviewTrialExpired:
 				return html`
 					<p>
-						Your free 3-day Pro trial has ended, extend your free trial to get an additional 7-days, or
+						Sign up for access to our developer productivity and collaboration services, e.g. Workspaces, or
 						<a href="command:gitlens.plus.loginOrSignUp">sign in</a>.
 					</p>
 					<button-container>
-						<gk-button full href="command:gitlens.plus.loginOrSignUp">Extend Free Pro Trial</gk-button>
+						<gk-button full href="command:gitlens.plus.loginOrSignUp">Sign Up</gk-button>
 					</button-container>
-					<p>
-						☁️ A trial or subscription is required for use.<br />
-						✨ A trial or subscription is required for use on privately hosted repos.
-					</p>
+					<p>Signing up starts a free 7-day Pro trial.</p>
 				`;
 
 			case SubscriptionState.FreePlusTrialExpired:
 				return html`
-					<p>Your Pro trial has ended, please upgrade to continue to use this on privately hosted repos.</p>
+					<p>
+						Your Pro trial has ended, please upgrade to continue to use ✨ features on privately hosted
+						repos.
+					</p>
 					<button-container>
 						<gk-button full href="command:gitlens.plus.purchase">Upgrade to Pro</gk-button>
 					</button-container>
 					<p>
-						☁️ A trial or subscription is required for use.<br />
-						✨ A trial or subscription is required for use on privately hosted repos.
+						You only have access to ✨ features on local and publicly hosted repos and ☁️ features based on
+						your subscription tier.
 					</p>
 				`;
 
-			case SubscriptionState.FreeInPreviewTrial:
 			case SubscriptionState.FreePlusInTrial:
 				return html`
 					<p>
 						Your have ${this.daysRemaining} remaining in your Pro trial. Once your trial ends, you'll need a
-						paid plan to continue using ☁️ features.
+						paid plan to continue using ✨ features.
 					</p>
 					<button-container>
 						<gk-button full href="command:gitlens.plus.purchase">Upgrade to Pro</gk-button>
 					</button-container>
 					<p>
-						☁️ A trial or subscription is required for use.<br />
-						✨ A trial or subscription is required for use on privately hosted repos.
+						You have access to ✨ features on privately hosted repos and ☁️ features based on the Pro tier
+						during your trial.
+					</p>
+				`;
+
+			case SubscriptionState.Paid:
+				return html`
+					<p>
+						You have access to ✨ features on privately hosted repos and ☁️ features based on your
+						subscription tier.
 					</p>
 				`;
 		}
@@ -261,6 +214,6 @@ export class AccountContent extends LitElement {
 	}
 
 	override render() {
-		return html`${this.renderAccountInfo()}${this.renderAccountState()}${this.renderAccountNavigation()}`;
+		return html`${this.renderAccountInfo()}${this.renderAccountState()}`;
 	}
 }

@@ -224,3 +224,12 @@ export function isSubscriptionStateTrial(state: SubscriptionState | undefined): 
 	if (state == null) return false;
 	return state === SubscriptionState.FreeInPreviewTrial || state === SubscriptionState.FreePlusInTrial;
 }
+
+export function hasAccountFromSubscriptionState(state: SubscriptionState | undefined): boolean {
+	if (state == null) return false;
+	return (
+		state !== SubscriptionState.Free &&
+		state !== SubscriptionState.FreePreviewTrialExpired &&
+		state !== SubscriptionState.FreeInPreviewTrial
+	);
+}
