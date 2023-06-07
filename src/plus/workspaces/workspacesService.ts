@@ -660,25 +660,42 @@ export class WorkspacesService implements Disposable {
 		const workspace = this.getCloudWorkspace(workspaceId);
 		if (workspace == null) return;
 
-		const matchingProviderRepos = [];
+		let validRepos = [];
 		for (const repo of this.container.git.openRepositories) {
 			const matchingRemotes = await repo.getRemotes({
 				filter: r => r.provider?.id === cloudWorkspaceProviderTypeToRemoteProviderId[workspace.provider],
 			});
 			if (matchingRemotes.length) {
-				matchingProviderRepos.push(repo);
+				validRepos.push(repo);
 			}
 		}
 
-		if (!matchingProviderRepos.length) {
-			void window.showInformationMessage(`No open repositories found for provider ${workspace.provider}`);
+		if (!validRepos.length) {
+			void window.showInformationMessage(`No open repositories found for provider ${workspace.provider}.`, {
+				modal: true,
+			});
+			return;
+		}
+
+		const workspaceRepos = [
+			...(
+				await this.resolveWorkspaceRepositoriesByName(workspaceId, {
+					resolveFromPath: true,
+					usePathMapping: true,
+				})
+			).values(),
+		].map(match => match.repository);
+		validRepos = validRepos.filter(repo => !workspaceRepos.find(r => r.id === repo.id));
+
+		if (!validRepos.length) {
+			void window.showInformationMessage(`All open repositories are already in this workspace.`, { modal: true });
 			return;
 		}
 
 		const pick = await showRepositoryPicker(
 			'Add Repository to Workspace',
 			'Choose which repository to add to the workspace',
-			matchingProviderRepos,
+			validRepos,
 		);
 		if (pick?.item == null) return;
 
