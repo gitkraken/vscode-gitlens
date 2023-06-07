@@ -7488,6 +7488,46 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.graph.scrollMarkerLocalBranchOn",
+				"title": "Show Local Branch Markers",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.scrollMarkerLocalBranchOff",
+				"title": "Hide Local Branch Markers",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.scrollMarkerRemoteBranchOn",
+				"title": "Show Remote Branch Markers",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.scrollMarkerRemoteBranchOff",
+				"title": "Hide Remote Branch Markers",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.scrollMarkerStashOn",
+				"title": "Show Stash Markers",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.scrollMarkerStashOff",
+				"title": "Hide Stash Markers",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.scrollMarkerTagOn",
+				"title": "Show Tag Markers",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.scrollMarkerTagOff",
+				"title": "Hide Tag Markers",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.timeline.refresh",
 				"title": "Refresh",
 				"category": "GitLens",
@@ -9778,6 +9818,38 @@
 				},
 				{
 					"command": "gitlens.graph.resetColumnsCompact",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerLocalBranchOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerLocalBranchOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerRemoteBranchOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerRemoteBranchOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerStashOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerStashOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerTagOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerTagOff",
 					"when": "false"
 				},
 				{
@@ -12636,93 +12708,98 @@
 					"group": "7_gitlens_cutcopypaste@1"
 				},
 				{
+					"submenu": "gitlens/graph/markers",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/",
+					"group": "0_markers@0"
+				},
+				{
 					"command": "gitlens.graph.columnAuthorOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bauthor:hidden\\b/",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:author:hidden\\b/",
 					"group": "1_columns@1"
 				},
 				{
 					"command": "gitlens.graph.columnAuthorOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bauthor:visible\\b/",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:author:visible\\b/",
 					"group": "1_columns@1"
 				},
 				{
 					"command": "gitlens.graph.columnRefOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bref:hidden\\b/",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:ref:hidden\\b/",
 					"group": "1_columns@2"
 				},
 				{
 					"command": "gitlens.graph.columnRefOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bref:visible\\b/",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:ref:visible\\b/",
 					"group": "1_columns@2"
 				},
 				{
 					"command": "gitlens.graph.columnChangesOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bchanges:hidden\\b/",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:changes:hidden\\b/",
 					"group": "1_columns@3"
 				},
 				{
 					"command": "gitlens.graph.columnChangesOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bchanges:visible\\b/",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:changes:visible\\b/",
 					"group": "1_columns@3"
 				},
 				{
 					"command": "gitlens.graph.columnMessageOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bmessage:hidden\\b/",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:message:hidden\\b/",
 					"group": "1_columns@4"
 				},
 				{
 					"command": "gitlens.graph.columnMessageOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bmessage:visible\\b/",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:message:visible\\b/",
 					"group": "1_columns@4"
 				},
 				{
 					"command": "gitlens.graph.columnDateTimeOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bdatetime:hidden\\b/",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:datetime:hidden\\b/",
 					"group": "1_columns@5"
 				},
 				{
 					"command": "gitlens.graph.columnDateTimeOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bdatetime:visible\\b/",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:datetime:visible\\b/",
 					"group": "1_columns@5"
 				},
 				{
 					"command": "gitlens.graph.columnGraphOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bgraph:hidden\\b/",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:graph:hidden\\b/",
 					"group": "1_columns@6"
 				},
 				{
 					"command": "gitlens.graph.columnGraphOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bgraph:visible\\b/",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:graph:visible\\b/",
 					"group": "1_columns@6"
 				},
 				{
 					"command": "gitlens.graph.columnShaOn",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bsha:hidden\\b/",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:sha:hidden\\b/",
 					"group": "1_columns@7"
 				},
 				{
 					"command": "gitlens.graph.columnShaOff",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bsha:visible\\b/",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:sha:visible\\b/",
 					"group": "1_columns@7"
 				},
 				{
 					"command": "gitlens.graph.columnGraphDefault",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bgraph:visible[^,]*\\+compact\\b/",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:graph:visible[^,]*\\+compact\\b/",
 					"group": "2_columns@1"
 				},
 				{
 					"command": "gitlens.graph.columnGraphCompact",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/ && webviewItemValue =~ /\\bgraph:visible(?![^,]*\\+compact\\b)/",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:graph:visible(?![^,]*\\+compact\\b)/",
 					"group": "2_columns@1"
 				},
 				{
 					"command": "gitlens.graph.resetColumnsDefault",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/",
 					"group": "3_columns@1"
 				},
 				{
 					"command": "gitlens.graph.resetColumnsCompact",
-					"when": "webviewItem =~ /gitlens:graph:columns\\b/",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/",
 					"group": "3_columns@2"
 				}
 			],
@@ -13267,6 +13344,48 @@
 					"group": "9_gitlens@1"
 				}
 			],
+			"gitlens/graph/markers": [
+				{
+					"command": "gitlens.graph.scrollMarkerLocalBranchOn",
+					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:localBranches:disabled\\b/",
+					"group": "4_settings@1"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerLocalBranchOff",
+					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:localBranches:enabled\\b/",
+					"group": "4_settings@1"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerRemoteBranchOn",
+					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:remoteBranches:disabled\\b/",
+					"group": "4_settings@2"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerRemoteBranchOff",
+					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:remoteBranches:enabled\\b/",
+					"group": "4_settings@2"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerStashOn",
+					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:stashes:disabled\\b/",
+					"group": "4_settings@3"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerStashOff",
+					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:stashes:enabled\\b/",
+					"group": "4_settings@3"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerTagOn",
+					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:tags:disabled\\b/",
+					"group": "4_settings@4"
+				},
+				{
+					"command": "gitlens.graph.scrollMarkerTagOff",
+					"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:tags:enabled\\b/",
+					"group": "4_settings@4"
+				}
+			],
 			"gitlens/scm/resourceGroup/changes": [
 				{
 					"command": "gitlens.externalDiffAll",
@@ -13551,6 +13670,10 @@
 				"id": "gitlens/graph/configuration",
 				"label": "Commit Graph Settings",
 				"icon": "$(gear)"
+			},
+			{
+				"id": "gitlens/graph/markers",
+				"label": "Scroll Markers"
 			},
 			{
 				"id": "gitlens/scm/resourceGroup/changes",

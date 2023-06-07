@@ -11,7 +11,7 @@ import type {
 	ShowCommitsInViewCommandArgs,
 } from '../../../commands';
 import { parseCommandContext } from '../../../commands/base';
-import type { Config, GraphMinimapMarkersAdditionalTypes } from '../../../config';
+import type { Config, GraphMinimapMarkersAdditionalTypes, GraphScrollMarkersAdditionalTypes } from '../../../config';
 import type { StoredGraphFilters, StoredGraphIncludeOnlyRef, StoredGraphRefType } from '../../../constants';
 import { Commands, GlyphChars } from '../../../constants';
 import type { Container } from '../../../container';
@@ -150,6 +150,7 @@ import {
 	DidChangeRefsVisibilityNotificationType,
 	DidChangeRowsNotificationType,
 	DidChangeRowsStatsNotificationType,
+	DidChangeScrollMarkersNotificationType,
 	DidChangeSelectionNotificationType,
 	DidChangeSubscriptionNotificationType,
 	DidChangeWindowFocusNotificationType,
@@ -231,6 +232,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		[DidChangeGraphConfigurationNotificationType, this.notifyDidChangeConfiguration],
 		[DidChangeNotificationType, this.notifyDidChangeState],
 		[DidChangeRefsVisibilityNotificationType, this.notifyDidChangeRefsVisibility],
+		[DidChangeScrollMarkersNotificationType, this.notifyDidChangeScrollMarkers],
 		[DidChangeSelectionNotificationType, this.notifyDidChangeSelection],
 		[DidChangeSubscriptionNotificationType, this.notifyDidChangeSubscription],
 		[DidChangeWorkingTreeNotificationType, this.notifyDidChangeWorkingTree],
@@ -422,6 +424,22 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			registerCommand('gitlens.graph.columnRefOff', () => this.toggleColumn('ref', false)),
 			registerCommand('gitlens.graph.columnGraphCompact', () => this.setColumnMode('graph', 'compact')),
 			registerCommand('gitlens.graph.columnGraphDefault', () => this.setColumnMode('graph', undefined)),
+			registerCommand('gitlens.graph.scrollMarkerLocalBranchOn', () =>
+				this.toggleScrollMarker('localBranches', true),
+			),
+			registerCommand('gitlens.graph.scrollMarkerLocalBranchOff', () =>
+				this.toggleScrollMarker('localBranches', false),
+			),
+			registerCommand('gitlens.graph.scrollMarkerRemoteBranchOn', () =>
+				this.toggleScrollMarker('remoteBranches', true),
+			),
+			registerCommand('gitlens.graph.scrollMarkerRemoteBranchOff', () =>
+				this.toggleScrollMarker('remoteBranches', false),
+			),
+			registerCommand('gitlens.graph.scrollMarkerStashOn', () => this.toggleScrollMarker('stashes', true)),
+			registerCommand('gitlens.graph.scrollMarkerStashOff', () => this.toggleScrollMarker('stashes', false)),
+			registerCommand('gitlens.graph.scrollMarkerTagOn', () => this.toggleScrollMarker('tags', true)),
+			registerCommand('gitlens.graph.scrollMarkerTagOff', () => this.toggleScrollMarker('tags', false)),
 
 			registerCommand('gitlens.graph.copyDeepLinkToBranch', this.copyDeepLinkToBranch, this),
 			registerCommand('gitlens.graph.copyDeepLinkToCommit', this.copyDeepLinkToCommit, this),
@@ -1293,6 +1311,21 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		return this.host.notify(DidChangeColumnsNotificationType, {
 			columns: columnSettings,
 			context: this.getColumnHeaderContext(columnSettings),
+			settingsContext: this.getGraphSettingsIconContext(columnSettings),
+		});
+	}
+
+	@debug()
+	private async notifyDidChangeScrollMarkers() {
+		if (!this.host.ready || !this.host.visible) {
+			this.host.addPendingIpcNotification(DidChangeScrollMarkersNotificationType, this._ipcNotificationMap, this);
+			return false;
+		}
+
+		const columns = this.getColumns();
+		const columnSettings = this.getColumnSettings(columns);
+		return this.host.notify(DidChangeScrollMarkersNotificationType, {
+			context: this.getGraphSettingsIconContext(columnSettings),
 		});
 	}
 
@@ -1652,6 +1685,20 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private getColumnHeaderContext(columnSettings: GraphColumnsSettings): string {
+		return serializeWebviewItemContext<GraphItemContext>({
+			webviewItem: 'gitlens:graph:columns',
+			webviewItemValue: this.getColumnContextItems(columnSettings).join(','),
+		});
+	}
+
+	private getGraphSettingsIconContext(columnsSettings?: GraphColumnsSettings): string {
+		return serializeWebviewItemContext<GraphItemContext>({
+			webviewItem: 'gitlens:graph:settings',
+			webviewItemValue: this.getSettingsIconContextItems(columnsSettings).join(','),
+		});
+	}
+
+	private getColumnContextItems(columnSettings: GraphColumnsSettings): string[] {
 		const contextItems: string[] = [];
 		// Old column settings that didn't get cleaned up can mess with calculation of only visible column.
 		// All currently used ones are listed here.
@@ -1665,7 +1712,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 				visibleColumns++;
 			}
 			contextItems.push(
-				`${name}:${settings.isHidden ? 'hidden' : 'visible'}${settings.mode ? `+${settings.mode}` : ''}`,
+				`column:${name}:${settings.isHidden ? 'hidden' : 'visible'}${settings.mode ? `+${settings.mode}` : ''}`,
 			);
 		}
 
@@ -1673,10 +1720,28 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			contextItems.push('columns:canHide');
 		}
 
-		return serializeWebviewItemContext<GraphItemContext>({
-			webviewItem: 'gitlens:graph:columns',
-			webviewItemValue: contextItems.join(','),
-		});
+		return contextItems;
+	}
+
+	private getSettingsIconContextItems(columnSettings?: GraphColumnsSettings): string[] {
+		const contextItems: string[] = columnSettings != null ? this.getColumnContextItems(columnSettings) : [];
+
+		if (configuration.get('graph.scrollMarkers.enabled')) {
+			const configurableScrollMarkerTypes: GraphScrollMarkersAdditionalTypes[] = [
+				'localBranches',
+				'remoteBranches',
+				'stashes',
+				'tags',
+			];
+			const enabledScrollMarkerTypes = configuration.get('graph.scrollMarkers.additionalTypes');
+			for (const type of configurableScrollMarkerTypes) {
+				contextItems.push(
+					`scrollMarker:${type}:${enabledScrollMarkerTypes.includes(type) ? 'enabled' : 'disabled'}`,
+				);
+			}
+		}
+
+		return contextItems;
 	}
 
 	private getComponentConfig(): GraphComponentConfig {
@@ -1912,6 +1977,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			config: this.getComponentConfig(),
 			context: {
 				header: this.getColumnHeaderContext(columnSettings),
+				settings: this.getGraphSettingsIconContext(columnSettings),
 			},
 			excludeRefs: data != null ? this.getExcludedRefs(data) ?? {} : {},
 			excludeTypes: this.getExcludedTypes(data) ?? {},
@@ -2617,6 +2683,24 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 		if (name === 'changes' && !column.isHidden && !this._graph?.includes?.stats) {
 			this.updateState();
+		}
+	}
+
+	@debug()
+	private async toggleScrollMarker(type: GraphScrollMarkersAdditionalTypes, enabled: boolean) {
+		let scrollMarkers = configuration.get('graph.scrollMarkers.additionalTypes');
+		let updated = false;
+		if (enabled && !scrollMarkers.includes(type)) {
+			scrollMarkers = scrollMarkers.concat(type);
+			updated = true;
+		} else if (!enabled && scrollMarkers.includes(type)) {
+			scrollMarkers = scrollMarkers.filter(marker => marker !== type);
+			updated = true;
+		}
+
+		if (updated) {
+			await configuration.updateEffective('graph.scrollMarkers.additionalTypes', scrollMarkers);
+			void this.notifyDidChangeScrollMarkers();
 		}
 	}
 
