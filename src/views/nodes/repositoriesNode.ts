@@ -1,5 +1,5 @@
-import type { TextEditor } from 'vscode';
-import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { TextEditor} from 'vscode';
+import { Disposable , TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { GitUri, unknownGitUri } from '../../git/gitUri';
 import { gate } from '../../system/decorators/gate';
@@ -55,6 +55,11 @@ export class RepositoriesNode extends SubscribeableViewNode<ViewsWithRepositorie
 			isInWorkspacesView ? 'Current Window' : 'Repositories',
 			isInWorkspacesView ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.Expanded,
 		);
+
+		if (isInWorkspacesView) {
+			item.description = workspace.name ?? (workspace.workspaceFolders?.[0]?.name ?? '');
+		}
+
 		let contextValue: string = ContextValues.Repositories;
 		if (isInWorkspacesView) {
 			contextValue += '+workspaces';
