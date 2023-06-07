@@ -491,7 +491,7 @@ export class SearchInput extends FASTElement {
 	updateHelpTextCore() {
 		const cursor = this.input?.selectionStart;
 		const value = this.value;
-		if (cursor != null && value.length !== 0 && !value.includes(':')) {
+		if (cursor != null && value.length !== 0 && value.includes(':')) {
 			const regex =
 				/(?:^|[\b\s]*)((=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)(?:"[^"]*"?|\w*))(?:$|[\b\s])/gi;
 
