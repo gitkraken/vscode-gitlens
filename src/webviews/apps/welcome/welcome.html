@@ -545,10 +545,17 @@
 							/>
 						</svg>
 					</a>
-					<span><gk-button href="command:gitlens.getStarted">Get Started Walkthrough</gk-button></span>
+					<span
+						><gk-button appearance="secondary" href="command:gitlens.getStarted"
+							>Get Started Walkthrough</gk-button
+						></span
+					>
 				</nav>
 
 				<h2>Quick Access</h2>
+				<p data-requires="norepo">
+					<code-icon icon="question"></code-icon> Features which need a repository are currently unavailable
+				</p>
 				<nav class="welcome__resources-nav">
 					<h3 class="t-eyebrow">Activity Bar</h3>
 					<a
@@ -697,9 +704,6 @@
 		</main>
 		<footer>
 			<p>✨ Requires a trial or subscription to use this on privately hosted repos</p>
-			<p data-requires="norepo">
-				<code-icon icon="question"></code-icon> Features which need a repository are currently unavailable
-			</p>
 		</footer>
 		#{endOfBody}
 	</body>
