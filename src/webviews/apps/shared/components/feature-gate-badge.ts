@@ -42,7 +42,6 @@ export class FeatureGateBadge extends LitElement {
 			.badge-popover {
 				width: max-content;
 				top: 100%;
-				overflow: hidden;
 				text-align: left;
 			}
 
