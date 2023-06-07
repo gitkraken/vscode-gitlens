@@ -1,8 +1,10 @@
 /*global*/
 import './welcome.scss';
 import type { Disposable } from 'vscode';
+import type { IpcMessage } from '../../protocol';
+import { onIpc } from '../../protocol';
 import type { State } from '../../welcome/protocol';
-import { UpdateConfigurationCommandType } from '../../welcome/protocol';
+import { DidChangeRepositoriesType, UpdateConfigurationCommandType } from '../../welcome/protocol';
 import { App } from '../shared/appBase';
 import { DOM } from '../shared/dom';
 // import { Snow } from '../shared/snow';
@@ -38,8 +40,38 @@ export class WelcomeApp extends App<State> {
 
 				document.getElementById(hoverTargetId)?.setAttribute('hovering', 'false');
 			}),
+			DOM.on('[data-requires="repo"]', 'click', (e, target: HTMLElement) => this.onRepoFeatureClicked(e, target)),
 		];
 		return disposables;
+	}
+
+	protected override onMessageReceived(e: MessageEvent) {
+		const msg = e.data as IpcMessage;
+
+		switch (msg.method) {
+			case DidChangeRepositoriesType.method:
+				this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
+
+				onIpc(DidChangeRepositoriesType, msg, params => {
+					this.state.repoFeaturesBlocked = params.repoFeaturesBlocked;
+					this.setState(this.state);
+					this.updateRepoState();
+				});
+				break;
+			default:
+				super.onMessageReceived?.(e);
+				break;
+		}
+	}
+
+	private onRepoFeatureClicked(e: MouseEvent, _target: HTMLElement) {
+		if (this.state.repoFeaturesBlocked ?? false) {
+			e.preventDefault();
+			e.stopPropagation();
+			return false;
+		}
+
+		return true;
 	}
 
 	private onFeatureToggled(e: Event, target: HTMLElement) {
@@ -73,6 +105,7 @@ export class WelcomeApp extends App<State> {
 	private updateState() {
 		this.updateVersion();
 		this.updateFeatures();
+		this.updateRepoState();
 	}
 
 	private updateVersion() {
@@ -94,6 +127,11 @@ export class WelcomeApp extends App<State> {
 	private toggleFeatureState(feature: string) {
 		const state = document.body.getAttribute(`data-feature-${feature}`);
 		this.setFeatureState(feature, state === 'off');
+	}
+
+	private updateRepoState() {
+		const { repoFeaturesBlocked } = this.state;
+		document.body.dataset.repos = repoFeaturesBlocked ? 'blocked' : 'allowed';
 	}
 }
 

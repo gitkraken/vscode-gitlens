@@ -316,7 +316,7 @@ gk-card p {
 		grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
 		gap: 0.64rem 2rem;
 		// width: min-content;
-		margin: 0 1rem;
+		margin: 0 1rem 1.3rem;
 
 		> * {
 			white-space: nowrap;
@@ -839,5 +839,16 @@ body[data-feature-revision='off'] {
 			outline-color: transparent;
 			fill: inherit;
 		}
+	}
+}
+
+body {
+	&[data-repos='blocked'] [data-requires='repo'] {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	&:not([data-repos='blocked']) [data-requires='norepo'] {
+		display: none;
 	}
 }
