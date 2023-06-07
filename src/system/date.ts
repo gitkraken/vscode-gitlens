@@ -28,7 +28,7 @@ const numberFormatCache = new Map<string | undefined, Intl.NumberFormat>();
 
 export function setDefaultDateLocales(locales: string | string[] | null | undefined) {
 	if (typeof locales === 'string') {
-		if (locales === 'system') {
+		if (locales === 'system' || locales.trim().length === 0) {
 			defaultLocales = undefined;
 		} else {
 			defaultLocales = [locales];
