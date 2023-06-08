@@ -1,7 +1,7 @@
 /*global document IntersectionObserver*/
 import './settings.scss';
 import type { AutolinkReference } from '../../../config';
-import type { IpcMessage } from '../../protocol';
+import type { IpcMessage, UpdateConfigurationParams } from '../../protocol';
 import {
 	DidChangeConfigurationNotificationType,
 	DidGenerateConfigurationPreviewNotificationType,
@@ -163,7 +163,9 @@ export class SettingsApp extends App<State> {
 	private applyChanges() {
 		this.sendCommand(UpdateConfigurationCommandType, {
 			changes: { ...this._changes },
-			removes: Object.keys(this._changes).filter(k => this._changes[k] === undefined),
+			removes: Object.keys(this._changes).filter(
+				(k): k is UpdateConfigurationParams['removes'][0] => this._changes[k] === undefined,
+			),
 			scope: this.getSettingsScope(),
 		});
 
