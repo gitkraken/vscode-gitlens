@@ -206,6 +206,19 @@ export function isSubscriptionTrial(subscription: Optional<Subscription, 'state'
 	return subscription.plan.actual.id !== subscription.plan.effective.id;
 }
 
+export function isSubscriptionInProTrial(subscription: Optional<Subscription, 'state'>): boolean {
+	if (
+		subscription.account == null ||
+		!isSubscriptionTrial(subscription) ||
+		isSubscriptionPreviewTrialExpired(subscription) === false
+	) {
+		return false;
+	}
+
+	const remaining = getSubscriptionTimeRemaining(subscription);
+	return remaining != null ? remaining <= 0 : true;
+}
+
 export function isSubscriptionPreviewTrialExpired(subscription: Optional<Subscription, 'state'>): boolean | undefined {
 	const remaining = getTimeRemaining(subscription.previewTrial?.expiresOn);
 	return remaining != null ? remaining <= 0 : undefined;

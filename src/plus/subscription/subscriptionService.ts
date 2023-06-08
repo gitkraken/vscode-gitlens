@@ -36,6 +36,7 @@ import {
 	getSubscriptionTimeRemaining,
 	getTimeRemaining,
 	isSubscriptionExpired,
+	isSubscriptionInProTrial,
 	isSubscriptionPaid,
 	isSubscriptionTrial,
 	SubscriptionPlanId,
@@ -467,6 +468,9 @@ export class SubscriptionService implements Disposable {
 			return;
 		}
 
+		// Don't overwrite a trial that is already in progress
+		if (isSubscriptionInProTrial(this._subscription)) return;
+
 		const startedOn = new Date();
 
 		let days: number;
@@ -658,7 +662,11 @@ export class SubscriptionService implements Disposable {
 				SubscriptionPlanId.FreePlus,
 				false,
 				undefined,
-				data.user.firstGitLensCheckIn != null ? new Date(data.user.firstGitLensCheckIn) : undefined,
+				data.user.firstGitLensCheckIn != null
+					? new Date(data.user.firstGitLensCheckIn)
+					: data.user.createdDate != null
+					? new Date(data.user.createdDate)
+					: undefined,
 			);
 		}
 
@@ -685,9 +693,7 @@ export class SubscriptionService implements Disposable {
 			);
 		}
 
-		if (effective == null) {
-			effective = { ...actual };
-		} else if (getSubscriptionPlanPriority(actual.id) >= getSubscriptionPlanPriority(effective.id)) {
+		if (effective == null || getSubscriptionPlanPriority(actual.id) >= getSubscriptionPlanPriority(effective.id)) {
 			effective = { ...actual };
 		}
 
