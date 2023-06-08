@@ -59,32 +59,32 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
 			this._children = [];
-			let repositories: CloudWorkspaceRepositoryDescriptor[] | LocalWorkspaceRepositoryDescriptor[] | undefined;
+			let descriptors: CloudWorkspaceRepositoryDescriptor[] | LocalWorkspaceRepositoryDescriptor[] | undefined;
 			let repositoryInfo: string | undefined;
 			if (this.workspace instanceof GKLocalWorkspace) {
-				repositories = (await this.getRepositories()) ?? [];
+				descriptors = (await this.getRepositories()) ?? [];
 			} else {
 				const { repositories: repos, repositoriesInfo: repoInfo } =
 					await this.workspace.getOrLoadRepositories();
-				repositories = repos;
+				descriptors = repos;
 				repositoryInfo = repoInfo;
 			}
 
-			if (repositories?.length === 0) {
+			if (descriptors?.length === 0) {
 				this._children.push(new MessageNode(this.view, this, 'No repositories in this workspace.'));
 				return this._children;
-			} else if (repositories?.length) {
+			} else if (descriptors?.length) {
 				const reposByName: WorkspaceRepositoriesByName =
-					await this.view.container.workspaces.resolveWorkspaceRepositoriesByName(
-						this.workspaceId,
-						this.type,
-					);
+					await this.view.container.workspaces.resolveWorkspaceRepositoriesByName(this.workspaceId, {
+						resolveFromPath: true,
+						usePathMapping: true,
+					});
 
-				for (const repository of repositories) {
-					const repo = reposByName.get(repository.name);
+				for (const descriptor of descriptors) {
+					const repo = reposByName.get(descriptor.name)?.repository;
 					if (!repo) {
 						this._children.push(
-							new WorkspaceMissingRepositoryNode(this.view, this, this.workspaceId, repository),
+							new WorkspaceMissingRepositoryNode(this.view, this, this.workspaceId, descriptor),
 						);
 						continue;
 					}
@@ -92,7 +92,7 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 					this._children.push(
 						new RepositoryNode(GitUri.fromRepoPath(repo.path), this.view, this, repo, {
 							workspace: this._workspace,
-							workspaceRepoDescriptor: repository,
+							workspaceRepoDescriptor: descriptor,
 						}),
 					);
 				}
