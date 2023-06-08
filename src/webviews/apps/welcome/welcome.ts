@@ -7,9 +7,7 @@ import type { State } from '../../welcome/protocol';
 import { DidChangeNotificationType, UpdateConfigurationCommandType } from '../../welcome/protocol';
 import { App } from '../shared/appBase';
 import { DOM } from '../shared/dom';
-import type { AnnotationsSvg } from './components/svg-annotations';
 import type { BlameSvg } from './components/svg-blame';
-import type { RevisionNavigationSvg } from './components/svg-revision-navigation';
 // import { Snow } from '../shared/snow';
 import '../shared/components/code-icon';
 import '../shared/components/button';
@@ -17,6 +15,7 @@ import './components/card';
 import './components/gitlens-logo';
 import './components/svg-annotations';
 import './components/svg-blame';
+import './components/svg-editor-toolbar';
 import './components/svg-graph';
 import './components/svg-revision-navigation';
 import './components/svg-timeline';
@@ -34,7 +33,6 @@ export class WelcomeApp extends App<State> {
 		const disposables = [
 			...(super.onBind?.() ?? []),
 			DOM.on('[data-feature]', 'change', (e, target: HTMLInputElement) => this.onFeatureToggled(e, target)),
-			DOM.on('[data-feature]', 'click', (e, target: HTMLElement) => this.onFeatureToggled(e, target)),
 			DOM.on('[data-requires="repo"]', 'click', (e, target: HTMLElement) => this.onRepoFeatureClicked(e, target)),
 		];
 		return disposables;
@@ -72,18 +70,6 @@ export class WelcomeApp extends App<State> {
 	private onFeatureToggled(e: Event, target: HTMLElement) {
 		const feature = target.dataset.feature;
 		if (!feature) return;
-
-		if (e.type !== 'change') {
-			if (feature === 'revision') {
-				const $el = document.getElementById('revision') as RevisionNavigationSvg;
-				$el.toggled = !$el.toggled;
-			} else if (feature === 'annotations') {
-				const $el = document.getElementById('annotations') as AnnotationsSvg;
-				$el.toggled = !$el.toggled;
-			}
-
-			return;
-		}
 
 		let type: keyof State['config'];
 		switch (feature) {
