@@ -612,6 +612,35 @@ export class WorkspacesService implements Disposable {
 		} catch {}
 	}
 
+	private async filterReposForProvider(
+		repos: Repository[],
+		provider: CloudWorkspaceProviderType,
+	): Promise<Repository[]> {
+		const validRepos: Repository[] = [];
+		for (const repo of repos) {
+			const matchingRemotes = await repo.getRemotes({
+				filter: r => r.provider?.id === cloudWorkspaceProviderTypeToRemoteProviderId[provider],
+			});
+			if (matchingRemotes.length) {
+				validRepos.push(repo);
+			}
+		}
+
+		return validRepos;
+	}
+
+	private async filterReposForCloudWorkspace(repos: Repository[], workspaceId: string): Promise<Repository[]> {
+		const workspaceRepos = [
+			...(
+				await this.resolveWorkspaceRepositoriesByName(workspaceId, {
+					resolveFromPath: true,
+					usePathMapping: true,
+				})
+			).values(),
+		].map(match => match.repository);
+		return repos.filter(repo => !workspaceRepos.find(r => r.id === repo.id));
+	}
+
 	async addCloudWorkspaceRepos(
 		workspaceId: string,
 		options?: { repos?: Repository[]; suppressNotifications?: boolean },
@@ -622,74 +651,63 @@ export class WorkspacesService implements Disposable {
 		const repoInputs: (AddWorkspaceRepoDescriptor & { repo: Repository })[] = [];
 		let reposOrRepoPaths: Repository[] | string[] | undefined = options?.repos;
 		if (!options?.repos) {
-			const repoChoice = await window.showQuickPick(
-				[
-					{
-						label: 'Choose repositories from the current window',
-						description: undefined,
-						choice: WorkspaceAddRepositoriesChoice.CurrentWindow,
-						picked: true,
-					},
-					{
-						label: 'Choose repositories from a folder',
-						description: undefined,
-						choice: WorkspaceAddRepositoriesChoice.ParentFolder,
-					},
-				],
+			let validRepos = await this.filterReposForProvider(this.container.git.openRepositories, workspace.provider);
+			validRepos = await this.filterReposForCloudWorkspace(validRepos, workspaceId);
+			const choices: {
+				label: string;
+				description?: string;
+				choice: WorkspaceAddRepositoriesChoice;
+				picked?: boolean;
+			}[] = [
 				{
-					placeHolder: 'Choose repositories from the current window or a folder',
-					ignoreFocusOut: true,
+					label: 'Choose repositories from a folder',
+					description: undefined,
+					choice: WorkspaceAddRepositoriesChoice.ParentFolder,
 				},
-			);
+			];
+
+			if (validRepos.length > 0) {
+				choices.unshift({
+					label: 'Choose repositories from the current window',
+					description: undefined,
+					choice: WorkspaceAddRepositoriesChoice.CurrentWindow,
+				});
+			}
+
+			choices[0].picked = true;
+
+			const repoChoice = await window.showQuickPick(choices, {
+				placeHolder: 'Choose repositories from the current window or a folder',
+				ignoreFocusOut: true,
+			});
 
 			if (repoChoice == null) return;
 
-			let candidateRepositories = this.container.git.openRepositories;
 			if (repoChoice.choice === WorkspaceAddRepositoriesChoice.ParentFolder) {
 				const foundRepos = await this.getRepositoriesInParentFolder();
 				if (foundRepos == null) return;
-				candidateRepositories = foundRepos;
-			}
-
-			let validRepos = [];
-			for (const repo of candidateRepositories) {
-				const matchingRemotes = await repo.getRemotes({
-					filter: r => r.provider?.id === cloudWorkspaceProviderTypeToRemoteProviderId[workspace.provider],
-				});
-				if (matchingRemotes.length) {
-					validRepos.push(repo);
+				validRepos = await this.filterReposForProvider(foundRepos, workspace.provider);
+				if (validRepos.length === 0) {
+					if (!options?.suppressNotifications) {
+						void window.showInformationMessage(
+							`No matching repositories found for provider ${workspace.provider}.`,
+							{
+								modal: true,
+							},
+						);
+					}
+					return;
 				}
-			}
 
-			if (validRepos.length === 0) {
-				if (!options?.suppressNotifications) {
-					void window.showInformationMessage(
-						`No matching repositories found for provider ${workspace.provider}.`,
-						{
+				validRepos = await this.filterReposForCloudWorkspace(validRepos, workspaceId);
+				if (validRepos.length === 0) {
+					if (!options?.suppressNotifications) {
+						void window.showInformationMessage(`All possible repositories are already in this workspace.`, {
 							modal: true,
-						},
-					);
+						});
+					}
+					return;
 				}
-				return;
-			}
-
-			const workspaceRepos = [
-				...(
-					await this.resolveWorkspaceRepositoriesByName(workspaceId, {
-						resolveFromPath: true,
-						usePathMapping: true,
-					})
-				).values(),
-			].map(match => match.repository);
-			validRepos = validRepos.filter(repo => !workspaceRepos.find(r => r.id === repo.id));
-
-			if (validRepos.length === 0) {
-				if (!options?.suppressNotifications) {
-					void window.showInformationMessage(`All possible repositories are already in this workspace.`, {
-						modal: true,
-					});
-				}
-				return;
 			}
 
 			const pick = await showRepositoriesPicker(
