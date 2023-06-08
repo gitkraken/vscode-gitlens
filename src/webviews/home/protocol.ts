@@ -1,10 +1,5 @@
 import { IpcNotificationType } from '../protocol';
 
-export const enum CompletedActions {
-	DismissedWelcome = 'dismissed:welcome',
-	OpenedSCM = 'opened:scm',
-}
-
 export interface State {
 	timestamp: number;
 

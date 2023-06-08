@@ -760,11 +760,6 @@ export class SubscriptionService implements Disposable {
 			Logger.error(ex, scope);
 		}
 
-		// If we didn't find a session, check if we could migrate one from the GK auth provider
-		if (session === undefined) {
-			session = await this.container.subscriptionAuthentication.tryMigrateSession();
-		}
-
 		if (session == null) {
 			Logger.debug(scope, 'No valid session was found');
 			await this.logoutCore();

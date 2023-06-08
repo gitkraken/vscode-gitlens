@@ -3,7 +3,7 @@ import type {
 	AuthenticationProviderAuthenticationSessionsChangeEvent,
 	AuthenticationSession,
 } from 'vscode';
-import { authentication, Disposable, EventEmitter, extensions, window } from 'vscode';
+import { authentication, Disposable, EventEmitter, window } from 'vscode';
 import { uuid } from '@env/crypto';
 import type { Container, Environment } from '../../container';
 import { debug } from '../../system/decorators/log';
@@ -166,50 +166,6 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 			void window.showErrorMessage(`Unable to sign out of GitKraken: ${ex}`);
 			throw ex;
 		}
-	}
-
-	private _migrated: boolean | undefined;
-	async tryMigrateSession(): Promise<AuthenticationSession | undefined> {
-		if (this._migrated == null) {
-			this._migrated = this.container.storage.get('plus:migratedAuthentication', false);
-		}
-		if (this._migrated) return undefined;
-
-		let session: AuthenticationSession | undefined;
-		try {
-			if (extensions.getExtension('gitkraken.gitkraken-authentication') == null) return;
-
-			session = await authentication.getSession('gitkraken', ['gitlens'], {
-				createIfNone: false,
-			});
-			if (session == null) return;
-
-			session = {
-				id: uuid(),
-				accessToken: session.accessToken,
-				account: { ...session.account },
-				scopes: session.scopes,
-			};
-
-			const sessions = await this._sessionsPromise;
-			const scopesKey = getScopesKey(session.scopes);
-			const sessionIndex = sessions.findIndex(s => s.id === session!.id || getScopesKey(s.scopes) === scopesKey);
-			if (sessionIndex > -1) {
-				sessions.splice(sessionIndex, 1, session);
-			} else {
-				sessions.push(session);
-			}
-
-			await this.storeSessions(sessions);
-
-			this._onDidChangeSessions.fire({ added: [session], removed: [], changed: [] });
-		} catch (ex) {
-			Logger.error(ex, 'Unable to migrate authentication');
-		} finally {
-			this._migrated = true;
-			void this.container.storage.store('plus:migratedAuthentication', true);
-		}
-		return session;
 	}
 
 	private async checkForUpdates() {
