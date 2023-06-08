@@ -3,7 +3,6 @@ import type { Environment } from './container';
 import type { StoredSearchQuery } from './git/search';
 import type { Subscription } from './subscription';
 import type { TrackedUsage, TrackedUsageKeys } from './telemetry/usageTracker';
-import type { CompletedActions } from './webviews/home/protocol';
 
 export const extensionPrefix = 'gitlens';
 export const quickPickTitleMaxChars = 80;
@@ -588,9 +587,25 @@ export const enum SyncedStorageKeys {
 export type DeprecatedGlobalStorage = {
 	/** @deprecated use `confirm:ai:send:openai` */
 	'confirm:sendToOpenAI': boolean;
-	/** @deprecated not longer valid */
+	/** @deprecated */
+	'home:actions:completed': ('dismissed:welcome' | 'opened:scm')[];
+	/** @deprecated */
+	'home:steps:completed': string[];
+	/** @deprecated */
+	'home:sections:dismissed': string[];
+	/** @deprecated */
+	'home:status:pinned': boolean;
+	/** @deprecated */
+	'home:banners:dismissed': string[];
+	/** @deprecated */
+	'plus:discountNotificationShown': boolean;
+	/** @deprecated */
+	'plus:migratedAuthentication': boolean;
+	/** @deprecated */
+	'plus:renewalDiscountNotificationShown': boolean;
+	/** @deprecated */
 	'views:layout': 'gitlens' | 'scm';
-	/** @deprecated not longer used */
+	/** @deprecated */
 	'views:commitDetails:dismissed': 'sidebar'[];
 } & {
 	/** @deprecated */
@@ -601,16 +616,8 @@ export type GlobalStorage = {
 	avatars: [string, StoredAvatar][];
 	repoVisibility: [string, StoredRepoVisibilityInfo][];
 	'deepLinks:pending': StoredDeepLinkContext;
-	'home:actions:completed': CompletedActions[];
-	'home:steps:completed': string[];
-	'home:sections:dismissed': string[];
-	'home:status:pinned': boolean;
-	'home:banners:dismissed': string[];
 	pendingWelcomeOnFocus: boolean;
 	pendingWhatsNewOnFocus: boolean;
-	'plus:migratedAuthentication': boolean;
-	'plus:discountNotificationShown': boolean;
-	'plus:renewalDiscountNotificationShown': boolean;
 	// Don't change this key name ('premium`) as its the stored subscription
 	'premium:subscription': Stored<Subscription>;
 	'synced:version': string;
