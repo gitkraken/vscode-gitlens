@@ -59,6 +59,7 @@ export class Configuration {
 		section: S,
 		scope: ConfigurationScope | null | undefined,
 		defaultValue: NonNullable<ConfigPathValue<S>>,
+		skipOverrides?: boolean,
 	): NonNullable<ConfigPathValue<S>>;
 	get<S extends ConfigPath>(
 		section: S,

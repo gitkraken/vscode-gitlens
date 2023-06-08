@@ -4,15 +4,22 @@ import type { Disposable } from 'vscode';
 import type { IpcMessage } from '../../protocol';
 import { onIpc } from '../../protocol';
 import type { State } from '../../welcome/protocol';
-import { DidChangeRepositoriesType, UpdateConfigurationCommandType } from '../../welcome/protocol';
+import { DidChangeNotificationType, UpdateConfigurationCommandType } from '../../welcome/protocol';
 import { App } from '../shared/appBase';
 import { DOM } from '../shared/dom';
+import type { AnnotationsSvg } from './components/svg-annotations';
+import type { BlameSvg } from './components/svg-blame';
+import type { RevisionNavigationSvg } from './components/svg-revision-navigation';
 // import { Snow } from '../shared/snow';
 import '../shared/components/code-icon';
 import '../shared/components/button';
 import './components/card';
 import './components/gitlens-logo';
-import './components/gitlens-plus-logo';
+import './components/svg-annotations';
+import './components/svg-blame';
+import './components/svg-graph';
+import './components/svg-revision-navigation';
+import './components/svg-timeline';
 
 export class WelcomeApp extends App<State> {
 	constructor() {
@@ -28,18 +35,6 @@ export class WelcomeApp extends App<State> {
 			...(super.onBind?.() ?? []),
 			DOM.on('[data-feature]', 'change', (e, target: HTMLInputElement) => this.onFeatureToggled(e, target)),
 			DOM.on('[data-feature]', 'click', (e, target: HTMLElement) => this.onFeatureToggled(e, target)),
-			DOM.on('[data-hover]', 'mouseover', (e, target: HTMLElement) => {
-				const hoverTargetId = target.dataset.hover;
-				if (!hoverTargetId) return;
-
-				document.getElementById(hoverTargetId)?.setAttribute('hovering', 'true');
-			}),
-			DOM.on('[data-hover]', 'mouseout', (e, target: HTMLElement) => {
-				const hoverTargetId = target.dataset.hover;
-				if (!hoverTargetId) return;
-
-				document.getElementById(hoverTargetId)?.setAttribute('hovering', 'false');
-			}),
 			DOM.on('[data-requires="repo"]', 'click', (e, target: HTMLElement) => this.onRepoFeatureClicked(e, target)),
 		];
 		return disposables;
@@ -49,13 +44,13 @@ export class WelcomeApp extends App<State> {
 		const msg = e.data as IpcMessage;
 
 		switch (msg.method) {
-			case DidChangeRepositoriesType.method:
+			case DidChangeNotificationType.method:
 				this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
 
-				onIpc(DidChangeRepositoriesType, msg, params => {
-					this.state.repoFeaturesBlocked = params.repoFeaturesBlocked;
+				onIpc(DidChangeNotificationType, msg, params => {
+					this.state = params.state;
 					this.setState(this.state);
-					this.updateRepoState();
+					this.updateState();
 				});
 				break;
 			default:
@@ -79,7 +74,13 @@ export class WelcomeApp extends App<State> {
 		if (!feature) return;
 
 		if (e.type !== 'change') {
-			this.toggleFeatureState(feature);
+			if (feature === 'revision') {
+				const $el = document.getElementById('revision') as RevisionNavigationSvg;
+				$el.toggled = !$el.toggled;
+			} else if (feature === 'annotations') {
+				const $el = document.getElementById('annotations') as AnnotationsSvg;
+				$el.toggled = !$el.toggled;
+			}
 
 			return;
 		}
@@ -109,24 +110,21 @@ export class WelcomeApp extends App<State> {
 	}
 
 	private updateVersion() {
-		const { version } = this.state;
-		document.getElementById('version')!.textContent = version;
+		document.getElementById('version')!.textContent = this.state.version;
 	}
 
 	private updateFeatures() {
 		const { config } = this.state;
 
-		this.setFeatureState('blame', config.currentLine ?? false);
-		this.setFeatureState('codelens', config.codeLens ?? false);
-	}
+		const $el = document.getElementById('blame') as BlameSvg;
+		$el.inline = config.currentLine ?? false;
+		$el.codelens = config.codeLens ?? false;
 
-	private setFeatureState(feature: string, on: boolean) {
-		document.body.setAttribute(`data-feature-${feature}`, on ? 'on' : 'off');
-	}
+		let $input = document.getElementById('inline-blame') as HTMLInputElement;
+		$input.checked = config.currentLine ?? false;
 
-	private toggleFeatureState(feature: string) {
-		const state = document.body.getAttribute(`data-feature-${feature}`);
-		this.setFeatureState(feature, state === 'off');
+		$input = document.getElementById('codelens') as HTMLInputElement;
+		$input.checked = config.codeLens ?? false;
 	}
 
 	private updateRepoState() {
@@ -137,13 +135,3 @@ export class WelcomeApp extends App<State> {
 
 new WelcomeApp();
 // requestAnimationFrame(() => new Snow());
-
-function gitlens(code: string) {
-	return supercharged(code);
-}
-
-gitlens('');
-
-function supercharged(code: string) {
-	return code;
-}

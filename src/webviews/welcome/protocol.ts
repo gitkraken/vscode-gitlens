@@ -8,7 +8,6 @@ export interface State {
 		codeLens: Config['codeLens']['enabled'];
 		currentLine: Config['currentLine']['enabled'];
 	};
-	customSettings?: Record<string, boolean>;
 	repoFeaturesBlocked?: boolean;
 }
 
@@ -20,7 +19,7 @@ export const UpdateConfigurationCommandType = new IpcCommandType<UpdateConfigura
 	'welcome/configuration/update',
 );
 
-export interface DidChangeRepositoriesParams {
-	repoFeaturesBlocked?: boolean;
+export interface DidChangeParams {
+	state: State;
 }
-export const DidChangeRepositoriesType = new IpcNotificationType<DidChangeRepositoriesParams>('repositories/didChange');
+export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('welcome/didChange', true);
