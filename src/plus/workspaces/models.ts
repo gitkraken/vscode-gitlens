@@ -10,7 +10,18 @@ export type CodeWorkspaceFileContents = {
 	settings: { [key: string]: any };
 };
 
-export type WorkspaceRepositoriesByName = Map<string, Repository>;
+export type WorkspaceRepositoriesByName = Map<string, RepositoryMatch>;
+
+export interface RepositoryMatch {
+	repository: Repository;
+	descriptor: CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor;
+}
+
+export interface RemoteDescriptor {
+	provider: string;
+	owner: string;
+	repoName: string;
+}
 
 export interface GetWorkspacesResponse {
 	cloudWorkspaces: GKCloudWorkspace[];
@@ -124,6 +135,7 @@ export interface CloudWorkspaceRepositoryDescriptor {
 	provider_organization_id: string;
 	provider_organization_name: string;
 	url: string;
+	workspaceId: string;
 }
 
 export enum CloudWorkspaceProviderInputType {
@@ -161,6 +173,11 @@ export const cloudWorkspaceProviderInputTypeToRemoteProviderId = {
 	[CloudWorkspaceProviderInputType.GitLab]: 'gitlab',
 	[CloudWorkspaceProviderInputType.GitLabSelfHosted]: 'gitlab',
 };
+
+export enum WorkspaceAddRepositoriesChoice {
+	CurrentWindow = 'Current Window',
+	ParentFolder = 'Parent Folder',
+}
 
 export const defaultWorkspaceCount = 100;
 export const defaultWorkspaceRepoCount = 100;
@@ -538,6 +555,7 @@ export interface LocalWorkspaceRepositoryPath {
 export interface LocalWorkspaceRepositoryDescriptor extends LocalWorkspaceRepositoryPath {
 	id?: undefined;
 	name: string;
+	workspaceId: string;
 }
 
 export interface CloudWorkspaceFileData {

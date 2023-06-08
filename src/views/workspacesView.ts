@@ -189,8 +189,8 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 				},
 				this,
 			),
-			registerViewCommand(this.getQualifiedCommand('addRepo'), async (node: WorkspaceNode) => {
-				await this.container.workspaces.addCloudWorkspaceRepo(node.workspaceId);
+			registerViewCommand(this.getQualifiedCommand('addRepos'), async (node: WorkspaceNode) => {
+				await this.container.workspaces.addCloudWorkspaceRepos(node.workspaceId);
 				void node.getParent()?.triggerChange(true);
 			}),
 			registerViewCommand(
