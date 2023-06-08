@@ -16,6 +16,10 @@ a {
 	}
 }
 
+a.muted {
+	color: var(--color-foreground);
+}
+
 a,
 button:not([disabled]),
 [tabindex]:not([tabindex='-1']) {
@@ -23,10 +27,6 @@ button:not([disabled]),
 		@include utils.focus();
 	}
 }
-
-// code-icon {
-// 	font-size: inherit;
-// }
 
 nav {
 	margin-bottom: 1.6rem;
@@ -396,140 +396,20 @@ gk-card p {
 	}
 }
 
-.editor {
-	border: 0.1rem solid var(--vscode-editorWidget-border);
-
-	* {
-		user-select: none;
-	}
-
-	&-line text {
-		font-family: var(--vscode-editor-font-family);
-		font-size: var(--vscode-editor-font-size);
-		font-weight: var(--vscode-editor-font-weight);
-	}
-
-	&-cursor {
-		fill: var(--vscode-editorCursor-foreground);
-	}
-
-	&-blame {
-		fill: var(--vscode-gitlens-trailingLineForegroundColor);
-		cursor: pointer;
-
-		&.is-disabled {
-			opacity: 0;
-		}
-	}
-
-	&-codelens text {
-		font-family: var(--vscode-font-family);
-		font-size: var(--vscode-font-size);
-		font-weight: var(--vscode-font-weight);
-
-		fill: var(--vscode-editorCodeLens-foreground);
-
-		tspan {
-			font-size: 0.8em;
-		}
-
-		&.is-disabled {
-			opacity: 0;
-		}
-	}
-
-	&-heatmap {
-		stroke: #7162db;
-	}
-
-	&-punctuation {
-		fill: var(--vscode-editor-foreground);
-	}
-
-	&-function-declaration {
-		fill: var(--vscode-symbolIcon-functionForeground);
-	}
-
-	&-function-name {
-		fill: var(--vscode-symbolIcon-colorForeground);
-	}
-
-	&-function-argument {
-		fill: var(--vscode-symbolIcon-variableForeground);
-	}
-
-	&-function-argument-type {
-		fill: var(--vscode-symbolIcon-typeParameterForeground);
-	}
-
-	&-function-return {
-		fill: var(--vscode-debugTokenExpression-name);
-	}
-
-	&-line-current {
-		fill: var(--vscode-editor-lineHighlightBackground);
-		stroke: var(--vscode-editor-lineHighlightBorder);
-		stroke-width: 0.1rem;
-		fill-opacity: 0.8;
-	}
-
-	&-line-number {
-		fill: var(--vscode-editorLineNumber-foreground);
-	}
-
-	&-line-number-active {
-		fill: var(--vscode-editorLineNumber-activeForeground);
-	}
-
-	&-gutter {
-		fill: var(--vscode-gitlens-gutterBackgroundColor);
-	}
-
-	&-gutter-avatar {
-		circle {
-			fill: var(--vscode-editorInfo-foreground);
-		}
-		text {
-			fill: var(--vscode-gitlens-gutterForegroundColor);
-			font-size: 0.75rem;
-		}
-	}
-
-	&-gutter-text {
-		fill: var(--vscode-gitlens-gutterForegroundColor);
-	}
-
-	&-removed-line {
-		fill: var(--vscode-diffEditor-removedLineBackground);
-	}
-	&-added-line {
-		fill: var(--vscode-diffEditor-insertedLineBackground);
-	}
-
-	&-added-text {
-		outline: 1px solid green;
-		fill: green;
-	}
-
-	&-splitter {
-		stroke: var(--vscode-editorGroup-border);
-	}
-}
-
 @keyframes wiggle {
 	0%,
-	5%,
+	8%,
 	100% {
 		transform: rotate(0) scale(1);
 	}
 
 	1%,
-	3% {
+	4% {
 		transform: rotate(0.02turn) scale(var(--wiggle-scale-1));
 	}
 
 	2%,
-	4% {
+	6% {
 		transform: rotate(-0.02turn) scale(var(--wiggle-scale-2));
 	}
 }
@@ -555,11 +435,11 @@ gk-card p {
 
 		&__annotations {
 			&:not(.inactive) {
-				--wiggle-scale-1: 1.08;
-				--wiggle-scale-2: 1.15;
+				--wiggle-scale-1: 1.14;
+				--wiggle-scale-2: 1.28;
 
 				transform-origin: 60%;
-				animation: wiggle 8s ease-in-out 4s infinite;
+				animation: wiggle 5s ease-in-out 2s infinite;
 				animation-timing-function: steps(8);
 			}
 
@@ -586,11 +466,11 @@ gk-card p {
 		}
 
 		&__revision {
-			--wiggle-scale-1: 1.08;
-			--wiggle-scale-2: 1.2;
+			--wiggle-scale-1: 1.14;
+			--wiggle-scale-2: 1.28;
 
 			transform-origin: 5%;
-			animation: wiggle 8s ease-in-out 6s infinite;
+			animation: wiggle 5s ease-in-out 4s infinite;
 			animation-timing-function: steps(8);
 		}
 
@@ -620,224 +500,6 @@ gk-card p {
 		&.inactive,
 		& .inactive {
 			opacity: 0.6;
-		}
-	}
-}
-
-.graph {
-	border: 0.1rem solid var(--vscode-editorWidget-border);
-
-	text {
-		font-family: var(--vscode-font-family);
-		font-weight: var(--vscode-font-weight);
-		font-size: 1.1rem;
-	}
-
-	&__container {
-		fill: var(--vscode-editor-background);
-	}
-
-	&__foreground {
-		fill: var(--vscode-editor-foreground);
-	}
-
-	&__branch {
-		fill: white;
-	}
-
-	&__branch-current {
-		font-weight: 700 !important;
-	}
-
-	&__messages {
-		opacity: 0.7;
-	}
-
-	&__authors {
-		opacity: 0.45;
-	}
-
-	&__wip {
-		opacity: 0.45;
-	}
-
-	&__lane-1-foreground {
-		stroke: var(--vscode-gitlens-graphLane1Color);
-	}
-	&__lane-1-background {
-		fill: var(--vscode-gitlens-graphLane1Color);
-	}
-
-	&__lane-2-foreground {
-		stroke: var(--vscode-gitlens-graphLane2Color);
-	}
-	&__lane-2-background {
-		fill: var(--vscode-gitlens-graphLane2Color);
-	}
-
-	&__lane-3-foreground {
-		stroke: var(--vscode-gitlens-graphLane3Color);
-	}
-	&__lane-3-background {
-		fill: var(--vscode-gitlens-graphLane3Color);
-	}
-
-	&__lane-4-foreground {
-		stroke: var(--vscode-gitlens-graphLane4Color);
-	}
-	&__lane-4-background {
-		fill: var(--vscode-gitlens-graphLane4Color);
-	}
-
-	&__lane-5-foreground {
-		stroke: var(--vscode-gitlens-graphLane5Color);
-	}
-	&__lane-5-background {
-		fill: var(--vscode-gitlens-graphLane5Color);
-	}
-}
-
-@keyframes fadeInHover {
-	0% {
-		opacity: 0;
-		visibility: visible;
-	}
-
-	100% {
-		opacity: 1;
-		visibility: visible;
-	}
-}
-
-@keyframes fadeOutHover {
-	0% {
-		opacity: 1;
-		visibility: visible;
-	}
-
-	100% {
-		opacity: 0;
-		visibility: hidden;
-	}
-}
-
-.hover {
-	opacity: 0;
-	visibility: hidden;
-	position: absolute;
-	bottom: 30px;
-	right: -30px;
-	animation-duration: 0.2s;
-	animation-timing-function: ease-in-out;
-	animation-fill-mode: forwards;
-
-	&[hovering='true'] {
-		animation-name: fadeInHover;
-	}
-
-	&[hovering='false'] {
-		animation-name: fadeOutHover;
-	}
-
-	&__box {
-		position: relative;
-	}
-
-	rect {
-		fill: var(--vscode-editorHoverWidget-background);
-		stroke: var(--vscode-editorHoverWidget-border);
-		stroke-width: 1;
-	}
-
-	line {
-		stroke: var(--vscode-editorHoverWidget-border);
-		stroke-width: 1;
-	}
-
-	text {
-		font-family: var(--vscode-font-family);
-		font-weight: var(--vscode-font-weight);
-		font-size: 1.1rem;
-
-		fill: var(--vscode-editorHoverWidget-foreground);
-	}
-
-	&__diff {
-		tspan {
-			font-family: var(--vscode-editor-font-family);
-			font-weight: var(--vscode-editor-font-weight);
-			font-size: var(--vscode-editor-font-size);
-		}
-
-		&-removed {
-			fill: var(--vscode-gitDecoration-deletedResourceForeground);
-		}
-
-		&-added {
-			fill: var(--vscode-gitDecoration-addedResourceForeground);
-		}
-	}
-
-	&__author {
-		font-weight: 700;
-	}
-
-	&__date {
-		font-style: italic;
-	}
-
-	&__link {
-		fill: #3794ff !important;
-	}
-}
-
-[data-action] {
-	cursor: pointer;
-}
-
-body[data-feature-blame='off'] {
-	[data-feature-blame='on'] {
-		opacity: 0;
-	}
-}
-
-.editor-annotations-left,
-.editor-revision-left,
-[data-feature-blame='on'],
-[data-feature-codelens='on'] {
-	transition: opacity 150ms ease-in-out;
-}
-
-.editor-annotations-right,
-.editor-revision-right {
-	transition: transform 150ms ease-in-out;
-}
-
-body[data-feature-codelens='off'] {
-	[data-feature-codelens='on'] {
-		opacity: 0;
-	}
-}
-
-body[data-feature-annotations='off'] {
-	.editor-annotations-left {
-		opacity: 0;
-	}
-	.editor-annotations-right {
-		transform: translateX(-242px);
-	}
-}
-
-body[data-feature-revision='off'] {
-	.editor-revision-left {
-		opacity: 0;
-	}
-	.editor-revision-right {
-		transform: translateX(-283px);
-
-		.editor-added-text {
-			outline-color: transparent;
-			fill: inherit;
 		}
 	}
 }

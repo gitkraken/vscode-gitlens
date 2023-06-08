@@ -71,65 +71,7 @@
 					In-editor code annotations and rich hovers help you better understand how code changed and by whom
 				</p>
 
-				<div class="hover__box">
-					<!-- Don't reformat or let prettier reformat the SVG otherwise whitespace will get added incorrect and screw up the positioning -->
-					<!-- prettier-ignore -->
-					<svg
-						id="blame-hover"
-						class="hover welcome__illustration"
-						width="600"
-						height="177"
-						viewBox="30 0 80 177"
-						fill="none"
-						xmlns="http://www.w3.org/2000/svg"
-					>
-						<rect width="370" height="177" rx="3"></rect>
-						<text x="9" y="41" text-anchor="start"><tspan class="codicon" font-size="32">&#xeb99;</tspan></text>
-						<text>
-							<tspan class="hover__author hover__link" x="52" y="30">You</tspan><tspan>, 6 years ago via PR&nbsp;</tspan><tspan class="hover__author hover__link">#1</tspan><tspan class="hover__date" dx="12">(November 12th, 2016 3:41pm)</tspan><tspan x="52" y="55">Supercharge Git</tspan>
-						</text>
-
-						<line x1="0" y1="70" x2="371" y2="70" />
-
-						<text y="89">
-							<tspan x="9" dy="1.5" class="codicon hover__link">&#xeafc;</tspan><tspan dx="2" dy="-1.5" class="hover__link">29ad3a0</tspan><tspan dx="9" opacity="0.6">|</tspan><tspan dx="9" dy="1.5" class="codicon hover__link">&#xeafd;</tspan><tspan dx="9" dy="-1.5" opacity="0.6">|</tspan><tspan dx="9" dy="1.5" class="codicon hover__link">&#xea82;</tspan><tspan dx="9" dy="-1.5" opacity="0.6">|</tspan><tspan dx="9" dy="1.5" class="codicon hover__link">&#xeb01;</tspan><tspan dx="9" dy="-1.5" opacity="0.6">|</tspan><tspan dx="9" dy="1.5" class="codicon hover__link">&#xea7c;</tspan>
-						</text>
-
-						<line x1="0" y1="99" x2="371" y2="99" />
-
-						<text class="hover__diff">
-							<tspan class="hover__diff-removed" x="9" y="119">- return git;</tspan>
-							<tspan class="hover__diff-added" x="9" y="136">+ return supercharged(git);</tspan>
-						</text>
-
-						<line x1="0" y1="147" x2="371" y2="147" />
-
-						<text y="166">
-							<tspan x="9">Changes</tspan><tspan dx="12" dy="1.5" class="codicon hover__link">&#xeafc;</tspan><tspan dx="2" dy="-1.5" class="hover__link">3ac1d3f</tspan><tspan dx="9" dy="1.5" class="codicon">&#xea99;</tspan><tspan dx="6" class="codicon hover__link">&#xeafc;</tspan><tspan dx="2" dy="-1.5" class="hover__link">29ad3a0</tspan><tspan dx="9" opacity="0.6">|</tspan><tspan dx="9" dy="1.5" class="codicon hover__link">&#xeafd;</tspan>
-						</text>
-					</svg>
-
-					<!-- Don't reformat or let prettier reformat the SVG otherwise whitespace will get added incorrect and screw up the positioning -->
-					<!-- prettier-ignore -->
-					<svg
-						class="editor welcome__illustration"
-						width="600"
-						height="45"
-						viewBox="0 0 600 43"
-						fill="none"
-						xmlns="http://www.w3.org/2000/svg"
-					>
-						<g class="editor-codelens" data-feature-codelens="on">
-							<text y="18"><tspan x="38">Eric Amodio, 3 minutes ago | 1 author (Eric Amodio)</tspan></text>
-						</g>
-						<g class="editor-line">
-							<text y="34"><tspan x="7" class="editor-line-number">13</tspan><tspan x="38" class="editor-function-return">return</tspan><tspan dx="6" class="editor-function-name">supercharged</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">)</tspan><tspan class="editor-punctuation">;</tspan><tspan class="editor-cursor">|</tspan><tspan dx="24" class="editor-blame" data-hover="blame-hover" data-feature-blame="on">You, 6 years ago via PR #1 • Supercharge Git</tspan></text>
-						</g>
-						<!-- <g class="editor-line">
-							<text y="34"><tspan x="7" class="editor-line-number">12</tspan><tspan x="38" class="editor-function-declaration">function</tspan><tspan dx="6" class="editor-function-name">gitlens</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">:</tspan><tspan dx="6" class="editor-function-argument-type">object</tspan><tspan class="editor-punctuation">)</tspan><tspan dx="6" class="editor-punctuation">{</tspan><tspan class="editor-cursor">|</tspan><tspan dx="24" class="editor-blame" data-feature-blame="on">You, 6 years ago via PR #1 • Supercharge Git</tspan></text>
-						</g> -->
-					</svg>
-				</div>
+				<gk-blame-svg id="blame" inline codelens></gk-blame-svg>
 
 				<p style="margin: 0.5rem 1rem 0 1rem">
 					<strong>Want more control?</strong>
@@ -175,45 +117,7 @@
 						></rect>
 					</svg>
 				</p>
-
-				<!-- Don't reformat or let prettier reformat the SVG otherwise whitespace will get added incorrect and screw up the positioning -->
-				<!-- prettier-ignore -->
-				<svg
-					class="editor welcome__illustration"
-					width="600"
-					height="44"
-					viewBox="0 0 600 42"
-					fill="none"
-					xmlns="http://www.w3.org/2000/svg"
-				>
-					<g class="editor-line">
-						<rect class="editor-line-current" x="0" y="21" width="calc(100% - 1px)" height="21"></rect>
-						<text y="14"><tspan x="7" class="editor-line-number">12</tspan></text>
-						<text y="36"><tspan x="7" class="editor-line-number-active">13</tspan></text>
-					</g>
-					<g class="editor-annotations-left">
-						<rect class="editor-gutter" x="28" y="0" width="242" height="100%"></rect>
-						<g class="editor-line">
-							<g class="editor-gutter-avatar">
-								<circle cx="42" cy="9" r="7"></circle>
-								<text x="42" y="11.5" text-anchor="middle">EA</text>
-							</g>
-							<text y="14"><tspan x="58" class="editor-gutter-text">Hello GitLens</tspan><tspan x="274" dx="-12" text-anchor="end" class="editor-gutter-text">6 yrs ago</tspan></text>
-							<g class="editor-gutter-avatar">
-								<circle cx="42" cy="31" r="7"></circle>
-								<text x="42" y="33.5" text-anchor="middle">EA</text>
-							</g>
-							<text y="36"><tspan x="58" class="editor-gutter-text">Supercharged</tspan><tspan x="274" dx="-12" text-anchor="end" class="editor-gutter-text">6 yrs ago</tspan></text>
-						</g>
-						<line class="editor-heatmap" x1="270" y1="0" x2="270" y2="100%" />
-					</g>
-					<g class="editor-annotations-right">
-						<g class="editor-line">
-							<text y="14"><tspan x="278" class="editor-function-declaration">function</tspan><tspan dx="6" class="editor-function-name">gitlens</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">:</tspan><tspan dx="6" class="editor-function-argument-type">object</tspan><tspan class="editor-punctuation">)</tspan><tspan dx="6" class="editor-punctuation">{</tspan></text>
-							<text y="36"><tspan x="278" dx="24" class="editor-function-return">return</tspan><tspan dx="6" class="editor-function-name">supercharged</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">)</tspan><tspan class="editor-punctuation">;</tspan><tspan class="editor-cursor">|</tspan></text>
-						</g>
-					</g>
-				</svg>
+				<gk-annotations-svg id="annotations" toggled></gk-annotations-svg>
 
 				<h3>Revision Navigation</h3>
 				<p class="welcome__toolbar">
@@ -255,152 +159,21 @@
 						></rect>
 					</svg>
 				</p>
+				<gk-revision-navigation-svg id="revision" toggled></gk-revision-navigation-svg>
 
-				<!-- Don't reformat or let prettier reformat the SVG otherwise whitespace will get added incorrect and screw up the positioning -->
-				<!-- prettier-ignore -->
-				<svg
-					class="editor welcome__illustration"
-					width="600"
-					height="44"
-					viewBox="0 0 600 42"
-					fill="none"
-					xmlns="http://www.w3.org/2000/svg"
-				>
-					<defs>
-						<clipPath id="left-clip">
-							<rect x="0" y="0" width="279" height="100%"></rect>
-						</clipPath>
-					</defs>
-
-					<g class="editor-revision-left">
-						<rect class="editor-removed-line" x="28" y="21" width="251" height="21"></rect>
-						<rect class="editor-added-line" x="311" y="21" width="309" height="21"></rect>
-						<!-- <rect class="editor-added-text" x="433" y="21" width="38" height="21"></rect> -->
-						<rect class="editor-line-current" x="0" y="21" width="calc(100% - 1px)" height="21"></rect>
-						<g class="editor-line editor-line-left" style="clip-path: url(#left-clip)">
-							<text y="14"><tspan x="7" class="editor-line-number">12</tspan><tspan x="40" class="editor-function-declaration">function</tspan><tspan dx="6" class="editor-function-name">gitlens</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">:</tspan><tspan dx="6" class="editor-function-argument-type">object</tspan><tspan class="editor-punctuation">)</tspan><tspan dx="6" class="editor-punctuation">{</tspan></text>
-							<text y="36"><tspan x="7" class="editor-line-number">13</tspan><tspan x="40" dx="24" class="editor-function-return">return</tspan><tspan dx="6" class="editor-function-name">supercharged</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">)</tspan><tspan class="editor-punctuation">;</tspan></text>
-						</g>
-						<line class="editor-splitter" x1="280" y1="0" x2="280" y2="100%" />
-					</g>
-					<g class="editor-revision-right">
-						<g class="editor-line editor-line-right">
-						<text y="14"><tspan x="290" class="editor-line-number">12</tspan><tspan x="323" class="editor-function-declaration">function</tspan><tspan dx="6" class="editor-function-name">gitlens</tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">:</tspan><tspan dx="6" class="editor-function-argument-type">object</tspan><tspan class="editor-punctuation">)</tspan><tspan dx="6" class="editor-punctuation">{</tspan></text>
-						<text y="36"><tspan x="290" class="editor-line-number">13</tspan><tspan x="323" dx="24" class="editor-function-return">return</tspan><tspan dx="6" class="editor-function-name"><tspan>super</tspan><tspan class="editor-added-text">DuperC</tspan><tspan>harged</tspan></tspan><tspan class="editor-punctuation">(</tspan><tspan class="editor-function-argument">git</tspan><tspan class="editor-punctuation">)</tspan><tspan class="editor-punctuation">;</tspan><tspan class="editor-cursor">|</tspan></text>
-					</g>
-				</g>
-				</svg>
-
-				<h3>Commit Graph ✨</h3>
-				<p>
-					The
+				<h3>
 					<a
+						class="muted"
 						href="command:gitlens.showGraph"
 						data-requires="repo"
 						title="Open Commit Graph"
 						aria-label="Open Commit Graph"
 						>Commit Graph</a
 					>
-					helps you easily visualize and keep track of all work in progress<br />
-				</p>
-
-				<!-- Don't reformat or let prettier reformat the SVG otherwise whitespace will get added incorrect and screw up the positioning -->
-				<!-- prettier-ignore -->
-				<svg class="graph welcome__illustration" width="850" height="290" viewBox="0 0 850 290" fill="none" xmlns="http://www.w3.org/2000/svg">
-					<rect class="graph__container" width="850" height="290" rx="14"/>
-
-					<rect class="graph__lane-2-background" x="70" y="46" width="126" height="19" rx="4"/>
-					<text class="graph__branch graph__branch-current" x="74" y="59"><tspan dy="1" class="codicon">&#xeab2;</tspan><tspan dx="4" class="codicon">&#xea7a;</tspan><tspan dx="6" dy="-1">main</tspan></text>
-
-					<rect class="graph__lane-3-background" opacity="0.5" x="70" y="73" width="126" height="19" rx="4"/>
-					<text class="graph__branch" x="74" y="87"><tspan dy="1" class="codicon">&#xebaa;</tspan><tspan dx="4" class="codicon">&#xea64;</tspan><tspan dx="6" dy="-1">feature/onboard</tspan></text>
-
-					<rect class="graph__lane-4-background" opacity="0.5" x="70" y="99" width="126" height="19" rx="4"/>
-					<text class="graph__branch" x="74" y="113"><tspan dy="1" class="codicon">&#xea7a;</tspan><tspan dx="4" class="codicon">&#xea64;</tspan><tspan dx="6" dy="-1">feature/graph</tspan></text>
-
-					<rect class="graph__lane-5-background" opacity="0.5" x="70" y="237" width="126" height="19" rx="4"/>
-					<text class="graph__branch" x="74" y="251"><tspan dy="1" class="codicon">&#xea7a;</tspan><tspan dx="6" dy="-1">bug/crash</tspan></text>
-
-					<rect class="graph__lane-1-background" opacity="0.2" x="216" y="20" width="128" height="18"/>
-					<rect class="graph__lane-1-background" x="342" y="20" width="2" height="18"/>
-
-					<line class="graph__lane-2-foreground" opacity="0.4" x1="196" y1="56" x2="230" y2="56" stroke-width="2"/>
-					<rect class="graph__lane-2-background" opacity="0.2" x="238" y="47" width="106" height="18"/>
-					<rect class="graph__lane-2-background" x="342" y="47" width="2" height="18"/>
-
-					<rect class="graph__lane-2-background" opacity="0.2" x="238" y="128" width="106" height="18" />
-					<rect class="graph__lane-2-background" x="342" y="128" width="2" height="18"/>
-
-					<rect class="graph__lane-2-background" opacity="0.2" x="238" y="263" width="106" height="18"/>
-					<rect class="graph__lane-2-background" x="342" y="263" width="2" height="18"/>
-
-					<line class="graph__lane-3-foreground" opacity="0.4" x1="196" y1="83" x2="253" y2="83" stroke-width="2"/>
-					<rect class="graph__lane-3-background" opacity="0.2" x="260" y="74" width="84" height="18"/>
-					<rect class="graph__lane-3-background" x="342" y="74" width="2" height="18"/>
-
-					<rect class="graph__lane-3-background" opacity="0.2" x="260" y="155" width="84" height="18"/>
-					<rect class="graph__lane-3-background" x="342" y="155" width="2" height="18"/>
-
-					<rect class="graph__lane-3-background" opacity="0.2" x="260" y="209" width="84" height="18"/>
-					<rect class="graph__lane-3-background" x="342" y="209" width="2" height="18"/>
-
-					<line class="graph__lane-4-foreground" opacity="0.4" x1="196" y1="109" x2="275" y2="109" stroke-width="2"/>
-					<rect class="graph__lane-4-background" opacity="0.2" x="282" y="101" width="62" height="18"/>
-					<rect class="graph__lane-4-background" x="342" y="101" width="2" height="18"/>
-
-					<rect class="graph__lane-4-background" x="342" y="182" width="2" height="18"/>
-					<rect class="graph__lane-4-background" opacity="0.2" x="282" y="182" width="62" height="18"/>
-
-					<line class="graph__lane-5-foreground" opacity="0.3" x1="196" y1="246" x2="297" y2="246" stroke-width="2"/>
-					<rect class="graph__lane-5-background" opacity="0.2" x="304" y="236" width="40" height="18"/>
-					<rect class="graph__lane-5-background" x="342" y="236" width="2" height="18"/>
-					<path class="graph__lane-5-foreground" d="M239 270.74H297C301.418 270.74 305 267.158 305 262.74V247" stroke-width="2"/>
-
-					<line class="graph__lane-1-foreground" x1="217" y1="38" x2="217" y2="319" stroke-width="2" stroke-dasharray="4 4"/>
-					<circle class="graph__lane-1-foreground graph__container" cx="217" cy="29" r="8" stroke-width="2" stroke-dasharray="4 4"/>
-
-					<rect class="graph__lane-2-background" x="238" y="47" width="2" height="332"/>
-					<circle class="graph__lane-2-foreground graph__container" cx="239" cy="56" r="8" stroke-width="2"/>
-					<circle class="graph__lane-2-foreground graph__container" cx="239" cy="137" r="8" stroke-width="2"/>
-					<circle class="graph__lane-2-foreground graph__container" cx="239" cy="271" r="8" stroke-width="2"/>
-
-					<rect class="graph__lane-3-background" x="260" y="74" width="2" height="305"/>
-					<circle class="graph__lane-3-foreground graph__container" cx="261" cy="83" r="8" stroke-width="2"/>
-					<circle class="graph__lane-3-foreground graph__container" cx="261" cy="164" r="8" stroke-width="2"/>
-					<circle class="graph__lane-3-foreground graph__container" cx="261" cy="218" r="8" stroke-width="2"/>
-
-					<rect class="graph__lane-4-background" x="282" y="106" width="2" height="209"/>
-					<circle class="graph__lane-4-foreground graph__container" cx="283" cy="110" r="8" stroke-width="2"/>
-					<circle class="graph__lane-4-foreground graph__container" cx="283" cy="191" r="8" stroke-width="2"/>
-
-					<circle class="graph__lane-5-foreground graph__container" cx="305" cy="245" r="8" stroke-width="2"/>
-
-					<text x="366" y="33.5" class="graph__foreground graph__wip"><tspan>Work in progress</tspan><tspan dx="9" dy="1" class="codicon">&#xea73;</tspan><tspan dx="3" dy="-1">2</tspan><tspan dx="9" dy="1" class="codicon">&#xea60;</tspan><tspan dx="3" dy="-1">1</tspan></text>
-					<text class="graph__foreground graph__messages">
-						<tspan x="366" y="59.5">Improves performance &amp; reduces bundle size</tspan>
-						<tspan x="366" y="86.5">Adds brand new welcome experience</tspan>
-						<tspan x="366" y="113.5">Adds new Commit Graph panel layout</tspan>
-						<tspan x="366" y="140.5">Optimizes startup performance</tspan>
-						<tspan x="366" y="167.5">Revamps Home view experience for better utility</tspan>
-						<tspan x="366" y="194.5">Optimizes Commit Graph loading performance</tspan>
-						<tspan x="366" y="221.5">Adds new GitLens Inspect side bar for a better experience</tspan>
-						<tspan x="366" y="248.5">Fixes crash when run on a phone</tspan>
-						<tspan x="366" y="275.5">Updates package dependencies</tspan>
-					</text>
-
-					<text class="graph__foreground graph__authors">
-						<tspan x="696" y="59.5">Eric Amodio</tspan>
-						<tspan x="696" y="86.5">Keith Daulton</tspan>
-						<tspan x="696" y="113.5">Eric Amodio</tspan>
-						<tspan x="696" y="140.5">Ramin Tadayon</tspan>
-						<tspan x="696" y="167.5">Keith Daulton</tspan>
-						<tspan x="696" y="194.5">Eric Amodio</tspan>
-						<tspan x="696" y="221.5">Keith Daulton</tspan>
-						<tspan x="696" y="248.5">Ramin Tadayon</tspan>
-						<tspan x="696" y="275.5">Ramin Tadayon</tspan>
-					</text>
-
-				</svg>
+					✨
+				</h3>
+				<p>Helps you easily visualize and keep track of all work in progress<br /></p>
+				<gk-graph-svg></gk-graph-svg>
 
 				<h3>Side Bar Views</h3>
 				<p>Powerful views into Git that don't come with VS Code</p>
@@ -497,19 +270,39 @@
 					<code-icon icon="question"></code-icon> Features which need a repository are currently unavailable
 				</p>
 
-				<h3>Focus ✨</h3>
-				<p>
-					The
+				<h3>
 					<a
+						class="muted"
 						href="command:gitlens.showFocusPage"
 						data-requires="repo"
 						title="Open Focus"
 						aria-label="Open Focus"
 						>Focus</a
 					>
-					view helps you focus on what's important by providing you with a comprehensive list of all your pull
+					✨
+				</h3>
+				<p>
+					Helps you focus on what's important by providing you with a comprehensive list of all your pull
 					requests and issues on your GitHub repos.
 				</p>
+
+				<h3>
+					<a
+						class="muted"
+						href="command:gitlens.showTimelineView"
+						data-requires="repo"
+						title="Show Visual File History view"
+						aria-label="Show Visual File History view"
+						>Visual File History</a
+					>
+					✨
+				</h3>
+				<p>
+					Enables you to quickly see the evolution of a file, including when changes were made, how large they
+					were, and who made them. Use it to quickly find when the most impactful changes were made to a file
+					or who best to talk to about file changes and more.
+				</p>
+				<gk-timeline-svg></gk-timeline-svg>
 
 				<h3>Integrations</h3>
 				<p>GitLens provides issue and pull request auto-linking with many Git hosting services.</p>
@@ -518,6 +311,7 @@
 					issues and pull requests, pull requests associated with branches and commits, and avatars.
 				</p>
 			</section>
+
 			<section class="welcome__section welcome__section-bar">
 				<h2>Get Started</h2>
 				<p>
@@ -703,7 +497,7 @@
 			</section>
 		</main>
 		<footer>
-			<p>✨ Requires a trial or subscription to use this on privately hosted repos</p>
+			<p>✨ Requires a trial or subscription for use on privately hosted repos</p>
 		</footer>
 		#{endOfBody}
 	</body>

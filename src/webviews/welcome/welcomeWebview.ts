@@ -1,11 +1,12 @@
+import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, workspace } from 'vscode';
 import type { Container } from '../../container';
 import { configuration } from '../../system/configuration';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
 import type { WebviewController, WebviewProvider } from '../webviewController';
-import type { DidChangeRepositoriesParams, State, UpdateConfigurationParams } from './protocol';
-import { DidChangeRepositoriesType, UpdateConfigurationCommandType } from './protocol';
+import type { State, UpdateConfigurationParams } from './protocol';
+import { DidChangeNotificationType, UpdateConfigurationCommandType } from './protocol';
 
 const emptyDisposable = Object.freeze({
 	dispose: () => {
@@ -18,10 +19,9 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 
 	constructor(private readonly container: Container, private readonly host: WebviewController<State>) {
 		this._disposable = Disposable.from(
-			this.container.git.onDidChangeRepositories(this.notifyDidChangeRepositories, this),
-			!workspace.isTrusted
-				? workspace.onDidGrantWorkspaceTrust(this.notifyDidChangeRepositories, this)
-				: emptyDisposable,
+			configuration.onDidChange(this.onConfigurationChanged, this),
+			this.container.git.onDidChangeRepositories(this.notifyDidChange, this),
+			!workspace.isTrusted ? workspace.onDidGrantWorkspaceTrust(this.notifyDidChange, this) : emptyDisposable,
 		);
 	}
 
@@ -30,18 +30,13 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 	}
 
 	includeBootstrap(): State {
-		const { repoFeaturesBlocked } = this.getRepositoriesState();
+		return this.getState();
+	}
 
-		return {
-			timestamp: Date.now(),
-			version: this.container.version,
-			// Make sure to get the raw config, not from the container which has the modes mixed in
-			config: {
-				codeLens: configuration.get('codeLens.enabled'),
-				currentLine: configuration.get('currentLine.enabled'),
-			},
-			repoFeaturesBlocked: repoFeaturesBlocked,
-		};
+	private onConfigurationChanged(e: ConfigurationChangeEvent) {
+		if (!configuration.changed(e, 'codeLens.enabled') && !configuration.changed(e, 'currentLine.enabled')) return;
+
+		this.notifyDidChange();
 	}
 
 	onMessageReceived(e: IpcMessage) {
@@ -51,15 +46,19 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 				break;
 		}
 	}
-
-	private getRepositoriesState(): DidChangeRepositoriesParams {
-		// const count = this.container.git.repositoryCount;
-		const openCount = this.container.git.openRepositoryCount;
-		const hasUnsafe = this.container.git.hasUnsafeRepositories();
-		const trusted = workspace.isTrusted;
-
+	private getState(): State {
 		return {
-			repoFeaturesBlocked: !trusted || openCount === 0 || hasUnsafe,
+			timestamp: Date.now(),
+			version: this.container.version,
+			// Make sure to get the raw config so to avoid having the mode mixed in
+			config: {
+				codeLens: configuration.get('codeLens.enabled', undefined, true, true),
+				currentLine: configuration.get('currentLine.enabled', undefined, true, true),
+			},
+			repoFeaturesBlocked:
+				!workspace.isTrusted ||
+				this.container.git.openRepositoryCount === 0 ||
+				this.container.git.hasUnsafeRepositories(),
 		};
 	}
 
@@ -67,7 +66,7 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 		void configuration.updateEffective(`${params.type}.enabled`, params.value);
 	}
 
-	private notifyDidChangeRepositories() {
-		void this.host.notify(DidChangeRepositoriesType, this.getRepositoriesState());
+	private notifyDidChange() {
+		void this.host.notify(DidChangeNotificationType, { state: this.getState() });
 	}
 }
