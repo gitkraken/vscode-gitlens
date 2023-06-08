@@ -626,13 +626,13 @@ export class WorkspacesService implements Disposable {
 				[
 					{
 						label: 'Choose repositories from the current window',
-						description: 'Choose repositories from the current window',
+						description: undefined,
 						choice: WorkspaceAddRepositoriesChoice.CurrentWindow,
 						picked: true,
 					},
 					{
 						label: 'Choose repositories from a folder',
-						description: 'Choose repositories from a folder',
+						description: undefined,
 						choice: WorkspaceAddRepositoriesChoice.ParentFolder,
 					},
 				],
