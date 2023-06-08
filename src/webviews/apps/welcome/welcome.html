@@ -13,10 +13,6 @@
 				font-display: block;
 				src: url('#{root}/dist/glicons.woff2?ab6c9110fb0444acd9ba719c4c55fa68') format('woff2');
 			}
-
-			.video-button {
-				--video-banner-bg: url(#{webroot}/media/getting-started.webp);
-			}
 		</style>
 	</head>
 
@@ -260,23 +256,7 @@
 
 				<h2>Tutorial Video</h2>
 				<nav class="welcome__starting-nav" aria-label="Getting started links">
-					<a
-						class="video-button"
-						href="https://www.youtube.com/watch?v=UQPb73Zz9qk"
-						aria-label="Watch the Tutorial video"
-						title="Watch the Tutorial video"
-					>
-						<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-							<path
-								d="M13.8626 11.0319C14.3464 10.5343 24.5 16.0074 24.5 17.5C24.5 18.9926 14.346 24.4657 13.8627 23.9681C13.3794 23.4706 13.3788 11.5294 13.8626 11.0319Z"
-								fill="currentColor"
-							/>
-							<path
-								d="M34 18C34 26.8366 26.8366 34 18 34C9.16344 34 2 26.8366 2 18C2 9.16344 9.16344 2 18 2C26.8366 2 34 9.16344 34 18Z"
-								stroke="currentColor"
-							/>
-						</svg>
-					</a>
+					<video-button></video-button>
 					<span
 						><gk-button appearance="secondary" href="command:gitlens.getStarted"
 							>Get Started Walkthrough</gk-button

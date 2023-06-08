@@ -19,6 +19,7 @@ import './components/svg-editor-toolbar';
 import './components/svg-graph';
 import './components/svg-revision-navigation';
 import './components/svg-timeline';
+import './components/video-button';
 
 export class WelcomeApp extends App<State> {
 	constructor() {
