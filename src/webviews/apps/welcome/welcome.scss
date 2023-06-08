@@ -173,52 +173,6 @@ gk-card p {
 	margin: 0;
 }
 
-.video-button {
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	align-items: flex-end;
-	background-color: var(--gk-card-background);
-	padding: 0 2rem 0 0;
-	color: inherit;
-	transition: background-color ease-in-out 150ms;
-	border-radius: 0.4rem;
-	position: relative;
-	overflow: hidden;
-	height: 70px;
-
-	> svg {
-		transform: scale(1.2);
-		transition: transform ease-in-out 150ms;
-	}
-
-	&:hover {
-		background-color: var(--gk-card-hover-background);
-		text-decoration: none;
-		color: inherit;
-
-		& > svg {
-			transform: scale(1.4);
-		}
-
-		&::before {
-			transform: translateX(-3px) scale(1.05);
-		}
-	}
-
-	&::before {
-		content: '';
-		position: absolute;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		background: no-repeat var(--video-banner-bg) left center;
-		background-size: cover;
-		transition: transform ease-in-out 150ms;
-	}
-}
-
 .welcome {
 	padding: var(--gitlens-gutter-width);
 
