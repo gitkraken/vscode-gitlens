@@ -26,7 +26,7 @@ export class AccountContent extends LitElement {
 				position: relative;
 				display: grid;
 				gap: 0 0.8rem;
-				grid-template-columns: 3.4rem auto;
+				grid-template-columns: 3.4rem auto min-content;
 				grid-auto-flow: column;
 				margin-bottom: 1.3rem;
 			}
@@ -54,6 +54,10 @@ export class AccountContent extends LitElement {
 				position: relative;
 				margin: 0;
 				color: var(--color-foreground--65);
+			}
+
+			.account__signout {
+				grid-row: 1 / span 2;
 			}
 
 			.repo-access {
@@ -132,13 +136,12 @@ export class AccountContent extends LitElement {
 				</div>
 				<p class="account__title">${this.name}</p>
 				<p class="account__access">${this.planName}${this.daysLeft}</p>
+				<div class="account__signout">
+					<gk-button appearance="toolbar" href="command:gitlens.plus.logout"
+						><code-icon icon="sign-out" title="Sign Out" aria-label="Sign Out"></code-icon
+					></gk-button>
+				</div>
 			</div>
-			<button-container>
-				<gk-button appearance="secondary" full href="command:gitlens.plus.manage">Manage Account</gk-button>
-				<gk-button appearance="secondary" href="command:gitlens.plus.logout"
-					><code-icon icon="sign-out" title="Sign Out" aria-label="Sign Out"></code-icon
-				></gk-button>
-			</button-container>
 		`;
 	}
 
@@ -203,6 +206,11 @@ export class AccountContent extends LitElement {
 
 			case SubscriptionState.Paid:
 				return html`
+					<button-container>
+						<gk-button appearance="secondary" full href="command:gitlens.plus.manage"
+							>Manage Account</gk-button
+						>
+					</button-container>
 					<p>
 						You have access to ✨ features on privately hosted repos and ☁️ features based on your
 						subscription tier.
