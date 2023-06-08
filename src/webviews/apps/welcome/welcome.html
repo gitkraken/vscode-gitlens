@@ -88,76 +88,14 @@
 				<h3>File Annotations</h3>
 				<p class="welcome__toolbar">
 					<span>On-demand whole file annotations to see authorship, recent changes, and a heatmap</span>
-					<!-- Don't reformat or let prettier reformat the SVG otherwise whitespace will get added incorrect and screw up the positioning -->
-					<!-- prettier-ignore -->
-					<svg
-						class="toolbar"
-						width="143"
-						height="20"
-						viewBox="0 -2 143 18"
-						fill="none"
-						xmlns="http://www.w3.org/2000/svg"
-					>
-						<text y="16" class="toolbar-icon">
-							<tspan class="glicon inactive">&#xf105;</tspan><tspan dx="9" class="glicon inactive">&#xf101;</tspan><tspan dx="9" class="glicon inactive">&#xf103;</tspan><tspan dx="32" class="codicon inactive">&#xeb56;</tspan><tspan dx="9" class="codicon inactive">&#xea7c;</tspan>
-						</text>
-						<g class="toolbar-icon toolbar-icon__annotations">
-							<circle cx="83" cy="8" r="7.5"/>
-							<path d="M84.2583 4.71315C84.4119 4.44544 84.4999 4.13329 84.4999 3.79998C84.4999 2.80588 83.7165 2 82.75 2C81.7835 2 81 2.80588 81 3.79998C81 4.62503 81.5397 5.32043 82.2757 5.53309V10.4669C81.5397 10.6796 81 11.375 81 12.2C81 13.1941 81.7835 14 82.75 14C83.7165 14 84.4999 13.1941 84.4999 12.2C84.4999 11.3747 83.96 10.6792 83.2236 10.4667V5.53326C83.3465 5.49782 83.4638 5.44893 83.5741 5.38824L85.2151 7.07621C85.1305 7.26617 85.0834 7.47746 85.0834 7.70007C85.0834 8.52849 85.7363 9.20005 86.5417 9.20005C87.3471 9.20005 88 8.52849 88 7.70007C88 6.87165 87.3471 6.20008 86.5417 6.20008C86.2988 6.20008 86.0697 6.26117 85.8683 6.36922L84.2583 4.71315Z"/>
-						</g>
-						<rect
-							class="toolbar-icon__interactive"
-							data-feature="annotations"
-							x="80"
-							y="0"
-							width="16"
-							height="16"
-							fill="transparent"
-							stroke="none"
-						></rect>
-					</svg>
+					<gk-editor-toolbar-svg annotations annotations-toggled></gk-editor-toolbar-svg>
 				</p>
 				<gk-annotations-svg id="annotations" toggled></gk-annotations-svg>
 
 				<h3>Revision Navigation</h3>
 				<p class="welcome__toolbar">
 					<span>Effortlessly explore the history of a file to see how the code evolved over time</span>
-					<!-- Don't reformat or let prettier reformat the SVG otherwise whitespace will get added incorrect and screw up the positioning -->
-					<!-- prettier-ignore -->
-					<svg
-						class="toolbar"
-						width="147"
-						height="20"
-						viewBox="-3 0 147 16"
-						fill="none"
-						xmlns="http://www.w3.org/2000/svg"
-					>
-						<rect
-							class="toolbar-icon-accent toolbar-icon__revision-bg"
-							x="-3"
-							y="-2"
-							width="22"
-							height="calc(100% + 4px)"
-							rx="4"
-						/>
-						<text y="16" class="toolbar-icon toolbar-icon__revision">
-							<tspan class="toolbar-icon__revision glicon">&#xf105;</tspan>
-						</text>
-						<text y="16" class="toolbar-icon">
-							<tspan dx="25" class="glicon inactive">&#xf101;</tspan><tspan dx="9" class="glicon inactive">&#xf103;</tspan><tspan dx="9" class="glicon inactive">&#xf113;</tspan><tspan dx="9" class="codicon inactive">&#xeb56;</tspan><tspan dx="9" class="codicon inactive">&#xea7c;</tspan>
-						</text>
-
-						<rect
-							class="toolbar-icon__interactive"
-							data-feature="revision"
-							x="0"
-							y="0"
-							width="16"
-							height="16"
-							fill="transparent"
-							stroke="none"
-						></rect>
-					</svg>
+					<gk-editor-toolbar-svg revision revision-toggled></gk-editor-toolbar-svg>
 				</p>
 				<gk-revision-navigation-svg id="revision" toggled></gk-revision-navigation-svg>
 
