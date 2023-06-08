@@ -325,7 +325,7 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 		return;
 	}
 
-	const majorPrerelease = satisfies(previous, '< 2023.6.0899');
+	const majorPrerelease = satisfies(previous, '< 2023.6.0800');
 
 	if (current.major === previous.major && !majorPrerelease) return;
 
