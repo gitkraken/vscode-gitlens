@@ -64,11 +64,7 @@ export class AccountApp extends App<State> {
 	}
 
 	private getDaysRemaining() {
-		if (
-			![SubscriptionState.FreeInPreviewTrial, SubscriptionState.FreePlusInTrial].includes(
-				this.state.subscription.state,
-			)
-		) {
+		if (this.state.subscription.state !== SubscriptionState.FreePlusInTrial) {
 			return 0;
 		}
 
