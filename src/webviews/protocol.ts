@@ -64,7 +64,7 @@ export interface UpdateConfigurationParams {
 	changes: {
 		[key in ConfigPath | CustomConfigPath]?: ConfigPathValue<ConfigPath> | CustomConfigPathValue<CustomConfigPath>;
 	};
-	removes: string[];
+	removes: (keyof { [key in ConfigPath | CustomConfigPath]?: ConfigPathValue<ConfigPath> })[];
 	scope?: 'user' | 'workspace';
 	uri?: string;
 }
@@ -112,4 +112,11 @@ const customConfigKeys: readonly CustomConfigPath[] = [
 
 export function isCustomConfigKey(key: string): key is CustomConfigPath {
 	return customConfigKeys.includes(key as CustomConfigPath);
+}
+
+export function assertsConfigKeyValue<T extends ConfigPath>(
+	key: T,
+	value: unknown,
+): asserts value is ConfigPathValue<T> {
+	// Noop
 }
