@@ -1,12 +1,14 @@
 import type { Disposable, TreeViewVisibilityChangeEvent } from 'vscode';
 import { ProgressLocation, window } from 'vscode';
 import type { WorkspacesViewConfig } from '../config';
+import { Commands } from '../constants';
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
 import type { Repository } from '../git/models/repository';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
 import { WorkspaceType } from '../plus/workspaces/models';
 import { SubscriptionState } from '../subscription';
+import { executeCommand } from '../system/command';
 import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';
 import type { RepositoriesNode } from './nodes/repositoriesNode';
 import { RepositoryNode } from './nodes/repositoryNode';
@@ -73,6 +75,11 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 		void this.container.viewCommands;
 
 		return [
+			registerViewCommand(
+				this.getQualifiedCommand('copy'),
+				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
+				this,
+			),
 			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
 				() => {
