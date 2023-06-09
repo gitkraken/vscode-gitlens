@@ -108,7 +108,6 @@ export interface State {
 	config?: GraphComponentConfig;
 	context?: GraphContexts & { settings?: SerializedGraphItemContext };
 	nonce?: string;
-	trialBanner?: boolean;
 	workingTreeStats?: GraphWorkingTreeStats;
 	searchResults?: DidSearchParams['results'];
 	excludeRefs?: GraphExcludeRefs;
@@ -218,11 +217,6 @@ export interface DimMergeCommitsParams {
 	dim: boolean;
 }
 export const DimMergeCommitsCommandType = new IpcCommandType<DimMergeCommitsParams>('graph/dimMergeCommits');
-
-export interface DismissBannerParams {
-	key: 'preview' | 'trial';
-}
-export const DismissBannerCommandType = new IpcCommandType<DismissBannerParams>('graph/dismissBanner');
 
 export type DoubleClickedParams =
 	| {
