@@ -14348,8 +14348,8 @@
 				"steps": [
 					{
 						"id": "gitlens.welcome.tutorial",
-						"title": "Welcome page and tutorial video",
-						"description": "Open the Welcome page to quickly setup and learn about frequently used GitLens features.\n\n[Open Welcome](command:gitlens.showWelcomePage?%22quick-setup%22 \"Opens the GitLens Quick Setup\")\nOr sit back and watch the Getting Started video.\n\n[Watch Tutorial Video](https://www.youtube.com/watch?v=UQPb73Zz9qk \"Watch the Getting Started video\")\n[Our rich, interactive settings editor](command:gitlens.showSettingsPage \"Opens the GitLens Interactive Settings\") enables seemingly endless customization possibilities.",
+						"title": "Welcome and Tutorial",
+						"description": "Open the Welcome experience to quickly get started and discover the many powerful GitLens features.\n\n[Open Welcome](command:gitlens.showWelcomePage \"Opens GitLens Welcome\")\nOr, sit back and watch the our Getting Started video.\n\n[Watch Tutorial Video](https://www.youtube.com/watch?v=UQPb73Zz9qk \"Watch the Getting Started video\")\n💡 **Want more control?** Use the interactive [GitLens Settings](command:gitlens.showSettingsPage \"Opens GitLens Settings\") editor to customize GitLens to meet your needs.",
 						"media": {
 							"markdown": "walkthroughs/welcome/0-tutorial.md"
 						}
@@ -14405,7 +14405,7 @@
 					{
 						"id": "gitlens.welcome.hostingServiceIntegrations",
 						"title": "Integrate with Git hosting services",
-						"description": "Connect with GitHub, GitHub Enterprise, GitLab, GitLab self-managed, Gitea, Gerrit, Google Source, Bitbucket, Bitbucket Server, Azure DevOps and custom servers.\nAll Git host integrations provide issue and pull request auto-linking, while rich integrations (e.g. GitHub & GitLab) provide more detailed hover information for auto-linked issues and pull requests, pull requests associated with branches and commits, and avatars.\n\n[Configure Autolinks](command:gitlens.showSettingsPage?%22autolinks%22)",
+						"description": "Quickly gain insights from pull requests and issues without leaving your editor.\n\nConnect with GitHub, GitHub Enterprise, GitLab, GitLab self-managed, Gitea, Gerrit, Google Source, Bitbucket, Bitbucket Server, Azure DevOps and custom servers.\nAll Git host integrations provide issue and pull request auto-linking, while rich integrations (e.g. GitHub & GitLab) provide more detailed hover information for auto-linked issues and pull requests, pull requests associated with branches and commits, and avatars.\n\n[Configure Autolinks](command:gitlens.showSettingsPage?%22autolinks%22)",
 						"media": {
 							"markdown": "walkthroughs/welcome/8-hosting-service-integrations.md"
 						}
@@ -14422,7 +14422,7 @@
 					{
 						"id": "gitlens.welcome.additional",
 						"title": "And More!",
-						"description": "Many more powerful features including the Interactive Rebase Editor, [Git Command Palette](command:gitlens.gitCommands), and Integrated Terminal Links.",
+						"description": "**Rebase got you down?**\nEasily visualize and configure interactive rebase operations with the user-friendly Interactive Rebase Editor\n\n**Trouble remembering Git commands?**\nNow you don't have to with the Git Command Palette — a guided, step-by-step experience to many common Git commands.\n\n[Open Git Command Palette](command:gitlens.gitCommands)\n\n**Terminal your jam?**\nQuickly jump to more details on commits, branches, tags, and more with autolinks in the Integrated Terminal.\n\n**Not sure what you are looking for?**\nOpen the Command Palette and explore the many available commands.\n\n[Open GitLens Commands](command:workbench.action.quickOpen?%22>GitLens%3A%22)",
 						"media": {
 							"markdown": "walkthroughs/welcome/additional-features.md"
 						}
