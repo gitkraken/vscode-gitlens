@@ -150,7 +150,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 			);
 		}
 
-		void showWelcomeOrWhatsNew(container, gitlensVersion, previousVersion);
+		void showWelcomeOrWhatsNew(container, gitlensVersion, prerelease, previousVersion);
 
 		void storage.store(prerelease ? 'preVersion' : 'version', gitlensVersion);
 
@@ -282,7 +282,12 @@ function registerBuiltInActionRunners(container: Container): void {
 	);
 }
 
-async function showWelcomeOrWhatsNew(container: Container, version: string, previousVersion: string | undefined) {
+async function showWelcomeOrWhatsNew(
+	container: Container,
+	version: string,
+	prerelease: boolean,
+	previousVersion: string | undefined,
+) {
 	if (previousVersion == null) {
 		Logger.log(`GitLens first-time install; window.focused=${window.state.focused}`);
 
@@ -325,7 +330,7 @@ async function showWelcomeOrWhatsNew(container: Container, version: string, prev
 		return;
 	}
 
-	const majorPrerelease = satisfies(previous, '< 2023.6.0800');
+	const majorPrerelease = prerelease && satisfies(previous, '< 2023.6.0800');
 
 	if (current.major === previous.major && !majorPrerelease) return;
 
