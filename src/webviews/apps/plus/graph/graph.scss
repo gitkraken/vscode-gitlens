@@ -401,7 +401,7 @@ button:not([disabled]),
 	font-family: inherit;
 	background-color: transparent;
 	border: none;
-	color: var(--text-disabled, hsla(0, 0%, 100%, 0.4));
+	color: var(--color-graph-text-disabled, hsla(0, 0%, 100%, 0.4));
 	margin: 0;
 	padding: 0 2px;
 	height: var(--column-button-height);
@@ -924,7 +924,7 @@ button:not([disabled]),
 
 	.button {
 		background-color: var(--color-graph-actionbar-background);
-		color: var(--text-disabled, hsla(0deg, 0%, 100%, 0.4));
+		color: var(--color-graph-text-disabled, hsla(0deg, 0%, 100%, 0.4));
 		border-radius: 3px;
 
 		&:hover {
@@ -946,7 +946,7 @@ button:not([disabled]),
 	.graph-icon {
 		position: relative;
 		top: -2px;
-		color: var(--text-disabled, hsla(0, 0%, 100%, 0.4));
+		color: var(--color-graph-text-disabled, hsla(0, 0%, 100%, 0.4));
 	}
 }
 
