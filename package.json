@@ -4788,6 +4788,11 @@
 				"category": "GitLens+"
 			},
 			{
+				"command": "gitlens.showWorkspacesView",
+				"title": "Show GitKraken Worktrees View",
+				"category": "GitLens+"
+			},
+			{
 				"command": "gitlens.compareWith",
 				"title": "Compare References...",
 				"category": "GitLens",
@@ -7986,6 +7991,10 @@
 				},
 				{
 					"command": "gitlens.showWorktreesView",
+					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.showWorkspacesView",
 					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
 				},
 				{

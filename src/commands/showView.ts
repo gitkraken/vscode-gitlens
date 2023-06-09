@@ -23,6 +23,7 @@ export class ShowViewCommand extends Command {
 			Commands.ShowTagsView,
 			Commands.ShowTimelineView,
 			Commands.ShowWorktreesView,
+			Commands.ShowWorkspacesView,
 		]);
 	}
 
@@ -64,6 +65,8 @@ export class ShowViewCommand extends Command {
 				return this.container.timelineView.show();
 			case Commands.ShowWorktreesView:
 				return this.container.worktreesView.show();
+			case Commands.ShowWorkspacesView:
+				return this.container.workspacesView.show();
 		}
 
 		return Promise.resolve(undefined);
