@@ -23,10 +23,10 @@ export function computeThemeColors(mutations?: MutationRecord[]): ThemeChangeEve
 	const root = document.documentElement;
 	const computedStyle = window.getComputedStyle(root);
 
-	const isLightTheme =
-		root.classList.contains('vscode-light') || root.classList.contains('vscode-high-contrast-light');
+	const classList = document.body.classList;
+	const isLightTheme = classList.contains('vscode-light') || classList.contains('vscode-high-contrast-light');
 	const isHighContrastTheme =
-		root.classList.contains('vscode-high-contrast') || root.classList.contains('vscode-high-contrast-light');
+		classList.contains('vscode-high-contrast') || classList.contains('vscode-high-contrast-light');
 
 	const rootStyle = root.style;
 
