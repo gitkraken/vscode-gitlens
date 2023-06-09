@@ -5949,8 +5949,13 @@
 				"icon": "$(empty-window)"
 			},
 			{
+				"command": "gitlens.views.revealRepositoryInExplorer",
+				"title": "Reveal in File Explorer",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.revealWorktreeInExplorer",
-				"title": "Reveal Worktree in File Explorer",
+				"title": "Reveal in File Explorer",
 				"category": "GitLens"
 			},
 			{
@@ -8759,6 +8764,10 @@
 				},
 				{
 					"command": "gitlens.views.openWorktreeInNewWindow",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.revealRepositoryInExplorer",
 					"when": "false"
 				},
 				{
@@ -11871,6 +11880,11 @@
 					"when": "viewItem =~ /gitlens:repository\\b/ && gitlens:hasRemotes",
 					"group": "2_gitlens_quickopen@2",
 					"alt": "gitlens.copyRemoteRepositoryUrl"
+				},
+				{
+					"command": "gitlens.views.revealRepositoryInExplorer",
+					"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+workspace\\b)/",
+					"group": "2_gitlens_quickopen@2"
 				},
 				{
 					"command": "gitlens.showCommitSearch",

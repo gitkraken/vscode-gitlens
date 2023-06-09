@@ -66,7 +66,7 @@ export async function reveal(
 }
 
 export async function revealInFileExplorer(worktree: GitWorktree) {
-	void (await executeCoreCommand('revealInExplorer', worktree.uri));
+	void (await executeCoreCommand('revealFileInOS', worktree.uri));
 }
 
 type OpenFlagsArray = Extract<NonNullable<Required<WorktreeGitCommandArgs['state']>>, { subcommand: 'open' }>['flags'];
