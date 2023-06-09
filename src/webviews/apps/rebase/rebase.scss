@@ -17,7 +17,6 @@ body {
 
 .container {
 	display: grid;
-	font-size: 1.3em;
 	grid-template-areas: 'header' 'entries' 'footer';
 	grid-template-columns: 1fr;
 	grid-template-rows: auto 1fr auto;
@@ -41,7 +40,6 @@ header {
 		flex: auto 0 1;
 		margin-top: 0.5em;
 		margin-right: 1em;
-		font-size: 2.3rem;
 	}
 
 	h4 {
@@ -67,7 +65,7 @@ header {
 }
 
 h4 {
-	font-size: 1.5rem;
+	font-size: 1.4rem;
 	opacity: 0.8;
 }
 

@@ -358,6 +358,10 @@ export class HSVA {
 	}
 }
 
+export function getCssVariable(variable: string, css: { getPropertyValue(property: string): string }): string {
+	return css.getPropertyValue(variable).trim();
+}
+
 export class Color {
 	static from(value: string | Color): Color {
 		if (value instanceof Color) return value;
@@ -366,7 +370,7 @@ export class Color {
 	}
 
 	static fromCssVariable(variable: string, css: { getPropertyValue(property: string): string }): Color {
-		return parseColor(css.getPropertyValue(variable).trim()) || Color.red;
+		return parseColor(getCssVariable(variable, css)) || Color.red;
 	}
 
 	static fromHex(hex: string): Color {
@@ -679,12 +683,10 @@ export function format(color: Color): string {
 
 const cssColorRegex = /^((?:rgb|hsl)a?)\((-?\d+%?)[,\s]+(-?\d+%?)[,\s]+(-?\d+%?)[,\s]*(-?[\d.]+%?)?\)$/i;
 export function parseColor(value: string): Color | null {
-	const length = value.length;
+	value = value.trim();
 
 	// Invalid color
-	if (length === 0) {
-		return null;
-	}
+	if (value.length === 0) return null;
 
 	// Begin with a #
 	if (value.charCodeAt(0) === CharCode.Hash) {
@@ -692,9 +694,7 @@ export function parseColor(value: string): Color | null {
 	}
 
 	const result = cssColorRegex.exec(value);
-	if (result == null) {
-		return null;
-	}
+	if (result == null) return null;
 
 	const mode = result[1];
 	let colors: number[];
@@ -730,54 +730,51 @@ export function parseColor(value: string): Color | null {
  */
 export function parseHexColor(hex: string): Color | null {
 	hex = hex.trim();
-
 	const length = hex.length;
-	if (length === 0) {
-		// Invalid color
-		return null;
-	}
-
-	if (hex.charCodeAt(0) !== CharCode.Hash) {
-		// Does not begin with a #
-		return null;
-	}
-
-	if (length === 7) {
-		// #RRGGBB format
-		const r = 16 * _parseHexDigit(hex.charCodeAt(1)) + _parseHexDigit(hex.charCodeAt(2));
-		const g = 16 * _parseHexDigit(hex.charCodeAt(3)) + _parseHexDigit(hex.charCodeAt(4));
-		const b = 16 * _parseHexDigit(hex.charCodeAt(5)) + _parseHexDigit(hex.charCodeAt(6));
-		return new Color(new RGBA(r, g, b, 1));
-	}
-
-	if (length === 9) {
-		// #RRGGBBAA format
-		const r = 16 * _parseHexDigit(hex.charCodeAt(1)) + _parseHexDigit(hex.charCodeAt(2));
-		const g = 16 * _parseHexDigit(hex.charCodeAt(3)) + _parseHexDigit(hex.charCodeAt(4));
-		const b = 16 * _parseHexDigit(hex.charCodeAt(5)) + _parseHexDigit(hex.charCodeAt(6));
-		const a = 16 * _parseHexDigit(hex.charCodeAt(7)) + _parseHexDigit(hex.charCodeAt(8));
-		return new Color(new RGBA(r, g, b, a / 255));
-	}
-
-	if (length === 4) {
-		// #RGB format
-		const r = _parseHexDigit(hex.charCodeAt(1));
-		const g = _parseHexDigit(hex.charCodeAt(2));
-		const b = _parseHexDigit(hex.charCodeAt(3));
-		return new Color(new RGBA(16 * r + r, 16 * g + g, 16 * b + b));
-	}
-
-	if (length === 5) {
-		// #RGBA format
-		const r = _parseHexDigit(hex.charCodeAt(1));
-		const g = _parseHexDigit(hex.charCodeAt(2));
-		const b = _parseHexDigit(hex.charCodeAt(3));
-		const a = _parseHexDigit(hex.charCodeAt(4));
-		return new Color(new RGBA(16 * r + r, 16 * g + g, 16 * b + b, (16 * a + a) / 255));
-	}
 
 	// Invalid color
-	return null;
+	if (length === 0) return null;
+
+	// Begin with a #
+	if (hex.charCodeAt(0) !== CharCode.Hash) {
+		return null;
+	}
+
+	switch (length) {
+		case 7: {
+			// #RRGGBB format
+			const r = 16 * _parseHexDigit(hex.charCodeAt(1)) + _parseHexDigit(hex.charCodeAt(2));
+			const g = 16 * _parseHexDigit(hex.charCodeAt(3)) + _parseHexDigit(hex.charCodeAt(4));
+			const b = 16 * _parseHexDigit(hex.charCodeAt(5)) + _parseHexDigit(hex.charCodeAt(6));
+			return new Color(new RGBA(r, g, b, 1));
+		}
+		case 9: {
+			// #RRGGBBAA format
+			const r = 16 * _parseHexDigit(hex.charCodeAt(1)) + _parseHexDigit(hex.charCodeAt(2));
+			const g = 16 * _parseHexDigit(hex.charCodeAt(3)) + _parseHexDigit(hex.charCodeAt(4));
+			const b = 16 * _parseHexDigit(hex.charCodeAt(5)) + _parseHexDigit(hex.charCodeAt(6));
+			const a = 16 * _parseHexDigit(hex.charCodeAt(7)) + _parseHexDigit(hex.charCodeAt(8));
+			return new Color(new RGBA(r, g, b, a / 255));
+		}
+		case 4: {
+			// #RGB format
+			const r = _parseHexDigit(hex.charCodeAt(1));
+			const g = _parseHexDigit(hex.charCodeAt(2));
+			const b = _parseHexDigit(hex.charCodeAt(3));
+			return new Color(new RGBA(16 * r + r, 16 * g + g, 16 * b + b));
+		}
+		case 5: {
+			// #RGBA format
+			const r = _parseHexDigit(hex.charCodeAt(1));
+			const g = _parseHexDigit(hex.charCodeAt(2));
+			const b = _parseHexDigit(hex.charCodeAt(3));
+			const a = _parseHexDigit(hex.charCodeAt(4));
+			return new Color(new RGBA(16 * r + r, 16 * g + g, 16 * b + b, (16 * a + a) / 255));
+		}
+		default:
+			// Invalid color
+			return null;
+	}
 }
 
 function _parseHexDigit(charCode: CharCode): number {

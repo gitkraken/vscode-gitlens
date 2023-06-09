@@ -22,9 +22,17 @@
 	--color-background--lighten-50: var(--color-background);
 	--color-background--darken-50: var(--color-background);
 
-	--color-button-background: var(--vscode-button-background, transparent);
+	--color-foreground: var(--vscode-editor-foreground, var(--vscode-foreground));
+	// Computed variants in code
+	--color-foreground--85: var(--color-foreground);
+	--color-foreground--75: var(--color-foreground);
+	--color-foreground--65: var(--color-foreground);
+	--color-foreground--50: var(--color-foreground);
+
+	--color-button-background: var(--vscode-button-background, var(--color-foreground));
 	// Computed variants in code
 	--color-button-background--darken-30: var(--color-button-background);
+	--color-button-foreground: var(--vscode-button-foreground, transparent);
 
 	--color-button-secondary-background: var(--vscode-button-secondaryBackground, transparent);
 	// Computed variants in code
@@ -35,13 +43,6 @@
 	--color-highlight--75: var(--color-highlight);
 	--color-highlight--50: var(--color-highlight);
 	--color-highlight--25: var(--color-highlight);
-
-	--color-foreground: var(--vscode-editor-foreground, var(--vscode-foreground));
-	// Computed variants in code
-	--color-foreground--85: var(--color-foreground);
-	--color-foreground--75: var(--color-foreground);
-	--color-foreground--65: var(--color-foreground);
-	--color-foreground--50: var(--color-foreground);
 
 	--color-focus-border: var(--vscode-focusBorder);
 
