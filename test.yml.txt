@@ -1,0 +1,32 @@
+on:
+  - push
+
+jobs:
+  get_matrix:
+    runs-on: ubuntu-latest
+    name: Get Matrix
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Get Matrix
+        uses: ./
+        id: matrix
+        with:
+          noxfile: test/noxfile.py
+          keywords: not ignored
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+  run_nox:
+    runs-on: ubuntu-latest
+    needs: get_matrix
+    name: Run Nox
+    strategy:
+      matrix:
+        session: ${{ fromJson(needs.get_matrix.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup Nox
+        uses: excitedleigh/setup-nox@v2.0.0
+      - name: Run session
+        run: nox -s "${{ matrix.session }}" -f test/noxfile.py
