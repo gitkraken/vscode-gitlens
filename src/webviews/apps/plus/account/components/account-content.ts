@@ -185,7 +185,7 @@ export class AccountContent extends LitElement {
 					</button-container>
 					<p>
 						You only have access to ✨ features on local and publicly hosted repos and ☁️ features based on
-						your subscription tier.
+						your subscription tier, e.g. Free, Pro, etc.
 					</p>
 				`;
 
