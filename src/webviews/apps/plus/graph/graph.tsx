@@ -5,7 +5,6 @@ import { render, unmountComponentAtNode } from 'react-dom';
 import type { GitGraphRowType } from '../../../../git/models/graph';
 import type { SearchQuery } from '../../../../git/search';
 import type {
-	DismissBannerParams,
 	GraphAvatars,
 	GraphColumnsConfig,
 	GraphExcludedRef,
@@ -37,7 +36,6 @@ import {
 	DidFetchNotificationType,
 	DidSearchNotificationType,
 	DimMergeCommitsCommandType,
-	DismissBannerCommandType,
 	DoubleClickedCommandType,
 	EnsureRowCommandType,
 	GetMissingAvatarsCommandType,
@@ -553,10 +551,6 @@ export class GraphApp extends App<State> {
 			},
 			themeOpacityFactor: parseInt(getCssVariable('--graph-theme-opacity-factor', computedStyle)) || 1,
 		};
-	}
-
-	private onDismissBanner(key: DismissBannerParams['key']) {
-		this.sendCommand(DismissBannerCommandType, { key: key });
 	}
 
 	private onColumnsChanged(settings: GraphColumnsConfig) {

@@ -91,7 +91,6 @@ import type { SubscriptionChangeEvent } from '../../subscription/subscriptionSer
 import type {
 	BranchState,
 	DimMergeCommitsParams,
-	DismissBannerParams,
 	DoubleClickedParams,
 	EnsureRowParams,
 	GetMissingAvatarsParams,
@@ -159,7 +158,6 @@ import {
 	DidFetchNotificationType,
 	DidSearchNotificationType,
 	DimMergeCommitsCommandType,
-	DismissBannerCommandType,
 	DoubleClickedCommandType,
 	EnsureRowCommandType,
 	GetMissingAvatarsCommandType,
@@ -249,7 +247,6 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 	private _repositoryEventsDisposable: Disposable | undefined;
 	private _lastFetchedDisposable: Disposable | undefined;
 
-	private trialBanner?: boolean;
 	private isWindowFocused: boolean = true;
 
 	constructor(private readonly container: Container, private readonly host: WebviewController<State>) {
@@ -514,9 +511,6 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			case DimMergeCommitsCommandType.method:
 				onIpc(DimMergeCommitsCommandType, e, params => this.dimMergeCommits(params));
 				break;
-			case DismissBannerCommandType.method:
-				onIpc(DismissBannerCommandType, e, params => this.dismissBanner(params));
-				break;
 			case DoubleClickedCommandType.method:
 				onIpc(DoubleClickedCommandType, e, params => this.onDoubleClick(params));
 				break;
@@ -733,16 +727,6 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	private dimMergeCommits(e: DimMergeCommitsParams) {
 		void configuration.updateEffective('graph.dimMergeCommits', e.dim);
-	}
-
-	private dismissBanner(e: DismissBannerParams) {
-		if (e.key === 'trial') {
-			this.trialBanner = false;
-		}
-
-		let banners = this.container.storage.getWorkspace('graph:banners:dismissed');
-		banners = updateRecordValue(banners, e.key, true);
-		void this.container.storage.storeWorkspace('graph:banners:dismissed', banners);
 	}
 
 	private onColumnsChanged(e: UpdateColumnsParams) {
@@ -1858,13 +1842,6 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			return { timestamp: Date.now(), allowed: true, repositories: [] };
 		}
 
-		if (this.trialBanner == null) {
-			const banners = this.container.storage.getWorkspace('graph:banners:dismissed');
-			if (this.trialBanner == null) {
-				this.trialBanner = !banners?.['trial'];
-			}
-		}
-
 		if (this.repository == null) {
 			this.repository = this.container.git.getBestRepositoryOrFirst();
 			if (this.repository == null) {
@@ -1950,7 +1927,6 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		return {
 			timestamp: Date.now(),
 			windowFocused: this.isWindowFocused,
-			trialBanner: this.trialBanner,
 			repositories: formatRepositories(this.container.git.openRepositories),
 			selectedRepository: this.repository.path,
 			selectedRepositoryVisibility: visibility,

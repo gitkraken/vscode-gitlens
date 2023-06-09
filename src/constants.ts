@@ -636,6 +636,8 @@ export type GlobalStorage = {
 export type DeprecatedWorkspaceStorage = {
 	/** @deprecated use `confirm:ai:send:openai` */
 	'confirm:sendToOpenAI': boolean;
+	/** @deprecated */
+	'graph:banners:dismissed': Record<string, boolean>;
 	/** @deprecated use `graph:filtersByRepo.excludeRefs` */
 	'graph:hiddenRefs': Record<string, StoredGraphExcludedRef>;
 	/** @deprecated use `views:searchAndCompare:pinned` */
@@ -647,7 +649,6 @@ export type WorkspaceStorage = {
 	'branch:comparisons': StoredBranchComparisons;
 	'gitComandPalette:usage': RecentUsage;
 	gitPath: string;
-	'graph:banners:dismissed': Record<string, boolean>;
 	'graph:columns': Record<string, StoredGraphColumn>;
 	'graph:filtersByRepo': Record<string, StoredGraphFilters>;
 	'remote:default': string;
