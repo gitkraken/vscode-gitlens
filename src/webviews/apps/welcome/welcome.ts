@@ -16,6 +16,7 @@ import './components/gitlens-logo';
 import './components/svg-annotations';
 import './components/svg-blame';
 import './components/svg-editor-toolbar';
+import './components/svg-focus';
 import './components/svg-graph';
 import './components/svg-revision-navigation';
 import './components/svg-timeline';
