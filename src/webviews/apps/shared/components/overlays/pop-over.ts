@@ -38,6 +38,7 @@ const styles = css`
 		z-index: 10;
 
 		background-color: var(--popover-bg);
+		box-shadow: 0 0.3rem 0.3rem 0 var(--vscode-widget-shadow);
 
 		display: flex;
 		flex-direction: column;
