@@ -289,6 +289,7 @@ export class ViewCommands {
 		registerViewCommand('gitlens.views.createWorktree', this.createWorktree, this);
 		registerViewCommand('gitlens.views.deleteWorktree', this.deleteWorktree, this);
 		registerViewCommand('gitlens.views.openWorktree', this.openWorktree, this);
+		registerViewCommand('gitlens.views.revealRepositoryInExplorer', this.revealRepositoryInExplorer, this);
 		registerViewCommand('gitlens.views.revealWorktreeInExplorer', this.revealWorktreeInExplorer, this);
 		registerViewCommand(
 			'gitlens.views.openWorktreeInNewWindow',
@@ -725,6 +726,13 @@ export class ViewCommands {
 		if (!(node instanceof ViewRefFileNode)) return Promise.resolve();
 
 		return CommitActions.restoreFile(node.file, node.ref);
+	}
+
+	@debug()
+	private revealRepositoryInExplorer(node: RepositoryNode) {
+		if (!(node instanceof RepositoryNode)) return undefined;
+
+		return RepoActions.revealInFileExplorer(node.repo);
 	}
 
 	@debug()

@@ -1,5 +1,6 @@
 import type { ResetGitCommandArgs } from '../../commands/git/reset';
 import { Container } from '../../container';
+import { executeCoreCommand } from '../../system/command';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { executeGitCommand } from '../actions';
 import type { GitBranchReference, GitReference, GitRevisionReference } from '../models/reference';
@@ -81,4 +82,8 @@ export async function reveal(
 		void (view ?? Container.instance.repositoriesView).show({ preserveFocus: !options?.focus });
 	}
 	return node;
+}
+
+export async function revealInFileExplorer(repo: Repository) {
+	void (await executeCoreCommand('revealFileInOS', repo.uri));
 }
