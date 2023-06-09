@@ -52,7 +52,7 @@ import {
 	UpdateRefsVisibilityCommandType,
 	UpdateSelectionCommandType,
 } from '../../../../plus/webviews/graph/protocol';
-import { Color, darken, lighten, mix, opacity } from '../../../../system/color';
+import { Color, darken, getCssVariable, lighten, mix, opacity } from '../../../../system/color';
 import { debounce } from '../../../../system/function';
 import type { IpcMessage, IpcNotificationType } from '../../../protocol';
 import { onIpc } from '../../../protocol';
@@ -346,30 +346,30 @@ export class GraphApp extends App<State> {
 	}
 
 	protected override onThemeUpdated(e: ThemeChangeEvent) {
-		const bodyStyle = document.body.style;
-		bodyStyle.setProperty('--graph-theme-opacity-factor', e.isLightTheme ? '0.5' : '1');
+		const rootStyle = document.documentElement.style;
+		rootStyle.setProperty('--graph-theme-opacity-factor', e.isLightTheme ? '0.5' : '1');
 
-		bodyStyle.setProperty(
+		rootStyle.setProperty(
 			'--color-graph-actionbar-background',
 			e.isLightTheme ? darken(e.colors.background, 5) : lighten(e.colors.background, 5),
 		);
 
-		bodyStyle.setProperty(
+		rootStyle.setProperty(
 			'--color-graph-background',
 			e.isLightTheme ? darken(e.colors.background, 5) : lighten(e.colors.background, 5),
 		);
-		bodyStyle.setProperty(
+		rootStyle.setProperty(
 			'--color-graph-background2',
 			e.isLightTheme ? darken(e.colors.background, 10) : lighten(e.colors.background, 10),
 		);
 
-		const color = e.computedStyle.getPropertyValue('--color-graph-text-selected-row').trim();
-		bodyStyle.setProperty('--color-graph-text-dimmed-selected', opacity(color, 50));
-		bodyStyle.setProperty('--color-graph-text-dimmed', opacity(e.colors.foreground, 20));
+		const color = getCssVariable('--color-graph-text-selected-row', e.computedStyle);
+		rootStyle.setProperty('--color-graph-text-dimmed-selected', opacity(color, 50));
+		rootStyle.setProperty('--color-graph-text-dimmed', opacity(e.colors.foreground, 20));
 
-		bodyStyle.setProperty('--color-graph-text-normal', opacity(e.colors.foreground, 85));
-		bodyStyle.setProperty('--color-graph-text-secondary', opacity(e.colors.foreground, 65));
-		bodyStyle.setProperty('--color-graph-text-disabled', opacity(e.colors.foreground, 50));
+		rootStyle.setProperty('--color-graph-text-normal', opacity(e.colors.foreground, 85));
+		rootStyle.setProperty('--color-graph-text-secondary', opacity(e.colors.foreground, 65));
+		rootStyle.setProperty('--color-graph-text-disabled', opacity(e.colors.foreground, 50));
 
 		const backgroundColor = Color.from(e.colors.background);
 		const foregroundColor = Color.from(e.colors.foreground);
@@ -394,38 +394,38 @@ export class GraphApp extends App<State> {
 		// minimap and scroll markers
 
 		let c = Color.fromCssVariable('--vscode-scrollbarSlider-background', e.computedStyle);
-		bodyStyle.setProperty(
+		rootStyle.setProperty(
 			'--color-graph-minimap-visibleAreaBackground',
 			c.luminance(themeLuminance(e.isLightTheme ? 0.6 : 0.1)).toString(),
 		);
 
 		if (!e.isLightTheme) {
 			c = Color.fromCssVariable('--color-graph-scroll-marker-local-branches', e.computedStyle);
-			bodyStyle.setProperty(
+			rootStyle.setProperty(
 				'--color-graph-minimap-tip-branchBackground',
 				c.luminance(themeLuminance(0.55)).toString(),
 			);
 
 			c = Color.fromCssVariable('--color-graph-scroll-marker-local-branches', e.computedStyle);
-			bodyStyle.setProperty(
+			rootStyle.setProperty(
 				'--color-graph-minimap-tip-branchBorder',
 				c.luminance(themeLuminance(0.55)).toString(),
 			);
 
 			c = Color.fromCssVariable('--vscode-editor-foreground', e.computedStyle);
-			bodyStyle.setProperty(
+			rootStyle.setProperty(
 				'--color-graph-minimap-tip-branchForeground',
 				c.isLighter() ? c.luminance(0.01).toString() : c.luminance(0.99).toString(),
 			);
 
 			c = Color.fromCssVariable('--vscode-editor-foreground', e.computedStyle);
-			bodyStyle.setProperty(
+			rootStyle.setProperty(
 				'--color-graph-minimap-tip-headForeground',
 				c.isLighter() ? c.luminance(0.01).toString() : c.luminance(0.99).toString(),
 			);
 
 			c = Color.fromCssVariable('--vscode-editor-foreground', e.computedStyle);
-			bodyStyle.setProperty(
+			rootStyle.setProperty(
 				'--color-graph-minimap-tip-upstreamForeground',
 				c.isLighter() ? c.luminance(0.01).toString() : c.luminance(0.99).toString(),
 			);
@@ -436,36 +436,36 @@ export class GraphApp extends App<State> {
 		const branchStatusPillLuminance = themeLuminance(e.isLightTheme ? 0.92 : 0.02);
 		// branch status ahead
 		c = Color.fromCssVariable('--branch-status-ahead-foreground', e.computedStyle);
-		bodyStyle.setProperty('--branch-status-ahead-background', c.luminance(branchStatusLuminance).toString());
-		bodyStyle.setProperty(
+		rootStyle.setProperty('--branch-status-ahead-background', c.luminance(branchStatusLuminance).toString());
+		rootStyle.setProperty(
 			'--branch-status-ahead-hover-background',
 			c.luminance(branchStatusHoverLuminance).toString(),
 		);
-		bodyStyle.setProperty(
+		rootStyle.setProperty(
 			'--branch-status-ahead-pill-background',
 			c.luminance(branchStatusPillLuminance).toString(),
 		);
 
 		// branch status behind
 		c = Color.fromCssVariable('--branch-status-behind-foreground', e.computedStyle);
-		bodyStyle.setProperty('--branch-status-behind-background', c.luminance(branchStatusLuminance).toString());
-		bodyStyle.setProperty(
+		rootStyle.setProperty('--branch-status-behind-background', c.luminance(branchStatusLuminance).toString());
+		rootStyle.setProperty(
 			'--branch-status-behind-hover-background',
 			c.luminance(branchStatusHoverLuminance).toString(),
 		);
-		bodyStyle.setProperty(
+		rootStyle.setProperty(
 			'--branch-status-behind-pill-background',
 			c.luminance(branchStatusPillLuminance).toString(),
 		);
 
 		// branch status both
 		c = Color.fromCssVariable('--branch-status-both-foreground', e.computedStyle);
-		bodyStyle.setProperty('--branch-status-both-background', c.luminance(branchStatusLuminance).toString());
-		bodyStyle.setProperty(
+		rootStyle.setProperty('--branch-status-both-background', c.luminance(branchStatusLuminance).toString());
+		rootStyle.setProperty(
 			'--branch-status-both-hover-background',
 			c.luminance(branchStatusHoverLuminance).toString(),
 		);
-		bodyStyle.setProperty(
+		rootStyle.setProperty(
 			'--branch-status-both-pill-background',
 			c.luminance(branchStatusPillLuminance).toString(),
 		);
@@ -496,15 +496,15 @@ export class GraphApp extends App<State> {
 
 	private getGraphTheming(): { cssVariables: CssVariables; themeOpacityFactor: number } {
 		// this will be called on theme updated as well as on config updated since it is dependent on the column colors from config changes and the background color from the theme
-		const computedStyle = window.getComputedStyle(document.body);
-		const bgColor = computedStyle.getPropertyValue('--color-background');
+		const computedStyle = window.getComputedStyle(document.documentElement);
+		const bgColor = getCssVariable('--color-background', computedStyle);
 
 		const mixedGraphColors: CssVariables = {};
 
 		let i = 0;
 		let color;
 		for (const [colorVar, colorDefault] of graphLaneThemeColors) {
-			color = computedStyle.getPropertyValue(colorVar) || colorDefault;
+			color = getCssVariable(colorVar, computedStyle) || colorDefault;
 
 			mixedGraphColors[`--column-${i}-color`] = color;
 
@@ -524,34 +524,34 @@ export class GraphApp extends App<State> {
 		return {
 			cssVariables: {
 				'--app__bg0': bgColor,
-				'--panel__bg0': computedStyle.getPropertyValue('--color-graph-background'),
-				'--panel__bg1': computedStyle.getPropertyValue('--color-graph-background2'),
-				'--section-border': computedStyle.getPropertyValue('--color-graph-background2'),
+				'--panel__bg0': getCssVariable('--color-graph-background', computedStyle),
+				'--panel__bg1': getCssVariable('--color-graph-background2', computedStyle),
+				'--section-border': getCssVariable('--color-graph-background2', computedStyle),
 
-				'--selected-row': computedStyle.getPropertyValue('--color-graph-selected-row'),
+				'--selected-row': getCssVariable('--color-graph-selected-row', computedStyle),
 				'--selected-row-border': isHighContrastTheme
-					? `1px solid ${computedStyle.getPropertyValue('--color-graph-contrast-border')}`
+					? `1px solid ${getCssVariable('--color-graph-contrast-border', computedStyle)}`
 					: 'none',
-				'--hover-row': computedStyle.getPropertyValue('--color-graph-hover-row'),
+				'--hover-row': getCssVariable('--color-graph-hover-row', computedStyle),
 				'--hover-row-border': isHighContrastTheme
-					? `1px dashed ${computedStyle.getPropertyValue('--color-graph-contrast-border')}`
+					? `1px dashed ${getCssVariable('--color-graph-contrast-border', computedStyle)}`
 					: 'none',
 
-				'--text-selected': computedStyle.getPropertyValue('--color-graph-text-selected'),
-				'--text-selected-row': computedStyle.getPropertyValue('--color-graph-text-selected-row'),
-				'--text-hovered': computedStyle.getPropertyValue('--color-graph-text-hovered'),
-				'--text-dimmed-selected': computedStyle.getPropertyValue('--color-graph-text-dimmed-selected'),
-				'--text-dimmed': computedStyle.getPropertyValue('--color-graph-text-dimmed'),
-				'--text-normal': computedStyle.getPropertyValue('--color-graph-text-normal'),
-				'--text-secondary': computedStyle.getPropertyValue('--color-graph-text-secondary'),
-				'--text-disabled': computedStyle.getPropertyValue('--color-graph-text-disabled'),
+				'--text-selected': getCssVariable('--color-graph-text-selected', computedStyle),
+				'--text-selected-row': getCssVariable('--color-graph-text-selected-row', computedStyle),
+				'--text-hovered': getCssVariable('--color-graph-text-hovered', computedStyle),
+				'--text-dimmed-selected': getCssVariable('--color-graph-text-dimmed-selected', computedStyle),
+				'--text-dimmed': getCssVariable('--color-graph-text-dimmed', computedStyle),
+				'--text-normal': getCssVariable('--color-graph-text-normal', computedStyle),
+				'--text-secondary': getCssVariable('--color-graph-text-secondary', computedStyle),
+				'--text-disabled': getCssVariable('--color-graph-text-disabled', computedStyle),
 
-				'--text-accent': computedStyle.getPropertyValue('--color-link-foreground'),
-				'--text-inverse': computedStyle.getPropertyValue('--vscode-input-background'),
-				'--text-bright': computedStyle.getPropertyValue('--vscode-input-background'),
+				'--text-accent': getCssVariable('--color-link-foreground', computedStyle),
+				'--text-inverse': getCssVariable('--vscode-input-background', computedStyle),
+				'--text-bright': getCssVariable('--vscode-input-background', computedStyle),
 				...mixedGraphColors,
 			},
-			themeOpacityFactor: parseInt(computedStyle.getPropertyValue('--graph-theme-opacity-factor')) || 1,
+			themeOpacityFactor: parseInt(getCssVariable('--graph-theme-opacity-factor', computedStyle)) || 1,
 		};
 	}
 

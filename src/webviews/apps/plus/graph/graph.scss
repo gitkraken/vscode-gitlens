@@ -21,22 +21,7 @@
 	--titlebar-bg: var(--color-background--darken-075);
 }
 
-body {
-	.vertical_scrollbar,
-	.horizontal_scrollbar {
-		border-color: transparent;
-		transition: border-color 1s linear;
-	}
-
-	&:hover,
-	&:focus-within {
-		.vertical_scrollbar,
-		.horizontal_scrollbar {
-			transition: border-color 0.1s linear;
-			border-color: var(--vscode-scrollbarSlider-background);
-		}
-	}
-
+:root {
 	--titlebar-fg: var(--color-foreground--65);
 	--color-graph-contrast-border: var(--vscode-list-focusOutline);
 	--color-graph-selected-row: var(--vscode-list-activeSelectionBackground);
@@ -108,6 +93,23 @@ body {
 	--branch-status-ahead-foreground: var(--vscode-gitlens-decorations\.branchAheadForegroundColor);
 	--branch-status-behind-foreground: var(--vscode-gitlens-decorations\.branchBehindForegroundColor);
 	--branch-status-both-foreground: var(--vscode-gitlens-decorations\.branchDivergedForegroundColor);
+}
+
+body {
+	.vertical_scrollbar,
+	.horizontal_scrollbar {
+		border-color: transparent;
+		transition: border-color 1s linear;
+	}
+
+	&:hover,
+	&:focus-within {
+		.vertical_scrollbar,
+		.horizontal_scrollbar {
+			transition: border-color 0.1s linear;
+			border-color: var(--vscode-scrollbarSlider-background);
+		}
+	}
 }
 
 ::-webkit-scrollbar-corner {
