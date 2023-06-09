@@ -9,8 +9,8 @@ export class GKButton extends LitElement {
 		elementBase,
 		css`
 			:host {
-				--button-foreground: var(--vscode-button-foreground);
-				--button-background: var(--vscode-button-background);
+				--button-foreground: var(--color-button-foreground);
+				--button-background: var(--color-button-background);
 				--button-hover-background: var(--vscode-button-hoverBackground);
 				--button-padding: 0.4rem 1.1rem;
 				--button-line-height: 1.694;
@@ -80,6 +80,11 @@ export class GKButton extends LitElement {
 				--button-hover-background: var(--color-alert-infoBorder);
 				--button-line-height: 1.64;
 				width: max-content;
+			}
+
+			:host-context(.vscode-light):host([appearance='alert']:not(:hover)),
+			:host-context(.vscode-high-contrast-light):host([appearance='alert']:not(:hover)) {
+				--button-foreground: var(--color-foreground);
 			}
 
 			:host([appearance='toolbar'][href]) > a {
