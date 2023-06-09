@@ -196,6 +196,21 @@ button:not([disabled]),
 	}
 }
 
+.popover {
+	position: relative;
+
+	&__content {
+		width: max-content;
+		right: 0;
+		top: 100%;
+		white-space: normal;
+	}
+
+	&__trigger:not(:hover) + &__content {
+		display: none;
+	}
+}
+
 .action-button {
 	position: relative;
 	appearance: none;
