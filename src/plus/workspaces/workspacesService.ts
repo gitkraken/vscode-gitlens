@@ -262,17 +262,6 @@ export class WorkspacesService implements Disposable {
 		if (workspace == null) return;
 		if (workspace.repositories == null || workspace.repositories.length === 0) return;
 
-		const parentUri = (
-			await window.showOpenDialog({
-				title: `Choose a folder containing the repositories in this workspace`,
-				canSelectFiles: false,
-				canSelectFolders: true,
-				canSelectMany: false,
-			})
-		)?.[0];
-
-		if (parentUri == null || cancellation?.isCancellationRequested) return;
-
 		const foundRepos = await this.getRepositoriesInParentFolder(cancellation);
 		if (foundRepos == null || foundRepos.length === 0 || cancellation?.isCancellationRequested) return;
 
