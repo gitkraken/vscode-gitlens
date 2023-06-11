@@ -8,10 +8,12 @@ import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import type { GitStatus } from '../../git/models/status';
 import type {
+	CloudWorkspace,
 	CloudWorkspaceRepositoryDescriptor,
+	LocalWorkspace,
 	LocalWorkspaceRepositoryDescriptor,
 } from '../../plus/workspaces/models';
-import { GKCloudWorkspace, GKLocalWorkspace } from '../../plus/workspaces/models';
+import { WorkspaceType } from '../../plus/workspaces/models';
 import { findLastIndex } from '../../system/array';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
@@ -50,7 +52,7 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 		parent: ViewNode,
 		public readonly repo: Repository,
 		private readonly options?: {
-			workspace?: GKCloudWorkspace | GKLocalWorkspace;
+			workspace?: CloudWorkspace | LocalWorkspace;
 			workspaceRepoDescriptor: CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor;
 		},
 	) {
@@ -264,9 +266,9 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 		}
 		if (this.options?.workspace) {
 			contextValue += '+workspace';
-			if (this.options.workspace instanceof GKCloudWorkspace) {
+			if (this.options.workspace.type === WorkspaceType.Cloud) {
 				contextValue += '+cloud';
-			} else if (this.options.workspace instanceof GKLocalWorkspace) {
+			} else if (this.options.workspace.type === WorkspaceType.Local) {
 				contextValue += '+local';
 			}
 		}
@@ -347,7 +349,7 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 			light: this.view.container.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`),
 		};
 
-		if (this.options?.workspace && !this.repo.closed) {
+		if (this.options?.workspace != null && !this.repo.closed) {
 			item.resourceUri = Uri.parse(`gitlens-view://workspaces/repository/open`);
 		}
 

@@ -1,3 +1,4 @@
+import type { Container } from '../../container';
 import type { Repository } from '../../git/models/repository';
 
 export enum WorkspaceType {
@@ -24,19 +25,19 @@ export interface RemoteDescriptor {
 }
 
 export interface GetWorkspacesResponse {
-	cloudWorkspaces: GKCloudWorkspace[];
-	localWorkspaces: GKLocalWorkspace[];
+	cloudWorkspaces: CloudWorkspace[];
+	localWorkspaces: LocalWorkspace[];
 	cloudWorkspaceInfo: string | undefined;
 	localWorkspaceInfo: string | undefined;
 }
 
 export interface LoadCloudWorkspacesResponse {
-	cloudWorkspaces: GKCloudWorkspace[] | undefined;
+	cloudWorkspaces: CloudWorkspace[] | undefined;
 	cloudWorkspaceInfo: string | undefined;
 }
 
 export interface LoadLocalWorkspacesResponse {
-	localWorkspaces: GKLocalWorkspace[] | undefined;
+	localWorkspaces: LocalWorkspace[] | undefined;
 	localWorkspaceInfo: string | undefined;
 }
 
@@ -46,60 +47,39 @@ export interface GetCloudWorkspaceRepositoriesResponse {
 }
 
 // Cloud Workspace types
-export class GKCloudWorkspace {
-	private readonly _type: WorkspaceType = WorkspaceType.Cloud;
-	private readonly _id: string;
-	private readonly _organizationId: string | undefined;
-	private readonly _name: string;
-	private readonly _provider: CloudWorkspaceProviderType;
+export class CloudWorkspace {
+	readonly type = WorkspaceType.Cloud;
+
 	private _repositories: CloudWorkspaceRepositoryDescriptor[] | undefined;
+
 	constructor(
-		id: string,
-		name: string,
-		organizationId: string | undefined,
-		provider: CloudWorkspaceProviderType,
-		private readonly getReposFn: (workspaceId: string) => Promise<GetCloudWorkspaceRepositoriesResponse>,
+		private readonly container: Container,
+		public readonly id: string,
+		public readonly name: string,
+		public readonly organizationId: string | undefined,
+		public readonly provider: CloudWorkspaceProviderType,
 		repositories?: CloudWorkspaceRepositoryDescriptor[],
 	) {
-		this._id = id;
-		this._name = name;
-		this._organizationId = organizationId;
-		this._provider = provider;
 		this._repositories = repositories;
 	}
 
-	get type(): WorkspaceType {
-		return this._type;
+	get shared(): boolean {
+		return this.organizationId != null;
 	}
 
-	get id(): string {
-		return this._id;
-	}
+	async getRepositoryDescriptors(): Promise<CloudWorkspaceRepositoryDescriptor[]> {
+		if (this._repositories == null) {
+			this._repositories = await this.container.workspaces.getCloudWorkspaceRepositories(this.id);
+		}
 
-	get name(): string {
-		return this._name;
-	}
-
-	get organization_id(): string | undefined {
-		return this._organizationId;
-	}
-
-	get provider(): CloudWorkspaceProviderType {
-		return this._provider;
-	}
-
-	get repositories(): CloudWorkspaceRepositoryDescriptor[] | undefined {
 		return this._repositories;
 	}
 
-	isShared(): boolean {
-		return this._organizationId != null;
+	async getRepositoryDescriptor(name: string): Promise<CloudWorkspaceRepositoryDescriptor | undefined> {
+		return (await this.getRepositoryDescriptors()).find(r => r.name === name);
 	}
 
-	getRepository(name: string): CloudWorkspaceRepositoryDescriptor | undefined {
-		return this._repositories?.find(r => r.name === name);
-	}
-
+	// TODO@axosoft-ramint this should be the entry point, not a backdoor to update the cache
 	addRepositories(repositories: CloudWorkspaceRepositoryDescriptor[]): void {
 		if (this._repositories == null) {
 			this._repositories = repositories;
@@ -108,21 +88,11 @@ export class GKCloudWorkspace {
 		}
 	}
 
+	// TODO@axosoft-ramint this should be the entry point, not a backdoor to update the cache
 	removeRepositories(repoNames: string[]): void {
 		if (this._repositories == null) return;
 
 		this._repositories = this._repositories.filter(r => !repoNames.includes(r.name));
-	}
-
-	async getOrLoadRepositories(): Promise<GetCloudWorkspaceRepositoriesResponse> {
-		if (this._repositories != null) return { repositories: this._repositories, repositoriesInfo: undefined };
-
-		const getResponse = await this.getReposFn(this._id);
-		if (getResponse.repositories != null) {
-			this._repositories = getResponse.repositories;
-		}
-
-		return getResponse;
 	}
 }
 
@@ -495,39 +465,25 @@ export interface RemoveWorkspaceRepoDescriptor {
 }
 
 // Local Workspace Types
-export class GKLocalWorkspace {
-	private readonly _type: WorkspaceType = WorkspaceType.Local;
-	private readonly _id: string;
-	private readonly _name: string;
-	private readonly _repositories: LocalWorkspaceRepositoryDescriptor[] | undefined;
-	constructor(id: string, name: string, repositories?: LocalWorkspaceRepositoryDescriptor[]) {
-		this._id = id;
-		this._name = name;
-		this._repositories = repositories;
-	}
+export class LocalWorkspace {
+	readonly type = WorkspaceType.Local;
 
-	get type(): WorkspaceType {
-		return this._type;
-	}
+	constructor(
+		public readonly id: string,
+		public readonly name: string,
+		private readonly repositories: LocalWorkspaceRepositoryDescriptor[],
+	) {}
 
-	get id(): string {
-		return this._id;
-	}
-
-	get name(): string {
-		return this._name;
-	}
-
-	get repositories(): LocalWorkspaceRepositoryDescriptor[] | undefined {
-		return this._repositories;
-	}
-
-	isShared(): boolean {
+	get shared(): boolean {
 		return false;
 	}
 
-	getRepository(name: string): LocalWorkspaceRepositoryDescriptor | undefined {
-		return this._repositories?.find(r => r.name === name);
+	getRepositoryDescriptors(): Promise<LocalWorkspaceRepositoryDescriptor[]> {
+		return Promise.resolve(this.repositories);
+	}
+
+	getRepositoryDescriptor(name: string): Promise<LocalWorkspaceRepositoryDescriptor | undefined> {
+		return Promise.resolve(this.repositories.find(r => r.name === name));
 	}
 }
 
