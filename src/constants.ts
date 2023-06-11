@@ -314,6 +314,107 @@ export const enum Commands {
 	Deprecated_ShowFileHistoryInView = 'gitlens.showFileHistoryInView',
 }
 
+export type TreeViewCommands = `gitlens.views.${
+	| `branches.${
+			| 'copy'
+			| 'refresh'
+			| `setLayoutTo${'List' | 'Tree'}`
+			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
+			| `setShowAvatars${'On' | 'Off'}`
+			| `setShowBranchComparison${'On' | 'Off'}`
+			| `setShowBranchPullRequest${'On' | 'Off'}`}`
+	| `commits.${
+			| 'copy'
+			| 'refresh'
+			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
+			| `setMyCommitsOnly${'On' | 'Off'}`
+			| `setShowAvatars${'On' | 'Off'}`
+			| `setShowBranchComparison${'On' | 'Off'}`
+			| `setShowBranchPullRequest${'On' | 'Off'}`}`
+	| `contributors.${
+			| 'copy'
+			| 'refresh'
+			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
+			| `setShowAllBranches${'On' | 'Off'}`
+			| `setShowAvatars${'On' | 'Off'}`
+			| `setShowStatistics${'On' | 'Off'}`}`
+	| `fileHistory.${
+			| 'copy'
+			| 'refresh'
+			| 'changeBase'
+			| `setCursorFollowing${'On' | 'Off'}`
+			| `setEditorFollowing${'On' | 'Off'}`
+			| `setRenameFollowing${'On' | 'Off'}`
+			| `setShowAllBranches${'On' | 'Off'}`
+			| `setShowAvatars${'On' | 'Off'}`}`
+	| `lineHistory.${
+			| 'copy'
+			| 'refresh'
+			| 'changeBase'
+			| `setEditorFollowing${'On' | 'Off'}`
+			| `setShowAvatars${'On' | 'Off'}`}`
+	| `remotes.${
+			| 'copy'
+			| 'refresh'
+			| `setLayoutTo${'List' | 'Tree'}`
+			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
+			| `setShowAvatars${'On' | 'Off'}`
+			| `setShowBranchPullRequest${'On' | 'Off'}`}`
+	| `repositories.${
+			| 'copy'
+			| 'refresh'
+			| `setBranchesLayoutTo${'List' | 'Tree'}`
+			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
+			| `setAutoRefreshTo${'On' | 'Off'}`
+			| `setShowAvatars${'On' | 'Off'}`
+			| `setShowBranchComparison${'On' | 'Off'}`
+			| `setBranchesShowBranchComparison${'On' | 'Off'}`
+			| `setShowBranches${'On' | 'Off'}`
+			| `setShowCommits${'On' | 'Off'}`
+			| `setShowContributors${'On' | 'Off'}`
+			| `setShowRemotes${'On' | 'Off'}`
+			| `setShowStashes${'On' | 'Off'}`
+			| `setShowTags${'On' | 'Off'}`
+			| `setShowWorktrees${'On' | 'Off'}`
+			| `setShowUpstreamStatus${'On' | 'Off'}`
+			| `setShowSectionOff`}`
+	| `searchAndCompare.${
+			| 'copy'
+			| 'refresh'
+			| 'clear'
+			| 'pin'
+			| 'unpin'
+			| 'swapComparison'
+			| 'selectForCompare'
+			| 'compareWithSelected'
+			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
+			| `setKeepResultsTo${'On' | 'Off'}`
+			| `setShowAvatars${'On' | 'Off'}`
+			| `setFilesFilterOn${'Left' | 'Right'}`
+			| 'setFilesFilterOff'}`
+	| `stashes.${'copy' | 'refresh' | `setLayoutTo${'List' | 'Tree'}` | `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`}`
+	| `tags.${'copy' | 'refresh' | `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`}`
+	| `workspaces.${
+			| 'copy'
+			| 'refresh'
+			| 'addRepos'
+			| 'convert'
+			| 'create'
+			| 'delete'
+			| 'locateAllRepos'
+			| 'open'
+			| `repo.${'locate' | 'open' | 'openInNewWindow' | 'addToWindow' | 'remove'}`}`
+	| `worktrees.${
+			| 'copy'
+			| 'refresh'
+			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
+			| `setShowAvatars${'On' | 'Off'}`
+			| `setShowBranchComparison${'On' | 'Off'}`
+			| `setShowBranchPullRequest${'On' | 'Off'}`}`}`;
+export type TreeViewCommandsByViewId<T extends TreeViewIds> = TreeViewCommands extends `${T}.${infer U}`
+	? `${U}`
+	: never;
+
 export type CustomEditorTypes = 'rebase';
 export type CustomEditorIds = `gitlens.${CustomEditorTypes}`;
 
