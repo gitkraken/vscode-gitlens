@@ -28,7 +28,7 @@ import type {
 	WorktreesViewConfig,
 } from '../config';
 import { viewsCommonConfigKeys, viewsConfigKeys } from '../config';
-import type { TreeViewTypes } from '../constants';
+import type { TreeViewCommandsByViewId, TreeViewTypes } from '../constants';
 import type { Container } from '../container';
 import { executeCoreCommand } from '../system/command';
 import { configuration } from '../system/configuration';
@@ -281,8 +281,8 @@ export abstract class ViewBase<
 		}
 	}
 
-	getQualifiedCommand(command: string) {
-		return `${this.id}.${command}`;
+	getQualifiedCommand(command: TreeViewCommandsByViewId<typeof this.id>) {
+		return `${this.id}.${command}`; // satisfies ViewsCommandsById<typeof this.id>;
 	}
 
 	protected abstract getRoot(): RootNode;
