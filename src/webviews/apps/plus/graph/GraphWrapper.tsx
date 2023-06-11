@@ -58,6 +58,7 @@ import { pluralize } from '../../../../system/string';
 import type { IpcNotificationType } from '../../../protocol';
 import { MenuDivider, MenuItem, MenuLabel, MenuList } from '../../shared/components/menu/react';
 import { PopMenu } from '../../shared/components/overlays/pop-menu/react';
+import { PopOver } from '../../shared/components/overlays/react';
 import { FeatureGate } from '../../shared/components/react/feature-gate';
 import { FeatureGateBadge } from '../../shared/components/react/feature-gate-badge';
 import { SearchBox } from '../../shared/components/search/react';
@@ -1107,6 +1108,15 @@ export function GraphWrapper({
 						</>
 					)}
 					<FeatureGateBadge subscription={subscription}></FeatureGateBadge>
+					<div className="popover">
+						<a href="command:gitlens.showFocusPage" className="action-button popover__trigger">
+							Try the Focus Preview
+						</a>
+						<PopOver placement="top end" className="popover__content">
+							Concentrate on what really matters by gathering all your GitHub pull requests and issues in
+							one comprehensive list.
+						</PopOver>
+					</div>
 				</div>
 				{allowed && (
 					<div className="titlebar__row">
