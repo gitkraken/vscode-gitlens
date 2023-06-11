@@ -7,7 +7,7 @@ import type {
 	WebviewViewResolveContext,
 } from 'vscode';
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
-import type { Commands, WebviewIds, WebviewViewIds } from '../constants';
+import type { Commands, WebviewTypes, WebviewViewTypes } from '../constants';
 import type { Container } from '../container';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
 import { executeCoreCommand, registerCommand } from '../system/command';
@@ -19,11 +19,11 @@ import type { WebviewProvider } from './webviewController';
 import { WebviewController } from './webviewController';
 
 export interface WebviewPanelDescriptor {
-	id: `gitlens.${WebviewIds}`;
+	id: `gitlens.${WebviewTypes}`;
 	readonly fileName: string;
 	readonly iconPath: string;
 	readonly title: string;
-	readonly contextKeyPrefix: `gitlens:webview:${WebviewIds}`;
+	readonly contextKeyPrefix: `gitlens:webview:${WebviewTypes}`;
 	readonly trackingFeature: TrackedUsageFeatures;
 	readonly plusFeature: boolean;
 	readonly column?: ViewColumn;
@@ -37,7 +37,7 @@ interface WebviewPanelRegistration<State, SerializedState = State> {
 }
 
 export interface WebviewPanelProxy extends Disposable {
-	readonly id: `gitlens.${WebviewIds}`;
+	readonly id: `gitlens.${WebviewTypes}`;
 	readonly ready: boolean;
 	readonly visible: boolean;
 	close(): void;
@@ -46,10 +46,10 @@ export interface WebviewPanelProxy extends Disposable {
 }
 
 export interface WebviewViewDescriptor {
-	id: `gitlens.views.${WebviewViewIds}`;
+	id: `gitlens.views.${WebviewViewTypes}`;
 	readonly fileName: string;
 	readonly title: string;
-	readonly contextKeyPrefix: `gitlens:webviewView:${WebviewViewIds}`;
+	readonly contextKeyPrefix: `gitlens:webviewView:${WebviewViewTypes}`;
 	readonly trackingFeature: TrackedUsageFeatures;
 	readonly plusFeature: boolean;
 	readonly webviewOptions?: WebviewOptions;
@@ -65,7 +65,7 @@ interface WebviewViewRegistration<State, SerializedState = State> {
 }
 
 export interface WebviewViewProxy extends Disposable {
-	readonly id: `gitlens.views.${WebviewViewIds}`;
+	readonly id: `gitlens.views.${WebviewViewTypes}`;
 	readonly ready: boolean;
 	readonly visible: boolean;
 	refresh(force?: boolean): Promise<void>;

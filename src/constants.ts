@@ -314,8 +314,10 @@ export const enum Commands {
 	Deprecated_ShowFileHistoryInView = 'gitlens.showFileHistoryInView',
 }
 
-export type CustomEditorIds = 'rebase';
-export type TreeViewIds =
+export type CustomEditorTypes = 'rebase';
+export type CustomEditorIds = `gitlens.${CustomEditorTypes}`;
+
+export type TreeViewTypes =
 	| 'branches'
 	| 'commits'
 	| 'contributors'
@@ -328,19 +330,24 @@ export type TreeViewIds =
 	| 'tags'
 	| 'workspaces'
 	| 'worktrees';
-export type WebviewIds = 'graph' | 'settings' | 'timeline' | 'welcome' | 'focus';
-export type WebviewViewIds = 'account' | 'commitDetails' | 'graph' | 'graphDetails' | 'home' | 'timeline';
+export type TreeViewIds = `gitlens.views.${TreeViewTypes}`;
 
+export type WebviewTypes = 'graph' | 'settings' | 'timeline' | 'welcome' | 'focus';
+export type WebviewIds = `gitlens.views.${WebviewTypes}`;
+
+export type WebviewViewTypes = 'account' | 'commitDetails' | 'graph' | 'graphDetails' | 'home' | 'timeline';
+export type WebviewViewIds = `gitlens.views.${WebviewViewTypes}`;
+
+export type ViewTypes = TreeViewTypes | WebviewViewTypes;
 export type ViewIds = TreeViewIds | WebviewViewIds;
-export type QualifiedViewIds = `gitlens.views.${ViewIds}`;
 
-export type ViewContainerIds = 'gitlens' | 'gitlensInspect' | 'gitlensPanel';
-export type QualifiedViewContainerIds = `workbench.view.extension.${ViewContainerIds}`;
+export type ViewContainerTypes = 'gitlens' | 'gitlensInspect' | 'gitlensPanel';
+export type ViewContainerIds = `workbench.view.extension.${ViewContainerTypes}`;
 
-export type CoreViewContainerIds = 'scm';
-export type QualifiedCoreViewContainerIds = `workbench.view.${CoreViewContainerIds}`;
+export type CoreViewContainerTypes = 'scm';
+export type CoreViewContainerIds = `workbench.view.${CoreViewContainerTypes}`;
 
-// export const viewIds: ViewIds[] = [
+// export const viewTypes: ViewTypes[] = [
 // 	'account',
 // 	'branches',
 // 	'commits',
@@ -361,10 +368,7 @@ export type QualifiedCoreViewContainerIds = `workbench.view.${CoreViewContainerI
 // 	'worktrees',
 // ];
 
-export const viewIdsByDefaultContainerId = new Map<
-	QualifiedViewContainerIds | QualifiedCoreViewContainerIds,
-	ViewIds[]
->([
+export const viewIdsByDefaultContainerId = new Map<ViewContainerIds | CoreViewContainerIds, ViewTypes[]>([
 	[
 		'workbench.view.scm',
 		['branches', 'commits', 'remotes', 'repositories', 'stashes', 'tags', 'worktrees', 'contributors'],
@@ -380,12 +384,12 @@ export const viewIdsByDefaultContainerId = new Map<
 export type ContextKeys =
 	| `${typeof extensionPrefix}:action:${string}`
 	| `${typeof extensionPrefix}:key:${Keys}`
-	| `${typeof extensionPrefix}:webview:${WebviewIds | CustomEditorIds}:${
+	| `${typeof extensionPrefix}:webview:${WebviewTypes | CustomEditorTypes}:${
 			| 'active'
 			| 'focus'
 			| 'inputFocus'
 			| 'visible'}`
-	| `${typeof extensionPrefix}:webviewView:${WebviewViewIds}:${'active' | 'focus' | 'inputFocus' | 'visible'}`
+	| `${typeof extensionPrefix}:webviewView:${WebviewViewTypes}:${'active' | 'focus' | 'inputFocus' | 'visible'}`
 	| `${typeof extensionPrefix}:activeFileStatus`
 	| `${typeof extensionPrefix}:annotationStatus`
 	| `${typeof extensionPrefix}:debugging`
@@ -446,8 +450,8 @@ export type CoreCommands =
 	| 'workbench.files.action.focusFilesExplorer'
 	| 'workbench.view.explorer'
 	| 'workbench.view.scm'
-	| `${QualifiedViewContainerIds | QualifiedCoreViewContainerIds}.resetViewContainerLocation`
-	| `${QualifiedViewIds}.${'focus' | 'removeView' | 'resetViewLocation' | 'toggleVisibility'}`;
+	| `${ViewContainerIds | CoreViewContainerIds}.resetViewContainerLocation`
+	| `${ViewIds}.${'focus' | 'removeView' | 'resetViewLocation' | 'toggleVisibility'}`;
 
 export type CoreGitCommands =
 	| 'git.fetch'
