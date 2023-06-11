@@ -1,7 +1,7 @@
 import type { ViewBadge, Webview, WebviewPanel, WebviewView, WindowState } from 'vscode';
 import { Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vscode';
 import { getNonce } from '@env/crypto';
-import type { Commands, CustomEditorIds, WebviewIds, WebviewViewIds } from '../constants';
+import type { Commands, CustomEditorTypes, WebviewTypes, WebviewViewTypes } from '../constants';
 import type { Container } from '../container';
 import { executeCommand, executeCoreCommand } from '../system/command';
 import { setContext } from '../system/context';
@@ -585,18 +585,18 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 }
 
 export function resetContextKeys(
-	contextKeyPrefix: `gitlens:webview:${WebviewIds | CustomEditorIds}` | `gitlens:webviewView:${WebviewViewIds}`,
+	contextKeyPrefix: `gitlens:webview:${WebviewTypes | CustomEditorTypes}` | `gitlens:webviewView:${WebviewViewTypes}`,
 ): void {
 	void setContext(`${contextKeyPrefix}:visible`, false);
 	void setContext(`${contextKeyPrefix}:inputFocus`, false);
 	void setContext(`${contextKeyPrefix}:focus`, false);
 	if (contextKeyPrefix.startsWith('gitlens:webview:')) {
-		void setContext(`${contextKeyPrefix as `gitlens:webview:${WebviewIds | CustomEditorIds}`}:active`, false);
+		void setContext(`${contextKeyPrefix as `gitlens:webview:${WebviewTypes | CustomEditorTypes}`}:active`, false);
 	}
 }
 
 export function setContextKeys(
-	contextKeyPrefix: `gitlens:webview:${WebviewIds | CustomEditorIds}` | `gitlens:webviewView:${WebviewViewIds}`,
+	contextKeyPrefix: `gitlens:webview:${WebviewTypes | CustomEditorTypes}` | `gitlens:webviewView:${WebviewViewTypes}`,
 	active?: boolean,
 	focus?: boolean,
 	inputFocus?: boolean,
@@ -604,7 +604,10 @@ export function setContextKeys(
 	void setContext(`${contextKeyPrefix}:visible`, true);
 	if (contextKeyPrefix.startsWith('gitlens:webview:')) {
 		if (active != null) {
-			void setContext(`${contextKeyPrefix as `gitlens:webview:${WebviewIds | CustomEditorIds}`}:active`, active);
+			void setContext(
+				`${contextKeyPrefix as `gitlens:webview:${WebviewTypes | CustomEditorTypes}`}:active`,
+				active,
+			);
 
 			if (!active) {
 				focus = false;

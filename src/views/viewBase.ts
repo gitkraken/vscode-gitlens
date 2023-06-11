@@ -28,7 +28,7 @@ import type {
 	WorktreesViewConfig,
 } from '../config';
 import { viewsCommonConfigKeys, viewsConfigKeys } from '../config';
-import type { TreeViewIds } from '../constants';
+import type { TreeViewTypes } from '../constants';
 import type { Container } from '../container';
 import { executeCoreCommand } from '../system/command';
 import { configuration } from '../system/configuration';
@@ -138,7 +138,7 @@ export abstract class ViewBase<
 
 	constructor(
 		public readonly container: Container,
-		public readonly id: `gitlens.views.${TreeViewIds}`,
+		public readonly id: `gitlens.views.${TreeViewTypes}`,
 		public readonly name: string,
 		private readonly trackingFeature: TrackedUsageFeatures,
 	) {

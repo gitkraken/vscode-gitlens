@@ -1,7 +1,7 @@
-import type { WebviewIds, WebviewViewIds } from '../constants';
+import type { WebviewTypes, WebviewViewTypes } from '../constants';
 
 export interface WebviewItemContext<TValue = unknown> {
-	webview?: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`;
+	webview?: `gitlens.${WebviewTypes}` | `gitlens.views.${WebviewViewTypes}`;
 	webviewItem: string;
 	webviewItemValue: TValue;
 }
@@ -15,7 +15,7 @@ export function isWebviewItemContext<TValue = unknown>(
 }
 
 export interface WebviewItemGroupContext<TValue = unknown> {
-	webview?: `gitlens.${WebviewIds}` | `gitlens.views.${WebviewViewIds}`;
+	webview?: `gitlens.${WebviewTypes}` | `gitlens.views.${WebviewViewTypes}`;
 	webviewItemGroup: string;
 	webviewItemGroupValue: TValue;
 }

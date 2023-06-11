@@ -1,4 +1,4 @@
-import type { QualifiedViewIds } from '../constants';
+import type { ViewIds } from '../constants';
 import { Commands, viewIdsByDefaultContainerId } from '../constants';
 import type { Container } from '../container';
 import { command, executeCoreCommand } from '../system/command';
@@ -19,7 +19,7 @@ export class ResetViewsLayoutCommand extends Command {
 		for (const [containerId, viewIds] of viewIdsByDefaultContainerId) {
 			try {
 				void (await executeCoreCommand('vscode.moveViews', {
-					viewIds: viewIds.map<QualifiedViewIds>(v => `gitlens.views.${v}`),
+					viewIds: viewIds.map<ViewIds>(v => `gitlens.views.${v}`),
 					destinationId: containerId,
 				}));
 			} catch {}
