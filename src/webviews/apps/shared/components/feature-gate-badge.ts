@@ -118,13 +118,13 @@ export class FeatureGateBadge extends LitElement {
 			case SubscriptionState.Free:
 			case SubscriptionState.FreePreviewTrialExpired:
 				return html`<span class="badge-footnote"
-					>✨ Requires a trial or subscription for use on privately hosted repos.</span
+					>✨ Requires a trial or paid subscription for use on privately hosted repos.</span
 				>`;
 			case SubscriptionState.FreePlusTrialExpired:
 			case SubscriptionState.FreeInPreviewTrial:
 			case SubscriptionState.FreePlusInTrial:
 				return html`<span class="badge-footnote"
-					>✨ Requires a subscription for use on privately hosted repos.</span
+					>✨ Requires a paid subscription for use on privately hosted repos.</span
 				>`;
 			default:
 				return nothing;

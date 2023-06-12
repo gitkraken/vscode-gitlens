@@ -509,7 +509,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 }
 
 export async function ensurePaidPlan(providerName: string, container: Container): Promise<boolean> {
-	const title = `Connecting to a ${providerName} instance for rich integration features requires a trial or subscription.`;
+	const title = `Connecting to a ${providerName} instance for rich integration features requires a trial or paid subscription.`;
 
 	while (true) {
 		const subscription = await container.subscription.getSubscription();

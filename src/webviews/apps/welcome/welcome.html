@@ -54,12 +54,21 @@
 			</section>
 			<section class="welcome__section">
 				<h2>Powerful Features</h2>
-				<p>
-					Features with a ✨ sparkle require a trial or subscription for use on privately hosted repos
-					<br />
-					Features with a ☁️ cloud require an account and access is based on your subscription tier, e.g.
-					Free, Pro, etc
-				</p>
+				<div class="welcome__gates">
+					<p>
+						All features are <strong>completely free</strong> for use on all repos, except for ones marked
+						with:
+					</p>
+					<p>
+						✨ require a
+						<a class="muted" href="https://www.gitkraken.com/gitlens/pricing" title="Learn more"
+							>trial or paid subscription</a
+						>
+						for use on privately hosted repos
+						<br />
+						☁️ require an account and access is based on your subscription, e.g. Free, Pro, etc
+					</p>
+				</div>
 				<h3 class="checkbox-group">
 					<label class="checkbox" for="inline-blame"
 						><input type="checkbox" id="inline-blame" data-feature="blame" checked />Inline Blame</label
@@ -69,7 +78,8 @@
 					>
 				</h3>
 				<p>
-					In-editor code annotations and rich hovers help you better understand how code changed and by whom
+					Gain a deeper understanding of how code changed and by whom through in-editor code annotations and
+					rich hovers.
 				</p>
 
 				<gk-blame-svg id="blame" inline codelens></gk-blame-svg>
@@ -111,7 +121,12 @@
 					>
 					✨
 				</h3>
-				<p>Helps you easily visualize and keep track of all work in progress<br /></p>
+				<p>Helps you easily visualize your repository and keep track of all work in progress.</p>
+				<p>
+					Use the rich commit search to find exactly what you're looking for. It's powerful filters allow you
+					to search by a specific commit, message, author, a changed file or files, or even a specific code
+					change.
+				</p>
 				<gk-graph-svg></gk-graph-svg>
 
 				<h3>Side Bar Views</h3>
@@ -234,6 +249,7 @@
 						aria-label="Open Focus"
 						>Focus</a
 					>
+					<span class="welcome__preview">Preview</span>
 					☁️
 				</h3>
 				<p>
@@ -245,9 +261,9 @@
 				<gk-workspaces-svg></gk-workspaces-svg>
 
 				<p>
-					The Focus view helps you concentrate on what really matters by gathering all your GitHub pull
-					requests and issues into one comprehensive list. Helps you focus on what's important by providing
-					you with a comprehensive list of all your pull requests and issues on your GitHub repos.
+					The Focus view brings all of your GitHub pull requests and issues into a unified actionable view to
+					help to you more easily juggle work in progress, pending work, reviews, and more. Quickly see if
+					anything requires your attention while keeping you focused.
 				</p>
 
 				<gk-focus-svg></gk-focus-svg>
@@ -264,18 +280,34 @@
 					✨
 				</h3>
 				<p>
-					Enables you to quickly see the evolution of a file, including when changes were made, how large they
-					were, and who made them. Use it to quickly find when the most impactful changes were made to a file
-					or who best to talk to about file changes and more.
+					Quickly see the evolution of a file, including when changes were made, how large they were, and who
+					made them. Use it to quickly find when the most impactful changes were made to a file or who best to
+					talk to about file changes and more.
 				</p>
 				<gk-timeline-svg></gk-timeline-svg>
 
 				<h3>Integrations</h3>
-				<p>GitLens provides issue and pull request auto-linking with many Git hosting services.</p>
 				<p>
-					Rich integrations with GitHub & GitLab provide more detailed hover information for auto-linked
-					issues and pull requests, pull requests associated with branches and commits, and avatars.
+					Simplify your workflow and quickly gain insights with automatic linking of issues and pull requests
+					across multiple Git hosting platforms including GitHub, GitHub Enterprise ✨, GitLab, GitLab
+					self-managed ✨, Gitea, Gerrit, Google Source, Bitbucket, Bitbucket Server, Azure DevOps, and custom
+					servers.
 				</p>
+				<p>
+					All integration provide automatic linking, while rich integrations with GitHub & GitLab offer
+					detailed hover information for autolinks, and correlations between pull requests, branches, and
+					commits, as well as user avatars for added context.
+				</p>
+				<p>
+					<strong>Define your own autolinks</strong>
+				</p>
+				<p>
+					Use autolinks to linkify external references, like Jira issues or Zendesk tickets, in commit
+					messages.
+				</p>
+				<gk-button appearance="secondary" href="command:gitlens.showSettingsPage?%22autolinks%22"
+					>Configure Autolinks</gk-button
+				>
 
 				<h3><code-icon icon="beaker" size="20"></code-icon> GitKraken Labs</h3>
 				<p>Experimental features.</p>
@@ -348,21 +380,21 @@
 						data-requires="repo"
 						title="Show Commits view"
 						aria-label="Show Commits view"
-						><code-icon icon="gl-commits-view"></code-icon><span>Commits view</span></a
+						><code-icon icon="gl-commits-view"></code-icon><span>Commits</span></a
 					>
 					<a
 						href="command:gitlens.showCommitDetailsView"
 						data-requires="repo"
 						title="Show Commit Details view"
 						aria-label="Show Commit Details view"
-						><code-icon icon="gl-commit-view"></code-icon><span>Commit Details view</span></a
+						><code-icon icon="gl-commit-view"></code-icon><span>Commit Details</span></a
 					>
 					<a
 						href="command:gitlens.showFileHistoryView"
 						data-requires="repo"
 						title="Show File History view"
 						aria-label="Show File History view"
-						><code-icon icon="gl-history-view"></code-icon><span>File History view</span></a
+						><code-icon icon="gl-history-view"></code-icon><span>File History</span></a
 					>
 					<a
 						href="command:gitlens.showTimelineView"
@@ -370,6 +402,13 @@
 						title="Show Visual File History view"
 						aria-label="Show Visual File History view"
 						><code-icon icon="graph-scatter"></code-icon><span>Visual File History ✨</span></a
+					>
+					<a
+						href="command:gitlens.showStashesView"
+						data-requires="repo"
+						title="Show Stashes view"
+						aria-label="Show Stashes view"
+						><code-icon icon="gl-stashes-view"></code-icon>Stashes</a
 					>
 					<a
 						href="command:gitlens.showSearchAndCompareView"
@@ -459,9 +498,9 @@
 		</main>
 		<footer>
 			<p>
-				✨ Requires a trial or subscription for use on privately hosted repos
+				✨ Requires a trial or paid subscription for use on privately hosted repos
 				<br />
-				☁️ Requires an account and access is based on your subscription tier, e.g. Free, Pro, etc
+				☁️ Requires an account and access is based on your subscription, e.g. Free, Pro, etc
 			</p>
 		</footer>
 		#{endOfBody}

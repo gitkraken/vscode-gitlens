@@ -3937,7 +3937,7 @@
 					"gitlens.plusFeatures.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to hide or show features that require a trial or subscription and are not accessible given the opened repositories and current trial or subscription",
+						"markdownDescription": "Specifies whether to hide or show features that require a trial or paid subscription and are not accessible given the opened repositories and current trial or subscription",
 						"scope": "window",
 						"order": 60
 					},
@@ -14132,12 +14132,12 @@
 			},
 			{
 				"view": "gitlens.views.workspaces",
-				"contents": "[Create Cloud Workspace](command:gitlens.views.workspaces.create)\n\n☁️ Access is based on your subscription tier, e.g. Free, Pro, etc",
+				"contents": "[Create Cloud Workspace](command:gitlens.views.workspaces.create)\n\n☁️ Access is based on your subscription, e.g. Free, Pro, etc",
 				"when": "gitlens:plus"
 			},
 			{
 				"view": "gitlens.views.workspaces",
-				"contents": "[Start Free Pro Trial](command:gitlens.plus.loginOrSignUp)\n\nStart a free 7-day Pro trial to use GitKraken Workspaces, or [sign in](command:gitlens.plus.loginOrSignUp).\n☁️ Requires an account and access is based on your subscription tier, e.g. Free, Pro, etc",
+				"contents": "[Start Free Pro Trial](command:gitlens.plus.loginOrSignUp)\n\nStart a free 7-day Pro trial to use GitKraken Workspaces, or [sign in](command:gitlens.plus.loginOrSignUp).\n☁️ Requires an account and access is based on your subscription, e.g. Free, Pro, etc",
 				"when": "!gitlens:plus"
 			},
 			{
@@ -14157,17 +14157,17 @@
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "[Preview Pro](command:gitlens.plus.startPreviewTrial)\n\nPreview Pro for 3 days, or [sign in](command:gitlens.plus.loginOrSignUp) to start a full 7-day Pro trial.\n✨ A trial or subscription is required to use this on privately hosted repos.",
+				"contents": "[Preview Pro](command:gitlens.plus.startPreviewTrial)\n\nPreview Pro for 3 days, or [sign in](command:gitlens.plus.loginOrSignUp) to start a full 7-day Pro trial.\n✨ A trial or paid subscription is required to use this on privately hosted repos.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 0"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Your 3-day Pro preview has ended, start a free Pro trial to get an additional 7 days, or [sign in](command:gitlens.plus.loginOrSignUp).\n\n[Start Free Pro Trial](command:gitlens.plus.loginOrSignUp)\n✨ A trial or subscription is required to use this on privately hosted repos.",
+				"contents": "Your 3-day Pro preview has ended, start a free Pro trial to get an additional 7 days, or [sign in](command:gitlens.plus.loginOrSignUp).\n\n[Start Free Pro Trial](command:gitlens.plus.loginOrSignUp)\n✨ A trial or paid subscription is required to use this on privately hosted repos.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 2"
 			},
 			{
 				"view": "gitlens.views.worktrees",
-				"contents": "Your Pro trial has ended, please upgrade to continue to use this on privately hosted repos.\n\n[Upgrade to Pro](command:gitlens.plus.purchase)\n✨ A subscription is required to use this on privately hosted repos.",
+				"contents": "Your Pro trial has ended, please upgrade to continue to use this on privately hosted repos.\n\n[Upgrade to Pro](command:gitlens.plus.purchase)\n✨ A paid subscription is required to use this on privately hosted repos.",
 				"when": "gitlens:plus:required && gitlens:plus:state == 4"
 			}
 		],
@@ -14389,7 +14389,7 @@
 					{
 						"id": "gitlens.welcome.commitGraph",
 						"title": "Commit Graph ✨",
-						"description": "Helps you easily visualize your repository and keep track of all work in progress. Not only does it help you verify your changes, but also easily see changes made by others and when.\nUse the rich commit search to find exactly what you're looking for. It's powerful filters allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change.\n\n[Open Commit Graph](command:gitlens.showGraph)",
+						"description": "Helps you easily visualize your repository and keep track of all work in progress.\nUse the rich commit search to find exactly what you're looking for. It's powerful filters allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change.\n\n[Open Commit Graph](command:gitlens.showGraph)",
 						"media": {
 							"markdown": "walkthroughs/welcome/commit-graph.md"
 						}
@@ -14397,7 +14397,7 @@
 					{
 						"id": "gitlens.welcome.workspaces",
 						"title": "Workspaces and Focus ☁️",
-						"description": "Workspaces allow you to easily group and manage multiple repositories all in one place, streamlining your workflow.\n\n[Open Workspaces](command:gitlens.showWorkspacesView)\n\nFocus view helps you concentrate on what really matters by gathering all your GitHub pull requests and issues into one comprehensive list.\n\n[Open Focus](command:gitlens.showFocusPage)",
+						"description": "Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration.\n\n[Open Workspaces](command:gitlens.showWorkspacesView)\n\nThe Focus view brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more.\nQuickly see if anything requires your attention while keeping you focused.\n\n[Open Focus](command:gitlens.showFocusPage)",
 						"media": {
 							"altText": "Illustrations of Focus and Workspaces view",
 							"svg": "walkthroughs/welcome/workspaces-focus.svg"
@@ -14406,7 +14406,7 @@
 					{
 						"id": "gitlens.welcome.hostingServiceIntegrations",
 						"title": "Integrate with Git hosting services",
-						"description": "Quickly gain insights from pull requests and issues without leaving your editor.\n\nConnect with GitHub, GitHub Enterprise, GitLab, GitLab self-managed, Gitea, Gerrit, Google Source, Bitbucket, Bitbucket Server, Azure DevOps and custom servers.\nAll Git host integrations provide issue and pull request auto-linking, while rich integrations (e.g. GitHub & GitLab) provide more detailed hover information for auto-linked issues and pull requests, pull requests associated with branches and commits, and avatars.\n\n[Configure Autolinks](command:gitlens.showSettingsPage?%22autolinks%22)",
+						"description": "Simplify your workflow and quickly gain insights with automatic linking of issues and pull requests across multiple Git hosting platforms including GitHub, GitHub Enterprise ✨, GitLab, GitLab self-managed ✨, Gitea, Gerrit, Google Source, Bitbucket, Bitbucket Server, Azure DevOps, and custom servers.\n\nAll integration provide automatic linking, while rich integrations with GitHub & GitLab offer detailed hover information for autolinks, and correlations between pull requests, branches, and commits, as well as user avatars for added context.\n\n**Define your own autolinks**\nUse autolinks to linkify external references, like Jira issues or Zendesk tickets, in commit messages.\n\n[Configure Autolinks](command:gitlens.showSettingsPage?%22autolinks%22)",
 						"media": {
 							"markdown": "walkthroughs/welcome/8-hosting-service-integrations.md"
 						}
