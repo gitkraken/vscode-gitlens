@@ -11888,18 +11888,18 @@
 				},
 				{
 					"command": "gitlens.views.push",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:repository\\b/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+workspace.*?\\+closed\\b)/",
 					"group": "inline@96",
 					"alt": "gitlens.views.pushWithForce"
 				},
 				{
 					"command": "gitlens.views.pull",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:repository\\b/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+workspace.*?\\+closed\\b)/",
 					"group": "inline@97"
 				},
 				{
 					"command": "gitlens.views.fetch",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:repository\\b/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+workspace.*?\\+closed\\b)/",
 					"group": "inline@98"
 				},
 				{
@@ -11914,22 +11914,22 @@
 				},
 				{
 					"command": "gitlens.views.fetch",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:repository\\b/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+workspace.*?\\+closed\\b)/",
 					"group": "1_gitlens_actions@1"
 				},
 				{
 					"command": "gitlens.views.pull",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:repository\\b/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+workspace\\b.*?\\+closed\\b)/",
 					"group": "1_gitlens_actions@1"
 				},
 				{
 					"command": "gitlens.views.push",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:repository\\b/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+workspace\\b.*?\\+closed\\b)/",
 					"group": "1_gitlens_actions@1"
 				},
 				{
 					"command": "gitlens.views.pushWithForce",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:repository\\b/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+workspace\\b.*?\\+closed\\b)/",
 					"group": "1_gitlens_actions@2"
 				},
 				{
@@ -11955,17 +11955,17 @@
 				},
 				{
 					"command": "gitlens.stashSave",
-					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:repository\\b/",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+workspace\\b)/",
 					"group": "1_gitlens_actions_1@1"
 				},
 				{
 					"command": "gitlens.stashApply",
-					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:repository\\b/",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+workspace\\b)/",
 					"group": "1_gitlens_actions_1@2"
 				},
 				{
 					"command": "gitlens.views.star",
-					"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+starred\\b)/",
+					"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+(starred|workspace)\\b)/",
 					"group": "8_gitlens_actions_@1"
 				},
 				{
@@ -11975,7 +11975,7 @@
 				},
 				{
 					"command": "gitlens.views.closeRepository",
-					"when": "viewItem =~ /gitlens:repository\\b/",
+					"when": "viewItem =~ /gitlens:repository\\b(?!.*?\\b\\+closed\\b)/",
 					"group": "8_gitlens_actions_@2"
 				},
 				{

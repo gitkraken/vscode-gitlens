@@ -271,6 +271,9 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 			} else if (this.options.workspace.type === WorkspaceType.Local) {
 				contextValue += '+local';
 			}
+			if (this.repo.closed) {
+				contextValue += '+closed';
+			}
 		}
 		if (this.repo.virtual) {
 			contextValue += '+virtual';
