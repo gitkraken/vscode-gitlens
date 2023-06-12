@@ -92,7 +92,7 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 	}
 }
 
-export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConfig> {
+export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, WorktreesViewConfig> {
 	protected readonly configKey = 'worktrees';
 
 	constructor(container: Container) {

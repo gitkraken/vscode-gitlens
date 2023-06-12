@@ -40,7 +40,7 @@ import { WorktreesNode } from './nodes/worktreesNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
-export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesViewConfig> {
+export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode, RepositoriesViewConfig> {
 	protected readonly configKey = 'repositories';
 
 	constructor(container: Container) {

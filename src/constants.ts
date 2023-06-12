@@ -392,8 +392,13 @@ export type TreeViewCommands = `gitlens.views.${
 			| `setShowAvatars${'On' | 'Off'}`
 			| `setFilesFilterOn${'Left' | 'Right'}`
 			| 'setFilesFilterOff'}`
-	| `stashes.${'copy' | 'refresh' | `setLayoutTo${'List' | 'Tree'}` | `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`}`
-	| `tags.${'copy' | 'refresh' | `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`}`
+	| `stashes.${'copy' | 'refresh' | `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`}`
+	| `tags.${
+			| 'copy'
+			| 'refresh'
+			| `setLayoutTo${'List' | 'Tree'}`
+			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
+			| `setShowAvatars${'On' | 'Off'}`}`
 	| `workspaces.${
 			| 'copy'
 			| 'refresh'
@@ -411,9 +416,19 @@ export type TreeViewCommands = `gitlens.views.${
 			| `setShowAvatars${'On' | 'Off'}`
 			| `setShowBranchComparison${'On' | 'Off'}`
 			| `setShowBranchPullRequest${'On' | 'Off'}`}`}`;
-export type TreeViewCommandsByViewId<T extends TreeViewIds> = TreeViewCommands extends `${T}.${infer U}`
-	? `${U}`
-	: never;
+
+type ExtractSuffix<Prefix extends string, U> = U extends `${Prefix}${infer V}` ? V : never;
+type FilterCommands<Prefix extends string, U> = U extends `${Prefix}${infer V}` ? `${Prefix}${V}` : never;
+
+export type TreeViewCommandsByViewId<T extends TreeViewIds> = FilterCommands<T, TreeViewCommands>;
+export type TreeViewCommandsByViewType<T extends TreeViewTypes> = FilterCommands<
+	`gitlens.views.${T}.`,
+	TreeViewCommands
+>;
+export type TreeViewCommandSuffixesByViewType<T extends TreeViewTypes> = ExtractSuffix<
+	`gitlens.views.${T}.`,
+	FilterCommands<`gitlens.views.${T}.`, TreeViewCommands>
+>;
 
 export type CustomEditorTypes = 'rebase';
 export type CustomEditorIds = `gitlens.${CustomEditorTypes}`;

@@ -81,7 +81,7 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 	}
 }
 
-export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
+export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 	protected readonly configKey = 'tags';
 
 	constructor(container: Container) {
