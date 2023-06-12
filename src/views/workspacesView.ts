@@ -64,7 +64,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 
 	private async updateDescription() {
 		const subscription = await this.container.subscription.getSubscription();
-		this.description = subscription.state === SubscriptionState.Paid ? undefined : '☁️';
+		this.description = `PREVIEW ${subscription.state === SubscriptionState.Paid ? '' : '☁️'}`;
 	}
 
 	override get canReveal(): boolean {
