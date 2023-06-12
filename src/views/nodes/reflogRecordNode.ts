@@ -13,11 +13,14 @@ import type { PageableViewNode } from './viewNode';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class ReflogRecordNode extends ViewNode<ViewsWithCommits> implements PageableViewNode {
+	limit: number | undefined;
+
 	constructor(view: ViewsWithCommits, parent: ViewNode, public readonly record: GitReflogRecord) {
 		super(GitUri.fromRepoPath(record.repoPath), view, parent);
 
 		this.updateContext({ reflog: record });
 		this._uniqueId = getViewNodeId('reflog-record', this.context);
+		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 
 	override get id(): string {
@@ -86,7 +89,6 @@ export class ReflogRecordNode extends ViewNode<ViewsWithCommits> implements Page
 		return this._log?.hasMore ?? true;
 	}
 
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	@gate()
 	async loadMore(limit?: number | { until?: any }) {
 		let log = await window.withProgress(

@@ -22,6 +22,8 @@ import type { PageableViewNode, ViewNode } from './viewNode';
 import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 
 export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> implements PageableViewNode {
+	limit: number | undefined;
+
 	protected override splatted = true;
 
 	constructor(
@@ -37,6 +39,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 			this.updateContext({ branch: branch });
 		}
 		this._uniqueId = getViewNodeId(`file-history+${uri.toString()}`, this.context);
+		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 
 	override get id(): string {
@@ -250,7 +253,6 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 		return this._log?.hasMore ?? true;
 	}
 
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	@gate()
 	async loadMore(limit?: number | { until?: any }) {
 		let log = await window.withProgress(

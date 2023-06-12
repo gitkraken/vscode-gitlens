@@ -29,6 +29,8 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 	extends ViewNode<View>
 	implements PageableViewNode
 {
+	limit: number | undefined;
+
 	constructor(
 		view: View,
 		protected override readonly parent: ViewNode,
@@ -55,6 +57,8 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		super(GitUri.fromRepoPath(repoPath), view, parent);
 
 		this._uniqueId = getViewNodeId(`results-commits${_options?.id ? `+${_options.id}` : ''}`, this.context);
+		this.limit = this.view.getNodeLastKnownLimit(this);
+
 		this._options = { expand: true, ..._options };
 		if (splatted != null) {
 			this.splatted = splatted;
@@ -195,7 +199,6 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 	}
 
 	private _expandAutolinks: boolean = false;
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	async loadMore(limit?: number, context?: Record<string, unknown>): Promise<void> {
 		const results = await this.getCommitsQueryResults();
 		if (results == null || !results.hasMore) return;

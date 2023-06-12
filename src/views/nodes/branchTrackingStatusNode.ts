@@ -27,6 +27,8 @@ export interface BranchTrackingStatus {
 }
 
 export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> implements PageableViewNode {
+	limit: number | undefined;
+
 	constructor(
 		view: ViewsWithCommits,
 		protected override readonly parent: ViewNode,
@@ -48,6 +50,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 			root: root,
 		});
 		this._uniqueId = getViewNodeId('tracking-status', this.context);
+		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 
 	override get id(): string {
@@ -284,7 +287,6 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 		return this._log?.hasMore ?? true;
 	}
 
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	@gate()
 	async loadMore(limit?: number | { until?: any }) {
 		let log = await window.withProgress(

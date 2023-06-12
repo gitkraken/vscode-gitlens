@@ -26,6 +26,8 @@ export class LineHistoryNode
 	extends SubscribeableViewNode<FileHistoryView | LineHistoryView>
 	implements PageableViewNode
 {
+	limit: number | undefined;
+
 	protected override splatted = true;
 
 	constructor(
@@ -47,6 +49,7 @@ export class LineHistoryNode
 			},${selection.end.character}]`,
 			this.context,
 		);
+		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 
 	override get id(): string {
@@ -263,7 +266,6 @@ export class LineHistoryNode
 		return this._log?.hasMore ?? true;
 	}
 
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	@gate()
 	async loadMore(limit?: number | { until?: any }) {
 		let log = await window.withProgress(

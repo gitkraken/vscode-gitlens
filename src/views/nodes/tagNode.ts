@@ -19,11 +19,14 @@ import type { PageableViewNode, ViewNode } from './viewNode';
 import { ContextValues, getViewNodeId, ViewRefNode } from './viewNode';
 
 export class TagNode extends ViewRefNode<ViewsWithTags, GitTagReference> implements PageableViewNode {
+	limit: number | undefined;
+
 	constructor(uri: GitUri, view: ViewsWithTags, public override parent: ViewNode, public readonly tag: GitTag) {
 		super(uri, view, parent);
 
 		this.updateContext({ tag: tag });
 		this._uniqueId = getViewNodeId('tag', this.context);
+		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 
 	override get id(): string {
@@ -118,7 +121,6 @@ export class TagNode extends ViewRefNode<ViewsWithTags, GitTagReference> impleme
 		return this._log?.hasMore ?? true;
 	}
 
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	@gate()
 	async loadMore(limit?: number | { until?: any }) {
 		let log = await window.withProgress(
