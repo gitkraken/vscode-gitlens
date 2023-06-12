@@ -1,5 +1,5 @@
 import type { CancellationToken, Event } from 'vscode';
-import { Disposable, EventEmitter, Uri, window } from 'vscode';
+import { Disposable, EventEmitter, ProgressLocation, Uri, window } from 'vscode';
 import { getSupportedWorkspacesPathMappingProvider } from '@env/providers';
 import type { Container } from '../../container';
 import type { GitRemote } from '../../git/models/remote';
@@ -661,30 +661,52 @@ export class WorkspacesService implements Disposable {
 			if (repoChoice == null) return;
 
 			if (repoChoice.choice === WorkspaceAddRepositoriesChoice.ParentFolder) {
-				const foundRepos = await this.getRepositoriesInParentFolder();
-				if (foundRepos == null) return;
-				validRepos = await this.filterReposForProvider(foundRepos, workspace.provider);
-				if (validRepos.length === 0) {
-					if (!options?.suppressNotifications) {
-						void window.showInformationMessage(
-							`No matching repositories found for provider ${workspace.provider}.`,
-							{
-								modal: true,
-							},
-						);
-					}
-					return;
-				}
+				await window.withProgress(
+					{
+						location: ProgressLocation.Notification,
+						title: `Finding repositories to add to the workspace...`,
+						cancellable: true,
+					},
+					async (_progress, token) => {
+						const foundRepos = await this.getRepositoriesInParentFolder(token);
+						if (foundRepos == null) return;
+						if (foundRepos.length === 0) {
+							if (!options?.suppressNotifications) {
+								void window.showInformationMessage(`No repositories found in the chosen folder.`, {
+									modal: true,
+								});
+							}
+							return;
+						}
 
-				validRepos = await this.filterReposForCloudWorkspace(validRepos, workspaceId);
-				if (validRepos.length === 0) {
-					if (!options?.suppressNotifications) {
-						void window.showInformationMessage(`All possible repositories are already in this workspace.`, {
-							modal: true,
-						});
-					}
-					return;
-				}
+						if (token.isCancellationRequested) return;
+						validRepos = await this.filterReposForProvider(foundRepos, workspace.provider);
+						if (validRepos.length === 0) {
+							if (!options?.suppressNotifications) {
+								void window.showInformationMessage(
+									`No matching repositories found for provider ${workspace.provider}.`,
+									{
+										modal: true,
+									},
+								);
+							}
+							return;
+						}
+
+						if (token.isCancellationRequested) return;
+						validRepos = await this.filterReposForCloudWorkspace(validRepos, workspaceId);
+						if (validRepos.length === 0) {
+							if (!options?.suppressNotifications) {
+								void window.showInformationMessage(
+									`All possible repositories are already in this workspace.`,
+									{
+										modal: true,
+									},
+								);
+							}
+						}
+					},
+				);
 			}
 
 			const pick = await showRepositoriesPicker(
