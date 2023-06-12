@@ -1,0 +1,270 @@
+<svg width="850" height="600" viewBox="0 0 850 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+			<svg x="0" y="0" width="850" height="290" viewBox="0 0 850 290" fill="none" xmlns="http://www.w3.org/2000/svg" class="svg">
+				<rect x="0" y="0" width="100%" height="290" stroke-width="1" stroke="var(--vscode-editorWidget-border)" fill="var(--vscode-sideBarSectionHeader-background)" />
+				<g>
+					<rect x="0" y="0" width="100%" height="44" class="header-box" style="fill: var(--vscode-sideBarSectionHeader-background);" />
+					<text x="10" y="28" class="header" fill="var(--vscode-foreground)" font-size="18" font-weight="700">
+						<tspan dy="4" font-family="codicon">&#xeab4;</tspan>
+						<tspan dx="6" dy="-4">GITKRAKEN WORKSPACES</tspan>
+					</text>
+				</g>
+				<!-- <g class="row">
+					<rect x="0" y="45" width="100%" height="44" class="row-box" />
+					<text x="30" y="71">
+						<tspan dx="2" dy="4" font-family="codicon">&#xeab6;</tspan>
+						<tspan dx="24" dy="-4">Current Window</tspan>
+						<tspan dx="4" font-size="0.9em" opacity="0.6">vscode-gitlens</tspan>
+					</text>
+					<text x="100%" y="71" text-anchor="end" class="row-actions">
+						<tspan dx="-10" dy="4" font-family="codicon">&#xeac3;</tspan>
+					</text>
+				</g> -->
+				<g class="row">
+					<rect x="0" y="45" width="100%" height="44" class="row-box-selected" fill="var(--vscode-list-activeSelectionBackground)" stroke="var(--vscode-list-focusOutline)" stroke-width="1" />
+					<text x="30" y="71" fill="var(--vscode-foreground)" font-size="18">
+						<tspan dx="2" dy="4" font-family="codicon">&#xeab4;</tspan>
+						<tspan dx="24" font-family="codicon">&#xebaa;</tspan>
+						<tspan dx="10" dy="-4">Frontend applications</tspan>
+					</text>
+					<text x="100%" y="71" text-anchor="end" fill="var(--vscode-foreground)" font-size="18">
+						<tspan dx="-10" dy="4" font-family="codicon">&#xea60;</tspan>
+						<tspan dx="12" font-family="codicon">&#xeb1a;</tspan>
+						<tspan dx="12" font-family="codicon">&#xeae4;</tspan>
+					</text>
+				</g>
+				<g class="row">
+					<rect x="0" y="90" width="100%" height="44" class="row-box" fill="var(--vscode-list-hoverBackground)" />
+					<text x="50" y="116" fill="var(--vscode-foreground)" font-size="18">
+						<tspan dx="2" dy="4" font-family="codicon">&#xeab6;</tspan>
+						<tspan dx="24" font-family="codicon">&#xea83;</tspan>
+						<tspan dx="10" dy="-4">vscode-gitlens</tspan>
+						<tspan dx="4" font-size="0.9em">0</tspan>
+						<tspan dx="-8" dy="6" font-family="codicon">&#xea9d;</tspan>
+						<tspan dx="-4" dy="-6" font-size="0.9em">1</tspan>
+						<tspan dx="-8" dy="6" font-family="codicon">&#xeaa0;</tspan>
+						<tspan dx="-3" dy="-6" font-size="0.9em" opacity="0.6">•</tspan>
+						<tspan dx="1" dy="0" font-size="0.9em" opacity="0.6">main</tspan>
+						<tspan dx="1" dy="0" font-size="0.9em" opacity="0.6">•</tspan>
+						<tspan dx="1" dy="0" font-size="0.9em" opacity="0.6">Last fetched 6/9/23</tspan>
+					</text>
+					<text x="100%" y="116" text-anchor="end" class="row-actions" fill="var(--vscode-foreground)" font-size="18">
+						<tspan dx="-10" dy="4" font-family="codicon">&#xeaa1;</tspan>
+						<tspan dx="12" font-family="codicon">&#xea9a;</tspan>
+						<tspan dx="12" font-family="codicon">&#xeb37;</tspan>
+						<tspan dx="12" font-family="codicon">&#xeae4;</tspan>
+					</text>
+				</g>
+				<g class="row">
+					<rect x="0" y="135" width="100%" height="44" class="row-box" />
+					<text x="50" y="162" fill="var(--vscode-foreground)" font-size="18">
+						<tspan dx="2" dy="4" font-family="codicon">&#xeab6;</tspan>
+						<tspan dx="24" font-family="codicon">&#xea83;</tspan>
+						<tspan dx="10" dy="-4">GitKraken</tspan>
+						<tspan dx="4" font-size="0.9em">1</tspan>
+						<tspan dx="-8" dy="6" font-family="codicon">&#xea9d;</tspan>
+						<tspan dx="-4" dy="-6" font-size="0.9em">0</tspan>
+						<tspan dx="-8" dy="6" font-family="codicon">&#xeaa0;</tspan>
+						<tspan dx="-3" dy="-6" font-size="0.9em" opacity="0.6">•</tspan>
+						<tspan dx="1" dy="0" font-size="0.9em" opacity="0.6">development</tspan>
+						<tspan dx="1" dy="0" font-size="0.9em" opacity="0.6">•</tspan>
+						<tspan dx="1" dy="0" font-size="0.9em" opacity="0.6">Last fetched 6/7/23</tspan>
+					</text>
+					<text x="100%" y="162" text-anchor="end" class="row-actions" fill="var(--vscode-foreground)" font-size="18">
+						<tspan dx="-10" dy="4" font-family="codicon">&#xeaa1;</tspan>
+						<tspan dx="12" font-family="codicon">&#xea9a;</tspan>
+						<tspan dx="12" font-family="codicon">&#xeb37;</tspan>
+						<tspan dx="12" font-family="codicon">&#xeae4;</tspan>
+					</text>
+				</g>
+				<g class="row">
+					<rect x="0" y="179" width="100%" height="44" class="row-box" />
+					<text x="30" y="209" fill="var(--vscode-foreground)" font-size="18">
+						<tspan dx="2" dy="4" font-family="codicon">&#xeab6;</tspan>
+						<tspan dx="24" font-family="codicon">&#xebaa;</tspan>
+						<tspan dx="10" dy="-4">Backend services</tspan>
+					</text>
+					<text x="100%" y="209" text-anchor="end" class="row-actions" fill="var(--vscode-foreground)" font-size="18">
+						<tspan dx="-10" dy="4" font-family="codicon">&#xea60;</tspan>
+						<tspan dx="12" font-family="codicon">&#xeb1a;</tspan>
+						<tspan dx="12" font-family="codicon">&#xeae4;</tspan>
+					</text>
+				</g>
+				<g class="row">
+					<rect x="0" y="223" width="100%" height="44" class="row-box" />
+					<text x="30" y="253" fill="var(--vscode-foreground)" font-size="18">
+						<tspan dx="2" dy="4" font-family="codicon">&#xeab6;</tspan>
+						<tspan dx="24" font-family="codicon">&#xebaa;</tspan>
+						<tspan dx="10" dy="-4">Open source projects</tspan>
+					</text>
+					<text x="100%" y="253" text-anchor="end" class="row-actions" fill="var(--vscode-foreground)" font-size="18">
+						<tspan dx="-10" dy="4" font-family="codicon">&#xea60;</tspan>
+						<tspan dx="12" font-family="codicon">&#xeb1a;</tspan>
+						<tspan dx="12" font-family="codicon">&#xeae4;</tspan>
+					</text>
+				</g>
+				<style><![CDATA[
+					text {
+						fill: var(--vscode-foreground);
+						font-size: 18px;
+					}
+					.header {
+						font-weight: 700;
+					}
+
+					.codicon {
+						font-family: codicon;
+						cursor: default;
+						user-select: none;
+						font-size: 20px;
+					}
+
+					.glicon {
+						font-family: glicons;
+						cursor: default;
+						user-select: none;
+					}
+					.desc {
+						font-size: 0.9em;
+						opacity: 0.6;
+					}
+					.small {
+						font-size: 0.9em;
+					}
+					.header-box {
+						fill: var(--vscode-sideBarSectionHeader-background);
+					}
+					.row-box {
+						fill: var(--vscode-list-hoverBackground);
+						opacity: 0;
+					}
+					.row {
+						cursor: pointer;
+					}
+					.row:hover .row-box {
+						opacity: 1;
+					}
+					.row-box-selected {
+						fill: var(--vscode-list-activeSelectionBackground);
+						stroke: var(--vscode-list-focusOutline);
+						stroke-width: 1;
+					}
+					.row:not(:hover) .row-actions {
+						display: none;
+					}
+					.link {
+						fill: var(--vscode-textLink-foreground);
+					}
+					.link:hover {
+						text-decoration: underline;
+					}
+					.addition {
+						fill: var(--vscode-gitDecoration-addedResourceForeground);
+					}
+					.deletion {
+						fill: var(--vscode-gitDecoration-deletedResourceForeground);
+					}
+				]]></style>
+			</svg>
+			<svg x="0" y="310" width="850" height="290" viewBox="0 0 850 290" fill="none" xmlns="http://www.w3.org/2000/svg">
+				<rect x="0" y="0" width="100%" height="290" stroke-width="1" stroke="var(--vscode-editorWidget-border)" fill="var(--vscode-sideBarSectionHeader-background)" />
+				<g>
+					<text x="10" y="30" class="heading" font-weight="600" font-size="20" fill="var(--vscode-foreground)">
+						<tspan>My Pull Requests</tspan>
+					</text>
+					<text x="100%" y="30.5" class="tabs" text-anchor="end" fill="var(--vscode-foreground)" font-size="16" opacity="0.8">
+						<tspan text-decoration="underline" dx="-10">All</tspan>
+						<tspan text-decoration="underline" dx="6">Opened by me</tspan>
+						<tspan text-decoration="underline" dx="6">Assigned to me</tspan>
+						<tspan text-decoration="underline" dx="6">Needs my review</tspan>
+						<tspan text-decoration="underline" dx="6">Mentions me</tspan>
+					</text>
+				</g>
+				<g class="row">
+					<rect x="0" y="52" width="100%" height="34" class="row-box" />
+					<text x="10" y="75" fill="var(--vscode-foreground)" font-size="18">
+						<tspan dx="2" dy="2" font-family="codicon">&#xea64;</tspan>
+						<tspan dx="2" font-family="codicon" fill="var(--vscode-problemsErrorIcon-foreground)">&#xeb43;</tspan>
+						<tspan dx="30" dy="-2">1wk</tspan>
+						<tspan dx="30">adds stylelint</tspan>
+						<tspan text-decoration="underline" fill=" var(--vscode-textLink-foreground)">#2453</tspan>
+					</text>
+					<text x="100%" y="75" text-anchor="end" fill="var(--vscode-foreground)" font-size="18">
+						<tspan dx="-10" dy="2" font-family="codicon">&#xeb99;</tspan>
+						<tspan dx="40" dy="-2" fill="var(--vscode-gitDecoration-addedResourceForeground)">+1735</tspan>
+						<tspan dx="2" fill="var(--vscode-gitDecoration-deletedResourceForeground)">-748</tspan>
+						<tspan dx="40" dy="2" font-family="glicons">&#xf118;</tspan>
+					</text>
+				</g>
+				<g class="row">
+					<rect x="0" y="86" width="100%" height="34" class="row-box" />
+					<text x="10" y="109" fill="var(--vscode-foreground)" font-size="18">
+						<tspan dx="2" dy="2" font-family="codicon">&#xea64;</tspan>
+						<tspan dx="2" font-family="codicon" fill="var(--vscode-problemsInfoIcon-foreground)">&#xeba4;</tspan>
+						<tspan dx="30" dy="-2">1wk</tspan>
+						<tspan dx="30">Workspaces side bar view</tspan>
+						<tspan text-decoration="underline" fill=" var(--vscode-textLink-foreground)">#2650</tspan>
+					</text>
+					<text x="100%" y="109" text-anchor="end" fill="var(--vscode-foreground)" font-size="18">
+						<tspan dx="-10" dy="2" font-family="codicon">&#xeb99;</tspan>
+						<tspan dx="40" dy="-2" fill="var(--vscode-gitDecoration-addedResourceForeground)">+3,556</tspan>
+						<tspan dx="2" fill="var(--vscode-gitDecoration-deletedResourceForeground)">-136</tspan>
+						<tspan dx="34" dy="2" font-family="glicons">&#xf118;</tspan>
+					</text>
+				</g>
+				<g class="row">
+					<rect x="0" y="120" width="100%" height="34" class="row-box" />
+					<text x="10" y="143" fill="var(--vscode-foreground)" font-size="18">
+						<tspan dx="2" dy="2" font-family="codicon">&#xea64;</tspan>
+						<tspan dx="2" font-family="codicon" fill="var(--vscode-problemsErrorIcon-foreground)">&#xebe6;</tspan>
+						<tspan dx="30" dy="-2" fill="var(--vscode-problemsWarningIcon-foreground)">3wk</tspan>
+						<tspan dx="29">Adds experimental.OpenAIModel</tspan>
+						<tspan text-decoration="underline" fill=" var(--vscode-textLink-foreground)">#2637</tspan>
+					</text>
+					<text x="100%" y="143" text-anchor="end" fill="var(--vscode-foreground)" font-size="18">
+						<tspan dx="-10" dy="2" font-family="codicon">&#xeb99;</tspan>
+						<tspan dx="40" dy="-2" fill="var(--vscode-gitDecoration-addedResourceForeground)">+79</tspan>
+						<tspan dx="2" fill="var(--vscode-gitDecoration-deletedResourceForeground)">-12</tspan>
+						<tspan dx="72" dy="2" font-family="glicons">&#xf118;</tspan>
+					</text>
+				</g>
+				<g class="row">
+					<rect x="0" y="154" width="100%" height="34" class="row-box" />
+					<text x="10" y="177" fill="var(--vscode-foreground)" font-size="18">
+						<tspan dx="2" dy="2" font-family="codicon">&#xea64;</tspan>
+						<tspan dx="54" dy="-2" fill="var(--vscode-problemsErrorIcon-foreground)">2mo</tspan>
+						<tspan dx="29">adds focus view</tspan>
+						<tspan text-decoration="underline" fill=" var(--vscode-textLink-foreground)">#2516</tspan>
+					</text>
+					<text x="100%" y="177" text-anchor="end" fill="var(--vscode-foreground)" font-size="18">
+						<tspan dx="-10" dy="2" font-family="codicon">&#xeb99;</tspan>
+						<tspan dx="39" dy="-2" fill="var(--vscode-gitDecoration-addedResourceForeground)">+3,327</tspan>
+						<tspan dx="2" fill="var(--vscode-gitDecoration-deletedResourceForeground)">-28</tspan>
+						<tspan dx="45" dy="2" font-family="glicons">&#xf118;</tspan>
+					</text>
+				</g>
+				<g>
+					<text x="10" y="232" class="heading" fill="var(--vscode-foreground)" font-weight="600" font-size="20">
+						<tspan>My Issues</tspan>
+					</text>
+					<text x="100%" y="232.5" class="tabs" text-anchor="end" fill="var(--vscode-foreground)" font-size="16" opacity="0.8">
+						<tspan text-decoration="underline" dx="-10">All</tspan>
+						<tspan text-decoration="underline" dx="6">Opened by me</tspan>
+						<tspan text-decoration="underline" dx="6">Assigned to me</tspan>
+						<tspan text-decoration="underline" dx="6">Mentions me</tspan>
+					</text>
+				</g>
+				<g class="row">
+					<rect x="0" y="255" width="100%" height="30" class="row-box" />
+					<text x="10" y="278" fill="var(--vscode-foreground)" font-size="18">
+						<tspan dx="2" dy="2" font-family="codicon">&#xeb0c;</tspan>
+						<tspan dx="54" dy="-2" fill="var(--vscode-problemsErrorIcon-foreground)">2mo</tspan>
+						<tspan dx="30">Labs: add AI explain panel to Commit Details</tspan>
+						<tspan text-decoration="underline" fill=" var(--vscode-textLink-foreground)">#2628</tspan>
+					</text>
+					<text x="100%" y="278" text-anchor="end" fill="var(--vscode-foreground)" font-size="18">
+						<tspan dx="-10" dy="2" font-family="codicon">&#xeb99;</tspan>
+						<tspan dx="10" dy="0.5" font-family="codicon">&#xeb01;</tspan>
+					</text>
+				</g>
+			</svg>
+</svg>

@@ -14399,7 +14399,8 @@
 						"title": "Workspaces and Focus ☁️",
 						"description": "Workspaces allow you to easily group and manage multiple repositories all in one place, streamlining your workflow.\n\n[Open Workspaces](command:gitlens.showWorkspacesView)\n\nFocus view helps you concentrate on what really matters by gathering all your GitHub pull requests and issues into one comprehensive list.\n\n[Open Focus](command:gitlens.showFocusPage)",
 						"media": {
-							"markdown": "walkthroughs/welcome/workspaces-and-focus.md"
+							"altText": "Illustrations of Focus and Workspaces view",
+							"svg": "walkthroughs/welcome/workspaces-focus.svg"
 						}
 					},
 					{
