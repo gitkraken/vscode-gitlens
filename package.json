@@ -14356,16 +14356,16 @@
 					},
 					{
 						"id": "gitlens.welcome.currentLineBlame",
-						"title": "See who made what changes at a glance",
-						"description": "Inline and status bar blame provide historical context about line changes.\nCodeLens adds contextual authorship information and links at the top of each file and at the beginning of each block of code.\nHovering over these blame annotations will reveal more details and links to explore.\n💡 Use the [Toggle Line Blame](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Line%20Blame%22) and [Toggle Git CodeLens](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Git%20CodeLens%22) commands from the Command Palette to turn the annotations on and off.",
+						"title": "See who made which changes at a glance",
+						"description": "**Inline blame** and status bar blame provide historical context about line changes.\n**Git CodeLens** adds contextual authorship information at the top of each file and at the beginning of each block of code.\n**Hover** over these blame annotations to reveal more details and actions.\n💡 Use the [Toggle Line Blame](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Line%20Blame%22) and [Toggle Git CodeLens](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Git%20CodeLens%22) commands from the Command Palette to turn the annotations on and off.",
 						"media": {
 							"markdown": "walkthroughs/welcome/3-current-line-blame.md"
 						}
 					},
 					{
 						"id": "gitlens.welcome.fileAnnotations",
-						"title": "See more context with file annotations",
-						"description": "Whole file annotations place visual indicators directly to the editor's scroll bar and in the gutter area, the space beside the line number, to help you gain more insights into your code.\n💡 On an active file, use the [Toggle File Blame](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Blame%22), [Toggle File Changes](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Changes%22), and [Toggle File Heatmap](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Heatmap%22) commands from the Command Palette to turn the annotations on and off.",
+						"title": "Get more context with file annotations",
+						"description": "Use on-demand whole file annotations to see authorship, recent changes, and a heatmap. Annotations are rendered as visual indicators directly in the editor.\n💡 On an active file, use the [Toggle File Blame](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Blame%22), [Toggle File Changes](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Changes%22), and [Toggle File Heatmap](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Heatmap%22) commands from the Command Palette to turn the annotations on and off.",
 						"media": {
 							"markdown": "walkthroughs/welcome/6-file-annotations.md"
 						}
