@@ -1608,6 +1608,9 @@ export class CodeIcon extends LitElement {
 		:host([icon='gl-gitlens-inspect']):before {
 			content: '\\f124';
 		}
+		:host([icon='gl-workspaces-view']):before {
+			content: '\\f125';
+		}
 
 		@keyframes codicon-spin {
 			100% {

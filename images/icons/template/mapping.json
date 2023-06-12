@@ -36,5 +36,6 @@
   "provider-gitea": 61729,
   "provider-github": 61730,
   "provider-gitlab": 61731,
-  "gitlens-inspect": 61732
+  "gitlens-inspect": 61732,
+  "workspaces-view": 61733
 }
