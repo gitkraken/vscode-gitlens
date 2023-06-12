@@ -6,45 +6,38 @@ import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import type { ViewsWithStashesNode } from '../viewBase';
 import { MessageNode } from './common';
-import { RepositoryNode } from './repositoryNode';
 import { StashNode } from './stashNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class StashesNode extends ViewNode<ViewsWithStashesNode> {
-	static key = ':stashes';
-	static getId(repoPath: string, workspaceId?: string): string {
-		return `${RepositoryNode.getId(repoPath, workspaceId)}${this.key}`;
-	}
-
-	private _children: ViewNode[] | undefined;
-
 	constructor(
 		uri: GitUri,
 		view: ViewsWithStashesNode,
-		parent: ViewNode,
+		protected override parent: ViewNode,
 		public readonly repo: Repository,
-		private readonly options?: {
-			workspaceId?: string;
-		},
 	) {
 		super(uri, view, parent);
+
+		this.updateContext({ repository: repo });
+		this._uniqueId = getViewNodeId('stashes', this.context);
 	}
 
 	override get id(): string {
-		return StashesNode.getId(this.repo.path, this.options?.workspaceId);
+		return this._uniqueId;
 	}
+
+	get repoPath(): string {
+		return this.repo.path;
+	}
+
+	private _children: ViewNode[] | undefined;
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
 			const stash = await this.repo.getStash();
 			if (stash == null) return [new MessageNode(this.view, this, 'No stashes could be found.')];
 
-			this._children = [
-				...map(
-					stash.commits.values(),
-					c => new StashNode(this.view, this, c, { workspaceId: this.options?.workspaceId }),
-				),
-			];
+			this._children = [...map(stash.commits.values(), c => new StashNode(this.view, this, c))];
 		}
 
 		return this._children;

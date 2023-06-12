@@ -8,35 +8,31 @@ import { debug } from '../../system/decorators/log';
 import type { ViewsWithTagsNode } from '../viewBase';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
-import { RepositoryNode } from './repositoryNode';
 import { TagNode } from './tagNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class TagsNode extends ViewNode<ViewsWithTagsNode> {
-	static key = ':tags';
-	static getId(repoPath: string, workspaceId?: string): string {
-		return `${RepositoryNode.getId(repoPath, workspaceId)}${this.key}`;
-	}
-
-	private _children: ViewNode[] | undefined;
-
 	constructor(
 		uri: GitUri,
 		view: ViewsWithTagsNode,
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
-		private readonly options?: { workspaceId?: string },
 	) {
 		super(uri, view, parent);
+
+		this.updateContext({ repository: repo });
+		this._uniqueId = getViewNodeId('tags', this.context);
 	}
 
 	override get id(): string {
-		return TagsNode.getId(this.repo.path, this.options?.workspaceId);
+		return this._uniqueId;
 	}
 
 	get repoPath(): string {
 		return this.repo.path;
 	}
+
+	private _children: ViewNode[] | undefined;
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
@@ -45,10 +41,7 @@ export class TagsNode extends ViewNode<ViewsWithTagsNode> {
 
 			// TODO@eamodio handle paging
 			const tagNodes = tags.values.map(
-				t =>
-					new TagNode(GitUri.fromRepoPath(this.uri.repoPath!, t.ref), this.view, this, t, {
-						workspaceId: this.options?.workspaceId,
-					}),
+				t => new TagNode(GitUri.fromRepoPath(this.uri.repoPath!, t.ref), this.view, this, t),
 			);
 			if (this.view.config.branches.layout === ViewBranchesLayout.List) return tagNodes;
 
@@ -59,18 +52,7 @@ export class TagsNode extends ViewNode<ViewsWithTagsNode> {
 				this.view.config.files.compact,
 			);
 
-			const root = new BranchOrTagFolderNode(
-				this.view,
-				this,
-				'tag',
-				this.repo.path,
-				'',
-				undefined,
-				hierarchy,
-				'tags',
-				undefined,
-				{ workspaceId: this.options?.workspaceId },
-			);
+			const root = new BranchOrTagFolderNode(this.view, this, 'tag', hierarchy, this.repo.path, '', undefined);
 			this._children = root.getChildren();
 		}
 

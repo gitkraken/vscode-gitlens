@@ -6,26 +6,28 @@ import { createCommand } from '../../system/command';
 import type { WorkspacesView } from '../workspacesView';
 import { CommandMessageNode, MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 import { WorkspaceMissingRepositoryNode } from './workspaceMissingRepositoryNode';
 
 export class WorkspaceNode extends ViewNode<WorkspacesView> {
-	static key = ':workspace';
-	static getId(workspaceId: string): string {
-		return `gitlens${this.key}(${workspaceId})`;
-	}
-
 	constructor(
 		uri: GitUri,
 		view: WorkspacesView,
-		parent: ViewNode,
+		protected override parent: ViewNode,
 		public readonly workspace: CloudWorkspace | LocalWorkspace,
 	) {
 		super(uri, view, parent);
+
+		this.updateContext({ workspace: workspace });
+		this._uniqueId = getViewNodeId('workspace', this.context);
 	}
 
 	override get id(): string {
-		return WorkspaceNode.getId(this.workspace.id);
+		return this._uniqueId;
+	}
+
+	override toClipboard(): string {
+		return this.workspace.name;
 	}
 
 	private _children: ViewNode[] | undefined;
@@ -64,16 +66,19 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 					const repo = reposByName.get(descriptor.name)?.repository;
 					if (!repo) {
 						this._children.push(
-							new WorkspaceMissingRepositoryNode(this.view, this, this.workspace.id, descriptor),
+							new WorkspaceMissingRepositoryNode(this.view, this, this.workspace, descriptor),
 						);
 						continue;
 					}
 
 					this._children.push(
-						new RepositoryNode(GitUri.fromRepoPath(repo.path), this.view, this, repo, {
-							workspace: this.workspace,
-							workspaceRepoDescriptor: descriptor,
-						}),
+						new RepositoryNode(
+							GitUri.fromRepoPath(repo.path),
+							this.view,
+							this,
+							repo,
+							this.getNewContext({ wsRepositoryDescriptor: descriptor }),
+						),
 					);
 				}
 			} catch (ex) {

@@ -27,7 +27,7 @@ import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
 import { PullRequestNode } from './pullRequestNode';
 import type { ViewNode } from './viewNode';
-import { ContextValues, ViewRefNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewRefNode } from './viewNode';
 
 type State = {
 	pullRequest: PullRequest | null | undefined;
@@ -35,11 +35,6 @@ type State = {
 };
 
 export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, GitRevisionReference, State> {
-	static key = ':commit';
-	static getId(parent: ViewNode, sha: string): string {
-		return `${parent.id}${this.key}(${sha})`;
-	}
-
 	constructor(
 		view: ViewsWithCommits | FileHistoryView,
 		parent: ViewNode,
@@ -50,14 +45,17 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		private readonly _options: { expand?: boolean } = {},
 	) {
 		super(commit.getGitUri(), view, parent);
+
+		this.updateContext({ commit: commit });
+		this._uniqueId = getViewNodeId('commit', this.context);
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
 		return `${this.commit.shortSha}: ${this.commit.summary}`;
-	}
-
-	override get id(): string {
-		return CommitNode.getId(this.parent, this.commit.sha);
 	}
 
 	get isTip(): boolean {
@@ -133,7 +131,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 					this.view.config.files.compact,
 				);
 
-				const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
+				const root = new FolderNode(this.view, this, hierarchy, this.repoPath, '', undefined);
 				children = root.getChildren() as FileNode[];
 			} else {
 				(children as FileNode[]).sort((a, b) => sortCompare(a.label!, b.label!));

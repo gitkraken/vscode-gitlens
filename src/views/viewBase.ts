@@ -136,12 +136,15 @@ export abstract class ViewBase<
 
 	private readonly _lastKnownLimits = new Map<string, number | undefined>();
 
+	readonly id: `gitlens.views.${TreeViewTypes}`;
+
 	constructor(
 		public readonly container: Container,
-		public readonly id: `gitlens.views.${TreeViewTypes}`,
+		public readonly type: TreeViewTypes,
 		public readonly name: string,
 		private readonly trackingFeature: TrackedUsageFeatures,
 	) {
+		this.id = `gitlens.views.${type}`;
 		this.disposables.push(once(container.onReady)(this.onReady, this));
 
 		if (this.container.debugging || configuration.get('debug')) {
@@ -378,32 +381,14 @@ export abstract class ViewBase<
 		return this.tree?.visible ?? false;
 	}
 
-	async findNode(
-		id: string,
-		options?: {
-			allowPaging?: boolean;
-			canTraverse?: (node: ViewNode) => boolean | Promise<boolean>;
-			maxDepth?: number;
-			token?: CancellationToken;
-		},
-	): Promise<ViewNode | undefined>;
-	async findNode(
-		predicate: (node: ViewNode) => boolean,
-		options?: {
-			allowPaging?: boolean;
-			canTraverse?: (node: ViewNode) => boolean | Promise<boolean>;
-			maxDepth?: number;
-			token?: CancellationToken;
-		},
-	): Promise<ViewNode | undefined>;
 	@log<ViewBase<RootNode, ViewConfig>['findNode']>({
 		args: {
-			0: predicate => (typeof predicate === 'string' ? predicate : '<function>'),
+			0: '<function>',
 			1: opts => `options=${JSON.stringify({ ...opts, canTraverse: undefined, token: undefined })}`,
 		},
 	})
 	async findNode(
-		predicate: string | ((node: ViewNode) => boolean),
+		predicate: (node: ViewNode) => boolean,
 		{
 			allowPaging = false,
 			canTraverse,
@@ -421,7 +406,7 @@ export abstract class ViewBase<
 		async function find(this: ViewBase<RootNode, ViewConfig>) {
 			try {
 				const node = await this.findNodeCoreBFS(
-					typeof predicate === 'string' ? n => n.id === predicate : predicate,
+					predicate,
 					this.ensureRoot(),
 					allowPaging,
 					canTraverse,

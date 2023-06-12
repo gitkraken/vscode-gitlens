@@ -15,34 +15,23 @@ import type { ViewsWithTags } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { insertDateMarkers } from './helpers';
-import { RepositoryNode } from './repositoryNode';
 import type { PageableViewNode, ViewNode } from './viewNode';
-import { ContextValues, ViewRefNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewRefNode } from './viewNode';
 
 export class TagNode extends ViewRefNode<ViewsWithTags, GitTagReference> implements PageableViewNode {
-	static key = ':tag';
-	static getId(repoPath: string, name: string, workspaceId?: string): string {
-		return `${RepositoryNode.getId(repoPath, workspaceId)}${this.key}(${name})`;
+	constructor(uri: GitUri, view: ViewsWithTags, public override parent: ViewNode, public readonly tag: GitTag) {
+		super(uri, view, parent);
+
+		this.updateContext({ tag: tag });
+		this._uniqueId = getViewNodeId('tag', this.context);
 	}
 
-	constructor(
-		uri: GitUri,
-		view: ViewsWithTags,
-		public override parent: ViewNode,
-		public readonly tag: GitTag,
-		private readonly options?: {
-			workspaceId?: string;
-		},
-	) {
-		super(uri, view, parent);
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
 		return this.tag.name;
-	}
-
-	override get id(): string {
-		return TagNode.getId(this.tag.repoPath, this.tag.name, this.options?.workspaceId);
 	}
 
 	get label(): string {

@@ -16,7 +16,7 @@ import type { FilesQueryResults } from './resultsFilesNode';
 import { ResultsFilesNode } from './resultsFilesNode';
 import { StashNode } from './stashNode';
 import type { PageableViewNode } from './viewNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export interface CommitsQueryResults {
 	readonly label: string;
@@ -49,15 +49,20 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			id?: string;
 			description?: string;
 			expand?: boolean;
-		} = {},
+		} = undefined!,
 		splatted?: boolean,
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
 
+		this._uniqueId = getViewNodeId(`results-commits${_options?.id ? `+${_options.id}` : ''}`, this.context);
+		this._options = { expand: true, ..._options };
 		if (splatted != null) {
 			this.splatted = splatted;
 		}
-		this._options = { expand: true, ..._options };
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	get ref1(): string | undefined {
@@ -66,10 +71,6 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 
 	get ref2(): string | undefined {
 		return this._results.comparison?.ref2;
-	}
-
-	override get id(): string {
-		return `${this.parent.id}:results:commits${this._options.id ? `:${this._options.id}` : ''}`;
 	}
 
 	async getChildren(): Promise<ViewNode[]> {

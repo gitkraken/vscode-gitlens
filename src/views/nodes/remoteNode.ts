@@ -11,32 +11,32 @@ import type { ViewsWithRemotes } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
-import { RepositoryNode } from './repositoryNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class RemoteNode extends ViewNode<ViewsWithRemotes> {
-	static key = ':remote';
-	static getId(repoPath: string, name: string, id: string, workspaceId?: string): string {
-		return `${RepositoryNode.getId(repoPath, workspaceId)}${this.key}(${name}|${id})`;
-	}
-
 	constructor(
 		uri: GitUri,
 		view: ViewsWithRemotes,
 		protected override readonly parent: ViewNode,
-		public readonly remote: GitRemote,
 		public readonly repo: Repository,
-		private readonly options?: { workspaceId?: string },
+		public readonly remote: GitRemote,
 	) {
 		super(uri, view, parent);
+
+		this.updateContext({ repository: repo, remote: remote });
+		this._uniqueId = getViewNodeId('remote', this.context);
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
 		return this.remote.name;
 	}
 
-	override get id(): string {
-		return RemoteNode.getId(this.remote.repoPath, this.remote.name, this.remote.id, this.options?.workspaceId);
+	get repoPath(): string {
+		return this.repo.path;
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -50,10 +50,9 @@ export class RemoteNode extends ViewNode<ViewsWithRemotes> {
 		// TODO@eamodio handle paging
 		const branchNodes = branches.values.map(
 			b =>
-				new BranchNode(GitUri.fromRepoPath(this.uri.repoPath!, b.ref), this.view, this, b, false, {
+				new BranchNode(GitUri.fromRepoPath(this.uri.repoPath!, b.ref), this.view, this, this.repo, b, false, {
 					showComparison: false,
 					showTracking: false,
-					workspaceId: this.options?.workspaceId,
 				}),
 		);
 		if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchNodes;
@@ -73,13 +72,10 @@ export class RemoteNode extends ViewNode<ViewsWithRemotes> {
 			this.view,
 			this,
 			'remote-branch',
+			hierarchy,
 			this.repo.path,
 			'',
 			undefined,
-			hierarchy,
-			`remote(${this.remote.name})`,
-			undefined,
-			{ workspaceId: this.options?.workspaceId },
 		);
 		const children = root.getChildren();
 		return children;

@@ -12,16 +12,11 @@ import type { GitRevisionReference } from '../../git/models/reference';
 import { joinPaths, relativeDir } from '../../system/path';
 import type { ViewsWithCommits, ViewsWithStashes } from '../viewBase';
 import type { ViewNode } from './viewNode';
-import { ContextValues, ViewRefFileNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewRefFileNode } from './viewNode';
 
 export class CommitFileNode<
 	TView extends ViewsWithCommits | ViewsWithStashes = ViewsWithCommits,
 > extends ViewRefFileNode<TView> {
-	static key = ':file';
-	static getId(parent: ViewNode, path: string): string {
-		return `${parent.id}${this.key}(${path})`;
-	}
-
 	constructor(
 		view: TView,
 		parent: ViewNode,
@@ -34,14 +29,17 @@ export class CommitFileNode<
 		} = {},
 	) {
 		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent, file);
+
+		this.updateContext({ commit: commit, file: file });
+		this._uniqueId = getViewNodeId('commit-file', this.context);
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
 		return this.file.path;
-	}
-
-	override get id(): string {
-		return CommitFileNode.getId(this.parent, this.file.path);
 	}
 
 	get priority(): number {

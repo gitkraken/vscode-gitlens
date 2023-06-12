@@ -33,16 +33,11 @@ import { RemotesNode } from './remotesNode';
 import { StashesNode } from './stashesNode';
 import { StatusFilesNode } from './statusFilesNode';
 import { TagsNode } from './tagsNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, SubscribeableViewNode } from './viewNode';
+import type { AmbientContext, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 import { WorktreesNode } from './worktreesNode';
 
 export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories> {
-	static key = ':repository';
-	static getId(repoPath: string, workspaceId?: string): string {
-		return `gitlens${this.key}(${repoPath})${workspaceId != null ? `(${workspaceId})` : ''}`;
-	}
-
 	private _children: ViewNode[] | undefined;
 	private _status: Promise<GitStatus | undefined>;
 
@@ -51,33 +46,34 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 		view: ViewsWithRepositories,
 		parent: ViewNode,
 		public readonly repo: Repository,
-		private readonly options?: {
-			workspace?: CloudWorkspace | LocalWorkspace;
-			workspaceRepoDescriptor: CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor;
-		},
+		context?: AmbientContext,
 	) {
 		super(uri, view, parent);
 
+		this.updateContext({ ...context, repository: this.repo });
+		this._uniqueId = getViewNodeId('repository', this.context);
+
 		this._status = this.repo.getStatus();
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
 		return this.repo.path;
 	}
 
-	override get id(): string {
-		return RepositoryNode.getId(this.repo.path, this.options?.workspace?.id);
+	get repoPath(): string {
+		return this.repo.path;
 	}
 
-	get workspaceId(): string | undefined {
-		return this.options?.workspace?.id;
+	get workspace(): CloudWorkspace | LocalWorkspace | undefined {
+		return this.context.workspace;
 	}
 
-	get workspaceRepositoryDescriptor():
-		| CloudWorkspaceRepositoryDescriptor
-		| LocalWorkspaceRepositoryDescriptor
-		| undefined {
-		return this.options?.workspaceRepoDescriptor;
+	get wsRepositoryDescriptor(): CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor | undefined {
+		return this.context.wsRepositoryDescriptor;
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -109,7 +105,6 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 							branch,
 							this.view.config.showBranchComparison,
 							true,
-							{ workspaceId: this.options?.workspace?.id },
 						),
 					);
 				}
@@ -120,31 +115,17 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 				]);
 
 				if (mergeStatus != null) {
-					children.push(
-						new MergeStatusNode(this.view, this, branch, mergeStatus, status, true, {
-							workspaceId: this.options?.workspace?.id,
-						}),
-					);
+					children.push(new MergeStatusNode(this.view, this, branch, mergeStatus, status, true));
 				} else if (rebaseStatus != null) {
-					children.push(
-						new RebaseStatusNode(this.view, this, branch, rebaseStatus, status, true, {
-							workspaceId: this.options?.workspace?.id,
-						}),
-					);
+					children.push(new RebaseStatusNode(this.view, this, branch, rebaseStatus, status, true));
 				} else if (this.view.config.showUpstreamStatus) {
 					if (status.upstream) {
 						if (!status.state.behind && !status.state.ahead) {
-							children.push(
-								new BranchTrackingStatusNode(this.view, this, branch, status, 'same', true, {
-									workspaceId: this.options?.workspace?.id,
-								}),
-							);
+							children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'same', true));
 						} else {
 							if (status.state.behind) {
 								children.push(
-									new BranchTrackingStatusNode(this.view, this, branch, status, 'behind', true, {
-										workspaceId: this.options?.workspace?.id,
-									}),
+									new BranchTrackingStatusNode(this.view, this, branch, status, 'behind', true),
 								);
 							}
 
@@ -152,27 +133,18 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 								children.push(
 									new BranchTrackingStatusNode(this.view, this, branch, status, 'ahead', true, {
 										showAheadCommits: true,
-										workspaceId: this.options?.workspace?.id,
 									}),
 								);
 							}
 						}
 					} else {
-						children.push(
-							new BranchTrackingStatusNode(this.view, this, branch, status, 'none', true, {
-								workspaceId: this.options?.workspace?.id,
-							}),
-						);
+						children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'none', true));
 					}
 				}
 
 				if (this.view.config.includeWorkingTree && status.files.length !== 0) {
 					const range = undefined; //status.upstream ? createRange(status.upstream, branch.ref) : undefined;
-					children.push(
-						new StatusFilesNode(this.view, this, status, range, {
-							workspaceId: this.options?.workspace?.id,
-						}),
-					);
+					children.push(new StatusFilesNode(this.view, this, status, range));
 				}
 
 				if (children.length !== 0 && !this.view.config.compact) {
@@ -181,64 +153,43 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 
 				if (this.view.config.showCommits) {
 					children.push(
-						new BranchNode(this.uri, this.view, this, branch, true, {
+						new BranchNode(this.uri, this.view, this, this.repo, branch, true, {
 							showAsCommits: true,
 							showComparison: false,
 							showCurrent: false,
 							showStatus: false,
 							showTracking: false,
-							workspaceId: this.options?.workspace?.id,
 						}),
 					);
 				}
 			}
 
 			if (this.view.config.showBranches) {
-				children.push(
-					new BranchesNode(this.uri, this.view, this, this.repo, {
-						workspaceId: this.options?.workspace?.id,
-					}),
-				);
+				children.push(new BranchesNode(this.uri, this.view, this, this.repo));
 			}
 
 			if (this.view.config.showRemotes) {
-				children.push(
-					new RemotesNode(this.uri, this.view, this, this.repo, { workspaceId: this.options?.workspace?.id }),
-				);
+				children.push(new RemotesNode(this.uri, this.view, this, this.repo));
 			}
 
 			if (this.view.config.showStashes && (await this.repo.supports(Features.Stashes))) {
-				children.push(
-					new StashesNode(this.uri, this.view, this, this.repo, { workspaceId: this.options?.workspace?.id }),
-				);
+				children.push(new StashesNode(this.uri, this.view, this, this.repo));
 			}
 
 			if (this.view.config.showTags) {
-				children.push(
-					new TagsNode(this.uri, this.view, this, this.repo, { workspaceId: this.options?.workspace?.id }),
-				);
+				children.push(new TagsNode(this.uri, this.view, this, this.repo));
 			}
 
 			if (this.view.config.showWorktrees && (await this.repo.supports(Features.Worktrees))) {
-				children.push(
-					new WorktreesNode(this.uri, this.view, this, this.repo, {
-						workspaceId: this.options?.workspace?.id,
-					}),
-				);
+				children.push(new WorktreesNode(this.uri, this.view, this, this.repo));
 			}
 
 			if (this.view.config.showContributors) {
-				children.push(
-					new ContributorsNode(this.uri, this.view, this, this.repo, {
-						workspaceId: this.options?.workspace?.id,
-					}),
-				);
+				children.push(new ContributorsNode(this.uri, this.view, this, this.repo));
 			}
 
 			if (this.view.config.showIncomingActivity && !this.repo.provider.virtual) {
-				children.push(
-					new ReflogNode(this.uri, this.view, this, this.repo, { workspaceId: this.options?.workspace?.id }),
-				);
+				children.push(new ReflogNode(this.uri, this.view, this, this.repo));
 			}
 
 			this._children = children;
@@ -264,11 +215,11 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 		if (this.repo.starred) {
 			contextValue += '+starred';
 		}
-		if (this.options?.workspace) {
+		if (this.context.workspace != null) {
 			contextValue += '+workspace';
-			if (this.options.workspace.type === WorkspaceType.Cloud) {
+			if (this.context.workspace.type === WorkspaceType.Cloud) {
 				contextValue += '+cloud';
-			} else if (this.options.workspace.type === WorkspaceType.Local) {
+			} else if (this.context.workspace.type === WorkspaceType.Local) {
 				contextValue += '+local';
 			}
 			if (this.repo.closed) {
@@ -340,7 +291,7 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 
 		const item = new TreeItem(
 			label,
-			this.options?.workspace ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.Expanded,
+			this.context.workspace != null ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.Expanded,
 		);
 		item.id = this.id;
 		item.contextValue = contextValue;
@@ -352,7 +303,7 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 			light: this.view.container.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`),
 		};
 
-		if (this.options?.workspace != null && !this.repo.closed) {
+		if (this.context.workspace != null && !this.repo.closed) {
 			item.resourceUri = Uri.parse(`gitlens-view://workspaces/repository/open`);
 		}
 
@@ -470,11 +421,7 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 				}
 
 				const range = undefined; //status.upstream ? createRange(status.upstream, status.sha) : undefined;
-				this._children.splice(
-					index,
-					deleteCount,
-					new StatusFilesNode(this.view, this, status, range, { workspaceId: this.options?.workspace?.id }),
-				);
+				this._children.splice(index, deleteCount, new StatusFilesNode(this.view, this, status, range));
 			} else if (index !== -1) {
 				this._children.splice(index, 1);
 			}

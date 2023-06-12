@@ -589,14 +589,14 @@ export class ViewCommands {
 	private pruneRemote(node: RemoteNode) {
 		if (!(node instanceof RemoteNode)) return Promise.resolve();
 
-		return RemoteActions.prune(node.repo, node.remote.name);
+		return RemoteActions.prune(node.remote.repoPath, node.remote.name);
 	}
 
 	@debug()
 	private async removeRemote(node: RemoteNode) {
 		if (!(node instanceof RemoteNode)) return Promise.resolve();
 
-		return RemoteActions.remove(node.repo, node.remote.name);
+		return RemoteActions.remove(node.remote.repoPath, node.remote.name);
 	}
 
 	@debug()

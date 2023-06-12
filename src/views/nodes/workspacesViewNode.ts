@@ -1,4 +1,6 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
 import type { WorkspacesView } from '../workspacesView';
 import { MessageNode } from './common';
 import { RepositoriesNode } from './repositoriesNode';
@@ -6,16 +8,7 @@ import { ViewNode } from './viewNode';
 import { WorkspaceNode } from './workspaceNode';
 
 export class WorkspacesViewNode extends ViewNode<WorkspacesView> {
-	static key = ':workspaces';
-	static getId(): string {
-		return `gitlens${this.key}`;
-	}
-
 	private _children: (WorkspaceNode | MessageNode | RepositoriesNode)[] | undefined;
-
-	override get id(): string {
-		return WorkspacesViewNode.getId();
-	}
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
@@ -56,12 +49,12 @@ export class WorkspacesViewNode extends ViewNode<WorkspacesView> {
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem('Workspaces', TreeItemCollapsibleState.Expanded);
-
 		return item;
 	}
 
+	@gate()
+	@debug()
 	override refresh() {
 		this._children = undefined;
-		void this.getChildren();
 	}
 }

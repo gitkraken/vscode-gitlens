@@ -9,38 +9,32 @@ import { timeout } from '../../system/decorators/timeout';
 import type { ViewsWithContributorsNode } from '../viewBase';
 import { MessageNode } from './common';
 import { ContributorNode } from './contributorNode';
-import { RepositoryNode } from './repositoryNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class ContributorsNode extends ViewNode<ViewsWithContributorsNode> {
-	static key = ':contributors';
-	static getId(repoPath: string, workspaceId?: string): string {
-		return `${RepositoryNode.getId(repoPath, workspaceId)}${this.key}`;
-	}
-
 	protected override splatted = true;
-
-	private _children: ContributorNode[] | undefined;
 
 	constructor(
 		uri: GitUri,
 		view: ViewsWithContributorsNode,
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
-		private readonly options?: {
-			workspaceId?: string;
-		},
 	) {
 		super(uri, view, parent);
+
+		this.updateContext({ repository: repo });
+		this._uniqueId = getViewNodeId('contributors', this.context);
 	}
 
 	override get id(): string {
-		return ContributorsNode.getId(this.repo.path, this.options?.workspaceId);
+		return this._uniqueId;
 	}
 
 	get repoPath(): string {
 		return this.repo.path;
 	}
+
+	private _children: ContributorNode[] | undefined;
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
@@ -71,7 +65,6 @@ export class ContributorsNode extends ViewNode<ViewsWithContributorsNode> {
 						all: all,
 						ref: ref,
 						presence: presenceMap,
-						workspaceId: this.options?.workspaceId,
 					}),
 			);
 		}

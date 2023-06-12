@@ -10,11 +10,10 @@ import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { pluralize } from '../../system/string';
 import type { SearchAndCompareView } from '../searchAndCompareView';
-import { RepositoryNode } from './repositoryNode';
 import type { CommitsQueryResults } from './resultsCommitsNode';
 import { ResultsCommitsNode } from './resultsCommitsNode';
 import type { PageableViewNode } from './viewNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 let instanceId = 0;
 
@@ -26,13 +25,6 @@ interface SearchQueryResults {
 }
 
 export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements PageableViewNode {
-	static key = ':search-results';
-	static getId(repoPath: string, search: SearchQuery | undefined, instanceId: number): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${
-			search == null ? '?' : getSearchQueryComparisonKey(search)
-		}):${instanceId}`;
-	}
-
 	static getPinnableId(repoPath: string, search: SearchQuery | StoredSearchQuery) {
 		return md5(`${repoPath}|${getSearchQueryComparisonKey(search)}`, 'base64');
 	}
@@ -65,10 +57,13 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		this._search = search;
 		this._instanceId = instanceId++;
 		this._order = Date.now();
+
+		this.updateContext({ searchId: `${getSearchQueryComparisonKey(search)}++${this._instanceId}` });
+		this._uniqueId = getViewNodeId('search-results', this.context);
 	}
 
 	override get id(): string {
-		return SearchResultsNode.getId(this.repoPath, this.search, this._instanceId);
+		return this._uniqueId;
 	}
 
 	get canDismiss(): boolean {
