@@ -89,6 +89,10 @@ export class BranchesNode extends ViewNode<ViewsWithBranchesNode> {
 		if (await this.repo.hasRemotes()) {
 			item.contextValue += '+remotes';
 		}
+		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.
+		if (this.repo.closed) {
+			item.contextValue += '+closed';
+		}
 		item.iconPath = new ThemeIcon('git-branch');
 
 		return item;

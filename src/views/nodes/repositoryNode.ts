@@ -222,9 +222,10 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 			} else if (this.context.workspace.type === WorkspaceType.Local) {
 				contextValue += '+local';
 			}
-			if (this.repo.closed) {
-				contextValue += '+closed';
-			}
+		}
+		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.
+		if (this.repo.closed) {
+			contextValue += '+closed';
 		}
 		if (this.repo.virtual) {
 			contextValue += '+virtual';
