@@ -1,4 +1,5 @@
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import type { Colors } from '../../constants';
 import { unknownGitUri } from '../../git/gitUri';
 import type {
 	CloudWorkspace,
@@ -46,9 +47,12 @@ export class WorkspaceMissingRepositoryNode extends ViewNode<WorkspacesView> {
 		const item = new TreeItem(this.name, TreeItemCollapsibleState.None);
 		item.id = this.id;
 		item.description = 'Unable to find repo, please locate';
-		item.tooltip = `${this.name} (missing)`;
+		item.tooltip = new MarkdownString(`${this.name}\n\nRepository could not be found`);
 		item.contextValue = ContextValues.WorkspaceMissingRepository;
-		item.iconPath = new ThemeIcon('question');
+		item.iconPath = new ThemeIcon(
+			'question',
+			new ThemeColor('gitlens.decorations.workspaceRepoMissingForegroundColor' satisfies Colors),
+		);
 		item.resourceUri = Uri.parse(`gitlens-view://workspaces/repository/missing`);
 		return item;
 	}

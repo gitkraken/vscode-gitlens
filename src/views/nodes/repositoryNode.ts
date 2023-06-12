@@ -207,28 +207,36 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 			lastFetched
 				? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(lastFetched, false)}`
 				: ''
-		}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}`;
-		let iconSuffix = '';
+		}${this.repo.formattedName ? `\\\n${this.uri.repoPath}` : ''}`;
 		let workingStatus = '';
+
+		const { workspace } = this.context;
 
 		let contextValue: string = ContextValues.Repository;
 		if (this.repo.starred) {
 			contextValue += '+starred';
 		}
-		if (this.context.workspace != null) {
+		if (workspace != null) {
 			contextValue += '+workspace';
-			if (this.context.workspace.type === WorkspaceType.Cloud) {
+			if (workspace.type === WorkspaceType.Cloud) {
 				contextValue += '+cloud';
-			} else if (this.context.workspace.type === WorkspaceType.Local) {
+			} else if (workspace.type === WorkspaceType.Local) {
 				contextValue += '+local';
 			}
 		}
+
+		let iconSuffix;
 		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.
 		if (this.repo.closed) {
 			contextValue += '+closed';
+			iconSuffix = '';
+		} else {
+			iconSuffix = '-solid';
 		}
+
 		if (this.repo.virtual) {
 			contextValue += '+virtual';
+			iconSuffix = '-cloud';
 		}
 
 		const status = await this._status;
@@ -259,7 +267,7 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 				providerName = remote?.provider?.name;
 			}
 
-			iconSuffix = workingStatus ? '-blue' : '';
+			iconSuffix += workingStatus ? '-blue' : '';
 			if (status.upstream != null) {
 				tooltip += ` is ${status.getUpstreamStatus({
 					empty: `up to date with $(git-branch) ${status.upstream}${
@@ -273,10 +281,10 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 
 				if (status.state.behind) {
 					contextValue += '+behind';
-					iconSuffix = '-red';
+					iconSuffix += '-red';
 				}
 				if (status.state.ahead) {
-					iconSuffix = status.state.behind ? '-yellow' : '-green';
+					iconSuffix += status.state.behind ? '-yellow' : '-green';
 					contextValue += '+ahead';
 				}
 			}
@@ -290,9 +298,13 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 			}
 		}
 
+		if (workspace != null) {
+			tooltip += `\n\nRepository is ${this.repo.closed ? 'not ' : ''}open in the current window`;
+		}
+
 		const item = new TreeItem(
 			label,
-			this.context.workspace != null ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.Expanded,
+			workspace != null ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.Expanded,
 		);
 		item.id = this.id;
 		item.contextValue = contextValue;
@@ -304,7 +316,7 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 			light: this.view.container.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`),
 		};
 
-		if (this.context.workspace != null && !this.repo.closed) {
+		if (workspace != null && !this.repo.closed) {
 			item.resourceUri = Uri.parse(`gitlens-view://workspaces/repository/open`);
 		}
 
