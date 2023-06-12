@@ -7812,6 +7812,13 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f124"
 				}
+			},
+			"gitlens-workspaces-view": {
+				"description": "workspaces-view icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f125"
+				}
 			}
 		},
 		"menus": {
@@ -14187,7 +14194,7 @@
 					"name": "GitKraken Workspaces",
 					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"contextualTitle": "GitLens",
-					"icon": "$(gitlens-worktrees-view)",
+					"icon": "$(gitlens-workspaces-view)",
 					"initialSize": 2,
 					"visibility": "visible"
 				},
