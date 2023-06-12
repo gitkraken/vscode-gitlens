@@ -19,19 +19,13 @@ import { joinPaths, normalizePath } from '../../system/path';
 import { getSettledValue } from '../../system/promise';
 import { pluralize, sortCompare } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
-import { BranchNode } from './branchNode';
 import { CommitFileNode } from './commitFileNode';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
 import { MergeConflictFileNode } from './mergeConflictFileNode';
-import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode, ViewRefNode } from './viewNode';
 
 export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
-	static key = ':rebase';
-	static getId(repoPath: string, name: string, root: boolean, workspaceId?: string): string {
-		return `${BranchNode.getId(repoPath, name, root, workspaceId)}${this.key}`;
-	}
-
 	constructor(
 		view: ViewsWithCommits,
 		protected override readonly parent: ViewNode,
@@ -40,18 +34,11 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 		public readonly status: GitStatus | undefined,
 		// Specifies that the node is shown as a root
 		public readonly root: boolean,
-		private readonly options?: { workspaceId?: string },
 	) {
 		super(GitUri.fromRepoPath(rebaseStatus.repoPath), view, parent);
-	}
 
-	override get id(): string {
-		return RebaseStatusNode.getId(
-			this.rebaseStatus.repoPath,
-			this.rebaseStatus.incoming.name,
-			this.root,
-			this.options?.workspaceId,
-		);
+		this.updateContext({ branch: branch, root: root });
+		this._uniqueId = getViewNodeId('merge-status', this.context);
 	}
 
 	get repoPath(): string {
@@ -70,7 +57,7 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 				this.view.config.files.compact,
 			);
 
-			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
+			const root = new FolderNode(this.view, this, hierarchy, this.repoPath, '', undefined);
 			children = root.getChildren() as FileNode[];
 		} else {
 			children.sort((a, b) => sortCompare(a.label!, b.label!));
@@ -157,7 +144,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 				this.view.config.files.compact,
 			);
 
-			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
+			const root = new FolderNode(this.view, this, hierarchy, this.repoPath, '', undefined);
 			children = root.getChildren() as FileNode[];
 		} else {
 			children.sort((a, b) => sortCompare(a.label!, b.label!));

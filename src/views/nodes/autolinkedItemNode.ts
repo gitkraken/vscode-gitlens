@@ -10,7 +10,7 @@ import {
 } from '../../git/models/issue';
 import { fromNow } from '../../system/date';
 import type { ViewsWithCommits } from '../viewBase';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 	constructor(
@@ -20,14 +20,16 @@ export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 		public readonly item: Autolink | IssueOrPullRequest,
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
+
+		this._uniqueId = getViewNodeId(`autolink+${item.id}`, this.context);
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
 		return this.item.url;
-	}
-
-	override get id(): string {
-		return `${this.parent.id}:item(${this.item.id})`;
 	}
 
 	getChildren(): ViewNode[] {

@@ -24,7 +24,7 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 	private _visibleDisposable: Disposable | undefined;
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.workspaces', 'Workspaces', 'workspaceView');
+		super(container, 'workspaces', 'Workspaces', 'workspaceView');
 		this._workspacesChangedDisposable = this.container.workspaces.onDidChangeWorkspaces(() => {
 			void this.ensureRoot().triggerChange(true);
 		});
@@ -155,10 +155,10 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 			registerViewCommand(
 				this.getQualifiedCommand('repo.locate'),
 				async (node: RepositoryNode | WorkspaceMissingRepositoryNode) => {
-					const descriptor = node.workspaceRepositoryDescriptor;
-					if (descriptor == null || node.workspaceId == null) return;
+					const descriptor = node.wsRepositoryDescriptor;
+					if (descriptor == null || node.workspace?.id == null) return;
 
-					await this.container.workspaces.locateWorkspaceRepo(node.workspaceId, descriptor);
+					await this.container.workspaces.locateWorkspaceRepo(node.workspace.id, descriptor);
 
 					void node.getParent()?.triggerChange(true);
 				},
@@ -203,10 +203,10 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 			registerViewCommand(
 				this.getQualifiedCommand('repo.remove'),
 				async (node: RepositoryNode | WorkspaceMissingRepositoryNode) => {
-					const descriptor = node.workspaceRepositoryDescriptor;
-					if (descriptor?.id == null || node.workspaceId == null) return;
+					const descriptor = node.wsRepositoryDescriptor;
+					if (descriptor?.id == null || node.workspace?.id == null) return;
 
-					await this.container.workspaces.removeCloudWorkspaceRepo(node.workspaceId, descriptor);
+					await this.container.workspaces.removeCloudWorkspaceRepo(node.workspace.id, descriptor);
 					// TODO@axosoft-ramint Do we need the grandparent here?
 					void node.getParent()?.getParent()?.triggerChange(true);
 				},

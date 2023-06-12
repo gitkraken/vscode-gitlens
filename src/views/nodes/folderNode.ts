@@ -7,7 +7,7 @@ import { sortCompare } from '../../system/string';
 import type { StashesView } from '../stashesView';
 import type { ViewsWithCommits } from '../viewBase';
 import type { ViewFileNode } from './viewNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export interface FileNode extends ViewFileNode {
 	folderName: string;
@@ -20,31 +20,28 @@ export interface FileNode extends ViewFileNode {
 }
 
 export class FolderNode extends ViewNode<ViewsWithCommits | StashesView> {
-	static key = ':folder';
-	static getId(parent: ViewNode, path: string): string {
-		return `${parent.id}${this.key}(${path})`;
-	}
-
 	readonly priority: number = 1;
 
 	constructor(
 		view: ViewsWithCommits | StashesView,
 		protected override parent: ViewNode,
+		public readonly root: HierarchicalItem<FileNode>,
 		public readonly repoPath: string,
 		public readonly folderName: string,
-		public readonly root: HierarchicalItem<FileNode>,
+		public readonly relativePath: string | undefined,
 		private readonly containsWorkingFiles?: boolean,
-		public readonly relativePath?: string,
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
+
+		this._uniqueId = getViewNodeId(`folder+${relativePath ?? folderName}`, this.context);
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
 		return this.folderName;
-	}
-
-	override get id(): string {
-		return FolderNode.getId(this.parent, this.folderName);
 	}
 
 	getChildren(): (FolderNode | FileNode)[] {
@@ -68,11 +65,11 @@ export class FolderNode extends ViewNode<ViewsWithCommits | StashesView> {
 						new FolderNode(
 							this.view,
 							this.folderName ? this : this.parent,
+							folder,
 							this.repoPath,
 							folder.name,
-							folder,
-							this.containsWorkingFiles,
 							folder.relativePath,
+							this.containsWorkingFiles,
 						),
 					);
 					continue;

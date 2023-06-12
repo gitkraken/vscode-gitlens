@@ -19,21 +19,13 @@ import { LoadMoreNode, MessageNode } from './common';
 import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
 import { insertDateMarkers } from './helpers';
 import { LineHistoryTrackerNode } from './lineHistoryTrackerNode';
-import { RepositoryNode } from './repositoryNode';
 import type { PageableViewNode, ViewNode } from './viewNode';
-import { ContextValues, SubscribeableViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 
 export class LineHistoryNode
 	extends SubscribeableViewNode<FileHistoryView | LineHistoryView>
 	implements PageableViewNode
 {
-	static key = ':history:line';
-	static getId(repoPath: string, uri: string, selection: Selection): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${uri}[${selection.start.line},${
-			selection.start.character
-		}-${selection.end.line},${selection.end.character}])`;
-	}
-
 	protected override splatted = true;
 
 	constructor(
@@ -45,14 +37,24 @@ export class LineHistoryNode
 		private readonly editorContents: string | undefined,
 	) {
 		super(uri, view, parent);
+
+		if (branch != null) {
+			this.updateContext({ branch: branch });
+		}
+		this._uniqueId = getViewNodeId(
+			`file-history+${uri.toString()}+[${selection.start.line},${selection.start.character}-${
+				selection.end.line
+			},${selection.end.character}]`,
+			this.context,
+		);
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
 		return this.uri.fileName;
-	}
-
-	override get id(): string {
-		return LineHistoryNode.getId(this.uri.repoPath!, this.uri.toString(true), this.selection);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
