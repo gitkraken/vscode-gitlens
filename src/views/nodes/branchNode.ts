@@ -354,6 +354,10 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 		if (this.options.showAsCommits) {
 			contextValue += '+commits';
 		}
+		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.
+		if (this.repo.closed) {
+			contextValue += '+closed';
+		}
 
 		let color: ThemeColor | undefined;
 		let description;
