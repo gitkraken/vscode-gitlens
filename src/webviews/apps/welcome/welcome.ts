@@ -20,6 +20,7 @@ import './components/svg-focus';
 import './components/svg-graph';
 import './components/svg-revision-navigation';
 import './components/svg-timeline';
+import './components/svg-workspaces';
 import './components/video-button';
 
 export class WelcomeApp extends App<State> {
