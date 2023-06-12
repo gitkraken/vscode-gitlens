@@ -111,7 +111,7 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 	}
 }
 
-export class ContributorsView extends ViewBase<ContributorsViewNode, ContributorsViewConfig> {
+export class ContributorsView extends ViewBase<'contributors', ContributorsViewNode, ContributorsViewConfig> {
 	protected readonly configKey = 'contributors';
 
 	constructor(container: Container) {

@@ -190,7 +190,7 @@ interface CommitsViewState {
 	myCommitsOnly?: boolean;
 }
 
-export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
+export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsViewConfig> {
 	protected readonly configKey = 'commits';
 
 	constructor(container: Container) {

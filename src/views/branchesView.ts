@@ -93,7 +93,7 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 	}
 }
 
-export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig> {
+export class BranchesView extends ViewBase<'branches', BranchesViewNode, BranchesViewConfig> {
 	protected readonly configKey = 'branches';
 
 	constructor(container: Container) {

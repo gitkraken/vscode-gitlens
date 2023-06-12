@@ -18,7 +18,7 @@ import { WorkspacesViewNode } from './nodes/workspacesViewNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
-export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewConfig> {
+export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, WorkspacesViewConfig> {
 	protected readonly configKey = 'repositories';
 	private _workspacesChangedDisposable: Disposable;
 	private _visibleDisposable: Disposable | undefined;

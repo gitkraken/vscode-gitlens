@@ -245,7 +245,11 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 	}
 }
 
-export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, SearchAndCompareViewConfig> {
+export class SearchAndCompareView extends ViewBase<
+	'searchAndCompare',
+	SearchAndCompareViewNode,
+	SearchAndCompareViewConfig
+> {
 	protected readonly configKey = 'searchAndCompare';
 
 	constructor(container: Container) {

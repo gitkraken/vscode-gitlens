@@ -88,7 +88,7 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 	}
 }
 
-export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
+export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesViewConfig> {
 	protected readonly configKey = 'stashes';
 
 	constructor(container: Container) {

@@ -28,7 +28,7 @@ import type {
 	WorktreesViewConfig,
 } from '../config';
 import { viewsCommonConfigKeys, viewsConfigKeys } from '../config';
-import type { TreeViewCommandsByViewId, TreeViewTypes } from '../constants';
+import type { TreeViewCommandSuffixesByViewType, TreeViewTypes } from '../constants';
 import type { Container } from '../container';
 import { executeCoreCommand } from '../system/command';
 import { configuration } from '../system/configuration';
@@ -94,6 +94,7 @@ export interface TreeViewNodeCollapsibleStateChangeEvent<T> extends TreeViewExpa
 }
 
 export abstract class ViewBase<
+	Type extends TreeViewTypes,
 	RootNode extends ViewNode,
 	ViewConfig extends
 		| BranchesViewConfig
@@ -110,6 +111,10 @@ export abstract class ViewBase<
 		| WorktreesViewConfig,
 > implements TreeDataProvider<ViewNode>, Disposable
 {
+	get id(): `gitlens.views.${Type}` {
+		return `gitlens.views.${this.type}`;
+	}
+
 	protected _onDidChangeTreeData = new EventEmitter<ViewNode | undefined>();
 	get onDidChangeTreeData(): Event<ViewNode | undefined> {
 		return this._onDidChangeTreeData.event;
@@ -136,15 +141,12 @@ export abstract class ViewBase<
 
 	private readonly _lastKnownLimits = new Map<string, number | undefined>();
 
-	readonly id: `gitlens.views.${TreeViewTypes}`;
-
 	constructor(
 		public readonly container: Container,
-		public readonly type: TreeViewTypes,
+		public readonly type: Type,
 		public readonly name: string,
 		private readonly trackingFeature: TrackedUsageFeatures,
 	) {
-		this.id = `gitlens.views.${type}`;
 		this.disposables.push(once(container.onReady)(this.onReady, this));
 
 		if (this.container.debugging || configuration.get('debug')) {
@@ -169,7 +171,7 @@ export abstract class ViewBase<
 			}
 
 			const getTreeItemFn = this.getTreeItem;
-			this.getTreeItem = async function (this: ViewBase<RootNode, ViewConfig>, node: ViewNode) {
+			this.getTreeItem = async function (this: ViewBase<Type, RootNode, ViewConfig>, node: ViewNode) {
 				const item = await getTreeItemFn.apply(this, [node]);
 
 				if (node.resolveTreeItem == null) {
@@ -181,7 +183,7 @@ export abstract class ViewBase<
 
 			const resolveTreeItemFn = this.resolveTreeItem;
 			this.resolveTreeItem = async function (
-				this: ViewBase<RootNode, ViewConfig>,
+				this: ViewBase<Type, RootNode, ViewConfig>,
 				item: TreeItem,
 				node: ViewNode,
 			) {
@@ -284,8 +286,8 @@ export abstract class ViewBase<
 		}
 	}
 
-	getQualifiedCommand(command: TreeViewCommandsByViewId<typeof this.id>) {
-		return `${this.id}.${command}`; // satisfies ViewsCommandsById<typeof this.id>;
+	getQualifiedCommand(command: TreeViewCommandSuffixesByViewType<Type>) {
+		return `gitlens.views.${this.type}.${command}` as const;
 	}
 
 	protected abstract getRoot(): RootNode;
@@ -381,7 +383,7 @@ export abstract class ViewBase<
 		return this.tree?.visible ?? false;
 	}
 
-	@log<ViewBase<RootNode, ViewConfig>['findNode']>({
+	@log<ViewBase<Type, RootNode, ViewConfig>['findNode']>({
 		args: {
 			0: '<function>',
 			1: opts => `options=${JSON.stringify({ ...opts, canTraverse: undefined, token: undefined })}`,
@@ -403,7 +405,7 @@ export abstract class ViewBase<
 	): Promise<ViewNode | undefined> {
 		const scope = getLogScope();
 
-		async function find(this: ViewBase<RootNode, ViewConfig>) {
+		async function find(this: ViewBase<Type, RootNode, ViewConfig>) {
 			try {
 				const node = await this.findNodeCoreBFS(
 					predicate,
@@ -546,7 +548,7 @@ export abstract class ViewBase<
 		this.triggerNodeChange();
 	}
 
-	@debug<ViewBase<RootNode, ViewConfig>['refreshNode']>({ args: { 0: n => n.toString() } })
+	@debug<ViewBase<Type, RootNode, ViewConfig>['refreshNode']>({ args: { 0: n => n.toString() } })
 	async refreshNode(node: ViewNode, reset: boolean = false, force: boolean = false) {
 		const cancel = await node.refresh?.(reset);
 		if (!force && cancel === true) return;
@@ -554,7 +556,7 @@ export abstract class ViewBase<
 		this.triggerNodeChange(node);
 	}
 
-	@log<ViewBase<RootNode, ViewConfig>['reveal']>({ args: { 0: n => n.toString() } })
+	@log<ViewBase<Type, RootNode, ViewConfig>['reveal']>({ args: { 0: n => n.toString() } })
 	async reveal(
 		node: ViewNode,
 		options?: {
@@ -588,7 +590,7 @@ export abstract class ViewBase<
 		return this._lastKnownLimits.get(node.id);
 	}
 
-	@debug<ViewBase<RootNode, ViewConfig>['loadMoreNodeChildren']>({
+	@debug<ViewBase<Type, RootNode, ViewConfig>['loadMoreNodeChildren']>({
 		args: { 0: n => n.toString(), 2: n => n?.toString() },
 	})
 	async loadMoreNodeChildren(
@@ -605,7 +607,7 @@ export abstract class ViewBase<
 		this._lastKnownLimits.set(node.id, node.limit);
 	}
 
-	@debug<ViewBase<RootNode, ViewConfig>['resetNodeLastKnownLimit']>({
+	@debug<ViewBase<Type, RootNode, ViewConfig>['resetNodeLastKnownLimit']>({
 		args: { 0: n => n.toString() },
 		singleLine: true,
 	})
@@ -613,7 +615,7 @@ export abstract class ViewBase<
 		this._lastKnownLimits.delete(node.id);
 	}
 
-	@debug<ViewBase<RootNode, ViewConfig>['triggerNodeChange']>({ args: { 0: n => n?.toString() } })
+	@debug<ViewBase<Type, RootNode, ViewConfig>['triggerNodeChange']>({ args: { 0: n => n?.toString() } })
 	triggerNodeChange(node?: ViewNode) {
 		// Since the root node won't actually refresh, force everything
 		this._onDidChangeTreeData.fire(node != null && node !== this.root ? node : undefined);

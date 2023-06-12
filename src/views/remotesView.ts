@@ -94,7 +94,7 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 	}
 }
 
-export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
+export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesViewConfig> {
 	protected readonly configKey = 'remotes';
 
 	constructor(container: Container) {

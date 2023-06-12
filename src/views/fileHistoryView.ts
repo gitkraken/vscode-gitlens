@@ -13,7 +13,11 @@ import { registerViewCommand } from './viewCommands';
 
 const pinnedSuffix = ' (pinned)';
 
-export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHistoryTrackerNode, FileHistoryViewConfig> {
+export class FileHistoryView extends ViewBase<
+	'fileHistory',
+	FileHistoryTrackerNode | LineHistoryTrackerNode,
+	FileHistoryViewConfig
+> {
 	protected readonly configKey = 'fileHistory';
 
 	private _followCursor: boolean = false;
