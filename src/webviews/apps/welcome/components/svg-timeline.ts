@@ -4,6 +4,11 @@ import { customElement } from 'lit/decorators.js';
 @customElement('gk-timeline-svg')
 export class TimelineSvg extends LitElement {
 	static override styles = css`
+		:host {
+			--color-lane1: #7101ff;
+			--color-lane2: #f90;
+		}
+
 		:host > svg {
 			display: block;
 			max-width: 69.2rem;
@@ -34,7 +39,7 @@ export class TimelineSvg extends LitElement {
 		}
 
 		.lane1 circle {
-			fill: #7101ff; /*var(--vscode-gitlens-graphLane1Color, #7101ff);*/
+			fill: var(--color-lane1);
 			opacity: 0.3;
 		}
 
@@ -44,13 +49,19 @@ export class TimelineSvg extends LitElement {
 		}
 
 		.lane2 circle {
-			fill: #f90; /*var(--vscode-gitlens-graphLane2Color, #f90);*/
+			fill: var(--color-lane2);
 			opacity: 0.3;
 		}
 
 		.lane2 circle:hover {
 			cursor: pointer;
 			opacity: 0.8;
+		}
+
+		:host-context(.vscode-light),
+		:host-context(.vscode-high-contrast-light) {
+			--color-lane1: #007acc;
+			--color-lane2: #ea5c00;
 		}
 	`;
 
