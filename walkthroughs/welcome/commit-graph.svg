@@ -1,0 +1,95 @@
+<svg width="850" height="290" viewBox="0 0 850 290" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg x="0" y="0" width="850" height="290" viewBox="0 0 850 290" fill="var(--vscode-editor-background)" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="100%" height="290" stroke-width="1" stroke="var(--vscode-editorWidget-border)" fill="var(--vscode-sideBarSectionHeader-background)" />
+        <rect fill="var(--vscode-gitlens-graphLane2Color)" x="70" y="46" width="126" height="19" rx="4"/>
+        <text fill="white" font-weigh="700" x="74" y="59"><tspan dy="1" font-family="codicon">&#xeab2;</tspan><tspan dx="4" font-family="codicon">&#xea7a;</tspan><tspan dx="6" dy="-1">main</tspan></text>
+
+        <rect fill="var(--vscode-gitlens-graphLane3Color)" opacity="0.5" x="70" y="73" width="126" height="19" rx="4"/>
+        <text fill="white" x="74" y="87"><tspan dy="1" font-family="codicon">&#xebaa;</tspan><tspan dx="4" font-family="codicon">&#xea64;</tspan><tspan dx="6" dy="-1">feature/onboard</tspan></text>
+
+        <rect fill="var(--vscode-gitlens-graphLane4Color)" opacity="0.5" x="70" y="99" width="126" height="19" rx="4"/>
+        <text fill="white" x="74" y="113"><tspan dy="1" font-family="codicon">&#xea7a;</tspan><tspan dx="4" font-family="codicon">&#xea64;</tspan><tspan dx="6" dy="-1">feature/graph</tspan></text>
+
+        <rect fill="var(--vscode-gitlens-graphLane5Color)" opacity="0.5" x="70" y="237" width="126" height="19" rx="4"/>
+        <text fill="white" x="74" y="251"><tspan dy="1" font-family="codicon">&#xea7a;</tspan><tspan dx="6" dy="-1">bug/crash</tspan></text>
+
+        <rect fill="var(--vscode-gitlens-graphLane1Color)" opacity="0.2" x="216" y="20" width="128" height="18"/>
+        <rect fill="var(--vscode-gitlens-graphLane1Color)" x="342" y="20" width="2" height="18"/>
+
+        <line stroke="var(--vscode-gitlens-graphLane2Color)" opacity="0.4" x1="196" y1="56" x2="230" y2="56" stroke-width="2"/>
+        <rect fill="var(--vscode-gitlens-graphLane2Color)" opacity="0.2" x="238" y="47" width="106" height="18"/>
+        <rect fill="var(--vscode-gitlens-graphLane2Color)" x="342" y="47" width="2" height="18"/>
+
+        <rect fill="var(--vscode-gitlens-graphLane2Color)" opacity="0.2" x="238" y="128" width="106" height="18" />
+        <rect fill="var(--vscode-gitlens-graphLane2Color)" x="342" y="128" width="2" height="18"/>
+
+        <rect fill="var(--vscode-gitlens-graphLane2Color)" opacity="0.2" x="238" y="263" width="106" height="18"/>
+        <rect fill="var(--vscode-gitlens-graphLane2Color)" x="342" y="263" width="2" height="18"/>
+
+        <line stroke="var(--vscode-gitlens-graphLane3Color)" opacity="0.4" x1="196" y1="83" x2="253" y2="83" stroke-width="2"/>
+        <rect fill="var(--vscode-gitlens-graphLane3Color)" opacity="0.2" x="260" y="74" width="84" height="18"/>
+        <rect fill="var(--vscode-gitlens-graphLane3Color)" x="342" y="74" width="2" height="18"/>
+
+        <rect fill="var(--vscode-gitlens-graphLane3Color)" opacity="0.2" x="260" y="155" width="84" height="18"/>
+        <rect fill="var(--vscode-gitlens-graphLane3Color)" x="342" y="155" width="2" height="18"/>
+
+        <rect fill="var(--vscode-gitlens-graphLane3Color)" opacity="0.2" x="260" y="209" width="84" height="18"/>
+        <rect fill="var(--vscode-gitlens-graphLane3Color)" x="342" y="209" width="2" height="18"/>
+
+        <line stroke="var(--vscode-gitlens-graphLane4Color)" opacity="0.4" x1="196" y1="109" x2="275" y2="109" stroke-width="2"/>
+        <rect fill="var(--vscode-gitlens-graphLane4Color)" opacity="0.2" x="282" y="101" width="62" height="18"/>
+        <rect fill="var(--vscode-gitlens-graphLane4Color)" x="342" y="101" width="2" height="18"/>
+
+        <rect fill="var(--vscode-gitlens-graphLane4Color)" x="342" y="182" width="2" height="18"/>
+        <rect fill="var(--vscode-gitlens-graphLane4Color)" opacity="0.2" x="282" y="182" width="62" height="18"/>
+
+        <line stroke="var(--vscode-gitlens-graphLane5Color)" opacity="0.3" x1="196" y1="246" x2="297" y2="246" stroke-width="2"/>
+        <rect fill="var(--vscode-gitlens-graphLane5Color)" opacity="0.2" x="304" y="236" width="40" height="18"/>
+        <rect fill="var(--vscode-gitlens-graphLane5Color)" x="342" y="236" width="2" height="18"/>
+        <path stroke="var(--vscode-gitlens-graphLane5Color)" d="M239 270.74H297C301.418 270.74 305 267.158 305 262.74V247" stroke-width="2"/>
+
+        <line stroke="var(--vscode-gitlens-graphLane1Color)" x1="217" y1="38" x2="217" y2="319" stroke-width="2" stroke-dasharray="4 4"/>
+        <circle stroke="var(--vscode-gitlens-graphLane1Color)" cx="217" cy="29" r="8" stroke-width="2" stroke-dasharray="4 4"/>
+
+        <rect fill="var(--vscode-gitlens-graphLane2Color)" x="238" y="47" width="2" height="332"/>
+        <circle stroke="var(--vscode-gitlens-graphLane2Color)" cx="239" cy="56" r="8" stroke-width="2"/>
+        <circle stroke="var(--vscode-gitlens-graphLane2Color)" cx="239" cy="137" r="8" stroke-width="2"/>
+        <circle stroke="var(--vscode-gitlens-graphLane2Color)" cx="239" cy="271" r="8" stroke-width="2"/>
+
+        <rect fill="var(--vscode-gitlens-graphLane3Color)" x="260" y="74" width="2" height="305"/>
+        <circle stroke="var(--vscode-gitlens-graphLane3Color)" cx="261" cy="83" r="8" stroke-width="2"/>
+        <circle stroke="var(--vscode-gitlens-graphLane3Color)" cx="261" cy="164" r="8" stroke-width="2"/>
+        <circle stroke="var(--vscode-gitlens-graphLane3Color)" cx="261" cy="218" r="8" stroke-width="2"/>
+
+        <rect fill="var(--vscode-gitlens-graphLane4Color)" x="282" y="106" width="2" height="209"/>
+        <circle stroke="var(--vscode-gitlens-graphLane4Color)" cx="283" cy="110" r="8" stroke-width="2"/>
+        <circle stroke="var(--vscode-gitlens-graphLane4Color)" cx="283" cy="191" r="8" stroke-width="2"/>
+
+        <circle stroke="var(--vscode-gitlens-graphLane5Color)" cx="305" cy="245" r="8" stroke-width="2"/>
+
+        <text x="366" y="33.5" fill="var(--vscode-editor-foreground)" opacity="0.45"><tspan>Work in progress</tspan><tspan dx="9" dy="1" font-family="codicon">&#xea73;</tspan><tspan dx="3" dy="-1">2</tspan><tspan dx="9" dy="1" font-family="codicon">&#xea60;</tspan><tspan dx="3" dy="-1">1</tspan></text>
+        <text fill="var(--vscode-editor-foreground)" opacity="0.7" font-size="11">
+            <tspan x="366" y="59.5">Improves performance &amp; reduces bundle size</tspan>
+            <tspan x="366" y="86.5">Adds brand new welcome experience</tspan>
+            <tspan x="366" y="113.5">Adds new Commit Graph panel layout</tspan>
+            <tspan x="366" y="140.5">Optimizes startup performance</tspan>
+            <tspan x="366" y="167.5">Revamps Home view experience for better utility</tspan>
+            <tspan x="366" y="194.5">Optimizes Commit Graph loading performance</tspan>
+            <tspan x="366" y="221.5">Adds new GitLens Inspect side bar for a better experience</tspan>
+            <tspan x="366" y="248.5">Fixes crash when run on a phone</tspan>
+            <tspan x="366" y="275.5">Updates package dependencies</tspan>
+        </text>
+
+        <text fill="var(--vscode-editor-foreground)" opacity="0.45" font-size="11">
+            <tspan x="696" y="59.5">Eric Amodio</tspan>
+            <tspan x="696" y="86.5">Keith Daulton</tspan>
+            <tspan x="696" y="113.5">Eric Amodio</tspan>
+            <tspan x="696" y="140.5">Ramin Tadayon</tspan>
+            <tspan x="696" y="167.5">Keith Daulton</tspan>
+            <tspan x="696" y="194.5">Eric Amodio</tspan>
+            <tspan x="696" y="221.5">Keith Daulton</tspan>
+            <tspan x="696" y="248.5">Ramin Tadayon</tspan>
+            <tspan x="696" y="275.5">Ramin Tadayon</tspan>
+        </text>
+    </svg>
+</svg>

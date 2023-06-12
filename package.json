@@ -14391,7 +14391,8 @@
 						"title": "Commit Graph ✨",
 						"description": "Helps you easily visualize your repository and keep track of all work in progress.\nUse the rich commit search to find exactly what you're looking for. It's powerful filters allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change.\n\n[Open Commit Graph](command:gitlens.showGraph)",
 						"media": {
-							"markdown": "walkthroughs/welcome/commit-graph.md"
+							"altText": "Illustrations of the Commit Graph view",
+							"svg": "walkthroughs/welcome/commit-graph.svg"
 						}
 					},
 					{
