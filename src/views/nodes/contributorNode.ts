@@ -18,6 +18,8 @@ import type { PageableViewNode } from './viewNode';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class ContributorNode extends ViewNode<ViewsWithContributors> implements PageableViewNode {
+	limit: number | undefined;
+
 	constructor(
 		uri: GitUri,
 		view: ViewsWithContributors,
@@ -33,6 +35,7 @@ export class ContributorNode extends ViewNode<ViewsWithContributors> implements 
 
 		this.updateContext({ contributor: contributor });
 		this._uniqueId = getViewNodeId('contributor', this.context);
+		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 
 	override get id(): string {
@@ -185,7 +188,6 @@ export class ContributorNode extends ViewNode<ViewsWithContributors> implements 
 		return this._log?.hasMore ?? true;
 	}
 
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	@gate()
 	async loadMore(limit?: number | { until?: any }) {
 		let log = await window.withProgress(

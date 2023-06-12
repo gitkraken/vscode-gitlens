@@ -30,6 +30,8 @@ type State = {
 };
 
 export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
+	limit: number | undefined;
+
 	private _branch: GitBranch | undefined;
 
 	constructor(
@@ -42,6 +44,7 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 
 		this.updateContext({ worktree: worktree });
 		this._uniqueId = getViewNodeId('worktree', this.context);
+		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 
 	override get id(): string {
@@ -397,7 +400,6 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 		return this._log?.hasMore ?? true;
 	}
 
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	@gate()
 	async loadMore(limit?: number | { until?: any }) {
 		let log = await window.withProgress(

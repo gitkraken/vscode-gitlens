@@ -38,6 +38,8 @@ type State = {
 };
 
 export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReference, State> implements PageableViewNode {
+	limit: number | undefined;
+
 	private readonly options: {
 		expanded: boolean;
 		limitCommits: boolean;
@@ -73,6 +75,7 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 
 		this.updateContext({ repository: repo, branch: branch, root: root });
 		this._uniqueId = getViewNodeId('branch', this.context);
+		this.limit = this.view.getNodeLastKnownLimit(this);
 
 		this.options = {
 			expanded: false,
@@ -563,7 +566,6 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 		return this._log?.hasMore ?? true;
 	}
 
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	@gate()
 	async loadMore(limit?: number | { until?: any }) {
 		let log = await window.withProgress(

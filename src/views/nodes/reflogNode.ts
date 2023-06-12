@@ -12,6 +12,8 @@ import type { PageableViewNode } from './viewNode';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class ReflogNode extends ViewNode<RepositoriesView | WorkspacesView> implements PageableViewNode {
+	limit: number | undefined;
+
 	constructor(
 		uri: GitUri,
 		view: RepositoriesView | WorkspacesView,
@@ -22,6 +24,7 @@ export class ReflogNode extends ViewNode<RepositoriesView | WorkspacesView> impl
 
 		this.updateContext({ repository: repo });
 		this._uniqueId = getViewNodeId('reflog', this.context);
+		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 
 	override get id(): string {
@@ -88,7 +91,6 @@ export class ReflogNode extends ViewNode<RepositoriesView | WorkspacesView> impl
 		return this._reflog?.hasMore ?? true;
 	}
 
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	async loadMore(limit?: number) {
 		let reflog = await this.getReflog();
 		if (reflog === undefined || !reflog.hasMore) return;
