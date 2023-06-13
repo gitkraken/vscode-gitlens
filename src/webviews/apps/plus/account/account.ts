@@ -41,6 +41,7 @@ export class AccountApp extends App<State> {
 				onIpc(DidChangeSubscriptionNotificationType, msg, params => {
 					this.state.subscription = params.subscription;
 					this.state.avatar = params.avatar;
+					this.state.timestamp = Date.now();
 					this.setState(this.state);
 					this.updateState();
 				});

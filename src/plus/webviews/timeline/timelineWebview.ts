@@ -79,6 +79,10 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		this._disposable.dispose();
 	}
 
+	onReloaded(): void {
+		void this.notifyDidChangeState(true);
+	}
+
 	onShowing(
 		loading: boolean,
 		_options: { column?: ViewColumn; preserveFocus?: boolean },
@@ -412,13 +416,18 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 	}
 
 	@debug()
-	private async notifyDidChangeState() {
+	private async notifyDidChangeState(force: boolean = false) {
 		this._notifyDidChangeStateDebounced?.cancel();
-		if (this._pendingContext == null) return false;
+		if (!force && this._pendingContext == null) return false;
 
-		const context = { ...this._context, ...this._pendingContext };
-		this._context = context;
-		this._pendingContext = undefined;
+		let context: Context;
+		if (this._pendingContext != null) {
+			context = { ...this._context, ...this._pendingContext };
+			this._context = context;
+			this._pendingContext = undefined;
+		} else {
+			context = this._context;
+		}
 
 		const task = async () =>
 			this.host.notify(DidChangeNotificationType, {

@@ -23,7 +23,19 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
-		void this.notifyDidChangeData(e.current);
+		void this.notifyDidChangeSubscription(e.current);
+	}
+
+	registerCommands(): Disposable[] {
+		return [registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this)];
+	}
+
+	includeBootstrap(): Promise<State> {
+		return this.getState();
+	}
+
+	onReloaded(): void {
+		void this.notifyDidChangeSubscription();
 	}
 
 	onVisibilityChanged(visible: boolean): void {
@@ -42,14 +54,6 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 		}
 
 		queueMicrotask(() => void this.validateSubscription());
-	}
-
-	registerCommands(): Disposable[] {
-		return [registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this)];
-	}
-
-	includeBootstrap(): Promise<State> {
-		return this.getState();
 	}
 
 	private async getRepoVisibility(): Promise<RepositoriesVisibility> {
@@ -84,9 +88,7 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 		};
 	}
 
-	private notifyDidChangeData(subscription?: Subscription) {
-		if (!this.host.ready) return false;
-
+	private notifyDidChangeSubscription(subscription?: Subscription) {
 		return window.withProgress({ location: { viewId: this.host.id } }, async () => {
 			const sub = await this.getSubscription(subscription);
 			return this.host.notify(DidChangeSubscriptionNotificationType, {

@@ -137,6 +137,10 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		this._disposable.dispose();
 	}
 
+	onReloaded(): void {
+		void this.notifyDidChangeState(true);
+	}
+
 	async onShowing(
 		_loading: boolean,
 		options: { column?: ViewColumn; preserveFocus?: boolean },
@@ -705,15 +709,20 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		this.updateState();
 	}
 
-	private async notifyDidChangeState() {
+	private async notifyDidChangeState(force: boolean = false) {
 		const scope = getLogScope();
 
 		this._notifyDidChangeStateDebounced?.cancel();
-		if (this._pendingContext == null) return false;
+		if (!force && this._pendingContext == null) return false;
 
-		const context = { ...this._context, ...this._pendingContext };
-		this._context = context;
-		this._pendingContext = undefined;
+		let context: Context;
+		if (this._pendingContext != null) {
+			context = { ...this._context, ...this._pendingContext };
+			this._context = context;
+			this._pendingContext = undefined;
+		} else {
+			context = this._context;
+		}
 
 		return window.withProgress({ location: { viewId: this.host.id } }, async () => {
 			try {

@@ -46,7 +46,8 @@ export class HomeApp extends App<State> {
 				this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
 
 				onIpc(DidChangeRepositoriesType, msg, params => {
-					this.state.repositories = { ...params };
+					this.state.repositories = params;
+					this.state.timestamp = Date.now();
 					this.setState(this.state);
 					this.updateNoRepo();
 				});

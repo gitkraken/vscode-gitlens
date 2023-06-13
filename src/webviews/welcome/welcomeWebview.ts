@@ -33,6 +33,10 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 		return this.getState();
 	}
 
+	onReloaded() {
+		this.notifyDidChange();
+	}
+
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (!configuration.changed(e, 'codeLens.enabled') && !configuration.changed(e, 'currentLine.enabled')) return;
 
