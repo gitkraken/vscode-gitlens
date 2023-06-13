@@ -375,6 +375,7 @@ export class WebviewController<
 				if (this._ready) {
 					this.sendPendingIpcNotifications();
 				} else if (this.provider.onReloaded != null) {
+					this.clearPendingIpcNotifications();
 					this.provider.onReloaded();
 				} else {
 					void this.refresh();
