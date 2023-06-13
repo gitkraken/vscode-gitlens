@@ -14404,7 +14404,7 @@
 					},
 					{
 						"id": "gitlens.welcome.workspaces",
-						"title": "Workspaces and Focus ☁️",
+						"title": "Workspaces ☁️ and Focus ✨",
 						"description": "Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration.\n\n[Open Workspaces](command:gitlens.showWorkspacesView)\n\nThe Focus view brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more.\nQuickly see if anything requires your attention while keeping you focused.\n\n[Open Focus](command:gitlens.showFocusPage)",
 						"media": {
 							"altText": "Illustrations of Focus and Workspaces view",
