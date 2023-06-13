@@ -8,7 +8,68 @@ export class BlameSvg extends LitElement {
 		svgBase,
 		icons,
 		css`
-			:host {
+			text {
+				fill: var(--vscode-foreground);
+				font-size: 18px;
+			}
+			.header {
+				font-weight: 700;
+			}
+
+			.codicon {
+				font-family: codicon;
+				cursor: default;
+				user-select: none;
+				font-size: 20px;
+			}
+
+			.glicon {
+				font-family: glicons;
+				cursor: default;
+				user-select: none;
+			}
+			.desc {
+				font-size: 0.9em;
+				opacity: 0.6;
+			}
+			.small {
+				font-size: 0.9em;
+			}
+			.header-box {
+				fill: var(--vscode-sideBarSectionHeader-background);
+			}
+			.row-box {
+				fill: var(--vscode-list-hoverBackground);
+				opacity: 0;
+			}
+			.row {
+				cursor: pointer;
+			}
+			.row:hover .row-box {
+				opacity: 1;
+			}
+			.row-box-selected {
+				fill: var(--vscode-list-activeSelectionBackground);
+				stroke: var(--vscode-list-focusOutline);
+				stroke-width: 1;
+			}
+			.selected {
+				fill: var(--vscode-list-activeSelectionForeground);
+			}
+			.row:not(:hover) .row-actions {
+				display: none;
+			}
+			.link {
+				fill: var(--vscode-textLink-foreground);
+			}
+			.link:hover {
+				text-decoration: underline;
+			}
+			.addition {
+				fill: var(--vscode-gitDecoration-addedResourceForeground);
+			}
+			.deletion {
+				fill: var(--vscode-gitDecoration-deletedResourceForeground);
 			}
 		`,
 	];
@@ -25,17 +86,6 @@ export class BlameSvg extends LitElement {
 						<tspan dx="6" dy="-4">GITKRAKEN WORKSPACES</tspan>
 					</text>
 				</g>
-				<!-- <g class="row">
-					<rect x="0" y="45" width="100%" height="44" class="row-box" />
-					<text x="30" y="71">
-						<tspan dx="2" dy="4" class="codicon">&#xeab6;</tspan>
-						<tspan dx="24" dy="-4">Current Window</tspan>
-						<tspan dx="4" class="desc">vscode-gitlens</tspan>
-					</text>
-					<text x="100%" y="71" text-anchor="end" class="row-actions">
-						<tspan dx="-10" dy="4" class="codicon">&#xeac3;</tspan>
-					</text>
-				</g> -->
 				<g class="row">
 					<rect x="0" y="45" width="100%" height="44" class="row-box-selected" />
 					<text x="30" y="71" class="selected">
@@ -119,71 +169,6 @@ export class BlameSvg extends LitElement {
 						<tspan dx="12" class="codicon">&#xeae4;</tspan>
 					</text>
 				</g>
-				<style>
-					text {
-						fill: var(--vscode-foreground);
-						font-size: 18px;
-					}
-					.header {
-						font-weight: 700;
-					}
-
-					.codicon {
-						font-family: codicon;
-						cursor: default;
-						user-select: none;
-						font-size: 20px;
-					}
-
-					.glicon {
-						font-family: glicons;
-						cursor: default;
-						user-select: none;
-					}
-					.desc {
-						font-size: 0.9em;
-						opacity: 0.6;
-					}
-					.small {
-						font-size: 0.9em;
-					}
-					.header-box {
-						fill: var(--vscode-sideBarSectionHeader-background);
-					}
-					.row-box {
-						fill: var(--vscode-list-hoverBackground);
-						opacity: 0;
-					}
-					.row {
-						cursor: pointer;
-					}
-					.row:hover .row-box {
-						opacity: 1;
-					}
-					.row-box-selected {
-						fill: var(--vscode-list-activeSelectionBackground);
-						stroke: var(--vscode-list-focusOutline);
-						stroke-width: 1;
-					}
-					.selected {
-						fill: var(--vscode-list-activeSelectionForeground);
-					}
-					.row:not(:hover) .row-actions {
-						display: none;
-					}
-					.link {
-						fill: var(--vscode-textLink-foreground);
-					}
-					.link:hover {
-						text-decoration: underline;
-					}
-					.addition {
-						fill: var(--vscode-gitDecoration-addedResourceForeground);
-					}
-					.deletion {
-						fill: var(--vscode-gitDecoration-deletedResourceForeground);
-					}
-				</style>
 			</svg>
 		`;
 	}
