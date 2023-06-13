@@ -55,6 +55,7 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 
 			if (status === 'missing') {
 				return {
+					badge: '?',
 					color: new ThemeColor('gitlens.decorations.workspaceRepoMissingForegroundColor' satisfies Colors),
 					tooltip: '',
 				};
