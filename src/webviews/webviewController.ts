@@ -47,6 +47,7 @@ export interface WebviewProvider<State, SerializedState = State> extends Disposa
 
 	onReady?(): void;
 	onRefresh?(force?: boolean): void;
+	onReloaded?(): void;
 	onMessageReceived?(e: IpcMessage): void;
 	onActiveChanged?(active: boolean): void;
 	onFocusChanged?(focused: boolean): void;
@@ -373,6 +374,10 @@ export class WebviewController<
 			if (visible) {
 				if (this._ready) {
 					this.sendPendingIpcNotifications();
+				} else if (this.provider.onReloaded != null) {
+					this.provider.onReloaded();
+				} else {
+					void this.refresh();
 				}
 			} else {
 				this._ready = false;

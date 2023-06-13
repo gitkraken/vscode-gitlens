@@ -39,6 +39,10 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 		return this.getState();
 	}
 
+	onReloaded() {
+		this.notifyDidChangeRepositories();
+	}
+
 	private getState(): State {
 		return {
 			timestamp: Date.now(),
