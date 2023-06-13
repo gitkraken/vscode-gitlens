@@ -149,6 +149,8 @@ export class SettingsApp extends App<State> {
 				onIpc(DidChangeConfigurationNotificationType, msg, params => {
 					this.state.config = params.config;
 					this.state.customSettings = params.customSettings;
+					this.state.timestamp = Date.now();
+					this.setState(this.state);
 
 					this.updateState();
 				});

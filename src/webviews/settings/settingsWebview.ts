@@ -54,6 +54,10 @@ export class SettingsWebviewProvider implements WebviewProvider<State> {
 		};
 	}
 
+	onReloaded(): void {
+		void this.notifyDidChangeConfiguration();
+	}
+
 	onShowing?(
 		loading: boolean,
 		_options: { column?: ViewColumn; preserveFocus?: boolean },
