@@ -14357,6 +14357,14 @@
 						}
 					},
 					{
+						"id": "gitlens.welcome.sidebars",
+						"title": "Discover the many powerful views",
+						"description": "We've arranged our views for focus and productivity, although you can easily drag them around to suit your needs.\n\n$(gitlens-gitlens-inspect)  **GitLens Inspect**\nLike an x-ray into your code, focused on providing contextual information and insights to what you're actively working on. Think about it as the developer tools inspector for your code.\n\n[Open GitLens Inspect](command:workbench.view.extension.gitlensInspect)\n\n$(gitlens-gitlens)  **GitLens**\nQuick access to many GitLens features. Also the home of GitKraken teams and collaboration services (e.g. GitKraken Workspaces), help, and support.\n\n[Open GitLens](command:workbench.view.extension.gitlens)\n\n$(source-control) **Source Control**\nShows additional views that are focused on exploring and managing your repositories.\n\n[Open Source Control](command:workbench.view.scm)\n\n$(layout-panel)  **(Bottom) Panel**\nConvenient and easy access to the Commit Graph with a dedicated details view.\n\n[Open Commit Graph](command:gitlens.showGraph)\n💡 Use the [Reset Views Layout](command:workbench.action.quickOpen?%22>GitLens%3A%20Reset%20Views%20Layout%22) command to quickly get back to the default layout.",
+						"media": {
+							"markdown": "walkthroughs/welcome/side-bars.md"
+						}
+					},
+					{
 						"id": "gitlens.welcome.currentLineBlame",
 						"title": "See who made which changes at a glance",
 						"description": "**Inline blame** and status bar blame provide historical context about line changes.\n**Git CodeLens** adds contextual authorship information at the top of each file and at the beginning of each block of code.\n**Hover** over these blame annotations to reveal more details and actions.\n💡 Use the [Toggle Line Blame](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Line%20Blame%22) and [Toggle Git CodeLens](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Git%20CodeLens%22) commands from the Command Palette to turn the annotations on and off.",
@@ -14378,14 +14386,6 @@
 						"description": "With just a click of a button, you can navigate backwards and forwards through the history of any file.\nCompare changes over time and see the revision history of the whole file or an individual line.",
 						"media": {
 							"markdown": "walkthroughs/welcome/revision-history.md"
-						}
-					},
-					{
-						"id": "gitlens.welcome.sidebars",
-						"title": "Discover the many powerful views",
-						"description": "We've arranged our views for focus and productivity, although you can easily drag them around to suit your needs.\n\n$(gitlens-gitlens-inspect) **GitLens Inspect**\nLike an x-ray into your code, focused on providing contextual information and insights to what you're actively working on. Think about it as the developer tools inspector for your code.\n\n[Open GitLens Inspect](command:workbench.view.extension.gitlensInspect)\n\n$(gitlens-gitlens) **GitLens**\nQuick access to many GitLens features. Also the home of GitKraken teams and collaboration services (e.g. GitKraken Workspaces), help, and support.\n\n[Open GitLens](command:workbench.view.extension.gitlens)\n\n$(source-control) **Source Control**\nShows additional views that are focused on exploring and managing your repositories.\n\n[Open Source Control](command:workbench.view.scm)\n\n$(gitlens-graph) **(Bottom) Panel**\nConvenient and easy access to the Commit Graph with a dedicated details view.\n\n[Open Commit Graph](command:gitlens.showGraph)\n💡 Use the [Reset Views Layout](command:workbench.action.quickOpen?%22>GitLens%3A%20Reset%20Views%20Layout%22) command to quickly get back to the default layout.",
-						"media": {
-							"markdown": "walkthroughs/welcome/side-bars.md"
 						}
 					},
 					{
@@ -14412,6 +14412,14 @@
 						"description": "Simplify your workflow and quickly gain insights with automatic linking of issues and pull requests across multiple Git hosting services including GitHub, GitHub Enterprise ✨, GitLab, GitLab self-managed ✨, Gitea, Gerrit, Google Source, Bitbucket, Bitbucket Server, Azure DevOps, and custom servers.\n\nAll integration provide automatic linking, while rich integrations with GitHub & GitLab offer detailed hover information for autolinks, and correlations between pull requests, branches, and commits, as well as user avatars for added context.\n\n**Define your own autolinks**\nUse autolinks to linkify external references, like Jira issues or Zendesk tickets, in commit messages.\n\n[Configure Autolinks](command:gitlens.showSettingsPage?%22autolinks%22)",
 						"media": {
 							"markdown": "walkthroughs/welcome/integrations.md"
+						}
+					},
+					{
+						"id": "gitlens.welcome.labs",
+						"title": "Experiment with GitKraken Labs $(beaker)",
+						"description": "GitKraken Labs is our incubator for experimentation and exploration with the community to gather early reactions and feedback. Below are some of our current experiments.\n**Explain Commit (AI)**\nUse the Explain panel on the [Commit Details view](command:gitlens.showCommitDetailsView) to leverage AI to help you understand the changes introduced by a commit.\n**Automatically Generate Commit Message (AI)**\nUse the [Generate Commit Message](command:workbench.action.quickOpen?%22>GitLens%3A%20Generate%20Commit%20Message%22) command from the Source Control view's context menu to automatically generate a commit message for your staged changes by leveraging AI.",
+						"media": {
+							"markdown": "walkthroughs/welcome/labs.md"
 						}
 					},
 					{
