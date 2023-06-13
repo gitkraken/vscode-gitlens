@@ -8,7 +8,62 @@ export class BlameSvg extends LitElement {
 		svgBase,
 		icons,
 		css`
-			:host {
+			text {
+				fill: var(--vscode-foreground);
+				font-size: 18px;
+			}
+			.heading {
+				font-weight: 600;
+				font-size: 20px;
+			}
+
+			.codicon {
+				font-family: codicon;
+				cursor: default;
+				user-select: none;
+			}
+
+			.glicon {
+				font-family: glicons;
+				cursor: default;
+				user-select: none;
+			}
+			.indicator-info {
+				fill: var(--vscode-problemsInfoIcon-foreground);
+			}
+			.indicator-warning {
+				fill: var(--vscode-problemsWarningIcon-foreground);
+			}
+			.indicator-error {
+				fill: var(--vscode-problemsErrorIcon-foreground);
+			}
+			.tabs {
+			}
+			.tab {
+				text-decoration: underline;
+				opacity: 0.8;
+				font-size: 16px;
+				cursor: pointer;
+			}
+			.row-box {
+				fill: var(--vscode-foreground);
+				opacity: 0;
+			}
+			.row:hover .row-box {
+				opacity: 0.06;
+			}
+			.link {
+				fill: var(--vscode-textLink-foreground);
+				cursor: pointer;
+			}
+			.link:hover {
+				text-decoration: underline;
+			}
+			.addition {
+				fill: var(--vscode-gitDecoration-addedResourceForeground);
+			}
+			.deletion {
+				fill: var(--vscode-gitDecoration-deletedResourceForeground);
 			}
 		`,
 	];
@@ -117,65 +172,6 @@ export class BlameSvg extends LitElement {
 						<tspan dx="10" dy="0.5" class="codicon">&#xeb01;</tspan>
 					</text>
 				</g>
-				<style>
-					text {
-						fill: var(--vscode-foreground);
-						font-size: 18px;
-					}
-					.heading {
-						font-weight: 600;
-						font-size: 20px;
-					}
-
-					.codicon {
-						font-family: codicon;
-						cursor: default;
-						user-select: none;
-					}
-
-					.glicon {
-						font-family: glicons;
-						cursor: default;
-						user-select: none;
-					}
-					.indicator-info {
-						fill: var(--vscode-problemsInfoIcon-foreground);
-					}
-					.indicator-warning {
-						fill: var(--vscode-problemsWarningIcon-foreground);
-					}
-					.indicator-error {
-						fill: var(--vscode-problemsErrorIcon-foreground);
-					}
-					.tabs {
-					}
-					.tab {
-						text-decoration: underline;
-						opacity: 0.8;
-						font-size: 16px;
-						cursor: pointer;
-					}
-					.row-box {
-						fill: var(--vscode-foreground);
-						opacity: 0;
-					}
-					.row:hover .row-box {
-						opacity: 0.06;
-					}
-					.link {
-						fill: var(--vscode-textLink-foreground);
-						cursor: pointer;
-					}
-					.link:hover {
-						text-decoration: underline;
-					}
-					.addition {
-						fill: var(--vscode-gitDecoration-addedResourceForeground);
-					}
-					.deletion {
-						fill: var(--vscode-gitDecoration-deletedResourceForeground);
-					}
-				</style>
 			</svg>
 		`;
 	}
