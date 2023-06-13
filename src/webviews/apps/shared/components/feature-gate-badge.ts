@@ -126,6 +126,11 @@ export class FeatureGateBadge extends LitElement {
 				return html`<span class="badge-footnote"
 					>✨ Requires a paid subscription for use on privately hosted repos.</span
 				>`;
+			case SubscriptionState.Paid:
+				/* prettier-ignore */
+				return html`<span class="badge-footnote"
+					>You have access to ✨ features on privately hosted repos and ☁️ features based on your subscription.</span
+				>`;
 			default:
 				return nothing;
 		}
