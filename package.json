@@ -4510,59 +4510,54 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.plus.learn",
-				"title": "Learn about GitLens+ Features",
-				"category": "GitLens+"
-			},
-			{
 				"command": "gitlens.plus.loginOrSignUp",
 				"title": "Sign In to GitKraken...",
-				"category": "GitLens+"
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.plus.logout",
 				"title": "Sign Out of GitKraken",
-				"category": "GitLens+"
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.plus.startPreviewTrial",
 				"title": "Preview Pro",
-				"category": "GitLens+"
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.plus.manage",
 				"title": "Manage Your Account...",
-				"category": "GitLens+"
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.plus.purchase",
 				"title": "Upgrade to Pro...",
-				"category": "GitLens+"
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.plus.hide",
-				"title": "Hide GitLens+ Features",
-				"category": "GitLens+"
+				"title": "Hide Pro Features",
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.plus.restore",
-				"title": "Restore GitLens+ Features",
-				"category": "GitLens+"
+				"title": "Restore Pro Features",
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.plus.reset",
 				"title": "Reset",
-				"category": "GitLens+"
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.plus.resetRepositoryAccess",
 				"title": "Reset Repository Access Cache",
-				"category": "GitLens+"
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.plus.refreshRepositoryAccess",
 				"title": "Refresh Repository Access",
-				"category": "GitLens+"
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.getStarted",
@@ -4597,37 +4592,37 @@
 			{
 				"command": "gitlens.showFocusPage",
 				"title": "Show Focus View",
-				"category": "GitLens+",
+				"category": "GitLens",
 				"icon": "$(layers)"
 			},
 			{
 				"command": "gitlens.showGraph",
 				"title": "Show Commit Graph",
-				"category": "GitLens+",
+				"category": "GitLens",
 				"icon": "$(gitlens-graph)"
 			},
 			{
 				"command": "gitlens.showGraphPage",
 				"title": "Show Commit Graph",
-				"category": "GitLens+",
+				"category": "GitLens",
 				"icon": "$(gitlens-graph)"
 			},
 			{
 				"command": "gitlens.showGraphView",
 				"title": "Show Commit Graph View",
-				"category": "GitLens+",
+				"category": "GitLens",
 				"icon": "$(gitlens-graph)"
 			},
 			{
 				"command": "gitlens.toggleGraph",
 				"title": "Toggle Commit Graph",
-				"category": "GitLens+",
+				"category": "GitLens",
 				"icon": "$(gitlens-graph)"
 			},
 			{
 				"command": "gitlens.toggleMaximizedGraph",
 				"title": "Toggle Maximized Commit Graph",
-				"category": "GitLens+",
+				"category": "GitLens",
 				"icon": "$(gitlens-graph)"
 			},
 			{
@@ -4643,7 +4638,7 @@
 			{
 				"command": "gitlens.showInCommitGraph",
 				"title": "Open in Commit Graph",
-				"category": "GitLens+",
+				"category": "GitLens",
 				"icon": "$(gitlens-graph)"
 			},
 			{
@@ -4759,7 +4754,7 @@
 			{
 				"command": "gitlens.showTimelinePage",
 				"title": "Open Visual File History",
-				"category": "GitLens+",
+				"category": "GitLens",
 				"icon": "$(graph-scatter)"
 			},
 			{
@@ -4775,7 +4770,7 @@
 			{
 				"command": "gitlens.showTimelineView",
 				"title": "Show Visual File History View",
-				"category": "GitLens+"
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showWelcomePage",
@@ -4785,12 +4780,12 @@
 			{
 				"command": "gitlens.showWorktreesView",
 				"title": "Show Worktrees View",
-				"category": "GitLens+"
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showWorkspacesView",
 				"title": "Show GitKraken Workspaces View",
-				"category": "GitLens+"
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.compareWith",
@@ -5056,12 +5051,12 @@
 			{
 				"command": "gitlens.gitCommands.worktree",
 				"title": "Git Worktree...",
-				"category": "GitLens+"
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.gitCommands.worktree.open",
 				"title": "Open Git Worktree...",
-				"category": "GitLens+"
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.switchAIModel",
@@ -14358,7 +14353,7 @@
 						"title": "Welcome and Tutorial",
 						"description": "Open the Welcome experience to quickly get started and discover the many powerful GitLens features.\n\n[Open Welcome](command:gitlens.showWelcomePage \"Opens GitLens Welcome\")\nOr, sit back and watch the our Getting Started video.\n\n[Watch Tutorial Video](https://www.youtube.com/watch?v=UQPb73Zz9qk \"Watch the Getting Started video\")\n💡 **Want more control?** Use the interactive [GitLens Settings](command:gitlens.showSettingsPage \"Opens GitLens Settings\") editor to customize GitLens to meet your needs.",
 						"media": {
-							"markdown": "walkthroughs/welcome/0-tutorial.md"
+							"markdown": "walkthroughs/welcome/tutorial.md"
 						}
 					},
 					{
@@ -14366,7 +14361,7 @@
 						"title": "See who made which changes at a glance",
 						"description": "**Inline blame** and status bar blame provide historical context about line changes.\n**Git CodeLens** adds contextual authorship information at the top of each file and at the beginning of each block of code.\n**Hover** over these blame annotations to reveal more details and actions.\n💡 Use the [Toggle Line Blame](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Line%20Blame%22) and [Toggle Git CodeLens](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Git%20CodeLens%22) commands from the Command Palette to turn the annotations on and off.",
 						"media": {
-							"markdown": "walkthroughs/welcome/3-current-line-blame.md"
+							"markdown": "walkthroughs/welcome/blame.md"
 						}
 					},
 					{
@@ -14374,7 +14369,7 @@
 						"title": "Get more context with file annotations",
 						"description": "Use on-demand whole file annotations to see authorship, recent changes, and a heatmap. Annotations are rendered as visual indicators directly in the editor.\n💡 On an active file, use the [Toggle File Blame](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Blame%22), [Toggle File Changes](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Changes%22), and [Toggle File Heatmap](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Heatmap%22) commands from the Command Palette to turn the annotations on and off.",
 						"media": {
-							"markdown": "walkthroughs/welcome/6-file-annotations.md"
+							"markdown": "walkthroughs/welcome/file-annotations.md"
 						}
 					},
 					{
@@ -14382,21 +14377,21 @@
 						"title": "Effortlessly navigate revision history",
 						"description": "With just a click of a button, you can navigate backwards and forwards through the history of any file.\nCompare changes over time and see the revision history of the whole file or an individual line.",
 						"media": {
-							"markdown": "walkthroughs/welcome/5-revision-history.md"
+							"markdown": "walkthroughs/welcome/revision-history.md"
 						}
 					},
 					{
-						"id": "gitlens.welcome.gitSideBarViews",
-						"title": "Explore repositories from the side bar",
-						"description": "**GitLens Inspect side bar** is like an x-ray into your code, which focuses on providing contextual information and insights to what you're actively working on. Think about it as the developer tools inspector for your code.\n\n[Open GitLens Inspect](command:workbench.view.extension.gitlensInspect)\n\n**GitLens side bar** is the home of GitKraken teams and collaboration services (e.g. GitKraken Workspaces) as well as discovery, help, and support.\n\n[Open GitLens](command:workbench.view.extension.gitlens)\n\n**Source Control side bar** shows views that are focused on your repositories.\n\n[Open Source Control](command:workbench.view.scm)",
+						"id": "gitlens.welcome.sidebars",
+						"title": "Discover the many powerful views",
+						"description": "We've arranged our views for focus and productivity, although you can easily drag them around to suit your needs.\n\n$(gitlens-gitlens-inspect) **GitLens Inspect**\nLike an x-ray into your code, focused on providing contextual information and insights to what you're actively working on. Think about it as the developer tools inspector for your code.\n\n[Open GitLens Inspect](command:workbench.view.extension.gitlensInspect)\n\n$(gitlens-gitlens) **GitLens**\nQuick access to many GitLens features. Also the home of GitKraken teams and collaboration services (e.g. GitKraken Workspaces), help, and support.\n\n[Open GitLens](command:workbench.view.extension.gitlens)\n\n$(source-control) **Source Control**\nShows additional views that are focused on exploring and managing your repositories.\n\n[Open Source Control](command:workbench.view.scm)\n\n$(gitlens-graph) **(Bottom) Panel**\nConvenient and easy access to the Commit Graph with a dedicated details view.\n\n[Open Commit Graph](command:gitlens.showGraph)\n💡 Use the [Reset Views Layout](command:workbench.action.quickOpen?%22>GitLens%3A%20Reset%20Views%20Layout%22) command to quickly get back to the default layout.",
 						"media": {
-							"markdown": "walkthroughs/welcome/7-git-side-bar-views.md"
+							"markdown": "walkthroughs/welcome/side-bars.md"
 						}
 					},
 					{
 						"id": "gitlens.welcome.commitGraph",
-						"title": "Commit Graph ✨",
-						"description": "Helps you easily visualize your repository and keep track of all work in progress.\nUse the rich commit search to find exactly what you're looking for. It's powerful filters allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change.\n\n[Open Commit Graph](command:gitlens.showGraph)",
+						"title": "Visualize with the Commit Graph ✨",
+						"description": "Easily visualize your repository and keep track of all work in progress.\nUse the rich commit search to find exactly what you're looking for. It's powerful filters allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change.\n\n[Open Commit Graph](command:gitlens.showGraph)\n\n💡Quickly toggle the Graph via the [Toggle Commit Graph](command:gitlens.toggleGraph) command\n💡Maximize the Graph via the [Toggle Maximized Commit Graph](command:gitlens.toggleMaximizedGraph) command",
 						"media": {
 							"altText": "Illustrations of the Commit Graph view",
 							"svg": "walkthroughs/welcome/commit-graph.svg"
@@ -14404,8 +14399,8 @@
 					},
 					{
 						"id": "gitlens.welcome.workspaces",
-						"title": "Workspaces ☁️ and Focus ✨",
-						"description": "Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration.\n\n[Open Workspaces](command:gitlens.showWorkspacesView)\n\nThe Focus view brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more.\nQuickly see if anything requires your attention while keeping you focused.\n\n[Open Focus](command:gitlens.showFocusPage)",
+						"title": "Work smarter with GitKraken Workspaces ☁️ and Focus ✨",
+						"description": "GitKraken Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration.\n\n[Open Workspaces](command:gitlens.showWorkspacesView)\n\nThe Focus view brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more.\nQuickly see if anything requires your attention while keeping you focused.\n\n[Open Focus](command:gitlens.showFocusPage)",
 						"media": {
 							"altText": "Illustrations of Focus and Workspaces view",
 							"svg": "walkthroughs/welcome/workspaces-focus.svg"
@@ -14414,19 +14409,37 @@
 					{
 						"id": "gitlens.welcome.hostingServiceIntegrations",
 						"title": "Integrate with Git hosting services",
-						"description": "Simplify your workflow and quickly gain insights with automatic linking of issues and pull requests across multiple Git hosting platforms including GitHub, GitHub Enterprise ✨, GitLab, GitLab self-managed ✨, Gitea, Gerrit, Google Source, Bitbucket, Bitbucket Server, Azure DevOps, and custom servers.\n\nAll integration provide automatic linking, while rich integrations with GitHub & GitLab offer detailed hover information for autolinks, and correlations between pull requests, branches, and commits, as well as user avatars for added context.\n\n**Define your own autolinks**\nUse autolinks to linkify external references, like Jira issues or Zendesk tickets, in commit messages.\n\n[Configure Autolinks](command:gitlens.showSettingsPage?%22autolinks%22)",
+						"description": "Simplify your workflow and quickly gain insights with automatic linking of issues and pull requests across multiple Git hosting services including GitHub, GitHub Enterprise ✨, GitLab, GitLab self-managed ✨, Gitea, Gerrit, Google Source, Bitbucket, Bitbucket Server, Azure DevOps, and custom servers.\n\nAll integration provide automatic linking, while rich integrations with GitHub & GitLab offer detailed hover information for autolinks, and correlations between pull requests, branches, and commits, as well as user avatars for added context.\n\n**Define your own autolinks**\nUse autolinks to linkify external references, like Jira issues or Zendesk tickets, in commit messages.\n\n[Configure Autolinks](command:gitlens.showSettingsPage?%22autolinks%22)",
 						"media": {
-							"markdown": "walkthroughs/welcome/8-hosting-service-integrations.md"
+							"markdown": "walkthroughs/welcome/integrations.md"
 						}
 					},
 					{
-						"id": "gitlens.welcome.gitkraken",
-						"title": "Cloud Services with a GitKraken account",
+						"id": "gitlens.welcome.preview",
+						"title": "Previewing GitLens Pro",
+						"description": "During your preview, you have access to ✨ features on privately hosted repos. [Learn more](https://www.gitkraken.com/gitlens/plus-features)\n\n[Start Free Pro Trial](command:gitlens.plus.loginOrSignUp)\n\nStart a free Pro trial to get an additional 7 days.",
+						"media": {
+							"markdown": "walkthroughs/welcome/preview.md"
+						},
+						"when": "gitlens:plus:state == 1"
+					},
+					{
+						"id": "gitlens.welcome.trial",
+						"title": "Trialing GitLens Pro",
+						"description": "During your trial, you have access to ✨ features on privately hosted repos and ☁️ features based on the Pro tier. [Learn more](https://www.gitkraken.com/gitlens/plus-features)\n\n[Upgrade to Pro](command:gitlens.plus.purchase)",
+						"media": {
+							"markdown": "walkthroughs/welcome/trial.md"
+						},
+						"when": "gitlens:plus:state == 3"
+					},
+					{
+						"id": "gitlens.welcome.account",
+						"title": "Power-up with GitKraken Cloud Services",
 						"description": "Sign up for access to our developer productivity and collaboration services, e.g. Workspaces, or [sign in](command:gitlens.plus.loginOrSignUp).\n\n[Sign Up](command:gitlens.plus.loginOrSignUp)",
 						"media": {
-							"markdown": "walkthroughs/welcome/gitkraken-account.md"
+							"markdown": "walkthroughs/welcome/account.md"
 						},
-						"when": "gitlens:plus:state < 5"
+						"when": "gitlens:plus:state >= 0 && gitlens:plus:state <= 2"
 					},
 					{
 						"id": "gitlens.welcome.additional",
