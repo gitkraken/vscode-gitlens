@@ -14441,11 +14441,11 @@
 						"when": "gitlens:plus:state == 3"
 					},
 					{
-						"id": "gitlens.welcome.account",
+						"id": "gitlens.welcome.services",
 						"title": "Power-up with GitKraken Cloud Services",
 						"description": "Sign up for access to our developer productivity and collaboration services, e.g. Workspaces, or [sign in](command:gitlens.plus.loginOrSignUp).\n\n[Sign Up](command:gitlens.plus.loginOrSignUp)",
 						"media": {
-							"markdown": "walkthroughs/welcome/account.md"
+							"markdown": "walkthroughs/welcome/services.md"
 						},
 						"when": "gitlens:plus:state >= 0 && gitlens:plus:state <= 2"
 					},
