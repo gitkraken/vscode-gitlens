@@ -342,8 +342,11 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private browseRepoAtRevision(node: ViewRefNode, options?: { before?: boolean; openInNewWindow?: boolean }) {
-		if (!(node instanceof ViewRefNode)) return Promise.resolve();
+	private browseRepoAtRevision(
+		node: ViewRefNode | ViewRefFileNode,
+		options?: { before?: boolean; openInNewWindow?: boolean },
+	) {
+		if (!(node instanceof ViewRefNode) && !(node instanceof ViewRefFileNode)) return Promise.resolve();
 
 		return browseAtRevision(node.uri, {
 			before: options?.before,
