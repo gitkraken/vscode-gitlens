@@ -1,4 +1,4 @@
-import type { Disposable, TreeViewVisibilityChangeEvent } from 'vscode';
+import type { Disposable } from 'vscode';
 import { ProgressLocation, window } from 'vscode';
 import type { WorkspacesViewConfig } from '../config';
 import { Commands } from '../constants';
@@ -7,7 +7,6 @@ import { unknownGitUri } from '../git/gitUri';
 import type { Repository } from '../git/models/repository';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
 import { WorkspaceType } from '../plus/workspaces/models';
-import { SubscriptionState } from '../subscription';
 import { executeCommand } from '../system/command';
 import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';
 import type { RepositoriesNode } from './nodes/repositoriesNode';
@@ -20,32 +19,19 @@ import { registerViewCommand } from './viewCommands';
 
 export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, WorkspacesViewConfig> {
 	protected readonly configKey = 'repositories';
-	private _workspacesChangedDisposable: Disposable;
-	private _visibleDisposable: Disposable | undefined;
+	private _disposable: Disposable;
 
 	constructor(container: Container) {
 		super(container, 'workspaces', 'Workspaces', 'workspaceView');
-		this._workspacesChangedDisposable = this.container.workspaces.onDidChangeWorkspaces(() => {
-			void this.ensureRoot().triggerChange(true);
-		});
-	}
 
-	protected override onVisibilityChanged(e: TreeViewVisibilityChangeEvent): void {
-		if (e.visible) {
-			void this.updateDescription();
-			this._visibleDisposable?.dispose();
-			this._visibleDisposable = this.container.subscription.onDidChange(() => void this.updateDescription());
-		} else {
-			this._visibleDisposable?.dispose();
-			this._visibleDisposable = undefined;
-		}
-
-		super.onVisibilityChanged(e);
+		this._disposable = this.container.workspaces.onDidChangeWorkspaces(
+			() => void this.ensureRoot().triggerChange(true),
+		);
+		this.description = `PREVIEW ☁️`;
 	}
 
 	override dispose() {
-		this._workspacesChangedDisposable.dispose();
-		this._visibleDisposable?.dispose();
+		this._disposable.dispose();
 		super.dispose();
 	}
 
@@ -60,11 +46,6 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
 		return super.show(options);
-	}
-
-	private async updateDescription() {
-		const subscription = await this.container.subscription.getSubscription();
-		this.description = `PREVIEW ${subscription.state === SubscriptionState.Paid ? '' : '☁️'}`;
 	}
 
 	override get canReveal(): boolean {
