@@ -1,4 +1,4 @@
-import type { CancellationToken, ConfigurationChangeEvent, Disposable, TreeViewVisibilityChangeEvent } from 'vscode';
+import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, ThemeColor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { WorktreesViewConfig } from '../config';
 import { ViewFilesLayout, ViewShowBranchComparison } from '../config';
@@ -11,7 +11,6 @@ import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import type { GitWorktree } from '../git/models/worktree';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
-import { SubscriptionState } from '../subscription';
 import { executeCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
@@ -119,6 +118,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 				},
 			}),
 		);
+		this.description = '✨';
 	}
 
 	override get canReveal(): boolean {
@@ -128,25 +128,6 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
 		return super.show(options);
-	}
-
-	private _visibleDisposable: Disposable | undefined;
-	protected override onVisibilityChanged(e: TreeViewVisibilityChangeEvent): void {
-		if (e.visible) {
-			void this.updateDescription();
-			this._visibleDisposable?.dispose();
-			this._visibleDisposable = this.container.subscription.onDidChange(() => void this.updateDescription());
-		} else {
-			this._visibleDisposable?.dispose();
-			this._visibleDisposable = undefined;
-		}
-
-		super.onVisibilityChanged(e);
-	}
-
-	private async updateDescription() {
-		const subscription = await this.container.subscription.getSubscription();
-		this.description = subscription.state === SubscriptionState.Paid ? undefined : '✨';
 	}
 
 	protected getRoot() {
