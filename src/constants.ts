@@ -204,7 +204,6 @@ export const enum Commands {
 	GitCommandsWorktreeOpen = 'gitlens.gitCommands.worktree.open',
 	OpenOrCreateWorktreeForGHPR = 'gitlens.ghpr.views.openOrCreateWorktree',
 	PlusHide = 'gitlens.plus.hide',
-	PlusLearn = 'gitlens.plus.learn',
 	PlusLoginOrSignUp = 'gitlens.plus.loginOrSignUp',
 	PlusLogout = 'gitlens.plus.logout',
 	PlusManage = 'gitlens.plus.manage',

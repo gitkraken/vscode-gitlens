@@ -1,3 +1,3 @@
-<p align="center">
+<figure align="center">
   <img src="../../images/docs/hosting-integrations.png" alt="Hosting service integrations"/>
-</p>
+</figure>

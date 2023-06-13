@@ -5,7 +5,7 @@
 
 <figure align="center">
   <img src="../../images/docs/code-lens.png" alt="Git CodeLens" />
-  <figcaption>CodeLens</figcaption>
+  <figcaption>Git CodeLens</figcaption>
 </figure>
 
 <figure align="center">
