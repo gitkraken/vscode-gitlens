@@ -14379,8 +14379,8 @@
 					},
 					{
 						"id": "gitlens.welcome.revisionHistory",
-						"title": "Easily navigate revision history",
-						"description": "With just a click of a button, you can navigate backwards and forwards through any file's history.\nCompare changes over time and see the revision history of the whole file or every individual line of code. Customizable and unobtrusive Git blame annotations are still shown on every line, telling you the author, date, and message for the last commit!",
+						"title": "Effortlessly navigate revision history",
+						"description": "With just a click of a button, you can navigate backwards and forwards through the history of any file.\nCompare changes over time and see the revision history of the whole file or an individual line.",
 						"media": {
 							"markdown": "walkthroughs/welcome/5-revision-history.md"
 						}
