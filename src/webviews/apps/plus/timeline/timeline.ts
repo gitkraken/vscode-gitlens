@@ -87,7 +87,7 @@ export class TimelineApp extends App<State> {
 		this.sendCommand(UpdatePeriodCommandType, { period: value });
 	}
 
-	private updateState(): void {
+	private updateState() {
 		const $gate = document.getElementById('subscription-gate')! as FeatureGate;
 		if ($gate != null) {
 			$gate.state = this.state.access.subscription.current.state;
@@ -155,8 +155,7 @@ export class TimelineApp extends App<State> {
 			}
 		}
 
-		this._chart.updateChart(this.state);
-		setTimeout(() => this.updateLoading(false), 250);
+		this._chart.updateChart(this.state).finally(() => this.updateLoading(false));
 	}
 
 	private updateLoading(loading: boolean) {
