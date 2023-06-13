@@ -103,6 +103,7 @@ export interface RepositoryVisibilityInfo {
 }
 
 export interface GitProvider extends Disposable {
+	get onDidChange(): Event<void>;
 	get onDidChangeRepository(): Event<RepositoryChangeEvent>;
 	get onDidCloseRepository(): Event<RepositoryCloseEvent>;
 	get onDidOpenRepository(): Event<RepositoryOpenEvent>;
