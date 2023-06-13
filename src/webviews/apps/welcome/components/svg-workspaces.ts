@@ -38,12 +38,12 @@ export class BlameSvg extends LitElement {
 				</g> -->
 				<g class="row">
 					<rect x="0" y="45" width="100%" height="44" class="row-box-selected" />
-					<text x="30" y="71">
+					<text x="30" y="71" class="selected">
 						<tspan dx="2" dy="4" class="codicon">&#xeab4;</tspan>
 						<tspan dx="24" class="codicon">&#xebaa;</tspan>
 						<tspan dx="10" dy="-4">Frontend applications</tspan>
 					</text>
-					<text x="100%" y="71" text-anchor="end">
+					<text x="100%" y="71" text-anchor="end" class="selected">
 						<tspan dx="-10" dy="4" class="codicon">&#xea60;</tspan>
 						<tspan dx="12" class="codicon">&#xeb1a;</tspan>
 						<tspan dx="12" class="codicon">&#xeae4;</tspan>
@@ -164,6 +164,9 @@ export class BlameSvg extends LitElement {
 						fill: var(--vscode-list-activeSelectionBackground);
 						stroke: var(--vscode-list-focusOutline);
 						stroke-width: 1;
+					}
+					.selected {
+						fill: var(--vscode-list-activeSelectionForeground);
 					}
 					.row:not(:hover) .row-actions {
 						display: none;
