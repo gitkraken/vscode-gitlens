@@ -46,7 +46,7 @@ export class WorkspaceMissingRepositoryNode extends ViewNode<WorkspacesView> {
 	getTreeItem(): TreeItem {
 		const item = new TreeItem(this.name, TreeItemCollapsibleState.None);
 		item.id = this.id;
-		item.description = 'Unable to find repo, please locate';
+		item.description = 'missing';
 		item.tooltip = new MarkdownString(`${this.name}\n\nRepository could not be found`);
 		item.contextValue = ContextValues.WorkspaceMissingRepository;
 		item.iconPath = new ThemeIcon(
