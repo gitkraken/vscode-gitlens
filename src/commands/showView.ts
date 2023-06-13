@@ -33,7 +33,6 @@ export class ShowViewCommand extends Command {
 
 	async execute(context: CommandContext, ...args: any[]) {
 		const command = context.command as Commands;
-		let commandArgs = args;
 		switch (command) {
 			case Commands.ShowBranchesView:
 				return this.container.branchesView.show();
@@ -49,12 +48,14 @@ export class ShowViewCommand extends Command {
 				return this.container.homeView.show();
 			case Commands.ShowAccountView:
 				return this.container.accountView.show();
-			case Commands.ShowGraphView:
+			case Commands.ShowGraphView: {
+				let commandArgs = args;
 				if (context.type === 'scm' && context.scm?.rootUri != null) {
 					const repo = this.container.git.getRepository(context.scm.rootUri);
 					commandArgs = repo != null ? [repo, ...args] : args;
 				}
 				return this.container.graphView.show(undefined, ...commandArgs);
+			}
 			case Commands.ShowLineHistoryView:
 				return this.container.lineHistoryView.show();
 			case Commands.ShowRemotesView:
