@@ -215,6 +215,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		// DocumentSchemes.Vsls,
 	]);
 
+	private _onDidChange = new EventEmitter<void>();
+	get onDidChange(): Event<void> {
+		return this._onDidChange.event;
+	}
+
 	private _onDidChangeRepository = new EventEmitter<RepositoryChangeEvent>();
 	get onDidChangeRepository(): Event<RepositoryChangeEvent> {
 		return this._onDidChangeRepository.event;
