@@ -283,15 +283,12 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		...args: [Repository, { ref: GitReference }, { state: Partial<State> }] | unknown[]
 	): Promise<boolean> {
 		this._firstSelection = true;
-		let repositorySet = false;
 
 		const [arg] = args;
 		if (isRepository(arg)) {
 			this.repository = arg;
-			repositorySet = true;
 		} else if (hasGitReference(arg)) {
 			this.repository = this.container.git.getRepository(arg.ref.repoPath);
-			repositorySet = true;
 
 			let id = arg.ref.ref;
 			if (!isSha(id)) {
@@ -310,24 +307,25 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 				void this.onGetMoreRows({ id: id }, true);
 			}
-		} else if (isSerializedState<State>(arg) && arg.state.selectedRepository != null) {
-			this.repository = this.container.git.getRepository(arg.state.selectedRepository);
-			repositorySet = true;
-		} else if (this.container.git.repositoryCount > 0) {
-			const [contexts] = parseCommandContext(Commands.ShowGraph, undefined, ...args);
-			const context = Array.isArray(contexts) ? contexts[0] : contexts;
-
-			if (context.type === 'scm' && context.scm.rootUri != null) {
-				this.repository = this.container.git.getRepository(context.scm.rootUri);
-				repositorySet = true;
-			} else if (context.type === 'viewItem' && context.node instanceof RepositoryFolderNode) {
-				this.repository = context.node.repo;
-				repositorySet = true;
+		} else {
+			if (isSerializedState<State>(arg) && arg.state.selectedRepository != null) {
+				this.repository = this.container.git.getRepository(arg.state.selectedRepository);
 			}
-		}
 
-		if (repositorySet && this.repository != null && !loading && this.host.ready) {
-			this.updateState();
+			if (this.repository == null && this.container.git.repositoryCount > 1) {
+				const [contexts] = parseCommandContext(Commands.ShowGraph, undefined, ...args);
+				const context = Array.isArray(contexts) ? contexts[0] : contexts;
+
+				if (context.type === 'scm' && context.scm.rootUri != null) {
+					this.repository = this.container.git.getRepository(context.scm.rootUri);
+				} else if (context.type === 'viewItem' && context.node instanceof RepositoryFolderNode) {
+					this.repository = context.node.repo;
+				}
+
+				if (this.repository != null && !loading && this.host.ready) {
+					this.updateState();
+				}
+			}
 		}
 
 		return true;

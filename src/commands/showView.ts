@@ -50,8 +50,9 @@ export class ShowViewCommand extends Command {
 			case Commands.ShowAccountView:
 				return this.container.accountView.show();
 			case Commands.ShowGraphView:
-				if (context.type === 'scm' && context.scm !== undefined) {
-					commandArgs = [context.scm, ...args];
+				if (context.type === 'scm' && context.scm?.rootUri != null) {
+					const repo = this.container.git.getRepository(context.scm.rootUri);
+					commandArgs = repo != null ? [repo, ...args] : args;
 				}
 				return this.container.graphView.show(undefined, ...commandArgs);
 			case Commands.ShowLineHistoryView:
