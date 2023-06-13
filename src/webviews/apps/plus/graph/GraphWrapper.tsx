@@ -1113,8 +1113,8 @@ export function GraphWrapper({
 							Try the Focus Preview
 						</a>
 						<PopOver placement="top end" className="popover__content">
-							Concentrate on what really matters by gathering all your GitHub pull requests and issues in
-							one comprehensive list.
+							Bring all of your GitHub pull requests and issues into a unified actionable to help to you
+							more easily juggle work in progress, pending work, reviews, and more
 						</PopOver>
 					</div>
 				</div>
