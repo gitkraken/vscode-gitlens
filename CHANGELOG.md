@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#2336](https://github.com/gitkraken/vscode-gitlens/issues/2336) - Apply encodeURIComponent() to pieces of the custom remote URL
+- Fixes [#2728](https://github.com/gitkraken/vscode-gitlens/issues/2728) - Submodule commit graph will not open in the panel layout
 
 ## [13.6.0] - 2023-05-11
 
