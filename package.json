@@ -10942,7 +10942,7 @@
 				{
 					"command": "gitlens.views.workspaces.info",
 					"when": "view =~ /^gitlens\\.views\\.workspaces/",
-					"group": "navigation@2"
+					"group": "8_info@1"
 				},
 				{
 					"command": "gitlens.views.workspaces.create",
