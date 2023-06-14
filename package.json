@@ -14337,7 +14337,6 @@
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-contributors-view)",
-					"initialSize": 1,
 					"visibility": "collapsed"
 				}
 			]
