@@ -8,36 +8,57 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds ability to choose the OpenAI model used for GitLens' experimental AI features &mdash; closes [#2636](https://github.com/gitkraken/vscode-gitlens/issues/2636) thanks to [PR #2637](https://github.com/gitkraken/vscode-gitlens/pull/2637) by Daniel Rodríguez ([@sadasant](https://github.com/sadasant))
-  - Adds a `gitlens.ai.experimental.openai.model` setting to specify the OpenAI model (defaults to `gpt-3.5-turbo`)
-- ☁️ Adds the all-new _GitKraken Workspaces_ feature as a side bar view, supporting interaction with local and cloud GitKraken workspaces, lists of repositories tied to your account. This view allows you to:
-  - Create, view, and manage repositories on GitKraken cloud workspaces, which are available on your account across the range of GitKraken products
+- Adds an all-new _GitKraken Workspaces_ ☁️ feature as a side bar view, supporting interaction with local and cloud GitKraken workspaces, lists of repositories tied to your account.
+  - Create, view, and manage repositories on GitKraken cloud workspaces, which are available with a GitKraken account across the range of GitKraken products
   - Automatically or manually link repositories in GitKraken cloud workspaces to matching repositories on your machine
-  - Convert all repositories in your current window into a new GitKraken cloud workspace
-  - Convert a GitKraken cloud workspace into a local VS Code workspace file
-  - Open a repository in a cloud workspace in a new window (or your current window)
+  - Quickly create a GitKraken cloud workspace from the repositories in your current window
+  - Open a GitKraken cloud workspace as a local, persisted, VS Code workspace file (further improvements coming soon)
+  - Open a cloud workspace or repository in a new window (or your current window)
   - See your currently open repositories in the _Current Window_ section
-  - Fully interact with any repository in a GitKraken cloud workspace which is open in your current window (these repositories will be <span style='color:green'>highlighted in green</span>)
-  - (Coming soon to GitLens Pro) Share your GitKraken cloud workspaces with your team or organization
-- Adds support for cloning, adding a remote, and fetching from the target remote during a deep link
-- Adds support for deep links using repository disk paths
-- Adds new _Commit Graph_ features and improvements
-  - Adds a file count to the _Changes_ column
+  - Explore and interact with any repository in a GitKraken cloud workspace, some actions are currently limited to repositories which are open in your current window &mdash; ones highlighted in green
+  - (Coming soon) Share your GitKraken cloud workspaces with your team or organization
+- Adds new _Commit Graph_ ✨ features and improvements
+  - Makes the _Panel_ layout the default for easy access to the Commit Graph with a dedicated details view
   - Adds two new options to the graph header context menu
     - `Reset Columns to Default Layout` - resets column widths, ordering, visibility, and graph column mode to default settings
     - `Reset Columns to Compact Layout` - resets column widths, ordering, visibility, and graph column mode to compact settings
+  - Adds a _Toggle Commit Graph_ command to quickly toggle the graph on and off (requires the _Panel_ layout)
+  - Adds a _Toggle Maximized Commit Graph_ command to maximize and restore the graph for a quick full screen experience (requires the _Panel_ layout)
+  - Enables the _Minimap_ by default, as its no longer experimental, to provide a quick overview of of commit activity above the graph
+    - Adds ability to toggle between showing commits vs lines changed in the minimap (note: choosing lines changed requires more computation)
+    - Adds a legend and quick toggles for the markers shown on the minimap
+    - Defers the loading of the minimap to avoid impacting graph performance
+    - Adds a `gitlens.graph.minimap.enabled` setting to specify whether to show the minimap
+    - Adds a `gitlens.graph.minimap.dataType` setting to specify whether to show commits or lines changed in the minimap
+    - Adds a `gitlens.graph.minimap.additionalTypes` setting to specify additional markers to show on the minimap
   - Makes the _Changes_ column visible by default (previously hidden)
-  - Adds extra width to the bar for outlier rows in the _Changes_ column so that they stand out a bit more
+    - Defers the loading of the _Changes_ column to avoid impacting graph performance
+    - Adds a changed file count in addition to the changed lines visualization
+    - Improves the rendering of the changed line visualization and adds extra width to the bar for outlier changes so that they stand out a bit more
+  - Adds an _Open Repo on Remote_ button to left of the repo name in the graph header
   - Improves tooltips on _Branch/Tag_ icons to be more uniform and descriptive
-  - Fixes a bug where _Branch/Tag_ nodes sometimes wouldn't expand on hover
-  - Moves content in the last column out from behind the scrollbar
-  - Improves alignment of scroll markers with the scrollbar
-  - Adds new context menu options to the _Commit Graph Settings_ (cog) to toggle scroll marker types
+  - Adds new context menu options to the _Commit Graph Settings_ (cog, above the scrollbar) to toggle which scroll marker to show
+  - Improves alignment of scroll markers on the scrollbar, and adds a gap between the last column and the scrollbar
+- Adds the ability to choose which AI provider, OpenAI or Anthropic, and AI model are used for GitLens' experimental AI features
+  - Adds a _Switch AI Model_ command to the command palette and from the _Explain (AI)_ panel on the _Commit Details_ view
+  - Adds a `gitlens.ai.experimental.provider` setting to specify the AI provider to use (defaults to `openai`)
+  - Adds a `gitlens.ai.experimental.openai.model` setting to specify the OpenAI model (defaults to `gpt-3.5-turbo`) &mdash; closes [#2636](https://github.com/gitkraken/vscode-gitlens/issues/2636) thanks to [PR #2637](https://github.com/gitkraken/vscode-gitlens/pull/2637) by Daniel Rodríguez ([@sadasant](https://github.com/sadasant))
+  - Adds a `gitlens.ai.experimental.anthropic.model` setting to specify the Anthropic model (defaults to `claude-v1`)
+- Adds expanded deep link support
+  - Adds cloning, adding a remote, and fetching from the target remote when resolving a deep link
+  - Adds deep linking to a repository with direct file path support
+- Adds ability to control encoding for custom remote configuration &mdash; closes [#2336](https://github.com/gitkraken/vscode-gitlens/issues/2336)
+- Adds a _Full history_ option to the _Visual File History_ &mdash; closes [#2690](https://github.com/gitkraken/vscode-gitlens/issues/2690)
 
 ### Fixed
 
-- Fixes [#2336](https://github.com/gitkraken/vscode-gitlens/issues/2336) - Apply encodeURIComponent() to pieces of the custom remote URL
 - Fixes [#2728](https://github.com/gitkraken/vscode-gitlens/issues/2728) - Submodule commit graph will not open in the panel layout
+- Fixes [#2734](https://github.com/gitkraken/vscode-gitlens/issues/2734) - 🐛 File History: Browse ... not working
+- Fixes [#2671](https://github.com/gitkraken/vscode-gitlens/issues/2671) - Incorrect locale information provided GitLens
+- Fixes [#2689](https://github.com/gitkraken/vscode-gitlens/issues/2689) - GitLens hangs on github.dev on Safari
+- Fixes [#2680](https://github.com/gitkraken/vscode-gitlens/issues/2680) - Git path with spaces is not properly quoted in the command
+- Fixes [#2677](https://github.com/gitkraken/vscode-gitlens/issues/2677) - Merging branch produces path error
+- Fixes an issue where _Branch / Tag_ items on the _Commit Graph_ sometimes wouldn't expand on hover
 
 ## [13.6.0] - 2023-05-11
 
