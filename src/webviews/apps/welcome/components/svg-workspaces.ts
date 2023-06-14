@@ -91,7 +91,7 @@ export class BlameSvg extends LitElement {
 					<text x="30" y="71" class="selected">
 						<tspan dx="2" dy="4" class="codicon">&#xeab4;</tspan>
 						<tspan dx="24" class="codicon">&#xebaa;</tspan>
-						<tspan dx="10" dy="-4">Frontend applications</tspan>
+						<tspan dx="10" dy="-4">Client apps</tspan>
 					</text>
 					<text x="100%" y="71" text-anchor="end" class="selected">
 						<tspan dx="-10" dy="4" class="codicon">&#xea60;</tspan>
