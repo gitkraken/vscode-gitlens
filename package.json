@@ -6903,6 +6903,12 @@
 				"icon": "$(add)"
 			},
 			{
+				"command": "gitlens.views.workspaces.info",
+				"title": "Learn more about GitKraken Workspaces...",
+				"category": "GitLens",
+				"icon": "$(info)"
+			},
+			{
 				"command": "gitlens.views.workspaces.convert",
 				"title": "Convert to Cloud Workspace...",
 				"category": "GitLens",
@@ -9451,6 +9457,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.workspaces.info",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.workspaces.convert",
 					"when": "false"
 				},
@@ -10928,6 +10938,11 @@
 					"command": "gitlens.views.timeline.refresh",
 					"when": "view =~ /^gitlens\\.views\\.timeline/",
 					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.views.workspaces.info",
+					"when": "view =~ /^gitlens\\.views\\.workspaces/",
+					"group": "navigation@2"
 				},
 				{
 					"command": "gitlens.views.workspaces.create",

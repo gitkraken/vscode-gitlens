@@ -1,5 +1,5 @@
 import type { Disposable } from 'vscode';
-import { ProgressLocation, window } from 'vscode';
+import { env, ProgressLocation, Uri, window } from 'vscode';
 import type { WorkspacesViewConfig } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
@@ -56,6 +56,11 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 		void this.container.viewCommands;
 
 		return [
+			registerViewCommand(
+				this.getQualifiedCommand('info'),
+				() => env.openExternal(Uri.parse('https://help.gitkraken.com/gitlens/side-bar/#workspaces-☁%ef%b8%8f')),
+				this,
+			),
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
 				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
