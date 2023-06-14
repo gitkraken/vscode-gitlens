@@ -1048,7 +1048,11 @@ export function GraphWrapper({
 	return (
 		<>
 			<header className="titlebar graph-app__header">
-				<div className={`titlebar__row titlebar__row--wrap${allowed ? '' : ' disallowed'}`}>
+				<div
+					className={`titlebar__row titlebar__row--wrap${
+						!allowed ? ' disallowed' : repo && branchState?.provider?.url ? '' : ' no-remote-provider'
+					}`}
+				>
 					{repo && branchState?.provider?.url && (
 						<a
 							href={branchState.provider.url}
