@@ -316,7 +316,18 @@ export abstract class ViewBase<
 			this.tree.onDidCollapseElement(this.onElementCollapsed, this),
 			this.tree.onDidExpandElement(this.onElementExpanded, this),
 		);
-		this._title = this.tree.title;
+
+		if (this._title != null) {
+			this.tree.title = this._title;
+		} else {
+			this._title = this.tree.title;
+		}
+		if (this._description != null) {
+			this.tree.description = this._description;
+		}
+		if (this._message != null) {
+			this.tree.message = this._message;
+		}
 	}
 
 	protected ensureRoot(force: boolean = false) {
