@@ -144,9 +144,10 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 		uniqueness += `/branch/${context.branch.id}`;
 	}
 	if (context.branchStatus != null) {
-		uniqueness += `/status/${context.branchStatus.upstream ?? '-'}${
-			context.branchStatusUpstreamType ? `/${context.branchStatusUpstreamType}` : ''
-		}`;
+		uniqueness += `/status/${context.branchStatus.upstream ?? '-'}`;
+	}
+	if (context.branchStatusUpstreamType != null) {
+		uniqueness += `/status-direction/${context.branchStatusUpstreamType}`;
 	}
 	if (context.reflog != null) {
 		uniqueness += `/reflog/${context.reflog.sha}+${context.reflog.selector}+${context.reflog.command}+${

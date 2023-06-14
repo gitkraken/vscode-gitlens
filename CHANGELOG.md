@@ -75,6 +75,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#2738](https://github.com/gitkraken/vscode-gitlens/issues/2738) - Element with id ... is already registered
 - Fixes [#2728](https://github.com/gitkraken/vscode-gitlens/issues/2728) - Submodule commit graph will not open in the panel layout
 - Fixes [#2734](https://github.com/gitkraken/vscode-gitlens/issues/2734) - 🐛 File History: Browse ... not working
 - Fixes [#2671](https://github.com/gitkraken/vscode-gitlens/issues/2671) - Incorrect locale information provided GitLens

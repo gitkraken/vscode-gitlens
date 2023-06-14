@@ -44,7 +44,10 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
 
-		this._uniqueId = getViewNodeId(`results-files${direction ? `+${direction}` : ''}`, this.context);
+		if (this.direction != null) {
+			this.updateContext({ branchStatusUpstreamType: this.direction });
+		}
+		this._uniqueId = getViewNodeId('results-files', this.context);
 		this._options = { expand: true, ..._options };
 	}
 

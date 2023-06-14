@@ -101,7 +101,6 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 						},
 					},
 					{
-						id: 'behind',
 						description: pluralize('commit', aheadBehindCounts?.behind ?? 0),
 						expand: false,
 					},
@@ -122,7 +121,6 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 						},
 					},
 					{
-						id: 'ahead',
 						description: pluralize('commit', aheadBehindCounts?.ahead ?? 0),
 						expand: false,
 					},
@@ -135,9 +133,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 					this._ref.ref,
 					this.getFilesQuery.bind(this),
 					undefined,
-					{
-						expand: false,
-					},
+					{ expand: false },
 				),
 			];
 		}
