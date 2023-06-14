@@ -10,7 +10,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds ability to choose the OpenAI model used for GitLens' experimental AI features &mdash; closes [#2636](https://github.com/gitkraken/vscode-gitlens/issues/2636) thanks to [PR #2637](https://github.com/gitkraken/vscode-gitlens/pull/2637) by Daniel Rodríguez ([@sadasant](https://github.com/sadasant))
   - Adds a `gitlens.ai.experimental.openai.model` setting to specify the OpenAI model (defaults to `gpt-3.5-turbo`)
-- ☁️ Adds the all-new _GitKraken Workspaces_ feature as a sidebar view, supporting interaction with local and cloud GitKraken Workspaces.
+- ☁️ Adds the all-new _GitKraken Workspaces_ feature as a side bar view, supporting interaction with local and cloud GitKraken workspaces, lists of repositories tied to your account. This view allows you to:
+  - Create, view, and manage repositories on GitKraken cloud workspaces, which are available on your account across the range of GitKraken products
+  - Automatically or manually link repositories in GitKraken cloud workspaces to matching repositories on your machine
+  - Convert all repositories in your current window into a new GitKraken cloud workspace
+  - Convert a GitKraken cloud workspace into a local VS Code workspace file
+  - Open a repository in a cloud workspace in a new window (or your current window)
+  - See your currently open repositories in the _Current Window_ section
+  - Fully interact with any repository in a GitKraken cloud workspace which is open in your current window (these repositories will be <span style='color:green'>highlighted in green</span>)
+  - (Coming soon to GitLens Pro) Share your GitKraken cloud workspaces with your team or organization
 - Adds support for cloning, adding a remote, and fetching from the target remote during a deep link
 - Adds support for deep links using repository disk paths
 - Adds new _Commit Graph_ features and improvements
