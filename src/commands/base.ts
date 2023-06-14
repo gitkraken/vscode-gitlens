@@ -23,7 +23,7 @@ import type { GitTag } from '../git/models/tag';
 import { isTag } from '../git/models/tag';
 import { registerCommand } from '../system/command';
 import { sequentialize } from '../system/function';
-import { ViewNode, ViewRefNode } from '../views/nodes/viewNode';
+import { ViewNode, ViewRefFileNode, ViewRefNode } from '../views/nodes/viewNode';
 
 export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
 	// Always use the editor.uri (if we have one), so we are correct for a split diff
@@ -162,7 +162,9 @@ export function isCommandContextViewNodeHasFileRefs(context: CommandContext): co
 export function isCommandContextViewNodeHasRef(
 	context: CommandContext,
 ): context is CommandViewNodeContext & { node: ViewNode & { ref: GitReference } } {
-	return context.type === 'viewItem' && context.node instanceof ViewRefNode;
+	return (
+		context.type === 'viewItem' && context.node instanceof ViewRefNode && context.node instanceof ViewRefFileNode
+	);
 }
 
 export function isCommandContextViewNodeHasRemote(

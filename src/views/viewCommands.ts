@@ -376,9 +376,9 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private async createBranch(node?: ViewRefNode | BranchesNode | BranchTrackingStatusNode) {
+	private async createBranch(node?: ViewRefNode | ViewRefFileNode | BranchesNode | BranchTrackingStatusNode) {
 		let from =
-			node instanceof ViewRefNode
+			node instanceof ViewRefNode || node instanceof ViewRefFileNode
 				? node?.ref
 				: node instanceof BranchTrackingStatusNode
 				? node.branch
@@ -426,9 +426,9 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private async createTag(node?: ViewRefNode | TagsNode | BranchTrackingStatusNode) {
+	private async createTag(node?: ViewRefNode | ViewRefFileNode | TagsNode | BranchTrackingStatusNode) {
 		let from =
-			node instanceof ViewRefNode
+			node instanceof ViewRefNode || node instanceof ViewRefFileNode
 				? node?.ref
 				: node instanceof BranchTrackingStatusNode
 				? node.branch
@@ -887,8 +887,12 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private compareHeadWith(node: ViewRefNode) {
-		if (!(node instanceof ViewRefNode)) return Promise.resolve();
+	private compareHeadWith(node: ViewRefNode | ViewRefFileNode) {
+		if (!(node instanceof ViewRefNode) && !(node instanceof ViewRefFileNode)) return Promise.resolve();
+
+		if (node instanceof ViewRefFileNode) {
+			return this.compareFileWith(node.repoPath, node.uri, node.ref.ref, undefined, 'HEAD');
+		}
 
 		return this.container.searchAndCompareView.compare(node.repoPath, 'HEAD', node.ref);
 	}
@@ -902,8 +906,12 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private compareWorkingWith(node: ViewRefNode) {
-		if (!(node instanceof ViewRefNode)) return Promise.resolve();
+	private compareWorkingWith(node: ViewRefNode | ViewRefFileNode) {
+		if (!(node instanceof ViewRefNode) && !(node instanceof ViewRefFileNode)) return Promise.resolve();
+
+		if (node instanceof ViewRefFileNode) {
+			return this.compareFileWith(node.repoPath, node.uri, node.ref.ref, undefined, '');
+		}
 
 		return this.container.searchAndCompareView.compare(node.repoPath, '', node.ref);
 	}
@@ -929,17 +937,41 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private compareWithSelected(node: ViewRefNode) {
-		if (!(node instanceof ViewRefNode)) return;
+	private compareWithSelected(node: ViewRefNode | ViewRefFileNode) {
+		if (!(node instanceof ViewRefNode) && !(node instanceof ViewRefFileNode)) return;
 
 		this.container.searchAndCompareView.compareWithSelected(node.repoPath, node.ref);
 	}
 
 	@debug()
-	private selectForCompare(node: ViewRefNode) {
-		if (!(node instanceof ViewRefNode)) return;
+	private selectForCompare(node: ViewRefNode | ViewRefFileNode) {
+		if (!(node instanceof ViewRefNode) && !(node instanceof ViewRefFileNode)) return;
 
 		this.container.searchAndCompareView.selectForCompare(node.repoPath, node.ref);
+	}
+
+	private async compareFileWith(
+		repoPath: string,
+		lhsUri: Uri,
+		lhsRef: string,
+		rhsUri: Uri | undefined,
+		rhsRef: string,
+	) {
+		if (rhsUri == null) {
+			rhsUri = await this.container.git.getWorkingUri(repoPath, lhsUri);
+		}
+
+		return executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
+			repoPath: repoPath,
+			lhs: {
+				sha: lhsRef,
+				uri: lhsUri,
+			},
+			rhs: {
+				sha: rhsRef,
+				uri: rhsUri ?? lhsUri,
+			},
+		});
 	}
 
 	@debug()
@@ -958,17 +990,7 @@ export class ViewCommands {
 		this._selectedFile = undefined;
 		void setContext('gitlens:views:canCompare:file', false);
 
-		return executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
-			repoPath: selected.repoPath,
-			lhs: {
-				sha: selected.ref,
-				uri: selected.uri!,
-			},
-			rhs: {
-				sha: node.ref.ref,
-				uri: node.uri,
-			},
-		});
+		return this.compareFileWith(selected.repoPath!, selected.uri!, selected.ref, node.uri, node.ref.ref);
 	}
 
 	private _selectedFile: CompareSelectedInfo | undefined;
