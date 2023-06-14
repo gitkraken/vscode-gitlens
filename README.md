@@ -270,7 +270,7 @@ Preview ✨ features instantly for free for 3 days without an account, or start 
 
 ## Are ✨ and ☁️ features free to use?
 
-✨ features are free for use on local and publicly hosted repos, while a paid plan is required for use on privately repos. ☁️ feature access is based on your plan including a Free plan.
+✨ features are free for use on local and publicly hosted repos, while a paid plan is required for use on privately hosted repos. ☁️ feature access is based on your plan including a Free plan.
 
 ## Where can I find pricing?
 
