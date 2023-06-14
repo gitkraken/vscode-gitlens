@@ -14367,7 +14367,7 @@
 					{
 						"id": "gitlens.welcome.currentLineBlame",
 						"title": "See who made which changes at a glance",
-						"description": "**Inline blame** and status bar blame provide historical context about line changes.\n**Git CodeLens** adds contextual authorship information at the top of each file and at the beginning of each block of code.\n**Hover** over these blame annotations to reveal more details and actions.\n💡 Use the [Toggle Line Blame](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Line%20Blame%22) and [Toggle Git CodeLens](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Git%20CodeLens%22) commands from the Command Palette to turn the annotations on and off.",
+						"description": "**Inline blame** and status bar blame provide historical context about line changes.\n**Git CodeLens** adds contextual and actionable authorship information at the top of each file and at the beginning of each block of code.\n**Hover** over blame annotations to reveal rich details and actions.\n💡 Use the [Toggle Line Blame](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Line%20Blame%22) and [Toggle Git CodeLens](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20Git%20CodeLens%22) commands from the Command Palette to turn the annotations on and off.",
 						"media": {
 							"markdown": "walkthroughs/welcome/blame.md"
 						}
@@ -14375,7 +14375,7 @@
 					{
 						"id": "gitlens.welcome.fileAnnotations",
 						"title": "Get more context with file annotations",
-						"description": "Use on-demand whole file annotations to see authorship, recent changes, and a heatmap. Annotations are rendered as visual indicators directly in the editor.\n💡 On an active file, use the [Toggle File Blame](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Blame%22), [Toggle File Changes](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Changes%22), and [Toggle File Heatmap](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Heatmap%22) commands from the Command Palette to turn the annotations on and off.",
+						"description": "Toggle on-demand whole file annotations to see authorship, recent changes, and a heatmap. Annotations are rendered as visual indicators directly in the editor.\n💡 On an active file, use the [Toggle File Blame](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Blame%22), [Toggle File Changes](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Changes%22), and [Toggle File Heatmap](command:workbench.action.quickOpen?%22>GitLens%3A%20Toggle%20File%20Heatmap%22) commands from the Command Palette to turn the annotations on and off.",
 						"media": {
 							"markdown": "walkthroughs/welcome/file-annotations.md"
 						}
@@ -14391,7 +14391,7 @@
 					{
 						"id": "gitlens.welcome.commitGraph",
 						"title": "Visualize with the Commit Graph ✨",
-						"description": "Easily visualize your repository and keep track of all work in progress.\nUse the rich commit search to find exactly what you're looking for. It's powerful filters allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change.\n\n[Open Commit Graph](command:gitlens.showGraph)\n\n💡Quickly toggle the Graph via the [Toggle Commit Graph](command:gitlens.toggleGraph) command\n💡Maximize the Graph via the [Toggle Maximized Commit Graph](command:gitlens.toggleMaximizedGraph) command",
+						"description": "Easily visualize your repository and keep track of all work in progress.\nUse the rich commit search to find exactly what you're looking for. It's powerful filters allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change.\n\n[Open Commit Graph](command:gitlens.showGraph)\n\n💡Quickly toggle the Graph via the [Toggle Commit Graph](command:gitlens.toggleGraph) command.\n💡Maximize the Graph via the [Toggle Maximized Commit Graph](command:gitlens.toggleMaximizedGraph) command.",
 						"media": {
 							"altText": "Illustrations of the Commit Graph view",
 							"svg": "walkthroughs/welcome/commit-graph.svg"
@@ -14452,7 +14452,7 @@
 					{
 						"id": "gitlens.welcome.additional",
 						"title": "And More!",
-						"description": "**Rebase got you down?**\nEasily visualize and configure interactive rebase operations with the user-friendly Interactive Rebase Editor\n\n**Trouble remembering Git commands?**\nNow you don't have to with the Git Command Palette — a guided, step-by-step experience to many common Git commands.\n\n[Open Git Command Palette](command:gitlens.gitCommands)\n\n**Terminal your jam?**\nQuickly jump to more details on commits, branches, tags, and more with autolinks in the Integrated Terminal.\n\n**Not sure what you are looking for?**\nOpen the Command Palette and explore the many available commands.\n\n[Open GitLens Commands](command:workbench.action.quickOpen?%22>GitLens%3A%22)",
+						"description": "**Rebase got you down?**\nEasily visualize and configure interactive rebase operations with the intuitive and user-friendly Interactive Rebase Editor\n\n**Trouble remembering Git commands?**\nNow you don't have to with the Git Command Palette — a guided, step-by-step experience to many common Git commands.\n\n[Open Git Command Palette](command:gitlens.gitCommands)\n\n**Terminal your jam?**\nQuickly jump to more details on commits, branches, tags, and more with autolinks in the Integrated Terminal.\n\n**Not sure what you are looking for?**\nOpen the Command Palette and explore the many available commands.\n\n[Open GitLens Commands](command:workbench.action.quickOpen?%22>GitLens%3A%22)",
 						"media": {
 							"markdown": "walkthroughs/welcome/additional-features.md"
 						}
