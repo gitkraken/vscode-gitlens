@@ -399,6 +399,7 @@ export type TreeViewCommands = `gitlens.views.${
 			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
 			| `setShowAvatars${'On' | 'Off'}`}`
 	| `workspaces.${
+			| 'info'
 			| 'copy'
 			| 'refresh'
 			| 'addRepos'
