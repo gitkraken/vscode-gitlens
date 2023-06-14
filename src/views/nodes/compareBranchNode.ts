@@ -89,7 +89,6 @@ export class CompareBranchNode extends ViewNode<ViewsWithBranches | WorktreesVie
 						},
 					},
 					{
-						id: 'behind',
 						description: pluralize('commit', aheadBehindCounts?.behind ?? 0),
 						expand: false,
 					},
@@ -112,7 +111,6 @@ export class CompareBranchNode extends ViewNode<ViewsWithBranches | WorktreesVie
 						},
 					},
 					{
-						id: 'ahead',
 						description: pluralize('commit', aheadBehindCounts?.ahead ?? 0),
 						expand: false,
 					},
@@ -125,9 +123,7 @@ export class CompareBranchNode extends ViewNode<ViewsWithBranches | WorktreesVie
 					this.compareWithWorkingTree ? '' : this.branch.ref,
 					this.getFilesQuery.bind(this),
 					undefined,
-					{
-						expand: false,
-					},
+					{ expand: false },
 				),
 			];
 		}

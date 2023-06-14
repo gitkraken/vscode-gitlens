@@ -47,16 +47,15 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 				query: () => Promise<FilesQueryResults>;
 			};
 		},
-		private readonly _options: {
-			id?: string;
-			description?: string;
-			expand?: boolean;
-		} = undefined!,
+		private readonly _options: { description?: string; expand?: boolean } = undefined!,
 		splatted?: boolean,
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
 
-		this._uniqueId = getViewNodeId(`results-commits${_options?.id ? `+${_options.id}` : ''}`, this.context);
+		if (_results.direction != null) {
+			this.updateContext({ branchStatusUpstreamType: _results.direction });
+		}
+		this._uniqueId = getViewNodeId('results-commits', this.context);
 		this.limit = this.view.getNodeLastKnownLimit(this);
 
 		this._options = { expand: true, ..._options };

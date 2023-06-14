@@ -29,7 +29,7 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 
 		this._instanceId = instanceId++;
 		this.updateContext({ autolinksId: String(this._instanceId) });
-		this._uniqueId = getViewNodeId(`autolinks`, this.context);
+		this._uniqueId = getViewNodeId('autolinks', this.context);
 	}
 
 	override get id(): string {
