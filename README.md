@@ -218,6 +218,15 @@ Quickly navigate and execute Git commands through easy-to-use menus where each c
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/git-command-palette.png" alt="Git Command Palette" />
 </figure>
 
+### Quick Access Commands
+
+Use a series of new commands to:
+ - Expore the commit history of branches and files
+ - Quickly search for and navigate to (and action upon) commits
+ - Explore a file of a commit
+ - View and explore your stashes
+ - Visualize the current repository status
+
 # Integrations
 
 Context switching kills productivity. GitLens not only reveals buried knowledge within your repository, it also brings additional context from issues and pull requests providing you with a wealth of information and insights at your fingertips.
