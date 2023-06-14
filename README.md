@@ -6,11 +6,11 @@
 
 GitLens supercharges your Git experience in VS Code. Maintaining focus is critical, extra time spent context switching or missing context disrupts your flow. GitLens is the ultimate tool for making Git work for you, designed to improve focus, productivity, and collaboration with a powerful set of tools to help you and your team better understand, write, and review code.
 
-Quickly glimpse into whom, why, and when a line or code block was changed. Zero-in on the most important changes and effortlessly navigation through history to gain further insights as to how a file or individual lines code evolved. Visualize code authorship at a glance via Git blame annotations and Git CodeLens. Seamlessly explore Git repositories with the visually rich Commit Graph. Gain valuable insights via GitLens Inspect, and much more.
+Quickly glimpse into when, why, and by whom a line or code block was changed. Zero-in on the most important changes and effortlessly navigate through history to gain further insights as to how a file or individual line's code evolved. Visualize code authorship at a glance via Git blame annotations and Git CodeLens. Seamlessly explore Git repositories with the visually-rich Commit Graph. Gain valuable insights via GitLens Inspect, and much more.
 
 GitLens sets itself apart from other Git tools through its deep level of integration, versatility, and ease of use. GitLens sits directly within your editor, reducing context switching and promoting a more efficient workflow. We know Git is hard and strive to make it as easy as possible while also going beyond the basics with rich visualizations and step-by-step guidance and safety, just to name a few.
 
-Leveraging these powerful features and streamlined workflows, directly within your editor, saves you time and effort so that you can focus on what matters most. Whether its trying to understand a complex codebase, track down a bug, or collaborate with your team, GitLens provides you with the tools to work efficiently, understand your code better, and work with confidence.
+Leveraging these powerful features and streamlined workflows, directly within your editor, saves you time and effort so that you can focus on what matters most. Whether its trying to understand a complex codebase, track down a bug, or collaborate with your team, GitLens provides you with the tools to work efficiently, understand your code better, and code with confidence.
 
 ## Table of Contents
 
@@ -29,7 +29,7 @@ Leveraging these powerful features and streamlined workflows, directly within yo
 
 Install the GitLens extension by clicking the install link above, or from the Extensions side bar in Visual Studio Code, by searching for GitLens. Once installed you will be greeted with the GitLens Welcome experience to guide you through some of GitLens' many features and settings.
 
-Use the `Switch to Pre-Release Version` above to be on the cutting edge and be the first to experience new features.
+Use `Switch to Pre-Release Version` on the extension banner to be on the cutting edge and be the first to experience new features.
 
 ## Is GitLens Free?
 
@@ -49,11 +49,11 @@ Preview ✨ features instantly for free for 3 days without an account, or start 
 - [**Revision Navigation**](#revision-navigation) &mdash; Effortlessly explore the history of a file to see how the code evolved over time.
 - [**Sidebar Views**](#sidebar-views) &mdash; Powerful views into Git that don't come in the box.
 - [**Commit Graph ✨**](#commit-graph-✨) &mdash; Visualize your repository and keep track of all work in progress.
-- [**GitKraken Workspaces ☁️ and Focus ✨**](#gitkraken-workspaces-☁️-and-focus-✨) &mdash; Easily group and manage multiple repositories and brings pull requests and issues into a unified view.
+- [**GitKraken Workspaces ☁️ and Focus ✨**](#gitkraken-workspaces-☁️-and-focus-✨) &mdash; Easily group and manage multiple repositories and bring pull requests and issues into a unified view.
 - [**Visual File History ✨**](#visual-file-history-✨) &mdash; Quickly identify the most impactful changes to a file and by whom.
-- [**Worktrees ✨**](#worktrees-✨) &mdash; Quickly identify the most impactful changes to a file and by whom.
+- [**Worktrees ✨**](#worktrees-✨) &mdash; Easily work on different branches of a repository simultaneously.
 - [**Interactive Rebase Editor**](#interactive-rebase-editor) &mdash; Easily visualize and configure interactive rebase operations with a user-friendly editor.
-- [**Comprehensive Commands**](#comprehensive-commands) &mdash; Don't worry about memorizing Git commands, GitLens provides a rich set of commands to help you do everything you need.
+- [**Comprehensive Commands**](#comprehensive-commands) &mdash; Don't worry about memorizing Git commands; GitLens provides a rich set of commands to help you do everything you need.
 - [**Integrations**](#integrations) &mdash; Simplify your workflow and quickly gain insights via integration with your Git hosting services.
 
 ## Blame, CodeLens, and Hovers
@@ -125,11 +125,11 @@ We've arranged our views for focus and productivity, although you can easily dra
 
 ### GitLens Inspect
 
-Like an x-ray into your code, focused on providing contextual information and insights to what you're actively working on. Think about it as the developer tools inspector for your code.
+Like an x-ray into your code, focused on providing contextual information and insights to what you're actively working on.
 
 - **Commit Details** &mdash; See rich details of a commit or stash.
 - **Line History** &mdash; Jump through the revision history of the selected line(s).
-- **File History** &mdash; Explore the revision history of the a file, folder, or selected lines.
+- **File History** &mdash; Explore the revision history of a file, folder, or selected lines.
 - [**Visual File History ✨**](#visual-file-history-✨) &mdash; Quickly see the evolution of a file, including when changes were made, how large they were, and who made them.
 - **Search & Compare** &mdash; Search and explore for a specific commit, message, author, changed file or files, or even a specific code change, or visualize comparisons between branches, tags, commits, and more.
 
@@ -146,7 +146,7 @@ Quick access to many GitLens features. Also the home of GitKraken teams and coll
 Shows additional views that are focused on exploring and managing your repositories.
 
 - **Commits** &mdash; Comprehensive view of the current branch commit history, including unpushed changes, upstream status, quick comparisons, and more.
-- **Branches** &mdash; Branch management and navigation, track divergent paths in your codebase's development.
+- **Branches** &mdash; Manage and navigate branches, and track divergent paths in your codebase's development.
 - **Remotes** &mdash; Similar to above but for remote branches.
 - **Stashes** &mdash; Save and restore changes you are not yet ready to commit.
 - **Tags** &mdash; Markers at specific points in your codebase's history, e.g releases.
@@ -164,7 +164,7 @@ Convenient and easy access to the Commit Graph with a dedicated details view.
 
 Easily visualize your repository and keep track of all work in progress.
 
-Use the rich commit search to find exactly what you're looking for. It's powerful filters allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change.
+Use the rich commit search to find exactly what you're looking for. Its powerful filters allow you to search by a specific commit, message, author, a changed file or files, or even a specific code change.
 
 <figure align="center">
   <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/commit-graph-illustrated.png" alt="Commit Graph" />
@@ -176,7 +176,7 @@ Use the rich commit search to find exactly what you're looking for. It's powerfu
 
 ## GitKraken Workspaces ☁️ and Focus ✨
 
-GitKraken Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.Create workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration.
+GitKraken Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow. Create workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration.
 
 The Focus view brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more. Quickly see if anything requires your attention while keeping you focused.
 
@@ -234,7 +234,7 @@ Use autolinks to linkify external references, like Jira issues or Zendesk ticket
 
 Our incubator for experimentation and exploration with the community to gather early reactions and feedback. Below are some of our current experiments.
 
-## 🧪AI Explain Commit (AI)
+## 🧪AI Explain Commit
 
 Use the Explain panel on the **Commit Details** view to leverage AI to help you understand the changes introduced by a commit.
 
@@ -259,11 +259,11 @@ Yes. All features are **completely free** for use on all repos, except for ones 
 
 ## Are ✨ and ☁️ features free to use?
 
-✨ features are free for use on local and publicly hosted repos, while a paid plan is required for use on privately repos. While ☁️ feature access is based on your plan including a Free plan.
+✨ features are free for use on local and publicly hosted repos, while a paid plan is required for use on privately repos. ☁️ feature access is based on your plan including a Free plan.
 
 ## Where can I find pricing?
 
-Visit the [GitLens Pricing page](https://www.gitkraken.com/gitlens/pricing) for detailed pricing information and feature matrix for plan plans.
+Visit the [GitLens Pricing page](https://www.gitkraken.com/gitlens/pricing) for detailed pricing information and feature matrix for plans.
 
 # Support and Community
 
@@ -272,6 +272,8 @@ Support documentation can be found on the [GitLens Help Center](https://help.git
 ## Support Channels
 
 ## GitHub Issues
+
+Found a bug? Have a feature request? Reach out on our [GitHub Issues page](https://github.com/eamodio/vscode-gitlens/issues).
 
 ## GitHub Discussions
 
@@ -289,11 +291,11 @@ GitLens is an open-source project that greatly benefits from the contributions a
 
 ## Code Contributions
 
-Fork the [GitLens GitHub repository](https://github.com/eamodio/vscode-gitlens) and submit pull requests with your code contributions. Contributions can include bug fixes, new features, or improvements to the existing functionality. Please ensure that your changes align with the project's guidelines and follow the established coding practices.
+Fork the [GitLens GitHub repository](https://github.com/eamodio/vscode-gitlens) and submit pull requests with your code contributions. Contributions can include bug fixes, new features, or improvements to the existing functionality. Please ensure that your changes align with [the project's guidelines](https://github.com/eamodio/vscode-gitlens/blob/main/CONTRIBUTING.md) and follow the established coding practices.
 
 ## Issue Reporting
 
-If you come across any bugs, problems, or have feature requests, you can submit them as issues on the [GitLens GitHub repository](https://github.com/eamodio/vscode-gitlens). Provide clear and detailed descriptions along with any relevant information that can help the maintainers understand and address the issue.
+If you come across any bugs, problems, or have feature requests, you can submit them as issues on the [GitLens Issues page on GitHub](https://github.com/eamodio/vscode-gitlens/issues). Provide clear and detailed descriptions along with any relevant information that can help the maintainers understand and address the issue.
 
 ## Documentation
 
@@ -352,7 +354,7 @@ A big thanks to the people that have contributed to this project:
 - Kwok ([@mankwok](https://github.com/mankwok)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=mankwok)
 - Marc Lasson ([@mlasson](https://github.com/mlasson)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=mlasson)
 - John Letey ([@johnletey](https://github.com/johnletey)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=johnletey)
-- Stanislav Lvovsky ([@slavik-lvovsky](https://github.com/slavik-lvovsky)) &mdash; [contributions]((https://github.com/gitkraken/vscode-gitlens/commits?author=slavik-lvovsky)
+- Stanislav Lvovsky ([@slavik-lvovsky](https://github.com/slavik-lvovsky)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=slavik-lvovsky)
 - Peng Lyu ([@rebornix](https://github.com/rebornix)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=rebornix)
 - Cédric Malard ([@cmalard](https://github.com/cmalard)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=cmalard)
 - Asif Kamran Malick ([@akmalick](https://github.com/akmalick)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=akmalick)
