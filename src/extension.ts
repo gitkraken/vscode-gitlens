@@ -1,5 +1,5 @@
 import type { ExtensionContext } from 'vscode';
-import { version as codeVersion, env, ExtensionMode, extensions, Uri, window, workspace } from 'vscode';
+import { version as codeVersion, env, ExtensionMode, Uri, window, workspace } from 'vscode';
 import { hrtime } from '@env/hrtime';
 import { isWeb } from '@env/platform';
 import { Api } from './api/api';
@@ -15,7 +15,7 @@ import { isRepository } from './git/models/repository';
 import { isTag } from './git/models/tag';
 import { showDebugLoggingWarningMessage, showPreReleaseExpiredErrorMessage, showWhatsNewMessage } from './messages';
 import { registerPartnerActionRunners } from './partners';
-import { executeCommand, executeCoreCommand, registerCommands } from './system/command';
+import { executeCommand, registerCommands } from './system/command';
 import { configuration, Configuration } from './system/configuration';
 import { setContext } from './system/context';
 import { setDefaultDateLocales } from './system/date';
@@ -219,8 +219,6 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		endTime,
 	);
 
-	setTimeout(uninstallDeprecatedAuthentication, 25000);
-
 	return Promise.resolve(api);
 }
 
@@ -361,10 +359,4 @@ async function showWelcomeOrWhatsNew(
 			container.context.subscriptions.push(disposable);
 		}
 	}
-}
-
-function uninstallDeprecatedAuthentication() {
-	if (extensions.getExtension('gitkraken.gitkraken-authentication') == null) return;
-
-	void executeCoreCommand('workbench.extensions.uninstallExtension', 'gitkraken.gitkraken-authentication');
 }
