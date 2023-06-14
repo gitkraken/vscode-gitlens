@@ -1385,7 +1385,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		);
 	}
 
-	@debug()
+	@debug({ args: false })
 	private async notifyDidChangeRowsStats(graph: GitGraph) {
 		if (graph.rowsStats == null) return;
 

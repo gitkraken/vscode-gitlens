@@ -820,6 +820,10 @@ button:not([disabled]),
 			justify-content: start;
 			grid-template-columns: repeat(5, min-content) minmax(min-content, 1fr);
 
+			&.no-remote-provider {
+				grid-template-columns: repeat(4, min-content) minmax(min-content, 1fr);
+			}
+
 			&.disallowed {
 				grid-template-columns: repeat(1, min-content) minmax(min-content, 1fr);
 			}
