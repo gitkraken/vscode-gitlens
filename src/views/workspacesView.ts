@@ -27,7 +27,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 		this._disposable = this.container.workspaces.onDidChangeWorkspaces(
 			() => void this.ensureRoot().triggerChange(true),
 		);
-		this.description = `PREVIEW ☁️`;
+		this.description = `PREVIEW\u00a0\u00a0☁️`;
 	}
 
 	override dispose() {
