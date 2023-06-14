@@ -2852,19 +2852,27 @@
 						"default": "gpt-3.5-turbo",
 						"enum": [
 							"gpt-3.5-turbo",
+							"gpt-3.5-turbo-16k",
 							"gpt-3.5-turbo-0301",
+							"gpt-3.5-turbo-0613",
 							"gpt-4",
 							"gpt-4-0314",
+							"gpt-4-0613",
 							"gpt-4-32k",
-							"gpt-4-32k-0314"
+							"gpt-4-32k-0314",
+							"gpt-4-32k-0613"
 						],
 						"enumDescriptions": [
 							"GPT 3.5 Turbo",
-							"GPT 3.5 Turbo (March 1, 2021)",
+							"GPT 3.5 Turbo 16k",
+							"GPT 3.5 Turbo (March 1)",
+							"GPT 3.5 Turbo (June 13)",
 							"GPT 4",
-							"GPT 4 (March 14, 2021)",
+							"GPT 4 (March 14)",
+							"GPT 4 (June 13)",
 							"GPT 4 32k",
-							"GPT 4 32k (March 14, 2021)"
+							"GPT 4 32k (March 14)",
+							"GPT 4 32k (June 13)"
 						],
 						"markdownDescription": "Specifies the OpenAI model to use for GitLens' experimental AI features",
 						"scope": "window",
@@ -2881,9 +2889,9 @@
 						],
 						"enumDescriptions": [
 							"Claude v1",
-							"Claude v1 with 100k token context",
+							"Claude v1 100k",
 							"Claude Instant v1",
-							"Claude Instant v1 with 100k token context"
+							"Claude Instant v1 100k"
 						],
 						"markdownDescription": "Specifies the Anthropic model to use for GitLens' experimental AI features",
 						"scope": "window",

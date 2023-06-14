@@ -206,19 +206,29 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 }
 
 function getMaxCharacters(model: OpenAIModels): number {
-	if (model === 'gpt-4-32k' || model === 'gpt-4-32k-0314') {
-		return 43000;
+	switch (model) {
+		case 'gpt-4-32k':
+		case 'gpt-4-32k-0314':
+		case 'gpt-4-32k-0613':
+			return 43000;
+		case 'gpt-3.5-turbo-16k':
+			return 21000;
+		default:
+			return 12000;
 	}
-	return 12000;
 }
 
 export type OpenAIModels =
 	| 'gpt-3.5-turbo'
+	| 'gpt-3.5-turbo-16k'
 	| 'gpt-3.5-turbo-0301'
+	| 'gpt-3.5-turbo-0613'
 	| 'gpt-4'
 	| 'gpt-4-0314'
+	| 'gpt-4-0613'
 	| 'gpt-4-32k'
-	| 'gpt-4-32k-0314';
+	| 'gpt-4-32k-0314'
+	| 'gpt-4-32k-0613';
 
 interface OpenAIChatCompletionRequest {
 	model: OpenAIModels;

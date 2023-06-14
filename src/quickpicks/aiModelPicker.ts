@@ -22,8 +22,9 @@ export async function showAIModelPicker(): Promise<ModelQuickPickItem | undefine
 	const items: (ModelQuickPickItem | QuickPickSeparator)[] = [
 		{ label: 'OpenAI', kind: QuickPickItemKind.Separator },
 		{ label: 'OpenAI', description: 'GPT 3.5 Turbo', provider: 'openai', model: 'gpt-3.5-turbo' },
+		{ label: 'OpenAI', description: 'GPT 3.5 Turbo 16k', provider: 'openai', model: 'gpt-3.5-turbo-16k' },
 		{ label: 'OpenAI', description: 'GPT 4', provider: 'openai', model: 'gpt-4' },
-		{ label: 'OpenAI', description: 'GPT 4 33k', provider: 'openai', model: 'gpt-4-32k' },
+		{ label: 'OpenAI', description: 'GPT 4 32k', provider: 'openai', model: 'gpt-4-32k' },
 		{ label: 'Anthropic', kind: QuickPickItemKind.Separator },
 		{ label: 'Anthropic', description: 'Claude v1', provider: 'anthropic', model: 'claude-v1' },
 		{ label: 'Anthropic', description: 'Claude v1 100k', provider: 'anthropic', model: 'claude-v1-100k' },
