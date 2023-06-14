@@ -468,7 +468,7 @@ export class SubscriptionService implements Disposable {
 				const confirm: MessageItem = { title: 'Start Free Pro Trial', isCloseAffordance: true };
 				const cancel: MessageItem = { title: 'Cancel' };
 				const result = await window.showInformationMessage(
-					'Your 3-day Pro preview has ended, start a free Pro trial to get an additional 7 days.\n\n✨ A trial or paid subscription is required to use Pro features on privately hosted repos.',
+					'Your 3-day Pro preview has ended, start a free Pro trial to get an additional 7 days.\n\n✨ A trial or paid plan is required to use Pro features on privately hosted repos.',
 					{ modal: true },
 					confirm,
 					cancel,
