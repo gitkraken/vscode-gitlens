@@ -16,7 +16,7 @@ import type { GitRevisionReference } from '../git/models/reference';
 import { getReferenceLabel } from '../git/models/reference';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
-import { executeCommand } from '../system/command';
+import { createCommand, executeCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { setContext } from '../system/context';
 import { gate } from '../system/decorators/gate';
@@ -29,7 +29,6 @@ import { CommitFileNode } from './nodes/commitFileNode';
 import { CommitNode } from './nodes/commitNode';
 import { CommandMessageNode } from './nodes/common';
 import { FileRevisionAsCommitNode } from './nodes/fileRevisionAsCommitNode';
-import { RepositoryNode } from './nodes/repositoryNode';
 import type { ViewNode } from './nodes/viewNode';
 import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
@@ -55,14 +54,22 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 				}
 			}
 
-			this.child = new BranchNode(this.uri, this.view, this.splatted ? this.parent ?? this : this, branch, true, {
-				expanded: true,
-				limitCommits: !this.splatted,
-				showComparison: this.view.config.showBranchComparison,
-				showCurrent: false,
-				showTracking: true,
-				authors: authors,
-			});
+			this.child = new BranchNode(
+				this.uri,
+				this.view,
+				this.splatted ? this.parent ?? this : this,
+				this.repo,
+				branch,
+				true,
+				{
+					expanded: true,
+					limitCommits: !this.splatted,
+					showComparison: this.view.config.showBranchComparison,
+					showCurrent: false,
+					showTracking: true,
+					authors: authors,
+				},
+			);
 		}
 
 		return this.child.getChildren();
@@ -146,7 +153,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 				? new CommandMessageNode(
 						this.view,
 						this,
-						{ command: Commands.ShowGraph, title: 'Show Commit Graph' },
+						createCommand(Commands.ShowGraph, 'Show Commit Graph'),
 						'Visualize commits on the Commit Graph ✨',
 						undefined,
 						'Visualize commits on the Commit Graph ✨',
@@ -183,11 +190,11 @@ interface CommitsViewState {
 	myCommitsOnly?: boolean;
 }
 
-export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
+export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsViewConfig> {
 	protected readonly configKey = 'commits';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.commits', 'Commits', 'commitsView');
+		super(container, 'commits', 'Commits', 'commitsView');
 		this.disposables.push(container.usage.onDidChange(this.onUsageChanged, this));
 	}
 
@@ -341,7 +348,7 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 	}
 
 	async findCommit(commit: GitCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
-		const repoNodeId = RepositoryNode.getId(commit.repoPath);
+		const { repoPath } = commit;
 
 		const branch = await this.container.git.getBranch(commit.repoPath);
 		if (branch == null) return undefined;
@@ -370,7 +377,7 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 				}
 
 				if (n instanceof CommitsRepositoryNode) {
-					if (n.id.startsWith(repoNodeId)) {
+					if (n.repoPath === repoPath) {
 						const node = await n.getSplattedChild?.();
 						if (node instanceof BranchNode) {
 							await node.loadMore({ until: commit.ref });
@@ -380,7 +387,7 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 				}
 
 				if (n instanceof BranchTrackingStatusNode) {
-					return n.id.startsWith(repoNodeId);
+					return n.repoPath === repoPath;
 				}
 
 				return false;
@@ -423,7 +430,7 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		repoPath: string,
 		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
 	) {
-		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof CommitsViewNode || n instanceof RepositoryFolderNode,
 		});

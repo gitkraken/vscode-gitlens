@@ -1048,7 +1048,11 @@ export function GraphWrapper({
 	return (
 		<>
 			<header className="titlebar graph-app__header">
-				<div className={`titlebar__row titlebar__row--wrap${allowed ? '' : ' disallowed'}`}>
+				<div
+					className={`titlebar__row titlebar__row--wrap${
+						!allowed ? ' disallowed' : repo && branchState?.provider?.url ? '' : ' no-remote-provider'
+					}`}
+				>
 					{repo && branchState?.provider?.url && (
 						<a
 							href={branchState.provider.url}
@@ -1113,8 +1117,8 @@ export function GraphWrapper({
 							Try the Focus Preview
 						</a>
 						<PopOver placement="top end" className="popover__content">
-							Concentrate on what really matters by gathering all your GitHub pull requests and issues in
-							one comprehensive list.
+							Bring all of your GitHub pull requests and issues into a unified actionable to help to you
+							more easily juggle work in progress, pending work, reviews, and more
 						</PopOver>
 					</div>
 				</div>
@@ -1335,7 +1339,14 @@ export function GraphWrapper({
 				</div>
 			</header>
 			<FeatureGate className="graph-app__gate" appearance="alert" state={subscription?.state} visible={!allowed}>
-				<p slot="feature">Easily visualize your repository and keep track of all work in progress.</p>
+				<p slot="feature">
+					Helps you easily visualize your repository and keep track of all work in progress.
+					<br />
+					<br />
+					Use the rich commit search to find exactly what you're looking for. It's powerful filters allow you
+					to search by a specific commit, message, author, a changed file or files, or even a specific code
+					change.
+				</p>
 			</FeatureGate>
 			{graphConfig?.minimap && (
 				<GraphMinimap

@@ -17,7 +17,6 @@ import { gate } from '../system/decorators/gate';
 import { BranchesNode } from './nodes/branchesNode';
 import { BranchNode } from './nodes/branchNode';
 import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
-import { RepositoryNode } from './nodes/repositoryNode';
 import type { ViewNode } from './nodes/viewNode';
 import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
@@ -94,11 +93,11 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 	}
 }
 
-export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig> {
+export class BranchesView extends ViewBase<'branches', BranchesViewNode, BranchesViewConfig> {
 	protected readonly configKey = 'branches';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.branches', 'Branches', 'branchesView');
+		super(container, 'branches', 'Branches', 'branchesView');
 	}
 
 	override get canReveal(): boolean {
@@ -198,7 +197,7 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 	findBranch(branch: GitBranchReference, token?: CancellationToken) {
 		if (branch.remote) return undefined;
 
-		const repoNodeId = RepositoryNode.getId(branch.repoPath);
+		const { repoPath } = branch;
 
 		return this.findNode((n: any) => n.branch?.ref === branch.ref, {
 			allowPaging: true,
@@ -207,7 +206,7 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 				if (n instanceof BranchesViewNode) return true;
 
 				if (n instanceof BranchesRepositoryNode || n instanceof BranchOrTagFolderNode) {
-					return n.id.startsWith(repoNodeId);
+					return n.repoPath === repoPath;
 				}
 
 				return false;
@@ -217,7 +216,7 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 	}
 
 	async findCommit(commit: GitCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
-		const repoNodeId = RepositoryNode.getId(commit.repoPath);
+		const { repoPath } = commit;
 
 		// Get all the branches the commit is on
 		const branches = await this.container.git.getCommitBranches(
@@ -234,10 +233,10 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 				if (n instanceof BranchesViewNode) return true;
 
 				if (n instanceof BranchesRepositoryNode || n instanceof BranchOrTagFolderNode) {
-					return n.id.startsWith(repoNodeId);
+					return n.repoPath === repoPath;
 				}
 
-				if (n instanceof BranchNode && branches.includes(n.branch.name)) {
+				if (n instanceof BranchNode && n.repoPath === repoPath && branches.includes(n.branch.name)) {
 					await n.loadMore({ until: commit.ref });
 					return true;
 				}
@@ -311,7 +310,7 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		repoPath: string,
 		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
 	) {
-		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof BranchesViewNode || n instanceof RepositoryFolderNode,
 		});

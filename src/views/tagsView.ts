@@ -13,7 +13,6 @@ import { executeCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
 import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
-import { RepositoryNode } from './nodes/repositoryNode';
 import { TagsNode } from './nodes/tagsNode';
 import type { ViewNode } from './nodes/viewNode';
 import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
@@ -82,11 +81,11 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 	}
 }
 
-export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
+export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 	protected readonly configKey = 'tags';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.tags', 'Tags', 'tagsView');
+		super(container, 'tags', 'Tags', 'tagsView');
 	}
 
 	override get canReveal(): boolean {
@@ -164,7 +163,7 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 	}
 
 	findTag(tag: GitTagReference, token?: CancellationToken) {
-		const repoNodeId = RepositoryNode.getId(tag.repoPath);
+		const { repoPath } = tag;
 
 		return this.findNode((n: any) => n.tag?.ref === tag.ref, {
 			allowPaging: true,
@@ -173,7 +172,7 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 				if (n instanceof TagsViewNode) return true;
 
 				if (n instanceof TagsRepositoryNode || n instanceof BranchOrTagFolderNode) {
-					return n.id.startsWith(repoNodeId);
+					return n.repoPath === repoPath;
 				}
 
 				return false;
@@ -187,7 +186,7 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 		repoPath: string,
 		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
 	) {
-		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof TagsViewNode || n instanceof RepositoryFolderNode,
 		});

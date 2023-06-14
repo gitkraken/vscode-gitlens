@@ -21,9 +21,8 @@ import { LoadMoreNode, MessageNode } from './common';
 import { CompareBranchNode } from './compareBranchNode';
 import { insertDateMarkers } from './helpers';
 import { PullRequestNode } from './pullRequestNode';
-import { RepositoryNode } from './repositoryNode';
 import { UncommittedFilesNode } from './UncommittedFilesNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 type State = {
 	pullRequest: PullRequest | null | undefined;
@@ -31,10 +30,7 @@ type State = {
 };
 
 export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
-	static key = ':worktree';
-	static getId(repoPath: string, uri: Uri, workspaceId?: string): string {
-		return `${RepositoryNode.getId(repoPath, workspaceId)}${this.key}(${uri.path})`;
-	}
+	limit: number | undefined;
 
 	private _branch: GitBranch | undefined;
 
@@ -43,19 +39,20 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 		view: ViewsWithWorktrees,
 		protected override readonly parent: ViewNode,
 		public readonly worktree: GitWorktree,
-		private readonly options?: {
-			workspaceId?: string;
-		},
 	) {
 		super(uri, view, parent);
+
+		this.updateContext({ worktree: worktree });
+		this._uniqueId = getViewNodeId('worktree', this.context);
+		this.limit = this.view.getNodeLastKnownLimit(this);
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
 		return this.worktree.uri.fsPath;
-	}
-
-	override get id(): string {
-		return WorktreeNode.getId(this.worktree.repoPath, this.worktree.uri, this.options?.workspaceId);
 	}
 
 	get repoPath(): string {
@@ -145,7 +142,6 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 						branch,
 						this.view.config.showBranchComparison,
 						this.splatted,
-						{ workspaceId: this.options?.workspaceId },
 					),
 				);
 			}
@@ -182,11 +178,7 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 			const status = getSettledValue(statusResult);
 
 			if (status?.hasChanges) {
-				children.unshift(
-					new UncommittedFilesNode(this.view, this, status, undefined, {
-						workspaceId: this.options?.workspaceId,
-					}),
-				);
+				children.unshift(new UncommittedFilesNode(this.view, this, status, undefined));
 			}
 
 			this._children = children;
@@ -408,7 +400,6 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 		return this._log?.hasMore ?? true;
 	}
 
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	@gate()
 	async loadMore(limit?: number | { until?: any }) {
 		let log = await window.withProgress(

@@ -12,13 +12,12 @@ import { debug } from '../../system/decorators/log';
 import { first, map } from '../../system/iterable';
 import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
-import { BranchNode } from './branchNode';
 import { BranchTrackingStatusFilesNode } from './branchTrackingStatusFilesNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
 import type { PageableViewNode } from './viewNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export interface BranchTrackingStatus {
 	ref: string;
@@ -28,22 +27,7 @@ export interface BranchTrackingStatus {
 }
 
 export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> implements PageableViewNode {
-	static key = ':status-branch:upstream';
-	static getId(
-		repoPath: string,
-		name: string,
-		root: boolean,
-		upstream: string | undefined,
-		upstreamType: string,
-		workspaceId?: string,
-	): string {
-		return `${BranchNode.getId(repoPath, name, root, workspaceId)}${this.key}(${upstream ?? ''}):${upstreamType}`;
-	}
-
-	private readonly options: {
-		showAheadCommits?: boolean;
-		workspaceId?: string;
-	};
+	limit: number | undefined;
 
 	constructor(
 		view: ViewsWithCommits,
@@ -53,25 +37,24 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 		public readonly upstreamType: 'ahead' | 'behind' | 'same' | 'none',
 		// Specifies that the node is shown as a root
 		public readonly root: boolean = false,
-		options?: {
+		private readonly options?: {
 			showAheadCommits?: boolean;
-			workspaceId?: string;
 		},
 	) {
 		super(GitUri.fromRepoPath(status.repoPath), view, parent);
 
-		this.options = { showAheadCommits: false, ...options };
+		this.updateContext({
+			branch: branch,
+			branchStatus: status,
+			branchStatusUpstreamType: upstreamType,
+			root: root,
+		});
+		this._uniqueId = getViewNodeId('tracking-status', this.context);
+		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 
 	override get id(): string {
-		return BranchTrackingStatusNode.getId(
-			this.status.repoPath,
-			this.status.ref,
-			this.root,
-			this.status.upstream,
-			this.upstreamType,
-			this.options?.workspaceId,
-		);
+		return this._uniqueId;
 	}
 
 	get repoPath(): string {
@@ -107,7 +90,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 
 		let showFiles = true;
 		if (
-			!this.options.showAheadCommits &&
+			!this.options?.showAheadCommits &&
 			this.upstreamType === 'ahead' &&
 			this.status.upstream &&
 			this.status.state.ahead > 0
@@ -121,8 +104,6 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 					this.branch,
 					this.status as Required<BranchTrackingStatus>,
 					this.upstreamType,
-					this.root,
-					{ workspaceId: this.options?.workspaceId },
 				).getChildren()),
 			);
 		} else {
@@ -147,8 +128,6 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 					this.branch,
 					this.status as Required<BranchTrackingStatus>,
 					this.upstreamType,
-					this.root,
-					{ workspaceId: this.options?.workspaceId },
 				),
 			);
 		}
@@ -308,7 +287,6 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 		return this._log?.hasMore ?? true;
 	}
 
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	@gate()
 	async loadMore(limit?: number | { until?: any }) {
 		let log = await window.withProgress(

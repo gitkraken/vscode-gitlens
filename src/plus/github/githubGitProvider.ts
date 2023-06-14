@@ -121,6 +121,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	descriptor = { id: GitProviderId.GitHub, name: 'GitHub', virtual: true };
 	readonly supportedSchemes: Set<string> = new Set([Schemes.Virtual, Schemes.GitHub, Schemes.PRs]);
 
+	private _onDidChange = new EventEmitter<void>();
+	get onDidChange(): Event<void> {
+		return this._onDidChange.event;
+	}
+
 	private _onDidChangeRepository = new EventEmitter<RepositoryChangeEvent>();
 	get onDidChangeRepository(): Event<RepositoryChangeEvent> {
 		return this._onDidChangeRepository.event;
@@ -194,9 +199,51 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			if (workspaceUri == null) return [];
 
 			return this.openRepository(undefined, workspaceUri, true, undefined, options?.silent);
-		} catch {
+		} catch (ex) {
+			if (ex.message.startsWith('No provider registered with')) {
+				Logger.error(
+					ex,
+					'No GitHub provider registered with Remote Repositories (yet); queuing pending discovery',
+				);
+				this._pendingDiscovery.add(uri);
+				this.ensurePendingRepositoryDiscovery();
+			}
 			return [];
 		}
+	}
+
+	private _pendingDiscovery = new Set<Uri>();
+	private _pendingTimer: ReturnType<typeof setTimeout> | undefined;
+	private ensurePendingRepositoryDiscovery() {
+		if (this._pendingTimer != null || this._pendingDiscovery.size === 0) return;
+
+		this._pendingTimer = setTimeout(async () => {
+			try {
+				const remotehub = await getRemoteHubApi();
+
+				for (const uri of this._pendingDiscovery) {
+					if (remotehub.getProvider(uri) == null) {
+						this._pendingTimer = undefined;
+						this.ensurePendingRepositoryDiscovery();
+						return;
+					}
+
+					this._pendingDiscovery.delete(uri);
+				}
+
+				this._pendingTimer = undefined;
+
+				setTimeout(() => this._onDidChange.fire(), 1);
+
+				if (this._pendingDiscovery.size !== 0) {
+					this.ensurePendingRepositoryDiscovery();
+				}
+			} catch {
+				debugger;
+				this._pendingTimer = undefined;
+				this.ensurePendingRepositoryDiscovery();
+			}
+		}, 250);
 	}
 
 	updateContext(): void {

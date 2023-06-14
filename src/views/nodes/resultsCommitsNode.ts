@@ -16,7 +16,7 @@ import type { FilesQueryResults } from './resultsFilesNode';
 import { ResultsFilesNode } from './resultsFilesNode';
 import { StashNode } from './stashNode';
 import type { PageableViewNode } from './viewNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export interface CommitsQueryResults {
 	readonly label: string;
@@ -29,6 +29,8 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 	extends ViewNode<View>
 	implements PageableViewNode
 {
+	limit: number | undefined;
+
 	constructor(
 		view: View,
 		protected override readonly parent: ViewNode,
@@ -45,19 +47,25 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 				query: () => Promise<FilesQueryResults>;
 			};
 		},
-		private readonly _options: {
-			id?: string;
-			description?: string;
-			expand?: boolean;
-		} = {},
+		private readonly _options: { description?: string; expand?: boolean } = undefined!,
 		splatted?: boolean,
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
 
+		if (_results.direction != null) {
+			this.updateContext({ branchStatusUpstreamType: _results.direction });
+		}
+		this._uniqueId = getViewNodeId('results-commits', this.context);
+		this.limit = this.view.getNodeLastKnownLimit(this);
+
+		this._options = { expand: true, ..._options };
 		if (splatted != null) {
 			this.splatted = splatted;
 		}
-		this._options = { expand: true, ..._options };
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	get ref1(): string | undefined {
@@ -66,10 +74,6 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 
 	get ref2(): string | undefined {
 		return this._results.comparison?.ref2;
-	}
-
-	override get id(): string {
-		return `${this.parent.id}:results:commits${this._options.id ? `:${this._options.id}` : ''}`;
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -194,7 +198,6 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 	}
 
 	private _expandAutolinks: boolean = false;
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	async loadMore(limit?: number, context?: Record<string, unknown>): Promise<void> {
 		const results = await this.getCommitsQueryResults();
 		if (results == null || !results.hasMore) return;

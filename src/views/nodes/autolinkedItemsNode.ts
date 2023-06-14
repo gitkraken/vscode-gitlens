@@ -11,12 +11,11 @@ import type { ViewsWithCommits } from '../viewBase';
 import { AutolinkedItemNode } from './autolinkedItemNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { PullRequestNode } from './pullRequestNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 let instanceId = 0;
 
 export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
-	private _children: ViewNode[] | undefined;
 	private _instanceId: number;
 
 	constructor(
@@ -27,12 +26,17 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 		private expand: boolean,
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
+
 		this._instanceId = instanceId++;
+		this.updateContext({ autolinksId: String(this._instanceId) });
+		this._uniqueId = getViewNodeId('autolinks', this.context);
 	}
 
 	override get id(): string {
-		return `${this.parent.id}:results:autolinked:${this._instanceId}`;
+		return this._uniqueId;
 	}
+
+	private _children: ViewNode[] | undefined;
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {

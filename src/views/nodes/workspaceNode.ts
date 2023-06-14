@@ -1,57 +1,33 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
-import type {
-	CloudWorkspaceRepositoryDescriptor,
-	LocalWorkspaceRepositoryDescriptor,
-	WorkspaceRepositoriesByName,
-} from '../../plus/workspaces/models';
-import { GKCloudWorkspace, GKLocalWorkspace, WorkspaceType } from '../../plus/workspaces/models';
+import type { CloudWorkspace, LocalWorkspace, WorkspaceRepositoriesByName } from '../../plus/workspaces/models';
+import { WorkspaceType } from '../../plus/workspaces/models';
+import { createCommand } from '../../system/command';
 import type { WorkspacesView } from '../workspacesView';
-import { MessageNode } from './common';
+import { CommandMessageNode, MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 import { WorkspaceMissingRepositoryNode } from './workspaceMissingRepositoryNode';
 
 export class WorkspaceNode extends ViewNode<WorkspacesView> {
-	static key = ':workspace';
-	static getId(workspaceId: string): string {
-		return `gitlens${this.key}(${workspaceId})`;
-	}
-
-	private _workspace: GKCloudWorkspace | GKLocalWorkspace;
-	private _type: WorkspaceType;
-
 	constructor(
 		uri: GitUri,
 		view: WorkspacesView,
-		parent: ViewNode,
-		public readonly workspace: GKCloudWorkspace | GKLocalWorkspace,
+		protected override parent: ViewNode,
+		public readonly workspace: CloudWorkspace | LocalWorkspace,
 	) {
 		super(uri, view, parent);
-		this._workspace = workspace;
-		this._type = workspace.type;
+
+		this.updateContext({ workspace: workspace });
+		this._uniqueId = getViewNodeId('workspace', this.context);
 	}
 
 	override get id(): string {
-		return WorkspaceNode.getId(this._workspace.id ?? '');
+		return this._uniqueId;
 	}
 
-	get name(): string {
-		return this._workspace?.name ?? '';
-	}
-
-	get workspaceId(): string {
-		return this._workspace.id ?? '';
-	}
-
-	get type(): WorkspaceType {
-		return this._type;
-	}
-
-	private async getRepositories(): Promise<
-		CloudWorkspaceRepositoryDescriptor[] | LocalWorkspaceRepositoryDescriptor[] | undefined
-	> {
-		return Promise.resolve(this._workspace?.repositories);
+	override toClipboard(): string {
+		return this.workspace.name;
 	}
 
 	private _children: ViewNode[] | undefined;
@@ -59,23 +35,29 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
 			this._children = [];
-			let descriptors: CloudWorkspaceRepositoryDescriptor[] | LocalWorkspaceRepositoryDescriptor[] | undefined;
-			let repositoryInfo: string | undefined;
-			if (this.workspace instanceof GKLocalWorkspace) {
-				descriptors = (await this.getRepositories()) ?? [];
-			} else {
-				const { repositories: repos, repositoriesInfo: repoInfo } =
-					await this.workspace.getOrLoadRepositories();
-				descriptors = repos;
-				repositoryInfo = repoInfo;
-			}
 
-			if (descriptors?.length === 0) {
-				this._children.push(new MessageNode(this.view, this, 'No repositories in this workspace.'));
-				return this._children;
-			} else if (descriptors?.length) {
+			try {
+				const descriptors = await this.workspace.getRepositoryDescriptors();
+
+				if (descriptors == null || descriptors.length === 0) {
+					this._children.push(
+						new CommandMessageNode(
+							this.view,
+							this,
+							createCommand<[WorkspaceNode]>(
+								'gitlens.views.workspaces.addRepos',
+								'Add Repositories...',
+								this,
+							),
+							'No repositories',
+						),
+					);
+					return this._children;
+				}
+
+				// TODO@eamodio this should not be done here -- it should be done in the workspaces model (when loading the repos)
 				const reposByName: WorkspaceRepositoriesByName =
-					await this.view.container.workspaces.resolveWorkspaceRepositoriesByName(this.workspaceId, {
+					await this.view.container.workspaces.resolveWorkspaceRepositoriesByName(this.workspace.id, {
 						resolveFromPath: true,
 						usePathMapping: true,
 					});
@@ -84,22 +66,23 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 					const repo = reposByName.get(descriptor.name)?.repository;
 					if (!repo) {
 						this._children.push(
-							new WorkspaceMissingRepositoryNode(this.view, this, this.workspaceId, descriptor),
+							new WorkspaceMissingRepositoryNode(this.view, this, this.workspace, descriptor),
 						);
 						continue;
 					}
 
 					this._children.push(
-						new RepositoryNode(GitUri.fromRepoPath(repo.path), this.view, this, repo, {
-							workspace: this._workspace,
-							workspaceRepoDescriptor: descriptor,
-						}),
+						new RepositoryNode(
+							GitUri.fromRepoPath(repo.path),
+							this.view,
+							this,
+							repo,
+							this.getNewContext({ wsRepositoryDescriptor: descriptor }),
+						),
 					);
 				}
-			}
-
-			if (repositoryInfo != null) {
-				this._children.push(new MessageNode(this.view, this, repositoryInfo));
+			} catch (ex) {
+				return [new MessageNode(this.view, this, 'Failed to load repositories')];
 			}
 		}
 
@@ -107,29 +90,24 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 	}
 
 	getTreeItem(): TreeItem {
-		const description = '';
-		// TODO@ramint Icon needs to change based on workspace type, and need a tooltip.
-		const icon: ThemeIcon = new ThemeIcon(this._type == WorkspaceType.Cloud ? 'cloud' : 'folder');
+		const item = new TreeItem(this.workspace.name, TreeItemCollapsibleState.Collapsed);
 
-		const item = new TreeItem(this.name, TreeItemCollapsibleState.Collapsed);
 		let contextValue = `${ContextValues.Workspace}`;
-
-		if (this._type === WorkspaceType.Cloud) {
+		if (this.workspace.type === WorkspaceType.Cloud) {
 			contextValue += '+cloud';
 		} else {
 			contextValue += '+local';
 		}
 		item.id = this.id;
-		item.description = description;
 		item.contextValue = contextValue;
-		item.iconPath = icon;
-		item.tooltip = `${this.name}\n${
-			this._type === WorkspaceType.Cloud
-				? `Cloud Workspace ${this._workspace.isShared() ? '(Shared)' : ''}`
+		item.iconPath = new ThemeIcon(this.workspace.type == WorkspaceType.Cloud ? 'cloud' : 'folder');
+		item.tooltip = `${this.workspace.name}\n${
+			this.workspace.type === WorkspaceType.Cloud
+				? `Cloud Workspace ${this.workspace.shared ? '(Shared)' : ''}`
 				: 'Local Workspace'
 		}${
-			this._workspace instanceof GKCloudWorkspace && this._workspace.provider != null
-				? `\nProvider: ${this._workspace.provider}`
+			this.workspace.type === WorkspaceType.Cloud && this.workspace.provider != null
+				? `\nProvider: ${this.workspace.provider}`
 				: ''
 		}`;
 		item.resourceUri = undefined;

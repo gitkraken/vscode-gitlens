@@ -18,15 +18,11 @@ import { LoadMoreNode, MessageNode } from './common';
 import { FileHistoryTrackerNode } from './fileHistoryTrackerNode';
 import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
 import { insertDateMarkers } from './helpers';
-import { RepositoryNode } from './repositoryNode';
 import type { PageableViewNode, ViewNode } from './viewNode';
-import { ContextValues, SubscribeableViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 
 export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> implements PageableViewNode {
-	static key = ':history:file';
-	static getId(repoPath: string, uri: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${uri})`;
-	}
+	limit: number | undefined;
 
 	protected override splatted = true;
 
@@ -38,14 +34,20 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 		private readonly branch: GitBranch | undefined,
 	) {
 		super(uri, view, parent);
+
+		if (branch != null) {
+			this.updateContext({ branch: branch });
+		}
+		this._uniqueId = getViewNodeId(`file-history+${uri.toString()}`, this.context);
+		this.limit = this.view.getNodeLastKnownLimit(this);
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
 		return this.uri.fileName;
-	}
-
-	override get id(): string {
-		return FileHistoryNode.getId(this.uri.repoPath!, this.uri.toString(true));
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -251,7 +253,6 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 		return this._log?.hasMore ?? true;
 	}
 
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	@gate()
 	async loadMore(limit?: number | { until?: any }) {
 		let log = await window.withProgress(

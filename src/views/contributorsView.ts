@@ -15,7 +15,6 @@ import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
 import { ContributorNode } from './nodes/contributorNode';
 import { ContributorsNode } from './nodes/contributorsNode';
-import { RepositoryNode } from './nodes/repositoryNode';
 import type { ViewNode } from './nodes/viewNode';
 import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
@@ -112,11 +111,11 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 	}
 }
 
-export class ContributorsView extends ViewBase<ContributorsViewNode, ContributorsViewConfig> {
+export class ContributorsView extends ViewBase<'contributors', ContributorsViewNode, ContributorsViewConfig> {
 	protected readonly configKey = 'contributors';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.contributors', 'Contributors', 'contributorsView');
+		super(container, 'contributors', 'Contributors', 'contributorsView');
 	}
 
 	override get canReveal(): boolean {
@@ -207,17 +206,21 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 	}
 
 	findContributor(contributor: GitContributor, token?: CancellationToken) {
-		const repoNodeId = RepositoryNode.getId(contributor.repoPath);
+		const { repoPath, username, email, name } = contributor;
 
 		return this.findNode(
-			ContributorNode.getId(contributor.repoPath, contributor.name, contributor.email, contributor.username),
+			n =>
+				n instanceof ContributorNode &&
+				n.contributor.username === username &&
+				n.contributor.email === email &&
+				n.contributor.name === name,
 			{
 				maxDepth: 2,
 				canTraverse: n => {
 					if (n instanceof ContributorsViewNode) return true;
 
 					if (n instanceof ContributorsRepositoryNode) {
-						return n.id.startsWith(repoNodeId);
+						return n.repoPath === repoPath;
 					}
 
 					return false;
@@ -232,7 +235,7 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 		repoPath: string,
 		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
 	) {
-		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof ContributorsViewNode || n instanceof RepositoryFolderNode,
 		});

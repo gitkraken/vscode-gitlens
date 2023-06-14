@@ -10,6 +10,7 @@ import type { PullRequest } from '../../git/models/pullRequest';
 import { PullRequestState } from '../../git/models/pullRequest';
 import type { GitBranchReference } from '../../git/models/reference';
 import { GitRemote, GitRemoteType } from '../../git/models/remote';
+import type { Repository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
 import { getContext } from '../../system/context';
 import { gate } from '../../system/decorators/gate';
@@ -28,9 +29,8 @@ import { insertDateMarkers } from './helpers';
 import { MergeStatusNode } from './mergeStatusNode';
 import { PullRequestNode } from './pullRequestNode';
 import { RebaseStatusNode } from './rebaseStatusNode';
-import { RepositoryNode } from './repositoryNode';
 import type { PageableViewNode, ViewNode } from './viewNode';
-import { ContextValues, ViewRefNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewRefNode } from './viewNode';
 
 type State = {
 	pullRequest: PullRequest | null | undefined;
@@ -38,10 +38,7 @@ type State = {
 };
 
 export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReference, State> implements PageableViewNode {
-	static key = ':branch';
-	static getId(repoPath: string, name: string, root: boolean, workspaceId?: string): string {
-		return `${RepositoryNode.getId(repoPath, workspaceId)}${this.key}(${name})${root ? ':root' : ''}`;
-	}
+	limit: number | undefined;
 
 	private readonly options: {
 		expanded: boolean;
@@ -52,7 +49,6 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 		showStatus: boolean;
 		showTracking: boolean;
 		authors?: GitUser[];
-		workspaceId?: string;
 	};
 	protected override splatted = true;
 
@@ -60,10 +56,10 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 		uri: GitUri,
 		view: ViewsWithBranches,
 		public override parent: ViewNode,
+		public readonly repo: Repository,
 		public readonly branch: GitBranch,
 		// Specifies that the node is shown as a root
 		public readonly root: boolean,
-
 		options?: {
 			expanded?: boolean;
 			limitCommits?: boolean;
@@ -73,10 +69,13 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 			showStatus?: boolean;
 			showTracking?: boolean;
 			authors?: GitUser[];
-			workspaceId?: string;
 		},
 	) {
 		super(uri, view, parent);
+
+		this.updateContext({ repository: repo, branch: branch, root: root });
+		this._uniqueId = getViewNodeId('branch', this.context);
+		this.limit = this.view.getNodeLastKnownLimit(this);
 
 		this.options = {
 			expanded: false,
@@ -93,12 +92,12 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 		};
 	}
 
-	override toClipboard(): string {
-		return this.branch.name;
+	override get id(): string {
+		return this._uniqueId;
 	}
 
-	override get id(): string {
-		return BranchNode.getId(this.branch.repoPath, this.branch.name, this.root, this.options?.workspaceId);
+	override toClipboard(): string {
+		return this.branch.name;
 	}
 
 	compacted: boolean = false;
@@ -228,7 +227,6 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 						branch,
 						this.options.showComparison,
 						this.splatted,
-						{ workspaceId: this.options.workspaceId },
 					),
 				);
 			}
@@ -250,7 +248,6 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 						mergeStatus,
 						status ?? (await this.view.container.git.getStatusForRepo(this.uri.repoPath)),
 						this.root,
-						{ workspaceId: this.options?.workspaceId },
 					),
 				);
 			} else if (
@@ -266,7 +263,6 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 						rebaseStatus,
 						status ?? (await this.view.container.git.getStatusForRepo(this.uri.repoPath)),
 						this.root,
-						{ workspaceId: this.options?.workspaceId },
 					),
 				);
 			} else if (this.options.showTracking) {
@@ -279,34 +275,22 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 
 				if (branch.upstream != null) {
 					if (this.root && !status.state.behind && !status.state.ahead) {
-						children.push(
-							new BranchTrackingStatusNode(this.view, this, branch, status, 'same', this.root, {
-								workspaceId: this.options?.workspaceId,
-							}),
-						);
+						children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'same', this.root));
 					} else {
 						if (status.state.behind) {
 							children.push(
-								new BranchTrackingStatusNode(this.view, this, branch, status, 'behind', this.root, {
-									workspaceId: this.options?.workspaceId,
-								}),
+								new BranchTrackingStatusNode(this.view, this, branch, status, 'behind', this.root),
 							);
 						}
 
 						if (status.state.ahead) {
 							children.push(
-								new BranchTrackingStatusNode(this.view, this, branch, status, 'ahead', this.root, {
-									workspaceId: this.options?.workspaceId,
-								}),
+								new BranchTrackingStatusNode(this.view, this, branch, status, 'ahead', this.root),
 							);
 						}
 					}
 				} else {
-					children.push(
-						new BranchTrackingStatusNode(this.view, this, branch, status, 'none', this.root, {
-							workspaceId: this.options?.workspaceId,
-						}),
-					);
+					children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'none', this.root));
 				}
 			}
 
@@ -372,6 +356,10 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 		}
 		if (this.options.showAsCommits) {
 			contextValue += '+commits';
+		}
+		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.
+		if (this.repo.closed) {
+			contextValue += '+closed';
 		}
 
 		let color: ThemeColor | undefined;
@@ -578,7 +566,6 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 		return this._log?.hasMore ?? true;
 	}
 
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	@gate()
 	async loadMore(limit?: number | { until?: any }) {
 		let log = await window.withProgress(

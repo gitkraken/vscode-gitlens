@@ -14,7 +14,7 @@ import type { ViewsWithCommits } from '../viewBase';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
 import { ResultsFileNode } from './resultsFileNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export enum FilesQueryFilter {
 	Left = 0,
@@ -40,15 +40,19 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 		private readonly direction: 'ahead' | 'behind' | undefined,
 		private readonly _options: {
 			expand?: boolean;
-		} = {},
+		} = undefined!,
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
 
+		if (this.direction != null) {
+			this.updateContext({ branchStatusUpstreamType: this.direction });
+		}
+		this._uniqueId = getViewNodeId('results-files', this.context);
 		this._options = { expand: true, ..._options };
 	}
 
 	override get id(): string {
-		return `${this.parent.id}:results:files`;
+		return this._uniqueId;
 	}
 
 	get filter(): FilesQueryFilter | undefined {
@@ -98,7 +102,7 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 				this.view.config.files.compact,
 			);
 
-			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
+			const root = new FolderNode(this.view, this, hierarchy, this.repoPath, '', undefined);
 			children = root.getChildren() as FileNode[];
 		} else {
 			children.sort((a, b) => a.priority - b.priority || sortCompare(a.label!, b.label!));

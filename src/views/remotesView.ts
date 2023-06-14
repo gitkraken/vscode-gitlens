@@ -94,11 +94,11 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 	}
 }
 
-export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
+export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesViewConfig> {
 	protected readonly configKey = 'remotes';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.remotes', 'Remotes', 'remotesView');
+		super(container, 'remotes', 'Remotes', 'remotesView');
 	}
 
 	override get canReveal(): boolean {
@@ -189,7 +189,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 	findBranch(branch: GitBranchReference, token?: CancellationToken) {
 		if (!branch.remote) return undefined;
 
-		const repoNodeId = RepositoryNode.getId(branch.repoPath);
+		const { repoPath } = branch;
 
 		return this.findNode((n: any) => n.branch?.ref === branch.ref, {
 			allowPaging: true,
@@ -198,13 +198,11 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 				if (n instanceof RemotesViewNode) return true;
 
 				if (n instanceof RemotesRepositoryNode || n instanceof BranchOrTagFolderNode) {
-					return n.id.startsWith(repoNodeId);
+					return n.repoPath === repoPath;
 				}
 
 				if (n instanceof RemoteNode) {
-					if (!n.id.startsWith(repoNodeId)) return false;
-
-					return n.remote.name === getRemoteNameFromBranchName(branch.name);
+					return n.repoPath === repoPath && n.remote.name === getRemoteNameFromBranchName(branch.name);
 				}
 
 				return false;
@@ -214,7 +212,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 	}
 
 	async findCommit(commit: GitCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
-		const repoNodeId = RepositoryNode.getId(commit.repoPath);
+		const { repoPath } = commit;
 
 		// Get all the remote branches the commit is on
 		const branches = await this.container.git.getCommitBranches(
@@ -226,26 +224,26 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 
 		const remotes = branches.map(b => b.split('/', 1)[0]);
 
-		return this.findNode((n: any) => n.commit !== undefined && n.commit.ref === commit.ref, {
+		return this.findNode((n: any) => n.commit?.ref === commit.ref, {
 			allowPaging: true,
 			maxDepth: 6,
 			canTraverse: n => {
 				if (n instanceof RemotesViewNode) return true;
 
 				if (n instanceof RemotesRepositoryNode || n instanceof BranchOrTagFolderNode) {
-					return n.id.startsWith(repoNodeId);
+					return n.repoPath === repoPath;
 				}
 
 				if (n instanceof RemoteNode) {
-					return n.id.startsWith(repoNodeId) && remotes.includes(n.remote.name);
+					return n.repoPath === repoPath && remotes.includes(n.remote.name);
 				}
 
 				if (n instanceof BranchNode) {
-					return n.id.startsWith(repoNodeId) && branches.includes(n.branch.name);
+					return n.repoPath === repoPath && branches.includes(n.branch.name);
 				}
 
 				if (n instanceof RepositoryNode || n instanceof RemotesNode || n instanceof BranchOrTagFolderNode) {
-					return n.id.startsWith(repoNodeId);
+					return n.repoPath === repoPath;
 				}
 
 				return false;
@@ -255,7 +253,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 	}
 
 	findRemote(remote: GitRemote, token?: CancellationToken) {
-		const repoNodeId = RepositoryNode.getId(remote.repoPath);
+		const { repoPath } = remote;
 
 		return this.findNode((n: any) => n.remote?.name === remote.name, {
 			allowPaging: true,
@@ -264,7 +262,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 				if (n instanceof RemotesViewNode) return true;
 
 				if (n instanceof RemotesRepositoryNode) {
-					return n.id.startsWith(repoNodeId);
+					return n.repoPath === repoPath;
 				}
 
 				return false;
@@ -362,7 +360,7 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		repoPath: string,
 		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
 	) {
-		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof RemotesViewNode || n instanceof RepositoryFolderNode,
 		});

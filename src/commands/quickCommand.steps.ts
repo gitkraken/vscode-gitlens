@@ -2425,9 +2425,9 @@ export async function* ensureAccessStep<
 	} else {
 		if (access.subscription.required == null) return undefined;
 
-		placeholder = '✨ Requires a trial or subscription for use on privately hosted repos';
+		placeholder = '✨ Requires a trial or paid plan for use on privately hosted repos';
 		if (isSubscriptionPaidPlan(access.subscription.required) && access.subscription.current.account != null) {
-			placeholder = '✨ Requires a subscription for use on privately hosted repos';
+			placeholder = '✨ Requires a paid plan for use on privately hosted repos';
 			directives.push(createDirectiveQuickPickItem(Directive.RequiresPaidSubscription, true));
 		} else if (
 			access.subscription.current.account == null &&

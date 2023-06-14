@@ -204,7 +204,6 @@ export const enum Commands {
 	GitCommandsWorktreeOpen = 'gitlens.gitCommands.worktree.open',
 	OpenOrCreateWorktreeForGHPR = 'gitlens.ghpr.views.openOrCreateWorktree',
 	PlusHide = 'gitlens.plus.hide',
-	PlusLearn = 'gitlens.plus.learn',
 	PlusLoginOrSignUp = 'gitlens.plus.loginOrSignUp',
 	PlusLogout = 'gitlens.plus.logout',
 	PlusManage = 'gitlens.plus.manage',
@@ -314,8 +313,127 @@ export const enum Commands {
 	Deprecated_ShowFileHistoryInView = 'gitlens.showFileHistoryInView',
 }
 
-export type CustomEditorIds = 'rebase';
-export type TreeViewIds =
+export type TreeViewCommands = `gitlens.views.${
+	| `branches.${
+			| 'copy'
+			| 'refresh'
+			| `setLayoutTo${'List' | 'Tree'}`
+			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
+			| `setShowAvatars${'On' | 'Off'}`
+			| `setShowBranchComparison${'On' | 'Off'}`
+			| `setShowBranchPullRequest${'On' | 'Off'}`}`
+	| `commits.${
+			| 'copy'
+			| 'refresh'
+			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
+			| `setMyCommitsOnly${'On' | 'Off'}`
+			| `setShowAvatars${'On' | 'Off'}`
+			| `setShowBranchComparison${'On' | 'Off'}`
+			| `setShowBranchPullRequest${'On' | 'Off'}`}`
+	| `contributors.${
+			| 'copy'
+			| 'refresh'
+			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
+			| `setShowAllBranches${'On' | 'Off'}`
+			| `setShowAvatars${'On' | 'Off'}`
+			| `setShowStatistics${'On' | 'Off'}`}`
+	| `fileHistory.${
+			| 'copy'
+			| 'refresh'
+			| 'changeBase'
+			| `setCursorFollowing${'On' | 'Off'}`
+			| `setEditorFollowing${'On' | 'Off'}`
+			| `setRenameFollowing${'On' | 'Off'}`
+			| `setShowAllBranches${'On' | 'Off'}`
+			| `setShowAvatars${'On' | 'Off'}`}`
+	| `lineHistory.${
+			| 'copy'
+			| 'refresh'
+			| 'changeBase'
+			| `setEditorFollowing${'On' | 'Off'}`
+			| `setShowAvatars${'On' | 'Off'}`}`
+	| `remotes.${
+			| 'copy'
+			| 'refresh'
+			| `setLayoutTo${'List' | 'Tree'}`
+			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
+			| `setShowAvatars${'On' | 'Off'}`
+			| `setShowBranchPullRequest${'On' | 'Off'}`}`
+	| `repositories.${
+			| 'copy'
+			| 'refresh'
+			| `setBranchesLayoutTo${'List' | 'Tree'}`
+			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
+			| `setAutoRefreshTo${'On' | 'Off'}`
+			| `setShowAvatars${'On' | 'Off'}`
+			| `setShowBranchComparison${'On' | 'Off'}`
+			| `setBranchesShowBranchComparison${'On' | 'Off'}`
+			| `setShowBranches${'On' | 'Off'}`
+			| `setShowCommits${'On' | 'Off'}`
+			| `setShowContributors${'On' | 'Off'}`
+			| `setShowRemotes${'On' | 'Off'}`
+			| `setShowStashes${'On' | 'Off'}`
+			| `setShowTags${'On' | 'Off'}`
+			| `setShowWorktrees${'On' | 'Off'}`
+			| `setShowUpstreamStatus${'On' | 'Off'}`
+			| `setShowSectionOff`}`
+	| `searchAndCompare.${
+			| 'copy'
+			| 'refresh'
+			| 'clear'
+			| 'pin'
+			| 'unpin'
+			| 'swapComparison'
+			| 'selectForCompare'
+			| 'compareWithSelected'
+			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
+			| `setKeepResultsTo${'On' | 'Off'}`
+			| `setShowAvatars${'On' | 'Off'}`
+			| `setFilesFilterOn${'Left' | 'Right'}`
+			| 'setFilesFilterOff'}`
+	| `stashes.${'copy' | 'refresh' | `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`}`
+	| `tags.${
+			| 'copy'
+			| 'refresh'
+			| `setLayoutTo${'List' | 'Tree'}`
+			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
+			| `setShowAvatars${'On' | 'Off'}`}`
+	| `workspaces.${
+			| 'info'
+			| 'copy'
+			| 'refresh'
+			| 'addRepos'
+			| 'convert'
+			| 'create'
+			| 'delete'
+			| 'locateAllRepos'
+			| 'open'
+			| `repo.${'locate' | 'open' | 'openInNewWindow' | 'addToWindow' | 'remove'}`}`
+	| `worktrees.${
+			| 'copy'
+			| 'refresh'
+			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
+			| `setShowAvatars${'On' | 'Off'}`
+			| `setShowBranchComparison${'On' | 'Off'}`
+			| `setShowBranchPullRequest${'On' | 'Off'}`}`}`;
+
+type ExtractSuffix<Prefix extends string, U> = U extends `${Prefix}${infer V}` ? V : never;
+type FilterCommands<Prefix extends string, U> = U extends `${Prefix}${infer V}` ? `${Prefix}${V}` : never;
+
+export type TreeViewCommandsByViewId<T extends TreeViewIds> = FilterCommands<T, TreeViewCommands>;
+export type TreeViewCommandsByViewType<T extends TreeViewTypes> = FilterCommands<
+	`gitlens.views.${T}.`,
+	TreeViewCommands
+>;
+export type TreeViewCommandSuffixesByViewType<T extends TreeViewTypes> = ExtractSuffix<
+	`gitlens.views.${T}.`,
+	FilterCommands<`gitlens.views.${T}.`, TreeViewCommands>
+>;
+
+export type CustomEditorTypes = 'rebase';
+export type CustomEditorIds = `gitlens.${CustomEditorTypes}`;
+
+export type TreeViewTypes =
 	| 'branches'
 	| 'commits'
 	| 'contributors'
@@ -328,19 +446,24 @@ export type TreeViewIds =
 	| 'tags'
 	| 'workspaces'
 	| 'worktrees';
-export type WebviewIds = 'graph' | 'settings' | 'timeline' | 'welcome' | 'focus';
-export type WebviewViewIds = 'account' | 'commitDetails' | 'graph' | 'graphDetails' | 'home' | 'timeline';
+export type TreeViewIds = `gitlens.views.${TreeViewTypes}`;
 
+export type WebviewTypes = 'graph' | 'settings' | 'timeline' | 'welcome' | 'focus';
+export type WebviewIds = `gitlens.views.${WebviewTypes}`;
+
+export type WebviewViewTypes = 'account' | 'commitDetails' | 'graph' | 'graphDetails' | 'home' | 'timeline';
+export type WebviewViewIds = `gitlens.views.${WebviewViewTypes}`;
+
+export type ViewTypes = TreeViewTypes | WebviewViewTypes;
 export type ViewIds = TreeViewIds | WebviewViewIds;
-export type QualifiedViewIds = `gitlens.views.${ViewIds}`;
 
-export type ViewContainerIds = 'gitlens' | 'gitlensInspect' | 'gitlensPanel';
-export type QualifiedViewContainerIds = `workbench.view.extension.${ViewContainerIds}`;
+export type ViewContainerTypes = 'gitlens' | 'gitlensInspect' | 'gitlensPanel';
+export type ViewContainerIds = `workbench.view.extension.${ViewContainerTypes}`;
 
-export type CoreViewContainerIds = 'scm';
-export type QualifiedCoreViewContainerIds = `workbench.view.${CoreViewContainerIds}`;
+export type CoreViewContainerTypes = 'scm';
+export type CoreViewContainerIds = `workbench.view.${CoreViewContainerTypes}`;
 
-// export const viewIds: ViewIds[] = [
+// export const viewTypes: ViewTypes[] = [
 // 	'account',
 // 	'branches',
 // 	'commits',
@@ -361,10 +484,7 @@ export type QualifiedCoreViewContainerIds = `workbench.view.${CoreViewContainerI
 // 	'worktrees',
 // ];
 
-export const viewIdsByDefaultContainerId = new Map<
-	QualifiedViewContainerIds | QualifiedCoreViewContainerIds,
-	ViewIds[]
->([
+export const viewIdsByDefaultContainerId = new Map<ViewContainerIds | CoreViewContainerIds, ViewTypes[]>([
 	[
 		'workbench.view.scm',
 		['branches', 'commits', 'remotes', 'repositories', 'stashes', 'tags', 'worktrees', 'contributors'],
@@ -380,12 +500,12 @@ export const viewIdsByDefaultContainerId = new Map<
 export type ContextKeys =
 	| `${typeof extensionPrefix}:action:${string}`
 	| `${typeof extensionPrefix}:key:${Keys}`
-	| `${typeof extensionPrefix}:webview:${WebviewIds | CustomEditorIds}:${
+	| `${typeof extensionPrefix}:webview:${WebviewTypes | CustomEditorTypes}:${
 			| 'active'
 			| 'focus'
 			| 'inputFocus'
 			| 'visible'}`
-	| `${typeof extensionPrefix}:webviewView:${WebviewViewIds}:${'active' | 'focus' | 'inputFocus' | 'visible'}`
+	| `${typeof extensionPrefix}:webviewView:${WebviewViewTypes}:${'active' | 'focus' | 'inputFocus' | 'visible'}`
 	| `${typeof extensionPrefix}:activeFileStatus`
 	| `${typeof extensionPrefix}:annotationStatus`
 	| `${typeof extensionPrefix}:debugging`
@@ -446,8 +566,8 @@ export type CoreCommands =
 	| 'workbench.files.action.focusFilesExplorer'
 	| 'workbench.view.explorer'
 	| 'workbench.view.scm'
-	| `${QualifiedViewContainerIds | QualifiedCoreViewContainerIds}.resetViewContainerLocation`
-	| `${QualifiedViewIds}.${'focus' | 'removeView' | 'resetViewLocation' | 'toggleVisibility'}`;
+	| `${ViewContainerIds | CoreViewContainerIds}.resetViewContainerLocation`
+	| `${ViewIds}.${'focus' | 'removeView' | 'resetViewLocation' | 'toggleVisibility'}`;
 
 export type CoreGitCommands =
 	| 'git.fetch'

@@ -13,18 +13,10 @@ import { joinPaths, normalizePath } from '../../system/path';
 import type { ViewsWithWorkingTree } from '../viewBase';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
-import { RepositoryNode } from './repositoryNode';
 import { UncommittedFileNode } from './UncommittedFileNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class UncommittedFilesNode extends ViewNode<ViewsWithWorkingTree> {
-	static key = ':uncommitted-files';
-	static getId(repoPath: string, workspaceId?: string): string {
-		return `${RepositoryNode.getId(repoPath, workspaceId)}${this.key}`;
-	}
-
-	readonly repoPath: string;
-
 	constructor(
 		view: ViewsWithWorkingTree,
 		protected override readonly parent: ViewNode,
@@ -37,16 +29,18 @@ export class UncommittedFilesNode extends ViewNode<ViewsWithWorkingTree> {
 					readonly upstream?: string;
 			  },
 		public readonly range: string | undefined,
-		private readonly options?: {
-			workspaceId?: string;
-		},
 	) {
 		super(GitUri.fromRepoPath(status.repoPath), view, parent);
-		this.repoPath = status.repoPath;
+
+		this._uniqueId = getViewNodeId('uncommitted-files', this.context);
 	}
 
 	override get id(): string {
-		return UncommittedFilesNode.getId(this.repoPath, this.options?.workspaceId);
+		return this._uniqueId;
+	}
+
+	get repoPath(): string {
+		return this.status.repoPath;
 	}
 
 	getChildren(): ViewNode[] {
@@ -87,7 +81,7 @@ export class UncommittedFilesNode extends ViewNode<ViewsWithWorkingTree> {
 				this.view.config.files.compact,
 			);
 
-			const root = new FolderNode(this.view, this, repoPath, '', hierarchy, true);
+			const root = new FolderNode(this.view, this, hierarchy, repoPath, '', undefined, true);
 			children = root.getChildren() as FileNode[];
 		} else {
 			children.sort(

@@ -682,7 +682,7 @@ export class GraphApp extends App<State> {
 	}
 
 	private onSelectionChanged(rows: GraphRow[]) {
-		const selection = rows.map(r => ({ id: r.sha, type: r.type as GitGraphRowType }));
+		const selection = rows.filter(r => r != null).map(r => ({ id: r.sha, type: r.type as GitGraphRowType }));
 		this.sendCommand(UpdateSelectionCommandType, {
 			selection: selection,
 		});

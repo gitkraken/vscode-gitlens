@@ -13,14 +13,18 @@ import { registerViewCommand } from './viewCommands';
 
 const pinnedSuffix = ' (pinned)';
 
-export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHistoryTrackerNode, FileHistoryViewConfig> {
+export class FileHistoryView extends ViewBase<
+	'fileHistory',
+	FileHistoryTrackerNode | LineHistoryTrackerNode,
+	FileHistoryViewConfig
+> {
 	protected readonly configKey = 'fileHistory';
 
 	private _followCursor: boolean = false;
 	private _followEditor: boolean = true;
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.fileHistory', 'File History', 'fileHistoryView');
+		super(container, 'fileHistory', 'File History', 'fileHistoryView');
 
 		void setContext('gitlens:views:fileHistory:cursorFollowing', this._followCursor);
 		void setContext('gitlens:views:fileHistory:editorFollowing', this._followEditor);

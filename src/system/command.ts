@@ -2,7 +2,7 @@ import type { Command as CoreCommand, Disposable, Uri } from 'vscode';
 import { commands } from 'vscode';
 import type { Action, ActionContext } from '../api/gitlens';
 import type { Command } from '../commands/base';
-import type { CoreCommands, CoreGitCommands } from '../constants';
+import type { CoreCommands, CoreGitCommands, TreeViewCommands } from '../constants';
 import { Commands } from '../constants';
 import { Container } from '../container';
 
@@ -42,7 +42,11 @@ export function executeActionCommand<T extends ActionContext>(action: Action<T>,
 	return commands.executeCommand(`${Commands.ActionPrefix}${action}`, { ...args, type: action });
 }
 
-export function createCommand<T extends unknown[]>(command: Commands, title: string, ...args: T): CoreCommand {
+export function createCommand<T extends unknown[]>(
+	command: Commands | TreeViewCommands,
+	title: string,
+	...args: T
+): CoreCommand {
 	return {
 		command: command,
 		title: title,

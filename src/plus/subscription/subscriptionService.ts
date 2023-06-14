@@ -200,7 +200,6 @@ export class SubscriptionService implements Disposable {
 		void this.container.viewCommands;
 
 		return [
-			registerCommand(Commands.PlusLearn, openToSide => this.learn(openToSide)),
 			registerCommand(Commands.PlusLoginOrSignUp, () => this.loginOrSignUp()),
 			registerCommand(Commands.PlusLogout, () => this.logout()),
 
@@ -229,8 +228,23 @@ export class SubscriptionService implements Disposable {
 	}
 
 	@debug()
-	learn(openToSide: boolean = true): void {
-		void openWalkthrough(this.container.context.extension.id, 'gitlens.plus', undefined, openToSide);
+	async learnAboutPreviewOrTrial() {
+		const subscription = await this.getSubscription();
+		if (subscription.state === SubscriptionState.FreeInPreviewTrial) {
+			void openWalkthrough(
+				this.container.context.extension.id,
+				'gitlens.welcome',
+				'gitlens.welcome.preview',
+				false,
+			);
+		} else if (subscription.state === SubscriptionState.FreePlusInTrial) {
+			void openWalkthrough(
+				this.container.context.extension.id,
+				'gitlens.welcome',
+				'gitlens.welcome.trial',
+				false,
+			);
+		}
 	}
 
 	@log()
@@ -279,7 +293,7 @@ export class SubscriptionService implements Disposable {
 				);
 
 				if (result === learn) {
-					this.learn();
+					void this.learnAboutPreviewOrTrial();
 				}
 			} else if (isSubscriptionPaid(this._subscription)) {
 				void window.showInformationMessage(
@@ -454,7 +468,7 @@ export class SubscriptionService implements Disposable {
 				const confirm: MessageItem = { title: 'Start Free Pro Trial', isCloseAffordance: true };
 				const cancel: MessageItem = { title: 'Cancel' };
 				const result = await window.showInformationMessage(
-					'Your 3-day Pro preview has ended, start a free Pro trial to get an additional 7 days.\n\n✨ A trial or subscription is required to use Pro features on privately hosted repos.',
+					'Your 3-day Pro preview has ended, start a free Pro trial to get an additional 7 days.\n\n✨ A trial or paid plan is required to use Pro features on privately hosted repos.',
 					{ modal: true },
 					confirm,
 					cancel,
@@ -513,7 +527,7 @@ export class SubscriptionService implements Disposable {
 				);
 
 				if (result === learn) {
-					this.learn();
+					void this.learnAboutPreviewOrTrial();
 				}
 			}, 1);
 		}

@@ -509,7 +509,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 }
 
 export async function ensurePaidPlan(providerName: string, container: Container): Promise<boolean> {
-	const title = `Connecting to a ${providerName} instance for rich integration features requires a trial or subscription.`;
+	const title = `Connecting to a ${providerName} instance for rich integration features requires a trial or paid plan.`;
 
 	while (true) {
 		const subscription = await container.subscription.getSubscription();
@@ -539,7 +539,7 @@ export async function ensurePaidPlan(providerName: string, container: Container)
 			const startTrial = { title: 'Preview Pro' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				`${title}\n\nDo you want to preview Pro features for 3 days?`,
+				`${title}\n\nDo you want to preview ✨ features for 3 days?`,
 				{ modal: true },
 				startTrial,
 				cancel,
@@ -553,7 +553,7 @@ export async function ensurePaidPlan(providerName: string, container: Container)
 			const signIn = { title: 'Start Free Pro Trial' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				`${title}\n\nDo you want to continue to use Pro features on privately hosted repos, free for an additional 7 days?`,
+				`${title}\n\nDo you want to continue to use ✨ features on privately hosted repos, free for an additional 7 days?`,
 				{ modal: true },
 				signIn,
 				cancel,
@@ -568,7 +568,7 @@ export async function ensurePaidPlan(providerName: string, container: Container)
 			const upgrade = { title: 'Upgrade to Pro' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
-				`${title}\n\nDo you want to continue to use Pro features on privately hosted repos?`,
+				`${title}\n\nDo you want to continue to use ✨ features on privately hosted repos?`,
 				{ modal: true },
 				upgrade,
 				cancel,

@@ -1,5 +1,5 @@
-import type { Disposable, TreeViewVisibilityChangeEvent } from 'vscode';
-import { ProgressLocation, window } from 'vscode';
+import type { Disposable } from 'vscode';
+import { env, ProgressLocation, Uri, window } from 'vscode';
 import type { WorkspacesViewConfig } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
@@ -7,7 +7,6 @@ import { unknownGitUri } from '../git/gitUri';
 import type { Repository } from '../git/models/repository';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
 import { WorkspaceType } from '../plus/workspaces/models';
-import { SubscriptionState } from '../subscription';
 import { executeCommand } from '../system/command';
 import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';
 import type { RepositoriesNode } from './nodes/repositoriesNode';
@@ -18,34 +17,21 @@ import { WorkspacesViewNode } from './nodes/workspacesViewNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
-export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewConfig> {
+export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, WorkspacesViewConfig> {
 	protected readonly configKey = 'repositories';
-	private _workspacesChangedDisposable: Disposable;
-	private _visibleDisposable: Disposable | undefined;
+	private _disposable: Disposable;
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.workspaces', 'Workspaces', 'workspaceView');
-		this._workspacesChangedDisposable = this.container.workspaces.onDidChangeWorkspaces(() => {
-			void this.ensureRoot().triggerChange(true);
-		});
-	}
+		super(container, 'workspaces', 'Workspaces', 'workspaceView');
 
-	protected override onVisibilityChanged(e: TreeViewVisibilityChangeEvent): void {
-		if (e.visible) {
-			void this.updateDescription();
-			this._visibleDisposable?.dispose();
-			this._visibleDisposable = this.container.subscription.onDidChange(() => void this.updateDescription());
-		} else {
-			this._visibleDisposable?.dispose();
-			this._visibleDisposable = undefined;
-		}
-
-		super.onVisibilityChanged(e);
+		this._disposable = this.container.workspaces.onDidChangeWorkspaces(
+			() => void this.ensureRoot().triggerChange(true),
+		);
+		this.description = `PREVIEW\u00a0\u00a0☁️`;
 	}
 
 	override dispose() {
-		this._workspacesChangedDisposable.dispose();
-		this._visibleDisposable?.dispose();
+		this._disposable.dispose();
 		super.dispose();
 	}
 
@@ -62,11 +48,6 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 		return super.show(options);
 	}
 
-	private async updateDescription() {
-		const subscription = await this.container.subscription.getSubscription();
-		this.description = subscription.state === SubscriptionState.Paid ? undefined : '☁️';
-	}
-
 	override get canReveal(): boolean {
 		return false;
 	}
@@ -75,6 +56,11 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 		void this.container.viewCommands;
 
 		return [
+			registerViewCommand(
+				this.getQualifiedCommand('info'),
+				() => env.openExternal(Uri.parse('https://help.gitkraken.com/gitlens/side-bar/#workspaces-☁%ef%b8%8f')),
+				this,
+			),
 			registerViewCommand(
 				this.getQualifiedCommand('copy'),
 				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
@@ -88,6 +74,10 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 				},
 				this,
 			),
+			registerViewCommand(this.getQualifiedCommand('addRepos'), async (node: WorkspaceNode) => {
+				await this.container.workspaces.addCloudWorkspaceRepos(node.workspace.id);
+				void node.getParent()?.triggerChange(true);
+			}),
 			registerViewCommand(
 				this.getQualifiedCommand('convert'),
 				async (node: RepositoriesNode) => {
@@ -115,7 +105,7 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 			registerViewCommand(
 				this.getQualifiedCommand('open'),
 				async (node: WorkspaceNode) => {
-					await this.container.workspaces.saveAsCodeWorkspaceFile(node.workspaceId, node.type, {
+					await this.container.workspaces.saveAsCodeWorkspaceFile(node.workspace.id, node.workspace.type, {
 						open: true,
 					});
 				},
@@ -124,19 +114,7 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 			registerViewCommand(
 				this.getQualifiedCommand('delete'),
 				async (node: WorkspaceNode) => {
-					await this.container.workspaces.deleteCloudWorkspace(node.workspaceId);
-					void node.getParent()?.triggerChange(true);
-				},
-				this,
-			),
-			registerViewCommand(
-				this.getQualifiedCommand('locateRepo'),
-				async (node: RepositoryNode | WorkspaceMissingRepositoryNode) => {
-					const descriptor = node.workspaceRepositoryDescriptor;
-					if (descriptor == null || node.workspaceId == null) return;
-
-					await this.container.workspaces.locateWorkspaceRepo(node.workspaceId, descriptor);
-
+					await this.container.workspaces.deleteCloudWorkspace(node.workspace.id);
 					void node.getParent()?.triggerChange(true);
 				},
 				this,
@@ -144,7 +122,7 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 			registerViewCommand(
 				this.getQualifiedCommand('locateAllRepos'),
 				async (node: WorkspaceNode) => {
-					if (node.type !== WorkspaceType.Cloud) return;
+					if (node.workspace.type !== WorkspaceType.Cloud) return;
 
 					await window.withProgress(
 						{
@@ -153,7 +131,7 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 							cancellable: true,
 						},
 						(_progress, token) =>
-							this.container.workspaces.locateAllCloudWorkspaceRepos(node.workspaceId, token),
+							this.container.workspaces.locateAllCloudWorkspaceRepos(node.workspace.id, token),
 					);
 
 					void node.triggerChange(true);
@@ -161,7 +139,19 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 				this,
 			),
 			registerViewCommand(
-				this.getQualifiedCommand('openRepoNewWindow'),
+				this.getQualifiedCommand('repo.locate'),
+				async (node: RepositoryNode | WorkspaceMissingRepositoryNode) => {
+					const descriptor = node.wsRepositoryDescriptor;
+					if (descriptor == null || node.workspace?.id == null) return;
+
+					await this.container.workspaces.locateWorkspaceRepo(node.workspace.id, descriptor);
+
+					void node.getParent()?.triggerChange(true);
+				},
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('repo.openInNewWindow'),
 				(node: RepositoryNode) => {
 					const workspaceNode = node.getParent();
 					if (workspaceNode == null || !(workspaceNode instanceof WorkspaceNode)) {
@@ -173,7 +163,7 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 				this,
 			),
 			registerViewCommand(
-				this.getQualifiedCommand('openRepoCurrentWindow'),
+				this.getQualifiedCommand('repo.open'),
 				(node: RepositoryNode) => {
 					const workspaceNode = node.getParent();
 					if (workspaceNode == null || !(workspaceNode instanceof WorkspaceNode)) {
@@ -185,7 +175,7 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 				this,
 			),
 			registerViewCommand(
-				this.getQualifiedCommand('openRepoWorkspace'),
+				this.getQualifiedCommand('repo.addToWindow'),
 				(node: RepositoryNode) => {
 					const workspaceNode = node.getParent();
 					if (workspaceNode == null || !(workspaceNode instanceof WorkspaceNode)) {
@@ -196,17 +186,13 @@ export class WorkspacesView extends ViewBase<WorkspacesViewNode, WorkspacesViewC
 				},
 				this,
 			),
-			registerViewCommand(this.getQualifiedCommand('addRepos'), async (node: WorkspaceNode) => {
-				await this.container.workspaces.addCloudWorkspaceRepos(node.workspaceId);
-				void node.getParent()?.triggerChange(true);
-			}),
 			registerViewCommand(
-				this.getQualifiedCommand('removeRepo'),
+				this.getQualifiedCommand('repo.remove'),
 				async (node: RepositoryNode | WorkspaceMissingRepositoryNode) => {
-					const descriptor = node.workspaceRepositoryDescriptor;
-					if (descriptor?.id == null || node.workspaceId == null) return;
+					const descriptor = node.wsRepositoryDescriptor;
+					if (descriptor?.id == null || node.workspace?.id == null) return;
 
-					await this.container.workspaces.removeCloudWorkspaceRepo(node.workspaceId, descriptor);
+					await this.container.workspaces.removeCloudWorkspaceRepo(node.workspace.id, descriptor);
 					// TODO@axosoft-ramint Do we need the grandparent here?
 					void node.getParent()?.getParent()?.triggerChange(true);
 				},

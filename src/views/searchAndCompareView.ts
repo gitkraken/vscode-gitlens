@@ -245,11 +245,15 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 	}
 }
 
-export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, SearchAndCompareViewConfig> {
+export class SearchAndCompareView extends ViewBase<
+	'searchAndCompare',
+	SearchAndCompareViewNode,
+	SearchAndCompareViewConfig
+> {
 	protected readonly configKey = 'searchAndCompare';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.searchAndCompare', 'Search & Compare', 'searchAndCompareView');
+		super(container, 'searchAndCompare', 'Search & Compare', 'searchAndCompareView');
 
 		void setContext('gitlens:views:searchAndCompare:keepResults', this.keepResults);
 	}
@@ -501,7 +505,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 		repoPath: string,
 		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
 	) {
-		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof SearchAndCompareViewNode || n instanceof RepositoryFolderNode,
 		});

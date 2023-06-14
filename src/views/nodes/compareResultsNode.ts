@@ -8,26 +8,19 @@ import { debug, log } from '../../system/decorators/log';
 import { getSettledValue } from '../../system/promise';
 import { pluralize } from '../../system/string';
 import type { SearchAndCompareView } from '../searchAndCompareView';
-import { RepositoryNode } from './repositoryNode';
 import type { CommitsQueryResults } from './resultsCommitsNode';
 import { ResultsCommitsNode } from './resultsCommitsNode';
 import type { FilesQueryResults } from './resultsFilesNode';
 import { ResultsFilesNode } from './resultsFilesNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 let instanceId = 0;
 
 export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
-	static key = ':compare-results';
-	static getId(repoPath: string, ref1: string, ref2: string, instanceId: number): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${ref1}|${ref2}):${instanceId}`;
-	}
-
 	static getPinnableId(repoPath: string, ref1: string, ref2: string) {
 		return md5(`${repoPath}|${ref1}|${ref2}`, 'base64');
 	}
 
-	private _children: ViewNode[] | undefined;
 	private _instanceId: number;
 
 	constructor(
@@ -39,7 +32,14 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		private _pinned: number = 0,
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
+
 		this._instanceId = instanceId++;
+		this.updateContext({ comparisonId: `${_ref.ref}+${_compareWith.ref}+${this._instanceId}` });
+		this._uniqueId = getViewNodeId('comparison-results', this.context);
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	get ahead(): { readonly ref1: string; readonly ref2: string } {
@@ -56,10 +56,6 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		};
 	}
 
-	override get id(): string {
-		return CompareResultsNode.getId(this.repoPath, this._ref.ref, this._compareWith.ref, this._instanceId);
-	}
-
 	get canDismiss(): boolean {
 		return !this.pinned;
 	}
@@ -72,6 +68,8 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 	get pinned(): boolean {
 		return this._pinned !== 0;
 	}
+
+	private _children: ViewNode[] | undefined;
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
@@ -103,7 +101,6 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 						},
 					},
 					{
-						id: 'behind',
 						description: pluralize('commit', aheadBehindCounts?.behind ?? 0),
 						expand: false,
 					},
@@ -124,7 +121,6 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 						},
 					},
 					{
-						id: 'ahead',
 						description: pluralize('commit', aheadBehindCounts?.ahead ?? 0),
 						expand: false,
 					},
@@ -137,9 +133,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 					this._ref.ref,
 					this.getFilesQuery.bind(this),
 					undefined,
-					{
-						expand: false,
-					},
+					{ expand: false },
 				),
 			];
 		}

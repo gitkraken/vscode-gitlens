@@ -11,11 +11,11 @@ import { registerViewCommand } from './viewCommands';
 
 const pinnedSuffix = ' (pinned)';
 
-export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistoryViewConfig> {
+export class LineHistoryView extends ViewBase<'lineHistory', LineHistoryTrackerNode, LineHistoryViewConfig> {
 	protected readonly configKey = 'lineHistory';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.lineHistory', 'Line History', 'lineHistoryView');
+		super(container, 'lineHistory', 'Line History', 'lineHistoryView');
 
 		void setContext('gitlens:views:lineHistory:editorFollowing', true);
 	}

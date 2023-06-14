@@ -14,21 +14,11 @@ import type { ViewsWithContributors } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { insertDateMarkers } from './helpers';
-import { RepositoryNode } from './repositoryNode';
 import type { PageableViewNode } from './viewNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class ContributorNode extends ViewNode<ViewsWithContributors> implements PageableViewNode {
-	static key = ':contributor';
-	static getId(
-		repoPath: string,
-		name: string | undefined,
-		email: string | undefined,
-		username: string | undefined,
-		workspaceId?: string,
-	): string {
-		return `${RepositoryNode.getId(repoPath, workspaceId)}${this.key}(${name}|${email}|${username})`;
-	}
+	limit: number | undefined;
 
 	constructor(
 		uri: GitUri,
@@ -39,24 +29,21 @@ export class ContributorNode extends ViewNode<ViewsWithContributors> implements 
 			all?: boolean;
 			ref?: string;
 			presence: Map<string, ContactPresence> | undefined;
-			workspaceId?: string;
 		},
 	) {
 		super(uri, view, parent);
+
+		this.updateContext({ contributor: contributor });
+		this._uniqueId = getViewNodeId('contributor', this.context);
+		this.limit = this.view.getNodeLastKnownLimit(this);
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
 		return `${this.contributor.name}${this.contributor.email ? ` <${this.contributor.email}>` : ''}`;
-	}
-
-	override get id(): string {
-		return ContributorNode.getId(
-			this.contributor.repoPath,
-			this.contributor.name,
-			this.contributor.email,
-			this.contributor.username,
-			this._options?.workspaceId,
-		);
 	}
 
 	get repoPath(): string {
@@ -201,7 +188,6 @@ export class ContributorNode extends ViewNode<ViewsWithContributors> implements 
 		return this._log?.hasMore ?? true;
 	}
 
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	@gate()
 	async loadMore(limit?: number | { until?: any }) {
 		let log = await window.withProgress(

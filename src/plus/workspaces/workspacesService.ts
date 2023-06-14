@@ -1,5 +1,5 @@
 import type { CancellationToken, Event } from 'vscode';
-import { Disposable, EventEmitter, Uri, window } from 'vscode';
+import { Disposable, EventEmitter, ProgressLocation, Uri, window } from 'vscode';
 import { getSupportedWorkspacesPathMappingProvider } from '@env/providers';
 import type { Container } from '../../container';
 import type { GitRemote } from '../../git/models/remote';
@@ -16,7 +16,6 @@ import type {
 	CloudWorkspaceData,
 	CloudWorkspaceProviderType,
 	CloudWorkspaceRepositoryDescriptor,
-	GetCloudWorkspaceRepositoriesResponse,
 	GetWorkspacesResponse,
 	LoadCloudWorkspacesResponse,
 	LoadLocalWorkspacesResponse,
@@ -28,10 +27,10 @@ import type {
 	WorkspacesResponse,
 } from './models';
 import {
+	CloudWorkspace,
 	CloudWorkspaceProviderInputType,
 	cloudWorkspaceProviderTypeToRemoteProviderId,
-	GKCloudWorkspace,
-	GKLocalWorkspace,
+	LocalWorkspace,
 	WorkspaceAddRepositoriesChoice,
 	WorkspaceType,
 } from './models';
@@ -39,36 +38,16 @@ import { WorkspacesApi } from './workspacesApi';
 import type { WorkspacesPathMappingProvider } from './workspacesPathMappingProvider';
 
 export class WorkspacesService implements Disposable {
-	private _cloudWorkspaces: GKCloudWorkspace[] | undefined = undefined;
-	private _localWorkspaces: GKLocalWorkspace[] | undefined = undefined;
-	private _workspacesApi: WorkspacesApi;
-	private _workspacesPathProvider: WorkspacesPathMappingProvider;
 	private _onDidChangeWorkspaces: EventEmitter<void> = new EventEmitter<void>();
 	get onDidChangeWorkspaces(): Event<void> {
 		return this._onDidChangeWorkspaces.event;
 	}
-	private _disposable: Disposable;
 
-	// TODO@ramint Add error handling/logging when this is used.
-	private readonly _getCloudWorkspaceRepos: (workspaceId: string) => Promise<GetCloudWorkspaceRepositoriesResponse> =
-		async (workspaceId: string) => {
-			try {
-				const workspaceRepos = await this._workspacesApi.getWorkspaceRepositories(workspaceId);
-				const repoDescriptors = workspaceRepos?.data?.project?.provider_data?.repositories?.nodes;
-				return {
-					repositories:
-						repoDescriptors != null
-							? repoDescriptors.map(descriptor => ({ ...descriptor, workspaceId: workspaceId }))
-							: [],
-					repositoriesInfo: undefined,
-				};
-			} catch {
-				return {
-					repositories: undefined,
-					repositoriesInfo: 'Failed to load repositories for this workspace.',
-				};
-			}
-		};
+	private _cloudWorkspaces: CloudWorkspace[] | undefined;
+	private _disposable: Disposable;
+	private _localWorkspaces: LocalWorkspace[] | undefined;
+	private _workspacesApi: WorkspacesApi;
+	private _workspacesPathProvider: WorkspacesPathMappingProvider;
 
 	constructor(private readonly container: Container, private readonly server: ServerConnection) {
 		this._workspacesApi = new WorkspacesApi(this.container, this.server);
@@ -100,7 +79,7 @@ export class WorkspacesService implements Disposable {
 			};
 		}
 
-		const cloudWorkspaces: GKCloudWorkspace[] = [];
+		const cloudWorkspaces: CloudWorkspace[] = [];
 		let workspaces: CloudWorkspaceData[] | undefined;
 		try {
 			const workspaceResponse: WorkspacesResponse | undefined = excludeRepositories
@@ -137,12 +116,12 @@ export class WorkspacesService implements Disposable {
 				}
 
 				cloudWorkspaces.push(
-					new GKCloudWorkspace(
+					new CloudWorkspace(
+						this.container,
 						workspace.id,
 						workspace.name,
 						workspace.organization?.id,
 						workspace.provider as CloudWorkspaceProviderType,
-						this._getCloudWorkspaceRepos,
 						repositories,
 					),
 				);
@@ -160,12 +139,12 @@ export class WorkspacesService implements Disposable {
 
 	// TODO@ramint: When we interact more with local workspaces, this should return more info about failures.
 	private async loadLocalWorkspaces(): Promise<LoadLocalWorkspacesResponse> {
-		const localWorkspaces: GKLocalWorkspace[] = [];
+		const localWorkspaces: LocalWorkspace[] = [];
 		const workspaceFileData: LocalWorkspaceData =
 			(await this._workspacesPathProvider.getLocalWorkspaceData())?.workspaces || {};
 		for (const workspace of Object.values(workspaceFileData)) {
 			localWorkspaces.push(
-				new GKLocalWorkspace(
+				new LocalWorkspace(
 					workspace.localId,
 					workspace.name,
 					workspace.repositories.map(repositoryPath => ({
@@ -183,11 +162,11 @@ export class WorkspacesService implements Disposable {
 		};
 	}
 
-	private getCloudWorkspace(workspaceId: string): GKCloudWorkspace | undefined {
+	private getCloudWorkspace(workspaceId: string): CloudWorkspace | undefined {
 		return this._cloudWorkspaces?.find(workspace => workspace.id === workspaceId);
 	}
 
-	private getLocalWorkspace(workspaceId: string): GKLocalWorkspace | undefined {
+	private getLocalWorkspace(workspaceId: string): LocalWorkspace | undefined {
 		return this._localWorkspaces?.find(workspace => workspace.id === workspaceId);
 	}
 
@@ -215,6 +194,13 @@ export class WorkspacesService implements Disposable {
 		getWorkspacesResponse.localWorkspaces = this._localWorkspaces ?? [];
 
 		return getWorkspacesResponse;
+	}
+
+	async getCloudWorkspaceRepositories(workspaceId: string): Promise<CloudWorkspaceRepositoryDescriptor[]> {
+		// TODO@ramint Add error handling/logging when this is used.
+		const workspaceRepos = await this._workspacesApi.getWorkspaceRepositories(workspaceId);
+		const descriptors = workspaceRepos?.data?.project?.provider_data?.repositories?.nodes;
+		return descriptors?.map(d => ({ ...d, workspaceId: workspaceId })) ?? [];
 	}
 
 	resetWorkspaces(options?: { cloud?: boolean; local?: boolean }) {
@@ -260,7 +246,9 @@ export class WorkspacesService implements Disposable {
 	async locateAllCloudWorkspaceRepos(workspaceId: string, cancellation?: CancellationToken): Promise<void> {
 		const workspace = this.getCloudWorkspace(workspaceId);
 		if (workspace == null) return;
-		if (workspace.repositories == null || workspace.repositories.length === 0) return;
+
+		const repoDescriptors = await workspace.getRepositoryDescriptors();
+		if (repoDescriptors == null || repoDescriptors.length === 0) return;
 
 		const foundRepos = await this.getRepositoriesInParentFolder(cancellation);
 		if (foundRepos == null || foundRepos.length === 0 || cancellation?.isCancellationRequested) return;
@@ -564,12 +552,12 @@ export class WorkspacesService implements Disposable {
 			}
 
 			this._cloudWorkspaces?.push(
-				new GKCloudWorkspace(
+				new CloudWorkspace(
+					this.container,
 					createdProjectData.id,
 					createdProjectData.name,
 					createdProjectData.organization?.id,
 					createdProjectData.provider as CloudWorkspaceProviderType,
-					this._getCloudWorkspaceRepos,
 					[],
 				),
 			);
@@ -673,30 +661,52 @@ export class WorkspacesService implements Disposable {
 			if (repoChoice == null) return;
 
 			if (repoChoice.choice === WorkspaceAddRepositoriesChoice.ParentFolder) {
-				const foundRepos = await this.getRepositoriesInParentFolder();
-				if (foundRepos == null) return;
-				validRepos = await this.filterReposForProvider(foundRepos, workspace.provider);
-				if (validRepos.length === 0) {
-					if (!options?.suppressNotifications) {
-						void window.showInformationMessage(
-							`No matching repositories found for provider ${workspace.provider}.`,
-							{
-								modal: true,
-							},
-						);
-					}
-					return;
-				}
+				await window.withProgress(
+					{
+						location: ProgressLocation.Notification,
+						title: `Finding repositories to add to the workspace...`,
+						cancellable: true,
+					},
+					async (_progress, token) => {
+						const foundRepos = await this.getRepositoriesInParentFolder(token);
+						if (foundRepos == null) return;
+						if (foundRepos.length === 0) {
+							if (!options?.suppressNotifications) {
+								void window.showInformationMessage(`No repositories found in the chosen folder.`, {
+									modal: true,
+								});
+							}
+							return;
+						}
 
-				validRepos = await this.filterReposForCloudWorkspace(validRepos, workspaceId);
-				if (validRepos.length === 0) {
-					if (!options?.suppressNotifications) {
-						void window.showInformationMessage(`All possible repositories are already in this workspace.`, {
-							modal: true,
-						});
-					}
-					return;
-				}
+						if (token.isCancellationRequested) return;
+						validRepos = await this.filterReposForProvider(foundRepos, workspace.provider);
+						if (validRepos.length === 0) {
+							if (!options?.suppressNotifications) {
+								void window.showInformationMessage(
+									`No matching repositories found for provider ${workspace.provider}.`,
+									{
+										modal: true,
+									},
+								);
+							}
+							return;
+						}
+
+						if (token.isCancellationRequested) return;
+						validRepos = await this.filterReposForCloudWorkspace(validRepos, workspaceId);
+						if (validRepos.length === 0) {
+							if (!options?.suppressNotifications) {
+								void window.showInformationMessage(
+									`All possible repositories are already in this workspace.`,
+									{
+										modal: true,
+									},
+								);
+							}
+						}
+					},
+				);
 			}
 
 			const pick = await showRepositoriesPicker(
@@ -780,10 +790,13 @@ export class WorkspacesService implements Disposable {
 		},
 	): Promise<WorkspaceRepositoriesByName> {
 		const workspaceRepositoriesByName: WorkspaceRepositoriesByName = new Map<string, RepositoryMatch>();
-		const workspace: GKCloudWorkspace | GKLocalWorkspace | undefined =
-			this.getCloudWorkspace(workspaceId) ?? this.getLocalWorkspace(workspaceId);
 
-		if (workspace?.repositories == null || workspace.repositories.length === 0) return workspaceRepositoriesByName;
+		const workspace = this.getLocalWorkspace(workspaceId) ?? this.getCloudWorkspace(workspaceId);
+		if (workspace == null) return workspaceRepositoriesByName;
+
+		const repoDescriptors = await workspace.getRepositoryDescriptors();
+		if (repoDescriptors == null || repoDescriptors.length === 0) return workspaceRepositoriesByName;
+
 		const currentRepositories = options?.repositories ?? this.container.git.repositories;
 
 		const reposProviderMap = new Map<string, Repository>();
@@ -792,7 +805,7 @@ export class WorkspacesService implements Disposable {
 			if (options?.cancellation?.isCancellationRequested) break;
 			reposPathMap.set(normalizePath(repo.uri.fsPath.toLowerCase()), repo);
 
-			if (workspace instanceof GKCloudWorkspace) {
+			if (workspace instanceof CloudWorkspace) {
 				const remotes = await repo.getRemotes();
 				for (const remote of remotes) {
 					const remoteDescriptor = getRemoteDescriptor(remote);
@@ -805,7 +818,7 @@ export class WorkspacesService implements Disposable {
 			}
 		}
 
-		for (const descriptor of workspace.repositories) {
+		for (const descriptor of repoDescriptors) {
 			let repoLocalPath = null;
 			let foundRepo = null;
 
@@ -864,12 +877,14 @@ export class WorkspacesService implements Disposable {
 		workspaceType: WorkspaceType,
 		options?: { open?: boolean },
 	): Promise<void> {
-		const workspace: GKCloudWorkspace | GKLocalWorkspace | undefined =
+		const workspace =
 			workspaceType === WorkspaceType.Cloud
 				? this.getCloudWorkspace(workspaceId)
 				: this.getLocalWorkspace(workspaceId);
+		if (workspace == null) return;
 
-		if (workspace?.repositories == null) return;
+		const repoDescriptors = await workspace.getRepositoryDescriptors();
+		if (repoDescriptors == null) return;
 
 		const workspaceRepositoriesByName = await this.resolveWorkspaceRepositoriesByName(workspaceId, {
 			resolveFromPath: true,
@@ -889,7 +904,7 @@ export class WorkspacesService implements Disposable {
 			}
 		}
 
-		if (workspaceFolderPaths.length < workspace.repositories.length) {
+		if (workspaceFolderPaths.length < repoDescriptors.length) {
 			const confirmation = await window.showWarningMessage(
 				`Some repositories in this workspace could not be located locally. Do you want to continue?`,
 				{ modal: true },

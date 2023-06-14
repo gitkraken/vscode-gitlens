@@ -232,6 +232,24 @@ gk-card p {
 		}
 	}
 
+	&__gates {
+		p:first-child {
+			margin-bottom: 0.5rem;
+		}
+
+		p:last-child {
+			margin-top: 0.5rem;
+			margin-left: 2rem;
+		}
+	}
+
+	&__preview {
+		margin-left: 0.5rem;
+		font-size: 1.1rem;
+		font-weight: normal;
+		text-transform: uppercase;
+	}
+
 	&__toolbar {
 		display: flex;
 		flex-direction: row;

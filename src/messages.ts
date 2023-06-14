@@ -179,7 +179,7 @@ export async function showWhatsNewMessage(version: string) {
 	const reset = { title: 'Switch to New Layout' };
 	const result = await showMessage(
 		'info',
-		`Upgraded to GitLens ${version} — [see what's new](https://help.gitkraken.com/gitlens/gitlens-release-notes-current/ "See what's new in GitLens ${version}").\nWe've rearranged our views for greater focus and productivity, and recommend switching to the new layout — [learn more and tell us what you think](https://github.com/gitkraken/vscode-gitlens/discussions/2721 "Learn more about what's changed")!`,
+		`Upgraded to GitLens ${version} — [see what's new](https://help.gitkraken.com/gitlens/gitlens-release-notes-current/ "See what's new in GitLens ${version}").\nWe've reimagined and rearranged our views for greater focus and productivity, and recommend switching to the new layout — [learn more and tell us what you think](https://github.com/gitkraken/vscode-gitlens/discussions/2721 "Learn more about what's changed")!`,
 		undefined,
 		null,
 		reset,

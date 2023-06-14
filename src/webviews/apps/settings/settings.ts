@@ -16,7 +16,6 @@ import { formatDate, setDefaultDateLocales } from '../shared/date';
 import { DOM } from '../shared/dom';
 // import { Snow } from '../shared/snow';
 import '../welcome/components/gitlens-logo';
-import '../welcome/components/gitlens-plus-logo';
 
 const topOffset = 83;
 const offset = (new Date().getTimezoneOffset() / 60) * 100;
@@ -150,6 +149,8 @@ export class SettingsApp extends App<State> {
 				onIpc(DidChangeConfigurationNotificationType, msg, params => {
 					this.state.config = params.config;
 					this.state.customSettings = params.customSettings;
+					this.state.timestamp = Date.now();
+					this.setState(this.state);
 
 					this.updateState();
 				});

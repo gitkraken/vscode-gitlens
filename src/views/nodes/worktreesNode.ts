@@ -7,16 +7,10 @@ import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import type { ViewsWithWorktreesNode } from '../viewBase';
 import { MessageNode } from './common';
-import { RepositoryNode } from './repositoryNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 import { WorktreeNode } from './worktreeNode';
 
 export class WorktreesNode extends ViewNode<ViewsWithWorktreesNode> {
-	static key = ':worktrees';
-	static getId(repoPath: string, workspaceId?: string): string {
-		return `${RepositoryNode.getId(repoPath, workspaceId)}${this.key}`;
-	}
-
 	private _children: WorktreeNode[] | undefined;
 
 	constructor(
@@ -24,15 +18,15 @@ export class WorktreesNode extends ViewNode<ViewsWithWorktreesNode> {
 		view: ViewsWithWorktreesNode,
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
-		private readonly options?: {
-			workspaceId?: string;
-		},
 	) {
 		super(uri, view, parent);
+
+		this.updateContext({ repository: repo });
+		this._uniqueId = getViewNodeId('worktrees', this.context);
 	}
 
 	override get id(): string {
-		return WorktreesNode.getId(this.repo.path, this.options?.workspaceId);
+		return this._uniqueId;
 	}
 
 	get repoPath(): string {
@@ -47,9 +41,7 @@ export class WorktreesNode extends ViewNode<ViewsWithWorktreesNode> {
 			const worktrees = await this.repo.getWorktrees();
 			if (worktrees.length === 0) return [new MessageNode(this.view, this, 'No worktrees could be found.')];
 
-			this._children = worktrees.map(
-				c => new WorktreeNode(this.uri, this.view, this, c, { workspaceId: this.options?.workspaceId }),
-			);
+			this._children = worktrees.map(wt => new WorktreeNode(this.uri, this.view, this, wt));
 		}
 
 		return this._children;
@@ -66,7 +58,7 @@ export class WorktreesNode extends ViewNode<ViewsWithWorktreesNode> {
 		item.contextValue = ContextValues.Worktrees;
 		item.description = access.allowed
 			? undefined
-			: ` ${GlyphChars.Warning}  Requires GitLens Pro to access Worktrees on private repos`;
+			: ` ${GlyphChars.Warning}  Requires a trial or paid plan for use on privately hosted repos`;
 		// TODO@eamodio `folder` icon won't work here for some reason
 		item.iconPath = new ThemeIcon('folder-opened');
 		return item;

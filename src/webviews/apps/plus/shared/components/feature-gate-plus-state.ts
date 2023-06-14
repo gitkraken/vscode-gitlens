@@ -78,7 +78,7 @@ export class FeatureGatePlusState extends LitElement {
 						Preview Pro for 3 days, or
 						<a href="command:gitlens.plus.loginOrSignUp">sign in</a> to start a full 7-day Pro trial.
 					</p>
-					<p>✨ A trial or subscription is required to use this on privately hosted repos.</p>
+					<p>✨ A trial or paid plan is required to use this on privately hosted repos.</p>
 				`;
 
 			case SubscriptionState.FreePreviewTrialExpired:
@@ -90,7 +90,7 @@ export class FeatureGatePlusState extends LitElement {
 					<gk-button appearance="${appearance}" href="command:gitlens.plus.loginOrSignUp"
 						>Start Free Pro Trial</gk-button
 					>
-					<p>✨ A trial or subscription is required to use this on privately hosted repos.</p>
+					<p>✨ A trial or paid plan is required to use this on privately hosted repos.</p>
 				`;
 
 			case SubscriptionState.FreePlusTrialExpired:
@@ -99,7 +99,7 @@ export class FeatureGatePlusState extends LitElement {
 					<gk-button appearance="${appearance}" href="command:gitlens.plus.purchase"
 						>Upgrade to Pro</gk-button
 					>
-					<p>✨ A subscription is required to use this on privately hosted repos.</p>
+					<p>✨ A paid plan is required to use this on privately hosted repos.</p>
 				`;
 		}
 

@@ -1,3 +1,4 @@
-<p align="center">
+<figure align="center">
   <img src="../../images/docs/rebase.gif" alt="Interactive rebase editor"/>
-</p>
+  <figcaption>Interactive rebase editor</figcaption>
+</figure>

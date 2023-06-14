@@ -418,6 +418,12 @@ export class GitProviderService implements Disposable {
 		const disposable = Disposable.from(
 			provider,
 			...disposables,
+			provider.onDidChange(() => {
+				const { workspaceFolders } = workspace;
+				if (workspaceFolders?.length) {
+					void this.discoverRepositories(workspaceFolders, { force: true });
+				}
+			}),
 			provider.onDidChangeRepository(async e => {
 				if (
 					e.changed(

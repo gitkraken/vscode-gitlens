@@ -11,7 +11,7 @@
 			@font-face {
 				font-family: 'glicons';
 				font-display: block;
-				src: url('#{root}/dist/glicons.woff2?ab6c9110fb0444acd9ba719c4c55fa68') format('woff2');
+				src: url('#{root}/dist/glicons.woff2?8e33f5a80a91b05940d687a08305c156') format('woff2');
 			}
 		</style>
 	</head>
@@ -136,7 +136,7 @@
 					aria-label="Show Commit Details view"
 					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="gl-commit-view"></code-icon
-					><span class="nav-list__label">Commit Details view</span></a
+					><span class="nav-list__label">Commit Details</span></a
 				>
 				<a
 					class="nav-list__item"
@@ -145,7 +145,7 @@
 					aria-label="Show Commits view"
 					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="gl-commits-view"></code-icon
-					><span class="nav-list__label">Commits view</span></a
+					><span class="nav-list__label">Commits</span></a
 				>
 				<a
 					class="nav-list__item"
@@ -154,7 +154,7 @@
 					aria-label="Open Focus"
 					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="target"></code-icon
-					><span class="nav-list__label">Focus ☁️</span></a
+					><span class="nav-list__label">Focus ✨</span></a
 				>
 				<a
 					class="nav-list__item"
@@ -163,7 +163,7 @@
 					aria-label="Show File History view"
 					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="gl-history-view"></code-icon
-					><span class="nav-list__label">File History view</span></a
+					><span class="nav-list__label">File History</span></a
 				>
 				<a
 					class="nav-list__item"
@@ -173,6 +173,15 @@
 					data-requires="repo"
 					><code-icon class="nav-list__icon" icon="graph-scatter"></code-icon
 					><span class="nav-list__label">Visual File History ✨</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showStashesView"
+					title="Show Stashes view"
+					aria-label="Show Stashes view"
+					data-requires="repo"
+					><code-icon class="nav-list__icon" icon="gl-stashes-view"></code-icon
+					><span class="nav-list__label">Stashes</span></a
 				>
 				<a
 					class="nav-list__item"
@@ -186,11 +195,11 @@
 				<a
 					class="nav-list__item"
 					href="command:gitlens.showWorkspacesView"
-					title="Show Workspaces view"
-					aria-label="Show Workspaces view"
+					title="Show GitKraken Workspaces view"
+					aria-label="Show GitKraken Workspaces view"
 					data-requires="repo"
-					><code-icon class="nav-list__icon" icon="gl-worktrees-view"></code-icon
-					><span class="nav-list__label">Workspaces ☁️</span></a
+					><code-icon class="nav-list__icon" icon="gl-workspaces-view"></code-icon
+					><span class="nav-list__label">GitKraken Workspaces ☁️</span></a
 				>
 				<a
 					class="nav-list__item"
@@ -297,7 +306,10 @@
 					><span class="nav-list__label">Tutorial Video</span></a
 				>
 			</nav>
-			<p class="t-subtle">✨ Requires a trial or subscription to use this on privately hosted repos.</p>
+			<p class="t-subtle">
+				✨ Requires a trial or paid plan to use this on privately hosted repos. <br />
+				☁️ Requires an account and access is based on your plan, e.g. Free, Pro, etc
+			</p>
 		</main>
 
 		#{endOfBody}

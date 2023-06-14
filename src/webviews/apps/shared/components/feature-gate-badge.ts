@@ -118,13 +118,18 @@ export class FeatureGateBadge extends LitElement {
 			case SubscriptionState.Free:
 			case SubscriptionState.FreePreviewTrialExpired:
 				return html`<span class="badge-footnote"
-					>✨ Requires a trial or subscription for use on privately hosted repos.</span
+					>✨ Requires a trial or paid plan for use on privately hosted repos.</span
 				>`;
 			case SubscriptionState.FreePlusTrialExpired:
 			case SubscriptionState.FreeInPreviewTrial:
 			case SubscriptionState.FreePlusInTrial:
 				return html`<span class="badge-footnote"
-					>✨ Requires a subscription for use on privately hosted repos.</span
+					>✨ Requires a paid plan for use on privately hosted repos.</span
+				>`;
+			case SubscriptionState.Paid:
+				/* prettier-ignore */
+				return html`<span class="badge-footnote"
+					>You have access to ✨ features on privately hosted repos and ☁️ features based on your plan.</span
 				>`;
 			default:
 				return nothing;

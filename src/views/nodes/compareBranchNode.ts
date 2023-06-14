@@ -13,19 +13,13 @@ import { getSettledValue } from '../../system/promise';
 import { pluralize } from '../../system/string';
 import type { ViewsWithBranches } from '../viewBase';
 import type { WorktreesView } from '../worktreesView';
-import { RepositoryNode } from './repositoryNode';
 import type { CommitsQueryResults } from './resultsCommitsNode';
 import { ResultsCommitsNode } from './resultsCommitsNode';
 import type { FilesQueryResults } from './resultsFilesNode';
 import { ResultsFilesNode } from './resultsFilesNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class CompareBranchNode extends ViewNode<ViewsWithBranches | WorktreesView> {
-	static key = ':compare-branch';
-	static getId(repoPath: string, name: string, root: boolean, workspaceId?: string): string {
-		return `${RepositoryNode.getId(repoPath, workspaceId)}${this.key}(${name})${root ? ':root' : ''}`;
-	}
-
 	private _children: ViewNode[] | undefined;
 	private _compareWith: StoredBranchComparison | undefined;
 
@@ -37,10 +31,11 @@ export class CompareBranchNode extends ViewNode<ViewsWithBranches | WorktreesVie
 		private showComparison: ViewShowBranchComparison,
 		// Specifies that the node is shown as a root
 		public readonly root: boolean = false,
-		private readonly options?: { workspaceId?: string },
 	) {
 		super(uri, view, parent);
 
+		this.updateContext({ branch: branch, root: root });
+		this._uniqueId = getViewNodeId('compare-branch', this.context);
 		this.loadCompareWith();
 	}
 
@@ -56,10 +51,6 @@ export class CompareBranchNode extends ViewNode<ViewsWithBranches | WorktreesVie
 			ref1: this.branch.ref,
 			ref2: this._compareWith?.ref || 'HEAD',
 		};
-	}
-
-	override get id(): string {
-		return CompareBranchNode.getId(this.branch.repoPath, this.branch.name, this.root, this.options?.workspaceId);
 	}
 
 	get repoPath(): string {
@@ -98,7 +89,6 @@ export class CompareBranchNode extends ViewNode<ViewsWithBranches | WorktreesVie
 						},
 					},
 					{
-						id: 'behind',
 						description: pluralize('commit', aheadBehindCounts?.behind ?? 0),
 						expand: false,
 					},
@@ -121,7 +111,6 @@ export class CompareBranchNode extends ViewNode<ViewsWithBranches | WorktreesVie
 						},
 					},
 					{
-						id: 'ahead',
 						description: pluralize('commit', aheadBehindCounts?.ahead ?? 0),
 						expand: false,
 					},
@@ -134,9 +123,7 @@ export class CompareBranchNode extends ViewNode<ViewsWithBranches | WorktreesVie
 					this.compareWithWorkingTree ? '' : this.branch.ref,
 					this.getFilesQuery.bind(this),
 					undefined,
-					{
-						expand: false,
-					},
+					{ expand: false },
 				),
 			];
 		}

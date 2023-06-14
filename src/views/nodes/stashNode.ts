@@ -10,35 +10,29 @@ import { sortCompare } from '../../system/string';
 import type { ViewsWithStashes } from '../viewBase';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
-import { RepositoryNode } from './repositoryNode';
 import { StashFileNode } from './stashFileNode';
 import type { ViewNode } from './viewNode';
-import { ContextValues, ViewRefNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewRefNode } from './viewNode';
 
 export class StashNode extends ViewRefNode<ViewsWithStashes, GitStashReference> {
-	static key = ':stash';
-	static getId(repoPath: string, ref: string, workspaceId?: string): string {
-		return `${RepositoryNode.getId(repoPath, workspaceId)}${this.key}(${ref})`;
-	}
-
 	constructor(
 		view: ViewsWithStashes,
-		parent: ViewNode,
+		protected override parent: ViewNode,
 		public readonly commit: GitStashCommit,
-		private readonly options?: {
-			icon?: boolean;
-			workspaceId?: string;
-		},
+		private readonly options?: { icon?: boolean },
 	) {
 		super(commit.getGitUri(), view, parent);
+
+		this.updateContext({ commit: commit });
+		this._uniqueId = getViewNodeId('stash', this.context);
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
 		return this.commit.stashName;
-	}
-
-	override get id(): string {
-		return StashNode.getId(this.commit.repoPath, this.commit.sha, this.options?.workspaceId);
 	}
 
 	get ref(): GitStashReference {
@@ -58,7 +52,7 @@ export class StashNode extends ViewRefNode<ViewsWithStashes, GitStashReference> 
 				this.view.config.files.compact,
 			);
 
-			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
+			const root = new FolderNode(this.view, this, hierarchy, this.repoPath, '', undefined);
 			children = root.getChildren() as FileNode[];
 		} else {
 			children.sort((a, b) => sortCompare(a.label!, b.label!));

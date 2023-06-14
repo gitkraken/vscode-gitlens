@@ -18,7 +18,6 @@ import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/
 import { executeCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
-import { RepositoryNode } from './nodes/repositoryNode';
 import { StashesNode } from './nodes/stashesNode';
 import { StashFileNode } from './nodes/stashFileNode';
 import { StashNode } from './nodes/stashNode';
@@ -89,11 +88,11 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 	}
 }
 
-export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
+export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesViewConfig> {
 	protected readonly configKey = 'stashes';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.stashes', 'Stashes', 'stashesView');
+		super(container, 'stashes', 'Stashes', 'stashesView');
 	}
 
 	override get canReveal(): boolean {
@@ -200,15 +199,15 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 	}
 
 	findStash(stash: GitStashReference, token?: CancellationToken) {
-		const repoNodeId = RepositoryNode.getId(stash.repoPath);
+		const { repoPath } = stash;
 
-		return this.findNode(StashNode.getId(stash.repoPath, stash.ref), {
+		return this.findNode((n: any) => n.commit?.ref === stash.ref, {
 			maxDepth: 2,
 			canTraverse: n => {
 				if (n instanceof StashesViewNode) return true;
 
 				if (n instanceof StashesRepositoryNode) {
-					return n.id.startsWith(repoNodeId);
+					return n.repoPath === repoPath;
 				}
 
 				return false;
@@ -222,7 +221,7 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 		repoPath: string,
 		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
 	) {
-		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof StashesViewNode || n instanceof RepositoryFolderNode,
 		});

@@ -47,14 +47,17 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 		if (type === 'repository') {
 			if (status === 'open') {
 				return {
-					badge: 'O',
+					badge: '●',
 					color: new ThemeColor('gitlens.decorations.workspaceRepoOpenForegroundColor' satisfies Colors),
-					tooltip: 'Open',
+					tooltip: '',
 				};
-			} else if (status === 'missing') {
+			}
+
+			if (status === 'missing') {
 				return {
+					badge: '?',
 					color: new ThemeColor('gitlens.decorations.workspaceRepoMissingForegroundColor' satisfies Colors),
-					tooltip: 'Missing',
+					tooltip: '',
 				};
 			}
 		}

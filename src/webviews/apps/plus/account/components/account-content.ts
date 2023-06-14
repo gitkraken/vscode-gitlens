@@ -185,7 +185,7 @@ export class AccountContent extends LitElement {
 					</button-container>
 					<p>
 						You only have access to ✨ features on local and publicly hosted repos and ☁️ features based on
-						your subscription tier, e.g. Free, Pro, etc.
+						your plan, e.g. Free, Pro, etc.
 					</p>
 				`;
 
@@ -199,7 +199,7 @@ export class AccountContent extends LitElement {
 						<gk-button full href="command:gitlens.plus.purchase">Upgrade to Pro</gk-button>
 					</button-container>
 					<p>
-						You have access to ✨ features on privately hosted repos and ☁️ features based on the Pro tier
+						You have access to ✨ features on privately hosted repos and ☁️ features based on the Pro plan
 						during your trial.
 					</p>
 				`;
@@ -211,10 +211,7 @@ export class AccountContent extends LitElement {
 							>Manage Account</gk-button
 						>
 					</button-container>
-					<p>
-						You have access to ✨ features on privately hosted repos and ☁️ features based on your
-						subscription tier.
-					</p>
+					<p>You have access to ✨ features on privately hosted repos and ☁️ features based on your plan.</p>
 				`;
 		}
 

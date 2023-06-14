@@ -56,7 +56,7 @@ export function createDirectiveQuickPickItem(
 				break;
 			case Directive.RequiresPaidSubscription:
 				label = 'Upgrade to Pro';
-				detail = 'A subscription is required to use this on privately hosted repos';
+				detail = 'A paid plan is required to use this on privately hosted repos';
 				break;
 		}
 	}

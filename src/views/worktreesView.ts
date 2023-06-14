@@ -1,4 +1,4 @@
-import type { CancellationToken, ConfigurationChangeEvent, Disposable, TreeViewVisibilityChangeEvent } from 'vscode';
+import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, ThemeColor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { WorktreesViewConfig } from '../config';
 import { ViewFilesLayout, ViewShowBranchComparison } from '../config';
@@ -11,11 +11,9 @@ import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import type { GitWorktree } from '../git/models/worktree';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
-import { SubscriptionState } from '../subscription';
 import { executeCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
-import { RepositoryNode } from './nodes/repositoryNode';
 import type { ViewNode } from './nodes/viewNode';
 import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { WorktreeNode } from './nodes/worktreeNode';
@@ -93,11 +91,11 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 	}
 }
 
-export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConfig> {
+export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, WorktreesViewConfig> {
 	protected readonly configKey = 'worktrees';
 
 	constructor(container: Container) {
-		super(container, 'gitlens.views.worktrees', 'Worktrees', 'workspaceView');
+		super(container, 'worktrees', 'Worktrees', 'workspaceView');
 
 		this.disposables.push(
 			window.registerFileDecorationProvider({
@@ -120,6 +118,7 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 				},
 			}),
 		);
+		this.description = '✨';
 	}
 
 	override get canReveal(): boolean {
@@ -129,25 +128,6 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
 		return super.show(options);
-	}
-
-	private _visibleDisposable: Disposable | undefined;
-	protected override onVisibilityChanged(e: TreeViewVisibilityChangeEvent): void {
-		if (e.visible) {
-			void this.updateDescription();
-			this._visibleDisposable?.dispose();
-			this._visibleDisposable = this.container.subscription.onDidChange(() => void this.updateDescription());
-		} else {
-			this._visibleDisposable?.dispose();
-			this._visibleDisposable = undefined;
-		}
-
-		super.onVisibilityChanged(e);
-	}
-
-	private async updateDescription() {
-		const subscription = await this.container.subscription.getSubscription();
-		this.description = subscription.state === SubscriptionState.Paid ? undefined : '✨';
 	}
 
 	protected getRoot() {
@@ -232,15 +212,16 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 	}
 
 	findWorktree(worktree: GitWorktree, token?: CancellationToken) {
-		const repoNodeId = RepositoryNode.getId(worktree.repoPath);
+		const { repoPath, uri } = worktree;
+		const url = uri.toString();
 
-		return this.findNode(WorktreeNode.getId(worktree.repoPath, worktree.uri), {
+		return this.findNode(n => n instanceof WorktreeNode && worktree.uri.toString() === url, {
 			maxDepth: 2,
 			canTraverse: n => {
 				if (n instanceof WorktreesViewNode) return true;
 
 				if (n instanceof WorktreesRepositoryNode) {
-					return n.id.startsWith(repoNodeId);
+					return n.repoPath === repoPath;
 				}
 
 				return false;
@@ -254,7 +235,7 @@ export class WorktreesView extends ViewBase<WorktreesViewNode, WorktreesViewConf
 		repoPath: string,
 		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
 	) {
-		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof WorktreesViewNode || n instanceof RepositoryFolderNode,
 		});

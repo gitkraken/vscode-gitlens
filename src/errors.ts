@@ -12,9 +12,9 @@ export class AccessDeniedError extends Error {
 		if (subscription.account?.verified === false) {
 			message = 'Email verification required';
 		} else if (required != null && isSubscriptionPaidPlan(required)) {
-			message = 'Paid subscription required';
+			message = 'Paid plan required';
 		} else {
-			message = 'Subscription required';
+			message = 'Plan required';
 		}
 
 		super(message);

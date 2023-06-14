@@ -4,6 +4,8 @@ import { bar, bb, bubble, zoom } from 'billboard.js';
 // import BubbleCompare from 'billboard.js/dist/plugin/billboardjs-plugin-bubblecompare';
 // import { scaleSqrt } from 'd3-scale';
 import type { Commit, State } from '../../../../plus/webviews/timeline/protocol';
+import type { Deferred } from '../../../../system/promise';
+import { defer } from '../../../../system/promise';
 import { formatDate, fromNow } from '../../shared/date';
 import type { Disposable, Event } from '../../shared/events';
 import { Emitter } from '../../shared/events';
@@ -105,7 +107,9 @@ export class TimelineChart implements Disposable {
 		}
 	}
 
-	updateChart(state: State) {
+	private _loading: Deferred<void> | undefined;
+
+	async updateChart(state: State) {
 		this._dateFormat = state.dateFormat;
 		this._shortDateFormat = state.shortDateFormat;
 
@@ -230,6 +234,17 @@ export class TimelineChart implements Disposable {
 		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 		const columns = Object.entries(series).map(([key, value]) => [key, ...value]);
 
+		// The the chart is already loading, cancel and destroy it -- otherwise it won't load the data properly
+		if (this._chart != null && this._loading != null) {
+			this._loading.cancel();
+			this._loading = undefined;
+
+			this._chart?.destroy();
+			this._chart = undefined;
+		}
+
+		this._loading = defer<void>();
+
 		try {
 			if (this._chart == null) {
 				const options = this.getChartOptions();
@@ -258,6 +273,12 @@ export class TimelineChart implements Disposable {
 					xs: xs,
 				};
 
+				options.onafterinit = () =>
+					setTimeout(() => {
+						this._loading?.fulfill();
+						this._loading = undefined;
+					}, 250);
+
 				this._chart = bb.generate(options);
 			} else {
 				this._chart.config('axis.y.tick.values', [...this._authorsByIndex.keys()], false);
@@ -272,8 +293,16 @@ export class TimelineChart implements Disposable {
 					types: types,
 					xs: xs,
 					unload: true,
+					done: () => {
+						setTimeout(() => {
+							this._loading?.fulfill();
+							this._loading = undefined;
+						}, 250);
+					},
 				});
 			}
+
+			return this._loading.promise;
 		} catch (ex) {
 			debugger;
 		}

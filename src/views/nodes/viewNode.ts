@@ -4,19 +4,32 @@ import { GlyphChars } from '../../constants';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import type { GitUri } from '../../git/gitUri';
 import { unknownGitUri } from '../../git/gitUri';
+import type { GitBranch } from '../../git/models/branch';
+import type { GitCommit } from '../../git/models/commit';
+import type { GitContributor } from '../../git/models/contributor';
 import type { GitFile } from '../../git/models/file';
 import type { GitReference, GitRevisionReference } from '../../git/models/reference';
 import { getReferenceLabel } from '../../git/models/reference';
+import type { GitReflogRecord } from '../../git/models/reflog';
 import { GitRemote } from '../../git/models/remote';
 import type { RepositoryChangeEvent } from '../../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
+import type { GitTag } from '../../git/models/tag';
+import type { GitWorktree } from '../../git/models/worktree';
 import type { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
+import type {
+	CloudWorkspace,
+	CloudWorkspaceRepositoryDescriptor,
+	LocalWorkspace,
+	LocalWorkspaceRepositoryDescriptor,
+} from '../../plus/workspaces/models';
 import { gate } from '../../system/decorators/gate';
 import { debug, log, logName } from '../../system/decorators/log';
 import { is as isA, szudzikPairing } from '../../system/function';
 import { getLoggableName } from '../../system/logger';
 import { pad } from '../../system/string';
 import type { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
+import type { BranchTrackingStatus } from './branchTrackingStatusNode';
 
 export const enum ContextValues {
 	ActiveFileHistory = 'gitlens:history:active:file',
@@ -84,16 +97,118 @@ export const enum ContextValues {
 	Worktrees = 'gitlens:worktrees',
 }
 
+export interface AmbientContext {
+	readonly autolinksId?: string;
+	readonly branch?: GitBranch;
+	readonly branchStatus?: BranchTrackingStatus;
+	readonly branchStatusUpstreamType?: 'ahead' | 'behind' | 'same' | 'none';
+	readonly commit?: GitCommit;
+	readonly comparisonId?: string;
+	readonly contributor?: GitContributor;
+	readonly file?: GitFile;
+	readonly reflog?: GitReflogRecord;
+	readonly remote?: GitRemote;
+	readonly repository?: Repository;
+	readonly root?: boolean;
+	readonly searchId?: string;
+	readonly tag?: GitTag;
+	readonly workspace?: CloudWorkspace | LocalWorkspace;
+	readonly wsRepositoryDescriptor?: CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor;
+	readonly worktree?: GitWorktree;
+}
+
+export function getViewNodeId(type: string, context: AmbientContext): string {
+	let uniqueness = '';
+	if (context.root) {
+		uniqueness += '/root';
+	}
+	if (context.workspace != null) {
+		uniqueness += `/ws/${context.workspace.id}`;
+	}
+	if (context.wsRepositoryDescriptor != null) {
+		uniqueness += `/wsrepo/${context.wsRepositoryDescriptor.id}`;
+	}
+	if (context.repository != null) {
+		uniqueness += `/repo/${context.repository.id}`;
+	}
+	if (context.worktree != null) {
+		uniqueness += `/worktree/${context.worktree.uri.path}`;
+	}
+	if (context.remote != null) {
+		uniqueness += `/remote/${context.remote.id}`;
+	}
+	if (context.tag != null) {
+		uniqueness += `/tag/${context.tag.id}`;
+	}
+	if (context.branch != null) {
+		uniqueness += `/branch/${context.branch.id}`;
+	}
+	if (context.branchStatus != null) {
+		uniqueness += `/status/${context.branchStatus.upstream ?? '-'}`;
+	}
+	if (context.branchStatusUpstreamType != null) {
+		uniqueness += `/status-direction/${context.branchStatusUpstreamType}`;
+	}
+	if (context.reflog != null) {
+		uniqueness += `/reflog/${context.reflog.sha}+${context.reflog.selector}+${context.reflog.command}+${
+			context.reflog.commandArgs ?? ''
+		}+${context.reflog.date.getTime()}`;
+	}
+	if (context.contributor != null) {
+		uniqueness += `/contributor/${
+			context.contributor.id ??
+			`${context.contributor.username}+${context.contributor.email}+${context.contributor.name}`
+		}`;
+	}
+	if (context.autolinksId != null) {
+		uniqueness += `/autolinks/${context.autolinksId}`;
+	}
+	if (context.comparisonId != null) {
+		uniqueness += `/comparison/${context.comparisonId}`;
+	}
+	if (context.searchId != null) {
+		uniqueness += `/search/${context.searchId}`;
+	}
+	if (context.commit != null) {
+		uniqueness += `/commit/${context.commit.sha}`;
+	}
+	if (context.file != null) {
+		uniqueness += `/file/${context.file.path}+${context.file.status}`;
+	}
+
+	return `gitlens://viewnode/${type}${uniqueness}`;
+}
+
 @logName<ViewNode>((c, name) => `${name}${c.id != null ? `(${c.id})` : ''}`)
 export abstract class ViewNode<TView extends View = View, State extends object = any> {
+	protected _uniqueId!: string;
+
 	protected splatted = false;
 
-	constructor(uri: GitUri, public readonly view: TView, protected parent?: ViewNode) {
+	constructor(
+		// public readonly id: string | undefined,
+		uri: GitUri,
+		public readonly view: TView,
+		protected parent?: ViewNode,
+	) {
 		this._uri = uri;
 	}
 
 	get id(): string | undefined {
-		return undefined;
+		return this._uniqueId;
+	}
+
+	private _context: AmbientContext | undefined;
+	protected get context(): AmbientContext {
+		return this._context ?? this.parent?.context ?? {};
+	}
+
+	protected updateContext(context: AmbientContext, reset: boolean = false) {
+		this._context = this.getNewContext(context, reset);
+	}
+
+	protected getNewContext(context: AmbientContext, reset: boolean = false) {
+		return { ...(reset ? this.parent?.context : this.context), ...context };
 	}
 
 	toClipboard?(): string;
@@ -394,11 +509,6 @@ export abstract class RepositoryFolderNode<
 	TView extends View = View,
 	TChild extends ViewNode = ViewNode,
 > extends SubscribeableViewNode<TView> {
-	static key = ':repository';
-	static getId(repoPath: string): string {
-		return `gitlens${this.key}(${repoPath})`;
-	}
-
 	protected override splatted = true;
 	protected child: TChild | undefined;
 
@@ -412,15 +522,22 @@ export abstract class RepositoryFolderNode<
 	) {
 		super(uri, view, parent);
 
+		this.updateContext({ repository: this.repo });
+		this._uniqueId = getViewNodeId('repository-folder', this.context);
+
 		this.splatted = splatted;
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
 		return this.repo.path;
 	}
 
-	override get id(): string {
-		return RepositoryFolderNode.getId(this.repo.path);
+	get repoPath(): string {
+		return this.repo.path;
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
