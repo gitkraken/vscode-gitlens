@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes an issue where the links in the _Search & Compare_ view failed to open the specific search type
+- Fixes an issue when searching for commits and the results contain stashes
 
 ## [14.0.0] - 2023-06-14
 
