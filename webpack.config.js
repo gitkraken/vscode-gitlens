@@ -452,7 +452,12 @@ function getWebviewsConfig(mode, env) {
 								minimizerOptions: {
 									preset: [
 										'cssnano-preset-advanced',
-										{ discardUnused: false, mergeIdents: false, reduceIdents: false },
+										{
+											discardUnused: false,
+											mergeIdents: false,
+											reduceIdents: false,
+											zindex: false,
+										},
 									],
 								},
 							}),
