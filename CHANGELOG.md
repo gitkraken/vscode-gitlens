@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes an issue where the links in the _Search & Compare_ view failed to open the specific search type
+
 ## [14.0.0] - 2023-06-14
 
 ### Added
