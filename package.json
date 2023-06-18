@@ -14138,12 +14138,12 @@
 		"viewsWelcome": [
 			{
 				"view": "gitlens.views.searchAndCompare",
-				"contents": "Search for commits by [message](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22message%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [author](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22author%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [SHA](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22commit%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [file](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22file%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), or [changes](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22change%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D)\n\n[Search Commits...](command:gitlens.views.searchAndCompare.searchCommits)",
+				"contents": "Search for commits by [message](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22message%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [author](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22author%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [SHA](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22commit%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [file](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22file%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), or [changes](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22change%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D)\n\n[Search Commits...](command:gitlens.views.searchAndCompare.searchCommits)",
 				"when": "!gitlens:hasVirtualFolders"
 			},
 			{
 				"view": "gitlens.views.searchAndCompare",
-				"contents": "Search for commits by [message](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22message%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [author](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22author%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), or [SHA](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22commit%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D)\n\n[Search Commits...](command:gitlens.views.searchAndCompare.searchCommits)",
+				"contents": "Search for commits by [message](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22message%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [author](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22author%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), or [SHA](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22query%22%3A%22commit%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D)\n\n[Search Commits...](command:gitlens.views.searchAndCompare.searchCommits)",
 				"when": "gitlens:hasVirtualFolders"
 			},
 			{
@@ -14202,7 +14202,7 @@
 					"type": "webview",
 					"id": "gitlens.views.home",
 					"name": "Home",
-					"contextualTitle": "GitLens",
+					"contextualTitle": "GL",
 					"icon": "$(gitlens-gitlens)",
 					"initialSize": 6,
 					"visibility": "visible"
@@ -14211,7 +14211,7 @@
 					"id": "gitlens.views.workspaces",
 					"name": "GitKraken Workspaces",
 					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"contextualTitle": "GitLens",
+					"contextualTitle": "GL",
 					"icon": "$(gitlens-workspaces-view)",
 					"initialSize": 2,
 					"visibility": "visible"
@@ -14220,7 +14220,7 @@
 					"type": "webview",
 					"id": "gitlens.views.account",
 					"name": "GitKraken Account",
-					"contextualTitle": "GitLens",
+					"contextualTitle": "GL",
 					"icon": "$(gitlens-gitlens)",
 					"initialSize": 1,
 					"visibility": "collapsed"
@@ -14232,7 +14232,7 @@
 					"id": "gitlens.views.commitDetails",
 					"name": "Commit Details",
 					"when": "!gitlens:disabled",
-					"contextualTitle": "GitLens",
+					"contextualTitle": "GL",
 					"icon": "$(gitlens-commit-view)",
 					"initialSize": 6,
 					"visibility": "visible"
@@ -14241,7 +14241,7 @@
 					"id": "gitlens.views.lineHistory",
 					"name": "Line History",
 					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders",
-					"contextualTitle": "GitLens",
+					"contextualTitle": "GL",
 					"icon": "$(gitlens-history-view)",
 					"initialSize": 1,
 					"visibility": "collapsed"
@@ -14250,7 +14250,7 @@
 					"id": "gitlens.views.fileHistory",
 					"name": "File History",
 					"when": "!gitlens:disabled",
-					"contextualTitle": "GitLens",
+					"contextualTitle": "GL",
 					"icon": "$(gitlens-history-view)",
 					"initialSize": 2,
 					"visibility": "visible"
@@ -14260,7 +14260,7 @@
 					"id": "gitlens.views.timeline",
 					"name": "Visual File History",
 					"when": "!gitlens:disabled && gitlens:plus:enabled",
-					"contextualTitle": "GitLens",
+					"contextualTitle": "GL",
 					"icon": "$(graph-scatter)",
 					"initialSize": 1,
 					"visibility": "visible"
@@ -14269,7 +14269,7 @@
 					"id": "gitlens.views.searchAndCompare",
 					"name": "Search & Compare",
 					"when": "!gitlens:disabled",
-					"contextualTitle": "GitLens",
+					"contextualTitle": "GL",
 					"icon": "$(gitlens-search-view)",
 					"initialSize": 2,
 					"visibility": "visible"
@@ -14281,7 +14281,7 @@
 					"id": "gitlens.views.graph",
 					"name": "Graph",
 					"when": "!gitlens:disabled && gitlens:plus:enabled && config.gitlens.graph.layout == panel",
-					"contextualTitle": "GitLens",
+					"contextualTitle": "GL",
 					"icon": "$(gitlens-graph)",
 					"initialSize": 4,
 					"visibility": "visible"
@@ -14291,7 +14291,7 @@
 					"id": "gitlens.views.graphDetails",
 					"name": "Graph Details",
 					"when": "!gitlens:disabled && gitlens:plus:enabled && config.gitlens.graph.layout == panel",
-					"contextualTitle": "GitLens",
+					"contextualTitle": "GL",
 					"icon": "$(gitlens-commit-view)",
 					"initialSize": 1,
 					"visibility": "visible"
@@ -14302,7 +14302,7 @@
 					"id": "gitlens.views.repositories",
 					"name": "Repositories",
 					"when": "!gitlens:disabled",
-					"contextualTitle": "GitLens",
+					"contextualTitle": "GL",
 					"icon": "$(gitlens-repositories-view)",
 					"visibility": "hidden"
 				},
@@ -14310,7 +14310,7 @@
 					"id": "gitlens.views.commits",
 					"name": "Commits",
 					"when": "!gitlens:disabled",
-					"contextualTitle": "GitLens",
+					"contextualTitle": "GL",
 					"icon": "$(gitlens-commits-view)",
 					"visibility": "visible"
 				},
@@ -14318,7 +14318,7 @@
 					"id": "gitlens.views.branches",
 					"name": "Branches",
 					"when": "!gitlens:disabled",
-					"contextualTitle": "GitLens",
+					"contextualTitle": "GL",
 					"icon": "$(gitlens-branches-view)",
 					"visibility": "collapsed"
 				},
@@ -14326,7 +14326,7 @@
 					"id": "gitlens.views.remotes",
 					"name": "Remotes",
 					"when": "!gitlens:disabled",
-					"contextualTitle": "GitLens",
+					"contextualTitle": "GL",
 					"icon": "$(gitlens-remotes-view)",
 					"visibility": "collapsed"
 				},
@@ -14334,7 +14334,7 @@
 					"id": "gitlens.views.stashes",
 					"name": "Stashes",
 					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders",
-					"contextualTitle": "GitLens",
+					"contextualTitle": "GL",
 					"icon": "$(gitlens-stashes-view)",
 					"visibility": "collapsed"
 				},
@@ -14342,7 +14342,7 @@
 					"id": "gitlens.views.tags",
 					"name": "Tags",
 					"when": "!gitlens:disabled",
-					"contextualTitle": "GitLens",
+					"contextualTitle": "GL",
 					"icon": "$(gitlens-tags-view)",
 					"visibility": "collapsed"
 				},
@@ -14350,7 +14350,7 @@
 					"id": "gitlens.views.worktrees",
 					"name": "Worktrees",
 					"when": "!gitlens:disabled && !gitlens:hasVirtualFolders && gitlens:plus:enabled",
-					"contextualTitle": "GitLens",
+					"contextualTitle": "GL",
 					"icon": "$(gitlens-worktrees-view)",
 					"visibility": "collapsed"
 				},
@@ -14358,7 +14358,7 @@
 					"id": "gitlens.views.contributors",
 					"name": "Contributors",
 					"when": "!gitlens:disabled",
-					"contextualTitle": "GitLens",
+					"contextualTitle": "GL",
 					"icon": "$(gitlens-contributors-view)",
 					"visibility": "collapsed"
 				}

@@ -809,6 +809,7 @@ export class GitLogParser {
 					stash.stashName,
 					stash.stashOnRef,
 				);
+				commits.set(stash.sha, commit);
 			} else {
 				commit = new GitCommit(
 					container,
@@ -834,9 +835,8 @@ export class GitLogParser {
 					entry.line != null ? [entry.line] : [],
 					entry.tips,
 				);
+				commits.set(entry.sha!, commit);
 			}
-
-			commits.set(entry.sha!, commit);
 		}
 	}
 

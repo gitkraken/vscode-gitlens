@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Changes view's contextual title to "GL" to appear more compact when rearranging views
+
+### Fixed
+
+- Fixes [2731](https://github.com/gitkraken/vscode-gitlens/issues/2731) - Bug on Focus View Help Popup z-order
+- Fixes [2742](https://github.com/gitkraken/vscode-gitlens/issues/2742) - Search & Compare: Element with id ... is already registered
+- Fixes an issue where the links in the _Search & Compare_ view failed to open the specific search type
+- Fixes an issue when searching for commits and the results contain stashes
+
 ## [14.0.0] - 2023-06-14
 
 ### Added

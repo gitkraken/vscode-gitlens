@@ -58,7 +58,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		this._instanceId = instanceId++;
 		this._order = Date.now();
 
-		this.updateContext({ searchId: `${getSearchQueryComparisonKey(search)}++${this._instanceId}` });
+		this.updateContext({ searchId: `${getSearchQueryComparisonKey(search)}+${this._instanceId}` });
 		this._uniqueId = getViewNodeId('search-results', this.context);
 	}
 

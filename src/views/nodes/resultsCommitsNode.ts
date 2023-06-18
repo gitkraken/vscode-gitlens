@@ -6,7 +6,8 @@ import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
-import { cancellable, PromiseCancelledError } from '../../system/promise';
+import type { Deferred } from '../../system/promise';
+import { cancellable, defer, PromiseCancelledError } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
 import { AutolinkedItemsNode } from './autolinkedItemsNode';
 import { CommitNode } from './commitNode';
@@ -76,7 +77,12 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		return this._results.comparison?.ref2;
 	}
 
+	private _onChildrenCompleted: Deferred<void> | undefined;
+
 	async getChildren(): Promise<ViewNode[]> {
+		this._onChildrenCompleted?.cancel();
+		this._onChildrenCompleted = defer<void>();
+
 		const { log } = await this.getCommitsQueryResults();
 		if (log == null) return [];
 
@@ -126,6 +132,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
 		}
 
+		this._onChildrenCompleted.fulfill();
 		return children;
 	}
 
@@ -148,7 +155,14 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 						: TreeItemCollapsibleState.Collapsed;
 			} catch (ex) {
 				if (ex instanceof PromiseCancelledError) {
-					ex.promise.then(() => this.triggerChange(false));
+					setTimeout(async () => {
+						void (await ex.promise);
+						try {
+							await this._onChildrenCompleted?.promise;
+						} catch {}
+
+						setTimeout(() => void this.triggerChange(false), 1);
+					}, 1);
 				}
 
 				// Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
@@ -171,24 +185,34 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 	override refresh(reset: boolean = false) {
 		if (reset) {
 			this._commitsQueryResults = undefined;
+			this._commitsQueryResultsPromise = undefined;
 			void this.getCommitsQueryResults();
 		}
 	}
 
-	private _commitsQueryResults: Promise<CommitsQueryResults> | undefined;
+	private _commitsQueryResultsPromise: Promise<CommitsQueryResults> | undefined;
 	private async getCommitsQueryResults() {
-		if (this._commitsQueryResults == null) {
-			this._commitsQueryResults = this._results.query(this.limit ?? configuration.get('advanced.maxSearchItems'));
-			const results = await this._commitsQueryResults;
+		if (this._commitsQueryResultsPromise == null) {
+			this._commitsQueryResultsPromise = this._results.query(
+				this.limit ?? configuration.get('advanced.maxSearchItems'),
+			);
+			const results = await this._commitsQueryResultsPromise;
+			this._commitsQueryResults = results;
+
 			this._hasMore = results.hasMore;
 
 			if (this._results.deferred) {
 				this._results.deferred = false;
 
-				void this.triggerChange(false);
+				// void this.triggerChange(false);
 			}
 		}
 
+		return this._commitsQueryResultsPromise;
+	}
+
+	private _commitsQueryResults: CommitsQueryResults | undefined;
+	private maybeGetCommitsQueryResults(): CommitsQueryResults | undefined {
 		return this._commitsQueryResults;
 	}
 
