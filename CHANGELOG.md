@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [14.0.1] - 2023-06-19
+
 ### Changed
 
 - Changes view's contextual title to "GL" to appear more compact when rearranging views
@@ -4827,7 +4829,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.0.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.0.1...HEAD
+[14.0.1]: https://github.com/gitkraken/vscode-gitlens/compare/v14.0.0...gitkraken:v14.0.1
 [14.0.0]: https://github.com/gitkraken/vscode-gitlens/compare/v13.6.0...gitkraken:v14.0.0
 [13.6.0]: https://github.com/gitkraken/vscode-gitlens/compare/v13.5.0...gitkraken:v13.6.0
 [13.5.0]: https://github.com/gitkraken/vscode-gitlens/compare/v13.4.0...gitkraken:v13.5.0
