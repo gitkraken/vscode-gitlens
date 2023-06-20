@@ -51,6 +51,7 @@ export class CloudWorkspace {
 	readonly type = WorkspaceType.Cloud;
 
 	private _repositories: CloudWorkspaceRepositoryDescriptor[] | undefined;
+	private _localPath: string | undefined;
 
 	constructor(
 		private readonly container: Container,
@@ -58,13 +59,20 @@ export class CloudWorkspace {
 		public readonly name: string,
 		public readonly organizationId: string | undefined,
 		public readonly provider: CloudWorkspaceProviderType,
+		public readonly current: boolean,
 		repositories?: CloudWorkspaceRepositoryDescriptor[],
+		localPath?: string,
 	) {
 		this._repositories = repositories;
+		this._localPath = localPath;
 	}
 
 	get shared(): boolean {
 		return this.organizationId != null;
+	}
+
+	get localPath(): string | undefined {
+		return this._localPath;
 	}
 
 	async getRepositoryDescriptors(): Promise<CloudWorkspaceRepositoryDescriptor[]> {
@@ -93,6 +101,10 @@ export class CloudWorkspace {
 		if (this._repositories == null) return;
 
 		this._repositories = this._repositories.filter(r => !repoNames.includes(r.name));
+	}
+
+	setLocalPath(localPath: string): void {
+		this._localPath = localPath;
 	}
 }
 
@@ -468,14 +480,24 @@ export interface RemoveWorkspaceRepoDescriptor {
 export class LocalWorkspace {
 	readonly type = WorkspaceType.Local;
 
+	private _localPath: string | undefined;
+
 	constructor(
 		public readonly id: string,
 		public readonly name: string,
 		private readonly repositories: LocalWorkspaceRepositoryDescriptor[],
-	) {}
+		public readonly current: boolean,
+		localPath?: string,
+	) {
+		this._localPath = localPath;
+	}
 
 	get shared(): boolean {
 		return false;
+	}
+
+	get localPath(): string | undefined {
+		return this._localPath;
 	}
 
 	getRepositoryDescriptors(): Promise<LocalWorkspaceRepositoryDescriptor[]> {
@@ -484,6 +506,10 @@ export class LocalWorkspace {
 
 	getRepositoryDescriptor(name: string): Promise<LocalWorkspaceRepositoryDescriptor | undefined> {
 		return Promise.resolve(this.repositories.find(r => r.name === name));
+	}
+
+	setLocalPath(localPath: string): void {
+		this._localPath = localPath;
 	}
 }
 
@@ -519,13 +545,18 @@ export interface CloudWorkspaceFileData {
 }
 
 export type CloudWorkspacesPathMap = {
-	[cloudWorkspaceId: string]: CloudWorkspaceRepoPaths;
+	[cloudWorkspaceId: string]: CloudWorkspacePaths;
 };
 
-export interface CloudWorkspaceRepoPaths {
+export interface CloudWorkspacePaths {
 	repoPaths: CloudWorkspaceRepoPathMap;
+	externalLinks: CloudWorkspaceExternalLinkMap;
 }
 
 export type CloudWorkspaceRepoPathMap = {
 	[repoId: string]: string;
+};
+
+export type CloudWorkspaceExternalLinkMap = {
+	[fileExtenstion: string]: string;
 };

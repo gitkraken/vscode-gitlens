@@ -1,5 +1,5 @@
 import type { CancellationToken, Event } from 'vscode';
-import { Disposable, EventEmitter, ProgressLocation, Uri, window } from 'vscode';
+import { Disposable, EventEmitter, ProgressLocation, Uri, window, workspace } from 'vscode';
 import { getSupportedWorkspacesPathMappingProvider } from '@env/providers';
 import type { Container } from '../../container';
 import type { GitRemote } from '../../git/models/remote';
@@ -32,7 +32,6 @@ import {
 	cloudWorkspaceProviderTypeToRemoteProviderId,
 	LocalWorkspace,
 	WorkspaceAddRepositoriesChoice,
-	WorkspaceType,
 } from './models';
 import { WorkspacesApi } from './workspacesApi';
 import type { WorkspacesPathMappingProvider } from './workspacesPathMappingProvider';
@@ -48,10 +47,12 @@ export class WorkspacesService implements Disposable {
 	private _localWorkspaces: LocalWorkspace[] | undefined;
 	private _workspacesApi: WorkspacesApi;
 	private _workspacesPathProvider: WorkspacesPathMappingProvider;
+	private _currentWorkspaceId: string | undefined;
 
 	constructor(private readonly container: Container, private readonly server: ServerConnection) {
 		this._workspacesApi = new WorkspacesApi(this.container, this.server);
 		this._workspacesPathProvider = getSupportedWorkspacesPathMappingProvider();
+		this._currentWorkspaceId = workspace.getConfiguration('gitkraken')?.get<string>('workspaceId');
 		this._disposable = Disposable.from(container.subscription.onDidChange(this.onSubscriptionChanged, this));
 	}
 
@@ -101,6 +102,7 @@ export class WorkspacesService implements Disposable {
 
 		if (workspaces?.length) {
 			for (const workspace of workspaces) {
+				const localPath = await this._workspacesPathProvider.getCloudWorkspaceCodeWorkspacePath(workspace.id);
 				if (!isPlusEnabled && workspace.organization?.id) {
 					filteredSharedWorkspaceCount += 1;
 					continue;
@@ -122,7 +124,9 @@ export class WorkspacesService implements Disposable {
 						workspace.name,
 						workspace.organization?.id,
 						workspace.provider as CloudWorkspaceProviderType,
+						this._currentWorkspaceId != null && this._currentWorkspaceId === workspace.id,
 						repositories,
+						localPath,
 					),
 				);
 			}
@@ -152,6 +156,7 @@ export class WorkspacesService implements Disposable {
 						name: repositoryPath.localPath.split(/[\\/]/).pop() ?? 'unknown',
 						workspaceId: workspace.localId,
 					})),
+					this._currentWorkspaceId != null && this._currentWorkspaceId === workspace.localId,
 				),
 			);
 		}
@@ -217,7 +222,7 @@ export class WorkspacesService implements Disposable {
 	}
 
 	async updateCloudWorkspaceRepoLocalPath(workspaceId: string, repoId: string, localPath: string): Promise<void> {
-		await this._workspacesPathProvider.writeCloudWorkspaceDiskPathToMap(workspaceId, repoId, localPath);
+		await this._workspacesPathProvider.writeCloudWorkspaceRepoDiskPathToMap(workspaceId, repoId, localPath);
 	}
 
 	private async getRepositoriesInParentFolder(cancellation?: CancellationToken): Promise<Repository[] | undefined> {
@@ -551,6 +556,10 @@ export class WorkspacesService implements Disposable {
 				this._cloudWorkspaces = [];
 			}
 
+			const localPath = await this._workspacesPathProvider.getCloudWorkspaceCodeWorkspacePath(
+				createdProjectData.id,
+			);
+
 			this._cloudWorkspaces?.push(
 				new CloudWorkspace(
 					this.container,
@@ -558,7 +567,9 @@ export class WorkspacesService implements Disposable {
 					createdProjectData.name,
 					createdProjectData.organization?.id,
 					createdProjectData.provider as CloudWorkspaceProviderType,
+					this._currentWorkspaceId != null && this._currentWorkspaceId === createdProjectData.id,
 					[],
+					localPath,
 				),
 			);
 
@@ -872,15 +883,8 @@ export class WorkspacesService implements Disposable {
 		return workspaceRepositoriesByName;
 	}
 
-	async saveAsCodeWorkspaceFile(
-		workspaceId: string,
-		workspaceType: WorkspaceType,
-		options?: { open?: boolean },
-	): Promise<void> {
-		const workspace =
-			workspaceType === WorkspaceType.Cloud
-				? this.getCloudWorkspace(workspaceId)
-				: this.getLocalWorkspace(workspaceId);
+	async saveAsCodeWorkspaceFile(workspaceId: string): Promise<void> {
+		const workspace = this.getCloudWorkspace(workspaceId) ?? this.getLocalWorkspace(workspaceId);
 		if (workspace == null) return;
 
 		const repoDescriptors = await workspace.getRepositoryDescriptors();
@@ -936,9 +940,55 @@ export class WorkspacesService implements Disposable {
 			return;
 		}
 
-		if (options?.open) {
-			openWorkspace(newWorkspaceUri, { location: OpenWorkspaceLocation.NewWindow });
+		workspace.setLocalPath(newWorkspaceUri.fsPath);
+
+		const open = await window.showInformationMessage(
+			`The workspace file for ${workspace.name} has been created. Would you like to open it now?`,
+			{ modal: true },
+			{ title: 'Open' },
+			{ title: 'Cancel', isCloseAffordance: true },
+		);
+
+		if (open?.title == 'Open') {
+			void this.openCodeWorkspaceFile(workspaceId);
 		}
+	}
+
+	async openCodeWorkspaceFile(workspaceId: string, options?: { location?: OpenWorkspaceLocation }): Promise<void> {
+		const workspace = this.getCloudWorkspace(workspaceId) ?? this.getLocalWorkspace(workspaceId);
+		if (workspace == null) return;
+		if (workspace.localPath == null) {
+			const create = await window.showInformationMessage(
+				`The workspace file for ${workspace.name} has not been created. Would you like to create it now?`,
+				{ modal: true },
+				{ title: 'Create' },
+				{ title: 'Cancel', isCloseAffordance: true },
+			);
+
+			if (create == null || create.title == 'Cancel') return;
+			return void this.saveAsCodeWorkspaceFile(workspaceId);
+		}
+
+		let openLocation =
+			options?.location === OpenWorkspaceLocation.CurrentWindow
+				? OpenWorkspaceLocation.CurrentWindow
+				: OpenWorkspaceLocation.NewWindow;
+		if (!options?.location) {
+			const openLocationChoice = await window.showInformationMessage(
+				`How would you like to open the workspace file for ${workspace.name}?`,
+				{ modal: true },
+				{ title: 'Open in New Window' },
+				{ title: 'Open in Current Window' },
+				{ title: 'Cancel', isCloseAffordance: true },
+			);
+
+			if (openLocationChoice == null || openLocationChoice.title == 'Cancel') return;
+			if (openLocationChoice.title == 'Open in Current Window') {
+				openLocation = OpenWorkspaceLocation.CurrentWindow;
+			}
+		}
+
+		openWorkspace(Uri.file(workspace.localPath), { location: openLocation });
 	}
 
 	private async getMappedPathForCloudWorkspaceRepoDescriptor(

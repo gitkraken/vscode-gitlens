@@ -4,7 +4,13 @@ import type { LocalWorkspaceFileData } from './models';
 export interface WorkspacesPathMappingProvider {
 	getCloudWorkspaceRepoPath(cloudWorkspaceId: string, repoId: string): Promise<string | undefined>;
 
-	writeCloudWorkspaceDiskPathToMap(cloudWorkspaceId: string, repoId: string, repoLocalPath: string): Promise<void>;
+	getCloudWorkspaceCodeWorkspacePath(cloudWorkspaceId: string): Promise<string | undefined>;
+
+	writeCloudWorkspaceRepoDiskPathToMap(
+		cloudWorkspaceId: string,
+		repoId: string,
+		repoLocalPath: string,
+	): Promise<void>;
 
 	getLocalWorkspaceData(): Promise<LocalWorkspaceFileData>;
 
@@ -12,5 +18,10 @@ export interface WorkspacesPathMappingProvider {
 		uri: Uri,
 		workspaceRepoFilePaths: string[],
 		options?: { workspaceId?: string },
+	): Promise<boolean>;
+
+	confirmCloudWorkspaceCodeWorkspaceFileMatch(
+		cloudWorkspaceId: string,
+		codeWorkspaceFilePath: string,
 	): Promise<boolean>;
 }

@@ -7,7 +7,11 @@ export class WorkspacesWebPathMappingProvider implements WorkspacesPathMappingPr
 		return undefined;
 	}
 
-	async writeCloudWorkspaceDiskPathToMap(
+	async getCloudWorkspaceCodeWorkspacePath(_cloudWorkspaceId: string): Promise<string | undefined> {
+		return undefined;
+	}
+
+	async writeCloudWorkspaceRepoDiskPathToMap(
 		_cloudWorkspaceId: string,
 		_repoId: string,
 		_repoLocalPath: string,
@@ -21,6 +25,13 @@ export class WorkspacesWebPathMappingProvider implements WorkspacesPathMappingPr
 		_uri: Uri,
 		_workspaceRepoFilePaths: string[],
 		_options?: { workspaceId?: string },
+	): Promise<boolean> {
+		return false;
+	}
+
+	async confirmCloudWorkspaceCodeWorkspaceFileMatch(
+		_cloudWorkspaceId: string,
+		_codeWorkspaceFilePath: string,
 	): Promise<boolean> {
 		return false;
 	}

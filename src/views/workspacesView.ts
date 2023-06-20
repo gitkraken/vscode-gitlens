@@ -103,10 +103,28 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 				this,
 			),
 			registerViewCommand(
-				this.getQualifiedCommand('open'),
+				this.getQualifiedCommand('createLocal'),
 				async (node: WorkspaceNode) => {
-					await this.container.workspaces.saveAsCodeWorkspaceFile(node.workspace.id, node.workspace.type, {
-						open: true,
+					await this.container.workspaces.saveAsCodeWorkspaceFile(node.workspace.id);
+					void this.ensureRoot().triggerChange(true);
+				},
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('openLocal'),
+				async (node: WorkspaceNode) => {
+					await this.container.workspaces.openCodeWorkspaceFile(node.workspace.id, {
+						location: OpenWorkspaceLocation.CurrentWindow,
+					});
+					void this.ensureRoot().triggerChange(true);
+				},
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('openLocalNewWindow'),
+				async (node: WorkspaceNode) => {
+					await this.container.workspaces.openCodeWorkspaceFile(node.workspace.id, {
+						location: OpenWorkspaceLocation.NewWindow,
 					});
 				},
 				this,

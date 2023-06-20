@@ -1,4 +1,4 @@
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import type { CloudWorkspace, LocalWorkspace, WorkspaceRepositoriesByName } from '../../plus/workspaces/models';
 import { WorkspaceType } from '../../plus/workspaces/models';
@@ -93,10 +93,18 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 		const item = new TreeItem(this.workspace.name, TreeItemCollapsibleState.Collapsed);
 
 		let contextValue = `${ContextValues.Workspace}`;
+		item.resourceUri = undefined;
 		if (this.workspace.type === WorkspaceType.Cloud) {
 			contextValue += '+cloud';
 		} else {
 			contextValue += '+local';
+		}
+		if (this.workspace.current) {
+			contextValue += '+current';
+			item.resourceUri = Uri.parse('gitlens-view://workspaces/workspace/current');
+		}
+		if (this.workspace.localPath != null) {
+			contextValue += '+hasPath';
 		}
 		item.id = this.id;
 		item.contextValue = contextValue;
@@ -110,7 +118,6 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 				? `\nProvider: ${this.workspace.provider}`
 				: ''
 		}`;
-		item.resourceUri = undefined;
 		return item;
 	}
 

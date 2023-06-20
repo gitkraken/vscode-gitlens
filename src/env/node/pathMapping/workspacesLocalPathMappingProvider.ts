@@ -1,5 +1,4 @@
-import type { Uri } from 'vscode';
-import { workspace } from 'vscode';
+import { Uri, workspace } from 'vscode';
 import type {
 	CloudWorkspacesPathMap,
 	CodeWorkspaceFileContents,
@@ -16,35 +15,40 @@ import {
 } from './sharedGKDataFolder';
 
 export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMappingProvider {
-	private _cloudWorkspaceRepoPathMap: CloudWorkspacesPathMap | undefined = undefined;
+	private _cloudWorkspacePathMap: CloudWorkspacesPathMap | undefined = undefined;
 
-	private async ensureCloudWorkspaceRepoPathMap(): Promise<void> {
-		if (this._cloudWorkspaceRepoPathMap == null) {
-			await this.loadCloudWorkspaceRepoPathMap();
+	private async ensureCloudWorkspacePathMap(): Promise<void> {
+		if (this._cloudWorkspacePathMap == null) {
+			await this.loadCloudWorkspacePathMap();
 		}
 	}
 
-	private async getCloudWorkspaceRepoPathMap(): Promise<CloudWorkspacesPathMap> {
-		await this.ensureCloudWorkspaceRepoPathMap();
-		return this._cloudWorkspaceRepoPathMap ?? {};
+	private async getCloudWorkspacePathMap(): Promise<CloudWorkspacesPathMap> {
+		await this.ensureCloudWorkspacePathMap();
+		return this._cloudWorkspacePathMap ?? {};
 	}
 
-	private async loadCloudWorkspaceRepoPathMap(): Promise<void> {
+	private async loadCloudWorkspacePathMap(): Promise<void> {
 		const localFileUri = getSharedCloudWorkspaceMappingFileUri();
 		try {
 			const data = await workspace.fs.readFile(localFileUri);
-			this._cloudWorkspaceRepoPathMap = (JSON.parse(data.toString())?.workspaces ?? {}) as CloudWorkspacesPathMap;
+			this._cloudWorkspacePathMap = (JSON.parse(data.toString())?.workspaces ?? {}) as CloudWorkspacesPathMap;
 		} catch (error) {
-			Logger.error(error, 'loadCloudWorkspaceRepoPathMap');
+			Logger.error(error, 'loadCloudWorkspacePathMap');
 		}
 	}
 
 	async getCloudWorkspaceRepoPath(cloudWorkspaceId: string, repoId: string): Promise<string | undefined> {
-		const cloudWorkspaceRepoPathMap = await this.getCloudWorkspaceRepoPathMap();
-		return cloudWorkspaceRepoPathMap[cloudWorkspaceId]?.repoPaths[repoId];
+		const cloudWorkspaceRepoPathMap = await this.getCloudWorkspacePathMap();
+		return cloudWorkspaceRepoPathMap[cloudWorkspaceId]?.repoPaths?.[repoId];
 	}
 
-	async writeCloudWorkspaceDiskPathToMap(
+	async getCloudWorkspaceCodeWorkspacePath(cloudWorkspaceId: string): Promise<string | undefined> {
+		const cloudWorkspaceRepoPathMap = await this.getCloudWorkspacePathMap();
+		return cloudWorkspaceRepoPathMap[cloudWorkspaceId]?.externalLinks?.['.code-workspace'];
+	}
+
+	async writeCloudWorkspaceRepoDiskPathToMap(
 		cloudWorkspaceId: string,
 		repoId: string,
 		repoLocalPath: string,
@@ -53,24 +57,62 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 			return;
 		}
 
-		await this.loadCloudWorkspaceRepoPathMap();
+		await this.loadCloudWorkspacePathMap();
 
-		if (this._cloudWorkspaceRepoPathMap == null) {
-			this._cloudWorkspaceRepoPathMap = {};
+		if (this._cloudWorkspacePathMap == null) {
+			this._cloudWorkspacePathMap = {};
 		}
 
-		if (this._cloudWorkspaceRepoPathMap[cloudWorkspaceId] == null) {
-			this._cloudWorkspaceRepoPathMap[cloudWorkspaceId] = { repoPaths: {} };
+		if (this._cloudWorkspacePathMap[cloudWorkspaceId] == null) {
+			this._cloudWorkspacePathMap[cloudWorkspaceId] = { repoPaths: {}, externalLinks: {} };
 		}
 
-		this._cloudWorkspaceRepoPathMap[cloudWorkspaceId].repoPaths[repoId] = repoLocalPath;
+		if (this._cloudWorkspacePathMap[cloudWorkspaceId].repoPaths == null) {
+			this._cloudWorkspacePathMap[cloudWorkspaceId].repoPaths = {};
+		}
+
+		this._cloudWorkspacePathMap[cloudWorkspaceId].repoPaths[repoId] = repoLocalPath;
 
 		const localFileUri = getSharedCloudWorkspaceMappingFileUri();
-		const outputData = new Uint8Array(Buffer.from(JSON.stringify({ workspaces: this._cloudWorkspaceRepoPathMap })));
+		const outputData = new Uint8Array(Buffer.from(JSON.stringify({ workspaces: this._cloudWorkspacePathMap })));
 		try {
 			await workspace.fs.writeFile(localFileUri, outputData);
 		} catch (error) {
-			Logger.error(error, 'writeCloudWorkspaceDiskPathToMap');
+			Logger.error(error, 'writeCloudWorkspaceRepoDiskPathToMap');
+		}
+		await releaseSharedFolderWriteLock();
+	}
+
+	async writeCloudWorkspaceCodeWorkspaceFilePathToMap(
+		cloudWorkspaceId: string,
+		codeWorkspaceFilePath: string,
+	): Promise<void> {
+		if (!(await acquireSharedFolderWriteLock())) {
+			return;
+		}
+
+		await this.loadCloudWorkspacePathMap();
+
+		if (this._cloudWorkspacePathMap == null) {
+			this._cloudWorkspacePathMap = {};
+		}
+
+		if (this._cloudWorkspacePathMap[cloudWorkspaceId] == null) {
+			this._cloudWorkspacePathMap[cloudWorkspaceId] = { repoPaths: {}, externalLinks: {} };
+		}
+
+		if (this._cloudWorkspacePathMap[cloudWorkspaceId].externalLinks == null) {
+			this._cloudWorkspacePathMap[cloudWorkspaceId].externalLinks = {};
+		}
+
+		this._cloudWorkspacePathMap[cloudWorkspaceId].externalLinks['.code-workspace'] = codeWorkspaceFilePath;
+
+		const localFileUri = getSharedCloudWorkspaceMappingFileUri();
+		const outputData = new Uint8Array(Buffer.from(JSON.stringify({ workspaces: this._cloudWorkspacePathMap })));
+		try {
+			await workspace.fs.writeFile(localFileUri, outputData);
+		} catch (error) {
+			Logger.error(error, 'writeCloudWorkspaceCodeWorkspaceFilePathToMap');
 		}
 		await releaseSharedFolderWriteLock();
 	}
@@ -121,8 +163,35 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 		const outputData = new Uint8Array(Buffer.from(JSON.stringify(codeWorkspaceFileContents)));
 		try {
 			await workspace.fs.writeFile(uri, outputData);
+			if (options?.workspaceId != null) {
+				await this.writeCloudWorkspaceCodeWorkspaceFilePathToMap(options.workspaceId, uri.fsPath);
+			}
 		} catch (error) {
 			Logger.error(error, 'writeCodeWorkspaceFile');
+			return false;
+		}
+
+		return true;
+	}
+
+	async confirmCloudWorkspaceCodeWorkspaceFileMatch(
+		cloudWorkspaceId: string,
+		codeWorkspaceFilePath: string,
+	): Promise<boolean> {
+		const codeWorkspaceFileUri = Uri.file(codeWorkspaceFilePath);
+		let codeWorkspaceFileContents: CodeWorkspaceFileContents;
+		try {
+			const data = await workspace.fs.readFile(codeWorkspaceFileUri);
+			codeWorkspaceFileContents = JSON.parse(data.toString()) as CodeWorkspaceFileContents;
+		} catch (error) {
+			return false;
+		}
+
+		if (codeWorkspaceFileContents == null) {
+			return false;
+		}
+
+		if (codeWorkspaceFileContents.settings?.['gitkraken.workspaceId'] !== cloudWorkspaceId) {
 			return false;
 		}
 
