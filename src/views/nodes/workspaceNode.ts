@@ -1,6 +1,6 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { GitUri } from '../../git/gitUri';
-import type { CloudWorkspace, LocalWorkspace, WorkspaceRepositoriesByName } from '../../plus/workspaces/models';
+import type { CloudWorkspace, LocalWorkspace } from '../../plus/workspaces/models';
 import { WorkspaceType } from '../../plus/workspaces/models';
 import { createCommand } from '../../system/command';
 import type { WorkspacesView } from '../workspacesView';
@@ -55,12 +55,7 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 					return this._children;
 				}
 
-				// TODO@eamodio this should not be done here -- it should be done in the workspaces model (when loading the repos)
-				const reposByName: WorkspaceRepositoriesByName =
-					await this.view.container.workspaces.resolveWorkspaceRepositoriesByName(this.workspace.id, {
-						resolveFromPath: true,
-						usePathMapping: true,
-					});
+				const reposByName = await this.workspace.getRepositoriesByName({ force: true });
 
 				for (const descriptor of descriptors) {
 					const repo = reposByName.get(descriptor.name)?.repository;

@@ -32,14 +32,15 @@ import {
 	cloudWorkspaceProviderTypeToRemoteProviderId,
 	LocalWorkspace,
 	WorkspaceAddRepositoriesChoice,
+	WorkspaceSyncSetting,
 } from './models';
 import { WorkspacesApi } from './workspacesApi';
 import type { WorkspacesPathMappingProvider } from './workspacesPathMappingProvider';
 
 export class WorkspacesService implements Disposable {
-	private _onDidChangeWorkspaces: EventEmitter<void> = new EventEmitter<void>();
-	get onDidChangeWorkspaces(): Event<void> {
-		return this._onDidChangeWorkspaces.event;
+	private _onDidResetWorkspaces: EventEmitter<void> = new EventEmitter<void>();
+	get onDidResetWorkspaces(): Event<void> {
+		return this._onDidResetWorkspaces.event;
 	}
 
 	private _cloudWorkspaces: CloudWorkspace[] | undefined;
@@ -48,11 +49,15 @@ export class WorkspacesService implements Disposable {
 	private _workspacesApi: WorkspacesApi;
 	private _workspacesPathProvider: WorkspacesPathMappingProvider;
 	private _currentWorkspaceId: string | undefined;
+	private _currentWorkspaceSyncSetting: WorkspaceSyncSetting = WorkspaceSyncSetting.Never;
 
 	constructor(private readonly container: Container, private readonly server: ServerConnection) {
 		this._workspacesApi = new WorkspacesApi(this.container, this.server);
 		this._workspacesPathProvider = getSupportedWorkspacesPathMappingProvider();
 		this._currentWorkspaceId = workspace.getConfiguration('gitkraken')?.get<string>('workspaceId');
+		this._currentWorkspaceSyncSetting =
+			workspace.getConfiguration('gitkraken')?.get<WorkspaceSyncSetting>('workspaceSyncSetting') ??
+			WorkspaceSyncSetting.Never;
 		this._disposable = Disposable.from(container.subscription.onDidChange(this.onSubscriptionChanged, this));
 	}
 
@@ -67,7 +72,6 @@ export class WorkspacesService implements Disposable {
 			event.current.state !== event.previous?.state
 		) {
 			this.resetWorkspaces({ cloud: true });
-			this._onDidChangeWorkspaces.fire();
 		}
 	}
 
@@ -149,6 +153,7 @@ export class WorkspacesService implements Disposable {
 		for (const workspace of Object.values(workspaceFileData)) {
 			localWorkspaces.push(
 				new LocalWorkspace(
+					this.container,
 					workspace.localId,
 					workspace.name,
 					workspace.repositories.map(repositoryPath => ({
@@ -195,6 +200,14 @@ export class WorkspacesService implements Disposable {
 			getWorkspacesResponse.localWorkspaceInfo = loadLocalWorkspacesResponse.localWorkspaceInfo;
 		}
 
+		const currentWorkspace = [...(this._cloudWorkspaces ?? []), ...(this._localWorkspaces ?? [])].find(
+			workspace => workspace.current,
+		);
+
+		if (currentWorkspace != null) {
+			await this.syncCurrentWorkspace(currentWorkspace);
+		}
+
 		getWorkspacesResponse.cloudWorkspaces = this._cloudWorkspaces ?? [];
 		getWorkspacesResponse.localWorkspaces = this._localWorkspaces ?? [];
 
@@ -208,6 +221,47 @@ export class WorkspacesService implements Disposable {
 		return descriptors?.map(d => ({ ...d, workspaceId: workspaceId })) ?? [];
 	}
 
+	async syncCurrentWorkspace(workspace: CloudWorkspace | LocalWorkspace): Promise<void> {
+		if (this._currentWorkspaceSyncSetting === WorkspaceSyncSetting.Never || !workspace.current) return;
+
+		if (!(await workspace.getRepositoryDescriptors())?.length) return;
+
+		const repositories = [...(await workspace.getRepositoriesByName()).values()].map(r => r.repository);
+		const currentWorkspaceRepositoryIdMap = new Map<string, Repository>();
+		for (const repository of this.container.git.openRepositories) {
+			currentWorkspaceRepositoryIdMap.set(repository.id, repository);
+		}
+		const repositoriesToAdd = repositories.filter(r => !currentWorkspaceRepositoryIdMap.has(r.id));
+		if (repositoriesToAdd.length === 0) return;
+		let chosenRepoPaths: string[] = [];
+		if (this._currentWorkspaceSyncSetting === WorkspaceSyncSetting.Ask) {
+			const addChoice = await window.showInformationMessage(
+				'New repositories found in the cloud workspace matching this workspace. Would you like to add them?',
+				{ modal: true },
+				{ title: 'Add' },
+				{ title: 'Cancel', isCloseAffordance: true },
+			);
+
+			if (addChoice?.title !== 'Add') {
+				return;
+			}
+
+			const pick = await showRepositoriesPicker(
+				'Add Repositories to Workspace',
+				'Choose which repositories to add to the current workspace',
+				repositoriesToAdd,
+			);
+			if (pick.length === 0) return;
+			chosenRepoPaths = pick.map(p => p.repoPath);
+		} else {
+			chosenRepoPaths = repositoriesToAdd.map(r => r.path);
+		}
+
+		for (const path of chosenRepoPaths) {
+			openWorkspace(Uri.file(path), { location: OpenWorkspaceLocation.AddToWorkspace });
+		}
+	}
+
 	resetWorkspaces(options?: { cloud?: boolean; local?: boolean }) {
 		if (options?.cloud ?? true) {
 			this._cloudWorkspaces = undefined;
@@ -215,6 +269,8 @@ export class WorkspacesService implements Disposable {
 		if (options?.local ?? true) {
 			this._localWorkspaces = undefined;
 		}
+
+		this._onDidResetWorkspaces.fire();
 	}
 
 	async getCloudWorkspaceRepoPath(cloudWorkspaceId: string, repoId: string): Promise<string | undefined> {
@@ -618,14 +674,9 @@ export class WorkspacesService implements Disposable {
 	}
 
 	private async filterReposForCloudWorkspace(repos: Repository[], workspaceId: string): Promise<Repository[]> {
-		const workspaceRepos = [
-			...(
-				await this.resolveWorkspaceRepositoriesByName(workspaceId, {
-					resolveFromPath: true,
-					usePathMapping: true,
-				})
-			).values(),
-		].map(match => match.repository);
+		const workspace = this.getCloudWorkspace(workspaceId) ?? this.getLocalWorkspace(workspaceId);
+		if (workspace == null) return repos;
+		const workspaceRepos = [...(await workspace.getRepositoriesByName()).values()].map(match => match.repository);
 		return repos.filter(repo => !workspaceRepos.find(r => r.id === repo.id));
 	}
 
@@ -854,6 +905,7 @@ export class WorkspacesService implements Disposable {
 			if (repoLocalPath != null && foundRepo == null && options?.resolveFromPath === true) {
 				foundRepo = await this.container.git.getOrOpenRepository(Uri.file(repoLocalPath), {
 					closeOnOpen: true,
+					force: true,
 				});
 				// TODO: Add this logic back in once we think through virtual repository support a bit more.
 				// We want to support virtual repositories not just as an automatic backup, but as a user choice.
@@ -890,10 +942,7 @@ export class WorkspacesService implements Disposable {
 		const repoDescriptors = await workspace.getRepositoryDescriptors();
 		if (repoDescriptors == null) return;
 
-		const workspaceRepositoriesByName = await this.resolveWorkspaceRepositoriesByName(workspaceId, {
-			resolveFromPath: true,
-			usePathMapping: true,
-		});
+		const workspaceRepositoriesByName = await workspace.getRepositoriesByName();
 
 		if (workspaceRepositoriesByName.size === 0) {
 			void window.showErrorMessage('No repositories could be found in this workspace.', { modal: true });
@@ -929,10 +978,21 @@ export class WorkspacesService implements Disposable {
 
 		if (newWorkspaceUri == null) return;
 
+		const newWorkspaceSyncSetting = await window.showInformationMessage(
+			'Would you like to sync your new workspace file with its cloud workspace?',
+			{ modal: true },
+			{ title: 'Always', option: WorkspaceSyncSetting.Always },
+			{ title: 'Never', option: WorkspaceSyncSetting.Never },
+			{ title: 'Ask every time', option: WorkspaceSyncSetting.Ask },
+		);
+
 		const created = await this._workspacesPathProvider.writeCodeWorkspaceFile(
 			newWorkspaceUri,
 			workspaceFolderPaths,
-			{ workspaceId: workspaceId },
+			{
+				workspaceId: workspaceId,
+				workspaceSyncSetting: newWorkspaceSyncSetting?.option ?? WorkspaceSyncSetting.Never,
+			},
 		);
 
 		if (!created) {
@@ -943,15 +1003,16 @@ export class WorkspacesService implements Disposable {
 		workspace.setLocalPath(newWorkspaceUri.fsPath);
 
 		const open = await window.showInformationMessage(
-			`The workspace file for ${workspace.name} has been created. Would you like to open it now?`,
+			`Workspace file created for ${workspace.name}. Would you like to open it now?`,
 			{ modal: true },
-			{ title: 'Open' },
+			{ title: 'Open in New Window', location: OpenWorkspaceLocation.NewWindow },
+			{ title: 'Open in Current Window', location: OpenWorkspaceLocation.CurrentWindow },
 			{ title: 'Cancel', isCloseAffordance: true },
 		);
 
-		if (open?.title == 'Open') {
-			void this.openCodeWorkspaceFile(workspaceId);
-		}
+		if (open == null || open.title == 'Cancel') return;
+
+		void this.openCodeWorkspaceFile(workspaceId, { location: open.location });
 	}
 
 	async openCodeWorkspaceFile(workspaceId: string, options?: { location?: OpenWorkspaceLocation }): Promise<void> {
@@ -977,15 +1038,13 @@ export class WorkspacesService implements Disposable {
 			const openLocationChoice = await window.showInformationMessage(
 				`How would you like to open the workspace file for ${workspace.name}?`,
 				{ modal: true },
-				{ title: 'Open in New Window' },
-				{ title: 'Open in Current Window' },
+				{ title: 'Open in New Window', location: OpenWorkspaceLocation.NewWindow },
+				{ title: 'Open in Current Window', location: OpenWorkspaceLocation.CurrentWindow },
 				{ title: 'Cancel', isCloseAffordance: true },
 			);
 
 			if (openLocationChoice == null || openLocationChoice.title == 'Cancel') return;
-			if (openLocationChoice.title == 'Open in Current Window') {
-				openLocation = OpenWorkspaceLocation.CurrentWindow;
-			}
+			openLocation = openLocationChoice.location ?? OpenWorkspaceLocation.NewWindow;
 		}
 
 		openWorkspace(Uri.file(workspace.localPath), { location: openLocation });

@@ -1,8 +1,10 @@
-import { Uri, workspace } from 'vscode';
+import type { Uri } from 'vscode';
+import { workspace } from 'vscode';
 import type {
 	CloudWorkspacesPathMap,
 	CodeWorkspaceFileContents,
 	LocalWorkspaceFileData,
+	WorkspaceSyncSetting,
 } from '../../../plus/workspaces/models';
 import type { WorkspacesPathMappingProvider } from '../../../plus/workspaces/workspacesPathMappingProvider';
 import { Logger } from '../../../system/logger';
@@ -144,7 +146,7 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 	async writeCodeWorkspaceFile(
 		uri: Uri,
 		workspaceRepoFilePaths: string[],
-		options?: { workspaceId?: string },
+		options?: { workspaceId?: string; workspaceSyncSetting?: WorkspaceSyncSetting },
 	): Promise<boolean> {
 		let codeWorkspaceFileContents: CodeWorkspaceFileContents;
 		let data;
@@ -160,6 +162,10 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 			codeWorkspaceFileContents.settings['gitkraken.workspaceId'] = options.workspaceId;
 		}
 
+		if (options?.workspaceSyncSetting != null) {
+			codeWorkspaceFileContents.settings['gitkraken.workspaceSyncSetting'] = options.workspaceSyncSetting;
+		}
+
 		const outputData = new Uint8Array(Buffer.from(JSON.stringify(codeWorkspaceFileContents)));
 		try {
 			await workspace.fs.writeFile(uri, outputData);
@@ -168,30 +174,6 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 			}
 		} catch (error) {
 			Logger.error(error, 'writeCodeWorkspaceFile');
-			return false;
-		}
-
-		return true;
-	}
-
-	async confirmCloudWorkspaceCodeWorkspaceFileMatch(
-		cloudWorkspaceId: string,
-		codeWorkspaceFilePath: string,
-	): Promise<boolean> {
-		const codeWorkspaceFileUri = Uri.file(codeWorkspaceFilePath);
-		let codeWorkspaceFileContents: CodeWorkspaceFileContents;
-		try {
-			const data = await workspace.fs.readFile(codeWorkspaceFileUri);
-			codeWorkspaceFileContents = JSON.parse(data.toString()) as CodeWorkspaceFileContents;
-		} catch (error) {
-			return false;
-		}
-
-		if (codeWorkspaceFileContents == null) {
-			return false;
-		}
-
-		if (codeWorkspaceFileContents.settings?.['gitkraken.workspaceId'] !== cloudWorkspaceId) {
 			return false;
 		}
 

@@ -1,5 +1,4 @@
-import type { Disposable } from 'vscode';
-import { env, ProgressLocation, Uri, window } from 'vscode';
+import { Disposable, env, ProgressLocation, Uri, window } from 'vscode';
 import type { WorkspacesViewConfig } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
@@ -24,8 +23,10 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 	constructor(container: Container) {
 		super(container, 'workspaces', 'Workspaces', 'workspaceView');
 
-		this._disposable = this.container.workspaces.onDidChangeWorkspaces(
-			() => void this.ensureRoot().triggerChange(true),
+		this._disposable = Disposable.from(
+			this.container.workspaces.onDidResetWorkspaces(() => void this.ensureRoot().triggerChange(true)),
+			this.container.git.onDidChangeRepositories(() => void this.ensureRoot().triggerChange()),
+			this.container.git.onDidChangeRepository(() => void this.ensureRoot().triggerChange()),
 		);
 		this.description = `PREVIEW\u00a0\u00a0☁️`;
 	}
@@ -70,7 +71,6 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 				this.getQualifiedCommand('refresh'),
 				() => {
 					this.container.workspaces.resetWorkspaces();
-					void this.ensureRoot().triggerChange(true);
 				},
 				this,
 			),

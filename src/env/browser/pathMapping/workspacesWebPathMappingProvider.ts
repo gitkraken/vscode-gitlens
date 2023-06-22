@@ -1,5 +1,5 @@
 import { Uri } from 'vscode';
-import type { LocalWorkspaceFileData } from '../../../plus/workspaces/models';
+import type { LocalWorkspaceFileData, WorkspaceSyncSetting } from '../../../plus/workspaces/models';
 import type { WorkspacesPathMappingProvider } from '../../../plus/workspaces/workspacesPathMappingProvider';
 
 export class WorkspacesWebPathMappingProvider implements WorkspacesPathMappingProvider {
@@ -24,14 +24,7 @@ export class WorkspacesWebPathMappingProvider implements WorkspacesPathMappingPr
 	async writeCodeWorkspaceFile(
 		_uri: Uri,
 		_workspaceRepoFilePaths: string[],
-		_options?: { workspaceId?: string },
-	): Promise<boolean> {
-		return false;
-	}
-
-	async confirmCloudWorkspaceCodeWorkspaceFileMatch(
-		_cloudWorkspaceId: string,
-		_codeWorkspaceFilePath: string,
+		_options?: { workspaceId?: string; workspaceSyncSetting?: WorkspaceSyncSetting },
 	): Promise<boolean> {
 		return false;
 	}
