@@ -10,6 +10,10 @@ GitLens sets itself apart from other Git tools through its deep level of integra
 
 ## Getting Started
 
+<p>
+  <a title="Watch the GitLens Getting Started video" href="https://www.youtube.com/watch?v=UQPb73Zz9qk"><img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/get-started-video.png" alt="Watch the GitLens Getting Started video" /></a>
+</p>
+
 Install GitLens by clicking `Install` on the banner above, or from the Extensions side bar in VS Code, by searching for GitLens.
 
 Use `Switch to Pre-Release Version` on the extension banner to live on the edge and be the first to experience new features.
