@@ -10,6 +10,7 @@ export const enum UriTypes {
 export enum DeepLinkType {
 	Branch = 'b',
 	Commit = 'c',
+	Comparison = 'compare',
 	Repository = 'r',
 	Tag = 't',
 }
@@ -20,6 +21,8 @@ export function deepLinkTypeToString(type: DeepLinkType): string {
 			return 'Branch';
 		case DeepLinkType.Commit:
 			return 'Commit';
+		case DeepLinkType.Comparison:
+			return 'Comparison';
 		case DeepLinkType.Repository:
 			return 'Repository';
 		case DeepLinkType.Tag:
@@ -49,13 +52,14 @@ export interface DeepLink {
 	remoteUrl?: string;
 	repoPath?: string;
 	targetId?: string;
+	secondaryTargetId?: string;
 }
 
 export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 	// The link target id is everything after the link target.
 	// For example, if the uri is /link/r/{repoId}/b/{branchName}?url={remoteUrl},
 	// the link target id is {branchName}
-	const [, type, prefix, repoId, target, ...targetId] = uri.path.split('/');
+	const [, type, prefix, repoId, target, ...rest] = uri.path.split('/');
 	if (type !== UriTypes.DeepLink || prefix !== DeepLinkType.Repository) return undefined;
 
 	const urlParams = new URLSearchParams(uri.query);
@@ -78,12 +82,28 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 		};
 	}
 
+	if (rest == null || rest.length === 0) return undefined;
+
+	let targetId: string;
+	let secondaryTargetId: string | undefined;
+	const joined = rest.join('/');
+
+	if (target === DeepLinkType.Comparison) {
+		const split = joined.split(/(\.\.\.|\.\.)/);
+		if (split.length !== 3) return undefined;
+		targetId = split[0];
+		secondaryTargetId = split[2];
+	} else {
+		targetId = joined;
+	}
+
 	return {
 		type: target as DeepLinkType,
 		repoId: repoId,
 		remoteUrl: remoteUrl,
 		repoPath: repoPath,
-		targetId: targetId.join('/'),
+		targetId: targetId,
+		secondaryTargetId: secondaryTargetId,
 	};
 }
 
@@ -99,6 +119,7 @@ export const enum DeepLinkServiceState {
 	Fetch,
 	FetchedTargetMatch,
 	OpenGraph,
+	OpenComparison,
 }
 
 export const enum DeepLinkServiceAction {
@@ -118,6 +139,7 @@ export const enum DeepLinkServiceAction {
 	RemoteMatchFailed,
 	RemoteAdded,
 	TargetMatched,
+	TargetsMatched,
 	TargetMatchFailed,
 	TargetFetched,
 }
@@ -137,8 +159,10 @@ export interface DeepLinkServiceContext {
 	remote?: GitRemote | undefined;
 	repoPath?: string | undefined;
 	targetId?: string | undefined;
+	secondaryTargetId?: string | undefined;
 	targetType?: DeepLinkType | undefined;
 	targetSha?: string | undefined;
+	secondaryTargetSha?: string | undefined;
 }
 
 export const deepLinkStateTransitionTable: { [state: string]: { [action: string]: DeepLinkServiceState } } = {
@@ -183,6 +207,7 @@ export const deepLinkStateTransitionTable: { [state: string]: { [action: string]
 	[DeepLinkServiceState.TargetMatch]: {
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.TargetMatched]: DeepLinkServiceState.OpenGraph,
+		[DeepLinkServiceAction.TargetsMatched]: DeepLinkServiceState.OpenComparison,
 		[DeepLinkServiceAction.TargetMatchFailed]: DeepLinkServiceState.Fetch,
 	},
 	[DeepLinkServiceState.Fetch]: {
@@ -192,9 +217,14 @@ export const deepLinkStateTransitionTable: { [state: string]: { [action: string]
 	},
 	[DeepLinkServiceState.FetchedTargetMatch]: {
 		[DeepLinkServiceAction.TargetMatched]: DeepLinkServiceState.OpenGraph,
+		[DeepLinkServiceAction.TargetsMatched]: DeepLinkServiceState.OpenComparison,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.OpenGraph]: {
+		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.OpenComparison]: {
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 	},
@@ -217,4 +247,5 @@ export const deepLinkStateToProgress: { [state: string]: DeepLinkProgress } = {
 	[DeepLinkServiceState.Fetch]: { message: 'Fetching...', increment: 80 },
 	[DeepLinkServiceState.FetchedTargetMatch]: { message: 'Finding a matching target...', increment: 90 },
 	[DeepLinkServiceState.OpenGraph]: { message: 'Opening graph...', increment: 95 },
+	[DeepLinkServiceState.OpenComparison]: { message: 'Opening comparison...', increment: 95 },
 };
