@@ -212,6 +212,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#2595](https://github.com/gitkraken/vscode-gitlens/issues/2595) - Error when stashing changes
 - Fixes tooltips sometimes failing to show in _Commit Graph_ rows when the Date column is hidden
 - Fixes an issue with incorrectly showing associated pull requests with branches that are partial matches of the true branch the pull request is associated with
+- Fixes [#2587](https://github.com/gitkraken/vscode-gitlens/issues/2587) - Regression in Fetching: Fetching a remote asks to enter remote again
 
 ## [13.4.0] - 2023-03-16
 

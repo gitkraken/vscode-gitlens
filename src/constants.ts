@@ -571,6 +571,8 @@ export type CoreCommands =
 
 export type CoreGitCommands =
 	| 'git.fetch'
+	| 'git.fetchAll'
+	| 'git.fetchPrune'
 	| 'git.publish'
 	| 'git.pull'
 	| 'git.pullRebase'
