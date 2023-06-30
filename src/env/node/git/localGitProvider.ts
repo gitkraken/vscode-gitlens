@@ -327,14 +327,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (scmGit == null) return;
 
 			// Find env to pass to Git
-			for (const v of Object.values(scmGit.git)) {
-				if (v != null && typeof v === 'object' && 'git' in v) {
-					for (const vv of Object.values(v.git)) {
-						if (vv != null && typeof vv === 'object' && 'GIT_ASKPASS' in vv) {
-							Logger.debug(scope, 'Found built-in Git env');
+			if (configuration.getAny('gitlens.experimental.nativeGit') === true) {
+				for (const v of Object.values(scmGit.git)) {
+					if (v != null && typeof v === 'object' && 'git' in v) {
+						for (const vv of Object.values(v.git)) {
+							if (vv != null && typeof vv === 'object' && 'GIT_ASKPASS' in vv) {
+								Logger.debug(scope, 'Found built-in Git env');
 
-							this.git.setEnv(vv);
-							break;
+								this.git.setEnv(vv);
+								break;
+							}
 						}
 					}
 				}
