@@ -136,6 +136,7 @@ export class Git {
 			// Shouldn't *really* be needed but better safe than sorry
 			env: {
 				...process.env,
+				...this._gitEnv,
 				...(options.env ?? emptyObj),
 				GCM_INTERACTIVE: 'NEVER',
 				GCM_PRESERVE_CREDS: 'TRUE',
@@ -240,6 +241,7 @@ export class Git {
 			// Shouldn't *really* be needed but better safe than sorry
 			env: {
 				...process.env,
+				...this._gitEnv,
 				...(options.env ?? emptyObj),
 				GCM_INTERACTIVE: 'NEVER',
 				GCM_PRESERVE_CREDS: 'TRUE',
@@ -320,6 +322,11 @@ export class Git {
 		this._gitLocator = locator;
 		this._gitLocationPromise = undefined;
 		this._gitLocation = undefined;
+	}
+
+	private _gitEnv: Record<string, unknown> | undefined;
+	setEnv(env: Record<string, unknown> | undefined): void {
+		this._gitEnv = env;
 	}
 
 	async path(): Promise<string> {
