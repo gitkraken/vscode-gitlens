@@ -93,6 +93,8 @@
 	--branch-status-ahead-foreground: var(--vscode-gitlens-decorations\.branchAheadForegroundColor);
 	--branch-status-behind-foreground: var(--vscode-gitlens-decorations\.branchBehindForegroundColor);
 	--branch-status-both-foreground: var(--vscode-gitlens-decorations\.branchDivergedForegroundColor);
+
+	--graph-column-scrollbar-thickness: 14px;
 }
 
 body {
@@ -110,6 +112,11 @@ body {
 			border-color: var(--vscode-scrollbarSlider-background);
 		}
 	}
+}
+
+::-webkit-scrollbar {
+    width: var(--graph-column-scrollbar-thickness);
+    height: var(--graph-column-scrollbar-thickness);
 }
 
 ::-webkit-scrollbar-corner {
@@ -980,7 +987,7 @@ button:not([disabled]),
 
 	& .graph-adjust-commit-count {
 		display: flex;
-		width: calc(100vw - var(--scrollable-scrollbar-thickness));
+		width: calc(100vw - var(--graph-column-scrollbar-thickness));
 		align-items: center;
 		justify-content: center;
 	}

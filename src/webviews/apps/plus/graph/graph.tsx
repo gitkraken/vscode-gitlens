@@ -535,6 +535,8 @@ export class GraphApp extends App<State> {
 					? `1px dashed ${getCssVariable('--color-graph-contrast-border', computedStyle)}`
 					: 'none',
 
+				'--scrollable-scrollbar-thickness': getCssVariable('--graph-column-scrollbar-thickness', computedStyle),
+
 				'--scroll-marker-head-color': getCssVariable('--color-graph-scroll-marker-head', computedStyle),
 				'--scroll-marker-upstream-color': getCssVariable('--color-graph-scroll-marker-upstream', computedStyle),
 				'--scroll-marker-highlights-color': getCssVariable(
