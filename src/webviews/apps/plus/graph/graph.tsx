@@ -536,6 +536,7 @@ export class GraphApp extends App<State> {
 					: 'none',
 
 				'--scrollable-scrollbar-thickness': getCssVariable('--graph-column-scrollbar-thickness', computedStyle),
+				'--scroll-thumb-bg': getCssVariable('--vscode-scrollbarSlider-background', computedStyle),
 
 				'--scroll-marker-head-color': getCssVariable('--color-graph-scroll-marker-head', computedStyle),
 				'--scroll-marker-upstream-color': getCssVariable('--color-graph-scroll-marker-upstream', computedStyle),
