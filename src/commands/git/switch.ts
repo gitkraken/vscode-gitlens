@@ -84,7 +84,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			() =>
 				Promise.all(
 					state.repos.map(r =>
-						r.switch(state.reference.ref, { createBranch: state.createBranch, progress: false }),
+						r.switch(state.reference.ref, { createBranch: state.createBranch, progress: false, track: false }),
 					),
 				),
 		);

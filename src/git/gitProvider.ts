@@ -150,7 +150,7 @@ export interface GitProvider extends Disposable {
 	checkout(
 		repoPath: string,
 		ref: string,
-		options?: { createBranch?: string | undefined } | { path?: string | undefined },
+		options?: { createBranch?: string | undefined } | { fileName?: string | undefined },
 	): Promise<void>;
 	clone?(url: string, parentPath: string): Promise<string | undefined>;
 	excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]>;

@@ -39,7 +39,7 @@ interface Context {
 	title: string;
 }
 
-type CreateFlags = '--switch';
+type CreateFlags = '--switch' | '--no-track';
 
 interface CreateState {
 	subcommand: 'create';
@@ -334,9 +334,9 @@ export class BranchGitCommand extends QuickCommand<State> {
 				state.flags = result;
 			}
 
-			endSteps(state);
+			QuickCommand.endSteps(state);
 			if (state.flags.includes('--switch')) {
-				await state.repo.switch(state.reference.ref, { createBranch: state.name });
+				void (await state.repo.switch(state.reference.ref, { createBranch: state.name }));
 			} else {
 				state.repo.branch(...state.flags, state.name, state.reference.ref);
 			}

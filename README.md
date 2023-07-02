@@ -1,4 +1,8 @@
-# GitLens &mdash; Supercharge Git in VS Code
+[![](https://vsmarketplacebadge.apphb.com/version-short/eamodio.gitlens.svg)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
+[![](https://vsmarketplacebadge.apphb.com/downloads-short/eamodio.gitlens.svg)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
+[![](https://vsmarketplacebadge.apphb.com/rating-short/eamodio.gitlens.svg)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
+[![](https://aka.ms/vsls-badge)](https://aka.ms/vsls-gitlens)
+[![](https://img.shields.io/badge/vscode--dev--community-gitlens-blue.svg?logo=slack&labelColor=555555)](https://vscode-slack.amod.io)
 
 > Supercharge Git and unlock **untapped knowledge** within your repository to better **understand**, **write**, and **review** code. Focus, collaborate, accelerate.
 
@@ -960,11 +964,3 @@ Also special thanks to the people that have provided support, testing, brainstor
 - Matt King ([@KattMingMing](https://github.com/KattMingMing))
 
 And of course the awesome [vscode](https://github.com/Microsoft/vscode/graphs/contributors) team!
-
-# License
-
-This repository contains both OSS-licensed and non-OSS-licensed files.
-
-All files in or under any directory named "plus" fall under LICENSE.plus.
-
-The remaining files fall under the MIT license.
