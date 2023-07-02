@@ -1169,6 +1169,13 @@
 						"markdownDescription": "Specifies whether file histories will show commits from all branches",
 						"scope": "window",
 						"order": 101
+					},
+					"gitlens.advanced.fileHistoryStopsAtFirstParent": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether file histories will skip commits that come from merged branches",
+						"scope": "window",
+						"order": 102
 					}
 				}
 			},

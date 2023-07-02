@@ -106,6 +106,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
 			!configuration.changed(e, 'advanced.fileHistoryFollowsRenames') &&
+			!configuration.changed(e, 'advanced.fileHistoryStopsAtFirstParent') &&
 			!configuration.changed(e, 'advanced.fileHistoryShowAllBranches')
 		) {
 			return false;
