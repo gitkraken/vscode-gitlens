@@ -1,29 +1,29 @@
-'use strict';
-import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { MarkdownString, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { getPresenceDataUri } from '../../avatars';
+import { GlyphChars } from '../../constants';
+import type { GitUri } from '../../git/gitUri';
+import type { GitContributor } from '../../git/models/contributor';
+import type { GitLog } from '../../git/models/log';
+import { configuration } from '../../system/configuration';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
+import { map } from '../../system/iterable';
+import { pluralize } from '../../system/string';
+import type { ContactPresence } from '../../vsls/vsls';
+import type { ViewsWithContributors } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
-import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { ContributorsView } from '../contributorsView';
-import { GitContributor, GitLog } from '../../git/git';
-import { GitUri } from '../../git/gitUri';
 import { insertDateMarkers } from './helpers';
-import { RepositoriesView } from '../repositoriesView';
-import { RepositoryNode } from './repositoryNode';
-import { debug, gate, Iterables, Strings } from '../../system';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
-import { ContactPresence } from '../../vsls/vsls';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class ContributorNode extends ViewNode<ContributorsView | RepositoriesView> implements PageableViewNode {
-	static key = ':contributor';
-	static getId(repoPath: string, name: string, email: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${name}|${email})`;
-	}
+export class ContributorNode extends ViewNode<ViewsWithContributors> implements PageableViewNode {
+	limit: number | undefined;
 
 	constructor(
 		uri: GitUri,
-		view: ContributorsView | RepositoriesView,
-		parent: ViewNode,
+		view: ViewsWithContributors,
+		protected override readonly parent: ViewNode,
 		public readonly contributor: GitContributor,
 		private readonly _options?: {
 			all?: boolean;
@@ -32,24 +32,32 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 		},
 	) {
 		super(uri, view, parent);
+
+		this.updateContext({ contributor: contributor });
+		this._uniqueId = getViewNodeId('contributor', this.context);
+		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 
-	toClipboard(): string {
+	override get id(): string {
+		return this._uniqueId;
+	}
+
+	override toClipboard(): string {
 		return `${this.contributor.name}${this.contributor.email ? ` <${this.contributor.email}>` : ''}`;
 	}
 
-	get id(): string {
-		return ContributorNode.getId(this.contributor.repoPath, this.contributor.name, this.contributor.email);
+	get repoPath(): string {
+		return this.contributor.repoPath;
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
 		const log = await this.getLog();
 		if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
-		const getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
+		const getBranchAndTagTips = await this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
 		const children = [
 			...insertDateMarkers(
-				Iterables.map(
+				map(
 					log.commits.values(),
 					c => new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips),
 				),
@@ -64,10 +72,10 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const presence = this._options?.presence?.get(this.contributor.email);
+		const presence = this._options?.presence?.get(this.contributor.email!);
 
 		const item = new TreeItem(
-			this.contributor.current ? `${this.contributor.name} (you)` : this.contributor.name,
+			this.contributor.current ? `${this.contributor.label} (you)` : this.contributor.label,
 			TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
@@ -78,26 +86,78 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 			presence != null && presence.status !== 'offline'
 				? `${presence.statusText} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `
 				: ''
-		}${this.contributor.email}`;
-		item.tooltip = `${this.contributor.name}${presence != null ? ` (${presence.statusText})` : ''}\n${
-			this.contributor.email
-		}\n${Strings.pluralize(
+		}${this.contributor.date != null ? `${this.contributor.formatDateFromNow()}, ` : ''}${pluralize(
 			'commit',
 			this.contributor.count,
-		)}\nLast commit ${this.contributor.formatDateFromNow()} (${this.contributor.formatDate()})`;
+		)}`;
 
+		let avatarUri;
+		let avatarMarkdown;
 		if (this.view.config.avatars) {
-			item.iconPath = await this.contributor.getAvatarUri({
-				defaultStyle: Container.config.defaultGravatarsStyle,
+			const size = configuration.get('hovers.avatarSize');
+			avatarUri = await this.contributor.getAvatarUri({
+				defaultStyle: configuration.get('defaultGravatarsStyle'),
+				size: size,
 			});
+
+			if (presence != null) {
+				const title = `${this.contributor.count ? 'You are' : `${this.contributor.label} is`} ${
+					presence.status === 'dnd' ? 'in ' : ''
+				}${presence.statusText.toLocaleLowerCase()}`;
+
+				avatarMarkdown = `![${title}](${avatarUri.toString(
+					true,
+				)}|width=${size},height=${size} "${title}")![${title}](${getPresenceDataUri(
+					presence.status,
+				)} "${title}")`;
+			} else {
+				avatarMarkdown = `![${this.contributor.label}](${avatarUri.toString(
+					true,
+				)}|width=${size},height=${size} "${this.contributor.label}")`;
+			}
 		}
+
+		const numberFormatter = new Intl.NumberFormat();
+
+		const stats =
+			this.contributor.stats != null
+				? `\\\n${pluralize('file', this.contributor.stats.files, {
+						format: numberFormatter.format,
+				  })} changed, ${pluralize('addition', this.contributor.stats.additions, {
+						format: numberFormatter.format,
+				  })}, ${pluralize('deletion', this.contributor.stats.deletions, {
+						format: numberFormatter.format,
+				  })}`
+				: '';
+
+		const link = this.contributor.email
+			? `__[${this.contributor.name}](mailto:${this.contributor.email} "Email ${this.contributor.label} (${this.contributor.email})")__`
+			: `__${this.contributor.label}__`;
+
+		const lastCommitted =
+			this.contributor.date != null
+				? `Last commit ${this.contributor.formatDateFromNow()} (${this.contributor.formatDate()})\\\n`
+				: '';
+
+		const markdown = new MarkdownString(
+			`${avatarMarkdown != null ? avatarMarkdown : ''} &nbsp;${link} \n\n${lastCommitted}${pluralize(
+				'commit',
+				this.contributor.count,
+				{ format: numberFormatter.format },
+			)}${stats}`,
+		);
+		markdown.supportHtml = true;
+		markdown.isTrusted = true;
+
+		item.tooltip = markdown;
+		item.iconPath = avatarUri;
 
 		return item;
 	}
 
 	@gate()
 	@debug()
-	refresh(reset?: boolean) {
+	override refresh(reset?: boolean) {
 		if (reset) {
 			this._log = undefined;
 		}
@@ -106,11 +166,18 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 	private _log: GitLog | undefined;
 	private async getLog() {
 		if (this._log == null) {
-			this._log = await Container.git.getLog(this.uri.repoPath!, {
+			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
 				all: this._options?.all,
 				ref: this._options?.ref,
 				limit: this.limit ?? this.view.config.defaultItemLimit,
-				authors: [`^${this.contributor.name} <${this.contributor.email}>$`],
+				authors: [
+					{
+						name: this.contributor.name,
+						email: this.contributor.email,
+						username: this.contributor.username,
+						id: this.contributor.id,
+					},
+				],
 			});
 		}
 
@@ -121,7 +188,6 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 		return this._log?.hasMore ?? true;
 	}
 
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	@gate()
 	async loadMore(limit?: number | { until?: any }) {
 		let log = await window.withProgress(

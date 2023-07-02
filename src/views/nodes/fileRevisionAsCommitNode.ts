@@ -1,52 +1,45 @@
-'use strict';
-import * as paths from 'path';
-import { Command, Selection, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
-import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
-import { Colors, GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { FileHistoryView } from '../fileHistoryView';
-import {
-	CommitFormatter,
-	GitBranch,
-	GitFile,
-	GitLogCommit,
-	GitRevisionReference,
-	StatusFileFormatter,
-} from '../../git/git';
+import type { Command, Selection } from 'vscode';
+import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import type { DiffWithPreviousCommandArgs } from '../../commands';
+import type { Colors } from '../../constants';
+import { Commands } from '../../constants';
+import { CommitFormatter } from '../../git/formatters/commitFormatter';
+import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
-import { LineHistoryView } from '../lineHistoryView';
+import type { GitBranch } from '../../git/models/branch';
+import type { GitCommit } from '../../git/models/commit';
+import type { GitFile } from '../../git/models/file';
+import { getGitFileStatusIcon } from '../../git/models/file';
+import type { GitRevisionReference } from '../../git/models/reference';
+import { configuration } from '../../system/configuration';
+import { joinPaths } from '../../system/path';
+import { getSettledValue } from '../../system/promise';
+import type { FileHistoryView } from '../fileHistoryView';
+import type { LineHistoryView } from '../lineHistoryView';
+import type { ViewsWithCommits } from '../viewBase';
 import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNode';
 import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChangesNode';
-import { ViewsWithCommits } from '../viewBase';
-import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, ViewRefFileNode } from './viewNode';
 
 export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits | FileHistoryView | LineHistoryView> {
 	constructor(
 		view: ViewsWithCommits | FileHistoryView | LineHistoryView,
 		parent: ViewNode,
-		public readonly file: GitFile,
-		public commit: GitLogCommit,
+		file: GitFile,
+		public commit: GitCommit,
 		private readonly _options: {
 			branch?: GitBranch;
+			getBranchAndTagTips?: (sha: string, options?: { compact?: boolean }) => string | undefined;
 			selection?: Selection;
 			unpublished?: boolean;
 		} = {},
 	) {
-		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent);
+		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent, file);
 	}
 
-	toClipboard(): string {
-		let message = this.commit.message;
-		const index = message.indexOf('\n');
-		if (index !== -1) {
-			message = `${message.substring(0, index)}${GlyphChars.Space}${GlyphChars.Ellipsis}`;
-		}
-
-		return `${this.commit.shortSha}: ${message}`;
-	}
-
-	get fileName(): string {
-		return this.file.fileName;
+	override toClipboard(): string {
+		return `${this.commit.shortSha}: ${this.commit.summary}`;
 	}
 
 	get isTip(): boolean {
@@ -58,13 +51,18 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (!this.commit.hasConflicts) return [];
+		if (!this.commit.file?.hasConflicts) return [];
 
-		const [mergeStatus, rebaseStatus] = await Promise.all([
-			Container.git.getMergeStatus(this.commit.repoPath),
-			Container.git.getRebaseStatus(this.commit.repoPath),
+		const [mergeStatusResult, rebaseStatusResult] = await Promise.allSettled([
+			this.view.container.git.getMergeStatus(this.commit.repoPath),
+			this.view.container.git.getRebaseStatus(this.commit.repoPath),
 		]);
-		if (mergeStatus == null && rebaseStatus == null) return [];
+
+		const mergeStatus = getSettledValue(mergeStatusResult);
+		if (mergeStatus == null) return [];
+
+		const rebaseStatus = getSettledValue(rebaseStatusResult);
+		if (rebaseStatus == null) return [];
 
 		return [
 			new MergeConflictCurrentChangesNode(this.view, this, (mergeStatus ?? rebaseStatus)!, this.file),
@@ -73,11 +71,11 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		if (!this.commit.isFile) {
-			// See if we can get the commit directly from the multi-file commit
-			const commit = this.commit.toFileCommit(this.file);
+		if (this.commit.file == null) {
+			// Try to get the commit directly from the multi-file commit
+			const commit = await this.commit.getCommitForFile(this.file);
 			if (commit == null) {
-				const log = await Container.git.getLogForFile(this.repoPath, this.file.fileName, {
+				const log = await this.view.container.git.getLogForFile(this.repoPath, this.file.path, {
 					limit: 2,
 					ref: this.commit.sha,
 				});
@@ -91,52 +89,34 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 
 		const item = new TreeItem(
 			CommitFormatter.fromTemplate(this.view.config.formats.commits.label, this.commit, {
-				dateFormat: Container.config.defaultDateFormat,
+				dateFormat: configuration.get('defaultDateFormat'),
+				getBranchAndTagTips: (sha: string) => this._options.getBranchAndTagTips?.(sha, { compact: true }),
 				messageTruncateAtNewLine: true,
 			}),
-			this.commit.hasConflicts ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.None,
+			this.commit.file?.hasConflicts ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.None,
 		);
 
 		item.contextValue = this.contextValue;
 
 		item.description = CommitFormatter.fromTemplate(this.view.config.formats.commits.description, this.commit, {
-			dateFormat: Container.config.defaultDateFormat,
+			dateFormat: configuration.get('defaultDateFormat'),
+			getBranchAndTagTips: (sha: string) => this._options.getBranchAndTagTips?.(sha, { compact: true }),
 			messageTruncateAtNewLine: true,
 		});
 
 		item.resourceUri = Uri.parse(`gitlens-view://commit-file/status/${this.file.status}`);
 
-		// eslint-disable-next-line no-template-curly-in-string
-		const status = StatusFileFormatter.fromTemplate('${status}${ (originalPath)}', this.file); // lgtm [js/template-syntax-in-string-literal]
-		item.tooltip = CommitFormatter.fromTemplate(
-			this.commit.isUncommitted
-				? `\${author} ${GlyphChars.Dash} \${id}\n${status}\n\${ago} (\${date})`
-				: `\${author}\${ (email)} ${GlyphChars.Dash} \${id}${
-						this._options.unpublished ? ' (unpublished)' : ''
-				  }\n${status}\n\${ago} (\${date})\${\n\nmessage}${this.commit.getFormattedDiffStatus({
-						expand: true,
-						prefix: '\n\n',
-						separator: '\n',
-				  })}\${\n\n${GlyphChars.Dash.repeat(2)}\nfootnotes}`,
-			this.commit,
-			{
-				dateFormat: Container.config.defaultDateFormat,
-				// messageAutolinks: true,
-				messageIndent: 4,
-			},
-		);
-
 		if (!this.commit.isUncommitted && this.view.config.avatars) {
 			item.iconPath = this._options.unpublished
-				? new ThemeIcon('arrow-up', new ThemeColor(Colors.UnpublishedCommitIconColor))
-				: await this.commit.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle });
+				? new ThemeIcon('arrow-up', new ThemeColor('gitlens.unpublishedCommitIconColor' satisfies Colors))
+				: await this.commit.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') });
 		}
 
 		if (item.iconPath == null) {
-			const icon = GitFile.getStatusIcon(this.file.status);
+			const icon = getGitFileStatusIcon(this.file.status);
 			item.iconPath = {
-				dark: Container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
-				light: Container.context.asAbsolutePath(paths.join('images', 'light', icon)),
+				dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon)),
+				light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon)),
 			};
 		}
 
@@ -152,22 +132,22 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 			}${this._options.unpublished ? '+unpublished' : ''}`;
 		}
 
-		return this.commit.hasConflicts
+		return this.commit.file?.hasConflicts
 			? `${ContextValues.File}+conflicted`
 			: this.commit.isUncommittedStaged
 			? `${ContextValues.File}+staged`
 			: `${ContextValues.File}+unstaged`;
 	}
 
-	getCommand(): Command | undefined {
+	override getCommand(): Command | undefined {
 		let line;
-		if (this.commit.line !== undefined) {
-			line = this.commit.line.to.line - 1;
+		if (this.commit.lines.length) {
+			line = this.commit.lines[0].line - 1;
 		} else {
-			line = this._options.selection !== undefined ? this._options.selection.active.line : 0;
+			line = this._options.selection?.active.line ?? 0;
 		}
 
-		if (this.commit.hasConflicts) {
+		if (this.commit.file?.hasConflicts) {
 			return {
 				title: 'Open Changes',
 				command: Commands.DiffWith,
@@ -208,10 +188,73 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		};
 	}
 
-	async getConflictBaseUri(): Promise<Uri | undefined> {
-		if (!this.commit.hasConflicts) return undefined;
+	override async resolveTreeItem(item: TreeItem): Promise<TreeItem> {
+		if (item.tooltip == null) {
+			item.tooltip = await this.getTooltip();
+		}
+		return item;
+	}
 
-		const mergeBase = await Container.git.getMergeBase(this.repoPath, 'MERGE_HEAD', 'HEAD');
+	async getConflictBaseUri(): Promise<Uri | undefined> {
+		if (!this.commit.file?.hasConflicts) return undefined;
+
+		const mergeBase = await this.view.container.git.getMergeBase(this.repoPath, 'MERGE_HEAD', 'HEAD');
 		return GitUri.fromFile(this.file, this.repoPath, mergeBase ?? 'HEAD');
+	}
+
+	private async getTooltip() {
+		const remotes = await this.view.container.git.getRemotesWithProviders(this.commit.repoPath);
+		const remote = await this.view.container.git.getBestRemoteWithRichProvider(remotes);
+
+		if (this.commit.message == null) {
+			await this.commit.ensureFullDetails();
+		}
+
+		let autolinkedIssuesOrPullRequests;
+		let pr;
+
+		if (remote?.provider != null) {
+			const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
+				this.view.container.autolinks.getLinkedIssuesAndPullRequests(
+					this.commit.message ?? this.commit.summary,
+					remote,
+				),
+				this.commit.getAssociatedPullRequest({ remote: remote }),
+			]);
+
+			autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
+			pr = getSettledValue(prResult);
+
+			// Remove possible duplicate pull request
+			if (pr != null) {
+				autolinkedIssuesOrPullRequests?.delete(pr.id);
+			}
+		}
+
+		const status = StatusFileFormatter.fromTemplate(
+			`\${status}\${ (originalPath)}\${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail}`,
+			this.file,
+		);
+		const tooltip = await CommitFormatter.fromTemplateAsync(
+			this.view.config.formats.commits.tooltipWithStatus.replace('{{slot-status}}', status),
+			this.commit,
+			{
+				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
+				dateFormat: configuration.get('defaultDateFormat'),
+				getBranchAndTagTips: this._options.getBranchAndTagTips,
+				messageAutolinks: true,
+				messageIndent: 4,
+				pullRequestOrRemote: pr,
+				outputFormat: 'markdown',
+				remotes: remotes,
+				unpublished: this._options.unpublished,
+			},
+		);
+
+		const markdown = new MarkdownString(tooltip, true);
+		markdown.supportHtml = true;
+		markdown.isTrusted = true;
+
+		return markdown;
 	}
 }

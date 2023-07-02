@@ -1,10 +1,13 @@
-'use strict';
-import { window } from 'vscode';
-import { Command, command, CommandContext, Commands, executeCommand } from './common';
-import { RemoteResourceType } from '../git/git';
-import { Logger } from '../logger';
-import { OpenOnRemoteCommandArgs } from './openOnRemote';
-import { ResultsCommitsNode } from '../views/nodes';
+import { Commands } from '../constants';
+import type { Container } from '../container';
+import { RemoteResourceType } from '../git/models/remoteResource';
+import { showGenericErrorMessage } from '../messages';
+import { command, executeCommand } from '../system/command';
+import { Logger } from '../system/logger';
+import { ResultsCommitsNode } from '../views/nodes/resultsCommitsNode';
+import type { CommandContext } from './base';
+import { Command } from './base';
+import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenComparisonOnRemoteCommandArgs {
 	clipboard?: boolean;
@@ -16,11 +19,11 @@ export interface OpenComparisonOnRemoteCommandArgs {
 
 @command()
 export class OpenComparisonOnRemoteCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.OpenComparisonOnRemote, Commands.CopyRemoteComparisonUrl]);
 	}
 
-	protected preExecute(context: CommandContext, args?: OpenComparisonOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenComparisonOnRemoteCommandArgs) {
 		if (context.type === 'viewItem') {
 			if (context.node instanceof ResultsCommitsNode) {
 				args = {
@@ -55,9 +58,7 @@ export class OpenComparisonOnRemoteCommand extends Command {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenComparisonOnRemoteCommand');
-			void window.showErrorMessage(
-				'Unable to open comparison on remote provider. See output channel for more details',
-			);
+			void showGenericErrorMessage('Unable to open comparison on remote provider');
 		}
 	}
 }

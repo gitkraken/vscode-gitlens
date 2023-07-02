@@ -1,19 +1,15 @@
-'use strict';
-import { TextEditor, Uri, window } from 'vscode';
-import { RemoteResourceType } from '../git/git';
+import type { TextEditor, Uri } from 'vscode';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
-import {
-	ActiveEditorCommand,
-	command,
-	CommandContext,
-	Commands,
-	executeCommand,
-	getCommandUri,
-	getRepoPathOrActiveOrPrompt,
-	isCommandContextViewNodeHasRemote,
-} from './common';
-import { OpenOnRemoteCommandArgs } from './openOnRemote';
+import { RemoteResourceType } from '../git/models/remoteResource';
+import { showGenericErrorMessage } from '../messages';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command, executeCommand } from '../system/command';
+import { Logger } from '../system/logger';
+import type { CommandContext } from './base';
+import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasRemote } from './base';
+import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenBranchesOnRemoteCommandArgs {
 	clipboard?: boolean;
@@ -22,7 +18,7 @@ export interface OpenBranchesOnRemoteCommandArgs {
 
 @command()
 export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([
 			Commands.OpenBranchesOnRemote,
 			Commands.Deprecated_OpenBranchesInRemote,
@@ -30,7 +26,7 @@ export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected preExecute(context: CommandContext, args?: OpenBranchesOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenBranchesOnRemoteCommandArgs) {
 		if (isCommandContextViewNodeHasRemote(context)) {
 			args = { ...args, remote: context.node.remote.name };
 		}
@@ -47,11 +43,13 @@ export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-		const repoPath = await getRepoPathOrActiveOrPrompt(
-			gitUri,
-			editor,
-			args?.clipboard ? 'Copy Remote Branches Url' : 'Open Branches on Remote',
-		);
+		const repoPath = (
+			await getBestRepositoryOrShowPicker(
+				gitUri,
+				editor,
+				args?.clipboard ? 'Copy Remote Branches URL' : 'Open Branches on Remote',
+			)
+		)?.path;
 		if (!repoPath) return;
 
 		try {
@@ -65,9 +63,7 @@ export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenBranchesOnRemoteCommand');
-			void window.showErrorMessage(
-				'Unable to open branches on remote provider. See output channel for more details',
-			);
+			void showGenericErrorMessage('Unable to open branches on remote provider');
 		}
 	}
 }

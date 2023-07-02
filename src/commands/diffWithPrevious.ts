@@ -1,20 +1,16 @@
-'use strict';
-import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { Container } from '../container';
-import { GitCommit, GitRevision } from '../git/git';
+import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
-import {
-	ActiveEditorCommand,
-	command,
-	CommandContext,
-	Commands,
-	executeCommand,
-	findOrOpenEditor,
-	getCommandUri,
-} from './common';
-import { DiffWithCommandArgs } from './diffWith';
+import type { GitCommit } from '../git/models/commit';
+import { deletedOrMissing } from '../git/models/constants';
+import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
+import { command, executeCommand } from '../system/command';
+import { Logger } from '../system/logger';
+import { findOrOpenEditor } from '../system/utils';
+import type { CommandContext } from './base';
+import { ActiveEditorCommand, getCommandUri } from './base';
+import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithPreviousCommandArgs {
 	commit?: GitCommit;
@@ -27,11 +23,11 @@ export interface DiffWithPreviousCommandArgs {
 
 @command()
 export class DiffWithPreviousCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.DiffWithPrevious, Commands.DiffWithPreviousInDiffLeft, Commands.DiffWithPreviousInDiffRight]);
 	}
 
-	protected preExecute(context: CommandContext, args?: DiffWithPreviousCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: DiffWithPreviousCommandArgs) {
 		if (context.command === Commands.DiffWithPreviousInDiffRight) {
 			args = { ...args, inDiffRightEditor: true };
 		}
@@ -53,17 +49,18 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		}
 
 		let gitUri;
-		if (args.commit != null) {
+		if (args.commit?.file != null) {
 			if (!args.commit.isUncommitted) {
 				void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 					repoPath: args.commit.repoPath,
 					lhs: {
 						sha: `${args.commit.sha}^`,
-						uri: args.commit.originalUri,
+						uri: args.commit.file.originalUri ?? args.commit.file.uri,
 					},
 					rhs: {
-						sha: args.commit.sha || '',
-						uri: args.commit.uri,
+						// If the file is `?` (untracked), then this must be a stash, so get the ^3 commit to access the untracked file
+						sha: args.commit.file.status === '?' ? `${args.commit.sha}^3` : args.commit.sha || '',
+						uri: args.commit.file.uri,
 					},
 					line: args.line,
 					showOptions: args.showOptions,
@@ -72,7 +69,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				return;
 			}
 
-			gitUri = GitUri.fromCommit(args.commit);
+			gitUri = args.commit?.getGitUri();
 		} else {
 			gitUri = await GitUri.fromUri(uri);
 		}
@@ -83,7 +80,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		// }
 
 		try {
-			const diffUris = await Container.git.getPreviousDiffUris(
+			const diffUris = await this.container.git.getPreviousComparisonUris(
 				gitUri.repoPath!,
 				gitUri,
 				gitUri.sha,
@@ -93,7 +90,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
 			if (diffUris == null || diffUris.previous == null) {
 				if (diffUris == null) {
-					void Messages.showCommitHasNoPreviousCommitWarningMessage();
+					void showCommitHasNoPreviousCommitWarningMessage();
 
 					return;
 				}
@@ -106,7 +103,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				}
 
 				if (!diffUris.current.isUncommittedStaged) {
-					void Messages.showCommitHasNoPreviousCommitWarningMessage();
+					void showCommitHasNoPreviousCommitWarningMessage();
 
 					return;
 				}
@@ -115,7 +112,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				diffUris.previous = GitUri.fromFile(
 					diffUris.current.fileName,
 					diffUris.current.repoPath!,
-					GitRevision.deletedOrMissing,
+					deletedOrMissing,
 				);
 			}
 
@@ -138,7 +135,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				'DiffWithPreviousCommand',
 				`getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`,
 			);
-			void Messages.showGenericErrorMessage('Unable to open compare');
+			void showGenericErrorMessage('Unable to open compare');
 		}
 	}
 }

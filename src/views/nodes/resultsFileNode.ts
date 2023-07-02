@@ -1,37 +1,38 @@
-'use strict';
-import * as paths from 'path';
-import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { Commands, DiffWithCommandArgs } from '../../commands';
-import { Container } from '../../container';
-import { FileNode } from './folderNode';
-import { GitFile, GitReference, GitRevisionReference, StatusFileFormatter } from '../../git/git';
+import type { Command } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { DiffWithCommandArgs } from '../../commands';
+import { Commands } from '../../constants';
+import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
-import { View } from '../viewBase';
-import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
+import type { GitFile } from '../../git/models/file';
+import { getGitFileStatusIcon } from '../../git/models/file';
+import type { GitRevisionReference } from '../../git/models/reference';
+import { createReference } from '../../git/models/reference';
+import { joinPaths, relativeDir } from '../../system/path';
+import type { View } from '../viewBase';
+import type { FileNode } from './folderNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, ViewRefFileNode } from './viewNode';
 
 export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 	constructor(
 		view: View,
 		parent: ViewNode,
 		repoPath: string,
-		public readonly file: GitFile,
+		file: GitFile,
 		public readonly ref1: string,
 		public readonly ref2: string,
 		private readonly direction: 'ahead' | 'behind' | undefined,
 	) {
-		super(GitUri.fromFile(file, repoPath, ref1 || ref2), view, parent);
+		super(GitUri.fromFile(file, repoPath, ref1 || ref2), view, parent, file);
 	}
 
-	toClipboard(): string {
-		return this.fileName;
-	}
-
-	get fileName(): string {
-		return this.file.fileName;
+	override toClipboard(): string {
+		return this.file.path;
 	}
 
 	get ref(): GitRevisionReference {
-		return GitReference.create(this.ref1 || this.ref2, this.uri.repoPath!);
+		return createReference(this.ref1 || this.ref2, this.uri.repoPath!);
 	}
 
 	getChildren(): ViewNode[] {
@@ -43,15 +44,14 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 		item.contextValue = ContextValues.ResultsFile;
 		item.description = this.description;
 		item.tooltip = StatusFileFormatter.fromTemplate(
-			// eslint-disable-next-line no-template-curly-in-string
-			'${file}\n${directory}/\n\n${status}${ (originalPath)}',
+			`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)}`,
 			this.file,
 		);
 
-		const statusIcon = GitFile.getStatusIcon(this.file.status);
+		const statusIcon = getGitFileStatusIcon(this.file.status);
 		item.iconPath = {
-			dark: Container.context.asAbsolutePath(paths.join('images', 'dark', statusIcon)),
-			light: Container.context.asAbsolutePath(paths.join('images', 'light', statusIcon)),
+			dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', statusIcon)),
+			light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', statusIcon)),
 		};
 
 		item.command = this.getCommand();
@@ -75,7 +75,7 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 	private _folderName: string | undefined;
 	get folderName() {
 		if (this._folderName === undefined) {
-			this._folderName = paths.dirname(this.uri.relativePath);
+			this._folderName = relativeDir(this.uri.relativePath);
 		}
 		return this._folderName;
 	}
@@ -104,7 +104,7 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 		return 0;
 	}
 
-	getCommand(): Command | undefined {
+	override getCommand(): Command | undefined {
 		const commandArgs: DiffWithCommandArgs = {
 			lhs: {
 				sha: this.ref1,

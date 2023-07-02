@@ -1,16 +1,16 @@
-'use strict';
-import { Command, command, Commands } from './common';
-import { GlyphChars } from '../constants';
-import { Container } from '../container';
-import { GitRemote, GitRevision, RemoteProvider, RemoteResource, RemoteResourceType } from '../git/git';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
-import {
-	CopyOrOpenRemoteCommandQuickPickItem,
-	RemoteProviderPicker,
-	SetADefaultRemoteCommandQuickPickItem,
-} from '../quickpicks';
-import { Strings } from '../system';
+import { Commands, GlyphChars } from '../constants';
+import type { Container } from '../container';
+import { createRevisionRange, shortenRevision } from '../git/models/reference';
+import { GitRemote } from '../git/models/remote';
+import type { RemoteResource } from '../git/models/remoteResource';
+import { RemoteResourceType } from '../git/models/remoteResource';
+import type { RemoteProvider } from '../git/remotes/remoteProvider';
+import { showGenericErrorMessage } from '../messages';
+import { showRemoteProviderPicker } from '../quickpicks/remoteProviderPicker';
+import { command } from '../system/command';
+import { Logger } from '../system/logger';
+import { pad, splitSingle } from '../system/string';
+import { Command } from './base';
 
 export type OpenOnRemoteCommandArgs =
 	| {
@@ -30,14 +30,15 @@ export type OpenOnRemoteCommandArgs =
 
 @command()
 export class OpenOnRemoteCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.OpenOnRemote, Commands.Deprecated_OpenInRemote]);
 	}
 
 	async execute(args?: OpenOnRemoteCommandArgs) {
 		if (args?.resource == null) return;
 
-		let remotes = 'remotes' in args ? args.remotes : await Container.git.getRemotes(args.repoPath);
+		let remotes =
+			'remotes' in args ? args.remotes : await this.container.git.getRemotesWithProviders(args.repoPath);
 
 		if (args.remote != null) {
 			const filtered = remotes.filter(r => r.name === args.remote);
@@ -50,7 +51,7 @@ export class OpenOnRemoteCommand extends Command {
 		try {
 			if (args.resource.type === RemoteResourceType.Branch) {
 				// Check to see if the remote is in the branch
-				const [remoteName, branchName] = Strings.splitSingle(args.resource.branch, '/');
+				const [remoteName, branchName] = splitSingle(args.resource.branch, '/');
 				if (branchName != null) {
 					const remote = remotes.find(r => r.name === remoteName);
 					if (remote != null) {
@@ -61,10 +62,10 @@ export class OpenOnRemoteCommand extends Command {
 			} else if (args.resource.type === RemoteResourceType.Revision) {
 				const { commit, fileName } = args.resource;
 				if (commit != null) {
-					const file = commit?.files.find(f => f.fileName === fileName);
+					const file = await commit.findFile(fileName);
 					if (file?.status === 'D') {
 						// Resolve to the previous commit to that file
-						args.resource.sha = await Container.git.resolveReference(
+						args.resource.sha = await this.container.git.resolveReference(
 							commit.repoPath,
 							`${commit.sha}^`,
 							fileName,
@@ -78,35 +79,36 @@ export class OpenOnRemoteCommand extends Command {
 			const providers = GitRemote.getHighlanderProviders(remotes);
 			const provider = providers?.length ? providers[0].name : 'Remote';
 
-			const options: Parameters<typeof RemoteProviderPicker.show>[4] = {
+			const options: Parameters<typeof showRemoteProviderPicker>[4] = {
 				autoPick: 'default',
 				clipboard: args.clipboard,
 				setDefault: true,
 			};
+
 			let title;
-			let placeHolder = `Choose which remote to ${args.clipboard ? 'copy the url for' : 'open on'}`;
+			let placeHolder = `Choose which remote to ${args.clipboard ? 'copy the link for' : 'open on'}`;
+
+			function getTitlePrefix(type: string): string {
+				return args?.clipboard ? `Copy Link to ${type} for ${provider}` : `Open ${type} on ${provider}`;
+			}
 
 			switch (args.resource.type) {
 				case RemoteResourceType.Branch:
-					title = `${
-						args.clipboard ? `Copy ${provider} Branch Url` : `Open Branch on ${provider}`
-					}${Strings.pad(GlyphChars.Dot, 2, 2)}${args.resource.branch}`;
+					title = `${getTitlePrefix('Branch')}${pad(GlyphChars.Dot, 2, 2)}${args.resource.branch}`;
 					break;
 
 				case RemoteResourceType.Branches:
-					title = `${args.clipboard ? `Copy ${provider} Branches Url` : `Open Branches on ${provider}`}`;
+					title = getTitlePrefix('Branches');
 					break;
 
 				case RemoteResourceType.Commit:
-					title = `${
-						args.clipboard ? `Copy ${provider} Commit Url` : `Open Commit on ${provider}`
-					}${Strings.pad(GlyphChars.Dot, 2, 2)}${GitRevision.shorten(args.resource.sha)}`;
+					title = `${getTitlePrefix('Commit')}${pad(GlyphChars.Dot, 2, 2)}${shortenRevision(
+						args.resource.sha,
+					)}`;
 					break;
 
 				case RemoteResourceType.Comparison:
-					title = `${
-						args.clipboard ? `Copy ${provider} Comparison Url` : `Open Comparison on ${provider}`
-					}${Strings.pad(GlyphChars.Dot, 2, 2)}${GitRevision.createRange(
+					title = `${getTitlePrefix('Comparison')}${pad(GlyphChars.Dot, 2, 2)}${createRevisionRange(
 						args.resource.base,
 						args.resource.compare,
 						args.resource.notation ?? '...',
@@ -119,62 +121,45 @@ export class OpenOnRemoteCommand extends Command {
 
 					title = `${
 						args.clipboard
-							? `Copy ${provider} Create Pull Request Url`
+							? `Copy Create Pull Request Link for ${provider}`
 							: `Create Pull Request on ${provider}`
-					}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+					}${pad(GlyphChars.Dot, 2, 2)}${
 						args.resource.base?.branch
-							? GitRevision.createRange(args.resource.base.branch, args.resource.compare.branch, '...')
+							? createRevisionRange(args.resource.base.branch, args.resource.compare.branch, '...')
 							: args.resource.compare.branch
 					}`;
 
 					placeHolder = `Choose which remote to ${
-						args.clipboard ? 'copy the create pull request url for' : 'create the pull request on'
+						args.clipboard ? 'copy the create pull request link for' : 'create the pull request on'
 					}`;
 					break;
 
 				case RemoteResourceType.File:
-					title = `${args.clipboard ? `Copy ${provider} File Url` : `Open File on ${provider}`}${Strings.pad(
-						GlyphChars.Dot,
-						2,
-						2,
-					)}${args.resource.fileName}`;
+					title = `${getTitlePrefix('File')}${pad(GlyphChars.Dot, 2, 2)}${args.resource.fileName}`;
 					break;
 
 				case RemoteResourceType.Repo:
-					title = `${args.clipboard ? `Copy ${provider} Repository Url` : `Open Repository on ${provider}`}`;
+					title = getTitlePrefix('Repository');
 					break;
 
 				case RemoteResourceType.Revision: {
-					title = `${args.clipboard ? `Copy ${provider} File Url` : `Open File on ${provider}`}${Strings.pad(
-						GlyphChars.Dot,
-						2,
-						2,
-					)}${GitRevision.shorten(args.resource.sha)}${Strings.pad(GlyphChars.Dot, 1, 1)}${
-						args.resource.fileName
-					}`;
+					title = `${getTitlePrefix('File')}${pad(GlyphChars.Dot, 2, 2)}${shortenRevision(
+						args.resource.sha,
+					)}${pad(GlyphChars.Dot, 1, 1)}${args.resource.fileName}`;
 					break;
 				}
+
+				// case RemoteResourceType.Tag: {
+				// 	title = `${getTitlePrefix('Tag')}${pad(GlyphChars.Dot, 2, 2)}${args.resource.tag}`;
+				// 	break;
+				// }
 			}
 
-			const pick = await RemoteProviderPicker.show(title, placeHolder, args.resource, remotes, options);
-
-			if (pick instanceof SetADefaultRemoteCommandQuickPickItem) {
-				const remote = await pick.execute();
-				if (remote != null) {
-					void (await new CopyOrOpenRemoteCommandQuickPickItem(
-						remote,
-						args.resource,
-						args.clipboard,
-					).execute());
-				}
-
-				return;
-			}
-
-			void (await pick?.execute());
+			const pick = await showRemoteProviderPicker(title, placeHolder, args.resource, remotes, options);
+			await pick?.execute();
 		} catch (ex) {
 			Logger.error(ex, 'OpenOnRemoteCommand');
-			void Messages.showGenericErrorMessage('Unable to open in remote provider');
+			void showGenericErrorMessage('Unable to open in remote provider');
 		}
 	}
 }

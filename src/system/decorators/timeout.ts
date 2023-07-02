@@ -1,5 +1,5 @@
-'use strict';
-import { CancellationError, is as isPromise } from '../promise';
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+import { cancellable, isPromise } from '../promise';
 
 export function timeout(timeout: number): any;
 export function timeout(timeoutFromLastArg: true, defaultTimeout?: number): any;
@@ -32,26 +32,7 @@ export function timeout(timeoutOrTimeoutFromLastArg: number | boolean, defaultTi
 			const result = fn?.apply(this, args);
 			if (timeout == null || timeout < 1 || !isPromise(result)) return result;
 
-			// const cc = Logger.getCorrelationContext();
-
-			// const start = process.hrtime();
-
-			return Promise.race([
-				result,
-				// result.then(r => {
-				// 	Logger.debug(
-				// 		cc,
-				// 		`${GlyphChars.Dash} timed out, but completed after ${Strings.getDurationMilliseconds(start)} ms`
-				// 	);
-				// 	return r;
-				// }),
-				new Promise((_, reject) => {
-					const id = setTimeout(() => {
-						clearTimeout(id);
-						reject(new CancellationError(result, `Timed out after ${timeout} ms`));
-					}, timeout!);
-				}),
-			]);
+			return cancellable(result, timeout, { onDidCancel: resolve => resolve(undefined) });
 		};
 	};
 }

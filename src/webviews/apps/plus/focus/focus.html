@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<style nonce="#{cspNonce}">
+			@font-face {
+				font-family: 'codicon';
+				font-display: block;
+				src: url('#{webroot}/codicon.ttf?2ab61cbaefbdf4c7c5589068100bee0c') format('truetype');
+			}
+			@font-face {
+				font-family: 'glicons';
+				font-display: block;
+				src: url('#{root}/dist/glicons.woff2?8e33f5a80a91b05940d687a08305c156') format('woff2');
+			}
+
+			:root {
+				--gl-plus-bg: url(#{webroot}/media/gitlens-backdrop-opacity.webp);
+			}
+		</style>
+	</head>
+
+	<body class="preload" data-placement="#{placement}">
+		<div class="app">
+			<header class="app__header" id="header">
+				<span class="badge">Preview</span>
+				<gk-feature-gate-badge id="subscription-gate-badge"></gk-feature-gate-badge>
+				<gk-button
+					appearance="toolbar"
+					href="https://github.com/gitkraken/vscode-gitlens/discussions/2535"
+					title="Focus View Feedback"
+					aria-label="Focus View Feedback"
+					><code-icon icon="feedback"></code-icon
+				></gk-button>
+			</header>
+
+			<div class="app__content" id="content">
+				<gk-feature-gate id="subscription-gate" class="scrollable"
+					><p slot="feature">
+						Brings all of your GitHub pull requests and issues into a unified actionable view to help to you
+						more easily juggle work in progress, pending work, reviews, and more. Quickly see if anything
+						requires your attention while keeping you focused.
+					</p></gk-feature-gate
+				>
+				<gk-feature-gate id="connection-gate" class="scrollable" visible="false">
+					<h3>No GitHub remotes are connected</h3>
+					<p>
+						This enables access to Pull Requests and Issues in the Focus View as well as provide additional
+						information inside hovers and the Commit Details view, such as auto-linked issues and pull
+						requests and avatars.
+					</p>
+					<gk-button appearance="alert" href="command:gitlens.connectRemoteProvider"
+						>Connect to GitHub</gk-button
+					>
+				</gk-feature-gate>
+
+				<main class="app__main">
+					<section class="focus-section app__section">
+						<header class="focus-section__header">
+							<h2>My Pull Requests</h2>
+							<nav class="tab-filter" id="pr-filter">
+								<button class="tab-filter__tab is-active" type="button" data-tab="">All</button>
+								<button class="tab-filter__tab" type="button" data-tab="authored">Opened by Me</button>
+								<button class="tab-filter__tab" type="button" data-tab="assigned">
+									Assigned to Me
+								</button>
+								<button class="tab-filter__tab" type="button" data-tab="review-requested">
+									Needs my Review
+								</button>
+								<button class="tab-filter__tab" type="button" data-tab="mentioned">Mentions Me</button>
+							</nav>
+						</header>
+						<div class="focus-section__content">
+							<table-container id="pull-requests">
+								<table-row slot="head">
+									<table-cell class="data-status" header="column" pinned title="PR status"
+										><code-icon icon="git-pull-request"></code-icon
+									></table-cell>
+									<table-cell class="data-time" header="column" pinned title="Last updated">
+										<code-icon icon="gl-clock"></code-icon>
+									</table-cell>
+									<table-cell class="data-body" header="column" pinned>Pull Request</table-cell>
+									<!-- <table-cell class="data-author" header="column" pinned>Author</table-cell>
+								<table-cell class="data-assigned" header="column" pinned>Assigned</table-cell> -->
+									<table-cell class="data-participants" header="column" pinned title="Participants">
+										<code-icon icon="organization"></code-icon>
+									</table-cell>
+									<table-cell class="data-comments" header="column" pinned title="Comments">
+										<code-icon icon="comment-discussion"></code-icon>
+									</table-cell>
+									<table-cell class="data-stats" header="column" pinned title="Change stats">
+										<code-icon icon="add"></code-icon>
+										<code-icon icon="dash"></code-icon>
+									</table-cell>
+									<table-cell class="data-actions" header="column" pinned
+										><code-icon icon="blank" title="actions"></code-icon
+									></table-cell>
+								</table-row>
+							</table-container>
+							<div class="alert" id="loading-pull-requests">
+								<span class="alert__content"
+									><code-icon modifier="spin" icon="loading"></code-icon> Loading</span
+								>
+							</div>
+							<div class="alert" id="no-pull-requests">
+								<span class="alert__content">No pull requests found</span>
+							</div>
+						</div>
+					</section>
+					<section class="focus-section app__section">
+						<header class="focus-section__header">
+							<h2>My Issues</h2>
+							<nav class="tab-filter" id="issue-filter">
+								<button class="tab-filter__tab is-active" type="button" data-tab="">All</button>
+								<button class="tab-filter__tab" type="button" data-tab="authored">Opened by Me</button>
+								<button class="tab-filter__tab" type="button" data-tab="assigned">
+									Assigned to Me
+								</button>
+								<button class="tab-filter__tab" type="button" data-tab="mentioned">Mentions Me</button>
+							</nav>
+						</header>
+						<div class="focus-section__content">
+							<table-container id="issues">
+								<table-row slot="head">
+									<table-cell class="data-status" header="column" pinned title="PR status">
+										<code-icon icon="issues"></code-icon>
+									</table-cell>
+									<table-cell class="data-time" header="column" pinned title="Last updated">
+										<code-icon icon="gl-clock"></code-icon>
+									</table-cell>
+									<table-cell header="column" pinned>Title</table-cell>
+									<!-- <table-cell class="data-author" header="column" pinned>Author</table-cell>
+								<table-cell class="data-assigned" header="column" pinned>Assigned</table-cell> -->
+									<table-cell class="data-participants" header="column" pinned title="Participants">
+										<code-icon icon="organization"></code-icon>
+									</table-cell>
+									<table-cell class="data-comments" header="column" pinned title="Comments">
+										<code-icon icon="comment-discussion"></code-icon>
+									</table-cell>
+									<table-cell class="data-checks" header="column" pinned title="Thumbs up">
+										<code-icon icon="thumbsup"></code-icon>
+									</table-cell>
+									<table-cell class="data-actions" header="column" pinned
+										><code-icon icon="blank" title="actions"></code-icon
+									></table-cell>
+								</table-row>
+							</table-container>
+							<div class="alert" id="loading-issues">
+								<span class="alert__content"
+									><code-icon modifier="spin" icon="loading"></code-icon> Loading</span
+								>
+							</div>
+							<div class="alert" id="no-issues" hidden>
+								<span class="alert__content">No issues found</span>
+							</div>
+						</div>
+					</section>
+				</main>
+			</div>
+		</div>
+		#{endOfBody}
+	</body>
+</html>

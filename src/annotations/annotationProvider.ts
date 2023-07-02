@@ -1,21 +1,19 @@
-'use strict';
-import {
+import type {
 	DecorationOptions,
-	Disposable,
 	Range,
 	TextDocument,
 	TextEditor,
 	TextEditorDecorationType,
 	TextEditorSelectionChangeEvent,
 	Uri,
-	window,
 } from 'vscode';
-import { FileAnnotationType } from '../configuration';
-import { ContextKeys, setContext } from '../constants';
-import { Logger } from '../logger';
-import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
+import { Disposable, window } from 'vscode';
+import type { FileAnnotationType } from '../config';
+import { setContext } from '../system/context';
+import { Logger } from '../system/logger';
+import type { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 
-export enum AnnotationStatus {
+export const enum AnnotationStatus {
 	Computing = 'computing',
 	Computed = 'computed',
 }
@@ -25,13 +23,13 @@ export interface AnnotationContext {
 }
 
 export type TextEditorCorrelationKey = string;
+export function getEditorCorrelationKey(editor: TextEditor | undefined): TextEditorCorrelationKey {
+	return `${editor?.document.uri.toString()}|${editor?.viewColumn}`;
+}
 
 export abstract class AnnotationProviderBase<TContext extends AnnotationContext = AnnotationContext>
-	implements Disposable {
-	static getCorrelationKey(editor: TextEditor | undefined): TextEditorCorrelationKey {
-		return `${editor?.document.uri.toString()}|${editor?.viewColumn}`;
-	}
-
+	implements Disposable
+{
 	annotationContext: TContext | undefined;
 	correlationKey: TextEditorCorrelationKey;
 	document: TextDocument;
@@ -47,7 +45,7 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 		public editor: TextEditor,
 		protected readonly trackedDocument: TrackedDocument<GitDocumentState>,
 	) {
-		this.correlationKey = AnnotationProviderBase.getCorrelationKey(this.editor);
+		this.correlationKey = getEditorCorrelationKey(this.editor);
 		this.document = this.editor.document;
 
 		this.disposable = Disposable.from(
@@ -91,6 +89,25 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 		return false;
 	}
 
+	refresh(replaceDecorationTypes: Map<TextEditorDecorationType, TextEditorDecorationType | null>) {
+		if (this.editor == null || !this.decorations?.length) return;
+
+		const decorations = [];
+
+		for (const d of this.decorations) {
+			const type = replaceDecorationTypes.get(d.decorationType);
+			// If the type is null then we've removed that type, so remove the decorations that reference it
+			if (type === null) continue;
+
+			if (type != null) {
+				d.decorationType = type;
+			}
+			decorations.push(d);
+		}
+
+		this.setDecorations(this.decorations);
+	}
+
 	async restore(editor: TextEditor) {
 		// If the editor isn't disposed then we don't need to do anything
 		// Explicitly check for `false`
@@ -98,11 +115,11 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 
 		this.status = AnnotationStatus.Computing;
 		if (editor === window.activeTextEditor) {
-			await setContext(ContextKeys.AnnotationStatus, this.status);
+			await setContext('gitlens:annotationStatus', this.status);
 		}
 
 		this.editor = editor;
-		this.correlationKey = AnnotationProviderBase.getCorrelationKey(editor);
+		this.correlationKey = getEditorCorrelationKey(editor);
 		this.document = editor.document;
 
 		if (this.decorations?.length) {
@@ -113,7 +130,7 @@ export abstract class AnnotationProviderBase<TContext extends AnnotationContext 
 
 		this.status = AnnotationStatus.Computed;
 		if (editor === window.activeTextEditor) {
-			await setContext(ContextKeys.AnnotationStatus, this.status);
+			await setContext('gitlens:annotationStatus', this.status);
 		}
 	}
 

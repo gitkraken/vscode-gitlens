@@ -1,19 +1,15 @@
-'use strict';
-import { TextEditor, Uri } from 'vscode';
-import { GitActions } from '../commands';
-import {
-	ActiveEditorCommand,
-	command,
-	CommandContext,
-	Commands,
-	getCommandUri,
-	getRepoPathOrActiveOrPrompt,
-	isCommandContextViewNodeHasRef,
-} from './common';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { ReferencePicker } from '../quickpicks';
-import { CompareResultsNode } from '../views/nodes';
+import type { TextEditor, Uri } from 'vscode';
+import { Commands } from '../constants';
+import type { Container } from '../container';
+import { openDirectoryCompare } from '../git/actions/commit';
+import { showGenericErrorMessage } from '../messages';
+import { showReferencePicker } from '../quickpicks/referencePicker';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command } from '../system/command';
+import { Logger } from '../system/logger';
+import { CompareResultsNode } from '../views/nodes/compareResultsNode';
+import type { CommandContext } from './base';
+import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasRef } from './base';
 
 export interface OpenDirectoryCompareCommandArgs {
 	ref1?: string;
@@ -22,7 +18,7 @@ export interface OpenDirectoryCompareCommandArgs {
 
 @command()
 export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([
 			Commands.DiffDirectory,
 			Commands.DiffDirectoryWithHead,
@@ -31,7 +27,7 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected async preExecute(context: CommandContext, args?: OpenDirectoryCompareCommandArgs) {
+	protected override async preExecute(context: CommandContext, args?: OpenDirectoryCompareCommandArgs) {
 		switch (context.command) {
 			case Commands.DiffDirectoryWithHead:
 				args = { ...args };
@@ -63,11 +59,12 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 		args = { ...args };
 
 		try {
-			const repoPath = await getRepoPathOrActiveOrPrompt(uri, editor, 'Directory Compare Working Tree With');
+			const repoPath = (await getBestRepositoryOrShowPicker(uri, editor, 'Directory Compare Working Tree With'))
+				?.path;
 			if (!repoPath) return;
 
 			if (!args.ref1) {
-				const pick = await ReferencePicker.show(
+				const pick = await showReferencePicker(
 					repoPath,
 					'Directory Compare Working Tree with',
 					'Choose a branch or tag to compare with',
@@ -82,10 +79,10 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 				if (args.ref1 == null) return;
 			}
 
-			void GitActions.Commit.openDirectoryCompare(repoPath, args.ref1, args.ref2);
+			void openDirectoryCompare(repoPath, args.ref1, args.ref2);
 		} catch (ex) {
 			Logger.error(ex, 'OpenDirectoryCompareCommand');
-			void Messages.showGenericErrorMessage('Unable to open directory compare');
+			void showGenericErrorMessage('Unable to open directory compare');
 		}
 	}
 }

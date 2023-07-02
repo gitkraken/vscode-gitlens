@@ -1,34 +1,35 @@
-'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { GitUri } from '../../git/gitUri';
+import type { Repository } from '../../git/models/repository';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
+import type { ViewsWithRemotesNode } from '../viewBase';
 import { MessageNode } from './common';
-import { Repository } from '../../git/git';
-import { GitUri } from '../../git/gitUri';
 import { RemoteNode } from './remoteNode';
-import { RemotesView } from '../remotesView';
-import { RepositoriesView } from '../repositoriesView';
-import { RepositoryNode } from './repositoryNode';
-import { ContextValues, ViewNode } from './viewNode';
-import { debug, gate } from '../../system';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
-	static key = ':remotes';
-	static getId(repoPath: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}`;
-	}
-
-	private _children: ViewNode[] | undefined;
-
-	constructor(uri: GitUri, view: RemotesView | RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
+export class RemotesNode extends ViewNode<ViewsWithRemotesNode> {
+	constructor(
+		uri: GitUri,
+		view: ViewsWithRemotesNode,
+		protected override readonly parent: ViewNode,
+		public readonly repo: Repository,
+	) {
 		super(uri, view, parent);
+
+		this.updateContext({ repository: repo });
+		this._uniqueId = getViewNodeId('remotes', this.context);
 	}
 
-	get id(): string {
-		return RemotesNode.getId(this.repo.path);
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	get repoPath(): string {
 		return this.repo.path;
 	}
+
+	private _children: ViewNode[] | undefined;
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
@@ -37,7 +38,7 @@ export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
 				return [new MessageNode(this.view, this, 'No remotes could be found')];
 			}
 
-			this._children = remotes.map(r => new RemoteNode(this.uri, this.view, this, r, this.repo));
+			this._children = remotes.map(r => new RemoteNode(this.uri, this.view, this, this.repo, r));
 		}
 
 		return this._children;
@@ -54,7 +55,7 @@ export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
 
 	@gate()
 	@debug()
-	refresh() {
+	override refresh() {
 		this._children = undefined;
 	}
 }

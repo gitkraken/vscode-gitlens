@@ -1,12 +1,14 @@
-'use strict';
-import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
-import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
-import { Container } from '../container';
-import { DiffWithCommandArgs } from './diffWith';
-import { GitCommit } from '../git/git';
+import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
+import type { GitCommit } from '../git/models/commit';
+import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
+import { command, executeCommand } from '../system/command';
+import { Logger } from '../system/logger';
+import type { CommandContext } from './base';
+import { ActiveEditorCommand, getCommandUri } from './base';
+import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffLineWithPreviousCommandArgs {
 	commit?: GitCommit;
@@ -17,8 +19,16 @@ export interface DiffLineWithPreviousCommandArgs {
 
 @command()
 export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.DiffLineWithPrevious);
+	}
+
+	protected override preExecute(context: CommandContext, args?: DiffLineWithPreviousCommandArgs): Promise<any> {
+		if (context.type === 'editorLine') {
+			args = { ...args, line: context.line };
+		}
+
+		return this.execute(context.editor, context.uri, args);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffLineWithPreviousCommandArgs): Promise<any> {
@@ -30,10 +40,10 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 			args.line = editor?.selection.active.line ?? 0;
 		}
 
-		const gitUri = args.commit != null ? GitUri.fromCommit(args.commit) : await GitUri.fromUri(uri);
+		const gitUri = args.commit?.getGitUri() ?? (await GitUri.fromUri(uri));
 
 		try {
-			const diffUris = await Container.git.getPreviousLineDiffUris(
+			const diffUris = await this.container.git.getPreviousComparisonUrisForLine(
 				gitUri.repoPath!,
 				gitUri,
 				args.line,
@@ -41,7 +51,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 			);
 
 			if (diffUris == null || diffUris.previous == null) {
-				void Messages.showCommitHasNoPreviousCommitWarningMessage();
+				void showCommitHasNoPreviousCommitWarningMessage();
 
 				return;
 			}
@@ -65,7 +75,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 				'DiffLineWithPreviousCommand',
 				`getPreviousLineDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`,
 			);
-			void Messages.showGenericErrorMessage('Unable to open compare');
+			void showGenericErrorMessage('Unable to open compare');
 		}
 	}
 }

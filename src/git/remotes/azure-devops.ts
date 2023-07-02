@@ -1,9 +1,9 @@
-'use strict';
-import { Range, Uri } from 'vscode';
-import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference } from '../../config';
-import { Repository } from '../models/repository';
-import { RemoteProvider } from './provider';
+import type { Range, Uri } from 'vscode';
+import type { DynamicAutolinkReference } from '../../annotations/autolinks';
+import type { AutolinkReference } from '../../config';
+import { AutolinkType } from '../../config';
+import type { Repository } from '../models/repository';
+import { RemoteProvider } from './remoteProvider';
 
 const gitRegex = /\/_git\/?/i;
 const legacyDefaultCollectionRegex = /^DefaultCollection\//i;
@@ -43,23 +43,35 @@ export class AzureDevOpsRemote extends RemoteProvider {
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
-	get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
+	override get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
 		if (this._autolinks === undefined) {
 			// Strip off any `_git` part from the repo url
-			const baseUrl = this.baseUrl.replace(gitRegex, '/');
+			const workUrl = this.baseUrl.replace(gitRegex, '/');
 			this._autolinks = [
 				{
 					prefix: '#',
-					url: `${baseUrl}/_workitems/edit/<num>`,
+					url: `${workUrl}/_workitems/edit/<num>`,
 					title: `Open Work Item #<num> on ${this.name}`,
+
+					type: AutolinkType.Issue,
+					description: `${this.name} Work Item #<num>`,
+				},
+				{
+					// Default Pull request message when merging a PR in ADO. Will not catch commits & pushes following a different pattern.
+					prefix: 'Merged PR ',
+					url: `${this.baseUrl}/pullrequest/<num>`,
+					title: `Open Pull Request #<num> on ${this.name}`,
+
+					type: AutolinkType.PullRequest,
+					description: `${this.name} Pull Request #<num>`,
 				},
 			];
 		}
 		return this._autolinks;
 	}
 
-	get icon() {
-		return 'vsts';
+	override get icon() {
+		return 'azdo';
 	}
 
 	get id() {
@@ -71,7 +83,7 @@ export class AzureDevOpsRemote extends RemoteProvider {
 	}
 
 	private _displayPath: string | undefined;
-	get displayPath(): string {
+	override get displayPath(): string {
 		if (this._displayPath === undefined) {
 			this._displayPath = this.path.replace(gitRegex, '/').replace(legacyDefaultCollectionRegex, '');
 		}
@@ -124,7 +136,7 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		return this.encodeUrl(`${this.baseUrl}/commit/${sha}`);
 	}
 
-	protected getUrlForComparison(base: string, compare: string, _notation: '..' | '...'): string {
+	protected override getUrlForComparison(base: string, compare: string, _notation: '..' | '...'): string {
 		return this.encodeUrl(`${this.baseUrl}/branchCompare?baseVersion=GB${base}&targetVersion=GB${compare}`);
 	}
 
@@ -132,9 +144,13 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		let line;
 		if (range != null) {
 			if (range.start.line === range.end.line) {
-				line = `&line=${range.start.line}&lineStartColumn=${range.start.character + 1}&lineEndColumn=${range.end.character + 1}`;
+				line = `&line=${range.start.line}&lineStartColumn=${range.start.character + 1}&lineEndColumn=${
+					range.end.character + 1
+				}`;
 			} else {
-				line = `&line=${range.start.line}&lineEnd=${range.end.line}&lineStartColumn=${range.start.character + 1}&lineEndColumn=${range.end.character + 1}`;
+				line = `&line=${range.start.line}&lineEnd=${range.end.line}&lineStartColumn=${
+					range.start.character + 1
+				}&lineEndColumn=${range.end.character + 1}`;
 			}
 		} else {
 			line = '';

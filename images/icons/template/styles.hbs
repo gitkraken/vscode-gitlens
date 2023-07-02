@@ -1,0 +1,66 @@
+/*
+
+Must be placed at the end of body in the HTML file of any webview that needs it (because of CSP)
+
+<style nonce="#{cspNonce}">
+	@font-face {
+		font-family: '{{ name }}';
+		font-display: block;
+		src: {{{ fontSrc }}};
+	}
+</style>
+*/
+
+.glicon {
+	font: normal normal normal 16px/1 {{ name }};
+	display: inline-block;
+	text-decoration: none;
+	text-rendering: auto;
+	text-align: center;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	user-select: none;
+	-webkit-user-select: none;
+	-ms-user-select: none;
+}
+
+/*---------------------
+ *  Modifiers
+ *-------------------*/
+
+@keyframes glicon-spin {
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+.glicon-sync.glicon-modifier-spin,
+.glicon-loading.glicon-modifier-spin,
+.glicon-gear.glicon-modifier-spin {
+	/* Use steps to throttle FPS to reduce CPU usage */
+	animation: glicon-spin 1.5s steps(30) infinite;
+}
+
+.glicon-modifier-disabled {
+	opacity: 0.5;
+}
+
+.glicon-modifier-hidden {
+	opacity: 0;
+}
+
+/* custom speed & easing for loading icon */
+.glicon-loading {
+	animation-duration: 1s !important;
+	animation-timing-function: cubic-bezier(0.53, 0.21, 0.29, 0.67) !important;
+}
+
+/*---------------------
+ *  Icons
+ *-------------------*/
+
+{{#each codepoints}}
+.{{ ../prefix }}-{{ @key }}:before {
+	content: '\\{{ codepoint this }}';
+}
+{{/each}}

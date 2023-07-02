@@ -1,17 +1,19 @@
-'use strict';
-import { CancellationToken, Disposable, window, WorkspaceFolder } from 'vscode';
-import { LiveShare, SharedServiceProxy } from 'vsls';
-import { setEnabled } from '../extension';
-import { GitCommandOptions, Repository, RepositoryChangeEvent } from '../git/git';
-import { Logger } from '../logger';
-import { debug, log } from '../system';
+import type { CancellationToken, Disposable, Uri } from 'vscode';
+import { window } from 'vscode';
+import type { LiveShare, SharedServiceProxy } from '../@types/vsls';
+import type { Container } from '../container';
+import type { GitCommandOptions } from '../git/commandOptions';
+import { debug, log } from '../system/decorators/log';
+import { Logger } from '../system/logger';
+import { getLogScope } from '../system/logger.scope';
 import { VslsHostService } from './host';
-import { GitCommandRequestType, RepositoriesInFolderRequestType, RepositoryProxy, RequestType } from './protocol';
+import type { RepositoryProxy, RequestType } from './protocol';
+import { GetRepositoriesForUriRequestType, GitCommandRequestType, GitLogStreamToCommandRequestType } from './protocol';
 
 export class VslsGuestService implements Disposable {
 	@log()
-	static async connect(api: LiveShare) {
-		const cc = Logger.getCorrelationContext();
+	static async connect(api: LiveShare, container: Container) {
+		const scope = getLogScope();
 
 		try {
 			const service = await api.getSharedService(VslsHostService.ServiceId);
@@ -19,14 +21,18 @@ export class VslsGuestService implements Disposable {
 				throw new Error('Failed to connect to host service');
 			}
 
-			return new VslsGuestService(api, service);
+			return new VslsGuestService(api, service, container);
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			return undefined;
 		}
 	}
 
-	constructor(private readonly _api: LiveShare, private readonly _service: SharedServiceProxy) {
+	constructor(
+		private readonly _api: LiveShare,
+		private readonly _service: SharedServiceProxy,
+		private readonly container: Container,
+	) {
 		_service.onDidChangeIsServiceAvailable(this.onAvailabilityChanged.bind(this));
 		this.onAvailabilityChanged(_service.isServiceAvailable);
 	}
@@ -38,20 +44,24 @@ export class VslsGuestService implements Disposable {
 	@log()
 	private onAvailabilityChanged(available: boolean) {
 		if (available) {
-			void setEnabled(true);
+			void this.container.git.setEnabledContext(true);
 
 			return;
 		}
 
-		void setEnabled(false);
+		void this.container.git.setEnabledContext(false);
 		void window.showWarningMessage(
 			'GitLens features will be unavailable. Unable to connect to the host GitLens service. The host may have disabled GitLens guest access or may not have GitLens installed.',
 		);
 	}
 
 	@log()
-	async git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]) {
-		const response = await this.sendRequest(GitCommandRequestType, { options: options, args: args });
+	async git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<TOut> {
+		const response = await this.sendRequest(GitCommandRequestType, {
+			__type: 'gitlens',
+			options: options,
+			args: args,
+		});
 
 		if (response.isBuffer) {
 			return Buffer.from(response.data, 'binary') as TOut;
@@ -60,26 +70,41 @@ export class VslsGuestService implements Disposable {
 	}
 
 	@log()
-	async getRepositoriesInFolder(
-		folder: WorkspaceFolder,
-		onAnyRepositoryChanged: (repo: Repository, e: RepositoryChangeEvent) => void,
-	): Promise<Repository[]> {
-		const response = await this.sendRequest(RepositoriesInFolderRequestType, {
-			folderUri: folder.uri.toString(true),
+	async gitLogStreamTo(
+		repoPath: string,
+		sha: string,
+		limit: number,
+		options?: { configs?: readonly string[]; stdin?: string },
+		...args: string[]
+	): Promise<[data: string[], count: number]> {
+		const response = await this.sendRequest(GitLogStreamToCommandRequestType, {
+			__type: 'gitlens',
+			repoPath: repoPath,
+			sha: sha,
+			limit: limit,
+			options: options,
+			args: args,
 		});
 
-		return response.repositories.map(
-			(r: RepositoryProxy) =>
-				new Repository(folder, r.path, r.root, onAnyRepositoryChanged, !window.state.focused, r.closed),
-		);
+		return [response.data, response.count];
+	}
+
+	@log()
+	async getRepositoriesForUri(uri: Uri): Promise<RepositoryProxy[]> {
+		const response = await this.sendRequest(GetRepositoriesForUriRequestType, {
+			__type: 'gitlens',
+			folderUri: uri.toString(),
+		});
+
+		return response.repositories;
 	}
 
 	@debug()
 	private sendRequest<TRequest, TResponse>(
 		requestType: RequestType<TRequest, TResponse>,
-		request: TRequest,
-		_cancellation?: CancellationToken,
+		request: TRequest & { __type: string },
+		cancellation?: CancellationToken,
 	): Promise<TResponse> {
-		return this._service.request(requestType.name, [request]);
+		return this._service.request<TResponse>(requestType.name, [request], cancellation);
 	}
 }

@@ -1,19 +1,15 @@
-'use strict';
-import { TextEditor, Uri, window } from 'vscode';
-import {
-	ActiveEditorCommand,
-	command,
-	CommandContext,
-	Commands,
-	executeCommand,
-	getCommandUri,
-	getRepoPathOrActiveOrPrompt,
-	isCommandContextViewNodeHasRemote,
-} from './common';
-import { RemoteResourceType } from '../git/git';
+import type { TextEditor, Uri } from 'vscode';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
-import { OpenOnRemoteCommandArgs } from './openOnRemote';
+import { RemoteResourceType } from '../git/models/remoteResource';
+import { showGenericErrorMessage } from '../messages';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command, executeCommand } from '../system/command';
+import { Logger } from '../system/logger';
+import type { CommandContext } from './base';
+import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasRemote } from './base';
+import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenRepoOnRemoteCommandArgs {
 	clipboard?: boolean;
@@ -22,11 +18,11 @@ export interface OpenRepoOnRemoteCommandArgs {
 
 @command()
 export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.OpenRepoOnRemote, Commands.Deprecated_OpenRepoInRemote, Commands.CopyRemoteRepositoryUrl]);
 	}
 
-	protected preExecute(context: CommandContext, args?: OpenRepoOnRemoteCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: OpenRepoOnRemoteCommandArgs) {
 		if (isCommandContextViewNodeHasRemote(context)) {
 			args = { ...args, remote: context.node.remote.name };
 		}
@@ -43,13 +39,15 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-		const repoPath = await getRepoPathOrActiveOrPrompt(
-			gitUri,
-			editor,
-			args?.clipboard
-				? 'Choose which repository to copy the url from'
-				: 'Choose which repository to open on remote',
-		);
+		const repoPath = (
+			await getBestRepositoryOrShowPicker(
+				gitUri,
+				editor,
+				args?.clipboard
+					? 'Choose which repository to copy the url from'
+					: 'Choose which repository to open on remote',
+			)
+		)?.path;
 		if (!repoPath) return;
 
 		try {
@@ -63,9 +61,7 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenRepoOnRemoteCommand');
-			void window.showErrorMessage(
-				'Unable to open repository on remote provider. See output channel for more details',
-			);
+			void showGenericErrorMessage('Unable to open repository on remote provider');
 		}
 	}
 }

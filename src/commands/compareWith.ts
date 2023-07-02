@@ -1,16 +1,12 @@
-'use strict';
-import { TextEditor, Uri } from 'vscode';
-import {
-	ActiveEditorCommand,
-	command,
-	CommandContext,
-	Commands,
-	getCommandUri,
-	getRepoPathOrActiveOrPrompt,
-} from './common';
-import { Container } from '../container';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
+import type { TextEditor, Uri } from 'vscode';
+import { Commands } from '../constants';
+import type { Container } from '../container';
+import { showGenericErrorMessage } from '../messages';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command } from '../system/command';
+import { Logger } from '../system/logger';
+import type { CommandContext } from './base';
+import { ActiveEditorCommand, getCommandUri } from './base';
 
 export interface CompareWithCommandArgs {
 	ref1?: string;
@@ -19,7 +15,7 @@ export interface CompareWithCommandArgs {
 
 @command()
 export class CompareWithCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([
 			Commands.CompareWith,
 			Commands.CompareHeadWith,
@@ -29,7 +25,7 @@ export class CompareWithCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected preExecute(context: CommandContext, args?: CompareWithCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: CompareWithCommandArgs) {
 		switch (context.command) {
 			case Commands.CompareWith:
 				args = { ...args };
@@ -72,17 +68,17 @@ export class CompareWithCommand extends ActiveEditorCommand {
 					break;
 			}
 
-			const repoPath = await getRepoPathOrActiveOrPrompt(uri, editor, title);
+			const repoPath = (await getBestRepositoryOrShowPicker(uri, editor, title))?.path;
 			if (!repoPath) return;
 
 			if (args.ref1 != null && args.ref2 != null) {
-				void (await Container.searchAndCompareView.compare(repoPath, args.ref1, args.ref2));
+				await this.container.searchAndCompareView.compare(repoPath, args.ref1, args.ref2);
 			} else {
-				Container.searchAndCompareView.selectForCompare(repoPath, args.ref1, { prompt: true });
+				this.container.searchAndCompareView.selectForCompare(repoPath, args.ref1, { prompt: true });
 			}
 		} catch (ex) {
 			Logger.error(ex, 'CompareWithCommmand');
-			void Messages.showGenericErrorMessage('Unable to open comparison');
+			void showGenericErrorMessage('Unable to open comparison');
 		}
 	}
 }

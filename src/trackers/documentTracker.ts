@@ -1,10 +1,6 @@
-'use strict';
-import {
+import type {
 	ConfigurationChangeEvent,
-	Disposable,
-	EndOfLine,
 	Event,
-	EventEmitter,
 	Position,
 	Range,
 	TextDocument,
@@ -12,15 +8,24 @@ import {
 	TextDocumentContentChangeEvent,
 	TextEditor,
 	TextLine,
-	Uri,
-	window,
-	workspace,
 } from 'vscode';
-import { configuration } from '../configuration';
-import { ContextKeys, DocumentSchemes, isActiveDocument, isTextEditor, setContext } from '../constants';
-import { GitUri } from '../git/gitUri';
-import { Functions } from '../system';
-import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocument';
+import { Disposable, EndOfLine, env, EventEmitter, Uri, window, workspace } from 'vscode';
+import type { Container } from '../container';
+import type { RepositoriesChangeEvent } from '../git/gitProviderService';
+import type { GitUri } from '../git/gitUri';
+import { isGitUri } from '../git/gitUri';
+import type { RepositoryChangeEvent } from '../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
+import { configuration } from '../system/configuration';
+import { setContext } from '../system/context';
+import { debug } from '../system/decorators/log';
+import { once } from '../system/event';
+import type { Deferrable } from '../system/function';
+import { debounce } from '../system/function';
+import { filter, join, map } from '../system/iterable';
+import { findTextDocument, isActiveDocument, isTextEditor } from '../system/utils';
+import type { DocumentBlameStateChangeEvent } from './trackedDocument';
+import { TrackedDocument } from './trackedDocument';
 
 export * from './trackedDocument';
 
@@ -62,53 +67,39 @@ export class DocumentTracker<T> implements Disposable {
 		return this._onDidTriggerDirtyIdle.event;
 	}
 
-	private _dirtyIdleTriggerDelay!: number;
-	private readonly _disposable: Disposable | undefined;
-	private readonly _documentMap = new Map<TextDocument | string, Promise<TrackedDocument<T>>>();
+	private _dirtyIdleTriggerDelay: number;
+	private readonly _disposable: Disposable;
+	protected readonly _documentMap = new Map<TextDocument, Promise<TrackedDocument<T>>>();
 
-	constructor() {
+	constructor(protected readonly container: Container) {
 		this._disposable = Disposable.from(
+			once(container.onReady)(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			window.onDidChangeActiveTextEditor(this.onActiveTextEditorChanged, this),
-			// window.onDidChangeVisibleTextEditors(Functions.debounce(this.onVisibleEditorsChanged, 5000), this),
-			workspace.onDidChangeTextDocument(Functions.debounce(this.onTextDocumentChanged, 50), this),
+			// window.onDidChangeVisibleTextEditors(debounce(this.onVisibleEditorsChanged, 5000), this),
+			workspace.onDidChangeTextDocument(debounce(this.onTextDocumentChanged, 50), this),
 			workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
 			workspace.onDidSaveTextDocument(this.onTextDocumentSaved, this),
+			this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
+			this.container.git.onDidChangeRepository(this.onRepositoryChanged, this),
 		);
 
-		void this.onConfigurationChanged(configuration.initializingChangeEvent);
+		this._dirtyIdleTriggerDelay = configuration.get('advanced.blame.delayAfterEdit');
 	}
 
 	dispose() {
-		this._disposable?.dispose();
+		this._disposable.dispose();
 
 		void this.clear();
 	}
 
-	initialize() {
-		void this.onActiveTextEditorChanged(window.activeTextEditor);
+	private onReady(): void {
+		this.onConfigurationChanged();
+		this.onActiveTextEditorChanged(window.activeTextEditor);
 	}
 
-	private async onConfigurationChanged(e: ConfigurationChangeEvent) {
-		// Only rest the cached state if we aren't initializing
-		if (
-			!configuration.initializing(e) &&
-			(configuration.changed(e, 'blame', 'ignoreWhitespace') ||
-				configuration.changed(e, 'advanced', 'caching', 'enabled'))
-		) {
-			for (const d of this._documentMap.values()) {
-				(await d).reset('config');
-			}
-		}
-
-		if (configuration.changed(e, 'advanced', 'blame', 'delayAfterEdit')) {
-			this._dirtyIdleTriggerDelay = configuration.get('advanced', 'blame', 'delayAfterEdit');
-			this._dirtyIdleTriggeredDebounced = undefined;
-		}
-	}
-
-	private _timer: NodeJS.Timer | undefined;
-	private async onActiveTextEditorChanged(editor: TextEditor | undefined) {
+	private _timer: ReturnType<typeof setTimeout> | undefined;
+	private onActiveTextEditorChanged(editor: TextEditor | undefined) {
 		if (editor != null && !isTextEditor(editor)) return;
 
 		if (this._timer != null) {
@@ -120,7 +111,7 @@ export class DocumentTracker<T> implements Disposable {
 			this._timer = setTimeout(() => {
 				this._timer = undefined;
 
-				void setContext(ContextKeys.ActiveFileStatus, undefined);
+				void setContext('gitlens:activeFileStatus', undefined);
 			}, 250);
 
 			return;
@@ -128,7 +119,10 @@ export class DocumentTracker<T> implements Disposable {
 
 		const doc = this._documentMap.get(editor.document);
 		if (doc != null) {
-			(await doc).activate();
+			void doc.then(
+				d => d.activate(),
+				() => {},
+			);
 
 			return;
 		}
@@ -137,11 +131,46 @@ export class DocumentTracker<T> implements Disposable {
 		void this.addCore(editor.document);
 	}
 
+	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
+		// Only rest the cached state if we aren't initializing
+		if (
+			e != null &&
+			(configuration.changed(e, 'blame.ignoreWhitespace') || configuration.changed(e, 'advanced.caching.enabled'))
+		) {
+			this.reset('config');
+		}
+
+		if (configuration.changed(e, 'advanced.blame.delayAfterEdit')) {
+			this._dirtyIdleTriggerDelay = configuration.get('advanced.blame.delayAfterEdit');
+			this._dirtyIdleTriggeredDebounced = undefined;
+		}
+	}
+
+	private onRepositoriesChanged(e: RepositoriesChangeEvent) {
+		this.reset(
+			'repository',
+			e.added.length ? new Set<string>(e.added.map(r => r.path)) : undefined,
+			e.removed.length ? new Set<string>(e.removed.map(r => r.path)) : undefined,
+		);
+	}
+
+	private onRepositoryChanged(e: RepositoryChangeEvent) {
+		if (
+			e.changed(
+				RepositoryChange.Index,
+				RepositoryChange.Heads,
+				RepositoryChange.Status,
+				RepositoryChange.Unknown,
+				RepositoryChangeComparisonMode.Any,
+			)
+		) {
+			this.reset('repository', new Set([e.repository.path]));
+		}
+	}
+
 	private async onTextDocumentChanged(e: TextDocumentChangeEvent) {
 		const { scheme } = e.document.uri;
-		if (scheme !== DocumentSchemes.File && scheme !== DocumentSchemes.Git && scheme !== DocumentSchemes.Vsls) {
-			return;
-		}
+		if (!this.container.git.supportedSchemes.has(scheme)) return;
 
 		const doc = await (this._documentMap.get(e.document) ?? this.addCore(e.document));
 		doc.reset('document');
@@ -174,14 +203,8 @@ export class DocumentTracker<T> implements Disposable {
 		this.fireDocumentDirtyStateChanged({ editor: editor, document: doc, dirty: doc.dirty });
 	}
 
-	private async onTextDocumentClosed(document: TextDocument) {
-		const doc = this._documentMap.get(document);
-		if (doc == null) return;
-
-		this._documentMap.delete(document);
-		this._documentMap.delete(GitUri.toKey(document.uri));
-
-		(await doc).dispose();
+	private onTextDocumentClosed(document: TextDocument) {
+		void this.remove(document);
 	}
 
 	private async onTextDocumentSaved(document: TextDocument) {
@@ -209,8 +232,62 @@ export class DocumentTracker<T> implements Disposable {
 
 	add(document: TextDocument): Promise<TrackedDocument<T>>;
 	add(uri: Uri): Promise<TrackedDocument<T>>;
-	add(documentOrId: TextDocument | Uri): Promise<TrackedDocument<T>> {
-		const doc = this._add(documentOrId);
+	add(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>>;
+	async add(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>> {
+		let document;
+		if (isGitUri(documentOrUri)) {
+			try {
+				document = await workspace.openTextDocument(documentOrUri.documentUri());
+			} catch (ex) {
+				const msg: string = ex?.toString() ?? '';
+				if (env.language.startsWith('en')) {
+					if (msg.includes('File seems to be binary and cannot be opened as text')) {
+						document = new BinaryTextDocument(documentOrUri);
+					} else if (
+						msg.includes('File not found') ||
+						msg.includes('Unable to read file') ||
+						msg.includes('Unable to resolve non-existing file')
+					) {
+						// If we can't find the file, assume it is because the file has been renamed or deleted at some point
+						document = new MissingRevisionTextDocument(documentOrUri);
+
+						// const [fileName, repoPath] = await this.container.git.findWorkingFileName(documentOrUri, undefined, ref);
+						// if (fileName == null) throw new Error(`Failed to add tracking for document: ${documentOrUri}`);
+
+						// documentOrUri = await workspace.openTextDocument(path.resolve(repoPath!, fileName));
+					} else {
+						throw ex;
+					}
+				} else if (msg.includes('cannot open')) {
+					// If we aren't in english, we can't figure out what the error might be (since the messages are translated), so just assume its missing
+					document = new MissingRevisionTextDocument(documentOrUri);
+				} else {
+					throw ex;
+				}
+			}
+		} else if (documentOrUri instanceof Uri) {
+			document = await workspace.openTextDocument(documentOrUri);
+		} else {
+			document = documentOrUri;
+		}
+
+		const doc = this.addCore(document);
+		return doc;
+	}
+
+	private async addCore(document: TextDocument): Promise<TrackedDocument<T>> {
+		const doc = TrackedDocument.create<T>(
+			document,
+			// Always start out false, so we will fire the event if needed
+			false,
+			{
+				onDidBlameStateChange: (e: DocumentBlameStateChangeEvent<T>) => this._onDidChangeBlameState.fire(e),
+			},
+			this.container,
+		);
+
+		this._documentMap.set(document, doc);
+
 		return doc;
 	}
 
@@ -222,100 +299,59 @@ export class DocumentTracker<T> implements Disposable {
 		this._documentMap.clear();
 	}
 
-	get(fileName: string): Promise<TrackedDocument<T>> | undefined;
 	get(document: TextDocument): Promise<TrackedDocument<T>> | undefined;
 	get(uri: Uri): Promise<TrackedDocument<T>> | undefined;
-	get(documentOrId: string | TextDocument | Uri): Promise<TrackedDocument<T>> | undefined {
-		const doc = this._get(documentOrId);
+	get(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>> | undefined;
+	get(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>> | undefined {
+		if (documentOrUri instanceof Uri) {
+			const document = findTextDocument(documentOrUri);
+			if (document == null) return undefined;
+
+			documentOrUri = document;
+		}
+
+		const doc = this._documentMap.get(documentOrUri);
 		return doc;
 	}
 
-	async getOrAdd(document: TextDocument): Promise<TrackedDocument<T>>;
-	async getOrAdd(uri: Uri): Promise<TrackedDocument<T>>;
-	async getOrAdd(documentOrId: TextDocument | Uri): Promise<TrackedDocument<T>> {
-		const doc = this._get(documentOrId) ?? this._add(documentOrId);
+	async getOrAdd(documentOrUri: TextDocument | Uri): Promise<TrackedDocument<T>> {
+		if (documentOrUri instanceof Uri) {
+			documentOrUri = findTextDocument(documentOrUri) ?? documentOrUri;
+		}
+
+		const doc = this.get(documentOrUri) ?? this.add(documentOrUri);
 		return doc;
 	}
 
-	has(fileName: string): boolean;
 	has(document: TextDocument): boolean;
 	has(uri: Uri): boolean;
-	has(key: string | TextDocument | Uri): boolean {
-		if (typeof key === 'string' || key instanceof Uri) {
-			key = GitUri.toKey(key);
-		}
-		return this._documentMap.has(key);
-	}
+	has(documentOrUri: TextDocument | Uri): boolean {
+		if (documentOrUri instanceof Uri) {
+			const document = findTextDocument(documentOrUri);
+			if (document == null) return false;
 
-	private async _add(documentOrId: TextDocument | Uri): Promise<TrackedDocument<T>> {
-		let document;
-		if (GitUri.is(documentOrId)) {
-			try {
-				document = await workspace.openTextDocument(documentOrId.documentUri({ useVersionedPath: true }));
-			} catch (ex) {
-				const msg: string = ex?.toString() ?? '';
-				if (msg.includes('File seems to be binary and cannot be opened as text')) {
-					document = new BinaryTextDocument(documentOrId);
-				} else if (
-					msg.includes('File not found') ||
-					msg.includes('Unable to read file') ||
-					msg.includes('Unable to resolve non-existing file')
-				) {
-					// If we can't find the file, assume it is because the file has been renamed or deleted at some point
-					document = new MissingRevisionTextDocument(documentOrId);
-
-					// const [fileName, repoPath] = await Container.git.findWorkingFileName(documentOrId, undefined, ref);
-					// if (fileName == null) throw new Error(`Failed to add tracking for document: ${documentOrId}`);
-
-					// documentOrId = await workspace.openTextDocument(path.resolve(repoPath!, fileName));
-				} else {
-					throw ex;
-				}
-			}
-		} else if (documentOrId instanceof Uri) {
-			document = await workspace.openTextDocument(documentOrId);
-		} else {
-			document = documentOrId;
+			documentOrUri = document;
 		}
 
-		const doc = this.addCore(document);
-		return doc;
+		return this._documentMap.has(documentOrUri);
 	}
 
-	private _get(documentOrId: string | TextDocument | Uri) {
-		if (GitUri.is(documentOrId)) {
-			documentOrId = GitUri.toKey(documentOrId.documentUri({ useVersionedPath: true }));
-		} else if (typeof documentOrId === 'string' || documentOrId instanceof Uri) {
-			documentOrId = GitUri.toKey(documentOrId);
+	private async remove(document: TextDocument, tracked?: TrackedDocument<T>): Promise<void> {
+		let promise;
+		if (tracked != null) {
+			promise = this._documentMap.get(document);
 		}
 
-		const doc = this._documentMap.get(documentOrId);
-		return doc;
+		this._documentMap.delete(document);
+
+		(tracked ?? (await promise))?.dispose();
 	}
 
-	private async addCore(document: TextDocument): Promise<TrackedDocument<T>> {
-		const key = GitUri.toKey(document.uri);
-
-		// Always start out false, so we will fire the event if needed
-		const doc = TrackedDocument.create<T>(document, key, false, {
-			onDidBlameStateChange: (e: DocumentBlameStateChangeEvent<T>) => this._onDidChangeBlameState.fire(e),
-		});
-
-		this._documentMap.set(document, doc);
-		this._documentMap.set(key, doc);
-
-		return doc;
-	}
-
-	private _dirtyIdleTriggeredDebounced:
-		| Functions.Deferrable<(e: DocumentDirtyIdleTriggerEvent<T>) => void>
-		| undefined;
-	private _dirtyStateChangedDebounced:
-		| Functions.Deferrable<(e: DocumentDirtyStateChangeEvent<T>) => void>
-		| undefined;
+	private _dirtyIdleTriggeredDebounced: Deferrable<(e: DocumentDirtyIdleTriggerEvent<T>) => void> | undefined;
+	private _dirtyStateChangedDebounced: Deferrable<(e: DocumentDirtyStateChangeEvent<T>) => void> | undefined;
 	private fireDocumentDirtyStateChanged(e: DocumentDirtyStateChangeEvent<T>) {
 		if (e.dirty) {
-			setImmediate(() => {
+			queueMicrotask(() => {
 				this._dirtyStateChangedDebounced?.cancel();
 				if (window.activeTextEditor !== e.editor) return;
 
@@ -324,16 +360,12 @@ export class DocumentTracker<T> implements Disposable {
 
 			if (this._dirtyIdleTriggerDelay > 0) {
 				if (this._dirtyIdleTriggeredDebounced == null) {
-					this._dirtyIdleTriggeredDebounced = Functions.debounce(
-						(e: DocumentDirtyIdleTriggerEvent<T>) => {
-							if (this._dirtyIdleTriggeredDebounced?.pending!()) return;
+					this._dirtyIdleTriggeredDebounced = debounce((e: DocumentDirtyIdleTriggerEvent<T>) => {
+						if (this._dirtyIdleTriggeredDebounced?.pending!()) return;
 
-							e.document.isDirtyIdle = true;
-							this._onDidTriggerDirtyIdle.fire(e);
-						},
-						this._dirtyIdleTriggerDelay,
-						{ track: true },
-					);
+						e.document.isDirtyIdle = true;
+						this._onDidTriggerDirtyIdle.fire(e);
+					}, this._dirtyIdleTriggerDelay);
 				}
 
 				this._dirtyIdleTriggeredDebounced({ editor: e.editor, document: e.document });
@@ -343,7 +375,7 @@ export class DocumentTracker<T> implements Disposable {
 		}
 
 		if (this._dirtyStateChangedDebounced == null) {
-			this._dirtyStateChangedDebounced = Functions.debounce((e: DocumentDirtyStateChangeEvent<T>) => {
+			this._dirtyStateChangedDebounced = debounce((e: DocumentDirtyStateChangeEvent<T>) => {
 				if (window.activeTextEditor !== e.editor) return;
 
 				this._onDidChangeDirtyState.fire(e);
@@ -351,6 +383,32 @@ export class DocumentTracker<T> implements Disposable {
 		}
 
 		this._dirtyStateChangedDebounced(e);
+	}
+
+	@debug<DocumentTracker<T>['reset']>({
+		args: {
+			1: c => (c != null ? join(c, ',') : ''),
+			2: r => (r != null ? join(r, ',') : ''),
+		},
+	})
+	private reset(reason: 'config' | 'repository', changedRepoPaths?: Set<string>, removedRepoPaths?: Set<string>) {
+		void Promise.allSettled(
+			map(
+				filter(this._documentMap, ([key]) => typeof key === 'string'),
+				async ([, promise]) => {
+					const doc = await promise;
+
+					if (removedRepoPaths?.has(doc.uri.repoPath!)) {
+						void this.remove(doc.document, doc);
+						return;
+					}
+
+					if (changedRepoPaths == null || changedRepoPaths.has(doc.uri.repoPath!)) {
+						doc.reset(reason);
+					}
+				},
+			),
+		);
 	}
 }
 
@@ -366,7 +424,7 @@ class EmptyTextDocument implements TextDocument {
 	readonly version: number;
 
 	constructor(public readonly gitUri: GitUri) {
-		this.uri = gitUri.documentUri({ useVersionedPath: true });
+		this.uri = gitUri.documentUri();
 
 		this.eol = EndOfLine.LF;
 		this.fileName = this.uri.fsPath;

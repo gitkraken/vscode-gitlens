@@ -1,10 +1,13 @@
-'use strict';
-import { TextEditor, Uri } from 'vscode';
-import { ActiveEditorCachedCommand, command, CommandContext, Commands, getCommandUri } from './common';
-import { GitReference } from '../git/git';
-import { executeGitCommand } from './gitCommands';
+import type { TextEditor, Uri } from 'vscode';
+import { Commands } from '../constants';
+import type { Container } from '../container';
+import { executeGitCommand } from '../git/actions';
 import { GitUri } from '../git/gitUri';
-import { Container } from '../container';
+import type { GitReference } from '../git/models/reference';
+import { createReference } from '../git/models/reference';
+import { command } from '../system/command';
+import type { CommandContext } from './base';
+import { ActiveEditorCachedCommand, getCommandUri } from './base';
 
 export interface ShowQuickBranchHistoryCommandArgs {
 	repoPath?: string;
@@ -14,11 +17,11 @@ export interface ShowQuickBranchHistoryCommandArgs {
 
 @command()
 export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.ShowQuickBranchHistory, Commands.ShowQuickCurrentBranchHistory]);
 	}
 
-	protected preExecute(context: CommandContext, args?: ShowQuickBranchHistoryCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: ShowQuickBranchHistoryCommandArgs) {
 		if (context.command === Commands.ShowQuickCurrentBranchHistory) {
 			args = { ...args };
 			args.branch = 'HEAD';
@@ -32,20 +35,20 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-		const repoPath = args?.repoPath ?? gitUri?.repoPath ?? Container.git.getHighlanderRepoPath();
+		const repoPath = args?.repoPath ?? gitUri?.repoPath ?? this.container.git.highlander?.path;
 		let ref: GitReference | 'HEAD' | undefined;
 		if (repoPath != null) {
 			if (args?.branch != null) {
 				ref =
 					args.branch === 'HEAD'
 						? 'HEAD'
-						: GitReference.create(args.branch, repoPath, {
+						: createReference(args.branch, repoPath, {
 								refType: 'branch',
 								name: args.branch,
 								remote: false,
 						  });
 			} else if (args?.tag != null) {
-				ref = GitReference.create(args.tag, repoPath, { refType: 'tag', name: args.tag });
+				ref = createReference(args.tag, repoPath, { refType: 'tag', name: args.tag });
 			}
 		}
 

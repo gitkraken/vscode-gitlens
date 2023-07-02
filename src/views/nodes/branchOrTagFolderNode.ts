@@ -1,40 +1,33 @@
-'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
-import { Arrays } from '../../system';
-import { View } from '../viewBase';
+import type { HierarchicalItem } from '../../system/array';
+import type { View } from '../viewBase';
 import { BranchNode } from './branchNode';
-import { TagNode } from './tagNode';
-import { ContextValues, ViewNode } from './viewNode';
-import { RepositoryNode } from './repositoryNode';
+import type { TagNode } from './tagNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class BranchOrTagFolderNode extends ViewNode {
-	static getId(repoPath: string, key: string | undefined, type: string, relativePath: string | undefined): string {
-		return `${RepositoryNode.getId(repoPath)}:${
-			key === undefined ? type : `${key}:${type}`
-		}-folder(${relativePath})`;
-	}
-
 	constructor(
 		view: View,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly type: 'branch' | 'remote-branch' | 'tag',
+		public readonly root: HierarchicalItem<BranchNode | TagNode>,
 		public readonly repoPath: string,
 		public readonly folderName: string,
 		public readonly relativePath: string | undefined,
-		public readonly root: Arrays.HierarchicalItem<BranchNode | TagNode>,
-		private readonly _key?: string,
 		private readonly _expanded: boolean = false,
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
+
+		this._uniqueId = getViewNodeId(`${type}-folder+${relativePath ?? folderName}`, this.context);
 	}
 
-	toClipboard(): string {
+	override get id(): string {
+		return this._uniqueId;
+	}
+
+	override toClipboard(): string {
 		return this.folderName;
-	}
-
-	get id(): string {
-		return BranchOrTagFolderNode.getId(this.repoPath, this._key, this.type, this.relativePath);
 	}
 
 	getChildren(): ViewNode[] {
@@ -49,13 +42,12 @@ export class BranchOrTagFolderNode extends ViewNode {
 				children.push(
 					new BranchOrTagFolderNode(
 						this.view,
-						this.folderName ? this : this.parent!,
+						this.folderName ? this : this.parent,
 						this.type,
+						folder,
 						this.repoPath,
 						folder.name,
 						folder.relativePath,
-						folder,
-						this._key,
 						expanded,
 					),
 				);
@@ -63,7 +55,7 @@ export class BranchOrTagFolderNode extends ViewNode {
 			}
 
 			// Make sure to set the parent
-			(folder.value as any).parent = this.folderName ? this : this.parent!;
+			folder.value.parent = this.folderName ? this : this.parent;
 			children.push(folder.value);
 		}
 

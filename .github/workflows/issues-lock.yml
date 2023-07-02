@@ -8,10 +8,12 @@ on:
 jobs:
     stale:
         runs-on: ubuntu-latest
+        permissions:
+            issues: write
         steps:
-            - uses: dessant/lock-threads@v2
+            - uses: dessant/lock-threads@v3
               with:
                   github-token: ${{ secrets.GITHUB_TOKEN }}
-                  issue-lock-comment: 'This issue has been automatically locked since there has not been any recent activity after it was closed. Please open a new issue for related bugs.'
-                  issue-lock-inactive-days: 30
+                  issue-comment: 'This issue has been automatically locked since there has not been any recent activity after it was closed. Please open a new issue for related bugs.'
+                  issue-inactive-days: 30
                   process-only: 'issues'

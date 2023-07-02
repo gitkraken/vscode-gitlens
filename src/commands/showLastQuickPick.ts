@@ -1,12 +1,14 @@
-'use strict';
 import { commands } from 'vscode';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { command, Command, Commands, getLastCommand } from './common';
+import { Commands } from '../constants';
+import type { Container } from '../container';
+import { showGenericErrorMessage } from '../messages';
+import { command } from '../system/command';
+import { Logger } from '../system/logger';
+import { Command, getLastCommand } from './base';
 
 @command()
 export class ShowLastQuickPickCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.ShowLastQuickPick);
 	}
 
@@ -18,7 +20,7 @@ export class ShowLastQuickPickCommand extends Command {
 			return commands.executeCommand(command.command, ...command.args);
 		} catch (ex) {
 			Logger.error(ex, 'ShowLastQuickPickCommand');
-			return Messages.showGenericErrorMessage('Unable to show last quick pick');
+			return showGenericErrorMessage('Unable to show last quick pick');
 		}
 	}
 }

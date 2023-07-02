@@ -1,12 +1,13 @@
-'use strict';
-import { debug, Strings } from '../../system';
-import { GitStatus, GitStatusFile } from '../git';
+import { debug } from '../../system/decorators/log';
+import { normalizePath } from '../../system/path';
+import { GitStatus, GitStatusFile } from '../models/status';
 
 const emptyStr = '';
 
 const aheadStatusV1Regex = /(?:ahead ([0-9]+))/;
 const behindStatusV1Regex = /(?:behind ([0-9]+))/;
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class GitStatusParser {
 	@debug({ args: false, singleLine: true })
 	static parse(data: string, repoPath: string, porcelainVersion: number): GitStatus | undefined {
@@ -58,7 +59,7 @@ export class GitStatusParser {
 			}
 		}
 
-		return new GitStatus(Strings.normalizePath(repoPath), branch ?? emptyStr, emptyStr, files, state, upstream);
+		return new GitStatus(normalizePath(repoPath), branch ?? emptyStr, emptyStr, files, state, upstream);
 	}
 
 	@debug({ args: false, singleLine: true })
@@ -115,14 +116,7 @@ export class GitStatusParser {
 			}
 		}
 
-		return new GitStatus(
-			Strings.normalizePath(repoPath),
-			branch ?? emptyStr,
-			sha ?? emptyStr,
-			files,
-			state,
-			upstream,
-		);
+		return new GitStatus(normalizePath(repoPath), branch ?? emptyStr, sha ?? emptyStr, files, state, upstream);
 	}
 
 	static parseStatusFile(

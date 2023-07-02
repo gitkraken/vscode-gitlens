@@ -1,9 +1,7 @@
-'use strict';
-import { Disposable } from 'vscode';
+import type { Disposable } from 'vscode';
 import { Container } from '../container';
-import { Logger } from '../logger';
 import { builtInActionRunnerName } from './actionRunners';
-import { Action, ActionContext, ActionRunner, GitLensApi } from './gitlens';
+import type { Action, ActionContext, ActionRunner, GitLensApi } from './gitlens';
 
 const emptyDisposable = Object.freeze({
 	dispose: () => {
@@ -12,6 +10,11 @@ const emptyDisposable = Object.freeze({
 });
 
 export class Api implements GitLensApi {
+	readonly #container: Container;
+	constructor(container: Container) {
+		this.#container = container;
+	}
+
 	registerActionRunner<T extends ActionContext>(action: Action<T>, runner: ActionRunner): Disposable {
 		if (runner.name === builtInActionRunnerName) {
 			throw new Error(`Cannot use the reserved name '${builtInActionRunnerName}'`);
@@ -20,7 +23,7 @@ export class Api implements GitLensApi {
 		if ((action as string) === 'hover.commandHelp') {
 			action = 'hover.commands';
 		}
-		return Container.actionRunners.register(action, runner);
+		return this.#container.actionRunners.register(action, runner);
 	}
 
 	// registerAutolinkProvider(provider: RemoteProvider): Disposable;
@@ -39,9 +42,10 @@ export function preview() {
 		if (fn == null) throw new Error('Not supported');
 
 		descriptor.value = function (this: any, ...args: any[]) {
-			if (Container.insiders || Logger.isDebugging) return fn!.apply(this, args);
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+			if (Container.instance.prereleaseOrDebugging) return fn!.apply(this, args);
 
-			console.error('GitLens preview APIs are only available in the Insiders edition');
+			console.error('GitLens preview APIs are only available in the pre-release edition');
 			return emptyDisposable;
 		};
 	};

@@ -1,13 +1,14 @@
-'use strict';
-import { Container } from '../../container';
-import { GitBranch, GitLog, GitReference, GitRevision, Repository } from '../../git/git';
-import {
-	appendReposToTitle,
+import type { Container } from '../../container';
+import type { GitBranch } from '../../git/models/branch';
+import type { GitLog } from '../../git/models/log';
+import type { GitReference } from '../../git/models/reference';
+import { createRevisionRange, getReferenceLabel, isRevisionReference } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type {
 	PartialStepState,
-	pickBranchOrTagStep,
-	pickCommitsStep,
-	pickRepositoryStep,
-	QuickCommand,
 	QuickPickStep,
 	StepGenerator,
 	StepResult,
@@ -15,10 +16,21 @@ import {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { FlagsQuickPickItem } from '../../quickpicks';
+import {
+	appendReposToTitle,
+	canPickStepContinue,
+	createConfirmStep,
+	endSteps,
+	pickBranchOrTagStep,
+	pickCommitsStep,
+	pickRepositoryStep,
+	QuickCommand,
+	StepResultBreak,
+} from '../quickCommand';
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	cache: Map<string, Promise<GitLog | undefined>>;
 	destination: GitBranch;
 	selectedBranchOrTag: GitReference | undefined;
@@ -26,7 +38,7 @@ interface Context {
 	title: string;
 }
 
-type Flags = '--edit';
+type Flags = '--edit' | '--no-commit';
 
 interface State<Refs = GitReference | GitReference[]> {
 	repo: string | Repository;
@@ -42,8 +54,8 @@ export interface CherryPickGitCommandArgs {
 type CherryPickStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
 
 export class CherryPickGitCommand extends QuickCommand<State> {
-	constructor(args?: CherryPickGitCommandArgs) {
-		super('cherry-pick', 'cherry-pick', 'Cherry Pick', {
+	constructor(container: Container, args?: CherryPickGitCommandArgs) {
+		super(container, 'cherry-pick', 'cherry-pick', 'Cherry Pick', {
 			description: 'integrates changes from specified commits into the current branch',
 		});
 
@@ -66,7 +78,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	get canSkipConfirm(): boolean {
+	override get canSkipConfirm(): boolean {
 		return false;
 	}
 
@@ -74,13 +86,14 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 		state.repo.cherryPick(...state.flags, ...state.references.map(c => c.ref).reverse());
 	}
 
-	isFuzzyMatch(name: string) {
+	override isFuzzyMatch(name: string) {
 		return super.isFuzzyMatch(name) || name === 'cherry';
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.commitsView,
 			cache: new Map<string, Promise<GitLog | undefined>>(),
 			destination: undefined!,
 			selectedBranchOrTag: undefined,
@@ -113,7 +126,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				} else {
 					const result = yield* pickRepositoryStep(state, context);
 					// Always break on the first step (so we will go back)
-					if (result === StepResult.Break) break;
+					if (result === StepResultBreak) break;
 
 					state.repo = result;
 				}
@@ -126,7 +139,9 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				context.destination = branch;
 			}
 
-			context.title = `${this.title} into ${GitReference.toString(context.destination, { icon: false })}`;
+			context.title = `${this.title} into ${getReferenceLabel(context.destination, {
+				icon: false,
+			})}`;
 
 			if (state.counter < 2 || state.references == null || state.references.length === 0) {
 				const result: StepResult<GitReference> = yield* pickBranchOrTagStep(
@@ -140,7 +155,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 						value: context.selectedBranchOrTag == null ? state.references?.[0]?.ref : undefined,
 					},
 				);
-				if (result === StepResult.Break) {
+				if (result === StepResultBreak) {
 					// If we skipped the previous step, make sure we back up past it
 					if (skippedStepOne) {
 						state.counter--;
@@ -149,7 +164,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 					continue;
 				}
 
-				if (GitReference.isRevision(result)) {
+				if (isRevisionReference(result)) {
 					state.references = [result];
 					context.selectedBranchOrTag = undefined;
 				} else {
@@ -158,11 +173,11 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 			}
 
 			if (state.counter < 3 && context.selectedBranchOrTag != null) {
-				const ref = GitRevision.createRange(context.destination.ref, context.selectedBranchOrTag.ref);
+				const ref = createRevisionRange(context.destination.ref, context.selectedBranchOrTag.ref);
 
 				let log = context.cache.get(ref);
 				if (log == null) {
-					log = Container.git.getLog(state.repo.path, { ref: ref, merges: false });
+					log = this.container.git.getLog(state.repo.path, { ref: ref, merges: false });
 					context.cache.set(ref, log);
 				}
 
@@ -175,54 +190,61 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 						picked: state.references?.map(r => r.ref),
 						placeholder: (context, log) =>
 							log == null
-								? `No pickable commits found on ${GitReference.toString(context.selectedBranchOrTag, {
+								? `No pickable commits found on ${getReferenceLabel(context.selectedBranchOrTag, {
 										icon: false,
 								  })}`
-								: `Choose commits to cherry-pick into ${GitReference.toString(context.destination, {
+								: `Choose commits to cherry-pick into ${getReferenceLabel(context.destination, {
 										icon: false,
 								  })}`,
 					},
 				);
-				if (result === StepResult.Break) continue;
+				if (result === StepResultBreak) continue;
 
 				state.references = result;
 			}
 
 			if (this.confirm(state.confirm)) {
 				const result = yield* this.confirmStep(state as CherryPickStepState, context);
-				if (result === StepResult.Break) continue;
+				if (result === StepResultBreak) continue;
 
 				state.flags = result;
 			}
 
-			QuickCommand.endSteps(state);
+			endSteps(state);
 			this.execute(state as CherryPickStepState<State<GitReference[]>>);
 		}
 
-		return state.counter < 0 ? StepResult.Break : undefined;
+		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
 	private *confirmStep(state: CherryPickStepState, context: Context): StepResultGenerator<Flags[]> {
-		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = QuickCommand.createConfirmStep(
+		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
-				FlagsQuickPickItem.create<Flags>(state.flags, [], {
+				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
-					detail: `Will apply ${GitReference.toString(state.references)} to ${GitReference.toString(
+					detail: `Will apply ${getReferenceLabel(state.references)} to ${getReferenceLabel(
 						context.destination,
 					)}`,
 				}),
-				FlagsQuickPickItem.create<Flags>(state.flags, ['--edit'], {
+				createFlagsQuickPickItem<Flags>(state.flags, ['--edit'], {
 					label: `${this.title} & Edit`,
 					description: '--edit',
-					detail: `Will edit and apply ${GitReference.toString(state.references)} to ${GitReference.toString(
+					detail: `Will edit and apply ${getReferenceLabel(state.references)} to ${getReferenceLabel(
 						context.destination,
 					)}`,
+				}),
+				createFlagsQuickPickItem<Flags>(state.flags, ['--no-commit'], {
+					label: `${this.title} without Committing`,
+					description: '--no-commit',
+					detail: `Will apply ${getReferenceLabel(state.references)} to ${getReferenceLabel(
+						context.destination,
+					)} without Committing`,
 				}),
 			],
 			context,
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 }

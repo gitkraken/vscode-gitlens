@@ -1,8 +1,12 @@
-'use strict';
-import { Command, command, Commands, executeCommand } from './common';
-import { Container } from '../container';
-import { GitRemote, RemoteProvider, RemoteResource, RemoteResourceType } from '../git/git';
-import { OpenOnRemoteCommandArgs } from './openOnRemote';
+import { Commands } from '../constants';
+import type { Container } from '../container';
+import type { GitRemote } from '../git/models/remote';
+import type { RemoteResource } from '../git/models/remoteResource';
+import { RemoteResourceType } from '../git/models/remoteResource';
+import type { RemoteProvider } from '../git/remotes/remoteProvider';
+import { command, executeCommand } from '../system/command';
+import { Command } from './base';
+import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface CreatePullRequestOnRemoteCommandArgs {
 	base?: string;
@@ -15,14 +19,14 @@ export interface CreatePullRequestOnRemoteCommandArgs {
 
 @command()
 export class CreatePullRequestOnRemoteCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.CreatePullRequestOnRemote);
 	}
 
 	async execute(args?: CreatePullRequestOnRemoteCommandArgs) {
 		if (args?.repoPath == null) return;
 
-		const repo = await Container.git.getRepository(args.repoPath);
+		const repo = this.container.git.getRepository(args.repoPath);
 		if (repo == null) return;
 
 		const compareRemote = await repo.getRemote(args.remote);

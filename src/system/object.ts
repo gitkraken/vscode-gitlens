@@ -1,63 +1,100 @@
-'use strict';
-import { isEqual as _isEqual } from 'lodash-es';
-import { areEquivalent as arraysAreEquivalent } from './array';
+export function areEqual(a: any, b: any): boolean {
+	if (a === b) return true;
+	if (a == null || b == null) return false;
 
-export function entries<T>(o: Record<string, T>): IterableIterator<[string, T]>;
-export function entries<T>(o: Record<number, T>): IterableIterator<[string, T]>;
-export function* entries<T>(o: any): IterableIterator<[string, T]> {
-	for (const key in o) {
-		yield [key, o[key]];
-	}
+	const aType = typeof a;
+	if (aType === typeof b && (aType === 'string' || aType === 'number' || aType === 'boolean')) return false;
+
+	return JSON.stringify(a) === JSON.stringify(b);
 }
 
-export function flatten(o: any, prefix: string = '', stringify: boolean = false): Record<string, any> {
-	const flattened = Object.create(null) as Record<string, any>;
-	_flatten(flattened, prefix, o, stringify);
-	return flattened;
-}
+export function flatten(
+	o: any,
+	options: { arrays?: 'join' | 'spread'; prefix?: string; skipPaths?: string[]; skipNulls: true; stringify: true },
+): Record<string, string>;
+export function flatten(
+	o: any,
+	options: { arrays?: 'join' | 'spread'; prefix?: string; skipPaths?: string[]; skipNulls: true; stringify?: false },
+): Record<string, NonNullable<any>>;
+export function flatten(
+	o: any,
+	options: {
+		arrays?: 'join' | 'spread';
+		prefix?: string;
+		skipPaths?: string[];
+		skipNulls?: false;
+		stringify: true | 'all';
+	},
+): Record<string, string | null>;
+export function flatten(
+	o: any,
+	options?: {
+		arrays?: 'join' | 'spread';
+		prefix?: string;
+		skipPaths?: string[];
+		skipNulls?: boolean;
+		stringify?: boolean;
+	},
+): Record<string, any>;
+export function flatten(
+	o: any,
+	options?: {
+		arrays?: 'join' | 'spread';
+		prefix?: string;
+		skipPaths?: string[];
+		skipNulls?: boolean;
+		stringify?: boolean | 'all';
+	},
+): Record<string, any> {
+	const skipPaths =
+		options?.skipPaths != null && options.skipPaths.length
+			? options?.prefix
+				? options.skipPaths.map(p => `${options.prefix}.${p}`)
+				: options.skipPaths
+			: undefined;
+	const skipNulls = options?.skipNulls ?? false;
+	const stringify = options?.stringify ?? false;
 
-function _flatten(flattened: Record<string, any>, key: string, value: any, stringify: boolean = false) {
-	if (Object(value) !== value) {
-		if (stringify) {
+	function flattenCore(flattened: Record<string, any>, key: string, value: any) {
+		if (skipPaths?.includes(key)) return;
+
+		if (Object(value) !== value) {
 			if (value == null) {
-				flattened[key] = null;
+				if (skipNulls) return;
+
+				flattened[key] = stringify ? (stringify == 'all' ? JSON.stringify(value) : value ?? null) : value;
 			} else if (typeof value === 'string') {
 				flattened[key] = value;
+			} else if (stringify) {
+				flattened[key] =
+					typeof value === 'number' || typeof value === 'boolean' ? value : JSON.stringify(value);
 			} else {
-				flattened[key] = JSON.stringify(value);
+				flattened[key] = value;
+			}
+		} else if (Array.isArray(value)) {
+			const len = value.length;
+			if (len === 0) return;
+
+			if (options?.arrays === 'join') {
+				flattened[key] = value.join(',');
+			} else {
+				for (let i = 0; i < len; i++) {
+					flattenCore(flattened, `${key}[${i}]`, value[i]);
+				}
 			}
 		} else {
-			flattened[key] = value;
-		}
-	} else if (Array.isArray(value)) {
-		const len = value.length;
-		for (let i = 0; i < len; i++) {
-			_flatten(flattened, `${key}[${i}]`, value[i], stringify);
-		}
-		if (len === 0) {
-			flattened[key] = null;
-		}
-	} else {
-		let isEmpty = true;
-		for (const p in value) {
-			isEmpty = false;
-			_flatten(flattened, key ? `${key}.${p}` : p, value[p], stringify);
-		}
-		if (isEmpty && key) {
-			flattened[key] = null;
+			const entries = Object.entries(value);
+			if (entries.length === 0) return;
+
+			for (const [k, v] of entries) {
+				flattenCore(flattened, key ? `${key}.${k}` : k, v);
+			}
 		}
 	}
-}
 
-export function isEqual(value: any, other: any) {
-	return _isEqual(value, other);
-}
-
-export function areEquivalent(value: any, other: any) {
-	if (Array.isArray(value) && Array.isArray(other)) {
-		return arraysAreEquivalent(value, other);
-	}
-	return isEqual(value, other);
+	const flattened: Record<string, any> = Object.create(null);
+	flattenCore(flattened, options?.prefix ?? '', o);
+	return flattened;
 }
 
 export function paths(o: Record<string, any>, path?: string): string[] {
@@ -75,10 +112,24 @@ export function paths(o: Record<string, any>, path?: string): string[] {
 	return results;
 }
 
-export function values<T>(o: Record<string, T>): IterableIterator<T>;
-export function values<T>(o: Record<number, T>): IterableIterator<T>;
-export function* values<T>(o: any): IterableIterator<T> {
-	for (const key in o) {
-		yield o[key];
+export function updateRecordValue<T>(
+	obj: Record<string, T> | undefined,
+	key: string,
+	value: T | undefined,
+): Record<string, T> {
+	if (obj == null) {
+		obj = Object.create(null) as Record<string, T>;
 	}
+
+	if (value != null && (typeof value !== 'boolean' || value)) {
+		if (typeof value === 'object') {
+			obj[key] = { ...value };
+		} else {
+			obj[key] = value;
+		}
+	} else {
+		const { [key]: _, ...rest } = obj;
+		obj = rest;
+	}
+	return obj;
 }

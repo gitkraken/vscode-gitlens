@@ -1,13 +1,16 @@
-import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import type { Command, ThemeIcon, Uri } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { View } from '../viewBase';
-import { ContextValues, PageableViewNode, unknownGitUri, ViewNode } from './viewNode';
+import { unknownGitUri } from '../../git/gitUri';
+import { configuration } from '../../system/configuration';
+import type { View } from '../viewBase';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 export class MessageNode extends ViewNode {
 	constructor(
 		view: View,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		private readonly _message: string,
 		private readonly _description?: string,
 		private readonly _tooltip?: string,
@@ -41,7 +44,7 @@ export class MessageNode extends ViewNode {
 export class CommandMessageNode extends MessageNode {
 	constructor(
 		view: View,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		private readonly _command: Command,
 		message: string,
 		description?: string,
@@ -58,7 +61,7 @@ export class CommandMessageNode extends MessageNode {
 		super(view, parent, message, description, tooltip, iconPath);
 	}
 
-	getTreeItem(): TreeItem | Promise<TreeItem> {
+	override getTreeItem(): TreeItem | Promise<TreeItem> {
 		const item = super.getTreeItem();
 		if (item instanceof TreeItem) {
 			item.command = this._command;
@@ -75,8 +78,8 @@ export class CommandMessageNode extends MessageNode {
 export class UpdateableMessageNode extends ViewNode {
 	constructor(
 		view: View,
-		parent: ViewNode,
-		public readonly id: string,
+		protected override readonly parent: ViewNode,
+		private _id: string,
 		private _message: string,
 		private _tooltip?: string,
 		private _iconPath?:
@@ -89,6 +92,10 @@ export class UpdateableMessageNode extends ViewNode {
 			| ThemeIcon,
 	) {
 		super(unknownGitUri, view, parent);
+	}
+
+	override get id(): string {
+		return this._id;
 	}
 
 	getChildren(): ViewNode[] | Promise<ViewNode[]> {
@@ -142,26 +149,31 @@ export abstract class PagerNode extends ViewNode {
 		parent: ViewNode & PageableViewNode,
 		protected readonly message: string,
 		protected readonly previousNode?: ViewNode,
-		protected readonly pageSize: number = Container.config.views.pageItemLimit,
-		protected readonly countFn?: () => Promise<number | undefined>,
+		protected readonly options?: {
+			context?: Record<string, unknown>;
+			pageSize?: number;
+			getCount?: () => Promise<number | undefined>;
+		}, // protected readonly pageSize: number = configuration.get('views.pageItemLimit'), // protected readonly countFn?: () => Promise<number | undefined>, // protected readonly context?: Record<string, unknown>, // protected readonly beforeLoadCallback?: (mode: 'all' | 'more') => void,
 	) {
 		super(unknownGitUri, view, parent);
 	}
 
 	async loadAll() {
-		const count = (await this.countFn?.()) ?? 0;
+		const count = (await this.options?.getCount?.()) ?? 0;
 		return this.view.loadMoreNodeChildren(
 			this.parent! as ViewNode & PageableViewNode,
 			count > 5000 ? 5000 : 0,
 			this.previousNode,
+			this.options?.context,
 		);
 	}
 
 	loadMore() {
 		return this.view.loadMoreNodeChildren(
 			this.parent! as ViewNode & PageableViewNode,
-			this.pageSize,
+			this.options?.pageSize ?? configuration.get('views.pageItemLimit'),
 			this.previousNode,
+			this.options?.context,
 		);
 	}
 
@@ -176,7 +188,7 @@ export abstract class PagerNode extends ViewNode {
 		return item;
 	}
 
-	getCommand(): Command | undefined {
+	override getCommand(): Command | undefined {
 		return {
 			title: 'Load more',
 			command: 'gitlens.views.loadMoreChildren',
@@ -190,18 +202,22 @@ export class LoadMoreNode extends PagerNode {
 		view: View,
 		parent: ViewNode & PageableViewNode,
 		previousNode: ViewNode,
-		pageSize?: number,
-		countFn?: () => Promise<number | undefined>,
+		options?: {
+			context?: Record<string, unknown>;
+			getCount?: () => Promise<number | undefined>;
+			message?: string;
+			pageSize?: number;
+		},
 	) {
 		super(
 			view,
 			parent,
-			pageSize === 0
-				? `Load all ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`
-				: 'Load more',
+			options?.message ??
+				(options?.pageSize === 0
+					? `Load all ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`
+					: 'Load more'),
 			previousNode,
-			pageSize,
-			countFn,
+			options,
 		);
 	}
 }

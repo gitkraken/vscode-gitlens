@@ -1,18 +1,25 @@
-'use strict';
-
-export enum TraceLevel {
-	Silent = 'silent',
-	Errors = 'errors',
-	Verbose = 'verbose',
-	Debug = 'debug',
-}
+import type { AnthropicModels } from './ai/anthropicProvider';
+import type { OpenAIModels } from './ai/openaiProvider';
+import type { DateTimeFormat } from './system/date';
+import { LogLevel } from './system/logger.constants';
 
 export interface Config {
+	ai: {
+		experimental: {
+			provider: 'openai' | 'anthropic';
+			openai: {
+				model?: OpenAIModels;
+			};
+			anthropic: {
+				model?: AnthropicModels;
+			};
+		};
+	};
 	autolinks: AutolinkReference[] | null;
 	blame: {
 		avatars: boolean;
 		compact: boolean;
-		dateFormat: string | null;
+		dateFormat: DateTimeFormat | string | null;
 		format: string;
 		heatmap: {
 			enabled: boolean;
@@ -35,18 +42,27 @@ export interface Config {
 		dateFormat: string | null;
 		enabled: boolean;
 		format: string;
+		uncommittedChangesFormat: string | null;
 		pullRequests: {
 			enabled: boolean;
 		};
 		scrollable: boolean;
 	};
 	debug: boolean;
-	defaultDateFormat: string | null;
-	defaultDateShortFormat: string | null;
+	deepLinks: {
+		schemeOverride: boolean | string | null;
+	};
+	defaultDateFormat: DateTimeFormat | string | null;
+	defaultDateLocale: string | null;
+	defaultDateShortFormat: DateTimeFormat | string | null;
 	defaultDateSource: DateSource;
 	defaultDateStyle: DateStyle;
 	defaultGravatarsStyle: GravatarDefaultStyle;
-	defaultTimeFormat: string | null;
+	defaultTimeFormat: DateTimeFormat | string | null;
+	detectNestedRepositories: boolean;
+	experimental: {
+		generateCommitMessagePrompt: string;
+	};
 	fileAnnotations: {
 		command: string | null;
 	};
@@ -61,10 +77,12 @@ export interface Config {
 		skipConfirmations: string[];
 		sortBy: GitCommandSorting;
 	};
+	graph: GraphConfig;
 	heatmap: {
 		ageThreshold: number;
 		coldColor: string;
 		hotColor: string;
+		fadeLines: boolean;
 		locations: HeatmapLocations[];
 		toggleMode: AnnotationsToggleMode;
 	};
@@ -109,8 +127,8 @@ export interface Config {
 			alignment: 'left' | 'right';
 		};
 	};
-	modes: Record<string, ModeConfig>;
-	outputLevel: TraceLevel;
+	modes: Record<string, ModeConfig> | null;
+	outputLevel: OutputLevel;
 	partners: Record<
 		string,
 		{
@@ -118,6 +136,17 @@ export interface Config {
 			[key: string]: any;
 		}
 	> | null;
+	plusFeatures: {
+		enabled: boolean;
+	};
+	proxy: {
+		url: string | null;
+		strictSSL: boolean;
+	} | null;
+	rebaseEditor: {
+		ordering: 'asc' | 'desc';
+		showDetailsView: 'open' | 'selection' | false;
+	};
 	remotes: RemotesConfig[] | null;
 	showWelcomeOnInstall: boolean;
 	showWhatsNewAfterUpgrades: boolean;
@@ -127,13 +156,14 @@ export interface Config {
 	statusBar: {
 		alignment: 'left' | 'right';
 		command: StatusBarCommand;
-		dateFormat: string | null;
+		dateFormat: DateTimeFormat | string | null;
 		enabled: boolean;
 		format: string;
 		reduceFlicker: boolean;
 		pullRequests: {
 			enabled: boolean;
 		};
+		tooltipFormat: string;
 	};
 	strings: {
 		codeLens: {
@@ -144,16 +174,39 @@ export interface Config {
 			};
 		};
 	};
-	terminalLinks: {
+	telemetry: {
 		enabled: boolean;
 	};
+	terminal: {
+		overrideGitEditor: boolean;
+	};
+	terminalLinks: {
+		enabled: boolean;
+		showDetailsView: boolean;
+	};
 	views: ViewsConfig;
+	virtualRepositories: {
+		enabled: boolean;
+	};
+	visualHistory: {
+		queryLimit: number;
+	};
+	worktrees: {
+		defaultLocation: string | null;
+		openAfterCreate: 'always' | 'alwaysNewWindow' | 'onlyWhenEmpty' | 'never' | 'prompt';
+		promptForLocation: boolean;
+	};
 	advanced: AdvancedConfig;
 }
 
-export enum AnnotationsToggleMode {
+export const enum AnnotationsToggleMode {
 	File = 'file',
 	Window = 'window',
+}
+
+export const enum AutolinkType {
+	Issue = 'Issue',
+	PullRequest = 'PullRequest',
 }
 
 export interface AutolinkReference {
@@ -162,27 +215,31 @@ export interface AutolinkReference {
 	title?: string;
 	alphanumeric?: boolean;
 	ignoreCase?: boolean;
+
+	type?: AutolinkType;
+	description?: string;
 }
 
-export enum BlameHighlightLocations {
+export const enum BlameHighlightLocations {
 	Gutter = 'gutter',
 	Line = 'line',
-	Overview = 'overview',
+	Scrollbar = 'overview',
 }
 
-export enum BranchSorting {
+export const enum BranchSorting {
 	DateDesc = 'date:desc',
 	DateAsc = 'date:asc',
 	NameAsc = 'name:asc',
 	NameDesc = 'name:desc',
 }
 
-export enum ChangesLocations {
+export const enum ChangesLocations {
 	Gutter = 'gutter',
-	Overview = 'overview',
+	Line = 'line',
+	Scrollbar = 'overview',
 }
 
-export enum CodeLensCommand {
+export const enum CodeLensCommand {
 	CopyRemoteCommitUrl = 'gitlens.copyRemoteCommitUrl',
 	CopyRemoteFileUrl = 'gitlens.copyRemoteFileUrl',
 	DiffWithPrevious = 'gitlens.diffWithPrevious',
@@ -200,13 +257,13 @@ export enum CodeLensCommand {
 	ToggleFileHeatmap = 'gitlens.toggleFileHeatmap',
 }
 
-export enum CodeLensScopes {
+export const enum CodeLensScopes {
 	Document = 'document',
 	Containers = 'containers',
 	Blocks = 'blocks',
 }
 
-export enum ContributorSorting {
+export const enum ContributorSorting {
 	CountDesc = 'count:desc',
 	CountAsc = 'count:asc',
 	DateDesc = 'date:desc',
@@ -215,37 +272,43 @@ export enum ContributorSorting {
 	NameDesc = 'name:desc',
 }
 
-export enum CustomRemoteType {
+export const enum CustomRemoteType {
+	AzureDevOps = 'AzureDevOps',
 	Bitbucket = 'Bitbucket',
 	BitbucketServer = 'BitbucketServer',
 	Custom = 'Custom',
+	Gerrit = 'Gerrit',
+	GoogleSource = 'GoogleSource',
 	Gitea = 'Gitea',
 	GitHub = 'GitHub',
 	GitLab = 'GitLab',
 }
 
-export enum DateSource {
+export const enum DateSource {
 	Authored = 'authored',
 	Committed = 'committed',
 }
 
-export enum DateStyle {
+export const enum DateStyle {
 	Absolute = 'absolute',
 	Relative = 'relative',
 }
 
-export enum FileAnnotationType {
+export const enum FileAnnotationType {
 	Blame = 'blame',
 	Changes = 'changes',
 	Heatmap = 'heatmap',
 }
 
-export enum GitCommandSorting {
+export const enum GitCommandSorting {
 	Name = 'name',
 	Usage = 'usage',
 }
 
-export enum GravatarDefaultStyle {
+export type GraphScrollMarkersAdditionalTypes = 'localBranches' | 'remoteBranches' | 'stashes' | 'tags';
+export type GraphMinimapMarkersAdditionalTypes = 'localBranches' | 'remoteBranches' | 'stashes' | 'tags';
+
+export const enum GravatarDefaultStyle {
 	Faces = 'wavatar',
 	Geometric = 'identicon',
 	Monster = 'monsterid',
@@ -254,18 +317,26 @@ export enum GravatarDefaultStyle {
 	Robot = 'robohash',
 }
 
-export enum HeatmapLocations {
+export const enum HeatmapLocations {
 	Gutter = 'gutter',
-	Overview = 'overview',
+	Line = 'line',
+	Scrollbar = 'overview',
 }
 
-export enum KeyMap {
+export const enum KeyMap {
 	Alternate = 'alternate',
 	Chorded = 'chorded',
 	None = 'none',
 }
 
-export enum StatusBarCommand {
+export const enum OutputLevel {
+	Silent = 'silent',
+	Errors = 'errors',
+	Verbose = 'verbose',
+	Debug = 'debug',
+}
+
+export const enum StatusBarCommand {
 	CopyRemoteCommitUrl = 'gitlens.copyRemoteCommitUrl',
 	CopyRemoteFileUrl = 'gitlens.copyRemoteFileUrl',
 	DiffWithPrevious = 'gitlens.diffWithPrevious',
@@ -285,25 +356,25 @@ export enum StatusBarCommand {
 	ToggleFileHeatmap = 'gitlens.toggleFileHeatmap',
 }
 
-export enum TagSorting {
+export const enum TagSorting {
 	DateDesc = 'date:desc',
 	DateAsc = 'date:asc',
 	NameAsc = 'name:asc',
 	NameDesc = 'name:desc',
 }
 
-export enum ViewBranchesLayout {
+export const enum ViewBranchesLayout {
 	List = 'list',
 	Tree = 'tree',
 }
 
-export enum ViewFilesLayout {
+export const enum ViewFilesLayout {
 	Auto = 'auto',
 	List = 'list',
 	Tree = 'tree',
 }
 
-export enum ViewShowBranchComparison {
+export const enum ViewShowBranchComparison {
 	Branch = 'branch',
 	Working = 'working',
 }
@@ -319,32 +390,52 @@ export interface AdvancedConfig {
 	caching: {
 		enabled: boolean;
 	};
-	commitOrdering: string | null;
+	commitOrdering: 'date' | 'author-date' | 'topo' | null;
 	externalDiffTool: string | null;
 	externalDirectoryDiffTool: string | null;
 	fileHistoryFollowsRenames: boolean;
 	fileHistoryShowAllBranches: boolean;
 	maxListItems: number;
 	maxSearchItems: number;
-	messages: {
-		suppressCommitHasNoPreviousCommitWarning: boolean;
-		suppressCommitNotFoundWarning: boolean;
-		suppressCreatePullRequestPrompt: boolean;
-		suppressDebugLoggingWarning: boolean;
-		suppressFileNotUnderSourceControlWarning: boolean;
-		suppressGitDisabledWarning: boolean;
-		suppressGitMissingWarning: boolean;
-		suppressGitVersionWarning: boolean;
-		suppressImproperWorkspaceCasingWarning: boolean;
-		suppressLineUncommittedWarning: boolean;
-		suppressNoRepositoryWarning: boolean;
-		suppressRebaseSwitchToTextWarning: boolean;
-	};
+	messages: { [key in SuppressedMessages]: boolean };
 	quickPick: {
 		closeOnFocusOut: boolean;
 	};
-	repositorySearchDepth: number;
+	repositorySearchDepth: number | null;
 	similarityThreshold: number | null;
+}
+
+export interface GraphConfig {
+	avatars: boolean;
+	commitOrdering: 'date' | 'author-date' | 'topo';
+	dateFormat: DateTimeFormat | string | null;
+	dateStyle: DateStyle | null;
+	defaultItemLimit: number;
+	dimMergeCommits: boolean;
+	minimap: {
+		enabled: boolean;
+		dataType: 'commits' | 'lines';
+		additionalTypes: GraphMinimapMarkersAdditionalTypes[];
+	};
+	highlightRowsOnRefHover: boolean;
+	layout: 'editor' | 'panel';
+	scrollRowPadding: number;
+	showDetailsView: 'open' | 'selection' | false;
+	showGhostRefsOnRowHover: boolean;
+	scrollMarkers: {
+		enabled: boolean;
+		additionalTypes: GraphScrollMarkersAdditionalTypes[];
+	};
+	pullRequests: {
+		enabled: boolean;
+	};
+	showRemoteNames: boolean;
+	showUpstreamStatus: boolean;
+	pageItemLimit: number;
+	searchItemLimit: number;
+	statusBar: {
+		enabled: boolean;
+	};
 }
 
 export interface CodeLensConfig {
@@ -352,6 +443,7 @@ export interface CodeLensConfig {
 		enabled: boolean;
 		command: CodeLensCommand | false;
 	};
+	dateFormat: DateTimeFormat | string | null;
 	enabled: boolean;
 	includeSingleLineSymbols: boolean;
 	recentChange: {
@@ -385,6 +477,13 @@ export interface MenuConfig {
 				blame: boolean;
 				compare: boolean;
 		  };
+	editorGutter:
+		| false
+		| {
+				compare: boolean;
+				remote: boolean;
+				share: boolean;
+		  };
 	editorTab:
 		| false
 		| {
@@ -401,10 +500,23 @@ export interface MenuConfig {
 				history: boolean;
 				remote: boolean;
 		  };
+	ghpr:
+		| false
+		| {
+				worktree: boolean;
+		  };
 	scm:
 		| false
 		| {
+				graph: boolean;
+		  };
+	scmRepositoryInline: false | { graph: boolean };
+	scmRepository:
+		| false
+		| {
 				authors: boolean;
+				generateCommitMessage: boolean;
+				graph: boolean;
 		  };
 	scmGroupInline:
 		| false
@@ -418,6 +530,11 @@ export interface MenuConfig {
 				openClose: boolean;
 				stash: boolean;
 		  };
+	scmItemInline:
+		| false
+		| {
+				stash: boolean;
+		  };
 	scmItem:
 		| false
 		| {
@@ -425,6 +542,7 @@ export interface MenuConfig {
 				compare: boolean;
 				history: boolean;
 				remote: boolean;
+				share: boolean;
 				stash: boolean;
 		  };
 }
@@ -448,7 +566,6 @@ export type RemotesConfig =
 			protocol?: string;
 			type: CustomRemoteType;
 			urls?: RemotesUrlsConfig;
-			ignoreCertErrors?: boolean;
 	  }
 	| {
 			domain: null;
@@ -457,7 +574,6 @@ export type RemotesConfig =
 			protocol?: string;
 			type: CustomRemoteType;
 			urls?: RemotesUrlsConfig;
-			ignoreCertErrors?: boolean;
 	  };
 
 export interface RemotesUrlsConfig {
@@ -473,12 +589,32 @@ export interface RemotesUrlsConfig {
 	fileRange: string;
 }
 
+// NOTE: Must be kept in sync with `gitlens.advanced.messages` setting in the package.json
+export const enum SuppressedMessages {
+	CommitHasNoPreviousCommitWarning = 'suppressCommitHasNoPreviousCommitWarning',
+	CommitNotFoundWarning = 'suppressCommitNotFoundWarning',
+	CreatePullRequestPrompt = 'suppressCreatePullRequestPrompt',
+	SuppressDebugLoggingWarning = 'suppressDebugLoggingWarning',
+	FileNotUnderSourceControlWarning = 'suppressFileNotUnderSourceControlWarning',
+	GitDisabledWarning = 'suppressGitDisabledWarning',
+	GitMissingWarning = 'suppressGitMissingWarning',
+	GitVersionWarning = 'suppressGitVersionWarning',
+	LineUncommittedWarning = 'suppressLineUncommittedWarning',
+	NoRepositoryWarning = 'suppressNoRepositoryWarning',
+	RebaseSwitchToTextWarning = 'suppressRebaseSwitchToTextWarning',
+	IntegrationDisconnectedTooManyFailedRequestsWarning = 'suppressIntegrationDisconnectedTooManyFailedRequestsWarning',
+	IntegrationRequestFailed500Warning = 'suppressIntegrationRequestFailed500Warning',
+	IntegrationRequestTimedOutWarning = 'suppressIntegrationRequestTimedOutWarning',
+}
+
 export interface ViewsCommonConfig {
 	defaultItemLimit: number;
 	formats: {
 		commits: {
 			label: string;
 			description: string;
+			tooltip: string;
+			tooltipWithStatus: string;
 		};
 		files: {
 			label: string;
@@ -491,6 +627,12 @@ export interface ViewsCommonConfig {
 	};
 	pageItemLimit: number;
 	showRelativeDateMarkers: boolean;
+
+	experimental: {
+		multiSelect: {
+			enabled: boolean | null | undefined;
+		};
+	};
 }
 
 export const viewsCommonConfigKeys: (keyof ViewsCommonConfig)[] = [
@@ -503,6 +645,7 @@ export const viewsCommonConfigKeys: (keyof ViewsCommonConfig)[] = [
 interface ViewsConfigs {
 	branches: BranchesViewConfig;
 	commits: CommitsViewConfig;
+	commitDetails: CommitDetailsViewConfig;
 	contributors: ContributorsViewConfig;
 	fileHistory: FileHistoryViewConfig;
 	lineHistory: LineHistoryViewConfig;
@@ -511,20 +654,25 @@ interface ViewsConfigs {
 	searchAndCompare: SearchAndCompareViewConfig;
 	stashes: StashesViewConfig;
 	tags: TagsViewConfig;
+	workspaces: WorkspacesViewConfig;
+	worktrees: WorktreesViewConfig;
 }
 
 export type ViewsConfigKeys = keyof ViewsConfigs;
 export const viewsConfigKeys: ViewsConfigKeys[] = [
+	'branches',
 	'commits',
-	'repositories',
+	'commitDetails',
+	'contributors',
 	'fileHistory',
 	'lineHistory',
-	'branches',
 	'remotes',
+	'repositories',
+	'searchAndCompare',
 	'stashes',
 	'tags',
-	'contributors',
-	'searchAndCompare',
+	'workspaces',
+	'worktrees',
 ];
 
 export type ViewsConfig = ViewsCommonConfig & ViewsConfigs;
@@ -557,6 +705,18 @@ export interface CommitsViewConfig {
 	showBranchComparison: false | ViewShowBranchComparison;
 }
 
+export interface CommitDetailsViewConfig {
+	avatars: boolean;
+	files: ViewsFilesConfig;
+	autolinks: {
+		enabled: boolean;
+		enhanced: boolean;
+	};
+	pullRequests: {
+		enabled: boolean;
+	};
+}
+
 export interface ContributorsViewConfig {
 	avatars: boolean;
 	files: ViewsFilesConfig;
@@ -564,12 +724,13 @@ export interface ContributorsViewConfig {
 		enabled: boolean;
 		showForCommits: boolean;
 	};
+	reveal: boolean;
 	showAllBranches: boolean;
+	showStatistics: boolean;
 }
 
 export interface FileHistoryViewConfig {
 	avatars: boolean;
-	files: ViewsFilesConfig;
 }
 
 export interface LineHistoryViewConfig {
@@ -615,6 +776,7 @@ export interface RepositoriesViewConfig {
 	showStashes: boolean;
 	showTags: boolean;
 	showUpstreamStatus: boolean;
+	showWorktrees: boolean;
 }
 
 export interface SearchAndCompareViewConfig {
@@ -640,8 +802,39 @@ export interface TagsViewConfig {
 	reveal: boolean;
 }
 
+export interface WorktreesViewConfig {
+	avatars: boolean;
+	files: ViewsFilesConfig;
+	pullRequests: {
+		enabled: boolean;
+		showForBranches: boolean;
+		showForCommits: boolean;
+	};
+	reveal: boolean;
+	showBranchComparison: false | ViewShowBranchComparison.Branch;
+}
+
+// TODO@ramint
+export type WorkspacesViewConfig = RepositoriesViewConfig;
+
 export interface ViewsFilesConfig {
 	compact: boolean;
+	icon: 'status' | 'type';
 	layout: ViewFilesLayout;
 	threshold: number;
+}
+
+export function fromOutputLevel(level: LogLevel | OutputLevel): LogLevel {
+	switch (level) {
+		case OutputLevel.Silent:
+			return LogLevel.Off;
+		case OutputLevel.Errors:
+			return LogLevel.Error;
+		case OutputLevel.Verbose:
+			return LogLevel.Info;
+		case OutputLevel.Debug:
+			return LogLevel.Debug;
+		default:
+			return level;
+	}
 }

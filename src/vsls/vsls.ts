@@ -1,15 +1,17 @@
-'use strict';
-import { Disposable, workspace } from 'vscode';
-import { getApi, LiveShare, Role, SessionChangeEvent } from 'vsls';
-import { ContextKeys, DocumentSchemes, setContext } from '../constants';
-import { Container } from '../container';
-import { Logger } from '../logger';
+import { Disposable, extensions, workspace } from 'vscode';
+import type { LiveShare, LiveShareExtension, SessionChangeEvent } from '../@types/vsls';
+import { Schemes } from '../constants';
+import type { Container } from '../container';
+import { configuration } from '../system/configuration';
+import { setContext } from '../system/context';
+import { debug } from '../system/decorators/log';
+import { timeout } from '../system/decorators/timeout';
+import { once } from '../system/event';
+import { Logger } from '../system/logger';
+import type { Deferred } from '../system/promise';
+import { defer } from '../system/promise';
 import { VslsGuestService } from './guest';
 import { VslsHostService } from './host';
-import { debug, timeout } from '../system';
-
-export const vslsUriPrefixRegex = /^[/|\\]~(?:\d+?|external)(?:[/|\\]|$)/;
-export const vslsUriRootRegex = /^[/|\\]~(?:\d+?|external)$/;
 
 export interface ContactPresence {
 	status: ContactPresenceStatus;
@@ -33,58 +35,111 @@ function contactStatusToPresence(status: string | undefined): ContactPresence {
 }
 
 export class VslsController implements Disposable {
-	private _disposable: Disposable | undefined;
+	private _api: Promise<LiveShare | undefined> | undefined;
+	private _disposable: Disposable;
 	private _guest: VslsGuestService | undefined;
 	private _host: VslsHostService | undefined;
+	private _ready: Deferred<void>;
 
-	private _onReady: (() => void) | undefined;
-	private _waitForReady: Promise<void> | undefined;
-
-	private _api: Promise<LiveShare | null> | undefined;
-
-	constructor() {
-		void this.initialize();
+	constructor(private readonly container: Container) {
+		this._ready = defer<void>();
+		this._disposable = Disposable.from(once(container.onReady)(this.onReady, this));
 	}
 
 	dispose() {
-		this._disposable?.dispose();
+		this._ready.fulfill();
+
+		this._disposable.dispose();
 		this._host?.dispose();
 		this._guest?.dispose();
 	}
 
-	private async initialize() {
-		try {
-			// If we have a vsls: workspace open, we might be a guest, so wait until live share transitions into a mode
-			if (workspace.workspaceFolders?.some(f => f.uri.scheme === DocumentSchemes.Vsls)) {
-				this.setReadonly(true);
-				this._waitForReady = new Promise(resolve => (this._onReady = resolve));
-			}
+	private onReady(): void {
+		void this.initialize();
+	}
 
-			this._api = getApi();
+	private async initialize() {
+		// If we have a vsls: workspace open, we might be a guest, so wait until live share transitions into a mode
+		if (workspace.workspaceFolders?.some(f => f.uri.scheme === Schemes.Vsls)) {
+			this.setReadonly(true);
+		}
+
+		try {
+			this._api = this.getLiveShareApi();
 			const api = await this._api;
 			if (api == null) {
-				void setContext(ContextKeys.Vsls, false);
+				void setContext('gitlens:vsls', false);
 				// Tear it down if we can't talk to live share
-				if (this._onReady !== undefined) {
-					this._onReady();
-					this._waitForReady = undefined;
-				}
+				this._ready.fulfill();
 
 				return;
 			}
 
-			void setContext(ContextKeys.Vsls, true);
+			void setContext('gitlens:vsls', true);
 
 			this._disposable = Disposable.from(
+				this._disposable,
 				api.onDidChangeSession(e => this.onLiveShareSessionChanged(api, e), this),
 			);
+			void this.onLiveShareSessionChanged(api, { session: api.session });
 		} catch (ex) {
 			Logger.error(ex);
+			debugger;
 		}
 	}
 
-	get isMaybeGuest() {
-		return this._guest !== undefined || this._waitForReady !== undefined;
+	private async onLiveShareSessionChanged(api: LiveShare, e: SessionChangeEvent) {
+		this._host?.dispose();
+		this._host = undefined;
+		this._guest?.dispose();
+		this._guest = undefined;
+
+		switch (e.session.role) {
+			case 1 /*Role.Host*/:
+				this.setReadonly(false);
+				void setContext('gitlens:vsls', 'host');
+				if (configuration.get('liveshare.allowGuestAccess')) {
+					this._host = await VslsHostService.share(api, this.container);
+				}
+
+				this._ready.fulfill();
+
+				break;
+
+			case 2 /*Role.Guest*/:
+				this.setReadonly(true);
+				void setContext('gitlens:vsls', 'guest');
+				this._guest = await VslsGuestService.connect(api, this.container);
+
+				this._ready.fulfill();
+
+				break;
+
+			default:
+				this.setReadonly(false);
+				void setContext('gitlens:vsls', true);
+
+				if (!this._ready.pending) {
+					this._ready = defer<void>();
+				}
+
+				break;
+		}
+	}
+
+	private async getLiveShareApi(): Promise<LiveShare | undefined> {
+		try {
+			const extension = extensions.getExtension<LiveShareExtension>('ms-vsliveshare.vsliveshare');
+			if (extension != null) {
+				const vslsExtension = extension.isActive ? extension.exports : await extension.activate();
+				return (await vslsExtension.getApi('1.0.4753')) ?? undefined;
+			}
+		} catch (ex) {
+			debugger;
+			Logger.error(ex);
+		}
+
+		return undefined;
 	}
 
 	private _readonly: boolean = false;
@@ -93,12 +148,19 @@ export class VslsController implements Disposable {
 	}
 	private setReadonly(value: boolean) {
 		this._readonly = value;
-		void setContext(ContextKeys.Readonly, value ? true : undefined);
+		void setContext('gitlens:readonly', value ? true : undefined);
+	}
+
+	async guest() {
+		if (this._guest != null) return this._guest;
+
+		await this._ready.promise;
+		return this._guest;
 	}
 
 	@debug()
 	async getContact(email: string | undefined) {
-		if (email === undefined) return undefined;
+		if (email == null) return undefined;
 
 		const api = await this._api;
 		if (api == null) return undefined;
@@ -107,12 +169,8 @@ export class VslsController implements Disposable {
 		return contacts.contacts[email];
 	}
 
-	@debug({
-		args: {
-			0: (emails: string[]) => `length=${emails.length}`,
-		},
-	})
-	async getContacts(emails: string[]) {
+	@debug<VslsController['getContacts']>({ args: { 0: emails => emails.length } })
+	private async getContacts(emails: string[]) {
 		const api = await this._api;
 		if (api == null) return undefined;
 
@@ -128,11 +186,7 @@ export class VslsController implements Disposable {
 		return contactStatusToPresence(contact.status);
 	}
 
-	@debug({
-		args: {
-			0: (emails: string[]) => `length=${emails.length}`,
-		},
-	})
+	@debug<VslsController['getContactsPresence']>({ args: { 0: emails => emails.length } })
 	async getContactsPresence(emails: string[]): Promise<Map<string, ContactPresence> | undefined> {
 		const contacts = await this.getContacts(emails);
 		if (contacts == null) return undefined;
@@ -144,8 +198,8 @@ export class VslsController implements Disposable {
 
 	@debug()
 	@timeout(250)
-	maybeGetPresence(email: string | undefined) {
-		return Container.vsls.getContactPresence(email);
+	maybeGetPresence(email: string | undefined): Promise<ContactPresence | undefined> {
+		return this.getContactPresence(email);
 	}
 
 	async invite(email: string | undefined) {
@@ -162,53 +216,5 @@ export class VslsController implements Disposable {
 		if (api == null) return undefined;
 
 		return api.share();
-	}
-
-	async guest() {
-		if (this._waitForReady !== undefined) {
-			await this._waitForReady;
-			this._waitForReady = undefined;
-		}
-
-		return this._guest;
-	}
-
-	host() {
-		return this._host;
-	}
-
-	private async onLiveShareSessionChanged(api: LiveShare, e: SessionChangeEvent) {
-		if (this._host !== undefined) {
-			this._host.dispose();
-		}
-
-		if (this._guest !== undefined) {
-			this._guest.dispose();
-		}
-
-		switch (e.session.role) {
-			case Role.Host:
-				this.setReadonly(false);
-				void setContext(ContextKeys.Vsls, 'host');
-				if (Container.config.liveshare.allowGuestAccess) {
-					this._host = await VslsHostService.share(api);
-				}
-				break;
-			case Role.Guest:
-				this.setReadonly(true);
-				void setContext(ContextKeys.Vsls, 'guest');
-				this._guest = await VslsGuestService.connect(api);
-				break;
-
-			default:
-				this.setReadonly(false);
-				void setContext(ContextKeys.Vsls, true);
-				break;
-		}
-
-		if (this._onReady !== undefined) {
-			this._onReady();
-			this._onReady = undefined;
-		}
 	}
 }

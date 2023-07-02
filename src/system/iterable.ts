@@ -1,5 +1,3 @@
-'use strict';
-
 export function* chunk<T>(source: T[], size: number): Iterable<T[]> {
 	let chunk: T[] = [];
 
@@ -40,12 +38,12 @@ export function* chunkByStringLength(source: string[], maxLength: number): Itera
 	}
 }
 
-export function count<T>(source: Iterable<T> | IterableIterator<T>, predicate?: (item: T) => boolean): number {
+export function count<T>(source: IterableIterator<T>, predicate?: (item: T) => boolean): number {
 	let count = 0;
 	let next: IteratorResult<T>;
 
 	while (true) {
-		next = (source as IterableIterator<T>).next();
+		next = source.next();
 		if (next.done) break;
 
 		if (predicate === undefined || predicate(next.value)) {
@@ -65,7 +63,14 @@ export function every<T>(source: Iterable<T> | IterableIterator<T>, predicate: (
 
 export function filter<T>(source: Iterable<T | undefined | null> | IterableIterator<T | undefined | null>): Iterable<T>;
 export function filter<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): Iterable<T>;
-export function* filter<T>(source: Iterable<T> | IterableIterator<T>, predicate?: (item: T) => boolean): Iterable<T> {
+export function filter<T, U extends T>(
+	source: Iterable<T> | IterableIterator<T>,
+	predicate: (item: T) => item is U,
+): Iterable<U>;
+export function* filter<T, U extends T = T>(
+	source: Iterable<T> | IterableIterator<T>,
+	predicate?: ((item: T) => item is U) | ((item: T) => boolean),
+): Iterable<T | U> {
 	if (predicate === undefined) {
 		for (const item of source) {
 			if (item != null) yield item;
@@ -102,14 +107,23 @@ export function find<T>(source: Iterable<T> | IterableIterator<T>, predicate: (i
 	return null;
 }
 
-export function first<T>(source: Iterable<T>): T {
-	return source[Symbol.iterator]().next().value;
+export function findIndex<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): number {
+	let i = 0;
+	for (const item of source) {
+		if (predicate(item)) return i;
+		i++;
+	}
+	return -1;
+}
+
+export function first<T>(source: Iterable<T> | IterableIterator<T>): T | undefined {
+	return source[Symbol.iterator]().next().value as T | undefined;
 }
 
 export function* flatMap<T, TMapped>(
 	source: Iterable<T> | IterableIterator<T>,
 	mapper: (item: T) => Iterable<TMapped>,
-): Iterable<TMapped> {
+): IterableIterator<TMapped> {
 	for (const item of source) {
 		yield* mapper(item);
 	}
@@ -124,25 +138,19 @@ export function isIterable(source: Iterable<any>): boolean {
 }
 
 export function join(source: Iterable<any>, separator: string): string {
-	let value = '';
-
 	const iterator = source[Symbol.iterator]();
 	let next = iterator.next();
-	if (next.done) return value;
+	if (next.done) return '';
 
+	let result = String(next.value);
 	while (true) {
-		const s = next.value.toString();
-
 		next = iterator.next();
-		if (next.done) {
-			value += s;
-			break;
-		}
+		if (next.done) break;
 
-		value += `${s}${separator}`;
+		result += `${separator}${next.value}`;
 	}
 
-	return value;
+	return result;
 }
 
 export function last<T>(source: Iterable<T>): T | undefined {
@@ -156,14 +164,14 @@ export function last<T>(source: Iterable<T>): T | undefined {
 export function* map<T, TMapped>(
 	source: Iterable<T> | IterableIterator<T>,
 	mapper: (item: T) => TMapped,
-): Iterable<TMapped> {
+): IterableIterator<TMapped> {
 	for (const item of source) {
 		yield mapper(item);
 	}
 }
 
 export function next<T>(source: IterableIterator<T>): T {
-	return source.next().value;
+	return source.next().value as T;
 }
 
 export function* skip<T>(source: Iterable<T> | IterableIterator<T>, count: number): IterableIterator<T> {
@@ -198,4 +206,28 @@ export function* union<T>(...sources: (Iterable<T> | IterableIterator<T>)[]): It
 			yield item;
 		}
 	}
+}
+
+export function uniqueBy<TKey, TValue>(
+	source: Iterable<TValue> | IterableIterator<TValue>,
+	uniqueKey: (item: TValue) => TKey,
+	onDuplicate: (original: TValue, current: TValue) => TValue | void,
+): IterableIterator<TValue> {
+	const uniques = new Map<TKey, TValue>();
+
+	for (const current of source) {
+		const value = uniqueKey(current);
+
+		const original = uniques.get(value);
+		if (original === undefined) {
+			uniques.set(value, current);
+		} else {
+			const updated = onDuplicate(original, current);
+			if (updated !== undefined) {
+				uniques.set(value, updated);
+			}
+		}
+	}
+
+	return uniques.values();
 }

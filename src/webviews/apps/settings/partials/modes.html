@@ -2,7 +2,11 @@
 	<div class="section__header">
 		<h2>
 			Modes
-			<a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#modes-">
+			<a
+				class="link__learn-more"
+				title="Learn more"
+				href="https://help.gitkraken.com/gitlens/gitlens-features/#modes"
+			>
 				<i class="icon icon__info"></i>
 			</a>
 		</h2>
@@ -65,16 +69,28 @@
 			</div>
 
 			<div class="section__preview">
-				<img class="image__preview" src="#{root}/images/settings/status-bar.webp" />
 				<img
-					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/modes-status-bar-left.webp"
-					data-visibility="mode.statusBar.enabled &amp; mode.statusBar.alignment =left"
+					class="image__preview"
+					src="#{webroot}/media/status-bar.webp"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/modes-status-bar-right.webp"
+					src="#{webroot}/media/modes-status-bar-left.webp"
+					data-visibility="mode.statusBar.enabled &amp; mode.statusBar.alignment =left"
+					loading="lazy"
+					width="600"
+					height="206"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{webroot}/media/modes-status-bar-right.webp"
 					data-visibility="mode.statusBar.enabled &amp; mode.statusBar.alignment =right"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 			</div>
 		</div>

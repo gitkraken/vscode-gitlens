@@ -1,13 +1,14 @@
-'use strict';
+import { debug } from '../../system/decorators/log';
 import { GitBranch } from '../models/branch';
-import { debug } from '../../system';
 
-const branchWithTrackingRegex = /^<h>(.+)<n>(.+)<u>(.*)<t>(?:\[(?:ahead ([0-9]+))?[,\s]*(?:behind ([0-9]+))?]|\[(gone)])?<r>(.*)<d>(.*)$/gm;
+const branchWithTrackingRegex =
+	/^<h>(.+)<n>(.+)<u>(.*)<t>(?:\[(?:ahead ([0-9]+))?[,\s]*(?:behind ([0-9]+))?]|\[(gone)])?<r>(.*)<d>(.*)$/gm;
 
 // Using %x00 codes because some shells seem to try to expand things if not
 const lb = '%3c'; // `%${'<'.charCodeAt(0).toString(16)}`;
 const rb = '%3e'; // `%${'>'.charCodeAt(0).toString(16)}`;
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class GitBranchParser {
 	static defaultFormat = [
 		`${lb}h${rb}%(HEAD)`, // HEAD indicator
@@ -60,7 +61,7 @@ export class GitBranchParser {
 					name,
 					remote,
 					current.charCodeAt(0) === 42, // '*',
-					new Date(date),
+					date ? new Date(date) : undefined,
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 					ref == null || ref.length === 0 ? undefined : ` ${ref}`.substr(1),
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869

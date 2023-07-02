@@ -1,7 +1,11 @@
-'use strict';
-import { Disposable, Event, EventEmitter, Selection, TextEditor, TextEditorSelectionChangeEvent, window } from 'vscode';
-import { isTextEditor } from '../constants';
-import { debug, Functions } from '../system';
+import type { Event, Selection, TextEditor, TextEditorSelectionChangeEvent } from 'vscode';
+import { Disposable, EventEmitter, window } from 'vscode';
+import { debug } from '../system/decorators/log';
+import type { Deferrable } from '../system/function';
+import { debounce } from '../system/function';
+import { Logger } from '../system/logger';
+import { getLogScope } from '../system/logger.scope';
+import { isTextEditor } from '../system/utils';
 
 export interface LinesChangeEvent {
 	readonly editor: TextEditor | undefined;
@@ -29,13 +33,13 @@ export class LineTracker<T> implements Disposable {
 
 	dispose() {
 		for (const subscriber of this._subscriptions.keys()) {
-			this.stop(subscriber);
+			this.unsubscribe(subscriber);
 		}
 	}
 
 	private onActiveTextEditorChanged(editor: TextEditor | undefined) {
-		if (this._editor === editor) return;
-		if (editor !== undefined && !isTextEditor(editor)) return;
+		if (editor === this._editor) return;
+		if (editor != null && !isTextEditor(editor)) return;
 
 		this.reset();
 		this._editor = editor;
@@ -74,7 +78,7 @@ export class LineTracker<T> implements Disposable {
 	includes(selections: LineSelection[]): boolean;
 	includes(line: number, options?: { activeOnly: boolean }): boolean;
 	includes(lineOrSelections: number | LineSelection[], options?: { activeOnly: boolean }): boolean {
-		if (Array.isArray(lineOrSelections)) {
+		if (typeof lineOrSelections !== 'number') {
 			return LineTracker.includes(lineOrSelections, this._selections);
 		}
 
@@ -104,24 +108,26 @@ export class LineTracker<T> implements Disposable {
 		this._state.clear();
 	}
 
-	private _subscriptions = new Map<any, Disposable[]>();
+	private _subscriptions = new Map<unknown, Disposable[]>();
 
-	isSubscribed(subscriber: any) {
+	subscribed(subscriber: unknown) {
 		return this._subscriptions.has(subscriber);
 	}
 
 	protected onStart?(): Disposable | undefined;
 
 	@debug({ args: false })
-	start(subscriber: any, subscription: Disposable): Disposable {
+	subscribe(subscriber: unknown, subscription: Disposable): Disposable {
+		const scope = getLogScope();
+
 		const disposable = {
-			dispose: () => this.stop(subscriber),
+			dispose: () => this.unsubscribe(subscriber),
 		};
 
 		const first = this._subscriptions.size === 0;
 
 		let subs = this._subscriptions.get(subscriber);
-		if (subs === undefined) {
+		if (subs == null) {
 			subs = [subscription];
 			this._subscriptions.set(subscriber, subs);
 		} else {
@@ -129,23 +135,24 @@ export class LineTracker<T> implements Disposable {
 		}
 
 		if (first) {
+			Logger.debug(scope, 'Starting line tracker...');
+
 			this._disposable = Disposable.from(
-				window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 0), this),
+				window.onDidChangeActiveTextEditor(debounce(this.onActiveTextEditorChanged, 0), this),
 				window.onDidChangeTextEditorSelection(this.onTextEditorSelectionChanged, this),
-				// eslint-disable-next-line @typescript-eslint/no-empty-function
 				this.onStart?.() ?? { dispose: () => {} },
 			);
 
-			setImmediate(() => this.onActiveTextEditorChanged(window.activeTextEditor));
+			queueMicrotask(() => this.onActiveTextEditorChanged(window.activeTextEditor));
 		}
 
 		return disposable;
 	}
 
 	@debug({ args: false })
-	stop(subscriber: any) {
+	unsubscribe(subscriber: unknown) {
 		const subs = this._subscriptions.get(subscriber);
-		if (subs === undefined) return;
+		if (subs == null) return;
 
 		this._subscriptions.delete(subscriber);
 		for (const sub of subs) {
@@ -154,14 +161,12 @@ export class LineTracker<T> implements Disposable {
 
 		if (this._subscriptions.size !== 0) return;
 
-		if (this._linesChangedDebounced !== undefined) {
+		if (this._linesChangedDebounced != null) {
 			this._linesChangedDebounced.cancel();
 		}
 
-		if (this._disposable !== undefined) {
-			this._disposable.dispose();
-			this._disposable = undefined;
-		}
+		this._disposable?.dispose();
+		this._disposable = undefined;
 	}
 
 	private _suspended = false;
@@ -172,22 +177,22 @@ export class LineTracker<T> implements Disposable {
 	protected onResume?(): void;
 
 	@debug()
-	resume(options: { force?: boolean } = {}) {
-		if (!options.force && !this._suspended) return;
+	resume(options?: { force?: boolean }) {
+		if (!options?.force && !this._suspended) return;
 
 		this._suspended = false;
-		void this.onResume?.();
+		this.onResume?.();
 		this.trigger('editor');
 	}
 
 	protected onSuspend?(): void;
 
 	@debug()
-	suspend(options: { force?: boolean } = {}) {
-		if (!options.force && this._suspended) return;
+	suspend(options?: { force?: boolean }) {
+		if (!options?.force && this._suspended) return;
 
 		this._suspended = true;
-		void this.onSuspend?.();
+		this.onSuspend?.();
 		this.trigger('editor');
 	}
 
@@ -199,42 +204,38 @@ export class LineTracker<T> implements Disposable {
 		this.onLinesChanged({ editor: this._editor, selections: this.selections, reason: reason });
 	}
 
-	private _linesChangedDebounced: Functions.Deferrable<(e: LinesChangeEvent) => void> | undefined;
+	private _linesChangedDebounced: Deferrable<(e: LinesChangeEvent) => void> | undefined;
 
 	private onLinesChanged(e: LinesChangeEvent) {
-		if (e.selections === undefined) {
-			setImmediate(() => {
-				if (window.activeTextEditor !== e.editor) return;
+		if (e.selections == null) {
+			queueMicrotask(() => {
+				if (e.editor !== window.activeTextEditor) return;
 
-				if (this._linesChangedDebounced !== undefined) {
+				if (this._linesChangedDebounced != null) {
 					this._linesChangedDebounced.cancel();
 				}
 
-				void this.fireLinesChanged(e);
+				this.fireLinesChanged(e);
 			});
 
 			return;
 		}
 
-		if (this._linesChangedDebounced === undefined) {
-			this._linesChangedDebounced = Functions.debounce(
-				(e: LinesChangeEvent) => {
-					if (window.activeTextEditor !== e.editor) return;
-					// Make sure we are still on the same lines
-					if (!LineTracker.includes(e.selections, LineTracker.toLineSelections(e.editor?.selections))) {
-						return;
-					}
+		if (this._linesChangedDebounced == null) {
+			this._linesChangedDebounced = debounce((e: LinesChangeEvent) => {
+				if (e.editor !== window.activeTextEditor) return;
+				// Make sure we are still on the same lines
+				if (!LineTracker.includes(e.selections, LineTracker.toLineSelections(e.editor?.selections))) {
+					return;
+				}
 
-					void this.fireLinesChanged(e);
-				},
-				250,
-				{ track: true },
-			);
+				this.fireLinesChanged(e);
+			}, 250);
 		}
 
 		// If we have no pending moves, then fire an immediate pending event, and defer the real event
-		if (!this._linesChangedDebounced.pending!()) {
-			void this.fireLinesChanged({ ...e, pending: true });
+		if (!this._linesChangedDebounced.pending?.()) {
+			this.fireLinesChanged({ ...e, pending: true });
 		}
 
 		this._linesChangedDebounced(e);
