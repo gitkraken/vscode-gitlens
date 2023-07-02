@@ -1,6 +1,6 @@
-[![](https://vsmarketplacebadge.apphb.com/version-short/eamodio.gitlens.svg)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
-[![](https://vsmarketplacebadge.apphb.com/downloads-short/eamodio.gitlens.svg)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
-[![](https://vsmarketplacebadge.apphb.com/rating-short/eamodio.gitlens.svg)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
+[![](https://vsmarketplacebadge.apphb.com/version-short/eamodio.gitlens.svg)][def]
+[![](https://vsmarketplacebadge.apphb.com/downloads-short/eamodio.gitlens.svg)][def]
+[![](https://vsmarketplacebadge.apphb.com/rating-short/eamodio.gitlens.svg)][def]
 [![](https://aka.ms/vsls-badge)](https://aka.ms/vsls-gitlens)
 [![](https://img.shields.io/badge/vscode--dev--community-gitlens-blue.svg?logo=slack&labelColor=555555)](https://vscode-slack.amod.io)
 
@@ -964,3 +964,6 @@ Also special thanks to the people that have provided support, testing, brainstor
 - Matt King ([@KattMingMing](https://github.com/KattMingMing))
 
 And of course the awesome [vscode](https://github.com/Microsoft/vscode/graphs/contributors) team!
+
+
+[def]: https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens
