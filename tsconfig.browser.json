@@ -1,0 +1,13 @@
+{
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"lib": ["dom", "dom.iterable", "es2022"],
+		"paths": {
+			"@env/*": ["src/env/browser/*"],
+			"path": ["node_modules/path-browserify"]
+		},
+		"tsBuildInfoFile": "tsconfig.browser.tsbuildinfo"
+	},
+	"include": ["src/**/*"],
+	"exclude": ["src/test/**/*", "src/webviews/apps/**/*", "src/env/node/**/*"]
+}

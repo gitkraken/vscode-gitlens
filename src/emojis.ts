@@ -1,11 +1,12 @@
-'use strict';
-import * as emojis from './emojis.json';
+import { emojis as compressed } from './emojis.generated';
+import { decompressFromBase64LZString } from './system/string';
 
-const emojiMap = (emojis as any).default as Record<string, string>;
 const emojiRegex = /:([-+_a-z0-9]+):/g;
 
+let emojis: Record<string, string> | undefined = undefined;
 export function emojify(message: string) {
-	return message.replace(emojiRegex, (s, code) => {
-		return emojiMap[code] || s;
-	});
+	if (emojis == null) {
+		emojis = JSON.parse(decompressFromBase64LZString(compressed));
+	}
+	return message.replace(emojiRegex, (s, code) => emojis![code] || s);
 }

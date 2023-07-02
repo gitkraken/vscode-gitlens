@@ -1,0 +1,1 @@
+export { hrtime } from 'process';

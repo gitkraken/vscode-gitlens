@@ -1,14 +1,19 @@
-'use strict';
-import { CancellationToken, Disposable, Hover, languages, Position, Range, TextDocument, TextEditor } from 'vscode';
-import { FileAnnotationType } from '../config';
-import { Container } from '../container';
-import { GitBlame, GitBlameCommit, GitCommit } from '../git/git';
+import type { CancellationToken, Disposable, Position, TextDocument, TextEditor } from 'vscode';
+import { Hover, languages, Range } from 'vscode';
+import type { FileAnnotationType } from '../config';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { Hovers } from '../hovers/hovers';
-import { log } from '../system';
-import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
+import type { GitBlame } from '../git/models/blame';
+import type { GitCommit } from '../git/models/commit';
+import { changesMessage, detailsMessage } from '../hovers/hovers';
+import { configuration } from '../system/configuration';
+import { log } from '../system/decorators/log';
+import type { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { AnnotationProviderBase } from './annotationProvider';
-import { ComputedHeatmap, getHeatmapColors } from './annotations';
+import type { ComputedHeatmap } from './annotations';
+import { getHeatmapColors } from './annotations';
+
+const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 
 export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase {
 	protected blame: Promise<GitBlame | undefined>;
@@ -18,12 +23,11 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		annotationType: FileAnnotationType,
 		editor: TextEditor,
 		trackedDocument: TrackedDocument<GitDocumentState>,
+		protected readonly container: Container,
 	) {
 		super(annotationType, editor, trackedDocument);
 
-		this.blame = editor.document.isDirty
-			? Container.git.getBlameForFileContents(this.trackedDocument.uri, editor.document.getText())
-			: Container.git.getBlameForFile(this.trackedDocument.uri);
+		this.blame = this.container.git.getBlame(this.trackedDocument.uri, editor.document);
 
 		if (editor.document.isDirty) {
 			trackedDocument.setForceDirtyStateChangeOnNextDocumentChange();
@@ -51,7 +55,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 	}
 
 	@log({ args: false })
-	protected async getComputedHeatmap(blame: GitBlame): Promise<ComputedHeatmap> {
+	protected getComputedHeatmap(blame: GitBlame): ComputedHeatmap {
 		const dates: Date[] = [];
 
 		let commit;
@@ -69,7 +73,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		dates.sort((a, b) => a.getTime() - b.getTime());
 
 		const coldThresholdDate = new Date();
-		coldThresholdDate.setDate(coldThresholdDate.getDate() - (Container.config.heatmap.ageThreshold || 90));
+		coldThresholdDate.setDate(coldThresholdDate.getDate() - (configuration.get('heatmap.ageThreshold') || 90));
 		const coldThresholdTimestamp = coldThresholdDate.getTime();
 
 		const hotDates: Date[] = [];
@@ -98,34 +102,42 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			lookupTable = getRelativeAgeLookupTable(dates);
 		}
 
+		const getLookupTable = (date: Date, unified?: boolean) =>
+			Array.isArray(lookupTable)
+				? lookupTable
+				: unified
+				? lookupTable.hot.concat(lookupTable.cold)
+				: date.getTime() < coldThresholdTimestamp
+				? lookupTable.cold
+				: lookupTable.hot;
+
+		const computeRelativeAge = (date: Date, lookup: number[]) => {
+			const time = date.getTime();
+			let index = 0;
+			for (let i = 0; i < lookup.length; i++) {
+				index = i;
+				if (time >= lookup[i]) break;
+			}
+
+			return index;
+		};
+
 		return {
 			coldThresholdTimestamp: coldThresholdTimestamp,
-			colors: await getHeatmapColors(),
-			computeRelativeAge: (date: Date) => {
-				const lookup = Array.isArray(lookupTable)
-					? lookupTable
-					: date.getTime() < coldThresholdTimestamp
-					? lookupTable.cold
-					: lookupTable.hot;
+			colors: getHeatmapColors(),
+			computeRelativeAge: (date: Date) => computeRelativeAge(date, getLookupTable(date)),
+			computeOpacity: (date: Date) => {
+				const lookup = getLookupTable(date, true);
+				const age = computeRelativeAge(date, lookup);
 
-				const time = date.getTime();
-				let index = 0;
-				for (let i = 0; i < lookup.length; i++) {
-					index = i;
-					if (time >= lookup[i]) break;
-				}
-
-				return index;
+				return Math.max(0.2, Math.round((1 - age / lookup.length) * 100) / 100);
 			},
 		};
 	}
 
 	registerHoverProviders(providers: { details: boolean; changes: boolean }) {
-		if (
-			!Container.config.hovers.enabled ||
-			!Container.config.hovers.annotations.enabled ||
-			(!providers.details && !providers.changes)
-		) {
+		const cfg = configuration.get('hovers');
+		if (!cfg.enabled || !cfg.annotations.enabled || (!providers.details && !providers.changes)) {
 			return;
 		}
 
@@ -144,7 +156,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		position: Position,
 		_token: CancellationToken,
 	): Promise<Hover | undefined> {
-		if (Container.config.hovers.annotations.over !== 'line' && position.character !== 0) return undefined;
+		if (configuration.get('hovers.annotations.over') !== 'line' && position.character !== 0) return undefined;
 
 		if (this.document.uri.toString() !== document.uri.toString()) return undefined;
 
@@ -160,49 +172,32 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			await Promise.all([
 				providers.details ? this.getDetailsHoverMessage(commit, document) : undefined,
 				providers.changes
-					? Hovers.changesMessage(commit, await GitUri.fromUri(document.uri), position.line)
+					? changesMessage(commit, await GitUri.fromUri(document.uri), position.line, document)
 					: undefined,
 			])
 		).filter(<T>(m?: T): m is T => Boolean(m));
 
 		return new Hover(
 			messages,
-			document.validateRange(new Range(position.line, 0, position.line, Number.MAX_SAFE_INTEGER)),
+			document.validateRange(new Range(position.line, 0, position.line, maxSmallIntegerV8)),
 		);
 	}
 
-	private async getDetailsHoverMessage(commit: GitBlameCommit, document: TextDocument) {
-		// Get the full commit message -- since blame only returns the summary
-		let logCommit: GitCommit | undefined = undefined;
-		if (!commit.isUncommitted) {
-			logCommit = await Container.git.getCommitForFile(commit.repoPath, commit.uri.fsPath, {
-				ref: commit.sha,
-			});
-			if (logCommit != null) {
-				// Preserve the previous commit from the blame commit
-				logCommit.previousFileName = commit.previousFileName;
-				logCommit.previousSha = commit.previousSha;
-			}
-		}
-
+	private async getDetailsHoverMessage(commit: GitCommit, document: TextDocument) {
 		let editorLine = this.editor.selection.active.line;
 		const line = editorLine + 1;
 		const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
 		editorLine = commitLine.originalLine - 1;
 
-		return Hovers.detailsMessage(
-			logCommit ?? commit,
-			await GitUri.fromUri(document.uri),
-			editorLine,
-			Container.config.hovers.detailsMarkdownFormat,
-			Container.config.defaultDateFormat,
-			{
-				autolinks: Container.config.hovers.autolinks.enabled,
-				pullRequests: {
-					enabled: Container.config.hovers.pullRequests.enabled,
-				},
+		const cfg = configuration.get('hovers');
+		return detailsMessage(commit, await GitUri.fromUri(document.uri), editorLine, {
+			autolinks: cfg.autolinks.enabled,
+			dateFormat: configuration.get('defaultDateFormat'),
+			format: cfg.detailsMarkdownFormat,
+			pullRequests: {
+				enabled: cfg.pullRequests.enabled,
 			},
-		);
+		});
 	}
 }
 

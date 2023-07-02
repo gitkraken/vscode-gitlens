@@ -1,10 +1,23 @@
 {
-	"extends": "../../../tsconfig.json",
+	"extends": "../../../tsconfig.base.json",
 	"compilerOptions": {
-		"allowSyntheticDefaultImports": true,
-		"lib": ["dom", "dom.iterable", "es2019"],
-		"outDir": "../../"
+		"jsx": "react",
+		"lib": ["dom", "dom.iterable", "es2022"],
+		"outDir": "../../",
+		"paths": {
+			"@env/*": ["src/env/browser/*"]
+		},
+		"useDefineForClassFields": false
 	},
-	"include": ["../../config.ts", "../protocol.ts", "**/*"],
+	"include": [
+		"**/*",
+		"../../@types/**/*",
+		"../protocol.ts",
+		"../../config.ts",
+		"../../features.ts",
+		"../../subscription.ts",
+		"../../system/color.ts",
+		"../../system/date.ts"
+	],
 	"exclude": ["node_modules", "test"]
 }

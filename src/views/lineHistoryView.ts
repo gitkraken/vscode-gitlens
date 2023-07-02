@@ -1,61 +1,56 @@
-'use strict';
-import { commands, ConfigurationChangeEvent, Disposable } from 'vscode';
-import { configuration, LineHistoryViewConfig } from '../configuration';
-import { ContextKeys, setContext } from '../constants';
-import { Container } from '../container';
-import { LineHistoryTrackerNode } from './nodes';
+import type { ConfigurationChangeEvent, Disposable } from 'vscode';
+import type { LineHistoryViewConfig } from '../config';
+import { Commands } from '../constants';
+import type { Container } from '../container';
+import { executeCommand } from '../system/command';
+import { configuration } from '../system/configuration';
+import { setContext } from '../system/context';
+import { LineHistoryTrackerNode } from './nodes/lineHistoryTrackerNode';
 import { ViewBase } from './viewBase';
+import { registerViewCommand } from './viewCommands';
 
 const pinnedSuffix = ' (pinned)';
 
-export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistoryViewConfig> {
+export class LineHistoryView extends ViewBase<'lineHistory', LineHistoryTrackerNode, LineHistoryViewConfig> {
 	protected readonly configKey = 'lineHistory';
 
-	constructor() {
-		super('gitlens.views.lineHistory', 'Line History');
+	constructor(container: Container) {
+		super(container, 'lineHistory', 'Line History', 'lineHistoryView');
 
-		void setContext(ContextKeys.ViewsLineHistoryEditorFollowing, true);
+		void setContext('gitlens:views:lineHistory:editorFollowing', true);
 	}
 
 	protected override get showCollapseAll(): boolean {
 		return false;
 	}
 
-	getRoot() {
+	protected getRoot() {
 		return new LineHistoryTrackerNode(this);
 	}
 
 	protected registerCommands(): Disposable[] {
-		void Container.viewCommands;
+		void this.container.viewCommands;
 
 		return [
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => commands.executeCommand('gitlens.views.copy', this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
-			commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
-			commands.registerCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this),
-			commands.registerCommand(
+			registerViewCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
+			registerViewCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this),
+			registerViewCommand(
 				this.getQualifiedCommand('setEditorFollowingOn'),
 				() => this.setEditorFollowing(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setEditorFollowingOff'),
 				() => this.setEditorFollowing(false),
 				this,
 			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOn'),
-				() => this.setShowAvatars(true),
-				this,
-			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOff'),
-				() => this.setShowAvatars(false),
-				this,
-			),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
 		];
 	}
 
@@ -64,6 +59,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 		if (
 			!changed &&
 			!configuration.changed(e, 'defaultDateFormat') &&
+			!configuration.changed(e, 'defaultDateLocale') &&
 			!configuration.changed(e, 'defaultDateShortFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
@@ -84,7 +80,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 		const root = this.ensureRoot();
 		if (!root.hasUri) return;
 
-		void setContext(ContextKeys.ViewsLineHistoryEditorFollowing, enabled);
+		void setContext('gitlens:views:lineHistory:editorFollowing', enabled);
 
 		this.root?.setEditorFollowing(enabled);
 

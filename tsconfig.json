@@ -1,26 +1,11 @@
 {
+	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
-		"esModuleInterop": true,
-		"experimentalDecorators": true,
-		"forceConsistentCasingInFileNames": true,
-		"incremental": true,
-		"isolatedModules": true,
-		"lib": ["es2019"],
-		"module": "esnext",
-		"moduleResolution": "node",
-		"noFallthroughCasesInSwitch": true,
-		"noImplicitOverride": true,
-		"noImplicitReturns": true,
-		"noUnusedLocals": false,
-		"outDir": "dist",
-		"resolveJsonModule": true,
-		"rootDir": "src",
-		"skipLibCheck": true,
-		"sourceMap": true,
-		"strict": true,
-		"target": "es2019",
-		"useDefineForClassFields": true,
-		"useUnknownInCatchVariables": false
+		"paths": {
+			"@env/*": ["src/env/node/*"]
+		},
+		"tsBuildInfoFile": "tsconfig.tsbuildinfo"
 	},
-	"exclude": ["node_modules", "test", "src/webviews/apps"]
+	"include": ["src/**/*"],
+	"exclude": ["src/test/**/*", "src/webviews/apps/**/*", "src/env/browser/**/*"]
 }

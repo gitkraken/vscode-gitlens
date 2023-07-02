@@ -1,24 +1,25 @@
-'use strict';
 /*global document window*/
-import '../scss/rebase.scss';
-// eslint-disable-next-line import/no-named-as-default
+import './rebase.scss';
 import Sortable from 'sortablejs';
+import { onIpc } from '../../protocol';
+import type { RebaseEntry, RebaseEntryAction, State } from '../../rebase/protocol';
 import {
-	onIpcNotification,
-	RebaseDidAbortCommandType,
-	RebaseDidChangeEntryCommandType,
-	RebaseDidChangeNotificationType,
-	RebaseDidDisableCommandType,
-	RebaseDidMoveEntryCommandType,
-	RebaseDidStartCommandType,
-	RebaseDidSwitchCommandType,
-	RebaseEntry,
-	RebaseEntryAction,
-	RebaseState,
-} from '../../protocol';
+	AbortCommandType,
+	ChangeEntryCommandType,
+	DidChangeNotificationType,
+	DisableCommandType,
+	MoveEntryCommandType,
+	ReorderCommandType,
+	SearchCommandType,
+	StartCommandType,
+	SwitchCommandType,
+	UpdateSelectionCommandType,
+} from '../../rebase/protocol';
 import { App } from '../shared/appBase';
+import type { AvatarItem } from '../shared/components/avatars/avatar-item';
 import { DOM } from '../shared/dom';
-// import { Snow } from '../shared/snow';
+import '../shared/components/avatars/avatar-item';
+import '../shared/components/avatars/avatar-stack';
 
 const rebaseActions = ['pick', 'reword', 'edit', 'squash', 'fixup', 'drop'];
 const rebaseActionsMap = new Map<string, RebaseEntryAction>([
@@ -36,12 +37,11 @@ const rebaseActionsMap = new Map<string, RebaseEntryAction>([
 	['D', 'drop'],
 ]);
 
-class RebaseEditor extends App<RebaseState> {
+class RebaseEditor extends App<State> {
 	private readonly commitTokenRegex = new RegExp(encodeURIComponent(`\${commit}`));
 
 	constructor() {
-		super('RebaseEditor', (window as any).bootstrap);
-		(window as any).bootstrap = undefined;
+		super('RebaseEditor');
 	}
 
 	protected override onInitialize() {
@@ -54,9 +54,6 @@ class RebaseEditor extends App<RebaseState> {
 	protected override onBind() {
 		const disposables = super.onBind?.() ?? [];
 
-		// eslint-disable-next-line @typescript-eslint/no-this-alias
-		const me = this;
-
 		const $container = document.getElementById('entries')!;
 		Sortable.create($container, {
 			animation: 150,
@@ -68,7 +65,10 @@ class RebaseEditor extends App<RebaseState> {
 				let squashing = false;
 				let squashToHere = false;
 
-				const $entries = document.querySelectorAll<HTMLLIElement>('li[data-ref]');
+				const $entries = [...document.querySelectorAll<HTMLLIElement>('li[data-sha]')];
+				if (this.state.ascending) {
+					$entries.reverse();
+				}
 				for (const $entry of $entries) {
 					squashToHere = false;
 					if ($entry.classList.contains('entry--squash') || $entry.classList.contains('entry--fixup')) {
@@ -91,11 +91,15 @@ class RebaseEditor extends App<RebaseState> {
 					return;
 				}
 
-				const ref = e.item.dataset.ref;
-				if (ref != null) {
-					this.moveEntry(ref, e.newIndex, false);
+				const sha = e.item.dataset.sha;
+				if (sha != null) {
+					let indexTarget = e.newIndex;
+					if (this.state.ascending && e.oldIndex) {
+						indexTarget = this.getEntryIndex(sha) + (indexTarget - e.oldIndex) * -1;
+					}
+					this.moveEntry(sha, indexTarget, false);
 
-					document.querySelectorAll<HTMLLIElement>(`li[data-ref="${ref}"]`)[0]?.focus();
+					this.setSelectedEntry(sha);
 				}
 			},
 			onMove: e => !e.related.classList.contains('entry--base'),
@@ -110,7 +114,7 @@ class RebaseEditor extends App<RebaseState> {
 		}
 
 		disposables.push(
-			DOM.on(window, 'keydown', (e: KeyboardEvent) => {
+			DOM.on(window, 'keydown', e => {
 				if (e.ctrlKey || e.metaKey) {
 					if (e.key === 'Enter' || e.key === 'r') {
 						e.preventDefault();
@@ -123,84 +127,96 @@ class RebaseEditor extends App<RebaseState> {
 
 						this.onAbortClicked();
 					}
+				} else if (e.key === '/') {
+					e.preventDefault();
+					e.stopPropagation();
+
+					this.onSearch();
 				}
 			}),
 			DOM.on('[data-action="start"]', 'click', () => this.onStartClicked()),
 			DOM.on('[data-action="abort"]', 'click', () => this.onAbortClicked()),
 			DOM.on('[data-action="disable"]', 'click', () => this.onDisableClicked()),
 			DOM.on('[data-action="switch"]', 'click', () => this.onSwitchClicked()),
-			DOM.on('li[data-ref]', 'keydown', function (this: Element, e: KeyboardEvent) {
-				if ((e.target as HTMLElement).matches('select[data-ref]')) {
+			DOM.on('li[data-sha]', 'keydown', (e, target: HTMLLIElement) => {
+				if (e.target?.matches('select[data-sha]')) {
 					if (e.key === 'Escape') {
-						(this as HTMLLIElement).focus();
+						target.focus();
 					}
 
 					return;
 				}
 
 				if (e.key === 'Enter' || e.key === ' ') {
-					if (e.key === 'Enter' && (e.target as HTMLElement).matches('a.entry-ref')) {
+					if (e.key === 'Enter' && e.target?.matches('a.entry-sha')) {
 						return;
 					}
 
-					const $select = (this as HTMLLIElement).querySelectorAll<HTMLSelectElement>('select[data-ref]')[0];
+					const $select = target.querySelectorAll<HTMLSelectElement>('select[data-sha]')[0];
 					if ($select != null) {
 						$select.focus();
 					}
 				} else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
 					if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
+						const advance =
+							(e.key === 'ArrowDown' && !this.state.ascending) ||
+							(e.key === 'ArrowUp' && this.state.ascending)
+								? 1
+								: -1;
 						if (e.altKey) {
-							const ref = (this as HTMLLIElement).dataset.ref;
-							if (ref) {
+							const sha = target.dataset.sha;
+							if (sha) {
 								e.stopPropagation();
 
-								me.moveEntry(ref, e.key === 'ArrowDown' ? 1 : -1, true);
+								this.moveEntry(sha, advance, true);
 							}
 						} else {
-							if (me.state == null) return;
+							if (this.state == null) return;
 
-							let ref = (this as HTMLLIElement).dataset.ref;
-							if (ref == null) return;
+							let sha = target.dataset.sha;
+							if (sha == null) return;
 
 							e.preventDefault();
 
-							let index = me.getEntryIndex(ref) + (e.key === 'ArrowDown' ? 1 : -1);
+							let index = this.getEntryIndex(sha) + advance;
 							if (index < 0) {
-								index = me.state.entries.length - 1;
-							} else if (index === me.state.entries.length) {
+								index = this.state.entries.length - 1;
+							} else if (index === this.state.entries.length) {
 								index = 0;
 							}
 
-							ref = me.state.entries[index].ref;
-							document.querySelectorAll<HTMLLIElement>(`li[data-ref="${ref}"]`)[0]?.focus();
+							sha = this.state.entries[index].sha;
+							this.setSelectedEntry(sha);
 						}
 					}
 				} else if (e.key === 'j' || e.key === 'k') {
 					if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
-						if (me.state == null) return;
+						if (this.state == null) return;
 
-						let ref = (this as HTMLLIElement).dataset.ref;
-						if (ref == null) return;
+						let sha = target.dataset.sha;
+						if (sha == null) return;
 
 						e.preventDefault();
 
-						let index = me.getEntryIndex(ref) + (e.key === 'j' ? 1 : -1);
+						const shouldAdvance = this.state.ascending ? e.key === 'k' : e.key === 'j';
+						let index = this.getEntryIndex(sha) + (shouldAdvance ? 1 : -1);
 						if (index < 0) {
-							index = me.state.entries.length - 1;
-						} else if (index === me.state.entries.length) {
+							index = this.state.entries.length - 1;
+						} else if (index === this.state.entries.length) {
 							index = 0;
 						}
 
-						ref = me.state.entries[index].ref;
-						document.querySelectorAll<HTMLLIElement>(`li[data-ref="${ref}"]`)[0]?.focus();
+						sha = this.state.entries[index].sha;
+						this.setSelectedEntry(sha);
 					}
 				} else if (e.key === 'J' || e.key === 'K') {
 					if (!e.metaKey && !e.ctrlKey && !e.altKey && e.shiftKey) {
-						const ref = (this as HTMLLIElement).dataset.ref;
-						if (ref) {
+						const sha = target.dataset.sha;
+						if (sha) {
 							e.stopPropagation();
 
-							me.moveEntry(ref, e.key === 'J' ? 1 : -1, true);
+							const shouldAdvance = this.state.ascending ? e.key === 'K' : e.key === 'J';
+							this.moveEntry(sha, shouldAdvance ? 1 : -1, true);
 						}
 					}
 				} else if (!e.metaKey && !e.altKey && !e.ctrlKey) {
@@ -208,85 +224,110 @@ class RebaseEditor extends App<RebaseState> {
 					if (action !== undefined) {
 						e.stopPropagation();
 
-						const $select = (this as HTMLLIElement).querySelectorAll<HTMLSelectElement>(
-							'select[data-ref]',
-						)[0];
+						const $select = target.querySelectorAll<HTMLSelectElement>('select[data-sha]')[0];
 						if ($select != null && !$select.disabled) {
 							$select.value = action;
-							me.onSelectChanged($select);
+							this.onSelectChanged($select);
 						}
 					}
 				}
 			}),
-			DOM.on('select[data-ref]', 'input', function (this: Element) {
-				return me.onSelectChanged(this as HTMLSelectElement);
-			}),
+			DOM.on('li[data-sha]', 'focus', (e, target: HTMLLIElement) => this.onSelectionChanged(target.dataset.sha)),
+			DOM.on('select[data-sha]', 'input', (e, target: HTMLSelectElement) => this.onSelectChanged(target)),
+			DOM.on('input[data-action="reorder"]', 'input', (e, target: HTMLInputElement) =>
+				this.onOrderChanged(target),
+			),
 		);
 
 		return disposables;
 	}
 
-	private getEntry(ref: string) {
-		return this.state?.entries.find(e => e.ref === ref);
+	private getEntry(sha: string) {
+		return this.state?.entries.find(e => e.sha === sha);
 	}
 
-	private getEntryIndex(ref: string) {
-		return this.state?.entries.findIndex(e => e.ref === ref) ?? -1;
+	private getEntryIndex(sha: string) {
+		return this.state?.entries.findIndex(e => e.sha === sha) ?? -1;
 	}
 
-	private moveEntry(ref: string, index: number, relative: boolean) {
-		const entry = this.getEntry(ref);
+	private moveEntry(sha: string, index: number, relative: boolean) {
+		const entry = this.getEntry(sha);
 		if (entry != null) {
-			this.sendCommand(RebaseDidMoveEntryCommandType, {
-				ref: entry.ref,
+			this.sendCommand(MoveEntryCommandType, {
+				sha: entry.sha,
 				to: index,
 				relative: relative,
 			});
 		}
 	}
 
-	private setEntryAction(ref: string, action: RebaseEntryAction) {
-		const entry = this.getEntry(ref);
+	private setEntryAction(sha: string, action: RebaseEntryAction) {
+		const entry = this.getEntry(sha);
 		if (entry != null) {
 			if (entry.action === action) return;
 
-			this.sendCommand(RebaseDidChangeEntryCommandType, {
-				ref: entry.ref,
+			this.sendCommand(ChangeEntryCommandType, {
+				sha: entry.sha,
 				action: action,
 			});
 		}
 	}
 
 	private onAbortClicked() {
-		this.sendCommand(RebaseDidAbortCommandType, {});
+		this.sendCommand(AbortCommandType, undefined);
 	}
 
 	private onDisableClicked() {
-		this.sendCommand(RebaseDidDisableCommandType, {});
+		this.sendCommand(DisableCommandType, undefined);
+	}
+
+	private onSearch() {
+		this.sendCommand(SearchCommandType, undefined);
 	}
 
 	private onSelectChanged($el: HTMLSelectElement) {
-		const ref = $el.dataset.ref;
-		if (ref) {
-			this.setEntryAction(ref, $el.options[$el.selectedIndex].value as RebaseEntryAction);
+		const sha = $el.dataset.sha;
+		if (sha) {
+			this.setEntryAction(sha, $el.options[$el.selectedIndex].value as RebaseEntryAction);
 		}
 	}
 
 	private onStartClicked() {
-		this.sendCommand(RebaseDidStartCommandType, {});
+		this.sendCommand(StartCommandType, undefined);
 	}
 
 	private onSwitchClicked() {
-		this.sendCommand(RebaseDidSwitchCommandType, {});
+		this.sendCommand(SwitchCommandType, undefined);
+	}
+
+	private onOrderChanged($el: HTMLInputElement) {
+		const isChecked = $el.checked;
+
+		this.sendCommand(ReorderCommandType, { ascending: isChecked });
+	}
+
+	private onSelectionChanged(sha: string | undefined) {
+		if (sha == null) return;
+
+		this.sendCommand(UpdateSelectionCommandType, { sha: sha });
+	}
+
+	private setSelectedEntry(sha: string, focusSelect: boolean = false) {
+		window.requestAnimationFrame(() => {
+			document.querySelectorAll<HTMLLIElement>(`${focusSelect ? 'select' : 'li'}[data-sha="${sha}"]`)[0]?.focus();
+		});
 	}
 
 	protected override onMessageReceived(e: MessageEvent) {
 		const msg = e.data;
 
 		switch (msg.method) {
-			case RebaseDidChangeNotificationType.method:
-				onIpcNotification(RebaseDidChangeNotificationType, msg, params => {
-					this.setState({ ...this.state, ...params.state });
+			case DidChangeNotificationType.method:
+				this.log(`onMessageReceived(${msg.id}): name=${msg.method}`);
+
+				onIpc(DidChangeNotificationType, msg, params => {
+					this.state = params.state;
+					this.setState(this.state);
 					this.refresh(this.state);
 				});
 				break;
@@ -296,10 +337,10 @@ class RebaseEditor extends App<RebaseState> {
 		}
 	}
 
-	private refresh(state: RebaseState) {
-		const focusRef = document.activeElement?.closest<HTMLLIElement>('li[data-ref]')?.dataset.ref;
+	private refresh(state: State) {
+		const focusRef = document.activeElement?.closest<HTMLLIElement>('li[data-sha]')?.dataset.sha;
 		let focusSelect = false;
-		if (document.activeElement?.matches('select[data-ref]')) {
+		if (document.activeElement?.matches('select[data-sha]')) {
 			focusSelect = true;
 		}
 
@@ -318,9 +359,9 @@ class RebaseEditor extends App<RebaseState> {
 		);
 		$subhead.appendChild($el);
 
-		if (state.onto) {
+		if (state.onto != null) {
 			$el = document.createElement('span');
-			$el.textContent = state.onto;
+			$el.textContent = state.onto.sha;
 			$el.classList.add('icon--commit');
 			$subhead.appendChild($el);
 		}
@@ -362,52 +403,68 @@ class RebaseEditor extends App<RebaseState> {
 				}
 			}
 
-			let $el: HTMLLIElement;
 			[$el, tabIndex] = this.createEntry(entry, state, ++tabIndex, squashToHere);
-			$container.appendChild($el);
+
+			if (state.ascending) {
+				$container.prepend($el);
+			} else {
+				$container.append($el);
+			}
 		}
 
-		if (state.onto) {
-			const commit = state.commits.find(c => c.ref.startsWith(state.onto));
+		if (state.onto != null) {
+			const commit = state.onto.commit;
 			if (commit != null) {
 				const [$el] = this.createEntry(
 					{
 						action: undefined!,
 						index: 0,
-						message: commit.message.split('\n')[0],
-						ref: state.onto,
+						message: commit.message,
+						sha: state.onto.sha,
 					},
 					state,
 					++tabIndex,
 					false,
 				);
-				$container.appendChild($el);
+				if (state.ascending) {
+					$container.prepend($el);
+				} else {
+					$container.appendChild($el);
+				}
 				$container.classList.add('entries--base');
 			}
 		}
 
-		document
-			.querySelectorAll<HTMLLIElement>(
-				`${focusSelect ? 'select' : 'li'}[data-ref="${focusRef ?? state.entries[0].ref}"]`,
-			)[0]
-			?.focus();
+		$container.classList.toggle('entries--ascending', state.ascending);
+		const $checkbox = document.getElementById('ordering');
+		if ($checkbox != null) {
+			($checkbox as HTMLInputElement).checked = state.ascending;
+		}
 
-		this.bind();
+		this.setSelectedEntry(focusRef ?? state.entries[0].sha, focusSelect);
 	}
 
 	private createEntry(
 		entry: RebaseEntry,
-		state: RebaseState,
+		state: State,
 		tabIndex: number,
 		squashToHere: boolean,
 	): [HTMLLIElement, number] {
 		const $entry = document.createElement('li');
-		$entry.classList.add('entry', `entry--${entry.action ?? 'base'}`);
+		const action: string = entry.action ?? 'base';
+		$entry.classList.add('entry', `entry--${action}`);
 		$entry.classList.toggle('entry--squash-to', squashToHere);
-		$entry.dataset.ref = entry.ref;
+		$entry.dataset.sha = entry.sha;
+
+		let $content: HTMLElement = $entry;
+		if (action === 'base') {
+			$content = document.createElement('div');
+			$content.classList.add('entry-blocked');
+			$entry.appendChild($content);
+		}
 
 		if (entry.action != null) {
-			$entry.tabIndex = tabIndex++;
+			$entry.tabIndex = 0;
 
 			const $dragHandle = document.createElement('span');
 			$dragHandle.classList.add('entry-handle');
@@ -418,10 +475,10 @@ class RebaseEditor extends App<RebaseState> {
 			$entry.appendChild($selectContainer);
 
 			const $select = document.createElement('select');
-			$select.dataset.ref = entry.ref;
+			$select.dataset.sha = entry.sha;
 			$select.name = 'action';
-			$select.tabIndex = tabIndex++;
 
+			const $options = document.createDocumentFragment();
 			for (const action of rebaseActions) {
 				const $option = document.createElement('option');
 				$option.value = action;
@@ -431,33 +488,51 @@ class RebaseEditor extends App<RebaseState> {
 					$option.selected = true;
 				}
 
-				$select.appendChild($option);
+				$options.appendChild($option);
 			}
+			$select.appendChild($options);
 			$selectContainer.appendChild($select);
 		}
 
+		const commit = entry.commit;
+
 		const $message = document.createElement('span');
 		$message.classList.add('entry-message');
-		$message.textContent = entry.message ?? '';
-		$entry.appendChild($message);
+		const message = commit?.message.trim() ?? entry.message.trim();
+		$message.textContent = message.replace(/\n+(?:\s+\n+)?/g, ' | ');
+		$message.title = message;
+		$content.appendChild($message);
 
-		const commit = state.commits.find(c => c.ref.startsWith(entry.ref));
 		if (commit != null) {
-			$message.title = commit.message ?? '';
-
 			if (commit.author) {
-				const author = state.authors.find(a => a.author === commit.author);
-				if (author?.avatarUrl.length) {
-					const $avatar = document.createElement('img');
-					$avatar.classList.add('entry-avatar');
-					$avatar.src = author.avatarUrl;
-					$entry.appendChild($avatar);
-				}
+				const author = state.authors[commit.author];
+				const committer = state.authors[commit.committer];
+				if (author?.avatarUrl != null || committer?.avatarUrl != null) {
+					const $avatarStack = document.createElement('avatar-stack');
+					$avatarStack.classList.add('entry-avatar');
 
-				const $author = document.createElement('span');
-				$author.classList.add('entry-author');
-				$author.textContent = commit.author;
-				$entry.appendChild($author);
+					const hasAuthor = author?.avatarUrl.length;
+					const hasCommitter = author !== committer && author.author !== 'You' && committer?.avatarUrl.length;
+					if (hasAuthor) {
+						const $avatar = document.createElement('avatar-item') as AvatarItem;
+						$avatar.media = author.avatarUrl;
+						$avatar.ariaLabel = $avatar.title = hasCommitter
+							? `Authored by: ${author.author}`
+							: author.author;
+						$avatarStack.appendChild($avatar);
+					}
+
+					if (hasCommitter) {
+						const $avatar = document.createElement('avatar-item') as AvatarItem;
+						$avatar.media = committer.avatarUrl;
+						$avatar.ariaLabel = $avatar.title = hasAuthor
+							? `Committed by: ${committer.author}`
+							: committer.author;
+						$avatarStack.appendChild($avatar);
+					}
+
+					$entry.appendChild($avatarStack);
+				}
 			}
 
 			if (commit.dateFromNow) {
@@ -469,17 +544,14 @@ class RebaseEditor extends App<RebaseState> {
 			}
 		}
 
-		const $ref = document.createElement('a');
-		$ref.classList.add('entry-ref', 'icon--commit');
-		// $ref.dataset.prev = prev ? `${prev} \u2190 ` : '';
-		$ref.href = commit?.ref ? state.commands.commit.replace(this.commitTokenRegex, commit.ref) : '#';
-		$ref.textContent = entry.ref.substr(0, 7);
-		$ref.tabIndex = tabIndex++;
-		$entry.appendChild($ref);
+		const $sha = document.createElement('a');
+		$sha.classList.add('entry-sha', 'icon--commit');
+		$sha.href = state.commands.commit.replace(this.commitTokenRegex, commit?.sha ?? entry.sha);
+		$sha.textContent = entry.sha.substr(0, 7);
+		$content.appendChild($sha);
 
 		return [$entry, tabIndex];
 	}
 }
 
 new RebaseEditor();
-// requestAnimationFrame(() => new Snow(false));

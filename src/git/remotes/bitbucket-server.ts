@@ -1,10 +1,10 @@
-'use strict';
-import { Range, Uri } from 'vscode';
-import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference } from '../../config';
-import { GitRevision } from '../models/models';
-import { Repository } from '../models/repository';
-import { RemoteProvider } from './provider';
+import type { Range, Uri } from 'vscode';
+import type { DynamicAutolinkReference } from '../../annotations/autolinks';
+import type { AutolinkReference } from '../../config';
+import { AutolinkType } from '../../config';
+import { isSha } from '../models/reference';
+import type { Repository } from '../models/repository';
+import { RemoteProvider } from './remoteProvider';
 
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/src(.+)$/i;
 const rangeRegex = /^lines-(\d+)(?::(\d+))?$/;
@@ -22,11 +22,18 @@ export class BitbucketServerRemote extends RemoteProvider {
 					prefix: 'issue #',
 					url: `${this.baseUrl}/issues/<num>`,
 					title: `Open Issue #<num> on ${this.name}`,
+
+					type: AutolinkType.Issue,
+					description: `${this.name} Issue #<num>`,
 				},
 				{
 					prefix: 'pull request #',
+					ignoreCase: true,
 					url: `${this.baseUrl}/pull-requests/<num>`,
-					title: `Open PR #<num> on ${this.name}`,
+					title: `Open Pull Request #<num> on ${this.name}`,
+
+					type: AutolinkType.PullRequest,
+					description: `${this.name} Pull Request #<num>`,
 				},
 			];
 		}
@@ -84,32 +91,35 @@ export class BitbucketServerRemote extends RemoteProvider {
 		let index = path.indexOf('/', 1);
 		if (index !== -1) {
 			const sha = path.substring(1, index);
-			if (GitRevision.isSha(sha)) {
+			if (isSha(sha)) {
 				const uri = repository.toAbsoluteUri(path.substr(index), { validate: options?.validate });
 				if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
 			}
 		}
 
-		const branches = new Set<string>(
-			(
-				await repository.getBranches({
-					filter: b => b.remote,
-				})
-			).map(b => b.getNameWithoutRemote()),
-		);
-
 		// Check for a link with branch (and deal with branch names with /)
 		let branch;
+		const possibleBranches = new Map<string, string>();
 		index = path.length;
 		do {
 			index = path.lastIndexOf('/', index - 1);
 			branch = path.substring(1, index);
 
-			if (branches.has(branch)) {
-				const uri = repository.toAbsoluteUri(path.substr(index), { validate: options?.validate });
+			possibleBranches.set(branch, path.substr(index));
+		} while (index > 0);
+
+		if (possibleBranches.size !== 0) {
+			const { values: branches } = await repository.getBranches({
+				filter: b => b.remote && possibleBranches.has(b.getNameWithoutRemote()),
+			});
+			for (const branch of branches) {
+				const path = possibleBranches.get(branch.getNameWithoutRemote());
+				if (path == null) continue;
+
+				const uri = repository.toAbsoluteUri(path, { validate: options?.validate });
 				if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
 			}
-		} while (index > 0);
+		}
 
 		return undefined;
 	}

@@ -1,7 +1,7 @@
-'use strict';
-import { GitLogCommit } from '../../git/git';
+import type { GitCommit } from '../../git/models/commit';
 import { MessageNode } from './common';
-import { ContextValues, ViewNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues } from './viewNode';
 
 const markers: [number, string][] = [
 	[0, 'Less than a week ago'],
@@ -10,13 +10,14 @@ const markers: [number, string][] = [
 	[77, 'Over 3 months ago'],
 ];
 
-export function* insertDateMarkers<T extends ViewNode & { commit: GitLogCommit }>(
+export function* insertDateMarkers<T extends ViewNode & { commit: GitCommit }>(
 	iterable: Iterable<T>,
 	parent: ViewNode,
 	skip?: number,
 	{ show }: { show: boolean } = { show: true },
 ): Iterable<ViewNode> {
 	if (!parent.view.config.showRelativeDateMarkers || !show) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 		return yield* iterable;
 	}
 
@@ -34,7 +35,7 @@ export function* insertDateMarkers<T extends ViewNode & { commit: GitLogCommit }
 				time = date.setDate(date.getDate() - daysAgo);
 			}
 
-			const date = new Date(node.commit.committerDate).setUTCHours(0, 0, 0, 0);
+			const date = new Date(node.commit.committer.date).setUTCHours(0, 0, 0, 0);
 			if (date <= time) {
 				while (index < markers.length - 1) {
 					[daysAgo] = markers[index + 1];

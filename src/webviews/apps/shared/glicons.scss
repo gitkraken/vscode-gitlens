@@ -1,0 +1,178 @@
+/*
+
+Must be placed at the end of body in the HTML file of any webview that needs it (because of CSP)
+
+<style nonce="#{cspNonce}">
+	@font-face {
+		font-family: 'glicons';
+		font-display: block;
+		src: url("#{root}/dist/glicons.woff2?8e33f5a80a91b05940d687a08305c156") format("woff2");
+	}
+</style>
+*/
+
+.glicon {
+	font: normal normal normal 16px/1 glicons;
+	display: inline-block;
+	text-decoration: none;
+	text-rendering: auto;
+	text-align: center;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	user-select: none;
+	-webkit-user-select: none;
+	-ms-user-select: none;
+}
+
+/*---------------------
+ *  Modifiers
+ *-------------------*/
+
+@keyframes glicon-spin {
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+.glicon-sync.glicon-modifier-spin,
+.glicon-loading.glicon-modifier-spin,
+.glicon-gear.glicon-modifier-spin {
+	/* Use steps to throttle FPS to reduce CPU usage */
+	animation: glicon-spin 1.5s steps(30) infinite;
+}
+
+.glicon-modifier-disabled {
+	opacity: 0.5;
+}
+
+.glicon-modifier-hidden {
+	opacity: 0;
+}
+
+/* custom speed & easing for loading icon */
+.glicon-loading {
+	animation-duration: 1s !important;
+	animation-timing-function: cubic-bezier(0.53, 0.21, 0.29, 0.67) !important;
+}
+
+/*---------------------
+ *  Icons
+ *-------------------*/
+
+.glicon-commit-horizontal:before {
+	content: '\f101';
+}
+.glicon-graph:before {
+	content: '\f102';
+}
+.glicon-next-commit:before {
+	content: '\f103';
+}
+.glicon-prev-commit-menu:before {
+	content: '\f104';
+}
+.glicon-prev-commit:before {
+	content: '\f105';
+}
+.glicon-compare-ref-working:before {
+	content: '\f106';
+}
+.glicon-branches-view:before {
+	content: '\f107';
+}
+.glicon-commit-view:before {
+	content: '\f108';
+}
+.glicon-commits-view:before {
+	content: '\f109';
+}
+.glicon-compare-view:before {
+	content: '\f10a';
+}
+.glicon-contributors-view:before {
+	content: '\f10b';
+}
+.glicon-history-view:before {
+	content: '\f10c';
+}
+.glicon-history:before {
+	content: '\f10c';
+}
+.glicon-remotes-view:before {
+	content: '\f10d';
+}
+.glicon-repositories-view:before {
+	content: '\f10e';
+}
+.glicon-search-view:before {
+	content: '\f10f';
+}
+.glicon-stashes-view:before {
+	content: '\f110';
+}
+.glicon-stashes:before {
+	content: '\f110';
+}
+.glicon-tags-view:before {
+	content: '\f111';
+}
+.glicon-worktrees-view:before {
+	content: '\f112';
+}
+.glicon-gitlens:before {
+	content: '\f113';
+}
+.glicon-stash-pop:before {
+	content: '\f114';
+}
+.glicon-stash-save:before {
+	content: '\f115';
+}
+.glicon-unplug:before {
+	content: '\f116';
+}
+.glicon-open-revision:before {
+	content: '\f117';
+}
+.glicon-switch:before {
+	content: '\f118';
+}
+.glicon-expand:before {
+	content: '\f119';
+}
+.glicon-list-auto:before {
+	content: '\f11a';
+}
+.glicon-arrow-up-force:before {
+	content: '\f11b';
+}
+.glicon-pinned-filled:before {
+	content: '\f11c';
+}
+.glicon-clock:before {
+	content: '\f11d';
+}
+.glicon-provider-azdo:before {
+	content: '\f11e';
+}
+.glicon-provider-bitbucket:before {
+	content: '\f11f';
+}
+.glicon-provider-gerrit:before {
+	content: '\f120';
+}
+.glicon-provider-gitea:before {
+	content: '\f121';
+}
+.glicon-provider-github:before {
+	content: '\f122';
+}
+.glicon-provider-gitlab:before {
+	content: '\f123';
+}
+.glicon-gitlens-inspect:before {
+	content: '\f124';
+}
+.glicon-workspaces-view:before {
+	content: '\f125';
+}

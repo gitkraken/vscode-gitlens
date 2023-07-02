@@ -1,26 +1,31 @@
-'use strict';
-import { Container } from '../../container';
-import { GitAuthor, GitLogCommit, GitRevisionReference, GitStashCommit, Repository } from '../../git/git';
-import { CommandQuickPickItem, CommitFilesQuickPickItem, GitCommandQuickPickItem } from '../../quickpicks';
+import type { Container } from '../../container';
+import type { GitCommit, GitStashCommit } from '../../git/models/commit';
+import { isCommit } from '../../git/models/commit';
+import type { GitRevisionReference } from '../../git/models/reference';
+import { Repository } from '../../git/models/repository';
+import { CommitFilesQuickPickItem } from '../../quickpicks/items/commits';
+import { CommandQuickPickItem } from '../../quickpicks/items/common';
+import { GitCommandQuickPickItem } from '../../quickpicks/items/gitCommands';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { PartialStepState, StepGenerator } from '../quickCommand';
 import {
-	PartialStepState,
+	endSteps,
 	pickCommitStep,
 	pickRepositoryStep,
 	QuickCommand,
 	showCommitOrStashFilesStep,
 	showCommitOrStashFileStep,
 	showCommitOrStashStep,
-	StepGenerator,
-	StepResult,
-	StepState,
+	StepResultBreak,
 } from '../quickCommand';
 
 interface Context {
 	repos: Repository[];
+	associatedView: ViewsWithRepositoryFolders;
 	title: string;
 }
 
-interface State<Ref = GitRevisionReference | GitLogCommit | GitStashCommit> {
+interface State<Ref = GitRevisionReference | GitCommit | GitStashCommit> {
 	repo: string | Repository;
 	reference: Ref;
 	fileName: string;
@@ -31,11 +36,36 @@ export interface ShowGitCommandArgs {
 	state?: Partial<State>;
 }
 
-type ShowStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
+type RepositoryStepState<T extends State = State> = SomeNonNullable<
+	ExcludeSome<PartialStepState<T>, 'repo', string>,
+	'repo'
+>;
+function assertStateStepRepository(state: PartialStepState<State>): asserts state is RepositoryStepState {
+	if (state.repo instanceof Repository) return;
+
+	debugger;
+	throw new Error('Missing repository');
+}
+
+type CommitStepState = SomeNonNullable<RepositoryStepState<State<GitCommit | GitStashCommit>>, 'reference'>;
+function assertsStateStepCommit(state: RepositoryStepState): asserts state is CommitStepState {
+	if (isCommit(state.reference)) return;
+
+	debugger;
+	throw new Error('Missing reference');
+}
+
+type FileNameStepState = SomeNonNullable<CommitStepState, 'fileName'>;
+function assertsStateStepFileName(state: CommitStepState): asserts state is FileNameStepState {
+	if (state.fileName) return;
+
+	debugger;
+	throw new Error('Missing filename');
+}
 
 export class ShowGitCommand extends QuickCommand<State> {
-	constructor(args?: ShowGitCommandArgs) {
-		super('show', 'show', 'Show', {
+	constructor(container: Container, args?: ShowGitCommandArgs) {
+		super(container, 'show', 'show', 'Show', {
 			description: 'shows information about a git reference',
 		});
 
@@ -76,7 +106,8 @@ export class ShowGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.commitsView,
 			title: this.title,
 		};
 
@@ -97,28 +128,29 @@ export class ShowGitCommand extends QuickCommand<State> {
 				} else {
 					const result = yield* pickRepositoryStep(state, context);
 					// Always break on the first step (so we will go back)
-					if (result === StepResult.Break) break;
+					if (result === StepResultBreak) break;
 
 					state.repo = result;
 				}
 			}
 
+			assertStateStepRepository(state);
+
 			if (
 				state.counter < 2 ||
 				state.reference == null ||
-				!GitLogCommit.is(state.reference) ||
-				state.reference.isFile
+				!isCommit(state.reference) ||
+				state.reference.file != null
 			) {
-				if (state.reference != null && (!GitLogCommit.is(state.reference) || state.reference.isFile)) {
-					state.reference = await Container.git.getCommit(state.reference.repoPath, state.reference.ref);
+				if (state.reference != null && !isCommit(state.reference)) {
+					state.reference = await this.container.git.getCommit(state.reference.repoPath, state.reference.ref);
 				}
 
 				if (state.counter < 2 || state.reference == null) {
-					const result = yield* pickCommitStep(state as ShowStepState, context, {
+					const result = yield* pickCommitStep(state, context, {
 						log: {
 							repoPath: state.repo.path,
-							authors: new Map<string, GitAuthor>(),
-							commits: new Map<string, GitLogCommit>(),
+							commits: new Map<string, GitCommit | GitStashCommit>(),
 							sha: undefined,
 							range: undefined,
 							count: 0,
@@ -128,7 +160,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 						placeholder: 'Enter a reference or commit SHA',
 						picked: state.reference?.ref,
 					});
-					if (result === StepResult.Break) {
+					if (result === StepResultBreak) {
 						// If we skipped the previous step, make sure we back up past it
 						if (skippedStepOne) {
 							state.counter--;
@@ -141,25 +173,28 @@ export class ShowGitCommand extends QuickCommand<State> {
 				}
 			}
 
+			assertsStateStepCommit(state);
+
 			if (state.counter < 3) {
-				const result = yield* showCommitOrStashStep(
-					state as ShowStepState<State<GitLogCommit | GitStashCommit>>,
-					context,
-				);
-				if (result === StepResult.Break) continue;
+				if (state.reference.files == null) {
+					await state.reference.ensureFullDetails();
+				}
+
+				const result = yield* showCommitOrStashStep(state, context);
+				if (result === StepResultBreak) continue;
 
 				if (result instanceof GitCommandQuickPickItem) {
 					const r = yield* result.executeSteps(this.pickedVia);
 					state.counter--;
-					if (r === StepResult.Break) {
-						QuickCommand.endSteps(state);
+					if (r === StepResultBreak) {
+						endSteps(state);
 					}
 
 					continue;
 				}
 
 				if (result instanceof CommandQuickPickItem && !(result instanceof CommitFilesQuickPickItem)) {
-					QuickCommand.endSteps(state);
+					endSteps(state);
 
 					void result.execute();
 					break;
@@ -167,14 +202,10 @@ export class ShowGitCommand extends QuickCommand<State> {
 			}
 
 			if (state.counter < 4 || state.fileName == null) {
-				const result = yield* showCommitOrStashFilesStep(
-					state as ShowStepState<State<GitLogCommit | GitStashCommit>>,
-					context,
-					{
-						picked: state.fileName,
-					},
-				);
-				if (result === StepResult.Break) continue;
+				const result = yield* showCommitOrStashFilesStep(state, context, {
+					picked: state.fileName,
+				});
+				if (result === StepResultBreak) continue;
 
 				if (result instanceof CommitFilesQuickPickItem) {
 					// Since this is a sort of toggle button, back up 2 steps
@@ -183,14 +214,13 @@ export class ShowGitCommand extends QuickCommand<State> {
 					continue;
 				}
 
-				state.fileName = result.file.fileName;
+				state.fileName = result.file.path;
 			}
 
-			const result = yield* showCommitOrStashFileStep(
-				state as ShowStepState<State<GitLogCommit | GitStashCommit>>,
-				context,
-			);
-			if (result === StepResult.Break) continue;
+			assertsStateStepFileName(state);
+
+			const result = yield* showCommitOrStashFileStep(state, context);
+			if (result === StepResultBreak) continue;
 
 			if (result instanceof CommitFilesQuickPickItem) {
 				// Since this is a sort of toggle button, back up 2 steps
@@ -207,13 +237,13 @@ export class ShowGitCommand extends QuickCommand<State> {
 			}
 
 			if (result instanceof CommandQuickPickItem) {
-				QuickCommand.endSteps(state);
+				endSteps(state);
 
 				void result.execute();
 				break;
 			}
 		}
 
-		return state.counter < 0 ? StepResult.Break : undefined;
+		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 }

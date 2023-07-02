@@ -1,12 +1,25 @@
-'use strict';
-import { Uri } from 'vscode';
+import type { Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { memoize, Strings } from '../../system';
-import { GitUri } from '../gitUri';
-import { GitBranch, GitTrackingState } from './branch';
-import { GitFile, GitFileConflictStatus, GitFileIndexStatus, GitFileStatus, GitFileWorkingTreeStatus } from './file';
-import { GitCommitType, GitLogCommit, GitRemote, GitRevision, GitUser } from './models';
+import { memoize } from '../../system/decorators/memoize';
+import { pluralize } from '../../system/string';
+import type { GitTrackingState } from './branch';
+import { formatDetachedHeadName, getRemoteNameFromBranchName, isDetachedHead } from './branch';
+import { GitCommit, GitCommitIdentity } from './commit';
+import { uncommitted, uncommittedStaged } from './constants';
+import type { GitFile, GitFileStatus } from './file';
+import {
+	getGitFileFormattedDirectory,
+	getGitFileFormattedPath,
+	getGitFileStatusCodicon,
+	getGitFileStatusText,
+	GitFileChange,
+	GitFileConflictStatus,
+	GitFileIndexStatus,
+	GitFileWorkingTreeStatus,
+} from './file';
+import type { GitRemote } from './remote';
+import type { GitUser } from './user';
 
 export interface ComputedWorkingTreeGitStatus {
 	staged: number;
@@ -34,15 +47,19 @@ export class GitStatus {
 		public readonly upstream?: string,
 		public readonly rebasing: boolean = false,
 	) {
-		this.detached = GitBranch.isDetached(branch);
+		this.detached = isDetachedHead(branch);
 		if (this.detached) {
-			this.branch = GitBranch.formatDetached(this.sha);
+			this.branch = formatDetachedHeadName(this.sha);
 		}
 	}
 
 	@memoize()
 	get conflicts() {
 		return this.files.filter(f => f.conflicted);
+	}
+
+	get hasChanges() {
+		return this.files.length !== 0;
 	}
 
 	@memoize()
@@ -201,13 +218,13 @@ export class GitStatus {
 		if (expand) {
 			let status = '';
 			if (added) {
-				status += `${Strings.pluralize('file', added)} added`;
+				status += `${pluralize('file', added)} added`;
 			}
 			if (changed) {
-				status += `${status.length === 0 ? '' : separator}${Strings.pluralize('file', changed)} changed`;
+				status += `${status.length === 0 ? '' : separator}${pluralize('file', changed)} changed`;
 			}
 			if (deleted) {
-				status += `${status.length === 0 ? '' : separator}${Strings.pluralize('file', deleted)} deleted`;
+				status += `${status.length === 0 ? '' : separator}${pluralize('file', deleted)} deleted`;
 			}
 			return `${prefix}${status}${suffix}`;
 		}
@@ -234,10 +251,10 @@ export class GitStatus {
 	async getRemote(): Promise<GitRemote | undefined> {
 		if (this.upstream == null) return undefined;
 
-		const remotes = await Container.git.getRemotes(this.repoPath);
+		const remotes = await Container.instance.git.getRemotesWithProviders(this.repoPath);
 		if (remotes.length === 0) return undefined;
 
-		const remoteName = GitBranch.getRemote(this.upstream);
+		const remoteName = getRemoteNameFromBranchName(this.upstream);
 		return remotes.find(r => r.name === remoteName);
 	}
 
@@ -249,59 +266,65 @@ export class GitStatus {
 		separator?: string;
 		suffix?: string;
 	}): string {
-		return GitStatus.getUpstreamStatus(
+		return getUpstreamStatus(
 			this.upstream ? { name: this.upstream, missing: false } : undefined,
 			this.state,
 			options,
 		);
 	}
+}
 
-	static getUpstreamStatus(
-		upstream: { name: string; missing: boolean } | undefined,
-		state: { ahead: number; behind: number },
-		options: {
-			count?: boolean;
-			empty?: string;
-			expand?: boolean;
-			icons?: boolean;
-			prefix?: string;
-			separator?: string;
-			suffix?: string;
-		} = {},
-	): string {
-		const { count = true, expand = false, icons = false, prefix = '', separator = ' ', suffix = '' } = options;
-		if (upstream == null || (state.behind === 0 && state.ahead === 0)) return options.empty ?? '';
+export function getUpstreamStatus(
+	upstream: { name: string; missing: boolean } | undefined,
+	state: { ahead: number; behind: number },
+	options?: {
+		count?: boolean;
+		empty?: string;
+		expand?: boolean;
+		icons?: boolean;
+		prefix?: string;
+		separator?: string;
+		suffix?: string;
+	},
+): string {
+	let count = true;
+	let expand = false;
+	let icons = false;
+	let prefix = '';
+	let separator = ' ';
+	let suffix = '';
+	if (options != null) {
+		({ count = true, expand = false, icons = false, prefix = '', separator = ' ', suffix = '' } = options);
+	}
+	if (upstream == null || (state.behind === 0 && state.ahead === 0)) return options?.empty ?? '';
 
-		if (expand) {
-			let status = '';
-			if (upstream.missing) {
-				status = 'missing';
-			} else {
-				if (state.behind) {
-					status += `${Strings.pluralize('commit', state.behind, {
-						infix: icons ? '$(arrow-down) ' : undefined,
-					})} behind`;
-				}
-				if (state.ahead) {
-					status += `${status.length === 0 ? '' : separator}${Strings.pluralize('commit', state.ahead, {
-						infix: icons ? '$(arrow-up) ' : undefined,
-					})} ahead`;
-					if (suffix.startsWith(` ${upstream.name.split('/')[0]}`)) {
-						status += ' of';
-					}
+	if (expand) {
+		let status = '';
+		if (upstream.missing) {
+			status = 'missing';
+		} else {
+			if (state.behind) {
+				status += `${pluralize('commit', state.behind, {
+					infix: icons ? '$(arrow-down) ' : undefined,
+				})} behind`;
+			}
+			if (state.ahead) {
+				status += `${status.length === 0 ? '' : separator}${pluralize('commit', state.ahead, {
+					infix: icons ? '$(arrow-up) ' : undefined,
+				})} ahead`;
+				if (suffix.startsWith(` ${upstream.name.split('/')[0]}`)) {
+					status += ' of';
 				}
 			}
-			return `${prefix}${status}${suffix}`;
 		}
-
-		const showCounts = count && !upstream.missing;
-
-		return `${prefix}${showCounts ? state.behind : ''}${
-			showCounts || state.behind !== 0 ? GlyphChars.ArrowDown : ''
-		}${separator}${showCounts ? state.ahead : ''}${
-			showCounts || state.ahead !== 0 ? GlyphChars.ArrowUp : ''
-		}${suffix}`;
+		return `${prefix}${status}${suffix}`;
 	}
+
+	const showCounts = count && !upstream.missing;
+
+	return `${prefix}${showCounts ? state.behind : ''}${
+		showCounts || state.behind !== 0 ? GlyphChars.ArrowDown : ''
+	}${separator}${showCounts ? state.ahead : ''}${showCounts || state.ahead !== 0 ? GlyphChars.ArrowUp : ''}${suffix}`;
 }
 
 export class GitStatusFile implements GitFile {
@@ -313,8 +336,8 @@ export class GitStatusFile implements GitFile {
 		public readonly repoPath: string,
 		x: string | undefined,
 		y: string | undefined,
-		public readonly fileName: string,
-		public readonly originalFileName?: string,
+		public readonly path: string,
+		public readonly originalPath?: string,
 	) {
 		if (x != null && y != null) {
 			switch (x + y) {
@@ -369,10 +392,11 @@ export class GitStatusFile implements GitFile {
 
 			switch (y) {
 				case 'A':
-					this.workingTreeStatus = GitFileWorkingTreeStatus.Modified;
+				case '?':
+					this.workingTreeStatus = GitFileWorkingTreeStatus.Added;
 					break;
 				case 'D':
-					this.workingTreeStatus = GitFileWorkingTreeStatus.Modified;
+					this.workingTreeStatus = GitFileWorkingTreeStatus.Deleted;
 					break;
 				case 'M':
 					this.workingTreeStatus = GitFileWorkingTreeStatus.Modified;
@@ -399,45 +423,44 @@ export class GitStatusFile implements GitFile {
 
 	@memoize()
 	get uri(): Uri {
-		return GitUri.resolveToUri(this.fileName, this.repoPath);
+		return Container.instance.git.getAbsoluteUri(this.path, this.repoPath);
 	}
 
 	getFormattedDirectory(includeOriginal: boolean = false): string {
-		return GitFile.getFormattedDirectory(this, includeOriginal);
+		return getGitFileFormattedDirectory(this, includeOriginal);
 	}
 
 	getFormattedPath(options: { relativeTo?: string; suffix?: string; truncateTo?: number } = {}): string {
-		return GitFile.getFormattedPath(this, options);
+		return getGitFileFormattedPath(this, options);
 	}
 
 	getOcticon() {
-		return GitFile.getStatusCodicon(this.status);
+		return getGitFileStatusCodicon(this.status);
 	}
 
 	getStatusText(): string {
-		return GitFile.getStatusText(this.status);
+		return getGitFileStatusText(this.status);
 	}
 
-	toPsuedoCommits(user: GitUser | undefined): GitLogCommit[] {
-		const commits: GitLogCommit[] = [];
+	getPseudoCommits(container: Container, user: GitUser | undefined): GitCommit[] {
+		const commits: GitCommit[] = [];
+
+		const now = new Date();
 
 		if (this.conflictStatus != null) {
 			commits.push(
-				new GitLogCommit(
-					GitCommitType.LogFile,
+				new GitCommit(
+					container,
 					this.repoPath,
-					GitRevision.uncommitted,
-					'You',
-					user?.email ?? undefined,
-					new Date(),
-					new Date(),
-					'',
-					this.fileName,
-					[this],
-					this.status,
-					this.originalFileName,
-					GitRevision.uncommittedStaged,
-					this.originalFileName ?? this.fileName,
+					uncommitted,
+					new GitCommitIdentity('You', user?.email ?? undefined, now),
+					new GitCommitIdentity('You', user?.email ?? undefined, now),
+					'Uncommitted changes',
+					[uncommittedStaged],
+					'Uncommitted changes',
+					new GitFileChange(this.repoPath, this.path, this.status, this.originalPath, uncommittedStaged),
+					undefined,
+					[],
 				),
 			);
 			return commits;
@@ -446,99 +469,56 @@ export class GitStatusFile implements GitFile {
 		if (this.workingTreeStatus == null && this.indexStatus == null) return commits;
 
 		if (this.workingTreeStatus != null && this.indexStatus != null) {
+			// Decrements the date to guarantee the staged entry will be sorted after the working entry (most recent first)
+			const older = new Date(now);
+			older.setMilliseconds(older.getMilliseconds() - 1);
+
 			commits.push(
-				new GitLogCommit(
-					GitCommitType.LogFile,
+				new GitCommit(
+					container,
 					this.repoPath,
-					GitRevision.uncommitted,
-					'You',
-					user?.email ?? undefined,
-					new Date(),
-					new Date(),
-					'',
-					this.fileName,
-					[this],
-					this.status,
-					this.originalFileName,
-					GitRevision.uncommittedStaged,
-					this.originalFileName ?? this.fileName,
+					uncommitted,
+					new GitCommitIdentity('You', user?.email ?? undefined, now),
+					new GitCommitIdentity('You', user?.email ?? undefined, now),
+					'Uncommitted changes',
+					[uncommittedStaged],
+					'Uncommitted changes',
+					new GitFileChange(this.repoPath, this.path, this.status, this.originalPath, uncommittedStaged),
+					undefined,
+					[],
 				),
-				new GitLogCommit(
-					GitCommitType.LogFile,
+				new GitCommit(
+					container,
 					this.repoPath,
-					GitRevision.uncommittedStaged,
-					'You',
-					user != null ? user.email : undefined,
-					new Date(),
-					new Date(),
-					'',
-					this.fileName,
-					[this],
-					this.status,
-					this.originalFileName,
-					'HEAD',
-					this.originalFileName ?? this.fileName,
+					uncommittedStaged,
+					new GitCommitIdentity('You', user?.email ?? undefined, older),
+					new GitCommitIdentity('You', user?.email ?? undefined, older),
+					'Uncommitted changes',
+					['HEAD'],
+					'Uncommitted changes',
+					new GitFileChange(this.repoPath, this.path, this.status, this.originalPath, 'HEAD'),
+					undefined,
+					[],
 				),
 			);
 		} else {
 			commits.push(
-				new GitLogCommit(
-					GitCommitType.LogFile,
+				new GitCommit(
+					container,
 					this.repoPath,
-					this.workingTreeStatus != null ? GitRevision.uncommitted : GitRevision.uncommittedStaged,
-					'You',
-					user?.email ?? undefined,
-					new Date(),
-					new Date(),
-					'',
-					this.fileName,
-					[this],
-					this.status,
-					this.originalFileName,
-					'HEAD',
-					this.originalFileName ?? this.fileName,
+					this.workingTreeStatus != null ? uncommitted : uncommittedStaged,
+					new GitCommitIdentity('You', user?.email ?? undefined, now),
+					new GitCommitIdentity('You', user?.email ?? undefined, now),
+					'Uncommitted changes',
+					['HEAD'],
+					'Uncommitted changes',
+					new GitFileChange(this.repoPath, this.path, this.status, this.originalPath, 'HEAD'),
+					undefined,
+					[],
 				),
 			);
 		}
 
 		return commits;
-	}
-
-	with(changes: {
-		conflictStatus?: GitFileConflictStatus | null;
-		indexStatus?: GitFileIndexStatus | null;
-		workTreeStatus?: GitFileWorkingTreeStatus | null;
-		fileName?: string;
-		originalFileName?: string | null;
-	}): GitStatusFile {
-		const working = this.getChangedValue(changes.workTreeStatus, this.workingTreeStatus);
-
-		let status: string;
-		switch (working) {
-			case GitFileWorkingTreeStatus.Untracked:
-				status = '??';
-				break;
-			case GitFileWorkingTreeStatus.Ignored:
-				status = '!!';
-				break;
-			default:
-				status =
-					this.getChangedValue(changes.conflictStatus, this.conflictStatus) ??
-					`${this.getChangedValue(changes.indexStatus, this.indexStatus) ?? ' '}${working ?? ' '}`;
-				break;
-		}
-
-		return new GitStatusFile(
-			this.repoPath,
-			status[0]?.trim() || undefined,
-			status[1]?.trim() || undefined,
-			changes.fileName ?? this.fileName,
-			this.getChangedValue(changes.originalFileName, this.originalFileName),
-		);
-	}
-
-	protected getChangedValue<T>(change: T | null | undefined, original: T | undefined): T | undefined {
-		if (change === undefined) return original;
-		return change !== null ? change : undefined;
 	}
 }

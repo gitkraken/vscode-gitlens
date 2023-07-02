@@ -5,14 +5,362 @@
 		<style nonce="#{cspNonce}">
 			@font-face {
 				font-family: 'codicon';
-				src: url('#{root}/dist/webviews/codicon.ttf?404cbc4fe3a64b9a93064eef76704c79') format('truetype');
+				font-display: block;
+				src: url('#{webroot}/codicon.ttf?2ab61cbaefbdf4c7c5589068100bee0c') format('truetype');
 			}
 		</style>
 	</head>
 
+	<body class="scrollable preload" data-placement="#{placement}">
+		<!-- <canvas class="snow"></canvas>
+		<img
+			class="snow__trigger snow__trigger--fixed-right snow__trigger--flipped"
+			title="Let it snow — Happy Holidays!"
+			alt="Let it snow — Happy Holidays!"
+			src="#{root}/images/snowman.png"
+		/> -->
+
+		<div class="container">
+			<header>
+				<h1 class="brand"><gitlens-logo></gitlens-logo> <small>Git Supercharged</small></h1>
+				<p class="release">
+					<span
+						>Version
+						<a
+							id="version"
+							href="https://github.com/gitkraken/vscode-gitlens/blob/main/CHANGELOG.md"
+							title="Open CHANGELOG"
+							aria-label="Open CHANGELOG"
+						></a
+					></span>
+					<a
+						href="https://help.gitkraken.com/gitlens/gitlens-release-notes-current"
+						title="Open Release Notes"
+						aria-label="Open Release Notes"
+						>Release notes</a
+					>
+				</p>
+			</header>
+
+			<div class="hero__area hero__area--sticky">
+				<div class="hero__row">
+					<h2 class="hero__title">Settings</h2>
+					<div class="hero__title-actions">
+						<a href="#" data-action="collapse" title="Collapse all sections">collapse all</a>
+						<a href="#" data-action="expand" class="hidden" title="Expand all sections">expand all</a>
+					</div>
+					<div class="hero__toolbar">
+						<div class="hero__toolbar-scope hidden">
+							<label for="scopes">Save settings for the</label>
+							<div class="select-container">
+								<select id="scopes" name="scope"></select>
+							</div>
+						</div>
+					</div>
+				</div>
+				<p class="hero__subtitle">
+					For advanced customizations, refer to the
+					<a title="See the GitLens settings docs" href="https://help.gitkraken.com/gitlens/gitlens-settings/"
+						>GitLens docs</a
+					>
+					and edit your
+					<a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings"
+						>User Settings</a
+					>
+				</p>
+			</div>
+
+			<div class="content__area content__area--full-scroll">
+				<!-- prettier-ignore -->
+				<%= require('html-loader?{"esModule":false}!./partials/current-line.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/code-lens.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/status-bar.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/hovers.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/blame.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/changes.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/heatmap.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/commit-graph.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/views.commits.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/views.commitDetails.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/views.repositories.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/views.file-history.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/views.line-history.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/views.branches.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/views.remotes.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/views.stashes.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/views.tags.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/views.worktrees.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/views.contributors.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/views.searchAndCompare.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/rebase-editor.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/autolinks.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/terminal-links.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/dates.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/menus.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/shortcuts.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/modes.html') %>
+			</div>
+
+			<div class="sidebar">
+				<div class="sidebar__group">
+					<h2>Jump to</h2>
+					<ul>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#current-line"
+								title="Jump to Current Line Blame settings"
+								>Current Line Blame</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#code-lens"
+								title="Jump to Git CodeLens settings"
+								>Git CodeLens</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#status-bar"
+								title="Jump to Status Bar Blame settings"
+								>Status Bar Blame</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#hovers"
+								title="Jump to Hovers settings"
+								>Hovers</a
+							>
+						</li>
+
+						<li class="mt-1">
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#blame"
+								title="Jump to File Blame settings"
+								>File Blame</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#changes"
+								title="Jump to File Changes settings"
+								>File Changes</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#heatmap"
+								title="Jump to File Heatmap settings"
+								>File Heatmap</a
+							>
+						</li>
+
+						<li class="mt-1">
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#commit-graph"
+								title="Jump to Commit Graph settings"
+								>Commit Graph ✨</a
+							>
+						</li>
+
+						<li class="mt-1">
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#commits-view"
+								title="Jump to Commits view settings"
+								>Commits view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#commit-details-view"
+								title="Jump to Commit Details view settings"
+								>Commit Details view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#repositories-view"
+								title="Jump to Repositories view settings"
+								>Repositories view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#file-history-view"
+								title="Jump to File History view settings"
+								>File History view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#line-history-view"
+								title="Jump to Line History view settings"
+								>Line History view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#branches-view"
+								title="Jump to Branches view settings"
+								>Branches view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#remotes-view"
+								title="Jump to Remotes view settings"
+								>Remotes view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#stashes-view"
+								title="Jump to Stashes view settings"
+								>Stashes view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#tags-view"
+								title="Jump to Tags view settings"
+								>Tags view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#worktrees-view"
+								title="Jump to Worktrees view settings"
+								>Worktrees view ✨</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#contributors-view"
+								title="Jump to Contributors view settings"
+								>Contributors view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#search-compare-view"
+								title="Jump to Search &amp; Compare view settings"
+								>Search &amp; Compare view</a
+							>
+						</li>
+
+						<li class="mt-1">
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#rebase-editor"
+								title="Jump to Interactive Rebase Editor settings"
+								>Interactive Rebase Editor</a
+							>
+						</li>
+
+						<li class="mt-1">
+							<a class="sidebar__jump-link" data-action="jump" href="#autolinks" title="Jump to Autolinks"
+								>Autolinks</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#terminal-links"
+								title="Jump to Terminal Links"
+								>Terminal Links</a
+							>
+						</li>
+
+						<li class="mt-1">
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#dates"
+								title="Jump to Dates & Times settings"
+								>Dates & Times</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#menus"
+								title="Jump to Menus & Toolbars settings"
+								>Menus & Toolbars</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#shortcuts"
+								title="Jump to Keyboard Shortcuts settings"
+								>Keyboard Shortcuts</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#modes"
+								title="Jump to Modes settings"
+								>Modes</a
+							>
+						</li>
+					</ul>
+				</div>
+			</div>
+		</div>
+
+		#{endOfBody}
+	</body>
+
 	<template id="token-popup">
 		<h3 class="token-popup__title">Available Tokens</h3>
-		<div class="token-popup__scroller">
+		<div class="token-popup__scroller scrollable">
 			<table class="token-popup__table">
 				<tbody>
 					<tr>
@@ -148,370 +496,10 @@
 		</div>
 		<span class="token-popup__hint">
 			<i class="icon icon__info"></i>
-			<a href="https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting" title="Open formatting docs"
+			<a href="https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting" title="Open formatting docs"
 				>Learn more</a
 			>
 			about formatting options
 		</span>
 	</template>
-
-	<body class="preload">
-		<!-- <canvas class="snow"></canvas>
-		<img
-			class="snow__trigger snow__trigger--fixed-right snow__trigger--flipped"
-			title="Let it snow — Happy Holidays!"
-			alt="Let it snow — Happy Holidays!"
-			src="#{root}/images/snowman.png"
-		/> -->
-
-		<div class="container">
-			<header>
-				<a class="header__link" title="Learn more about GitLens" href="https://gitlens.amod.io">
-					<div class="header__logo">
-						<img class="image__logo" src="#{root}/images/gitlens-icon.png" />
-						<div>
-							<h1 class="header__title">Git<span class="header__title--highlight">Lens</span></h1>
-							<p class="header__subtitle">Git supercharged</p>
-						</div>
-					</div>
-				</a>
-				<p class="header__blurb">
-					GitLens <b>supercharges</b> the Git capabilities built into Visual Studio Code. It helps you to
-					<b>visualize code authorship</b> at a glance via Git blame annotations and code lens,
-					<b>seamlessly navigate and explore</b> Git repositories, <b>gain valuable insights</b> via powerful
-					comparison commands, and so much more.
-				</p>
-			</header>
-
-			<div class="hero__area hero__area--sticky">
-				<div class="hero__row">
-					<h2 class="hero__title">Settings</h2>
-					<div class="hero__title-actions">
-						<a href="#" data-action="collapse" title="Collapse all sections">collapse all</a>
-						<a href="#" data-action="expand" class="hidden" title="Expand all sections">expand all</a>
-					</div>
-					<div class="hero__toolbar">
-						<div class="hero__toolbar-scope hidden">
-							<label for="scopes">Save Settings to</label>
-							<div class="select-container">
-								<select id="scopes" name="scope"></select>
-							</div>
-						</div>
-					</div>
-				</div>
-				<p class="hero__subtitle">
-					For advanced customizations, refer to the
-					<a
-						title="See the GitLens settings docs"
-						href="https://github.com/eamodio/vscode-gitlens/#gitlens-settings-"
-						>GitLens docs</a
-					>
-					and edit your
-					<a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings"
-						>User Settings</a
-					>
-				</p>
-			</div>
-
-			<div class="content__area content__area--full-scroll">
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/current-line.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/code-lens.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/status-bar.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/hovers.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/views.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/views.commits.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/views.repositories.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/views.file-history.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/views.line-history.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/views.branches.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/views.remotes.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/views.stashes.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/views.tags.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/views.contributors.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/views.searchAndCompare.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/blame.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/changes.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/heatmap.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/rebase-editor.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/dates.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/menus.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/shortcuts.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader?{"esModule":false}!./partials/modes.html') %>
-			</div>
-
-			<div class="sidebar">
-				<div class="sidebar__group">
-					<h2>Jump to</h2>
-					<ul>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#current-line"
-								title="Jump to Current Line Blame settings"
-								>Current Line Blame</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#code-lens"
-								title="Jump to Git Code Lens settings"
-								>Git Code Lens</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#status-bar"
-								title="Jump to Status Bar Blame settings"
-								>Status Bar Blame</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#hovers"
-								title="Jump to Hovers settings"
-								>Hovers</a
-							>
-						</li>
-
-						<li class="mt-1">
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#views"
-								title="Jump to Views settings"
-								>Views</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#commits-view"
-								title="Jump to Commits view settings"
-								>Commits view</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#repositories-view"
-								title="Jump to Repositories view settings"
-								>Repositories view</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#file-history-view"
-								title="Jump to File History view settings"
-								>File History view</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#line-history-view"
-								title="Jump to Line History view settings"
-								>Line History view</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#branches-view"
-								title="Jump to Branches view settings"
-								>Branches view</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#remotes-view"
-								title="Jump to Remotes view settings"
-								>Remotes view</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#stashes-view"
-								title="Jump to Stashes view settings"
-								>Stashes view</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#tags-view"
-								title="Jump to Tags view settings"
-								>Tags view</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#contributors-view"
-								title="Jump to Contributors view settings"
-								>Contributors view</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#search-compare-view"
-								title="Jump to Search &amp; Compare view settings"
-								>Search &amp; Compare view</a
-							>
-						</li>
-
-						<li class="mt-1">
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#blame"
-								title="Jump to Gutter Blame settings"
-								>Gutter Blame</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#changes"
-								title="Jump to Gutter Changes settings"
-								>Gutter Changes</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#heatmap"
-								title="Jump to Gutter Heatmap settings"
-								>Gutter Heatmap</a
-							>
-						</li>
-
-						<li class="mt-1">
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#rebase-editor"
-								title="Jump to Interactive Rebase Editor settings"
-								>Interactive Rebase Editor</a
-							>
-						</li>
-
-						<li class="mt-1">
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#dates"
-								title="Jump to Dates & Times settings"
-								>Dates & Times</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#menus"
-								title="Jump to Menus & Toolbars settings"
-								>Menus & Toolbars</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#shortcuts"
-								title="Jump to Keyboard Shortcuts settings"
-								>Keyboard Shortcuts</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#modes"
-								title="Jump to Modes settings"
-								>Modes</a
-							>
-						</li>
-					</ul>
-				</div>
-				<div class="sidebar__group">
-					<h2>Help</h2>
-					<ul>
-						<li>
-							<a href="https://github.com/eamodio/vscode-gitlens#readme">Documentation</a>
-						</li>
-						<li>
-							<a href="https://github.com/eamodio/vscode-gitlens/issues">Questions &amp; Issues</a>
-						</li>
-						<li>
-							<a href="https://vscode-slack.amod.io">Slack</a>
-							<small> &nbsp;&nbsp;&mdash;&nbsp; #gitlens channel</small>
-						</li>
-						<li><a href="https://twitter.com/gitlens">Twitter</a></li>
-					</ul>
-				</div>
-				<div class="sidebar__group">
-					<h2>Resources</h2>
-					<ul>
-						<li><a href="https://gitlens.amod.io">Website</a></li>
-						<li><a href="https://gitlens.amod.io/#whats-new">What's New</a></li>
-						<li>
-							<a href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens"
-								>Marketplace</a
-							>
-						</li>
-						<li><a href="https://github.com/eamodio/vscode-gitlens">GitHub</a></li>
-						<li><a href="https://github.com/eamodio/vscode-gitlens/blob/main/LICENSE">License</a></li>
-					</ul>
-				</div>
-			</div>
-		</div>
-
-		#{endOfBody}
-	</body>
 </html>

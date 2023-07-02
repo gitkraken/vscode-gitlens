@@ -6,7 +6,7 @@
 			<a
 				class="link__learn-more"
 				title="Learn more"
-				href="https://github.com/eamodio/vscode-gitlens/#status-bar-blame-"
+				href="https://help.gitkraken.com/gitlens/gitlens-features/#status-bar-blame"
 			>
 				<i class="icon icon__info"></i>
 			</a>
@@ -93,7 +93,7 @@
 									<option value="gitlens.toggleFileChangesOnly">
 										toggles the file changes from the commit
 									</option>
-									<option value="gitlens.toggleCodeLens">toggles the Git code lens</option>
+									<option value="gitlens.toggleCodeLens">toggles the Git CodeLens</option>
 									<option value="gitlens.diffWithPrevious">
 										opens line changes with the previous revision
 									</option>
@@ -103,10 +103,12 @@
 									<option value="gitlens.revealCommitInView">
 										reveals the commit in the Side Bar
 									</option>
-									<option value="gitlens.showCommitsInView">searches for the commit</option>
-									<option value="gitlens.showQuickCommitDetails">shows details of the commit</option>
+									<option value="gitlens.showCommitsInView">shows details of the commit</option>
+									<option value="gitlens.showQuickCommitDetails">
+										shows quick details of the commit (default)
+									</option>
 									<option value="gitlens.showQuickCommitFileDetails">
-										shows file details of the commit
+										shows quick file details of the commit
 									</option>
 									<option value="gitlens.showQuickFileHistory">shows the current file history</option>
 									<option value="gitlens.showQuickRepoHistory">
@@ -116,13 +118,13 @@
 										opens the commit on the remote service (when available)
 									</option>
 									<option value="gitlens.copyRemoteCommitUrl">
-										copies the remote commit url to the clipboard (when available)
+										copies the remote commit URL to the clipboard (when available)
 									</option>
 									<option value="gitlens.openFileOnRemote">
 										opens the file revision on the remote service (when available)
 									</option>
 									<option value="gitlens.copyRemoteFileUrl">
-										copies the remote file revision url to the clipboard (when available)
+										copies the remote file revision URL to the clipboard (when available)
 									</option>
 								</select>
 							</div>
@@ -149,26 +151,44 @@
 			</div>
 
 			<div class="section__preview">
-				<img class="image__preview" src="#{root}/images/settings/status-bar.webp" />
+				<img
+					class="image__preview"
+					src="#{webroot}/media/status-bar.webp"
+					loading="lazy"
+					width="600"
+					height="206"
+				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/status-bar-right+pr.webp"
+					src="#{webroot}/media/status-bar-right+pr.webp"
 					data-visibility="statusBar.enabled &amp; statusBar.alignment =right &amp; statusBar.pullRequests.enabled"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/status-bar-right.webp"
+					src="#{webroot}/media/status-bar-right.webp"
 					data-visibility="statusBar.enabled &amp; statusBar.alignment =right &amp; statusBar.pullRequests.enabled =false"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/status-bar-left+pr.webp"
+					src="#{webroot}/media/status-bar-left+pr.webp"
 					data-visibility="statusBar.enabled &amp; statusBar.alignment =left &amp; statusBar.pullRequests.enabled"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/status-bar-left.webp"
+					src="#{webroot}/media/status-bar-left.webp"
 					data-visibility="statusBar.enabled &amp; statusBar.alignment =left &amp; statusBar.pullRequests.enabled =false"
+					loading="lazy"
+					width="600"
+					height="206"
 				/>
 			</div>
 		</div>

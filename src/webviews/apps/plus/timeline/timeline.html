@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<style nonce="#{cspNonce}">
+			@font-face {
+				font-family: 'codicon';
+				font-display: block;
+				src: url('#{webroot}/codicon.ttf?2ab61cbaefbdf4c7c5589068100bee0c') format('truetype');
+			}
+			@font-face {
+				font-family: 'glicons';
+				font-display: block;
+				src: url('#{root}/dist/glicons.woff2?8e33f5a80a91b05940d687a08305c156') format('woff2');
+			}
+		</style>
+	</head>
+
+	<body class="preload" data-placement="#{placement}">
+		<gk-feature-gate id="subscription-gate" class="scrollable"
+			><p slot="feature">
+				Visualize the evolution of a file, including when changes were made, how large they were, and who made
+				them.
+			</p></gk-feature-gate
+		>
+		<div class="container">
+			<progress-indicator id="spinner" position="top" active="true"></progress-indicator>
+			<section id="header" class="header">
+				<div class="header--context">
+					<h2 data-bind="title"></h2>
+					<h2 data-bind="sha"></h2>
+					<h2 data-bind="description"></h2>
+				</div>
+				<div class="toolbox">
+					<gk-feature-gate-badge id="subscription-gate-badge"></gk-feature-gate-badge>
+					<div class="select-container">
+						<label for="periods">Timeframe</label>
+						<vscode-dropdown id="periods" name="periods" position="below">
+							<vscode-option value="7|D">1 week</vscode-option>
+							<vscode-option value="1|M">1 month</vscode-option>
+							<vscode-option value="3|M" selected="true">3 months</vscode-option>
+							<vscode-option value="6|M">6 months</vscode-option>
+							<vscode-option value="9|M">9 months</vscode-option>
+							<vscode-option value="1|Y">1 year</vscode-option>
+							<vscode-option value="2|Y">2 years</vscode-option>
+							<vscode-option value="4|Y">4 years</vscode-option>
+							<vscode-option value="all">Full history</vscode-option>
+						</vscode-dropdown>
+					</div>
+					<gk-button
+						data-placement-visible="view"
+						href="command:gitlens.views.timeline.openInTab"
+						title="Open in Editor Area"
+						aria-label="Open in Editor Area"
+						appearance="toolbar"
+					>
+						<code-icon icon="link-external"></code-icon>
+					</gk-button>
+				</div>
+			</section>
+			<section id="content">
+				<div id="empty" hidden></div>
+				<div id="chart"></div>
+			</section>
+			<section id="footer"></section>
+		</div>
+		#{endOfBody}
+	</body>
+</html>

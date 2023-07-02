@@ -1,7 +1,12 @@
-.eslintcache
+.eslintcache*
 .vscode-clean/**
+.vscode-test/**
+.vscode-test-web/**
 dist
+out
 node_modules
 images/settings
 gitlens-*.vsix
-tsconfig.tsbuildinfo
+tsconfig*.tsbuildinfo
+.DS_Store
+.gitignore.

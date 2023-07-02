@@ -3,16 +3,156 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "Run GitLens",
-			"type": "pwa-extensionHost",
+			"name": "Launch IoT Edge Module (Node.js)",
+			"type": "node",
+			"request": "launch",
+			"program": "${workspaceRoot}/app.js",
+			"console": "integratedTerminal",
+			"env": {
+				"EdgeHubConnectionString": "${config:azure-iot-edge.EdgeHubConnectionString}",
+				"EdgeModuleCACertificateFile": "${config:azure-iot-edge.EdgeModuleCACertificateFile}"
+			}
+		},
+		{
+			"name": "Attach: Your own server",
+			"type": "al",
+			"request": "attach",
+			"environmentType": "OnPrem",
+			"server": "http://bcserver",
+			"serverInstance": "BC",
+			"authentication": "UserPassword",
+			"breakOnError": "All",
+			"breakOnRecordWrite": "None",
+			"enableSqlInformationDebugger": true,
+			"enableLongRunningSqlStatements": true,
+			"longRunningSqlStatementsThreshold": 500,
+			"numberOfSqlStatements": 10,
+			"breakOnNext": "WebServiceClient",
+			"tenant": "default"
+		},
+		{
+			"name": "Remote Debug IoT Edge Module (.NET Core)",
+			"type": "coreclr",
+			"request": "attach",
+			"processId": "${command:pickRemoteProcess}",
+			"pipeTransport": {
+				"pipeProgram": "docker",
+				"pipeArgs": [
+					"exec",
+					"-i",
+					"<container_name>",
+					"sh",
+					"-c"
+				],
+				"debuggerPath": "~/vsdbg/vsdbg",
+				"pipeCwd": "${workspaceFolder}",
+				"quoteArgs": true
+			},
+			"sourceFileMap": {
+				"/app": "${workspaceFolder}"
+			},
+			"justMyCode": true
+		},
+
+		{
+			"name": "Launch IoT Edge Module (Node.js)",
+			"type": "node",
+			"request": "launch",
+			"program": "${workspaceRoot}/app.js",
+			"console": "integratedTerminal",
+			"env": {
+				"EdgeHubConnectionString": "${config:azure-iot-edge.EdgeHubConnectionString}",
+				"EdgeModuleCACertificateFile": "${config:azure-iot-edge.EdgeModuleCACertificateFile}"
+			}
+		},
+		{
+			"name": "Launch IoT Edge Module (.NET Core)",
+			"type": "coreclr",
+			"request": "launch",
+			"program": "${workspaceRoot}/bin/Debug/<target-framework>/<project-name.dll>",
+			"args": [],
+			"cwd": "${workspaceRoot}",
+			"internalConsoleOptions": "openOnSessionStart",
+			"stopAtEntry": false,
+			"console": "internalConsole",
+			"env": {
+				"EdgeHubConnectionString": "${config:azure-iot-edge.EdgeHubConnectionString}",
+				"EdgeModuleCACertificateFile": "${config:azure-iot-edge.EdgeModuleCACertificateFile}"
+			}
+		},
+		{
+			"name": "Launch IoT Edge Module (.NET Core)",
+			"type": "coreclr",
+			"request": "launch",
+			"program": "${workspaceRoot}/bin/Debug/<target-framework>/<project-name.dll>",
+			"args": [],
+			"cwd": "${workspaceRoot}",
+			"internalConsoleOptions": "openOnSessionStart",
+			"stopAtEntry": false,
+			"console": "internalConsole",
+			"env": {
+				"EdgeHubConnectionString": "${config:azure-iot-edge.EdgeHubConnectionString}",
+				"EdgeModuleCACertificateFile": "${config:azure-iot-edge.EdgeModuleCACertificateFile}"
+			}
+		},
+		{
+			"name": "Remote Debug IoT Edge Module (.NET Core)",
+			"type": "coreclr",
+			"request": "attach",
+			"processId": "${command:pickRemoteProcess}",
+			"pipeTransport": {
+				"pipeProgram": "docker",
+				"pipeArgs": [
+					"exec",
+					"-i",
+					"<container_name>",
+					"sh",
+					"-c"
+				],
+				"debuggerPath": "~/vsdbg/vsdbg",
+				"pipeCwd": "${workspaceFolder}",
+				"quoteArgs": true
+			},
+			"sourceFileMap": {
+				"/app": "${workspaceFolder}"
+			},
+			"justMyCode": true
+		},
+		{
+			"name": "Launch IoT Edge Module (.NET Core)",
+			"type": "coreclr",
+			"request": "launch",
+			"program": "${workspaceRoot}/bin/Debug/<target-framework>/<project-name.dll>",
+			"args": [],
+			"cwd": "${workspaceRoot}",
+			"internalConsoleOptions": "openOnSessionStart",
+			"stopAtEntry": false,
+			"console": "internalConsole",
+			"env": {
+				"EdgeHubConnectionString": "${config:azure-iot-edge.EdgeHubConnectionString}",
+				"EdgeModuleCACertificateFile": "${config:azure-iot-edge.EdgeModuleCACertificateFile}"
+			}
+		},
+
+
+
+
+
+
+
+
+		{
+			"name": "Run",
+			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
-			"args": ["--disable-extension=eamodio.gitlens-insiders", "--extensionDevelopmentPath=${workspaceFolder}"],
-			"cwd": "${workspaceFolder}",
+			"args": ["--profile=Debugging (GitLens)", "--extensionDevelopmentPath=${workspaceFolder}"],
 			"debugWebviews": true,
 			"rendererDebugOptions": {
+				"pauseForSourceMap": true,
+				"sourceMapRenames": true,
 				"sourceMaps": true,
-				"urlFilter": "*eamodio.gitlens*",
+				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
@@ -20,48 +160,74 @@
 				"group": "2_run",
 				"order": 1
 			},
+			"pauseForSourceMap": true,
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
+			"sourceMapRenames": true,
 			"sourceMaps": true,
 			"trace": true
 		},
 		{
-			"name": "Run GitLens (Sandboxed)",
-			"type": "pwa-extensionHost",
+			"name": "Run (sandboxed)",
+			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
-			"args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
-			"cwd": "${workspaceFolder}",
+			"args": ["--profile-temp", "--extensionDevelopmentPath=${workspaceFolder}"],
 			"debugWebviews": true,
 			"rendererDebugOptions": {
+				"pauseForSourceMap": true,
+				"sourceMapRenames": true,
 				"sourceMaps": true,
-				"urlFilter": "*eamodio.gitlens*",
+				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
+			"pauseForSourceMap": true,
 			"presentation": {
 				"group": "2_run",
 				"order": 2
 			},
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
+			"sourceMapRenames": true,
 			"sourceMaps": true,
 			"trace": true
 		},
 		{
-			"name": "Watch & Launch GitLens",
-			"type": "pwa-extensionHost",
+			"name": "Run Tests",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--profile-temp",
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
+			],
+			"outFiles": ["${workspaceFolder}/out/test/**/*.js", "${workspaceFolder}/dist/**/*.js"],
+			"presentation": {
+				"group": "2_run_tests",
+				"order": 2
+			},
+			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
+			"smartStep": true,
+			"sourceMapRenames": true,
+			"sourceMaps": true
+		},
+		{
+			"name": "Watch & Run",
+			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
-			"args": ["--disable-extension=eamodio.gitlens-insiders", "--extensionDevelopmentPath=${workspaceFolder}"],
-			"cwd": "${workspaceFolder}",
+			"args": ["--profile=Debugging (GitLens)", "--extensionDevelopmentPath=${workspaceFolder}"],
 			"debugWebviews": true,
 			"rendererDebugOptions": {
+				"pauseForSourceMap": true,
+				"sourceMapRenames": true,
 				"sourceMaps": true,
-				"urlFilter": "*eamodio.gitlens*",
+				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
+			"pauseForSourceMap": true,
 			"preLaunchTask": "${defaultBuildTask}",
 			"presentation": {
 				"group": "1_watch",
@@ -69,32 +235,87 @@
 			},
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
+			"sourceMapRenames": true,
 			"sourceMaps": true,
 			"trace": true
 		},
 		{
-			"name": "Watch & Launch GitLens (sandboxed)",
-			"type": "pwa-extensionHost",
+			"name": "Watch & Run (web)",
+			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
-			"args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
-			"cwd": "${workspaceFolder}",
+			"args": [
+				// "--folder-uri=vscode-vfs://github/gitkraken/vscode-gitlens",
+				"--profile=Debugging (GitLens)",
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--extensionDevelopmentKind=web"
+			],
+			"debugWebWorkerHost": true,
+			"rendererDebugOptions": {
+				"pauseForSourceMap": true,
+				"sourceMapRenames": true,
+				"sourceMaps": true,
+				"webRoot": "${workspaceFolder}/src/webviews/apps"
+			},
+			"outFiles": ["${workspaceFolder}/dist/browser/**/*.js"],
+			"pauseForSourceMap": true,
+			"preLaunchTask": "${defaultBuildTask}",
+			"presentation": {
+				"group": "1_watch",
+				"order": 1
+			},
+			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
+			"smartStep": true,
+			"sourceMapRenames": true,
+			"sourceMaps": true,
+			"trace": true
+		},
+		{
+			"name": "Watch & Run (sandboxed)",
+			"type": "extensionHost",
+			"request": "launch",
+			"runtimeExecutable": "${execPath}",
+			"args": ["--profile-temp", "--extensionDevelopmentPath=${workspaceFolder}"],
 			"debugWebviews": true,
 			"rendererDebugOptions": {
+				"pauseForSourceMap": true,
+				"sourceMapRenames": true,
 				"sourceMaps": true,
-				"urlFilter": "*eamodio.gitlens*",
+				// "urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
-			"preLaunchTask": "npm: watch",
+			"pauseForSourceMap": true,
+			"preLaunchTask": "${defaultBuildTask}",
 			"presentation": {
 				"group": "1_watch",
 				"order": 2
 			},
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
+			"sourceMapRenames": true,
 			"sourceMaps": true,
 			"trace": true
+		},
+		{
+			"name": "Watch & Run Tests",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--profile-temp",
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
+			],
+			"outFiles": ["${workspaceFolder}/out/test/**/*.js", "${workspaceFolder}/dist/**/*.js"],
+			"preLaunchTask": "npm: watch:tests",
+			"presentation": {
+				"group": "1_watch_tests",
+				"order": 2
+			},
+			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
+			"smartStep": true,
+			"sourceMapRenames": true,
+			"sourceMaps": true
 		}
 	]
 }

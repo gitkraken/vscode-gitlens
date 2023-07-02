@@ -1,17 +1,13 @@
-'use strict';
-import { Disposable, Event, EventEmitter, TextDocument, TextEditor } from 'vscode';
-import { ContextKeys, getEditorIfActive, isActiveDocument, setContext } from '../constants';
-import { Container } from '../container';
-import {
-	GitRevision,
-	Repository,
-	RepositoryChange,
-	RepositoryChangeComparisonMode,
-	RepositoryChangeEvent,
-} from '../git/git';
+import type { Disposable, Event, TextDocument, TextEditor } from 'vscode';
+import { EventEmitter } from 'vscode';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
-import { Functions } from '../system';
+import { deletedOrMissing } from '../git/models/constants';
+import { setContext } from '../system/context';
+import type { Deferrable } from '../system/function';
+import { debounce } from '../system/function';
+import { Logger } from '../system/logger';
+import { getEditorIfActive, isActiveDocument } from '../system/utils';
 
 export interface DocumentBlameStateChangeEvent<T> {
 	readonly editor: TextEditor;
@@ -22,11 +18,11 @@ export interface DocumentBlameStateChangeEvent<T> {
 export class TrackedDocument<T> implements Disposable {
 	static async create<T>(
 		document: TextDocument,
-		key: string,
 		dirty: boolean,
 		eventDelegates: { onDidBlameStateChange(e: DocumentBlameStateChangeEvent<T>): void },
+		container: Container,
 	) {
-		const doc = new TrackedDocument(document, key, dirty, eventDelegates);
+		const doc = new TrackedDocument(document, dirty, eventDelegates, container);
 		await doc.initialize();
 		return doc;
 	}
@@ -40,71 +36,32 @@ export class TrackedDocument<T> implements Disposable {
 
 	private _disposable: Disposable | undefined;
 	private _disposed: boolean = false;
-	private _repo: Repository | undefined;
 	private _uri!: GitUri;
 
 	private constructor(
-		private readonly _document: TextDocument,
-		public readonly key: string,
+		readonly document: TextDocument,
 		public dirty: boolean,
 		private _eventDelegates: { onDidBlameStateChange(e: DocumentBlameStateChangeEvent<T>): void },
+		private readonly container: Container,
 	) {}
 
 	dispose() {
+		this.state = undefined;
+
 		this._disposed = true;
-		this.reset('dispose');
 		this._disposable?.dispose();
 	}
 
 	private initializing = true;
-	private async initialize(): Promise<Repository | undefined> {
-		const uri = this._document.uri;
-
-		// Since there is a bit of a chicken & egg problem with the DocumentTracker and the GitService, wait for the GitService to load if it isn't
-		if (Container.git == null) {
-			if (!(await Functions.waitUntil(() => Container.git != null, 2000))) {
-				Logger.log(
-					`TrackedDocument.initialize(${uri.toString(true)})`,
-					'Timed out waiting for the GitService to start',
-				);
-				throw new Error('TrackedDocument timed out waiting for the GitService to start');
-			}
-		}
+	private async initialize(): Promise<void> {
+		const uri = this.document.uri;
 
 		this._uri = await GitUri.fromUri(uri);
-		if (this._disposed) return undefined;
-
-		const repo = await Container.git.getRepository(this._uri);
-		this._repo = repo;
-		if (this._disposed) return undefined;
-
-		if (repo != null) {
-			this._disposable = repo.onDidChange(this.onRepositoryChanged, this);
+		if (!this._disposed) {
+			await this.update();
 		}
-
-		await this.update();
 
 		this.initializing = false;
-
-		return repo;
-	}
-
-	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		if (
-			!e.changed(
-				RepositoryChange.Index,
-				RepositoryChange.Heads,
-				RepositoryChange.Status,
-				RepositoryChange.Unknown,
-				RepositoryChangeComparisonMode.Any,
-			)
-		) {
-			return;
-		}
-
-		// Reset any cached state
-		this.reset('repository');
-		void this.update();
 	}
 
 	private _forceDirtyStateChangeOnNextDocumentChange: boolean = false;
@@ -118,9 +75,7 @@ export class TrackedDocument<T> implements Disposable {
 	}
 
 	get isBlameable() {
-		if (this._blameFailed) return false;
-
-		return this._isTracked;
+		return this._blameFailed ? false : this._isTracked;
 	}
 
 	private _isDirtyIdle: boolean = false;
@@ -132,7 +87,7 @@ export class TrackedDocument<T> implements Disposable {
 	}
 
 	get isRevision() {
-		return this._uri != null ? Boolean(this._uri.sha) && this._uri.sha !== GitRevision.deletedOrMissing : false;
+		return this._uri != null ? Boolean(this._uri.sha) && this._uri.sha !== deletedOrMissing : false;
 	}
 
 	private _isTracked: boolean = false;
@@ -141,34 +96,45 @@ export class TrackedDocument<T> implements Disposable {
 	}
 
 	get lineCount(): number {
-		return this._document.lineCount;
+		return this.document.lineCount;
 	}
 
-	get uri() {
+	get uri(): GitUri {
 		return this._uri;
 	}
 
-	activate() {
-		void setContext(ContextKeys.ActiveFileStatus, this.getStatus());
+	async activate(): Promise<void> {
+		if (this._requiresUpdate) {
+			await this.update();
+		}
+		void setContext('gitlens:activeFileStatus', this.getStatus());
 	}
 
 	is(document: TextDocument) {
-		return document === this._document;
+		return document === this.document;
 	}
 
-	reset(reason: 'config' | 'dispose' | 'document' | 'repository') {
+	private _updateDebounced:
+		| Deferrable<({ forceBlameChange }?: { forceBlameChange?: boolean | undefined }) => Promise<void>>
+		| undefined;
+
+	reset(reason: 'config' | 'document' | 'repository') {
+		this._requiresUpdate = true;
 		this._blameFailed = false;
 		this._isDirtyIdle = false;
 
-		if (this.state == null) return;
+		if (this.state != null) {
+			this.state = undefined;
+			Logger.log(`Reset state for '${this.document.uri.toString(true)}', reason=${reason}`);
+		}
 
-		// // Don't remove broken blame on change (since otherwise we'll have to run the broken blame again)
-		// if (!this.state.hasErrors) {
+		if (reason === 'repository' && isActiveDocument(this.document)) {
+			if (this._updateDebounced == null) {
+				this._updateDebounced = debounce(this.update.bind(this), 250);
+			}
 
-		this.state = undefined;
-		Logger.log(`Reset state for '${this.key}', reason=${reason}`);
-
-		// }
+			void this._updateDebounced();
+		}
 	}
 
 	private _blameFailed: boolean = false;
@@ -177,7 +143,7 @@ export class TrackedDocument<T> implements Disposable {
 
 		this._blameFailed = true;
 
-		if (wasBlameable && isActiveDocument(this._document)) {
+		if (wasBlameable && isActiveDocument(this.document)) {
 			void this.update({ forceBlameChange: true });
 		}
 	}
@@ -190,7 +156,10 @@ export class TrackedDocument<T> implements Disposable {
 		this._forceDirtyStateChangeOnNextDocumentChange = true;
 	}
 
+	private _requiresUpdate: boolean = true;
 	async update({ forceBlameChange }: { forceBlameChange?: boolean } = {}) {
+		this._requiresUpdate = false;
+
 		if (this._disposed || this._uri == null) {
 			this._hasRemotes = false;
 			this._isTracked = false;
@@ -200,26 +169,25 @@ export class TrackedDocument<T> implements Disposable {
 
 		this._isDirtyIdle = false;
 
-		const active = getEditorIfActive(this._document);
+		// Caches these before the awaits
+		const active = getEditorIfActive(this.document);
 		const wasBlameable = forceBlameChange ? undefined : this.isBlameable;
 
-		this._isTracked = await Container.git.isTracked(this._uri);
-
-		let repo = undefined;
-		if (this._isTracked) {
-			repo = this._repo;
-		}
-
-		if (repo != null) {
-			this._hasRemotes = await repo.hasRemotes();
-		} else {
+		const repo = this.container.git.getRepository(this._uri);
+		if (repo == null) {
+			this._isTracked = false;
 			this._hasRemotes = false;
+		} else {
+			[this._isTracked, this._hasRemotes] = await Promise.all([
+				this.container.git.isTracked(this._uri),
+				repo.hasRemotes(),
+			]);
 		}
 
 		if (active != null) {
 			const blameable = this.isBlameable;
 
-			void setContext(ContextKeys.ActiveFileStatus, this.getStatus());
+			void setContext('gitlens:activeFileStatus', this.getStatus());
 
 			if (!this.initializing && wasBlameable !== blameable) {
 				const e: DocumentBlameStateChangeEvent<T> = { editor: active, document: this, blameable: blameable };

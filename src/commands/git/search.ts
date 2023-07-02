@@ -1,35 +1,55 @@
-'use strict';
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { GitLog, GitLogCommit, Repository, SearchOperators, searchOperators, SearchPattern } from '../../git/git';
-import { ActionQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
-import { Strings } from '../../system';
-import { SearchResultsNode } from '../../views/nodes';
-import { GitCommandsCommand } from '../gitCommands';
-import {
-	appendReposToTitle,
+import type { Container } from '../../container';
+import { showDetailsView } from '../../git/actions/commit';
+import type { GitCommit } from '../../git/models/commit';
+import type { GitLog } from '../../git/models/log';
+import type { Repository } from '../../git/models/repository';
+import type { SearchOperators, SearchQuery } from '../../git/search';
+import { getSearchQueryComparisonKey, parseSearchQuery, searchOperators } from '../../git/search';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common';
+import { ActionQuickPickItem } from '../../quickpicks/items/common';
+import { configuration } from '../../system/configuration';
+import { getContext } from '../../system/context';
+import { pluralize } from '../../system/string';
+import { SearchResultsNode } from '../../views/nodes/searchResultsNode';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import { getSteps } from '../gitCommands.utils';
+import type {
 	PartialStepState,
-	pickCommitStep,
-	pickRepositoryStep,
-	QuickCommand,
-	QuickCommandButtons,
 	StepGenerator,
 	StepResult,
 	StepResultGenerator,
 	StepSelection,
 	StepState,
 } from '../quickCommand';
+import {
+	appendReposToTitle,
+	canPickStepContinue,
+	createPickStep,
+	endSteps,
+	MatchAllToggleQuickInputButton,
+	MatchCaseToggleQuickInputButton,
+	MatchRegexToggleQuickInputButton,
+	pickCommitStep,
+	pickRepositoryStep,
+	QuickCommand,
+	ShowResultsInSideBarQuickInputButton,
+	StepResultBreak,
+} from '../quickCommand';
 
 interface Context {
 	repos: Repository[];
-	commit: GitLogCommit | undefined;
+	associatedView: ViewsWithRepositoryFolders;
+	commit: GitCommit | undefined;
+	hasVirtualFolders: boolean;
 	resultsKey: string | undefined;
 	resultsPromise: Promise<GitLog | undefined> | undefined;
 	title: string;
 }
 
-interface State extends Required<SearchPattern> {
+interface State extends Required<SearchQuery> {
 	repo: string | Repository;
+	openPickInView?: boolean;
 	showResultsInSideBar: boolean | SearchResultsNode;
 }
 
@@ -56,8 +76,8 @@ const searchOperatorToTitleMap = new Map<SearchOperators, string>([
 type SearchStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
 
 export class SearchGitCommand extends QuickCommand<State> {
-	constructor(args?: SearchGitCommandArgs) {
-		super('search', 'search', 'Commit Search', {
+	constructor(container: Container, args?: SearchGitCommandArgs) {
+		super(container, 'search', 'search', 'Commit Search', {
 			description: 'aka grep, searches for commits',
 		});
 
@@ -66,7 +86,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			counter++;
 		}
 
-		if (args?.state?.pattern != null && !args.prefillOnly) {
+		if (args?.state?.query != null && !args.prefillOnly) {
 			counter++;
 		}
 
@@ -91,14 +111,16 @@ export class SearchGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
-			repos: [...(await Container.git.getOrderedRepositories())],
+			repos: this.container.git.openRepositories,
+			associatedView: this.container.searchAndCompareView,
 			commit: undefined,
+			hasVirtualFolders: getContext<boolean>('gitlens:hasVirtualFolders', false),
 			resultsKey: undefined,
 			resultsPromise: undefined,
 			title: this.title,
 		};
 
-		const cfg = Container.config.gitCommands.search;
+		const cfg = configuration.get('gitCommands.search');
 		if (state.matchAll == null) {
 			state.matchAll = cfg.matchAll;
 		}
@@ -129,48 +151,47 @@ export class SearchGitCommand extends QuickCommand<State> {
 				} else {
 					const result = yield* pickRepositoryStep(state, context);
 					// Always break on the first step (so we will go back)
-					if (result === StepResult.Break) break;
+					if (result === StepResultBreak) break;
 
 					state.repo = result;
 				}
 			}
 
-			if (state.counter < 2 || state.pattern == null) {
+			if (state.counter < 2 || state.query == null) {
 				const result = yield* this.pickSearchOperatorStep(state as SearchStepState, context);
-				if (result === StepResult.Break) {
+				if (result === StepResultBreak) {
 					// If we skipped the previous step, make sure we back up past it
 					if (skippedStepOne) {
 						state.counter--;
 					}
 
-					state.pattern = undefined;
+					state.query = undefined;
 
 					continue;
 				}
 
-				state.pattern = result;
+				state.query = result;
 			}
 
-			const search: SearchPattern = {
-				pattern: state.pattern,
+			const search: SearchQuery = {
+				query: state.query,
 				matchAll: state.matchAll,
 				matchCase: state.matchCase,
 				matchRegex: state.matchRegex,
 			};
-			const searchKey = SearchPattern.toKey(search);
+			const searchKey = getSearchQueryComparisonKey(search);
 
 			if (context.resultsPromise == null || context.resultsKey !== searchKey) {
-				context.resultsPromise = state.repo.searchForCommits(search);
+				context.resultsPromise = state.repo.richSearchCommits(search);
 				context.resultsKey = searchKey;
 			}
 
-			// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 			if (state.showResultsInSideBar) {
-				void Container.searchAndCompareView.search(
+				void this.container.searchAndCompareView.search(
 					state.repo.path,
 					search,
 					{
-						label: { label: `for ${state.pattern}` },
+						label: { label: `for ${state.query}` },
 					},
 					context.resultsPromise,
 					state.showResultsInSideBar instanceof SearchResultsNode ? state.showResultsInSideBar : undefined,
@@ -187,19 +208,19 @@ export class SearchGitCommand extends QuickCommand<State> {
 					onDidLoadMore: log => (context.resultsPromise = Promise.resolve(log)),
 					placeholder: (context, log) =>
 						log == null
-							? `No results for ${state.pattern}`
-							: `${Strings.pluralize('result', log.count, {
+							? `No results for ${state.query}`
+							: `${pluralize('result', log.count, {
 									format: c => (log.hasMore ? `${c}+` : undefined),
-							  })} for ${state.pattern}`,
+							  })} for ${state.query}`,
 					picked: context.commit?.ref,
 					showInSideBarCommand: new ActionQuickPickItem(
 						'$(link-external)  Show Results in Side Bar',
 						() =>
-							void Container.searchAndCompareView.search(
+							void this.container.searchAndCompareView.search(
 								repoPath,
 								search,
 								{
-									label: { label: `for ${state.pattern}` },
+									label: { label: `for ${state.query}` },
 									reveal: {
 										select: true,
 										focus: false,
@@ -210,13 +231,13 @@ export class SearchGitCommand extends QuickCommand<State> {
 							),
 					),
 					showInSideBarButton: {
-						button: QuickCommandButtons.ShowResultsInSideBar,
+						button: ShowResultsInSideBarQuickInputButton,
 						onDidClick: () =>
-							void Container.searchAndCompareView.search(
+							void this.container.searchAndCompareView.search(
 								repoPath,
 								search,
 								{
-									label: { label: `for ${state.pattern}` },
+									label: { label: `for ${state.query}` },
 									reveal: {
 										select: true,
 										focus: false,
@@ -227,7 +248,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 							),
 					},
 				});
-				if (result === StepResult.Break) {
+				if (result === StepResultBreak) {
 					state.counter--;
 					continue;
 				}
@@ -235,23 +256,34 @@ export class SearchGitCommand extends QuickCommand<State> {
 				context.commit = result;
 			}
 
-			const result = yield* GitCommandsCommand.getSteps(
-				{
-					command: 'show',
-					state: {
-						repo: state.repo,
-						reference: context.commit,
+			let result: StepResult<ReturnType<typeof getSteps>>;
+			if (state.openPickInView) {
+				void showDetailsView(context.commit, {
+					pin: false,
+					preserveFocus: false,
+				});
+				result = StepResultBreak;
+			} else {
+				result = yield* getSteps(
+					this.container,
+					{
+						command: 'show',
+						state: {
+							repo: state.repo,
+							reference: context.commit,
+						},
 					},
-				},
-				this.pickedVia,
-			);
+					this.pickedVia,
+				);
+			}
+
 			state.counter--;
-			if (result === StepResult.Break) {
-				QuickCommand.endSteps(state);
+			if (result === StepResultBreak) {
+				endSteps(state);
 			}
 		}
 
-		return state.counter < 0 ? StepResult.Break : undefined;
+		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
 	private *pickSearchOperatorStep(state: SearchStepState, context: Context): StepResultGenerator<string> {
@@ -259,42 +291,47 @@ export class SearchGitCommand extends QuickCommand<State> {
 			{
 				label: searchOperatorToTitleMap.get('')!,
 				description: `pattern or message: pattern or =: pattern ${GlyphChars.Dash} use quotes to search for phrases`,
-				item: 'message:',
+				item: 'message:' as const,
 			},
 			{
 				label: searchOperatorToTitleMap.get('author:')!,
 				description: 'author: pattern or @: pattern',
-				item: 'author:',
+				item: 'author:' as const,
 			},
 			{
 				label: searchOperatorToTitleMap.get('commit:')!,
 				description: 'commit: sha or #: sha',
-				item: 'commit:',
+				item: 'commit:' as const,
 			},
-			{
-				label: searchOperatorToTitleMap.get('file:')!,
-				description: 'file: glob or ?: glob',
-				item: 'file:',
-			},
-			{
-				label: searchOperatorToTitleMap.get('change:')!,
-				description: 'change: pattern or ~: pattern',
-				item: 'change:',
-			},
-		];
+			context.hasVirtualFolders
+				? undefined
+				: {
+						label: searchOperatorToTitleMap.get('file:')!,
+						description: 'file: glob or ?: glob',
+						item: 'file:' as const,
+				  },
+			context.hasVirtualFolders
+				? undefined
+				: {
+						label: searchOperatorToTitleMap.get('change:')!,
+						description: 'change: pattern or ~: pattern',
+						item: 'change:' as const,
+				  },
+		].filter(<T>(i?: T): i is T => i != null);
 
-		const matchCaseButton = new QuickCommandButtons.MatchCaseToggle(state.matchCase);
-		const matchAllButton = new QuickCommandButtons.MatchAllToggle(state.matchAll);
-		const matchRegexButton = new QuickCommandButtons.MatchRegexToggle(state.matchRegex);
+		const matchCaseButton = new MatchCaseToggleQuickInputButton(state.matchCase);
+		const matchAllButton = new MatchAllToggleQuickInputButton(state.matchAll);
+		const matchRegexButton = new MatchRegexToggleQuickInputButton(state.matchRegex);
 
-		const step = QuickCommand.createPickStep<QuickPickItemOfT<SearchOperators>>({
+		const step = createPickStep<QuickPickItemOfT<SearchOperators>>({
 			title: appendReposToTitle(context.title, state, context),
 			placeholder: 'e.g. "Updates dependencies" author:eamodio',
 			matchOnDescription: true,
 			matchOnDetail: true,
 			additionalButtons: [matchCaseButton, matchAllButton, matchRegexButton],
 			items: items,
-			value: state.pattern,
+			value: state.query,
+			selectValueWhenShown: false,
 			onDidAccept: (quickpick): boolean => {
 				const pick = quickpick.selectedItems[0];
 				if (!searchOperators.has(pick.item)) return true;
@@ -327,7 +364,12 @@ export class SearchGitCommand extends QuickCommand<State> {
 				// Simulate an extra step if we have a value
 				state.counter = value ? 3 : 2;
 
-				const operations = SearchPattern.parseSearchOperations(value);
+				const operations = parseSearchQuery({
+					query: value,
+					matchCase: state.matchCase,
+					matchAll: state.matchAll,
+					matchRegex: state.matchRegex,
+				});
 
 				quickpick.title = appendReposToTitle(
 					operations.size === 0 || operations.size > 1
@@ -357,10 +399,10 @@ export class SearchGitCommand extends QuickCommand<State> {
 			},
 		});
 		const selection: StepSelection<typeof step> = yield step;
-		if (!QuickCommand.canPickStepContinue(step, state, selection)) {
+		if (!canPickStepContinue(step, state, selection)) {
 			// Since we simulated a step above, we need to remove it here
 			state.counter--;
-			return StepResult.Break;
+			return StepResultBreak;
 		}
 
 		// Since we simulated a step above, we need to remove it here

@@ -1,0 +1,59 @@
+name: Bug report
+description: Create a report to help GitLens improve
+labels: ['bug', 'triage']
+body:
+    - type: textarea
+      attributes:
+          label: Description
+          description: Please provide a concise description of what you're experiencing, what you expected to happen, and any steps to reproduce the behavior.
+          placeholder: |
+              1. In this environment...
+              2. With this config...
+              3. Run '...'
+              4. See error...
+      validations:
+          required: true
+    - type: input
+      id: gitlens
+      attributes:
+          label: GitLens Version
+          description: What version of GitLens are you using?
+          placeholder: 12.0.0
+      validations:
+          required: true
+    - type: textarea
+      id: vscode
+      attributes:
+          label: VS Code Version
+          description: What version of VS Code are you using? Copy from Help -> About
+          placeholder: |
+              Version: 1.70.0-insider (user setup)
+              Commit: 1cd90cceddf3c413673963ab6f154d2ff294b17c
+              Date: 2022-07-15T05:16:39.110Z
+              Electron: 18.3.5
+              Chromium: 100.0.4896.160
+              Node.js: 16.13.2
+              V8: 10.0.139.17-electron.0
+              OS: Windows_NT x64 10.0.22622
+      validations:
+          required: false
+    - type: input
+      id: git
+      attributes:
+          label: Git Version
+          description: 'What version of Git are you using? Use `git --version`'
+          placeholder: 'git version 2.37.0.windows.1'
+      validations:
+          required: false
+    - type: textarea
+      attributes:
+          label: Logs, Screenshots, Screen Captures, etc
+          description: |
+              Logs? Links? References? Anything that will give us more context about the issue you are encountering!
+          placeholder: |
+              For intermittent issues, please enable debug logging by running the _GitLens: Enable Debug Logging_ command from the Command Palette (<kbd>F1</kbd> or <kbd>ctrl/cmd</kbd>+<kbd>shift</kbd>+<kbd>p</kbd>).
+              This will enable logging to the _GitLens_ & _GitLens (Git)_ channels in the _Output_ pane.
+
+              Once enabled, please reproduce the issue, and attach the logs from the _GitLens_ channel, and if its Git related please also attach the logs from the _GitLens (Git)_ channel.
+      validations:
+          required: false

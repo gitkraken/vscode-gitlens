@@ -1,16 +1,34 @@
-'use strict';
-import { Range, Uri } from 'vscode';
-import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference } from '../../config';
-import { GitRevision } from '../models/models';
-import { Repository } from '../models/repository';
-import { RemoteProvider } from './provider';
+import type { Range, Uri } from 'vscode';
+import type { DynamicAutolinkReference } from '../../annotations/autolinks';
+import type { AutolinkReference } from '../../config';
+import { isSha } from '../models/reference';
+import type { Repository } from '../models/repository';
+import { RemoteProvider } from './remoteProvider';
 
 const fileRegex = /^\/([^/]+)\/\+(.+)$/i;
 const rangeRegex = /^(\d+)$/;
 
 export class GerritRemote extends RemoteProvider {
-	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
+	constructor(
+		domain: string,
+		path: string,
+		protocol?: string,
+		name?: string,
+		custom: boolean = false,
+		trimPath: boolean = true,
+	) {
+		/*
+		 * Git remote URLs differs when cloned by HTTPS with or without authentication.
+		 * An anonymous clone looks like:
+		 * 	 $ git clone "https://review.gerrithub.io/jenkinsci/gerrit-code-review-plugin"
+		 * An authenticated clone looks like:
+		 * 	 $ git clone "https://felipecrs@review.gerrithub.io/a/jenkinsci/gerrit-code-review-plugin"
+		 *   Where username may be omitted, but the "a/" prefix is always present.
+		 */
+		if (trimPath && protocol !== 'ssh') {
+			path = path.replace(/^a\//, '');
+		}
+
 		super(domain, path, protocol, name, custom);
 	}
 
@@ -23,6 +41,8 @@ export class GerritRemote extends RemoteProvider {
 					url: `${this.baseReviewUrl}/q/<num>`,
 					title: `Open Change #<num> on ${this.name}`,
 					alphanumeric: true,
+
+					description: `${this.name} Change #<num>`,
 				},
 			];
 		}
@@ -41,13 +61,12 @@ export class GerritRemote extends RemoteProvider {
 		return this.formatName('Gerrit');
 	}
 
-	private get reviewDomain(): string {
-		const [subdomain, secondLevelDomain, topLevelDomain] = this.domain.split('.');
-		return [`${subdomain}-review`, secondLevelDomain, topLevelDomain].join('.');
+	protected override get baseUrl(): string {
+		return `${this.protocol}://${this.domain}/plugins/gitiles/${this.path}`;
 	}
 
-	private get baseReviewUrl(): string {
-		return `${this.protocol}://${this.reviewDomain}`;
+	protected get baseReviewUrl(): string {
+		return `${this.protocol}://${this.domain}`;
 	}
 
 	async getLocalInfoFromRemoteUri(
@@ -78,7 +97,7 @@ export class GerritRemote extends RemoteProvider {
 		let index = path.indexOf('/', 1);
 		if (index !== -1) {
 			const sha = path.substring(1, index);
-			if (GitRevision.isSha(sha) || sha == 'HEAD') {
+			if (isSha(sha) || sha == 'HEAD') {
 				const uri = repository.toAbsoluteUri(path.substr(index), { validate: options?.validate });
 				if (uri != null) return { uri: uri, startLine: startLine };
 			}
@@ -86,42 +105,60 @@ export class GerritRemote extends RemoteProvider {
 
 		// Check for a link with branch (and deal with branch names with /)
 		if (path.startsWith('/refs/heads/')) {
-			const branches = new Set<string>(
-				(
-					await repository.getBranches({
-						filter: b => b.remote,
-					})
-				).map(b => b.getNameWithoutRemote()),
-			);
 			const branchPath = path.substr('/refs/heads/'.length);
 
+			let branch;
+			const possibleBranches = new Map<string, string>();
+			index = branchPath.length;
 			do {
 				index = branchPath.lastIndexOf('/', index - 1);
-				const branch = branchPath.substring(0, index);
+				branch = branchPath.substring(1, index);
 
-				if (branches.has(branch)) {
-					const uri = repository.toAbsoluteUri(branchPath.substr(index), { validate: options?.validate });
+				possibleBranches.set(branch, branchPath.substr(index));
+			} while (index > 0);
+
+			if (possibleBranches.size !== 0) {
+				const { values: branches } = await repository.getBranches({
+					filter: b => b.remote && possibleBranches.has(b.getNameWithoutRemote()),
+				});
+				for (const branch of branches) {
+					const path = possibleBranches.get(branch.getNameWithoutRemote());
+					if (path == null) continue;
+
+					const uri = repository.toAbsoluteUri(path, { validate: options?.validate });
 					if (uri != null) return { uri: uri, startLine: startLine };
 				}
-			} while (index > 0);
+			}
 
 			return undefined;
 		}
 
 		// Check for a link with tag (and deal with tag names with /)
 		if (path.startsWith('/refs/tags/')) {
-			const tags = new Set<string>((await repository.getTags()).map(t => t.name));
 			const tagPath = path.substr('/refs/tags/'.length);
 
+			let tag;
+			const possibleTags = new Map<string, string>();
+			index = tagPath.length;
 			do {
 				index = tagPath.lastIndexOf('/', index - 1);
-				const tag = tagPath.substring(0, index);
+				tag = tagPath.substring(1, index);
 
-				if (tags.has(tag)) {
-					const uri = repository.toAbsoluteUri(tagPath.substr(index), { validate: options?.validate });
+				possibleTags.set(tag, tagPath.substr(index));
+			} while (index > 0);
+
+			if (possibleTags.size !== 0) {
+				const { values: tags } = await repository.getTags({
+					filter: t => possibleTags.has(t.name),
+				});
+				for (const tag of tags) {
+					const path = possibleTags.get(tag.name);
+					if (path == null) continue;
+
+					const uri = repository.toAbsoluteUri(path, { validate: options?.validate });
 					if (uri != null) return { uri: uri, startLine: startLine };
 				}
-			} while (index > 0);
+			}
 
 			return undefined;
 		}

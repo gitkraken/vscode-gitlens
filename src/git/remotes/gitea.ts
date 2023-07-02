@@ -1,10 +1,10 @@
-'use strict';
-import { Range, Uri } from 'vscode';
-import { DynamicAutolinkReference } from '../../annotations/autolinks';
-import { AutolinkReference } from '../../config';
-import { GitRevision } from '../models/models';
-import { Repository } from '../models/repository';
-import { RemoteProvider } from './provider';
+import type { Range, Uri } from 'vscode';
+import type { DynamicAutolinkReference } from '../../annotations/autolinks';
+import type { AutolinkReference } from '../../config';
+import { AutolinkType } from '../../config';
+import { isSha } from '../models/reference';
+import type { Repository } from '../models/repository';
+import { RemoteProvider } from './remoteProvider';
 
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/src(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;
@@ -22,6 +22,9 @@ export class GiteaRemote extends RemoteProvider {
 					prefix: '#',
 					url: `${this.baseUrl}/issues/<num>`,
 					title: `Open Issue #<num> on ${this.name}`,
+
+					type: AutolinkType.Issue,
+					description: `${this.name} Issue #<num>`,
 				},
 			];
 		}
@@ -76,36 +79,38 @@ export class GiteaRemote extends RemoteProvider {
 			index = path.indexOf('/', offset);
 			if (index !== -1) {
 				const sha = path.substring(offset, index);
-				if (GitRevision.isSha(sha)) {
+				if (isSha(sha)) {
 					const uri = repository.toAbsoluteUri(path.substr(index), { validate: options?.validate });
 					if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
 				}
 			}
 		}
 
-		const branches = new Set<string>(
-			(
-				await repository.getBranches({
-					filter: b => b.remote,
-				})
-			).map(b => b.getNameWithoutRemote()),
-		);
-
 		// Check for a link with branch (and deal with branch names with /)
 		if (path.startsWith('/branch/')) {
 			let branch;
+			const possibleBranches = new Map<string, string>();
 			offset = '/branch/'.length;
 			index = offset;
 			do {
 				branch = path.substring(offset, index);
-
-				if (branches.has(branch)) {
-					const uri = repository.toAbsoluteUri(path.substr(index), { validate: options?.validate });
-					if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
-				}
+				possibleBranches.set(branch, path.substr(index));
 
 				index = path.indexOf('/', index + 1);
 			} while (index < path.length && index !== -1);
+
+			if (possibleBranches.size !== 0) {
+				const { values: branches } = await repository.getBranches({
+					filter: b => b.remote && possibleBranches.has(b.getNameWithoutRemote()),
+				});
+				for (const branch of branches) {
+					const path = possibleBranches.get(branch.getNameWithoutRemote());
+					if (path == null) continue;
+
+					const uri = repository.toAbsoluteUri(path, { validate: options?.validate });
+					if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
+				}
+			}
 		}
 
 		return undefined;
@@ -139,9 +144,9 @@ export class GiteaRemote extends RemoteProvider {
 			line = '';
 		}
 
-		if (sha) return this.encodeUrl(`${this.baseUrl}/src/commit/${sha}/${fileName}${line}`);
-		if (branch) return this.encodeUrl(`${this.baseUrl}/src/branch/${branch}/${fileName}${line}`);
+		if (sha) return `${this.encodeUrl(`${this.baseUrl}/src/commit/${sha}/${fileName}`)}${line}`;
+		if (branch) return `${this.encodeUrl(`${this.baseUrl}/src/branch/${branch}/${fileName}`)}${line}`;
 		// this route is deprecated but there is no alternative
-		return this.encodeUrl(`${this.baseUrl}/src/${fileName}${line}`);
+		return `${this.encodeUrl(`${this.baseUrl}/src/${fileName}`)}${line}`;
 	}
 }

@@ -1,4 +1,4 @@
-'use strict';
+import { compareIgnoreCase } from './string';
 
 declare type VersionComparisonResult = -1 | 0 | 1;
 
@@ -29,9 +29,7 @@ export function compare(v1: string | Version, v2: string | Version): VersionComp
 	if (v1.pre === undefined && v2.pre !== undefined) return 1;
 	if (v1.pre !== undefined && v2.pre === undefined) return -1;
 
-	if (v1.pre !== undefined && v2.pre !== undefined) {
-		return v1.pre.localeCompare(v2.pre) as VersionComparisonResult;
-	}
+	if (v1.pre !== undefined && v2.pre !== undefined) return compareIgnoreCase(v1.pre, v2.pre);
 
 	return 0;
 }
@@ -49,4 +47,27 @@ export function fromString(version: string): Version {
 	const [ver, pre] = version.split('-');
 	const [major, minor, patch] = ver.split('.');
 	return from(major, minor, patch, pre);
+}
+
+export function satisfies(
+	v: string | Version | null | undefined,
+	requirement: `${'=' | '>' | '>=' | '<' | '<='} ${string}`,
+): boolean {
+	if (v == null) return false;
+
+	const [op, version] = requirement.split(' ');
+
+	if (op === '=') {
+		return compare(v, version) === 0;
+	} else if (op === '>') {
+		return compare(v, version) > 0;
+	} else if (op === '>=') {
+		return compare(v, version) >= 0;
+	} else if (op === '<') {
+		return compare(v, version) < 0;
+	} else if (op === '<=') {
+		return compare(v, version) <= 0;
+	}
+
+	throw new Error(`Unknown operator: ${op}`);
 }

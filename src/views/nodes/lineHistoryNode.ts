@@ -1,61 +1,63 @@
-'use strict';
 import { Disposable, Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { Container } from '../../container';
-import {
-	GitBranch,
-	GitCommitType,
-	GitFile,
-	GitFileIndexStatus,
-	GitLog,
-	GitLogCommit,
-	GitRevision,
-	RepositoryChange,
-	RepositoryChangeComparisonMode,
-	RepositoryChangeEvent,
-	RepositoryFileSystemChangeEvent,
-} from '../../git/git';
-import { GitUri } from '../../git/gitUri';
-import { Logger } from '../../logger';
-import { debug, gate, Iterables, memoize } from '../../system';
-import { FileHistoryView } from '../fileHistoryView';
-import { LineHistoryView } from '../lineHistoryView';
+import type { GitUri } from '../../git/gitUri';
+import type { GitBranch } from '../../git/models/branch';
+import { deletedOrMissing } from '../../git/models/constants';
+import type { GitFile } from '../../git/models/file';
+import { GitFileIndexStatus } from '../../git/models/file';
+import type { GitLog } from '../../git/models/log';
+import { isUncommitted } from '../../git/models/reference';
+import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
+import { memoize } from '../../system/decorators/memoize';
+import { filterMap } from '../../system/iterable';
+import { Logger } from '../../system/logger';
+import type { FileHistoryView } from '../fileHistoryView';
+import type { LineHistoryView } from '../lineHistoryView';
 import { LoadMoreNode, MessageNode } from './common';
 import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
 import { insertDateMarkers } from './helpers';
 import { LineHistoryTrackerNode } from './lineHistoryTrackerNode';
-import { RepositoryNode } from './repositoryNode';
-import { ContextValues, PageableViewNode, SubscribeableViewNode, ViewNode } from './viewNode';
+import type { PageableViewNode, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 
 export class LineHistoryNode
 	extends SubscribeableViewNode<FileHistoryView | LineHistoryView>
 	implements PageableViewNode
 {
-	static key = ':history:line';
-	static getId(repoPath: string, uri: string, selection: Selection): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${uri}[${selection.start.line},${
-			selection.start.character
-		}-${selection.end.line},${selection.end.character}])`;
-	}
+	limit: number | undefined;
 
 	protected override splatted = true;
 
 	constructor(
 		uri: GitUri,
 		view: FileHistoryView | LineHistoryView,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		private readonly branch: GitBranch | undefined,
 		public readonly selection: Selection,
 		private readonly editorContents: string | undefined,
 	) {
 		super(uri, view, parent);
+
+		if (branch != null) {
+			this.updateContext({ branch: branch });
+		}
+		this._uniqueId = getViewNodeId(
+			`file-history+${uri.toString()}+[${selection.start.line},${selection.start.character}-${
+				selection.end.line
+			},${selection.end.character}]`,
+			this.context,
+		);
+		this.limit = this.view.getNodeLastKnownLimit(this);
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
 		return this.uri.fileName;
-	}
-
-	override get id(): string {
-		return LineHistoryNode.getId(this.uri.repoPath!, this.uri.toString(true), this.selection);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -64,156 +66,88 @@ export class LineHistoryNode
 		}`;
 
 		const children: ViewNode[] = [];
+		if (this.uri.repoPath == null) return children;
 
 		let selection = this.selection;
 
-		const range = this.branch != null ? await Container.git.getBranchAheadRange(this.branch) : undefined;
+		const range = this.branch != null ? await this.view.container.git.getBranchAheadRange(this.branch) : undefined;
 		const [log, blame, getBranchAndTagTips, unpublishedCommits] = await Promise.all([
 			this.getLog(selection),
-			this.uri.sha == null
+			this.uri.sha == null || isUncommitted(this.uri.sha)
 				? this.editorContents
-					? await Container.git.getBlameForRangeContents(this.uri, selection, this.editorContents)
-					: await Container.git.getBlameForRange(this.uri, selection)
+					? await this.view.container.git.getBlameForRangeContents(this.uri, selection, this.editorContents)
+					: await this.view.container.git.getBlameForRange(this.uri, selection)
 				: undefined,
 			this.branch != null
-				? Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name)
+				? this.view.container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name)
 				: undefined,
 			range
-				? Container.git.getLogRefsOnly(this.uri.repoPath!, {
+				? this.view.container.git.getLogRefsOnly(this.uri.repoPath, {
 						limit: 0,
 						ref: range,
 				  })
 				: undefined,
 		]);
 
-		if (this.uri.sha == null) {
-			// Check for any uncommitted changes in the range
-			if (blame != null) {
-				for (const commit of blame.commits.values()) {
-					if (!commit.isUncommitted) continue;
+		// Check for any uncommitted changes in the range
+		if (blame != null) {
+			for (const commit of blame.commits.values()) {
+				if (!commit.isUncommitted) continue;
 
-					const firstLine = blame.lines[0];
-					const lastLine = blame.lines[blame.lines.length - 1];
+				const firstLine = blame.lines[0];
+				const lastLine = blame.lines[blame.lines.length - 1];
 
-					// Since there could be a change in the line numbers, update the selection
-					const firstActive = selection.active.line === firstLine.line - 1;
-					selection = new Selection(
-						(firstActive ? lastLine : firstLine).originalLine - 1,
-						selection.anchor.character,
-						(firstActive ? firstLine : lastLine).originalLine - 1,
-						selection.active.character,
-					);
+				// Since there could be a change in the line numbers, update the selection
+				const firstActive = selection.active.line === firstLine.line - 1;
+				selection = new Selection(
+					(firstActive ? lastLine : firstLine).originalLine - 1,
+					selection.anchor.character,
+					(firstActive ? firstLine : lastLine).originalLine - 1,
+					selection.active.character,
+				);
 
-					const status = await Container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
+				const status = await this.view.container.git.getStatusForFile(this.uri.repoPath, this.uri);
 
+				if (status != null) {
 					const file: GitFile = {
 						conflictStatus: status?.conflictStatus,
-						fileName: commit.fileName,
+						path: commit.file?.path ?? '',
 						indexStatus: status?.indexStatus,
-						originalFileName: commit.originalFileName,
-						repoPath: this.uri.repoPath!,
+						originalPath: commit.file?.originalPath,
+						repoPath: this.uri.repoPath,
 						status: status?.status ?? GitFileIndexStatus.Modified,
 						workingTreeStatus: status?.workingTreeStatus,
 					};
 
-					if (status?.workingTreeStatus != null && status?.indexStatus != null) {
-						let uncommitted = new GitLogCommit(
-							GitCommitType.LogFile,
-							this.uri.repoPath!,
-							GitRevision.uncommittedStaged,
-							'You',
-							commit.email,
-							commit.authorDate,
-							commit.committerDate,
-							commit.message,
-							commit.fileName,
-							[file],
-							GitFileIndexStatus.Modified,
-							commit.originalFileName,
-							commit.previousSha,
-							commit.originalFileName ?? commit.fileName,
-						);
-
-						children.splice(
-							0,
-							0,
-							new FileRevisionAsCommitNode(this.view, this, file, uncommitted, {
-								selection: selection,
-							}),
-						);
-
-						uncommitted = new GitLogCommit(
-							GitCommitType.LogFile,
-							this.uri.repoPath!,
-							GitRevision.uncommitted,
-							'You',
-							commit.email,
-							commit.authorDate,
-							commit.committerDate,
-							commit.message,
-							commit.fileName,
-							[file],
-							GitFileIndexStatus.Modified,
-							commit.originalFileName,
-							GitRevision.uncommittedStaged,
-							commit.originalFileName ?? commit.fileName,
-						);
-
-						children.splice(
-							0,
-							0,
-							new FileRevisionAsCommitNode(this.view, this, file, uncommitted, {
-								selection: selection,
-							}),
-						);
-					} else {
-						const uncommitted = new GitLogCommit(
-							GitCommitType.LogFile,
-							this.uri.repoPath!,
-							status?.workingTreeStatus != null
-								? GitRevision.uncommitted
-								: status?.indexStatus != null
-								? GitRevision.uncommittedStaged
-								: commit.sha,
-							'You',
-							commit.email,
-							commit.authorDate,
-							commit.committerDate,
-							commit.message,
-							commit.fileName,
-							[file],
-							GitFileIndexStatus.Modified,
-							commit.originalFileName,
-							commit.previousSha,
-							commit.originalFileName ?? commit.fileName,
-						);
-
-						children.splice(
-							0,
-							0,
-							new FileRevisionAsCommitNode(this.view, this, file, uncommitted, {
-								selection: selection,
-							}),
-						);
+					const currentUser = await this.view.container.git.getCurrentUser(this.uri.repoPath);
+					const pseudoCommits = status?.getPseudoCommits(this.view.container, currentUser);
+					if (pseudoCommits != null) {
+						for (const commit of pseudoCommits.reverse()) {
+							children.unshift(
+								new FileRevisionAsCommitNode(this.view, this, file, commit, {
+									selection: selection,
+								}),
+							);
+						}
 					}
-
-					break;
 				}
+
+				break;
 			}
 		}
 
 		if (log != null) {
 			children.push(
 				...insertDateMarkers(
-					Iterables.filterMap(
-						log.commits.values(),
-						c =>
-							new FileRevisionAsCommitNode(this.view, this, c.files[0], c, {
-								branch: this.branch,
-								getBranchAndTagTips: getBranchAndTagTips,
-								selection: selection,
-								unpublished: unpublishedCommits?.has(c.ref),
-							}),
+					filterMap(log.commits.values(), c =>
+						c.file != null
+							? new FileRevisionAsCommitNode(this.view, this, c.file, c, {
+									branch: this.branch,
+									getBranchAndTagTips: getBranchAndTagTips,
+									selection: selection,
+									unpublished: unpublishedCommits?.has(c.ref),
+							  })
+							: undefined,
 					),
 					this,
 				),
@@ -248,9 +182,7 @@ export class LineHistoryNode
 
 	get label() {
 		return `${this.uri.fileName}${this.lines}${
-			this.uri.sha
-				? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
-				: ''
+			this.uri.sha ? ` ${this.uri.sha === deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}` : ''
 		}`;
 	}
 
@@ -262,8 +194,8 @@ export class LineHistoryNode
 	}
 
 	@debug()
-	protected async subscribe() {
-		const repo = await Container.git.getRepository(this.uri);
+	protected subscribe() {
+		const repo = this.view.container.git.getRepository(this.uri);
 		if (repo == null) return undefined;
 
 		const subscription = Disposable.from(
@@ -275,8 +207,8 @@ export class LineHistoryNode
 		return subscription;
 	}
 
-	protected override get requiresResetOnVisible(): boolean {
-		return true;
+	protected override etag(): number {
+		return Date.now();
 	}
 
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
@@ -318,7 +250,7 @@ export class LineHistoryNode
 	private _log: GitLog | undefined;
 	private async getLog(selection?: Selection) {
 		if (this._log == null) {
-			this._log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
+			this._log = await this.view.container.git.getLogForFile(this.uri.repoPath, this.uri, {
 				all: false,
 				limit: this.limit ?? this.view.config.pageItemLimit,
 				range: selection ?? this.selection,
@@ -334,7 +266,6 @@ export class LineHistoryNode
 		return this._log?.hasMore ?? true;
 	}
 
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	@gate()
 	async loadMore(limit?: number | { until?: any }) {
 		let log = await window.withProgress(

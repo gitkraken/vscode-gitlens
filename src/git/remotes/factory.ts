@@ -5,7 +5,6 @@ import { AzureDevOpsRemote } from './azure-devops';
 import { BitbucketRemote } from './bitbucket';
 import { BitbucketServerRemote } from './bitbucket-server';
 import { CustomRemote } from './custom';
-import { GerritRemote } from './gerrit';
 import { GiteaRemote } from './gitea';
 import { GitHubRemote } from './github';
 import { GitLabRemote } from './gitlab';
@@ -59,21 +58,14 @@ const builtInProviders: RemoteProviders = [
 		matcher: /\bgitea\b/i,
 		creator: (domain: string, path: string) => new GiteaRemote(domain, path),
 	},
-	{
-		custom: false,
-		matcher: /\bgooglesource\.com$/i,
-		creator: (domain: string, path: string) => new GerritRemote(domain, path),
-	},
 ];
 
 export class RemoteProviderFactory {
-	static factory(
-		providers: RemoteProviders,
-	): (url: string, domain: string, path: string) => RemoteProvider | undefined {
-		return (url: string, domain: string, path: string) => this.create(providers, url, domain, path);
+	static factory(providers: RemoteProviders): (domain: string, path: string) => RemoteProvider | undefined {
+		return (domain: string, path: string) => this.create(providers, domain, path);
 	}
 
-	static create(providers: RemoteProviders, url: string, domain: string, path: string): RemoteProvider | undefined {
+	static create(providers: RemoteProviders, domain: string, path: string): RemoteProvider | undefined {
 		try {
 			const key = domain.toLowerCase();
 			for (const { custom, matcher, creator } of providers) {
@@ -86,7 +78,7 @@ export class RemoteProviderFactory {
 				if (matcher.test(key)) return creator(domain, path);
 				if (!custom) continue;
 
-				const match = matcher.exec(url);
+				const match = matcher.exec(`${domain}/${path}`);
 				if (match != null) {
 					return creator(match[1], match[2]);
 				}
@@ -130,8 +122,6 @@ export class RemoteProviderFactory {
 
 	private static getCustomProvider(cfg: RemotesConfig) {
 		switch (cfg.type) {
-			case CustomRemoteType.AzureDevOps:
-				return (domain: string, path: string) => new AzureDevOpsRemote(domain, path, cfg.protocol, cfg.name, true);
 			case CustomRemoteType.Bitbucket:
 				return (domain: string, path: string) =>
 					new BitbucketRemote(domain, path, cfg.protocol, cfg.name, true);
@@ -141,8 +131,6 @@ export class RemoteProviderFactory {
 			case CustomRemoteType.Custom:
 				return (domain: string, path: string) =>
 					new CustomRemote(domain, path, cfg.urls!, cfg.protocol, cfg.name);
-			case CustomRemoteType.Gerrit:
-				return (domain: string, path: string) => new GerritRemote(domain, path, cfg.protocol, cfg.name, true);
 			case CustomRemoteType.Gitea:
 				return (domain: string, path: string) => new GiteaRemote(domain, path, cfg.protocol, cfg.name, true);
 			case CustomRemoteType.GitHub:

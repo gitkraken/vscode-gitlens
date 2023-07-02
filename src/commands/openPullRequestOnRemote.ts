@@ -1,8 +1,10 @@
-'use strict';
 import { env, Uri } from 'vscode';
-import { Container } from '../container';
-import { PullRequestNode } from '../views/nodes';
-import { Command, command, CommandContext, Commands } from './common';
+import { Commands } from '../constants';
+import type { Container } from '../container';
+import { command } from '../system/command';
+import { PullRequestNode } from '../views/nodes/pullRequestNode';
+import type { CommandContext } from './base';
+import { Command } from './base';
 
 export interface OpenPullRequestOnRemoteCommandArgs {
 	clipboard?: boolean;
@@ -13,7 +15,7 @@ export interface OpenPullRequestOnRemoteCommandArgs {
 
 @command()
 export class OpenPullRequestOnRemoteCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super([Commands.OpenPullRequestOnRemote, Commands.CopyRemotePullRequestUrl]);
 	}
 
@@ -33,10 +35,10 @@ export class OpenPullRequestOnRemoteCommand extends Command {
 		if (args?.pr == null) {
 			if (args?.repoPath == null || args?.ref == null) return;
 
-			const remote = await Container.git.getRichRemoteProvider(args.repoPath);
+			const remote = await this.container.git.getBestRemoteWithRichProvider(args.repoPath);
 			if (remote?.provider == null) return;
 
-			const pr = await Container.git.getPullRequestForCommit(args.ref, remote.provider);
+			const pr = await this.container.git.getPullRequestForCommit(args.ref, remote.provider);
 			if (pr == null) return;
 
 			args = { ...args };
@@ -44,7 +46,7 @@ export class OpenPullRequestOnRemoteCommand extends Command {
 		}
 
 		if (args.clipboard) {
-			void (await env.clipboard.writeText(args.pr.url));
+			await env.clipboard.writeText(args.pr.url);
 		} else {
 			void env.openExternal(Uri.parse(args.pr.url));
 		}

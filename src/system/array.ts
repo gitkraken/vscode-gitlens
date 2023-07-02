@@ -1,6 +1,4 @@
-'use strict';
-
-export { findLastIndex, intersection } from 'lodash-es';
+import { join } from './iterable';
 
 export function chunk<T>(source: T[], size: number): T[][] {
 	const chunks = [];
@@ -34,36 +32,54 @@ export function ensure<T>(source: T | T[] | undefined): T[] | undefined {
 	return source == null ? undefined : Array.isArray(source) ? source : [source];
 }
 
+export async function filterAsync<T>(source: T[], predicate: (item: T) => Promise<boolean>): Promise<T[]> {
+	const filtered = [];
+	for (const item of source) {
+		if (await predicate(item)) {
+			filtered.push(item);
+		}
+	}
+	return filtered;
+}
+
 export function filterMap<T, TMapped>(
 	source: T[],
 	predicateMapper: (item: T, index: number) => TMapped | null | undefined,
 ): TMapped[] {
 	let index = 0;
-	return source.reduce((accumulator, current) => {
+	return source.reduce<TMapped[]>((accumulator, current) => {
 		const mapped = predicateMapper(current, index++);
 		if (mapped != null) {
 			accumulator.push(mapped);
 		}
 		return accumulator;
-	}, [] as TMapped[]);
+	}, []);
 }
 
-export function filterMapAsync<T, TMapped>(
+export async function filterMapAsync<T, TMapped>(
 	source: T[],
-	predicateMapper: (item: T, index: number) => Promise<TMapped | null | undefined>,
+	predicateMapper: (item: T) => Promise<TMapped | null | undefined>,
 ): Promise<TMapped[]> {
-	let index = 0;
-	return source.reduce(async (accumulator, current) => {
-		const mapped = await predicateMapper(current, index++);
+	const filteredAndMapped = [];
+	for (const item of source) {
+		const mapped = await predicateMapper(item);
 		if (mapped != null) {
-			accumulator.push(mapped);
+			filteredAndMapped.push(mapped);
 		}
-		return accumulator;
-	}, [] as any);
+	}
+	return filteredAndMapped;
 }
 
-export function groupBy<T>(source: T[], groupingKey: (item: T) => string): Record<string, T[]> {
-	return source.reduce((groupings, current) => {
+export function findLastIndex<T>(source: T[], predicate: (value: T, index: number, obj: T[]) => boolean): number {
+	let l = source.length;
+	while (l--) {
+		if (predicate(source[l], l, source)) return l;
+	}
+	return -1;
+}
+
+export function groupBy<T>(source: readonly T[], groupingKey: (item: T) => string): Record<string, T[]> {
+	return source.reduce<Record<string, T[]>>((groupings, current) => {
 		const value = groupingKey(current);
 		const group = groupings[value];
 		if (group === undefined) {
@@ -72,10 +88,13 @@ export function groupBy<T>(source: T[], groupingKey: (item: T) => string): Recor
 			group.push(current);
 		}
 		return groupings;
-	}, Object.create(null) as Record<string, T[]>);
+	}, Object.create(null));
 }
 
-export function groupByMap<TKey, TValue>(source: TValue[], groupingKey: (item: TValue) => TKey): Map<TKey, TValue[]> {
+export function groupByMap<TKey, TValue>(
+	source: readonly TValue[],
+	groupingKey: (item: TValue) => TKey,
+): Map<TKey, TValue[]> {
 	return source.reduce((groupings, current) => {
 		const value = groupingKey(current);
 		const group = groupings.get(value);
@@ -89,7 +108,7 @@ export function groupByMap<TKey, TValue>(source: TValue[], groupingKey: (item: T
 }
 
 export function groupByFilterMap<TKey, TValue, TMapped>(
-	source: TValue[],
+	source: readonly TValue[],
 	groupingKey: (item: TValue) => TKey,
 	predicateMapper: (item: TValue) => TMapped | null | undefined,
 ): Map<TKey, TMapped[]> {
@@ -108,7 +127,25 @@ export function groupByFilterMap<TKey, TValue, TMapped>(
 	}, new Map<TKey, TMapped[]>());
 }
 
-export function isStringArray<T extends any[]>(array: string[] | T): array is string[] {
+export function intersection<T>(sources: T[][], comparator: (a: T, b: T) => boolean): T[] {
+	const results: T[] = [];
+
+	const length = sources.length;
+	outer: for (const item of sources[0]) {
+		let i = length - 1;
+		while (i--) {
+			if (!sources[i + 1].some(v => comparator(v, item))) break outer;
+		}
+
+		if (!results.some(v => comparator(v, item))) {
+			results.push(item);
+		}
+	}
+
+	return results;
+}
+
+export function isStringArray<T extends any[]>(array: readonly string[] | T): array is string[] {
 	return typeof array[0] === 'string';
 }
 
@@ -205,18 +242,30 @@ export function compactHierarchy<T>(
 	return root;
 }
 
+export function unique<T>(source: readonly T[]): T[] {
+	return [...new Set(source)];
+}
+
+export function joinUnique<T>(source: readonly T[], separator: string): string {
+	return join(new Set(source), separator);
+}
+
+export function splitAt<T>(source: T[], index: number): [T[], T[]] {
+	return index < 0 ? [source, []] : [source.slice(0, index), source.slice(index)];
+}
+
 export function uniqueBy<TKey, TValue>(
-	source: TValue[],
+	source: readonly TValue[],
 	uniqueKey: (item: TValue) => TKey,
-	onDeduplicate: (original: TValue, current: TValue) => TValue | void,
-) {
+	onDuplicate: (original: TValue, current: TValue) => TValue | void,
+): TValue[] {
 	const map = source.reduce((uniques, current) => {
 		const value = uniqueKey(current);
 		const original = uniques.get(value);
 		if (original === undefined) {
 			uniques.set(value, current);
 		} else {
-			const updated = onDeduplicate(original, current);
+			const updated = onDuplicate(original, current);
 			if (updated !== undefined) {
 				uniques.set(value, updated);
 			}

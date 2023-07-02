@@ -1,16 +1,16 @@
-'use strict';
-import { debug } from '../../system';
-import { GitTree } from '../git';
+import { debug } from '../../system/decorators/log';
+import type { GitTreeEntry } from '../models/tree';
 
 const emptyStr = '';
 const treeRegex = /(?:.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s+(.+)/gm;
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class GitTreeParser {
 	@debug({ args: false, singleLine: true })
-	static parse(data: string | undefined): GitTree[] | undefined {
+	static parse(data: string | undefined): GitTreeEntry[] | undefined {
 		if (!data) return undefined;
 
-		const trees: GitTree[] = [];
+		const trees: GitTreeEntry[] = [];
 
 		let type;
 		let sha;

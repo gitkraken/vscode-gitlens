@@ -1,25 +1,26 @@
-'use strict';
-import { Container } from '../container';
-import { command, Command, Commands } from './common';
+import { Commands } from '../constants';
+import type { Container } from '../container';
+import { command } from '../system/command';
+import { Command } from './base';
 
 @command()
 export class DisableRebaseEditorCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.DisableRebaseEditor);
 	}
 
 	execute() {
-		return Container.rebaseEditor.setEnabled(false);
+		return this.container.rebaseEditor.setEnabled(false);
 	}
 }
 
 @command()
 export class EnableRebaseEditorCommand extends Command {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.EnableRebaseEditor);
 	}
 
 	execute() {
-		return Container.rebaseEditor.setEnabled(true);
+		return this.container.rebaseEditor.setEnabled(true);
 	}
 }

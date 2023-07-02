@@ -1,25 +1,27 @@
-'use strict';
-import { ConfigurationChangeEvent, Disposable, languages } from 'vscode';
-import { configuration } from '../configuration';
-import { ContextKeys, setContext } from '../constants';
-import { Container } from '../container';
-import { Logger } from '../logger';
-import {
+import type { ConfigurationChangeEvent } from 'vscode';
+import { Disposable, languages } from 'vscode';
+import type { Container } from '../container';
+import { configuration } from '../system/configuration';
+import { setContext } from '../system/context';
+import { once } from '../system/event';
+import { Logger } from '../system/logger';
+import type {
 	DocumentBlameStateChangeEvent,
 	DocumentDirtyIdleTriggerEvent,
 	GitDocumentState,
 } from '../trackers/gitDocumentTracker';
-import { GitCodeLensProvider } from './codeLensProvider';
 
 export class GitCodeLensController implements Disposable {
 	private _canToggle: boolean = false;
 	private _disposable: Disposable | undefined;
-	private _provider: GitCodeLensProvider | undefined;
+	private _provider: import('./codeLensProvider').GitCodeLensProvider | undefined;
 	private _providerDisposable: Disposable | undefined;
 
-	constructor() {
-		this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
-		this.onConfigurationChanged();
+	constructor(private readonly container: Container) {
+		this._disposable = Disposable.from(
+			once(container.onReady)(this.onReady, this),
+			configuration.onDidChange(this.onConfigurationChanged, this),
+		);
 	}
 
 	dispose() {
@@ -27,42 +29,41 @@ export class GitCodeLensController implements Disposable {
 		this._disposable?.dispose();
 	}
 
+	private onReady(): void {
+		this.onConfigurationChanged();
+	}
+
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
-		if (
-			configuration.changed(e, 'codeLens') ||
-			configuration.changed(e, 'defaultDateFormat') ||
-			configuration.changed(e, 'defaultDateSource') ||
-			configuration.changed(e, 'defaultDateStyle')
-		) {
+		if (configuration.changed(e, ['codeLens', 'defaultDateFormat', 'defaultDateSource', 'defaultDateStyle'])) {
 			if (e != null) {
 				Logger.log('CodeLens config changed; resetting CodeLens provider');
 			}
 
-			const cfg = Container.config.codeLens;
+			const cfg = configuration.get('codeLens');
 			if (cfg.enabled && (cfg.recentChange.enabled || cfg.authors.enabled)) {
-				this.ensureProvider();
+				void this.ensureProvider();
 			} else {
 				this._providerDisposable?.dispose();
 				this._provider = undefined;
 			}
 
 			this._canToggle = cfg.recentChange.enabled || cfg.authors.enabled;
-			void setContext(ContextKeys.DisabledToggleCodeLens, !this._canToggle);
+			void setContext('gitlens:disabledToggleCodeLens', !this._canToggle);
 		}
 	}
 
 	private onBlameStateChanged(e: DocumentBlameStateChangeEvent<GitDocumentState>) {
-		// Only reset if we have saved, since the code lens won't naturally be re-rendered
-		if (this._provider === undefined || !e.blameable) return;
+		// Only reset if we have saved, since the CodeLens won't naturally be re-rendered
+		if (this._provider == null || !e.blameable) return;
 
 		Logger.log('Blame state changed; resetting CodeLens provider');
 		this._provider.reset('saved');
 	}
 
 	private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) {
-		if (this._provider === undefined || !e.document.isBlameable) return;
+		if (this._provider == null || !e.document.isBlameable) return;
 
-		const maxLines = Container.config.advanced.blame.sizeThresholdAfterEdit;
+		const maxLines = configuration.get('advanced.blame.sizeThresholdAfterEdit');
 		if (maxLines > 0 && e.document.lineCount > maxLines) return;
 
 		Logger.log('Dirty idle triggered; resetting CodeLens provider');
@@ -73,18 +74,18 @@ export class GitCodeLensController implements Disposable {
 		if (!this._canToggle) return;
 
 		Logger.log('toggleCodeLens()');
-		if (this._provider !== undefined) {
+		if (this._provider != null) {
 			this._providerDisposable?.dispose();
 			this._provider = undefined;
 
 			return;
 		}
 
-		this.ensureProvider();
+		void this.ensureProvider();
 	}
 
-	private ensureProvider() {
-		if (this._provider !== undefined) {
+	private async ensureProvider() {
+		if (this._provider != null) {
 			this._provider.reset();
 
 			return;
@@ -92,11 +93,13 @@ export class GitCodeLensController implements Disposable {
 
 		this._providerDisposable?.dispose();
 
-		this._provider = new GitCodeLensProvider(Container.context, Container.git, Container.tracker);
+		const { GitCodeLensProvider } = await import(/* webpackChunkName: "codelens" */ './codeLensProvider');
+
+		this._provider = new GitCodeLensProvider(this.container);
 		this._providerDisposable = Disposable.from(
 			languages.registerCodeLensProvider(GitCodeLensProvider.selector, this._provider),
-			Container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
-			Container.tracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this),
+			this.container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
+			this.container.tracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this),
 		);
 	}
 }

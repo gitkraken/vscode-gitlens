@@ -14,7 +14,7 @@ import { AutolinkReference } from '../../config';
 import { WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { Logger } from '../../logger';
-import { debug, Encoding, gate, log, Promises } from '../../system';
+import { debug, gate, log, Promises } from '../../system';
 import {
 	Account,
 	DefaultBranch,
@@ -234,7 +234,7 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 	protected encodeUrl(url: string): string;
 	protected encodeUrl(url: string | undefined): string | undefined;
 	protected encodeUrl(url: string | undefined): string | undefined {
-		return Encoding.encodeUrl(url);
+		return url != null ? encodeURI(url).replace(/#/g, '%23') : undefined;
 	}
 }
 
@@ -250,7 +250,7 @@ export class AuthenticationError extends Error {
 	constructor(private original: Error) {
 		super(original.message);
 
-		Error.captureStackTrace?.(this, AuthenticationError);
+		Error.captureStackTrace(this, AuthenticationError);
 	}
 }
 
@@ -258,14 +258,14 @@ export class ClientError extends Error {
 	constructor(private original: Error) {
 		super(original.message);
 
-		Error.captureStackTrace?.(this, ClientError);
+		Error.captureStackTrace(this, ClientError);
 	}
 }
 
 // TODO@eamodio revisit how once authenticated, all remotes are always connected, even after a restart
 
 export abstract class RichRemoteProvider extends RemoteProvider {
-	override readonly type: 'simple' | 'rich' = 'rich';
+	readonly type: 'simple' | 'rich' = 'rich';
 
 	static is(provider: RemoteProvider | undefined): provider is RichRemoteProvider {
 		return provider?.type === 'rich';
@@ -578,11 +578,24 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			return undefined;
 		}
 
-		let session;
+		let session: AuthenticationSession | undefined | null;
 		try {
-			session = await authentication.getSession(this.authProvider.id, this.authProvider.scopes, {
-				createIfNone: createIfNeeded,
-			});
+			//TODO: Remove 'if' block when VSCode auth provider api can work with personal tokens or 'gitlab'
+			if (this.authProvider.id === 'gitlab') {
+				session = (await (await Container.gitlab)?.authService.askForToken().then((token: string | void) => ({
+					id: 'gitlab',
+					accessToken: token,
+					account: {
+						id: '',
+						label: '',
+					},
+					scopes: ['repo'],
+				}))) as AuthenticationSession;
+			} else {
+				session = await authentication.getSession(this.authProvider.id, this.authProvider.scopes, {
+					createIfNone: createIfNeeded,
+				});
+			}
 		} catch (ex) {
 			await Container.context.workspaceState.update(this.connectedKey, undefined);
 

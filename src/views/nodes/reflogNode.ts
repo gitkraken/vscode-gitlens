@@ -1,30 +1,37 @@
-'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { Container } from '../../container';
-import { GitReflog, Repository } from '../../git/git';
-import { GitUri } from '../../git/gitUri';
-import { debug, gate } from '../../system';
-import { RepositoriesView } from '../repositoriesView';
+import type { GitUri } from '../../git/gitUri';
+import type { GitReflog } from '../../git/models/reflog';
+import type { Repository } from '../../git/models/repository';
+import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
+import type { RepositoriesView } from '../repositoriesView';
+import type { WorkspacesView } from '../workspacesView';
 import { LoadMoreNode, MessageNode } from './common';
 import { ReflogRecordNode } from './reflogRecordNode';
-import { RepositoryNode } from './repositoryNode';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class ReflogNode extends ViewNode<RepositoriesView> implements PageableViewNode {
-	static key = ':reflog';
-	static getId(repoPath: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}`;
-	}
+export class ReflogNode extends ViewNode<RepositoriesView | WorkspacesView> implements PageableViewNode {
+	limit: number | undefined;
 
-	private _children: ViewNode[] | undefined;
-
-	constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
+	constructor(
+		uri: GitUri,
+		view: RepositoriesView | WorkspacesView,
+		parent: ViewNode,
+		public readonly repo: Repository,
+	) {
 		super(uri, view, parent);
+
+		this.updateContext({ repository: repo });
+		this._uniqueId = getViewNodeId('reflog', this.context);
+		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 
 	override get id(): string {
-		return ReflogNode.getId(this.repo.path);
+		return this._uniqueId;
 	}
+
+	private _children: ViewNode[] | undefined;
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children === undefined) {
@@ -52,8 +59,8 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 		item.contextValue = ContextValues.Reflog;
 		item.description = 'experimental';
 		item.iconPath = {
-			dark: Container.context.asAbsolutePath('images/dark/icon-activity.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-activity.svg'),
+			dark: this.view.container.context.asAbsolutePath('images/dark/icon-activity.svg'),
+			light: this.view.container.context.asAbsolutePath('images/light/icon-activity.svg'),
 		};
 
 		return item;
@@ -71,7 +78,7 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 	private _reflog: GitReflog | undefined;
 	private async getReflog() {
 		if (this._reflog === undefined) {
-			this._reflog = await Container.git.getIncomingActivity(this.repo.path, {
+			this._reflog = await this.view.container.git.getIncomingActivity(this.repo.path, {
 				all: true,
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 			});
@@ -84,7 +91,6 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 		return this._reflog?.hasMore ?? true;
 	}
 
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	async loadMore(limit?: number) {
 		let reflog = await this.getReflog();
 		if (reflog === undefined || !reflog.hasMore) return;

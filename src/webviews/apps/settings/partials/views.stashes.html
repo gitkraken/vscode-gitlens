@@ -5,7 +5,7 @@
 			<a
 				class="link__learn-more"
 				title="Learn more"
-				href="https://github.com/eamodio/vscode-gitlens/#stashes-view-"
+				href="https://help.gitkraken.com/gitlens/side-bar/#stashes-view"
 			>
 				<i class="icon icon__info"></i>
 			</a>
@@ -38,6 +38,18 @@
 						<p class="setting__hint" data-visibility="views.stashes.files.layout =auto">
 							Chooses the best layout based on the number of files at each nesting level
 						</p>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input">
+							<label for="views.stashes.files.icon">File icons</label>
+							<div class="select-container">
+								<select id="views.stashes.files.icon" name="views.stashes.files.icon" data-setting>
+									<option value="type">show file type (default)</option>
+									<option value="status">show file status</option>
+								</select>
+							</div>
+						</div>
 					</div>
 
 					<div class="setting">
@@ -88,10 +100,10 @@
 								id="views.formats.stashes.description"
 								name="views.formats.stashes.description"
 								type="text"
-								placeholder="${agoOrDate}"
+								placeholder="${stashOnRef, }${agoOrDate}"
 								data-setting
 								data-setting-preview
-								data-default-value="${agoOrDate}"
+								data-default-value="${stashOnRef, }${agoOrDate}"
 								data-popup-trigger
 							/>
 							<label for="views.formats.stashes.description" title="See available tokens">
@@ -104,7 +116,7 @@
 							<span
 								data-setting-preview="views.formats.stashes.description"
 								data-setting-preview-type="commit"
-								data-setting-preview-default="${agoOrDate}"
+								data-setting-preview-default="${stashOnRef, }${agoOrDate}"
 							></span>
 						</span>
 					</div>
@@ -114,13 +126,19 @@
 			<div class="section__preview">
 				<img
 					class="image__preview hidden"
-					src="#{root}/images/settings/stashes-view-auto.webp"
+					src="#{webroot}/media/stashes-view-auto.webp"
 					data-visibility="views.stashes.files.layout !tree"
+					loading="lazy"
+					width="600"
+					height="360"
 				/>
 				<img
 					class="image__preview hidden"
-					src="#{root}/images/settings/stashes-view-tree.webp"
+					src="#{webroot}/media/stashes-view-tree.webp"
 					data-visibility="views.stashes.files.layout =tree"
+					loading="lazy"
+					width="600"
+					height="360"
 				/>
 			</div>
 		</div>

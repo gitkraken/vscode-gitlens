@@ -1,39 +1,72 @@
-'use strict';
-import { TextEditor, Uri } from 'vscode';
-import { Container } from '../container';
+import type { TextEditor, Uri } from 'vscode';
+import { Commands } from '../constants';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
-import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
-import { OpenPullRequestOnRemoteCommandArgs } from './openPullRequestOnRemote';
+import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
+import { command, executeCommand } from '../system/command';
+import { Logger } from '../system/logger';
+import { ActiveEditorCommand, getCommandUri } from './base';
+import type { OpenPullRequestOnRemoteCommandArgs } from './openPullRequestOnRemote';
 
 @command()
 export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorCommand {
-	constructor() {
+	constructor(private readonly container: Container) {
 		super(Commands.OpenAssociatedPullRequestOnRemote);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri) {
-		if (editor == null) return;
-
 		uri = getCommandUri(uri, editor);
-		if (uri == null) return;
 
-		const gitUri = await GitUri.fromUri(uri);
+		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-		const blameline = editor.selection.active.line;
-		if (blameline < 0) return;
+		if (editor != null && gitUri != null) {
+			const blameline = editor.selection.active.line;
+			if (blameline < 0) return;
+
+			try {
+				const blame = await this.container.git.getBlameForLine(gitUri, blameline);
+				if (blame == null) return;
+
+				await executeCommand<OpenPullRequestOnRemoteCommandArgs>(Commands.OpenPullRequestOnRemote, {
+					clipboard: false,
+					ref: blame.commit.sha,
+					repoPath: blame.commit.repoPath,
+				});
+			} catch (ex) {
+				Logger.error(ex, 'OpenAssociatedPullRequestOnRemoteCommand', `getBlameForLine(${blameline})`);
+			}
+
+			return;
+		}
 
 		try {
-			const blame = await Container.git.getBlameForLine(gitUri, blameline);
-			if (blame == null) return;
+			const repo = await getRepositoryOrShowPicker('Open Pull Request Associated', undefined, {
+				filter: async r => (await this.container.git.getBestRemoteWithRichProvider(r.uri))?.provider != null,
+			});
+			if (repo == null) return;
+
+			const remote = await this.container.git.getBestRemoteWithRichProvider(repo.uri);
+			if (remote?.provider == null) return;
+
+			const branch = await repo.getBranch();
+			if (branch == null) return;
+
+			let pr = await this.container.git.getPullRequestForBranch(branch.ref, remote.provider);
+			if (pr == null) {
+				const commit = await repo.getCommit('HEAD');
+				if (commit == null) return;
+
+				pr = await this.container.git.getPullRequestForCommit(commit.ref, remote.provider);
+				if (pr == null) return;
+			}
 
 			await executeCommand<OpenPullRequestOnRemoteCommandArgs>(Commands.OpenPullRequestOnRemote, {
-				clipboard: false,
-				ref: blame.commit.sha,
-				repoPath: blame.commit.repoPath,
+				pr: {
+					url: pr.url,
+				},
 			});
 		} catch (ex) {
-			Logger.error(ex, 'OpenAssociatedPullRequestOnRemoteCommand', `getBlameForLine(${blameline})`);
+			Logger.error(ex, 'OpenAssociatedPullRequestOnRemoteCommand', 'No editor opened');
 		}
 	}
 }
