@@ -1,5 +1,5 @@
 import { Uri } from 'vscode';
-import type { LocalWorkspaceFileData } from '../../../plus/workspaces/models';
+import type { LocalWorkspaceFileData, WorkspaceSyncSetting } from '../../../plus/workspaces/models';
 import type { WorkspacesPathMappingProvider } from '../../../plus/workspaces/workspacesPathMappingProvider';
 
 export class WorkspacesWebPathMappingProvider implements WorkspacesPathMappingProvider {
@@ -7,7 +7,22 @@ export class WorkspacesWebPathMappingProvider implements WorkspacesPathMappingPr
 		return undefined;
 	}
 
-	async writeCloudWorkspaceDiskPathToMap(
+	async getCloudWorkspaceCodeWorkspacePath(_cloudWorkspaceId: string): Promise<string | undefined> {
+		return undefined;
+	}
+
+	async removeCloudWorkspaceCodeWorkspaceFilePath(_cloudWorkspaceId: string): Promise<void> {}
+
+	async writeCloudWorkspaceCodeWorkspaceFilePathToMap(
+		_cloudWorkspaceId: string,
+		_codeWorkspaceFilePath: string,
+	): Promise<void> {}
+
+	async confirmCloudWorkspaceCodeWorkspaceFilePath(_cloudWorkspaceId: string): Promise<boolean> {
+		return false;
+	}
+
+	async writeCloudWorkspaceRepoDiskPathToMap(
 		_cloudWorkspaceId: string,
 		_repoId: string,
 		_repoLocalPath: string,
@@ -20,7 +35,7 @@ export class WorkspacesWebPathMappingProvider implements WorkspacesPathMappingPr
 	async writeCodeWorkspaceFile(
 		_uri: Uri,
 		_workspaceRepoFilePaths: string[],
-		_options?: { workspaceId?: string },
+		_options?: { workspaceId?: string; workspaceSyncSetting?: WorkspaceSyncSetting },
 	): Promise<boolean> {
 		return false;
 	}
