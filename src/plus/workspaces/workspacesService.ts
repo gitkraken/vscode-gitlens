@@ -1047,6 +1047,36 @@ export class WorkspacesService implements Disposable {
 			openLocation = openLocationChoice.location ?? OpenWorkspaceLocation.NewWindow;
 		}
 
+		if (!(await this._workspacesPathProvider.confirmCloudWorkspaceCodeWorkspaceFilePath(workspace.id))) {
+			await this._workspacesPathProvider.removeCloudWorkspaceCodeWorkspaceFilePath(workspace.id);
+			workspace.setLocalPath(undefined);
+			const locateChoice = await window.showInformationMessage(
+				`The workspace file for ${workspace.name} could not be found. Would you like to locate it now?`,
+				{ modal: true },
+				{ title: 'Locate' },
+				{ title: 'Cancel', isCloseAffordance: true },
+			);
+
+			if (locateChoice?.title !== 'Locate') return;
+			const newPath = (
+				await window.showOpenDialog({
+					defaultUri: Uri.file(workspace.localPath),
+					canSelectFiles: true,
+					canSelectFolders: false,
+					canSelectMany: false,
+					filters: {
+						'Code Workspace': ['code-workspace'],
+					},
+					title: 'Locate the workspace file',
+				})
+			)?.[0]?.fsPath;
+
+			if (newPath == null) return;
+
+			await this._workspacesPathProvider.writeCloudWorkspaceCodeWorkspaceFilePathToMap(workspace.id, newPath);
+			workspace.setLocalPath(newPath);
+		}
+
 		openWorkspace(Uri.file(workspace.localPath), { location: openLocation });
 	}
 

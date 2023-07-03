@@ -1,5 +1,4 @@
-import type { Uri } from 'vscode';
-import { workspace } from 'vscode';
+import { Uri, workspace } from 'vscode';
 import type {
 	CloudWorkspacesPathMap,
 	CodeWorkspaceFileContents,
@@ -48,6 +47,39 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 	async getCloudWorkspaceCodeWorkspacePath(cloudWorkspaceId: string): Promise<string | undefined> {
 		const cloudWorkspacePathMap = await this.getCloudWorkspacePathMap();
 		return cloudWorkspacePathMap[cloudWorkspaceId]?.externalLinks?.['.code-workspace'];
+	}
+
+	async removeCloudWorkspaceCodeWorkspaceFilePath(cloudWorkspaceId: string): Promise<void> {
+		if (!(await acquireSharedFolderWriteLock())) {
+			return;
+		}
+
+		await this.loadCloudWorkspacePathMap();
+
+		if (this._cloudWorkspacePathMap?.[cloudWorkspaceId]?.externalLinks?.['.code-workspace'] == null) return;
+
+		delete this._cloudWorkspacePathMap[cloudWorkspaceId].externalLinks['.code-workspace'];
+
+		const localFileUri = getSharedCloudWorkspaceMappingFileUri();
+		const outputData = new Uint8Array(Buffer.from(JSON.stringify({ workspaces: this._cloudWorkspacePathMap })));
+		try {
+			await workspace.fs.writeFile(localFileUri, outputData);
+		} catch (error) {
+			Logger.error(error, 'writeCloudWorkspaceCodeWorkspaceFilePathToMap');
+		}
+		await releaseSharedFolderWriteLock();
+	}
+
+	async confirmCloudWorkspaceCodeWorkspaceFilePath(cloudWorkspaceId: string): Promise<boolean> {
+		const cloudWorkspacePathMap = await this.getCloudWorkspacePathMap();
+		const codeWorkspaceFilePath = cloudWorkspacePathMap[cloudWorkspaceId]?.externalLinks?.['.code-workspace'];
+		if (codeWorkspaceFilePath == null) return false;
+		try {
+			await workspace.fs.stat(Uri.file(codeWorkspaceFilePath));
+			return true;
+		} catch {
+			return false;
+		}
 	}
 
 	async writeCloudWorkspaceRepoDiskPathToMap(

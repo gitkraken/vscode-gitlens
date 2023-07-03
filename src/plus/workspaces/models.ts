@@ -136,7 +136,7 @@ export class CloudWorkspace {
 		this.resetRepositoriesByName();
 	}
 
-	setLocalPath(localPath: string): void {
+	setLocalPath(localPath: string | undefined): void {
 		this._localPath = localPath;
 	}
 }
@@ -564,7 +564,7 @@ export class LocalWorkspace {
 		return Promise.resolve(this.repositoryDescriptors.find(r => r.name === name));
 	}
 
-	setLocalPath(localPath: string): void {
+	setLocalPath(localPath: string | undefined): void {
 		this._localPath = localPath;
 	}
 }

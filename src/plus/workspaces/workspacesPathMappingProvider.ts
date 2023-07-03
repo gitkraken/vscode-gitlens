@@ -6,6 +6,15 @@ export interface WorkspacesPathMappingProvider {
 
 	getCloudWorkspaceCodeWorkspacePath(cloudWorkspaceId: string): Promise<string | undefined>;
 
+	removeCloudWorkspaceCodeWorkspaceFilePath(cloudWorkspaceId: string): Promise<void>;
+
+	writeCloudWorkspaceCodeWorkspaceFilePathToMap(
+		cloudWorkspaceId: string,
+		codeWorkspaceFilePath: string,
+	): Promise<void>;
+
+	confirmCloudWorkspaceCodeWorkspaceFilePath(cloudWorkspaceId: string): Promise<boolean>;
+
 	writeCloudWorkspaceRepoDiskPathToMap(
 		cloudWorkspaceId: string,
 		repoId: string,

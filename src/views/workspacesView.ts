@@ -25,8 +25,6 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 
 		this._disposable = Disposable.from(
 			this.container.workspaces.onDidResetWorkspaces(() => void this.ensureRoot().triggerChange(true)),
-			this.container.git.onDidChangeRepositories(() => void this.ensureRoot().triggerChange()),
-			this.container.git.onDidChangeRepository(() => void this.ensureRoot().triggerChange()),
 		);
 		this.description = `PREVIEW\u00a0\u00a0☁️`;
 	}

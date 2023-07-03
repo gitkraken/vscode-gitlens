@@ -11,6 +11,17 @@ export class WorkspacesWebPathMappingProvider implements WorkspacesPathMappingPr
 		return undefined;
 	}
 
+	async removeCloudWorkspaceCodeWorkspaceFilePath(_cloudWorkspaceId: string): Promise<void> {}
+
+	async writeCloudWorkspaceCodeWorkspaceFilePathToMap(
+		_cloudWorkspaceId: string,
+		_codeWorkspaceFilePath: string,
+	): Promise<void> {}
+
+	async confirmCloudWorkspaceCodeWorkspaceFilePath(_cloudWorkspaceId: string): Promise<boolean> {
+		return false;
+	}
+
 	async writeCloudWorkspaceRepoDiskPathToMap(
 		_cloudWorkspaceId: string,
 		_repoId: string,
