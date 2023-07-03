@@ -1,9 +1,16 @@
+import type { Disposable } from '../../api/gitlens';
 import type { Container } from '../../container';
 import type { Repository } from '../../git/models/repository';
 
 export enum WorkspaceType {
 	Local = 'local',
 	Cloud = 'cloud',
+}
+
+export enum WorkspaceSyncSetting {
+	Never = 'never',
+	Always = 'always',
+	Ask = 'ask',
 }
 
 export type CodeWorkspaceFileContents = {
@@ -50,7 +57,10 @@ export interface GetCloudWorkspaceRepositoriesResponse {
 export class CloudWorkspace {
 	readonly type = WorkspaceType.Cloud;
 
-	private _repositories: CloudWorkspaceRepositoryDescriptor[] | undefined;
+	private _repositoryDescriptors: CloudWorkspaceRepositoryDescriptor[] | undefined;
+	private _repositoriesByName: WorkspaceRepositoriesByName | undefined;
+	private _localPath: string | undefined;
+	private _disposable: Disposable;
 
 	constructor(
 		private readonly container: Container,
@@ -58,21 +68,49 @@ export class CloudWorkspace {
 		public readonly name: string,
 		public readonly organizationId: string | undefined,
 		public readonly provider: CloudWorkspaceProviderType,
+		public readonly current: boolean,
 		repositories?: CloudWorkspaceRepositoryDescriptor[],
+		localPath?: string,
 	) {
-		this._repositories = repositories;
+		this._repositoryDescriptors = repositories;
+		this._localPath = localPath;
+		this._disposable = this.container.git.onDidChangeRepositories(this.resetRepositoriesByName, this);
+	}
+
+	dispose() {
+		this._disposable.dispose();
 	}
 
 	get shared(): boolean {
 		return this.organizationId != null;
 	}
 
-	async getRepositoryDescriptors(): Promise<CloudWorkspaceRepositoryDescriptor[]> {
-		if (this._repositories == null) {
-			this._repositories = await this.container.workspaces.getCloudWorkspaceRepositories(this.id);
+	get localPath(): string | undefined {
+		return this._localPath;
+	}
+
+	resetRepositoriesByName() {
+		this._repositoriesByName = undefined;
+	}
+
+	async getRepositoriesByName(options?: { force?: boolean }): Promise<WorkspaceRepositoriesByName> {
+		if (this._repositoriesByName == null || options?.force) {
+			this._repositoriesByName = await this.container.workspaces.resolveWorkspaceRepositoriesByName(this.id, {
+				resolveFromPath: true,
+				usePathMapping: true,
+			});
 		}
 
-		return this._repositories;
+		return this._repositoriesByName;
+	}
+
+	async getRepositoryDescriptors(options?: { force?: boolean }): Promise<CloudWorkspaceRepositoryDescriptor[]> {
+		if (this._repositoryDescriptors == null || options?.force) {
+			this._repositoryDescriptors = await this.container.workspaces.getCloudWorkspaceRepositories(this.id);
+			this.resetRepositoriesByName();
+		}
+
+		return this._repositoryDescriptors;
 	}
 
 	async getRepositoryDescriptor(name: string): Promise<CloudWorkspaceRepositoryDescriptor | undefined> {
@@ -81,18 +119,25 @@ export class CloudWorkspace {
 
 	// TODO@axosoft-ramint this should be the entry point, not a backdoor to update the cache
 	addRepositories(repositories: CloudWorkspaceRepositoryDescriptor[]): void {
-		if (this._repositories == null) {
-			this._repositories = repositories;
+		if (this._repositoryDescriptors == null) {
+			this._repositoryDescriptors = repositories;
 		} else {
-			this._repositories = this._repositories.concat(repositories);
+			this._repositoryDescriptors = this._repositoryDescriptors.concat(repositories);
 		}
+
+		this.resetRepositoriesByName();
 	}
 
 	// TODO@axosoft-ramint this should be the entry point, not a backdoor to update the cache
 	removeRepositories(repoNames: string[]): void {
-		if (this._repositories == null) return;
+		if (this._repositoryDescriptors == null) return;
 
-		this._repositories = this._repositories.filter(r => !repoNames.includes(r.name));
+		this._repositoryDescriptors = this._repositoryDescriptors.filter(r => !repoNames.includes(r.name));
+		this.resetRepositoriesByName();
+	}
+
+	setLocalPath(localPath: string | undefined): void {
+		this._localPath = localPath;
 	}
 }
 
@@ -468,22 +513,59 @@ export interface RemoveWorkspaceRepoDescriptor {
 export class LocalWorkspace {
 	readonly type = WorkspaceType.Local;
 
+	private _localPath: string | undefined;
+	private _repositoriesByName: WorkspaceRepositoriesByName | undefined;
+	private _disposable: Disposable;
+
 	constructor(
+		public readonly container: Container,
 		public readonly id: string,
 		public readonly name: string,
-		private readonly repositories: LocalWorkspaceRepositoryDescriptor[],
-	) {}
+		private readonly repositoryDescriptors: LocalWorkspaceRepositoryDescriptor[],
+		public readonly current: boolean,
+		localPath?: string,
+	) {
+		this._localPath = localPath;
+		this._disposable = this.container.git.onDidChangeRepositories(this.resetRepositoriesByName, this);
+	}
+
+	dispose() {
+		this._disposable.dispose();
+	}
 
 	get shared(): boolean {
 		return false;
 	}
 
+	get localPath(): string | undefined {
+		return this._localPath;
+	}
+
+	resetRepositoriesByName() {
+		this._repositoriesByName = undefined;
+	}
+
+	async getRepositoriesByName(options?: { force?: boolean }): Promise<WorkspaceRepositoriesByName> {
+		if (this._repositoriesByName == null || options?.force) {
+			this._repositoriesByName = await this.container.workspaces.resolveWorkspaceRepositoriesByName(this.id, {
+				resolveFromPath: true,
+				usePathMapping: true,
+			});
+		}
+
+		return this._repositoriesByName;
+	}
+
 	getRepositoryDescriptors(): Promise<LocalWorkspaceRepositoryDescriptor[]> {
-		return Promise.resolve(this.repositories);
+		return Promise.resolve(this.repositoryDescriptors);
 	}
 
 	getRepositoryDescriptor(name: string): Promise<LocalWorkspaceRepositoryDescriptor | undefined> {
-		return Promise.resolve(this.repositories.find(r => r.name === name));
+		return Promise.resolve(this.repositoryDescriptors.find(r => r.name === name));
+	}
+
+	setLocalPath(localPath: string | undefined): void {
+		this._localPath = localPath;
 	}
 }
 
@@ -519,13 +601,18 @@ export interface CloudWorkspaceFileData {
 }
 
 export type CloudWorkspacesPathMap = {
-	[cloudWorkspaceId: string]: CloudWorkspaceRepoPaths;
+	[cloudWorkspaceId: string]: CloudWorkspacePaths;
 };
 
-export interface CloudWorkspaceRepoPaths {
+export interface CloudWorkspacePaths {
 	repoPaths: CloudWorkspaceRepoPathMap;
+	externalLinks: CloudWorkspaceExternalLinkMap;
 }
 
 export type CloudWorkspaceRepoPathMap = {
 	[repoId: string]: string;
+};
+
+export type CloudWorkspaceExternalLinkMap = {
+	[fileExtenstion: string]: string;
 };

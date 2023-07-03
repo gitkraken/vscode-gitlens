@@ -93,8 +93,10 @@ export class RepositoryLocalPathMappingProvider implements RepositoryPathMapping
 			this._localRepoDataMap = {};
 		}
 
-		if (this._localRepoDataMap[key] == null || this._localRepoDataMap[key].paths == null) {
+		if (this._localRepoDataMap[key] == null) {
 			this._localRepoDataMap[key] = { paths: [localPath] };
+		} else if (this._localRepoDataMap[key].paths == null) {
+			this._localRepoDataMap[key].paths = [localPath];
 		} else if (!this._localRepoDataMap[key].paths.includes(localPath)) {
 			this._localRepoDataMap[key].paths.push(localPath);
 		}

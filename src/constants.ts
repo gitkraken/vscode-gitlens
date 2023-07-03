@@ -74,6 +74,7 @@ export type Colors =
 	| `${typeof extensionPrefix}.decorations.modifiedForegroundColor`
 	| `${typeof extensionPrefix}.decorations.renamedForegroundColor`
 	| `${typeof extensionPrefix}.decorations.untrackedForegroundColor`
+	| `${typeof extensionPrefix}.decorations.workspaceCurrentForegroundColor`
 	| `${typeof extensionPrefix}.decorations.workspaceRepoMissingForegroundColor`
 	| `${typeof extensionPrefix}.decorations.workspaceRepoOpenForegroundColor`
 	| `${typeof extensionPrefix}.decorations.worktreeView.hasUncommittedChangesForegroundColor`
@@ -405,9 +406,11 @@ export type TreeViewCommands = `gitlens.views.${
 			| 'addRepos'
 			| 'convert'
 			| 'create'
+			| 'createLocal'
 			| 'delete'
 			| 'locateAllRepos'
-			| 'open'
+			| 'openLocal'
+			| 'openLocalNewWindow'
 			| `repo.${'locate' | 'open' | 'openInNewWindow' | 'addToWindow' | 'remove'}`}`
 	| `worktrees.${
 			| 'copy'

@@ -1,5 +1,4 @@
-import type { Disposable } from 'vscode';
-import { env, ProgressLocation, Uri, window } from 'vscode';
+import { Disposable, env, ProgressLocation, Uri, window } from 'vscode';
 import type { WorkspacesViewConfig } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
@@ -24,8 +23,8 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 	constructor(container: Container) {
 		super(container, 'workspaces', 'Workspaces', 'workspaceView');
 
-		this._disposable = this.container.workspaces.onDidChangeWorkspaces(
-			() => void this.ensureRoot().triggerChange(true),
+		this._disposable = Disposable.from(
+			this.container.workspaces.onDidResetWorkspaces(() => void this.ensureRoot().triggerChange(true)),
 		);
 		this.description = `PREVIEW\u00a0\u00a0☁️`;
 	}
@@ -70,7 +69,6 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 				this.getQualifiedCommand('refresh'),
 				() => {
 					this.container.workspaces.resetWorkspaces();
-					void this.ensureRoot().triggerChange(true);
 				},
 				this,
 			),
@@ -103,10 +101,28 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 				this,
 			),
 			registerViewCommand(
-				this.getQualifiedCommand('open'),
+				this.getQualifiedCommand('createLocal'),
 				async (node: WorkspaceNode) => {
-					await this.container.workspaces.saveAsCodeWorkspaceFile(node.workspace.id, node.workspace.type, {
-						open: true,
+					await this.container.workspaces.saveAsCodeWorkspaceFile(node.workspace.id);
+					void this.ensureRoot().triggerChange(true);
+				},
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('openLocal'),
+				async (node: WorkspaceNode) => {
+					await this.container.workspaces.openCodeWorkspaceFile(node.workspace.id, {
+						location: OpenWorkspaceLocation.CurrentWindow,
+					});
+					void this.ensureRoot().triggerChange(true);
+				},
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('openLocalNewWindow'),
+				async (node: WorkspaceNode) => {
+					await this.container.workspaces.openCodeWorkspaceFile(node.workspace.id, {
+						location: OpenWorkspaceLocation.NewWindow,
 					});
 				},
 				this,

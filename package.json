@@ -4238,6 +4238,15 @@
 				}
 			},
 			{
+				"id": "gitlens.decorations.workspaceCurrentForegroundColor",
+				"description": "Specifies the decoration foreground color of workspaces which are currently open as a Code Workspace file",
+				"defaults": {
+					"dark": "#35b15e",
+					"light": "#35b15e",
+					"highContrast": "#4dff88"
+				}
+			},
+			{
 				"id": "gitlens.decorations.workspaceRepoOpenForegroundColor",
 				"description": "Specifies the decoration foreground color of workspace repos which are open in the current workspace",
 				"defaults": {
@@ -6933,10 +6942,22 @@
 				"icon": "$(location)"
 			},
 			{
-				"command": "gitlens.views.workspaces.open",
-				"title": "Open as VS Code Workspace...",
+				"command": "gitlens.views.workspaces.createLocal",
+				"title": "Create VS Code Workspace...",
 				"category": "GitLens",
 				"icon": "$(empty-window)"
+			},
+			{
+				"command": "gitlens.views.workspaces.openLocal",
+				"title": "Open VS Code Workspace in Current Window...",
+				"category": "GitLens",
+				"icon": "$(window)"
+			},
+			{
+				"command": "gitlens.views.workspaces.openLocalNewWindow",
+				"title": "Open VS Code Workspace in New Window...",
+				"category": "GitLens",
+				"icon": "$(window)"
 			},
 			{
 				"command": "gitlens.views.workspaces.repo.locate",
@@ -9485,7 +9506,15 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.workspaces.open",
+					"command": "gitlens.views.workspaces.createLocal",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.workspaces.openLocal",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.workspaces.openLocalNewWindow",
 					"when": "false"
 				},
 				{
@@ -11117,9 +11146,15 @@
 					"group": "inline@2"
 				},
 				{
-					"command": "gitlens.views.workspaces.open",
-					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+(cloud|local)\\b)/",
+					"command": "gitlens.views.workspaces.createLocal",
+					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+(cloud|local)\\b)(?!.*?\\b\\+current\\b)(?!.*?\\b\\+hasPath\\b)/",
 					"group": "inline@3"
+				},
+				{
+					"command": "gitlens.views.workspaces.openLocalNewWindow",
+					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+(cloud|local)\\b)(?!.*?\\b\\+current\\b)(?=.*?\\b\\+hasPath\\b)/",
+					"group": "inline@3",
+					"alt": "gitlens.views.workspaces.openLocal"
 				},
 				{
 					"command": "gitlens.views.workspaces.addRepos",
@@ -11132,9 +11167,19 @@
 					"group": "1_gitlens_actions@2"
 				},
 				{
-					"command": "gitlens.views.workspaces.open",
+					"command": "gitlens.views.workspaces.createLocal",
 					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+(cloud|local)\\b)/",
 					"group": "2_gitlens_quickopen@3"
+				},
+				{
+					"command": "gitlens.views.workspaces.openLocal",
+					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+(cloud|local)\\b)(?!.*?\\b\\+current\\b)(?=.*?\\b\\+hasPath\\b)/",
+					"group": "2_gitlens_quickopen@4"
+				},
+				{
+					"command": "gitlens.views.workspaces.openLocalNewWindow",
+					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+(cloud|local)\\b)(?!.*?\\b\\+current\\b)(?=.*?\\b\\+hasPath\\b)/",
+					"group": "2_gitlens_quickopen@5"
 				},
 				{
 					"command": "gitlens.views.workspaces.delete",
