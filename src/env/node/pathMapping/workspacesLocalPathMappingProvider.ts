@@ -41,13 +41,13 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 	}
 
 	async getCloudWorkspaceRepoPath(cloudWorkspaceId: string, repoId: string): Promise<string | undefined> {
-		const cloudWorkspaceRepoPathMap = await this.getCloudWorkspacePathMap();
-		return cloudWorkspaceRepoPathMap[cloudWorkspaceId]?.repoPaths?.[repoId];
+		const cloudWorkspacePathMap = await this.getCloudWorkspacePathMap();
+		return cloudWorkspacePathMap[cloudWorkspaceId]?.repoPaths?.[repoId];
 	}
 
 	async getCloudWorkspaceCodeWorkspacePath(cloudWorkspaceId: string): Promise<string | undefined> {
-		const cloudWorkspaceRepoPathMap = await this.getCloudWorkspacePathMap();
-		return cloudWorkspaceRepoPathMap[cloudWorkspaceId]?.externalLinks?.['.code-workspace'];
+		const cloudWorkspacePathMap = await this.getCloudWorkspacePathMap();
+		return cloudWorkspacePathMap[cloudWorkspaceId]?.externalLinks?.['.code-workspace'];
 	}
 
 	async writeCloudWorkspaceRepoDiskPathToMap(
