@@ -62,6 +62,16 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 			}
 		}
 
+		if (type === 'workspace') {
+			if (status === 'current') {
+				return {
+					badge: '●',
+					color: new ThemeColor('gitlens.decorations.workspaceCurrentForegroundColor' satisfies Colors),
+					tooltip: '',
+				};
+			}
+		}
+
 		return undefined;
 	}
 

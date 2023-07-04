@@ -1,6 +1,6 @@
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { GitUri } from '../../git/gitUri';
-import type { CloudWorkspace, LocalWorkspace, WorkspaceRepositoriesByName } from '../../plus/workspaces/models';
+import type { CloudWorkspace, LocalWorkspace } from '../../plus/workspaces/models';
 import { WorkspaceType } from '../../plus/workspaces/models';
 import { createCommand } from '../../system/command';
 import type { WorkspacesView } from '../workspacesView';
@@ -55,12 +55,7 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 					return this._children;
 				}
 
-				// TODO@eamodio this should not be done here -- it should be done in the workspaces model (when loading the repos)
-				const reposByName: WorkspaceRepositoriesByName =
-					await this.view.container.workspaces.resolveWorkspaceRepositoriesByName(this.workspace.id, {
-						resolveFromPath: true,
-						usePathMapping: true,
-					});
+				const reposByName = await this.workspace.getRepositoriesByName({ force: true });
 
 				for (const descriptor of descriptors) {
 					const repo = reposByName.get(descriptor.name)?.repository;
@@ -93,10 +88,18 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 		const item = new TreeItem(this.workspace.name, TreeItemCollapsibleState.Collapsed);
 
 		let contextValue = `${ContextValues.Workspace}`;
+		item.resourceUri = undefined;
 		if (this.workspace.type === WorkspaceType.Cloud) {
 			contextValue += '+cloud';
 		} else {
 			contextValue += '+local';
+		}
+		if (this.workspace.current) {
+			contextValue += '+current';
+			item.resourceUri = Uri.parse('gitlens-view://workspaces/workspace/current');
+		}
+		if (this.workspace.localPath != null) {
+			contextValue += '+hasPath';
 		}
 		item.id = this.id;
 		item.contextValue = contextValue;
@@ -110,7 +113,6 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 				? `\nProvider: ${this.workspace.provider}`
 				: ''
 		}`;
-		item.resourceUri = undefined;
 		return item;
 	}
 
