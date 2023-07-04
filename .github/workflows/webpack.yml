@@ -42,7 +42,7 @@ jobs:
 
     # Una lista ordenada de claves para usar para restaurar el caché si no se produjo ningún golpe de caché para la clave
 
-    restaurar-claves       : # opcional
+    restaurar-claves       : # restore-keys
 - nombre: Configuración .NET Core SDK
 
   usos: acciones/setup-dotnet@v3.2.0
