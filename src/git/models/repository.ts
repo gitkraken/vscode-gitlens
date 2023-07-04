@@ -1024,19 +1024,7 @@ export class Repository implements Disposable {
 
 	@gate()
 	@log()
-	async stashSave(
-		message?: string,
-		uris?: Uri[],
-		options?: { includeUntracked?: boolean; keepIndex?: boolean; onlyStaged?: boolean },
-	) {
-		await this.container.git.stashSave(this.path, message, uris, options);
-
-		this.fireChange(RepositoryChange.Stash);
-	}
-
-	@gate()
-	@log()
-	async switch(ref: string, options?: { createBranch?: string | undefined; progress?: boolean }) {
+	async switch(ref: string, options: { createBranch?: string | undefined; progress?: boolean } = {}) {
 		const { progress, ...opts } = { progress: true, ...options };
 		if (!progress) return this.switchCore(ref, opts);
 
@@ -1050,7 +1038,7 @@ export class Repository implements Disposable {
 		);
 	}
 
-	private async switchCore(ref: string, options?: { createBranch?: string }) {
+	private async switchCore(ref: string, options: { createBranch?: string } = {}) {
 		try {
 			await this.container.git.checkout(this.path, ref, options);
 

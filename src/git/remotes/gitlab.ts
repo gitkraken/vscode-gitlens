@@ -1,46 +1,19 @@
-import type { AuthenticationSession, Disposable, QuickInputButton, Range } from 'vscode';
-import { env, ThemeIcon, Uri, window } from 'vscode';
-import type { Autolink, DynamicAutolinkReference } from '../../annotations/autolinks';
-import type { AutolinkReference } from '../../config';
-import { AutolinkType } from '../../config';
-import type { Container } from '../../container';
-import type {
-	IntegrationAuthenticationProvider,
-	IntegrationAuthenticationSessionDescriptor,
-} from '../../plus/integrationAuthentication';
-import { log } from '../../system/decorators/log';
-import { encodeUrl } from '../../system/encoding';
-import { equalsIgnoreCase } from '../../system/string';
-import { supportedInVSCodeVersion } from '../../system/utils';
-import type { Account } from '../models/author';
-import type { DefaultBranch } from '../models/defaultBranch';
-import type { IssueOrPullRequest, SearchedIssue } from '../models/issue';
-import type { PullRequest, PullRequestState, SearchedPullRequest } from '../models/pullRequest';
-import { isSha } from '../models/reference';
-import type { Repository } from '../models/repository';
-import { ensurePaidPlan, RichRemoteProvider } from './richRemoteProvider';
+'use strict';
+import { Range, Uri } from 'vscode';
+import { DynamicAutolinkReference } from '../../annotations/autolinks';
+import { AutolinkReference } from '../../config';
+import { GitRevision } from '../models/models';
+import { Repository } from '../models/repository';
+import { RemoteProvider } from './provider';
 
 const autolinkFullIssuesRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)#(?<num>[0-9]+)\b(?!]\()/g;
 const autolinkFullMergeRequestsRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)!(?<num>[0-9]+)\b(?!]\()/g;
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/-\/blob(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-(\d+))?$/;
 
-const authProvider = Object.freeze({ id: 'gitlab', scopes: ['read_api', 'read_user', 'read_repository'] });
-
-export class GitLabRemote extends RichRemoteProvider {
-	protected get authProvider() {
-		return authProvider;
-	}
-
-	constructor(
-		container: Container,
-		domain: string,
-		path: string,
-		protocol?: string,
-		name?: string,
-		custom: boolean = false,
-	) {
-		super(container, domain, path, protocol, name, custom);
+export class GitLabRemote extends RemoteProvider {
+	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
+		super(domain, path, protocol, name, custom);
 	}
 
 	get apiBaseUrl() {
@@ -288,177 +261,5 @@ export class GitLabRemote extends RichRemoteProvider {
 		if (sha) return `${this.encodeUrl(`${this.baseUrl}/-/blob/${sha}/${fileName}`)}${line}`;
 		if (branch) return `${this.encodeUrl(`${this.baseUrl}/-/blob/${branch}/${fileName}`)}${line}`;
 		return `${this.encodeUrl(`${this.baseUrl}?path=${fileName}`)}${line}`;
-	}
-
-	protected async getProviderAccountForCommit(
-		{ accessToken }: AuthenticationSession,
-		ref: string,
-		options?: {
-			avatarSize?: number;
-		},
-	): Promise<Account | undefined> {
-		const [owner, repo] = this.splitPath();
-		return (await this.container.gitlab)?.getAccountForCommit(this, accessToken, owner, repo, ref, {
-			...options,
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	protected async getProviderAccountForEmail(
-		{ accessToken }: AuthenticationSession,
-		email: string,
-		options?: {
-			avatarSize?: number;
-		},
-	): Promise<Account | undefined> {
-		const [owner, repo] = this.splitPath();
-		return (await this.container.gitlab)?.getAccountForEmail(this, accessToken, owner, repo, email, {
-			...options,
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	protected async getProviderDefaultBranch({
-		accessToken,
-	}: AuthenticationSession): Promise<DefaultBranch | undefined> {
-		const [owner, repo] = this.splitPath();
-		return (await this.container.gitlab)?.getDefaultBranch(this, accessToken, owner, repo, {
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	protected async getProviderIssueOrPullRequest(
-		{ accessToken }: AuthenticationSession,
-		id: string,
-	): Promise<IssueOrPullRequest | undefined> {
-		const [owner, repo] = this.splitPath();
-		return (await this.container.gitlab)?.getIssueOrPullRequest(this, accessToken, owner, repo, Number(id), {
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	protected async getProviderPullRequestForBranch(
-		{ accessToken }: AuthenticationSession,
-		branch: string,
-		options?: {
-			avatarSize?: number;
-			include?: PullRequestState[];
-		},
-	): Promise<PullRequest | undefined> {
-		const [owner, repo] = this.splitPath();
-		const { include, ...opts } = options ?? {};
-
-		const toGitLabMergeRequestState = (await import(/* webpackChunkName: "gitlab" */ '../../plus/gitlab/models'))
-			.toGitLabMergeRequestState;
-		return (await this.container.gitlab)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
-			...opts,
-			include: include?.map(s => toGitLabMergeRequestState(s)),
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	protected async getProviderPullRequestForCommit(
-		{ accessToken }: AuthenticationSession,
-		ref: string,
-	): Promise<PullRequest | undefined> {
-		const [owner, repo] = this.splitPath();
-		return (await this.container.gitlab)?.getPullRequestForCommit(this, accessToken, owner, repo, ref, {
-			baseUrl: this.apiBaseUrl,
-		});
-	}
-
-	protected async searchProviderMyPullRequests(
-		_session: AuthenticationSession,
-	): Promise<SearchedPullRequest[] | undefined> {
-		return Promise.resolve(undefined);
-	}
-
-	protected async searchProviderMyIssues(_session: AuthenticationSession): Promise<SearchedIssue[] | undefined> {
-		return Promise.resolve(undefined);
-	}
-}
-
-export class GitLabAuthenticationProvider implements Disposable, IntegrationAuthenticationProvider {
-	private readonly _disposable: Disposable;
-
-	constructor(container: Container) {
-		this._disposable = container.integrationAuthentication.registerProvider('gitlab', this);
-	}
-
-	dispose() {
-		this._disposable.dispose();
-	}
-
-	getSessionId(descriptor?: IntegrationAuthenticationSessionDescriptor): string {
-		return descriptor?.domain ?? '';
-	}
-
-	async createSession(
-		descriptor?: IntegrationAuthenticationSessionDescriptor,
-	): Promise<AuthenticationSession | undefined> {
-		const input = window.createInputBox();
-		input.ignoreFocusOut = true;
-
-		const disposables: Disposable[] = [];
-
-		let token;
-		try {
-			const infoButton: QuickInputButton = {
-				iconPath: new ThemeIcon(`link-external`),
-				tooltip: 'Open the GitLab Access Tokens Page',
-			};
-
-			token = await new Promise<string | undefined>(resolve => {
-				disposables.push(
-					input.onDidHide(() => resolve(undefined)),
-					input.onDidChangeValue(() => (input.validationMessage = undefined)),
-					input.onDidAccept(() => {
-						const value = input.value.trim();
-						if (!value) {
-							input.validationMessage = 'A personal access token is required';
-							return;
-						}
-
-						resolve(value);
-					}),
-					input.onDidTriggerButton(e => {
-						if (e === infoButton) {
-							void env.openExternal(
-								Uri.parse(
-									`https://${descriptor?.domain ?? 'gitlab.com'}/-/profile/personal_access_tokens`,
-								),
-							);
-						}
-					}),
-				);
-
-				input.password = true;
-				input.title = `GitLab Authentication${descriptor?.domain ? `  \u2022 ${descriptor.domain}` : ''}`;
-				input.placeholder = `Requires ${descriptor?.scopes.join(', ') ?? 'all'} scopes`;
-				input.prompt = input.prompt = supportedInVSCodeVersion('input-prompt-links')
-					? `Paste your [GitLab Personal Access Token](https://${
-							descriptor?.domain ?? 'gitlab.com'
-					  }/-/profile/personal_access_tokens "Get your GitLab Access Token")`
-					: 'Paste your GitLab Personal Access Token';
-				input.buttons = [infoButton];
-
-				input.show();
-			});
-		} finally {
-			input.dispose();
-			disposables.forEach(d => void d.dispose());
-		}
-
-		if (!token) return undefined;
-
-		return {
-			id: this.getSessionId(descriptor),
-			accessToken: token,
-			scopes: [],
-			account: {
-				id: '',
-				label: '',
-			},
-		};
 	}
 }

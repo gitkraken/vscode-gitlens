@@ -394,6 +394,7 @@ export interface AdvancedConfig {
 	externalDiffTool: string | null;
 	externalDirectoryDiffTool: string | null;
 	fileHistoryFollowsRenames: boolean;
+	fileHistoryStopsAtFirstParent: boolean;
 	fileHistoryShowAllBranches: boolean;
 	maxListItems: number;
 	maxSearchItems: number;
@@ -566,7 +567,6 @@ export type RemotesConfig =
 			protocol?: string;
 			type: CustomRemoteType;
 			urls?: RemotesUrlsConfig;
-			ignoreSSLErrors?: boolean | 'force';
 	  }
 	| {
 			domain: null;
@@ -575,7 +575,6 @@ export type RemotesConfig =
 			protocol?: string;
 			type: CustomRemoteType;
 			urls?: RemotesUrlsConfig;
-			ignoreSSLErrors?: boolean | 'force';
 	  };
 
 export interface RemotesUrlsConfig {

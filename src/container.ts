@@ -472,31 +472,6 @@ export class Container {
 		}
 	}
 
-	private readonly _graphDetailsView: WebviewViewProxy;
-	get graphDetailsView() {
-		return this._graphDetailsView;
-	}
-
-	private readonly _graphPanel: WebviewPanelProxy;
-	private _graphView: WebviewViewProxy | undefined;
-	get graphView() {
-		if (this._graphView == null) {
-			this._disposables.push((this._graphView = registerGraphWebviewView(this._webviews)));
-		}
-
-		return this._graphView;
-	}
-
-	private readonly _homeView: WebviewViewProxy;
-	get homeView() {
-		return this._homeView;
-	}
-
-	private readonly _accountView: WebviewViewProxy;
-	get accountView() {
-		return this._accountView;
-	}
-
 	@memoize()
 	get id() {
 		return this._context.extension.id;

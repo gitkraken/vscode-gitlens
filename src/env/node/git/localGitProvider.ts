@@ -998,7 +998,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async checkout(
 		repoPath: string,
 		ref: string,
-		options?: { createBranch?: string } | { path?: string },
+		options?: { createBranch?: string } | { fileName?: string },
 	): Promise<void> {
 		const scope = getLogScope();
 
