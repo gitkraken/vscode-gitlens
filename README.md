@@ -382,7 +382,7 @@ A big thanks to the people that have contributed to this project:
 - Kevin Paxton ([kpaxton](https://github.com/kpaxton)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=kpaxton)
 - Connor Peet ([@connor4312](https://github.com/connor4312)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=connor4312)
 - Maxim Pekurin ([@pmaxim25](https://github.com/pmaxim25)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=pmaxim25)
-- Leo Dan Peña ([@amouxaden](https://github.com/amouxaden)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=amouxaden)
+- Leo Dan Peña ([@leo9-py](https://github.com/leo9-py)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=leo9-py)
 - Arunprasad Rajkumar ([@arajkumar](https://github.com/arajkumar)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=arajkumar)
 - David Rees ([@studgeek](https://github.com/studgeek)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=studgeek)
 - Rickard ([@rickardp](https://github.com/rickardp)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=rickardp)
