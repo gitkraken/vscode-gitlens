@@ -33,7 +33,7 @@ See the [FAQ](#is-gitlens-free-to-use 'Jump to FAQ') for more details.
 | [FAQ](#faq 'Jump to FAQ')
 | [Support and Community](#support-and-community 'Jump to Support and Community')
 | [Contributing](#contributing 'Jump to Contributing')
-| [Contributors](#contributors-🙏❤ 'Jump to Contributors')
+| [Contributors](#contributors- 'Jump to Contributors')
 | [License](#license 'Jump to License')
 
 # Discover Powerful Features
