@@ -798,7 +798,7 @@ export class WorkspacesService implements Disposable {
 
 		if (repoInputs.length === 0) return;
 
-		let newRepoDescriptors: CloudWorkspaceRepositoryDescriptor[] = [];
+		// let newRepoDescriptors: CloudWorkspaceRepositoryDescriptor[] = [];
 		try {
 			const response = await this._workspacesApi.addReposToWorkspace(
 				workspaceId,
@@ -806,22 +806,28 @@ export class WorkspacesService implements Disposable {
 			);
 
 			if (response?.data.add_repositories_to_project == null) return;
-			newRepoDescriptors = Object.values(response.data.add_repositories_to_project.provider_data).map(
+			/* newRepoDescriptors = Object.values(response.data.add_repositories_to_project.provider_data).map(
 				descriptor => ({ ...descriptor, workspaceId: workspaceId }),
-			) as CloudWorkspaceRepositoryDescriptor[];
+			) as CloudWorkspaceRepositoryDescriptor[]; */
 		} catch (error) {
 			void window.showErrorMessage(error.message);
 			return;
 		}
 
-		if (newRepoDescriptors.length === 0) return;
+		/* if (newRepoDescriptors.length === 0) return;
 		workspace.addRepositories(newRepoDescriptors);
 
 		for (const { repo, repoName } of repoInputs) {
 			const successfullyAddedDescriptor = newRepoDescriptors.find(r => r.name === repoName);
 			if (successfullyAddedDescriptor == null) continue;
 			await this.locateWorkspaceRepo(workspaceId, successfullyAddedDescriptor, repo);
-		}
+		} */
+
+		// TODO@axosoft-ramint This temporary workaround resets the repositories in the workspace.
+		// It is necessary because projects-api currently doesn't reliably return the workspace repos it added.
+		// Once that is fixed, revert and use workspace.addRepositories instead.
+		workspace.resetRepositoriesByName();
+		await workspace.getRepositoryDescriptors({ force: true });
 	}
 
 	async removeCloudWorkspaceRepo(workspaceId: string, descriptor: CloudWorkspaceRepositoryDescriptor) {
