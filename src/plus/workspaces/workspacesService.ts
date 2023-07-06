@@ -87,9 +87,10 @@ export class WorkspacesService implements Disposable {
 		const cloudWorkspaces: CloudWorkspace[] = [];
 		let workspaces: CloudWorkspaceData[] | undefined;
 		try {
-			const workspaceResponse: WorkspacesResponse | undefined = excludeRepositories
-				? await this._workspacesApi.getWorkspaces()
-				: await this._workspacesApi.getWorkspacesWithRepos();
+			const workspaceResponse: WorkspacesResponse | undefined = await this._workspacesApi.getWorkspaces({
+				includeRepositories: !excludeRepositories,
+				includeOrganizations: true,
+			});
 			workspaces = workspaceResponse?.data?.projects?.nodes;
 		} catch {
 			return {
@@ -653,7 +654,9 @@ export class WorkspacesService implements Disposable {
 				// Remove the workspace from the local workspace list.
 				this._cloudWorkspaces = this._cloudWorkspaces?.filter(w => w.id !== workspaceId);
 			}
-		} catch {}
+		} catch (error) {
+			void window.showErrorMessage(error.message);
+		}
 	}
 
 	private async filterReposForProvider(
@@ -806,7 +809,8 @@ export class WorkspacesService implements Disposable {
 			newRepoDescriptors = Object.values(response.data.add_repositories_to_project.provider_data).map(
 				descriptor => ({ ...descriptor, workspaceId: workspaceId }),
 			) as CloudWorkspaceRepositoryDescriptor[];
-		} catch {
+		} catch (error) {
+			void window.showErrorMessage(error.message);
 			return;
 		}
 
@@ -839,7 +843,9 @@ export class WorkspacesService implements Disposable {
 			if (response?.data.remove_repositories_from_project == null) return;
 
 			workspace.removeRepositories([descriptor.name]);
-		} catch {}
+		} catch (error) {
+			void window.showErrorMessage(error.message);
+		}
 	}
 
 	async resolveWorkspaceRepositoriesByName(
