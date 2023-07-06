@@ -4,6 +4,8 @@ import type { ServerConnection } from '../subscription/serverConnection';
 import type {
 	AddRepositoriesToWorkspaceResponse,
 	AddWorkspaceRepoDescriptor,
+	CloudWorkspaceConnection,
+	CloudWorkspaceData,
 	CreateWorkspaceResponse,
 	DeleteWorkspaceResponse,
 	RemoveRepositoriesFromWorkspaceResponse,
@@ -27,11 +29,11 @@ export class WorkspacesApi {
 		return session.accessToken;
 	}
 
-	// TODO@ramint: We have a pagedresponse model available in case it helps here. Takes care of cursor internally
-	// Make the data return a promise for the repos. Should be async so we're set up for dynamic processing.
-	async getWorkspacesWithRepos(options?: {
+	async getWorkspaces(options?: {
 		count?: number;
 		cursor?: string;
+		includeOrganizations?: boolean;
+		includeRepositories?: boolean;
 		page?: number;
 		repoCount?: number;
 		repoPage?: number;
@@ -41,6 +43,53 @@ export class WorkspacesApi {
 			return;
 		}
 
+		let repoQuery: string | undefined;
+		if (options?.includeRepositories) {
+			let repoQueryParams = `(first: ${options?.repoCount ?? defaultWorkspaceRepoCount}`;
+			if (options?.repoPage) {
+				repoQueryParams += `, page: ${options.repoPage}`;
+			}
+			repoQueryParams += ')';
+			repoQuery = `
+				provider_data {
+					repositories ${repoQueryParams} {
+						total_count
+						page_info {
+							end_cursor
+							has_next_page
+						}
+						nodes {
+							id
+							name
+							repository_id
+							provider
+							provider_organization_id
+							provider_organization_name
+							url
+						}
+					}
+				}
+			`;
+		}
+
+		const queryData = `
+			total_count
+			page_info {
+				end_cursor
+				has_next_page
+			}
+			nodes {
+				id
+				description
+				name
+				organization {
+					id
+				}
+				provider
+				${repoQuery ?? ''}
+			}
+		`;
+
 		let queryParams = `(first: ${options?.count ?? defaultWorkspaceCount}`;
 		if (options?.cursor) {
 			queryParams += `, after: "${options.cursor}"`;
@@ -49,52 +98,29 @@ export class WorkspacesApi {
 		}
 		queryParams += ')';
 
-		let repoQueryParams = `(first: ${options?.repoCount ?? defaultWorkspaceRepoCount}`;
-		if (options?.repoPage) {
-			repoQueryParams += `, page: ${options.repoPage}`;
+		let query = 'query getWorkpacesWithRepos {';
+		query += `memberProjects: projects ${queryParams} { ${queryData} }`;
+
+		// TODO@axosoft-ramint This is a temporary and hacky workaround until projects api returns all projects the
+		// user belongs to in one query. Update once that is available.
+		if (options?.cursor == null && options?.includeOrganizations) {
+			const organizationIds =
+				(await this.container.subscription.getSubscription())?.account?.organizationIds ?? [];
+			for (const organizationId of organizationIds) {
+				let orgQueryParams = `(first: ${options?.count ?? defaultWorkspaceCount}`;
+				if (options?.page) {
+					orgQueryParams += `, page: ${options.page}`;
+				}
+				orgQueryParams += `, organization_id: "${organizationId}")`;
+				query += `organizationProjects_${organizationId}: projects ${orgQueryParams} { ${queryData} }`;
+			}
 		}
-		repoQueryParams += ')';
+
+		query += '}';
 
 		const rsp = await this.server.fetchGraphql(
 			{
-				query: `
-                    query getWorkspacesWithRepos {
-                        projects ${queryParams} {
-                            total_count
-                            page_info {
-                                end_cursor
-                                has_next_page
-                            }
-                            nodes {
-                                id
-								description
-                                name
-								organization {
-									id
-								}
-                                provider
-                                provider_data {
-                                    repositories ${repoQueryParams} {
-                                        total_count
-                                        page_info {
-                                            end_cursor
-                                            has_next_page
-                                        }
-                                        nodes {
-                                            id
-                                            name
-                                            repository_id
-                                            provider
-											provider_organization_id
-											provider_organization_name
-                                            url
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-				`,
+				query: query,
 			},
 			accessToken,
 		);
@@ -104,63 +130,32 @@ export class WorkspacesApi {
 			throw new Error(rsp.statusText);
 		}
 
-		const json: WorkspacesResponse | undefined = (await rsp.json()) as WorkspacesResponse | undefined;
-
-		return json;
-	}
-
-	async getWorkspaces(options?: {
-		count?: number;
-		cursor?: string;
-		page?: number;
-	}): Promise<WorkspacesResponse | undefined> {
-		const accessToken = await this.getAccessToken();
-		if (accessToken == null) {
-			return;
+		const addedWorkspaceIds = new Set<string>();
+		const json: { data: { [queryKey: string]: CloudWorkspaceConnection<CloudWorkspaceData> | null } } | undefined =
+			await rsp.json();
+		if (json?.data == null) return undefined;
+		let outputData: WorkspacesResponse | undefined;
+		for (const workspaceData of Object.values(json.data)) {
+			if (workspaceData == null) continue;
+			if (outputData == null) {
+				outputData = { data: { projects: workspaceData } };
+				for (const node of workspaceData.nodes) {
+					addedWorkspaceIds.add(node.id);
+				}
+			} else {
+				for (const node of workspaceData.nodes) {
+					if (addedWorkspaceIds.has(node.id)) continue;
+					addedWorkspaceIds.add(node.id);
+					outputData.data.projects.nodes.push(node);
+				}
+			}
 		}
 
-		let queryparams = `(first: ${options?.count ?? defaultWorkspaceCount}`;
-		if (options?.cursor) {
-			queryparams += `, after: "${options.cursor}"`;
-		} else if (options?.page) {
-			queryparams += `, page: ${options.page}`;
-		}
-		queryparams += ')';
-
-		const rsp = await this.server.fetchGraphql(
-			{
-				query: `
-                    query getWorkspaces {
-                        projects ${queryparams} {
-                            total_count
-                            page_info {
-                                end_cursor
-                                has_next_page
-                            }
-                            nodes {
-                                id
-								description
-                                name
-								organization {
-									id
-								}
-                                provider
-                            }
-                        }
-                    }
-				`,
-			},
-			accessToken,
-		);
-
-		if (!rsp.ok) {
-			Logger.error(undefined, `Getting workspaces failed: (${rsp.status}) ${rsp.statusText}`);
-			throw new Error(rsp.statusText);
+		if (outputData != null) {
+			outputData.data.projects.total_count = addedWorkspaceIds.size;
 		}
 
-		const json: WorkspacesResponse | undefined = (await rsp.json()) as WorkspacesResponse | undefined;
-
-		return json;
+		return outputData;
 	}
 
 	async getWorkspaceRepositories(
@@ -326,6 +321,13 @@ export class WorkspacesApi {
 
 		const json: DeleteWorkspaceResponse | undefined = (await rsp.json()) as DeleteWorkspaceResponse | undefined;
 
+		if (json?.errors?.some(error => error.message.includes('permission'))) {
+			const errorMessage =
+				'Adding repositories to workspace failed: you do not have permission to delete this workspace';
+			Logger.error(undefined, errorMessage);
+			throw new Error(errorMessage);
+		}
+
 		return json;
 	}
 
@@ -391,6 +393,13 @@ export class WorkspacesApi {
 			| AddRepositoriesToWorkspaceResponse
 			| undefined;
 
+		if (json?.errors?.some(error => error.message.includes('permission'))) {
+			const errorMessage =
+				'Adding repositories to workspace failed: you do not have permission to add repositories to this workspace';
+			Logger.error(undefined, errorMessage);
+			throw new Error(errorMessage);
+		}
+
 		return json;
 	}
 
@@ -437,6 +446,13 @@ export class WorkspacesApi {
 		const json: RemoveRepositoriesFromWorkspaceResponse | undefined = (await rsp.json()) as
 			| RemoveRepositoriesFromWorkspaceResponse
 			| undefined;
+
+		if (json?.errors?.some(error => error.message.includes('permission'))) {
+			const errorMessage =
+				'Adding repositories to workspace failed: you do not have permission to remove repositories from this workspace';
+			Logger.error(undefined, errorMessage);
+			throw new Error(errorMessage);
+		}
 
 		return json;
 	}
