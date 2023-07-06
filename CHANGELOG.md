@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Added the ability to sync between a GitKraken Cloud workspace and its associated VS Code workspace
+  - Added options on creating the VS Code workspace to sync when repositories are added to its associated GitKraken Cloud workspace: `Always`, `Never`, and `Ask every time`
+  - Added a new command `Open VS Code Workspace` to open the existing VS Code workspace associated with a GitKraken Cloud workspace. This command replaces the existing `Create VS Code Workspace` command for that workspace
+  - When a VS Code workspace associated with a GitKraken Cloud workspace is opened, the associated GitKraken Cloud workspace is highlighted in green in the _GitKraken Workspaces_ view
+- Added support for deep links to comparisons. Deep links of this format take the form `vscode://eamodio.gitlens/r/{repoId}/compare/{ref1}[..|...]{ref2}?[url={remoteUrl}|path={repoPath}]` and open the comparison in the _Search & Compare_ view
+- Added experimental native fetch support (enabled by setting `gitlens.experimental.nativeGit` to `true` in settings) as a potential fix to some auth issues with GitLens git operations
+
+### Changed
+
+- Renamed `Convert to VS Code Workspace` to `Create VS Code Workspace` for workspace items in the _GitKraken Workspaces_ view to better reflect the behavior of the action
+
+### Fixed
+
+- Fixed some rendering issues when scrolling in the _Commit Graph_
+- Fixed an issue with some shared workspaces not showing up in the _GitKraken Workspaces_ view when they should
+- Fixed an issue when adding repositories to a workspace in the _GitKraken Workspaces_ view where the added repository would show as missing until refreshing the view
+
 ## [14.0.1] - 2023-06-19
 
 ### Changed
