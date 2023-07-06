@@ -400,7 +400,7 @@ export interface CloudWorkspaceIssue {
 	repository: CloudWorkspaceRepositoryData;
 }
 
-interface CloudWorkspaceConnection<i> {
+export interface CloudWorkspaceConnection<i> {
 	total_count: number;
 	page_info: {
 		start_cursor: string;
@@ -477,6 +477,7 @@ export interface DeleteWorkspaceResponse {
 	data: {
 		delete_project: CloudWorkspaceData | null;
 	};
+	errors?: { code: number; message: string }[];
 }
 
 export type AddRepositoriesToWorkspaceResponse = {
@@ -488,6 +489,7 @@ export type AddRepositoriesToWorkspaceResponse = {
 			};
 		} | null;
 	};
+	errors?: { code: number; message: string }[];
 };
 
 export interface RemoveRepositoriesFromWorkspaceResponse {
@@ -496,6 +498,7 @@ export interface RemoveRepositoriesFromWorkspaceResponse {
 			id: string;
 		} | null;
 	};
+	errors?: { code: number; message: string }[];
 }
 
 export interface AddWorkspaceRepoDescriptor {
