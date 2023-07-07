@@ -127,6 +127,11 @@ export const ShowDetailsViewQuickInputButton: QuickInputButton = {
 	tooltip: 'Open Details',
 };
 
+export const OpenChangesViewQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('compare-changes'),
+	tooltip: 'Open Changes',
+};
+
 export const ShowResultsInSideBarQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('link-external'),
 	tooltip: 'Show Results in Side Bar',

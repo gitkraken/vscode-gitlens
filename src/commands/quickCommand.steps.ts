@@ -119,6 +119,7 @@ import {
 	createPickStep,
 	endSteps,
 	LoadMoreQuickInputButton,
+	OpenChangesViewQuickInputButton,
 	OpenInNewWindowQuickInputButton,
 	PickCommitQuickInputButton,
 	RevealInSideBarQuickInputButton,
@@ -1067,7 +1068,11 @@ export async function* pickCommitStep<
 							picked != null &&
 								(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
 							{
-								buttons: [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton],
+								buttons: [
+									ShowDetailsViewQuickInputButton,
+									RevealInSideBarQuickInputButton,
+									OpenChangesViewQuickInputButton,
+								],
 								compact: true,
 								icon: true,
 							},
@@ -1101,6 +1106,7 @@ export async function* pickCommitStep<
 		],
 		onDidClickItemButton: (quickpick, button, item) => {
 			if (CommandQuickPickItem.is(item)) return;
+			const fileName = `${item.item.file?.path}`;
 
 			switch (button) {
 				case ShowDetailsViewQuickInputButton:
@@ -1113,6 +1119,9 @@ export async function* pickCommitStep<
 						focus: false,
 						expand: true,
 					});
+					break;
+				case OpenChangesViewQuickInputButton:
+					void CommitActions.openChanges(fileName, item.item, {});
 					break;
 			}
 		},
