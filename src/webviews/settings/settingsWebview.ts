@@ -29,7 +29,10 @@ export class SettingsWebviewProvider implements WebviewProvider<State> {
 	private readonly _disposable: Disposable;
 	private _pendingJumpToAnchor: string | undefined;
 
-	constructor(protected readonly container: Container, protected readonly host: WebviewController<State>) {
+	constructor(
+		protected readonly container: Container,
+		protected readonly host: WebviewController<State>,
+	) {
 		this._disposable = configuration.onDidChangeAny(this.onAnyConfigurationChanged, this);
 	}
 

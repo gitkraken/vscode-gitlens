@@ -28,7 +28,10 @@ export const builtInActionRunnerName = 'Built In';
 class ActionRunnerQuickPickItem implements QuickPickItem {
 	private readonly _label: string;
 
-	constructor(public readonly runner: RegisteredActionRunner, context: ActionContext) {
+	constructor(
+		public readonly runner: RegisteredActionRunner,
+		context: ActionContext,
+	) {
 		this._label = typeof runner.label === 'string' ? runner.label : runner.label(context);
 	}
 

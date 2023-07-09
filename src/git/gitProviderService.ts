@@ -1959,9 +1959,9 @@ export class GitProviderService implements Disposable {
 	): Promise<PullRequest | undefined>;
 	@gate<GitProviderService['getPullRequestForCommit']>((ref, remoteOrProvider, options) => {
 		const provider = GitRemote.is(remoteOrProvider) ? remoteOrProvider.provider : remoteOrProvider;
-		return `${ref}${provider != null ? `|${provider.id}:${provider.domain}/${provider.path}` : ''}|${
-			options?.timeout
-		}`;
+		return `${ref}${
+			provider != null ? `|${provider.id}:${provider.domain}/${provider.path}` : ''
+		}|${options?.timeout}`;
 	})
 	@debug<GitProviderService['getPullRequestForCommit']>({ args: { 1: remoteOrProvider => remoteOrProvider.name } })
 	async getPullRequestForCommit(

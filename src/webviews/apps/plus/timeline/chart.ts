@@ -40,7 +40,10 @@ export class TimelineChart implements Disposable {
 		return this.placement !== 'editor';
 	}
 
-	constructor(selector: string, private readonly placement: 'editor' | 'view') {
+	constructor(
+		selector: string,
+		private readonly placement: 'editor' | 'view',
+	) {
 		this._selector = selector;
 
 		const fn = () => {

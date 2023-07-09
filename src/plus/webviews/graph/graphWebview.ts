@@ -249,7 +249,10 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	private isWindowFocused: boolean = true;
 
-	constructor(private readonly container: Container, private readonly host: WebviewController<State>) {
+	constructor(
+		private readonly container: Container,
+		private readonly host: WebviewController<State>,
+	) {
 		this._showDetailsView = configuration.get('graph.showDetailsView');
 		this._theme = window.activeColorTheme;
 		this.ensureRepositorySubscriptions();

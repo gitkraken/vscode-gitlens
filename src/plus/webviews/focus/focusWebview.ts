@@ -56,7 +56,10 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	private _repositoryEventsDisposable?: Disposable;
 	private _repos?: RepoWithRichRemote[];
 
-	constructor(private readonly container: Container, private readonly host: WebviewController<State>) {
+	constructor(
+		private readonly container: Container,
+		private readonly host: WebviewController<State>,
+	) {
 		this._disposable = Disposable.from(
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			this.container.git.onDidChangeRepositories(() => void this.host.refresh(true)),

@@ -82,7 +82,10 @@ export class SubscriptionService implements Disposable {
 	private _statusBarSubscription: StatusBarItem | undefined;
 	private _validationTimer: ReturnType<typeof setInterval> | undefined;
 
-	constructor(private readonly container: Container, previousVersion: string | undefined) {
+	constructor(
+		private readonly container: Container,
+		previousVersion: string | undefined,
+	) {
 		this._disposable = Disposable.from(
 			once(container.onReady)(this.onReady, this),
 			this.container.subscriptionAuthentication.onDidChangeSessions(
@@ -627,11 +630,14 @@ export class SubscriptionService implements Disposable {
 		}
 
 		// Check 4 times a day to ensure we validate at least once a day
-		this._validationTimer = setInterval(() => {
-			if (this._lastCheckInDate == null || this._lastCheckInDate.getDate() !== new Date().getDate()) {
-				void this.ensureSession(false, true);
-			}
-		}, 1000 * 60 * 60 * 6);
+		this._validationTimer = setInterval(
+			() => {
+				if (this._lastCheckInDate == null || this._lastCheckInDate.getDate() !== new Date().getDate()) {
+					void this.ensureSession(false, true);
+				}
+			},
+			1000 * 60 * 60 * 6,
+		);
 	}
 
 	@debug()

@@ -295,7 +295,12 @@ export abstract class ViewFileNode<TView extends View = View, State extends obje
 	TView,
 	State
 > {
-	constructor(uri: GitUri, view: TView, public override parent: ViewNode, public readonly file: GitFile) {
+	constructor(
+		uri: GitUri,
+		view: TView,
+		public override parent: ViewNode,
+		public readonly file: GitFile,
+	) {
 		super(uri, view, parent);
 	}
 
@@ -313,7 +318,11 @@ export abstract class ViewRefNode<
 	TReference extends GitReference = GitReference,
 	State extends object = any,
 > extends ViewNode<TView, State> {
-	constructor(uri: GitUri, view: TView, protected override readonly parent: ViewNode) {
+	constructor(
+		uri: GitUri,
+		view: TView,
+		protected override readonly parent: ViewNode,
+	) {
 		super(uri, view, parent);
 	}
 

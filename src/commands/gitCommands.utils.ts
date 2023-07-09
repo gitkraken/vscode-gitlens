@@ -53,7 +53,10 @@ export class PickCommandStep implements QuickPickStep {
 	readonly placeholder = 'Choose a git command';
 	readonly title = 'GitLens';
 
-	constructor(private readonly container: Container, args?: GitCommandsCommandArgs) {
+	constructor(
+		private readonly container: Container,
+		args?: GitCommandsCommandArgs,
+	) {
 		const hasVirtualFolders = getContext<boolean>('gitlens:hasVirtualFolders', false);
 		const readonly =
 			hasVirtualFolders ||

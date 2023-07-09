@@ -54,7 +54,10 @@
 		border: 1px solid rgba(255, 255, 255, 0.6);
 		color: white;
 	}
-	transition: background-color 250ms, border-color 250ms, color 250ms;
+	transition:
+		background-color 250ms,
+		border-color 250ms,
+		color 250ms;
 
 	&:not([disabled]):hover,
 	&:not([disabled]):focus {
@@ -80,7 +83,10 @@
 	border: 1px solid white;
 	color: black;
 	font-weight: 600;
-	transition: background-color 250ms, border-color 250ms, color 250ms;
+	transition:
+		background-color 250ms,
+		border-color 250ms,
+		color 250ms;
 
 	&:not([disabled]):hover,
 	&:not([disabled]):focus {
@@ -99,7 +105,10 @@
 	border: 1px solid var(--color-button-background);
 	color: var(--color-button-foreground);
 	font-weight: 600;
-	transition: background-color 250ms, border-color 250ms, color 250ms;
+	transition:
+		background-color 250ms,
+		border-color 250ms,
+		color 250ms;
 
 	&:not([disabled]):hover,
 	&:not([disabled]):focus {
@@ -126,7 +135,10 @@
 	border: 1px solid var(--color-button-secondary-background);
 	color: var(--color-button-foreground);
 	font-weight: 600;
-	transition: background-color 250ms, border-color 250ms, color 250ms;
+	transition:
+		background-color 250ms,
+		border-color 250ms,
+		color 250ms;
 
 	&:not([disabled]):hover,
 	&:not([disabled]):focus {
@@ -157,7 +169,10 @@
 		border: 1px solid rgba(255, 255, 255, 0.2);
 		color: rgba(255, 255, 255, 0.6);
 	}
-	transition: background-color 250ms, border-color 250ms, color 250ms;
+	transition:
+		background-color 250ms,
+		border-color 250ms,
+		color 250ms;
 
 	&:not([disabled]):hover,
 	&:not([disabled]):focus {

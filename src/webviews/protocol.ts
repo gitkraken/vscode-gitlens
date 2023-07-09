@@ -10,7 +10,10 @@ export interface IpcMessage {
 
 abstract class IpcMessageType<Params = void> {
 	_?: Params; // Required for type inferencing to work properly
-	constructor(public readonly method: string, public readonly reset: boolean = false) {}
+	constructor(
+		public readonly method: string,
+		public readonly reset: boolean = false,
+	) {}
 }
 export type IpcMessageParams<T> = T extends IpcMessageType<infer P> ? P : never;
 
