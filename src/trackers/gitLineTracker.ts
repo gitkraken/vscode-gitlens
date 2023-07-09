@@ -85,12 +85,13 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 	})
 	private onContentChanged(e: DocumentContentChangeEvent<GitDocumentState>) {
 		if (
-			e.contentChanges.some(scope =>
-				this.selections?.some(
-					selection =>
-						(scope.range.end.line >= selection.active && selection.active >= scope.range.start.line) ||
-						(scope.range.start.line >= selection.active && selection.active >= scope.range.end.line),
-				),
+			e.contentChanges.some(
+				scope =>
+					this.selections?.some(
+						selection =>
+							(scope.range.end.line >= selection.active && selection.active >= scope.range.start.line) ||
+							(scope.range.start.line >= selection.active && selection.active >= scope.range.end.line),
+					),
 			)
 		) {
 			this.trigger('editor');

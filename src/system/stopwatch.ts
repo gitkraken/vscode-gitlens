@@ -23,7 +23,11 @@ export class Stopwatch {
 		return this._time;
 	}
 
-	constructor(public readonly scope: string | LogScope | undefined, options?: StopwatchOptions, ...params: any[]) {
+	constructor(
+		public readonly scope: string | LogScope | undefined,
+		options?: StopwatchOptions,
+		...params: any[]
+	) {
 		let logScope;
 		if (typeof scope !== 'string') {
 			logScope = scope;

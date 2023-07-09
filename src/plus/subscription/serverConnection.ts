@@ -141,9 +141,10 @@ export class ServerConnection implements Disposable {
 
 		return Promise.race([
 			deferredCodeExchange.promise,
-			new Promise<string>((_, reject) =>
-				// eslint-disable-next-line prefer-promise-reject-errors
-				this._cancellationSource?.token.onCancellationRequested(() => reject('Cancelled')),
+			new Promise<string>(
+				(_, reject) =>
+					// eslint-disable-next-line prefer-promise-reject-errors
+					this._cancellationSource?.token.onCancellationRequested(() => reject('Cancelled')),
 			),
 			new Promise<string>((_, reject) => setTimeout(reject, 120000, 'Cancelled')),
 		]).finally(() => {

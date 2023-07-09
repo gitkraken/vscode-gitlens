@@ -1,7 +1,10 @@
 export class MRU<T> {
 	private stack: T[] = [];
 
-	constructor(public readonly maxSize: number = 10, private readonly comparator?: (a: T, b: T) => boolean) {}
+	constructor(
+		public readonly maxSize: number = 10,
+		private readonly comparator?: (a: T, b: T) => boolean,
+	) {}
 
 	get count(): number {
 		return this.stack.length;

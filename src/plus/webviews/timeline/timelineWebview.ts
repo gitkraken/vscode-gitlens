@@ -46,7 +46,10 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 	private _pendingContext: Partial<Context> | undefined;
 	private readonly _disposable: Disposable;
 
-	constructor(private readonly container: Container, private readonly host: WebviewController<State>) {
+	constructor(
+		private readonly container: Container,
+		private readonly host: WebviewController<State>,
+	) {
 		this._context = {
 			uri: undefined,
 			period: defaultPeriod,

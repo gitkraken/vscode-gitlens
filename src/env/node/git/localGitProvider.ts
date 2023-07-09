@@ -246,7 +246,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	private _disposables: Disposable[] = [];
 
-	constructor(protected readonly container: Container, protected readonly git: Git) {
+	constructor(
+		protected readonly container: Container,
+		protected readonly git: Git,
+	) {
 		this.git.setLocator(this.ensureGit.bind(this));
 
 		this._disposables.push(

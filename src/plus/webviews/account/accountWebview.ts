@@ -14,7 +14,10 @@ import { DidChangeSubscriptionNotificationType } from './protocol';
 export class AccountWebviewProvider implements WebviewProvider<State> {
 	private readonly _disposable: Disposable;
 
-	constructor(private readonly container: Container, private readonly host: WebviewController<State>) {
+	constructor(
+		private readonly container: Container,
+		private readonly host: WebviewController<State>,
+	) {
 		this._disposable = Disposable.from(this.container.subscription.onDidChange(this.onSubscriptionChanged, this));
 	}
 

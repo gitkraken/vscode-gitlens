@@ -21,7 +21,12 @@ import { ContextValues, getViewNodeId, ViewRefNode } from './viewNode';
 export class TagNode extends ViewRefNode<ViewsWithTags, GitTagReference> implements PageableViewNode {
 	limit: number | undefined;
 
-	constructor(uri: GitUri, view: ViewsWithTags, public override parent: ViewNode, public readonly tag: GitTag) {
+	constructor(
+		uri: GitUri,
+		view: ViewsWithTags,
+		public override parent: ViewNode,
+		public readonly tag: GitTag,
+	) {
 		super(uri, view, parent);
 
 		this.updateContext({ tag: tag });

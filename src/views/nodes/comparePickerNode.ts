@@ -15,7 +15,11 @@ export class ComparePickerNode extends ViewNode<SearchAndCompareView> {
 	readonly order: number = Date.now();
 	readonly pinned: boolean = false;
 
-	constructor(view: SearchAndCompareView, parent: SearchAndCompareViewNode, public readonly selectedRef: RepoRef) {
+	constructor(
+		view: SearchAndCompareView,
+		parent: SearchAndCompareViewNode,
+		public readonly selectedRef: RepoRef,
+	) {
 		super(unknownGitUri, view, parent);
 	}
 

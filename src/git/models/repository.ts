@@ -92,7 +92,10 @@ export const enum RepositoryChangeComparisonMode {
 export class RepositoryChangeEvent {
 	private readonly _changes: Set<RepositoryChange>;
 
-	constructor(public readonly repository: Repository, changes: RepositoryChange[]) {
+	constructor(
+		public readonly repository: Repository,
+		changes: RepositoryChange[],
+	) {
 		this._changes = new Set(changes);
 	}
 

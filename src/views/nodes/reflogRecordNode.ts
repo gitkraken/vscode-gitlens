@@ -15,7 +15,11 @@ import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 export class ReflogRecordNode extends ViewNode<ViewsWithCommits> implements PageableViewNode {
 	limit: number | undefined;
 
-	constructor(view: ViewsWithCommits, parent: ViewNode, public readonly record: GitReflogRecord) {
+	constructor(
+		view: ViewsWithCommits,
+		parent: ViewNode,
+		public readonly record: GitReflogRecord,
+	) {
 		super(GitUri.fromRepoPath(record.repoPath), view, parent);
 
 		this.updateContext({ reflog: record });
