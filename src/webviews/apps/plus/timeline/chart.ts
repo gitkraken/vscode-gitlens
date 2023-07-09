@@ -411,6 +411,9 @@ export class TimelineChart implements Disposable {
 				// hide: this.compact ? [...this._authorsByIndex.values()] : undefined,
 				padding: 10,
 			},
+			point: {
+				sensitivity: 'radius',
+			},
 			resize: {
 				auto: false,
 			},
