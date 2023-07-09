@@ -316,9 +316,9 @@ Want to contribute to GitLens? Follow the [CONTRIBUTING](https://github.com/gitk
 
 Contributions to the documentation are greatly appreciated. If you find any areas that can be improved or have suggestions for new documentation, you can submit them as pull requests to the [GitLens Docs](https://github.com/gitkraken/gitlens-docs) repository.
 
-# Contributors &#x1F64F;&#x2764;
+# Contributors
 
-A big thanks to the people that have contributed to this project:
+A big thanks to the people that have contributed to this project 🙏❤️:
 
 - Zeeshan Adnan ([@zeeshanadnan](https://github.com/zeeshanadnan)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=zeeshanadnan)
 - Alex ([@deadmeu](https://github.com/deadmeu)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=deadmeu)
