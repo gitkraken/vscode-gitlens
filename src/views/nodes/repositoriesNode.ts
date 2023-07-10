@@ -51,6 +51,7 @@ export class RepositoriesNode extends SubscribeableViewNode<ViewsWithRepositorie
 
 	getTreeItem(): TreeItem {
 		const isInWorkspacesView = this.view instanceof WorkspacesView;
+		const isSyncedWorkspace = isInWorkspacesView && this.view.container.workspaces.currentWorkspaceId != null;
 		const item = new TreeItem(
 			isInWorkspacesView ? 'Current Window' : 'Repositories',
 			isInWorkspacesView ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.Expanded,
@@ -63,6 +64,10 @@ export class RepositoriesNode extends SubscribeableViewNode<ViewsWithRepositorie
 		let contextValue: string = ContextValues.Repositories;
 		if (isInWorkspacesView) {
 			contextValue += '+workspaces';
+		}
+
+		if (isSyncedWorkspace) {
+			contextValue += '+synced';
 		}
 
 		item.contextValue = contextValue;

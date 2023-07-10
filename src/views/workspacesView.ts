@@ -129,6 +129,13 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 				this,
 			),
 			registerViewCommand(
+				this.getQualifiedCommand('changeLocalSync'),
+				async () => {
+					await this.container.workspaces.changeCurrentCodeWorkspaceSyncSetting();
+				},
+				this,
+			),
+			registerViewCommand(
 				this.getQualifiedCommand('delete'),
 				async (node: WorkspaceNode) => {
 					await this.container.workspaces.deleteCloudWorkspace(node.workspace.id);

@@ -6960,6 +6960,11 @@
 				"icon": "$(window)"
 			},
 			{
+				"command": "gitlens.views.workspaces.changeLocalSync",
+				"title": "Change Workspace Sync Setting...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.workspaces.repo.locate",
 				"title": "Locate Repository...",
 				"category": "GitLens",
@@ -9518,6 +9523,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.workspaces.changeLocalSync",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.workspaces.repo.openInNewWindow",
 					"when": "false"
 				},
@@ -11180,6 +11189,11 @@
 					"command": "gitlens.views.workspaces.openLocalNewWindow",
 					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+(cloud|local)\\b)(?!.*?\\b\\+current\\b)(?=.*?\\b\\+hasPath\\b)/",
 					"group": "2_gitlens_quickopen@5"
+				},
+				{
+					"command": "gitlens.views.workspaces.changeLocalSync",
+					"when": "viewItem =~ /(gitlens:workspace\\b(?=.*?\\b\\+(cloud|local)\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+hasPath\\b)|gitlens:repositories\\b(?=.*?\\b\\+synced\\b))/",
+					"group": "2_gitlens_quickopen@6"
 				},
 				{
 					"command": "gitlens.views.workspaces.delete",

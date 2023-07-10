@@ -211,4 +211,32 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 
 		return true;
 	}
+
+	async updateCodeWorkspaceFileSettings(
+		uri: Uri,
+		options: { workspaceSyncSetting?: WorkspaceSyncSetting },
+	): Promise<boolean> {
+		let codeWorkspaceFileContents: CodeWorkspaceFileContents;
+		let data;
+		try {
+			data = await workspace.fs.readFile(uri);
+			codeWorkspaceFileContents = JSON.parse(data.toString()) as CodeWorkspaceFileContents;
+		} catch (error) {
+			return false;
+		}
+
+		if (options.workspaceSyncSetting != null) {
+			codeWorkspaceFileContents.settings['gitkraken.workspaceSyncSetting'] = options.workspaceSyncSetting;
+		}
+
+		const outputData = new Uint8Array(Buffer.from(JSON.stringify(codeWorkspaceFileContents)));
+		try {
+			await workspace.fs.writeFile(uri, outputData);
+		} catch (error) {
+			Logger.error(error, 'updateCodeWorkspaceFileSettings');
+			return false;
+		}
+
+		return true;
+	}
 }

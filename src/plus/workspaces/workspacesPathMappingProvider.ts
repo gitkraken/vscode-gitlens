@@ -28,4 +28,9 @@ export interface WorkspacesPathMappingProvider {
 		workspaceRepoFilePaths: string[],
 		options?: { workspaceId?: string; workspaceSyncSetting?: WorkspaceSyncSetting },
 	): Promise<boolean>;
+
+	updateCodeWorkspaceFileSettings(
+		uri: Uri,
+		options: { workspaceSyncSetting?: WorkspaceSyncSetting },
+	): Promise<boolean>;
 }

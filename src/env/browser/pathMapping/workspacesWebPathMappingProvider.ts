@@ -39,4 +39,11 @@ export class WorkspacesWebPathMappingProvider implements WorkspacesPathMappingPr
 	): Promise<boolean> {
 		return false;
 	}
+
+	async updateCodeWorkspaceFileSettings(
+		_uri: Uri,
+		_options: { workspaceSyncSetting?: WorkspaceSyncSetting },
+	): Promise<boolean> {
+		return false;
+	}
 }
