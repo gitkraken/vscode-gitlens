@@ -68,6 +68,10 @@ export class WorkspacesService implements Disposable {
 		this._disposable.dispose();
 	}
 
+	get currentWorkspaceId(): string | undefined {
+		return this._currentWorkspaceId;
+	}
+
 	private onSubscriptionChanged(event: SubscriptionChangeEvent): void {
 		if (
 			event.current.account == null ||
@@ -1028,6 +1032,41 @@ export class WorkspacesService implements Disposable {
 		if (open == null || open.title == 'Cancel') return;
 
 		void this.openCodeWorkspaceFile(workspaceId, { location: open.location });
+	}
+
+	async changeCurrentCodeWorkspaceSyncSetting(): Promise<void> {
+		if (
+			workspace.workspaceFile == null ||
+			this._currentWorkspaceId == null ||
+			this._currentWorkspaceSyncSetting == null
+		) {
+			return;
+		}
+
+		let syncOptions = [
+			{ title: 'Always', option: WorkspaceSyncSetting.Always },
+			{ title: 'Never', option: WorkspaceSyncSetting.Never },
+			{ title: 'Ask every time', option: WorkspaceSyncSetting.Ask },
+		];
+		syncOptions = syncOptions.filter(s => s.option !== this._currentWorkspaceSyncSetting);
+
+		// Show a quickpick without the current sync setting as an option
+		const newWorkspaceSyncOption = await window.showQuickPick(
+			syncOptions.map(s => s.title),
+			{
+				placeHolder: 'Choose a new sync setting for this workspace',
+			},
+		);
+		if (newWorkspaceSyncOption == null) return;
+
+		const newWorkspaceSyncSetting = syncOptions.find(s => s.title === newWorkspaceSyncOption)?.option;
+		if (newWorkspaceSyncSetting == null) return;
+
+		const updated = await this._workspacesPathProvider.updateCodeWorkspaceFileSettings(workspace.workspaceFile, {
+			workspaceSyncSetting: newWorkspaceSyncSetting,
+		});
+		if (!updated) return;
+		this._currentWorkspaceSyncSetting = newWorkspaceSyncSetting;
 	}
 
 	async openCodeWorkspaceFile(workspaceId: string, options?: { location?: OpenWorkspaceLocation }): Promise<void> {
