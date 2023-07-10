@@ -634,7 +634,7 @@ export class GraphMinimap extends FASTElement {
 					start: day,
 					end: day,
 					class: 'marker-result',
-				} satisfies RegionOptions),
+				}) satisfies RegionOptions,
 		);
 	}
 
@@ -917,17 +917,17 @@ export class GraphMinimap extends FASTElement {
 									  })}</span>`
 									: ''
 							}${
-											groups
-												?.get('branch')
-												?.sort((a, b) => (a.current ? -1 : 1) - (b.current ? -1 : 1))
-												.map(
-													m =>
-														/*html*/ `<span class="branch${m.current ? ' current' : ''}">${
-															m.name
-														}</span>`,
-												)
-												.join('') ?? ''
-									  }</div>
+								groups
+									?.get('branch')
+									?.sort((a, b) => (a.current ? -1 : 1) - (b.current ? -1 : 1))
+									.map(
+										m =>
+											/*html*/ `<span class="branch${m.current ? ' current' : ''}">${
+												m.name
+											}</span>`,
+									)
+									.join('') ?? ''
+							}</div>
 							<div class="refs">${
 								groups
 									?.get('remote')
@@ -940,11 +940,11 @@ export class GraphMinimap extends FASTElement {
 									)
 									.join('') ?? ''
 							}${
-											groups
-												?.get('tag')
-												?.map(m => /*html*/ `<span class="tag">${m.name}</span>`)
-												.join('') ?? ''
-									  }</div>`
+								groups
+									?.get('tag')
+									?.map(m => /*html*/ `<span class="tag">${m.name}</span>`)
+									.join('') ?? ''
+							}</div>`
 									: ''
 							}
 						</div>`;

@@ -38,13 +38,13 @@ export async function* asSettled<T>(promises: Promise<T>[]): AsyncIterable<Promi
 			i,
 			promise.then(
 				v =>
-					({ index: i, value: v, status: 'fulfilled' } as unknown as PromiseFulfilledResult<T> & {
+					({ index: i, value: v, status: 'fulfilled' }) as unknown as PromiseFulfilledResult<T> & {
 						index: number;
-					}),
+					},
 				e =>
-					({ index: i, reason: e, status: 'rejected' } as unknown as PromiseRejectedResult & {
+					({ index: i, reason: e, status: 'rejected' }) as unknown as PromiseRejectedResult & {
 						index: number;
-					}),
+					},
 			),
 		]),
 	);
@@ -57,13 +57,20 @@ export async function* asSettled<T>(promises: Promise<T>[]): AsyncIterable<Promi
 }
 
 export class PromiseCancelledError<T extends Promise<any> = Promise<any>> extends Error {
-	constructor(public readonly promise: T, message: string) {
+	constructor(
+		public readonly promise: T,
+		message: string,
+	) {
 		super(message);
 	}
 }
 
 export class PromiseCancelledErrorWithId<TKey, T extends Promise<any> = Promise<any>> extends PromiseCancelledError<T> {
-	constructor(public readonly id: TKey, promise: T, message: string) {
+	constructor(
+		public readonly id: TKey,
+		promise: T,
+		message: string,
+	) {
 		super(promise, message);
 	}
 }

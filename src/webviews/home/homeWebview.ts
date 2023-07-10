@@ -14,7 +14,10 @@ const emptyDisposable = Object.freeze({
 export class HomeWebviewProvider implements WebviewProvider<State> {
 	private readonly _disposable: Disposable;
 
-	constructor(private readonly container: Container, private readonly host: WebviewController<State>) {
+	constructor(
+		private readonly container: Container,
+		private readonly host: WebviewController<State>,
+	) {
 		this._disposable = Disposable.from(
 			this.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
 			!workspace.isTrusted

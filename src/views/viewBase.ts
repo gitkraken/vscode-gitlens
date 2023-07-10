@@ -94,22 +94,23 @@ export interface TreeViewNodeCollapsibleStateChangeEvent<T> extends TreeViewExpa
 }
 
 export abstract class ViewBase<
-	Type extends TreeViewTypes,
-	RootNode extends ViewNode,
-	ViewConfig extends
-		| BranchesViewConfig
-		| ContributorsViewConfig
-		| FileHistoryViewConfig
-		| CommitsViewConfig
-		| LineHistoryViewConfig
-		| RemotesViewConfig
-		| RepositoriesViewConfig
-		| SearchAndCompareViewConfig
-		| StashesViewConfig
-		| TagsViewConfig
-		| WorkspacesViewConfig
-		| WorktreesViewConfig,
-> implements TreeDataProvider<ViewNode>, Disposable
+		Type extends TreeViewTypes,
+		RootNode extends ViewNode,
+		ViewConfig extends
+			| BranchesViewConfig
+			| ContributorsViewConfig
+			| FileHistoryViewConfig
+			| CommitsViewConfig
+			| LineHistoryViewConfig
+			| RemotesViewConfig
+			| RepositoriesViewConfig
+			| SearchAndCompareViewConfig
+			| StashesViewConfig
+			| TagsViewConfig
+			| WorkspacesViewConfig
+			| WorktreesViewConfig,
+	>
+	implements TreeDataProvider<ViewNode>, Disposable
 {
 	get id(): `gitlens.views.${Type}` {
 		return `gitlens.views.${this.type}`;

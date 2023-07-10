@@ -16,7 +16,10 @@ import type {
 import { CloudWorkspaceProviderInputType, defaultWorkspaceCount, defaultWorkspaceRepoCount } from './models';
 
 export class WorkspacesApi {
-	constructor(private readonly container: Container, private readonly server: ServerConnection) {}
+	constructor(
+		private readonly container: Container,
+		private readonly server: ServerConnection,
+	) {}
 
 	private async getAccessToken() {
 		// TODO: should probably get scopes from somewhere

@@ -51,7 +51,10 @@ export class WorkspacesService implements Disposable {
 	private _currentWorkspaceId: string | undefined;
 	private _currentWorkspaceSyncSetting: WorkspaceSyncSetting = WorkspaceSyncSetting.Never;
 
-	constructor(private readonly container: Container, private readonly server: ServerConnection) {
+	constructor(
+		private readonly container: Container,
+		private readonly server: ServerConnection,
+	) {
 		this._workspacesApi = new WorkspacesApi(this.container, this.server);
 		this._workspacesPathProvider = getSupportedWorkspacesPathMappingProvider();
 		this._currentWorkspaceId = workspace.getConfiguration('gitkraken')?.get<string>('workspaceId');
