@@ -24,7 +24,6 @@ import type {
 	TagsViewConfig,
 	ViewsCommonConfig,
 	ViewsConfigKeys,
-	WorkspacesViewConfig,
 	WorktreesViewConfig,
 } from '../config';
 import { viewsCommonConfigKeys, viewsConfigKeys } from '../config';
@@ -107,7 +106,6 @@ export abstract class ViewBase<
 			| SearchAndCompareViewConfig
 			| StashesViewConfig
 			| TagsViewConfig
-			| WorkspacesViewConfig
 			| WorktreesViewConfig,
 	>
 	implements TreeDataProvider<ViewNode>, Disposable

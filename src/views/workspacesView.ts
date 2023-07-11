@@ -1,5 +1,5 @@
 import { Disposable, env, ProgressLocation, Uri, window } from 'vscode';
-import type { WorkspacesViewConfig } from '../config';
+import type { RepositoriesViewConfig } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
@@ -16,7 +16,7 @@ import { WorkspacesViewNode } from './nodes/workspacesViewNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
-export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, WorkspacesViewConfig> {
+export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, RepositoriesViewConfig> {
 	protected readonly configKey = 'repositories';
 	private _disposable: Disposable;
 
