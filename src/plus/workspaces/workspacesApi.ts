@@ -134,7 +134,7 @@ export class WorkspacesApi {
 		}
 
 		const addedWorkspaceIds = new Set<string>();
-		const json: { data: { [queryKey: string]: CloudWorkspaceConnection<CloudWorkspaceData> | null } } | undefined =
+		const json: { data: Record<string, CloudWorkspaceConnection<CloudWorkspaceData> | null> } | undefined =
 			await rsp.json();
 		if (json?.data == null) return undefined;
 		let outputData: WorkspacesResponse | undefined;

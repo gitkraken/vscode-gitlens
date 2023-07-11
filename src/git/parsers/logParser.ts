@@ -319,7 +319,7 @@ export function createLogParserWithFiles<T extends Record<string, unknown>>(
 					field = fields.next();
 					file.path = field.value;
 
-					if (file.status[0] === 'R' || file.status[0] === 'C') {
+					if (file.status.startsWith('R') || file.status.startsWith('C')) {
 						field = fields.next();
 						file.originalPath = field.value;
 					}

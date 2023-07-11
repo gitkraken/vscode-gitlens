@@ -207,7 +207,7 @@ interface RepositoryInfo {
 
 export class LocalGitProvider implements GitProvider, Disposable {
 	readonly descriptor: GitProviderDescriptor = { id: GitProviderId.Git, name: 'Git', virtual: false };
-	readonly supportedSchemes: Set<string> = new Set([
+	readonly supportedSchemes = new Set<string>([
 		Schemes.File,
 		Schemes.Git,
 		Schemes.GitLens,
@@ -4094,10 +4094,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const data = await this.git.status__file(root, relativePath, porcelainVersion, {
 			similarityThreshold: configuration.get('advanced.similarityThreshold'),
 		});
-		const status = GitStatusParser.parse(data, root, porcelainVersion);
-		if (status == null || !status.files.length) return undefined;
 
-		return status.files[0];
+		const status = GitStatusParser.parse(data, root, porcelainVersion);
+		return status?.files?.[0];
 	}
 
 	@log()
@@ -4109,10 +4108,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const data = await this.git.status__file(root, relativePath, porcelainVersion, {
 			similarityThreshold: configuration.get('advanced.similarityThreshold'),
 		});
-		const status = GitStatusParser.parse(data, root, porcelainVersion);
-		if (status == null || !status.files.length) return [];
 
-		return status.files;
+		const status = GitStatusParser.parse(data, root, porcelainVersion);
+		return status?.files ?? [];
 	}
 
 	@log()

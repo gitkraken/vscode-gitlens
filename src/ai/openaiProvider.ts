@@ -241,7 +241,7 @@ interface OpenAIChatCompletionRequest {
 	max_tokens?: number;
 	presence_penalty?: number;
 	frequency_penalty?: number;
-	logit_bias?: { [token: string]: number };
+	logit_bias?: Record<string, number>;
 	user?: string;
 }
 

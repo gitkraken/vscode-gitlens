@@ -272,7 +272,7 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	getProvider(editor: TextEditor | undefined): AnnotationProviderBase | undefined {
-		if (editor == null || editor.document == null) return undefined;
+		if (editor?.document == null) return undefined;
 		return this._annotationProviders.get(getEditorCorrelationKey(editor));
 	}
 

@@ -133,13 +133,13 @@ export class TimelineChart implements Disposable {
 			return;
 		}
 
-		const xs: { [key: string]: string } = {};
-		const colors: { [key: string]: string } = {};
-		const names: { [key: string]: string } = {};
-		const axes: { [key: string]: string } = {};
-		const types: { [key: string]: ChartTypes } = {};
+		const xs: Record<string, string> = {};
+		const colors: Record<string, string> = {};
+		const names: Record<string, string> = {};
+		const axes: Record<string, string> = {};
+		const types: Record<string, ChartTypes> = {};
 		const groups: string[][] = [];
-		const series: { [key: string]: any } = {};
+		const series: Record<string, any> = {};
 		const group = [];
 
 		let index = 0;

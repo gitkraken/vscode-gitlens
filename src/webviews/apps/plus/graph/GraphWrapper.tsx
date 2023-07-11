@@ -84,7 +84,7 @@ export interface GraphWrapperProps {
 	onDimMergeCommits?: (dim: boolean) => void;
 	onDoubleClickRef?: (ref: GraphRef, metadata?: GraphRefMetadataItem) => void;
 	onDoubleClickRow?: (row: GraphRow, preserveFocus?: boolean) => void;
-	onMissingAvatars?: (emails: { [email: string]: string }) => void;
+	onMissingAvatars?: (emails: Record<string, string>) => void;
 	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
 	onMoreRows?: (id?: string) => void;
 	onRefsVisibilityChange?: (refs: GraphExcludedRef[], visible: boolean) => void;
@@ -106,7 +106,7 @@ const getGraphDateFormatter = (config?: GraphComponentConfig): OnFormatCommitDat
 		formatCommitDateTime(commitDateTime, config?.dateStyle, config?.dateFormat, source);
 };
 
-const createIconElements = (): { [key: string]: ReactElement } => {
+const createIconElements = (): Record<string, ReactElement> => {
 	const iconList = [
 		'head',
 		'remote',
@@ -135,7 +135,7 @@ const createIconElements = (): { [key: string]: ReactElement } => {
 
 	const miniIconList = ['upstream-ahead', 'upstream-behind'];
 
-	const elementLibrary: { [key: string]: ReactElement } = {};
+	const elementLibrary: Record<string, ReactElement> = {};
 	iconList.forEach(iconKey => {
 		elementLibrary[iconKey] = createElement('span', { className: `graph-icon icon--${iconKey}` });
 	});

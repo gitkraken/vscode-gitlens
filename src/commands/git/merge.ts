@@ -85,7 +85,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 	}
 
 	execute(state: MergeStepState) {
-		return state.repo.merge(...state.flags, state.reference.ref);
+		state.repo.merge(...state.flags, state.reference.ref);
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
