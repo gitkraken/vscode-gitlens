@@ -162,7 +162,7 @@ export class GitDiffParser {
 			files.push({
 				status: status as GitFileStatus,
 				path: fields[++i],
-				originalPath: status[0] === 'R' || status[0] === 'C' ? fields[++i] : undefined,
+				originalPath: status.startsWith('R') || status.startsWith('C') ? fields[++i] : undefined,
 				repoPath: repoPath,
 			});
 		}

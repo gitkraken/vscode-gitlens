@@ -192,7 +192,7 @@ export interface GraphColumnConfig {
 	order?: number;
 }
 
-export type GraphColumnsConfig = { [name: string]: GraphColumnConfig };
+export type GraphColumnsConfig = Record<string, GraphColumnConfig>;
 
 export type GraphExcludeRefs = ExcludeRefsById;
 export type GraphExcludedRef = GraphRefOptData;
@@ -205,9 +205,11 @@ export type GraphRowStats = RowStats;
 
 export type InternalNotificationType = 'didChangeTheme';
 
-export interface UpdateStateCallback {
-	(state: State, type?: IpcNotificationType<any> | InternalNotificationType, themingChanged?: boolean): void;
-}
+export type UpdateStateCallback = (
+	state: State,
+	type?: IpcNotificationType<any> | InternalNotificationType,
+	themingChanged?: boolean,
+) => void;
 
 // Commands
 
@@ -381,8 +383,8 @@ export const DidChangeRefsVisibilityNotificationType = new IpcNotificationType<D
 
 export interface DidChangeRowsParams {
 	rows: GraphRow[];
-	avatars: { [email: string]: string };
-	downstreams: { [upstreamName: string]: string[] };
+	avatars: Record<string, string>;
+	downstreams: Record<string, string[]>;
 	paging?: GraphPaging;
 	refsMetadata?: GraphRefsMetadata | null;
 	rowsStats?: Record<string, GraphRowStats>;
@@ -420,7 +422,7 @@ export interface DidEnsureRowParams {
 export const DidEnsureRowNotificationType = new IpcNotificationType<DidEnsureRowParams>('graph/rows/didEnsure');
 
 export interface GraphSearchResults {
-	ids?: { [id: string]: GitSearchResultData };
+	ids?: Record<string, GitSearchResultData>;
 	count: number;
 	paging?: { hasMore: boolean };
 }

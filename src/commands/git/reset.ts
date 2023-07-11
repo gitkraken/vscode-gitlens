@@ -77,7 +77,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 	}
 
 	execute(state: ResetStepState) {
-		return state.repo.reset(...state.flags, state.reference.ref);
+		state.repo.reset(...state.flags, state.reference.ref);
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {

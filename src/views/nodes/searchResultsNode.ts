@@ -263,7 +263,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		return async (limit: number | undefined) => {
 			log = await (log ?? this.view.container.git.richSearchCommits(this.repoPath, this.search));
 
-			if (!useCacheOnce && log != null && log.query != null) {
+			if (!useCacheOnce && log?.query != null) {
 				log = await log.query(limit);
 			}
 			useCacheOnce = false;

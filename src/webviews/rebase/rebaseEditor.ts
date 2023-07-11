@@ -139,7 +139,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	get enabled(): boolean {
 		const associations = configuration.inspectAny<
 			CoreConfiguration,
-			{ [key: string]: string } | { viewType: string; filenamePattern: string }[]
+			Record<string, string> | { viewType: string; filenamePattern: string }[]
 		>('workbench.editorAssociations')?.globalValue;
 		if (associations == null || associations.length === 0) return true;
 
@@ -165,7 +165,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 		const inspection = configuration.inspectAny<
 			CoreConfiguration,
-			{ [key: string]: string } | { viewType: string; filenamePattern: string }[]
+			Record<string, string> | { viewType: string; filenamePattern: string }[]
 		>('workbench.editorAssociations');
 
 		let associations = inspection?.globalValue;

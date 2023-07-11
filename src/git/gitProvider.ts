@@ -28,7 +28,7 @@ import type { GitSearch, SearchQuery } from './search';
 
 export type GitCaches = 'branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags';
 export type GitRepositoryCaches = Extract<GitCaches, 'branches' | 'remotes'>;
-export const gitRepositoryCacheKeys: Set<GitRepositoryCaches> = new Set(['branches', 'remotes']);
+export const gitRepositoryCacheKeys = new Set<GitRepositoryCaches>(['branches', 'remotes']);
 
 export interface GitDir {
 	readonly uri: Uri;

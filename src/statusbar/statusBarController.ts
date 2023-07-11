@@ -368,7 +368,7 @@ export class StatusBarController implements Disposable {
 			| undefined,
 		pullRequests: {
 			enabled: boolean;
-			pr: PullRequest | PromiseCancelledError<Promise<PullRequest | undefined>> | undefined | undefined;
+			pr: PullRequest | PromiseCancelledError<Promise<PullRequest | undefined>> | undefined;
 		},
 		cancellationToken: CancellationToken,
 	) {

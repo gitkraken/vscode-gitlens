@@ -62,7 +62,7 @@ export class VslsGitProvider extends LocalGitProvider {
 		name: 'Live Share',
 		virtual: false,
 	};
-	override readonly supportedSchemes: Set<string> = new Set([Schemes.Vsls, Schemes.VslsScc]);
+	override readonly supportedSchemes = new Set<string>([Schemes.Vsls, Schemes.VslsScc]);
 
 	override async discoverRepositories(uri: Uri): Promise<Repository[]> {
 		if (!this.supportedSchemes.has(uri.scheme)) return [];

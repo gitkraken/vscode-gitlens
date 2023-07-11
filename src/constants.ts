@@ -808,9 +808,7 @@ export interface StoredBranchComparison {
 	type: Exclude<ViewShowBranchComparison, false> | undefined;
 }
 
-export interface StoredBranchComparisons {
-	[id: string]: string | StoredBranchComparison;
-}
+export type StoredBranchComparisons = Record<string, string | StoredBranchComparison>;
 
 export interface StoredDeepLinkContext {
 	url?: string | undefined;

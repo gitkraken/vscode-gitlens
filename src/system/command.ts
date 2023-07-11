@@ -6,9 +6,7 @@ import type { CoreCommands, CoreGitCommands, TreeViewCommands } from '../constan
 import { Commands } from '../constants';
 import { Container } from '../container';
 
-interface CommandConstructor {
-	new (container: Container): Command;
-}
+type CommandConstructor = new (container: Container) => Command;
 const registrableCommands: CommandConstructor[] = [];
 
 export function command(): ClassDecorator {

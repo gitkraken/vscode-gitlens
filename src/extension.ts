@@ -241,11 +241,7 @@ export function deactivate() {
 // }
 
 function setKeysForSync(context: ExtensionContext, ...keys: (SyncedStorageKeys | string)[]) {
-	return context.globalState?.setKeysForSync([
-		...keys,
-		SyncedStorageKeys.Version,
-		SyncedStorageKeys.HomeViewWelcomeVisible,
-	]);
+	context.globalState?.setKeysForSync([...keys, SyncedStorageKeys.Version, SyncedStorageKeys.HomeViewWelcomeVisible]);
 }
 
 function registerBuiltInActionRunners(container: Container): void {

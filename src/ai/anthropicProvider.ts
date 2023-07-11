@@ -212,7 +212,7 @@ interface AnthropicCompletionRequest {
 	temperature?: number;
 	top_k?: number;
 	top_p?: number;
-	tags?: { [key: string]: string };
+	tags?: Record<string, string>;
 }
 
 interface AnthropicCompletionResponse {

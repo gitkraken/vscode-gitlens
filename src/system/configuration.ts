@@ -209,7 +209,7 @@ export class Configuration {
 
 		const toInspection = this.inspect(to);
 		if (fromInspection.globalValue !== undefined) {
-			if (toInspection === undefined || toInspection.globalValue === undefined) {
+			if (toInspection?.globalValue === undefined) {
 				await this.update(
 					to,
 					options.migrationFn != null
@@ -228,7 +228,7 @@ export class Configuration {
 		}
 
 		if (fromInspection.workspaceValue !== undefined) {
-			if (toInspection === undefined || toInspection.workspaceValue === undefined) {
+			if (toInspection?.workspaceValue === undefined) {
 				await this.update(
 					to,
 					options.migrationFn != null
@@ -247,7 +247,7 @@ export class Configuration {
 		}
 
 		if (fromInspection.workspaceFolderValue !== undefined) {
-			if (toInspection === undefined || toInspection.workspaceFolderValue === undefined) {
+			if (toInspection?.workspaceFolderValue === undefined) {
 				await this.update(
 					to,
 					options.migrationFn != null

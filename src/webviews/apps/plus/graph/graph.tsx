@@ -631,14 +631,14 @@ export class GraphApp extends App<State> {
 	}
 
 	private onGetMoreRows(sha?: string) {
-		return this.sendCommand(GetMoreRowsCommandType, { id: sha });
+		this.sendCommand(GetMoreRowsCommandType, { id: sha });
 	}
 
 	private onSearch(search: SearchQuery | undefined, options?: { limit?: number }) {
 		if (search == null) {
 			this.state.searchResults = undefined;
 		}
-		return this.sendCommand(SearchCommandType, { search: search, limit: options?.limit });
+		this.sendCommand(SearchCommandType, { search: search, limit: options?.limit });
 	}
 
 	private async onSearchPromise(search: SearchQuery, options?: { limit?: number; more?: boolean }) {

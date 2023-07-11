@@ -416,7 +416,7 @@ export class WorkspacesService implements Disposable {
 		input.title = 'Create Cloud Workspace';
 		const quickpick = window.createQuickPick();
 		quickpick.title = 'Create Cloud Workspace';
-		const quickpickLabelToProviderType: { [label: string]: CloudWorkspaceProviderInputType } = {
+		const quickpickLabelToProviderType: Record<string, CloudWorkspaceProviderInputType> = {
 			GitHub: CloudWorkspaceProviderInputType.GitHub,
 			'GitHub Enterprise': CloudWorkspaceProviderInputType.GitHubEnterprise,
 			// TODO add support for these in the future

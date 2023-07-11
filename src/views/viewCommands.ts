@@ -583,9 +583,9 @@ export class ViewCommands {
 
 	@debug()
 	private openWorktree(node: WorktreeNode, options?: { location?: OpenWorkspaceLocation }) {
-		if (!(node instanceof WorktreeNode)) return undefined;
+		if (!(node instanceof WorktreeNode)) return;
 
-		return openWorkspace(node.worktree.uri, options);
+		openWorkspace(node.worktree.uri, options);
 	}
 
 	@debug()

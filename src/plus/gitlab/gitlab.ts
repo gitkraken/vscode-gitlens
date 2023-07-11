@@ -689,7 +689,7 @@ $search: String!
 		token: string,
 		baseUrl: string | undefined,
 		query: string,
-		variables: { [key: string]: any },
+		variables: Record<string, any>,
 		scope: LogScope | undefined,
 	): Promise<T | undefined> {
 		let rsp: Response;

@@ -52,7 +52,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 				args.inDiffLeftEditor ? 1 : 0,
 			);
 
-			if (diffUris == null || diffUris.next == null) return;
+			if (diffUris?.next == null) return;
 
 			void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 				repoPath: diffUris.current.repoPath,

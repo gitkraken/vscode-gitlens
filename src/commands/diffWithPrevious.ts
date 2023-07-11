@@ -88,7 +88,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				args.inDiffRightEditor ? 1 : 0,
 			);
 
-			if (diffUris == null || diffUris.previous == null) {
+			if (diffUris?.previous == null) {
 				if (diffUris == null) {
 					void showCommitHasNoPreviousCommitWarningMessage();
 

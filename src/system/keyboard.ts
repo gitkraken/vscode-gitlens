@@ -15,9 +15,7 @@ const keyNoopCommand = Object.create(null) as KeyCommand;
 export { keyNoopCommand as KeyNoopCommand };
 
 export type KeyMapping = { [K in Keys]?: KeyCommand | (() => Promise<KeyCommand>) };
-type IndexableKeyMapping = KeyMapping & {
-	[index: string]: KeyCommand | (() => Promise<KeyCommand>) | undefined;
-};
+type IndexableKeyMapping = KeyMapping & Record<string, KeyCommand | (() => Promise<KeyCommand>) | undefined>;
 
 const mappings: KeyMapping[] = [];
 

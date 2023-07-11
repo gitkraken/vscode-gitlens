@@ -15,7 +15,7 @@ export enum WorkspaceSyncSetting {
 
 export type CodeWorkspaceFileContents = {
 	folders: { path: string }[];
-	settings: { [key: string]: any };
+	settings: Record<string, any>;
 };
 
 export type WorkspaceRepositoriesByName = Map<string, RepositoryMatch>;
@@ -484,9 +484,7 @@ export type AddRepositoriesToWorkspaceResponse = {
 	data: {
 		add_repositories_to_project: {
 			id: string;
-			provider_data: {
-				[repoKey: string]: CloudWorkspaceRepositoryData;
-			};
+			provider_data: Record<string, CloudWorkspaceRepositoryData>;
 		} | null;
 	};
 	errors?: { code: number; message: string }[];
@@ -576,9 +574,7 @@ export interface LocalWorkspaceFileData {
 	workspaces: LocalWorkspaceData;
 }
 
-export type LocalWorkspaceData = {
-	[localWorkspaceId: string]: LocalWorkspaceDescriptor;
-};
+export type LocalWorkspaceData = Record<string, LocalWorkspaceDescriptor>;
 
 export interface LocalWorkspaceDescriptor {
 	localId: string;
@@ -603,19 +599,13 @@ export interface CloudWorkspaceFileData {
 	workspaces: CloudWorkspacesPathMap;
 }
 
-export type CloudWorkspacesPathMap = {
-	[cloudWorkspaceId: string]: CloudWorkspacePaths;
-};
+export type CloudWorkspacesPathMap = Record<string, CloudWorkspacePaths>;
 
 export interface CloudWorkspacePaths {
 	repoPaths: CloudWorkspaceRepoPathMap;
 	externalLinks: CloudWorkspaceExternalLinkMap;
 }
 
-export type CloudWorkspaceRepoPathMap = {
-	[repoId: string]: string;
-};
+export type CloudWorkspaceRepoPathMap = Record<string, string>;
 
-export type CloudWorkspaceExternalLinkMap = {
-	[fileExtenstion: string]: string;
-};
+export type CloudWorkspaceExternalLinkMap = Record<string, string>;

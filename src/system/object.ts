@@ -46,12 +46,11 @@ export function flatten(
 		stringify?: boolean | 'all';
 	},
 ): Record<string, any> {
-	const skipPaths =
-		options?.skipPaths != null && options.skipPaths.length
-			? options?.prefix
-				? options.skipPaths.map(p => `${options.prefix}.${p}`)
-				: options.skipPaths
-			: undefined;
+	const skipPaths = options?.skipPaths?.length
+		? options?.prefix
+			? options.skipPaths.map(p => `${options.prefix}.${p}`)
+			: options.skipPaths
+		: undefined;
 	const skipNulls = options?.skipNulls ?? false;
 	const stringify = options?.stringify ?? false;
 

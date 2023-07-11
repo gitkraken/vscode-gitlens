@@ -123,12 +123,13 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 		}
 
 		if (options.tokenOptions == null) {
-			const tokenOptions = getTokensFromTemplate(template).reduce<{
-				[token: string]: TokenOptions | undefined;
-			}>((map, token) => {
-				map[token.key] = token.options;
-				return map;
-			}, Object.create(null));
+			const tokenOptions = getTokensFromTemplate(template).reduce<Record<string, TokenOptions | undefined>>(
+				(map, token) => {
+					map[token.key] = token.options;
+					return map;
+				},
+				Object.create(null),
+			);
 
 			options.tokenOptions = tokenOptions;
 		}
@@ -166,12 +167,13 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 		}
 
 		if (options.tokenOptions == null) {
-			const tokenOptions = getTokensFromTemplate(template).reduce<{
-				[token: string]: TokenOptions | undefined;
-			}>((map, token) => {
-				map[token.key] = token.options;
-				return map;
-			}, Object.create(null));
+			const tokenOptions = getTokensFromTemplate(template).reduce<Record<string, TokenOptions | undefined>>(
+				(map, token) => {
+					map[token.key] = token.options;
+					return map;
+				},
+				Object.create(null),
+			);
 
 			options.tokenOptions = tokenOptions;
 		}

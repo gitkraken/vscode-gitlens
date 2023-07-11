@@ -10,6 +10,6 @@ export class ToggleCodeLensCommand extends Command {
 	}
 
 	execute() {
-		return this.container.codeLens.toggleCodeLens();
+		this.container.codeLens.toggleCodeLens();
 	}
 }

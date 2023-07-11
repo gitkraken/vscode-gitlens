@@ -32,7 +32,7 @@ export * from './trackedDocument';
 export interface DocumentContentChangeEvent<T> {
 	readonly editor: TextEditor;
 	readonly document: TrackedDocument<T>;
-	readonly contentChanges: ReadonlyArray<TextDocumentContentChangeEvent>;
+	readonly contentChanges: readonly TextDocumentContentChangeEvent[];
 }
 
 export interface DocumentDirtyStateChangeEvent<T> {
