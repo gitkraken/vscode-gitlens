@@ -697,7 +697,7 @@ export class WorkspacesService implements Disposable {
 		const workspace = this.getCloudWorkspace(workspaceId);
 		if (workspace == null) return;
 
-		const repoInputs: (AddWorkspaceRepoDescriptor & { repo: Repository })[] = [];
+		const repoInputs: (AddWorkspaceRepoDescriptor & { repo: Repository; url?: string })[] = [];
 		let reposOrRepoPaths: Repository[] | string[] | undefined = options?.repos;
 		if (!options?.repos) {
 			let validRepos = await this.filterReposForProvider(this.container.git.openRepositories, workspace.provider);
@@ -800,12 +800,19 @@ export class WorkspacesService implements Disposable {
 			const remote = (await repo.getRemote('origin')) || (await repo.getRemotes())?.[0];
 			const remoteDescriptor = getRemoteDescriptor(remote);
 			if (remoteDescriptor == null) continue;
-			repoInputs.push({ owner: remoteDescriptor.owner, repoName: remoteDescriptor.repoName, repo: repo });
+			repoInputs.push({
+				owner: remoteDescriptor.owner,
+				repoName: remoteDescriptor.repoName,
+				repo: repo,
+				url: remoteDescriptor.url,
+			});
 		}
 
 		if (repoInputs.length === 0) return;
 
-		// let newRepoDescriptors: CloudWorkspaceRepositoryDescriptor[] = [];
+		let newRepoDescriptors: CloudWorkspaceRepositoryDescriptor[] = [];
+		const oldDescriptorIds = new Set((await workspace.getRepositoryDescriptors()).map(r => r.id));
+
 		try {
 			const response = await this._workspacesApi.addReposToWorkspace(
 				workspaceId,
@@ -813,28 +820,34 @@ export class WorkspacesService implements Disposable {
 			);
 
 			if (response?.data.add_repositories_to_project == null) return;
-			/* newRepoDescriptors = Object.values(response.data.add_repositories_to_project.provider_data).map(
-				descriptor => ({ ...descriptor, workspaceId: workspaceId }),
-			) as CloudWorkspaceRepositoryDescriptor[]; */
+			newRepoDescriptors = Object.values(response.data.add_repositories_to_project.provider_data)
+				.filter(descriptor => descriptor != null)
+				.map(descriptor => ({
+					...descriptor,
+					workspaceId: workspaceId,
+				})) as CloudWorkspaceRepositoryDescriptor[];
 		} catch (error) {
 			void window.showErrorMessage(error.message);
 			return;
 		}
 
-		/* if (newRepoDescriptors.length === 0) return;
-		workspace.addRepositories(newRepoDescriptors);
+		if (newRepoDescriptors.length > 0) {
+			workspace.addRepositories(newRepoDescriptors);
+		}
 
-		for (const { repo, repoName } of repoInputs) {
-			const successfullyAddedDescriptor = newRepoDescriptors.find(r => r.name === repoName);
+		if (newRepoDescriptors.length < repoInputs.length) {
+			newRepoDescriptors = (await workspace.getRepositoryDescriptors({ force: true })).filter(
+				r => !oldDescriptorIds.has(r.id),
+			);
+		}
+
+		for (const { repo, repoName, url } of repoInputs) {
+			const successfullyAddedDescriptor = newRepoDescriptors.find(
+				r => r.name.toLowerCase() === repoName || r.url === url,
+			);
 			if (successfullyAddedDescriptor == null) continue;
 			await this.locateWorkspaceRepo(workspaceId, successfullyAddedDescriptor, repo);
-		} */
-
-		// TODO@axosoft-ramint This temporary workaround resets the repositories in the workspace.
-		// It is necessary because projects-api currently doesn't reliably return the workspace repos it added.
-		// Once that is fixed, revert and use workspace.addRepositories instead.
-		workspace.resetRepositoriesByName();
-		await workspace.getRepositoryDescriptors({ force: true });
+		}
 	}
 
 	async removeCloudWorkspaceRepo(workspaceId: string, descriptor: CloudWorkspaceRepositoryDescriptor) {
@@ -1163,6 +1176,7 @@ function getRemoteDescriptor(remote: GitRemote): RemoteDescriptor | undefined {
 		provider: remote.provider.id.toLowerCase(),
 		owner: remote.provider.owner.toLowerCase(),
 		repoName: remoteRepoName.toLowerCase(),
+		url: remote.provider.url({ type: RemoteResourceType.Repo }),
 	};
 }
 

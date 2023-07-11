@@ -29,6 +29,7 @@ export interface RemoteDescriptor {
 	provider: string;
 	owner: string;
 	repoName: string;
+	url?: string;
 }
 
 export interface GetWorkspacesResponse {
