@@ -6960,8 +6960,8 @@
 				"icon": "$(window)"
 			},
 			{
-				"command": "gitlens.views.workspaces.changeLocalSync",
-				"title": "Change Workspace Sync Setting...",
+				"command": "gitlens.views.workspaces.changeAutoAddSetting",
+				"title": "Change Workspace Auto-Add Setting...",
 				"category": "GitLens"
 			},
 			{
@@ -9523,7 +9523,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.workspaces.changeLocalSync",
+					"command": "gitlens.views.workspaces.changeAutoAddSetting",
 					"when": "false"
 				},
 				{
@@ -11191,7 +11191,7 @@
 					"group": "2_gitlens_quickopen@5"
 				},
 				{
-					"command": "gitlens.views.workspaces.changeLocalSync",
+					"command": "gitlens.views.workspaces.changeAutoAddSetting",
 					"when": "viewItem =~ /(gitlens:workspace\\b(?=.*?\\b\\+(cloud|local)\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+hasPath\\b)|gitlens:repositories\\b(?=.*?\\b\\+synced\\b))/",
 					"group": "2_gitlens_quickopen@6"
 				},

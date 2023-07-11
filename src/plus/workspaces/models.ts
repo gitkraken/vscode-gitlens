@@ -7,10 +7,10 @@ export enum WorkspaceType {
 	Cloud = 'cloud',
 }
 
-export enum WorkspaceSyncSetting {
-	Never = 'never',
-	Always = 'always',
-	Ask = 'ask',
+export enum WorkspaceAutoAddSetting {
+	Disabled = 'disabled',
+	Enabled = 'enabled',
+	Prompt = 'prompt',
 }
 
 export type CodeWorkspaceFileContents = {

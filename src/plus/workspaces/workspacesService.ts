@@ -32,7 +32,7 @@ import {
 	cloudWorkspaceProviderTypeToRemoteProviderId,
 	LocalWorkspace,
 	WorkspaceAddRepositoriesChoice,
-	WorkspaceSyncSetting,
+	WorkspaceAutoAddSetting,
 } from './models';
 import { WorkspacesApi } from './workspacesApi';
 import type { WorkspacesPathMappingProvider } from './workspacesPathMappingProvider';
@@ -49,7 +49,7 @@ export class WorkspacesService implements Disposable {
 	private _workspacesApi: WorkspacesApi;
 	private _workspacesPathProvider: WorkspacesPathMappingProvider;
 	private _currentWorkspaceId: string | undefined;
-	private _currentWorkspaceSyncSetting: WorkspaceSyncSetting = WorkspaceSyncSetting.Never;
+	private _currentWorkspaceAutoAddSetting: WorkspaceAutoAddSetting = WorkspaceAutoAddSetting.Disabled;
 
 	constructor(
 		private readonly container: Container,
@@ -58,9 +58,9 @@ export class WorkspacesService implements Disposable {
 		this._workspacesApi = new WorkspacesApi(this.container, this.server);
 		this._workspacesPathProvider = getSupportedWorkspacesPathMappingProvider();
 		this._currentWorkspaceId = workspace.getConfiguration('gitkraken')?.get<string>('workspaceId');
-		this._currentWorkspaceSyncSetting =
-			workspace.getConfiguration('gitkraken')?.get<WorkspaceSyncSetting>('workspaceSyncSetting') ??
-			WorkspaceSyncSetting.Never;
+		this._currentWorkspaceAutoAddSetting =
+			workspace.getConfiguration('gitkraken')?.get<WorkspaceAutoAddSetting>('workspaceAutoAddSetting') ??
+			WorkspaceAutoAddSetting.Disabled;
 		this._disposable = Disposable.from(container.subscription.onDidChange(this.onSubscriptionChanged, this));
 	}
 
@@ -213,7 +213,7 @@ export class WorkspacesService implements Disposable {
 		);
 
 		if (currentWorkspace != null) {
-			await this.syncCurrentWorkspace(currentWorkspace);
+			await this.addMissingCurrentWorkspaceRepos(currentWorkspace);
 		}
 
 		getWorkspacesResponse.cloudWorkspaces = this._cloudWorkspaces ?? [];
@@ -229,8 +229,8 @@ export class WorkspacesService implements Disposable {
 		return descriptors?.map(d => ({ ...d, workspaceId: workspaceId })) ?? [];
 	}
 
-	async syncCurrentWorkspace(workspace: CloudWorkspace | LocalWorkspace): Promise<void> {
-		if (this._currentWorkspaceSyncSetting === WorkspaceSyncSetting.Never || !workspace.current) return;
+	async addMissingCurrentWorkspaceRepos(workspace: CloudWorkspace | LocalWorkspace): Promise<void> {
+		if (this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Disabled || !workspace.current) return;
 
 		if (!(await workspace.getRepositoryDescriptors())?.length) return;
 
@@ -242,7 +242,7 @@ export class WorkspacesService implements Disposable {
 		const repositoriesToAdd = repositories.filter(r => !currentWorkspaceRepositoryIdMap.has(r.id));
 		if (repositoriesToAdd.length === 0) return;
 		let chosenRepoPaths: string[] = [];
-		if (this._currentWorkspaceSyncSetting === WorkspaceSyncSetting.Ask) {
+		if (this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Prompt) {
 			const addChoice = await window.showInformationMessage(
 				'New repositories found in the cloud workspace matching this workspace. Would you like to add them?',
 				{ modal: true },
@@ -1010,12 +1010,12 @@ export class WorkspacesService implements Disposable {
 
 		if (newWorkspaceUri == null) return;
 
-		const newWorkspaceSyncSetting = await window.showInformationMessage(
-			'Would you like to sync your new workspace file with its cloud workspace?',
+		const newWorkspaceAutoAddSetting = await window.showInformationMessage(
+			'Would you like to enable auto-add for this workspace? This will automatically add new repositories from the cloud workspace to this workspace when it is opened.',
 			{ modal: true },
-			{ title: 'Always', option: WorkspaceSyncSetting.Always },
-			{ title: 'Never', option: WorkspaceSyncSetting.Never },
-			{ title: 'Ask every time', option: WorkspaceSyncSetting.Ask },
+			{ title: 'Enable', option: WorkspaceAutoAddSetting.Enabled },
+			{ title: 'Disable', option: WorkspaceAutoAddSetting.Disabled },
+			{ title: 'Ask every time', option: WorkspaceAutoAddSetting.Prompt },
 		);
 
 		const created = await this._workspacesPathProvider.writeCodeWorkspaceFile(
@@ -1023,7 +1023,7 @@ export class WorkspacesService implements Disposable {
 			workspaceFolderPaths,
 			{
 				workspaceId: workspaceId,
-				workspaceSyncSetting: newWorkspaceSyncSetting?.option ?? WorkspaceSyncSetting.Never,
+				workspaceAutoAddSetting: newWorkspaceAutoAddSetting?.option ?? WorkspaceAutoAddSetting.Disabled,
 			},
 		);
 
@@ -1047,39 +1047,58 @@ export class WorkspacesService implements Disposable {
 		void this.openCodeWorkspaceFile(workspaceId, { location: open.location });
 	}
 
-	async changeCurrentCodeWorkspaceSyncSetting(): Promise<void> {
+	async chooseCurrentCodeWorkspaceAutoAddSetting(): Promise<void> {
 		if (
 			workspace.workspaceFile == null ||
 			this._currentWorkspaceId == null ||
-			this._currentWorkspaceSyncSetting == null
+			this._currentWorkspaceAutoAddSetting == null
 		) {
 			return;
 		}
 
-		let syncOptions = [
-			{ title: 'Always', option: WorkspaceSyncSetting.Always },
-			{ title: 'Never', option: WorkspaceSyncSetting.Never },
-			{ title: 'Ask every time', option: WorkspaceSyncSetting.Ask },
-		];
-		syncOptions = syncOptions.filter(s => s.option !== this._currentWorkspaceSyncSetting);
-
-		// Show a quickpick without the current sync setting as an option
-		const newWorkspaceSyncOption = await window.showQuickPick(
-			syncOptions.map(s => s.title),
+		let autoAddOptions = [
 			{
-				placeHolder: 'Choose a new sync setting for this workspace',
+				title: 'Enable',
+				option: WorkspaceAutoAddSetting.Enabled,
+				...(this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Enabled
+					? { description: 'current' }
+					: {}),
+			},
+			{
+				title: 'Disable',
+				option: WorkspaceAutoAddSetting.Disabled,
+				...(this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Disabled
+					? { description: 'current' }
+					: {}),
+			},
+			{
+				title: 'Ask every time',
+				option: WorkspaceAutoAddSetting.Prompt,
+				...(this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Prompt
+					? { description: 'current' }
+					: {}),
+			},
+		];
+		autoAddOptions = autoAddOptions.filter(s => s.option !== this._currentWorkspaceAutoAddSetting);
+
+		// Show a quickpick without the current auto-add setting as an option
+		const newWorkspaceAutoAddOption = await window.showQuickPick(
+			autoAddOptions.map(s => s.title),
+			{
+				placeHolder: 'Choose an option to automatically add missing repositories to this workspace',
+				title: 'Automatically add repositories',
 			},
 		);
-		if (newWorkspaceSyncOption == null) return;
+		if (newWorkspaceAutoAddOption == null) return;
 
-		const newWorkspaceSyncSetting = syncOptions.find(s => s.title === newWorkspaceSyncOption)?.option;
-		if (newWorkspaceSyncSetting == null) return;
+		const newWorkspaceAtuoAddSetting = autoAddOptions.find(s => s.title === newWorkspaceAutoAddOption)?.option;
+		if (newWorkspaceAtuoAddSetting == null) return;
 
 		const updated = await this._workspacesPathProvider.updateCodeWorkspaceFileSettings(workspace.workspaceFile, {
-			workspaceSyncSetting: newWorkspaceSyncSetting,
+			workspaceAutoAddSetting: newWorkspaceAtuoAddSetting,
 		});
 		if (!updated) return;
-		this._currentWorkspaceSyncSetting = newWorkspaceSyncSetting;
+		this._currentWorkspaceAutoAddSetting = newWorkspaceAtuoAddSetting;
 	}
 
 	async openCodeWorkspaceFile(workspaceId: string, options?: { location?: OpenWorkspaceLocation }): Promise<void> {
