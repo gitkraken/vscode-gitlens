@@ -131,7 +131,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, R
 			registerViewCommand(
 				this.getQualifiedCommand('changeAutoAddSetting'),
 				async () => {
-					await this.container.workspaces.chooseCurrentCodeWorkspaceAutoAddSetting();
+					await this.container.workspaces.chooseCodeWorkspaceAutoAddSetting({ current: true });
 				},
 				this,
 			),
