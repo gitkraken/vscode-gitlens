@@ -8,8 +8,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds the ability to sync between a GitKraken Cloud workspace and its associated VS Code workspace
-  - Adds options when creating the VS Code workspace to sync when repositories are added to its associated GitKraken Cloud workspace: `Always`, `Never`, and `Ask every time`
+- Adds the ability to link a GitKraken Cloud workspace with its associated VS Code workspace
+  - Adds options when creating the VS Code workspace to automatically add repositories that were added to its associated GitKraken Cloud workspace: `Enable`, `Disable`, and `Ask every time`
   - Adds a new command `Open VS Code Workspace` to open the existing VS Code workspace associated with a GitKraken Cloud workspace. This command replaces the existing `Create VS Code Workspace` command for that workspace
   - When a VS Code workspace associated with a GitKraken Cloud workspace is opened, the associated GitKraken Cloud workspace is highlighted in green in the _GitKraken Workspaces_ view
 - Adds support for deep links to comparisons. Deep links of this format take the form `vscode://eamodio.gitlens/r/{repoId}/compare/{ref1}[..|...]{ref2}?[url={remoteUrl}|path={repoPath}]` and open the comparison in the _Search & Compare_ view

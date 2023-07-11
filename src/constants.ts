@@ -404,7 +404,7 @@ export type TreeViewCommands = `gitlens.views.${
 			| 'copy'
 			| 'refresh'
 			| 'addRepos'
-			| 'changeLocalSync'
+			| 'changeAutoAddSetting'
 			| 'convert'
 			| 'create'
 			| 'createLocal'
