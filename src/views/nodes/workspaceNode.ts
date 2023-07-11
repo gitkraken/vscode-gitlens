@@ -113,6 +113,10 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 				? `\nProvider: ${this.workspace.provider}`
 				: ''
 		}`;
+
+		if (this.workspace.type === WorkspaceType.Cloud && this.workspace.organizationId != null) {
+			item.description = 'shared';
+		}
 		return item;
 	}
 
