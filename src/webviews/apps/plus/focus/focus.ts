@@ -1,3 +1,4 @@
+// import { FocusView } from '@gitkraken/shared-web-components';
 import type { PullRequestShape } from '../../../../git/models/pullRequest';
 import type { State } from '../../../../plus/webviews/focus/protocol';
 import {
@@ -11,6 +12,8 @@ import { App } from '../../shared/appBase';
 import type { FeatureGate } from '../../shared/components/feature-gate';
 import type { FeatureGateBadge } from '../../shared/components/feature-gate-badge';
 import { DOM } from '../../shared/dom';
+import type { GkIssueRow } from './components/gk-issue-row';
+import type { GkPullRequestRow } from './components/gk-pull-request-row';
 import type { IssueRow } from './components/issue-row';
 import type { PullRequestRow } from './components/pull-request-row';
 import '../../shared/components/button';
@@ -24,13 +27,17 @@ import '../../shared/components/table/table-cell';
 import '../../shared/components/feature-gate-badge';
 import './components/issue-row';
 import './components/pull-request-row';
+import './components/gk-pull-request-row';
+import './components/gk-issue-row';
 import './focus.scss';
+import '@gitkraken/shared-web-components';
 
 export class FocusApp extends App<State> {
 	constructor() {
 		super('FocusApp');
 	}
 
+	private _focusFilter?: string;
 	private _prFilter?: string;
 	private _issueFilter?: string;
 
@@ -51,6 +58,12 @@ export class FocusApp extends App<State> {
 			DOM.on('#issue-filter [data-tab]', 'click', e =>
 				this.onSelectTab(e, val => {
 					this._issueFilter = val;
+					this.renderIssues();
+				}),
+			),
+			DOM.on('#focus-filter [data-tab]', 'click', e =>
+				this.onSelectTab(e, val => {
+					this._focusFilter = val;
 					this.renderIssues();
 				}),
 			),
@@ -106,13 +119,65 @@ export class FocusApp extends App<State> {
 		const $badge = document.getElementById('subscription-gate-badge')! as FeatureGateBadge;
 		$badge.subscription = this.state.access.subscription.current;
 
-		this.renderPullRequests();
-		this.renderIssues();
+		// this.renderPullRequests();
+		// this.renderIssues();
+		this.renderFocusList();
+	}
+
+	renderFocusList() {
+		const tableEl = document.getElementById('list-focus-items');
+		if (tableEl == null) return;
+
+		tableEl.innerHTML = '';
+
+		const noneEl = document.getElementById('no-focus-items')!;
+		const loadingEl = document.getElementById('loading-focus-items')!;
+		if (this.state.access.allowed !== true || (this.state.pullRequests == null && this.state.issues == null)) {
+			noneEl.setAttribute('hidden', 'true');
+			loadingEl.removeAttribute('hidden');
+		} else if (
+			(this.state.pullRequests == null || this.state.pullRequests.length === 0) &&
+			(this.state.issues == null || this.state.issues.length === 0)
+		) {
+			noneEl.removeAttribute('hidden');
+			loadingEl.setAttribute('hidden', 'true');
+		} else {
+			noneEl.setAttribute('hidden', 'true');
+			loadingEl.setAttribute('hidden', 'true');
+			let rank = 0;
+			this.state.pullRequests?.forEach(
+				({ pullRequest, reasons, isCurrentBranch, isCurrentWorktree, hasWorktree, hasLocalBranch }, i) => {
+					if (this._focusFilter == null || this._focusFilter === '' || reasons.includes(this._focusFilter)) {
+						const rowEl = document.createElement('gk-pull-request-row') as GkPullRequestRow;
+						rowEl.pullRequest = pullRequest;
+						rowEl.rank = ++rank;
+						// rowEl2.reasons = reasons;
+						rowEl.isCurrentBranch = isCurrentBranch;
+						rowEl.isCurrentWorktree = isCurrentWorktree;
+						rowEl.hasWorktree = hasWorktree;
+						rowEl.hasLocalBranch = hasLocalBranch;
+
+						tableEl.append(rowEl);
+					}
+				},
+			);
+
+			this.state.issues?.forEach(({ issue, reasons }) => {
+				if (this._focusFilter == null || this._focusFilter === '' || reasons.includes(this._focusFilter)) {
+					const rowEl = document.createElement('gk-issue-row') as GkIssueRow;
+					rowEl.rank = ++rank;
+					rowEl.issue = issue;
+
+					tableEl.append(rowEl);
+				}
+			});
+		}
 	}
 
 	renderPullRequests() {
 		const tableEl = document.getElementById('pull-requests');
 		if (tableEl == null) return;
+		const tableEl2 = document.getElementById('share-pull-requests')!;
 
 		const rowEls = tableEl.querySelectorAll('pull-request-row');
 		rowEls.forEach(el => el.remove());
@@ -128,8 +193,9 @@ export class FocusApp extends App<State> {
 		} else {
 			noneEl.setAttribute('hidden', 'true');
 			loadingEl.setAttribute('hidden', 'true');
+			tableEl2.innerHTML = '';
 			this.state.pullRequests.forEach(
-				({ pullRequest, reasons, isCurrentBranch, isCurrentWorktree, hasWorktree, hasLocalBranch }) => {
+				({ pullRequest, reasons, isCurrentBranch, isCurrentWorktree, hasWorktree, hasLocalBranch }, i) => {
 					if (this._prFilter == null || this._prFilter === '' || reasons.includes(this._prFilter)) {
 						const rowEl = document.createElement('pull-request-row') as PullRequestRow;
 						rowEl.pullRequest = pullRequest;
@@ -140,6 +206,17 @@ export class FocusApp extends App<State> {
 						rowEl.hasLocalBranch = hasLocalBranch;
 
 						tableEl.append(rowEl);
+
+						const rowEl2 = document.createElement('gk-pull-request-row') as GkPullRequestRow;
+						rowEl2.pullRequest = pullRequest;
+						rowEl2.rank = i + 1;
+						// rowEl2.reasons = reasons;
+						rowEl2.isCurrentBranch = isCurrentBranch;
+						rowEl2.isCurrentWorktree = isCurrentWorktree;
+						rowEl2.hasWorktree = hasWorktree;
+						rowEl2.hasLocalBranch = hasLocalBranch;
+
+						tableEl2.append(rowEl2);
 					}
 				},
 			);
@@ -151,6 +228,7 @@ export class FocusApp extends App<State> {
 
 		const rowEls = tableEl.querySelectorAll('issue-row');
 		rowEls.forEach(el => el.remove());
+		const tableEl2 = document.getElementById('share-pull-requests')!;
 
 		const noneEl = document.getElementById('no-issues')!;
 		const loadingEl = document.getElementById('loading-issues')!;
@@ -170,6 +248,11 @@ export class FocusApp extends App<State> {
 					rowEl.reasons = reasons;
 
 					tableEl.append(rowEl);
+
+					const rowEl2 = document.createElement('gk-issue-row') as GkIssueRow;
+					rowEl2.issue = issue;
+
+					tableEl2.append(rowEl2);
 				}
 			});
 		}
@@ -190,5 +273,8 @@ export class FocusApp extends App<State> {
 		callback?.(tab);
 	}
 }
+
+// customElements.define(FocusView.tag, FocusView);
+// FocusView.define();
 
 new FocusApp();

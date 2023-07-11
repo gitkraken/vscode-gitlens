@@ -22,6 +22,8 @@ body {
 	--table-text: var(--color-foreground--65);
 	--table-pinned-background: var(--color-background);
 	--layout-gutter-outer: 20px;
+
+	--gk-color-primary: var(--vscode-errorForeground);
 }
 
 .vscode-high-contrast,
@@ -257,6 +259,11 @@ h3 {
 		font-size: 1.6rem;
 		vertical-align: middle;
 	}
+}
+
+gk-focus-view::part(base) {
+	font-size: 1.5rem;
+	font-weight: bold;
 }
 
 .app {
