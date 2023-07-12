@@ -304,7 +304,9 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 
 		const item = new TreeItem(
 			label,
-			workspace != null ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.Expanded,
+			workspace != null || this.view.type === 'workspaces'
+				? TreeItemCollapsibleState.Collapsed
+				: TreeItemCollapsibleState.Expanded,
 		);
 		item.id = this.id;
 		item.contextValue = contextValue;
