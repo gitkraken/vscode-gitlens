@@ -204,11 +204,11 @@ export class TernarySearchTree<K, V> {
 	}
 
 	delete(key: K): void {
-		return this._delete(key, false);
+		this._delete(key, false);
 	}
 
 	deleteSuperstr(key: K): void {
-		return this._delete(key, true);
+		this._delete(key, true);
 	}
 
 	private _delete(key: K, superStr: boolean): void {

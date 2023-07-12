@@ -1,5 +1,5 @@
 import type { Uri } from 'vscode';
-import type { LocalWorkspaceFileData, WorkspaceSyncSetting } from './models';
+import type { LocalWorkspaceFileData, WorkspaceAutoAddSetting } from './models';
 
 export interface WorkspacesPathMappingProvider {
 	getCloudWorkspaceRepoPath(cloudWorkspaceId: string, repoId: string): Promise<string | undefined>;
@@ -26,6 +26,11 @@ export interface WorkspacesPathMappingProvider {
 	writeCodeWorkspaceFile(
 		uri: Uri,
 		workspaceRepoFilePaths: string[],
-		options?: { workspaceId?: string; workspaceSyncSetting?: WorkspaceSyncSetting },
+		options?: { workspaceId?: string; workspaceAutoAddSetting?: WorkspaceAutoAddSetting },
+	): Promise<boolean>;
+
+	updateCodeWorkspaceFileSettings(
+		uri: Uri,
+		options: { workspaceAutoAddSetting?: WorkspaceAutoAddSetting },
 	): Promise<boolean>;
 }

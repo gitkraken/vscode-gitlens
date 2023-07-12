@@ -3,7 +3,7 @@ import type {
 	CloudWorkspacesPathMap,
 	CodeWorkspaceFileContents,
 	LocalWorkspaceFileData,
-	WorkspaceSyncSetting,
+	WorkspaceAutoAddSetting,
 } from '../../../plus/workspaces/models';
 import type { WorkspacesPathMappingProvider } from '../../../plus/workspaces/workspacesPathMappingProvider';
 import { Logger } from '../../../system/logger';
@@ -178,7 +178,7 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 	async writeCodeWorkspaceFile(
 		uri: Uri,
 		workspaceRepoFilePaths: string[],
-		options?: { workspaceId?: string; workspaceSyncSetting?: WorkspaceSyncSetting },
+		options?: { workspaceId?: string; workspaceAutoAddSetting?: WorkspaceAutoAddSetting },
 	): Promise<boolean> {
 		let codeWorkspaceFileContents: CodeWorkspaceFileContents;
 		let data;
@@ -194,8 +194,8 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 			codeWorkspaceFileContents.settings['gitkraken.workspaceId'] = options.workspaceId;
 		}
 
-		if (options?.workspaceSyncSetting != null) {
-			codeWorkspaceFileContents.settings['gitkraken.workspaceSyncSetting'] = options.workspaceSyncSetting;
+		if (options?.workspaceAutoAddSetting != null) {
+			codeWorkspaceFileContents.settings['gitkraken.workspaceAutoAddSetting'] = options.workspaceAutoAddSetting;
 		}
 
 		const outputData = new Uint8Array(Buffer.from(JSON.stringify(codeWorkspaceFileContents)));
@@ -206,6 +206,34 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 			}
 		} catch (error) {
 			Logger.error(error, 'writeCodeWorkspaceFile');
+			return false;
+		}
+
+		return true;
+	}
+
+	async updateCodeWorkspaceFileSettings(
+		uri: Uri,
+		options: { workspaceAutoAddSetting?: WorkspaceAutoAddSetting },
+	): Promise<boolean> {
+		let codeWorkspaceFileContents: CodeWorkspaceFileContents;
+		let data;
+		try {
+			data = await workspace.fs.readFile(uri);
+			codeWorkspaceFileContents = JSON.parse(data.toString()) as CodeWorkspaceFileContents;
+		} catch (error) {
+			return false;
+		}
+
+		if (options.workspaceAutoAddSetting != null) {
+			codeWorkspaceFileContents.settings['gitkraken.workspaceAutoAddSetting'] = options.workspaceAutoAddSetting;
+		}
+
+		const outputData = new Uint8Array(Buffer.from(JSON.stringify(codeWorkspaceFileContents)));
+		try {
+			await workspace.fs.writeFile(uri, outputData);
+		} catch (error) {
+			Logger.error(error, 'updateCodeWorkspaceFileSettings');
 			return false;
 		}
 

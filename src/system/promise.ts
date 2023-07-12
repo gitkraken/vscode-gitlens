@@ -149,7 +149,7 @@ export function defer<T>(): Deferred<T> {
 	deferred.promise = new Promise((resolve, reject) => {
 		deferred.fulfill = function (value) {
 			deferred.pending = false;
-			return resolve(value);
+			resolve(value);
 		};
 		deferred.cancel = function () {
 			deferred.pending = false;

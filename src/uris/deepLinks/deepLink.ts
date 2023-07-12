@@ -165,7 +165,7 @@ export interface DeepLinkServiceContext {
 	secondaryTargetSha?: string | undefined;
 }
 
-export const deepLinkStateTransitionTable: { [state: string]: { [action: string]: DeepLinkServiceState } } = {
+export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLinkServiceState>> = {
 	[DeepLinkServiceState.Idle]: {
 		[DeepLinkServiceAction.DeepLinkEventFired]: DeepLinkServiceState.RepoMatch,
 	},
@@ -235,7 +235,7 @@ export interface DeepLinkProgress {
 	increment: number;
 }
 
-export const deepLinkStateToProgress: { [state: string]: DeepLinkProgress } = {
+export const deepLinkStateToProgress: Record<string, DeepLinkProgress> = {
 	[DeepLinkServiceState.Idle]: { message: 'Done.', increment: 100 },
 	[DeepLinkServiceState.RepoMatch]: { message: 'Finding a matching repository...', increment: 10 },
 	[DeepLinkServiceState.CloneOrAddRepo]: { message: 'Adding repository...', increment: 20 },

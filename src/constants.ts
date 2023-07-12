@@ -120,6 +120,7 @@ export const enum Commands {
 	CopyCurrentBranch = 'gitlens.copyCurrentBranch',
 	CopyDeepLinkToBranch = 'gitlens.copyDeepLinkToBranch',
 	CopyDeepLinkToCommit = 'gitlens.copyDeepLinkToCommit',
+	CopyDeepLinkToComparison = 'gitlens.copyDeepLinkToComparison',
 	CopyDeepLinkToRepo = 'gitlens.copyDeepLinkToRepo',
 	CopyDeepLinkToTag = 'gitlens.copyDeepLinkToTag',
 	CopyMessageToClipboard = 'gitlens.copyMessageToClipboard',
@@ -404,6 +405,8 @@ export type TreeViewCommands = `gitlens.views.${
 			| 'copy'
 			| 'refresh'
 			| 'addRepos'
+			| 'addReposFromLinked'
+			| 'changeAutoAddSetting'
 			| 'convert'
 			| 'create'
 			| 'createLocal'
@@ -807,9 +810,7 @@ export interface StoredBranchComparison {
 	type: Exclude<ViewShowBranchComparison, false> | undefined;
 }
 
-export interface StoredBranchComparisons {
-	[id: string]: string | StoredBranchComparison;
-}
+export type StoredBranchComparisons = Record<string, string | StoredBranchComparison>;
 
 export interface StoredDeepLinkContext {
 	url?: string | undefined;

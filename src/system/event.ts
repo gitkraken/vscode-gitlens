@@ -39,9 +39,11 @@ export function until<T>(event: Event<T>, predicate: (e: T) => boolean): Event<T
 
 export type DeferredEvent<T> = Omit<Deferred<T>, 'fulfill'>;
 
-export interface DeferredEventExecutor<T, U> {
-	(value: T, resolve: (value: U | PromiseLike<U>) => void, reject: (reason: any) => void): any;
-}
+export type DeferredEventExecutor<T, U> = (
+	value: T,
+	resolve: (value: U | PromiseLike<U>) => void,
+	reject: (reason: any) => void,
+) => any;
 
 const resolveExecutor = (value: any, resolve: (value?: any) => void) => resolve(value);
 

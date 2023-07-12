@@ -1,4 +1,4 @@
-export function hasNodes(...nodes: Array<Node[] | undefined>) {
+export function hasNodes(...nodes: (Node[] | undefined)[]) {
 	return nodes.some(nodes => (nodes?.length ?? 0) > 0);
 }
 

@@ -685,18 +685,18 @@ export class DeepLinkService implements Disposable {
 	async copyDeepLinkUrl(
 		repoPath: string,
 		remoteUrl: string,
-		targetType?: DeepLinkType,
-		targetId?: string,
+		compareRef?: string,
+		compareToRef?: string,
 	): Promise<void>;
 	async copyDeepLinkUrl(
 		refOrRepoPath: string | GitReference,
 		remoteUrl: string,
-		targetType?: DeepLinkType,
-		targetId?: string,
+		compareRef?: string,
+		compareToRef?: string,
 	): Promise<void> {
-		const url = await (typeof refOrRepoPath !== 'string'
-			? this.generateDeepLinkUrl(refOrRepoPath, remoteUrl)
-			: this.generateDeepLinkUrl(refOrRepoPath, remoteUrl, targetType, targetId));
+		const url = await (typeof refOrRepoPath === 'string'
+			? this.generateDeepLinkUrl(refOrRepoPath, remoteUrl, compareRef, compareToRef)
+			: this.generateDeepLinkUrl(refOrRepoPath, remoteUrl));
 		await env.clipboard.writeText(url.toString());
 	}
 
@@ -704,18 +704,26 @@ export class DeepLinkService implements Disposable {
 	async generateDeepLinkUrl(
 		repoPath: string,
 		remoteUrl: string,
-		targetType?: DeepLinkType,
-		targetId?: string,
+		compareRef?: string,
+		compareToRef?: string,
 	): Promise<URL>;
 	async generateDeepLinkUrl(
 		refOrRepoPath: string | GitReference,
 		remoteUrl: string,
-		targetType?: DeepLinkType,
-		targetId?: string,
+		compareRef?: string,
+		compareToRef?: string,
 	): Promise<URL> {
 		const repoPath = typeof refOrRepoPath !== 'string' ? refOrRepoPath.repoPath : refOrRepoPath;
-		const repoId = await this.container.git.getUniqueRepositoryId(repoPath);
+		let repoId;
+		try {
+			repoId = await this.container.git.getUniqueRepositoryId(repoPath);
+		} catch {
+			repoId = '-';
+		}
 
+		let targetType: DeepLinkType | undefined;
+		let targetId: string | undefined;
+		let compareTargetId: string | undefined;
 		if (typeof refOrRepoPath !== 'string') {
 			switch (refOrRepoPath.refType) {
 				case 'branch':
@@ -735,9 +743,22 @@ export class DeepLinkService implements Disposable {
 			}
 		}
 
+		if (compareRef != null && compareToRef != null) {
+			targetType = DeepLinkType.Comparison;
+			targetId = compareRef;
+			compareTargetId = compareToRef;
+		}
+
 		const schemeOverride = configuration.get('deepLinks.schemeOverride');
 		const scheme = !schemeOverride ? 'vscode' : schemeOverride === true ? env.uriScheme : schemeOverride;
-		const target = targetType != null && targetType !== DeepLinkType.Repository ? `/${targetType}/${targetId}` : '';
+		let target;
+		if (targetType === DeepLinkType.Comparison) {
+			target = `/${targetType}/${targetId}...${compareTargetId}`;
+		} else if (targetType != null && targetType !== DeepLinkType.Repository) {
+			target = `/${targetType}/${targetId}`;
+		} else {
+			target = '';
+		}
 
 		// Start with the prefix, add the repo prefix and the repo ID to the URL, and then add the target tag and target ID to the URL (if applicable)
 		const url = new URL(

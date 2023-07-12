@@ -69,8 +69,17 @@ export class AnthropicProvider implements AIProvider {
 		});
 
 		if (!rsp.ok) {
+			let json;
+			try {
+				json = (await rsp.json()) as { error: { type: string; message: string } } | undefined;
+			} catch {}
+
 			debugger;
-			throw new Error(`Unable to generate commit message: ${rsp.status}: ${rsp.statusText}`);
+			throw new Error(
+				`Unable to generate commit message: (${this.name}:${rsp.status}) ${
+					json?.error.message || rsp.statusText
+				})`,
+			);
 		}
 
 		const data: AnthropicCompletionResponse = await rsp.json();
@@ -114,14 +123,22 @@ export class AnthropicProvider implements AIProvider {
 				'Content-Type': 'application/json',
 				Client: 'anthropic-typescript/0.4.3',
 				'X-API-Key': apiKey,
+				'anthropic-version': '2023-06-01',
 			},
 			method: 'POST',
 			body: JSON.stringify(request),
 		});
 
 		if (!rsp.ok) {
+			let json;
+			try {
+				json = (await rsp.json()) as { error: { type: string; message: string } } | undefined;
+			} catch {}
+
 			debugger;
-			throw new Error(`Unable to explain commit: ${rsp.status}: ${rsp.statusText}`);
+			throw new Error(
+				`Unable to explain commit: (${this.name}:${rsp.status}) ${json?.error.message || rsp.statusText})`,
+			);
 		}
 
 		const data: AnthropicCompletionResponse = await rsp.json();
@@ -194,12 +211,17 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 }
 
 function getMaxCharacters(model: AnthropicModels): number {
-	if (model === 'claude-v1-100k' || model === 'claude-instant-v1-100k') {
+	if (model === 'claude-2' || model === 'claude-v1-100k' || model === 'claude-instant-v1-100k') {
 		return 135000;
 	}
 	return 12000;
 }
-export type AnthropicModels = 'claude-v1' | 'claude-v1-100k' | 'claude-instant-v1' | 'claude-instant-v1-100k';
+export type AnthropicModels =
+	| 'claude-v1'
+	| 'claude-v1-100k'
+	| 'claude-instant-v1'
+	| 'claude-instant-v1-100k'
+	| 'claude-2';
 
 interface AnthropicCompletionRequest {
 	model: string;
@@ -212,7 +234,7 @@ interface AnthropicCompletionRequest {
 	temperature?: number;
 	top_k?: number;
 	top_p?: number;
-	tags?: { [key: string]: string };
+	tags?: Record<string, string>;
 }
 
 interface AnthropicCompletionResponse {

@@ -94,7 +94,8 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			const editor = getEditorCommand();
 			configs = ['-c', `"sequence.editor=${editor}"`];
 		}
-		return state.repo.rebase(configs, ...state.flags, state.reference.ref);
+
+		state.repo.rebase(configs, ...state.flags, state.reference.ref);
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {

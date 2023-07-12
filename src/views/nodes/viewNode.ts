@@ -260,7 +260,7 @@ export abstract class ViewNode<TView extends View = View, State extends object =
 			debugger;
 			throw new Error('Id is required to delete state');
 		}
-		return this.view.nodeState.deleteState(this.id, key as string);
+		this.view.nodeState.deleteState(this.id, key as string);
 	}
 
 	getState<T extends StateKey<State> = StateKey<State>>(key: T): StateValue<State, T> | undefined {

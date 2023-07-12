@@ -2175,7 +2175,7 @@ export class GitHubApi implements Disposable {
 		provider: RichRemoteProvider | undefined,
 		token: string,
 		query: string,
-		variables: { [key: string]: any },
+		variables: Record<string, any>,
 		scope: LogScope | undefined,
 	): Promise<T | undefined> {
 		try {

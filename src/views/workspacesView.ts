@@ -1,5 +1,5 @@
 import { Disposable, env, ProgressLocation, Uri, window } from 'vscode';
-import type { WorkspacesViewConfig } from '../config';
+import type { RepositoriesViewConfig } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
@@ -16,7 +16,7 @@ import { WorkspacesViewNode } from './nodes/workspacesViewNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
-export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, WorkspacesViewConfig> {
+export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, RepositoriesViewConfig> {
 	protected readonly configKey = 'repositories';
 	private _disposable: Disposable;
 
@@ -77,6 +77,10 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 				await this.container.workspaces.addCloudWorkspaceRepos(node.workspace.id);
 				void node.getParent()?.triggerChange(true);
 			}),
+			registerViewCommand(this.getQualifiedCommand('addReposFromLinked'), async (node: RepositoriesNode) => {
+				await this.container.workspaces.addMissingCurrentWorkspaceRepos({ force: true });
+				void node.getParent()?.triggerChange(true);
+			}),
 			registerViewCommand(
 				this.getQualifiedCommand('convert'),
 				async (node: RepositoriesNode) => {
@@ -125,6 +129,13 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 					await this.container.workspaces.openCodeWorkspaceFile(node.workspace.id, {
 						location: OpenWorkspaceLocation.NewWindow,
 					});
+				},
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('changeAutoAddSetting'),
+				async () => {
+					await this.container.workspaces.chooseCodeWorkspaceAutoAddSetting({ current: true });
 				},
 				this,
 			),

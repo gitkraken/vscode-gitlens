@@ -76,7 +76,12 @@ export class OpenAIProvider implements AIProvider {
 
 		if (!rsp.ok) {
 			debugger;
-			throw new Error(`Unable to generate commit message: ${rsp.status}: ${rsp.statusText}`);
+			if (rsp.status === 429) {
+				throw new Error(
+					`Unable to generate commit message: (${this.name}:${rsp.status}) Too many requests (rate limit exceeded) or your API key is associated with an expired trial`,
+				);
+			}
+			throw new Error(`Unable to generate commit message: (${this.name}:${rsp.status}) ${rsp.statusText}`);
 		}
 
 		const data: OpenAIChatCompletionResponse = await rsp.json();
@@ -133,7 +138,12 @@ export class OpenAIProvider implements AIProvider {
 
 		if (!rsp.ok) {
 			debugger;
-			throw new Error(`Unable to explain commit: ${rsp.status}: ${rsp.statusText}`);
+			if (rsp.status === 429) {
+				throw new Error(
+					`Unable to explain commit: (${this.name}:${rsp.status}) Too many requests (rate limit exceeded) or your API key is associated with an expired trial`,
+				);
+			}
+			throw new Error(`Unable to explain commit: (${this.name}:${rsp.status}) ${rsp.statusText}`);
 		}
 
 		const data: OpenAIChatCompletionResponse = await rsp.json();
@@ -241,7 +251,7 @@ interface OpenAIChatCompletionRequest {
 	max_tokens?: number;
 	presence_penalty?: number;
 	frequency_penalty?: number;
-	logit_bias?: { [token: string]: number };
+	logit_bias?: Record<string, number>;
 	user?: string;
 }
 

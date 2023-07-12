@@ -50,7 +50,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 				gitUri.sha,
 			);
 
-			if (diffUris == null || diffUris.previous == null) {
+			if (diffUris?.previous == null) {
 				void showCommitHasNoPreviousCommitWarningMessage();
 
 				return;

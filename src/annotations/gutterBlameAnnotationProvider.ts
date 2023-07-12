@@ -54,12 +54,13 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		const cfg = configuration.get('blame');
 
 		// Precalculate the formatting options so we don't need to do it on each iteration
-		const tokenOptions = getTokensFromTemplate(cfg.format).reduce<{
-			[token: string]: TokenOptions | undefined;
-		}>((map, token) => {
-			map[token.key] = token.options;
-			return map;
-		}, Object.create(null));
+		const tokenOptions = getTokensFromTemplate(cfg.format).reduce<Record<string, TokenOptions | undefined>>(
+			(map, token) => {
+				map[token.key] = token.options;
+				return map;
+			},
+			Object.create(null),
+		);
 
 		let getBranchAndTagTips;
 		if (CommitFormatter.has(cfg.format, 'tips')) {
