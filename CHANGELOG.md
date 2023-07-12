@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds support for deep links to comparisons. Deep links of this format take the form `vscode://eamodio.gitlens/r/{repoId}/compare/{ref1}[..|...]{ref2}?[url={remoteUrl}|path={repoPath}]` and open the comparison in the _Search & Compare_ view
   - Adds the `Share` submenu to the context menu for Comparison items in the _Search & Compare_ view with a new command `Copy Link to Comparison` to copy the deep link to that comparison to the clipboard
 - Adds experimental native fetch support (enabled by setting `gitlens.experimental.nativeGit` to `true` in settings) as a potential fix to some auth issues with GitLens git operations
+- Adds support for Anthropic's Claude 2 AI model
 
 ### Changed
 

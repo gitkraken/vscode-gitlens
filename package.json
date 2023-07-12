@@ -2885,13 +2885,15 @@
 							"claude-v1",
 							"claude-v1-100k",
 							"claude-instant-v1",
-							"claude-instant-v1-100k"
+							"claude-instant-v1-100k",
+							"claude-2"
 						],
 						"enumDescriptions": [
 							"Claude v1",
 							"Claude v1 100k",
 							"Claude Instant v1",
-							"Claude Instant v1 100k"
+							"Claude Instant v1 100k",
+							"Claude 2"
 						],
 						"markdownDescription": "Specifies the Anthropic model to use for GitLens' experimental AI features",
 						"scope": "window",

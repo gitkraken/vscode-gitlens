@@ -35,6 +35,7 @@ export async function showAIModelPicker(): Promise<ModelQuickPickItem | undefine
 			provider: 'anthropic',
 			model: 'claude-instant-v1-100k',
 		},
+		{ label: 'Anthropic', description: 'Claude 2', provider: 'anthropic', model: 'claude-2' },
 	];
 
 	for (const item of items) {
