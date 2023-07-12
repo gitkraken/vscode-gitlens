@@ -459,6 +459,7 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 				RepositoryChange.Config,
 				RepositoryChange.Index,
 				RepositoryChange.Heads,
+				RepositoryChange.Opened,
 				RepositoryChange.Status,
 				RepositoryChange.Unknown,
 				RepositoryChangeComparisonMode.Any,
