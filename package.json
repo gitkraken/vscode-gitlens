@@ -11151,12 +11151,12 @@
 				},
 				{
 					"command": "gitlens.views.workspaces.locateAllRepos",
-					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+cloud\\b)/",
+					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+cloud\\b)(?!.*?\\b\\+empty\\b)/",
 					"group": "inline@2"
 				},
 				{
 					"command": "gitlens.views.workspaces.createLocal",
-					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+(cloud|local)\\b)(?!.*?\\b\\+current\\b)(?!.*?\\b\\+hasPath\\b)/",
+					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+(cloud|local)\\b)(?!.*?\\b\\+current\\b)(?!.*?\\b\\+hasPath\\b)(?!.*?\\b\\+empty\\b)/",
 					"group": "inline@3"
 				},
 				{
@@ -11172,12 +11172,12 @@
 				},
 				{
 					"command": "gitlens.views.workspaces.locateAllRepos",
-					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+cloud\\b)/",
+					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+cloud\\b)(?!.*?\\b\\+empty\\b)/",
 					"group": "1_gitlens_actions@2"
 				},
 				{
 					"command": "gitlens.views.workspaces.createLocal",
-					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+(cloud|local)\\b)/",
+					"when": "viewItem =~ /gitlens:workspace\\b(?=.*?\\b\\+(cloud|local)\\b)(?!.*?\\b\\+empty\\b)/",
 					"group": "2_gitlens_quickopen@3"
 				},
 				{
