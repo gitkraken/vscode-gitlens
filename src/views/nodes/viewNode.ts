@@ -677,7 +677,10 @@ export abstract class RepositoryFolderNode<
 			return;
 		}
 
-		if (e.changed(RepositoryChange.Starred, RepositoryChangeComparisonMode.Any)) {
+		if (
+			e.changed(RepositoryChange.Opened, RepositoryChangeComparisonMode.Any) ||
+			e.changed(RepositoryChange.Starred, RepositoryChangeComparisonMode.Any)
+		) {
 			void this.parent?.triggerChange(true);
 
 			return;

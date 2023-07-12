@@ -81,6 +81,7 @@ export const enum RepositoryChange {
 	Ignores = 101,
 	RemoteProviders = 102,
 	Starred = 103,
+	Opened = 104,
 }
 
 export const enum RepositoryChangeComparisonMode {
@@ -459,7 +460,7 @@ export class Repository implements Disposable {
 		const changed = this._closed !== value;
 		this._closed = value;
 		if (changed) {
-			this.fireChange(RepositoryChange.Closed);
+			this.fireChange(this._closed ? RepositoryChange.Closed : RepositoryChange.Opened);
 		}
 	}
 

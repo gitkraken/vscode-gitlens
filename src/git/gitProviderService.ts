@@ -440,6 +440,11 @@ export class GitProviderService implements Disposable {
 
 					// Send a notification that the repositories changed
 					queueMicrotask(() => this.fireRepositoriesChanged([], [e.repository]));
+				} else if (e.changed(RepositoryChange.Opened, RepositoryChangeComparisonMode.Any)) {
+					this.updateContext();
+
+					// Send a notification that the repositories changed
+					queueMicrotask(() => this.fireRepositoriesChanged([e.repository], []));
 				}
 
 				if (e.changed(RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
