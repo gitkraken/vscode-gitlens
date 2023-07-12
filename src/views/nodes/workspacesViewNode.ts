@@ -55,6 +55,16 @@ export class WorkspacesViewNode extends ViewNode<WorkspacesView> {
 	@gate()
 	@debug()
 	override refresh() {
+		if (this._children == null) return;
+
+		if (this._children.length) {
+			for (const child of this._children) {
+				if ('dispose' in child) {
+					child.dispose();
+				}
+			}
+		}
+
 		this._children = undefined;
 	}
 }
