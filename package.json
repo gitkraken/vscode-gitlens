@@ -6974,7 +6974,7 @@
 			},
 			{
 				"command": "gitlens.views.workspaces.changeAutoAddSetting",
-				"title": "Change Workspace Auto-Add Setting...",
+				"title": "Change Linked Workspace Auto-Add Behavior...",
 				"category": "GitLens"
 			},
 			{
