@@ -10,9 +10,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds the ability to link a GitKraken Cloud workspace with its associated VS Code workspace
   - Adds options when creating the VS Code workspace to automatically add repositories that were added to its associated GitKraken Cloud workspace: `Enable`, `Disable`, and `Ask every time`
+    - Adds a new context menu command `Add Repositories from Linked Workspace` on the `Current Window` view item to perform this action manually when on a linked workspace file
   - Adds a new command `Open VS Code Workspace` to open the existing VS Code workspace associated with a GitKraken Cloud workspace. This command replaces the existing `Create VS Code Workspace` command for that workspace
   - When a VS Code workspace associated with a GitKraken Cloud workspace is opened, the associated GitKraken Cloud workspace is highlighted in green in the _GitKraken Workspaces_ view
 - Adds support for deep links to comparisons. Deep links of this format take the form `vscode://eamodio.gitlens/r/{repoId}/compare/{ref1}[..|...]{ref2}?[url={remoteUrl}|path={repoPath}]` and open the comparison in the _Search & Compare_ view
+  - Adds the `Share` submenu to the context menu for Comparison items in the _Search & Compare_ view with a new command `Copy Link to Comparison` to copy the deep link to that comparison to the clipboard
 - Adds experimental native fetch support (enabled by setting `gitlens.experimental.nativeGit` to `true` in settings) as a potential fix to some auth issues with GitLens git operations
 
 ### Changed
