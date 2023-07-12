@@ -305,18 +305,18 @@ export class WorkspacesService implements Disposable {
 		}
 		let chosenRepoPaths: string[] = [];
 		if (!options?.force && this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Prompt) {
+			const add = { title: 'Add...' };
+			const change = { title: 'Change Auto-Add Behavior...' };
+			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const addChoice = await window.showInformationMessage(
-				'New repositories found in the cloud workspace matching this workspace. Would you like to add them?',
-				{ title: 'Add' },
-				{ title: 'Change Auto-Add Setting' },
-				{ title: 'Cancel', isCloseAffordance: true },
+				'New repositories found in the linked GitKraken workspace. Would you like to add them to the current VS Code workspace?',
+				add,
+				change,
+				cancel,
 			);
 
-			if (addChoice == null || addChoice.title === 'Cancel') {
-				return;
-			}
-
-			if (addChoice.title === 'Change Auto-Add Setting') {
+			if (addChoice == null || addChoice === cancel) return;
+			if (addChoice === change) {
 				void this.chooseCodeWorkspaceAutoAddSetting({ current: true });
 				return;
 			}
@@ -1169,35 +1169,33 @@ export class WorkspacesService implements Disposable {
 			? this._currentWorkspaceAutoAddSetting
 			: WorkspaceAutoAddSetting.Disabled;
 
-		const autoAddOptions = [
+		type QuickPickItemWithOption = QuickPickItem & { option: WorkspaceAutoAddSetting };
+
+		const autoAddOptions: QuickPickItemWithOption[] = [
 			{
-				label: 'Enable',
+				label: 'Add on Workspace (Window) Open',
+				description:
+					this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Enabled ? 'current' : undefined,
 				option: WorkspaceAutoAddSetting.Enabled,
-				...(this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Enabled
-					? { description: '(current)' }
-					: {}),
 			},
 			{
-				label: 'Disable',
-				option: WorkspaceAutoAddSetting.Disabled,
-				...(this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Disabled
-					? { description: '(current)' }
-					: {}),
-			},
-			{
-				label: 'Ask every time',
+				label: 'Prompt on Workspace (Window) Open',
+				description:
+					this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Prompt ? 'current' : undefined,
 				option: WorkspaceAutoAddSetting.Prompt,
-				...(this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Prompt
-					? { description: '(current)' }
-					: {}),
+			},
+			{
+				label: 'Never',
+				description:
+					this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Disabled ? 'current' : undefined,
+				option: WorkspaceAutoAddSetting.Disabled,
 			},
 		];
 
-		const newWorkspaceAutoAddOption = await window.showQuickPick<
-			QuickPickItem & { option: WorkspaceAutoAddSetting }
-		>(autoAddOptions, {
-			placeHolder: 'Choose an option to automatically add missing repositories to this workspace',
-			title: 'Automatically add repositories',
+		const newWorkspaceAutoAddOption = await window.showQuickPick<QuickPickItemWithOption>(autoAddOptions, {
+			placeHolder:
+				'Choose the behavior of automatically adding missing repositories to the current VS Code workspace',
+			title: 'Linked Workspace: Automatically Add Repositories',
 		});
 		if (newWorkspaceAutoAddOption?.option == null) return defaultOption;
 
