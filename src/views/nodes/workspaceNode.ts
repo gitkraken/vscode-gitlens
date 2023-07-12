@@ -89,6 +89,7 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 
 		let contextValue = `${ContextValues.Workspace}`;
 		item.resourceUri = undefined;
+		const descriptionItems = [];
 		if (this.workspace.type === WorkspaceType.Cloud) {
 			contextValue += '+cloud';
 		} else {
@@ -96,6 +97,7 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 		}
 		if (this.workspace.current) {
 			contextValue += '+current';
+			descriptionItems.push('current');
 			item.resourceUri = Uri.parse('gitlens-view://workspaces/workspace/current');
 		}
 		if (this.workspace.localPath != null) {
@@ -120,8 +122,10 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 		}`;
 
 		if (this.workspace.type === WorkspaceType.Cloud && this.workspace.organizationId != null) {
-			item.description = 'shared';
+			descriptionItems.push('shared');
 		}
+
+		item.description = descriptionItems.join(', ');
 		return item;
 	}
 
