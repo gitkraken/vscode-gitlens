@@ -14634,7 +14634,7 @@
 		"node-fetch": "2.6.9",
 		"os-browserify": "0.3.0",
 		"path-browserify": "1.0.1",
-		"react": "18.3.0-canary-7ac5e9a60-20230508",
+		"react": "16.8.4",
 		"react-dom": "16.8.4",
 		"sortablejs": "1.15.0"
 	},
@@ -14682,7 +14682,7 @@
 		"sass": "1.63.6",
 		"sass-loader": "13.3.2",
 		"schema-utils": "4.2.0",
-		"sharp": "0.32.1",
+		"sharp": "0.32.2",
 		"svgo": "3.0.2",
 		"terser-webpack-plugin": "5.3.9",
 		"ts-loader": "9.4.4",
