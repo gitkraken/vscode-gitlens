@@ -84,7 +84,7 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 		return this._children;
 	}
 
-	getTreeItem(): TreeItem {
+	async getTreeItem(): Promise<TreeItem> {
 		const item = new TreeItem(this.workspace.name, TreeItemCollapsibleState.Collapsed);
 
 		let contextValue = `${ContextValues.Workspace}`;
@@ -101,6 +101,11 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 		if (this.workspace.localPath != null) {
 			contextValue += '+hasPath';
 		}
+
+		if ((await this.workspace.getRepositoryDescriptors())?.length === 0) {
+			contextValue += '+empty';
+		}
+
 		item.id = this.id;
 		item.contextValue = contextValue;
 		item.iconPath = new ThemeIcon(this.workspace.type == WorkspaceType.Cloud ? 'cloud' : 'folder');

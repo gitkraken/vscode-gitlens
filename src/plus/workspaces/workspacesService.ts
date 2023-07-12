@@ -983,7 +983,10 @@ export class WorkspacesService implements Disposable {
 		const workspaceRepositoriesByName = await workspace.getRepositoriesByName();
 
 		if (workspaceRepositoriesByName.size === 0) {
-			void window.showErrorMessage('No repositories could be found in this workspace.', { modal: true });
+			void window.showErrorMessage(
+				'No repositories in this workspace could be found locally. Please locate at least one repository.',
+				{ modal: true },
+			);
 			return;
 		}
 
