@@ -5286,6 +5286,12 @@
 				"icon": "$(copy)"
 			},
 			{
+				"command": "gitlens.copyDeepLinkToComparison",
+				"title": "Copy Link to Comparison",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
 				"command": "gitlens.copyDeepLinkToRepo",
 				"title": "Copy Link to Repository",
 				"category": "GitLens",
@@ -8389,6 +8395,10 @@
 				},
 				{
 					"command": "gitlens.copyDeepLinkToCommit",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToComparison",
 					"when": "false"
 				},
 				{
@@ -11590,7 +11600,7 @@
 				},
 				{
 					"submenu": "gitlens/share",
-					"when": "viewItem =~ /gitlens:(branch|commit|remote|repo-folder|repository|stash|tag|file\\b(?=.*?\\b\\+committed\\b))\\b/",
+					"when": "viewItem =~ /gitlens:(branch|commit|compare:results(?!:)|remote|repo-folder|repository|stash|tag|file\\b(?=.*?\\b\\+committed\\b))\\b/",
 					"group": "7_gitlens_a_share@1"
 				},
 				{
@@ -12751,7 +12761,7 @@
 				},
 				{
 					"submenu": "gitlens/share",
-					"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
+					"when": "webviewItem =~ /gitlens:(branch|commit|compare:results(?!:)|stash|tag)\\b/",
 					"group": "7_gitlens_a_share@1"
 				},
 				{
@@ -13009,6 +13019,11 @@
 				{
 					"command": "gitlens.graph.copyDeepLinkToCommit",
 					"when": "webviewItem =~ /gitlens:commit\\b/",
+					"group": "1_gitlens@25"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToComparison",
+					"when": "viewItem =~ /gitlens:compare:results(?!:)\\b/",
 					"group": "1_gitlens@25"
 				},
 				{
