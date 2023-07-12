@@ -229,12 +229,13 @@ export class WorkspacesService implements Disposable {
 		return descriptors?.map(d => ({ ...d, workspaceId: workspaceId })) ?? [];
 	}
 
-	async addMissingCurrentWorkspaceRepos(workspace: CloudWorkspace | LocalWorkspace): Promise<void> {
-		if (this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Disabled || !workspace.current) return;
+	async addMissingCurrentWorkspaceRepos(currentWorkspace: CloudWorkspace | LocalWorkspace): Promise<void> {
+		if (this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Disabled || !currentWorkspace.current)
+			{return;}
 
-		if (!(await workspace.getRepositoryDescriptors())?.length) return;
+		if (!(await currentWorkspace.getRepositoryDescriptors())?.length) return;
 
-		const repositories = [...(await workspace.getRepositoriesByName()).values()].map(r => r.repository);
+		const repositories = [...(await currentWorkspace.getRepositoriesByName()).values()].map(r => r.repository);
 		const currentWorkspaceRepositoryIdMap = new Map<string, Repository>();
 		for (const repository of this.container.git.openRepositories) {
 			currentWorkspaceRepositoryIdMap.set(repository.id, repository);
@@ -271,9 +272,21 @@ export class WorkspacesService implements Disposable {
 			chosenRepoPaths = repositoriesToAdd.map(r => r.path);
 		}
 
-		for (const path of chosenRepoPaths) {
-			openWorkspace(Uri.file(path), { location: OpenWorkspaceLocation.AddToWorkspace });
-		}
+		if (chosenRepoPaths.length === 0) return;
+		const count = workspace.workspaceFolders?.length ?? 0;
+		void window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: `Adding new repositories from linked cloud workspace...`,
+				cancellable: false,
+			},
+			() => {
+				return new Promise(resolve => {
+					workspace.updateWorkspaceFolders(count, 0, ...chosenRepoPaths.map(p => ({ uri: Uri.file(p) })));
+					resolve(true);
+				});
+			},
+		);
 	}
 
 	resetWorkspaces(options?: { cloud?: boolean; local?: boolean }) {
@@ -819,41 +832,50 @@ export class WorkspacesService implements Disposable {
 		let newRepoDescriptors: CloudWorkspaceRepositoryDescriptor[] = [];
 		const oldDescriptorIds = new Set((await workspace.getRepositoryDescriptors()).map(r => r.id));
 
-		try {
-			const response = await this._workspacesApi.addReposToWorkspace(
-				workspaceId,
-				repoInputs.map(r => ({ owner: r.owner, repoName: r.repoName })),
-			);
+		await window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: `Adding repositories to workspace ${workspace.name}...`,
+				cancellable: false,
+			},
+			async () => {
+				try {
+					const response = await this._workspacesApi.addReposToWorkspace(
+						workspaceId,
+						repoInputs.map(r => ({ owner: r.owner, repoName: r.repoName })),
+					);
 
-			if (response?.data.add_repositories_to_project == null) return;
-			newRepoDescriptors = Object.values(response.data.add_repositories_to_project.provider_data)
-				.filter(descriptor => descriptor != null)
-				.map(descriptor => ({
-					...descriptor,
-					workspaceId: workspaceId,
-				})) as CloudWorkspaceRepositoryDescriptor[];
-		} catch (error) {
-			void window.showErrorMessage(error.message);
-			return;
-		}
+					if (response?.data.add_repositories_to_project == null) return;
+					newRepoDescriptors = Object.values(response.data.add_repositories_to_project.provider_data)
+						.filter(descriptor => descriptor != null)
+						.map(descriptor => ({
+							...descriptor,
+							workspaceId: workspaceId,
+						})) as CloudWorkspaceRepositoryDescriptor[];
+				} catch (error) {
+					void window.showErrorMessage(error.message);
+					return;
+				}
 
-		if (newRepoDescriptors.length > 0) {
-			workspace.addRepositories(newRepoDescriptors);
-		}
+				if (newRepoDescriptors.length > 0) {
+					workspace.addRepositories(newRepoDescriptors);
+				}
 
-		if (newRepoDescriptors.length < repoInputs.length) {
-			newRepoDescriptors = (await workspace.getRepositoryDescriptors({ force: true })).filter(
-				r => !oldDescriptorIds.has(r.id),
-			);
-		}
+				if (newRepoDescriptors.length < repoInputs.length) {
+					newRepoDescriptors = (await workspace.getRepositoryDescriptors({ force: true })).filter(
+						r => !oldDescriptorIds.has(r.id),
+					);
+				}
 
-		for (const { repo, repoName, url } of repoInputs) {
-			const successfullyAddedDescriptor = newRepoDescriptors.find(
-				r => r.name.toLowerCase() === repoName || r.url === url,
-			);
-			if (successfullyAddedDescriptor == null) continue;
-			await this.locateWorkspaceRepo(workspaceId, successfullyAddedDescriptor, repo);
-		}
+				for (const { repo, repoName, url } of repoInputs) {
+					const successfullyAddedDescriptor = newRepoDescriptors.find(
+						r => r.name.toLowerCase() === repoName || r.url === url,
+					);
+					if (successfullyAddedDescriptor == null) continue;
+					await this.locateWorkspaceRepo(workspaceId, successfullyAddedDescriptor, repo);
+				}
+			},
+		);
 	}
 
 	async removeCloudWorkspaceRepo(workspaceId: string, descriptor: CloudWorkspaceRepositoryDescriptor) {
