@@ -11,6 +11,7 @@ import type {
 	RemoveRepositoriesFromWorkspaceResponse,
 	RemoveWorkspaceRepoDescriptor,
 	WorkspaceRepositoriesResponse,
+	WorkspaceResponse,
 	WorkspacesResponse,
 } from './models';
 import { CloudWorkspaceProviderInputType, defaultWorkspaceCount, defaultWorkspaceRepoCount } from './models';
@@ -30,6 +31,82 @@ export class WorkspacesApi {
 
 		const session = sessions[0];
 		return session.accessToken;
+	}
+
+	async getWorkspace(
+		id: string,
+		options?: {
+			includeRepositories?: boolean;
+			repoCount?: number;
+			repoPage?: number;
+		},
+	): Promise<WorkspaceResponse | undefined> {
+		const accessToken = await this.getAccessToken();
+		if (accessToken == null) {
+			return;
+		}
+
+		let repoQuery: string | undefined;
+		if (options?.includeRepositories) {
+			let repoQueryParams = `(first: ${options?.repoCount ?? defaultWorkspaceRepoCount}`;
+			if (options?.repoPage) {
+				repoQueryParams += `, page: ${options.repoPage}`;
+			}
+			repoQueryParams += ')';
+			repoQuery = `
+				provider_data {
+					repositories ${repoQueryParams} {
+						total_count
+						page_info {
+							end_cursor
+							has_next_page
+						}
+						nodes {
+							id
+							name
+							repository_id
+							provider
+							provider_organization_id
+							provider_organization_name
+							url
+						}
+					}
+				}
+			`;
+		}
+
+		const queryData = `
+			id
+			description
+			name
+			organization {
+				id
+			}
+			provider
+			${repoQuery ?? ''}
+		`;
+
+		const query = `
+			query getWorkspace {
+				project(id: "${id}") { ${queryData} }
+			}
+		`;
+
+		const rsp = await this.server.fetchGraphql(
+			{
+				query: query,
+			},
+			accessToken,
+		);
+
+		if (!rsp.ok) {
+			Logger.error(undefined, `Getting workspace failed: (${rsp.status}) ${rsp.statusText}`);
+			throw new Error(rsp.statusText);
+		}
+
+		const json: WorkspaceResponse | undefined = (await rsp.json()) as WorkspaceResponse | undefined;
+
+		return json;
 	}
 
 	async getWorkspaces(options?: {
@@ -101,7 +178,7 @@ export class WorkspacesApi {
 		}
 		queryParams += ')';
 
-		let query = 'query getWorkpacesWithRepos {';
+		let query = 'query getWorkpaces {';
 		query += `memberProjects: projects ${queryParams} { ${queryData} }`;
 
 		// TODO@axosoft-ramint This is a temporary and hacky workaround until projects api returns all projects the
@@ -129,7 +206,7 @@ export class WorkspacesApi {
 		);
 
 		if (!rsp.ok) {
-			Logger.error(undefined, `Getting workspaces with repos failed: (${rsp.status}) ${rsp.statusText}`);
+			Logger.error(undefined, `Getting workspaces failed: (${rsp.status}) ${rsp.statusText}`);
 			throw new Error(rsp.statusText);
 		}
 

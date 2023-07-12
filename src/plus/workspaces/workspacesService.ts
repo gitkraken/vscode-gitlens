@@ -62,6 +62,9 @@ export class WorkspacesService implements Disposable {
 			workspace.getConfiguration('gitkraken')?.get<WorkspaceAutoAddSetting>('workspaceAutoAddSetting') ??
 			WorkspaceAutoAddSetting.Disabled;
 		this._disposable = Disposable.from(container.subscription.onDidChange(this.onSubscriptionChanged, this));
+		if (this._currentWorkspaceId != null) {
+			setTimeout(() => this.addMissingCurrentWorkspaceRepos(), 10000);
+		}
 	}
 
 	dispose(): void {
@@ -208,14 +211,6 @@ export class WorkspacesService implements Disposable {
 			getWorkspacesResponse.localWorkspaceInfo = loadLocalWorkspacesResponse.localWorkspaceInfo;
 		}
 
-		const currentWorkspace = [...(this._cloudWorkspaces ?? []), ...(this._localWorkspaces ?? [])].find(
-			workspace => workspace.current,
-		);
-
-		if (currentWorkspace != null) {
-			await this.addMissingCurrentWorkspaceRepos(currentWorkspace);
-		}
-
 		getWorkspacesResponse.cloudWorkspaces = this._cloudWorkspaces ?? [];
 		getWorkspacesResponse.localWorkspaces = this._localWorkspaces ?? [];
 
@@ -229,13 +224,58 @@ export class WorkspacesService implements Disposable {
 		return descriptors?.map(d => ({ ...d, workspaceId: workspaceId })) ?? [];
 	}
 
-	async addMissingCurrentWorkspaceRepos(currentWorkspace: CloudWorkspace | LocalWorkspace): Promise<void> {
-		if (this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Disabled || !currentWorkspace.current)
-			{return;}
+	async addMissingCurrentWorkspaceRepos(options?: { force?: boolean }): Promise<void> {
+		if (this._currentWorkspaceId == null) return;
+		let currentWorkspace = [...(this._cloudWorkspaces ?? []), ...(this._localWorkspaces ?? [])].find(
+			workspace => workspace.current,
+		);
+
+		if (currentWorkspace == null) {
+			try {
+				const workspaceData = await this._workspacesApi.getWorkspace(this._currentWorkspaceId, {
+					includeRepositories: true,
+				});
+				if (workspaceData?.data?.project == null) return;
+				const repoDescriptors = workspaceData.data.project.provider_data?.repositories?.nodes;
+				const repositories =
+					repoDescriptors != null
+						? repoDescriptors.map(descriptor => ({
+								...descriptor,
+								workspaceId: workspaceData.data.project.id,
+						  }))
+						: [];
+				currentWorkspace = new CloudWorkspace(
+					this.container,
+					workspaceData.data.project.id,
+					workspaceData.data.project.name,
+					workspaceData.data.project.organization?.id,
+					workspaceData.data.project.provider as CloudWorkspaceProviderType,
+					true,
+					repositories,
+					workspace.workspaceFile?.fsPath,
+				);
+			} catch {
+				return;
+			}
+		}
+
+		if (
+			(!options?.force && this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Disabled) ||
+			!currentWorkspace.current
+		) {
+			return;
+		}
 
 		if (!(await currentWorkspace.getRepositoryDescriptors())?.length) return;
 
-		const repositories = [...(await currentWorkspace.getRepositoriesByName()).values()].map(r => r.repository);
+		const repositories = [
+			...(
+				await this.resolveWorkspaceRepositoriesByName(currentWorkspace, {
+					resolveFromPath: true,
+					usePathMapping: true,
+				})
+			).values(),
+		].map(r => r.repository);
 		const currentWorkspaceRepositoryIdMap = new Map<string, Repository>();
 		for (const repository of this.container.git.openRepositories) {
 			currentWorkspaceRepositoryIdMap.set(repository.id, repository);
@@ -243,10 +283,9 @@ export class WorkspacesService implements Disposable {
 		const repositoriesToAdd = repositories.filter(r => !currentWorkspaceRepositoryIdMap.has(r.id));
 		if (repositoriesToAdd.length === 0) return;
 		let chosenRepoPaths: string[] = [];
-		if (this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Prompt) {
+		if (!options?.force && this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Prompt) {
 			const addChoice = await window.showInformationMessage(
 				'New repositories found in the cloud workspace matching this workspace. Would you like to add them?',
-				{ modal: true },
 				{ title: 'Add' },
 				{ title: 'Change Auto-Add Setting' },
 				{ title: 'Cancel', isCloseAffordance: true },
@@ -260,7 +299,9 @@ export class WorkspacesService implements Disposable {
 				void this.chooseCodeWorkspaceAutoAddSetting({ current: true });
 				return;
 			}
+		}
 
+		if (options?.force || this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Prompt) {
 			const pick = await showRepositoriesPicker(
 				'Add Repositories to Workspace',
 				'Choose which repositories to add to the current workspace',
@@ -903,7 +944,25 @@ export class WorkspacesService implements Disposable {
 	}
 
 	async resolveWorkspaceRepositoriesByName(
+		workspace: CloudWorkspace | LocalWorkspace,
+		options?: {
+			cancellation?: CancellationToken;
+			repositories?: Repository[];
+			resolveFromPath?: boolean;
+			usePathMapping?: boolean;
+		},
+	): Promise<WorkspaceRepositoriesByName>;
+	async resolveWorkspaceRepositoriesByName(
 		workspaceId: string,
+		options?: {
+			cancellation?: CancellationToken;
+			repositories?: Repository[];
+			resolveFromPath?: boolean;
+			usePathMapping?: boolean;
+		},
+	): Promise<WorkspaceRepositoriesByName>;
+	async resolveWorkspaceRepositoriesByName(
+		workspaceOrId: CloudWorkspace | LocalWorkspace | string,
 		options?: {
 			cancellation?: CancellationToken;
 			repositories?: Repository[];
@@ -913,7 +972,10 @@ export class WorkspacesService implements Disposable {
 	): Promise<WorkspaceRepositoriesByName> {
 		const workspaceRepositoriesByName: WorkspaceRepositoriesByName = new Map<string, RepositoryMatch>();
 
-		const workspace = this.getLocalWorkspace(workspaceId) ?? this.getCloudWorkspace(workspaceId);
+		const workspace =
+			workspaceOrId instanceof CloudWorkspace || workspaceOrId instanceof LocalWorkspace
+				? workspaceOrId
+				: this.getLocalWorkspace(workspaceOrId) ?? this.getCloudWorkspace(workspaceOrId);
 		if (workspace == null) return workspaceRepositoriesByName;
 
 		const repoDescriptors = await workspace.getRepositoryDescriptors();
