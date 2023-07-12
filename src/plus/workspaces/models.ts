@@ -415,6 +415,12 @@ interface CloudWorkspaceFetchedConnection<i> extends CloudWorkspaceConnection<i>
 	is_fetching: boolean;
 }
 
+export interface WorkspaceResponse {
+	data: {
+		project: CloudWorkspaceData;
+	};
+}
+
 export interface WorkspacesResponse {
 	data: {
 		projects: CloudWorkspaceConnection<CloudWorkspaceData>;
