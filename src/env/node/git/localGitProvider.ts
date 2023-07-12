@@ -578,6 +578,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<[visibility: RepositoryVisibility, remote: GitRemote]> {
 		const scope = getLogScope();
 
+		let url;
 		switch (remote.provider?.id) {
 			case 'github':
 			case 'gitlab':
@@ -585,35 +586,45 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			case 'azure-devops':
 			case 'gitea':
 			case 'gerrit':
-			case 'google-source': {
-				const url = remote.provider.url({ type: RemoteResourceType.Repo });
+			case 'google-source':
+				url = remote.provider.url({ type: RemoteResourceType.Repo });
 				if (url == null) return [RepositoryVisibility.Private, remote];
 
-				// Check if the url returns a 200 status code
-				let promise = this._pendingRemoteVisibility.get(url);
-				if (promise == null) {
-					promise = fetch(url, { method: 'HEAD', agent: getProxyAgent() });
-					this._pendingRemoteVisibility.set(url, promise);
+				break;
+			default: {
+				url = remote.url;
+				if (!url.includes('git@')) {
+					return maybeUri(url)
+						? [RepositoryVisibility.Private, remote]
+						: [RepositoryVisibility.Local, remote];
 				}
 
-				try {
-					const rsp = await promise;
-					if (rsp.ok) return [RepositoryVisibility.Public, remote];
+				const [host, repo] = url.split('@')[1].split(':');
+				if (!host || !repo) return [RepositoryVisibility.Private, remote];
 
-					Logger.debug(scope, `Response=${rsp.status}`);
-				} catch (ex) {
-					debugger;
-					Logger.error(ex, scope);
-				} finally {
-					this._pendingRemoteVisibility.delete(url);
-				}
-				return [RepositoryVisibility.Private, remote];
+				url = `https://${host}/${repo}`;
 			}
-			default:
-				return maybeUri(remote.url)
-					? [RepositoryVisibility.Private, remote]
-					: [RepositoryVisibility.Local, remote];
 		}
+
+		// Check if the url returns a 200 status code
+		let promise = this._pendingRemoteVisibility.get(url);
+		if (promise == null) {
+			promise = fetch(url, { method: 'HEAD', agent: getProxyAgent() });
+			this._pendingRemoteVisibility.set(url, promise);
+		}
+
+		try {
+			const rsp = await promise;
+			if (rsp.ok) return [RepositoryVisibility.Public, remote];
+
+			Logger.debug(scope, `Response=${rsp.status}`);
+		} catch (ex) {
+			debugger;
+			Logger.error(ex, scope);
+		} finally {
+			this._pendingRemoteVisibility.delete(url);
+		}
+		return [RepositoryVisibility.Private, remote];
 	}
 
 	@log<LocalGitProvider['repositorySearch']>({
