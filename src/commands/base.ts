@@ -159,6 +159,19 @@ export function isCommandContextViewNodeHasFileRefs(context: CommandContext): co
 	);
 }
 
+export function isCommandContextViewNodeHasComparison(
+	context: CommandContext,
+): context is CommandViewNodeContext & { node: ViewNode & { _ref: { ref: string }; _compareWith: { ref: string } } } {
+	if (context.type !== 'viewItem') return false;
+
+	return (
+		typeof (context.node as ViewNode & { _ref: { ref: string }; _compareWith: { ref: string } })._ref?.ref ===
+			'string' &&
+		typeof (context.node as ViewNode & { _ref: { ref: string }; _compareWith: { ref: string } })._compareWith
+			?.ref === 'string'
+	);
+}
+
 export function isCommandContextViewNodeHasRef(
 	context: CommandContext,
 ): context is CommandViewNodeContext & { node: ViewNode & { ref: GitReference } } {

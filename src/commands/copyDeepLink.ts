@@ -16,12 +16,15 @@ import {
 	getCommandUri,
 	isCommandContextViewNodeHasBranch,
 	isCommandContextViewNodeHasCommit,
+	isCommandContextViewNodeHasComparison,
 	isCommandContextViewNodeHasRemote,
 	isCommandContextViewNodeHasTag,
 } from './base';
 
 export interface CopyDeepLinkCommandArgs {
 	refOrRepoPath?: GitReference | string;
+	compareRef?: string;
+	compareWithRef?: string;
 	remote?: string;
 	prePickRemote?: boolean;
 }
@@ -34,6 +37,7 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 			Commands.CopyDeepLinkToCommit,
 			Commands.CopyDeepLinkToRepo,
 			Commands.CopyDeepLinkToTag,
+			Commands.CopyDeepLinkToComparison,
 		]);
 	}
 
@@ -47,6 +51,12 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 				args = { refOrRepoPath: context.node.tag };
 			} else if (isCommandContextViewNodeHasRemote(context)) {
 				args = { refOrRepoPath: context.node.remote.repoPath, remote: context.node.remote.name };
+			} else if (isCommandContextViewNodeHasComparison(context)) {
+				args = {
+					refOrRepoPath: context.node.uri.fsPath,
+					compareRef: context.node._ref.ref,
+					compareWithRef: context.node._compareWith.ref,
+				};
 			}
 		}
 
@@ -67,7 +77,7 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 				await getBestRepositoryOrShowPicker(gitUri, editor, `Copy Link to ${deepLinkTypeToString(type)}`)
 			)?.path;
 		} else if (typeof args.refOrRepoPath === 'string') {
-			type = DeepLinkType.Repository;
+			type = args.compareRef == null ? DeepLinkType.Repository : DeepLinkType.Comparison;
 			repoPath = args.refOrRepoPath;
 			args.refOrRepoPath = undefined;
 		} else {
@@ -115,7 +125,12 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 			if (chosenRemote == null) return;
 
 			if (args.refOrRepoPath == null) {
-				await this.container.deepLinks.copyDeepLinkUrl(repoPath, chosenRemote.url);
+				await this.container.deepLinks.copyDeepLinkUrl(
+					repoPath,
+					chosenRemote.url,
+					args.compareRef,
+					args.compareWithRef,
+				);
 			} else {
 				await this.container.deepLinks.copyDeepLinkUrl(args.refOrRepoPath, chosenRemote.url);
 			}
