@@ -1,5 +1,5 @@
 import type { TextEditor } from 'vscode';
-import { Disposable, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState, Uri, window, workspace } from 'vscode';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { GitUri, unknownGitUri } from '../../git/gitUri';
 import { gate } from '../../system/decorators/gate';
@@ -51,7 +51,8 @@ export class RepositoriesNode extends SubscribeableViewNode<ViewsWithRepositorie
 
 	getTreeItem(): TreeItem {
 		const isInWorkspacesView = this.view instanceof WorkspacesView;
-		const isSyncedWorkspace = isInWorkspacesView && this.view.container.workspaces.currentWorkspaceId != null;
+		const isLinkedWorkspace = isInWorkspacesView && this.view.container.workspaces.currentWorkspaceId != null;
+		const isCurrentLinkedWorkspace = isLinkedWorkspace && this.view.container.workspaces.currentWorkspace != null;
 		const item = new TreeItem(
 			isInWorkspacesView ? 'Current Window' : 'Repositories',
 			isInWorkspacesView ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.Expanded,
@@ -66,8 +67,13 @@ export class RepositoriesNode extends SubscribeableViewNode<ViewsWithRepositorie
 			contextValue += '+workspaces';
 		}
 
-		if (isSyncedWorkspace) {
-			contextValue += '+synced';
+		if (isLinkedWorkspace) {
+			contextValue += '+linked';
+		}
+
+		if (isCurrentLinkedWorkspace) {
+			contextValue += '+current';
+			item.resourceUri = Uri.parse('gitlens-view://workspaces/workspace/current');
 		}
 
 		item.contextValue = contextValue;

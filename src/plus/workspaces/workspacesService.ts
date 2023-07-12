@@ -50,6 +50,7 @@ export class WorkspacesService implements Disposable {
 	private _workspacesPathProvider: WorkspacesPathMappingProvider;
 	private _currentWorkspaceId: string | undefined;
 	private _currentWorkspaceAutoAddSetting: WorkspaceAutoAddSetting = WorkspaceAutoAddSetting.Disabled;
+	private _currentWorkspace: CloudWorkspace | LocalWorkspace | undefined;
 
 	constructor(
 		private readonly container: Container,
@@ -73,6 +74,10 @@ export class WorkspacesService implements Disposable {
 
 	get currentWorkspaceId(): string | undefined {
 		return this._currentWorkspaceId;
+	}
+
+	get currentWorkspace(): CloudWorkspace | LocalWorkspace | undefined {
+		return this._currentWorkspace;
 	}
 
 	private onSubscriptionChanged(event: SubscriptionChangeEvent): void {
@@ -211,6 +216,15 @@ export class WorkspacesService implements Disposable {
 			getWorkspacesResponse.localWorkspaceInfo = loadLocalWorkspacesResponse.localWorkspaceInfo;
 		}
 
+		const currentWorkspace = [...(this._cloudWorkspaces ?? []), ...(this._localWorkspaces ?? [])].find(
+			workspace => workspace.current,
+		);
+
+		if (currentWorkspace != null) {
+			this._currentWorkspaceId = currentWorkspace.id;
+			this._currentWorkspace = currentWorkspace;
+		}
+
 		getWorkspacesResponse.cloudWorkspaces = this._cloudWorkspaces ?? [];
 		getWorkspacesResponse.localWorkspaces = this._localWorkspaces ?? [];
 
@@ -261,10 +275,12 @@ export class WorkspacesService implements Disposable {
 
 		if (
 			(!options?.force && this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Disabled) ||
-			!currentWorkspace.current
+			!currentWorkspace?.current
 		) {
 			return;
 		}
+
+		this._currentWorkspace = currentWorkspace;
 
 		if (!(await currentWorkspace.getRepositoryDescriptors())?.length) return;
 
@@ -281,7 +297,12 @@ export class WorkspacesService implements Disposable {
 			currentWorkspaceRepositoryIdMap.set(repository.id, repository);
 		}
 		const repositoriesToAdd = repositories.filter(r => !currentWorkspaceRepositoryIdMap.has(r.id));
-		if (repositoriesToAdd.length === 0) return;
+		if (repositoriesToAdd.length === 0) {
+			if (options?.force) {
+				void window.showInformationMessage('No new repositories found to add.', { modal: true });
+			}
+			return;
+		}
 		let chosenRepoPaths: string[] = [];
 		if (!options?.force && this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Prompt) {
 			const addChoice = await window.showInformationMessage(

@@ -11198,7 +11198,7 @@
 				},
 				{
 					"command": "gitlens.views.workspaces.addReposFromLinked",
-					"when": "viewItem =~ /gitlens:repositories\\b(?=.*?\\b\\+synced\\b)/",
+					"when": "viewItem =~ /gitlens:repositories\\b(?=.*?\\b\\+linked\\b)(?=.*?\\b\\+current\\b)/",
 					"group": "1_gitlens_actions@3"
 				},
 				{
@@ -11218,7 +11218,7 @@
 				},
 				{
 					"command": "gitlens.views.workspaces.changeAutoAddSetting",
-					"when": "viewItem =~ /(gitlens:workspace\\b(?=.*?\\b\\+(cloud|local)\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+hasPath\\b)|gitlens:repositories\\b(?=.*?\\b\\+synced\\b))/",
+					"when": "viewItem =~ /(gitlens:workspace\\b(?=.*?\\b\\+(cloud|local)\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+hasPath\\b)|gitlens:repositories\\b(?=.*?\\b\\+linked\\b))/",
 					"group": "2_gitlens_quickopen@6"
 				},
 				{
