@@ -77,6 +77,10 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, R
 				await this.container.workspaces.addCloudWorkspaceRepos(node.workspace.id);
 				void node.getParent()?.triggerChange(true);
 			}),
+			registerViewCommand(this.getQualifiedCommand('addReposFromLinked'), async (node: RepositoriesNode) => {
+				await this.container.workspaces.addMissingCurrentWorkspaceRepos({ force: true });
+				void node.getParent()?.triggerChange(true);
+			}),
 			registerViewCommand(
 				this.getQualifiedCommand('convert'),
 				async (node: RepositoriesNode) => {
