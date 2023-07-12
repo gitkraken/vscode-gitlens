@@ -30,7 +30,9 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 		return this.workspace.name;
 	}
 
-	private _children: ViewNode[] | undefined;
+	private _children:
+		| (CommandMessageNode | MessageNode | RepositoryNode | WorkspaceMissingRepositoryNode)[]
+		| undefined;
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
@@ -130,6 +132,16 @@ export class WorkspaceNode extends ViewNode<WorkspacesView> {
 	}
 
 	override refresh() {
+		if (this._children == null) return;
+
+		if (this._children.length) {
+			for (const child of this._children) {
+				if ('dispose' in child) {
+					child.dispose();
+				}
+			}
+		}
+
 		this._children = undefined;
 	}
 }

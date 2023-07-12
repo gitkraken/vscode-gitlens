@@ -168,6 +168,6 @@ export class RepositoriesNode extends SubscribeableViewNode<ViewsWithRepositorie
 
 	@debug()
 	private onRepositoriesChanged(_e: RepositoriesChangeEvent) {
-		void this.triggerChange();
+		void this.triggerChange(true);
 	}
 }
