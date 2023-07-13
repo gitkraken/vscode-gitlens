@@ -9,6 +9,7 @@ export interface Config {
 			provider: 'openai' | 'anthropic';
 			openai: {
 				model?: OpenAIModels;
+				url?: string | null;
 			};
 			anthropic: {
 				model?: AnthropicModels;
