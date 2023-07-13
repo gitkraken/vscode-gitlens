@@ -22,8 +22,6 @@ body {
 	--table-text: var(--color-foreground--65);
 	--table-pinned-background: var(--color-background);
 	--layout-gutter-outer: 20px;
-
-	--gk-color-primary: var(--vscode-errorForeground);
 }
 
 .vscode-high-contrast,
@@ -305,7 +303,8 @@ gk-focus-view::part(base) {
 	}
 	&__section {
 		min-height: 15rem;
-		flex: 0 1 50%;
+		// flex: 0 1 50%;
+		flex: 1 1 auto;
 	}
 }
 

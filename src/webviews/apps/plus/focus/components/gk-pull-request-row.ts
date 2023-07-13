@@ -5,15 +5,18 @@ import { when } from 'lit/directives/when.js';
 import type { PullRequestMember, PullRequestShape } from '../../../../../git/models/pullRequest';
 import { elementBase } from '../../../shared/components/styles/lit/base.css';
 import '@gitkraken/shared-web-components';
+import { dateAgeStyles } from './date-styles.css';
+import { themeProperties } from './gk-theme.css';
+import { fromDateRange } from './helpers';
 
 @customElement('gk-pull-request-row')
 export class GkPullRequestRow extends LitElement {
 	static override styles = [
+		themeProperties,
 		elementBase,
+		dateAgeStyles,
 		css`
 			:host {
-				--gk-avatar-background-color: var(--background-10);
-				--color-background: var(--vscode-editor-background);
 				display: block;
 			}
 
@@ -66,6 +69,10 @@ export class GkPullRequestRow extends LitElement {
 		return assignees;
 	}
 
+	get dateStyle() {
+		return `indicator-${fromDateRange(this.lastUpdatedDate).status}`;
+	}
+
 	override render() {
 		if (!this.pullRequest) return undefined;
 
@@ -87,7 +94,7 @@ export class GkPullRequestRow extends LitElement {
 							<span slot="prefix"><code-icon icon="source-control"></code-icon></span>
 							${this.pullRequest.refs?.base.branch}
 						</gk-tag>
-						<gk-tag>
+						<gk-tag variant="ghost">
 							<span slot="prefix"><code-icon icon="repo"></code-icon></span>
 							${this.pullRequest.refs?.base.repo}
 						</gk-tag>
@@ -100,7 +107,11 @@ export class GkPullRequestRow extends LitElement {
 						<gk-avatar-group>
 							${when(
 								this.pullRequest.author != null,
-								() => html`<gk-avatar src="${this.pullRequest!.author.avatarUrl}"></gk-avatar>`,
+								() =>
+									html`<gk-avatar
+										src="${this.pullRequest!.author.avatarUrl}"
+										title="${this.pullRequest!.author.name} (author)"
+									></gk-avatar>`,
 							)}
 							${when(
 								this.assignees.length > 0,
@@ -108,16 +119,20 @@ export class GkPullRequestRow extends LitElement {
 									${repeat(
 										this.assignees,
 										item => item.url,
-										(item, index) => html`<gk-avatar src="${item.avatarUrl}"></gk-avatar>`,
+										(item, index) =>
+											html`<gk-avatar
+												src="${item.avatarUrl}"
+												title="${item.name ? `${item.name} ` : ''}(assignee)"
+											></gk-avatar>`,
 									)}
 								`,
 							)}
 						</gk-avatar-group>
 					</span>
 					<span slot="date">
-						<gk-date-from date="${this.lastUpdatedDate}"></gk-date-from>
+						<gk-date-from class="${this.dateStyle}" date="${this.lastUpdatedDate}"></gk-date-from>
 					</span>
-					<nav slot="actions"><gkc-button variant="ghost">Checkout branch</gkc-button></nav>
+					<nav slot="actions"><gk-button variant="ghost">Checkout branch</gk-button></nav>
 				</gk-focus-item>
 			</gk-focus-row>
 		`;

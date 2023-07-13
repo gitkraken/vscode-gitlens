@@ -14,9 +14,9 @@ import type { FeatureGateBadge } from '../../shared/components/feature-gate-badg
 import { DOM } from '../../shared/dom';
 import type { GkIssueRow } from './components/gk-issue-row';
 import type { GkPullRequestRow } from './components/gk-pull-request-row';
-import type { IssueRow } from './components/issue-row';
-import type { PullRequestRow } from './components/pull-request-row';
-import '../../shared/components/button';
+// import type { IssueRow } from './components/issue-row';
+// import type { PullRequestRow } from './components/pull-request-row';
+// import '../../shared/components/button';
 import '../../shared/components/code-icon';
 import '../../shared/components/feature-gate';
 import '../../shared/components/avatars/avatar-item';
@@ -25,8 +25,8 @@ import '../../shared/components/table/table-container';
 import '../../shared/components/table/table-row';
 import '../../shared/components/table/table-cell';
 import '../../shared/components/feature-gate-badge';
-import './components/issue-row';
-import './components/pull-request-row';
+// import './components/issue-row';
+// import './components/pull-request-row';
 import './components/gk-pull-request-row';
 import './components/gk-issue-row';
 import './focus.scss';
@@ -49,30 +49,30 @@ export class FocusApp extends App<State> {
 		const disposables = super.onBind?.() ?? [];
 
 		disposables.push(
-			DOM.on('#pr-filter [data-tab]', 'click', e =>
-				this.onSelectTab(e, val => {
-					this._prFilter = val;
-					this.renderPullRequests();
-				}),
-			),
-			DOM.on('#issue-filter [data-tab]', 'click', e =>
-				this.onSelectTab(e, val => {
-					this._issueFilter = val;
-					this.renderIssues();
-				}),
-			),
-			DOM.on('#focus-filter [data-tab]', 'click', e =>
+			// DOM.on('#pr-filter [data-tab]', 'click', e =>
+			// 	this.onSelectTab(e, val => {
+			// 		this._prFilter = val;
+			// 		this.renderPullRequests();
+			// 	}),
+			// ),
+			// DOM.on('#issue-filter [data-tab]', 'click', e =>
+			// 	this.onSelectTab(e, val => {
+			// 		this._issueFilter = val;
+			// 		this.renderIssues();
+			// 	}),
+			// ),
+			DOM.on('#filter-focus-items [data-tab]', 'click', e =>
 				this.onSelectTab(e, val => {
 					this._focusFilter = val;
-					this.renderIssues();
+					this.renderFocusList();
 				}),
 			),
-			DOM.on<PullRequestRow, PullRequestShape>('pull-request-row', 'open-worktree', (e, target: HTMLElement) =>
-				this.onOpenWorktree(e, target),
-			),
-			DOM.on<PullRequestRow, PullRequestShape>('pull-request-row', 'switch-branch', (e, target: HTMLElement) =>
-				this.onSwitchBranch(e, target),
-			),
+			// DOM.on<PullRequestRow, PullRequestShape>('pull-request-row', 'open-worktree', (e, target: HTMLElement) =>
+			// 	this.onOpenWorktree(e, target),
+			// ),
+			// DOM.on<PullRequestRow, PullRequestShape>('pull-request-row', 'switch-branch', (e, target: HTMLElement) =>
+			// 	this.onSwitchBranch(e, target),
+			// ),
 		);
 
 		return disposables;
@@ -174,89 +174,89 @@ export class FocusApp extends App<State> {
 		}
 	}
 
-	renderPullRequests() {
-		const tableEl = document.getElementById('pull-requests');
-		if (tableEl == null) return;
-		const tableEl2 = document.getElementById('share-pull-requests')!;
+	// renderPullRequests() {
+	// 	const tableEl = document.getElementById('pull-requests');
+	// 	if (tableEl == null) return;
+	// 	const tableEl2 = document.getElementById('share-pull-requests')!;
 
-		const rowEls = tableEl.querySelectorAll('pull-request-row');
-		rowEls.forEach(el => el.remove());
+	// 	const rowEls = tableEl.querySelectorAll('pull-request-row');
+	// 	rowEls.forEach(el => el.remove());
 
-		const noneEl = document.getElementById('no-pull-requests')!;
-		const loadingEl = document.getElementById('loading-pull-requests')!;
-		if (this.state.pullRequests == null || this.state.access.allowed !== true) {
-			noneEl.setAttribute('hidden', 'true');
-			loadingEl.removeAttribute('hidden');
-		} else if (this.state.pullRequests.length === 0) {
-			noneEl.removeAttribute('hidden');
-			loadingEl.setAttribute('hidden', 'true');
-		} else {
-			noneEl.setAttribute('hidden', 'true');
-			loadingEl.setAttribute('hidden', 'true');
-			tableEl2.innerHTML = '';
-			this.state.pullRequests.forEach(
-				({ pullRequest, reasons, isCurrentBranch, isCurrentWorktree, hasWorktree, hasLocalBranch }, i) => {
-					if (this._prFilter == null || this._prFilter === '' || reasons.includes(this._prFilter)) {
-						const rowEl = document.createElement('pull-request-row') as PullRequestRow;
-						rowEl.pullRequest = pullRequest;
-						rowEl.reasons = reasons;
-						rowEl.isCurrentBranch = isCurrentBranch;
-						rowEl.isCurrentWorktree = isCurrentWorktree;
-						rowEl.hasWorktree = hasWorktree;
-						rowEl.hasLocalBranch = hasLocalBranch;
+	// 	const noneEl = document.getElementById('no-pull-requests')!;
+	// 	const loadingEl = document.getElementById('loading-pull-requests')!;
+	// 	if (this.state.pullRequests == null || this.state.access.allowed !== true) {
+	// 		noneEl.setAttribute('hidden', 'true');
+	// 		loadingEl.removeAttribute('hidden');
+	// 	} else if (this.state.pullRequests.length === 0) {
+	// 		noneEl.removeAttribute('hidden');
+	// 		loadingEl.setAttribute('hidden', 'true');
+	// 	} else {
+	// 		noneEl.setAttribute('hidden', 'true');
+	// 		loadingEl.setAttribute('hidden', 'true');
+	// 		tableEl2.innerHTML = '';
+	// 		this.state.pullRequests.forEach(
+	// 			({ pullRequest, reasons, isCurrentBranch, isCurrentWorktree, hasWorktree, hasLocalBranch }, i) => {
+	// 				if (this._prFilter == null || this._prFilter === '' || reasons.includes(this._prFilter)) {
+	// 					const rowEl = document.createElement('pull-request-row') as PullRequestRow;
+	// 					rowEl.pullRequest = pullRequest;
+	// 					rowEl.reasons = reasons;
+	// 					rowEl.isCurrentBranch = isCurrentBranch;
+	// 					rowEl.isCurrentWorktree = isCurrentWorktree;
+	// 					rowEl.hasWorktree = hasWorktree;
+	// 					rowEl.hasLocalBranch = hasLocalBranch;
 
-						tableEl.append(rowEl);
+	// 					tableEl.append(rowEl);
 
-						const rowEl2 = document.createElement('gk-pull-request-row') as GkPullRequestRow;
-						rowEl2.pullRequest = pullRequest;
-						rowEl2.rank = i + 1;
-						// rowEl2.reasons = reasons;
-						rowEl2.isCurrentBranch = isCurrentBranch;
-						rowEl2.isCurrentWorktree = isCurrentWorktree;
-						rowEl2.hasWorktree = hasWorktree;
-						rowEl2.hasLocalBranch = hasLocalBranch;
+	// 					const rowEl2 = document.createElement('gk-pull-request-row') as GkPullRequestRow;
+	// 					rowEl2.pullRequest = pullRequest;
+	// 					rowEl2.rank = i + 1;
+	// 					// rowEl2.reasons = reasons;
+	// 					rowEl2.isCurrentBranch = isCurrentBranch;
+	// 					rowEl2.isCurrentWorktree = isCurrentWorktree;
+	// 					rowEl2.hasWorktree = hasWorktree;
+	// 					rowEl2.hasLocalBranch = hasLocalBranch;
 
-						tableEl2.append(rowEl2);
-					}
-				},
-			);
-		}
-	}
+	// 					tableEl2.append(rowEl2);
+	// 				}
+	// 			},
+	// 		);
+	// 	}
+	// }
 
-	renderIssues() {
-		const tableEl = document.getElementById('issues')!;
+	// renderIssues() {
+	// 	const tableEl = document.getElementById('issues')!;
 
-		const rowEls = tableEl.querySelectorAll('issue-row');
-		rowEls.forEach(el => el.remove());
-		const tableEl2 = document.getElementById('share-pull-requests')!;
+	// 	const rowEls = tableEl.querySelectorAll('issue-row');
+	// 	rowEls.forEach(el => el.remove());
+	// 	const tableEl2 = document.getElementById('share-pull-requests')!;
 
-		const noneEl = document.getElementById('no-issues')!;
-		const loadingEl = document.getElementById('loading-issues')!;
-		if (this.state.issues == null || this.state.access.allowed !== true) {
-			noneEl.setAttribute('hidden', 'true');
-			loadingEl.removeAttribute('hidden');
-		} else if (this.state.issues.length === 0) {
-			noneEl.removeAttribute('hidden');
-			loadingEl.setAttribute('hidden', 'true');
-		} else {
-			noneEl.setAttribute('hidden', 'true');
-			loadingEl.setAttribute('hidden', 'true');
-			this.state.issues.forEach(({ issue, reasons }) => {
-				if (this._issueFilter == null || this._issueFilter === '' || reasons.includes(this._issueFilter)) {
-					const rowEl = document.createElement('issue-row') as IssueRow;
-					rowEl.issue = issue;
-					rowEl.reasons = reasons;
+	// 	const noneEl = document.getElementById('no-issues')!;
+	// 	const loadingEl = document.getElementById('loading-issues')!;
+	// 	if (this.state.issues == null || this.state.access.allowed !== true) {
+	// 		noneEl.setAttribute('hidden', 'true');
+	// 		loadingEl.removeAttribute('hidden');
+	// 	} else if (this.state.issues.length === 0) {
+	// 		noneEl.removeAttribute('hidden');
+	// 		loadingEl.setAttribute('hidden', 'true');
+	// 	} else {
+	// 		noneEl.setAttribute('hidden', 'true');
+	// 		loadingEl.setAttribute('hidden', 'true');
+	// 		this.state.issues.forEach(({ issue, reasons }) => {
+	// 			if (this._issueFilter == null || this._issueFilter === '' || reasons.includes(this._issueFilter)) {
+	// 				const rowEl = document.createElement('issue-row') as IssueRow;
+	// 				rowEl.issue = issue;
+	// 				rowEl.reasons = reasons;
 
-					tableEl.append(rowEl);
+	// 				tableEl.append(rowEl);
 
-					const rowEl2 = document.createElement('gk-issue-row') as GkIssueRow;
-					rowEl2.issue = issue;
+	// 				const rowEl2 = document.createElement('gk-issue-row') as GkIssueRow;
+	// 				rowEl2.issue = issue;
 
-					tableEl2.append(rowEl2);
-				}
-			});
-		}
-	}
+	// 				tableEl2.append(rowEl2);
+	// 			}
+	// 		});
+	// 	}
+	// }
 
 	onSelectTab(e: Event, callback?: (val?: string) => void) {
 		const thisEl = e.target as HTMLElement;

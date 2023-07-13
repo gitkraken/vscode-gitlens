@@ -5,15 +5,18 @@ import { when } from 'lit/directives/when.js';
 import type { IssueMember, IssueShape } from '../../../../../git/models/issue';
 import { elementBase } from '../../../shared/components/styles/lit/base.css';
 import '@gitkraken/shared-web-components';
+import { dateAgeStyles } from './date-styles.css';
+import { themeProperties } from './gk-theme.css';
+import { fromDateRange } from './helpers';
 
 @customElement('gk-issue-row')
 export class GkIssueRow extends LitElement {
 	static override styles = [
+		themeProperties,
 		elementBase,
+		dateAgeStyles,
 		css`
 			:host {
-				--gk-avatar-background-color: var(--background-10);
-				--color-background: var(--vscode-editor-background);
 				display: block;
 			}
 
@@ -41,6 +44,10 @@ export class GkIssueRow extends LitElement {
 		return new Date(this.issue!.date);
 	}
 
+	get dateStyle() {
+		return `indicator-${fromDateRange(this.lastUpdatedDate).status}`;
+	}
+
 	get assignees() {
 		const assignees = this.issue?.assignees;
 		if (assignees == null) {
@@ -48,7 +55,7 @@ export class GkIssueRow extends LitElement {
 		}
 		const author: IssueMember | undefined = this.issue!.author;
 		if (author != null) {
-			return assignees.filter(assignee => assignee.name !== author.name);
+			return assignees.filter(assignee => assignee.avatarUrl !== author.avatarUrl);
 		}
 
 		return assignees;
@@ -74,11 +81,11 @@ export class GkIssueRow extends LitElement {
 							<span slot="prefix"><code-icon icon="repo"></code-icon></span>
 							${this.issue.repository.repo}
 						</gk-tag>
-						<gk-tag>
+						<gk-tag variant="ghost">
 							<span slot="prefix"><code-icon icon="comment-discussion"></code-icon></span>
 							${this.issue.commentsCount}
 						</gk-tag>
-						<gk-tag>
+						<gk-tag variant="ghost">
 							<span slot="prefix"><code-icon icon="thumbsup"></code-icon></span>
 							${this.issue.thumbsUpCount}
 						</gk-tag>
@@ -87,7 +94,11 @@ export class GkIssueRow extends LitElement {
 						<gk-avatar-group>
 							${when(
 								this.issue.author != null,
-								() => html`<gk-avatar src="${this.issue!.author.avatarUrl}"></gk-avatar>`,
+								() =>
+									html`<gk-avatar
+										src="${this.issue!.author.avatarUrl}"
+										title="${this.issue!.author.name} (author)"
+									></gk-avatar>`,
 							)}
 							${when(
 								this.assignees.length > 0,
@@ -95,14 +106,18 @@ export class GkIssueRow extends LitElement {
 									${repeat(
 										this.assignees,
 										item => item.url,
-										(item, index) => html`<gk-avatar src="${item.avatarUrl}"></gk-avatar>`,
+										(item, index) =>
+											html`<gk-avatar
+												src="${item.avatarUrl}"
+												title="${item.name ? `${item.name} ` : ''}(assignee)"
+											></gk-avatar>`,
 									)}
 								`,
 							)}
 						</gk-avatar-group>
 					</span>
 					<span slot="date">
-						<gk-date-from date="${this.lastUpdatedDate}"></gk-date-from>
+						<gk-date-from class="${this.dateStyle}" date="${this.lastUpdatedDate}"></gk-date-from>
 					</span>
 					<nav slot="actions"></nav>
 				</gk-focus-item>
