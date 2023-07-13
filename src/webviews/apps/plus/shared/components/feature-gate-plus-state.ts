@@ -1,7 +1,8 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { SubscriptionState } from '../../../../../subscription';
-import '../../../shared/components/button';
+// FIXME@d13 - conflict with gk-button from shared library
+// import '../../../shared/components/button';
 import { linkStyles } from './vscode.css';
 
 @customElement('gk-feature-gate-plus-state')
