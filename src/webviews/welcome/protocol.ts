@@ -9,6 +9,7 @@ export interface State {
 		currentLine: Config['currentLine']['enabled'];
 	};
 	repoFeaturesBlocked?: boolean;
+	isTrialOrPaid?: boolean;
 }
 
 export interface UpdateConfigurationParams {

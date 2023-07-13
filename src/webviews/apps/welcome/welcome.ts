@@ -96,6 +96,7 @@ export class WelcomeApp extends App<State> {
 		this.updateVersion();
 		this.updateFeatures();
 		this.updateRepoState();
+		this.updateAccountState();
 	}
 
 	private updateVersion() {
@@ -119,6 +120,11 @@ export class WelcomeApp extends App<State> {
 	private updateRepoState() {
 		const { repoFeaturesBlocked } = this.state;
 		document.body.dataset.repos = repoFeaturesBlocked ? 'blocked' : 'allowed';
+	}
+
+	private updateAccountState() {
+		const { isTrialOrPaid } = this.state;
+		document.getElementById('try-pro')!.hidden = isTrialOrPaid ?? false;
 	}
 }
 
