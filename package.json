@@ -2878,6 +2878,16 @@
 						"scope": "window",
 						"order": 101
 					},
+					"gitlens.ai.experimental.openai.url": {
+						"type": [
+							"string",
+							"null"
+						],
+						"default": null,
+						"markdownDescription": "Specifies a custom URL to use for access to an OpenAI model via Azure. Azure URLs should be in the following format: https://{your-resource-name}.openai.azure.com/openai/deployments/{deployment-id}/chat/completions?api-version={api-version}",
+						"scope": "window",
+						"order": 102
+					},
 					"gitlens.ai.experimental.anthropic.model": {
 						"type": "string",
 						"default": "claude-v1",
