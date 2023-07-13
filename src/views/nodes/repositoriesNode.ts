@@ -7,7 +7,6 @@ import { debug } from '../../system/decorators/log';
 import { debounce, szudzikPairing } from '../../system/function';
 import { Logger } from '../../system/logger';
 import type { ViewsWithRepositoriesNode } from '../viewBase';
-import { WorkspacesView } from '../workspacesView';
 import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
 import type { ViewNode } from './viewNode';
@@ -31,7 +30,7 @@ export class RepositoriesNode extends SubscribeableViewNode<ViewsWithRepositorie
 		if (this._children == null) return;
 
 		for (const child of this._children) {
-			if (child instanceof RepositoryNode) {
+			if ('dispose' in child) {
 				child.dispose();
 			}
 		}
@@ -50,7 +49,7 @@ export class RepositoriesNode extends SubscribeableViewNode<ViewsWithRepositorie
 	}
 
 	getTreeItem(): TreeItem {
-		const isInWorkspacesView = this.view instanceof WorkspacesView;
+		const isInWorkspacesView = this.view.type === 'workspaces';
 		const isLinkedWorkspace = isInWorkspacesView && this.view.container.workspaces.currentWorkspaceId != null;
 		const isCurrentLinkedWorkspace = isLinkedWorkspace && this.view.container.workspaces.currentWorkspace != null;
 		const item = new TreeItem(
