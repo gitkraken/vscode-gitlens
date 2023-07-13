@@ -1,6 +1,9 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, workspace } from 'vscode';
 import type { Container } from '../../container';
+import type { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
+import type { Subscription } from '../../subscription';
+import { SubscriptionState } from '../../subscription';
 import { configuration } from '../../system/configuration';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
@@ -23,8 +26,11 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 	) {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
-			this.container.git.onDidChangeRepositories(this.notifyDidChange, this),
-			!workspace.isTrusted ? workspace.onDidGrantWorkspaceTrust(this.notifyDidChange, this) : emptyDisposable,
+			this.container.git.onDidChangeRepositories(() => this.notifyDidChange(), this),
+			!workspace.isTrusted
+				? workspace.onDidGrantWorkspaceTrust(() => this.notifyDidChange(), this)
+				: emptyDisposable,
+			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 		);
 	}
 
@@ -32,18 +38,22 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 		this._disposable.dispose();
 	}
 
-	includeBootstrap(): State {
+	includeBootstrap(): Promise<State> {
 		return this.getState();
 	}
 
 	onReloaded() {
-		this.notifyDidChange();
+		void this.notifyDidChange();
+	}
+
+	private onSubscriptionChanged(e: SubscriptionChangeEvent) {
+		void this.notifyDidChange(e.current);
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (!configuration.changed(e, 'codeLens.enabled') && !configuration.changed(e, 'currentLine.enabled')) return;
 
-		this.notifyDidChange();
+		void this.notifyDidChange();
 	}
 
 	onMessageReceived(e: IpcMessage) {
@@ -53,7 +63,7 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 				break;
 		}
 	}
-	private getState(): State {
+	private async getState(subscription?: Subscription): Promise<State> {
 		return {
 			timestamp: Date.now(),
 			version: this.container.version,
@@ -66,14 +76,25 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 				!workspace.isTrusted ||
 				this.container.git.openRepositoryCount === 0 ||
 				this.container.git.hasUnsafeRepositories(),
+			isTrialOrPaid: await this.getTrialOrPaidState(subscription),
 		};
+	}
+
+	private async getTrialOrPaidState(subscription?: Subscription): Promise<boolean> {
+		const sub = subscription ?? (await this.container.subscription.getSubscription(true));
+
+		if ([SubscriptionState.FreePlusInTrial, SubscriptionState.Paid].includes(sub.state)) {
+			return true;
+		}
+
+		return false;
 	}
 
 	private updateConfiguration(params: UpdateConfigurationParams) {
 		void configuration.updateEffective(`${params.type}.enabled`, params.value);
 	}
 
-	private notifyDidChange() {
-		void this.host.notify(DidChangeNotificationType, { state: this.getState() });
+	private async notifyDidChange(subscription?: Subscription) {
+		void this.host.notify(DidChangeNotificationType, { state: await this.getState(subscription) });
 	}
 }

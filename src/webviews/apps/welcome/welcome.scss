@@ -167,6 +167,16 @@ li {
 		color: var(--color-foreground--50);
 		margin: 0;
 	}
+
+	&-nowrap {
+		white-space: nowrap;
+	}
+}
+
+.h {
+	&-space-half {
+		margin-bottom: 0.65rem;
+	}
 }
 
 gk-card p {
