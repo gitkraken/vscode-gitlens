@@ -316,7 +316,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 					repo: repo,
 					remote: richRemote,
 					isConnected: await richRemote.provider.isConnected(),
-					isGitHub: richRemote.provider.name === 'GitHub',
+					isGitHub: richRemote.provider.id === 'github',
 				});
 			}
 			if (this._repositoryEventsDisposable) {

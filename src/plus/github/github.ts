@@ -2376,7 +2376,7 @@ export class GitHubApi implements Disposable {
 	async searchMyPullRequests(
 		provider: RichRemoteProvider,
 		token: string,
-		options?: { search?: string; user?: string; repos?: string[] },
+		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string },
 	): Promise<SearchedPullRequest[]> {
 		const scope = getLogScope();
 
@@ -2447,7 +2447,7 @@ export class GitHubApi implements Disposable {
 
 			const baseFilters = 'is:pr is:open archived:false';
 			const resp = await this.graphql<SearchResult>(
-				undefined,
+				provider,
 				token,
 				query,
 				{
@@ -2455,6 +2455,7 @@ export class GitHubApi implements Disposable {
 					assigned: `${search} ${baseFilters} assignee:@me`.trim(),
 					reviewRequested: `${search} ${baseFilters} review-requested:@me`.trim(),
 					mentioned: `${search} ${baseFilters} mentions:@me`.trim(),
+					baseUrl: options?.baseUrl,
 				},
 				scope,
 			);
@@ -2478,7 +2479,7 @@ export class GitHubApi implements Disposable {
 			);
 			return results;
 		} catch (ex) {
-			throw this.handleException(ex, undefined, scope);
+			throw this.handleException(ex, provider, scope);
 		}
 	}
 
@@ -2486,7 +2487,7 @@ export class GitHubApi implements Disposable {
 	async searchMyIssues(
 		provider: RichRemoteProvider,
 		token: string,
-		options?: { search?: string; user?: string; repos?: string[] },
+		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string },
 	): Promise<SearchedIssue[] | undefined> {
 		const scope = getLogScope();
 		interface SearchResult {
@@ -2540,13 +2541,14 @@ export class GitHubApi implements Disposable {
 		const baseFilters = 'type:issue is:open archived:false';
 		try {
 			const resp = await this.graphql<SearchResult>(
-				undefined,
+				provider,
 				token,
 				query,
 				{
 					authored: `${search} ${baseFilters} author:@me`.trim(),
 					assigned: `${search} ${baseFilters} assignee:@me`.trim(),
 					mentioned: `${search} ${baseFilters} mentions:@me`.trim(),
+					baseUrl: options?.baseUrl,
 				},
 				scope,
 			);
@@ -2570,7 +2572,7 @@ export class GitHubApi implements Disposable {
 			);
 			return results;
 		} catch (ex) {
-			throw this.handleException(ex, undefined, scope);
+			throw this.handleException(ex, provider, scope);
 		}
 	}
 }

@@ -136,7 +136,10 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 				if (result == null || result === cancel) return;
 				if (result === signout) {
-					void this.container.integrationAuthentication.deleteSession(this.id, this.authProviderDescriptor);
+					void this.container.integrationAuthentication.deleteSession(
+						this.authProvider.id,
+						this.authProviderDescriptor,
+					);
 				}
 			}
 		}
