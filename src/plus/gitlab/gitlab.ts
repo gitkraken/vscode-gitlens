@@ -19,6 +19,7 @@ import type { DefaultBranch } from '../../git/models/defaultBranch';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import { IssueOrPullRequestType } from '../../git/models/issue';
 import { PullRequest } from '../../git/models/pullRequest';
+import type { RepositoryMetadata } from '../../git/models/repositoryMetadata';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
 import {
 	showIntegrationRequestFailed500WarningMessage,
@@ -32,7 +33,14 @@ import type { LogScope } from '../../system/logger.scope';
 import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
 import { Stopwatch } from '../../system/stopwatch';
 import { equalsIgnoreCase } from '../../system/string';
-import type { GitLabCommit, GitLabIssue, GitLabMergeRequest, GitLabMergeRequestREST, GitLabUser } from './models';
+import type {
+	GitLabCommit,
+	GitLabIssue,
+	GitLabMergeRequest,
+	GitLabMergeRequestREST,
+	GitLabProjectREST,
+	GitLabUser,
+} from './models';
 import { fromGitLabMergeRequestREST, fromGitLabMergeRequestState, GitLabMergeRequestState } from './models';
 
 export class GitLabApi implements Disposable {
@@ -526,6 +534,56 @@ export class GitLabApi implements Disposable {
 			}
 
 			return fromGitLabMergeRequestREST(mrs[0], provider);
+		} catch (ex) {
+			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	@debug<GitLabApi['getRepositoryMetadata']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async getRepositoryMetadata(
+		provider: RichRemoteProvider,
+		token: string,
+		owner: string,
+		repo: string,
+		options?: {
+			baseUrl?: string;
+		},
+	): Promise<RepositoryMetadata | undefined> {
+		const scope = getLogScope();
+
+		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl);
+		if (!projectId) return undefined;
+
+		try {
+			const proj = await this.request<GitLabProjectREST>(
+				provider,
+
+				token,
+				options?.baseUrl,
+				`v4/projects/${projectId}`,
+				{
+					method: 'GET',
+					// ...options,
+				},
+				scope,
+			);
+			if (proj == null) return undefined;
+
+			return {
+				provider: provider,
+				owner: proj.namespace.full_path,
+				name: proj.path,
+				isFork: proj.forked_from_project != null,
+				parent:
+					proj.forked_from_project != null
+						? {
+								owner: proj.forked_from_project.namespace.full_path,
+								name: proj.forked_from_project.path,
+						  }
+						: undefined,
+			} satisfies RepositoryMetadata;
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 

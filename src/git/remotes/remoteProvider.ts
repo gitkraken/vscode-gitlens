@@ -59,6 +59,10 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 		return this.type === 'rich';
 	}
 
+	get maybeConnected(): boolean | undefined {
+		return false;
+	}
+
 	abstract getLocalInfoFromRemoteUri(
 		repository: Repository,
 		uri: Uri,

@@ -2166,7 +2166,16 @@ export class GitProviderService implements Disposable {
 				}
 
 				// Don't choose a remote unless its weighted above
-				const matchedWeight = weightedRemotes.get(r.name) ?? -1;
+				let matchedWeight = weightedRemotes.get(r.name) ?? -1;
+
+				const p = r.provider;
+				if (p.hasRichIntegration() && p.maybeConnected) {
+					const m = await p.getRepositoryMetadata();
+					if (m?.isFork === false) {
+						matchedWeight += 101;
+					}
+				}
+
 				if (matchedWeight > weight) {
 					bestRemote = r;
 					weight = matchedWeight;

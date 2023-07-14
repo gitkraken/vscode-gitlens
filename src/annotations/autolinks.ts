@@ -257,6 +257,11 @@ export class Autolinks implements Disposable {
 		}
 
 		if (remotes != null && remotes.length !== 0) {
+			remotes = [...remotes].sort((a, b) => {
+				const aConnected = a.provider?.maybeConnected;
+				const bConnected = b.provider?.maybeConnected;
+				return aConnected !== bConnected ? (aConnected ? -1 : bConnected ? 1 : 0) : 0;
+			});
 			for (const r of remotes) {
 				if (r.provider == null) continue;
 
