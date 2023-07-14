@@ -116,12 +116,6 @@ repository {
 		login
 	}
 }
-repository {
-	isFork
-	owner {
-		login
-	}
-}
 reviewDecision
 reviewRequests(first: 10) {
 	nodes {
