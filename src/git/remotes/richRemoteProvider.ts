@@ -17,6 +17,7 @@ import type { Account } from '../models/author';
 import type { DefaultBranch } from '../models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../models/issue';
 import type { PullRequest, PullRequestState, SearchedPullRequest } from '../models/pullRequest';
+import type { RepositoryMetadata } from '../models/repositoryMetadata';
 import { RemoteProvider } from './remoteProvider';
 
 // TODO@eamodio revisit how once authenticated, all remotes are always connected, even after a restart
@@ -73,7 +74,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		return `connected:${this.key}`;
 	}
 
-	get maybeConnected(): boolean | undefined {
+	override get maybeConnected(): boolean | undefined {
 		return this._session === undefined ? undefined : this._session !== null;
 	}
 
@@ -145,6 +146,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		}
 
 		this.resetRequestExceptionCount();
+		this._repoMetadata = undefined;
 		this._prsByCommit.clear();
 		this._session = null;
 
@@ -285,6 +287,37 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 	protected abstract getProviderDefaultBranch({
 		accessToken,
 	}: AuthenticationSession): Promise<DefaultBranch | undefined>;
+
+	private _repoMetadata: RepositoryMetadata | undefined;
+
+	@gate()
+	@debug()
+	async getRepositoryMetadata(): Promise<RepositoryMetadata | undefined> {
+		if (this._repoMetadata != null) return this._repoMetadata;
+
+		const scope = getLogScope();
+
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		try {
+			const metadata = await this.getProviderRepositoryMetadata(this._session!);
+			this._repoMetadata = metadata;
+			this.resetRequestExceptionCount();
+			return metadata;
+		} catch (ex) {
+			Logger.error(ex, scope);
+
+			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
+				this.trackRequestException();
+			}
+			return undefined;
+		}
+	}
+
+	protected abstract getProviderRepositoryMetadata({
+		accessToken,
+	}: AuthenticationSession): Promise<RepositoryMetadata | undefined>;
 
 	@gate()
 	@debug()

@@ -18,6 +18,7 @@ import type { IssueOrPullRequest, SearchedIssue } from '../models/issue';
 import type { PullRequest, PullRequestState, SearchedPullRequest } from '../models/pullRequest';
 import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
+import type { RepositoryMetadata } from '../models/repositoryMetadata';
 import { ensurePaidPlan, RichRemoteProvider } from './richRemoteProvider';
 
 const autolinkFullIssuesRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)#(?<num>[0-9]+)\b(?!]\()/g;
@@ -290,7 +291,7 @@ export class GitLabRemote extends RichRemoteProvider {
 		return `${this.encodeUrl(`${this.baseUrl}?path=${fileName}`)}${line}`;
 	}
 
-	protected async getProviderAccountForCommit(
+	protected override async getProviderAccountForCommit(
 		{ accessToken }: AuthenticationSession,
 		ref: string,
 		options?: {
@@ -304,7 +305,7 @@ export class GitLabRemote extends RichRemoteProvider {
 		});
 	}
 
-	protected async getProviderAccountForEmail(
+	protected override async getProviderAccountForEmail(
 		{ accessToken }: AuthenticationSession,
 		email: string,
 		options?: {
@@ -318,7 +319,7 @@ export class GitLabRemote extends RichRemoteProvider {
 		});
 	}
 
-	protected async getProviderDefaultBranch({
+	protected override async getProviderDefaultBranch({
 		accessToken,
 	}: AuthenticationSession): Promise<DefaultBranch | undefined> {
 		const [owner, repo] = this.splitPath();
@@ -327,7 +328,7 @@ export class GitLabRemote extends RichRemoteProvider {
 		});
 	}
 
-	protected async getProviderIssueOrPullRequest(
+	protected override async getProviderIssueOrPullRequest(
 		{ accessToken }: AuthenticationSession,
 		id: string,
 	): Promise<IssueOrPullRequest | undefined> {
@@ -337,7 +338,7 @@ export class GitLabRemote extends RichRemoteProvider {
 		});
 	}
 
-	protected async getProviderPullRequestForBranch(
+	protected override async getProviderPullRequestForBranch(
 		{ accessToken }: AuthenticationSession,
 		branch: string,
 		options?: {
@@ -357,7 +358,7 @@ export class GitLabRemote extends RichRemoteProvider {
 		});
 	}
 
-	protected async getProviderPullRequestForCommit(
+	protected override async getProviderPullRequestForCommit(
 		{ accessToken }: AuthenticationSession,
 		ref: string,
 	): Promise<PullRequest | undefined> {
@@ -367,13 +368,24 @@ export class GitLabRemote extends RichRemoteProvider {
 		});
 	}
 
-	protected async searchProviderMyPullRequests(
+	protected override async getProviderRepositoryMetadata({
+		accessToken,
+	}: AuthenticationSession): Promise<RepositoryMetadata | undefined> {
+		const [owner, repo] = this.splitPath();
+		return (await this.container.gitlab)?.getRepositoryMetadata(this, accessToken, owner, repo, {
+			baseUrl: this.apiBaseUrl,
+		});
+	}
+
+	protected override async searchProviderMyPullRequests(
 		_session: AuthenticationSession,
 	): Promise<SearchedPullRequest[] | undefined> {
 		return Promise.resolve(undefined);
 	}
 
-	protected async searchProviderMyIssues(_session: AuthenticationSession): Promise<SearchedIssue[] | undefined> {
+	protected override async searchProviderMyIssues(
+		_session: AuthenticationSession,
+	): Promise<SearchedIssue[] | undefined> {
 		return Promise.resolve(undefined);
 	}
 }
