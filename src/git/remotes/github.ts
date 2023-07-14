@@ -341,6 +341,7 @@ export class GitHubRemote extends RichRemoteProvider {
 	}: AuthenticationSession): Promise<SearchedPullRequest[] | undefined> {
 		return (await this.container.github)?.searchMyPullRequests(this, accessToken, {
 			repos: [this.path],
+			baseUrl: this.apiBaseUrl,
 		});
 	}
 
@@ -349,6 +350,7 @@ export class GitHubRemote extends RichRemoteProvider {
 	}: AuthenticationSession): Promise<SearchedIssue[] | undefined> {
 		return (await this.container.github)?.searchMyIssues(this, accessToken, {
 			repos: [this.path],
+			baseUrl: this.apiBaseUrl,
 		});
 	}
 }
