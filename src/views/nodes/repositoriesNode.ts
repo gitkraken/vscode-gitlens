@@ -1,5 +1,5 @@
 import type { TextEditor } from 'vscode';
-import { Disposable, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState, Uri, window, workspace } from 'vscode';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { GitUri, unknownGitUri } from '../../git/gitUri';
 import { gate } from '../../system/decorators/gate';
@@ -7,7 +7,6 @@ import { debug } from '../../system/decorators/log';
 import { debounce, szudzikPairing } from '../../system/function';
 import { Logger } from '../../system/logger';
 import type { ViewsWithRepositoriesNode } from '../viewBase';
-import { WorkspacesView } from '../workspacesView';
 import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
 import type { ViewNode } from './viewNode';
@@ -31,7 +30,7 @@ export class RepositoriesNode extends SubscribeableViewNode<ViewsWithRepositorie
 		if (this._children == null) return;
 
 		for (const child of this._children) {
-			if (child instanceof RepositoryNode) {
+			if ('dispose' in child) {
 				child.dispose();
 			}
 		}
@@ -50,8 +49,9 @@ export class RepositoriesNode extends SubscribeableViewNode<ViewsWithRepositorie
 	}
 
 	getTreeItem(): TreeItem {
-		const isInWorkspacesView = this.view instanceof WorkspacesView;
-		const isSyncedWorkspace = isInWorkspacesView && this.view.container.workspaces.currentWorkspaceId != null;
+		const isInWorkspacesView = this.view.type === 'workspaces';
+		const isLinkedWorkspace = isInWorkspacesView && this.view.container.workspaces.currentWorkspaceId != null;
+		const isCurrentLinkedWorkspace = isLinkedWorkspace && this.view.container.workspaces.currentWorkspace != null;
 		const item = new TreeItem(
 			isInWorkspacesView ? 'Current Window' : 'Repositories',
 			isInWorkspacesView ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.Expanded,
@@ -66,8 +66,13 @@ export class RepositoriesNode extends SubscribeableViewNode<ViewsWithRepositorie
 			contextValue += '+workspaces';
 		}
 
-		if (isSyncedWorkspace) {
-			contextValue += '+synced';
+		if (isLinkedWorkspace) {
+			contextValue += '+linked';
+		}
+
+		if (isCurrentLinkedWorkspace) {
+			contextValue += '+current';
+			item.resourceUri = Uri.parse('gitlens-view://workspaces/workspace/current');
 		}
 
 		item.contextValue = contextValue;
@@ -162,6 +167,6 @@ export class RepositoriesNode extends SubscribeableViewNode<ViewsWithRepositorie
 
 	@debug()
 	private onRepositoriesChanged(_e: RepositoriesChangeEvent) {
-		void this.triggerChange();
+		void this.triggerChange(true);
 	}
 }

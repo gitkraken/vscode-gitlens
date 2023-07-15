@@ -2,7 +2,7 @@
 	"name": "gitlens",
 	"displayName": "GitLens — Git supercharged",
 	"description": "Supercharge Git within VS Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via rich visualizations and powerful comparison commands, and so much more",
-	"version": "14.0.1",
+	"version": "14.1.0",
 	"engines": {
 		"vscode": "^1.78.0"
 	},
@@ -2877,6 +2877,16 @@
 						"markdownDescription": "Specifies the OpenAI model to use for GitLens' experimental AI features",
 						"scope": "window",
 						"order": 101
+					},
+					"gitlens.ai.experimental.openai.url": {
+						"type": [
+							"string",
+							"null"
+						],
+						"default": null,
+						"markdownDescription": "Specifies a custom URL to use for access to an OpenAI model via Azure. Azure URLs should be in the following format: https://{your-resource-name}.openai.azure.com/openai/deployments/{deployment-id}/chat/completions?api-version={api-version}",
+						"scope": "window",
+						"order": 102
 					},
 					"gitlens.ai.experimental.anthropic.model": {
 						"type": "string",
@@ -6974,7 +6984,7 @@
 			},
 			{
 				"command": "gitlens.views.workspaces.changeAutoAddSetting",
-				"title": "Change Workspace Auto-Add Setting...",
+				"title": "Change Linked Workspace Auto-Add Behavior...",
 				"category": "GitLens"
 			},
 			{
@@ -11198,7 +11208,7 @@
 				},
 				{
 					"command": "gitlens.views.workspaces.addReposFromLinked",
-					"when": "viewItem =~ /gitlens:repositories\\b(?=.*?\\b\\+synced\\b)/",
+					"when": "viewItem =~ /gitlens:repositories\\b(?=.*?\\b\\+linked\\b)(?=.*?\\b\\+current\\b)/",
 					"group": "1_gitlens_actions@3"
 				},
 				{
@@ -11218,7 +11228,7 @@
 				},
 				{
 					"command": "gitlens.views.workspaces.changeAutoAddSetting",
-					"when": "viewItem =~ /(gitlens:workspace\\b(?=.*?\\b\\+(cloud|local)\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+hasPath\\b)|gitlens:repositories\\b(?=.*?\\b\\+synced\\b))/",
+					"when": "viewItem =~ /(gitlens:workspace\\b(?=.*?\\b\\+(cloud|local)\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+hasPath\\b)|gitlens:repositories\\b(?=.*?\\b\\+linked\\b))/",
 					"group": "2_gitlens_quickopen@6"
 				},
 				{

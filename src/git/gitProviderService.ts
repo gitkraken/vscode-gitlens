@@ -440,6 +440,11 @@ export class GitProviderService implements Disposable {
 
 					// Send a notification that the repositories changed
 					queueMicrotask(() => this.fireRepositoriesChanged([], [e.repository]));
+				} else if (e.changed(RepositoryChange.Opened, RepositoryChangeComparisonMode.Any)) {
+					this.updateContext();
+
+					// Send a notification that the repositories changed
+					queueMicrotask(() => this.fireRepositoriesChanged([e.repository], []));
 				}
 
 				if (e.changed(RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
@@ -615,17 +620,18 @@ export class GitProviderService implements Disposable {
 			const added: Repository[] = [];
 
 			for (const repository of repositories) {
-				if (this._repositories.add(repository)) {
+				this._repositories.add(repository);
+				if (!repository.closed) {
 					added.push(repository);
 				}
 			}
 
 			this.updateContext();
 
-			if (added.length === 0) return;
-
-			// Defer the event trigger enough to let everything unwind
-			queueMicrotask(() => this.fireRepositoriesChanged(added));
+			if (added.length) {
+				// Defer the event trigger enough to let everything unwind
+				queueMicrotask(() => this.fireRepositoriesChanged(added));
+			}
 		} finally {
 			deferred.fulfill();
 		}
@@ -2160,7 +2166,16 @@ export class GitProviderService implements Disposable {
 				}
 
 				// Don't choose a remote unless its weighted above
-				const matchedWeight = weightedRemotes.get(r.name) ?? -1;
+				let matchedWeight = weightedRemotes.get(r.name) ?? -1;
+
+				const p = r.provider;
+				if (p.hasRichIntegration() && p.maybeConnected) {
+					const m = await p.getRepositoryMetadata();
+					if (m?.isFork === false) {
+						matchedWeight += 101;
+					}
+				}
+
 				if (matchedWeight > weight) {
 					bestRemote = r;
 					weight = matchedWeight;
@@ -2395,15 +2410,24 @@ export class GitProviderService implements Disposable {
 
 				Logger.log(scope, `Repository found in '${repoUri.toString(true)}'`);
 				const repositories = provider.openRepository(root?.folder, repoUri, false, undefined, closed);
+
+				const added: Repository[] = [];
+
 				for (const repository of repositories) {
 					this._repositories.add(repository);
+					if (!repository.closed) {
+						added.push(repository);
+					}
 				}
 
 				this._pendingRepositories.delete(key);
 
 				this.updateContext();
-				// Send a notification that the repositories changed
-				queueMicrotask(() => this.fireRepositoriesChanged(repositories));
+
+				if (added.length) {
+					// Send a notification that the repositories changed
+					queueMicrotask(() => this.fireRepositoriesChanged(added));
+				}
 
 				repository = repositories.length === 1 ? repositories[0] : this.getRepository(uri);
 				return repository;

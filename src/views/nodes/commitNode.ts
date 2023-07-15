@@ -243,6 +243,11 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		const remotes = await this.view.container.git.getRemotesWithProviders(this.commit.repoPath, { sort: true });
 		const remote = await this.view.container.git.getBestRemoteWithRichProvider(remotes);
 
+		// If we have a "best" remote, move it to the front of the list
+		if (remote != null) {
+			remotes.sort((a, b) => (a === remote ? -1 : b === remote ? 1 : 0));
+		}
+
 		if (this.commit.message == null) {
 			await this.commit.ensureFullDetails();
 		}

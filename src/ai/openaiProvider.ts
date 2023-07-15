@@ -19,6 +19,10 @@ export class OpenAIProvider implements AIProvider {
 
 	dispose() {}
 
+	private get url(): string {
+		return configuration.get('ai.experimental.openai.url') ?? 'https://api.openai.com/v1/chat/completions';
+	}
+
 	async generateCommitMessage(diff: string, options?: { context?: string }): Promise<string | undefined> {
 		const apiKey = await getApiKey(this.container.storage);
 		if (apiKey == null) return undefined;
@@ -64,7 +68,7 @@ export class OpenAIProvider implements AIProvider {
 			content: `Write a meaningful commit message for the following code changes:\n\n${code}`,
 		});
 
-		const rsp = await fetch('https://api.openai.com/v1/chat/completions', {
+		const rsp = await fetch(this.url, {
 			headers: {
 				Accept: 'application/json',
 				Authorization: `Bearer ${apiKey}`,
@@ -126,7 +130,7 @@ export class OpenAIProvider implements AIProvider {
 			],
 		};
 
-		const rsp = await fetch('https://api.openai.com/v1/chat/completions', {
+		const rsp = await fetch(this.url, {
 			headers: {
 				Accept: 'application/json',
 				Authorization: `Bearer ${apiKey}`,

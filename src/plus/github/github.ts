@@ -23,6 +23,7 @@ import type { DefaultBranch } from '../../git/models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../../git/models/issue';
 import type { PullRequest, SearchedPullRequest } from '../../git/models/pullRequest';
 import { isSha } from '../../git/models/reference';
+import type { RepositoryMetadata } from '../../git/models/repositoryMetadata';
 import type { GitUser } from '../../git/models/user';
 import { getGitHubNoReplyAddressParts } from '../../git/remotes/github';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
@@ -109,12 +110,6 @@ mergeable
 mergedAt
 mergedBy {
 	login
-}
-repository {
-	isFork
-	owner {
-		login
-	}
 }
 repository {
 	isFork
@@ -735,6 +730,93 @@ export class GitHubApi implements Disposable {
 			}
 
 			return fromGitHubPullRequest(prs[0], provider);
+		} catch (ex) {
+			if (ex instanceof ProviderRequestNotFoundError) return undefined;
+
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	@debug<GitHubApi['getRepositoryMetadata']>({ args: { 0: p => p.name, 1: '<token>' } })
+	async getRepositoryMetadata(
+		provider: RichRemoteProvider,
+		token: string,
+		owner: string,
+		repo: string,
+		options?: {
+			baseUrl?: string;
+		},
+	): Promise<RepositoryMetadata | undefined> {
+		const scope = getLogScope();
+
+		interface QueryResult {
+			repository:
+				| {
+						owner: {
+							login: string;
+						};
+						name: string;
+						parent:
+							| {
+									owner: {
+										login: string;
+									};
+									name: string;
+							  }
+							| null
+							| undefined;
+				  }
+				| null
+				| undefined;
+		}
+
+		try {
+			const query = `query getRepositoryMetadata(
+	$owner: String!
+	$repo: String!
+) {
+	repository(name: $repo, owner: $owner) {
+		owner {
+			login
+		}
+		name
+		parent {
+			owner {
+				login
+			}
+			name
+		}
+	}
+}`;
+
+			const rsp = await this.graphql<QueryResult>(
+				provider,
+				token,
+				query,
+				{
+					...options,
+					owner: owner,
+					repo: repo,
+				},
+				scope,
+			);
+
+			const r = rsp?.repository ?? undefined;
+			if (r == null) return undefined;
+
+			return {
+				provider: provider,
+				owner: r.owner.login,
+				name: r.name,
+				isFork: r.parent != null,
+				parent:
+					r.parent != null
+						? {
+								owner: r.parent.owner.login,
+								name: r.parent.name,
+						  }
+						: undefined,
+			};
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
@@ -2382,7 +2464,7 @@ export class GitHubApi implements Disposable {
 	async searchMyPullRequests(
 		provider: RichRemoteProvider,
 		token: string,
-		options?: { search?: string; user?: string; repos?: string[] },
+		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string },
 	): Promise<SearchedPullRequest[]> {
 		const scope = getLogScope();
 
@@ -2453,7 +2535,7 @@ export class GitHubApi implements Disposable {
 
 			const baseFilters = 'is:pr is:open archived:false';
 			const resp = await this.graphql<SearchResult>(
-				undefined,
+				provider,
 				token,
 				query,
 				{
@@ -2461,6 +2543,7 @@ export class GitHubApi implements Disposable {
 					assigned: `${search} ${baseFilters} assignee:@me`.trim(),
 					reviewRequested: `${search} ${baseFilters} review-requested:@me`.trim(),
 					mentioned: `${search} ${baseFilters} mentions:@me`.trim(),
+					baseUrl: options?.baseUrl,
 				},
 				scope,
 			);
@@ -2484,7 +2567,7 @@ export class GitHubApi implements Disposable {
 			);
 			return results;
 		} catch (ex) {
-			throw this.handleException(ex, undefined, scope);
+			throw this.handleException(ex, provider, scope);
 		}
 	}
 
@@ -2492,7 +2575,7 @@ export class GitHubApi implements Disposable {
 	async searchMyIssues(
 		provider: RichRemoteProvider,
 		token: string,
-		options?: { search?: string; user?: string; repos?: string[] },
+		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string },
 	): Promise<SearchedIssue[] | undefined> {
 		const scope = getLogScope();
 		interface SearchResult {
@@ -2546,13 +2629,14 @@ export class GitHubApi implements Disposable {
 		const baseFilters = 'type:issue is:open archived:false';
 		try {
 			const resp = await this.graphql<SearchResult>(
-				undefined,
+				provider,
 				token,
 				query,
 				{
 					authored: `${search} ${baseFilters} author:@me`.trim(),
 					assigned: `${search} ${baseFilters} assignee:@me`.trim(),
 					mentioned: `${search} ${baseFilters} mentions:@me`.trim(),
+					baseUrl: options?.baseUrl,
 				},
 				scope,
 			);
@@ -2576,7 +2660,7 @@ export class GitHubApi implements Disposable {
 			);
 			return results;
 		} catch (ex) {
-			throw this.handleException(ex, undefined, scope);
+			throw this.handleException(ex, provider, scope);
 		}
 	}
 }

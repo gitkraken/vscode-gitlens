@@ -118,3 +118,19 @@ export function fromGitLabMergeRequestREST(pr: GitLabMergeRequestREST, provider:
 		pr.merged_at == null ? undefined : new Date(pr.merged_at),
 	);
 }
+
+export interface GitLabProjectREST {
+	namespace: {
+		path: string;
+		full_path: string;
+	};
+	path: string;
+
+	forked_from_project?: {
+		namespace: {
+			path: string;
+			full_path: string;
+		};
+		path: string;
+	};
+}

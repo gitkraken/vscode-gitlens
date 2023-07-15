@@ -677,7 +677,10 @@ export abstract class RepositoryFolderNode<
 			return;
 		}
 
-		if (e.changed(RepositoryChange.Starred, RepositoryChangeComparisonMode.Any)) {
+		if (
+			e.changed(RepositoryChange.Opened, RepositoryChangeComparisonMode.Any) ||
+			e.changed(RepositoryChange.Starred, RepositoryChangeComparisonMode.Any)
+		) {
 			void this.parent?.triggerChange(true);
 
 			return;
@@ -700,6 +703,22 @@ export abstract class RepositoriesSubscribeableNode<
 		super(unknownGitUri, view);
 	}
 
+	override dispose() {
+		super.dispose();
+		this.resetChildren();
+	}
+
+	private resetChildren() {
+		if (this.children == null) return;
+
+		for (const child of this.children) {
+			if ('dispose' in child) {
+				child.dispose();
+			}
+		}
+		this.children = undefined;
+	}
+
 	override async getSplattedChild() {
 		if (this.children == null) {
 			await this.getChildren();
@@ -711,11 +730,10 @@ export abstract class RepositoriesSubscribeableNode<
 	@gate()
 	@debug()
 	override refresh(reset: boolean = false) {
-		if (reset && this.children != null) {
-			for (const child of this.children) {
-				child.dispose();
-			}
-			this.children = undefined;
+		if (this.children == null) return;
+
+		if (reset) {
+			this.resetChildren();
 		}
 	}
 
