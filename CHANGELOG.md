@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Improves autolink URL generation by improving the "best" remote detection &mdash; refs [#2425](https://github.com/gitkraken/vscode-gitlens/issues/2425)
+- Improves preserving the ref names in deeplinks to comparisons
 
 ### Fixed
 

@@ -60,6 +60,14 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		return !this.pinned;
 	}
 
+	get compareRef(): StoredNamedRef {
+		return this._ref;
+	}
+
+	get compareWithRef(): StoredNamedRef {
+		return this._compareWith;
+	}
+
 	private readonly _order: number = Date.now();
 	get order(): number {
 		return this._pinned || this._order;
