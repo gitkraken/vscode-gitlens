@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#2744](https://github.com/gitkraken/vscode-gitlens/issues/2744) - GH enterprise access with focus view
+- Fixes deeplink comparison ordering for a better experience
 
 ## [14.1.0] - 2023-07-13
 
