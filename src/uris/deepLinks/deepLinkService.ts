@@ -4,7 +4,7 @@ import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { getBranchNameWithoutRemote } from '../../git/models/branch';
 import type { GitReference } from '../../git/models/reference';
-import { createReference } from '../../git/models/reference';
+import { createReference, isSha } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
@@ -669,7 +669,13 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					await this.container.searchAndCompareView.compare(repo.path, targetSha, secondaryTargetSha);
+					await this.container.searchAndCompareView.compare(
+						repo.path,
+						isSha(secondaryTargetSha)
+							? secondaryTargetSha
+							: { label: secondaryTargetSha, ref: secondaryTargetSha },
+						isSha(targetSha) ? targetSha : { label: targetSha, ref: targetSha },
+					);
 					action = DeepLinkServiceAction.DeepLinkResolved;
 					break;
 
@@ -686,16 +692,16 @@ export class DeepLinkService implements Disposable {
 		repoPath: string,
 		remoteUrl: string,
 		compareRef?: string,
-		compareToRef?: string,
+		compareWithRef?: string,
 	): Promise<void>;
 	async copyDeepLinkUrl(
 		refOrRepoPath: string | GitReference,
 		remoteUrl: string,
 		compareRef?: string,
-		compareToRef?: string,
+		compareWithRef?: string,
 	): Promise<void> {
 		const url = await (typeof refOrRepoPath === 'string'
-			? this.generateDeepLinkUrl(refOrRepoPath, remoteUrl, compareRef, compareToRef)
+			? this.generateDeepLinkUrl(refOrRepoPath, remoteUrl, compareRef, compareWithRef)
 			: this.generateDeepLinkUrl(refOrRepoPath, remoteUrl));
 		await env.clipboard.writeText(url.toString());
 	}
@@ -705,13 +711,13 @@ export class DeepLinkService implements Disposable {
 		repoPath: string,
 		remoteUrl: string,
 		compareRef?: string,
-		compareToRef?: string,
+		compareWithRef?: string,
 	): Promise<URL>;
 	async generateDeepLinkUrl(
 		refOrRepoPath: string | GitReference,
 		remoteUrl: string,
 		compareRef?: string,
-		compareToRef?: string,
+		compareWithRef?: string,
 	): Promise<URL> {
 		const repoPath = typeof refOrRepoPath !== 'string' ? refOrRepoPath.repoPath : refOrRepoPath;
 		let repoId;
@@ -723,7 +729,7 @@ export class DeepLinkService implements Disposable {
 
 		let targetType: DeepLinkType | undefined;
 		let targetId: string | undefined;
-		let compareTargetId: string | undefined;
+		let compareWithTargetId: string | undefined;
 		if (typeof refOrRepoPath !== 'string') {
 			switch (refOrRepoPath.refType) {
 				case 'branch':
@@ -743,17 +749,17 @@ export class DeepLinkService implements Disposable {
 			}
 		}
 
-		if (compareRef != null && compareToRef != null) {
+		if (compareRef != null && compareWithRef != null) {
 			targetType = DeepLinkType.Comparison;
 			targetId = compareRef;
-			compareTargetId = compareToRef;
+			compareWithTargetId = compareWithRef;
 		}
 
 		const schemeOverride = configuration.get('deepLinks.schemeOverride');
 		const scheme = !schemeOverride ? 'vscode' : schemeOverride === true ? env.uriScheme : schemeOverride;
 		let target;
 		if (targetType === DeepLinkType.Comparison) {
-			target = `/${targetType}/${targetId}...${compareTargetId}`;
+			target = `/${targetType}/${compareWithTargetId}...${targetId}`;
 		} else if (targetType != null && targetType !== DeepLinkType.Repository) {
 			target = `/${targetType}/${targetId}`;
 		} else {
