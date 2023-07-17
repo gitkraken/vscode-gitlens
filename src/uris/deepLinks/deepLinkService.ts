@@ -1,5 +1,5 @@
 import { Disposable, env, EventEmitter, ProgressLocation, Uri, window, workspace } from 'vscode';
-import type { StoredDeepLinkContext } from '../../constants';
+import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { getBranchNameWithoutRemote } from '../../git/models/branch';
@@ -691,14 +691,14 @@ export class DeepLinkService implements Disposable {
 	async copyDeepLinkUrl(
 		repoPath: string,
 		remoteUrl: string,
-		compareRef?: string,
-		compareWithRef?: string,
+		compareRef?: StoredNamedRef,
+		compareWithRef?: StoredNamedRef,
 	): Promise<void>;
 	async copyDeepLinkUrl(
 		refOrRepoPath: string | GitReference,
 		remoteUrl: string,
-		compareRef?: string,
-		compareWithRef?: string,
+		compareRef?: StoredNamedRef,
+		compareWithRef?: StoredNamedRef,
 	): Promise<void> {
 		const url = await (typeof refOrRepoPath === 'string'
 			? this.generateDeepLinkUrl(refOrRepoPath, remoteUrl, compareRef, compareWithRef)
@@ -710,14 +710,14 @@ export class DeepLinkService implements Disposable {
 	async generateDeepLinkUrl(
 		repoPath: string,
 		remoteUrl: string,
-		compareRef?: string,
-		compareWithRef?: string,
+		compareRef?: StoredNamedRef,
+		compareWithRef?: StoredNamedRef,
 	): Promise<URL>;
 	async generateDeepLinkUrl(
 		refOrRepoPath: string | GitReference,
 		remoteUrl: string,
-		compareRef?: string,
-		compareWithRef?: string,
+		compareRef?: StoredNamedRef,
+		compareWithRef?: StoredNamedRef,
 	): Promise<URL> {
 		const repoPath = typeof refOrRepoPath !== 'string' ? refOrRepoPath.repoPath : refOrRepoPath;
 		let repoId;
@@ -751,8 +751,8 @@ export class DeepLinkService implements Disposable {
 
 		if (compareRef != null && compareWithRef != null) {
 			targetType = DeepLinkType.Comparison;
-			targetId = compareRef;
-			compareWithTargetId = compareWithRef;
+			targetId = compareRef.label ?? compareRef.ref;
+			compareWithTargetId = compareWithRef.label ?? compareWithRef.ref;
 		}
 
 		const schemeOverride = configuration.get('deepLinks.schemeOverride');

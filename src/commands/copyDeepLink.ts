@@ -1,4 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
+import type { StoredNamedRef } from '../constants';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -23,8 +24,8 @@ import {
 
 export interface CopyDeepLinkCommandArgs {
 	refOrRepoPath?: GitReference | string;
-	compareRef?: string;
-	compareWithRef?: string;
+	compareRef?: StoredNamedRef;
+	compareWithRef?: StoredNamedRef;
 	remote?: string;
 	prePickRemote?: boolean;
 }
@@ -54,8 +55,8 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 			} else if (isCommandContextViewNodeHasComparison(context)) {
 				args = {
 					refOrRepoPath: context.node.uri.fsPath,
-					compareRef: context.node._ref.ref,
-					compareWithRef: context.node._compareWith.ref,
+					compareRef: context.node.compareRef,
+					compareWithRef: context.node.compareWithRef,
 				};
 			}
 		}

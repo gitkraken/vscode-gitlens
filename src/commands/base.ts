@@ -9,7 +9,7 @@ import type {
 } from 'vscode';
 import { commands, Disposable, Uri, window } from 'vscode';
 import type { ActionContext } from '../api/gitlens';
-import type { Commands } from '../constants';
+import type { Commands, StoredNamedRef } from '../constants';
 import type { GitBranch } from '../git/models/branch';
 import { isBranch } from '../git/models/branch';
 import type { GitCommit, GitStashCommit } from '../git/models/commit';
@@ -159,16 +159,16 @@ export function isCommandContextViewNodeHasFileRefs(context: CommandContext): co
 	);
 }
 
-export function isCommandContextViewNodeHasComparison(
-	context: CommandContext,
-): context is CommandViewNodeContext & { node: ViewNode & { _ref: { ref: string }; _compareWith: { ref: string } } } {
+export function isCommandContextViewNodeHasComparison(context: CommandContext): context is CommandViewNodeContext & {
+	node: ViewNode & { compareRef: StoredNamedRef; compareWithRef: StoredNamedRef };
+} {
 	if (context.type !== 'viewItem') return false;
 
 	return (
-		typeof (context.node as ViewNode & { _ref: { ref: string }; _compareWith: { ref: string } })._ref?.ref ===
-			'string' &&
-		typeof (context.node as ViewNode & { _ref: { ref: string }; _compareWith: { ref: string } })._compareWith
-			?.ref === 'string'
+		typeof (context.node as ViewNode & { compareRef: StoredNamedRef; compareWithRef: StoredNamedRef }).compareRef
+			?.ref === 'string' &&
+		typeof (context.node as ViewNode & { compareRef: StoredNamedRef; compareWithRef: StoredNamedRef })
+			.compareWithRef?.ref === 'string'
 	);
 }
 
