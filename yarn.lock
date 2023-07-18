@@ -202,10 +202,10 @@
   resolved "https://registry.yarnpkg.com/@eslint/js/-/js-8.44.0.tgz#961a5903c74139390478bdc808bcde3fc45ab7af"
   integrity sha512-Ag+9YM4ocKQx9AarydN0KY2j0ErMHNIocPDrVo8zAE44xLTjEtz81OdR68/cydGtk6m6jDb5Za3r2useMzYmSw==
 
-"@gitkraken/gitkraken-components@10.1.8":
-  version "10.1.8"
-  resolved "https://registry.yarnpkg.com/@gitkraken/gitkraken-components/-/gitkraken-components-10.1.8.tgz#2ee9e70817d51b0928731e57e640ac49f3e7502c"
-  integrity sha512-kq6d+HVlELdFHpIMMgVuopqjX63Jtt7udW7OHbhf1Za/rrlwczX2K1a+wPYEGVQvHjaOrghTVmG/mogNhMQ0qA==
+"@gitkraken/gitkraken-components@10.1.9":
+  version "10.1.9"
+  resolved "https://registry.npmjs.org/@gitkraken/gitkraken-components/-/gitkraken-components-10.1.9.tgz#751a9bce02f46a11facc000fefe7844802a8c9c8"
+  integrity sha512-1NicZneMfzj4zuqtZjlAMho/85+qseqM+cEHLR696qcEV0sp0AmujPTvj4PZCIV/Y7J/j3uKvAMFzBsbgdTi4g==
   dependencies:
     "@axosoft/react-virtualized" "9.22.3-gitkraken.3"
     classnames "2.3.2"

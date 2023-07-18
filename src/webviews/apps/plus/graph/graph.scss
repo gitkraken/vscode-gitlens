@@ -411,7 +411,7 @@ button:not([disabled]),
 	}
 }
 
-.column-button {
+.columns-settings {
 	--column-button-height: 19px;
 
 	position: absolute;
@@ -450,6 +450,10 @@ button:not([disabled]),
 		font-size: 1.1rem;
 		position: relative;
 	}
+}
+
+.gk-graph.bs-tooltip {
+	z-index: 1040;
 }
 
 .alert {
@@ -717,7 +721,13 @@ button:not([disabled]),
 			content: '\ea9a';
 		}
 	}
-
+	&--settings {
+		&::before {
+			// codicon-settings-gear
+			font-family: codicon;
+			content: '\eb51';
+		}
+	}
 	&--branch {
 		&::before {
 			// codicon-git-branch
