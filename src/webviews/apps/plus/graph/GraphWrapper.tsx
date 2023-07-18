@@ -131,6 +131,7 @@ const createIconElements = (): Record<string, ReactElement> => {
 		'message',
 		'changes',
 		'files',
+		'settings',
 	];
 
 	const miniIconList = ['upstream-ahead', 'upstream-behind'];
@@ -1397,6 +1398,7 @@ export function GraphWrapper({
 							onGraphColumnsReOrdered={handleOnGraphColumnsReOrdered}
 							onGraphMouseLeave={minimap.current ? handleOnGraphMouseLeave : undefined}
 							onGraphRowHovered={minimap.current ? handleOnGraphRowHovered : undefined}
+							onSettingsClick={handleToggleColumnSettings}
 							onSelectGraphRows={handleSelectGraphRows}
 							onToggleRefsVisibilityClick={handleOnToggleRefsVisibilityClick}
 							onEmailsMissingAvatarUrls={handleMissingAvatars}
@@ -1416,15 +1418,6 @@ export function GraphWrapper({
 				) : (
 					<p>No repository is selected</p>
 				)}
-				<button
-					className="column-button"
-					type="button"
-					role="button"
-					data-vscode-context={context?.settings || JSON.stringify({ webviewItem: 'gitlens:graph:settings' })}
-					onClick={handleToggleColumnSettings}
-				>
-					<span className="codicon codicon-settings-gear" aria-label="Column Settings"></span>
-				</button>
 			</main>
 		</>
 	);
