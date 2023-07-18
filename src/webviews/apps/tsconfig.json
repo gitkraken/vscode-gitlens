@@ -7,7 +7,7 @@
 		"paths": {
 			"@env/*": ["src/env/browser/*"]
 		},
-		"useDefineForClassFields": false
+		"useDefineForClassFields": false // Needed for lit decorators https://github.com/lit/lit/issues/3278 https://lit.dev/docs/tools/publishing/#publishing-modern-javascript
 	},
 	"include": [
 		"**/*",
