@@ -145,7 +145,7 @@ const createIconElements = (): Record<string, ReactElement> => {
 	//TODO: fix this once the styling is properly configured component-side
 	elementLibrary.settings = createElement('span', {
 		className: 'graph-icon icon--settings',
-		style: { fontSize: '1.1rem', right: '-1px', top: '-1px' },
+		style: { fontSize: '1.1rem', right: '0px', top: '-1px' },
 	});
 	return elementLibrary;
 };
