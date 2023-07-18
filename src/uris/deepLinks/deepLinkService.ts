@@ -1,10 +1,10 @@
 import { Disposable, env, EventEmitter, ProgressLocation, Uri, window, workspace } from 'vscode';
-import type { StoredDeepLinkContext } from '../../constants';
+import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { getBranchNameWithoutRemote } from '../../git/models/branch';
 import type { GitReference } from '../../git/models/reference';
-import { createReference } from '../../git/models/reference';
+import { createReference, isSha } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
@@ -56,13 +56,13 @@ export class DeepLinkService implements Disposable {
 						return;
 					}
 
-					if (link.type !== DeepLinkType.Repository && !link.targetId) {
+					if (link.type !== DeepLinkType.Repository && link.targetId == null) {
 						void window.showErrorMessage('Unable to resolve link');
 						Logger.warn(`Unable to resolve link - no target id provided: ${uri.toString()}`);
 						return;
 					}
 
-					if (link.type === DeepLinkType.Comparison && !link.secondaryTargetId) {
+					if (link.type === DeepLinkType.Comparison && link.secondaryTargetId == null) {
 						void window.showErrorMessage('Unable to resolve link');
 						Logger.warn(`Unable to resolve link - no secondary target id provided: ${uri.toString()}`);
 						return;
@@ -187,16 +187,21 @@ export class DeepLinkService implements Disposable {
 		targetId: string,
 		secondaryTargetId: string,
 	): Promise<[string, string] | undefined> {
-		// try treating each id as a commit sha first, then a branch if that fails, then a tag if that fails
+		// try treating each id as a commit sha first, then a branch if that fails, then a tag if that fails.
+		// Note: a blank target id will be treated as 'Working Tree' and will resolve to a blank Sha.
 		const sha1 =
-			(await this.getShaForCommit(targetId)) ??
-			(await this.getShaForBranch(targetId)) ??
-			(await this.getShaForTag(targetId));
+			targetId === ''
+				? targetId
+				: (await this.getShaForCommit(targetId)) ??
+				  (await this.getShaForBranch(targetId)) ??
+				  (await this.getShaForTag(targetId));
 		if (sha1 == null) return undefined;
 		const sha2 =
-			(await this.getShaForCommit(secondaryTargetId)) ??
-			(await this.getShaForBranch(secondaryTargetId)) ??
-			(await this.getShaForTag(secondaryTargetId));
+			secondaryTargetId === ''
+				? secondaryTargetId
+				: (await this.getShaForCommit(secondaryTargetId)) ??
+				  (await this.getShaForBranch(secondaryTargetId)) ??
+				  (await this.getShaForTag(secondaryTargetId));
 		if (sha2 == null) return undefined;
 		return [sha1, sha2];
 	}
@@ -663,13 +668,19 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					if (!targetSha || !secondaryTargetSha) {
+					if (targetSha == null || secondaryTargetSha == null) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
 						message = 'Missing target or secondary target.';
 						break;
 					}
 
-					await this.container.searchAndCompareView.compare(repo.path, targetSha, secondaryTargetSha);
+					await this.container.searchAndCompareView.compare(
+						repo.path,
+						secondaryTargetSha === '' || isSha(secondaryTargetSha)
+							? secondaryTargetSha
+							: { label: secondaryTargetSha, ref: secondaryTargetSha },
+						targetSha === '' || isSha(targetSha) ? targetSha : { label: targetSha, ref: targetSha },
+					);
 					action = DeepLinkServiceAction.DeepLinkResolved;
 					break;
 
@@ -685,17 +696,17 @@ export class DeepLinkService implements Disposable {
 	async copyDeepLinkUrl(
 		repoPath: string,
 		remoteUrl: string,
-		compareRef?: string,
-		compareToRef?: string,
+		compareRef?: StoredNamedRef,
+		compareWithRef?: StoredNamedRef,
 	): Promise<void>;
 	async copyDeepLinkUrl(
 		refOrRepoPath: string | GitReference,
 		remoteUrl: string,
-		compareRef?: string,
-		compareToRef?: string,
+		compareRef?: StoredNamedRef,
+		compareWithRef?: StoredNamedRef,
 	): Promise<void> {
 		const url = await (typeof refOrRepoPath === 'string'
-			? this.generateDeepLinkUrl(refOrRepoPath, remoteUrl, compareRef, compareToRef)
+			? this.generateDeepLinkUrl(refOrRepoPath, remoteUrl, compareRef, compareWithRef)
 			: this.generateDeepLinkUrl(refOrRepoPath, remoteUrl));
 		await env.clipboard.writeText(url.toString());
 	}
@@ -704,14 +715,14 @@ export class DeepLinkService implements Disposable {
 	async generateDeepLinkUrl(
 		repoPath: string,
 		remoteUrl: string,
-		compareRef?: string,
-		compareToRef?: string,
+		compareRef?: StoredNamedRef,
+		compareWithRef?: StoredNamedRef,
 	): Promise<URL>;
 	async generateDeepLinkUrl(
 		refOrRepoPath: string | GitReference,
 		remoteUrl: string,
-		compareRef?: string,
-		compareToRef?: string,
+		compareRef?: StoredNamedRef,
+		compareWithRef?: StoredNamedRef,
 	): Promise<URL> {
 		const repoPath = typeof refOrRepoPath !== 'string' ? refOrRepoPath.repoPath : refOrRepoPath;
 		let repoId;
@@ -723,7 +734,7 @@ export class DeepLinkService implements Disposable {
 
 		let targetType: DeepLinkType | undefined;
 		let targetId: string | undefined;
-		let compareTargetId: string | undefined;
+		let compareWithTargetId: string | undefined;
 		if (typeof refOrRepoPath !== 'string') {
 			switch (refOrRepoPath.refType) {
 				case 'branch':
@@ -743,17 +754,17 @@ export class DeepLinkService implements Disposable {
 			}
 		}
 
-		if (compareRef != null && compareToRef != null) {
+		if (compareRef != null && compareWithRef != null) {
 			targetType = DeepLinkType.Comparison;
-			targetId = compareRef;
-			compareTargetId = compareToRef;
+			targetId = compareRef.label ?? compareRef.ref;
+			compareWithTargetId = compareWithRef.label ?? compareWithRef.ref;
 		}
 
 		const schemeOverride = configuration.get('deepLinks.schemeOverride');
 		const scheme = !schemeOverride ? 'vscode' : schemeOverride === true ? env.uriScheme : schemeOverride;
 		let target;
 		if (targetType === DeepLinkType.Comparison) {
-			target = `/${targetType}/${targetId}...${compareTargetId}`;
+			target = `/${targetType}/${compareWithTargetId}...${targetId}`;
 		} else if (targetType != null && targetType !== DeepLinkType.Repository) {
 			target = `/${targetType}/${targetId}`;
 		} else {

@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds the ability to provide a custom url to support Azure-hosted Open AI models &mdash; refs [#2743](https://github.com/gitkraken/vscode-gitlens/issues/2743)
+
+### Changed
+
+- Improves autolink URL generation by improving the "best" remote detection &mdash; refs [#2425](https://github.com/gitkraken/vscode-gitlens/issues/2425)
+- Improves preserving the ref names in deeplinks to comparisons
+
+### Fixed
+
+- Fixes [#2744](https://github.com/gitkraken/vscode-gitlens/issues/2744) - GH enterprise access with focus view
+- Fixes deeplink comparison ordering for a better experience
+- Fixes deeplinks to comparisons with working tree not resolving
+
 ## [14.1.0] - 2023-07-13
 
 ### Added
