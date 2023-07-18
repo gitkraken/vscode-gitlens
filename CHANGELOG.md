@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [14.1.1] - 2023-07-18
+
 ### Added
 
 - Adds the ability to provide a custom url to support Azure-hosted Open AI models &mdash; refs [#2743](https://github.com/gitkraken/vscode-gitlens/issues/2743)
@@ -4876,7 +4878,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.1.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.1.1...HEAD
+[14.1.1]: https://github.com/gitkraken/vscode-gitlens/compare/v14.1.0...gitkraken:v14.1.1
 [14.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v14.0.1...gitkraken:v14.1.0
 [14.0.1]: https://github.com/gitkraken/vscode-gitlens/compare/v14.0.0...gitkraken:v14.0.1
 [14.0.0]: https://github.com/gitkraken/vscode-gitlens/compare/v13.6.0...gitkraken:v14.0.0
