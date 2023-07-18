@@ -131,7 +131,6 @@ const createIconElements = (): Record<string, ReactElement> => {
 		'message',
 		'changes',
 		'files',
-		'settings',
 	];
 
 	const miniIconList = ['upstream-ahead', 'upstream-behind'];
@@ -142,6 +141,11 @@ const createIconElements = (): Record<string, ReactElement> => {
 	});
 	miniIconList.forEach(iconKey => {
 		elementLibrary[iconKey] = createElement('span', { className: `graph-icon mini-icon icon--${iconKey}` });
+	});
+	//TODO: fix this once the styling is properly configured component-side
+	elementLibrary.settings = createElement('span', {
+		className: 'graph-icon icon--settings',
+		style: { fontSize: '1.1rem', right: '-1px', top: '-1px' },
 	});
 	return elementLibrary;
 };
