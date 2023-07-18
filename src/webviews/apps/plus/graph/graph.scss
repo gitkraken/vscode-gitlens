@@ -415,8 +415,8 @@ button:not([disabled]),
 	--column-button-height: 19px;
 
 	position: absolute;
-	top: 3px;
-	right: 0;
+	top: 2px;
+	right: 0 !important;
 	z-index: 2;
 
 	appearance: none;
