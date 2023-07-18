@@ -14619,7 +14619,7 @@
 		"watch:tests": "concurrently \"tsc-alias -p tsconfig.test.json -w\" \"tsc -p tsconfig.test.json -w\"",
 		"-watch:tests": "webpack --watch -c webpack.config.test.js --mode development",
 		"web": "vscode-test-web --extensionDevelopmentPath=. --folder-uri=vscode-vfs://github/gitkraken/vscode-gitlens",
-		"web:serve": "node -e \"const p = require('path'); const h = require('os').homedir(); require('child_process').execSync(`npx serve --cors -l 5000 --ssl-cert ${p.resolve(h, 'certs/localhost.pem')} --ssl-key ${p.resolve(h, 'certs/localhost-key.pem')}`, { stdio: 'inherit' })\"",
+		"web:serve": "node -e \"const p = require('path'); const h = require('os').homedir(); require('child_process').execSync('npx serve --cors -l 5000 --ssl-cert '+p.resolve(h, 'certs/localhost.pem')+' --ssl-key '+p.resolve(h, 'certs/localhost-key.pem'), { stdio: 'inherit' })\"",
 		"update-dts": "pushd \"src/@types\" && npx vscode-dts dev && popd",
 		"update-dts:master": "pushd \"src/@types\" && npx vscode-dts master && popd",
 		"update-emoji": "node ./scripts/generateEmojiShortcodeMap.mjs",
