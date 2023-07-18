@@ -56,13 +56,13 @@ export class DeepLinkService implements Disposable {
 						return;
 					}
 
-					if (link.type !== DeepLinkType.Repository && !link.targetId) {
+					if (link.type !== DeepLinkType.Repository && link.targetId == null) {
 						void window.showErrorMessage('Unable to resolve link');
 						Logger.warn(`Unable to resolve link - no target id provided: ${uri.toString()}`);
 						return;
 					}
 
-					if (link.type === DeepLinkType.Comparison && !link.secondaryTargetId) {
+					if (link.type === DeepLinkType.Comparison && link.secondaryTargetId == null) {
 						void window.showErrorMessage('Unable to resolve link');
 						Logger.warn(`Unable to resolve link - no secondary target id provided: ${uri.toString()}`);
 						return;
@@ -187,16 +187,21 @@ export class DeepLinkService implements Disposable {
 		targetId: string,
 		secondaryTargetId: string,
 	): Promise<[string, string] | undefined> {
-		// try treating each id as a commit sha first, then a branch if that fails, then a tag if that fails
+		// try treating each id as a commit sha first, then a branch if that fails, then a tag if that fails.
+		// Note: a blank target id will be treated as 'Working Tree' and will resolve to a blank Sha.
 		const sha1 =
-			(await this.getShaForCommit(targetId)) ??
-			(await this.getShaForBranch(targetId)) ??
-			(await this.getShaForTag(targetId));
+			targetId === ''
+				? targetId
+				: (await this.getShaForCommit(targetId)) ??
+				  (await this.getShaForBranch(targetId)) ??
+				  (await this.getShaForTag(targetId));
 		if (sha1 == null) return undefined;
 		const sha2 =
-			(await this.getShaForCommit(secondaryTargetId)) ??
-			(await this.getShaForBranch(secondaryTargetId)) ??
-			(await this.getShaForTag(secondaryTargetId));
+			secondaryTargetId === ''
+				? secondaryTargetId
+				: (await this.getShaForCommit(secondaryTargetId)) ??
+				  (await this.getShaForBranch(secondaryTargetId)) ??
+				  (await this.getShaForTag(secondaryTargetId));
 		if (sha2 == null) return undefined;
 		return [sha1, sha2];
 	}
@@ -663,7 +668,7 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					if (!targetSha || !secondaryTargetSha) {
+					if (targetSha == null || secondaryTargetSha == null) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
 						message = 'Missing target or secondary target.';
 						break;
@@ -671,10 +676,10 @@ export class DeepLinkService implements Disposable {
 
 					await this.container.searchAndCompareView.compare(
 						repo.path,
-						isSha(secondaryTargetSha)
+						secondaryTargetSha === '' || isSha(secondaryTargetSha)
 							? secondaryTargetSha
 							: { label: secondaryTargetSha, ref: secondaryTargetSha },
-						isSha(targetSha) ? targetSha : { label: targetSha, ref: targetSha },
+						targetSha === '' || isSha(targetSha) ? targetSha : { label: targetSha, ref: targetSha },
 					);
 					action = DeepLinkServiceAction.DeepLinkResolved;
 					break;
