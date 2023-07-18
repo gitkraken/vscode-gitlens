@@ -209,7 +209,10 @@ export class DeepLinkService implements Disposable {
 		}
 
 		const tag = await this.getShaForTag(ref);
-		return tag != null;
+		if (tag != null) return true;
+
+		const sha = await this.getShaForCommit(ref);
+		return sha != null;
 	}
 
 	private async getShasForTargets(): Promise<string | string[] | undefined> {
