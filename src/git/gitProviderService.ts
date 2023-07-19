@@ -1003,7 +1003,7 @@ export class GitProviderService implements Disposable {
 		let disabled = !enabled;
 		// If we think we should be disabled during startup, check if we have a saved value from the last time this repo was loaded
 		if (!enabled && this._initializing) {
-			disabled = !(this.container.storage.getWorkspace('assumeRepositoriesOnStartup') ?? true);
+			disabled = !(this.container.storage.getWorkspace('assumeRepositoriesOnStartup') ?? false);
 		}
 
 		this.container.telemetry.setGlobalAttribute('enabled', enabled);
