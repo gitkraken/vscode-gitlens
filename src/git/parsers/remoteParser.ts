@@ -17,8 +17,7 @@ export class GitRemoteParser {
 	): GitRemote[] | undefined {
 		if (!data) return undefined;
 
-		const remotes: GitRemote[] = [];
-		const groups = Object.create(null) as Record<string, GitRemote | undefined>;
+		const remotes = new Map<string, GitRemote>();
 
 		let name;
 		let url;
@@ -28,7 +27,6 @@ export class GitRemoteParser {
 		let domain;
 		let path;
 
-		let uniqueness;
 		let remote: GitRemote | undefined;
 
 		let match;
@@ -39,36 +37,49 @@ export class GitRemoteParser {
 			[, name, url, type] = match;
 
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+			name = ` ${name}`.substr(1);
+			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 			url = ` ${url}`.substr(1);
+			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+			type = ` ${type}`.substr(1);
 
 			[scheme, domain, path] = parseGitRemoteUrl(url);
 
-			uniqueness = `${domain ? `${domain}/` : ''}${path}`;
-			remote = groups[uniqueness];
-			if (remote === undefined) {
+			remote = remotes.get(name);
+			if (remote == null) {
+				remote = new GitRemote(
+					repoPath,
+					`${domain ? `${domain}/` : ''}${path}`,
+					name,
+					scheme,
+					domain,
+					path,
+					remoteProviderMatcher(url, domain, path),
+					[{ url: url, type: type as GitRemoteType }],
+				);
+				remotes.set(name, remote);
+			} else {
+				remote.urls.push({ url: url, type: type as GitRemoteType });
+				if (remote.provider != null && type !== 'push') continue;
+
 				const provider = remoteProviderMatcher(url, domain, path);
+				if (provider == null) continue;
 
 				remote = new GitRemote(
 					repoPath,
-					uniqueness,
-					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-					` ${name}`.substr(1),
+					`${domain ? `${domain}/` : ''}${path}`,
+					name,
 					scheme,
-					provider !== undefined ? provider.domain : domain,
-					provider !== undefined ? provider.path : path,
+					domain,
+					path,
 					provider,
-					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-					[{ url: url, type: ` ${type}`.substr(1) as GitRemoteType }],
+					remote.urls,
 				);
-				remotes.push(remote);
-				groups[uniqueness] = remote;
-			} else {
-				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-				remote.urls.push({ url: url, type: ` ${type}`.substr(1) as GitRemoteType });
+				remotes.set(name, remote);
 			}
 		} while (true);
 
-		return remotes;
+		return [...remotes.values()];
 	}
 }
 

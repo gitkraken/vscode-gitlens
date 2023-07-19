@@ -54,13 +54,21 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		);
 	}
 
+	get domain() {
+		return this.provider?.domain ?? this._domain;
+	}
+
+	get path() {
+		return this.provider?.path ?? this._path;
+	}
+
 	constructor(
 		public readonly repoPath: string,
 		public readonly id: string,
 		public readonly name: string,
 		public readonly scheme: string,
-		public readonly domain: string,
-		public readonly path: string,
+		private readonly _domain: string,
+		private readonly _path: string,
 		public readonly provider: TProvider,
 		public readonly urls: { type: GitRemoteType; url: string }[],
 	) {}
