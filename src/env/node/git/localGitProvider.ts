@@ -123,7 +123,6 @@ import { GitStatusParser } from '../../../git/parsers/statusParser';
 import { GitTagParser } from '../../../git/parsers/tagParser';
 import { GitTreeParser } from '../../../git/parsers/treeParser';
 import { GitWorktreeParser } from '../../../git/parsers/worktreeParser';
-import type { RemoteProviders } from '../../../git/remotes/remoteProviders';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../git/remotes/remoteProviders';
 import type { GitSearch, GitSearchResultData, GitSearchResults, SearchQuery } from '../../../git/search';
 import { getGitArgsFromSearchQuery, getSearchQueryComparisonKey } from '../../../git/search';
@@ -239,6 +238,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	private readonly _contributorsCache = new Map<string, Promise<GitContributor[]>>();
 	private readonly _mergeStatusCache = new Map<string, GitMergeStatus | null>();
 	private readonly _rebaseStatusCache = new Map<string, GitRebaseStatus | null>();
+	private readonly _remotesCache = new Map<string, Promise<GitRemote[]>>();
 	private readonly _repoInfoCache = new Map<string, RepositoryInfo>();
 	private readonly _stashesCache = new Map<string, GitStash | null>();
 	private readonly _tagsCache = new Map<string, Promise<PagedResult<GitTag>>>();
@@ -253,6 +253,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		this.git.setLocator(this.ensureGit.bind(this));
 
 		this._disposables.push(
+			configuration.onDidChange(e => {
+				if (configuration.changed(e, 'remotes')) {
+					this.resetCaches('remotes');
+				}
+			}, this),
 			this.container.events.on('git:cache:reset', e =>
 				e.data.repoPath
 					? this.resetCache(e.data.repoPath, ...(e.data.caches ?? emptyArray))
@@ -278,6 +283,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			this._branchesCache.delete(repo.path);
 			this._contributorsCache.delete(repo.path);
 			this._contributorsCache.delete(`stats|${repo.path}`);
+		}
+
+		if (e.changed(RepositoryChange.Remotes, RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
+			this._remotesCache.delete(repo.path);
 		}
 
 		if (e.changed(RepositoryChange.Index, RepositoryChange.Unknown, RepositoryChangeComparisonMode.Any)) {
@@ -1069,6 +1078,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			this._contributorsCache.delete(repoPath);
 		}
 
+		if (caches.length === 0 || caches.includes('remotes')) {
+			this._remotesCache.delete(repoPath);
+		}
+
 		if (caches.length === 0 || caches.includes('stashes')) {
 			this._stashesCache.delete(repoPath);
 		}
@@ -1096,6 +1109,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		if (caches.length === 0 || caches.includes('contributors')) {
 			this._contributorsCache.clear();
+		}
+
+		if (caches.length === 0 || caches.includes('remotes')) {
+			this._remotesCache.clear();
 		}
 
 		if (caches.length === 0 || caches.includes('stashes')) {
@@ -3989,28 +4006,46 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log({ args: { 1: false } })
-	async getRemotes(
-		repoPath: string | undefined,
-		options?: { providers?: RemoteProviders; sort?: boolean },
-	): Promise<GitRemote[]> {
+	async getRemotes(repoPath: string | undefined, options?: { sort?: boolean }): Promise<GitRemote[]> {
 		if (repoPath == null) return [];
 
-		const providers = options?.providers ?? loadRemoteProviders(configuration.get('remotes', null));
+		let remotesPromise = this.useCaching ? this._remotesCache.get(repoPath) : undefined;
+		if (remotesPromise == null) {
+			async function load(this: LocalGitProvider): Promise<GitRemote[]> {
+				const providers = loadRemoteProviders(
+					configuration.get('remotes', this.container.git.getRepository(repoPath!)?.folder?.uri ?? null),
+				);
 
-		try {
-			const data = await this.git.remote(repoPath);
-			const remotes = GitRemoteParser.parse(data, repoPath, getRemoteProviderMatcher(this.container, providers));
-			if (remotes == null) return [];
+				try {
+					const data = await this.git.remote(repoPath!);
+					const remotes = GitRemoteParser.parse(
+						data,
+						repoPath!,
+						getRemoteProviderMatcher(this.container, providers),
+					);
+					if (remotes == null) return [];
 
-			if (options?.sort) {
-				GitRemote.sort(remotes);
+					return remotes;
+				} catch (ex) {
+					this._remotesCache.delete(repoPath!);
+					Logger.error(ex);
+					return [];
+				}
 			}
 
-			return remotes;
-		} catch (ex) {
-			Logger.error(ex);
-			return [];
+			remotesPromise = load.call(this);
+
+			if (this.useCaching) {
+				this._remotesCache.set(repoPath, remotesPromise);
+			}
 		}
+
+		const remotes = await remotesPromise;
+		if (options?.sort) {
+			GitRemote.sort(remotes);
+		}
+
+		return remotes;
 	}
 
 	@gate()

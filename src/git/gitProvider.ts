@@ -23,7 +23,6 @@ import type { GitTag, TagSortOptions } from './models/tag';
 import type { GitTreeEntry } from './models/tree';
 import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
-import type { RemoteProviders } from './remotes/remoteProviders';
 import type { GitSearch, SearchQuery } from './search';
 
 export type GitCaches = 'branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags';
@@ -379,10 +378,7 @@ export interface GitProvider extends Disposable {
 			skip?: number | undefined;
 		},
 	): Promise<GitReflog | undefined>;
-	getRemotes(
-		repoPath: string | undefined,
-		options?: { providers?: RemoteProviders; sort?: boolean },
-	): Promise<GitRemote[]>;
+	getRemotes(repoPath: string | undefined, options?: { sort?: boolean }): Promise<GitRemote[]>;
 	getRevisionContent(repoPath: string, path: string, ref: string): Promise<Uint8Array | undefined>;
 	getStash(repoPath: string | undefined): Promise<GitStash | undefined>;
 	getStatusForFile(repoPath: string, uri: Uri): Promise<GitStatusFile | undefined>;
