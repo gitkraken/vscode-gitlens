@@ -7539,12 +7539,12 @@
 			},
 			{
 				"command": "gitlens.graph.columnGraphCompact",
-				"title": "Compact Graph Column Layout",
+				"title": "Use Compact Graph Column",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.graph.columnGraphDefault",
-				"title": "Default Graph Column Layout",
+				"title": "Use Expanded Graph Column",
 				"category": "GitLens"
 			},
 			{
