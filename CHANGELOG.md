@@ -12,6 +12,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes _Default Graph Column Layout_ context menu command to _Use Expanded Graph Column_ for better clarity
 - Improves remote parsing for better integration support for some edge cases
 
+### Fixed
+
+- Fixes [#2823](https://github.com/gitkraken/vscode-gitlens/issues/2823) - Handle stdout/stderr Buffers in shell run()
+
 ## [14.1.1] - 2023-07-18
 
 ### Added

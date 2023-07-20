@@ -245,11 +245,12 @@ export function run<T extends number | string | Buffer>(
 					error.message = `Command output exceeded the allocated stdout buffer. Set 'options.maxBuffer' to a larger value than ${opts.maxBuffer} bytes`;
 				}
 
-				let stdoutDecoded;
-				let stderrDecoded;
+				let stdoutDecoded: string;
+				let stderrDecoded: string;
 				if (encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer') {
-					stdoutDecoded = stdout;
-					stderrDecoded = stderr;
+					// stdout & stderr can be `Buffer` or `string
+					stdoutDecoded = stdout.toString();
+					stderrDecoded = stderr.toString();
 				} else {
 					const decode = (await import(/* webpackChunkName: "encoding" */ 'iconv-lite')).decode;
 					stdoutDecoded = decode(Buffer.from(stdout, 'binary'), encoding);
