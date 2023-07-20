@@ -171,6 +171,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds the ability to move all of the columns, including the ones that were previously unmovable
   - Automatically switches column headers from text to icons when the column's width is too small for the text to be useful
   - Automatically switches the Author column to shows avatars rather than text when the column is sized to its minimum width
+- Adds an experimental _Explain (AI)_ panel to the _Commit Details_ view to leverage OpenAI to provide an explanation of the changes of a commit
 - Adds the ability to search stashes when using the commit search via the _Commit Graph_, _Search & Compare_ view, or the _Search Commits_ command
 - Adds an _Open Visual File History_ command to the new _File History_ submenu on existing context menus
 - Allows the _Repositories_ view for virtual repositories
