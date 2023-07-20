@@ -106,9 +106,9 @@ export function isTextEditor(editor: TextEditor): boolean {
 
 export async function openEditor(
 	uri: Uri,
-	options: TextDocumentShowOptions & { rethrow?: boolean } = {},
+	options: TextDocumentShowOptions & { throwOnError?: boolean } = {},
 ): Promise<TextEditor | undefined> {
-	const { rethrow, ...opts } = options;
+	const { throwOnError, ...opts } = options;
 	try {
 		if (isGitUri(uri)) {
 			uri = uri.documentUri();
@@ -135,7 +135,7 @@ export async function openEditor(
 			return undefined;
 		}
 
-		if (rethrow) throw ex;
+		if (throwOnError) throw ex;
 
 		Logger.error(ex, 'openEditor');
 		return undefined;

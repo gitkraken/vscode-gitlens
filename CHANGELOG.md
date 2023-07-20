@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds support for opening renamed/deleted files using the _Open File at Revision..._ commands by showing a quickpicker prompt if the requested file doesn't exist in the selected revision &mdash; thanks to [PR #2825](https://github.com/gitkraken/vscode-gitlens/pull/2825) by Victor Hallberg ([@mogelbrod](https://github.com/mogelbrod))
+
 ### Changed
 
 - Changes _Compact Graph Column Layout_ context menu command to _Use Compact Graph Column_ for better clarity
