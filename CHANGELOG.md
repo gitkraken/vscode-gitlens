@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Changes _Compact Graph Column Layout_ context menu command to _Use Compact Graph Column_ for better clarity
+- Changes _Default Graph Column Layout_ context menu command to _Use Expanded Graph Column_ for better clarity
+- Improves remote parsing for better integration support for some edge cases
+
+### Fixed
+
+- Fixes [#2823](https://github.com/gitkraken/vscode-gitlens/issues/2823) - Handle stdout/stderr Buffers in shell run() &mdash; thanks to [PR #2824](https://github.com/gitkraken/vscode-gitlens/pull/2824) by Victor Hallberg ([@mogelbrod](https://github.com/mogelbrod))
+
+## [14.1.1] - 2023-07-18
+
 ### Added
 
 - Adds the ability to provide a custom url to support Azure-hosted Open AI models &mdash; refs [#2743](https://github.com/gitkraken/vscode-gitlens/issues/2743)
@@ -163,6 +175,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds the ability to move all of the columns, including the ones that were previously unmovable
   - Automatically switches column headers from text to icons when the column's width is too small for the text to be useful
   - Automatically switches the Author column to shows avatars rather than text when the column is sized to its minimum width
+- Adds an experimental _Explain (AI)_ panel to the _Commit Details_ view to leverage OpenAI to provide an explanation of the changes of a commit
 - Adds the ability to search stashes when using the commit search via the _Commit Graph_, _Search & Compare_ view, or the _Search Commits_ command
 - Adds an _Open Visual File History_ command to the new _File History_ submenu on existing context menus
 - Allows the _Repositories_ view for virtual repositories
@@ -4876,7 +4889,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.1.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.1.1...HEAD
+[14.1.1]: https://github.com/gitkraken/vscode-gitlens/compare/v14.1.0...gitkraken:v14.1.1
 [14.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v14.0.1...gitkraken:v14.1.0
 [14.0.1]: https://github.com/gitkraken/vscode-gitlens/compare/v14.0.0...gitkraken:v14.0.1
 [14.0.0]: https://github.com/gitkraken/vscode-gitlens/compare/v13.6.0...gitkraken:v14.0.0

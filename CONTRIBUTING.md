@@ -125,7 +125,7 @@ See https://code.visualstudio.com/api/extension-guides/web-extensions#test-your-
 
 #### Using VS Code for the Web (vscode.dev)
 
-See https://code.visualstudio.com/api/extension-guides/web-extensions#test-your-web-extension-in-on-vscode.dev
+See https://code.visualstudio.com/api/extension-guides/web-extensions#test-your-web-extension-in-vscode.dev
 
 1. Open the `vscode-gitlens` folder
 2. Ensure the required [dependencies](#dependencies) are installed
