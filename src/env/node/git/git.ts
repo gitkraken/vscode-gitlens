@@ -84,6 +84,7 @@ const GitWarnings = {
 	noRemoteRepositorySpecified: /No remote repository specified\./i,
 	remoteConnectionError: /Could not read from remote repository/i,
 	notAGitCommand: /'.+' is not a git command/i,
+	tipBehind: /is behind its remote counterpart/i,
 };
 
 function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [number, number]): string {
@@ -824,7 +825,7 @@ export class Git {
 	async fetch(
 		repoPath: string,
 		options:
-			| { all?: boolean; branch?: undefined; prune?: boolean; remote?: string }
+			| { all?: boolean; branch?: undefined; prune?: boolean; pull?: boolean; remote?: string }
 			| {
 					all?: undefined;
 					branch: string;
@@ -874,6 +875,48 @@ export class Git {
 		}
 
 		void (await this.git<string>({ cwd: repoPath }, ...params));
+	}
+
+	async push(
+		repoPath: string,
+		options: { branch?: string; force?: boolean; publish?: boolean; remote?: string; upstream?: string },
+	): Promise<void> {
+		const params = ['push'];
+
+		if (options.force) {
+			params.push('--force');
+		}
+
+		if (options.branch && options.remote) {
+			if (options.upstream) {
+				params.push('-u', options.remote, `${options.upstream}:${options.branch}`);
+			} else if (options.publish) {
+				params.push('--set-upstream', options.remote, options.branch);
+			} else {
+				params.push(options.remote, options.branch);
+			}
+		} else if (options.remote) {
+			params.push(options.remote);
+		}
+
+		try {
+			void (await this.git<string>({ cwd: repoPath }, ...params));
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			if (GitWarnings.tipBehind.test(msg)) {
+				void window.showErrorMessage(
+					`Unable to push ${
+						options?.branch
+							? `the '${options.branch}' branch, as it is behind its remote counterpart`
+							: `as some branches are behind their remote counterparts`
+					}. Try doing a pull first.`,
+				);
+
+				return;
+			}
+
+			throw ex;
+		}
 	}
 
 	for_each_ref__branch(repoPath: string, options: { all: boolean } = { all: false }) {

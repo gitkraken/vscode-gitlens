@@ -807,30 +807,6 @@ export class Repository implements Disposable {
 		}
 	}
 
-	@gate()
-	@log()
-	async push(options?: {
-		force?: boolean;
-		progress?: boolean;
-		reference?: GitReference;
-		publish?: {
-			remote: string;
-		};
-	}) {
-		const { progress, ...opts } = { progress: true, ...options };
-		if (!progress) return this.pushCore(opts);
-
-		return window.withProgress(
-			{
-				location: ProgressLocation.Notification,
-				title: isBranchReference(opts.reference)
-					? `${opts.publish != null ? 'Publishing ' : 'Pushing '}${opts.reference.name}...`
-					: `Pushing ${this.formattedName}...`,
-			},
-			() => this.pushCore(opts),
-		);
-	}
-
 	private async showCreatePullRequestPrompt(remoteName: string, branch: GitBranchReference) {
 		if (!this.container.actionRunners.count('createPullRequest')) return;
 		if (!(await showCreatePullRequestPrompt(branch.name))) return;
@@ -862,6 +838,30 @@ export class Repository implements Disposable {
 		});
 	}
 
+	@gate()
+	@log()
+	async push(options?: {
+		force?: boolean;
+		progress?: boolean;
+		reference?: GitReference;
+		publish?: {
+			remote: string;
+		};
+	}) {
+		const { progress, ...opts } = { progress: true, ...options };
+		if (!progress) return this.pushCore(opts);
+
+		return window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: isBranchReference(opts.reference)
+					? `${opts.publish != null ? 'Publishing ' : 'Pushing '}${opts.reference.name}...`
+					: `Pushing ${this.formattedName}...`,
+			},
+			() => this.pushCore(opts),
+		);
+	}
+
 	private async pushCore(options?: {
 		force?: boolean;
 		reference?: GitReference;
@@ -870,7 +870,14 @@ export class Repository implements Disposable {
 		};
 	}) {
 		try {
-			if (isBranchReference(options?.reference)) {
+			if (configuration.getAny('gitlens.experimental.nativeGit') === true) {
+				const branch = await this.getBranch(options?.reference?.name);
+				await this.container.git.push(this.path, {
+					force: options?.force,
+					branch: isBranchReference(options?.reference) ? options?.reference : branch,
+					...(options?.publish && { publish: options.publish }),
+				});
+			} else if (isBranchReference(options?.reference)) {
 				const repo = await this.container.git.getOrOpenScmRepository(this.path);
 				if (repo == null) return;
 

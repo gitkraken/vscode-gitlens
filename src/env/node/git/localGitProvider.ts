@@ -1175,6 +1175,34 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 	}
 
+	@gate()
+	@log()
+	async push(
+		repoPath: string,
+		options?: { branch?: GitBranchReference; force?: boolean; publish?: { remote: string } },
+	): Promise<void> {
+		const { branch: branchRef } = options ?? {};
+		const repo = this.container.git.getRepository(repoPath);
+		let branch;
+		if (isBranchReference(branchRef)) {
+			branch = await repo?.getBranch(branchRef?.name);
+		} else {
+			branch = await repo?.getBranch();
+		}
+		if (branch == null) return undefined;
+		if (options?.publish == null && branch.getRemoteName() == null && branch.upstream == null) return undefined;
+
+		await this.git.push(repoPath, {
+			branch: branch.getNameWithoutRemote(),
+			remote: options?.publish ? options.publish.remote : branch.getRemoteName(),
+			upstream: branch.getTrackingWithoutRemote(),
+			force: options?.force,
+			publish: options?.publish != null,
+		});
+
+		this.container.events.fire('git:cache:reset', { repoPath: repoPath });
+	}
+
 	private readonly toCanonicalMap = new Map<string, Uri>();
 	private readonly fromCanonicalMap = new Map<string, Uri>();
 	protected readonly unsafePaths = new Set<string>();
