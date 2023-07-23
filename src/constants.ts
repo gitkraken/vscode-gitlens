@@ -189,6 +189,7 @@ export const enum Commands {
 	OpenFileOnRemoteFrom = 'gitlens.openFileOnRemoteFrom',
 	OpenFileAtRevision = 'gitlens.openFileRevision',
 	OpenFileAtRevisionFrom = 'gitlens.openFileRevisionFrom',
+	OpenFileByRevision = 'gitlens.openFileByRevision',
 	OpenFolderHistory = 'gitlens.openFolderHistory',
 	OpenOnRemote = 'gitlens.openOnRemote',
 	OpenIssueOnRemote = 'gitlens.openIssueOnRemote',
