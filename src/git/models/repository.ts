@@ -22,8 +22,6 @@ import { getLogScope } from '../../system/logger.scope';
 import { updateRecordValue } from '../../system/object';
 import { basename, normalizePath } from '../../system/path';
 import type { GitDir, GitProviderDescriptor, GitRepositoryCaches } from '../gitProvider';
-import type { RemoteProviders } from '../remotes/remoteProviders';
-import { loadRemoteProviders } from '../remotes/remoteProviders';
 import type { RichRemoteProvider } from '../remotes/richRemoteProvider';
 import type { GitSearch, SearchQuery } from '../search';
 import type { BranchSortOptions, GitBranch } from './branch';
@@ -216,7 +214,6 @@ export class Repository implements Disposable {
 	private _fsWatcherDisposable: Disposable | undefined;
 	private _pendingFileSystemChange?: RepositoryFileSystemChangeEvent;
 	private _pendingRepoChange?: RepositoryChangeEvent;
-	private _providers: RemoteProviders | undefined;
 	private _remotes: Promise<GitRemote[]> | undefined;
 	private _remotesDisposable: Disposable | undefined;
 	private _suspended: boolean;
@@ -347,13 +344,9 @@ export class Repository implements Disposable {
 	}
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
-		if (configuration.changed(e, 'remotes', this.folder?.uri)) {
-			this._providers = loadRemoteProviders(configuration.get('remotes', this.folder?.uri ?? null));
-
-			if (e != null) {
-				this.resetCaches('remotes');
-				this.fireChange(RepositoryChange.Remotes);
-			}
+		if (e != null && configuration.changed(e, 'remotes', this.folder?.uri)) {
+			this.resetCaches('remotes');
+			this.fireChange(RepositoryChange.Remotes);
 		}
 	}
 
@@ -685,13 +678,8 @@ export class Repository implements Disposable {
 
 	async getRemotes(options?: { filter?: (remote: GitRemote) => boolean; sort?: boolean }): Promise<GitRemote[]> {
 		if (this._remotes == null) {
-			if (this._providers == null) {
-				const remotesCfg = configuration.get('remotes', this.folder?.uri ?? null);
-				this._providers = loadRemoteProviders(remotesCfg);
-			}
-
 			// Since we are caching the results, always sort
-			this._remotes = this.container.git.getRemotes(this.path, { providers: this._providers, sort: true });
+			this._remotes = this.container.git.getRemotes(this.path, { sort: true });
 			void this.subscribeToRemotes(this._remotes);
 		}
 

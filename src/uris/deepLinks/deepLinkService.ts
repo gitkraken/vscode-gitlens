@@ -183,27 +183,36 @@ export class DeepLinkService implements Disposable {
 		return undefined;
 	}
 
-	private async getShasForComparison(
+	private async getRefsForComparison(
 		targetId: string,
 		secondaryTargetId: string,
 	): Promise<[string, string] | undefined> {
+		const ref1 = (await this.validateComparisonRef(targetId)) ? targetId : undefined;
+		if (ref1 == null) return undefined;
+		const ref2 = (await this.validateComparisonRef(secondaryTargetId)) ? secondaryTargetId : undefined;
+		if (ref2 == null) return undefined;
+		return [ref1, ref2];
+	}
+
+	private async validateComparisonRef(ref: string) {
 		// try treating each id as a commit sha first, then a branch if that fails, then a tag if that fails.
 		// Note: a blank target id will be treated as 'Working Tree' and will resolve to a blank Sha.
-		const sha1 =
-			targetId === ''
-				? targetId
-				: (await this.getShaForCommit(targetId)) ??
-				  (await this.getShaForBranch(targetId)) ??
-				  (await this.getShaForTag(targetId));
-		if (sha1 == null) return undefined;
-		const sha2 =
-			secondaryTargetId === ''
-				? secondaryTargetId
-				: (await this.getShaForCommit(secondaryTargetId)) ??
-				  (await this.getShaForBranch(secondaryTargetId)) ??
-				  (await this.getShaForTag(secondaryTargetId));
-		if (sha2 == null) return undefined;
-		return [sha1, sha2];
+
+		if (ref === '') return true;
+
+		if (isSha(ref)) return (await this.getShaForCommit(ref)) != null;
+
+		const normalized = ref.toLocaleLowerCase();
+		if (!normalized.startsWith('refs/tags/') && !normalized.startsWith('tags/')) {
+			const branch = await this.getShaForBranch(ref);
+			if (branch != null) return true;
+		}
+
+		const tag = await this.getShaForTag(ref);
+		if (tag != null) return true;
+
+		const sha = await this.getShaForCommit(ref);
+		return sha != null;
 	}
 
 	private async getShasForTargets(): Promise<string | string[] | undefined> {
@@ -223,7 +232,7 @@ export class DeepLinkService implements Disposable {
 
 		if (targetType === DeepLinkType.Comparison) {
 			if (secondaryTargetId == null) return undefined;
-			return this.getShasForComparison(targetId, secondaryTargetId);
+			return this.getRefsForComparison(targetId, secondaryTargetId);
 		}
 
 		return undefined;

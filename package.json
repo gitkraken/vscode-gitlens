@@ -2,7 +2,7 @@
 	"name": "gitlens",
 	"displayName": "GitLens — Git supercharged",
 	"description": "Supercharge Git within VS Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via rich visualizations and powerful comparison commands, and so much more",
-	"version": "14.1.0",
+	"version": "14.1.1",
 	"engines": {
 		"vscode": "^1.78.0"
 	},
@@ -7539,12 +7539,12 @@
 			},
 			{
 				"command": "gitlens.graph.columnGraphCompact",
-				"title": "Compact Graph Column Layout",
+				"title": "Use Compact Graph Column",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.graph.columnGraphDefault",
-				"title": "Default Graph Column Layout",
+				"title": "Use Expanded Graph Column",
 				"category": "GitLens"
 			},
 			{
@@ -14619,8 +14619,7 @@
 		"watch:tests": "concurrently \"tsc-alias -p tsconfig.test.json -w\" \"tsc -p tsconfig.test.json -w\"",
 		"-watch:tests": "webpack --watch -c webpack.config.test.js --mode development",
 		"web": "vscode-test-web --extensionDevelopmentPath=. --folder-uri=vscode-vfs://github/gitkraken/vscode-gitlens",
-		"web:serve": "npx serve --cors -l 5000",
-		"web:tunnel": "npx localtunnel -p 5000",
+		"web:serve": "node -e \"const p = require('path'); const h = require('os').homedir(); require('child_process').execSync('npx serve --cors -l 5000 --ssl-cert '+p.resolve(h, 'certs/localhost.pem')+' --ssl-key '+p.resolve(h, 'certs/localhost-key.pem'), { stdio: 'inherit' })\"",
 		"update-dts": "pushd \"src/@types\" && npx vscode-dts dev && popd",
 		"update-dts:master": "pushd \"src/@types\" && npx vscode-dts master && popd",
 		"update-emoji": "node ./scripts/generateEmojiShortcodeMap.mjs",
