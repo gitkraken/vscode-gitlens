@@ -8,7 +8,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds support for opening renamed/deleted files using the _Open File at Revision..._ commands by showing a quickpicker prompt if the requested file doesn't exist in the selected revision &mdash; thanks to [PR #2825](https://github.com/gitkraken/vscode-gitlens/pull/2825) by Victor Hallberg ([@mogelbrod](https://github.com/mogelbrod))
+- Improve  support for opening files from other branches &mdash; thanks to [PR #2825](https://github.com/gitkraken/vscode-gitlens/pull/2825) by Victor Hallberg ([@mogelbrod](https://github.com/mogelbrod))
+  - Open any file using new _Open File by Revision..._ command
+  - Improve _Open File at Revision..._ commands by prompting user for file to open when the requested path doesn't exist in the specified revision
 
 ### Changed
 
