@@ -31,6 +31,38 @@ export class GkIssueRow extends LitElement {
 			a:hover {
 				text-decoration: underline;
 			}
+
+			.actions {
+			}
+
+			.actions a {
+				box-sizing: border-box;
+				display: inline-flex;
+				justify-content: center;
+				align-items: center;
+				width: 3.2rem;
+				height: 3.2rem;
+				border-radius: 0.5rem;
+				color: inherit;
+				padding: 0.2rem;
+				vertical-align: text-bottom;
+				text-decoration: none;
+				cursor: pointer;
+			}
+			.actions a:focus {
+				outline: 1px solid var(--vscode-focusBorder);
+				outline-offset: -1px;
+			}
+			.actions a:hover {
+				background-color: var(--vscode-toolbar-hoverBackground);
+			}
+			.actions a:active {
+				background-color: var(--vscode-toolbar-activeBackground);
+			}
+
+			.actions a code-icon {
+				font-size: 1.6rem;
+			}
 		`,
 	];
 
@@ -119,7 +151,11 @@ export class GkIssueRow extends LitElement {
 					<span slot="date">
 						<gk-date-from class="${this.dateStyle}" date="${this.lastUpdatedDate}"></gk-date-from>
 					</span>
-					<nav slot="actions"></nav>
+					<nav slot="actions" class="actions">
+						<a href="${this.issue.url}" title="Open issue on remote"
+							><code-icon icon="globe"></code-icon
+						></a>
+					</nav>
 				</gk-focus-item>
 			</gk-focus-row>
 		`;

@@ -12,6 +12,7 @@ import { App } from '../../shared/appBase';
 import type { FeatureGate } from '../../shared/components/feature-gate';
 import type { FeatureGateBadge } from '../../shared/components/feature-gate-badge';
 import { DOM } from '../../shared/dom';
+import type { GlFocusApp } from './components/focus-app';
 import type { GkIssueRow } from './components/gk-issue-row';
 import type { GkPullRequestRow } from './components/gk-pull-request-row';
 // import type { IssueRow } from './components/issue-row';
@@ -29,6 +30,7 @@ import '../../shared/components/feature-gate-badge';
 // import './components/pull-request-row';
 import './components/gk-pull-request-row';
 import './components/gk-issue-row';
+import './components/focus-app';
 import './focus.scss';
 import '@gitkraken/shared-web-components';
 
@@ -43,6 +45,8 @@ export class FocusApp extends App<State> {
 
 	override onInitialize() {
 		this.renderContent();
+
+		this.attachState();
 	}
 
 	protected override onBind() {
@@ -78,6 +82,10 @@ export class FocusApp extends App<State> {
 		return disposables;
 	}
 
+	attachState() {
+		(document.getElementById('app') as GlFocusApp)!.state = this.state;
+	}
+
 	private onSwitchBranch(e: CustomEvent<PullRequestShape>, _target: HTMLElement) {
 		if (e.detail?.refs?.head == null) return;
 		this.sendCommand(SwitchToBranchCommandType, { pullRequest: e.detail });
@@ -104,20 +112,20 @@ export class FocusApp extends App<State> {
 	}
 
 	renderContent() {
-		let $gate = document.getElementById('subscription-gate')! as FeatureGate;
-		if ($gate != null) {
-			$gate.state = this.state.access.subscription.current.state;
-			$gate.visible = this.state.access.allowed !== true;
-		}
+		// let $gate = document.getElementById('subscription-gate')! as FeatureGate;
+		// if ($gate != null) {
+		// 	$gate.state = this.state.access.subscription.current.state;
+		// 	$gate.visible = this.state.access.allowed !== true;
+		// }
 
-		$gate = document.getElementById('connection-gate')! as FeatureGate;
-		if ($gate != null) {
-			$gate.visible =
-				this.state.access.allowed === true && !(this.state.repos?.some(r => r.isConnected) ?? false);
-		}
+		// $gate = document.getElementById('connection-gate')! as FeatureGate;
+		// if ($gate != null) {
+		// 	$gate.visible =
+		// 		this.state.access.allowed === true && !(this.state.repos?.some(r => r.isConnected) ?? false);
+		// }
 
-		const $badge = document.getElementById('subscription-gate-badge')! as FeatureGateBadge;
-		$badge.subscription = this.state.access.subscription.current;
+		// const $badge = document.getElementById('subscription-gate-badge')! as FeatureGateBadge;
+		// $badge.subscription = this.state.access.subscription.current;
 
 		// this.renderPullRequests();
 		// this.renderIssues();

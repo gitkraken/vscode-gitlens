@@ -22,6 +22,9 @@ body {
 	--table-text: var(--color-foreground--65);
 	--table-pinned-background: var(--color-background);
 	--layout-gutter-outer: 20px;
+	--gk-input-background-color: var(--vscode-input-background);
+	--gk-input-border-color: var(--vscode-input-border);
+	--gk-input-color: var(--vscode-input-foreground);
 }
 
 .vscode-high-contrast,
@@ -210,19 +213,26 @@ h3 {
 .focus-section {
 	display: flex;
 	flex-direction: column;
-	gap: 0.8rem;
+	gap: 1.2rem;
 
 	&__header {
 		flex: none;
 		display: flex;
-		flex-direction: row;
-		align-items: center;
-		justify-content: space-between;
-		padding: 0.4rem 0;
+		flex-direction: column;
+		gap: 1.6rem;
+		padding-top: 1.2rem;
 
 		h2 {
 			margin: 0;
 			font-size: 1.5rem;
+		}
+
+		&-group {
+			display: flex;
+			flex-direction: row;
+			align-items: center;
+			justify-content: space-between;
+			gap: 0.4rem;
 		}
 	}
 
@@ -230,6 +240,14 @@ h3 {
 		min-height: 0;
 		flex: 1 1 auto;
 		overflow: auto;
+	}
+}
+
+.search {
+	flex: 1;
+
+	code-icon {
+		margin-right: 0.8rem;
 	}
 }
 
