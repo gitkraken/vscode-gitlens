@@ -163,6 +163,14 @@ export interface GitProvider extends Disposable {
 			remote?: string | undefined;
 		},
 	): Promise<void>;
+	pull(
+		repoPath: string,
+		options?: {
+			branch?: GitBranchReference | undefined;
+			rebase?: boolean | undefined;
+			tags?: boolean | undefined;
+		},
+	): Promise<void>;
 	push(
 		repoPath: string,
 		options?: {

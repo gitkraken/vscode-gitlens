@@ -793,11 +793,25 @@ export class Repository implements Disposable {
 
 	private async pullCore(options?: { rebase?: boolean }) {
 		try {
-			const upstream = await this.hasUpstreamBranch();
-			if (upstream) {
-				void (await executeCoreGitCommand(options?.rebase ? 'git.pullRebase' : 'git.pull', this.path));
-			} else if (configuration.getAny<CoreGitConfiguration, boolean>('git.fetchOnPull', Uri.file(this.path))) {
-				await this.container.git.fetch(this.path);
+			if (configuration.getAny('gitlens.experimental.nativeGit') === true) {
+				const withTags = configuration.getAny<CoreGitConfiguration, boolean>(
+					'git.pullTags',
+					Uri.file(this.path),
+				);
+				if (configuration.getAny<CoreGitConfiguration, boolean>('git.fetchOnPull', Uri.file(this.path))) {
+					await this.container.git.fetch(this.path);
+				}
+
+				await this.container.git.pull(this.path, { ...options, tags: withTags });
+			} else {
+				const upstream = await this.hasUpstreamBranch();
+				if (upstream) {
+					void (await executeCoreGitCommand(options?.rebase ? 'git.pullRebase' : 'git.pull', this.path));
+				} else if (
+					configuration.getAny<CoreGitConfiguration, boolean>('git.fetchOnPull', Uri.file(this.path))
+				) {
+					await this.container.git.fetch(this.path);
+				}
 			}
 
 			this.fireChange(RepositoryChange.Unknown);

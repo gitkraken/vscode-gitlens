@@ -58,9 +58,14 @@ const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
 export const GitErrors = {
 	badRevision: /bad revision '(.*?)'/i,
+	cantLockRef: /cannot lock ref|unable to update local ref/i,
+	changesWouldBeOverwritten: /Your local changes to the following files would be overwritten/i,
+	commitChangesFirst: /Please, commit your changes before you can/i,
+	conflict: /^CONFLICT \([^)]+\): \b/m,
 	noFastForward: /\(non-fast-forward\)/i,
 	noMergeBase: /no merge base/i,
 	notAValidObjectName: /Not a valid object name/i,
+	noUserNameConfigured: /Please tell me who you are\./i,
 	invalidLineCount: /file .+? has only \d+ lines/i,
 	uncommittedChanges: /contains modified or untracked files/i,
 	alreadyExists: /already exists/i,
@@ -69,7 +74,11 @@ export const GitErrors = {
 	noUpstream: /^fatal: The current branch .* has no upstream branch/i,
 	permissionDenied: /Permission.*denied/i,
 	pushRejected: /^error: failed to push some refs to\b/m,
+	rebaseMultipleBranches: /cannot rebase onto multiple branches/i,
 	remoteConnection: /Could not read from remote repository/i,
+	tagConflict: /! \[rejected\].*\(would clobber existing tag\)/m,
+	unmergedFiles: /is not possible because you have unmerged files/i,
+	unstagedChanges: /You have unstaged changes/i,
 };
 
 const GitWarnings = {
@@ -927,6 +936,63 @@ export class Git {
 					`Unable to push ${options?.branch ?? 'the current branch'} ${outputReason}`,
 				);
 
+				return;
+			}
+
+			throw ex;
+		}
+	}
+
+	async pull(
+		repoPath: string,
+		options: { branch?: string; remote?: string; rebase?: boolean; tags?: boolean },
+	): Promise<void> {
+		const params = ['pull'];
+
+		if (options.tags) {
+			params.push('--tags');
+		}
+
+		if (options.rebase) {
+			params.push('-r');
+		}
+
+		if (options.remote && options.branch) {
+			params.push(options.remote);
+			params.push(options.branch);
+		}
+
+		try {
+			void (await this.git<string>({ cwd: repoPath }, ...params));
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			let outputReason;
+			if (GitErrors.conflict.test(msg)) {
+				outputReason = 'due to conflicts.';
+			} else if (GitErrors.noUserNameConfigured.test(msg)) {
+				outputReason = 'because you have not yet set up your Git identity.';
+			} else if (/Could not read from remote repository/.test(ex.stderr || '')) {
+				outputReason = 'because the remote repository could not be reached.';
+			} else if (GitErrors.unstagedChanges.test(msg)) {
+				outputReason = 'because you have unstaged changes.';
+			} else if (GitErrors.unmergedFiles.test(msg)) {
+				outputReason = 'because you have unmerged files.';
+			} else if (GitErrors.commitChangesFirst.test(msg)) {
+				outputReason = 'because you have uncommitted changes.';
+			} else if (GitErrors.changesWouldBeOverwritten.test(msg)) {
+				outputReason = 'because local changes to some files would be overwritten.';
+			} else if (GitErrors.cantLockRef.test(msg)) {
+				outputReason = 'because a local ref could not be updated.';
+			} else if (GitErrors.rebaseMultipleBranches.test(msg)) {
+				outputReason = 'because you are trying to rebase onto multiple branches.';
+			} else if (GitErrors.tagConflict.test(msg)) {
+				outputReason = 'because a local tag would be overwritten.';
+			}
+
+			if (outputReason) {
+				void window.showErrorMessage(
+					`Unable to pull ${options.branch ?? 'the current branch'} ${outputReason}`,
+				);
 				return;
 			}
 
