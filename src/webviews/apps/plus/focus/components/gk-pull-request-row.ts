@@ -1,4 +1,4 @@
-import { css, html, LitElement } from 'lit';
+import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
@@ -30,6 +30,42 @@ export class GkPullRequestRow extends LitElement {
 			}
 			a:hover {
 				text-decoration: underline;
+			}
+
+			.actions {
+			}
+
+			.actions a {
+				box-sizing: border-box;
+				display: inline-flex;
+				justify-content: center;
+				align-items: center;
+				width: 3.2rem;
+				height: 3.2rem;
+				border-radius: 0.5rem;
+				color: inherit;
+				padding: 0.2rem;
+				vertical-align: text-bottom;
+				text-decoration: none;
+				cursor: pointer;
+			}
+			.actions a:focus {
+				outline: 1px solid var(--vscode-focusBorder);
+				outline-offset: -1px;
+			}
+			.actions a:hover {
+				background-color: var(--vscode-toolbar-hoverBackground);
+			}
+			.actions a:active {
+				background-color: var(--vscode-toolbar-activeBackground);
+			}
+			.actions a[tabindex='-1'] {
+				opacity: 0.5;
+				cursor: default;
+			}
+
+			.actions a code-icon {
+				font-size: 1.6rem;
 			}
 		`,
 	];
@@ -132,9 +168,28 @@ export class GkPullRequestRow extends LitElement {
 					<span slot="date">
 						<gk-date-from class="${this.dateStyle}" date="${this.lastUpdatedDate}"></gk-date-from>
 					</span>
-					<nav slot="actions"><gk-button variant="ghost">Checkout branch</gk-button></nav>
+					<nav slot="actions" class="actions">
+						<a
+							href="#"
+							tabindex="${this.isCurrentWorktree || this.isCurrentBranch ? -1 : nothing}"
+							title="${this.isCurrentWorktree ? 'Already on this workree' : 'Open Worktree...'}"
+							aria-label="${this.isCurrentWorktree ? 'Already on this workree' : 'Open Worktree...'}"
+							@click="${this.onOpenWorktreeClick}"
+							><code-icon icon="gl-worktrees-view"></code-icon></a
+						><a
+							href="#"
+							tabindex="${this.hasWorktree || this.isCurrentBranch ? -1 : nothing}"
+							title="${this.isCurrentBranch ? 'Already on this branch' : 'Switch to Branch...'}"
+							aria-label="${this.isCurrentBranch ? 'Already on this branch' : 'Switch to Branch...'}"
+							@click="${this.onSwitchBranchClick}"
+							><code-icon icon="gl-switch"></code-icon
+						></a>
+					</nav>
 				</gk-focus-item>
 			</gk-focus-row>
 		`;
 	}
+
+	public onOpenWorktreeClick(e: MouseEvent) {}
+	public onSwitchBranchClick(e: MouseEvent) {}
 }
