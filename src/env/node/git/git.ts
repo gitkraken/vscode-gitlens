@@ -971,7 +971,7 @@ export class Git {
 				outputReason = 'due to conflicts.';
 			} else if (GitErrors.noUserNameConfigured.test(msg)) {
 				outputReason = 'because you have not yet set up your Git identity.';
-			} else if (/Could not read from remote repository/.test(ex.stderr || '')) {
+			} else if (GitErrors.remoteConnection.test(msg)) {
 				outputReason = 'because the remote repository could not be reached.';
 			} else if (GitErrors.unstagedChanges.test(msg)) {
 				outputReason = 'because you have unstaged changes.';
