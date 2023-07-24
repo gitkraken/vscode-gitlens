@@ -66,6 +66,10 @@ export const GitErrors = {
 	alreadyExists: /already exists/i,
 	alreadyCheckedOut: /already checked out/i,
 	mainWorkingTree: /is a main working tree/i,
+	noUpstream: /^fatal: The current branch .* has no upstream branch/i,
+	permissionDenied: /Permission.*denied/i,
+	pushRejected: /^error: failed to push some refs to\b/m,
+	remoteConnection: /Could not read from remote repository/i,
 };
 
 const GitWarnings = {
@@ -903,13 +907,24 @@ export class Git {
 			void (await this.git<string>({ cwd: repoPath }, ...params));
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
+			let outputReason;
 			if (GitWarnings.tipBehind.test(msg)) {
+				outputReason = `as it is behind ${
+					options?.remote ?? 'its remote counterpart'
+				}. Try doing a pull first.`;
+			} else if (GitErrors.pushRejected.test(msg)) {
+				outputReason = `because some refs failed to push or the push was rejected.`;
+			} else if (GitErrors.permissionDenied.test(msg)) {
+				outputReason = `because you don't have permission to push to this remote repository.`;
+			} else if (GitErrors.remoteConnection.test(msg)) {
+				outputReason = `because the remote repository could not be reached.`;
+			} else if (GitErrors.noUpstream.test(msg)) {
+				outputReason = `because it has no upstream branch.`;
+			}
+
+			if (outputReason) {
 				void window.showErrorMessage(
-					`Unable to push ${
-						options?.branch
-							? `the '${options.branch}' branch, as it is behind its remote counterpart`
-							: `as some branches are behind their remote counterparts`
-					}. Try doing a pull first.`,
+					`Unable to push ${options?.branch ?? 'the current branch'} ${outputReason}`,
 				);
 
 				return;
