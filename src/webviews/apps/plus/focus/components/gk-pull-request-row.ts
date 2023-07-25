@@ -67,6 +67,19 @@ export class GkPullRequestRow extends LitElement {
 			.actions a code-icon {
 				font-size: 1.6rem;
 			}
+
+			.indicator-info {
+				color: var(--vscode-problemsInfoIcon-foreground);
+			}
+			.indicator-warning {
+				color: var(--vscode-problemsWarningIcon-foreground);
+			}
+			.indicator-error {
+				color: var(--vscode-problemsErrorIcon-foreground);
+			}
+			.indicator-neutral {
+				color: var(--color-alert-neutralBorder);
+			}
 		`,
 	];
 
@@ -105,6 +118,20 @@ export class GkPullRequestRow extends LitElement {
 		return assignees;
 	}
 
+	get indicator() {
+		if (this.pullRequest == null) return '';
+
+		if (this.pullRequest.reviewDecision === 'ChangesRequested') {
+			return 'changes';
+		} else if (this.pullRequest.reviewDecision === 'Approved' && this.pullRequest.mergeableState === 'Mergeable') {
+			return 'ready';
+		} else if (this.pullRequest.mergeableState === 'Conflicting') {
+			return 'conflicting';
+		}
+
+		return '';
+	}
+
 	get dateStyle() {
 		return `indicator-${fromDateRange(this.lastUpdatedDate).status}`;
 	}
@@ -114,7 +141,36 @@ export class GkPullRequestRow extends LitElement {
 
 		return html`
 			<gk-focus-row>
-				<span slot="rank">${this.rank}</span>
+				<span slot="rank">
+					${this.rank}
+					${when(
+						this.indicator === 'changes',
+						() =>
+							html`<code-icon
+								class="indicator-error"
+								icon="request-changes"
+								title="changes requested"
+							></code-icon>`,
+					)}
+					${when(
+						this.indicator === 'ready',
+						() =>
+							html`<code-icon
+								class="indicator-info"
+								icon="pass"
+								title="approved and ready to merge"
+							></code-icon>`,
+					)}
+					${when(
+						this.indicator === 'conflicting',
+						() =>
+							html`<code-icon
+								class="indicator-error"
+								icon="bracket-error"
+								title="cannot be merged due to merge conflicts"
+							></code-icon>`,
+					)}
+				</span>
 				<gk-focus-item>
 					<span slot="type"><code-icon icon="git-pull-request"></code-icon></span>
 					<p>
@@ -190,6 +246,21 @@ export class GkPullRequestRow extends LitElement {
 		`;
 	}
 
-	public onOpenWorktreeClick(e: MouseEvent) {}
-	public onSwitchBranchClick(e: MouseEvent) {}
+	onOpenWorktreeClick(e: Event) {
+		if (this.isCurrentWorktree) {
+			e.preventDefault();
+			e.stopImmediatePropagation();
+			return;
+		}
+		this.dispatchEvent(new CustomEvent('open-worktree', { detail: this.pullRequest! }));
+	}
+
+	onSwitchBranchClick(e: Event) {
+		if (this.isCurrentBranch) {
+			e.preventDefault();
+			e.stopImmediatePropagation();
+			return;
+		}
+		this.dispatchEvent(new CustomEvent('switch-branch', { detail: this.pullRequest! }));
+	}
 }

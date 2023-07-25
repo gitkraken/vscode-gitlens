@@ -1,13 +1,23 @@
 import { html, LitElement } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { map } from 'lit/directives/map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import type { State } from '../../../../../plus/webviews/focus/protocol';
+import { debounce } from '../../../../../system/function';
 import type { FeatureGate } from '../../../shared/components/feature-gate';
 import type { FeatureGateBadge } from '../../../shared/components/feature-gate-badge';
 
 @customElement('gl-focus-app')
 export class GlFocusApp extends LitElement {
+	private readonly tabFilters = ['authored', 'assigned', 'review-requested', 'mentioned'];
+	private readonly tabFilterOptions = [
+		{ label: 'All', value: '' },
+		{ label: 'Opened by Me', value: 'authored' },
+		{ label: 'Assigned to Me', value: 'assigned' },
+		{ label: 'Needs my Review', value: 'review-requested' },
+		{ label: 'Mentions Me', value: 'mentioned' },
+	];
 	@query('#subscription-gate', true)
 	private subscriptionEl!: FeatureGate;
 
@@ -18,10 +28,10 @@ export class GlFocusApp extends LitElement {
 	private subScriptionBadgeEl!: FeatureGateBadge;
 
 	@state()
-	private focusFilter?: string;
+	private selectedTabFilter?: string;
 
 	@state()
-	private loading = true;
+	private searchText?: string;
 
 	@property({ type: Object })
 	state?: State;
@@ -38,42 +48,78 @@ export class GlFocusApp extends LitElement {
 		return this.state?.access.allowed === true && !(this.state?.repos?.some(r => r.isConnected) ?? false);
 	}
 
-	get filteredItems() {
-		const items: { isPullrequest: boolean; rank: number; state: Record<string, any> }[] = [];
+	get items() {
+		if (this.isLoading) {
+			return [];
+		}
+
+		const items: { isPullrequest: boolean; rank: number; state: Record<string, any>; reasons: string[] }[] = [];
 
 		let rank = 0;
 		this.state?.pullRequests?.forEach(
-			({ pullRequest, reasons, isCurrentBranch, isCurrentWorktree, hasWorktree, hasLocalBranch }, i) => {
-				if (this.focusFilter == null || this.focusFilter === '' || reasons.includes(this.focusFilter)) {
-					items.push({
-						isPullrequest: true,
-						state: {
-							pullRequest: pullRequest,
-							// reasons: reasons,
-							isCurrentBranch: isCurrentBranch,
-							isCurrentWorktree: isCurrentWorktree,
-							hasWorktree: hasWorktree,
-							hasLocalBranch: hasLocalBranch,
-						},
-						rank: ++rank,
-					});
-				}
+			({ pullRequest, reasons, isCurrentBranch, isCurrentWorktree, hasWorktree, hasLocalBranch }) => {
+				items.push({
+					isPullrequest: true,
+					state: {
+						pullRequest: pullRequest,
+						isCurrentBranch: isCurrentBranch,
+						isCurrentWorktree: isCurrentWorktree,
+						hasWorktree: hasWorktree,
+						hasLocalBranch: hasLocalBranch,
+					},
+					rank: ++rank,
+					reasons: reasons,
+				});
 			},
 		);
 
 		this.state?.issues?.forEach(({ issue, reasons }) => {
-			if (this.focusFilter == null || this.focusFilter === '' || reasons.includes(this.focusFilter)) {
-				items.push({
-					isPullrequest: false,
-					rank: ++rank,
-					state: {
-						issue: issue,
-					},
-				});
-			}
+			items.push({
+				isPullrequest: false,
+				rank: ++rank,
+				state: {
+					issue: issue,
+				},
+				reasons: reasons,
+			});
 		});
 
 		return items;
+	}
+
+	get filteredItems() {
+		if (this.items.length === 0) {
+			return this.items;
+		}
+
+		const hasSearch = this.searchText != null && this.searchText !== '';
+		const hasTabFilter = this.selectedTabFilter != null && this.selectedTabFilter !== '';
+		if (!hasSearch && !hasTabFilter) {
+			return this.items;
+		}
+
+		const searchText = this.searchText?.toLowerCase();
+		return this.items.filter(i => {
+			if (hasTabFilter && !i.reasons.includes(this.selectedTabFilter!)) {
+				return false;
+			}
+
+			if (hasSearch) {
+				if (i.state.issue && !i.state.issue.title.toLowerCase().includes(searchText)) {
+					return false;
+				}
+
+				if (i.state.pullRequest && !i.state.pullRequest.title.toLowerCase().includes(searchText)) {
+					return false;
+				}
+			}
+
+			return true;
+		});
+	}
+
+	get isLoading() {
+		return this.state?.pullRequests == null || this.state?.issues == null;
 	}
 
 	override render() {
@@ -123,19 +169,25 @@ export class GlFocusApp extends LitElement {
 							<header class="focus-section__header">
 								<div class="focus-section__header-group">
 									<nav class="tab-filter" id="filter-focus-items">
-										<button class="tab-filter__tab is-active" type="button" data-tab="">All</button>
-										<button class="tab-filter__tab" type="button" data-tab="authored">
-											Opened by Me
-										</button>
-										<button class="tab-filter__tab" type="button" data-tab="assigned">
-											Assigned to Me
-										</button>
-										<button class="tab-filter__tab" type="button" data-tab="review-requested">
-											Needs my Review
-										</button>
-										<button class="tab-filter__tab" type="button" data-tab="mentioned">
-											Mentions Me
-										</button>
+										${map(
+											this.tabFilterOptions,
+											({ label, value }, i) => html`
+												<button
+													class="tab-filter__tab ${(
+														this.selectedTabFilter
+															? value === this.selectedTabFilter
+															: i === 0
+													)
+														? 'is-active'
+														: ''}"
+													type="button"
+													data-tab="${value}"
+													@click=${() => (this.selectedTabFilter = value)}
+												>
+													${label}
+												</button>
+											`,
+										)}
 									</nav>
 								</div>
 								<div class="focus-section__header-group">
@@ -144,6 +196,7 @@ export class GlFocusApp extends LitElement {
 										label="Search field"
 										label-visibility="sr-only"
 										placeholder="Search"
+										@input=${debounce(this.onSearchInput.bind(this), 200)}
 									>
 										<code-icon slot="prefix" icon="search"></code-icon>
 									</gk-input>
@@ -152,48 +205,64 @@ export class GlFocusApp extends LitElement {
 							<div class="focus-section__content">
 								<gk-focus-container id="list-focus-items">
 									${when(
-										this.filteredItems.length > 0,
-										() => html`
-											${repeat(
-												this.filteredItems,
-												item => item.rank,
-												({ isPullrequest, rank, state }) =>
-													when(
-														isPullrequest,
-														() =>
-															html`<gk-pull-request-row
-																.rank=${rank}
-																.pullRequest=${state.pullRequest}
-															></gk-pull-request-row>`,
-														() =>
-															html`<gk-issue-row
-																.rank=${rank}
-																.issue=${state.issue}
-															></gk-issue-row>`,
-													),
-											)}
-										`,
+										this.isLoading,
 										() => html`
 											<div class="alert">
-												<span class="alert__content">None found</span>
+												<span class="alert__content"
+													><code-icon modifier="spin" icon="loading"></code-icon>
+													Loading</span
+												>
 											</div>
 										`,
+										() =>
+											when(
+												this.filteredItems.length > 0,
+												() => html`
+													${repeat(
+														this.filteredItems,
+														item => item.rank,
+														({ isPullrequest, rank, state }) =>
+															when(
+																isPullrequest,
+																() =>
+																	html`<gk-pull-request-row
+																		.rank=${rank}
+																		.pullRequest=${state.pullRequest}
+																	></gk-pull-request-row>`,
+																() =>
+																	html`<gk-issue-row
+																		.rank=${rank}
+																		.issue=${state.issue}
+																	></gk-issue-row>`,
+															),
+													)}
+												`,
+												() => html`
+													<div class="alert">
+														<span class="alert__content">None found</span>
+													</div>
+												`,
+											),
 									)}
 								</gk-focus-container>
-								<div class="alert" id="loading-focus-items">
-									<span class="alert__content"
-										><code-icon modifier="spin" icon="loading"></code-icon> Loading</span
-									>
-								</div>
-								<div class="alert" id="no-focus-items">
-									<span class="alert__content">None found</span>
-								</div>
 							</div>
 						</section>
 					</main>
 				</div>
 			</div>
 		`;
+	}
+
+	onSearchInput(e: Event) {
+		const input = e.target as HTMLInputElement;
+		const value = input.value;
+
+		if (value === '' || value.length < 3) {
+			this.searchText = undefined;
+			return;
+		}
+
+		this.searchText = value;
 	}
 
 	protected override createRenderRoot() {
