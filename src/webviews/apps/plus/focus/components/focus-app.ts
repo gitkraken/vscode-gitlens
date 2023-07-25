@@ -44,6 +44,10 @@ export class GlFocusApp extends LitElement {
 		return this.state?.access.allowed === false;
 	}
 
+	get showFeatureGate() {
+		return this.state?.access.allowed !== true;
+	}
+
 	get showConnectionGate() {
 		return this.state?.access.allowed === true && !(this.state?.repos?.some(r => r.isConnected) ?? false);
 	}
@@ -144,8 +148,12 @@ export class GlFocusApp extends LitElement {
 					></gk-button>
 				</header>
 
-				<div class="app__content" id="content">
-					<gk-feature-gate .state=${this.subscriptionState?.state} id="subscription-gate" class="scrollable"
+				<div class="app__content">
+					<gk-feature-gate
+						.state=${this.subscriptionState?.state}
+						.visible=${this.showFeatureGate}
+						id="subscription-gate"
+						class="scrollable"
 						><p slot="feature">
 							Brings all of your GitHub pull requests and issues into a unified actionable view to help to
 							you more easily juggle work in progress, pending work, reviews, and more. Quickly see if
