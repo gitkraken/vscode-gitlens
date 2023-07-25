@@ -7,6 +7,11 @@ import type { State } from '../../../../../plus/webviews/focus/protocol';
 import { debounce } from '../../../../../system/function';
 import type { FeatureGate } from '../../../shared/components/feature-gate';
 import type { FeatureGateBadge } from '../../../shared/components/feature-gate-badge';
+import '../../../shared/components/code-icon';
+import '../../../shared/components/feature-gate';
+import '../../../shared/components/feature-gate-badge';
+import './gk-pull-request-row';
+import './gk-issue-row';
 
 @customElement('gl-focus-app')
 export class GlFocusApp extends LitElement {
@@ -126,27 +131,36 @@ export class GlFocusApp extends LitElement {
 		return this.state?.pullRequests == null || this.state?.issues == null;
 	}
 
+	loadingContent() {
+		return html`
+			<div class="alert">
+				<span class="alert__content"><code-icon modifier="spin" icon="loading"></code-icon> Loading</span>
+			</div>
+		`;
+	}
+
 	override render() {
 		if (this.state == null) {
-			return undefined;
+			return this.loadingContent();
 		}
 
 		return html`
 			<div class="app">
-				<header class="app__header">
-					<span class="badge">Preview</span>
+				<div class="app__toolbar">
+					<span class="preview">Preview</span>
 					<gk-feature-gate-badge
 						.subscription=${this.subscriptionState}
 						id="subscription-gate-badge"
 					></gk-feature-gate-badge>
 					<gk-button
+						class="feedback"
 						appearance="toolbar"
 						href="https://github.com/gitkraken/vscode-gitlens/discussions/2535"
 						title="Focus View Feedback"
 						aria-label="Focus View Feedback"
 						><code-icon icon="feedback"></code-icon
 					></gk-button>
-				</header>
+				</div>
 
 				<div class="app__content">
 					<gk-feature-gate
@@ -172,90 +186,79 @@ export class GlFocusApp extends LitElement {
 						>
 					</gk-feature-gate>
 
-					<main class="app__main">
-						<section class="focus-section app__section">
-							<header class="focus-section__header">
-								<div class="focus-section__header-group">
-									<nav class="tab-filter" id="filter-focus-items">
-										${map(
-											this.tabFilterOptions,
-											({ label, value }, i) => html`
-												<button
-													class="tab-filter__tab ${(
-														this.selectedTabFilter
-															? value === this.selectedTabFilter
-															: i === 0
-													)
-														? 'is-active'
-														: ''}"
-													type="button"
-													data-tab="${value}"
-													@click=${() => (this.selectedTabFilter = value)}
-												>
-													${label}
-												</button>
-											`,
-										)}
-									</nav>
-								</div>
-								<div class="focus-section__header-group">
-									<gk-input
-										class="search"
-										label="Search field"
-										label-visibility="sr-only"
-										placeholder="Search"
-										@input=${debounce(this.onSearchInput.bind(this), 200)}
-									>
-										<code-icon slot="prefix" icon="search"></code-icon>
-									</gk-input>
-								</div>
-							</header>
-							<div class="focus-section__content">
-								<gk-focus-container id="list-focus-items">
-									${when(
-										this.isLoading,
-										() => html`
-											<div class="alert">
-												<span class="alert__content"
-													><code-icon modifier="spin" icon="loading"></code-icon>
-													Loading</span
-												>
-											</div>
+					<div class="app__focus">
+						<header class="app__header">
+							<div class="app__header-group">
+								<nav class="tab-filter" id="filter-focus-items">
+									${map(
+										this.tabFilterOptions,
+										({ label, value }, i) => html`
+											<button
+												class="tab-filter__tab ${(
+													this.selectedTabFilter ? value === this.selectedTabFilter : i === 0
+												)
+													? 'is-active'
+													: ''}"
+												type="button"
+												data-tab="${value}"
+												@click=${() => (this.selectedTabFilter = value)}
+											>
+												${label}
+											</button>
 										`,
-										() =>
-											when(
-												this.filteredItems.length > 0,
-												() => html`
-													${repeat(
-														this.filteredItems,
-														item => item.rank,
-														({ isPullrequest, rank, state }) =>
-															when(
-																isPullrequest,
-																() =>
-																	html`<gk-pull-request-row
-																		.rank=${rank}
-																		.pullRequest=${state.pullRequest}
-																	></gk-pull-request-row>`,
-																() =>
-																	html`<gk-issue-row
-																		.rank=${rank}
-																		.issue=${state.issue}
-																	></gk-issue-row>`,
-															),
-													)}
-												`,
-												() => html`
-													<div class="alert">
-														<span class="alert__content">None found</span>
-													</div>
-												`,
-											),
 									)}
-								</gk-focus-container>
+								</nav>
 							</div>
-						</section>
-					</main>
+							<div class="app__header-group">
+								<gk-input
+									class="app__search"
+									label="Search field"
+									label-visibility="sr-only"
+									placeholder="Search"
+									@input=${debounce(this.onSearchInput.bind(this), 200)}
+								>
+									<code-icon slot="prefix" icon="search"></code-icon>
+								</gk-input>
+							</div>
+						</header>
+						<main class="app__main">
+							<gk-focus-container id="list-focus-items">
+								${when(
+									this.isLoading,
+									() => this.loadingContent(),
+									() =>
+										when(
+											this.filteredItems.length > 0,
+											() => html`
+												${repeat(
+													this.filteredItems,
+													item => item.rank,
+													({ isPullrequest, rank, state }) =>
+														when(
+															isPullrequest,
+															() =>
+																html`<gk-pull-request-row
+																	.rank=${rank}
+																	.pullRequest=${state.pullRequest}
+																></gk-pull-request-row>`,
+															() =>
+																html`<gk-issue-row
+																	.rank=${rank}
+																	.issue=${state.issue}
+																></gk-issue-row>`,
+														),
+												)}
+											`,
+											() => html`
+												<div class="alert">
+													<span class="alert__content">None found</span>
+												</div>
+											`,
+										),
+								)}
+							</gk-focus-container>
+						</main>
+					</div>
 				</div>
 			</div>
 		`;
