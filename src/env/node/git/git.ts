@@ -932,11 +932,7 @@ export class Git {
 			}
 
 			if (outputReason) {
-				void window.showErrorMessage(
-					`Unable to push ${options?.branch ?? 'the current branch'} ${outputReason}`,
-				);
-
-				return;
+				throw new Error(outputReason);
 			}
 
 			throw ex;
@@ -990,10 +986,7 @@ export class Git {
 			}
 
 			if (outputReason) {
-				void window.showErrorMessage(
-					`Unable to pull ${options.branch ?? 'the current branch'} ${outputReason}`,
-				);
-				return;
+				throw new Error(outputReason);
 			}
 
 			throw ex;
