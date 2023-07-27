@@ -1,5 +1,6 @@
 import type { QuickPickItem } from 'vscode';
 import { window } from 'vscode';
+import type { ShowOnlyChangedFilesCommandArgs } from '../../commands';
 import type { OpenChangedFilesCommandArgs } from '../../commands/openChangedFiles';
 import { RevealInSideBarQuickInputButton, ShowDetailsViewQuickInputButton } from '../../commands/quickCommand.buttons';
 import type { Keys } from '../../constants';
@@ -417,5 +418,15 @@ export class OpenChangedFilesCommandQuickPickItem extends CommandQuickPickItem {
 		};
 
 		super(item ?? '$(files) Open All Changed Files', Commands.OpenChangedFiles, [commandArgs]);
+	}
+}
+
+export class ShowOnlyChangedFilesCommandQuickPickItem extends CommandQuickPickItem {
+	constructor(files: GitStatusFile[], item?: QuickPickItem) {
+		const commandArgs: ShowOnlyChangedFilesCommandArgs = {
+			uris: files.map(f => f.uri),
+		};
+
+		super(item ?? '$(files) Show Only Changed Files', Commands.ShowOnlyChangedFiles, [commandArgs]);
 	}
 }

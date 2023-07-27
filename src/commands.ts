@@ -49,6 +49,7 @@ export * from './commands/resetViewsLayout';
 export * from './commands/searchCommits';
 export * from './commands/showCommitsInView';
 export * from './commands/showLastQuickPick';
+export * from './commands/showOnlyChangedFiles';
 export * from './commands/showQuickBranchHistory';
 export * from './commands/showQuickCommit';
 export * from './commands/showQuickCommitFile';
