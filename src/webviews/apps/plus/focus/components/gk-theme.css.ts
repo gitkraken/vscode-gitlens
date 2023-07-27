@@ -20,5 +20,10 @@ export const themeProperties = css`
 		--gk-button-outline-color: var(--color-foreground);
 		--gk-button-outline-color-active: var(--background-10);
 		--gk-button-outline-color-disabled: var(--color-foreground--50);
+
+		--gk-tooltip-background-color: var(--popover-bg);
+		--gk-tooltip-font-color: var(--color-foreground);
+		--gk-tooltip-font-weight: normal;
+		--gk-tooltip-font-size: 1.2rem;
 	}
 `;
