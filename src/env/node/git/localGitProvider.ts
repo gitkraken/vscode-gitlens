@@ -1181,9 +1181,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 		} catch (ex) {
+			Logger.error(ex, 'LocalGitProvider.fetch');
 			if (FetchError.is(ex)) {
 				void window.showErrorMessage(ex.message);
-				Logger.error(ex, 'LocalGitProvider.fetch');
 			} else {
 				throw ex;
 			}
@@ -1218,9 +1218,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 		} catch (ex) {
+			Logger.error(ex, 'LocalGitProvider.push');
 			if (PushError.is(ex)) {
 				void window.showErrorMessage(ex.message);
-				Logger.error(ex, 'LocalGitProvider.push');
 			} else {
 				throw ex;
 			}
@@ -1252,9 +1252,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 		} catch (ex) {
+			Logger.error(ex, 'LocalGitProvider.pull');
 			if (PullError.is(ex)) {
 				void window.showErrorMessage(ex.message);
-				Logger.error(ex, 'LocalGitProvider.pull');
 			} else {
 				throw ex;
 			}
