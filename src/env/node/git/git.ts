@@ -9,7 +9,17 @@ import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';
 import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
 import { GitErrorHandling } from '../../../git/commandOptions';
-import { StashPushError, StashPushErrorReason, WorkspaceUntrustedError } from '../../../git/errors';
+import {
+	FetchError,
+	FetchErrorReason,
+	PullError,
+	PullErrorReason,
+	PushError,
+	PushErrorReason,
+	StashPushError,
+	StashPushErrorReason,
+	WorkspaceUntrustedError,
+} from '../../../git/errors';
 import type { GitDiffFilter } from '../../../git/models/diff';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/models/reference';
 import type { GitUser } from '../../../git/models/user';
@@ -64,6 +74,7 @@ export const GitErrors = {
 	conflict: /^CONFLICT \([^)]+\): \b/m,
 	noFastForward: /\(non-fast-forward\)/i,
 	noMergeBase: /no merge base/i,
+	noRemoteRepositorySpecified: /No remote repository specified\./i,
 	notAValidObjectName: /Not a valid object name/i,
 	noUserNameConfigured: /Please tell me who you are\./i,
 	invalidLineCount: /file .+? has only \d+ lines/i,
@@ -857,22 +868,6 @@ export class Git {
 		if (options.branch && options.remote) {
 			if (options.upstream && options.pull) {
 				params.push('-u', options.remote, `${options.upstream}:${options.branch}`);
-
-				try {
-					void (await this.git<string>({ cwd: repoPath }, ...params));
-					return;
-				} catch (ex) {
-					const msg: string = ex?.toString() ?? '';
-					if (GitErrors.noFastForward.test(msg)) {
-						void window.showErrorMessage(
-							`Unable to pull the '${options.branch}' branch, as it can't be fast-forwarded.`,
-						);
-
-						return;
-					}
-
-					throw ex;
-				}
 			} else {
 				params.push(
 					options.remote,
@@ -887,7 +882,21 @@ export class Git {
 			params.push('--all');
 		}
 
-		void (await this.git<string>({ cwd: repoPath }, ...params));
+		try {
+			void (await this.git<string>({ cwd: repoPath }, ...params));
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			let reason: FetchErrorReason = FetchErrorReason.Other;
+			if (GitErrors.noFastForward.test(msg)) {
+				reason = FetchErrorReason.NoFastForward;
+			} else if (GitErrors.noRemoteRepositorySpecified.test(msg)) {
+				reason = FetchErrorReason.NoRemote;
+			} else if (GitErrors.remoteConnection.test(msg)) {
+				reason = FetchErrorReason.RemoteConnection;
+			}
+
+			throw new FetchError(reason, ex, options?.branch, options?.remote);
+		}
 	}
 
 	async push(
@@ -916,26 +925,20 @@ export class Git {
 			void (await this.git<string>({ cwd: repoPath }, ...params));
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
-			let outputReason;
+			let reason: PushErrorReason = PushErrorReason.Other;
 			if (GitWarnings.tipBehind.test(msg)) {
-				outputReason = `as it is behind ${
-					options?.remote ?? 'its remote counterpart'
-				}. Try doing a pull first.`;
+				reason = PushErrorReason.TipBehind;
 			} else if (GitErrors.pushRejected.test(msg)) {
-				outputReason = `because some refs failed to push or the push was rejected.`;
+				reason = PushErrorReason.PushRejected;
 			} else if (GitErrors.permissionDenied.test(msg)) {
-				outputReason = `because you don't have permission to push to this remote repository.`;
+				reason = PushErrorReason.PermissionDenied;
 			} else if (GitErrors.remoteConnection.test(msg)) {
-				outputReason = `because the remote repository could not be reached.`;
+				reason = PushErrorReason.RemoteConnection;
 			} else if (GitErrors.noUpstream.test(msg)) {
-				outputReason = `because it has no upstream branch.`;
+				reason = PushErrorReason.NoUpstream;
 			}
 
-			if (outputReason) {
-				throw new Error(outputReason);
-			}
-
-			throw ex;
+			throw new PushError(reason, ex, options?.branch, options?.remote);
 		}
 	}
 
@@ -962,34 +965,30 @@ export class Git {
 			void (await this.git<string>({ cwd: repoPath }, ...params));
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
-			let outputReason;
+			let reason: PullErrorReason = PullErrorReason.Other;
 			if (GitErrors.conflict.test(msg)) {
-				outputReason = 'due to conflicts.';
+				reason = PullErrorReason.Conflict;
 			} else if (GitErrors.noUserNameConfigured.test(msg)) {
-				outputReason = 'because you have not yet set up your Git identity.';
+				reason = PullErrorReason.GitIdentity;
 			} else if (GitErrors.remoteConnection.test(msg)) {
-				outputReason = 'because the remote repository could not be reached.';
+				reason = PullErrorReason.RemoteConnection;
 			} else if (GitErrors.unstagedChanges.test(msg)) {
-				outputReason = 'because you have unstaged changes.';
+				reason = PullErrorReason.UnstagedChanges;
 			} else if (GitErrors.unmergedFiles.test(msg)) {
-				outputReason = 'because you have unmerged files.';
+				reason = PullErrorReason.UnmergedFiles;
 			} else if (GitErrors.commitChangesFirst.test(msg)) {
-				outputReason = 'because you have uncommitted changes.';
+				reason = PullErrorReason.UncommittedChanges;
 			} else if (GitErrors.changesWouldBeOverwritten.test(msg)) {
-				outputReason = 'because local changes to some files would be overwritten.';
+				reason = PullErrorReason.OverwrittenChanges;
 			} else if (GitErrors.cantLockRef.test(msg)) {
-				outputReason = 'because a local ref could not be updated.';
+				reason = PullErrorReason.RefLocked;
 			} else if (GitErrors.rebaseMultipleBranches.test(msg)) {
-				outputReason = 'because you are trying to rebase onto multiple branches.';
+				reason = PullErrorReason.RebaseMultipleBranches;
 			} else if (GitErrors.tagConflict.test(msg)) {
-				outputReason = 'because a local tag would be overwritten.';
+				reason = PullErrorReason.TagConflict;
 			}
 
-			if (outputReason) {
-				throw new Error(outputReason);
-			}
-
-			throw ex;
+			throw new PullError(reason, ex, options?.branch, options?.remote);
 		}
 	}
 
