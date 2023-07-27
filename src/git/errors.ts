@@ -83,12 +83,13 @@ export class StashPushError extends Error {
 }
 
 export const enum PushErrorReason {
-	TipBehind = 1,
-	PushRejected = 2,
-	PermissionDenied = 3,
-	RemoteConnection = 4,
-	NoUpstream = 5,
-	Other = 6,
+	RemoteAhead = 1,
+	TipBehind = 2,
+	PushRejected = 3,
+	PermissionDenied = 4,
+	RemoteConnection = 5,
+	NoUpstream = 6,
+	Other = 7,
 }
 
 export class PushError extends Error {
@@ -118,6 +119,9 @@ export class PushError extends Error {
 		} else {
 			reason = messageOrReason;
 			switch (reason) {
+				case PushErrorReason.RemoteAhead:
+					message = `${baseMessage} because the remote contains work that you do not have locally. Try doing a fetch first.`;
+					break;
 				case PushErrorReason.TipBehind:
 					message = `${baseMessage} as it is behind its remote counterpart. Try doing a pull first.`;
 					break;

@@ -86,6 +86,7 @@ export const GitErrors = {
 	permissionDenied: /Permission.*denied/i,
 	pushRejected: /^error: failed to push some refs to\b/m,
 	rebaseMultipleBranches: /cannot rebase onto multiple branches/i,
+	remoteAhead: /rejected because the remote contains work/i,
 	remoteConnection: /Could not read from remote repository/i,
 	tagConflict: /! \[rejected\].*\(would clobber existing tag\)/m,
 	unmergedFiles: /is not possible because you have unmerged files/i,
@@ -929,7 +930,9 @@ export class Git {
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			let reason: PushErrorReason = PushErrorReason.Other;
-			if (GitWarnings.tipBehind.test(msg) || GitWarnings.tipBehind.test(ex.stderr ?? '')) {
+			if (GitErrors.remoteAhead.test(msg) || GitErrors.remoteAhead.test(ex.stderr ?? '')) {
+				reason = PushErrorReason.RemoteAhead;
+			} else if (GitWarnings.tipBehind.test(msg) || GitWarnings.tipBehind.test(ex.stderr ?? '')) {
 				reason = PushErrorReason.TipBehind;
 			} else if (GitErrors.pushRejected.test(msg) || GitErrors.pushRejected.test(ex.stderr ?? '')) {
 				reason = PushErrorReason.PushRejected;
