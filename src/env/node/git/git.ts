@@ -108,7 +108,7 @@ const GitWarnings = {
 	noRemoteRepositorySpecified: /No remote repository specified\./i,
 	remoteConnectionError: /Could not read from remote repository/i,
 	notAGitCommand: /'.+' is not a git command/i,
-	tipBehind: /is behind its remote counterpart/i,
+	tipBehind: /tip of your current branch is behind/i,
 };
 
 function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [number, number]): string {
@@ -887,11 +887,14 @@ export class Git {
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			let reason: FetchErrorReason = FetchErrorReason.Other;
-			if (GitErrors.noFastForward.test(msg)) {
+			if (GitErrors.noFastForward.test(msg) || GitErrors.noFastForward.test(ex.stderr ?? '')) {
 				reason = FetchErrorReason.NoFastForward;
-			} else if (GitErrors.noRemoteRepositorySpecified.test(msg)) {
+			} else if (
+				GitErrors.noRemoteRepositorySpecified.test(msg) ||
+				GitErrors.noRemoteRepositorySpecified.test(ex.stderr ?? '')
+			) {
 				reason = FetchErrorReason.NoRemote;
-			} else if (GitErrors.remoteConnection.test(msg)) {
+			} else if (GitErrors.remoteConnection.test(msg) || GitErrors.remoteConnection.test(ex.stderr ?? '')) {
 				reason = FetchErrorReason.RemoteConnection;
 			}
 
@@ -926,15 +929,15 @@ export class Git {
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			let reason: PushErrorReason = PushErrorReason.Other;
-			if (GitWarnings.tipBehind.test(msg)) {
+			if (GitWarnings.tipBehind.test(msg) || GitWarnings.tipBehind.test(ex.stderr ?? '')) {
 				reason = PushErrorReason.TipBehind;
-			} else if (GitErrors.pushRejected.test(msg)) {
+			} else if (GitErrors.pushRejected.test(msg) || GitErrors.pushRejected.test(ex.stderr ?? '')) {
 				reason = PushErrorReason.PushRejected;
-			} else if (GitErrors.permissionDenied.test(msg)) {
+			} else if (GitErrors.permissionDenied.test(msg) || GitErrors.permissionDenied.test(ex.stderr ?? '')) {
 				reason = PushErrorReason.PermissionDenied;
-			} else if (GitErrors.remoteConnection.test(msg)) {
+			} else if (GitErrors.remoteConnection.test(msg) || GitErrors.remoteConnection.test(ex.stderr ?? '')) {
 				reason = PushErrorReason.RemoteConnection;
-			} else if (GitErrors.noUpstream.test(msg)) {
+			} else if (GitErrors.noUpstream.test(msg) || GitErrors.noUpstream.test(ex.stderr ?? '')) {
 				reason = PushErrorReason.NoUpstream;
 			}
 
@@ -966,25 +969,34 @@ export class Git {
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			let reason: PullErrorReason = PullErrorReason.Other;
-			if (GitErrors.conflict.test(msg)) {
+			if (GitErrors.conflict.test(msg) || GitErrors.conflict.test(ex.stdout ?? '')) {
 				reason = PullErrorReason.Conflict;
-			} else if (GitErrors.noUserNameConfigured.test(msg)) {
+			} else if (
+				GitErrors.noUserNameConfigured.test(msg) ||
+				GitErrors.noUserNameConfigured.test(ex.stderr ?? '')
+			) {
 				reason = PullErrorReason.GitIdentity;
-			} else if (GitErrors.remoteConnection.test(msg)) {
+			} else if (GitErrors.remoteConnection.test(msg) || GitErrors.remoteConnection.test(ex.stderr ?? '')) {
 				reason = PullErrorReason.RemoteConnection;
-			} else if (GitErrors.unstagedChanges.test(msg)) {
+			} else if (GitErrors.unstagedChanges.test(msg) || GitErrors.unstagedChanges.test(ex.stderr ?? '')) {
 				reason = PullErrorReason.UnstagedChanges;
-			} else if (GitErrors.unmergedFiles.test(msg)) {
+			} else if (GitErrors.unmergedFiles.test(msg) || GitErrors.unmergedFiles.test(ex.stderr ?? '')) {
 				reason = PullErrorReason.UnmergedFiles;
-			} else if (GitErrors.commitChangesFirst.test(msg)) {
+			} else if (GitErrors.commitChangesFirst.test(msg) || GitErrors.commitChangesFirst.test(ex.stderr ?? '')) {
 				reason = PullErrorReason.UncommittedChanges;
-			} else if (GitErrors.changesWouldBeOverwritten.test(msg)) {
+			} else if (
+				GitErrors.changesWouldBeOverwritten.test(msg) ||
+				GitErrors.changesWouldBeOverwritten.test(ex.stderr ?? '')
+			) {
 				reason = PullErrorReason.OverwrittenChanges;
-			} else if (GitErrors.cantLockRef.test(msg)) {
+			} else if (GitErrors.cantLockRef.test(msg) || GitErrors.cantLockRef.test(ex.stderr ?? '')) {
 				reason = PullErrorReason.RefLocked;
-			} else if (GitErrors.rebaseMultipleBranches.test(msg)) {
+			} else if (
+				GitErrors.rebaseMultipleBranches.test(msg) ||
+				GitErrors.rebaseMultipleBranches.test(ex.stderr ?? '')
+			) {
 				reason = PullErrorReason.RebaseMultipleBranches;
-			} else if (GitErrors.tagConflict.test(msg)) {
+			} else if (GitErrors.tagConflict.test(msg) || GitErrors.tagConflict.test(ex.stderr ?? '')) {
 				reason = PullErrorReason.TagConflict;
 			}
 
