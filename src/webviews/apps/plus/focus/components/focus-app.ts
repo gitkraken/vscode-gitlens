@@ -98,6 +98,26 @@ export class GlFocusApp extends LitElement {
 		return items;
 	}
 
+	get tabFilterOptionsWithCounts() {
+		const counts: Record<string, number> = {};
+		this.tabFilters.forEach(f => (counts[f] = 0));
+
+		this.items.forEach(({ reasons }) => {
+			reasons.forEach(r => {
+				if (counts[r] != null) {
+					counts[r]++;
+				}
+			});
+		});
+
+		return this.tabFilterOptions.map(o => {
+			return {
+				...o,
+				count: o.value === '' ? this.items.length : counts[o.value],
+			};
+		});
+	}
+
 	get filteredItems() {
 		if (this.items.length === 0) {
 			return this.items;
@@ -138,6 +158,37 @@ export class GlFocusApp extends LitElement {
 			<div class="alert">
 				<span class="alert__content"><code-icon modifier="spin" icon="loading"></code-icon> Loading</span>
 			</div>
+		`;
+	}
+
+	focusItemsContent() {
+		if (this.isLoading) {
+			return this.loadingContent();
+		}
+
+		if (this.filteredItems.length === 0) {
+			return html`
+				<div class="alert">
+					<span class="alert__content">None found</span>
+				</div>
+			`;
+		}
+
+		return html`
+			${repeat(
+				this.filteredItems,
+				item => item.rank,
+				({ isPullrequest, rank, state }) =>
+					when(
+						isPullrequest,
+						() =>
+							html`<gk-pull-request-row
+								.rank=${rank}
+								.pullRequest=${state.pullRequest}
+							></gk-pull-request-row>`,
+						() => html`<gk-issue-row .rank=${rank} .issue=${state.issue}></gk-issue-row>`,
+					),
+			)}
 		`;
 	}
 
@@ -193,8 +244,8 @@ export class GlFocusApp extends LitElement {
 							<div class="app__header-group">
 								<nav class="tab-filter" id="filter-focus-items">
 									${map(
-										this.tabFilterOptions,
-										({ label, value }, i) => html`
+										this.tabFilterOptionsWithCounts,
+										({ label, value, count }, i) => html`
 											<button
 												class="tab-filter__tab ${(
 													this.selectedTabFilter ? value === this.selectedTabFilter : i === 0
@@ -205,7 +256,7 @@ export class GlFocusApp extends LitElement {
 												data-tab="${value}"
 												@click=${() => (this.selectedTabFilter = value)}
 											>
-												${label}
+												${label} <gk-badge variant="filled">${count}</gk-badge>
 											</button>
 										`,
 									)}
@@ -224,41 +275,7 @@ export class GlFocusApp extends LitElement {
 							</div>
 						</header>
 						<main class="app__main">
-							<gk-focus-container id="list-focus-items">
-								${when(
-									this.isLoading,
-									() => this.loadingContent(),
-									() =>
-										when(
-											this.filteredItems.length > 0,
-											() => html`
-												${repeat(
-													this.filteredItems,
-													item => item.rank,
-													({ isPullrequest, rank, state }) =>
-														when(
-															isPullrequest,
-															() =>
-																html`<gk-pull-request-row
-																	.rank=${rank}
-																	.pullRequest=${state.pullRequest}
-																></gk-pull-request-row>`,
-															() =>
-																html`<gk-issue-row
-																	.rank=${rank}
-																	.issue=${state.issue}
-																></gk-issue-row>`,
-														),
-												)}
-											`,
-											() => html`
-												<div class="alert">
-													<span class="alert__content">None found</span>
-												</div>
-											`,
-										),
-								)}
-							</gk-focus-container>
+							<gk-focus-container id="list-focus-items">${this.focusItemsContent()}</gk-focus-container>
 						</main>
 					</div>
 				</div>
