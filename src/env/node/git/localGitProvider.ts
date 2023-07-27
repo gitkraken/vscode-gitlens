@@ -80,6 +80,7 @@ import type { GitRebaseStatus } from '../../../git/models/rebase';
 import type { GitBranchReference } from '../../../git/models/reference';
 import {
 	createReference,
+	getBranchTrackingWithoutRemote,
 	getReferenceFromBranch,
 	isBranchReference,
 	isRevisionRange,
@@ -88,6 +89,7 @@ import {
 	isUncommitted,
 	isUncommittedStaged,
 	shortenRevision,
+	splitRefNameAndRemote,
 } from '../../../git/models/reference';
 import type { GitReflog } from '../../../git/models/reflog';
 import { getRemoteIconUri, getVisibilityCacheKey, GitRemote } from '../../../git/models/remote';
@@ -1157,16 +1159,16 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		options?: { all?: boolean; branch?: GitBranchReference; prune?: boolean; pull?: boolean; remote?: string },
 	): Promise<void> {
-		const { branch: branchRef, ...opts } = options ?? {};
-		if (isBranchReference(branchRef)) {
-			const repo = this.container.git.getRepository(repoPath);
-			const branch = await repo?.getBranch(branchRef?.name);
+		const { branch, ...opts } = options ?? {};
+		if (isBranchReference(branch)) {
 			if (!branch?.remote && branch?.upstream == null) return undefined;
 
+			const [branchName, remoteName] = splitRefNameAndRemote(branch);
+
 			await this.git.fetch(repoPath, {
-				branch: branch.getNameWithoutRemote(),
-				remote: branch.getRemoteName()!,
-				upstream: branch.getTrackingWithoutRemote()!,
+				branch: branchName,
+				remote: remoteName!,
+				upstream: getBranchTrackingWithoutRemote(branch)!,
 				pull: options?.pull,
 			});
 		} else {
@@ -1181,21 +1183,21 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		options?: { branch?: GitBranchReference; force?: boolean; publish?: { remote: string } },
 	): Promise<void> {
-		const { branch: branchRef } = options ?? {};
-		const repo = this.container.git.getRepository(repoPath);
-		let branch;
-		if (isBranchReference(branchRef)) {
-			branch = await repo?.getBranch(branchRef?.name);
-		} else {
-			branch = await repo?.getBranch();
+		let branch = options?.branch;
+		if (!isBranchReference(branch)) {
+			branch = await this.getBranch(repoPath);
+			if (branch == null) return undefined;
 		}
-		if (branch == null) return undefined;
-		if (options?.publish == null && branch.getRemoteName() == null && branch.upstream == null) return undefined;
+
+		const [branchName, remoteName] = splitRefNameAndRemote(branch);
+		if (options?.publish == null && remoteName == null && branch.upstream == null) {
+			return undefined;
+		}
 
 		await this.git.push(repoPath, {
-			branch: branch.getNameWithoutRemote(),
-			remote: options?.publish ? options.publish.remote : branch.getRemoteName(),
-			upstream: branch.getTrackingWithoutRemote(),
+			branch: branchName,
+			remote: options?.publish ? options.publish.remote : remoteName,
+			upstream: getBranchTrackingWithoutRemote(branch),
 			force: options?.force,
 			publish: options?.publish != null,
 		});
@@ -1209,20 +1211,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		options?: { branch?: GitBranchReference; rebase?: boolean; tags?: boolean },
 	): Promise<void> {
-		const { branch: branchRef } = options ?? {};
-		const repo = this.container.git.getRepository(repoPath);
-		let branch;
-		if (isBranchReference(branchRef)) {
-			branch = await repo?.getBranch(branchRef?.name);
-		} else {
-			branch = await repo?.getBranch();
+		let branch = options?.branch;
+		if (!isBranchReference(branch)) {
+			branch = await this.getBranch(repoPath);
+			if (branch == null) return undefined;
 		}
-		if (branch == null) return undefined;
-		if (branch.getRemoteName() == null && branch.upstream == null) return undefined;
+
+		const [branchName, remoteName] = splitRefNameAndRemote(branch);
+		if (remoteName == null && branch.upstream == null) return undefined;
 
 		await this.git.pull(repoPath, {
-			branch: branch.getNameWithoutRemote(),
-			remote: branch.getRemoteName(),
+			branch: branchName,
+			remote: remoteName,
 			rebase: options?.rebase,
 			tags: options?.tags,
 		});
