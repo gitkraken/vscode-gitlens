@@ -163,6 +163,22 @@ export interface GitProvider extends Disposable {
 			remote?: string | undefined;
 		},
 	): Promise<void>;
+	pull(
+		repoPath: string,
+		options?: {
+			branch?: GitBranchReference | undefined;
+			rebase?: boolean | undefined;
+			tags?: boolean | undefined;
+		},
+	): Promise<void>;
+	push(
+		repoPath: string,
+		options?: {
+			branch?: GitBranchReference | undefined;
+			force?: boolean | undefined;
+			publish?: { remote: string };
+		},
+	): Promise<void>;
 	findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined>;
 	getAheadBehindCommitCount(repoPath: string, refs: string[]): Promise<{ ahead: number; behind: number } | undefined>;
 	/**

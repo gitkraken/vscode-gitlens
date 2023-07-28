@@ -600,6 +600,7 @@ export type CoreGitConfiguration =
 	| 'git.enabled'
 	| 'git.fetchOnPull'
 	| 'git.path'
+	| 'git.pullTags'
 	| 'git.repositoryScanIgnoredFolders'
 	| 'git.repositoryScanMaxDepth'
 	| 'git.useForcePushWithLease';

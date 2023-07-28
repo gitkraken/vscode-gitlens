@@ -11,7 +11,7 @@ import type { RemoteProvider } from '../remotes/remoteProvider';
 import type { RichRemoteProvider } from '../remotes/richRemoteProvider';
 import type { PullRequest, PullRequestState } from './pullRequest';
 import type { GitBranchReference, GitReference } from './reference';
-import { shortenRevision } from './reference';
+import { getBranchTrackingWithoutRemote, shortenRevision } from './reference';
 import type { GitRemote } from './remote';
 import type { Repository } from './repository';
 import { getUpstreamStatus } from './status';
@@ -139,7 +139,7 @@ export class GitBranch implements GitBranchReference {
 
 	@memoize()
 	getTrackingWithoutRemote(): string | undefined {
-		return this.upstream?.name.substring(getRemoteNameSlashIndex(this.upstream.name) + 1);
+		return getBranchTrackingWithoutRemote(this);
 	}
 
 	@memoize()
@@ -220,7 +220,7 @@ export function formatDetachedHeadName(sha: string): string {
 	return `(${shortenRevision(sha)}...)`;
 }
 
-function getRemoteNameSlashIndex(name: string): number {
+export function getRemoteNameSlashIndex(name: string): number {
 	return name.startsWith('remotes/') ? name.indexOf('/', 8) : name.indexOf('/');
 }
 

@@ -486,6 +486,18 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		_options?: { all?: boolean; branch?: GitBranchReference; prune?: boolean; pull?: boolean; remote?: string },
 	): Promise<void> {}
 
+	@log()
+	async pull(
+		_repoPath: string,
+		_options?: { branch?: GitBranchReference; rebase?: boolean; tags?: boolean },
+	): Promise<void> {}
+
+	@log()
+	async push(
+		_repoPath: string,
+		_options?: { branch?: GitBranchReference; force?: boolean; publish?: { remote: string } },
+	): Promise<void> {}
+
 	@gate()
 	@debug()
 	async findRepositoryUri(uri: Uri, _isDirectory?: boolean): Promise<Uri | undefined> {
