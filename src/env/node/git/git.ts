@@ -9,7 +9,17 @@ import { hrtime } from '@env/hrtime';
 import { GlyphChars } from '../../../constants';
 import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
 import { GitErrorHandling } from '../../../git/commandOptions';
-import { StashPushError, StashPushErrorReason, WorkspaceUntrustedError } from '../../../git/errors';
+import {
+	FetchError,
+	FetchErrorReason,
+	PullError,
+	PullErrorReason,
+	PushError,
+	PushErrorReason,
+	StashPushError,
+	StashPushErrorReason,
+	WorkspaceUntrustedError,
+} from '../../../git/errors';
 import type { GitDiffFilter } from '../../../git/models/diff';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/models/reference';
 import type { GitUser } from '../../../git/models/user';
@@ -58,14 +68,29 @@ const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
 export const GitErrors = {
 	badRevision: /bad revision '(.*?)'/i,
+	cantLockRef: /cannot lock ref|unable to update local ref/i,
+	changesWouldBeOverwritten: /Your local changes to the following files would be overwritten/i,
+	commitChangesFirst: /Please, commit your changes before you can/i,
+	conflict: /^CONFLICT \([^)]+\): \b/m,
 	noFastForward: /\(non-fast-forward\)/i,
 	noMergeBase: /no merge base/i,
+	noRemoteRepositorySpecified: /No remote repository specified\./i,
 	notAValidObjectName: /Not a valid object name/i,
+	noUserNameConfigured: /Please tell me who you are\./i,
 	invalidLineCount: /file .+? has only \d+ lines/i,
 	uncommittedChanges: /contains modified or untracked files/i,
 	alreadyExists: /already exists/i,
 	alreadyCheckedOut: /already checked out/i,
 	mainWorkingTree: /is a main working tree/i,
+	noUpstream: /^fatal: The current branch .* has no upstream branch/i,
+	permissionDenied: /Permission.*denied/i,
+	pushRejected: /^error: failed to push some refs to\b/m,
+	rebaseMultipleBranches: /cannot rebase onto multiple branches/i,
+	remoteAhead: /rejected because the remote contains work/i,
+	remoteConnection: /Could not read from remote repository/i,
+	tagConflict: /! \[rejected\].*\(would clobber existing tag\)/m,
+	unmergedFiles: /is not possible because you have unmerged files/i,
+	unstagedChanges: /You have unstaged changes/i,
 };
 
 const GitWarnings = {
@@ -84,6 +109,7 @@ const GitWarnings = {
 	noRemoteRepositorySpecified: /No remote repository specified\./i,
 	remoteConnectionError: /Could not read from remote repository/i,
 	notAGitCommand: /'.+' is not a git command/i,
+	tipBehind: /tip of your current branch is behind/i,
 };
 
 function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [number, number]): string {
@@ -824,7 +850,7 @@ export class Git {
 	async fetch(
 		repoPath: string,
 		options:
-			| { all?: boolean; branch?: undefined; prune?: boolean; remote?: string }
+			| { all?: boolean; branch?: undefined; prune?: boolean; pull?: boolean; remote?: string }
 			| {
 					all?: undefined;
 					branch: string;
@@ -843,22 +869,6 @@ export class Git {
 		if (options.branch && options.remote) {
 			if (options.upstream && options.pull) {
 				params.push('-u', options.remote, `${options.upstream}:${options.branch}`);
-
-				try {
-					void (await this.git<string>({ cwd: repoPath }, ...params));
-					return;
-				} catch (ex) {
-					const msg: string = ex?.toString() ?? '';
-					if (GitErrors.noFastForward.test(msg)) {
-						void window.showErrorMessage(
-							`Unable to pull the '${options.branch}' branch, as it can't be fast-forwarded.`,
-						);
-
-						return;
-					}
-
-					throw ex;
-				}
 			} else {
 				params.push(
 					options.remote,
@@ -873,7 +883,128 @@ export class Git {
 			params.push('--all');
 		}
 
-		void (await this.git<string>({ cwd: repoPath }, ...params));
+		try {
+			void (await this.git<string>({ cwd: repoPath }, ...params));
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			let reason: FetchErrorReason = FetchErrorReason.Other;
+			if (GitErrors.noFastForward.test(msg) || GitErrors.noFastForward.test(ex.stderr ?? '')) {
+				reason = FetchErrorReason.NoFastForward;
+			} else if (
+				GitErrors.noRemoteRepositorySpecified.test(msg) ||
+				GitErrors.noRemoteRepositorySpecified.test(ex.stderr ?? '')
+			) {
+				reason = FetchErrorReason.NoRemote;
+			} else if (GitErrors.remoteConnection.test(msg) || GitErrors.remoteConnection.test(ex.stderr ?? '')) {
+				reason = FetchErrorReason.RemoteConnection;
+			}
+
+			throw new FetchError(reason, ex, options?.branch, options?.remote);
+		}
+	}
+
+	async push(
+		repoPath: string,
+		options: { branch?: string; force?: boolean; publish?: boolean; remote?: string; upstream?: string },
+	): Promise<void> {
+		const params = ['push'];
+
+		if (options.force) {
+			params.push('--force');
+		}
+
+		if (options.branch && options.remote) {
+			if (options.upstream) {
+				params.push('-u', options.remote, `${options.upstream}:${options.branch}`);
+			} else if (options.publish) {
+				params.push('--set-upstream', options.remote, options.branch);
+			} else {
+				params.push(options.remote, options.branch);
+			}
+		} else if (options.remote) {
+			params.push(options.remote);
+		}
+
+		try {
+			void (await this.git<string>({ cwd: repoPath }, ...params));
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			let reason: PushErrorReason = PushErrorReason.Other;
+			if (GitErrors.remoteAhead.test(msg) || GitErrors.remoteAhead.test(ex.stderr ?? '')) {
+				reason = PushErrorReason.RemoteAhead;
+			} else if (GitWarnings.tipBehind.test(msg) || GitWarnings.tipBehind.test(ex.stderr ?? '')) {
+				reason = PushErrorReason.TipBehind;
+			} else if (GitErrors.pushRejected.test(msg) || GitErrors.pushRejected.test(ex.stderr ?? '')) {
+				reason = PushErrorReason.PushRejected;
+			} else if (GitErrors.permissionDenied.test(msg) || GitErrors.permissionDenied.test(ex.stderr ?? '')) {
+				reason = PushErrorReason.PermissionDenied;
+			} else if (GitErrors.remoteConnection.test(msg) || GitErrors.remoteConnection.test(ex.stderr ?? '')) {
+				reason = PushErrorReason.RemoteConnection;
+			} else if (GitErrors.noUpstream.test(msg) || GitErrors.noUpstream.test(ex.stderr ?? '')) {
+				reason = PushErrorReason.NoUpstream;
+			}
+
+			throw new PushError(reason, ex, options?.branch, options?.remote);
+		}
+	}
+
+	async pull(
+		repoPath: string,
+		options: { branch?: string; remote?: string; rebase?: boolean; tags?: boolean },
+	): Promise<void> {
+		const params = ['pull'];
+
+		if (options.tags) {
+			params.push('--tags');
+		}
+
+		if (options.rebase) {
+			params.push('-r');
+		}
+
+		if (options.remote && options.branch) {
+			params.push(options.remote);
+			params.push(options.branch);
+		}
+
+		try {
+			void (await this.git<string>({ cwd: repoPath }, ...params));
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			let reason: PullErrorReason = PullErrorReason.Other;
+			if (GitErrors.conflict.test(msg) || GitErrors.conflict.test(ex.stdout ?? '')) {
+				reason = PullErrorReason.Conflict;
+			} else if (
+				GitErrors.noUserNameConfigured.test(msg) ||
+				GitErrors.noUserNameConfigured.test(ex.stderr ?? '')
+			) {
+				reason = PullErrorReason.GitIdentity;
+			} else if (GitErrors.remoteConnection.test(msg) || GitErrors.remoteConnection.test(ex.stderr ?? '')) {
+				reason = PullErrorReason.RemoteConnection;
+			} else if (GitErrors.unstagedChanges.test(msg) || GitErrors.unstagedChanges.test(ex.stderr ?? '')) {
+				reason = PullErrorReason.UnstagedChanges;
+			} else if (GitErrors.unmergedFiles.test(msg) || GitErrors.unmergedFiles.test(ex.stderr ?? '')) {
+				reason = PullErrorReason.UnmergedFiles;
+			} else if (GitErrors.commitChangesFirst.test(msg) || GitErrors.commitChangesFirst.test(ex.stderr ?? '')) {
+				reason = PullErrorReason.UncommittedChanges;
+			} else if (
+				GitErrors.changesWouldBeOverwritten.test(msg) ||
+				GitErrors.changesWouldBeOverwritten.test(ex.stderr ?? '')
+			) {
+				reason = PullErrorReason.OverwrittenChanges;
+			} else if (GitErrors.cantLockRef.test(msg) || GitErrors.cantLockRef.test(ex.stderr ?? '')) {
+				reason = PullErrorReason.RefLocked;
+			} else if (
+				GitErrors.rebaseMultipleBranches.test(msg) ||
+				GitErrors.rebaseMultipleBranches.test(ex.stderr ?? '')
+			) {
+				reason = PullErrorReason.RebaseMultipleBranches;
+			} else if (GitErrors.tagConflict.test(msg) || GitErrors.tagConflict.test(ex.stderr ?? '')) {
+				reason = PullErrorReason.TagConflict;
+			}
+
+			throw new PullError(reason, ex, options?.branch, options?.remote);
+		}
 	}
 
 	for_each_ref__branch(repoPath: string, options: { all: boolean } = { all: false }) {

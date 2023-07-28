@@ -21,7 +21,10 @@ import { emojify } from '../../../emojis';
 import { Features } from '../../../features';
 import { GitErrorHandling } from '../../../git/commandOptions';
 import {
+	FetchError,
 	GitSearchError,
+	PullError,
+	PushError,
 	StashApplyError,
 	StashApplyErrorReason,
 	WorktreeCreateError,
@@ -80,6 +83,7 @@ import type { GitRebaseStatus } from '../../../git/models/rebase';
 import type { GitBranchReference } from '../../../git/models/reference';
 import {
 	createReference,
+	getBranchTrackingWithoutRemote,
 	getReferenceFromBranch,
 	isBranchReference,
 	isRevisionRange,
@@ -88,6 +92,7 @@ import {
 	isUncommitted,
 	isUncommittedStaged,
 	shortenRevision,
+	splitRefNameAndRemote,
 } from '../../../git/models/reference';
 import type { GitReflog } from '../../../git/models/reflog';
 import { getRemoteIconUri, getVisibilityCacheKey, GitRemote } from '../../../git/models/remote';
@@ -1157,22 +1162,103 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		options?: { all?: boolean; branch?: GitBranchReference; prune?: boolean; pull?: boolean; remote?: string },
 	): Promise<void> {
-		const { branch: branchRef, ...opts } = options ?? {};
-		if (isBranchReference(branchRef)) {
-			const repo = this.container.git.getRepository(repoPath);
-			const branch = await repo?.getBranch(branchRef?.name);
-			if (!branch?.remote && branch?.upstream == null) return undefined;
+		const { branch, ...opts } = options ?? {};
+		try {
+			if (isBranchReference(branch)) {
+				if (!branch?.remote && branch?.upstream == null) return undefined;
 
-			await this.git.fetch(repoPath, {
-				branch: branch.getNameWithoutRemote(),
-				remote: branch.getRemoteName()!,
-				upstream: branch.getTrackingWithoutRemote()!,
-				pull: options?.pull,
-			});
-		} else {
-			await this.git.fetch(repoPath, opts);
+				const [branchName, remoteName] = splitRefNameAndRemote(branch);
+
+				await this.git.fetch(repoPath, {
+					branch: branchName,
+					remote: remoteName!,
+					upstream: getBranchTrackingWithoutRemote(branch)!,
+					pull: options?.pull,
+				});
+			} else {
+				await this.git.fetch(repoPath, opts);
+			}
+
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
+		} catch (ex) {
+			Logger.error(ex, 'LocalGitProvider.fetch');
+			if (FetchError.is(ex)) {
+				void window.showErrorMessage(ex.message);
+			} else {
+				throw ex;
+			}
 		}
-		this.container.events.fire('git:cache:reset', { repoPath: repoPath });
+	}
+
+	@gate()
+	@log()
+	async push(
+		repoPath: string,
+		options?: { branch?: GitBranchReference; force?: boolean; publish?: { remote: string } },
+	): Promise<void> {
+		let branch = options?.branch;
+		if (!isBranchReference(branch)) {
+			branch = await this.getBranch(repoPath);
+			if (branch == null) return undefined;
+		}
+
+		const [branchName, remoteName] = splitRefNameAndRemote(branch);
+		if (options?.publish == null && remoteName == null && branch.upstream == null) {
+			return undefined;
+		}
+
+		try {
+			await this.git.push(repoPath, {
+				branch: branchName,
+				remote: options?.publish ? options.publish.remote : remoteName,
+				upstream: getBranchTrackingWithoutRemote(branch),
+				force: options?.force,
+				publish: options?.publish != null,
+			});
+
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
+		} catch (ex) {
+			Logger.error(ex, 'LocalGitProvider.push');
+			if (PushError.is(ex)) {
+				void window.showErrorMessage(ex.message);
+			} else {
+				throw ex;
+			}
+		}
+	}
+
+	@gate()
+	@log()
+	async pull(
+		repoPath: string,
+		options?: { branch?: GitBranchReference; rebase?: boolean; tags?: boolean },
+	): Promise<void> {
+		let branch = options?.branch;
+		if (!isBranchReference(branch)) {
+			branch = await this.getBranch(repoPath);
+			if (branch == null) return undefined;
+		}
+
+		const [branchName, remoteName] = splitRefNameAndRemote(branch);
+		if (remoteName == null && branch.upstream == null) return undefined;
+
+		try {
+			await this.git.pull(repoPath, {
+				branch: branchName,
+				remote: remoteName,
+				rebase: options?.rebase,
+				tags: options?.tags,
+			});
+
+			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
+		} catch (ex) {
+			Logger.error(ex, 'LocalGitProvider.pull');
+			if (PullError.is(ex)) {
+				void window.showErrorMessage(ex.message);
+			} else {
+				throw ex;
+			}
+		}
 	}
 
 	private readonly toCanonicalMap = new Map<string, Uri>();
