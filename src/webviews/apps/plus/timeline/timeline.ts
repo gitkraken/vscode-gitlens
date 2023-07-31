@@ -155,7 +155,7 @@ export class TimelineApp extends App<State> {
 			}
 		}
 
-		this._chart.updateChart(this.state).finally(() => this.updateLoading(false));
+		void this._chart.updateChart(this.state).finally(() => this.updateLoading(false));
 	}
 
 	private updateLoading(loading: boolean) {
