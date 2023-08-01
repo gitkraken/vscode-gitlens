@@ -5280,8 +5280,8 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.showOnlyChangedFiles",
-				"title": "Show Only Changed Files",
+				"command": "gitlens.openOnlyChangedFiles",
+				"title": "Open Changed & Close Unchanged Files",
 				"category": "GitLens"
 			},
 			{
@@ -5873,8 +5873,8 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.views.showOnlyChangedFiles",
-				"title": "Show Only Changed Files",
+				"command": "gitlens.views.openOnlyChangedFiles",
+				"title": "Open Changed & Close Unchanged Files",
 				"category": "GitLens"
 			},
 			{
@@ -7459,8 +7459,8 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.graph.showOnlyChangedFiles",
-				"title": "Show Only Changed Files",
+				"command": "gitlens.graph.openOnlyChangedFiles",
+				"title": "Open Changed & Close Unchanged Files",
 				"category": "GitLens"
 			},
 			{
@@ -8401,7 +8401,7 @@
 					"when": "gitlens:enabled"
 				},
 				{
-					"command": "gitlens.showOnlyChangedFiles",
+					"command": "gitlens.openOnlyChangedFiles",
 					"when": "gitlens:enabled"
 				},
 				{
@@ -8781,7 +8781,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.showOnlyChangedFiles",
+					"command": "gitlens.views.openOnlyChangedFiles",
 					"when": "false"
 				},
 				{
@@ -9877,7 +9877,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.graph.showOnlyChangedFiles",
+					"command": "gitlens.graph.openOnlyChangedFiles",
 					"when": "false"
 				},
 				{
@@ -10409,7 +10409,7 @@
 					"group": "3_gitlens@2"
 				},
 				{
-					"command": "gitlens.showOnlyChangedFiles",
+					"command": "gitlens.openOnlyChangedFiles",
 					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.openClose",
 					"group": "3_gitlens@2"
 				}
@@ -13144,7 +13144,7 @@
 					"group": "2_gitlens@2"
 				},
 				{
-					"command": "gitlens.views.showOnlyChangedFiles",
+					"command": "gitlens.views.openOnlyChangedFiles",
 					"group": "2_gitlens@3"
 				}
 			],
@@ -13167,7 +13167,7 @@
 					"group": "2_gitlens@2"
 				},
 				{
-					"command": "gitlens.graph.showOnlyChangedFiles",
+					"command": "gitlens.graph.openOnlyChangedFiles",
 					"group": "2_gitlens@3"
 				}
 			],

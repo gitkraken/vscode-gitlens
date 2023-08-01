@@ -63,7 +63,7 @@ import {
 	CommitOpenRevisionsCommandQuickPickItem,
 	CommitRestoreFileChangesCommandQuickPickItem,
 	OpenChangedFilesCommandQuickPickItem,
-	ShowOnlyChangedFilesCommandQuickPickItem,
+	OpenOnlyChangedFilesCommandQuickPickItem,
 } from '../quickpicks/items/commits';
 import type { QuickPickSeparator } from '../quickpicks/items/common';
 import { CommandQuickPickItem, createQuickPickSeparator } from '../quickpicks/items/common';
@@ -2388,7 +2388,7 @@ function getShowRepositoryStatusStepItems<
 		);
 
 		items.push(
-			new ShowOnlyChangedFilesCommandQuickPickItem(
+			new OpenOnlyChangedFilesCommandQuickPickItem(
 				computed.stagedAddsAndChanges.concat(computed.unstagedAddsAndChanges),
 			),
 		);
@@ -2402,8 +2402,8 @@ function getShowRepositoryStatusStepItems<
 		);
 
 		items.push(
-			new ShowOnlyChangedFilesCommandQuickPickItem(computed.stagedAddsAndChanges, {
-				label: '$(files) Show Only Staged Files',
+			new OpenOnlyChangedFilesCommandQuickPickItem(computed.stagedAddsAndChanges, {
+				label: '$(files) Open Only Staged Files',
 			}),
 		);
 	}
@@ -2416,8 +2416,8 @@ function getShowRepositoryStatusStepItems<
 		);
 
 		items.push(
-			new ShowOnlyChangedFilesCommandQuickPickItem(computed.unstagedAddsAndChanges, {
-				label: '$(files) Show Only Unstaged Files',
+			new OpenOnlyChangedFilesCommandQuickPickItem(computed.unstagedAddsAndChanges, {
+				label: '$(files) Open Only Unstaged Files',
 			}),
 		);
 	}

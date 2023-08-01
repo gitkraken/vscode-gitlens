@@ -5,8 +5,8 @@ import type {
 	DiffWithPreviousCommandArgs,
 	DiffWithWorkingCommandArgs,
 	OpenFileOnRemoteCommandArgs,
+	OpenOnlyChangedFilesCommandArgs,
 	OpenWorkingFileCommandArgs,
-	ShowOnlyChangedFilesCommandArgs,
 	ShowQuickCommitCommandArgs,
 	ShowQuickCommitFileCommandArgs,
 } from '../../commands';
@@ -612,7 +612,7 @@ export async function showInCommitGraph(
 	}));
 }
 
-export async function showOnlyChangedFiles(commit: GitCommit): Promise<void> {
+export async function openOnlyChangedFiles(commit: GitCommit): Promise<void> {
 	await commit.ensureFullDetails();
 
 	const files = commit.files ?? [];
@@ -626,7 +626,7 @@ export async function showOnlyChangedFiles(commit: GitCommit): Promise<void> {
 		if (result == null || result.title === 'No') return;
 	}
 
-	void (await executeCommand<ShowOnlyChangedFilesCommandArgs>(Commands.ShowOnlyChangedFiles, {
+	void (await executeCommand<OpenOnlyChangedFilesCommandArgs>(Commands.OpenOnlyChangedFiles, {
 		uris: files.filter(f => f.status !== 'D').map(f => f.uri),
 	}));
 }

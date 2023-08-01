@@ -11,27 +11,27 @@ import { Logger } from '../system/logger';
 import { findOrOpenEditors } from '../system/utils';
 import { Command } from './base';
 
-export interface ShowOnlyChangedFilesCommandArgs {
+export interface OpenOnlyChangedFilesCommandArgs {
 	uris?: Uri[];
 }
 
 @command()
-export class ShowOnlyChangedFilesCommand extends Command {
+export class OpenOnlyChangedFilesCommand extends Command {
 	constructor(private readonly container: Container) {
-		super(Commands.ShowOnlyChangedFiles);
+		super(Commands.OpenOnlyChangedFiles);
 	}
 
-	async execute(args?: ShowOnlyChangedFilesCommandArgs) {
+	async execute(args?: OpenOnlyChangedFilesCommandArgs) {
 		args = { ...args };
 
 		try {
 			if (args.uris == null) {
-				const repository = await getRepositoryOrShowPicker('Show Only Unchanged Files');
+				const repository = await getRepositoryOrShowPicker('Open Changed & Close Unchanged Files');
 				if (repository == null) return;
 
 				const status = await this.container.git.getStatusForRepo(repository.uri);
 				if (status == null) {
-					void window.showWarningMessage('Unable to show only changed files');
+					void window.showWarningMessage('Unable to open changed & close unchanged files');
 
 					return;
 				}
@@ -78,8 +78,8 @@ export class ShowOnlyChangedFilesCommand extends Command {
 				findOrOpenEditors([...openUris]);
 			}
 		} catch (ex) {
-			Logger.error(ex, 'ShowOnlyChangedFilesCommand');
-			void showGenericErrorMessage('Unable to show only changed files');
+			Logger.error(ex, 'OpenOnlyChangedFilesCommand');
+			void showGenericErrorMessage('Unable to open changed & close unchanged files');
 		}
 	}
 }
