@@ -5280,6 +5280,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.openOnlyChangedFiles",
+				"title": "Open Changed & Close Unchanged Files",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.openBranchesOnRemote",
 				"title": "Open Branches on Remote",
 				"category": "GitLens",
@@ -5865,6 +5870,11 @@
 			{
 				"command": "gitlens.views.openChangedFileRevisions",
 				"title": "Open Files at Revision",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.openOnlyChangedFiles",
+				"title": "Open Changed & Close Unchanged Files",
 				"category": "GitLens"
 			},
 			{
@@ -7461,6 +7471,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.graph.openOnlyChangedFiles",
+				"title": "Open Changed & Close Unchanged Files",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.graph.addAuthor",
 				"title": "Add as Co-author",
 				"category": "GitLens",
@@ -8398,6 +8413,10 @@
 					"when": "gitlens:enabled"
 				},
 				{
+					"command": "gitlens.openOnlyChangedFiles",
+					"when": "gitlens:enabled"
+				},
+				{
 					"command": "gitlens.openBranchesOnRemote",
 					"when": "gitlens:hasRemotes"
 				},
@@ -8771,6 +8790,10 @@
 				},
 				{
 					"command": "gitlens.views.openChangedFileRevisions",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.openOnlyChangedFiles",
 					"when": "false"
 				},
 				{
@@ -9874,6 +9897,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.openOnlyChangedFiles",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.graph.addAuthor",
 					"when": "false"
 				},
@@ -10398,6 +10425,11 @@
 				},
 				{
 					"command": "gitlens.closeUnchangedFiles",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.openClose",
+					"group": "3_gitlens@2"
+				},
+				{
+					"command": "gitlens.openOnlyChangedFiles",
 					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.openClose",
 					"group": "3_gitlens@2"
 				}
@@ -13140,6 +13172,10 @@
 				{
 					"command": "gitlens.views.openChangedFileRevisions",
 					"group": "2_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.openOnlyChangedFiles",
+					"group": "2_gitlens@3"
 				}
 			],
 			"gitlens/graph/commit/changes": [
@@ -13159,6 +13195,10 @@
 				{
 					"command": "gitlens.graph.openChangedFileRevisions",
 					"group": "2_gitlens@2"
+				},
+				{
+					"command": "gitlens.graph.openOnlyChangedFiles",
+					"group": "2_gitlens@3"
 				}
 			],
 			"gitlens/commit/file/commit": [

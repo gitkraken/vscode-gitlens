@@ -246,6 +246,7 @@ export const enum Commands {
 	ShowLastQuickPick = 'gitlens.showLastQuickPick',
 	ShowLineCommitInView = 'gitlens.showLineCommitInView',
 	ShowLineHistoryView = 'gitlens.showLineHistoryView',
+	OpenOnlyChangedFiles = 'gitlens.openOnlyChangedFiles',
 	ShowQuickBranchHistory = 'gitlens.showQuickBranchHistory',
 	ShowQuickCommit = 'gitlens.showQuickCommitDetails',
 	ShowQuickCommitFile = 'gitlens.showQuickCommitFileDetails',

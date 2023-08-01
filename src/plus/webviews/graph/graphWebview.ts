@@ -23,6 +23,7 @@ import {
 	openAllChangesWithWorking,
 	openFiles,
 	openFilesAtRevision,
+	openOnlyChangedFiles as openOnlyChangedFilesForCommit,
 	showGraphDetailsView,
 } from '../../../git/actions/commit';
 import * as ContributorActions from '../../../git/actions/contributor';
@@ -448,6 +449,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			registerCommand('gitlens.graph.copyDeepLinkToTag', this.copyDeepLinkToTag, this),
 
 			registerCommand('gitlens.graph.openChangedFiles', this.openFiles, this),
+			registerCommand('gitlens.graph.openOnlyChangedFiles', this.openOnlyChangedFiles, this),
 			registerCommand('gitlens.graph.openChangedFileDiffs', this.openAllChanges, this),
 			registerCommand('gitlens.graph.openChangedFileDiffsWithWorking', this.openAllChangesWithWorking, this),
 			registerCommand('gitlens.graph.openChangedFileRevisions', this.openRevisions, this),
@@ -2642,6 +2644,14 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		if (commit == null) return;
 
 		return openFilesAtRevision(commit);
+	}
+
+	@debug()
+	private async openOnlyChangedFiles(item?: GraphItemContext) {
+		const commit = await this.getCommitFromGraphItemRef(item);
+		if (commit == null) return;
+
+		return openOnlyChangedFilesForCommit(commit);
 	}
 
 	@debug()
