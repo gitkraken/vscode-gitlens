@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds a new command _Open Changed & Close Unchanged Files..._ to the command palette, the context menu of the _Commit Graph_ work-in-progress (WIP) row, and the SCM group context menu to open all changed files and close all unchanged files.
+- Adds a new command _Reset Current Branch to Tip..._ to branch context menus in the _Commit Graph_ and in GitLens views to reset the current branch to the commit at the chosen branch's tip.
+
 ### Changed
 
 - Changes _Compact Graph Column Layout_ context menu command to _Use Compact Graph Column_ for better clarity
