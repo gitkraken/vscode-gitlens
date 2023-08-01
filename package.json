@@ -6092,6 +6092,12 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.views.resetToTip",
+				"title": "Reset Current Branch to Tip...",
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
+			},
+			{
 				"command": "gitlens.views.revert",
 				"title": "Revert Commit...",
 				"category": "GitLens",
@@ -7315,6 +7321,12 @@
 			{
 				"command": "gitlens.graph.resetToCommit",
 				"title": "Reset Current Branch to Commit...",
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
+			},
+			{
+				"command": "gitlens.graph.resetToTip",
+				"title": "Reset Current Branch to Tip...",
 				"category": "GitLens",
 				"enablement": "!operationInProgress"
 			},
@@ -8894,6 +8906,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.resetToTip",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.revert",
 					"when": "false"
 				},
@@ -9767,6 +9783,10 @@
 				},
 				{
 					"command": "gitlens.graph.resetToCommit",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.resetToTip",
 					"when": "false"
 				},
 				{
@@ -11560,6 +11580,11 @@
 					"group": "1_gitlens_actions@4"
 				},
 				{
+					"command": "gitlens.views.resetToTip",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b/",
+					"group": "1_gitlens_actions@4"
+				},
+				{
 					"command": "gitlens.views.resetCommit",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:commit\\b/",
 					"group": "1_gitlens_actions@5"
@@ -12723,6 +12748,11 @@
 				{
 					"command": "gitlens.graph.resetToCommit",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:commit\\b/",
+					"group": "1_gitlens_actions@4"
+				},
+				{
+					"command": "gitlens.graph.resetToTip",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b/",
 					"group": "1_gitlens_actions@4"
 				},
 				{

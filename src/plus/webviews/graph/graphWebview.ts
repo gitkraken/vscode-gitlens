@@ -379,6 +379,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			registerCommand('gitlens.graph.rebaseOntoCommit', this.rebase, this),
 			registerCommand('gitlens.graph.resetCommit', this.resetCommit, this),
 			registerCommand('gitlens.graph.resetToCommit', this.resetToCommit, this),
+			registerCommand('gitlens.graph.resetToTip', this.resetToTip, this),
 			registerCommand('gitlens.graph.revert', this.revertCommit, this),
 			registerCommand('gitlens.graph.switchToCommit', this.switchTo, this),
 			registerCommand('gitlens.graph.undoCommit', this.undoCommit, this),
@@ -2360,6 +2361,17 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		if (ref == null) return Promise.resolve();
 
 		return RepoActions.reset(ref.repoPath, ref);
+	}
+
+	@debug()
+	private resetToTip(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'branch');
+		if (ref == null) return Promise.resolve();
+
+		return RepoActions.reset(
+			ref.repoPath,
+			createReference(ref.ref, ref.repoPath, { refType: 'revision', name: ref.name }),
+		);
 	}
 
 	@debug()

@@ -279,6 +279,7 @@ export class ViewCommands {
 
 		registerViewCommand('gitlens.views.resetCommit', this.resetCommit, this);
 		registerViewCommand('gitlens.views.resetToCommit', this.resetToCommit, this);
+		registerViewCommand('gitlens.views.resetToTip', this.resetToTip, this);
 		registerViewCommand('gitlens.views.revert', this.revert, this);
 		registerViewCommand('gitlens.views.undoCommit', this.undoCommit, this);
 
@@ -722,6 +723,16 @@ export class ViewCommands {
 		if (!(node instanceof CommitNode) && !(node instanceof FileRevisionAsCommitNode)) return Promise.resolve();
 
 		return RepoActions.reset(node.repoPath, node.ref);
+	}
+
+	@debug()
+	private resetToTip(node: BranchNode) {
+		if (!(node instanceof BranchNode)) return Promise.resolve();
+
+		return RepoActions.reset(
+			node.repoPath,
+			createReference(node.ref.ref, node.repoPath, { refType: 'revision', name: node.ref.name }),
+		);
 	}
 
 	@debug()
