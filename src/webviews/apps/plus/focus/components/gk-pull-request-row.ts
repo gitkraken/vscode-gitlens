@@ -211,10 +211,13 @@ export class GkPullRequestRow extends LitElement {
 							<span slot="additions">${this.pullRequest.additions}</span>
 							<span slot="deletions">${this.pullRequest.deletions}</span>
 						</gk-additions-deletions>
-						<gk-tag variant="ghost">
-							<span slot="prefix"><code-icon icon="comment-discussion"></code-icon></span>
-							${this.pullRequest.comments}
-						</gk-tag>
+						<gk-tooltip>
+							<gk-tag variant="ghost" slot="trigger">
+								<span slot="prefix"><code-icon icon="comment-discussion"></code-icon></span>
+								${this.pullRequest.comments}
+							</gk-tag>
+							<span>Comments</span>
+						</gk-tooltip>
 					</p>
 					<span slot="people">
 						<gk-avatar-group>
