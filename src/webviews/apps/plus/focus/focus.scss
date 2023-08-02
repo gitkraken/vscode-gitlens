@@ -27,6 +27,11 @@ body {
 	--gk-input-color: var(--vscode-input-foreground);
 	--gk-text-secondary-color: var(--color-foreground--65);
 	--gk-button-ghost-color: var(--color-foreground--50);
+
+	--gk-menu-border-color: var(--vscode-menu-border);
+	--gk-menu-background-color: var(--vscode-menu-background);
+	--gk-menu-item-background-color-hover: var(--vscode-menu-selectionBackground);
+	--gk-menu-item-background-color-active: var(--vscode-menu-background);
 }
 
 .vscode-high-contrast,
@@ -207,6 +212,7 @@ h3 {
 		flex-direction: column;
 		gap: 1.6rem;
 		padding-top: 1.2rem;
+		z-index: 1;
 
 		&-group {
 			display: flex;
@@ -241,4 +247,8 @@ h3 {
 
 .mine-menu {
 	width: max-content;
+}
+
+gk-tooltip gk-menu {
+	z-index: 10;
 }
