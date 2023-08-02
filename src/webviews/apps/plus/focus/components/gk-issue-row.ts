@@ -127,14 +127,18 @@ export class GkIssueRow extends LitElement {
 						<gk-badge>pending suggestions</gk-badge> -->
 					</p>
 					<p>
-						<gk-tag variant="ghost">
-							<span slot="prefix"><code-icon icon="comment-discussion"></code-icon></span>
-							${this.issue.commentsCount}
-						</gk-tag>
-						<gk-tag variant="ghost">
-							<span slot="prefix"><code-icon icon="thumbsup"></code-icon></span>
-							${this.issue.thumbsUpCount}
-						</gk-tag>
+						<gk-tooltip
+							><gk-tag variant="ghost" slot="trigger">
+								<span slot="prefix"><code-icon icon="comment-discussion"></code-icon></span>
+								${this.issue.commentsCount} </gk-tag
+							><span>Comments</span></gk-tooltip
+						>
+						<gk-tooltip
+							><gk-tag variant="ghost" slot="trigger">
+								<span slot="prefix"><code-icon icon="thumbsup"></code-icon></span>
+								${this.issue.thumbsUpCount} </gk-tag
+							><span>Thumbs Up</span></gk-tooltip
+						>
 					</p>
 					<span slot="people">
 						<gk-avatar-group>
