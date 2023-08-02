@@ -1,3 +1,13 @@
+import {
+	Badge,
+	Button,
+	defineGkElement,
+	FocusContainer,
+	Input,
+	Menu,
+	MenuItem,
+	Popover,
+} from '@gitkraken/shared-web-components';
 import { html, LitElement } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { map } from 'lit/directives/map.js';
@@ -17,9 +27,15 @@ import './gk-issue-row';
 @customElement('gl-focus-app')
 export class GlFocusApp extends LitElement {
 	static override styles = [themeProperties];
-	private readonly tabFilters = ['authored', 'assigned', 'review-requested', 'mentioned'];
+	private readonly tabFilters = ['prs', 'issues'];
 	private readonly tabFilterOptions = [
 		{ label: 'All', value: '' },
+		{ label: 'PRs', value: 'prs' },
+		{ label: 'Issues', value: 'issues' },
+	];
+	private readonly mineFilters = ['authored', 'assigned', 'review-requested', 'mentioned'];
+	private readonly mineFilterOptions = [
+		{ label: 'Mine', value: '' },
 		{ label: 'Opened by Me', value: 'authored' },
 		{ label: 'Assigned to Me', value: 'assigned' },
 		{ label: 'Needs my Review', value: 'review-requested' },
@@ -38,10 +54,19 @@ export class GlFocusApp extends LitElement {
 	private selectedTabFilter?: string;
 
 	@state()
+	private selectedMineFilter?: string;
+
+	@state()
 	private searchText?: string;
 
 	@property({ type: Object })
 	state?: State;
+
+	constructor() {
+		super();
+
+		defineGkElement(Button, Badge, Input, FocusContainer, Popover, Menu, MenuItem);
+	}
 
 	get subscriptionState() {
 		return this.state?.access.subscription.current;
@@ -59,12 +84,20 @@ export class GlFocusApp extends LitElement {
 		return this.state?.access.allowed === true && !(this.state?.repos?.some(r => r.isConnected) ?? false);
 	}
 
+	get mineFilterMenuLabel() {
+		if (this.selectedMineFilter != null && this.selectedMineFilter !== '') {
+			return this.mineFilterOptions.find(f => f.value === this.selectedMineFilter)?.label;
+		}
+
+		return this.mineFilterOptions[0].label;
+	}
+
 	get items() {
 		if (this.isLoading) {
 			return [];
 		}
 
-		const items: { isPullrequest: boolean; rank: number; state: Record<string, any>; reasons: string[] }[] = [];
+		const items: { isPullrequest: boolean; rank: number; state: Record<string, any>; tags: string[] }[] = [];
 
 		let rank = 0;
 		this.state?.pullRequests?.forEach(
@@ -79,11 +112,10 @@ export class GlFocusApp extends LitElement {
 						hasLocalBranch: hasLocalBranch,
 					},
 					rank: ++rank,
-					reasons: reasons,
+					tags: reasons,
 				});
 			},
 		);
-
 		this.state?.issues?.forEach(({ issue, reasons }) => {
 			items.push({
 				isPullrequest: false,
@@ -91,7 +123,7 @@ export class GlFocusApp extends LitElement {
 				state: {
 					issue: issue,
 				},
-				reasons: reasons,
+				tags: reasons,
 			});
 		});
 
@@ -102,12 +134,11 @@ export class GlFocusApp extends LitElement {
 		const counts: Record<string, number> = {};
 		this.tabFilters.forEach(f => (counts[f] = 0));
 
-		this.items.forEach(({ reasons }) => {
-			reasons.forEach(r => {
-				if (counts[r] != null) {
-					counts[r]++;
-				}
-			});
+		this.items.forEach(({ isPullrequest }) => {
+			const key = isPullrequest ? 'prs' : 'issues';
+			if (counts[key] != null) {
+				counts[key]++;
+			}
 		});
 
 		return this.tabFilterOptions.map(o => {
@@ -124,14 +155,23 @@ export class GlFocusApp extends LitElement {
 		}
 
 		const hasSearch = this.searchText != null && this.searchText !== '';
+		const hasMineFilter = this.selectedMineFilter != null && this.selectedMineFilter !== '';
 		const hasTabFilter = this.selectedTabFilter != null && this.selectedTabFilter !== '';
-		if (!hasSearch && !hasTabFilter) {
+		if (!hasSearch && !hasMineFilter && !hasTabFilter) {
 			return this.items;
 		}
 
 		const searchText = this.searchText?.toLowerCase();
 		return this.items.filter(i => {
-			if (hasTabFilter && !i.reasons.includes(this.selectedTabFilter!)) {
+			if (
+				hasTabFilter &&
+				((i.isPullrequest === true && this.selectedTabFilter === 'issues') ||
+					(i.isPullrequest === false && this.selectedTabFilter === 'prs'))
+			) {
+				return false;
+			}
+
+			if (hasMineFilter && !i.tags.includes(this.selectedMineFilter!)) {
 				return false;
 			}
 
@@ -261,6 +301,25 @@ export class GlFocusApp extends LitElement {
 										`,
 									)}
 								</nav>
+								<gk-popover>
+									<gk-button slot="trigger" @click=${this.onShowMenu} @blur=${this.onHideMenu}
+										>${this.mineFilterMenuLabel} <code-icon icon="chevron-down"></code-icon
+									></gk-button>
+									<gk-menu class="mine-menu" @click=${this.onSelectMineFilter}>
+										${map(
+											this.mineFilterOptions,
+											({ label, value }, i) => html`
+												<gk-menu-item
+													data-value="${value}"
+													?disabled=${this.selectedMineFilter
+														? value === this.selectedMineFilter
+														: i === 0}
+													>${label}</gk-menu-item
+												>
+											`,
+										)}
+									</gk-menu>
+								</gk-popover>
 							</div>
 							<div class="app__header-group">
 								<gk-input
@@ -275,7 +334,12 @@ export class GlFocusApp extends LitElement {
 							</div>
 						</header>
 						<main class="app__main">
-							<gk-focus-container id="list-focus-items">${this.focusItemsContent()}</gk-focus-container>
+							<gk-focus-container id="list-focus-items">
+								<span slot="key"><code-icon icon="circle-large-outline"></code-icon></span>
+								<span slot="date"><code-icon icon="gl-clock"></code-icon></span>
+								<span slot="repo">Repo / Branch</span>
+								${this.focusItemsContent()}
+							</gk-focus-container>
 						</main>
 					</div>
 				</div>
@@ -293,6 +357,28 @@ export class GlFocusApp extends LitElement {
 		}
 
 		this.searchText = value;
+	}
+
+	async onShowMenu() {
+		const menuEl: Popover | null = document.querySelector('gk-popover');
+		if (menuEl) {
+			await menuEl.showPopover();
+		}
+	}
+
+	onHideMenu() {
+		const menuEl: Popover | null = document.querySelector('gk-popover');
+		if (menuEl) {
+			menuEl.hidePopover();
+		}
+	}
+
+	onSelectMineFilter(e: CustomEvent<{ target: MenuItem }>) {
+		// console.log(e);
+		// console.log(e.detail?.target?.dataset?.value);
+		if (e.detail?.target?.dataset?.value != null) {
+			this.selectedMineFilter = e.detail.target.dataset.value;
+		}
 	}
 
 	protected override createRenderRoot() {
