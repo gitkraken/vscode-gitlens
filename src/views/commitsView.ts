@@ -149,7 +149,9 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 		}
 
 		const commitGraphNode =
-			configuration.get('plusFeatures.enabled') && this.view.container.usage.get('graphWebview:shown') == null
+			configuration.get('plusFeatures.enabled') &&
+			this.view.container.usage.get('graphView:shown') == null &&
+			this.view.container.usage.get('graphWebview:shown') == null
 				? new CommandMessageNode(
 						this.view,
 						this,
@@ -200,7 +202,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 
 	private onUsageChanged(e: UsageChangeEvent | void) {
 		// Refresh the view if the graph usage state has changed, since we render a node for it before the first use
-		if (e == null || e.key === 'graphWebview:shown') {
+		if (e == null || e.key === 'graphView:shown' || e.key === 'graphWebview:shown') {
 			void this.refresh();
 		}
 	}
