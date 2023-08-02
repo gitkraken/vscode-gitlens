@@ -74,17 +74,6 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		return [registerCommand(Commands.RefreshFocus, () => this.host.refresh(true))];
 	}
 
-	onFocusChanged(focused: boolean): void {
-		if (focused) {
-			// If we are becoming focused, delay it a bit to give the UI time to update
-			setTimeout(() => void setContext('gitlens:focus:focused', focused), 0);
-
-			return;
-		}
-
-		void setContext('gitlens:focus:focused', focused);
-	}
-
 	onMessageReceived(e: IpcMessage) {
 		switch (e.method) {
 			case SwitchToBranchCommandType.method:

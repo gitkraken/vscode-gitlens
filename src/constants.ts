@@ -520,7 +520,6 @@ export type ContextKeys =
 	| `${typeof extensionPrefix}:disabledToggleCodeLens`
 	| `${typeof extensionPrefix}:disabled`
 	| `${typeof extensionPrefix}:enabled`
-	| `${typeof extensionPrefix}:focus:focused` // TODO@eamodio do we need this
 	| `${typeof extensionPrefix}:hasConnectedRemotes`
 	| `${typeof extensionPrefix}:hasRemotes`
 	| `${typeof extensionPrefix}:hasRichRemotes`
