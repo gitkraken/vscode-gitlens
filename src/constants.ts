@@ -77,7 +77,8 @@ export type Colors =
 	| `${typeof extensionPrefix}.decorations.workspaceCurrentForegroundColor`
 	| `${typeof extensionPrefix}.decorations.workspaceRepoMissingForegroundColor`
 	| `${typeof extensionPrefix}.decorations.workspaceRepoOpenForegroundColor`
-	| `${typeof extensionPrefix}.decorations.worktreeView.hasUncommittedChangesForegroundColor`
+	| `${typeof extensionPrefix}.decorations.worktreeHasUncommittedChangesForegroundColor`
+	| `${typeof extensionPrefix}.decorations.worktreeMissingForegroundColor`
 	| `${typeof extensionPrefix}.gutterBackgroundColor`
 	| `${typeof extensionPrefix}.gutterForegroundColor`
 	| `${typeof extensionPrefix}.gutterUncommittedForegroundColor`

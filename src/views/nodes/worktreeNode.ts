@@ -12,6 +12,7 @@ import { getContext } from '../../system/context';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
+import { Logger } from '../../system/logger';
 import type { Deferred } from '../../system/promise';
 import { defer, getSettledValue } from '../../system/promise';
 import { pad } from '../../system/string';
@@ -207,6 +208,8 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 				  } `
 				: '';
 
+		let missing = false;
+
 		switch (this.worktree.type) {
 			case 'bare':
 				icon = new ThemeIcon('folder');
@@ -217,7 +220,13 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 				);
 				break;
 			case 'branch': {
-				const [branch, status] = await Promise.all([this.worktree.getBranch(), this.worktree.getStatus()]);
+				const [branchResult, statusResult] = await Promise.allSettled([
+					this.worktree.getBranch(),
+					this.worktree.getStatus(),
+				]);
+				const branch = getSettledValue(branchResult);
+				const status = getSettledValue(statusResult);
+
 				this._branch = branch;
 
 				tooltip.appendMarkdown(
@@ -236,6 +245,9 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 							expand: true,
 						})}`,
 					);
+				} else if (statusResult.status === 'rejected') {
+					Logger.error(statusResult.reason, 'Worktree status failed');
+					missing = true;
 				}
 
 				if (branch != null) {
@@ -314,7 +326,14 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 					)}${indicators}\\\n\`${this.worktree.friendlyPath}\``,
 				);
 
-				const status = await this.worktree.getStatus();
+				let status;
+				try {
+					status = await this.worktree.getStatus();
+				} catch (ex) {
+					Logger.error(ex, 'Worktree status failed');
+					missing = true;
+				}
+
 				if (status != null) {
 					hasChanges = status.hasChanges;
 					tooltip.appendMarkdown(
@@ -335,6 +354,10 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 			tooltip.appendMarkdown(`\n\n$(loading~spin) Loading associated pull request${GlyphChars.Ellipsis}`);
 		}
 
+		if (missing) {
+			tooltip.appendMarkdown(`\n\n${GlyphChars.Warning} Unable to locate worktree path`);
+		}
+
 		const item = new TreeItem(this.worktree.name, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.description = description;
@@ -348,7 +371,11 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 				? new ThemeIcon('check')
 				: icon;
 		item.tooltip = tooltip;
-		item.resourceUri = hasChanges ? Uri.parse('gitlens-view://worktree/changes') : undefined;
+		item.resourceUri = missing
+			? Uri.parse('gitlens-view://worktree/missing')
+			: hasChanges
+			? Uri.parse('gitlens-view://worktree/changes')
+			: undefined;
 		return item;
 	}
 
