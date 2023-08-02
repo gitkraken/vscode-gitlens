@@ -330,8 +330,6 @@ async function showWelcomeOrWhatsNew(
 
 	version = majorPrerelease ? '14' : String(current.major);
 
-	void executeCommand(Commands.ShowHomeView);
-
 	if (configuration.get('showWhatsNewAfterUpgrades')) {
 		if (window.state.focused) {
 			await container.storage.delete('pendingWhatsNewOnFocus');
