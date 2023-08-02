@@ -229,18 +229,29 @@ export async function getWorktrees(
 	return Promise.all<WorktreeQuickPickItem>([
 		...worktrees
 			.filter(w => filter == null || filter(w))
-			.map(async w =>
-				createWorktreeQuickPickItem(
+			.map(async w => {
+				let missing = false;
+				let status;
+				if (includeStatus) {
+					try {
+						status = await w.getStatus();
+					} catch {
+						missing = true;
+					}
+				}
+
+				return createWorktreeQuickPickItem(
 					w,
 					picked != null &&
 						(typeof picked === 'string' ? w.uri.toString() === picked : picked.includes(w.uri.toString())),
+					missing,
 					{
 						buttons: buttons,
 						path: true,
-						status: includeStatus ? await w.getStatus() : undefined,
+						status: status,
 					},
-				),
-			),
+				);
+			}),
 	]);
 }
 

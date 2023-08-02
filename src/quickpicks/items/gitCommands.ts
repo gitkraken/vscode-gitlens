@@ -469,6 +469,7 @@ export interface WorktreeQuickPickItem extends QuickPickItemOfT<GitWorktree> {
 export function createWorktreeQuickPickItem(
 	worktree: GitWorktree,
 	picked?: boolean,
+	missing?: boolean,
 	options?: {
 		alwaysShow?: boolean;
 		buttons?: QuickInputButton[];
@@ -510,7 +511,11 @@ export function createWorktreeQuickPickItem(
 	const item: WorktreeQuickPickItem = {
 		label: `${icon}${GlyphChars.Space}${label}${options?.checked ? pad('$(check)', 2) : ''}`,
 		description: description,
-		detail: options?.path ? `In $(folder) ${worktree.friendlyPath}` : undefined,
+		detail: options?.path
+			? missing
+				? `${GlyphChars.Warning} Unable to locate $(folder) ${worktree.friendlyPath}`
+				: `In $(folder) ${worktree.friendlyPath}`
+			: undefined,
 		alwaysShow: options?.alwaysShow,
 		buttons: options?.buttons,
 		picked: picked,
