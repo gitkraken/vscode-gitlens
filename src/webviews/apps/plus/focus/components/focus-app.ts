@@ -302,10 +302,14 @@ export class GlFocusApp extends LitElement {
 									)}
 								</nav>
 								<gk-popover>
-									<gk-button slot="trigger" @click=${this.onShowMenu} @blur=${this.onHideMenu}
-										>${this.mineFilterMenuLabel} <code-icon icon="chevron-down"></code-icon
+									<gk-button
+										slot="trigger"
+										@click=${this.onShowMenu}
+										@blur=${debounce(this.onHideMenu.bind(this), 250)}
+										><code-icon icon="list-filter"></code-icon> ${this.mineFilterMenuLabel}
+										<code-icon icon="chevron-down"></code-icon
 									></gk-button>
-									<gk-menu class="mine-menu" @click=${this.onSelectMineFilter}>
+									<gk-menu class="mine-menu" @select=${this.onSelectMineFilter}>
 										${map(
 											this.mineFilterOptions,
 											({ label, value }, i) => html`
@@ -374,10 +378,9 @@ export class GlFocusApp extends LitElement {
 	}
 
 	onSelectMineFilter(e: CustomEvent<{ target: MenuItem }>) {
-		// console.log(e);
-		// console.log(e.detail?.target?.dataset?.value);
 		if (e.detail?.target?.dataset?.value != null) {
 			this.selectedMineFilter = e.detail.target.dataset.value;
+			this.onHideMenu();
 		}
 	}
 

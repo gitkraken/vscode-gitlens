@@ -235,7 +235,7 @@ export class GkPullRequestRow extends LitElement {
 										item =>
 											html`<gk-avatar
 												src="${item.avatarUrl}"
-												title="${item.name ? `${item.name} ` : ''}(assignee)"
+												title="${item.name ? `${item.name} (assignee)` : '(assignee)'}"
 											></gk-avatar>`,
 									)}
 								`,
