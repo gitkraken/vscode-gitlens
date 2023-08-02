@@ -117,7 +117,17 @@ export class GkPullRequestRow extends LitElement {
 	constructor() {
 		super();
 
-		defineGkElement(Tag, FocusRow, FocusItem, AvatarGroup, Avatar, RelativeDate, AdditionsDeletions, Tooltip);
+		// Tooltip typing isn't being properly recognized as `typeof GkElement`
+		defineGkElement(
+			Tag,
+			FocusRow,
+			FocusItem,
+			AvatarGroup,
+			Avatar,
+			RelativeDate,
+			AdditionsDeletions,
+			Tooltip as any,
+		);
 	}
 
 	get lastUpdatedDate() {
