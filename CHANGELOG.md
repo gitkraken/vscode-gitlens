@@ -14,9 +14,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Updates _Focus_ view experience
-  - Unified Pull Requests and Issues into a single list
-  - Adds tabs to quickly switch between seeing Pull Requests, Issues, or All
-  - Adds a text search field that further filters the list
+  - Unifies pull requests and issues into a single view
+  - Adds tabs to switch between showing Pull Requests, Issues, or All
+  - Adds a filter/search box to quickly find pull request or issues by title
 - Changes _Compact Graph Column Layout_ context menu command to _Use Compact Graph Column_ for better clarity
 - Changes _Default Graph Column Layout_ context menu command to _Use Expanded Graph Column_ for better clarity
 - Improves remote parsing for better integration support for some edge cases
@@ -24,7 +24,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#2823](https://github.com/gitkraken/vscode-gitlens/issues/2823) - Handle stdout/stderr Buffers in shell run() &mdash; thanks to [PR #2824](https://github.com/gitkraken/vscode-gitlens/pull/2824) by Victor Hallberg ([@mogelbrod](https://github.com/mogelbrod))
-- Fixes issues with missing worktrees breaking the Worktrees view and quick pick menus
+- Fixes issues with missing worktrees breaking the Worktrees view and Worktree quick pick menus
 
 ## [14.1.1] - 2023-07-18
 
