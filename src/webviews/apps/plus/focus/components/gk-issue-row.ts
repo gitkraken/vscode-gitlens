@@ -86,7 +86,8 @@ export class GkIssueRow extends LitElement {
 	constructor() {
 		super();
 
-		defineGkElement(Tag, FocusRow, FocusItem, AvatarGroup, Avatar, RelativeDate, Tooltip);
+		// Tooltip typing isn't being properly recognized as `typeof GkElement`
+		defineGkElement(Tag, FocusRow, FocusItem, AvatarGroup, Avatar, RelativeDate, Tooltip as any);
 	}
 
 	get lastUpdatedDate() {
