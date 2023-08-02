@@ -10278,7 +10278,7 @@
 				},
 				{
 					"command": "gitlens.focus.refresh",
-					"when": "gitlens:focus:focused",
+					"when": "gitlens:webview:focus:active",
 					"group": "navigation@-98"
 				}
 			],
