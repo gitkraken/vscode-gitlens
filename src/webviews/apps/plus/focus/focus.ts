@@ -13,7 +13,6 @@ import type { GlFocusApp } from './components/focus-app';
 import type { GkPullRequestRow } from './components/gk-pull-request-row';
 import './components/focus-app';
 import './focus.scss';
-import '@gitkraken/shared-web-components';
 
 export class FocusApp extends App<State> {
 	constructor() {

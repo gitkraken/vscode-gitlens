@@ -1,10 +1,21 @@
+import {
+	AdditionsDeletions,
+	Avatar,
+	AvatarGroup,
+	defineGkElement,
+	FocusItem,
+	FocusRow,
+	RelativeDate,
+	Tag,
+	Tooltip,
+} from '@gitkraken/shared-web-components';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import type { PullRequestMember, PullRequestShape } from '../../../../../git/models/pullRequest';
 import { elementBase } from '../../../shared/components/styles/lit/base.css';
-import '@gitkraken/shared-web-components';
+import { repoBranchStyles } from './branch-tag.css';
 import { dateAgeStyles } from './date-styles.css';
 import { themeProperties } from './gk-theme.css';
 import { fromDateRange } from './helpers';
@@ -15,6 +26,7 @@ export class GkPullRequestRow extends LitElement {
 		themeProperties,
 		elementBase,
 		dateAgeStyles,
+		repoBranchStyles,
 		css`
 			:host {
 				display: block;
@@ -32,7 +44,8 @@ export class GkPullRequestRow extends LitElement {
 				text-decoration: underline;
 			}
 
-			.actions {
+			.actions gk-tooltip {
+				display: inline-block;
 			}
 
 			.actions a {
@@ -101,6 +114,12 @@ export class GkPullRequestRow extends LitElement {
 	@property({ type: Boolean })
 	public hasLocalBranch = false;
 
+	constructor() {
+		super();
+
+		defineGkElement(Tag, FocusRow, FocusItem, AvatarGroup, Avatar, RelativeDate, AdditionsDeletions, Tooltip);
+	}
+
 	get lastUpdatedDate() {
 		return new Date(this.pullRequest!.date);
 	}
@@ -141,34 +160,30 @@ export class GkPullRequestRow extends LitElement {
 
 		return html`
 			<gk-focus-row>
-				<span slot="rank">
-					${this.rank}
+				<span slot="key">
 					${when(
 						this.indicator === 'changes',
 						() =>
-							html`<code-icon
-								class="indicator-error"
-								icon="request-changes"
-								title="changes requested"
-							></code-icon>`,
+							html`<gk-tooltip>
+								<code-icon slot="trigger" class="indicator-error" icon="request-changes"></code-icon>
+								<span>changes requested</span>
+							</gk-tooltip>`,
 					)}
 					${when(
 						this.indicator === 'ready',
 						() =>
-							html`<code-icon
-								class="indicator-info"
-								icon="pass"
-								title="approved and ready to merge"
-							></code-icon>`,
+							html`<gk-tooltip>
+								<code-icon slot="trigger" class="indicator-info" icon="pass"></code-icon>
+								<span>approved and ready to merge</span>
+							</gk-tooltip>`,
 					)}
 					${when(
 						this.indicator === 'conflicting',
 						() =>
-							html`<code-icon
-								class="indicator-error"
-								icon="bracket-error"
-								title="cannot be merged due to merge conflicts"
-							></code-icon>`,
+							html`<gk-tooltip>
+								<code-icon slot="trigger" class="indicator-error" icon="bracket-error"></code-icon>
+								<span>cannot be merged due to merge conflicts</span>
+							</gk-tooltip>`,
 					)}
 				</span>
 				<gk-focus-item>
@@ -182,18 +197,14 @@ export class GkPullRequestRow extends LitElement {
 						<gk-badge>pending suggestions</gk-badge> -->
 					</p>
 					<p>
-						<gk-tag>
-							<span slot="prefix"><code-icon icon="source-control"></code-icon></span>
-							${this.pullRequest.refs?.base.branch}
-						</gk-tag>
-						<gk-tag variant="ghost">
-							<span slot="prefix"><code-icon icon="repo"></code-icon></span>
-							${this.pullRequest.refs?.base.repo}
-						</gk-tag>
 						<gk-additions-deletions>
 							<span slot="additions">${this.pullRequest.additions}</span>
 							<span slot="deletions">${this.pullRequest.deletions}</span>
 						</gk-additions-deletions>
+						<gk-tag variant="ghost">
+							<span slot="prefix"><code-icon icon="comment-discussion"></code-icon></span>
+							${this.pullRequest.comments}
+						</gk-tag>
 					</p>
 					<span slot="people">
 						<gk-avatar-group>
@@ -211,7 +222,7 @@ export class GkPullRequestRow extends LitElement {
 									${repeat(
 										this.assignees,
 										item => item.url,
-										(item, index) =>
+										item =>
 											html`<gk-avatar
 												src="${item.avatarUrl}"
 												title="${item.name ? `${item.name} ` : ''}(assignee)"
@@ -224,22 +235,42 @@ export class GkPullRequestRow extends LitElement {
 					<span slot="date">
 						<gk-date-from class="${this.dateStyle}" date="${this.lastUpdatedDate}"></gk-date-from>
 					</span>
+					<div slot="repo" class="repo-branch">
+						<gk-tag class="repo-branch__tag" full>
+							<span slot="prefix"><code-icon icon="source-control"></code-icon></span>
+							${this.pullRequest.refs?.isCrossRepository === true
+								? html`${this.pullRequest.refs?.head.owner}:${this.pullRequest.refs?.head.branch}`
+								: this.pullRequest.refs?.head.branch}
+						</gk-tag>
+						<gk-tag variant="ghost" class="repo-branch__tag" full>
+							<span slot="prefix"><code-icon icon="repo"></code-icon></span>
+							${this.pullRequest.refs?.base.repo}
+						</gk-tag>
+					</div>
 					<nav slot="actions" class="actions">
-						<a
-							href="#"
-							tabindex="${this.isCurrentWorktree || this.isCurrentBranch ? -1 : nothing}"
-							title="${this.isCurrentWorktree ? 'Already on this workree' : 'Open Worktree...'}"
-							aria-label="${this.isCurrentWorktree ? 'Already on this workree' : 'Open Worktree...'}"
-							@click="${this.onOpenWorktreeClick}"
-							><code-icon icon="gl-worktrees-view"></code-icon></a
-						><a
-							href="#"
-							tabindex="${this.hasWorktree || this.isCurrentBranch ? -1 : nothing}"
-							title="${this.isCurrentBranch ? 'Already on this branch' : 'Switch to Branch...'}"
-							aria-label="${this.isCurrentBranch ? 'Already on this branch' : 'Switch to Branch...'}"
-							@click="${this.onSwitchBranchClick}"
-							><code-icon icon="gl-switch"></code-icon
-						></a>
+						<gk-tooltip>
+							<a
+								slot="trigger"
+								href="#"
+								tabindex="${this.isCurrentWorktree || this.isCurrentBranch ? -1 : nothing}"
+								aria-label="${this.isCurrentWorktree ? 'Already on this workree' : 'Open Worktree...'}"
+								@click="${this.onOpenWorktreeClick}"
+								><code-icon icon="gl-worktrees-view"></code-icon
+							></a>
+							<span
+								>${this.isCurrentWorktree ? 'Already on this workree' : 'Open Worktree...'}</span
+							> </gk-tooltip
+						><gk-tooltip>
+							<a
+								slot="trigger"
+								href="#"
+								tabindex="${this.hasWorktree || this.isCurrentBranch ? -1 : nothing}"
+								aria-label="${this.isCurrentBranch ? 'Already on this branch' : 'Switch to Branch...'}"
+								@click="${this.onSwitchBranchClick}"
+								><code-icon icon="gl-switch"></code-icon
+							></a>
+							<span>${this.isCurrentBranch ? 'Already on this branch' : 'Switch to Branch...'}</span>
+						</gk-tooltip>
 					</nav>
 				</gk-focus-item>
 			</gk-focus-row>

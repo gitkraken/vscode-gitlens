@@ -1,10 +1,20 @@
+import {
+	Avatar,
+	AvatarGroup,
+	defineGkElement,
+	FocusItem,
+	FocusRow,
+	RelativeDate,
+	Tag,
+	Tooltip,
+} from '@gitkraken/shared-web-components';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import type { IssueMember, IssueShape } from '../../../../../git/models/issue';
 import { elementBase } from '../../../shared/components/styles/lit/base.css';
-import '@gitkraken/shared-web-components';
+import { repoBranchStyles } from './branch-tag.css';
 import { dateAgeStyles } from './date-styles.css';
 import { themeProperties } from './gk-theme.css';
 import { fromDateRange } from './helpers';
@@ -15,6 +25,7 @@ export class GkIssueRow extends LitElement {
 		themeProperties,
 		elementBase,
 		dateAgeStyles,
+		repoBranchStyles,
 		css`
 			:host {
 				display: block;
@@ -72,6 +83,12 @@ export class GkIssueRow extends LitElement {
 	@property({ type: Object })
 	public issue?: IssueShape;
 
+	constructor() {
+		super();
+
+		defineGkElement(Tag, FocusRow, FocusItem, AvatarGroup, Avatar, RelativeDate, Tooltip);
+	}
+
 	get lastUpdatedDate() {
 		return new Date(this.issue!.date);
 	}
@@ -98,7 +115,7 @@ export class GkIssueRow extends LitElement {
 
 		return html`
 			<gk-focus-row>
-				<span slot="rank">${this.rank}</span>
+				<span slot="key"></span>
 				<gk-focus-item>
 					<span slot="type"
 						><code-icon icon="${this.issue.closed === true ? 'pass' : 'issues'}"></code-icon
@@ -109,10 +126,6 @@ export class GkIssueRow extends LitElement {
 						<gk-badge>pending suggestions</gk-badge> -->
 					</p>
 					<p>
-						<gk-tag>
-							<span slot="prefix"><code-icon icon="repo"></code-icon></span>
-							${this.issue.repository.repo}
-						</gk-tag>
 						<gk-tag variant="ghost">
 							<span slot="prefix"><code-icon icon="comment-discussion"></code-icon></span>
 							${this.issue.commentsCount}
@@ -138,7 +151,7 @@ export class GkIssueRow extends LitElement {
 									${repeat(
 										this.assignees,
 										item => item.url,
-										(item, index) =>
+										item =>
 											html`<gk-avatar
 												src="${item.avatarUrl}"
 												title="${item.name ? `${item.name} ` : ''}(assignee)"
@@ -151,10 +164,17 @@ export class GkIssueRow extends LitElement {
 					<span slot="date">
 						<gk-date-from class="${this.dateStyle}" date="${this.lastUpdatedDate}"></gk-date-from>
 					</span>
+					<div slot="repo">
+						<gk-tag variant="ghost" full>
+							<span slot="prefix"><code-icon icon="repo"></code-icon></span>
+							${this.issue.repository.repo}
+						</gk-tag>
+					</div>
 					<nav slot="actions" class="actions">
-						<a href="${this.issue.url}" title="Open issue on remote"
-							><code-icon icon="globe"></code-icon
-						></a>
+						<gk-tooltip>
+							<a slot="trigger" href="${this.issue.url}"><code-icon icon="globe"></code-icon></a>
+							<span>Open issue on remote</span>
+						</gk-tooltip>
 					</nav>
 				</gk-focus-item>
 			</gk-focus-row>
