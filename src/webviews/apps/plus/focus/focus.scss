@@ -32,6 +32,11 @@ body {
 	--gk-menu-background-color: var(--vscode-menu-background);
 	--gk-menu-item-background-color-hover: var(--vscode-menu-selectionBackground);
 	--gk-menu-item-background-color-active: var(--vscode-menu-background);
+	--gk-focus-border-color: var(--focus-color);
+	--gk-badge-outline-color: var(--vscode-badge-foreground);
+	--gk-badge-filled-background-color: var(--vscode-badge-background);
+	--gk-badge-filled-color: var(--vscode-badge-foreground);
+	--gk-tooltip-padding: 0.4rem 0.8rem;
 }
 
 .vscode-high-contrast,
