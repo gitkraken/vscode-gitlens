@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Updates _Focus_ view experience
+  - Unified Pull Requests and Issues into a single list
+  - Adds tabs to quickly switch between seeing Pull Requests, Issues, or All
+  - Adds a text search field that further filters the list
 - Changes _Compact Graph Column Layout_ context menu command to _Use Compact Graph Column_ for better clarity
 - Changes _Default Graph Column Layout_ context menu command to _Use Expanded Graph Column_ for better clarity
 - Improves remote parsing for better integration support for some edge cases
