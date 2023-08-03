@@ -4,7 +4,7 @@ import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { add as addRemote } from '../../git/actions/remote';
 import { create as createWorktree, open as openWorktree } from '../../git/actions/worktree';
-import { getLocalBranchByNameOrUpstream } from '../../git/models/branch';
+import { getLocalBranchByUpstream } from '../../git/models/branch';
 import type { GitBranchReference } from '../../git/models/reference';
 import { createReference, getReferenceFromBranch } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
@@ -123,7 +123,7 @@ export class OpenOrCreateWorktreeCommand extends Command {
 		let branchRef: GitBranchReference;
 		let createBranch: string | undefined;
 
-		const localBranch = await getLocalBranchByNameOrUpstream(repo, localBranchName, remoteBranchName);
+		const localBranch = await getLocalBranchByUpstream(repo, remoteBranchName);
 		if (localBranch != null) {
 			branchRef = getReferenceFromBranch(localBranch);
 			// TODO@eamodio check if we are behind and if so ask the user to fast-forward
