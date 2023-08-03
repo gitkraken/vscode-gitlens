@@ -41,6 +41,11 @@ export interface OpenWorktreeParams {
 }
 export const OpenWorktreeCommandType = new IpcCommandType<OpenWorktreeParams>('focus/pr/openWorktree');
 
+export interface OpenBranchParams {
+	pullRequest: PullRequestShape;
+}
+export const OpenBranchCommandType = new IpcCommandType<OpenBranchParams>('focus/pr/openBranch');
+
 export interface SwitchToBranchParams {
 	pullRequest: PullRequestShape;
 }

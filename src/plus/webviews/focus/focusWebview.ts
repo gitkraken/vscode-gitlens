@@ -28,8 +28,14 @@ import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
-import type { OpenWorktreeParams, State, SwitchToBranchParams } from './protocol';
-import { DidChangeNotificationType, OpenWorktreeCommandType, SwitchToBranchCommandType } from './protocol';
+import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
+import type { OpenBranchParams, OpenWorktreeParams, State, SwitchToBranchParams } from './protocol';
+import {
+	DidChangeNotificationType,
+	OpenBranchCommandType,
+	OpenWorktreeCommandType,
+	SwitchToBranchCommandType,
+} from './protocol';
 
 interface RepoWithRichRemote {
 	repo: Repository;
@@ -75,6 +81,9 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 
 	onMessageReceived(e: IpcMessage) {
 		switch (e.method) {
+			case OpenBranchCommandType.method:
+				onIpc(OpenBranchCommandType, e, params => this.onOpenBranch(params));
+				break;
 			case SwitchToBranchCommandType.method:
 				onIpc(SwitchToBranchCommandType, e, params => this.onSwitchBranch(params));
 				break;
@@ -156,6 +165,21 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 			remote: remote,
 			reference: reference,
 		};
+	}
+
+	private async onOpenBranch({ pullRequest }: OpenBranchParams) {
+		const prWithRemote = this.findSearchedPullRequest(pullRequest);
+		if (prWithRemote == null) return;
+
+		const remoteBranch = await this.getRemoteBranch(prWithRemote);
+		if (remoteBranch == null) {
+			void window.showErrorMessage(
+				`Unable to find remote branch for '${prWithRemote.pullRequest.refs?.head.owner}:${prWithRemote.pullRequest.refs?.head.branch}'`,
+			);
+			return;
+		}
+
+		void executeCommand<ShowInCommitGraphCommandArgs>(Commands.ShowInCommitGraph, { ref: remoteBranch.reference });
 	}
 
 	private async onSwitchBranch({ pullRequest }: SwitchToBranchParams) {

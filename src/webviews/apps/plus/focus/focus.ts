@@ -2,6 +2,7 @@ import type { PullRequestShape } from '../../../../git/models/pullRequest';
 import type { State } from '../../../../plus/webviews/focus/protocol';
 import {
 	DidChangeNotificationType,
+	OpenBranchCommandType,
 	OpenWorktreeCommandType,
 	SwitchToBranchCommandType,
 } from '../../../../plus/webviews/focus/protocol';
@@ -32,6 +33,9 @@ export class FocusApp extends App<State> {
 				'open-worktree',
 				(e, target: HTMLElement) => this.onOpenWorktree(e, target),
 			),
+			DOM.on<GkPullRequestRow, PullRequestShape>('gk-pull-request-row', 'open-branch', (e, target: HTMLElement) =>
+				this.onOpenBranch(e, target),
+			),
 			DOM.on<GkPullRequestRow, PullRequestShape>(
 				'gk-pull-request-row',
 				'switch-branch',
@@ -52,6 +56,11 @@ export class FocusApp extends App<State> {
 
 	attachState() {
 		this.component.state = this.state;
+	}
+
+	private onOpenBranch(e: CustomEvent<PullRequestShape>, _target: HTMLElement) {
+		if (e.detail?.refs?.head == null) return;
+		this.sendCommand(OpenBranchCommandType, { pullRequest: e.detail });
 	}
 
 	private onSwitchBranch(e: CustomEvent<PullRequestShape>, _target: HTMLElement) {

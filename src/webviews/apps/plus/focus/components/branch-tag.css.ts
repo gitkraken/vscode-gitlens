@@ -15,5 +15,6 @@ export const repoBranchStyles = css`
 	}
 
 	.repo-branch__tag {
+		cursor: pointer;
 	}
 `;
