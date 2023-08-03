@@ -235,10 +235,10 @@
     react-dom "16.8.4"
     react-dragula "1.1.17"
 
-"@gitkraken/shared-web-components@^0.1.1-rc.3":
-  version "0.1.1-rc.3"
-  resolved "https://registry.npmjs.org/@gitkraken/shared-web-components/-/shared-web-components-0.1.1-rc.3.tgz#ad23607c356707aba509b6488dcd1d4ec3ee8cd9"
-  integrity sha512-mjhyyMR+eYDfp8RR4v+ecyoRV2vx9jV/gEMfrDe/Mf1PTqUVYPCEyAEx/YD6ogNhZlCdQ/on42Y2NaLy3kQHKg==
+"@gitkraken/shared-web-components@^0.1.1-rc.4":
+  version "0.1.1-rc.4"
+  resolved "https://registry.npmjs.org/@gitkraken/shared-web-components/-/shared-web-components-0.1.1-rc.4.tgz#eaccecad7b7079ef276e3b9e8e61b2ce5d53d3d4"
+  integrity sha512-BsJa5UDPiRyydC/yv8blXBIMMRVH3rFZJj4CgrdiVn+T5IeiodIlPSnvJ5rYYQvywLD/TsCwA9+hkdfk5sdvCA==
   dependencies:
     "@floating-ui/dom" "^1.4.2"
     typescript "^4.9.5"

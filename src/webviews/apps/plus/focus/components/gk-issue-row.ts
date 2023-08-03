@@ -42,6 +42,10 @@ export class GkIssueRow extends LitElement {
 			a:hover {
 				text-decoration: underline;
 			}
+			a:focus {
+				outline: 1px solid var(--vscode-focusBorder);
+				outline-offset: -1px;
+			}
 
 			.actions {
 			}
@@ -60,10 +64,6 @@ export class GkIssueRow extends LitElement {
 				text-decoration: none;
 				cursor: pointer;
 			}
-			.actions a:focus {
-				outline: 1px solid var(--vscode-focusBorder);
-				outline-offset: -1px;
-			}
 			.actions a:hover {
 				background-color: var(--vscode-toolbar-hoverBackground);
 			}
@@ -73,6 +73,14 @@ export class GkIssueRow extends LitElement {
 
 			.actions a code-icon {
 				font-size: 1.6rem;
+			}
+
+			.deemphasize {
+				opacity: 0.5;
+			}
+
+			.title {
+				font-size: 1.4rem;
 			}
 		`,
 	];
@@ -118,15 +126,13 @@ export class GkIssueRow extends LitElement {
 			<gk-focus-row>
 				<span slot="key"></span>
 				<gk-focus-item>
-					<span slot="type"
-						><code-icon icon="${this.issue.closed === true ? 'pass' : 'issues'}"></code-icon
-					></span>
 					<p>
-						<strong>${this.issue.title} <a href="${this.issue.url}">#${this.issue.id}</a></strong>
+						<span class="title">${this.issue.title} <a href="${this.issue.url}">#${this.issue.id}</a></span>
 						<!-- &nbsp;
 						<gk-badge>pending suggestions</gk-badge> -->
 					</p>
 					<p>
+						<gk-badge variant="outline" class="deemphasize">Issue</gk-badge>
 						<gk-tooltip
 							><gk-tag variant="ghost" slot="trigger">
 								<span slot="prefix"><code-icon icon="comment-discussion"></code-icon></span>
