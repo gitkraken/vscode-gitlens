@@ -246,7 +246,7 @@ export class GkPullRequestRow extends LitElement {
 						<gk-date-from class="${this.dateStyle}" date="${this.lastUpdatedDate}"></gk-date-from>
 					</span>
 					<div slot="repo" class="repo-branch">
-						<gk-tag class="repo-branch__tag" full>
+						<gk-tag class="repo-branch__tag" full @click=${this.onOpenBranchClick}>
 							<span slot="prefix"><code-icon icon="source-control"></code-icon></span>
 							${this.pullRequest.refs?.isCrossRepository === true
 								? html`${this.pullRequest.refs?.head.owner}:${this.pullRequest.refs?.head.branch}`
@@ -285,6 +285,10 @@ export class GkPullRequestRow extends LitElement {
 				</gk-focus-item>
 			</gk-focus-row>
 		`;
+	}
+
+	onOpenBranchClick(_e: Event) {
+		this.dispatchEvent(new CustomEvent('open-branch', { detail: this.pullRequest! }));
 	}
 
 	onOpenWorktreeClick(e: Event) {
