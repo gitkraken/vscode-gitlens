@@ -225,6 +225,10 @@ export class GlFocusApp extends LitElement {
 							html`<gk-pull-request-row
 								.rank=${rank}
 								.pullRequest=${state.pullRequest}
+								.isCurrentBranch=${state.isCurrentBranch}
+								.isCurrentWorktree=${state.isCurrentWorktree}
+								.hasWorktree=${state.hasWorktree}
+								.hasLocalBranch=${state.hasLocalBranch}
 							></gk-pull-request-row>`,
 						() => html`<gk-issue-row .rank=${rank} .issue=${state.issue}></gk-issue-row>`,
 					),
