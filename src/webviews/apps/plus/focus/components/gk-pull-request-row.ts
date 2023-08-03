@@ -114,6 +114,11 @@ export class GkPullRequestRow extends LitElement {
 				z-index: 1;
 				position: relative;
 			}
+
+			.date {
+				display: inline-block;
+				min-width: 1.6rem;
+			}
 		`,
 	];
 
@@ -267,7 +272,7 @@ export class GkPullRequestRow extends LitElement {
 						</gk-avatar-group>
 					</span>
 					<span slot="date">
-						<gk-date-from class="${this.dateStyle}" date="${this.lastUpdatedDate}"></gk-date-from>
+						<gk-date-from class="date ${this.dateStyle}" date="${this.lastUpdatedDate}"></gk-date-from>
 					</span>
 					<div slot="repo" class="repo-branch">
 						<gk-tag class="repo-branch__tag" full @click=${this.onOpenBranchClick}>

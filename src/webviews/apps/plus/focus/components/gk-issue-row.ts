@@ -85,6 +85,11 @@ export class GkIssueRow extends LitElement {
 			.title {
 				font-size: 1.4rem;
 			}
+
+			.date {
+				display: inline-block;
+				min-width: 1.6rem;
+			}
 		`,
 	];
 
@@ -176,7 +181,7 @@ export class GkIssueRow extends LitElement {
 						</gk-avatar-group>
 					</span>
 					<span slot="date">
-						<gk-date-from class="${this.dateStyle}" date="${this.lastUpdatedDate}"></gk-date-from>
+						<gk-date-from class="date ${this.dateStyle}" date="${this.lastUpdatedDate}"></gk-date-from>
 					</span>
 					<div slot="repo">
 						<gk-tag variant="ghost" full>
