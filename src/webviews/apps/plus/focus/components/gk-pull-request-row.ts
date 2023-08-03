@@ -43,6 +43,10 @@ export class GkPullRequestRow extends LitElement {
 			a:hover {
 				text-decoration: underline;
 			}
+			a:focus {
+				outline: 1px solid var(--vscode-focusBorder);
+				outline-offset: -1px;
+			}
 
 			.actions gk-tooltip {
 				display: inline-block;
@@ -61,10 +65,6 @@ export class GkPullRequestRow extends LitElement {
 				vertical-align: text-bottom;
 				text-decoration: none;
 				cursor: pointer;
-			}
-			.actions a:focus {
-				outline: 1px solid var(--vscode-focusBorder);
-				outline-offset: -1px;
 			}
 			.actions a:hover {
 				background-color: var(--vscode-toolbar-hoverBackground);
@@ -92,6 +92,19 @@ export class GkPullRequestRow extends LitElement {
 			}
 			.indicator-neutral {
 				color: var(--color-alert-neutralBorder);
+			}
+
+			.deemphasize {
+				opacity: 0.5;
+			}
+
+			.title {
+				font-size: 1.4rem;
+			}
+
+			.add-delete {
+				margin-left: 0.4rem;
+				margin-right: 0.2rem;
 			}
 		`,
 	];
@@ -197,17 +210,17 @@ export class GkPullRequestRow extends LitElement {
 					)}
 				</span>
 				<gk-focus-item>
-					<span slot="type"><code-icon icon="git-pull-request"></code-icon></span>
 					<p>
-						<strong
+						<span class="title"
 							>${this.pullRequest.title}
-							<a href="${this.pullRequest.url}">#${this.pullRequest.id}</a></strong
+							<a href="${this.pullRequest.url}">#${this.pullRequest.id}</a></span
 						>
 						<!-- &nbsp;
 						<gk-badge>pending suggestions</gk-badge> -->
 					</p>
 					<p>
-						<gk-additions-deletions>
+						<gk-badge variant="outline" class="deemphasize">PR</gk-badge>
+						<gk-additions-deletions class="add-delete">
 							<span slot="additions">${this.pullRequest.additions}</span>
 							<span slot="deletions">${this.pullRequest.deletions}</span>
 						</gk-additions-deletions>
