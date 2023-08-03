@@ -94,8 +94,11 @@ export class GkPullRequestRow extends LitElement {
 				color: var(--color-alert-neutralBorder);
 			}
 
-			.deemphasize {
+			.row-type {
+				--gk-badge-outline-padding: 0.3rem 0.8rem;
+				--gk-badge-font-size: 1.1rem;
 				opacity: 0.5;
+				vertical-align: middle;
 			}
 
 			.title {
@@ -108,7 +111,8 @@ export class GkPullRequestRow extends LitElement {
 			}
 
 			.key {
-				z-index: 1000;
+				z-index: 1;
+				position: relative;
 			}
 		`,
 	];
@@ -223,7 +227,7 @@ export class GkPullRequestRow extends LitElement {
 						<gk-badge>pending suggestions</gk-badge> -->
 					</p>
 					<p>
-						<gk-badge variant="outline" class="deemphasize">PR</gk-badge>
+						<gk-badge variant="outline" class="row-type">PR</gk-badge>
 						<gk-additions-deletions class="add-delete">
 							<span slot="additions">${this.pullRequest.additions}</span>
 							<span slot="deletions">${this.pullRequest.deletions}</span>
