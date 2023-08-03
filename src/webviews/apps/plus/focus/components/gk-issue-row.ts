@@ -75,8 +75,11 @@ export class GkIssueRow extends LitElement {
 				font-size: 1.6rem;
 			}
 
-			.deemphasize {
+			.row-type {
+				--gk-badge-outline-padding: 0.3rem 0.8rem;
+				--gk-badge-font-size: 1.1rem;
 				opacity: 0.5;
+				vertical-align: middle;
 			}
 
 			.title {
@@ -132,7 +135,7 @@ export class GkIssueRow extends LitElement {
 						<gk-badge>pending suggestions</gk-badge> -->
 					</p>
 					<p>
-						<gk-badge variant="outline" class="deemphasize">Issue</gk-badge>
+						<gk-badge variant="outline" class="row-type">Issue</gk-badge>
 						<gk-tooltip
 							><gk-tag variant="ghost" slot="trigger">
 								<span slot="prefix"><code-icon icon="comment-discussion"></code-icon></span>
