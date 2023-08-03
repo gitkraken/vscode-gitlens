@@ -303,13 +303,16 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 	}
 }
 
-export async function getLocalBranchByNameOrUpstream(
+export async function getLocalBranchByUpstream(
 	repo: Repository,
-	branchName: string,
-	upstreamNames?: string | string[],
+	remoteBranchName: string,
 ): Promise<GitBranch | undefined> {
-	if (upstreamNames != null && !Array.isArray(upstreamNames)) {
-		upstreamNames = [upstreamNames];
+	let qualifiedRemoteBranchName;
+	if (remoteBranchName.startsWith('remotes/')) {
+		qualifiedRemoteBranchName = remoteBranchName;
+		remoteBranchName = remoteBranchName.substring(8);
+	} else {
+		qualifiedRemoteBranchName = `remotes/${remoteBranchName}`;
 	}
 
 	let branches;
@@ -317,12 +320,9 @@ export async function getLocalBranchByNameOrUpstream(
 		branches = await repo.getBranches(branches != null ? { paging: branches.paging } : undefined);
 		for (const branch of branches.values) {
 			if (
-				branch.name === branchName ||
-				(upstreamNames != null &&
-					branch.upstream?.name != null &&
-					(upstreamNames.includes(branch.upstream?.name) ||
-						(branch.upstream.name.startsWith('remotes/') &&
-							upstreamNames.includes(branch.upstream.name.substring(8)))))
+				!branch.remote &&
+				branch.upstream?.name != null &&
+				(branch.upstream.name === remoteBranchName || branch.upstream.name === qualifiedRemoteBranchName)
 			) {
 				return branch;
 			}
