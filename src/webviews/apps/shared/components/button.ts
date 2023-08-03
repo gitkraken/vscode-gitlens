@@ -3,8 +3,8 @@ import { customElement, property } from 'lit/decorators.js';
 import { focusOutline } from './styles/lit/a11y.css';
 import { elementBase } from './styles/lit/base.css';
 
-@customElement('gk-button')
-export class GKButton extends LitElement {
+@customElement('gl-button')
+export class GlButton extends LitElement {
 	static override styles = [
 		elementBase,
 		css`
