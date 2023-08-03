@@ -106,6 +106,10 @@ export class GkPullRequestRow extends LitElement {
 				margin-left: 0.4rem;
 				margin-right: 0.2rem;
 			}
+
+			.key {
+				z-index: 1000;
+			}
 		`,
 	];
 
@@ -183,7 +187,7 @@ export class GkPullRequestRow extends LitElement {
 
 		return html`
 			<gk-focus-row>
-				<span slot="key">
+				<span slot="key" class="key">
 					${when(
 						this.indicator === 'changes',
 						() =>
