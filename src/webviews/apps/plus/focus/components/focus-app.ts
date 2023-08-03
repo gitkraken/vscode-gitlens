@@ -18,6 +18,7 @@ import { debounce } from '../../../../../system/function';
 import type { FeatureGate } from '../../../shared/components/feature-gate';
 import type { FeatureGateBadge } from '../../../shared/components/feature-gate-badge';
 import { themeProperties } from './gk-theme.css';
+import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
 import '../../../shared/components/feature-gate';
 import '../../../shared/components/feature-gate-badge';
@@ -278,8 +279,8 @@ export class GlFocusApp extends LitElement {
 							additional information inside hovers and the Commit Details view, such as auto-linked issues
 							and pull requests and avatars.
 						</p>
-						<gk-button appearance="alert" href="command:gitlens.connectRemoteProvider"
-							>Connect to GitHub</gk-button
+						<gl-button appearance="alert" href="command:gitlens.connectRemoteProvider"
+							>Connect to GitHub</gl-button
 						>
 					</gk-feature-gate>
 

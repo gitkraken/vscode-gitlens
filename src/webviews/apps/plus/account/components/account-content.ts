@@ -137,9 +137,9 @@ export class AccountContent extends LitElement {
 				<p class="account__title">${this.name}</p>
 				<p class="account__access">${this.planName}${this.daysLeft}</p>
 				<div class="account__signout">
-					<gk-button appearance="toolbar" href="command:gitlens.plus.logout"
+					<gl-button appearance="toolbar" href="command:gitlens.plus.logout"
 						><code-icon icon="sign-out" title="Sign Out" aria-label="Sign Out"></code-icon
-					></gk-button>
+					></gl-button>
 				</div>
 			</div>
 		`;
@@ -151,12 +151,12 @@ export class AccountContent extends LitElement {
 				return html`
 					<p>You must verify your email before you can continue.</p>
 					<button-container>
-						<gk-button full href="command:gitlens.plus.resendVerification"
-							>Resend verification email</gk-button
+						<gl-button full href="command:gitlens.plus.resendVerification"
+							>Resend verification email</gl-button
 						>
 					</button-container>
 					<button-container>
-						<gk-button full href="command:gitlens.plus.validate">Refresh verification status</gk-button>
+						<gl-button full href="command:gitlens.plus.validate">Refresh verification status</gl-button>
 					</button-container>
 				`;
 
@@ -169,7 +169,7 @@ export class AccountContent extends LitElement {
 						<a href="command:gitlens.plus.loginOrSignUp">sign in</a>.
 					</p>
 					<button-container>
-						<gk-button full href="command:gitlens.plus.loginOrSignUp">Sign Up</gk-button>
+						<gl-button full href="command:gitlens.plus.loginOrSignUp">Sign Up</gl-button>
 					</button-container>
 					<p>Signing up starts a free 7-day Pro trial.</p>
 				`;
@@ -181,7 +181,7 @@ export class AccountContent extends LitElement {
 						repos.
 					</p>
 					<button-container>
-						<gk-button full href="command:gitlens.plus.purchase">Upgrade to Pro</gk-button>
+						<gl-button full href="command:gitlens.plus.purchase">Upgrade to Pro</gl-button>
 					</button-container>
 					<p>
 						You only have access to ✨ features on local and publicly hosted repos and ☁️ features based on
@@ -196,7 +196,7 @@ export class AccountContent extends LitElement {
 						paid plan to continue using ✨ features.
 					</p>
 					<button-container>
-						<gk-button full href="command:gitlens.plus.purchase">Upgrade to Pro</gk-button>
+						<gl-button full href="command:gitlens.plus.purchase">Upgrade to Pro</gl-button>
 					</button-container>
 					<p>
 						You have access to ✨ features on privately hosted repos and ☁️ features based on the Pro plan
@@ -207,8 +207,8 @@ export class AccountContent extends LitElement {
 			case SubscriptionState.Paid:
 				return html`
 					<button-container>
-						<gk-button appearance="secondary" full href="command:gitlens.plus.manage"
-							>Manage Account</gk-button
+						<gl-button appearance="secondary" full href="command:gitlens.plus.manage"
+							>Manage Account</gl-button
 						>
 					</button-container>
 					<p>You have access to ✨ features on privately hosted repos and ☁️ features based on your plan.</p>
