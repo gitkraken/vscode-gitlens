@@ -278,11 +278,21 @@ export class GkPullRequestRow extends LitElement {
 								slot="trigger"
 								href="#"
 								tabindex="${this.hasWorktree || this.isCurrentBranch ? -1 : nothing}"
-								aria-label="${this.isCurrentBranch ? 'Already on this branch' : 'Switch to Branch...'}"
+								aria-label="${this.isCurrentBranch
+									? 'Already on this branch'
+									: this.hasWorktree
+									? 'This branch has a worktree'
+									: 'Switch to Branch...'}"
 								@click="${this.onSwitchBranchClick}"
 								><code-icon icon="gl-switch"></code-icon
 							></a>
-							<span>${this.isCurrentBranch ? 'Already on this branch' : 'Switch to Branch...'}</span>
+							<span
+								>${this.isCurrentBranch
+									? 'Already on this branch'
+									: this.hasWorktree
+									? 'This branch has a worktree'
+									: 'Switch to Branch...'}</span
+							>
 						</gk-tooltip>
 					</nav>
 				</gk-focus-item>
@@ -304,7 +314,7 @@ export class GkPullRequestRow extends LitElement {
 	}
 
 	onSwitchBranchClick(e: Event) {
-		if (this.isCurrentBranch) {
+		if (this.isCurrentBranch || this.hasWorktree) {
 			e.preventDefault();
 			e.stopImmediatePropagation();
 			return;
