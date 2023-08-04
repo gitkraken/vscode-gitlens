@@ -365,24 +365,13 @@ export class GlFocusApp extends LitElement {
 		this.searchText = value;
 	}
 
-	async onShowMenu() {
-		const menuEl: Popover | null = document.querySelector('gk-popover');
-		if (menuEl) {
-			await menuEl.showPopover();
-		}
-	}
-
-	onHideMenu() {
-		const menuEl: Popover | null = document.querySelector('gk-popover');
-		if (menuEl) {
-			menuEl.hidePopover();
-		}
-	}
-
 	onSelectMineFilter(e: CustomEvent<{ target: MenuItem }>) {
-		if (e.detail?.target?.dataset?.value != null) {
-			this.selectedMineFilter = e.detail.target.dataset.value;
-			this.onHideMenu();
+		const target = e.detail?.target;
+		if (target?.dataset?.value != null) {
+			this.selectedMineFilter = target.dataset.value;
+
+			const menuEl: Popover | null = target.closest('gk-popover');
+			menuEl?.hidePopover();
 		}
 	}
 
