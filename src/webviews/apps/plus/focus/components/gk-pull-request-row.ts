@@ -292,12 +292,12 @@ export class GkPullRequestRow extends LitElement {
 								slot="trigger"
 								href="#"
 								tabindex="${this.isCurrentWorktree || this.isCurrentBranch ? -1 : nothing}"
-								aria-label="${this.isCurrentWorktree ? 'Already on this workree' : 'Open Worktree...'}"
+								aria-label="${this.isCurrentWorktree ? 'Already on this worktree' : 'Open Worktree...'}"
 								@click="${this.onOpenWorktreeClick}"
 								><code-icon icon="gl-worktrees-view"></code-icon
 							></a>
 							<span
-								>${this.isCurrentWorktree ? 'Already on this workree' : 'Open Worktree...'}</span
+								>${this.isCurrentWorktree ? 'Already on this worktree' : 'Open Worktree...'}</span
 							> </gk-tooltip
 						><gk-tooltip>
 							<a
