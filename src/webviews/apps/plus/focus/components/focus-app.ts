@@ -307,10 +307,7 @@ export class GlFocusApp extends LitElement {
 									)}
 								</nav>
 								<gk-popover>
-									<gk-button
-										slot="trigger"
-										@click=${this.onShowMenu}
-										@blur=${debounce(this.onHideMenu.bind(this), 250)}
+									<gk-button slot="trigger"
 										><code-icon icon="list-filter"></code-icon> ${this.mineFilterMenuLabel}
 										<code-icon icon="chevron-down"></code-icon
 									></gk-button>
