@@ -14686,6 +14686,7 @@
 		"package": "vsce package --yarn",
 		"package-pre": "yarn run patch-pre && yarn run package --pre-release",
 		"patch-pre": "node ./scripts/applyPreReleasePatch.js",
+		"prep-release": "node ./scripts/prep-release.js",
 		"pretty": "prettier --config .prettierrc --log-level warn --write .",
 		"pub": "vsce publish --yarn",
 		"pub-pre": "vsce publish --yarn --pre-release",
