@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [14.2.0] - 2023-08-04
+
 ### Added
 
 - Improves the _Focus_ view experience
@@ -4900,7 +4902,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.1.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.2.0...HEAD
+[14.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v14.1.1...gitkraken:v14.2.0
 [14.1.1]: https://github.com/gitkraken/vscode-gitlens/compare/v14.1.0...gitkraken:v14.1.1
 [14.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v14.0.1...gitkraken:v14.1.0
 [14.0.1]: https://github.com/gitkraken/vscode-gitlens/compare/v14.0.0...gitkraken:v14.0.1
