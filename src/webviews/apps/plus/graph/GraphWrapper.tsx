@@ -1378,6 +1378,7 @@ export function GraphWrapper({
 							downstreamsByUpstream={downstreams}
 							enabledRefMetadataTypes={graphConfig?.enabledRefMetadataTypes}
 							enabledScrollMarkerTypes={graphConfig?.scrollMarkerTypes}
+							enableShowHideRefsOptions
 							enableMultiSelection={graphConfig?.enableMultiSelection}
 							excludeRefsById={excludeRefsById}
 							excludeByType={excludeTypes}
