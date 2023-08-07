@@ -1319,6 +1319,13 @@ export class GitProviderService implements Disposable {
 		);
 	}
 
+	@gate()
+	@log()
+	pull(repoPath: string, options?: { branch?: GitBranchReference; rebase?: boolean; tags?: boolean }): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.pull(path, options);
+	}
+
 	@gate<GitProviderService['pullAll']>(
 		(repos, opts) => `${repos == null ? '' : repos.map(r => r.id).join(',')}|${JSON.stringify(opts)}`,
 	)
@@ -1342,6 +1349,16 @@ export class GitProviderService implements Disposable {
 			},
 			() => Promise.all(repositories!.map(r => r.pull({ progress: false, ...options }))),
 		);
+	}
+
+	@gate()
+	@log()
+	push(
+		repoPath: string,
+		options?: { branch?: GitBranchReference; force?: boolean; publish?: { remote: string } },
+	): Promise<void> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.push(path, options);
 	}
 
 	@gate<GitProviderService['pushAll']>(repos => `${repos == null ? '' : repos.map(r => r.id).join(',')}`)

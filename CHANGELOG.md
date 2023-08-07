@@ -6,9 +6,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [14.2.0] - 2023-08-04
+
 ### Added
 
-- Improve  support for opening files from other branches &mdash; thanks to [PR #2825](https://github.com/gitkraken/vscode-gitlens/pull/2825) by Victor Hallberg ([@mogelbrod](https://github.com/mogelbrod))
+- Improves the _Focus_ view experience
+  - Unifies pull requests and issues into a single view
+  - Adds tabs to switch between showing Pull Requests, Issues, or All
+  - Adds a filter/search box to quickly find pull request or issues by title
+  - Adds ability to click on a branch name to show the branch on the _Commit Graph_
+- Adds a new command _Open Changed & Close Unchanged Files..._ to the command palette, the context menu of the _Commit Graph_ work-in-progress (WIP) row, and the SCM group context menu to open all changed files and close all unchanged files.
+- Adds a new command _Reset Current Branch to Tip..._ to branch context menus in the _Commit Graph_ and in GitLens views to reset the current branch to the commit at the chosen branch's tip.
+- Improve support for opening files from other branches &mdash; thanks to [PR #2825](https://github.com/gitkraken/vscode-gitlens/pull/2825) by Victor Hallberg ([@mogelbrod](https://github.com/mogelbrod))
   - Open any file using new _Open File by Revision..._ command
   - Improve _Open File at Revision..._ commands by prompting user for file to open when the requested path doesn't exist in the specified revision
 
@@ -21,6 +30,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#2823](https://github.com/gitkraken/vscode-gitlens/issues/2823) - Handle stdout/stderr Buffers in shell run() &mdash; thanks to [PR #2824](https://github.com/gitkraken/vscode-gitlens/pull/2824) by Victor Hallberg ([@mogelbrod](https://github.com/mogelbrod))
+- Fixes issues with missing worktrees breaking the Worktrees view and Worktree quick pick menus
 
 ## [14.1.1] - 2023-07-18
 
@@ -4895,7 +4905,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.1.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.2.0...HEAD
+[14.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v14.1.1...gitkraken:v14.2.0
 [14.1.1]: https://github.com/gitkraken/vscode-gitlens/compare/v14.1.0...gitkraken:v14.1.1
 [14.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v14.0.1...gitkraken:v14.1.0
 [14.0.1]: https://github.com/gitkraken/vscode-gitlens/compare/v14.0.0...gitkraken:v14.0.1

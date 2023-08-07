@@ -23,6 +23,7 @@ import {
 	openAllChangesWithWorking,
 	openFiles,
 	openFilesAtRevision,
+	openOnlyChangedFiles as openOnlyChangedFilesForCommit,
 	showGraphDetailsView,
 } from '../../../git/actions/commit';
 import * as ContributorActions from '../../../git/actions/contributor';
@@ -379,6 +380,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			registerCommand('gitlens.graph.rebaseOntoCommit', this.rebase, this),
 			registerCommand('gitlens.graph.resetCommit', this.resetCommit, this),
 			registerCommand('gitlens.graph.resetToCommit', this.resetToCommit, this),
+			registerCommand('gitlens.graph.resetToTip', this.resetToTip, this),
 			registerCommand('gitlens.graph.revert', this.revertCommit, this),
 			registerCommand('gitlens.graph.switchToCommit', this.switchTo, this),
 			registerCommand('gitlens.graph.undoCommit', this.undoCommit, this),
@@ -447,6 +449,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			registerCommand('gitlens.graph.copyDeepLinkToTag', this.copyDeepLinkToTag, this),
 
 			registerCommand('gitlens.graph.openChangedFiles', this.openFiles, this),
+			registerCommand('gitlens.graph.openOnlyChangedFiles', this.openOnlyChangedFiles, this),
 			registerCommand('gitlens.graph.openChangedFileDiffs', this.openAllChanges, this),
 			registerCommand('gitlens.graph.openChangedFileDiffsWithWorking', this.openAllChangesWithWorking, this),
 			registerCommand('gitlens.graph.openChangedFileRevisions', this.openRevisions, this),
@@ -2363,6 +2366,17 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 	}
 
 	@debug()
+	private resetToTip(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'branch');
+		if (ref == null) return Promise.resolve();
+
+		return RepoActions.reset(
+			ref.repoPath,
+			createReference(ref.ref, ref.repoPath, { refType: 'revision', name: ref.name }),
+		);
+	}
+
+	@debug()
 	private revertCommit(item?: GraphItemContext) {
 		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return Promise.resolve();
@@ -2630,6 +2644,14 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		if (commit == null) return;
 
 		return openFilesAtRevision(commit);
+	}
+
+	@debug()
+	private async openOnlyChangedFiles(item?: GraphItemContext) {
+		const commit = await this.getCommitFromGraphItemRef(item);
+		if (commit == null) return;
+
+		return openOnlyChangedFilesForCommit(commit);
 	}
 
 	@debug()

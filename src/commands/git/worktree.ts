@@ -723,7 +723,11 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 					try {
 						if (force) {
 							const worktree = context.worktrees.find(wt => wt.uri.toString() === uri.toString());
-							const status = await worktree?.getStatus();
+							let status;
+							try {
+								status = await worktree?.getStatus();
+							} catch {}
+
 							if (status?.hasChanges ?? false) {
 								const confirm: MessageItem = { title: 'Force Delete' };
 								const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };

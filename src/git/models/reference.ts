@@ -1,6 +1,11 @@
 import { GlyphChars } from '../../constants';
 import { configuration } from '../../system/configuration';
-import { getBranchNameWithoutRemote, getRemoteNameFromBranchName, splitBranchNameAndRemote } from './branch';
+import {
+	getBranchNameWithoutRemote,
+	getRemoteNameFromBranchName,
+	getRemoteNameSlashIndex,
+	splitBranchNameAndRemote,
+} from './branch';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from './constants';
 
 const rangeRegex = /^(\S*?)(\.\.\.?)(\S*)\s*$/;
@@ -262,6 +267,10 @@ export function getNameWithoutRemote(ref: GitReference) {
 		return ref.remote ? getBranchNameWithoutRemote(ref.name) : ref.name;
 	}
 	return ref.name;
+}
+
+export function getBranchTrackingWithoutRemote(ref: GitBranchReference) {
+	return ref.upstream?.name.substring(getRemoteNameSlashIndex(ref.upstream.name) + 1);
 }
 
 export function isGitReference(ref: unknown): ref is GitReference {
