@@ -6275,6 +6275,12 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.commitDetails.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "gitlens.views.commits.copy",
 				"title": "Copy",
 				"category": "GitLens"
@@ -6478,6 +6484,12 @@
 				"command": "gitlens.views.fileHistory.setShowAvatarsOff",
 				"title": "Hide Avatars",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.graphDetails.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
 			},
 			{
 				"command": "gitlens.views.home.refresh",
@@ -9070,6 +9082,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.commitDetails.refresh",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.commits.copy",
 					"when": "false"
 				},
@@ -9215,6 +9231,10 @@
 				},
 				{
 					"command": "gitlens.views.fileHistory.setShowAvatarsOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.graphDetails.refresh",
 					"when": "false"
 				},
 				{
@@ -10585,6 +10605,11 @@
 					"group": "navigation@11"
 				},
 				{
+					"command": "gitlens.views.commitDetails.refresh",
+					"when": "view =~ /^gitlens\\.views\\.commitDetails/",
+					"group": "navigation@99"
+				},
+				{
 					"command": "gitlens.views.commits.setMyCommitsOnlyOff",
 					"when": "view =~ /^gitlens\\.views\\.commits/ && gitlens:views:commits:myCommitsOnly",
 					"group": "navigation@50"
@@ -10778,6 +10803,11 @@
 					"command": "gitlens.views.fileHistory.setShowAvatarsOff",
 					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && config.gitlens.views.fileHistory.avatars",
 					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.graphDetails.refresh",
+					"when": "view =~ /^gitlens\\.views\\.graphDetails/",
+					"group": "navigation@99"
 				},
 				{
 					"command": "gitlens.views.home.refresh",
