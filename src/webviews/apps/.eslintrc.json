@@ -1,12 +1,25 @@
 {
-	"extends": ["../../../.eslintrc.base.json", "plugin:lit/recommended"],
+	"extends": ["../../../.eslintrc.base.json", "plugin:lit/recommended", "plugin:wc/recommended"],
 	"env": {
 		"browser": true
 	},
 	"rules": {
-		"import/extensions": ["error", "never", { "js": "always" }]
+		"import/extensions": [
+			"error",
+			"never",
+			{
+				"js": "always"
+			}
+		]
 	},
 	"parserOptions": {
 		"project": "src/webviews/apps/tsconfig.json"
+	},
+	"settings": {
+		"wc": {
+			"elementBaseClasses": [
+				"LitElement" // Recognize `LitElement` as a Custom Element base class
+			]
+		}
 	}
 }

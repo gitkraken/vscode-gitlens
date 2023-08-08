@@ -14,11 +14,11 @@ const template = html<PullRequestRow>`
 	<template role="row">
 		<table-cell class="status">
 			${when(
-				x => x.pullRequest!.isDraft === true,
+				x => x.pullRequest?.isDraft === true,
 				html`<code-icon icon="git-pull-request-draft" title="draft"></code-icon>`,
 			)}
 			${when(
-				x => x.pullRequest!.isDraft !== true,
+				x => x.pullRequest?.isDraft !== true,
 				html`<code-icon class="pull-request-draft" icon="git-pull-request" title="open"></code-icon>`,
 			)}
 			${when(
@@ -295,27 +295,36 @@ export class PullRequestRow extends FASTElement {
 
 	@volatile
 	get lastUpdatedDate() {
-		return new Date(this.pullRequest!.date);
+		return this.pullRequest ? new Date(this.pullRequest.date) : undefined;
 	}
 
 	@volatile
 	get lastUpdatedState() {
+		if (!this.lastUpdatedDate) {
+			return;
+		}
 		return fromDateRange(this.lastUpdatedDate);
 	}
 
 	@volatile
 	get lastUpdated() {
+		if (!this.lastUpdatedDate) {
+			return;
+		}
 		return fromNow(this.lastUpdatedDate, true);
 	}
 
 	@volatile
 	get lastUpdatedLabel() {
+		if (!this.lastUpdatedDate) {
+			return;
+		}
 		return fromNow(this.lastUpdatedDate);
 	}
 
 	@volatile
 	get lastUpdatedClass() {
-		switch (this.lastUpdatedState.status) {
+		switch (this.lastUpdatedState?.status) {
 			case 'danger':
 				return 'indicator-error';
 			case 'warning':

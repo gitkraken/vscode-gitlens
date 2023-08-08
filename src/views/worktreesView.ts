@@ -3,7 +3,7 @@ import { ProgressLocation, ThemeColor, TreeItem, TreeItemCollapsibleState, windo
 import type { WorktreesViewConfig } from '../config';
 import { ViewFilesLayout, ViewShowBranchComparison } from '../config';
 import type { Colors } from '../constants';
-import { Commands } from '../constants';
+import { Commands, GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { PlusFeatures } from '../features';
 import { GitUri } from '../git/gitUri';
@@ -100,21 +100,31 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 		this.disposables.push(
 			window.registerFileDecorationProvider({
 				provideFileDecoration: (uri, _token) => {
-					if (
-						uri.scheme !== 'gitlens-view' ||
-						uri.authority !== 'worktree' ||
-						!uri.path.includes('/changes')
-					) {
-						return undefined;
-					}
+					if (uri.scheme !== 'gitlens-view' || uri.authority !== 'worktree') return undefined;
 
-					return {
-						badge: '●',
-						color: new ThemeColor(
-							'gitlens.decorations.worktreeView.hasUncommittedChangesForegroundColor' as Colors,
-						),
-						tooltip: 'Has Uncommitted Changes',
-					};
+					const [, status] = uri.path.split('/');
+					switch (status) {
+						case 'changes':
+							return {
+								badge: '●',
+								color: new ThemeColor(
+									'gitlens.decorations.worktreeHasUncommittedChangesForegroundColor' as Colors,
+								),
+								tooltip: 'Has Uncommitted Changes',
+							};
+
+						case 'missing':
+							return {
+								badge: GlyphChars.Warning,
+								color: new ThemeColor(
+									'gitlens.decorations.worktreeMissingForegroundColor' satisfies Colors,
+								),
+								tooltip: '',
+							};
+
+						default:
+							return undefined;
+					}
 				},
 			}),
 		);

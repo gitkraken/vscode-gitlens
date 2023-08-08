@@ -6,7 +6,7 @@ import { PlusFeatures } from '../../../features';
 import { add as addRemote } from '../../../git/actions/remote';
 import * as RepoActions from '../../../git/actions/repository';
 import type { GitBranch } from '../../../git/models/branch';
-import { getLocalBranchByNameOrUpstream } from '../../../git/models/branch';
+import { getLocalBranchByUpstream } from '../../../git/models/branch';
 import type { SearchedIssue } from '../../../git/models/issue';
 import { serializeIssue } from '../../../git/models/issue';
 import type { PullRequestShape, SearchedPullRequest } from '../../../git/models/pullRequest';
@@ -23,14 +23,19 @@ import { getWorktreeForBranch } from '../../../git/models/worktree';
 import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
 import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
 import { executeCommand, registerCommand } from '../../../system/command';
-import { setContext } from '../../../system/context';
 import { getSettledValue } from '../../../system/promise';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
-import type { OpenWorktreeParams, State, SwitchToBranchParams } from './protocol';
-import { DidChangeNotificationType, OpenWorktreeCommandType, SwitchToBranchCommandType } from './protocol';
+import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
+import type { OpenBranchParams, OpenWorktreeParams, State, SwitchToBranchParams } from './protocol';
+import {
+	DidChangeNotificationType,
+	OpenBranchCommandType,
+	OpenWorktreeCommandType,
+	SwitchToBranchCommandType,
+} from './protocol';
 
 interface RepoWithRichRemote {
 	repo: Repository;
@@ -74,19 +79,11 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		return [registerCommand(Commands.RefreshFocus, () => this.host.refresh(true))];
 	}
 
-	onFocusChanged(focused: boolean): void {
-		if (focused) {
-			// If we are becoming focused, delay it a bit to give the UI time to update
-			setTimeout(() => void setContext('gitlens:focus:focused', focused), 0);
-
-			return;
-		}
-
-		void setContext('gitlens:focus:focused', focused);
-	}
-
 	onMessageReceived(e: IpcMessage) {
 		switch (e.method) {
+			case OpenBranchCommandType.method:
+				onIpc(OpenBranchCommandType, e, params => this.onOpenBranch(params));
+				break;
 			case SwitchToBranchCommandType.method:
 				onIpc(SwitchToBranchCommandType, e, params => this.onSwitchBranch(params));
 				break;
@@ -103,7 +100,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	private async getRemoteBranch(searchedPullRequest: SearchedPullRequestWithRemote) {
 		const pullRequest = searchedPullRequest.pullRequest;
 		const repoAndRemote = searchedPullRequest.repoAndRemote;
-		const localUri = repoAndRemote.repo.folder!.uri;
+		const localUri = repoAndRemote.repo.uri;
 
 		const repo = await repoAndRemote.repo.getMainRepository();
 		if (repo == null) {
@@ -116,6 +113,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		const rootOwner = pullRequest.refs!.base.owner;
 		const rootUri = Uri.parse(pullRequest.refs!.base.url);
 		const ref = pullRequest.refs!.head.branch;
+
 		const remoteUri = Uri.parse(pullRequest.refs!.head.url);
 		const remoteUrl = remoteUri.toString();
 		const [, remoteDomain, remotePath] = parseGitRemoteUrl(remoteUrl);
@@ -169,21 +167,36 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		};
 	}
 
-	private async onSwitchBranch({ pullRequest }: SwitchToBranchParams) {
-		const searchedPullRequestWithRemote = this.findSearchedPullRequest(pullRequest);
-		if (searchedPullRequestWithRemote == null || searchedPullRequestWithRemote.isCurrentBranch) {
-			return Promise.resolve();
-		}
+	private async onOpenBranch({ pullRequest }: OpenBranchParams) {
+		const prWithRemote = this.findSearchedPullRequest(pullRequest);
+		if (prWithRemote == null) return;
 
-		if (searchedPullRequestWithRemote.branch != null) {
-			return RepoActions.switchTo(
-				searchedPullRequestWithRemote.branch.repoPath,
-				searchedPullRequestWithRemote.branch,
+		const remoteBranch = await this.getRemoteBranch(prWithRemote);
+		if (remoteBranch == null) {
+			void window.showErrorMessage(
+				`Unable to find remote branch for '${prWithRemote.pullRequest.refs?.head.owner}:${prWithRemote.pullRequest.refs?.head.branch}'`,
 			);
+			return;
 		}
 
-		const remoteBranch = await this.getRemoteBranch(searchedPullRequestWithRemote);
-		if (remoteBranch == null) return Promise.resolve();
+		void executeCommand<ShowInCommitGraphCommandArgs>(Commands.ShowInCommitGraph, { ref: remoteBranch.reference });
+	}
+
+	private async onSwitchBranch({ pullRequest }: SwitchToBranchParams) {
+		const prWithRemote = this.findSearchedPullRequest(pullRequest);
+		if (prWithRemote == null || prWithRemote.isCurrentBranch) return;
+
+		if (prWithRemote.branch != null) {
+			return RepoActions.switchTo(prWithRemote.branch.repoPath, prWithRemote.branch);
+		}
+
+		const remoteBranch = await this.getRemoteBranch(prWithRemote);
+		if (remoteBranch == null) {
+			void window.showErrorMessage(
+				`Unable to find remote branch for '${prWithRemote.pullRequest.refs?.head.owner}:${prWithRemote.pullRequest.refs?.head.branch}'`,
+			);
+			return;
+		}
 
 		return RepoActions.switchTo(remoteBranch.remote.repoPath, remoteBranch.reference);
 	}
@@ -195,7 +208,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		}
 
 		const baseUri = Uri.parse(pullRequest.refs!.base.url);
-		const localInfo = searchedPullRequestWithRemote.repoAndRemote.repo.folder;
+		const localUri = searchedPullRequestWithRemote.repoAndRemote.repo.uri;
 		return executeCommand<GHPRPullRequest>(Commands.OpenOrCreateWorktreeForGHPR, {
 			base: {
 				repositoryCloneUrl: {
@@ -205,7 +218,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 				},
 			},
 			githubRepository: {
-				rootUri: localInfo!.uri,
+				rootUri: localUri,
 			},
 			head: {
 				ref: pullRequest.refs!.head.branch,
@@ -340,9 +353,6 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	private async getMyPullRequests(richRepos: RepoWithRichRemote[]): Promise<SearchedPullRequestWithRemote[]> {
 		const allPrs: SearchedPullRequestWithRemote[] = [];
 		for (const richRepo of richRepos) {
-			const remotes = await richRepo.repo.getRemotes();
-			const remoteNames = remotes.map(r => r.name);
-
 			const remote = richRepo.remote;
 			const prs = await this.container.git.getMyPullRequests(remote);
 			if (prs == null) {
@@ -360,21 +370,17 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 					isCurrentBranch: false,
 				};
 
-				const upstreams = remoteNames.map(r => `${r}/${entry.pullRequest.refs!.head.branch}`);
+				const remoteBranchName = `${entry.pullRequest.refs!.head.owner}/${entry.pullRequest.refs!.head.branch}`; // TODO@eamodio really need to check for upstream url rather than name
 
 				const worktree = await getWorktreeForBranch(
 					entry.repoAndRemote.repo,
 					entry.pullRequest.refs!.head.branch,
-					upstreams,
+					remoteBranchName,
 				);
 				entry.hasWorktree = worktree != null;
 				entry.isCurrentWorktree = worktree?.opened === true;
 
-				const branch = await getLocalBranchByNameOrUpstream(
-					richRepo.repo,
-					entry.pullRequest.refs!.head.branch,
-					upstreams,
-				);
+				const branch = await getLocalBranchByUpstream(richRepo.repo, remoteBranchName);
 				if (branch) {
 					entry.branch = branch;
 					entry.hasLocalBranch = true;

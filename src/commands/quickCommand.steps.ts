@@ -63,6 +63,7 @@ import {
 	CommitOpenRevisionsCommandQuickPickItem,
 	CommitRestoreFileChangesCommandQuickPickItem,
 	OpenChangedFilesCommandQuickPickItem,
+	OpenOnlyChangedFilesCommandQuickPickItem,
 } from '../quickpicks/items/commits';
 import type { QuickPickSeparator } from '../quickpicks/items/common';
 import { CommandQuickPickItem, createQuickPickSeparator } from '../quickpicks/items/common';
@@ -228,18 +229,29 @@ export async function getWorktrees(
 	return Promise.all<WorktreeQuickPickItem>([
 		...worktrees
 			.filter(w => filter == null || filter(w))
-			.map(async w =>
-				createWorktreeQuickPickItem(
+			.map(async w => {
+				let missing = false;
+				let status;
+				if (includeStatus) {
+					try {
+						status = await w.getStatus();
+					} catch {
+						missing = true;
+					}
+				}
+
+				return createWorktreeQuickPickItem(
 					w,
 					picked != null &&
 						(typeof picked === 'string' ? w.uri.toString() === picked : picked.includes(w.uri.toString())),
+					missing,
 					{
 						buttons: buttons,
 						path: true,
-						status: includeStatus ? await w.getStatus() : undefined,
+						status: status,
 					},
-				),
-			),
+				);
+			}),
 	]);
 }
 
@@ -2385,6 +2397,12 @@ function getShowRepositoryStatusStepItems<
 				computed.stagedAddsAndChanges.concat(computed.unstagedAddsAndChanges),
 			),
 		);
+
+		items.push(
+			new OpenOnlyChangedFilesCommandQuickPickItem(
+				computed.stagedAddsAndChanges.concat(computed.unstagedAddsAndChanges),
+			),
+		);
 	}
 
 	if (computed.staged > 0) {
@@ -2393,12 +2411,24 @@ function getShowRepositoryStatusStepItems<
 				label: '$(files) Open Staged Files',
 			}),
 		);
+
+		items.push(
+			new OpenOnlyChangedFilesCommandQuickPickItem(computed.stagedAddsAndChanges, {
+				label: '$(files) Open Only Staged Files',
+			}),
+		);
 	}
 
 	if (computed.unstaged > 0) {
 		items.push(
 			new OpenChangedFilesCommandQuickPickItem(computed.unstagedAddsAndChanges, {
 				label: '$(files) Open Unstaged Files',
+			}),
+		);
+
+		items.push(
+			new OpenOnlyChangedFilesCommandQuickPickItem(computed.unstagedAddsAndChanges, {
+				label: '$(files) Open Only Unstaged Files',
 			}),
 		);
 	}

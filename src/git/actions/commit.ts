@@ -5,6 +5,7 @@ import type {
 	DiffWithPreviousCommandArgs,
 	DiffWithWorkingCommandArgs,
 	OpenFileOnRemoteCommandArgs,
+	OpenOnlyChangedFilesCommandArgs,
 	OpenWorkingFileCommandArgs,
 	ShowQuickCommitCommandArgs,
 	ShowQuickCommitFileCommandArgs,
@@ -608,5 +609,24 @@ export async function showInCommitGraph(
 	void (await executeCommand<ShowInCommitGraphCommandArgs>(Commands.ShowInCommitGraph, {
 		ref: getReferenceFromRevision(commit),
 		preserveFocus: options?.preserveFocus,
+	}));
+}
+
+export async function openOnlyChangedFiles(commit: GitCommit): Promise<void> {
+	await commit.ensureFullDetails();
+
+	const files = commit.files ?? [];
+
+	if (files.length > 10) {
+		const result = await window.showWarningMessage(
+			`Are you sure you want to open all ${files.length} files?`,
+			{ title: 'Yes' },
+			{ title: 'No', isCloseAffordance: true },
+		);
+		if (result == null || result.title === 'No') return;
+	}
+
+	void (await executeCommand<OpenOnlyChangedFilesCommandArgs>(Commands.OpenOnlyChangedFiles, {
+		uris: files.filter(f => f.status !== 'D').map(f => f.uri),
 	}));
 }

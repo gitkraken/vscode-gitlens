@@ -2,7 +2,7 @@
 	"name": "gitlens",
 	"displayName": "GitLens — Git supercharged",
 	"description": "Supercharge Git within VS Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via rich visualizations and powerful comparison commands, and so much more",
-	"version": "14.1.1",
+	"version": "14.2.0",
 	"engines": {
 		"vscode": "^1.78.0"
 	},
@@ -4268,12 +4268,21 @@
 				}
 			},
 			{
-				"id": "gitlens.decorations.worktreeView.hasUncommittedChangesForegroundColor",
+				"id": "gitlens.decorations.worktreeHasUncommittedChangesForegroundColor",
 				"description": "Specifies the decoration foreground color for worktrees that have uncommitted changes",
 				"defaults": {
 					"light": "#895503",
 					"dark": "#E2C08D",
 					"highContrast": "#E2C08D"
+				}
+			},
+			{
+				"id": "gitlens.decorations.worktreeMissingForegroundColor",
+				"description": "Specifies the decoration foreground color for worktrees cannot be found on disk",
+				"defaults": {
+					"light": "#ad0707",
+					"dark": "#c74e39",
+					"highContrast": "#c74e39"
 				}
 			},
 			{
@@ -5280,6 +5289,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.openOnlyChangedFiles",
+				"title": "Open Changed & Close Unchanged Files",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.openBranchesOnRemote",
 				"title": "Open Branches on Remote",
 				"category": "GitLens",
@@ -5868,6 +5882,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.openOnlyChangedFiles",
+				"title": "Open Changed & Close Unchanged Files",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.applyChanges",
 				"title": "Apply Changes",
 				"category": "GitLens",
@@ -6092,6 +6111,12 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.views.resetToTip",
+				"title": "Reset Current Branch to Tip...",
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
+			},
+			{
 				"command": "gitlens.views.revert",
 				"title": "Revert Commit...",
 				"category": "GitLens",
@@ -6248,6 +6273,12 @@
 				"command": "gitlens.views.branches.setShowBranchPullRequestOff",
 				"title": "Hide Branch Pull Requests",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.commitDetails.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
 			},
 			{
 				"command": "gitlens.views.commits.copy",
@@ -6453,6 +6484,12 @@
 				"command": "gitlens.views.fileHistory.setShowAvatarsOff",
 				"title": "Hide Avatars",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.graphDetails.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
 			},
 			{
 				"command": "gitlens.views.home.refresh",
@@ -7319,6 +7356,12 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.graph.resetToTip",
+				"title": "Reset Current Branch to Tip...",
+				"category": "GitLens",
+				"enablement": "!operationInProgress"
+			},
+			{
 				"command": "gitlens.graph.revert",
 				"title": "Revert Commit...",
 				"category": "GitLens",
@@ -7446,6 +7489,11 @@
 			{
 				"command": "gitlens.graph.openChangedFileRevisions",
 				"title": "Open Files at Revision",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.graph.openOnlyChangedFiles",
+				"title": "Open Changed & Close Unchanged Files",
 				"category": "GitLens"
 			},
 			{
@@ -8386,6 +8434,10 @@
 					"when": "gitlens:enabled"
 				},
 				{
+					"command": "gitlens.openOnlyChangedFiles",
+					"when": "gitlens:enabled"
+				},
+				{
 					"command": "gitlens.openBranchesOnRemote",
 					"when": "gitlens:hasRemotes"
 				},
@@ -8762,6 +8814,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.openOnlyChangedFiles",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.applyChanges",
 					"when": "false"
 				},
@@ -8894,6 +8950,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.resetToTip",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.revert",
 					"when": "false"
 				},
@@ -9019,6 +9079,10 @@
 				},
 				{
 					"command": "gitlens.views.branches.setShowBranchPullRequestOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.commitDetails.refresh",
 					"when": "false"
 				},
 				{
@@ -9167,6 +9231,10 @@
 				},
 				{
 					"command": "gitlens.views.fileHistory.setShowAvatarsOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.graphDetails.refresh",
 					"when": "false"
 				},
 				{
@@ -9770,6 +9838,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.resetToTip",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.graph.revert",
 					"when": "false"
 				},
@@ -9851,6 +9923,10 @@
 				},
 				{
 					"command": "gitlens.graph.openChangedFileRevisions",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.openOnlyChangedFiles",
 					"when": "false"
 				},
 				{
@@ -10222,7 +10298,7 @@
 				},
 				{
 					"command": "gitlens.focus.refresh",
-					"when": "gitlens:focus:focused",
+					"when": "gitlens:webview:focus:active",
 					"group": "navigation@-98"
 				}
 			],
@@ -10380,6 +10456,11 @@
 					"command": "gitlens.closeUnchangedFiles",
 					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.openClose",
 					"group": "3_gitlens@2"
+				},
+				{
+					"command": "gitlens.openOnlyChangedFiles",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.openClose",
+					"group": "3_gitlens@2"
 				}
 			],
 			"scm/resourceState/context": [
@@ -10522,6 +10603,11 @@
 					"command": "gitlens.showGraph",
 					"when": "view =~ /^gitlens\\.views\\.commits/ && gitlens:plus:enabled",
 					"group": "navigation@11"
+				},
+				{
+					"command": "gitlens.views.commitDetails.refresh",
+					"when": "view =~ /^gitlens\\.views\\.commitDetails/",
+					"group": "navigation@99"
 				},
 				{
 					"command": "gitlens.views.commits.setMyCommitsOnlyOff",
@@ -10717,6 +10803,11 @@
 					"command": "gitlens.views.fileHistory.setShowAvatarsOff",
 					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && config.gitlens.views.fileHistory.avatars",
 					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.graphDetails.refresh",
+					"when": "view =~ /^gitlens\\.views\\.graphDetails/",
+					"group": "navigation@99"
 				},
 				{
 					"command": "gitlens.views.home.refresh",
@@ -11557,6 +11648,11 @@
 				{
 					"command": "gitlens.views.resetToCommit",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:commit\\b/",
+					"group": "1_gitlens_actions@4"
+				},
+				{
+					"command": "gitlens.views.resetToTip",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b/",
 					"group": "1_gitlens_actions@4"
 				},
 				{
@@ -12726,6 +12822,11 @@
 					"group": "1_gitlens_actions@4"
 				},
 				{
+					"command": "gitlens.graph.resetToTip",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b/",
+					"group": "1_gitlens_actions@4"
+				},
+				{
 					"command": "gitlens.graph.resetCommit",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:commit\\b/",
 					"group": "1_gitlens_actions@5"
@@ -13110,6 +13211,10 @@
 				{
 					"command": "gitlens.views.openChangedFileRevisions",
 					"group": "2_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.openOnlyChangedFiles",
+					"group": "2_gitlens@3"
 				}
 			],
 			"gitlens/graph/commit/changes": [
@@ -13129,6 +13234,10 @@
 				{
 					"command": "gitlens.graph.openChangedFileRevisions",
 					"group": "2_gitlens@2"
+				},
+				{
+					"command": "gitlens.graph.openOnlyChangedFiles",
+					"group": "2_gitlens@3"
 				}
 			],
 			"gitlens/commit/file/commit": [
@@ -14607,6 +14716,7 @@
 		"package": "vsce package --yarn",
 		"package-pre": "yarn run patch-pre && yarn run package --pre-release",
 		"patch-pre": "node ./scripts/applyPreReleasePatch.js",
+		"prep-release": "node ./scripts/prep-release.js",
 		"pretty": "prettier --config .prettierrc --log-level warn --write .",
 		"pub": "vsce publish --yarn",
 		"pub-pre": "vsce publish --yarn --pre-release",
@@ -14629,19 +14739,20 @@
 	},
 	"dependencies": {
 		"@gitkraken/gitkraken-components": "10.1.9",
+		"@gitkraken/shared-web-components": "^0.1.1-rc.6",
 		"@microsoft/fast-element": "1.12.0",
 		"@microsoft/fast-react-wrapper": "0.3.18",
 		"@octokit/core": "4.2.4",
 		"@opentelemetry/api": "1.4.1",
-		"@opentelemetry/exporter-trace-otlp-http": "0.41.0",
-		"@opentelemetry/sdk-trace-base": "1.15.0",
+		"@opentelemetry/exporter-trace-otlp-http": "0.41.1",
+		"@opentelemetry/sdk-trace-base": "1.15.1",
 		"@vscode/codicons": "0.0.33",
 		"@vscode/webview-ui-toolkit": "1.2.2",
 		"ansi-regex": "6.0.1",
-		"billboard.js": "3.9.0",
+		"billboard.js": "3.9.2",
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
-		"lit": "2.7.6",
+		"lit": "2.8.0",
 		"node-fetch": "2.6.9",
 		"os-browserify": "0.3.0",
 		"path-browserify": "1.0.1",
@@ -14656,11 +14767,11 @@
 		"@types/react-dom": "17.0.17",
 		"@types/sortablejs": "1.15.1",
 		"@types/vscode": "1.78.1",
-		"@typescript-eslint/eslint-plugin": "6.0.0",
-		"@typescript-eslint/parser": "6.0.0",
-		"@vscode/test-electron": "2.3.3",
+		"@typescript-eslint/eslint-plugin": "6.3.0",
+		"@typescript-eslint/parser": "6.3.0",
+		"@vscode/test-electron": "2.3.4",
 		"@vscode/test-web": "0.0.44",
-		"@vscode/vsce": "2.19.0",
+		"@vscode/vsce": "2.20.1",
 		"circular-dependency-plugin": "5.2.2",
 		"clean-webpack-plugin": "4.0.0",
 		"concurrently": "8.2.0",
@@ -14672,13 +14783,14 @@
 		"esbuild": "0.17.19",
 		"esbuild-loader": "3.0.1",
 		"esbuild-sass-plugin": "2.10.0",
-		"eslint": "8.44.0",
+		"eslint": "8.46.0",
 		"eslint-cli": "1.1.1",
-		"eslint-config-prettier": "8.8.0",
+		"eslint-config-prettier": "9.0.0",
 		"eslint-import-resolver-typescript": "3.5.5",
 		"eslint-plugin-anti-trojan-source": "1.1.1",
-		"eslint-plugin-import": "2.27.5",
+		"eslint-plugin-import": "2.28.0",
 		"eslint-plugin-lit": "1.8.3",
+		"eslint-plugin-wc": "1.5.0",
 		"fantasticon": "1.2.3",
 		"fork-ts-checker-webpack-plugin": "6.5.3",
 		"glob": "10.3.3",
@@ -14689,17 +14801,17 @@
 		"lz-string": "1.5.0",
 		"mini-css-extract-plugin": "2.7.6",
 		"mocha": "10.2.0",
-		"prettier": "3.0.0",
-		"sass": "1.63.6",
+		"prettier": "3.0.1",
+		"sass": "1.64.2",
 		"sass-loader": "13.3.2",
 		"schema-utils": "4.2.0",
-		"sharp": "0.32.2",
+		"sharp": "0.32.4",
 		"svgo": "3.0.2",
 		"terser-webpack-plugin": "5.3.9",
 		"ts-loader": "9.4.4",
 		"tsc-alias": "1.8.7",
 		"typescript": "5.2.0-beta",
-		"webpack": "5.88.1",
+		"webpack": "5.88.2",
 		"webpack-bundle-analyzer": "4.9.0",
 		"webpack-cli": "5.1.4",
 		"webpack-node-externals": "3.0.0",

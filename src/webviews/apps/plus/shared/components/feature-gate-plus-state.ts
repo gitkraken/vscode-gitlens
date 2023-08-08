@@ -13,20 +13,20 @@ export class FeatureGatePlusState extends LitElement {
 				container-type: inline-size;
 			}
 
-			:host([appearance='welcome']) gk-button {
+			:host([appearance='welcome']) gl-button {
 				width: 100%;
 				max-width: 300px;
 			}
 
 			@container (max-width: 600px) {
-				:host([appearance='welcome']) gk-button {
+				:host([appearance='welcome']) gl-button {
 					display: block;
 					margin-left: auto;
 					margin-right: auto;
 				}
 			}
 
-			:host([appearance='alert']) gk-button {
+			:host([appearance='alert']) gl-button {
 				display: block;
 				margin-left: auto;
 				margin-right: auto;
@@ -61,18 +61,18 @@ export class FeatureGatePlusState extends LitElement {
 			case SubscriptionState.VerificationRequired:
 				return html`
 					<p>You must verify your email before you can continue.</p>
-					<gk-button appearance="${appearance}" href="command:gitlens.plus.resendVerification"
-						>Resend verification email</gk-button
+					<gl-button appearance="${appearance}" href="command:gitlens.plus.resendVerification"
+						>Resend verification email</gl-button
 					>
-					<gk-button appearance="${appearance}" href="command:gitlens.plus.validate"
-						>Refresh verification status</gk-button
+					<gl-button appearance="${appearance}" href="command:gitlens.plus.validate"
+						>Refresh verification status</gl-button
 					>
 				`;
 
 			case SubscriptionState.Free:
 				return html`
-					<gk-button appearance="${appearance}" href="command:gitlens.plus.startPreviewTrial"
-						>Preview Now</gk-button
+					<gl-button appearance="${appearance}" href="command:gitlens.plus.startPreviewTrial"
+						>Preview Now</gl-button
 					>
 					<p>
 						Preview Pro for 3 days, or
@@ -87,8 +87,8 @@ export class FeatureGatePlusState extends LitElement {
 						Your 3-day Pro preview has ended, start a free Pro trial to get an additional 7 days, or
 						<a href="command:gitlens.plus.loginOrSignUp">sign in</a>.
 					</p>
-					<gk-button appearance="${appearance}" href="command:gitlens.plus.loginOrSignUp"
-						>Start Free Pro Trial</gk-button
+					<gl-button appearance="${appearance}" href="command:gitlens.plus.loginOrSignUp"
+						>Start Free Pro Trial</gl-button
 					>
 					<p>✨ A trial or paid plan is required to use this on privately hosted repos.</p>
 				`;
@@ -96,8 +96,8 @@ export class FeatureGatePlusState extends LitElement {
 			case SubscriptionState.FreePlusTrialExpired:
 				return html`
 					<p>Your Pro trial has ended, please upgrade to continue to use this on privately hosted repos.</p>
-					<gk-button appearance="${appearance}" href="command:gitlens.plus.purchase"
-						>Upgrade to Pro</gk-button
+					<gl-button appearance="${appearance}" href="command:gitlens.plus.purchase"
+						>Upgrade to Pro</gl-button
 					>
 					<p>✨ A paid plan is required to use this on privately hosted repos.</p>
 				`;

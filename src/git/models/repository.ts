@@ -793,11 +793,25 @@ export class Repository implements Disposable {
 
 	private async pullCore(options?: { rebase?: boolean }) {
 		try {
-			const upstream = await this.hasUpstreamBranch();
-			if (upstream) {
-				void (await executeCoreGitCommand(options?.rebase ? 'git.pullRebase' : 'git.pull', this.path));
-			} else if (configuration.getAny<CoreGitConfiguration, boolean>('git.fetchOnPull', Uri.file(this.path))) {
-				await this.container.git.fetch(this.path);
+			if (configuration.getAny('gitlens.experimental.nativeGit') === true) {
+				const withTags = configuration.getAny<CoreGitConfiguration, boolean>(
+					'git.pullTags',
+					Uri.file(this.path),
+				);
+				if (configuration.getAny<CoreGitConfiguration, boolean>('git.fetchOnPull', Uri.file(this.path))) {
+					await this.container.git.fetch(this.path);
+				}
+
+				await this.container.git.pull(this.path, { ...options, tags: withTags });
+			} else {
+				const upstream = await this.hasUpstreamBranch();
+				if (upstream) {
+					void (await executeCoreGitCommand(options?.rebase ? 'git.pullRebase' : 'git.pull', this.path));
+				} else if (
+					configuration.getAny<CoreGitConfiguration, boolean>('git.fetchOnPull', Uri.file(this.path))
+				) {
+					await this.container.git.fetch(this.path);
+				}
 			}
 
 			this.fireChange(RepositoryChange.Unknown);
@@ -805,30 +819,6 @@ export class Repository implements Disposable {
 			Logger.error(ex);
 			void showGenericErrorMessage('Unable to pull repository');
 		}
-	}
-
-	@gate()
-	@log()
-	async push(options?: {
-		force?: boolean;
-		progress?: boolean;
-		reference?: GitReference;
-		publish?: {
-			remote: string;
-		};
-	}) {
-		const { progress, ...opts } = { progress: true, ...options };
-		if (!progress) return this.pushCore(opts);
-
-		return window.withProgress(
-			{
-				location: ProgressLocation.Notification,
-				title: isBranchReference(opts.reference)
-					? `${opts.publish != null ? 'Publishing ' : 'Pushing '}${opts.reference.name}...`
-					: `Pushing ${this.formattedName}...`,
-			},
-			() => this.pushCore(opts),
-		);
 	}
 
 	private async showCreatePullRequestPrompt(remoteName: string, branch: GitBranchReference) {
@@ -862,6 +852,30 @@ export class Repository implements Disposable {
 		});
 	}
 
+	@gate()
+	@log()
+	async push(options?: {
+		force?: boolean;
+		progress?: boolean;
+		reference?: GitReference;
+		publish?: {
+			remote: string;
+		};
+	}) {
+		const { progress, ...opts } = { progress: true, ...options };
+		if (!progress) return this.pushCore(opts);
+
+		return window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: isBranchReference(opts.reference)
+					? `${opts.publish != null ? 'Publishing ' : 'Pushing '}${opts.reference.name}...`
+					: `Pushing ${this.formattedName}...`,
+			},
+			() => this.pushCore(opts),
+		);
+	}
+
 	private async pushCore(options?: {
 		force?: boolean;
 		reference?: GitReference;
@@ -870,7 +884,14 @@ export class Repository implements Disposable {
 		};
 	}) {
 		try {
-			if (isBranchReference(options?.reference)) {
+			if (configuration.getAny('gitlens.experimental.nativeGit') === true) {
+				const branch = await this.getBranch(options?.reference?.name);
+				await this.container.git.push(this.path, {
+					force: options?.force,
+					branch: isBranchReference(options?.reference) ? options?.reference : branch,
+					...(options?.publish && { publish: options.publish }),
+				});
+			} else if (isBranchReference(options?.reference)) {
 				const repo = await this.container.git.getOrOpenScmRepository(this.path);
 				if (repo == null) return;
 
@@ -976,7 +997,7 @@ export class Repository implements Disposable {
 	}
 
 	async setRemoteAsDefault(remote: GitRemote, value: boolean = true) {
-		await this.container.storage.storeWorkspace('remote:default', value ? remote.id : undefined);
+		await this.container.storage.storeWorkspace('remote:default', value ? remote.name : undefined);
 
 		this.fireChange(RepositoryChange.Remotes, RepositoryChange.RemoteProviders);
 	}

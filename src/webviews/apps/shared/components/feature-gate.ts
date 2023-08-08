@@ -72,8 +72,8 @@ export class FeatureGate extends LitElement {
 			padding: 1.3rem;
 		}
 
-		:host-context(body[data-placement='editor']) section ::slotted(gk-button),
-		:host([appearance='alert']) section ::slotted(gk-button) {
+		:host-context(body[data-placement='editor']) section ::slotted(gl-button),
+		:host([appearance='alert']) section ::slotted(gl-button) {
 			display: block;
 			margin-left: auto;
 			margin-right: auto;

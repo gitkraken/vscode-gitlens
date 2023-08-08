@@ -77,7 +77,8 @@ export type Colors =
 	| `${typeof extensionPrefix}.decorations.workspaceCurrentForegroundColor`
 	| `${typeof extensionPrefix}.decorations.workspaceRepoMissingForegroundColor`
 	| `${typeof extensionPrefix}.decorations.workspaceRepoOpenForegroundColor`
-	| `${typeof extensionPrefix}.decorations.worktreeView.hasUncommittedChangesForegroundColor`
+	| `${typeof extensionPrefix}.decorations.worktreeHasUncommittedChangesForegroundColor`
+	| `${typeof extensionPrefix}.decorations.worktreeMissingForegroundColor`
 	| `${typeof extensionPrefix}.gutterBackgroundColor`
 	| `${typeof extensionPrefix}.gutterForegroundColor`
 	| `${typeof extensionPrefix}.gutterUncommittedForegroundColor`
@@ -246,6 +247,7 @@ export const enum Commands {
 	ShowLastQuickPick = 'gitlens.showLastQuickPick',
 	ShowLineCommitInView = 'gitlens.showLineCommitInView',
 	ShowLineHistoryView = 'gitlens.showLineHistoryView',
+	OpenOnlyChangedFiles = 'gitlens.openOnlyChangedFiles',
 	ShowQuickBranchHistory = 'gitlens.showQuickBranchHistory',
 	ShowQuickCommit = 'gitlens.showQuickCommitDetails',
 	ShowQuickCommitFile = 'gitlens.showQuickCommitFileDetails',
@@ -518,7 +520,6 @@ export type ContextKeys =
 	| `${typeof extensionPrefix}:disabledToggleCodeLens`
 	| `${typeof extensionPrefix}:disabled`
 	| `${typeof extensionPrefix}:enabled`
-	| `${typeof extensionPrefix}:focus:focused` // TODO@eamodio do we need this
 	| `${typeof extensionPrefix}:hasConnectedRemotes`
 	| `${typeof extensionPrefix}:hasRemotes`
 	| `${typeof extensionPrefix}:hasRichRemotes`
@@ -600,6 +601,7 @@ export type CoreGitConfiguration =
 	| 'git.enabled'
 	| 'git.fetchOnPull'
 	| 'git.path'
+	| 'git.pullTags'
 	| 'git.repositoryScanIgnoredFolders'
 	| 'git.repositoryScanMaxDepth'
 	| 'git.useForcePushWithLease';
