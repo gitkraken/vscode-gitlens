@@ -11,13 +11,16 @@
 	},
 	"include": [
 		"**/*",
+		"../../plus/webviews/**/*",
 		"../../@types/**/*",
 		"../protocol.ts",
+		"../**/protocol.ts",
 		"../../config.ts",
+		"../../constants.ts",
 		"../../features.ts",
 		"../../subscription.ts",
-		"../../system/color.ts",
-		"../../system/date.ts"
+		"../../system/**/*",
+		"../../env/browser/**/*"
 	],
 	"exclude": ["node_modules", "test"]
 }
