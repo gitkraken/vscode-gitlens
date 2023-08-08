@@ -47,16 +47,9 @@ export class GitRemoteParser {
 
 			remote = remotes.get(name);
 			if (remote == null) {
-				remote = new GitRemote(
-					repoPath,
-					`${domain ? `${domain}/` : ''}${path}`,
-					name,
-					scheme,
-					domain,
-					path,
-					remoteProviderMatcher(url, domain, path),
-					[{ url: url, type: type as GitRemoteType }],
-				);
+				remote = new GitRemote(repoPath, name, scheme, domain, path, remoteProviderMatcher(url, domain, path), [
+					{ url: url, type: type as GitRemoteType },
+				]);
 				remotes.set(name, remote);
 			} else {
 				remote.urls.push({ url: url, type: type as GitRemoteType });
@@ -65,16 +58,7 @@ export class GitRemoteParser {
 				const provider = remoteProviderMatcher(url, domain, path);
 				if (provider == null) continue;
 
-				remote = new GitRemote(
-					repoPath,
-					`${domain ? `${domain}/` : ''}${path}`,
-					name,
-					scheme,
-					domain,
-					path,
-					provider,
-					remote.urls,
-				);
+				remote = new GitRemote(repoPath, name, scheme, domain, path, provider, remote.urls);
 				remotes.set(name, remote);
 			}
 		} while (true);

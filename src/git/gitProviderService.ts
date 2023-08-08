@@ -67,7 +67,7 @@ import type { GitRebaseStatus } from './models/rebase';
 import type { GitBranchReference, GitReference } from './models/reference';
 import { createRevisionRange, isSha, isUncommitted, isUncommittedParent } from './models/reference';
 import type { GitReflog } from './models/reflog';
-import { GitRemote } from './models/remote';
+import { getVisibilityCacheKey, GitRemote } from './models/remote';
 import type { RepositoryChangeEvent } from './models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from './models/repository';
 import type { GitStash } from './models/stash';
@@ -857,15 +857,12 @@ export class GitProviderService implements Disposable {
 		if (visibilityInfo == null) return true;
 
 		if (visibilityInfo.visibility === RepositoryVisibility.Public) {
-			if (remotes.length == 0 || !remotes.some(r => r.id === visibilityInfo.remotesHash)) {
+			if (remotes.length == 0 || !remotes.some(r => r.urlKey === visibilityInfo.remotesHash)) {
 				this.clearRepoVisibilityCache([key]);
 				return false;
 			}
 		} else if (visibilityInfo.visibility === RepositoryVisibility.Private) {
-			const remotesHash = remotes
-				.map(r => r.id)
-				.sort()
-				.join(',');
+			const remotesHash = getVisibilityCacheKey(remotes);
 			if (remotesHash !== visibilityInfo.remotesHash) {
 				this.clearRepoVisibilityCache([key]);
 				return false;

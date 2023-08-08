@@ -11,7 +11,7 @@ import { uncommittedStaged } from '../git/models/constants';
 import type { GitDiffHunk, GitDiffHunkLine } from '../git/models/diff';
 import type { PullRequest } from '../git/models/pullRequest';
 import { isUncommittedStaged, shortenRevision } from '../git/models/reference';
-import type { GitRemote } from '../git/models/remote';
+import { GitRemote } from '../git/models/remote';
 import { configuration } from '../system/configuration';
 import { count } from '../system/iterable';
 import { Logger } from '../system/logger';
@@ -223,7 +223,7 @@ export async function detailsMessage(
 			commit.isUncommitted ? commit.getPreviousComparisonUrisForLine(editorLine, uri.sha) : undefined,
 			getAutoLinkedIssuesOrPullRequests(message, remotes),
 			options?.pullRequests?.pr ??
-				getPullRequestForCommit(commit.ref, remotes, {
+				getPullRequestForCommitOrBestRemote(commit.ref, remotes, {
 					pullRequests:
 						options?.pullRequests?.enabled !== false &&
 						CommitFormatter.has(
@@ -246,7 +246,7 @@ export async function detailsMessage(
 	const presence = getSettledValue(presenceResult);
 
 	// Remove possible duplicate pull request
-	if (pr != null && !(pr instanceof PromiseCancelledError)) {
+	if (pr != null && !(pr instanceof PromiseCancelledError || pr instanceof GitRemote)) {
 		autolinkedIssuesOrPullRequests?.delete(pr.id);
 	}
 
@@ -360,7 +360,7 @@ async function getAutoLinkedIssuesOrPullRequests(message: string, remotes: GitRe
 	}
 }
 
-async function getPullRequestForCommit(
+async function getPullRequestForCommitOrBestRemote(
 	ref: string,
 	remotes: GitRemote[],
 	options?: {
