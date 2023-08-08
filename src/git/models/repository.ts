@@ -997,7 +997,7 @@ export class Repository implements Disposable {
 	}
 
 	async setRemoteAsDefault(remote: GitRemote, value: boolean = true) {
-		await this.container.storage.storeWorkspace('remote:default', value ? remote.id : undefined);
+		await this.container.storage.storeWorkspace('remote:default', value ? remote.name : undefined);
 
 		this.fireChange(RepositoryChange.Remotes, RepositoryChange.RemoteProviders);
 	}

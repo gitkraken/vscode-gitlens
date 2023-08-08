@@ -54,17 +54,8 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		);
 	}
 
-	get domain() {
-		return this.provider?.domain ?? this._domain;
-	}
-
-	get path() {
-		return this.provider?.path ?? this._path;
-	}
-
 	constructor(
 		public readonly repoPath: string,
-		public readonly id: string,
 		public readonly name: string,
 		public readonly scheme: string,
 		private readonly _domain: string,
@@ -75,7 +66,23 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 
 	get default() {
 		const defaultRemote = Container.instance.storage.getWorkspace('remote:default');
-		return this.id === defaultRemote;
+		// Check for `this.urlKey` matches to handle previously saved data
+		return this.name === defaultRemote || this.urlKey === defaultRemote;
+	}
+
+	@memoize()
+	get domain() {
+		return this.provider?.domain ?? this._domain;
+	}
+
+	@memoize()
+	get id() {
+		return `${this.name}/${this.urlKey}`;
+	}
+
+	@memoize()
+	get path() {
+		return this.provider?.path ?? this._path;
 	}
 
 	@memoize()
@@ -92,6 +99,11 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		}
 
 		return bestUrl!;
+	}
+
+	@memoize()
+	get urlKey() {
+		return this._domain ? `${this._domain}/${this._path}` : this.path;
 	}
 
 	hasRichProvider(): this is GitRemote<RichRemoteProvider> {
@@ -175,9 +187,9 @@ export function getRemoteIconUri(
 export function getVisibilityCacheKey(remote: GitRemote): string;
 export function getVisibilityCacheKey(remotes: GitRemote[]): string;
 export function getVisibilityCacheKey(remotes: GitRemote | GitRemote[]): string {
-	if (!Array.isArray(remotes)) return remotes.id;
+	if (!Array.isArray(remotes)) return remotes.urlKey;
 	return remotes
-		.map(r => r.id)
+		.map(r => r.urlKey)
 		.sort()
 		.join(',');
 }

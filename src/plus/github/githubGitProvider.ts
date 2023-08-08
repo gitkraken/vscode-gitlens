@@ -2520,7 +2520,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return [
 			new GitRemote(
 				repoPath,
-				`${domain}/${path}`,
 				'origin',
 				'https',
 				domain,
