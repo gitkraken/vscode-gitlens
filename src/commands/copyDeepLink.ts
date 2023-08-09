@@ -106,8 +106,11 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 		try {
 			let chosenRemote;
 			const remotes = await this.container.git.getRemotes(repoPath, { sort: true });
+			const defaultRemote = remotes.find(r => r.default);
 			if (args.remote && !args.prePickRemote) {
 				chosenRemote = remotes.find(r => r.name === args?.remote);
+			} else if (defaultRemote != null) {
+				chosenRemote = defaultRemote;
 			} else {
 				const pick = await showRemotePicker(
 					`Copy Link to ${deepLinkTypeToString(type)}`,
