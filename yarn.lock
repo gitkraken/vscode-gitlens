@@ -223,10 +223,10 @@
   resolved "https://registry.yarnpkg.com/@floating-ui/utils/-/utils-0.1.1.tgz#1a5b1959a528e374e8037c4396c3e825d6cf4a83"
   integrity sha512-m0G6wlnhm/AX0H12IOWtK8gASEMffnX08RtKkCgTdHb9JpHKGloI7icFfLg9ZmQeavcvR0PKmzxClyuFPSjKWw==
 
-"@gitkraken/gitkraken-components@10.1.9":
-  version "10.1.9"
-  resolved "https://registry.yarnpkg.com/@gitkraken/gitkraken-components/-/gitkraken-components-10.1.9.tgz#751a9bce02f46a11facc000fefe7844802a8c9c8"
-  integrity sha512-1NicZneMfzj4zuqtZjlAMho/85+qseqM+cEHLR696qcEV0sp0AmujPTvj4PZCIV/Y7J/j3uKvAMFzBsbgdTi4g==
+"@gitkraken/gitkraken-components@10.1.12":
+  version "10.1.12"
+  resolved "https://registry.npmjs.org/@gitkraken/gitkraken-components/-/gitkraken-components-10.1.12.tgz#cfa304c8d4de9e41ee8a002d3fc79e1ff0ff3ae0"
+  integrity sha512-nPNHQN9ExVZvvalIVYG7PtkzykrUVRWQpCc9KZxpO16m0+btEpd9jAJWA7wHm6W33XvJdOiqrI8H10olZ4POSg==
   dependencies:
     "@axosoft/react-virtualized" "9.22.3-gitkraken.3"
     classnames "2.3.2"
