@@ -63,6 +63,7 @@ export interface Config {
 	detectNestedRepositories: boolean;
 	experimental: {
 		generateCommitMessagePrompt: string;
+		nativeGit: boolean;
 	};
 	fileAnnotations: {
 		command: string | null;
