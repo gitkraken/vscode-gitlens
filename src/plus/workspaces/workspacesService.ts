@@ -14,7 +14,6 @@ import type { SubscriptionChangeEvent } from '../subscription/subscriptionServic
 import type {
 	AddWorkspaceRepoDescriptor,
 	CloudWorkspaceData,
-	CloudWorkspaceProviderType,
 	CloudWorkspaceRepositoryDescriptor,
 	GetWorkspacesResponse,
 	LoadCloudWorkspacesResponse,
@@ -24,15 +23,18 @@ import type {
 	RemoteDescriptor,
 	RepositoryMatch,
 	WorkspaceRepositoriesByName,
+	WorkspaceRepositoryRelation,
 	WorkspacesResponse,
 } from './models';
 import {
 	CloudWorkspace,
 	CloudWorkspaceProviderInputType,
+	CloudWorkspaceProviderType,
 	cloudWorkspaceProviderTypeToRemoteProviderId,
 	LocalWorkspace,
 	WorkspaceAddRepositoriesChoice,
 	WorkspaceAutoAddSetting,
+	WorkspaceType,
 } from './models';
 import { WorkspacesApi } from './workspacesApi';
 import type { WorkspacesPathMappingProvider } from './workspacesPathMappingProvider';
@@ -144,7 +146,14 @@ export class WorkspacesService implements Disposable {
 						workspace.name,
 						workspace.organization?.id,
 						workspace.provider as CloudWorkspaceProviderType,
+						workspace.repo_relation as WorkspaceRepositoryRelation,
 						this._currentWorkspaceId != null && this._currentWorkspaceId === workspace.id,
+						workspace.provider === CloudWorkspaceProviderType.Azure
+							? {
+									organizationId: workspace.azure_organization_id ?? undefined,
+									project: workspace.azure_project ?? undefined,
+							  }
+							: undefined,
 						repositories,
 						localPath,
 					),
@@ -264,7 +273,14 @@ export class WorkspacesService implements Disposable {
 					workspaceData.data.project.name,
 					workspaceData.data.project.organization?.id,
 					workspaceData.data.project.provider as CloudWorkspaceProviderType,
+					workspaceData.data.project.repo_relation as WorkspaceRepositoryRelation,
 					true,
+					workspaceData.data.project.provider === CloudWorkspaceProviderType.Azure
+						? {
+								organizationId: workspaceData.data.project.azure_organization_id ?? undefined,
+								project: workspaceData.data.project.azure_project ?? undefined,
+						  }
+						: undefined,
 					repositories,
 					workspace.workspaceFile?.fsPath,
 				);
@@ -476,12 +492,18 @@ export class WorkspacesService implements Disposable {
 			await this.container.repositoryPathMapping.writeLocalRepoPath({ remoteUrl: remoteUrl }, repoPath);
 		}
 
-		if (descriptor.id != null) {
+		const workspace = this.getCloudWorkspace(workspaceId) ?? this.getLocalWorkspace(workspaceId);
+		let provider: string | undefined;
+		if (provider == null && workspace?.type === WorkspaceType.Cloud) {
+			provider = workspace.provider;
+		}
+
+		if (descriptor.id != null && descriptor.url != null && provider != null) {
 			await this.container.repositoryPathMapping.writeLocalRepoPath(
 				{
 					remoteUrl: descriptor.url,
 					repoInfo: {
-						provider: descriptor.provider,
+						provider: provider,
 						owner: descriptor.provider_organization_id,
 						repoName: descriptor.name,
 					},
@@ -712,7 +734,14 @@ export class WorkspacesService implements Disposable {
 					createdProjectData.name,
 					createdProjectData.organization?.id,
 					createdProjectData.provider as CloudWorkspaceProviderType,
+					createdProjectData.repo_relation as WorkspaceRepositoryRelation,
 					this._currentWorkspaceId != null && this._currentWorkspaceId === createdProjectData.id,
+					createdProjectData.provider === CloudWorkspaceProviderType.Azure
+						? {
+								organizationId: createdProjectData.azure_organization_id ?? undefined,
+								project: createdProjectData.azure_project ?? undefined,
+						  }
+						: undefined,
 					[],
 					localPath,
 				),
@@ -1287,10 +1316,10 @@ export class WorkspacesService implements Disposable {
 		if (repoLocalPath == null) {
 			repoLocalPath = (
 				await this.container.repositoryPathMapping.getLocalRepoPaths({
-					remoteUrl: descriptor.url,
+					remoteUrl: descriptor.url ?? undefined,
 					repoInfo: {
 						repoName: descriptor.name,
-						provider: descriptor.provider,
+						provider: descriptor.provider ?? undefined,
 						owner: descriptor.provider_organization_id,
 					},
 				})

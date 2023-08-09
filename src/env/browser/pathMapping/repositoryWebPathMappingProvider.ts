@@ -9,13 +9,13 @@ export class RepositoryWebPathMappingProvider implements RepositoryPathMappingPr
 
 	async getLocalRepoPaths(_options: {
 		remoteUrl?: string;
-		repoInfo?: { provider: string; owner: string; repoName: string };
+		repoInfo?: { provider?: string; owner?: string; repoName?: string };
 	}): Promise<string[]> {
 		return [];
 	}
 
 	async writeLocalRepoPath(
-		_options: { remoteUrl?: string; repoInfo?: { provider: string; owner: string; repoName: string } },
+		_options: { remoteUrl?: string; repoInfo?: { provider?: string; owner?: string; repoName?: string } },
 		_localPath: string,
 	): Promise<void> {}
 }
