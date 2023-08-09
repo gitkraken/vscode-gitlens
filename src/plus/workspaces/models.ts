@@ -13,6 +13,11 @@ export enum WorkspaceAutoAddSetting {
 	Prompt = 'prompt',
 }
 
+export enum WorkspaceRepositoryRelation {
+	Direct = 'DIRECT',
+	ProviderProject = 'PROVIDER_PROJECT',
+}
+
 export type CodeWorkspaceFileContents = {
 	folders: { path: string }[];
 	settings: Record<string, any>;
@@ -69,7 +74,12 @@ export class CloudWorkspace {
 		public readonly name: string,
 		public readonly organizationId: string | undefined,
 		public readonly provider: CloudWorkspaceProviderType,
+		public readonly repoRelation: WorkspaceRepositoryRelation,
 		public readonly current: boolean,
+		public readonly azureInfo?: {
+			organizationId?: string;
+			project?: string;
+		},
 		repositories?: CloudWorkspaceRepositoryDescriptor[],
 		localPath?: string,
 	) {
@@ -147,10 +157,11 @@ export interface CloudWorkspaceRepositoryDescriptor {
 	name: string;
 	description: string;
 	repository_id: string;
-	provider: string;
+	provider: string | null;
+	provider_project_name: string | null;
 	provider_organization_id: string;
-	provider_organization_name: string;
-	url: string;
+	provider_organization_name: string | null;
+	url: string | null;
 	workspaceId: string;
 }
 
@@ -203,12 +214,13 @@ export interface CloudWorkspaceData {
 	name: string;
 	description: string;
 	type: CloudWorkspaceType;
-	icon_url: string;
+	icon_url: string | null;
 	host_url: string;
 	status: string;
 	provider: string;
-	azure_organization_id: string;
-	azure_project: string;
+	repo_relation: string;
+	azure_organization_id: string | null;
+	azure_project: string | null;
 	created_date: Date;
 	updated_date: Date;
 	created_by: string;
@@ -313,10 +325,11 @@ export interface CloudWorkspaceRepositoryData {
 	name: string;
 	description: string;
 	repository_id: string;
-	provider: string;
+	provider: string | null;
+	provider_project_name: string | null;
 	provider_organization_id: string;
-	provider_organization_name: string;
-	url: string;
+	provider_organization_name: string | null;
+	url: string | null;
 	default_branch: string;
 	branches: Branch[];
 	pull_requests: CloudWorkspacePullRequestData[];

@@ -30,7 +30,7 @@ export class RepositoryLocalPathMappingProvider implements RepositoryPathMapping
 
 	async getLocalRepoPaths(options: {
 		remoteUrl?: string;
-		repoInfo?: { provider: string; owner: string; repoName: string };
+		repoInfo?: { provider?: string; owner?: string; repoName?: string };
 	}): Promise<string[]> {
 		const paths: string[] = [];
 		if (options.remoteUrl != null) {
@@ -41,9 +41,11 @@ export class RepositoryLocalPathMappingProvider implements RepositoryPathMapping
 		}
 		if (options.repoInfo != null) {
 			const { provider, owner, repoName } = options.repoInfo;
-			const repoInfoPaths = await this._getLocalRepoPaths(`${provider}/${owner}/${repoName}`);
-			if (repoInfoPaths != null) {
-				paths.push(...repoInfoPaths);
+			if (provider != null && owner != null && repoName != null) {
+				const repoInfoPaths = await this._getLocalRepoPaths(`${provider}/${owner}/${repoName}`);
+				if (repoInfoPaths != null) {
+					paths.push(...repoInfoPaths);
+				}
 			}
 		}
 
@@ -66,7 +68,7 @@ export class RepositoryLocalPathMappingProvider implements RepositoryPathMapping
 	}
 
 	async writeLocalRepoPath(
-		options: { remoteUrl?: string; repoInfo?: { provider: string; owner: string; repoName: string } },
+		options: { remoteUrl?: string; repoInfo?: { provider?: string; owner?: string; repoName?: string } },
 		localPath: string,
 	): Promise<void> {
 		if (options.remoteUrl != null) {
