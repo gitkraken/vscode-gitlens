@@ -1,6 +1,6 @@
 import type { Command, Selection } from 'vscode';
 import { MarkdownString, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
-import type { DiffWithPreviousCommandArgs } from '../../commands';
+import type { OpenFileAtRevisionCommandArgs } from '../../commands';
 import { Commands, Schemes } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
@@ -161,26 +161,14 @@ export class CommitFileNode<
 	}
 
 	override getCommand(): Command | undefined {
-		let line;
-		if (this.commit.lines.length) {
-			line = this.commit.lines[0].line - 1;
-		} else {
-			line = this._options.selection?.active.line ?? 0;
-		}
-
-		const commandArgs: DiffWithPreviousCommandArgs = {
-			commit: this.commit,
-			uri: GitUri.fromFile(this.file, this.commit.repoPath),
-			line: line,
-			showOptions: {
-				preserveFocus: true,
-				preview: true,
-			},
+		const commandArgs: OpenFileAtRevisionCommandArgs = {
+			revisionUri: GitUri.fromFile(this.file, this.uri.repoPath!, this.ref.ref),
 		};
+
 		return {
-			title: 'Open Changes with Previous Revision',
-			command: Commands.DiffWithPrevious,
-			arguments: [undefined, commandArgs],
+			title: 'Open File',
+			command: Commands.OpenFileAtRevision,
+			arguments: [commandArgs],
 		};
 	}
 }

@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Changes _Search & Compare_ to default to open file instead of diff
+  - Closes [#1651](https://github.com/gitkraken/vscode-gitlens/issues/1651)
+
 ## [14.2.0] - 2023-08-04
 
 ### Added
