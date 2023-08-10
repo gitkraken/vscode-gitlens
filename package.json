@@ -66,41 +66,41 @@
 		"configuration": [
 			{
 				"id": "current-line-blame",
-				"title": "Current Line Blame",
+				"title": "Inline Blame",
 				"order": 10,
 				"properties": {
 					"gitlens.currentLine.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to provide a blame annotation for the current line, by default. Use the `Toggle Line Blame Annotations` command (`gitlens.toggleLineBlame`) to toggle the annotations on and off for the current window",
+						"markdownDescription": "Specifies whether to provide an inline blame annotation for the current line, by default. Use the `Toggle Line Blame Annotations` command (`gitlens.toggleLineBlame`) to toggle the annotations on and off for the current window",
 						"scope": "window",
 						"order": 10
 					},
 					"gitlens.currentLine.pullRequests.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to provide information about the Pull Request (if any) that introduced the commit in the current line blame annotation. Requires a connection to a supported remote service (e.g. GitHub)",
+						"markdownDescription": "Specifies whether to provide information about the Pull Request (if any) that introduced the commit in the inline blame annotation. Requires a connection to a supported remote service (e.g. GitHub)",
 						"scope": "window",
 						"order": 20
 					},
 					"gitlens.currentLine.format": {
 						"type": "string",
 						"default": "${author, }${agoOrDate}${' via 'pullRequest}${ • message|50?}",
-						"markdownDescription": "Specifies the format of the current line blame annotation. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.currentLine.dateFormat#` setting",
+						"markdownDescription": "Specifies the format of the inline blame annotation. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.currentLine.dateFormat#` setting",
 						"scope": "window",
 						"order": 30
 					},
 					"gitlens.currentLine.uncommittedChangesFormat": {
 						"type": "string",
 						"default": null,
-						"markdownDescription": "Specifies the uncommitted changes format of the current line blame annotation. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.currentLine.dateFormat#` setting.\n\n**NOTE**: Setting this to an empty string will disable current line blame annotations for uncommitted changes.",
+						"markdownDescription": "Specifies the uncommitted changes format of the inline blame annotation. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.currentLine.dateFormat#` setting.\n\n**NOTE**: Setting this to an empty string will disable inline blame annotations for uncommitted changes.",
 						"scope": "window",
 						"order": 31
 					},
 					"gitlens.currentLine.scrollable": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether the current line blame annotation can be scrolled into view when it is outside the viewport. **NOTE**: Setting this to `false` will inhibit the hovers from showing over the annotation; Set `#gitlens.hovers.currentLine.over#` to `line` to enable the hovers to show anywhere over the line.",
+						"markdownDescription": "Specifies whether the inline blame annotation can be scrolled into view when it is outside the viewport. **NOTE**: Setting this to `false` will inhibit the hovers from showing over the annotation; Set `#gitlens.hovers.currentLine.over#` to `line` to enable the hovers to show anywhere over the line.",
 						"scope": "window",
 						"order": 40
 					},
@@ -110,7 +110,7 @@
 							"null"
 						],
 						"default": null,
-						"markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) for the current line blame annotation. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for supported formats",
+						"markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) for the cinline blame annotation. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for supported formats",
 						"scope": "window",
 						"order": 50
 					}
@@ -3444,7 +3444,7 @@
 									},
 									"currentLine": {
 										"type": "boolean",
-										"description": "Specifies whether to show a blame annotation for the current line when this user-defined mode is active"
+										"description": "Specifies whether to show an inline blame annotation for the current line when this user-defined mode is active"
 									},
 									"hovers": {
 										"type": "boolean",
@@ -3477,7 +3477,7 @@
 									},
 									"currentLine": {
 										"type": "boolean",
-										"description": "Specifies whether to show a blame annotation for the current line when this user-defined mode is active"
+										"description": "Specifies whether to show an inline blame annotation for the current line when this user-defined mode is active"
 									},
 									"hovers": {
 										"type": "boolean",
@@ -3528,7 +3528,7 @@
 								},
 								"currentLine": {
 									"type": "boolean",
-									"description": "Specifies whether to show a blame annotation for the current line when this user-defined mode is active"
+									"description": "Specifies whether to show an inline blame annotation for the current line when this user-defined mode is active"
 								},
 								"hovers": {
 									"type": "boolean",
@@ -3831,6 +3831,13 @@
 						"scope": "window",
 						"order": 110
 					},
+					"gitlens.experimental.nativeGit": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "(Experimental) Specifies whether to use Git directly for fetch/push/pull operation instead of relying on VS Code's built-in Git implementation",
+						"scope": "window",
+						"order": 120
+					},
 					"gitlens.advanced.useSymmetricDifferenceNotation": {
 						"deprecationMessage": "Deprecated. This setting is no longer used",
 						"markdownDescription": "Deprecated. This setting is no longer used"
@@ -4017,7 +4024,7 @@
 			},
 			{
 				"id": "gitlens.trailingLineBackgroundColor",
-				"description": "Specifies the background color of the blame annotation for the current line",
+				"description": "Specifies the background color of the inline blame annotation for the current line",
 				"defaults": {
 					"dark": "#00000000",
 					"light": "#00000000",
@@ -4026,7 +4033,7 @@
 			},
 			{
 				"id": "gitlens.trailingLineForegroundColor",
-				"description": "Specifies the foreground color of the blame annotation for the current line",
+				"description": "Specifies the foreground color of the inline blame annotation for the current line",
 				"defaults": {
 					"dark": "#99999959",
 					"light": "#99999959",
@@ -6281,6 +6288,12 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.commitDetails.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "gitlens.views.commits.copy",
 				"title": "Copy",
 				"category": "GitLens"
@@ -6484,6 +6497,12 @@
 				"command": "gitlens.views.fileHistory.setShowAvatarsOff",
 				"title": "Hide Avatars",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.graphDetails.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
 			},
 			{
 				"command": "gitlens.views.home.refresh",
@@ -9076,6 +9095,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.commitDetails.refresh",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.commits.copy",
 					"when": "false"
 				},
@@ -9221,6 +9244,10 @@
 				},
 				{
 					"command": "gitlens.views.fileHistory.setShowAvatarsOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.graphDetails.refresh",
 					"when": "false"
 				},
 				{
@@ -10591,6 +10618,11 @@
 					"group": "navigation@11"
 				},
 				{
+					"command": "gitlens.views.commitDetails.refresh",
+					"when": "view =~ /^gitlens\\.views\\.commitDetails/",
+					"group": "navigation@99"
+				},
+				{
 					"command": "gitlens.views.commits.setMyCommitsOnlyOff",
 					"when": "view =~ /^gitlens\\.views\\.commits/ && gitlens:views:commits:myCommitsOnly",
 					"group": "navigation@50"
@@ -10784,6 +10816,11 @@
 					"command": "gitlens.views.fileHistory.setShowAvatarsOff",
 					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && config.gitlens.views.fileHistory.avatars",
 					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.graphDetails.refresh",
+					"when": "view =~ /^gitlens\\.views\\.graphDetails/",
+					"group": "navigation@99"
 				},
 				{
 					"command": "gitlens.views.home.refresh",
@@ -14714,21 +14751,21 @@
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "10.1.9",
+		"@gitkraken/gitkraken-components": "10.1.12",
 		"@gitkraken/shared-web-components": "^0.1.1-rc.6",
 		"@microsoft/fast-element": "1.12.0",
 		"@microsoft/fast-react-wrapper": "0.3.18",
 		"@octokit/core": "4.2.4",
 		"@opentelemetry/api": "1.4.1",
-		"@opentelemetry/exporter-trace-otlp-http": "0.41.1",
-		"@opentelemetry/sdk-trace-base": "1.15.1",
+		"@opentelemetry/exporter-trace-otlp-http": "0.41.2",
+		"@opentelemetry/sdk-trace-base": "1.15.2",
 		"@vscode/codicons": "0.0.33",
 		"@vscode/webview-ui-toolkit": "1.2.2",
 		"ansi-regex": "6.0.1",
-		"billboard.js": "3.9.1",
+		"billboard.js": "3.9.3",
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
-		"lit": "2.7.6",
+		"lit": "2.8.0",
 		"node-fetch": "2.6.9",
 		"os-browserify": "0.3.0",
 		"path-browserify": "1.0.1",
@@ -14743,11 +14780,11 @@
 		"@types/react-dom": "17.0.17",
 		"@types/sortablejs": "1.15.1",
 		"@types/vscode": "1.78.1",
-		"@typescript-eslint/eslint-plugin": "6.2.1",
-		"@typescript-eslint/parser": "6.2.1",
+		"@typescript-eslint/eslint-plugin": "6.3.0",
+		"@typescript-eslint/parser": "6.3.0",
 		"@vscode/test-electron": "2.3.4",
 		"@vscode/test-web": "0.0.44",
-		"@vscode/vsce": "2.20.0",
+		"@vscode/vsce": "2.20.1",
 		"circular-dependency-plugin": "5.2.2",
 		"clean-webpack-plugin": "4.0.0",
 		"concurrently": "8.2.0",
@@ -14756,16 +14793,16 @@
 		"css-loader": "6.8.1",
 		"css-minimizer-webpack-plugin": "5.0.1",
 		"cssnano-preset-advanced": "6.0.1",
-		"esbuild": "0.17.19",
-		"esbuild-loader": "3.0.1",
+		"esbuild": "0.19.0",
+		"esbuild-loader": "4.0.0",
 		"esbuild-sass-plugin": "2.10.0",
 		"eslint": "8.46.0",
 		"eslint-cli": "1.1.1",
-		"eslint-config-prettier": "8.9.0",
-		"eslint-import-resolver-typescript": "3.5.5",
+		"eslint-config-prettier": "9.0.0",
+		"eslint-import-resolver-typescript": "3.6.0",
 		"eslint-plugin-anti-trojan-source": "1.1.1",
 		"eslint-plugin-import": "2.28.0",
-		"eslint-plugin-lit": "1.8.3",
+		"eslint-plugin-lit": "1.9.1",
 		"eslint-plugin-wc": "1.5.0",
 		"fantasticon": "1.2.3",
 		"fork-ts-checker-webpack-plugin": "6.5.3",
@@ -14777,8 +14814,8 @@
 		"lz-string": "1.5.0",
 		"mini-css-extract-plugin": "2.7.6",
 		"mocha": "10.2.0",
-		"prettier": "3.0.0",
-		"sass": "1.64.2",
+		"prettier": "3.0.1",
+		"sass": "1.65.0",
 		"sass-loader": "13.3.2",
 		"schema-utils": "4.2.0",
 		"sharp": "0.32.4",
@@ -14786,7 +14823,7 @@
 		"terser-webpack-plugin": "5.3.9",
 		"ts-loader": "9.4.4",
 		"tsc-alias": "1.8.7",
-		"typescript": "5.2.0-beta",
+		"typescript": "5.2.1-rc",
 		"webpack": "5.88.2",
 		"webpack-bundle-analyzer": "4.9.0",
 		"webpack-cli": "5.1.4",

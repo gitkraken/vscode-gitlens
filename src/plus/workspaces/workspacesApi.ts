@@ -66,6 +66,7 @@ export class WorkspacesApi {
 							name
 							repository_id
 							provider
+							provider_project_name
 							provider_organization_id
 							provider_organization_name
 							url
@@ -83,6 +84,9 @@ export class WorkspacesApi {
 				id
 			}
 			provider
+			azure_organization_id
+			azure_project
+			repo_relation
 			${repoQuery ?? ''}
 		`;
 
@@ -143,6 +147,7 @@ export class WorkspacesApi {
 							name
 							repository_id
 							provider
+							provider_project_name
 							provider_organization_id
 							provider_organization_name
 							url
@@ -166,6 +171,9 @@ export class WorkspacesApi {
 					id
 				}
 				provider
+				azure_organization_id
+				azure_project
+				repo_relation
 				${repoQuery ?? ''}
 			}
 		`;
@@ -276,6 +284,7 @@ export class WorkspacesApi {
 										name
 										repository_id
 										provider
+										provider_project_name
 										provider_organization_id
 										provider_organization_name
 										url
@@ -356,6 +365,9 @@ export class WorkspacesApi {
 								id
 							}
 							provider
+							azure_organization_id
+							azure_project
+							repo_relation
 						}
                     }
 				`,
@@ -436,6 +448,7 @@ export class WorkspacesApi {
 			name
 			repository_id
 			provider
+			provider_project_name
 			provider_organization_id
 			provider_organization_name
 			url

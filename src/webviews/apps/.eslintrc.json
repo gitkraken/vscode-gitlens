@@ -1,9 +1,5 @@
 {
-	"extends": [
-		"../../../.eslintrc.base.json",
-		"plugin:lit/recommended",
-		"plugin:wc/recommended"
-	],
+	"extends": ["../../../.eslintrc.base.json", "plugin:lit/recommended", "plugin:wc/recommended"],
 	"env": {
 		"browser": true
 	},

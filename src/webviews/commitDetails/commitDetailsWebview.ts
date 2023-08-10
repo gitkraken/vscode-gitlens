@@ -27,7 +27,7 @@ import type { GitRevisionReference } from '../../git/models/reference';
 import { createReference, getReferenceFromRevision, shortenRevision } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
-import { executeCommand, executeCoreCommand } from '../../system/command';
+import { executeCommand, executeCoreCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { getContext } from '../../system/context';
 import type { DateTimeFormat } from '../../system/date';
@@ -197,6 +197,19 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		return true;
 	}
 
+	includeBootstrap(): Promise<Serialized<State>> {
+		this._bootstraping = true;
+
+		this._context = { ...this._context, ...this._pendingContext };
+		this._pendingContext = undefined;
+
+		return this.getState(this._context);
+	}
+
+	registerCommands(): Disposable[] {
+		return [registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true))];
+	}
+
 	private onCommitSelected(e: CommitSelectedEvent) {
 		if (
 			e.data == null ||
@@ -212,15 +225,6 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		} else {
 			void this.host.show(false, { preserveFocus: e.data.preserveFocus }, e.data);
 		}
-	}
-
-	includeBootstrap(): Promise<Serialized<State>> {
-		this._bootstraping = true;
-
-		this._context = { ...this._context, ...this._pendingContext };
-		this._pendingContext = undefined;
-
-		return this.getState(this._context);
 	}
 
 	onFocusChanged(focused: boolean): void {

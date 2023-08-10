@@ -53,6 +53,7 @@ import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../.
 import type { BranchSortOptions } from '../../../git/models/branch';
 import {
 	getBranchId,
+	getBranchNameAndRemote,
 	getBranchNameWithoutRemote,
 	getRemoteNameFromBranchName,
 	GitBranch,
@@ -92,7 +93,6 @@ import {
 	isUncommitted,
 	isUncommittedStaged,
 	shortenRevision,
-	splitRefNameAndRemote,
 } from '../../../git/models/reference';
 import type { GitReflog } from '../../../git/models/reflog';
 import { getRemoteIconUri, getVisibilityCacheKey, GitRemote } from '../../../git/models/remote';
@@ -344,7 +344,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (scmGit == null) return;
 
 			// Find env to pass to Git
-			if (configuration.getAny('gitlens.experimental.nativeGit') === true) {
+			if (configuration.get('experimental.nativeGit') === true) {
 				for (const v of Object.values(scmGit.git)) {
 					if (v != null && typeof v === 'object' && 'git' in v) {
 						for (const vv of Object.values(v.git)) {
@@ -1165,13 +1165,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const { branch, ...opts } = options ?? {};
 		try {
 			if (isBranchReference(branch)) {
-				if (!branch?.remote && branch?.upstream == null) return undefined;
-
-				const [branchName, remoteName] = splitRefNameAndRemote(branch);
+				const [branchName, remoteName] = getBranchNameAndRemote(branch);
+				if (remoteName == null) return undefined;
 
 				await this.git.fetch(repoPath, {
 					branch: branchName,
-					remote: remoteName!,
+					remote: remoteName,
 					upstream: getBranchTrackingWithoutRemote(branch)!,
 					pull: options?.pull,
 				});
@@ -1202,7 +1201,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (branch == null) return undefined;
 		}
 
-		const [branchName, remoteName] = splitRefNameAndRemote(branch);
+		const [branchName, remoteName] = getBranchNameAndRemote(branch);
 		if (options?.publish == null && remoteName == null && branch.upstream == null) {
 			return undefined;
 		}
@@ -1239,7 +1238,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (branch == null) return undefined;
 		}
 
-		const [branchName, remoteName] = splitRefNameAndRemote(branch);
+		const [branchName, remoteName] = getBranchNameAndRemote(branch);
 		if (remoteName == null && branch.upstream == null) return undefined;
 
 		try {

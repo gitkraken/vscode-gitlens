@@ -1,11 +1,6 @@
 import { GlyphChars } from '../../constants';
 import { configuration } from '../../system/configuration';
-import {
-	getBranchNameWithoutRemote,
-	getRemoteNameFromBranchName,
-	getRemoteNameSlashIndex,
-	splitBranchNameAndRemote,
-} from './branch';
+import { getBranchNameWithoutRemote, getRemoteNameFromBranchName, getRemoteNameSlashIndex } from './branch';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from './constants';
 
 const rangeRegex = /^(\S*?)(\.\.\.?)(\S*)\s*$/;
@@ -398,11 +393,4 @@ export function getReferenceLabel(
 		default:
 			return `${refs.length} ${isStashReference(refs[0]) ? 'stashes' : 'commits'}${expanded}`;
 	}
-}
-
-export function splitRefNameAndRemote(ref: GitReference): [name: string, remote: string | undefined] {
-	if (ref.refType === 'branch') {
-		return ref.remote ? splitBranchNameAndRemote(ref.name) : [ref.name, undefined];
-	}
-	return [ref.name, undefined];
 }

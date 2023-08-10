@@ -574,7 +574,7 @@ export class Repository implements Disposable {
 		remote?: string;
 	}) {
 		try {
-			if (configuration.getAny('gitlens.experimental.nativeGit') === true || options?.branch != null) {
+			if (options?.branch != null || configuration.get('experimental.nativeGit') === true) {
 				await this.container.git.fetch(this.path, options);
 			} else {
 				void (await executeCoreGitCommand('git.fetch', this.path));
@@ -793,7 +793,7 @@ export class Repository implements Disposable {
 
 	private async pullCore(options?: { rebase?: boolean }) {
 		try {
-			if (configuration.getAny('gitlens.experimental.nativeGit') === true) {
+			if (configuration.get('experimental.nativeGit') === true) {
 				const withTags = configuration.getAny<CoreGitConfiguration, boolean>(
 					'git.pullTags',
 					Uri.file(this.path),
@@ -884,7 +884,7 @@ export class Repository implements Disposable {
 		};
 	}) {
 		try {
-			if (configuration.getAny('gitlens.experimental.nativeGit') === true) {
+			if (configuration.get('experimental.nativeGit') === true) {
 				const branch = await this.getBranch(options?.reference?.name);
 				await this.container.git.push(this.path, {
 					force: options?.force,
@@ -997,7 +997,7 @@ export class Repository implements Disposable {
 	}
 
 	async setRemoteAsDefault(remote: GitRemote, value: boolean = true) {
-		await this.container.storage.storeWorkspace('remote:default', value ? remote.id : undefined);
+		await this.container.storage.storeWorkspace('remote:default', value ? remote.name : undefined);
 
 		this.fireChange(RepositoryChange.Remotes, RepositoryChange.RemoteProviders);
 	}

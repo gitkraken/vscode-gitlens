@@ -23,7 +23,7 @@ export class ConnectRemoteProviderCommand extends Command {
 		let args: ConnectRemoteProviderCommandArgs | GitCommit;
 		if (GitRemote.is(argsOrRemote)) {
 			args = {
-				remote: argsOrRemote.id,
+				remote: argsOrRemote.name,
 				repoPath: argsOrRemote.repoPath,
 			};
 		} else {
@@ -39,7 +39,7 @@ export class ConnectRemoteProviderCommand extends Command {
 
 	protected override preExecute(context: CommandContext, args?: ConnectRemoteProviderCommandArgs) {
 		if (isCommandContextViewNodeHasRemote(context)) {
-			args = { ...args, remote: context.node.remote.id, repoPath: context.node.remote.repoPath };
+			args = { ...args, remote: context.node.remote.name, repoPath: context.node.remote.repoPath };
 		}
 
 		return this.execute(args);
@@ -84,7 +84,7 @@ export class ConnectRemoteProviderCommand extends Command {
 			repoPath = args.repoPath;
 
 			remotes = await this.container.git.getRemotesWithProviders(repoPath);
-			remote = remotes.find(r => r.id === args.remote) as GitRemote<RichRemoteProvider> | undefined;
+			remote = remotes.find(r => r.name === args.remote) as GitRemote<RichRemoteProvider> | undefined;
 			if (!remote?.hasRichProvider()) return false;
 		}
 
@@ -112,7 +112,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 		let args: DisconnectRemoteProviderCommandArgs | GitCommit;
 		if (GitRemote.is(argsOrRemote)) {
 			args = {
-				remote: argsOrRemote.id,
+				remote: argsOrRemote.name,
 				repoPath: argsOrRemote.repoPath,
 			};
 		} else {
@@ -131,7 +131,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 
 	protected override preExecute(context: CommandContext, args?: ConnectRemoteProviderCommandArgs) {
 		if (isCommandContextViewNodeHasRemote(context)) {
-			args = { ...args, remote: context.node.remote.id, repoPath: context.node.remote.repoPath };
+			args = { ...args, remote: context.node.remote.name, repoPath: context.node.remote.repoPath };
 		}
 
 		return this.execute(args);
@@ -174,7 +174,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 		} else {
 			repoPath = args.repoPath;
 
-			remote = (await this.container.git.getRemotesWithProviders(repoPath)).find(r => r.id === args.remote) as
+			remote = (await this.container.git.getRemotesWithProviders(repoPath)).find(r => r.name === args.remote) as
 				| GitRemote<RichRemoteProvider>
 				| undefined;
 			if (!remote?.hasRichProvider()) return undefined;

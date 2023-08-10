@@ -135,7 +135,7 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 		uniqueness += `/worktree/${context.worktree.uri.path}`;
 	}
 	if (context.remote != null) {
-		uniqueness += `/remote/${context.remote.id}`;
+		uniqueness += `/remote/${context.remote.name}`;
 	}
 	if (context.tag != null) {
 		uniqueness += `/tag/${context.tag.id}`;
