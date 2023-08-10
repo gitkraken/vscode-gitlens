@@ -393,6 +393,11 @@ export function interpolate(template: string, context: object | undefined): stri
 		result += template.slice(position, token.start) + ((context as Record<string, string>)[token.key] ?? '');
 		position = token.end;
 	}
+
+	if (position < template.length) {
+		result += template.slice(position);
+	}
+
 	return result;
 }
 
@@ -415,6 +420,11 @@ export async function interpolateAsync(template: string, context: object | undef
 		result += template.slice(position, token.start) + (value ?? '');
 		position = token.end;
 	}
+
+	if (position < template.length) {
+		result += template.slice(position);
+	}
+
 	return result;
 }
 
