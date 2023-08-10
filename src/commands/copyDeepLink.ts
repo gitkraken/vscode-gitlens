@@ -3,7 +3,7 @@ import type { StoredNamedRef } from '../constants';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { splitBranchNameAndRemote } from '../git/models/branch';
+import { getBranchNameAndRemote } from '../git/models/branch';
 import type { GitReference } from '../git/models/reference';
 import { showGenericErrorMessage } from '../messages';
 import { showRemotePicker } from '../quickpicks/remotePicker';
@@ -91,11 +91,8 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 			if (args.refOrRepoPath?.refType === 'branch') {
 				// If the branch is remote, or has an upstream, pre-select the remote
 				if (args.refOrRepoPath.remote || args.refOrRepoPath.upstream?.name != null) {
-					const [branchName, remoteName] = splitBranchNameAndRemote(
-						args.refOrRepoPath.remote ? args.refOrRepoPath.name : args.refOrRepoPath.upstream!.name,
-					);
-
-					if (branchName != null) {
+					const [branchName, remoteName] = getBranchNameAndRemote(args.refOrRepoPath);
+					if (branchName != null && remoteName != null) {
 						args.remote = remoteName;
 						args.prePickRemote = true;
 					}

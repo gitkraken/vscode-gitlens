@@ -224,6 +224,24 @@ export function getRemoteNameSlashIndex(name: string): number {
 	return name.startsWith('remotes/') ? name.indexOf('/', 8) : name.indexOf('/');
 }
 
+export function getBranchNameAndRemote(ref: GitBranchReference): [name: string, remote: string | undefined] {
+	if (ref.remote) {
+		const index = getRemoteNameSlashIndex(ref.name);
+		if (index === -1) return [ref.name, undefined];
+
+		return [ref.name.substring(index + 1), ref.name.substring(0, index)];
+	}
+
+	if (ref.upstream?.name != null) {
+		const index = getRemoteNameSlashIndex(ref.upstream.name);
+		if (index === -1) return [ref.name, undefined];
+
+		return [ref.name, ref.upstream.name.substring(0, index)];
+	}
+
+	return [ref.name, undefined];
+}
+
 export function getBranchNameWithoutRemote(name: string): string {
 	return name.substring(getRemoteNameSlashIndex(name) + 1);
 }
@@ -244,13 +262,6 @@ export function isDetachedHead(name: string): boolean {
 
 export function isOfBranchRefType(branch: GitReference | undefined) {
 	return branch?.refType === 'branch';
-}
-
-export function splitBranchNameAndRemote(name: string): [name: string, remote: string | undefined] {
-	const index = getRemoteNameSlashIndex(name);
-	if (index === -1) return [name, undefined];
-
-	return [name.substring(index + 1), name.substring(0, index)];
 }
 
 export function sortBranches(branches: GitBranch[], options?: BranchSortOptions) {

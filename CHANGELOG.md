@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#2841](https://github.com/gitkraken/vscode-gitlens/issues/2841) - Error when trying to browse commits
+- Fixes [#2847](https://github.com/gitkraken/vscode-gitlens/issues/2847) - 14.2.0 Breaks "pull" action works fine in 14.1.1
 
 ## [14.2.0] - 2023-08-04
 
