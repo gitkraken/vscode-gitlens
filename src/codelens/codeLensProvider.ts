@@ -31,6 +31,7 @@ import { configuration } from '../system/configuration';
 import { is, once } from '../system/function';
 import { filterMap, find, first, join, map } from '../system/iterable';
 import { Logger } from '../system/logger';
+import { pluralize } from '../system/string';
 import { isVirtualUri } from '../system/utils';
 
 class GitRecentChangeCodeLens extends CodeLens {
@@ -477,10 +478,10 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
 	private resolveGitRecentChangeCodeLens(lens: GitRecentChangeCodeLens, _token: CancellationToken): CodeLens {
 		const blame = lens.getBlame();
-		if (blame == null) return lens;
+		if (blame == null) return applyCommandWithNoClickAction('Unknown, (Blame failed)', lens);
 
 		const recentCommit = first(blame.commits.values());
-		if (recentCommit == null) return lens;
+		if (recentCommit == null) return applyCommandWithNoClickAction('Unknown, (Blame failed)', lens);
 
 		// TODO@eamodio This is FAR too expensive, but this accounts for commits that delete lines -- is there another way?
 		// if (lens.uri != null) {
@@ -553,12 +554,12 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
 	private resolveGitAuthorsCodeLens(lens: GitAuthorsCodeLens, _token: CancellationToken): CodeLens {
 		const blame = lens.getBlame();
-		if (blame == null) return lens;
+		if (blame == null) return applyCommandWithNoClickAction('? authors (Blame failed)', lens);
 
 		const count = blame.authors.size;
 		const author = first(blame.authors.values())?.name ?? 'Unknown';
 
-		let title = `${count} ${count > 1 ? 'authors' : 'author'} (${author}${count > 1 ? ' and others' : ''})`;
+		let title = `${pluralize('author', count, { zero: '?' })} (${author}${count > 1 ? ' and others' : ''})`;
 		if (configuration.get('debug')) {
 			title += ` [${lens.languageId}: ${SymbolKind[lens.symbol.kind]}(${lens.range.start.character}-${
 				lens.range.end.character
@@ -577,7 +578,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		}
 
 		const commit = find(blame.commits.values(), c => c.author.name === author) ?? first(blame.commits.values());
-		if (commit == null) return lens;
+		if (commit == null) return applyCommandWithNoClickAction(title, lens);
 
 		switch (lens.desiredCommand) {
 			case CodeLensCommand.CopyRemoteCommitUrl:
