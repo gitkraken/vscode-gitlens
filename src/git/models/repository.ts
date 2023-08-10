@@ -574,7 +574,7 @@ export class Repository implements Disposable {
 		remote?: string;
 	}) {
 		try {
-			if (configuration.get('experimental.nativeGit') === true || options?.branch != null) {
+			if (options?.branch != null || configuration.get('experimental.nativeGit') === true) {
 				await this.container.git.fetch(this.path, options);
 			} else {
 				void (await executeCoreGitCommand('git.fetch', this.path));
