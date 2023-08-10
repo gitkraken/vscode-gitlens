@@ -66,41 +66,41 @@
 		"configuration": [
 			{
 				"id": "current-line-blame",
-				"title": "Current Line Blame",
+				"title": "Inline Blame",
 				"order": 10,
 				"properties": {
 					"gitlens.currentLine.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to provide a blame annotation for the current line, by default. Use the `Toggle Line Blame Annotations` command (`gitlens.toggleLineBlame`) to toggle the annotations on and off for the current window",
+						"markdownDescription": "Specifies whether to provide an inline blame annotation for the current line, by default. Use the `Toggle Line Blame Annotations` command (`gitlens.toggleLineBlame`) to toggle the annotations on and off for the current window",
 						"scope": "window",
 						"order": 10
 					},
 					"gitlens.currentLine.pullRequests.enabled": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to provide information about the Pull Request (if any) that introduced the commit in the current line blame annotation. Requires a connection to a supported remote service (e.g. GitHub)",
+						"markdownDescription": "Specifies whether to provide information about the Pull Request (if any) that introduced the commit in the inline blame annotation. Requires a connection to a supported remote service (e.g. GitHub)",
 						"scope": "window",
 						"order": 20
 					},
 					"gitlens.currentLine.format": {
 						"type": "string",
 						"default": "${author, }${agoOrDate}${' via 'pullRequest}${ • message|50?}",
-						"markdownDescription": "Specifies the format of the current line blame annotation. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.currentLine.dateFormat#` setting",
+						"markdownDescription": "Specifies the format of the inline blame annotation. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.currentLine.dateFormat#` setting",
 						"scope": "window",
 						"order": 30
 					},
 					"gitlens.currentLine.uncommittedChangesFormat": {
 						"type": "string",
 						"default": null,
-						"markdownDescription": "Specifies the uncommitted changes format of the current line blame annotation. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.currentLine.dateFormat#` setting.\n\n**NOTE**: Setting this to an empty string will disable current line blame annotations for uncommitted changes.",
+						"markdownDescription": "Specifies the uncommitted changes format of the inline blame annotation. See [_Commit Tokens_](https://github.com/gitkraken/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.currentLine.dateFormat#` setting.\n\n**NOTE**: Setting this to an empty string will disable inline blame annotations for uncommitted changes.",
 						"scope": "window",
 						"order": 31
 					},
 					"gitlens.currentLine.scrollable": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether the current line blame annotation can be scrolled into view when it is outside the viewport. **NOTE**: Setting this to `false` will inhibit the hovers from showing over the annotation; Set `#gitlens.hovers.currentLine.over#` to `line` to enable the hovers to show anywhere over the line.",
+						"markdownDescription": "Specifies whether the inline blame annotation can be scrolled into view when it is outside the viewport. **NOTE**: Setting this to `false` will inhibit the hovers from showing over the annotation; Set `#gitlens.hovers.currentLine.over#` to `line` to enable the hovers to show anywhere over the line.",
 						"scope": "window",
 						"order": 40
 					},
@@ -110,7 +110,7 @@
 							"null"
 						],
 						"default": null,
-						"markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) for the current line blame annotation. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for supported formats",
+						"markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) for the cinline blame annotation. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for supported formats",
 						"scope": "window",
 						"order": 50
 					}
@@ -3444,7 +3444,7 @@
 									},
 									"currentLine": {
 										"type": "boolean",
-										"description": "Specifies whether to show a blame annotation for the current line when this user-defined mode is active"
+										"description": "Specifies whether to show an inline blame annotation for the current line when this user-defined mode is active"
 									},
 									"hovers": {
 										"type": "boolean",
@@ -3477,7 +3477,7 @@
 									},
 									"currentLine": {
 										"type": "boolean",
-										"description": "Specifies whether to show a blame annotation for the current line when this user-defined mode is active"
+										"description": "Specifies whether to show an inline blame annotation for the current line when this user-defined mode is active"
 									},
 									"hovers": {
 										"type": "boolean",
@@ -3528,7 +3528,7 @@
 								},
 								"currentLine": {
 									"type": "boolean",
-									"description": "Specifies whether to show a blame annotation for the current line when this user-defined mode is active"
+									"description": "Specifies whether to show an inline blame annotation for the current line when this user-defined mode is active"
 								},
 								"hovers": {
 									"type": "boolean",
@@ -4024,7 +4024,7 @@
 			},
 			{
 				"id": "gitlens.trailingLineBackgroundColor",
-				"description": "Specifies the background color of the blame annotation for the current line",
+				"description": "Specifies the background color of the inline blame annotation for the current line",
 				"defaults": {
 					"dark": "#00000000",
 					"light": "#00000000",
@@ -4033,7 +4033,7 @@
 			},
 			{
 				"id": "gitlens.trailingLineForegroundColor",
-				"description": "Specifies the foreground color of the blame annotation for the current line",
+				"description": "Specifies the foreground color of the inline blame annotation for the current line",
 				"defaults": {
 					"dark": "#99999959",
 					"light": "#99999959",
