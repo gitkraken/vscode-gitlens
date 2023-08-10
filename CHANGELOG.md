@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds a _Refresh_ action to the _Commit Details_ view
+
+### Fixed
+
+- Fixes [#2841](https://github.com/gitkraken/vscode-gitlens/issues/2841) - Error when trying to browse commits
+
 ## [14.2.0] - 2023-08-04
 
 ### Added
