@@ -479,13 +479,3 @@ function ensureCachedRegex(ref: CacheableAutolinkReference, outputFormat: 'html'
 
 	return true;
 }
-
-function escapeQuotesInLinkTitleMarkdown(s: string) {
-	// Skip the first and last quotes
-	return s.replace(/(?!^)".*?(?!$)"/g, match => match.replace(/"/g, '\\"'));
-}
-
-function escapeQuotesInLinkTitleHtml(s: string) {
-	// Skip the first and last quotes
-	return s.replace(/(?!^)".*?(?!$)"/g, match => match.replace(/"/g, '&quot;'));
-}
