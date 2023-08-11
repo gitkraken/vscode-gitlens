@@ -98,7 +98,7 @@ import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../su
 import { filterMap, intersection, isStringArray } from '../system/array';
 import { configuration } from '../system/configuration';
 import { formatPath } from '../system/formatPath';
-import { map } from '../system/iterable';
+import { first, map } from '../system/iterable';
 import { getSettledValue } from '../system/promise';
 import { pad, pluralize, truncate } from '../system/string';
 import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';
@@ -1059,27 +1059,32 @@ export async function* pickCommitStep<
 	},
 ): AsyncStepResultGenerator<GitCommit> {
 	function getItems(log: GitLog | undefined) {
-		return log == null
-			? [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)]
-			: [
-					...map(log.commits.values(), commit =>
-						createCommitQuickPickItem(
-							commit,
-							picked != null &&
-								(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
-							{
-								buttons: [
-									ShowDetailsViewQuickInputButton,
-									RevealInSideBarQuickInputButton,
-									OpenChangesViewQuickInputButton,
-								],
-								compact: true,
-								icon: true,
-							},
-						),
-					),
-					...(log?.hasMore ? [createDirectiveQuickPickItem(Directive.LoadMore)] : []),
-			  ];
+		if (log == null) {
+			return [createDirectiveQuickPickItem(Directive.Back, true), createDirectiveQuickPickItem(Directive.Cancel)];
+		}
+
+		const buttons = [ShowDetailsViewQuickInputButton, RevealInSideBarQuickInputButton];
+
+		// If these are "file" commits, then add an Open Changes button
+		if (first(log.commits)?.[1].file != null) {
+			buttons.splice(0, 0, OpenChangesViewQuickInputButton);
+		}
+
+		return [
+			...map(log.commits.values(), commit =>
+				createCommitQuickPickItem(
+					commit,
+					picked != null &&
+						(typeof picked === 'string' ? commit.ref === picked : picked.includes(commit.ref)),
+					{
+						buttons: buttons,
+						compact: true,
+						icon: true,
+					},
+				),
+			),
+			...(log?.hasMore ? [createDirectiveQuickPickItem(Directive.LoadMore)] : []),
+		];
 	}
 
 	const step = createPickStep<CommandQuickPickItem | CommitQuickPickItem>({
@@ -1106,7 +1111,6 @@ export async function* pickCommitStep<
 		],
 		onDidClickItemButton: (quickpick, button, item) => {
 			if (CommandQuickPickItem.is(item)) return;
-			const fileName = `${item.item.file?.path}`;
 
 			switch (button) {
 				case ShowDetailsViewQuickInputButton:
@@ -1120,9 +1124,13 @@ export async function* pickCommitStep<
 						expand: true,
 					});
 					break;
-				case OpenChangesViewQuickInputButton:
-					void CommitActions.openChanges(fileName, item.item, {});
+				case OpenChangesViewQuickInputButton: {
+					const path = item.item.file?.path;
+					if (path != null) {
+						void CommitActions.openChanges(path, item.item);
+					}
 					break;
+				}
 			}
 		},
 		onDidClickButton: (quickpick, button) => {
