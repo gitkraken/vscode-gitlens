@@ -5,7 +5,7 @@ Copyright (c) 2021-2023 Axosoft, LLC dba GitKraken ("GitKraken")
 With regard to the software set forth in or under any directory named "plus".
 
 This software and associated documentation files (the "Software") may be
-compiled as part of the gitkraken/vscode-gitlens open source project (the
+compiled as part of the gitkraken/vscode-gitlens source-available project (the
 "GitLens") to the extent the Software is a required component of the GitLens;
 provided, however, that the Software and its functionality may only be used if
 you (and any entity that you represent) have agreed to, and are in compliance
