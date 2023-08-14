@@ -1,6 +1,6 @@
 import type { TextDocument, Uri } from 'vscode';
 import type { GitBlame } from '../git/models/blame';
-import type { GitDiff } from '../git/models/diff';
+import type { GitDiffFile } from '../git/models/diff';
 import type { GitLog } from '../git/models/log';
 import { DocumentTracker } from './documentTracker';
 
@@ -12,7 +12,7 @@ interface CachedItem<T> {
 }
 
 export type CachedBlame = CachedItem<GitBlame>;
-export type CachedDiff = CachedItem<GitDiff>;
+export type CachedDiff = CachedItem<GitDiffFile>;
 export type CachedLog = CachedItem<GitLog>;
 
 export class GitDocumentState {

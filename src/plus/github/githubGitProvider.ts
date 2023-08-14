@@ -43,7 +43,7 @@ import type { GitCommitLine } from '../../git/models/commit';
 import { getChangedFilesCount, GitCommit, GitCommitIdentity } from '../../git/models/commit';
 import { deletedOrMissing, uncommitted } from '../../git/models/constants';
 import { GitContributor } from '../../git/models/contributor';
-import type { GitDiff, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from '../../git/models/diff';
+import type { GitDiffFile, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from '../../git/models/diff';
 import type { GitFile } from '../../git/models/file';
 import { GitFileChange, GitFileIndexStatus } from '../../git/models/file';
 import type {
@@ -105,7 +105,7 @@ import { fromCommitFileStatus } from './models';
 const doubleQuoteRegex = /"/g;
 const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
-const emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
+const emptyPromise: Promise<GitBlame | GitDiffFile | GitLog | undefined> = Promise.resolve(undefined);
 
 const githubAuthenticationScopes = ['repo', 'read:user', 'user:email'];
 
@@ -1665,7 +1665,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getDiffForFile(_uri: GitUri, _ref1: string | undefined, _ref2?: string): Promise<GitDiff | undefined> {
+	async getDiffForFile(_uri: GitUri, _ref1: string | undefined, _ref2?: string): Promise<GitDiffFile | undefined> {
 		return undefined;
 	}
 
@@ -1674,7 +1674,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			1: _contents => '<contents>',
 		},
 	})
-	async getDiffForFileContents(_uri: GitUri, _ref: string, _contents: string): Promise<GitDiff | undefined> {
+	async getDiffForFileContents(_uri: GitUri, _ref: string, _contents: string): Promise<GitDiffFile | undefined> {
 		return undefined;
 	}
 
