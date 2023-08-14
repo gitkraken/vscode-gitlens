@@ -3832,8 +3832,11 @@
 						"order": 110
 					},
 					"gitlens.experimental.nativeGit": {
-						"type": "boolean",
-						"default": false,
+						"type": [
+							"boolean",
+							"null"
+						],
+						"default": null,
 						"markdownDescription": "(Experimental) Specifies whether to use Git directly for fetch/push/pull operation instead of relying on VS Code's built-in Git implementation",
 						"scope": "window",
 						"order": 120
