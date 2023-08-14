@@ -60,10 +60,8 @@ export class AIProviderService implements Disposable {
 		const repository = isRepository(repoOrPath) ? repoOrPath : this.container.git.getRepository(repoOrPath);
 		if (repository == null) throw new Error('Unable to find repository');
 
-		const diff = await this.container.git.getDiff(repository.uri, uncommittedStaged, undefined, {
-			includeRawDiff: true,
-		});
-		if (diff?.diff == null) throw new Error('No staged changes to generate a commit message from.');
+		const diff = await this.container.git.getDiff(repository.uri, uncommittedStaged);
+		if (diff == null) throw new Error('No staged changes to generate a commit message from.');
 
 		const provider = this.provider;
 
@@ -72,10 +70,10 @@ export class AIProviderService implements Disposable {
 
 		if (options?.progress != null) {
 			return window.withProgress(options.progress, async () =>
-				provider.generateCommitMessage(diff.diff!, { context: options?.context }),
+				provider.generateCommitMessage(diff.contents, { context: options?.context }),
 			);
 		}
-		return provider.generateCommitMessage(diff.diff, { context: options?.context });
+		return provider.generateCommitMessage(diff.contents, { context: options?.context });
 	}
 
 	async explainCommit(
@@ -107,10 +105,8 @@ export class AIProviderService implements Disposable {
 		}
 		if (commit == null) throw new Error('Unable to find commit');
 
-		const diff = await this.container.git.getDiff(commit.repoPath, commit.sha, undefined, {
-			includeRawDiff: true,
-		});
-		if (diff?.diff == null) throw new Error('No changes found to explain.');
+		const diff = await this.container.git.getDiff(commit.repoPath, commit.sha);
+		if (diff == null) throw new Error('No changes found to explain.');
 
 		const provider = this.provider;
 
@@ -124,10 +120,10 @@ export class AIProviderService implements Disposable {
 
 		if (options?.progress != null) {
 			return window.withProgress(options.progress, async () =>
-				provider.explainChanges(commit!.message!, diff.diff!),
+				provider.explainChanges(commit!.message!, diff.contents),
 			);
 		}
-		return provider.explainChanges(commit.message, diff.diff);
+		return provider.explainChanges(commit.message, diff.contents);
 	}
 }
 

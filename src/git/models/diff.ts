@@ -1,4 +1,4 @@
-import { GitDiffParser } from '../parsers/diffParser';
+import { parseDiffHunk } from '../parsers/diffParser';
 
 export interface GitDiffLine {
 	line: string;
@@ -13,7 +13,7 @@ export interface GitDiffHunkLine {
 
 export class GitDiffHunk {
 	constructor(
-		public readonly diff: string,
+		public readonly contents: string,
 		public current: {
 			count: number;
 			position: { start: number; end: number };
@@ -35,16 +35,19 @@ export class GitDiffHunk {
 	private parsedHunk: { lines: GitDiffHunkLine[]; state: 'added' | 'changed' | 'removed' } | undefined;
 	private parseHunk() {
 		if (this.parsedHunk == null) {
-			this.parsedHunk = GitDiffParser.parseHunk(this);
+			this.parsedHunk = parseDiffHunk(this);
 		}
 		return this.parsedHunk;
 	}
 }
 
 export interface GitDiff {
-	readonly hunks: GitDiffHunk[];
+	readonly contents: string;
+}
 
-	readonly diff?: string;
+export interface GitDiffFile {
+	readonly hunks: GitDiffHunk[];
+	readonly contents?: string;
 }
 
 export interface GitDiffShortStat {

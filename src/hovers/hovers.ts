@@ -273,7 +273,7 @@ export async function detailsMessage(
 }
 
 function getDiffFromHunk(hunk: GitDiffHunk): string {
-	return `\`\`\`diff\n${hunk.diff.trim()}\n\`\`\``;
+	return `\`\`\`diff\n${hunk.contents.trim()}\n\`\`\``;
 }
 
 function getDiffFromHunkLine(hunkLine: GitDiffHunkLine, diffStyle?: 'line' | 'hunk'): string {

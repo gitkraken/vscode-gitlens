@@ -64,7 +64,7 @@ import type { GitStashCommit } from '../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../git/models/commit';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from '../../../git/models/constants';
 import { GitContributor } from '../../../git/models/contributor';
-import type { GitDiff, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from '../../../git/models/diff';
+import type { GitDiff, GitDiffFile, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from '../../../git/models/diff';
 import type { GitFile, GitFileStatus } from '../../../git/models/file';
 import { GitFileChange } from '../../../git/models/file';
 import type {
@@ -110,7 +110,7 @@ import { isUserMatch } from '../../../git/models/user';
 import type { GitWorktree } from '../../../git/models/worktree';
 import { GitBlameParser } from '../../../git/parsers/blameParser';
 import { GitBranchParser } from '../../../git/parsers/branchParser';
-import { GitDiffParser } from '../../../git/parsers/diffParser';
+import { parseDiffNameStatusFiles, parseDiffShortStat, parseFileDiff } from '../../../git/parsers/diffParser';
 import {
 	createLogParserSingle,
 	createLogParserWithFiles,
@@ -188,7 +188,7 @@ import { findGitPath, InvalidGitConfigError, UnableToFindGitError } from './loca
 import { CancelledRunError, fsExists, RunError } from './shell';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
-const emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
+const emptyPromise: Promise<GitBlame | GitDiffFile | GitLog | undefined> = Promise.resolve(undefined);
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const slash = 47;
 
@@ -1837,7 +1837,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const data = await this.git.diff__shortstat(repoPath, ref);
 		if (!data) return undefined;
 
-		return GitDiffParser.parseShortStat(data);
+		return parseDiffShortStat(data);
 	}
 
 	@log()
@@ -2615,35 +2615,37 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		ref1: string,
 		ref2?: string,
-		options?: { includeRawDiff?: boolean },
+		options?: { context?: number },
 	): Promise<GitDiff | undefined> {
-		let data;
+		const params = [`-U${options?.context ?? 3}`];
 		if (ref1 === uncommitted) {
-			if (ref2 == null) {
-				data = await this.git.diff2(repoPath, undefined, '-U3');
-			} else {
-				data = await this.git.diff2(repoPath, undefined, '-U3', ref2);
+			if (ref2 != null) {
+				params.push(ref2);
 			}
 		} else if (ref1 === uncommittedStaged) {
-			if (ref2 == null) {
-				data = await this.git.diff2(repoPath, undefined, '-U3', '--staged');
-			} else {
-				data = await this.git.diff2(repoPath, undefined, '-U3', '--staged', ref2);
+			params.push('--staged');
+			if (ref2 != null) {
+				params.push(ref2);
 			}
 		} else if (ref2 == null) {
-			data = await this.git.diff2(repoPath, undefined, '-U3', `${ref1}^`, ref1);
+			if (ref1 === '' || ref1.toUpperCase() === 'HEAD') {
+				params.push('HEAD');
 		} else {
-			data = await this.git.diff2(repoPath, undefined, '-U3', ref1, ref2);
+				params.push(`${ref1}^`, ref1);
+			}
+		} else {
+			params.push(ref1, ref2);
 		}
 
+		const data = await this.git.diff2(repoPath, undefined, ...params);
 		if (!data) return undefined;
 
-		const diff = GitDiffParser.parse(data, options?.includeRawDiff);
+		const diff: GitDiff = { contents: data };
 		return diff;
 	}
 
 	@log()
-	async getDiffForFile(uri: GitUri, ref1: string | undefined, ref2?: string): Promise<GitDiff | undefined> {
+	async getDiffForFile(uri: GitUri, ref1: string | undefined, ref2?: string): Promise<GitDiffFile | undefined> {
 		const scope = getLogScope();
 
 		let key = 'diff';
@@ -2687,7 +2689,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			Logger.debug(scope, `Cache add: '${key}'`);
 
 			const value: CachedDiff = {
-				item: promise as Promise<GitDiff>,
+				item: promise as Promise<GitDiffFile>,
 			};
 			doc.state.setDiff(key, value);
 		}
@@ -2704,7 +2706,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		document: TrackedDocument<GitDocumentState>,
 		key: string,
 		scope: LogScope | undefined,
-	): Promise<GitDiff | undefined> {
+	): Promise<GitDiffFile | undefined> {
 		const [relativePath, root] = splitPath(path, repoPath);
 
 		try {
@@ -2716,7 +2718,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				similarityThreshold: configuration.get('advanced.similarityThreshold'),
 			});
 
-			const diff = GitDiffParser.parse(data);
+			const diff = parseFileDiff(data);
 			return diff;
 		} catch (ex) {
 			// Trap and cache expected diff errors
@@ -2725,12 +2727,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedDiff = {
-					item: emptyPromise as Promise<GitDiff>,
+					item: emptyPromise as Promise<GitDiffFile>,
 					errorMessage: msg,
 				};
 				document.state.setDiff(key, value);
 
-				return emptyPromise as Promise<GitDiff>;
+				return emptyPromise as Promise<GitDiffFile>;
 			}
 
 			return undefined;
@@ -2738,7 +2740,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log<LocalGitProvider['getDiffForFileContents']>({ args: { 1: '<contents>' } })
-	async getDiffForFileContents(uri: GitUri, ref: string, contents: string): Promise<GitDiff | undefined> {
+	async getDiffForFileContents(uri: GitUri, ref: string, contents: string): Promise<GitDiffFile | undefined> {
 		const scope = getLogScope();
 
 		const key = `diff:${md5(contents)}`;
@@ -2776,7 +2778,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			Logger.debug(scope, `Cache add: '${key}'`);
 
 			const value: CachedDiff = {
-				item: promise as Promise<GitDiff>,
+				item: promise as Promise<GitDiffFile>,
 			};
 			doc.state.setDiff(key, value);
 		}
@@ -2793,7 +2795,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		document: TrackedDocument<GitDocumentState>,
 		key: string,
 		scope: LogScope | undefined,
-	): Promise<GitDiff | undefined> {
+	): Promise<GitDiffFile | undefined> {
 		const [relativePath, root] = splitPath(path, repoPath);
 
 		try {
@@ -2803,7 +2805,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				similarityThreshold: configuration.get('advanced.similarityThreshold'),
 			});
 
-			const diff = GitDiffParser.parse(data);
+			const diff = parseFileDiff(data);
 			return diff;
 		} catch (ex) {
 			// Trap and cache expected diff errors
@@ -2812,12 +2814,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedDiff = {
-					item: emptyPromise as Promise<GitDiff>,
+					item: emptyPromise as Promise<GitDiffFile>,
 					errorMessage: msg,
 				};
 				document.state.setDiff(key, value);
 
-				return emptyPromise as Promise<GitDiff>;
+				return emptyPromise as Promise<GitDiffFile>;
 			}
 
 			return undefined;
@@ -2859,7 +2861,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			});
 			if (!data) return undefined;
 
-			const files = GitDiffParser.parseNameStatus(data, repoPath);
+			const files = parseDiffNameStatusFiles(data, repoPath);
 			return files == null || files.length === 0 ? undefined : files;
 		} catch (ex) {
 			return undefined;
@@ -2875,7 +2877,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const data = await this.git.show__name_status(root, relativePath, ref);
 		if (!data) return undefined;
 
-		const files = GitDiffParser.parseNameStatus(data, repoPath);
+		const files = parseDiffNameStatusFiles(data, repoPath);
 		if (files == null || files.length === 0) return undefined;
 
 		return files[0];
