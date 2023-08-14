@@ -238,7 +238,7 @@ export interface LogProvider {
 }
 
 export const defaultLogProvider: LogProvider = {
-	enabled: (logLevel: LogLevel) => Logger.enabled(logLevel),
+	enabled: (logLevel: LogLevel) => Logger.enabled(logLevel) || Logger.isDebugging,
 	log: (logLevel: LogLevel, scope: LogScope | undefined, message: string, ...params: any[]) => {
 		switch (logLevel) {
 			case LogLevel.Error:

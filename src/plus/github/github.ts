@@ -38,7 +38,7 @@ import { Logger } from '../../system/logger';
 import { LogLevel } from '../../system/logger.constants';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
-import { Stopwatch } from '../../system/stopwatch';
+import { maybeStopWatch } from '../../system/stopwatch';
 import { base64 } from '../../system/string';
 import type { Version } from '../../system/version';
 import { fromString, satisfies } from '../../system/version';
@@ -2233,7 +2233,7 @@ export class GitHubApi implements Disposable {
 
 			if (Logger.logLevel === LogLevel.Debug || Logger.isDebugging) {
 				octokit.hook.wrap('request', async (request, options) => {
-					const stopwatch = new Stopwatch(`[GITHUB] ${options.method} ${options.url}`, { log: false });
+					const sw = maybeStopWatch(`[GITHUB] ${options.method} ${options.url}`, { log: false });
 					try {
 						return await request(options);
 					} finally {
@@ -2244,7 +2244,7 @@ export class GitHubApi implements Disposable {
 								message = ` ${match?.[1].trim() ?? options.query}`;
 							}
 						} catch {}
-						stopwatch.stop({ message: message });
+						sw?.stop({ message: message });
 					}
 				});
 			}

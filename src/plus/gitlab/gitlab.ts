@@ -28,10 +28,9 @@ import {
 import { configuration } from '../../system/configuration';
 import { debug } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
-import { LogLevel } from '../../system/logger.constants';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
-import { Stopwatch } from '../../system/stopwatch';
+import { maybeStopWatch } from '../../system/stopwatch';
 import { equalsIgnoreCase } from '../../system/string';
 import type {
 	GitLabCommit,
@@ -752,11 +751,7 @@ $search: String!
 	): Promise<T | undefined> {
 		let rsp: Response;
 		try {
-			const stopwatch =
-				Logger.logLevel === LogLevel.Debug || Logger.isDebugging
-					? new Stopwatch(`[GITLAB] POST ${baseUrl}`, { log: false })
-					: undefined;
-
+			const sw = maybeStopWatch(`[GITLAB] POST ${baseUrl}`, { log: false });
 			const agent = this.getProxyAgent(provider);
 
 			try {
@@ -781,7 +776,7 @@ $search: String!
 				const match = /(^[^({\n]+)/.exec(query);
 				const message = ` ${match?.[1].trim() ?? query}`;
 
-				stopwatch?.stop({ message: message });
+				sw?.stop({ message: message });
 			}
 		} catch (ex) {
 			if (ex instanceof ProviderFetchError) {
@@ -806,11 +801,7 @@ $search: String!
 
 		let rsp: Response;
 		try {
-			const stopwatch =
-				Logger.logLevel === LogLevel.Debug || Logger.isDebugging
-					? new Stopwatch(`[GITLAB] ${options?.method ?? 'GET'} ${url}`, { log: false })
-					: undefined;
-
+			const sw = maybeStopWatch(`[GITLAB] ${options?.method ?? 'GET'} ${url}`, { log: false });
 			const agent = this.getProxyAgent(provider);
 
 			try {
@@ -829,7 +820,7 @@ $search: String!
 
 				throw new ProviderFetchError('GitLab', rsp);
 			} finally {
-				stopwatch?.stop();
+				sw?.stop();
 			}
 		} catch (ex) {
 			if (ex instanceof ProviderFetchError) {
