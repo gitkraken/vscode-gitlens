@@ -13,7 +13,7 @@ import { configuration } from '../system/configuration';
 import { log } from '../system/decorators/log';
 import { first } from '../system/iterable';
 import { getLogScope } from '../system/logger.scope';
-import { Stopwatch } from '../system/stopwatch';
+import { maybeStopWatch } from '../system/stopwatch';
 import type { TokenOptions } from '../system/string';
 import { getTokensFromTemplate, getWidth } from '../system/string';
 import type { GitDocumentState } from '../trackers/gitDocumentTracker';
@@ -49,7 +49,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		const blame = await this.getBlame();
 		if (blame == null) return false;
 
-		const sw = new Stopwatch(scope);
+		const sw = maybeStopWatch(scope);
 
 		const cfg = configuration.get('blame');
 
@@ -162,14 +162,14 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 			decorationsMap.set(l.sha, gutter);
 		}
 
-		sw.restart({ suffix: ' to compute gutter blame annotations' });
+		sw?.restart({ suffix: ' to compute gutter blame annotations' });
 
 		if (decorationOptions.length) {
 			this.setDecorations([
 				{ decorationType: Decorations.gutterBlameAnnotation, rangesOrOptions: decorationOptions },
 			]);
 
-			sw.stop({ suffix: ' to apply all gutter blame annotations' });
+			sw?.stop({ suffix: ' to apply all gutter blame annotations' });
 		}
 
 		this.registerHoverProviders(configuration.get('hovers.annotations'));
