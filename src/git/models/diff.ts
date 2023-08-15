@@ -42,6 +42,7 @@ export class GitDiffHunk {
 }
 
 export interface GitDiff {
+	readonly baseSha: string;
 	readonly contents: string;
 }
 
