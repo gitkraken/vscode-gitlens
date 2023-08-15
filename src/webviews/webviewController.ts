@@ -243,7 +243,7 @@ export class WebviewController<
 		return this._disposed ? false : this.parent.visible;
 	}
 
-	@debug()
+	@debug({ args: false })
 	async show(loading: boolean, options?: { column?: ViewColumn; preserveFocus?: boolean }, ...args: unknown[]) {
 		if (options == null) {
 			options = {};
