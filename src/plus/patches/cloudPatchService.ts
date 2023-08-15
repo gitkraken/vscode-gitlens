@@ -69,12 +69,17 @@ export class CloudPatchService implements Disposable {
 		const draftId = draftData.id;
 		const draftDeepLinkUrl = draftData.deepLink;
 
+		// TODO: Remove this logic once the server generates the filename, rather than the client.
+		const timestamp = Date.now();
+
 		// POST /v1/drafts/:draftId/patches
 		const patchCreateResponse = await this.connection.fetch(
 			Uri.joinPath(this.connection.baseGkApiUri, `v1/drafts/${draftId}/patches`).toString(),
 			{
 				method: 'POST',
-				// body: JSON.stringify({ userId: subscription.account.id }),
+				body: JSON.stringify({
+					filename: `${repository.name}_${gitProfileId}_${branchName}_${timestamp}.patch`,
+				}),
 			},
 		);
 
