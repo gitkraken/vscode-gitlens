@@ -23,6 +23,7 @@ import type { RepositoryPathMappingProvider } from './pathMapping/repositoryPath
 import { AccountAuthenticationProvider } from './plus/gk/authenticationProvider';
 import { ServerConnection } from './plus/gk/serverConnection';
 import { IntegrationAuthenticationService } from './plus/integrationAuthentication';
+import { CloudPatchService } from './plus/patches/cloudPatchService';
 import { SubscriptionService } from './plus/subscription/subscriptionService';
 import { registerAccountWebviewView } from './plus/webviews/account/registration';
 import { registerFocusWebviewPanel } from './plus/webviews/focus/registration';
@@ -196,6 +197,7 @@ export class Container {
 
 		this._disposables.push((this._accountAuthentication = new AccountAuthenticationProvider(this, connection)));
 		this._disposables.push((this._subscription = new SubscriptionService(this, connection, previousVersion)));
+		this._disposables.push((this._cloudPatches = new CloudPatchService(this, connection)));
 		this._disposables.push((this._workspaces = new WorkspacesService(this, connection)));
 
 		this._disposables.push((this._git = new GitProviderService(this)));
@@ -351,6 +353,11 @@ export class Container {
 	private readonly _branchesView: BranchesView;
 	get branchesView() {
 		return this._branchesView;
+	}
+
+	private _cloudPatches: CloudPatchService;
+	get cloudPatches() {
+		return this._cloudPatches;
 	}
 
 	private readonly _codeLensController: GitCodeLensController;

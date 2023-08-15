@@ -138,6 +138,7 @@ export const enum Commands {
 	CopyShaToClipboard = 'gitlens.copyShaToClipboard',
 	CopyRelativePathToClipboard = 'gitlens.copyRelativePathToClipboard',
 	CreatePatch = 'gitlens.createPatch',
+	CreateCloudPatch = 'gitlens.createCloudPatch',
 	CreatePullRequestOnRemote = 'gitlens.createPullRequestOnRemote',
 	DiffDirectory = 'gitlens.diffDirectory',
 	DiffDirectoryWithHead = 'gitlens.diffDirectoryWithHead',
