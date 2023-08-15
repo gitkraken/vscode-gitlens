@@ -1,6 +1,8 @@
+import { Uri } from 'vscode';
+import type { RequestInit } from '@env/fetch';
 import type { Container } from '../../container';
 import { Logger } from '../../system/logger';
-import type { ServerConnection } from '../subscription/serverConnection';
+import type { GraphQLRequest, ServerConnection } from '../gk/serverConnection';
 import type {
 	AddRepositoriesToWorkspaceResponse,
 	AddWorkspaceRepoDescriptor,
@@ -19,19 +21,8 @@ import { CloudWorkspaceProviderInputType, defaultWorkspaceCount, defaultWorkspac
 export class WorkspacesApi {
 	constructor(
 		private readonly container: Container,
-		private readonly server: ServerConnection,
+		private readonly connection: ServerConnection,
 	) {}
-
-	private async getAccessToken() {
-		// TODO: should probably get scopes from somewhere
-		const sessions = await this.container.subscriptionAuthentication.getSessions(['gitlens']);
-		if (!sessions.length) {
-			return;
-		}
-
-		const session = sessions[0];
-		return session.accessToken;
-	}
 
 	async getWorkspace(
 		id: string,
@@ -41,11 +32,6 @@ export class WorkspacesApi {
 			repoPage?: number;
 		},
 	): Promise<WorkspaceResponse | undefined> {
-		const accessToken = await this.getAccessToken();
-		if (accessToken == null) {
-			return;
-		}
-
 		let repoQuery: string | undefined;
 		if (options?.includeRepositories) {
 			let repoQueryParams = `(first: ${options?.repoCount ?? defaultWorkspaceRepoCount}`;
@@ -96,12 +82,7 @@ export class WorkspacesApi {
 			}
 		`;
 
-		const rsp = await this.server.fetchGraphql(
-			{
-				query: query,
-			},
-			accessToken,
-		);
+		const rsp = await this.fetch({ query: query });
 
 		if (!rsp.ok) {
 			Logger.error(undefined, `Getting workspace failed: (${rsp.status}) ${rsp.statusText}`);
@@ -122,11 +103,6 @@ export class WorkspacesApi {
 		repoCount?: number;
 		repoPage?: number;
 	}): Promise<WorkspacesResponse | undefined> {
-		const accessToken = await this.getAccessToken();
-		if (accessToken == null) {
-			return;
-		}
-
 		let repoQuery: string | undefined;
 		if (options?.includeRepositories) {
 			let repoQueryParams = `(first: ${options?.repoCount ?? defaultWorkspaceRepoCount}`;
@@ -206,12 +182,7 @@ export class WorkspacesApi {
 
 		query += '}';
 
-		const rsp = await this.server.fetchGraphql(
-			{
-				query: query,
-			},
-			accessToken,
-		);
+		const rsp = await this.fetch({ query: query });
 
 		if (!rsp.ok) {
 			Logger.error(undefined, `Getting workspaces failed: (${rsp.status}) ${rsp.statusText}`);
@@ -254,11 +225,6 @@ export class WorkspacesApi {
 			page?: number;
 		},
 	): Promise<WorkspaceRepositoriesResponse | undefined> {
-		const accessToken = await this.getAccessToken();
-		if (accessToken == null) {
-			return;
-		}
-
 		let queryparams = `(first: ${options?.count ?? defaultWorkspaceRepoCount}`;
 		if (options?.cursor) {
 			queryparams += `, after: "${options.cursor}"`;
@@ -267,12 +233,11 @@ export class WorkspacesApi {
 		}
 		queryparams += ')';
 
-		const rsp = await this.server.fetchGraphql(
-			{
-				query: `
-                    query getWorkspaceRepos {
-                        project (id: "${workspaceId}") {
-                            provider_data {
+		const rsp = await this.fetch({
+			query: `
+					query getWorkspaceRepos {
+						project (id: "${workspaceId}") {
+							provider_data {
 								repositories ${queryparams} {
 									total_count
 									page_info {
@@ -291,12 +256,10 @@ export class WorkspacesApi {
 									}
 								}
 							}
-                        }
-                    }
+						}
+					}
 				`,
-			},
-			accessToken,
-		);
+		});
 
 		if (!rsp.ok) {
 			Logger.error(undefined, `Getting workspace repos failed: (${rsp.status}) ${rsp.statusText}`);
@@ -337,15 +300,9 @@ export class WorkspacesApi {
 			return;
 		}
 
-		const accessToken = await this.getAccessToken();
-		if (accessToken == null) {
-			return;
-		}
-
-		const rsp = await this.server.fetchGraphql(
-			{
-				query: `
-                    mutation createWorkspace {
+		const rsp = await this.fetch({
+			query: `
+					mutation createWorkspace {
 						create_project(
 							input: {
 						  		type: GK_PROJECT
@@ -369,11 +326,9 @@ export class WorkspacesApi {
 							azure_project
 							repo_relation
 						}
-                    }
+					}
 				`,
-			},
-			accessToken,
-		);
+		});
 
 		if (!rsp.ok) {
 			Logger.error(undefined, `Creating workspace failed: (${rsp.status}) ${rsp.statusText}`);
@@ -386,25 +341,17 @@ export class WorkspacesApi {
 	}
 
 	async deleteWorkspace(workspaceId: string): Promise<DeleteWorkspaceResponse | undefined> {
-		const accessToken = await this.getAccessToken();
-		if (accessToken == null) {
-			return;
-		}
-
-		const rsp = await this.server.fetchGraphql(
-			{
-				query: `
-                    mutation deleteWorkspace {
+		const rsp = await this.fetch({
+			query: `
+					mutation deleteWorkspace {
 						delete_project(
 							id: "${workspaceId}"
 						) {
 							id
 						}
-                    }
+					}
 				`,
-			},
-			accessToken,
-		);
+		});
 
 		if (!rsp.ok) {
 			Logger.error(undefined, `Deleting workspace failed: (${rsp.status}) ${rsp.statusText}`);
@@ -427,14 +374,7 @@ export class WorkspacesApi {
 		workspaceId: string,
 		repos: AddWorkspaceRepoDescriptor[],
 	): Promise<AddRepositoriesToWorkspaceResponse | undefined> {
-		if (repos.length === 0) {
-			return;
-		}
-
-		const accessToken = await this.getAccessToken();
-		if (accessToken == null) {
-			return;
-		}
+		if (repos.length === 0) return;
 
 		let reposQuery = '[';
 		reposQuery += repos.map(r => `{ provider_organization_id: "${r.owner}", name: "${r.repoName}" }`).join(',');
@@ -456,10 +396,9 @@ export class WorkspacesApi {
 			)
 			.join(',');
 
-		const rsp = await this.server.fetchGraphql(
-			{
-				query: `
-                    mutation addReposToWorkspace {
+		const rsp = await this.fetch({
+			query: `
+					mutation addReposToWorkspace {
 						add_repositories_to_project(
 							input: {
 								project_id: "${workspaceId}",
@@ -471,11 +410,9 @@ export class WorkspacesApi {
 								${reposReturnQuery}
 							}
 						}
-                    }
+					}
 				`,
-			},
-			accessToken,
-		);
+		});
 
 		if (!rsp.ok) {
 			Logger.error(undefined, `Adding repositories to workspace failed: (${rsp.status}) ${rsp.statusText}`);
@@ -500,23 +437,15 @@ export class WorkspacesApi {
 		workspaceId: string,
 		repos: RemoveWorkspaceRepoDescriptor[],
 	): Promise<RemoveRepositoriesFromWorkspaceResponse | undefined> {
-		if (repos.length === 0) {
-			return;
-		}
-
-		const accessToken = await this.getAccessToken();
-		if (accessToken == null) {
-			return;
-		}
+		if (repos.length === 0) return;
 
 		let reposQuery = '[';
 		reposQuery += repos.map(r => `{ provider_organization_id: "${r.owner}", name: "${r.repoName}" }`).join(',');
 		reposQuery += ']';
 
-		const rsp = await this.server.fetchGraphql(
-			{
-				query: `
-                    mutation removeReposFromWorkspace {
+		const rsp = await this.fetch({
+			query: `
+					mutation removeReposFromWorkspace {
 						remove_repositories_from_project(
 							input: {
 								project_id: "${workspaceId}",
@@ -525,11 +454,9 @@ export class WorkspacesApi {
 						) {
 							id
 						}
-                    }
+					}
 				`,
-			},
-			accessToken,
-		);
+		});
 
 		if (!rsp.ok) {
 			Logger.error(undefined, `Removing repositories from workspace failed: (${rsp.status}) ${rsp.statusText}`);
@@ -548,5 +475,13 @@ export class WorkspacesApi {
 		}
 
 		return json;
+	}
+
+	private async fetch(request: GraphQLRequest, init?: RequestInit) {
+		return this.connection.fetchGraphQL(
+			Uri.joinPath(this.connection.baseApiUri, 'api/projects/graphql').toString(),
+			request,
+			init,
+		);
 	}
 }

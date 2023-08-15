@@ -9,7 +9,7 @@ import { showRepositoriesPicker } from '../../quickpicks/repositoryPicker';
 import { SubscriptionState } from '../../subscription';
 import { normalizePath } from '../../system/path';
 import { openWorkspace, OpenWorkspaceLocation } from '../../system/utils';
-import type { ServerConnection } from '../subscription/serverConnection';
+import type { ServerConnection } from '../gk/serverConnection';
 import type { SubscriptionChangeEvent } from '../subscription/subscriptionService';
 import type {
 	AddWorkspaceRepoDescriptor,
@@ -56,9 +56,9 @@ export class WorkspacesService implements Disposable {
 
 	constructor(
 		private readonly container: Container,
-		private readonly server: ServerConnection,
+		private readonly connection: ServerConnection,
 	) {
-		this._workspacesApi = new WorkspacesApi(this.container, this.server);
+		this._workspacesApi = new WorkspacesApi(this.container, this.connection);
 		this._workspacesPathProvider = getSupportedWorkspacesPathMappingProvider();
 		this._currentWorkspaceId = workspace.getConfiguration('gitkraken')?.get<string>('workspaceId');
 		this._currentWorkspaceAutoAddSetting =

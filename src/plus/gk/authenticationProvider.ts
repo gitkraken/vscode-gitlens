@@ -9,6 +9,7 @@ import type { Container, Environment } from '../../container';
 import { debug } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
+import { AuthenticationConnection } from './authenticationConnection';
 import type { ServerConnection } from './serverConnection';
 
 interface StoredSession {
@@ -23,25 +24,30 @@ interface StoredSession {
 }
 
 export const authenticationProviderId = 'gitlens+';
+export const authenticationProviderScopes = ['gitlens'];
 const authenticationLabel = 'GitKraken: GitLens';
 
-export class SubscriptionAuthenticationProvider implements AuthenticationProvider, Disposable {
+export class AccountAuthenticationProvider implements AuthenticationProvider, Disposable {
 	private _onDidChangeSessions = new EventEmitter<AuthenticationProviderAuthenticationSessionsChangeEvent>();
 	get onDidChangeSessions() {
 		return this._onDidChangeSessions.event;
 	}
 
 	private readonly _disposable: Disposable;
+	private readonly _authConnection: AuthenticationConnection;
 	private _sessionsPromise: Promise<AuthenticationSession[]>;
 
 	constructor(
 		private readonly container: Container,
-		private readonly server: ServerConnection,
+		connection: ServerConnection,
 	) {
+		this._authConnection = new AuthenticationConnection(container, connection);
+
 		// Contains the current state of the sessions we have available.
 		this._sessionsPromise = this.getSessionsFromStorage();
 
 		this._disposable = Disposable.from(
+			this._authConnection,
 			authentication.registerAuthenticationProvider(authenticationProviderId, authenticationLabel, this, {
 				supportsMultipleAccounts: false,
 			}),
@@ -58,7 +64,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 	}
 
 	abort(): Promise<void> {
-		return this.server.abort();
+		return this._authConnection.abort();
 	}
 
 	@debug()
@@ -70,7 +76,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 		const scopesKey = getScopesKey(scopes);
 
 		try {
-			const token = await this.server.login(scopes, scopesKey);
+			const token = await this._authConnection.login(scopes, scopesKey);
 			const session = await this.createSessionForToken(token, scopes);
 
 			const sessions = await this._sessionsPromise;
@@ -200,7 +206,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 	}
 
 	private async createSessionForToken(token: string, scopes: string[]): Promise<AuthenticationSession> {
-		const userInfo = await this.server.getAccountInfo(token);
+		const userInfo = await this._authConnection.getAccountInfo(token);
 		return {
 			id: uuid(),
 			accessToken: token,
@@ -238,7 +244,7 @@ export class SubscriptionAuthenticationProvider implements AuthenticationProvide
 			let userInfo: { id: string; accountName: string } | undefined;
 			if (session.account == null) {
 				try {
-					userInfo = await this.server.getAccountInfo(session.accessToken);
+					userInfo = await this._authConnection.getAccountInfo(session.accessToken);
 					Logger.debug(`Verified session with scopes=${scopesKey}`);
 				} catch (ex) {
 					// Remove sessions that return unauthorized response
