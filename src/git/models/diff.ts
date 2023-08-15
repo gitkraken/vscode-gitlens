@@ -1,4 +1,5 @@
 import { parseDiffHunk } from '../parsers/diffParser';
+import type { GitFileChange } from './file';
 
 export interface GitDiffLine {
 	line: string;
@@ -55,6 +56,10 @@ export interface GitDiffShortStat {
 	readonly additions: number;
 	readonly deletions: number;
 	readonly changedFiles: number;
+}
+
+export interface GitDiffFiles {
+	readonly files: GitFileChange[];
 }
 
 export type GitDiffFilter = 'A' | 'C' | 'D' | 'M' | 'R' | 'T' | 'U' | 'X' | 'B' | '*';

@@ -4,6 +4,7 @@ import { getLines, pluralize } from '../../system/string';
 import type { GitDiffFile, GitDiffHunkLine, GitDiffLine, GitDiffShortStat } from '../models/diff';
 import { GitDiffHunk } from '../models/diff';
 import type { GitFile, GitFileStatus } from '../models/file';
+import { GitFileChange } from '../models/file';
 
 const shortStatDiffRegex = /(\d+)\s+files? changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/;
 const unifiedDiffRegex = /^@@ -([\d]+)(?:,([\d]+))? \+([\d]+)(?:,([\d]+))? @@(?:.*?)\n([\s\S]*?)(?=^@@)/gm;
@@ -176,6 +177,74 @@ export function parseDiffNameStatusFiles(data: string, repoPath: string): GitFil
 	sw?.stop({ suffix: ` parsed ${pluralize('file', files.length)}` });
 
 	return files;
+}
+
+export function parseApplyFiles(data: string, repoPath: string): GitFileChange[] | undefined {
+	if (!data) return undefined;
+
+	const sw = maybeStopWatch('parseApplyFiles', { log: false, logLevel: LogLevel.Debug });
+
+	const files = new Map<string, GitFileChange>();
+
+	const lines = data.split('\0');
+	// remove the summary (last) line to parse later
+	const summary = lines.pop();
+
+	for (let line of lines) {
+		line = line.trim();
+		if (!line) continue;
+
+		const [insertions, deletions, path] = line.split('\t');
+		files.set(
+			path,
+			new GitFileChange(repoPath, path, 'M' as GitFileStatus, undefined, undefined, {
+				changes: 0,
+				additions: parseInt(insertions, 10),
+				deletions: parseInt(deletions, 10),
+			}),
+		);
+	}
+
+	for (let line of summary!.split('\n')) {
+		line = line.trim();
+		if (!line) continue;
+
+		const match = /(rename) (.+) => (.+)(?: \(\d+%\))|(create|delete) mode \d+ (.+)/.exec(line);
+		if (match == null) continue;
+
+		const [, rename, renameOriginalPath, renamePath, createOrDelete, createOrDeletePath] = match;
+
+		if (rename != null) {
+			const file = files.get(renamePath)!;
+			files.set(
+				renamePath,
+				new GitFileChange(
+					repoPath,
+					renamePath,
+					'R' as GitFileStatus,
+					renameOriginalPath,
+					undefined,
+					file.stats,
+				),
+			);
+		} else {
+			const file = files.get(createOrDeletePath)!;
+			files.set(
+				createOrDeletePath,
+				new GitFileChange(
+					repoPath,
+					file.path,
+					(createOrDelete === 'create' ? 'A' : 'D') as GitFileStatus,
+					undefined,
+					undefined,
+					file.stats,
+				),
+			);
+		}
+	}
+
+	sw?.stop({ suffix: ` parsed ${pluralize('file', files.size)}` });
+	return [...files.values()];
 }
 
 export function parseDiffShortStat(data: string): GitDiffShortStat | undefined {

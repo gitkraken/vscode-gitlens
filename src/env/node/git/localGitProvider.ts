@@ -64,7 +64,14 @@ import type { GitStashCommit } from '../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../git/models/commit';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from '../../../git/models/constants';
 import { GitContributor } from '../../../git/models/contributor';
-import type { GitDiff, GitDiffFile, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from '../../../git/models/diff';
+import type {
+	GitDiff,
+	GitDiffFile,
+	GitDiffFiles,
+	GitDiffFilter,
+	GitDiffHunkLine,
+	GitDiffShortStat,
+} from '../../../git/models/diff';
 import type { GitFile, GitFileStatus } from '../../../git/models/file';
 import { GitFileChange } from '../../../git/models/file';
 import type {
@@ -110,7 +117,12 @@ import { isUserMatch } from '../../../git/models/user';
 import type { GitWorktree } from '../../../git/models/worktree';
 import { GitBlameParser } from '../../../git/parsers/blameParser';
 import { GitBranchParser } from '../../../git/parsers/branchParser';
-import { parseDiffNameStatusFiles, parseDiffShortStat, parseFileDiff } from '../../../git/parsers/diffParser';
+import {
+	parseApplyFiles,
+	parseDiffNameStatusFiles,
+	parseDiffShortStat,
+	parseFileDiff,
+} from '../../../git/parsers/diffParser';
 import {
 	createLogParserSingle,
 	createLogParserWithFiles,
@@ -2653,6 +2665,17 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const diff: GitDiff = { baseSha: ref2, contents: data };
 		return diff;
+	}
+
+	@log()
+	async getDiffFiles(repoPath: string, contents: string): Promise<GitDiffFiles | undefined> {
+		const data = await this.git.apply__stats(repoPath, { stdin: contents }, '--numstat', '--summary', '-z');
+		if (!data) return undefined;
+
+		const files = parseApplyFiles(data, repoPath) ?? [];
+		return {
+			files: files,
+		};
 	}
 
 	@log()

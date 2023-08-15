@@ -7,7 +7,14 @@ import type { GitBlame, GitBlameLine, GitBlameLines } from './models/blame';
 import type { BranchSortOptions, GitBranch } from './models/branch';
 import type { GitCommit } from './models/commit';
 import type { GitContributor } from './models/contributor';
-import type { GitDiff, GitDiffFile, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from './models/diff';
+import type {
+	GitDiff,
+	GitDiffFile,
+	GitDiffFiles,
+	GitDiffFilter,
+	GitDiffHunkLine,
+	GitDiffShortStat,
+} from './models/diff';
 import type { GitFile } from './models/file';
 import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
@@ -277,6 +284,7 @@ export interface GitProvider extends Disposable {
 		ref2?: string,
 		options?: { context?: number },
 	): Promise<GitDiff | undefined>;
+	getDiffFiles?(repoPath: string | Uri, contents: string): Promise<GitDiffFiles | undefined>;
 	/**
 	 * Returns a file diff between two commits
 	 * @param uri Uri of the file to diff
