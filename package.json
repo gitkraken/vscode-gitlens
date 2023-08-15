@@ -4673,6 +4673,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.createPatch",
+				"title": "Create Patch...",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.showBranchesView",
 				"title": "Show Branches View",
 				"category": "GitLens"
@@ -8053,6 +8058,10 @@
 				},
 				{
 					"command": "gitlens.plus.refreshRepositoryAccess",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.createPatch",
 					"when": "gitlens:enabled"
 				},
 				{
@@ -11783,6 +11792,11 @@
 					"group": "1_gitlens_actions_1@1"
 				},
 				{
+					"command": "gitlens.createPatch",
+					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:(commit|stash)\\b/",
+					"group": "1_gitlens_actions_1@2"
+				},
+				{
 					"command": "gitlens.views.createTag",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:commit\\b/",
 					"group": "1_gitlens_actions_1@2"
@@ -12585,6 +12599,11 @@
 					"command": "gitlens.views.searchAndCompare.swapComparison",
 					"when": "viewItem =~ /gitlens:compare:results(?!:)\\b(?!.*?\\b\\+working\\b)/",
 					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.createPatch",
+					"when": "!gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:compare:results(?!:)\\b/",
+					"group": "1_gitlens_secondary_actions@1"
 				},
 				{
 					"command": "gitlens.views.openDirectoryDiff",

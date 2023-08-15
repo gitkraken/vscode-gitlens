@@ -40,6 +40,7 @@ export * from './commands/openPullRequestOnRemote';
 export * from './commands/openRepoOnRemote';
 export * from './commands/openRevisionFile';
 export * from './commands/openWorkingFile';
+export * from './commands/patches';
 export * from './commands/rebaseEditor';
 export * from './commands/refreshHover';
 export * from './commands/remoteProviders';

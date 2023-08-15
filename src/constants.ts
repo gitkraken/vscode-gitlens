@@ -137,6 +137,7 @@ export const enum Commands {
 	CopyRemoteRepositoryUrl = 'gitlens.copyRemoteRepositoryUrl',
 	CopyShaToClipboard = 'gitlens.copyShaToClipboard',
 	CopyRelativePathToClipboard = 'gitlens.copyRelativePathToClipboard',
+	CreatePatch = 'gitlens.createPatch',
 	CreatePullRequestOnRemote = 'gitlens.createPullRequestOnRemote',
 	DiffDirectory = 'gitlens.diffDirectory',
 	DiffDirectoryWithHead = 'gitlens.diffDirectoryWithHead',
