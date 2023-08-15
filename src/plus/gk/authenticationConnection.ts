@@ -1,66 +1,34 @@
 import type { CancellationToken, Disposable, StatusBarItem } from 'vscode';
 import { CancellationTokenSource, env, StatusBarAlignment, Uri, window } from 'vscode';
 import { uuid } from '@env/crypto';
-import type { RequestInfo, RequestInit, Response } from '@env/fetch';
-import { fetch, getProxyAgent } from '@env/fetch';
+import type { Response } from '@env/fetch';
 import type { Container } from '../../container';
 import { debug } from '../../system/decorators/log';
-import { memoize } from '../../system/decorators/memoize';
 import type { DeferredEvent, DeferredEventExecutor } from '../../system/event';
 import { promisifyDeferred } from '../../system/event';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
+import type { ServerConnection } from './serverConnection';
 
 export const AuthenticationUriPathPrefix = 'did-authenticate';
-// TODO: What user-agent should we use?
-const userAgent = 'Visual-Studio-Code-GitLens';
 
 interface AccountInfo {
 	id: string;
 	accountName: string;
 }
 
-interface GraphQLRequest {
-	query: string;
-	operationName?: string;
-	variables?: Record<string, unknown>;
-}
-
-export class ServerConnection implements Disposable {
+export class AuthenticationConnection implements Disposable {
 	private _cancellationSource: CancellationTokenSource | undefined;
 	private _deferredCodeExchanges = new Map<string, DeferredEvent<string>>();
 	private _pendingStates = new Map<string, string[]>();
 	private _statusBarItem: StatusBarItem | undefined;
 
-	constructor(private readonly container: Container) {}
+	constructor(
+		private readonly container: Container,
+		private readonly connection: ServerConnection,
+	) {}
 
 	dispose() {}
-
-	@memoize()
-	private get baseApiUri(): Uri {
-		if (this.container.env === 'staging') {
-			return Uri.parse('https://stagingapi.gitkraken.com');
-		}
-
-		if (this.container.env === 'dev') {
-			return Uri.parse('https://devapi.gitkraken.com');
-		}
-
-		return Uri.parse('https://api.gitkraken.com');
-	}
-
-	@memoize()
-	private get baseAccountUri(): Uri {
-		if (this.container.env === 'staging') {
-			return Uri.parse('https://stagingapp.gitkraken.com');
-		}
-
-		if (this.container.env === 'dev') {
-			return Uri.parse('https://devapp.gitkraken.com');
-		}
-
-		return Uri.parse('https://app.gitkraken.com');
-	}
 
 	abort(): Promise<void> {
 		if (this._cancellationSource == null) return Promise.resolve();
@@ -76,13 +44,11 @@ export class ServerConnection implements Disposable {
 
 		let rsp: Response;
 		try {
-			rsp = await fetch(Uri.joinPath(this.baseApiUri, 'user').toString(), {
-				agent: getProxyAgent(),
-				headers: {
-					Authorization: `Bearer ${token}`,
-					'User-Agent': userAgent,
-				},
-			});
+			rsp = await this.connection.fetch(
+				Uri.joinPath(this.connection.baseApiUri, 'user').toString(),
+				undefined,
+				token,
+			);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			throw ex;
@@ -112,7 +78,7 @@ export class ServerConnection implements Disposable {
 			),
 		);
 
-		const uri = Uri.joinPath(this.baseAccountUri, 'register').with({
+		const uri = Uri.joinPath(this.connection.baseAccountUri, 'register').with({
 			query: `${
 				scopes.includes('gitlens') ? 'referrer=gitlens&' : ''
 			}pass-token=true&return-url=${encodeURIComponent(callbackUri.toString())}`,
@@ -250,35 +216,6 @@ export class ServerConnection implements Disposable {
 		if (!signingIn && this._statusBarItem != null) {
 			this._statusBarItem.dispose();
 			this._statusBarItem = undefined;
-		}
-	}
-
-	async fetchGraphql(data: GraphQLRequest, token: string, init?: RequestInit) {
-		return this.fetchCore(Uri.joinPath(this.baseAccountUri, 'api/projects/graphql').toString(), token, {
-			method: 'POST',
-			body: JSON.stringify(data),
-			...init,
-		});
-	}
-
-	private async fetchCore(url: RequestInfo, token: string, init?: RequestInit): Promise<Response> {
-		const scope = getLogScope();
-
-		try {
-			const options = {
-				agent: getProxyAgent(),
-				...init,
-				headers: {
-					Authorization: `Bearer ${token}`,
-					'User-Agent': userAgent,
-					'Content-Type': 'application/json',
-					...init?.headers,
-				},
-			};
-			return await fetch(url, options);
-		} catch (ex) {
-			Logger.error(ex, scope);
-			throw ex;
 		}
 	}
 }

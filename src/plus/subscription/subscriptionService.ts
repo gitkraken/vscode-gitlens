@@ -20,7 +20,6 @@ import {
 	Uri,
 	window,
 } from 'vscode';
-import { fetch, getProxyAgent } from '@env/fetch';
 import { getPlatform } from '@env/platform';
 import type { CoreColors } from '../../constants';
 import { Commands } from '../../constants';
@@ -48,7 +47,6 @@ import { setContext } from '../../system/context';
 import { createFromDateDelta } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
-import { memoize } from '../../system/decorators/memoize';
 import type { Deferrable } from '../../system/function';
 import { debounce, once } from '../../system/function';
 import { Logger } from '../../system/logger';
@@ -57,11 +55,9 @@ import { flatten } from '../../system/object';
 import { pluralize } from '../../system/string';
 import { openWalkthrough } from '../../system/utils';
 import { satisfies } from '../../system/version';
-import { authenticationProviderId } from './authenticationProvider';
+import { authenticationProviderId, authenticationProviderScopes } from '../gk/authenticationProvider';
+import type { ServerConnection } from '../gk/serverConnection';
 import { ensurePlusFeaturesEnabled } from './utils';
-
-// TODO: What user-agent should we use?
-const userAgent = 'Visual-Studio-Code-GitLens';
 
 export interface SubscriptionChangeEvent {
 	readonly current: Subscription;
@@ -70,8 +66,6 @@ export interface SubscriptionChangeEvent {
 }
 
 export class SubscriptionService implements Disposable {
-	private static authenticationScopes = ['gitlens'];
-
 	private _onDidChange = new EventEmitter<SubscriptionChangeEvent>();
 	get onDidChange(): Event<SubscriptionChangeEvent> {
 		return this._onDidChange.event;
@@ -84,11 +78,12 @@ export class SubscriptionService implements Disposable {
 
 	constructor(
 		private readonly container: Container,
+		private readonly connection: ServerConnection,
 		previousVersion: string | undefined,
 	) {
 		this._disposable = Disposable.from(
 			once(container.onReady)(this.onReady, this),
-			this.container.subscriptionAuthentication.onDidChangeSessions(
+			this.container.accountAuthentication.onDidChangeSessions(
 				e => setTimeout(() => this.onAuthenticationChanged(e), 0),
 				this,
 			),
@@ -139,48 +134,6 @@ export class SubscriptionService implements Disposable {
 		void this.validate();
 	}
 
-	@memoize()
-	private get baseApiUri(): Uri {
-		const { env } = this.container;
-		if (env === 'staging') {
-			return Uri.parse('https://stagingapi.gitkraken.com');
-		}
-
-		if (env === 'dev') {
-			return Uri.parse('https://devapi.gitkraken.com');
-		}
-
-		return Uri.parse('https://api.gitkraken.com');
-	}
-
-	@memoize()
-	private get baseAccountUri(): Uri {
-		const { env } = this.container;
-		if (env === 'staging') {
-			return Uri.parse('https://stagingapp.gitkraken.com');
-		}
-
-		if (env === 'dev') {
-			return Uri.parse('https://devapp.gitkraken.com');
-		}
-
-		return Uri.parse('https://app.gitkraken.com');
-	}
-
-	@memoize()
-	private get baseSiteUri(): Uri {
-		const { env } = this.container;
-		if (env === 'staging') {
-			return Uri.parse('https://staging.gitkraken.com');
-		}
-
-		if (env === 'dev') {
-			return Uri.parse('https://dev.gitkraken.com');
-		}
-
-		return Uri.parse('https://gitkraken.com');
-	}
-
 	private _etag: number = 0;
 	get etag(): number {
 		return this._etag;
@@ -222,6 +175,10 @@ export class SubscriptionService implements Disposable {
 		];
 	}
 
+	async getAuthenticationSession(createIfNeeded: boolean = false): Promise<AuthenticationSession | undefined> {
+		return this.ensureSession(createIfNeeded);
+	}
+
 	async getSubscription(cached = false): Promise<Subscription> {
 		const promise = this.ensureSession(false);
 		if (!cached) {
@@ -255,7 +212,7 @@ export class SubscriptionService implements Disposable {
 		if (!(await ensurePlusFeaturesEnabled())) return false;
 
 		// Abort any waiting authentication to ensure we can start a new flow
-		await this.container.subscriptionAuthentication.abort();
+		await this.container.accountAuthentication.abort();
 		void this.showAccountView();
 
 		const session = await this.ensureSession(true);
@@ -324,17 +281,15 @@ export class SubscriptionService implements Disposable {
 			this._validationTimer = undefined;
 		}
 
-		await this.container.subscriptionAuthentication.abort();
+		await this.container.accountAuthentication.abort();
 
 		this._sessionPromise = undefined;
 		if (this._session != null) {
-			void this.container.subscriptionAuthentication.removeSession(this._session.id);
+			void this.container.accountAuthentication.removeSession(this._session.id);
 			this._session = undefined;
 		} else {
 			// Even if we don't have a session, make sure to remove any other matching sessions
-			void this.container.subscriptionAuthentication.removeSessionsByScopes(
-				SubscriptionService.authenticationScopes,
-			);
+			void this.container.accountAuthentication.removeSessionsByScopes(authenticationProviderScopes);
 		}
 
 		if (reset && this.container.debugging) {
@@ -369,7 +324,7 @@ export class SubscriptionService implements Disposable {
 
 	@log()
 	manage(): void {
-		void env.openExternal(this.baseAccountUri);
+		void env.openExternal(this.connection.baseAccountUri);
 	}
 
 	@log()
@@ -380,7 +335,9 @@ export class SubscriptionService implements Disposable {
 			this.showPlans();
 		} else {
 			void env.openExternal(
-				Uri.joinPath(this.baseAccountUri, 'subscription').with({ query: 'product=gitlens&license=PRO' }),
+				Uri.joinPath(this.connection.baseAccountUri, 'subscription').with({
+					query: 'product=gitlens&license=PRO',
+				}),
 			);
 		}
 		await this.showAccountView();
@@ -399,16 +356,14 @@ export class SubscriptionService implements Disposable {
 		if (session == null) return false;
 
 		try {
-			const rsp = await fetch(Uri.joinPath(this.baseApiUri, 'resend-email').toString(), {
-				method: 'POST',
-				agent: getProxyAgent(),
-				headers: {
-					Authorization: `Bearer ${session.accessToken}`,
-					'User-Agent': userAgent,
-					'Content-Type': 'application/json',
+			const rsp = await this.connection.fetch(
+				Uri.joinPath(this.connection.baseApiUri, 'resend-email').toString(),
+				{
+					method: 'POST',
+					body: JSON.stringify({ id: session.account.id }),
 				},
-				body: JSON.stringify({ id: session.account.id }),
-			});
+				session.accessToken,
+			);
 
 			if (!rsp.ok) {
 				debugger;
@@ -455,7 +410,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private showPlans(): void {
-		void env.openExternal(Uri.joinPath(this.baseSiteUri, 'gitlens/pricing'));
+		void env.openExternal(Uri.joinPath(this.connection.baseSiteUri, 'gitlens/pricing'));
 	}
 
 	@gate()
@@ -595,16 +550,14 @@ export class SubscriptionService implements Disposable {
 				previewExpiresOn: this._subscription.previewTrial?.expiresOn,
 			};
 
-			const rsp = await fetch(Uri.joinPath(this.baseApiUri, 'gitlens/checkin').toString(), {
-				method: 'POST',
-				agent: getProxyAgent(),
-				headers: {
-					Authorization: `Bearer ${session.accessToken}`,
-					'User-Agent': userAgent,
-					'Content-Type': 'application/json',
+			const rsp = await this.connection.fetch(
+				Uri.joinPath(this.connection.baseApiUri, 'gitlens/checkin').toString(),
+				{
+					method: 'POST',
+					body: JSON.stringify(checkInData),
 				},
-				body: JSON.stringify(checkInData),
-			});
+				session.accessToken,
+			);
 
 			if (!rsp.ok) {
 				throw new AccountValidationError('Unable to validate account', undefined, rsp.status, rsp.statusText);
@@ -766,14 +719,10 @@ export class SubscriptionService implements Disposable {
 		let session: AuthenticationSession | null | undefined;
 
 		try {
-			session = await authentication.getSession(
-				authenticationProviderId,
-				SubscriptionService.authenticationScopes,
-				{
-					createIfNone: createIfNeeded,
-					silent: !createIfNeeded,
-				},
-			);
+			session = await authentication.getSession(authenticationProviderId, authenticationProviderScopes, {
+				createIfNone: createIfNeeded,
+				silent: !createIfNeeded,
+			});
 		} catch (ex) {
 			session = null;
 

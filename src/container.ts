@@ -20,9 +20,9 @@ import { GitLabAuthenticationProvider } from './git/remotes/gitlab';
 import { RichRemoteProviderService } from './git/remotes/remoteProviderService';
 import { LineHoverController } from './hovers/lineHoverController';
 import type { RepositoryPathMappingProvider } from './pathMapping/repositoryPathMappingProvider';
+import { AccountAuthenticationProvider } from './plus/gk/authenticationProvider';
+import { ServerConnection } from './plus/gk/serverConnection';
 import { IntegrationAuthenticationService } from './plus/integrationAuthentication';
-import { SubscriptionAuthenticationProvider } from './plus/subscription/authenticationProvider';
-import { ServerConnection } from './plus/subscription/serverConnection';
 import { SubscriptionService } from './plus/subscription/subscriptionService';
 import { registerAccountWebviewView } from './plus/webviews/account/registration';
 import { registerFocusWebviewPanel } from './plus/webviews/focus/registration';
@@ -191,13 +191,12 @@ export class Container {
 
 		this._richRemoteProviders = new RichRemoteProviderService(this);
 
-		const server = new ServerConnection(this);
-		this._disposables.push(server);
-		this._disposables.push(
-			(this._subscriptionAuthentication = new SubscriptionAuthenticationProvider(this, server)),
-		);
-		this._disposables.push((this._subscription = new SubscriptionService(this, previousVersion)));
-		this._disposables.push((this._workspaces = new WorkspacesService(this, server)));
+		const connection = new ServerConnection(this);
+		this._disposables.push(connection);
+
+		this._disposables.push((this._accountAuthentication = new AccountAuthenticationProvider(this, connection)));
+		this._disposables.push((this._subscription = new SubscriptionService(this, connection, previousVersion)));
+		this._disposables.push((this._workspaces = new WorkspacesService(this, connection)));
 
 		this._disposables.push((this._git = new GitProviderService(this)));
 		this._disposables.push(new GitFileSystemProvider(this));
@@ -335,6 +334,11 @@ export class Container {
 				this._graphView = undefined;
 			}
 		}
+	}
+
+	private _accountAuthentication: AccountAuthenticationProvider;
+	get accountAuthentication() {
+		return this._accountAuthentication;
 	}
 
 	private readonly _actionRunners: ActionRunners;
@@ -579,11 +583,6 @@ export class Container {
 	private _subscription: SubscriptionService;
 	get subscription() {
 		return this._subscription;
-	}
-
-	private _subscriptionAuthentication: SubscriptionAuthenticationProvider;
-	get subscriptionAuthentication() {
-		return this._subscriptionAuthentication;
 	}
 
 	private readonly _richRemoteProviders: RichRemoteProviderService;
