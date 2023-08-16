@@ -225,6 +225,9 @@ export class ViewCommands {
 		registerViewCommand('gitlens.views.switchToAnotherBranch', this.switch, this);
 		registerViewCommand('gitlens.views.switchToBranch', this.switchTo, this);
 		registerViewCommand('gitlens.views.switchToCommit', this.switchTo, this);
+		registerViewCommand('gitlens.views.switchToCommitStacked', this.switchToPush, this);
+		registerViewCommand('gitlens.views.switchToCommitPop', this.switchToPop, this);
+		registerViewCommand('gitlens.views.commitStackEmpty', this.commitStackEmpty, this);
 		registerViewCommand('gitlens.views.switchToTag', this.switchTo, this);
 		registerViewCommand('gitlens.views.addRemote', this.addRemote, this);
 		registerViewCommand('gitlens.views.pruneRemote', this.pruneRemote, this);
@@ -832,6 +835,31 @@ export class ViewCommands {
 		}
 
 		return RepoActions.switchTo(getNodeRepoPath(node));
+	}
+
+	@debug()
+	private async switchToPush(node?: ViewNode) {
+		if (!(node instanceof ViewRefNode)) {
+			return;
+		}
+		await this.container.CommitStack.push(node);
+		return RepoActions.switchTo(
+			node.repoPath,
+			node instanceof BranchNode && node.branch.current ? undefined : node.ref,
+		);
+	}
+
+	@debug()
+	private async switchToPop() {
+		const nextCommit = await this.container.CommitStack.pop();
+		if (nextCommit !== undefined) {
+			return this.switchTo(nextCommit);
+		}
+	}
+
+	@debug()
+	private async commitStackEmpty() {
+		await this.container.CommitStack.empty();
 	}
 
 	@debug()

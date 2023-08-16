@@ -5717,6 +5717,27 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.views.switchToCommitStacked",
+				"title": "Switch to Commit (Stacked)...",
+				"category": "GitLens",
+				"icon": "$(gitlens-pop)",
+				"enablement": "!operationInProgress"
+			},
+			{
+				"command": "gitlens.views.switchToCommitPop",
+				"title": "Pop Commit from Stack...",
+				"category": "GitLens",
+				"icon": "$(versions)",
+				"enablement": "!operationInProgress"
+			},
+			{
+				"command": "gitlens.views.commitStackEmpty",
+				"title": "Empty Commit Stack",
+				"category": "GitLens",
+				"icon": "$()",
+				"enablement": "!operationInProgress"
+			},
+			{
 				"command": "gitlens.views.switchToTag",
 				"title": "Switch to Tag...",
 				"category": "GitLens",
@@ -10615,6 +10636,11 @@
 					"group": "navigation@11"
 				},
 				{
+					"command": "gitlens.views.switchToCommitPop",
+					"when": "view =~ /^gitlens\\.views\\.commits/",
+					"group": "navigation@12"
+				},
+				{
 					"command": "gitlens.views.commitDetails.refresh",
 					"when": "view =~ /^gitlens\\.views\\.commitDetails/",
 					"group": "navigation@99"
@@ -11679,6 +11705,11 @@
 					"command": "gitlens.views.switchToCommit",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:commit\\b/",
 					"group": "1_gitlens_actions@7"
+				},
+				{
+					"command": "gitlens.views.switchToCommitStacked",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:commit\\b/",
+					"group": "1_gitlens_actions@8"
 				},
 				{
 					"command": "gitlens.views.createBranch",
@@ -14823,7 +14854,7 @@
 		"typescript": "5.2.1-rc",
 		"webpack": "5.88.2",
 		"webpack-bundle-analyzer": "4.9.0",
-		"webpack-cli": "5.1.4",
+		"webpack-cli": "^5.1.4",
 		"webpack-node-externals": "3.0.0",
 		"webpack-require-from": "1.8.6"
 	},
