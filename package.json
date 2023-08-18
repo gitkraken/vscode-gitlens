@@ -14666,7 +14666,7 @@
 					{
 						"id": "gitlens.welcome.preview",
 						"title": "Previewing GitLens Pro",
-						"description": "During your preview, you have access to ✨ features on privately hosted repos. [Learn more](https://www.gitkraken.com/gitlens/plus-features)\n\n[Start Free Pro Trial](command:gitlens.plus.loginOrSignUp)\n\nStart a free Pro trial to get an additional 7 days.",
+						"description": "During your preview, you have access to ✨ features on privately hosted repos. [Learn more](https://www.gitkraken.com/gitlens/pro-features)\n\n[Start Free Pro Trial](command:gitlens.plus.loginOrSignUp)\n\nStart a free Pro trial to get an additional 7 days.",
 						"media": {
 							"markdown": "walkthroughs/welcome/preview.md"
 						},
@@ -14675,7 +14675,7 @@
 					{
 						"id": "gitlens.welcome.trial",
 						"title": "Trialing GitLens Pro",
-						"description": "During your trial, you have access to ✨ features on privately hosted repos and ☁️ features based on the Pro plan. [Learn more](https://www.gitkraken.com/gitlens/plus-features)\n\n[Upgrade to Pro](command:gitlens.plus.purchase)",
+						"description": "During your trial, you have access to ✨ features on privately hosted repos and ☁️ features based on the Pro plan. [Learn more](https://www.gitkraken.com/gitlens/pro-features)\n\n[Upgrade to Pro](command:gitlens.plus.purchase)",
 						"media": {
 							"markdown": "walkthroughs/welcome/trial.md"
 						},
