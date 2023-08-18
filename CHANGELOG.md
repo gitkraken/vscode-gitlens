@@ -359,7 +359,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- ✨ Adds a preview of the all-new **Focus View**, a [GitLens+ feature](https://gitkraken.com/gitlens/plus-features) &mdash; provides you with a comprehensive list of all your most important work across your connected GitHub repos:
+- ✨ Adds a preview of the all-new **Focus View**, a [GitLens+ feature](https://gitkraken.com/gitlens/pro-features) &mdash; provides you with a comprehensive list of all your most important work across your connected GitHub repos:
   - My Pull Requests: shows all GitHub PRs opened by you, assigned to you, or awaiting your review
   - My Issues: shows all issues created by you, assigned to you, or that mention you
   - Open it via _GitLens+: Show Focus View_ from the Command Palette
@@ -628,7 +628,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- ✨ Adds an all-new [**Commit Graph**](https://github.com/gitkraken/vscode-gitlens#commit-graph-), a [GitLens+ feature](https://gitkraken.com/gitlens/plus-features) &mdash; helps you to easily visualize branch structure and commit history. Not only does it help you verify your changes, but also easily see changes made by others and when
+- ✨ Adds an all-new [**Commit Graph**](https://github.com/gitkraken/vscode-gitlens#commit-graph-), a [GitLens+ feature](https://gitkraken.com/gitlens/pro-features) &mdash; helps you to easily visualize branch structure and commit history. Not only does it help you verify your changes, but also easily see changes made by others and when
   ![Commit Graph illustration](https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/commit-graph-illustrated.png)
 - Adds a [**Commit Details view**](https://github.com/gitkraken/vscode-gitlens#commit-details-view-) &mdash; provides rich details for commits and stashes
   - Contextually updates as you navigate:
@@ -863,7 +863,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds (preview) VS Code for Web support!
   - Get the power and insights of GitLens for any GitHub repository directly in your browser on vscode.dev or github.dev
-- Introducing GitLens+ features &mdash; [learn about GitLens+ features](https://gitkraken.com/gitlens/plus-features)
+- Introducing GitLens+ features &mdash; [learn about GitLens+ features](https://gitkraken.com/gitlens/pro-features)
 
   - GitLens+ adds all-new, completely optional, features that enhance your current GitLens experience when you sign in with a free account. A free GitLens+ account gives you access to these new GitLens+ features on local and public repos, while a paid account allows you to use them on private repos. All other GitLens features will continue to be free without an account, so you won't lose access to any of the GitLens features you know and love, EVER.
   - Visual File History &mdash; a visual way to analyze and explore changes to a file
