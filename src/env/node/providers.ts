@@ -1,10 +1,13 @@
-import { Container } from '../../container';
-import { GitCommandOptions } from '../../git/commandOptions';
-import { GitProvider } from '../../git/gitProvider';
+import type { Container } from '../../container';
+import type { GitCommandOptions } from '../../git/commandOptions';
+import type { GitProvider } from '../../git/gitProvider';
+import { configuration } from '../../system/configuration';
 // import { GitHubGitProvider } from '../../plus/github/githubGitProvider';
 import { Git } from './git/git';
 import { LocalGitProvider } from './git/localGitProvider';
 import { VslsGit, VslsGitProvider } from './git/vslsGitProvider';
+import { RepositoryLocalPathMappingProvider } from './pathMapping/repositoryLocalPathMappingProvider';
+import { WorkspacesLocalPathMappingProvider } from './pathMapping/workspacesLocalPathMappingProvider';
 
 let gitInstance: Git | undefined;
 function ensureGit() {
@@ -14,8 +17,18 @@ function ensureGit() {
 	return gitInstance;
 }
 
-export function git(_options: GitCommandOptions, ..._args: any[]): Promise<string | Buffer> {
-	return ensureGit().git(_options, ..._args);
+export function git(options: GitCommandOptions, ...args: any[]): Promise<string | Buffer> {
+	return ensureGit().git(options, ...args);
+}
+
+export function gitLogStreamTo(
+	repoPath: string,
+	sha: string,
+	limit: number,
+	options?: { configs?: readonly string[]; stdin?: string },
+	...args: string[]
+): Promise<[data: string[], count: number]> {
+	return ensureGit().logStreamTo(repoPath, sha, limit, options, ...args);
 }
 
 export async function getSupportedGitProviders(container: Container): Promise<GitProvider[]> {
@@ -26,11 +39,19 @@ export async function getSupportedGitProviders(container: Container): Promise<Gi
 		new VslsGitProvider(container, new VslsGit(git)),
 	];
 
-	if (container.config.virtualRepositories.enabled) {
+	if (configuration.get('virtualRepositories.enabled')) {
 		const GitHubGitProvider = (await import(/* webpackChunkName: "github" */ '../../plus/github/githubGitProvider'))
 			.GitHubGitProvider;
 		providers.push(new GitHubGitProvider(container));
 	}
 
 	return providers;
+}
+
+export function getSupportedRepositoryPathMappingProvider(container: Container) {
+	return new RepositoryLocalPathMappingProvider(container);
+}
+
+export function getSupportedWorkspacesPathMappingProvider() {
+	return new WorkspacesLocalPathMappingProvider();
 }

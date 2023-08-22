@@ -1,53 +1,11 @@
-import { Uri } from 'vscode';
+import type { Uri } from 'vscode';
 import { isLinux } from '@env/platform';
-import { Schemes } from '../constants';
 import { filterMap } from './iterable';
 import { normalizePath as _normalizePath } from './path';
 // TODO@eamodio don't import from string here since it will break the tests because of ESM dependencies
 // import { CharCode } from './string';
 
 const slash = 47; //CharCode.Slash;
-
-function normalizeUri(uri: Uri): { path: string; ignoreCase: boolean } {
-	let path;
-	switch (uri.scheme.toLowerCase()) {
-		case Schemes.File:
-			path = normalizePath(uri.fsPath);
-			return { path: path, ignoreCase: !isLinux };
-
-		case Schemes.Git:
-			path = normalizePath(uri.fsPath);
-			// TODO@eamodio parse the ref out of the query
-			return { path: path, ignoreCase: !isLinux };
-
-		case Schemes.GitLens:
-			path = uri.path;
-			if (path.charCodeAt(path.length - 1) === slash) {
-				path = path.slice(0, -1);
-			}
-
-			if (!isLinux) {
-				path = path.toLowerCase();
-			}
-
-			return { path: uri.authority ? `${uri.authority}${path}` : path.slice(1), ignoreCase: false };
-
-		case Schemes.Virtual:
-		case Schemes.GitHub:
-			path = uri.path;
-			if (path.charCodeAt(path.length - 1) === slash) {
-				path = path.slice(0, -1);
-			}
-			return { path: uri.authority ? `${uri.authority}${path}` : path.slice(1), ignoreCase: false };
-
-		default:
-			path = uri.path;
-			if (path.charCodeAt(path.length - 1) === slash) {
-				path = path.slice(0, -1);
-			}
-			return { path: path.slice(1), ignoreCase: false };
-	}
-}
 
 function normalizePath(path: string): string {
 	path = _normalizePath(path);
@@ -63,7 +21,7 @@ export type UriEntry<T> = PathEntry<T>;
 export class UriEntryTrie<T> {
 	private readonly trie: PathEntryTrie<T>;
 
-	constructor(private readonly normalize: (uri: Uri) => { path: string; ignoreCase: boolean } = normalizeUri) {
+	constructor(private readonly normalize: (uri: Uri) => { path: string; ignoreCase: boolean }) {
 		this.trie = new PathEntryTrie<T>();
 	}
 
@@ -112,7 +70,7 @@ export class UriEntryTrie<T> {
 export class UriTrie<T> {
 	private readonly trie: PathTrie<T>;
 
-	constructor(private readonly normalize: (uri: Uri) => { path: string; ignoreCase: boolean } = normalizeUri) {
+	constructor(private readonly normalize: (uri: Uri) => { path: string; ignoreCase: boolean }) {
 		this.trie = new PathTrie<T>();
 	}
 
@@ -120,9 +78,9 @@ export class UriTrie<T> {
 		this.trie.clear();
 	}
 
-	delete(uri: Uri): boolean {
+	delete(uri: Uri, dispose: boolean = true): boolean {
 		const { path, ignoreCase } = this.normalize(uri);
-		return this.trie.delete(path, ignoreCase);
+		return this.trie.delete(path, ignoreCase, dispose);
 	}
 
 	get(uri: Uri): T | undefined {
@@ -197,7 +155,6 @@ export class PathEntryTrie<T> {
 			node = n;
 		}
 
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if (!node?.value) return false;
 
 		node.value = undefined;
@@ -240,7 +197,6 @@ export class PathEntryTrie<T> {
 
 		// Avoids allocations & garbage on `has` calls
 		if (existenceOnly) return node?.value != null;
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if (!node?.value) return undefined;
 
 		return {
@@ -272,7 +228,6 @@ export class PathEntryTrie<T> {
 		if (node?.children == null) return [];
 		return [
 			...filterMap(node.children.values(), n =>
-				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 				n.value ? { value: n.value, path: n.path, fullPath: fullPath } : undefined,
 			),
 		];
@@ -293,7 +248,6 @@ export class PathEntryTrie<T> {
 		let ancestor: PathNode<T> | undefined;
 
 		for (const segment of path.split('/')) {
-			// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 			if (node?.value && (!predicate || predicate?.(node.value))) {
 				ancestor = node;
 				fullAncestorPath = fullPath;
@@ -306,12 +260,10 @@ export class PathEntryTrie<T> {
 			fullPath += `${n.path}/`;
 		}
 
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if (!excludeSelf && node?.value && (!predicate || predicate?.(node.value))) {
 			return { value: node.value, path: node.path, fullPath: fullPath.slice(0, -1) };
 		}
 
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		return ancestor?.value
 			? { value: ancestor.value, path: ancestor.path, fullPath: fullAncestorPath.slice(0, -1) }
 			: undefined;
@@ -332,7 +284,6 @@ export class PathEntryTrie<T> {
 	// 	let node: PathNode<T> | undefined;
 
 	// 	for (const segment of path.split('/')) {
-	// 		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 	// 		if (node?.value && (!predicate || predicate?.(node.value))) {
 	// 			ancestors.push({ value: node.value, path: node.path, fullPath: fullPath.slice(0, -1) });
 	// 		}
@@ -344,7 +295,6 @@ export class PathEntryTrie<T> {
 	// 		fullPath += `${n.path}/`;
 	// 	}
 
-	// 	// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 	// 	if (!excludeSelf && node?.value && (!predicate || predicate?.(node.value))) {
 	// 		ancestors.push({ value: node.value, path: node.path, fullPath: fullPath.slice(0, -1) });
 	// 	}
@@ -380,7 +330,6 @@ export class PathEntryTrie<T> {
 		): Generator<PathEntry<T>> {
 			for (const node of children.values()) {
 				const relativePath = path ? `${path}/${node.path}` : node.path;
-				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 				if (node.value && (!predicate || predicate?.(node.value))) {
 					yield {
 						value: node.value,
@@ -441,7 +390,7 @@ export class PathTrie<T> {
 		this.root.children = undefined;
 	}
 
-	delete(path: string, ignoreCase?: boolean): boolean {
+	delete(path: string, ignoreCase?: boolean, dispose: boolean = true): boolean {
 		path = this.normalize(path);
 		ignoreCase = ignoreCase ?? !isLinux;
 
@@ -456,10 +405,13 @@ export class PathTrie<T> {
 			node = n;
 		}
 
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if (!node?.value) return false;
 
+		if (dispose) {
+			disposeValue(node.value);
+		}
 		node.value = undefined;
+
 		if ((node.children == null || node.children.size === 0) && parent?.children != null) {
 			parent.children.delete(ignoreCase ? node.path.toLowerCase() : node.path);
 			if (parent.children.size === 0) {
@@ -508,7 +460,6 @@ export class PathTrie<T> {
 		}
 
 		if (node?.children == null) return [];
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		return [...filterMap(node.children.values(), n => n.value || undefined)];
 	}
 
@@ -525,7 +476,6 @@ export class PathTrie<T> {
 		let ancestor: PathNode<T> | undefined;
 
 		for (const segment of path.split('/')) {
-			// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 			if (node?.value && (!predicate || predicate?.(node.value))) {
 				ancestor = node;
 			}
@@ -536,7 +486,6 @@ export class PathTrie<T> {
 			node = n;
 		}
 
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if (!excludeSelf && node?.value && (!predicate || predicate?.(node.value))) {
 			return node.value;
 		}
@@ -572,7 +521,6 @@ export class PathTrie<T> {
 		): Generator<T> {
 			for (const node of children.values()) {
 				const relativePath = path ? `${path}/${node.path}` : node.path;
-				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 				if (node.value && (!predicate || predicate?.(node.value))) {
 					yield node.value;
 				}
@@ -613,8 +561,17 @@ export class PathTrie<T> {
 		}
 
 		const added = node.value == null;
+		if (!added && node.value !== value) {
+			disposeValue(node.value);
+		}
 		node.value = value;
 		return added;
+	}
+}
+
+function disposeValue(obj: unknown): void {
+	if (obj != null && typeof obj === 'object' && 'dispose' in obj && typeof obj.dispose === 'function') {
+		obj.dispose();
 	}
 }
 

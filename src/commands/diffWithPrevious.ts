@@ -1,14 +1,16 @@
-import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitCommit, GitRevision } from '../git/models';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
+import type { GitCommit } from '../git/models/commit';
+import { deletedOrMissing } from '../git/models/constants';
+import { showCommitHasNoPreviousCommitWarningMessage, showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/command';
+import { Logger } from '../system/logger';
 import { findOrOpenEditor } from '../system/utils';
-import { ActiveEditorCommand, CommandContext, getCommandUri } from './base';
-import { DiffWithCommandArgs } from './diffWith';
+import type { CommandContext } from './base';
+import { ActiveEditorCommand, getCommandUri } from './base';
+import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithPreviousCommandArgs {
 	commit?: GitCommit;
@@ -56,7 +58,8 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 						uri: args.commit.file.originalUri ?? args.commit.file.uri,
 					},
 					rhs: {
-						sha: args.commit.sha || '',
+						// If the file is `?` (untracked), then this must be a stash, so get the ^3 commit to access the untracked file
+						sha: args.commit.file.status === '?' ? `${args.commit.sha}^3` : args.commit.sha || '',
 						uri: args.commit.file.uri,
 					},
 					line: args.line,
@@ -85,9 +88,9 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				args.inDiffRightEditor ? 1 : 0,
 			);
 
-			if (diffUris == null || diffUris.previous == null) {
+			if (diffUris?.previous == null) {
 				if (diffUris == null) {
-					void Messages.showCommitHasNoPreviousCommitWarningMessage();
+					void showCommitHasNoPreviousCommitWarningMessage();
 
 					return;
 				}
@@ -100,7 +103,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				}
 
 				if (!diffUris.current.isUncommittedStaged) {
-					void Messages.showCommitHasNoPreviousCommitWarningMessage();
+					void showCommitHasNoPreviousCommitWarningMessage();
 
 					return;
 				}
@@ -109,7 +112,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				diffUris.previous = GitUri.fromFile(
 					diffUris.current.fileName,
 					diffUris.current.repoPath!,
-					GitRevision.deletedOrMissing,
+					deletedOrMissing,
 				);
 			}
 
@@ -132,7 +135,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				'DiffWithPreviousCommand',
 				`getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`,
 			);
-			void Messages.showGenericErrorMessage('Unable to open compare');
+			void showGenericErrorMessage('Unable to open compare');
 		}
 	}
 }

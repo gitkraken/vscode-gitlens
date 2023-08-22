@@ -1,38 +1,317 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-	</head>
-
-	<body class="preload">
-		<div id="container" class="container">
-			<div class="content">
-				<section id="slot1"></section>
-				<section id="slot2"></section>
-				<section id="slot3"></section>
-			</div>
-			<div>
-				<section id="slot-footer"></section>
-			</div>
-		</div>
-		#{endOfBody}
 		<style nonce="#{cspNonce}">
 			@font-face {
 				font-family: 'codicon';
-				src: url('#{webroot}/codicon.ttf?404cbc4fe3a64b9a93064eef76704c79') format('truetype');
+				font-display: block;
+				src: url('#{webroot}/codicon.ttf?2ab61cbaefbdf4c7c5589068100bee0c') format('truetype');
+			}
+			@font-face {
+				font-family: 'glicons';
+				font-display: block;
+				src: url('#{root}/dist/glicons.woff2?8e33f5a80a91b05940d687a08305c156') format('woff2');
 			}
 		</style>
-	</body>
+	</head>
 
-	<!-- prettier-ignore -->
-	<%= require('html-loader?{"esModule":false}!./partials/welcome.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/views.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/links.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.free.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.free-preview.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.free-preview-expired.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.plus-trial.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.plus-trial-expired.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.paid.html') %>
-	<%= require('html-loader?{"esModule":false}!./partials/state.verify-email.html') %>
+	<body class="home preload" data-placement="#{placement}">
+		<div class="home__nav">
+			<nav class="inline-nav" id="links" aria-label="Help and Resources">
+				<div class="inline-nav__group">
+					<a
+						class="inline-nav__link inline-nav__link--text"
+						href="https://help.gitkraken.com/gitlens/gitlens-release-notes-current/"
+						aria-label="What's New"
+						title="What's New"
+						><code-icon icon="rocket"></code-icon><span>What's New</span></a
+					>
+					<a
+						class="inline-nav__link inline-nav__link--text"
+						href="https://help.gitkraken.com/gitlens/gitlens-home/"
+						aria-label="Help Center"
+						title="Help Center"
+						><code-icon icon="question"></code-icon><span>Help</span></a
+					>
+					<a
+						class="inline-nav__link inline-nav__link--text"
+						href="https://github.com/gitkraken/vscode-gitlens/issues"
+						aria-label="Feedback"
+						title="Feedback"
+						><code-icon icon="feedback"></code-icon><span>Feedback</span></a
+					>
+				</div>
+				<div class="inline-nav__group">
+					<a
+						class="inline-nav__link"
+						href="https://github.com/gitkraken/vscode-gitlens/discussions"
+						aria-label="GitHub Discussions"
+						title="GitHub Discussions"
+						><code-icon icon="comment-discussion"></code-icon
+					></a>
+					<a
+						class="inline-nav__link"
+						href="https://github.com/gitkraken/vscode-gitlens"
+						aria-label="GitHub Repo"
+						title="GitHub Repo"
+						><code-icon icon="github"></code-icon
+					></a>
+					<a
+						class="inline-nav__link"
+						href="https://twitter.com/gitlens"
+						aria-label="@gitlens on Twitter"
+						title="@gitlens on Twitter"
+						><code-icon icon="twitter"></code-icon
+					></a>
+					<a
+						class="inline-nav__link"
+						href="https://gitkraken.com/gitlens?utm_source=gitlens-extension&utm_medium=in-app-links&utm_campaign=gitlens-logo-links"
+						aria-label="GitLens Website"
+						title="GitLens Website"
+						><code-icon icon="globe"></code-icon
+					></a>
+				</div>
+			</nav>
+		</div>
+		<header class="home__header" id="header" hidden>
+			<div id="no-repo-alert" class="alert alert--info mb-0" aria-hidden="true" hidden>
+				<h1 class="alert__title">No repository detected</h1>
+				<div class="alert__description">
+					<p>
+						To use GitLens, open a folder containing a git repository or clone from a URL from the Explorer.
+					</p>
+					<p class="centered">
+						<gl-button data-action="command:workbench.view.explorer">Open a Folder or Repository</gl-button>
+					</p>
+					<p class="mb-0">
+						If you have opened a folder with a repository, please let us know by
+						<a class="one-line" href="https://github.com/gitkraken/vscode-gitlens/issues/new/choose"
+							>creating an Issue</a
+						>.
+					</p>
+				</div>
+			</div>
+			<div id="unsafe-repo-alert" class="alert alert--info mb-0" aria-hidden="true" hidden>
+				<h1 class="alert__title">Unsafe repository</h1>
+				<div class="alert__description">
+					<p>
+						Unable to open any repositories as Git blocked them as potentially unsafe, due to the folder(s)
+						not being owned by the current user.
+					</p>
+					<p class="centered">
+						<gl-button data-action="command:workbench.view.scm">Manage in Source Control</gl-button>
+					</p>
+				</div>
+			</div>
+			<div id="untrusted-alert" class="alert alert--info mb-0" aria-hidden="true" hidden>
+				<h1 class="alert__title">Untrusted workspace</h1>
+				<div class="alert__description">
+					<p>Unable to open repositories in Restricted Mode.</p>
+					<p class="centered">
+						<gl-button data-action="command:workbench.trust.manage">Manage Workspace Trust</gl-button>
+					</p>
+				</div>
+			</div>
+		</header>
+		<main class="home__main scrollable" id="main">
+			<p data-requires="norepo">
+				<code-icon icon="question"></code-icon> Features which need a repository are currently unavailable
+			</p>
+			<nav class="nav-list">
+				<h2 class="nav-list__title t-eyebrow">Popular views</h2>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showGraph"
+					title="Show Commit Graph"
+					aria-label="Show Commit Graph"
+					data-requires="repo"
+					><code-icon class="nav-list__icon" icon="gl-graph"></code-icon
+					><span class="nav-list__label">Commit Graph ✨</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showCommitDetailsView"
+					title="Show Commit Details view"
+					aria-label="Show Commit Details view"
+					data-requires="repo"
+					><code-icon class="nav-list__icon" icon="gl-commit-view"></code-icon
+					><span class="nav-list__label">Commit Details</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showCommitsView"
+					title="Show Commits view"
+					aria-label="Show Commits view"
+					data-requires="repo"
+					><code-icon class="nav-list__icon" icon="gl-commits-view"></code-icon
+					><span class="nav-list__label">Commits</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showFocusPage"
+					title="Open Focus"
+					aria-label="Open Focus"
+					data-requires="repo"
+					><code-icon class="nav-list__icon" icon="target"></code-icon
+					><span class="nav-list__label">Focus ✨</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showFileHistoryView"
+					title="Show File History view"
+					aria-label="Show File History view"
+					data-requires="repo"
+					><code-icon class="nav-list__icon" icon="gl-history-view"></code-icon
+					><span class="nav-list__label">File History</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showTimelineView"
+					title="Show Visual File History view"
+					aria-label="Show Visual File History view"
+					data-requires="repo"
+					><code-icon class="nav-list__icon" icon="graph-scatter"></code-icon
+					><span class="nav-list__label">Visual File History ✨</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showStashesView"
+					title="Show Stashes view"
+					aria-label="Show Stashes view"
+					data-requires="repo"
+					><code-icon class="nav-list__icon" icon="gl-stashes-view"></code-icon
+					><span class="nav-list__label">Stashes</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showSearchAndCompareView"
+					title="Show Search &amp; Compare view"
+					aria-label="Show Search &amp; Compare view"
+					data-requires="repo"
+					><code-icon class="nav-list__icon" icon="gl-search-view"></code-icon
+					><span class="nav-list__label">Search &amp; Compare</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showWorkspacesView"
+					title="Show GitKraken Workspaces view"
+					aria-label="Show GitKraken Workspaces view"
+					data-requires="repo"
+					><code-icon class="nav-list__icon" icon="gl-workspaces-view"></code-icon
+					><span class="nav-list__label">GitKraken Workspaces ☁️</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showWorktreesView"
+					title="Show Worktrees view"
+					aria-label="Show Worktrees view"
+					data-requires="repo"
+					><code-icon class="nav-list__icon" icon="gl-worktrees-view"></code-icon
+					><span class="nav-list__label">Worktrees ✨</span></a
+				>
+			</nav>
+			<nav class="nav-list">
+				<h2 class="nav-list__title t-eyebrow">Activity Bar</h2>
+				<a
+					class="nav-list__item"
+					href="command:workbench.view.extension.gitlens"
+					title="Show GitLens Side Bar"
+					aria-label="Show GitLens Side Bar"
+					><code-icon class="nav-list__icon" icon="gl-gitlens"></code-icon
+					><span class="nav-list__label">GitLens</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:workbench.view.extension.gitlensInspect"
+					title="Show GitLens Inspect Side Bar"
+					aria-label="Show GitLens Inspect Side Bar"
+					data-requires="repo"
+					><code-icon class="nav-list__icon" icon="gl-gitlens-inspect"></code-icon
+					><span class="nav-list__label">GitLens Inspect</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:workbench.view.scm"
+					title="Show Source Control Side Bar"
+					aria-label="Show GitLens Side Bar"
+					data-requires="repo"
+					><code-icon class="nav-list__icon" icon="source-control"></code-icon
+					><span class="nav-list__label">Source Control</span></a
+				>
+			</nav>
+			<nav class="nav-list">
+				<h3 class="nav-list__title t-eyebrow">Commands</h3>
+				<a
+					class="nav-list__item"
+					href="command:workbench.action.quickOpen?%22>GitLens%3A%22"
+					title="Show GitLens Commands"
+					aria-label="Show GitLens Commands"
+					><code-icon class="nav-list__icon" icon="symbol-event"></code-icon
+					><span class="nav-list__label">Commands</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.gitCommands"
+					title="Open Git Command Palette"
+					aria-label="Open Git Command Palette"
+					data-requires="repo"
+					><code-icon class="nav-list__icon" icon="symbol-color"></code-icon
+					><span class="nav-list__label">Git Command Palette</span></a
+				>
+			</nav>
+			<nav class="nav-list">
+				<h2 class="nav-list__title t-eyebrow">Configuration</h2>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showSettingsPage"
+					title="Open GitLens Settings"
+					aria-label="Open GitLens Settings"
+					><code-icon class="nav-list__icon" icon="gear"></code-icon
+					><span class="nav-list__label">GitLens Settings</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showSettingsPage?%22autolinks%22"
+					title="Open Autolinks Settings"
+					aria-label="Open Autolinks Settings"
+					><code-icon class="nav-list__icon" icon="link"></code-icon
+					><span class="nav-list__label">Autolinks Settings</span></a
+				>
+			</nav>
+			<nav class="nav-list">
+				<h2 class="nav-list__title t-eyebrow">Getting Started</h2>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.showWelcomePage"
+					title="Open GitLens Welcome"
+					aria-label="Open GitLens Welcome"
+					><code-icon class="nav-list__icon" icon="play"></code-icon
+					><span class="nav-list__label">Welcome</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="command:gitlens.getStarted"
+					title="Open GitLens Feature Walkthrough"
+					aria-label="Open GitLens Feature Walkthrough"
+					><code-icon class="nav-list__icon" icon="info"></code-icon
+					><span class="nav-list__label">Feature Walkthrough</span></a
+				>
+				<a
+					class="nav-list__item"
+					href="https://www.youtube.com/watch?v=UQPb73Zz9qk"
+					title="Open GitLens Settings"
+					aria-label="Open GitLens Settings"
+					><code-icon class="nav-list__icon" icon="vm-running"></code-icon
+					><span class="nav-list__label">Tutorial Video</span></a
+				>
+			</nav>
+			<p class="t-subtle">
+				✨ Requires a trial or paid plan to use this on privately hosted repos. <br />
+				☁️ Requires an account and access is based on your plan, e.g. Free, Pro, etc
+			</p>
+		</main>
+
+		#{endOfBody}
+	</body>
 </html>

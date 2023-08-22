@@ -1,11 +1,12 @@
-import { Uri, window } from 'vscode';
+import type { Uri } from 'vscode';
+import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { showGenericErrorMessage } from '../messages';
+import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { filterMap } from '../system/array';
 import { command } from '../system/command';
+import { Logger } from '../system/logger';
 import { findOrOpenEditors } from '../system/utils';
 import { Command } from './base';
 
@@ -24,7 +25,7 @@ export class OpenChangedFilesCommand extends Command {
 
 		try {
 			if (args.uris == null) {
-				const repository = await RepositoryPicker.getRepositoryOrShow('Open All Changed Files');
+				const repository = await getRepositoryOrShowPicker('Open All Changed Files');
 				if (repository == null) return;
 
 				const status = await this.container.git.getStatusForRepo(repository.uri);
@@ -40,7 +41,7 @@ export class OpenChangedFilesCommand extends Command {
 			findOrOpenEditors(args.uris);
 		} catch (ex) {
 			Logger.error(ex, 'OpenChangedFilesCommand');
-			void Messages.showGenericErrorMessage('Unable to open all changed files');
+			void showGenericErrorMessage('Unable to open all changed files');
 		}
 	}
 }

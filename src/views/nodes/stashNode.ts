@@ -1,30 +1,38 @@
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../config';
-import { CommitFormatter } from '../../git/formatters';
-import { GitStashCommit, GitStashReference } from '../../git/models';
+import { CommitFormatter } from '../../git/formatters/commitFormatter';
+import type { GitStashCommit } from '../../git/models/commit';
+import type { GitStashReference } from '../../git/models/reference';
 import { makeHierarchical } from '../../system/array';
+import { configuration } from '../../system/configuration';
 import { joinPaths, normalizePath } from '../../system/path';
 import { sortCompare } from '../../system/string';
-import { ContextValues, FileNode, FolderNode, RepositoryNode, StashFileNode, ViewNode, ViewRefNode } from '../nodes';
-import { RepositoriesView } from '../repositoriesView';
-import { StashesView } from '../stashesView';
+import type { ViewsWithStashes } from '../viewBase';
+import type { FileNode } from './folderNode';
+import { FolderNode } from './folderNode';
+import { StashFileNode } from './stashFileNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewRefNode } from './viewNode';
 
-export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitStashReference> {
-	static key = ':stash';
-	static getId(repoPath: string, ref: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${ref})`;
+export class StashNode extends ViewRefNode<ViewsWithStashes, GitStashReference> {
+	constructor(
+		view: ViewsWithStashes,
+		protected override parent: ViewNode,
+		public readonly commit: GitStashCommit,
+		private readonly options?: { icon?: boolean },
+	) {
+		super(commit.getGitUri(), view, parent);
+
+		this.updateContext({ commit: commit });
+		this._uniqueId = getViewNodeId('stash', this.context);
 	}
 
-	constructor(view: StashesView | RepositoriesView, parent: ViewNode, public readonly commit: GitStashCommit) {
-		super(commit.getGitUri(), view, parent);
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
 		return this.commit.stashName;
-	}
-
-	override get id(): string {
-		return StashNode.getId(this.commit.repoPath, this.commit.sha);
 	}
 
 	get ref(): GitStashReference {
@@ -44,7 +52,7 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 				this.view.config.files.compact,
 			);
 
-			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
+			const root = new FolderNode(this.view, this, hierarchy, this.repoPath, '', undefined);
 			children = root.getChildren() as FileNode[];
 		} else {
 			children.sort((a, b) => sortCompare(a.label!, b.label!));
@@ -56,20 +64,27 @@ export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitSt
 		const item = new TreeItem(
 			CommitFormatter.fromTemplate(this.view.config.formats.stashes.label, this.commit, {
 				messageTruncateAtNewLine: true,
-				dateFormat: this.view.container.config.defaultDateFormat,
+				dateFormat: configuration.get('defaultDateFormat'),
 			}),
 			TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
 		item.description = CommitFormatter.fromTemplate(this.view.config.formats.stashes.description, this.commit, {
 			messageTruncateAtNewLine: true,
-			dateFormat: this.view.container.config.defaultDateFormat,
+			dateFormat: configuration.get('defaultDateFormat'),
 		});
 		item.contextValue = ContextValues.Stash;
-		item.tooltip = CommitFormatter.fromTemplate(`\${ago} (\${date})\n\n\${message}`, this.commit, {
-			dateFormat: this.view.container.config.defaultDateFormat,
-			// messageAutolinks: true,
-		});
+		if (this.options?.icon) {
+			item.iconPath = new ThemeIcon('archive');
+		}
+		item.tooltip = CommitFormatter.fromTemplate(
+			`\${'On 'stashOnRef\n}\${ago} (\${date})\n\n\${message}`,
+			this.commit,
+			{
+				dateFormat: configuration.get('defaultDateFormat'),
+				// messageAutolinks: true,
+			},
+		);
 
 		return item;
 	}

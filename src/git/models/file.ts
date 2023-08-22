@@ -1,11 +1,11 @@
-import { Uri } from 'vscode';
+import type { Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { memoize } from '../../system/decorators/memoize';
 import { formatPath } from '../../system/formatPath';
 import { relativeDir, splitPath } from '../../system/path';
 import { pad, pluralize } from '../../system/string';
-import { GitCommit } from './commit';
+import type { GitCommit } from './commit';
 
 export declare type GitFileStatus = GitFileConflictStatus | GitFileIndexStatus | GitFileWorkingTreeStatus;
 
@@ -40,130 +40,129 @@ export const enum GitFileWorkingTreeStatus {
 }
 
 export interface GitFile {
+	readonly path: string;
+	readonly originalPath?: string;
 	status: GitFileStatus;
 	readonly repoPath?: string;
+
 	readonly conflictStatus?: GitFileConflictStatus;
 	readonly indexStatus?: GitFileIndexStatus;
 	readonly workingTreeStatus?: GitFileWorkingTreeStatus;
-	readonly path: string;
-	readonly originalPath?: string;
 }
 
 export interface GitFileWithCommit extends GitFile {
 	readonly commit: GitCommit;
 }
 
-export namespace GitFile {
-	export function is(file: any | undefined): file is GitFile {
-		return (
-			file != null &&
-			'fileName' in file &&
-			typeof file.fileName === 'string' &&
-			'status' in file &&
-			typeof file.status === 'string' &&
-			file.status.length === 1
-		);
-	}
+export function isGitFile(file: any | undefined): file is GitFile {
+	return (
+		file != null &&
+		'fileName' in file &&
+		typeof file.fileName === 'string' &&
+		'status' in file &&
+		typeof file.status === 'string' &&
+		file.status.length === 1
+	);
+}
 
-	export function getFormattedDirectory(
-		file: GitFile,
-		includeOriginal: boolean = false,
-		relativeTo?: string,
-	): string {
-		const directory = relativeDir(file.path, relativeTo);
-		return includeOriginal && (file.status === 'R' || file.status === 'C') && file.originalPath
-			? `${directory} ${pad(GlyphChars.ArrowLeft, 1, 1)} ${file.originalPath}`
-			: directory;
-	}
+export function getGitFileFormattedDirectory(
+	file: GitFile,
+	includeOriginal: boolean = false,
+	relativeTo?: string,
+): string {
+	const directory = relativeDir(file.path, relativeTo);
+	return includeOriginal && (file.status === 'R' || file.status === 'C') && file.originalPath
+		? `${directory} ${pad(GlyphChars.ArrowLeft, 1, 1)} ${file.originalPath}`
+		: directory;
+}
 
-	export function getFormattedPath(
-		file: GitFile,
-		options: { relativeTo?: string; suffix?: string; truncateTo?: number } = {},
-	): string {
-		return formatPath(file.path, options);
-	}
+export function getGitFileFormattedPath(
+	file: GitFile,
+	options: { relativeTo?: string; suffix?: string; truncateTo?: number } = {},
+): string {
+	return formatPath(file.path, options);
+}
 
-	export function getOriginalRelativePath(file: GitFile, relativeTo?: string): string {
-		if (!file.originalPath) return '';
+export function getGitFileOriginalRelativePath(file: GitFile, relativeTo?: string): string {
+	if (!file.originalPath) return '';
 
-		return splitPath(file.originalPath, relativeTo)[0];
-	}
+	return splitPath(file.originalPath, relativeTo)[0];
+}
 
-	export function getRelativePath(file: GitFile, relativeTo?: string): string {
-		return splitPath(file.path, relativeTo)[0];
-	}
+export function getGitFileRelativePath(file: GitFile, relativeTo?: string): string {
+	return splitPath(file.path, relativeTo)[0];
+}
 
-	const statusIconsMap = {
-		'.': undefined,
-		'!': 'icon-status-ignored.svg',
-		'?': 'icon-status-untracked.svg',
-		A: 'icon-status-added.svg',
-		D: 'icon-status-deleted.svg',
-		M: 'icon-status-modified.svg',
-		R: 'icon-status-renamed.svg',
-		C: 'icon-status-copied.svg',
-		AA: 'icon-status-conflict.svg',
-		AU: 'icon-status-conflict.svg',
-		UA: 'icon-status-conflict.svg',
-		DD: 'icon-status-conflict.svg',
-		DU: 'icon-status-conflict.svg',
-		UD: 'icon-status-conflict.svg',
-		UU: 'icon-status-conflict.svg',
-		T: 'icon-status-modified.svg',
-		U: 'icon-status-modified.svg',
-	};
+const statusIconsMap = {
+	'.': undefined,
+	'!': 'icon-status-ignored.svg',
+	'?': 'icon-status-untracked.svg',
+	A: 'icon-status-added.svg',
+	D: 'icon-status-deleted.svg',
+	M: 'icon-status-modified.svg',
+	R: 'icon-status-renamed.svg',
+	C: 'icon-status-copied.svg',
+	AA: 'icon-status-conflict.svg',
+	AU: 'icon-status-conflict.svg',
+	UA: 'icon-status-conflict.svg',
+	DD: 'icon-status-conflict.svg',
+	DU: 'icon-status-conflict.svg',
+	UD: 'icon-status-conflict.svg',
+	UU: 'icon-status-conflict.svg',
+	T: 'icon-status-modified.svg',
+	U: 'icon-status-modified.svg',
+};
 
-	export function getStatusIcon(status: GitFileStatus): string {
-		return statusIconsMap[status] ?? 'icon-status-unknown.svg';
-	}
+export function getGitFileStatusIcon(status: GitFileStatus): string {
+	return statusIconsMap[status] ?? 'icon-status-unknown.svg';
+}
 
-	const statusCodiconsMap = {
-		'.': undefined,
-		'!': '$(diff-ignored)',
-		'?': '$(diff-added)',
-		A: '$(diff-added)',
-		D: '$(diff-removed)',
-		M: '$(diff-modified)',
-		R: '$(diff-renamed)',
-		C: '$(diff-added)',
-		AA: '$(warning)',
-		AU: '$(warning)',
-		UA: '$(warning)',
-		DD: '$(warning)',
-		DU: '$(warning)',
-		UD: '$(warning)',
-		UU: '$(warning)',
-		T: '$(diff-modified)',
-		U: '$(diff-modified)',
-	};
+const statusCodiconsMap = {
+	'.': undefined,
+	'!': '$(diff-ignored)',
+	'?': '$(diff-added)',
+	A: '$(diff-added)',
+	D: '$(diff-removed)',
+	M: '$(diff-modified)',
+	R: '$(diff-renamed)',
+	C: '$(diff-added)',
+	AA: '$(warning)',
+	AU: '$(warning)',
+	UA: '$(warning)',
+	DD: '$(warning)',
+	DU: '$(warning)',
+	UD: '$(warning)',
+	UU: '$(warning)',
+	T: '$(diff-modified)',
+	U: '$(diff-modified)',
+};
 
-	export function getStatusCodicon(status: GitFileStatus, missing: string = GlyphChars.Space.repeat(4)): string {
-		return statusCodiconsMap[status] ?? missing;
-	}
+export function getGitFileStatusCodicon(status: GitFileStatus, missing: string = GlyphChars.Space.repeat(4)): string {
+	return statusCodiconsMap[status] ?? missing;
+}
 
-	const statusTextMap = {
-		'.': 'Unchanged',
-		'!': 'Ignored',
-		'?': 'Untracked',
-		A: 'Added',
-		D: 'Deleted',
-		M: 'Modified',
-		R: 'Renamed',
-		C: 'Copied',
-		AA: 'Conflict',
-		AU: 'Conflict',
-		UA: 'Conflict',
-		DD: 'Conflict',
-		DU: 'Conflict',
-		UD: 'Conflict',
-		UU: 'Conflict',
-		T: 'Modified',
-		U: 'Updated but Unmerged',
-	};
+const statusTextMap = {
+	'.': 'Unchanged',
+	'!': 'Ignored',
+	'?': 'Untracked',
+	A: 'Added',
+	D: 'Deleted',
+	M: 'Modified',
+	R: 'Renamed',
+	C: 'Copied',
+	AA: 'Conflict',
+	AU: 'Conflict',
+	UA: 'Conflict',
+	DD: 'Conflict',
+	DU: 'Conflict',
+	UD: 'Conflict',
+	UU: 'Conflict',
+	T: 'Modified',
+	U: 'Updated but Unmerged',
+};
 
-	export function getStatusText(status: GitFileStatus): string {
-		return statusTextMap[status] ?? 'Unknown';
-	}
+export function getGitFileStatusText(status: GitFileStatus): string {
+	return statusTextMap[status] ?? 'Unknown';
 }
 
 export interface GitFileChangeStats {
@@ -172,7 +171,14 @@ export interface GitFileChangeStats {
 	changes: number;
 }
 
-export class GitFileChange {
+export interface GitFileChangeShape {
+	readonly path: string;
+	readonly originalPath?: string | undefined;
+	readonly status: GitFileStatus;
+	readonly repoPath: string;
+}
+
+export class GitFileChange implements GitFileChangeShape {
 	static is(file: any): file is GitFileChange {
 		return file instanceof GitFileChange;
 	}

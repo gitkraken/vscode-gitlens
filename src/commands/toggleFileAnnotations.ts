@@ -1,13 +1,14 @@
-import { TextEditor, TextEditorEdit, Uri, window } from 'vscode';
-import { AnnotationContext } from '../annotations/annotationProvider';
-import { ChangesAnnotationContext } from '../annotations/gutterChangesAnnotationProvider';
-import { UriComparer } from '../comparers';
-import { FileAnnotationType } from '../configuration';
+import type { TextEditor, TextEditorEdit, Uri } from 'vscode';
+import { window } from 'vscode';
+import type { AnnotationContext } from '../annotations/annotationProvider';
+import type { ChangesAnnotationContext } from '../annotations/gutterChangesAnnotationProvider';
+import { FileAnnotationType } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
+import { showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
+import { UriComparer } from '../system/comparers';
+import { Logger } from '../system/logger';
 import { isTextEditor } from '../system/utils';
 import { ActiveEditorCommand, EditorCommand } from './base';
 
@@ -29,10 +30,10 @@ export class ClearFileAnnotationsCommand extends EditorCommand {
 		}
 
 		try {
-			void (await this.container.fileAnnotations.clear(editor));
+			await this.container.fileAnnotations.clear(editor);
 		} catch (ex) {
 			Logger.error(ex, 'ClearFileAnnotationsCommand');
-			void Messages.showGenericErrorMessage('Unable to clear file annotations');
+			void showGenericErrorMessage('Unable to clear file annotations');
 		}
 	}
 }
@@ -136,8 +137,6 @@ async function toggleFileAnnotations<TArgs extends ToggleFileAnnotationCommandAr
 		));
 	} catch (ex) {
 		Logger.error(ex, 'ToggleFileAnnotationsCommand');
-		void window.showErrorMessage(
-			`Unable to toggle file ${args.type} annotations. See output channel for more details`,
-		);
+		void showGenericErrorMessage(`Unable to toggle file ${args.type} annotations`);
 	}
 }

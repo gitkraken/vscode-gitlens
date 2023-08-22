@@ -1,6 +1,7 @@
-import { GitCommit } from '../../git/models';
+import type { GitCommit } from '../../git/models/commit';
 import { MessageNode } from './common';
-import { ContextValues, ViewNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues } from './viewNode';
 
 const markers: [number, string][] = [
 	[0, 'Less than a week ago'],
@@ -16,6 +17,7 @@ export function* insertDateMarkers<T extends ViewNode & { commit: GitCommit }>(
 	{ show }: { show: boolean } = { show: true },
 ): Iterable<ViewNode> {
 	if (!parent.view.config.showRelativeDateMarkers || !show) {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 		return yield* iterable;
 	}
 

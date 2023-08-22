@@ -1,13 +1,15 @@
-import { TextEditor, Uri, window } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { RemoteResourceType } from '../git/remotes/provider';
-import { Logger } from '../logger';
-import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { RemoteResourceType } from '../git/models/remoteResource';
+import { showGenericErrorMessage } from '../messages';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/command';
-import { ActiveEditorCommand, CommandContext, getCommandUri, isCommandContextViewNodeHasRemote } from './base';
-import { OpenOnRemoteCommandArgs } from './openOnRemote';
+import { Logger } from '../system/logger';
+import type { CommandContext } from './base';
+import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasRemote } from './base';
+import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenRepoOnRemoteCommandArgs {
 	clipboard?: boolean;
@@ -38,7 +40,7 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
 		const repoPath = (
-			await RepositoryPicker.getBestRepositoryOrShow(
+			await getBestRepositoryOrShowPicker(
 				gitUri,
 				editor,
 				args?.clipboard
@@ -59,9 +61,7 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenRepoOnRemoteCommand');
-			void window.showErrorMessage(
-				'Unable to open repository on remote provider. See output channel for more details',
-			);
+			void showGenericErrorMessage('Unable to open repository on remote provider');
 		}
 	}
 }

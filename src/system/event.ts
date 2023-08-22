@@ -1,5 +1,5 @@
-import { Disposable, Event } from 'vscode';
-import { Deferred } from './promise';
+import type { Disposable, Event } from 'vscode';
+import type { Deferred } from './promise';
 
 export function once<T>(event: Event<T>): Event<T> {
 	return (listener: (e: T) => unknown, thisArgs?: unknown, disposables?: Disposable[]) => {
@@ -39,9 +39,11 @@ export function until<T>(event: Event<T>, predicate: (e: T) => boolean): Event<T
 
 export type DeferredEvent<T> = Omit<Deferred<T>, 'fulfill'>;
 
-export interface DeferredEventExecutor<T, U> {
-	(value: T, resolve: (value: U | PromiseLike<U>) => void, reject: (reason: any) => void): any;
-}
+export type DeferredEventExecutor<T, U> = (
+	value: T,
+	resolve: (value: U | PromiseLike<U>) => void,
+	reject: (reason: any) => void,
+) => any;
 
 const resolveExecutor = (value: any, resolve: (value?: any) => void) => resolve(value);
 
@@ -65,8 +67,10 @@ export function promisifyDeferred<T, U>(
 	let cancel: ((reason?: any) => void) | undefined;
 	let disposable: Disposable;
 
+	let pending = true;
 	const promise = new Promise<U>((resolve, reject) => {
 		cancel = () => {
+			pending = false;
 			cancel = undefined;
 			reject();
 		};
@@ -74,7 +78,9 @@ export function promisifyDeferred<T, U>(
 		disposable = event(async (value: T) => {
 			try {
 				await executor(value, resolve, reject);
+				pending = false;
 			} catch (ex) {
+				pending = false;
 				reject(ex);
 			}
 		});
@@ -90,6 +96,9 @@ export function promisifyDeferred<T, U>(
 	);
 
 	return {
+		get pending() {
+			return pending;
+		},
 		promise: promise,
 		cancel: () => cancel?.(),
 	};

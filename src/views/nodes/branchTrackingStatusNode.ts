@@ -1,19 +1,23 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { Colors } from '../../constants';
+import type { Colors } from '../../constants';
 import { GitUri } from '../../git/gitUri';
-import { GitBranch, GitLog, GitRemote, GitRevision, GitTrackingState } from '../../git/models';
+import type { GitBranch, GitTrackingState } from '../../git/models/branch';
+import { getRemoteNameFromBranchName } from '../../git/models/branch';
+import type { GitLog } from '../../git/models/log';
+import { createRevisionRange } from '../../git/models/reference';
+import { GitRemote } from '../../git/models/remote';
 import { fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { first, map } from '../../system/iterable';
 import { pluralize } from '../../system/string';
-import { ViewsWithCommits } from '../viewBase';
-import { BranchNode } from './branchNode';
+import type { ViewsWithCommits } from '../viewBase';
 import { BranchTrackingStatusFilesNode } from './branchTrackingStatusFilesNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export interface BranchTrackingStatus {
 	ref: string;
@@ -23,46 +27,34 @@ export interface BranchTrackingStatus {
 }
 
 export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> implements PageableViewNode {
-	static key = ':status-branch:upstream';
-	static getId(
-		repoPath: string,
-		name: string,
-		root: boolean,
-		upstream: string | undefined,
-		upstreamType: string,
-	): string {
-		return `${BranchNode.getId(repoPath, name, root)}${this.key}(${upstream ?? ''}):${upstreamType}`;
-	}
-
-	private readonly options: {
-		showAheadCommits?: boolean;
-	};
+	limit: number | undefined;
 
 	constructor(
 		view: ViewsWithCommits,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly branch: GitBranch,
 		public readonly status: BranchTrackingStatus,
 		public readonly upstreamType: 'ahead' | 'behind' | 'same' | 'none',
 		// Specifies that the node is shown as a root
 		public readonly root: boolean = false,
-		options?: {
+		private readonly options?: {
 			showAheadCommits?: boolean;
 		},
 	) {
 		super(GitUri.fromRepoPath(status.repoPath), view, parent);
 
-		this.options = { showAheadCommits: false, ...options };
+		this.updateContext({
+			branch: branch,
+			branchStatus: status,
+			branchStatusUpstreamType: upstreamType,
+			root: root,
+		});
+		this._uniqueId = getViewNodeId('tracking-status', this.context);
+		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 
 	override get id(): string {
-		return BranchTrackingStatusNode.getId(
-			this.status.repoPath,
-			this.status.ref,
-			this.root,
-			this.status.upstream,
-			this.upstreamType,
-		);
+		return this._uniqueId;
 	}
 
 	get repoPath(): string {
@@ -87,7 +79,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 					ref: commit.sha,
 				});
 				if (previousLog != null) {
-					commits[commits.length - 1] = first(previousLog.commits.values());
+					commits[commits.length - 1] = first(previousLog.commits.values())!;
 				}
 			}
 		} else {
@@ -98,7 +90,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 
 		let showFiles = true;
 		if (
-			!this.options.showAheadCommits &&
+			!this.options?.showAheadCommits &&
 			this.upstreamType === 'ahead' &&
 			this.status.upstream &&
 			this.status.state.ahead > 0
@@ -112,7 +104,6 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 					this.branch,
 					this.status as Required<BranchTrackingStatus>,
 					this.upstreamType,
-					this.root,
 				).getChildren()),
 			);
 		} else {
@@ -130,16 +121,13 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 		}
 
 		if (showFiles) {
-			children.splice(
-				0,
-				0,
+			children.unshift(
 				new BranchTrackingStatusFilesNode(
 					this.view,
 					this,
 					this.branch,
 					this.status as Required<BranchTrackingStatus>,
 					this.upstreamType,
-					this.root,
 				),
 			);
 		}
@@ -165,7 +153,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 			case 'ahead': {
 				const remote = await this.branch.getRemote();
 
-				label = `Changes to push to ${remote?.name ?? GitBranch.getRemote(this.status.upstream!)}${
+				label = `Changes to push to ${remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!)}${
 					remote?.provider?.name ? ` on ${remote?.provider.name}` : ''
 				}`;
 				description = pluralize('commit', this.status.state.ahead);
@@ -179,14 +167,17 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 				contextValue = this.root
 					? ContextValues.StatusAheadOfUpstream
 					: ContextValues.BranchStatusAheadOfUpstream;
-				icon = new ThemeIcon('cloud-upload', new ThemeColor(Colors.UnpublishedChangesIconColor));
+				icon = new ThemeIcon(
+					'cloud-upload',
+					new ThemeColor('gitlens.unpublishedChangesIconColor' satisfies Colors),
+				);
 
 				break;
 			}
 			case 'behind': {
 				const remote = await this.branch.getRemote();
 
-				label = `Changes to pull from ${remote?.name ?? GitBranch.getRemote(this.status.upstream!)}${
+				label = `Changes to pull from ${remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!)}${
 					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 				}`;
 				description = pluralize('commit', this.status.state.behind);
@@ -200,14 +191,17 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 				contextValue = this.root
 					? ContextValues.StatusBehindUpstream
 					: ContextValues.BranchStatusBehindUpstream;
-				icon = new ThemeIcon('cloud-download', new ThemeColor(Colors.UnpulledChangesIconColor));
+				icon = new ThemeIcon(
+					'cloud-download',
+					new ThemeColor('gitlens.unpulledChangesIconColor' satisfies Colors),
+				);
 
 				break;
 			}
 			case 'same': {
 				const remote = await this.branch.getRemote();
 
-				label = `Up to date with ${remote?.name ?? GitBranch.getRemote(this.status.upstream!)}${
+				label = `Up to date with ${remote?.name ?? getRemoteNameFromBranchName(this.status.upstream!)}${
 					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 				}`;
 				description = lastFetched ? `Last fetched ${fromNow(new Date(lastFetched))}` : '';
@@ -237,7 +231,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 				contextValue = this.root ? ContextValues.StatusNoUpstream : ContextValues.BranchStatusNoUpstream;
 				icon = new ThemeIcon(
 					'cloud-upload',
-					remotes.length ? new ThemeColor(Colors.UnpublishedChangesIconColor) : undefined,
+					remotes.length ? new ThemeColor('gitlens.unpublishedChangesIconColor' satisfies Colors) : undefined,
 				);
 
 				break;
@@ -277,8 +271,8 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 		if (this._log == null) {
 			const range =
 				this.upstreamType === 'ahead'
-					? GitRevision.createRange(this.status.upstream, this.status.ref)
-					: GitRevision.createRange(this.status.ref, this.status.upstream);
+					? createRevisionRange(this.status.upstream, this.status.ref)
+					: createRevisionRange(this.status.ref, this.status.upstream);
 
 			this._log = await this.view.container.git.getLog(this.uri.repoPath!, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,
@@ -293,7 +287,6 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 		return this._log?.hasMore ?? true;
 	}
 
-	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	@gate()
 	async loadMore(limit?: number | { until?: any }) {
 		let log = await window.withProgress(

@@ -1,12 +1,13 @@
-import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { RemoteResourceType } from '../git/remotes/provider';
-import { Logger } from '../logger';
+import { RemoteResourceType } from '../git/models/remoteResource';
+import { showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/command';
-import { ResultsCommitsNode } from '../views/nodes';
-import { Command, CommandContext } from './base';
-import { OpenOnRemoteCommandArgs } from './openOnRemote';
+import { Logger } from '../system/logger';
+import { ResultsCommitsNode } from '../views/nodes/resultsCommitsNode';
+import type { CommandContext } from './base';
+import { Command } from './base';
+import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenComparisonOnRemoteCommandArgs {
 	clipboard?: boolean;
@@ -57,9 +58,7 @@ export class OpenComparisonOnRemoteCommand extends Command {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenComparisonOnRemoteCommand');
-			void window.showErrorMessage(
-				'Unable to open comparison on remote provider. See output channel for more details',
-			);
+			void showGenericErrorMessage('Unable to open comparison on remote provider');
 		}
 	}
 }

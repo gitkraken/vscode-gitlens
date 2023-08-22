@@ -1,16 +1,16 @@
-import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitReference, GitRevision } from '../git/models';
-import { Messages } from '../messages';
-import { StashPicker } from '../quickpicks/commitPicker';
-import { ReferencePicker } from '../quickpicks/referencePicker';
+import { isBranchReference, shortenRevision } from '../git/models/reference';
+import { showNoRepositoryWarningMessage } from '../messages';
+import { showStashPicker } from '../quickpicks/commitPicker';
+import { showReferencePicker } from '../quickpicks/referencePicker';
 import { command, executeCommand } from '../system/command';
 import { basename } from '../system/path';
 import { pad } from '../system/string';
 import { ActiveEditorCommand, getCommandUri } from './base';
-import { DiffWithCommandArgs } from './diffWith';
+import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithRevisionFromCommandArgs {
 	line?: number;
@@ -30,7 +30,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 
 		const gitUri = await GitUri.fromUri(uri);
 		if (!gitUri.repoPath) {
-			void Messages.showNoRepositoryWarningMessage('Unable to open file compare');
+			void showNoRepositoryWarningMessage('Unable to open file compare');
 
 			return;
 		}
@@ -46,7 +46,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 		let sha;
 		if (args?.stash) {
 			const title = `Open Changes with Stash${pad(GlyphChars.Dot, 2, 2)}`;
-			const pick = await StashPicker.show(
+			const pick = await showStashPicker(
 				this.container.git.getStash(gitUri.repoPath),
 				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
 				'Choose a stash to compare with',
@@ -62,7 +62,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			sha = ref;
 		} else {
 			const title = `Open Changes with Branch or Tag${pad(GlyphChars.Dot, 2, 2)}`;
-			const pick = await ReferencePicker.show(
+			const pick = await showReferencePicker(
 				gitUri.repoPath,
 				`${title}${gitUri.getFormattedFileName({ truncateTo: quickPickTitleMaxChars - title.length })}`,
 				'Choose a branch or tag to compare with',
@@ -74,7 +74,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			if (pick == null) return;
 
 			ref = pick.ref;
-			sha = GitReference.isBranch(pick) && pick.remote ? `remotes/${ref}` : ref;
+			sha = isBranchReference(pick) && pick.remote ? `remotes/${ref}` : ref;
 		}
 
 		if (ref == null) return;
@@ -88,7 +88,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			const rename = files.find(s => s.path === path);
 			if (rename?.originalPath != null) {
 				renamedUri = this.container.git.getAbsoluteUri(rename.originalPath, gitUri.repoPath);
-				renamedTitle = `${basename(rename.originalPath)} (${GitRevision.shorten(ref)})`;
+				renamedTitle = `${basename(rename.originalPath)} (${shortenRevision(ref)})`;
 			}
 		}
 
@@ -97,7 +97,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			lhs: {
 				sha: sha,
 				uri: renamedUri ?? gitUri,
-				title: renamedTitle ?? `${basename(gitUri.fsPath)} (${GitRevision.shorten(ref)})`,
+				title: renamedTitle ?? `${basename(gitUri.fsPath)} (${shortenRevision(ref)})`,
 			},
 			rhs: {
 				sha: '',

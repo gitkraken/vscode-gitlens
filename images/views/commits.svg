@@ -1,5 +1,0 @@
-<svg width="24" height="24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle stroke="#fff" stroke-width="1.5" stroke-linejoin="bevel" r="5.25"
-        transform="matrix(-1 0 0 1 12.75 12.25)" />
-    <path stroke="#fff" stroke-width="1.5" stroke-linejoin="bevel" d="M12.75 16.75v7M12.75.5v7" />
-</svg>

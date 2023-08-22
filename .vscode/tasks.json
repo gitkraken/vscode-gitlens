@@ -42,15 +42,9 @@
 			"problemMatcher": ["$ts-checker-webpack-watch", "$ts-checker-eslint-webpack-watch"]
 		},
 		{
-			"label": "Run (vscode.dev)",
-			"group": "test",
-			"dependsOn": ["npm: web:serve", "npm: web:tunnel"],
-			"dependsOrder": "parallel",
-			"problemMatcher": []
-		},
-		{
+			"label": "Run (local web)",
 			"type": "npm",
-			"script": "web:serve",
+			"script": "web",
 			"group": "test",
 			"isBackground": true,
 			"presentation": {
@@ -60,13 +54,14 @@
 			"problemMatcher": []
 		},
 		{
+			"label": "Run (vscode.dev)",
 			"type": "npm",
-			"script": "web:tunnel",
+			"script": "web:serve",
 			"group": "test",
 			"isBackground": true,
 			"presentation": {
 				"group": "web",
-				"reveal": "always"
+				"reveal": "never"
 			},
 			"problemMatcher": []
 		},

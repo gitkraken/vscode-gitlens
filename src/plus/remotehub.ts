@@ -1,8 +1,10 @@
-import { extensions, Uri } from 'vscode';
+import type { Uri } from 'vscode';
+import { extensions } from 'vscode';
 import { ExtensionNotFoundError } from '../errors';
-import { Logger } from '../logger';
+import { Logger } from '../system/logger';
 
 export async function getRemoteHubApi(): Promise<RemoteHubApi>;
+// eslint-disable-next-line @typescript-eslint/unified-signatures
 export async function getRemoteHubApi(silent: false): Promise<RemoteHubApi>;
 export async function getRemoteHubApi(silent: boolean): Promise<RemoteHubApi | undefined>;
 export async function getRemoteHubApi(silent?: boolean): Promise<RemoteHubApi | undefined> {

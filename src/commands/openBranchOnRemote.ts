@@ -1,15 +1,17 @@
-import { TextEditor, Uri, window } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { RemoteResourceType } from '../git/remotes/provider';
-import { Logger } from '../logger';
+import { RemoteResourceType } from '../git/models/remoteResource';
+import { showGenericErrorMessage } from '../messages';
 import { CommandQuickPickItem } from '../quickpicks/items/common';
-import { ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks/referencePicker';
-import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { ReferencesQuickPickIncludes, showReferencePicker } from '../quickpicks/referencePicker';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCommand } from '../system/command';
-import { ActiveEditorCommand, CommandContext, getCommandUri, isCommandContextViewNodeHasBranch } from './base';
-import { OpenOnRemoteCommandArgs } from './openOnRemote';
+import { Logger } from '../system/logger';
+import type { CommandContext } from './base';
+import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasBranch } from './base';
+import type { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenBranchOnRemoteCommandArgs {
 	branch?: string;
@@ -45,10 +47,10 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
 		const repoPath = (
-			await RepositoryPicker.getBestRepositoryOrShow(
+			await getBestRepositoryOrShowPicker(
 				gitUri,
 				editor,
-				args?.clipboard ? 'Copy Remote Branch Url' : 'Open Branch On Remote',
+				args?.clipboard ? 'Copy Remote Branch URL' : 'Open Branch On Remote',
 			)
 		)?.path;
 		if (!repoPath) return;
@@ -57,10 +59,10 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 
 		try {
 			if (args.branch == null) {
-				const pick = await ReferencePicker.show(
+				const pick = await showReferencePicker(
 					repoPath,
-					args.clipboard ? 'Copy Remote Branch Url' : 'Open Branch On Remote',
-					args.clipboard ? 'Choose a branch to copy the url from' : 'Choose a branch to open',
+					args.clipboard ? 'Copy Remote Branch URL' : 'Open Branch On Remote',
+					args.clipboard ? 'Choose a branch to copy the URL from' : 'Choose a branch to open',
 					{
 						autoPick: true,
 						// checkmarks: false,
@@ -85,9 +87,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenBranchOnRemoteCommand');
-			void window.showErrorMessage(
-				'Unable to open branch on remote provider. See output channel for more details',
-			);
+			void showGenericErrorMessage('Unable to open branch on remote provider');
 		}
 	}
 }

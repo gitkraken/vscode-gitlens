@@ -1,20 +1,22 @@
-import { Disposable, TextEditor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { RepositoriesChangeEvent } from '../../git/gitProviderService';
-import { GitUri } from '../../git/gitUri';
-import { Logger } from '../../logger';
+import type { TextEditor } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState, Uri, window, workspace } from 'vscode';
+import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
+import { GitUri, unknownGitUri } from '../../git/gitUri';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { debounce, szudzikPairing } from '../../system/function';
-import { RepositoriesView } from '../repositoriesView';
+import { Logger } from '../../system/logger';
+import type { ViewsWithRepositoriesNode } from '../viewBase';
 import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
-import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, SubscribeableViewNode } from './viewNode';
 
-export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
+export class RepositoriesNode extends SubscribeableViewNode<ViewsWithRepositoriesNode> {
 	private _children: (RepositoryNode | MessageNode)[] | undefined;
 
-	constructor(view: RepositoriesView) {
-		super(GitUri.unknown, view);
+	constructor(view: ViewsWithRepositoriesNode) {
+		super(unknownGitUri, view);
 	}
 
 	override dispose() {
@@ -28,7 +30,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 		if (this._children == null) return;
 
 		for (const child of this._children) {
-			if (child instanceof RepositoryNode) {
+			if ('dispose' in child) {
 				child.dispose();
 			}
 		}
@@ -47,9 +49,33 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('Repositories', TreeItemCollapsibleState.Expanded);
-		item.contextValue = ContextValues.Repositories;
+		const isInWorkspacesView = this.view.type === 'workspaces';
+		const isLinkedWorkspace = isInWorkspacesView && this.view.container.workspaces.currentWorkspaceId != null;
+		const isCurrentLinkedWorkspace = isLinkedWorkspace && this.view.container.workspaces.currentWorkspace != null;
+		const item = new TreeItem(
+			isInWorkspacesView ? 'Current Window' : 'Repositories',
+			isInWorkspacesView ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.Expanded,
+		);
 
+		if (isInWorkspacesView) {
+			item.description = workspace.name ?? workspace.workspaceFolders?.[0]?.name ?? '';
+		}
+
+		let contextValue: string = ContextValues.Repositories;
+		if (isInWorkspacesView) {
+			contextValue += '+workspaces';
+		}
+
+		if (isLinkedWorkspace) {
+			contextValue += '+linked';
+		}
+
+		if (isCurrentLinkedWorkspace) {
+			contextValue += '+current';
+			item.resourceUri = Uri.parse('gitlens-view://workspaces/workspace/current');
+		}
+
+		item.contextValue = contextValue;
 		return item;
 	}
 
@@ -141,6 +167,6 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 
 	@debug()
 	private onRepositoriesChanged(_e: RepositoriesChangeEvent) {
-		void this.triggerChange();
+		void this.triggerChange(true);
 	}
 }

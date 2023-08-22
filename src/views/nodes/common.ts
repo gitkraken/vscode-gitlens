@@ -1,14 +1,16 @@
-import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import type { Command, ThemeIcon, Uri } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { GitUri } from '../../git/gitUri';
-import { View } from '../viewBase';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
+import { unknownGitUri } from '../../git/gitUri';
+import { configuration } from '../../system/configuration';
+import type { View } from '../viewBase';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 export class MessageNode extends ViewNode {
 	constructor(
 		view: View,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		private readonly _message: string,
 		private readonly _description?: string,
 		private readonly _tooltip?: string,
@@ -22,7 +24,7 @@ export class MessageNode extends ViewNode {
 			| ThemeIcon,
 		private readonly _contextValue?: string,
 	) {
-		super(GitUri.unknown, view, parent);
+		super(unknownGitUri, view, parent);
 	}
 
 	getChildren(): ViewNode[] | Promise<ViewNode[]> {
@@ -42,7 +44,7 @@ export class MessageNode extends ViewNode {
 export class CommandMessageNode extends MessageNode {
 	constructor(
 		view: View,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		private readonly _command: Command,
 		message: string,
 		description?: string,
@@ -74,12 +76,10 @@ export class CommandMessageNode extends MessageNode {
 }
 
 export class UpdateableMessageNode extends ViewNode {
-	override readonly id: string;
-
 	constructor(
 		view: View,
-		parent: ViewNode,
-		id: string,
+		protected override readonly parent: ViewNode,
+		private _id: string,
 		private _message: string,
 		private _tooltip?: string,
 		private _iconPath?:
@@ -91,8 +91,11 @@ export class UpdateableMessageNode extends ViewNode {
 			  }
 			| ThemeIcon,
 	) {
-		super(GitUri.unknown, view, parent);
-		this.id = id;
+		super(unknownGitUri, view, parent);
+	}
+
+	override get id(): string {
+		return this._id;
 	}
 
 	getChildren(): ViewNode[] | Promise<ViewNode[]> {
@@ -150,9 +153,9 @@ export abstract class PagerNode extends ViewNode {
 			context?: Record<string, unknown>;
 			pageSize?: number;
 			getCount?: () => Promise<number | undefined>;
-		}, // protected readonly pageSize: number = Container.instance.config.views.pageItemLimit, // protected readonly countFn?: () => Promise<number | undefined>, // protected readonly context?: Record<string, unknown>, // protected readonly beforeLoadCallback?: (mode: 'all' | 'more') => void,
+		}, // protected readonly pageSize: number = configuration.get('views.pageItemLimit'), // protected readonly countFn?: () => Promise<number | undefined>, // protected readonly context?: Record<string, unknown>, // protected readonly beforeLoadCallback?: (mode: 'all' | 'more') => void,
 	) {
-		super(GitUri.unknown, view, parent);
+		super(unknownGitUri, view, parent);
 	}
 
 	async loadAll() {
@@ -168,7 +171,7 @@ export abstract class PagerNode extends ViewNode {
 	loadMore() {
 		return this.view.loadMoreNodeChildren(
 			this.parent! as ViewNode & PageableViewNode,
-			this.options?.pageSize ?? Container.instance.config.views.pageItemLimit,
+			this.options?.pageSize ?? configuration.get('views.pageItemLimit'),
 			this.previousNode,
 			this.options?.context,
 		);

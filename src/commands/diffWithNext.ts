@@ -1,13 +1,14 @@
-import { Range, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import type { Range, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitCommit } from '../git/models';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
+import type { GitCommit } from '../git/models/commit';
+import { showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/command';
-import { ActiveEditorCommand, CommandContext, getCommandUri } from './base';
-import { DiffWithCommandArgs } from './diffWith';
+import { Logger } from '../system/logger';
+import type { CommandContext } from './base';
+import { ActiveEditorCommand, getCommandUri } from './base';
+import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithNextCommandArgs {
 	commit?: GitCommit;
@@ -51,7 +52,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 				args.inDiffLeftEditor ? 1 : 0,
 			);
 
-			if (diffUris == null || diffUris.next == null) return;
+			if (diffUris?.next == null) return;
 
 			void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 				repoPath: diffUris.current.repoPath,
@@ -72,7 +73,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 				'DiffWithNextCommand',
 				`getNextDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`,
 			);
-			void Messages.showGenericErrorMessage('Unable to open compare');
+			void showGenericErrorMessage('Unable to open compare');
 		}
 	}
 }

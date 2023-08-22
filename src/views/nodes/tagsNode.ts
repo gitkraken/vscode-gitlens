@@ -1,37 +1,38 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ViewBranchesLayout } from '../../configuration';
+import { ViewBranchesLayout } from '../../config';
 import { GitUri } from '../../git/gitUri';
-import { Repository } from '../../git/models';
+import type { Repository } from '../../git/models/repository';
 import { makeHierarchical } from '../../system/array';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
-import { RepositoriesView } from '../repositoriesView';
-import { TagsView } from '../tagsView';
+import type { ViewsWithTagsNode } from '../viewBase';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
-import { RepositoryNode } from './repositoryNode';
 import { TagNode } from './tagNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class TagsNode extends ViewNode<TagsView | RepositoriesView> {
-	static key = ':tags';
-	static getId(repoPath: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}`;
-	}
-
-	private _children: ViewNode[] | undefined;
-
-	constructor(uri: GitUri, view: TagsView | RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
+export class TagsNode extends ViewNode<ViewsWithTagsNode> {
+	constructor(
+		uri: GitUri,
+		view: ViewsWithTagsNode,
+		protected override readonly parent: ViewNode,
+		public readonly repo: Repository,
+	) {
 		super(uri, view, parent);
+
+		this.updateContext({ repository: repo });
+		this._uniqueId = getViewNodeId('tags', this.context);
 	}
 
 	override get id(): string {
-		return TagsNode.getId(this.repo.path);
+		return this._uniqueId;
 	}
 
 	get repoPath(): string {
 		return this.repo.path;
 	}
+
+	private _children: ViewNode[] | undefined;
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
@@ -51,16 +52,7 @@ export class TagsNode extends ViewNode<TagsView | RepositoriesView> {
 				this.view.config.files.compact,
 			);
 
-			const root = new BranchOrTagFolderNode(
-				this.view,
-				this,
-				'tag',
-				this.repo.path,
-				'',
-				undefined,
-				hierarchy,
-				'tags',
-			);
+			const root = new BranchOrTagFolderNode(this.view, this, 'tag', hierarchy, this.repo.path, '', undefined);
 			this._children = root.getChildren();
 		}
 

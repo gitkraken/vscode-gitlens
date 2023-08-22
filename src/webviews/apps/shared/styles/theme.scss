@@ -1,0 +1,84 @@
+:root {
+	--font-family: var(--vscode-font-family);
+	--font-size: var(--vscode-font-size);
+	--font-weight: var(--vscode-font-weight);
+
+	--editor-font-family: var(--vscode-editor-font-family);
+	--editor-font-size: var(--vscode-editor-font-size);
+	--editor-font-weight: var(--vscode-editor-font-weight);
+
+	--color-background: var(--vscode-editor-background);
+	// Computed variants in code
+	--color-background--lighten-05: var(--color-background);
+	--color-background--darken-05: var(--color-background);
+	--color-background--lighten-075: var(--color-background);
+	--color-background--darken-075: var(--color-background);
+	--color-background--lighten-10: var(--color-background);
+	--color-background--darken-10: var(--color-background);
+	--color-background--lighten-15: var(--color-background);
+	--color-background--darken-15: var(--color-background);
+	--color-background--lighten-30: var(--color-background);
+	--color-background--darken-30: var(--color-background);
+	--color-background--lighten-50: var(--color-background);
+	--color-background--darken-50: var(--color-background);
+
+	--color-foreground: var(--vscode-editor-foreground, var(--vscode-foreground));
+	// Computed variants in code
+	--color-foreground--85: var(--color-foreground);
+	--color-foreground--75: var(--color-foreground);
+	--color-foreground--65: var(--color-foreground);
+	--color-foreground--50: var(--color-foreground);
+
+	--color-button-background: var(--vscode-button-background, var(--color-foreground));
+	// Computed variants in code
+	--color-button-background--darken-30: var(--color-button-background);
+	--color-button-foreground: var(--vscode-button-foreground, transparent);
+
+	--color-button-secondary-background: var(--vscode-button-secondaryBackground, transparent);
+	// Computed variants in code
+	--color-button-secondary-background--darken-30: var(--color-button-secondaryBackground);
+
+	--color-highlight: var(--vscode-button-background, var(--vscode-button-border));
+	// Computed variants in code
+	--color-highlight--75: var(--color-highlight);
+	--color-highlight--50: var(--color-highlight);
+	--color-highlight--25: var(--color-highlight);
+
+	--color-focus-border: var(--vscode-focusBorder);
+
+	--color-link-foreground: var(--vscode-textLink-foreground);
+	// Computed variants in code
+	--color-link-foreground--darken-20: var(--color-link-foreground);
+	--color-link-foreground--lighten-20: var(--color-link-foreground);
+
+	--color-view-background: var(--vscode-sideBar-background, var(--color-background));
+	--color-view-foreground: var(--vscode-sideBar-foreground, var(--color-foreground));
+	--color-view-header-foreground: var(--vscode-sideBarSectionHeader-foreground, var(--color-foreground));
+
+	--color-hover-background: var(--vscode-editorHoverWidget-background);
+	--color-hover-border: var(--vscode-editorHoverWidget-border);
+	--color-hover-foreground: var(--vscode-editorHoverWidget-foreground);
+	--color-hover-statusBarBackground: var(--vscode-editorHoverWidget-statusBarBackground);
+
+	--color-alert-infoBackground: var(--vscode-inputValidation-infoBackground);
+	--color-alert-infoBorder: var(--vscode-inputValidation-infoBorder);
+	// Computed variants in code
+	--color-alert-infoHoverBackground: var(--color-alert-infoBackground);
+
+	--color-alert-warningBackground: var(--vscode-inputValidation-warningBackground);
+	--color-alert-warningBorder: var(--vscode-inputValidation-warningBorder);
+	// Computed variants in code
+	--color-alert-warningHoverBackground: var(--color-alert-warningBackground);
+
+	--color-alert-errorBackground: var(--vscode-inputValidation-errorBackground);
+	--color-alert-errorBorder: var(--vscode-inputValidation-errorBorder);
+	// Computed variants in code
+	--color-alert-errorHoverBackground: var(--color-alert-errorBackground);
+
+	--color-alert-neutralBackground: var(--vscode-editor-background); // Computed in code
+	--color-alert-neutralBorder: var(--vscode-input-foreground);
+	// Computed variants in code
+	--color-alert-neutralHoverBackground: var(--color-alert-neutralBackground);
+
+	--color-alert-foreground: var(--vscode-input-foreground);
+}

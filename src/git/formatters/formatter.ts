@@ -1,3 +1,4 @@
+import type { TokenOptions } from '../../system/string';
 import {
 	getTokensFromTemplate,
 	getWidth,
@@ -5,7 +6,6 @@ import {
 	interpolateAsync,
 	padLeft,
 	padRight,
-	TokenOptions,
 	truncate,
 } from '../../system/string';
 
@@ -19,7 +19,8 @@ type Constructor<T = Record<string, unknown>> = new (...args: any[]) => T;
 const hasTokenRegexMap = new Map<string, RegExp>();
 const spaceReplacementRegex = / /g;
 
-declare type RequiredTokenOptions<Options extends FormatOptions> = Options & Required<Pick<Options, 'tokenOptions'>>;
+export declare type RequiredTokenOptions<Options extends FormatOptions> = Options &
+	Required<Pick<Options, 'tokenOptions'>>;
 
 export abstract class Formatter<Item = any, Options extends FormatOptions = FormatOptions> {
 	protected _item!: Item;
@@ -36,8 +37,7 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 		if (options == null && this._options != null) return;
 
 		if (options == null) {
-			// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-			options = {} as Options;
+			options = {} as unknown as Options;
 		}
 
 		if (options.dateFormat == null) {
@@ -115,21 +115,21 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 
 		let options: Options | undefined = undefined;
 		if (dateFormatOrOptions == null || typeof dateFormatOrOptions === 'string') {
-			// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
 			options = {
 				dateFormat: dateFormatOrOptions,
-			} as Options;
+			} as unknown as Options;
 		} else {
 			options = dateFormatOrOptions;
 		}
 
 		if (options.tokenOptions == null) {
-			const tokenOptions = getTokensFromTemplate(template).reduce<{
-				[token: string]: TokenOptions | undefined;
-			}>((map, token) => {
-				map[token.key] = token.options;
-				return map;
-			}, Object.create(null));
+			const tokenOptions = getTokensFromTemplate(template).reduce<Record<string, TokenOptions | undefined>>(
+				(map, token) => {
+					map[token.key] = token.options;
+					return map;
+				},
+				Object.create(null),
+			);
 
 			options.tokenOptions = tokenOptions;
 		}
@@ -159,21 +159,21 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 
 		let options: Options | undefined = undefined;
 		if (dateFormatOrOptions == null || typeof dateFormatOrOptions === 'string') {
-			// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
 			options = {
 				dateFormat: dateFormatOrOptions,
-			} as Options;
+			} as unknown as Options;
 		} else {
 			options = dateFormatOrOptions;
 		}
 
 		if (options.tokenOptions == null) {
-			const tokenOptions = getTokensFromTemplate(template).reduce<{
-				[token: string]: TokenOptions | undefined;
-			}>((map, token) => {
-				map[token.key] = token.options;
-				return map;
-			}, Object.create(null));
+			const tokenOptions = getTokensFromTemplate(template).reduce<Record<string, TokenOptions | undefined>>(
+				(map, token) => {
+					map[token.key] = token.options;
+					return map;
+				},
+				Object.create(null),
+			);
 
 			options.tokenOptions = tokenOptions;
 		}

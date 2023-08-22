@@ -1,38 +1,42 @@
-import {
-	Command,
-	Disposable,
-	Event,
-	MarkdownString,
-	TreeItem,
-	TreeItemCollapsibleState,
-	TreeViewVisibilityChangeEvent,
-} from 'vscode';
+import type { Command, Event, TreeViewVisibilityChangeEvent } from 'vscode';
+import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { RepositoriesChangeEvent } from '../../git/gitProviderService';
-import { GitUri } from '../../git/gitUri';
-import {
-	GitFile,
-	GitReference,
-	GitRemote,
-	GitRevisionReference,
-	Repository,
-	RepositoryChange,
-	RepositoryChangeComparisonMode,
-	RepositoryChangeEvent,
-} from '../../git/models';
-import { Logger } from '../../logger';
-import { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
+import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
+import type { GitUri } from '../../git/gitUri';
+import { unknownGitUri } from '../../git/gitUri';
+import type { GitBranch } from '../../git/models/branch';
+import type { GitCommit } from '../../git/models/commit';
+import type { GitContributor } from '../../git/models/contributor';
+import type { GitFile } from '../../git/models/file';
+import type { GitReference, GitRevisionReference } from '../../git/models/reference';
+import { getReferenceLabel } from '../../git/models/reference';
+import type { GitReflogRecord } from '../../git/models/reflog';
+import { GitRemote } from '../../git/models/remote';
+import type { RepositoryChangeEvent } from '../../git/models/repository';
+import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
+import type { GitTag } from '../../git/models/tag';
+import type { GitWorktree } from '../../git/models/worktree';
+import type { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
+import type {
+	CloudWorkspace,
+	CloudWorkspaceRepositoryDescriptor,
+	LocalWorkspace,
+	LocalWorkspaceRepositoryDescriptor,
+} from '../../plus/workspaces/models';
 import { gate } from '../../system/decorators/gate';
 import { debug, log, logName } from '../../system/decorators/log';
 import { is as isA, szudzikPairing } from '../../system/function';
+import { getLoggableName } from '../../system/logger';
 import { pad } from '../../system/string';
-import { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
+import type { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
+import type { BranchTrackingStatus } from './branchTrackingStatusNode';
 
 export const enum ContextValues {
 	ActiveFileHistory = 'gitlens:history:active:file',
 	ActiveLineHistory = 'gitlens:history:active:line',
 	AutolinkedItems = 'gitlens:autolinked:items',
 	AutolinkedIssue = 'gitlens:autolinked:issue',
+	AutolinkedItem = 'gitlens:autolinked:item',
 	Branch = 'gitlens:branch',
 	Branches = 'gitlens:branches',
 	BranchStatusAheadOfUpstream = 'gitlens:status-branch:upstream:ahead',
@@ -59,6 +63,7 @@ export const enum ContextValues {
 	MergeConflictCurrentChanges = 'gitlens:merge-conflict:current',
 	MergeConflictIncomingChanges = 'gitlens:merge-conflict:incoming',
 	Message = 'gitlens:message',
+	MessageSignIn = 'gitlens:message:signin',
 	Pager = 'gitlens:pager',
 	PullRequest = 'gitlens:pullrequest',
 	Rebase = 'gitlens:rebase',
@@ -85,34 +90,136 @@ export const enum ContextValues {
 	Tag = 'gitlens:tag',
 	Tags = 'gitlens:tags',
 	UncommittedFiles = 'gitlens:uncommitted:files',
+	Workspace = 'gitlens:workspace',
+	WorkspaceMissingRepository = 'gitlens:workspaceMissingRepository',
+	Workspaces = 'gitlens:workspaces',
 	Worktree = 'gitlens:worktree',
 	Worktrees = 'gitlens:worktrees',
 }
 
-export interface ViewNode {
-	readonly id?: string;
+export interface AmbientContext {
+	readonly autolinksId?: string;
+	readonly branch?: GitBranch;
+	readonly branchStatus?: BranchTrackingStatus;
+	readonly branchStatusUpstreamType?: 'ahead' | 'behind' | 'same' | 'none';
+	readonly commit?: GitCommit;
+	readonly comparisonId?: string;
+	readonly contributor?: GitContributor;
+	readonly file?: GitFile;
+	readonly reflog?: GitReflogRecord;
+	readonly remote?: GitRemote;
+	readonly repository?: Repository;
+	readonly root?: boolean;
+	readonly searchId?: string;
+	readonly tag?: GitTag;
+	readonly workspace?: CloudWorkspace | LocalWorkspace;
+	readonly wsRepositoryDescriptor?: CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor;
+	readonly worktree?: GitWorktree;
+}
+
+export function getViewNodeId(type: string, context: AmbientContext): string {
+	let uniqueness = '';
+	if (context.root) {
+		uniqueness += '/root';
+	}
+	if (context.workspace != null) {
+		uniqueness += `/ws/${context.workspace.id}`;
+	}
+	if (context.wsRepositoryDescriptor != null) {
+		uniqueness += `/wsrepo/${context.wsRepositoryDescriptor.id}`;
+	}
+	if (context.repository != null) {
+		uniqueness += `/repo/${context.repository.id}`;
+	}
+	if (context.worktree != null) {
+		uniqueness += `/worktree/${context.worktree.uri.path}`;
+	}
+	if (context.remote != null) {
+		uniqueness += `/remote/${context.remote.name}`;
+	}
+	if (context.tag != null) {
+		uniqueness += `/tag/${context.tag.id}`;
+	}
+	if (context.branch != null) {
+		uniqueness += `/branch/${context.branch.id}`;
+	}
+	if (context.branchStatus != null) {
+		uniqueness += `/status/${context.branchStatus.upstream ?? '-'}`;
+	}
+	if (context.branchStatusUpstreamType != null) {
+		uniqueness += `/status-direction/${context.branchStatusUpstreamType}`;
+	}
+	if (context.reflog != null) {
+		uniqueness += `/reflog/${context.reflog.sha}+${context.reflog.selector}+${context.reflog.command}+${
+			context.reflog.commandArgs ?? ''
+		}+${context.reflog.date.getTime()}`;
+	}
+	if (context.contributor != null) {
+		uniqueness += `/contributor/${
+			context.contributor.id ??
+			`${context.contributor.username}+${context.contributor.email}+${context.contributor.name}`
+		}`;
+	}
+	if (context.autolinksId != null) {
+		uniqueness += `/autolinks/${context.autolinksId}`;
+	}
+	if (context.comparisonId != null) {
+		uniqueness += `/comparison/${context.comparisonId}`;
+	}
+	if (context.searchId != null) {
+		uniqueness += `/search/${context.searchId}`;
+	}
+	if (context.commit != null) {
+		uniqueness += `/commit/${context.commit.sha}`;
+	}
+	if (context.file != null) {
+		uniqueness += `/file/${context.file.path}+${context.file.status}`;
+	}
+
+	return `gitlens://viewnode/${type}${uniqueness}`;
 }
 
 @logName<ViewNode>((c, name) => `${name}${c.id != null ? `(${c.id})` : ''}`)
-export abstract class ViewNode<TView extends View = View> {
-	static is(node: any): node is ViewNode {
-		return node instanceof ViewNode;
-	}
+export abstract class ViewNode<TView extends View = View, State extends object = any> {
+	protected _uniqueId!: string;
 
 	protected splatted = false;
 
-	constructor(uri: GitUri, public readonly view: TView, protected readonly parent?: ViewNode) {
+	constructor(
+		// public readonly id: string | undefined,
+		uri: GitUri,
+		public readonly view: TView,
+		protected parent?: ViewNode,
+	) {
 		this._uri = uri;
+	}
+
+	get id(): string | undefined {
+		return this._uniqueId;
+	}
+
+	private _context: AmbientContext | undefined;
+	protected get context(): AmbientContext {
+		return this._context ?? this.parent?.context ?? {};
+	}
+
+	protected updateContext(context: AmbientContext, reset: boolean = false) {
+		this._context = this.getNewContext(context, reset);
+	}
+
+	protected getNewContext(context: AmbientContext, reset: boolean = false) {
+		return { ...(reset ? this.parent?.context : this.context), ...context };
 	}
 
 	toClipboard?(): string;
 
 	toString(): string {
-		return `${Logger.toLoggableName(this)}${this.id != null ? `(${this.id})` : ''}`;
+		const id = this.id;
+		return `${getLoggableName(this)}${id != null ? `(${id})` : ''}`;
 	}
 
 	protected _uri: GitUri;
-	get uri() {
+	get uri(): GitUri {
 		return this._uri;
 	}
 
@@ -147,12 +254,78 @@ export abstract class ViewNode<TView extends View = View> {
 	}
 
 	getSplattedChild?(): Promise<ViewNode | undefined>;
+
+	deleteState<T extends StateKey<State> = StateKey<State>>(key?: T): void {
+		if (this.id == null) {
+			debugger;
+			throw new Error('Id is required to delete state');
+		}
+		this.view.nodeState.deleteState(this.id, key as string);
+	}
+
+	getState<T extends StateKey<State> = StateKey<State>>(key: T): StateValue<State, T> | undefined {
+		if (this.id == null) {
+			debugger;
+			throw new Error('Id is required to get state');
+		}
+		return this.view.nodeState.getState(this.id, key as string);
+	}
+
+	storeState<T extends StateKey<State> = StateKey<State>>(key: T, value: StateValue<State, T>): void {
+		if (this.id == null) {
+			debugger;
+			throw new Error('Id is required to store state');
+		}
+		this.view.nodeState.storeState(this.id, key as string, value);
+	}
+}
+
+export function isViewNode(node: any): node is ViewNode {
+	return node instanceof ViewNode;
+}
+
+export function isViewFileNode(node: any): node is ViewFileNode {
+	return node instanceof ViewFileNode;
+}
+
+type StateKey<T> = keyof T;
+type StateValue<T, P extends StateKey<T>> = P extends keyof T ? T[P] : never;
+
+export abstract class ViewFileNode<TView extends View = View, State extends object = any> extends ViewNode<
+	TView,
+	State
+> {
+	constructor(
+		uri: GitUri,
+		view: TView,
+		public override parent: ViewNode,
+		public readonly file: GitFile,
+	) {
+		super(uri, view, parent);
+	}
+
+	get repoPath(): string {
+		return this.uri.repoPath!;
+	}
+
+	override toString(): string {
+		return `${super.toString()}:${this.file.path}`;
+	}
 }
 
 export abstract class ViewRefNode<
 	TView extends View = View,
 	TReference extends GitReference = GitReference,
-> extends ViewNode<TView> {
+	State extends object = any,
+> extends ViewNode<TView, State> {
+	constructor(
+		uri: GitUri,
+		view: TView,
+		protected override readonly parent: ViewNode,
+	) {
+		super(uri, view, parent);
+	}
+
 	abstract get ref(): TReference;
 
 	get repoPath(): string {
@@ -160,29 +333,30 @@ export abstract class ViewRefNode<
 	}
 
 	override toString(): string {
-		return `${super.toString()}:${GitReference.toString(this.ref, false)}`;
+		return `${super.toString()}:${getReferenceLabel(this.ref, false)}`;
 	}
 }
 
-export abstract class ViewRefFileNode<TView extends View = View> extends ViewRefNode<TView, GitRevisionReference> {
-	abstract get file(): GitFile;
+export abstract class ViewRefFileNode<TView extends View = View, State extends object = any> extends ViewFileNode<
+	TView,
+	State
+> {
+	abstract get ref(): GitRevisionReference;
 
 	override toString(): string {
 		return `${super.toString()}:${this.file.path}`;
 	}
 }
 
-export interface PageableViewNode {
+export interface PageableViewNode extends ViewNode {
 	readonly id: string;
 	limit?: number;
 	readonly hasMore: boolean;
 	loadMore(limit?: number | { until?: string | undefined }, context?: Record<string, unknown>): Promise<void>;
 }
 
-export namespace PageableViewNode {
-	export function is(node: ViewNode): node is ViewNode & PageableViewNode {
-		return isA<ViewNode & PageableViewNode>(node, 'loadMore');
-	}
+export function isPageableViewNode(node: ViewNode): node is ViewNode & PageableViewNode {
+	return isA<ViewNode & PageableViewNode>(node, 'loadMore');
 }
 
 export abstract class SubscribeableViewNode<TView extends View = View> extends ViewNode<TView> {
@@ -344,33 +518,35 @@ export abstract class RepositoryFolderNode<
 	TView extends View = View,
 	TChild extends ViewNode = ViewNode,
 > extends SubscribeableViewNode<TView> {
-	static key = ':repository';
-	static getId(repoPath: string): string {
-		return `gitlens${this.key}(${repoPath})`;
-	}
-
 	protected override splatted = true;
 	protected child: TChild | undefined;
 
 	constructor(
 		uri: GitUri,
 		view: TView,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
 		splatted: boolean,
 		private readonly options?: { showBranchAndLastFetched?: boolean },
 	) {
 		super(uri, view, parent);
 
+		this.updateContext({ repository: this.repo });
+		this._uniqueId = getViewNodeId('repository-folder', this.context);
+
 		this.splatted = splatted;
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
 		return this.repo.path;
 	}
 
-	override get id(): string {
-		return RepositoryFolderNode.getId(this.repo.path);
+	get repoPath(): string {
+		return this.repo.path;
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
@@ -411,7 +587,7 @@ export abstract class RepositoryFolderNode<
 				);
 				providerName = providers?.length ? providers[0].name : undefined;
 			} else {
-				const remote = await branch.getRemote();
+				const remote = await branch.getRemoteWithProvider();
 				providerName = remote?.provider?.name;
 			}
 
@@ -501,7 +677,10 @@ export abstract class RepositoryFolderNode<
 			return;
 		}
 
-		if (e.changed(RepositoryChange.Starred, RepositoryChangeComparisonMode.Any)) {
+		if (
+			e.changed(RepositoryChange.Opened, RepositoryChangeComparisonMode.Any) ||
+			e.changed(RepositoryChange.Starred, RepositoryChangeComparisonMode.Any)
+		) {
 			void this.parent?.triggerChange(true);
 
 			return;
@@ -521,7 +700,23 @@ export abstract class RepositoriesSubscribeableNode<
 	protected children: TChild[] | undefined;
 
 	constructor(view: TView) {
-		super(GitUri.unknown, view);
+		super(unknownGitUri, view);
+	}
+
+	override dispose() {
+		super.dispose();
+		this.resetChildren();
+	}
+
+	private resetChildren() {
+		if (this.children == null) return;
+
+		for (const child of this.children) {
+			if ('dispose' in child) {
+				child.dispose();
+			}
+		}
+		this.children = undefined;
 	}
 
 	override async getSplattedChild() {
@@ -535,11 +730,10 @@ export abstract class RepositoriesSubscribeableNode<
 	@gate()
 	@debug()
 	override refresh(reset: boolean = false) {
-		if (reset && this.children != null) {
-			for (const child of this.children) {
-				child.dispose();
-			}
-			this.children = undefined;
+		if (this.children == null) return;
+
+		if (reset) {
+			this.resetChildren();
 		}
 	}
 
@@ -583,6 +777,14 @@ export function canEditNode(node: ViewNode): node is ViewNode & { edit(): void |
 	return typeof (node as ViewNode & { edit(): void | Promise<void> }).edit === 'function';
 }
 
+export function canGetNodeRepoPath(node?: ViewNode): node is ViewNode & { repoPath: string | undefined } {
+	return node != null && 'repoPath' in node && typeof node.repoPath === 'string';
+}
+
 export function canViewDismissNode(view: View): view is View & { dismissNode(node: ViewNode): void } {
 	return typeof (view as View & { dismissNode(node: ViewNode): void }).dismissNode === 'function';
+}
+
+export function getNodeRepoPath(node?: ViewNode): string | undefined {
+	return canGetNodeRepoPath(node) ? node.repoPath : undefined;
 }

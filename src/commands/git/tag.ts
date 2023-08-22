@@ -1,25 +1,37 @@
-import { QuickInputButtons, QuickPickItem } from 'vscode';
-import { Container } from '../../container';
-import { GitReference, GitTagReference, Repository } from '../../git/models';
-import { QuickPickItemOfT } from '../../quickpicks/items/common';
-import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { QuickInputButtons } from 'vscode';
+import type { Container } from '../../container';
+import type { GitReference, GitTagReference } from '../../git/models/reference';
+import { getNameWithoutRemote, getReferenceLabel, isRevisionReference } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
+import type { QuickPickItemOfT } from '../../quickpicks/items/common';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { pluralize } from '../../system/string';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type {
+	AsyncStepResultGenerator,
+	PartialStepState,
+	QuickPickStep,
+	StepGenerator,
+	StepResultGenerator,
+	StepSelection,
+	StepState,
+} from '../quickCommand';
 import {
 	appendReposToTitle,
-	AsyncStepResultGenerator,
+	canInputStepContinue,
+	canPickStepContinue,
+	canStepContinue,
+	createConfirmStep,
+	createInputStep,
+	createPickStep,
+	endSteps,
 	inputTagNameStep,
-	PartialStepState,
 	pickBranchOrTagStep,
 	pickRepositoryStep,
 	pickTagsStep,
 	QuickCommand,
-	QuickPickStep,
-	StepGenerator,
-	StepResult,
-	StepResultGenerator,
-	StepSelection,
-	StepState,
+	StepResultBreak,
 } from '../quickCommand';
 
 interface Context {
@@ -145,7 +157,7 @@ export class TagGitCommand extends QuickCommand<State> {
 
 				const result = yield* this.pickSubcommandStep(state);
 				// Always break on the first step (so we will go back)
-				if (result === StepResult.Break) break;
+				if (result === StepResultBreak) break;
 
 				state.subcommand = result;
 			}
@@ -156,12 +168,14 @@ export class TagGitCommand extends QuickCommand<State> {
 				skippedStepTwo = false;
 				if (context.repos.length === 1) {
 					skippedStepTwo = true;
-					state.counter++;
+					if (state.repo == null) {
+						state.counter++;
+					}
 
 					state.repo = context.repos[0];
 				} else {
 					const result = yield* pickRepositoryStep(state, context);
-					if (result === StepResult.Break) continue;
+					if (result === StepResultBreak) continue;
 
 					state.repo = result;
 				}
@@ -180,7 +194,7 @@ export class TagGitCommand extends QuickCommand<State> {
 					yield* this.deleteCommandSteps(state as DeleteStepState, context);
 					break;
 				default:
-					QuickCommand.endSteps(state);
+					endSteps(state);
 					break;
 			}
 
@@ -190,11 +204,11 @@ export class TagGitCommand extends QuickCommand<State> {
 			}
 		}
 
-		return state.counter < 0 ? StepResult.Break : undefined;
+		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
 	private *pickSubcommandStep(state: PartialStepState<State>): StepResultGenerator<State['subcommand']> {
-		const step = QuickCommand.createPickStep<QuickPickItemOfT<State['subcommand']>>({
+		const step = createPickStep<QuickPickItemOfT<State['subcommand']>>({
 			title: this.title,
 			placeholder: `Choose a ${this.label} command`,
 			items: [
@@ -214,7 +228,7 @@ export class TagGitCommand extends QuickCommand<State> {
 			buttons: [QuickInputButtons.Back],
 		});
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 
 	private async *createCommandSteps(state: CreateStepState, context: Context): AsyncStepResultGenerator<void> {
@@ -229,10 +243,10 @@ export class TagGitCommand extends QuickCommand<State> {
 						`Choose a branch${context.showTags ? ' or tag' : ''} to create the new tag from`,
 					picked: state.reference?.ref ?? (await state.repo.getBranch())?.ref,
 					titleContext: ' from',
-					value: GitReference.isRevision(state.reference) ? state.reference.ref : undefined,
+					value: isRevisionReference(state.reference) ? state.reference.ref : undefined,
 				});
 				// Always break on the first step (so we will go back)
-				if (result === StepResult.Break) break;
+				if (result === StepResultBreak) break;
 
 				state.reference = result;
 			}
@@ -240,17 +254,20 @@ export class TagGitCommand extends QuickCommand<State> {
 			if (state.counter < 4 || state.name == null) {
 				const result = yield* inputTagNameStep(state, context, {
 					placeholder: 'Please provide a name for the new tag',
-					titleContext: ` at ${GitReference.toString(state.reference, { capitalize: true, icon: false })}`,
-					value: state.name ?? GitReference.getNameWithoutRemote(state.reference),
+					titleContext: ` at ${getReferenceLabel(state.reference, {
+						capitalize: true,
+						icon: false,
+					})}`,
+					value: state.name ?? getNameWithoutRemote(state.reference),
 				});
-				if (result === StepResult.Break) continue;
+				if (result === StepResultBreak) continue;
 
 				state.name = result;
 			}
 
 			if (state.counter < 5 || state.message == null) {
 				const result = yield* this.createCommandInputMessageStep(state, context);
-				if (result === StepResult.Break) continue;
+				if (result === StepResultBreak) continue;
 
 				state.message = result;
 			}
@@ -261,13 +278,13 @@ export class TagGitCommand extends QuickCommand<State> {
 
 			if (this.confirm(state.confirm)) {
 				const result = yield* this.createCommandConfirmStep(state, context);
-				if (result === StepResult.Break) continue;
+				if (result === StepResultBreak) continue;
 
 				state.flags = result;
 			}
 
-			QuickCommand.endSteps(state);
-			void state.repo.tag(
+			endSteps(state);
+			state.repo.tag(
 				...state.flags,
 				...(state.message.length !== 0 ? [`"${state.message}"`] : []),
 				state.name,
@@ -280,9 +297,12 @@ export class TagGitCommand extends QuickCommand<State> {
 		state: CreateStepState,
 		context: Context,
 	): AsyncStepResultGenerator<string> {
-		const step = QuickCommand.createInputStep({
+		const step = createInputStep({
 			title: appendReposToTitle(
-				`${context.title} at ${GitReference.toString(state.reference, { capitalize: true, icon: false })}`,
+				`${context.title} at ${getReferenceLabel(state.reference, {
+					capitalize: true,
+					icon: false,
+				})}`,
 				state,
 				context,
 			),
@@ -293,35 +313,29 @@ export class TagGitCommand extends QuickCommand<State> {
 
 		const value: StepSelection<typeof step> = yield step;
 
-		if (
-			!QuickCommand.canStepContinue(step, state, value) ||
-			!(await QuickCommand.canInputStepContinue(step, state, value))
-		) {
-			return StepResult.Break;
+		if (!canStepContinue(step, state, value) || !(await canInputStepContinue(step, state, value))) {
+			return StepResultBreak;
 		}
 
 		return value;
 	}
 
-	private *createCommandConfirmStep(
-		state: CreateStepState<CreateState>,
-		context: Context,
-	): StepResultGenerator<CreateFlags[]> {
-		const step: QuickPickStep<FlagsQuickPickItem<CreateFlags>> = QuickCommand.createConfirmStep(
+	private *createCommandConfirmStep(state: CreateStepState, context: Context): StepResultGenerator<CreateFlags[]> {
+		const step: QuickPickStep<FlagsQuickPickItem<CreateFlags>> = createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
-				FlagsQuickPickItem.create<CreateFlags>(state.flags, state.message.length !== 0 ? ['-m'] : [], {
+				createFlagsQuickPickItem<CreateFlags>(state.flags, state.message.length !== 0 ? ['-m'] : [], {
 					label: context.title,
 					description: state.message.length !== 0 ? '-m' : '',
-					detail: `Will create a new tag named ${state.name} at ${GitReference.toString(state.reference)}`,
+					detail: `Will create a new tag named ${state.name} at ${getReferenceLabel(state.reference)}`,
 				}),
-				FlagsQuickPickItem.create<CreateFlags>(
+				createFlagsQuickPickItem<CreateFlags>(
 					state.flags,
 					state.message.length !== 0 ? ['--force', '-m'] : ['--force'],
 					{
 						label: `Force ${context.title}`,
 						description: `--force${state.message.length !== 0 ? ' -m' : ''}`,
-						detail: `Will forcibly create a new tag named ${state.name} at ${GitReference.toString(
+						detail: `Will forcibly create a new tag named ${state.name} at ${getReferenceLabel(
 							state.reference,
 						)}`,
 					},
@@ -330,7 +344,7 @@ export class TagGitCommand extends QuickCommand<State> {
 			context,
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 
 	private async *deleteCommandSteps(state: DeleteStepState, context: Context): StepGenerator {
@@ -347,7 +361,7 @@ export class TagGitCommand extends QuickCommand<State> {
 					placeholder: 'Choose tags to delete',
 				});
 				// Always break on the first step (so we will go back)
-				if (result === StepResult.Break) break;
+				if (result === StepResultBreak) break;
 
 				state.references = result;
 			}
@@ -355,28 +369,25 @@ export class TagGitCommand extends QuickCommand<State> {
 			context.title = getTitle(pluralize('Tag', state.references.length, { only: true }), state.subcommand);
 
 			const result = yield* this.deleteCommandConfirmStep(state, context);
-			if (result === StepResult.Break) continue;
+			if (result === StepResultBreak) continue;
 
-			QuickCommand.endSteps(state);
-			void state.repo.tagDelete(state.references);
+			endSteps(state);
+			state.repo.tagDelete(state.references);
 		}
 	}
 
-	private *deleteCommandConfirmStep(
-		state: DeleteStepState<DeleteState>,
-		context: Context,
-	): StepResultGenerator<void> {
-		const step: QuickPickStep<QuickPickItem> = QuickCommand.createConfirmStep(
+	private *deleteCommandConfirmStep(state: DeleteStepState, context: Context): StepResultGenerator<void> {
+		const step: QuickPickStep = createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
 				{
 					label: context.title,
-					detail: `Will delete ${GitReference.toString(state.references)}`,
+					detail: `Will delete ${getReferenceLabel(state.references)}`,
 				},
 			],
 			context,
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection) ? undefined : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? undefined : StepResultBreak;
 	}
 }

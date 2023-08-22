@@ -1,46 +1,42 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { Autolink } from '../../annotations/autolinks';
 import { GitUri } from '../../git/gitUri';
-import { GitFile, GitLog, GitRemote, IssueOrPullRequest, PullRequest } from '../../git/models';
-import { RichRemoteProvider } from '../../git/remotes/provider';
+import type { IssueOrPullRequest } from '../../git/models/issue';
+import type { GitLog } from '../../git/models/log';
+import { PullRequest } from '../../git/models/pullRequest';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
-import { PromiseCancelledErrorWithId } from '../../system/promise';
-import { ViewsWithCommits } from '../viewBase';
+import { union } from '../../system/iterable';
+import type { ViewsWithCommits } from '../viewBase';
 import { AutolinkedItemNode } from './autolinkedItemNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { PullRequestNode } from './pullRequestNode';
-import { ContextValues, ViewNode } from './viewNode';
-
-export interface FilesQueryResults {
-	label: string;
-	files: GitFile[] | undefined;
-	filtered?: {
-		filter: 'left' | 'right';
-		files: GitFile[];
-	};
-}
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 let instanceId = 0;
 
 export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
-	private _children: ViewNode[] | undefined;
 	private _instanceId: number;
 
 	constructor(
 		view: ViewsWithCommits,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly repoPath: string,
-		public readonly remote: GitRemote<RichRemoteProvider>,
 		public readonly log: GitLog,
 		private expand: boolean,
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
+
 		this._instanceId = instanceId++;
+		this.updateContext({ autolinksId: String(this._instanceId) });
+		this._uniqueId = getViewNodeId('autolinks', this.context);
 	}
 
 	override get id(): string {
-		return `${this.parent!.id}:results:autolinked:${this._instanceId}`;
+		return this._uniqueId;
 	}
+
+	private _children: ViewNode[] | undefined;
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
@@ -50,20 +46,33 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 			if (commits.length) {
 				const combineMessages = commits.map(c => c.message).join('\n');
 
-				const [autolinkedMapResult /*, ...prsResults*/] = await Promise.allSettled([
-					this.view.container.autolinks.getIssueOrPullRequestLinks(combineMessages, this.remote),
-					// Only get PRs from the first 100 commits to attempt to avoid hitting the api limits
-					// ...commits.slice(0, 100).map(c => this.remote.provider.getPullRequestForCommit(c.sha)),
-				]);
+				let items: Map<string, Autolink | IssueOrPullRequest | PullRequest>;
 
-				const items = new Map<string, IssueOrPullRequest | PullRequest>();
+				const customAutolinks = this.view.container.autolinks.getAutolinks(combineMessages);
 
-				if (autolinkedMapResult.status === 'fulfilled' && autolinkedMapResult.value != null) {
-					for (const [id, issue] of autolinkedMapResult.value) {
-						if (issue == null || issue instanceof PromiseCancelledErrorWithId) continue;
+				const remote = await this.view.container.git.getBestRemoteWithProvider(this.repoPath);
+				if (remote != null) {
+					const providerAutolinks = this.view.container.autolinks.getAutolinks(combineMessages, remote);
 
-						items.set(id, issue);
+					items = providerAutolinks;
+
+					const [autolinkedMapResult /*, ...prsResults*/] = await Promise.allSettled([
+						this.view.container.autolinks.getLinkedIssuesAndPullRequests(combineMessages, remote, {
+							autolinks: providerAutolinks,
+						}),
+						// Only get PRs from the first 100 commits to attempt to avoid hitting the api limits
+						// ...commits.slice(0, 100).map(c => this.remote.provider.getPullRequestForCommit(c.sha)),
+					]);
+
+					if (autolinkedMapResult.status === 'fulfilled' && autolinkedMapResult.value != null) {
+						for (const [id, issue] of autolinkedMapResult.value) {
+							items.set(id, issue);
+						}
 					}
+
+					items = new Map(union(items, customAutolinks));
+				} else {
+					items = customAutolinks;
 				}
 
 				// for (const result of prsResults) {

@@ -4,7 +4,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import fetch from 'node-fetch';
 import * as checker from 'license-checker-rseidelsohn';
-import { spawn } from 'child_process';
 
 /** @typedef { { licenses: string; repository: string; licenseFile: string } } PackageInfo **/
 
@@ -60,12 +59,12 @@ async function generateThirdpartyNotices(packages) {
 			name = key;
 		}
 
-		if (name === 'gitlens') continue;
+		if (name === 'gitlens' || name.startsWith('@gitkraken')) continue;
 		if (data.licenseFile == null) continue;
 
 		let license;
 		if (data.licenseFile.startsWith('https://')) {
-			const response = await fetch(data.licenseFile);
+			const response = await fetch(data.licenseFile, { method: 'GET' });
 			license = await response.text();
 		} else {
 			license = fs.readFileSync(data.licenseFile, 'utf8');

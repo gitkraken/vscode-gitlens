@@ -1,23 +1,25 @@
-import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Features } from '../../features';
-import { GitUri } from '../../git/gitUri';
-import {
-	GitBranch,
-	GitRemote,
-	GitStatus,
-	Repository,
-	RepositoryChange,
-	RepositoryChangeComparisonMode,
-	RepositoryChangeEvent,
-	RepositoryFileSystemChangeEvent,
-} from '../../git/models';
+import type { GitUri } from '../../git/gitUri';
+import { GitBranch } from '../../git/models/branch';
+import { GitRemote } from '../../git/models/remote';
+import type { RepositoryChangeEvent, RepositoryFileSystemChangeEvent } from '../../git/models/repository';
+import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
+import type { GitStatus } from '../../git/models/status';
+import type {
+	CloudWorkspace,
+	CloudWorkspaceRepositoryDescriptor,
+	LocalWorkspace,
+	LocalWorkspaceRepositoryDescriptor,
+} from '../../plus/workspaces/models';
+import { WorkspaceType } from '../../plus/workspaces/models';
 import { findLastIndex } from '../../system/array';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { disposableInterval } from '../../system/function';
 import { pad } from '../../system/string';
-import { RepositoriesView } from '../repositoriesView';
+import type { ViewsWithRepositories } from '../viewBase';
 import { BranchesNode } from './branchesNode';
 import { BranchNode } from './branchNode';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
@@ -31,30 +33,47 @@ import { RemotesNode } from './remotesNode';
 import { StashesNode } from './stashesNode';
 import { StatusFilesNode } from './statusFilesNode';
 import { TagsNode } from './tagsNode';
-import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
+import type { AmbientContext, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 import { WorktreesNode } from './worktreesNode';
 
-export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
-	static key = ':repository';
-	static getId(repoPath: string): string {
-		return `gitlens${this.key}(${repoPath})`;
-	}
-
+export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories> {
 	private _children: ViewNode[] | undefined;
 	private _status: Promise<GitStatus | undefined>;
 
-	constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
+	constructor(
+		uri: GitUri,
+		view: ViewsWithRepositories,
+		parent: ViewNode,
+		public readonly repo: Repository,
+		context?: AmbientContext,
+	) {
 		super(uri, view, parent);
 
+		this.updateContext({ ...context, repository: this.repo });
+		this._uniqueId = getViewNodeId('repository', this.context);
+
 		this._status = this.repo.getStatus();
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
 		return this.repo.path;
 	}
 
-	override get id(): string {
-		return RepositoryNode.getId(this.repo.path);
+	get repoPath(): string {
+		return this.repo.path;
+	}
+
+	get workspace(): CloudWorkspace | LocalWorkspace | undefined {
+		return this.context.workspace;
+	}
+
+	get wsRepositoryDescriptor(): CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor | undefined {
+		return this.context.wsRepositoryDescriptor;
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -124,7 +143,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				}
 
 				if (this.view.config.includeWorkingTree && status.files.length !== 0) {
-					const range = undefined; //status.upstream ? GitRevision.createRange(status.upstream, branch.ref) : undefined;
+					const range = undefined; //status.upstream ? createRange(status.upstream, branch.ref) : undefined;
 					children.push(new StatusFilesNode(this.view, this, status, range));
 				}
 
@@ -134,7 +153,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 				if (this.view.config.showCommits) {
 					children.push(
-						new BranchNode(this.uri, this.view, this, branch, true, {
+						new BranchNode(this.uri, this.view, this, this.repo, branch, true, {
 							showAsCommits: true,
 							showComparison: false,
 							showCurrent: false,
@@ -169,7 +188,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				children.push(new ContributorsNode(this.uri, this.view, this, this.repo));
 			}
 
-			if (this.view.config.showIncomingActivity) {
+			if (this.view.config.showIncomingActivity && !this.repo.provider.virtual) {
 				children.push(new ReflogNode(this.uri, this.view, this, this.repo));
 			}
 
@@ -188,13 +207,36 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			lastFetched
 				? `${pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(lastFetched, false)}`
 				: ''
-		}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}`;
-		let iconSuffix = '';
+		}${this.repo.formattedName ? `\\\n${this.uri.repoPath}` : ''}`;
 		let workingStatus = '';
+
+		const { workspace } = this.context;
 
 		let contextValue: string = ContextValues.Repository;
 		if (this.repo.starred) {
 			contextValue += '+starred';
+		}
+		if (workspace != null) {
+			contextValue += '+workspace';
+			if (workspace.type === WorkspaceType.Cloud) {
+				contextValue += '+cloud';
+			} else if (workspace.type === WorkspaceType.Local) {
+				contextValue += '+local';
+			}
+		}
+
+		let iconSuffix;
+		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.
+		if (this.repo.closed) {
+			contextValue += '+closed';
+			iconSuffix = '';
+		} else {
+			iconSuffix = '-solid';
+		}
+
+		if (this.repo.virtual) {
+			contextValue += '+virtual';
+			iconSuffix = '-cloud';
 		}
 
 		const status = await this._status;
@@ -225,7 +267,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				providerName = remote?.provider?.name;
 			}
 
-			iconSuffix = workingStatus ? '-blue' : '';
+			iconSuffix += workingStatus ? '-blue' : '';
 			if (status.upstream != null) {
 				tooltip += ` is ${status.getUpstreamStatus({
 					empty: `up to date with $(git-branch) ${status.upstream}${
@@ -239,10 +281,10 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 				if (status.state.behind) {
 					contextValue += '+behind';
-					iconSuffix = '-red';
+					iconSuffix += '-red';
 				}
 				if (status.state.ahead) {
-					iconSuffix = status.state.behind ? '-yellow' : '-green';
+					iconSuffix += status.state.behind ? '-yellow' : '-green';
 					contextValue += '+ahead';
 				}
 			}
@@ -256,7 +298,16 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			}
 		}
 
-		const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
+		if (workspace != null) {
+			tooltip += `\n\nRepository is ${this.repo.closed ? 'not ' : ''}open in the current window`;
+		}
+
+		const item = new TreeItem(
+			label,
+			workspace != null || this.view.type === 'workspaces'
+				? TreeItemCollapsibleState.Collapsed
+				: TreeItemCollapsibleState.Expanded,
+		);
 		item.id = this.id;
 		item.contextValue = contextValue;
 		item.description = `${description ?? ''}${
@@ -266,6 +317,10 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			dark: this.view.container.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
 			light: this.view.container.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`),
 		};
+
+		if (workspace != null && !this.repo.closed) {
+			item.resourceUri = Uri.parse(`gitlens-view://workspaces/repository/open`);
+		}
 
 		const markdown = new MarkdownString(tooltip, true);
 		markdown.supportHtml = true;
@@ -331,9 +386,9 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 					}
 
 					if (this.splatted) {
-						void this.view.triggerNodeChange(this.parent ?? this);
+						this.view.triggerNodeChange(this.parent ?? this);
 					} else {
-						void this.view.triggerNodeChange(this);
+						this.view.triggerNodeChange(this);
 					}
 				}, interval),
 			);
@@ -380,7 +435,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 					index++;
 				}
 
-				const range = undefined; //status.upstream ? GitRevision.createRange(status.upstream, status.sha) : undefined;
+				const range = undefined; //status.upstream ? createRange(status.upstream, status.sha) : undefined;
 				this._children.splice(index, deleteCount, new StatusFilesNode(this.view, this, status, range));
 			} else if (index !== -1) {
 				this._children.splice(index, 1);
@@ -404,6 +459,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				RepositoryChange.Config,
 				RepositoryChange.Index,
 				RepositoryChange.Heads,
+				RepositoryChange.Opened,
 				RepositoryChange.Status,
 				RepositoryChange.Unknown,
 				RepositoryChangeComparisonMode.Any,
@@ -417,21 +473,21 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		if (e.changed(RepositoryChange.Remotes, RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
 			const node = this._children.find(c => c instanceof RemotesNode);
 			if (node != null) {
-				void this.view.triggerNodeChange(node);
+				this.view.triggerNodeChange(node);
 			}
 		}
 
 		if (e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
 			const node = this._children.find(c => c instanceof StashesNode);
 			if (node != null) {
-				void this.view.triggerNodeChange(node);
+				this.view.triggerNodeChange(node);
 			}
 		}
 
 		if (e.changed(RepositoryChange.Tags, RepositoryChangeComparisonMode.Any)) {
 			const node = this._children.find(c => c instanceof TagsNode);
 			if (node != null) {
-				void this.view.triggerNodeChange(node);
+				this.view.triggerNodeChange(node);
 			}
 		}
 	}

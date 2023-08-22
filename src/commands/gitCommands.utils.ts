@@ -1,8 +1,8 @@
 import { GitCommandSorting } from '../config';
-import { ContextKeys } from '../constants';
+import type { RecentUsage } from '../constants';
 import type { Container } from '../container';
-import { getContext } from '../context';
-import { Usage, WorkspaceStorageKeys } from '../storage';
+import { configuration } from '../system/configuration';
+import { getContext } from '../system/context';
 import { BranchGitCommand } from './git/branch';
 import { CherryPickGitCommand } from './git/cherry-pick';
 import { CoAuthorsGitCommand } from './git/coauthors';
@@ -12,6 +12,7 @@ import { MergeGitCommand } from './git/merge';
 import { PullGitCommand } from './git/pull';
 import { PushGitCommand } from './git/push';
 import { RebaseGitCommand } from './git/rebase';
+import { RemoteGitCommand } from './git/remote';
 import { ResetGitCommand } from './git/reset';
 import { RevertGitCommand } from './git/revert';
 import { SearchGitCommand } from './git/search';
@@ -52,12 +53,15 @@ export class PickCommandStep implements QuickPickStep {
 	readonly placeholder = 'Choose a git command';
 	readonly title = 'GitLens';
 
-	constructor(private readonly container: Container, args?: GitCommandsCommandArgs) {
-		const hasVirtualFolders = getContext<boolean>(ContextKeys.HasVirtualFolders, false);
+	constructor(
+		private readonly container: Container,
+		args?: GitCommandsCommandArgs,
+	) {
+		const hasVirtualFolders = getContext<boolean>('gitlens:hasVirtualFolders', false);
 		const readonly =
 			hasVirtualFolders ||
-			getContext<boolean>(ContextKeys.Readonly, false) ||
-			getContext<boolean>(ContextKeys.Untrusted, false);
+			getContext<boolean>('gitlens:readonly', false) ||
+			getContext<boolean>('gitlens:untrusted', false);
 
 		this.items = [
 			readonly ? undefined : new BranchGitCommand(container, args?.command === 'branch' ? args : undefined),
@@ -73,6 +77,7 @@ export class PickCommandStep implements QuickPickStep {
 			readonly ? undefined : new PullGitCommand(container, args?.command === 'pull' ? args : undefined),
 			readonly ? undefined : new PushGitCommand(container, args?.command === 'push' ? args : undefined),
 			readonly ? undefined : new RebaseGitCommand(container, args?.command === 'rebase' ? args : undefined),
+			readonly ? undefined : new RemoteGitCommand(container, args?.command === 'remote' ? args : undefined),
 			readonly ? undefined : new ResetGitCommand(container, args?.command === 'reset' ? args : undefined),
 			readonly ? undefined : new RevertGitCommand(container, args?.command === 'revert' ? args : undefined),
 			new SearchGitCommand(container, args?.command === 'search' || args?.command === 'grep' ? args : undefined),
@@ -96,8 +101,8 @@ export class PickCommandStep implements QuickPickStep {
 				: new WorktreeGitCommand(container, args?.command === 'worktree' ? args : undefined),
 		].filter(<T>(i: T | undefined): i is T => i != null);
 
-		if (this.container.config.gitCommands.sortBy === GitCommandSorting.Usage) {
-			const usage = this.container.storage.getWorkspace<Usage>(WorkspaceStorageKeys.GitCommandPaletteUsage);
+		if (configuration.get('gitCommands.sortBy') === GitCommandSorting.Usage) {
+			const usage = this.container.storage.getWorkspace('gitComandPalette:usage');
 			if (usage != null) {
 				this.items.sort((a, b) => (usage[b.key] ?? 0) - (usage[a.key] ?? 0));
 			}
@@ -137,12 +142,12 @@ export class PickCommandStep implements QuickPickStep {
 	}
 
 	private async updateCommandUsage(id: string, timestamp: number) {
-		let usage = this.container.storage.getWorkspace<Usage>(WorkspaceStorageKeys.GitCommandPaletteUsage);
+		let usage = this.container.storage.getWorkspace(`gitComandPalette:usage`);
 		if (usage === undefined) {
-			usage = Object.create(null) as Usage;
+			usage = Object.create(null) as RecentUsage;
 		}
 
 		usage[id] = timestamp;
-		await this.container.storage.storeWorkspace(WorkspaceStorageKeys.GitCommandPaletteUsage, usage);
+		await this.container.storage.storeWorkspace(`gitComandPalette:usage`, usage);
 	}
 }

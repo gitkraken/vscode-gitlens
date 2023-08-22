@@ -1,42 +1,39 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ViewBranchesLayout } from '../../configuration';
+import { ViewBranchesLayout } from '../../config';
 import { GitUri } from '../../git/gitUri';
-import { Repository } from '../../git/models';
+import type { Repository } from '../../git/models/repository';
 import { makeHierarchical } from '../../system/array';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
-import { BranchesView } from '../branchesView';
 import { RepositoriesView } from '../repositoriesView';
+import type { ViewsWithBranchesNode } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
-import { RepositoryNode } from './repositoryNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
-	static key = ':branches';
-	static getId(repoPath: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}`;
-	}
-
-	private _children: ViewNode[] | undefined;
-
+export class BranchesNode extends ViewNode<ViewsWithBranchesNode> {
 	constructor(
 		uri: GitUri,
-		view: BranchesView | RepositoriesView,
-		parent: ViewNode,
+		view: ViewsWithBranchesNode,
+		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
 	) {
 		super(uri, view, parent);
+
+		this.updateContext({ repository: repo });
+		this._uniqueId = getViewNodeId('branches', this.context);
 	}
 
 	override get id(): string {
-		return BranchesNode.getId(this.repo.path);
+		return this._uniqueId;
 	}
 
 	get repoPath(): string {
 		return this.repo.path;
 	}
+
+	private _children: ViewNode[] | undefined;
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
@@ -50,12 +47,20 @@ export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
 			// TODO@eamodio handle paging
 			const branchNodes = branches.values.map(
 				b =>
-					new BranchNode(GitUri.fromRepoPath(this.uri.repoPath!, b.ref), this.view, this, b, false, {
-						showComparison:
-							this.view instanceof RepositoriesView
-								? this.view.config.branches.showBranchComparison
-								: this.view.config.showBranchComparison,
-					}),
+					new BranchNode(
+						GitUri.fromRepoPath(this.uri.repoPath!, b.ref),
+						this.view,
+						this,
+						this.repo,
+						b,
+						false,
+						{
+							showComparison:
+								this.view instanceof RepositoriesView
+									? this.view.config.branches.showBranchComparison
+									: this.view.config.showBranchComparison,
+						},
+					),
 			);
 			if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchNodes;
 
@@ -70,16 +75,7 @@ export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
 				},
 			);
 
-			const root = new BranchOrTagFolderNode(
-				this.view,
-				this,
-				'branch',
-				this.repo.path,
-				'',
-				undefined,
-				hierarchy,
-				'branches',
-			);
+			const root = new BranchOrTagFolderNode(this.view, this, 'branch', hierarchy, this.repo.path, '', undefined);
 			this._children = root.getChildren();
 		}
 
@@ -92,6 +88,10 @@ export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
 		item.contextValue = ContextValues.Branches;
 		if (await this.repo.hasRemotes()) {
 			item.contextValue += '+remotes';
+		}
+		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.
+		if (this.repo.closed) {
+			item.contextValue += '+closed';
 		}
 		item.iconPath = new ThemeIcon('git-branch');
 

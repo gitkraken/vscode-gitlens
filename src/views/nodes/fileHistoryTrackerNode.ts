@@ -1,18 +1,22 @@
-import { Disposable, FileType, TextEditor, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
-import { UriComparer } from '../../comparers';
-import { ContextKeys } from '../../constants';
-import { setContext } from '../../context';
-import { GitCommitish, GitUri } from '../../git/gitUri';
-import { GitReference, GitRevision } from '../../git/models';
-import { Logger } from '../../logger';
-import { ReferencePicker } from '../../quickpicks/referencePicker';
+import type { TextEditor } from 'vscode';
+import { Disposable, FileType, TreeItem, TreeItemCollapsibleState, window, workspace } from 'vscode';
+import type { GitCommitish } from '../../git/gitUri';
+import { GitUri, unknownGitUri } from '../../git/gitUri';
+import { isBranchReference, isSha } from '../../git/models/reference';
+import { showReferencePicker } from '../../quickpicks/referencePicker';
+import { UriComparer } from '../../system/comparers';
+import { setContext } from '../../system/context';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
-import { debounce, Deferrable } from '../../system/function';
+import type { Deferrable } from '../../system/function';
+import { debounce } from '../../system/function';
+import { Logger } from '../../system/logger';
+import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
 import { isVirtualUri } from '../../system/utils';
-import { FileHistoryView } from '../fileHistoryView';
+import type { FileHistoryView } from '../fileHistoryView';
 import { FileHistoryNode } from './fileHistoryNode';
-import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, SubscribeableViewNode } from './viewNode';
 
 export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView> {
 	private _base: string | undefined;
@@ -20,7 +24,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	protected override splatted = true;
 
 	constructor(view: FileHistoryView) {
-		super(GitUri.unknown, view);
+		super(unknownGitUri, view);
 	}
 
 	override dispose() {
@@ -57,8 +61,8 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 			let folder = false;
 			try {
-				const stat = await workspace.fs.stat(this.uri);
-				if (stat.type === FileType.Directory) {
+				const stats = await workspace.fs.stat(this.uri);
+				if ((stats.type & FileType.Directory) === FileType.Directory) {
 					folder = true;
 				}
 			} catch {}
@@ -68,7 +72,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			let branch;
 			if (!commitish.sha || commitish.sha === 'HEAD') {
 				branch = await this.view.container.git.getBranch(this.uri.repoPath);
-			} else if (!GitRevision.isSha(commitish.sha)) {
+			} else if (!isSha(commitish.sha)) {
 				({
 					values: [branch],
 				} = await this.view.container.git.getBranches(this.uri.repoPath, {
@@ -95,13 +99,13 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	}
 
 	get hasUri(): boolean {
-		return this._uri != GitUri.unknown;
+		return this._uri != unknownGitUri && this._uri.repoPath != null;
 	}
 
 	@gate()
 	@log()
 	async changeBase() {
-		const pick = await ReferencePicker.show(
+		const pick = await showReferencePicker(
 			this.uri.repoPath!,
 			'Change File History Base',
 			'Choose a reference to set as the new base',
@@ -114,7 +118,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		);
 		if (pick == null) return;
 
-		if (GitReference.isBranch(pick)) {
+		if (isBranchReference(pick)) {
 			const branch = await this.view.container.git.getBranch(this.uri.repoPath);
 			this._base = branch?.name === pick.name ? undefined : pick.ref;
 		} else {
@@ -127,16 +131,14 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	}
 
 	@gate()
-	@debug({
-		exit: r => `returned ${r}`,
-	})
+	@debug({ exit: true })
 	override async refresh(reset: boolean = false) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		if (!this.canSubscribe) return false;
 
 		if (reset) {
-			if (this._uri != null && this._uri !== GitUri.unknown) {
+			if (this._uri != null && this._uri !== unknownGitUri) {
 				await this.view.container.tracker.resetCache(this._uri, 'log');
 			}
 
@@ -155,16 +157,12 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 			this.reset();
 
-			if (cc != null) {
-				cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
-			}
+			setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
 			return false;
 		}
 
 		if (editor.document.uri.path === this.uri.path) {
-			if (cc != null) {
-				cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
-			}
+			setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
 			return true;
 		}
 
@@ -195,9 +193,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			this.resetChild();
 		}
 
-		if (cc != null) {
-			cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
-		}
+		setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
 		return false;
 	}
 
@@ -252,7 +248,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	}
 
 	setUri(uri?: GitUri) {
-		this._uri = uri ?? GitUri.unknown;
-		void setContext(ContextKeys.ViewsFileHistoryCanPin, this.hasUri);
+		this._uri = uri ?? unknownGitUri;
+		void setContext('gitlens:views:fileHistory:canPin', this.hasUri);
 	}
 }

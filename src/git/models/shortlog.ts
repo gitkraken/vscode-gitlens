@@ -1,4 +1,4 @@
-import { GitContributor } from './contributor';
+import type { GitContributor } from './contributor';
 
 export interface GitShortLog {
 	readonly repoPath: string;

@@ -1,7 +1,10 @@
-import { Disposable, Event, EventEmitter, Selection, TextEditor, TextEditorSelectionChangeEvent, window } from 'vscode';
-import { Logger } from '../logger';
+import type { Event, Selection, TextEditor, TextEditorSelectionChangeEvent } from 'vscode';
+import { Disposable, EventEmitter, window } from 'vscode';
 import { debug } from '../system/decorators/log';
-import { debounce, Deferrable } from '../system/function';
+import type { Deferrable } from '../system/function';
+import { debounce } from '../system/function';
+import { Logger } from '../system/logger';
+import { getLogScope } from '../system/logger.scope';
 import { isTextEditor } from '../system/utils';
 
 export interface LinesChangeEvent {
@@ -115,7 +118,7 @@ export class LineTracker<T> implements Disposable {
 
 	@debug({ args: false })
 	subscribe(subscriber: unknown, subscription: Disposable): Disposable {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		const disposable = {
 			dispose: () => this.unsubscribe(subscriber),
@@ -132,7 +135,7 @@ export class LineTracker<T> implements Disposable {
 		}
 
 		if (first) {
-			Logger.debug(cc, 'Starting line tracker...');
+			Logger.debug(scope, 'Starting line tracker...');
 
 			this._disposable = Disposable.from(
 				window.onDidChangeActiveTextEditor(debounce(this.onActiveTextEditorChanged, 0), this),
@@ -178,7 +181,7 @@ export class LineTracker<T> implements Disposable {
 		if (!options?.force && !this._suspended) return;
 
 		this._suspended = false;
-		void this.onResume?.();
+		this.onResume?.();
 		this.trigger('editor');
 	}
 
@@ -189,7 +192,7 @@ export class LineTracker<T> implements Disposable {
 		if (!options?.force && this._suspended) return;
 
 		this._suspended = true;
-		void this.onSuspend?.();
+		this.onSuspend?.();
 		this.trigger('editor');
 	}
 
@@ -212,31 +215,27 @@ export class LineTracker<T> implements Disposable {
 					this._linesChangedDebounced.cancel();
 				}
 
-				void this.fireLinesChanged(e);
+				this.fireLinesChanged(e);
 			});
 
 			return;
 		}
 
 		if (this._linesChangedDebounced == null) {
-			this._linesChangedDebounced = debounce(
-				(e: LinesChangeEvent) => {
-					if (e.editor !== window.activeTextEditor) return;
-					// Make sure we are still on the same lines
-					if (!LineTracker.includes(e.selections, LineTracker.toLineSelections(e.editor?.selections))) {
-						return;
-					}
+			this._linesChangedDebounced = debounce((e: LinesChangeEvent) => {
+				if (e.editor !== window.activeTextEditor) return;
+				// Make sure we are still on the same lines
+				if (!LineTracker.includes(e.selections, LineTracker.toLineSelections(e.editor?.selections))) {
+					return;
+				}
 
-					void this.fireLinesChanged(e);
-				},
-				250,
-				{ track: true },
-			);
+				this.fireLinesChanged(e);
+			}, 250);
 		}
 
 		// If we have no pending moves, then fire an immediate pending event, and defer the real event
 		if (!this._linesChangedDebounced.pending?.()) {
-			void this.fireLinesChanged({ ...e, pending: true });
+			this.fireLinesChanged({ ...e, pending: true });
 		}
 
 		this._linesChangedDebounced(e);

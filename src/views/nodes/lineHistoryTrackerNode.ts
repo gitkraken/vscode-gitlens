@@ -1,19 +1,23 @@
-import { Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { UriComparer } from '../../comparers';
-import { ContextKeys } from '../../constants';
-import { setContext } from '../../context';
-import { GitCommitish, GitUri } from '../../git/gitUri';
-import { GitReference, GitRevision } from '../../git/models';
-import { Logger } from '../../logger';
-import { ReferencePicker } from '../../quickpicks/referencePicker';
+import type { Selection } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import type { GitCommitish } from '../../git/gitUri';
+import { GitUri, unknownGitUri } from '../../git/gitUri';
+import { deletedOrMissing } from '../../git/models/constants';
+import { isBranchReference, isSha } from '../../git/models/reference';
+import { showReferencePicker } from '../../quickpicks/referencePicker';
+import { UriComparer } from '../../system/comparers';
+import { setContext } from '../../system/context';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { debounce } from '../../system/function';
-import { LinesChangeEvent } from '../../trackers/gitLineTracker';
-import { FileHistoryView } from '../fileHistoryView';
-import { LineHistoryView } from '../lineHistoryView';
+import { Logger } from '../../system/logger';
+import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
+import type { LinesChangeEvent } from '../../trackers/gitLineTracker';
+import type { FileHistoryView } from '../fileHistoryView';
+import type { LineHistoryView } from '../lineHistoryView';
 import { LineHistoryNode } from './lineHistoryNode';
-import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, SubscribeableViewNode } from './viewNode';
 
 export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView | LineHistoryView> {
 	private _base: string | undefined;
@@ -23,7 +27,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	protected override splatted = true;
 
 	constructor(view: FileHistoryView | LineHistoryView) {
-		super(GitUri.unknown, view);
+		super(unknownGitUri, view);
 	}
 
 	override dispose() {
@@ -55,11 +59,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 				this.view.message = 'There was no selection provided for line history.';
 				this.view.description = `${this.uri.fileName}${
 					this.uri.sha
-						? ` ${
-								this.uri.sha === GitRevision.deletedOrMissing
-									? this.uri.shortSha
-									: `(${this.uri.shortSha})`
-						  }`
+						? ` ${this.uri.sha === deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
 						: ''
 				}${!this.followingEditor ? ' (pinned)' : ''}`;
 				return [];
@@ -77,7 +77,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			let branch;
 			if (!commitish.sha || commitish.sha === 'HEAD') {
 				branch = await this.view.container.git.getBranch(this.uri.repoPath);
-			} else if (!GitRevision.isSha(commitish.sha)) {
+			} else if (!isSha(commitish.sha)) {
 				({
 					values: [branch],
 				} = await this.view.container.git.getBranches(this.uri.repoPath, {
@@ -106,13 +106,13 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	}
 
 	get hasUri(): boolean {
-		return this._uri != GitUri.unknown;
+		return this._uri != unknownGitUri && this._uri.repoPath != null;
 	}
 
 	@gate()
 	@log()
 	async changeBase() {
-		const pick = await ReferencePicker.show(
+		const pick = await showReferencePicker(
 			this.uri.repoPath!,
 			'Change Line History Base',
 			'Choose a reference to set as the new base',
@@ -125,7 +125,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		);
 		if (pick == null) return;
 
-		if (GitReference.isBranch(pick)) {
+		if (isBranchReference(pick)) {
 			const branch = await this.view.container.git.getBranch(this.uri.repoPath);
 			this._base = branch?.name === pick.name ? undefined : pick.ref;
 		} else {
@@ -138,16 +138,14 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	}
 
 	@gate()
-	@debug({
-		exit: r => `returned ${r}`,
-	})
+	@debug({ exit: true })
 	override async refresh(reset: boolean = false) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		if (!this.canSubscribe) return false;
 
 		if (reset) {
-			if (this._uri != null && this._uri !== GitUri.unknown) {
+			if (this._uri != null && this._uri !== unknownGitUri) {
 				await this.view.container.tracker.resetCache(this._uri, 'log');
 			}
 
@@ -166,9 +164,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 			this.reset();
 
-			if (cc != null) {
-				cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
-			}
+			setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
 			return false;
 		}
 
@@ -177,9 +173,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			this._selection != null &&
 			editor.selection.isEqual(this._selection)
 		) {
-			if (cc != null) {
-				cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
-			}
+			setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
 			return true;
 		}
 
@@ -204,9 +198,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			this.resetChild();
 		}
 
-		if (cc != null) {
-			cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
-		}
+		setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
 		return false;
 	}
 
@@ -255,7 +247,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	}
 
 	setUri(uri?: GitUri) {
-		this._uri = uri ?? GitUri.unknown;
-		void setContext(ContextKeys.ViewsFileHistoryCanPin, this.hasUri);
+		this._uri = uri ?? unknownGitUri;
+		void setContext('gitlens:views:fileHistory:canPin', this.hasUri);
 	}
 }

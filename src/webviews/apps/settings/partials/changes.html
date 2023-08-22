@@ -1,19 +1,19 @@
 <section id="changes" class="section--settings section--collapsible">
 	<div class="section__header">
 		<h2>
-			Gutter Changes
+			File Changes
 			<a
 				class="link__learn-more"
 				title="Learn more"
-				href="https://github.com/gitkraken/vscode-gitlens/#gutter-changes-"
+				href="https://help.gitkraken.com/gitlens/gitlens-features/#gutter-changes"
 			>
 				<i class="icon icon__info"></i>
 			</a>
 		</h2>
 
 		<p class="section__header-hint">
-			Adds on-demand gutter changes annotations to highlight any local (unpublished) changes or lines changed by
-			the most recent commit
+			Adds on-demand file changes annotations to highlight any local (unpublished) changes or lines changed by the
+			most recent commit
 		</p>
 		<div class="section__header-info">
 			<i class="icon icon--md icon__bulb"></i>
@@ -74,11 +74,25 @@
 								id="changes.locations-1"
 								name="changes.locations"
 								type="checkbox"
+								value="line"
+								data-setting
+								data-setting-type="array"
+							/>
+							<label for="changes.locations-1">Add line highlight</label>
+						</div>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input">
+							<input
+								id="changes.locations-2"
+								name="changes.locations"
+								type="checkbox"
 								value="overview"
 								data-setting
 								data-setting-type="array"
 							/>
-							<label for="changes.locations-1">Add scroll bar indicator</label>
+							<label for="changes.locations-2">Add scroll bar indicator</label>
 						</div>
 					</div>
 				</div>

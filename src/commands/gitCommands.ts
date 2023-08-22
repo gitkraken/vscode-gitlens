@@ -1,13 +1,16 @@
-import { Disposable, InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem, window } from 'vscode';
-import { configuration } from '../configuration';
+import type { Disposable, InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
+import { InputBoxValidationSeverity, QuickInputButtons, window } from 'vscode';
 import { Commands } from '../constants';
 import { Container } from '../container';
-import { KeyMapping } from '../keyboard';
-import { Directive, DirectiveQuickPickItem } from '../quickpicks/items/directive';
+import { Directive, isDirective, isDirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { command } from '../system/command';
+import { configuration } from '../system/configuration';
 import { log } from '../system/decorators/log';
+import type { KeyMapping } from '../system/keyboard';
+import type { Deferred } from '../system/promise';
 import { isPromise } from '../system/promise';
-import { Command, CommandContext } from './base';
+import type { CommandContext } from './base';
+import { Command } from './base';
 import type { BranchGitCommandArgs } from './git/branch';
 import type { CherryPickGitCommandArgs } from './git/cherry-pick';
 import type { CoAuthorsGitCommandArgs } from './git/coauthors';
@@ -17,6 +20,7 @@ import type { MergeGitCommandArgs } from './git/merge';
 import type { PullGitCommandArgs } from './git/pull';
 import type { PushGitCommandArgs } from './git/push';
 import type { RebaseGitCommandArgs } from './git/rebase';
+import type { RemoteGitCommandArgs } from './git/remote';
 import type { ResetGitCommandArgs } from './git/reset';
 import type { RevertGitCommandArgs } from './git/revert';
 import type { SearchGitCommandArgs } from './git/search';
@@ -27,18 +31,14 @@ import type { SwitchGitCommandArgs } from './git/switch';
 import type { TagGitCommandArgs } from './git/tag';
 import type { WorktreeGitCommandArgs } from './git/worktree';
 import { PickCommandStep } from './gitCommands.utils';
+import type { CustomStep, QuickCommand, QuickInputStep, QuickPickStep, StepSelection } from './quickCommand';
+import { isCustomStep, isQuickCommand, isQuickInputStep, isQuickPickStep, StepResultBreak } from './quickCommand';
 import {
-	CustomStep,
-	isCustomStep,
-	isQuickInputStep,
-	isQuickPickStep,
-	QuickCommand,
-	QuickInputStep,
-	QuickPickStep,
-	StepResult,
-	StepSelection,
-} from './quickCommand';
-import { QuickCommandButtons, ToggleQuickInputButton } from './quickCommand.buttons';
+	LoadMoreQuickInputButton,
+	ToggleQuickInputButton,
+	WillConfirmForcedQuickInputButton,
+	WillConfirmToggleQuickInputButton,
+} from './quickCommand.buttons';
 
 const sanitizeLabel = /\$\(.+?\)|\s/g;
 const showLoadingSymbol = Symbol('ShowLoading');
@@ -53,6 +53,7 @@ export type GitCommandsCommandArgs =
 	| PullGitCommandArgs
 	| PushGitCommandArgs
 	| RebaseGitCommandArgs
+	| RemoteGitCommandArgs
 	| ResetGitCommandArgs
 	| RevertGitCommandArgs
 	| SearchGitCommandArgs
@@ -62,6 +63,8 @@ export type GitCommandsCommandArgs =
 	| SwitchGitCommandArgs
 	| TagGitCommandArgs
 	| WorktreeGitCommandArgs;
+
+export type GitCommandsCommandArgsWithCompletion = GitCommandsCommandArgs & { completion?: Deferred<void> };
 
 @command()
 export class GitCommandsCommand extends Command {
@@ -79,10 +82,11 @@ export class GitCommandsCommand extends Command {
 			Commands.GitCommandsSwitch,
 			Commands.GitCommandsTag,
 			Commands.GitCommandsWorktree,
+			Commands.GitCommandsWorktreeOpen,
 		]);
 	}
 
-	protected override preExecute(context: CommandContext, args?: GitCommandsCommandArgs) {
+	protected override preExecute(context: CommandContext, args?: GitCommandsCommandArgsWithCompletion) {
 		switch (context.command) {
 			case Commands.GitCommandsBranch:
 				args = { command: 'branch' };
@@ -111,13 +115,16 @@ export class GitCommandsCommand extends Command {
 			case Commands.GitCommandsWorktree:
 				args = { command: 'worktree' };
 				break;
+			case Commands.GitCommandsWorktreeOpen:
+				args = { command: 'worktree', state: { subcommand: 'open' } };
+				break;
 		}
 
 		return this.execute(args);
 	}
 
-	@log({ args: false, correlate: true, singleLine: true, timed: false })
-	async execute(args?: GitCommandsCommandArgs) {
+	@log({ args: false, scoped: true, singleLine: true, timed: false })
+	async execute(args?: GitCommandsCommandArgsWithCompletion) {
 		const commandsStep = new PickCommandStep(this.container, args);
 
 		const command = args?.command != null ? commandsStep.find(args.command) : undefined;
@@ -125,7 +132,7 @@ export class GitCommandsCommand extends Command {
 
 		let ignoreFocusOut;
 
-		let step: QuickPickStep<QuickPickItem> | QuickInputStep | CustomStep | undefined;
+		let step: QuickPickStep | QuickInputStep | CustomStep | undefined;
 		if (command == null) {
 			step = commandsStep;
 		} else {
@@ -177,15 +184,17 @@ export class GitCommandsCommand extends Command {
 
 			break;
 		}
+
+		args?.completion?.fulfill();
 	}
 
 	private async showLoadingIfNeeded(
-		command: QuickCommand<any>,
-		stepPromise: Promise<QuickPickStep<QuickPickItem> | QuickInputStep | CustomStep | undefined>,
-	): Promise<QuickPickStep<QuickPickItem> | QuickInputStep | CustomStep | undefined> {
+		command: QuickCommand,
+		stepPromise: Promise<QuickPickStep | QuickInputStep | CustomStep | undefined>,
+	): Promise<QuickPickStep | QuickInputStep | CustomStep | undefined> {
 		const stepOrTimeout = await Promise.race([
 			stepPromise,
-			new Promise<typeof showLoadingSymbol>(resolve => setTimeout(() => resolve(showLoadingSymbol), 250)),
+			new Promise<typeof showLoadingSymbol>(resolve => setTimeout(resolve, 250, showLoadingSymbol)),
 		]);
 
 		if (stepOrTimeout !== showLoadingSymbol) {
@@ -197,9 +206,9 @@ export class GitCommandsCommand extends Command {
 
 		const disposables: Disposable[] = [];
 
-		let step: QuickPickStep<QuickPickItem> | QuickInputStep | CustomStep | undefined;
+		let step: QuickPickStep | QuickInputStep | CustomStep | undefined;
 		try {
-			return await new Promise<QuickPickStep<QuickPickItem> | QuickInputStep | CustomStep | undefined>(
+			return await new Promise<QuickPickStep | QuickInputStep | CustomStep | undefined>(
 				// eslint-disable-next-line no-async-promise-executor
 				async resolve => {
 					disposables.push(quickpick.onDidHide(() => resolve(step)));
@@ -218,7 +227,7 @@ export class GitCommandsCommand extends Command {
 			);
 		} finally {
 			quickpick.dispose();
-			disposables.forEach(d => d.dispose());
+			disposables.forEach(d => void d.dispose());
 		}
 	}
 
@@ -240,7 +249,7 @@ export class GitCommandsCommand extends Command {
 
 		if (command?.canConfirm) {
 			if (command.canSkipConfirm) {
-				const willConfirmToggle = new QuickCommandButtons.WillConfirmToggle(command.confirm(), async () => {
+				const willConfirmToggle = new WillConfirmToggleQuickInputButton(command.confirm(), async () => {
 					if (command?.skipConfirmKey == null) return;
 
 					const skipConfirmations = configuration.get('gitCommands.skipConfirmations') ?? [];
@@ -252,11 +261,11 @@ export class GitCommandsCommand extends Command {
 						skipConfirmations.push(command.skipConfirmKey);
 					}
 
-					void (await configuration.updateEffective('gitCommands.skipConfirmations', skipConfirmations));
+					await configuration.updateEffective('gitCommands.skipConfirmations', skipConfirmations);
 				});
 				buttons.push(willConfirmToggle);
 			} else {
-				buttons.push(QuickCommandButtons.WillConfirmForced);
+				buttons.push(WillConfirmForcedQuickInputButton);
 			}
 		}
 
@@ -293,9 +302,9 @@ export class GitCommandsCommand extends Command {
 
 	private async showCustomStep(step: CustomStep, commandsStep: PickCommandStep) {
 		const result = await step.show(step);
-		if (result === StepResult.Break) return undefined;
+		if (result === StepResultBreak) return undefined;
 
-		if (Directive.is(result)) {
+		if (isDirective(result)) {
 			switch (result) {
 				case Directive.Back:
 					return (await commandsStep?.command?.previous()) ?? commandsStep;
@@ -329,7 +338,8 @@ export class GitCommandsCommand extends Command {
 		const disposables: Disposable[] = [];
 
 		try {
-			return await new Promise<QuickPickStep | QuickInputStep | undefined>(resolve => {
+			// eslint-disable-next-line no-async-promise-executor
+			return await new Promise<QuickPickStep | QuickInputStep | undefined>(async resolve => {
 				const goBack = async () => {
 					input.value = '';
 					if (commandsStep.command != null) {
@@ -338,9 +348,7 @@ export class GitCommandsCommand extends Command {
 					}
 				};
 
-				const mapping: KeyMapping = {
-					left: { onDidPressKey: goBack },
-				};
+				const mapping: KeyMapping = {};
 				if (step.onDidPressKey != null && step.keys != null && step.keys.length !== 0) {
 					for (const key of step.keys) {
 						mapping[key] = {
@@ -361,7 +369,7 @@ export class GitCommandsCommand extends Command {
 							return;
 						}
 
-						if (e === QuickCommandButtons.WillConfirmForced) return;
+						if (e === WillConfirmForcedQuickInputButton) return;
 
 						if (e instanceof ToggleQuickInputButton && e.onDidClick != null) {
 							const result = e.onDidClick(input);
@@ -414,6 +422,13 @@ export class GitCommandsCommand extends Command {
 				input.prompt = step.prompt;
 				if (step.value != null) {
 					input.value = step.value;
+
+					if (step.validate != null) {
+						const [valid, message] = await step.validate(step.value);
+						if (!valid && message != null) {
+							input.validationMessage = { severity: InputBoxValidationSeverity.Error, message: message };
+						}
+					}
 				}
 
 				// If we are starting over clear the previously active command
@@ -423,15 +438,19 @@ export class GitCommandsCommand extends Command {
 
 				input.show();
 
-				// Manually trigger `onDidChangeValue`, because the InputBox seems to fail to call it properly
+				// Manually trigger `onDidChangeValue`, because the InputBox fails to call it if the value is set before it is shown
 				if (step.value != null) {
 					// HACK: This is fragile!
-					(input as any)._onDidChangeValueEmitter.fire(input.value);
+					try {
+						(input as any)._onDidChangeValueEmitter?.fire(input.value);
+					} catch {
+						debugger;
+					}
 				}
 			});
 		} finally {
 			input.dispose();
-			disposables.forEach(d => d.dispose());
+			disposables.forEach(d => void d.dispose());
 		}
 	}
 
@@ -460,7 +479,6 @@ export class GitCommandsCommand extends Command {
 					if (step.onDidLoadMore == null) return;
 
 					quickpick.busy = true;
-					quickpick.enabled = false;
 
 					try {
 						const items = await step.onDidLoadMore?.(quickpick);
@@ -471,7 +489,7 @@ export class GitCommandsCommand extends Command {
 							activeIndex = quickpick.items.indexOf(active);
 
 							// If the active item is the "Load more" directive, then select the previous item
-							if (DirectiveQuickPickItem.is(active)) {
+							if (isDirectiveQuickPickItem(active)) {
 								activeIndex--;
 							}
 						}
@@ -483,7 +501,6 @@ export class GitCommandsCommand extends Command {
 						}
 					} finally {
 						quickpick.busy = false;
-						quickpick.enabled = true;
 					}
 				}
 
@@ -517,9 +534,9 @@ export class GitCommandsCommand extends Command {
 							return;
 						}
 
-						if (e === QuickCommandButtons.WillConfirmForced) return;
+						if (e === WillConfirmForcedQuickInputButton) return;
 
-						if (e === QuickCommandButtons.LoadMore) {
+						if (e === LoadMoreQuickInputButton) {
 							void loadMore();
 							return;
 						}
@@ -528,7 +545,7 @@ export class GitCommandsCommand extends Command {
 							let activeCommand;
 							if (commandsStep.command == null && quickpick.activeItems.length !== 0) {
 								const active = quickpick.activeItems[0];
-								if (QuickCommand.is(active)) {
+								if (isQuickCommand(active)) {
 									activeCommand = active;
 								}
 							}
@@ -647,7 +664,7 @@ export class GitCommandsCommand extends Command {
 						if (commandsStep.command != null || quickpick.activeItems.length === 0) return;
 
 						const command = quickpick.activeItems[0];
-						if (!QuickCommand.is(command)) return;
+						if (!isQuickCommand(command)) return;
 
 						quickpick.buttons = this.getButtons(undefined, command);
 					}),
@@ -695,7 +712,7 @@ export class GitCommandsCommand extends Command {
 
 						if (items.length === 1) {
 							const [item] = items;
-							if (DirectiveQuickPickItem.is(item)) {
+							if (isDirectiveQuickPickItem(item)) {
 								switch (item.directive) {
 									case Directive.Cancel:
 										resolve(undefined);
@@ -719,7 +736,7 @@ export class GitCommandsCommand extends Command {
 										resolve(undefined);
 										return;
 
-									case Directive.RequiresFreeSubscription:
+									case Directive.ExtendTrial:
 										void Container.instance.subscription.loginOrSignUp();
 										resolve(undefined);
 										return;
@@ -734,7 +751,7 @@ export class GitCommandsCommand extends Command {
 
 						if (commandsStep.command == null) {
 							const [command] = items;
-							if (!QuickCommand.is(command)) return;
+							if (!isQuickCommand(command)) return;
 
 							commandsStep.setCommand(command, this.startedWith);
 						}
@@ -778,21 +795,30 @@ export class GitCommandsCommand extends Command {
 				// Needs to be after we reset the command
 				quickpick.buttons = this.getButtons(step, commandsStep.command);
 
-				if (step.value != null) {
+				const selectValueWhenShown = step.selectValueWhenShown ?? true;
+				if (step.value != null && selectValueWhenShown) {
 					quickpick.value = step.value;
 				}
 
 				quickpick.show();
 
-				// Manually trigger `onDidChangeValue`, because the QuickPick seems to fail to call it properly
-				if (step.value != null) {
+				if (step.value != null && !selectValueWhenShown) {
+					quickpick.value = step.value;
+				}
+
+				// Manually trigger `onDidChangeValue`, because the QuickPick fails to call it if the value is set before it is shown
+				if (step.value != null && selectValueWhenShown) {
 					// HACK: This is fragile!
-					(quickpick as any)._onDidChangeValueEmitter.fire(quickpick.value);
+					try {
+						(quickpick as any)._onDidChangeValueEmitter?.fire(quickpick.value);
+					} catch {
+						debugger;
+					}
 				}
 			});
 		} finally {
 			quickpick.dispose();
-			disposables.forEach(d => d.dispose());
+			disposables.forEach(d => void d.dispose());
 		}
 	}
 }

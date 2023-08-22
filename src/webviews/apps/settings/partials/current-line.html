@@ -8,11 +8,11 @@
 				data-setting
 				data-add-settings-off="hovers.currentLine.over=line"
 			/>
-			<label for="currentLine.enabled">Current Line Blame</label>
+			<label for="currentLine.enabled">Inline Blame</label>
 			<a
 				class="link__learn-more"
 				title="Learn more"
-				href="https://github.com/gitkraken/vscode-gitlens/#current-line-blame-"
+				href="https://help.gitkraken.com/gitlens/gitlens-features/#current-line-blame"
 			>
 				<i class="icon icon__info"></i>
 			</a>
@@ -82,6 +82,63 @@
 								data-setting-preview="currentLine.format"
 								data-setting-preview-type="commit"
 								data-setting-preview-default="${author, }${agoOrDate}${' via 'pullRequest}${ • message|50?}"
+							></span>
+						</span>
+					</div>
+
+					<div class="setting" data-enablement="currentLine.enabled">
+						<div class="setting__input setting__input--format">
+							<input
+								id="currentLine.useUncommittedChangesFormat"
+								name="currentLine.useUncommittedChangesFormat"
+								type="checkbox"
+								data-setting
+								disabled
+							/>
+							<label for="currentLine.useUncommittedChangesFormat"
+								>Override format for uncommitted changes</label
+							>
+						</div>
+						<span class="setting__hint" data-visibility="currentLine.useUncommittedChangesFormat =false"
+							>Example:
+							<span
+								data-setting-preview="currentLine.uncommittedChangesFormat"
+								data-setting-preview-type="commit-uncommitted"
+								data-setting-preview-default-lookup="currentLine.format"
+							></span>
+						</span>
+					</div>
+					<div
+						class="setting ml-2"
+						data-enablement="currentLine.enabled"
+						data-visibility="currentLine.useUncommittedChangesFormat"
+					>
+						<div class="setting__input setting__input--format">
+							<label for="currentLine.uncommittedChangesFormat"
+								>Uncommitted&nbsp;changes&nbsp;format</label
+							>
+							<input
+								id="currentLine.uncommittedChangesFormat"
+								name="currentLine.uncommittedChangesFormat"
+								type="text"
+								placeholder="format for uncommitted changes"
+								data-setting
+								data-setting-preview
+								data-default-value=""
+								data-popup-trigger
+								disabled
+							/>
+							<label for="currentLine.uncommittedChangesFormat" title="See available tokens">
+								<i class="icon icon__chevron-down"></i>
+							</label>
+						</div>
+						<div id="currentLine.uncommittedChangesFormat.popup" class="popup hidden"></div>
+						<span class="setting__hint" data-visibility="currentLine.useUncommittedChangesFormat"
+							>Example:
+							<span
+								data-setting-preview="currentLine.uncommittedChangesFormat"
+								data-setting-preview-type="commit-uncommitted"
+								data-setting-preview-default=""
 							></span>
 						</span>
 					</div>

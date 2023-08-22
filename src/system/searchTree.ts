@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/strict-boolean-expressions */
 import { CharCode } from '../constants';
 import { count, map, some } from './iterable';
 import { compareSubstring, compareSubstringIgnoreCase } from './string';
@@ -50,7 +49,10 @@ export class PathIterator implements IKeyIterator<string> {
 	private _from!: number;
 	private _to!: number;
 
-	constructor(private readonly _splitOnBackslash: boolean = true, private readonly _caseSensitive: boolean = true) {}
+	constructor(
+		private readonly _splitOnBackslash: boolean = true,
+		private readonly _caseSensitive: boolean = true,
+	) {}
 
 	reset(key: string): this {
 		this._value = key.replace(/\\$|\/$/, '');
@@ -202,11 +204,11 @@ export class TernarySearchTree<K, V> {
 	}
 
 	delete(key: K): void {
-		return this._delete(key, false);
+		this._delete(key, false);
 	}
 
 	deleteSuperstr(key: K): void {
-		return this._delete(key, true);
+		this._delete(key, true);
 	}
 
 	private _delete(key: K, superStr: boolean): void {
@@ -380,7 +382,7 @@ export class TernarySearchTree<K, V> {
 		return count(this.entries(), predicate === undefined ? undefined : ([, e]) => predicate(e));
 	}
 
-	entries(): Iterable<[K, V]> {
+	entries(): IterableIterator<[K, V]> {
 		return this._iterator(this._root);
 	}
 
@@ -391,7 +393,7 @@ export class TernarySearchTree<K, V> {
 	highlander(): [K, V] | undefined {
 		if (this._root === undefined || this._root.isEmpty()) return undefined;
 
-		const entries = this.entries() as IterableIterator<[K, V]>;
+		const entries = this.entries();
 
 		let count = 0;
 		let next: IteratorResult<[K, V]>;

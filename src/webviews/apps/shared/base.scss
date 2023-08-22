@@ -7,10 +7,50 @@ html {
 body {
 	background-color: var(--color-background);
 	color: var(--color-foreground);
-	font-family: var(--font-family);
 	height: 100%;
 	line-height: 1.4;
-	font-size: 100% !important;
+
+	&.scrollable,
+	.scrollable {
+		border-color: transparent;
+		transition: border-color 1s linear;
+	}
+
+	&:hover,
+	&:focus-within {
+		&.scrollable,
+		.scrollable {
+			border-color: var(--vscode-scrollbarSlider-background);
+			transition: none;
+		}
+	}
+
+	&.preload {
+		&.scrollable,
+		.scrollable {
+			transition: none;
+		}
+	}
+}
+
+::-webkit-scrollbar-corner {
+	background-color: transparent !important;
+}
+
+::-webkit-scrollbar-thumb {
+	background-color: transparent;
+	border-color: inherit;
+	border-right-style: inset;
+	border-right-width: calc(100vw + 100vh);
+	border-radius: unset !important;
+
+	&:hover {
+		border-color: var(--vscode-scrollbarSlider-hoverBackground);
+	}
+
+	&:active {
+		border-color: var(--vscode-scrollbarSlider-activeBackground);
+	}
 }
 
 a {
@@ -77,6 +117,10 @@ textarea {
 	margin: 0;
 }
 
+button:not(:disabled) {
+	cursor: pointer;
+}
+
 input[type='checkbox'] {
 	background: none;
 	border: none;
@@ -140,6 +184,7 @@ textarea {
 
 input[type='number'] {
 	max-width: 100px;
+	text-align: center;
 }
 
 kbd {

@@ -74,7 +74,7 @@ export interface SharedServiceProxy {
 	readonly onDidChangeIsServiceAvailable: Event<boolean>;
 
 	onNotify(name: string, handler: NotifyHandler): void;
-	request(name: string, args: any[], cancellation?: CancellationToken): Promise<any>;
+	request<T>(name: string, args: any[], cancellation?: CancellationToken): Promise<T>;
 	notify(name: string, args: object): void;
 }
 

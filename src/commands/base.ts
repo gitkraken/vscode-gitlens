@@ -1,29 +1,29 @@
-import {
-	commands,
-	Disposable,
+import type {
 	GitTimelineItem,
+	SourceControl,
 	SourceControlResourceGroup,
 	SourceControlResourceState,
 	TextEditor,
 	TextEditorEdit,
 	TimelineItem,
-	Uri,
-	window,
 } from 'vscode';
+import { commands, Disposable, Uri, window } from 'vscode';
 import type { ActionContext } from '../api/gitlens';
-import { Commands } from '../constants';
-import {
-	GitBranch,
-	GitCommit,
-	GitContributor,
-	GitFile,
-	GitReference,
-	GitRemote,
-	GitStashCommit,
-	GitTag,
-	Repository,
-} from '../git/models';
-import { ViewNode, ViewRefNode } from '../views/nodes';
+import type { Commands, StoredNamedRef } from '../constants';
+import type { GitBranch } from '../git/models/branch';
+import { isBranch } from '../git/models/branch';
+import type { GitCommit, GitStashCommit } from '../git/models/commit';
+import { isCommit } from '../git/models/commit';
+import { GitContributor } from '../git/models/contributor';
+import type { GitFile } from '../git/models/file';
+import type { GitReference } from '../git/models/reference';
+import { GitRemote } from '../git/models/remote';
+import { Repository } from '../git/models/repository';
+import type { GitTag } from '../git/models/tag';
+import { isTag } from '../git/models/tag';
+import { registerCommand } from '../system/command';
+import { sequentialize } from '../system/function';
+import { ViewNode, ViewRefFileNode, ViewRefNode } from '../views/nodes/viewNode';
 
 export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
 	// Always use the editor.uri (if we have one), so we are correct for a split diff
@@ -40,10 +40,21 @@ export interface CommandBaseContext {
 	uri?: Uri;
 }
 
+export interface CommandEditorLineContext extends CommandBaseContext {
+	readonly type: 'editorLine';
+	readonly line: number;
+	readonly uri: Uri;
+}
+
 export interface CommandGitTimelineItemContext extends CommandBaseContext {
 	readonly type: 'timeline-item:git';
 	readonly item: GitTimelineItem;
 	readonly uri: Uri;
+}
+
+export interface CommandScmContext extends CommandBaseContext {
+	readonly type: 'scm';
+	readonly scm: SourceControl;
 }
 
 export interface CommandScmGroupsContext extends CommandBaseContext {
@@ -78,6 +89,16 @@ export interface CommandViewNodeContext extends CommandBaseContext {
 	readonly node: ViewNode;
 }
 
+export interface CommandViewNodesContext extends CommandBaseContext {
+	readonly type: 'viewItems';
+	readonly node: ViewNode;
+	readonly nodes: ViewNode[];
+}
+
+export function isCommandContextEditorLine(context: CommandContext): context is CommandEditorLineContext {
+	return context.type === 'editorLine';
+}
+
 export function isCommandContextGitTimelineItem(context: CommandContext): context is CommandGitTimelineItemContext {
 	return context.type === 'timeline-item:git';
 }
@@ -87,7 +108,7 @@ export function isCommandContextViewNodeHasBranch(
 ): context is CommandViewNodeContext & { node: ViewNode & { branch: GitBranch } } {
 	if (context.type !== 'viewItem') return false;
 
-	return GitBranch.is((context.node as ViewNode & { branch: GitBranch }).branch);
+	return isBranch((context.node as ViewNode & { branch: GitBranch }).branch);
 }
 
 export function isCommandContextViewNodeHasCommit<T extends GitCommit | GitStashCommit>(
@@ -95,7 +116,7 @@ export function isCommandContextViewNodeHasCommit<T extends GitCommit | GitStash
 ): context is CommandViewNodeContext & { node: ViewNode & { commit: T } } {
 	if (context.type !== 'viewItem') return false;
 
-	return GitCommit.is((context.node as ViewNode & { commit: GitCommit | GitStashCommit }).commit);
+	return isCommit((context.node as ViewNode & { commit: GitCommit | GitStashCommit }).commit);
 }
 
 export function isCommandContextViewNodeHasContributor(
@@ -121,7 +142,7 @@ export function isCommandContextViewNodeHasFileCommit(
 	if (context.type !== 'viewItem') return false;
 
 	const node = context.node as ViewNode & { commit: GitCommit; file: GitFile; repoPath: string };
-	return node.file != null && GitCommit.is(node.commit) && (node.file.repoPath != null || node.repoPath != null);
+	return node.file != null && isCommit(node.commit) && (node.file.repoPath != null || node.repoPath != null);
 }
 
 export function isCommandContextViewNodeHasFileRefs(context: CommandContext): context is CommandViewNodeContext & {
@@ -138,10 +159,25 @@ export function isCommandContextViewNodeHasFileRefs(context: CommandContext): co
 	);
 }
 
+export function isCommandContextViewNodeHasComparison(context: CommandContext): context is CommandViewNodeContext & {
+	node: ViewNode & { compareRef: StoredNamedRef; compareWithRef: StoredNamedRef };
+} {
+	if (context.type !== 'viewItem') return false;
+
+	return (
+		typeof (context.node as ViewNode & { compareRef: StoredNamedRef; compareWithRef: StoredNamedRef }).compareRef
+			?.ref === 'string' &&
+		typeof (context.node as ViewNode & { compareRef: StoredNamedRef; compareWithRef: StoredNamedRef })
+			.compareWithRef?.ref === 'string'
+	);
+}
+
 export function isCommandContextViewNodeHasRef(
 	context: CommandContext,
 ): context is CommandViewNodeContext & { node: ViewNode & { ref: GitReference } } {
-	return context.type === 'viewItem' && context.node instanceof ViewRefNode;
+	return (
+		context.type === 'viewItem' && context.node instanceof ViewRefNode && context.node instanceof ViewRefFileNode
+	);
 }
 
 export function isCommandContextViewNodeHasRemote(
@@ -173,18 +209,32 @@ export function isCommandContextViewNodeHasTag(
 ): context is CommandViewNodeContext & { node: ViewNode & { tag: GitTag } } {
 	if (context.type !== 'viewItem') return false;
 
-	return GitTag.is((context.node as ViewNode & { tag: GitTag }).tag);
+	return isTag((context.node as ViewNode & { tag: GitTag }).tag);
 }
 
 export type CommandContext =
+	| CommandEditorLineContext
 	| CommandGitTimelineItemContext
+	| CommandScmContext
 	| CommandScmGroupsContext
 	| CommandScmStatesContext
 	| CommandUnknownContext
 	| CommandUriContext
 	| CommandUrisContext
 	// | CommandViewContext
-	| CommandViewNodeContext;
+	| CommandViewNodeContext
+	| CommandViewNodesContext;
+
+function isScm(scm: any): scm is SourceControl {
+	if (scm == null) return false;
+
+	return (
+		(scm as SourceControl).id != null &&
+		(scm as SourceControl).rootUri != null &&
+		(scm as SourceControl).inputBox != null &&
+		(scm as SourceControl).statusBarCommands != null
+	);
+}
 
 function isScmResourceGroup(group: any): group is SourceControlResourceGroup {
 	if (group == null) return false;
@@ -234,17 +284,13 @@ export abstract class Command implements Disposable {
 
 	constructor(command: Commands | Commands[]) {
 		if (typeof command === 'string') {
-			this._disposable = commands.registerCommand(
-				command,
-				(...args: any[]) => this._execute(command, ...args),
-				this,
-			);
+			this._disposable = registerCommand(command, (...args: any[]) => this._execute(command, ...args), this);
 
 			return;
 		}
 
 		const subscriptions = command.map(cmd =>
-			commands.registerCommand(cmd, (...args: any[]) => this._execute(cmd, ...args), this),
+			registerCommand(cmd, (...args: any[]) => this._execute(cmd, ...args), this),
 		);
 		this._disposable = Disposable.from(...subscriptions);
 	}
@@ -253,113 +299,154 @@ export abstract class Command implements Disposable {
 		this._disposable.dispose();
 	}
 
-	protected preExecute(context: CommandContext, ...args: any[]): Promise<any> {
+	protected preExecute(_context: CommandContext, ...args: any[]): Promise<unknown> {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 		return this.execute(...args);
 	}
 
 	abstract execute(...args: any[]): any;
 
-	protected _execute(command: string, ...args: any[]): any {
-		const [context, rest] = Command.parseContext(command, { ...this.contextParsingOptions }, ...args);
+	protected _execute(command: string, ...args: any[]): Promise<unknown> {
+		const [context, rest] = parseCommandContext(command, { ...this.contextParsingOptions }, ...args);
+
+		// If there an array of contexts, then we want to execute the command for each
+		if (Array.isArray(context)) {
+			return sequentialize(
+				this.preExecute,
+				context.map<[CommandContext, ...any[]]>((c: CommandContext) => [c, ...rest]),
+				this,
+			);
+		}
+
 		return this.preExecute(context, ...rest);
 	}
+}
 
-	private static parseContext(
-		command: string,
-		options: CommandContextParsingOptions,
-		...args: any[]
-	): [CommandContext, any[]] {
-		let editor: TextEditor | undefined = undefined;
+export function parseCommandContext(
+	command: string,
+	options?: CommandContextParsingOptions,
+	...args: any[]
+): [CommandContext | CommandContext[], any[]] {
+	let editor: TextEditor | undefined = undefined;
 
-		let firstArg = args[0];
+	let firstArg = args[0];
 
-		if (options.expectsEditor) {
-			if (firstArg == null || (firstArg.id != null && firstArg.document?.uri != null)) {
-				editor = firstArg;
-				args = args.slice(1);
-				firstArg = args[0];
-			}
+	if (options?.expectsEditor) {
+		if (firstArg == null || (firstArg.id != null && firstArg.document?.uri != null)) {
+			editor = firstArg;
+			args = args.slice(1);
+			firstArg = args[0];
+		}
 
-			if (args.length > 0 && (firstArg == null || firstArg instanceof Uri)) {
-				const [uri, ...rest] = args as [Uri, any];
-				if (uri != null) {
-					// If the uri matches the active editor (or we are in a left-hand side of a diff), then pass the active editor
-					if (
-						editor == null &&
-						(uri.toString() === window.activeTextEditor?.document.uri.toString() ||
-							command.endsWith('InDiffLeft'))
-					) {
-						editor = window.activeTextEditor;
-					}
-
-					const uris = rest[0];
-					if (uris != null && Array.isArray(uris) && uris.length !== 0 && uris[0] instanceof Uri) {
-						return [
-							{ command: command, type: 'uris', editor: editor, uri: uri, uris: uris },
-							rest.slice(1),
-						];
-					}
-					return [{ command: command, type: 'uri', editor: editor, uri: uri }, rest];
+		if (args.length > 0 && (firstArg == null || firstArg instanceof Uri)) {
+			const [uri, ...rest] = args as [Uri, any];
+			if (uri != null) {
+				// If the uri matches the active editor (or we are in a left-hand side of a diff), then pass the active editor
+				if (
+					editor == null &&
+					(uri.toString() === window.activeTextEditor?.document.uri.toString() ||
+						command.endsWith('InDiffLeft'))
+				) {
+					editor = window.activeTextEditor;
 				}
 
-				args = args.slice(1);
-			} else if (editor == null) {
-				// If we are expecting an editor and we have no uri, then pass the active editor
-				editor = window.activeTextEditor;
-			}
-		}
-
-		if (firstArg instanceof ViewNode) {
-			const [node, ...rest] = args as [ViewNode, any];
-			return [{ command: command, type: 'viewItem', node: node, uri: node.uri }, rest];
-		}
-
-		if (isScmResourceState(firstArg)) {
-			const states = [];
-			let count = 0;
-			for (const arg of args) {
-				if (!isScmResourceState(arg)) break;
-
-				count++;
-				states.push(arg);
+				const uris = rest[0];
+				if (uris != null && Array.isArray(uris) && uris.length !== 0 && uris[0] instanceof Uri) {
+					return [{ command: command, type: 'uris', editor: editor, uri: uri, uris: uris }, rest.slice(1)];
+				}
+				return [{ command: command, type: 'uri', editor: editor, uri: uri }, rest];
 			}
 
-			return [
-				{ command: command, type: 'scm-states', scmResourceStates: states, uri: states[0].resourceUri },
-				args.slice(count),
-			];
-		}
-
-		if (isScmResourceGroup(firstArg)) {
-			const groups = [];
-			let count = 0;
-			for (const arg of args) {
-				if (!isScmResourceGroup(arg)) break;
-
-				count++;
-				groups.push(arg);
+			args = args.slice(1);
+		} else if (editor == null) {
+			if (firstArg != null && typeof firstArg === 'object' && 'lineNumber' in firstArg && 'uri' in firstArg) {
+				const [, ...rest] = args;
+				return [
+					{
+						command: command,
+						type: 'editorLine',
+						editor: undefined,
+						line: firstArg.lineNumber - 1, // convert to zero-based
+						uri: firstArg.uri,
+					},
+					rest,
+				];
 			}
 
-			return [{ command: command, type: 'scm-groups', scmResourceGroups: groups }, args.slice(count)];
+			// If we are expecting an editor and we have no uri, then pass the active editor
+			editor = window.activeTextEditor;
 		}
-
-		if (isGitTimelineItem(firstArg)) {
-			const [item, uri, ...rest] = args as [GitTimelineItem, Uri, any];
-			return [{ command: command, type: 'timeline-item:git', item: item, uri: uri }, rest];
-		}
-
-		return [{ command: command, type: 'unknown', editor: editor, uri: editor?.document.uri }, args];
 	}
+
+	if (firstArg instanceof ViewNode) {
+		let [node, ...rest] = args as [ViewNode, unknown];
+
+		// If there is a node followed by an array of nodes, then we want to execute the command for each
+		firstArg = rest[0];
+		if (Array.isArray(firstArg) && firstArg[0] instanceof ViewNode) {
+			let nodes;
+			[nodes, ...rest] = rest as unknown as [ViewNode[], unknown];
+
+			const contexts: CommandContext[] = [];
+			for (const n of nodes) {
+				if (n?.constructor === node.constructor) {
+					contexts.push({ command: command, type: 'viewItem', node: n, uri: n.uri });
+				}
+			}
+
+			return [contexts, rest];
+		}
+
+		return [{ command: command, type: 'viewItem', node: node, uri: node.uri }, rest];
+	}
+
+	if (isScmResourceState(firstArg)) {
+		const states = [];
+		let count = 0;
+		for (const arg of args) {
+			if (!isScmResourceState(arg)) break;
+
+			count++;
+			states.push(arg);
+		}
+
+		return [
+			{ command: command, type: 'scm-states', scmResourceStates: states, uri: states[0].resourceUri },
+			args.slice(count),
+		];
+	}
+
+	if (isScmResourceGroup(firstArg)) {
+		const groups = [];
+		let count = 0;
+		for (const arg of args) {
+			if (!isScmResourceGroup(arg)) break;
+
+			count++;
+			groups.push(arg);
+		}
+
+		return [{ command: command, type: 'scm-groups', scmResourceGroups: groups }, args.slice(count)];
+	}
+
+	if (isGitTimelineItem(firstArg)) {
+		const [item, uri, ...rest] = args as [GitTimelineItem, Uri, any];
+		return [{ command: command, type: 'timeline-item:git', item: item, uri: uri }, rest];
+	}
+
+	if (isScm(firstArg)) {
+		const [scm, ...rest] = args as [SourceControl, any];
+		return [{ command: command, type: 'scm', scm: scm }, rest];
+	}
+
+	return [{ command: command, type: 'unknown', editor: editor, uri: editor?.document.uri }, args];
 }
 
 export abstract class ActiveEditorCommand extends Command {
 	protected override readonly contextParsingOptions: CommandContextParsingOptions = { expectsEditor: true };
 
-	constructor(command: Commands | Commands[]) {
-		super(command);
-	}
-
 	protected override preExecute(context: CommandContext, ...args: any[]): Promise<any> {
+		// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 		return this.execute(context.editor, context.uri, ...args);
 	}
 
@@ -376,10 +463,6 @@ export function getLastCommand() {
 }
 
 export abstract class ActiveEditorCachedCommand extends ActiveEditorCommand {
-	constructor(command: Commands | Commands[]) {
-		super(command);
-	}
-
 	protected override _execute(command: string, ...args: any[]): any {
 		lastCommand = {
 			command: command,
@@ -405,6 +488,7 @@ export abstract class EditorCommand implements Disposable {
 				commands.registerTextEditorCommand(
 					cmd,
 					(editor: TextEditor, edit: TextEditorEdit, ...args: any[]) =>
+						// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 						this.executeCore(cmd, editor, edit, ...args),
 					this,
 				),

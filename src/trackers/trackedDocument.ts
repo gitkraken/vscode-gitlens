@@ -1,11 +1,12 @@
-import { Disposable, Event, EventEmitter, TextDocument, TextEditor } from 'vscode';
-import { ContextKeys } from '../constants';
-import { Container } from '../container';
-import { setContext } from '../context';
+import type { Disposable, Event, TextDocument, TextEditor } from 'vscode';
+import { EventEmitter } from 'vscode';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitRevision } from '../git/models';
-import { Logger } from '../logger';
-import { debounce, Deferrable } from '../system/function';
+import { deletedOrMissing } from '../git/models/constants';
+import { setContext } from '../system/context';
+import type { Deferrable } from '../system/function';
+import { debounce } from '../system/function';
+import { Logger } from '../system/logger';
 import { getEditorIfActive, isActiveDocument } from '../system/utils';
 
 export interface DocumentBlameStateChangeEvent<T> {
@@ -17,12 +18,11 @@ export interface DocumentBlameStateChangeEvent<T> {
 export class TrackedDocument<T> implements Disposable {
 	static async create<T>(
 		document: TextDocument,
-		key: string,
 		dirty: boolean,
 		eventDelegates: { onDidBlameStateChange(e: DocumentBlameStateChangeEvent<T>): void },
 		container: Container,
 	) {
-		const doc = new TrackedDocument(document, key, dirty, eventDelegates, container);
+		const doc = new TrackedDocument(document, dirty, eventDelegates, container);
 		await doc.initialize();
 		return doc;
 	}
@@ -40,7 +40,6 @@ export class TrackedDocument<T> implements Disposable {
 
 	private constructor(
 		readonly document: TextDocument,
-		public readonly key: string,
 		public dirty: boolean,
 		private _eventDelegates: { onDidBlameStateChange(e: DocumentBlameStateChangeEvent<T>): void },
 		private readonly container: Container,
@@ -88,7 +87,7 @@ export class TrackedDocument<T> implements Disposable {
 	}
 
 	get isRevision() {
-		return this._uri != null ? Boolean(this._uri.sha) && this._uri.sha !== GitRevision.deletedOrMissing : false;
+		return this._uri != null ? Boolean(this._uri.sha) && this._uri.sha !== deletedOrMissing : false;
 	}
 
 	private _isTracked: boolean = false;
@@ -108,7 +107,7 @@ export class TrackedDocument<T> implements Disposable {
 		if (this._requiresUpdate) {
 			await this.update();
 		}
-		void setContext(ContextKeys.ActiveFileStatus, this.getStatus());
+		void setContext('gitlens:activeFileStatus', this.getStatus());
 	}
 
 	is(document: TextDocument) {
@@ -126,7 +125,7 @@ export class TrackedDocument<T> implements Disposable {
 
 		if (this.state != null) {
 			this.state = undefined;
-			Logger.log(`Reset state for '${this.key}', reason=${reason}`);
+			Logger.log(`Reset state for '${this.document.uri.toString(true)}', reason=${reason}`);
 		}
 
 		if (reason === 'repository' && isActiveDocument(this.document)) {
@@ -188,7 +187,7 @@ export class TrackedDocument<T> implements Disposable {
 		if (active != null) {
 			const blameable = this.isBlameable;
 
-			void setContext(ContextKeys.ActiveFileStatus, this.getStatus());
+			void setContext('gitlens:activeFileStatus', this.getStatus());
 
 			if (!this.initializing && wasBlameable !== blameable) {
 				const e: DocumentBlameStateChangeEvent<T> = { editor: active, document: this, blameable: blameable };

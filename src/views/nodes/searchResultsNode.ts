@@ -1,15 +1,19 @@
-import { ThemeIcon, TreeItem } from 'vscode';
-import { executeGitCommand } from '../../commands/gitCommands.actions';
+import type { TreeItem } from 'vscode';
+import { ThemeIcon } from 'vscode';
+import { md5 } from '@env/crypto';
+import { executeGitCommand } from '../../git/actions';
 import { GitUri } from '../../git/gitUri';
-import { GitLog } from '../../git/models';
-import { SearchPattern } from '../../git/search';
+import type { GitLog } from '../../git/models/log';
+import type { SearchQuery, StoredSearchQuery } from '../../git/search';
+import { getSearchQueryComparisonKey, getStoredSearchQuery } from '../../git/search';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
-import { md5, pluralize } from '../../system/string';
-import { SearchAndCompareView } from '../searchAndCompareView';
-import { RepositoryNode } from './repositoryNode';
-import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
+import { pluralize } from '../../system/string';
+import type { SearchAndCompareView } from '../searchAndCompareView';
+import type { CommitsQueryResults } from './resultsCommitsNode';
+import { ResultsCommitsNode } from './resultsCommitsNode';
+import type { PageableViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 let instanceId = 0;
 
@@ -21,27 +25,16 @@ interface SearchQueryResults {
 }
 
 export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements PageableViewNode {
-	static key = ':search-results';
-	static getId(repoPath: string, search: SearchPattern | undefined, instanceId: number): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${
-			search == null ? '?' : SearchPattern.toKey(search)
-		}):${instanceId}`;
-	}
-
-	static getPinnableId(repoPath: string, search: SearchPattern) {
-		return md5(`${repoPath}|${SearchPattern.toKey(search)}`);
-	}
-
-	static override is(node: any): node is SearchResultsNode {
-		return node instanceof SearchResultsNode;
+	static getPinnableId(repoPath: string, search: SearchQuery | StoredSearchQuery) {
+		return md5(`${repoPath}|${getSearchQueryComparisonKey(search)}`, 'base64');
 	}
 
 	private _instanceId: number;
 	constructor(
 		view: SearchAndCompareView,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly repoPath: string,
-		search: SearchPattern,
+		search: SearchQuery,
 		private _labels: {
 			label: string;
 			queryLabel:
@@ -64,10 +57,13 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		this._search = search;
 		this._instanceId = instanceId++;
 		this._order = Date.now();
+
+		this.updateContext({ searchId: `${getSearchQueryComparisonKey(search)}+${this._instanceId}` });
+		this._uniqueId = getViewNodeId('search-results', this.context);
 	}
 
 	override get id(): string {
-		return SearchResultsNode.getId(this.repoPath, this.search, this._instanceId);
+		return this._uniqueId;
 	}
 
 	get canDismiss(): boolean {
@@ -83,8 +79,8 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		return this._pinned !== 0;
 	}
 
-	private _search: SearchPattern;
-	get search(): SearchPattern {
+	private _search: SearchQuery;
+	get search(): SearchQuery {
 		return this._search;
 	}
 
@@ -153,7 +149,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 	}
 
 	async edit(search?: {
-		pattern: SearchPattern;
+		pattern: SearchQuery;
 		labels: {
 			label: string;
 			queryLabel:
@@ -167,7 +163,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		log: Promise<GitLog | undefined> | GitLog | undefined;
 	}) {
 		if (search == null) {
-			void (await executeGitCommand({
+			await executeGitCommand({
 				command: 'search',
 				prefillOnly: true,
 				state: {
@@ -175,7 +171,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 					...this.search,
 					showResultsInSideBar: this,
 				},
-			}));
+			});
 
 			return;
 		}
@@ -265,9 +261,9 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		let useCacheOnce = true;
 
 		return async (limit: number | undefined) => {
-			log = await (log ?? this.view.container.git.getLogForSearch(this.repoPath, this.search));
+			log = await (log ?? this.view.container.git.richSearchCommits(this.repoPath, this.search));
 
-			if (!useCacheOnce && log != null && log.query != null) {
+			if (!useCacheOnce && log?.query != null) {
 				log = await log.query(limit);
 			}
 			useCacheOnce = false;
@@ -296,7 +292,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 			timestamp: this._pinned,
 			path: this.repoPath,
 			labels: this._labels,
-			search: this.search,
+			search: getStoredSearchQuery(this.search),
 		});
 	}
 }

@@ -4,19 +4,20 @@
 	},
 	"extends": [
 		"eslint:recommended",
-		"plugin:@typescript-eslint/recommended",
-		"plugin:@typescript-eslint/recommended-requiring-type-checking",
+		"plugin:@typescript-eslint/strict-type-checked",
+		"plugin:@typescript-eslint/stylistic-type-checked",
 		"plugin:import/recommended",
 		"plugin:import/typescript",
 		"prettier"
 	],
 	"parser": "@typescript-eslint/parser",
 	"parserOptions": {
-		"ecmaVersion": 2019,
+		"ecmaVersion": 2022,
 		"sourceType": "module",
 		"ecmaFeatures": {
 			"impliedStrict": true
-		}
+		},
+		"project": true
 	},
 	"plugins": ["anti-trojan-source", "import", "@typescript-eslint"],
 	"reportUnusedDisableDirectives": true,
@@ -45,18 +46,16 @@
 		"no-floating-decimal": "error",
 		"no-implicit-coercion": "error",
 		"no-implied-eval": "error",
-		// Turn off until fix for: https://github.com/typescript-eslint/typescript-eslint/issues/239
 		"no-inner-declarations": "off",
 		"no-lone-blocks": "error",
 		"no-lonely-if": "error",
 		"no-loop-func": "error",
 		"no-multi-spaces": "error",
+		"no-restricted-globals": ["error", "process"],
 		"no-restricted-imports": [
 			"error",
 			{
 				"paths": [
-					"lodash",
-					"lodash-es",
 					// Disallow node imports below
 					"assert",
 					"buffer",
@@ -75,6 +74,7 @@
 					"net",
 					"os",
 					"path",
+					"process",
 					"punycode",
 					"querystring",
 					"readline",
@@ -96,6 +96,10 @@
 					{
 						"group": ["**/env/**/*"],
 						"message": "Use @env/ instead"
+					},
+					{
+						"group": ["src/**/*"],
+						"message": "Use relative paths instead"
 					}
 				]
 			}
@@ -108,6 +112,7 @@
 		"no-throw-literal": "error",
 		"no-unmodified-loop-condition": "warn",
 		"no-unneeded-ternary": "error",
+		"no-unused-expressions": "error",
 		"no-use-before-define": "off",
 		"no-useless-call": "error",
 		"no-useless-catch": "error",
@@ -124,16 +129,16 @@
 			"error",
 			{
 				"destructuring": "all",
-				"ignoreReadBeforeAssign": false
+				"ignoreReadBeforeAssign": true
 			}
 		],
 		"prefer-numeric-literals": "error",
 		"prefer-object-spread": "error",
+		"prefer-promise-reject-errors": ["error", { "allowEmptyReject": true }],
 		"prefer-rest-params": "error",
 		"prefer-spread": "error",
 		"prefer-template": "error",
 		"quotes": ["error", "single", { "avoidEscape": true, "allowTemplateLiterals": true }],
-		// Turn off until fix for: https://github.com/eslint/eslint/issues/11899
 		"require-atomic-updates": "off",
 		"semi": ["error", "always"],
 		"semi-style": ["error", "last"],
@@ -147,22 +152,26 @@
 			}
 		],
 		"yoda": "error",
-		"import/export": "off",
+		"import/consistent-type-specifier-style": ["error", "prefer-top-level"],
 		"import/extensions": ["error", "never"],
-		"import/named": "off",
-		"import/namespace": "off",
 		"import/newline-after-import": "warn",
+		"import/no-absolute-path": "error",
 		"import/no-cycle": "off",
-		"import/no-dynamic-require": "error",
 		"import/no-default-export": "error",
+		"import/no-duplicates": ["error", { "prefer-inline": false }],
+		"import/no-dynamic-require": "error",
 		"import/no-self-import": "error",
 		"import/no-unresolved": ["warn", { "ignore": ["vscode", "@env"] }],
+		"import/no-useless-path-segments": "error",
 		"import/order": [
 			"warn",
 			{
-				"alphabetize": { "order": "asc", "caseInsensitive": true },
-				"groups": ["builtin", "external", "internal", ["parent", "sibling", "index"]],
-				// "groups": ["builtin", "external", "internal", ["index", "sibling", "parent"]],
+				"alphabetize": {
+					"order": "asc",
+					"orderImportKind": "asc",
+					"caseInsensitive": true
+				},
+				"groups": ["builtin", "external", "internal", "parent", "sibling", "index"],
 				"newlines-between": "never"
 			}
 		],
@@ -203,6 +212,7 @@
 				}
 			}
 		],
+		"@typescript-eslint/class-literal-property-style": "off",
 		"@typescript-eslint/consistent-type-assertions": [
 			"error",
 			{
@@ -210,9 +220,9 @@
 				"objectLiteralTypeAssertions": "allow-as-parameter"
 			}
 		],
-		"@typescript-eslint/explicit-function-return-type": "off",
-		"@typescript-eslint/explicit-member-accessibility": "off",
-		"@typescript-eslint/explicit-module-boundary-types": "off", // TODO@eamodio revisit
+		"@typescript-eslint/consistent-type-definitions": "off",
+		"@typescript-eslint/consistent-type-imports": ["error", { "disallowTypeAnnotations": false }],
+		"@typescript-eslint/dot-notation": "off",
 		"@typescript-eslint/naming-convention": [
 			"error",
 			{
@@ -259,22 +269,23 @@
 				}
 			}
 		],
-		"@typescript-eslint/no-duplicate-imports": "error",
+		"@typescript-eslint/no-confusing-void-expression": [
+			"error",
+			{ "ignoreArrowShorthand": true, "ignoreVoidOperator": true }
+		],
 		"@typescript-eslint/no-empty-function": "off",
-		"@typescript-eslint/no-empty-interface": "error",
 		"@typescript-eslint/no-explicit-any": "off",
-		"@typescript-eslint/no-floating-promises": "error",
 		"@typescript-eslint/no-inferrable-types": ["warn", { "ignoreParameters": true, "ignoreProperties": true }],
+		"@typescript-eslint/no-invalid-void-type": "off", // Seems to error on `void` return types
 		"@typescript-eslint/no-misused-promises": ["error", { "checksVoidReturn": false }],
-		"@typescript-eslint/no-namespace": "off",
 		"@typescript-eslint/no-non-null-assertion": "off",
-		"@typescript-eslint/no-parameter-properties": "off",
+		"@typescript-eslint/no-redundant-type-constituents": "off",
 		"@typescript-eslint/no-unnecessary-condition": "off",
+		"@typescript-eslint/no-unnecessary-boolean-literal-compare": "off",
 		"@typescript-eslint/no-unsafe-argument": "off",
 		"@typescript-eslint/no-unsafe-assignment": "off",
 		"@typescript-eslint/no-unsafe-call": "off",
 		"@typescript-eslint/no-unsafe-member-access": "off",
-		"@typescript-eslint/no-unsafe-return": "off",
 		"@typescript-eslint/no-unused-expressions": ["warn", { "allowShortCircuit": true }],
 		"@typescript-eslint/no-unused-vars": [
 			"warn",
@@ -285,26 +296,20 @@
 				"varsIgnorePattern": "^_$"
 			}
 		],
-		"@typescript-eslint/no-use-before-define": "off",
-		"@typescript-eslint/prefer-nullish-coalescing": "off",
+		"@typescript-eslint/no-unsafe-enum-comparison": "off",
+		"@typescript-eslint/no-use-before-define": ["error", { "functions": false, "classes": false }],
+		"@typescript-eslint/prefer-for-of": "warn",
+		"@typescript-eslint/prefer-includes": "warn",
+		"@typescript-eslint/prefer-literal-enum-member": ["warn", { "allowBitwiseExpressions": true }],
+		"@typescript-eslint/prefer-nullish-coalescing": "off", // warn
 		"@typescript-eslint/prefer-optional-chain": "warn",
+		"@typescript-eslint/prefer-reduce-type-parameter": "warn",
 		"@typescript-eslint/restrict-template-expressions": [
 			"error",
 			{ "allowAny": true, "allowBoolean": true, "allowNumber": true, "allowNullish": true }
 		],
-		"@typescript-eslint/strict-boolean-expressions": [
-			"warn",
-			{
-				"allowString": true,
-				"allowNumber": true,
-				"allowNullableObject": false,
-				"allowNullableBoolean": true,
-				"allowNullableNumber": true,
-				"allowNullableString": true,
-				"allowAny": false
-			}
-		],
-		"@typescript-eslint/unbound-method": "off" // Too many bugs right now: https://github.com/typescript-eslint/typescript-eslint/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+unbound-method
+		"@typescript-eslint/unbound-method": "off", // Too many bugs right now: https://github.com/typescript-eslint/typescript-eslint/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+unbound-method
+		"@typescript-eslint/unified-signatures": ["error", { "ignoreDifferentlyNamedParameters": true }]
 	},
 	"settings": {
 		"import/parsers": {

@@ -1,8 +1,4 @@
-import { resolveProp } from './resolver';
-
-export function serialize<T extends (...arg: any) => any>(
-	resolver?: (...args: Parameters<T>) => string,
-): (target: any, key: string, descriptor: PropertyDescriptor) => void {
+export function serialize(): (target: any, key: string, descriptor: PropertyDescriptor) => void {
 	return (target: any, key: string, descriptor: PropertyDescriptor) => {
 		let fn: Function | undefined;
 		if (typeof descriptor.value === 'function') {
@@ -15,9 +11,8 @@ export function serialize<T extends (...arg: any) => any>(
 		const serializeKey = `$serialize$${key}`;
 
 		descriptor.value = function (this: any, ...args: any[]) {
-			const prop = resolveProp(serializeKey, resolver, ...(args as Parameters<T>));
-			if (!Object.prototype.hasOwnProperty.call(this, prop)) {
-				Object.defineProperty(this, prop, {
+			if (!Object.prototype.hasOwnProperty.call(this, serializeKey)) {
+				Object.defineProperty(this, serializeKey, {
 					configurable: false,
 					enumerable: false,
 					writable: true,
@@ -25,15 +20,16 @@ export function serialize<T extends (...arg: any) => any>(
 				});
 			}
 
-			let promise = this[prop];
-			const run = () => fn!.apply(this, args);
-			if (promise === undefined) {
+			let promise: Promise<any> | undefined = this[serializeKey];
+			// eslint-disable-next-line no-return-await, @typescript-eslint/no-unsafe-return
+			const run = async () => await fn!.apply(this, args);
+			if (promise == null) {
 				promise = run();
 			} else {
 				promise = promise.then(run, run);
 			}
 
-			this[prop] = promise;
+			this[serializeKey] = promise;
 			return promise;
 		};
 	};

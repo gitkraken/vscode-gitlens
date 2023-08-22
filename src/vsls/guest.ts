@@ -1,16 +1,19 @@
-import { CancellationToken, Disposable, Uri, window } from 'vscode';
+import type { CancellationToken, Disposable, Uri } from 'vscode';
+import { window } from 'vscode';
 import type { LiveShare, SharedServiceProxy } from '../@types/vsls';
-import { Container } from '../container';
-import { GitCommandOptions } from '../git/commandOptions';
-import { Logger } from '../logger';
+import type { Container } from '../container';
+import type { GitCommandOptions } from '../git/commandOptions';
 import { debug, log } from '../system/decorators/log';
+import { Logger } from '../system/logger';
+import { getLogScope } from '../system/logger.scope';
 import { VslsHostService } from './host';
-import { GetRepositoriesForUriRequestType, GitCommandRequestType, RepositoryProxy, RequestType } from './protocol';
+import type { RepositoryProxy, RequestType } from './protocol';
+import { GetRepositoriesForUriRequestType, GitCommandRequestType, GitLogStreamToCommandRequestType } from './protocol';
 
 export class VslsGuestService implements Disposable {
 	@log()
 	static async connect(api: LiveShare, container: Container) {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		try {
 			const service = await api.getSharedService(VslsHostService.ServiceId);
@@ -20,7 +23,7 @@ export class VslsGuestService implements Disposable {
 
 			return new VslsGuestService(api, service, container);
 		} catch (ex) {
-			Logger.error(ex, cc);
+			Logger.error(ex, scope);
 			return undefined;
 		}
 	}
@@ -53,8 +56,12 @@ export class VslsGuestService implements Disposable {
 	}
 
 	@log()
-	async git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]) {
-		const response = await this.sendRequest(GitCommandRequestType, { options: options, args: args });
+	async git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<TOut> {
+		const response = await this.sendRequest(GitCommandRequestType, {
+			__type: 'gitlens',
+			options: options,
+			args: args,
+		});
 
 		if (response.isBuffer) {
 			return Buffer.from(response.data, 'binary') as TOut;
@@ -63,8 +70,29 @@ export class VslsGuestService implements Disposable {
 	}
 
 	@log()
+	async gitLogStreamTo(
+		repoPath: string,
+		sha: string,
+		limit: number,
+		options?: { configs?: readonly string[]; stdin?: string },
+		...args: string[]
+	): Promise<[data: string[], count: number]> {
+		const response = await this.sendRequest(GitLogStreamToCommandRequestType, {
+			__type: 'gitlens',
+			repoPath: repoPath,
+			sha: sha,
+			limit: limit,
+			options: options,
+			args: args,
+		});
+
+		return [response.data, response.count];
+	}
+
+	@log()
 	async getRepositoriesForUri(uri: Uri): Promise<RepositoryProxy[]> {
 		const response = await this.sendRequest(GetRepositoriesForUriRequestType, {
+			__type: 'gitlens',
 			folderUri: uri.toString(),
 		});
 
@@ -74,9 +102,9 @@ export class VslsGuestService implements Disposable {
 	@debug()
 	private sendRequest<TRequest, TResponse>(
 		requestType: RequestType<TRequest, TResponse>,
-		request: TRequest,
-		_cancellation?: CancellationToken,
+		request: TRequest & { __type: string },
+		cancellation?: CancellationToken,
 	): Promise<TResponse> {
-		return this._service.request(requestType.name, [request]);
+		return this._service.request<TResponse>(requestType.name, [request], cancellation);
 	}
 }

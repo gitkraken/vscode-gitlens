@@ -22,9 +22,11 @@ let defaultLocales: string[] | undefined;
 let defaultRelativeTimeFormat: InstanceType<typeof Intl.RelativeTimeFormat> | undefined;
 let defaultShortRelativeTimeFormat: InstanceType<typeof Intl.RelativeTimeFormat> | undefined;
 
+const numberFormatCache = new Map<string | undefined, Intl.NumberFormat>();
+
 export function setDefaultDateLocales(locales: string | string[] | null | undefined) {
 	if (typeof locales === 'string') {
-		if (locales === 'system') {
+		if (locales === 'system' || locales.trim().length === 0) {
 			defaultLocales = undefined;
 		} else {
 			defaultLocales = [locales];
@@ -32,9 +34,13 @@ export function setDefaultDateLocales(locales: string | string[] | null | undefi
 	} else {
 		defaultLocales = locales ?? undefined;
 	}
+
 	defaultRelativeTimeFormat = undefined;
 	defaultShortRelativeTimeFormat = undefined;
 	dateTimeFormatCache.clear();
+
+	numberFormatCache.clear();
+
 	locale = undefined;
 }
 
@@ -72,8 +78,8 @@ export function createFromDateDelta(
 	return d;
 }
 
-export function fromNow(date: Date, short?: boolean): string {
-	const elapsed = date.getTime() - new Date().getTime();
+export function fromNow(date: Date | number, short?: boolean): string {
+	const elapsed = (typeof date === 'number' ? date : date.getTime()) - new Date().getTime();
 
 	for (const [unit, threshold, divisor, shortUnit] of relativeUnitThresholds) {
 		const elapsedABS = Math.abs(elapsed);
@@ -125,7 +131,7 @@ export function fromNow(date: Date, short?: boolean): string {
 }
 
 export function formatDate(
-	date: Date,
+	date: Date | number,
 	format: 'full' | 'long' | 'medium' | 'short' | string | null | undefined,
 	locale?: string,
 	cache: boolean = true,
@@ -345,4 +351,35 @@ const ordinals = ['th', 'st', 'nd', 'rd'];
 function formatWithOrdinal(n: number): string {
 	const v = n % 100;
 	return `${n}${ordinals[(v - 20) % 10] ?? ordinals[v] ?? ordinals[0]}`;
+}
+
+export function formatNumeric(
+	value: number,
+	style?: 'decimal' | 'currency' | 'percent' | 'unit' | null | undefined,
+	locale?: string,
+): string {
+	if (style == null) {
+		style = 'decimal';
+	}
+
+	const key = `${locale ?? ''}:${style}`;
+
+	let formatter = numberFormatCache.get(key);
+	if (formatter == null) {
+		const options: Intl.NumberFormatOptions = { localeMatcher: 'best fit', style: style };
+
+		let locales;
+		if (locale == null) {
+			locales = defaultLocales;
+		} else if (locale === 'system') {
+			locales = undefined;
+		} else {
+			locales = [locale];
+		}
+
+		formatter = new Intl.NumberFormat(locales, options);
+		numberFormatCache.set(key, formatter);
+	}
+
+	return formatter.format(value);
 }

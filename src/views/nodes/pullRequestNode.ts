@@ -1,24 +1,18 @@
 import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
-import { GitBranch, GitCommit, PullRequest, PullRequestState } from '../../git/models';
-import { ViewsWithCommits } from '../viewBase';
-import { RepositoryNode } from './repositoryNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { GitBranch } from '../../git/models/branch';
+import type { GitCommit } from '../../git/models/commit';
+import { PullRequest, PullRequestState } from '../../git/models/pullRequest';
+import type { ViewsWithCommits } from '../viewBase';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class PullRequestNode extends ViewNode<ViewsWithCommits> {
-	static key = ':pullrequest';
-	static getId(repoPath: string, id: string, refOrParent: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${id}):${refOrParent}`;
-	}
-
-	public readonly pullRequest: PullRequest;
-	private readonly branchOrCommit?: GitBranch | GitCommit;
-	private readonly repoPath: string;
+	readonly repoPath: string;
 
 	constructor(
 		view: ViewsWithCommits,
-		parent: ViewNode,
-		pullRequest: PullRequest,
+		protected override readonly parent: ViewNode,
+		public readonly pullRequest: PullRequest,
 		branchOrCommitOrRepoPath: GitBranch | GitCommit | string,
 	) {
 		let branchOrCommit;
@@ -32,17 +26,24 @@ export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 
 		super(GitUri.fromRepoPath(repoPath), view, parent);
 
-		this.branchOrCommit = branchOrCommit;
-		this.pullRequest = pullRequest;
+		if (branchOrCommit != null) {
+			if (branchOrCommit instanceof GitBranch) {
+				this.updateContext({ branch: branchOrCommit });
+			} else {
+				this.updateContext({ commit: branchOrCommit });
+			}
+		}
+
+		this._uniqueId = getViewNodeId('pullrequest', this.context);
 		this.repoPath = repoPath;
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
 		return this.pullRequest.url;
-	}
-
-	override get id(): string {
-		return PullRequestNode.getId(this.repoPath, this.pullRequest.id, this.branchOrCommit?.ref ?? this.parent!.id!);
 	}
 
 	getChildren(): ViewNode[] {
@@ -60,9 +61,9 @@ export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 		tooltip.supportHtml = true;
 		tooltip.isTrusted = true;
 
-		if (GitCommit.is(this.branchOrCommit)) {
+		if (this.context.commit != null) {
 			tooltip.appendMarkdown(
-				`Commit \`$(git-commit) ${this.branchOrCommit.shortSha}\` was introduced by $(git-pull-request) PR #${this.pullRequest.id}\n\n`,
+				`Commit \`$(git-commit) ${this.context.commit.shortSha}\` was introduced by $(git-pull-request) PR #${this.pullRequest.id}\n\n`,
 			);
 		}
 

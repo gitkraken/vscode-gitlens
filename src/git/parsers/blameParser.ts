@@ -1,17 +1,13 @@
 import type { Container } from '../../container';
 import { debug } from '../../system/decorators/log';
 import { getLines } from '../../system/string';
-import {
-	GitBlame,
-	GitBlameAuthor,
-	GitCommit,
-	GitCommitIdentity,
-	GitCommitLine,
-	GitFileChange,
-	GitFileIndexStatus,
-	GitRevision,
-	GitUser,
-} from '../models';
+import type { GitBlame, GitBlameAuthor } from '../models/blame';
+import type { GitCommitLine } from '../models/commit';
+import { GitCommit, GitCommitIdentity } from '../models/commit';
+import { uncommitted } from '../models/constants';
+import { GitFileChange, GitFileIndexStatus } from '../models/file';
+import { isUncommitted } from '../models/reference';
+import type { GitUser } from '../models/user';
 
 interface BlameEntry {
 	sha: string;
@@ -38,6 +34,7 @@ interface BlameEntry {
 	summary?: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class GitBlameParser {
 	@debug({ args: false, singleLine: true })
 	static parse(
@@ -63,20 +60,19 @@ export class GitBlameParser {
 
 			[key] = lineParts;
 			if (entry == null) {
-				// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
 				entry = {
 					sha: key,
 					originalLine: parseInt(lineParts[1], 10),
 					line: parseInt(lineParts[2], 10),
 					lineCount: parseInt(lineParts[3], 10),
-				} as BlameEntry;
+				} as unknown as BlameEntry;
 
 				continue;
 			}
 
 			switch (key) {
 				case 'author':
-					if (entry.sha === GitRevision.uncommitted) {
+					if (entry.sha === uncommitted) {
 						entry.author = 'You';
 					} else {
 						entry.author = line.slice(key.length + 1).trim();
@@ -84,7 +80,7 @@ export class GitBlameParser {
 					break;
 
 				case 'author-mail': {
-					if (entry.sha === GitRevision.uncommitted) {
+					if (entry.sha === uncommitted) {
 						entry.authorEmail = currentUser?.email;
 						continue;
 					}
@@ -111,7 +107,7 @@ export class GitBlameParser {
 					break;
 
 				case 'committer':
-					if (GitRevision.isUncommitted(entry.sha)) {
+					if (isUncommitted(entry.sha)) {
 						entry.committer = 'You';
 					} else {
 						entry.committer = line.slice(key.length + 1).trim();
@@ -119,7 +115,7 @@ export class GitBlameParser {
 					break;
 
 				case 'committer-mail': {
-					if (GitRevision.isUncommitted(entry.sha)) {
+					if (isUncommitted(entry.sha)) {
 						entry.committerEmail = currentUser?.email;
 						continue;
 					}

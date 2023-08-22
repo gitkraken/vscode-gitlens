@@ -1,13 +1,16 @@
-import { TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import type { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitCommit, GitRevision } from '../git/models';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
+import type { GitCommit } from '../git/models/commit';
+import { uncommittedStaged } from '../git/models/constants';
+import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/command';
+import { Logger } from '../system/logger';
+import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri } from './base';
-import { DiffWithCommandArgs } from './diffWith';
+import type { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffLineWithWorkingCommandArgs {
 	commit?: GitCommit;
@@ -20,6 +23,14 @@ export interface DiffLineWithWorkingCommandArgs {
 export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 	constructor(private readonly container: Container) {
 		super(Commands.DiffLineWithWorking);
+	}
+
+	protected override preExecute(context: CommandContext, args?: DiffLineWithWorkingCommandArgs): Promise<any> {
+		if (context.type === 'editorLine') {
+			args = { ...args, line: context.line };
+		}
+
+		return this.execute(context.editor, context.uri, args);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffLineWithWorkingCommandArgs): Promise<any> {
@@ -43,7 +54,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 			try {
 				const blame = await this.container.git.getBlameForLine(gitUri, blameline, editor?.document);
 				if (blame == null) {
-					void Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+					void showFileNotUnderSourceControlWarningMessage('Unable to open compare');
 
 					return;
 				}
@@ -54,7 +65,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 				if (args.commit.isUncommitted) {
 					const status = await this.container.git.getStatusForFile(gitUri.repoPath!, gitUri);
 					if (status?.indexStatus != null) {
-						lhsSha = GitRevision.uncommittedStaged;
+						lhsSha = uncommittedStaged;
 						lhsUri = this.container.git.getAbsoluteUri(
 							status.originalPath || status.path,
 							args.commit.repoPath,
@@ -72,7 +83,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 				args.line = blame.line.line - 1;
 			} catch (ex) {
 				Logger.error(ex, 'DiffLineWithWorkingCommand', `getBlameForLine(${blameline})`);
-				void Messages.showGenericErrorMessage('Unable to open compare');
+				void showGenericErrorMessage('Unable to open compare');
 
 				return;
 			}

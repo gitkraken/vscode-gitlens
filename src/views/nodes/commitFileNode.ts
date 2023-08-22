@@ -1,19 +1,26 @@
-import { Command, MarkdownString, Selection, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
+import type { Command, Selection } from 'vscode';
+import { MarkdownString, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
-import { Commands } from '../../constants';
-import { StatusFileFormatter } from '../../git/formatters';
+import { Commands, Schemes } from '../../constants';
+import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
-import { GitBranch, GitCommit, GitFile, GitRevisionReference } from '../../git/models';
+import type { GitBranch } from '../../git/models/branch';
+import type { GitCommit } from '../../git/models/commit';
+import type { GitFile } from '../../git/models/file';
+import { getGitFileStatusIcon } from '../../git/models/file';
+import type { GitRevisionReference } from '../../git/models/reference';
 import { joinPaths, relativeDir } from '../../system/path';
-import { FileHistoryView } from '../fileHistoryView';
-import { View, ViewsWithCommits } from '../viewBase';
-import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
+import type { ViewsWithCommits, ViewsWithStashes } from '../viewBase';
+import type { ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewRefFileNode } from './viewNode';
 
-export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryView> extends ViewRefFileNode<TView> {
+export class CommitFileNode<
+	TView extends ViewsWithCommits | ViewsWithStashes = ViewsWithCommits,
+> extends ViewRefFileNode<TView> {
 	constructor(
 		view: TView,
 		parent: ViewNode,
-		public readonly file: GitFile,
+		file: GitFile,
 		public commit: GitCommit,
 		private readonly _options: {
 			branch?: GitBranch;
@@ -21,7 +28,14 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 			unpublished?: boolean;
 		} = {},
 	) {
-		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent);
+		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent, file);
+
+		this.updateContext({ commit: commit, file: file });
+		this._uniqueId = getViewNodeId('commit-file', this.context);
+	}
+
+	override get id(): string {
+		return this._uniqueId;
 	}
 
 	override toClipboard(): string {
@@ -58,17 +72,30 @@ export class CommitFileNode<TView extends View = ViewsWithCommits | FileHistoryV
 		}
 
 		const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
+		item.id = this.id;
 		item.contextValue = this.contextValue;
 		item.description = this.description;
-		item.resourceUri = Uri.parse(`gitlens-view://commit-file/status/${this.file.status}`);
+		if (this.view.config.files.icon === 'type') {
+			item.resourceUri = Uri.from({
+				scheme: Schemes.Git,
+				authority: 'gitlens-view',
+				path: this.uri.path,
+				query: JSON.stringify({
+					// Ensure we use the fsPath here, otherwise the url won't open properly
+					path: this.uri.fsPath,
+					ref: this.uri.sha,
+					decoration: `gitlens-view://commit-file/status/${this.file.status}`,
+				}),
+			});
+		} else {
+			item.resourceUri = Uri.parse(`gitlens-view://commit-file/status/${this.file.status}`);
+			const icon = getGitFileStatusIcon(this.file.status);
+			item.iconPath = {
+				dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon)),
+				light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon)),
+			};
+		}
 		item.tooltip = this.tooltip;
-
-		const icon = GitFile.getStatusIcon(this.file.status);
-		item.iconPath = {
-			dark: this.view.container.context.asAbsolutePath(joinPaths('images', 'dark', icon)),
-			light: this.view.container.context.asAbsolutePath(joinPaths('images', 'light', icon)),
-		};
-
 		item.command = this.getCommand();
 
 		// Only cache the label for a single refresh (its only cached because it is used externally for sorting)

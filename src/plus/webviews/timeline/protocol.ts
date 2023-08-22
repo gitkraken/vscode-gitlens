@@ -2,9 +2,12 @@ import type { FeatureAccess } from '../../../features';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
 
 export interface State {
+	timestamp: number;
+
 	dataset?: Commit[];
 	period: Period;
-	title: string;
+	title?: string;
+	sha?: string;
 	uri?: string;
 
 	dateFormat: string;
@@ -24,12 +27,12 @@ export interface Commit {
 	sort: number;
 }
 
-export type Period = `${number}|${'D' | 'M' | 'Y'}`;
+export type Period = `${number}|${'D' | 'M' | 'Y'}` | 'all';
 
-export interface DidChangeStateParams {
+export interface DidChangeParams {
 	state: State;
 }
-export const DidChangeStateNotificationType = new IpcNotificationType<DidChangeStateParams>('timeline/data/didChange');
+export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('timeline/didChange');
 
 export interface OpenDataPointParams {
 	data?: {
@@ -37,7 +40,7 @@ export interface OpenDataPointParams {
 		selected: boolean;
 	};
 }
-export const OpenDataPointCommandType = new IpcCommandType<OpenDataPointParams>('timeline/point/click');
+export const OpenDataPointCommandType = new IpcCommandType<OpenDataPointParams>('timeline/point/open');
 
 export interface UpdatePeriodParams {
 	period: Period;

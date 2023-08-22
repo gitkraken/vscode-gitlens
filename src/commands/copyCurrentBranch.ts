@@ -1,10 +1,12 @@
-import { env, TextEditor, Uri, window } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
+import { env } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
-import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { showGenericErrorMessage } from '../messages';
+import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
+import { Logger } from '../system/logger';
 import { ActiveEditorCommand, getCommandUri } from './base';
 
 @command()
@@ -18,7 +20,7 @@ export class CopyCurrentBranchCommand extends ActiveEditorCommand {
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-		const repository = await RepositoryPicker.getBestRepositoryOrShow(gitUri, editor, 'Copy Current Branch Name');
+		const repository = await getBestRepositoryOrShowPicker(gitUri, editor, 'Copy Current Branch Name');
 		if (repository == null) return;
 
 		try {
@@ -28,7 +30,7 @@ export class CopyCurrentBranchCommand extends ActiveEditorCommand {
 			}
 		} catch (ex) {
 			Logger.error(ex, 'CopyCurrentBranchCommand');
-			void window.showErrorMessage('Unable to copy current branch name. See output channel for more details');
+			void showGenericErrorMessage('Unable to copy current branch name');
 		}
 	}
 }

@@ -1,5 +1,5 @@
 import { debug } from '../../system/decorators/log';
-import { GitTag } from '../models';
+import { GitTag } from '../models/tag';
 
 const tagRegex = /^<n>(.+)<\*r>(.*)<r>(.*)<d>(.*)<ad>(.*)<s>(.*)$/gm;
 
@@ -7,6 +7,7 @@ const tagRegex = /^<n>(.+)<\*r>(.*)<r>(.*)<d>(.*)<ad>(.*)<s>(.*)$/gm;
 const lb = '%3c'; // `%${'<'.charCodeAt(0).toString(16)}`;
 const rb = '%3e'; // `%${'>'.charCodeAt(0).toString(16)}`;
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class GitTagParser {
 	static defaultFormat = [
 		`${lb}n${rb}%(refname)`, // tag name

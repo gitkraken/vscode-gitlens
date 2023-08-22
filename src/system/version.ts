@@ -48,3 +48,26 @@ export function fromString(version: string): Version {
 	const [major, minor, patch] = ver.split('.');
 	return from(major, minor, patch, pre);
 }
+
+export function satisfies(
+	v: string | Version | null | undefined,
+	requirement: `${'=' | '>' | '>=' | '<' | '<='} ${string}`,
+): boolean {
+	if (v == null) return false;
+
+	const [op, version] = requirement.split(' ');
+
+	if (op === '=') {
+		return compare(v, version) === 0;
+	} else if (op === '>') {
+		return compare(v, version) > 0;
+	} else if (op === '>=') {
+		return compare(v, version) >= 0;
+	} else if (op === '<') {
+		return compare(v, version) < 0;
+	} else if (op === '<=') {
+		return compare(v, version) <= 0;
+	}
+
+	throw new Error(`Unknown operator: ${op}`);
+}

@@ -1,18 +1,24 @@
-import { Command, MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type { Command } from 'vscode';
+import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands';
-import { Commands, CoreCommands, GlyphChars } from '../../constants';
-import { CommitFormatter } from '../../git/formatters';
+import { Commands, GlyphChars } from '../../constants';
+import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { GitUri } from '../../git/gitUri';
-import { GitFile, GitMergeStatus, GitRebaseStatus, GitReference } from '../../git/models';
-import { FileHistoryView } from '../fileHistoryView';
-import { LineHistoryView } from '../lineHistoryView';
-import { ViewsWithCommits } from '../viewBase';
+import type { GitFile } from '../../git/models/file';
+import type { GitMergeStatus } from '../../git/models/merge';
+import type { GitRebaseStatus } from '../../git/models/rebase';
+import { getReferenceLabel } from '../../git/models/reference';
+import { createCommand, createCoreCommand } from '../../system/command';
+import { configuration } from '../../system/configuration';
+import type { FileHistoryView } from '../fileHistoryView';
+import type { LineHistoryView } from '../lineHistoryView';
+import type { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits | FileHistoryView | LineHistoryView> {
 	constructor(
 		view: ViewsWithCommits | FileHistoryView | LineHistoryView,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		private readonly status: GitMergeStatus | GitRebaseStatus,
 		private readonly file: GitFile,
 	) {
@@ -28,16 +34,16 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 
 		const item = new TreeItem('Current changes', TreeItemCollapsibleState.None);
 		item.contextValue = ContextValues.MergeConflictCurrentChanges;
-		item.description = `${GitReference.toString(this.status.current, { expand: false, icon: false })}${
-			commit != null ? ` (${GitReference.toString(commit, { expand: false, icon: false })})` : ' (HEAD)'
+		item.description = `${getReferenceLabel(this.status.current, { expand: false, icon: false })}${
+			commit != null ? ` (${getReferenceLabel(commit, { expand: false, icon: false })})` : ' (HEAD)'
 		}`;
 		item.iconPath = this.view.config.avatars
-			? (await commit?.getAvatarUri({ defaultStyle: this.view.container.config.defaultGravatarsStyle })) ??
+			? (await commit?.getAvatarUri({ defaultStyle: configuration.get('defaultGravatarsStyle') })) ??
 			  new ThemeIcon('diff')
 			: new ThemeIcon('diff');
 
 		const markdown = new MarkdownString(
-			`Current changes to $(file)${GlyphChars.Space}${this.file.path} on ${GitReference.toString(
+			`Current changes to $(file)${GlyphChars.Space}${this.file.path} on ${getReferenceLabel(
 				this.status.current,
 			)}${
 				commit != null
@@ -46,10 +52,10 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 							commit,
 							{
 								avatarSize: 16,
-								dateFormat: this.view.container.config.defaultDateFormat,
-								markdown: true,
+								dateFormat: configuration.get('defaultDateFormat'),
 								// messageAutolinks: true,
 								messageIndent: 4,
+								outputFormat: 'markdown',
 							},
 					  )}`
 					: ''
@@ -65,16 +71,16 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 		return item;
 	}
 
-	override getCommand(): Command | undefined {
+	override getCommand(): Command {
 		if (this.status.mergeBase == null) {
-			return {
-				title: 'Open Revision',
-				command: CoreCommands.Open,
-				arguments: [this.view.container.git.getRevisionUri('HEAD', this.file.path, this.status.repoPath)],
-			};
+			return createCoreCommand(
+				'vscode.open',
+				'Open Revision',
+				this.view.container.git.getRevisionUri('HEAD', this.file.path, this.status.repoPath),
+			);
 		}
 
-		const commandArgs: DiffWithCommandArgs = {
+		return createCommand<[DiffWithCommandArgs]>(Commands.DiffWith, 'Open Changes', {
 			lhs: {
 				sha: this.status.mergeBase,
 				uri: GitUri.fromFile(this.file, this.status.repoPath, undefined, true),
@@ -83,7 +89,7 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 			rhs: {
 				sha: 'HEAD',
 				uri: GitUri.fromFile(this.file, this.status.repoPath),
-				title: `${this.file.path} (${GitReference.toString(this.status.current, {
+				title: `${this.file.path} (${getReferenceLabel(this.status.current, {
 					expand: false,
 					icon: false,
 				})})`,
@@ -94,11 +100,6 @@ export class MergeConflictCurrentChangesNode extends ViewNode<ViewsWithCommits |
 				preserveFocus: true,
 				preview: true,
 			},
-		};
-		return {
-			title: 'Open Changes',
-			command: Commands.DiffWith,
-			arguments: [commandArgs],
-		};
+		});
 	}
 }

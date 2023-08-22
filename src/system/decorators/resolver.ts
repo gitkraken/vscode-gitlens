@@ -1,17 +1,27 @@
 import { Uri } from 'vscode';
+import { isContainer } from '../../container';
+import { isBranch } from '../../git/models/branch';
+import { isCommit } from '../../git/models/commit';
+import { isTag } from '../../git/models/tag';
+import { isViewNode } from '../../views/nodes/viewNode';
 
 function replacer(key: string, value: any): any {
 	if (key === '') return value;
 
 	if (value == null) return value;
+	if (typeof value !== 'object') return value;
+
 	if (value instanceof Error) return String(value);
 	if (value instanceof Uri) {
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if ('sha' in (value as any) && (value as any).sha) {
 			return `${(value as any).sha}:${value.toString()}`;
 		}
 		return value.toString();
 	}
+	if (isBranch(value) || isCommit(value) || isTag(value) || isViewNode(value)) {
+		return value.toString();
+	}
+	if (isContainer(value)) return '<container>';
 
 	return value;
 }
@@ -24,17 +34,32 @@ export function defaultResolver(...args: any[]): string {
 
 	const arg0 = args[0];
 	if (arg0 == null) return '';
-	if (typeof arg0 === 'string') return arg0;
-	if (typeof arg0 === 'number' || typeof arg0 === 'boolean' || arg0 instanceof Error) return String(arg0);
-	if (arg0 instanceof Uri) {
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-		if ('sha' in (arg0 as any) && (arg0 as any).sha) {
-			return `${(arg0 as any).sha}:${arg0.toString()}`;
-		}
-		return arg0.toString();
-	}
+	switch (typeof arg0) {
+		case 'string':
+			return arg0;
 
-	return JSON.stringify(arg0, replacer);
+		case 'number':
+		case 'boolean':
+		case 'undefined':
+		case 'symbol':
+		case 'bigint':
+			return String(arg0);
+
+		default:
+			if (arg0 instanceof Error) return String(arg0);
+			if (arg0 instanceof Uri) {
+				if ('sha' in arg0 && typeof arg0.sha === 'string' && arg0.sha) {
+					return `${arg0.sha}:${arg0.toString()}`;
+				}
+				return arg0.toString();
+			}
+			if (isBranch(arg0) || isCommit(arg0) || isTag(arg0) || isViewNode(arg0)) {
+				return arg0.toString();
+			}
+			if (isContainer(arg0)) return '<container>';
+
+			return JSON.stringify(arg0, replacer);
+	}
 }
 
 export type Resolver<T extends (...arg: any) => any> = (...args: Parameters<T>) => string;

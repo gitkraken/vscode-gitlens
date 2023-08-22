@@ -1,20 +1,16 @@
-import type { Subscription } from '../../subscription';
 import { IpcNotificationType } from '../protocol';
 
-export const enum CompletedActions {
-	DismissedWelcome = 'dismissed:welcome',
-	OpenedSCM = 'opened:scm',
-}
-
 export interface State {
-	subscription: Subscription;
-	completedActions: CompletedActions[];
+	timestamp: number;
+
+	repositories: DidChangeRepositoriesParams;
+	webroot?: string;
 }
 
-export interface DidChangeSubscriptionParams {
-	subscription: Subscription;
-	completedActions: CompletedActions[];
+export interface DidChangeRepositoriesParams {
+	count: number;
+	openCount: number;
+	hasUnsafe: boolean;
+	trusted: boolean;
 }
-export const DidChangeSubscriptionNotificationType = new IpcNotificationType<DidChangeSubscriptionParams>(
-	'subscription/didChange',
-);
+export const DidChangeRepositoriesType = new IpcNotificationType<DidChangeRepositoriesParams>('repositories/didChange');

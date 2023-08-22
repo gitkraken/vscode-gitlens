@@ -1,18 +1,23 @@
 import { GlyphChars, quickPickTitleMaxChars } from '../../constants';
-import { Container } from '../../container';
-import { GitCommit, GitLog, GitReference, Repository } from '../../git/models';
+import type { Container } from '../../container';
+import { showDetailsView } from '../../git/actions/commit';
+import { GitCommit } from '../../git/models/commit';
+import type { GitLog } from '../../git/models/log';
+import type { GitReference } from '../../git/models/reference';
+import { getReferenceLabel, isRevisionRangeReference, isRevisionReference } from '../../git/models/reference';
+import { Repository } from '../../git/models/repository';
 import { formatPath } from '../../system/formatPath';
 import { pad } from '../../system/string';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { getSteps } from '../gitCommands.utils';
+import type { PartialStepState, StepGenerator, StepResult } from '../quickCommand';
 import {
-	PartialStepState,
+	endSteps,
 	pickBranchOrTagStep,
 	pickCommitStep,
 	pickRepositoryStep,
 	QuickCommand,
-	StepGenerator,
-	StepResult,
+	StepResultBreak,
 } from '../quickCommand';
 
 interface Context {
@@ -28,6 +33,7 @@ interface State {
 	reference: GitReference | 'HEAD';
 
 	fileName?: string;
+	openPickInView?: boolean;
 }
 
 type RepositoryStepState<T extends State = State> = SomeNonNullable<
@@ -61,8 +67,8 @@ export class LogGitCommand extends QuickCommand<State> {
 			counter++;
 			if (
 				args.state.reference !== 'HEAD' &&
-				GitReference.isRevision(args.state.reference) &&
-				!GitReference.isRevisionRange(args.state.reference)
+				isRevisionReference(args.state.reference) &&
+				!isRevisionRangeReference(args.state.reference)
 			) {
 				counter++;
 			}
@@ -109,7 +115,7 @@ export class LogGitCommand extends QuickCommand<State> {
 				} else {
 					const result = yield* pickRepositoryStep(state, context);
 					// Always break on the first step (so we will go back)
-					if (result === StepResult.Break) break;
+					if (result === StepResultBreak) break;
 
 					state.repo = result;
 				}
@@ -129,7 +135,7 @@ export class LogGitCommand extends QuickCommand<State> {
 					value: context.selectedBranchOrTag == null ? state.reference?.ref : undefined,
 					ranges: true,
 				});
-				if (result === StepResult.Break) {
+				if (result === StepResultBreak) {
 					// If we skipped the previous step, make sure we back up past it
 					if (skippedStepOne) {
 						state.counter--;
@@ -142,14 +148,13 @@ export class LogGitCommand extends QuickCommand<State> {
 				context.selectedBranchOrTag = undefined;
 			}
 
-			if (!GitReference.isRevision(state.reference) || GitReference.isRevisionRange(state.reference)) {
+			if (!isRevisionReference(state.reference) || isRevisionRangeReference(state.reference)) {
 				context.selectedBranchOrTag = state.reference;
 			}
 
-			context.title = `${this.title}${pad(GlyphChars.Dot, 2, 2)}${GitReference.toString(
-				context.selectedBranchOrTag,
-				{ icon: false },
-			)}`;
+			context.title = `${this.title}${pad(GlyphChars.Dot, 2, 2)}${getReferenceLabel(context.selectedBranchOrTag, {
+				icon: false,
+			})}`;
 
 			if (state.fileName) {
 				context.title += `${pad(GlyphChars.Dot, 2, 2)}${formatPath(state.fileName, {
@@ -176,13 +181,13 @@ export class LogGitCommand extends QuickCommand<State> {
 					onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
 					placeholder: (context, log) =>
 						log == null
-							? `No commits found in ${GitReference.toString(context.selectedBranchOrTag, {
+							? `No commits found in ${getReferenceLabel(context.selectedBranchOrTag, {
 									icon: false,
 							  })}`
 							: 'Choose a commit',
 					picked: state.reference?.ref,
 				});
-				if (result === StepResult.Break) continue;
+				if (result === StepResultBreak) continue;
 
 				state.reference = result;
 			}
@@ -191,24 +196,34 @@ export class LogGitCommand extends QuickCommand<State> {
 				state.reference = await this.container.git.getCommit(state.repo.path, state.reference.ref);
 			}
 
-			const result = yield* getSteps(
-				this.container,
-				{
-					command: 'show',
-					state: {
-						repo: state.repo,
-						reference: state.reference,
-						fileName: state.fileName,
+			let result: StepResult<ReturnType<typeof getSteps>>;
+			if (state.openPickInView) {
+				void showDetailsView(state.reference as GitCommit, {
+					pin: false,
+					preserveFocus: false,
+				});
+				result = StepResultBreak;
+			} else {
+				result = yield* getSteps(
+					this.container,
+					{
+						command: 'show',
+						state: {
+							repo: state.repo,
+							reference: state.reference,
+							fileName: state.fileName,
+						},
 					},
-				},
-				this.pickedVia,
-			);
+					this.pickedVia,
+				);
+			}
+
 			state.counter--;
-			if (result === StepResult.Break) {
-				QuickCommand.endSteps(state);
+			if (result === StepResultBreak) {
+				endSteps(state);
 			}
 		}
 
-		return state.counter < 0 ? StepResult.Break : undefined;
+		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 }

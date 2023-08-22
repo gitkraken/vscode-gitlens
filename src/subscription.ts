@@ -27,8 +27,11 @@ export interface Subscription {
 export interface SubscriptionPlan {
 	readonly id: SubscriptionPlanId;
 	readonly name: string;
+	readonly bundle: boolean;
+	readonly cancelled: boolean;
 	readonly startedOn: string;
 	readonly expiresOn?: string | undefined;
+	readonly organizationId: string | undefined;
 }
 
 export interface SubscriptionAccount {
@@ -36,6 +39,8 @@ export interface SubscriptionAccount {
 	readonly name: string;
 	readonly email: string | undefined;
 	readonly verified: boolean;
+	readonly createdOn: string;
+	readonly organizationIds: string[];
 }
 
 export interface SubscriptionPreviewTrial {
@@ -49,9 +54,9 @@ export const enum SubscriptionState {
 	/** Indicates a Free user who hasn't yet started the preview trial */
 	Free = 0,
 	/** Indicates a Free user who is in preview trial */
-	FreeInPreview,
+	FreeInPreviewTrial,
 	/** Indicates a Free user who's preview has expired trial */
-	FreePreviewExpired,
+	FreePreviewTrialExpired,
 	/** Indicates a Free+ user with a completed trial */
 	FreePlusInTrial,
 	/** Indicates a Free+ user who's trial has expired */
@@ -72,7 +77,7 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 	if (actual.id === effective.id) {
 		switch (effective.id) {
 			case SubscriptionPlanId.Free:
-				return preview == null ? SubscriptionState.Free : SubscriptionState.FreePreviewExpired;
+				return preview == null ? SubscriptionState.Free : SubscriptionState.FreePreviewTrialExpired;
 
 			case SubscriptionPlanId.FreePlus:
 				return SubscriptionState.FreePlusTrialExpired;
@@ -86,14 +91,14 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 
 	switch (effective.id) {
 		case SubscriptionPlanId.Free:
-			return preview == null ? SubscriptionState.Free : SubscriptionState.FreeInPreview;
+			return preview == null ? SubscriptionState.Free : SubscriptionState.FreeInPreviewTrial;
 
 		case SubscriptionPlanId.FreePlus:
 			return SubscriptionState.FreePlusTrialExpired;
 
 		case SubscriptionPlanId.Pro:
 			return actual.id === SubscriptionPlanId.Free
-				? SubscriptionState.FreeInPreview
+				? SubscriptionState.FreeInPreviewTrial
 				: SubscriptionState.FreePlusInTrial;
 
 		case SubscriptionPlanId.Teams:
@@ -102,10 +107,20 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 	}
 }
 
-export function getSubscriptionPlan(id: SubscriptionPlanId, startedOn?: Date, expiresOn?: Date): SubscriptionPlan {
+export function getSubscriptionPlan(
+	id: SubscriptionPlanId,
+	bundle: boolean,
+	organizationId: string | undefined,
+	startedOn?: Date,
+	expiresOn?: Date,
+	cancelled: boolean = false,
+): SubscriptionPlan {
 	return {
 		id: id,
 		name: getSubscriptionPlanName(id),
+		bundle: bundle,
+		cancelled: cancelled,
+		organizationId: organizationId,
 		startedOn: (startedOn ?? new Date()).toISOString(),
 		expiresOn: expiresOn != null ? expiresOn.toISOString() : undefined,
 	};
@@ -114,14 +129,34 @@ export function getSubscriptionPlan(id: SubscriptionPlanId, startedOn?: Date, ex
 export function getSubscriptionPlanName(id: SubscriptionPlanId) {
 	switch (id) {
 		case SubscriptionPlanId.FreePlus:
-			return 'GitLens+';
+			return 'GitLens Free';
 		case SubscriptionPlanId.Pro:
-			return 'GitLens+ Pro';
+			return 'GitLens Pro';
 		case SubscriptionPlanId.Teams:
-			return 'GitLens+ Teams';
+			return 'GitLens Teams';
 		case SubscriptionPlanId.Enterprise:
-			return 'GitLens+ Enterprise';
+			return 'GitLens Enterprise';
 		case SubscriptionPlanId.Free:
+		default:
+			return 'GitLens';
+	}
+}
+
+export function getSubscriptionStatePlanName(state: SubscriptionState | undefined, id: SubscriptionPlanId | undefined) {
+	switch (state) {
+		case SubscriptionState.FreePlusTrialExpired:
+			return getSubscriptionPlanName(SubscriptionPlanId.FreePlus);
+		case SubscriptionState.FreeInPreviewTrial:
+			return `${getSubscriptionPlanName(SubscriptionPlanId.Pro)} (Trial)`;
+		case SubscriptionState.FreePlusInTrial:
+			return `${getSubscriptionPlanName(id ?? SubscriptionPlanId.Pro)} (Trial)`;
+		case SubscriptionState.VerificationRequired:
+			return `GitLens (Unverified)`;
+		case SubscriptionState.Paid:
+			return getSubscriptionPlanName(id ?? SubscriptionPlanId.Pro);
+		case SubscriptionState.Free:
+		case SubscriptionState.FreePreviewTrialExpired:
+		case null:
 		default:
 			return 'GitLens';
 	}
@@ -137,7 +172,7 @@ const plansPriority = new Map<SubscriptionPlanId | undefined, number>([
 ]);
 
 export function getSubscriptionPlanPriority(id: SubscriptionPlanId | undefined): number {
-	return plansPriority.get(id)!;
+	return plansPriority.get(id) ?? -1;
 }
 
 export function getSubscriptionTimeRemaining(
@@ -171,7 +206,43 @@ export function isSubscriptionTrial(subscription: Optional<Subscription, 'state'
 	return subscription.plan.actual.id !== subscription.plan.effective.id;
 }
 
+export function isSubscriptionInProTrial(subscription: Optional<Subscription, 'state'>): boolean {
+	if (
+		subscription.account == null ||
+		!isSubscriptionTrial(subscription) ||
+		isSubscriptionPreviewTrialExpired(subscription) === false
+	) {
+		return false;
+	}
+
+	const remaining = getSubscriptionTimeRemaining(subscription);
+	return remaining != null ? remaining <= 0 : true;
+}
+
 export function isSubscriptionPreviewTrialExpired(subscription: Optional<Subscription, 'state'>): boolean | undefined {
 	const remaining = getTimeRemaining(subscription.previewTrial?.expiresOn);
 	return remaining != null ? remaining <= 0 : undefined;
+}
+
+export function isSubscriptionStatePaidOrTrial(state: SubscriptionState | undefined): boolean {
+	if (state == null) return false;
+	return (
+		state === SubscriptionState.Paid ||
+		state === SubscriptionState.FreeInPreviewTrial ||
+		state === SubscriptionState.FreePlusInTrial
+	);
+}
+
+export function isSubscriptionStateTrial(state: SubscriptionState | undefined): boolean {
+	if (state == null) return false;
+	return state === SubscriptionState.FreeInPreviewTrial || state === SubscriptionState.FreePlusInTrial;
+}
+
+export function hasAccountFromSubscriptionState(state: SubscriptionState | undefined): boolean {
+	if (state == null) return false;
+	return (
+		state !== SubscriptionState.Free &&
+		state !== SubscriptionState.FreePreviewTrialExpired &&
+		state !== SubscriptionState.FreeInPreviewTrial
+	);
 }

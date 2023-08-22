@@ -1,4 +1,4 @@
-import { CancellationToken, Disposable } from 'vscode';
+import type { CancellationToken, Disposable } from 'vscode';
 import { map } from './iterable';
 
 export type PromiseOrValue<T> = Promise<T> | T;
@@ -32,15 +32,19 @@ export function any<T>(...promises: Promise<T>[]): Promise<T> {
 	});
 }
 
-export async function* fastestSettled<T>(promises: Promise<T>[]): AsyncIterable<PromiseSettledResult<T>> {
+export async function* asSettled<T>(promises: Promise<T>[]): AsyncIterable<PromiseSettledResult<T>> {
 	const map = new Map(
 		promises.map((promise, i) => [
 			i,
 			promise.then(
-				// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-				v => ({ index: i, value: v, status: 'fulfilled' } as PromiseFulfilledResult<T> & { index: number }),
-				// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-				e => ({ index: i, reason: e, status: 'rejected' } as PromiseRejectedResult & { index: number }),
+				v =>
+					({ index: i, value: v, status: 'fulfilled' }) as unknown as PromiseFulfilledResult<T> & {
+						index: number;
+					},
+				e =>
+					({ index: i, reason: e, status: 'rejected' }) as unknown as PromiseRejectedResult & {
+						index: number;
+					},
 			),
 		]),
 	);
@@ -53,13 +57,20 @@ export async function* fastestSettled<T>(promises: Promise<T>[]): AsyncIterable<
 }
 
 export class PromiseCancelledError<T extends Promise<any> = Promise<any>> extends Error {
-	constructor(public readonly promise: T, message: string) {
+	constructor(
+		public readonly promise: T,
+		message: string,
+	) {
 		super(message);
 	}
 }
 
 export class PromiseCancelledErrorWithId<TKey, T extends Promise<any> = Promise<any>> extends PromiseCancelledError<T> {
-	constructor(public readonly id: TKey, promise: T, message: string) {
+	constructor(
+		public readonly id: TKey,
+		promise: T,
+		message: string,
+	) {
 		super(promise, message);
 	}
 }
@@ -122,18 +133,39 @@ export function cancellable<T>(
 }
 
 export interface Deferred<T> {
-	promise: Promise<T>;
+	readonly pending: boolean;
+	readonly promise: Promise<T>;
 	fulfill: (value: T) => void;
 	cancel(): void;
 }
 
 export function defer<T>(): Deferred<T> {
-	const deferred: Deferred<T> = { promise: undefined!, fulfill: undefined!, cancel: undefined! };
+	const deferred: Mutable<Deferred<T>> = {
+		pending: true,
+		promise: undefined!,
+		fulfill: undefined!,
+		cancel: undefined!,
+	};
 	deferred.promise = new Promise((resolve, reject) => {
-		deferred.fulfill = resolve;
-		deferred.cancel = reject;
+		deferred.fulfill = function (value) {
+			deferred.pending = false;
+			resolve(value);
+		};
+		deferred.cancel = function () {
+			deferred.pending = false;
+			reject();
+		};
 	});
 	return deferred;
+}
+
+export function getSettledValue<T>(promise: PromiseSettledResult<T>): T | undefined;
+export function getSettledValue<T>(promise: PromiseSettledResult<T>, defaultValue: NonNullable<T>): NonNullable<T>;
+export function getSettledValue<T>(
+	promise: PromiseSettledResult<T>,
+	defaultValue: T | undefined = undefined,
+): T | typeof defaultValue {
+	return promise.status === 'fulfilled' ? promise.value : defaultValue;
 }
 
 export function isPromise<T>(obj: PromiseLike<T> | T): obj is Promise<T> {
@@ -237,7 +269,11 @@ export async function raceAll<TPromise, T>(
 }
 
 export async function wait(ms: number): Promise<void> {
-	await new Promise(resolve => setTimeout(resolve, ms));
+	await new Promise<void>(resolve => setTimeout(resolve, ms));
+}
+
+export async function waitUntilNextTick(): Promise<void> {
+	await new Promise<void>(resolve => queueMicrotask(resolve));
 }
 
 export class AggregateError extends Error {

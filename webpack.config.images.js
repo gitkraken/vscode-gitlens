@@ -7,7 +7,7 @@ const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');
 
 module.exports =
 	/**
-	 * @param {{ useOptimization?: boolean; squoosh?: boolean } | undefined } env
+	 * @param {{ useOptimization?: boolean; useSharpForImageOptimization?: boolean } | undefined } env
 	 * @param {{ mode: 'production' | 'development' | 'none' | undefined }} argv
 	 * @returns { WebpackConfig }
 	 */
@@ -16,22 +16,21 @@ module.exports =
 		const basePath = path.join(__dirname, 'src', 'webviews', 'apps');
 
 		env = {
-			useOptimization: false,
-			squoosh: false,
+			useOptimization: true,
+			useSharpForImageOptimization: true,
 			...env,
 		};
 
 		/** @type ImageMinimizerPlugin.Generator<any> */
 		// @ts-ignore
-		let imageGeneratorConfig = env.squoosh
+		let imageGeneratorConfig = env.useSharpForImageOptimization
 			? {
 					type: 'asset',
-					implementation: ImageMinimizerPlugin.squooshGenerate,
+					implementation: ImageMinimizerPlugin.sharpGenerate,
 					options: {
 						encodeOptions: {
 							webp: {
-								// quality: 90,
-								lossless: 1,
+								lossless: true,
 							},
 						},
 					},
@@ -59,8 +58,8 @@ module.exports =
 			new CopyPlugin({
 				patterns: [
 					{
-						from: path.posix.join(basePath.replace(/\\/g, '/'), 'images', 'settings', '*.png'),
-						to: __dirname.replace(/\\/g, '/'),
+						from: path.posix.join(basePath.replace(/\\/g, '/'), 'media', '*.png'),
+						to: path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews'),
 					},
 				],
 			}),

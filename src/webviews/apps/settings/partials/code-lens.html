@@ -6,7 +6,7 @@
 			<a
 				class="link__learn-more"
 				title="Learn more"
-				href="https://github.com/gitkraken/vscode-gitlens/#git-codelens-"
+				href="https://help.gitkraken.com/gitlens/gitlens-features/#git-codelens"
 			>
 				<i class="icon icon__info"></i>
 			</a>
@@ -80,12 +80,12 @@
 										<option value="gitlens.revealCommitInView">
 											reveals the commit in the Side Bar
 										</option>
-										<option value="gitlens.showCommitsInView">searches for the commit</option>
+										<option value="gitlens.showCommitsInView">shows details of the commit</option>
 										<option value="gitlens.showQuickCommitDetails">
-											shows details of the commit
+											shows quick details of the commit
 										</option>
 										<option value="gitlens.showQuickCommitFileDetails">
-											shows file details of the commit
+											shows quick file details of the commit (default)
 										</option>
 										<option value="gitlens.showQuickFileHistory">
 											shows the current file history
@@ -97,13 +97,13 @@
 											opens the commit on the remote service (when available)
 										</option>
 										<option value="gitlens.copyRemoteCommitUrl">
-											copies the remote commit url to the clipboard (when available)
+											copies the remote commit URL to the clipboard (when available)
 										</option>
 										<option value="gitlens.openFileOnRemote">
 											opens the file revision on the remote service (when available)
 										</option>
 										<option value="gitlens.copyRemoteFileUrl">
-											copies the remote file revision url to the clipboard (when available)
+											copies the remote file revision URL to the clipboard (when available)
 										</option>
 									</select>
 								</div>
@@ -146,7 +146,9 @@
 										data-enablement="codeLens.enabled &amp; codeLens.authors.enabled &amp; codeLens.authors.command !false"
 										disabled
 									>
-										<option value="gitlens.toggleFileBlame">toggles the file blame</option>
+										<option value="gitlens.toggleFileBlame">
+											toggles the file blame (default)
+										</option>
 										<option value="gitlens.toggleFileHeatmap">toggles the file heatmap</option>
 										<option value="gitlens.toggleFileChanges">
 											toggles the file changes since before the commit
@@ -164,10 +166,10 @@
 											searches for commits within the range
 										</option>
 										<option value="gitlens.showQuickCommitDetails">
-											shows details of the commit
+											shows quick details of the commit
 										</option>
 										<option value="gitlens.showQuickCommitFileDetails">
-											show file details of the commit
+											show quick file details of the commit
 										</option>
 										<option value="gitlens.showQuickFileHistory">
 											shows the current file history
@@ -179,10 +181,10 @@
 											opens the commit on the remote service (when available)
 										</option>
 										<option value="gitlens.copyRemoteCommitUrl">
-											copies the remote commit url to the clipboard (when available)
+											copies the remote commit URL to the clipboard (when available)
 										</option>
 										<option value="gitlens.copyRemoteFileUrl">
-											copies the remote file revision url to the clipboard (when available)
+											copies the remote file revision URL to the clipboard (when available)
 										</option>
 										<option value="gitlens.openFileOnRemote">
 											opens the file revision on the remote service (when available)

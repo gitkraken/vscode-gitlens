@@ -1,31 +1,24 @@
-import {
-	CancellationToken,
-	commands,
-	ConfigurationChangeEvent,
-	Disposable,
-	ProgressLocation,
-	TreeItem,
-	TreeItemCollapsibleState,
-	window,
-} from 'vscode';
-import { Avatars } from '../avatars';
-import { configuration, ContributorsViewConfig, ViewFilesLayout } from '../configuration';
+import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
+import { Disposable, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { onDidFetchAvatar } from '../avatars';
+import type { ContributorsViewConfig } from '../config';
+import { ViewFilesLayout } from '../config';
 import { Commands } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { GitContributor, RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/models';
+import type { GitContributor } from '../git/models/contributor';
+import type { RepositoryChangeEvent } from '../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { executeCommand } from '../system/command';
+import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
-import {
-	ContributorNode,
-	ContributorsNode,
-	RepositoriesSubscribeableNode,
-	RepositoryFolderNode,
-	RepositoryNode,
-	ViewNode,
-} from './nodes';
+import { ContributorNode } from './nodes/contributorNode';
+import { ContributorsNode } from './nodes/contributorsNode';
+import type { ViewNode } from './nodes/viewNode';
+import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
+import { registerViewCommand } from './viewCommands';
 
 export class ContributorsRepositoryNode extends RepositoryFolderNode<ContributorsView, ContributorsNode> {
 	async getChildren(): Promise<ViewNode[]> {
@@ -40,7 +33,7 @@ export class ContributorsRepositoryNode extends RepositoryFolderNode<Contributor
 	protected override async subscribe() {
 		return Disposable.from(
 			await super.subscribe(),
-			Avatars.onDidFetch(e => this.child?.updateAvatar(e.email)),
+			onDidFetchAvatar(e => this.child?.updateAvatar(e.email)),
 		);
 	}
 
@@ -78,7 +71,7 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 
 			const children = await child.getChildren();
 
-			// const all = this.view.container.config.views.contributors.showAllBranches;
+			// const all = configuration.get('views.contributors.showAllBranches');
 
 			// let ref: string | undefined;
 			// // If we aren't getting all branches, get the upstream of the current branch if there is one
@@ -118,11 +111,11 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 	}
 }
 
-export class ContributorsView extends ViewBase<ContributorsViewNode, ContributorsViewConfig> {
+export class ContributorsView extends ViewBase<'contributors', ContributorsViewNode, ContributorsViewConfig> {
 	protected readonly configKey = 'contributors';
 
 	constructor(container: Container) {
-		super('gitlens.views.contributors', 'Contributors', container);
+		super(container, 'contributors', 'Contributors', 'contributorsView');
 	}
 
 	override get canReveal(): boolean {
@@ -137,12 +130,12 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 		void this.container.viewCommands;
 
 		return [
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('copy'),
-				() => executeCommand(Commands.ViewsCopy, this.selection),
+				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('refresh'),
 				() => {
 					this.container.git.resetCaches('contributors');
@@ -150,50 +143,42 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 				},
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
 				() => this.setFilesLayout(ViewFilesLayout.Auto),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToList'),
 				() => this.setFilesLayout(ViewFilesLayout.List),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToTree'),
 				() => this.setFilesLayout(ViewFilesLayout.Tree),
 				this,
 			),
 
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowAllBranchesOn'),
 				() => this.setShowAllBranches(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowAllBranchesOff'),
 				() => this.setShowAllBranches(false),
 				this,
 			),
 
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOn'),
-				() => this.setShowAvatars(true),
-				this,
-			),
-			commands.registerCommand(
-				this.getQualifiedCommand('setShowAvatarsOff'),
-				() => this.setShowAvatars(false),
-				this,
-			),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
+			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
 
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowStatisticsOn'),
 				() => this.setShowStatistics(true),
 				this,
 			),
-			commands.registerCommand(
+			registerViewCommand(
 				this.getQualifiedCommand('setShowStatisticsOff'),
 				() => this.setShowStatistics(false),
 				this,
@@ -221,17 +206,21 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 	}
 
 	findContributor(contributor: GitContributor, token?: CancellationToken) {
-		const repoNodeId = RepositoryNode.getId(contributor.repoPath);
+		const { repoPath, username, email, name } = contributor;
 
 		return this.findNode(
-			ContributorNode.getId(contributor.repoPath, contributor.name, contributor.email, contributor.username),
+			n =>
+				n instanceof ContributorNode &&
+				n.contributor.username === username &&
+				n.contributor.email === email &&
+				n.contributor.name === name,
 			{
 				maxDepth: 2,
 				canTraverse: n => {
 					if (n instanceof ContributorsViewNode) return true;
 
 					if (n instanceof ContributorsRepositoryNode) {
-						return n.id.startsWith(repoNodeId);
+						return n.repoPath === repoPath;
 					}
 
 					return false;
@@ -246,7 +235,7 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 		repoPath: string,
 		options?: { select?: boolean; focus?: boolean; expand?: boolean | number },
 	) {
-		const node = await this.findNode(RepositoryFolderNode.getId(repoPath), {
+		const node = await this.findNode(n => n instanceof RepositoryFolderNode && n.repoPath === repoPath, {
 			maxDepth: 1,
 			canTraverse: n => n instanceof ContributorsViewNode || n instanceof RepositoryFolderNode,
 		});

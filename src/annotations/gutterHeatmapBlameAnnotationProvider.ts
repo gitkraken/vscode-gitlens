@@ -1,14 +1,15 @@
-import { Range, TextEditor, TextEditorDecorationType } from 'vscode';
-import { FileAnnotationType } from '../configuration';
-import { Container } from '../container';
-import { GitCommit } from '../git/models';
-import { Logger } from '../logger';
+import type { TextEditor, TextEditorDecorationType } from 'vscode';
+import { Range } from 'vscode';
+import { FileAnnotationType } from '../config';
+import type { Container } from '../container';
+import type { GitCommit } from '../git/models/commit';
 import { log } from '../system/decorators/log';
-import { Stopwatch } from '../system/stopwatch';
-import { GitDocumentState } from '../trackers/gitDocumentTracker';
-import { TrackedDocument } from '../trackers/trackedDocument';
-import { AnnotationContext } from './annotationProvider';
-import { Annotations } from './annotations';
+import { getLogScope } from '../system/logger.scope';
+import { maybeStopWatch } from '../system/stopwatch';
+import type { GitDocumentState } from '../trackers/gitDocumentTracker';
+import type { TrackedDocument } from '../trackers/trackedDocument';
+import type { AnnotationContext } from './annotationProvider';
+import { addOrUpdateGutterHeatmapDecoration } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 
 export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase {
@@ -18,20 +19,20 @@ export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProvide
 
 	@log()
 	async onProvideAnnotation(context?: AnnotationContext, _type?: FileAnnotationType): Promise<boolean> {
-		const cc = Logger.getCorrelationContext();
+		const scope = getLogScope();
 
 		this.annotationContext = context;
 
 		const blame = await this.getBlame();
 		if (blame == null) return false;
 
-		const sw = new Stopwatch(cc!);
+		const sw = maybeStopWatch(scope);
 
 		const decorationsMap = new Map<
 			string,
 			{ decorationType: TextEditorDecorationType; rangesOrOptions: Range[] }
 		>();
-		const computedHeatmap = await this.getComputedHeatmap(blame);
+		const computedHeatmap = this.getComputedHeatmap(blame);
 
 		let commit: GitCommit | undefined;
 		for (const l of blame.lines) {
@@ -41,7 +42,7 @@ export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProvide
 			commit = blame.commits.get(l.sha);
 			if (commit == null) continue;
 
-			Annotations.addOrUpdateGutterHeatmapDecoration(
+			addOrUpdateGutterHeatmapDecoration(
 				commit.date,
 				computedHeatmap,
 				new Range(editorLine, 0, editorLine, 0),
@@ -49,15 +50,15 @@ export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProvide
 			);
 		}
 
-		sw.restart({ suffix: ' to compute heatmap annotations' });
+		sw?.restart({ suffix: ' to compute heatmap annotations' });
 
 		if (decorationsMap.size) {
 			this.setDecorations([...decorationsMap.values()]);
 
-			sw.stop({ suffix: ' to apply all heatmap annotations' });
+			sw?.stop({ suffix: ' to apply all heatmap annotations' });
 		}
 
-		// this.registerHoverProviders(this.container.config.hovers.annotations);
+		// this.registerHoverProviders(configuration.get('hovers.annotations'));
 		return true;
 	}
 

@@ -1,57 +1,42 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ViewFilesLayout } from '../../configuration';
+import { ViewFilesLayout } from '../../config';
 import { GitUri } from '../../git/gitUri';
-import { GitBranch, GitFileWithCommit, GitRevision } from '../../git/models';
+import type { GitBranch } from '../../git/models/branch';
+import type { GitFileWithCommit } from '../../git/models/file';
+import { createRevisionRange } from '../../git/models/reference';
 import { groupBy, makeHierarchical } from '../../system/array';
 import { filter, flatMap, map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
 import { pluralize, sortCompare } from '../../system/string';
-import { ViewsWithCommits } from '../viewBase';
-import { BranchNode } from './branchNode';
-import { BranchTrackingStatus } from './branchTrackingStatusNode';
-import { FileNode, FolderNode } from './folderNode';
+import type { ViewsWithCommits } from '../viewBase';
+import type { BranchTrackingStatus } from './branchTrackingStatusNode';
+import type { FileNode } from './folderNode';
+import { FolderNode } from './folderNode';
 import { StatusFileNode } from './statusFileNode';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
-	static key = ':status-branch:files';
-	static getId(repoPath: string, name: string, root: boolean, upstream: string, direction: string): string {
-		return `${BranchNode.getId(repoPath, name, root)}${this.key}(${upstream}|${direction})`;
-	}
-
-	readonly repoPath: string;
-
 	constructor(
 		view: ViewsWithCommits,
-		parent: ViewNode,
+		protected override readonly parent: ViewNode,
 		public readonly branch: GitBranch,
 		public readonly status: Required<BranchTrackingStatus>,
 		public readonly direction: 'ahead' | 'behind',
-		// Specifies that the node is shown as a root
-		private readonly root: boolean = false,
 	) {
 		super(GitUri.fromRepoPath(status.repoPath), view, parent);
-		this.repoPath = status.repoPath;
+
+		this.updateContext({ branch: branch, branchStatus: status, branchStatusUpstreamType: direction });
+		this._uniqueId = getViewNodeId('tracking-status-files', this.context);
 	}
 
-	override get id(): string {
-		return BranchTrackingStatusFilesNode.getId(
-			this.status.repoPath,
-			this.status.ref,
-			this.root,
-			this.status.upstream,
-			this.direction,
-		);
+	get repoPath(): string {
+		return this.status.repoPath;
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
 		const log = await this.view.container.git.getLog(this.repoPath, {
 			limit: 0,
-			ref: GitRevision.createRange(
-				this.status.upstream,
-				this.branch.ref,
-				this.direction === 'behind' ? '...' : '..',
-			),
+			ref: createRevisionRange(this.status.upstream, this.branch.ref, this.direction === 'behind' ? '...' : '..'),
 		});
 
 		let files: GitFileWithCommit[];
@@ -83,9 +68,10 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 				new StatusFileNode(
 					this.view,
 					this,
-					this.repoPath,
 					files[files.length - 1],
+					this.repoPath,
 					files.map(s => s.commit),
+					this.direction,
 				),
 		);
 
@@ -97,7 +83,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 				this.view.config.files.compact,
 			);
 
-			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy, false);
+			const root = new FolderNode(this.view, this, hierarchy, this.repoPath, '', undefined, false);
 			children = root.getChildren() as FileNode[];
 		} else {
 			children.sort((a, b) => a.priority - b.priority || sortCompare(a.label!, b.label!));

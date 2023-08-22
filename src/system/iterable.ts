@@ -38,12 +38,12 @@ export function* chunkByStringLength(source: string[], maxLength: number): Itera
 	}
 }
 
-export function count<T>(source: Iterable<T> | IterableIterator<T>, predicate?: (item: T) => boolean): number {
+export function count<T>(source: IterableIterator<T>, predicate?: (item: T) => boolean): number {
 	let count = 0;
 	let next: IteratorResult<T>;
 
 	while (true) {
-		next = (source as IterableIterator<T>).next();
+		next = source.next();
 		if (next.done) break;
 
 		if (predicate === undefined || predicate(next.value)) {
@@ -107,14 +107,23 @@ export function find<T>(source: Iterable<T> | IterableIterator<T>, predicate: (i
 	return null;
 }
 
-export function first<T>(source: Iterable<T> | IterableIterator<T>): T {
-	return source[Symbol.iterator]().next().value;
+export function findIndex<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): number {
+	let i = 0;
+	for (const item of source) {
+		if (predicate(item)) return i;
+		i++;
+	}
+	return -1;
+}
+
+export function first<T>(source: Iterable<T> | IterableIterator<T>): T | undefined {
+	return source[Symbol.iterator]().next().value as T | undefined;
 }
 
 export function* flatMap<T, TMapped>(
 	source: Iterable<T> | IterableIterator<T>,
 	mapper: (item: T) => Iterable<TMapped>,
-): Iterable<TMapped> {
+): IterableIterator<TMapped> {
 	for (const item of source) {
 		yield* mapper(item);
 	}
@@ -129,25 +138,19 @@ export function isIterable(source: Iterable<any>): boolean {
 }
 
 export function join(source: Iterable<any>, separator: string): string {
-	let value = '';
-
 	const iterator = source[Symbol.iterator]();
 	let next = iterator.next();
-	if (next.done) return value;
+	if (next.done) return '';
 
+	let result = String(next.value);
 	while (true) {
-		const s = next.value.toString();
-
 		next = iterator.next();
-		if (next.done) {
-			value += s;
-			break;
-		}
+		if (next.done) break;
 
-		value += `${s}${separator}`;
+		result += `${separator}${next.value}`;
 	}
 
-	return value;
+	return result;
 }
 
 export function last<T>(source: Iterable<T>): T | undefined {
@@ -168,7 +171,7 @@ export function* map<T, TMapped>(
 }
 
 export function next<T>(source: IterableIterator<T>): T {
-	return source.next().value;
+	return source.next().value as T;
 }
 
 export function* skip<T>(source: Iterable<T> | IterableIterator<T>, count: number): IterableIterator<T> {

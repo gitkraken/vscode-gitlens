@@ -1,19 +1,29 @@
-import { Container } from '../../container';
-import { GitBranch, GitLog, GitReference, GitRevisionReference, Repository } from '../../git/models';
-import { FlagsQuickPickItem } from '../../quickpicks/items/flags';
-import { ViewsWithRepositoryFolders } from '../../views/viewBase';
-import {
-	appendReposToTitle,
+import type { Container } from '../../container';
+import type { GitBranch } from '../../git/models/branch';
+import type { GitLog } from '../../git/models/log';
+import type { GitReference, GitRevisionReference } from '../../git/models/reference';
+import { getReferenceLabel } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
+import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
+import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
+import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
+import type {
 	PartialStepState,
-	pickCommitStep,
-	pickRepositoryStep,
-	QuickCommand,
 	QuickPickStep,
 	StepGenerator,
 	StepResult,
 	StepResultGenerator,
 	StepSelection,
 	StepState,
+} from '../quickCommand';
+import {
+	appendReposToTitle,
+	canPickStepContinue,
+	endSteps,
+	pickCommitStep,
+	pickRepositoryStep,
+	QuickCommand,
+	StepResultBreak,
 } from '../quickCommand';
 
 interface Context {
@@ -67,7 +77,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 	}
 
 	execute(state: ResetStepState) {
-		return state.repo.reset(...state.flags, state.reference.ref);
+		state.repo.reset(...state.flags, state.reference.ref);
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
@@ -100,7 +110,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 				} else {
 					const result = yield* pickRepositoryStep(state, context);
 					// Always break on the first step (so we will go back)
-					if (result === StepResult.Break) break;
+					if (result === StepResultBreak) break;
 
 					state.repo = result;
 				}
@@ -113,7 +123,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 				context.destination = branch;
 			}
 
-			context.title = `${this.title} ${GitReference.toString(context.destination, { icon: false })}`;
+			context.title = `${this.title} ${getReferenceLabel(context.destination, { icon: false })}`;
 
 			if (state.counter < 2 || state.reference == null) {
 				const ref = context.destination.ref;
@@ -133,7 +143,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 							: `Choose a commit to reset ${context.destination.name} to`,
 					picked: state.reference?.ref,
 				});
-				if (result === StepResult.Break) {
+				if (result === StepResultBreak) {
 					// If we skipped the previous step, make sure we back up past it
 					if (skippedStepOne) {
 						state.counter--;
@@ -147,45 +157,45 @@ export class ResetGitCommand extends QuickCommand<State> {
 
 			if (this.confirm(state.confirm)) {
 				const result = yield* this.confirmStep(state as ResetStepState, context);
-				if (result === StepResult.Break) continue;
+				if (result === StepResultBreak) continue;
 
 				state.flags = result;
 			}
 
-			QuickCommand.endSteps(state);
+			endSteps(state);
 			this.execute(state as ResetStepState);
 		}
 
-		return state.counter < 0 ? StepResult.Break : undefined;
+		return state.counter < 0 ? StepResultBreak : undefined;
 	}
 
 	private *confirmStep(state: ResetStepState, context: Context): StepResultGenerator<Flags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
-				FlagsQuickPickItem.create<Flags>(state.flags, [], {
+				createFlagsQuickPickItem<Flags>(state.flags, [], {
 					label: this.title,
-					detail: `Will reset (leaves changes in the working tree) ${GitReference.toString(
+					detail: `Will reset (leaves changes in the working tree) ${getReferenceLabel(
 						context.destination,
-					)} to ${GitReference.toString(state.reference)}`,
+					)} to ${getReferenceLabel(state.reference)}`,
 				}),
-				FlagsQuickPickItem.create<Flags>(state.flags, ['--soft'], {
+				createFlagsQuickPickItem<Flags>(state.flags, ['--soft'], {
 					label: `Soft ${this.title}`,
 					description: '--soft',
-					detail: `Will soft reset (leaves changes in the index and working tree) ${GitReference.toString(
+					detail: `Will soft reset (leaves changes in the index and working tree) ${getReferenceLabel(
 						context.destination,
-					)} to ${GitReference.toString(state.reference)}`,
+					)} to ${getReferenceLabel(state.reference)}`,
 				}),
-				FlagsQuickPickItem.create<Flags>(state.flags, ['--hard'], {
+				createFlagsQuickPickItem<Flags>(state.flags, ['--hard'], {
 					label: `Hard ${this.title}`,
 					description: '--hard',
-					detail: `Will hard reset (discards all changes) ${GitReference.toString(
+					detail: `Will hard reset (discards all changes) ${getReferenceLabel(
 						context.destination,
-					)} to ${GitReference.toString(state.reference)}`,
+					)} to ${getReferenceLabel(state.reference)}`,
 				}),
 			],
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 }
