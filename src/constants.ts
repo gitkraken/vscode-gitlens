@@ -280,6 +280,7 @@ export const enum Commands {
 	ShowTagsView = 'gitlens.showTagsView',
 	ShowTimelinePage = 'gitlens.showTimelinePage',
 	ShowTimelineView = 'gitlens.showTimelineView',
+	ShowGraphPage = 'gitlens.showGraphPage',
 	ShowWelcomePage = 'gitlens.showWelcomePage',
 	ShowWorktreesView = 'gitlens.showWorktreesView',
 	ShowWorkspacesView = 'gitlens.showWorkspacesView',
