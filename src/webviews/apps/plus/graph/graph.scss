@@ -413,7 +413,8 @@ a {
 
 // TODO: move this to host-side
 .graph-icon {
-	font: normal normal normal 14px/1 codicon;
+	font: normal normal normal 1.3rem codicon;
+	padding: 0.3em 0 0.3em 0;
 	display: inline-block;
 	text-decoration: none;
 	text-rendering: auto;
@@ -425,7 +426,7 @@ a {
 	-ms-user-select: none;
 
 	vertical-align: middle;
-	line-height: 2rem;
+	line-height: 1.4rem;
 	letter-spacing: normal;
 }
 
