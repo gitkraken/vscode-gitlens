@@ -1,19 +1,23 @@
 /* eslint-disable @typescript-eslint/require-await */
-import type {
+import {
+	authentication,
 	AuthenticationSession,
-	AuthenticationSessionsChangeEvent,
-	CancellationToken,
 	Disposable,
 	Event,
+	EventEmitter,
+	FileType,
 	Range,
 	TextDocument,
+	Uri,
+	window,
+	workspace,
 	WorkspaceFolder,
 } from 'vscode';
-import { authentication, EventEmitter, FileType, Uri, window, workspace } from 'vscode';
 import { encodeUtf8Hex } from '@env/hex';
-import { CharCode, Schemes } from '../../constants';
+import { configuration } from '../../configuration';
+import { CharCode, ContextKeys, Schemes } from '../../constants';
 import type { Container } from '../../container';
-import { emojify } from '../../emojis';
+import { setContext } from '../../context';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
@@ -22,90 +26,72 @@ import {
 	OpenVirtualRepositoryErrorReason,
 } from '../../errors';
 import { Features } from '../../features';
-import { GitSearchError } from '../../git/errors';
-import type {
-	GitCaches,
+import {
 	GitProvider,
+	GitProviderId,
 	NextComparisonUrisResult,
 	PagedResult,
 	PreviousComparisonUrisResult,
 	PreviousLineComparisonUrisResult,
 	RepositoryCloseEvent,
 	RepositoryOpenEvent,
+	RepositoryVisibility,
 	ScmRepository,
 } from '../../git/gitProvider';
-import { GitProviderId, RepositoryVisibility } from '../../git/gitProvider';
 import { GitUri } from '../../git/gitUri';
-import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../git/models/blame';
-import type { BranchSortOptions } from '../../git/models/branch';
-import { getBranchId, getBranchNameWithoutRemote, GitBranch, sortBranches } from '../../git/models/branch';
-import type { GitCommitLine } from '../../git/models/commit';
-import { getChangedFilesCount, GitCommit, GitCommitIdentity } from '../../git/models/commit';
-import { deletedOrMissing, uncommitted } from '../../git/models/constants';
-import { GitContributor } from '../../git/models/contributor';
-import type { GitDiffFile, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from '../../git/models/diff';
-import type { GitFile } from '../../git/models/file';
-import { GitFileChange, GitFileIndexStatus } from '../../git/models/file';
-import type {
-	GitGraph,
-	GitGraphRow,
-	GitGraphRowContexts,
-	GitGraphRowHead,
-	GitGraphRowRemoteHead,
-	GitGraphRowsStats,
-	GitGraphRowStats,
-	GitGraphRowTag,
-} from '../../git/models/graph';
-import { GitGraphRowType } from '../../git/models/graph';
-import type { GitLog } from '../../git/models/log';
-import type { GitMergeStatus } from '../../git/models/merge';
-import type { GitRebaseStatus } from '../../git/models/rebase';
-import type { GitBranchReference, GitReference } from '../../git/models/reference';
-import { createReference, isRevisionRange, isSha, isShaLike, isUncommitted } from '../../git/models/reference';
-import type { GitReflog } from '../../git/models/reflog';
-import { getRemoteIconUri, getVisibilityCacheKey, GitRemote, GitRemoteType } from '../../git/models/remote';
-import type { RepositoryChangeEvent } from '../../git/models/repository';
-import { Repository } from '../../git/models/repository';
-import type { GitStash } from '../../git/models/stash';
-import type { GitStatusFile } from '../../git/models/status';
-import { GitStatus } from '../../git/models/status';
-import type { TagSortOptions } from '../../git/models/tag';
-import { getTagId, GitTag, sortTags } from '../../git/models/tag';
-import type { GitTreeEntry } from '../../git/models/tree';
-import type { GitUser } from '../../git/models/user';
-import { isUserMatch } from '../../git/models/user';
-import { getRemoteProviderMatcher, loadRemoteProviders } from '../../git/remotes/remoteProviders';
-import type { GitSearch, GitSearchResultData, GitSearchResults, SearchQuery } from '../../git/search';
-import { getSearchQueryComparisonKey, parseSearchQuery } from '../../git/search';
-import { configuration } from '../../system/configuration';
-import { setContext } from '../../system/context';
+import {
+	BranchSortOptions,
+	GitBlame,
+	GitBlameAuthor,
+	GitBlameLine,
+	GitBlameLines,
+	GitBranch,
+	GitBranchReference,
+	GitCommit,
+	GitCommitIdentity,
+	GitCommitLine,
+	GitContributor,
+	GitDiff,
+	GitDiffFilter,
+	GitDiffHunkLine,
+	GitDiffShortStat,
+	GitFile,
+	GitFileChange,
+	GitFileIndexStatus,
+	GitLog,
+	GitMergeStatus,
+	GitRebaseStatus,
+	GitReference,
+	GitReflog,
+	GitRemote,
+	GitRemoteType,
+	GitRevision,
+	GitStash,
+	GitStatus,
+	GitStatusFile,
+	GitTag,
+	GitTreeEntry,
+	GitUser,
+	isUserMatch,
+	Repository,
+	RepositoryChangeEvent,
+	TagSortOptions,
+} from '../../git/models';
+import { RemoteProviderFactory, RemoteProviders } from '../../git/remotes/factory';
+import { RemoteProvider, RichRemoteProvider } from '../../git/remotes/provider';
+import { SearchPattern } from '../../git/search';
+import { LogCorrelationContext, Logger } from '../../logger';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
-import { filterMap, first, last, some } from '../../system/iterable';
-import { Logger } from '../../system/logger';
-import type { LogScope } from '../../system/logger.scope';
-import { getLogScope } from '../../system/logger.scope';
+import { filterMap, some } from '../../system/iterable';
 import { isAbsolute, isFolderGlob, maybeUri, normalizePath, relative } from '../../system/path';
-import { asSettled, getSettledValue } from '../../system/promise';
-import { serializeWebviewItemContext } from '../../system/webview';
-import type { CachedBlame, CachedLog } from '../../trackers/gitDocumentTracker';
-import { GitDocumentState } from '../../trackers/gitDocumentTracker';
-import type { TrackedDocument } from '../../trackers/trackedDocument';
-import type { GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../remotehub';
-import { getRemoteHubApi, HeadType } from '../remotehub';
-import type {
-	GraphBranchContextValue,
-	GraphItemContext,
-	GraphItemRefContext,
-	GraphTagContextValue,
-} from '../webviews/graph/protocol';
-import type { GitHubApi } from './github';
-import { fromCommitFileStatus } from './models';
+import { CachedBlame, CachedLog, GitDocumentState } from '../../trackers/gitDocumentTracker';
+import { TrackedDocument } from '../../trackers/trackedDocument';
+import { getRemoteHubApi, GitHubAuthorityMetadata, Metadata, RemoteHubApi } from '../remotehub';
+import { fromCommitFileStatus, GitHubApi } from './github';
 
-const doubleQuoteRegex = /"/g;
-const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
-const emptyPromise: Promise<GitBlame | GitDiffFile | GitLog | undefined> = Promise.resolve(undefined);
+const emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
 
 const githubAuthenticationScopes = ['repo', 'read:user', 'user:email'];
 
@@ -117,13 +103,8 @@ interface RepositoryInfo {
 }
 
 export class GitHubGitProvider implements GitProvider, Disposable {
-	descriptor = { id: GitProviderId.GitHub, name: 'GitHub', virtual: true };
-	readonly supportedSchemes = new Set<string>([Schemes.Virtual, Schemes.GitHub, Schemes.PRs]);
-
-	private _onDidChange = new EventEmitter<void>();
-	get onDidChange(): Event<void> {
-		return this._onDidChange.event;
-	}
+	descriptor = { id: GitProviderId.GitHub, name: 'GitHub' };
+	readonly supportedSchemes: Set<string> = new Set([Schemes.Virtual, Schemes.GitHub, Schemes.PRs]);
 
 	private _onDidChangeRepository = new EventEmitter<RepositoryChangeEvent>();
 	get onDidChangeRepository(): Event<RepositoryChangeEvent> {
@@ -146,28 +127,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	private readonly _disposables: Disposable[] = [];
 
-	constructor(private readonly container: Container) {
-		this._disposables.push(
-			this.container.events.on(
-				'git:cache:reset',
-				e =>
-					e.data.repoPath
-						? this.resetCache(e.data.repoPath, ...(e.data.caches ?? emptyArray))
-						: this.resetCaches(...(e.data.caches ?? emptyArray)),
-				authentication.onDidChangeSessions(this.onAuthenticationSessionsChanged, this),
-			),
-		);
-	}
+	constructor(private readonly container: Container) {}
 
 	dispose() {
-		this._disposables.forEach(d => void d.dispose());
-	}
-
-	private onAuthenticationSessionsChanged(e: AuthenticationSessionsChangeEvent) {
-		if (e.provider.id === 'github') {
-			this._sessionPromise = undefined;
-			void this.ensureSession(false, true);
-		}
+		this._disposables.forEach(d => d.dispose());
 	}
 
 	private onRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {
@@ -186,10 +149,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		this._onDidChangeRepository.fire(e);
 	}
 
-	async discoverRepositories(
-		uri: Uri,
-		options?: { cancellation?: CancellationToken; depth?: number; silent?: boolean },
-	): Promise<Repository[]> {
+	async discoverRepositories(uri: Uri): Promise<Repository[]> {
 		if (!this.supportedSchemes.has(uri.scheme)) return [];
 
 		try {
@@ -197,56 +157,14 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const workspaceUri = remotehub.getVirtualWorkspaceUri(uri);
 			if (workspaceUri == null) return [];
 
-			return this.openRepository(undefined, workspaceUri, true, undefined, options?.silent);
-		} catch (ex) {
-			if (ex.message.startsWith('No provider registered with')) {
-				Logger.error(
-					ex,
-					'No GitHub provider registered with Remote Repositories (yet); queuing pending discovery',
-				);
-				this._pendingDiscovery.add(uri);
-				this.ensurePendingRepositoryDiscovery();
-			}
+			return [this.openRepository(undefined, workspaceUri, true)];
+		} catch {
 			return [];
 		}
 	}
 
-	private _pendingDiscovery = new Set<Uri>();
-	private _pendingTimer: ReturnType<typeof setTimeout> | undefined;
-	private ensurePendingRepositoryDiscovery() {
-		if (this._pendingTimer != null || this._pendingDiscovery.size === 0) return;
-
-		this._pendingTimer = setTimeout(async () => {
-			try {
-				const remotehub = await getRemoteHubApi();
-
-				for (const uri of this._pendingDiscovery) {
-					if (remotehub.getProvider(uri) == null) {
-						this._pendingTimer = undefined;
-						this.ensurePendingRepositoryDiscovery();
-						return;
-					}
-
-					this._pendingDiscovery.delete(uri);
-				}
-
-				this._pendingTimer = undefined;
-
-				setTimeout(() => this._onDidChange.fire(), 1);
-
-				if (this._pendingDiscovery.size !== 0) {
-					this.ensurePendingRepositoryDiscovery();
-				}
-			} catch {
-				debugger;
-				this._pendingTimer = undefined;
-				this.ensurePendingRepositoryDiscovery();
-			}
-		}, 250);
-	}
-
 	updateContext(): void {
-		void setContext('gitlens:hasVirtualFolders', this.container.git.hasOpenRepositories(this.descriptor.id));
+		void setContext(ContextKeys.HasVirtualFolders, this.container.git.hasOpenRepositories(this.descriptor.id));
 	}
 
 	openRepository(
@@ -255,19 +173,17 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		root: boolean,
 		suspended?: boolean,
 		closed?: boolean,
-	): Repository[] {
-		return [
-			new Repository(
-				this.container,
-				this.onRepositoryChanged.bind(this),
-				this.descriptor,
-				folder,
-				uri,
-				root,
-				suspended ?? !window.state.focused,
-				closed,
-			),
-		];
+	): Repository {
+		return new Repository(
+			this.container,
+			this.onRepositoryChanged.bind(this),
+			this.descriptor,
+			folder,
+			uri,
+			root,
+			suspended ?? !window.state.focused,
+			closed,
+		);
 	}
 
 	// private _supportedFeatures = new Map<Features, boolean>();
@@ -276,33 +192,28 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		// if (supported != null) return supported;
 
 		switch (feature) {
-			case Features.Stashes:
 			case Features.Worktrees:
-			case Features.StashOnlyStaged:
 				return false;
 			default:
 				return true;
 		}
 	}
 
-	async visibility(repoPath: string): Promise<[visibility: RepositoryVisibility, cacheKey: string | undefined]> {
-		const remotes = await this.getRemotes(repoPath, { sort: true });
-		if (remotes.length === 0) return [RepositoryVisibility.Local, undefined];
+	async visibility(repoPath: string): Promise<RepositoryVisibility> {
+		const remotes = await this.getRemotes(repoPath);
+		if (remotes.length === 0) return RepositoryVisibility.Local;
 
-		for await (const result of asSettled(remotes.map(r => this.getRemoteVisibility(r)))) {
-			if (result.status !== 'fulfilled') continue;
-
-			if (result.value[0] === RepositoryVisibility.Public) {
-				return [RepositoryVisibility.Public, getVisibilityCacheKey(result.value[1])];
-			}
+		const origin = remotes.find(r => r.name === 'origin');
+		if (origin != null) {
+			return this.getRemoteVisibility(origin);
 		}
 
-		return [RepositoryVisibility.Private, getVisibilityCacheKey(remotes)];
+		return RepositoryVisibility.Private;
 	}
 
 	private async getRemoteVisibility(
-		remote: GitRemote,
-	): Promise<[visibility: RepositoryVisibility, remote: GitRemote]> {
+		remote: GitRemote<RemoteProvider | RichRemoteProvider | undefined>,
+	): Promise<RepositoryVisibility> {
 		switch (remote.provider?.id) {
 			case 'github': {
 				const { github, metadata, session } = await this.ensureRepositoryContext(remote.repoPath);
@@ -312,19 +223,15 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					metadata.repo.name,
 				);
 
-				return [visibility ?? RepositoryVisibility.Private, remote];
+				return visibility ?? RepositoryVisibility.Private;
 			}
 			default:
-				return [RepositoryVisibility.Private, remote];
+				return RepositoryVisibility.Private;
 		}
 	}
 
 	async getOpenScmRepositories(): Promise<ScmRepository[]> {
 		return [];
-	}
-
-	async getScmRepository(_repoPath: string): Promise<ScmRepository | undefined> {
-		return undefined;
 	}
 
 	async getOrOpenScmRepository(_repoPath: string): Promise<ScmRepository | undefined> {
@@ -346,16 +253,15 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				debugger;
 				void window.showErrorMessage(
 					`Unable to get absolute uri between ${
-						typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(true)
+						typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(false)
 					} and ${base}; Base path '${base}' must be a uri`,
 				);
 				throw new Error(`Base path '${base}' must be a uri`);
 			}
 		}
 
-		if (typeof pathOrUri === 'string' && !maybeUri(pathOrUri)) {
-			const normalized = normalizePath(pathOrUri);
-			if (!isAbsolute(normalized)) return Uri.joinPath(base, normalized);
+		if (typeof pathOrUri === 'string' && !maybeUri(pathOrUri) && !isAbsolute(pathOrUri)) {
+			return Uri.joinPath(base, normalizePath(pathOrUri));
 		}
 
 		const relativePath = this.getRelativePath(pathOrUri, base);
@@ -377,7 +283,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				debugger;
 				void window.showErrorMessage(
 					`Unable to get relative path between ${
-						typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(true)
+						typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.toString(false)
 					} and ${base}; Base path '${base}' must be a uri`,
 				);
 				throw new Error(`Base path '${base}' must be a uri`);
@@ -409,7 +315,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	getRevisionUri(repoPath: string, path: string, ref: string): Uri {
 		const uri = this.createProviderUri(repoPath, ref, path);
-		return ref === deletedOrMissing ? uri.with({ query: '~' }) : uri;
+		return ref === GitRevision.deletedOrMissing ? uri.with({ query: '~' }) : uri;
 	}
 
 	@log()
@@ -418,13 +324,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async addRemote(_repoPath: string, _name: string, _url: string, _options?: { fetch?: boolean }): Promise<void> {}
+	async addRemote(_repoPath: string, _name: string, _url: string): Promise<void> {}
 
 	@log()
-	async pruneRemote(_repoPath: string, _name: string): Promise<void> {}
-
-	@log()
-	async removeRemote(_repoPath: string, _name: string): Promise<void> {}
+	async pruneRemote(_repoPath: string, _remoteName: string): Promise<void> {}
 
 	@log()
 	async applyChangesToWorkingFile(_uri: GitUri, _ref1?: string, _ref2?: string): Promise<void> {}
@@ -441,35 +344,19 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		_options?: { createBranch?: string } | { path?: string },
 	): Promise<void> {}
 
-	@log({ singleLine: true })
-	private resetCache(
-		repoPath: string,
-		...caches: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]
-	) {
-		if (caches.length === 0 || caches.includes('branches')) {
-			this._branchesCache.delete(repoPath);
-		}
-
-		if (caches.length === 0 || caches.includes('tags')) {
-			this._tagsCache.delete(repoPath);
-		}
-
-		if (caches.length === 0) {
-			this._repoInfoCache.delete(repoPath);
-		}
-	}
-
-	@log({ singleLine: true })
-	private resetCaches(...caches: GitCaches[]): void {
-		if (caches.length === 0 || caches.includes('branches')) {
+	@log()
+	resetCaches(
+		...affects: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]
+	): void {
+		if (affects.length === 0 || affects.includes('branches')) {
 			this._branchesCache.clear();
 		}
 
-		if (caches.length === 0 || caches.includes('tags')) {
+		if (affects.length === 0 || affects.includes('tags')) {
 			this._tagsCache.clear();
 		}
 
-		if (caches.length === 0) {
+		if (affects.length === 0) {
 			this._repoInfoCache.clear();
 		}
 	}
@@ -486,22 +373,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		_options?: { all?: boolean; branch?: GitBranchReference; prune?: boolean; pull?: boolean; remote?: string },
 	): Promise<void> {}
 
-	@log()
-	async pull(
-		_repoPath: string,
-		_options?: { branch?: GitBranchReference; rebase?: boolean; tags?: boolean },
-	): Promise<void> {}
-
-	@log()
-	async push(
-		_repoPath: string,
-		_options?: { branch?: GitBranchReference; force?: boolean; publish?: { remote: string } },
-	): Promise<void> {}
-
 	@gate()
 	@debug()
 	async findRepositoryUri(uri: Uri, _isDirectory?: boolean): Promise<Uri | undefined> {
-		const scope = getLogScope();
+		const cc = Logger.getCorrelationContext();
 
 		try {
 			const remotehub = await this.ensureRemoteHubApi();
@@ -511,7 +386,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			if (!(ex instanceof ExtensionNotFoundError)) {
 				debugger;
 			}
-			Logger.error(ex, scope);
+			Logger.error(ex, cc);
 
 			return undefined;
 		}
@@ -525,10 +400,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return undefined;
 	}
 
-	@gate<GitHubGitProvider['getBlame']>((u, d) => `${u.toString()}|${d?.isDirty}`)
-	@log<GitHubGitProvider['getBlame']>({ args: { 1: d => d?.isDirty } })
+	@gate()
+	@log()
 	async getBlame(uri: GitUri, document?: TextDocument | undefined): Promise<GitBlame | undefined> {
-		const scope = getLogScope();
+		const cc = Logger.getCorrelationContext();
 
 		// TODO@eamodio we need to figure out when to do this, since dirty isn't enough, we need to know if there are any uncommitted changes
 		if (document?.isDirty) return undefined; //this.getBlameContents(uri, document.getText());
@@ -542,21 +417,21 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		if (doc.state != null) {
 			const cachedBlame = doc.state.getBlame(key);
 			if (cachedBlame != null) {
-				Logger.debug(scope, `Cache hit: '${key}'`);
+				Logger.debug(cc, `Cache hit: '${key}'`);
 				return cachedBlame.item;
 			}
 		}
 
-		Logger.debug(scope, `Cache miss: '${key}'`);
+		Logger.debug(cc, `Cache miss: '${key}'`);
 
 		if (doc.state == null) {
-			doc.state = new GitDocumentState();
+			doc.state = new GitDocumentState(doc.key);
 		}
 
-		const promise = this.getBlameCore(uri, doc, key, scope);
+		const promise = this.getBlameCore(uri, doc, key, cc);
 
 		if (doc.state != null) {
-			Logger.debug(scope, `Cache add: '${key}'`);
+			Logger.debug(cc, `Cache add: '${key}'`);
 
 			const value: CachedBlame = {
 				item: promise as Promise<GitBlame>,
@@ -571,7 +446,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		uri: GitUri,
 		document: TrackedDocument<GitDocumentState>,
 		key: string,
-		scope: LogScope | undefined,
+		cc: LogCorrelationContext | undefined,
 	): Promise<GitBlame | undefined> {
 		try {
 			const context = await this.ensureRepositoryContext(uri.repoPath!);
@@ -665,9 +540,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		} catch (ex) {
 			debugger;
 			// Trap and cache expected blame errors
-			if (document.state != null && !String(ex).includes('No provider registered with')) {
+			if (document.state != null && !/No provider registered with/.test(String(ex))) {
 				const msg = ex?.toString() ?? '';
-				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
+				Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedBlame = {
 					item: emptyPromise as Promise<GitBlame>,
@@ -690,17 +565,15 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return undefined; //this.getBlame(uri);
 	}
 
-	@gate<GitHubGitProvider['getBlameForLine']>(
-		(u, l, d, o) => `${u.toString()}|${l}|${d?.isDirty}|${o?.forceSingleLine}`,
-	)
-	@log<GitHubGitProvider['getBlameForLine']>({ args: { 2: d => d?.isDirty } })
+	@gate()
+	@log()
 	async getBlameForLine(
 		uri: GitUri,
 		editorLine: number, // 0-based, Git is 1-based
 		document?: TextDocument | undefined,
 		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined> {
-		const scope = getLogScope();
+		const cc = Logger.getCorrelationContext();
 
 		// TODO@eamodio we need to figure out when to do this, since dirty isn't enough, we need to know if there are any uncommitted changes
 		if (document?.isDirty) return undefined; //this.getBlameForLineContents(uri, editorLine, document.getText(), options);
@@ -785,7 +658,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			};
 		} catch (ex) {
 			debugger;
-			Logger.error(scope, ex);
+			Logger.error(cc, ex);
 			return undefined;
 		}
 	}
@@ -884,7 +757,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	): Promise<PagedResult<GitBranch>> {
 		if (repoPath == null) return emptyPagedResult;
 
-		const scope = getLogScope();
+		const cc = Logger.getCorrelationContext();
 
 		let branchesPromise = options?.cursor ? undefined : this._branchesCache.get(repoPath);
 		if (branchesPromise == null) {
@@ -910,7 +783,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 						for (const branch of result.values) {
 							const date = new Date(
-								configuration.get('advanced.commitOrdering') === 'author-date'
+								this.container.config.advanced.commitOrdering === 'author-date'
 									? branch.target.authoredDate
 									: branch.target.committedDate,
 							);
@@ -930,7 +803,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						cursor = result.paging.cursor;
 					}
 				} catch (ex) {
-					Logger.error(ex, scope);
+					Logger.error(ex, cc);
 					debugger;
 
 					this._branchesCache.delete(repoPath!);
@@ -953,7 +826,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 
 		if (options?.sort != null) {
-			sortBranches(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
+			GitBranch.sort(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
 		}
 
 		return result;
@@ -969,7 +842,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		const { stats } = commit;
 
-		const changedFiles = getChangedFilesCount(stats.changedFiles);
+		const changedFiles =
+			typeof stats.changedFiles === 'number'
+				? stats.changedFiles
+				: stats.changedFiles.added + stats.changedFiles.changed + stats.changedFiles.deleted;
 		return { additions: stats.additions, deletions: stats.deletions, changedFiles: changedFiles };
 	}
 
@@ -977,7 +853,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async getCommit(repoPath: string, ref: string): Promise<GitCommit | undefined> {
 		if (repoPath == null) return undefined;
 
-		const scope = getLogScope();
+		const cc = Logger.getCorrelationContext();
 
 		try {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
@@ -1022,7 +898,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				[],
 			);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			Logger.error(ex, cc);
 			debugger;
 			return undefined;
 		}
@@ -1036,7 +912,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	): Promise<string[]> {
 		if (repoPath == null || options?.commitDate == null) return [];
 
-		const scope = getLogScope();
+		const cc = Logger.getCorrelationContext();
 
 		try {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
@@ -1064,7 +940,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			return branches;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			Logger.error(ex, cc);
 			debugger;
 			return [];
 		}
@@ -1074,7 +950,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async getCommitCount(repoPath: string, ref: string): Promise<number | undefined> {
 		if (repoPath == null) return undefined;
 
-		const scope = getLogScope();
+		const cc = Logger.getCorrelationContext();
 
 		try {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
@@ -1088,7 +964,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			return count;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			Logger.error(ex, cc);
 			debugger;
 			return undefined;
 		}
@@ -1102,7 +978,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	): Promise<GitCommit | undefined> {
 		if (repoPath == null) return undefined;
 
-		const scope = getLogScope();
+		const cc = Logger.getCorrelationContext();
 
 		try {
 			const { metadata, github, remotehub, session } = await this.ensureRepositoryContext(repoPath);
@@ -1159,420 +1035,16 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				[],
 			);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			Logger.error(ex, cc);
 			debugger;
 			return undefined;
 		}
 	}
 
 	@log()
-	async getCommitsForGraph(
-		repoPath: string,
-		asWebviewUri: (uri: Uri) => Uri,
-		options?: {
-			branch?: string;
-			include?: { stats?: boolean };
-			limit?: number;
-			ref?: string;
-		},
-	): Promise<GitGraph> {
-		const defaultLimit = options?.limit ?? configuration.get('graph.defaultItemLimit') ?? 5000;
-		// const defaultPageLimit = configuration.get('graph.pageItemLimit') ?? 1000;
-		const ordering = configuration.get('graph.commitOrdering', undefined, 'date');
-		const useAvatars = configuration.get('graph.avatars', undefined, true);
-
-		const [logResult, headBranchResult, branchesResult, remotesResult, tagsResult, currentUserResult] =
-			await Promise.allSettled([
-				this.getLog(repoPath, { all: true, ordering: ordering, limit: defaultLimit }),
-				this.getBranch(repoPath),
-				this.getBranches(repoPath, { filter: b => b.remote }),
-				this.getRemotes(repoPath),
-				this.getTags(repoPath),
-				this.getCurrentUser(repoPath),
-			]);
-
-		const avatars = new Map<string, string>();
-		const headBranch = getSettledValue(headBranchResult)!;
-
-		const branchMap = new Map<string, GitBranch>();
-		const branchTips = new Map<string, string[]>();
-		if (headBranch != null) {
-			branchMap.set(headBranch.name, headBranch);
-			if (headBranch.sha != null) {
-				branchTips.set(headBranch.sha, [headBranch.name]);
-			}
-		}
-
-		const branches = getSettledValue(branchesResult)?.values;
-		if (branches != null) {
-			for (const branch of branches) {
-				branchMap.set(branch.name, branch);
-				if (branch.sha == null) continue;
-
-				const bts = branchTips.get(branch.sha);
-				if (bts == null) {
-					branchTips.set(branch.sha, [branch.name]);
-				} else {
-					bts.push(branch.name);
-				}
-			}
-		}
-
-		const ids = new Set<string>();
-		const remote = getSettledValue(remotesResult)![0]!;
-		const remoteMap = remote != null ? new Map([[remote.name, remote]]) : new Map<string, GitRemote>();
-
-		const tagTips = new Map<string, string[]>();
-		const tags = getSettledValue(tagsResult)?.values;
-		if (tags != null) {
-			for (const tag of tags) {
-				if (tag.sha == null) continue;
-
-				const tts = tagTips.get(tag.sha);
-				if (tts == null) {
-					tagTips.set(tag.sha, [tag.name]);
-				} else {
-					tts.push(tag.name);
-				}
-			}
-		}
-
-		return this.getCommitsForGraphCore(
-			repoPath,
-			asWebviewUri,
-			getSettledValue(logResult),
-			headBranch,
-			branchMap,
-			branchTips,
-			remote,
-			remoteMap,
-			tagTips,
-			getSettledValue(currentUserResult),
-			avatars,
-			ids,
-			{ ...options, useAvatars: useAvatars },
-		);
-	}
-
-	private async getCommitsForGraphCore(
-		repoPath: string,
-		asWebviewUri: (uri: Uri) => Uri,
-		log: GitLog | undefined,
-		headBranch: GitBranch,
-		branchMap: Map<string, GitBranch>,
-		branchTips: Map<string, string[]>,
-		remote: GitRemote,
-		remoteMap: Map<string, GitRemote>,
-		tagTips: Map<string, string[]>,
-		currentUser: GitUser | undefined,
-		avatars: Map<string, string>,
-		ids: Set<string>,
-		options?: {
-			branch?: string;
-			include?: { stats?: boolean };
-			limit?: number;
-			ref?: string;
-			useAvatars?: boolean;
-		},
-	): Promise<GitGraph> {
-		const includes = { ...options?.include, stats: true }; // stats are always available, so force it
-		const downstreamMap = new Map<string, string[]>();
-		if (log == null) {
-			return {
-				repoPath: repoPath,
-				avatars: avatars,
-				ids: ids,
-				includes: includes,
-				branches: branchMap,
-				remotes: remoteMap,
-				downstreams: downstreamMap,
-				rows: [],
-			};
-		}
-
-		const commits = (log.pagedCommits?.() ?? log.commits)?.values();
-		if (commits == null) {
-			return {
-				repoPath: repoPath,
-				avatars: avatars,
-				ids: ids,
-				includes: includes,
-				branches: branchMap,
-				remotes: remoteMap,
-				downstreams: downstreamMap,
-				rows: [],
-			};
-		}
-
-		const rows: GitGraphRow[] = [];
-
-		let avatarUrl: string | undefined;
-		let branchName: string;
-		let context:
-			| GraphItemRefContext<GraphBranchContextValue>
-			| GraphItemRefContext<GraphTagContextValue>
-			| undefined;
-		let contexts: GitGraphRowContexts | undefined;
-		let head = false;
-		let isCurrentUser = false;
-		let refHeads: GitGraphRowHead[];
-		let refRemoteHeads: GitGraphRowRemoteHead[];
-		let refTags: GitGraphRowTag[];
-		let remoteBranchId: string;
-		let stats: GitGraphRowsStats | undefined;
-		let tagId: string;
-
-		const headRefUpstreamName = headBranch.upstream?.name;
-
-		for (const commit of commits) {
-			ids.add(commit.sha);
-
-			head = commit.sha === headBranch.sha;
-			if (head) {
-				context = {
-					webviewItem: `gitlens:branch${head ? '+current' : ''}${
-						headBranch?.upstream != null ? '+tracking' : ''
-					}`,
-					webviewItemValue: {
-						type: 'branch',
-						ref: createReference(headBranch.name, repoPath, {
-							id: headBranch.id,
-							refType: 'branch',
-							name: headBranch.name,
-							remote: false,
-							upstream: headBranch.upstream,
-						}),
-					},
-				};
-
-				refHeads = [
-					{
-						id: headBranch.id,
-						name: headBranch.name,
-						isCurrentHead: true,
-						context: serializeWebviewItemContext<GraphItemRefContext>(context),
-						upstream:
-							headBranch.upstream != null
-								? {
-										name: headBranch.upstream.name,
-										id: getBranchId(repoPath, true, headBranch.upstream.name),
-								  }
-								: undefined,
-					},
-				];
-
-				if (headBranch.upstream != null) {
-					remoteBranchId = getBranchId(repoPath, true, headBranch.name);
-					avatarUrl = (
-						(options?.useAvatars ? remote.provider?.avatarUri : undefined) ??
-						getRemoteIconUri(this.container, remote, asWebviewUri)
-					)?.toString(true);
-					context = {
-						webviewItem: 'gitlens:branch+remote',
-						webviewItemValue: {
-							type: 'branch',
-							ref: createReference(headBranch.name, repoPath, {
-								id: remoteBranchId,
-								refType: 'branch',
-								name: headBranch.name,
-								remote: true,
-								upstream: { name: remote.name, missing: false },
-							}),
-						},
-					};
-
-					refRemoteHeads = [
-						{
-							id: remoteBranchId,
-							name: headBranch.name,
-							owner: remote.name,
-							url: remote.url,
-							avatarUrl: avatarUrl,
-							context: serializeWebviewItemContext<GraphItemRefContext>(context),
-							current: true,
-						},
-					];
-
-					if (headRefUpstreamName != null) {
-						// Add the branch name (tip) to the upstream name entry in the downstreams map
-						let downstreams = downstreamMap.get(headRefUpstreamName);
-						if (downstreams == null) {
-							downstreams = [];
-							downstreamMap.set(headRefUpstreamName, downstreams);
-						}
-
-						downstreams.push(headBranch.name);
-					}
-				} else {
-					refRemoteHeads = [];
-				}
-			} else {
-				refHeads = [];
-				refRemoteHeads = [];
-
-				const bts = branchTips.get(commit.sha);
-				if (bts != null) {
-					for (const b of bts) {
-						remoteBranchId = getBranchId(repoPath, true, b);
-						branchName = getBranchNameWithoutRemote(b);
-
-						avatarUrl = (
-							(options?.useAvatars ? remote.provider?.avatarUri : undefined) ??
-							getRemoteIconUri(this.container, remote, asWebviewUri)
-						)?.toString(true);
-						context = {
-							webviewItem: 'gitlens:branch+remote',
-							webviewItemValue: {
-								type: 'branch',
-								ref: createReference(b, repoPath, {
-									id: remoteBranchId,
-									refType: 'branch',
-									name: b,
-									remote: true,
-									upstream: { name: remote.name, missing: false },
-								}),
-							},
-						};
-
-						refRemoteHeads.push({
-							id: remoteBranchId,
-							name: branchName,
-							owner: remote.name,
-							url: remote.url,
-							avatarUrl: avatarUrl,
-							context: serializeWebviewItemContext<GraphItemRefContext>(context),
-						});
-					}
-				}
-			}
-
-			refTags = [];
-
-			const tts = tagTips.get(commit.sha);
-			if (tts != null) {
-				for (const t of tts) {
-					tagId = getTagId(repoPath, t);
-					context = {
-						webviewItem: 'gitlens:tag',
-						webviewItemValue: {
-							type: 'tag',
-							ref: createReference(t, repoPath, {
-								id: tagId,
-								refType: 'tag',
-								name: t,
-							}),
-						},
-					};
-
-					refTags.push({
-						id: tagId,
-						name: t,
-						// Not currently used, so don't bother looking it up
-						annotated: true,
-						context: serializeWebviewItemContext<GraphItemRefContext>(context),
-					});
-				}
-			}
-
-			if (commit.author.email && !avatars.has(commit.author.email)) {
-				const uri = commit.getCachedAvatarUri();
-				if (uri != null) {
-					avatars.set(commit.author.email, uri.toString(true));
-				}
-			}
-
-			isCurrentUser = commit.author.name === 'You';
-			contexts = {
-				row: serializeWebviewItemContext<GraphItemRefContext>({
-					webviewItem: `gitlens:commit${head ? '+HEAD' : ''}+current`,
-					webviewItemValue: {
-						type: 'commit',
-						ref: createReference(commit.sha, repoPath, {
-							refType: 'revision',
-							message: commit.message,
-						}),
-					},
-				}),
-				avatar: serializeWebviewItemContext<GraphItemContext>({
-					webviewItem: `gitlens:contributor${isCurrentUser ? '+current' : ''}`,
-					webviewItemValue: {
-						type: 'contributor',
-						repoPath: repoPath,
-						name: isCurrentUser && currentUser?.name != null ? currentUser.name : commit.author.name,
-						email: commit.author.email,
-						current: isCurrentUser,
-					},
-				}),
-			};
-
-			rows.push({
-				sha: commit.sha,
-				parents: commit.parents,
-				author: commit.author.name,
-				email: commit.author.email ?? '',
-				date: commit.committer.date.getTime(),
-				message: emojify(commit.message && String(commit.message).length ? commit.message : commit.summary),
-				// TODO: review logic for stash, wip, etc
-				type: commit.parents.length > 1 ? GitGraphRowType.MergeCommit : GitGraphRowType.Commit,
-				heads: refHeads,
-				remotes: refRemoteHeads,
-				tags: refTags,
-				contexts: contexts,
-			});
-
-			if (commit.stats != null) {
-				if (stats == null) {
-					stats = new Map<string, GitGraphRowStats>();
-				}
-				stats.set(commit.sha, {
-					files: getChangedFilesCount(commit.stats.changedFiles),
-					additions: commit.stats.additions,
-					deletions: commit.stats.deletions,
-				});
-			}
-		}
-
-		if (options?.ref === 'HEAD') {
-			options.ref = first(log.commits.values())?.sha;
-		} else if (options?.ref != null) {
-			options.ref = undefined;
-		}
-
-		return {
-			repoPath: repoPath,
-			avatars: avatars,
-			ids: ids,
-			includes: includes,
-			branches: branchMap,
-			remotes: remoteMap,
-			downstreams: downstreamMap,
-			rows: rows,
-			id: options?.ref,
-
-			paging: {
-				limit: log.limit,
-				startingCursor: log.startingCursor,
-				hasMore: log.hasMore,
-			},
-			more: async (limit: number | { until: string } | undefined): Promise<GitGraph | undefined> => {
-				const moreLog = await log.more?.(limit);
-				return this.getCommitsForGraphCore(
-					repoPath,
-					asWebviewUri,
-					moreLog,
-					headBranch,
-					branchMap,
-					branchTips,
-					remote,
-					remoteMap,
-					tagTips,
-					currentUser,
-					avatars,
-					ids,
-					options,
-				);
-			},
-		};
+	async getOldestUnpushedRefForFile(_repoPath: string, _uri: Uri): Promise<string | undefined> {
+		// TODO@eamodio until we have access to the RemoteHub change store there isn't anything we can do here
+		return undefined;
 	}
 
 	@log()
@@ -1582,7 +1054,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	): Promise<GitContributor[]> {
 		if (repoPath == null) return [];
 
-		const scope = getLogScope();
+		const cc = Logger.getCorrelationContext();
 
 		try {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
@@ -1612,7 +1084,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			return contributors;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			Logger.error(ex, cc);
 			debugger;
 			return [];
 		}
@@ -1623,7 +1095,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async getCurrentUser(repoPath: string): Promise<GitUser | undefined> {
 		if (!repoPath) return undefined;
 
-		const scope = getLogScope();
+		const cc = Logger.getCorrelationContext();
 
 		const repo = this._repoInfoCache.get(repoPath);
 
@@ -1639,7 +1111,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			this._repoInfoCache.set(repoPath, { ...repo, user: user ?? null });
 			return user;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			Logger.error(ex, cc);
 			debugger;
 
 			// Mark it so we won't bother trying again
@@ -1652,20 +1124,20 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async getDefaultBranchName(repoPath: string | undefined, _remote?: string): Promise<string | undefined> {
 		if (repoPath == null) return undefined;
 
-		const scope = getLogScope();
+		const cc = Logger.getCorrelationContext();
 
 		try {
 			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
 			return await github.getDefaultBranchName(session.accessToken, metadata.repo.owner, metadata.repo.name);
 		} catch (ex) {
-			Logger.error(ex, scope);
+			Logger.error(ex, cc);
 			debugger;
 			return undefined;
 		}
 	}
 
 	@log()
-	async getDiffForFile(_uri: GitUri, _ref1: string | undefined, _ref2?: string): Promise<GitDiffFile | undefined> {
+	async getDiffForFile(_uri: GitUri, _ref1: string | undefined, _ref2?: string): Promise<GitDiff | undefined> {
 		return undefined;
 	}
 
@@ -1674,7 +1146,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			1: _contents => '<contents>',
 		},
 	})
-	async getDiffForFileContents(_uri: GitUri, _ref: string, _contents: string): Promise<GitDiffFile | undefined> {
+	async getDiffForFileContents(_uri: GitUri, _ref: string, _contents: string): Promise<GitDiff | undefined> {
 		return undefined;
 	}
 
@@ -1700,7 +1172,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async getFileStatusForCommit(repoPath: string, uri: Uri, ref: string): Promise<GitFile | undefined> {
-		if (ref === deletedOrMissing || isUncommitted(ref)) return undefined;
+		if (ref === GitRevision.deletedOrMissing || GitRevision.isUncommitted(ref)) return undefined;
 
 		const commit = await this.getCommitForFile(repoPath, uri, { ref: ref });
 		if (commit == null) return undefined;
@@ -1721,14 +1193,14 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			cursor?: string;
 			limit?: number;
 			merges?: boolean;
-			ordering?: 'date' | 'author-date' | 'topo' | null;
+			ordering?: string | null;
 			ref?: string;
 			since?: string;
 		},
 	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
-		const scope = getLogScope();
+		const cc = Logger.getCorrelationContext();
 
 		const limit = this.getPagingLimit(options?.limit);
 
@@ -1802,7 +1274,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				count: commits.size,
 				limit: limit,
 				hasMore: result.paging?.more ?? false,
-				endingCursor: result.paging?.cursor,
+				cursor: result.paging?.cursor,
 				query: (limit: number | undefined) => this.getLog(repoPath, { ...options, limit: limit }),
 			};
 
@@ -1812,7 +1284,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			return log;
 		} catch (ex) {
-			Logger.error(ex, scope);
+			Logger.error(ex, cc);
 			debugger;
 			return undefined;
 		}
@@ -1826,7 +1298,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			cursor?: string;
 			limit?: number;
 			merges?: boolean;
-			ordering?: 'date' | 'author-date' | 'topo' | null;
+			ordering?: string | null;
 			ref?: string;
 			since?: string;
 		},
@@ -1844,7 +1316,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			authors?: GitUser[];
 			limit?: number;
 			merges?: boolean;
-			ordering?: 'date' | 'author-date' | 'topo' | null;
+			ordering?: string | null;
 			ref?: string;
 		},
 	): (limit: number | { until: string } | undefined) => Promise<GitLog> {
@@ -1859,13 +1331,13 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			moreLimit = this.getPagingLimit(moreLimit);
 
 			// // If the log is for a range, then just get everything prior + more
-			// if (isRange(log.sha)) {
+			// if (GitRevision.isRange(log.sha)) {
 			// 	const moreLog = await this.getLog(log.repoPath, {
 			// 		...options,
 			// 		limit: moreLimit === 0 ? 0 : (options?.limit ?? 0) + moreLimit,
 			// 	});
 			// 	// If we can't find any more, assume we have everything
-			// 	if (moreLog == null) return { ...log, hasMore: false, more: undefined };
+			// 	if (moreLog == null) return { ...log, hasMore: false };
 
 			// 	return moreLog;
 			// }
@@ -1877,15 +1349,15 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			// 	ref: moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^`,
 			// });
 			// // If we can't find any more, assume we have everything
-			// if (moreLog == null) return { ...log, hasMore: false, more: undefined };
+			// if (moreLog == null) return { ...log, hasMore: false };
 
 			const moreLog = await this.getLog(log.repoPath, {
 				...options,
 				limit: moreLimit,
-				cursor: log.endingCursor,
+				cursor: log.cursor,
 			});
 			// If we can't find any more, assume we have everything
-			if (moreLog == null) return { ...log, hasMore: false, more: undefined };
+			if (moreLog == null) return { ...log, hasMore: false };
 
 			const commits = new Map([...log.commits, ...moreLog.commits]);
 
@@ -1897,20 +1369,199 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				count: commits.size,
 				limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
 				hasMore: moreUntil == null ? moreLog.hasMore : true,
-				startingCursor: last(log.commits)?.[0],
-				endingCursor: moreLog.endingCursor,
-				pagedCommits: () => {
-					// Remove any duplicates
-					for (const sha of log.commits.keys()) {
-						moreLog.commits.delete(sha);
-					}
-					return moreLog.commits;
-				},
+				cursor: moreLog.cursor,
 				query: log.query,
 			};
-			if (mergedLog.hasMore) {
-				mergedLog.more = this.getLogMoreFn(mergedLog, options);
+			mergedLog.more = this.getLogMoreFn(mergedLog, options);
+
+			return mergedLog;
+		};
+	}
+
+	@log()
+	async getLogForSearch(
+		repoPath: string,
+		search: SearchPattern,
+		options?: { cursor?: string; limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
+	): Promise<GitLog | undefined> {
+		if (repoPath == null) return undefined;
+
+		const cc = Logger.getCorrelationContext();
+
+		const operations = SearchPattern.parseSearchOperations(search.pattern);
+
+		let op;
+		let values = operations.get('commit:');
+		if (values != null) {
+			const commit = await this.getCommit(repoPath, values[0]);
+			if (commit == null) return undefined;
+
+			return {
+				repoPath: repoPath,
+				commits: new Map([[commit.sha, commit]]),
+				sha: commit.sha,
+				range: undefined,
+				count: 1,
+				limit: 1,
+				hasMore: false,
+			};
+		}
+
+		const query = [];
+
+		for ([op, values] of operations.entries()) {
+			switch (op) {
+				case 'message:':
+					query.push(...values.map(m => m.replace(/ /g, '+')));
+					break;
+
+				case 'author:':
+					query.push(
+						...values.map(a => {
+							a = a.replace(/ /g, '+');
+							if (a.startsWith('@')) return `author:${a.slice(1)}`;
+							if (a.startsWith('"@')) return `author:"${a.slice(2)}`;
+							if (a.includes('@')) return `author-email:${a}`;
+							return `author-name:${a}`;
+						}),
+					);
+					break;
+
+				// case 'change:':
+				// case 'file:':
+				// 	break;
 			}
+		}
+
+		if (query.length === 0) return undefined;
+
+		const limit = this.getPagingLimit(options?.limit);
+
+		try {
+			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
+
+			const result = await github.searchCommits(
+				session.accessToken,
+				`repo:${metadata.repo.owner}/${metadata.repo.name}+${query.join('+').trim()}`,
+				{
+					cursor: options?.cursor,
+					limit: limit,
+					sort:
+						options?.ordering === 'date'
+							? 'committer-date'
+							: options?.ordering === 'author-date'
+							? 'author-date'
+							: undefined,
+				},
+			);
+			if (result == null) return undefined;
+
+			const commits = new Map<string, GitCommit>();
+
+			const viewer = session.account.label;
+			for (const commit of result.values) {
+				const authorName = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
+				const committerName =
+					viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
+
+				let c = commits.get(commit.oid);
+				if (c == null) {
+					c = new GitCommit(
+						this.container,
+						repoPath,
+						commit.oid,
+						new GitCommitIdentity(
+							authorName,
+							commit.author.email,
+							new Date(commit.author.date),
+							commit.author.avatarUrl,
+						),
+						new GitCommitIdentity(committerName, commit.committer.email, new Date(commit.committer.date)),
+						commit.message.split('\n', 1)[0],
+						commit.parents.nodes.map(p => p.oid),
+						commit.message,
+						commit.files?.map(
+							f =>
+								new GitFileChange(
+									repoPath,
+									f.filename ?? '',
+									fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
+									f.previous_filename,
+									undefined,
+									{
+										additions: f.additions ?? 0,
+										deletions: f.deletions ?? 0,
+										changes: f.changes ?? 0,
+									},
+								),
+						),
+						{
+							changedFiles: commit.changedFiles ?? 0,
+							additions: commit.additions ?? 0,
+							deletions: commit.deletions ?? 0,
+						},
+						[],
+					);
+					commits.set(commit.oid, c);
+				}
+			}
+
+			const log: GitLog = {
+				repoPath: repoPath,
+				commits: commits,
+				sha: undefined,
+				range: undefined,
+				count: commits.size,
+				limit: limit,
+				hasMore: result.pageInfo?.hasNextPage ?? false,
+				cursor: result.pageInfo?.endCursor ?? undefined,
+				query: (limit: number | undefined) => this.getLog(repoPath, { ...options, limit: limit }),
+			};
+
+			if (log.hasMore) {
+				log.more = this.getLogForSearchMoreFn(log, search, options);
+			}
+
+			return log;
+		} catch (ex) {
+			Logger.error(ex, cc);
+			debugger;
+			return undefined;
+		}
+
+		return undefined;
+	}
+
+	private getLogForSearchMoreFn(
+		log: GitLog,
+		search: SearchPattern,
+		options?: { limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
+	): (limit: number | undefined) => Promise<GitLog> {
+		return async (limit: number | undefined) => {
+			limit = this.getPagingLimit(limit);
+
+			const moreLog = await this.getLogForSearch(log.repoPath, search, {
+				...options,
+				limit: limit,
+				cursor: log.cursor,
+			});
+			// If we can't find any more, assume we have everything
+			if (moreLog == null) return { ...log, hasMore: false };
+
+			const commits = new Map([...log.commits, ...moreLog.commits]);
+
+			const mergedLog: GitLog = {
+				repoPath: log.repoPath,
+				commits: commits,
+				sha: log.sha,
+				range: undefined,
+				count: commits.size,
+				limit: (log.limit ?? 0) + limit,
+				hasMore: moreLog.hasMore,
+				cursor: moreLog.cursor,
+				query: log.query,
+			};
+			mergedLog.more = this.getLogForSearchMoreFn(mergedLog, search, options);
 
 			return mergedLog;
 		};
@@ -1925,7 +1576,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			cursor?: string;
 			force?: boolean | undefined;
 			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo' | null;
+			ordering?: string | null;
 			range?: Range;
 			ref?: string;
 			renames?: boolean;
@@ -1936,7 +1587,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	): Promise<GitLog | undefined> {
 		if (repoPath == null) return undefined;
 
-		const scope = getLogScope();
+		const cc = Logger.getCorrelationContext();
 
 		const relativePath = this.getRelativePath(pathOrUri, repoPath);
 
@@ -1951,7 +1602,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		options.all = false;
 
 		// if (options.renames == null) {
-		// 	options.renames = configuration.get('advanced.fileHistoryFollowsRenames');
+		// 	options.renames = this.container.config.advanced.fileHistoryFollowsRenames;
 		// }
 
 		let key = 'log';
@@ -1960,7 +1611,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 
 		// if (options.all == null) {
-		// 	options.all = configuration.get('advanced.fileHistoryShowAllBranches');
+		// 	options.all = this.container.config.advanced.fileHistoryShowAllBranches;
 		// }
 		// if (options.all) {
 		// 	key += ':all';
@@ -1996,7 +1647,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			if (doc.state != null) {
 				const cachedLog = doc.state.getLog(key);
 				if (cachedLog != null) {
-					Logger.debug(scope, `Cache hit: '${key}'`);
+					Logger.debug(cc, `Cache hit: '${key}'`);
 					return cachedLog.item;
 				}
 
@@ -2007,14 +1658,14 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					);
 					if (cachedLog != null) {
 						if (options.ref == null) {
-							Logger.debug(scope, `Cache hit: ~'${key}'`);
+							Logger.debug(cc, `Cache hit: ~'${key}'`);
 							return cachedLog.item;
 						}
 
-						Logger.debug(scope, `Cache ?: '${key}'`);
+						Logger.debug(cc, `Cache ?: '${key}'`);
 						let log = await cachedLog.item;
 						if (log != null && !log.hasMore && log.commits.has(options.ref)) {
-							Logger.debug(scope, `Cache hit: '${key}'`);
+							Logger.debug(cc, `Cache hit: '${key}'`);
 
 							// Create a copy of the log starting at the requested commit
 							let skip = true;
@@ -2054,17 +1705,17 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				}
 			}
 
-			Logger.debug(scope, `Cache miss: '${key}'`);
+			Logger.debug(cc, `Cache miss: '${key}'`);
 
 			if (doc.state == null) {
-				doc.state = new GitDocumentState();
+				doc.state = new GitDocumentState(doc.key);
 			}
 		}
 
-		const promise = this.getLogForFileCore(repoPath, relativePath, doc, key, scope, options);
+		const promise = this.getLogForFileCore(repoPath, relativePath, doc, key, cc, options);
 
 		if (doc.state != null && options.range == null) {
-			Logger.debug(scope, `Cache add: '${key}'`);
+			Logger.debug(cc, `Cache add: '${key}'`);
 
 			const value: CachedLog = {
 				item: promise as Promise<GitLog>,
@@ -2080,12 +1731,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		path: string,
 		document: TrackedDocument<GitDocumentState>,
 		key: string,
-		scope: LogScope | undefined,
+		cc: LogCorrelationContext | undefined,
 		options?: {
 			all?: boolean;
 			cursor?: string;
 			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo' | null;
+			ordering?: string | null;
 			range?: Range;
 			ref?: string;
 			renames?: boolean;
@@ -2188,9 +1839,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				count: commits.size,
 				limit: limit,
 				hasMore: result.paging?.more ?? false,
-				endingCursor: result.paging?.cursor,
+				cursor: result.paging?.cursor,
 				query: (limit: number | undefined) => this.getLogForFile(repoPath, path, { ...options, limit: limit }),
 			};
+
 			if (log.hasMore) {
 				log.more = this.getLogForFileMoreFn(log, path, options);
 			}
@@ -2201,7 +1853,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			// Trap and cache expected log errors
 			if (document.state != null && options?.range == null && !options?.reverse) {
 				const msg: string = ex?.toString() ?? '';
-				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
+				Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedLog = {
 					item: emptyPromise as Promise<GitLog>,
@@ -2222,7 +1874,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		options?: {
 			all?: boolean;
 			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo' | null;
+			ordering?: string | null;
 			range?: Range;
 			ref?: string;
 			renames?: boolean;
@@ -2243,12 +1895,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			const moreLog = await this.getLogForFile(log.repoPath, relativePath, {
 				...options,
 				limit: moreUntil == null ? moreLimit : 0,
-				cursor: log.endingCursor,
+				cursor: log.cursor,
 				// ref: options.all ? undefined : moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^`,
 				// skip: options.all ? log.count : undefined,
 			});
 			// If we can't find any more, assume we have everything
-			if (moreLog == null) return { ...log, hasMore: false, more: undefined };
+			if (moreLog == null) return { ...log, hasMore: false };
 
 			const commits = new Map([...log.commits, ...moreLog.commits]);
 
@@ -2260,7 +1912,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				count: commits.size,
 				limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
 				hasMore: moreUntil == null ? moreLog.hasMore : true,
-				endingCursor: moreLog.endingCursor,
+				cursor: moreLog.cursor,
 				query: log.query,
 			};
 
@@ -2272,9 +1924,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			// 	fileName = renamed?.file?.originalPath ?? fileName;
 			// }
 
-			if (mergedLog.hasMore) {
-				mergedLog.more = this.getLogForFileMoreFn(mergedLog, relativePath, options);
-			}
+			mergedLog.more = this.getLogForFileMoreFn(mergedLog, relativePath, options);
 
 			return mergedLog;
 		};
@@ -2312,7 +1962,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		// If we have no ref there is no next commit
 		if (!ref) return undefined;
 
-		const scope = getLogScope();
+		const cc = Logger.getCorrelationContext();
 
 		try {
 			const context = await this.ensureRepositoryContext(repoPath);
@@ -2343,17 +1993,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				next: new GitUri(await this.getBestRevisionUri(repoPath, relativePath, refs[skip])),
 			};
 		} catch (ex) {
-			Logger.error(ex, scope);
+			Logger.error(ex, cc);
 			debugger;
 
 			throw ex;
 		}
-	}
-
-	@log()
-	async getOldestUnpushedRefForFile(_repoPath: string, _uri: Uri): Promise<string | undefined> {
-		// TODO@eamodio until we have access to the RemoteHub change store there isn't anything we can do here
-		return undefined;
 	}
 
 	@log()
@@ -2364,11 +2008,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		skip: number = 0,
 		_firstParent: boolean = false,
 	): Promise<PreviousComparisonUrisResult | undefined> {
-		if (ref === deletedOrMissing) return undefined;
+		if (ref === GitRevision.deletedOrMissing) return undefined;
 
-		const scope = getLogScope();
+		const cc = Logger.getCorrelationContext();
 
-		if (ref === uncommitted) {
+		if (ref === GitRevision.uncommitted) {
 			ref = undefined;
 		}
 
@@ -2401,10 +2045,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 							await this.getBestRevisionUri(
 								repoPath,
 								relativePath,
-								result.values[offset + skip - 1]?.oid ?? deletedOrMissing,
+								result.values[offset + skip - 1]?.oid ?? GitRevision.deletedOrMissing,
 							),
 					  );
-			if (current == null || current.sha === deletedOrMissing) return undefined;
+			if (current == null || current.sha === GitRevision.deletedOrMissing) return undefined;
 
 			return {
 				current: current,
@@ -2412,12 +2056,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					await this.getBestRevisionUri(
 						repoPath,
 						relativePath,
-						result.values[offset + skip]?.oid ?? deletedOrMissing,
+						result.values[offset + skip]?.oid ?? GitRevision.deletedOrMissing,
 					),
 				),
 			};
 		} catch (ex) {
-			Logger.error(ex, scope);
+			Logger.error(ex, cc);
 			debugger;
 
 			throw ex;
@@ -2432,9 +2076,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		ref: string | undefined,
 		skip: number = 0,
 	): Promise<PreviousLineComparisonUrisResult | undefined> {
-		if (ref === deletedOrMissing) return undefined;
+		if (ref === GitRevision.deletedOrMissing) return undefined;
 
-		const scope = getLogScope();
+		const cc = Logger.getCorrelationContext();
 
 		try {
 			const context = await this.ensureRepositoryContext(repoPath);
@@ -2483,7 +2127,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				line: (currentLine ?? editorLine) + 1, // 1-based
 			};
 		} catch (ex) {
-			Logger.error(ex, scope);
+			Logger.error(ex, cc);
 			debugger;
 
 			throw ex;
@@ -2493,38 +2137,42 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@log()
 	async getIncomingActivity(
 		_repoPath: string,
-		_options?: {
-			all?: boolean;
-			branch?: string;
-			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo' | null;
-			skip?: number;
-		},
+		_options?: { all?: boolean; branch?: string; limit?: number; ordering?: string | null; skip?: number },
 	): Promise<GitReflog | undefined> {
 		return undefined;
 	}
 
 	@log({ args: { 1: false } })
-	async getRemotes(repoPath: string | undefined, _options?: { sort?: boolean }): Promise<GitRemote[]> {
+	async getRemotes(
+		repoPath: string | undefined,
+		options?: { providers?: RemoteProviders; sort?: boolean },
+	): Promise<GitRemote<RemoteProvider | RichRemoteProvider | undefined>[]> {
 		if (repoPath == null) return [];
 
-		const providers = loadRemoteProviders(configuration.get('remotes', null));
+		const providers = options?.providers ?? RemoteProviderFactory.loadProviders(configuration.get('remotes', null));
 
 		const uri = Uri.parse(repoPath, true);
 		const [, owner, repo] = uri.path.split('/', 3);
 
-		const url = `https://github.com/${owner}/${repo}.git`;
+		const protocol = 'https';
+		const url = `${protocol}://github.com/${owner}/${repo}.git`;
 		const domain = 'github.com';
 		const path = `${owner}/${repo}`;
 
 		return [
 			new GitRemote(
 				repoPath,
+				`${domain}/${path}`,
 				'origin',
-				'https',
+				protocol,
 				domain,
 				path,
-				getRemoteProviderMatcher(this.container, providers)(url, domain, path),
+				RemoteProviderFactory.factory(providers)({
+					url: url,
+					protocol: protocol,
+					domain: domain,
+					path: path,
+				}),
 				[
 					{ type: GitRemoteType.Fetch, url: url },
 					{ type: GitRemoteType.Push, url: url },
@@ -2556,25 +2204,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getStatusForRepo(repoPath: string | undefined): Promise<GitStatus | undefined> {
-		if (repoPath == null) return undefined;
-
-		const context = await this.ensureRepositoryContext(repoPath);
-		if (context == null) return undefined;
-
-		const revision = await context.metadata.getRevision();
-		if (revision == null) return undefined;
-
-		return new GitStatus(
-			repoPath,
-			revision.name,
-			revision.revision,
-			[],
-			{ ahead: 0, behind: 0 },
-			revision.type === HeadType.Branch || revision.type === HeadType.RemoteBranch
-				? `origin/${revision.name}`
-				: undefined,
-		);
+	async getStatusForRepo(_repoPath: string | undefined): Promise<GitStatus | undefined> {
+		return undefined;
 	}
 
 	@log({ args: { 1: false } })
@@ -2584,7 +2215,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	): Promise<PagedResult<GitTag>> {
 		if (repoPath == null) return emptyPagedResult;
 
-		const scope = getLogScope();
+		const cc = Logger.getCorrelationContext();
 
 		let tagsPromise = options?.cursor ? undefined : this._tagsCache.get(repoPath);
 		if (tagsPromise == null) {
@@ -2597,9 +2228,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					let cursor = options?.cursor;
 					const loadAll = cursor == null;
 
-					let authoredDate;
-					let committedDate;
-
 					while (true) {
 						const result = await github.getTags(
 							session.accessToken,
@@ -2609,19 +2237,14 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						);
 
 						for (const tag of result.values) {
-							authoredDate =
-								tag.target.authoredDate ?? tag.target.target?.authoredDate ?? tag.target.tagger?.date;
-							committedDate =
-								tag.target.committedDate ?? tag.target.target?.committedDate ?? tag.target.tagger?.date;
-
 							tags.push(
 								new GitTag(
 									repoPath!,
 									tag.name,
-									tag.target.target?.oid ?? tag.target.oid,
-									tag.target.message ?? tag.target.target?.message ?? '',
-									authoredDate != null ? new Date(authoredDate) : undefined,
-									committedDate != null ? new Date(committedDate) : undefined,
+									tag.target.oid,
+									tag.target.message ?? '',
+									new Date(tag.target.authoredDate ?? tag.target.tagger?.date),
+									new Date(tag.target.committedDate ?? tag.target.tagger?.date),
 								),
 							);
 						}
@@ -2631,7 +2254,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 						cursor = result.paging.cursor;
 					}
 				} catch (ex) {
-					Logger.error(ex, scope);
+					Logger.error(ex, cc);
 					debugger;
 
 					this._tagsCache.delete(repoPath!);
@@ -2654,7 +2277,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		}
 
 		if (options?.sort != null) {
-			sortTags(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
+			GitTag.sort(result.values, typeof options.sort === 'boolean' ? undefined : options.sort);
 		}
 
 		return result;
@@ -2681,7 +2304,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			path: this.getRelativePath(uri, repoPath),
 			commitSha: ref,
 			size: stats.size,
-			type: (stats.type & FileType.Directory) === FileType.Directory ? 'tree' : 'blob',
+			type: stats.type === FileType.Directory ? 'tree' : 'blob',
 		};
 	}
 
@@ -2713,17 +2336,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				path: this.getRelativePath(path, uri),
 				commitSha: ref,
 				size: 0, // stats?.size,
-				type: (type & FileType.Directory) === FileType.Directory ? 'tree' : 'blob',
+				type: type === FileType.Directory ? 'tree' : 'blob',
 			});
 		}
 
 		// TODO@eamodio: Implement this
 		return [];
-	}
-
-	async getUniqueRepositoryId(_repoPath: string): Promise<string | undefined> {
-		// TODO@ramint implement this if there is a way.
-		return undefined;
 	}
 
 	@log()
@@ -2788,17 +2406,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async openDirectoryCompare(_repoPath: string, _ref1: string, _ref2?: string, _tool?: string): Promise<void> {}
 
 	@log()
-	async resolveReference(
-		repoPath: string,
-		ref: string,
-		pathOrUri?: string | Uri,
-		_options?: { force?: boolean; timeout?: number },
-	) {
+	async resolveReference(repoPath: string, ref: string, pathOrUri?: string | Uri, _options?: { timeout?: number }) {
 		if (
 			!ref ||
-			ref === deletedOrMissing ||
-			(pathOrUri == null && isSha(ref)) ||
-			(pathOrUri != null && isUncommitted(ref))
+			ref === GitRevision.deletedOrMissing ||
+			(pathOrUri == null && GitRevision.isSha(ref)) ||
+			(pathOrUri != null && GitRevision.isUncommitted(ref))
 		) {
 			return ref;
 		}
@@ -2806,7 +2419,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		let relativePath;
 		if (pathOrUri != null) {
 			relativePath = this.getRelativePath(pathOrUri, repoPath);
-		} else if (!isShaLike(ref) || ref.endsWith('^3')) {
+		} else if (!GitRevision.isShaLike(ref) || ref.endsWith('^3')) {
 			// If it doesn't look like a sha at all (e.g. branch name) or is a stash ref (^3) don't try to resolve it
 			return ref;
 		}
@@ -2826,285 +2439,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		if (resolved != null) return resolved;
 
-		return relativePath ? deletedOrMissing : ref;
-	}
-
-	@log()
-	async richSearchCommits(
-		repoPath: string,
-		search: SearchQuery,
-		options?: { cursor?: string; limit?: number; ordering?: 'date' | 'author-date' | 'topo' | null; skip?: number },
-	): Promise<GitLog | undefined> {
-		if (repoPath == null) return undefined;
-
-		const scope = getLogScope();
-
-		const operations = parseSearchQuery(search);
-
-		const values = operations.get('commit:');
-		if (values != null) {
-			const commit = await this.getCommit(repoPath, values[0]);
-			if (commit == null) return undefined;
-
-			return {
-				repoPath: repoPath,
-				commits: new Map([[commit.sha, commit]]),
-				sha: commit.sha,
-				range: undefined,
-				count: 1,
-				limit: 1,
-				hasMore: false,
-			};
-		}
-
-		const queryArgs = await this.getQueryArgsFromSearchQuery(search, operations, repoPath);
-		if (queryArgs.length === 0) return undefined;
-
-		const limit = this.getPagingLimit(options?.limit);
-
-		try {
-			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
-
-			const query = `repo:${metadata.repo.owner}/${metadata.repo.name}+${queryArgs.join('+').trim()}`;
-
-			const result = await github.searchCommits(session.accessToken, query, {
-				cursor: options?.cursor,
-				limit: limit,
-				sort:
-					options?.ordering === 'date'
-						? 'committer-date'
-						: options?.ordering === 'author-date'
-						? 'author-date'
-						: undefined,
-			});
-			if (result == null) return undefined;
-
-			const commits = new Map<string, GitCommit>();
-
-			const viewer = session.account.label;
-			for (const commit of result.values) {
-				const authorName = viewer != null && commit.author.name === viewer ? 'You' : commit.author.name;
-				const committerName =
-					viewer != null && commit.committer.name === viewer ? 'You' : commit.committer.name;
-
-				let c = commits.get(commit.oid);
-				if (c == null) {
-					c = new GitCommit(
-						this.container,
-						repoPath,
-						commit.oid,
-						new GitCommitIdentity(
-							authorName,
-							commit.author.email,
-							new Date(commit.author.date),
-							commit.author.avatarUrl,
-						),
-						new GitCommitIdentity(committerName, commit.committer.email, new Date(commit.committer.date)),
-						commit.message.split('\n', 1)[0],
-						commit.parents.nodes.map(p => p.oid),
-						commit.message,
-						commit.files?.map(
-							f =>
-								new GitFileChange(
-									repoPath,
-									f.filename ?? '',
-									fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
-									f.previous_filename,
-									undefined,
-									{
-										additions: f.additions ?? 0,
-										deletions: f.deletions ?? 0,
-										changes: f.changes ?? 0,
-									},
-								),
-						),
-						{
-							changedFiles: commit.changedFiles ?? 0,
-							additions: commit.additions ?? 0,
-							deletions: commit.deletions ?? 0,
-						},
-						[],
-					);
-					commits.set(commit.oid, c);
-				}
-			}
-
-			const log: GitLog = {
-				repoPath: repoPath,
-				commits: commits,
-				sha: undefined,
-				range: undefined,
-				count: commits.size,
-				limit: limit,
-				hasMore: result.pageInfo?.hasNextPage ?? false,
-				endingCursor: result.pageInfo?.endCursor ?? undefined,
-				query: (limit: number | undefined) => this.getLog(repoPath, { ...options, limit: limit }),
-			};
-
-			if (log.hasMore) {
-				function richSearchCommitsCore(
-					this: GitHubGitProvider,
-					log: GitLog,
-				): (limit: number | undefined) => Promise<GitLog> {
-					return async (limit: number | undefined) => {
-						limit = this.getPagingLimit(limit);
-
-						const moreLog = await this.richSearchCommits(log.repoPath, search, {
-							...options,
-							limit: limit,
-							cursor: log.endingCursor,
-						});
-						// If we can't find any more, assume we have everything
-						if (moreLog == null) return { ...log, hasMore: false, more: undefined };
-
-						const commits = new Map([...log.commits, ...moreLog.commits]);
-
-						const mergedLog: GitLog = {
-							repoPath: log.repoPath,
-							commits: commits,
-							sha: log.sha,
-							range: undefined,
-							count: commits.size,
-							limit: (log.limit ?? 0) + limit,
-							hasMore: moreLog.hasMore,
-							endingCursor: moreLog.endingCursor,
-							query: log.query,
-						};
-						if (mergedLog.hasMore) {
-							mergedLog.more = richSearchCommitsCore.call(this, mergedLog);
-						}
-
-						return mergedLog;
-					};
-				}
-
-				log.more = richSearchCommitsCore.call(this, log);
-			}
-
-			return log;
-		} catch (ex) {
-			Logger.error(ex, scope);
-			debugger;
-			return undefined;
-		}
-
-		return undefined;
-	}
-
-	@log()
-	async searchCommits(
-		repoPath: string,
-		search: SearchQuery,
-		options?: {
-			cancellation?: CancellationToken;
-			limit?: number;
-			ordering?: 'date' | 'author-date' | 'topo';
-		},
-	): Promise<GitSearch> {
-		// const scope = getLogScope();
-		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
-
-		const comparisonKey = getSearchQueryComparisonKey(search);
-
-		try {
-			const results: GitSearchResults = new Map<string, GitSearchResultData>();
-			const operations = parseSearchQuery(search);
-
-			const values = operations.get('commit:');
-			if (values != null) {
-				const commitsResults = await Promise.allSettled<Promise<GitCommit | undefined>[]>(
-					values.map(v => this.getCommit(repoPath, v.replace(doubleQuoteRegex, ''))),
-				);
-
-				let i = 0;
-				for (const commitResult of commitsResults) {
-					const commit = getSettledValue(commitResult);
-					if (commit == null) continue;
-
-					results.set(commit.sha, {
-						i: i++,
-						date: Number(options?.ordering === 'author-date' ? commit.author.date : commit.committer.date),
-					});
-				}
-
-				return {
-					repoPath: repoPath,
-					query: search,
-					comparisonKey: comparisonKey,
-					results: results,
-				};
-			}
-
-			const queryArgs = await this.getQueryArgsFromSearchQuery(search, operations, repoPath);
-			if (queryArgs.length === 0) {
-				return {
-					repoPath: repoPath,
-					query: search,
-					comparisonKey: comparisonKey,
-					results: results,
-				};
-			}
-
-			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
-
-			const query = `repo:${metadata.repo.owner}/${metadata.repo.name}+${queryArgs.join('+').trim()}`;
-
-			async function searchForCommitsCore(
-				this: GitHubGitProvider,
-				limit: number | undefined,
-				cursor?: string,
-			): Promise<GitSearch> {
-				if (options?.cancellation?.isCancellationRequested) {
-					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
-				}
-
-				limit = this.getPagingLimit(limit ?? configuration.get('advanced.maxSearchItems'));
-				const result = await github.searchCommitShas(session.accessToken, query, {
-					cursor: cursor,
-					limit: limit,
-					sort:
-						options?.ordering === 'date'
-							? 'committer-date'
-							: options?.ordering === 'author-date'
-							? 'author-date'
-							: undefined,
-				});
-
-				if (result == null || options?.cancellation?.isCancellationRequested) {
-					return { repoPath: repoPath, query: search, comparisonKey: comparisonKey, results: results };
-				}
-
-				for (const commit of result.values) {
-					results.set(commit.sha, {
-						i: results.size,
-						date: Number(options?.ordering === 'author-date' ? commit.authorDate : commit.committerDate),
-					});
-				}
-
-				cursor = result.pageInfo?.endCursor ?? undefined;
-
-				return {
-					repoPath: repoPath,
-					query: search,
-					comparisonKey: comparisonKey,
-					results: results,
-					paging: result.pageInfo?.hasNextPage
-						? {
-								limit: limit,
-								hasMore: true,
-						  }
-						: undefined,
-					more: async (limit: number): Promise<GitSearch> => searchForCommitsCore.call(this, limit, cursor),
-				};
-			}
-
-			return searchForCommitsCore.call(this, options?.limit);
-		} catch (ex) {
-			if (ex instanceof GitSearchError) {
-				throw ex;
-			}
-			throw new GitSearchError(ex);
-		}
+		return relativePath ? GitRevision.deletedOrMissing : ref;
 	}
 
 	@log()
@@ -3128,6 +2463,20 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async unStageDirectory(_repoPath: string, _directoryOrUri: string | Uri): Promise<void> {}
+
+	@log()
+	async stashApply(_repoPath: string, _stashName: string, _options?: { deleteAfter?: boolean }): Promise<void> {}
+
+	@log()
+	async stashDelete(_repoPath: string, _stashName: string, _ref?: string): Promise<void> {}
+
+	@log<GitHubGitProvider['stashSave']>({ args: { 2: uris => uris?.length } })
+	async stashSave(
+		_repoPath: string,
+		_message?: string,
+		_uris?: Uri[],
+		_options?: { includeUntracked?: boolean; keepIndex?: boolean },
+	): Promise<void> {}
 
 	@gate()
 	private async ensureRepositoryContext(
@@ -3201,7 +2550,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		if (this._github == null) {
 			const github = await this.container.github;
 			if (github != null) {
-				this._disposables.push(github.onDidReauthenticate(() => void this.ensureSession(true)));
+				this._disposables.push(
+					github.onDidReauthenticate(() => {
+						this._sessionPromise = undefined;
+						void this.ensureSession(true);
+					}),
+				);
 			}
 			this._github = github;
 		}
@@ -3212,7 +2566,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	private _remotehub: RemoteHubApi | undefined;
 	private _remotehubPromise: Promise<RemoteHubApi> | undefined;
 	private async ensureRemoteHubApi(): Promise<RemoteHubApi>;
-	// eslint-disable-next-line @typescript-eslint/unified-signatures
 	private async ensureRemoteHubApi(silent: false): Promise<RemoteHubApi>;
 	private async ensureRemoteHubApi(silent: boolean): Promise<RemoteHubApi | undefined>;
 	private async ensureRemoteHubApi(silent?: boolean): Promise<RemoteHubApi | undefined> {
@@ -3235,61 +2588,21 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	private _sessionPromise: Promise<AuthenticationSession> | undefined;
-	private async ensureSession(force: boolean = false, silent: boolean = false): Promise<AuthenticationSession> {
-		if (force || this._sessionPromise == null) {
-			async function getSession(this: GitHubGitProvider): Promise<AuthenticationSession> {
-				let skip = this.container.storage.get(`provider:authentication:skip:${this.descriptor.id}`, false);
-
+	private async ensureSession(force: boolean = false): Promise<AuthenticationSession> {
+		if (this._sessionPromise == null) {
+			async function getSession(): Promise<AuthenticationSession> {
 				try {
 					if (force) {
-						skip = false;
-						void this.container.storage.delete(`provider:authentication:skip:${this.descriptor.id}`);
-
 						return await authentication.getSession('github', githubAuthenticationScopes, {
 							forceNewSession: true,
 						});
 					}
 
-					if (!skip && !silent) {
-						return await authentication.getSession('github', githubAuthenticationScopes, {
-							createIfNone: true,
-						});
-					}
-
-					const session = await authentication.getSession('github', githubAuthenticationScopes, {
-						createIfNone: false,
-						silent: silent,
+					return await authentication.getSession('github', githubAuthenticationScopes, {
+						createIfNone: true,
 					});
-					if (session != null) return session;
-
-					throw new Error('User did not consent');
 				} catch (ex) {
 					if (ex instanceof Error && ex.message.includes('User did not consent')) {
-						if (!silent) {
-							await this.container.storage.store(
-								`provider:authentication:skip:${this.descriptor.id}`,
-								true,
-							);
-							if (!skip) {
-								if (!force) {
-									queueMicrotask(async () => {
-										const enable = 'Re-enable';
-										const result = await window.showInformationMessage(
-											'GitLens has been disabled. Authentication is required for GitLens to work with remote GitHub repositories.',
-											enable,
-										);
-
-										if (result === enable) {
-											void this.ensureSession(true);
-										}
-									});
-								}
-
-								force = false;
-								return getSession.call(this);
-							}
-						}
-
 						throw new AuthenticationError('github', AuthenticationErrorReason.UserDidNotConsent);
 					}
 
@@ -3299,7 +2612,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				}
 			}
 
-			this._sessionPromise = getSession.call(this);
+			this._sessionPromise = getSession();
 		}
 
 		return this._sessionPromise;
@@ -3310,7 +2623,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 		if (typeof ref === 'string') {
 			if (ref) {
-				if (isSha(ref)) {
+				if (GitRevision.isSha(ref)) {
 					metadata = { v: 1, ref: { id: ref, type: 2 /* RepositoryRefType.Commit */ } };
 				} else {
 					metadata = { v: 1, ref: { id: ref, type: 4 /* RepositoryRefType.Tree */ } };
@@ -3361,7 +2674,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	}
 
 	private getPagingLimit(limit?: number): number {
-		limit = Math.min(100, limit ?? configuration.get('advanced.maxListItems') ?? 100);
+		limit = Math.min(100, limit ?? this.container.config.advanced.maxListItems ?? 100);
 		if (limit === 0) {
 			limit = 100;
 		}
@@ -3378,71 +2691,22 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 			return revision.revision;
 		}
 
-		if (isSha(ref)) return ref;
+		if (GitRevision.isSha(ref)) return ref;
 
 		// TODO@eamodio need to handle ranges
-		if (isRevisionRange(ref)) return undefined;
+		if (GitRevision.isRange(ref)) return undefined;
 
 		const [branchResults, tagResults] = await Promise.allSettled([
 			this.getBranches(repoPath, { filter: b => b.name === ref }),
 			this.getTags(repoPath, { filter: t => t.name === ref }),
 		]);
 
-		ref = getSettledValue(branchResults)?.values[0]?.sha ?? getSettledValue(tagResults)?.values[0]?.sha;
+		ref =
+			(branchResults.status === 'fulfilled' ? branchResults.value.values[0]?.sha : undefined) ??
+			(tagResults.status === 'fulfilled' ? tagResults.value.values[0]?.sha : undefined);
 		if (ref == null) debugger;
 
 		return ref;
-	}
-
-	private async getQueryArgsFromSearchQuery(
-		search: SearchQuery,
-		operations: Map<string, string[]>,
-		repoPath: string,
-	) {
-		const query = [];
-
-		for (const [op, values] of operations.entries()) {
-			switch (op) {
-				case 'message:':
-					query.push(...values.map(m => m.replace(/ /g, '+')));
-					break;
-
-				case 'author:': {
-					let currentUser: GitUser | undefined;
-					if (values.includes('@me')) {
-						currentUser = await this.getCurrentUser(repoPath);
-					}
-
-					for (let value of values) {
-						if (!value) continue;
-						value = value.replace(doubleQuoteRegex, search.matchRegex ? '\\b' : '');
-						if (!value) continue;
-
-						if (value === '@me') {
-							if (currentUser?.username == null) continue;
-
-							value = `@${currentUser.username}`;
-						}
-
-						value = value.replace(/ /g, '+');
-						if (value.startsWith('@')) {
-							query.push(`author:${value.slice(1)}`);
-						} else if (value.includes('@')) {
-							query.push(`author-email:${value}`);
-						} else {
-							query.push(`author-name:${value}`);
-						}
-					}
-
-					break;
-				}
-				// case 'change:':
-				// case 'file:':
-				// 	break;
-			}
-		}
-
-		return query;
 	}
 }
 

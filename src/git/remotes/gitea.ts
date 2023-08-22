@@ -1,17 +1,17 @@
-import type { Range, Uri } from 'vscode';
-import type { DynamicAutolinkReference } from '../../annotations/autolinks';
-import type { AutolinkReference } from '../../config';
-import { AutolinkType } from '../../config';
-import { isSha } from '../models/reference';
-import type { Repository } from '../models/repository';
-import { RemoteProvider } from './remoteProvider';
+import { Range, Uri } from 'vscode';
+import { DynamicAutolinkReference } from '../../annotations/autolinks';
+import { AutolinkReference, RemotesConfig } from '../../config';
+import { GitRevision } from '../models';
+import { Repository } from '../models/repository';
+import { GitRemoteUrl } from '../parsers';
+import { RemoteProvider } from './provider';
 
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/src(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;
 
 export class GiteaRemote extends RemoteProvider {
-	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
-		super(domain, path, protocol, name, custom);
+	constructor(gitRemoteUrl: GitRemoteUrl, remoteConfig?: RemotesConfig, custom: boolean = false) {
+		super(gitRemoteUrl, remoteConfig, custom);
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
@@ -22,9 +22,6 @@ export class GiteaRemote extends RemoteProvider {
 					prefix: '#',
 					url: `${this.baseUrl}/issues/<num>`,
 					title: `Open Issue #<num> on ${this.name}`,
-
-					type: AutolinkType.Issue,
-					description: `${this.name} Issue #<num>`,
 				},
 			];
 		}
@@ -79,7 +76,7 @@ export class GiteaRemote extends RemoteProvider {
 			index = path.indexOf('/', offset);
 			if (index !== -1) {
 				const sha = path.substring(offset, index);
-				if (isSha(sha)) {
+				if (GitRevision.isSha(sha)) {
 					const uri = repository.toAbsoluteUri(path.substr(index), { validate: options?.validate });
 					if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
 				}
@@ -144,9 +141,9 @@ export class GiteaRemote extends RemoteProvider {
 			line = '';
 		}
 
-		if (sha) return `${this.encodeUrl(`${this.baseUrl}/src/commit/${sha}/${fileName}`)}${line}`;
-		if (branch) return `${this.encodeUrl(`${this.baseUrl}/src/branch/${branch}/${fileName}`)}${line}`;
+		if (sha) return this.encodeUrl(`${this.baseUrl}/src/commit/${sha}/${fileName}${line}`);
+		if (branch) return this.encodeUrl(`${this.baseUrl}/src/branch/${branch}/${fileName}${line}`);
 		// this route is deprecated but there is no alternative
-		return `${this.encodeUrl(`${this.baseUrl}/src/${fileName}`)}${line}`;
+		return this.encodeUrl(`${this.baseUrl}/src/${fileName}${line}`);
 	}
 }

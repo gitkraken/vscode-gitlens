@@ -1,5 +1,6 @@
-import type { TextDocumentShowOptions } from 'vscode';
+import type { QuickPickItem, TextDocumentShowOptions, TextEditor } from 'vscode';
 import { env, Range, Uri, window } from 'vscode';
+import type { Disposable } from '../../api/gitlens';
 import type {
 	DiffWithCommandArgs,
 	DiffWithPreviousCommandArgs,
@@ -15,7 +16,7 @@ import { Commands } from '../../constants';
 import { Container } from '../../container';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { executeCommand, executeEditorCommand } from '../../system/command';
-import { findOrOpenEditor, findOrOpenEditors } from '../../system/utils';
+import { findOrOpenEditor, findOrOpenEditors, getQuickPickIgnoreFocusOut } from '../../system/utils';
 import { GitUri } from '../gitUri';
 import type { GitCommit } from '../models/commit';
 import { isCommit } from '../models/commit';
@@ -390,7 +391,7 @@ export async function openFileAtRevision(
 	commitOrOptions?: GitCommit | TextDocumentShowOptions,
 	options?: TextDocumentShowOptions & { annotationType?: FileAnnotationType; line?: number },
 ): Promise<void> {
-	let uri;
+	let uri: Uri;
 	if (fileOrRevisionUri instanceof Uri) {
 		if (isCommit(commitOrOptions)) throw new Error('Invalid arguments');
 
@@ -428,11 +429,74 @@ export async function openFileAtRevision(
 		opts.selection = new Range(line, 0, line, 0);
 	}
 
-	const editor = await findOrOpenEditor(uri, opts);
-	if (annotationType != null && editor != null) {
-		void (await Container.instance.fileAnnotations.show(editor, annotationType, {
-			selection: { line: line },
-		}));
+	const gitUri = await GitUri.fromUri(uri);
+
+	let editor: TextEditor | undefined;
+	try {
+		editor = await findOrOpenEditor(uri, { throwOnError: true, ...opts }).catch(error => {
+			if (error?.message?.includes('Unable to resolve nonexistent file')) {
+				return pickFileAtRevision(gitUri, {
+					title: 'File not found in revision - pick another file to open instead',
+				}).then(pickedUri => {
+					return pickedUri ? findOrOpenEditor(pickedUri, opts) : undefined;
+				});
+			}
+			throw error;
+		});
+
+		if (annotationType != null && editor != null) {
+			void (await Container.instance.fileAnnotations.show(editor, annotationType, {
+				selection: { line: line },
+			}));
+		}
+	} catch (error) {
+		await window.showErrorMessage(
+			`Unable to open '${gitUri.relativePath}' - file doesn't exist in selected revision`,
+		);
+	}
+}
+
+export async function pickFileAtRevision(
+	uri: GitUri,
+	options: {
+		title: string;
+		initialPath?: string;
+	},
+): Promise<Uri | undefined> {
+	const disposables: Disposable[] = [];
+	try {
+		const picker = window.createQuickPick();
+		Object.assign(picker, {
+			title: options.title,
+			value: options.initialPath ?? uri.relativePath,
+			placeholder: 'Enter path to file...',
+			busy: true,
+			ignoreFocusOut: getQuickPickIgnoreFocusOut(),
+		});
+		picker.show();
+
+		const tree = await Container.instance.git.getTreeForRevision(uri.repoPath, uri.sha!);
+		picker.items = tree.filter(file => file.type === 'blob').map((file): QuickPickItem => ({ label: file.path }));
+		picker.busy = false;
+
+		const pick = await new Promise<string | undefined>(resolve => {
+			disposables.push(
+				picker,
+				picker.onDidHide(() => resolve(undefined)),
+				picker.onDidAccept(() => {
+					if (picker.activeItems.length === 0) return;
+					resolve(picker.activeItems[0].label);
+				}),
+			);
+		});
+
+		return pick
+			? Container.instance.git.getRevisionUri(uri.sha!, `${uri.repoPath}/${pick}`, uri.repoPath!)
+			: undefined;
+	} finally {
+		disposables.forEach(d => {
+			d.dispose();
+		});
 	}
 }
 

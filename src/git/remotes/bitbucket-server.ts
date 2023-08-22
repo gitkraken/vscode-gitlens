@@ -1,17 +1,17 @@
-import type { Range, Uri } from 'vscode';
-import type { DynamicAutolinkReference } from '../../annotations/autolinks';
-import type { AutolinkReference } from '../../config';
-import { AutolinkType } from '../../config';
-import { isSha } from '../models/reference';
-import type { Repository } from '../models/repository';
-import { RemoteProvider } from './remoteProvider';
+import { Range, Uri } from 'vscode';
+import { DynamicAutolinkReference } from '../../annotations/autolinks';
+import { AutolinkReference, RemotesConfig } from '../../config';
+import { GitRevision } from '../models';
+import { Repository } from '../models/repository';
+import { GitRemoteUrl } from '../parsers';
+import { RemoteProvider } from './provider';
 
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/src(.+)$/i;
 const rangeRegex = /^lines-(\d+)(?::(\d+))?$/;
 
 export class BitbucketServerRemote extends RemoteProvider {
-	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
-		super(domain, path, protocol, name, custom);
+	constructor(gitRemoteUrl: GitRemoteUrl, remoteConfig?: RemotesConfig, custom: boolean = false) {
+		super(gitRemoteUrl, remoteConfig, custom);
 	}
 
 	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
@@ -22,18 +22,12 @@ export class BitbucketServerRemote extends RemoteProvider {
 					prefix: 'issue #',
 					url: `${this.baseUrl}/issues/<num>`,
 					title: `Open Issue #<num> on ${this.name}`,
-
-					type: AutolinkType.Issue,
-					description: `${this.name} Issue #<num>`,
 				},
 				{
 					prefix: 'pull request #',
 					ignoreCase: true,
 					url: `${this.baseUrl}/pull-requests/<num>`,
-					title: `Open Pull Request #<num> on ${this.name}`,
-
-					type: AutolinkType.PullRequest,
-					description: `${this.name} Pull Request #<num>`,
+					title: `Open PR #<num> on ${this.name}`,
 				},
 			];
 		}
@@ -91,7 +85,7 @@ export class BitbucketServerRemote extends RemoteProvider {
 		let index = path.indexOf('/', 1);
 		if (index !== -1) {
 			const sha = path.substring(1, index);
-			if (isSha(sha)) {
+			if (GitRevision.isSha(sha)) {
 				const uri = repository.toAbsoluteUri(path.substr(index), { validate: options?.validate });
 				if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
 			}

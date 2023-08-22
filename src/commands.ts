@@ -34,6 +34,7 @@ export * from './commands/openFileFromRemote';
 export * from './commands/openFileOnRemote';
 export * from './commands/openFileAtRevision';
 export * from './commands/openFileAtRevisionFrom';
+export * from './commands/openFileByRevision';
 export * from './commands/openOnRemote';
 export * from './commands/openIssueOnRemote';
 export * from './commands/openPullRequestOnRemote';

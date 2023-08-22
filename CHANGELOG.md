@@ -33,6 +33,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds ability to click on a branch name to show the branch on the _Commit Graph_
 - Adds a new command _Open Changed & Close Unchanged Files..._ to the command palette, the context menu of the _Commit Graph_ work-in-progress (WIP) row, and the SCM group context menu to open all changed files and close all unchanged files.
 - Adds a new command _Reset Current Branch to Tip..._ to branch context menus in the _Commit Graph_ and in GitLens views to reset the current branch to the commit at the chosen branch's tip.
+- Improve support for opening files from other branches &mdash; thanks to [PR #2825](https://github.com/gitkraken/vscode-gitlens/pull/2825) by Victor Hallberg ([@mogelbrod](https://github.com/mogelbrod))
+  - Open any file using new _Open File by Revision..._ command
+  - Improve _Open File at Revision..._ commands by prompting user for file to open when the requested path doesn't exist in the specified revision
 
 ### Changed
 
