@@ -1,78 +1,83 @@
-import { attr, css, customElement, FASTElement, html, when } from '@microsoft/fast-element';
+import { css, html, LitElement } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
 import '../code-icon';
 import '../formatted-date';
 
-const template = html<CommitIdentity>`
-	<template>
-		<a class="avatar" href="${x => (x.email ? `mailto:${x.email}` : '#')}">
-			${when(
-				x => x.showAvatar,
-				html<CommitIdentity>`<img class="thumb" lazy src="${x => x.avatarUrl}" alt="${x => x.name}" />`,
-			)}
-			${when(x => !x.showAvatar, html<CommitIdentity>`<code-icon icon="person" size="32"></code-icon>`)}
-		</a>
-		<a class="name" href="${x => (x.email ? `mailto:${x.email}` : '#')}">${x => x.name}</a>
-		<span class="date"
-			>${x => x.actionLabel} <formatted-date date=${x => x.date} format="${x => x.dateFormat}"></formatted-date
-		></span>
-	</template>
-`;
+@customElement('commit-identity')
+export class CommitIdentity extends LitElement {
+	static override styles = css`
+		:host {
+			display: grid;
+			gap: 0rem 1rem;
+			justify-content: start;
+		}
 
-const styles = css`
-	:host {
-		display: grid;
-		gap: 0rem 1rem;
-		justify-content: start;
-	}
-	a {
-		color: var(--color-link-foreground);
-		text-decoration: none;
-	}
-	.avatar {
-		grid-column: 1;
-		grid-row: 1 / 3;
-		width: 36px;
-	}
-	.thumb {
-		width: 100%;
-		height: auto;
-		border-radius: 0.4rem;
-	}
-	.name {
-		grid-column: 2;
-		grid-row: 1;
-		font-size: 1.5rem;
-	}
-	.date {
-		grid-column: 2;
-		grid-row: 2;
-		font-size: 1.3rem;
-	}
-`;
+		a {
+			color: var(--color-link-foreground);
+			text-decoration: none;
+		}
 
-@customElement({ name: 'commit-identity', template: template, styles: styles })
-export class CommitIdentity extends FASTElement {
-	@attr({ mode: 'reflect' })
+		.avatar {
+			grid-column: 1;
+			grid-row: 1 / 3;
+			width: 36px;
+		}
+
+		.thumb {
+			width: 100%;
+			height: auto;
+			border-radius: 0.4rem;
+		}
+
+		.name {
+			grid-column: 2;
+			grid-row: 1;
+			font-size: 1.5rem;
+		}
+
+		.date {
+			grid-column: 2;
+			grid-row: 2;
+			font-size: 1.3rem;
+		}
+	`;
+
+	@property()
 	name = '';
 
-	@attr({ mode: 'reflect' })
+	@property()
 	email = '';
 
-	@attr({ mode: 'reflect' })
+	@property()
 	date = '';
 
-	@attr({ mode: 'reflect' })
+	@property()
 	avatarUrl = 'https://www.gravatar.com/avatar/?s=64&d=robohash';
 
-	@attr({ mode: 'boolean' })
+	@property({ type: Boolean })
 	showAvatar = false;
 
-	@attr({ mode: 'reflect' })
+	@property()
 	dateFormat = 'MMMM Do, YYYY h:mma';
 
-	@attr({ mode: 'boolean' })
+	@property()
 	committer = false;
 
-	@attr({ mode: 'reflect' })
+	@property()
 	actionLabel = 'committed';
+
+	override render() {
+		return html`
+			<a class="avatar" href="${this.email ? `mailto:${this.email}` : '#'}">
+				${this.showAvatar
+					? html`<img class="thumb" src="${this.avatarUrl}" alt="${this.name}" />`
+					: html`<code-icon icon="person" size="32"></code-icon>`}
+			</a>
+			<a class="name" href="${this.email ? `mailto:${this.email}` : '#'}">${this.name}</a>
+			<span class="date">
+				${this.actionLabel}
+				<formatted-date date=${this.date} format=${this.dateFormat}> </formatted-date>
+			</span>
+		`;
+	}
 }

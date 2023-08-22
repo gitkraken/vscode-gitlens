@@ -1,86 +1,89 @@
-import { attr, css, customElement, FASTElement, html } from '@microsoft/fast-element';
+import { css, html, LitElement } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
 
-const template = html<ProgressIndicator>`
-	<template class="${x => x.mode}${x => (x.active ? ' active' : '')}" role="progressbar">
-		<div class="progress-bar"></div>
-	</template>
-`;
-
-const styles = css`
-	* {
-		box-sizing: border-box;
-	}
-
-	:host {
-		position: absolute;
-		left: 0;
-		z-index: 5;
-		height: 2px;
-		width: 100%;
-		overflow: hidden;
-	}
-
-	:host([position='bottom']) {
-		bottom: 0;
-	}
-
-	:host([position='top']) {
-		top: 0;
-	}
-
-	.progress-bar {
-		background-color: var(--vscode-progressBar-background);
-		display: none;
-		position: absolute;
-		left: 0;
-		width: 2%;
-		height: 2px;
-	}
-
-	:host(.active) .progress-bar {
-		display: inherit;
-	}
-
-	:host(.discrete) .progress-bar {
-		left: 0;
-		transition: width 0.1s linear;
-	}
-
-	:host(.discrete.done) .progress-bar {
-		width: 100%;
-	}
-
-	:host(.infinite) .progress-bar {
-		animation-name: progress;
-		animation-duration: 4s;
-		animation-iteration-count: infinite;
-		animation-timing-function: steps(100);
-		transform: translateZ(0);
-	}
-
-	@keyframes progress {
-		0% {
-			transform: translateX(0) scaleX(1);
+@customElement('progress-indicator')
+export class ProgressIndicator extends LitElement {
+	static override styles = css`
+		* {
+			box-sizing: border-box;
 		}
 
-		50% {
-			transform: translateX(2500%) scaleX(3);
+		:host {
+			position: absolute;
+			left: 0;
+			z-index: 5;
+			height: 2px;
+			width: 100%;
+			overflow: hidden;
 		}
 
-		to {
-			transform: translateX(4900%) scaleX(1);
+		:host([position='bottom']) {
+			bottom: 0;
 		}
-	}
-`;
 
-@customElement({ name: 'progress-indicator', template: template, styles: styles })
-export class ProgressIndicator extends FASTElement {
-	@attr({ mode: 'reflect' })
+		:host([position='top']) {
+			top: 0;
+		}
+
+		.progress-bar {
+			background-color: var(--vscode-progressBar-background);
+			display: none;
+			position: absolute;
+			left: 0;
+			width: 2%;
+			height: 2px;
+		}
+
+		:host([active]:not([active='false'])) .progress-bar {
+			display: inherit;
+		}
+
+		:host([mode='discrete']) .progress-bar {
+			left: 0;
+			transition: width 0.1s linear;
+		}
+
+		:host([mode='discrete done']) .progress-bar {
+			width: 100%;
+		}
+
+		:host([mode='infinite']) .progress-bar {
+			animation-name: progress;
+			animation-duration: 4s;
+			animation-iteration-count: infinite;
+			animation-timing-function: steps(100);
+			transform: translateZ(0);
+		}
+
+		@keyframes progress {
+			0% {
+				transform: translateX(0) scaleX(1);
+			}
+
+			50% {
+				transform: translateX(2500%) scaleX(3);
+			}
+
+			to {
+				transform: translateX(4900%) scaleX(1);
+			}
+		}
+	`;
+
+	@property({ reflect: true })
 	mode = 'infinite';
 
-	@attr({ mode: 'boolean' })
+	@property({ type: Boolean })
 	active = false;
 
-	@attr()
+	@property()
 	position: 'top' | 'bottom' = 'bottom';
+
+	override firstUpdated() {
+		this.setAttribute('role', 'progressbar');
+	}
+
+	override render() {
+		return html`<div class="progress-bar"></div>`;
+	}
 }
