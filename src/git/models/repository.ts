@@ -271,7 +271,10 @@ export class Repository implements Disposable {
 		};
 	}
 
+	@debug({ singleLine: true })
 	private async setupRepoWatchersCore() {
+		const scope = getLogScope();
+
 		const disposables: Disposable[] = [];
 
 		disposables.push(
@@ -291,6 +294,8 @@ export class Repository implements Disposable {
 		);
 
 		function watch(this: Repository, uri: Uri, pattern: string) {
+			Logger.debug(scope, `watching '${uri.toString(true)}' for repository changes`);
+
 			const watcher = workspace.createFileSystemWatcher(new RelativePattern(uri, pattern));
 
 			disposables.push(
