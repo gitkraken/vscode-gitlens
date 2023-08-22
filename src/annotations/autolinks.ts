@@ -325,6 +325,7 @@ export class Autolinks implements Disposable {
 											title += `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`;
 										} else {
 											const issueTitle = escapeMarkdown(issue.title.trim());
+											const issueTitleQuoteEscaped = issueTitle.replace(/"/g, '\\"');
 
 											if (footnotes != null) {
 												footnoteIndex = footnotes.size + 1;
@@ -340,7 +341,7 @@ export class Autolinks implements Disposable {
 												);
 											}
 
-											title += `\n${GlyphChars.Dash.repeat(2)}\n${issueTitle}\n${
+											title += `\n${GlyphChars.Dash.repeat(2)}\n${issueTitleQuoteEscaped}\n${
 												issue.closed ? 'Closed' : 'Opened'
 											}, ${fromNow(issue.closedDate ?? issue.date)}`;
 										}
@@ -371,6 +372,7 @@ export class Autolinks implements Disposable {
 											title += `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`;
 										} else {
 											const issueTitle = encodeHtmlWeak(issue.title.trim());
+											const issueTitleQuoteEscaped = issueTitle.replace(/"/g, '&quot;');
 
 											if (footnotes != null) {
 												footnoteIndex = footnotes.size + 1;
@@ -386,7 +388,7 @@ export class Autolinks implements Disposable {
 												);
 											}
 
-											title += `\n${GlyphChars.Dash.repeat(2)}\n${issueTitle}\n${
+											title += `\n${GlyphChars.Dash.repeat(2)}\n${issueTitleQuoteEscaped}\n${
 												issue.closed ? 'Closed' : 'Opened'
 											}, ${fromNow(issue.closedDate ?? issue.date)}`;
 										}

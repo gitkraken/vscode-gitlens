@@ -1,7 +1,7 @@
 import type { Disposable, Event, Uri, UriHandler } from 'vscode';
 import { EventEmitter, window } from 'vscode';
 import type { Container } from '../container';
-import { AuthenticationUriPathPrefix } from '../plus/subscription/serverConnection';
+import { AuthenticationUriPathPrefix } from '../plus/gk/authenticationConnection';
 import { log } from '../system/decorators/log';
 
 // This service is in charge of registering a URI handler and handling/emitting URI events received by GitLens.

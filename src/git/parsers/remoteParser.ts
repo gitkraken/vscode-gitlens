@@ -1,71 +1,10 @@
+import gitUrlParse from 'git-url-parse';
 import { debug } from '../../system/decorators/log';
-import type { GitRemoteType } from '../models/remote';
-import { GitRemote } from '../models/remote';
-import type { getRemoteProviderMatcher } from '../remotes/remoteProviders';
-
-const emptyStr = '';
+import { GitRemote } from '../models';
+import { GitRemoteType } from '../models/remote';
+import { RemoteProvider } from '../remotes/provider';
 
 const remoteRegex = /^(.*)\t(.*)\s\((.*)\)$/gm;
-
-// eslint-disable-next-line @typescript-eslint/no-extraneous-class
-export class GitRemoteParser {
-	@debug({ args: false, singleLine: true })
-	static parse(
-		data: string,
-		repoPath: string,
-		remoteProviderMatcher: ReturnType<typeof getRemoteProviderMatcher>,
-	): GitRemote[] | undefined {
-		if (!data) return undefined;
-
-		const remotes = new Map<string, GitRemote>();
-
-		let name;
-		let url;
-		let type;
-
-		let scheme;
-		let domain;
-		let path;
-
-		let remote: GitRemote | undefined;
-
-		let match;
-		do {
-			match = remoteRegex.exec(data);
-			if (match == null) break;
-
-			[, name, url, type] = match;
-
-			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			name = ` ${name}`.substr(1);
-			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			url = ` ${url}`.substr(1);
-			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			type = ` ${type}`.substr(1);
-
-			[scheme, domain, path] = parseGitRemoteUrl(url);
-
-			remote = remotes.get(name);
-			if (remote == null) {
-				remote = new GitRemote(repoPath, name, scheme, domain, path, remoteProviderMatcher(url, domain, path), [
-					{ url: url, type: type as GitRemoteType },
-				]);
-				remotes.set(name, remote);
-			} else {
-				remote.urls.push({ url: url, type: type as GitRemoteType });
-				if (remote.provider != null && type !== 'push') continue;
-
-				const provider = remoteProviderMatcher(url, domain, path);
-				if (provider == null) continue;
-
-				remote = new GitRemote(repoPath, name, scheme, domain, path, provider, remote.urls);
-				remotes.set(name, remote);
-			}
-		} while (true);
-
-		return [...remotes.values()];
-	}
-}
 
 // Test git urls
 /*
@@ -104,16 +43,84 @@ user:password@host.xz:project.git
 user:password@host.xz:/path/to/repo.git
 user:password@host.xz:/path/to/repo.git/
 */
-export const remoteUrlRegex =
-	/^(?:(git:\/\/)(.*?)\/|(https?:\/\/)(?:.*?@)?(.*?)\/|git@(.*):|(ssh:\/\/)(?:.*@)?(.*?)(?::.*?)?(?:\/|(?=~))|(?:.*?@)(.*?):)(.*)$/;
 
-export function parseGitRemoteUrl(url: string): [scheme: string, domain: string, path: string] {
-	const match = remoteUrlRegex.exec(url);
-	if (match == null) return [emptyStr, emptyStr, url];
+export interface GitRemoteUrl {
+	url: string;
+	protocol: string;
+	domain: string;
+	port?: number;
+	path: string;
+}
 
-	return [
-		match[1] || match[3] || match[6],
-		match[2] || match[4] || match[5] || match[7] || match[8],
-		match[9].replace(/\.git\/?$/, emptyStr),
-	];
+export class GitRemoteParser {
+	@debug({ args: false, singleLine: true })
+	static parse(
+		data: string,
+		repoPath: string,
+		providerFactory: (gitRemoteUrl: GitRemoteUrl) => RemoteProvider | undefined,
+	): GitRemote[] | undefined {
+		if (!data) return undefined;
+
+		const remotes: GitRemote[] = [];
+		const groups = Object.create(null) as Record<string, GitRemote | undefined>;
+
+		let name;
+		let url;
+		let type;
+
+		let uniqueness;
+		let remote: GitRemote | undefined;
+
+		let match;
+		do {
+			match = remoteRegex.exec(data);
+			if (match == null) break;
+
+			[, name, url, type] = match;
+
+			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+			url = ` ${url}`.substr(1);
+
+			const gitRemoteUrl = this.parseGitUrl(url);
+			const { domain, path, protocol } = gitRemoteUrl;
+			const scheme = `${protocol}://`;
+
+			uniqueness = `${domain ? `${domain}/` : ''}${path}`;
+			remote = groups[uniqueness];
+			if (remote === undefined) {
+				const provider = providerFactory(gitRemoteUrl);
+
+				remote = new GitRemote(
+					repoPath,
+					uniqueness,
+					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+					` ${name}`.substr(1),
+					scheme,
+					provider !== undefined ? provider.domain : domain,
+					provider !== undefined ? provider.path : path,
+					provider,
+					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+					[{ url: url, type: ` ${type}`.substr(1) as GitRemoteType }],
+				);
+				remotes.push(remote);
+				groups[uniqueness] = remote;
+			} else {
+				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+				remote.urls.push({ url: url, type: ` ${type}`.substr(1) as GitRemoteType });
+			}
+		} while (true);
+
+		return remotes;
+	}
+
+	static parseGitUrl(url: string): GitRemoteUrl {
+		const parsedUrl = gitUrlParse(url);
+		return {
+			url: parsedUrl.toString(),
+			protocol: parsedUrl.protocol,
+			domain: parsedUrl.resource,
+			path: parsedUrl.full_name,
+			port: parsedUrl.port !== null ? parsedUrl.port : undefined,
+		};
+	}
 }

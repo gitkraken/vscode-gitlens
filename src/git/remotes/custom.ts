@@ -1,15 +1,16 @@
-import type { Range, Uri } from 'vscode';
-import type { RemotesUrlsConfig } from '../../config';
-import { getTokensFromTemplate, interpolate } from '../../system/string';
-import type { Repository } from '../models/repository';
-import { RemoteProvider } from './remoteProvider';
+import { Range, Uri } from 'vscode';
+import { RemotesConfig, RemotesUrlsConfig } from '../../configuration';
+import { interpolate } from '../../system/string';
+import { Repository } from '../models/repository';
+import { GitRemoteUrl } from '../parsers';
+import { RemoteProvider } from './provider';
 
 export class CustomRemote extends RemoteProvider {
 	private readonly urls: RemotesUrlsConfig;
 
-	constructor(domain: string, path: string, urls: RemotesUrlsConfig, protocol?: string, name?: string) {
-		super(domain, path, protocol, name, true);
-		this.urls = urls;
+	constructor(gitRemoteUrl: GitRemoteUrl, remoteConfig?: RemotesConfig) {
+		super(gitRemoteUrl, remoteConfig, true);
+		this.urls = remoteConfig!.urls!;
 	}
 
 	get id() {
@@ -28,60 +29,49 @@ export class CustomRemote extends RemoteProvider {
 	}
 
 	protected override getUrlForRepository(): string {
-		return this.getUrl(this.urls.repository, this.getContext());
+		return this.encodeUrl(interpolate(this.urls.repository, this.getContext()));
 	}
 
 	protected getUrlForBranches(): string {
-		return this.getUrl(this.urls.branches, this.getContext());
+		return this.encodeUrl(interpolate(this.urls.branches, this.getContext()));
 	}
 
 	protected getUrlForBranch(branch: string): string {
-		return this.getUrl(this.urls.branch, this.getContext({ branch: branch }));
+		return this.encodeUrl(interpolate(this.urls.branch, this.getContext({ branch: branch })));
 	}
 
 	protected getUrlForCommit(sha: string): string {
-		return this.getUrl(this.urls.commit, this.getContext({ id: sha }));
+		return this.encodeUrl(interpolate(this.urls.commit, this.getContext({ id: sha })));
 	}
 
 	protected override getUrlForComparison(base: string, compare: string, notation: '..' | '...'): string | undefined {
 		if (this.urls.comparison == null) return undefined;
 
-		return this.getUrl(this.urls.comparison, this.getContext({ ref1: base, ref2: compare, notation: notation }));
+		return this.encodeUrl(
+			interpolate(this.urls.comparison, this.getContext({ ref1: base, ref2: compare, notation: notation })),
+		);
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
 		let line;
 		if (range != null) {
 			if (range.start.line === range.end.line) {
-				line = interpolate(this.urls.fileLine, { line: range.start.line, line_encoded: range.start.line });
+				line = interpolate(this.urls.fileLine, { line: range.start.line });
 			} else {
-				line = interpolate(this.urls.fileRange, {
-					start: range.start.line,
-					start_encoded: range.start.line,
-					end: range.end.line,
-					end_encoded: range.end.line,
-				});
+				line = interpolate(this.urls.fileRange, { start: range.start.line, end: range.end.line });
 			}
 		} else {
 			line = '';
 		}
 
-		let template;
-		let context;
+		let url;
 		if (sha) {
-			template = this.urls.fileInCommit;
-			context = this.getContext({ id: sha, file: fileName, line: line });
+			url = interpolate(this.urls.fileInCommit, this.getContext({ id: sha, file: fileName, line: line }));
 		} else if (branch) {
-			template = this.urls.fileInBranch;
-			context = this.getContext({ branch: branch, file: fileName, line: line });
+			url = interpolate(this.urls.fileInBranch, this.getContext({ branch: branch, file: fileName, line: line }));
 		} else {
-			template = this.urls.file;
-			context = this.getContext({ file: fileName, line: line });
+			url = interpolate(this.urls.file, this.getContext({ file: fileName, line: line }));
 		}
-
-		let url = interpolate(template, context);
-		const encoded = getTokensFromTemplate(template).some(t => t.key.endsWith('_encoded'));
-		if (encoded) return url;
 
 		const decodeHash = url.includes('#');
 		url = this.encodeUrl(url);
@@ -94,25 +84,13 @@ export class CustomRemote extends RemoteProvider {
 		return url;
 	}
 
-	private getUrl(template: string, context: Record<string, string>): string {
-		const url = interpolate(template, context);
-		const encoded = getTokensFromTemplate(template).some(t => t.key.endsWith('_encoded'));
-		return encoded ? url : this.encodeUrl(url);
-	}
-
-	private getContext(additionalContext?: Record<string, string>) {
+	private getContext(context?: Record<string, unknown>) {
 		const [repoBase, repoPath] = this.splitPath();
-		const context: Record<string, string> = {
+		return {
 			repo: this.path,
 			repoBase: repoBase,
 			repoPath: repoPath,
-			...(additionalContext ?? {}),
+			...(context ?? {}),
 		};
-
-		for (const [key, value] of Object.entries(context)) {
-			context[`${key}_encoded`] = encodeURIComponent(value);
-		}
-
-		return context;
 	}
 }

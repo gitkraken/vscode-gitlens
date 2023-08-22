@@ -24,7 +24,7 @@ export class Stopwatch {
 	}
 
 	constructor(
-		public readonly scope: string | LogScope | undefined,
+		private readonly scope: string | LogScope | undefined,
 		options?: StopwatchOptions,
 		...params: any[]
 	) {
@@ -117,20 +117,14 @@ export class Stopwatch {
 			`${prefix ? `${prefix} ` : ''}[${ms}ms]${options?.suffix ?? ''}`,
 		);
 	}
+}
 
-	private static readonly watches = new Map<string, Stopwatch>();
-
-	static start(key: string, options?: StopwatchOptions, ...params: any[]): void {
-		Stopwatch.watches.get(key)?.log();
-		Stopwatch.watches.set(key, new Stopwatch(key, options, ...params));
-	}
-
-	static log(key: string, options?: StopwatchLogOptions): void {
-		Stopwatch.watches.get(key)?.log(options);
-	}
-
-	static stop(key: string, options?: StopwatchLogOptions): void {
-		Stopwatch.watches.get(key)?.stop(options);
-		Stopwatch.watches.delete(key);
-	}
+export function maybeStopWatch(
+	scope: string | LogScope | undefined,
+	options?: StopwatchOptions,
+	...params: any[]
+): Stopwatch | undefined {
+	return (options?.provider ?? defaultLogProvider).enabled(options?.logLevel ?? LogLevel.Info)
+		? new Stopwatch(scope, options, ...params)
+		: undefined;
 }
