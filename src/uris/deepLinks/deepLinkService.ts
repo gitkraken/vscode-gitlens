@@ -770,6 +770,7 @@ export class DeepLinkService implements Disposable {
 		}
 
 		const schemeOverride = configuration.get('deepLinks.schemeOverride');
+
 		const scheme = !schemeOverride ? 'vscode' : schemeOverride === true ? env.uriScheme : schemeOverride;
 		let target;
 		if (targetType === DeepLinkType.Comparison) {
@@ -781,14 +782,27 @@ export class DeepLinkService implements Disposable {
 		}
 
 		// Start with the prefix, add the repo prefix and the repo ID to the URL, and then add the target tag and target ID to the URL (if applicable)
-		const url = new URL(
+		const deepLink = new URL(
 			`${scheme}://${this.container.context.extension.id}/${UriTypes.DeepLink}/${DeepLinkType.Repository}/${repoId}${target}`,
 		);
 
 		// Add the remote URL as a query parameter
-		url.searchParams.set('url', remoteUrl);
+		deepLink.searchParams.set('url', remoteUrl);
 		const params = new URLSearchParams();
 		params.set('url', remoteUrl);
-		return url;
+
+		let modePrefixString = '';
+		if (this.container.env === 'dev') {
+			modePrefixString = 'dev.';
+		} else if (this.container.env === 'staging') {
+			modePrefixString = 'staging.';
+		}
+
+		const deepLinkRedirectUrl = new URL(
+			`https://${modePrefixString}gitkraken.dev/link/${encodeURIComponent(
+				Buffer.from(deepLink.href).toString('base64'),
+			)}`,
+		);
+		return deepLinkRedirectUrl;
 	}
 }
