@@ -733,6 +733,11 @@ export interface ContributorsViewConfig {
 
 export interface FileHistoryViewConfig {
 	avatars: boolean;
+	files: ViewsFilesConfig;
+	pullRequests: {
+		enabled: boolean;
+		showForCommits: boolean;
+	};
 }
 
 export interface LineHistoryViewConfig {

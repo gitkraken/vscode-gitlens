@@ -69,7 +69,7 @@ export type View =
 
 export type ViewsWithBranches = BranchesView | CommitsView | RemotesView | RepositoriesView | WorkspacesView;
 export type ViewsWithBranchesNode = BranchesView | RepositoriesView | WorkspacesView;
-export type ViewsWithCommits = Exclude<View, FileHistoryView | LineHistoryView | StashesView>;
+export type ViewsWithCommits = Exclude<View, LineHistoryView | StashesView>;
 export type ViewsWithContributors = ContributorsView | RepositoriesView | WorkspacesView;
 export type ViewsWithContributorsNode = ContributorsView | RepositoriesView | WorkspacesView;
 export type ViewsWithRemotes = RemotesView | RepositoriesView | WorkspacesView;

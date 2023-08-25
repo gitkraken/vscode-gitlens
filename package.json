@@ -739,14 +739,14 @@
 						"default": true,
 						"markdownDescription": "Specifies whether to show pull requests (if any) associated with the current branch in the _Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 						"scope": "window",
-						"order": 21
+						"order": 22
 					},
 					"gitlens.views.commits.pullRequests.showForCommits": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 						"scope": "window",
-						"order": 22
+						"order": 23
 					},
 					"gitlens.views.commits.files.layout": {
 						"type": "string",
@@ -1125,6 +1125,66 @@
 				"title": "File History View",
 				"order": 24,
 				"properties": {
+					"gitlens.views.fileHistory.pullRequests.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to query for pull requests associated with commits in the _File History_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 21
+					},
+					"gitlens.views.fileHistory.pullRequests.showForCommits": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _File History_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+						"scope": "window",
+						"order": 22
+					},
+					"gitlens.views.fileHistory.files.layout": {
+						"type": "string",
+						"default": "auto",
+						"enum": [
+							"auto",
+							"list",
+							"tree"
+						],
+						"enumDescriptions": [
+							"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.fileHistory.files.threshold#` value and the number of files at each nesting level",
+							"Displays files as a list",
+							"Displays files as a tree"
+						],
+						"markdownDescription": "Specifies how the _File History_ view will display files",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.views.fileHistory.files.threshold": {
+						"type": "number",
+						"default": 5,
+						"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _File History_ view. Only applies when `#gitlens.views.fileHistory.files.layout#` is set to `auto`",
+						"scope": "window",
+						"order": 31
+					},
+					"gitlens.views.fileHistory.files.compact": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _File History_ view. Only applies when `#gitlens.views.fileHistory.files.layout#` is set to `tree` or `auto`",
+						"scope": "window",
+						"order": 32
+					},
+					"gitlens.views.fileHistory.files.icon": {
+						"type": "string",
+						"default": "type",
+						"enum": [
+							"status",
+							"type"
+						],
+						"enumDescriptions": [
+							"Shows the file's status as the icon",
+							"Shows the file's type (theme icon) as the icon"
+						],
+						"markdownDescription": "Specifies how the _File History_ view will display file icons",
+						"scope": "window",
+						"order": 33
+					},
 					"gitlens.views.fileHistory.avatars": {
 						"type": "boolean",
 						"default": true,
