@@ -582,6 +582,9 @@ export class GitProviderService implements Disposable {
 	private _discoveredWorkspaceFolders = new Map<WorkspaceFolder, Promise<Repository[]>>();
 
 	private _isDiscoveringRepositories: Promise<void> | undefined;
+	get isDiscoveringRepositories(): Promise<void> | undefined {
+		return this._isDiscoveringRepositories;
+	}
 
 	@log<GitProviderService['discoverRepositories']>({ args: { 0: folders => folders.length } })
 	async discoverRepositories(folders: readonly WorkspaceFolder[], options?: { force?: boolean }): Promise<void> {
