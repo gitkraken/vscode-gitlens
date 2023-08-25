@@ -19,7 +19,7 @@ import { joinPaths, normalizePath } from '../../system/path';
 import type { Deferred } from '../../system/promise';
 import { defer, getSettledValue } from '../../system/promise';
 import { sortCompare } from '../../system/string';
-import { FileHistoryView } from '../fileHistoryView';
+import type { FileHistoryView } from '../fileHistoryView';
 import { TagsView } from '../tagsView';
 import type { ViewsWithCommits } from '../viewBase';
 import { CommitFileNode } from './commitFileNode';
@@ -69,8 +69,6 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 	private _children: (PullRequestNode | FileNode)[] | undefined;
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this.view instanceof FileHistoryView) return [];
-
 		if (this._children == null) {
 			const commit = this.commit;
 
@@ -105,9 +103,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 
 						// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
 						if (pr != null && this._children != null) {
-							this._children.unshift(
-								new PullRequestNode(this.view as ViewsWithCommits, this, pr, commit),
-							);
+							this._children.unshift(new PullRequestNode(this.view, this, pr, commit));
 						}
 
 						// Refresh this node to add the pull request node or remove the spinner
@@ -138,7 +134,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 			}
 
 			if (pullRequest != null) {
-				children.unshift(new PullRequestNode(this.view as ViewsWithCommits, this, pullRequest, commit));
+				children.unshift(new PullRequestNode(this.view, this, pullRequest, commit));
 			}
 
 			this._children = children;
