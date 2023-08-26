@@ -457,7 +457,7 @@ export type TreeViewTypes =
 export type TreeViewIds = `gitlens.views.${TreeViewTypes}`;
 
 export type WebviewTypes = 'graph' | 'settings' | 'timeline' | 'welcome' | 'focus';
-export type WebviewIds = `gitlens.views.${WebviewTypes}`;
+export type WebviewIds = `gitlens.${WebviewTypes}`;
 
 export type WebviewViewTypes = 'account' | 'commitDetails' | 'graph' | 'graphDetails' | 'home' | 'timeline';
 export type WebviewViewIds = `gitlens.views.${WebviewViewTypes}`;
