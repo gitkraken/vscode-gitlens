@@ -55,6 +55,7 @@ import {
 } from '../../../../plus/webviews/graph/protocol';
 import type { Subscription } from '../../../../subscription';
 import { pluralize } from '../../../../system/string';
+import { createWebviewCommandLink } from '../../../../system/webview';
 import type { IpcNotificationType } from '../../../protocol';
 import { MenuDivider, MenuItem, MenuLabel, MenuList } from '../../shared/components/menu/react';
 import { PopMenu } from '../../shared/components/overlays/pop-menu/react';
@@ -978,9 +979,10 @@ export function GraphWrapper({
 		const lastFetchedDate = lastFetched && new Date(lastFetched);
 		const fetchedText = lastFetchedDate && lastFetchedDate.getTime() !== 0 ? fromNow(lastFetchedDate) : undefined;
 
+		let action: 'fetch' | 'pull' | 'push' = 'fetch';
+
 		let icon = 'sync';
 		let label = 'Fetch';
-		let action = 'command:gitlens.graph.fetch';
 		let isBehind = false;
 		let isAhead = false;
 
@@ -993,12 +995,12 @@ export function GraphWrapper({
 			const branchPrefix = `Branch ${branchName} is`;
 			remote = `${branchState.upstream}${branchState.provider?.name ? ` on ${branchState.provider?.name}` : ''}`;
 			if (isBehind) {
-				action = 'command:gitlens.graph.pull';
+				action = 'pull';
 				icon = 'arrow-down';
 				label = 'Pull';
 				tooltip = `Pull from ${remote}\n${branchPrefix} ${pluralize('commit', branchState.behind)} behind of`;
 			} else if (isAhead) {
-				action = 'command:gitlens.graph.push';
+				action = 'push';
 				icon = 'arrow-up';
 				label = 'Push';
 				tooltip = `Push to ${remote}\n${branchPrefix} ${pluralize('commit', branchState.ahead)} ahead of`;
@@ -1017,7 +1019,7 @@ export function GraphWrapper({
 			<div className="titlebar__group">
 				{(isBehind || isAhead) && (
 					<a
-						href={action}
+						href={createWebviewCommandLink(`gitlens.graph.${action}`, state.webviewId)}
 						className={`action-button${isBehind ? ' is-behind' : ''}${isAhead ? ' is-ahead' : ''}`}
 						title={tooltip}
 					>
@@ -1041,7 +1043,11 @@ export function GraphWrapper({
 						)}
 					</a>
 				)}
-				<a href="command:gitlens.graph.fetch" className="action-button" title={fetchTooltip}>
+				<a
+					href={createWebviewCommandLink('gitlens.graph.fetch', state.webviewId)}
+					className="action-button"
+					title={fetchTooltip}
+				>
 					<span className="codicon codicon-sync action-button__icon"></span>
 					Fetch
 					{fetchedText && <span className="action-button__small">({fetchedText})</span>}
@@ -1099,7 +1105,7 @@ export function GraphWrapper({
 								<span className="codicon codicon-chevron-right"></span>
 							</span>
 							<a
-								href="command:gitlens.graph.switchToAnotherBranch"
+								href={createWebviewCommandLink('gitlens.graph.switchToAnotherBranch', state.webviewId)}
 								className="action-button"
 								title="Switch to Another Branch..."
 								aria-label="Switch to Another Branch..."

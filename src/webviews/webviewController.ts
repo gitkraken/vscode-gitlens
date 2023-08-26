@@ -8,8 +8,10 @@ import { setContext } from '../system/context';
 import { debug, logName } from '../system/decorators/log';
 import { serialize } from '../system/decorators/serialize';
 import { isPromise } from '../system/promise';
+import type { WebviewContext } from '../system/webview';
 import type { IpcMessage, IpcMessageParams, IpcNotificationType, WebviewFocusChangedParams } from './protocol';
 import { ExecuteCommandType, onIpc, WebviewFocusChangedCommandType, WebviewReadyCommandType } from './protocol';
+import type { WebviewCommandCallback, WebviewCommandRegistrar } from './webviewCommandRegistrar';
 import type { WebviewPanelDescriptor, WebviewViewDescriptor } from './webviewsController';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
@@ -75,6 +77,7 @@ export class WebviewController<
 {
 	static async create<State, SerializedState = State>(
 		container: Container,
+		commandRegistrar: WebviewCommandRegistrar,
 		descriptor: WebviewPanelDescriptor,
 		parent: WebviewPanel,
 		resolveProvider: (
@@ -84,6 +87,7 @@ export class WebviewController<
 	): Promise<WebviewController<State, SerializedState, WebviewPanelDescriptor>>;
 	static async create<State, SerializedState = State>(
 		container: Container,
+		commandRegistrar: WebviewCommandRegistrar,
 		descriptor: WebviewViewDescriptor,
 		parent: WebviewView,
 		resolveProvider: (
@@ -93,6 +97,7 @@ export class WebviewController<
 	): Promise<WebviewController<State, SerializedState, WebviewViewDescriptor>>;
 	static async create<State, SerializedState = State>(
 		container: Container,
+		commandRegistrar: WebviewCommandRegistrar,
 		descriptor: WebviewPanelDescriptor | WebviewViewDescriptor,
 		parent: WebviewPanel | WebviewView,
 		resolveProvider: (
@@ -102,6 +107,7 @@ export class WebviewController<
 	): Promise<WebviewController<State, SerializedState>> {
 		const controller = new WebviewController<State, SerializedState>(
 			container,
+			commandRegistrar,
 			descriptor,
 			parent,
 			resolveProvider,
@@ -128,6 +134,7 @@ export class WebviewController<
 
 	private constructor(
 		private readonly container: Container,
+		private readonly _commandRegistrar: WebviewCommandRegistrar,
 		private readonly descriptor: Descriptor,
 		public readonly parent: GetParentType<Descriptor>,
 		resolveProvider: (
@@ -177,6 +184,10 @@ export class WebviewController<
 
 		this._onDidDispose.fire();
 		this.disposable?.dispose();
+	}
+
+	registerWebviewCommand<T extends Partial<WebviewContext>>(command: string, callback: WebviewCommandCallback<T>) {
+		return this._commandRegistrar.registerCommand(this.provider, this.id, command, callback);
 	}
 
 	private _initializing: Promise<void> | undefined;

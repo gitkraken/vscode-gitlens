@@ -369,9 +369,14 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 						case 'graph':
 							if (this._context.commit == null) return;
 
-							void executeCommand<ShowInCommitGraphCommandArgs>(Commands.ShowInCommitGraph, {
-								ref: getReferenceFromRevision(this._context.commit),
-							});
+							void executeCommand<ShowInCommitGraphCommandArgs>(
+								this.options.mode === 'graph'
+									? Commands.ShowInCommitGraphView
+									: Commands.ShowInCommitGraph,
+								{
+									ref: getReferenceFromRevision(this._context.commit),
+								},
+							);
 							break;
 						case 'more':
 							this.showCommitActions();
