@@ -598,6 +598,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 		const html = replaceWebviewHtmlTokens(
 			utf8TextDecoder.decode(bytes),
+			'gitlens.rebase',
 			context.panel.webview.cspSource,
 			getNonce(),
 			context.panel.webview.asWebviewUri(this.container.context.extensionUri).toString(),
@@ -691,6 +692,7 @@ async function parseRebaseTodo(
 	}
 
 	return {
+		webviewId: 'gitlens.rebase',
 		timestamp: Date.now(),
 		branch: context.branchName ?? '',
 		onto: onto

@@ -23,6 +23,7 @@ import type {
 	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
 import type { Config, DateStyle } from '../../../config';
+import type { WebviewIds, WebviewViewIds } from '../../../constants';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
 import type { GitTrackingState } from '../../../git/models/branch';
 import type { GitGraphRowType } from '../../../git/models/graph';
@@ -84,6 +85,7 @@ export type GraphMinimapMarkerTypes =
 export const supportedRefMetadataTypes: GraphRefMetadataType[] = Object.values(GraphRefMetadataTypes);
 
 export interface State {
+	webviewId: WebviewIds | WebviewViewIds;
 	timestamp: number;
 
 	windowFocused?: boolean;

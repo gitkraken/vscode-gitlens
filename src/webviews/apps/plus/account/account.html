@@ -11,7 +11,11 @@
 		</style>
 	</head>
 
-	<body class="account scrollable preload" data-placement="#{placement}">
+	<body
+		class="account scrollable preload"
+		data-placement="#{placement}"
+		data-vscode-context='{ "webview": "#{webviewId}" }'
+	>
 		<account-content id="account-content"></account-content>
 
 		#{endOfBody}

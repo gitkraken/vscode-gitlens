@@ -1,6 +1,8 @@
+import type { CustomEditorIds } from '../../constants';
 import { IpcCommandType, IpcNotificationType } from '../protocol';
 
 export interface State {
+	webviewId: CustomEditorIds;
 	timestamp: number;
 
 	branch: string;

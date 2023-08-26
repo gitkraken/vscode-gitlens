@@ -1845,13 +1845,13 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	private async getState(deferRows?: boolean): Promise<State> {
 		if (this.container.git.repositoryCount === 0) {
-			return { timestamp: Date.now(), allowed: true, repositories: [] };
+			return { webviewId: this.host.id, timestamp: Date.now(), allowed: true, repositories: [] };
 		}
 
 		if (this.repository == null) {
 			this.repository = this.container.git.getBestRepositoryOrFirst();
 			if (this.repository == null) {
-				return { timestamp: Date.now(), allowed: true, repositories: [] };
+				return { webviewId: this.host.id, timestamp: Date.now(), allowed: true, repositories: [] };
 			}
 		}
 
@@ -1931,6 +1931,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		}
 
 		return {
+			webviewId: this.host.id,
 			timestamp: Date.now(),
 			windowFocused: this.isWindowFocused,
 			repositories: formatRepositories(this.container.git.openRepositories),

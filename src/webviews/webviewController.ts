@@ -447,6 +447,7 @@ export class WebviewController<
 
 		const html = replaceWebviewHtmlTokens(
 			utf8TextDecoder.decode(bytes),
+			this.descriptor.id,
 			webview.cspSource,
 			this._cspNonce,
 			this.asWebviewUri(this.getRootUri()).toString(),
@@ -547,6 +548,7 @@ export class WebviewController<
 
 export function replaceWebviewHtmlTokens<SerializedState>(
 	html: string,
+	webviewId: string,
 	cspSource: string,
 	cspNonce: string,
 	root: string,
@@ -558,7 +560,7 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 	endOfBody?: string,
 ) {
 	return html.replace(
-		/#{(head|body|endOfBody|placement|cspSource|cspNonce|root|webroot)}/g,
+		/#{(head|body|endOfBody|webviewId|placement|cspSource|cspNonce|root|webroot)}/g,
 		(_substring: string, token: string) => {
 			switch (token) {
 				case 'head':
@@ -573,6 +575,8 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 							  )};</script>`
 							: ''
 					}${endOfBody ?? ''}`;
+				case 'webviewId':
+					return webviewId;
 				case 'placement':
 					return placement;
 				case 'cspSource':

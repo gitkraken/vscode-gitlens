@@ -1,7 +1,9 @@
+import type { WebviewIds, WebviewViewIds } from '../../../constants';
 import type { FeatureAccess } from '../../../features';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
 
 export interface State {
+	webviewId: WebviewIds | WebviewViewIds;
 	timestamp: number;
 
 	dataset?: Commit[];
