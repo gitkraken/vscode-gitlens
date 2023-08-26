@@ -30,8 +30,8 @@ export function registerGraphDetailsWebviewView(controller: WebviewsController) 
 			id: 'gitlens.views.graphDetails',
 			fileName: 'commitDetails.html',
 			title: 'Commit Graph Details',
-			contextKeyPrefix: `gitlens:webviewView:commitDetails`,
-			trackingFeature: 'commitDetailsView',
+			contextKeyPrefix: `gitlens:webviewView:graphDetails`,
+			trackingFeature: 'graphDetailsView',
 			plusFeature: false,
 			webviewHostOptions: {
 				retainContextWhenHidden: false,

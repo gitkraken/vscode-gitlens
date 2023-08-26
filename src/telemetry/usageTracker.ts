@@ -16,6 +16,7 @@ export type TrackedUsageFeatures =
 	| 'commitsView'
 	| 'contributorsView'
 	| 'fileHistoryView'
+	| 'graphDetailsView'
 	| 'graphView'
 	| 'graphWebview'
 	| 'homeView'
