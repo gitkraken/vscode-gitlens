@@ -1,7 +1,7 @@
 import type { Disposable, Uri } from 'vscode';
 import { EventEmitter } from 'vscode';
 import type { ViewsConfigKeys } from './config';
-import type { CustomEditorTypes, WebviewTypes, WebviewViewTypes } from './constants';
+import type { CustomEditorIds, WebviewIds, WebviewViewIds } from './constants';
 import type { GitCaches } from './git/gitProvider';
 import type { GitCommit } from './git/models/commit';
 import type { GitRevisionReference } from './git/models/reference';
@@ -39,11 +39,7 @@ interface EventBusEvent<T extends keyof EventsMapping = keyof EventsMapping> {
 	source?: EventBusSource | undefined;
 }
 
-export type EventBusSource =
-	| `gitlens.${CustomEditorTypes}`
-	| `gitlens.${WebviewTypes}`
-	| `gitlens.views.${WebviewViewTypes}`
-	| `gitlens.views.${ViewsConfigKeys}`;
+export type EventBusSource = CustomEditorIds | WebviewIds | WebviewViewIds | `gitlens.views.${ViewsConfigKeys}`;
 
 export type EventBusOptions = {
 	source?: EventBusSource;
