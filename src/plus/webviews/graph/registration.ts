@@ -34,7 +34,6 @@ export function registerGraphWebviewPanel(controller: WebviewsController) {
 			const { GraphWebviewProvider } = await import(/* webpackChunkName: "graph" */ './graphWebview');
 			return new GraphWebviewProvider(container, host);
 		},
-		() => configuration.get('graph.layout') === 'editor',
 	);
 }
 
@@ -55,7 +54,6 @@ export function registerGraphWebviewView(controller: WebviewsController) {
 			const { GraphWebviewProvider } = await import(/* webpackChunkName: "graph" */ './graphWebview');
 			return new GraphWebviewProvider(container, host);
 		},
-		() => configuration.get('graph.layout') === 'panel',
 	);
 }
 
@@ -111,6 +109,22 @@ export function registerGraphWebviewCommands(container: Container, webview: Webv
 				} else {
 					void webview.show({ preserveFocus: preserveFocus }, args);
 				}
+			},
+		),
+		registerCommand(
+			Commands.ShowInCommitGraphView,
+			(
+				args:
+					| ShowInCommitGraphCommandArgs
+					| Repository
+					| BranchNode
+					| CommitNode
+					| CommitFileNode
+					| StashNode
+					| TagNode,
+			) => {
+				const preserveFocus = 'preserveFocus' in args ? args.preserveFocus ?? false : false;
+				void container.graphView.show({ preserveFocus: preserveFocus }, args);
 			},
 		),
 	);

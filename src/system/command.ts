@@ -5,6 +5,9 @@ import type { Command } from '../commands/base';
 import type { CoreCommands, CoreGitCommands, TreeViewCommands } from '../constants';
 import { Commands } from '../constants';
 import { Container } from '../container';
+import { isWebviewContext } from './webview';
+
+export type CommandCallback = Parameters<typeof commands.registerCommand>[1];
 
 type CommandConstructor = new (container: Container) => Command;
 const registrableCommands: CommandConstructor[] = [];
@@ -15,11 +18,25 @@ export function command(): ClassDecorator {
 	};
 }
 
-export function registerCommand(command: string, callback: (...args: any[]) => any, thisArg?: any): Disposable {
+export function registerCommand(command: string, callback: CommandCallback, thisArg?: any): Disposable {
 	return commands.registerCommand(
 		command,
 		function (this: any, ...args) {
 			Container.instance.telemetry.sendEvent('command', { command: command });
+			callback.call(this, ...args);
+		},
+		thisArg,
+	);
+}
+
+export function registerWebviewCommand(command: string, callback: CommandCallback, thisArg?: any): Disposable {
+	return commands.registerCommand(
+		command,
+		function (this: any, ...args) {
+			Container.instance.telemetry.sendEvent('command', {
+				command: command,
+				webview: isWebviewContext(args[0]) ? args[0].webview : '<missing>',
+			});
 			callback.call(this, ...args);
 		},
 		thisArg,

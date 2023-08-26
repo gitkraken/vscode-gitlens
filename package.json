@@ -2402,10 +2402,10 @@
 							"panel"
 						],
 						"enumDescriptions": [
-							"Shows the Commit Graph in an editor tab",
-							"Shows the Commit Graph in the bottom panel"
+							"Prefers the Commit Graph in an editor tab",
+							"Prefers the Commit Graph in the bottom panel"
 						],
-						"markdownDescription": "Specifies the layout of the _Commit Graph_",
+						"markdownDescription": "Specifies the preferred layout of the _Commit Graph_",
 						"scope": "window",
 						"order": 99
 					},
@@ -4711,7 +4711,7 @@
 			},
 			{
 				"command": "gitlens.showGraphPage",
-				"title": "Show Commit Graph",
+				"title": "Show Commit Graph in Editor Area",
 				"category": "GitLens",
 				"icon": "$(gitlens-graph)"
 			},
@@ -4745,6 +4745,12 @@
 			},
 			{
 				"command": "gitlens.showInCommitGraph",
+				"title": "Open in Commit Graph",
+				"category": "GitLens",
+				"icon": "$(gitlens-graph)"
+			},
+			{
+				"command": "gitlens.showInCommitGraphView",
 				"title": "Open in Commit Graph",
 				"category": "GitLens",
 				"icon": "$(gitlens-graph)"
@@ -6556,6 +6562,18 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.graph.openInTab",
+				"title": "Open in Editor Area",
+				"category": "GitLens",
+				"icon": "$(link-external)"
+			},
+			{
+				"command": "gitlens.views.graph.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "gitlens.views.graphDetails.refresh",
 				"title": "Refresh",
 				"category": "GitLens",
@@ -7211,13 +7229,15 @@
 			},
 			{
 				"command": "gitlens.graph.switchToEditorLayout",
-				"title": "Switch Commit Graph to Editor Layout",
-				"category": "GitLens"
+				"title": "Prefer Commit Graph in Editor Area",
+				"category": "GitLens",
+				"enablement": "config.gitlens.graph.layout != editor"
 			},
 			{
 				"command": "gitlens.graph.switchToPanelLayout",
-				"title": "Switch Commit Graph to Panel Layout",
-				"category": "GitLens"
+				"title": "Prefer Commit Graph in Panel",
+				"category": "GitLens",
+				"enablement": "config.gitlens.graph.layout != panel"
 			},
 			{
 				"command": "gitlens.graph.push",
@@ -8065,23 +8085,23 @@
 				},
 				{
 					"command": "gitlens.showGraph",
-					"when": "false"
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.showGraphPage",
-					"when": "gitlens:enabled && config.gitlens.graph.layout == editor"
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.showGraphView",
-					"when": "gitlens:enabled && config.gitlens.graph.layout == panel"
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.toggleGraph",
-					"when": "gitlens:enabled && config.gitlens.graph.layout == panel"
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.toggleMaximizedGraph",
-					"when": "gitlens:enabled && config.gitlens.graph.layout == panel"
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.showHomeView",
@@ -8093,6 +8113,10 @@
 				},
 				{
 					"command": "gitlens.showInCommitGraph",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.showInCommitGraphView",
 					"when": "false"
 				},
 				{
@@ -9304,6 +9328,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.graph.openInTab",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.graph.refresh",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.graphDetails.refresh",
 					"when": "false"
 				},
@@ -10337,26 +10369,6 @@
 					"group": "navigation@-99"
 				},
 				{
-					"command": "gitlens.graph.push",
-					"when": "gitlens:webview:graph:active && gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "navigation@-103"
-				},
-				{
-					"command": "gitlens.graph.pull",
-					"when": "gitlens:webview:graph:active && gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "navigation@-102"
-				},
-				{
-					"command": "gitlens.graph.fetch",
-					"when": "gitlens:webview:graph:active && gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "navigation@-101"
-				},
-				{
-					"command": "gitlens.graph.switchToAnotherBranch",
-					"when": "gitlens:webview:graph:active && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "navigation@-100"
-				},
-				{
 					"command": "gitlens.graph.refresh",
 					"when": "gitlens:webview:graph:active",
 					"group": "navigation@-99"
@@ -10875,6 +10887,16 @@
 					"group": "5_gitlens@0"
 				},
 				{
+					"command": "gitlens.views.graph.openInTab",
+					"when": "view =~ /^gitlens\\.views\\.graph\\b/",
+					"group": "navigation@-100"
+				},
+				{
+					"command": "gitlens.views.graph.refresh",
+					"when": "view =~ /^gitlens\\.views\\.graph\\b/",
+					"group": "navigation@-99"
+				},
+				{
 					"command": "gitlens.views.graphDetails.refresh",
 					"when": "view =~ /^gitlens\\.views\\.graphDetails/",
 					"group": "navigation@99"
@@ -11253,11 +11275,6 @@
 					"command": "gitlens.views.setShowRelativeDateMarkersOff",
 					"when": "view =~ /^gitlens\\.views\\.(branches|commits|fileHistory|lineHistory|remotes|repositories|tags|worktrees)/ && config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@3"
-				},
-				{
-					"command": "gitlens.graph.refresh",
-					"when": "view =~ /^gitlens\\.views\\.graph\\b/",
-					"group": "navigation@-99"
 				},
 				{
 					"submenu": "gitlens/graph/configuration",
@@ -13684,13 +13701,11 @@
 			"gitlens/graph/configuration": [
 				{
 					"command": "gitlens.graph.switchToEditorLayout",
-					"group": "1_gitlens@1",
-					"when": "config.gitlens.graph.layout != editor"
+					"group": "1_gitlens@1"
 				},
 				{
 					"command": "gitlens.graph.switchToPanelLayout",
-					"group": "1_gitlens@1",
-					"when": "config.gitlens.graph.layout != panel"
+					"group": "1_gitlens@1"
 				},
 				{
 					"command": "gitlens.showSettingsPage#commit-graph",
@@ -14559,7 +14574,7 @@
 					"type": "webview",
 					"id": "gitlens.views.graph",
 					"name": "Graph",
-					"when": "!gitlens:disabled && gitlens:plus:enabled && config.gitlens.graph.layout == panel",
+					"when": "!gitlens:disabled && gitlens:plus:enabled",
 					"contextualTitle": "GL",
 					"icon": "$(gitlens-graph)",
 					"initialSize": 4,
@@ -14569,7 +14584,7 @@
 					"type": "webview",
 					"id": "gitlens.views.graphDetails",
 					"name": "Graph Details",
-					"when": "!gitlens:disabled && gitlens:plus:enabled && config.gitlens.graph.layout == panel",
+					"when": "!gitlens:disabled && gitlens:plus:enabled",
 					"contextualTitle": "GL",
 					"icon": "$(gitlens-commit-view)",
 					"initialSize": 1,

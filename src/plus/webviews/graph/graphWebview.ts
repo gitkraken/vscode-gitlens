@@ -347,122 +347,161 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	registerCommands(): Disposable[] {
 		return [
-			registerCommand(Commands.RefreshGraph, () => this.host.refresh(true)),
+			registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true)),
 
-			registerCommand('gitlens.graph.push', this.push, this),
-			registerCommand('gitlens.graph.pull', this.pull, this),
-			registerCommand('gitlens.graph.fetch', this.fetch, this),
-			registerCommand('gitlens.graph.publishBranch', this.publishBranch, this),
-			registerCommand('gitlens.graph.switchToAnotherBranch', this.switchToAnother, this),
+			...(this.host.isView()
+				? [
+						registerCommand(
+							`${this.host.id}.openInTab`,
+							() => void executeCommand(Commands.ShowGraphPage, this.repository),
+						),
+				  ]
+				: []),
 
-			registerCommand('gitlens.graph.createBranch', this.createBranch, this),
-			registerCommand('gitlens.graph.deleteBranch', this.deleteBranch, this),
-			registerCommand('gitlens.graph.copyRemoteBranchUrl', item => this.openBranchOnRemote(item, true), this),
-			registerCommand('gitlens.graph.openBranchOnRemote', this.openBranchOnRemote, this),
-			registerCommand('gitlens.graph.mergeBranchInto', this.mergeBranchInto, this),
-			registerCommand('gitlens.graph.rebaseOntoBranch', this.rebase, this),
-			registerCommand('gitlens.graph.rebaseOntoUpstream', this.rebaseToRemote, this),
-			registerCommand('gitlens.graph.renameBranch', this.renameBranch, this),
+			this.host.registerWebviewCommand('gitlens.graph.push', this.push),
+			this.host.registerWebviewCommand('gitlens.graph.pull', this.pull),
+			this.host.registerWebviewCommand('gitlens.graph.fetch', this.fetch),
+			this.host.registerWebviewCommand('gitlens.graph.publishBranch', this.publishBranch),
+			this.host.registerWebviewCommand('gitlens.graph.switchToAnotherBranch', this.switchToAnother),
 
-			registerCommand('gitlens.graph.switchToBranch', this.switchTo, this),
+			this.host.registerWebviewCommand('gitlens.graph.createBranch', this.createBranch),
+			this.host.registerWebviewCommand('gitlens.graph.deleteBranch', this.deleteBranch),
+			this.host.registerWebviewCommand<GraphItemContext>('gitlens.graph.copyRemoteBranchUrl', item =>
+				this.openBranchOnRemote(item, true),
+			),
+			this.host.registerWebviewCommand('gitlens.graph.openBranchOnRemote', this.openBranchOnRemote),
+			this.host.registerWebviewCommand('gitlens.graph.mergeBranchInto', this.mergeBranchInto),
+			this.host.registerWebviewCommand('gitlens.graph.rebaseOntoBranch', this.rebase),
+			this.host.registerWebviewCommand('gitlens.graph.rebaseOntoUpstream', this.rebaseToRemote),
+			this.host.registerWebviewCommand('gitlens.graph.renameBranch', this.renameBranch),
 
-			registerCommand('gitlens.graph.hideLocalBranch', this.hideRef, this),
-			registerCommand('gitlens.graph.hideRemoteBranch', this.hideRef, this),
-			registerCommand('gitlens.graph.hideRemote', item => this.hideRef(item, { remote: true }), this),
-			registerCommand('gitlens.graph.hideRefGroup', item => this.hideRef(item, { group: true }), this),
-			registerCommand('gitlens.graph.hideTag', this.hideRef, this),
+			this.host.registerWebviewCommand('gitlens.graph.switchToBranch', this.switchTo),
 
-			registerCommand('gitlens.graph.cherryPick', this.cherryPick, this),
-			registerCommand('gitlens.graph.copyRemoteCommitUrl', item => this.openCommitOnRemote(item, true), this),
-			registerCommand('gitlens.graph.showInDetailsView', this.openInDetailsView, this),
-			registerCommand('gitlens.graph.openCommitOnRemote', this.openCommitOnRemote, this),
-			registerCommand('gitlens.graph.openSCM', this.openSCM, this),
-			registerCommand('gitlens.graph.rebaseOntoCommit', this.rebase, this),
-			registerCommand('gitlens.graph.resetCommit', this.resetCommit, this),
-			registerCommand('gitlens.graph.resetToCommit', this.resetToCommit, this),
-			registerCommand('gitlens.graph.resetToTip', this.resetToTip, this),
-			registerCommand('gitlens.graph.revert', this.revertCommit, this),
-			registerCommand('gitlens.graph.switchToCommit', this.switchTo, this),
-			registerCommand('gitlens.graph.undoCommit', this.undoCommit, this),
+			this.host.registerWebviewCommand('gitlens.graph.hideLocalBranch', this.hideRef),
+			this.host.registerWebviewCommand('gitlens.graph.hideRemoteBranch', this.hideRef),
+			this.host.registerWebviewCommand<GraphItemContext>('gitlens.graph.hideRemote', item =>
+				this.hideRef(item, { remote: true }),
+			),
+			this.host.registerWebviewCommand<GraphItemContext>('gitlens.graph.hideRefGroup', item =>
+				this.hideRef(item, { group: true }),
+			),
+			this.host.registerWebviewCommand('gitlens.graph.hideTag', this.hideRef),
 
-			registerCommand('gitlens.graph.saveStash', this.saveStash, this),
-			registerCommand('gitlens.graph.applyStash', this.applyStash, this),
-			registerCommand('gitlens.graph.stash.delete', this.deleteStash, this),
-			registerCommand('gitlens.graph.stash.rename', this.renameStash, this),
+			this.host.registerWebviewCommand('gitlens.graph.cherryPick', this.cherryPick),
+			this.host.registerWebviewCommand<GraphItemContext>('gitlens.graph.copyRemoteCommitUrl', item =>
+				this.openCommitOnRemote(item, true),
+			),
+			this.host.registerWebviewCommand('gitlens.graph.showInDetailsView', this.openInDetailsView),
+			this.host.registerWebviewCommand('gitlens.graph.openCommitOnRemote', this.openCommitOnRemote),
+			this.host.registerWebviewCommand('gitlens.graph.openSCM', this.openSCM),
+			this.host.registerWebviewCommand('gitlens.graph.rebaseOntoCommit', this.rebase),
+			this.host.registerWebviewCommand('gitlens.graph.resetCommit', this.resetCommit),
+			this.host.registerWebviewCommand('gitlens.graph.resetToCommit', this.resetToCommit),
+			this.host.registerWebviewCommand('gitlens.graph.resetToTip', this.resetToTip),
+			this.host.registerWebviewCommand('gitlens.graph.revert', this.revertCommit),
+			this.host.registerWebviewCommand('gitlens.graph.switchToCommit', this.switchTo),
+			this.host.registerWebviewCommand('gitlens.graph.undoCommit', this.undoCommit),
 
-			registerCommand('gitlens.graph.createTag', this.createTag, this),
-			registerCommand('gitlens.graph.deleteTag', this.deleteTag, this),
-			registerCommand('gitlens.graph.switchToTag', this.switchTo, this),
+			this.host.registerWebviewCommand('gitlens.graph.saveStash', this.saveStash),
+			this.host.registerWebviewCommand('gitlens.graph.applyStash', this.applyStash),
+			this.host.registerWebviewCommand('gitlens.graph.stash.delete', this.deleteStash),
+			this.host.registerWebviewCommand('gitlens.graph.stash.rename', this.renameStash),
 
-			registerCommand('gitlens.graph.createWorktree', this.createWorktree, this),
+			this.host.registerWebviewCommand('gitlens.graph.createTag', this.createTag),
+			this.host.registerWebviewCommand('gitlens.graph.deleteTag', this.deleteTag),
+			this.host.registerWebviewCommand('gitlens.graph.switchToTag', this.switchTo),
 
-			registerCommand('gitlens.graph.createPullRequest', this.createPullRequest, this),
-			registerCommand('gitlens.graph.openPullRequestOnRemote', this.openPullRequestOnRemote, this),
+			this.host.registerWebviewCommand('gitlens.graph.createWorktree', this.createWorktree),
 
-			registerCommand('gitlens.graph.compareWithUpstream', this.compareWithUpstream, this),
-			registerCommand('gitlens.graph.compareWithHead', this.compareHeadWith, this),
-			registerCommand('gitlens.graph.compareWithWorking', this.compareWorkingWith, this),
-			registerCommand('gitlens.graph.compareAncestryWithWorking', this.compareAncestryWithWorking, this),
+			this.host.registerWebviewCommand('gitlens.graph.createPullRequest', this.createPullRequest),
+			this.host.registerWebviewCommand('gitlens.graph.openPullRequestOnRemote', this.openPullRequestOnRemote),
 
-			registerCommand('gitlens.graph.copy', this.copy, this),
-			registerCommand('gitlens.graph.copyMessage', this.copyMessage, this),
-			registerCommand('gitlens.graph.copySha', this.copySha, this),
+			this.host.registerWebviewCommand('gitlens.graph.compareWithUpstream', this.compareWithUpstream),
+			this.host.registerWebviewCommand('gitlens.graph.compareWithHead', this.compareHeadWith),
+			this.host.registerWebviewCommand('gitlens.graph.compareWithWorking', this.compareWorkingWith),
+			this.host.registerWebviewCommand(
+				'gitlens.graph.compareAncestryWithWorking',
+				this.compareAncestryWithWorking,
+			),
 
-			registerCommand('gitlens.graph.addAuthor', this.addAuthor, this),
+			this.host.registerWebviewCommand('gitlens.graph.copy', this.copy),
+			this.host.registerWebviewCommand('gitlens.graph.copyMessage', this.copyMessage),
+			this.host.registerWebviewCommand('gitlens.graph.copySha', this.copySha),
 
-			registerCommand('gitlens.graph.columnAuthorOn', () => this.toggleColumn('author', true)),
-			registerCommand('gitlens.graph.columnAuthorOff', () => this.toggleColumn('author', false)),
-			registerCommand('gitlens.graph.columnDateTimeOn', () => this.toggleColumn('datetime', true)),
-			registerCommand('gitlens.graph.columnDateTimeOff', () => this.toggleColumn('datetime', false)),
-			registerCommand('gitlens.graph.columnShaOn', () => this.toggleColumn('sha', true)),
-			registerCommand('gitlens.graph.columnShaOff', () => this.toggleColumn('sha', false)),
-			registerCommand('gitlens.graph.columnChangesOn', () => this.toggleColumn('changes', true)),
-			registerCommand('gitlens.graph.columnChangesOff', () => this.toggleColumn('changes', false)),
-			registerCommand('gitlens.graph.columnGraphOn', () => this.toggleColumn('graph', true)),
-			registerCommand('gitlens.graph.columnGraphOff', () => this.toggleColumn('graph', false)),
-			registerCommand('gitlens.graph.columnMessageOn', () => this.toggleColumn('message', true)),
-			registerCommand('gitlens.graph.columnMessageOff', () => this.toggleColumn('message', false)),
-			registerCommand('gitlens.graph.columnRefOn', () => this.toggleColumn('ref', true)),
-			registerCommand('gitlens.graph.columnRefOff', () => this.toggleColumn('ref', false)),
-			registerCommand('gitlens.graph.columnGraphCompact', () => this.setColumnMode('graph', 'compact')),
-			registerCommand('gitlens.graph.columnGraphDefault', () => this.setColumnMode('graph', undefined)),
-			registerCommand('gitlens.graph.scrollMarkerLocalBranchOn', () =>
+			this.host.registerWebviewCommand('gitlens.graph.addAuthor', this.addAuthor),
+
+			this.host.registerWebviewCommand('gitlens.graph.columnAuthorOn', () => this.toggleColumn('author', true)),
+			this.host.registerWebviewCommand('gitlens.graph.columnAuthorOff', () => this.toggleColumn('author', false)),
+			this.host.registerWebviewCommand('gitlens.graph.columnDateTimeOn', () =>
+				this.toggleColumn('datetime', true),
+			),
+			this.host.registerWebviewCommand('gitlens.graph.columnDateTimeOff', () =>
+				this.toggleColumn('datetime', false),
+			),
+			this.host.registerWebviewCommand('gitlens.graph.columnShaOn', () => this.toggleColumn('sha', true)),
+			this.host.registerWebviewCommand('gitlens.graph.columnShaOff', () => this.toggleColumn('sha', false)),
+			this.host.registerWebviewCommand('gitlens.graph.columnChangesOn', () => this.toggleColumn('changes', true)),
+			this.host.registerWebviewCommand('gitlens.graph.columnChangesOff', () =>
+				this.toggleColumn('changes', false),
+			),
+			this.host.registerWebviewCommand('gitlens.graph.columnGraphOn', () => this.toggleColumn('graph', true)),
+			this.host.registerWebviewCommand('gitlens.graph.columnGraphOff', () => this.toggleColumn('graph', false)),
+			this.host.registerWebviewCommand('gitlens.graph.columnMessageOn', () => this.toggleColumn('message', true)),
+			this.host.registerWebviewCommand('gitlens.graph.columnMessageOff', () =>
+				this.toggleColumn('message', false),
+			),
+			this.host.registerWebviewCommand('gitlens.graph.columnRefOn', () => this.toggleColumn('ref', true)),
+			this.host.registerWebviewCommand('gitlens.graph.columnRefOff', () => this.toggleColumn('ref', false)),
+			this.host.registerWebviewCommand('gitlens.graph.columnGraphCompact', () =>
+				this.setColumnMode('graph', 'compact'),
+			),
+			this.host.registerWebviewCommand('gitlens.graph.columnGraphDefault', () =>
+				this.setColumnMode('graph', undefined),
+			),
+			this.host.registerWebviewCommand('gitlens.graph.scrollMarkerLocalBranchOn', () =>
 				this.toggleScrollMarker('localBranches', true),
 			),
-			registerCommand('gitlens.graph.scrollMarkerLocalBranchOff', () =>
+			this.host.registerWebviewCommand('gitlens.graph.scrollMarkerLocalBranchOff', () =>
 				this.toggleScrollMarker('localBranches', false),
 			),
-			registerCommand('gitlens.graph.scrollMarkerRemoteBranchOn', () =>
+			this.host.registerWebviewCommand('gitlens.graph.scrollMarkerRemoteBranchOn', () =>
 				this.toggleScrollMarker('remoteBranches', true),
 			),
-			registerCommand('gitlens.graph.scrollMarkerRemoteBranchOff', () =>
+			this.host.registerWebviewCommand('gitlens.graph.scrollMarkerRemoteBranchOff', () =>
 				this.toggleScrollMarker('remoteBranches', false),
 			),
-			registerCommand('gitlens.graph.scrollMarkerStashOn', () => this.toggleScrollMarker('stashes', true)),
-			registerCommand('gitlens.graph.scrollMarkerStashOff', () => this.toggleScrollMarker('stashes', false)),
-			registerCommand('gitlens.graph.scrollMarkerTagOn', () => this.toggleScrollMarker('tags', true)),
-			registerCommand('gitlens.graph.scrollMarkerTagOff', () => this.toggleScrollMarker('tags', false)),
-
-			registerCommand('gitlens.graph.copyDeepLinkToBranch', this.copyDeepLinkToBranch, this),
-			registerCommand('gitlens.graph.copyDeepLinkToCommit', this.copyDeepLinkToCommit, this),
-			registerCommand('gitlens.graph.copyDeepLinkToRepo', this.copyDeepLinkToRepo, this),
-			registerCommand('gitlens.graph.copyDeepLinkToTag', this.copyDeepLinkToTag, this),
-
-			registerCommand('gitlens.graph.openChangedFiles', this.openFiles, this),
-			registerCommand('gitlens.graph.openOnlyChangedFiles', this.openOnlyChangedFiles, this),
-			registerCommand('gitlens.graph.openChangedFileDiffs', this.openAllChanges, this),
-			registerCommand('gitlens.graph.openChangedFileDiffsWithWorking', this.openAllChangesWithWorking, this),
-			registerCommand('gitlens.graph.openChangedFileRevisions', this.openRevisions, this),
-
-			registerCommand(
-				'gitlens.graph.resetColumnsDefault',
-				() => this.updateColumns(defaultGraphColumnsSettings),
-				this,
+			this.host.registerWebviewCommand('gitlens.graph.scrollMarkerStashOn', () =>
+				this.toggleScrollMarker('stashes', true),
 			),
-			registerCommand(
-				'gitlens.graph.resetColumnsCompact',
-				() => this.updateColumns(compactGraphColumnsSettings),
-				this,
+			this.host.registerWebviewCommand('gitlens.graph.scrollMarkerStashOff', () =>
+				this.toggleScrollMarker('stashes', false),
+			),
+			this.host.registerWebviewCommand('gitlens.graph.scrollMarkerTagOn', () =>
+				this.toggleScrollMarker('tags', true),
+			),
+			this.host.registerWebviewCommand('gitlens.graph.scrollMarkerTagOff', () =>
+				this.toggleScrollMarker('tags', false),
+			),
+
+			this.host.registerWebviewCommand('gitlens.graph.copyDeepLinkToBranch', this.copyDeepLinkToBranch),
+			this.host.registerWebviewCommand('gitlens.graph.copyDeepLinkToCommit', this.copyDeepLinkToCommit),
+			this.host.registerWebviewCommand('gitlens.graph.copyDeepLinkToRepo', this.copyDeepLinkToRepo),
+			this.host.registerWebviewCommand('gitlens.graph.copyDeepLinkToTag', this.copyDeepLinkToTag),
+
+			this.host.registerWebviewCommand('gitlens.graph.openChangedFiles', this.openFiles),
+			this.host.registerWebviewCommand('gitlens.graph.openOnlyChangedFiles', this.openOnlyChangedFiles),
+			this.host.registerWebviewCommand('gitlens.graph.openChangedFileDiffs', this.openAllChanges),
+			this.host.registerWebviewCommand(
+				'gitlens.graph.openChangedFileDiffsWithWorking',
+				this.openAllChangesWithWorking,
+			),
+			this.host.registerWebviewCommand('gitlens.graph.openChangedFileRevisions', this.openRevisions),
+
+			this.host.registerWebviewCommand('gitlens.graph.resetColumnsDefault', () =>
+				this.updateColumns(defaultGraphColumnsSettings),
+			),
+			this.host.registerWebviewCommand('gitlens.graph.resetColumnsCompact', () =>
+				this.updateColumns(compactGraphColumnsSettings),
 			),
 		];
 	}
@@ -792,10 +831,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 					},
 				);
 
-				const details =
-					configuration.get('graph.layout') === 'panel'
-						? this.container.graphDetailsView
-						: this.container.commitDetailsView;
+				const details = this.host.isView() ? this.container.graphDetailsView : this.container.commitDetailsView;
 				if (!details.ready) {
 					void details.show({ preserveFocus: e.preserveFocus }, {
 						commit: commit,

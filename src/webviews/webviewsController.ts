@@ -15,6 +15,7 @@ import { debug } from '../system/decorators/log';
 import { Logger } from '../system/logger';
 import { getLogScope } from '../system/logger.scope';
 import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
+import { WebviewCommandRegistrar } from './webviewCommandRegistrar';
 import type { WebviewProvider } from './webviewController';
 import { WebviewController } from './webviewController';
 
@@ -74,10 +75,13 @@ export interface WebviewViewProxy extends Disposable {
 
 export class WebviewsController implements Disposable {
 	private readonly disposables: Disposable[] = [];
+	private readonly _commandRegistrar: WebviewCommandRegistrar;
 	private readonly _panels = new Map<string, WebviewPanelRegistration<any>>();
 	private readonly _views = new Map<string, WebviewViewRegistration<any>>();
 
-	constructor(private readonly container: Container) {}
+	constructor(private readonly container: Container) {
+		this.disposables.push((this._commandRegistrar = new WebviewCommandRegistrar()));
+	}
 
 	dispose() {
 		this.disposables.forEach(d => void d.dispose());
@@ -135,6 +139,7 @@ export class WebviewsController implements Disposable {
 
 						const controller = await WebviewController.create(
 							this.container,
+							this._commandRegistrar,
 							descriptor,
 							webviewView,
 							resolveProvider,
@@ -219,7 +224,7 @@ export class WebviewsController implements Disposable {
 		this._panels.set(descriptor.id, registration);
 
 		const disposables: Disposable[] = [];
-		const { container } = this;
+		const { container, _commandRegistrar: commandRegistrar } = this;
 
 		let serializedPanel: WebviewPanel | undefined;
 
@@ -273,7 +278,13 @@ export class WebviewsController implements Disposable {
 
 				panel.iconPath = Uri.file(container.context.asAbsolutePath(descriptor.iconPath));
 
-				controller = await WebviewController.create(container, descriptor, panel, resolveProvider);
+				controller = await WebviewController.create(
+					container,
+					commandRegistrar,
+					descriptor,
+					panel,
+					resolveProvider,
+				);
 				registration.controller = controller;
 
 				disposables.push(

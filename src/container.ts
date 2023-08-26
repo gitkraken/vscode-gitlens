@@ -226,9 +226,7 @@ export class Container {
 
 		this._disposables.push((this._graphPanel = registerGraphWebviewPanel(this._webviews)));
 		this._disposables.push(registerGraphWebviewCommands(this, this._graphPanel));
-		if (configuration.get('graph.layout') === 'panel') {
-			this._disposables.push((this._graphView = registerGraphWebviewView(this._webviews)));
-		}
+		this._disposables.push((this._graphView = registerGraphWebviewView(this._webviews)));
 		this._disposables.push(new GraphStatusBarController(this));
 
 		const settingsWebviewPanel = registerSettingsWebviewPanel(this._webviews);
@@ -323,16 +321,6 @@ export class Container {
 
 		if (configuration.changed(e, 'mode')) {
 			this.ensureModeApplied();
-		}
-
-		if (configuration.changed(e, 'graph.layout')) {
-			if (configuration.get('graph.layout') === 'panel') {
-				this._graphPanel?.close();
-				this._graphView = registerGraphWebviewView(this._webviews);
-			} else {
-				this._graphView?.dispose();
-				this._graphView = undefined;
-			}
 		}
 	}
 
@@ -482,12 +470,8 @@ export class Container {
 	}
 
 	private readonly _graphPanel: WebviewPanelProxy;
-	private _graphView: WebviewViewProxy | undefined;
+	private readonly _graphView: WebviewViewProxy;
 	get graphView() {
-		if (this._graphView == null) {
-			this._disposables.push((this._graphView = registerGraphWebviewView(this._webviews)));
-		}
-
 		return this._graphView;
 	}
 
