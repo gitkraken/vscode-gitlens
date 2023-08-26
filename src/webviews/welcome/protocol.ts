@@ -1,8 +1,11 @@
 import type { Config } from '../../config';
+import type { WebviewIds, WebviewViewIds } from '../../constants';
 import { IpcCommandType, IpcNotificationType } from '../protocol';
 
 export interface State {
+	webviewId: WebviewIds | WebviewViewIds;
 	timestamp: number;
+
 	version: string;
 	config: {
 		codeLens: Config['codeLens']['enabled'];

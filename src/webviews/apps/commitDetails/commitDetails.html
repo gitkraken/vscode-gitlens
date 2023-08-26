@@ -16,7 +16,11 @@
 		</style>
 	</head>
 
-	<body class="preload" data-placement="#{placement}">
+	<body
+		class="preload"
+		data-placement="#{placement}"
+		data-vscode-context='{ "preventDefaultContextMenuItems": true, "webview": "#{webviewId}" }'
+	>
 		<gl-commit-details-app id="app"></gl-commit-details-app>
 		#{endOfBody}
 	</body>

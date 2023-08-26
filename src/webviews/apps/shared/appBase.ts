@@ -1,4 +1,5 @@
 /*global window document*/
+import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants';
 import { debounce } from '../../../system/function';
 import { Logger } from '../../../system/logger';
 import { LogLevel } from '../../../system/logger.constants';
@@ -38,7 +39,12 @@ function nextIpcId() {
 	return `webview:${ipcSequence}`;
 }
 
-export abstract class App<State extends { timestamp: number } = { timestamp: number }> {
+export abstract class App<
+	State extends { webviewId: CustomEditorIds | WebviewIds | WebviewViewIds; timestamp: number } = {
+		webviewId: CustomEditorIds | WebviewIds | WebviewViewIds;
+		timestamp: number;
+	},
+> {
 	private readonly _api: VsCodeApi;
 	protected state: State;
 	protected readonly placement: 'editor' | 'view';

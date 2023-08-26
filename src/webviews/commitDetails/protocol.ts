@@ -1,6 +1,7 @@
 import type { TextDocumentShowOptions } from 'vscode';
 import type { Autolink } from '../../annotations/autolinks';
 import type { Config } from '../../config';
+import type { WebviewIds, WebviewViewIds } from '../../constants';
 import type { GitCommitIdentityShape, GitCommitStats } from '../../git/models/commit';
 import type { GitFileChangeShape } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
@@ -36,6 +37,7 @@ export interface Preferences {
 }
 
 export interface State {
+	webviewId: WebviewIds | WebviewViewIds;
 	timestamp: number;
 
 	pinned: boolean;

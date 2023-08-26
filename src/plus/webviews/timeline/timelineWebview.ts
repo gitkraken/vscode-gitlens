@@ -282,6 +282,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		if (current.uri == null || gitUri == null || repoPath == null || access.allowed === false) {
 			const access = await this.container.git.access(PlusFeatures.Timeline, repoPath);
 			return {
+				webviewId: this.host.id,
 				timestamp: Date.now(),
 				period: period,
 				title: gitUri?.relativePath,
@@ -304,6 +305,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 
 		if (log == null) {
 			return {
+				webviewId: this.host.id,
 				timestamp: Date.now(),
 				dataset: [],
 				period: period,
@@ -362,6 +364,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		dataset.sort((a, b) => b.sort - a.sort);
 
 		return {
+			webviewId: this.host.id,
 			timestamp: Date.now(),
 			dataset: dataset,
 			period: period,

@@ -243,9 +243,12 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private async getState(deferState?: boolean): Promise<State> {
+		const webviewId = this.host.id;
+
 		const access = await this.container.git.access(PlusFeatures.Focus);
 		if (access.allowed !== true) {
 			return {
+				webviewId: webviewId,
 				timestamp: Date.now(),
 				access: access,
 			};
@@ -258,6 +261,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 
 		if (!hasConnectedRepos) {
 			return {
+				webviewId: webviewId,
 				timestamp: Date.now(),
 				access: access,
 				repos: githubRepos.map(r => serializeRepoWithRichRemote(r)),
@@ -274,6 +278,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		async function getStateCore() {
 			const [prsResult, issuesResult] = await statePromise;
 			return {
+				webviewId: webviewId,
 				timestamp: Date.now(),
 				access: access,
 				repos: repos,
@@ -299,6 +304,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 			});
 
 			return {
+				webviewId: webviewId,
 				timestamp: Date.now(),
 				access: access,
 				repos: repos,

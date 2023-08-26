@@ -65,6 +65,7 @@ export class WelcomeWebviewProvider implements WebviewProvider<State> {
 	}
 	private async getState(subscription?: Subscription): Promise<State> {
 		return {
+			webviewId: this.host.id,
 			timestamp: Date.now(),
 			version: this.container.version,
 			// Make sure to get the raw config so to avoid having the mode mixed in
