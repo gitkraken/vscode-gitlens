@@ -464,7 +464,14 @@ export type TreeViewIds = `gitlens.views.${TreeViewTypes}`;
 export type WebviewTypes = 'graph' | 'settings' | 'timeline' | 'welcome' | 'focus';
 export type WebviewIds = `gitlens.${WebviewTypes}`;
 
-export type WebviewViewTypes = 'account' | 'commitDetails' | 'graph' | 'graphDetails' | 'home' | 'timeline';
+export type WebviewViewTypes =
+	| 'account'
+	| 'commitDetails'
+	| 'graph'
+	| 'graphDetails'
+	| 'home'
+	| 'patchDetails'
+	| 'timeline';
 export type WebviewViewIds = `gitlens.views.${WebviewViewTypes}`;
 
 export type ViewTypes = TreeViewTypes | WebviewViewTypes;
@@ -791,6 +798,7 @@ export type WorkspaceStorage = {
 	'views:searchAndCompare:keepResults': boolean;
 	'views:searchAndCompare:pinned': StoredPinnedItems;
 	'views:commitDetails:autolinksExpanded': boolean;
+	'views:patchDetails:autolinksExpanded': boolean;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & { [key in `connected:${string}`]: boolean };
 
 export interface Stored<T, SchemaVersion extends number = 1> {

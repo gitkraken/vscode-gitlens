@@ -14514,6 +14514,11 @@
 					"id": "gitlensInspect",
 					"title": "GitLens Inspect",
 					"icon": "$(gitlens-gitlens-inspect)"
+				},
+				{
+					"id": "gitlensPatches",
+					"title": "GitLens Patches",
+					"icon": "$(gitlens-workspaces-view)"
 				}
 			],
 			"panel": [
@@ -14750,6 +14755,18 @@
 					"contextualTitle": "GL",
 					"icon": "$(gitlens-contributors-view)",
 					"visibility": "collapsed"
+				}
+			],
+			"gitlensPatches": [
+				{
+					"type": "webview",
+					"id": "gitlens.views.patchDetails",
+					"name": "Patch Details",
+					"when": "!gitlens:disabled",
+					"contextualTitle": "GL",
+					"icon": "$(gitlens-commit-view)",
+					"initialSize": 6,
+					"visibility": "hidden"
 				}
 			]
 		},

@@ -33,7 +33,8 @@ export type TrackedUsageFeatures =
 	| 'welcomeWebview'
 	| 'workspaceView'
 	| 'focusWebview'
-	| 'accountView';
+	| 'accountView'
+	| 'patchDetailsView';
 export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown`;
 
 export type UsageChangeEvent = {

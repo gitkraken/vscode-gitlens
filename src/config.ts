@@ -653,6 +653,7 @@ interface ViewsConfigs {
 	contributors: ContributorsViewConfig;
 	fileHistory: FileHistoryViewConfig;
 	lineHistory: LineHistoryViewConfig;
+	patchDetails: PatchDetailsViewConfig;
 	remotes: RemotesViewConfig;
 	repositories: RepositoriesViewConfig;
 	searchAndCompare: SearchAndCompareViewConfig;
@@ -669,6 +670,7 @@ export const viewsConfigKeys: ViewsConfigKeys[] = [
 	'contributors',
 	'fileHistory',
 	'lineHistory',
+	'patchDetails',
 	'remotes',
 	'repositories',
 	'searchAndCompare',
@@ -708,6 +710,18 @@ export interface CommitsViewConfig {
 }
 
 export interface CommitDetailsViewConfig {
+	avatars: boolean;
+	files: ViewsFilesConfig;
+	autolinks: {
+		enabled: boolean;
+		enhanced: boolean;
+	};
+	pullRequests: {
+		enabled: boolean;
+	};
+}
+
+export interface PatchDetailsViewConfig {
 	avatars: boolean;
 	files: ViewsFilesConfig;
 	autolinks: {

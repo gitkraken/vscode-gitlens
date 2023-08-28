@@ -1,0 +1,380 @@
+@use '../../shared/styles/theme';
+
+:root {
+	--gitlens-gutter-width: 20px;
+	--gitlens-scrollbar-gutter-width: 10px;
+}
+
+// generic resets
+html {
+	font-size: 62.5%;
+	// box-sizing: border-box;
+	font-family: var(--font-family);
+}
+
+*,
+*:before,
+*:after {
+	box-sizing: border-box;
+}
+
+body {
+	font-family: var(--font-family);
+	font-size: var(--font-size);
+	color: var(--color-foreground);
+	padding: 0;
+
+	&.scrollable,
+	.scrollable {
+		border-color: transparent;
+		transition: border-color 1s linear;
+
+		&:hover,
+		&:focus-within {
+			&.scrollable,
+			.scrollable {
+				border-color: var(--vscode-scrollbarSlider-background);
+				transition: none;
+			}
+		}
+	}
+
+	&.preload {
+		&.scrollable,
+		.scrollable {
+			transition: none;
+		}
+	}
+}
+
+::-webkit-scrollbar-corner {
+	background-color: transparent !important;
+}
+
+::-webkit-scrollbar-thumb {
+	background-color: transparent;
+	border-color: inherit;
+	border-right-style: inset;
+	border-right-width: calc(100vw + 100vh);
+	border-radius: unset !important;
+
+	&:hover {
+		border-color: var(--vscode-scrollbarSlider-hoverBackground);
+	}
+
+	&:active {
+		border-color: var(--vscode-scrollbarSlider-activeBackground);
+	}
+}
+
+a {
+	text-decoration: none;
+	&:hover {
+		text-decoration: underline;
+	}
+}
+
+ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.bulleted {
+	list-style: disc;
+	padding-left: 1.2em;
+	> li + li {
+		margin-top: 0.25em;
+	}
+}
+
+.button {
+	--button-foreground: var(--vscode-button-foreground);
+	--button-background: var(--vscode-button-background);
+	--button-hover-background: var(--vscode-button-hoverBackground);
+
+	display: inline-block;
+	border: none;
+	padding: 0.4rem;
+	font-family: inherit;
+	font-size: inherit;
+	line-height: 1.4;
+	text-align: center;
+	text-decoration: none;
+	user-select: none;
+	background: var(--button-background);
+	color: var(--button-foreground);
+	cursor: pointer;
+
+	&:hover {
+		background: var(--button-hover-background);
+	}
+
+	&:focus {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: 0.2rem;
+	}
+
+	&--full {
+		width: 100%;
+	}
+
+	code-icon {
+		pointer-events: none;
+	}
+}
+
+.button--busy {
+	code-icon {
+		margin-right: 0.5rem;
+	}
+
+	&[aria-busy='true'] {
+		opacity: 0.5;
+	}
+
+	&:not([aria-busy='true']) {
+		code-icon {
+			display: none;
+		}
+	}
+}
+
+.button-container {
+	margin: 1rem auto 0;
+	text-align: left;
+	max-width: 30rem;
+	transition: max-width 0.2s ease-out;
+}
+
+@media (min-width: 640px) {
+	.button-container {
+		max-width: 100%;
+	}
+}
+
+.button-group {
+	display: inline-flex;
+	gap: 0.1rem;
+	width: 100%;
+	max-width: 30rem;
+}
+
+.section {
+	padding: 0 var(--gitlens-scrollbar-gutter-width) 1.5rem var(--gitlens-gutter-width);
+
+	> :first-child {
+		margin-top: 0;
+	}
+	> :last-child {
+		margin-bottom: 0;
+	}
+}
+
+.section--message {
+	padding: {
+		top: 1rem;
+		bottom: 1.75rem;
+	}
+}
+
+.section--empty {
+	> :last-child {
+		margin-top: 0.5rem;
+	}
+}
+
+.section--skeleton {
+	padding: {
+		top: 1px;
+		bottom: 1px;
+	}
+}
+
+.commit-action {
+	display: inline-flex;
+	justify-content: center;
+	align-items: center;
+	height: 21px;
+	border-radius: 0.25em;
+	color: inherit;
+	padding: 0.2rem;
+	vertical-align: text-bottom;
+	text-decoration: none;
+
+	> * {
+		pointer-events: none;
+	}
+
+	&:focus {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: -1px;
+	}
+
+	&:hover {
+		color: var(--vscode-foreground);
+		text-decoration: none;
+
+		.vscode-dark & {
+			background-color: var(--color-background--lighten-15);
+		}
+		.vscode-light & {
+			background-color: var(--color-background--darken-15);
+		}
+	}
+
+	&.is-active {
+		.vscode-dark & {
+			background-color: var(--color-background--lighten-10);
+		}
+		.vscode-light & {
+			background-color: var(--color-background--darken-10);
+		}
+	}
+
+	&.is-disabled {
+		opacity: 0.5;
+		pointer-events: none;
+	}
+
+	&.is-hidden {
+		display: none;
+	}
+
+	&--emphasis-low:not(:hover, :focus, :active) {
+		opacity: 0.5;
+	}
+}
+
+.change-list {
+	margin-bottom: 1rem;
+}
+
+.gl-actionbar {
+}
+.gl-actionbar__group {
+}
+.gl-action {
+}
+
+.message-block {
+	font-size: 1.3rem;
+	border: 1px solid var(--vscode-input-border);
+	background: var(--vscode-input-background);
+	padding: 0.5rem;
+
+	&__text {
+		margin: 0;
+
+		overflow-y: auto;
+		overflow-x: hidden;
+		max-height: 9rem;
+
+		> * {
+			white-space: break-spaces;
+		}
+
+		strong {
+			font-weight: 600;
+			font-size: 1.4rem;
+		}
+	}
+}
+
+.top-details {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	padding: {
+		top: 0.1rem;
+		left: var(--gitlens-gutter-width);
+		right: var(--gitlens-scrollbar-gutter-width);
+		bottom: 0.5rem;
+	}
+	background-color: var(--vscode-sideBar-background);
+
+	&__actionbar {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+
+		&-group {
+			display: flex;
+			flex: none;
+		}
+
+		&.is-pinned {
+			background-color: var(--color-alert-warningBackground);
+			box-shadow: 0 0 0 0.1rem var(--color-alert-warningBorder);
+			border-radius: 0.3rem;
+
+			.commit-action:hover,
+			.commit-action.is-active {
+				background-color: var(--color-alert-warningHoverBackground);
+			}
+		}
+	}
+
+	&__sha {
+		margin: 0 0.5rem 0 0.25rem;
+	}
+
+	&__authors {
+		flex-basis: 100%;
+		padding-top: 0.5rem;
+	}
+
+	&__author {
+		& + & {
+			margin-top: 0.5rem;
+		}
+	}
+}
+
+.issue > :not(:first-child) {
+	margin-top: 0.5rem;
+}
+
+.commit-detail-panel {
+	max-height: 100vh;
+	overflow: auto;
+	scrollbar-gutter: stable;
+	color: var(--vscode-sideBar-foreground);
+	background-color: var(--vscode-sideBar-background);
+
+	[aria-hidden='true'] {
+		display: none;
+	}
+}
+
+.ai-content {
+	font-size: 1.3rem;
+	border: 0.1rem solid var(--vscode-input-border, transparent);
+	background: var(--vscode-input-background);
+	margin-top: 1rem;
+	padding: 0.5rem;
+
+	&.has-error {
+		border-left-color: var(--color-alert-errorBorder);
+		border-left-width: 0.3rem;
+		padding-left: 0.8rem;
+	}
+
+	&:empty {
+		display: none;
+	}
+
+	&__summary {
+		margin: 0;
+		overflow-y: auto;
+		overflow-x: hidden;
+		// max-height: 9rem;
+		white-space: break-spaces;
+
+		.has-error & {
+			white-space: normal;
+		}
+	}
+}

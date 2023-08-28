@@ -33,6 +33,7 @@ import {
 	registerGraphWebviewView,
 } from './plus/webviews/graph/registration';
 import { GraphStatusBarController } from './plus/webviews/graph/statusbar';
+import { registerPatchDetailsWebviewView } from './plus/webviews/patchDetails/registration';
 import { registerTimelineWebviewPanel, registerTimelineWebviewView } from './plus/webviews/timeline/registration';
 import { WorkspacesService } from './plus/workspaces/workspacesService';
 import { StatusBarController } from './statusbar/statusBarController';
@@ -242,6 +243,7 @@ export class Container {
 
 		this._disposables.push((this._repositoriesView = new RepositoriesView(this)));
 		this._disposables.push((this._commitDetailsView = registerCommitDetailsWebviewView(this._webviews)));
+		this._disposables.push((this._patchDetailsView = registerPatchDetailsWebviewView(this._webviews)));
 		this._disposables.push((this._graphDetailsView = registerGraphDetailsWebviewView(this._webviews)));
 		this._disposables.push((this._commitsView = new CommitsView(this)));
 		this._disposables.push((this._fileHistoryView = new FileHistoryView(this)));
@@ -358,6 +360,11 @@ export class Container {
 	private _cloudPatches: CloudPatchService;
 	get cloudPatches() {
 		return this._cloudPatches;
+	}
+
+	private readonly _patchDetailsView: WebviewViewProxy;
+	get patchDetailsView() {
+		return this._patchDetailsView;
 	}
 
 	private readonly _codeLensController: GitCodeLensController;

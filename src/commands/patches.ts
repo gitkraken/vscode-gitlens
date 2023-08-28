@@ -2,8 +2,8 @@ import type { TextEditor } from 'vscode';
 import { env, window, workspace } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { showDetailsView } from '../git/actions/commit';
 import { GitCommit, GitCommitIdentity } from '../git/models/commit';
+import { showPatchesView } from '../plus/patches/actions';
 import type { CloudPatch, CloudPatchData } from '../plus/patches/cloudPatchService';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
@@ -182,7 +182,7 @@ export class OpenPatchCommand extends ActiveEditorCommand {
 			diffFiles?.files,
 		);
 
-		void showDetailsView(commit, { pin: true });
+		void showPatchesView(commit, { pin: true });
 	}
 }
 
@@ -264,6 +264,6 @@ export class OpenCloudPatchCommand extends Command {
 			diffFiles?.files,
 		);
 
-		void showDetailsView(commit, { pin: true });
+		void showPatchesView(commit, { pin: true });
 	}
 }
