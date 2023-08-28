@@ -776,10 +776,10 @@
   resolved "https://registry.yarnpkg.com/@types/trusted-types/-/trusted-types-2.0.3.tgz#a136f83b0758698df454e328759dbd3d44555311"
   integrity sha512-NfQ4gyz38SL8sDNrSixxU2Os1a5xcdFxipAFxYEuLUlvU2uDwS4NUpsImcf1//SlWItCVMMLiylsxbmNMToV/g==
 
-"@types/vscode@1.78.1":
-  version "1.78.1"
-  resolved "https://registry.yarnpkg.com/@types/vscode/-/vscode-1.78.1.tgz#027dba038c9e4c3f8e83570e1494aab679030485"
-  integrity sha512-wEA+54axejHu7DhcUfnFBan1IqFD1gBDxAFz8LoX06NbNDMRJv/T6OGthOs52yZccasKfN588EyffHWABkR0fg==
+"@types/vscode@1.80.0":
+  version "1.80.0"
+  resolved "https://registry.yarnpkg.com/@types/vscode/-/vscode-1.80.0.tgz#e004dd6cde74dafdb7fab64a6e1754bf8165b981"
+  integrity sha512-qK/CmOdS2o7ry3k6YqU4zD3R2AYlJfbwBoSbKpBoP+GpXNE+0NEgJOli4n0bm0diK5kfBnchgCEj4igQz/44Hg==
 
 "@types/yargs-parser@*":
   version "21.0.0"

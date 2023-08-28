@@ -271,12 +271,16 @@ export abstract class ViewNode<TView extends View = View, State extends object =
 		return this.view.nodeState.getState(this.id, key as string);
 	}
 
-	storeState<T extends StateKey<State> = StateKey<State>>(key: T, value: StateValue<State, T>): void {
+	storeState<T extends StateKey<State> = StateKey<State>>(
+		key: T,
+		value: StateValue<State, T>,
+		sticky?: boolean,
+	): void {
 		if (this.id == null) {
 			debugger;
 			throw new Error('Id is required to store state');
 		}
-		this.view.nodeState.storeState(this.id, key as string, value);
+		this.view.nodeState.storeState(this.id, key as string, value, sticky);
 	}
 }
 
