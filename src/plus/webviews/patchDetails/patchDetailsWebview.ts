@@ -463,38 +463,46 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 		if (cancellation.isCancellationRequested) return;
 
 		let autolinkedIssuesOrPullRequests;
-		let pr;
+		// let pr: PullRequest | undefined;
 
 		if (remote?.provider != null) {
-			const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
+			// const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
+			// 	configuration.get('views.patchDetails.autolinks.enabled') &&
+			// 	configuration.get('views.patchDetails.autolinks.enhanced')
+			// 		? this.container.autolinks.getLinkedIssuesAndPullRequests(commit.message ?? commit.summary, remote)
+			// 		: undefined,
+			// 	configuration.get('views.patchDetails.pullRequests.enabled')
+			// 		? commit.getAssociatedPullRequest({ remote: remote })
+			// 		: undefined,
+			// ]);
+			const autolinkedIssuesOrPullRequestsResult =
 				configuration.get('views.patchDetails.autolinks.enabled') &&
 				configuration.get('views.patchDetails.autolinks.enhanced')
 					? this.container.autolinks.getLinkedIssuesAndPullRequests(commit.message ?? commit.summary, remote)
-					: undefined,
-				configuration.get('views.patchDetails.pullRequests.enabled')
-					? commit.getAssociatedPullRequest({ remote: remote })
-					: undefined,
-			]);
+					: undefined;
 
 			if (cancellation.isCancellationRequested) return;
 
-			autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
-			pr = getSettledValue(prResult);
+			// autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
+			// pr = getSettledValue(prResult);
+			autolinkedIssuesOrPullRequests = autolinkedIssuesOrPullRequestsResult
+				? await autolinkedIssuesOrPullRequestsResult
+				: undefined;
 		}
 
 		const formattedMessage = this.getFormattedMessage(commit, remote, autolinkedIssuesOrPullRequests);
 
 		// Remove possible duplicate pull request
-		if (pr != null) {
-			autolinkedIssuesOrPullRequests?.delete(pr.id);
-		}
+		// if (pr != null) {
+		// 	autolinkedIssuesOrPullRequests?.delete(pr.id);
+		// }
 
 		this.updatePendingContext({
 			richStateLoaded: true,
 			formattedMessage: formattedMessage,
 			autolinkedIssues:
 				autolinkedIssuesOrPullRequests != null ? [...autolinkedIssuesOrPullRequests.values()] : undefined,
-			pullRequest: pr,
+			// pullRequest: pr,
 		});
 
 		this.updateState();
