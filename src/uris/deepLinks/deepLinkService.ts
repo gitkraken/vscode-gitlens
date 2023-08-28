@@ -47,7 +47,7 @@ export class DeepLinkService implements Disposable {
 						await this.container.git.isDiscoveringRepositories;
 					}
 
-					if (!link.type || (!link.repoId && !link.remoteUrl && !link.repoPath)) {
+					if (!link.type || (!link.repoId && !link.remoteUrl && !link.repoPath && !link.targetId)) {
 						void window.showErrorMessage('Unable to resolve link');
 						Logger.warn(`Unable to resolve link - missing basic properties: ${uri.toString()}`);
 						return;
@@ -425,6 +425,37 @@ export class DeepLinkService implements Disposable {
 					this.resetContext();
 					return;
 				}
+				case DeepLinkServiceState.TypeMatch: {
+					if (!targetType) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Cannot determine link type. No type was provided.';
+						break;
+					}
+
+					if (targetType === DeepLinkType.Patch) {
+						if (targetId == null) {
+							action = DeepLinkServiceAction.DeepLinkErrored;
+							message = 'No patch id was provided.';
+							break;
+						}
+						action = DeepLinkServiceAction.PatchTypeMatched;
+						break;
+					}
+
+					action = DeepLinkServiceAction.RepoTypeMatched;
+					break;
+                }
+				case DeepLinkServiceState.OpenPatch: {
+					if (targetId == null) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'No patch id was provided.';
+						break;
+					}
+
+					void (await executeCommand(Commands.OpenCloudPatch, { id: targetId, patchId: secondaryTargetId }));
+					action = DeepLinkServiceAction.DeepLinkResolved;
+					break;
+                }
 				case DeepLinkServiceState.RepoMatch:
 				case DeepLinkServiceState.AddedRepoMatch: {
 					if (!repoId && !remoteUrl && !repoPath) {

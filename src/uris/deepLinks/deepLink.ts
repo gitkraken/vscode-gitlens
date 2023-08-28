@@ -11,6 +11,7 @@ export enum DeepLinkType {
 	Branch = 'b',
 	Commit = 'c',
 	Comparison = 'compare',
+	Patch = 'drafts',
 	Repository = 'r',
 	Tag = 't',
 }
@@ -48,7 +49,7 @@ export function refTypeToDeepLinkType(refType: GitReference['refType']): DeepLin
 
 export interface DeepLink {
 	type: DeepLinkType;
-	repoId: string;
+	repoId?: string;
 	remoteUrl?: string;
 	repoPath?: string;
 	targetId?: string;
@@ -60,62 +61,87 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 	// The link target id is everything after the link target.
 	// For example, if the uri is /link/r/{repoId}/b/{branchName}?url={remoteUrl},
 	// the link target id is {branchName}
-	const [, type, prefix, repoId, target, ...rest] = uri.path.split('/');
-	if (type !== UriTypes.DeepLink || prefix !== DeepLinkType.Repository) return undefined;
+	const [, type, prefix, baseId, target, ...rest] = uri.path.split('/');
+	if (type !== UriTypes.DeepLink || (prefix !== DeepLinkType.Repository && prefix !== DeepLinkType.Patch)) {
+		return undefined;
+	}
 
 	const urlParams = new URLSearchParams(uri.query);
-	let remoteUrl = urlParams.get('url') ?? undefined;
-	if (remoteUrl != null) {
-		remoteUrl = decodeURIComponent(remoteUrl);
-	}
-	let repoPath = urlParams.get('path') ?? undefined;
-	if (repoPath != null) {
-		repoPath = decodeURIComponent(repoPath);
-	}
-	if (!remoteUrl && !repoPath) return undefined;
+	switch (prefix) {
+		case DeepLinkType.Repository: {
+			let remoteUrl = urlParams.get('url') ?? undefined;
+			if (remoteUrl != null) {
+				remoteUrl = decodeURIComponent(remoteUrl);
+			}
+			let repoPath = urlParams.get('path') ?? undefined;
+			if (repoPath != null) {
+				repoPath = decodeURIComponent(repoPath);
+			}
+			if (!remoteUrl && !repoPath) return undefined;
 
-	if (target == null) {
-		return {
-			type: DeepLinkType.Repository,
-			repoId: repoId,
-			remoteUrl: remoteUrl,
-			repoPath: repoPath,
-		};
-	}
+			if (target == null) {
+				return {
+					type: DeepLinkType.Repository,
+					repoId: baseId,
+					remoteUrl: remoteUrl,
+					repoPath: repoPath,
+				};
+			}
 
-	if (rest == null || rest.length === 0) return undefined;
+			if (rest == null || rest.length === 0) return undefined;
 
-	let targetId: string;
-	let secondaryTargetId: string | undefined;
-	let secondaryRemoteUrl: string | undefined;
-	const joined = rest.join('/');
+			let targetId: string;
+			let secondaryTargetId: string | undefined;
+            let secondaryRemoteUrl: string | undefined;
+			const joined = rest.join('/');
 
-	if (target === DeepLinkType.Comparison) {
-		const split = joined.split(/(\.\.\.|\.\.)/);
-		if (split.length !== 3) return undefined;
-		targetId = split[0];
-		secondaryTargetId = split[2];
-		secondaryRemoteUrl = urlParams.get('prRepoUrl') ?? undefined;
-		if (secondaryRemoteUrl != null) {
-			secondaryRemoteUrl = decodeURIComponent(secondaryRemoteUrl);
+			if (target === DeepLinkType.Comparison) {
+				const split = joined.split(/(\.\.\.|\.\.)/);
+				if (split.length !== 3) return undefined;
+				targetId = split[0];
+				secondaryTargetId = split[2];
+                secondaryRemoteUrl = urlParams.get('prRepoUrl') ?? undefined;
+                if (secondaryRemoteUrl != null) {
+			        secondaryRemoteUrl = decodeURIComponent(secondaryRemoteUrl);
+		        }
+			} else {
+				targetId = joined;
+			}
+
+			return {
+				type: target as DeepLinkType,
+				repoId: baseId,
+				remoteUrl: remoteUrl,
+				repoPath: repoPath,
+				targetId: targetId,
+				secondaryTargetId: secondaryTargetId,
+                secondaryRemoteUrl: secondaryRemoteUrl,
+			};
 		}
-	} else {
-		targetId = joined;
-	}
+		case DeepLinkType.Patch: {
+			if (baseId == null || baseId.match(/^v\d+$/)) return undefined;
 
-	return {
-		type: target as DeepLinkType,
-		repoId: repoId,
-		remoteUrl: remoteUrl,
-		repoPath: repoPath,
-		targetId: targetId,
-		secondaryTargetId: secondaryTargetId,
-		secondaryRemoteUrl: secondaryRemoteUrl,
-	};
+			let patchId = urlParams.get('patch') ?? undefined;
+			if (patchId != null) {
+				patchId = decodeURIComponent(patchId);
+			}
+
+			return {
+				type: DeepLinkType.Patch,
+				targetId: baseId,
+				secondaryTargetId: patchId,
+			};
+		}
+
+		default:
+			return undefined;
+	}
 }
 
 export const enum DeepLinkServiceState {
 	Idle,
+	TypeMatch,
+	OpenPatch,
 	RepoMatch,
 	CloneOrAddRepo,
 	OpeningRepo,
@@ -135,6 +161,8 @@ export const enum DeepLinkServiceAction {
 	DeepLinkResolved,
 	DeepLinkStored,
 	DeepLinkErrored,
+	PatchTypeMatched,
+	RepoTypeMatched,
 	OpenRepo,
 	RepoMatched,
 	RepoMatchedInLocalMapping,
@@ -177,7 +205,16 @@ export interface DeepLinkServiceContext {
 
 export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLinkServiceState>> = {
 	[DeepLinkServiceState.Idle]: {
-		[DeepLinkServiceAction.DeepLinkEventFired]: DeepLinkServiceState.RepoMatch,
+		[DeepLinkServiceAction.DeepLinkEventFired]: DeepLinkServiceState.TypeMatch,
+	},
+	[DeepLinkServiceState.TypeMatch]: {
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.PatchTypeMatched]: DeepLinkServiceState.OpenPatch,
+		[DeepLinkServiceAction.RepoTypeMatched]: DeepLinkServiceState.RepoMatch,
+	},
+	[DeepLinkServiceState.OpenPatch]: {
+		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.RepoMatch]: {
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
@@ -245,6 +282,7 @@ export interface DeepLinkProgress {
 
 export const deepLinkStateToProgress: Record<string, DeepLinkProgress> = {
 	[DeepLinkServiceState.Idle]: { message: 'Done.', increment: 100 },
+	[DeepLinkServiceState.TypeMatch]: { message: 'Matching link type...', increment: 5 },
 	[DeepLinkServiceState.RepoMatch]: { message: 'Finding a matching repository...', increment: 10 },
 	[DeepLinkServiceState.CloneOrAddRepo]: { message: 'Adding repository...', increment: 20 },
 	[DeepLinkServiceState.OpeningRepo]: { message: 'Opening repository...', increment: 30 },
@@ -256,4 +294,5 @@ export const deepLinkStateToProgress: Record<string, DeepLinkProgress> = {
 	[DeepLinkServiceState.FetchedTargetMatch]: { message: 'Finding a matching target...', increment: 90 },
 	[DeepLinkServiceState.OpenGraph]: { message: 'Opening graph...', increment: 95 },
 	[DeepLinkServiceState.OpenComparison]: { message: 'Opening comparison...', increment: 95 },
+	[DeepLinkServiceState.OpenPatch]: { message: 'Opening cloud patch...', increment: 95 },
 };

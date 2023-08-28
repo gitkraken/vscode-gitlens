@@ -4,7 +4,7 @@ import { Commands } from '../constants';
 import type { Container } from '../container';
 import { showDetailsView } from '../git/actions/commit';
 import { GitCommit, GitCommitIdentity } from '../git/models/commit';
-import type { CloudPatch } from '../plus/patches/cloudPatchService';
+import type { CloudPatch, CloudPatchData } from '../plus/patches/cloudPatchService';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
 import type { CommandContext } from './base';
@@ -163,6 +163,88 @@ export class OpenPatchCommand extends ActiveEditorCommand {
 
 		const repoPath = this.container.git.highlander.path;
 		const diffFiles = await this.container.git.getDiffFiles(repoPath, document.getText());
+
+		// Total hack here creating a fake commit object to pass to the details view -- this won't really work (e.g. clicking on the files won't open a valid diff)
+		// Need to think about how to best provide this -- either create a real, but unreachable, commit and then use that sha which should work until a GC
+		// Or need to fully virtualize the patch into a new URI structure with a new FS provider or something
+
+		const date = new Date();
+
+		const commit = new GitCommit(
+			this.container,
+			repoPath,
+			`0000000000000000000000000000000000000000-`,
+			new GitCommitIdentity('You', undefined, date),
+			new GitCommitIdentity('You', undefined, date),
+			'Patch changes',
+			['HEAD'],
+			'Patch changes',
+			diffFiles?.files,
+		);
+
+		void showDetailsView(commit, { pin: true });
+	}
+}
+
+export interface OpenCloudPatchCommandArgs {
+	id: string;
+	patchId?: string;
+}
+
+@command()
+export class OpenCloudPatchCommand extends Command {
+	constructor(private readonly container: Container) {
+		super(Commands.OpenCloudPatch);
+	}
+
+	async execute(args?: OpenCloudPatchCommandArgs) {
+		// TODO: We need to be able to infer the repo path from the patch id, rather than using the current repo. Then we should take the user through
+		// the flow of getting the repo open (clone if it's not available, etc., use the repo mapping file) and then open the patch in the details view
+		if (this.container.git.highlander == null) {
+			void window.showErrorMessage('Cannot open cloud patch: no active repository');
+			return;
+		}
+
+		if (args?.id == null) {
+			void window.showErrorMessage('Cannot open cloud patch: no patch id provided');
+			return;
+		}
+
+		const repoPath = this.container.git.highlander.path;
+
+		const cloudPatch = await this.container.cloudPatches.get(args?.id);
+		if (cloudPatch == null) {
+			void window.showErrorMessage(`Cannot open cloud patch: patch ${args.id} not found`);
+			return;
+		}
+
+		let patch: CloudPatchData | undefined;
+		if (args?.patchId) {
+			patch = await this.container.cloudPatches.getPatch(args.patchId);
+		} else {
+			const patches = await this.container.cloudPatches.getPatches(cloudPatch.id);
+
+			if (patches == null || patches.length === 0) {
+				void window.showErrorMessage(`Cannot open cloud patch: no patch found under id ${args.patchId}`);
+				return;
+			}
+
+			patch = patches[0];
+
+			const patchContents = await this.container.cloudPatches.getPatchContents(patch.id);
+			if (patchContents == null) {
+				void window.showErrorMessage(`Cannot open cloud patch: patch not found of contents empty`);
+				return;
+			}
+			patch.contents = patchContents;
+		}
+
+		if (patch == null) {
+			void window.showErrorMessage(`Cannot open cloud patch: patch not found`);
+			return;
+		}
+
+		const diffFiles = await this.container.git.getDiffFiles(repoPath, patch.contents);
 
 		// Total hack here creating a fake commit object to pass to the details view -- this won't really work (e.g. clicking on the files won't open a valid diff)
 		// Need to think about how to best provide this -- either create a real, but unreachable, commit and then use that sha which should work until a GC

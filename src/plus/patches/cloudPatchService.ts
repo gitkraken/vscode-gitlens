@@ -1,3 +1,4 @@
+import fetch from 'node-fetch';
 import type { Disposable } from 'vscode';
 import { Uri } from 'vscode';
 import type { Container } from '../../container';
@@ -8,6 +9,23 @@ import type { ServerConnection } from '../gk/serverConnection';
 export interface CloudPatch {
 	id: string;
 	linkUrl: string;
+}
+
+export interface CloudPatchData {
+	id: string;
+	draftId: string;
+	gitProfileId: string;
+	gitRepositoryName: string;
+	gitBranchName: string;
+	contents: string;
+}
+
+export interface CloudPatchResponse {
+	id: string;
+	draftId: string;
+	gitProfileId?: string;
+	gitRepositoryName?: string;
+	gitBranchName?: string;
 }
 
 export class CloudPatchService implements Disposable {
@@ -88,7 +106,7 @@ export class CloudPatchService implements Disposable {
 		const patchId = patchCreatedData.id;
 
 		// Upload patch to returned S3 url
-		await this.connection.fetch(url, {
+		await fetch(url, {
 			method: method,
 			headers: {
 				'Content-Type': 'plain/text',
@@ -118,10 +136,94 @@ export class CloudPatchService implements Disposable {
 		};
 	}
 
-	// eslint-disable-next-line @typescript-eslint/require-await
-	async get(_id: string): Promise<CloudPatch | undefined> {
-		// TODO
-		return undefined;
+	async get(id: string): Promise<CloudPatch | undefined> {
+		const draftResponse = await this.connection.fetch(
+			Uri.joinPath(this.connection.baseGkApiUri, `v1/drafts/${id}`).toString(),
+			{
+				method: 'GET',
+			},
+		);
+
+		const draftData = (await draftResponse.json()).data;
+		return {
+			id: draftData.id,
+			linkUrl: draftData.deepLink,
+		};
+	}
+
+	async getPatches(id: string, options?: { includeContents?: boolean }): Promise<CloudPatchData[] | undefined> {
+		const patchesResponse = await this.connection.fetch(
+			Uri.joinPath(this.connection.baseGkApiUri, `/v1/drafts/${id}/patches`).toString(),
+			{
+				method: 'GET',
+			},
+		);
+
+		const patchesData: CloudPatchResponse[] = (await patchesResponse.json()).data;
+		const patches = await Promise.allSettled(
+			patchesData.map(async (patchData: any): Promise<CloudPatchData> => {
+				const { draftId, gitProfileId, gitRepositoryName, gitBranchName } = patchData;
+				const { url, method, headers } = patchData.secureDownloadData;
+				let contents = '';
+				let patchDownloadResponse;
+				if (options?.includeContents) {
+					// Download patch from returned S3 url
+					patchDownloadResponse = await this.connection.fetch(url, {
+						method: method,
+						headers: {
+							Accept: 'text/plain',
+							Host: headers?.['Host']?.['0'] ?? '',
+						},
+					});
+
+					contents = await patchDownloadResponse.text();
+				}
+
+				return {
+					id: patchData.id,
+					draftId: draftId,
+					gitProfileId: gitProfileId,
+					gitRepositoryName: gitRepositoryName,
+					gitBranchName: gitBranchName,
+					contents: contents,
+				};
+			}),
+		);
+
+		return patches.map(patch => getSettledValue(patch)) as CloudPatchData[];
+	}
+
+	async getPatch(id: string): Promise<CloudPatchData | undefined> {
+		const patchResponse = await this.connection.fetch(
+			Uri.joinPath(this.connection.baseGkApiUri, `/v1/patches/${id}`).toString(),
+			{
+				method: 'GET',
+			},
+		);
+
+		const patchData = (await patchResponse.json()).data;
+		const { draftId, gitProfileId, gitRepositoryName, gitBranchName } = patchData;
+		const { url, method, headers } = patchData.secureDownloadData;
+
+		// Download patch from returned S3 url
+		const patchDownloadResponse = await fetch(url, {
+			method: method,
+			headers: {
+				Accept: 'text/plain',
+				Host: headers?.['Host']?.['0'] ?? '',
+			},
+		});
+
+		const contents = await patchDownloadResponse.text();
+
+		return {
+			id: id,
+			draftId: draftId,
+			gitProfileId: gitProfileId,
+			gitRepositoryName: gitRepositoryName,
+			gitBranchName: gitBranchName,
+			contents: contents,
+		};
 	}
 
 	async getPatchContents(id: string): Promise<string | undefined> {
@@ -140,7 +242,7 @@ export class CloudPatchService implements Disposable {
 		const { url, method, headers } = patchData.secureDownloadData;
 
 		// Download patch from returned S3 url
-		const patchDownloadResponse = await this.connection.fetch(url, {
+		const patchDownloadResponse = await fetch(url, {
 			method: method,
 			headers: {
 				Accept: 'text/plain',
