@@ -443,8 +443,8 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 			// commits: commitChoices,
 			preferences: current.preferences,
 			selected: details,
-			autolinkedIssues: current.autolinkedIssues?.map(serializeIssueOrPullRequest),
-			pullRequest: current.pullRequest != null ? serializePullRequest(current.pullRequest) : undefined,
+			// autolinkedIssues: current.autolinkedIssues?.map(serializeIssueOrPullRequest),
+			// pullRequest: current.pullRequest != null ? serializePullRequest(current.pullRequest) : undefined,
 			dateFormat: current.dateFormat,
 			// indent: current.indent,
 			indentGuides: current.indentGuides,
@@ -500,8 +500,8 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 		this.updatePendingContext({
 			richStateLoaded: true,
 			formattedMessage: formattedMessage,
-			autolinkedIssues:
-				autolinkedIssuesOrPullRequests != null ? [...autolinkedIssuesOrPullRequests.values()] : undefined,
+			// autolinkedIssues:
+			// 	autolinkedIssuesOrPullRequests != null ? [...autolinkedIssuesOrPullRequests.values()] : undefined,
 			// pullRequest: pr,
 		});
 
