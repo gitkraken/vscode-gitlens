@@ -44,6 +44,10 @@ export class DeepLinkService implements Disposable {
 				if (link == null) return;
 
 				if (this._context.state === DeepLinkServiceState.Idle) {
+					if (this.container.git.isDiscoveringRepositories) {
+						await this.container.git.isDiscoveringRepositories;
+					}
+
 					if (!link.type || (!link.repoId && !link.remoteUrl && !link.repoPath)) {
 						void window.showErrorMessage('Unable to resolve link');
 						Logger.warn(`Unable to resolve link - missing basic properties: ${uri.toString()}`);
@@ -125,6 +129,10 @@ export class DeepLinkService implements Disposable {
 		this.setContextFromDeepLink(link, pendingDeepLink.url);
 
 		let action = DeepLinkServiceAction.OpenRepo;
+
+		if (this.container.git.isDiscoveringRepositories) {
+			await this.container.git.isDiscoveringRepositories;
+		}
 
 		if (pendingDeepLink.repoPath != null) {
 			const repoOpenUri = Uri.parse(pendingDeepLink.repoPath);
