@@ -1,5 +1,5 @@
 import type { Command } from 'vscode';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { TreeItem, TreeItemCheckboxState, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithCommandArgs } from '../../commands';
 import { Commands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
@@ -12,9 +12,13 @@ import { joinPaths, relativeDir } from '../../system/path';
 import type { View } from '../viewBase';
 import type { FileNode } from './folderNode';
 import type { ViewNode } from './viewNode';
-import { ContextValues, ViewRefFileNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewRefFileNode } from './viewNode';
 
-export class ResultsFileNode extends ViewRefFileNode implements FileNode {
+type State = {
+	checked: TreeItemCheckboxState;
+};
+
+export class ResultsFileNode extends ViewRefFileNode<View, State> implements FileNode {
 	constructor(
 		view: View,
 		parent: ViewNode,
@@ -25,6 +29,9 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 		private readonly direction: 'ahead' | 'behind' | undefined,
 	) {
 		super(GitUri.fromFile(file, repoPath, ref1 || ref2), view, parent, file);
+
+		this.updateContext({ file: file });
+		this._uniqueId = getViewNodeId('results-file', this.context);
 	}
 
 	override toClipboard(): string {
@@ -55,6 +62,12 @@ export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 		};
 
 		item.command = this.getCommand();
+
+		item.checkboxState = {
+			state: this.getState('checked') ?? TreeItemCheckboxState.Unchecked,
+			tooltip: 'Mark as Reviewed',
+		};
+
 		return item;
 	}
 
