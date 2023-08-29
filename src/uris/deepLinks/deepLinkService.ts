@@ -142,7 +142,10 @@ export class DeepLinkService implements Disposable {
 				const repo = await this.container.git.getOrOpenRepository(repoOpenUri, { detectNested: false });
 				if (repo != null) {
 					this._context.repo = repo;
-					action = DeepLinkServiceAction.RepoOpened;
+					action =
+						this._context.targetType === DeepLinkType.Patch
+							? DeepLinkServiceAction.RepoOpenedForPatch
+							: DeepLinkServiceAction.RepoOpened;
 				}
 			} catch {}
 		}
@@ -526,7 +529,7 @@ export class DeepLinkService implements Disposable {
 					break;
 				}
 				case DeepLinkServiceState.CloneOrAddRepo: {
-					if (!repoId && !remoteUrl && !repoPath) {
+					if (!repoId && !remoteUrl && !repoPath && targetType !== DeepLinkType.Patch) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
 						message = 'Missing repository id, remote url and path.';
 						break;
@@ -553,8 +556,9 @@ export class DeepLinkService implements Disposable {
 
 					if (repoOpenType == null) {
 						repoOpenType = await this.showOpenTypePrompt({
+						    includeCurrent: targetType === DeepLinkType.Patch,
 							customMessage:
-								chosenRepoPath === 'Choose a different location'
+								chosenRepoPath === 'Choose a different location' || targetType === DeepLinkType.Patch
 									? 'Please choose an option to open the repository'
 									: undefined,
 						});
@@ -661,7 +665,13 @@ export class DeepLinkService implements Disposable {
 				case DeepLinkServiceState.OpeningRepo: {
 					this._disposables.push(
 						once(this.container.git.onDidChangeRepositories)(() => {
-							queueMicrotask(() => this.processDeepLink(DeepLinkServiceAction.RepoAdded));
+							queueMicrotask(() =>
+								this.processDeepLink(
+									targetType === DeepLinkType.Patch
+										? DeepLinkServiceAction.RepoOpenedForPatch
+										: DeepLinkServiceAction.RepoAdded,
+								),
+							);
 						}),
 					);
 					return;

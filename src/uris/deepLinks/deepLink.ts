@@ -169,6 +169,7 @@ export const enum DeepLinkServiceAction {
 	RepoMatchFailed,
 	RepoAdded,
 	RepoOpened,
+	RepoOpenedForPatch,
 	RemoteMatched,
 	RemoteMatchFailed,
 	RemoteMatchUnneeded,
@@ -209,7 +210,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 	},
 	[DeepLinkServiceState.TypeMatch]: {
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
-		[DeepLinkServiceAction.PatchTypeMatched]: DeepLinkServiceState.OpenPatch,
+		[DeepLinkServiceAction.PatchTypeMatched]: DeepLinkServiceState.CloneOrAddRepo,
 		[DeepLinkServiceAction.RepoTypeMatched]: DeepLinkServiceState.RepoMatch,
 	},
 	[DeepLinkServiceState.OpenPatch]: {
@@ -225,12 +226,14 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 	[DeepLinkServiceState.CloneOrAddRepo]: {
 		[DeepLinkServiceAction.OpenRepo]: DeepLinkServiceState.OpeningRepo,
 		[DeepLinkServiceAction.RepoOpened]: DeepLinkServiceState.RemoteMatch,
+		[DeepLinkServiceAction.RepoOpenedForPatch]: DeepLinkServiceState.OpenPatch,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkStored]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.OpeningRepo]: {
 		[DeepLinkServiceAction.RepoAdded]: DeepLinkServiceState.AddedRepoMatch,
+		[DeepLinkServiceAction.RepoOpenedForPatch]: DeepLinkServiceState.OpenPatch,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
