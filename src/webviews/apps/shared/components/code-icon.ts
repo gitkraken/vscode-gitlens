@@ -1494,6 +1494,85 @@ export class CodeIcon extends LitElement {
 			content: '\\ebf8';
 		}
 
+		:host([icon='indent']):before {
+			content: '\\ebf9';
+		}
+		:host([icon='record-small']):before {
+			content: '\\ebfa';
+		}
+		:host([icon='error-small']):before {
+			content: '\\ebfb';
+		}
+		:host([icon='terminal-decoration-error']):before {
+			content: '\\ebfb';
+		}
+		:host([icon='arrow-circle-down']):before {
+			content: '\\ebfc';
+		}
+		:host([icon='arrow-circle-left']):before {
+			content: '\\ebfd';
+		}
+		:host([icon='arrow-circle-right']):before {
+			content: '\\ebfe';
+		}
+		:host([icon='arrow-circle-up']):before {
+			content: '\\ebff';
+		}
+		:host([icon='layout-sidebar-right-off']):before {
+			content: '\\ec00';
+		}
+		:host([icon='layout-panel-off']):before {
+			content: '\\ec01';
+		}
+		:host([icon='layout-sidebar-left-off']):before {
+			content: '\\ec02';
+		}
+		:host([icon='blank']):before {
+			content: '\\ec03';
+		}
+		:host([icon='heart-filled']):before {
+			content: '\\ec04';
+		}
+		:host([icon='map']):before {
+			content: '\\ec05';
+		}
+		:host([icon='map-filled']):before {
+			content: '\\ec06';
+		}
+		:host([icon='circle-small']):before {
+			content: '\\ec07';
+		}
+		:host([icon='bell-slash']):before {
+			content: '\\ec08';
+		}
+		:host([icon='bell-slash-dot']):before {
+			content: '\\ec09';
+		}
+		:host([icon='comment-unresolved']):before {
+			content: '\\ec0a';
+		}
+		:host([icon='git-pull-request-go-to-changes']):before {
+			content: '\\ec0b';
+		}
+		:host([icon='git-pull-request-new-changes']):before {
+			content: '\\ec0c';
+		}
+		:host([icon='search-fuzzy']):before {
+			content: '\\ec0d';
+		}
+		:host([icon='comment-draft']):before {
+			content: '\\ec0e';
+		}
+		:host([icon='send']):before {
+			content: '\\ec0f';
+		}
+		:host([icon='sparkle']):before {
+			content: '\\ec10';
+		}
+		:host([icon='insert']):before {
+			content: '\\ec11';
+		}
+
 		:host([icon^='gl-']) {
 			font-family: 'glicons';
 		}
