@@ -53,6 +53,7 @@ export interface DeepLink {
 	repoPath?: string;
 	targetId?: string;
 	secondaryTargetId?: string;
+	secondaryRemoteUrl?: string;
 }
 
 export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
@@ -86,6 +87,7 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 
 	let targetId: string;
 	let secondaryTargetId: string | undefined;
+	let secondaryRemoteUrl: string | undefined;
 	const joined = rest.join('/');
 
 	if (target === DeepLinkType.Comparison) {
@@ -93,6 +95,10 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 		if (split.length !== 3) return undefined;
 		targetId = split[0];
 		secondaryTargetId = split[2];
+		secondaryRemoteUrl = urlParams.get('prRepoUrl') ?? undefined;
+		if (secondaryRemoteUrl != null) {
+			secondaryRemoteUrl = decodeURIComponent(secondaryRemoteUrl);
+		}
 	} else {
 		targetId = joined;
 	}
@@ -104,6 +110,7 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 		repoPath: repoPath,
 		targetId: targetId,
 		secondaryTargetId: secondaryTargetId,
+		secondaryRemoteUrl: secondaryRemoteUrl,
 	};
 }
 
@@ -129,15 +136,14 @@ export const enum DeepLinkServiceAction {
 	DeepLinkStored,
 	DeepLinkErrored,
 	OpenRepo,
+	RepoMatched,
 	RepoMatchedInLocalMapping,
-	RepoMatchedWithId,
-	RepoMatchedWithPath,
-	RepoMatchedWithRemoteUrl,
 	RepoMatchFailed,
 	RepoAdded,
 	RepoOpened,
 	RemoteMatched,
 	RemoteMatchFailed,
+	RemoteMatchUnneeded,
 	RemoteAdded,
 	TargetMatched,
 	TargetsMatched,
@@ -159,9 +165,11 @@ export interface DeepLinkServiceContext {
 	repo?: Repository | undefined;
 	remoteUrl?: string | undefined;
 	remote?: GitRemote | undefined;
+	secondaryRemote?: GitRemote | undefined;
 	repoPath?: string | undefined;
 	targetId?: string | undefined;
 	secondaryTargetId?: string | undefined;
+	secondaryRemoteUrl?: string | undefined;
 	targetType?: DeepLinkType | undefined;
 	targetSha?: string | undefined;
 	secondaryTargetSha?: string | undefined;
@@ -173,9 +181,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 	},
 	[DeepLinkServiceState.RepoMatch]: {
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
-		[DeepLinkServiceAction.RepoMatchedWithId]: DeepLinkServiceState.RemoteMatch,
-		[DeepLinkServiceAction.RepoMatchedWithPath]: DeepLinkServiceState.TargetMatch,
-		[DeepLinkServiceAction.RepoMatchedWithRemoteUrl]: DeepLinkServiceState.TargetMatch,
+		[DeepLinkServiceAction.RepoMatched]: DeepLinkServiceState.RemoteMatch,
 		[DeepLinkServiceAction.RepoMatchedInLocalMapping]: DeepLinkServiceState.CloneOrAddRepo,
 		[DeepLinkServiceAction.RepoMatchFailed]: DeepLinkServiceState.CloneOrAddRepo,
 	},
@@ -192,15 +198,14 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.AddedRepoMatch]: {
-		[DeepLinkServiceAction.RepoMatchedWithId]: DeepLinkServiceState.RemoteMatch,
-		[DeepLinkServiceAction.RepoMatchedWithPath]: DeepLinkServiceState.TargetMatch,
-		[DeepLinkServiceAction.RepoMatchedWithRemoteUrl]: DeepLinkServiceState.TargetMatch,
+		[DeepLinkServiceAction.RepoMatched]: DeepLinkServiceState.RemoteMatch,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.RemoteMatch]: {
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.RemoteMatched]: DeepLinkServiceState.TargetMatch,
 		[DeepLinkServiceAction.RemoteMatchFailed]: DeepLinkServiceState.AddRemote,
+		[DeepLinkServiceAction.RemoteMatchUnneeded]: DeepLinkServiceState.TargetMatch,
 	},
 	[DeepLinkServiceState.AddRemote]: {
 		[DeepLinkServiceAction.RemoteAdded]: DeepLinkServiceState.TargetMatch,
