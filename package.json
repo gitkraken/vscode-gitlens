@@ -14518,7 +14518,7 @@
 				{
 					"id": "gitlensPatches",
 					"title": "GitLens Patches",
-					"icon": "$(gitlens-workspaces-view)"
+					"icon": "$(cloud)"
 				}
 			],
 			"panel": [

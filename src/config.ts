@@ -728,9 +728,6 @@ export interface PatchDetailsViewConfig {
 		enabled: boolean;
 		enhanced: boolean;
 	};
-	pullRequests: {
-		enabled: boolean;
-	};
 }
 
 export interface ContributorsViewConfig {

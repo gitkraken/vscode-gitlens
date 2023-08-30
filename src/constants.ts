@@ -798,7 +798,6 @@ export type WorkspaceStorage = {
 	'views:searchAndCompare:keepResults': boolean;
 	'views:searchAndCompare:pinned': StoredPinnedItems;
 	'views:commitDetails:autolinksExpanded': boolean;
-	'views:patchDetails:autolinksExpanded': boolean;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & { [key in `connected:${string}`]: boolean };
 
 export interface Stored<T, SchemaVersion extends number = 1> {

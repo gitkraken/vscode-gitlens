@@ -250,6 +250,33 @@ ul {
 	margin-bottom: 1rem;
 }
 
+// TEMP
+.change-list__action {
+	box-sizing: border-box;
+	display: inline-flex;
+	justify-content: center;
+	align-items: center;
+	width: 2rem;
+	height: 2rem;
+	border-radius: 0.25em;
+	color: inherit;
+	padding: 2px;
+	vertical-align: text-bottom;
+	text-decoration: none;
+}
+.change-list__action:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+.change-list__action:hover {
+	color: inherit;
+	background-color: var(--vscode-toolbar-hoverBackground);
+	text-decoration: none;
+}
+.change-list__action:active {
+	background-color: var(--vscode-toolbar-activeBackground);
+}
+
 .gl-actionbar {
 }
 .gl-actionbar__group {
@@ -376,5 +403,11 @@ ul {
 		.has-error & {
 			white-space: normal;
 		}
+	}
+}
+
+.h {
+	&-spacing {
+		margin-bottom: 1.5rem;
 	}
 }

@@ -30,7 +30,6 @@ export interface CommitDetails extends CommitSummary {
 }
 
 export interface Preferences {
-	autolinksExpanded?: boolean;
 	avatars?: boolean;
 	files?: Config['views']['patchDetails']['files'];
 }
@@ -45,7 +44,6 @@ export interface State {
 
 	selected?: CommitDetails;
 	autolinkedIssues?: IssueOrPullRequest[];
-	pullRequest?: PullRequestShape;
 
 	dateFormat: string;
 	// indent: number;

@@ -5,7 +5,7 @@ import type { CopyShaToClipboardCommandArgs } from '../../../commands';
 import type { CoreConfiguration } from '../../../constants';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
-import type { CommitSelectedEvent } from '../../../eventBus';
+import type { CommitSelectedEvent, PatchSelectedEvent } from '../../../eventBus';
 import { executeGitCommand } from '../../../git/actions';
 import {
 	openChanges,
@@ -20,9 +20,7 @@ import { isCommit } from '../../../git/models/commit';
 import type { GitFileChange } from '../../../git/models/file';
 import { getGitFileStatusIcon } from '../../../git/models/file';
 import type { IssueOrPullRequest } from '../../../git/models/issue';
-import { serializeIssueOrPullRequest } from '../../../git/models/issue';
 import type { PullRequest } from '../../../git/models/pullRequest';
-import { serializePullRequest } from '../../../git/models/pullRequest';
 import type { GitRevisionReference } from '../../../git/models/reference';
 import { createReference, getReferenceFromRevision, shortenRevision } from '../../../git/models/reference';
 import type { GitRemote } from '../../../git/models/remote';
@@ -109,7 +107,6 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 			pinned: false,
 			commit: undefined,
 			preferences: {
-				autolinksExpanded: this.container.storage.getWorkspace('views:patchDetails:autolinksExpanded'),
 				avatars: configuration.get('views.patchDetails.avatars'),
 				files: configuration.get('views.patchDetails.files'),
 			},
@@ -209,7 +206,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 		return [registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true))];
 	}
 
-	private onCommitSelected(e: CommitSelectedEvent) {
+	private onPatchSelected(e: PatchSelectedEvent) {
 		if (
 			e.data == null ||
 			(this.options.mode === 'graph' && e.source !== 'gitlens.views.graph') ||
@@ -272,11 +269,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 				});
 			}
 
-			if (
-				this._context.commit != null &&
-				(configuration.changed(e, 'views.patchDetails.autolinks') ||
-					configuration.changed(e, 'views.patchDetails.pullRequests'))
-			) {
+			if (this._context.commit != null && configuration.changed(e, 'views.patchDetails.autolinks')) {
 				void this.updateCommit(this._context.commit, { force: true });
 			}
 
@@ -306,7 +299,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 
 		if (!this.host.visible) return;
 
-		this._commitTrackerDisposable = this.container.events.on('commit:selected', this.onCommitSelected, this);
+		this._commitTrackerDisposable = this.container.events.on('patch:selected', this.onPatchSelected, this);
 	}
 
 	onRefresh(_force?: boolean | undefined): void {
@@ -591,7 +584,6 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 
 	private updatePreferences(preferences: Preferences) {
 		if (
-			this._context.preferences?.autolinksExpanded === preferences.autolinksExpanded &&
 			this._context.preferences?.avatars === preferences.avatars &&
 			this._context.preferences?.files === preferences.files &&
 			this._context.preferences?.files?.compact === preferences.files?.compact &&
@@ -606,18 +598,6 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 			...this._context.preferences,
 			...this._pendingContext?.preferences,
 		};
-
-		if (
-			preferences.autolinksExpanded != null &&
-			this._context.preferences?.autolinksExpanded !== preferences.autolinksExpanded
-		) {
-			void this.container.storage.storeWorkspace(
-				'views:patchDetails:autolinksExpanded',
-				preferences.autolinksExpanded,
-			);
-
-			changes.autolinksExpanded = preferences.autolinksExpanded;
-		}
 
 		if (preferences.avatars != null && this._context.preferences?.avatars !== preferences.avatars) {
 			void configuration.updateEffective('views.patchDetails.avatars', preferences.avatars);

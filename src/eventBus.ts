@@ -6,6 +6,15 @@ import type { GitCaches } from './git/gitProvider';
 import type { GitCommit } from './git/models/commit';
 import type { GitRevisionReference } from './git/models/reference';
 
+export type PatchSelectedEvent = EventBusEvent<'patch:selected'>;
+interface PatchSelectedEventArgs {
+	// TODO: this will need to be the raw patch
+	readonly commit: GitRevisionReference | GitCommit;
+	readonly interaction: 'active' | 'passive';
+	readonly preserveFocus?: boolean;
+	readonly preserveVisibility?: boolean;
+}
+
 export type CommitSelectedEvent = EventBusEvent<'commit:selected'>;
 interface CommitSelectedEventArgs {
 	readonly commit: GitRevisionReference | GitCommit;
@@ -28,6 +37,7 @@ interface GitCacheResetEventArgs {
 }
 
 type EventsMapping = {
+	'patch:selected': PatchSelectedEventArgs;
 	'commit:selected': CommitSelectedEventArgs;
 	'file:selected': FileSelectedEventArgs;
 	'git:cache:reset': GitCacheResetEventArgs;

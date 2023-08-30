@@ -1,4 +1,4 @@
-import { html, LitElement, nothing } from 'lit';
+import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
@@ -138,142 +138,6 @@ export class GlPatchDetailsApp extends LitElement {
 		`;
 	}
 
-	private renderAutoLinks() {
-		if (this.isUncommitted) {
-			return undefined;
-		}
-
-		const autolinkedIssuesCount = this.state?.autolinkedIssues?.length ?? 0;
-		let autolinksCount = this.state?.selected?.autolinks?.length ?? 0;
-		let count = autolinksCount;
-		const hasPullRequest = this.state?.pullRequest != null;
-		const hasAutolinks = hasPullRequest || autolinkedIssuesCount > 0 || autolinksCount > 0;
-
-		let dedupedAutolinks = this.state?.selected?.autolinks;
-		if (hasAutolinks) {
-			if (dedupedAutolinks?.length && autolinkedIssuesCount) {
-				dedupedAutolinks = dedupedAutolinks.filter(
-					autolink => !this.state?.autolinkedIssues?.some(issue => issue.url === autolink.url),
-				);
-
-				autolinksCount = dedupedAutolinks?.length ?? 0;
-				count = (hasPullRequest ? 1 : 0) + autolinkedIssuesCount + autolinksCount;
-			}
-		}
-
-		return html`
-			<webview-pane
-				collapsable
-				?expanded=${this.state?.preferences?.autolinksExpanded ?? true}
-				?loading=${!this.state?.includeRichContent}
-				data-region="rich-pane"
-			>
-				<span slot="title">Autolinks</span>
-				<span slot="subtitle" data-region="autolink-count"
-					>${this.state?.includeRichContent || autolinksCount ? `${count} found ` : ''}${this.state
-						?.includeRichContent
-						? ''
-						: '…'}</span
-				>
-				${when(
-					this.state == null,
-					() => html`
-						<div class="section" data-region="autolinks">
-							<section class="auto-link" aria-label="Custom Autolinks" data-region="custom-autolinks">
-								<skeleton-loader lines="2"></skeleton-loader>
-							</section>
-							<section class="pull-request" aria-label="Pull request" data-region="pull-request">
-								<skeleton-loader lines="2"></skeleton-loader>
-							</section>
-							<section class="issue" aria-label="Issue" data-region="issue">
-								<skeleton-loader lines="2"></skeleton-loader>
-							</section>
-						</div>
-					`,
-					() => {
-						if (!hasAutolinks || count === 0) {
-							return html`
-								<div class="section" data-region="rich-info">
-									<p>
-										<code-icon icon="info"></code-icon>&nbsp;Use
-										<a href="#" data-action="autolink-settings" title="Configure autolinks"
-											>autolinks</a
-										>
-										to linkify external references, like Jira issues or Zendesk tickets, in commit
-										messages.
-									</p>
-								</div>
-							`;
-						}
-						return html`
-							<div class="section" data-region="autolinks">
-								${dedupedAutolinks != null && dedupedAutolinks.length > 0
-									? html`
-											<section
-												class="auto-link"
-												aria-label="Custom Autolinks"
-												data-region="custom-autolinks"
-											>
-												${dedupedAutolinks.map(autolink => {
-													let name = autolink.description ?? autolink.title;
-													if (name === undefined) {
-														name = `Custom Autolink ${autolink.prefix}${autolink.id}`;
-													}
-													return html`
-														<issue-pull-request
-															name="${name}"
-															url="${autolink.url}"
-															key="${autolink.prefix}${autolink.id}"
-															status=""
-														></issue-pull-request>
-													`;
-												})}
-											</section>
-									  `
-									: undefined}
-								${hasPullRequest
-									? html`
-											<section
-												class="pull-request"
-												aria-label="Pull request"
-												data-region="pull-request"
-											>
-												<issue-pull-request
-													name="${this.state!.pullRequest!.title}"
-													url="${this.state!.pullRequest!.url}"
-													key="#${this.state!.pullRequest!.id}"
-													status="${this.state!.pullRequest!.state}"
-													date=${this.state!.pullRequest!.date}
-													dateFormat="${this.state!.dateFormat}"
-												></issue-pull-request>
-											</section>
-									  `
-									: undefined}
-								${this.state?.autolinkedIssues?.length
-									? html`
-											<section class="issue" aria-label="Issue" data-region="issue">
-												${this.state.autolinkedIssues.map(
-													issue => html`
-														<issue-pull-request
-															name="${issue.title}"
-															url="${issue.url}"
-															key="${issue.id}"
-															status="${issue.closed ? 'closed' : 'opened'}"
-															date="${issue.closed ? issue.closedDate : issue.date}"
-														></issue-pull-request>
-													`,
-												)}
-											</section>
-									  `
-									: undefined}
-							</div>
-						`;
-					},
-				)}
-			</webview-pane>
-		`;
-	}
-
 	private renderExplainAi() {
 		// TODO: add loading and response states
 		return html`
@@ -369,6 +233,28 @@ export class GlPatchDetailsApp extends LitElement {
 		);
 		const flatTree = flattenHeirarchy(tree);
 		return html`<list-container class="indentGuides-${this.state!.indentGuides}">
+			<list-item level="1" tree branch>
+				<code-icon slot="icon" icon="repo" title="Repository" aria-label="Repository"></code-icon>
+				gitkraken/shared-web-components
+				<span slot="actions">
+					<a class="change-list__action" href="#" title="Apply..." aria-label="Apply..."
+						><code-icon icon="cloud-download"></code-icon
+					></a>
+					<a class="change-list__action" href="#" title="Change Base" aria-label="Change Base"
+						><code-icon icon="git-commit"></code-icon
+					></a>
+					<a
+						class="change-list__action"
+						href="#"
+						title="Open in Commit Graph"
+						aria-label="Open in Commit Graph"
+						><code-icon icon="gl-graph"></code-icon
+					></a>
+					<a class="change-list__action" href="#" title="More options..." aria-label="More options..."
+						><code-icon icon="ellipsis"></code-icon
+					></a>
+				</span>
+			</list-item>
 			${flatTree.map(({ level, item }) => {
 				if (item.name === '') {
 					return undefined;
@@ -376,7 +262,7 @@ export class GlPatchDetailsApp extends LitElement {
 
 				if (item.value == null) {
 					return html`
-						<list-item level="${level}" tree branch>
+						<list-item level="${level + 1}" tree branch>
 							<code-icon slot="icon" icon="folder" title="Directory" aria-label="Directory"></code-icon>
 							${item.name}
 						</list-item>
@@ -386,7 +272,7 @@ export class GlPatchDetailsApp extends LitElement {
 				return html`
 					<file-change-list-item
 						tree
-						level="${level}"
+						level="${level + 1}"
 						?stash=${this.isStash}
 						?uncommitted=${this.isUncommitted}
 						path="${item.value.path}"
@@ -461,125 +347,99 @@ export class GlPatchDetailsApp extends LitElement {
 		`;
 	}
 
+	renderPatches() {
+		return html`
+			<webview-pane collapsable expanded>
+				<span slot="title">Patches</span>
+
+				<div class="h-spacing">
+					<list-container>
+						<list-item>
+							<code-icon slot="icon" icon="repo" title="Repository" aria-label="Repository"></code-icon>
+							axosoft/GitKraken
+						</list-item>
+						<list-item>
+							<code-icon slot="icon" icon="repo" title="Repository" aria-label="Repository"></code-icon>
+							gitkraken/shared-web-components
+						</list-item>
+						<list-item>
+							<code-icon slot="icon" icon="repo" title="Repository" aria-label="Repository"></code-icon>
+							gitkraken/vscode-gitlens
+						</list-item>
+					</list-container>
+				</div>
+			</webview-pane>
+		`;
+	}
+
+	renderCollaborators() {
+		return html`
+			<webview-pane collapsable expanded>
+				<span slot="title">Collaborators</span>
+
+				<div class="h-spacing">
+					<list-container>
+						<list-item>
+							<code-icon
+								slot="icon"
+								icon="account"
+								title="Collaborator"
+								aria-label="Collaborator"
+							></code-icon>
+							justin.roberts@gitkraken.com
+						</list-item>
+						<list-item>
+							<code-icon
+								slot="icon"
+								icon="account"
+								title="Collaborator"
+								aria-label="Collaborator"
+							></code-icon>
+							eamodio@gitkraken.com
+						</list-item>
+						<list-item>
+							<code-icon
+								slot="icon"
+								icon="account"
+								title="Collaborator"
+								aria-label="Collaborator"
+							></code-icon>
+							keith.daulton@gitkraken.com
+						</list-item>
+					</list-container>
+				</div>
+			</webview-pane>
+		`;
+	}
+
 	override render() {
 		if (this.state?.selected == null) {
 			return html` <div class="commit-detail-panel scrollable">${this.renderEmptyContent()}</div>`;
 		}
 
-		const pinLabel = this.state.pinned
-			? 'Unpin this Commit\nRestores Automatic Following'
-			: 'Pin this Commit\nSuspends Automatic Following';
 		return html`
 			<div class="commit-detail-panel scrollable">
 				<main id="main" tabindex="-1">
 					<div class="top-details">
 						<div class="top-details__top-menu">
-							<div class="top-details__actionbar${this.state.pinned ? ' is-pinned' : ''}">
+							<div class="top-details__actionbar">
+								<div class="top-details__actionbar-group"></div>
 								<div class="top-details__actionbar-group">
-									<a
-										class="commit-action${this.state.pinned ? ' is-active' : ''}"
-										href="#"
-										data-action="pin"
-										aria-label="${pinLabel}"
-										title="${pinLabel}"
-										><code-icon
-											icon="${this.state.pinned ? 'gl-pinned-filled' : 'pin'}"
-											data-region="commit-pin"
-										></code-icon
-									></a>
-									<a
-										class="commit-action${this.navigation.back ? '' : ' is-disabled'}"
-										aria-disabled="${this.navigation.back ? nothing : 'true'}"
-										href="#"
-										data-action="back"
-										aria-label="Back"
-										title="Back"
-										><code-icon icon="arrow-left" data-region="commit-back"></code-icon
-									></a>
-									${when(
-										this.navigation.forward,
-										() => html`
-											<a
-												class="commit-action"
-												href="#"
-												data-action="forward"
-												aria-label="Forward"
-												title="Forward"
-												><code-icon icon="arrow-right" data-region="commit-forward"></code-icon
-											></a>
-										`,
-									)}
-									${when(
-										this.state.navigationStack.hint,
-										() => html`
-											<a
-												class="commit-action commit-action--emphasis-low"
-												href="#"
-												title="View this Commit"
-												data-action="${this.state!.pinned ? 'forward' : 'back'}"
-												><code-icon icon="git-commit"></code-icon
-												><span data-region="commit-hint"
-													>${this.state!.navigationStack.hint}</span
-												></a
-											>
-										`,
-									)}
-								</div>
-								<div class="top-details__actionbar-group">
-									${when(
-										!this.isUncommitted,
-										() => html`
-											<a
-												class="commit-action"
-												href="#"
-												data-action="commit-actions"
-												data-action-type="sha"
-												aria-label="Copy SHA
-	[⌥] Pick Commit..."
-												title="Copy SHA
-	[⌥] Pick Commit..."
-											>
-												<code-icon icon="git-commit"></code-icon>
-												<span class="top-details__sha" data-region="shortsha"
-													>${this.shortSha}</span
-												></a
-											>
-										`,
-										() => html`
-											<a
-												class="commit-action"
-												href="#"
-												data-action="commit-actions"
-												data-action-type="scm"
-												aria-label="Open SCM view"
-												title="Open SCM view"
-												><code-icon icon="source-control"></code-icon
-											></a>
-										`,
-									)}
+									<a class="commit-action" href="#">
+										<code-icon icon="link"></code-icon>
+										<span class="top-details__sha">Copy Link</span></a
+									>
+									<a class="commit-action" href="#">
+										<code-icon icon="send"></code-icon>
+										<span class="top-details__sha">Share</span></a
+									>
 									<a
 										class="commit-action"
 										href="#"
-										data-action="commit-actions"
-										data-action-type="graph"
-										aria-label="Open in Commit Graph"
-										title="Open in Commit Graph"
-										><code-icon icon="gl-graph"></code-icon
+										aria-label="Show Patch Actions"
+										title="Show Patch Actions"
+										><code-icon icon="kebab-vertical"></code-icon
 									></a>
-									${when(
-										!this.isUncommitted,
-										() => html`
-											<a
-												class="commit-action"
-												href="#"
-												data-action="commit-actions"
-												data-action-type="more"
-												aria-label="Show Commit Actions"
-												title="Show Commit Actions"
-												><code-icon icon="kebab-vertical"></code-icon
-											></a>
-										`,
-									)}
 								</div>
 							</div>
 							${when(
@@ -604,7 +464,7 @@ export class GlPatchDetailsApp extends LitElement {
 							)}
 						</div>
 					</div>
-					${this.renderCommitMessage()} ${this.renderChangedFiles()} ${this.renderExplainAi()}
+					${this.renderCommitMessage()}${this.renderPatches()}${this.renderCollaborators()}${this.renderChangedFiles()}${this.renderExplainAi()}
 				</main>
 			</div>
 		`;
