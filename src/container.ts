@@ -50,6 +50,7 @@ import { GitLineTracker } from './trackers/gitLineTracker';
 import { DeepLinkService } from './uris/deepLinks/deepLinkService';
 import { UriService } from './uris/uriService';
 import { BranchesView } from './views/branchesView';
+import { CommitStack } from './views/commitStack';
 import { CommitsView } from './views/commitsView';
 import { ContributorsView } from './views/contributorsView';
 import { FileHistoryView } from './views/fileHistoryView';
@@ -165,6 +166,8 @@ export class Container {
 			this.TagDateFormatting.dateStyle = configuration.get('defaultDateStyle');
 		},
 	};
+
+	readonly CommitStack = new CommitStack(this);
 
 	private _disposables: Disposable[];
 	private _terminalLinks: GitTerminalLinkProvider | undefined;
