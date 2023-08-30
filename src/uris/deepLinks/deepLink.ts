@@ -129,6 +129,7 @@ export const enum DeepLinkServiceAction {
 	DeepLinkStored,
 	DeepLinkErrored,
 	OpenRepo,
+	RepoMatchedInLocalMapping,
 	RepoMatchedWithId,
 	RepoMatchedWithPath,
 	RepoMatchedWithRemoteUrl,
@@ -148,6 +149,7 @@ export const enum DeepLinkRepoOpenType {
 	Clone = 'clone',
 	Folder = 'folder',
 	Workspace = 'workspace',
+	Current = 'current',
 }
 
 export interface DeepLinkServiceContext {
@@ -174,6 +176,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.RepoMatchedWithId]: DeepLinkServiceState.RemoteMatch,
 		[DeepLinkServiceAction.RepoMatchedWithPath]: DeepLinkServiceState.TargetMatch,
 		[DeepLinkServiceAction.RepoMatchedWithRemoteUrl]: DeepLinkServiceState.TargetMatch,
+		[DeepLinkServiceAction.RepoMatchedInLocalMapping]: DeepLinkServiceState.CloneOrAddRepo,
 		[DeepLinkServiceAction.RepoMatchFailed]: DeepLinkServiceState.CloneOrAddRepo,
 	},
 	[DeepLinkServiceState.CloneOrAddRepo]: {
