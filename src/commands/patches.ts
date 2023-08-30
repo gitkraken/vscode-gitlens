@@ -3,6 +3,7 @@ import { env, window, workspace } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitCommit, GitCommitIdentity } from '../git/models/commit';
+import type { LocalPatch } from '../git/models/patch';
 import { showPatchesView } from '../plus/patches/actions';
 import type { CloudPatch, CloudPatchData } from '../plus/patches/cloudPatchService';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
@@ -140,8 +141,6 @@ export class OpenPatchCommand extends ActiveEditorCommand {
 	}
 
 	async execute(editor?: TextEditor) {
-		if (this.container.git.highlander == null) return;
-
 		let document;
 		if (editor?.document?.languageId === 'diff') {
 			document = editor.document;
@@ -161,28 +160,36 @@ export class OpenPatchCommand extends ActiveEditorCommand {
 			await window.showTextDocument(document);
 		}
 
-		const repoPath = this.container.git.highlander.path;
-		const diffFiles = await this.container.git.getDiffFiles(repoPath, document.getText());
+		const patch: LocalPatch = {
+			type: 'local',
+			patch: {
+				type: 'file',
+				uri: document.uri,
+				contents: document.getText(),
+			},
+		};
 
-		// Total hack here creating a fake commit object to pass to the details view -- this won't really work (e.g. clicking on the files won't open a valid diff)
-		// Need to think about how to best provide this -- either create a real, but unreachable, commit and then use that sha which should work until a GC
-		// Or need to fully virtualize the patch into a new URI structure with a new FS provider or something
+		void showPatchesView(patch);
 
-		const date = new Date();
+		// // Total hack here creating a fake commit object to pass to the details view -- this won't really work (e.g. clicking on the files won't open a valid diff)
+		// // Need to think about how to best provide this -- either create a real, but unreachable, commit and then use that sha which should work until a GC
+		// // Or need to fully virtualize the patch into a new URI structure with a new FS provider or something
 
-		const commit = new GitCommit(
-			this.container,
-			repoPath,
-			`0000000000000000000000000000000000000000-`,
-			new GitCommitIdentity('You', undefined, date),
-			new GitCommitIdentity('You', undefined, date),
-			'Patch changes',
-			['HEAD'],
-			'Patch changes',
-			diffFiles?.files,
-		);
+		// const date = new Date();
 
-		void showPatchesView(commit, { pin: true });
+		// const commit = new GitCommit(
+		// 	this.container,
+		// 	repoPath,
+		// 	`0000000000000000000000000000000000000000-`,
+		// 	new GitCommitIdentity('You', undefined, date),
+		// 	new GitCommitIdentity('You', undefined, date),
+		// 	'Patch changes',
+		// 	['HEAD'],
+		// 	'Patch changes',
+		// 	diffFiles?.files,
+		// );
+
+		// void showPatchesView(commit);
 	}
 }
 
@@ -264,6 +271,6 @@ export class OpenCloudPatchCommand extends Command {
 			diffFiles?.files,
 		);
 
-		void showPatchesView(commit, { pin: true });
+		// void showPatchesView(commit);
 	}
 }

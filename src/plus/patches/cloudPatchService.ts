@@ -2,13 +2,33 @@ import fetch from 'node-fetch';
 import type { Disposable } from 'vscode';
 import { Uri } from 'vscode';
 import type { Container } from '../../container';
+import type { GitCloudPatch } from '../../git/models/patch';
 import type { Repository } from '../../git/models/repository';
 import { getSettledValue } from '../../system/promise';
 import type { ServerConnection } from '../gk/serverConnection';
 
 export interface CloudPatch {
-	id: string;
-	linkUrl: string;
+	readonly type: 'cloud';
+
+	readonly id: string;
+	readonly linkUrl: string;
+	readonly title?: string;
+	readonly description?: string;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+	readonly userId: string;
+	readonly user: {
+		readonly id: string;
+		readonly name: string;
+		readonly email: string;
+	};
+
+	readonly changesets: {
+		readonly id: string;
+		readonly linkUrl: string;
+
+		readonly patches: GitCloudPatch[];
+	}[];
 }
 
 export interface CloudPatchData {
@@ -131,8 +151,18 @@ export class CloudPatchService implements Disposable {
 		});
 
 		return {
+			type: 'cloud',
 			id: draftId,
 			linkUrl: draftDeepLinkUrl,
+			changesets: [],
+			userId: '0',
+			user: {
+				id: '0',
+				name: 'eric',
+				email: 'email',
+			},
+			createdAt: new Date(),
+			updatedAt: new Date(),
 		};
 	}
 
@@ -146,8 +176,18 @@ export class CloudPatchService implements Disposable {
 
 		const draftData = (await draftResponse.json()).data;
 		return {
+			type: 'cloud',
 			id: draftData.id,
 			linkUrl: draftData.deepLink,
+			changesets: [],
+			userId: '0',
+			user: {
+				id: '0',
+				name: 'eric',
+				email: 'email',
+			},
+			createdAt: new Date(),
+			updatedAt: new Date(),
 		};
 	}
 

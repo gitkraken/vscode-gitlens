@@ -4,16 +4,9 @@ import type { ViewsConfigKeys } from './config';
 import type { CustomEditorIds, WebviewIds, WebviewViewIds } from './constants';
 import type { GitCaches } from './git/gitProvider';
 import type { GitCommit } from './git/models/commit';
+import type { LocalPatch } from './git/models/patch';
 import type { GitRevisionReference } from './git/models/reference';
-
-export type PatchSelectedEvent = EventBusEvent<'patch:selected'>;
-interface PatchSelectedEventArgs {
-	// TODO: this will need to be the raw patch
-	readonly commit: GitRevisionReference | GitCommit;
-	readonly interaction: 'active' | 'passive';
-	readonly preserveFocus?: boolean;
-	readonly preserveVisibility?: boolean;
-}
+import type { CloudPatch } from './plus/patches/cloudPatchService';
 
 export type CommitSelectedEvent = EventBusEvent<'commit:selected'>;
 interface CommitSelectedEventArgs {
@@ -36,11 +29,19 @@ interface GitCacheResetEventArgs {
 	readonly caches?: GitCaches[];
 }
 
+export type PatchSelectedEvent = EventBusEvent<'patch:selected'>;
+interface PatchSelectedEventArgs {
+	readonly patch: LocalPatch | CloudPatch;
+	readonly interaction: 'active' | 'passive';
+	readonly preserveFocus?: boolean;
+	readonly preserveVisibility?: boolean;
+}
+
 type EventsMapping = {
-	'patch:selected': PatchSelectedEventArgs;
 	'commit:selected': CommitSelectedEventArgs;
 	'file:selected': FileSelectedEventArgs;
 	'git:cache:reset': GitCacheResetEventArgs;
+	'patch:selected': PatchSelectedEventArgs;
 };
 
 interface EventBusEvent<T extends keyof EventsMapping = keyof EventsMapping> {
@@ -58,9 +59,14 @@ export type EventBusOptions = {
 type CacheableEventsMapping = {
 	'commit:selected': CommitSelectedEventArgs;
 	'file:selected': FileSelectedEventArgs;
+	'patch:selected': PatchSelectedEventArgs;
 };
 
-const _cacheableEventNames = new Set<keyof CacheableEventsMapping>(['commit:selected', 'file:selected']);
+const _cacheableEventNames = new Set<keyof CacheableEventsMapping>([
+	'commit:selected',
+	'file:selected',
+	'patch:selected',
+]);
 const _cachedEventArgs = new Map<keyof CacheableEventsMapping, CacheableEventsMapping[keyof CacheableEventsMapping]>();
 
 export class EventBus implements Disposable {

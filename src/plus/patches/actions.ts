@@ -1,12 +1,12 @@
 import { Container } from '../../container';
-import type { GitCommit } from '../../git/models/commit';
-import type { GitRevisionReference } from '../../git/models/reference';
+import type { LocalPatch } from '../../git/models/patch';
+import type { CloudPatch } from './cloudPatchService';
 
 // TODO: just pass a patch or a cloud patch
 export function showPatchesView(
-	commit: GitRevisionReference | GitCommit,
-	options?: { pin?: boolean; preserveFocus?: boolean; preserveVisibility?: boolean },
+	patch: LocalPatch | CloudPatch,
+	options?: { preserveFocus?: boolean; preserveVisibility?: boolean },
 ): Promise<void> {
-	const { preserveFocus, ...opts } = { ...options, commit: commit };
+	const { preserveFocus, ...opts } = { ...options, patch: patch };
 	return Container.instance.patchDetailsView.show({ preserveFocus: preserveFocus }, opts);
 }

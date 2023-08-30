@@ -1,4 +1,4 @@
-import { css, html, LitElement, nothing } from 'lit';
+import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
@@ -8,7 +8,6 @@ import { messageHeadlineSplitterToken } from '../../../../../plus/webviews/patch
 import type { HierarchicalItem } from '../../../../../system/array';
 import { makeHierarchical } from '../../../../../system/array';
 import type { Serialized } from '../../../../../system/serialize';
-import { uncommittedSha } from '../patchDetails';
 
 interface ExplainState {
 	cancelled?: boolean;
@@ -26,45 +25,6 @@ export class GlPatchDetailsApp extends LitElement {
 
 	@property({ type: Object })
 	explain?: ExplainState;
-
-	get isUncommitted() {
-		return this.state?.selected?.sha === uncommittedSha;
-	}
-
-	get isStash() {
-		return this.state?.selected?.stashNumber != null;
-	}
-
-	get shortSha() {
-		return this.state?.selected?.shortSha ?? '';
-	}
-
-	get navigation() {
-		if (this.state?.navigationStack == null) {
-			return {
-				back: false,
-				forward: false,
-			};
-		}
-
-		const actions = {
-			back: true,
-			forward: true,
-		};
-
-		if (this.state.navigationStack.count <= 1) {
-			actions.back = false;
-			actions.forward = false;
-		} else if (this.state.navigationStack.position === 0) {
-			actions.back = true;
-			actions.forward = false;
-		} else if (this.state.navigationStack.position === this.state.navigationStack.count - 1) {
-			actions.back = false;
-			actions.forward = true;
-		}
-
-		return actions;
-	}
 
 	override updated(changedProperties: Map<string, any>) {
 		if (changedProperties.has('explain')) {
@@ -111,11 +71,11 @@ export class GlPatchDetailsApp extends LitElement {
 	}
 
 	private renderCommitMessage() {
-		if (this.state?.selected == null) {
+		if (this.state?.patch == null) {
 			return undefined;
 		}
 
-		const message = this.state.selected.message;
+		const message = this.state.patch.message ?? '';
 		const index = message.indexOf(messageHeadlineSplitterToken);
 		return html`
 			<div class="section section--message">
@@ -191,29 +151,29 @@ export class GlPatchDetailsApp extends LitElement {
 	}
 
 	private renderCommitStats() {
-		if (this.state?.selected?.stats?.changedFiles == null) {
+		if (this.state?.patch?.stats?.changedFiles == null) {
 			return undefined;
 		}
 
-		if (typeof this.state.selected.stats.changedFiles === 'number') {
+		if (typeof this.state.patch.stats.changedFiles === 'number') {
 			return html`<commit-stats
 				added="?"
-				modified="${this.state.selected.stats.changedFiles}"
+				modified="${this.state.patch.stats.changedFiles}"
 				removed="?"
 			></commit-stats>`;
 		}
 
-		const { added, deleted, changed } = this.state.selected.stats.changedFiles;
+		const { added, deleted, changed } = this.state.patch.stats.changedFiles;
 		return html`<commit-stats added="${added}" modified="${changed}" removed="${deleted}"></commit-stats>`;
 	}
 
 	private renderFileList() {
 		return html`<list-container>
-			${this.state!.selected!.files!.map(
+			${this.state!.patch!.files!.map(
 				(file: Record<string, any>) => html`
 					<file-change-list-item
-						?stash=${this.isStash}
-						?uncommitted=${this.isUncommitted}
+						?stash=${false}
+						?uncommitted=${false}
 						path="${file.path}"
 						repo="${file.repoPath}"
 						icon="${file.icon.dark}"
@@ -226,7 +186,7 @@ export class GlPatchDetailsApp extends LitElement {
 
 	private renderFileTree() {
 		const tree = makeHierarchical(
-			this.state!.selected!.files!,
+			this.state!.patch!.files!,
 			n => n.path.split('/'),
 			(...parts: string[]) => parts.join('/'),
 			this.state!.preferences?.files?.compact ?? true,
@@ -273,8 +233,8 @@ export class GlPatchDetailsApp extends LitElement {
 					<file-change-list-item
 						tree
 						level="${level + 1}"
-						?stash=${this.isStash}
-						?uncommitted=${this.isUncommitted}
+						?stash=${false}
+						?uncommitted=${false}
 						path="${item.value.path}"
 						repo="${item.value.repoPath}"
 						icon="${item.value.icon.dark}"
@@ -292,9 +252,9 @@ export class GlPatchDetailsApp extends LitElement {
 		let icon = 'list-tree';
 		let label = 'View as Tree';
 		let isTree = false;
-		if (this.state?.selected?.files != null) {
+		if (this.state?.patch?.files != null) {
 			if (layout === ViewFilesLayout.Auto) {
-				isTree = this.state.selected.files.length > (this.state.preferences?.files?.threshold ?? 5);
+				isTree = this.state.patch.files.length > (this.state.preferences?.files?.threshold ?? 5);
 			} else {
 				isTree = layout === ViewFilesLayout.Tree;
 			}
@@ -328,7 +288,7 @@ export class GlPatchDetailsApp extends LitElement {
 
 				<div class="change-list" data-region="files">
 					${when(
-						this.state?.selected?.files == null,
+						this.state?.patch?.files == null,
 						() => html`
 							<div class="section section--skeleton">
 								<skeleton-loader></skeleton-loader>
@@ -413,7 +373,7 @@ export class GlPatchDetailsApp extends LitElement {
 	}
 
 	override render() {
-		if (this.state?.selected == null) {
+		if (this.state?.patch == null) {
 			return html` <div class="commit-detail-panel scrollable">${this.renderEmptyContent()}</div>`;
 		}
 
@@ -443,20 +403,17 @@ export class GlPatchDetailsApp extends LitElement {
 								</div>
 							</div>
 							${when(
-								this.state.selected && this.state.selected.stashNumber == null,
+								this.state.patch?.author != null,
 								() => html`
 									<ul class="top-details__authors" aria-label="Authors">
 										<li class="top-details__author" data-region="author">
 											<commit-identity
-												name="${this.state!.selected!.author.name}"
-												email="${this.state!.selected!.author.email}"
-												date=${this.state!.selected!.author.date}
+												name="${this.state!.patch!.author!.name}"
+												email="${this.state!.patch!.author!.email}"
+												date=${this.state!.patch!.author!.date}
 												dateFormat="${this.state!.dateFormat}"
-												avatarUrl="${this.state!.selected!.author.avatar ?? ''}"
+												avatarUrl="${this.state!.patch!.author!.avatar ?? ''}"
 												showAvatar="${this.state!.preferences?.avatars ?? true}"
-												actionLabel="${this.state!.selected!.sha === uncommittedSha
-													? 'modified'
-													: 'committed'}"
 											></commit-identity>
 										</li>
 									</ul>

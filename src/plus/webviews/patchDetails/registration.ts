@@ -19,7 +19,7 @@ export function registerPatchDetailsWebviewView(controller: WebviewsController) 
 			const { PatchDetailsWebviewProvider } = await import(
 				/* webpackChunkName: "patchDetails" */ './patchDetailsWebview'
 			);
-			return new PatchDetailsWebviewProvider(container, host, { mode: 'default' });
+			return new PatchDetailsWebviewProvider(container, host);
 		},
 	);
 }

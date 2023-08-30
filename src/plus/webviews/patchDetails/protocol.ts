@@ -12,22 +12,28 @@ export const messageHeadlineSplitterToken = '\x00\n\x00';
 
 export type FileShowOptions = TextDocumentShowOptions;
 
-export interface CommitSummary {
-	sha: string;
-	shortSha: string;
-	// summary: string;
-	message: string;
-	author: GitCommitIdentityShape & { avatar: string | undefined };
-	// committer: GitCommitIdentityShape & { avatar: string | undefined };
-	repoPath: string;
-	stashNumber?: string;
-}
+interface LocalPatchDetails {
+	type: 'local';
 
-export interface CommitDetails extends CommitSummary {
-	autolinks?: Autolink[];
+	message?: string;
 	files?: (GitFileChangeShape & { icon: { dark: string; light: string } })[];
 	stats?: GitCommitStats;
+
+	author?: undefined;
 }
+
+interface CloudPatchDetails {
+	type: 'cloud';
+
+	message?: string;
+	files?: (GitFileChangeShape & { icon: { dark: string; light: string } })[];
+	stats?: GitCommitStats;
+
+	author: GitCommitIdentityShape & { avatar: string | undefined };
+	repoPath: string;
+}
+
+export type PatchDetails = LocalPatchDetails | CloudPatchDetails;
 
 export interface Preferences {
 	avatars?: boolean;
@@ -37,22 +43,15 @@ export interface Preferences {
 export interface State {
 	timestamp: number;
 
-	pinned: boolean;
 	preferences?: Preferences;
-	// commits?: CommitSummary[];
-	includeRichContent?: boolean;
+	// includeRichContent?: boolean;
 
-	selected?: CommitDetails;
-	autolinkedIssues?: IssueOrPullRequest[];
+	patch?: PatchDetails;
+	// autolinkedIssues?: IssueOrPullRequest[];
 
 	dateFormat: string;
 	// indent: number;
 	indentGuides: 'none' | 'onHover' | 'always';
-	navigationStack: {
-		count: number;
-		position: number;
-		hint?: string;
-	};
 }
 
 export type ShowCommitDetailsViewCommandArgs = string[];
