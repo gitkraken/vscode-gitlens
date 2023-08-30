@@ -6,6 +6,7 @@ import { getBranchNameWithoutRemote } from '../../git/models/branch';
 import type { GitReference } from '../../git/models/reference';
 import { createReference, isSha } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
+import type { Repository } from '../../git/models/repository';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { executeCommand } from '../../system/command';
@@ -246,21 +247,28 @@ export class DeepLinkService implements Disposable {
 		return undefined;
 	}
 
-	private async showOpenTypePrompt(): Promise<DeepLinkRepoOpenType | undefined> {
-		const options: { title: string; action?: DeepLinkRepoOpenType; isCloseAffordance?: boolean }[] = [
+	private async showOpenTypePrompt(options?: {
+		includeCurrent?: boolean;
+		customMessage?: string;
+	}): Promise<DeepLinkRepoOpenType | undefined> {
+		const openOptions: { title: string; action?: DeepLinkRepoOpenType; isCloseAffordance?: boolean }[] = [
 			{ title: 'Open Folder', action: DeepLinkRepoOpenType.Folder },
 			{ title: 'Open Workspace', action: DeepLinkRepoOpenType.Workspace },
 		];
 
 		if (this._context.remoteUrl != null) {
-			options.push({ title: 'Clone', action: DeepLinkRepoOpenType.Clone });
+			openOptions.push({ title: 'Clone', action: DeepLinkRepoOpenType.Clone });
 		}
 
-		options.push({ title: 'Cancel', isCloseAffordance: true });
+		if (options?.includeCurrent) {
+			openOptions.push({ title: 'Use Current Window', action: DeepLinkRepoOpenType.Current });
+		}
+
+		openOptions.push({ title: 'Cancel', isCloseAffordance: true });
 		const openTypeResult = await window.showInformationMessage(
-			'No matching repository found. Please choose an option.',
+			options?.customMessage ?? 'No matching repository found. Please choose an option.',
 			{ modal: true },
-			...options,
+			...openOptions,
 		);
 
 		return openTypeResult?.action;
@@ -328,6 +336,9 @@ export class DeepLinkService implements Disposable {
 		let message = '';
 		let action = initialAction;
 
+		//Repo match
+		let matchingLocalRepoPaths: string[] = [];
+
 		// Remote match
 		let matchingRemotes: GitRemote[] = [];
 		let remoteDomain = '';
@@ -339,6 +350,8 @@ export class DeepLinkService implements Disposable {
 		let repoOpenLocation;
 		let repoOpenUri: Uri | undefined = undefined;
 		let repoClonePath: string | undefined = undefined;
+		let chosenRepo: Repository | undefined = undefined;
+		let chosenRepoPath;
 
 		queueMicrotask(
 			() =>
@@ -432,6 +445,16 @@ export class DeepLinkService implements Disposable {
 					}
 
 					if (!this._context.repo) {
+						matchingLocalRepoPaths = await this.container.repositoryPathMapping.getLocalRepoPaths({
+							remoteUrl: remoteUrl,
+						});
+						if (matchingLocalRepoPaths.length > 0) {
+							action = DeepLinkServiceAction.RepoMatchedInLocalMapping;
+							break;
+						}
+					}
+
+					if (!this._context.repo) {
 						if (state === DeepLinkServiceState.RepoMatch) {
 							action = DeepLinkServiceAction.RepoMatchFailed;
 						} else {
@@ -449,7 +472,30 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					repoOpenType = await this.showOpenTypePrompt();
+					if (matchingLocalRepoPaths.length > 0) {
+						chosenRepoPath = await window.showQuickPick(
+							[...matchingLocalRepoPaths, 'Choose a different location'],
+							{ placeHolder: 'Matching repository found. Choose a location to open it.' },
+						);
+
+						if (chosenRepoPath == null) {
+							action = DeepLinkServiceAction.DeepLinkCancelled;
+							break;
+						} else if (chosenRepoPath !== 'Choose a different location') {
+							repoOpenUri = Uri.file(chosenRepoPath);
+							repoOpenType = DeepLinkRepoOpenType.Folder;
+						}
+					}
+
+					if (repoOpenType == null) {
+						repoOpenType = await this.showOpenTypePrompt({
+							customMessage:
+								chosenRepoPath === 'Choose a different location'
+									? 'Please choose an option to open the repository'
+									: undefined,
+						});
+					}
+
 					if (!repoOpenType) {
 						action = DeepLinkServiceAction.DeepLinkCancelled;
 						break;
@@ -461,23 +507,25 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					repoOpenUri = (
-						await window.showOpenDialog({
-							title: `Choose a ${
-								repoOpenType === DeepLinkRepoOpenType.Workspace ? 'workspace' : 'folder'
-							} to ${
-								repoOpenType === DeepLinkRepoOpenType.Clone
-									? 'clone the repository to'
-									: 'open the repository'
-							}`,
-							canSelectFiles: repoOpenType === DeepLinkRepoOpenType.Workspace,
-							canSelectFolders: repoOpenType !== DeepLinkRepoOpenType.Workspace,
-							canSelectMany: false,
-							...(repoOpenType === DeepLinkRepoOpenType.Workspace && {
-								filters: { Workspaces: ['code-workspace'] },
-							}),
-						})
-					)?.[0];
+					if (repoOpenUri == null) {
+						repoOpenUri = (
+							await window.showOpenDialog({
+								title: `Choose a ${
+									repoOpenType === DeepLinkRepoOpenType.Workspace ? 'workspace' : 'folder'
+								} to ${
+									repoOpenType === DeepLinkRepoOpenType.Clone
+										? 'clone the repository to'
+										: 'open the repository'
+								}`,
+								canSelectFiles: repoOpenType === DeepLinkRepoOpenType.Workspace,
+								canSelectFolders: repoOpenType !== DeepLinkRepoOpenType.Workspace,
+								canSelectMany: false,
+								...(repoOpenType === DeepLinkRepoOpenType.Workspace && {
+									filters: { Workspaces: ['code-workspace'] },
+								}),
+							})
+						)?.[0];
+					}
 
 					if (!repoOpenUri) {
 						action = DeepLinkServiceAction.DeepLinkCancelled;
@@ -508,6 +556,24 @@ export class DeepLinkService implements Disposable {
 						}
 
 						repoOpenUri = Uri.file(repoClonePath);
+					}
+
+					// Add the repo to the repo path mapping if it exists
+					if (
+						repoOpenType !== DeepLinkRepoOpenType.Current &&
+						repoOpenType !== DeepLinkRepoOpenType.Workspace &&
+						!matchingLocalRepoPaths.includes(repoOpenUri.fsPath)
+					) {
+						chosenRepo = await this.container.git.getOrOpenRepository(repoOpenUri, {
+							closeOnOpen: true,
+							detectNested: false,
+						});
+						if (chosenRepo != null) {
+							await this.container.repositoryPathMapping.writeLocalRepoPath(
+								{ remoteUrl: remoteUrl },
+								chosenRepo.uri.fsPath,
+							);
+						}
 					}
 
 					if (
