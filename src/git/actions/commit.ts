@@ -236,14 +236,14 @@ export async function openChanges(
 		  }
 		: commitOrRefs;
 
-	const uri1 = GitUri.fromFile(file, refs.repoPath);
-	const uri2 =
-		file.status === 'R' || file.status === 'C' ? GitUri.fromFile(file, refs.repoPath, refs.ref2, true) : uri1;
+	const rhsUri = GitUri.fromFile(file, refs.repoPath);
+	const lhsUri =
+		file.status === 'R' || file.status === 'C' ? GitUri.fromFile(file, refs.repoPath, refs.ref1, true) : rhsUri;
 
 	void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 		repoPath: refs.repoPath,
-		lhs: { uri: uri1, sha: refs.ref1 },
-		rhs: { uri: uri2, sha: refs.ref2 },
+		lhs: { uri: lhsUri, sha: refs.ref1 },
+		rhs: { uri: rhsUri, sha: refs.ref2 },
 		showOptions: options,
 	}));
 }
