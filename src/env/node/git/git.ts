@@ -870,12 +870,7 @@ export class Git {
 			if (options.upstream && options.pull) {
 				params.push('-u', options.remote, `${options.upstream}:${options.branch}`);
 			} else {
-				params.push(
-					options.remote,
-					options.upstream
-						? `${options.upstream}:refs/remotes/${options.remote}/${options.branch}`
-						: options.branch,
-				);
+				params.push(options.remote, options.upstream || options.branch);
 			}
 		} else if (options.remote) {
 			params.push(options.remote);
