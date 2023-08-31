@@ -903,7 +903,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		const [commit, file] = result;
 
 		this.suspendLineTracker();
-		void openChangesWithWorking(file.path, commit, {
+		void openChangesWithWorking(file, commit, {
 			preserveFocus: true,
 			preview: true,
 			...this.getShowOptions(params),
@@ -917,7 +917,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		const [commit, file] = result;
 
 		this.suspendLineTracker();
-		void openChanges(file.path, commit, {
+		void openChanges(file, commit, {
 			preserveFocus: true,
 			preview: true,
 			...this.getShowOptions(params),
@@ -932,7 +932,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		const [commit, file] = result;
 
 		this.suspendLineTracker();
-		void openFile(file.path, commit, {
+		void openFile(file, commit, {
 			preserveFocus: true,
 			preview: true,
 			...this.getShowOptions(params),
@@ -945,7 +945,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 
 		const [commit, file] = result;
 
-		void openFileOnRemote(file.path, commit);
+		void openFileOnRemote(file, commit);
 	}
 
 	private getShowOptions(params: FileActionParams): TextDocumentShowOptions | undefined {
