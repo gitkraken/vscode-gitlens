@@ -24,6 +24,18 @@ export interface GitPatch {
 export interface GitCloudPatch {
 	readonly type: 'cloud';
 	readonly id: string;
+	readonly baseBranchName: string;
+	readonly baseCommitSha: string;
+	readonly changesetId: string;
+	readonly filename: string;
+	readonly gitRepositoryId?: string;
+	readonly secureUploadData: {
+		readonly headers: {
+			readonly Host: string[];
+		};
+		readonly method: string;
+		readonly url: string;
+	};
 	readonly uri: Uri;
 	readonly contents: string;
 

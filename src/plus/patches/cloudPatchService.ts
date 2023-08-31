@@ -7,7 +7,31 @@ import type { Repository } from '../../git/models/repository';
 import { getSettledValue } from '../../system/promise';
 import type { ServerConnection } from '../gk/serverConnection';
 
-export interface CloudPatch {
+export const nonexistingChangesetId = '00000000-0000-0000-0000-000000000000';
+
+export interface CloudPatch extends CloudPatchBase {
+	readonly user?: {
+		readonly id: string;
+		readonly name: string;
+		readonly email: string;
+	};
+
+	readonly changesets: CloudPatchChangeset[];
+}
+
+export interface CloudPatchChangeset {
+	readonly id: string;
+	// readonly linkUrl: string; TODO add this once the backend actually supports it
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+	readonly draftId: string;
+	readonly gitProfileId: string;
+	readonly parentChangesetId: string;
+	readonly patches: GitCloudPatch[];
+	readonly userId?: string;
+}
+
+export interface CloudPatchBase {
 	readonly type: 'cloud';
 
 	readonly id: string;
@@ -16,19 +40,9 @@ export interface CloudPatch {
 	readonly description?: string;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
-	readonly userId: string;
-	readonly user: {
-		readonly id: string;
-		readonly name: string;
-		readonly email: string;
-	};
-
-	readonly changesets: {
-		readonly id: string;
-		readonly linkUrl: string;
-
-		readonly patches: GitCloudPatch[];
-	}[];
+	readonly createdBy: string; // userId of creator
+	readonly isPublic: boolean;
+	readonly organizationId?: string;
 }
 
 export interface CloudPatchData {
@@ -105,25 +119,38 @@ export class CloudPatchService implements Disposable {
 
 		const draftData = (await draftResponse.json()).data;
 		const draftId = draftData.id;
-		const draftDeepLinkUrl = draftData.deepLink;
+		const newDraft = await this.get(draftId);
+		if (newDraft == null) return undefined;
 
-		// TODO: Remove this logic once the server generates the filename, rather than the client.
-		const timestamp = Date.now();
+		const repoFirstCommitSha = await this.container.git.getUniqueRepositoryId(repository.path);
 
-		// POST /v1/drafts/:draftId/patches
-		const patchCreateResponse = await this.connection.fetch(
-			Uri.joinPath(this.connection.baseGkApiUri, `v1/drafts/${draftId}/patches`).toString(),
+		// POST /v1/drafts/:draftId/changesets
+		const changesetCreateResponse = await this.connection.fetch(
+			Uri.joinPath(this.connection.baseGkApiUri, `v1/drafts/${draftId}/changesets`).toString(),
 			{
 				method: 'POST',
 				body: JSON.stringify({
-					filename: `${repository.name}_${gitProfileId}_${branchName}_${timestamp}.patch`,
+					gitProfileId: gitProfileId,
+					patches: [
+						{
+							baseCommitSha: baseSha,
+							baseBranchName: branchName,
+							gitRepoData: {
+								...(repoFirstCommitSha != null &&
+									repoFirstCommitSha != '-' && { initialCommitSha: repoFirstCommitSha }),
+								// TODO - Add other repo provider data once the model documentation is available
+							},
+						},
+					],
 				}),
 			},
 		);
 
-		const patchCreatedData = (await patchCreateResponse.json()).data;
-		const { url, method, headers } = patchCreatedData.secureUploadData;
-		const patchId = patchCreatedData.id;
+		const changesetCreatedData = (await changesetCreateResponse.json()).data;
+		const patch = changesetCreatedData.patches[0];
+
+		const { url, method, headers } = patch.secureUploadData;
+		const patchId = patch.id;
 
 		// Upload patch to returned S3 url
 		await fetch(url, {
@@ -151,18 +178,8 @@ export class CloudPatchService implements Disposable {
 		});
 
 		return {
-			type: 'cloud',
-			id: draftId,
-			linkUrl: draftDeepLinkUrl,
-			changesets: [],
-			userId: '0',
-			user: {
-				id: '0',
-				name: 'eric',
-				email: 'email',
-			},
-			createdAt: new Date(),
-			updatedAt: new Date(),
+			...newDraft,
+			changesets: [changesetCreatedData],
 		};
 	}
 
@@ -175,20 +192,44 @@ export class CloudPatchService implements Disposable {
 		);
 
 		const draftData = (await draftResponse.json()).data;
+		const changeSets = await this.getChangesets(id); // TODO@eamodio The changesets don't come in on the GET call above, and the GET call for changesets is 404ing.
 		return {
 			type: 'cloud',
 			id: draftData.id,
 			linkUrl: draftData.deepLink,
-			changesets: [],
-			userId: '0',
-			user: {
-				id: '0',
-				name: 'eric',
-				email: 'email',
-			},
-			createdAt: new Date(),
-			updatedAt: new Date(),
+			title: draftData.title,
+			description: draftData.description,
+			createdAt: new Date(draftData.createdAt),
+			updatedAt: new Date(draftData.updatedAt),
+			createdBy: draftData.createdBy,
+			isPublic: draftData.isPublic,
+			organizationId: draftData.organizationId,
+			changesets: changeSets ?? [],
 		};
+	}
+
+	// TODO: This call is 404ing...maybe it's not implemented yet?
+	async getChangesets(id: string): Promise<CloudPatchChangeset[] | undefined> {
+		const changesetsResponse = await this.connection.fetch(
+			Uri.joinPath(this.connection.baseGkApiUri, `/v1/drafts/${id}/changesets`).toString(),
+			{
+				method: 'GET',
+			},
+		);
+
+		const changesetsData = (await changesetsResponse.json()).data;
+		return changesetsData.map((changesetData: any): CloudPatchChangeset => {
+			const { id, createdAt, updatedAt, draftId, gitProfileId, parentChangesetId, patches } = changesetData;
+			return {
+				id: id,
+				createdAt: new Date(createdAt),
+				updatedAt: new Date(updatedAt),
+				draftId: draftId,
+				gitProfileId: gitProfileId,
+				parentChangesetId: parentChangesetId,
+				patches: patches,
+			};
+		}) as CloudPatchChangeset[];
 	}
 
 	async getPatches(id: string, options?: { includeContents?: boolean }): Promise<CloudPatchData[] | undefined> {

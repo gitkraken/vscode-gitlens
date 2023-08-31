@@ -703,7 +703,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 		return commit != null ? [commit, commit.file!] : undefined;
 	}
 
-	private async getPatchCommit() {
+	private async getPatchCommit(): Promise<GitCommit | undefined> {
 		let patch: GitPatch | GitCloudPatch;
 		switch (this._context.patch?.type) {
 			case 'local':
