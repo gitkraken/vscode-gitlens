@@ -33,6 +33,8 @@ import type { PullRequest } from '../../../git/models/pullRequest';
 import type { GitRevisionReference } from '../../../git/models/reference';
 import { getReferenceFromRevision, shortenRevision } from '../../../git/models/reference';
 import type { GitRemote } from '../../../git/models/remote';
+import { showCommitPicker } from '../../../quickpicks/commitPicker';
+import { showRepositoryPicker } from '../../../quickpicks/repositoryPicker';
 import { executeCommand, executeCoreCommand, registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
 import { getContext } from '../../../system/context';
@@ -753,11 +755,11 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 	private async getFileCommitFromParams(
 		params: FileActionParams,
 	): Promise<[commit: GitCommit, file: GitFileChange] | undefined> {
-		const commit = await this.getPatchCommit()?.getCommitForFile(params.path);
+		const commit = await (await this.getPatchCommit())?.getCommitForFile(params.path);
 		return commit != null ? [commit, commit.file!] : undefined;
 	}
 
-	private getPatchCommit() {
+	private async getPatchCommit() {
 		let patch: GitPatch | GitCloudPatch;
 		switch (this._context.patch?.type) {
 			case 'local':
@@ -770,6 +772,36 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 				throw new Error('Invalid patch type');
 		}
 
+		if (patch.repo == null) {
+			const pick = await showRepositoryPicker(
+				'Patch Repository',
+				'Choose which repository this patch belongs to',
+			);
+			if (pick == null) return undefined;
+
+			patch.repo = pick.item;
+		}
+
+		if (patch.baseRef == null) {
+			const pick = await showCommitPicker(
+				this.container.git.getLog(patch.repo.uri),
+				'Patch Base',
+				'Choose which base this patch was created from',
+			);
+			if (pick == null) return undefined;
+
+			patch.baseRef = pick.sha;
+		}
+
+		if (patch.commit == null) {
+			const commit = await this.container.git.createUnreachableCommitForPatch(
+				patch.repo.uri,
+				patch.contents,
+				patch.baseRef ?? 'HEAD',
+				'PATCH',
+			);
+			patch.commit = commit;
+		}
 		return patch.commit;
 	}
 
@@ -814,7 +846,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 
 		const [commit, file] = result;
 
-		void openChangesWithWorking(file.path, commit, {
+		void openChangesWithWorking(file, commit, {
 			preserveFocus: true,
 			preview: true,
 			...this.getShowOptions(params),
@@ -827,7 +859,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 
 		const [commit, file] = result;
 
-		void openChanges(file.path, commit, {
+		void openChanges(file, commit, {
 			preserveFocus: true,
 			preview: true,
 			...this.getShowOptions(params),
@@ -841,7 +873,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 
 		const [commit, file] = result;
 
-		void openFile(file.path, commit, {
+		void openFile(file, commit, {
 			preserveFocus: true,
 			preview: true,
 			...this.getShowOptions(params),
@@ -854,7 +886,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<State, Seria
 
 		const [commit, file] = result;
 
-		void openFileOnRemote(file.path, commit);
+		void openFileOnRemote(file, commit);
 	}
 
 	private getShowOptions(params: FileActionParams): TextDocumentShowOptions | undefined {

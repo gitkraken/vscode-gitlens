@@ -1276,6 +1276,17 @@ export class GitProviderService implements Disposable {
 		return provider.clone?.(url, parentPath);
 	}
 
+	@log()
+	async createUnreachableCommitForPatch(
+		repoPath: string | Uri,
+		contents: string,
+		baseRef: string,
+		message: string,
+	): Promise<GitCommit | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.createUnreachableCommitForPatch?.(path, contents, baseRef, message);
+	}
+
 	@log({ singleLine: true })
 	resetCaches(...caches: GitCaches[]): void {
 		if (caches.length === 0 || caches.includes('providers')) {

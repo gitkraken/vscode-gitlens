@@ -15,6 +15,7 @@ export interface GitPatch {
 	readonly uri: Uri;
 	readonly contents: string;
 
+	baseRef?: string;
 	files?: GitDiffFiles['files'];
 	repo?: Repository;
 	commit?: GitCommit;
@@ -26,6 +27,7 @@ export interface GitCloudPatch {
 	readonly uri: Uri;
 	readonly contents: string;
 
+	baseRef?: string;
 	files?: GitDiffFiles['files'];
 	repo?: Repository;
 	commit?: GitCommit;
