@@ -698,20 +698,14 @@ export function GraphWrapper({
 	}, [includeOnlyRefsById]);
 
 	const hasFilters = useMemo(() => {
-		if (!isAllBranches) {
-			return true;
-		}
-
-		if (graphConfig?.dimMergeCommits) {
-			return true;
-		}
-
-		if (excludeTypes == null) {
-			return false;
-		}
-
+		if (!isAllBranches) return true;
+		if (excludeTypes == null) return false;
 		return Object.values(excludeTypes).includes(true);
 	}, [excludeTypes, isAllBranches, graphConfig?.dimMergeCommits]);
+
+	const hasSpecialFilters = useMemo(() => {
+		return !isAllBranches;
+	}, [isAllBranches]);
 
 	const handleSearchInput = (e: CustomEvent<SearchQuery>) => {
 		const detail = e.detail;
@@ -1139,7 +1133,7 @@ export function GraphWrapper({
 							<PopMenu>
 								<button type="button" className="action-button" slot="trigger" title="Filter Graph">
 									<span className={`codicon codicon-filter${hasFilters ? '-filled' : ''}`}></span>
-									{hasFilters && <span className="action-button__indicator"></span>}
+									{hasSpecialFilters && <span className="action-button__indicator"></span>}
 									<span
 										className="codicon codicon-chevron-down action-button__more"
 										aria-hidden="true"
