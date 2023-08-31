@@ -223,10 +223,10 @@
   resolved "https://registry.yarnpkg.com/@floating-ui/utils/-/utils-0.1.1.tgz#1a5b1959a528e374e8037c4396c3e825d6cf4a83"
   integrity sha512-m0G6wlnhm/AX0H12IOWtK8gASEMffnX08RtKkCgTdHb9JpHKGloI7icFfLg9ZmQeavcvR0PKmzxClyuFPSjKWw==
 
-"@gitkraken/gitkraken-components@10.1.12":
-  version "10.1.12"
-  resolved "https://registry.yarnpkg.com/@gitkraken/gitkraken-components/-/gitkraken-components-10.1.12.tgz#cfa304c8d4de9e41ee8a002d3fc79e1ff0ff3ae0"
-  integrity sha512-nPNHQN9ExVZvvalIVYG7PtkzykrUVRWQpCc9KZxpO16m0+btEpd9jAJWA7wHm6W33XvJdOiqrI8H10olZ4POSg==
+"@gitkraken/gitkraken-components@10.1.16":
+  version "10.1.16"
+  resolved "https://registry.yarnpkg.com/@gitkraken/gitkraken-components/-/gitkraken-components-10.1.16.tgz#2cb407e110620927f2888c5fc90ba88e81b2eaee"
+  integrity sha512-Y3C+Je7J56dRBwGaKbLbEht9hrBR1XTtVxxTRA4M/zw1DDsWLs9gBMU9QZP3z4Kw0Ys7rUnQbZwsYfvatTXeRg==
   dependencies:
     "@axosoft/react-virtualized" "9.22.3-gitkraken.3"
     classnames "2.3.2"
@@ -235,6 +235,7 @@
     react-bootstrap "0.32.4"
     react-dom "16.8.4"
     react-dragula "1.1.17"
+    react-onclickoutside "^6.13.0"
 
 "@gitkraken/shared-web-components@^0.1.1-rc.6":
   version "0.1.1-rc.8"
@@ -5930,6 +5931,11 @@ react-lifecycles-compat@^3.0.4:
   version "3.0.4"
   resolved "https://registry.yarnpkg.com/react-lifecycles-compat/-/react-lifecycles-compat-3.0.4.tgz#4f1a273afdfc8f3488a8c516bfda78f872352362"
   integrity sha512-fBASbA6LnOU9dOU2eW7aQ8xmYBSXUIWr+UmF9b1efZBazGNO+rcXT/icdKnYm2pTwcRylVUYwW7H1PHfLekVzA==
+
+react-onclickoutside@^6.13.0:
+  version "6.13.0"
+  resolved "https://registry.yarnpkg.com/react-onclickoutside/-/react-onclickoutside-6.13.0.tgz#e165ea4e5157f3da94f4376a3ab3e22a565f4ffc"
+  integrity sha512-ty8So6tcUpIb+ZE+1HAhbLROvAIJYyJe/1vRrrcmW+jLsaM+/powDRqxzo6hSh9CuRZGSL1Q8mvcF5WRD93a0A==
 
 react-overlays@^0.8.0:
   version "0.8.3"
