@@ -1162,6 +1162,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		options?: { all?: boolean; branch?: GitBranchReference; prune?: boolean; pull?: boolean; remote?: string },
 	): Promise<void> {
+		const scope = getLogScope();
+
 		const { branch, ...opts } = options ?? {};
 		try {
 			if (isBranchReference(branch)) {
@@ -1180,7 +1182,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 		} catch (ex) {
-			Logger.error(ex, 'LocalGitProvider.fetch');
+			Logger.error(ex, scope);
 			if (FetchError.is(ex)) {
 				void window.showErrorMessage(ex.message);
 			} else {
@@ -1195,6 +1197,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		options?: { branch?: GitBranchReference; force?: boolean; publish?: { remote: string } },
 	): Promise<void> {
+		const scope = getLogScope();
+
 		let branch = options?.branch;
 		if (!isBranchReference(branch)) {
 			branch = await this.getBranch(repoPath);
@@ -1217,7 +1221,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 		} catch (ex) {
-			Logger.error(ex, 'LocalGitProvider.push');
+			Logger.error(ex, scope);
 			if (PushError.is(ex)) {
 				void window.showErrorMessage(ex.message);
 			} else {
@@ -1232,6 +1236,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		repoPath: string,
 		options?: { branch?: GitBranchReference; rebase?: boolean; tags?: boolean },
 	): Promise<void> {
+		const scope = getLogScope();
+
 		let branch = options?.branch;
 		if (!isBranchReference(branch)) {
 			branch = await this.getBranch(repoPath);
@@ -1251,7 +1257,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 		} catch (ex) {
-			Logger.error(ex, 'LocalGitProvider.pull');
+			Logger.error(ex, scope);
 			if (PullError.is(ex)) {
 				void window.showErrorMessage(ex.message);
 			} else {
@@ -4101,6 +4107,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async getRemotes(repoPath: string | undefined, options?: { sort?: boolean }): Promise<GitRemote[]> {
 		if (repoPath == null) return [];
 
+		const scope = getLogScope();
+
 		let remotesPromise = this.useCaching ? this._remotesCache.get(repoPath) : undefined;
 		if (remotesPromise == null) {
 			async function load(this: LocalGitProvider): Promise<GitRemote[]> {
@@ -4120,7 +4128,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					return remotes;
 				} catch (ex) {
 					this._remotesCache.delete(repoPath!);
-					Logger.error(ex);
+					Logger.error(ex, scope);
 					return [];
 				}
 			}
@@ -4458,6 +4466,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	): Promise<[string, string] | undefined> {
 		if (ref === deletedOrMissing) return undefined;
 
+		const scope = getLogScope();
+
 		try {
 			while (true) {
 				if (!repoPath) {
@@ -4518,7 +4528,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				return [relativePath, repoPath];
 			}
 		} catch (ex) {
-			Logger.error(ex);
+			Logger.error(ex, scope);
 			return undefined;
 		}
 	}
@@ -4537,6 +4547,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		uri: Uri,
 		options?: { ref1?: string; ref2?: string; staged?: boolean; tool?: string },
 	): Promise<void> {
+		const scope = getLogScope();
 		const [relativePath, root] = splitPath(uri, repoPath);
 
 		try {
@@ -4568,13 +4579,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				return;
 			}
 
-			Logger.error(ex, 'openDiffTool');
+			Logger.error(ex, scope);
 			void showGenericErrorMessage('Unable to open compare');
 		}
 	}
 
 	@log()
 	async openDirectoryCompare(repoPath: string, ref1: string, ref2?: string, tool?: string): Promise<void> {
+		const scope = getLogScope();
+
 		try {
 			if (!tool) {
 				const scope = getLogScope();
@@ -4603,7 +4616,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				return;
 			}
 
-			Logger.error(ex, 'openDirectoryCompare');
+			Logger.error(ex, scope);
 			void showGenericErrorMessage('Unable to open directory compare');
 		}
 	}
@@ -5080,13 +5093,15 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		path: string,
 		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
 	) {
+		const scope = getLogScope();
+
 		try {
 			await this.git.worktree__add(repoPath, path, options);
 			if (options?.createBranch) {
 				this.container.events.fire('git:cache:reset', { repoPath: repoPath, caches: ['branches'] });
 			}
 		} catch (ex) {
-			Logger.error(ex);
+			Logger.error(ex, scope);
 
 			const msg = String(ex);
 
@@ -5137,6 +5152,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 	@log()
 	async deleteWorktree(repoPath: string, path: string, options?: { force?: boolean }) {
+		const scope = getLogScope();
+
 		await this.ensureGitVersion(
 			'2.17.0',
 			'Deleting worktrees',
@@ -5146,7 +5163,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		try {
 			await this.git.worktree__remove(repoPath, path, options);
 		} catch (ex) {
-			Logger.error(ex);
+			Logger.error(ex, scope);
 
 			const msg = String(ex);
 
