@@ -11555,29 +11555,49 @@
 					"group": "1_gitlens_actions@1"
 				},
 				{
+					"command": "gitlens.views.publishBranch",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+tracking\\b)(?!.*?\\b\\+closed\\b)/",
+					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.views.push",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+ahead\\b)(?!.*?\\b\\+behind\\b)(?!.*?\\b\\+closed\\b)/",
+					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.views.pull",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+behind\\b)(?!.*?\\b\\+closed\\b)/",
+					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.views.fetch",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(remote|tracking)\\b)(?!.*?\\b\\+closed\\b)/",
+					"group": "1_gitlens_actions@3"
+				},
+				{
 					"command": "gitlens.views.mergeBranchInto",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/",
-					"group": "1_gitlens_actions@3"
+					"group": "1_gitlens_actions@4"
 				},
 				{
 					"command": "gitlens.views.rebaseOntoBranch",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/",
-					"group": "1_gitlens_actions@4"
+					"group": "1_gitlens_actions@5"
 				},
 				{
 					"command": "gitlens.views.rebaseOntoUpstream",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+tracking\\b)(?!.*?\\b\\+closed\\b)/",
-					"group": "1_gitlens_actions@4"
+					"group": "1_gitlens_actions@5"
 				},
 				{
 					"command": "gitlens.views.renameBranch",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+closed\\b)/",
-					"group": "1_gitlens_actions@5"
+					"group": "1_gitlens_actions@6"
 				},
 				{
 					"command": "gitlens.views.deleteBranch",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)(?!.*?\\b\\+closed\\b)/",
-					"group": "1_gitlens_actions@6"
+					"group": "1_gitlens_actions@7"
 				},
 				{
 					"command": "gitlens.views.createBranch",
@@ -12813,29 +12833,49 @@
 					"group": "1_gitlens_actions@1"
 				},
 				{
+					"command": "gitlens.graph.publishBranch",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+tracking\\b)(?!.*?\\b\\+closed\\b)/",
+					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.graph.push",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+ahead\\b)(?!.*?\\b\\+behind\\b)(?!.*?\\b\\+closed\\b)/",
+					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.graph.pull",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+behind\\b)(?!.*?\\b\\+closed\\b)/",
+					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.graph.fetch",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(remote|tracking)\\b)(?!.*?\\b\\+closed\\b)/",
+					"group": "1_gitlens_actions@3"
+				},
+				{
 					"command": "gitlens.graph.mergeBranchInto",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
-					"group": "1_gitlens_actions@3"
+					"group": "1_gitlens_actions@4"
 				},
 				{
 					"command": "gitlens.graph.rebaseOntoBranch",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
-					"group": "1_gitlens_actions@4"
+					"group": "1_gitlens_actions@5"
 				},
 				{
 					"command": "gitlens.graph.rebaseOntoUpstream",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+tracking\\b)/",
-					"group": "1_gitlens_actions@4"
+					"group": "1_gitlens_actions@5"
 				},
 				{
 					"command": "gitlens.graph.renameBranch",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b/",
-					"group": "1_gitlens_actions@5"
+					"group": "1_gitlens_actions@6"
 				},
 				{
 					"command": "gitlens.graph.deleteBranch",
 					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
-					"group": "1_gitlens_actions@6"
+					"group": "1_gitlens_actions@7"
 				},
 				{
 					"command": "gitlens.graph.createBranch",
@@ -12882,11 +12922,6 @@
 					"when": "gitlens:hasRemotes && webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
 					"group": "2_gitlens_quickopen@1",
 					"alt": "gitlens.copyRemoteBranchUrl"
-				},
-				{
-					"command": "gitlens.graph.publishBranch",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+tracking\\b)/",
-					"group": "8_gitlens_actions@13"
 				},
 				{
 					"command": "gitlens.graph.cherryPick",
