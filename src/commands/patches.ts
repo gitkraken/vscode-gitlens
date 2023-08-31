@@ -2,7 +2,6 @@ import type { TextEditor } from 'vscode';
 import { env, window, workspace } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import { GitCommit, GitCommitIdentity } from '../git/models/commit';
 import type { LocalPatch } from '../git/models/patch';
 import { showPatchesView } from '../plus/patches/actions';
 import type { CloudPatch, CloudPatchData } from '../plus/patches/cloudPatchService';
@@ -170,26 +169,6 @@ export class OpenPatchCommand extends ActiveEditorCommand {
 		};
 
 		void showPatchesView(patch);
-
-		// // Total hack here creating a fake commit object to pass to the details view -- this won't really work (e.g. clicking on the files won't open a valid diff)
-		// // Need to think about how to best provide this -- either create a real, but unreachable, commit and then use that sha which should work until a GC
-		// // Or need to fully virtualize the patch into a new URI structure with a new FS provider or something
-
-		// const date = new Date();
-
-		// const commit = new GitCommit(
-		// 	this.container,
-		// 	repoPath,
-		// 	`0000000000000000000000000000000000000000-`,
-		// 	new GitCommitIdentity('You', undefined, date),
-		// 	new GitCommitIdentity('You', undefined, date),
-		// 	'Patch changes',
-		// 	['HEAD'],
-		// 	'Patch changes',
-		// 	diffFiles?.files,
-		// );
-
-		// void showPatchesView(commit);
 	}
 }
 
@@ -216,8 +195,6 @@ export class OpenCloudPatchCommand extends Command {
 			void window.showErrorMessage('Cannot open cloud patch: no patch id provided');
 			return;
 		}
-
-		const repoPath = this.container.git.highlander.path;
 
 		const cloudPatch = await this.container.cloudPatches.get(args?.id);
 		if (cloudPatch == null) {
@@ -251,26 +228,6 @@ export class OpenCloudPatchCommand extends Command {
 			return;
 		}
 
-		const diffFiles = await this.container.git.getDiffFiles(repoPath, patch.contents);
-
-		// Total hack here creating a fake commit object to pass to the details view -- this won't really work (e.g. clicking on the files won't open a valid diff)
-		// Need to think about how to best provide this -- either create a real, but unreachable, commit and then use that sha which should work until a GC
-		// Or need to fully virtualize the patch into a new URI structure with a new FS provider or something
-
-		const date = new Date();
-
-		const commit = new GitCommit(
-			this.container,
-			repoPath,
-			`0000000000000000000000000000000000000000-`,
-			new GitCommitIdentity('You', undefined, date),
-			new GitCommitIdentity('You', undefined, date),
-			'Patch changes',
-			['HEAD'],
-			'Patch changes',
-			diffFiles?.files,
-		);
-
-		// void showPatchesView(commit);
+		void showPatchesView(cloudPatch);
 	}
 }

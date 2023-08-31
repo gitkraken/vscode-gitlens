@@ -92,7 +92,7 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 
 			let targetId: string;
 			let secondaryTargetId: string | undefined;
-            let secondaryRemoteUrl: string | undefined;
+			let secondaryRemoteUrl: string | undefined;
 			const joined = rest.join('/');
 
 			if (target === DeepLinkType.Comparison) {
@@ -100,10 +100,10 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 				if (split.length !== 3) return undefined;
 				targetId = split[0];
 				secondaryTargetId = split[2];
-                secondaryRemoteUrl = urlParams.get('prRepoUrl') ?? undefined;
-                if (secondaryRemoteUrl != null) {
-			        secondaryRemoteUrl = decodeURIComponent(secondaryRemoteUrl);
-		        }
+				secondaryRemoteUrl = urlParams.get('prRepoUrl') ?? undefined;
+				if (secondaryRemoteUrl != null) {
+					secondaryRemoteUrl = decodeURIComponent(secondaryRemoteUrl);
+				}
 			} else {
 				targetId = joined;
 			}
@@ -115,7 +115,7 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 				repoPath: repoPath,
 				targetId: targetId,
 				secondaryTargetId: secondaryTargetId,
-                secondaryRemoteUrl: secondaryRemoteUrl,
+				secondaryRemoteUrl: secondaryRemoteUrl,
 			};
 		}
 		case DeepLinkType.Patch: {

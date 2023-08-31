@@ -1,5 +1,4 @@
 import type { TextDocumentShowOptions } from 'vscode';
-import type { Autolink } from '../../../annotations/autolinks';
 import type { Config } from '../../../config';
 import type { GitCommitIdentityShape, GitCommitStats } from '../../../git/models/commit';
 import type { GitFileChangeShape } from '../../../git/models/file';

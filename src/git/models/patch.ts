@@ -29,6 +29,6 @@ export interface GitCloudPatch {
 
 	baseRef?: string;
 	files?: GitDiffFiles['files'];
-	repo?: Repository;
+	repo: Repository;
 	commit?: GitCommit;
 }
