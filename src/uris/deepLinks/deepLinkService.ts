@@ -171,14 +171,20 @@ export class DeepLinkService implements Disposable {
 		}
 
 		// If that fails, try matching to any existing remote using its path.
-		if (targetId.includes('/')) {
-			const remotes = await repo.getRemotes();
-			for (const remote of remotes) {
-				if (remote.provider?.owner != null && targetId.startsWith(`${remote.provider.owner}/`)) {
-					branchName = targetId.replace(`${remote.provider.owner}/`, `${remote.name}/`);
-					branch = await repo.getBranch(branchName);
-					if (branch?.sha != null) {
-						return branch.sha;
+		if (targetId.includes(':')) {
+			const [providerRepoInfo, branchBaseName] = targetId.split(':');
+			if (providerRepoInfo != null && branchName != null) {
+				const [owner, repoName] = providerRepoInfo.split('/');
+				if (owner != null && repoName != null) {
+					const remotes = await repo.getRemotes();
+					for (const remote of remotes) {
+						if (remote.provider?.owner === owner) {
+							branchName = `${remote.name}/${branchBaseName}`;
+							branch = await repo.getBranch(branchName);
+							if (branch?.sha != null) {
+								return branch.sha;
+							}
+						}
 					}
 				}
 			}
