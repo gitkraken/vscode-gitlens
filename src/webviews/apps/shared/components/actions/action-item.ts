@@ -43,7 +43,7 @@ export class ActionItem extends LitElement {
 	@property()
 	icon = '';
 
-	overriderender() {
+	override render() {
 		return html`
 			<a
 				role="${!this.href ? 'button' : nothing}"
@@ -51,7 +51,7 @@ export class ActionItem extends LitElement {
 				aria-label="${this.label}"
 				title="${this.label}"
 			>
-				<code-icon .icon="${this.icon}"></code-icon>
+				<code-icon icon="${this.icon}"></code-icon>
 			</a>
 		`;
 	}
