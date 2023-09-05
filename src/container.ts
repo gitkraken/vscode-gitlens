@@ -21,6 +21,7 @@ import { GitLabAuthenticationProvider } from './git/remotes/gitlab';
 import { RichRemoteProviderService } from './git/remotes/remoteProviderService';
 import { LineHoverController } from './hovers/lineHoverController';
 import type { RepositoryPathMappingProvider } from './pathMapping/repositoryPathMappingProvider';
+import { FocusService } from './plus/focus/focusService';
 import { AccountAuthenticationProvider } from './plus/gk/authenticationProvider';
 import { ServerConnection } from './plus/gk/serverConnection';
 import { IntegrationAuthenticationService } from './plus/integrationAuthentication';
@@ -434,6 +435,15 @@ export class Container {
 	private readonly _deepLinks: DeepLinkService;
 	get deepLinks() {
 		return this._deepLinks;
+	}
+
+	private _focus: FocusService | undefined;
+	get focus() {
+		if (this._focus == null) {
+			this._disposables.push((this._focus = new FocusService(this, new ServerConnection(this))));
+		}
+
+		return this._focus;
 	}
 
 	private _github: Promise<import('./plus/github/github').GitHubApi | undefined> | undefined;
