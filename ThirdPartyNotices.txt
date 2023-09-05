@@ -12,7 +12,7 @@ This project incorporates components from the projects listed below.
 7. @vscode/codicons version 0.0.33 (https://github.com/microsoft/vscode-codicons)
 8. @vscode/webview-ui-toolkit version 1.2.2 (https://github.com/microsoft/vscode-webview-ui-toolkit)
 9. ansi-regex version 6.0.1 (https://github.com/chalk/ansi-regex)
-10. billboard.js version 3.9.3 (https://github.com/naver/billboard.js)
+10. billboard.js version 3.9.4 (https://github.com/naver/billboard.js)
 11. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
 12. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
 13. lit version 2.8.0 (https://github.com/lit/lit)
