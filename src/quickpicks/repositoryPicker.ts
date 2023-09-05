@@ -13,6 +13,7 @@ export async function getBestRepositoryOrShowPicker(
 	uri: Uri | undefined,
 	editor: TextEditor | undefined,
 	title: string,
+	placeholder?: string,
 	options?: { filter?: (r: Repository) => Promise<boolean> },
 ): Promise<Repository | undefined> {
 	let repository = Container.instance.git.getBestRepository(uri, editor);
@@ -24,7 +25,7 @@ export async function getBestRepositoryOrShowPicker(
 	}
 	if (repository != null) return repository;
 
-	const pick = await showRepositoryPicker(title, undefined, options);
+	const pick = await showRepositoryPicker(title, placeholder, options);
 	if (pick instanceof CommandQuickPickItem) {
 		await pick.execute();
 		return undefined;
@@ -35,6 +36,7 @@ export async function getBestRepositoryOrShowPicker(
 
 export async function getRepositoryOrShowPicker(
 	title: string,
+	placeholder?: string,
 	uri?: Uri,
 	options?: { filter?: (r: Repository) => Promise<boolean> },
 ): Promise<Repository | undefined> {
@@ -52,7 +54,7 @@ export async function getRepositoryOrShowPicker(
 	}
 	if (repository != null) return repository;
 
-	const pick = await showRepositoryPicker(title, undefined, options);
+	const pick = await showRepositoryPicker(title, placeholder, options);
 	if (pick instanceof CommandQuickPickItem) {
 		void (await pick.execute());
 		return undefined;
