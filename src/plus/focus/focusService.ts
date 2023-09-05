@@ -4,29 +4,62 @@ import type { Container } from '../../container';
 import type { ServerConnection } from '../gk/serverConnection';
 
 export interface FocusItem {
-	provider: string;
-	type: 'issue' | 'pr';
+	provider: EnrichedItemResponse['provider'];
+	type: EnrichedItemResponse['entityType'];
 	id: string;
-	repositoryId: string;
 	repositoryName: string;
 	repositoryOwner: string;
 }
 
-export interface EnrichedItem {
+export type EnrichedItem = {
 	id: string;
 	userId: string;
-	type: 'pinned' | 'snoozed';
+	type: EnrichedItemResponse['type'];
 
-	provider: string;
-	entityType: 'issue' | 'pr';
+	provider: EnrichedItemResponse['provider'];
+	entityType: EnrichedItemResponse['entityType'];
 	entityId: string;
-	repositoryId: string;
-	repositoryName: string;
-	repositoryOwner: string;
 
 	createdAt: number;
 	updatedAt: number;
-}
+} & (
+	| { repositoryId: string }
+	| {
+			repositoryName: string;
+			repositoryOwner: string;
+	  }
+);
+
+type EnrichedItemRequest = {
+	provider: EnrichedItemResponse['provider'];
+	type: EnrichedItemResponse['entityType'];
+	id: string;
+} & (
+	| { repositoryId: string }
+	| {
+			repositoryName: string;
+			repositoryOwner: string;
+	  }
+);
+
+type EnrichedItemResponse = {
+	id: string;
+	userId: string;
+	type: 'pin' | 'snooze';
+
+	provider: 'azure' | 'bitbucket' | 'github' | 'gitlab' | 'gitkraken';
+	entityType: 'issue' | 'pr';
+	entityId: string;
+
+	createdAt: number;
+	updatedAt: number;
+} & (
+	| { repositoryId: string }
+	| {
+			repositoryName: string;
+			repositoryOwner: string;
+	  }
+);
 
 export class FocusService implements Disposable {
 	constructor(
@@ -36,46 +69,21 @@ export class FocusService implements Disposable {
 
 	dispose(): void {}
 
-	async pinItem(item: FocusItem): Promise<EnrichedItem> {
-		type Result = { data: EnrichedItem };
-
+	private async delete(id: string): Promise<void> {
 		const rsp = await this.connection.fetch(
-			Uri.joinPath(this.connection.baseGkApiUri, 'v1/enrich-items/pin').toString(),
+			Uri.joinPath(this.connection.baseGkApiUri, `v1/enrich-items/${id}`).toString(),
 			{
-				method: 'POST',
-				body: JSON.stringify(item),
+				method: 'DELETE',
 			},
 		);
-		const result = (await rsp.json()) as Result;
-		return result.data;
+		if (!rsp.ok) {
+			debugger;
+			throw new Error(`Unable to delete enrichment: ${rsp.statusText}`);
+		}
 	}
 
-	async snoozeItem(item: FocusItem): Promise<EnrichedItem> {
-		type Result = { data: EnrichedItem };
-
-		const rsp = await this.connection.fetch(
-			Uri.joinPath(this.connection.baseGkApiUri, 'v1/enrich-items/snooze').toString(),
-			{
-				method: 'POST',
-				body: JSON.stringify(item),
-			},
-		);
-		const result = (await rsp.json()) as Result;
-		return result.data;
-	}
-
-	async getPins(): Promise<EnrichedItem[]> {
-		const data = await this.getAll();
-		return data.filter(i => i.type === 'pinned');
-	}
-
-	async getSnoozed(): Promise<EnrichedItem[]> {
-		const data = await this.getAll();
-		return data.filter(i => i.type === 'snoozed');
-	}
-
-	async getAll(): Promise<EnrichedItem[]> {
-		type Result = { data: EnrichedItem[] };
+	async get(type?: EnrichedItemResponse['type']): Promise<EnrichedItem[]> {
+		type Result = { data: EnrichedItemResponse[] };
 
 		const rsp = await this.connection.fetch(
 			Uri.joinPath(this.connection.baseGkApiUri, 'v1/enrich-items').toString(),
@@ -85,6 +93,50 @@ export class FocusService implements Disposable {
 		);
 
 		const result = (await rsp.json()) as Result;
-		return result.data.map(i => i);
+		return type == null ? result.data : result.data.filter(i => i.type === type);
+	}
+
+	getPins(): Promise<EnrichedItem[]> {
+		return this.get('pin');
+	}
+
+	getSnoozed(): Promise<EnrichedItem[]> {
+		return this.get('snooze');
+	}
+
+	async pinItem(item: FocusItem): Promise<EnrichedItem> {
+		type Result = { data: EnrichedItemResponse };
+
+		const rsp = await this.connection.fetch(
+			Uri.joinPath(this.connection.baseGkApiUri, 'v1/enrich-items/pin').toString(),
+			{
+				method: 'POST',
+				body: JSON.stringify(item satisfies EnrichedItemRequest),
+			},
+		);
+		const result = (await rsp.json()) as Result;
+		return result.data;
+	}
+
+	unpinItem(id: string): Promise<void> {
+		return this.delete(id);
+	}
+
+	async snoozeItem(item: FocusItem): Promise<EnrichedItem> {
+		type Result = { data: EnrichedItemResponse };
+
+		const rsp = await this.connection.fetch(
+			Uri.joinPath(this.connection.baseGkApiUri, 'v1/enrich-items/snooze').toString(),
+			{
+				method: 'POST',
+				body: JSON.stringify(item satisfies EnrichedItemRequest),
+			},
+		);
+		const result = (await rsp.json()) as Result;
+		return result.data;
+	}
+
+	unsnoozeItem(id: string): Promise<void> {
+		return this.delete(id);
 	}
 }
