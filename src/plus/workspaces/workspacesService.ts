@@ -60,14 +60,11 @@ export class WorkspacesService implements Disposable {
 	) {
 		this._workspacesApi = new WorkspacesApi(this.container, this.connection);
 		this._workspacesPathProvider = getSupportedWorkspacesPathMappingProvider();
-		this._currentWorkspaceId = workspace.getConfiguration('gitkraken')?.get<string>('workspaceId');
+		this._currentWorkspaceId = getCurrentWorkspaceId();
 		this._currentWorkspaceAutoAddSetting =
 			workspace.getConfiguration('gitkraken')?.get<WorkspaceAutoAddSetting>('workspaceAutoAddSetting') ??
 			WorkspaceAutoAddSetting.Disabled;
 		this._disposable = Disposable.from(container.subscription.onDidChange(this.onSubscriptionChanged, this));
-		if (this._currentWorkspaceId != null) {
-			setTimeout(() => this.addMissingCurrentWorkspaceRepos(), 10000);
-		}
 	}
 
 	dispose(): void {
@@ -1340,6 +1337,17 @@ function getRemoteDescriptor(remote: GitRemote): RemoteDescriptor | undefined {
 		repoName: remoteRepoName.toLowerCase(),
 		url: remote.provider.url({ type: RemoteResourceType.Repo }),
 	};
+}
+
+function getCurrentWorkspaceId(): string | undefined {
+	return workspace.getConfiguration('gitkraken')?.get<string>('workspaceId');
+}
+
+export function scheduleAddMissingCurrentWorkspaceRepos(container: Container) {
+	const currentWorkspaceId = getCurrentWorkspaceId();
+	if (currentWorkspaceId == null) return;
+
+	setTimeout(() => container.workspaces.addMissingCurrentWorkspaceRepos(), 10000);
 }
 
 // TODO: Add back in once we think through virtual repository support a bit more.

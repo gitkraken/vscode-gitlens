@@ -18,19 +18,16 @@ import { registerViewCommand } from './viewCommands';
 
 export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, RepositoriesViewConfig> {
 	protected readonly configKey = 'repositories';
-	private _disposable: Disposable;
+	private _disposable: Disposable | undefined;
 
 	constructor(container: Container) {
 		super(container, 'workspaces', 'Workspaces', 'workspaceView');
 
-		this._disposable = Disposable.from(
-			this.container.workspaces.onDidResetWorkspaces(() => void this.ensureRoot().triggerChange(true)),
-		);
 		this.description = `PREVIEW\u00a0\u00a0☁️`;
 	}
 
 	override dispose() {
-		this._disposable.dispose();
+		this._disposable?.dispose();
 		super.dispose();
 	}
 
@@ -44,6 +41,13 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, R
 
 	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
+
+		if (this._disposable == null) {
+			this._disposable = Disposable.from(
+				this.container.workspaces.onDidResetWorkspaces(() => void this.ensureRoot().triggerChange(true)),
+			);
+		}
+
 		return super.show(options);
 	}
 
