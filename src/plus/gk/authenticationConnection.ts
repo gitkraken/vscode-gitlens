@@ -44,11 +44,7 @@ export class AuthenticationConnection implements Disposable {
 
 		let rsp: Response;
 		try {
-			rsp = await this.connection.fetch(
-				Uri.joinPath(this.connection.baseApiUri, 'user').toString(),
-				undefined,
-				token,
-			);
+			rsp = await this.connection.fetchApi('user', undefined, token);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			throw ex;
@@ -78,11 +74,12 @@ export class AuthenticationConnection implements Disposable {
 			),
 		);
 
-		const uri = Uri.joinPath(this.connection.baseAccountUri, 'register').with({
-			query: `${
-				scopes.includes('gitlens') ? 'referrer=gitlens&' : ''
-			}pass-token=true&return-url=${encodeURIComponent(callbackUri.toString())}`,
-		});
+		const uri = this.connection.getAccountsUri(
+			'register',
+			`${scopes.includes('gitlens') ? 'referrer=gitlens&' : ''}pass-token=true&return-url=${encodeURIComponent(
+				callbackUri.toString(),
+			)}`,
+		);
 		void (await env.openExternal(uri));
 
 		// Ensure there is only a single listener for the URI callback, in case the user starts the login process multiple times before completing it
