@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes [#2885](https://github.com/gitkraken/vscode-gitlens/issues/2885) - Folder History not show changed files of commit
 - Fixes issues with opening changes (diffs) of renamed files
+- Fixes issues with deep links including when opening VS Code from the deep link
 
 ## [14.2.1] - 2023-08-10
 
