@@ -17,7 +17,7 @@ This project incorporates components from the projects listed below.
 12. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
 13. lit version 2.8.0 (https://github.com/lit/lit)
 14. microsoft/vscode (https://github.com/microsoft/vscode)
-15. node-fetch version 2.6.9 (https://github.com/bitinn/node-fetch)
+15. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
 16. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
 17. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
 18. react-dom version 16.8.4 (https://github.com/facebook/react)
