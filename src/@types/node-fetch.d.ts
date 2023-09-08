@@ -1,4 +1,4 @@
-// Type definitions for node-fetch 2.5
+// Type definitions for node-fetch 2.6
 // Project: https://github.com/bitinn/node-fetch
 // Definitions by: Torsten Werner <https://github.com/torstenwerner>
 //                 Niklas Lindgren <https://github.com/nikcorg>
@@ -11,13 +11,15 @@
 //                 Alex Savin <https://github.com/alexandrusavin>
 //                 Alexis Tyler <https://github.com/OmgImAlexis>
 //                 Jakub Kisielewski <https://github.com/kbkk>
+//                 David Glasser <https://github.com/glasser>
 // Definitions: https://github.com/DefinitelyTyped/DefinitelyTyped
 
 /// <reference types="node" />
 
 declare module 'node-fetch' {
-	import type { Agent } from 'http';
-	import type { URLSearchParams, URL } from 'url';
+	import FormData = require('form-data');
+	import { RequestOptions } from 'http';
+	import { URLSearchParams, URL } from 'url';
 
 	export class Request extends Body {
 		constructor(input: RequestInfo, init?: RequestInit);
@@ -30,7 +32,7 @@ declare module 'node-fetch' {
 		url: string;
 
 		// node-fetch extensions to the whatwg/fetch spec
-		agent?: Agent | ((parsedUrl: URL) => Agent) | undefined;
+		agent?: RequestOptions['agent'] | ((parsedUrl: URL) => RequestOptions['agent']);
 		compress: boolean;
 		counter: number;
 		follow: number;
@@ -47,9 +49,10 @@ declare module 'node-fetch' {
 		headers?: HeadersInit | undefined;
 		method?: string | undefined;
 		redirect?: RequestRedirect | undefined;
+		signal?: AbortSignal | null | undefined;
 
 		// node-fetch extensions
-		agent?: Agent | ((parsedUrl: URL) => Agent) | undefined; // =null http.Agent instance, allows custom proxy, certificate etc.
+		agent?: RequestOptions['agent'] | ((parsedUrl: URL) => RequestOptions['agent']); // =null http.Agent instance, allows custom proxy, certificate etc.
 		compress?: boolean | undefined; // =true support gzip/deflate content encoding. false to disable
 		follow?: number | undefined; // =20 maximum redirect count. 0 to not follow redirect
 		size?: number | undefined; // =0 maximum response body size in bytes. 0 to disable
@@ -188,7 +191,7 @@ declare module 'node-fetch' {
 	export type HeadersInit = Headers | string[][] | { [key: string]: string };
 	// HeaderInit is exported to support backwards compatibility. See PR #34382
 	export type HeaderInit = HeadersInit;
-	export type BodyInit = ArrayBuffer | ArrayBufferView | NodeJS.ReadableStream | string | URLSearchParams;
+	export type BodyInit = ArrayBuffer | ArrayBufferView | NodeJS.ReadableStream | string | URLSearchParams | FormData;
 	export type RequestInfo = string | URLLike | Request;
 
 	declare function fetch(url: RequestInfo, init?: RequestInit): Promise<Response>;
