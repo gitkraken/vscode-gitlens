@@ -1,3 +1,4 @@
+import type { Disposable, TreeCheckboxChangeEvent } from 'vscode';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewShowBranchComparison } from '../../config';
 import type { StoredBranchComparison, StoredBranchComparisons } from '../../constants';
@@ -13,13 +14,20 @@ import { getSettledValue } from '../../system/promise';
 import { pluralize } from '../../system/string';
 import type { ViewsWithBranches } from '../viewBase';
 import type { WorktreesView } from '../worktreesView';
+import {
+	getComparisonCheckedFiles,
+	getComparisonStoragePrefix,
+	resetComparisonCheckedFiles,
+	restoreComparisonCheckedFiles,
+} from './compareResultsNode';
 import type { CommitsQueryResults } from './resultsCommitsNode';
 import { ResultsCommitsNode } from './resultsCommitsNode';
 import type { FilesQueryResults } from './resultsFilesNode';
 import { ResultsFilesNode } from './resultsFilesNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 
-export class CompareBranchNode extends ViewNode<ViewsWithBranches | WorktreesView> {
+export class CompareBranchNode extends SubscribeableViewNode<ViewsWithBranches | WorktreesView> {
 	private _children: ViewNode[] | undefined;
 	private _compareWith: StoredBranchComparison | undefined;
 
@@ -34,9 +42,13 @@ export class CompareBranchNode extends ViewNode<ViewsWithBranches | WorktreesVie
 	) {
 		super(uri, view, parent);
 
-		this.updateContext({ branch: branch, root: root });
+		this.updateContext({ branch: branch, root: root, storedComparisonId: this.getStorageId() });
 		this._uniqueId = getViewNodeId('compare-branch', this.context);
 		this.loadCompareWith();
+	}
+
+	protected override etag(): number {
+		return 0;
 	}
 
 	get ahead(): { readonly ref1: string; readonly ref2: string } {
@@ -55,6 +67,17 @@ export class CompareBranchNode extends ViewNode<ViewsWithBranches | WorktreesVie
 
 	get repoPath(): string {
 		return this.branch.repoPath;
+	}
+
+	protected override subscribe(): Disposable | Promise<Disposable | undefined> | undefined {
+		return this.view.onDidChangeNodesCheckedState(this.onNodesCheckedStateChanged, this);
+	}
+
+	private onNodesCheckedStateChanged(e: TreeCheckboxChangeEvent<ViewNode>) {
+		const prefix = getComparisonStoragePrefix(this.getStorageId());
+		if (e.items.some(([n]) => n.id?.startsWith(prefix))) {
+			void this.storeCompareWith(false);
+		}
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -198,7 +221,7 @@ export class CompareBranchNode extends ViewNode<ViewsWithBranches | WorktreesVie
 	@log()
 	async setComparisonType(comparisonType: Exclude<ViewShowBranchComparison, false>) {
 		if (this._compareWith != null) {
-			await this.updateCompareWith({ ...this._compareWith, type: comparisonType });
+			await this.updateCompareWith({ ...this._compareWith, type: comparisonType, checkedFiles: undefined });
 		} else {
 			this.showComparison = comparisonType;
 		}
@@ -355,11 +378,15 @@ export class CompareBranchNode extends ViewNode<ViewsWithBranches | WorktreesVie
 		};
 	}
 
+	private getStorageId() {
+		return `${this.branch.id}${this.branch.current ? '+current' : ''}`;
+	}
+
 	private loadCompareWith() {
 		const comparisons = this.view.container.storage.getWorkspace('branch:comparisons');
 
-		const id = `${this.branch.id}${this.branch.current ? '+current' : ''}`;
-		const compareWith = comparisons?.[id];
+		const storageId = this.getStorageId();
+		const compareWith = comparisons?.[storageId];
 		if (compareWith != null && typeof compareWith === 'string') {
 			this._compareWith = {
 				ref: compareWith,
@@ -368,29 +395,41 @@ export class CompareBranchNode extends ViewNode<ViewsWithBranches | WorktreesVie
 			};
 		} else {
 			this._compareWith = compareWith;
+			if (compareWith != null) {
+				restoreComparisonCheckedFiles(this.view, compareWith.checkedFiles);
+			}
 		}
 	}
 
-	private async updateCompareWith(compareWith: StoredBranchComparison | undefined) {
-		this._compareWith = compareWith;
+	private async storeCompareWith(resetCheckedFiles: boolean) {
+		const storageId = this.getStorageId();
+		if (resetCheckedFiles) {
+			resetComparisonCheckedFiles(this.view, storageId);
+		}
 
 		let comparisons = this.view.container.storage.getWorkspace('branch:comparisons');
 		if (comparisons == null) {
-			if (compareWith == null) return;
+			if (this._compareWith == null) return;
 
 			comparisons = Object.create(null) as StoredBranchComparisons;
 		}
 
-		const id = `${this.branch.id}${this.branch.current ? '+current' : ''}`;
+		if (this._compareWith != null) {
+			const checkedFiles = getComparisonCheckedFiles(this.view, storageId);
+			this._compareWith.checkedFiles = checkedFiles;
 
-		if (compareWith != null) {
-			comparisons[id] = { ...compareWith };
+			comparisons[storageId] = { ...this._compareWith };
 		} else {
-			if (comparisons[id] == null) return;
+			if (comparisons[storageId] == null) return;
 
-			const { [id]: _, ...rest } = comparisons;
+			const { [storageId]: _, ...rest } = comparisons;
 			comparisons = rest;
 		}
 		await this.view.container.storage.storeWorkspace('branch:comparisons', comparisons);
+	}
+
+	private async updateCompareWith(compareWith: StoredBranchComparison | undefined) {
+		this._compareWith = compareWith;
+		await this.storeCompareWith(true);
 	}
 }

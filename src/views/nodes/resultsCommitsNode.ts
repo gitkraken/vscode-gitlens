@@ -204,7 +204,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			if (this._results.deferred) {
 				this._results.deferred = false;
 
-				// void this.triggerChange(false);
+				void this.parent.triggerChange(false);
 			}
 		}
 

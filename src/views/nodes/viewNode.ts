@@ -28,7 +28,7 @@ import { debug, log, logName } from '../../system/decorators/log';
 import { is as isA, szudzikPairing } from '../../system/function';
 import { getLoggableName } from '../../system/logger';
 import { pad } from '../../system/string';
-import type { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
+import type { View } from '../viewBase';
 import type { BranchTrackingStatus } from './branchTrackingStatusNode';
 
 export const enum ContextValues {
@@ -111,6 +111,7 @@ export interface AmbientContext {
 	readonly repository?: Repository;
 	readonly root?: boolean;
 	readonly searchId?: string;
+	readonly storedComparisonId?: string;
 	readonly tag?: GitTag;
 	readonly workspace?: CloudWorkspace | LocalWorkspace;
 	readonly wsRepositoryDescriptor?: CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor;
@@ -374,7 +375,7 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 
 		const disposables = [
 			this.view.onDidChangeVisibility(this.onVisibilityChanged, this),
-			this.view.onDidChangeNodeCollapsibleState(this.onNodeCollapsibleStateChanged, this),
+			// this.view.onDidChangeNodeCollapsibleState(this.onNodeCollapsibleStateChanged, this),
 		];
 
 		if (canAutoRefreshView(this.view)) {
@@ -467,22 +468,22 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 		this.onVisibilityChanged({ visible: this.view.visible });
 	}
 
-	protected onParentCollapsibleStateChanged?(state: TreeItemCollapsibleState): void;
-	protected onCollapsibleStateChanged?(state: TreeItemCollapsibleState): void;
+	// protected onParentCollapsibleStateChanged?(state: TreeItemCollapsibleState): void;
+	// protected onCollapsibleStateChanged?(state: TreeItemCollapsibleState): void;
 
-	protected collapsibleState: TreeItemCollapsibleState | undefined;
-	protected onNodeCollapsibleStateChanged(e: TreeViewNodeCollapsibleStateChangeEvent<ViewNode>) {
-		if (e.element === this) {
-			this.collapsibleState = e.state;
-			if (this.onCollapsibleStateChanged !== undefined) {
-				this.onCollapsibleStateChanged(e.state);
-			}
-		} else if (e.element === this.parent) {
-			if (this.onParentCollapsibleStateChanged !== undefined) {
-				this.onParentCollapsibleStateChanged(e.state);
-			}
-		}
-	}
+	// protected collapsibleState: TreeItemCollapsibleState | undefined;
+	// protected onNodeCollapsibleStateChanged(e: TreeViewNodeCollapsibleStateChangeEvent<ViewNode>) {
+	// 	if (e.element === this) {
+	// 		this.collapsibleState = e.state;
+	// 		if (this.onCollapsibleStateChanged !== undefined) {
+	// 			this.onCollapsibleStateChanged(e.state);
+	// 		}
+	// 	} else if (e.element === this.parent) {
+	// 		if (this.onParentCollapsibleStateChanged !== undefined) {
+	// 			this.onParentCollapsibleStateChanged(e.state);
+	// 		}
+	// 	}
+	// }
 
 	@debug()
 	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
