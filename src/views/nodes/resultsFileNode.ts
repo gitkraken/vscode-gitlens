@@ -10,6 +10,7 @@ import type { GitRevisionReference } from '../../git/models/reference';
 import { createReference } from '../../git/models/reference';
 import { joinPaths, relativeDir } from '../../system/path';
 import type { View } from '../viewBase';
+import { getComparisonStoragePrefix } from './compareResultsNode';
 import type { FileNode } from './folderNode';
 import type { ViewNode } from './viewNode';
 import { ContextValues, getViewNodeId, ViewRefFileNode } from './viewNode';
@@ -31,7 +32,13 @@ export class ResultsFileNode extends ViewRefFileNode<View, State> implements Fil
 		super(GitUri.fromFile(file, repoPath, ref1 || ref2), view, parent, file);
 
 		this.updateContext({ file: file });
-		this._uniqueId = getViewNodeId('results-file', this.context);
+		if (this.context.storedComparisonId != null) {
+			this._uniqueId = `${getComparisonStoragePrefix(this.context.storedComparisonId)}${this.direction}|${
+				file.path
+			}`;
+		} else {
+			this._uniqueId = getViewNodeId('results-file', this.context);
+		}
 	}
 
 	override toClipboard(): string {

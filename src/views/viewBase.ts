@@ -135,6 +135,11 @@ export abstract class ViewBase<
 		return this._onDidChangeNodeCollapsibleState.event;
 	}
 
+	private _onDidChangeNodesCheckedState = new EventEmitter<TreeCheckboxChangeEvent<ViewNode>>();
+	get onDidChangeNodesCheckedState(): Event<TreeCheckboxChangeEvent<ViewNode>> {
+		return this._onDidChangeNodesCheckedState.event;
+	}
+
 	protected disposables: Disposable[] = [];
 	protected root: RootNode | undefined;
 	protected tree: TreeView<ViewNode> | undefined;
@@ -367,13 +372,17 @@ export abstract class ViewBase<
 	}
 
 	protected onCheckboxStateChanged(e: TreeCheckboxChangeEvent<ViewNode>) {
-		for (const [node, state] of e.items) {
-			if (node.id == null) {
-				debugger;
-				throw new Error('Id is required for checkboxes');
-			}
+		try {
+			for (const [node, state] of e.items) {
+				if (node.id == null) {
+					debugger;
+					throw new Error('Id is required for checkboxes');
+				}
 
-			node.storeState('checked', state, true);
+				node.storeState('checked', state, true);
+			}
+		} finally {
+			this._onDidChangeNodesCheckedState.fire(e);
 		}
 	}
 
@@ -681,6 +690,18 @@ export class ViewNodeState implements Disposable {
 		this._store = undefined;
 	}
 
+	delete(prefix: string, key: string): void {
+		for (const store of [this._store, this._stickyStore]) {
+			if (store == null) continue;
+
+			for (const [id, map] of store) {
+				if (id.startsWith(prefix)) {
+					map.delete(key);
+				}
+			}
+		}
+	}
+
 	deleteState(id: string, key?: string): void {
 		if (key == null) {
 			this._store?.delete(id);
@@ -689,6 +710,22 @@ export class ViewNodeState implements Disposable {
 			this._store?.get(id)?.delete(key);
 			this._stickyStore?.get(id)?.delete(key);
 		}
+	}
+
+	get<T>(prefix: string, key: string): Map<string, T> {
+		const maps = new Map<string, T>();
+
+		for (const store of [this._store, this._stickyStore]) {
+			if (store == null) continue;
+
+			for (const [id, map] of store) {
+				if (id.startsWith(prefix) && map.has(key)) {
+					maps.set(id, map.get(key) as T);
+				}
+			}
+		}
+
+		return maps;
 	}
 
 	getState<T>(id: string, key: string): T | undefined {

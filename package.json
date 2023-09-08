@@ -6869,18 +6869,6 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.views.searchAndCompare.pin",
-				"title": "Pin",
-				"category": "GitLens",
-				"icon": "$(pin)"
-			},
-			{
-				"command": "gitlens.views.searchAndCompare.unpin",
-				"title": "Unpin",
-				"category": "GitLens",
-				"icon": "$(pinned)"
-			},
-			{
 				"command": "gitlens.views.searchAndCompare.refresh",
 				"title": "Refresh",
 				"category": "GitLens",
@@ -6915,18 +6903,6 @@
 				"title": "Toggle Files View: List",
 				"category": "GitLens",
 				"icon": "$(list-flat)"
-			},
-			{
-				"command": "gitlens.views.searchAndCompare.setKeepResultsToOn",
-				"title": "Keep Results",
-				"category": "GitLens",
-				"icon": "$(unlock)"
-			},
-			{
-				"command": "gitlens.views.searchAndCompare.setKeepResultsToOff",
-				"title": "Keep Results",
-				"category": "GitLens",
-				"icon": "$(lock)"
 			},
 			{
 				"command": "gitlens.views.searchAndCompare.setShowAvatarsOn",
@@ -9556,14 +9532,6 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.searchAndCompare.pin",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.searchAndCompare.unpin",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.views.searchAndCompare.refresh",
 					"when": "false"
 				},
@@ -9585,14 +9553,6 @@
 				},
 				{
 					"command": "gitlens.views.searchAndCompare.setFilesLayoutToTree",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.searchAndCompare.setKeepResultsToOn",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.searchAndCompare.setKeepResultsToOff",
 					"when": "false"
 				},
 				{
@@ -11067,16 +11027,6 @@
 					"group": "navigation@10"
 				},
 				{
-					"command": "gitlens.views.searchAndCompare.setKeepResultsToOn",
-					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/ && !gitlens:views:searchAndCompare:keepResults",
-					"group": "navigation@12"
-				},
-				{
-					"command": "gitlens.views.searchAndCompare.setKeepResultsToOff",
-					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/ && gitlens:views:searchAndCompare:keepResults",
-					"group": "navigation@13"
-				},
-				{
 					"command": "gitlens.views.searchAndCompare.clear",
 					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/",
 					"group": "navigation@98"
@@ -12483,7 +12433,7 @@
 				},
 				{
 					"command": "gitlens.views.dismissNode",
-					"when": "viewItem =~ /gitlens:(compare:picker|(compare|search):results(?!:)\\b(?!.*?\\b\\+pinned\\b))\\b(?!:(commits|files))/",
+					"when": "viewItem =~ /gitlens:(compare:picker|(compare|search):results(?!:)\\b)\\b(?!:(commits|files))/",
 					"group": "inline@99"
 				},
 				{
@@ -12572,16 +12522,6 @@
 					"group": "inline@97"
 				},
 				{
-					"command": "gitlens.views.searchAndCompare.pin",
-					"when": "viewItem =~ /gitlens:(compare|search):results(?!:)\\b(?!.*?\\b\\+pinned\\b)/",
-					"group": "inline@98"
-				},
-				{
-					"command": "gitlens.views.searchAndCompare.unpin",
-					"when": "viewItem =~ /gitlens:(compare|search):results(?!:)\\b(?=.*?\\b\\+pinned\\b)/",
-					"group": "inline@98"
-				},
-				{
 					"command": "gitlens.views.searchAndCompare.swapComparison",
 					"when": "viewItem =~ /gitlens:compare:results(?!:)\\b(?!.*?\\b\\+working\\b)/",
 					"group": "1_gitlens_actions@2"
@@ -12590,16 +12530,6 @@
 					"command": "gitlens.views.openDirectoryDiff",
 					"when": "viewItem =~ /gitlens:compare:results(?!:)\\b/",
 					"group": "2_gitlens_quickopen@1"
-				},
-				{
-					"command": "gitlens.views.searchAndCompare.pin",
-					"when": "viewItem =~ /gitlens:(compare|search):results(?!:)\\b(?!.*?\\b\\+pinned\\b)/",
-					"group": "8_gitlens_actions@1"
-				},
-				{
-					"command": "gitlens.views.searchAndCompare.unpin",
-					"when": "viewItem =~ /gitlens:(compare|search):results(?!:)\\b(?=.*?\\b\\+pinned\\b)/",
-					"group": "8_gitlens_actions@1"
 				},
 				{
 					"command": "gitlens.views.editNode",
@@ -12787,7 +12717,7 @@
 				},
 				{
 					"command": "gitlens.views.dismissNode",
-					"when": "viewItem =~ /gitlens:(compare:picker:ref|(compare|search):results(?!:)\\b(?!.*?\\b\\+pinned\\b))\\b(?!:(commits|files))/",
+					"when": "viewItem =~ /gitlens:(compare:picker:ref|(compare|search):results(?!:)\\b)\\b(?!:(commits|files))/",
 					"group": "8_gitlens_actions@98"
 				},
 				{

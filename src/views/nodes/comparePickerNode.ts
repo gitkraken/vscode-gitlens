@@ -13,7 +13,6 @@ interface RepoRef {
 
 export class ComparePickerNode extends ViewNode<SearchAndCompareView> {
 	readonly order: number = Date.now();
-	readonly pinned: boolean = false;
 
 	constructor(
 		view: SearchAndCompareView,
@@ -21,10 +20,6 @@ export class ComparePickerNode extends ViewNode<SearchAndCompareView> {
 		public readonly selectedRef: RepoRef,
 	) {
 		super(unknownGitUri, view, parent);
-	}
-
-	get canDismiss(): boolean {
-		return true;
 	}
 
 	getChildren(): ViewNode[] {
