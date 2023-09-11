@@ -155,14 +155,11 @@ export class GkPullRequestRow extends LitElement {
 	@property({ type: Boolean })
 	public hasLocalBranch = false;
 
-	@property({ type: Boolean })
-	public pinned = false;
+	@property()
+	public pinned?: string;
 
-	@property({ type: Boolean })
-	public snoozed = false;
-
-	@property({ attribute: 'enriched-id' })
-	public enrichedId?: string;
+	@property()
+	public snoozed?: string;
 
 	constructor() {
 		super();
@@ -395,7 +392,7 @@ export class GkPullRequestRow extends LitElement {
 	onSnoozeClick(_e: Event) {
 		this.dispatchEvent(
 			new CustomEvent('snooze-item', {
-				detail: { item: this.pullRequest!, snooze: this.snoozed ? this.enrichedId : undefined },
+				detail: { item: this.pullRequest!, snooze: this.snoozed },
 			}),
 		);
 	}
@@ -403,7 +400,7 @@ export class GkPullRequestRow extends LitElement {
 	onPinClick(_e: Event) {
 		this.dispatchEvent(
 			new CustomEvent('pin-item', {
-				detail: { item: this.pullRequest!, pin: this.pinned ? this.enrichedId : undefined },
+				detail: { item: this.pullRequest!, pin: this.pinned },
 			}),
 		);
 	}

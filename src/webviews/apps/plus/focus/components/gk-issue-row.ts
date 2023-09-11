@@ -114,14 +114,11 @@ export class GkIssueRow extends LitElement {
 	@property({ type: Object })
 	public issue?: IssueShape;
 
-	@property({ type: Boolean })
+	@property()
 	public pinned = false;
 
-	@property({ type: Boolean })
+	@property()
 	public snoozed = false;
-
-	@property({ attribute: 'enriched-id' })
-	public enrichedId?: string;
 
 	constructor() {
 		super();
@@ -247,7 +244,7 @@ export class GkIssueRow extends LitElement {
 	onSnoozeClick(_e: Event) {
 		this.dispatchEvent(
 			new CustomEvent('snooze-item', {
-				detail: { item: this.issue!, snooze: this.snoozed ? this.enrichedId : undefined },
+				detail: { item: this.issue!, snooze: this.snoozed },
 			}),
 		);
 	}
@@ -255,7 +252,7 @@ export class GkIssueRow extends LitElement {
 	onPinClick(_e: Event) {
 		this.dispatchEvent(
 			new CustomEvent('pin-item', {
-				detail: { item: this.issue!, pin: this.pinned ? this.enrichedId : undefined },
+				detail: { item: this.issue!, pin: this.pinned },
 			}),
 		);
 	}

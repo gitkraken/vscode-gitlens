@@ -104,9 +104,8 @@ export class GlFocusApp extends LitElement {
 			rank: number;
 			state: Record<string, any>;
 			tags: string[];
-			isPinned: boolean;
-			isSnoozed: boolean;
-			enrichedId?: string;
+			isPinned?: string;
+			isSnoozed?: string;
 		}[] = [];
 
 		this.state?.pullRequests?.forEach(
@@ -120,8 +119,8 @@ export class GlFocusApp extends LitElement {
 				rank,
 				enriched,
 			}) => {
-				const isPinned = enriched?.type === 'pin';
-				const isSnoozed = enriched?.type === 'snooze';
+				const isPinned = enriched?.find(item => item.type === 'pin')?.id;
+				const isSnoozed = enriched?.find(item => item.type === 'snooze')?.id;
 
 				items.push({
 					isPullrequest: true,
@@ -136,13 +135,12 @@ export class GlFocusApp extends LitElement {
 					tags: reasons,
 					isPinned: isPinned,
 					isSnoozed: isSnoozed,
-					enrichedId: enriched?.id,
 				});
 			},
 		);
 		this.state?.issues?.forEach(({ issue, reasons, rank, enriched }) => {
-			const isPinned = enriched?.type === 'pin';
-			const isSnoozed = enriched?.type === 'snooze';
+			const isPinned = enriched?.find(item => item.type === 'pin')?.id;
+			const isSnoozed = enriched?.find(item => item.type === 'snooze')?.id;
 
 			items.push({
 				isPullrequest: false,
@@ -153,7 +151,6 @@ export class GlFocusApp extends LitElement {
 				tags: reasons,
 				isPinned: isPinned,
 				isSnoozed: isSnoozed,
-				enrichedId: enriched?.id,
 			});
 		});
 
@@ -188,16 +185,21 @@ export class GlFocusApp extends LitElement {
 		const hasMineFilter = this.selectedMineFilter != null && this.selectedMineFilter !== '';
 		const hasTabFilter = this.selectedTabFilter != null && this.selectedTabFilter !== '';
 		if (!hasSearch && !hasMineFilter && !hasTabFilter) {
-			return this.items;
+			return this.items.filter(i => i.isSnoozed == null);
 		}
 
 		const searchText = this.searchText?.toLowerCase();
 		return this.items.filter(i => {
-			if (
-				hasTabFilter &&
-				((i.isPullrequest === true && this.selectedTabFilter === 'issues') ||
-					(i.isPullrequest === false && this.selectedTabFilter === 'prs'))
-			) {
+			if (hasTabFilter) {
+				if (
+					(i.isSnoozed != null && this.selectedTabFilter !== 'snoozed') ||
+					(i.isSnoozed == null && this.selectedTabFilter == 'snoozed') ||
+					(i.isPullrequest === true && this.selectedTabFilter === 'issues') ||
+					(i.isPullrequest === false && this.selectedTabFilter === 'prs')
+				) {
+					return false;
+				}
+			} else if (i.isSnoozed != null) {
 				return false;
 			}
 
@@ -222,7 +224,8 @@ export class GlFocusApp extends LitElement {
 	get sortedItems() {
 		return this.filteredItems.sort((a, b) => {
 			if (a.isPinned === b.isPinned) {
-				return a.rank - b.rank;
+				return 0;
+				// return a.rank - b.rank;
 			}
 			return a.isPinned ? -1 : 1;
 		});
