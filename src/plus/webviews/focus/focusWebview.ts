@@ -66,10 +66,13 @@ interface SearchedPullRequestWithRemote extends SearchedPullRequest {
 	hasWorktree?: boolean;
 	isCurrentWorktree?: boolean;
 	rank: number;
+	enriched?: EnrichedItem[];
 }
 
 interface SearchedIssueWithRank extends SearchedIssue {
+	repoAndRemote: RepoWithRichRemote;
 	rank: number;
+	enriched?: EnrichedItem[];
 }
 
 export class FocusWebviewProvider implements WebviewProvider<State> {
@@ -132,11 +135,12 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		if (pin) {
 			await this.container.focus.unpinItem(issueWithRemote.issue.id);
 			this._enrichedItems = this._enrichedItems?.filter(e => e.id !== pin);
+			issueWithRemote.enriched = issueWithRemote.enriched?.filter(e => e.id !== pin);
 		} else {
 			const focusItem: FocusItem = {
 				type: 'issue',
 				id: issueWithRemote.issue.id,
-				// remote: issueWithRemote.issue.remote,
+				remote: issueWithRemote.repoAndRemote.remote,
 			};
 			const enrichedItem = await this.container.focus.pinItem(focusItem);
 			if (enrichedItem == null) return;
@@ -144,6 +148,10 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 				this._enrichedItems = [];
 			}
 			this._enrichedItems.push(enrichedItem);
+			if (issueWithRemote.enriched == null) {
+				issueWithRemote.enriched = [];
+			}
+			issueWithRemote.enriched.push(enrichedItem);
 		}
 
 		void this.notifyDidChangeState();
@@ -156,11 +164,12 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		if (snooze) {
 			await this.container.focus.unsnoozeItem(snooze);
 			this._enrichedItems = this._enrichedItems?.filter(e => e.id !== snooze);
+			issueWithRemote.enriched = issueWithRemote.enriched?.filter(e => e.id !== snooze);
 		} else {
 			const focusItem: FocusItem = {
 				type: 'issue',
 				id: issueWithRemote.issue.id,
-				// remote: issueWithRemote.issue.remote,
+				remote: issueWithRemote.repoAndRemote.remote,
 			};
 			const enrichedItem = await this.container.focus.snoozeItem(focusItem);
 			if (enrichedItem == null) return;
@@ -168,6 +177,10 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 				this._enrichedItems = [];
 			}
 			this._enrichedItems.push(enrichedItem);
+			if (issueWithRemote.enriched == null) {
+				issueWithRemote.enriched = [];
+			}
+			issueWithRemote.enriched.push(enrichedItem);
 		}
 
 		void this.notifyDidChangeState();
@@ -180,6 +193,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		if (pin) {
 			await this.container.focus.unpinItem(pin);
 			this._enrichedItems = this._enrichedItems?.filter(e => e.id !== pin);
+			prWithRemote.enriched = prWithRemote.enriched?.filter(e => e.id !== pin);
 		} else {
 			const focusItem: FocusItem = {
 				type: 'pr',
@@ -192,6 +206,10 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 				this._enrichedItems = [];
 			}
 			this._enrichedItems.push(enrichedItem);
+			if (prWithRemote.enriched == null) {
+				prWithRemote.enriched = [];
+			}
+			prWithRemote.enriched.push(enrichedItem);
 		}
 
 		void this.notifyDidChangeState();
@@ -204,6 +222,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		if (snooze) {
 			await this.container.focus.unsnoozeItem(snooze);
 			this._enrichedItems = this._enrichedItems?.filter(e => e.id !== snooze);
+			prWithRemote.enriched = prWithRemote.enriched?.filter(e => e.id !== snooze);
 		} else {
 			const focusItem: FocusItem = {
 				type: 'pr',
@@ -216,6 +235,10 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 				this._enrichedItems = [];
 			}
 			this._enrichedItems.push(enrichedItem);
+			if (prWithRemote.enriched == null) {
+				prWithRemote.enriched = [];
+			}
+			prWithRemote.enriched.push(enrichedItem);
 		}
 
 		void this.notifyDidChangeState();
@@ -546,7 +569,8 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 
 	private async getMyIssues(richRepos: RepoWithRichRemote[]): Promise<SearchedIssueWithRank[]> {
 		const allIssues = [];
-		for (const { remote } of richRepos) {
+		for (const richRepo of richRepos) {
+			const remote = richRepo.remote;
 			const issues = await this.container.git.getMyIssues(remote);
 			if (issues == null) {
 				continue;
@@ -558,6 +582,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 				}
 				allIssues.push({
 					...issue,
+					repoAndRemote: richRepo,
 					rank: 0, // getIssueRank(issue),
 				});
 			}
@@ -592,7 +617,10 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	}
 }
 
-function findEnrichedItems(item: SearchedPullRequestWithRemote | SearchedIssue, enrichedItems?: EnrichedItem[]) {
+function findEnrichedItems(
+	item: SearchedPullRequestWithRemote | SearchedIssueWithRank,
+	enrichedItems?: EnrichedItem[],
+) {
 	if (enrichedItems == null || enrichedItems.length === 0) return;
 
 	let result;
@@ -600,10 +628,12 @@ function findEnrichedItems(item: SearchedPullRequestWithRemote | SearchedIssue, 
 	if ((item as SearchedPullRequestWithRemote).pullRequest != null) {
 		result = enrichedItems.filter(e => e.entityId === (item as SearchedPullRequestWithRemote).pullRequest.id);
 	} else {
-		result = enrichedItems.filter(e => e.entityId === (item as SearchedIssue).issue.id);
+		result = enrichedItems.filter(e => e.entityId === (item as SearchedIssueWithRank).issue.id);
 	}
 
 	if (result.length === 0) return;
+
+	item.enriched = result;
 
 	return result.map(result => {
 		return {

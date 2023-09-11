@@ -10,7 +10,7 @@ import type { ServerConnection } from '../gk/serverConnection';
 export interface FocusItem {
 	type: EnrichedItemResponse['entityType'];
 	id: string;
-	remote?: GitRemote<RichRemoteProvider>;
+	remote: GitRemote<RichRemoteProvider>;
 }
 
 export type EnrichedItem = {
@@ -138,13 +138,13 @@ export class FocusService implements Disposable {
 			type Result = { data: EnrichedItemResponse };
 
 			const rq: EnrichedItemRequest = {
-				provider: item.remote!.provider.id as EnrichedItemResponse['provider'],
+				provider: item.remote.provider.id as EnrichedItemResponse['provider'],
 				entityType: item.type,
 				entityId: item.id,
 				gitRepoData: {
-					remoteUrl: item.remote!.url,
-					remotePath: item.remote!.provider.path,
-					remoteDomain: item.remote!.provider.domain,
+					remoteUrl: item.remote.url,
+					remotePath: item.remote.provider.path,
+					remoteDomain: item.remote.provider.domain,
 				},
 			};
 
@@ -181,13 +181,13 @@ export class FocusService implements Disposable {
 			type Result = { data: EnrichedItemResponse };
 
 			const rq: EnrichedItemRequest = {
-				provider: item.remote!.provider.id as EnrichedItemResponse['provider'],
+				provider: item.remote.provider.id as EnrichedItemResponse['provider'],
 				entityType: item.type,
 				entityId: item.id,
 				gitRepoData: {
-					remoteUrl: item.remote!.url,
-					remotePath: item.remote!.provider.path,
-					remoteDomain: item.remote!.provider.domain,
+					remoteUrl: item.remote.url,
+					remotePath: item.remote.provider.path,
+					remoteDomain: item.remote.provider.domain,
 				},
 			};
 
