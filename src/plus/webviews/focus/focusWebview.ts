@@ -418,13 +418,13 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 					isCurrentWorktree: pr.isCurrentWorktree ?? false,
 					hasWorktree: pr.hasWorktree ?? false,
 					hasLocalBranch: pr.hasLocalBranch ?? false,
-					enriched: findEnrichedItem(pr, getSettledValue(enrichedItems)),
+					enriched: findEnrichedItems(pr, getSettledValue(enrichedItems)),
 					rank: pr.rank,
 				})),
 				issues: getSettledValue(issuesResult)?.map(issue => ({
 					issue: serializeIssue(issue.issue),
 					reasons: issue.reasons,
-					enriched: findEnrichedItem(issue, getSettledValue(enrichedItems)),
+					enriched: findEnrichedItems(issue, getSettledValue(enrichedItems)),
 					rank: issue.rank,
 				})),
 			};
@@ -592,7 +592,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	}
 }
 
-function findEnrichedItem(item: SearchedPullRequestWithRemote | SearchedIssue, enrichedItems?: EnrichedItem[]) {
+function findEnrichedItems(item: SearchedPullRequestWithRemote | SearchedIssue, enrichedItems?: EnrichedItem[]) {
 	if (enrichedItems == null || enrichedItems.length === 0) return;
 
 	let result;
@@ -605,10 +605,12 @@ function findEnrichedItem(item: SearchedPullRequestWithRemote | SearchedIssue, e
 
 	if (result == null) return;
 
-	return {
-		id: result.id,
-		type: result.type,
-	};
+	return [
+		{
+			id: result.id,
+			type: result.type,
+		},
+	];
 }
 
 function getPrRank(pr: SearchedPullRequest) {

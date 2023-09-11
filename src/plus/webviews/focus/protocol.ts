@@ -22,7 +22,7 @@ export interface SearchResultBase {
 	enriched?: {
 		id: EnrichedItem['id'];
 		type: EnrichedItem['type'];
-	};
+	}[];
 }
 
 export interface IssueResult extends SearchResultBase {
