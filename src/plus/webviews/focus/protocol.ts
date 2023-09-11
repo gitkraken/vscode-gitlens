@@ -18,11 +18,12 @@ export interface State {
 export interface SearchResultBase {
 	reasons: string[];
 	rank?: number;
-	// TODO: convert to array of EnrichedItem
-	enriched?: {
-		id: EnrichedItem['id'];
-		type: EnrichedItem['type'];
-	}[];
+	enriched?: EnrichedItemSummary[];
+}
+
+export interface EnrichedItemSummary {
+	id: EnrichedItem['id'];
+	type: EnrichedItem['type'];
 }
 
 export interface IssueResult extends SearchResultBase {
