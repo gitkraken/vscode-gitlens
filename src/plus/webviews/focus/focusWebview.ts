@@ -598,19 +598,19 @@ function findEnrichedItems(item: SearchedPullRequestWithRemote | SearchedIssue, 
 	let result;
 	// TODO: filter by entity id, type, and gitRepositoryId
 	if ((item as SearchedPullRequestWithRemote).pullRequest != null) {
-		result = enrichedItems.find(e => e.entityId === (item as SearchedPullRequestWithRemote).pullRequest.id);
+		result = enrichedItems.filter(e => e.entityId === (item as SearchedPullRequestWithRemote).pullRequest.id);
 	} else {
-		result = enrichedItems.find(e => e.entityId === (item as SearchedIssue).issue.id);
+		result = enrichedItems.filter(e => e.entityId === (item as SearchedIssue).issue.id);
 	}
 
-	if (result == null) return;
+	if (result.length === 0) return;
 
-	return [
-		{
+	return result.map(result => {
+		return {
 			id: result.id,
 			type: result.type,
-		},
-	];
+		};
+	});
 }
 
 function getPrRank(pr: SearchedPullRequest) {
