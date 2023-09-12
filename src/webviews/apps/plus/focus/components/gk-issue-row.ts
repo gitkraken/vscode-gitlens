@@ -15,98 +15,14 @@ import { when } from 'lit/directives/when.js';
 import type { IssueMember, IssueShape } from '../../../../../git/models/issue';
 import { elementBase } from '../../../shared/components/styles/lit/base.css';
 import { repoBranchStyles } from './branch-tag.css';
+import { rowBaseStyles } from './common.css';
 import { dateAgeStyles } from './date-styles.css';
 import { themeProperties } from './gk-theme.css';
 import { fromDateRange } from './helpers';
 
 @customElement('gk-issue-row')
 export class GkIssueRow extends LitElement {
-	static override styles = [
-		themeProperties,
-		elementBase,
-		dateAgeStyles,
-		repoBranchStyles,
-		css`
-			:host {
-				display: block;
-			}
-
-			p {
-				margin: 0;
-			}
-
-			a {
-				color: var(--vscode-textLink-foreground);
-				text-decoration: none;
-			}
-			a:hover {
-				text-decoration: underline;
-			}
-			a:focus {
-				outline: 1px solid var(--vscode-focusBorder);
-				outline-offset: -1px;
-			}
-
-			.actions {
-			}
-
-			.actions a {
-				box-sizing: border-box;
-				display: inline-flex;
-				justify-content: center;
-				align-items: center;
-				width: 3.2rem;
-				height: 3.2rem;
-				border-radius: 0.5rem;
-				color: inherit;
-				padding: 0.2rem;
-				vertical-align: text-bottom;
-				text-decoration: none;
-				cursor: pointer;
-			}
-			.actions a:hover {
-				background-color: var(--vscode-toolbar-hoverBackground);
-			}
-			.actions a:active {
-				background-color: var(--vscode-toolbar-activeBackground);
-			}
-
-			.actions a code-icon {
-				font-size: 1.6rem;
-			}
-
-			.row-type {
-				--gk-badge-outline-padding: 0.3rem 0.8rem;
-				--gk-badge-font-size: 1.1rem;
-				opacity: 0.5;
-				vertical-align: middle;
-			}
-
-			.title {
-				font-size: 1.4rem;
-			}
-
-			.date {
-				display: inline-block;
-				min-width: 1.6rem;
-			}
-
-			.pin {
-				opacity: 0.4;
-			}
-			.pin:hover {
-				opacity: 0.64;
-			}
-
-			gk-focus-row:not(:hover):not(:focus-within) .pin:not(.is-active) {
-				opacity: 0;
-			}
-
-			.pin.is-active {
-				opacity: 1;
-			}
-		`,
-	];
+	static override styles = [themeProperties, elementBase, dateAgeStyles, repoBranchStyles, rowBaseStyles, css``];
 
 	@property({ type: Number })
 	public rank?: number;
@@ -155,23 +71,28 @@ export class GkIssueRow extends LitElement {
 			<gk-focus-row>
 				<span slot="pin">
 					<gk-tooltip>
-						<code-icon
-							class="pin ${this.pinned ? ' is-active' : ''}"
+						<a
+							href="#"
+							class="icon pin ${this.pinned ? ' is-active' : ''}"
 							slot="trigger"
-							icon="pinned"
 							@click="${this.onPinClick}"
-						></code-icon>
+							><code-icon icon="pinned"></code-icon
+						></a>
 						<span>Pin</span>
 					</gk-tooltip>
 					<gk-tooltip>
-						<code-icon
-							class="pin ${this.snoozed ? ' is-active' : ''}"
+						<a
+							href="#"
+							class="icon pin ${this.snoozed ? ' is-active' : ''}"
 							slot="trigger"
-							icon="bell-slash"
 							@click="${this.onSnoozeClick}"
-						></code-icon>
+							><code-icon icon="${this.snoozed ? 'bell' : 'bell-slash'}"></code-icon
+						></a>
 						<span>Mark for Later</span>
 					</gk-tooltip>
+				</span>
+				<span slot="date">
+					<gk-date-from class="date ${this.dateStyle}" date="${this.lastUpdatedDate}"></gk-date-from>
 				</span>
 				<span slot="key"></span>
 				<gk-focus-item>
@@ -221,9 +142,6 @@ export class GkIssueRow extends LitElement {
 							)}
 						</gk-avatar-group>
 					</span>
-					<span slot="date">
-						<gk-date-from class="date ${this.dateStyle}" date="${this.lastUpdatedDate}"></gk-date-from>
-					</span>
 					<div slot="repo">
 						<gk-tag variant="ghost" full>
 							<span slot="prefix"><code-icon icon="repo"></code-icon></span>
@@ -241,7 +159,8 @@ export class GkIssueRow extends LitElement {
 		`;
 	}
 
-	onSnoozeClick(_e: Event) {
+	onSnoozeClick(e: Event) {
+		e.preventDefault();
 		this.dispatchEvent(
 			new CustomEvent('snooze-item', {
 				detail: { item: this.issue!, snooze: this.snoozed },
@@ -249,7 +168,8 @@ export class GkIssueRow extends LitElement {
 		);
 	}
 
-	onPinClick(_e: Event) {
+	onPinClick(e: Event) {
+		e.preventDefault();
 		this.dispatchEvent(
 			new CustomEvent('pin-item', {
 				detail: { item: this.issue!, pin: this.pinned },
