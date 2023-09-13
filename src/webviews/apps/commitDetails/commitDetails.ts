@@ -75,7 +75,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			DOM.on('[data-action="pick-commit"]', 'click', e => this.onPickCommit(e)),
 			DOM.on('[data-action="search-commit"]', 'click', e => this.onSearchCommit(e)),
 			DOM.on('[data-action="autolink-settings"]', 'click', e => this.onAutolinkSettings(e)),
-			DOM.on('[data-switch-value]', 'click', e => this.onToggleFilesLayout(e)),
+			DOM.on('[data-action="files-layout"]', 'click', e => this.onToggleFilesLayout(e)),
 			DOM.on('[data-action="pin"]', 'click', e => this.onTogglePin(e)),
 			DOM.on('[data-action="back"]', 'click', e => this.onNavigate('back', e)),
 			DOM.on('[data-action="forward"]', 'click', e => this.onNavigate('forward', e)),
@@ -167,7 +167,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 	}
 
 	private onToggleFilesLayout(e: MouseEvent) {
-		const layout = ((e.target as HTMLElement)?.dataset.switchList as ViewFilesLayout) ?? undefined;
+		const layout = ((e.target as HTMLElement)?.dataset.filesLayout as ViewFilesLayout) ?? undefined;
 		if (layout === this.state.preferences?.files?.layout) return;
 
 		const files = {
@@ -178,11 +178,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			icon: this.state.preferences?.files?.icon ?? 'type',
 		};
 
-		this.state.preferences = {
-			...this.state.preferences,
-			files: files,
-		};
-
+		this.state = { ...this.state, preferences: { ...this.state.preferences, files: files } };
 		this.attachState();
 
 		this.sendCommand(PreferencesCommandType, { files: files });
