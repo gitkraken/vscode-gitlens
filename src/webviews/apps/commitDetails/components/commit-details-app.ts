@@ -416,17 +416,17 @@ export class GlCommitDetailsApp extends LitElement {
 			switch (layout) {
 				case ViewFilesLayout.Auto:
 					value = 'list';
-					icon = 'list-flat';
+					icon = 'gl-list-auto';
 					label = 'View as List';
 					break;
 				case ViewFilesLayout.List:
 					value = 'tree';
-					icon = 'list-tree';
+					icon = 'list-flat';
 					label = 'View as Tree';
 					break;
 				case ViewFilesLayout.Tree:
 					value = 'auto';
-					icon = 'gl-list-auto';
+					icon = 'list-tree';
 					label = 'View as Auto';
 					break;
 			}
@@ -437,7 +437,12 @@ export class GlCommitDetailsApp extends LitElement {
 				<span slot="title">Files changed </span>
 				<span slot="subtitle" data-region="stats">${this.renderCommitStats()}</span>
 				<action-nav slot="actions">
-					<action-item data-switch-value="${value}" label="${label}" icon="${icon}"></action-item>
+					<action-item
+						data-action="files-layout"
+						data-files-layout="${value}"
+						label="${label}"
+						icon="${icon}"
+					></action-item>
 				</action-nav>
 
 				<div class="change-list" data-region="files">

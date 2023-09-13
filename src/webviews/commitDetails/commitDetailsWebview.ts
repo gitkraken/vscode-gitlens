@@ -678,6 +678,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		}
 
 		this.updatePendingContext({ preferences: changes });
+		this.updateState();
 	}
 
 	private updatePendingContext(context: Partial<Context>, force: boolean = false): boolean {
