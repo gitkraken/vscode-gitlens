@@ -91,6 +91,7 @@ export const rowBaseStyles = css`
 	.date {
 		display: inline-block;
 		min-width: 1.6rem;
+		line-height: 2.4rem;
 	}
 
 	.icon {
