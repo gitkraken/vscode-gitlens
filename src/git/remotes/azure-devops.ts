@@ -58,7 +58,7 @@ export class AzureDevOpsRemote extends RemoteProvider {
 				},
 				{
 					// Default Pull request message when merging a PR in ADO. Will not catch commits & pushes following a different pattern.
-					prefix: 'Merged PR ',
+					prefix: 'PR ',
 					url: `${this.baseUrl}/pullrequest/<num>`,
 					title: `Open Pull Request #<num> on ${this.name}`,
 
