@@ -40,6 +40,7 @@ body {
 	--gk-focus-background-color-hover: var(--background-05);
 	--gk-divider-color: var(--background-05);
 	--gk-focus-row-pin-min-width: 64px;
+	--gk-focus-item-repo-min-width: 150px;
 }
 
 .vscode-high-contrast,
@@ -64,6 +65,18 @@ body {
 	--background-30: var(--color-background--darken-30);
 	--background-50: var(--color-background--darken-50);
 	--popover-bg: var(--color-background--darken-15);
+}
+
+@media (min-width: 1200px) {
+	body {
+		--gk-focus-item-repo-min-width: 240px;
+	}
+}
+
+@media (min-width: 1400px) {
+	body {
+		--gk-focus-item-repo-min-width: 320px;
+	}
 }
 
 :root {
