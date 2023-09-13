@@ -2358,12 +2358,35 @@ export class GitProviderService implements Disposable {
 		);
 	}
 
-	@log({ exit: true })
-	async getOrOpenRepository(
+	getOrOpenRepository(
 		uri: Uri,
 		options?: { closeOnOpen?: boolean; detectNested?: boolean; force?: boolean },
+	): Promise<Repository | undefined>;
+	getOrOpenRepository(
+		path: string,
+		options?: { closeOnOpen?: boolean; detectNested?: boolean; force?: boolean },
+	): Promise<Repository | undefined>;
+	getOrOpenRepository(
+		pathOrUri: string | Uri,
+		options?: { closeOnOpen?: boolean; detectNested?: boolean; force?: boolean },
+	): Promise<Repository | undefined>;
+	@log({ exit: true })
+	async getOrOpenRepository(
+		pathOrUri?: string | Uri,
+		options?: { closeOnOpen?: boolean; detectNested?: boolean; force?: boolean },
 	): Promise<Repository | undefined> {
+		if (pathOrUri == null) return undefined;
+
 		const scope = getLogScope();
+
+		let uri: Uri;
+		if (typeof pathOrUri === 'string') {
+			if (!pathOrUri) return undefined;
+
+			uri = this.getAbsoluteUri(pathOrUri);
+		} else {
+			uri = pathOrUri;
+		}
 
 		const path = getBestPath(uri);
 		let repository: Repository | undefined;
