@@ -33,7 +33,7 @@ export class GlFocusApp extends LitElement {
 		{ label: 'All', value: '' },
 		{ label: 'PRs', value: 'prs' },
 		{ label: 'Issues', value: 'issues' },
-		{ label: 'Later', value: 'snoozed' },
+		{ label: 'Snoozed', value: 'snoozed' },
 	];
 	private readonly mineFilters = ['authored', 'assigned', 'review-requested', 'mentioned'];
 	private readonly mineFilterOptions = [

@@ -78,7 +78,7 @@ export class GkIssueRow extends LitElement {
 							@click="${this.onPinClick}"
 							><code-icon icon="pinned"></code-icon
 						></a>
-						<span>Pin</span>
+						<span>${this.pinned ? 'Unpin' : 'Pin'}</span>
 					</gk-tooltip>
 					<gk-tooltip>
 						<a
@@ -88,7 +88,7 @@ export class GkIssueRow extends LitElement {
 							@click="${this.onSnoozeClick}"
 							><code-icon icon="${this.snoozed ? 'bell' : 'bell-slash'}"></code-icon
 						></a>
-						<span>Mark for Later</span>
+						<span>${this.snoozed ? 'Unsnooze' : 'Snooze'}</span>
 					</gk-tooltip>
 				</span>
 				<span slot="date">
