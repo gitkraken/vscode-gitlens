@@ -52,11 +52,10 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 	}
 
 	getChildren(): ViewNode[] {
-		if (this.children.length === 0) return [];
+		const children = this.children;
+		if (children.length === 0) return [];
 
-		this.view.message = undefined;
-
-		return this.children.sort((a, b) => b.order - a.order);
+		return children.sort((a, b) => b.order - a.order);
 	}
 
 	getTreeItem(): TreeItem {
@@ -68,9 +67,10 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 	}
 
 	addOrReplace(results: CompareResultsNode | SearchResultsNode) {
-		if (this.children.includes(results)) return;
+		const children = this.children;
+		if (children.includes(results)) return;
 
-		this.children.push(results);
+		children.push(results);
 
 		this.view.triggerNodeChange();
 	}
@@ -99,12 +99,13 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 			node.dismiss();
 		}
 
-		if (this.children.length === 0) return;
+		const children = this.children;
+		if (children.length === 0) return;
 
-		const index = this.children.indexOf(node);
+		const index = children.indexOf(node);
 		if (index === -1) return;
 
-		this.children.splice(index, 1);
+		children.splice(index, 1);
 
 		this.view.triggerNodeChange();
 	}
@@ -112,10 +113,11 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 	@gate()
 	@debug()
 	override async refresh(reset: boolean = false) {
-		if (this.children.length === 0) return;
+		const children = this.children;
+		if (children.length === 0) return;
 
 		const promises: Promise<any>[] = [
-			...filterMap(this.children, c => {
+			...filterMap(children, c => {
 				const result = c.refresh?.(reset);
 				return isPromise<boolean | void>(result) ? result : undefined;
 			}),
@@ -230,9 +232,10 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 	private removeComparePicker(silent: boolean = false) {
 		void setContext('gitlens:views:canCompare', false);
 		if (this.comparePicker != null) {
-			const index = this.children.indexOf(this.comparePicker);
+			const children = this.children;
+			const index = children.indexOf(this.comparePicker);
 			if (index !== -1) {
-				this.children.splice(index, 1);
+				children.splice(index, 1);
 				if (!silent) {
 					void this.triggerChange();
 				}
