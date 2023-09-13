@@ -574,7 +574,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		}
 
 		if (commit?.isUncommitted) {
-			const repository = this.container.git.getRepository(commit.repoPath)!;
+			const repository = await this.container.git.getOrOpenRepository(commit.repoPath);
+			if (repository != null) {
 			this._commitDisposable = Disposable.from(
 				repository.startWatchingFileSystem(),
 				repository.onDidChangeFileSystem(() => {
@@ -583,6 +584,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 					this.updateState();
 				}),
 			);
+		}
 		}
 
 		this.updatePendingContext(
