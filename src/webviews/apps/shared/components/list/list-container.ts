@@ -1,42 +1,29 @@
-import { css, customElement, FASTElement, html, observable, slotted } from '@microsoft/fast-element';
+import { css, html, LitElement } from 'lit';
+import { customElement } from 'lit/decorators.js';
 import type { FileChangeListItem } from './file-change-list-item';
 import type { ListItem, ListItemSelectedEvent } from './list-item';
 
-// Can only import types from 'vscode'
 const BesideViewColumn = -2; /*ViewColumn.Beside*/
 
-const template = html<ListContainer>`
-	<template role="tree">
-		<slot ${slotted('itemNodes')}></slot>
-	</template>
-`;
-
-const styles = css`
-	::slotted(*) {
-		box-sizing: inherit;
-	}
-`;
-
-type ListItemTypes = ListItem | FileChangeListItem;
-@customElement({ name: 'list-container', template: template, styles: styles })
-export class ListContainer extends FASTElement {
-	private _lastSelected: ListItem | undefined;
-
-	@observable
-	itemNodes?: ListItemTypes[];
-
-	itemNodesDisposer?: () => void;
-
-	itemNodesChanged(_oldValue?: ListItemTypes[], newValue?: ListItemTypes[]) {
-		this.itemNodesDisposer?.();
-
-		if (!newValue?.length) {
-			return;
+@customElement('list-container')
+export class ListContainer extends LitElement {
+	static override styles = css`
+		::slotted(*) {
+			box-sizing: inherit;
 		}
+	`;
 
-		const nodeEvents = newValue
-			?.filter(node => node.nodeType === 1)
-			.map(node => {
+	private _lastSelected!: ListItem | undefined;
+	private _slotSubscriptionsDisposer?: () => void;
+
+	handleSlotChange(e: Event) {
+		this._slotSubscriptionsDisposer?.();
+
+		const nodes = (e.target as HTMLSlotElement).assignedNodes();
+		if (!nodes?.length) return;
+
+		const subscriptions = (nodes?.filter(node => node.nodeType === 1) as (ListItem | FileChangeListItem)[]).map(
+			node => {
 				const keyHandler = this.handleKeydown.bind(this);
 				const beforeSelectHandler = this.handleBeforeSelected.bind(this);
 				const selectHandler = this.handleSelected.bind(this);
@@ -51,15 +38,18 @@ export class ListContainer extends FASTElement {
 						node?.removeEventListener('selected', selectHandler, false);
 					},
 				};
-			});
+			},
+		);
 
-		this.itemNodesDisposer = () => {
-			nodeEvents?.forEach(({ dispose }) => dispose());
+		this._slotSubscriptionsDisposer = () => {
+			subscriptions?.forEach(({ dispose }) => dispose());
 		};
 	}
 
 	override disconnectedCallback() {
-		this.itemNodesDisposer?.();
+		super.disconnectedCallback();
+
+		this._slotSubscriptionsDisposer?.();
 	}
 
 	handleBeforeSelected(e: Event) {
@@ -100,8 +90,19 @@ export class ListContainer extends FASTElement {
 			if (level == getLevel(nextElement)) break;
 
 			const parentElement = getParent(nextElement);
-			nextElement.setAttribute('parentexpanded', parentElement?.expanded === false ? 'false' : 'true');
-			nextElement.setAttribute('expanded', e.detail.expanded ? 'true' : 'false');
+
+			if (parentElement?.expanded === false) {
+				nextElement.removeAttribute('parentexpanded');
+			} else {
+				nextElement.setAttribute('parentexpanded', '');
+			}
+
+			if (e.detail.expanded) {
+				nextElement.setAttribute('expanded', '');
+			} else {
+				nextElement.removeAttribute('expanded');
+			}
+
 			nextElement = nextElement.nextElementSibling as ListItem;
 		}
 	}
@@ -122,5 +123,15 @@ export class ListContainer extends FASTElement {
 			const $next: HTMLElement | null = target.nextElementSibling as HTMLElement;
 			$next?.focus();
 		}
+	}
+
+	override firstUpdated() {
+		this.setAttribute('role', 'tree');
+
+		this.shadowRoot?.querySelector('slot')?.addEventListener('slotchange', this.handleSlotChange.bind(this));
+	}
+
+	override render() {
+		return html`<slot></slot>`;
 	}
 }
