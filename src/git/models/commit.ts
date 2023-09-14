@@ -13,7 +13,7 @@ import { pad, pluralize } from '../../system/string';
 import type { PreviousLineComparisonUrisResult } from '../gitProvider';
 import { GitUri } from '../gitUri';
 import type { RichRemoteProvider } from '../remotes/richRemoteProvider';
-import { uncommitted } from './constants';
+import { uncommitted, uncommittedStaged } from './constants';
 import type { GitFile } from './file';
 import { GitFileChange, GitFileWorkingTreeStatus } from './file';
 import type { PullRequest } from './pullRequest';
@@ -209,9 +209,7 @@ export class GitCommit implements GitRevisionReference {
 			if (this._etagFileSystem != null) {
 				const status = await this.container.git.getStatusForRepo(this.repoPath);
 				if (status != null) {
-					this._files = status.files.map(
-						f => new GitFileChange(this.repoPath, f.path, f.status, f.originalPath),
-					);
+					this._files = status.files.flatMap(f => f.getPseudoFileChanges());
 				}
 				this._etagFileSystem = repository?.etagFileSystem;
 			}
@@ -322,15 +320,18 @@ export class GitCommit implements GitRevisionReference {
 		this._stats = { ...this._stats, changedFiles: changedFiles, additions: additions, deletions: deletions };
 	}
 
-	async findFile(path: string): Promise<GitFileChange | undefined>;
-	async findFile(uri: Uri): Promise<GitFileChange | undefined>;
-	async findFile(pathOrUri: string | Uri): Promise<GitFileChange | undefined> {
+	async findFile(path: string, staged?: boolean): Promise<GitFileChange | undefined>;
+	async findFile(uri: Uri, staged?: boolean): Promise<GitFileChange | undefined>;
+	async findFile(pathOrUri: string | Uri, staged?: boolean): Promise<GitFileChange | undefined> {
 		if (!this.hasFullDetails()) {
 			await this.ensureFullDetails();
 			if (this._files == null) return undefined;
 		}
 
 		const relativePath = this.container.git.getRelativePath(pathOrUri, this.repoPath);
+		if (this.isUncommitted && staged != null) {
+			return this._files?.find(f => f.path === relativePath && f.staged === staged);
+		}
 		return this._files?.find(f => f.path === relativePath);
 	}
 
@@ -443,12 +444,12 @@ export class GitCommit implements GitRevisionReference {
 		return this.author.getCachedAvatarUri(options);
 	}
 
-	async getCommitForFile(file: string | GitFile): Promise<GitCommit | undefined> {
+	async getCommitForFile(file: string | GitFile, staged?: boolean): Promise<GitCommit | undefined> {
 		const path = typeof file === 'string' ? this.container.git.getRelativePath(file, this.repoPath) : file.path;
-		const foundFile = await this.findFile(path);
+		const foundFile = await this.findFile(path, staged);
 		if (foundFile == null) return undefined;
 
-		const commit = this.with({ files: { file: foundFile } });
+		const commit = this.with({ sha: foundFile.staged ? uncommittedStaged : this.sha, files: { file: foundFile } });
 		return commit;
 	}
 

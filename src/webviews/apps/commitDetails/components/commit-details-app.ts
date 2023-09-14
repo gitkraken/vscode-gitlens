@@ -1,3 +1,4 @@
+import type { TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
@@ -9,6 +10,9 @@ import type { Serialized } from '../../../../system/serialize';
 import type { State } from '../../../commitDetails/protocol';
 import { messageHeadlineSplitterToken } from '../../../commitDetails/protocol';
 import { uncommittedSha } from '../commitDetails';
+
+type Files = NonNullable<NonNullable<State['selected']>['files']>;
+type File = Files[0];
 
 interface ExplainState {
 	cancelled?: boolean;
@@ -344,59 +348,104 @@ export class GlCommitDetailsApp extends LitElement {
 	}
 
 	private renderFileList() {
-		return html`<list-container>
-			${this.state!.selected!.files!.map(
-				(file: Record<string, any>) => html`
-					<file-change-list-item
-						?stash=${this.isStash}
-						?uncommitted=${this.isUncommitted}
-						path="${file.path}"
-						repo="${file.repoPath}"
-						icon="${file.icon.dark}"
-						status="${file.status}"
-					></file-change-list-item>
-				`,
-			)}
-		</list-container>`;
+		const files = this.state!.selected!.files!;
+
+		let items;
+		let classes;
+
+		if (this.isUncommitted) {
+			items = [];
+			classes = `indentGuides-${this.state!.indentGuides}`;
+
+			const staged = files.filter(f => f.staged);
+			if (staged.length) {
+				items.push(html`<list-item tree branch hideIcon>Staged Changes</list-item>`);
+
+				for (const f of staged) {
+					items.push(this.renderFile(f, 2, true));
+				}
+			}
+
+			const unstaged = files.filter(f => !f.staged);
+			if (unstaged.length) {
+				items.push(html`<list-item tree branch hideIcon>Unstaged Changes</list-item>`);
+
+				for (const f of unstaged) {
+					items.push(this.renderFile(f, 2, true));
+				}
+			}
+		} else {
+			items = files.map(f => this.renderFile(f));
+		}
+
+		return html`<list-container class=${classes ?? nothing}>${items}</list-container>`;
 	}
 
 	private renderFileTree() {
+		const files = this.state!.selected!.files!;
+		const compact = this.state!.preferences?.files?.compact ?? true;
+
+		let items;
+
+		if (this.isUncommitted) {
+			items = [];
+
+			const staged = files.filter(f => f.staged);
+			if (staged.length) {
+				items.push(html`<list-item tree branch hideIcon>Staged Changes</list-item>`);
+				items.push(...this.renderFileSubtree(staged, 1, compact));
+			}
+
+			const unstaged = files.filter(f => !f.staged);
+			if (unstaged.length) {
+				items.push(html`<list-item tree branch hideIcon>Unstaged Changes</list-item>`);
+				items.push(...this.renderFileSubtree(unstaged, 1, compact));
+			}
+		} else {
+			items = this.renderFileSubtree(files, 0, compact);
+		}
+
+		return html`<list-container class="indentGuides-${this.state!.indentGuides}">${items}</list-container>`;
+	}
+
+	private renderFileSubtree(files: Files, rootLevel: number, compact: boolean) {
 		const tree = makeHierarchical(
-			this.state!.selected!.files!,
+			files,
 			n => n.path.split('/'),
 			(...parts: string[]) => parts.join('/'),
-			this.state!.preferences?.files?.compact ?? true,
+			compact,
 		);
 		const flatTree = flattenHeirarchy(tree);
-		return html`<list-container class="indentGuides-${this.state!.indentGuides}">
-			${flatTree.map(({ level, item }) => {
-				if (item.name === '') {
-					return undefined;
-				}
+		return flatTree.map(({ level, item }) => {
+			if (item.name === '') return undefined;
 
-				if (item.value == null) {
-					return html`
-						<list-item level="${level}" tree branch>
-							<code-icon slot="icon" icon="folder" title="Directory" aria-label="Directory"></code-icon>
-							${item.name}
-						</list-item>
-					`;
-				}
-
+			if (item.value == null) {
 				return html`
-					<file-change-list-item
-						tree
-						level="${level}"
-						?stash=${this.isStash}
-						?uncommitted=${this.isUncommitted}
-						path="${item.value.path}"
-						repo="${item.value.repoPath}"
-						icon="${item.value.icon.dark}"
-						status="${item.value.status}"
-					></file-change-list-item>
+					<list-item level="${rootLevel + level}" tree branch>
+						<code-icon slot="icon" icon="folder" title="Directory" aria-label="Directory"></code-icon>
+						${item.name}
+					</list-item>
 				`;
-			})}
-		</list-container>`;
+			}
+
+			return this.renderFile(item.value, rootLevel + level, true);
+		});
+	}
+
+	private renderFile(file: File, level: number = 1, tree: boolean = false): TemplateResult<1> {
+		return html`
+			<file-change-list-item
+				?tree=${tree}
+				level="${level}"
+				?stash=${this.isStash}
+				?uncommitted=${this.isUncommitted}
+				icon="${file.icon.dark}"
+				path="${file.path}"
+				repo="${file.repoPath}"
+				?staged=${file.staged}
+				status="${file.status}"
+			></file-change-list-item>
+		`;
 	}
 
 	private renderChangedFiles() {
