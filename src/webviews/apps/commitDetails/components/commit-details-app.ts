@@ -359,7 +359,7 @@ export class GlCommitDetailsApp extends LitElement {
 
 			const staged = files.filter(f => f.staged);
 			if (staged.length) {
-				items.push(html`<list-item tree branch hideIcon>Staged Changes</list-item>`);
+				items.push(html`<list-item tree branch hide-icon>Staged Changes</list-item>`);
 
 				for (const f of staged) {
 					items.push(this.renderFile(f, 2, true));
@@ -368,7 +368,7 @@ export class GlCommitDetailsApp extends LitElement {
 
 			const unstaged = files.filter(f => !f.staged);
 			if (unstaged.length) {
-				items.push(html`<list-item tree branch hideIcon>Unstaged Changes</list-item>`);
+				items.push(html`<list-item tree branch hide-icon>Unstaged Changes</list-item>`);
 
 				for (const f of unstaged) {
 					items.push(this.renderFile(f, 2, true));
@@ -392,13 +392,13 @@ export class GlCommitDetailsApp extends LitElement {
 
 			const staged = files.filter(f => f.staged);
 			if (staged.length) {
-				items.push(html`<list-item tree branch hideIcon>Staged Changes</list-item>`);
+				items.push(html`<list-item tree branch hide-icon>Staged Changes</list-item>`);
 				items.push(...this.renderFileSubtree(staged, 1, compact));
 			}
 
 			const unstaged = files.filter(f => !f.staged);
 			if (unstaged.length) {
-				items.push(html`<list-item tree branch hideIcon>Unstaged Changes</list-item>`);
+				items.push(html`<list-item tree branch hide-icon>Unstaged Changes</list-item>`);
 				items.push(...this.renderFileSubtree(unstaged, 1, compact));
 			}
 		} else {

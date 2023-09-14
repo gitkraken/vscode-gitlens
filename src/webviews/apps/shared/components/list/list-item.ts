@@ -162,20 +162,20 @@ export class ListItem extends LitElement {
 		}
 	`;
 
-	@property({ type: Boolean }) tree = false;
+	@property({ type: Boolean, reflect: true }) tree = false;
 
-	@property({ type: Boolean }) branch = false;
+	@property({ type: Boolean, reflect: true }) branch = false;
 
-	@property({ type: Boolean }) expanded = true;
+	@property({ type: Boolean, reflect: true }) expanded = true;
 
-	@property({ type: Boolean }) parentexpanded = true;
+	@property({ type: Boolean, reflect: true }) parentexpanded = true;
 
 	@property({ type: Number }) level = 1;
 
 	@property({ type: Boolean })
 	active = false;
 
-	@property({ type: Boolean })
+	@property({ attribute: 'hide-icon', type: Boolean })
 	hideIcon = false;
 
 	@state()
@@ -240,14 +240,6 @@ export class ListItem extends LitElement {
 
 	override firstUpdated(_changedProperties: PropertyValues): void {
 		this.setAttribute('role', 'treeitem');
-
-		if (this.parentexpanded !== false) {
-			this.setAttribute('parentexpanded', '');
-		}
-
-		if (this.expanded !== false) {
-			this.setAttribute('expanded', '');
-		}
 
 		// this.shadowRoot
 		// 	?.querySelector('slot[name="icon"]')
