@@ -1,7 +1,5 @@
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
-import type { Ref } from 'lit/directives/ref.js';
-import { createRef, ref } from 'lit/directives/ref.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import type { TextDocumentShowOptions } from 'vscode';
 import type { ListItem, ListItemSelectedEvent } from './list-item';
 import '../code-icon';
@@ -68,15 +66,16 @@ export class FileChangeListItem extends LitElement {
 		}
 	`;
 
-	baseRef: Ref<ListItem> = createRef();
+	@query('list-item')
+	baseRef!: ListItem;
 
 	@property({ type: Boolean })
 	tree = false;
 
-	@property({ type: Boolean })
+	@property({ type: Boolean, reflect: true })
 	expanded = true;
 
-	@property({ type: Boolean })
+	@property({ type: Boolean, reflect: true })
 	parentexpanded = true;
 
 	@property({ type: Number })
@@ -107,20 +106,20 @@ export class FileChangeListItem extends LitElement {
 	status = '';
 
 	select(showOptions?: TextDocumentShowOptions) {
-		this.baseRef.value?.select(showOptions);
+		this.baseRef.select(showOptions);
 	}
 
 	deselect() {
-		this.baseRef.value?.deselect();
+		this.baseRef.deselect();
 	}
 
 	override focus(options?: FocusOptions | undefined): void {
-		this.baseRef.value?.focus(options);
+		this.baseRef.focus(options);
 	}
 
 	@state()
 	get isHidden() {
-		return this.baseRef.value?.isHidden ?? 'false';
+		return this.baseRef.isHidden ?? 'false';
 	}
 
 	@state()
@@ -143,20 +142,9 @@ export class FileChangeListItem extends LitElement {
 		return this.status !== '' ? statusTextMap[this.status] : '';
 	}
 
-	override firstUpdated(): void {
-		if (this.parentexpanded !== false) {
-			this.setAttribute('parentexpanded', '');
-		}
-
-		if (this.expanded !== false) {
-			this.setAttribute('expanded', '');
-		}
-	}
-
 	override render() {
 		return html`
 			<list-item
-				${ref(this.baseRef)}
 				?tree=${this.tree}
 				level=${this.level}
 				?active=${this.active}

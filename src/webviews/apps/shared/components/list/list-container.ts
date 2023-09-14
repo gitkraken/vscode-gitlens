@@ -1,5 +1,5 @@
 import { css, html, LitElement } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { customElement, queryAssignedElements } from 'lit/decorators.js';
 import type { FileChangeListItem } from './file-change-list-item';
 import type { ListItem, ListItemSelectedEvent } from './list-item';
 
@@ -16,30 +16,29 @@ export class ListContainer extends LitElement {
 	private _lastSelected!: ListItem | undefined;
 	private _slotSubscriptionsDisposer?: () => void;
 
-	handleSlotChange(e: Event) {
+	@queryAssignedElements()
+	private _listItems!: (ListItem | FileChangeListItem)[];
+
+	handleSlotChange(_e: Event) {
 		this._slotSubscriptionsDisposer?.();
 
-		const nodes = (e.target as HTMLSlotElement).assignedNodes();
-		if (!nodes?.length) return;
+		if (!this._listItems?.length) return;
+		const subscriptions = this._listItems.map(node => {
+			const keyHandler = this.handleKeydown.bind(this);
+			const beforeSelectHandler = this.handleBeforeSelected.bind(this);
+			const selectHandler = this.handleSelected.bind(this);
+			node.addEventListener('keydown', keyHandler, false);
+			node.addEventListener('select', beforeSelectHandler, false);
+			node.addEventListener('selected', selectHandler, false);
 
-		const subscriptions = (nodes?.filter(node => node.nodeType === 1) as (ListItem | FileChangeListItem)[]).map(
-			node => {
-				const keyHandler = this.handleKeydown.bind(this);
-				const beforeSelectHandler = this.handleBeforeSelected.bind(this);
-				const selectHandler = this.handleSelected.bind(this);
-				node.addEventListener('keydown', keyHandler, false);
-				node.addEventListener('select', beforeSelectHandler, false);
-				node.addEventListener('selected', selectHandler, false);
-
-				return {
-					dispose: function () {
-						node?.removeEventListener('keydown', keyHandler, false);
-						node?.removeEventListener('select', beforeSelectHandler, false);
-						node?.removeEventListener('selected', selectHandler, false);
-					},
-				};
-			},
-		);
+			return {
+				dispose: function () {
+					node?.removeEventListener('keydown', keyHandler, false);
+					node?.removeEventListener('select', beforeSelectHandler, false);
+					node?.removeEventListener('selected', selectHandler, false);
+				},
+			};
+		});
 
 		this._slotSubscriptionsDisposer = () => {
 			subscriptions?.forEach(({ dispose }) => dispose());
@@ -66,6 +65,7 @@ export class ListContainer extends LitElement {
 		if (!e.target || !e.detail.branch) return;
 
 		function getLevel(el: ListItem) {
+			// return el.level ?? 0;
 			return parseInt(el.getAttribute('level') ?? '0', 10);
 		}
 
@@ -90,18 +90,8 @@ export class ListContainer extends LitElement {
 			if (level == getLevel(nextElement)) break;
 
 			const parentElement = getParent(nextElement);
-
-			if (parentElement?.expanded === false) {
-				nextElement.removeAttribute('parentexpanded');
-			} else {
-				nextElement.setAttribute('parentexpanded', '');
-			}
-
-			if (e.detail.expanded) {
-				nextElement.setAttribute('expanded', '');
-			} else {
-				nextElement.removeAttribute('expanded');
-			}
+			nextElement.parentexpanded = parentElement?.expanded !== false;
+			nextElement.expanded = e.detail.expanded;
 
 			nextElement = nextElement.nextElementSibling as ListItem;
 		}
@@ -111,12 +101,13 @@ export class ListContainer extends LitElement {
 		if (!e.target) return;
 		const target = e.target as ListItem;
 
-		if (e.key === 'Enter' || e.key === ' ') {
-			target.select({
-				preserveFocus: e.key !== 'Enter',
-				viewColumn: e.altKey ? BesideViewColumn : undefined,
-			});
-		} else if (e.key === 'ArrowUp') {
+		// if (e.key === 'Enter' || e.key === ' ') {
+		// 	target.select({
+		// 		preserveFocus: e.key !== 'Enter',
+		// 		viewColumn: e.altKey ? BesideViewColumn : undefined,
+		// 	});
+		// } else
+		if (e.key === 'ArrowUp') {
 			const $previous: HTMLElement | null = target.previousElementSibling as HTMLElement;
 			$previous?.focus();
 		} else if (e.key === 'ArrowDown') {
@@ -127,11 +118,9 @@ export class ListContainer extends LitElement {
 
 	override firstUpdated() {
 		this.setAttribute('role', 'tree');
-
-		this.shadowRoot?.querySelector('slot')?.addEventListener('slotchange', this.handleSlotChange.bind(this));
 	}
 
 	override render() {
-		return html`<slot></slot>`;
+		return html`<slot @slotchange=${this.handleSlotChange}></slot>`;
 	}
 }
