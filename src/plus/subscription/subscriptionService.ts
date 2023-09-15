@@ -17,7 +17,6 @@ import {
 	ProgressLocation,
 	StatusBarAlignment,
 	ThemeColor,
-	Uri,
 	window,
 } from 'vscode';
 import { getPlatform } from '@env/platform';
@@ -324,7 +323,7 @@ export class SubscriptionService implements Disposable {
 
 	@log()
 	manage(): void {
-		void env.openExternal(this.connection.baseAccountUri);
+		void env.openExternal(this.connection.getAccountsUri());
 	}
 
 	@log()
@@ -334,11 +333,7 @@ export class SubscriptionService implements Disposable {
 		if (this._subscription.account == null) {
 			this.showPlans();
 		} else {
-			void env.openExternal(
-				Uri.joinPath(this.connection.baseAccountUri, 'subscription').with({
-					query: 'product=gitlens&license=PRO',
-				}),
-			);
+			void env.openExternal(this.connection.getAccountsUri('subscription', 'product=gitlens&license=PRO'));
 		}
 		await this.showAccountView();
 	}
@@ -356,8 +351,8 @@ export class SubscriptionService implements Disposable {
 		if (session == null) return false;
 
 		try {
-			const rsp = await this.connection.fetch(
-				Uri.joinPath(this.connection.baseApiUri, 'resend-email').toString(),
+			const rsp = await this.connection.fetchApi(
+				'resend-email',
 				{
 					method: 'POST',
 					body: JSON.stringify({ id: session.account.id }),
@@ -410,7 +405,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private showPlans(): void {
-		void env.openExternal(Uri.joinPath(this.connection.baseSiteUri, 'gitlens/pricing'));
+		void env.openExternal(this.connection.getSiteUri('gitlens/pricing'));
 	}
 
 	@gate()
@@ -550,8 +545,8 @@ export class SubscriptionService implements Disposable {
 				previewExpiresOn: this._subscription.previewTrial?.expiresOn,
 			};
 
-			const rsp = await this.connection.fetch(
-				Uri.joinPath(this.connection.baseApiUri, 'gitlens/checkin').toString(),
+			const rsp = await this.connection.fetchApi(
+				'gitlens/checkin',
 				{
 					method: 'POST',
 					body: JSON.stringify(checkInData),

@@ -574,15 +574,17 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		}
 
 		if (commit?.isUncommitted) {
-			const repository = this.container.git.getRepository(commit.repoPath)!;
-			this._commitDisposable = Disposable.from(
-				repository.startWatchingFileSystem(),
-				repository.onDidChangeFileSystem(() => {
-					// this.updatePendingContext({ commit: undefined });
-					this.updatePendingContext({ commit: commit }, true);
-					this.updateState();
-				}),
-			);
+			const repository = await this.container.git.getOrOpenRepository(commit.repoPath);
+			if (repository != null) {
+				this._commitDisposable = Disposable.from(
+					repository.startWatchingFileSystem(),
+					repository.onDidChangeFileSystem(() => {
+						// this.updatePendingContext({ commit: undefined });
+						this.updatePendingContext({ commit: commit }, true);
+						this.updateState();
+					}),
+				);
+			}
 		}
 
 		this.updatePendingContext(
@@ -678,6 +680,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		}
 
 		this.updatePendingContext({ preferences: changes });
+		this.updateState();
 	}
 
 	private updatePendingContext(context: Partial<Context>, force: boolean = false): boolean {
@@ -811,7 +814,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			// committer: { ...commit.committer, avatar: committerAvatar?.toString(true) },
 			message: formattedMessage,
 			stashNumber: commit.refType === 'stash' ? commit.number : undefined,
-			files: commit.files?.map(({ status, repoPath, path, originalPath }) => {
+			files: commit.files?.map(({ status, repoPath, path, originalPath, staged }) => {
 				const icon = getGitFileStatusIcon(status);
 				return {
 					path: path,
@@ -826,6 +829,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 							.asWebviewUri(Uri.joinPath(this.host.getRootUri(), 'images', 'light', icon))
 							.toString(),
 					},
+					staged: staged,
 				};
 			}),
 			stats: commit.stats,
@@ -857,7 +861,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 	private async getFileCommitFromParams(
 		params: FileActionParams,
 	): Promise<[commit: GitCommit, file: GitFileChange] | undefined> {
-		const commit = await this._context.commit?.getCommitForFile(params.path);
+		const commit = await this._context.commit?.getCommitForFile(params.path, params.staged);
 		return commit != null ? [commit, commit.file!] : undefined;
 	}
 

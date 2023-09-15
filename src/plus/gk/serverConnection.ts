@@ -13,20 +13,7 @@ export class ServerConnection implements Disposable {
 	dispose() {}
 
 	@memoize()
-	get baseApiUri(): Uri {
-		if (this.container.env === 'staging') {
-			return Uri.parse('https://stagingapi.gitkraken.com');
-		}
-
-		if (this.container.env === 'dev') {
-			return Uri.parse('https://devapi.gitkraken.com');
-		}
-
-		return Uri.parse('https://api.gitkraken.com');
-	}
-
-	@memoize()
-	get baseAccountUri(): Uri {
+	private get accountsUri(): Uri {
 		if (this.container.env === 'staging') {
 			return Uri.parse('https://stagingapp.gitkraken.com');
 		}
@@ -38,8 +25,33 @@ export class ServerConnection implements Disposable {
 		return Uri.parse('https://app.gitkraken.com');
 	}
 
+	getAccountsUri(path?: string, query?: string) {
+		let uri = path != null ? Uri.joinPath(this.accountsUri, path) : this.accountsUri;
+		if (query != null) {
+			uri = uri.with({ query: query });
+		}
+		return uri;
+	}
+
 	@memoize()
-	get baseGkApiUri(): Uri {
+	private get baseApiUri(): Uri {
+		if (this.container.env === 'staging') {
+			return Uri.parse('https://stagingapi.gitkraken.com');
+		}
+
+		if (this.container.env === 'dev') {
+			return Uri.parse('https://devapi.gitkraken.com');
+		}
+
+		return Uri.parse('https://api.gitkraken.com');
+	}
+
+	getApiUrl(...pathSegments: string[]) {
+		return Uri.joinPath(this.baseApiUri, ...pathSegments).toString();
+	}
+
+	@memoize()
+	private get baseGkDevApiUri(): Uri {
 		if (this.container.env === 'staging') {
 			return Uri.parse('https://staging-api.gitkraken.dev');
 		}
@@ -51,8 +63,12 @@ export class ServerConnection implements Disposable {
 		return Uri.parse('https://api.gitkraken.dev');
 	}
 
+	getGkDevApiUrl(...pathSegments: string[]) {
+		return Uri.joinPath(this.baseGkDevApiUri, ...pathSegments).toString();
+	}
+
 	@memoize()
-	get baseSiteUri(): Uri {
+	get siteUri(): Uri {
 		const { env } = this.container;
 		if (env === 'staging') {
 			return Uri.parse('https://staging.gitkraken.com');
@@ -63,6 +79,14 @@ export class ServerConnection implements Disposable {
 		}
 
 		return Uri.parse('https://gitkraken.com');
+	}
+
+	getSiteUri(path?: string, query?: string) {
+		let uri = path != null ? Uri.joinPath(this.siteUri, path) : this.siteUri;
+		if (query != null) {
+			uri = uri.with({ query: query });
+		}
+		return uri;
 	}
 
 	@memoize()
@@ -86,6 +110,9 @@ export class ServerConnection implements Disposable {
 					...init?.headers,
 				},
 			};
+
+			// TODO@eamodio handle common response errors
+
 			return await _fetch(url, options);
 		} catch (ex) {
 			Logger.error(ex, scope);
@@ -93,12 +120,20 @@ export class ServerConnection implements Disposable {
 		}
 	}
 
-	async fetchGraphQL(url: RequestInfo, request: GraphQLRequest, init?: RequestInit) {
-		return this.fetch(url, {
+	async fetchApi(path: string, init?: RequestInit, token?: string): Promise<Response> {
+		return this.fetch(this.getApiUrl(path), init, token);
+	}
+
+	async fetchApiGraphQL(path: string, request: GraphQLRequest, init?: RequestInit) {
+		return this.fetchApi(path, {
 			method: 'POST',
 			...init,
 			body: JSON.stringify(request),
 		});
+	}
+
+	async fetchGkDevApi(path: string, init?: RequestInit, token?: string): Promise<Response> {
+		return this.fetch(this.getGkDevApiUrl(path), init, token);
 	}
 
 	private async getAccessToken() {
@@ -113,4 +148,8 @@ export interface GraphQLRequest {
 	query: string;
 	operationName?: string;
 	variables?: Record<string, unknown>;
+}
+
+export function getUrl(base: Uri, ...pathSegments: string[]) {
+	return Uri.joinPath(base, ...pathSegments).toString();
 }

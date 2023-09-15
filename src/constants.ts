@@ -536,7 +536,6 @@ export type ContextKeys =
 	| `${typeof extensionPrefix}:views:fileHistory:editorFollowing`
 	| `${typeof extensionPrefix}:views:lineHistory:editorFollowing`
 	| `${typeof extensionPrefix}:views:repositories:autoRefresh`
-	| `${typeof extensionPrefix}:views:searchAndCompare:keepResults`
 	| `${typeof extensionPrefix}:vsls`
 	| `${typeof extensionPrefix}:plus`
 	| `${typeof extensionPrefix}:plus:disallowedRepos`
@@ -769,8 +768,8 @@ export type DeprecatedWorkspaceStorage = {
 	'graph:banners:dismissed': Record<string, boolean>;
 	/** @deprecated use `graph:filtersByRepo.excludeRefs` */
 	'graph:hiddenRefs': Record<string, StoredGraphExcludedRef>;
-	/** @deprecated use `views:searchAndCompare:pinned` */
-	'pinned:comparisons': Record<string, DeprecatedPinnedComparison>;
+	/** @deprecated */
+	'views:searchAndCompare:keepResults': boolean;
 };
 
 export type WorkspaceStorage = {
@@ -784,8 +783,7 @@ export type WorkspaceStorage = {
 	'starred:branches': StoredStarred;
 	'starred:repositories': StoredStarred;
 	'views:repositories:autoRefresh': boolean;
-	'views:searchAndCompare:keepResults': boolean;
-	'views:searchAndCompare:pinned': StoredPinnedItems;
+	'views:searchAndCompare:pinned': StoredSearchAndCompareItems;
 	'views:commitDetails:autolinksExpanded': boolean;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & { [key in `connected:${string}`]: boolean };
 
@@ -811,6 +809,7 @@ export interface StoredBranchComparison {
 	ref: string;
 	notation: '..' | '...' | undefined;
 	type: Exclude<ViewShowBranchComparison, false> | undefined;
+	checkedFiles?: string[];
 }
 
 export type StoredBranchComparisons = Record<string, string | StoredBranchComparison>;
@@ -853,16 +852,18 @@ export interface StoredNamedRef {
 	ref: string;
 }
 
-export interface StoredPinnedComparison {
+export interface StoredComparison {
 	type: 'comparison';
 	timestamp: number;
 	path: string;
 	ref1: StoredNamedRef;
 	ref2: StoredNamedRef;
 	notation?: '..' | '...';
+
+	checkedFiles?: string[];
 }
 
-export interface StoredPinnedSearch {
+export interface StoredSearch {
 	type: 'search';
 	timestamp: number;
 	path: string;
@@ -878,14 +879,7 @@ export interface StoredPinnedSearch {
 	search: StoredSearchQuery;
 }
 
-export type StoredPinnedItem = StoredPinnedComparison | StoredPinnedSearch;
-export type StoredPinnedItems = Record<string, StoredPinnedItem>;
+export type StoredSearchAndCompareItem = StoredComparison | StoredSearch;
+export type StoredSearchAndCompareItems = Record<string, StoredSearchAndCompareItem>;
 export type StoredStarred = Record<string, boolean>;
 export type RecentUsage = Record<string, number>;
-
-interface DeprecatedPinnedComparison {
-	path: string;
-	ref1: StoredNamedRef;
-	ref2: StoredNamedRef;
-	notation?: '..' | '...';
-}

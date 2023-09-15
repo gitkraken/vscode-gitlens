@@ -40,7 +40,7 @@ export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorComman
 		}
 
 		try {
-			const repo = await getRepositoryOrShowPicker('Open Pull Request Associated', undefined, {
+			const repo = await getRepositoryOrShowPicker('Open Pull Request Associated', undefined, undefined, {
 				filter: async r => (await this.container.git.getBestRemoteWithRichProvider(r.uri))?.provider != null,
 			});
 			if (repo == null) return;

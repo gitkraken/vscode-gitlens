@@ -172,10 +172,12 @@ export interface GitFileChangeStats {
 }
 
 export interface GitFileChangeShape {
-	readonly path: string;
-	readonly originalPath?: string | undefined;
-	readonly status: GitFileStatus;
 	readonly repoPath: string;
+	readonly path: string;
+	readonly status: GitFileStatus;
+
+	readonly originalPath?: string | undefined;
+	readonly staged?: boolean;
 }
 
 export class GitFileChange implements GitFileChangeShape {
@@ -190,6 +192,7 @@ export class GitFileChange implements GitFileChangeShape {
 		public readonly originalPath?: string | undefined,
 		public readonly previousSha?: string | undefined,
 		public readonly stats?: GitFileChangeStats | undefined,
+		public readonly staged?: boolean,
 	) {}
 
 	get hasConflicts() {

@@ -1,6 +1,6 @@
-import { attr, css, customElement, FASTElement, html, ref, volatile, when } from '@microsoft/fast-element';
+import { css, html, LitElement, nothing } from 'lit';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import type { TextDocumentShowOptions } from 'vscode';
-import { numberConverter } from '../converters/number-converter';
 import type { ListItem, ListItemSelectedEvent } from './list-item';
 import '../code-icon';
 
@@ -10,92 +10,12 @@ const BesideViewColumn = -2; /*ViewColumn.Beside*/
 export interface FileChangeListItemDetail {
 	path: string;
 	repoPath: string;
+	staged: boolean | undefined;
+
 	showOptions?: TextDocumentShowOptions;
 }
 
 // TODO: "change-list__action" should be a separate component
-const template = html<FileChangeListItem>`
-	<list-item
-		${ref('base')}
-		tree="${x => x.tree}"
-		level="${x => x.level}"
-		active="${x => x.active}"
-		expanded="${x => x.expanded}"
-		parentexpanded="${x => x.parentexpanded}"
-		@selected="${(x, c) => x.onComparePrevious(c.event as ListItemSelectedEvent)}"
-	>
-		<img slot="icon" src="${x => x.icon}" title="${x => x.statusName}" alt="${x => x.statusName}" />
-		${x => x.fileName}
-		${when(x => !x.tree, html<FileChangeListItem>`<span slot="description">${x => x.filePath}</span>`)}
-		<span slot="actions">
-			<a
-				class="change-list__action"
-				@click="${(x, c) => x.onOpenFile(c.event as MouseEvent)}"
-				href="#"
-				title="Open file"
-				aria-label="Open file"
-				><code-icon icon="go-to-file"></code-icon
-			></a>
-			${when(
-				x => !x.uncommitted,
-				html<FileChangeListItem>`
-					<a
-						class="change-list__action"
-						@click="${(x, c) => x.onCompareWorking(c.event as MouseEvent)}"
-						href="#"
-						title="Open Changes with Working File"
-						aria-label="Open Changes with Working File"
-						><code-icon icon="git-compare"></code-icon
-					></a>
-					${when(
-						x => !x.stash,
-						html<FileChangeListItem>`<a
-								class="change-list__action"
-								@click="${(x, c) => x.onOpenFileOnRemote(c.event as MouseEvent)}"
-								href="#"
-								title="Open on remote"
-								aria-label="Open on remote"
-								><code-icon icon="globe"></code-icon></a
-							><a
-								class="change-list__action"
-								@click="${(x, c) => x.onMoreActions(c.event as MouseEvent)}"
-								href="#"
-								title="Show more actions"
-								aria-label="Show more actions"
-								><code-icon icon="ellipsis"></code-icon
-							></a>`,
-					)}
-				`,
-			)}
-		</span>
-	</list-item>
-`;
-
-const styles = css`
-	.change-list__action {
-		box-sizing: border-box;
-		display: inline-flex;
-		justify-content: center;
-		align-items: center;
-		width: 2rem;
-		height: 2rem;
-		border-radius: 0.25em;
-		color: inherit;
-		padding: 2px;
-		vertical-align: text-bottom;
-		text-decoration: none;
-	}
-	.change-list__action:focus {
-		outline: 1px solid var(--vscode-focusBorder);
-		outline-offset: -1px;
-	}
-	.change-list__action:hover {
-		background-color: var(--vscode-toolbar-hoverBackground);
-	}
-	.change-list__action:active {
-		background-color: var(--vscode-toolbar-activeBackground);
-	}
-`;
 
 // TODO: use the model version
 const statusTextMap: Record<string, string> = {
@@ -118,111 +38,213 @@ const statusTextMap: Record<string, string> = {
 	U: 'Updated but Unmerged',
 };
 
-@customElement({ name: 'file-change-list-item', template: template, styles: styles })
-export class FileChangeListItem extends FASTElement {
-	base?: ListItem;
+@customElement('file-change-list-item')
+export class FileChangeListItem extends LitElement {
+	static override styles = css`
+		.change-list__action {
+			box-sizing: border-box;
+			display: inline-flex;
+			justify-content: center;
+			align-items: center;
+			width: 2rem;
+			height: 2rem;
+			border-radius: 0.25em;
+			color: inherit;
+			padding: 2px;
+			vertical-align: text-bottom;
+			text-decoration: none;
+		}
+		.change-list__action:focus {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: -1px;
+		}
+		.change-list__action:hover {
+			background-color: var(--vscode-toolbar-hoverBackground);
+		}
+		.change-list__action:active {
+			background-color: var(--vscode-toolbar-activeBackground);
+		}
+	`;
 
-	@attr({ mode: 'boolean' })
+	@query('list-item')
+	baseRef!: ListItem;
+
+	@property({ type: Boolean })
 	tree = false;
 
-	@attr({ mode: 'boolean' })
+	@property({ type: Boolean, reflect: true })
 	expanded = true;
 
-	@attr({ mode: 'boolean' })
+	@property({ type: Boolean, reflect: true })
 	parentexpanded = true;
 
-	@attr({ converter: numberConverter })
+	@property({ type: Number })
 	level = 1;
 
-	@attr({ mode: 'boolean' })
+	@property({ type: Boolean })
 	active = false;
 
-	@attr({ mode: 'boolean' })
+	@property({ type: Boolean })
 	stash = false;
 
-	@attr({ mode: 'boolean' })
+	@property({ type: Boolean })
 	uncommitted = false;
 
-	@attr
+	@property({ type: String })
 	icon = '';
 
-	@attr
+	@property({ type: String })
 	path = '';
 
-	@attr
+	@property({ type: String })
 	repo = '';
 
-	@attr
+	@property({ type: Boolean })
+	staged = false;
+
+	@property({ type: String })
 	status = '';
 
 	select(showOptions?: TextDocumentShowOptions) {
-		this.base?.select(showOptions);
+		this.baseRef.select(showOptions);
 	}
 
 	deselect() {
-		this.base?.deselect();
+		this.baseRef.deselect();
 	}
 
 	override focus(options?: FocusOptions | undefined): void {
-		this.base?.focus(options);
+		this.baseRef.focus(options);
 	}
 
+	@state()
 	get isHidden() {
-		return this.base?.isHidden ?? 'false';
+		return this.baseRef.isHidden ?? 'false';
 	}
 
+	@state()
 	get pathIndex() {
 		return this.path.lastIndexOf('/');
 	}
 
-	@volatile
+	@state()
 	get fileName() {
 		return this.pathIndex > -1 ? this.path.substring(this.pathIndex + 1) : this.path;
 	}
 
-	@volatile
+	@state()
 	get filePath() {
 		return !this.tree && this.pathIndex > -1 ? this.path.substring(0, this.pathIndex) : '';
 	}
 
+	@state()
 	get statusName() {
 		return this.status !== '' ? statusTextMap[this.status] : '';
+	}
+
+	override render() {
+		return html`
+			<list-item
+				?tree=${this.tree}
+				level=${this.level}
+				?active=${this.active}
+				?expanded=${this.expanded}
+				?parentexpanded=${this.parentexpanded}
+				@selected=${this.onComparePrevious}
+			>
+				<img slot="icon" .src=${this.icon} .title=${this.statusName} .alt=${this.statusName} />
+				${this.fileName} ${this.tree ? nothing : html`<span slot="description">${this.filePath}</span>`}
+				<span slot="actions">
+					<a
+						class="change-list__action"
+						@click=${this.onOpenFile}
+						href="#"
+						title="Open file"
+						aria-label="Open file"
+					>
+						<code-icon icon="go-to-file"></code-icon>
+					</a>
+					${this.uncommitted
+						? nothing
+						: html`
+								<a
+									class="change-list__action"
+									@click=${this.onCompareWorking}
+									href="#"
+									title="Open Changes with Working File"
+									aria-label="Open Changes with Working File"
+								>
+									<code-icon icon="git-compare"></code-icon>
+								</a>
+								${this.stash
+									? nothing
+									: html`
+											<a
+												class="change-list__action"
+												@click=${this.onOpenFileOnRemote}
+												href="#"
+												title="Open on remote"
+												aria-label="Open on remote"
+											>
+												<code-icon icon="globe"></code-icon>
+											</a>
+											<a
+												class="change-list__action"
+												@click=${this.onMoreActions}
+												href="#"
+												title="Show more actions"
+												aria-label="Show more actions"
+											>
+												<code-icon icon="ellipsis"></code-icon>
+											</a>
+									  `}
+						  `}
+				</span>
+			</list-item>
+		`;
+	}
+
+	onOpenFile(e: MouseEvent) {
+		const event = new CustomEvent('file-open', {
+			detail: this.getEventDetail({ preview: false, viewColumn: e.altKey ? BesideViewColumn : undefined }),
+		});
+		this.dispatchEvent(event);
+	}
+
+	onOpenFileOnRemote(e: MouseEvent) {
+		const event = new CustomEvent('file-open-on-remote', {
+			detail: this.getEventDetail({ preview: false, viewColumn: e.altKey ? BesideViewColumn : undefined }),
+		});
+		this.dispatchEvent(event);
+	}
+
+	onCompareWorking(e: MouseEvent) {
+		const event = new CustomEvent('file-compare-working', {
+			detail: this.getEventDetail({ preview: false, viewColumn: e.altKey ? BesideViewColumn : undefined }),
+		});
+		this.dispatchEvent(event);
+	}
+
+	onComparePrevious(e: ListItemSelectedEvent) {
+		const event = new CustomEvent('file-compare-previous', {
+			detail: this.getEventDetail(e.detail.showOptions),
+		});
+		this.dispatchEvent(event);
+	}
+
+	onMoreActions(_e: MouseEvent) {
+		const event = new CustomEvent('file-more-actions', {
+			detail: this.getEventDetail(),
+		});
+		this.dispatchEvent(event);
 	}
 
 	private getEventDetail(showOptions?: TextDocumentShowOptions): FileChangeListItemDetail {
 		return {
 			path: this.path,
 			repoPath: this.repo,
+			staged: this.staged,
 			showOptions: showOptions,
 		};
-	}
-
-	onOpenFile(e: MouseEvent) {
-		this.$emit(
-			'file-open',
-			this.getEventDetail({ preview: false, viewColumn: e.altKey ? BesideViewColumn : undefined }),
-		);
-	}
-
-	onOpenFileOnRemote(e: MouseEvent) {
-		this.$emit(
-			'file-open-on-remote',
-			this.getEventDetail({ preview: false, viewColumn: e.altKey ? BesideViewColumn : undefined }),
-		);
-	}
-
-	onCompareWorking(e: MouseEvent) {
-		this.$emit(
-			'file-compare-working',
-			this.getEventDetail({ preview: false, viewColumn: e.altKey ? BesideViewColumn : undefined }),
-		);
-	}
-
-	onComparePrevious(e: ListItemSelectedEvent) {
-		this.$emit('file-compare-previous', this.getEventDetail(e.detail.showOptions));
-	}
-
-	onMoreActions(_e: MouseEvent) {
-		this.$emit('file-more-actions', this.getEventDetail());
 	}
 }

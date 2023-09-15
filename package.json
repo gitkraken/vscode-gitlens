@@ -2,7 +2,7 @@
 	"name": "gitlens",
 	"displayName": "GitLens — Git supercharged",
 	"description": "Supercharge Git within VS Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via rich visualizations and powerful comparison commands, and so much more",
-	"version": "14.2.1",
+	"version": "14.3.0",
 	"engines": {
 		"vscode": "^1.80.0"
 	},
@@ -6207,13 +6207,13 @@
 			},
 			{
 				"command": "gitlens.views.setBranchComparisonToWorking",
-				"title": "Toggle Compare with: Branch",
+				"title": "Compare with Working Tree",
 				"category": "GitLens",
 				"icon": "$(compare-changes)"
 			},
 			{
 				"command": "gitlens.views.setBranchComparisonToBranch",
-				"title": "Toggle Compare with: Working Tree",
+				"title": "Compare with Branch (HEAD)",
 				"category": "GitLens",
 				"icon": "$(compare-changes)"
 			},
@@ -6292,31 +6292,31 @@
 			},
 			{
 				"command": "gitlens.views.branches.setLayoutToList",
-				"title": "Toggle View: Tree",
+				"title": "View as List",
 				"category": "GitLens",
 				"icon": "$(list-tree)"
 			},
 			{
 				"command": "gitlens.views.branches.setLayoutToTree",
-				"title": "Toggle View: List",
+				"title": "View as Tree",
 				"category": "GitLens",
 				"icon": "$(list-flat)"
 			},
 			{
 				"command": "gitlens.views.branches.setFilesLayoutToAuto",
-				"title": "Toggle Files View: Tree",
+				"title": "View Files as Auto",
 				"category": "GitLens",
 				"icon": "$(list-tree)"
 			},
 			{
 				"command": "gitlens.views.branches.setFilesLayoutToList",
-				"title": "Toggle Files View: Auto",
+				"title": "View Files as List",
 				"category": "GitLens",
 				"icon": "$(gitlens-list-auto)"
 			},
 			{
 				"command": "gitlens.views.branches.setFilesLayoutToTree",
-				"title": "Toggle Files View: List",
+				"title": "View Files as Tree",
 				"category": "GitLens",
 				"icon": "$(list-flat)"
 			},
@@ -6369,31 +6369,31 @@
 			},
 			{
 				"command": "gitlens.views.commits.setFilesLayoutToAuto",
-				"title": "Toggle Files View: Tree",
+				"title": "View Files as Auto",
 				"category": "GitLens",
 				"icon": "$(list-tree)"
 			},
 			{
 				"command": "gitlens.views.commits.setFilesLayoutToList",
-				"title": "Toggle Files View: Auto",
+				"title": "View Files as List",
 				"category": "GitLens",
 				"icon": "$(gitlens-list-auto)"
 			},
 			{
 				"command": "gitlens.views.commits.setFilesLayoutToTree",
-				"title": "Toggle Files View: List",
+				"title": "View Files as Tree",
 				"category": "GitLens",
 				"icon": "$(list-flat)"
 			},
 			{
 				"command": "gitlens.views.commits.setMyCommitsOnlyOn",
-				"title": "Toggle Filter: All Commits",
+				"title": "View Only My Commits",
 				"category": "GitLens",
 				"icon": "$(filter)"
 			},
 			{
 				"command": "gitlens.views.commits.setMyCommitsOnlyOff",
-				"title": "Toggle Filter: Only My Commits",
+				"title": "View All Commits",
 				"category": "GitLens",
 				"icon": "$(filter-filled)"
 			},
@@ -6440,30 +6440,30 @@
 			},
 			{
 				"command": "gitlens.views.contributors.setFilesLayoutToAuto",
-				"title": "Toggle Files View: Tree",
+				"title": "View Files as Auto",
 				"category": "GitLens",
 				"icon": "$(list-tree)"
 			},
 			{
 				"command": "gitlens.views.contributors.setFilesLayoutToList",
-				"title": "Toggle Files View: Auto",
+				"title": "View Files as List",
 				"category": "GitLens",
 				"icon": "$(gitlens-list-auto)"
 			},
 			{
 				"command": "gitlens.views.contributors.setFilesLayoutToTree",
-				"title": "Toggle Files View: List",
+				"title": "View Files as Tree",
 				"category": "GitLens",
 				"icon": "$(list-flat)"
 			},
 			{
 				"command": "gitlens.views.contributors.setShowAllBranchesOn",
-				"title": "Toggle Filter: Only Current Branch",
+				"title": "View for All Branches",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.contributors.setShowAllBranchesOff",
-				"title": "Toggle Filter: All Branches",
+				"title": "View for Current Branch Only",
 				"category": "GitLens"
 			},
 			{
@@ -6505,14 +6505,14 @@
 			},
 			{
 				"command": "gitlens.views.fileHistory.setCursorFollowingOn",
-				"title": "Toggle History by: File",
+				"title": "View Line History",
 				"category": "GitLens",
 				"icon": "$(file)",
 				"enablement": "gitlens:views:fileHistory:editorFollowing"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setCursorFollowingOff",
-				"title": "Toggle History by: Selected Line(s)",
+				"title": "View File History",
 				"category": "GitLens",
 				"icon": "$(list-selection)",
 				"enablement": "gitlens:views:fileHistory:editorFollowing || gitlens:views:fileHistory:cursorFollowing"
@@ -6531,24 +6531,24 @@
 			},
 			{
 				"command": "gitlens.views.fileHistory.setRenameFollowingOn",
-				"title": "Toggle Follow Renames: Off",
+				"title": "Follow Renames",
 				"category": "GitLens",
 				"enablement": "!config.gitlens.advanced.fileHistoryShowAllBranches"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setRenameFollowingOff",
-				"title": "Toggle Follow Renames: On",
+				"title": "Don't Follow Renames",
 				"category": "GitLens",
 				"enablement": "!config.gitlens.advanced.fileHistoryShowAllBranches"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setShowAllBranchesOn",
-				"title": "Toggle Filter: Only Current Branch",
+				"title": "View History for All Branches",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setShowAllBranchesOff",
-				"title": "Toggle Filter: All Branches",
+				"title": "View History for Current Branch Only",
 				"category": "GitLens"
 			},
 			{
@@ -6643,31 +6643,31 @@
 			},
 			{
 				"command": "gitlens.views.remotes.setLayoutToList",
-				"title": "Toggle View: Tree",
+				"title": "View as List",
 				"category": "GitLens",
 				"icon": "$(list-tree)"
 			},
 			{
 				"command": "gitlens.views.remotes.setLayoutToTree",
-				"title": "Toggle View: List",
+				"title": "View as Tree",
 				"category": "GitLens",
 				"icon": "$(list-flat)"
 			},
 			{
 				"command": "gitlens.views.remotes.setFilesLayoutToAuto",
-				"title": "Toggle Files View: Tree",
+				"title": "View Files as Auto",
 				"category": "GitLens",
 				"icon": "$(list-tree)"
 			},
 			{
 				"command": "gitlens.views.remotes.setFilesLayoutToList",
-				"title": "Toggle Files View: Auto",
+				"title": "View Files as List",
 				"category": "GitLens",
 				"icon": "$(gitlens-list-auto)"
 			},
 			{
 				"command": "gitlens.views.remotes.setFilesLayoutToTree",
-				"title": "Toggle Files View: List",
+				"title": "View Files as Tree",
 				"category": "GitLens",
 				"icon": "$(list-flat)"
 			},
@@ -6714,31 +6714,31 @@
 			},
 			{
 				"command": "gitlens.views.repositories.setBranchesLayoutToList",
-				"title": "Toggle Branches View: Tree",
+				"title": "View Branches as List",
 				"category": "GitLens",
 				"icon": "$(list-tree)"
 			},
 			{
 				"command": "gitlens.views.repositories.setBranchesLayoutToTree",
-				"title": "Toggle Branches View: List",
+				"title": "View Branches as Tree",
 				"category": "GitLens",
 				"icon": "$(list-flat)"
 			},
 			{
 				"command": "gitlens.views.repositories.setFilesLayoutToAuto",
-				"title": "Toggle Files View: Tree",
+				"title": "View Files as Auto",
 				"category": "GitLens",
 				"icon": "$(list-tree)"
 			},
 			{
 				"command": "gitlens.views.repositories.setFilesLayoutToList",
-				"title": "Toggle Files View: Auto",
+				"title": "View Files as List",
 				"category": "GitLens",
 				"icon": "$(gitlens-list-auto)"
 			},
 			{
 				"command": "gitlens.views.repositories.setFilesLayoutToTree",
-				"title": "Toggle Files View: List",
+				"title": "View Files as Tree",
 				"category": "GitLens",
 				"icon": "$(list-flat)"
 			},
@@ -6869,18 +6869,6 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.views.searchAndCompare.pin",
-				"title": "Pin",
-				"category": "GitLens",
-				"icon": "$(pin)"
-			},
-			{
-				"command": "gitlens.views.searchAndCompare.unpin",
-				"title": "Unpin",
-				"category": "GitLens",
-				"icon": "$(pinned)"
-			},
-			{
 				"command": "gitlens.views.searchAndCompare.refresh",
 				"title": "Refresh",
 				"category": "GitLens",
@@ -6900,33 +6888,21 @@
 			},
 			{
 				"command": "gitlens.views.searchAndCompare.setFilesLayoutToAuto",
-				"title": "Toggle Files View: Tree",
+				"title": "View Files as Auto",
 				"category": "GitLens",
 				"icon": "$(list-tree)"
 			},
 			{
 				"command": "gitlens.views.searchAndCompare.setFilesLayoutToList",
-				"title": "Toggle Files View: Auto",
+				"title": "View Files as List",
 				"category": "GitLens",
 				"icon": "$(gitlens-list-auto)"
 			},
 			{
 				"command": "gitlens.views.searchAndCompare.setFilesLayoutToTree",
-				"title": "Toggle Files View: List",
+				"title": "View Files as Tree",
 				"category": "GitLens",
 				"icon": "$(list-flat)"
-			},
-			{
-				"command": "gitlens.views.searchAndCompare.setKeepResultsToOn",
-				"title": "Keep Results",
-				"category": "GitLens",
-				"icon": "$(unlock)"
-			},
-			{
-				"command": "gitlens.views.searchAndCompare.setKeepResultsToOff",
-				"title": "Keep Results",
-				"category": "GitLens",
-				"icon": "$(lock)"
 			},
 			{
 				"command": "gitlens.views.searchAndCompare.setShowAvatarsOn",
@@ -6975,19 +6951,19 @@
 			},
 			{
 				"command": "gitlens.views.stashes.setFilesLayoutToAuto",
-				"title": "Toggle Files View: Tree",
+				"title": "View Files as Auto",
 				"category": "GitLens",
 				"icon": "$(list-tree)"
 			},
 			{
 				"command": "gitlens.views.stashes.setFilesLayoutToList",
-				"title": "Toggle Files View: Auto",
+				"title": "View Files as List",
 				"category": "GitLens",
 				"icon": "$(gitlens-list-auto)"
 			},
 			{
 				"command": "gitlens.views.stashes.setFilesLayoutToTree",
-				"title": "Toggle Files View: List",
+				"title": "View Files as Tree",
 				"category": "GitLens",
 				"icon": "$(list-flat)"
 			},
@@ -7004,31 +6980,31 @@
 			},
 			{
 				"command": "gitlens.views.tags.setLayoutToList",
-				"title": "Toggle View: Tree",
+				"title": "View as List",
 				"category": "GitLens",
 				"icon": "$(list-tree)"
 			},
 			{
 				"command": "gitlens.views.tags.setLayoutToTree",
-				"title": "Toggle View: List",
+				"title": "View as Tree",
 				"category": "GitLens",
 				"icon": "$(list-flat)"
 			},
 			{
 				"command": "gitlens.views.tags.setFilesLayoutToAuto",
-				"title": "Toggle Files View: Tree",
+				"title": "View Files as Auto",
 				"category": "GitLens",
 				"icon": "$(list-tree)"
 			},
 			{
 				"command": "gitlens.views.tags.setFilesLayoutToList",
-				"title": "Toggle Files View: Auto",
+				"title": "View Files as List",
 				"category": "GitLens",
 				"icon": "$(gitlens-list-auto)"
 			},
 			{
 				"command": "gitlens.views.tags.setFilesLayoutToTree",
-				"title": "Toggle Files View: List",
+				"title": "View Files as Tree",
 				"category": "GitLens",
 				"icon": "$(list-flat)"
 			},
@@ -7165,19 +7141,19 @@
 			},
 			{
 				"command": "gitlens.views.worktrees.setFilesLayoutToAuto",
-				"title": "Toggle Files View: Tree",
+				"title": "View Files as Auto",
 				"category": "GitLens",
 				"icon": "$(list-tree)"
 			},
 			{
 				"command": "gitlens.views.worktrees.setFilesLayoutToList",
-				"title": "Toggle Files View: Auto",
+				"title": "View Files as List",
 				"category": "GitLens",
 				"icon": "$(gitlens-list-auto)"
 			},
 			{
 				"command": "gitlens.views.worktrees.setFilesLayoutToTree",
-				"title": "Toggle Files View: List",
+				"title": "View Files as Tree",
 				"category": "GitLens",
 				"icon": "$(list-flat)"
 			},
@@ -9556,14 +9532,6 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.searchAndCompare.pin",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.searchAndCompare.unpin",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.views.searchAndCompare.refresh",
 					"when": "false"
 				},
@@ -9585,14 +9553,6 @@
 				},
 				{
 					"command": "gitlens.views.searchAndCompare.setFilesLayoutToTree",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.searchAndCompare.setKeepResultsToOn",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.searchAndCompare.setKeepResultsToOff",
 					"when": "false"
 				},
 				{
@@ -11067,16 +11027,6 @@
 					"group": "navigation@10"
 				},
 				{
-					"command": "gitlens.views.searchAndCompare.setKeepResultsToOn",
-					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/ && !gitlens:views:searchAndCompare:keepResults",
-					"group": "navigation@12"
-				},
-				{
-					"command": "gitlens.views.searchAndCompare.setKeepResultsToOff",
-					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/ && gitlens:views:searchAndCompare:keepResults",
-					"group": "navigation@13"
-				},
-				{
 					"command": "gitlens.views.searchAndCompare.clear",
 					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/",
 					"group": "navigation@98"
@@ -12483,7 +12433,7 @@
 				},
 				{
 					"command": "gitlens.views.dismissNode",
-					"when": "viewItem =~ /gitlens:(compare:picker|(compare|search):results(?!:)\\b(?!.*?\\b\\+pinned\\b))\\b(?!:(commits|files))/",
+					"when": "viewItem =~ /gitlens:(compare:picker|(compare|search):results(?!:)\\b)\\b(?!:(commits|files))/",
 					"group": "inline@99"
 				},
 				{
@@ -12572,16 +12522,6 @@
 					"group": "inline@97"
 				},
 				{
-					"command": "gitlens.views.searchAndCompare.pin",
-					"when": "viewItem =~ /gitlens:(compare|search):results(?!:)\\b(?!.*?\\b\\+pinned\\b)/",
-					"group": "inline@98"
-				},
-				{
-					"command": "gitlens.views.searchAndCompare.unpin",
-					"when": "viewItem =~ /gitlens:(compare|search):results(?!:)\\b(?=.*?\\b\\+pinned\\b)/",
-					"group": "inline@98"
-				},
-				{
 					"command": "gitlens.views.searchAndCompare.swapComparison",
 					"when": "viewItem =~ /gitlens:compare:results(?!:)\\b(?!.*?\\b\\+working\\b)/",
 					"group": "1_gitlens_actions@2"
@@ -12590,16 +12530,6 @@
 					"command": "gitlens.views.openDirectoryDiff",
 					"when": "viewItem =~ /gitlens:compare:results(?!:)\\b/",
 					"group": "2_gitlens_quickopen@1"
-				},
-				{
-					"command": "gitlens.views.searchAndCompare.pin",
-					"when": "viewItem =~ /gitlens:(compare|search):results(?!:)\\b(?!.*?\\b\\+pinned\\b)/",
-					"group": "8_gitlens_actions@1"
-				},
-				{
-					"command": "gitlens.views.searchAndCompare.unpin",
-					"when": "viewItem =~ /gitlens:(compare|search):results(?!:)\\b(?=.*?\\b\\+pinned\\b)/",
-					"group": "8_gitlens_actions@1"
 				},
 				{
 					"command": "gitlens.views.editNode",
@@ -12787,7 +12717,7 @@
 				},
 				{
 					"command": "gitlens.views.dismissNode",
-					"when": "viewItem =~ /gitlens:(compare:picker:ref|(compare|search):results(?!:)\\b(?!.*?\\b\\+pinned\\b))\\b(?!:(commits|files))/",
+					"when": "viewItem =~ /gitlens:(compare:picker:ref|(compare|search):results(?!:)\\b)\\b(?!:(commits|files))/",
 					"group": "8_gitlens_actions@98"
 				},
 				{
@@ -14858,22 +14788,22 @@
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "10.1.16",
+		"@gitkraken/gitkraken-components": "10.1.17",
 		"@gitkraken/shared-web-components": "^0.1.1-rc.6",
 		"@microsoft/fast-element": "1.12.0",
 		"@microsoft/fast-react-wrapper": "0.3.19",
 		"@octokit/core": "4.2.4",
-		"@opentelemetry/api": "1.4.1",
-		"@opentelemetry/exporter-trace-otlp-http": "0.41.2",
-		"@opentelemetry/sdk-trace-base": "1.15.2",
+		"@opentelemetry/api": "1.5.0",
+		"@opentelemetry/exporter-trace-otlp-http": "0.42.0",
+		"@opentelemetry/sdk-trace-base": "1.16.0",
 		"@vscode/codicons": "0.0.33",
 		"@vscode/webview-ui-toolkit": "1.2.2",
 		"ansi-regex": "6.0.1",
-		"billboard.js": "3.9.3",
+		"billboard.js": "3.9.4",
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
 		"lit": "2.8.0",
-		"node-fetch": "2.6.9",
+		"node-fetch": "2.7.0",
 		"os-browserify": "0.3.0",
 		"path-browserify": "1.0.1",
 		"react": "16.8.4",
@@ -14887,8 +14817,8 @@
 		"@types/react-dom": "17.0.17",
 		"@types/sortablejs": "1.15.2",
 		"@types/vscode": "1.80.0",
-		"@typescript-eslint/eslint-plugin": "6.5.0",
-		"@typescript-eslint/parser": "6.5.0",
+		"@typescript-eslint/eslint-plugin": "6.7.0",
+		"@typescript-eslint/parser": "6.7.0",
 		"@vscode/test-electron": "2.3.4",
 		"@vscode/test-web": "0.0.45",
 		"@vscode/vsce": "2.21.0",
@@ -14902,8 +14832,8 @@
 		"cssnano-preset-advanced": "6.0.1",
 		"esbuild": "0.19.2",
 		"esbuild-loader": "4.0.2",
-		"esbuild-sass-plugin": "2.13.0",
-		"eslint": "8.48.0",
+		"esbuild-sass-plugin": "2.15.0",
+		"eslint": "8.49.0",
 		"eslint-cli": "1.1.1",
 		"eslint-config-prettier": "9.0.0",
 		"eslint-import-resolver-typescript": "3.6.0",
@@ -14939,7 +14869,7 @@
 	},
 	"resolutions": {
 		"iconv-lite": "0.6.3",
-		"node-fetch": "2.6.9",
+		"node-fetch": "2.7.0",
 		"semver-regex": "4.0.5"
 	}
 }

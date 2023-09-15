@@ -72,6 +72,7 @@ export const CommitActionsCommandType = new IpcCommandType<CommitActionsParams>(
 export interface FileActionParams {
 	path: string;
 	repoPath: string;
+	staged: boolean | undefined;
 
 	showOptions?: TextDocumentShowOptions;
 }

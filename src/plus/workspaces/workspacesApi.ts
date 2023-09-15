@@ -1,4 +1,3 @@
-import { Uri } from 'vscode';
 import type { RequestInit } from '@env/fetch';
 import type { Container } from '../../container';
 import { Logger } from '../../system/logger';
@@ -478,10 +477,6 @@ export class WorkspacesApi {
 	}
 
 	private async fetch(request: GraphQLRequest, init?: RequestInit) {
-		return this.connection.fetchGraphQL(
-			Uri.joinPath(this.connection.baseApiUri, 'api/projects/graphql').toString(),
-			request,
-			init,
-		);
+		return this.connection.fetchApiGraphQL('api/projects/graphql', request, init);
 	}
 }
