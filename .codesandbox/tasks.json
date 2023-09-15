@@ -1,0 +1,228 @@
+{
+  // These tasks will run in order when initializing your CodeSandbox project.
+  "setupTasks": [
+    {
+      "name": "Install Dependencies",
+      "command": "yarn install"
+    }
+  ],
+
+  // These tasks can be run from CodeSandbox. Running one will open a log in the app.
+  "tasks": {
+    "analyze:bundle": {
+      "name": "analyze:bundle",
+      "command": "yarn analyze:bundle",
+      "runAtStart": true
+    },
+    "analyze:deps": {
+      "name": "analyze:deps",
+      "command": "yarn analyze:deps",
+      "runAtStart": false
+    },
+    "build": {
+      "name": "build",
+      "command": "yarn build",
+      "runAtStart": false
+    },
+    "build:extension": {
+      "name": "build:extension",
+      "command": "yarn build:extension",
+      "runAtStart": false
+    },
+    "build:extension:browser": {
+      "name": "build:extension:browser",
+      "command": "yarn build:extension:browser",
+      "runAtStart": false
+    },
+    "build:webviews": {
+      "name": "build:webviews",
+      "command": "yarn build:webviews",
+      "runAtStart": false
+    },
+    "build:icons": {
+      "name": "build:icons",
+      "command": "yarn build:icons",
+      "runAtStart": false
+    },
+    "build:tests": {
+      "name": "build:tests",
+      "command": "yarn build:tests",
+      "runAtStart": false
+    },
+    "-build:tests": {
+      "name": "-build:tests",
+      "command": "yarn -build:tests",
+      "runAtStart": false
+    },
+    "bundle": {
+      "name": "bundle",
+      "command": "yarn bundle",
+      "runAtStart": false
+    },
+    "bundle:extension": {
+      "name": "bundle:extension",
+      "command": "yarn bundle:extension",
+      "runAtStart": false
+    },
+    "clean": {
+      "name": "clean",
+      "command": "yarn clean",
+      "runAtStart": false
+    },
+    "copy:images": {
+      "name": "copy:images",
+      "command": "yarn copy:images",
+      "runAtStart": false
+    },
+    "graph:link": {
+      "name": "graph:link",
+      "command": "yarn graph:link",
+      "runAtStart": false
+    },
+    "graph:link:main": {
+      "name": "graph:link:main",
+      "command": "yarn graph:link:main",
+      "runAtStart": false
+    },
+    "graph:unlink": {
+      "name": "graph:unlink",
+      "command": "yarn graph:unlink",
+      "runAtStart": false
+    },
+    "icons:apply": {
+      "name": "icons:apply",
+      "command": "yarn icons:apply",
+      "runAtStart": false
+    },
+    "icons:svgo": {
+      "name": "icons:svgo",
+      "command": "yarn icons:svgo",
+      "runAtStart": false
+    },
+    "lint": {
+      "name": "lint",
+      "command": "yarn lint",
+      "runAtStart": false
+    },
+    "lint:webviews": {
+      "name": "lint:webviews",
+      "command": "yarn lint:webviews",
+      "runAtStart": false
+    },
+    "package": {
+      "name": "package",
+      "command": "yarn package",
+      "runAtStart": false
+    },
+    "package-pre": {
+      "name": "package-pre",
+      "command": "yarn package-pre",
+      "runAtStart": false
+    },
+    "patch-pre": {
+      "name": "patch-pre",
+      "command": "yarn patch-pre",
+      "runAtStart": false
+    },
+    "prep-release": {
+      "name": "prep-release",
+      "command": "yarn prep-release",
+      "runAtStart": false
+    },
+    "pretty": {
+      "name": "pretty",
+      "command": "yarn pretty",
+      "runAtStart": false
+    },
+    "pub": {
+      "name": "pub",
+      "command": "yarn pub",
+      "runAtStart": false
+    },
+    "pub-pre": {
+      "name": "pub-pre",
+      "command": "yarn pub-pre",
+      "runAtStart": false
+    },
+    "rebuild": {
+      "name": "rebuild",
+      "command": "yarn rebuild",
+      "runAtStart": false
+    },
+    "reset": {
+      "name": "reset",
+      "command": "yarn reset",
+      "runAtStart": false
+    },
+    "test": {
+      "name": "test",
+      "command": "yarn test",
+      "runAtStart": false
+    },
+    "watch": {
+      "name": "watch",
+      "command": "yarn watch",
+      "runAtStart": false
+    },
+    "watch:extension": {
+      "name": "watch:extension",
+      "command": "yarn watch:extension",
+      "runAtStart": false
+    },
+    "watch:webviews": {
+      "name": "watch:webviews",
+      "command": "yarn watch:webviews",
+      "runAtStart": false
+    },
+    "watch:tests": {
+      "name": "watch:tests",
+      "command": "yarn watch:tests",
+      "runAtStart": false
+    },
+    "-watch:tests": {
+      "name": "-watch:tests",
+      "command": "yarn -watch:tests",
+      "runAtStart": false
+    },
+    "web": {
+      "name": "web",
+      "command": "yarn web",
+      "runAtStart": false
+    },
+    "web:serve": {
+      "name": "web:serve",
+      "command": "yarn web:serve",
+      "runAtStart": false
+    },
+    "update-dts": {
+      "name": "update-dts",
+      "command": "yarn update-dts",
+      "runAtStart": false
+    },
+    "update-dts:master": {
+      "name": "update-dts:master",
+      "command": "yarn update-dts:master",
+      "runAtStart": false
+    },
+    "update-emoji": {
+      "name": "update-emoji",
+      "command": "yarn update-emoji",
+      "runAtStart": false
+    },
+    "update-licenses": {
+      "name": "update-licenses",
+      "command": "yarn update-licenses",
+      "runAtStart": false
+    },
+    "-pretest": {
+      "name": "-pretest",
+      "command": "yarn -pretest",
+      "runAtStart": false
+    },
+    "vscode:prepublish": {
+      "name": "vscode:prepublish",
+      "command": "yarn vscode:prepublish",
+      "runAtStart": false
+    }
+  }
+}
