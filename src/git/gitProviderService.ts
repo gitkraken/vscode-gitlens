@@ -1258,7 +1258,11 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	checkout(repoPath: string, ref: string, options?: { createBranch?: string } | { path?: string }): Promise<void> {
+	checkout(
+		repoPath: string | Uri,
+		ref: string,
+		options?: { createBranch?: string } | { path?: string },
+	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.checkout(path, ref, options);
 	}
@@ -1279,7 +1283,7 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log<GitProviderService['excludeIgnoredUris']>({ args: { 1: uris => uris.length } })
-	excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]> {
+	excludeIgnoredUris(repoPath: string | Uri, uris: Uri[]): Promise<Uri[]> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.excludeIgnoredUris(path, uris);
 	}
@@ -1287,7 +1291,7 @@ export class GitProviderService implements Disposable {
 	@gate()
 	@log()
 	fetch(
-		repoPath: string,
+		repoPath: string | Uri,
 		options?: { all?: boolean; branch?: GitBranchReference; prune?: boolean; pull?: boolean; remote?: string },
 	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
@@ -1321,7 +1325,10 @@ export class GitProviderService implements Disposable {
 
 	@gate()
 	@log()
-	pull(repoPath: string, options?: { branch?: GitBranchReference; rebase?: boolean; tags?: boolean }): Promise<void> {
+	pull(
+		repoPath: string | Uri,
+		options?: { branch?: GitBranchReference; rebase?: boolean; tags?: boolean },
+	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.pull(path, options);
 	}
@@ -1354,7 +1361,7 @@ export class GitProviderService implements Disposable {
 	@gate()
 	@log()
 	push(
-		repoPath: string,
+		repoPath: string | Uri,
 		options?: { branch?: GitBranchReference; force?: boolean; publish?: { remote: string } },
 	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
@@ -1667,13 +1674,13 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getConfig(repoPath: string, key: string): Promise<string | undefined> {
+	async getConfig(repoPath: string | Uri, key: string): Promise<string | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getConfig?.(path, key);
 	}
 
 	@log()
-	async setConfig(repoPath: string, key: string, value: string | undefined): Promise<void> {
+	async setConfig(repoPath: string | Uri, key: string, value: string | undefined): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.setConfig?.(path, key, value);
 	}
@@ -1777,7 +1784,7 @@ export class GitProviderService implements Disposable {
 	}
 
 	@debug()
-	getGitDir(repoPath: string): Promise<GitDir | undefined> {
+	getGitDir(repoPath: string | Uri): Promise<GitDir | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return Promise.resolve(provider.getGitDir?.(path));
 	}
@@ -2695,13 +2702,13 @@ export class GitProviderService implements Disposable {
 	}
 
 	async resolveReference(
-		repoPath: string,
+		repoPath: string | Uri,
 		ref: string,
 		path?: string,
 		options?: { force?: boolean; timeout?: number },
 	): Promise<string>;
 	async resolveReference(
-		repoPath: string,
+		repoPath: string | Uri,
 		ref: string,
 		uri?: Uri,
 		options?: { force?: boolean; timeout?: number },
@@ -2913,13 +2920,13 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	getScmRepository(repoPath: string): Promise<ScmRepository | undefined> {
+	getScmRepository(repoPath: string | Uri): Promise<ScmRepository | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getScmRepository(path);
 	}
 
 	@log()
-	getOrOpenScmRepository(repoPath: string): Promise<ScmRepository | undefined> {
+	getOrOpenScmRepository(repoPath: string | Uri): Promise<ScmRepository | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getOrOpenScmRepository(path);
 	}
