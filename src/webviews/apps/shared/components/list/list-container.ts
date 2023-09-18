@@ -3,8 +3,6 @@ import { customElement, queryAssignedElements } from 'lit/decorators.js';
 import type { FileChangeListItem } from './file-change-list-item';
 import type { ListItem, ListItemSelectedEvent } from './list-item';
 
-const BesideViewColumn = -2; /*ViewColumn.Beside*/
-
 @customElement('list-container')
 export class ListContainer extends LitElement {
 	static override styles = css`
@@ -101,12 +99,6 @@ export class ListContainer extends LitElement {
 		if (!e.target) return;
 		const target = e.target as ListItem;
 
-		// if (e.key === 'Enter' || e.key === ' ') {
-		// 	target.select({
-		// 		preserveFocus: e.key !== 'Enter',
-		// 		viewColumn: e.altKey ? BesideViewColumn : undefined,
-		// 	});
-		// } else
 		if (e.key === 'ArrowUp') {
 			const $previous: HTMLElement | null = target.previousElementSibling as HTMLElement;
 			$previous?.focus();
