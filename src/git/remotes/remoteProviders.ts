@@ -171,6 +171,7 @@ function createBestRemoteProvider(
 
 		return undefined;
 	} catch (ex) {
+		debugger;
 		Logger.error(ex, 'createRemoteProvider');
 		return undefined;
 	}

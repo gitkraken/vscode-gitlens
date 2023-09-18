@@ -190,8 +190,6 @@ export class Container {
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 		];
 
-		this._richRemoteProviders = new RichRemoteProviderService(this);
-
 		this._disposables.push((this._connection = new ServerConnection(this)));
 
 		this._disposables.push(
@@ -533,14 +531,6 @@ export class Container {
 		return this._lineTracker;
 	}
 
-	private _repositoryPathMapping: RepositoryPathMappingProvider | undefined;
-	get repositoryPathMapping() {
-		if (this._repositoryPathMapping == null) {
-			this._disposables.push((this._repositoryPathMapping = getSupportedRepositoryPathMappingProvider(this)));
-		}
-		return this._repositoryPathMapping;
-	}
-
 	private readonly _prerelease;
 	get prerelease() {
 		return this._prerelease;
@@ -566,19 +556,25 @@ export class Container {
 		return this._repositoriesView;
 	}
 
+	private _repositoryPathMapping: RepositoryPathMappingProvider | undefined;
+	get repositoryPathMapping() {
+		if (this._repositoryPathMapping == null) {
+			this._disposables.push((this._repositoryPathMapping = getSupportedRepositoryPathMappingProvider(this)));
+		}
+		return this._repositoryPathMapping;
+	}
+
+	private _richRemoteProviders: RichRemoteProviderService | undefined;
+	get richRemoteProviders(): RichRemoteProviderService {
+		if (this._richRemoteProviders == null) {
+			this._richRemoteProviders = new RichRemoteProviderService(this);
+		}
+		return this._richRemoteProviders;
+	}
+
 	private readonly _searchAndCompareView: SearchAndCompareView;
 	get searchAndCompareView() {
 		return this._searchAndCompareView;
-	}
-
-	private _subscription: SubscriptionService;
-	get subscription() {
-		return this._subscription;
-	}
-
-	private readonly _richRemoteProviders: RichRemoteProviderService;
-	get richRemoteProviders(): RichRemoteProviderService {
-		return this._richRemoteProviders;
 	}
 
 	private readonly _stashesView: StashesView;
@@ -594,6 +590,11 @@ export class Container {
 	private readonly _storage: Storage;
 	get storage(): Storage {
 		return this._storage;
+	}
+
+	private _subscription: SubscriptionService;
+	get subscription() {
+		return this._subscription;
 	}
 
 	private readonly _tagsView: TagsView;

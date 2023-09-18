@@ -9,7 +9,7 @@ import type { Container } from '../../container';
 import type { FeatureAccess, Features, PlusFeatures } from '../../features';
 import { showCreatePullRequestPrompt, showGenericErrorMessage } from '../../messages';
 import { asRepoComparisonKey } from '../../repositories';
-import { filterMap, groupByMap } from '../../system/array';
+import { groupByMap } from '../../system/array';
 import { executeActionCommand, executeCoreGitCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { formatDate, fromNow } from '../../system/date';
@@ -214,8 +214,6 @@ export class Repository implements Disposable {
 	private _fsWatcherDisposable: Disposable | undefined;
 	private _pendingFileSystemChange?: RepositoryFileSystemChangeEvent;
 	private _pendingRepoChange?: RepositoryChangeEvent;
-	private _remotes: Promise<GitRemote[]> | undefined;
-	private _remotesDisposable: Disposable | undefined;
 	private _suspended: boolean;
 
 	constructor(
@@ -256,6 +254,19 @@ export class Repository implements Disposable {
 		this._disposable = Disposable.from(
 			this.setupRepoWatchers(),
 			configuration.onDidChange(this.onConfigurationChanged, this),
+			// Sending this event in the `'git:cache:reset'` below to avoid unnecessary work. While we will refresh more than needed, this doesn't happen often
+			// container.richRemoteProviders.onAfterDidChangeConnectionState(async e => {
+			// 	const uniqueKeys = new Set<string>();
+			// 	for (const remote of await this.getRemotes()) {
+			// 		if (remote.provider?.hasRichIntegration()) {
+			// 			uniqueKeys.add(remote.provider.key);
+			// 		}
+			// 	}
+
+			// 	if (uniqueKeys.has(e.key)) {
+			// 		this.fireChange(RepositoryChange.RemoteProviders);
+			// 	}
+			// }),
 		);
 
 		this.onConfigurationChanged();
@@ -281,6 +292,10 @@ export class Repository implements Disposable {
 			this.container.events.on('git:cache:reset', e => {
 				if (!e.data.repoPath || e.data.repoPath === this.path) {
 					this.resetCaches(...(e.data.caches ?? emptyArray));
+
+					if (e.data.caches?.includes('providers')) {
+						this.fireChange(RepositoryChange.RemoteProviders);
+					}
 				}
 			}),
 		);
@@ -323,7 +338,6 @@ export class Repository implements Disposable {
 	dispose() {
 		this.stopWatchingFileSystem();
 
-		this._remotesDisposable?.dispose();
 		this._disposable.dispose();
 	}
 
@@ -685,32 +699,15 @@ export class Repository implements Disposable {
 	}
 
 	async getRemotes(options?: { filter?: (remote: GitRemote) => boolean; sort?: boolean }): Promise<GitRemote[]> {
-		if (this._remotes == null) {
-			// Since we are caching the results, always sort
-			this._remotes = this.container.git.getRemotes(this.uri, { sort: true });
-			void this.subscribeToRemotes(this._remotes);
-		}
-
-		return options?.filter != null ? (await this._remotes).filter(options.filter) : this._remotes;
+		const remotes = await this.container.git.getRemotes(
+			this.uri,
+			options?.sort != null ? { sort: options.sort } : undefined,
+		);
+		return options?.filter != null ? remotes.filter(options.filter) : remotes;
 	}
 
 	async getRichRemote(connectedOnly: boolean = false): Promise<GitRemote<RichRemoteProvider> | undefined> {
-		return this.container.git.getBestRemoteWithRichProvider(await this.getRemotes(), {
-			includeDisconnected: !connectedOnly,
-		});
-	}
-
-	private async subscribeToRemotes(remotes: Promise<GitRemote[]>) {
-		this._remotesDisposable?.dispose();
-		this._remotesDisposable = undefined;
-
-		this._remotesDisposable = Disposable.from(
-			...filterMap(await remotes, r => {
-				if (!r.provider?.hasRichIntegration()) return undefined;
-
-				return r.provider.onDidChange(() => this.fireChange(RepositoryChange.RemoteProviders));
-			}),
-		);
+		return this.container.git.getBestRemoteWithRichProvider(this.uri, { includeDisconnected: !connectedOnly });
 	}
 
 	getStash(): Promise<GitStash | undefined> {
@@ -955,11 +952,11 @@ export class Repository implements Disposable {
 			this._branch = undefined;
 		}
 
-		if (caches.length === 0 || caches.includes('remotes')) {
-			this._remotes = undefined;
-			this._remotesDisposable?.dispose();
-			this._remotesDisposable = undefined;
-		}
+		// if (caches.length === 0 || caches.includes('remotes')) {
+		// 	this._remotes = undefined;
+		// 	this._remotesDisposable?.dispose();
+		// 	this._remotesDisposable = undefined;
+		// }
 	}
 
 	resume() {

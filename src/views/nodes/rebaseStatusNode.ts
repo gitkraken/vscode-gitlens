@@ -195,8 +195,8 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 	}
 
 	private async getTooltip() {
-		const remotes = await this.view.container.git.getRemotesWithProviders(this.commit.repoPath);
-		const remote = await this.view.container.git.getBestRemoteWithRichProvider(remotes);
+		const remotes = await this.view.container.git.getBestRemotesWithProviders(this.commit.repoPath);
+		const [remote] = remotes;
 
 		if (this.commit.message == null) {
 			await this.commit.ensureFullDetails();
@@ -205,7 +205,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 		let autolinkedIssuesOrPullRequests;
 		let pr;
 
-		if (remote?.provider != null) {
+		if (remote?.hasRichProvider()) {
 			const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
 				this.view.container.autolinks.getLinkedIssuesAndPullRequests(
 					this.commit.message ?? this.commit.summary,

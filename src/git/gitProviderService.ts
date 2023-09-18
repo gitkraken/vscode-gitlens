@@ -35,6 +35,7 @@ import { Logger } from '../system/logger';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import { getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
 import { asSettled, cancellable, defer, getSettledValue, isPromise, PromiseCancelledError } from '../system/promise';
+import { sortCompare } from '../system/string';
 import { VisitedPathsTrie } from '../system/trie';
 import type {
 	GitCaches,
@@ -198,13 +199,14 @@ export class GitProviderService implements Disposable {
 
 	readonly supportedSchemes = new Set<string>();
 
+	private readonly _bestRemotesCache = new Map<
+		RepoComparisonKey,
+		Promise<GitRemote<RemoteProvider | RichRemoteProvider>[]>
+	>();
 	private readonly _disposable: Disposable;
 	private readonly _pendingRepositories = new Map<RepoComparisonKey, Promise<Repository | undefined>>();
 	private readonly _providers = new Map<GitProviderId, GitProvider>();
 	private readonly _repositories = new Repositories();
-	private readonly _bestRemotesCache: Map<RepoComparisonKey, GitRemote<RemoteProvider | RichRemoteProvider> | null> &
-		Map<`rich|${RepoComparisonKey}`, GitRemote<RichRemoteProvider> | null> &
-		Map<`rich+connected|${RepoComparisonKey}`, GitRemote<RichRemoteProvider> | null> = new Map();
 	private readonly _visitedPaths = new VisitedPathsTrie();
 
 	constructor(private readonly container: Container) {
@@ -213,7 +215,7 @@ export class GitProviderService implements Disposable {
 			window.onDidChangeWindowState(this.onWindowStateChanged, this),
 			workspace.onDidChangeWorkspaceFolders(this.onWorkspaceFoldersChanged, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
-			container.richRemoteProviders.onDidChangeConnectionState(e => {
+			container.richRemoteProviders.onAfterDidChangeConnectionState(e => {
 				if (e.reason === 'connected') {
 					resetAvatarCache('failed');
 				}
@@ -2113,189 +2115,108 @@ export class GitProviderService implements Disposable {
 		return provider.getIncomingActivity(path, options);
 	}
 
+	@log()
 	async getBestRemoteWithProvider(
-		repoPath: string | Uri | undefined,
-	): Promise<GitRemote<RemoteProvider | RichRemoteProvider> | undefined>;
-	async getBestRemoteWithProvider(
-		remotes: GitRemote[],
-	): Promise<GitRemote<RemoteProvider | RichRemoteProvider> | undefined>;
-	@gate<GitProviderService['getBestRemoteWithProvider']>(
-		remotesOrRepoPath =>
-			`${
-				remotesOrRepoPath == null || typeof remotesOrRepoPath === 'string'
-					? remotesOrRepoPath
-					: remotesOrRepoPath instanceof Uri
-					? remotesOrRepoPath.toString()
-					: `${remotesOrRepoPath.length}:${remotesOrRepoPath[0]?.repoPath ?? ''}`
-			}`,
-	)
-	@log<GitProviderService['getBestRemoteWithProvider']>({
-		args: {
-			0: remotesOrRepoPath =>
-				Array.isArray(remotesOrRepoPath) ? remotesOrRepoPath.map(r => r.name).join(',') : remotesOrRepoPath,
-		},
-	})
-	async getBestRemoteWithProvider(
-		remotesOrRepoPath: GitRemote[] | string | Uri | undefined,
+		repoPath: string | Uri,
 	): Promise<GitRemote<RemoteProvider | RichRemoteProvider> | undefined> {
-		if (remotesOrRepoPath == null) return undefined;
+		const remotes = await this.getBestRemotesWithProviders(repoPath);
+		return remotes[0];
+	}
 
-		let remotes;
-		let repoPath;
-		if (Array.isArray(remotesOrRepoPath)) {
-			if (remotesOrRepoPath.length === 0) return undefined;
-
-			remotes = remotesOrRepoPath;
-			repoPath = remotesOrRepoPath[0].repoPath;
-		} else {
-			repoPath = remotesOrRepoPath;
-		}
-
+	@log()
+	async getBestRemotesWithProviders(
+		repoPath: string | Uri,
+	): Promise<GitRemote<RemoteProvider | RichRemoteProvider>[]> {
+		if (repoPath == null) return [];
 		if (typeof repoPath === 'string') {
 			repoPath = this.getAbsoluteUri(repoPath);
 		}
 
 		const cacheKey = asRepoComparisonKey(repoPath);
-		let remote = this._bestRemotesCache.get(cacheKey);
-		if (remote !== undefined) return remote ?? undefined;
+		let remotes = this._bestRemotesCache.get(cacheKey);
+		if (remotes == null) {
+			async function getBest(this: GitProviderService) {
+				const remotes = await this.getRemotesWithProviders(repoPath, { sort: true });
+				if (remotes.length === 0) return [];
+				if (remotes.length === 1) return [...remotes];
 
-		remotes = (remotes ?? (await this.getRemotesWithProviders(repoPath))).filter(
-			(r: GitRemote): r is GitRemote<RemoteProvider | RichRemoteProvider> => r.provider != null,
-		);
+				const defaultRemote = remotes.find(r => r.default)?.name;
+				const currentBranchRemote = (await this.getBranch(remotes[0].repoPath))?.getRemoteName();
 
-		if (remotes.length === 0) return undefined;
+				const weighted: [number, GitRemote<RemoteProvider | RichRemoteProvider>][] = [];
 
-		if (remotes.length === 1) {
-			remote = remotes[0];
-		} else {
-			const weightedRemotes = new Map<string, number>([
-				['upstream', 15],
-				['origin', 10],
-			]);
+				let originalFound = false;
 
-			const branch = await this.getBranch(remotes[0].repoPath);
-			const branchRemote = branch?.getRemoteName();
-
-			if (branchRemote != null) {
-				weightedRemotes.set(branchRemote, 100);
-			}
-
-			let bestRemote;
-			let weight = 0;
-			for (const r of remotes) {
-				if (r.default) {
-					bestRemote = r;
-					break;
-				}
-
-				// Don't choose a remote unless its weighted above
-				let matchedWeight = weightedRemotes.get(r.name) ?? -1;
-
-				const p = r.provider;
-				if (p.hasRichIntegration() && p.maybeConnected) {
-					const m = await p.getRepositoryMetadata();
-					if (m?.isFork === false) {
-						matchedWeight += 101;
+				for (const remote of remotes) {
+					let weight;
+					switch (remote.name) {
+						case defaultRemote:
+							weight = 1000;
+							break;
+						case currentBranchRemote:
+							weight = 6;
+							break;
+						case 'upstream':
+							weight = 5;
+							break;
+						case 'origin':
+							weight = 4;
+							break;
+						default:
+							weight = 0;
 					}
+
+					// Only check remotes that have extra weighting and less than the default
+					if (weight > 0 && weight < 1000 && !originalFound) {
+						const p = remote.provider;
+						if (
+							p.hasRichIntegration() &&
+							(p.maybeConnected ||
+								(p.maybeConnected === undefined && p.shouldConnect && (await p.isConnected())))
+						) {
+							const repo = await p.getRepositoryMetadata();
+							if (repo != null) {
+								weight += repo.isFork ? -3 : 3;
+								// Once we've found the "original" (not a fork) don't bother looking for more
+								originalFound = !repo.isFork;
+							}
+						}
+					}
+
+					weighted.push([weight, remote]);
 				}
 
-				if (matchedWeight > weight) {
-					bestRemote = r;
-					weight = matchedWeight;
-				}
+				// Sort by the weight, but if both are 0 (no weight) then sort by name
+				weighted.sort(([aw, ar], [bw, br]) => (bw === 0 && aw === 0 ? sortCompare(ar.name, br.name) : bw - aw));
+				return weighted.map(wr => wr[1]);
 			}
 
-			remote = bestRemote ?? null;
+			remotes = getBest.call(this);
+			this._bestRemotesCache.set(cacheKey, remotes);
 		}
 
-		this._bestRemotesCache.set(cacheKey, remote);
-
-		return remote ?? undefined;
+		return [...(await remotes)];
 	}
 
+	@log()
 	async getBestRemoteWithRichProvider(
-		repoPath: string | Uri | undefined,
-		options?: { includeDisconnected?: boolean },
-	): Promise<GitRemote<RichRemoteProvider> | undefined>;
-	async getBestRemoteWithRichProvider(
-		remotes: GitRemote[],
-		options?: { includeDisconnected?: boolean },
-	): Promise<GitRemote<RichRemoteProvider> | undefined>;
-	@gate<GitProviderService['getBestRemoteWithRichProvider']>(
-		(remotesOrRepoPath, options) =>
-			`${
-				remotesOrRepoPath == null || typeof remotesOrRepoPath === 'string'
-					? remotesOrRepoPath
-					: remotesOrRepoPath instanceof Uri
-					? remotesOrRepoPath.toString()
-					: `${remotesOrRepoPath.length}:${remotesOrRepoPath[0]?.repoPath ?? ''}`
-			}|${options?.includeDisconnected ?? false}`,
-	)
-	@log<GitProviderService['getBestRemoteWithRichProvider']>({
-		args: {
-			0: remotesOrRepoPath =>
-				Array.isArray(remotesOrRepoPath) ? remotesOrRepoPath.map(r => r.name).join(',') : remotesOrRepoPath,
-		},
-	})
-	async getBestRemoteWithRichProvider(
-		remotesOrRepoPath: GitRemote[] | string | Uri | undefined,
+		repoPath: string | Uri,
 		options?: { includeDisconnected?: boolean },
 	): Promise<GitRemote<RichRemoteProvider> | undefined> {
-		if (remotesOrRepoPath == null) return undefined;
+		const remotes = await this.getBestRemotesWithProviders(repoPath);
 
-		let remotes;
-		let repoPath;
-		if (Array.isArray(remotesOrRepoPath)) {
-			if (remotesOrRepoPath.length === 0) return undefined;
-
-			remotes = remotesOrRepoPath;
-			repoPath = remotesOrRepoPath[0].repoPath;
-		} else {
-			repoPath = remotesOrRepoPath;
+		const includeDisconnected = options?.includeDisconnected ?? false;
+		for (const r of remotes) {
+			if (r.hasRichProvider() && (includeDisconnected || r.provider.maybeConnected === true)) {
+				return r;
+			}
 		}
 
-		if (typeof repoPath === 'string') {
-			repoPath = this.getAbsoluteUri(repoPath);
-		}
-
-		const cacheKey = asRepoComparisonKey(repoPath);
-
-		let richRemote = this._bestRemotesCache.get(`rich+connected|${cacheKey}`);
-		if (richRemote != null) return richRemote;
-		if (richRemote === null && !options?.includeDisconnected) return undefined;
-
-		if (options?.includeDisconnected) {
-			richRemote = this._bestRemotesCache.get(`rich|${cacheKey}`);
-			if (richRemote !== undefined) return richRemote ?? undefined;
-		}
-
-		const remote = await (remotes != null
-			? this.getBestRemoteWithProvider(remotes)
-			: this.getBestRemoteWithProvider(repoPath));
-
-		if (!remote?.hasRichProvider()) {
-			this._bestRemotesCache.set(`rich|${cacheKey}`, null);
-			this._bestRemotesCache.set(`rich+connected|${cacheKey}`, null);
-			return undefined;
-		}
-
-		const { provider } = remote;
-		const connected = provider.maybeConnected ?? (await provider.isConnected());
-		if (connected) {
-			this._bestRemotesCache.set(`rich|${cacheKey}`, remote);
-			this._bestRemotesCache.set(`rich+connected|${cacheKey}`, remote);
-		} else {
-			this._bestRemotesCache.set(`rich|${cacheKey}`, remote);
-			this._bestRemotesCache.set(`rich+connected|${cacheKey}`, null);
-
-			if (!options?.includeDisconnected) return undefined;
-		}
-
-		return remote;
+		return undefined;
 	}
 
-	@log({ args: { 1: false } })
-	async getRemotes(repoPath: string | Uri | undefined, options?: { sort?: boolean }): Promise<GitRemote[]> {
+	@log()
+	async getRemotes(repoPath: string | Uri, options?: { sort?: boolean }): Promise<GitRemote[]> {
 		if (repoPath == null) return [];
 
 		const { provider, path } = this.getProvider(repoPath);
@@ -2304,16 +2225,10 @@ export class GitProviderService implements Disposable {
 
 	@log()
 	async getRemotesWithProviders(
-		repoPath: string | Uri | undefined,
+		repoPath: string | Uri,
 		options?: { sort?: boolean },
 	): Promise<GitRemote<RemoteProvider | RichRemoteProvider>[]> {
-		if (repoPath == null) return [];
-
-		const repository = this.container.git.getRepository(repoPath);
-		const remotes = await (repository != null
-			? repository.getRemotes(options)
-			: this.getRemotes(repoPath, options));
-
+		const remotes = await this.getRemotes(repoPath, options);
 		return remotes.filter(
 			(r: GitRemote): r is GitRemote<RemoteProvider | RichRemoteProvider> => r.provider != null,
 		);
