@@ -99,7 +99,7 @@ export class SubscriptionService implements Disposable {
 			subscription.previewTrial = undefined;
 		}
 
-		this.changeSubscription(subscription, true);
+		this.changeSubscription(subscription, { silent: true });
 		setTimeout(() => void this.ensureSession(false), 10000);
 	}
 
@@ -130,7 +130,7 @@ export class SubscriptionService implements Disposable {
 		}
 
 		this._session = session;
-		void this.validate();
+		void this.validate({ force: true });
 	}
 
 	private _etag: number = 0;
@@ -163,7 +163,7 @@ export class SubscriptionService implements Disposable {
 			registerCommand(Commands.PlusPurchase, () => this.purchase()),
 
 			registerCommand(Commands.PlusResendVerification, () => this.resendVerification()),
-			registerCommand(Commands.PlusValidate, () => this.validate()),
+			registerCommand(Commands.PlusValidate, () => this.validate({ force: true })),
 
 			registerCommand(Commands.PlusShowPlans, () => this.showPlans()),
 
@@ -382,7 +382,7 @@ export class SubscriptionService implements Disposable {
 			);
 
 			if (result === confirm) {
-				await this.validate();
+				await this.validate({ force: true });
 				return true;
 			}
 		} catch (ex) {
@@ -488,7 +488,7 @@ export class SubscriptionService implements Disposable {
 
 	@gate()
 	@log()
-	async validate(): Promise<void> {
+	async validate(options?: { force?: boolean }): Promise<void> {
 		const scope = getLogScope();
 
 		const session = await this.ensureSession(false);
@@ -498,17 +498,30 @@ export class SubscriptionService implements Disposable {
 		}
 
 		try {
-			await this.checkInAndValidate(session);
+			await this.checkInAndValidate(session, options);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;
 		}
 	}
 
-	private _lastCheckInDate: Date | undefined;
+	private _lastValidatedDate: Date | undefined;
 	@gate<SubscriptionService['checkInAndValidate']>(s => s.account.id)
-	private async checkInAndValidate(session: AuthenticationSession, showSlowProgress: boolean = false): Promise<void> {
-		if (!showSlowProgress) return this.checkInAndValidateCore(session);
+	private async checkInAndValidate(
+		session: AuthenticationSession,
+		options?: { force?: boolean; showSlowProgress?: boolean },
+	): Promise<void> {
+		// Only check in if we haven't in the last 12 hours
+		if (
+			!options?.force &&
+			this._lastValidatedDate != null &&
+			Date.now() - this._lastValidatedDate.getTime() < 12 * 60 * 60 * 1000 &&
+			!isSubscriptionExpired(this._subscription)
+		) {
+			return;
+		}
+
+		if (!options?.showSlowProgress) return this.checkInAndValidateCore(session);
 
 		const validating = this.checkInAndValidateCore(session);
 		const result = await Promise.race([
@@ -527,7 +540,7 @@ export class SubscriptionService implements Disposable {
 		}
 	}
 
-	@debug<SubscriptionService['checkInAndValidate']>({ args: { 0: s => s?.account.label } })
+	@debug<SubscriptionService['checkInAndValidateCore']>({ args: { 0: s => s?.account.label } })
 	private async checkInAndValidateCore(session: AuthenticationSession): Promise<void> {
 		const scope = getLogScope();
 
@@ -560,8 +573,8 @@ export class SubscriptionService implements Disposable {
 
 			const data: GKLicenseInfo = await rsp.json();
 			this.validateSubscription(data);
-			this._lastCheckInDate = new Date();
 		} catch (ex) {
+			this._lastValidatedDate = undefined;
 			Logger.error(ex, scope);
 			debugger;
 			if (ex instanceof AccountValidationError) throw ex;
@@ -580,11 +593,11 @@ export class SubscriptionService implements Disposable {
 		// Check 4 times a day to ensure we validate at least once a day
 		this._validationTimer = setInterval(
 			() => {
-				if (this._lastCheckInDate == null || this._lastCheckInDate.getDate() !== new Date().getDate()) {
+				if (this._lastValidatedDate == null || this._lastValidatedDate.getDate() !== new Date().getDate()) {
 					void this.ensureSession(false, true);
 				}
 			},
-			1000 * 60 * 60 * 6,
+			6 * 60 * 60 * 1000,
 		);
 	}
 
@@ -665,14 +678,18 @@ export class SubscriptionService implements Disposable {
 			effective = { ...actual };
 		}
 
-		this.changeSubscription({
-			...this._subscription,
-			plan: {
-				actual: actual,
-				effective: effective,
+		this._lastValidatedDate = new Date();
+		this.changeSubscription(
+			{
+				...this._subscription,
+				plan: {
+					actual: actual,
+					effective: effective,
+				},
+				account: account,
 			},
-			account: account,
-		});
+			{ store: true },
+		);
 	}
 
 	private _sessionPromise: Promise<AuthenticationSession | null> | undefined;
@@ -681,6 +698,10 @@ export class SubscriptionService implements Disposable {
 	@gate()
 	@debug()
 	private async ensureSession(createIfNeeded: boolean, force?: boolean): Promise<AuthenticationSession | undefined> {
+		if (force) {
+			this._lastValidatedDate = undefined;
+		}
+
 		if (this._sessionPromise != null && this._session === undefined) {
 			void (await this._sessionPromise);
 		}
@@ -737,7 +758,7 @@ export class SubscriptionService implements Disposable {
 		}
 
 		try {
-			await this.checkInAndValidate(session, createIfNeeded);
+			await this.checkInAndValidate(session, { showSlowProgress: createIfNeeded });
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;
@@ -802,7 +823,7 @@ export class SubscriptionService implements Disposable {
 	@debug()
 	private changeSubscription(
 		subscription: Optional<Subscription, 'state'> | undefined,
-		silent: boolean = false,
+		options?: { silent?: boolean; store?: boolean },
 	): void {
 		if (subscription == null) {
 			subscription = {
@@ -855,7 +876,12 @@ export class SubscriptionService implements Disposable {
 		const matches = previous != null && JSON.stringify(previous) === JSON.stringify(subscription);
 
 		// If the previous and new subscriptions are exactly the same, kick out
-		if (matches) return;
+		if (matches) {
+			if (options?.store) {
+				void this.storeSubscription(subscription);
+			}
+			return;
+		}
 
 		queueMicrotask(() => {
 			let data = flattenSubscription(subscription);
@@ -874,7 +900,7 @@ export class SubscriptionService implements Disposable {
 		this._subscription = subscription;
 		this._etag = Date.now();
 
-		if (!silent) {
+		if (!options?.silent) {
 			this.updateContext();
 
 			if (previous != null) {
@@ -886,7 +912,15 @@ export class SubscriptionService implements Disposable {
 	private getStoredSubscription(): Subscription | undefined {
 		const storedSubscription = this.container.storage.get('premium:subscription');
 
-		const subscription = storedSubscription?.data;
+		let lastValidatedAt: number | undefined;
+		let subscription: Subscription | undefined;
+		if (storedSubscription?.data != null) {
+			({ lastValidatedAt, ...subscription } = storedSubscription.data);
+			this._lastValidatedDate = lastValidatedAt != null ? new Date(lastValidatedAt) : undefined;
+		} else {
+			subscription = undefined;
+		}
+
 		if (subscription != null) {
 			// Migrate the plan names to the latest names
 			(subscription.plan.actual as Mutable<Subscription['plan']['actual']>).name = getSubscriptionPlanName(
@@ -903,7 +937,7 @@ export class SubscriptionService implements Disposable {
 	private async storeSubscription(subscription: Subscription): Promise<void> {
 		return this.container.storage.store('premium:subscription', {
 			v: 1,
-			data: subscription,
+			data: { ...subscription, lastValidatedAt: this._lastValidatedDate?.getTime() },
 		});
 	}
 

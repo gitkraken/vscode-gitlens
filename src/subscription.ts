@@ -22,6 +22,8 @@ export interface Subscription {
 	previewTrial?: SubscriptionPreviewTrial;
 
 	state: SubscriptionState;
+
+	lastValidatedAt?: number;
 }
 
 export interface SubscriptionPlan {

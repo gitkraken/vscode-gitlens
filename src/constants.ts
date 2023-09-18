@@ -748,7 +748,7 @@ export type GlobalStorage = {
 	pendingWelcomeOnFocus: boolean;
 	pendingWhatsNewOnFocus: boolean;
 	// Don't change this key name ('premium`) as its the stored subscription
-	'premium:subscription': Stored<Subscription>;
+	'premium:subscription': Stored<Subscription & { lastValidatedAt: number | undefined }>;
 	'synced:version': string;
 	// Keep the pre-release version separate from the released version
 	'synced:preVersion': string;
