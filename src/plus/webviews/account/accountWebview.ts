@@ -1,7 +1,6 @@
 import { Disposable, window } from 'vscode';
 import { getAvatarUriFromGravatarEmail } from '../../../avatars';
 import type { Container } from '../../../container';
-import type { RepositoriesVisibility } from '../../../git/gitProviderService';
 import type { Subscription } from '../../../subscription';
 import { registerCommand } from '../../../system/command';
 import type { Deferrable } from '../../../system/function';
@@ -30,7 +29,16 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 	}
 
 	registerCommands(): Disposable[] {
-		return [registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this)];
+		return [
+			registerCommand(
+				`${this.host.id}.refresh`,
+				async () => {
+					await this.validateSubscriptionCore(true);
+					await this.host.refresh(true);
+				},
+				this,
+			),
+		];
 	}
 
 	includeBootstrap(): Promise<State> {
@@ -57,11 +65,6 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 		}
 
 		queueMicrotask(() => void this.validateSubscription());
-	}
-
-	private async getRepoVisibility(): Promise<RepositoriesVisibility> {
-		const visibility = await this.container.git.visibility();
-		return visibility;
 	}
 
 	private async getSubscription(subscription?: Subscription) {
@@ -113,9 +116,9 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private _validating: Promise<void> | undefined;
-	private async validateSubscriptionCore() {
-		if (this._validating == null) {
-			this._validating = this.container.subscription.validate();
+	private async validateSubscriptionCore(force?: boolean) {
+		if (this._validating == null || force) {
+			this._validating = this.container.subscription.validate({ force: force });
 			try {
 				await this._validating;
 			} finally {
