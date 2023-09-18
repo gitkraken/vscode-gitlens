@@ -1,4 +1,5 @@
-import { Disposable, env, ProgressLocation, Uri, window } from 'vscode';
+import type { Disposable } from 'vscode';
+import { env, ProgressLocation, Uri, window } from 'vscode';
 import type { RepositoriesViewConfig } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
@@ -24,6 +25,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, R
 		super(container, 'workspaces', 'Workspaces', 'workspaceView');
 
 		this.description = `PREVIEW\u00a0\u00a0☁️`;
+		this.disposables.push(container.workspaces.onDidResetWorkspaces(() => void this.refresh(true)));
 	}
 
 	override dispose() {
@@ -41,13 +43,6 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, R
 
 	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {
 		if (!(await ensurePlusFeaturesEnabled())) return;
-
-		if (this._disposable == null) {
-			this._disposable = Disposable.from(
-				this.container.workspaces.onDidResetWorkspaces(() => void this.ensureRoot().triggerChange(true)),
-			);
-		}
-
 		return super.show(options);
 	}
 
