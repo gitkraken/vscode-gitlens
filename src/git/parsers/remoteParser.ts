@@ -55,6 +55,10 @@ export class GitRemoteParser {
 				remote.urls.push({ url: url, type: type as GitRemoteType });
 				if (remote.provider != null && type !== 'push') continue;
 
+				if (remote.provider?.hasRichIntegration()) {
+					remote.provider.dispose();
+				}
+
 				const provider = remoteProviderMatcher(url, domain, path);
 				if (provider == null) continue;
 

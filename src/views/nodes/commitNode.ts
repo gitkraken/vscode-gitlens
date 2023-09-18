@@ -236,13 +236,8 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 	}
 
 	private async getTooltip() {
-		const remotes = await this.view.container.git.getRemotesWithProviders(this.commit.repoPath, { sort: true });
-		const remote = await this.view.container.git.getBestRemoteWithRichProvider(remotes);
-
-		// If we have a "best" remote, move it to the front of the list
-		if (remote != null) {
-			remotes.sort((a, b) => (a === remote ? -1 : b === remote ? 1 : 0));
-		}
+		const remotes = await this.view.container.git.getBestRemotesWithProviders(this.commit.repoPath);
+		const [remote] = remotes;
 
 		if (this.commit.message == null) {
 			await this.commit.ensureFullDetails();
@@ -251,7 +246,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		let autolinkedIssuesOrPullRequests;
 		let pr;
 
-		if (remote?.provider != null) {
+		if (remote?.hasRichProvider()) {
 			const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
 				this.view.container.autolinks.getLinkedIssuesAndPullRequests(
 					this.commit.message ?? this.commit.summary,

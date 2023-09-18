@@ -15,6 +15,7 @@ import { detailsMessage } from '../hovers/hovers';
 import { configuration } from '../system/configuration';
 import { debug, log } from '../system/decorators/log';
 import { once } from '../system/event';
+import { debounce } from '../system/function';
 import { count, every, filter } from '../system/iterable';
 import { Logger } from '../system/logger';
 import type { LogScope } from '../system/logger.scope';
@@ -45,7 +46,9 @@ export class LineAnnotationController implements Disposable {
 			once(container.onReady)(this.onReady, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			container.fileAnnotations.onDidToggleAnnotations(this.onFileAnnotationsToggled, this),
-			container.richRemoteProviders.onDidChangeConnectionState(() => void this.refresh(window.activeTextEditor)),
+			container.richRemoteProviders.onAfterDidChangeConnectionState(
+				debounce(() => void this.refresh(window.activeTextEditor), 250),
+			),
 		);
 	}
 

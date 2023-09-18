@@ -13,6 +13,11 @@ export class RichRemoteProviderService {
 		return this._onDidChangeConnectionState.event;
 	}
 
+	private readonly _onAfterDidChangeConnectionState = new EventEmitter<ConnectionStateChangeEvent>();
+	get onAfterDidChangeConnectionState(): Event<ConnectionStateChangeEvent> {
+		return this._onAfterDidChangeConnectionState.event;
+	}
+
 	private readonly _connectedCache = new Set<string>();
 
 	constructor(private readonly container: Container) {}
@@ -25,6 +30,7 @@ export class RichRemoteProviderService {
 		this.container.telemetry.sendEvent('remoteProviders/connected', { 'remoteProviders.key': key });
 
 		this._onDidChangeConnectionState.fire({ key: key, reason: 'connected' });
+		setTimeout(() => this._onAfterDidChangeConnectionState.fire({ key: key, reason: 'connected' }), 250);
 	}
 
 	disconnected(key: string): void {
@@ -34,5 +40,10 @@ export class RichRemoteProviderService {
 		this.container.telemetry.sendEvent('remoteProviders/disconnected', { 'remoteProviders.key': key });
 
 		this._onDidChangeConnectionState.fire({ key: key, reason: 'disconnected' });
+		setTimeout(() => this._onAfterDidChangeConnectionState.fire({ key: key, reason: 'disconnected' }), 250);
+	}
+
+	isConnected(key?: string): boolean {
+		return key == null ? this._connectedCache.size !== 0 : this._connectedCache.has(key);
 	}
 }

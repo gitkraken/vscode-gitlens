@@ -213,33 +213,35 @@ export async function detailsMessage(
 
 		if (options?.cancellationToken?.isCancellationRequested) return new MarkdownString();
 	}
-
-	const remotes = await Container.instance.git.getRemotesWithProviders(commit.repoPath, { sort: true });
+	const [
+		remotesResult,
+		previousLineComparisonUrisResult,
+		autolinkedIssuesOrPullRequestsResult,
+		prResult,
+		presenceResult,
+	] = await Promise.allSettled([
+		Container.instance.git.getRemotesWithProviders(commit.repoPath, { sort: true }),
+		commit.isUncommitted ? commit.getPreviousComparisonUrisForLine(editorLine, uri.sha) : undefined,
+		getAutoLinkedIssuesOrPullRequests(message, commit.repoPath),
+		options?.pullRequests?.pr ??
+			getPullRequestForCommitOrBestRemote(commit.ref, commit.repoPath, {
+				pullRequests:
+					options?.pullRequests?.enabled !== false &&
+					CommitFormatter.has(
+						options.format,
+						'pullRequest',
+						'pullRequestAgo',
+						'pullRequestAgoOrDate',
+						'pullRequestDate',
+						'pullRequestState',
+					),
+			}),
+		Container.instance.vsls.maybeGetPresence(commit.author.email),
+	]);
 
 	if (options?.cancellationToken?.isCancellationRequested) return new MarkdownString();
 
-	const [previousLineComparisonUrisResult, autolinkedIssuesOrPullRequestsResult, prResult, presenceResult] =
-		await Promise.allSettled([
-			commit.isUncommitted ? commit.getPreviousComparisonUrisForLine(editorLine, uri.sha) : undefined,
-			getAutoLinkedIssuesOrPullRequests(message, remotes),
-			options?.pullRequests?.pr ??
-				getPullRequestForCommitOrBestRemote(commit.ref, remotes, {
-					pullRequests:
-						options?.pullRequests?.enabled !== false &&
-						CommitFormatter.has(
-							options.format,
-							'pullRequest',
-							'pullRequestAgo',
-							'pullRequestAgoOrDate',
-							'pullRequestDate',
-							'pullRequestState',
-						),
-				}),
-			Container.instance.vsls.maybeGetPresence(commit.author.email),
-		]);
-
-	if (options?.cancellationToken?.isCancellationRequested) return new MarkdownString();
-
+	const remotes = getSettledValue(remotesResult);
 	const previousLineComparisonUris = getSettledValue(previousLineComparisonUrisResult);
 	const autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
 	const pr = getSettledValue(prResult);
@@ -286,7 +288,7 @@ function getDiffFromHunkLine(hunkLine: GitDiffHunkLine, diffStyle?: 'line' | 'hu
 	}\n\`\`\``;
 }
 
-async function getAutoLinkedIssuesOrPullRequests(message: string, remotes: GitRemote[]) {
+async function getAutoLinkedIssuesOrPullRequests(message: string, repoPath: string) {
 	const scope = getNewLogScope('Hovers.getAutoLinkedIssuesOrPullRequests');
 	Logger.debug(scope, `${GlyphChars.Dash} message=<message>`);
 
@@ -303,7 +305,7 @@ async function getAutoLinkedIssuesOrPullRequests(message: string, remotes: GitRe
 		return undefined;
 	}
 
-	const remote = await Container.instance.git.getBestRemoteWithRichProvider(remotes);
+	const remote = await Container.instance.git.getBestRemoteWithRichProvider(repoPath);
 	if (remote?.provider == null) {
 		Logger.debug(scope, `completed [${getDurationMilliseconds(start)}ms]`);
 
@@ -362,7 +364,7 @@ async function getAutoLinkedIssuesOrPullRequests(message: string, remotes: GitRe
 
 async function getPullRequestForCommitOrBestRemote(
 	ref: string,
-	remotes: GitRemote[],
+	repoPath: string,
 	options?: {
 		pullRequests?: boolean;
 	},
@@ -378,9 +380,7 @@ async function getPullRequestForCommitOrBestRemote(
 		return undefined;
 	}
 
-	const remote = await Container.instance.git.getBestRemoteWithRichProvider(remotes, {
-		includeDisconnected: true,
-	});
+	const remote = await Container.instance.git.getBestRemoteWithRichProvider(repoPath, { includeDisconnected: true });
 	if (remote?.provider == null) {
 		Logger.debug(scope, `completed [${getDurationMilliseconds(start)}ms]`);
 

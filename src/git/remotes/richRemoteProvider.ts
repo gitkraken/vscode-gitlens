@@ -1,5 +1,5 @@
 import type { AuthenticationSession, AuthenticationSessionsChangeEvent, Event, MessageItem } from 'vscode';
-import { authentication, EventEmitter, window } from 'vscode';
+import { authentication, Disposable, EventEmitter, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
 import type { Container } from '../../container';
@@ -22,13 +22,15 @@ import { RemoteProvider } from './remoteProvider';
 
 // TODO@eamodio revisit how once authenticated, all remotes are always connected, even after a restart
 
-export abstract class RichRemoteProvider extends RemoteProvider {
+export abstract class RichRemoteProvider extends RemoteProvider implements Disposable {
 	override readonly type: 'simple' | 'rich' = 'rich';
 
 	private readonly _onDidChange = new EventEmitter<void>();
 	get onDidChange(): Event<void> {
 		return this._onDidChange.event;
 	}
+
+	private readonly _disposable: Disposable;
 
 	constructor(
 		protected readonly container: Container,
@@ -40,7 +42,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 	) {
 		super(domain, path, protocol, name, custom);
 
-		container.context.subscriptions.push(
+		this._disposable = Disposable.from(
 			configuration.onDidChange(e => {
 				if (configuration.changed(e, 'remotes')) {
 					this._ignoreSSLErrors.clear();
@@ -58,6 +60,20 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			}),
 			authentication.onDidChangeSessions(this.onAuthenticationSessionsChanged, this),
 		);
+
+		container.context.subscriptions.push(this._disposable);
+
+		// If we think we should be connected, try to
+		if (this.shouldConnect) {
+			void this.isConnected();
+		}
+	}
+
+	disposed = false;
+
+	dispose() {
+		this._disposable.dispose();
+		this.disposed = true;
 	}
 
 	abstract get apiBaseUrl(): string;
@@ -76,6 +92,11 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 	override get maybeConnected(): boolean | undefined {
 		return this._session === undefined ? undefined : this._session !== null;
+	}
+
+	// This is a hack for now, since providers come and go with remotes
+	get shouldConnect(): boolean {
+		return this.container.richRemoteProviders.isConnected(this.key);
 	}
 
 	protected _session: AuthenticationSession | null | undefined;
