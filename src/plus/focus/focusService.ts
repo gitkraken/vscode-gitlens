@@ -11,6 +11,7 @@ export interface FocusItem {
 	type: EnrichedItemResponse['entityType'];
 	id: string;
 	remote: GitRemote<RichRemoteProvider>;
+	url: string;
 }
 
 export type EnrichedItem = {
@@ -21,44 +22,17 @@ export type EnrichedItem = {
 	provider: EnrichedItemResponse['provider'];
 	entityType: EnrichedItemResponse['entityType'];
 	entityId: string;
+	entityUrl: string;
 
 	createdAt: number;
 	updatedAt: number;
-} & (
-	| { gitRepositoryId: string }
-	| {
-			repositoryName: string;
-			repositoryOwner: string;
-	  }
-);
-
-type GitRepositoryDataRequest =
-	| {
-			readonly initialCommitSha: string;
-			readonly remoteUrl?: undefined;
-			readonly remoteDomain?: undefined;
-			readonly remotePath?: undefined;
-	  }
-	| ({
-			readonly initialCommitSha?: string;
-			readonly remoteUrl: string;
-			readonly remoteDomain: string;
-			readonly remotePath: string;
-	  } & (
-			| { readonly remoteProvider?: undefined }
-			| {
-					readonly remoteProvider: string;
-					readonly remoteProviderRepoDomain: string;
-					readonly remoteProviderRepoName: string;
-					readonly remoteProviderRepoOwnerDomain?: string;
-			  }
-	  ));
+};
 
 type EnrichedItemRequest = {
 	provider: EnrichedItemResponse['provider'];
 	entityType: EnrichedItemResponse['entityType'];
 	entityId: string;
-	gitRepoData: GitRepositoryDataRequest;
+	entityUrl: string;
 };
 
 type EnrichedItemResponse = {
@@ -69,16 +43,11 @@ type EnrichedItemResponse = {
 	provider: 'azure' | 'bitbucket' | 'github' | 'gitlab' | 'gitkraken';
 	entityType: 'issue' | 'pr';
 	entityId: string;
+	entityUrl: string;
 
 	createdAt: number;
 	updatedAt: number;
-} & (
-	| { gitRepositoryId: string }
-	| {
-			repositoryName: string;
-			repositoryOwner: string;
-	  }
-);
+};
 
 export class FocusService implements Disposable {
 	constructor(
@@ -141,11 +110,7 @@ export class FocusService implements Disposable {
 				provider: item.remote.provider.id as EnrichedItemResponse['provider'],
 				entityType: item.type,
 				entityId: item.id,
-				gitRepoData: {
-					remoteUrl: item.remote.url,
-					remotePath: item.remote.provider.path,
-					remoteDomain: item.remote.provider.domain,
-				},
+				entityUrl: item.url,
 			};
 
 			const rsp = await this.connection.fetchGkDevApi('v1/enrich-items/pin', {
@@ -155,7 +120,7 @@ export class FocusService implements Disposable {
 
 			if (!rsp.ok) {
 				throw new Error(
-					`Unable to pin item '${rq.provider}|${rq.gitRepoData.remoteDomain}/${rq.gitRepoData.remotePath}#${item.id}':  (${rsp.status}) ${rsp.statusText}`,
+					`Unable to pin item '${rq.provider}|${rq.entityUrl}#${item.id}':  (${rsp.status}) ${rsp.statusText}`,
 				);
 			}
 
@@ -184,11 +149,7 @@ export class FocusService implements Disposable {
 				provider: item.remote.provider.id as EnrichedItemResponse['provider'],
 				entityType: item.type,
 				entityId: item.id,
-				gitRepoData: {
-					remoteUrl: item.remote.url,
-					remotePath: item.remote.provider.path,
-					remoteDomain: item.remote.provider.domain,
-				},
+				entityUrl: item.url,
 			};
 
 			const rsp = await this.connection.fetchGkDevApi('v1/enrich-items/snooze', {
@@ -198,7 +159,7 @@ export class FocusService implements Disposable {
 
 			if (!rsp.ok) {
 				throw new Error(
-					`Unable to snooze item '${rq.provider}|${rq.gitRepoData.remoteDomain}/${rq.gitRepoData.remotePath}#${item.id}':  (${rsp.status}) ${rsp.statusText}`,
+					`Unable to snooze item '${rq.provider}|${rq.entityUrl}#${item.id}':  (${rsp.status}) ${rsp.statusText}`,
 				);
 			}
 

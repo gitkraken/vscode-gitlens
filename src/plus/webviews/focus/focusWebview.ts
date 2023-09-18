@@ -141,6 +141,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 				type: 'issue',
 				id: issueWithRemote.issue.id,
 				remote: issueWithRemote.repoAndRemote.remote,
+				url: issueWithRemote.issue.url,
 			};
 			const enrichedItem = await this.container.focus.pinItem(focusItem);
 			if (enrichedItem == null) return;
@@ -170,6 +171,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 				type: 'issue',
 				id: issueWithRemote.issue.id,
 				remote: issueWithRemote.repoAndRemote.remote,
+				url: issueWithRemote.issue.url,
 			};
 			const enrichedItem = await this.container.focus.snoozeItem(focusItem);
 			if (enrichedItem == null) return;
@@ -199,6 +201,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 				type: 'pr',
 				id: prWithRemote.pullRequest.id,
 				remote: prWithRemote.repoAndRemote.remote,
+				url: prWithRemote.pullRequest.url,
 			};
 			const enrichedItem = await this.container.focus.pinItem(focusItem);
 			if (enrichedItem == null) return;
@@ -228,6 +231,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 				type: 'pr',
 				id: prWithRemote.pullRequest.id,
 				remote: prWithRemote.repoAndRemote.remote,
+				url: prWithRemote.pullRequest.url,
 			};
 			const enrichedItem = await this.container.focus.snoozeItem(focusItem);
 			if (enrichedItem == null) return;
