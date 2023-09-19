@@ -200,8 +200,10 @@ export function* take<T>(source: Iterable<T> | IterableIterator<T>, count: numbe
 	}
 }
 
-export function* union<T>(...sources: (Iterable<T> | IterableIterator<T>)[]): Iterable<T> {
+export function* union<T>(...sources: (Iterable<T> | IterableIterator<T> | undefined)[]): Iterable<T> {
 	for (const source of sources) {
+		if (source == null) continue;
+
 		for (const item of source) {
 			yield item;
 		}

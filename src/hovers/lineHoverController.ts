@@ -86,7 +86,7 @@ export class LineHoverController implements Disposable {
 	async provideDetailsHover(
 		document: TextDocument,
 		position: Position,
-		_token: CancellationToken,
+		token: CancellationToken,
 	): Promise<Hover | undefined> {
 		if (!this.container.lineTracker.includes(position.line)) return undefined;
 
@@ -122,16 +122,17 @@ export class LineHoverController implements Disposable {
 		editorLine = commitLine.originalLine - 1;
 
 		const trackedDocument = await this.container.tracker.get(document);
-		if (trackedDocument == null) return undefined;
+		if (trackedDocument == null || token.isCancellationRequested) return undefined;
 
-		const message = await detailsMessage(commit, trackedDocument.uri, editorLine, {
-			autolinks: cfg.autolinks.enabled,
-			dateFormat: configuration.get('defaultDateFormat'),
-			format: cfg.detailsMarkdownFormat,
-			pullRequests: {
-				enabled: cfg.pullRequests.enabled,
-			},
-		});
+		const message =
+			(await detailsMessage(this.container, commit, trackedDocument.uri, editorLine, {
+				autolinks: cfg.autolinks.enabled,
+				cancellation: token,
+				dateFormat: configuration.get('defaultDateFormat'),
+				format: cfg.detailsMarkdownFormat,
+				pullRequests: cfg.pullRequests.enabled,
+				timeout: 250,
+			})) ?? 'Cancelled';
 		return new Hover(message, range);
 	}
 
@@ -178,7 +179,13 @@ export class LineHoverController implements Disposable {
 		const trackedDocument = await this.container.tracker.get(document);
 		if (trackedDocument == null) return undefined;
 
-		const message = await changesMessage(commit, trackedDocument.uri, position.line, trackedDocument.document);
+		const message = await changesMessage(
+			this.container,
+			commit,
+			trackedDocument.uri,
+			position.line,
+			trackedDocument.document,
+		);
 		if (message == null) return undefined;
 
 		return new Hover(message, range);

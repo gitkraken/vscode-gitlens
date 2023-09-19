@@ -18,12 +18,8 @@ import { LineTracker } from './lineTracker';
 
 export * from './lineTracker';
 
-export class GitLineState {
-	constructor(public readonly commit: GitCommit | undefined) {
-		if (commit != null && commit.file == null) {
-			debugger;
-		}
-	}
+export interface GitLineState {
+	commit: GitCommit;
 }
 
 export class GitLineTracker extends LineTracker<GitLineState> {
@@ -32,8 +28,6 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 	}
 
 	protected override async fireLinesChanged(e: LinesChangeEvent) {
-		this.reset();
-
 		let updated = false;
 		if (!this.suspended && !e.pending && e.selections != null && e.editor != null) {
 			updated = await this.updateState(e.selections, e.editor);
@@ -68,19 +62,16 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 
 	@debug<GitLineTracker['onBlameStateChanged']>({
 		args: {
-			0: e =>
-				`editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}, blameable=${
-					e.blameable
-				}`,
+			0: e => `editor/doc=${e.editor.document.uri.toString(true)}, blameable=${e.blameable}`,
 		},
 	})
 	private onBlameStateChanged(_e: DocumentBlameStateChangeEvent<GitDocumentState>) {
-		this.trigger('editor');
+		this.notifyLinesChanged('editor');
 	}
 
 	@debug<GitLineTracker['onContentChanged']>({
 		args: {
-			0: e => `editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}`,
+			0: e => `editor/doc=${e.editor.document.uri.toString(true)}`,
 		},
 	})
 	private onContentChanged(e: DocumentContentChangeEvent<GitDocumentState>) {
@@ -94,13 +85,13 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 					),
 			)
 		) {
-			this.trigger('editor');
+			this.notifyLinesChanged('editor');
 		}
 	}
 
 	@debug<GitLineTracker['onDirtyIdleTriggered']>({
 		args: {
-			0: e => `editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}`,
+			0: e => `editor/doc=${e.editor.document.uri.toString(true)}`,
 		},
 	})
 	private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) {
@@ -112,10 +103,7 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 
 	@debug<GitLineTracker['onDirtyStateChanged']>({
 		args: {
-			0: e =>
-				`editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}, dirty=${
-					e.dirty
-				}`,
+			0: e => `editor/doc=${e.editor.document.uri.toString(true)}, dirty=${e.dirty}`,
 		},
 	})
 	private onDirtyStateChanged(e: DocumentDirtyStateChangeEvent<GitDocumentState>) {
@@ -158,7 +146,11 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 				return false;
 			}
 
-			this.setState(blameLine.line.line - 1, new GitLineState(blameLine.commit));
+			if (blameLine.commit != null && blameLine.commit.file == null) {
+				debugger;
+			}
+
+			this.setState(blameLine.line.line - 1, { commit: blameLine.commit });
 		} else {
 			const blame = await this.container.git.getBlame(trackedDocument.uri, editor.document);
 			if (blame == null) {
@@ -169,7 +161,17 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 
 			for (const selection of selections) {
 				const commitLine = blame.lines[selection.active];
-				this.setState(selection.active, new GitLineState(blame.commits.get(commitLine.sha)));
+				const commit = blame.commits.get(commitLine.sha);
+				if (commit != null && commit.file == null) {
+					debugger;
+				}
+
+				if (commit == null) {
+					debugger;
+					this.resetState(selection.active);
+				} else {
+					this.setState(selection.active, { commit: commit });
+				}
 			}
 		}
 

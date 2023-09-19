@@ -15,7 +15,7 @@ import { resetAvatarCache } from '../avatars';
 import type { CoreGitConfiguration } from '../constants';
 import { GlyphChars, Schemes } from '../constants';
 import type { Container } from '../container';
-import { AccessDeniedError, ProviderNotFoundError } from '../errors';
+import { AccessDeniedError, CancellationError, ProviderNotFoundError } from '../errors';
 import type { FeatureAccess, Features, PlusFeatures, RepoFeatureAccess } from '../features';
 import type { SubscriptionChangeEvent } from '../plus/subscription/subscriptionService';
 import type { RepoComparisonKey } from '../repositories';
@@ -1978,56 +1978,6 @@ export class GitProviderService implements Disposable {
 		}
 	}
 
-	async getPullRequestForCommit(
-		ref: string,
-		remote: GitRemote,
-		options?: { timeout?: number },
-	): Promise<PullRequest | undefined>;
-	async getPullRequestForCommit(
-		ref: string,
-		provider: RichRemoteProvider,
-		options?: { timeout?: number },
-	): Promise<PullRequest | undefined>;
-	@gate<GitProviderService['getPullRequestForCommit']>((ref, remoteOrProvider, options) => {
-		const provider = GitRemote.is(remoteOrProvider) ? remoteOrProvider.provider : remoteOrProvider;
-		return `${ref}${
-			provider != null ? `|${provider.id}:${provider.domain}/${provider.path}` : ''
-		}|${options?.timeout}`;
-	})
-	@debug<GitProviderService['getPullRequestForCommit']>({ args: { 1: remoteOrProvider => remoteOrProvider.name } })
-	async getPullRequestForCommit(
-		ref: string,
-		remoteOrProvider: GitRemote | RichRemoteProvider,
-		options?: { timeout?: number },
-	): Promise<PullRequest | undefined> {
-		if (isUncommitted(ref)) return undefined;
-
-		let provider;
-		if (GitRemote.is(remoteOrProvider)) {
-			({ provider } = remoteOrProvider);
-			if (!provider?.hasRichIntegration()) return undefined;
-		} else {
-			provider = remoteOrProvider;
-		}
-
-		let promiseOrPR = provider.getPullRequestForCommit(ref);
-		if (promiseOrPR == null || !isPromise(promiseOrPR)) {
-			return promiseOrPR;
-		}
-
-		if (options?.timeout != null && options.timeout > 0) {
-			promiseOrPR = cancellable(promiseOrPR, options.timeout);
-		}
-
-		try {
-			return await promiseOrPR;
-		} catch (ex) {
-			if (ex instanceof PromiseCancelledError) throw ex;
-
-			return undefined;
-		}
-	}
-
 	@debug<GitProviderService['getMyPullRequests']>({ args: { 0: remoteOrProvider => remoteOrProvider.name } })
 	async getMyPullRequests(
 		remoteOrProvider: GitRemote | RichRemoteProvider,
@@ -2118,14 +2068,16 @@ export class GitProviderService implements Disposable {
 	@log()
 	async getBestRemoteWithProvider(
 		repoPath: string | Uri,
+		cancellation?: CancellationToken,
 	): Promise<GitRemote<RemoteProvider | RichRemoteProvider> | undefined> {
-		const remotes = await this.getBestRemotesWithProviders(repoPath);
+		const remotes = await this.getBestRemotesWithProviders(repoPath, cancellation);
 		return remotes[0];
 	}
 
 	@log()
 	async getBestRemotesWithProviders(
 		repoPath: string | Uri,
+		cancellation?: CancellationToken,
 	): Promise<GitRemote<RemoteProvider | RichRemoteProvider>[]> {
 		if (repoPath == null) return [];
 		if (typeof repoPath === 'string') {
@@ -2136,9 +2088,11 @@ export class GitProviderService implements Disposable {
 		let remotes = this._bestRemotesCache.get(cacheKey);
 		if (remotes == null) {
 			async function getBest(this: GitProviderService) {
-				const remotes = await this.getRemotesWithProviders(repoPath, { sort: true });
+				const remotes = await this.getRemotesWithProviders(repoPath, { sort: true }, cancellation);
 				if (remotes.length === 0) return [];
 				if (remotes.length === 1) return [...remotes];
+
+				if (cancellation?.isCancellationRequested) throw new CancellationError();
 
 				const defaultRemote = remotes.find(r => r.default)?.name;
 				const currentBranchRemote = (await this.getBranch(remotes[0].repoPath))?.getRemoteName();
@@ -2174,7 +2128,12 @@ export class GitProviderService implements Disposable {
 							(p.maybeConnected ||
 								(p.maybeConnected === undefined && p.shouldConnect && (await p.isConnected())))
 						) {
-							const repo = await p.getRepositoryMetadata();
+							if (cancellation?.isCancellationRequested) throw new CancellationError();
+
+							const repo = await p.getRepositoryMetadata(cancellation);
+
+							if (cancellation?.isCancellationRequested) throw new CancellationError();
+
 							if (repo != null) {
 								weight += repo.isFork ? -3 : 3;
 								// Once we've found the "original" (not a fork) don't bother looking for more
@@ -2202,13 +2161,17 @@ export class GitProviderService implements Disposable {
 	async getBestRemoteWithRichProvider(
 		repoPath: string | Uri,
 		options?: { includeDisconnected?: boolean },
+		cancellation?: CancellationToken,
 	): Promise<GitRemote<RichRemoteProvider> | undefined> {
-		const remotes = await this.getBestRemotesWithProviders(repoPath);
+		const remotes = await this.getBestRemotesWithProviders(repoPath, cancellation);
 
 		const includeDisconnected = options?.includeDisconnected ?? false;
 		for (const r of remotes) {
-			if (r.hasRichIntegration() && (includeDisconnected || r.provider.maybeConnected === true)) {
-				return r;
+			if (r.hasRichIntegration()) {
+				if (includeDisconnected || r.provider.maybeConnected === true) return r;
+				if (r.provider.maybeConnected === undefined && r.default) {
+					if (await r.provider.isConnected()) return r;
+				}
 			}
 		}
 
@@ -2216,7 +2179,11 @@ export class GitProviderService implements Disposable {
 	}
 
 	@log()
-	async getRemotes(repoPath: string | Uri, options?: { sort?: boolean }): Promise<GitRemote[]> {
+	async getRemotes(
+		repoPath: string | Uri,
+		options?: { sort?: boolean },
+		_cancellation?: CancellationToken,
+	): Promise<GitRemote[]> {
 		if (repoPath == null) return [];
 
 		const { provider, path } = this.getProvider(repoPath);
@@ -2227,8 +2194,9 @@ export class GitProviderService implements Disposable {
 	async getRemotesWithProviders(
 		repoPath: string | Uri,
 		options?: { sort?: boolean },
+		cancellation?: CancellationToken,
 	): Promise<GitRemote<RemoteProvider | RichRemoteProvider>[]> {
-		const remotes = await this.getRemotes(repoPath, options);
+		const remotes = await this.getRemotes(repoPath, options, cancellation);
 		return remotes.filter(
 			(r: GitRemote): r is GitRemote<RemoteProvider | RichRemoteProvider> => r.provider != null,
 		);

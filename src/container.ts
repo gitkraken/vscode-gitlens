@@ -7,6 +7,7 @@ import { FileAnnotationController } from './annotations/fileAnnotationController
 import { LineAnnotationController } from './annotations/lineAnnotationController';
 import { ActionRunners } from './api/actionRunners';
 import { setDefaultGravatarsStyle } from './avatars';
+import { CacheProvider } from './cache';
 import { GitCodeLensController } from './codelens/codeLensController';
 import type { ToggleFileAnnotationCommandArgs } from './commands';
 import type { FileAnnotationType, ModeConfig } from './config';
@@ -353,6 +354,15 @@ export class Container {
 	private readonly _branchesView: BranchesView;
 	get branchesView() {
 		return this._branchesView;
+	}
+
+	private _cache: CacheProvider | undefined;
+	get cache() {
+		if (this._cache == null) {
+			this._disposables.push((this._cache = new CacheProvider(this)));
+		}
+
+		return this._cache;
 	}
 
 	private readonly _codeLensController: GitCodeLensController;
