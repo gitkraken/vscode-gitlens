@@ -213,7 +213,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State> {
 							try {
 								preview = CommitFormatter.fromTemplate(params.format, commit, {
 									dateFormat: configuration.get('defaultDateFormat'),
-									pullRequestOrRemote: pr,
+									pullRequest: pr,
 									messageTruncateAtNewLine: true,
 								});
 							} catch {

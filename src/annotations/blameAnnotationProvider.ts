@@ -172,7 +172,13 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			await Promise.all([
 				providers.details ? this.getDetailsHoverMessage(commit, document) : undefined,
 				providers.changes
-					? changesMessage(commit, await GitUri.fromUri(document.uri), position.line, document)
+					? changesMessage(
+							this.container,
+							commit,
+							await GitUri.fromUri(document.uri),
+							position.line,
+							document,
+					  )
 					: undefined,
 			])
 		).filter(<T>(m?: T): m is T => Boolean(m));
@@ -190,13 +196,12 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		editorLine = commitLine.originalLine - 1;
 
 		const cfg = configuration.get('hovers');
-		return detailsMessage(commit, await GitUri.fromUri(document.uri), editorLine, {
+		return detailsMessage(this.container, commit, await GitUri.fromUri(document.uri), editorLine, {
 			autolinks: cfg.autolinks.enabled,
 			dateFormat: configuration.get('defaultDateFormat'),
 			format: cfg.detailsMarkdownFormat,
-			pullRequests: {
-				enabled: cfg.pullRequests.enabled,
-			},
+			pullRequests: cfg.pullRequests.enabled,
+			timeout: 250,
 		});
 	}
 }

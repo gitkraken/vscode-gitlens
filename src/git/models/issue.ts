@@ -68,7 +68,13 @@ export function serializeIssueOrPullRequest(value: IssueOrPullRequest): IssueOrP
 	return serialized;
 }
 
-export function getIssueOrPullRequestHtmlIcon(issue: IssueOrPullRequest): string {
+export function getIssueOrPullRequestHtmlIcon(issue?: IssueOrPullRequest): string {
+	if (issue == null) {
+		return `<span class="codicon codicon-link" style="color:${
+			window.activeColorTheme.kind === ColorThemeKind.Dark ? '#a371f7' : '#8250df'
+		};"></span>`;
+	}
+
 	if (issue.type === IssueOrPullRequestType.PullRequest) {
 		if (issue.closed) {
 			return `<span class="codicon codicon-git-pull-request" style="color:${
@@ -90,7 +96,13 @@ export function getIssueOrPullRequestHtmlIcon(issue: IssueOrPullRequest): string
 	};"></span>`;
 }
 
-export function getIssueOrPullRequestMarkdownIcon(issue: IssueOrPullRequest): string {
+export function getIssueOrPullRequestMarkdownIcon(issue?: IssueOrPullRequest): string {
+	if (issue == null) {
+		return `<span style="color:${
+			window.activeColorTheme.kind === ColorThemeKind.Dark ? '#a371f7' : '#8250df'
+		};">$(link)</span>`;
+	}
+
 	if (issue.type === IssueOrPullRequestType.PullRequest) {
 		if (issue.closed) {
 			return `<span style="color:${
@@ -112,7 +124,11 @@ export function getIssueOrPullRequestMarkdownIcon(issue: IssueOrPullRequest): st
 	};">$(issues)</span>`;
 }
 
-export function getIssueOrPullRequestThemeIcon(issue: IssueOrPullRequest): ThemeIcon {
+export function getIssueOrPullRequestThemeIcon(issue?: IssueOrPullRequest): ThemeIcon {
+	if (issue == null) {
+		return new ThemeIcon('link', new ThemeColor('gitlens.closedAutolinkedIssueIconColor' satisfies Colors));
+	}
+
 	if (issue.type === IssueOrPullRequestType.PullRequest) {
 		if (issue.closed) {
 			return new ThemeIcon(

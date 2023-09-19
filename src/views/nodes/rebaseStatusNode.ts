@@ -13,6 +13,7 @@ import type { GitRevisionReference } from '../../git/models/reference';
 import { getReferenceLabel } from '../../git/models/reference';
 import type { GitStatus } from '../../git/models/status';
 import { makeHierarchical } from '../../system/array';
+import { pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/cancellation';
 import { executeCoreCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { joinPaths, normalizePath } from '../../system/path';
@@ -195,31 +196,29 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 	}
 
 	private async getTooltip() {
-		const remotes = await this.view.container.git.getBestRemotesWithProviders(this.commit.repoPath);
+		const [remotesResult, _] = await Promise.allSettled([
+			this.view.container.git.getBestRemotesWithProviders(this.commit.repoPath),
+			this.commit.message == null ? this.commit.ensureFullDetails() : undefined,
+		]);
+
+		const remotes = getSettledValue(remotesResult, []);
 		const [remote] = remotes;
 
-		if (this.commit.message == null) {
-			await this.commit.ensureFullDetails();
-		}
-
-		let autolinkedIssuesOrPullRequests;
+		let enrichedAutolinks;
 		let pr;
 
 		if (remote?.hasRichIntegration()) {
-			const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
-				this.view.container.autolinks.getLinkedIssuesAndPullRequests(
-					this.commit.message ?? this.commit.summary,
-					remote,
-				),
-				this.commit.getAssociatedPullRequest({ remote: remote }),
+			const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
+				pauseOnCancelOrTimeoutMapTuplePromise(this.commit.getEnrichedAutolinks(remote)),
+				this.commit.getAssociatedPullRequest(remote),
 			]);
 
-			autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
+			enrichedAutolinks = getSettledValue(enrichedAutolinksResult)?.value;
 			pr = getSettledValue(prResult);
 
 			// Remove possible duplicate pull request
 			if (pr != null) {
-				autolinkedIssuesOrPullRequests?.delete(pr.id);
+				enrichedAutolinks?.delete(pr.id);
 			}
 		}
 
@@ -227,11 +226,11 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 			`Rebase paused at ${this.view.config.formats.commits.tooltip}`,
 			this.commit,
 			{
-				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
+				enrichedAutolinks: enrichedAutolinks,
 				dateFormat: configuration.get('defaultDateFormat'),
 				messageAutolinks: true,
 				messageIndent: 4,
-				pullRequestOrRemote: pr,
+				pullRequest: pr,
 				outputFormat: 'markdown',
 				remotes: remotes,
 			},

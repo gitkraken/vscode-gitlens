@@ -1,4 +1,5 @@
 import type { Uri } from 'vscode';
+import type { MaybeEnrichedAutolink } from '../../annotations/autolinks';
 import type {
 	Action,
 	ActionContext,
@@ -24,7 +25,7 @@ import { arePlusFeaturesEnabled } from '../../plus/subscription/utils';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { configuration } from '../../system/configuration';
 import { join, map } from '../../system/iterable';
-import { PromiseCancelledError } from '../../system/promise';
+import { isPromise } from '../../system/promise';
 import type { TokenOptions } from '../../system/string';
 import { encodeHtmlWeak, escapeMarkdown, getSuperscript } from '../../system/string';
 import type { ContactPresence } from '../../vsls/vsls';
@@ -32,7 +33,6 @@ import type { PreviousLineComparisonUrisResult } from '../gitProvider';
 import type { GitCommit } from '../models/commit';
 import { isCommit } from '../models/commit';
 import { uncommitted, uncommittedStaged } from '../models/constants';
-import type { IssueOrPullRequest } from '../models/issue';
 import { PullRequest } from '../models/pullRequest';
 import { getReferenceFromRevision, isUncommittedStaged, shortenRevision } from '../models/reference';
 import { GitRemote } from '../models/remote';
@@ -41,7 +41,6 @@ import type { FormatOptions, RequiredTokenOptions } from './formatter';
 import { Formatter } from './formatter';
 
 export interface CommitFormatOptions extends FormatOptions {
-	autolinkedIssuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>;
 	avatarSize?: number;
 	dateStyle?: DateStyle;
 	editor?: { line: number; uri: Uri };
@@ -59,10 +58,11 @@ export interface CommitFormatOptions extends FormatOptions {
 			tips?: string;
 		};
 	};
+	enrichedAutolinks?: Map<string, MaybeEnrichedAutolink>;
 	messageAutolinks?: boolean;
 	messageIndent?: number;
 	messageTruncateAtNewLine?: boolean;
-	pullRequestOrRemote?: PullRequest | PromiseCancelledError | GitRemote;
+	pullRequest?: PullRequest | Promise<PullRequest | undefined>;
 	pullRequestPendingMessage?: string;
 	presence?: ContactPresence;
 	previousLineComparisonUris?: PreviousLineComparisonUrisResult;
@@ -156,14 +156,14 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	private get _pullRequestDate() {
-		const { pullRequestOrRemote: pr } = this._options;
+		const { pullRequest: pr } = this._options;
 		if (pr == null || !PullRequest.is(pr)) return '';
 
 		return pr.formatDate(this._options.dateFormat) ?? '';
 	}
 
 	private get _pullRequestDateAgo() {
-		const { pullRequestOrRemote: pr } = this._options;
+		const { pullRequest: pr } = this._options;
 		if (pr == null || !PullRequest.is(pr)) return '';
 
 		return pr.formatDateFromNow() ?? '';
@@ -443,15 +443,16 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			)} "Open in Commit Graph")`;
 		}
 
-		if (this._options.remotes != null && this._options.remotes.length !== 0) {
-			const providers = GitRemote.getHighlanderProviders(this._options.remotes);
+		const { pullRequest: pr, remotes } = this._options;
+
+		if (remotes?.length) {
+			const providers = GitRemote.getHighlanderProviders(remotes);
 
 			commands += ` &nbsp;[$(globe)](${OpenCommitOnRemoteCommand.getMarkdownCommandArgs(
 				this._item.sha,
 			)} "Open Commit on ${providers?.length ? providers[0].name : 'Remote'}")`;
 		}
 
-		const { pullRequestOrRemote: pr } = this._options;
 		if (pr != null) {
 			if (PullRequest.is(pr)) {
 				commands += `${separator}[$(git-pull-request) PR #${
@@ -465,13 +466,20 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				}\n${GlyphChars.Dash.repeat(2)}\n${escapeMarkdown(pr.title).replace(/"/g, '\\"')}\n${
 					pr.state
 				}, ${pr.formatDateFromNow()}")`;
-			} else if (pr instanceof PromiseCancelledError) {
+			} else if (isPromise(pr)) {
 				commands += `${separator}[$(git-pull-request) PR $(loading~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`;
-			} else if (pr.provider != null && configuration.get('integrations.enabled')) {
-				commands += `${separator}[$(plug) Connect to ${pr.provider.name}${
+			}
+		} else if (remotes != null) {
+			const [remote] = remotes;
+			if (
+				remote?.hasRichIntegration() &&
+				!remote.provider.maybeConnected &&
+				configuration.get('integrations.enabled')
+			) {
+				commands += `${separator}[$(plug) Connect to ${remote?.provider.name}${
 					GlyphChars.Ellipsis
-				}](${ConnectRemoteProviderCommand.getMarkdownCommandArgs(pr)} "Connect to ${
-					pr.provider.name
+				}](${ConnectRemoteProviderCommand.getMarkdownCommandArgs(remote)} "Connect to ${
+					remote.provider.name
 				} to enable the display of the Pull Request (if any) that introduced this commit")`;
 			}
 		}
@@ -648,7 +656,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				message,
 				outputFormat,
 				this._options.remotes,
-				this._options.autolinkedIssuesOrPullRequests,
+				this._options.enrichedAutolinks,
 				this._options.footnotes,
 			);
 		}
@@ -670,7 +678,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get pullRequest(): string {
-		const { pullRequestOrRemote: pr } = this._options;
+		const { pullRequest: pr } = this._options;
 		// TODO: Implement html rendering
 		if (pr == null || this._options.outputFormat === 'html') {
 			return this._padOrTruncate('', this._options.tokenOptions.pullRequest);
@@ -713,7 +721,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			} else {
 				text = `PR #${pr.id}`;
 			}
-		} else if (pr instanceof PromiseCancelledError) {
+		} else if (isPromise(pr)) {
 			text =
 				this._options.outputFormat === 'markdown'
 					? `[PR $(loading~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`
@@ -738,7 +746,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get pullRequestState(): string {
-		const { pullRequestOrRemote: pr } = this._options;
+		const { pullRequest: pr } = this._options;
 		return this._padOrTruncate(
 			pr == null || !PullRequest.is(pr) ? '' : pr.state ?? '',
 			this._options.tokenOptions.pullRequestState,

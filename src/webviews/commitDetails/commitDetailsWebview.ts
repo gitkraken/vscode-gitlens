@@ -1,5 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent, TextDocumentShowOptions, ViewColumn } from 'vscode';
 import { CancellationTokenSource, Disposable, Uri, window } from 'vscode';
+import type { MaybeEnrichedAutolink } from '../../annotations/autolinks';
 import { serializeAutolink } from '../../annotations/autolinks';
 import type { CopyShaToClipboardCommandArgs } from '../../commands';
 import type { CoreConfiguration } from '../../constants';
@@ -27,6 +28,7 @@ import type { GitRevisionReference } from '../../git/models/reference';
 import { createReference, getReferenceFromRevision, shortenRevision } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
+import { pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/cancellation';
 import { executeCommand, executeCoreCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { getContext } from '../../system/context';
@@ -34,11 +36,10 @@ import type { DateTimeFormat } from '../../system/date';
 import { debug } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
-import { map, union } from '../../system/iterable';
+import { filterMap, map } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import { MRU } from '../../system/mru';
-import type { PromiseCancelledError } from '../../system/promise';
 import { getSettledValue } from '../../system/promise';
 import type { Serialized } from '../../system/serialize';
 import { serialize } from '../../system/serialize';
@@ -455,7 +456,6 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 	protected async getState(current: Context): Promise<Serialized<State>> {
 		if (this._cancellationTokenSource != null) {
 			this._cancellationTokenSource.cancel();
-			this._cancellationTokenSource.dispose();
 			this._cancellationTokenSource = undefined;
 		}
 
@@ -503,38 +503,38 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 
 		if (cancellation.isCancellationRequested) return;
 
-		let autolinkedIssuesOrPullRequests;
-		let pr;
+		const [enrichedAutolinksResult, prResult] =
+			remote?.provider != null
+				? await Promise.allSettled([
+						configuration.get('views.commitDetails.autolinks.enabled') &&
+						configuration.get('views.commitDetails.autolinks.enhanced')
+							? pauseOnCancelOrTimeoutMapTuplePromise(commit.getEnrichedAutolinks(remote))
+							: undefined,
+						configuration.get('views.commitDetails.pullRequests.enabled')
+							? commit.getAssociatedPullRequest(remote)
+							: undefined,
+				  ])
+				: [];
 
-		if (remote?.provider != null) {
-			const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
-				configuration.get('views.commitDetails.autolinks.enabled') &&
-				configuration.get('views.commitDetails.autolinks.enhanced')
-					? this.container.autolinks.getLinkedIssuesAndPullRequests(commit.message ?? commit.summary, remote)
-					: undefined,
-				configuration.get('views.commitDetails.pullRequests.enabled')
-					? commit.getAssociatedPullRequest({ remote: remote })
-					: undefined,
-			]);
+		if (cancellation.isCancellationRequested) return;
 
-			if (cancellation.isCancellationRequested) return;
+		const enrichedAutolinks = getSettledValue(enrichedAutolinksResult)?.value;
+		const pr = getSettledValue(prResult);
 
-			autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
-			pr = getSettledValue(prResult);
-		}
-
-		const formattedMessage = this.getFormattedMessage(commit, remote, autolinkedIssuesOrPullRequests);
+		const formattedMessage = this.getFormattedMessage(commit, remote, enrichedAutolinks);
 
 		// Remove possible duplicate pull request
 		if (pr != null) {
-			autolinkedIssuesOrPullRequests?.delete(pr.id);
+			enrichedAutolinks?.delete(pr.id);
 		}
 
 		this.updatePendingContext({
 			richStateLoaded: true,
 			formattedMessage: formattedMessage,
 			autolinkedIssues:
-				autolinkedIssuesOrPullRequests != null ? [...autolinkedIssuesOrPullRequests.values()] : undefined,
+				enrichedAutolinks != null
+					? [...filterMap(enrichedAutolinks.values(), ([issueOrPullRequest]) => issueOrPullRequest?.value)]
+					: undefined,
 			pullRequest: pr,
 		});
 
@@ -544,8 +544,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		// 	formattedMessage: formattedMessage,
 		// 	pullRequest: pr,
 		// 	autolinkedIssues:
-		// 		autolinkedIssuesOrPullRequests != null
-		// 			? [...autolinkedIssuesOrPullRequests.values()].filter(<T>(i: T | undefined): i is T => i != null)
+		// 		autolinkedIssuesAndPullRequests != null
+		// 			? [...autolinkedIssuesAndPullRequests.values()].filter(<T>(i: T | undefined): i is T => i != null)
 		// 			: undefined,
 		// };
 	}
@@ -795,16 +795,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			formattedMessage = this.getFormattedMessage(commit, remote);
 		}
 
-		let autolinks;
-		if (commit.message != null) {
-			const customAutolinks = this.container.autolinks.getAutolinks(commit.message);
-			if (remote != null) {
-				const providerAutolinks = this.container.autolinks.getAutolinks(commit.message, remote);
-				autolinks = new Map(union(providerAutolinks, customAutolinks));
-			} else {
-				autolinks = customAutolinks;
-			}
-		}
+		const autolinks =
+			commit.message != null ? this.container.autolinks.getAutolinks(commit.message, remote) : undefined;
 
 		return {
 			repoPath: commit.repoPath,
@@ -840,7 +832,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 	private getFormattedMessage(
 		commit: GitCommit,
 		remote: GitRemote | undefined,
-		issuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>,
+		enrichedAutolinks?: Map<string, MaybeEnrichedAutolink>,
 	) {
 		let message = CommitFormatter.fromTemplate(`\${message}`, commit);
 		const index = message.indexOf('\n');
@@ -854,7 +846,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			message,
 			'html',
 			remote != null ? [remote] : undefined,
-			issuesOrPullRequests,
+			enrichedAutolinks,
 		);
 	}
 

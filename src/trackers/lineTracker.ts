@@ -28,7 +28,6 @@ export class LineTracker<T> implements Disposable {
 
 	protected _disposable: Disposable | undefined;
 	private _editor: TextEditor | undefined;
-
 	private readonly _state = new Map<number, T | undefined>();
 
 	dispose() {
@@ -41,29 +40,36 @@ export class LineTracker<T> implements Disposable {
 		if (editor === this._editor) return;
 		if (editor != null && !isTextEditor(editor)) return;
 
-		this.reset();
 		this._editor = editor;
-		this._selections = LineTracker.toLineSelections(editor?.selections);
+		this._selections = toLineSelections(editor?.selections);
 
-		this.trigger('editor');
+		this.notifyLinesChanged('editor');
 	}
 
 	private onTextEditorSelectionChanged(e: TextEditorSelectionChangeEvent) {
 		// If this isn't for our cached editor and its not a real editor -- kick out
 		if (this._editor !== e.textEditor && !isTextEditor(e.textEditor)) return;
 
-		const selections = LineTracker.toLineSelections(e.selections);
+		const selections = toLineSelections(e.selections);
 		if (this._editor === e.textEditor && this.includes(selections)) return;
 
-		this.reset();
 		this._editor = e.textEditor;
 		this._selections = selections;
 
-		this.trigger(this._editor === e.textEditor ? 'selection' : 'editor');
+		this.notifyLinesChanged(this._editor === e.textEditor ? 'selection' : 'editor');
 	}
 
 	getState(line: number): T | undefined {
 		return this._state.get(line);
+	}
+
+	resetState(line?: number) {
+		if (line != null) {
+			this._state.delete(line);
+			return;
+		}
+
+		this._state.clear();
 	}
 
 	setState(line: number, state: T | undefined) {
@@ -79,7 +85,7 @@ export class LineTracker<T> implements Disposable {
 	includes(line: number, options?: { activeOnly: boolean }): boolean;
 	includes(lineOrSelections: number | LineSelection[], options?: { activeOnly: boolean }): boolean {
 		if (typeof lineOrSelections !== 'number') {
-			return LineTracker.includes(lineOrSelections, this._selections);
+			return isIncluded(lineOrSelections, this._selections);
 		}
 
 		if (this._selections == null || this._selections.length === 0) return false;
@@ -101,11 +107,7 @@ export class LineTracker<T> implements Disposable {
 	}
 
 	refresh() {
-		this.trigger('editor');
-	}
-
-	reset() {
-		this._state.clear();
+		this.notifyLinesChanged('editor');
 	}
 
 	private _subscriptions = new Map<unknown, Disposable[]>();
@@ -161,10 +163,7 @@ export class LineTracker<T> implements Disposable {
 
 		if (this._subscriptions.size !== 0) return;
 
-		if (this._linesChangedDebounced != null) {
-			this._linesChangedDebounced.cancel();
-		}
-
+		this._fireLinesChangedDebounced?.cancel();
 		this._disposable?.dispose();
 		this._disposable = undefined;
 	}
@@ -182,7 +181,7 @@ export class LineTracker<T> implements Disposable {
 
 		this._suspended = false;
 		this.onResume?.();
-		this.trigger('editor');
+		this.notifyLinesChanged('editor');
 	}
 
 	protected onSuspend?(): void;
@@ -193,27 +192,25 @@ export class LineTracker<T> implements Disposable {
 
 		this._suspended = true;
 		this.onSuspend?.();
-		this.trigger('editor');
+		this.notifyLinesChanged('editor');
 	}
 
 	protected fireLinesChanged(e: LinesChangeEvent) {
 		this._onDidChangeActiveLines.fire(e);
 	}
 
-	protected trigger(reason: 'editor' | 'selection') {
-		this.onLinesChanged({ editor: this._editor, selections: this.selections, reason: reason });
-	}
+	private _fireLinesChangedDebounced: Deferrable<(e: LinesChangeEvent) => void> | undefined;
+	protected notifyLinesChanged(reason: 'editor' | 'selection') {
+		if (reason === 'editor') {
+			this.resetState();
+		}
 
-	private _linesChangedDebounced: Deferrable<(e: LinesChangeEvent) => void> | undefined;
-
-	private onLinesChanged(e: LinesChangeEvent) {
+		const e: LinesChangeEvent = { editor: this._editor, selections: this.selections, reason: reason };
 		if (e.selections == null) {
 			queueMicrotask(() => {
 				if (e.editor !== window.activeTextEditor) return;
 
-				if (this._linesChangedDebounced != null) {
-					this._linesChangedDebounced.cancel();
-				}
+				this._fireLinesChangedDebounced?.cancel();
 
 				this.fireLinesChanged(e);
 			});
@@ -221,11 +218,12 @@ export class LineTracker<T> implements Disposable {
 			return;
 		}
 
-		if (this._linesChangedDebounced == null) {
-			this._linesChangedDebounced = debounce((e: LinesChangeEvent) => {
+		if (this._fireLinesChangedDebounced == null) {
+			this._fireLinesChangedDebounced = debounce((e: LinesChangeEvent) => {
 				if (e.editor !== window.activeTextEditor) return;
+
 				// Make sure we are still on the same lines
-				if (!LineTracker.includes(e.selections, LineTracker.toLineSelections(e.editor?.selections))) {
+				if (!isIncluded(e.selections, toLineSelections(e.editor?.selections))) {
 					return;
 				}
 
@@ -234,28 +232,27 @@ export class LineTracker<T> implements Disposable {
 		}
 
 		// If we have no pending moves, then fire an immediate pending event, and defer the real event
-		if (!this._linesChangedDebounced.pending?.()) {
+		if (!this._fireLinesChangedDebounced.pending?.()) {
 			this.fireLinesChanged({ ...e, pending: true });
 		}
 
-		this._linesChangedDebounced(e);
+		this._fireLinesChangedDebounced(e);
 	}
+}
 
-	static includes(selections: LineSelection[] | undefined, inSelections: LineSelection[] | undefined): boolean {
-		if (selections == null && inSelections == null) return true;
-		if (selections == null || inSelections == null || selections.length !== inSelections.length) return false;
+function isIncluded(selections: LineSelection[] | undefined, within: LineSelection[] | undefined): boolean {
+	if (selections == null && within == null) return true;
+	if (selections == null || within == null || selections.length !== within.length) return false;
 
-		let match;
+	let match;
+	return selections.every((s, i) => {
+		match = within[i];
+		return s.active === match.active && s.anchor === match.anchor;
+	});
+}
 
-		return selections.every((s, i) => {
-			match = inSelections[i];
-			return s.active === match.active && s.anchor === match.anchor;
-		});
-	}
-
-	static toLineSelections(selections: readonly Selection[]): LineSelection[];
-	static toLineSelections(selections: readonly Selection[] | undefined): LineSelection[] | undefined;
-	static toLineSelections(selections: readonly Selection[] | undefined) {
-		return selections?.map(s => ({ active: s.active.line, anchor: s.anchor.line }));
-	}
+function toLineSelections(selections: readonly Selection[]): LineSelection[];
+function toLineSelections(selections: readonly Selection[] | undefined): LineSelection[] | undefined;
+function toLineSelections(selections: readonly Selection[] | undefined) {
+	return selections?.map(s => ({ active: s.active.line, anchor: s.anchor.line }));
 }

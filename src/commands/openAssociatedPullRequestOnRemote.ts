@@ -56,7 +56,7 @@ export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorComman
 				const commit = await repo.getCommit('HEAD');
 				if (commit == null) return;
 
-				pr = await this.container.git.getPullRequestForCommit(commit.ref, remote.provider);
+				pr = await commit.getAssociatedPullRequest(remote);
 				if (pr == null) return;
 			}
 

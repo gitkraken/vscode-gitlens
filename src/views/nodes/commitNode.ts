@@ -12,6 +12,7 @@ import type { GitRevisionReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
 import { makeHierarchical } from '../../system/array';
+import { pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/cancellation';
 import { configuration } from '../../system/configuration';
 import { getContext } from '../../system/context';
 import { gate } from '../../system/decorators/gate';
@@ -222,7 +223,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 
 		let pendingPullRequest = this.getState('pendingPullRequest');
 		if (pendingPullRequest == null) {
-			pendingPullRequest = commit.getAssociatedPullRequest({ remote: remote });
+			pendingPullRequest = commit.getAssociatedPullRequest(remote);
 			this.storeState('pendingPullRequest', pendingPullRequest);
 
 			pullRequest = await pendingPullRequest;
@@ -236,41 +237,39 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 	}
 
 	private async getTooltip() {
-		const remotes = await this.view.container.git.getBestRemotesWithProviders(this.commit.repoPath);
+		const [remotesResult, _] = await Promise.allSettled([
+			this.view.container.git.getBestRemotesWithProviders(this.commit.repoPath),
+			this.commit.message == null ? this.commit.ensureFullDetails() : undefined,
+		]);
+
+		const remotes = getSettledValue(remotesResult, []);
 		const [remote] = remotes;
 
-		if (this.commit.message == null) {
-			await this.commit.ensureFullDetails();
-		}
-
-		let autolinkedIssuesOrPullRequests;
+		let enrichedAutolinks;
 		let pr;
 
 		if (remote?.hasRichIntegration()) {
-			const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
-				this.view.container.autolinks.getLinkedIssuesAndPullRequests(
-					this.commit.message ?? this.commit.summary,
-					remote,
-				),
+			const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
+				pauseOnCancelOrTimeoutMapTuplePromise(this.commit.getEnrichedAutolinks(remote)),
 				this.getAssociatedPullRequest(this.commit, remote),
 			]);
 
-			autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
+			enrichedAutolinks = getSettledValue(enrichedAutolinksResult)?.value;
 			pr = getSettledValue(prResult);
 
 			// Remove possible duplicate pull request
 			if (pr != null) {
-				autolinkedIssuesOrPullRequests?.delete(pr.id);
+				enrichedAutolinks?.delete(pr.id);
 			}
 		}
 
 		const tooltip = await CommitFormatter.fromTemplateAsync(this.view.config.formats.commits.tooltip, this.commit, {
-			autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
+			enrichedAutolinks: enrichedAutolinks,
 			dateFormat: configuration.get('defaultDateFormat'),
 			getBranchAndTagTips: this.getBranchAndTagTips,
 			messageAutolinks: true,
 			messageIndent: 4,
-			pullRequestOrRemote: pr,
+			pullRequest: pr,
 			outputFormat: 'markdown',
 			remotes: remotes,
 			unpublished: this.unpublished,
