@@ -3124,10 +3124,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async stageDirectory(_repoPath: string, _directoryOrUri: string | Uri): Promise<void> {}
 
 	@log()
-	async unStageFile(_repoPath: string, _pathOrUri: string | Uri): Promise<void> {}
+	async unstageFile(_repoPath: string, _pathOrUri: string | Uri): Promise<void> {}
 
 	@log()
-	async unStageDirectory(_repoPath: string, _directoryOrUri: string | Uri): Promise<void> {}
+	async unstageDirectory(_repoPath: string, _directoryOrUri: string | Uri): Promise<void> {}
 
 	@gate()
 	private async ensureRepositoryContext(

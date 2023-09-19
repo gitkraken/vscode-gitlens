@@ -5000,12 +5000,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async unStageFile(repoPath: string, pathOrUri: string | Uri): Promise<void> {
+	async unstageFile(repoPath: string, pathOrUri: string | Uri): Promise<void> {
 		await this.git.reset(repoPath, typeof pathOrUri === 'string' ? pathOrUri : splitPath(pathOrUri, repoPath)[0]);
 	}
 
 	@log()
-	async unStageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void> {
+	async unstageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void> {
 		await this.git.reset(
 			repoPath,
 			typeof directoryOrUri === 'string' ? directoryOrUri : splitPath(directoryOrUri, repoPath)[0],

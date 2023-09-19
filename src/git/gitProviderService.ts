@@ -2731,7 +2731,7 @@ export class GitProviderService implements Disposable {
 	@log()
 	unStageFile(repoPath: string | Uri, pathOrUri: string | Uri): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.unStageFile(path, pathOrUri);
+		return provider.unstageFile(path, pathOrUri);
 	}
 
 	unStageDirectory(repoPath: string | Uri, directory: string): Promise<void>;
@@ -2739,7 +2739,7 @@ export class GitProviderService implements Disposable {
 	@log()
 	unStageDirectory(repoPath: string | Uri, directoryOrUri: string | Uri): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.unStageDirectory(path, directoryOrUri);
+		return provider.unstageDirectory(path, directoryOrUri);
 	}
 
 	@log()
