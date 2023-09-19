@@ -7,11 +7,13 @@ import { ViewFilesLayout } from '../../../../config';
 import type { HierarchicalItem } from '../../../../system/array';
 import { makeHierarchical } from '../../../../system/array';
 import type { Serialized } from '../../../../system/serialize';
+import { pluralize } from '../../../../system/string';
 import type { State } from '../../../commitDetails/protocol';
 import { messageHeadlineSplitterToken } from '../../../commitDetails/protocol';
 import { uncommittedSha } from '../commitDetails';
+import '../../shared/components/button';
 
-type Files = NonNullable<NonNullable<State['selected']>['files']>;
+type Files = NonNullable<NonNullable<State['commit']>['files']>;
 type File = Files[0];
 
 interface ExplainState {
@@ -31,16 +33,19 @@ export class GlCommitDetailsApp extends LitElement {
 	@property({ type: Object })
 	explain?: ExplainState;
 
+	@state()
 	get isUncommitted() {
-		return this.state?.selected?.sha === uncommittedSha;
+		return this.state?.commit?.sha === uncommittedSha;
 	}
 
+	@state()
 	get isStash() {
-		return this.state?.selected?.stashNumber != null;
+		return this.state?.commit?.stashNumber != null;
 	}
 
+	@state()
 	get shortSha() {
-		return this.state?.selected?.shortSha ?? '';
+		return this.state?.commit?.shortSha ?? '';
 	}
 
 	get navigation() {
@@ -92,8 +97,11 @@ export class GlCommitDetailsApp extends LitElement {
 					<li>stashes in the <a href="command:gitlens.showStashesView">Stashes view</a></li>
 				</ul>
 
-				<p>Alternatively, search for or choose a commit</p>
+				<p>Alternatively, show your work-in-progress, or search for or choose a commit</p>
 
+				<p class="button-container">
+					<button class="button button--full" type="button" data-action="wip">Show Work in Progress</button>
+				</p>
 				<p class="button-container">
 					<span class="button-group">
 						<button class="button button--full" type="button" data-action="pick-commit">
@@ -115,11 +123,11 @@ export class GlCommitDetailsApp extends LitElement {
 	}
 
 	private renderCommitMessage() {
-		if (this.state?.selected == null) {
+		if (this.state?.commit == null) {
 			return undefined;
 		}
 
-		const message = this.state.selected.message;
+		const message = this.state.commit.message;
 		const index = message.indexOf(messageHeadlineSplitterToken);
 		return html`
 			<div class="section section--message">
@@ -148,12 +156,12 @@ export class GlCommitDetailsApp extends LitElement {
 		}
 
 		const autolinkedIssuesCount = this.state?.autolinkedIssues?.length ?? 0;
-		let autolinksCount = this.state?.selected?.autolinks?.length ?? 0;
+		let autolinksCount = this.state?.commit?.autolinks?.length ?? 0;
 		let count = autolinksCount;
 		const hasPullRequest = this.state?.pullRequest != null;
 		const hasAutolinks = hasPullRequest || autolinkedIssuesCount > 0 || autolinksCount > 0;
 
-		let dedupedAutolinks = this.state?.selected?.autolinks;
+		let dedupedAutolinks = this.state?.commit?.autolinks;
 		if (hasAutolinks) {
 			if (dedupedAutolinks?.length && autolinkedIssuesCount) {
 				dedupedAutolinks = dedupedAutolinks.filter(
@@ -248,7 +256,7 @@ export class GlCommitDetailsApp extends LitElement {
 													key="#${this.state!.pullRequest!.id}"
 													status="${this.state!.pullRequest!.state}"
 													date=${this.state!.pullRequest!.date}
-													dateFormat="${this.state!.dateFormat}"
+													dateFormat="${this.state!.preferences.dateFormat}"
 												></issue-pull-request>
 											</section>
 									  `
@@ -331,31 +339,31 @@ export class GlCommitDetailsApp extends LitElement {
 	}
 
 	private renderCommitStats() {
-		if (this.state?.selected?.stats?.changedFiles == null) {
+		if (this.state?.commit?.stats?.changedFiles == null) {
 			return undefined;
 		}
 
-		if (typeof this.state.selected.stats.changedFiles === 'number') {
+		if (typeof this.state.commit.stats.changedFiles === 'number') {
 			return html`<commit-stats
 				added="?"
-				modified="${this.state.selected.stats.changedFiles}"
+				modified="${this.state.commit.stats.changedFiles}"
 				removed="?"
 			></commit-stats>`;
 		}
 
-		const { added, deleted, changed } = this.state.selected.stats.changedFiles;
+		const { added, deleted, changed } = this.state.commit.stats.changedFiles;
 		return html`<commit-stats added="${added}" modified="${changed}" removed="${deleted}"></commit-stats>`;
 	}
 
 	private renderFileList() {
-		const files = this.state!.selected!.files!;
+		const files = this.state!.commit!.files!;
 
 		let items;
 		let classes;
 
 		if (this.isUncommitted) {
 			items = [];
-			classes = `indentGuides-${this.state!.indentGuides}`;
+			classes = `indentGuides-${this.state!.preferences.indentGuides}`;
 
 			const staged = files.filter(f => f.staged);
 			if (staged.length) {
@@ -382,7 +390,7 @@ export class GlCommitDetailsApp extends LitElement {
 	}
 
 	private renderFileTree() {
-		const files = this.state!.selected!.files!;
+		const files = this.state!.commit!.files!;
 		const compact = this.state!.preferences?.files?.compact ?? true;
 
 		let items;
@@ -405,7 +413,9 @@ export class GlCommitDetailsApp extends LitElement {
 			items = this.renderFileSubtree(files, 0, compact);
 		}
 
-		return html`<list-container class="indentGuides-${this.state!.indentGuides}">${items}</list-container>`;
+		return html`<list-container class="indentGuides-${this.state!.preferences.indentGuides}"
+			>${items}</list-container
+		>`;
 	}
 
 	private renderFileSubtree(files: Files, rootLevel: number, compact: boolean) {
@@ -455,9 +465,9 @@ export class GlCommitDetailsApp extends LitElement {
 		let icon = 'list-tree';
 		let label = 'View as Tree';
 		let isTree = false;
-		if (this.state?.selected?.files != null) {
+		if (this.state?.commit?.files != null) {
 			if (layout === ViewFilesLayout.Auto) {
-				isTree = this.state.selected.files.length > (this.state.preferences?.files?.threshold ?? 5);
+				isTree = this.state.commit.files.length > (this.state.preferences?.files?.threshold ?? 5);
 			} else {
 				isTree = layout === ViewFilesLayout.Tree;
 			}
@@ -496,7 +506,7 @@ export class GlCommitDetailsApp extends LitElement {
 
 				<div class="change-list" data-region="files">
 					${when(
-						this.state?.selected?.files == null,
+						this.state?.commit?.files == null,
 						() => html`
 							<div class="section section--skeleton">
 								<skeleton-loader></skeleton-loader>
@@ -516,7 +526,7 @@ export class GlCommitDetailsApp extends LitElement {
 	}
 
 	override render() {
-		if (this.state?.selected == null) {
+		if (this.state?.commit == null) {
 			return html` <div class="commit-detail-panel scrollable">${this.renderEmptyContent()}</div>`;
 		}
 
@@ -526,6 +536,17 @@ export class GlCommitDetailsApp extends LitElement {
 		return html`
 			<div class="commit-detail-panel scrollable">
 				<main id="main" tabindex="-1">
+					${this.state?.wip?.changes && !this.isUncommitted
+						? html`<div class="wip-details">
+								<span class="wip-changes"
+									>${pluralize('file change', this.state.wip.changes, {
+										plural: 'file changes',
+									})}
+									on <span class="wip-branch">${this.state.wip.branchName}</span></span
+								>
+								<gl-button appearance="alert" data-action="wip">View Changes</gl-button>
+						  </div>`
+						: nothing}
 					<div class="top-details">
 						<div class="top-details__top-menu">
 							<div class="top-details__actionbar${this.state.pinned ? ' is-pinned' : ''}">
@@ -637,18 +658,18 @@ export class GlCommitDetailsApp extends LitElement {
 								</div>
 							</div>
 							${when(
-								this.state.selected && this.state.selected.stashNumber == null,
+								this.state.commit && this.state.commit.stashNumber == null,
 								() => html`
 									<ul class="top-details__authors" aria-label="Authors">
 										<li class="top-details__author" data-region="author">
 											<commit-identity
-												name="${this.state!.selected!.author.name}"
-												email="${this.state!.selected!.author.email}"
-												date=${this.state!.selected!.author.date}
-												dateFormat="${this.state!.dateFormat}"
-												avatarUrl="${this.state!.selected!.author.avatar ?? ''}"
+												name="${this.state!.commit!.author.name}"
+												email="${this.state!.commit!.author.email}"
+												date=${this.state!.commit!.author.date}
+												dateFormat="${this.state!.preferences.dateFormat}"
+												avatarUrl="${this.state!.commit!.author.avatar ?? ''}"
 												showAvatar="${this.state!.preferences?.avatars ?? true}"
-												actionLabel="${this.state!.selected!.sha === uncommittedSha
+												actionLabel="${this.state!.commit!.sha === uncommittedSha
 													? 'modified'
 													: 'committed'}"
 											></commit-identity>

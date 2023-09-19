@@ -165,7 +165,29 @@ export class FileChangeListItem extends LitElement {
 						<code-icon icon="go-to-file"></code-icon>
 					</a>
 					${this.uncommitted
-						? nothing
+						? this.staged
+							? html`
+									<a
+										class="change-list__action"
+										@click=${this.onUnstageFile}
+										href="#"
+										title="Unstage Changes"
+										aria-label="Unstage Changes"
+									>
+										<code-icon icon="remove"></code-icon>
+									</a>
+							  `
+							: html`
+									<a
+										class="change-list__action"
+										@click=${this.onStageFile}
+										href="#"
+										title="Stage Changes"
+										aria-label="Stage Changes"
+									>
+										<code-icon icon="plus"></code-icon>
+									</a>
+							  `
 						: html`
 								<a
 									class="change-list__action"
@@ -234,6 +256,20 @@ export class FileChangeListItem extends LitElement {
 
 	onMoreActions(_e: MouseEvent) {
 		const event = new CustomEvent('file-more-actions', {
+			detail: this.getEventDetail(),
+		});
+		this.dispatchEvent(event);
+	}
+
+	onStageFile(_e: MouseEvent) {
+		const event = new CustomEvent('file-stage', {
+			detail: this.getEventDetail(),
+		});
+		this.dispatchEvent(event);
+	}
+
+	onUnstageFile(_e: MouseEvent) {
+		const event = new CustomEvent('file-unstage', {
 			detail: this.getEventDetail(),
 		});
 		this.dispatchEvent(event);

@@ -17,6 +17,7 @@ import {
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitCommit } from '../../git/models/commit';
 import { isCommit } from '../../git/models/commit';
+import { uncommitted } from '../../git/models/constants';
 import type { GitFileChange } from '../../git/models/file';
 import { getGitFileStatusIcon } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
@@ -26,11 +27,12 @@ import { serializePullRequest } from '../../git/models/pullRequest';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { createReference, getReferenceFromRevision, shortenRevision } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
+import type { Repository } from '../../git/models/repository';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { executeCommand, executeCoreCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
 import { getContext } from '../../system/context';
-import type { DateTimeFormat } from '../../system/date';
 import { debug } from '../../system/decorators/log';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
@@ -48,13 +50,23 @@ import { onIpc } from '../protocol';
 import type { WebviewController, WebviewProvider } from '../webviewController';
 import { updatePendingContext } from '../webviewController';
 import { isSerializedState } from '../webviewsController';
-import type { CommitDetails, DidExplainCommitParams, FileActionParams, Preferences, State } from './protocol';
+import type {
+	CommitDetails,
+	DidExplainParams,
+	FileActionParams,
+	Preferences,
+	ShowWipParams,
+	State,
+	UpdateablePreferences,
+	Wip,
+} from './protocol';
 import {
 	AutolinkSettingsCommandType,
 	CommitActionsCommandType,
 	DidChangeNotificationType,
-	DidExplainCommitCommandType,
-	ExplainCommitCommandType,
+	DidChangeWipStateNotificationType,
+	DidExplainCommandType,
+	ExplainCommandType,
 	FileActionsCommandType,
 	messageHeadlineSplitterToken,
 	NavigateCommitCommandType,
@@ -64,30 +76,29 @@ import {
 	OpenFileOnRemoteCommandType,
 	PickCommitCommandType,
 	PinCommitCommandType,
-	PreferencesCommandType,
 	SearchCommitCommandType,
+	ShowWipCommandType,
+	StageFileCommandType,
+	UnstageFileCommandType,
+	UpdatePreferencesCommandType,
 } from './protocol';
 
 interface Context {
-	pinned: boolean;
-	commit: GitCommit | undefined;
-	preferences: Preferences | undefined;
-	richStateLoaded: boolean;
-	formattedMessage: string | undefined;
-	autolinkedIssues: IssueOrPullRequest[] | undefined;
-	pullRequest: PullRequest | undefined;
-
-	// commits: GitCommit[] | undefined;
-	dateFormat: DateTimeFormat | string;
-	// indent: number;
-	indentGuides: 'none' | 'onHover' | 'always';
 	navigationStack: {
 		count: number;
 		position: number;
 		hint?: string;
 	};
-
+	pinned: boolean;
+	preferences: Preferences;
 	visible: boolean;
+
+	commit: GitCommit | undefined;
+	richStateLoaded: boolean;
+	formattedMessage: string | undefined;
+	autolinkedIssues: IssueOrPullRequest[] | undefined;
+	pullRequest: PullRequest | undefined;
+	wip: Wip | undefined;
 }
 
 export class CommitDetailsWebviewProvider implements WebviewProvider<State, Serialized<State>> {
@@ -107,27 +118,30 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		private readonly options: { mode: 'default' | 'graph' },
 	) {
 		this._context = {
-			pinned: false,
-			commit: undefined,
-			preferences: {
-				autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded'),
-				avatars: configuration.get('views.commitDetails.avatars'),
-				files: configuration.get('views.commitDetails.files'),
-			},
-			richStateLoaded: false,
-			formattedMessage: undefined,
-			autolinkedIssues: undefined,
-			pullRequest: undefined,
-			dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
-			// indent: configuration.getAny('workbench.tree.indent') ?? 8,
-			indentGuides:
-				configuration.getAny<CoreConfiguration, Context['indentGuides']>('workbench.tree.renderIndentGuides') ??
-				'onHover',
 			navigationStack: {
 				count: 0,
 				position: 0,
 			},
+			pinned: false,
+			preferences: {
+				autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded') ?? true,
+				avatars: configuration.get('views.commitDetails.avatars'),
+				dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
+				files: configuration.get('views.commitDetails.files'),
+				// indent: configuration.getAny('workbench.tree.indent') ?? 8,
+				indentGuides:
+					configuration.getAny<CoreConfiguration, Preferences['indentGuides']>(
+						'workbench.tree.renderIndentGuides',
+					) ?? 'onHover',
+			},
 			visible: false,
+
+			commit: undefined,
+			richStateLoaded: false,
+			formattedMessage: undefined,
+			autolinkedIssues: undefined,
+			pullRequest: undefined,
+			wip: undefined,
 		};
 
 		this._disposable = configuration.onDidChangeAny(this.onAnyConfigurationChanged, this);
@@ -150,7 +164,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 
 		const [arg] = args;
 		if (isSerializedState<Serialized<State>>(arg)) {
-			const { selected } = arg.state;
+			const { commit: selected } = arg.state;
 			if (selected?.repoPath != null && selected?.sha != null) {
 				if (selected.stashNumber != null) {
 					data = {
@@ -253,49 +267,35 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 	}
 
 	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (configuration.changed(e, 'defaultDateFormat')) {
-			this.updatePendingContext({ dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma' });
-			this.updateState();
-		}
-
-		if (configuration.changed(e, 'views.commitDetails')) {
-			if (
-				configuration.changed(e, 'views.commitDetails.files') ||
-				configuration.changed(e, 'views.commitDetails.avatars')
-			) {
-				this.updatePendingContext({
-					preferences: {
-						...this._context.preferences,
-						...this._pendingContext?.preferences,
-						avatars: configuration.get('views.commitDetails.avatars'),
-						files: configuration.get('views.commitDetails.files'),
-					},
-				});
-			}
-
-			if (
-				this._context.commit != null &&
-				(configuration.changed(e, 'views.commitDetails.autolinks') ||
-					configuration.changed(e, 'views.commitDetails.pullRequests'))
-			) {
-				void this.updateCommit(this._context.commit, { force: true });
-			}
-
-			this.updateState();
-		}
-
-		// if (configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.indent')) {
-		// 	this.updatePendingContext({ indent: configuration.getAny('workbench.tree.indent') ?? 8 });
-		// 	this.updateState();
-		// }
-
-		if (configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.renderIndentGuides')) {
+		if (
+			configuration.changed(e, [
+				'defaultDateFormat',
+				'views.commitDetails.files',
+				'views.commitDetails.avatars',
+			]) ||
+			configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.renderIndentGuides')
+		) {
 			this.updatePendingContext({
-				indentGuides:
-					configuration.getAny<CoreConfiguration, Context['indentGuides']>(
-						'workbench.tree.renderIndentGuides',
-					) ?? 'onHover',
+				preferences: {
+					...this._context.preferences,
+					...this._pendingContext?.preferences,
+					avatars: configuration.get('views.commitDetails.avatars'),
+					dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
+					files: configuration.get('views.commitDetails.files'),
+					indentGuides:
+						configuration.getAny<CoreConfiguration, Preferences['indentGuides']>(
+							'workbench.tree.renderIndentGuides',
+						) ?? 'onHover',
+				},
 			});
+			this.updateState();
+		}
+
+		if (
+			this._context.commit != null &&
+			configuration.changed(e, ['views.commitDetails.autolinks', 'views.commitDetails.pullRequests'])
+		) {
+			void this.updateCommit(this._context.commit, { force: true });
 			this.updateState();
 		}
 	}
@@ -402,6 +402,9 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			case SearchCommitCommandType.method:
 				onIpc(SearchCommitCommandType, e, _params => this.showCommitSearch());
 				break;
+			case ShowWipCommandType.method:
+				onIpc(ShowWipCommandType, e, params => this.showWip(params));
+				break;
 			case AutolinkSettingsCommandType.method:
 				onIpc(AutolinkSettingsCommandType, e, _params => this.showAutolinkSettings());
 				break;
@@ -411,16 +414,23 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			case NavigateCommitCommandType.method:
 				onIpc(NavigateCommitCommandType, e, params => this.navigateStack(params.direction));
 				break;
-			case PreferencesCommandType.method:
-				onIpc(PreferencesCommandType, e, params => this.updatePreferences(params));
+			case UpdatePreferencesCommandType.method:
+				onIpc(UpdatePreferencesCommandType, e, params => this.updatePreferences(params));
 				break;
-			case ExplainCommitCommandType.method:
-				onIpc(ExplainCommitCommandType, e, () => this.explainCommit(e.completionId));
+			case ExplainCommandType.method:
+				onIpc(ExplainCommandType, e, () => this.explainCommit(e.completionId));
+				break;
+			case StageFileCommandType.method:
+				onIpc(StageFileCommandType, e, params => this.stageFile(params));
+				break;
+			case UnstageFileCommandType.method:
+				onIpc(UnstageFileCommandType, e, params => this.unstageFile(params));
+				break;
 		}
 	}
 
 	private async explainCommit(completionId?: string) {
-		let params: DidExplainCommitParams;
+		let params: DidExplainParams;
 		try {
 			const summary = await this.container.ai.explainCommit(this._context.commit!, {
 				progress: { location: { viewId: this.host.id } },
@@ -430,7 +440,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			debugger;
 			params = { error: { message: ex.message } };
 		}
-		void this.host.notify(DidExplainCommitCommandType, params, completionId);
+		void this.host.notify(DidExplainCommandType, params, completionId);
 	}
 
 	private navigateStack(direction: 'back' | 'forward') {
@@ -474,24 +484,35 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			}
 		}
 
-		// const commitChoices = await Promise.all(this.commits.map(async commit => summaryModel(commit)));
-
 		const state = serialize<State>({
 			webviewId: this.host.id,
 			timestamp: Date.now(),
+			commit: details,
+			navigationStack: current.navigationStack,
 			pinned: current.pinned,
-			includeRichContent: current.richStateLoaded,
-			// commits: commitChoices,
 			preferences: current.preferences,
-			selected: details,
+			includeRichContent: current.richStateLoaded,
 			autolinkedIssues: current.autolinkedIssues?.map(serializeIssueOrPullRequest),
 			pullRequest: current.pullRequest != null ? serializePullRequest(current.pullRequest) : undefined,
-			dateFormat: current.dateFormat,
-			// indent: current.indent,
-			indentGuides: current.indentGuides,
-			navigationStack: current.navigationStack,
+			wip: current.wip,
 		});
 		return state;
+	}
+
+	@debug({ args: false })
+	private async updateWipState(repository: Repository): Promise<void> {
+		const wip = await this.getWipState(repository);
+
+		const success =
+			!this.host.ready || !this.host.visible
+				? await this.host.notify(DidChangeWipStateNotificationType, { wip: wip })
+				: false;
+		if (success) {
+			this._context.wip = wip;
+		} else {
+			this.updatePendingContext({ wip: wip });
+			this.updateState();
+		}
 	}
 
 	@debug({ args: false })
@@ -550,7 +571,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		// };
 	}
 
-	private _commitDisposable: Disposable | undefined;
+	private _repositorySubscription: [Repository, Disposable] | undefined;
 
 	private async updateCommit(
 		commitish: GitCommit | GitRevisionReference | undefined,
@@ -558,8 +579,6 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 	) {
 		// this.commits = [commit];
 		if (!options?.force && this._context.commit?.sha === commitish?.ref) return;
-
-		this._commitDisposable?.dispose();
 
 		let commit: GitCommit | undefined;
 		if (isCommit(commitish)) {
@@ -573,17 +592,38 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			}
 		}
 
-		if (commit?.isUncommitted) {
-			const repository = await this.container.git.getOrOpenRepository(commit.repoPath);
-			if (repository != null) {
-				this._commitDisposable = Disposable.from(
-					repository.startWatchingFileSystem(),
-					repository.onDidChangeFileSystem(() => {
-						// this.updatePendingContext({ commit: undefined });
-						this.updatePendingContext({ commit: commit }, true);
-						this.updateState();
-					}),
-				);
+		let wip = this._pendingContext?.wip ?? this._context.wip;
+
+		if (this._repositorySubscription != null) {
+			const [repo, subscription] = this._repositorySubscription;
+			if (repo.path !== commit?.repoPath) {
+				subscription.dispose();
+				this._repositorySubscription = undefined;
+				wip = undefined;
+			}
+		}
+
+		if (this._repositorySubscription == null && commit != null) {
+			const repo = await this.container.git.getOrOpenRepository(commit.repoPath);
+			if (repo != null) {
+				this._repositorySubscription = [
+					repo,
+					Disposable.from(
+						repo.startWatchingFileSystem(),
+						repo.onDidChangeFileSystem(() => this.onWipChanged(commit!, repo)),
+						repo.onDidChange(e => {
+							if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
+								this.onWipChanged(commit!, repo);
+							}
+						}),
+					),
+				];
+
+				if (!commit.isUncommitted) {
+					void this.updateWipState(repo);
+				} else {
+					wip = undefined;
+				}
 			}
 		}
 
@@ -594,6 +634,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 				formattedMessage: undefined,
 				autolinkedIssues: undefined,
 				pullRequest: undefined,
+				wip: wip,
 			},
 			options?.force,
 		);
@@ -616,6 +657,30 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		this.updateState(options?.immediate ?? true);
 	}
 
+	private onWipChanged(commit: GitCommit, repository: Repository) {
+		if (commit.isUncommitted) {
+			void this.showWip({ repoPath: repository.path });
+
+			return;
+		}
+
+		void this.updateWipState(repository);
+	}
+
+	private async getWipState(repository: Repository) {
+		const status = await this.container.git.getStatusForRepo(repository.path);
+		return status == null
+			? undefined
+			: {
+					changes: status.files.length,
+					branchName: status.branch,
+					repository: {
+						name: repository.name,
+						path: repository.path,
+					},
+			  };
+	}
+
 	private updatePinned(pinned: boolean, immediate?: boolean) {
 		if (pinned === this._context.pinned) return;
 
@@ -626,11 +691,9 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		this.updateState(immediate);
 	}
 
-	private updatePreferences(preferences: Preferences) {
+	private updatePreferences(preferences: UpdateablePreferences) {
 		if (
 			this._context.preferences?.autolinksExpanded === preferences.autolinksExpanded &&
-			this._context.preferences?.avatars === preferences.avatars &&
-			this._context.preferences?.files === preferences.files &&
 			this._context.preferences?.files?.compact === preferences.files?.compact &&
 			this._context.preferences?.files?.icon === preferences.files?.icon &&
 			this._context.preferences?.files?.layout === preferences.files?.layout &&
@@ -656,13 +719,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			changes.autolinksExpanded = preferences.autolinksExpanded;
 		}
 
-		if (preferences.avatars != null && this._context.preferences?.avatars !== preferences.avatars) {
-			void configuration.updateEffective('views.commitDetails.avatars', preferences.avatars);
-
-			changes.avatars = preferences.avatars;
-		}
-
-		if (preferences.files != null && this._context.preferences?.files !== preferences.files) {
+		if (preferences.files != null) {
 			if (this._context.preferences?.files?.compact !== preferences.files?.compact) {
 				void configuration.updateEffective('views.commitDetails.files.compact', preferences.files?.compact);
 			}
@@ -813,6 +870,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 			author: { ...commit.author, avatar: avatarUri?.toString(true) },
 			// committer: { ...commit.committer, avatar: committerAvatar?.toString(true) },
 			message: formattedMessage,
+			parents: commit.parents,
 			stashNumber: commit.refType === 'stash' ? commit.number : undefined,
 			files: commit.files?.map(({ status, repoPath, path, originalPath, staged }) => {
 				const icon = getGitFileStatusIcon(status);
@@ -869,10 +927,6 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		void executeCommand(Commands.ShowSettingsPageAndJumpToAutolinks);
 	}
 
-	private showCommitSearch() {
-		void executeGitCommand({ command: 'search', state: { openPickInView: true } });
-	}
-
 	private showCommitPicker() {
 		void executeGitCommand({
 			command: 'log',
@@ -882,6 +936,22 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 				openPickInView: true,
 			},
 		});
+	}
+
+	private showCommitSearch() {
+		void executeGitCommand({ command: 'search', state: { openPickInView: true } });
+	}
+
+	private async showWip(params: ShowWipParams) {
+		let { repoPath } = params;
+		if (repoPath == null) {
+			const repo = this.container.git.getBestRepositoryOrFirst();
+			if (repo == null) return;
+
+			repoPath = repo.path;
+		}
+		const commit = await this.container.git.getCommit(repoPath, uncommitted);
+		void this.updateCommit(commit, { force: true, immediate: true });
 	}
 
 	private showCommitActions() {
@@ -950,6 +1020,24 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		const [commit, file] = result;
 
 		void openFileOnRemote(file, commit);
+	}
+
+	private async stageFile(params: FileActionParams) {
+		const result = await this.getFileCommitFromParams(params);
+		if (result == null) return;
+
+		const [commit, file] = result;
+
+		await this.container.git.stageFile(commit.repoPath, file.path);
+	}
+
+	private async unstageFile(params: FileActionParams) {
+		const result = await this.getFileCommitFromParams(params);
+		if (result == null) return;
+
+		const [commit, file] = result;
+
+		await this.container.git.unstageFile(commit.repoPath, file.path);
 	}
 
 	private getShowOptions(params: FileActionParams): TextDocumentShowOptions | undefined {

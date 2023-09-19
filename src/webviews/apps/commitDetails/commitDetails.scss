@@ -378,3 +378,25 @@ ul {
 		}
 	}
 }
+
+.wip-details {
+	padding: 0.5em;
+	background: var(--color-alert-infoBackground);
+	border: 1px solid var(--color-alert-infoBorder);
+	display: flex;
+	justify-content: space-between;
+
+	& .wip-changes {
+		display: flex;
+		align-items: center;
+
+		& .wip-branch {
+			margin-left: 5px;
+			background: var(--color-alert-infoHoverBackground);
+			border-radius: 3px;
+			padding: 0px 3px 2px 3px;
+			border: 1px solid var(--color-alert-infoBorder);
+			margin-top: -1px;
+		}
+	}
+}
