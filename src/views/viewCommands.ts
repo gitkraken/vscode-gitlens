@@ -872,7 +872,7 @@ export class ViewCommands {
 			return;
 		}
 
-		await this.container.git.unStageFile(node.repoPath, node.file.path);
+		await this.container.git.unstageFile(node.repoPath, node.file.path);
 		void node.triggerChange();
 	}
 
@@ -880,7 +880,7 @@ export class ViewCommands {
 	private async unstageDirectory(node: FolderNode) {
 		if (!(node instanceof FolderNode) || !node.relativePath) return;
 
-		await this.container.git.unStageDirectory(node.repoPath, node.relativePath);
+		await this.container.git.unstageDirectory(node.repoPath, node.relativePath);
 		void node.triggerChange();
 	}
 
