@@ -2726,18 +2726,18 @@ export class GitProviderService implements Disposable {
 		return provider.stageDirectory(path, directoryOrUri);
 	}
 
-	unStageFile(repoPath: string | Uri, path: string): Promise<void>;
-	unStageFile(repoPath: string | Uri, uri: Uri): Promise<void>;
+	unstageFile(repoPath: string | Uri, path: string): Promise<void>;
+	unstageFile(repoPath: string | Uri, uri: Uri): Promise<void>;
 	@log()
-	unStageFile(repoPath: string | Uri, pathOrUri: string | Uri): Promise<void> {
+	unstageFile(repoPath: string | Uri, pathOrUri: string | Uri): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.unstageFile(path, pathOrUri);
 	}
 
-	unStageDirectory(repoPath: string | Uri, directory: string): Promise<void>;
-	unStageDirectory(repoPath: string | Uri, uri: Uri): Promise<void>;
+	unstageDirectory(repoPath: string | Uri, directory: string): Promise<void>;
+	unstageDirectory(repoPath: string | Uri, uri: Uri): Promise<void>;
 	@log()
-	unStageDirectory(repoPath: string | Uri, directoryOrUri: string | Uri): Promise<void> {
+	unstageDirectory(repoPath: string | Uri, directoryOrUri: string | Uri): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.unstageDirectory(path, directoryOrUri);
 	}
