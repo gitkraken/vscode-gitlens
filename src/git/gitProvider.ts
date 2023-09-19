@@ -475,8 +475,8 @@ export interface GitProvider extends Disposable {
 
 	stageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
 	stageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
-	unStageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
-	unStageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
+	unstageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
+	unstageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
 
 	stashApply?(repoPath: string, stashName: string, options?: { deleteAfter?: boolean | undefined }): Promise<void>;
 	stashDelete?(repoPath: string, stashName: string, ref?: string): Promise<void>;
