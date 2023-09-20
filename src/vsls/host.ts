@@ -239,13 +239,16 @@ export class VslsHostService implements Disposable {
 		if (new RegExp(`${localPath}$`, 'i').test(sharedPath)) {
 			if (sharedPath.length === localPath.length) {
 				const folder = workspace.getWorkspaceFolder(localUri)!;
-				sharedUri = sharedUri.with({ path: `/~${folder.index}` });
+				sharedUri = sharedUri.with({ authority: '', path: `/~${folder.index}` });
 			} else {
-				sharedUri = sharedUri.with({ path: sharedPath.substr(0, sharedPath.length - localPath.length) });
+				sharedUri = sharedUri.with({
+					authority: '',
+					path: sharedPath.substr(0, sharedPath.length - localPath.length),
+				});
 			}
 		} else if (!sharedPath.startsWith('/~')) {
 			const folder = workspace.getWorkspaceFolder(localUri)!;
-			sharedUri = sharedUri.with({ path: `/~${folder.index}${sharedPath}` });
+			sharedUri = sharedUri.with({ authority: '', path: `/~${folder.index}${sharedPath}` });
 		}
 
 		return sharedUri;
