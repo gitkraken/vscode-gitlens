@@ -565,6 +565,7 @@ export type CoreCommands =
 	| 'workbench.action.closeActiveEditor'
 	| 'workbench.action.closeAllEditors'
 	| 'workbench.action.closePanel'
+	| 'workbench.action.focusActiveEditorGroup'
 	| 'workbench.action.nextEditor'
 	| 'workbench.action.openWalkthrough'
 	| 'workbench.action.toggleMaximizedPanel'
