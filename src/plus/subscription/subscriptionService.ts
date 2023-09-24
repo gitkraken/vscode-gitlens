@@ -275,6 +275,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private async logoutCore(reset: boolean = false): Promise<void> {
+		this._lastValidatedDate = undefined;
 		if (this._validationTimer != null) {
 			clearInterval(this._validationTimer);
 			this._validationTimer = undefined;
@@ -543,6 +544,7 @@ export class SubscriptionService implements Disposable {
 	@debug<SubscriptionService['checkInAndValidateCore']>({ args: { 0: s => s?.account.label } })
 	private async checkInAndValidateCore(session: AuthenticationSession): Promise<void> {
 		const scope = getLogScope();
+		this._lastValidatedDate = undefined;
 
 		try {
 			const checkInData = {
@@ -574,7 +576,6 @@ export class SubscriptionService implements Disposable {
 			const data: GKLicenseInfo = await rsp.json();
 			this.validateSubscription(data);
 		} catch (ex) {
-			this._lastValidatedDate = undefined;
 			Logger.error(ex, scope);
 			debugger;
 			if (ex instanceof AccountValidationError) throw ex;
@@ -698,10 +699,6 @@ export class SubscriptionService implements Disposable {
 	@gate()
 	@debug()
 	private async ensureSession(createIfNeeded: boolean, force?: boolean): Promise<AuthenticationSession | undefined> {
-		if (force) {
-			this._lastValidatedDate = undefined;
-		}
-
 		if (this._sessionPromise != null && this._session === undefined) {
 			void (await this._sessionPromise);
 		}
@@ -758,7 +755,7 @@ export class SubscriptionService implements Disposable {
 		}
 
 		try {
-			await this.checkInAndValidate(session, { showSlowProgress: createIfNeeded });
+			await this.checkInAndValidate(session, { showSlowProgress: createIfNeeded, force: createIfNeeded });
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;
@@ -952,7 +949,6 @@ export class SubscriptionService implements Disposable {
 
 		if (this._cancellationSource != null) {
 			this._cancellationSource.cancel();
-			this._cancellationSource.dispose();
 		}
 		this._cancellationSource = new CancellationTokenSource();
 
