@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-confusing-void-expression */
 import type {
 	AuthenticationSession,
 	AuthenticationSessionsChangeEvent,
@@ -5,7 +6,7 @@ import type {
 	Event,
 	MessageItem,
 } from 'vscode';
-import { authentication, Disposable, EventEmitter, window } from 'vscode';
+import { authentication, CancellationError, Disposable, EventEmitter, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
 import type { Container } from '../../container';
@@ -17,6 +18,7 @@ import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
+import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
 import type { Account } from '../models/author';
 import type { DefaultBranch } from '../models/defaultBranch';
@@ -201,6 +203,17 @@ export abstract class RichRemoteProvider extends RemoteProvider implements Dispo
 		this.requestExceptionCount = 0;
 	}
 
+	private handleProviderException<T>(ex: Error, scope: LogScope | undefined, defaultValue: T): T {
+		if (ex instanceof CancellationError) return defaultValue;
+
+		Logger.error(ex, scope);
+
+		if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
+			this.trackRequestException();
+		}
+		return defaultValue;
+	}
+
 	@debug()
 	trackRequestException() {
 		this.requestExceptionCount++;
@@ -234,12 +247,7 @@ export abstract class RichRemoteProvider extends RemoteProvider implements Dispo
 			this.resetRequestExceptionCount();
 			return author;
 		} catch (ex) {
-			Logger.error(ex, scope);
-
-			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-				this.trackRequestException();
-			}
-			return undefined;
+			return this.handleProviderException(ex, scope, undefined);
 		}
 	}
 
@@ -269,12 +277,7 @@ export abstract class RichRemoteProvider extends RemoteProvider implements Dispo
 			this.resetRequestExceptionCount();
 			return author;
 		} catch (ex) {
-			Logger.error(ex, scope);
-
-			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-				this.trackRequestException();
-			}
-			return undefined;
+			return this.handleProviderException(ex, scope, undefined);
 		}
 	}
 
@@ -300,12 +303,7 @@ export abstract class RichRemoteProvider extends RemoteProvider implements Dispo
 					this.resetRequestExceptionCount();
 					return result;
 				} catch (ex) {
-					Logger.error(ex, scope);
-
-					if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-						this.trackRequestException();
-					}
-					return undefined;
+					return this.handleProviderException<DefaultBranch | undefined>(ex, scope, undefined);
 				}
 			})(),
 		}));
@@ -346,12 +344,7 @@ export abstract class RichRemoteProvider extends RemoteProvider implements Dispo
 					this.resetRequestExceptionCount();
 					return result;
 				} catch (ex) {
-					Logger.error(ex, scope);
-
-					if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-						this.trackRequestException();
-					}
-					return undefined;
+					return this.handleProviderException<RepositoryMetadata | undefined>(ex, scope, undefined);
 				}
 			})(),
 		}));
@@ -376,12 +369,7 @@ export abstract class RichRemoteProvider extends RemoteProvider implements Dispo
 					this.resetRequestExceptionCount();
 					return result;
 				} catch (ex) {
-					Logger.error(ex, scope);
-
-					if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-						this.trackRequestException();
-					}
-					return undefined;
+					return this.handleProviderException<IssueOrPullRequest | undefined>(ex, scope, undefined);
 				}
 			})(),
 		}));
@@ -413,12 +401,7 @@ export abstract class RichRemoteProvider extends RemoteProvider implements Dispo
 					this.resetRequestExceptionCount();
 					return result;
 				} catch (ex) {
-					Logger.error(ex, scope);
-
-					if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-						this.trackRequestException();
-					}
-					return undefined;
+					return this.handleProviderException<PullRequest | undefined>(ex, scope, undefined);
 				}
 			})(),
 		}));
@@ -448,12 +431,7 @@ export abstract class RichRemoteProvider extends RemoteProvider implements Dispo
 					this.resetRequestExceptionCount();
 					return result;
 				} catch (ex) {
-					Logger.error(ex, scope);
-
-					if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-						this.trackRequestException();
-					}
-					return undefined;
+					return this.handleProviderException<PullRequest | undefined>(ex, scope, undefined);
 				}
 			})(),
 		}));
@@ -475,12 +453,7 @@ export abstract class RichRemoteProvider extends RemoteProvider implements Dispo
 			this.resetRequestExceptionCount();
 			return issues;
 		} catch (ex) {
-			Logger.error(ex, scope);
-
-			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-				this.trackRequestException();
-			}
-			return undefined;
+			return this.handleProviderException(ex, scope, undefined);
 		}
 	}
 	protected abstract searchProviderMyIssues(session: AuthenticationSession): Promise<SearchedIssue[] | undefined>;
@@ -495,12 +468,7 @@ export abstract class RichRemoteProvider extends RemoteProvider implements Dispo
 			this.resetRequestExceptionCount();
 			return pullRequests;
 		} catch (ex) {
-			Logger.error(ex, scope);
-
-			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-				this.trackRequestException();
-			}
-			return undefined;
+			return this.handleProviderException(ex, scope, undefined);
 		}
 	}
 	protected abstract searchProviderMyPullRequests(
