@@ -25,16 +25,31 @@ import type { GitRevisionReference } from '../models/reference';
 import { getReferenceFromRevision, isUncommitted, isUncommittedStaged } from '../models/reference';
 
 export async function applyChanges(file: string | GitFile, ref1: GitRevisionReference, ref2?: GitRevisionReference) {
-	// Open the working file to ensure undo will work
-	await openFile(file, ref1, { preserveFocus: true, preview: false });
-
+	let create = false;
 	let ref = ref1.ref;
-	// If the file is `?` (untracked), then this must be a stash, so get the ^3 commit to access the untracked file
-	if (typeof file !== 'string' && file.status === '?') {
-		ref = `${ref}^3`;
+	if (typeof file !== 'string') {
+		// If the file is `?` (untracked), then this must be a stash, so get the ^3 commit to access the untracked file
+		if (file.status === '?') {
+			ref = `${ref}^3`;
+			create = true;
+		} else if (file.status === 'A') {
+			create = true;
+		}
 	}
 
-	await Container.instance.git.applyChangesToWorkingFile(GitUri.fromFile(file, ref1.repoPath, ref), ref, ref2?.ref);
+	if (create) {
+		const uri = GitUri.fromFile(file, ref1.repoPath);
+		await Container.instance.git.applyChangesToWorkingFile(uri, ref, ref2?.ref);
+		await openFile(uri, { preserveFocus: true, preview: false });
+	} else {
+		// Open the working file to ensure undo will work
+		await openFile(file, ref1, { preserveFocus: true, preview: false });
+		await Container.instance.git.applyChangesToWorkingFile(
+			GitUri.fromFile(file, ref1.repoPath, ref),
+			ref,
+			ref2?.ref,
+		);
+	}
 }
 
 export async function copyIdToClipboard(ref: { repoPath: string; ref: string } | GitCommit) {
