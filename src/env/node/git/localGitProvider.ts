@@ -5298,7 +5298,7 @@ async function disposeRemotes(remotes: (Promise<GitRemote[]> | undefined)[]) {
 	const remotesResults = await Promise.allSettled(remotes);
 	for (const remotes of remotesResults) {
 		for (const remote of getSettledValue(remotes) ?? []) {
-			if (remote.hasRichProvider()) {
+			if (remote.hasRichIntegration()) {
 				remote.provider?.dispose();
 			}
 		}
