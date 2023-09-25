@@ -7,7 +7,9 @@ import type { PullRequest } from './git/models/pullRequest';
 import type { GitRemote } from './git/models/remote';
 import type { RepositoryMetadata } from './git/models/repositoryMetadata';
 import type { RemoteProvider } from './git/remotes/remoteProvider';
-import type { RepositoryDescriptor, RichRemoteProvider } from './git/remotes/richRemoteProvider';
+import type { RichRemoteProvider } from './git/remotes/richRemoteProvider';
+import type { RepositoryDescriptor } from './plus/providers/providerIntegration';
+import { ProviderIntegration } from './plus/providers/providerIntegration';
 import { isPromise } from './system/promise';
 
 type Caches = {
@@ -37,6 +39,8 @@ type Cached<T> =
 			expiresAt?: never; // Don't set an expiration on promises as they will resolve to a value with the desired expiration
 			etag?: string;
 	  };
+
+type Integration = RichRemoteProvider | GitRemote<RichRemoteProvider> | ProviderIntegration;
 
 export class CacheProvider implements Disposable {
 	private readonly _cache = new Map<`${Cache}:${CacheKey<Cache>}`, Cached<CacheResult<CacheValue<Cache>>>>();
@@ -75,7 +79,7 @@ export class CacheProvider implements Disposable {
 	getIssueOrPullRequest(
 		id: string,
 		repo: RepositoryDescriptor | undefined,
-		remoteOrProvider: RichRemoteProvider | GitRemote<RichRemoteProvider>,
+		remoteOrProvider: Integration,
 		cacheable: Cacheable<IssueOrPullRequest>,
 	): CacheResult<IssueOrPullRequest> {
 		const { key, etag } = getRemoteKeyAndEtag(remoteOrProvider);
@@ -88,7 +92,7 @@ export class CacheProvider implements Disposable {
 
 	// getEnrichedAutolinks(
 	// 	sha: string,
-	// 	remoteOrProvider: RichRemoteProvider | GitRemote<RichRemoteProvider>,
+	// 	remoteOrProvider: Integration,
 	// 	cacheable: Cacheable<Map<string, EnrichedAutolink>>,
 	// ): CacheResult<Map<string, EnrichedAutolink>> {
 	// 	const { key, etag } = getRemoteKeyAndEtag(remoteOrProvider);
@@ -97,7 +101,7 @@ export class CacheProvider implements Disposable {
 
 	getPullRequestForBranch(
 		branch: string,
-		remoteOrProvider: RichRemoteProvider | GitRemote<RichRemoteProvider>,
+		remoteOrProvider: Integration,
 		cacheable: Cacheable<PullRequest>,
 	): CacheResult<PullRequest> {
 		const cache = 'prByBranch';
@@ -108,7 +112,7 @@ export class CacheProvider implements Disposable {
 
 	getPullRequestForSha(
 		sha: string,
-		remoteOrProvider: RichRemoteProvider | GitRemote<RichRemoteProvider>,
+		remoteOrProvider: Integration,
 		cacheable: Cacheable<PullRequest>,
 	): CacheResult<PullRequest> {
 		const cache = 'prsBySha';
@@ -118,7 +122,7 @@ export class CacheProvider implements Disposable {
 	}
 
 	getRepositoryDefaultBranch(
-		remoteOrProvider: RichRemoteProvider | GitRemote<RichRemoteProvider>,
+		remoteOrProvider: Integration,
 		cacheable: Cacheable<DefaultBranch>,
 	): CacheResult<DefaultBranch> {
 		const { key, etag } = getRemoteKeyAndEtag(remoteOrProvider);
@@ -126,7 +130,7 @@ export class CacheProvider implements Disposable {
 	}
 
 	getRepositoryMetadata(
-		remoteOrProvider: RichRemoteProvider | GitRemote<RichRemoteProvider>,
+		remoteOrProvider: Integration,
 		cacheable: Cacheable<RepositoryMetadata>,
 	): CacheResult<RepositoryMetadata> {
 		const { key, etag } = getRemoteKeyAndEtag(remoteOrProvider);
@@ -218,11 +222,14 @@ function getExpiresAt<T extends Cache>(cache: T, value: CacheValue<T> | undefine
 	}
 }
 
-function getRemoteKeyAndEtag(remoteOrProvider: RemoteProvider | GitRemote<RichRemoteProvider>) {
-	return {
-		key: remoteOrProvider.remoteKey,
-		etag: remoteOrProvider.hasRichIntegration()
-			? `${remoteOrProvider.remoteKey}:${remoteOrProvider.maybeConnected ?? false}`
-			: remoteOrProvider.remoteKey,
-	};
+function getRemoteKeyAndEtag(remoteOrProvider: RemoteProvider | Integration) {
+	// TODO Fix this for integrations
+	return remoteOrProvider instanceof ProviderIntegration
+		? { key: remoteOrProvider.id, etag: `${remoteOrProvider.id}:${remoteOrProvider.maybeConnected ?? false}` }
+		: {
+				key: remoteOrProvider.remoteKey,
+				etag: remoteOrProvider.hasRichIntegration()
+					? `${remoteOrProvider.remoteKey}:${remoteOrProvider.maybeConnected ?? false}`
+					: remoteOrProvider.remoteKey,
+		  };
 }

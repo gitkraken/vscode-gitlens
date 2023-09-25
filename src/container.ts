@@ -27,6 +27,7 @@ import { AccountAuthenticationProvider } from './plus/gk/account/authenticationP
 import { SubscriptionService } from './plus/gk/account/subscriptionService';
 import { ServerConnection } from './plus/gk/serverConnection';
 import { IntegrationAuthenticationService } from './plus/integrationAuthentication';
+import { ProviderIntegrationService } from './plus/providers/providerIntegrationService';
 import { RepositoryIdentityService } from './plus/repos/repositoryIdentityService';
 import { registerAccountWebviewView } from './plus/webviews/account/registration';
 import { registerFocusWebviewCommands, registerFocusWebviewPanel } from './plus/webviews/focus/registration';
@@ -615,6 +616,14 @@ export class Container {
 	@memoize()
 	get prereleaseOrDebugging() {
 		return this._prerelease || this.debugging;
+	}
+
+	private _providers: ProviderIntegrationService | undefined;
+	get providers(): ProviderIntegrationService {
+		if (this._providers == null) {
+			this._providers = new ProviderIntegrationService(this);
+		}
+		return this._providers;
 	}
 
 	private readonly _rebaseEditor: RebaseEditorProvider;

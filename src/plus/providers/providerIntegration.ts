@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-confusing-void-expression */
 import type {
 	AuthenticationSession,
 	AuthenticationSessionsChangeEvent,
@@ -6,55 +5,45 @@ import type {
 	Event,
 	MessageItem,
 } from 'vscode';
-import { authentication, CancellationError, Disposable, EventEmitter, window } from 'vscode';
+import { authentication, CancellationError, EventEmitter, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
 import type { Container } from '../../container';
 import { AuthenticationError, ProviderRequestClientError } from '../../errors';
+import type { Account } from '../../git/models/author';
+import type { DefaultBranch } from '../../git/models/defaultBranch';
+import type { IssueOrPullRequest, SearchedIssue } from '../../git/models/issue';
+import type { PullRequest, PullRequestState, SearchedPullRequest } from '../../git/models/pullRequest';
+import type { RepositoryMetadata } from '../../git/models/repositoryMetadata';
 import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '../../messages';
-import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../../plus/gk/account/subscription';
-import type { IntegrationAuthenticationSessionDescriptor } from '../../plus/integrationAuthentication';
-import type { RepositoryDescriptor } from '../../plus/providers/providerIntegration';
 import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
-import { debug, log, logName } from '../../system/decorators/log';
+import { debug, log } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
-import type { Account } from '../models/author';
-import type { DefaultBranch } from '../models/defaultBranch';
-import type { IssueOrPullRequest, SearchedIssue } from '../models/issue';
-import type { PullRequest, PullRequestState, SearchedPullRequest } from '../models/pullRequest';
-import type { RepositoryMetadata } from '../models/repositoryMetadata';
-import { RemoteProvider } from './remoteProvider';
+import { isPromise } from '../../system/promise';
+import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../gk/account/subscription';
+import type {
+	IntegrationAuthenticationProviderDescriptor,
+	IntegrationAuthenticationSessionDescriptor,
+} from '../integrationAuthentication';
 
 // TODO@eamodio revisit how once authenticated, all remotes are always connected, even after a restart
 
-@logName<RichRemoteProvider>((c, name) => `${name}(${c.remoteKey})`)
-export abstract class RichRemoteProvider<T extends RepositoryDescriptor = RepositoryDescriptor>
-	extends RemoteProvider
-	implements Disposable
-{
-	override readonly type: 'simple' | 'rich' = 'rich';
+export type SupportedProviderIds = 'github' | 'github-enterprise';
+export type ProviderKey = `${SupportedProviderIds}|${string}`;
 
+export type RepositoryDescriptor = Record<string, unknown>;
+
+export abstract class ProviderIntegration<T extends RepositoryDescriptor = RepositoryDescriptor> {
 	private readonly _onDidChange = new EventEmitter<void>();
 	get onDidChange(): Event<void> {
 		return this._onDidChange.event;
 	}
 
-	private readonly _disposable: Disposable;
-
-	constructor(
-		protected readonly container: Container,
-		domain: string,
-		path: string,
-		protocol?: string,
-		name?: string,
-		custom?: boolean,
-	) {
-		super(domain, path, protocol, name, custom);
-
-		this._disposable = Disposable.from(
+	constructor(protected readonly container: Container) {
+		container.context.subscriptions.push(
 			configuration.onDidChange(e => {
 				if (configuration.changed(e, 'remotes')) {
 					this._ignoreSSLErrors.clear();
@@ -72,43 +61,31 @@ export abstract class RichRemoteProvider<T extends RepositoryDescriptor = Reposi
 			}),
 			authentication.onDidChangeSessions(this.onAuthenticationSessionsChanged, this),
 		);
-
-		container.context.subscriptions.push(this._disposable);
-
-		// If we think we should be connected, try to
-		if (this.shouldConnect) {
-			void this.isConnected();
-		}
 	}
 
-	disposed = false;
+	abstract get authProvider(): IntegrationAuthenticationProviderDescriptor;
+	abstract get id(): SupportedProviderIds;
+	abstract get name(): string;
+	abstract get domain(): string;
 
-	dispose() {
-		this._disposable.dispose();
-		this.disposed = true;
-	}
-
-	abstract get apiBaseUrl(): string;
-	protected abstract get authProvider(): { id: string; scopes: string[] };
 	protected get authProviderDescriptor(): IntegrationAuthenticationSessionDescriptor {
 		return { domain: this.domain, scopes: this.authProvider.scopes };
 	}
 
-	private get key() {
-		return this.custom ? `${this.name}:${this.domain}` : this.name;
+	get icon(): string {
+		return this.id;
 	}
 
-	private get connectedKey(): `connected:${string}` {
+	protected get key(): `${SupportedProviderIds}` | `${SupportedProviderIds}:${string}` {
+		return this.id;
+	}
+
+	private get connectedKey(): `connected:${ProviderIntegration['key']}` {
 		return `connected:${this.key}`;
 	}
 
-	override get maybeConnected(): boolean | undefined {
+	get maybeConnected(): boolean | undefined {
 		return this._session === undefined ? undefined : this._session !== null;
-	}
-
-	// This is a hack for now, since providers come and go with remotes
-	get shouldConnect(): boolean {
-		return this.container.richRemoteProviders.isConnected(this.key);
 	}
 
 	protected _session: AuthenticationSession | null | undefined;
@@ -179,6 +156,8 @@ export abstract class RichRemoteProvider<T extends RepositoryDescriptor = Reposi
 		}
 
 		this.resetRequestExceptionCount();
+		this._repoMetadata = undefined;
+		this._prsByCommit.clear();
 		this._session = null;
 
 		if (connected) {
@@ -237,6 +216,7 @@ export abstract class RichRemoteProvider<T extends RepositoryDescriptor = Reposi
 	@gate()
 	@debug()
 	async getAccountForCommit(
+		repo: T,
 		ref: string,
 		options?: {
 			avatarSize?: number;
@@ -248,16 +228,17 @@ export abstract class RichRemoteProvider<T extends RepositoryDescriptor = Reposi
 		if (!connected) return undefined;
 
 		try {
-			const author = await this.getProviderAccountForCommit(this._session!, ref, options);
+			const author = await this.getProviderAccountForCommit(this._session!, repo, ref, options);
 			this.resetRequestExceptionCount();
 			return author;
 		} catch (ex) {
-			return this.handleProviderException(ex, scope, undefined);
+			return this.handleProviderException<Account | undefined>(ex, scope, undefined);
 		}
 	}
 
 	protected abstract getProviderAccountForCommit(
 		session: AuthenticationSession,
+		repo: T,
 		ref: string,
 		options?: {
 			avatarSize?: number;
@@ -267,6 +248,7 @@ export abstract class RichRemoteProvider<T extends RepositoryDescriptor = Reposi
 	@gate()
 	@debug()
 	async getAccountForEmail(
+		repo: T,
 		email: string,
 		options?: {
 			avatarSize?: number;
@@ -278,16 +260,17 @@ export abstract class RichRemoteProvider<T extends RepositoryDescriptor = Reposi
 		if (!connected) return undefined;
 
 		try {
-			const author = await this.getProviderAccountForEmail(this._session!, email, options);
+			const author = await this.getProviderAccountForEmail(this._session!, repo, email, options);
 			this.resetRequestExceptionCount();
 			return author;
 		} catch (ex) {
-			return this.handleProviderException(ex, scope, undefined);
+			return this.handleProviderException<Account | undefined>(ex, scope, undefined);
 		}
 	}
 
 	protected abstract getProviderAccountForEmail(
 		session: AuthenticationSession,
+		repo: T,
 		email: string,
 		options?: {
 			avatarSize?: number;
@@ -295,73 +278,95 @@ export abstract class RichRemoteProvider<T extends RepositoryDescriptor = Reposi
 	): Promise<Account | undefined>;
 
 	@debug()
-	async getDefaultBranch(): Promise<DefaultBranch | undefined> {
+	async getDefaultBranch(repo: T): Promise<DefaultBranch | undefined> {
 		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		const defaultBranch = this.container.cache.getRepositoryDefaultBranch(this, () => ({
-			value: (async () => {
-				try {
-					const result = await this.getProviderDefaultBranch(this._session!);
-					this.resetRequestExceptionCount();
-					return result;
-				} catch (ex) {
-					return this.handleProviderException<DefaultBranch | undefined>(ex, scope, undefined);
-				}
-			})(),
-		}));
-		return defaultBranch;
-	}
-
-	protected abstract getProviderDefaultBranch({
-		accessToken,
-	}: AuthenticationSession): Promise<DefaultBranch | undefined>;
-
-	private _ignoreSSLErrors = new Map<string, boolean | 'force'>();
-	getIgnoreSSLErrors(): boolean | 'force' {
-		if (isWeb) return false;
-
-		let ignoreSSLErrors = this._ignoreSSLErrors.get(this.id);
-		if (ignoreSSLErrors === undefined) {
-			const cfg = configuration
-				.get('remotes')
-				?.find(remote => remote.type.toLowerCase() === this.id && remote.domain === this.domain);
-			ignoreSSLErrors = cfg?.ignoreSSLErrors ?? false;
-			this._ignoreSSLErrors.set(this.id, ignoreSSLErrors);
+		// const defaultBranch = this.container.cache.getRepositoryDefaultBranch(this, () => ({
+		// 	value: (async () => {
+		try {
+			const result = await this.getProviderDefaultBranch(this._session!, repo);
+			this.resetRequestExceptionCount();
+			return result;
+		} catch (ex) {
+			return this.handleProviderException<DefaultBranch | undefined>(ex, scope, undefined);
 		}
-
-		return ignoreSSLErrors;
+		// 	})(),
+		// }));
+		// return defaultBranch;
 	}
 
+	protected abstract getProviderDefaultBranch(
+		{ accessToken }: AuthenticationSession,
+		repo: T,
+	): Promise<DefaultBranch | undefined>;
+
+	private _repoMetadata: RepositoryMetadata | undefined;
+
 	@debug()
-	async getRepositoryMetadata(_cancellation?: CancellationToken): Promise<RepositoryMetadata | undefined> {
+	async getRepositoryMetadata(repo: T, _cancellation?: CancellationToken): Promise<RepositoryMetadata | undefined> {
+		if (this._repoMetadata != null) return this._repoMetadata;
+
 		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		const metadata = this.container.cache.getRepositoryMetadata(this, () => ({
-			value: (async () => {
-				try {
-					const result = await this.getProviderRepositoryMetadata(this._session!);
-					this.resetRequestExceptionCount();
-					return result;
-				} catch (ex) {
-					return this.handleProviderException<RepositoryMetadata | undefined>(ex, scope, undefined);
-				}
-			})(),
-		}));
-		return metadata;
+		// const metadata = this.container.cache.getRepositoryMetadata(this, () => ({
+		// 	value: (async () => {
+		try {
+			const result = await this.getProviderRepositoryMetadata(this._session!, repo);
+			this._repoMetadata = result;
+			this.resetRequestExceptionCount();
+			return result;
+		} catch (ex) {
+			return this.handleProviderException<RepositoryMetadata | undefined>(ex, scope, undefined);
+		}
+		//	})(),
+		// }));
+		// return metadata;
 	}
 
-	protected abstract getProviderRepositoryMetadata({
-		accessToken,
-	}: AuthenticationSession): Promise<RepositoryMetadata | undefined>;
+	protected abstract getProviderRepositoryMetadata(
+		session: AuthenticationSession,
+		repo: T,
+	): Promise<RepositoryMetadata | undefined>;
 
 	@debug()
-	async getIssueOrPullRequest(id: string, repo: T | undefined): Promise<IssueOrPullRequest | undefined> {
+	async searchMyPullRequests(): Promise<SearchedPullRequest[] | undefined> {
+		const scope = getLogScope();
+
+		try {
+			const pullRequests = await this.searchProviderMyPullRequests(this._session!);
+			this.resetRequestExceptionCount();
+			return pullRequests;
+		} catch (ex) {
+			return this.handleProviderException<SearchedPullRequest[] | undefined>(ex, scope, undefined);
+		}
+	}
+	protected abstract searchProviderMyPullRequests(
+		session: AuthenticationSession,
+	): Promise<SearchedPullRequest[] | undefined>;
+
+	@gate()
+	@debug()
+	async searchMyIssues(): Promise<SearchedIssue[] | undefined> {
+		const scope = getLogScope();
+
+		try {
+			const issues = await this.searchProviderMyIssues(this._session!);
+			this.resetRequestExceptionCount();
+			return issues;
+		} catch (ex) {
+			return this.handleProviderException<SearchedIssue[] | undefined>(ex, scope, undefined);
+		}
+	}
+	protected abstract searchProviderMyIssues(session: AuthenticationSession): Promise<SearchedIssue[] | undefined>;
+
+	@debug()
+	async getIssueOrPullRequest(repo: T, id: string): Promise<IssueOrPullRequest | undefined> {
 		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
@@ -370,7 +375,7 @@ export abstract class RichRemoteProvider<T extends RepositoryDescriptor = Reposi
 		const issueOrPR = this.container.cache.getIssueOrPullRequest(id, repo, this, () => ({
 			value: (async () => {
 				try {
-					const result = await this.getProviderIssueOrPullRequest(this._session!, id, repo);
+					const result = await this.getProviderIssueOrPullRequest(this._session!, repo, id);
 					this.resetRequestExceptionCount();
 					return result;
 				} catch (ex) {
@@ -383,12 +388,13 @@ export abstract class RichRemoteProvider<T extends RepositoryDescriptor = Reposi
 
 	protected abstract getProviderIssueOrPullRequest(
 		session: AuthenticationSession,
+		repo: T,
 		id: string,
-		repo: T | undefined,
 	): Promise<IssueOrPullRequest | undefined>;
 
 	@debug()
 	async getPullRequestForBranch(
+		repo: T,
 		branch: string,
 		options?: {
 			avatarSize?: number;
@@ -400,22 +406,17 @@ export abstract class RichRemoteProvider<T extends RepositoryDescriptor = Reposi
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		const pr = this.container.cache.getPullRequestForBranch(branch, this, () => ({
-			value: (async () => {
-				try {
-					const result = await this.getProviderPullRequestForBranch(this._session!, branch, options);
-					this.resetRequestExceptionCount();
-					return result;
-				} catch (ex) {
-					return this.handleProviderException<PullRequest | undefined>(ex, scope, undefined);
-				}
-			})(),
-		}));
-		return pr;
+		try {
+			const pr = await this.getProviderPullRequestForBranch(this._session!, repo, branch, options);
+			this.resetRequestExceptionCount();
+			return pr;
+		} catch (ex) {
+			return this.handleProviderException<PullRequest | undefined>(ex, scope, undefined);
+		}
 	}
-
 	protected abstract getProviderPullRequestForBranch(
 		session: AuthenticationSession,
+		repo: T,
 		branch: string,
 		options?: {
 			avatarSize?: number;
@@ -423,66 +424,53 @@ export abstract class RichRemoteProvider<T extends RepositoryDescriptor = Reposi
 		},
 	): Promise<PullRequest | undefined>;
 
+	private _prsByCommit = new Map<string, Promise<PullRequest | null> | PullRequest | null>();
+
 	@debug()
-	async getPullRequestForCommit(ref: string): Promise<PullRequest | undefined> {
+	getPullRequestForCommit(repo: T, ref: string): Promise<PullRequest | undefined> | PullRequest | undefined {
+		let pr = this._prsByCommit.get(ref);
+		if (pr === undefined) {
+			pr = this.getPullRequestForCommitCore(repo, ref);
+			this._prsByCommit.set(ref, pr);
+		}
+		if (pr == null || !isPromise(pr)) return pr ?? undefined;
+
+		return pr.then(pr => pr ?? undefined);
+	}
+
+	@debug()
+	private async getPullRequestForCommitCore(repo: T, ref: string) {
 		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
+		if (!connected) return null;
 
-		const pr = this.container.cache.getPullRequestForSha(ref, this, () => ({
-			value: (async () => {
-				try {
-					const result = await this.getProviderPullRequestForCommit(this._session!, ref);
-					this.resetRequestExceptionCount();
-					return result;
-				} catch (ex) {
-					return this.handleProviderException<PullRequest | undefined>(ex, scope, undefined);
-				}
-			})(),
-		}));
-		return pr;
+		try {
+			const pr = (await this.getProviderPullRequestForCommit(this._session!, repo, ref)) ?? null;
+			this._prsByCommit.set(ref, pr);
+			this.resetRequestExceptionCount();
+			return pr;
+		} catch (ex) {
+			Logger.error(ex, scope);
+
+			this._prsByCommit.delete(ref);
+
+			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
+				this.trackRequestException();
+			}
+			return null;
+		}
 	}
 
 	protected abstract getProviderPullRequestForCommit(
 		session: AuthenticationSession,
+		repo: T,
 		ref: string,
 	): Promise<PullRequest | undefined>;
 
 	@gate()
-	@debug()
-	async searchMyIssues(): Promise<SearchedIssue[] | undefined> {
-		const scope = getLogScope();
-
-		try {
-			const issues = await this.searchProviderMyIssues(this._session!);
-			this.resetRequestExceptionCount();
-			return issues;
-		} catch (ex) {
-			return this.handleProviderException(ex, scope, undefined);
-		}
-	}
-	protected abstract searchProviderMyIssues(session: AuthenticationSession): Promise<SearchedIssue[] | undefined>;
-
-	@gate()
-	@debug()
-	async searchMyPullRequests(): Promise<SearchedPullRequest[] | undefined> {
-		const scope = getLogScope();
-
-		try {
-			const pullRequests = await this.searchProviderMyPullRequests(this._session!);
-			this.resetRequestExceptionCount();
-			return pullRequests;
-		} catch (ex) {
-			return this.handleProviderException(ex, scope, undefined);
-		}
-	}
-	protected abstract searchProviderMyPullRequests(
-		session: AuthenticationSession,
-	): Promise<SearchedPullRequest[] | undefined>;
-
-	@gate()
-	protected async ensureSession(
+	/*private*/
+	async ensureSession(
 		createIfNeeded: boolean,
 		forceNewSession: boolean = false,
 	): Promise<AuthenticationSession | undefined> {
@@ -539,6 +527,22 @@ export abstract class RichRemoteProvider<T extends RepositoryDescriptor = Reposi
 		}
 
 		return session ?? undefined;
+	}
+
+	private _ignoreSSLErrors = new Map<string, boolean | 'force'>();
+	getIgnoreSSLErrors(): boolean | 'force' {
+		if (isWeb) return false;
+
+		let ignoreSSLErrors = this._ignoreSSLErrors.get(this.id);
+		if (ignoreSSLErrors === undefined) {
+			const cfg = configuration
+				.get('remotes')
+				?.find(remote => remote.type.toLowerCase() === this.id && remote.domain === this.domain);
+			ignoreSSLErrors = cfg?.ignoreSSLErrors ?? false;
+			this._ignoreSSLErrors.set(this.id, ignoreSSLErrors);
+		}
+
+		return ignoreSSLErrors;
 	}
 }
 

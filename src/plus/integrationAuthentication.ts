@@ -13,6 +13,11 @@ interface StoredSession {
 	scopes: string[];
 }
 
+export interface IntegrationAuthenticationProviderDescriptor {
+	id: string;
+	scopes: string[];
+}
+
 export interface IntegrationAuthenticationSessionDescriptor {
 	domain: string;
 	scopes: string[];

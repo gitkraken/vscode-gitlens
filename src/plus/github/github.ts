@@ -23,10 +23,10 @@ import type { DefaultBranch } from '../../git/models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../../git/models/issue';
 import type { PullRequest, SearchedPullRequest } from '../../git/models/pullRequest';
 import { isSha } from '../../git/models/reference';
+import type { Provider } from '../../git/models/remoteProvider';
 import type { RepositoryMetadata } from '../../git/models/repositoryMetadata';
 import type { GitUser } from '../../git/models/user';
 import { getGitHubNoReplyAddressParts } from '../../git/remotes/github';
-import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
 import {
 	showIntegrationRequestFailed500WarningMessage,
 	showIntegrationRequestTimedOutWarningMessage,
@@ -223,7 +223,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['getAccountForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getAccountForCommit(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		owner: string,
 		repo: string,
@@ -316,7 +316,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['getAccountForEmail']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getAccountForEmail(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		owner: string,
 		repo: string,
@@ -403,7 +403,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['getDefaultBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getDefaultBranch(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		owner: string,
 		repo: string,
@@ -462,7 +462,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['getIssueOrPullRequest']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getIssueOrPullRequest(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		owner: string,
 		repo: string,
@@ -545,7 +545,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['getPullRequestForBranch']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequestForBranch(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		owner: string,
 		repo: string,
@@ -651,7 +651,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['getPullRequestForCommit']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getPullRequestForCommit(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		owner: string,
 		repo: string,
@@ -753,7 +753,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['getRepositoryMetadata']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async getRepositoryMetadata(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		owner: string,
 		repo: string,
@@ -2272,7 +2272,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['getEnterpriseVersion']>({ args: { 0: p => p?.name, 1: '<token>' } })
 	private async getEnterpriseVersion(
-		provider: RichRemoteProvider | undefined,
+		provider: Provider | undefined,
 		token: string,
 		options?: { baseUrl?: string },
 	): Promise<Version | undefined> {
@@ -2296,7 +2296,7 @@ export class GitHubApi implements Disposable {
 	}
 
 	private async graphql<T>(
-		provider: RichRemoteProvider | undefined,
+		provider: Provider | undefined,
 		token: string,
 		query: string,
 		variables: RequestParameters,
@@ -2356,7 +2356,7 @@ export class GitHubApi implements Disposable {
 	}
 
 	private async request<R extends string>(
-		provider: RichRemoteProvider | undefined,
+		provider: Provider | undefined,
 		token: string,
 		route: keyof Endpoints | R,
 		options:
@@ -2458,7 +2458,7 @@ export class GitHubApi implements Disposable {
 	}
 
 	private handleRequestError(
-		provider: RichRemoteProvider | undefined,
+		provider: Provider | undefined,
 		token: string,
 		ex: RequestError | (Error & { name: 'AbortError' }),
 		scope: LogScope | undefined,
@@ -2494,7 +2494,7 @@ export class GitHubApi implements Disposable {
 					provider?.trackRequestException();
 					void showIntegrationRequestFailed500WarningMessage(
 						`${provider?.name ?? 'GitHub'} failed to respond and might be experiencing issues.${
-							!provider?.custom
+							provider == null || provider.id === 'github'
 								? ' Please visit the [GitHub status page](https://githubstatus.com) for more information.'
 								: ''
 						}`,
@@ -2523,7 +2523,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	private handleException(ex: Error, provider: RichRemoteProvider | undefined, scope: LogScope | undefined): Error {
+	private handleException(ex: Error, provider: Provider | undefined, scope: LogScope | undefined): Error {
 		Logger.error(ex, scope);
 		// debugger;
 
@@ -2533,7 +2533,7 @@ export class GitHubApi implements Disposable {
 		return ex;
 	}
 
-	private async showAuthenticationErrorMessage(ex: AuthenticationError, provider: RichRemoteProvider | undefined) {
+	private async showAuthenticationErrorMessage(ex: AuthenticationError, provider: Provider | undefined) {
 		if (ex.reason === AuthenticationErrorReason.Unauthorized || ex.reason === AuthenticationErrorReason.Forbidden) {
 			const confirm = 'Reauthenticate';
 			const result = await window.showErrorMessage(
@@ -2554,7 +2554,7 @@ export class GitHubApi implements Disposable {
 	}
 
 	private async createEnterpriseAvatarUrl(
-		provider: RichRemoteProvider | undefined,
+		provider: Provider | undefined,
 		token: string,
 		baseUrl: string,
 		email: string,
@@ -2598,7 +2598,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['searchMyPullRequests']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async searchMyPullRequests(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string },
 	): Promise<SearchedPullRequest[]> {
@@ -2709,7 +2709,7 @@ export class GitHubApi implements Disposable {
 
 	@debug<GitHubApi['searchMyIssues']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async searchMyIssues(
-		provider: RichRemoteProvider,
+		provider: Provider,
 		token: string,
 		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string },
 	): Promise<SearchedIssue[] | undefined> {

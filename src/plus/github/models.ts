@@ -4,7 +4,7 @@ import type { IssueLabel, IssueOrPullRequestType } from '../../git/models/issue'
 import { Issue } from '../../git/models/issue';
 import type { PullRequestState } from '../../git/models/pullRequest';
 import { PullRequest, PullRequestMergeableState, PullRequestReviewDecision } from '../../git/models/pullRequest';
-import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
+import type { Provider } from '../../git/models/remoteProvider';
 
 export interface GitHubBlame {
 	ranges: GitHubBlameRange[];
@@ -160,7 +160,7 @@ export interface GitHubDetailedPullRequest extends GitHubPullRequest {
 	};
 }
 
-export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: RichRemoteProvider): PullRequest {
+export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: Provider): PullRequest {
 	return new PullRequest(
 		provider,
 		{
@@ -239,10 +239,7 @@ export function toGitHubPullRequestMergeableState(
 	}
 }
 
-export function fromGitHubPullRequestDetailed(
-	pr: GitHubDetailedPullRequest,
-	provider: RichRemoteProvider,
-): PullRequest {
+export function fromGitHubPullRequestDetailed(pr: GitHubDetailedPullRequest, provider: Provider): PullRequest {
 	return new PullRequest(
 		provider,
 		{
@@ -299,7 +296,7 @@ export function fromGitHubPullRequestDetailed(
 	);
 }
 
-export function fromGitHubIssueDetailed(value: GitHubIssueDetailed, provider: RichRemoteProvider): Issue {
+export function fromGitHubIssueDetailed(value: GitHubIssueDetailed, provider: Provider): Issue {
 	return new Issue(
 		{
 			id: provider.id,

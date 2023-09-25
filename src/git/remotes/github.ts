@@ -9,6 +9,8 @@ import type {
 	IntegrationAuthenticationProvider,
 	IntegrationAuthenticationSessionDescriptor,
 } from '../../plus/integrationAuthentication';
+import type { GitHubRepositoryDescriptor } from '../../plus/providers/github';
+import type { ProviderIntegration, RepositoryDescriptor } from '../../plus/providers/providerIntegration';
 import type { Brand, Unbrand } from '../../system/brand';
 import { fromNow } from '../../system/date';
 import { log } from '../../system/decorators/log';
@@ -25,30 +27,26 @@ import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
 import type { RepositoryMetadata } from '../models/repositoryMetadata';
 import type { RemoteProviderId } from './remoteProvider';
-import { ensurePaidPlan, RichRemoteProvider } from './richRemoteProvider';
+import { RichRemoteProvider } from './richRemoteProvider';
 
 const autolinkFullIssuesRegex = /\b([^/\s]+\/[^/\s]+?)(?:\\)?#([0-9]+)\b(?!]\()/g;
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/blob(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;
 
-const authProvider = Object.freeze({ id: 'github', scopes: ['repo', 'read:user', 'user:email'] });
-const enterpriseAuthProvider = Object.freeze({ id: 'github-enterprise', scopes: ['repo', 'read:user', 'user:email'] });
+// const authProvider = Object.freeze({ id: 'github', scopes: ['repo', 'read:user', 'user:email'] });
+// const enterpriseAuthProvider = Object.freeze({ id: 'github-enterprise', scopes: ['repo', 'read:user', 'user:email'] });
 
 function isGitHubDotCom(domain: string): boolean {
 	return equalsIgnoreCase(domain, 'github.com');
 }
 
-type GitHubRepositoryDescriptor =
-	| {
-			owner: string;
-			name: string;
-	  }
-	| Record<string, never>;
-
 export class GitHubRemote extends RichRemoteProvider<GitHubRepositoryDescriptor> {
+	private readonly _provider: ProviderIntegration;
+
 	@memoize()
 	protected get authProvider() {
-		return isGitHubDotCom(this.domain) ? authProvider : enterpriseAuthProvider;
+		return this._provider.authProvider;
+		// return isGitHubDotCom(this.domain) ? authProvider : enterpriseAuthProvider;
 	}
 
 	constructor(
@@ -60,6 +58,8 @@ export class GitHubRemote extends RichRemoteProvider<GitHubRepositoryDescriptor>
 		custom: boolean = false,
 	) {
 		super(container, domain, path, protocol, name, custom);
+
+		this._provider = container.providers.get(custom ? 'github-enterprise' : 'github', domain);
 	}
 
 	get apiBaseUrl() {
@@ -209,13 +209,43 @@ export class GitHubRemote extends RichRemoteProvider<GitHubRepositoryDescriptor>
 
 	@log()
 	override async connect(): Promise<boolean> {
-		if (!isGitHubDotCom(this.domain)) {
-			if (!(await ensurePaidPlan('GitHub Enterprise instance', this.container))) {
-				return false;
-			}
-		}
+		return this._provider.connect();
+		// if (!isGitHubDotCom(this.domain)) {
+		// 	if (!(await ensurePaidPlan('GitHub Enterprise instance', this.container))) {
+		// 		return false;
+		// 	}
+		// }
 
-		return super.connect();
+		// return super.connect();
+	}
+
+	override disconnect(
+		options?: { silent?: boolean | undefined; currentSessionOnly?: boolean | undefined } | undefined,
+	): Promise<void> {
+		return this._provider.disconnect(options);
+	}
+
+	override get maybeConnected(): boolean | undefined {
+		return this._provider.maybeConnected;
+	}
+
+	override async reauthenticate(): Promise<void> {
+		return this._provider.reauthenticate();
+	}
+
+	override resetRequestExceptionCount(): void {
+		this._provider.resetRequestExceptionCount();
+	}
+
+	override trackRequestException(): void {
+		this._provider.trackRequestException();
+	}
+
+	protected override ensureSession(
+		createIfNeeded: boolean,
+		forceNewSession?: boolean,
+	): Promise<AuthenticationSession | undefined> {
+		return this._provider.ensureSession(createIfNeeded, forceNewSession);
 	}
 
 	async getLocalInfoFromRemoteUri(
@@ -328,6 +358,20 @@ export class GitHubRemote extends RichRemoteProvider<GitHubRepositoryDescriptor>
 		return `${this.encodeUrl(`${this.baseUrl}?path=${fileName}`)}${line}`;
 	}
 
+	private get repositoryDescriptor(): RepositoryDescriptor {
+		const [owner, repo] = this.splitPath();
+		return { owner: owner, name: repo };
+	}
+
+	override async getAccountForCommit(
+		ref: string,
+		options?: {
+			avatarSize?: number;
+		},
+	): Promise<Account | undefined> {
+		return this._provider.getAccountForCommit(this.repositoryDescriptor, ref, options);
+	}
+
 	protected override async getProviderAccountForCommit(
 		{ accessToken }: AuthenticationSession,
 		ref: string,
@@ -340,6 +384,15 @@ export class GitHubRemote extends RichRemoteProvider<GitHubRepositoryDescriptor>
 			...options,
 			baseUrl: this.apiBaseUrl,
 		});
+	}
+
+	override async getAccountForEmail(
+		email: string,
+		options?: {
+			avatarSize?: number;
+		},
+	): Promise<Account | undefined> {
+		return this._provider.getAccountForEmail(this.repositoryDescriptor, email, options);
 	}
 
 	protected override async getProviderAccountForEmail(
@@ -356,6 +409,10 @@ export class GitHubRemote extends RichRemoteProvider<GitHubRepositoryDescriptor>
 		});
 	}
 
+	override async getDefaultBranch(): Promise<DefaultBranch | undefined> {
+		return this._provider.getDefaultBranch(this.repositoryDescriptor);
+	}
+
 	protected override async getProviderDefaultBranch({
 		accessToken,
 	}: AuthenticationSession): Promise<DefaultBranch | undefined> {
@@ -363,6 +420,13 @@ export class GitHubRemote extends RichRemoteProvider<GitHubRepositoryDescriptor>
 		return (await this.container.github)?.getDefaultBranch(this, accessToken, owner, repo, {
 			baseUrl: this.apiBaseUrl,
 		});
+	}
+
+	override async getIssueOrPullRequest(
+		id: string,
+		repo: GitHubRepositoryDescriptor | undefined,
+	): Promise<IssueOrPullRequest | undefined> {
+		return this._provider.getIssueOrPullRequest(repo ?? this.repositoryDescriptor, id);
 	}
 
 	protected override async getProviderIssueOrPullRequest(
@@ -380,6 +444,16 @@ export class GitHubRemote extends RichRemoteProvider<GitHubRepositoryDescriptor>
 		return (await this.container.github)?.getIssueOrPullRequest(this, accessToken, owner, repo, Number(id), {
 			baseUrl: this.apiBaseUrl,
 		});
+	}
+
+	override async getPullRequestForBranch(
+		branch: string,
+		options?: {
+			avatarSize?: number;
+			include?: PullRequestState[];
+		},
+	): Promise<PullRequest | undefined> {
+		return this._provider.getPullRequestForBranch(this.repositoryDescriptor, branch, options);
 	}
 
 	protected override async getProviderPullRequestForBranch(
@@ -402,6 +476,10 @@ export class GitHubRemote extends RichRemoteProvider<GitHubRepositoryDescriptor>
 		});
 	}
 
+	override async getPullRequestForCommit(ref: string): Promise<PullRequest | undefined> {
+		return this._provider.getPullRequestForCommit(this.repositoryDescriptor, ref);
+	}
+
 	protected override async getProviderPullRequestForCommit(
 		{ accessToken }: AuthenticationSession,
 		ref: string,
@@ -410,6 +488,10 @@ export class GitHubRemote extends RichRemoteProvider<GitHubRepositoryDescriptor>
 		return (await this.container.github)?.getPullRequestForCommit(this, accessToken, owner, repo, ref, {
 			baseUrl: this.apiBaseUrl,
 		});
+	}
+
+	override async getRepositoryMetadata(): Promise<RepositoryMetadata | undefined> {
+		return this._provider.getRepositoryMetadata(this.repositoryDescriptor);
 	}
 
 	protected override async getProviderRepositoryMetadata({
