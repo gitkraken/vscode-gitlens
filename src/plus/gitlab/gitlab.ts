@@ -1,5 +1,5 @@
 import type { HttpsProxyAgent } from 'https-proxy-agent';
-import type { Disposable } from 'vscode';
+import type { CancellationToken, Disposable } from 'vscode';
 import { Uri, window } from 'vscode';
 import type { RequestInit, Response } from '@env/fetch';
 import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
@@ -9,6 +9,7 @@ import type { Container } from '../../container';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
+	CancellationError,
 	ProviderFetchError,
 	ProviderRequestClientError,
 	ProviderRequestNotFoundError,
@@ -91,10 +92,11 @@ export class GitLabApi implements Disposable {
 			baseUrl?: string;
 			avatarSize?: number;
 		},
+		cancellation?: CancellationToken,
 	): Promise<Account | undefined> {
 		const scope = getLogScope();
 
-		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl);
+		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl, cancellation);
 		if (!projectId) return undefined;
 
 		try {
@@ -107,6 +109,7 @@ export class GitLabApi implements Disposable {
 					method: 'GET',
 					// ...options,
 				},
+				cancellation,
 				scope,
 			);
 
@@ -185,6 +188,7 @@ export class GitLabApi implements Disposable {
 		options?: {
 			baseUrl?: string;
 		},
+		cancellation?: CancellationToken,
 	): Promise<DefaultBranch | undefined> {
 		const scope = getLogScope();
 
@@ -217,6 +221,7 @@ export class GitLabApi implements Disposable {
 				{
 					fullPath: `${owner}/${repo}`,
 				},
+				cancellation,
 				scope,
 			);
 
@@ -244,6 +249,7 @@ export class GitLabApi implements Disposable {
 		options?: {
 			baseUrl?: string;
 		},
+		cancellation?: CancellationToken,
 	): Promise<IssueOrPullRequest | undefined> {
 		const scope = getLogScope();
 
@@ -304,6 +310,7 @@ export class GitLabApi implements Disposable {
 					fullPath: `${owner}/${repo}`,
 					iid: String(number),
 				},
+				cancellation,
 				scope,
 			);
 
@@ -356,6 +363,7 @@ export class GitLabApi implements Disposable {
 			avatarSize?: number;
 			include?: GitLabMergeRequestState[];
 		},
+		cancellation?: CancellationToken,
 	): Promise<PullRequest | undefined> {
 		const scope = getLogScope();
 
@@ -442,6 +450,7 @@ export class GitLabApi implements Disposable {
 					branches: [branch],
 					state: options?.include,
 				},
+				cancellation,
 				scope,
 			);
 
@@ -502,16 +511,16 @@ export class GitLabApi implements Disposable {
 			baseUrl?: string;
 			avatarSize?: number;
 		},
+		cancellation?: CancellationToken,
 	): Promise<PullRequest | undefined> {
 		const scope = getLogScope();
 
-		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl);
+		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl, cancellation);
 		if (!projectId) return undefined;
 
 		try {
 			const mrs = await this.request<GitLabMergeRequestREST[]>(
 				provider,
-
 				token,
 				options?.baseUrl,
 				`v4/projects/${projectId}/repository/commits/${ref}/merge_requests`,
@@ -519,6 +528,7 @@ export class GitLabApi implements Disposable {
 					method: 'GET',
 					// ...options,
 				},
+				cancellation,
 				scope,
 			);
 			if (mrs == null || mrs.length === 0) return undefined;
@@ -549,16 +559,16 @@ export class GitLabApi implements Disposable {
 		options?: {
 			baseUrl?: string;
 		},
+		cancellation?: CancellationToken,
 	): Promise<RepositoryMetadata | undefined> {
 		const scope = getLogScope();
 
-		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl);
+		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl, cancellation);
 		if (!projectId) return undefined;
 
 		try {
 			const proj = await this.request<GitLabProjectREST>(
 				provider,
-
 				token,
 				options?.baseUrl,
 				`v4/projects/${projectId}`,
@@ -566,6 +576,7 @@ export class GitLabApi implements Disposable {
 					method: 'GET',
 					// ...options,
 				},
+				cancellation,
 				scope,
 			);
 			if (proj == null) return undefined;
@@ -598,6 +609,7 @@ export class GitLabApi implements Disposable {
 			baseUrl?: string;
 			avatarSize?: number;
 		},
+		cancellation?: CancellationToken,
 	): Promise<GitLabUser[]> {
 		const scope = getLogScope();
 
@@ -641,6 +653,7 @@ $search: String!
 				{
 					search: search,
 				},
+				cancellation,
 				scope,
 			);
 
@@ -678,13 +691,14 @@ $search: String!
 		token: string,
 		group: string,
 		repo: string,
-		baseUrl?: string,
+		baseUrl: string | undefined,
+		cancellation: CancellationToken | undefined,
 	): Promise<string | undefined> {
 		const key = `${token}|${group}/${repo}`;
 
 		let projectId = this._projectIds.get(key);
 		if (projectId == null) {
-			projectId = this.getProjectIdCore(provider, token, group, repo, baseUrl);
+			projectId = this.getProjectIdCore(provider, token, group, repo, baseUrl, cancellation);
 			this._projectIds.set(key, projectId);
 		}
 
@@ -696,7 +710,8 @@ $search: String!
 		token: string,
 		group: string,
 		repo: string,
-		baseUrl?: string,
+		baseUrl: string | undefined,
+		cancellation: CancellationToken | undefined,
 	): Promise<string | undefined> {
 		const scope = getLogScope();
 
@@ -720,6 +735,7 @@ $search: String!
 				{
 					fullPath: `${group}/${repo}`,
 				},
+				cancellation,
 				scope,
 			);
 
@@ -747,6 +763,7 @@ $search: String!
 		baseUrl: string | undefined,
 		query: string,
 		variables: Record<string, any>,
+		cancellation: CancellationToken | undefined,
 		scope: LogScope | undefined,
 	): Promise<T | undefined> {
 		let rsp: Response;
@@ -755,11 +772,20 @@ $search: String!
 			const agent = this.getProxyAgent(provider);
 
 			try {
+				let aborter: AbortController | undefined;
+				if (cancellation != null) {
+					if (cancellation.isCancellationRequested) throw new CancellationError();
+
+					aborter = new AbortController();
+					cancellation.onCancellationRequested(() => aborter!.abort());
+				}
+
 				rsp = await wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
 					fetch(`${baseUrl ?? 'https://gitlab.com/api'}/graphql`, {
 						method: 'POST',
 						headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
 						agent: agent,
+						signal: aborter?.signal,
 						body: JSON.stringify({ query: query, variables: variables }),
 					}),
 				);
@@ -779,7 +805,7 @@ $search: String!
 				sw?.stop({ message: message });
 			}
 		} catch (ex) {
-			if (ex instanceof ProviderFetchError) {
+			if (ex instanceof ProviderFetchError || ex.name === 'AbortError') {
 				this.handleRequestError(provider, token, ex, scope);
 			} else if (Logger.isDebugging) {
 				void window.showErrorMessage(`GitLab request failed: ${ex.message}`);
@@ -795,6 +821,7 @@ $search: String!
 		baseUrl: string | undefined,
 		route: string,
 		options: { method: RequestInit['method'] } & Record<string, unknown>,
+		cancellation: CancellationToken | undefined,
 		scope: LogScope | undefined,
 	): Promise<T> {
 		const url = `${baseUrl ?? 'https://gitlab.com/api'}/${route}`;
@@ -805,10 +832,19 @@ $search: String!
 			const agent = this.getProxyAgent(provider);
 
 			try {
+				let aborter: AbortController | undefined;
+				if (cancellation != null) {
+					if (cancellation.isCancellationRequested) throw new CancellationError();
+
+					aborter = new AbortController();
+					cancellation.onCancellationRequested(() => aborter!.abort());
+				}
+
 				rsp = await wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
 					fetch(url, {
 						headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
 						agent: agent,
+						signal: aborter?.signal,
 						...options,
 					}),
 				);
@@ -823,7 +859,7 @@ $search: String!
 				sw?.stop();
 			}
 		} catch (ex) {
-			if (ex instanceof ProviderFetchError) {
+			if (ex instanceof ProviderFetchError || ex.name === 'AbortError') {
 				this.handleRequestError(provider, token, ex, scope);
 			} else if (Logger.isDebugging) {
 				void window.showErrorMessage(`GitLab request failed: ${ex.message}`);
@@ -836,9 +872,11 @@ $search: String!
 	private handleRequestError(
 		provider: RichRemoteProvider | undefined,
 		token: string,
-		ex: ProviderFetchError,
+		ex: ProviderFetchError | (Error & { name: 'AbortError' }),
 		scope: LogScope | undefined,
 	): void {
+		if (ex.name === 'AbortError' || !(ex instanceof ProviderFetchError)) throw new CancellationError();
+
 		switch (ex.status) {
 			case 404: // Not found
 			case 410: // Gone
@@ -919,6 +957,7 @@ $search: String!
 
 			if (result === confirm) {
 				await provider.reauthenticate();
+				this.resetCaches();
 			}
 		} else {
 			void window.showErrorMessage(ex.message);
