@@ -85,7 +85,7 @@ export class ConnectRemoteProviderCommand extends Command {
 
 			remotes = await this.container.git.getRemotesWithProviders(repoPath);
 			remote = remotes.find(r => r.name === args.remote) as GitRemote<RichRemoteProvider> | undefined;
-			if (!remote?.hasRichProvider()) return false;
+			if (!remote?.hasRichIntegration()) return false;
 		}
 
 		const connected = await remote.provider.connect();
@@ -177,7 +177,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 			remote = (await this.container.git.getRemotesWithProviders(repoPath)).find(r => r.name === args.remote) as
 				| GitRemote<RichRemoteProvider>
 				| undefined;
-			if (!remote?.hasRichProvider()) return undefined;
+			if (!remote?.hasRichIntegration()) return undefined;
 		}
 
 		return remote.provider.disconnect();

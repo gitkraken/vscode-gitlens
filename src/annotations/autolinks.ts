@@ -197,7 +197,7 @@ export class Autolinks implements Disposable {
 		remote: GitRemote,
 		options?: { autolinks?: Map<string, Autolink>; timeout?: number },
 	) {
-		if (!remote.hasRichProvider()) return undefined;
+		if (!remote.hasRichIntegration()) return undefined;
 
 		const { provider } = remote;
 		const connected = provider.maybeConnected ?? (await provider.isConnected());

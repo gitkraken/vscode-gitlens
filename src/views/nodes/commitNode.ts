@@ -246,7 +246,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		let autolinkedIssuesOrPullRequests;
 		let pr;
 
-		if (remote?.hasRichProvider()) {
+		if (remote?.hasRichIntegration()) {
 			const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
 				this.view.container.autolinks.getLinkedIssuesAndPullRequests(
 					this.commit.message ?? this.commit.summary,

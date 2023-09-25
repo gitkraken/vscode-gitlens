@@ -2207,7 +2207,7 @@ export class GitProviderService implements Disposable {
 
 		const includeDisconnected = options?.includeDisconnected ?? false;
 		for (const r of remotes) {
-			if (r.hasRichProvider() && (includeDisconnected || r.provider.maybeConnected === true)) {
+			if (r.hasRichIntegration() && (includeDisconnected || r.provider.maybeConnected === true)) {
 				return r;
 			}
 		}

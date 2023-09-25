@@ -106,7 +106,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		return this._domain ? `${this._domain}/${this._path}` : this.path;
 	}
 
-	hasRichProvider(): this is GitRemote<RichRemoteProvider> {
+	hasRichIntegration(): this is GitRemote<RichRemoteProvider> {
 		return this.provider?.hasRichIntegration() ?? false;
 	}
 
