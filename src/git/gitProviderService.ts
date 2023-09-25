@@ -862,7 +862,7 @@ export class GitProviderService implements Disposable {
 		if (visibilityInfo == null) return true;
 
 		if (visibilityInfo.visibility === RepositoryVisibility.Public) {
-			if (remotes.length == 0 || !remotes.some(r => r.urlKey === visibilityInfo.remotesHash)) {
+			if (remotes.length == 0 || !remotes.some(r => r.remoteKey === visibilityInfo.remotesHash)) {
 				this.clearRepoVisibilityCache([key]);
 				return false;
 			}

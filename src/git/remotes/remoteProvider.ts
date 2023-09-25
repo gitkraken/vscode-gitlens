@@ -2,6 +2,7 @@ import type { Range, Uri } from 'vscode';
 import { env } from 'vscode';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
+import { memoize } from '../../system/decorators/memoize';
 import { encodeUrl } from '../../system/encoding';
 import type { RemoteProviderReference } from '../models/remoteProvider';
 import type { RemoteResource } from '../models/remoteResource';
@@ -21,6 +22,11 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 		public readonly custom: boolean = false,
 	) {
 		this._name = name;
+	}
+
+	@memoize()
+	get remoteKey() {
+		return this.domain ? `${this.domain}/${this.path}` : this.path;
 	}
 
 	get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
