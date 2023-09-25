@@ -1071,7 +1071,6 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 			if (this._searchCancellation != null) {
 				this._searchCancellation.cancel();
-				this._searchCancellation.dispose();
 			}
 
 			const cancellation = new CancellationTokenSource();

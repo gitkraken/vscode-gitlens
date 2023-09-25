@@ -94,7 +94,6 @@ export class AuthenticationConnection implements Disposable {
 
 		if (this._cancellationSource != null) {
 			this._cancellationSource.cancel();
-			this._cancellationSource.dispose();
 			this._cancellationSource = undefined;
 		}
 
@@ -112,7 +111,6 @@ export class AuthenticationConnection implements Disposable {
 			new Promise<string>((_, reject) => setTimeout(reject, 120000, 'Cancelled')),
 		]).finally(() => {
 			this._cancellationSource?.cancel();
-			this._cancellationSource?.dispose();
 			this._cancellationSource = undefined;
 
 			this._pendingStates.delete(scopeKey);
