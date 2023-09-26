@@ -523,11 +523,6 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 
 		const formattedMessage = this.getFormattedMessage(commit, remote, enrichedAutolinks);
 
-		// Remove possible duplicate pull request
-		if (pr != null) {
-			enrichedAutolinks?.delete(pr.id);
-		}
-
 		this.updatePendingContext({
 			richStateLoaded: true,
 			formattedMessage: formattedMessage,

@@ -50,10 +50,13 @@ export class IssuePullRequest extends LitElement {
 	date = '';
 
 	@property()
-	status = 'merged';
+	status: 'opened' | 'closed' | 'merged' = 'merged';
 
 	@property()
-	key = '#1999';
+	type: 'autolink' | 'issue' | 'pr' = 'autolink';
+
+	@property()
+	key = '';
 
 	renderDate() {
 		if (this.date === '') {
@@ -63,16 +66,28 @@ export class IssuePullRequest extends LitElement {
 	}
 
 	override render() {
-		let icon = 'issues';
-		switch (this.status.toLowerCase()) {
-			case '':
+		let icon;
+		switch (this.type) {
+			case 'issue':
+				icon = this.status === 'closed' ? 'pass' : 'issues';
+				break;
+			case 'pr':
+				switch (this.status) {
+					case 'merged':
+						icon = 'git-merge';
+						break;
+					case 'closed':
+						icon = 'git-pull-request-closed';
+						break;
+					case 'opened':
+					default:
+						icon = 'git-pull-request';
+						break;
+				}
+				break;
+			case 'autolink':
+			default:
 				icon = 'link';
-				break;
-			case 'merged':
-				icon = 'git-merge';
-				break;
-			case 'closed':
-				icon = 'pass';
 				break;
 		}
 
@@ -81,7 +96,7 @@ export class IssuePullRequest extends LitElement {
 			<p class="title">
 				<a href="${this.url}">${this.name}</a>
 			</p>
-			<p class="date">${this.key} ${this.status === '' ? this.status : nothing} ${this.renderDate()}</p>
+			<p class="date">${this.key} ${this.status ? this.status : nothing} ${this.renderDate()}</p>
 		`;
 	}
 }

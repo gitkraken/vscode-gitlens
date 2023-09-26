@@ -2,7 +2,8 @@ import { MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import { GitBranch } from '../../git/models/branch';
 import type { GitCommit } from '../../git/models/commit';
-import { PullRequest, PullRequestState } from '../../git/models/pullRequest';
+import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/models/issue';
+import type { PullRequest } from '../../git/models/pullRequest';
 import type { ViewsWithCommits } from '../viewBase';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
@@ -55,7 +56,7 @@ export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 		item.id = this.id;
 		item.contextValue = ContextValues.PullRequest;
 		item.description = `${this.pullRequest.state}, ${this.pullRequest.formatDateFromNow()}`;
-		item.iconPath = PullRequest.getThemeIcon(this.pullRequest);
+		item.iconPath = getIssueOrPullRequestThemeIcon(this.pullRequest);
 
 		const tooltip = new MarkdownString('', true);
 		tooltip.supportHtml = true;
@@ -69,15 +70,13 @@ export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 
 		const linkTitle = ` "Open Pull Request \\#${this.pullRequest.id} on ${this.pullRequest.provider.name}"`;
 		tooltip.appendMarkdown(
-			`${PullRequest.getMarkdownIcon(this.pullRequest)} [**${this.pullRequest.title.trim()}**](${
+			`${getIssueOrPullRequestMarkdownIcon(this.pullRequest)} [**${this.pullRequest.title.trim()}**](${
 				this.pullRequest.url
 			}${linkTitle}) \\\n[#${this.pullRequest.id}](${this.pullRequest.url}${linkTitle}) by [@${
 				this.pullRequest.author.name
 			}](${this.pullRequest.author.url} "Open @${this.pullRequest.author.name} on ${
 				this.pullRequest.provider.name
-			}") was ${
-				this.pullRequest.state === PullRequestState.Open ? 'opened' : this.pullRequest.state.toLowerCase()
-			} ${this.pullRequest.formatDateFromNow()}`,
+			}") was ${this.pullRequest.state.toLowerCase()} ${this.pullRequest.formatDateFromNow()}`,
 		);
 
 		item.tooltip = tooltip;

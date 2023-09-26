@@ -223,11 +223,6 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 
 			enrichedAutolinks = getSettledValue(enrichedAutolinksResult)?.value;
 			pr = getSettledValue(prResult);
-
-			// Remove possible duplicate pull request
-			if (pr != null) {
-				enrichedAutolinks?.delete(pr.id);
-			}
 		}
 
 		const status = StatusFileFormatter.fromTemplate(

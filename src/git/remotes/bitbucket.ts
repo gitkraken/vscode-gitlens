@@ -23,7 +23,7 @@ export class BitbucketRemote extends RemoteProvider {
 					url: `${this.baseUrl}/issues/<num>`,
 					title: `Open Issue #<num> on ${this.name}`,
 
-					type: AutolinkType.Issue,
+					type: 'issue',
 					description: `${this.name} Issue #<num>`,
 				},
 				{
@@ -31,7 +31,7 @@ export class BitbucketRemote extends RemoteProvider {
 					url: `${this.baseUrl}/pull-requests/<num>`,
 					title: `Open Pull Request #<num> on ${this.name}`,
 
-					type: AutolinkType.PullRequest,
+					type: 'pullrequest',
 					description: `${this.name} Pull Request #<num>`,
 				},
 			];

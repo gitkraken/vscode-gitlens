@@ -4,7 +4,6 @@ import type { Container } from './container';
 import type { DefaultBranch } from './git/models/defaultBranch';
 import type { IssueOrPullRequest } from './git/models/issue';
 import type { PullRequest } from './git/models/pullRequest';
-import { PullRequestState } from './git/models/pullRequest';
 import type { GitRemote } from './git/models/remote';
 import type { RepositoryMetadata } from './git/models/repositoryMetadata';
 import type { RemoteProvider } from './git/remotes/remoteProvider';
@@ -201,7 +200,7 @@ function getExpiresAt<T extends Cache>(cache: T, value: CacheValue<T> | undefine
 			// Open prs expire after 1 hour, but closed/merge prs expire after 12 hours unless recently updated and then expire in 1 hour
 
 			const pr = value as CacheValue<'prsBySha'>;
-			if (pr.state === PullRequestState.Open) return defaultExpiresAt;
+			if (pr.state === 'opened') return defaultExpiresAt;
 
 			const updatedAgo = now - (pr.closedDate ?? pr.mergedDate ?? pr.date).getTime();
 			return now + (updatedAgo > 14 * 24 * 60 * 60 * 1000 ? 12 : 1) * 60 * 60 * 1000;

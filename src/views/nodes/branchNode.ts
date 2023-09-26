@@ -6,8 +6,7 @@ import { GlyphChars } from '../../constants';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
-import type { PullRequest } from '../../git/models/pullRequest';
-import { PullRequestState } from '../../git/models/pullRequest';
+import type { PullRequest , PullRequestState } from '../../git/models/pullRequest';
 import type { GitBranchReference } from '../../git/models/reference';
 import { GitRemote, GitRemoteType } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
@@ -152,7 +151,7 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 					onCompleted = defer<void>();
 					const prPromise = this.getAssociatedPullRequest(
 						branch,
-						this.root ? { include: [PullRequestState.Open, PullRequestState.Merged] } : undefined,
+						this.root ? { include: ['opened', 'merged'] } : undefined,
 					);
 
 					queueMicrotask(async () => {

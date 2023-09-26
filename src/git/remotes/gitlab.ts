@@ -2,7 +2,6 @@ import type { AuthenticationSession, Disposable, QuickInputButton, Range } from 
 import { env, ThemeIcon, Uri, window } from 'vscode';
 import type { Autolink, DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
-import { AutolinkType } from '../../config';
 import type { Container } from '../../container';
 import type {
 	IntegrationAuthenticationProvider,
@@ -57,7 +56,7 @@ export class GitLabRemote extends RichRemoteProvider {
 					url: `${this.baseUrl}/-/issues/<num>`,
 					title: `Open Issue #<num> on ${this.name}`,
 
-					type: AutolinkType.Issue,
+					type: 'issue',
 					description: `${this.name} Issue #<num>`,
 				},
 				{
@@ -65,7 +64,7 @@ export class GitLabRemote extends RichRemoteProvider {
 					url: `${this.baseUrl}/-/merge_requests/<num>`,
 					title: `Open Merge Request !<num> on ${this.name}`,
 
-					type: AutolinkType.PullRequest,
+					type: 'pullrequest',
 					description: `${this.name} Merge Request !<num>`,
 				},
 				{
@@ -108,7 +107,7 @@ export class GitLabRemote extends RichRemoteProvider {
 								url: `${this.protocol}://${this.domain}/${repo}/-/issues/${num}`,
 								title: `Open Issue #<num> from ${repo} on ${this.name}`,
 
-								type: AutolinkType.Issue,
+								type: 'issue',
 								description: `${this.name} Issue ${repo}#${num}`,
 							});
 						} while (true);
@@ -159,7 +158,7 @@ export class GitLabRemote extends RichRemoteProvider {
 								url: `${this.protocol}://${this.domain}/${repo}/-/merge_requests/${num}`,
 								title: `Open Merge Request !<num> from ${repo} on ${this.name}`,
 
-								type: AutolinkType.PullRequest,
+								type: 'pullrequest',
 								description: `Merge Request !${num} from ${repo} on ${this.name}`,
 							});
 						} while (true);

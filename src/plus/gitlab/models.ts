@@ -1,4 +1,5 @@
-import { PullRequest, PullRequestState } from '../../git/models/pullRequest';
+import type { PullRequestState } from '../../git/models/pullRequest';
+import { PullRequest } from '../../git/models/pullRequest';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
 
 export interface GitLabUser {
@@ -60,27 +61,14 @@ export interface GitLabMergeRequest {
 	webUrl: string;
 }
 
-export enum GitLabMergeRequestState {
-	OPEN = 'opened',
-	CLOSED = 'closed',
-	MERGED = 'merged',
-	LOCKED = 'locked',
-}
+export type GitLabMergeRequestState = 'opened' | 'closed' | 'locked' | 'merged';
 
 export function fromGitLabMergeRequestState(state: GitLabMergeRequestState): PullRequestState {
-	return state === GitLabMergeRequestState.MERGED
-		? PullRequestState.Merged
-		: state === GitLabMergeRequestState.CLOSED || state === GitLabMergeRequestState.LOCKED
-		? PullRequestState.Closed
-		: PullRequestState.Open;
+	return state === 'locked' ? 'closed' : state;
 }
 
 export function toGitLabMergeRequestState(state: PullRequestState): GitLabMergeRequestState {
-	return state === PullRequestState.Merged
-		? GitLabMergeRequestState.MERGED
-		: state === PullRequestState.Closed
-		? GitLabMergeRequestState.CLOSED
-		: GitLabMergeRequestState.OPEN;
+	return state;
 }
 
 export interface GitLabMergeRequestREST {

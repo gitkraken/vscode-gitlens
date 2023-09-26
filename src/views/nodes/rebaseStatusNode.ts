@@ -215,11 +215,6 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 
 			enrichedAutolinks = getSettledValue(enrichedAutolinksResult)?.value;
 			pr = getSettledValue(prResult);
-
-			// Remove possible duplicate pull request
-			if (pr != null) {
-				enrichedAutolinks?.delete(pr.id);
-			}
 		}
 
 		const tooltip = await CommitFormatter.fromTemplateAsync(

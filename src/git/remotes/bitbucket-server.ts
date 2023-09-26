@@ -1,7 +1,6 @@
 import type { Range, Uri } from 'vscode';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
-import { AutolinkType } from '../../config';
 import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
 import { RemoteProvider } from './remoteProvider';
@@ -23,7 +22,7 @@ export class BitbucketServerRemote extends RemoteProvider {
 					url: `${this.baseUrl}/issues/<num>`,
 					title: `Open Issue #<num> on ${this.name}`,
 
-					type: AutolinkType.Issue,
+					type: 'issue',
 					description: `${this.name} Issue #<num>`,
 				},
 				{
@@ -32,7 +31,7 @@ export class BitbucketServerRemote extends RemoteProvider {
 					url: `${this.baseUrl}/pull-requests/<num>`,
 					title: `Open Pull Request #<num> on ${this.name}`,
 
-					type: AutolinkType.PullRequest,
+					type: 'pullrequest',
 					description: `${this.name} Pull Request #<num>`,
 				},
 			];

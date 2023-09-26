@@ -1,13 +1,8 @@
 import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { Autolink } from '../../annotations/autolinks';
-import { AutolinkType } from '../../config';
 import { GitUri } from '../../git/gitUri';
 import type { IssueOrPullRequest } from '../../git/models/issue';
-import {
-	getIssueOrPullRequestMarkdownIcon,
-	getIssueOrPullRequestThemeIcon,
-	IssueOrPullRequestType,
-} from '../../git/models/issue';
+import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/models/issue';
 import { fromNow } from '../../system/date';
 import { isPromise } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
@@ -62,7 +57,7 @@ export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 					? 'loading~spin'
 					: autolink.type == null
 					? 'link'
-					: autolink.type === AutolinkType.PullRequest
+					: autolink.type === 'pullrequest'
 					? 'git-pull-request'
 					: 'issues',
 			);
@@ -74,7 +69,7 @@ export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 						: `${
 								autolink.type == null
 									? 'Autolinked'
-									: autolink.type === AutolinkType.PullRequest
+									: autolink.type === 'pullrequest'
 									? 'Autolinked Pull Request'
 									: 'Autolinked Issue'
 						  } ${autolink.prefix}${autolink.id}`
@@ -88,14 +83,11 @@ export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 		const item = new TreeItem(`${enriched.id}: ${enriched.title}`, TreeItemCollapsibleState.None);
 		item.description = relativeTime;
 		item.iconPath = getIssueOrPullRequestThemeIcon(enriched);
-		item.contextValue =
-			enriched.type === IssueOrPullRequestType.PullRequest
-				? ContextValues.PullRequest
-				: ContextValues.AutolinkedIssue;
+		item.contextValue = enriched.type === 'pullrequest' ? ContextValues.PullRequest : ContextValues.AutolinkedIssue;
 
-		const linkTitle = ` "Open ${
-			enriched.type === IssueOrPullRequestType.PullRequest ? 'Pull Request' : 'Issue'
-		} \\#${enriched.id} on ${enriched.provider.name}"`;
+		const linkTitle = ` "Open ${enriched.type === 'pullrequest' ? 'Pull Request' : 'Issue'} \\#${enriched.id} on ${
+			enriched.provider.name
+		}"`;
 		const tooltip = new MarkdownString(
 			`${getIssueOrPullRequestMarkdownIcon(enriched)} [**${enriched.title.trim()}**](${
 				enriched.url
