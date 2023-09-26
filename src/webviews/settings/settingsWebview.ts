@@ -6,7 +6,7 @@ import type { Container } from '../../container';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { GitCommit, GitCommitIdentity } from '../../git/models/commit';
 import { GitFileChange, GitFileIndexStatus } from '../../git/models/file';
-import { PullRequest, PullRequestState } from '../../git/models/pullRequest';
+import { PullRequest } from '../../git/models/pullRequest';
 import type { ConfigPath } from '../../system/configuration';
 import { configuration } from '../../system/configuration';
 import { map } from '../../system/iterable';
@@ -202,7 +202,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State> {
 									'1',
 									'Supercharged',
 									'https://github.com/gitkraken/vscode-gitlens/pulls/1',
-									PullRequestState.Merged,
+									'merged',
 									new Date('Sat, 12 Nov 2016 19:41:00 GMT'),
 									undefined,
 									new Date('Sat, 12 Nov 2016 20:41:00 GMT'),

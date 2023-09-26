@@ -256,11 +256,6 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 
 			enrichedAutolinks = getSettledValue(enrichedAutolinksResult)?.value;
 			pr = getSettledValue(prResult);
-
-			// Remove possible duplicate pull request
-			if (pr != null) {
-				enrichedAutolinks?.delete(pr.id);
-			}
 		}
 
 		const tooltip = await CommitFormatter.fromTemplateAsync(this.view.config.formats.commits.tooltip, this.commit, {

@@ -3,7 +3,10 @@ import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
+import type { Autolink } from '../../../../annotations/autolinks';
 import { ViewFilesLayout } from '../../../../config';
+import type { IssueOrPullRequest } from '../../../../git/models/issue';
+import type { PullRequestShape } from '../../../../git/models/pullRequest';
 import type { HierarchicalItem } from '../../../../system/array';
 import { makeHierarchical } from '../../../../system/array';
 import type { Serialized } from '../../../../system/serialize';
@@ -147,21 +150,44 @@ export class GlCommitDetailsApp extends LitElement {
 			return undefined;
 		}
 
-		const autolinkedIssuesCount = this.state?.autolinkedIssues?.length ?? 0;
-		let autolinksCount = this.state?.selected?.autolinks?.length ?? 0;
-		let count = autolinksCount;
-		const hasPullRequest = this.state?.pullRequest != null;
-		const hasAutolinks = hasPullRequest || autolinkedIssuesCount > 0 || autolinksCount > 0;
+		const deduped = new Map<
+			string,
+			| { type: 'autolink'; value: Serialized<Autolink> }
+			| { type: 'issue'; value: Serialized<IssueOrPullRequest> }
+			| { type: 'pr'; value: Serialized<PullRequestShape> }
+		>();
 
-		let dedupedAutolinks = this.state?.selected?.autolinks;
-		if (hasAutolinks) {
-			if (dedupedAutolinks?.length && autolinkedIssuesCount) {
-				dedupedAutolinks = dedupedAutolinks.filter(
-					autolink => !this.state?.autolinkedIssues?.some(issue => issue.url === autolink.url),
-				);
+		if (this.state?.selected?.autolinks != null) {
+			for (const autolink of this.state.selected.autolinks) {
+				deduped.set(autolink.id, { type: 'autolink', value: autolink });
+			}
+		}
 
-				autolinksCount = dedupedAutolinks?.length ?? 0;
-				count = (hasPullRequest ? 1 : 0) + autolinkedIssuesCount + autolinksCount;
+		if (this.state?.autolinkedIssues != null) {
+			for (const issue of this.state.autolinkedIssues) {
+				deduped.set(issue.id, { type: 'issue', value: issue });
+			}
+		}
+
+		if (this.state?.pullRequest != null) {
+			deduped.set(this.state.pullRequest.id, { type: 'pr', value: this.state.pullRequest });
+		}
+
+		const autolinks: Serialized<Autolink>[] = [];
+		const issues: Serialized<IssueOrPullRequest>[] = [];
+		const prs: Serialized<PullRequestShape>[] = [];
+
+		for (const item of deduped.values()) {
+			switch (item.type) {
+				case 'autolink':
+					autolinks.push(item.value);
+					break;
+				case 'issue':
+					issues.push(item.value);
+					break;
+				case 'pr':
+					prs.push(item.value);
+					break;
 			}
 		}
 
@@ -174,7 +200,7 @@ export class GlCommitDetailsApp extends LitElement {
 			>
 				<span slot="title">Autolinks</span>
 				<span slot="subtitle" data-region="autolink-count"
-					>${this.state?.includeRichContent || autolinksCount ? `${count} found ` : ''}${this.state
+					>${this.state?.includeRichContent || deduped.size ? `${deduped.size} found ` : ''}${this.state
 						?.includeRichContent
 						? ''
 						: '…'}</span
@@ -195,7 +221,7 @@ export class GlCommitDetailsApp extends LitElement {
 						</div>
 					`,
 					() => {
-						if (!hasAutolinks || count === 0) {
+						if (deduped.size === 0) {
 							return html`
 								<div class="section" data-region="rich-info">
 									<p>
@@ -211,20 +237,21 @@ export class GlCommitDetailsApp extends LitElement {
 						}
 						return html`
 							<div class="section" data-region="autolinks">
-								${dedupedAutolinks != null && dedupedAutolinks.length > 0
+								${autolinks.length
 									? html`
 											<section
 												class="auto-link"
 												aria-label="Custom Autolinks"
 												data-region="custom-autolinks"
 											>
-												${dedupedAutolinks.map(autolink => {
+												${autolinks.map(autolink => {
 													let name = autolink.description ?? autolink.title;
 													if (name === undefined) {
 														name = `Custom Autolink ${autolink.prefix}${autolink.id}`;
 													}
 													return html`
 														<issue-pull-request
+															type="autolink"
 															name="${name}"
 															url="${autolink.url}"
 															key="${autolink.prefix}${autolink.id}"
@@ -235,35 +262,43 @@ export class GlCommitDetailsApp extends LitElement {
 											</section>
 									  `
 									: undefined}
-								${hasPullRequest
+								${prs.length
 									? html`
 											<section
 												class="pull-request"
 												aria-label="Pull request"
 												data-region="pull-request"
 											>
-												<issue-pull-request
-													name="${this.state!.pullRequest!.title}"
-													url="${this.state!.pullRequest!.url}"
-													key="#${this.state!.pullRequest!.id}"
-													status="${this.state!.pullRequest!.state}"
-													date=${this.state!.pullRequest!.date}
-													dateFormat="${this.state!.dateFormat}"
-												></issue-pull-request>
+												${prs.map(
+													pr => html`
+														<issue-pull-request
+																type="pr"
+																name="${pr.title}"
+																url="${pr.url}"
+																key="#${pr.id}"
+																status="${pr.state}"
+																date=${pr.date}
+																dateFormat="${this.state!.dateFormat}"
+															></issue-pull-request>
+														</section>
+									  				`,
+												)}
 											</section>
 									  `
 									: undefined}
-								${this.state?.autolinkedIssues?.length
+								${issues.length
 									? html`
 											<section class="issue" aria-label="Issue" data-region="issue">
-												${this.state.autolinkedIssues.map(
+												${issues.map(
 													issue => html`
 														<issue-pull-request
+															type="issue"
 															name="${issue.title}"
 															url="${issue.url}"
 															key="${issue.id}"
-															status="${issue.closed ? 'closed' : 'opened'}"
+															status="${issue.state}"
 															date="${issue.closed ? issue.closedDate : issue.date}"
+															dateFormat="${this.state!.dateFormat}"
 														></issue-pull-request>
 													`,
 												)}

@@ -2,12 +2,8 @@ import type { Endpoints } from '@octokit/types';
 import { GitFileIndexStatus } from '../../git/models/file';
 import type { IssueLabel, IssueMember, IssueOrPullRequestType } from '../../git/models/issue';
 import { Issue } from '../../git/models/issue';
-import {
-	PullRequest,
-	PullRequestMergeableState,
-	PullRequestReviewDecision,
-	PullRequestState,
-} from '../../git/models/pullRequest';
+import type { PullRequestState } from '../../git/models/pullRequest';
+import { PullRequest, PullRequestMergeableState, PullRequestReviewDecision } from '../../git/models/pullRequest';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
 
 export interface GitHubBlame {
@@ -56,6 +52,7 @@ export interface GitHubIssueOrPullRequest {
 	closedAt: string | null;
 	title: string;
 	url: string;
+	state: GitHubPullRequestState;
 }
 
 export interface GitHubPagedResult<T> {
@@ -185,15 +182,11 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: RichRemot
 }
 
 export function fromGitHubPullRequestState(state: GitHubPullRequestState): PullRequestState {
-	return state === 'MERGED'
-		? PullRequestState.Merged
-		: state === 'CLOSED'
-		? PullRequestState.Closed
-		: PullRequestState.Open;
+	return state === 'MERGED' ? 'merged' : state === 'CLOSED' ? 'closed' : 'opened';
 }
 
 export function toGitHubPullRequestState(state: PullRequestState): GitHubPullRequestState {
-	return state === PullRequestState.Merged ? 'MERGED' : state === PullRequestState.Closed ? 'CLOSED' : 'OPEN';
+	return state === 'merged' ? 'MERGED' : state === 'closed' ? 'CLOSED' : 'OPEN';
 }
 
 export function fromGitHubPullRequestReviewDecision(
@@ -320,6 +313,7 @@ export function fromGitHubIssueDetailed(value: GitHubIssueDetailed, provider: Ri
 		value.url,
 		new Date(value.createdAt),
 		value.closed,
+		fromGitHubPullRequestState(value.state),
 		new Date(value.updatedAt),
 		{
 			name: value.author.login,

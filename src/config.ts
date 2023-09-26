@@ -206,10 +206,7 @@ export const enum AnnotationsToggleMode {
 	Window = 'window',
 }
 
-export const enum AutolinkType {
-	Issue = 'Issue',
-	PullRequest = 'PullRequest',
-}
+export type AutolinkType = 'issue' | 'pullrequest';
 
 export interface AutolinkReference {
 	prefix: string;

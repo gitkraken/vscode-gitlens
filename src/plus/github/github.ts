@@ -59,7 +59,12 @@ import type {
 	GitHubPullRequestState,
 	GitHubTag,
 } from './models';
-import { fromGitHubIssueDetailed, fromGitHubPullRequest, fromGitHubPullRequestDetailed } from './models';
+import {
+	fromGitHubIssueDetailed,
+	fromGitHubPullRequest,
+	fromGitHubPullRequestDetailed,
+	fromGitHubPullRequestState,
+} from './models';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const emptyBlameResult: GitHubBlame = Object.freeze({ ranges: [] });
@@ -487,6 +492,7 @@ export class GitHubApi implements Disposable {
 				closedAt
 				title
 				url
+				state
 			}
 			... on PullRequest {
 				createdAt
@@ -494,6 +500,7 @@ export class GitHubApi implements Disposable {
 				closedAt
 				title
 				url
+				state
 			}
 		}
 	}
@@ -524,6 +531,7 @@ export class GitHubApi implements Disposable {
 				closed: issue.closed,
 				closedDate: issue.closedAt == null ? undefined : new Date(issue.closedAt),
 				url: issue.url,
+				state: fromGitHubPullRequestState(issue.state),
 			};
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;

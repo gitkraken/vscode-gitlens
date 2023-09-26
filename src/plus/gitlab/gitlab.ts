@@ -18,7 +18,6 @@ import {
 import type { Account } from '../../git/models/author';
 import type { DefaultBranch } from '../../git/models/defaultBranch';
 import type { IssueOrPullRequest } from '../../git/models/issue';
-import { IssueOrPullRequestType } from '../../git/models/issue';
 import { PullRequest } from '../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../git/models/repositoryMetadata';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
@@ -38,10 +37,11 @@ import type {
 	GitLabIssue,
 	GitLabMergeRequest,
 	GitLabMergeRequestREST,
+	GitLabMergeRequestState,
 	GitLabProjectREST,
 	GitLabUser,
 } from './models';
-import { fromGitLabMergeRequestREST, fromGitLabMergeRequestState, GitLabMergeRequestState } from './models';
+import { fromGitLabMergeRequestREST, fromGitLabMergeRequestState } from './models';
 
 export class GitLabApi implements Disposable {
 	private readonly _disposable: Disposable;
@@ -318,13 +318,14 @@ export class GitLabApi implements Disposable {
 				const issue = rsp.data.project.issue;
 				return {
 					provider: provider,
-					type: IssueOrPullRequestType.Issue,
+					type: 'issue',
 					id: issue.iid,
 					date: new Date(issue.createdAt),
 					title: issue.title,
 					closed: issue.state === 'closed',
 					closedDate: issue.closedAt == null ? undefined : new Date(issue.closedAt),
 					url: issue.webUrl,
+					state: issue.state === 'locked' ? 'closed' : issue.state,
 				};
 			}
 
@@ -332,7 +333,7 @@ export class GitLabApi implements Disposable {
 				const mergeRequest = rsp.data.project.mergeRequest;
 				return {
 					provider: provider,
-					type: IssueOrPullRequestType.PullRequest,
+					type: 'pullrequest',
 					id: mergeRequest.iid,
 					date: new Date(mergeRequest.createdAt),
 					title: mergeRequest.title,
@@ -340,6 +341,7 @@ export class GitLabApi implements Disposable {
 					// TODO@eamodio this isn't right, but GitLab doesn't seem to provide a closedAt on merge requests in GraphQL
 					closedDate: mergeRequest.state === 'closed' ? new Date(mergeRequest.updatedAt) : undefined,
 					url: mergeRequest.webUrl,
+					state: mergeRequest.state === 'locked' ? 'closed' : mergeRequest.state,
 				};
 			}
 
@@ -417,21 +419,21 @@ export class GitLabApi implements Disposable {
 				: ''
 		}
 		${
-			options?.include?.includes(GitLabMergeRequestState.OPEN)
+			options?.include?.includes('opened')
 				? `opened: mergeRequests(sourceBranches: $branches state: opened sort: UPDATED_DESC first: 1) {
 			${fragment}
 		}`
 				: ''
 		}
 		${
-			options?.include?.includes(GitLabMergeRequestState.MERGED)
+			options?.include?.includes('merged')
 				? `merged: mergeRequests(sourceBranches: $branches state: merged sort: UPDATED_DESC first: 1) {
 			${fragment}
 		}`
 				: ''
 		}
 		${
-			options?.include?.includes(GitLabMergeRequestState.CLOSED)
+			options?.include?.includes('closed')
 				? `closed: mergeRequests(sourceBranches: $branches state: closed sort: UPDATED_DESC first: 1) {
 			${fragment}
 		}`
@@ -461,11 +463,11 @@ export class GitLabApi implements Disposable {
 			} else {
 				for (const state of options.include) {
 					let mr;
-					if (state === GitLabMergeRequestState.OPEN) {
+					if (state === 'opened') {
 						mr = rsp?.data?.project?.opened?.nodes?.[0];
-					} else if (state === GitLabMergeRequestState.MERGED) {
+					} else if (state === 'merged') {
 						mr = rsp?.data?.project?.merged?.nodes?.[0];
-					} else if (state === GitLabMergeRequestState.CLOSED) {
+					} else if (state === 'closed') {
 						mr = rsp?.data?.project?.closed?.nodes?.[0];
 					}
 
@@ -490,7 +492,7 @@ export class GitLabApi implements Disposable {
 				fromGitLabMergeRequestState(pr.state),
 				new Date(pr.updatedAt),
 				// TODO@eamodio this isn't right, but GitLab doesn't seem to provide a closedAt on merge requests in GraphQL
-				pr.state !== GitLabMergeRequestState.CLOSED ? undefined : new Date(pr.updatedAt),
+				pr.state !== 'closed' ? undefined : new Date(pr.updatedAt),
 				pr.mergedAt == null ? undefined : new Date(pr.mergedAt),
 			);
 		} catch (ex) {
@@ -536,8 +538,7 @@ export class GitLabApi implements Disposable {
 			if (mrs.length > 1) {
 				mrs.sort(
 					(a, b) =>
-						(a.state === GitLabMergeRequestState.OPEN ? -1 : 1) -
-							(b.state === GitLabMergeRequestState.OPEN ? -1 : 1) ||
+						(a.state === 'opened' ? -1 : 1) - (b.state === 'opened' ? -1 : 1) ||
 						new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
 				);
 			}

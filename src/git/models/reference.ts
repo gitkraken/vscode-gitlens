@@ -1,5 +1,6 @@
 import { GlyphChars } from '../../constants';
 import { configuration } from '../../system/configuration';
+import { capitalize } from '../../system/string';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName, getRemoteNameSlashIndex } from './branch';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from './constants';
 
@@ -379,9 +380,7 @@ export function getReferenceLabel(
 			}
 		}
 
-		return options.capitalize && options.expand && options.label !== false
-			? `${result[0].toLocaleUpperCase()}${result.substring(1)}`
-			: result;
+		return options.capitalize && options.expand && options.label !== false ? capitalize(result) : result;
 	}
 
 	const expanded = options.expand ? ` (${refs.map(r => r.name).join(', ')})` : '';

@@ -4,6 +4,10 @@ import { CharCode } from '../constants';
 
 export { fromBase64, base64 } from '@env/base64';
 
+export function capitalize(s: string) {
+	return `${s[0].toLocaleUpperCase()}${s.slice(1)}`;
+}
+
 let compareCollator: Intl.Collator | undefined;
 export function compareIgnoreCase(a: string, b: string): 0 | -1 | 1 {
 	if (compareCollator == null) {

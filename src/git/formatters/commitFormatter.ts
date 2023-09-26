@@ -33,6 +33,7 @@ import type { PreviousLineComparisonUrisResult } from '../gitProvider';
 import type { GitCommit } from '../models/commit';
 import { isCommit } from '../models/commit';
 import { uncommitted, uncommittedStaged } from '../models/constants';
+import { getIssueOrPullRequestMarkdownIcon } from '../models/issue';
 import { PullRequest } from '../models/pullRequest';
 import { getReferenceFromRevision, isUncommittedStaged, shortenRevision } from '../models/reference';
 import { GitRemote } from '../models/remote';
@@ -657,6 +658,9 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				outputFormat,
 				this._options.remotes,
 				this._options.enrichedAutolinks,
+				this._options.pullRequest != null && !isPromise(this._options.pullRequest)
+					? new Set([this._options.pullRequest.id])
+					: undefined,
 				this._options.footnotes,
 			);
 		}
@@ -687,8 +691,6 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		let text;
 		if (PullRequest.is(pr)) {
 			if (this._options.outputFormat === 'markdown') {
-				const prTitle = escapeMarkdown(pr.title).replace(/"/g, '\\"').trim();
-
 				text = `PR [**#${pr.id}**](${getMarkdownActionCommand<OpenPullRequestActionContext>('openPullRequest', {
 					repoPath: this._item.repoPath,
 					provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
@@ -700,14 +702,16 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				}, ${pr.formatDateFromNow()}")`;
 
 				if (this._options.footnotes != null) {
+					const prTitle = escapeMarkdown(pr.title).replace(/"/g, '\\"').trim();
+
 					const index = this._options.footnotes.size + 1;
 					this._options.footnotes.set(
 						index,
-						`${PullRequest.getMarkdownIcon(pr)} [**${prTitle}**](${pr.url} "Open Pull Request \\#${
+						`${getIssueOrPullRequestMarkdownIcon(pr)} [**${prTitle}**](${pr.url} "Open Pull Request \\#${
 							pr.id
-						} on ${pr.provider.name}")\\\n${GlyphChars.Space.repeat(4)} #${
-							pr.id
-						} ${pr.state.toLocaleLowerCase()} ${pr.formatDateFromNow()}`,
+						} on ${pr.provider.name}")\\\n${GlyphChars.Space.repeat(4)} #${pr.id} ${
+							pr.state
+						} ${pr.formatDateFromNow()}`,
 					);
 				}
 			} else if (this._options.footnotes != null) {

@@ -3,8 +3,7 @@ import { GlyphChars } from '../../constants';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
-import type { PullRequest } from '../../git/models/pullRequest';
-import { PullRequestState } from '../../git/models/pullRequest';
+import type { PullRequest , PullRequestState } from '../../git/models/pullRequest';
 import { shortenRevision } from '../../git/models/reference';
 import { GitRemote, GitRemoteType } from '../../git/models/remote';
 import type { GitWorktree } from '../../git/models/worktree';
@@ -80,7 +79,7 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 				if (pullRequest === undefined && this.getState('pendingPullRequest') === undefined) {
 					onCompleted = defer<void>();
 					const prPromise = this.getAssociatedPullRequest(branch, {
-						include: [PullRequestState.Open, PullRequestState.Merged],
+						include: ['opened', 'merged'],
 					});
 
 					queueMicrotask(async () => {

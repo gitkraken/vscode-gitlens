@@ -15,7 +15,7 @@ import { debug } from '../system/decorators/log';
 import { encodeUrl } from '../system/encoding';
 import { join, map } from '../system/iterable';
 import { Logger } from '../system/logger';
-import { encodeHtmlWeak, escapeMarkdown, escapeRegex, getSuperscript } from '../system/string';
+import { capitalize, encodeHtmlWeak, escapeMarkdown, escapeRegex, getSuperscript } from '../system/string';
 
 const emptyAutolinkMap = Object.freeze(new Map<string, Autolink>());
 
@@ -69,6 +69,7 @@ export interface CacheableAutolinkReference extends AutolinkReference {
 				outputFormat: 'html' | 'markdown' | 'plaintext',
 				tokenMapping: Map<string, string>,
 				enrichedAutolinks?: Map<string, MaybeEnrichedAutolink>,
+				prs?: Set<string>,
 				footnotes?: Map<number, string>,
 		  ) => string)
 		| null;
@@ -85,6 +86,7 @@ export interface DynamicAutolinkReference {
 				outputFormat: 'html' | 'markdown' | 'plaintext',
 				tokenMapping: Map<string, string>,
 				enrichedAutolinks?: Map<string, MaybeEnrichedAutolink>,
+				prs?: Set<string>,
 				footnotes?: Map<number, string>,
 		  ) => string)
 		| null;
@@ -260,6 +262,7 @@ export class Autolinks implements Disposable {
 		outputFormat: 'html' | 'markdown' | 'plaintext',
 		remotes?: GitRemote[],
 		enrichedAutolinks?: Map<string, MaybeEnrichedAutolink>,
+		prs?: Set<string>,
 		footnotes?: Map<number, string>,
 	): string {
 		const includeFootnotesInText = outputFormat === 'plaintext' && footnotes == null;
@@ -272,7 +275,7 @@ export class Autolinks implements Disposable {
 		for (const ref of this._references) {
 			if (this.ensureAutolinkCached(ref)) {
 				if (ref.tokenize != null) {
-					text = ref.tokenize(text, outputFormat, tokenMapping, enrichedAutolinks, footnotes);
+					text = ref.tokenize(text, outputFormat, tokenMapping, enrichedAutolinks, prs, footnotes);
 				}
 			}
 		}
@@ -289,7 +292,7 @@ export class Autolinks implements Disposable {
 				for (const ref of r.provider.autolinks) {
 					if (this.ensureAutolinkCached(ref)) {
 						if (ref.tokenize != null) {
-							text = ref.tokenize(text, outputFormat, tokenMapping, enrichedAutolinks, footnotes);
+							text = ref.tokenize(text, outputFormat, tokenMapping, enrichedAutolinks, prs, footnotes);
 						}
 					}
 				}
@@ -324,6 +327,7 @@ export class Autolinks implements Disposable {
 				outputFormat: 'html' | 'markdown' | 'plaintext',
 				tokenMapping: Map<string, string>,
 				enrichedAutolinks?: Map<string, MaybeEnrichedAutolink>,
+				prs?: Set<string>,
 				footnotes?: Map<number, string>,
 			) => {
 				let footnoteIndex: number;
@@ -343,7 +347,7 @@ export class Autolinks implements Disposable {
 									const issueResult = enrichedAutolinks?.get(num)?.[0];
 									if (issueResult?.value != null) {
 										if (issueResult.paused) {
-											if (footnotes != null) {
+											if (footnotes != null && !prs?.has(num)) {
 												let name = ref.description?.replace(numRegex, num);
 												if (name == null) {
 													name = `Custom Autolink ${ref.prefix}${num}`;
@@ -361,7 +365,7 @@ export class Autolinks implements Disposable {
 											const issueTitle = escapeMarkdown(issue.title.trim());
 											const issueTitleQuoteEscaped = issueTitle.replace(/"/g, '\\"');
 
-											if (footnotes != null) {
+											if (footnotes != null && !prs?.has(num)) {
 												footnoteIndex = footnotes.size + 1;
 												footnotes.set(
 													footnoteIndex,
@@ -369,17 +373,19 @@ export class Autolinks implements Disposable {
 														issue,
 													)} **${issueTitle}**](${url}${title}")\\\n${GlyphChars.Space.repeat(
 														5,
-													)}${linkText} ${issue.closed ? 'closed' : 'opened'} ${fromNow(
+													)}${linkText} ${issue.state} ${fromNow(
 														issue.closedDate ?? issue.date,
 													)}`,
 												);
 											}
 
-											title += `\n${GlyphChars.Dash.repeat(2)}\n${issueTitleQuoteEscaped}\n${
-												issue.closed ? 'Closed' : 'Opened'
-											}, ${fromNow(issue.closedDate ?? issue.date)}`;
+											title += `\n${GlyphChars.Dash.repeat(
+												2,
+											)}\n${issueTitleQuoteEscaped}\n${capitalize(issue.state)}, ${fromNow(
+												issue.closedDate ?? issue.date,
+											)}`;
 										}
-									} else if (footnotes != null) {
+									} else if (footnotes != null && !prs?.has(num)) {
 										let name = ref.description?.replace(numRegex, num);
 										if (name == null) {
 											name = `Custom Autolink ${ref.prefix}${num}`;
@@ -413,7 +419,7 @@ export class Autolinks implements Disposable {
 									const issueResult = enrichedAutolinks?.get(num)?.[0];
 									if (issueResult?.value != null) {
 										if (issueResult.paused) {
-											if (footnotes != null) {
+											if (footnotes != null && !prs?.has(num)) {
 												let name = ref.description?.replace(numRegex, num);
 												if (name == null) {
 													name = `Custom Autolink ${ref.prefix}${num}`;
@@ -431,7 +437,7 @@ export class Autolinks implements Disposable {
 											const issueTitle = encodeHtmlWeak(issue.title.trim());
 											const issueTitleQuoteEscaped = issueTitle.replace(/"/g, '&quot;');
 
-											if (footnotes != null) {
+											if (footnotes != null && !prs?.has(num)) {
 												footnoteIndex = footnotes.size + 1;
 												footnotes.set(
 													footnoteIndex,
@@ -439,17 +445,19 @@ export class Autolinks implements Disposable {
 														issue,
 													)} <b>${issueTitle}</b></a><br /><span>${GlyphChars.Space.repeat(
 														5,
-													)}${linkText} ${issue.closed ? 'closed' : 'opened'} ${fromNow(
+													)}${linkText} ${issue.state} ${fromNow(
 														issue.closedDate ?? issue.date,
 													)}</span>`,
 												);
 											}
 
-											title += `\n${GlyphChars.Dash.repeat(2)}\n${issueTitleQuoteEscaped}\n${
-												issue.closed ? 'Closed' : 'Opened'
-											}, ${fromNow(issue.closedDate ?? issue.date)}`;
+											title += `\n${GlyphChars.Dash.repeat(
+												2,
+											)}\n${issueTitleQuoteEscaped}\n${capitalize(issue.state)}, ${fromNow(
+												issue.closedDate ?? issue.date,
+											)}`;
 										}
-									} else if (footnotes != null) {
+									} else if (footnotes != null && !prs?.has(num)) {
 										let name = ref.description?.replace(numRegex, num);
 										if (name == null) {
 											name = `Custom Autolink ${ref.prefix}${num}`;
@@ -477,16 +485,18 @@ export class Autolinks implements Disposable {
 								const issueResult = enrichedAutolinks?.get(num)?.[0];
 								if (issueResult?.value == null) return linkText;
 
-								if (footnotes != null) {
+								if (footnotes != null && !prs?.has(num)) {
 									footnoteIndex = footnotes.size + 1;
 									footnotes.set(
 										footnoteIndex,
 										`${linkText}: ${
 											issueResult.paused
 												? 'Loading...'
-												: `${issueResult.value.title}  ${GlyphChars.Dot}  ${
-														issueResult.value.closed ? 'Closed' : 'Opened'
-												  }, ${fromNow(issueResult.value.closedDate ?? issueResult.value.date)}`
+												: `${issueResult.value.title}  ${GlyphChars.Dot}  ${capitalize(
+														issueResult.value.state,
+												  )}, ${fromNow(
+														issueResult.value.closedDate ?? issueResult.value.date,
+												  )}`
 										}`,
 									);
 								}

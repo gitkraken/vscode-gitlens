@@ -268,11 +268,6 @@ export async function detailsMessage(
 	const presence = getSettledValue(presenceResult);
 	const previousLineComparisonUris = getSettledValue(previousLineComparisonUrisResult);
 
-	// Remove possible duplicate pull request
-	if (pr?.value != null && !pr.paused && enrichedResult?.value != null && !enrichedResult.paused) {
-		enrichedResult.value?.delete(pr.value.id);
-	}
-
 	const details = await CommitFormatter.fromTemplateAsync(options.format, commit, {
 		enrichedAutolinks: enrichedResult?.value != null && !enrichedResult.paused ? enrichedResult.value : undefined,
 		dateFormat: options.dateFormat === null ? 'MMMM Do, YYYY h:mma' : options.dateFormat,
