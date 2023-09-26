@@ -124,6 +124,7 @@ export const enum Commands {
 	CopyDeepLinkToComparison = 'gitlens.copyDeepLinkToComparison',
 	CopyDeepLinkToRepo = 'gitlens.copyDeepLinkToRepo',
 	CopyDeepLinkToTag = 'gitlens.copyDeepLinkToTag',
+	CopyDeepLinkToWorkspace = 'gitlens.copyDeepLinkToWorkspace',
 	CopyMessageToClipboard = 'gitlens.copyMessageToClipboard',
 	CopyRemoteBranchesUrl = 'gitlens.copyRemoteBranchesUrl',
 	CopyRemoteBranchUrl = 'gitlens.copyRemoteBranchUrl',
