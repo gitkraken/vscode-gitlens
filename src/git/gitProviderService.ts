@@ -63,7 +63,7 @@ import type { GitGraph } from './models/graph';
 import type { SearchedIssue } from './models/issue';
 import type { GitLog } from './models/log';
 import type { GitMergeStatus } from './models/merge';
-import type { PullRequest, PullRequestState, SearchedPullRequest } from './models/pullRequest';
+import type { SearchedPullRequest } from './models/pullRequest';
 import type { GitRebaseStatus } from './models/rebase';
 import type { GitBranchReference, GitReference } from './models/reference';
 import { createRevisionRange, isSha, isUncommitted, isUncommittedParent } from './models/reference';
@@ -1925,59 +1925,6 @@ export class GitProviderService implements Disposable {
 		return provider.getPreviousComparisonUrisForLine(path, uri, editorLine, ref, skip);
 	}
 
-	async getPullRequestForBranch(
-		branch: string,
-		remote: GitRemote<RemoteProvider | RichRemoteProvider>,
-		options?: { avatarSize?: number; include?: PullRequestState[]; limit?: number; timeout?: number },
-	): Promise<PullRequest | undefined>;
-	async getPullRequestForBranch(
-		branch: string,
-		provider: RichRemoteProvider,
-		options?: { avatarSize?: number; include?: PullRequestState[]; limit?: number; timeout?: number },
-	): Promise<PullRequest | undefined>;
-	@gate<GitProviderService['getPullRequestForBranch']>((branch, remoteOrProvider, options) => {
-		const provider = GitRemote.is(remoteOrProvider) ? remoteOrProvider.provider : remoteOrProvider;
-		return `${branch}${
-			provider != null ? `|${provider.id}:${provider.domain}/${provider.path}` : ''
-		}|${JSON.stringify(options)}`;
-	})
-	@debug<GitProviderService['getPullRequestForBranch']>({ args: { 1: remoteOrProvider => remoteOrProvider.name } })
-	async getPullRequestForBranch(
-		branch: string,
-		remoteOrProvider: GitRemote | RichRemoteProvider,
-		options?: { avatarSize?: number; include?: PullRequestState[]; limit?: number; timeout?: number },
-	): Promise<PullRequest | undefined> {
-		let provider;
-		if (GitRemote.is(remoteOrProvider)) {
-			({ provider } = remoteOrProvider);
-			if (!provider?.hasRichIntegration()) return undefined;
-		} else {
-			provider = remoteOrProvider;
-		}
-
-		let timeout;
-		if (options != null) {
-			({ timeout, ...options } = options);
-		}
-
-		let promiseOrPR = provider.getPullRequestForBranch(branch, options);
-		if (promiseOrPR == null || !isPromise(promiseOrPR)) {
-			return promiseOrPR;
-		}
-
-		if (timeout != null && timeout > 0) {
-			promiseOrPR = cancellable(promiseOrPR, timeout);
-		}
-
-		try {
-			return await promiseOrPR;
-		} catch (ex) {
-			if (ex instanceof PromiseCancelledError) throw ex;
-
-			return undefined;
-		}
-	}
-
 	@debug<GitProviderService['getMyPullRequests']>({ args: { 0: remoteOrProvider => remoteOrProvider.name } })
 	async getMyPullRequests(
 		remoteOrProvider: GitRemote | RichRemoteProvider,
@@ -2069,7 +2016,7 @@ export class GitProviderService implements Disposable {
 	async getBestRemoteWithProvider(
 		repoPath: string | Uri,
 		cancellation?: CancellationToken,
-	): Promise<GitRemote<RemoteProvider | RichRemoteProvider> | undefined> {
+	): Promise<GitRemote<RemoteProvider> | undefined> {
 		const remotes = await this.getBestRemotesWithProviders(repoPath, cancellation);
 		return remotes[0];
 	}
@@ -2078,7 +2025,7 @@ export class GitProviderService implements Disposable {
 	async getBestRemotesWithProviders(
 		repoPath: string | Uri,
 		cancellation?: CancellationToken,
-	): Promise<GitRemote<RemoteProvider | RichRemoteProvider>[]> {
+	): Promise<GitRemote<RemoteProvider>[]> {
 		if (repoPath == null) return [];
 		if (typeof repoPath === 'string') {
 			repoPath = this.getAbsoluteUri(repoPath);
@@ -2097,7 +2044,7 @@ export class GitProviderService implements Disposable {
 				const defaultRemote = remotes.find(r => r.default)?.name;
 				const currentBranchRemote = (await this.getBranch(remotes[0].repoPath))?.getRemoteName();
 
-				const weighted: [number, GitRemote<RemoteProvider | RichRemoteProvider>][] = [];
+				const weighted: [number, GitRemote<RemoteProvider>][] = [];
 
 				let originalFound = false;
 
@@ -2195,11 +2142,19 @@ export class GitProviderService implements Disposable {
 		repoPath: string | Uri,
 		options?: { sort?: boolean },
 		cancellation?: CancellationToken,
-	): Promise<GitRemote<RemoteProvider | RichRemoteProvider>[]> {
+	): Promise<GitRemote<RemoteProvider>[]> {
 		const remotes = await this.getRemotes(repoPath, options, cancellation);
-		return remotes.filter(
-			(r: GitRemote): r is GitRemote<RemoteProvider | RichRemoteProvider> => r.provider != null,
-		);
+		return remotes.filter((r: GitRemote): r is GitRemote<RemoteProvider> => r.provider != null);
+	}
+
+	@log()
+	async getRemotesWithRichProviders(
+		repoPath: string | Uri,
+		options?: { sort?: boolean },
+		cancellation?: CancellationToken,
+	): Promise<GitRemote<RichRemoteProvider>[]> {
+		const remotes = await this.getRemotes(repoPath, options, cancellation);
+		return remotes.filter((r: GitRemote): r is GitRemote<RichRemoteProvider> => r.hasRichIntegration());
 	}
 
 	getBestRepository(): Repository | undefined;

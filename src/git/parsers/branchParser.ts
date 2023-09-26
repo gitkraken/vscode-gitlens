@@ -1,3 +1,4 @@
+import type { Container } from '../../container';
 import { debug } from '../../system/decorators/log';
 import { GitBranch } from '../models/branch';
 
@@ -20,7 +21,7 @@ export class GitBranchParser {
 	].join('');
 
 	@debug({ args: false, singleLine: true })
-	static parse(data: string, repoPath: string): GitBranch[] {
+	static parse(container: Container, data: string, repoPath: string): GitBranch[] {
 		const branches: GitBranch[] = [];
 
 		if (!data) return branches;
@@ -57,6 +58,7 @@ export class GitBranchParser {
 
 			branches.push(
 				new GitBranch(
+					container,
 					repoPath,
 					name,
 					remote,

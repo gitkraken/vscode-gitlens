@@ -83,6 +83,7 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 			const status = await this._status;
 			if (status != null) {
 				const branch = new GitBranch(
+					this.view.container,
 					status.repoPath,
 					status.branch,
 					false,

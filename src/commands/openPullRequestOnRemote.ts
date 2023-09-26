@@ -1,6 +1,7 @@
-import { env, Uri } from 'vscode';
+import { env, Uri, window } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import { shortenRevision } from '../git/models/reference';
 import { command } from '../system/command';
 import { PullRequestNode } from '../views/nodes/pullRequestNode';
 import type { CommandContext } from './base';
@@ -39,7 +40,10 @@ export class OpenPullRequestOnRemoteCommand extends Command {
 			if (!remote?.hasRichIntegration()) return;
 
 			const pr = await remote.provider.getPullRequestForCommit(args.ref);
-			if (pr == null) return;
+			if (pr == null) {
+				void window.showInformationMessage(`No pull request associated with '${shortenRevision(args.ref)}'`);
+				return;
+			}
 
 			args = { ...args };
 			args.pr = pr;
