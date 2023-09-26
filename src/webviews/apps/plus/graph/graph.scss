@@ -622,6 +622,27 @@ button:not([disabled]),
 			content: '\ebaa';
 		}
 	}
+	&--remote-github {
+		&::before {
+			// codicon-github-inverted
+			font-family: codicon;
+			content: '\eba1';
+		}
+	}
+	&--remote-gitlab {
+		&::before {
+			// codicon-logo-github
+			font-family: codicon;
+			content: '\ea84';
+		}
+	}
+	&--remote-bitbucket {
+		&::before {
+			// codicon-primitive-square
+			font-family: codicon;
+			content: '\ea72';
+		}
+	}
 	&--tag {
 		&::before {
 			// codicon-tag

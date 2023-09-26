@@ -111,6 +111,9 @@ const createIconElements = (): Record<string, ReactElement> => {
 	const iconList = [
 		'head',
 		'remote',
+		'remote-github',
+		'remote-gitlab',
+		'remote-bitbucket',
 		'tag',
 		'stash',
 		'check',
