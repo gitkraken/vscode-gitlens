@@ -3,7 +3,7 @@ import { GlyphChars } from '../../constants';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
-import type { PullRequest , PullRequestState } from '../../git/models/pullRequest';
+import type { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import { shortenRevision } from '../../git/models/reference';
 import { GitRemote, GitRemoteType } from '../../git/models/remote';
 import type { GitWorktree } from '../../git/models/worktree';
