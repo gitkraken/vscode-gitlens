@@ -1753,6 +1753,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			]);
 
 			branch = new GitBranch(
+				this.container,
 				repoPath,
 				rebaseStatus?.incoming.name ?? name,
 				false,
@@ -1801,6 +1802,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							]);
 
 							current = new GitBranch(
+								this.container,
 								repoPath!,
 								rebaseStatus?.incoming.name ?? name,
 								false,
@@ -1818,7 +1820,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						return current != null ? { values: [current] } : emptyPagedResult;
 					}
 
-					return { values: GitBranchParser.parse(data, repoPath!) };
+					return { values: GitBranchParser.parse(this.container, data, repoPath!) };
 				} catch (ex) {
 					this._branchesCache.delete(repoPath!);
 

@@ -917,11 +917,28 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 							const ref = branch.target.oid;
 
 							branches.push(
-								new GitBranch(repoPath!, branch.name, false, branch.name === current, date, ref, {
-									name: `origin/${branch.name}`,
-									missing: false,
-								}),
-								new GitBranch(repoPath!, `origin/${branch.name}`, true, false, date, ref),
+								new GitBranch(
+									this.container,
+									repoPath!,
+									branch.name,
+									false,
+									branch.name === current,
+									date,
+									ref,
+									{
+										name: `origin/${branch.name}`,
+										missing: false,
+									},
+								),
+								new GitBranch(
+									this.container,
+									repoPath!,
+									`origin/${branch.name}`,
+									true,
+									false,
+									date,
+									ref,
+								),
 							);
 						}
 
