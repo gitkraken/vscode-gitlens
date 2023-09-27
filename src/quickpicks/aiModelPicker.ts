@@ -42,6 +42,7 @@ export async function showAIModelPicker(): Promise<ModelQuickPickItem | undefine
 		if (item.kind === QuickPickItemKind.Separator) continue;
 
 		if (item.model === model) {
+			item.description = `${item.description}  \u2713`;
 			item.picked = true;
 			break;
 		}
