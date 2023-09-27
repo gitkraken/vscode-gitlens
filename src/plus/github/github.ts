@@ -17,7 +17,7 @@ import {
 	ProviderRequestNotFoundError,
 	ProviderRequestRateLimitError,
 } from '../../errors';
-import type { PagedResult , RepositoryVisibility } from '../../git/gitProvider';
+import type { PagedResult, RepositoryVisibility } from '../../git/gitProvider';
 import type { Account } from '../../git/models/author';
 import type { DefaultBranch } from '../../git/models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../../git/models/issue';

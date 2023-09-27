@@ -1,6 +1,6 @@
 import { Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
-import type { ContributorSorting , GravatarDefaultStyle } from '../../config';
+import type { ContributorSorting, GravatarDefaultStyle } from '../../config';
 import { configuration } from '../../system/configuration';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
