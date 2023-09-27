@@ -1377,6 +1377,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 										id: getBranchId(repoPath, true, headBranch.upstream.name),
 								  }
 								: undefined,
+						hostingServiceType: remote.provider?.id,
 					},
 				];
 
@@ -1409,6 +1410,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 							avatarUrl: avatarUrl,
 							context: serializeWebviewItemContext<GraphItemRefContext>(context),
 							current: true,
+							hostingServiceType: remote.provider?.id,
 						},
 					];
 
@@ -1460,6 +1462,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 							url: remote.url,
 							avatarUrl: avatarUrl,
 							context: serializeWebviewItemContext<GraphItemRefContext>(context),
+							hostingServiceType: remote.provider?.id,
 						});
 					}
 				}

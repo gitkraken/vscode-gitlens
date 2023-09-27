@@ -2201,6 +2201,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 									avatarUrl: avatarUrl,
 									context: serializeWebviewItemContext<GraphItemRefContext>(context),
 									current: tip === headRefUpstreamName,
+									hostingServiceType: remote.provider?.id,
 								};
 								refRemoteHeads.push(refRemoteHead);
 
