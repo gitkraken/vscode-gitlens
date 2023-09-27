@@ -345,7 +345,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (scmGit == null) return;
 
 			// Find env to pass to Git
-			if (configuration.get('experimental.nativeGit') ?? this.container.prereleaseOrDebugging) {
+			if (configuration.get('experimental.nativeGit')) {
 				for (const v of Object.values(scmGit.git)) {
 					if (v != null && typeof v === 'object' && 'git' in v) {
 						for (const vv of Object.values(v.git)) {
