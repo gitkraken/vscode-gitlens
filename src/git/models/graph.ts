@@ -7,14 +7,13 @@ export type GitGraphRowRemoteHead = Remote;
 export type GitGraphRowTag = Tag;
 export type GitGraphRowContexts = RowContexts;
 export type GitGraphRowStats = RowStats;
-export const enum GitGraphRowType {
-	Commit = 'commit-node',
-	MergeCommit = 'merge-node',
-	Stash = 'stash-node',
-	Working = 'work-dir-changes',
-	Conflict = 'merge-conflict-node',
-	Rebase = 'unsupported-rebase-warning-node',
-}
+export type GitGraphRowType =
+	| 'commit-node'
+	| 'merge-node'
+	| 'stash-node'
+	| 'work-dir-changes'
+	| 'merge-conflict-node'
+	| 'unsupported-rebase-warning-node';
 
 export interface GitGraphRow extends GraphRow {
 	type: GitGraphRowType;

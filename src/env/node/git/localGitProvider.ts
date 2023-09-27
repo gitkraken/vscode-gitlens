@@ -44,10 +44,10 @@ import type {
 	RepositoryCloseEvent,
 	RepositoryInitWatcher,
 	RepositoryOpenEvent,
+	RepositoryVisibility,
 	RevisionUriData,
 	ScmRepository,
 } from '../../../git/gitProvider';
-import { GitProviderId, RepositoryVisibility } from '../../../git/gitProvider';
 import { encodeGitLensRevisionUriAuthority, GitUri } from '../../../git/gitUri';
 import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../../git/models/blame';
 import type { BranchSortOptions } from '../../../git/models/branch';
@@ -77,7 +77,6 @@ import type {
 	GitGraphRowStats,
 	GitGraphRowTag,
 } from '../../../git/models/graph';
-import { GitGraphRowType } from '../../../git/models/graph';
 import type { GitLog } from '../../../git/models/log';
 import type { GitMergeStatus } from '../../../git/models/merge';
 import type { GitRebaseStatus } from '../../../git/models/rebase';
@@ -210,7 +209,7 @@ interface RepositoryInfo {
 }
 
 export class LocalGitProvider implements GitProvider, Disposable {
-	readonly descriptor: GitProviderDescriptor = { id: GitProviderId.Git, name: 'Git', virtual: false };
+	readonly descriptor: GitProviderDescriptor = { id: 'git', name: 'Git', virtual: false };
 	readonly supportedSchemes = new Set<string>([
 		Schemes.File,
 		Schemes.Git,
@@ -568,23 +567,21 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@debug<LocalGitProvider['visibility']>({ exit: r => `returned ${r[0]}` })
 	async visibility(repoPath: string): Promise<[visibility: RepositoryVisibility, cacheKey: string | undefined]> {
 		const remotes = await this.getRemotes(repoPath, { sort: true });
-		if (remotes.length === 0) return [RepositoryVisibility.Local, undefined];
+		if (remotes.length === 0) return ['local', undefined];
 
 		let local = true;
 		for await (const result of asSettled(remotes.map(r => this.getRemoteVisibility(r)))) {
 			if (result.status !== 'fulfilled') continue;
 
-			if (result.value[0] === RepositoryVisibility.Public) {
-				return [RepositoryVisibility.Public, getVisibilityCacheKey(result.value[1])];
+			if (result.value[0] === 'public') {
+				return ['public', getVisibilityCacheKey(result.value[1])];
 			}
-			if (result.value[0] !== RepositoryVisibility.Local) {
+			if (result.value[0] !== 'local') {
 				local = false;
 			}
 		}
 
-		return local
-			? [RepositoryVisibility.Local, undefined]
-			: [RepositoryVisibility.Private, getVisibilityCacheKey(remotes)];
+		return local ? ['local', undefined] : ['private', getVisibilityCacheKey(remotes)];
 	}
 
 	private _pendingRemoteVisibility = new Map<string, ReturnType<typeof fetch>>();
@@ -604,19 +601,17 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			case 'gerrit':
 			case 'google-source':
 				url = remote.provider.url({ type: RemoteResourceType.Repo });
-				if (url == null) return [RepositoryVisibility.Private, remote];
+				if (url == null) return ['private', remote];
 
 				break;
 			default: {
 				url = remote.url;
 				if (!url.includes('git@')) {
-					return maybeUri(url)
-						? [RepositoryVisibility.Private, remote]
-						: [RepositoryVisibility.Local, remote];
+					return maybeUri(url) ? ['private', remote] : ['local', remote];
 				}
 
 				const [host, repo] = url.split('@')[1].split(':');
-				if (!host || !repo) return [RepositoryVisibility.Private, remote];
+				if (!host || !repo) return ['private', remote];
 
 				url = `https://${host}/${repo}`;
 			}
@@ -638,7 +633,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		try {
 			const rsp = await promise;
-			if (rsp.ok) return [RepositoryVisibility.Public, remote];
+			if (rsp.ok) return ['public', remote];
 
 			Logger.debug(scope, `Response=${rsp.status}`);
 		} catch (ex) {
@@ -647,7 +642,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		} finally {
 			this._pendingRemoteVisibility.delete(url);
 		}
-		return [RepositoryVisibility.Private, remote];
+		return ['private', remote];
 	}
 
 	@log<LocalGitProvider['repositorySearch']>({
@@ -2366,12 +2361,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					date: Number(ordering === 'author-date' ? commit.authorDate : commit.committerDate) * 1000,
 					message: emojify(commit.message.trim()),
 					// TODO: review logic for stash, wip, etc
-					type:
-						stashCommit != null
-							? GitGraphRowType.Stash
-							: parents.length > 1
-							? GitGraphRowType.MergeCommit
-							: GitGraphRowType.Commit,
+					type: stashCommit != null ? 'stash-node' : parents.length > 1 ? 'merge-node' : 'commit-node',
 					heads: refHeads,
 					remotes: refRemoteHeads,
 					tags: refTags,

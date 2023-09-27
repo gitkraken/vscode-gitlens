@@ -1,5 +1,4 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ViewFilesLayout } from '../../config';
 import { GitUri } from '../../git/gitUri';
 import type { GitTrackingState } from '../../git/models/branch';
 import type { GitFileWithCommit } from '../../git/models/file';
@@ -69,7 +68,7 @@ export class UncommittedFilesNode extends ViewNode<ViewsWithWorkingTree> {
 			files => new UncommittedFileNode(this.view, this, repoPath, files[files.length - 1]),
 		);
 
-		if (this.view.config.files.layout !== ViewFilesLayout.List) {
+		if (this.view.config.files.layout !== 'list') {
 			const hierarchy = makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),

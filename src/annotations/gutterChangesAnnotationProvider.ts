@@ -7,7 +7,6 @@ import type {
 	TextEditorDecorationType,
 } from 'vscode';
 import { Hover, languages, Position, Range, Selection, TextEditorRevealType } from 'vscode';
-import { FileAnnotationType } from '../config';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import type { GitDiffFile } from '../git/models/diff';
@@ -37,7 +36,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		trackedDocument: TrackedDocument<GitDocumentState>,
 		private readonly container: Container,
 	) {
-		super(FileAnnotationType.Changes, editor, trackedDocument);
+		super('changes', editor, trackedDocument);
 	}
 
 	override mustReopen(context?: ChangesAnnotationContext): boolean {

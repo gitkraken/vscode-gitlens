@@ -2,7 +2,6 @@ import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from '
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { GitUri } from '../../git/gitUri';
 import type { CloudWorkspace, LocalWorkspace } from '../../plus/workspaces/models';
-import { WorkspaceType } from '../../plus/workspaces/models';
 import { createCommand } from '../../system/command';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
@@ -109,10 +108,12 @@ export class WorkspaceNode extends SubscribeableViewNode<WorkspacesView> {
 	async getTreeItem(): Promise<TreeItem> {
 		const item = new TreeItem(this.workspace.name, TreeItemCollapsibleState.Collapsed);
 
+		const cloud = this.workspace.type === 'cloud';
+
 		let contextValue = `${ContextValues.Workspace}`;
 		item.resourceUri = undefined;
 		const descriptionItems = [];
-		if (this.workspace.type === WorkspaceType.Cloud) {
+		if (cloud) {
 			contextValue += '+cloud';
 		} else {
 			contextValue += '+local';
@@ -132,18 +133,12 @@ export class WorkspaceNode extends SubscribeableViewNode<WorkspacesView> {
 
 		item.id = this.id;
 		item.contextValue = contextValue;
-		item.iconPath = new ThemeIcon(this.workspace.type == WorkspaceType.Cloud ? 'cloud' : 'folder');
+		item.iconPath = new ThemeIcon(this.workspace.type == 'cloud' ? 'cloud' : 'folder');
 		item.tooltip = `${this.workspace.name}\n${
-			this.workspace.type === WorkspaceType.Cloud
-				? `Cloud Workspace ${this.workspace.shared ? '(Shared)' : ''}`
-				: 'Local Workspace'
-		}${
-			this.workspace.type === WorkspaceType.Cloud && this.workspace.provider != null
-				? `\nProvider: ${this.workspace.provider}`
-				: ''
-		}`;
+			cloud ? `Cloud Workspace ${this.workspace.shared ? '(Shared)' : ''}` : 'Local Workspace'
+		}${cloud && this.workspace.provider != null ? `\nProvider: ${this.workspace.provider}` : ''}`;
 
-		if (this.workspace.type === WorkspaceType.Cloud && this.workspace.organizationId != null) {
+		if (cloud && this.workspace.organizationId != null) {
 			descriptionItems.push('shared');
 		}
 

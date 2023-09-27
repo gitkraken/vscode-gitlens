@@ -23,7 +23,7 @@ import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { configuration } from '../../system/configuration';
 import { basename, isDescendent } from '../../system/path';
 import { pluralize, truncateLeft } from '../../system/string';
-import { openWorkspace, OpenWorkspaceLocation } from '../../system/utils';
+import { openWorkspace } from '../../system/utils';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -505,16 +505,14 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			queueMicrotask(() => {
 				switch (action) {
 					case 'always':
-						openWorkspace(worktree!.uri, { location: OpenWorkspaceLocation.CurrentWindow });
+						openWorkspace(worktree!.uri, { location: 'currentWindow' });
 						break;
 					case 'alwaysNewWindow':
-						openWorkspace(worktree!.uri, { location: OpenWorkspaceLocation.NewWindow });
+						openWorkspace(worktree!.uri, { location: 'newWindow' });
 						break;
 					case 'onlyWhenEmpty':
 						openWorkspace(worktree!.uri, {
-							location: workspace.workspaceFolders?.length
-								? OpenWorkspaceLocation.CurrentWindow
-								: OpenWorkspaceLocation.NewWindow,
+							location: workspace.workspaceFolders?.length ? 'currentWindow' : 'newWindow',
 						});
 						break;
 				}

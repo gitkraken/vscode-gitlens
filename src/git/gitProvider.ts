@@ -34,11 +34,7 @@ export interface GitDir {
 	readonly commonUri?: Uri;
 }
 
-export const enum GitProviderId {
-	Git = 'git',
-	GitHub = 'github',
-	Vsls = 'vsls',
-}
+export type GitProviderId = 'git' | 'github' | 'vsls';
 
 export interface GitProviderDescriptor {
 	readonly id: GitProviderId;
@@ -89,11 +85,7 @@ export interface RepositoryOpenEvent {
 	readonly uri: Uri;
 }
 
-export const enum RepositoryVisibility {
-	Private = 'private',
-	Public = 'public',
-	Local = 'local',
-}
+export type RepositoryVisibility = 'private' | 'public' | 'local';
 
 export interface RepositoryVisibilityInfo {
 	visibility: RepositoryVisibility;

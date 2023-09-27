@@ -1,4 +1,4 @@
-import { LogLevel } from './logger.constants';
+import type { LogLevel } from './logger.constants';
 import type { LogScope } from './logger.scope';
 
 const emptyStr = '';
@@ -45,7 +45,7 @@ export const Logger = new (class Logger {
 	}
 
 	private level: OrderedLevel = OrderedLevel.Off;
-	private _logLevel: LogLevel = LogLevel.Off;
+	private _logLevel: LogLevel = 'off';
 	get logLevel(): LogLevel {
 		return this._logLevel;
 	}
@@ -53,7 +53,7 @@ export const Logger = new (class Logger {
 		this._logLevel = value;
 		this.level = toOrderedLevel(this._logLevel);
 
-		if (value === LogLevel.Off) {
+		if (value === 'off') {
 			this.output?.dispose?.();
 			this.output = undefined;
 		} else {
@@ -202,15 +202,15 @@ export const Logger = new (class Logger {
 
 function toOrderedLevel(logLevel: LogLevel): OrderedLevel {
 	switch (logLevel) {
-		case LogLevel.Off:
+		case 'off':
 			return OrderedLevel.Off;
-		case LogLevel.Error:
+		case 'error':
 			return OrderedLevel.Error;
-		case LogLevel.Warn:
+		case 'warn':
 			return OrderedLevel.Warn;
-		case LogLevel.Info:
+		case 'info':
 			return OrderedLevel.Info;
-		case LogLevel.Debug:
+		case 'debug':
 			return OrderedLevel.Debug;
 		default:
 			return OrderedLevel.Off;
@@ -241,13 +241,13 @@ export const defaultLogProvider: LogProvider = {
 	enabled: (logLevel: LogLevel) => Logger.enabled(logLevel) || Logger.isDebugging,
 	log: (logLevel: LogLevel, scope: LogScope | undefined, message: string, ...params: any[]) => {
 		switch (logLevel) {
-			case LogLevel.Error:
+			case 'error':
 				Logger.error('', scope, message, ...params);
 				break;
-			case LogLevel.Warn:
+			case 'warn':
 				Logger.warn(scope, message, ...params);
 				break;
-			case LogLevel.Info:
+			case 'info':
 				Logger.log(scope, message, ...params);
 				break;
 			default:

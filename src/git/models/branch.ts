@@ -1,4 +1,4 @@
-import { BranchSorting, DateStyle } from '../../config';
+import type { BranchSorting } from '../../config';
 import type { Container } from '../../container';
 import { configuration } from '../../system/configuration';
 import { formatDate, fromNow } from '../../system/date';
@@ -21,16 +21,15 @@ export interface GitTrackingState {
 	behind: number;
 }
 
-export const enum GitBranchStatus {
-	Ahead = 'ahead',
-	Behind = 'behind',
-	Diverged = 'diverged',
-	Local = 'local',
-	MissingUpstream = 'missingUpstream',
-	Remote = 'remote',
-	UpToDate = 'upToDate',
-	Unpublished = 'unpublished',
-}
+export type GitBranchStatus =
+	| 'ahead'
+	| 'behind'
+	| 'diverged'
+	| 'local'
+	| 'missingUpstream'
+	| 'remote'
+	| 'upToDate'
+	| 'unpublished';
 
 export interface BranchSortOptions {
 	current?: boolean;
@@ -82,7 +81,7 @@ export class GitBranch implements GitBranchReference {
 	}
 
 	get formattedDate(): string {
-		return this.container.BranchDateFormatting.dateStyle === DateStyle.Absolute
+		return this.container.BranchDateFormatting.dateStyle === 'absolute'
 			? this.formatDate(this.container.BranchDateFormatting.dateFormat)
 			: this.formatDateFromNow();
 	}
@@ -150,19 +149,19 @@ export class GitBranch implements GitBranchReference {
 
 	@memoize()
 	async getStatus(): Promise<GitBranchStatus> {
-		if (this.remote) return GitBranchStatus.Remote;
+		if (this.remote) return 'remote';
 
 		if (this.upstream != null) {
-			if (this.upstream.missing) return GitBranchStatus.MissingUpstream;
-			if (this.state.ahead && this.state.behind) return GitBranchStatus.Diverged;
-			if (this.state.ahead) return GitBranchStatus.Ahead;
-			if (this.state.behind) return GitBranchStatus.Behind;
-			return GitBranchStatus.UpToDate;
+			if (this.upstream.missing) return 'missingUpstream';
+			if (this.state.ahead && this.state.behind) return 'diverged';
+			if (this.state.ahead) return 'ahead';
+			if (this.state.behind) return 'behind';
+			return 'upToDate';
 		}
 
 		// If there are any remotes then say this is unpublished, otherwise local
 		const remotes = await this.container.git.getRemotes(this.repoPath);
-		return remotes.length ? GitBranchStatus.Unpublished : GitBranchStatus.Local;
+		return remotes.length ? 'unpublished' : 'local';
 	}
 
 	getTrackingStatus(options?: {
@@ -243,7 +242,7 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 	options = { current: true, orderBy: configuration.get('sortBranchesBy'), ...options };
 
 	switch (options.orderBy) {
-		case BranchSorting.DateAsc:
+		case 'date:asc':
 			return branches.sort(
 				(a, b) =>
 					(options!.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
@@ -252,7 +251,7 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 					(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
 					(a.date == null ? -1 : a.date.getTime()) - (b.date == null ? -1 : b.date.getTime()),
 			);
-		case BranchSorting.NameAsc:
+		case 'name:asc':
 			return branches.sort(
 				(a, b) =>
 					(options!.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
@@ -264,7 +263,7 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 					(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
 					sortCompare(a.name, b.name),
 			);
-		case BranchSorting.NameDesc:
+		case 'name:desc':
 			return branches.sort(
 				(a, b) =>
 					(options!.missingUpstream ? (a.upstream?.missing ? -1 : 1) - (b.upstream?.missing ? -1 : 1) : 0) ||
@@ -276,7 +275,7 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 					(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
 					sortCompare(b.name, a.name),
 			);
-		case BranchSorting.DateDesc:
+		case 'date:desc':
 		default:
 			return branches.sort(
 				(a, b) =>

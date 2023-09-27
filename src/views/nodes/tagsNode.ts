@@ -1,5 +1,4 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ViewBranchesLayout } from '../../config';
 import { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
 import { makeHierarchical } from '../../system/array';
@@ -43,7 +42,7 @@ export class TagsNode extends ViewNode<ViewsWithTagsNode> {
 			const tagNodes = tags.values.map(
 				t => new TagNode(GitUri.fromRepoPath(this.uri.repoPath!, t.ref), this.view, this, t),
 			);
-			if (this.view.config.branches.layout === ViewBranchesLayout.List) return tagNodes;
+			if (this.view.config.branches.layout === 'list') return tagNodes;
 
 			const hierarchy = makeHierarchical(
 				tagNodes,

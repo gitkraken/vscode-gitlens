@@ -1,6 +1,6 @@
 import type { Disposable, TreeCheckboxChangeEvent } from 'vscode';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ViewShowBranchComparison } from '../../config';
+import type { ViewShowBranchComparison } from '../../config';
 import type { StoredBranchComparison, StoredBranchComparisons } from '../../constants';
 import { GlyphChars } from '../../constants';
 import type { GitUri } from '../../git/gitUri';
@@ -235,7 +235,7 @@ export class CompareBranchNode extends SubscribeableViewNode<ViewsWithBranches |
 	}
 
 	private get compareWithWorkingTree() {
-		return this.comparisonType === ViewShowBranchComparison.Working;
+		return this.comparisonType === 'working';
 	}
 
 	private async compareWith() {

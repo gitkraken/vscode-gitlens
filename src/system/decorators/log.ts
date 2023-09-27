@@ -2,7 +2,7 @@
 import { hrtime } from '@env/hrtime';
 import { getParameters } from '../function';
 import { getLoggableName, Logger } from '../logger';
-import { LogLevel, slowCallWarningThreshold } from '../logger.constants';
+import { slowCallWarningThreshold } from '../logger.constants';
 import type { LogScope } from '../logger.scope';
 import { clearLogScope, getNextLogScopeId, setLogScope } from '../logger.scope';
 import { isPromise } from '../promise';
@@ -110,9 +110,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 			const scopeId = getNextLogScopeId();
 
 			if (
-				(!Logger.isDebugging &&
-					!Logger.enabled(LogLevel.Debug) &&
-					!(Logger.enabled(LogLevel.Info) && !debug)) ||
+				(!Logger.isDebugging && !Logger.enabled('debug') && !(Logger.enabled('info') && !debug)) ||
 				(conditionFn != null && !conditionFn(...args))
 			) {
 				return fn!.apply(this, args);
@@ -200,7 +198,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 				if (!singleLine) {
 					logFn(
 						`${prefix}${enter}${
-							loggableParams && (debug || Logger.enabled(LogLevel.Debug) || Logger.isDebugging)
+							loggableParams && (debug || Logger.enabled('debug') || Logger.isDebugging)
 								? `(${loggableParams})`
 								: emptyStr
 						}`,
@@ -273,7 +271,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 						if (logThreshold === 0 || duration! > logThreshold) {
 							exitLogFn(
 								`${prefix}${enter}${
-									loggableParams && (debug || Logger.enabled(LogLevel.Debug) || Logger.isDebugging)
+									loggableParams && (debug || Logger.enabled('debug') || Logger.isDebugging)
 										? `(${loggableParams})`
 										: emptyStr
 								} ${exit}${scope?.exitDetails ? scope.exitDetails : emptyStr}${timing}`,
@@ -282,7 +280,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 					} else {
 						exitLogFn(
 							`${prefix}${
-								loggableParams && (debug || Logger.enabled(LogLevel.Debug) || Logger.isDebugging)
+								loggableParams && (debug || Logger.enabled('debug') || Logger.isDebugging)
 									? `(${loggableParams})`
 									: emptyStr
 							} ${exit}${scope?.exitDetails ? scope.exitDetails : emptyStr}${timing}`,

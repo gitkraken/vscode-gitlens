@@ -1,6 +1,5 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import type { ViewShowBranchComparison } from '../../config';
-import { ViewBranchesLayout } from '../../config';
 import type { Colors } from '../../constants';
 import { GlyphChars } from '../../constants';
 import type { GitUri } from '../../git/gitUri';
@@ -8,7 +7,7 @@ import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
 import type { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import type { GitBranchReference } from '../../git/models/reference';
-import { GitRemote, GitRemoteType } from '../../git/models/remote';
+import { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
 import { getContext } from '../../system/context';
@@ -110,7 +109,7 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 
 		const branchName = this.branch.getNameWithoutRemote();
 		return `${
-			this.view.config.branches?.layout !== ViewBranchesLayout.Tree ||
+			this.view.config.branches?.layout !== 'tree' ||
 			this.compacted ||
 			this.root ||
 			this.current ||
@@ -374,11 +373,11 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 						let left;
 						let right;
 						for (const { type } of remote.urls) {
-							if (type === GitRemoteType.Fetch) {
+							if (type === 'fetch') {
 								left = true;
 
 								if (right) break;
-							} else if (type === GitRemoteType.Push) {
+							} else if (type === 'push') {
 								right = true;
 
 								if (left) break;

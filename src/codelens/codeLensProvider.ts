@@ -19,7 +19,7 @@ import type {
 	ToggleFileChangesAnnotationCommandArgs,
 } from '../commands';
 import type { CodeLensConfig, CodeLensLanguageScope } from '../config';
-import { CodeLensCommand, CodeLensScopes, FileAnnotationType } from '../config';
+import { CodeLensCommand } from '../config';
 import { Commands, Schemes } from '../constants';
 import type { Container } from '../container';
 import type { GitUri } from '../git/gitUri';
@@ -118,7 +118,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		}
 
 		const cfg = configuration.get('codeLens', document);
-		let languageScope = cfg.scopesByLanguage?.find(ll => ll.language?.toLowerCase() === document.languageId);
+		let languageScope = { ...cfg.scopesByLanguage?.find(ll => ll.language?.toLowerCase() === document.languageId) };
 		if (languageScope == null) {
 			languageScope = {
 				language: document.languageId,
@@ -145,7 +145,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		if (!dirty) {
 			if (token.isCancellationRequested) return lenses;
 
-			if (languageScope.scopes.length === 1 && languageScope.scopes.includes(CodeLensScopes.Document)) {
+			if (languageScope.scopes.length === 1 && languageScope.scopes.includes('document')) {
 				blame = await this.container.git.getBlame(gitUri, document);
 			} else {
 				[blame, symbols] = await Promise.all([
@@ -158,7 +158,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			}
 
 			if (blame == null || blame?.lines.length === 0) return lenses;
-		} else if (languageScope.scopes.length !== 1 || !languageScope.scopes.includes(CodeLensScopes.Document)) {
+		} else if (languageScope.scopes.length !== 1 || !languageScope.scopes.includes('document')) {
 			let tracked;
 			[tracked, symbols] = await Promise.all([
 				this.container.git.isTracked(gitUri),
@@ -196,7 +196,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		}
 
 		if (
-			(languageScope.scopes.includes(CodeLensScopes.Document) || languageScope.symbolScopes.includes('file')) &&
+			(languageScope.scopes.includes('document') || languageScope.symbolScopes.includes('file')) &&
 			!languageScope.symbolScopes.includes('!file')
 		) {
 			// Check if we have a lens for the whole document -- if not add one
@@ -272,10 +272,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		const symbolName = SymbolKind[symbol.kind].toLowerCase();
 		switch (symbol.kind) {
 			case SymbolKind.File:
-				if (
-					languageScope.scopes.includes(CodeLensScopes.Containers) ||
-					languageScope.symbolScopes.includes(symbolName)
-				) {
+				if (languageScope.scopes.includes('containers') || languageScope.symbolScopes.includes(symbolName)) {
 					valid = !languageScope.symbolScopes.includes(`!${symbolName}`);
 				}
 
@@ -286,10 +283,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 				break;
 
 			case SymbolKind.Package:
-				if (
-					languageScope.scopes.includes(CodeLensScopes.Containers) ||
-					languageScope.symbolScopes.includes(symbolName)
-				) {
+				if (languageScope.scopes.includes('containers') || languageScope.symbolScopes.includes(symbolName)) {
 					valid = !languageScope.symbolScopes.includes(`!${symbolName}`);
 				}
 
@@ -307,10 +301,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			case SymbolKind.Module:
 			case SymbolKind.Namespace:
 			case SymbolKind.Struct:
-				if (
-					languageScope.scopes.includes(CodeLensScopes.Containers) ||
-					languageScope.symbolScopes.includes(symbolName)
-				) {
+				if (languageScope.scopes.includes('containers') || languageScope.symbolScopes.includes(symbolName)) {
 					range = getRangeFromSymbol(symbol);
 					valid =
 						!languageScope.symbolScopes.includes(`!${symbolName}`) &&
@@ -323,10 +314,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			case SymbolKind.Function:
 			case SymbolKind.Method:
 			case SymbolKind.Property:
-				if (
-					languageScope.scopes.includes(CodeLensScopes.Blocks) ||
-					languageScope.symbolScopes.includes(symbolName)
-				) {
+				if (languageScope.scopes.includes('blocks') || languageScope.symbolScopes.includes(symbolName)) {
 					range = getRangeFromSymbol(symbol);
 					valid =
 						!languageScope.symbolScopes.includes(`!${symbolName}`) &&
@@ -338,7 +326,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 				if (
 					languageScope.symbolScopes.includes(symbolName) ||
 					// A special case for markdown files, SymbolKind.String seems to be returned for headers, so consider those containers
-					(languageScope.language === 'markdown' && languageScope.scopes.includes(CodeLensScopes.Containers))
+					(languageScope.language === 'markdown' && languageScope.scopes.includes('containers'))
 				) {
 					range = getRangeFromSymbol(symbol);
 					valid =
@@ -827,7 +815,7 @@ function applyToggleFileChangesCommand<T extends GitRecentChangeCodeLens | GitAu
 		arguments: [
 			lens.uri!.toFileUri(),
 			{
-				type: FileAnnotationType.Changes,
+				type: 'changes',
 				context: { sha: commit.sha, only: only, selection: false },
 			},
 		],

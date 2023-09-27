@@ -1,6 +1,5 @@
 import type { TextEditor, Uri } from 'vscode';
 import { Range } from 'vscode';
-import { BranchSorting, TagSorting } from '../config';
 import { Commands, GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -172,8 +171,8 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 							filter: { branches: b => b.remote || b.upstream != null },
 							picked: args.branchOrTag,
 							sort: {
-								branches: { current: true, orderBy: BranchSorting.DateDesc },
-								tags: { orderBy: TagSorting.DateDesc },
+								branches: { current: true, orderBy: 'date:desc' },
+								tags: { orderBy: 'date:desc' },
 							},
 						},
 					);

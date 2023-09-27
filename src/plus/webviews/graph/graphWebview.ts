@@ -36,8 +36,7 @@ import { getBranchId, getBranchNameWithoutRemote, getRemoteNameFromBranchName } 
 import type { GitCommit } from '../../../git/models/commit';
 import { uncommitted } from '../../../git/models/constants';
 import { GitContributor } from '../../../git/models/contributor';
-import type { GitGraph } from '../../../git/models/graph';
-import { GitGraphRowType } from '../../../git/models/graph';
+import type { GitGraph, GitGraphRowType } from '../../../git/models/graph';
 import type {
 	GitBranchReference,
 	GitReference,
@@ -164,7 +163,6 @@ import {
 	GetMissingAvatarsCommandType,
 	GetMissingRefsMetadataCommandType,
 	GetMoreRowsCommandType,
-	GraphRefMetadataTypes,
 	SearchCommandType,
 	SearchOpenInViewCommandType,
 	supportedRefMetadataTypes,
@@ -926,7 +924,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 					continue;
 				}
 
-				if (type === GraphRefMetadataTypes.PullRequest) {
+				if (type === 'pullRequest') {
 					const pr = await branch?.getAssociatedPullRequest();
 
 					if (pr == null) {
@@ -963,7 +961,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 					continue;
 				}
 
-				if (type === GraphRefMetadataTypes.Upstream) {
+				if (type === 'upstream') {
 					const upstream = branch?.upstream;
 
 					if (upstream == null || upstream == undefined || upstream.missing) {
@@ -1220,14 +1218,14 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		if (repoPath == null || id == null) return undefined;
 
 		switch (type) {
-			case GitGraphRowType.Stash:
+			case 'stash-node':
 				return createReference(id, repoPath, {
 					refType: 'stash',
 					name: id,
 					number: undefined,
 				});
 
-			case GitGraphRowType.Working:
+			case 'work-dir-changes':
 				return createReference(uncommitted, repoPath, { refType: 'revision' });
 
 			default:
@@ -1821,12 +1819,13 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	private getEnabledRefMetadataTypes(): GraphRefMetadataType[] {
 		const types: GraphRefMetadataType[] = [];
+
 		if (configuration.get('graph.pullRequests.enabled')) {
-			types.push(GraphRefMetadataTypes.PullRequest as GraphRefMetadataType);
+			types.push('pullRequest');
 		}
 
 		if (configuration.get('graph.showUpstreamStatus')) {
-			types.push(GraphRefMetadataTypes.Upstream as GraphRefMetadataType);
+			types.push('upstream');
 		}
 
 		return types;
@@ -1872,7 +1871,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 				webviewItem: 'gitlens:wip',
 				webviewItemValue: {
 					type: 'commit',
-					ref: this.getRevisionReference(this.repository.path, uncommitted, GitGraphRowType.Working)!,
+					ref: this.getRevisionReference(this.repository.path, uncommitted, 'work-dir-changes')!,
 				},
 			}),
 		};
@@ -2098,7 +2097,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 		this._selectedId = id;
 		if (id === uncommitted) {
-			id = GitGraphRowType.Working;
+			id = 'work-dir-changes' satisfies GitGraphRowType;
 		}
 		this._selectedRows = id != null ? { [id]: true } : undefined;
 	}

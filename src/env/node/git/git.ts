@@ -33,7 +33,7 @@ import { configuration } from '../../../system/configuration';
 import { log } from '../../../system/decorators/log';
 import { join } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
-import { LogLevel, slowCallWarningThreshold } from '../../../system/logger.constants';
+import { slowCallWarningThreshold } from '../../../system/logger.constants';
 import { getLogScope } from '../../../system/logger.scope';
 import { dirname, isAbsolute, isFolderGlob, joinPaths, normalizePath, splitPath } from '../../../system/path';
 import { getDurationMilliseconds } from '../../../system/string';
@@ -2247,7 +2247,7 @@ export class Git {
 	private _gitOutput: OutputChannel | undefined;
 
 	private logGitCommand(command: string, duration: number, ex?: Error): void {
-		if (!Logger.enabled(LogLevel.Debug) && !Logger.isDebugging) return;
+		if (!Logger.enabled('debug') && !Logger.isDebugging) return;
 
 		const slow = duration > slowCallWarningThreshold;
 

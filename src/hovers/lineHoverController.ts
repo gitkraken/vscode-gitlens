@@ -1,6 +1,5 @@
 import type { CancellationToken, ConfigurationChangeEvent, Position, TextDocument, TextEditor, Uri } from 'vscode';
 import { Disposable, Hover, languages, Range, window } from 'vscode';
-import { FileAnnotationType } from '../config';
 import type { Container } from '../container';
 import { UriComparer } from '../system/comparers';
 import { configuration } from '../system/configuration';
@@ -99,7 +98,7 @@ export class LineHoverController implements Disposable {
 		// Avoid double annotations if we are showing the whole-file hover blame annotations
 		if (cfg.annotations.details) {
 			const fileAnnotations = await this.container.fileAnnotations.getAnnotationType(window.activeTextEditor);
-			if (fileAnnotations === FileAnnotationType.Blame) return undefined;
+			if (fileAnnotations === 'blame') return undefined;
 		}
 
 		const wholeLine = cfg.currentLine.over === 'line';
@@ -159,7 +158,7 @@ export class LineHoverController implements Disposable {
 		// Avoid double annotations if we are showing the whole-file hover blame annotations
 		if (cfg.annotations.changes) {
 			const fileAnnotations = await this.container.fileAnnotations.getAnnotationType(window.activeTextEditor);
-			if (fileAnnotations === FileAnnotationType.Blame) return undefined;
+			if (fileAnnotations === 'blame') return undefined;
 		}
 
 		const wholeLine = cfg.currentLine.over === 'line';

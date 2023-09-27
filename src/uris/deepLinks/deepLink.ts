@@ -3,9 +3,7 @@ import type { GitReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 
-export const enum UriTypes {
-	DeepLink = 'link',
-}
+export type UriTypes = 'link';
 
 export enum DeepLinkType {
 	Branch = 'b',
@@ -61,7 +59,7 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 	// For example, if the uri is /link/r/{repoId}/b/{branchName}?url={remoteUrl},
 	// the link target id is {branchName}
 	const [, type, prefix, repoId, target, ...rest] = uri.path.split('/');
-	if (type !== UriTypes.DeepLink || prefix !== DeepLinkType.Repository) return undefined;
+	if (type !== 'link' || prefix !== DeepLinkType.Repository) return undefined;
 
 	const urlParams = new URLSearchParams(uri.query);
 	let remoteUrl = urlParams.get('url') ?? undefined;
@@ -151,12 +149,7 @@ export const enum DeepLinkServiceAction {
 	TargetFetched,
 }
 
-export const enum DeepLinkRepoOpenType {
-	Clone = 'clone',
-	Folder = 'folder',
-	Workspace = 'workspace',
-	Current = 'current',
-}
+export type DeepLinkRepoOpenType = 'clone' | 'folder' | 'workspace' | 'current';
 
 export interface DeepLinkServiceContext {
 	state: DeepLinkServiceState;

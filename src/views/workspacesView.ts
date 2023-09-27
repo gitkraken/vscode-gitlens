@@ -6,9 +6,8 @@ import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
 import type { Repository } from '../git/models/repository';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
-import { WorkspaceType } from '../plus/workspaces/models';
 import { executeCommand } from '../system/command';
-import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';
+import { openWorkspace } from '../system/utils';
 import type { RepositoriesNode } from './nodes/repositoriesNode';
 import { RepositoryNode } from './nodes/repositoryNode';
 import type { WorkspaceMissingRepositoryNode } from './nodes/workspaceMissingRepositoryNode';
@@ -116,7 +115,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, R
 				this.getQualifiedCommand('openLocal'),
 				async (node: WorkspaceNode) => {
 					await this.container.workspaces.openCodeWorkspaceFile(node.workspace.id, {
-						location: OpenWorkspaceLocation.CurrentWindow,
+						location: 'currentWindow',
 					});
 					void this.ensureRoot().triggerChange(true);
 				},
@@ -126,7 +125,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, R
 				this.getQualifiedCommand('openLocalNewWindow'),
 				async (node: WorkspaceNode) => {
 					await this.container.workspaces.openCodeWorkspaceFile(node.workspace.id, {
-						location: OpenWorkspaceLocation.NewWindow,
+						location: 'newWindow',
 					});
 				},
 				this,
@@ -149,7 +148,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, R
 			registerViewCommand(
 				this.getQualifiedCommand('locateAllRepos'),
 				async (node: WorkspaceNode) => {
-					if (node.workspace.type !== WorkspaceType.Cloud) return;
+					if (node.workspace.type !== 'cloud') return;
 
 					await window.withProgress(
 						{
@@ -185,7 +184,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, R
 						return;
 					}
 
-					openWorkspace(node.repo.uri, { location: OpenWorkspaceLocation.NewWindow });
+					openWorkspace(node.repo.uri, { location: 'newWindow' });
 				},
 				this,
 			),
@@ -197,7 +196,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, R
 						return;
 					}
 
-					openWorkspace(node.repo.uri, { location: OpenWorkspaceLocation.CurrentWindow });
+					openWorkspace(node.repo.uri, { location: 'currentWindow' });
 				},
 				this,
 			),
@@ -209,7 +208,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, R
 						return;
 					}
 
-					openWorkspace(node.repo.uri, { location: OpenWorkspaceLocation.AddToWorkspace });
+					openWorkspace(node.repo.uri, { location: 'addToWorkspace' });
 				},
 				this,
 			),

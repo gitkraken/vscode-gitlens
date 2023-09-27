@@ -1,6 +1,6 @@
 import { EventEmitter, Uri } from 'vscode';
 import { md5 } from '@env/crypto';
-import { GravatarDefaultStyle } from './config';
+import type { GravatarDefaultStyle } from './config';
 import type { StoredAvatar } from './constants';
 import { Container } from './container';
 import { getGitHubNoReplyAddressParts } from './git/remotes/github';
@@ -304,7 +304,7 @@ export function resetAvatarCache(reset: 'all' | 'failed' | 'fallback') {
 let defaultGravatarsStyle: GravatarDefaultStyle | undefined = undefined;
 function getDefaultGravatarStyle() {
 	if (defaultGravatarsStyle == null) {
-		defaultGravatarsStyle = configuration.get('defaultGravatarsStyle', undefined, GravatarDefaultStyle.Robot);
+		defaultGravatarsStyle = configuration.get('defaultGravatarsStyle', undefined, 'robohash');
 	}
 	return defaultGravatarsStyle;
 }

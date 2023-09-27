@@ -10,8 +10,8 @@ import { setDefaultGravatarsStyle } from './avatars';
 import { CacheProvider } from './cache';
 import { GitCodeLensController } from './codelens/codeLensController';
 import type { ToggleFileAnnotationCommandArgs } from './commands';
-import type { FileAnnotationType, ModeConfig } from './config';
-import { AnnotationsToggleMode, DateSource, DateStyle, fromOutputLevel } from './config';
+import type { DateStyle, FileAnnotationType, ModeConfig } from './config';
+import { fromOutputLevel } from './config';
 import { Commands, extensionPrefix } from './constants';
 import { EventBus } from './eventBus';
 import { GitFileSystemProvider } from './git/fsProvider';
@@ -128,8 +128,8 @@ export class Container {
 
 	readonly CommitDateFormatting = {
 		dateFormat: null as string | null,
-		dateSource: DateSource.Authored,
-		dateStyle: DateStyle.Relative,
+		dateSource: 'authored',
+		dateStyle: 'relative',
 
 		reset: () => {
 			this.CommitDateFormatting.dateFormat = configuration.get('defaultDateFormat');
@@ -149,7 +149,7 @@ export class Container {
 
 	readonly PullRequestDateFormatting = {
 		dateFormat: null as string | null,
-		dateStyle: DateStyle.Relative,
+		dateStyle: 'relative',
 
 		reset: () => {
 			this.PullRequestDateFormatting.dateFormat = configuration.get('defaultDateFormat');
@@ -159,7 +159,7 @@ export class Container {
 
 	readonly TagDateFormatting = {
 		dateFormat: null as string | null,
-		dateStyle: DateStyle.Relative,
+		dateStyle: 'relative',
 
 		reset: () => {
 			this.TagDateFormatting.dateFormat = configuration.get('defaultDateFormat');
@@ -713,12 +713,12 @@ export class Container {
 			get: (section, value) => {
 				if (mode.annotations != null) {
 					if (configuration.matches(`${mode.annotations}.toggleMode`, section, value)) {
-						value = AnnotationsToggleMode.Window as typeof value;
+						value = 'window' as typeof value;
 						return value;
 					}
 
 					if (configuration.matches(mode.annotations, section, value)) {
-						value.toggleMode = AnnotationsToggleMode.Window;
+						value.toggleMode = 'window';
 						return value;
 					}
 				}
@@ -739,7 +739,7 @@ export class Container {
 			},
 			getAll: cfg => {
 				if (mode.annotations != null) {
-					cfg[mode.annotations].toggleMode = AnnotationsToggleMode.Window;
+					cfg[mode.annotations].toggleMode = 'window';
 				}
 
 				if (mode.codeLens != null) {

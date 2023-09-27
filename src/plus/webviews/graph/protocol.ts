@@ -57,10 +57,7 @@ export type GraphMissingRefsMetadataType = RefMetadataType;
 export type GraphMissingRefsMetadata = Record</*id*/ string, /*missingType*/ GraphMissingRefsMetadataType[]>;
 export type GraphPullRequestMetadata = PullRequestMetadata;
 
-export enum GraphRefMetadataTypes {
-	Upstream = 'upstream',
-	PullRequest = 'pullRequest',
-}
+export type GraphRefMetadataTypes = 'upstream' | 'pullRequest' | 'issue';
 
 export type GraphScrollMarkerTypes =
 	| 'selection'
@@ -82,7 +79,7 @@ export type GraphMinimapMarkerTypes =
 	| 'tags'
 	| 'upstream';
 
-export const supportedRefMetadataTypes: GraphRefMetadataType[] = Object.values(GraphRefMetadataTypes);
+export const supportedRefMetadataTypes: GraphRefMetadataType[] = ['upstream', 'pullRequest', 'issue'];
 
 export interface State {
 	webviewId: WebviewIds | WebviewViewIds;

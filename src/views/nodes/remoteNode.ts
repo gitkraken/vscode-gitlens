@@ -55,7 +55,7 @@ export class RemoteNode extends ViewNode<ViewsWithRemotes> {
 					showTracking: false,
 				}),
 		);
-		if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchNodes;
+		if (this.view.config.branches.layout === 'list') return branchNodes;
 
 		const hierarchy = makeHierarchical(
 			branchNodes,

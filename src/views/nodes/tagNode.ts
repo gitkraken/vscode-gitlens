@@ -1,5 +1,4 @@
 import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { ViewBranchesLayout } from '../../config';
 import { GlyphChars } from '../../constants';
 import { emojify } from '../../emojis';
 import type { GitUri } from '../../git/gitUri';
@@ -43,7 +42,7 @@ export class TagNode extends ViewRefNode<ViewsWithTags, GitTagReference> impleme
 	}
 
 	get label(): string {
-		return this.view.config.branches.layout === ViewBranchesLayout.Tree ? this.tag.getBasename() : this.tag.name;
+		return this.view.config.branches.layout === 'tree' ? this.tag.getBasename() : this.tag.name;
 	}
 
 	get ref(): GitTagReference {

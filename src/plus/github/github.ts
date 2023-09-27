@@ -17,8 +17,7 @@ import {
 	ProviderRequestNotFoundError,
 	ProviderRequestRateLimitError,
 } from '../../errors';
-import type { PagedResult } from '../../git/gitProvider';
-import { RepositoryVisibility } from '../../git/gitProvider';
+import type { PagedResult , RepositoryVisibility } from '../../git/gitProvider';
 import type { Account } from '../../git/models/author';
 import type { DefaultBranch } from '../../git/models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../../git/models/issue';
@@ -36,7 +35,6 @@ import { uniqueBy } from '../../system/array';
 import { configuration } from '../../system/configuration';
 import { debug } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
-import { LogLevel } from '../../system/logger.constants';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
 import { maybeStopWatch } from '../../system/stopwatch';
@@ -1840,7 +1838,7 @@ export class GitHubApi implements Disposable {
 			);
 			if (rsp?.repository?.visibility == null) return undefined;
 
-			return rsp.repository.visibility === 'PUBLIC' ? RepositoryVisibility.Public : RepositoryVisibility.Private;
+			return rsp.repository.visibility === 'PUBLIC' ? 'public' : 'private';
 		} catch (ex) {
 			if (ex instanceof ProviderRequestNotFoundError) return undefined;
 
@@ -2351,7 +2349,7 @@ export class GitHubApi implements Disposable {
 						  }
 						: fetch,
 					hook:
-						Logger.logLevel === LogLevel.Debug || Logger.isDebugging
+						Logger.logLevel === 'debug' || Logger.isDebugging
 							? async (rqst: typeof request, options: any) => {
 									const sw = maybeStopWatch(`[GITHUB] ${options.method} ${options.url}`, {
 										log: false,

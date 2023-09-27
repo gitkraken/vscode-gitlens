@@ -1,7 +1,6 @@
 import type { Command } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
-import { ViewFilesLayout } from '../../config';
 import type { CoreColors } from '../../constants';
 import { Commands } from '../../constants';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
@@ -50,7 +49,7 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 		let children: FileNode[] =
 			this.status?.conflicts.map(f => new MergeConflictFileNode(this.view, this, f, this.rebaseStatus)) ?? [];
 
-		if (this.view.config.files.layout !== ViewFilesLayout.List) {
+		if (this.view.config.files.layout !== 'list') {
 			const hierarchy = makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
@@ -141,7 +140,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 		const commits = await commit.getCommitsForFiles();
 		let children: FileNode[] = commits.map(c => new CommitFileNode(this.view, this, c.file!, c));
 
-		if (this.view.config.files.layout !== ViewFilesLayout.List) {
+		if (this.view.config.files.layout !== 'list') {
 			const hierarchy = makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),

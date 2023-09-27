@@ -2,7 +2,6 @@
 import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../../../constants';
 import { debounce } from '../../../system/function';
 import { Logger } from '../../../system/logger';
-import { LogLevel } from '../../../system/logger.constants';
 import type {
 	IpcCommandType,
 	IpcMessage,
@@ -75,7 +74,7 @@ export abstract class App<
 					};
 				},
 			},
-			DEBUG ? LogLevel.Debug : LogLevel.Off,
+			DEBUG ? 'debug' : 'off',
 		);
 
 		this.log(`ctor()`);
