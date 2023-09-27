@@ -6,7 +6,7 @@ import type {
 	TreeViewVisibilityChangeEvent,
 } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import type { StashesViewConfig , ViewFilesLayout } from '../config';
+import type { StashesViewConfig, ViewFilesLayout } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
