@@ -593,10 +593,7 @@ export class Repository implements Disposable {
 		remote?: string;
 	}) {
 		try {
-			if (
-				options?.branch != null ||
-				(configuration.get('experimental.nativeGit') ?? this.container.prereleaseOrDebugging)
-			) {
+			if (options?.branch != null || configuration.get('experimental.nativeGit')) {
 				await this.container.git.fetch(this.uri, options);
 			} else {
 				void (await executeCoreGitCommand('git.fetch', this.path));
@@ -798,7 +795,7 @@ export class Repository implements Disposable {
 
 	private async pullCore(options?: { rebase?: boolean }) {
 		try {
-			if (configuration.get('experimental.nativeGit') ?? this.container.prereleaseOrDebugging) {
+			if (configuration.get('experimental.nativeGit')) {
 				const withTags = configuration.getAny<CoreGitConfiguration, boolean>('git.pullTags', this.uri);
 				if (configuration.getAny<CoreGitConfiguration, boolean>('git.fetchOnPull', this.uri)) {
 					await this.container.git.fetch(this.uri);
@@ -884,7 +881,7 @@ export class Repository implements Disposable {
 		};
 	}) {
 		try {
-			if (configuration.get('experimental.nativeGit') ?? this.container.prereleaseOrDebugging) {
+			if (configuration.get('experimental.nativeGit')) {
 				const branch = await this.getBranch(options?.reference?.name);
 				await this.container.git.push(this.uri, {
 					force: options?.force,
