@@ -174,7 +174,7 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 				disposables.push(
 					input.onDidHide(() => resolve(undefined)),
 					input.onDidChangeValue(value => {
-						if (value && !/sk-[a-zA-Z0-9]{32}/.test(value)) {
+						if (value && !/(?:sk-)?[a-zA-Z0-9]{32}/.test(value)) {
 							input.validationMessage = 'Please enter a valid OpenAI API key';
 							return;
 						}
@@ -182,7 +182,7 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 					}),
 					input.onDidAccept(() => {
 						const value = input.value.trim();
-						if (!value || !/sk-[a-zA-Z0-9]{32}/.test(value)) {
+						if (!value || !/(?:sk-)?[a-zA-Z0-9]{32}/.test(value)) {
 							input.validationMessage = 'Please enter a valid OpenAI API key';
 							return;
 						}
