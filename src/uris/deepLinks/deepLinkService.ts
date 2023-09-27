@@ -478,8 +478,22 @@ export class DeepLinkService implements Disposable {
 							remoteUrl: remoteUrl,
 						});
 						if (matchingLocalRepoPaths.length > 0) {
-							action = DeepLinkServiceAction.RepoMatchedInLocalMapping;
-							break;
+							for (const repo of this.container.git.repositories) {
+								if (
+									matchingLocalRepoPaths.some(
+										p => normalizePath(repo.path.toLowerCase()) === normalizePath(p.toLowerCase()),
+									)
+								) {
+									this._context.repo = repo;
+									action = DeepLinkServiceAction.RepoMatched;
+									break;
+								}
+							}
+
+							if (this._context.repo == null) {
+								action = DeepLinkServiceAction.RepoMatchedInLocalMapping;
+								break;
+							}
 						}
 					}
 
