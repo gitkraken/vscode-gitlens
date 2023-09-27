@@ -14844,7 +14844,7 @@
 		"eslint-plugin-wc": "2.0.4",
 		"fantasticon": "1.2.3",
 		"fork-ts-checker-webpack-plugin": "6.5.3",
-		"glob": "10.3.7",
+		"glob": "10.3.10",
 		"html-loader": "4.2.0",
 		"html-webpack-plugin": "5.5.3",
 		"image-minimizer-webpack-plugin": "3.8.3",

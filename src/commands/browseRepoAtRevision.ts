@@ -6,7 +6,7 @@ import { showGenericErrorMessage } from '../messages';
 import { command, executeCoreCommand } from '../system/command';
 import { Logger } from '../system/logger';
 import { basename } from '../system/path';
-import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';
+import { openWorkspace } from '../system/utils';
 import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri } from './base';
 
