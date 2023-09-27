@@ -16,7 +16,7 @@ import { VSCodeCheckbox, VSCodeRadio, VSCodeRadioGroup } from '@vscode/webview-u
 import type { FormEvent, ReactElement } from 'react';
 import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
-import { DateStyle } from '../../../../config';
+import type { DateStyle } from '../../../../config';
 import type { SearchQuery } from '../../../../git/search';
 import type {
 	DidEnsureRowParams,
@@ -1430,7 +1430,7 @@ export function GraphWrapper({
 
 function formatCommitDateTime(
 	date: number,
-	style: DateStyle = DateStyle.Absolute,
+	style: DateStyle = 'absolute',
 	format: DateTimeFormat | string = 'short+short',
 	source?: CommitDateTimeSources,
 ): string {
@@ -1439,7 +1439,7 @@ function formatCommitDateTime(
 			return `${formatDate(date, format)} (${fromNow(date)})`;
 		case CommitDateTimeSources.RowEntry:
 		default:
-			return style === DateStyle.Relative ? fromNow(date) : formatDate(date, format);
+			return style === 'relative' ? fromNow(date) : formatDate(date, format);
 	}
 }
 

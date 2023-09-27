@@ -1,7 +1,7 @@
 import type { ConfigurationChangeEvent, StatusBarItem, TextEditor, Uri } from 'vscode';
 import { CancellationTokenSource, Disposable, MarkdownString, StatusBarAlignment, window } from 'vscode';
 import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleFileAnnotations';
-import { FileAnnotationType, StatusBarCommand } from '../config';
+import { StatusBarCommand } from '../config';
 import { Commands, GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
@@ -258,7 +258,7 @@ export class StatusBarController implements Disposable {
 						arguments: [
 							commit.file.uri,
 							{
-								type: FileAnnotationType.Changes,
+								type: 'changes',
 								context: { sha: commit.sha, only: false, selection: false },
 							},
 						],
@@ -275,7 +275,7 @@ export class StatusBarController implements Disposable {
 						arguments: [
 							commit.file.uri,
 							{
-								type: FileAnnotationType.Changes,
+								type: 'changes',
 								context: { sha: commit.sha, only: true, selection: false },
 							},
 						],

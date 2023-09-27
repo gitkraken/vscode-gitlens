@@ -8,7 +8,6 @@ import type {
 } from 'vscode';
 import { OverviewRulerLane, ThemeColor, Uri, window } from 'vscode';
 import type { Config } from '../config';
-import { HeatmapLocations } from '../config';
 import type { Colors, CoreConfiguration } from '../constants';
 import { GlyphChars } from '../constants';
 import type { CommitFormatOptions } from '../git/formatters/commitFormatter';
@@ -99,9 +98,9 @@ export function addOrUpdateGutterHeatmapDecoration(
 	const [r, g, b, a] = getHeatmapColor(date, heatmap);
 
 	const { fadeLines, locations } = configuration.get('heatmap');
-	const gutter = locations.includes(HeatmapLocations.Gutter);
-	const line = locations.includes(HeatmapLocations.Line);
-	const scrollbar = locations.includes(HeatmapLocations.Scrollbar);
+	const gutter = locations.includes('gutter');
+	const line = locations.includes('line');
+	const scrollbar = locations.includes('overview');
 
 	const key = `${r},${g},${b},${a}`;
 	let colorDecoration = map.get(key);

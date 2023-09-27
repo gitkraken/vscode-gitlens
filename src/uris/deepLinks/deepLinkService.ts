@@ -12,17 +12,16 @@ import { configuration } from '../../system/configuration';
 import { once } from '../../system/event';
 import { Logger } from '../../system/logger';
 import { normalizePath } from '../../system/path';
-import { openWorkspace, OpenWorkspaceLocation } from '../../system/utils';
-import type { DeepLink, DeepLinkProgress, DeepLinkServiceContext } from './deepLink';
+import type { OpenWorkspaceLocation } from '../../system/utils';
+import { openWorkspace } from '../../system/utils';
+import type { DeepLink, DeepLinkProgress, DeepLinkRepoOpenType, DeepLinkServiceContext, UriTypes } from './deepLink';
 import {
-	DeepLinkRepoOpenType,
 	DeepLinkServiceAction,
 	DeepLinkServiceState,
 	deepLinkStateToProgress,
 	deepLinkStateTransitionTable,
 	DeepLinkType,
 	parseDeepLinkUri,
-	UriTypes,
 } from './deepLink';
 
 export class DeepLinkService implements Disposable {
@@ -279,16 +278,16 @@ export class DeepLinkService implements Disposable {
 		customMessage?: string;
 	}): Promise<DeepLinkRepoOpenType | undefined> {
 		const openOptions: { title: string; action?: DeepLinkRepoOpenType; isCloseAffordance?: boolean }[] = [
-			{ title: 'Open Folder', action: DeepLinkRepoOpenType.Folder },
-			{ title: 'Open Workspace', action: DeepLinkRepoOpenType.Workspace },
+			{ title: 'Open Folder', action: 'folder' },
+			{ title: 'Open Workspace', action: 'workspace' },
 		];
 
 		if (this._context.remoteUrl != null) {
-			openOptions.push({ title: 'Clone', action: DeepLinkRepoOpenType.Clone });
+			openOptions.push({ title: 'Clone', action: 'clone' });
 		}
 
 		if (options?.includeCurrent) {
-			openOptions.push({ title: 'Use Current Window', action: DeepLinkRepoOpenType.Current });
+			openOptions.push({ title: 'Use Current Window', action: 'current' });
 		}
 
 		openOptions.push({ title: 'Cancel', isCloseAffordance: true });
@@ -302,21 +301,19 @@ export class DeepLinkService implements Disposable {
 	}
 
 	private async showOpenLocationPrompt(openType: DeepLinkRepoOpenType): Promise<OpenWorkspaceLocation | undefined> {
-		// Only add the "add to workspace" option if openType is DeepLinkRepoOpenType.Folder
+		// Only add the "add to workspace" option if openType is 'folder'
 		const openOptions: { title: string; action?: OpenWorkspaceLocation; isCloseAffordance?: boolean }[] = [
-			{ title: 'Open', action: OpenWorkspaceLocation.CurrentWindow },
-			{ title: 'Open in New Window', action: OpenWorkspaceLocation.NewWindow },
+			{ title: 'Open', action: 'currentWindow' },
+			{ title: 'Open in New Window', action: 'newWindow' },
 		];
 
-		if (openType !== DeepLinkRepoOpenType.Workspace) {
-			openOptions.push({ title: 'Add to Workspace', action: OpenWorkspaceLocation.AddToWorkspace });
+		if (openType !== 'workspace') {
+			openOptions.push({ title: 'Add to Workspace', action: 'addToWorkspace' });
 		}
 
 		openOptions.push({ title: 'Cancel', isCloseAffordance: true });
 		const openLocationResult = await window.showInformationMessage(
-			`Please choose an option to open the repository ${
-				openType === DeepLinkRepoOpenType.Clone ? 'after cloning' : openType
-			}.`,
+			`Please choose an option to open the repository ${openType === 'clone' ? 'after cloning' : openType}.`,
 			{ modal: true },
 			...openOptions,
 		);
@@ -530,7 +527,7 @@ export class DeepLinkService implements Disposable {
 							break;
 						} else if (chosenRepoPath !== 'Choose a different location') {
 							repoOpenUri = Uri.file(chosenRepoPath);
-							repoOpenType = DeepLinkRepoOpenType.Folder;
+							repoOpenType = 'folder';
 						}
 					}
 
@@ -557,17 +554,13 @@ export class DeepLinkService implements Disposable {
 					if (repoOpenUri == null) {
 						repoOpenUri = (
 							await window.showOpenDialog({
-								title: `Choose a ${
-									repoOpenType === DeepLinkRepoOpenType.Workspace ? 'workspace' : 'folder'
-								} to ${
-									repoOpenType === DeepLinkRepoOpenType.Clone
-										? 'clone the repository to'
-										: 'open the repository'
+								title: `Choose a ${repoOpenType === 'workspace' ? 'workspace' : 'folder'} to ${
+									repoOpenType === 'clone' ? 'clone the repository to' : 'open the repository'
 								}`,
-								canSelectFiles: repoOpenType === DeepLinkRepoOpenType.Workspace,
-								canSelectFolders: repoOpenType !== DeepLinkRepoOpenType.Workspace,
+								canSelectFiles: repoOpenType === 'workspace',
+								canSelectFolders: repoOpenType !== 'workspace',
 								canSelectMany: false,
-								...(repoOpenType === DeepLinkRepoOpenType.Workspace && {
+								...(repoOpenType === 'workspace' && {
 									filters: { Workspaces: ['code-workspace'] },
 								}),
 							})
@@ -579,7 +572,7 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					if (repoOpenUri != null && remoteUrl != null && repoOpenType === DeepLinkRepoOpenType.Clone) {
+					if (repoOpenUri != null && remoteUrl != null && repoOpenType === 'clone') {
 						// clone the repository, then set repoOpenUri to the repo path
 						let repoClonePath;
 						try {
@@ -608,8 +601,8 @@ export class DeepLinkService implements Disposable {
 
 					// Add the repo to the repo path mapping if it exists
 					if (
-						repoOpenType !== DeepLinkRepoOpenType.Current &&
-						repoOpenType !== DeepLinkRepoOpenType.Workspace &&
+						repoOpenType !== 'current' &&
+						repoOpenType !== 'workspace' &&
 						!matchingLocalRepoPaths.includes(repoOpenUri.fsPath)
 					) {
 						const chosenRepo = await this.container.git.getOrOpenRepository(repoOpenUri, {
@@ -624,10 +617,7 @@ export class DeepLinkService implements Disposable {
 						}
 					}
 
-					if (
-						repoOpenLocation === OpenWorkspaceLocation.AddToWorkspace &&
-						(workspace.workspaceFolders?.length || 0) > 1
-					) {
+					if (repoOpenLocation === 'addToWorkspace' && (workspace.workspaceFolders?.length || 0) > 1) {
 						action = DeepLinkServiceAction.OpenRepo;
 					} else {
 						// Deep link will resolve in a different service instance
@@ -973,7 +963,9 @@ export class DeepLinkService implements Disposable {
 
 		// Start with the prefix, add the repo prefix and the repo ID to the URL, and then add the target tag and target ID to the URL (if applicable)
 		const deepLink = new URL(
-			`${scheme}://${this.container.context.extension.id}/${UriTypes.DeepLink}/${DeepLinkType.Repository}/${repoId}${target}`,
+			`${scheme}://${this.container.context.extension.id}/${'link' satisfies UriTypes}/${
+				DeepLinkType.Repository
+			}/${repoId}${target}`,
 		);
 
 		// Add the remote URL as a query parameter

@@ -1,6 +1,5 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { ViewsFilesConfig } from '../../config';
-import { ViewFilesLayout } from '../../config';
+import type { ViewFilesLayout, ViewsFilesConfig } from '../../config';
 import { GitUri } from '../../git/gitUri';
 import type { HierarchicalItem } from '../../system/array';
 import { sortCompare } from '../../system/string';
@@ -54,7 +53,7 @@ export class FolderNode extends ViewNode<ViewsWithCommits | StashesView> {
 			this.root.descendants,
 			this.relativePath === undefined,
 		);
-		if (nesting === ViewFilesLayout.List) {
+		if (nesting === 'list') {
 			this.root.descendants.forEach(n => (n.relativePath = this.root.relativePath));
 			children = this.root.descendants;
 		} else {
@@ -114,13 +113,13 @@ export class FolderNode extends ViewNode<ViewsWithCommits | StashesView> {
 		children: T[],
 		isRoot: boolean,
 	): ViewFilesLayout {
-		const nesting = config.layout || ViewFilesLayout.Auto;
-		if (nesting === ViewFilesLayout.Auto) {
+		const nesting = config.layout || 'auto';
+		if (nesting === 'auto') {
 			if (isRoot || config.compact) {
 				const nestingThreshold = config.threshold || 5;
-				if (children.length <= nestingThreshold) return ViewFilesLayout.List;
+				if (children.length <= nestingThreshold) return 'list';
 			}
-			return ViewFilesLayout.Tree;
+			return 'tree';
 		}
 		return nesting;
 	}

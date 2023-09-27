@@ -1,5 +1,4 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ViewFilesLayout } from '../../config';
 import type { CoreColors } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
@@ -42,7 +41,7 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 			f => new MergeConflictFileNode(this.view, this, f, this.mergeStatus),
 		);
 
-		if (this.view.config.files.layout !== ViewFilesLayout.List) {
+		if (this.view.config.files.layout !== 'list') {
 			const hierarchy = makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),

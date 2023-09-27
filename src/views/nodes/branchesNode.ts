@@ -1,5 +1,4 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ViewBranchesLayout } from '../../config';
 import { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
 import { makeHierarchical } from '../../system/array';
@@ -62,7 +61,7 @@ export class BranchesNode extends ViewNode<ViewsWithBranchesNode> {
 						},
 					),
 			);
-			if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchNodes;
+			if (this.view.config.branches.layout === 'list') return branchNodes;
 
 			const hierarchy = makeHierarchical(
 				branchNodes,

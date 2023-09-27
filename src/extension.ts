@@ -5,7 +5,7 @@ import { isWeb } from '@env/platform';
 import { Api } from './api/api';
 import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';
 import type { CreatePullRequestOnRemoteCommandArgs, OpenPullRequestOnRemoteCommandArgs } from './commands';
-import { fromOutputLevel, OutputLevel } from './config';
+import { fromOutputLevel } from './config';
 import { Commands, SyncedStorageKeys } from './constants';
 import { Container } from './container';
 import { isGitUri } from './git/gitUri';
@@ -21,7 +21,6 @@ import { setContext } from './system/context';
 import { setDefaultDateLocales } from './system/date';
 import { once } from './system/event';
 import { getLoggableName, Logger } from './system/logger';
-import { LogLevel } from './system/logger.constants';
 import { flatten } from './system/object';
 import { Stopwatch } from './system/stopwatch';
 import { Storage } from './system/storage';
@@ -112,7 +111,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	}
 
 	let exitMessage;
-	if (Logger.enabled(LogLevel.Debug)) {
+	if (Logger.enabled('debug')) {
 		exitMessage = `syncedVersion=${syncedVersion}, localVersion=${localVersion}, previousVersion=${previousVersion}, welcome=${storage.get(
 			'views:welcome:visible',
 		)}`;
@@ -159,9 +158,9 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 			void storage.store(prerelease ? 'synced:preVersion' : 'synced:version', gitlensVersion);
 		}
 
-		if (outputLevel === OutputLevel.Debug) {
+		if (outputLevel === 'debug') {
 			setTimeout(async () => {
-				if (configuration.get('outputLevel') !== OutputLevel.Debug) return;
+				if (configuration.get('outputLevel') !== 'debug') return;
 
 				if (!container.prereleaseOrDebugging) {
 					if (await showDebugLoggingWarningMessage()) {

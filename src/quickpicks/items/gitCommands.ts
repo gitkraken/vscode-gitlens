@@ -11,7 +11,7 @@ import type { GitContributor } from '../../git/models/contributor';
 import type { GitReference } from '../../git/models/reference';
 import { createReference, isRevisionRange, shortenRevision } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
-import { getRemoteUpstreamDescription, GitRemoteType } from '../../git/models/remote';
+import { getRemoteUpstreamDescription } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { GitStatus } from '../../git/models/status';
 import type { GitTag } from '../../git/models/tag';
@@ -76,11 +76,11 @@ export async function createBranchQuickPickItem(
 				let left;
 				let right;
 				for (const { type } of remote.urls) {
-					if (type === GitRemoteType.Fetch) {
+					if (type === 'fetch') {
 						left = true;
 
 						if (right) break;
-					} else if (type === GitRemoteType.Push) {
+					} else if (type === 'push') {
 						right = true;
 
 						if (left) break;

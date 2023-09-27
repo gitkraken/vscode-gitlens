@@ -4,7 +4,6 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 import type { Autolink } from '../../../../annotations/autolinks';
-import { ViewFilesLayout } from '../../../../config';
 import type { IssueOrPullRequest } from '../../../../git/models/issue';
 import type { PullRequestShape } from '../../../../git/models/pullRequest';
 import type { HierarchicalItem } from '../../../../system/array';
@@ -484,31 +483,31 @@ export class GlCommitDetailsApp extends LitElement {
 	}
 
 	private renderChangedFiles() {
-		const layout = this.state?.preferences?.files?.layout ?? ViewFilesLayout.Auto;
+		const layout = this.state?.preferences?.files?.layout ?? 'auto';
 
 		let value = 'tree';
 		let icon = 'list-tree';
 		let label = 'View as Tree';
 		let isTree = false;
 		if (this.state?.selected?.files != null) {
-			if (layout === ViewFilesLayout.Auto) {
+			if (layout === 'auto') {
 				isTree = this.state.selected.files.length > (this.state.preferences?.files?.threshold ?? 5);
 			} else {
-				isTree = layout === ViewFilesLayout.Tree;
+				isTree = layout === 'tree';
 			}
 
 			switch (layout) {
-				case ViewFilesLayout.Auto:
+				case 'auto':
 					value = 'list';
 					icon = 'gl-list-auto';
 					label = 'View as List';
 					break;
-				case ViewFilesLayout.List:
+				case 'list':
 					value = 'tree';
 					icon = 'list-flat';
 					label = 'View as Tree';
 					break;
-				case ViewFilesLayout.Tree:
+				case 'tree':
 					value = 'auto';
 					icon = 'list-tree';
 					label = 'View as Auto';

@@ -3,7 +3,7 @@ import { Disposable, EventEmitter, ThemeColor, Uri, window } from 'vscode';
 import { getQueryDataFromScmGitUri } from '../@types/vscode.git.uri';
 import type { Colors } from '../constants';
 import { GlyphChars, Schemes } from '../constants';
-import { GitBranchStatus } from '../git/models/branch';
+import type { GitBranchStatus } from '../git/models/branch';
 
 export class ViewFileDecorationProvider implements FileDecorationProvider, Disposable {
 	private readonly _onDidChange = new EventEmitter<undefined | Uri | Uri[]>();
@@ -151,37 +151,37 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 		const [, , status] = uri.path.split('/');
 
 		switch (status as GitBranchStatus) {
-			case GitBranchStatus.Ahead:
+			case 'ahead':
 				return {
 					badge: '▲',
 					color: new ThemeColor('gitlens.decorations.branchAheadForegroundColor' satisfies Colors),
 					tooltip: 'Ahead',
 				};
-			case GitBranchStatus.Behind:
+			case 'behind':
 				return {
 					badge: '▼',
 					color: new ThemeColor('gitlens.decorations.branchBehindForegroundColor' satisfies Colors),
 					tooltip: 'Behind',
 				};
-			case GitBranchStatus.Diverged:
+			case 'diverged':
 				return {
 					badge: '▼▲',
 					color: new ThemeColor('gitlens.decorations.branchDivergedForegroundColor' satisfies Colors),
 					tooltip: 'Diverged',
 				};
-			case GitBranchStatus.MissingUpstream:
+			case 'missingUpstream':
 				return {
 					badge: '!',
 					color: new ThemeColor('gitlens.decorations.branchMissingUpstreamForegroundColor' satisfies Colors),
 					tooltip: 'Missing Upstream',
 				};
-			case GitBranchStatus.UpToDate:
+			case 'upToDate':
 				return {
 					badge: '',
 					color: new ThemeColor('gitlens.decorations.branchUpToDateForegroundColor' satisfies Colors),
 					tooltip: 'Up to Date',
 				};
-			case GitBranchStatus.Unpublished:
+			case 'unpublished':
 				return {
 					badge: '▲+',
 					color: new ThemeColor('gitlens.decorations.branchUnpublishedForegroundColor' satisfies Colors),
@@ -199,19 +199,19 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 
 		let color;
 		switch (status as GitBranchStatus) {
-			case GitBranchStatus.Ahead:
+			case 'ahead':
 				color = new ThemeColor('gitlens.decorations.branchAheadForegroundColor' satisfies Colors);
 				break;
-			case GitBranchStatus.Behind:
+			case 'behind':
 				color = new ThemeColor('gitlens.decorations.branchBehindForegroundColor' satisfies Colors);
 				break;
-			case GitBranchStatus.Diverged:
+			case 'diverged':
 				color = new ThemeColor('gitlens.decorations.branchDivergedForegroundColor' satisfies Colors);
 				break;
-			case GitBranchStatus.UpToDate:
+			case 'upToDate':
 				color = new ThemeColor('gitlens.decorations.branchUpToDateForegroundColor' satisfies Colors);
 				break;
-			case GitBranchStatus.Unpublished:
+			case 'unpublished':
 				color = new ThemeColor('gitlens.decorations.branchUnpublishedForegroundColor' satisfies Colors);
 				break;
 		}

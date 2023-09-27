@@ -9,10 +9,7 @@ import { parseGitRemoteUrl } from '../parsers/remoteParser';
 import type { RemoteProvider } from '../remotes/remoteProvider';
 import type { RichRemoteProvider } from '../remotes/richRemoteProvider';
 
-export const enum GitRemoteType {
-	Fetch = 'fetch',
-	Push = 'push',
-}
+export type GitRemoteType = 'fetch' | 'push';
 
 export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProvider | RichRemoteProvider | undefined> {
 	static getHighlanderProviders(remotes: GitRemote<RemoteProvider | RichRemoteProvider>[]) {
@@ -94,7 +91,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	get url(): string {
 		let bestUrl: string | undefined;
 		for (const remoteUrl of this.urls) {
-			if (remoteUrl.type === GitRemoteType.Push) {
+			if (remoteUrl.type === 'push') {
 				return remoteUrl.url;
 			}
 
@@ -136,11 +133,11 @@ export function getRemoteArrowsGlyph(remote: GitRemote): GlyphChars {
 	let left;
 	let right;
 	for (const { type } of remote.urls) {
-		if (type === GitRemoteType.Fetch) {
+		if (type === 'fetch') {
 			left = true;
 
 			if (right) break;
-		} else if (type === GitRemoteType.Push) {
+		} else if (type === 'push') {
 			right = true;
 
 			if (left) break;

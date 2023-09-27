@@ -1,5 +1,4 @@
 import type { QuickInputButton, QuickPick } from 'vscode';
-import { BranchSorting, TagSorting } from '../config';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
 import type { PlusFeatures } from '../features';
@@ -101,7 +100,7 @@ import { formatPath } from '../system/formatPath';
 import { first, map } from '../system/iterable';
 import { getSettledValue } from '../system/promise';
 import { pad, pluralize, truncate } from '../system/string';
-import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';
+import { openWorkspace } from '../system/utils';
 import type { ViewsWithRepositoryFolders } from '../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -945,7 +944,7 @@ export async function* pickBranchOrTagStepMultiRepo<
 			// Filter out remote branches if we are going to affect multiple repos
 			filter: { branches: state.repos.length === 1 ? undefined : b => !b.remote, ...filter },
 			picked: picked ?? state.reference?.ref,
-			sort: { branches: { orderBy: BranchSorting.DateDesc }, tags: { orderBy: TagSorting.DateDesc } },
+			sort: { branches: { orderBy: 'date:desc' }, tags: { orderBy: 'date:desc' } },
 		});
 	};
 	const branchesAndOrTags = await getBranchesAndOrTagsFn();
@@ -1694,7 +1693,7 @@ export async function* pickWorktreeStep<
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			switch (button) {
 				case OpenInNewWindowQuickInputButton:
-					openWorkspace(item.uri, { location: OpenWorkspaceLocation.NewWindow });
+					openWorkspace(item.uri, { location: 'newWindow' });
 					break;
 				case RevealInSideBarQuickInputButton:
 					void WorktreeActions.reveal(item, { select: true, focus: false, expand: true });
@@ -1755,7 +1754,7 @@ export async function* pickWorktreesStep<
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			switch (button) {
 				case OpenInNewWindowQuickInputButton:
-					openWorkspace(item.uri, { location: OpenWorkspaceLocation.NewWindow });
+					openWorkspace(item.uri, { location: 'newWindow' });
 					break;
 				case RevealInSideBarQuickInputButton:
 					void WorktreeActions.reveal(item, { select: true, focus: false, expand: true });

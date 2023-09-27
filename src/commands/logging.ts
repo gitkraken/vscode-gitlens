@@ -1,4 +1,3 @@
-import { OutputLevel } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { command } from '../system/command';
@@ -12,7 +11,7 @@ export class EnableDebugLoggingCommand extends Command {
 	}
 
 	async execute() {
-		await configuration.updateEffective('outputLevel', OutputLevel.Debug);
+		await configuration.updateEffective('outputLevel', 'debug');
 	}
 }
 
@@ -23,6 +22,6 @@ export class DisableDebugLoggingCommand extends Command {
 	}
 
 	async execute() {
-		await configuration.updateEffective('outputLevel', OutputLevel.Errors);
+		await configuration.updateEffective('outputLevel', 'errors');
 	}
 }

@@ -1,7 +1,6 @@
 import { Uri } from 'vscode';
 import { getAvatarUri } from '../../avatars';
-import type { GravatarDefaultStyle } from '../../config';
-import { ContributorSorting } from '../../config';
+import type { ContributorSorting , GravatarDefaultStyle } from '../../config';
 import { configuration } from '../../system/configuration';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
@@ -21,40 +20,40 @@ export class GitContributor {
 		options = { current: true, orderBy: configuration.get('sortContributorsBy'), ...options };
 
 		switch (options.orderBy) {
-			case ContributorSorting.CountAsc:
+			case 'count:asc':
 				return contributors.sort(
 					(a, b) =>
 						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
 						a.count - b.count ||
 						(a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0),
 				);
-			case ContributorSorting.DateDesc:
+			case 'date:desc':
 				return contributors.sort(
 					(a, b) =>
 						(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 						(b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0) ||
 						b.count - a.count,
 				);
-			case ContributorSorting.DateAsc:
+			case 'date:asc':
 				return contributors.sort(
 					(a, b) =>
 						(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 						(a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0) ||
 						b.count - a.count,
 				);
-			case ContributorSorting.NameAsc:
+			case 'name:asc':
 				return contributors.sort(
 					(a, b) =>
 						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
 						sortCompare(a.name ?? a.username!, b.name ?? b.username!),
 				);
-			case ContributorSorting.NameDesc:
+			case 'name:desc':
 				return contributors.sort(
 					(a, b) =>
 						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
 						sortCompare(b.name ?? b.username!, a.name ?? a.username!),
 				);
-			case ContributorSorting.CountDesc:
+			case 'count:desc':
 			default:
 				return contributors.sort(
 					(a, b) =>

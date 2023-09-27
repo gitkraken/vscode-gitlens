@@ -1,5 +1,4 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ViewFilesLayout } from '../../config';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitStashCommit } from '../../git/models/commit';
 import type { GitStashReference } from '../../git/models/reference';
@@ -44,7 +43,7 @@ export class StashNode extends ViewRefNode<ViewsWithStashes, GitStashReference> 
 		const commits = await this.commit.getCommitsForFiles();
 		let children: FileNode[] = commits.map(c => new StashFileNode(this.view, this, c.file!, c as GitStashCommit));
 
-		if (this.view.config.files.layout !== ViewFilesLayout.List) {
+		if (this.view.config.files.layout !== 'list') {
 			const hierarchy = makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),

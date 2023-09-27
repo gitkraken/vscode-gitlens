@@ -1,7 +1,6 @@
 import type { Command } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { DiffWithPreviousCommandArgs } from '../../commands';
-import { ViewFilesLayout } from '../../config';
 import type { Colors } from '../../constants';
 import { Commands } from '../../constants';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
@@ -120,7 +119,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 				children.push(new CommitFileNode(this.view, this, c.file!, c));
 			}
 
-			if (this.view.config.files.layout !== ViewFilesLayout.List) {
+			if (this.view.config.files.layout !== 'list') {
 				const hierarchy = makeHierarchical(
 					children as FileNode[],
 					n => n.uri.relativePath.split('/'),

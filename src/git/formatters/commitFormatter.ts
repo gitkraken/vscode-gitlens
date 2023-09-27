@@ -17,7 +17,7 @@ import {
 	ShowQuickCommitFileCommand,
 } from '../../commands';
 import { Command } from '../../commands/base';
-import { DateStyle, FileAnnotationType } from '../../config';
+import type { DateStyle } from '../../config';
 import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
@@ -173,7 +173,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	private get _pullRequestDateOrAgo() {
 		const dateStyle =
 			this._options.dateStyle != null ? this._options.dateStyle : configuration.get('defaultDateStyle');
-		return dateStyle === DateStyle.Absolute ? this._pullRequestDate : this._pullRequestDateAgo;
+		return dateStyle === 'absolute' ? this._pullRequestDate : this._pullRequestDateAgo;
 	}
 
 	get ago(): string {
@@ -184,7 +184,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		const dateStyle =
 			this._options.dateStyle != null ? this._options.dateStyle : configuration.get('defaultDateStyle');
 		return this._padOrTruncate(
-			dateStyle === DateStyle.Absolute ? this._date : this._dateAgo,
+			dateStyle === 'absolute' ? this._date : this._dateAgo,
 			this._options.tokenOptions.agoOrDate,
 		);
 	}
@@ -193,7 +193,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		const dateStyle =
 			this._options.dateStyle != null ? this._options.dateStyle : configuration.get('defaultDateStyle');
 		return this._padOrTruncate(
-			dateStyle === DateStyle.Absolute ? this._date : this._dateAgoShort,
+			dateStyle === 'absolute' ? this._date : this._dateAgoShort,
 			this._options.tokenOptions.agoOrDateShort,
 		);
 	}
@@ -228,7 +228,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		const dateStyle =
 			this._options.dateStyle != null ? this._options.dateStyle : configuration.get('defaultDateStyle');
 		return this._padOrTruncate(
-			dateStyle === DateStyle.Absolute ? this._authorDate : this._authorDateAgo,
+			dateStyle === 'absolute' ? this._authorDate : this._authorDateAgo,
 			this._options.tokenOptions.authorAgoOrDate,
 		);
 	}
@@ -237,7 +237,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		const dateStyle =
 			this._options.dateStyle != null ? this._options.dateStyle : configuration.get('defaultDateStyle');
 		return this._padOrTruncate(
-			dateStyle === DateStyle.Absolute ? this._authorDate : this._authorDateAgoShort,
+			dateStyle === 'absolute' ? this._authorDate : this._authorDateAgoShort,
 			this._options.tokenOptions.authorAgoOrDateShort,
 		);
 	}
@@ -387,7 +387,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 				commands += ` &nbsp;[$(versions)](${OpenFileAtRevisionCommand.getMarkdownCommandArgs(
 					Container.instance.git.getRevisionUri(diffUris.previous),
-					FileAnnotationType.Blame,
+					'blame',
 					this._options.editor?.line,
 				)} "Open Blame Prior to this Change")`;
 			} else {
@@ -423,7 +423,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			);
 			commands += ` &nbsp;[$(versions)](${OpenFileAtRevisionCommand.getMarkdownCommandArgs(
 				uri,
-				FileAnnotationType.Blame,
+				'blame',
 				this._options.editor?.line,
 			)} "Open Blame Prior to this Change")`;
 		}
@@ -530,7 +530,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		const dateStyle =
 			this._options.dateStyle != null ? this._options.dateStyle : configuration.get('defaultDateStyle');
 		return this._padOrTruncate(
-			dateStyle === DateStyle.Absolute ? this._committerDate : this._committerDateAgo,
+			dateStyle === 'absolute' ? this._committerDate : this._committerDateAgo,
 			this._options.tokenOptions.committerAgoOrDate,
 		);
 	}
@@ -539,7 +539,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		const dateStyle =
 			this._options.dateStyle != null ? this._options.dateStyle : configuration.get('defaultDateStyle');
 		return this._padOrTruncate(
-			dateStyle === DateStyle.Absolute ? this._committerDate : this._committerDateAgoShort,
+			dateStyle === 'absolute' ? this._committerDate : this._committerDateAgoShort,
 			this._options.tokenOptions.committerAgoOrDateShort,
 		);
 	}

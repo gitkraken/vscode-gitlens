@@ -1,8 +1,7 @@
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { onDidFetchAvatar } from '../avatars';
-import type { ContributorsViewConfig } from '../config';
-import { ViewFilesLayout } from '../config';
+import type { ContributorsViewConfig, ViewFilesLayout } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -145,17 +144,17 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
-				() => this.setFilesLayout(ViewFilesLayout.Auto),
+				() => this.setFilesLayout('auto'),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToList'),
-				() => this.setFilesLayout(ViewFilesLayout.List),
+				() => this.setFilesLayout('list'),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToTree'),
-				() => this.setFilesLayout(ViewFilesLayout.Tree),
+				() => this.setFilesLayout('tree'),
 				this,
 			),
 

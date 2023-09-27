@@ -1,4 +1,4 @@
-import type { CancellationToken, Event, QuickPickItem } from 'vscode';
+import type { CancellationToken, Event, MessageItem, QuickPickItem } from 'vscode';
 import { Disposable, EventEmitter, ProgressLocation, Uri, window, workspace } from 'vscode';
 import { getSupportedWorkspacesPathMappingProvider } from '@env/providers';
 import type { Container } from '../../container';
@@ -9,7 +9,8 @@ import { showRepositoriesPicker } from '../../quickpicks/repositoryPicker';
 import { SubscriptionState } from '../../subscription';
 import { log } from '../../system/decorators/log';
 import { normalizePath } from '../../system/path';
-import { openWorkspace, OpenWorkspaceLocation } from '../../system/utils';
+import type { OpenWorkspaceLocation } from '../../system/utils';
+import { openWorkspace } from '../../system/utils';
 import type { ServerConnection } from '../gk/serverConnection';
 import type { SubscriptionChangeEvent } from '../subscription/subscriptionService';
 import type {
@@ -23,6 +24,7 @@ import type {
 	LocalWorkspaceRepositoryDescriptor,
 	RemoteDescriptor,
 	RepositoryMatch,
+	WorkspaceAutoAddSetting,
 	WorkspaceRepositoriesByName,
 	WorkspaceRepositoryRelation,
 	WorkspacesResponse,
@@ -34,8 +36,6 @@ import {
 	cloudWorkspaceProviderTypeToRemoteProviderId,
 	LocalWorkspace,
 	WorkspaceAddRepositoriesChoice,
-	WorkspaceAutoAddSetting,
-	WorkspaceType,
 } from './models';
 import { WorkspacesApi } from './workspacesApi';
 import type { WorkspacesPathMappingProvider } from './workspacesPathMappingProvider';
@@ -52,7 +52,7 @@ export class WorkspacesService implements Disposable {
 	private _workspacesApi: WorkspacesApi;
 	private _workspacesPathProvider: WorkspacesPathMappingProvider;
 	private _currentWorkspaceId: string | undefined;
-	private _currentWorkspaceAutoAddSetting: WorkspaceAutoAddSetting = WorkspaceAutoAddSetting.Disabled;
+	private _currentWorkspaceAutoAddSetting: WorkspaceAutoAddSetting = 'disabled';
 	private _currentWorkspace: CloudWorkspace | LocalWorkspace | undefined;
 
 	constructor(
@@ -64,7 +64,7 @@ export class WorkspacesService implements Disposable {
 		this._currentWorkspaceId = getCurrentWorkspaceId();
 		this._currentWorkspaceAutoAddSetting =
 			workspace.getConfiguration('gitkraken')?.get<WorkspaceAutoAddSetting>('workspaceAutoAddSetting') ??
-			WorkspaceAutoAddSetting.Disabled;
+			'disabled';
 		this._disposable = Disposable.from(container.subscription.onDidChange(this.onSubscriptionChanged, this));
 	}
 
@@ -289,10 +289,7 @@ export class WorkspacesService implements Disposable {
 			}
 		}
 
-		if (
-			(!options?.force && this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Disabled) ||
-			!currentWorkspace?.current
-		) {
+		if ((!options?.force && this._currentWorkspaceAutoAddSetting === 'disabled') || !currentWorkspace?.current) {
 			return;
 		}
 
@@ -320,7 +317,7 @@ export class WorkspacesService implements Disposable {
 			return;
 		}
 		let chosenRepoPaths: string[] = [];
-		if (!options?.force && this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Prompt) {
+		if (!options?.force && this._currentWorkspaceAutoAddSetting === 'prompt') {
 			const add = { title: 'Add...' };
 			const change = { title: 'Change Auto-Add Behavior...' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
@@ -338,7 +335,7 @@ export class WorkspacesService implements Disposable {
 			}
 		}
 
-		if (options?.force || this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Prompt) {
+		if (options?.force || this._currentWorkspaceAutoAddSetting === 'prompt') {
 			const pick = await showRepositoriesPicker(
 				'Add Repositories to Workspace',
 				'Choose which repositories to add to the current workspace',
@@ -496,7 +493,7 @@ export class WorkspacesService implements Disposable {
 
 		const workspace = this.getCloudWorkspace(workspaceId) ?? this.getLocalWorkspace(workspaceId);
 		let provider: string | undefined;
-		if (provider == null && workspace?.type === WorkspaceType.Cloud) {
+		if (provider == null && workspace?.type === 'cloud') {
 			provider = workspace.provider;
 		}
 
@@ -1179,17 +1176,22 @@ export class WorkspacesService implements Disposable {
 
 		workspace.setLocalPath(newWorkspaceUri.fsPath);
 
-		const open = await window.showInformationMessage(
+		type LocationMessageItem = MessageItem & { location?: OpenWorkspaceLocation };
+
+		const openNewWindow: LocationMessageItem = { title: 'Open in New Window', location: 'newWindow' };
+		const openCurrent: LocationMessageItem = { title: 'Open in Current Window', location: 'currentWindow' };
+		const cancel: LocationMessageItem = { title: 'Cancel', isCloseAffordance: true } as const;
+		const result = await window.showInformationMessage(
 			`Workspace file created for ${workspace.name}. Would you like to open it now?`,
 			{ modal: true },
-			{ title: 'Open in New Window', location: OpenWorkspaceLocation.NewWindow },
-			{ title: 'Open in Current Window', location: OpenWorkspaceLocation.CurrentWindow },
-			{ title: 'Cancel', isCloseAffordance: true },
+			openNewWindow,
+			openCurrent,
+			cancel,
 		);
 
-		if (open == null || open.title == 'Cancel') return;
+		if (result == null || result === cancel) return;
 
-		void this.openCodeWorkspaceFile(workspaceId, { location: open.location });
+		void this.openCodeWorkspaceFile(workspaceId, { location: result.location });
 	}
 
 	@log()
@@ -1200,33 +1202,28 @@ export class WorkspacesService implements Disposable {
 				this._currentWorkspaceId == null ||
 				this._currentWorkspaceAutoAddSetting == null)
 		) {
-			return WorkspaceAutoAddSetting.Disabled;
+			return 'disabled';
 		}
 
-		const defaultOption = options?.current
-			? this._currentWorkspaceAutoAddSetting
-			: WorkspaceAutoAddSetting.Disabled;
+		const defaultOption = options?.current ? this._currentWorkspaceAutoAddSetting : 'disabled';
 
 		type QuickPickItemWithOption = QuickPickItem & { option: WorkspaceAutoAddSetting };
 
 		const autoAddOptions: QuickPickItemWithOption[] = [
 			{
 				label: 'Add on Workspace (Window) Open',
-				description:
-					this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Enabled ? 'current' : undefined,
-				option: WorkspaceAutoAddSetting.Enabled,
+				description: this._currentWorkspaceAutoAddSetting === 'enabled' ? 'current' : undefined,
+				option: 'enabled',
 			},
 			{
 				label: 'Prompt on Workspace (Window) Open',
-				description:
-					this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Prompt ? 'current' : undefined,
-				option: WorkspaceAutoAddSetting.Prompt,
+				description: this._currentWorkspaceAutoAddSetting === 'prompt' ? 'current' : undefined,
+				option: 'prompt',
 			},
 			{
 				label: 'Never',
-				description:
-					this._currentWorkspaceAutoAddSetting === WorkspaceAutoAddSetting.Disabled ? 'current' : undefined,
-				option: WorkspaceAutoAddSetting.Disabled,
+				description: this._currentWorkspaceAutoAddSetting === 'disabled' ? 'current' : undefined,
+				option: 'disabled',
 			},
 		];
 
@@ -1269,21 +1266,18 @@ export class WorkspacesService implements Disposable {
 			return void this.saveAsCodeWorkspaceFile(workspaceId);
 		}
 
-		let openLocation =
-			options?.location === OpenWorkspaceLocation.CurrentWindow
-				? OpenWorkspaceLocation.CurrentWindow
-				: OpenWorkspaceLocation.NewWindow;
+		let openLocation: OpenWorkspaceLocation = options?.location === 'currentWindow' ? 'currentWindow' : 'newWindow';
 		if (!options?.location) {
 			const openLocationChoice = await window.showInformationMessage(
 				`How would you like to open the workspace file for ${workspace.name}?`,
 				{ modal: true },
-				{ title: 'Open in New Window', location: OpenWorkspaceLocation.NewWindow },
-				{ title: 'Open in Current Window', location: OpenWorkspaceLocation.CurrentWindow },
+				{ title: 'Open in New Window', location: 'newWindow' as const },
+				{ title: 'Open in Current Window', location: 'currentWindow' as const },
 				{ title: 'Cancel', isCloseAffordance: true },
 			);
 
 			if (openLocationChoice == null || openLocationChoice.title == 'Cancel') return;
-			openLocation = openLocationChoice.location ?? OpenWorkspaceLocation.NewWindow;
+			openLocation = openLocationChoice.location ?? 'newWindow';
 		}
 
 		if (!(await this._workspacesPathProvider.confirmCloudWorkspaceCodeWorkspaceFilePath(workspace.id))) {

@@ -1,7 +1,7 @@
 import { hrtime } from '@env/hrtime';
 import type { LogProvider } from './logger';
 import { defaultLogProvider } from './logger';
-import { LogLevel } from './logger.constants';
+import type { LogLevel } from './logger.constants';
 import type { LogScope } from './logger.scope';
 import { getNextLogScopeId } from './logger.scope';
 
@@ -11,7 +11,7 @@ type StopwatchOptions = {
 	logLevel?: StopwatchLogLevel;
 	provider?: LogProvider;
 };
-type StopwatchLogLevel = Exclude<LogLevel, LogLevel.Off>;
+type StopwatchLogLevel = Exclude<LogLevel, 'off'>;
 
 export class Stopwatch {
 	private readonly instance = `[${String(getNextLogScopeId()).padStart(5)}] `;
@@ -42,7 +42,7 @@ export class Stopwatch {
 			logOptions = options?.log ?? {};
 		}
 
-		this.logLevel = options?.logLevel ?? LogLevel.Info;
+		this.logLevel = options?.logLevel ?? 'info';
 		this.logProvider = options?.provider ?? defaultLogProvider;
 		this._time = hrtime();
 
@@ -112,7 +112,7 @@ export class Stopwatch {
 
 		const prefix = `${this.instance}${scope}${options?.message ?? ''}`;
 		this.logProvider.log(
-			ms > 250 ? LogLevel.Warn : this.logLevel,
+			ms > 250 ? 'warn' : this.logLevel,
 			logScope,
 			`${prefix ? `${prefix} ` : ''}[${ms}ms]${options?.suffix ?? ''}`,
 		);
@@ -124,7 +124,7 @@ export function maybeStopWatch(
 	options?: StopwatchOptions,
 	...params: any[]
 ): Stopwatch | undefined {
-	return (options?.provider ?? defaultLogProvider).enabled(options?.logLevel ?? LogLevel.Info)
+	return (options?.provider ?? defaultLogProvider).enabled(options?.logLevel ?? 'info')
 		? new Stopwatch(scope, options, ...params)
 		: undefined;
 }

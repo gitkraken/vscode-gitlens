@@ -32,9 +32,9 @@ import type {
 	PreviousLineComparisonUrisResult,
 	RepositoryCloseEvent,
 	RepositoryOpenEvent,
+	RepositoryVisibility,
 	ScmRepository,
 } from '../../git/gitProvider';
-import { GitProviderId, RepositoryVisibility } from '../../git/gitProvider';
 import { GitUri } from '../../git/gitUri';
 import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../git/models/blame';
 import type { BranchSortOptions } from '../../git/models/branch';
@@ -56,14 +56,13 @@ import type {
 	GitGraphRowStats,
 	GitGraphRowTag,
 } from '../../git/models/graph';
-import { GitGraphRowType } from '../../git/models/graph';
 import type { GitLog } from '../../git/models/log';
 import type { GitMergeStatus } from '../../git/models/merge';
 import type { GitRebaseStatus } from '../../git/models/rebase';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
 import { createReference, isRevisionRange, isSha, isShaLike, isUncommitted } from '../../git/models/reference';
 import type { GitReflog } from '../../git/models/reflog';
-import { getRemoteIconUri, getVisibilityCacheKey, GitRemote, GitRemoteType } from '../../git/models/remote';
+import { getRemoteIconUri, getVisibilityCacheKey, GitRemote } from '../../git/models/remote';
 import type { RepositoryChangeEvent } from '../../git/models/repository';
 import { Repository } from '../../git/models/repository';
 import type { GitStash } from '../../git/models/stash';
@@ -117,7 +116,7 @@ interface RepositoryInfo {
 }
 
 export class GitHubGitProvider implements GitProvider, Disposable {
-	descriptor = { id: GitProviderId.GitHub, name: 'GitHub', virtual: true };
+	descriptor = { id: 'github' as const, name: 'GitHub', virtual: true };
 	readonly supportedSchemes = new Set<string>([Schemes.Virtual, Schemes.GitHub, Schemes.PRs]);
 
 	private _onDidChange = new EventEmitter<void>();
@@ -287,17 +286,17 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	async visibility(repoPath: string): Promise<[visibility: RepositoryVisibility, cacheKey: string | undefined]> {
 		const remotes = await this.getRemotes(repoPath, { sort: true });
-		if (remotes.length === 0) return [RepositoryVisibility.Local, undefined];
+		if (remotes.length === 0) return ['local', undefined];
 
 		for await (const result of asSettled(remotes.map(r => this.getRemoteVisibility(r)))) {
 			if (result.status !== 'fulfilled') continue;
 
-			if (result.value[0] === RepositoryVisibility.Public) {
-				return [RepositoryVisibility.Public, getVisibilityCacheKey(result.value[1])];
+			if (result.value[0] === 'public') {
+				return ['public', getVisibilityCacheKey(result.value[1])];
 			}
 		}
 
-		return [RepositoryVisibility.Private, getVisibilityCacheKey(remotes)];
+		return ['private', getVisibilityCacheKey(remotes)];
 	}
 
 	private async getRemoteVisibility(
@@ -312,10 +311,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					metadata.repo.name,
 				);
 
-				return [visibility ?? RepositoryVisibility.Private, remote];
+				return [visibility ?? 'private', remote];
 			}
 			default:
-				return [RepositoryVisibility.Private, remote];
+				return ['private', remote];
 		}
 	}
 
@@ -1530,7 +1529,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				date: commit.committer.date.getTime(),
 				message: emojify(commit.message && String(commit.message).length ? commit.message : commit.summary),
 				// TODO: review logic for stash, wip, etc
-				type: commit.parents.length > 1 ? GitGraphRowType.MergeCommit : GitGraphRowType.Commit,
+				type: commit.parents.length > 1 ? 'merge-node' : 'commit-node',
 				heads: refHeads,
 				remotes: refRemoteHeads,
 				tags: refTags,
@@ -2543,8 +2542,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				path,
 				getRemoteProviderMatcher(this.container, providers)(url, domain, path),
 				[
-					{ type: GitRemoteType.Fetch, url: url },
-					{ type: GitRemoteType.Push, url: url },
+					{ type: 'fetch', url: url },
+					{ type: 'push', url: url },
 				],
 			),
 		];

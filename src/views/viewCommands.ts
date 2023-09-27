@@ -7,7 +7,7 @@ import type {
 	DiffWithWorkingCommandArgs,
 	OpenFileAtRevisionCommandArgs,
 } from '../commands';
-import { FileAnnotationType, ViewShowBranchComparison } from '../config';
+import type { ViewShowBranchComparison } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { browseAtRevision } from '../git/actions';
@@ -35,7 +35,8 @@ import { configuration } from '../system/configuration';
 import { setContext } from '../system/context';
 import { debug } from '../system/decorators/log';
 import { sequentialize } from '../system/function';
-import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';
+import type { OpenWorkspaceLocation } from '../system/utils';
+import { openWorkspace } from '../system/utils';
 import type { BranchesNode } from './nodes/branchesNode';
 import { BranchNode } from './nodes/branchNode';
 import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
@@ -246,12 +247,12 @@ export class ViewCommands {
 
 		registerViewCommand(
 			'gitlens.views.setBranchComparisonToWorking',
-			n => this.setBranchComparison(n, ViewShowBranchComparison.Working),
+			n => this.setBranchComparison(n, 'working'),
 			this,
 		);
 		registerViewCommand(
 			'gitlens.views.setBranchComparisonToBranch',
-			n => this.setBranchComparison(n, ViewShowBranchComparison.Branch),
+			n => this.setBranchComparison(n, 'branch'),
 			this,
 		);
 
@@ -294,7 +295,7 @@ export class ViewCommands {
 		registerViewCommand('gitlens.views.revealWorktreeInExplorer', this.revealWorktreeInExplorer, this);
 		registerViewCommand(
 			'gitlens.views.openWorktreeInNewWindow',
-			n => this.openWorktree(n, { location: OpenWorkspaceLocation.NewWindow }),
+			n => this.openWorktree(n, { location: 'newWindow' }),
 			this,
 		);
 	}
@@ -522,7 +523,7 @@ export class ViewCommands {
 		await this.openFile(node, { preserveFocus: true, preview: true });
 		void (await this.container.fileAnnotations.toggle(
 			window.activeTextEditor,
-			FileAnnotationType.Changes,
+			'changes',
 			{ sha: node.ref.ref },
 			true,
 		));
@@ -544,7 +545,7 @@ export class ViewCommands {
 		await this.openFile(node, { preserveFocus: true, preview: true });
 		void (await this.container.fileAnnotations.toggle(
 			window.activeTextEditor,
-			FileAnnotationType.Changes,
+			'changes',
 			{ sha: node.ref.ref, only: true },
 			true,
 		));

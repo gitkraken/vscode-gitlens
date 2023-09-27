@@ -1,242 +1,223 @@
 import type { AnthropicModels } from './ai/anthropicProvider';
 import type { OpenAIModels } from './ai/openaiProvider';
 import type { DateTimeFormat } from './system/date';
-import { LogLevel } from './system/logger.constants';
+import type { LogLevel } from './system/logger.constants';
 
 export interface Config {
-	ai: {
-		experimental: {
-			provider: 'openai' | 'anthropic';
-			openai: {
-				model?: OpenAIModels;
-				url?: string | null;
+	readonly ai: {
+		readonly experimental: {
+			readonly provider: 'openai' | 'anthropic';
+			readonly openai: {
+				readonly model?: OpenAIModels;
+				readonly url?: string | null;
 			};
-			anthropic: {
-				model?: AnthropicModels;
+			readonly anthropic: {
+				readonly model?: AnthropicModels;
 			};
 		};
 	};
-	autolinks: AutolinkReference[] | null;
-	blame: {
-		avatars: boolean;
-		compact: boolean;
-		dateFormat: DateTimeFormat | string | null;
-		format: string;
-		heatmap: {
-			enabled: boolean;
-			location: 'left' | 'right';
+	readonly autolinks: AutolinkReference[] | null;
+	readonly blame: {
+		readonly avatars: boolean;
+		readonly compact: boolean;
+		readonly dateFormat: DateTimeFormat | (string & object) | null;
+		readonly format: string;
+		readonly heatmap: {
+			readonly enabled: boolean;
+			readonly location: 'left' | 'right';
 		};
-		highlight: {
-			enabled: boolean;
-			locations: BlameHighlightLocations[];
+		readonly highlight: {
+			readonly enabled: boolean;
+			readonly locations: BlameHighlightLocations[];
 		};
-		ignoreWhitespace: boolean;
-		separateLines: boolean;
-		toggleMode: AnnotationsToggleMode;
+		readonly ignoreWhitespace: boolean;
+		readonly separateLines: boolean;
+		/*readonly*/ toggleMode: AnnotationsToggleMode;
 	};
-	changes: {
-		locations: ChangesLocations[];
-		toggleMode: AnnotationsToggleMode;
+	readonly changes: {
+		readonly locations: ChangesLocations[];
+		/*readonly*/ toggleMode: AnnotationsToggleMode;
 	};
-	codeLens: CodeLensConfig;
-	currentLine: {
-		dateFormat: string | null;
-		enabled: boolean;
-		format: string;
-		uncommittedChangesFormat: string | null;
-		pullRequests: {
-			enabled: boolean;
+	readonly codeLens: CodeLensConfig;
+	readonly currentLine: {
+		readonly dateFormat: string | null;
+		/*readonly*/ enabled: boolean;
+		readonly format: string;
+		readonly uncommittedChangesFormat: string | null;
+		readonly pullRequests: {
+			readonly enabled: boolean;
 		};
-		scrollable: boolean;
+		readonly scrollable: boolean;
 	};
-	debug: boolean;
-	deepLinks: {
-		schemeOverride: boolean | string | null;
+	readonly debug: boolean;
+	readonly deepLinks: {
+		readonly schemeOverride: boolean | string | null;
 	};
-	defaultDateFormat: DateTimeFormat | string | null;
-	defaultDateLocale: string | null;
-	defaultDateShortFormat: DateTimeFormat | string | null;
-	defaultDateSource: DateSource;
-	defaultDateStyle: DateStyle;
-	defaultGravatarsStyle: GravatarDefaultStyle;
-	defaultTimeFormat: DateTimeFormat | string | null;
-	detectNestedRepositories: boolean;
-	experimental: {
-		generateCommitMessagePrompt: string;
-		nativeGit: boolean;
+	readonly defaultDateFormat: DateTimeFormat | (string & object) | null;
+	readonly defaultDateLocale: string | null;
+	readonly defaultDateShortFormat: DateTimeFormat | (string & object) | null;
+	readonly defaultDateSource: DateSource;
+	readonly defaultDateStyle: DateStyle;
+	readonly defaultGravatarsStyle: GravatarDefaultStyle;
+	readonly defaultTimeFormat: DateTimeFormat | (string & object) | null;
+	readonly detectNestedRepositories: boolean;
+	readonly experimental: {
+		readonly generateCommitMessagePrompt: string;
+		readonly nativeGit: boolean;
 	};
-	fileAnnotations: {
-		command: string | null;
+	readonly fileAnnotations: {
+		readonly command: string | null;
 	};
-	gitCommands: {
-		closeOnFocusOut: boolean;
-		search: {
-			matchAll: boolean;
-			matchCase: boolean;
-			matchRegex: boolean;
-			showResultsInSideBar: boolean | null;
+	readonly gitCommands: {
+		readonly closeOnFocusOut: boolean;
+		readonly search: {
+			readonly matchAll: boolean;
+			readonly matchCase: boolean;
+			readonly matchRegex: boolean;
+			readonly showResultsInSideBar: boolean | null;
 		};
-		skipConfirmations: string[];
-		sortBy: GitCommandSorting;
+		readonly skipConfirmations: string[];
+		readonly sortBy: GitCommandSorting;
 	};
-	graph: GraphConfig;
-	heatmap: {
-		ageThreshold: number;
-		coldColor: string;
-		hotColor: string;
-		fadeLines: boolean;
-		locations: HeatmapLocations[];
-		toggleMode: AnnotationsToggleMode;
+	readonly graph: GraphConfig;
+	readonly heatmap: {
+		readonly ageThreshold: number;
+		readonly coldColor: string;
+		readonly hotColor: string;
+		readonly fadeLines: boolean;
+		readonly locations: HeatmapLocations[];
+		/*readonly*/ toggleMode: AnnotationsToggleMode;
 	};
-	hovers: {
-		annotations: {
-			changes: boolean;
-			details: boolean;
-			enabled: boolean;
-			over: 'line' | 'annotation';
+	readonly hovers: {
+		readonly annotations: {
+			readonly changes: boolean;
+			readonly details: boolean;
+			readonly enabled: boolean;
+			readonly over: 'line' | 'annotation';
 		};
-		autolinks: {
-			enabled: boolean;
-			enhanced: boolean;
+		readonly autolinks: {
+			readonly enabled: boolean;
+			readonly enhanced: boolean;
 		};
-		currentLine: {
-			changes: boolean;
-			details: boolean;
-			enabled: boolean;
-			over: 'line' | 'annotation';
+		readonly currentLine: {
+			readonly changes: boolean;
+			readonly details: boolean;
+			readonly enabled: boolean;
+			readonly over: 'line' | 'annotation';
 		};
-		avatars: boolean;
-		avatarSize: number;
-		changesDiff: 'line' | 'hunk';
-		detailsMarkdownFormat: string;
-		enabled: boolean;
-		pullRequests: {
-			enabled: boolean;
-		};
-	};
-	integrations: {
-		enabled: boolean;
-	};
-	keymap: KeyMap;
-	liveshare: {
-		allowGuestAccess: boolean;
-	};
-	menus: boolean | MenuConfig;
-	mode: {
-		active: string;
-		statusBar: {
-			enabled: boolean;
-			alignment: 'left' | 'right';
+		readonly avatars: boolean;
+		readonly avatarSize: number;
+		readonly changesDiff: 'line' | 'hunk';
+		readonly detailsMarkdownFormat: string;
+		/*readonly*/ enabled: boolean;
+		readonly pullRequests: {
+			readonly enabled: boolean;
 		};
 	};
-	modes: Record<string, ModeConfig> | null;
-	outputLevel: OutputLevel;
-	partners: Record<
+	readonly integrations: {
+		readonly enabled: boolean;
+	};
+	readonly keymap: KeyMap;
+	readonly liveshare: {
+		readonly allowGuestAccess: boolean;
+	};
+	readonly menus: boolean | MenuConfig;
+	readonly mode: {
+		readonly active: string;
+		readonly statusBar: {
+			readonly enabled: boolean;
+			readonly alignment: 'left' | 'right';
+		};
+	};
+	readonly modes: Record<string, ModeConfig> | null;
+	readonly outputLevel: OutputLevel;
+	readonly partners: Record<
 		string,
 		{
-			enabled: boolean;
-			[key: string]: any;
+			readonly enabled: boolean;
+			readonly [key: string]: any;
 		}
 	> | null;
-	plusFeatures: {
-		enabled: boolean;
+	readonly plusFeatures: {
+		readonly enabled: boolean;
 	};
-	proxy: {
-		url: string | null;
-		strictSSL: boolean;
+	readonly proxy: {
+		readonly url: string | null;
+		readonly strictSSL: boolean;
 	} | null;
-	rebaseEditor: {
-		ordering: 'asc' | 'desc';
-		showDetailsView: 'open' | 'selection' | false;
+	readonly rebaseEditor: {
+		readonly ordering: 'asc' | 'desc';
+		readonly showDetailsView: 'open' | 'selection' | false;
 	};
-	remotes: RemotesConfig[] | null;
-	showWelcomeOnInstall: boolean;
-	showWhatsNewAfterUpgrades: boolean;
-	sortBranchesBy: BranchSorting;
-	sortContributorsBy: ContributorSorting;
-	sortTagsBy: TagSorting;
-	statusBar: {
-		alignment: 'left' | 'right';
-		command: StatusBarCommand;
-		dateFormat: DateTimeFormat | string | null;
-		enabled: boolean;
-		format: string;
-		reduceFlicker: boolean;
-		pullRequests: {
-			enabled: boolean;
+	readonly remotes: RemotesConfig[] | null;
+	readonly showWelcomeOnInstall: boolean;
+	readonly showWhatsNewAfterUpgrades: boolean;
+	readonly sortBranchesBy: BranchSorting;
+	readonly sortContributorsBy: ContributorSorting;
+	readonly sortTagsBy: TagSorting;
+	readonly statusBar: {
+		readonly alignment: 'left' | 'right';
+		readonly command: StatusBarCommand;
+		readonly dateFormat: DateTimeFormat | (string & object) | null;
+		/*readonly*/ enabled: boolean;
+		readonly format: string;
+		readonly reduceFlicker: boolean;
+		readonly pullRequests: {
+			readonly enabled: boolean;
 		};
-		tooltipFormat: string;
+		readonly tooltipFormat: string;
 	};
-	strings: {
-		codeLens: {
-			unsavedChanges: {
-				recentChangeAndAuthors: string;
-				recentChangeOnly: string;
-				authorsOnly: string;
+	readonly strings: {
+		readonly codeLens: {
+			readonly unsavedChanges: {
+				readonly recentChangeAndAuthors: string;
+				readonly recentChangeOnly: string;
+				readonly authorsOnly: string;
 			};
 		};
 	};
-	telemetry: {
-		enabled: boolean;
+	readonly telemetry: {
+		readonly enabled: boolean;
 	};
-	terminal: {
-		overrideGitEditor: boolean;
+	readonly terminal: {
+		readonly overrideGitEditor: boolean;
 	};
-	terminalLinks: {
-		enabled: boolean;
-		showDetailsView: boolean;
+	readonly terminalLinks: {
+		readonly enabled: boolean;
+		readonly showDetailsView: boolean;
 	};
-	views: ViewsConfig;
-	virtualRepositories: {
-		enabled: boolean;
+	readonly views: ViewsConfig;
+	readonly virtualRepositories: {
+		readonly enabled: boolean;
 	};
-	visualHistory: {
-		queryLimit: number;
+	readonly visualHistory: {
+		readonly queryLimit: number;
 	};
-	worktrees: {
-		defaultLocation: string | null;
-		openAfterCreate: 'always' | 'alwaysNewWindow' | 'onlyWhenEmpty' | 'never' | 'prompt';
-		promptForLocation: boolean;
+	readonly worktrees: {
+		readonly defaultLocation: string | null;
+		readonly openAfterCreate: 'always' | 'alwaysNewWindow' | 'onlyWhenEmpty' | 'never' | 'prompt';
+		readonly promptForLocation: boolean;
 	};
-	advanced: AdvancedConfig;
+	readonly advanced: AdvancedConfig;
 }
 
-export const enum AnnotationsToggleMode {
-	File = 'file',
-	Window = 'window',
-}
-
+export type AnnotationsToggleMode = 'file' | 'window';
 export type AutolinkType = 'issue' | 'pullrequest';
 
 export interface AutolinkReference {
-	prefix: string;
-	url: string;
-	title?: string;
-	alphanumeric?: boolean;
-	ignoreCase?: boolean;
+	readonly prefix: string;
+	readonly url: string;
+	readonly title?: string;
+	readonly alphanumeric?: boolean;
+	readonly ignoreCase?: boolean;
 
-	type?: AutolinkType;
-	description?: string;
+	readonly type?: AutolinkType;
+	readonly description?: string;
 }
 
-export const enum BlameHighlightLocations {
-	Gutter = 'gutter',
-	Line = 'line',
-	Scrollbar = 'overview',
-}
-
-export const enum BranchSorting {
-	DateDesc = 'date:desc',
-	DateAsc = 'date:asc',
-	NameAsc = 'name:asc',
-	NameDesc = 'name:desc',
-}
-
-export const enum ChangesLocations {
-	Gutter = 'gutter',
-	Line = 'line',
-	Scrollbar = 'overview',
-}
+export type BlameHighlightLocations = 'gutter' | 'line' | 'overview';
+export type BranchSorting = 'date:desc' | 'date:asc' | 'name:asc' | 'name:desc';
+export type ChangesLocations = 'gutter' | 'line' | 'overview';
 
 export const enum CodeLensCommand {
 	CopyRemoteCommitUrl = 'gitlens.copyRemoteCommitUrl',
@@ -256,84 +237,29 @@ export const enum CodeLensCommand {
 	ToggleFileHeatmap = 'gitlens.toggleFileHeatmap',
 }
 
-export const enum CodeLensScopes {
-	Document = 'document',
-	Containers = 'containers',
-	Blocks = 'blocks',
-}
+export type CodeLensScopes = 'document' | 'containers' | 'blocks';
+export type ContributorSorting = 'count:desc' | 'count:asc' | 'date:desc' | 'date:asc' | 'name:asc' | 'name:desc';
+export type CustomRemoteType =
+	| 'AzureDevOps'
+	| 'Bitbucket'
+	| 'BitbucketServer'
+	| 'Custom'
+	| 'Gerrit'
+	| 'GoogleSource'
+	| 'Gitea'
+	| 'GitHub'
+	| 'GitLab';
 
-export const enum ContributorSorting {
-	CountDesc = 'count:desc',
-	CountAsc = 'count:asc',
-	DateDesc = 'date:desc',
-	DateAsc = 'date:asc',
-	NameAsc = 'name:asc',
-	NameDesc = 'name:desc',
-}
-
-export const enum CustomRemoteType {
-	AzureDevOps = 'AzureDevOps',
-	Bitbucket = 'Bitbucket',
-	BitbucketServer = 'BitbucketServer',
-	Custom = 'Custom',
-	Gerrit = 'Gerrit',
-	GoogleSource = 'GoogleSource',
-	Gitea = 'Gitea',
-	GitHub = 'GitHub',
-	GitLab = 'GitLab',
-}
-
-export const enum DateSource {
-	Authored = 'authored',
-	Committed = 'committed',
-}
-
-export const enum DateStyle {
-	Absolute = 'absolute',
-	Relative = 'relative',
-}
-
-export const enum FileAnnotationType {
-	Blame = 'blame',
-	Changes = 'changes',
-	Heatmap = 'heatmap',
-}
-
-export const enum GitCommandSorting {
-	Name = 'name',
-	Usage = 'usage',
-}
-
+export type DateSource = 'authored' | 'committed';
+export type DateStyle = 'absolute' | 'relative';
+export type FileAnnotationType = 'blame' | 'changes' | 'heatmap';
+export type GitCommandSorting = 'name' | 'usage';
 export type GraphScrollMarkersAdditionalTypes = 'localBranches' | 'remoteBranches' | 'stashes' | 'tags';
 export type GraphMinimapMarkersAdditionalTypes = 'localBranches' | 'remoteBranches' | 'stashes' | 'tags';
-
-export const enum GravatarDefaultStyle {
-	Faces = 'wavatar',
-	Geometric = 'identicon',
-	Monster = 'monsterid',
-	MysteryPerson = 'mp',
-	Retro = 'retro',
-	Robot = 'robohash',
-}
-
-export const enum HeatmapLocations {
-	Gutter = 'gutter',
-	Line = 'line',
-	Scrollbar = 'overview',
-}
-
-export const enum KeyMap {
-	Alternate = 'alternate',
-	Chorded = 'chorded',
-	None = 'none',
-}
-
-export const enum OutputLevel {
-	Silent = 'silent',
-	Errors = 'errors',
-	Verbose = 'verbose',
-	Debug = 'debug',
-}
+export type GravatarDefaultStyle = 'wavatar' | 'identicon' | 'monsterid' | 'mp' | 'retro' | 'robohash';
+export type HeatmapLocations = 'gutter' | 'line' | 'overview';
+export type KeyMap = 'alternate' | 'chorded' | 'none';
+export type OutputLevel = 'silent' | 'errors' | 'verbose' | 'debug';
 
 export const enum StatusBarCommand {
 	CopyRemoteCommitUrl = 'gitlens.copyRemoteCommitUrl',
@@ -355,283 +281,265 @@ export const enum StatusBarCommand {
 	ToggleFileHeatmap = 'gitlens.toggleFileHeatmap',
 }
 
-export const enum TagSorting {
-	DateDesc = 'date:desc',
-	DateAsc = 'date:asc',
-	NameAsc = 'name:asc',
-	NameDesc = 'name:desc',
-}
+export type TagSorting = 'date:desc' | 'date:asc' | 'name:asc' | 'name:desc';
 
-export const enum ViewBranchesLayout {
-	List = 'list',
-	Tree = 'tree',
-}
-
-export const enum ViewFilesLayout {
-	Auto = 'auto',
-	List = 'list',
-	Tree = 'tree',
-}
-
-export const enum ViewShowBranchComparison {
-	Branch = 'branch',
-	Working = 'working',
-}
+export type ViewBranchesLayout = 'list' | 'tree';
+export type ViewFilesLayout = 'auto' | 'list' | 'tree';
+export type ViewShowBranchComparison = 'branch' | 'working';
 
 export interface AdvancedConfig {
-	abbreviatedShaLength: number;
-	abbreviateShaOnCopy: boolean;
-	blame: {
-		customArguments: string[] | null;
-		delayAfterEdit: number;
-		sizeThresholdAfterEdit: number;
+	readonly abbreviatedShaLength: number;
+	readonly abbreviateShaOnCopy: boolean;
+	readonly blame: {
+		readonly customArguments: string[] | null;
+		readonly delayAfterEdit: number;
+		readonly sizeThresholdAfterEdit: number;
 	};
-	caching: {
-		enabled: boolean;
+	readonly caching: {
+		readonly enabled: boolean;
 	};
-	commitOrdering: 'date' | 'author-date' | 'topo' | null;
-	externalDiffTool: string | null;
-	externalDirectoryDiffTool: string | null;
-	fileHistoryFollowsRenames: boolean;
-	fileHistoryShowAllBranches: boolean;
-	maxListItems: number;
-	maxSearchItems: number;
-	messages: { [key in SuppressedMessages]: boolean };
-	quickPick: {
-		closeOnFocusOut: boolean;
+	readonly commitOrdering: 'date' | 'author-date' | 'topo' | null;
+	readonly externalDiffTool: string | null;
+	readonly externalDirectoryDiffTool: string | null;
+	readonly fileHistoryFollowsRenames: boolean;
+	readonly fileHistoryShowAllBranches: boolean;
+	readonly maxListItems: number;
+	readonly maxSearchItems: number;
+	readonly messages: { [key in SuppressedMessages]: boolean };
+	readonly quickPick: {
+		readonly closeOnFocusOut: boolean;
 	};
-	repositorySearchDepth: number | null;
-	similarityThreshold: number | null;
+	readonly repositorySearchDepth: number | null;
+	readonly similarityThreshold: number | null;
 }
 
 export interface GraphConfig {
-	avatars: boolean;
-	commitOrdering: 'date' | 'author-date' | 'topo';
-	dateFormat: DateTimeFormat | string | null;
-	dateStyle: DateStyle | null;
-	defaultItemLimit: number;
-	dimMergeCommits: boolean;
-	minimap: {
-		enabled: boolean;
-		dataType: 'commits' | 'lines';
-		additionalTypes: GraphMinimapMarkersAdditionalTypes[];
+	readonly avatars: boolean;
+	readonly commitOrdering: 'date' | 'author-date' | 'topo';
+	readonly dateFormat: DateTimeFormat | string | null;
+	readonly dateStyle: DateStyle | null;
+	readonly defaultItemLimit: number;
+	readonly dimMergeCommits: boolean;
+	readonly minimap: {
+		readonly enabled: boolean;
+		readonly dataType: 'commits' | 'lines';
+		readonly additionalTypes: GraphMinimapMarkersAdditionalTypes[];
 	};
-	highlightRowsOnRefHover: boolean;
-	layout: 'editor' | 'panel';
-	scrollRowPadding: number;
-	showDetailsView: 'open' | 'selection' | false;
-	showGhostRefsOnRowHover: boolean;
-	scrollMarkers: {
-		enabled: boolean;
-		additionalTypes: GraphScrollMarkersAdditionalTypes[];
+	readonly highlightRowsOnRefHover: boolean;
+	readonly layout: 'editor' | 'panel';
+	readonly scrollRowPadding: number;
+	readonly showDetailsView: 'open' | 'selection' | false;
+	readonly showGhostRefsOnRowHover: boolean;
+	readonly scrollMarkers: {
+		readonly enabled: boolean;
+		readonly additionalTypes: GraphScrollMarkersAdditionalTypes[];
 	};
-	pullRequests: {
-		enabled: boolean;
+	readonly pullRequests: {
+		readonly enabled: boolean;
 	};
-	showRemoteNames: boolean;
-	showUpstreamStatus: boolean;
-	pageItemLimit: number;
-	searchItemLimit: number;
-	statusBar: {
-		enabled: boolean;
+	readonly showRemoteNames: boolean;
+	readonly showUpstreamStatus: boolean;
+	readonly pageItemLimit: number;
+	readonly searchItemLimit: number;
+	readonly statusBar: {
+		readonly enabled: boolean;
 	};
 }
 
 export interface CodeLensConfig {
-	authors: {
-		enabled: boolean;
-		command: CodeLensCommand | false;
+	readonly authors: {
+		readonly enabled: boolean;
+		readonly command: CodeLensCommand | false;
 	};
-	dateFormat: DateTimeFormat | string | null;
-	enabled: boolean;
-	includeSingleLineSymbols: boolean;
-	recentChange: {
-		enabled: boolean;
-		command: CodeLensCommand | false;
+	readonly dateFormat: DateTimeFormat | string | null;
+	/*readonly*/ enabled: boolean;
+	readonly includeSingleLineSymbols: boolean;
+	readonly recentChange: {
+		readonly enabled: boolean;
+		readonly command: CodeLensCommand | false;
 	};
-	scopes: CodeLensScopes[];
-	scopesByLanguage: CodeLensLanguageScope[] | null;
-	symbolScopes: string[];
+	readonly scopes: CodeLensScopes[];
+	readonly scopesByLanguage: CodeLensLanguageScope[] | null;
+	readonly symbolScopes: string[];
 }
 
 export interface CodeLensLanguageScope {
-	language: string | undefined;
-	scopes?: CodeLensScopes[];
-	symbolScopes?: string[];
+	readonly language: string | undefined;
+	readonly scopes?: CodeLensScopes[];
+	readonly symbolScopes?: string[];
 }
 
 export interface MenuConfig {
-	editor:
+	readonly editor:
 		| false
 		| {
-				blame: boolean;
-				clipboard: boolean;
-				compare: boolean;
-				history: boolean;
-				remote: boolean;
+				readonly blame: boolean;
+				readonly clipboard: boolean;
+				readonly compare: boolean;
+				readonly history: boolean;
+				readonly remote: boolean;
 		  };
-	editorGroup:
+	readonly editorGroup:
 		| false
 		| {
-				blame: boolean;
-				compare: boolean;
+				readonly blame: boolean;
+				readonly compare: boolean;
 		  };
-	editorGutter:
+	readonly editorGutter:
 		| false
 		| {
-				compare: boolean;
-				remote: boolean;
-				share: boolean;
+				readonly compare: boolean;
+				readonly remote: boolean;
+				readonly share: boolean;
 		  };
-	editorTab:
+	readonly editorTab:
 		| false
 		| {
-				clipboard: boolean;
-				compare: boolean;
-				history: boolean;
-				remote: boolean;
+				readonly clipboard: boolean;
+				readonly compare: boolean;
+				readonly history: boolean;
+				readonly remote: boolean;
 		  };
-	explorer:
+	readonly explorer:
 		| false
 		| {
-				clipboard: boolean;
-				compare: boolean;
-				history: boolean;
-				remote: boolean;
+				readonly clipboard: boolean;
+				readonly compare: boolean;
+				readonly history: boolean;
+				readonly remote: boolean;
 		  };
-	ghpr:
+	readonly ghpr:
 		| false
 		| {
-				worktree: boolean;
+				readonly worktree: boolean;
 		  };
-	scm:
+	readonly scm:
 		| false
 		| {
-				graph: boolean;
+				readonly graph: boolean;
 		  };
-	scmRepositoryInline: false | { graph: boolean };
-	scmRepository:
+	readonly scmRepositoryInline: false | { readonly graph: boolean };
+	readonly scmRepository:
 		| false
 		| {
-				authors: boolean;
-				generateCommitMessage: boolean;
-				graph: boolean;
+				readonly authors: boolean;
+				readonly generateCommitMessage: boolean;
+				readonly graph: boolean;
 		  };
-	scmGroupInline:
+	readonly scmGroupInline:
 		| false
 		| {
-				stash: boolean;
+				readonly stash: boolean;
 		  };
-	scmGroup:
+	readonly scmGroup:
 		| false
 		| {
-				compare: boolean;
-				openClose: boolean;
-				stash: boolean;
+				readonly compare: boolean;
+				readonly openClose: boolean;
+				readonly stash: boolean;
 		  };
-	scmItemInline:
+	readonly scmItemInline:
 		| false
 		| {
-				stash: boolean;
+				readonly stash: boolean;
 		  };
-	scmItem:
+	readonly scmItem:
 		| false
 		| {
-				clipboard: boolean;
-				compare: boolean;
-				history: boolean;
-				remote: boolean;
-				share: boolean;
-				stash: boolean;
+				readonly clipboard: boolean;
+				readonly compare: boolean;
+				readonly history: boolean;
+				readonly remote: boolean;
+				readonly share: boolean;
+				readonly stash: boolean;
 		  };
 }
 
 export interface ModeConfig {
-	name: string;
-	statusBarItemName?: string;
-	description?: string;
-	annotations?: 'blame' | 'changes' | 'heatmap';
-	codeLens?: boolean;
-	currentLine?: boolean;
-	hovers?: boolean;
-	statusBar?: boolean;
+	readonly name: string;
+	readonly statusBarItemName?: string;
+	readonly description?: string;
+	readonly annotations?: 'blame' | 'changes' | 'heatmap';
+	readonly codeLens?: boolean;
+	readonly currentLine?: boolean;
+	readonly hovers?: boolean;
+	readonly statusBar?: boolean;
 }
 
 export type RemotesConfig =
 	| {
-			domain: string;
-			regex: null;
-			name?: string;
-			protocol?: string;
-			type: CustomRemoteType;
-			urls?: RemotesUrlsConfig;
-			ignoreSSLErrors?: boolean | 'force';
+			readonly domain: string;
+			readonly regex: null;
+			readonly name?: string;
+			readonly protocol?: string;
+			readonly type: CustomRemoteType;
+			readonly urls?: RemotesUrlsConfig;
+			readonly ignoreSSLErrors?: boolean | 'force';
 	  }
 	| {
-			domain: null;
-			regex: string;
-			name?: string;
-			protocol?: string;
-			type: CustomRemoteType;
-			urls?: RemotesUrlsConfig;
-			ignoreSSLErrors?: boolean | 'force';
+			readonly domain: null;
+			readonly regex: string;
+			readonly name?: string;
+			readonly protocol?: string;
+			readonly type: CustomRemoteType;
+			readonly urls?: RemotesUrlsConfig;
+			readonly ignoreSSLErrors?: boolean | 'force';
 	  };
 
 export interface RemotesUrlsConfig {
-	repository: string;
-	branches: string;
-	branch: string;
-	commit: string;
-	comparison?: string;
-	file: string;
-	fileInBranch: string;
-	fileInCommit: string;
-	fileLine: string;
-	fileRange: string;
+	readonly repository: string;
+	readonly branches: string;
+	readonly branch: string;
+	readonly commit: string;
+	readonly comparison?: string;
+	readonly file: string;
+	readonly fileInBranch: string;
+	readonly fileInCommit: string;
+	readonly fileLine: string;
+	readonly fileRange: string;
 }
 
 // NOTE: Must be kept in sync with `gitlens.advanced.messages` setting in the package.json
-export const enum SuppressedMessages {
-	CommitHasNoPreviousCommitWarning = 'suppressCommitHasNoPreviousCommitWarning',
-	CommitNotFoundWarning = 'suppressCommitNotFoundWarning',
-	CreatePullRequestPrompt = 'suppressCreatePullRequestPrompt',
-	SuppressDebugLoggingWarning = 'suppressDebugLoggingWarning',
-	FileNotUnderSourceControlWarning = 'suppressFileNotUnderSourceControlWarning',
-	GitDisabledWarning = 'suppressGitDisabledWarning',
-	GitMissingWarning = 'suppressGitMissingWarning',
-	GitVersionWarning = 'suppressGitVersionWarning',
-	LineUncommittedWarning = 'suppressLineUncommittedWarning',
-	NoRepositoryWarning = 'suppressNoRepositoryWarning',
-	RebaseSwitchToTextWarning = 'suppressRebaseSwitchToTextWarning',
-	IntegrationDisconnectedTooManyFailedRequestsWarning = 'suppressIntegrationDisconnectedTooManyFailedRequestsWarning',
-	IntegrationRequestFailed500Warning = 'suppressIntegrationRequestFailed500Warning',
-	IntegrationRequestTimedOutWarning = 'suppressIntegrationRequestTimedOutWarning',
-}
+export type SuppressedMessages =
+	| 'suppressCommitHasNoPreviousCommitWarning'
+	| 'suppressCommitNotFoundWarning'
+	| 'suppressCreatePullRequestPrompt'
+	| 'suppressDebugLoggingWarning'
+	| 'suppressFileNotUnderSourceControlWarning'
+	| 'suppressGitDisabledWarning'
+	| 'suppressGitMissingWarning'
+	| 'suppressGitVersionWarning'
+	| 'suppressLineUncommittedWarning'
+	| 'suppressNoRepositoryWarning'
+	| 'suppressRebaseSwitchToTextWarning'
+	| 'suppressIntegrationDisconnectedTooManyFailedRequestsWarning'
+	| 'suppressIntegrationRequestFailed500Warning'
+	| 'suppressIntegrationRequestTimedOutWarning';
 
 export interface ViewsCommonConfig {
-	defaultItemLimit: number;
-	formats: {
-		commits: {
-			label: string;
-			description: string;
-			tooltip: string;
-			tooltipWithStatus: string;
+	readonly defaultItemLimit: number;
+	readonly formats: {
+		readonly commits: {
+			readonly label: string;
+			readonly description: string;
+			readonly tooltip: string;
+			readonly tooltipWithStatus: string;
 		};
-		files: {
-			label: string;
-			description: string;
+		readonly files: {
+			readonly label: string;
+			readonly description: string;
 		};
-		stashes: {
-			label: string;
-			description: string;
+		readonly stashes: {
+			readonly label: string;
+			readonly description: string;
 		};
 	};
-	pageItemLimit: number;
-	showRelativeDateMarkers: boolean;
+	readonly pageItemLimit: number;
+	readonly showRelativeDateMarkers: boolean;
 
-	experimental: {
-		multiSelect: {
-			enabled: boolean | null | undefined;
+	readonly experimental: {
+		readonly multiSelect: {
+			readonly enabled: boolean | null | undefined;
 		};
 	};
 }
@@ -644,18 +552,18 @@ export const viewsCommonConfigKeys: (keyof ViewsCommonConfig)[] = [
 ];
 
 interface ViewsConfigs {
-	branches: BranchesViewConfig;
-	commits: CommitsViewConfig;
-	commitDetails: CommitDetailsViewConfig;
-	contributors: ContributorsViewConfig;
-	fileHistory: FileHistoryViewConfig;
-	lineHistory: LineHistoryViewConfig;
-	remotes: RemotesViewConfig;
-	repositories: RepositoriesViewConfig;
-	searchAndCompare: SearchAndCompareViewConfig;
-	stashes: StashesViewConfig;
-	tags: TagsViewConfig;
-	worktrees: WorktreesViewConfig;
+	readonly branches: BranchesViewConfig;
+	readonly commits: CommitsViewConfig;
+	readonly commitDetails: CommitDetailsViewConfig;
+	readonly contributors: ContributorsViewConfig;
+	readonly fileHistory: FileHistoryViewConfig;
+	readonly lineHistory: LineHistoryViewConfig;
+	readonly remotes: RemotesViewConfig;
+	readonly repositories: RepositoriesViewConfig;
+	readonly searchAndCompare: SearchAndCompareViewConfig;
+	readonly stashes: StashesViewConfig;
+	readonly tags: TagsViewConfig;
+	readonly worktrees: WorktreesViewConfig;
 }
 
 export type ViewsConfigKeys = keyof ViewsConfigs;
@@ -677,164 +585,164 @@ export const viewsConfigKeys: ViewsConfigKeys[] = [
 export type ViewsConfig = ViewsCommonConfig & ViewsConfigs;
 
 export interface BranchesViewConfig {
-	avatars: boolean;
-	branches: {
-		layout: ViewBranchesLayout;
+	readonly avatars: boolean;
+	readonly branches: {
+		readonly layout: ViewBranchesLayout;
 	};
-	files: ViewsFilesConfig;
-	pullRequests: {
-		enabled: boolean;
-		showForBranches: boolean;
-		showForCommits: boolean;
+	readonly files: ViewsFilesConfig;
+	readonly pullRequests: {
+		readonly enabled: boolean;
+		readonly showForBranches: boolean;
+		readonly showForCommits: boolean;
 	};
-	reveal: boolean;
-	showBranchComparison: false | ViewShowBranchComparison.Branch;
+	readonly reveal: boolean;
+	readonly showBranchComparison: false | Extract<ViewShowBranchComparison, 'branch'>;
 }
 
 export interface CommitsViewConfig {
-	avatars: boolean;
-	branches: undefined;
-	files: ViewsFilesConfig;
-	pullRequests: {
-		enabled: boolean;
-		showForBranches: boolean;
-		showForCommits: boolean;
+	readonly avatars: boolean;
+	readonly branches: undefined;
+	readonly files: ViewsFilesConfig;
+	readonly pullRequests: {
+		readonly enabled: boolean;
+		readonly showForBranches: boolean;
+		readonly showForCommits: boolean;
 	};
-	reveal: boolean;
-	showBranchComparison: false | ViewShowBranchComparison;
+	readonly reveal: boolean;
+	readonly showBranchComparison: false | ViewShowBranchComparison;
 }
 
 export interface CommitDetailsViewConfig {
-	avatars: boolean;
-	files: ViewsFilesConfig;
-	autolinks: {
-		enabled: boolean;
-		enhanced: boolean;
+	readonly avatars: boolean;
+	readonly files: ViewsFilesConfig;
+	readonly autolinks: {
+		readonly enabled: boolean;
+		readonly enhanced: boolean;
 	};
-	pullRequests: {
-		enabled: boolean;
+	readonly pullRequests: {
+		readonly enabled: boolean;
 	};
 }
 
 export interface ContributorsViewConfig {
-	avatars: boolean;
-	files: ViewsFilesConfig;
-	pullRequests: {
-		enabled: boolean;
-		showForCommits: boolean;
+	readonly avatars: boolean;
+	readonly files: ViewsFilesConfig;
+	readonly pullRequests: {
+		readonly enabled: boolean;
+		readonly showForCommits: boolean;
 	};
-	reveal: boolean;
-	showAllBranches: boolean;
-	showStatistics: boolean;
+	readonly reveal: boolean;
+	readonly showAllBranches: boolean;
+	readonly showStatistics: boolean;
 }
 
 export interface FileHistoryViewConfig {
-	avatars: boolean;
-	files: ViewsFilesConfig;
-	pullRequests: {
-		enabled: boolean;
-		showForCommits: boolean;
+	readonly avatars: boolean;
+	readonly files: ViewsFilesConfig;
+	readonly pullRequests: {
+		readonly enabled: boolean;
+		readonly showForCommits: boolean;
 	};
 }
 
 export interface LineHistoryViewConfig {
-	avatars: boolean;
+	readonly avatars: boolean;
 }
 
 export interface RemotesViewConfig {
-	avatars: boolean;
-	branches: {
-		layout: ViewBranchesLayout;
+	readonly avatars: boolean;
+	readonly branches: {
+		readonly layout: ViewBranchesLayout;
 	};
-	files: ViewsFilesConfig;
-	pullRequests: {
-		enabled: boolean;
-		showForBranches: boolean;
-		showForCommits: boolean;
+	readonly files: ViewsFilesConfig;
+	readonly pullRequests: {
+		readonly enabled: boolean;
+		readonly showForBranches: boolean;
+		readonly showForCommits: boolean;
 	};
-	reveal: boolean;
+	readonly reveal: boolean;
 }
 
 export interface RepositoriesViewConfig {
-	autoRefresh: boolean;
-	autoReveal: boolean;
-	avatars: boolean;
-	branches: {
-		layout: ViewBranchesLayout;
-		showBranchComparison: false | ViewShowBranchComparison.Branch;
+	readonly autoRefresh: boolean;
+	readonly autoReveal: boolean;
+	readonly avatars: boolean;
+	readonly branches: {
+		readonly layout: ViewBranchesLayout;
+		readonly showBranchComparison: false | Extract<ViewShowBranchComparison, 'branch'>;
 	};
-	compact: boolean;
-	files: ViewsFilesConfig;
-	includeWorkingTree: boolean;
-	pullRequests: {
-		enabled: boolean;
-		showForBranches: boolean;
-		showForCommits: boolean;
+	readonly compact: boolean;
+	readonly files: ViewsFilesConfig;
+	readonly includeWorkingTree: boolean;
+	readonly pullRequests: {
+		readonly enabled: boolean;
+		readonly showForBranches: boolean;
+		readonly showForCommits: boolean;
 	};
-	showBranchComparison: false | ViewShowBranchComparison;
-	showBranches: boolean;
-	showCommits: boolean;
-	showContributors: boolean;
-	showIncomingActivity: boolean;
-	showRemotes: boolean;
-	showStashes: boolean;
-	showTags: boolean;
-	showUpstreamStatus: boolean;
-	showWorktrees: boolean;
+	readonly showBranchComparison: false | ViewShowBranchComparison;
+	readonly showBranches: boolean;
+	readonly showCommits: boolean;
+	readonly showContributors: boolean;
+	readonly showIncomingActivity: boolean;
+	readonly showRemotes: boolean;
+	readonly showStashes: boolean;
+	readonly showTags: boolean;
+	readonly showUpstreamStatus: boolean;
+	readonly showWorktrees: boolean;
 }
 
 export interface SearchAndCompareViewConfig {
-	avatars: boolean;
-	files: ViewsFilesConfig;
-	pullRequests: {
-		enabled: boolean;
-		showForCommits: boolean;
+	readonly avatars: boolean;
+	readonly files: ViewsFilesConfig;
+	readonly pullRequests: {
+		readonly enabled: boolean;
+		readonly showForCommits: boolean;
 	};
 }
 
 export interface StashesViewConfig {
-	files: ViewsFilesConfig;
-	reveal: boolean;
+	readonly files: ViewsFilesConfig;
+	readonly reveal: boolean;
 }
 
 export interface TagsViewConfig {
-	avatars: boolean;
-	branches: {
-		layout: ViewBranchesLayout;
+	readonly avatars: boolean;
+	readonly branches: {
+		readonly layout: ViewBranchesLayout;
 	};
-	files: ViewsFilesConfig;
-	reveal: boolean;
+	readonly files: ViewsFilesConfig;
+	readonly reveal: boolean;
 }
 
 export interface WorktreesViewConfig {
-	avatars: boolean;
-	files: ViewsFilesConfig;
-	pullRequests: {
-		enabled: boolean;
-		showForBranches: boolean;
-		showForCommits: boolean;
+	readonly avatars: boolean;
+	readonly files: ViewsFilesConfig;
+	readonly pullRequests: {
+		readonly enabled: boolean;
+		readonly showForBranches: boolean;
+		readonly showForCommits: boolean;
 	};
-	reveal: boolean;
-	showBranchComparison: false | ViewShowBranchComparison.Branch;
+	readonly reveal: boolean;
+	readonly showBranchComparison: false | Extract<ViewShowBranchComparison, 'branch'>;
 }
 
 export interface ViewsFilesConfig {
-	compact: boolean;
-	icon: 'status' | 'type';
-	layout: ViewFilesLayout;
-	threshold: number;
+	readonly compact: boolean;
+	readonly icon: 'status' | 'type';
+	readonly layout: ViewFilesLayout;
+	readonly threshold: number;
 }
 
 export function fromOutputLevel(level: LogLevel | OutputLevel): LogLevel {
 	switch (level) {
-		case OutputLevel.Silent:
-			return LogLevel.Off;
-		case OutputLevel.Errors:
-			return LogLevel.Error;
-		case OutputLevel.Verbose:
-			return LogLevel.Info;
-		case OutputLevel.Debug:
-			return LogLevel.Debug;
+		case 'silent':
+			return 'off';
+		case 'errors':
+			return 'error';
+		case 'verbose':
+			return 'info';
+		case 'debug':
+			return 'debug';
 		default:
 			return level;
 	}

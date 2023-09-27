@@ -1,4 +1,3 @@
-import { GitCommandSorting } from '../config';
 import type { RecentUsage } from '../constants';
 import type { Container } from '../container';
 import { configuration } from '../system/configuration';
@@ -101,7 +100,7 @@ export class PickCommandStep implements QuickPickStep {
 				: new WorktreeGitCommand(container, args?.command === 'worktree' ? args : undefined),
 		].filter(<T>(i: T | undefined): i is T => i != null);
 
-		if (configuration.get('gitCommands.sortBy') === GitCommandSorting.Usage) {
+		if (configuration.get('gitCommands.sortBy') === 'usage') {
 			const usage = this.container.storage.getWorkspace('gitComandPalette:usage');
 			if (usage != null) {
 				this.items.sort((a, b) => (usage[b.key] ?? 0) - (usage[a.key] ?? 0));

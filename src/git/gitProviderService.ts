@@ -47,10 +47,10 @@ import type {
 	PagedResult,
 	PreviousComparisonUrisResult,
 	PreviousLineComparisonUrisResult,
+	RepositoryVisibility,
 	RepositoryVisibilityInfo,
 	ScmRepository,
 } from './gitProvider';
-import { RepositoryVisibility } from './gitProvider';
 import type { GitUri } from './gitUri';
 import type { GitBlame, GitBlameLine, GitBlameLines } from './models/blame';
 import type { BranchSortOptions, GitBranch } from './models/branch';
@@ -116,12 +116,7 @@ export interface GitProviderResult {
 	path: string;
 }
 
-export const enum RepositoriesVisibility {
-	Private = 'private',
-	Public = 'public',
-	Local = 'local',
-	Mixed = 'mixed',
-}
+export type RepositoriesVisibility = RepositoryVisibility | 'mixed';
 
 export class GitProviderService implements Disposable {
 	private readonly _onDidChangeProviders = new EventEmitter<GitProvidersChangeEvent>();
@@ -734,7 +729,7 @@ export class GitProviderService implements Disposable {
 			if (access == null) {
 				access = this.visibility(repoPath).then(
 					visibility => {
-						if (visibility === RepositoryVisibility.Private) {
+						if (visibility === 'private') {
 							return {
 								allowed: false,
 								subscription: { current: subscription, required: SubscriptionPlanId.Pro },
@@ -770,13 +765,13 @@ export class GitProviderService implements Disposable {
 
 			const visibility = await this.visibility();
 			switch (visibility) {
-				case RepositoriesVisibility.Private:
+				case 'private':
 					return {
 						allowed: false,
 						subscription: { current: subscription, required: SubscriptionPlanId.Pro },
-						visibility: RepositoryVisibility.Private,
+						visibility: 'private',
 					};
-				case RepositoriesVisibility.Mixed:
+				case 'mixed':
 					return {
 						allowed: 'mixed',
 						subscription: { current: subscription, required: SubscriptionPlanId.Pro },
@@ -785,7 +780,7 @@ export class GitProviderService implements Disposable {
 					return {
 						allowed: true,
 						subscription: { current: subscription },
-						visibility: RepositoryVisibility.Public,
+						visibility: 'public',
 					};
 			}
 		}
@@ -861,12 +856,12 @@ export class GitProviderService implements Disposable {
 	): boolean {
 		if (visibilityInfo == null) return true;
 
-		if (visibilityInfo.visibility === RepositoryVisibility.Public) {
+		if (visibilityInfo.visibility === 'public') {
 			if (remotes.length == 0 || !remotes.some(r => r.remoteKey === visibilityInfo.remotesHash)) {
 				this.clearRepoVisibilityCache([key]);
 				return false;
 			}
-		} else if (visibilityInfo.visibility === RepositoryVisibility.Private) {
+		} else if (visibilityInfo.visibility === 'private') {
 			const remotesHash = getVisibilityCacheKey(remotes);
 			if (remotesHash !== visibilityInfo.remotesHash) {
 				this.clearRepoVisibilityCache([key]);
@@ -946,7 +941,7 @@ export class GitProviderService implements Disposable {
 			const visibilityInfo = this.getVisibilityInfoFromCache(path);
 			if (visibilityInfo == null || !this.checkVisibilityCachedRemotes(path, visibilityInfo, remotes)) {
 				const [visibility, remotesHash] = await provider.visibility(path);
-				if (visibility !== RepositoryVisibility.Local) {
+				if (visibility !== 'local') {
 					this.updateVisibilityCache(path, {
 						visibility: visibility,
 						timestamp: Date.now(),
@@ -962,7 +957,7 @@ export class GitProviderService implements Disposable {
 
 		if (repoPath == null) {
 			const repositories = this.openRepositories;
-			if (repositories.length === 0) return RepositoriesVisibility.Private;
+			if (repositories.length === 0) return 'private';
 
 			if (repositories.length === 1) {
 				return getRepoVisibility.call(this, repositories[0].path);
@@ -975,24 +970,24 @@ export class GitProviderService implements Disposable {
 			for await (const result of asSettled(repositories.map(r => getRepoVisibility.call(this, r.path)))) {
 				if (result.status !== 'fulfilled') continue;
 
-				if (result.value === RepositoryVisibility.Public) {
-					if (isLocal || isPrivate) return RepositoriesVisibility.Mixed;
+				if (result.value === 'public') {
+					if (isLocal || isPrivate) return 'mixed';
 
 					isPublic = true;
-				} else if (result.value === RepositoryVisibility.Local) {
-					if (isPublic || isPrivate) return RepositoriesVisibility.Mixed;
+				} else if (result.value === 'local') {
+					if (isPublic || isPrivate) return 'mixed';
 
 					isLocal = true;
-				} else if (result.value === RepositoryVisibility.Private) {
-					if (isPublic || isLocal) return RepositoriesVisibility.Mixed;
+				} else if (result.value === 'private') {
+					if (isPublic || isLocal) return 'mixed';
 
 					isPrivate = true;
 				}
 			}
 
-			if (isPublic) return RepositoriesVisibility.Public;
-			if (isLocal) return RepositoriesVisibility.Local;
-			return RepositoriesVisibility.Private;
+			if (isPublic) return 'public';
+			if (isLocal) return 'local';
+			return 'private';
 		}
 
 		return getRepoVisibility.call(this, repoPath);

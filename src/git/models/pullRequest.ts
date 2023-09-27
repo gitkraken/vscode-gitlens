@@ -1,4 +1,3 @@
-import { DateStyle } from '../../config';
 import { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
@@ -156,7 +155,7 @@ export class PullRequest implements PullRequestShape {
 	}
 
 	get formattedDate(): string {
-		return Container.instance.PullRequestDateFormatting.dateStyle === DateStyle.Absolute
+		return Container.instance.PullRequestDateFormatting.dateStyle === 'absolute'
 			? this.formatDate(Container.instance.PullRequestDateFormatting.dateFormat)
 			: this.formatDateFromNow();
 	}

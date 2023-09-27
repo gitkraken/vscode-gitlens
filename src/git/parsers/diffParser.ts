@@ -1,4 +1,3 @@
-import { LogLevel } from '../../system/logger.constants';
 import { maybeStopWatch } from '../../system/stopwatch';
 import { getLines, pluralize } from '../../system/string';
 import type { GitDiffFile, GitDiffHunkLine, GitDiffLine, GitDiffShortStat } from '../models/diff';
@@ -11,7 +10,7 @@ const unifiedDiffRegex = /^@@ -([\d]+)(?:,([\d]+))? \+([\d]+)(?:,([\d]+))? @@(?:
 export function parseFileDiff(data: string, includeContents: boolean = false): GitDiffFile | undefined {
 	if (!data) return undefined;
 
-	const sw = maybeStopWatch('parseFileDiff', { log: false, logLevel: LogLevel.Debug });
+	const sw = maybeStopWatch('parseFileDiff', { log: false, logLevel: 'debug' });
 
 	const hunks: GitDiffHunk[] = [];
 
@@ -67,7 +66,7 @@ export function parseFileDiff(data: string, includeContents: boolean = false): G
 }
 
 export function parseDiffHunk(hunk: GitDiffHunk): { lines: GitDiffHunkLine[]; state: 'added' | 'changed' | 'removed' } {
-	const sw = maybeStopWatch('parseDiffHunk', { log: false, logLevel: LogLevel.Debug });
+	const sw = maybeStopWatch('parseDiffHunk', { log: false, logLevel: 'debug' });
 
 	const currentStart = hunk.current.position.start;
 	const previousStart = hunk.previous.position.start;
@@ -152,7 +151,7 @@ export function parseDiffHunk(hunk: GitDiffHunk): { lines: GitDiffHunkLine[]; st
 export function parseDiffNameStatusFiles(data: string, repoPath: string): GitFile[] | undefined {
 	if (!data) return undefined;
 
-	const sw = maybeStopWatch('parseDiffNameStatusFiles', { log: false, logLevel: LogLevel.Debug });
+	const sw = maybeStopWatch('parseDiffNameStatusFiles', { log: false, logLevel: 'debug' });
 
 	const files: GitFile[] = [];
 
@@ -181,7 +180,7 @@ export function parseDiffNameStatusFiles(data: string, repoPath: string): GitFil
 export function parseDiffShortStat(data: string): GitDiffShortStat | undefined {
 	if (!data) return undefined;
 
-	const sw = maybeStopWatch('parseDiffShortStat', { log: false, logLevel: LogLevel.Debug });
+	const sw = maybeStopWatch('parseDiffShortStat', { log: false, logLevel: 'debug' });
 
 	const match = shortStatDiffRegex.exec(data);
 	if (match == null) return undefined;

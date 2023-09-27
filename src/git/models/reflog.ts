@@ -1,4 +1,3 @@
-import { DateStyle } from '../../config';
 import { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
@@ -38,7 +37,7 @@ export class GitReflogRecord {
 	}
 
 	get formattedDate(): string {
-		return Container.instance.CommitDateFormatting.dateStyle === DateStyle.Absolute
+		return Container.instance.CommitDateFormatting.dateStyle === 'absolute'
 			? this.formatDate(Container.instance.CommitDateFormatting.dateFormat)
 			: this.formatDateFromNow();
 	}

@@ -1,5 +1,5 @@
 /*global*/
-import { ViewFilesLayout } from '../../../config';
+import type { ViewFilesLayout } from '../../../config';
 import type { Serialized } from '../../../system/serialize';
 import type { CommitActionsParams, State } from '../../commitDetails/protocol';
 import {
@@ -172,7 +172,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 
 		const files = {
 			...this.state.preferences?.files,
-			layout: layout ?? ViewFilesLayout.Auto,
+			layout: layout ?? 'auto',
 			compact: this.state.preferences?.files?.compact ?? true,
 			threshold: this.state.preferences?.files?.threshold ?? 5,
 			icon: this.state.preferences?.files?.icon ?? 'type',

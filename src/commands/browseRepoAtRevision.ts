@@ -65,7 +65,7 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 			gitUri = GitUri.fromRevisionUri(uri);
 
 			openWorkspace(uri, {
-				location: args.openInNewWindow ? OpenWorkspaceLocation.NewWindow : OpenWorkspaceLocation.AddToWorkspace,
+				location: args.openInNewWindow ? 'newWindow' : 'addToWorkspace',
 				name: `${basename(gitUri.repoPath!)} @ ${gitUri.shortSha}`,
 			});
 

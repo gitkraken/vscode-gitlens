@@ -1,6 +1,6 @@
 import type { TextEditor, TextEditorDecorationType } from 'vscode';
 import { Range } from 'vscode';
-import { FileAnnotationType } from '../config';
+import type { FileAnnotationType } from '../config';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import { log } from '../system/decorators/log';
@@ -14,7 +14,7 @@ import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 
 export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase {
 	constructor(editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>, container: Container) {
-		super(FileAnnotationType.Heatmap, editor, trackedDocument, container);
+		super('heatmap', editor, trackedDocument, container);
 	}
 
 	@log()

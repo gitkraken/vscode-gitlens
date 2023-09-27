@@ -2,7 +2,6 @@ import { Uri } from 'vscode';
 import type { EnrichedAutolink } from '../../annotations/autolinks';
 import { getAvatarUri, getCachedAvatarUri } from '../../avatars';
 import type { GravatarDefaultStyle } from '../../config';
-import { DateSource, DateStyle } from '../../config';
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
@@ -121,9 +120,7 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	get date(): Date {
-		return this.container.CommitDateFormatting.dateSource === DateSource.Committed
-			? this.committer.date
-			: this.author.date;
+		return this.container.CommitDateFormatting.dateSource === 'committed' ? this.committer.date : this.author.date;
 	}
 
 	private _file: GitFileChange | undefined;
@@ -137,7 +134,7 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	get formattedDate(): string {
-		return this.container.CommitDateFormatting.dateStyle === DateStyle.Absolute
+		return this.container.CommitDateFormatting.dateStyle === 'absolute'
 			? this.formatDate(this.container.CommitDateFormatting.dateFormat)
 			: this.formatDateFromNow();
 	}
@@ -337,13 +334,13 @@ export class GitCommit implements GitRevisionReference {
 	}
 
 	formatDate(format?: string | null) {
-		return this.container.CommitDateFormatting.dateSource === DateSource.Committed
+		return this.container.CommitDateFormatting.dateSource === 'committed'
 			? this.committer.formatDate(format)
 			: this.author.formatDate(format);
 	}
 
 	formatDateFromNow(short?: boolean) {
-		return this.container.CommitDateFormatting.dateSource === DateSource.Committed
+		return this.container.CommitDateFormatting.dateSource === 'committed'
 			? this.committer.fromNow(short)
 			: this.author.fromNow(short);
 	}
