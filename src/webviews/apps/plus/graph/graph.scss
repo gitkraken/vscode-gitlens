@@ -631,16 +631,16 @@ button:not([disabled]),
 	}
 	&--remote-gitlab {
 		&::before {
-			// codicon-logo-github
-			font-family: codicon;
-			content: '\ea84';
+			// glicon-provider-gitlab
+			font-family: 'glicons';
+			content: '\f123';
 		}
 	}
 	&--remote-bitbucket {
 		&::before {
-			// codicon-primitive-square
-			font-family: codicon;
-			content: '\ea72';
+			// glicon-provider-bitbucket
+			font-family: 'glicons';
+			content: '\f11f';
 		}
 	}
 	&--tag {
