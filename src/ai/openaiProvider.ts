@@ -142,6 +142,11 @@ export class OpenAIProvider implements AIProvider {
 
 		if (!rsp.ok) {
 			debugger;
+			if (rsp.status === 404) {
+				throw new Error(
+					`Unable to explain commit: Your API key doesn't seem to have access to the selected '${model}' model`,
+				);
+			}
 			if (rsp.status === 429) {
 				throw new Error(
 					`Unable to explain commit: (${this.name}:${rsp.status}) Too many requests (rate limit exceeded) or your API key is associated with an expired trial`,
