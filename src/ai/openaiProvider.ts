@@ -143,11 +143,13 @@ export class OpenAIProvider implements AIProvider {
 	}
 
 	private fetch(apiKey: string, request: OpenAIChatCompletionRequest) {
-		return fetch(this.url, {
+		const url = this.url;
+		const isAzure = url.includes('.azure.com');
+		return fetch(url, {
 			headers: {
 				Accept: 'application/json',
-				Authorization: `Bearer ${apiKey}`,
 				'Content-Type': 'application/json',
+				...(isAzure ? { 'api-key': apiKey } : { Authorization: `Bearer ${apiKey}` }),
 			},
 			method: 'POST',
 			body: JSON.stringify(request),
