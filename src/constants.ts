@@ -222,7 +222,7 @@ export const enum Commands {
 	RefreshHover = 'gitlens.refreshHover',
 	RefreshTimelinePage = 'gitlens.timeline.refresh',
 	ResetAvatarCache = 'gitlens.resetAvatarCache',
-	ResetOpenAIKey = 'gitlens.resetOpenAIKey',
+	ResetAIKey = 'gitlens.resetAIKey',
 	ResetSuppressedWarnings = 'gitlens.resetSuppressedWarnings',
 	ResetTrackedUsage = 'gitlens.resetTrackedUsage',
 	ResetViewsLayout = 'gitlens.resetViewsLayout',
@@ -714,7 +714,7 @@ export const enum SyncedStorageKeys {
 }
 
 export type DeprecatedGlobalStorage = {
-	/** @deprecated use `confirm:ai:send:openai` */
+	/** @deprecated use `confirm:ai:tos:${AIProviders}` */
 	'confirm:sendToOpenAI': boolean;
 	/** @deprecated */
 	'home:actions:completed': ('dismissed:welcome' | 'opened:scm')[];
@@ -762,7 +762,7 @@ export type GlobalStorage = {
 };
 
 export type DeprecatedWorkspaceStorage = {
-	/** @deprecated use `confirm:ai:send:openai` */
+	/** @deprecated use `confirm:ai:tos:${AIProviders}` */
 	'confirm:sendToOpenAI': boolean;
 	/** @deprecated */
 	'graph:banners:dismissed': Record<string, boolean>;

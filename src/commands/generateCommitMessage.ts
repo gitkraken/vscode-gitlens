@@ -7,7 +7,7 @@ import { showGenericErrorMessage } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCoreCommand } from '../system/command';
 import { Logger } from '../system/logger';
-import { ActiveEditorCommand, Command, getCommandUri } from './base';
+import { ActiveEditorCommand, getCommandUri } from './base';
 
 export interface GenerateCommitMessageCommandArgs {
 	repoPath?: string;
@@ -57,21 +57,5 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 
 			void showGenericErrorMessage(ex.message);
 		}
-	}
-}
-
-@command()
-export class ResetOpenAIKeyCommand extends Command {
-	constructor(private readonly container: Container) {
-		super(Commands.ResetOpenAIKey);
-	}
-
-	execute() {
-		void this.container.storage.deleteSecret('gitlens.openai.key');
-		void this.container.storage.deleteWithPrefix('confirm:ai:tos');
-		void this.container.storage.deleteWorkspaceWithPrefix('confirm:ai:tos');
-
-		void this.container.storage.delete('confirm:sendToOpenAI');
-		void this.container.storage.deleteWorkspace('confirm:sendToOpenAI');
 	}
 }
