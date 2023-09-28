@@ -45,6 +45,10 @@ export class AIProviderService implements Disposable {
 		this._provider?.dispose();
 	}
 
+	get providerId() {
+		return this.provider?.id;
+	}
+
 	public async generateCommitMessage(
 		repoPath: string | Uri,
 		options?: { context?: string; progress?: ProgressOptions },
@@ -124,6 +128,16 @@ export class AIProviderService implements Disposable {
 			);
 		}
 		return provider.explainChanges(commit.message, diff.contents);
+	}
+
+	reset() {
+		const { providerId } = this;
+		if (providerId == null) return;
+
+		void this.container.storage.deleteSecret(`gitlens.${providerId}.key`);
+
+		void this.container.storage.delete(`confirm:ai:tos:${providerId}`);
+		void this.container.storage.deleteWorkspace(`confirm:ai:tos:${providerId}`);
 	}
 }
 

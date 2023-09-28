@@ -68,16 +68,7 @@ export class OpenAIProvider implements AIProvider {
 			content: `Write a meaningful commit message for the following code changes:\n\n${code}`,
 		});
 
-		const rsp = await fetch(this.url, {
-			headers: {
-				Accept: 'application/json',
-				Authorization: `Bearer ${apiKey}`,
-				'Content-Type': 'application/json',
-			},
-			method: 'POST',
-			body: JSON.stringify(request),
-		});
-
+		const rsp = await this.fetch(apiKey, request);
 		if (!rsp.ok) {
 			debugger;
 			if (rsp.status === 429) {
@@ -130,16 +121,7 @@ export class OpenAIProvider implements AIProvider {
 			],
 		};
 
-		const rsp = await fetch(this.url, {
-			headers: {
-				Accept: 'application/json',
-				Authorization: `Bearer ${apiKey}`,
-				'Content-Type': 'application/json',
-			},
-			method: 'POST',
-			body: JSON.stringify(request),
-		});
-
+		const rsp = await this.fetch(apiKey, request);
 		if (!rsp.ok) {
 			debugger;
 			if (rsp.status === 404) {
@@ -158,6 +140,18 @@ export class OpenAIProvider implements AIProvider {
 		const data: OpenAIChatCompletionResponse = await rsp.json();
 		const summary = data.choices[0].message.content.trim();
 		return summary;
+	}
+
+	private fetch(apiKey: string, request: OpenAIChatCompletionRequest) {
+		return fetch(this.url, {
+			headers: {
+				Accept: 'application/json',
+				Authorization: `Bearer ${apiKey}`,
+				'Content-Type': 'application/json',
+			},
+			method: 'POST',
+			body: JSON.stringify(request),
+		});
 	}
 }
 
@@ -179,7 +173,7 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 				disposables.push(
 					input.onDidHide(() => resolve(undefined)),
 					input.onDidChangeValue(value => {
-						if (value && !/(?:sk-)?[a-zA-Z0-9]{32}/.test(value)) {
+						if (value && !/(?:sk-)?[a-zA-Z0-9]{32,}/.test(value)) {
 							input.validationMessage = 'Please enter a valid OpenAI API key';
 							return;
 						}
@@ -187,7 +181,7 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 					}),
 					input.onDidAccept(() => {
 						const value = input.value.trim();
-						if (!value || !/(?:sk-)?[a-zA-Z0-9]{32}/.test(value)) {
+						if (!value || !/(?:sk-)?[a-zA-Z0-9]{32,}/.test(value)) {
 							input.validationMessage = 'Please enter a valid OpenAI API key';
 							return;
 						}

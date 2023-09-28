@@ -7,6 +7,17 @@ import { configuration } from '../system/configuration';
 import { Command } from './base';
 
 @command()
+export class ResetAIKeyCommand extends Command {
+	constructor(private readonly container: Container) {
+		super(Commands.ResetAIKey);
+	}
+
+	execute() {
+		this.container.ai.reset();
+	}
+}
+
+@command()
 export class ResetAvatarCacheCommand extends Command {
 	constructor(private readonly container: Container) {
 		super(Commands.ResetAvatarCache);

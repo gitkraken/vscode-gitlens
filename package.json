@@ -4607,8 +4607,8 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.resetOpenAIKey",
-				"title": "Reset Stored OpenAI Key",
+				"command": "gitlens.resetAIKey",
+				"title": "Reset Stored AI Key",
 				"category": "GitLens"
 			},
 			{
@@ -10110,7 +10110,7 @@
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
-					"command": "gitlens.resetOpenAIKey",
+					"command": "gitlens.resetAIKey",
 					"when": "gitlens:enabled"
 				}
 			],
