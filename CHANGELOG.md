@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#2941](https://github.com/gitkraken/vscode-gitlens/issues/2941) - Invalid Request when trying to generate a commit message using Anthropic API
 - Fixes [#2940](https://github.com/gitkraken/vscode-gitlens/issues/2940) - Can't use Azure OpenAI model because i can't save the openai key because of the verification
 - Fixes [#2928](https://github.com/gitkraken/vscode-gitlens/issues/2928) - Apply Changes should create new files when needed
 - Fixes [#2896](https://github.com/gitkraken/vscode-gitlens/issues/2896) - Repositories view stuck in loading state

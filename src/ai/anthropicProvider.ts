@@ -129,6 +129,7 @@ export class AnthropicProvider implements AIProvider {
 				Authorization: `Bearer ${apiKey}`,
 				'Content-Type': 'application/json',
 				'X-API-Key': apiKey,
+				'anthropic-version': '2023-06-01',
 			},
 			method: 'POST',
 			body: JSON.stringify(request),
