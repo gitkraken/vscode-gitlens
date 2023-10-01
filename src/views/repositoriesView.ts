@@ -329,6 +329,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		let branches = await this.container.git.getCommitBranches(
 			commit.repoPath,
 			commit.ref,
+			undefined,
 			isCommit(commit) ? { commitDate: commit.committer.date } : undefined,
 		);
 		if (branches.length !== 0) {
@@ -362,6 +363,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		branches = await this.container.git.getCommitBranches(
 			commit.repoPath,
 			commit.ref,
+			undefined,
 			isCommit(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },
 		);
 		if (branches.length === 0) return undefined;

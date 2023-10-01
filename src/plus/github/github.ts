@@ -1591,6 +1591,82 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
+	@debug<GitHubApi['getCommitTags']>({ args: { 0: '<token>' } })
+	async getCommitTags(token: string, owner: string, repo: string, ref: string, date: Date): Promise<string[]> {
+		const scope = getLogScope();
+
+		interface QueryResult {
+			repository: {
+				refs: {
+					nodes: {
+						name: string;
+						target: {
+							history: {
+								nodes: { oid: string }[];
+							};
+						};
+					}[];
+				};
+			};
+		}
+
+		try {
+			const query = `query getCommitTags(
+	$owner: String!
+	$repo: String!
+	$since: GitTimestamp!
+	$until: GitTimestamp!
+) {
+	repository(owner: $owner, name: $repo) {
+		refs(first: 20, refPrefix: "refs/tags/") {
+			nodes {
+				name
+				target {
+					... on Commit {
+						history(first: 3, since: $since until: $until) {
+							nodes { oid }
+						}
+					}
+				}
+			}
+		}
+	}
+}`;
+			const rsp = await this.graphql<QueryResult>(
+				undefined,
+				token,
+				query,
+				{
+					owner: owner,
+					repo: repo,
+					since: date.toISOString(),
+					until: date.toISOString(),
+				},
+				scope,
+			);
+
+			const nodes = rsp?.repository?.refs?.nodes;
+			if (nodes == null) return [];
+
+			const tags = [];
+
+			for (const tag of nodes) {
+				for (const commit of tag.target.history.nodes) {
+					if (commit.oid === ref) {
+						tags.push(tag.name);
+						break;
+					}
+				}
+			}
+
+			return tags;
+		} catch (ex) {
+			if (ex instanceof ProviderRequestNotFoundError) return [];
+
+			throw this.handleException(ex, undefined, scope);
+		}
+	}
+
 	@debug<GitHubApi['getNextCommitRefs']>({ args: { 0: '<token>' } })
 	async getNextCommitRefs(
 		token: string,

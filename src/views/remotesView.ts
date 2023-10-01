@@ -209,6 +209,7 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 		const branches = await this.container.git.getCommitBranches(
 			commit.repoPath,
 			commit.ref,
+			undefined,
 			isCommit(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },
 		);
 		if (branches.length === 0) return undefined;

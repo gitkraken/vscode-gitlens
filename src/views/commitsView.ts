@@ -355,8 +355,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 		if (branch == null) return undefined;
 
 		// Check if the commit exists on the current branch
-		const branches = await this.container.git.getCommitBranches(commit.repoPath, commit.ref, {
-			branch: branch.name,
+		const branches = await this.container.git.getCommitBranches(commit.repoPath, commit.ref, branch.name, {
 			commitDate: isCommit(commit) ? commit.committer.date : undefined,
 		});
 		if (!branches.length) return undefined;

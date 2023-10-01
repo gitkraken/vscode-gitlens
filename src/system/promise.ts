@@ -4,29 +4,29 @@ export type PromiseOrValue<T> = Promise<T> | T;
 
 export function any<T>(...promises: Promise<T>[]): Promise<T> {
 	return new Promise<T>((resolve, reject) => {
-		const errors: Error[] = [];
 		let settled = false;
+		const onFullfilled = (r: T) => {
+			settled = true;
+			resolve(r);
+		};
+
+		let errors: Error[];
+		const onRejected = (ex: Error) => {
+			if (settled) return;
+
+			if (errors == null) {
+				errors = [ex];
+			} else {
+				errors.push(ex);
+			}
+
+			if (promises.length - errors.length < 1) {
+				reject(new AggregateError(errors));
+			}
+		};
 
 		for (const promise of promises) {
-			// eslint-disable-next-line no-loop-func
-			void (async () => {
-				try {
-					const result = await promise;
-					if (settled) return;
-
-					resolve(result);
-					settled = true;
-				} catch (ex) {
-					errors.push(ex);
-				} finally {
-					if (!settled) {
-						if (promises.length - errors.length < 1) {
-							reject(new AggregateError(errors));
-							settled = true;
-						}
-					}
-				}
-			})();
+			promise.then(onFullfilled, onRejected);
 		}
 	});
 }

@@ -20,6 +20,7 @@ import {
 	StashPushErrorReason,
 	WorkspaceUntrustedError,
 } from '../../../git/errors';
+import type { GitDir } from '../../../git/gitProvider';
 import type { GitDiffFilter } from '../../../git/models/diff';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/models/reference';
 import type { GitUser } from '../../../git/models/user';
@@ -503,22 +504,29 @@ export class Git {
 		);
 	}
 
-	branch__containsOrPointsAt(
+	branchOrTag__containsOrPointsAt(
 		repoPath: string,
 		ref: string,
-		{
-			mode = 'contains',
-			name = undefined,
-			remotes = false,
-		}: { mode?: 'contains' | 'pointsAt'; name?: string; remotes?: boolean } = {},
+		options?: {
+			type?: 'branch' | 'tag';
+			all?: boolean;
+			mode?: 'contains' | 'pointsAt';
+			name?: string;
+			remotes?: boolean;
+		},
 	) {
-		const params = ['branch'];
-		if (remotes) {
+		const params: string[] = [options?.type ?? 'branch'];
+		if (options?.all) {
+			params.push('-a');
+		} else if (options?.remotes) {
 			params.push('-r');
 		}
-		params.push(mode === 'pointsAt' ? `--points-at=${ref}` : `--contains=${ref}`, '--format=%(refname:short)');
-		if (name != null) {
-			params.push(name);
+		params.push(
+			options?.mode === 'pointsAt' ? `--points-at=${ref}` : `--contains=${ref}`,
+			'--format=%(refname:short)',
+		);
+		if (options?.name != null) {
+			params.push(options.name);
 		}
 
 		return this.git<string>(
@@ -2177,22 +2185,22 @@ export class Git {
 	}
 
 	async readDotGitFile(
-		repoPath: string,
-		paths: string[],
+		gitDir: GitDir,
+		pathParts: string[],
 		options?: { numeric?: false; throw?: boolean; trim?: boolean },
 	): Promise<string | undefined>;
 	async readDotGitFile(
-		repoPath: string,
-		path: string[],
+		gitDir: GitDir,
+		pathParts: string[],
 		options?: { numeric: true; throw?: boolean; trim?: boolean },
 	): Promise<number | undefined>;
 	async readDotGitFile(
-		repoPath: string,
+		gitDir: GitDir,
 		pathParts: string[],
 		options?: { numeric?: boolean; throw?: boolean; trim?: boolean },
 	): Promise<string | number | undefined> {
 		try {
-			const bytes = await workspace.fs.readFile(Uri.file(joinPaths(repoPath, '.git', ...pathParts)));
+			const bytes = await workspace.fs.readFile(Uri.joinPath(gitDir.uri, ...pathParts));
 			let contents = textDecoder.decode(bytes);
 			contents = options?.trim ?? true ? contents.trim() : contents;
 

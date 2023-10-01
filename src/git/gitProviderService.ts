@@ -1631,10 +1631,13 @@ export class GitProviderService implements Disposable {
 	getCommitBranches(
 		repoPath: string | Uri,
 		ref: string,
-		options?: { branch?: string; commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
+		branch?: string | undefined,
+		options?:
+			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
+			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
 	): Promise<string[]> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.getCommitBranches(path, ref, options);
+		return provider.getCommitBranches(path, ref, branch, options);
 	}
 
 	@log()
@@ -1668,6 +1671,16 @@ export class GitProviderService implements Disposable {
 	): Promise<GitGraph> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getCommitsForGraph(path, asWebviewUri, options);
+	}
+
+	@log()
+	getCommitTags(
+		repoPath: string | Uri,
+		ref: string,
+		options?: { commitDate?: Date; mode?: 'contains' | 'pointsAt' },
+	): Promise<string[]> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getCommitTags(path, ref, options);
 	}
 
 	@log()

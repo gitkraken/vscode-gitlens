@@ -213,6 +213,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 		const branches = await this.container.git.getCommitBranches(
 			commit.repoPath,
 			commit.ref,
+			undefined,
 			isCommit(commit) ? { commitDate: commit.committer.date } : undefined,
 		);
 		if (branches.length === 0) return undefined;

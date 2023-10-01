@@ -4305,6 +4305,24 @@
 				}
 			},
 			{
+				"id": "gitlens.decorations.statusMergingOrRebasingConflictForegroundColor",
+				"description": "Specifies the decoration foreground color of the status during a rebase operation with conflicts",
+				"defaults": {
+					"light": "#ad0707",
+					"dark": "#c74e39",
+					"highContrast": "#c74e39"
+				}
+			},
+			{
+				"id": "gitlens.decorations.statusMergingOrRebasingForegroundColor",
+				"description": "Specifies the decoration foreground color of the status during a rebase operation",
+				"defaults": {
+					"dark": "#D8AF1B",
+					"light": "#D8AF1B",
+					"highContrast": "#D8AF1B"
+				}
+			},
+			{
 				"id": "gitlens.decorations.workspaceRepoMissingForegroundColor",
 				"description": "Specifies the decoration foreground color of workspace repos which are missing a local path",
 				"defaults": {
@@ -11673,7 +11691,7 @@
 				},
 				{
 					"command": "gitlens.views.cherryPick",
-					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+current\\b)/",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+(current|rebase)\\b)/",
 					"group": "1_gitlens_actions@1"
 				},
 				{
@@ -11698,27 +11716,27 @@
 				},
 				{
 					"command": "gitlens.views.resetToCommit",
-					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:commit\\b/",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/",
 					"group": "1_gitlens_actions@4"
 				},
 				{
 					"command": "gitlens.views.resetToTip",
-					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b/",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+rebase\\b)/",
 					"group": "1_gitlens_actions@4"
 				},
 				{
 					"command": "gitlens.views.resetCommit",
-					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:commit\\b/",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/",
 					"group": "1_gitlens_actions@5"
 				},
 				{
 					"command": "gitlens.views.rebaseOntoCommit",
-					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:commit\\b/",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/",
 					"group": "1_gitlens_actions@6"
 				},
 				{
 					"command": "gitlens.views.switchToCommit",
-					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:commit\\b/",
+					"when": "!gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+rebase\\b)/",
 					"group": "1_gitlens_actions@7"
 				},
 				{
