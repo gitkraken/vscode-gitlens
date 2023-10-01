@@ -97,7 +97,7 @@ export class GkPullRequestRow extends LitElement {
 			.row-type {
 				--gk-badge-outline-padding: 0.3rem 0.8rem;
 				--gk-badge-font-size: 1.1rem;
-				opacity: 0.5;
+				opacity: 0.4;
 				vertical-align: middle;
 			}
 
@@ -119,6 +119,21 @@ export class GkPullRequestRow extends LitElement {
 				display: inline-block;
 				min-width: 1.6rem;
 			}
+
+			.pin {
+				opacity: 0.4;
+			}
+			.pin:hover {
+				opacity: 0.64;
+			}
+
+			gk-focus-row:not(:hover):not(:focus-within) .pin:not(.is-active) {
+				opacity: 0;
+			}
+
+			.pin.is-active {
+				opacity: 1;
+			}
 		`,
 	];
 
@@ -139,6 +154,15 @@ export class GkPullRequestRow extends LitElement {
 
 	@property({ type: Boolean })
 	public hasLocalBranch = false;
+
+	@property({ type: Boolean })
+	public pinned = false;
+
+	@property({ type: Boolean })
+	public snoozed = false;
+
+	@property({ attribute: 'enriched-id' })
+	public enrichedId?: string;
 
 	constructor() {
 		super();
@@ -196,6 +220,26 @@ export class GkPullRequestRow extends LitElement {
 
 		return html`
 			<gk-focus-row>
+				<span slot="pin">
+					<gk-tooltip>
+						<code-icon
+							class="pin ${this.pinned ? ' is-active' : ''}"
+							slot="trigger"
+							icon="pinned"
+							@click="${this.onPinClick}"
+						></code-icon>
+						<span>${this.pinned ? 'Unpinned' : 'Pin'}</span>
+					</gk-tooltip>
+					<gk-tooltip>
+						<code-icon
+							class="pin ${this.snoozed ? ' is-active' : ''}"
+							slot="trigger"
+							icon="${this.snoozed ? 'bell' : 'bell-slash'}"
+							@click="${this.onSnoozeClick}"
+						></code-icon>
+						<span>${this.snoozed ? 'Watch' : 'Mark for Later'}</span>
+					</gk-tooltip>
+				</span>
 				<span slot="key" class="key">
 					${when(
 						this.indicator === 'changes',
@@ -346,5 +390,21 @@ export class GkPullRequestRow extends LitElement {
 			return;
 		}
 		this.dispatchEvent(new CustomEvent('switch-branch', { detail: this.pullRequest! }));
+	}
+
+	onSnoozeClick(_e: Event) {
+		this.dispatchEvent(
+			new CustomEvent('snooze-item', {
+				detail: { item: this.pullRequest!, snooze: this.snoozed ? this.enrichedId : undefined },
+			}),
+		);
+	}
+
+	onPinClick(_e: Event) {
+		this.dispatchEvent(
+			new CustomEvent('pin-item', {
+				detail: { item: this.pullRequest!, pin: this.pinned ? this.enrichedId : undefined },
+			}),
+		);
 	}
 }

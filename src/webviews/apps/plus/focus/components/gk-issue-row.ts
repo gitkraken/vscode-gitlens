@@ -90,6 +90,21 @@ export class GkIssueRow extends LitElement {
 				display: inline-block;
 				min-width: 1.6rem;
 			}
+
+			.pin {
+				opacity: 0.4;
+			}
+			.pin:hover {
+				opacity: 0.64;
+			}
+
+			gk-focus-row:not(:hover):not(:focus-within) .pin:not(.is-active) {
+				opacity: 0;
+			}
+
+			.pin.is-active {
+				opacity: 1;
+			}
 		`,
 	];
 
@@ -98,6 +113,15 @@ export class GkIssueRow extends LitElement {
 
 	@property({ type: Object })
 	public issue?: IssueShape;
+
+	@property({ type: Boolean })
+	public pinned = false;
+
+	@property({ type: Boolean })
+	public snoozed = false;
+
+	@property({ attribute: 'enriched-id' })
+	public enrichedId?: string;
 
 	constructor() {
 		super();
@@ -132,6 +156,26 @@ export class GkIssueRow extends LitElement {
 
 		return html`
 			<gk-focus-row>
+				<span slot="pin">
+					<gk-tooltip>
+						<code-icon
+							class="pin ${this.pinned ? ' is-active' : ''}"
+							slot="trigger"
+							icon="pinned"
+							@click="${this.onPinClick}"
+						></code-icon>
+						<span>Pin</span>
+					</gk-tooltip>
+					<gk-tooltip>
+						<code-icon
+							class="pin ${this.snoozed ? ' is-active' : ''}"
+							slot="trigger"
+							icon="bell-slash"
+							@click="${this.onSnoozeClick}"
+						></code-icon>
+						<span>Mark for Later</span>
+					</gk-tooltip>
+				</span>
 				<span slot="key"></span>
 				<gk-focus-item>
 					<p>
@@ -198,5 +242,21 @@ export class GkIssueRow extends LitElement {
 				</gk-focus-item>
 			</gk-focus-row>
 		`;
+	}
+
+	onSnoozeClick(_e: Event) {
+		this.dispatchEvent(
+			new CustomEvent('snooze-item', {
+				detail: { item: this.issue!, snooze: this.snoozed ? this.enrichedId : undefined },
+			}),
+		);
+	}
+
+	onPinClick(_e: Event) {
+		this.dispatchEvent(
+			new CustomEvent('pin-item', {
+				detail: { item: this.issue!, pin: this.pinned ? this.enrichedId : undefined },
+			}),
+		);
 	}
 }

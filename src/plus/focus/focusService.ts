@@ -1,21 +1,21 @@
 import type { Disposable } from 'vscode';
 import type { Container } from '../../container';
+import type { GitRemote } from '../../git/models/remote';
+import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
 import { log } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import type { ServerConnection } from '../gk/serverConnection';
 
 export interface FocusItem {
-	provider: EnrichedItemResponse['provider'];
 	type: EnrichedItemResponse['entityType'];
 	id: string;
-	repositoryName: string;
-	repositoryOwner: string;
+	remote?: GitRemote<RichRemoteProvider>;
 }
 
 export type EnrichedItem = {
 	id: string;
-	userId: string;
+	userId?: string;
 	type: EnrichedItemResponse['type'];
 
 	provider: EnrichedItemResponse['provider'];
@@ -25,28 +25,45 @@ export type EnrichedItem = {
 	createdAt: number;
 	updatedAt: number;
 } & (
-	| { repositoryId: string }
+	| { gitRepositoryId: string }
 	| {
 			repositoryName: string;
 			repositoryOwner: string;
 	  }
 );
+
+type GitRepositoryDataRequest =
+	| {
+			readonly initialCommitSha: string;
+			readonly remoteUrl?: undefined;
+			readonly remoteDomain?: undefined;
+			readonly remotePath?: undefined;
+	  }
+	| ({
+			readonly initialCommitSha?: string;
+			readonly remoteUrl: string;
+			readonly remoteDomain: string;
+			readonly remotePath: string;
+	  } & (
+			| { readonly remoteProvider?: undefined }
+			| {
+					readonly remoteProvider: string;
+					readonly remoteProviderRepoDomain: string;
+					readonly remoteProviderRepoName: string;
+					readonly remoteProviderRepoOwnerDomain?: string;
+			  }
+	  ));
 
 type EnrichedItemRequest = {
 	provider: EnrichedItemResponse['provider'];
-	type: EnrichedItemResponse['entityType'];
-	id: string;
-} & (
-	| { repositoryId: string }
-	| {
-			repositoryName: string;
-			repositoryOwner: string;
-	  }
-);
+	entityType: EnrichedItemResponse['entityType'];
+	entityId: string;
+	gitRepoData: GitRepositoryDataRequest;
+};
 
 type EnrichedItemResponse = {
 	id: string;
-	userId: string;
+	userId?: string;
 	type: 'pin' | 'snooze';
 
 	provider: 'azure' | 'bitbucket' | 'github' | 'gitlab' | 'gitkraken';
@@ -56,7 +73,7 @@ type EnrichedItemResponse = {
 	createdAt: number;
 	updatedAt: number;
 } & (
-	| { repositoryId: string }
+	| { gitRepositoryId: string }
 	| {
 			repositoryName: string;
 			repositoryOwner: string;
@@ -120,14 +137,25 @@ export class FocusService implements Disposable {
 		try {
 			type Result = { data: EnrichedItemResponse };
 
+			const rq: EnrichedItemRequest = {
+				provider: item.remote!.provider.id as EnrichedItemResponse['provider'],
+				entityType: item.type,
+				entityId: item.id,
+				gitRepoData: {
+					remoteUrl: item.remote!.url,
+					remotePath: item.remote!.provider.path,
+					remoteDomain: item.remote!.provider.domain,
+				},
+			};
+
 			const rsp = await this.connection.fetchGkDevApi('v1/enrich-items/pin', {
 				method: 'POST',
-				body: JSON.stringify(item satisfies EnrichedItemRequest),
+				body: JSON.stringify(rq),
 			});
 
 			if (!rsp.ok) {
 				throw new Error(
-					`Unable to pin item '${item.provider}|${item.repositoryOwner}/${item.repositoryName}#${item.id}':  (${rsp.status}) ${rsp.statusText}`,
+					`Unable to pin item '${rq.provider}|${rq.gitRepoData.remoteDomain}/${rq.gitRepoData.remotePath}#${item.id}':  (${rsp.status}) ${rsp.statusText}`,
 				);
 			}
 
@@ -152,14 +180,25 @@ export class FocusService implements Disposable {
 		try {
 			type Result = { data: EnrichedItemResponse };
 
+			const rq: EnrichedItemRequest = {
+				provider: item.remote!.provider.id as EnrichedItemResponse['provider'],
+				entityType: item.type,
+				entityId: item.id,
+				gitRepoData: {
+					remoteUrl: item.remote!.url,
+					remotePath: item.remote!.provider.path,
+					remoteDomain: item.remote!.provider.domain,
+				},
+			};
+
 			const rsp = await this.connection.fetchGkDevApi('v1/enrich-items/snooze', {
 				method: 'POST',
-				body: JSON.stringify(item satisfies EnrichedItemRequest),
+				body: JSON.stringify(rq),
 			});
 
 			if (!rsp.ok) {
 				throw new Error(
-					`Unable to snooze item '${item.provider}|${item.repositoryOwner}/${item.repositoryName}#${item.id}':  (${rsp.status}) ${rsp.statusText}`,
+					`Unable to snooze item '${rq.provider}|${rq.gitRepoData.remoteDomain}/${rq.gitRepoData.remotePath}#${item.id}':  (${rsp.status}) ${rsp.statusText}`,
 				);
 			}
 
