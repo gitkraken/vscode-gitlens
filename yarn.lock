@@ -237,7 +237,7 @@
     react-dragula "1.1.17"
     react-onclickoutside "^6.13.0"
 
-"@gitkraken/shared-web-components@^0.1.1-rc.6":
+"@gitkraken/shared-web-components@^0.1.1-rc.9":
   version "0.1.1-rc.10"
   resolved "https://registry.yarnpkg.com/@gitkraken/shared-web-components/-/shared-web-components-0.1.1-rc.10.tgz#bed7021a0e6912ae3196e06078169950f0616bed"
   integrity sha512-2GoM9Gg473zbtTL5u5YTiDeU8mzACj2hMQBk+7iruiiVoJLGxvi1bT95MyXHakhv4zk4lI5OVWP6TU4ZAaoDLQ==

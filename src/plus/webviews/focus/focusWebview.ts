@@ -27,13 +27,27 @@ import { getSettledValue } from '../../../system/promise';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
+import type { EnrichedItem, FocusItem } from '../../focus/focusService';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
-import type { OpenBranchParams, OpenWorktreeParams, State, SwitchToBranchParams } from './protocol';
+import type {
+	OpenBranchParams,
+	OpenWorktreeParams,
+	PinIssueParams,
+	PinPrParams,
+	SnoozeIssueParams,
+	SnoozePrParams,
+	State,
+	SwitchToBranchParams,
+} from './protocol';
 import {
 	DidChangeNotificationType,
 	OpenBranchCommandType,
 	OpenWorktreeCommandType,
+	PinIssueCommandType,
+	PinPrCommandType,
+	SnoozeIssueCommandType,
+	SnoozePrCommandType,
 	SwitchToBranchCommandType,
 } from './protocol';
 
@@ -51,15 +65,21 @@ interface SearchedPullRequestWithRemote extends SearchedPullRequest {
 	isCurrentBranch?: boolean;
 	hasWorktree?: boolean;
 	isCurrentWorktree?: boolean;
+	rank: number;
+}
+
+interface SearchedIssueWithRank extends SearchedIssue {
+	rank: number;
 }
 
 export class FocusWebviewProvider implements WebviewProvider<State> {
 	private _pullRequests: SearchedPullRequestWithRemote[] = [];
-	private _issues: SearchedIssue[] = [];
+	private _issues: SearchedIssueWithRank[] = [];
 	private readonly _disposable: Disposable;
 	private _etagSubscription?: number;
 	private _repositoryEventsDisposable?: Disposable;
 	private _repos?: RepoWithRichRemote[];
+	private _enrichedItems?: EnrichedItem[];
 
 	constructor(
 		private readonly container: Container,
@@ -90,7 +110,115 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 			case OpenWorktreeCommandType.method:
 				onIpc(OpenWorktreeCommandType, e, params => this.onOpenWorktree(params));
 				break;
+			case SnoozePrCommandType.method:
+				onIpc(SnoozePrCommandType, e, params => this.onSnoozePr(params));
+				break;
+			case PinPrCommandType.method:
+				onIpc(PinPrCommandType, e, params => this.onPinPr(params));
+				break;
+			case SnoozeIssueCommandType.method:
+				onIpc(SnoozeIssueCommandType, e, params => this.onSnoozeIssue(params));
+				break;
+			case PinIssueCommandType.method:
+				onIpc(PinIssueCommandType, e, params => this.onPinIssue(params));
+				break;
 		}
+	}
+
+	private async onPinIssue({ issue, pin }: PinIssueParams) {
+		const issueWithRemote = this._issues?.find(r => r.issue.id === issue.id);
+		if (issueWithRemote == null) return;
+
+		if (pin) {
+			await this.container.focus.unpinItem(issueWithRemote.issue.id);
+			this._enrichedItems = this._enrichedItems?.filter(e => e.id !== pin);
+		} else {
+			const focusItem: FocusItem = {
+				type: 'issue',
+				id: issueWithRemote.issue.id,
+				// remote: issueWithRemote.issue.remote,
+			};
+			const enrichedItem = await this.container.focus.pinItem(focusItem);
+			if (enrichedItem == null) return;
+			if (this._enrichedItems == null) {
+				this._enrichedItems = [];
+			}
+			this._enrichedItems.push(enrichedItem);
+		}
+
+		void this.notifyDidChangeState();
+	}
+
+	private async onSnoozeIssue({ issue, snooze }: SnoozeIssueParams) {
+		const issueWithRemote = this._issues?.find(r => r.issue.id === issue.id);
+		if (issueWithRemote == null) return;
+
+		if (snooze) {
+			await this.container.focus.unsnoozeItem(snooze);
+			this._enrichedItems = this._enrichedItems?.filter(e => e.id !== snooze);
+		} else {
+			const focusItem: FocusItem = {
+				type: 'issue',
+				id: issueWithRemote.issue.id,
+				// remote: issueWithRemote.issue.remote,
+			};
+			const enrichedItem = await this.container.focus.snoozeItem(focusItem);
+			if (enrichedItem == null) return;
+			if (this._enrichedItems == null) {
+				this._enrichedItems = [];
+			}
+			this._enrichedItems.push(enrichedItem);
+		}
+
+		void this.notifyDidChangeState();
+	}
+
+	private async onPinPr({ pullRequest, pin }: PinPrParams) {
+		const prWithRemote = this._pullRequests?.find(r => r.pullRequest.id === pullRequest.id);
+		if (prWithRemote == null) return;
+
+		if (pin) {
+			await this.container.focus.unpinItem(pin);
+			this._enrichedItems = this._enrichedItems?.filter(e => e.id !== pin);
+		} else {
+			const focusItem: FocusItem = {
+				type: 'pr',
+				id: prWithRemote.pullRequest.id,
+				remote: prWithRemote.repoAndRemote.remote,
+			};
+			const enrichedItem = await this.container.focus.pinItem(focusItem);
+			if (enrichedItem == null) return;
+			if (this._enrichedItems == null) {
+				this._enrichedItems = [];
+			}
+			this._enrichedItems.push(enrichedItem);
+		}
+
+		void this.notifyDidChangeState();
+	}
+
+	private async onSnoozePr({ pullRequest, snooze }: SnoozePrParams) {
+		const prWithRemote = this._pullRequests?.find(r => r.pullRequest.id === pullRequest.id);
+		if (prWithRemote == null) return;
+
+		if (snooze) {
+			await this.container.focus.unsnoozeItem(snooze);
+			this._enrichedItems = this._enrichedItems?.filter(e => e.id !== snooze);
+		} else {
+			const focusItem: FocusItem = {
+				type: 'pr',
+				id: prWithRemote.pullRequest.id,
+				remote: prWithRemote.repoAndRemote.remote,
+			};
+			const enrichedItem = await this.container.focus.snoozeItem(focusItem);
+			if (enrichedItem == null) return;
+			if (this._enrichedItems == null) {
+				this._enrichedItems = [];
+			}
+			this._enrichedItems.push(enrichedItem);
+		}
+
+		void this.notifyDidChangeState();
 	}
 
 	private findSearchedPullRequest(pullRequest: PullRequestShape): SearchedPullRequestWithRemote | undefined {
@@ -273,10 +401,11 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		const statePromise = Promise.allSettled([
 			this.getMyPullRequests(connectedRepos),
 			this.getMyIssues(connectedRepos),
+			this.getEnrichedItems(),
 		]);
 
 		async function getStateCore() {
-			const [prsResult, issuesResult] = await statePromise;
+			const [prsResult, issuesResult, enrichedItems] = await statePromise;
 			return {
 				webviewId: webviewId,
 				timestamp: Date.now(),
@@ -289,10 +418,14 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 					isCurrentWorktree: pr.isCurrentWorktree ?? false,
 					hasWorktree: pr.hasWorktree ?? false,
 					hasLocalBranch: pr.hasLocalBranch ?? false,
+					enriched: findEnrichedItem(pr, getSettledValue(enrichedItems)),
+					rank: pr.rank,
 				})),
 				issues: getSettledValue(issuesResult)?.map(issue => ({
 					issue: serializeIssue(issue.issue),
 					reasons: issue.reasons,
+					enriched: findEnrichedItem(issue, getSettledValue(enrichedItems)),
+					rank: issue.rank,
 				})),
 			};
 		}
@@ -374,6 +507,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 					repoAndRemote: richRepo,
 					isCurrentWorktree: false,
 					isCurrentBranch: false,
+					rank: getPrRank(pr),
 				};
 
 				const remoteBranchName = `${entry.pullRequest.refs!.head.owner}/${entry.pullRequest.refs!.head.branch}`; // TODO@eamodio really need to check for upstream url rather than name
@@ -397,36 +531,9 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 			}
 		}
 
-		function getScore(pr: SearchedPullRequest) {
-			let score = 0;
-			if (pr.reasons.includes('authored')) {
-				score += 1000;
-			} else if (pr.reasons.includes('assigned')) {
-				score += 900;
-			} else if (pr.reasons.includes('review-requested')) {
-				score += 800;
-			} else if (pr.reasons.includes('mentioned')) {
-				score += 700;
-			}
-
-			if (pr.pullRequest.reviewDecision === PullRequestReviewDecision.Approved) {
-				if (pr.pullRequest.mergeableState === PullRequestMergeableState.Mergeable) {
-					score += 100;
-				} else if (pr.pullRequest.mergeableState === PullRequestMergeableState.Conflicting) {
-					score += 90;
-				} else {
-					score += 80;
-				}
-			} else if (pr.pullRequest.reviewDecision === PullRequestReviewDecision.ChangesRequested) {
-				score += 70;
-			}
-
-			return score;
-		}
-
 		this._pullRequests = allPrs.sort((a, b) => {
-			const scoreA = getScore(a);
-			const scoreB = getScore(b);
+			const scoreA = a.rank;
+			const scoreB = b.rank;
 
 			if (scoreA === scoreB) {
 				return a.pullRequest.date.getTime() - b.pullRequest.date.getTime();
@@ -437,25 +544,112 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		return this._pullRequests;
 	}
 
-	private async getMyIssues(richRepos: RepoWithRichRemote[]): Promise<SearchedIssue[]> {
+	private async getMyIssues(richRepos: RepoWithRichRemote[]): Promise<SearchedIssueWithRank[]> {
 		const allIssues = [];
 		for (const { remote } of richRepos) {
 			const issues = await this.container.git.getMyIssues(remote);
 			if (issues == null) {
 				continue;
 			}
-			allIssues.push(...issues.filter(pr => pr.reasons.length > 0));
+
+			for (const issue of issues) {
+				if (issue.reasons.length === 0) {
+					continue;
+				}
+				allIssues.push({
+					...issue,
+					rank: 0, // getIssueRank(issue),
+				});
+			}
 		}
+
+		// this._issues = allIssues.sort((a, b) => {
+		// 	const scoreA = a.rank;
+		// 	const scoreB = b.rank;
+
+		// 	if (scoreA === scoreB) {
+		// 		return b.issue.updatedDate.getTime() - a.issue.updatedDate.getTime();
+		// 	}
+		// 	return (scoreB ?? 0) - (scoreA ?? 0);
+		// });
 
 		this._issues = allIssues.sort((a, b) => b.issue.updatedDate.getTime() - a.issue.updatedDate.getTime());
 
 		return this._issues;
 	}
 
+	private async getEnrichedItems(): Promise<EnrichedItem[] | undefined> {
+		// TODO needs cache invalidation
+		if (this._enrichedItems == null) {
+			const enrichedItems = await this.container.focus.get();
+			this._enrichedItems = enrichedItems;
+		}
+		return this._enrichedItems;
+	}
+
 	private async notifyDidChangeState(deferState?: boolean) {
 		void this.host.notify(DidChangeNotificationType, { state: await this.getState(deferState) });
 	}
 }
+
+function findEnrichedItem(item: SearchedPullRequestWithRemote | SearchedIssue, enrichedItems?: EnrichedItem[]) {
+	if (enrichedItems == null || enrichedItems.length === 0) return;
+
+	let result;
+	// TODO: filter by entity id, type, and gitRepositoryId
+	if ((item as SearchedPullRequestWithRemote).pullRequest != null) {
+		result = enrichedItems.find(e => e.entityId === (item as SearchedPullRequestWithRemote).pullRequest.id);
+	} else {
+		result = enrichedItems.find(e => e.entityId === (item as SearchedIssue).issue.id);
+	}
+
+	if (result == null) return;
+
+	return {
+		id: result.id,
+		type: result.type,
+	};
+}
+
+function getPrRank(pr: SearchedPullRequest) {
+	let score = 0;
+	if (pr.reasons.includes('authored')) {
+		score += 1000;
+	} else if (pr.reasons.includes('assigned')) {
+		score += 900;
+	} else if (pr.reasons.includes('review-requested')) {
+		score += 800;
+	} else if (pr.reasons.includes('mentioned')) {
+		score += 700;
+	}
+
+	if (pr.pullRequest.reviewDecision === PullRequestReviewDecision.Approved) {
+		if (pr.pullRequest.mergeableState === PullRequestMergeableState.Mergeable) {
+			score += 100;
+		} else if (pr.pullRequest.mergeableState === PullRequestMergeableState.Conflicting) {
+			score += 90;
+		} else {
+			score += 80;
+		}
+	} else if (pr.pullRequest.reviewDecision === PullRequestReviewDecision.ChangesRequested) {
+		score += 70;
+	}
+
+	return score;
+}
+
+// function getIssueRank(issue: SearchedIssue) {
+// 	let score = 0;
+// 	if (issue.reasons.includes('authored')) {
+// 		score += 1000;
+// 	} else if (issue.reasons.includes('assigned')) {
+// 		score += 900;
+// 	} else if (issue.reasons.includes('mentioned')) {
+// 		score += 700;
+// 	}
+
+// 	return score;
+// }
 
 function filterGithubRepos(list: RepoWithRichRemote[]): RepoWithRichRemote[] {
 	return list.filter(entry => entry.isGitHub);

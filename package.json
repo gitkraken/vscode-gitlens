@@ -14816,7 +14816,7 @@
 	},
 	"dependencies": {
 		"@gitkraken/gitkraken-components": "10.1.25",
-		"@gitkraken/shared-web-components": "^0.1.1-rc.6",
+		"@gitkraken/shared-web-components": "^0.1.1-rc.9",
 		"@microsoft/fast-element": "1.12.0",
 		"@microsoft/fast-react-wrapper": "0.3.19",
 		"@octokit/graphql": "7.0.2",
