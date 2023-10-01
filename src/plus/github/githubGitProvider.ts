@@ -1048,7 +1048,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async getCommitBranches(
 		repoPath: string,
 		ref: string,
-		options?: { branch?: string; commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
+		branch?: string | undefined,
+		options?:
+			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
+			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
 	): Promise<string[]> {
 		if (repoPath == null || options?.commitDate == null) return [];
 
@@ -1059,12 +1062,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			let branches;
 
-			if (options?.branch) {
+			if (branch) {
 				branches = await github.getCommitOnBranch(
 					session.accessToken,
 					metadata.repo.owner,
 					metadata.repo.name,
-					options?.branch,
+					branch,
 					ref,
 					options?.commitDate,
 				);
@@ -1589,6 +1592,35 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				);
 			},
 		};
+	}
+
+	@log()
+	async getCommitTags(
+		repoPath: string,
+		ref: string,
+		options?: { commitDate?: Date; mode?: 'contains' | 'pointsAt' },
+	): Promise<string[]> {
+		if (repoPath == null || options?.commitDate == null) return [];
+
+		const scope = getLogScope();
+
+		try {
+			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
+
+			const tags = await github.getCommitTags(
+				session.accessToken,
+				metadata.repo.owner,
+				metadata.repo.name,
+				ref,
+				options?.commitDate,
+			);
+
+			return tags;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			debugger;
+			return [];
+		}
 	}
 
 	@log()

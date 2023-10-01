@@ -111,6 +111,7 @@ export interface AmbientContext {
 	readonly repository?: Repository;
 	readonly root?: boolean;
 	readonly searchId?: string;
+	readonly status?: 'merging' | 'rebasing';
 	readonly storedComparisonId?: string;
 	readonly tag?: GitTag;
 	readonly workspace?: CloudWorkspace | LocalWorkspace;
@@ -145,10 +146,13 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 		uniqueness += `/branch/${context.branch.id}`;
 	}
 	if (context.branchStatus != null) {
-		uniqueness += `/status/${context.branchStatus.upstream ?? '-'}`;
+		uniqueness += `/branch-status/${context.branchStatus.upstream ?? '-'}`;
 	}
 	if (context.branchStatusUpstreamType != null) {
-		uniqueness += `/status-direction/${context.branchStatusUpstreamType}`;
+		uniqueness += `/branch-status-direction/${context.branchStatusUpstreamType}`;
+	}
+	if (context.status != null) {
+		uniqueness += `/status/${context.status}`;
 	}
 	if (context.reflog != null) {
 		uniqueness += `/reflog/${context.reflog.sha}+${context.reflog.selector}+${context.reflog.command}+${

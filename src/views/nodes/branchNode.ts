@@ -17,7 +17,6 @@ import { map } from '../../system/iterable';
 import type { Deferred } from '../../system/promise';
 import { defer, getSettledValue } from '../../system/promise';
 import { pad } from '../../system/string';
-import { RemotesView } from '../remotesView';
 import type { ViewsWithBranches } from '../viewBase';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { CommitNode } from './commitNode';
@@ -216,7 +215,7 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 
 			const children = [];
 
-			if (this.options.showComparison !== false && !(this.view instanceof RemotesView)) {
+			if (this.options.showComparison !== false && this.view.type !== 'remotes') {
 				children.push(
 					new CompareBranchNode(
 						this.uri,

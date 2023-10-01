@@ -72,6 +72,8 @@ export type Colors =
 	| `${typeof extensionPrefix}.decorations.deletedForegroundColor`
 	| `${typeof extensionPrefix}.decorations.ignoredForegroundColor`
 	| `${typeof extensionPrefix}.decorations.modifiedForegroundColor`
+	| `${typeof extensionPrefix}.decorations.statusMergingOrRebasingConflictForegroundColor`
+	| `${typeof extensionPrefix}.decorations.statusMergingOrRebasingForegroundColor`
 	| `${typeof extensionPrefix}.decorations.renamedForegroundColor`
 	| `${typeof extensionPrefix}.decorations.untrackedForegroundColor`
 	| `${typeof extensionPrefix}.decorations.workspaceCurrentForegroundColor`

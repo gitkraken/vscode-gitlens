@@ -1,29 +1,16 @@
-import type { Command } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
-import type { DiffWithPreviousCommandArgs } from '../../commands';
-import type { CoreColors } from '../../constants';
-import { Commands } from '../../constants';
-import { CommitFormatter } from '../../git/formatters/commitFormatter';
+import type { Colors } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
-import type { GitCommit } from '../../git/models/commit';
 import type { GitRebaseStatus } from '../../git/models/rebase';
-import type { GitRevisionReference } from '../../git/models/reference';
 import { getReferenceLabel } from '../../git/models/reference';
 import type { GitStatus } from '../../git/models/status';
-import { makeHierarchical } from '../../system/array';
-import { pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/cancellation';
 import { executeCoreCommand } from '../../system/command';
-import { configuration } from '../../system/configuration';
-import { joinPaths, normalizePath } from '../../system/path';
-import { getSettledValue } from '../../system/promise';
-import { pluralize, sortCompare } from '../../system/string';
+import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
-import { CommitFileNode } from './commitFileNode';
-import type { FileNode } from './folderNode';
-import { FolderNode } from './folderNode';
-import { MergeConflictFileNode } from './mergeConflictFileNode';
-import { ContextValues, getViewNodeId, ViewNode, ViewRefNode } from './viewNode';
+import { MergeConflictFilesNode } from './mergeConflictFilesNode';
+import { RebaseCommitNode } from './rebaseCommitNode';
+import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 	constructor(
@@ -37,7 +24,7 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 	) {
 		super(GitUri.fromRepoPath(rebaseStatus.repoPath), view, parent);
 
-		this.updateContext({ branch: branch, root: root });
+		this.updateContext({ branch: branch, root: root, status: 'rebasing' });
 		this._uniqueId = getViewNodeId('merge-status', this.context);
 	}
 
@@ -46,65 +33,80 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		let children: FileNode[] =
-			this.status?.conflicts.map(f => new MergeConflictFileNode(this.view, this, f, this.rebaseStatus)) ?? [];
+		const children: (MergeConflictFilesNode | RebaseCommitNode)[] = [];
 
-		if (this.view.config.files.layout !== 'list') {
-			const hierarchy = makeHierarchical(
-				children,
-				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => normalizePath(joinPaths(...parts)),
-				this.view.config.files.compact,
-			);
-
-			const root = new FolderNode(this.view, this, hierarchy, this.repoPath, '', undefined);
-			children = root.getChildren() as FileNode[];
-		} else {
-			children.sort((a, b) => sortCompare(a.label!, b.label!));
+		const revision = this.rebaseStatus.steps.current.commit;
+		if (revision != null) {
+			const commit =
+				revision != null
+					? await this.view.container.git.getCommit(this.rebaseStatus.repoPath, revision.ref)
+					: undefined;
+			if (commit != null) {
+				children.push(new RebaseCommitNode(this.view, this, commit));
+			}
 		}
 
-		const commit = await this.view.container.git.getCommit(
-			this.rebaseStatus.repoPath,
-			this.rebaseStatus.steps.current.commit.ref,
-		);
-		if (commit != null) {
-			children.unshift(new RebaseCommitNode(this.view, this, commit) as any);
+		if (this.status?.hasConflicts) {
+			children.push(new MergeConflictFilesNode(this.view, this, this.rebaseStatus, this.status.conflicts));
 		}
 
 		return children;
 	}
 
 	getTreeItem(): TreeItem {
+		const started = this.rebaseStatus.steps.total > 0;
+		const pausedAtCommit = started && this.rebaseStatus.steps.current.commit != null;
+		const hasConflicts = this.status?.hasConflicts === true;
+
 		const item = new TreeItem(
-			`${this.status?.hasConflicts ? 'Resolve conflicts to continue rebasing' : 'Rebasing'} ${
+			`${hasConflicts ? 'Resolve conflicts to continue rebasing' : started ? 'Rebasing' : 'Pending rebase of'} ${
 				this.rebaseStatus.incoming != null
 					? `${getReferenceLabel(this.rebaseStatus.incoming, { expand: false, icon: false })}`
 					: ''
-			} (${this.rebaseStatus.steps.current.number}/${this.rebaseStatus.steps.total})`,
-			TreeItemCollapsibleState.Expanded,
+			} onto ${getReferenceLabel(this.rebaseStatus.current ?? this.rebaseStatus.onto, {
+				expand: false,
+				icon: false,
+			})}${started ? ` (${this.rebaseStatus.steps.current.number}/${this.rebaseStatus.steps.total})` : ''}`,
+			pausedAtCommit ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.None,
 		);
 		item.id = this.id;
 		item.contextValue = ContextValues.Rebase;
-		item.description = this.status?.hasConflicts ? pluralize('conflict', this.status.conflicts.length) : undefined;
-		item.iconPath = this.status?.hasConflicts
-			? new ThemeIcon('warning', new ThemeColor('list.warningForeground' satisfies CoreColors))
-			: new ThemeIcon('debug-pause', new ThemeColor('list.foreground' satisfies CoreColors));
+		item.description = hasConflicts ? pluralize('conflict', this.status.conflicts.length) : undefined;
+		item.iconPath = hasConflicts
+			? new ThemeIcon(
+					'warning',
+					new ThemeColor(
+						'gitlens.decorations.statusMergingOrRebasingConflictForegroundColor' satisfies Colors,
+					),
+			  )
+			: new ThemeIcon(
+					'warning',
+					new ThemeColor('gitlens.decorations.statusMergingOrRebasingForegroundColor' satisfies Colors),
+			  );
 
 		const markdown = new MarkdownString(
-			`${`Rebasing ${
-				this.rebaseStatus.incoming != null ? getReferenceLabel(this.rebaseStatus.incoming) : ''
-			}onto ${getReferenceLabel(this.rebaseStatus.current)}`}\n\nStep ${
-				this.rebaseStatus.steps.current.number
-			} of ${this.rebaseStatus.steps.total}\\\nPaused at ${getReferenceLabel(
-				this.rebaseStatus.steps.current.commit,
-				{ icon: true },
-			)}${this.status?.hasConflicts ? `\n\n${pluralize('conflicted file', this.status.conflicts.length)}` : ''}`,
+			`${`${started ? 'Rebasing' : 'Pending rebase of'} ${
+				this.rebaseStatus.incoming != null
+					? getReferenceLabel(this.rebaseStatus.incoming, { label: false })
+					: ''
+			} onto ${getReferenceLabel(this.rebaseStatus.current ?? this.rebaseStatus.onto, { label: false })}`}${
+				started
+					? `\n\nPaused at step ${this.rebaseStatus.steps.current.number} of ${
+							this.rebaseStatus.steps.total
+					  }${
+							hasConflicts
+								? `\\\nResolve ${pluralize('conflict', this.status.conflicts.length)} before continuing`
+								: ''
+					  }`
+					: ''
+			}`,
 			true,
 		);
 		markdown.supportHtml = true;
 		markdown.isTrusted = true;
 
 		item.tooltip = markdown;
+		item.resourceUri = Uri.parse(`gitlens-view://status/rebasing${hasConflicts ? '/conflicts' : ''}`);
 
 		return item;
 	}
@@ -114,126 +116,5 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 		await executeCoreCommand('vscode.openWith', rebaseTodoUri, 'gitlens.rebase', {
 			preview: false,
 		});
-	}
-}
-
-export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionReference> {
-	constructor(
-		view: ViewsWithCommits,
-		parent: ViewNode,
-		public readonly commit: GitCommit,
-	) {
-		super(commit.getGitUri(), view, parent);
-	}
-
-	override toClipboard(): string {
-		return `${this.commit.shortSha}: ${this.commit.summary}`;
-	}
-
-	get ref(): GitRevisionReference {
-		return this.commit;
-	}
-
-	async getChildren(): Promise<ViewNode[]> {
-		const commit = this.commit;
-
-		const commits = await commit.getCommitsForFiles();
-		let children: FileNode[] = commits.map(c => new CommitFileNode(this.view, this, c.file!, c));
-
-		if (this.view.config.files.layout !== 'list') {
-			const hierarchy = makeHierarchical(
-				children,
-				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => normalizePath(joinPaths(...parts)),
-				this.view.config.files.compact,
-			);
-
-			const root = new FolderNode(this.view, this, hierarchy, this.repoPath, '', undefined);
-			children = root.getChildren() as FileNode[];
-		} else {
-			children.sort((a, b) => sortCompare(a.label!, b.label!));
-		}
-
-		return children;
-	}
-
-	getTreeItem(): TreeItem {
-		const item = new TreeItem(`Paused at commit ${this.commit.shortSha}`, TreeItemCollapsibleState.Collapsed);
-
-		// item.contextValue = ContextValues.RebaseCommit;
-
-		item.description = CommitFormatter.fromTemplate(`\${message}`, this.commit, {
-			messageTruncateAtNewLine: true,
-		});
-		item.iconPath = new ThemeIcon('git-commit');
-
-		return item;
-	}
-
-	override getCommand(): Command | undefined {
-		const commandArgs: DiffWithPreviousCommandArgs = {
-			commit: this.commit,
-			uri: this.uri,
-			line: 0,
-			showOptions: {
-				preserveFocus: true,
-				preview: true,
-			},
-		};
-		return {
-			title: 'Open Changes with Previous Revision',
-			command: Commands.DiffWithPrevious,
-			arguments: [undefined, commandArgs],
-		};
-	}
-
-	override async resolveTreeItem(item: TreeItem): Promise<TreeItem> {
-		if (item.tooltip == null) {
-			item.tooltip = await this.getTooltip();
-		}
-		return item;
-	}
-
-	private async getTooltip() {
-		const [remotesResult, _] = await Promise.allSettled([
-			this.view.container.git.getBestRemotesWithProviders(this.commit.repoPath),
-			this.commit.message == null ? this.commit.ensureFullDetails() : undefined,
-		]);
-
-		const remotes = getSettledValue(remotesResult, []);
-		const [remote] = remotes;
-
-		let enrichedAutolinks;
-		let pr;
-
-		if (remote?.hasRichIntegration()) {
-			const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
-				pauseOnCancelOrTimeoutMapTuplePromise(this.commit.getEnrichedAutolinks(remote)),
-				this.commit.getAssociatedPullRequest(remote),
-			]);
-
-			enrichedAutolinks = getSettledValue(enrichedAutolinksResult)?.value;
-			pr = getSettledValue(prResult);
-		}
-
-		const tooltip = await CommitFormatter.fromTemplateAsync(
-			`Rebase paused at ${this.view.config.formats.commits.tooltip}`,
-			this.commit,
-			{
-				enrichedAutolinks: enrichedAutolinks,
-				dateFormat: configuration.get('defaultDateFormat'),
-				messageAutolinks: true,
-				messageIndent: 4,
-				pullRequest: pr,
-				outputFormat: 'markdown',
-				remotes: remotes,
-			},
-		);
-
-		const markdown = new MarkdownString(tooltip, true);
-		markdown.supportHtml = true;
-		markdown.isTrusted = true;
-
-		return markdown;
 	}
 }

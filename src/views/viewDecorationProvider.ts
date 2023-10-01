@@ -19,19 +19,18 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 				provideFileDecoration: (uri, token) => {
 					if (uri.scheme !== 'gitlens-view') return undefined;
 
-					if (uri.authority === 'branch') {
-						return this.provideBranchCurrentDecoration(uri, token);
+					switch (uri.authority) {
+						case 'branch':
+							return this.provideBranchCurrentDecoration(uri, token);
+						case 'remote':
+							return this.provideRemoteDefaultDecoration(uri, token);
+						case 'status':
+							return this.provideStatusDecoration(uri, token);
+						case 'workspaces':
+							return this.provideWorkspaceDecoration(uri, token);
+						default:
+							return undefined;
 					}
-
-					if (uri.authority === 'remote') {
-						return this.provideRemoteDefaultDecoration(uri, token);
-					}
-
-					if (uri.authority === 'workspaces') {
-						return this.provideWorkspaceDecoration(uri, token);
-					}
-
-					return undefined;
 				},
 			}),
 			window.registerFileDecorationProvider(this),
@@ -232,5 +231,28 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 			badge: GlyphChars.Check,
 			tooltip: 'Default Remote',
 		};
+	}
+
+	provideStatusDecoration(uri: Uri, _token: CancellationToken): FileDecoration | undefined {
+		const [, status, conflicts] = uri.path.split('/');
+
+		switch (status) {
+			case 'rebasing':
+				if (conflicts) {
+					return {
+						badge: '!',
+						color: new ThemeColor(
+							'gitlens.decorations.statusMergingOrRebasingConflictForegroundColor' satisfies Colors,
+						),
+					};
+				}
+				return {
+					color: new ThemeColor(
+						'gitlens.decorations.statusMergingOrRebasingForegroundColor' satisfies Colors,
+					),
+				};
+			default:
+				return undefined;
+		}
 	}
 }

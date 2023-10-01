@@ -3,6 +3,7 @@ import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleSta
 import type { DiffWithPreviousCommandArgs } from '../../commands';
 import type { Colors } from '../../constants';
 import { Commands } from '../../constants';
+import type { Container } from '../../container';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
@@ -60,10 +61,8 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		]);
 
 		const mergeStatus = getSettledValue(mergeStatusResult);
-		if (mergeStatus == null) return [];
-
 		const rebaseStatus = getSettledValue(rebaseStatusResult);
-		if (rebaseStatus == null) return [];
+		if (mergeStatus == null && rebaseStatus == null) return [];
 
 		return [
 			new MergeConflictCurrentChangesNode(this.view, this, (mergeStatus ?? rebaseStatus)!, this.file),
@@ -204,43 +203,13 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 	}
 
 	private async getTooltip() {
-		const [remotesResult, _] = await Promise.allSettled([
-			this.view.container.git.getBestRemotesWithProviders(this.commit.repoPath),
-			this.commit.message == null ? this.commit.ensureFullDetails() : undefined,
-		]);
-
-		const remotes = getSettledValue(remotesResult, []);
-		const [remote] = remotes;
-
-		let enrichedAutolinks;
-		let pr;
-
-		if (remote?.hasRichIntegration()) {
-			const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
-				pauseOnCancelOrTimeoutMapTuplePromise(this.commit.getEnrichedAutolinks(remote)),
-				this.commit.getAssociatedPullRequest(remote),
-			]);
-
-			enrichedAutolinks = getSettledValue(enrichedAutolinksResult)?.value;
-			pr = getSettledValue(prResult);
-		}
-
-		const status = StatusFileFormatter.fromTemplate(
-			`\${status}\${ (originalPath)}\${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail}`,
-			this.file,
-		);
-		const tooltip = await CommitFormatter.fromTemplateAsync(
-			this.view.config.formats.commits.tooltipWithStatus.replace('{{slot-status}}', status),
+		const tooltip = await getFileRevisionAsCommitTooltip(
+			this.view.container,
 			this.commit,
+			this.file,
+			this.view.config.formats.commits.tooltipWithStatus,
 			{
-				enrichedAutolinks: enrichedAutolinks,
-				dateFormat: configuration.get('defaultDateFormat'),
 				getBranchAndTagTips: this._options.getBranchAndTagTips,
-				messageAutolinks: true,
-				messageIndent: 4,
-				pullRequest: pr,
-				outputFormat: 'markdown',
-				remotes: remotes,
 				unpublished: this._options.unpublished,
 			},
 		);
@@ -248,7 +217,54 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		const markdown = new MarkdownString(tooltip, true);
 		markdown.supportHtml = true;
 		markdown.isTrusted = true;
-
 		return markdown;
 	}
+}
+
+export async function getFileRevisionAsCommitTooltip(
+	container: Container,
+	commit: GitCommit,
+	file: GitFile,
+	tooltipWithStatusFormat: string,
+	options?: {
+		getBranchAndTagTips?: (sha: string, options?: { compact?: boolean }) => string | undefined;
+		unpublished?: boolean;
+	},
+) {
+	const [remotesResult, _] = await Promise.allSettled([
+		container.git.getBestRemotesWithProviders(commit.repoPath),
+		commit.message == null ? commit.ensureFullDetails() : undefined,
+	]);
+
+	const remotes = getSettledValue(remotesResult, []);
+	const [remote] = remotes;
+
+	let enrichedAutolinks;
+	let pr;
+
+	if (remote?.hasRichIntegration()) {
+		const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
+			pauseOnCancelOrTimeoutMapTuplePromise(commit.getEnrichedAutolinks(remote)),
+			commit.getAssociatedPullRequest(remote),
+		]);
+
+		enrichedAutolinks = getSettledValue(enrichedAutolinksResult)?.value;
+		pr = getSettledValue(prResult);
+	}
+
+	const status = StatusFileFormatter.fromTemplate(
+		`\${status}\${ (originalPath)}\${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail}`,
+		file,
+	);
+	return CommitFormatter.fromTemplateAsync(tooltipWithStatusFormat.replace('{{slot-status}}', status), commit, {
+		enrichedAutolinks: enrichedAutolinks,
+		dateFormat: configuration.get('defaultDateFormat'),
+		getBranchAndTagTips: options?.getBranchAndTagTips,
+		messageAutolinks: true,
+		messageIndent: 4,
+		pullRequest: pr,
+		outputFormat: 'markdown',
+		remotes: remotes,
+		unpublished: options?.unpublished,
+	});
 }

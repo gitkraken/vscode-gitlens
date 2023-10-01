@@ -1,4 +1,4 @@
-import type { GitBranchReference, GitRevisionReference } from './reference';
+import type { GitBranchReference, GitRevisionReference, GitTagReference } from './reference';
 
 export interface GitRebaseStatus {
 	type: 'rebase';
@@ -6,11 +6,11 @@ export interface GitRebaseStatus {
 	HEAD: GitRevisionReference;
 	onto: GitRevisionReference;
 	mergeBase: string | undefined;
-	current: GitBranchReference | undefined;
+	current: GitBranchReference | GitTagReference | undefined;
 	incoming: GitBranchReference;
 
 	steps: {
-		current: { number: number; commit: GitRevisionReference };
+		current: { number: number; commit: GitRevisionReference | undefined };
 		total: number;
 	};
 }

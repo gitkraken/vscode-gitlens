@@ -4,7 +4,6 @@ import type { Repository } from '../../git/models/repository';
 import { makeHierarchical } from '../../system/array';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
-import { RepositoriesView } from '../repositoriesView';
 import type { ViewsWithBranchesNode } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
@@ -55,7 +54,7 @@ export class BranchesNode extends ViewNode<ViewsWithBranchesNode> {
 						false,
 						{
 							showComparison:
-								this.view instanceof RepositoriesView
+								this.view.type === 'repositories'
 									? this.view.config.branches.showBranchComparison
 									: this.view.config.showBranchComparison,
 						},

@@ -1,7 +1,7 @@
 import type { ExecException } from 'child_process';
 import { exec, execFile } from 'child_process';
 import type { Stats } from 'fs';
-import { exists, existsSync, statSync } from 'fs';
+import { access, constants, existsSync, statSync } from 'fs';
 import { join as joinPaths } from 'path';
 import * as process from 'process';
 import type { CancellationToken } from 'vscode';
@@ -290,6 +290,6 @@ export function run<T extends number | string | Buffer>(
 	});
 }
 
-export function fsExists(path: string) {
-	return new Promise<boolean>(resolve => exists(path, exists => resolve(exists)));
+export async function fsExists(path: string) {
+	return new Promise<boolean>(resolve => access(path, constants.F_OK, err => resolve(err == null)));
 }

@@ -227,13 +227,10 @@ export interface GitProvider extends Disposable {
 	getCommitBranches(
 		repoPath: string,
 		ref: string,
-		options?: {
-			branch?: string | undefined;
-			commitDate?: Date | undefined;
-			mode?: 'contains' | 'pointsAt' | undefined;
-			name?: string | undefined;
-			remotes?: boolean | undefined;
-		},
+		branch?: string | undefined,
+		options?:
+			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
+			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
 	): Promise<string[]>;
 	getCommitCount(repoPath: string, ref: string): Promise<number | undefined>;
 	getCommitForFile(
@@ -255,6 +252,14 @@ export interface GitProvider extends Disposable {
 			ref?: string;
 		},
 	): Promise<GitGraph>;
+	getCommitTags(
+		repoPath: string,
+		ref: string,
+		options?: {
+			commitDate?: Date | undefined;
+			mode?: 'contains' | 'pointsAt' | undefined;
+		},
+	): Promise<string[]>;
 	getConfig?(repoPath: string, key: string): Promise<string | undefined>;
 	setConfig?(repoPath: string, key: string, value: string | undefined): Promise<void>;
 	getContributors(

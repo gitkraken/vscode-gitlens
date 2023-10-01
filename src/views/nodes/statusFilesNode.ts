@@ -10,7 +10,6 @@ import { filter, flatMap, map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
 import { pluralize, sortCompare } from '../../system/string';
 import type { ViewsWithWorkingTree } from '../viewBase';
-import { WorktreesView } from '../worktreesView';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
 import { StatusFileNode } from './statusFileNode';
@@ -68,10 +67,7 @@ export class StatusFilesNode extends ViewNode<ViewsWithWorkingTree> {
 			}
 		}
 
-		if (
-			(this.view instanceof WorktreesView || this.view.config.includeWorkingTree) &&
-			this.status.files.length !== 0
-		) {
+		if ((this.view.type === 'worktrees' || this.view.config.includeWorkingTree) && this.status.files.length !== 0) {
 			files.unshift(
 				...flatMap(this.status.files, f =>
 					map(f.getPseudoCommits(this.view.container, undefined), c => this.getFileWithPseudoCommit(f, c)),
@@ -113,7 +109,7 @@ export class StatusFilesNode extends ViewNode<ViewsWithWorkingTree> {
 
 	async getTreeItem(): Promise<TreeItem> {
 		let files =
-			this.view instanceof WorktreesView || this.view.config.includeWorkingTree ? this.status.files.length : 0;
+			this.view.type === 'worktrees' || this.view.config.includeWorkingTree ? this.status.files.length : 0;
 
 		if (this.range != null) {
 			if (this.status.upstream != null && this.status.state.ahead > 0) {

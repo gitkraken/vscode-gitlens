@@ -20,7 +20,6 @@ import type { Deferred } from '../../system/promise';
 import { defer, getSettledValue } from '../../system/promise';
 import { sortCompare } from '../../system/string';
 import type { FileHistoryView } from '../fileHistoryView';
-import { TagsView } from '../tagsView';
 import type { ViewsWithCommits } from '../viewBase';
 import { CommitFileNode } from './commitFileNode';
 import type { FileNode } from './folderNode';
@@ -39,10 +38,10 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		view: ViewsWithCommits | FileHistoryView,
 		parent: ViewNode,
 		public readonly commit: GitCommit,
-		private readonly unpublished?: boolean,
+		protected readonly unpublished?: boolean,
 		public readonly branch?: GitBranch,
-		private readonly getBranchAndTagTips?: (sha: string, options?: { compact?: boolean }) => string | undefined,
-		private readonly _options: { expand?: boolean } = {},
+		protected readonly getBranchAndTagTips?: (sha: string, options?: { compact?: boolean }) => string | undefined,
+		protected readonly _options: { expand?: boolean } = {},
 	) {
 		super(commit.getGitUri(), view, parent);
 
@@ -77,7 +76,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 			let pullRequest;
 
 			if (
-				!(this.view instanceof TagsView) &&
+				this.view.type !== 'tags' &&
 				!this.unpublished &&
 				getContext('gitlens:hasConnectedRemotes') &&
 				this.view.config.pullRequests.enabled &&
@@ -257,7 +256,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 			pr = getSettledValue(prResult);
 		}
 
-		const tooltip = await CommitFormatter.fromTemplateAsync(this.view.config.formats.commits.tooltip, this.commit, {
+		const tooltip = await CommitFormatter.fromTemplateAsync(this.getTooltipTemplate(), this.commit, {
 			enrichedAutolinks: enrichedAutolinks,
 			dateFormat: configuration.get('defaultDateFormat'),
 			getBranchAndTagTips: this.getBranchAndTagTips,
@@ -274,5 +273,9 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		markdown.isTrusted = true;
 
 		return markdown;
+	}
+
+	protected getTooltipTemplate(): string {
+		return this.view.config.formats.commits.tooltip;
 	}
 }

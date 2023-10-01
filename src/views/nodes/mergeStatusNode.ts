@@ -1,17 +1,13 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { CoreColors } from '../../constants';
+import type { Colors } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitMergeStatus } from '../../git/models/merge';
 import { getReferenceLabel } from '../../git/models/reference';
 import type { GitStatus } from '../../git/models/status';
-import { makeHierarchical } from '../../system/array';
-import { joinPaths, normalizePath } from '../../system/path';
-import { pluralize, sortCompare } from '../../system/string';
+import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
-import type { FileNode } from './folderNode';
-import { FolderNode } from './folderNode';
-import { MergeConflictFileNode } from './mergeConflictFileNode';
+import { MergeConflictFilesNode } from './mergeConflictFilesNode';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
@@ -26,7 +22,7 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 	) {
 		super(GitUri.fromRepoPath(mergeStatus.repoPath), view, parent);
 
-		this.updateContext({ branch: branch, root: root });
+		this.updateContext({ branch: branch, root: root, status: 'merging' });
 		this._uniqueId = getViewNodeId('merge-status', this.context);
 	}
 
@@ -35,50 +31,43 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 	}
 
 	getChildren(): ViewNode[] {
-		if (this.status?.hasConflicts !== true) return [];
-
-		let children: FileNode[] = this.status.conflicts.map(
-			f => new MergeConflictFileNode(this.view, this, f, this.mergeStatus),
-		);
-
-		if (this.view.config.files.layout !== 'list') {
-			const hierarchy = makeHierarchical(
-				children,
-				n => n.uri.relativePath.split('/'),
-				(...parts: string[]) => normalizePath(joinPaths(...parts)),
-				this.view.config.files.compact,
-			);
-
-			const root = new FolderNode(this.view, this, hierarchy, this.repoPath, '', undefined);
-			children = root.getChildren() as FileNode[];
-		} else {
-			children.sort((a, b) => sortCompare(a.label!, b.label!));
-		}
-
-		return children;
+		return this.status?.hasConflicts
+			? [new MergeConflictFilesNode(this.view, this, this.mergeStatus, this.status.conflicts)]
+			: [];
 	}
 
 	getTreeItem(): TreeItem {
+		const hasConflicts = this.status?.hasConflicts === true;
 		const item = new TreeItem(
-			`${this.status?.hasConflicts ? 'Resolve conflicts before merging' : 'Merging'} ${
+			`${hasConflicts ? 'Resolve conflicts before merging' : 'Merging'} ${
 				this.mergeStatus.incoming != null
 					? `${getReferenceLabel(this.mergeStatus.incoming, { expand: false, icon: false })} `
 					: ''
 			}into ${getReferenceLabel(this.mergeStatus.current, { expand: false, icon: false })}`,
-			TreeItemCollapsibleState.Expanded,
+			hasConflicts ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.None,
 		);
 		item.id = this.id;
 		item.contextValue = ContextValues.Merge;
-		item.description = this.status?.hasConflicts ? pluralize('conflict', this.status.conflicts.length) : undefined;
-		item.iconPath = this.status?.hasConflicts
-			? new ThemeIcon('warning', new ThemeColor('list.warningForeground' satisfies CoreColors))
-			: new ThemeIcon('debug-pause', new ThemeColor('list.foreground' satisfies CoreColors));
+		item.description = hasConflicts ? pluralize('conflict', this.status.conflicts.length) : undefined;
+		item.iconPath = hasConflicts
+			? new ThemeIcon(
+					'warning',
+					new ThemeColor(
+						'gitlens.decorations.statusMergingOrRebasingConflictForegroundColor' satisfies Colors,
+					),
+			  )
+			: new ThemeIcon(
+					'warning',
+					new ThemeColor('gitlens.decorations.statusMergingOrRebasingForegroundColor' satisfies Colors),
+			  );
 
 		const markdown = new MarkdownString(
 			`${`Merging ${
-				this.mergeStatus.incoming != null ? getReferenceLabel(this.mergeStatus.incoming) : ''
-			}into ${getReferenceLabel(this.mergeStatus.current)}`}${
-				this.status?.hasConflicts ? `\n\n${pluralize('conflicted file', this.status.conflicts.length)}` : ''
+				this.mergeStatus.incoming != null ? getReferenceLabel(this.mergeStatus.incoming, { label: false }) : ''
+			}into ${getReferenceLabel(this.mergeStatus.current, { label: false })}`}${
+				hasConflicts
+					? `\n\nResolve ${pluralize('conflict', this.status.conflicts.length)} before continuing`
+					: ''
 			}`,
 			true,
 		);
