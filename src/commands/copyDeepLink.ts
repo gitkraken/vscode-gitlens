@@ -20,6 +20,7 @@ import {
 	isCommandContextViewNodeHasComparison,
 	isCommandContextViewNodeHasRemote,
 	isCommandContextViewNodeHasTag,
+	isCommandContextViewNodeHasWorkspace,
 } from './base';
 
 export interface CopyDeepLinkCommandArgs {
@@ -28,6 +29,7 @@ export interface CopyDeepLinkCommandArgs {
 	compareWithRef?: StoredNamedRef;
 	remote?: string;
 	prePickRemote?: boolean;
+	workspaceId?: string;
 }
 
 @command()
@@ -39,6 +41,7 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 			Commands.CopyDeepLinkToRepo,
 			Commands.CopyDeepLinkToTag,
 			Commands.CopyDeepLinkToComparison,
+			Commands.CopyDeepLinkToWorkspace,
 		]);
 	}
 
@@ -58,6 +61,8 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 					compareRef: context.node.compareRef,
 					compareWithRef: context.node.compareWithRef,
 				};
+			} else if (isCommandContextViewNodeHasWorkspace(context)) {
+				args = { workspaceId: context.node.workspace.id };
 			}
 		}
 
@@ -66,6 +71,16 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: CopyDeepLinkCommandArgs) {
 		args = { ...args };
+
+		if (args.workspaceId != null) {
+			try {
+				await this.container.deepLinks.copyDeepLinkUrl(args.workspaceId);
+			} catch (ex) {
+				Logger.error(ex, 'CopyDeepLinkCommand');
+				void showGenericErrorMessage('Unable to copy link');
+			}
+			return;
+		}
 
 		let type;
 		let repoPath;

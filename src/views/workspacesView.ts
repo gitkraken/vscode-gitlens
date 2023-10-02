@@ -1,4 +1,4 @@
-import type { Disposable } from 'vscode';
+import type { CancellationToken, Disposable } from 'vscode';
 import { env, ProgressLocation, Uri, window } from 'vscode';
 import type { RepositoriesViewConfig } from '../config';
 import { Commands } from '../constants';
@@ -45,8 +45,42 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, R
 		return super.show(options);
 	}
 
-	override get canReveal(): boolean {
-		return false;
+	async findWorkspaceNode(workspaceId: string, token?: CancellationToken) {
+		return this.findNode((n: any) => n.workspace?.id === workspaceId, {
+			allowPaging: false,
+			maxDepth: 2,
+			canTraverse: n => {
+				if (n instanceof WorkspacesViewNode) return true;
+
+				return false;
+			},
+			token: token,
+		});
+	}
+
+	async revealWorkspaceNode(
+		workspaceId: string,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		},
+	) {
+		return window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: `Revealing workspace ${workspaceId} in the side bar...`,
+				cancellable: true,
+			},
+			async (progress, token) => {
+				const node = await this.findWorkspaceNode(workspaceId, token);
+				if (node == null) return undefined;
+
+				await this.ensureRevealNode(node, options);
+
+				return node;
+			},
+		);
 	}
 
 	protected registerCommands(): Disposable[] {

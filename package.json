@@ -5412,6 +5412,12 @@
 				"icon": "$(copy)"
 			},
 			{
+				"command": "gitlens.copyDeepLinkToWorkspace",
+				"title": "Copy Link to Workspace",
+				"category": "GitLens",
+				"icon": "$(copy)"
+			},
+			{
 				"command": "gitlens.copyDeepLinkToTag",
 				"title": "Copy Link to Tag",
 				"category": "GitLens",
@@ -8553,6 +8559,10 @@
 				},
 				{
 					"command": "gitlens.copyDeepLinkToTag",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToWorkspace",
 					"when": "false"
 				},
 				{
@@ -11777,7 +11787,7 @@
 				},
 				{
 					"submenu": "gitlens/share",
-					"when": "viewItem =~ /gitlens:(branch|commit|compare:results(?!:)|remote|repo-folder|repository|stash|tag|file\\b(?=.*?\\b\\+committed\\b))\\b/",
+					"when": "viewItem =~ /gitlens:(branch|commit|compare:results(?!:)|remote|repo-folder|repository|stash|tag|workspace|file\\b(?=.*?\\b\\+committed\\b))\\b/",
 					"group": "7_gitlens_a_share@1"
 				},
 				{
@@ -13201,6 +13211,11 @@
 				{
 					"command": "gitlens.copyDeepLinkToComparison",
 					"when": "viewItem =~ /gitlens:compare:results(?!:)\\b/",
+					"group": "1_gitlens@25"
+				},
+				{
+					"command": "gitlens.copyDeepLinkToWorkspace",
+					"when": "viewItem =~ /gitlens:workspace\\b/",
 					"group": "1_gitlens@25"
 				},
 				{
