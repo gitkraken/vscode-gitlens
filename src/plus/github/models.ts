@@ -45,6 +45,8 @@ export interface GitHubCommitRef {
 
 export type GitHubContributor = Endpoints['GET /repos/{owner}/{repo}/contributors']['response']['data'][0];
 export interface GitHubIssueOrPullRequest {
+	id: string;
+	nodeId: string;
 	type: IssueOrPullRequestType;
 	number: number;
 	createdAt: string;
@@ -76,6 +78,7 @@ export interface GitHubPullRequest {
 	};
 	permalink: string;
 	number: number;
+	id: string;
 	title: string;
 	state: GitHubPullRequestState;
 	updatedAt: string;
@@ -172,6 +175,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: RichRemot
 			url: pr.author.url,
 		},
 		String(pr.number),
+		pr.id,
 		pr.title,
 		pr.permalink,
 		fromGitHubPullRequestState(pr.state),
@@ -253,6 +257,7 @@ export function fromGitHubPullRequestDetailed(
 			url: pr.author.url,
 		},
 		String(pr.number),
+		pr.id,
 		pr.title,
 		pr.permalink,
 		fromGitHubPullRequestState(pr.state),
@@ -309,6 +314,7 @@ export function fromGitHubIssueDetailed(value: GitHubIssueDetailed, provider: Ri
 			icon: provider.icon,
 		},
 		String(value.number),
+		value.id,
 		value.title,
 		value.url,
 		new Date(value.createdAt),

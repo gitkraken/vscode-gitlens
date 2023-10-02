@@ -9,6 +9,7 @@ export interface IssueOrPullRequest {
 	readonly type: IssueOrPullRequestType;
 	readonly provider: RemoteProviderReference;
 	readonly id: string;
+	readonly nodeId: string | undefined;
 	readonly title: string;
 	readonly url: string;
 	readonly date: Date;
@@ -58,6 +59,7 @@ export function serializeIssueOrPullRequest(value: IssueOrPullRequest): IssueOrP
 			icon: value.provider.icon,
 		},
 		id: value.id,
+		nodeId: value.nodeId,
 		title: value.title,
 		url: value.url,
 		date: value.date,
@@ -183,6 +185,7 @@ export function serializeIssue(value: IssueShape): IssueShape {
 			icon: value.provider.icon,
 		},
 		id: value.id,
+		nodeId: value.nodeId,
 		title: value.title,
 		url: value.url,
 		date: value.date,
@@ -223,6 +226,7 @@ export class Issue implements IssueShape {
 	constructor(
 		public readonly provider: RemoteProviderReference,
 		public readonly id: string,
+		public readonly nodeId: string | undefined,
 		public readonly title: string,
 		public readonly url: string,
 		public readonly date: Date,

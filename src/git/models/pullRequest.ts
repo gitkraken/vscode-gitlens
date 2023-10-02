@@ -73,6 +73,7 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 			icon: value.provider.icon,
 		},
 		id: value.id,
+		nodeId: value.nodeId,
 		title: value.title,
 		url: value.url,
 		date: value.date,
@@ -133,6 +134,7 @@ export class PullRequest implements PullRequestShape {
 			readonly url: string;
 		},
 		public readonly id: string,
+		public readonly nodeId: string | undefined,
 		public readonly title: string,
 		public readonly url: string,
 		public readonly state: PullRequestState,

@@ -98,6 +98,7 @@ export function fromGitLabMergeRequestREST(pr: GitLabMergeRequestREST, provider:
 			url: pr.author?.web_url ?? '',
 		},
 		String(pr.iid),
+		undefined,
 		pr.title,
 		pr.web_url,
 		fromGitLabMergeRequestState(pr.state),
