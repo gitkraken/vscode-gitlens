@@ -21,6 +21,7 @@ import { GitRemote } from '../git/models/remote';
 import { Repository } from '../git/models/repository';
 import type { GitTag } from '../git/models/tag';
 import { isTag } from '../git/models/tag';
+import { CloudWorkspace, LocalWorkspace } from '../plus/workspaces/models';
 import { registerCommand } from '../system/command';
 import { sequentialize } from '../system/function';
 import { ViewNode, ViewRefFileNode, ViewRefNode } from '../views/nodes/viewNode';
@@ -210,6 +211,14 @@ export function isCommandContextViewNodeHasTag(
 	if (context.type !== 'viewItem') return false;
 
 	return isTag((context.node as ViewNode & { tag: GitTag }).tag);
+}
+
+export function isCommandContextViewNodeHasWorkspace(
+	context: CommandContext,
+): context is CommandViewNodeContext & { node: ViewNode & { workspace: CloudWorkspace | LocalWorkspace } } {
+	if (context.type !== 'viewItem') return false;
+	const workspace = (context.node as ViewNode & { workspace?: CloudWorkspace | LocalWorkspace }).workspace;
+	return workspace instanceof CloudWorkspace || workspace instanceof LocalWorkspace;
 }
 
 export type CommandContext =

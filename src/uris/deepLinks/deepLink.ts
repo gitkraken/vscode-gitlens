@@ -11,6 +11,7 @@ export enum DeepLinkType {
 	Comparison = 'compare',
 	Repository = 'r',
 	Tag = 't',
+	Workspace = 'workspace',
 }
 
 export function deepLinkTypeToString(type: DeepLinkType): string {
@@ -25,6 +26,8 @@ export function deepLinkTypeToString(type: DeepLinkType): string {
 			return 'Repository';
 		case DeepLinkType.Tag:
 			return 'Tag';
+		case DeepLinkType.Workspace:
+			return 'Workspace';
 		default:
 			debugger;
 			return 'Unknown';
@@ -46,7 +49,7 @@ export function refTypeToDeepLinkType(refType: GitReference['refType']): DeepLin
 
 export interface DeepLink {
 	type: DeepLinkType;
-	repoId: string;
+	mainId: string;
 	remoteUrl?: string;
 	repoPath?: string;
 	targetId?: string;
@@ -58,8 +61,10 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 	// The link target id is everything after the link target.
 	// For example, if the uri is /link/r/{repoId}/b/{branchName}?url={remoteUrl},
 	// the link target id is {branchName}
-	const [, type, prefix, repoId, target, ...rest] = uri.path.split('/');
-	if (type !== 'link' || prefix !== DeepLinkType.Repository) return undefined;
+	const [, type, prefix, mainId, target, ...rest] = uri.path.split('/');
+	if (type !== 'link' || (prefix !== DeepLinkType.Repository && prefix !== DeepLinkType.Workspace)) {
+		return undefined;
+	}
 
 	const urlParams = new URLSearchParams(uri.query);
 	let remoteUrl = urlParams.get('url') ?? undefined;
@@ -70,12 +75,18 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 	if (repoPath != null) {
 		repoPath = decodeURIComponent(repoPath);
 	}
-	if (!remoteUrl && !repoPath) return undefined;
+	if (!remoteUrl && !repoPath && prefix !== DeepLinkType.Workspace) return undefined;
+	if (prefix === DeepLinkType.Workspace) {
+		return {
+			type: DeepLinkType.Workspace,
+			mainId: mainId,
+		};
+	}
 
 	if (target == null) {
 		return {
 			type: DeepLinkType.Repository,
-			repoId: repoId,
+			mainId: mainId,
 			remoteUrl: remoteUrl,
 			repoPath: repoPath,
 		};
@@ -103,7 +114,7 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 
 	return {
 		type: target as DeepLinkType,
-		repoId: repoId,
+		mainId: mainId,
 		remoteUrl: remoteUrl,
 		repoPath: repoPath,
 		targetId: targetId,
@@ -114,6 +125,7 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 
 export const enum DeepLinkServiceState {
 	Idle,
+	TypeMatch,
 	RepoMatch,
 	CloneOrAddRepo,
 	OpeningRepo,
@@ -125,6 +137,7 @@ export const enum DeepLinkServiceState {
 	FetchedTargetMatch,
 	OpenGraph,
 	OpenComparison,
+	OpenWorkspace,
 }
 
 export const enum DeepLinkServiceAction {
@@ -133,6 +146,8 @@ export const enum DeepLinkServiceAction {
 	DeepLinkResolved,
 	DeepLinkStored,
 	DeepLinkErrored,
+	LinkIsRepoType,
+	LinkIsWorkspaceType,
 	OpenRepo,
 	RepoMatched,
 	RepoMatchedInLocalMapping,
@@ -154,7 +169,7 @@ export type DeepLinkRepoOpenType = 'clone' | 'folder' | 'workspace' | 'current';
 export interface DeepLinkServiceContext {
 	state: DeepLinkServiceState;
 	url?: string | undefined;
-	repoId?: string | undefined;
+	mainId?: string | undefined;
 	repo?: Repository | undefined;
 	remoteUrl?: string | undefined;
 	remote?: GitRemote | undefined;
@@ -170,7 +185,14 @@ export interface DeepLinkServiceContext {
 
 export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLinkServiceState>> = {
 	[DeepLinkServiceState.Idle]: {
-		[DeepLinkServiceAction.DeepLinkEventFired]: DeepLinkServiceState.RepoMatch,
+		[DeepLinkServiceAction.DeepLinkEventFired]: DeepLinkServiceState.TypeMatch,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.TypeMatch]: {
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.LinkIsRepoType]: DeepLinkServiceState.RepoMatch,
+		[DeepLinkServiceAction.LinkIsWorkspaceType]: DeepLinkServiceState.OpenWorkspace,
 	},
 	[DeepLinkServiceState.RepoMatch]: {
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
@@ -229,6 +251,10 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 	},
+	[DeepLinkServiceState.OpenWorkspace]: {
+		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+	},
 };
 
 export interface DeepLinkProgress {
@@ -238,6 +264,7 @@ export interface DeepLinkProgress {
 
 export const deepLinkStateToProgress: Record<string, DeepLinkProgress> = {
 	[DeepLinkServiceState.Idle]: { message: 'Done.', increment: 100 },
+	[DeepLinkServiceState.TypeMatch]: { message: 'Matching link type...', increment: 5 },
 	[DeepLinkServiceState.RepoMatch]: { message: 'Finding a matching repository...', increment: 10 },
 	[DeepLinkServiceState.CloneOrAddRepo]: { message: 'Adding repository...', increment: 20 },
 	[DeepLinkServiceState.OpeningRepo]: { message: 'Opening repository...', increment: 30 },
@@ -249,4 +276,5 @@ export const deepLinkStateToProgress: Record<string, DeepLinkProgress> = {
 	[DeepLinkServiceState.FetchedTargetMatch]: { message: 'Finding a matching target...', increment: 90 },
 	[DeepLinkServiceState.OpenGraph]: { message: 'Opening graph...', increment: 95 },
 	[DeepLinkServiceState.OpenComparison]: { message: 'Opening comparison...', increment: 95 },
+	[DeepLinkServiceState.OpenWorkspace]: { message: 'Opening workspace...', increment: 95 },
 };

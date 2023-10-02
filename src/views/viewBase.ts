@@ -115,6 +115,9 @@ export abstract class ViewBase<
 		return `gitlens.views.${this.type}`;
 	}
 
+	protected _onDidInitialize = new EventEmitter<void>();
+	private initialized = false;
+
 	protected _onDidChangeTreeData = new EventEmitter<ViewNode | undefined>();
 	get onDidChangeTreeData(): Event<ViewNode | undefined> {
 		return this._onDidChangeTreeData.event;
@@ -348,7 +351,22 @@ export abstract class ViewBase<
 		if (node != null) return node.getChildren();
 
 		const root = this.ensureRoot();
-		return root.getChildren();
+		const children = root.getChildren();
+		if (!this.initialized) {
+			if (isPromise(children)) {
+				void children.then(() => {
+					if (!this.initialized) {
+						this.initialized = true;
+						setTimeout(() => this._onDidInitialize.fire(), 1);
+					}
+				});
+			} else {
+				this.initialized = true;
+				setTimeout(() => this._onDidInitialize.fire(), 1);
+			}
+		}
+
+		return children;
 	}
 
 	getParent(node: ViewNode): ViewNode | undefined {
@@ -455,12 +473,14 @@ export abstract class ViewBase<
 			}
 		}
 
-		if (this.root != null) return find.call(this);
+		if (this.initialized) return find.call(this);
 
 		// If we have no root (e.g. never been initialized) force it so the tree will load properly
-		await this.show({ preserveFocus: true });
+		void this.show({ preserveFocus: true });
 		// Since we have to show the view, give the view time to load and let the callstack unwind before we try to find the node
-		return new Promise<ViewNode | undefined>(resolve => setTimeout(() => resolve(find.call(this)), 100));
+		return new Promise<ViewNode | undefined>(resolve =>
+			once(this._onDidInitialize.event)(() => resolve(find.call(this)), this),
+		);
 	}
 
 	private async findNodeCoreBFS(
