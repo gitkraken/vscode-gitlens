@@ -129,7 +129,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private async onPinIssue({ issue, pin }: PinIssueParams) {
-		const issueWithRemote = this._issues?.find(r => r.issue.id === issue.id);
+		const issueWithRemote = this._issues?.find(r => r.issue.nodeId === issue.nodeId);
 		if (issueWithRemote == null) return;
 
 		if (pin) {
@@ -139,7 +139,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		} else {
 			const focusItem: FocusItem = {
 				type: 'issue',
-				id: issueWithRemote.issue.id,
+				id: issueWithRemote.issue.nodeId!,
 				remote: issueWithRemote.repoAndRemote.remote,
 				url: issueWithRemote.issue.url,
 			};
@@ -159,7 +159,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private async onSnoozeIssue({ issue, snooze }: SnoozeIssueParams) {
-		const issueWithRemote = this._issues?.find(r => r.issue.id === issue.id);
+		const issueWithRemote = this._issues?.find(r => r.issue.nodeId === issue.nodeId);
 		if (issueWithRemote == null) return;
 
 		if (snooze) {
@@ -169,7 +169,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		} else {
 			const focusItem: FocusItem = {
 				type: 'issue',
-				id: issueWithRemote.issue.id,
+				id: issueWithRemote.issue.nodeId!,
 				remote: issueWithRemote.repoAndRemote.remote,
 				url: issueWithRemote.issue.url,
 			};
@@ -189,7 +189,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private async onPinPr({ pullRequest, pin }: PinPrParams) {
-		const prWithRemote = this._pullRequests?.find(r => r.pullRequest.id === pullRequest.id);
+		const prWithRemote = this._pullRequests?.find(r => r.pullRequest.nodeId === pullRequest.nodeId);
 		if (prWithRemote == null) return;
 
 		if (pin) {
@@ -199,7 +199,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		} else {
 			const focusItem: FocusItem = {
 				type: 'pr',
-				id: prWithRemote.pullRequest.id,
+				id: prWithRemote.pullRequest.nodeId!,
 				remote: prWithRemote.repoAndRemote.remote,
 				url: prWithRemote.pullRequest.url,
 			};
@@ -219,7 +219,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private async onSnoozePr({ pullRequest, snooze }: SnoozePrParams) {
-		const prWithRemote = this._pullRequests?.find(r => r.pullRequest.id === pullRequest.id);
+		const prWithRemote = this._pullRequests?.find(r => r.pullRequest.nodeId === pullRequest.nodeId);
 		if (prWithRemote == null) return;
 
 		if (snooze) {
@@ -229,7 +229,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		} else {
 			const focusItem: FocusItem = {
 				type: 'pr',
-				id: prWithRemote.pullRequest.id,
+				id: prWithRemote.pullRequest.nodeId!,
 				remote: prWithRemote.repoAndRemote.remote,
 				url: prWithRemote.pullRequest.url,
 			};
@@ -630,9 +630,9 @@ function findEnrichedItems(
 	let result;
 	// TODO: filter by entity id, type, and gitRepositoryId
 	if ((item as SearchedPullRequestWithRemote).pullRequest != null) {
-		result = enrichedItems.filter(e => e.entityId === (item as SearchedPullRequestWithRemote).pullRequest.id);
+		result = enrichedItems.filter(e => e.entityId === (item as SearchedPullRequestWithRemote).pullRequest.nodeId);
 	} else {
-		result = enrichedItems.filter(e => e.entityId === (item as SearchedIssueWithRank).issue.id);
+		result = enrichedItems.filter(e => e.entityId === (item as SearchedIssueWithRank).issue.nodeId);
 	}
 
 	if (result.length === 0) return;
