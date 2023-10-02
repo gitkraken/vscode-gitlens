@@ -103,6 +103,7 @@ headRepository {
 	url
 }
 permalink
+id
 number
 title
 state
@@ -155,6 +156,7 @@ const issueNodeProperties = `
 	comments {
 	  totalCount
 	}
+	id
 	number
 	title
 	url
@@ -488,6 +490,7 @@ export class GitHubApi implements Disposable {
 				createdAt
 				closed
 				closedAt
+				id
 				title
 				url
 				state
@@ -496,6 +499,7 @@ export class GitHubApi implements Disposable {
 				createdAt
 				closed
 				closedAt
+				id
 				title
 				url
 				state
@@ -524,6 +528,7 @@ export class GitHubApi implements Disposable {
 				provider: provider,
 				type: issue.type,
 				id: String(number),
+				nodeId: issue.id,
 				date: new Date(issue.createdAt),
 				title: issue.title,
 				closed: issue.closed,

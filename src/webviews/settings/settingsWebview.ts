@@ -200,6 +200,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State> {
 										url: 'https://github.com/eamodio',
 									},
 									'1',
+									undefined,
 									'Supercharged',
 									'https://github.com/gitkraken/vscode-gitlens/pulls/1',
 									'merged',
