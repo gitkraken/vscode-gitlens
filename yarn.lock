@@ -237,10 +237,10 @@
     react-dragula "1.1.17"
     react-onclickoutside "^6.13.0"
 
-"@gitkraken/shared-web-components@^0.1.1-rc.9":
-  version "0.1.1-rc.10"
-  resolved "https://registry.yarnpkg.com/@gitkraken/shared-web-components/-/shared-web-components-0.1.1-rc.10.tgz#bed7021a0e6912ae3196e06078169950f0616bed"
-  integrity sha512-2GoM9Gg473zbtTL5u5YTiDeU8mzACj2hMQBk+7iruiiVoJLGxvi1bT95MyXHakhv4zk4lI5OVWP6TU4ZAaoDLQ==
+"@gitkraken/shared-web-components@^0.1.1-rc.11":
+  version "0.1.1-rc.11"
+  resolved "https://registry.npmjs.org/@gitkraken/shared-web-components/-/shared-web-components-0.1.1-rc.11.tgz#0d588af0a9c92a6ccf2339a341787c6d9d60227c"
+  integrity sha512-lslDHNgU2znzoLydkLudETHP0WlRBLdV25YgRSTcm724Elah5nFfqUdJZ8lQCKehxJBnlWtll5uTxuM+7wxVDw==
   dependencies:
     "@floating-ui/dom" "^1.4.2"
     typescript "^4.9.5"
