@@ -131,13 +131,13 @@ export function getSubscriptionPlan(
 export function getSubscriptionPlanName(id: SubscriptionPlanId) {
 	switch (id) {
 		case SubscriptionPlanId.FreePlus:
-			return 'GitLens Free';
+			return 'GitKraken Free';
 		case SubscriptionPlanId.Pro:
-			return 'GitLens Pro';
+			return 'GitKraken Pro';
 		case SubscriptionPlanId.Teams:
-			return 'GitLens Teams';
+			return 'GitKraken Teams';
 		case SubscriptionPlanId.Enterprise:
-			return 'GitLens Enterprise';
+			return 'GitKraken Enterprise';
 		case SubscriptionPlanId.Free:
 		default:
 			return 'GitLens';
@@ -153,7 +153,7 @@ export function getSubscriptionStatePlanName(state: SubscriptionState | undefine
 		case SubscriptionState.FreePlusInTrial:
 			return `${getSubscriptionPlanName(id ?? SubscriptionPlanId.Pro)} (Trial)`;
 		case SubscriptionState.VerificationRequired:
-			return `GitLens (Unverified)`;
+			return `GitKraken (Unverified)`;
 		case SubscriptionState.Paid:
 			return getSubscriptionPlanName(id ?? SubscriptionPlanId.Pro);
 		case SubscriptionState.Free:

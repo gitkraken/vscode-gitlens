@@ -97,10 +97,10 @@ export class AccountContent extends LitElement {
 			case SubscriptionState.Free:
 			case SubscriptionState.FreePreviewTrialExpired:
 			case SubscriptionState.FreePlusTrialExpired:
-				return 'GitLens Free';
+				return 'GitKraken Free';
 			case SubscriptionState.FreeInPreviewTrial:
 			case SubscriptionState.FreePlusInTrial:
-				return 'GitLens Pro (Trial)';
+				return 'GitKraken Pro (Trial)';
 			case SubscriptionState.VerificationRequired:
 				return `${this.plan} (Unverified)`;
 			default:
@@ -171,14 +171,14 @@ export class AccountContent extends LitElement {
 					<button-container>
 						<gl-button full href="command:gitlens.plus.loginOrSignUp">Sign Up</gl-button>
 					</button-container>
-					<p>Signing up starts a free 7-day Pro trial.</p>
+					<p>Signing up starts a free 7-day GitKraken trial.</p>
 				`;
 
 			case SubscriptionState.FreePlusTrialExpired:
 				return html`
 					<p>
-						Your Pro trial has ended, please upgrade to continue to use ✨ features on privately hosted
-						repos.
+						Your GitKraken trial has ended, please upgrade to continue to use ✨ features on privately
+						hosted repos.
 					</p>
 					<button-container>
 						<gl-button full href="command:gitlens.plus.purchase">Upgrade to Pro</gl-button>
@@ -192,8 +192,8 @@ export class AccountContent extends LitElement {
 			case SubscriptionState.FreePlusInTrial:
 				return html`
 					<p>
-						Your have ${this.daysRemaining} remaining in your Pro trial. Once your trial ends, you'll need a
-						paid plan to continue using ✨ features.
+						Your have ${this.daysRemaining} remaining in your GitKraken trial. Once your trial ends, you'll
+						need a paid plan to continue using ✨ features.
 					</p>
 					<button-container>
 						<gl-button full href="command:gitlens.plus.purchase">Upgrade to Pro</gl-button>

@@ -419,10 +419,10 @@ export class SubscriptionService implements Disposable {
 			void this.showAccountView();
 
 			if (!silent && plan.effective.id === SubscriptionPlanId.Free) {
-				const confirm: MessageItem = { title: 'Start Free Pro Trial', isCloseAffordance: true };
+				const confirm: MessageItem = { title: 'Start Free GitKraken Trial', isCloseAffordance: true };
 				const cancel: MessageItem = { title: 'Cancel' };
 				const result = await window.showInformationMessage(
-					'Your 3-day Pro preview has ended, start a free Pro trial to get an additional 7 days.\n\n✨ A trial or paid plan is required to use Pro features on privately hosted repos.',
+					'Your 3-day Pro preview has ended, start a free GitKraken trial to get an additional 7 days.\n\n✨ A trial or paid plan is required to use Pro features on privately hosted repos.',
 					{ modal: true },
 					confirm,
 					cancel,
@@ -475,7 +475,7 @@ export class SubscriptionService implements Disposable {
 					`You can now preview Pro features for ${pluralize(
 						'day',
 						days,
-					)}. After which, you can start a free Pro trial for an additional 7 days.`,
+					)}. After which, you can start a free GitKraken trial for an additional 7 days.`,
 					confirm,
 					learn,
 				);
