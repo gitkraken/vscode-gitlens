@@ -9,6 +9,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Relaxes PR autolink detection for Azure DevOps to use `PR <number>` instead of `Merged PR <number>` &mdash; closes [#2908](https://github.com/gitkraken/vscode-gitlens/issues/2908)
+- Replaces VSCode git operations (`fetch`, `push`, `pull`) with GitLens' own implementations to avoid issues with VSCode's git extension. This can be reverted by setting `"gitlens.experimental.nativeGit"` to `"false"` in settings.
+- Adds deep link support for workspaces in the _GitKraken Workspaces_ view
+  - Deep link format: `https://gitkraken.dev/link/workspaces/{workspaceId}`
+  - Adds a _Share_ submenu with a _Copy Link to Workspace_ command to workspaces in the _GitKraken Workspaces_ view
 
 ### Fixed
 
@@ -17,6 +21,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#2928](https://github.com/gitkraken/vscode-gitlens/issues/2928) - Apply Changes should create new files when needed
 - Fixes [#2896](https://github.com/gitkraken/vscode-gitlens/issues/2896) - Repositories view stuck in loading state
 - Fixes issue with "View as [List|Tree]" toggle not working in the _Commit Details_ view
+- Fixes an issue with deep links sometimes failing to properly resolve when a matching repository without the remote is found
+- Fixes an issue in the _Commit Graph_ where commits not in the history of a merge commit were showing in the same column
 
 ## [14.3.0] - 2023-09-07
 
