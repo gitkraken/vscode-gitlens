@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/require-await */
+import type { HostingServiceType } from '@gitkraken/gitkraken-components';
 import type {
 	AuthenticationSession,
 	AuthenticationSessionsChangeEvent,
@@ -1377,7 +1378,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 										id: getBranchId(repoPath, true, headBranch.upstream.name),
 								  }
 								: undefined,
-						hostingServiceType: remote.provider?.id,
 					},
 				];
 
@@ -1410,7 +1410,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 							avatarUrl: avatarUrl,
 							context: serializeWebviewItemContext<GraphItemRefContext>(context),
 							current: true,
-							hostingServiceType: remote.provider?.id,
+							hostingServiceType: remote.provider?.id as HostingServiceType,
 						},
 					];
 
@@ -1462,7 +1462,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 							url: remote.url,
 							avatarUrl: avatarUrl,
 							context: serializeWebviewItemContext<GraphItemRefContext>(context),
-							hostingServiceType: remote.provider?.id,
+							hostingServiceType: remote.provider?.id as HostingServiceType,
 						});
 					}
 				}
