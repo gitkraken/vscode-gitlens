@@ -100,6 +100,32 @@ export class GkPullRequestRow extends LitElement {
 		return `indicator-${fromDateRange(this.lastUpdatedDate).status}`;
 	}
 
+	get participants() {
+		const participants: { member: PullRequestMember; roles: string[] }[] = [];
+		function addMember(member: PullRequestMember, role: string) {
+			const participant = participants.find(p => p.member.name === member.name);
+			if (participant != null) {
+				participant.roles.push(role);
+			} else {
+				participants.push({ member: member, roles: [role] });
+			}
+		}
+
+		if (this.pullRequest?.author != null) {
+			addMember(this.pullRequest.author, 'author');
+		}
+
+		if (this.pullRequest?.assignees != null) {
+			this.pullRequest.assignees.forEach(m => addMember(m, 'assigned'));
+		}
+
+		if (this.pullRequest?.reviewRequests != null) {
+			this.pullRequest.reviewRequests.forEach(m => addMember(m.reviewer, 'reviewer'));
+		}
+
+		return participants;
+	}
+
 	override render() {
 		if (!this.pullRequest) return undefined;
 
@@ -188,23 +214,17 @@ export class GkPullRequestRow extends LitElement {
 					<span slot="people">
 						<gk-avatar-group>
 							${when(
-								this.pullRequest.author != null,
-								() =>
-									html`<gk-avatar
-										src="${this.pullRequest!.author.avatarUrl}"
-										title="${this.pullRequest!.author.name} (author)"
-									></gk-avatar>`,
-							)}
-							${when(
-								this.assignees.length > 0,
+								this.participants.length > 0,
 								() => html`
 									${repeat(
-										this.assignees,
-										item => item.url,
+										this.participants,
+										item => item.member.url,
 										item =>
 											html`<gk-avatar
-												src="${item.avatarUrl}"
-												title="${item.name ? `${item.name} (assignee)` : '(assignee)'}"
+												src="${item.member.avatarUrl}"
+												title="${`${
+													item.member.name ? `${item.member.name} ` : ''
+												}(${item.roles.join(', ')})`}"
 											></gk-avatar>`,
 									)}
 								`,
