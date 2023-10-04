@@ -11,6 +11,12 @@ export interface GitHubBlame {
 	viewer?: string;
 }
 
+export interface GitHubMember {
+	login: string;
+	avatarUrl: string;
+	url: string;
+}
+
 export interface GitHubBlameRange {
 	startingLine: number;
 	endingLine: number;
@@ -95,12 +101,8 @@ export interface GitHubPullRequest {
 export interface GitHubIssueDetailed extends GitHubIssueOrPullRequest {
 	date: Date;
 	updatedAt: Date;
-	author: {
-		login: string;
-		avatarUrl: string;
-		url: string;
-	};
-	assignees: { nodes: IssueMember[] };
+	author: GitHubMember;
+	assignees: { nodes: GitHubMember[] };
 	repository: {
 		name: string;
 		owner: {
@@ -150,19 +152,11 @@ export interface GitHubDetailedPullRequest extends GitHubPullRequest {
 	reviewRequests: {
 		nodes: {
 			asCodeOwner: boolean;
-			requestedReviewer: {
-				login: string;
-				avatarUrl: string;
-				url: string;
-			};
+			requestedReviewer: GitHubMember;
 		}[];
 	};
 	assignees: {
-		nodes: {
-			login: string;
-			avatarUrl: string;
-			url: string;
-		}[];
+		nodes: GitHubMember[];
 	};
 }
 
@@ -331,7 +325,7 @@ export function fromGitHubIssueDetailed(value: GitHubIssueDetailed, provider: Ri
 			repo: value.repository.name,
 		},
 		value.assignees.nodes.map(assignee => ({
-			name: assignee.name,
+			name: assignee.login,
 			avatarUrl: assignee.avatarUrl,
 			url: assignee.url,
 		})),
