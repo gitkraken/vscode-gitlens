@@ -1,4 +1,12 @@
-import type { GraphRow, Head, HostingServiceType, Remote, RowContexts, RowStats, Tag } from '@gitkraken/gitkraken-components';
+import type {
+	GraphRow,
+	Head,
+	HostingServiceType,
+	Remote,
+	RowContexts,
+	RowStats,
+	Tag,
+} from '@gitkraken/gitkraken-components';
 import type { GitBranch } from './branch';
 import type { GitRemote } from './remote';
 
