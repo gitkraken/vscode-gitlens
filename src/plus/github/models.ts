@@ -1,6 +1,6 @@
 import type { Endpoints } from '@octokit/types';
 import { GitFileIndexStatus } from '../../git/models/file';
-import type { IssueLabel, IssueMember, IssueOrPullRequestType } from '../../git/models/issue';
+import type { IssueLabel, IssueOrPullRequestType } from '../../git/models/issue';
 import { Issue } from '../../git/models/issue';
 import type { PullRequestState } from '../../git/models/pullRequest';
 import { PullRequest, PullRequestMergeableState, PullRequestReviewDecision } from '../../git/models/pullRequest';
