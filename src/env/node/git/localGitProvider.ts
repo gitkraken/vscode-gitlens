@@ -2,7 +2,6 @@ import { readdir, realpath } from 'fs';
 import { homedir, hostname, userInfo } from 'os';
 import { resolve as resolvePath } from 'path';
 import { env as process_env } from 'process';
-import type { HostingServiceType } from '@gitkraken/gitkraken-components';
 import type { CancellationToken, Event, TextDocument, WorkspaceFolder } from 'vscode';
 import { Disposable, env, EventEmitter, extensions, FileType, Range, Uri, window, workspace } from 'vscode';
 import { md5 } from '@env/crypto';
@@ -70,6 +69,7 @@ import type { GitFile, GitFileStatus } from '../../../git/models/file';
 import { GitFileChange } from '../../../git/models/file';
 import type {
 	GitGraph,
+	GitGraphHostingServiceType,
 	GitGraphRow,
 	GitGraphRowContexts,
 	GitGraphRowHead,
@@ -2202,7 +2202,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 									avatarUrl: avatarUrl,
 									context: serializeWebviewItemContext<GraphItemRefContext>(context),
 									current: tip === headRefUpstreamName,
-									hostingServiceType: remote.provider?.id as HostingServiceType,
+									hostingServiceType: remote.provider?.id as GitGraphHostingServiceType,
 								};
 								refRemoteHeads.push(refRemoteHead);
 
