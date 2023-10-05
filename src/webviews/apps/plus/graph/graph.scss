@@ -622,6 +622,37 @@ button:not([disabled]),
 			content: '\ebaa';
 		}
 	}
+	&--remote-github,
+	&--remote-githubEnterprise {
+		&::before {
+			// codicon-github-inverted
+			font-family: codicon;
+			content: '\eba1';
+		}
+	}
+	&--remote-gitlab,
+	&--remote-gitlabSelfHosted {
+		&::before {
+			// glicon-provider-gitlab
+			font-family: 'glicons';
+			content: '\f123';
+		}
+	}
+	&--remote-bitbucket,
+	&--remote-bitbucketServer {
+		&::before {
+			// glicon-provider-bitbucket
+			font-family: 'glicons';
+			content: '\f11f';
+		}
+	}
+	&--remote-azureDevops {
+		&::before {
+			// glicon-provider-azdo
+			font-family: 'glicons';
+			content: '\f11e';
+		}
+	}
 	&--tag {
 		&::before {
 			// codicon-tag
