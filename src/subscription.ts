@@ -140,7 +140,7 @@ export function getSubscriptionPlanName(id: SubscriptionPlanId) {
 			return 'GitKraken Enterprise';
 		case SubscriptionPlanId.Free:
 		default:
-			return 'GitLens';
+			return 'GitKraken';
 	}
 }
 
@@ -160,7 +160,7 @@ export function getSubscriptionStatePlanName(state: SubscriptionState | undefine
 		case SubscriptionState.FreePreviewTrialExpired:
 		case null:
 		default:
-			return 'GitLens';
+			return 'GitKraken';
 	}
 }
 
