@@ -48,6 +48,7 @@ import type { GitFile } from '../../git/models/file';
 import { GitFileChange, GitFileIndexStatus } from '../../git/models/file';
 import type {
 	GitGraph,
+	GitGraphHostingServiceType,
 	GitGraphRow,
 	GitGraphRowContexts,
 	GitGraphRowHead,
@@ -1409,6 +1410,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 							avatarUrl: avatarUrl,
 							context: serializeWebviewItemContext<GraphItemRefContext>(context),
 							current: true,
+							hostingServiceType: remote.provider?.id as GitGraphHostingServiceType,
 						},
 					];
 
@@ -1460,6 +1462,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 							url: remote.url,
 							avatarUrl: avatarUrl,
 							context: serializeWebviewItemContext<GraphItemRefContext>(context),
+							hostingServiceType: remote.provider?.id as GitGraphHostingServiceType,
 						});
 					}
 				}
