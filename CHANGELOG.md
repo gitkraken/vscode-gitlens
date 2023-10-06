@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes an issue with deep links sometimes failing to properly resolve when a matching repository without the remote is found
 - Fixes an issue in the _Commit Graph_ where commits not in the history of a merge commit were showing in the same column
 - Fixes `Reset Stored AI Key` command to work for the current provider
+- Fixes an issue with parsing some renames in log output
 
 ## [14.3.0] - 2023-09-07
 

@@ -19,7 +19,7 @@ const diffRangeRegex = /^@@ -(\d+?),(\d+?) \+(\d+?),(\d+?) @@/;
 export const fileStatusRegex = /(\S)\S*\t([^\t\n]+)(?:\t(.+))?/;
 const fileStatusAndSummaryRegex = /^(\d+?|-)\s+?(\d+?|-)\s+?(.*)(?:\n\s(delete|rename|copy|create))?/;
 const fileStatusAndSummaryRenamedFileRegex = /(.+)\s=>\s(.+)/;
-const fileStatusAndSummaryRenamedFilePathRegex = /(.*?){(.+?)\s=>\s(.*?)}(.*)/;
+const fileStatusAndSummaryRenamedFilePathRegex = /(.*?){(.+?)?\s=>\s(.*?)?}(.*)/;
 
 const logFileSimpleRegex = /^<r> (.*)\s*(?:(?:diff --git a\/(.*) b\/(.*))|(?:(\S)\S*\t([^\t\n]+)(?:\t(.+))?))/gm;
 const logFileSimpleRenamedRegex = /^<r> (\S+)\s*(.*)$/s;
@@ -656,12 +656,27 @@ export class GitLogParser {
 											renamedMatch =
 												fileStatusAndSummaryRenamedFilePathRegex.exec(renamedFileName);
 											if (renamedMatch != null) {
+												const [, start, from, to, end] = renamedMatch;
 												// If there is no new path, the path part was removed so ensure we don't end up with //
-												entry.path =
-													renamedMatch[3] === ''
-														? `${renamedMatch[1]}${renamedMatch[4]}`.replace('//', '/')
-														: `${renamedMatch[1]}${renamedMatch[3]}${renamedMatch[4]}`;
-												entry.originalPath = `${renamedMatch[1]}${renamedMatch[2]}${renamedMatch[4]}`;
+												if (!to) {
+													entry.path = `${
+														start.endsWith('/') && end.startsWith('/')
+															? start.slice(0, -1)
+															: start
+													}${end}`;
+												} else {
+													entry.path = `${start}${to}${end}`;
+												}
+
+												if (!from) {
+													entry.originalPath = `${
+														start.endsWith('/') && end.startsWith('/')
+															? start.slice(0, -1)
+															: start
+													}${end}`;
+												} else {
+													entry.originalPath = `${start}${from}${end}`;
+												}
 											} else {
 												renamedMatch =
 													fileStatusAndSummaryRenamedFileRegex.exec(renamedFileName);
