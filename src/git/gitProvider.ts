@@ -372,7 +372,6 @@ export interface GitProvider extends Disposable {
 		uri: Uri,
 		ref: string | undefined,
 		skip?: number,
-		firstParent?: boolean,
 	): Promise<PreviousComparisonUrisResult | undefined>;
 	getPreviousComparisonUrisForLine(
 		repoPath: string,
