@@ -353,6 +353,7 @@ export type TreeViewCommands = `gitlens.views.${
 			| `setEditorFollowing${'On' | 'Off'}`
 			| `setRenameFollowing${'On' | 'Off'}`
 			| `setShowAllBranches${'On' | 'Off'}`
+			| `setShowMergeCommits${'On' | 'Off'}`
 			| `setShowAvatars${'On' | 'Off'}`}`
 	| `lineHistory.${
 			| 'copy'

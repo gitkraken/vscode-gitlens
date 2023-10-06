@@ -3277,47 +3277,58 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			throw new Error(`File name cannot match the repository path; path=${relativePath}`);
 		}
 
-		options = { reverse: false, ...options };
+		const opts: typeof options & Parameters<LocalGitProvider['getLogForFileCore']>[2] = {
+			reverse: false,
+			...options,
+		};
 
-		if (options.renames == null) {
-			options.renames = configuration.get('advanced.fileHistoryFollowsRenames');
+		if (opts.renames == null) {
+			opts.renames = configuration.get('advanced.fileHistoryFollowsRenames');
+		}
+
+		if (opts.merges == null) {
+			opts.merges = configuration.get('advanced.fileHistoryShowMergeCommits');
 		}
 
 		let key = 'log';
-		if (options.ref != null) {
-			key += `:${options.ref}`;
+		if (opts.ref != null) {
+			key += `:${opts.ref}`;
 		}
 
-		if (options.all == null) {
-			options.all = configuration.get('advanced.fileHistoryShowAllBranches');
+		if (opts.all == null) {
+			opts.all = configuration.get('advanced.fileHistoryShowAllBranches');
 		}
-		if (options.all) {
+		if (opts.all) {
 			key += ':all';
 		}
 
-		options.limit = options.limit ?? configuration.get('advanced.maxListItems') ?? 0;
-		if (options.limit) {
-			key += `:n${options.limit}`;
+		opts.limit = opts.limit ?? configuration.get('advanced.maxListItems') ?? 0;
+		if (opts.limit) {
+			key += `:n${opts.limit}`;
 		}
 
-		if (options.renames) {
+		if (opts.merges) {
+			key += ':merges';
+		}
+
+		if (opts.renames) {
 			key += ':follow';
 		}
 
-		if (options.reverse) {
+		if (opts.reverse) {
 			key += ':reverse';
 		}
 
-		if (options.since) {
-			key += `:since=${options.since}`;
+		if (opts.since) {
+			key += `:since=${opts.since}`;
 		}
 
-		if (options.skip) {
-			key += `:skip${options.skip}`;
+		if (opts.skip) {
+			key += `:skip${opts.skip}`;
 		}
 
-		const doc = await this.container.tracker.getOrAdd(GitUri.fromFile(relativePath, repoPath, options.ref));
-		if (!options.force && this.useCaching && options.range == null) {
+		const doc = await this.container.tracker.getOrAdd(GitUri.fromFile(relativePath, repoPath, opts.ref));
+		if (!opts.force && this.useCaching && opts.range == null) {
 			if (doc.state != null) {
 				const cachedLog = doc.state.getLog(key);
 				if (cachedLog != null) {
@@ -3325,20 +3336,20 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					return cachedLog.item;
 				}
 
-				if (options.ref != null || (options.limit != null && options.limit !== 0)) {
+				if (opts.ref != null || (opts.limit != null && opts.limit !== 0)) {
 					// Since we are looking for partial log, see if we have the log of the whole file
 					const cachedLog = doc.state.getLog(
-						`log${options.renames ? ':follow' : ''}${options.reverse ? ':reverse' : ''}`,
+						`log${opts.renames ? ':follow' : ''}${opts.reverse ? ':reverse' : ''}`,
 					);
 					if (cachedLog != null) {
-						if (options.ref == null) {
+						if (opts.ref == null) {
 							Logger.debug(scope, `Cache hit: ~'${key}'`);
 							return cachedLog.item;
 						}
 
 						Logger.debug(scope, `Cache ?: '${key}'`);
 						let log = await cachedLog.item;
-						if (log != null && !log.hasMore && log.commits.has(options.ref)) {
+						if (log != null && !log.hasMore && log.commits.has(opts.ref)) {
 							Logger.debug(scope, `Cache hit: '${key}'`);
 
 							// Create a copy of the log starting at the requested commit
@@ -3349,12 +3360,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 									log.commits.entries(),
 									([ref, c]) => {
 										if (skip) {
-											if (ref !== options?.ref) return undefined;
+											if (ref !== opts?.ref) return undefined;
 											skip = false;
 										}
 
 										i++;
-										if (options?.limit != null && i > options.limit) {
+										if (opts?.limit != null && i > opts.limit) {
 											return undefined;
 										}
 
@@ -3363,14 +3374,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 								),
 							);
 
-							const opts = { ...options };
+							const optsCopy = { ...opts };
 							log = {
 								...log,
-								limit: options.limit,
+								limit: optsCopy.limit,
 								count: commits.size,
 								commits: commits,
 								query: (limit: number | undefined) =>
-									this.getLogForFile(repoPath, pathOrUri, { ...opts, limit: limit }),
+									this.getLogForFile(repoPath, pathOrUri, { ...optsCopy, limit: limit }),
 							};
 
 							return log;
@@ -3386,9 +3397,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 		}
 
-		const promise = this.getLogForFileCore(repoPath, relativePath, options, doc, key, scope);
+		const promise = this.getLogForFileCore(repoPath, relativePath, opts, doc, key, scope);
 
-		if (doc.state != null && options.range == null) {
+		if (doc.state != null && opts.range == null) {
 			Logger.debug(scope, `Cache add: '${key}'`);
 
 			const value: CachedLog = {
@@ -3411,6 +3422,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			all?: boolean;
 			cursor?: string;
 			limit?: number;
+			merges?: boolean;
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			range?: Range;
 			ref?: string;
@@ -3439,7 +3451,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const data = await this.git.log__file(root, relativePath, ref, {
 				ordering: configuration.get('advanced.commitOrdering'),
 				...options,
-				firstParent: options.renames,
 				startLine: range == null ? undefined : range.start.line + 1,
 				endLine: range == null ? undefined : range.end.line + 1,
 			});

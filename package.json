@@ -1194,8 +1194,8 @@
 					},
 					"gitlens.advanced.fileHistoryFollowsRenames": {
 						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether file histories will follow renames — will affect how merge commits are shown in histories",
+						"default": true,
+						"markdownDescription": "Specifies whether file histories will follow renames",
 						"scope": "window",
 						"order": 100
 					},
@@ -1205,6 +1205,13 @@
 						"markdownDescription": "Specifies whether file histories will show commits from all branches",
 						"scope": "window",
 						"order": 101
+					},
+					"gitlens.advanced.fileHistoryShowMergeCommits": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether file histories will show merge commits",
+						"scope": "window",
+						"order": 102
 					}
 				}
 			},
@@ -6570,6 +6577,16 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.fileHistory.setShowMergeCommitsOn",
+				"title": "Show Merge Commits",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.fileHistory.setShowMergeCommitsOff",
+				"title": "Hide Merge Commits",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.fileHistory.setShowAvatarsOn",
 				"title": "Show Avatars",
 				"category": "GitLens"
@@ -9318,6 +9335,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.fileHistory.setShowMergeCommitsOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setShowMergeCommitsOff",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.fileHistory.setShowAvatarsOn",
 					"when": "false"
 				},
@@ -10849,14 +10874,24 @@
 					"group": "3_gitlens@1"
 				},
 				{
+					"command": "gitlens.views.fileHistory.setShowMergeCommitsOn",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !gitlens:views:fileHistory:cursorFollowing && !config.gitlens.advanced.fileHistoryShowMergeCommits",
+					"group": "3_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setShowMergeCommitsOff",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !gitlens:views:fileHistory:cursorFollowing && config.gitlens.advanced.fileHistoryShowMergeCommits",
+					"group": "3_gitlens@2"
+				},
+				{
 					"command": "gitlens.views.fileHistory.setShowAllBranchesOn",
 					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !gitlens:views:fileHistory:cursorFollowing && !config.gitlens.advanced.fileHistoryShowAllBranches",
-					"group": "3_gitlens@2"
+					"group": "3_gitlens@3"
 				},
 				{
 					"command": "gitlens.views.fileHistory.setShowAllBranchesOff",
 					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !gitlens:views:fileHistory:cursorFollowing && config.gitlens.advanced.fileHistoryShowAllBranches",
-					"group": "3_gitlens@2"
+					"group": "3_gitlens@3"
 				},
 				{
 					"command": "gitlens.views.fileHistory.setShowAvatarsOn",

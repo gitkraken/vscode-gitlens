@@ -303,6 +303,7 @@ export interface AdvancedConfig {
 	readonly externalDirectoryDiffTool: string | null;
 	readonly fileHistoryFollowsRenames: boolean;
 	readonly fileHistoryShowAllBranches: boolean;
+	readonly fileHistoryShowMergeCommits: boolean;
 	readonly maxListItems: number;
 	readonly maxSearchItems: number;
 	readonly messages: { [key in SuppressedMessages]: boolean };
