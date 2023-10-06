@@ -89,6 +89,16 @@ export class FileHistoryView extends ViewBase<
 				() => this.setShowAllBranches(false),
 				this,
 			),
+			registerViewCommand(
+				this.getQualifiedCommand('setShowMergeCommitsOn'),
+				() => this.setShowMergeCommits(true),
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('setShowMergeCommitsOff'),
+				() => this.setShowMergeCommits(false),
+				this,
+			),
 			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
 			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
 		];
@@ -106,7 +116,8 @@ export class FileHistoryView extends ViewBase<
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
 			!configuration.changed(e, 'advanced.fileHistoryFollowsRenames') &&
-			!configuration.changed(e, 'advanced.fileHistoryShowAllBranches')
+			!configuration.changed(e, 'advanced.fileHistoryShowAllBranches') &&
+			!configuration.changed(e, 'advanced.fileHistoryShowMergeCommits')
 		) {
 			return false;
 		}
@@ -178,6 +189,10 @@ export class FileHistoryView extends ViewBase<
 
 	private setShowAllBranches(enabled: boolean) {
 		return configuration.updateEffective('advanced.fileHistoryShowAllBranches', enabled);
+	}
+
+	private setShowMergeCommits(enabled: boolean) {
+		return configuration.updateEffective('advanced.fileHistoryShowMergeCommits', enabled);
 	}
 
 	private setShowAvatars(enabled: boolean) {

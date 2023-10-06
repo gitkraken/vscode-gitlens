@@ -1213,8 +1213,8 @@ export class Git {
 			// TODO@eamodio remove this in favor of argsOrFormat
 			fileMode = 'full',
 			filters,
-			firstParent = false,
 			limit,
+			merges = false,
 			ordering,
 			renames = true,
 			reverse = false,
@@ -1228,8 +1228,8 @@ export class Git {
 			// TODO@eamodio remove this in favor of argsOrFormat
 			fileMode?: 'full' | 'simple' | 'none';
 			filters?: GitDiffFilter[];
-			firstParent?: boolean;
 			limit?: number;
+			merges?: boolean;
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			renames?: boolean;
 			reverse?: boolean;
@@ -1271,18 +1271,17 @@ export class Git {
 			params.push('--all', '--single-worktree');
 		}
 
+		if (merges) {
+			params.push('--first-parent');
+		}
+
 		// Can't allow rename detection (`--follow`) if `all` or a `startLine` is specified
 		if (renames && (all || startLine != null)) {
 			renames = false;
 		}
 
-		params.push(renames ? '--follow' : '-m');
-		if (/*renames ||*/ firstParent) {
-			params.push('--first-parent');
-			// In Git >= 2.29.0 `--first-parent` implies `-m`, so lets include it for consistency
-			if (renames) {
-				params.push('-m');
-			}
+		if (renames) {
+			params.push('--follow');
 		}
 
 		if (filters != null && filters.length !== 0) {
