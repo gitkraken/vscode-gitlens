@@ -630,9 +630,9 @@ function findEnrichedItems(
 	let result;
 	// TODO: filter by entity id, type, and gitRepositoryId
 	if ((item as SearchedPullRequestWithRemote).pullRequest != null) {
-		result = enrichedItems.filter(e => e.entityId === (item as SearchedPullRequestWithRemote).pullRequest.nodeId);
+		result = enrichedItems.filter(e => e.entityUrl === (item as SearchedPullRequestWithRemote).pullRequest.url);
 	} else {
-		result = enrichedItems.filter(e => e.entityId === (item as SearchedIssueWithRank).issue.nodeId);
+		result = enrichedItems.filter(e => e.entityUrl === (item as SearchedIssueWithRank).issue.url);
 	}
 
 	if (result.length === 0) return;
