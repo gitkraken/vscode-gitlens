@@ -1911,12 +1911,11 @@ export class GitProviderService implements Disposable {
 		uri: Uri,
 		ref: string | undefined,
 		skip: number = 0,
-		firstParent: boolean = false,
 	): Promise<PreviousComparisonUrisResult | undefined> {
 		if (ref === deletedOrMissing) return Promise.resolve(undefined);
 
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.getPreviousComparisonUris(path, uri, ref, skip, firstParent);
+		return provider.getPreviousComparisonUris(path, uri, ref, skip);
 	}
 
 	@log()

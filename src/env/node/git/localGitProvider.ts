@@ -3856,7 +3856,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		uri: Uri,
 		ref: string | undefined,
 		skip: number = 0,
-		firstParent: boolean = false,
 	): Promise<PreviousComparisonUrisResult | undefined> {
 		if (ref === deletedOrMissing) return undefined;
 
@@ -3886,13 +3885,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					return {
 						// Diff staged with HEAD (or prior if more skips)
 						current: GitUri.fromFile(relativePath, repoPath, uncommittedStaged),
-						previous: await this.getPreviousUri(repoPath, uri, ref, skip - 1, undefined, firstParent),
+						previous: await this.getPreviousUri(repoPath, uri, ref, skip - 1),
 					};
 				} else if (status.workingTreeStatus != null) {
 					if (skip === 0) {
 						return {
 							current: GitUri.fromFile(relativePath, repoPath, undefined),
-							previous: await this.getPreviousUri(repoPath, uri, undefined, skip, undefined, firstParent),
+							previous: await this.getPreviousUri(repoPath, uri, undefined, skip),
 						};
 					}
 				}
@@ -3905,12 +3904,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const current =
 				skip === 0
 					? GitUri.fromFile(relativePath, repoPath, ref)
-					: (await this.getPreviousUri(repoPath, uri, undefined, skip - 1, undefined, firstParent))!;
+					: (await this.getPreviousUri(repoPath, uri, undefined, skip - 1))!;
 			if (current == null || current.sha === deletedOrMissing) return undefined;
 
 			return {
 				current: current,
-				previous: await this.getPreviousUri(repoPath, uri, undefined, skip, undefined, firstParent),
+				previous: await this.getPreviousUri(repoPath, uri, undefined, skip),
 			};
 		}
 
@@ -3918,12 +3917,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const current =
 			skip === 0
 				? GitUri.fromFile(relativePath, repoPath, ref)
-				: (await this.getPreviousUri(repoPath, uri, ref, skip - 1, undefined, firstParent))!;
+				: (await this.getPreviousUri(repoPath, uri, ref, skip - 1))!;
 		if (current == null || current.sha === deletedOrMissing) return undefined;
 
 		return {
 			current: current,
-			previous: await this.getPreviousUri(repoPath, uri, ref, skip, undefined, firstParent),
+			previous: await this.getPreviousUri(repoPath, uri, ref, skip),
 		};
 	}
 
@@ -4053,7 +4052,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		ref?: string,
 		skip: number = 0,
 		editorLine?: number,
-		firstParent: boolean = false,
 	): Promise<GitUri | undefined> {
 		if (ref === deletedOrMissing) return undefined;
 
@@ -4071,7 +4069,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			data = await this.git.log__file(repoPath, relativePath, ref, {
 				argsOrFormat: GitLogParser.simpleFormat,
 				fileMode: 'simple',
-				firstParent: firstParent,
 				limit: skip + 2,
 				ordering: configuration.get('advanced.commitOrdering'),
 				startLine: editorLine != null ? editorLine + 1 : undefined,
