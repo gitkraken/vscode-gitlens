@@ -133,7 +133,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		if (issueWithRemote == null) return;
 
 		if (pin) {
-			await this.container.focus.unpinItem(issueWithRemote.issue.id);
+			await this.container.focus.unpinItem(pin);
 			this._enrichedItems = this._enrichedItems?.filter(e => e.id !== pin);
 			issueWithRemote.enriched = issueWithRemote.enriched?.filter(e => e.id !== pin);
 		} else {
