@@ -2180,13 +2180,20 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 	private openBranchOnRemote(item?: GraphItemContext, clipboard?: boolean) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
+			let remote;
+			if (ref.remote) {
+				remote = getRemoteNameFromBranchName(ref.name);
+			} else if (ref.upstream != null) {
+				remote = getRemoteNameFromBranchName(ref.upstream.name);
+			}
+
 			return executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
 				repoPath: ref.repoPath,
 				resource: {
 					type: RemoteResourceType.Branch,
 					branch: ref.name,
 				},
-				remote: ref.upstream?.name,
+				remote: remote,
 				clipboard: clipboard,
 			});
 		}
