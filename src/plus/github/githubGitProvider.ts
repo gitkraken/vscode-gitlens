@@ -261,7 +261,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				this.container,
 				this.onRepositoryChanged.bind(this),
 				this.descriptor,
-				folder,
+				folder ?? workspace.getWorkspaceFolder(uri),
 				uri,
 				root,
 				suspended ?? !window.state.focused,
