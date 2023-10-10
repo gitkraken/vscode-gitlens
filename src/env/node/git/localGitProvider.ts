@@ -173,8 +173,9 @@ import { equalsIgnoreCase, getDurationMilliseconds, interpolate, splitSingle } f
 import { PathTrie } from '../../../system/trie';
 import { compare, fromString } from '../../../system/version';
 import { serializeWebviewItemContext } from '../../../system/webview';
-import type { CachedBlame, CachedDiff, CachedLog, TrackedDocument } from '../../../trackers/gitDocumentTracker';
+import type { CachedBlame, CachedDiff, CachedLog } from '../../../trackers/gitDocumentTracker';
 import { GitDocumentState } from '../../../trackers/gitDocumentTracker';
+import type { TrackedDocument } from '../../../trackers/trackedDocument';
 import type { Git } from './git';
 import {
 	getShaInLogRegex,

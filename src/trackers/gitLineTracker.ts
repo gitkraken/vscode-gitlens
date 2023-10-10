@@ -11,12 +11,10 @@ import type {
 	DocumentContentChangeEvent,
 	DocumentDirtyIdleTriggerEvent,
 	DocumentDirtyStateChangeEvent,
-	GitDocumentState,
-} from './gitDocumentTracker';
+} from './documentTracker';
+import type { GitDocumentState } from './gitDocumentTracker';
 import type { LinesChangeEvent, LineSelection } from './lineTracker';
 import { LineTracker } from './lineTracker';
-
-export * from './lineTracker';
 
 export interface GitLineState {
 	commit: GitCommit;

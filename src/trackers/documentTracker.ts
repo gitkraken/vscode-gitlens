@@ -24,15 +24,18 @@ import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
 import { filter, join, map } from '../system/iterable';
 import { findTextDocument, isActiveDocument, isTextEditor } from '../system/utils';
-import type { DocumentBlameStateChangeEvent } from './trackedDocument';
 import { TrackedDocument } from './trackedDocument';
-
-export * from './trackedDocument';
 
 export interface DocumentContentChangeEvent<T> {
 	readonly editor: TextEditor;
 	readonly document: TrackedDocument<T>;
 	readonly contentChanges: readonly TextDocumentContentChangeEvent[];
+}
+
+export interface DocumentBlameStateChangeEvent<T> {
+	readonly editor: TextEditor;
+	readonly document: TrackedDocument<T>;
+	readonly blameable: boolean;
 }
 
 export interface DocumentDirtyStateChangeEvent<T> {

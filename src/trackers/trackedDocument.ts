@@ -1,4 +1,4 @@
-import type { Disposable, Event, TextDocument, TextEditor } from 'vscode';
+import type { Disposable, Event, TextDocument } from 'vscode';
 import { EventEmitter } from 'vscode';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -8,12 +8,7 @@ import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
 import { Logger } from '../system/logger';
 import { getEditorIfActive, isActiveDocument } from '../system/utils';
-
-export interface DocumentBlameStateChangeEvent<T> {
-	readonly editor: TextEditor;
-	readonly document: TrackedDocument<T>;
-	readonly blameable: boolean;
-}
+import type { DocumentBlameStateChangeEvent } from './documentTracker';
 
 export class TrackedDocument<T> implements Disposable {
 	static async create<T>(
