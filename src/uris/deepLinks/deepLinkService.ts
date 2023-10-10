@@ -25,17 +25,17 @@ import {
 	parseDeepLinkUri,
 } from './deepLink';
 
+const missingRepositoryId = '-';
+
 export class DeepLinkService implements Disposable {
 	private readonly _disposables: Disposable[] = [];
 	private _context: DeepLinkServiceContext;
-	private readonly _onDeepLinkProgressUpdated: EventEmitter<DeepLinkProgress>;
+	private readonly _onDeepLinkProgressUpdated = new EventEmitter<DeepLinkProgress>();
 
 	constructor(private readonly container: Container) {
 		this._context = {
 			state: DeepLinkServiceState.Idle,
 		};
-
-		this._onDeepLinkProgressUpdated = new EventEmitter<DeepLinkProgress>();
 
 		this._disposables.push(
 			container.uri.onDidReceiveUri(async (uri: Uri) => {
@@ -426,10 +426,13 @@ export class DeepLinkService implements Disposable {
 					return;
 				}
 				case DeepLinkServiceState.TypeMatch: {
-					if (targetType === DeepLinkType.Workspace) {
-						action = DeepLinkServiceAction.LinkIsWorkspaceType;
-					} else {
-						action = DeepLinkServiceAction.LinkIsRepoType;
+					switch (targetType) {
+						case DeepLinkType.Workspace:
+							action = DeepLinkServiceAction.LinkIsWorkspaceType;
+							break;
+						default:
+							action = DeepLinkServiceAction.LinkIsRepoType;
+							break;
 					}
 
 					break;
@@ -471,7 +474,7 @@ export class DeepLinkService implements Disposable {
 							}
 						}
 
-						if (mainId != null && mainId !== '-') {
+						if (mainId != null && mainId !== missingRepositoryId) {
 							// Repo ID can be any valid SHA in the repo, though standard practice is to use the
 							// first commit SHA.
 							if (await this.container.git.validateReference(repo.path, mainId)) {
@@ -945,7 +948,6 @@ export class DeepLinkService implements Disposable {
 		compareRef?: StoredNamedRef,
 		compareWithRef?: StoredNamedRef,
 	): Promise<URL> {
-		let repoId: string | undefined;
 		let targetType: DeepLinkType | undefined;
 		let targetId: string | undefined;
 		let compareWithTargetId: string | undefined;
@@ -963,11 +965,7 @@ export class DeepLinkService implements Disposable {
 		}
 
 		const repoPath = typeof refOrIdOrRepoPath !== 'string' ? refOrIdOrRepoPath.repoPath : refOrIdOrRepoPath;
-		try {
-			repoId = await this.container.git.getUniqueRepositoryId(repoPath);
-		} catch {
-			repoId = '-';
-		}
+		const repoId = (await this.container.git.getUniqueRepositoryId(repoPath)) ?? missingRepositoryId;
 
 		if (typeof refOrIdOrRepoPath !== 'string') {
 			switch (refOrIdOrRepoPath.refType) {

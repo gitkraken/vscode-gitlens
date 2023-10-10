@@ -62,65 +62,69 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 	// For example, if the uri is /link/r/{repoId}/b/{branchName}?url={remoteUrl},
 	// the link target id is {branchName}
 	const [, type, prefix, mainId, target, ...rest] = uri.path.split('/');
-	if (type !== 'link' || (prefix !== DeepLinkType.Repository && prefix !== DeepLinkType.Workspace)) {
-		return undefined;
-	}
+	if (type !== 'link') return undefined;
 
 	const urlParams = new URLSearchParams(uri.query);
-	let remoteUrl = urlParams.get('url') ?? undefined;
-	if (remoteUrl != null) {
-		remoteUrl = decodeURIComponent(remoteUrl);
-	}
-	let repoPath = urlParams.get('path') ?? undefined;
-	if (repoPath != null) {
-		repoPath = decodeURIComponent(repoPath);
-	}
-	if (!remoteUrl && !repoPath && prefix !== DeepLinkType.Workspace) return undefined;
-	if (prefix === DeepLinkType.Workspace) {
-		return {
-			type: DeepLinkType.Workspace,
-			mainId: mainId,
-		};
-	}
+	switch (prefix) {
+		case DeepLinkType.Repository: {
+			let remoteUrl = urlParams.get('url') ?? undefined;
+			if (remoteUrl != null) {
+				remoteUrl = decodeURIComponent(remoteUrl);
+			}
+			let repoPath = urlParams.get('path') ?? undefined;
+			if (repoPath != null) {
+				repoPath = decodeURIComponent(repoPath);
+			}
+			if (!remoteUrl && !repoPath) return undefined;
 
-	if (target == null) {
-		return {
-			type: DeepLinkType.Repository,
-			mainId: mainId,
-			remoteUrl: remoteUrl,
-			repoPath: repoPath,
-		};
-	}
+			if (target == null) {
+				return {
+					type: DeepLinkType.Repository,
+					mainId: mainId,
+					remoteUrl: remoteUrl,
+					repoPath: repoPath,
+				};
+			}
 
-	if (rest == null || rest.length === 0) return undefined;
+			if (rest == null || rest.length === 0) return undefined;
 
-	let targetId: string;
-	let secondaryTargetId: string | undefined;
-	let secondaryRemoteUrl: string | undefined;
-	const joined = rest.join('/');
+			let targetId: string;
+			let secondaryTargetId: string | undefined;
+			let secondaryRemoteUrl: string | undefined;
+			const joined = rest.join('/');
 
-	if (target === DeepLinkType.Comparison) {
-		const split = joined.split(/(\.\.\.|\.\.)/);
-		if (split.length !== 3) return undefined;
-		targetId = split[0];
-		secondaryTargetId = split[2];
-		secondaryRemoteUrl = urlParams.get('prRepoUrl') ?? undefined;
-		if (secondaryRemoteUrl != null) {
-			secondaryRemoteUrl = decodeURIComponent(secondaryRemoteUrl);
+			if (target === DeepLinkType.Comparison) {
+				const split = joined.split(/(\.\.\.|\.\.)/);
+				if (split.length !== 3) return undefined;
+				targetId = split[0];
+				secondaryTargetId = split[2];
+				secondaryRemoteUrl = urlParams.get('prRepoUrl') ?? undefined;
+				if (secondaryRemoteUrl != null) {
+					secondaryRemoteUrl = decodeURIComponent(secondaryRemoteUrl);
+				}
+			} else {
+				targetId = joined;
+			}
+
+			return {
+				type: target as DeepLinkType,
+				mainId: mainId,
+				remoteUrl: remoteUrl,
+				repoPath: repoPath,
+				targetId: targetId,
+				secondaryTargetId: secondaryTargetId,
+				secondaryRemoteUrl: secondaryRemoteUrl,
+			};
 		}
-	} else {
-		targetId = joined;
-	}
+		case DeepLinkType.Workspace:
+			return {
+				type: DeepLinkType.Workspace,
+				mainId: mainId,
+			};
 
-	return {
-		type: target as DeepLinkType,
-		mainId: mainId,
-		remoteUrl: remoteUrl,
-		repoPath: repoPath,
-		targetId: targetId,
-		secondaryTargetId: secondaryTargetId,
-		secondaryRemoteUrl: secondaryRemoteUrl,
-	};
+		default:
+			return undefined;
+	}
 }
 
 export const enum DeepLinkServiceState {
