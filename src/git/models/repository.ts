@@ -226,7 +226,6 @@ export class Repository implements Disposable {
 		suspended: boolean,
 		closed: boolean = false,
 	) {
-		folder = workspace.getWorkspaceFolder(uri) ?? folder;
 		if (folder != null) {
 			if (root) {
 				this.name = folder.name;
