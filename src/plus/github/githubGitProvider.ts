@@ -2771,11 +2771,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return [];
 	}
 
-	async getUniqueRepositoryId(_repoPath: string): Promise<string | undefined> {
-		// TODO@ramint implement this if there is a way.
-		return undefined;
-	}
-
 	@log()
 	async hasBranchOrTag(
 		repoPath: string | undefined,

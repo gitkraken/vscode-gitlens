@@ -11,11 +11,13 @@ export interface TrackedUsage {
 }
 
 export type TrackedUsageFeatures =
+	| 'accountView'
 	| 'branchesView'
 	| 'commitDetailsView'
 	| 'commitsView'
 	| 'contributorsView'
 	| 'fileHistoryView'
+	| 'focusWebview'
 	| 'graphDetailsView'
 	| 'graphView'
 	| 'graphWebview'
@@ -31,9 +33,7 @@ export type TrackedUsageFeatures =
 	| 'timelineWebview'
 	| 'timelineView'
 	| 'welcomeWebview'
-	| 'workspaceView'
-	| 'focusWebview'
-	| 'accountView';
+	| 'workspaceView';
 export type TrackedUsageKeys = `${TrackedUsageFeatures}:shown`;
 
 export type UsageChangeEvent = {

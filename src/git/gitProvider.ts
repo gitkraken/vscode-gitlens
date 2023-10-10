@@ -308,6 +308,7 @@ export interface GitProvider extends Disposable {
 		options?: { filters?: GitDiffFilter[] | undefined; similarityThreshold?: number | undefined },
 	): Promise<GitFile[] | undefined>;
 	getFileStatusForCommit(repoPath: string, uri: Uri, ref: string): Promise<GitFile | undefined>;
+	getFirstCommitSha?(repoPath: string): Promise<string | undefined>;
 	getGitDir?(repoPath: string): Promise<GitDir | undefined>;
 	getLastFetchedTimestamp(repoPath: string): Promise<number | undefined>;
 	getLog(
@@ -406,7 +407,6 @@ export interface GitProvider extends Disposable {
 	): Promise<PagedResult<GitTag>>;
 	getTreeEntryForRevision(repoPath: string, path: string, ref: string): Promise<GitTreeEntry | undefined>;
 	getTreeForRevision(repoPath: string, ref: string): Promise<GitTreeEntry[]>;
-	getUniqueRepositoryId(repoPath: string): Promise<string | undefined>;
 	hasBranchOrTag(
 		repoPath: string | undefined,
 		options?: {
