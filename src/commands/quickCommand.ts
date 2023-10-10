@@ -5,9 +5,6 @@ import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive, isDirective } from '../quickpicks/items/directive';
 import { configuration } from '../system/configuration';
 
-export * from './quickCommand.buttons';
-export * from './quickCommand.steps';
-
 export interface CustomStep<T = unknown> {
 	ignoreFocusOut?: boolean;
 

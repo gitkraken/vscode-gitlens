@@ -17,15 +17,8 @@ import type {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import {
-	appendReposToTitle,
-	canPickStepContinue,
-	createConfirmStep,
-	endSteps,
-	pickRepositoriesStep,
-	QuickCommand,
-	StepResultBreak,
-} from '../quickCommand';
+import { canPickStepContinue, createConfirmStep, endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
+import { appendReposToTitle, pickRepositoriesStep } from '../quickCommand.steps';
 
 interface Context {
 	repos: Repository[];

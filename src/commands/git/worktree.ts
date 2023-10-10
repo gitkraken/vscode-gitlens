@@ -36,7 +36,6 @@ import type {
 	StepState,
 } from '../quickCommand';
 import {
-	appendReposToTitle,
 	canInputStepContinue,
 	canPickStepContinue,
 	canStepContinue,
@@ -44,15 +43,18 @@ import {
 	createCustomStep,
 	createPickStep,
 	endSteps,
+	QuickCommand,
+	StepResultBreak,
+} from '../quickCommand';
+import {
+	appendReposToTitle,
 	ensureAccessStep,
 	inputBranchNameStep,
 	pickBranchOrTagStep,
 	pickRepositoryStep,
 	pickWorktreesStep,
 	pickWorktreeStep,
-	QuickCommand,
-	StepResultBreak,
-} from '../quickCommand';
+} from '../quickCommand.steps';
 
 interface Context {
 	repos: Repository[];
