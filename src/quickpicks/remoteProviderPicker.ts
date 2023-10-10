@@ -1,6 +1,6 @@
 import type { Disposable, QuickInputButton } from 'vscode';
 import { env, Uri, window } from 'vscode';
-import type { OpenOnRemoteCommandArgs } from '../commands';
+import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote';
 import { SetRemoteAsDefaultQuickInputButton } from '../commands/quickCommand.buttons';
 import type { Keys } from '../constants';
 import { Commands, GlyphChars } from '../constants';

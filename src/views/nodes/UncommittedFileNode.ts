@@ -1,6 +1,6 @@
 import type { Command } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { DiffWithPreviousCommandArgs } from '../../commands';
+import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
 import { Commands } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';

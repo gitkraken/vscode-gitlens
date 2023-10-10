@@ -1,7 +1,7 @@
 import type { QuickPickItem } from 'vscode';
 import { window } from 'vscode';
-import type { OpenOnlyChangedFilesCommandArgs } from '../../commands';
 import type { OpenChangedFilesCommandArgs } from '../../commands/openChangedFiles';
+import type { OpenOnlyChangedFilesCommandArgs } from '../../commands/openOnlyChangedFiles';
 import { RevealInSideBarQuickInputButton, ShowDetailsViewQuickInputButton } from '../../commands/quickCommand.buttons';
 import type { Keys } from '../../constants';
 import { Commands, GlyphChars } from '../../constants';

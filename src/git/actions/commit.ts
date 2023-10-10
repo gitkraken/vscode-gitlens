@@ -1,15 +1,13 @@
 import type { TextDocumentShowOptions } from 'vscode';
 import { env, Range, Uri, window } from 'vscode';
-import type {
-	DiffWithCommandArgs,
-	DiffWithPreviousCommandArgs,
-	DiffWithWorkingCommandArgs,
-	OpenFileOnRemoteCommandArgs,
-	OpenOnlyChangedFilesCommandArgs,
-	OpenWorkingFileCommandArgs,
-	ShowQuickCommitCommandArgs,
-	ShowQuickCommitFileCommandArgs,
-} from '../../commands';
+import type { DiffWithCommandArgs } from '../../commands/diffWith';
+import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
+import type { DiffWithWorkingCommandArgs } from '../../commands/diffWithWorking';
+import type { OpenFileOnRemoteCommandArgs } from '../../commands/openFileOnRemote';
+import type { OpenOnlyChangedFilesCommandArgs } from '../../commands/openOnlyChangedFiles';
+import type { OpenWorkingFileCommandArgs } from '../../commands/openWorkingFile';
+import type { ShowQuickCommitCommandArgs } from '../../commands/showQuickCommit';
+import type { ShowQuickCommitFileCommandArgs } from '../../commands/showQuickCommitFile';
 import type { FileAnnotationType } from '../../config';
 import { Commands } from '../../constants';
 import { Container } from '../../container';

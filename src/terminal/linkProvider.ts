@@ -1,11 +1,9 @@
 import type { Disposable, TerminalLink, TerminalLinkContext, TerminalLinkProvider } from 'vscode';
 import { commands, window } from 'vscode';
-import type {
-	GitCommandsCommandArgs,
-	ShowCommitsInViewCommandArgs,
-	ShowQuickBranchHistoryCommandArgs,
-	ShowQuickCommitCommandArgs,
-} from '../commands';
+import type { GitCommandsCommandArgs } from '../commands/gitCommands';
+import type { ShowCommitsInViewCommandArgs } from '../commands/showCommitsInView';
+import type { ShowQuickBranchHistoryCommandArgs } from '../commands/showQuickBranchHistory';
+import type { ShowQuickCommitCommandArgs } from '../commands/showQuickCommit';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import type { PagedResult } from '../git/gitProvider';
