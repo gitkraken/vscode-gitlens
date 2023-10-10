@@ -10,6 +10,7 @@ import type { GitRemote } from '../../../git/models/remote';
 import type { Repository } from '../../../git/models/repository';
 import type { GitTag } from '../../../git/models/tag';
 import type { GitWorktree } from '../../../git/models/worktree';
+import type { Draft } from '../../../plus/drafts/draftsService';
 import type {
 	CloudWorkspace,
 	CloudWorkspaceRepositoryDescriptor,
@@ -65,6 +66,7 @@ export const enum ContextValues {
 	Contributor = 'gitlens:contributor',
 	Contributors = 'gitlens:contributors',
 	DateMarker = 'gitlens:date-marker',
+	Draft = 'gitlens:draft',
 	File = 'gitlens:file',
 	FileHistory = 'gitlens:history:file',
 	Folder = 'gitlens:folder',
@@ -116,6 +118,7 @@ export interface AmbientContext {
 	readonly comparisonId?: string;
 	readonly comparisonFiltered?: boolean;
 	readonly contributor?: GitContributor;
+	readonly draft?: Draft;
 	readonly file?: GitFile;
 	readonly reflog?: GitReflogRecord;
 	readonly remote?: GitRemote;
@@ -190,6 +193,9 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 	}
 	if (context.file != null) {
 		uniqueness += `/file/${context.file.path}+${context.file.status}`;
+	}
+	if (context.draft != null) {
+		uniqueness += `/draft/${context.draft.id}`;
 	}
 
 	return `gitlens://viewnode/${type}${uniqueness}`;

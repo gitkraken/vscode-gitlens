@@ -1,6 +1,6 @@
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import type { TextDocumentShowOptions } from 'vscode';
 import '../converters/number-converter';
 import '../code-icon';
@@ -174,6 +174,9 @@ export class ListItem extends LitElement {
 
 	@property({ type: Number }) level = 1;
 
+	@property({ type: Boolean }) checkable = false;
+	@property({ type: Boolean }) checked = false;
+
 	@property({ type: Boolean })
 	active = false;
 
@@ -197,11 +200,24 @@ export class ListItem extends LitElement {
 		return 'false';
 	}
 
+	@query('#checkbox')
+	checkboxEl?: HTMLInputElement;
+
 	onItemClick(e: MouseEvent) {
+		if (this.checkable && e.target === this.checkboxEl) {
+			e.preventDefault();
+			e.stopPropagation();
+			return;
+		}
 		this.select(e.altKey ? { viewColumn: BesideViewColumn } : undefined);
 	}
 
 	onDblItemClick(e: MouseEvent) {
+		if (this.checkable && e.target === this.checkboxEl) {
+			e.preventDefault();
+			e.stopPropagation();
+			return;
+		}
 		this.select({
 			preview: false,
 			viewColumn: e.altKey || e.ctrlKey || e.metaKey ? BesideViewColumn : undefined,
@@ -263,6 +279,19 @@ export class ListItem extends LitElement {
 		this.setAttribute('aria-hidden', this.isHidden);
 	}
 
+	renderCheckbox() {
+		if (!this.checkable) {
+			return nothing;
+		}
+		return html`<input
+			id="checkbox"
+			type="checkbox"
+			?checked=${this.checked}
+			@change=${this.onCheckedChange}
+			@click=${this.onCheckedClick}
+		/>`;
+	}
+
 	override render() {
 		return html`
 			<button
@@ -283,6 +312,7 @@ export class ListItem extends LitElement {
 							></code-icon
 					  ></span>`
 					: nothing}
+				${this.renderCheckbox()}
 				${this.hideIcon ? nothing : html`<span class="icon"><slot name="icon"></slot></span>`}
 				<span class="text">
 					<span class="main"><slot></slot></span>
@@ -291,5 +321,17 @@ export class ListItem extends LitElement {
 			</button>
 			<nav class="actions"><slot name="actions"></slot></nav>
 		`;
+	}
+
+	onCheckedClick(e: Event) {
+		console.log('onCheckedClick', e);
+		e.stopPropagation();
+	}
+
+	onCheckedChange(e: Event) {
+		console.log('onCheckedChange', e);
+		e.preventDefault();
+		e.stopPropagation();
+		this.checked = (e.target as HTMLInputElement).checked;
 	}
 }

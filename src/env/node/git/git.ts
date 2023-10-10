@@ -343,6 +343,32 @@ export class Git {
 		return this.git<string>({ cwd: repoPath, stdin: patch }, ...params);
 	}
 
+	async apply2(
+		repoPath: string,
+		options?: {
+			cancellation?: CancellationToken;
+			configs?: readonly string[];
+			errors?: GitErrorHandling;
+			env?: Record<string, unknown>;
+			stdin?: string;
+		},
+		...args: string[]
+	) {
+		return this.git<string>(
+			{
+				cwd: repoPath,
+				cancellation: options?.cancellation,
+				configs: options?.configs ?? gitLogDefaultConfigs,
+				env: options?.env,
+				errors: options?.errors,
+				stdin: options?.stdin,
+			},
+			'apply',
+			...args,
+			...(options?.stdin ? ['-'] : emptyArray),
+		);
+	}
+
 	private readonly ignoreRevsFileMap = new Map<string, boolean>();
 
 	async blame(

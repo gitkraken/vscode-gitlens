@@ -66,7 +66,7 @@ import type { BranchSortOptions, GitBranch } from './models/branch';
 import { GitCommit, GitCommitIdentity } from './models/commit';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from './models/constants';
 import type { GitContributor } from './models/contributor';
-import type { GitDiff, GitDiffFile, GitDiffFilter, GitDiffLine, GitDiffShortStat } from './models/diff';
+import type { GitDiff, GitDiffFile, GitDiffFiles, GitDiffFilter, GitDiffLine, GitDiffShortStat } from './models/diff';
 import type { GitFile } from './models/file';
 import type { GitGraph } from './models/graph';
 import type { SearchedIssue } from './models/issue';
@@ -86,6 +86,7 @@ import type { GitTag, TagSortOptions } from './models/tag';
 import type { GitTreeEntry } from './models/tree';
 import type { GitUser } from './models/user';
 import type { GitWorktree } from './models/worktree';
+import { parseGitRemoteUrl } from './parsers/remoteParser';
 import type { RemoteProvider } from './remotes/remoteProvider';
 import type { RichRemoteProvider } from './remotes/richRemoteProvider';
 import type { GitSearch, SearchQuery } from './search';
@@ -706,6 +707,52 @@ export class GitProviderService implements Disposable {
 		return provider.discoverRepositories(uri, options);
 	}
 
+	@log()
+	async findMatchingRepository(match: { firstSha?: string; remoteUrl?: string }): Promise<Repository | undefined> {
+		if (match.firstSha == null && match.remoteUrl == null) return undefined;
+
+		let foundRepo;
+
+		let remoteDomain = '';
+		let remotePath = '';
+		if (match.remoteUrl != null) {
+			[, remoteDomain, remotePath] = parseGitRemoteUrl(match.remoteUrl);
+		}
+		// Try to match a repo using the remote URL first, since that saves us some steps.
+		// As a fallback, try to match using the repo id.
+		for (const repo of this.container.git.repositories) {
+			if (remoteDomain != null && remotePath != null) {
+				const matchingRemotes = await repo.getRemotes({
+					filter: r => r.matches(remoteDomain, remotePath),
+				});
+				if (matchingRemotes.length > 0) {
+					foundRepo = repo;
+					break;
+				}
+			}
+
+			if (match.firstSha != null && match.firstSha !== '-') {
+				// Repo ID can be any valid SHA in the repo, though standard practice is to use the
+				// first commit SHA.
+				if (await this.validateReference(repo.path, match.firstSha)) {
+					foundRepo = repo;
+					break;
+				}
+			}
+		}
+
+		if (foundRepo == null && match.remoteUrl != null) {
+			const matchingLocalRepoPaths = await this.container.repositoryPathMapping.getLocalRepoPaths({
+				remoteUrl: match.remoteUrl,
+			});
+			if (matchingLocalRepoPaths.length > 0) {
+				foundRepo = await this.getOrOpenRepository(Uri.file(matchingLocalRepoPaths[0]));
+			}
+		}
+
+		return foundRepo;
+	}
+
 	private _subscription: Subscription | undefined;
 	private async getSubscription(): Promise<Subscription> {
 		return this._subscription ?? (this._subscription = await this.container.subscription.getSubscription());
@@ -1311,6 +1358,17 @@ export class GitProviderService implements Disposable {
 		return provider.clone?.(url, parentPath);
 	}
 
+	@log()
+	async createUnreachableCommitForPatch(
+		repoPath: string | Uri,
+		contents: string,
+		baseRef: string,
+		message: string,
+	): Promise<GitCommit | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.createUnreachableCommitForPatch?.(path, contents, baseRef, message);
+	}
+
 	@log({ singleLine: true })
 	resetCaches(...caches: GitCaches[]): void {
 		if (caches.length === 0 || caches.includes('providers')) {
@@ -1772,6 +1830,12 @@ export class GitProviderService implements Disposable {
 	): Promise<GitDiff | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getDiff?.(path, ref1, ref2, options);
+	}
+
+	@log()
+	async getDiffFiles(repoPath: string | Uri, contents: string): Promise<GitDiffFiles | undefined> {
+		const { provider, path } = this.getProvider(repoPath);
+		return provider.getDiffFiles?.(path, contents);
 	}
 
 	@log()

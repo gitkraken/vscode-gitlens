@@ -1,6 +1,6 @@
-import { readdir, realpath } from 'fs';
-import { homedir, hostname, userInfo } from 'os';
-import { resolve as resolvePath } from 'path';
+import { promises as fs, readdir, realpath } from 'fs';
+import { homedir, hostname, tmpdir, userInfo } from 'os';
+import path, { resolve as resolvePath } from 'path';
 import { env as process_env } from 'process';
 import type { CancellationToken, Event, TextDocument, WorkspaceFolder } from 'vscode';
 import { Disposable, env, EventEmitter, extensions, FileType, Range, Uri, window, workspace } from 'vscode';
@@ -62,7 +62,14 @@ import type { GitStashCommit } from '../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../git/models/commit';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from '../../../git/models/constants';
 import { GitContributor } from '../../../git/models/contributor';
-import type { GitDiff, GitDiffFile, GitDiffFilter, GitDiffLine, GitDiffShortStat } from '../../../git/models/diff';
+import type {
+	GitDiff,
+	GitDiffFile,
+	GitDiffFiles,
+	GitDiffFilter,
+	GitDiffLine,
+	GitDiffShortStat,
+} from '../../../git/models/diff';
 import type { GitFile, GitFileStatus } from '../../../git/models/file';
 import { GitFileChange } from '../../../git/models/file';
 import type {
@@ -108,7 +115,12 @@ import { isUserMatch } from '../../../git/models/user';
 import type { GitWorktree } from '../../../git/models/worktree';
 import { parseGitBlame } from '../../../git/parsers/blameParser';
 import { parseGitBranches } from '../../../git/parsers/branchParser';
-import { parseGitDiffNameStatusFiles, parseGitDiffShortStat, parseGitFileDiff } from '../../../git/parsers/diffParser';
+import {
+	parseGitApplyFiles,
+	parseGitDiffNameStatusFiles,
+	parseGitDiffShortStat,
+	parseGitFileDiff,
+} from '../../../git/parsers/diffParser';
 import {
 	createLogParserSingle,
 	createLogParserWithFiles,
@@ -1108,6 +1120,96 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		return undefined;
+	}
+
+	@log()
+	async createUnreachableCommitForPatch(
+		repoPath: string,
+		contents: string,
+		baseRef: string,
+		message: string,
+	): Promise<GitCommit | undefined> {
+		const scope = getLogScope();
+
+		// Create a temporary index file
+		const tempDir = await fs.mkdtemp(path.join(tmpdir(), 'gl-'));
+		const tempIndex = joinPaths(tempDir, 'index');
+
+		try {
+			// Tell Git to use our soon to be created index file
+			const env = { GIT_INDEX_FILE: tempIndex };
+
+			// Create the temp index file from a base ref/sha
+
+			// Get the tree of the base
+			const newIndex = await this.git.git<string>(
+				{
+					cwd: repoPath,
+					env: env,
+				},
+				'ls-tree',
+				'-z',
+				'-r',
+				'--full-name',
+				baseRef,
+			);
+
+			// Write the tree to our temp index
+			await this.git.git<string>(
+				{
+					cwd: repoPath,
+					env: env,
+					stdin: newIndex,
+				},
+				'update-index',
+				'-z',
+				'--index-info',
+			);
+
+			// Apply the patch to our temp index, without touching the working directory
+			await this.git.apply2(repoPath, { env: env, stdin: contents }, '--cached');
+
+			// Create a new tree from our patched index
+			const tree = (
+				await this.git.git<string>(
+					{
+						cwd: repoPath,
+						env: env,
+					},
+					'write-tree',
+				)
+			)?.trim();
+
+			// Create new commit from the tree
+			const sha = (
+				await this.git.git<string>(
+					{
+						cwd: repoPath,
+						env: env,
+					},
+					'commit-tree',
+					tree,
+					'-p',
+					baseRef,
+					'-m',
+					message,
+				)
+			)?.trim();
+
+			return this.getCommit(repoPath, sha);
+		} catch (ex) {
+			Logger.error(ex, scope);
+			debugger;
+
+			throw ex;
+		} finally {
+			// Delete the temporary index file
+			try {
+				await fs.rmdir(tempDir, { recursive: true });
+			} catch (ex) {
+				debugger;
+			}
+		}
 	}
 
 	@log({ singleLine: true })
@@ -2797,6 +2899,17 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const diff: GitDiff = { baseSha: ref2, contents: data };
 		return diff;
+	}
+
+	@log()
+	async getDiffFiles(repoPath: string, contents: string): Promise<GitDiffFiles | undefined> {
+		const data = await this.git.apply2(repoPath, { stdin: contents }, '--numstat', '--summary', '-z');
+		if (!data) return undefined;
+
+		const files = parseGitApplyFiles(data, repoPath);
+		return {
+			files: files,
+		};
 	}
 
 	@log()
