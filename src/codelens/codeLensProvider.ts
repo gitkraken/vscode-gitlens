@@ -9,15 +9,13 @@ import type {
 	Uri,
 } from 'vscode';
 import { CodeLens, EventEmitter, Location, Position, Range, SymbolInformation, SymbolKind } from 'vscode';
-import type {
-	DiffWithPreviousCommandArgs,
-	OpenOnRemoteCommandArgs,
-	ShowCommitsInViewCommandArgs,
-	ShowQuickCommitCommandArgs,
-	ShowQuickCommitFileCommandArgs,
-	ShowQuickFileHistoryCommandArgs,
-	ToggleFileChangesAnnotationCommandArgs,
-} from '../commands';
+import type { DiffWithPreviousCommandArgs } from '../commands/diffWithPrevious';
+import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote';
+import type { ShowCommitsInViewCommandArgs } from '../commands/showCommitsInView';
+import type { ShowQuickCommitCommandArgs } from '../commands/showQuickCommit';
+import type { ShowQuickCommitFileCommandArgs } from '../commands/showQuickCommitFile';
+import type { ShowQuickFileHistoryCommandArgs } from '../commands/showQuickFileHistory';
+import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleFileAnnotations';
 import type { CodeLensConfig, CodeLensLanguageScope } from '../config';
 import { CodeLensCommand } from '../config';
 import { Commands, Schemes } from '../constants';

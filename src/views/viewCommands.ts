@@ -1,12 +1,10 @@
 import type { Disposable, TextDocumentShowOptions } from 'vscode';
 import { env, Uri, window } from 'vscode';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../api/gitlens';
-import type {
-	DiffWithCommandArgs,
-	DiffWithPreviousCommandArgs,
-	DiffWithWorkingCommandArgs,
-	OpenFileAtRevisionCommandArgs,
-} from '../commands';
+import type { DiffWithCommandArgs } from '../commands/diffWith';
+import type { DiffWithPreviousCommandArgs } from '../commands/diffWithPrevious';
+import type { DiffWithWorkingCommandArgs } from '../commands/diffWithWorking';
+import type { OpenFileAtRevisionCommandArgs } from '../commands/openFileAtRevision';
 import type { ViewShowBranchComparison } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';

@@ -9,7 +9,7 @@ import { ActionRunners } from './api/actionRunners';
 import { setDefaultGravatarsStyle } from './avatars';
 import { CacheProvider } from './cache';
 import { GitCodeLensController } from './codelens/codeLensController';
-import type { ToggleFileAnnotationCommandArgs } from './commands';
+import type { ToggleFileAnnotationCommandArgs } from './commands/toggleFileAnnotations';
 import type { DateStyle, FileAnnotationType, ModeConfig } from './config';
 import { fromOutputLevel } from './config';
 import { Commands, extensionPrefix } from './constants';

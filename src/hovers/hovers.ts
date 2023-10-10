@@ -1,7 +1,8 @@
 import type { CancellationToken, TextDocument } from 'vscode';
 import { MarkdownString } from 'vscode';
 import type { EnrichedAutolink } from '../annotations/autolinks';
-import { DiffWithCommand, ShowQuickCommitCommand } from '../commands';
+import { DiffWithCommand } from '../commands/diffWith';
+import { ShowQuickCommitCommand } from '../commands/showQuickCommit';
 import { GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';

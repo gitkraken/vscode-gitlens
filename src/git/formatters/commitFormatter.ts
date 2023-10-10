@@ -7,16 +7,14 @@ import type {
 	OpenPullRequestActionContext,
 } from '../../api/gitlens';
 import { getPresenceDataUri } from '../../avatars';
-import type { ShowQuickCommitCommandArgs } from '../../commands';
-import {
-	ConnectRemoteProviderCommand,
-	DiffWithCommand,
-	OpenCommitOnRemoteCommand,
-	OpenFileAtRevisionCommand,
-	ShowCommitsInViewCommand,
-	ShowQuickCommitFileCommand,
-} from '../../commands';
 import { Command } from '../../commands/base';
+import { DiffWithCommand } from '../../commands/diffWith';
+import { OpenCommitOnRemoteCommand } from '../../commands/openCommitOnRemote';
+import { OpenFileAtRevisionCommand } from '../../commands/openFileAtRevision';
+import { ConnectRemoteProviderCommand } from '../../commands/remoteProviders';
+import { ShowCommitsInViewCommand } from '../../commands/showCommitsInView';
+import type { ShowQuickCommitCommandArgs } from '../../commands/showQuickCommit';
+import { ShowQuickCommitFileCommand } from '../../commands/showQuickCommitFile';
 import type { DateStyle } from '../../config';
 import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';

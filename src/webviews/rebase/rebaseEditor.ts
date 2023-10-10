@@ -7,7 +7,7 @@ import type {
 } from 'vscode';
 import { ConfigurationTarget, Disposable, Position, Range, Uri, window, workspace, WorkspaceEdit } from 'vscode';
 import { getNonce } from '@env/crypto';
-import { ShowCommitsInViewCommand } from '../../commands';
+import { ShowCommitsInViewCommand } from '../../commands/showCommitsInView';
 import type { CoreConfiguration } from '../../constants';
 import type { Container } from '../../container';
 import { emojify } from '../../emojis';

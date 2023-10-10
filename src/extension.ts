@@ -4,7 +4,8 @@ import { hrtime } from '@env/hrtime';
 import { isWeb } from '@env/platform';
 import { Api } from './api/api';
 import type { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from './api/gitlens';
-import type { CreatePullRequestOnRemoteCommandArgs, OpenPullRequestOnRemoteCommandArgs } from './commands';
+import type { CreatePullRequestOnRemoteCommandArgs } from './commands/createPullRequestOnRemote';
+import type { OpenPullRequestOnRemoteCommandArgs } from './commands/openPullRequestOnRemote';
 import { fromOutputLevel } from './config';
 import { Commands, SyncedStorageKeys } from './constants';
 import { Container } from './container';
@@ -26,6 +27,7 @@ import { Stopwatch } from './system/stopwatch';
 import { Storage } from './system/storage';
 import { compare, fromString, satisfies } from './system/version';
 import { isViewNode } from './views/nodes/viewNode';
+import './commands';
 
 export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {
 	const gitlensVersion: string = context.extension.packageJSON.version;

@@ -2,15 +2,13 @@ import type { ColorTheme, ConfigurationChangeEvent, Uri, ViewColumn } from 'vsco
 import { CancellationTokenSource, Disposable, env, window } from 'vscode';
 import type { CreatePullRequestActionContext } from '../../../api/gitlens';
 import { getAvatarUri } from '../../../avatars';
-import type {
-	CopyDeepLinkCommandArgs,
-	CopyMessageToClipboardCommandArgs,
-	CopyShaToClipboardCommandArgs,
-	OpenOnRemoteCommandArgs,
-	OpenPullRequestOnRemoteCommandArgs,
-	ShowCommitsInViewCommandArgs,
-} from '../../../commands';
 import { parseCommandContext } from '../../../commands/base';
+import type { CopyDeepLinkCommandArgs } from '../../../commands/copyDeepLink';
+import type { CopyMessageToClipboardCommandArgs } from '../../../commands/copyMessageToClipboard';
+import type { CopyShaToClipboardCommandArgs } from '../../../commands/copyShaToClipboard';
+import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote';
+import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openPullRequestOnRemote';
+import type { ShowCommitsInViewCommandArgs } from '../../../commands/showCommitsInView';
 import type { Config, GraphMinimapMarkersAdditionalTypes, GraphScrollMarkersAdditionalTypes } from '../../../config';
 import type { StoredGraphFilters, StoredGraphIncludeOnlyRef, StoredGraphRefType } from '../../../constants';
 import { Commands, GlyphChars } from '../../../constants';

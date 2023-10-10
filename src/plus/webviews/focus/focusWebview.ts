@@ -1,5 +1,5 @@
 import { Disposable, Uri, window } from 'vscode';
-import type { GHPRPullRequest } from '../../../commands';
+import type { GHPRPullRequest } from '../../../commands/ghpr/openOrCreateWorktree';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
 import { PlusFeatures } from '../../../features';

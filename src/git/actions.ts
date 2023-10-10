@@ -1,9 +1,6 @@
 import type { Uri } from 'vscode';
-import type {
-	BrowseRepoAtRevisionCommandArgs,
-	GitCommandsCommandArgs,
-	GitCommandsCommandArgsWithCompletion,
-} from '../commands';
+import type { BrowseRepoAtRevisionCommandArgs } from '../commands/browseRepoAtRevision';
+import type { GitCommandsCommandArgs, GitCommandsCommandArgsWithCompletion } from '../commands/gitCommands';
 import { Commands } from '../constants';
 import { executeCommand, executeEditorCommand } from '../system/command';
 import { defer } from '../system/promise';

@@ -2,7 +2,7 @@ import type { CancellationToken, ConfigurationChangeEvent, TextDocumentShowOptio
 import { CancellationTokenSource, Disposable, Uri, window } from 'vscode';
 import type { MaybeEnrichedAutolink } from '../../annotations/autolinks';
 import { serializeAutolink } from '../../annotations/autolinks';
-import type { CopyShaToClipboardCommandArgs } from '../../commands';
+import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard';
 import type { CoreConfiguration } from '../../constants';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
