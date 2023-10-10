@@ -1,10 +1,7 @@
 import type { Disposable, QuickPick } from 'vscode';
 import { CancellationTokenSource, window } from 'vscode';
-import {
-	getBranchesAndOrTags,
-	getValidateGitReferenceFn,
-	RevealInSideBarQuickInputButton,
-} from '../commands/quickCommand';
+import { RevealInSideBarQuickInputButton } from '../commands/quickCommand.buttons';
+import { getBranchesAndOrTags, getValidateGitReferenceFn } from '../commands/quickCommand.steps';
 import type { Keys } from '../constants';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';

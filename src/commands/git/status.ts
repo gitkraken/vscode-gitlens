@@ -8,7 +8,8 @@ import { GitCommandQuickPickItem } from '../../quickpicks/items/gitCommands';
 import { pad } from '../../system/string';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type { PartialStepState, StepGenerator, StepState } from '../quickCommand';
-import { endSteps, pickRepositoryStep, QuickCommand, showRepositoryStatusStep, StepResultBreak } from '../quickCommand';
+import { endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
+import { pickRepositoryStep, showRepositoryStatusStep } from '../quickCommand.steps';
 
 interface Context {
 	repos: Repository[];

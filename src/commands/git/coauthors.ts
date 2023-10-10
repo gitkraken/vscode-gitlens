@@ -5,7 +5,8 @@ import { executeCoreCommand } from '../../system/command';
 import { normalizePath } from '../../system/path';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type { PartialStepState, StepGenerator, StepState } from '../quickCommand';
-import { endSteps, pickContributorsStep, pickRepositoryStep, QuickCommand, StepResultBreak } from '../quickCommand';
+import { endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
+import { pickContributorsStep, pickRepositoryStep } from '../quickCommand.steps';
 
 interface Context {
 	repos: Repository[];

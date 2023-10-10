@@ -22,20 +22,14 @@ import type {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
+import { canPickStepContinue, createPickStep, endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
 import {
-	appendReposToTitle,
-	canPickStepContinue,
-	createPickStep,
-	endSteps,
 	MatchAllToggleQuickInputButton,
 	MatchCaseToggleQuickInputButton,
 	MatchRegexToggleQuickInputButton,
-	pickCommitStep,
-	pickRepositoryStep,
-	QuickCommand,
 	ShowResultsInSideBarQuickInputButton,
-	StepResultBreak,
-} from '../quickCommand';
+} from '../quickCommand.buttons';
+import { appendReposToTitle, pickCommitStep, pickRepositoryStep } from '../quickCommand.steps';
 
 interface Context {
 	repos: Repository[];

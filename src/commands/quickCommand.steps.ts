@@ -117,6 +117,9 @@ import {
 	createInputStep,
 	createPickStep,
 	endSteps,
+	StepResultBreak,
+} from './quickCommand';
+import {
 	LoadMoreQuickInputButton,
 	OpenChangesViewQuickInputButton,
 	OpenInNewWindowQuickInputButton,
@@ -124,8 +127,7 @@ import {
 	RevealInSideBarQuickInputButton,
 	ShowDetailsViewQuickInputButton,
 	ShowTagsToggleQuickInputButton,
-	StepResultBreak,
-} from './quickCommand';
+} from './quickCommand.buttons';
 
 export function appendReposToTitle<
 	State extends { repo: Repository } | { repos: Repository[] },

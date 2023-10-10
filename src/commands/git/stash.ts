@@ -29,20 +29,17 @@ import type {
 	StepState,
 } from '../quickCommand';
 import {
-	appendReposToTitle,
 	canInputStepContinue,
 	canPickStepContinue,
 	canStepContinue,
 	createInputStep,
 	createPickStep,
 	endSteps,
-	pickRepositoryStep,
-	pickStashStep,
 	QuickCommand,
-	RevealInSideBarQuickInputButton,
-	ShowDetailsViewQuickInputButton,
 	StepResultBreak,
 } from '../quickCommand';
+import { RevealInSideBarQuickInputButton, ShowDetailsViewQuickInputButton } from '../quickCommand.buttons';
+import { appendReposToTitle, pickRepositoryStep, pickStashStep } from '../quickCommand.steps';
 
 interface Context {
 	repos: Repository[];
