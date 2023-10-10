@@ -12,7 +12,7 @@ import { debug, log } from '../../system/decorators/log';
 import { debounce } from '../../system/function';
 import { Logger } from '../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
-import type { LinesChangeEvent } from '../../trackers/gitLineTracker';
+import type { LinesChangeEvent } from '../../trackers/lineTracker';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import { LineHistoryNode } from './lineHistoryNode';

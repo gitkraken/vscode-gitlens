@@ -5,11 +5,8 @@ import { configuration } from '../system/configuration';
 import { setContext } from '../system/context';
 import { once } from '../system/event';
 import { Logger } from '../system/logger';
-import type {
-	DocumentBlameStateChangeEvent,
-	DocumentDirtyIdleTriggerEvent,
-	GitDocumentState,
-} from '../trackers/gitDocumentTracker';
+import type { DocumentBlameStateChangeEvent, DocumentDirtyIdleTriggerEvent } from '../trackers/documentTracker';
+import type { GitDocumentState } from '../trackers/gitDocumentTracker';
 
 export class GitCodeLensController implements Disposable {
 	private _canToggle: boolean = false;

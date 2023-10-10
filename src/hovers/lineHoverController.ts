@@ -6,7 +6,7 @@ import { configuration } from '../system/configuration';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import { Logger } from '../system/logger';
-import type { LinesChangeEvent } from '../trackers/gitLineTracker';
+import type { LinesChangeEvent } from '../trackers/lineTracker';
 import { changesMessage, detailsMessage } from './hovers';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)

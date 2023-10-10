@@ -17,7 +17,8 @@ import { Logger } from '../system/logger';
 import { getLogScope } from '../system/logger.scope';
 import { getSettledValue } from '../system/promise';
 import { isTextEditor } from '../system/utils';
-import type { GitLineState, LinesChangeEvent } from '../trackers/gitLineTracker';
+import type { GitLineState } from '../trackers/gitLineTracker';
+import type { LinesChangeEvent } from '../trackers/lineTracker';
 
 export class StatusBarController implements Disposable {
 	private _cancellation: CancellationTokenSource | undefined;

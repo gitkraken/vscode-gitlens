@@ -32,11 +32,8 @@ import type { KeyboardScope } from '../system/keyboard';
 import { Logger } from '../system/logger';
 import { basename } from '../system/path';
 import { isTextEditor } from '../system/utils';
-import type {
-	DocumentBlameStateChangeEvent,
-	DocumentDirtyStateChangeEvent,
-	GitDocumentState,
-} from '../trackers/gitDocumentTracker';
+import type { DocumentBlameStateChangeEvent, DocumentDirtyStateChangeEvent } from '../trackers/documentTracker';
+import type { GitDocumentState } from '../trackers/gitDocumentTracker';
 import type { AnnotationContext, AnnotationProviderBase, TextEditorCorrelationKey } from './annotationProvider';
 import { getEditorCorrelationKey } from './annotationProvider';
 import type { ChangesAnnotationContext } from './gutterChangesAnnotationProvider';
