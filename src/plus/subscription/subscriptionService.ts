@@ -1050,13 +1050,16 @@ export class SubscriptionService implements Disposable {
 
 			this._statusBarSubscription.text = `${effective.name} (Trial)`;
 			this._statusBarSubscription.tooltip = new MarkdownString(
-				`${isReactivatedTrial ? `Your GitKraken trial has been reactivated! ` : ''}You have ${pluralize(
-					'day',
-					remaining ?? 0,
-				)} remaining in your **${
-					effective.name
-				}** trial. Once your trial ends, you'll need a paid plan to continue using ✨ features.\n\nYou have access to ✨ features on privately hosted repos and ☁️ features based on the Pro plan
-				and can try out any of our other developer tools during your trial.\n\nClick for details`,
+				`${
+					isReactivatedTrial
+						? `[See what's new](https://help.gitkraken.com/gitlens/gitlens-release-notes-current/) with
+			${pluralize('day', remaining ?? 0, {
+				infix: ' more ',
+			})}
+			in your **${effective.name}** trial.`
+						: `You have ${pluralize('day', remaining ?? 0)} remaining in your **${effective.name}** trial.`
+				} Once your trial ends, you'll need a paid plan to continue using ✨ features.\n\nTry our
+			[other developer tools](https://www.gitkraken.com/suite) also included in your trial.`,
 				true,
 			);
 		}
