@@ -1895,7 +1895,8 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		// If we have a set of data refresh to the same set
 		const limit = Math.max(defaultItemLimit, this._graph?.ids.size ?? defaultItemLimit);
 
-		const ref = this._selectedId == null || this._selectedId === uncommitted ? 'HEAD' : this._selectedId;
+		const selectedId = this._selectedId;
+		const ref = selectedId == null || selectedId === uncommitted ? 'HEAD' : selectedId;
 
 		const columns = this.getColumns();
 		const columnSettings = this.getColumnSettings(columns);
@@ -1928,7 +1929,9 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			queueMicrotask(async () => {
 				const data = await dataPromise;
 				this.setGraph(data);
-				this.setSelectedRows(data.id);
+				if (selectedId !== uncommitted) {
+					this.setSelectedRows(data.id);
+				}
 
 				void this.notifyDidChangeRefsVisibility();
 				void this.notifyDidChangeRows(true);
@@ -1936,7 +1939,9 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		} else {
 			data = await dataPromise;
 			this.setGraph(data);
-			this.setSelectedRows(data.id);
+			if (selectedId !== uncommitted) {
+				this.setSelectedRows(data.id);
+			}
 		}
 
 		const [accessResult, workingStatsResult, branchResult, lastFetchedResult] = await promises;
