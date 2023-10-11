@@ -63,7 +63,6 @@ export class ListContainer extends LitElement {
 		if (!e.target || !e.detail.branch) return;
 
 		function getLevel(el: ListItem) {
-			// return el.level ?? 0;
 			return parseInt(el.getAttribute('level') ?? '0', 10);
 		}
 

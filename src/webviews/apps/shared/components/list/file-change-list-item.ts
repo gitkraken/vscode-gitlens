@@ -3,6 +3,7 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import type { TextDocumentShowOptions } from 'vscode';
 import type { ListItem, ListItemSelectedEvent } from './list-item';
 import '../code-icon';
+import '../status/git-status';
 
 // Can only import types from 'vscode'
 const BesideViewColumn = -2; /*ViewColumn.Beside*/
@@ -16,27 +17,6 @@ export interface FileChangeListItemDetail {
 }
 
 // TODO: "change-list__action" should be a separate component
-
-// TODO: use the model version
-const statusTextMap: Record<string, string> = {
-	'.': 'Unchanged',
-	'!': 'Ignored',
-	'?': 'Untracked',
-	A: 'Added',
-	D: 'Deleted',
-	M: 'Modified',
-	R: 'Renamed',
-	C: 'Copied',
-	AA: 'Conflict',
-	AU: 'Conflict',
-	UA: 'Conflict',
-	DD: 'Conflict',
-	DU: 'Conflict',
-	UD: 'Conflict',
-	UU: 'Conflict',
-	T: 'Modified',
-	U: 'Updated but Unmerged',
-};
 
 @customElement('file-change-list-item')
 export class FileChangeListItem extends LitElement {
@@ -81,6 +61,9 @@ export class FileChangeListItem extends LitElement {
 	@property({ type: Number })
 	level = 1;
 
+	@property({ type: Boolean, reflect: true }) checkable = false;
+	@property({ type: Boolean, reflect: true }) checked = false;
+
 	@property({ type: Boolean })
 	active = false;
 
@@ -89,6 +72,9 @@ export class FileChangeListItem extends LitElement {
 
 	@property({ type: Boolean })
 	uncommitted = false;
+
+	@property({ type: Boolean })
+	readonly = false;
 
 	@property({ type: String })
 	icon = '';
@@ -137,11 +123,6 @@ export class FileChangeListItem extends LitElement {
 		return !this.tree && this.pathIndex > -1 ? this.path.substring(0, this.pathIndex) : '';
 	}
 
-	@state()
-	get statusName() {
-		return this.status !== '' ? statusTextMap[this.status] : '';
-	}
-
 	override render() {
 		return html`
 			<list-item
@@ -150,9 +131,11 @@ export class FileChangeListItem extends LitElement {
 				?active=${this.active}
 				?expanded=${this.expanded}
 				?parentexpanded=${this.parentexpanded}
+				?checkable=${this.checkable}
+				?checked=${this.checked}
 				@selected=${this.onComparePrevious}
 			>
-				<img slot="icon" .src=${this.icon} .title=${this.statusName} .alt=${this.statusName} />
+				<gl-git-status slot="icon" .status=${this.status}></gl-git-status>
 				${this.fileName} ${this.tree ? nothing : html`<span slot="description">${this.filePath}</span>`}
 				<span slot="actions">
 					<a
@@ -164,9 +147,32 @@ export class FileChangeListItem extends LitElement {
 					>
 						<code-icon icon="go-to-file"></code-icon>
 					</a>
-					${this.uncommitted
-						? nothing
-						: html`
+					${this.uncommitted && !this.readonly
+						? this.staged
+							? html`
+									<a
+										class="change-list__action"
+										@click=${this.onUnstageFile}
+										href="#"
+										title="Unstage Changes"
+										aria-label="Unstage Changes"
+									>
+										<code-icon icon="remove"></code-icon>
+									</a>
+							  `
+							: html`
+									<a
+										class="change-list__action"
+										@click=${this.onStageFile}
+										href="#"
+										title="Stage Changes"
+										aria-label="Stage Changes"
+									>
+										<code-icon icon="plus"></code-icon>
+									</a>
+							  `
+						: !this.uncommitted
+						? html`
 								<a
 									class="change-list__action"
 									@click=${this.onCompareWorking}
@@ -198,7 +204,8 @@ export class FileChangeListItem extends LitElement {
 												<code-icon icon="ellipsis"></code-icon>
 											</a>
 									  `}
-						  `}
+						  `
+						: nothing}
 				</span>
 			</list-item>
 		`;
@@ -234,6 +241,20 @@ export class FileChangeListItem extends LitElement {
 
 	onMoreActions(_e: MouseEvent) {
 		const event = new CustomEvent('file-more-actions', {
+			detail: this.getEventDetail(),
+		});
+		this.dispatchEvent(event);
+	}
+
+	onStageFile(_e: MouseEvent) {
+		const event = new CustomEvent('file-stage', {
+			detail: this.getEventDetail(),
+		});
+		this.dispatchEvent(event);
+	}
+
+	onUnstageFile(_e: MouseEvent) {
+		const event = new CustomEvent('file-unstage', {
 			detail: this.getEventDetail(),
 		});
 		this.dispatchEvent(event);

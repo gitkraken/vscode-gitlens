@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds a _Working Changes_ tab to the _Commit Details_ and _Graph Details_ views to show your working tree changes
+  - Adds _Stage Changes_ and _Unstage Changes_ commands to files on the _Working Changes_ tab
 - Adds a _[Show|Hide] Merge Commits_ toggle to the _File History_ view &mdash; closes [#2104](https://github.com/gitkraken/vscode-gitlens/issues/2104) & [#2944](https://github.com/gitkraken/vscode-gitlens/issues/2944)
   - Adds a `gitlens.advanced.fileHistoryShowMergeCommits` setting to specify whether merge commits will be show in file histories
 - Adds deep link support for workspaces in the _GitKraken Workspaces_ view

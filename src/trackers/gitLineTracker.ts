@@ -31,7 +31,7 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 			updated = await this.updateState(e.selections, e.editor);
 		}
 
-		super.fireLinesChanged(updated ? e : { ...e, selections: undefined });
+		super.fireLinesChanged(updated ? e : { ...e, selections: undefined, suspended: this.suspended });
 	}
 
 	private _subscriptionOnlyWhenActive: Disposable | undefined;

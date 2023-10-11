@@ -13,6 +13,7 @@ export interface LinesChangeEvent {
 
 	readonly reason: 'editor' | 'selection';
 	readonly pending?: boolean;
+	readonly suspended?: boolean;
 }
 
 export interface LineSelection {
