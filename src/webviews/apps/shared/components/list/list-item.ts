@@ -77,6 +77,7 @@ export class ListItem extends LitElement {
 			display: flex;
 			flex-direction: row;
 			justify-content: flex-start;
+			align-items: center;
 			gap: 0.6rem;
 			width: 100%;
 			padding: 0;
@@ -130,6 +131,7 @@ export class ListItem extends LitElement {
 		}
 
 		.text {
+			line-height: 1.6rem;
 			overflow: hidden;
 			white-space: nowrap;
 			text-align: left;

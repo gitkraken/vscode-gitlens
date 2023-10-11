@@ -1,13 +1,14 @@
 /*global*/
 import type { ViewFilesLayout } from '../../../config';
 import type { Serialized } from '../../../system/serialize';
-import type { CommitActionsParams, State } from '../../commitDetails/protocol';
+import type { CommitActionsParams, Mode, State } from '../../commitDetails/protocol';
 import {
 	AutolinkSettingsCommandType,
 	CommitActionsCommandType,
 	DidChangeNotificationType,
-	DidExplainCommitCommandType,
-	ExplainCommitCommandType,
+	DidChangeWipStateNotificationType,
+	DidExplainCommandType,
+	ExplainCommandType,
 	FileActionsCommandType,
 	NavigateCommitCommandType,
 	OpenFileCommandType,
@@ -16,8 +17,11 @@ import {
 	OpenFileOnRemoteCommandType,
 	PickCommitCommandType,
 	PinCommitCommandType,
-	PreferencesCommandType,
 	SearchCommitCommandType,
+	StageFileCommandType,
+	SwitchModeCommandType,
+	UnstageFileCommandType,
+	UpdatePreferencesCommandType,
 } from '../../commitDetails/protocol';
 import type { IpcMessage } from '../../protocol';
 import { ExecuteCommandType, onIpc } from '../../protocol';
@@ -44,7 +48,7 @@ import './components/commit-details-app';
 
 export const uncommittedSha = '0000000000000000000000000000000000000000';
 
-export type CommitState = SomeNonNullable<Serialized<State>, 'selected'>;
+export type CommitState = SomeNonNullable<Serialized<State>, 'commit'>;
 export class CommitDetailsApp extends App<Serialized<State>> {
 	constructor() {
 		super('CommitDetailsApp');
@@ -71,8 +75,16 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-more-actions', e =>
 				this.onFileMoreActions(e.detail),
 			),
+			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-stage', e =>
+				this.onStageFile(e.detail),
+			),
+			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-unstage', e =>
+				this.onUnstageFile(e.detail),
+			),
 			DOM.on('[data-action="commit-actions"]', 'click', e => this.onCommitActions(e)),
 			DOM.on('[data-action="pick-commit"]', 'click', e => this.onPickCommit(e)),
+			DOM.on('[data-action="wip"]', 'click', e => this.onSwitchMode(e, 'wip')),
+			DOM.on('[data-action="details"]', 'click', e => this.onSwitchMode(e, 'commit')),
 			DOM.on('[data-action="search-commit"]', 'click', e => this.onSearchCommit(e)),
 			DOM.on('[data-action="autolink-settings"]', 'click', e => this.onAutolinkSettings(e)),
 			DOM.on('[data-action="files-layout"]', 'click', e => this.onToggleFilesLayout(e)),
@@ -129,6 +141,14 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 				});
 				break;
 
+			case DidChangeWipStateNotificationType.method:
+				onIpc(DidChangeWipStateNotificationType, msg, params => {
+					this.state = { ...this.state, ...params };
+					this.setState(this.state);
+					this.attachState();
+				});
+				break;
+
 			default:
 				super.onMessageReceived?.(e);
 		}
@@ -147,11 +167,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 
 	async onExplainCommit(_e: MouseEvent) {
 		try {
-			const result = await this.sendCommandWithCompletion(
-				ExplainCommitCommandType,
-				undefined,
-				DidExplainCommitCommandType,
-			);
+			const result = await this.sendCommandWithCompletion(ExplainCommandType, undefined, DidExplainCommandType);
 
 			if (result.error) {
 				this.component.explain = { error: { message: result.error.message ?? 'Error retrieving content' } };
@@ -159,7 +175,6 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 				this.component.explain = { summary: result.summary };
 			} else {
 				this.component.explain = undefined;
-				this.component.explainBusy = false;
 			}
 		} catch (ex) {
 			this.component.explain = { error: { message: 'Error retrieving content' } };
@@ -173,24 +188,19 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		const files = {
 			...this.state.preferences?.files,
 			layout: layout ?? 'auto',
-			compact: this.state.preferences?.files?.compact ?? true,
-			threshold: this.state.preferences?.files?.threshold ?? 5,
-			icon: this.state.preferences?.files?.icon ?? 'type',
 		};
 
 		this.state = { ...this.state, preferences: { ...this.state.preferences, files: files } };
 		this.attachState();
 
-		this.sendCommand(PreferencesCommandType, { files: files });
+		this.sendCommand(UpdatePreferencesCommandType, { files: files });
 	}
 
 	private onExpandedChange(e: WebviewPaneExpandedChangeEventDetail) {
-		this.state.preferences = {
-			...this.state.preferences,
-			autolinksExpanded: e.expanded,
-		};
+		this.state = { ...this.state, preferences: { ...this.state.preferences, autolinksExpanded: e.expanded } };
+		this.attachState();
 
-		this.sendCommand(PreferencesCommandType, { autolinksExpanded: e.expanded });
+		this.sendCommand(UpdatePreferencesCommandType, { autolinksExpanded: e.expanded });
 	}
 
 	private onNavigate(direction: 'back' | 'forward', e: Event) {
@@ -208,12 +218,19 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		this.sendCommand(AutolinkSettingsCommandType, undefined);
 	}
 
+	private onPickCommit(_e: MouseEvent) {
+		this.sendCommand(PickCommitCommandType, undefined);
+	}
+
 	private onSearchCommit(_e: MouseEvent) {
 		this.sendCommand(SearchCommitCommandType, undefined);
 	}
 
-	private onPickCommit(_e: MouseEvent) {
-		this.sendCommand(PickCommitCommandType, undefined);
+	private onSwitchMode(_e: MouseEvent, mode: Mode) {
+		this.state = { ...this.state, mode: mode };
+		this.attachState();
+
+		this.sendCommand(SwitchModeCommandType, { mode: mode, repoPath: this.state.commit?.repoPath });
 	}
 
 	private onOpenFileOnRemote(e: FileChangeListItemDetail) {
@@ -236,9 +253,17 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		this.sendCommand(FileActionsCommandType, e);
 	}
 
+	onStageFile(e: FileChangeListItemDetail): void {
+		this.sendCommand(StageFileCommandType, e);
+	}
+
+	onUnstageFile(e: FileChangeListItemDetail): void {
+		this.sendCommand(UnstageFileCommandType, e);
+	}
+
 	private onCommitActions(e: MouseEvent) {
 		e.preventDefault();
-		if (this.state.selected === undefined) {
+		if (this.state.commit === undefined) {
 			e.stopPropagation();
 			return;
 		}
