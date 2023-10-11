@@ -6719,6 +6719,12 @@
 				"icon": "$(refresh)"
 			},
 			{
+				"command": "gitlens.views.patchDetails.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "gitlens.views.commits.copy",
 				"title": "Copy",
 				"category": "GitLens"
@@ -9635,6 +9641,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.patchDetails.refresh",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.commits.copy",
 					"when": "false"
 				},
@@ -11206,6 +11216,11 @@
 				{
 					"command": "gitlens.views.commitDetails.refresh",
 					"when": "view =~ /^gitlens\\.views\\.commitDetails/",
+					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.views.patchDetails.refresh",
+					"when": "view =~ /^gitlens\\.views\\.patchDetails/",
 					"group": "navigation@99"
 				},
 				{
