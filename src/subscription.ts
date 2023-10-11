@@ -30,6 +30,7 @@ export interface SubscriptionPlan {
 	readonly id: SubscriptionPlanId;
 	readonly name: string;
 	readonly bundle: boolean;
+	readonly trialReactivationCount: number;
 	readonly cancelled: boolean;
 	readonly startedOn: string;
 	readonly expiresOn?: string | undefined;
@@ -112,6 +113,7 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 export function getSubscriptionPlan(
 	id: SubscriptionPlanId,
 	bundle: boolean,
+	trialReactivationCount: number,
 	organizationId: string | undefined,
 	startedOn?: Date,
 	expiresOn?: Date,
@@ -123,6 +125,7 @@ export function getSubscriptionPlan(
 		bundle: bundle,
 		cancelled: cancelled,
 		organizationId: organizationId,
+		trialReactivationCount: trialReactivationCount,
 		startedOn: (startedOn ?? new Date()).toISOString(),
 		expiresOn: expiresOn != null ? expiresOn.toISOString() : undefined,
 	};
