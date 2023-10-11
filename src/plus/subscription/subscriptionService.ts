@@ -304,6 +304,7 @@ export class SubscriptionService implements Disposable {
 				actual: getSubscriptionPlan(
 					SubscriptionPlanId.Free,
 					false,
+					0,
 					undefined,
 					this._subscription.plan?.actual?.startedOn != null
 						? new Date(this._subscription.plan.actual.startedOn)
@@ -312,6 +313,7 @@ export class SubscriptionService implements Disposable {
 				effective: getSubscriptionPlan(
 					SubscriptionPlanId.Free,
 					false,
+					0,
 					undefined,
 					this._subscription.plan?.effective?.startedOn != null
 						? new Date(this._subscription.plan.actual.startedOn)
@@ -462,7 +464,7 @@ export class SubscriptionService implements Disposable {
 			...this._subscription,
 			plan: {
 				...this._subscription.plan,
-				effective: getSubscriptionPlan(SubscriptionPlanId.Pro, false, undefined, startedOn, expiresOn),
+				effective: getSubscriptionPlan(SubscriptionPlanId.Pro, false, 0, undefined, startedOn, expiresOn),
 			},
 			previewTrial: previewTrial,
 		});
@@ -632,6 +634,7 @@ export class SubscriptionService implements Disposable {
 			actual = getSubscriptionPlan(
 				convertLicenseTypeToPlanId(licenseType),
 				isBundleLicenseType(licenseType),
+				license.reactivationCount ?? 0,
 				license.organizationId,
 				new Date(license.latestStartDate),
 				new Date(license.latestEndDate),
@@ -643,6 +646,7 @@ export class SubscriptionService implements Disposable {
 			actual = getSubscriptionPlan(
 				SubscriptionPlanId.FreePlus,
 				false,
+				0,
 				undefined,
 				data.user.firstGitLensCheckIn != null
 					? new Date(data.user.firstGitLensCheckIn)
@@ -668,6 +672,7 @@ export class SubscriptionService implements Disposable {
 			effective = getSubscriptionPlan(
 				convertLicenseTypeToPlanId(licenseType),
 				isBundleLicenseType(licenseType),
+				license.reactivationCount ?? 0,
 				license.organizationId,
 				new Date(license.latestStartDate),
 				new Date(license.latestEndDate),
@@ -825,8 +830,8 @@ export class SubscriptionService implements Disposable {
 		if (subscription == null) {
 			subscription = {
 				plan: {
-					actual: getSubscriptionPlan(SubscriptionPlanId.Free, false, undefined),
-					effective: getSubscriptionPlan(SubscriptionPlanId.Free, false, undefined),
+					actual: getSubscriptionPlan(SubscriptionPlanId.Free, false, 0, undefined),
+					effective: getSubscriptionPlan(SubscriptionPlanId.Free, false, 0, undefined),
 				},
 				account: undefined,
 				state: SubscriptionState.Free,
@@ -857,6 +862,7 @@ export class SubscriptionService implements Disposable {
 					effective: getSubscriptionPlan(
 						SubscriptionPlanId.Pro,
 						false,
+						0,
 						undefined,
 						new Date(subscription.previewTrial.startedOn),
 						new Date(subscription.previewTrial.expiresOn),
@@ -999,6 +1005,7 @@ export class SubscriptionService implements Disposable {
 		const {
 			account,
 			plan: { effective },
+			state,
 		} = this._subscription;
 
 		if (effective.id === SubscriptionPlanId.Free) {
@@ -1023,7 +1030,7 @@ export class SubscriptionService implements Disposable {
 		}
 
 		this._statusBarSubscription.name = 'GitKraken Subscription';
-		this._statusBarSubscription.command = Commands.ShowHomeView;
+		this._statusBarSubscription.command = Commands.ShowAccountView;
 
 		if (account?.verified === false) {
 			this._statusBarSubscription.text = `$(warning) ${effective.name} (Unverified)`;
@@ -1038,12 +1045,18 @@ export class SubscriptionService implements Disposable {
 			);
 		} else {
 			const remaining = getSubscriptionTimeRemaining(this._subscription, 'days');
+			const isReactivatedTrial =
+				state === SubscriptionState.FreePlusInTrial && effective.trialReactivationCount > 0;
 
 			this._statusBarSubscription.text = `${effective.name} (Trial)`;
 			this._statusBarSubscription.tooltip = new MarkdownString(
-				`You have ${pluralize('day', remaining ?? 0)} left in your free **${
+				`${isReactivatedTrial ? `Your GitKraken trial has been reactivated! ` : ''}You have ${pluralize(
+					'day',
+					remaining ?? 0,
+				)} remaining in your **${
 					effective.name
-				}** trial, which gives you additional access to Pro features on privately hosted repos.\n\nClick for details`,
+				}** trial. Once your trial ends, you'll need a paid plan to continue using ✨ features.\n\nYou have access to ✨ features on privately hosted repos and ☁️ features based on the Pro plan
+				and can try out any of our other developer tools during your trial.\n\nClick for details`,
 				true,
 			);
 		}
@@ -1095,6 +1108,7 @@ interface GKLicense {
 	readonly latestStartDate: string;
 	readonly latestEndDate: string;
 	readonly organizationId: string | undefined;
+	readonly reactivationCount?: number;
 }
 
 type GKLicenseType =

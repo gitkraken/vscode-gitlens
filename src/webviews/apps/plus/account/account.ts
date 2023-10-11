@@ -83,6 +83,7 @@ export class AccountApp extends App<State> {
 		$content.state = subscription.state;
 		$content.plan = subscription.plan.effective.name;
 		$content.days = days;
+		$content.trialReactivationCount = subscription.plan.effective.trialReactivationCount;
 	}
 }
 
