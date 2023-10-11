@@ -85,6 +85,9 @@ export class AccountContent extends LitElement {
 	@property()
 	plan = '';
 
+	@property({ type: Number })
+	trialReactivationCount = 0;
+
 	get daysRemaining() {
 		if (this.days < 1) {
 			return '<1 day';
@@ -120,6 +123,10 @@ export class AccountContent extends LitElement {
 
 	get hasAccount() {
 		return hasAccountFromSubscriptionState(this.state);
+	}
+
+	get isReactivatedTrial() {
+		return this.state === SubscriptionState.FreePlusInTrial && this.trialReactivationCount > 0;
 	}
 
 	private renderAccountInfo() {
@@ -192,15 +199,28 @@ export class AccountContent extends LitElement {
 			case SubscriptionState.FreePlusInTrial:
 				return html`
 					<p>
-						Your have ${this.daysRemaining} remaining in your GitKraken trial. Once your trial ends, you'll
-						need a paid plan to continue using ✨ features.
+						${this.isReactivatedTrial
+							? html`<a href="https://help.gitkraken.com/gitlens/gitlens-release-notes-current/"
+										>See what's new</a
+									>
+									with
+									${pluralize('day', this.days, {
+										infix: ' more ',
+									})}
+									in your GitKraken trial.`
+							: `You have
+						${this.daysRemaining} remaining in your GitKraken trial.`}
+						Once your trial ends, you'll need a paid plan to continue using ✨ features.
 					</p>
 					<button-container>
 						<gl-button full href="command:gitlens.plus.purchase">Upgrade to Pro</gl-button>
 					</button-container>
 					<p>
-						You have access to ✨ features on privately hosted repos and ☁️ features based on the Pro plan
-						during your trial.
+						You have access to ✨ features on privately hosted repos and ☁️ features based on the Pro plan.
+					</p>
+					<p>
+						Try our
+						<a href="https://www.gitkraken.com/suite">other developer tools</a> also included in your trial.
 					</p>
 				`;
 
@@ -212,6 +232,10 @@ export class AccountContent extends LitElement {
 						>
 					</button-container>
 					<p>You have access to ✨ features on privately hosted repos and ☁️ features based on your plan.</p>
+					<p>
+						Try our
+						<a href="https://www.gitkraken.com/suite">other developer tools</a> also included in your plan.
+					</p>
 				`;
 		}
 

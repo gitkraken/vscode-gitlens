@@ -15,6 +15,7 @@ export class ShowViewCommand extends Command {
 			Commands.ShowFileHistoryView,
 			Commands.ShowGraphView,
 			Commands.ShowHomeView,
+			Commands.ShowAccountView,
 			Commands.ShowLineHistoryView,
 			Commands.ShowRemotesView,
 			Commands.ShowRepositoriesView,
