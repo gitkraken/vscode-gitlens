@@ -1275,8 +1275,8 @@ export class Git {
 			params.push('--first-parent');
 		}
 
-		// Can't allow rename detection (`--follow`) if `all` or a `startLine` is specified
-		if (renames && (all || startLine != null)) {
+		// Can't allow rename detection (`--follow`) if a `startLine` is specified
+		if (renames && startLine != null) {
 			renames = false;
 		}
 

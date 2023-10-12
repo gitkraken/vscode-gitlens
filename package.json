@@ -6557,14 +6557,12 @@
 			{
 				"command": "gitlens.views.fileHistory.setRenameFollowingOn",
 				"title": "Follow Renames",
-				"category": "GitLens",
-				"enablement": "!config.gitlens.advanced.fileHistoryShowAllBranches"
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setRenameFollowingOff",
 				"title": "Don't Follow Renames",
-				"category": "GitLens",
-				"enablement": "!config.gitlens.advanced.fileHistoryShowAllBranches"
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setShowAllBranchesOn",
@@ -10860,17 +10858,12 @@
 				},
 				{
 					"command": "gitlens.views.fileHistory.setRenameFollowingOn",
-					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !gitlens:views:fileHistory:cursorFollowing && config.gitlens.advanced.fileHistoryShowAllBranches",
-					"group": "3_gitlens@1"
-				},
-				{
-					"command": "gitlens.views.fileHistory.setRenameFollowingOn",
-					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !gitlens:views:fileHistory:cursorFollowing && !config.gitlens.advanced.fileHistoryShowAllBranches && !config.gitlens.advanced.fileHistoryFollowsRenames",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !gitlens:views:fileHistory:cursorFollowing && !config.gitlens.advanced.fileHistoryFollowsRenames",
 					"group": "3_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.fileHistory.setRenameFollowingOff",
-					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !gitlens:views:fileHistory:cursorFollowing && !config.gitlens.advanced.fileHistoryShowAllBranches && config.gitlens.advanced.fileHistoryFollowsRenames",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !gitlens:views:fileHistory:cursorFollowing && config.gitlens.advanced.fileHistoryFollowsRenames",
 					"group": "3_gitlens@1"
 				},
 				{
