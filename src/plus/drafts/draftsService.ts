@@ -3,6 +3,7 @@ import type { Container } from '../../container';
 import type { GitCloudPatch, GitPatch } from '../../git/models/patch';
 import { isSha } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import { log } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import { getSettledValue } from '../../system/promise';
@@ -80,6 +81,7 @@ export class DraftService implements Disposable {
 
 	dispose(): void {}
 
+	@log({ args: { 2: false } })
 	async createDraft(
 		type: 'patch' | 'stash',
 		title: string,
@@ -240,12 +242,14 @@ export class DraftService implements Disposable {
 		}
 	}
 
+	@log()
 	async deleteDraft(id: string): Promise<void> {
 		await this.connection.fetchGkDevApi(`v1/drafts/${id}`, {
 			method: 'DELETE',
 		});
 	}
 
+	@log()
 	async getDraft(id: string): Promise<Draft> {
 		type Result = { data: DraftResponse };
 
@@ -272,6 +276,7 @@ export class DraftService implements Disposable {
 		};
 	}
 
+	@log()
 	async getDrafts(): Promise<Draft[]> {
 		type Result = { data: DraftResponse[] };
 
@@ -298,6 +303,7 @@ export class DraftService implements Disposable {
 		);
 	}
 
+	@log()
 	async getChangesets(id: string): Promise<DraftChangeset[]> {
 		type Result = { data: DraftChangesetResponse[] };
 
@@ -349,6 +355,7 @@ export class DraftService implements Disposable {
 		return changesets;
 	}
 
+	@log()
 	async getPatches(id: string, options?: { includeContents?: boolean }): Promise<DraftPatch[]> {
 		type Result = { data: DraftPatchResponse[] };
 
@@ -388,6 +395,7 @@ export class DraftService implements Disposable {
 			.map(p => p.value);
 	}
 
+	@log()
 	async getPatch(id: string): Promise<DraftPatch | undefined> {
 		type Result = { data: DraftPatchResponse };
 
@@ -409,6 +417,7 @@ export class DraftService implements Disposable {
 		};
 	}
 
+	@log()
 	async getPatchContents(id: string): Promise<string | undefined> {
 		type Result = { data: DraftPatchResponse };
 
