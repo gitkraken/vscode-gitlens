@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#2940](https://github.com/gitkraken/vscode-gitlens/issues/2940) - Can't use Azure OpenAI model because i can't save the openai key because of the verification
 - Fixes [#2928](https://github.com/gitkraken/vscode-gitlens/issues/2928) - Apply Changes should create new files when needed
 - Fixes [#2896](https://github.com/gitkraken/vscode-gitlens/issues/2896) - Repositories view stuck in loading state
+- Fixes [#2460](https://github.com/gitkraken/vscode-gitlens/issues/2460) - Gitlens Remote provider doesn't work properly in "Commit graph" view
 - Fixes issue with "View as [List|Tree]" toggle not working in the _Commit Details_ view
 - Fixes an issue with deep links sometimes failing to properly resolve when a matching repository without the remote is found
 - Fixes an issue in the _Commit Graph_ where commits not in the history of a merge commit were showing in the same column
