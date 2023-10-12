@@ -59,7 +59,10 @@ export class GlPatchDetailsApp extends LitElement {
 			return 0;
 		}
 
-		return this.state.create.reduce((a, c) => a + c.files.length, 0);
+		return Object.values(this.state.create).reduce((a, c) => {
+			a += c.change?.files?.length ?? 0;
+			return a;
+		}, 0);
 	}
 
 	get wipChangeState() {
@@ -67,10 +70,12 @@ export class GlPatchDetailsApp extends LitElement {
 			return undefined;
 		}
 
-		const state = this.state.create.reduce(
+		const state = Object.values(this.state.create).reduce(
 			(a, c) => {
-				a.files += c.files.length;
-				a.on.add(`${c.repository.name}:${c.range.branchName}`);
+				if (c.change?.files != null) {
+					a.files += c.change.files.length;
+					a.on.add(`${c.repoName}:${c.change.range.branchName}`);
+				}
 				return a;
 			},
 			{ files: 0, on: new Set<string>() },

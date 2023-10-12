@@ -32,12 +32,27 @@ export class GlPatchCreate extends LitElement {
 			return false;
 		}
 
-		return this.state.create.some(c => c.type === 'wip');
+		return Object.values(this.state.create).some(c => c.change?.type === 'wip');
+	}
+
+	get hasChangedFiles() {
+		if (this.state?.create == null) {
+			return false;
+		}
+
+		return Object.values(this.state.create).some(c => c.change?.files != null);
 	}
 
 	@state()
 	get canSubmit() {
-		return this.patchTitle.length > 0; // this.selectedChanges.length > 0 &&
+		return this.patchTitle.length > 0 && this.hasChangedFiles; // this.selectedChanges.length > 0 &&
+	}
+
+	get repoChanges() {
+		if (this.state?.create == null) {
+			return undefined;
+		}
+		return Object.values(this.state.create);
 	}
 
 	constructor() {
@@ -75,10 +90,7 @@ export class GlPatchCreate extends LitElement {
 										><code-icon icon="chevron-down"></code-icon
 									></gl-button>
 									<gk-menu class="mine-menu" @select=${this.onSelectCreateOption}>
-										<gk-menu-item data-value="staged">Create Patch from Staged Files</gk-menu-item>
-										<gk-menu-item data-value="unstaged"
-											>Create Patch from Unstaged Files</gk-menu-item
-										>
+										<gk-menu-item data-value="local">Create Local Patch</gk-menu-item>
 									</gk-menu>
 								</gk-popover>
 							`,
@@ -93,10 +105,9 @@ export class GlPatchCreate extends LitElement {
 		return html`
 			${this.renderForm()}
 			<gl-create-details
-				.files=${this.state?.create?.[0].files}
+				.repoChanges=${this.repoChanges}
 				.preferences=${this.state?.preferences}
 				.isUncommitted=${true}
-				noheader
 			>
 			</gl-create-details>
 		`;
@@ -118,29 +129,28 @@ export class GlPatchCreate extends LitElement {
 	}
 
 	private onCreateAll(_e: Event) {
-		const change = this.state?.create?.[0];
-		if (change == null) {
-			return;
-		}
-		this.createPatch([change]);
+		// const change = this.state?.create?.[0];
+		// if (change == null) {
+		// 	return;
+		// }
+		// this.createPatch([change]);
 	}
 
 	private onSelectCreateOption(e: CustomEvent<{ target: MenuItem }>) {
-		const target = e.detail?.target;
-		const value = target?.dataset?.value as 'staged' | 'unstaged' | undefined;
-		const currentChange = this.state?.create?.[0];
-		if (value == null || currentChange == null) {
-			return;
-		}
-		const change = {
-			...currentChange,
-			files: currentChange.files.filter(file => {
-				const staged = file.staged ?? false;
-				return (staged && value === 'staged') || (!staged && value === 'unstaged');
-			}),
-		};
-
-		this.createPatch([change]);
+		// const target = e.detail?.target;
+		// const value = target?.dataset?.value as 'staged' | 'unstaged' | undefined;
+		// const currentChange = this.state?.create?.[0];
+		// if (value == null || currentChange == null) {
+		// 	return;
+		// }
+		// const change = {
+		// 	...currentChange,
+		// 	files: currentChange.files.filter(file => {
+		// 		const staged = file.staged ?? false;
+		// 		return (staged && value === 'staged') || (!staged && value === 'unstaged');
+		// 	}),
+		// };
+		// this.createPatch([change]);
 	}
 
 	private onTitleInput(e: InputEvent) {

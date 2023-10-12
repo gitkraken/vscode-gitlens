@@ -175,7 +175,8 @@ export class ListItem extends LitElement {
 	@property({ type: Number }) level = 1;
 
 	@property({ type: Boolean }) checkable = false;
-	@property({ type: Boolean }) checked = false;
+	@property({ type: Boolean, reflect: true }) checked = false;
+	@property({ type: Boolean, attribute: 'disable-check' }) disableCheck = false;
 
 	@property({ type: Boolean })
 	active = false;
@@ -287,6 +288,7 @@ export class ListItem extends LitElement {
 			id="checkbox"
 			type="checkbox"
 			?checked=${this.checked}
+			?disabled=${this.disableCheck}
 			@change=${this.onCheckedChange}
 			@click=${this.onCheckedClick}
 		/>`;

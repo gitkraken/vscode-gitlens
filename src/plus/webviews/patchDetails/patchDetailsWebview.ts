@@ -1,5 +1,11 @@
-import type { CancellationToken, ConfigurationChangeEvent, TextDocumentShowOptions, ViewColumn } from 'vscode';
-import { CancellationTokenSource, Disposable, env, window } from 'vscode';
+import type {
+	CancellationToken,
+	CancellationTokenSource,
+	ConfigurationChangeEvent,
+	TextDocumentShowOptions,
+	ViewColumn,
+} from 'vscode';
+import { Disposable, env, Uri, window } from 'vscode';
 import type { CoreConfiguration } from '../../../constants';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
@@ -42,6 +48,8 @@ import type {
 	FileActionParams,
 	Mode,
 	Preferences,
+	RepoChangeSet,
+	RepoWipChangeSet,
 	State,
 	SwitchModeParams,
 	UpdateablePreferences,
@@ -70,11 +78,10 @@ import type { PatchDetailsWebviewShowingArgs } from './registration';
 interface Context {
 	mode: Mode;
 	draft: LocalDraft | Draft | undefined;
-	create: Change[] | undefined;
+	create: Map<Repository['id'], RepositoryChangeSet>;
 	preferences: Preferences;
 
 	visible: boolean;
-	wipStateLoaded: boolean;
 }
 
 export class PatchDetailsWebviewProvider
@@ -95,7 +102,12 @@ export class PatchDetailsWebviewProvider
 		this._context = {
 			mode: 'create',
 			draft: undefined,
-			create: undefined,
+			create: new Map(
+				container.git.openRepositories.map(r => [
+					r.id,
+					new RepositoryWipChangeSet(container, r, this.onDidChangeRepositoryWip.bind(this)),
+				]),
+			),
 			preferences: {
 				avatars: configuration.get('views.patchDetails.avatars'),
 				dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
@@ -106,7 +118,6 @@ export class PatchDetailsWebviewProvider
 					) ?? 'onHover',
 			},
 			visible: false,
-			wipStateLoaded: false,
 		};
 
 		this._disposable = Disposable.from(
@@ -117,11 +128,15 @@ export class PatchDetailsWebviewProvider
 
 	dispose() {
 		this._disposable.dispose();
-		this._selectionTrackerDisposable?.dispose();
+		// this._selectionTrackerDisposable?.dispose();
 	}
 
 	onReloaded(): void {
 		void this.notifyDidChangeState(true);
+	}
+
+	onDidChangeRepositoryWip(_e: RepositoryWipChangeSet) {
+		this.updateState();
 	}
 
 	onShowing(
@@ -212,13 +227,13 @@ export class PatchDetailsWebviewProvider
 		if (this._focused === focused) return;
 
 		this._focused = focused;
-		if (focused) {
-			this.ensureTrackers();
-		}
+		// if (focused) {
+		// 	this.ensureTrackers();
+		// }
 	}
 
 	onVisibilityChanged(visible: boolean) {
-		this.ensureTrackers();
+		// this.ensureTrackers();
 		this.updatePendingContext({ visible: visible });
 		if (!visible) return;
 
@@ -256,57 +271,68 @@ export class PatchDetailsWebviewProvider
 		}
 	}
 
-	private _selectionTrackerDisposable: Disposable | undefined;
-	// private _repositoryTrackerDisposable: Disposable | undefined;
-	private _repositorySubscriptions: Map<Repository, Disposable> | undefined;
-	private ensureTrackers(): void {
-		this._selectionTrackerDisposable?.dispose();
-		this._selectionTrackerDisposable = undefined;
-		// this._repositoryTrackerDisposable?.dispose();
-		// this._repositoryTrackerDisposable = undefined;
-		if (this._repositorySubscriptions != null) {
-			for (const disposable of this._repositorySubscriptions.values()) {
-				disposable.dispose();
-			}
-			this._repositorySubscriptions.clear();
-			this._repositorySubscriptions = undefined;
-		}
+	// private _selectionTrackerDisposable: Disposable | undefined;
+	// // private _repositoryTrackerDisposable: Disposable | undefined;
+	// private _repositorySubscriptions: Map<Repository, Disposable> | undefined;
+	// private ensureTrackers(): void {
+	// 	this._selectionTrackerDisposable?.dispose();
+	// 	this._selectionTrackerDisposable = undefined;
+	// 	// this._repositoryTrackerDisposable?.dispose();
+	// 	// this._repositoryTrackerDisposable = undefined;
+	// 	if (this._repositorySubscriptions != null) {
+	// 		for (const disposable of this._repositorySubscriptions.values()) {
+	// 			disposable.dispose();
+	// 		}
+	// 		this._repositorySubscriptions.clear();
+	// 		this._repositorySubscriptions = undefined;
+	// 	}
 
-		if (!this.host.visible) return;
+	// 	if (!this.host.visible) return;
 
-		this._selectionTrackerDisposable = this.container.events.on('draft:selected', this.onDraftSelected, this);
-		// this._repositoryTrackerDisposable = this.container.git.onDidChangeRepository(this.onRepositoryChanged, this);
+	// 	this._selectionTrackerDisposable = this.container.events.on('draft:selected', this.onDraftSelected, this);
+	// 	// this._repositoryTrackerDisposable = this.container.git.onDidChangeRepository(this.onRepositoryChanged, this);
 
-		// TODO do we need to watch each individual repository?
-		const repos = this.container.git.openRepositories;
-		for (const repo of repos) {
-			this.watchRepository(repo);
-		}
-	}
+	// 	// TODO do we need to watch each individual repository?
+	// 	// const repos = this.container.git.openRepositories;
+	// 	// for (const repo of repos) {
+	// 	// 	this.watchRepository(repo);
+	// 	// }
+	// 	if (this._context.create == null) {
+	// 		const repo = this.container.git.getBestRepositoryOrFirst();
+	// 		if (repo == null) return;
+	// 		this.watchRepository(repo);
+	// 	} else {
+	// 		for (const change of this._context.create) {
+	// 			const repo = this.container.git.getRepository(change.repository.uri);
+	// 			if (repo == null) continue;
+	// 			this.watchRepository(repo);
+	// 		}
+	// 	}
+	// }
 
 	private onRepositoriesChanged(_e: RepositoryChangeEvent) {
-		this.ensureTrackers();
-		void this.updateCreateStateFromWip();
+		// this.ensureTrackers();
+		// void this.updateCreateStateFromWip();
 	}
 
-	private watchRepository(repository: Repository) {
-		if (this._repositorySubscriptions == null) {
-			this._repositorySubscriptions = new Map();
-		}
+	// private watchRepository(repository: Repository) {
+	// 	if (this._repositorySubscriptions == null) {
+	// 		this._repositorySubscriptions = new Map();
+	// 	}
 
-		if (this._repositorySubscriptions.has(repository)) return;
+	// 	if (this._repositorySubscriptions.has(repository)) return;
 
-		const disposable = Disposable.from(
-			repository.onDidChange(this.onRepositoriesChanged, this),
-			repository.onDidChangeFileSystem(() => this.updateCreateStateFromWip(repository), this),
-			repository.onDidChange(e => {
-				if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
-					void this.updateCreateStateFromWip(repository);
-				}
-			}),
-		);
-		this._repositorySubscriptions.set(repository, disposable);
-	}
+	// 	const disposable = Disposable.from(
+	// 		repository.onDidChange(this.onRepositoriesChanged, this),
+	// 		repository.onDidChangeFileSystem(() => this.updateCreateStateFromWip(repository), this),
+	// 		repository.onDidChange(e => {
+	// 			if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
+	// 				void this.updateCreateStateFromWip(repository);
+	// 			}
+	// 		}),
+	// 	);
+	// 	this._repositorySubscriptions.set(repository, disposable);
+	// }
 
 	onMessageReceived(e: IpcMessage) {
 		switch (e.method) {
@@ -375,7 +401,7 @@ export class PatchDetailsWebviewProvider
 		if (mode === 'draft') {
 			this.updateState(true);
 		} else {
-			void this.updateCreateStateFromWip();
+			// void this.updateCreateStateFromWip();
 		}
 	}
 
@@ -430,14 +456,13 @@ export class PatchDetailsWebviewProvider
 			details = await this.getDetailsModel(current.draft);
 		}
 
-		if (current.create == null && !current.wipStateLoaded) {
-			this._cancellationTokenSource = new CancellationTokenSource();
-
-			const cancellation = this._cancellationTokenSource.token;
-			setTimeout(() => {
-				if (cancellation.isCancellationRequested) return;
-				void this.updateCreateStateFromWip(undefined, cancellation);
-			}, 100);
+		if (current.create == null) {
+			// this._cancellationTokenSource = new CancellationTokenSource();
+			// const cancellation = this._cancellationTokenSource.token;
+			// setTimeout(() => {
+			// 	if (cancellation.isCancellationRequested) return;
+			// 	void this.updateCreateStateFromWip(undefined, cancellation);
+			// }, 100);
 		}
 
 		const state = serialize<State>({
@@ -445,9 +470,8 @@ export class PatchDetailsWebviewProvider
 			timestamp: Date.now(),
 			mode: current.mode,
 			draft: details,
-			create: current.create,
+			create: await toRepoChanges(current.create),
 			preferences: current.preferences,
-			wipStateLoaded: current.wipStateLoaded,
 		});
 		return state;
 	}
@@ -455,9 +479,41 @@ export class PatchDetailsWebviewProvider
 	private _commitDisposable: Disposable | undefined;
 
 	private updateCreate(changes: Change[]) {
-		this.updatePendingContext({ mode: 'create', wipStateLoaded: true, create: changes });
-		this.ensureTrackers();
+		const repoChanges = new Map<Repository['id'], RepositoryChangeSet>();
+		for (const change of changes) {
+			const repo = this.container.git.getRepository(Uri.parse(change.repository.uri));
+			if (repo == null) continue;
+
+			let repoChangeSet: RepositoryChangeSet;
+			if (change.type === 'wip') {
+				repoChangeSet = new RepositoryWipChangeSet(
+					this.container,
+					repo,
+					this.onDidChangeRepositoryWip.bind(this),
+				);
+			} else {
+				repoChangeSet = {
+					getChange: async () =>
+						Promise.resolve({
+							type: change.type,
+							repoName: repo.name,
+							repoUri: repo.uri.toString(),
+							change: change,
+
+							checked: true,
+							expanded: true,
+						}),
+				};
+			}
+
+			repoChanges.set(repo.id, repoChangeSet);
+		}
+
+		this.updatePendingContext({ mode: 'create', create: repoChanges });
 		this.updateState();
+
+		// this.updatePendingContext({ mode: 'create', wipStateLoaded: true, create: changes });
+		// // this.ensureTrackers();
 	}
 
 	private updateDraft(draft: LocalDraft | Draft | undefined, options?: { force?: boolean; immediate?: boolean }) {
@@ -497,7 +553,7 @@ export class PatchDetailsWebviewProvider
 			},
 			options?.force,
 		);
-		this.ensureTrackers();
+		// this.ensureTrackers();
 		this.updateState(options?.immediate ?? true);
 	}
 
@@ -876,116 +932,168 @@ export class PatchDetailsWebviewProvider
 			if (ref == null) return;
 		}
 
-		const change: Change = {
-			repository: {
-				name: patch.repo!.name,
-				path: patch.repo!.path,
-				uri: patch.repo!.uri.toString(),
-			},
-			range: {
-				baseSha: patch.baseRef ?? 'HEAD',
-				sha: patch.commit?.sha,
-				// TODO: need to figure out branch name
-				branchName: '',
-			},
-			files:
-				patch.files?.map(file => {
-					return {
-						repoPath: file.repoPath,
-						path: file.path,
-						status: file.status,
-						originalPath: file.originalPath,
-					};
-				}) ?? [],
+		const change: RepoChangeSet = {
 			type: 'commit',
+			repoName: patch.repo!.name,
+			repoUri: patch.repo!.uri.toString(),
+			change: {
+				type: 'commit',
+				repository: {
+					name: patch.repo!.name,
+					path: patch.repo!.path,
+					uri: patch.repo!.uri.toString(),
+				},
+				range: {
+					baseSha: patch.baseRef ?? 'HEAD',
+					sha: patch.commit?.sha,
+					// TODO: need to figure out branch name
+					branchName: '',
+				},
+				files:
+					patch.files?.map(file => {
+						return {
+							repoPath: file.repoPath,
+							path: file.path,
+							status: file.status,
+							originalPath: file.originalPath,
+						};
+					}) ?? [],
+			},
+			checked: true,
+			expanded: true,
 		};
 
-		this.updatePendingContext({ mode: 'create', wipStateLoaded: false, create: [change] });
+		this.updatePendingContext({
+			mode: 'create',
+			create: new Map([[patch.repo!.id, { getChange: () => Promise.resolve(change) }]]),
+		});
 		this.updateState();
 	}
 
-	private async updateCreateStateFromWip(repository?: Repository, cancellation?: CancellationToken) {
-		const create: Change[] = this._context.create ?? [];
-		const repos = this.container.git.openRepositories;
-		for (const repo of repos) {
-			if (repository != null && repo !== repository) continue;
+	// private async updateCreateStateFromWip(repository?: Repository, cancellation?: CancellationToken) {
+	// 	const changes: Change[] =
+	// 		this._context.create?.filter(
+	// 			change => change.type === 'wip' && (repository == null || change.repository.path === repository.path),
+	// 		) ?? [];
 
-			const change = await this.getWipChange(repo);
-			if (cancellation?.isCancellationRequested) return;
+	// 	// if there's no created changes:
+	// 	// - then we need to load the wip state from repository
+	// 	// - or if there's no repository, then we need to load the wip state from the best repository
 
-			const index = create.findIndex(c => c.repository.path === repo.path);
-			if (change == null) {
-				if (index !== -1) {
-					create.splice(index, 1);
-				}
-				continue;
-			}
+	// 	// if there's created changes:
+	// 	// - then we need to update the wip state of the change matching the repository
+	// 	// - or if there's no repository, then we need to update the wip state of all changes
 
-			if (index !== -1) {
-				create[index] = change;
-			} else {
-				create.push(change);
-			}
-		}
+	// 	if (changes.length === 0) {
+	// 		if (repository == null) {
+	// 			repository = this.container.git.getBestRepositoryOrFirst();
+	// 		}
+	// 		if (repository == null) return;
+	// 		const change = await this.getWipChange(repository);
+	// 		if (change == null || cancellation?.isCancellationRequested) return;
+	// 		changes.push(change);
+	// 	} else {
+	// 		for (const change of changes) {
+	// 			const repo = repository ?? this.container.git.getRepository(change.repository.uri);
+	// 			if (repo == null) {
+	// 				changes.splice(changes.indexOf(change), 1);
+	// 				continue;
+	// 			}
 
-		this.updatePendingContext({ wipStateLoaded: true, create: create });
-		this.updateState(true);
-	}
+	// 			const wip = await this.getWipChange(repo);
+	// 			if (wip == null || cancellation?.isCancellationRequested) return;
 
-	@debug({ args: false })
-	private async updateWipState(repository: Repository, cancellation?: CancellationToken): Promise<void> {
-		const change = await this.getWipChange(repository);
-		if (cancellation?.isCancellationRequested) return;
+	// 			changes[changes.indexOf(change)] = wip;
+	// 		}
+	// 	}
 
-		const success =
-			!this.host.ready || !this.host.visible
-				? await this.host.notify(DidChangeCreateNotificationType, {
-						create: change != null ? [serialize<Change>(change)] : undefined,
-				  })
-				: false;
-		if (success) {
-			this._context.create = change != null ? [change] : undefined;
-		} else {
-			this.updatePendingContext({ create: change != null ? [change] : undefined });
-			this.updateState();
-		}
-	}
+	// 	this.updatePendingContext({ wipStateLoaded: true, create: changes });
+	// 	this.updateState(true);
+	// }
 
-	private async getWipChange(repository: Repository): Promise<Change | undefined> {
-		const status = await this.container.git.getStatusForRepo(repository.path);
-		if (status == null) return undefined;
+	// private async updateCreateStateFromWipOld(repository?: Repository, cancellation?: CancellationToken) {
+	// 	const create: Change[] = this._context.create ?? [];
+	// 	const repos = this.container.git.openRepositories;
+	// 	for (const repo of repos) {
+	// 		if (repository != null && repo !== repository) continue;
 
-		const files: GitFileChangeShape[] = [];
-		for (const file of status.files) {
-			const change = {
-				repoPath: file.repoPath,
-				path: file.path,
-				status: file.status,
-				originalPath: file.originalPath,
-				staged: file.staged,
-			};
+	// 		const change = await this.getWipChange(repo);
+	// 		if (cancellation?.isCancellationRequested) return;
 
-			files.push(change);
-			if (file.staged && file.wip) {
-				files.push({ ...change, staged: false });
-			}
-		}
+	// 		// TODO: not checking if its a wip change
+	// 		const index = create.findIndex(c => c.repository.path === repo.path);
+	// 		if (change == null) {
+	// 			if (index !== -1) {
+	// 				create.splice(index, 1);
+	// 			}
+	// 			continue;
+	// 		}
 
-		return {
-			type: 'wip',
-			repository: {
-				name: repository.name,
-				path: repository.path,
-				uri: repository.uri.toString(),
-			},
-			files: files,
-			range: {
-				baseSha: 'HEAD',
-				sha: undefined,
-				branchName: status.branch,
-			},
-		};
-	}
+	// 		if (index !== -1) {
+	// 			create[index] = change;
+	// 		} else {
+	// 			create.push(change);
+	// 		}
+	// 	}
+
+	// 	this.updatePendingContext({ wipStateLoaded: true, create: create });
+	// 	this.updateState(true);
+	// }
+
+	// @debug({ args: false })
+	// private async updateWipState(repository: Repository, cancellation?: CancellationToken): Promise<void> {
+	// 	const change = await this.getWipChange(repository);
+	// 	if (cancellation?.isCancellationRequested) return;
+
+	// 	const success =
+	// 		!this.host.ready || !this.host.visible
+	// 			? await this.host.notify(DidChangeCreateNotificationType, {
+	// 					create: change != null ? [serialize<Change>(change)] : undefined,
+	// 			  })
+	// 			: false;
+	// 	if (success) {
+	// 		this._context.create = change != null ? [change] : undefined;
+	// 	} else {
+	// 		this.updatePendingContext({ create: change != null ? [change] : undefined });
+	// 		this.updateState();
+	// 	}
+	// }
+
+	// private async getWipChange(repository: Repository): Promise<Change | undefined> {
+	// 	const status = await this.container.git.getStatusForRepo(repository.path);
+	// 	if (status == null) return undefined;
+
+	// 	const files: GitFileChangeShape[] = [];
+	// 	for (const file of status.files) {
+	// 		const change = {
+	// 			repoPath: file.repoPath,
+	// 			path: file.path,
+	// 			status: file.status,
+	// 			originalPath: file.originalPath,
+	// 			staged: file.staged,
+	// 		};
+
+	// 		files.push(change);
+	// 		if (file.staged && file.wip) {
+	// 			files.push({ ...change, staged: false });
+	// 		}
+	// 	}
+
+	// 	return {
+	// 		type: 'wip',
+	// 		repository: {
+	// 			name: repository.name,
+	// 			path: repository.path,
+	// 			uri: repository.uri.toString(),
+	// 		},
+	// 		files: files,
+	// 		range: {
+	// 			baseSha: 'HEAD',
+	// 			sha: undefined,
+	// 			branchName: status.branch,
+	// 		},
+	// 	};
+	// }
 
 	private async getCommitChange(commit: GitCommit): Promise<Change> {
 		// const [commitResult, avatarUriResult, remoteResult] = await Promise.allSettled([
@@ -1054,6 +1162,19 @@ export class PatchDetailsWebviewProvider
 	}
 }
 
+async function toRepoChanges(
+	createMap?: Map<Repository['id'], RepositoryChangeSet>,
+): Promise<Record<string, RepoChangeSet>> {
+	const repoChanges: Record<string, RepoChangeSet> = {};
+	if (createMap == null || createMap.size === 0) return repoChanges;
+
+	for (const [id, repo] of createMap) {
+		repoChanges[id] = await repo.getChange();
+	}
+
+	return repoChanges;
+}
+
 // async function summaryModel(commit: GitCommit): Promise<CommitSummary> {
 // 	return {
 // 		sha: commit.sha,
@@ -1064,3 +1185,117 @@ export class PatchDetailsWebviewProvider
 // 		avatar: (await commit.getAvatarUri())?.toString(true),
 // 	};
 // }
+
+interface RepositoryChangeSet {
+	getChange(): Promise<RepoChangeSet>;
+}
+
+class RepositoryWipChangeSet implements RepositoryChangeSet {
+	private _disposable: Disposable | undefined;
+
+	constructor(
+		private readonly container: Container,
+		public readonly repository: Repository,
+		private readonly onDidChangeRepositoryWip: (e: RepositoryWipChangeSet) => void,
+		expanded: boolean = true,
+	) {
+		this.expanded = expanded;
+	}
+
+	private _checked: RepoWipChangeSet['checked'] = false;
+	get checked(): RepoWipChangeSet['checked'] {
+		return this._checked;
+	}
+	set checked(value: RepoWipChangeSet['checked']) {
+		this._checked = value;
+	}
+
+	private _expanded = false;
+	get expanded(): boolean {
+		return this._expanded;
+	}
+	set expanded(value: boolean) {
+		if (this._expanded === value) return;
+
+		this._wipChange = undefined;
+		if (value) {
+			this.subscribe();
+		} else {
+			this._disposable?.dispose();
+			this._disposable = undefined;
+		}
+		this._expanded = value;
+	}
+
+	private _wipChange: Promise<Change> | undefined;
+	async getChange(): Promise<RepoChangeSet> {
+		if (this.expanded && this._wipChange == null) {
+			this._wipChange = this.getWipChange();
+		}
+
+		return {
+			type: 'wip',
+			repoName: this.repository.name,
+			repoUri: this.repository.uri.toString(),
+			change: this.expanded ? await this._wipChange : undefined,
+			checked: this.checked,
+			expanded: this.expanded,
+		};
+	}
+
+	private subscribe() {
+		if (this._disposable != null) return;
+
+		this._disposable = Disposable.from(
+			this.repository.startWatchingFileSystem(),
+			this.repository.onDidChangeFileSystem(() => this.onDidChangeWip(), this),
+			this.repository.onDidChange(e => {
+				if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
+					this.onDidChangeWip();
+				}
+			}),
+		);
+	}
+
+	private onDidChangeWip() {
+		this._wipChange = undefined;
+		this.onDidChangeRepositoryWip(this);
+	}
+
+	private async getWipChange(): Promise<Change> {
+		const status = await this.container.git.getStatusForRepo(this.repository.path);
+
+		const files: GitFileChangeShape[] = [];
+		if (status != null) {
+			for (const file of status.files) {
+				const change = {
+					repoPath: file.repoPath,
+					path: file.path,
+					status: file.status,
+					originalPath: file.originalPath,
+					staged: file.staged,
+				};
+
+				files.push(change);
+				if (file.staged && file.wip) {
+					files.push({ ...change, staged: false });
+				}
+			}
+		}
+
+		return {
+			type: 'wip',
+			repository: {
+				name: this.repository.name,
+				path: this.repository.path,
+				uri: this.repository.uri.toString(),
+			},
+			files: files,
+			range: {
+				baseSha: 'HEAD',
+				sha: undefined,
+				branchName: status?.branch ?? '',
+			},
+		};
+	}
+}

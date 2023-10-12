@@ -61,13 +61,6 @@ export interface RangeRef {
 	// stashNumber?: string;
 }
 
-export interface Change {
-	repository: { name: string; path: string; uri: string };
-	range: RangeRef;
-	files: GitFileChangeShape[];
-	type: 'commit' | 'wip';
-}
-
 export interface Preferences {
 	avatars: boolean;
 	dateFormat: DateTimeFormat | string;
@@ -79,16 +72,47 @@ export type UpdateablePreferences = Partial<Pick<Preferences, 'files'>>;
 
 export type Mode = 'draft' | 'create';
 
+export interface Change {
+	type: 'commit' | 'wip';
+	repository: { name: string; path: string; uri: string };
+
+	range: RangeRef;
+	files: GitFileChangeShape[];
+}
+
+export interface RepoCommitChangeSet {
+	type: 'commit';
+
+	repoName: string;
+	repoUri: string;
+	change: Change;
+
+	checked: boolean;
+	expanded: boolean;
+}
+
+export interface RepoWipChangeSet {
+	type: 'wip';
+
+	repoName: string;
+	repoUri: string;
+	change: Change | undefined;
+
+	checked: boolean | 'staged';
+	expanded: boolean;
+}
+
+export type RepoChangeSet = RepoCommitChangeSet | RepoWipChangeSet;
+
 export interface State {
 	webviewId: WebviewIds | WebviewViewIds;
 	timestamp: number;
 	mode: Mode;
-	wipStateLoaded: boolean;
 
 	preferences: Preferences;
 
 	draft?: DraftDetails;
-	create?: Change[];
+	create?: Record<string, RepoChangeSet>;
 }
 
 export type ShowCommitDetailsViewCommandArgs = string[];
