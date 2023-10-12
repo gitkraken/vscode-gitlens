@@ -134,7 +134,7 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, RepositoriesV
 					if (draft.changesets == null) {
 						draft = await this.container.drafts.getDraft(node.draft.id);
 					}
-					void showPatchesView(draft);
+					void showPatchesView({ mode: 'draft', draft: draft });
 				},
 				this,
 			),

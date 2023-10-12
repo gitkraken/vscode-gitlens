@@ -127,7 +127,7 @@ export class PatchDetailsWebviewProvider
 		options: { column?: ViewColumn; preserveFocus?: boolean },
 		...args: PatchDetailsWebviewShowingArgs
 	): boolean {
-		let data: Partial<DraftSelectedEvent['data']> | undefined;
+		let data: Partial<DraftSelectedEvent['data']> | { preserveVisibility?: boolean; changes: Change[] } | undefined;
 
 		const [arg] = args;
 		// if (isSerializedState<Serialized<State>>(arg)) {
@@ -157,15 +157,24 @@ export class PatchDetailsWebviewProvider
 		}
 
 		let draft;
+		let changes: Change[] | undefined;
 		if (data != null) {
-			if (data.preserveFocus) {
-				options.preserveFocus = true;
+			if ('changes' in data) {
+				({ changes, ...data } = data as { preserveVisibility?: boolean; changes: Change[] });
+			} else {
+				if (data.preserveFocus) {
+					options.preserveFocus = true;
+				}
+				({ draft, ...data } = data);
 			}
-			({ draft, ...data } = data);
 		}
 
 		if (draft != null) {
 			this.updateDraft(draft);
+		}
+
+		if (changes != null) {
+			this.updateCreate(changes);
 		}
 
 		if (data?.preserveVisibility && !this.host.visible) return false;
@@ -495,6 +504,12 @@ export class PatchDetailsWebviewProvider
 	// }
 
 	private _commitDisposable: Disposable | undefined;
+
+	private updateCreate(changes: Change[]) {
+		this.updatePendingContext({ mode: 'create', wipStateLoaded: true, create: changes });
+		this.ensureTrackers();
+		this.updateState();
+	}
 
 	private updateDraft(draft: LocalDraft | Draft | undefined, options?: { force?: boolean; immediate?: boolean }) {
 		// // this.commits = [commit];

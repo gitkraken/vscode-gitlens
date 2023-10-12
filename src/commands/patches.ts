@@ -191,7 +191,7 @@ export class OpenPatchCommand extends ActiveEditorCommand {
 			},
 		};
 
-		void showPatchesView(patch);
+		void showPatchesView({ mode: 'draft', draft: patch });
 	}
 }
 
@@ -251,6 +251,6 @@ export class OpenCloudPatchCommand extends Command {
 			return;
 		}
 
-		void showPatchesView(draft);
+		void showPatchesView({ mode: 'draft', draft: draft });
 	}
 }

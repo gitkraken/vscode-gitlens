@@ -42,6 +42,14 @@ export class GlWipDetails extends GlDetailsBase {
 							<a
 								class="commit-action"
 								href="#"
+								data-action="create-patch"
+								aria-label="Share as Cloud Patch"
+								title="Share as Cloud Patch"
+								>Share</a
+							>
+							<a
+								class="commit-action"
+								href="#"
 								data-action="commit-actions"
 								data-action-type="scm"
 								aria-label="Open SCM view"

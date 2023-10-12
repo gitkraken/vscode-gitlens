@@ -1,9 +1,11 @@
 import type { DraftSelectedEvent } from '../../../eventBus';
 import type { Serialized } from '../../../system/serialize';
 import type { WebviewsController } from '../../../webviews/webviewsController';
-import type { State } from './protocol';
+import type { Change, State } from './protocol';
 
-export type PatchDetailsWebviewShowingArgs = [Partial<DraftSelectedEvent['data']>];
+export type PatchDetailsWebviewShowingArgs = [
+	Partial<DraftSelectedEvent['data']> | { preserveVisibility?: boolean; changes: Change[] },
+];
 
 export function registerPatchDetailsWebviewView(controller: WebviewsController) {
 	return controller.registerWebviewView<State, Serialized<State>, PatchDetailsWebviewShowingArgs>(

@@ -29,6 +29,7 @@ import { createReference, getReferenceFromRevision, shortenRevision } from '../.
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
+import { showPatchesView } from '../../plus/drafts/actions';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/cancellation';
 import { executeCommand, executeCoreCommand, registerCommand } from '../../system/command';
@@ -53,6 +54,7 @@ import type { WebviewShowOptions } from '../webviewsController';
 import { isSerializedState } from '../webviewsController';
 import type {
 	CommitDetails,
+	CreatePatchFromWipParams,
 	DidExplainParams,
 	FileActionParams,
 	Mode,
@@ -66,6 +68,7 @@ import type {
 import {
 	AutolinkSettingsCommandType,
 	CommitActionsCommandType,
+	CreatePatchFromWipCommandType,
 	DidChangeNotificationType,
 	DidChangeWipStateNotificationType,
 	DidExplainCommandType,
@@ -340,6 +343,9 @@ export class CommitDetailsWebviewProvider
 			case UnstageFileCommandType.method:
 				onIpc(UnstageFileCommandType, e, params => this.unstageFile(params));
 				break;
+			case CreatePatchFromWipCommandType.method:
+				onIpc(CreatePatchFromWipCommandType, e, params => this.createPatchFromWip(params));
+				break;
 		}
 	}
 
@@ -484,6 +490,29 @@ export class CommitDetailsWebviewProvider
 			this._lineTrackerDisposable?.dispose();
 			this._lineTrackerDisposable = undefined;
 		}, 100);
+	}
+
+	private createPatchFromWip(e: CreatePatchFromWipParams) {
+		if (e.changes == null) return;
+
+		const change = {
+			repository: {
+				name: e.changes.repository.name,
+				path: e.changes.repository.path,
+			},
+			range: {
+				baseSha: 'HEAD',
+				sha: undefined,
+				branchName: e.changes.branchName,
+			},
+			files: e.changes.files,
+			type: 'wip' as 'commit' | 'wip',
+		};
+
+		void showPatchesView({
+			mode: 'create',
+			changes: [change],
+		});
 	}
 
 	private onActiveEditorLinesChanged(e: LinesChangeEvent) {

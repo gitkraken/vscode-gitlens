@@ -125,6 +125,11 @@ export const NavigateCommitCommandType = new IpcCommandType<NavigateParams>('com
 export type UpdatePreferenceParams = UpdateablePreferences;
 export const UpdatePreferencesCommandType = new IpcCommandType<UpdatePreferenceParams>('commit/preferences/update');
 
+export interface CreatePatchFromWipParams {
+	changes: WipChange;
+}
+export const CreatePatchFromWipCommandType = new IpcCommandType<CreatePatchFromWipParams>('commit/wip/createPatch');
+
 // NOTIFICATIONS
 
 export interface DidChangeParams {
