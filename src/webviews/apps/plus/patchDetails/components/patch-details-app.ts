@@ -124,11 +124,7 @@ export class GlPatchDetailsApp extends LitElement {
 								@share-local-patch=${this.onShareLocalPatch}
 								@copy-cloud-link=${this.onCopyCloudLink}
 							></gl-draft-details>`,
-						() =>
-							html`<gl-patch-create
-								.state=${this.state}
-								@create-patch=${this.onPatchCreate}
-							></gl-patch-create>`,
+						() => html`<gl-patch-create .state=${this.state}></gl-patch-create>`,
 					)}
 				</main>
 			</div>
@@ -137,10 +133,6 @@ export class GlPatchDetailsApp extends LitElement {
 
 	onShowInGraph(e: CustomEvent<ShowPatchInGraphDetail>) {
 		this.dispatchEvent(new CustomEvent<ShowPatchInGraphDetail>('graph-show-patch', { detail: e.detail }));
-	}
-
-	private onPatchCreate(e: CustomEvent<CreatePatchEventDetail>) {
-		this.dispatchEvent(new CustomEvent<CreatePatchEventDetail>('create-patch', { detail: e.detail }));
 	}
 
 	private onShareLocalPatch(_e: CustomEvent<undefined>) {
