@@ -93,7 +93,7 @@ export class GlCommitDetails extends GlDetailsBase {
 					<button class="button button--full" type="button" data-action="wip">Show Working Changes</button>
 				</p>
 				<p class="button-container">
-					<span class="button-group">
+					<span class="button-group button-group--single">
 						<button class="button button--full" type="button" data-action="pick-commit">
 							Choose Commit...
 						</button>
