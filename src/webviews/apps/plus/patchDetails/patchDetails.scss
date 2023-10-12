@@ -269,7 +269,7 @@ ul {
 		opacity: 0.5;
 	}
 
-        // TEMP
+	// TEMP
 	&--centered {
 		vertical-align: text-bottom;
 	}
@@ -304,13 +304,6 @@ ul {
 }
 .change-list__action:active {
 	background-color: var(--vscode-toolbar-activeBackground);
-}
-
-.gl-actionbar {
-}
-.gl-actionbar__group {
-}
-.gl-action {
 }
 
 .message-block {
@@ -505,6 +498,11 @@ ul {
 		border-bottom: 0.2rem solid transparent;
 		cursor: pointer;
 		// background-color: #00000030;
+		line-height: 1.8rem;
+
+		gk-badge {
+			line-height: 1.36rem;
+		}
 
 		&:hover {
 			color: var(--color-foreground);

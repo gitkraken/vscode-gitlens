@@ -15,7 +15,7 @@ interface LocalDraftDetails {
 	type: 'local';
 
 	message?: string;
-	files?: (GitFileChangeShape & { icon: { dark: string; light: string } })[];
+	files?: GitFileChangeShape[];
 	stats?: GitCommitStats;
 
 	author?: undefined;
@@ -30,7 +30,7 @@ interface CloudDraftDetails {
 	type: 'cloud';
 
 	message?: string;
-	files?: (GitFileChangeShape & { icon: { dark: string; light: string } })[];
+	files?: GitFileChangeShape[];
 	stats?: GitCommitStats;
 
 	author: {
@@ -62,7 +62,7 @@ export interface RangeRef {
 }
 
 export interface Change {
-	repository: { name: string; path: string };
+	repository: { name: string; path: string; uri: string };
 	range: RangeRef;
 	files: GitFileChangeShape[];
 	type: 'commit' | 'wip';
@@ -76,6 +76,8 @@ export interface Preferences {
 }
 
 export type UpdateablePreferences = Partial<Pick<Preferences, 'files'>>;
+
+export type Mode = 'draft' | 'create';
 
 export interface State {
 	webviewId: WebviewIds | WebviewViewIds;
@@ -135,11 +137,11 @@ export const ExplainCommandType = new IpcCommandType<undefined>('patch/explain')
 export type UpdatePreferenceParams = UpdateablePreferences;
 export const UpdatePreferencesCommandType = new IpcCommandType<UpdatePreferenceParams>('patch/preferences/update');
 
-export interface ToggleModeParams {
+export interface SwitchModeParams {
 	repoPath?: string;
-	mode: 'draft' | 'create';
+	mode: Mode;
 }
-export const ToggleModeCommandType = new IpcCommandType<ToggleModeParams>('patch/toggleMode');
+export const SwitchModeCommandType = new IpcCommandType<SwitchModeParams>('patch/switchMode');
 
 export const CopyCloudLinkCommandType = new IpcCommandType<undefined>('patch/cloud/copyLink');
 

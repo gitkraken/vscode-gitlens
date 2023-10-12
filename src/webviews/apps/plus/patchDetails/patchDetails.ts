@@ -1,6 +1,6 @@
 /*global*/
 import type { ViewFilesLayout } from '../../../../config';
-import type { State, ToggleModeParams } from '../../../../plus/webviews/patchDetails/protocol';
+import type { State, SwitchModeParams } from '../../../../plus/webviews/patchDetails/protocol';
 import {
 	CopyCloudLinkCommandType,
 	CreateFromLocalPatchCommandType,
@@ -15,7 +15,7 @@ import {
 	OpenFileOnRemoteCommandType,
 	SelectPatchBaseCommandType,
 	SelectPatchRepoCommandType,
-	ToggleModeCommandType,
+	SwitchModeCommandType,
 	UpdatePreferencesCommandType,
 } from '../../../../plus/webviews/patchDetails/protocol';
 import type { Serialized } from '../../../../system/serialize';
@@ -167,10 +167,10 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 	}
 
 	private onModeClicked(e: Event) {
-		const mode = ((e.target as HTMLElement)?.dataset.actionValue as ToggleModeParams['mode']) ?? undefined;
+		const mode = ((e.target as HTMLElement)?.dataset.actionValue as SwitchModeParams['mode']) ?? undefined;
 		if (mode === this.state.mode) return;
 
-		this.sendCommand(ToggleModeCommandType, { mode: mode });
+		this.sendCommand(SwitchModeCommandType, { mode: mode });
 	}
 
 	private onApplyPatch(e: ApplyPatchDetail) {

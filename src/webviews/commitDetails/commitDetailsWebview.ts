@@ -499,6 +499,7 @@ export class CommitDetailsWebviewProvider
 			repository: {
 				name: e.changes.repository.name,
 				path: e.changes.repository.path,
+				uri: e.changes.repository.uri,
 			},
 			range: {
 				baseSha: 'HEAD',

@@ -5,7 +5,6 @@ import { when } from 'lit/directives/when.js';
 import type { DraftDetails, State } from '../../../../../plus/webviews/patchDetails/protocol';
 import { pluralize } from '../../../../../system/string';
 import type { PatchDetailsApp } from '../patchDetails';
-import type { CreatePatchEventDetail } from './gl-patch-create';
 import './gl-draft-details';
 import './gl-patch-create';
 
