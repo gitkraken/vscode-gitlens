@@ -38,6 +38,7 @@ import type { Draft, LocalDraft } from '../../drafts/draftsService';
 import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
 import type {
 	Change,
+	CreatePatchParams,
 	DidExplainParams,
 	DraftDetails,
 	FileActionParams,
@@ -49,6 +50,7 @@ import type {
 import {
 	CopyCloudLinkCommandType,
 	CreateFromLocalPatchCommandType,
+	CreatePatchCommandType,
 	DidChangeCreateNotificationType,
 	DidChangeNotificationType,
 	DidExplainCommandType,
@@ -355,6 +357,9 @@ export class PatchDetailsWebviewProvider
 				break;
 			case CreateFromLocalPatchCommandType.method:
 				onIpc(CreateFromLocalPatchCommandType, e, () => this.shareLocalPatch());
+				break;
+			case CreatePatchCommandType.method:
+				onIpc(CreatePatchCommandType, e, params => this.createDraft(params));
 				break;
 		}
 	}
@@ -1164,16 +1169,17 @@ export class PatchDetailsWebviewProvider
 	// create a patch from the current working tree or from a commit
 	// create a draft from the resulting patch
 	// how do I incorporate branch
-	private async createDraft(title: string, change: Change, description?: string) {
-		const changeContents = await this.getChangeContents(change);
-		if (changeContents == null) return;
+	private async createDraft({ title, changes, description }: CreatePatchParams): Promise<void> {
+		// const changeContents = await this.getChangeContents(changes[0]);
+		// if (changeContents == null) return;
+		// const draft = await this.container.drafts.createDraft(
+		// 	'patch',
+		// 	title,
+		// 	changeContents,
+		// 	description ? { description: description } : undefined,
+		// );
 
-		const draft = await this.container.drafts.createDraft(
-			'patch',
-			title,
-			changeContents,
-			description ? { description: description } : undefined,
-		);
+		return Promise.resolve();
 	}
 }
 
