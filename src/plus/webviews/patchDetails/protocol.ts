@@ -82,7 +82,7 @@ export type Mode = 'draft' | 'create';
 export interface State {
 	webviewId: WebviewIds | WebviewViewIds;
 	timestamp: number;
-	mode: 'draft' | 'create';
+	mode: Mode;
 	wipStateLoaded: boolean;
 
 	preferences: Preferences;
