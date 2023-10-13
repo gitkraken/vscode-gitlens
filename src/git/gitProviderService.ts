@@ -142,9 +142,11 @@ export class GitProviderService implements Disposable {
 	get onDidChangeRepositories(): Event<RepositoriesChangeEvent> {
 		return this._onDidChangeRepositories.event;
 	}
+
 	private fireRepositoriesChanged(added?: Repository[], removed?: Repository[]) {
-		const openSchemes = this.openRepositories.map(r => r.uri.scheme);
 		if (this.container.telemetry.enabled) {
+			const openSchemes = this.openRepositories.map(r => r.uri.scheme);
+
 			this.container.telemetry.setGlobalAttributes({
 				'repositories.count': openSchemes.length,
 				'repositories.schemes': joinUnique(openSchemes, ','),
@@ -163,7 +165,7 @@ export class GitProviderService implements Disposable {
 		this._onDidChangeRepositories.fire({ added: added ?? [], removed: removed ?? [], etag: this._etag });
 
 		if (added?.length && this.container.telemetry.enabled) {
-			queueMicrotask(async () => {
+			setTimeout(async () => {
 				for (const repo of added) {
 					const remoteProviders = new Set<string>();
 
@@ -181,7 +183,7 @@ export class GitProviderService implements Disposable {
 						'repository.remoteProviders': join(remoteProviders, ','),
 					});
 				}
-			});
+			}, 0);
 		}
 	}
 
@@ -541,10 +543,12 @@ export class GitProviderService implements Disposable {
 		>('git.autoRepositoryDetection');
 
 		if (this.container.telemetry.enabled) {
-			queueMicrotask(() =>
-				this.container.telemetry.sendEvent('providers/registrationComplete', {
-					'config.git.autoRepositoryDetection': autoRepositoryDetection,
-				}),
+			setTimeout(
+				() =>
+					this.container.telemetry.sendEvent('providers/registrationComplete', {
+						'config.git.autoRepositoryDetection': autoRepositoryDetection,
+					}),
+				0,
 			);
 		}
 
@@ -576,8 +580,8 @@ export class GitProviderService implements Disposable {
 
 	private _discoveredWorkspaceFolders = new Map<WorkspaceFolder, Promise<Repository[]>>();
 
-	private _isDiscoveringRepositories: Promise<void> | undefined;
-	get isDiscoveringRepositories(): Promise<void> | undefined {
+	private _isDiscoveringRepositories: Promise<number> | undefined;
+	get isDiscoveringRepositories(): Promise<number> | undefined {
 		return this._isDiscoveringRepositories;
 	}
 
@@ -588,7 +592,7 @@ export class GitProviderService implements Disposable {
 			this._isDiscoveringRepositories = undefined;
 		}
 
-		const deferred = defer<void>();
+		const deferred = defer<number>();
 		this._isDiscoveringRepositories = deferred.promise;
 
 		try {
@@ -630,7 +634,7 @@ export class GitProviderService implements Disposable {
 				queueMicrotask(() => this.fireRepositoriesChanged(added));
 			}
 		} finally {
-			deferred.fulfill();
+			queueMicrotask(() => deferred.fulfill(this._etag));
 		}
 	}
 
@@ -910,7 +914,7 @@ export class GitProviderService implements Disposable {
 		if (visibility == null) {
 			visibility = await this.visibilityCore(repoPath);
 			if (this.container.telemetry.enabled) {
-				queueMicrotask(() => {
+				setTimeout(() => {
 					const repo = this.getRepository(repoPath);
 					this.container.telemetry.sendEvent('repository/visibility', {
 						'repository.visibility': visibility,
@@ -920,7 +924,7 @@ export class GitProviderService implements Disposable {
 						'repository.folder.scheme': repo?.folder?.uri.scheme,
 						'repository.provider.id': repo?.provider.id,
 					});
-				});
+				}, 0);
 			}
 		}
 		return visibility;
