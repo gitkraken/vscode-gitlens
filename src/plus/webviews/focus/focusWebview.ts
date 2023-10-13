@@ -20,11 +20,15 @@ import { createReference } from '../../../git/models/reference';
 import type { GitRemote } from '../../../git/models/remote';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+import type { GitWorktree } from '../../../git/models/worktree';
 import { getWorktreeForBranch } from '../../../git/models/worktree';
 import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
 import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
 import { executeCommand, registerCommand } from '../../../system/command';
 import { debug } from '../../../system/decorators/log';
+import { Logger } from '../../../system/logger';
+import { getLogScope } from '../../../system/logger.scope';
+import { PageableResult } from '../../../system/paging';
 import { getSettledValue } from '../../../system/promise';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
@@ -541,22 +545,30 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		richRepos: RepoWithRichRemote[],
 		force?: boolean,
 	): Promise<SearchedPullRequestWithRemote[]> {
+		const scope = getLogScope();
+
 		if (force || this._pullRequests == null) {
 			const allPrs: SearchedPullRequestWithRemote[] = [];
-			for (const richRepo of richRepos) {
-				const remote = richRepo.remote;
-				const prs = await this.container.git.getMyPullRequests(remote);
-				if (prs == null) {
-					continue;
+
+			const branchesByRepo = new Map<Repository, PageableResult<GitBranch>>();
+			const worktreesByRepo = new Map<Repository, GitWorktree[]>();
+
+			const queries = richRepos.map(r => [r, this.container.git.getMyPullRequests(r.remote)] as const);
+			for (const [r, query] of queries) {
+				let prs;
+				try {
+					prs = await query;
+				} catch (ex) {
+					Logger.error(ex, scope, `Failed to get prs for '${r.remote.url}'`);
 				}
+				if (prs == null) continue;
 
 				for (const pr of prs) {
-					if (pr.reasons.length === 0) {
-						continue;
-					}
+					if (pr.reasons.length === 0) continue;
+
 					const entry: SearchedPullRequestWithRemote = {
 						...pr,
-						repoAndRemote: richRepo,
+						repoAndRemote: r,
 						isCurrentWorktree: false,
 						isCurrentBranch: false,
 						rank: getPrRank(pr),
@@ -566,15 +578,32 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 						entry.pullRequest.refs!.head.branch
 					}`; // TODO@eamodio really need to check for upstream url rather than name
 
+					let branches = branchesByRepo.get(entry.repoAndRemote.repo);
+					if (branches == null) {
+						branches = new PageableResult<GitBranch>(paging =>
+							entry.repoAndRemote.repo.getBranches(paging != null ? { paging: paging } : undefined),
+						);
+						branchesByRepo.set(entry.repoAndRemote.repo, branches);
+					}
+
+					let worktrees = worktreesByRepo.get(entry.repoAndRemote.repo);
+					if (worktrees == null) {
+						worktrees = await entry.repoAndRemote.repo.getWorktrees();
+						worktreesByRepo.set(entry.repoAndRemote.repo, worktrees);
+					}
+
 					const worktree = await getWorktreeForBranch(
 						entry.repoAndRemote.repo,
 						entry.pullRequest.refs!.head.branch,
 						remoteBranchName,
+						worktrees,
+						branches,
 					);
+
 					entry.hasWorktree = worktree != null;
 					entry.isCurrentWorktree = worktree?.opened === true;
 
-					const branch = await getLocalBranchByUpstream(richRepo.repo, remoteBranchName);
+					const branch = await getLocalBranchByUpstream(r.repo, remoteBranchName, branches);
 					if (branch) {
 						entry.branch = branch;
 						entry.hasLocalBranch = true;
@@ -601,22 +630,27 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 
 	@debug({ args: { 0: false } })
 	private async getMyIssues(richRepos: RepoWithRichRemote[], force?: boolean): Promise<SearchedIssueWithRank[]> {
+		const scope = getLogScope();
+
 		if (force || this._pullRequests == null) {
 			const allIssues = [];
-			for (const richRepo of richRepos) {
-				const remote = richRepo.remote;
-				const issues = await this.container.git.getMyIssues(remote);
-				if (issues == null) {
-					continue;
+
+			const queries = richRepos.map(r => [r, this.container.git.getMyIssues(r.remote)] as const);
+			for (const [r, query] of queries) {
+				let issues;
+				try {
+					issues = await query;
+				} catch (ex) {
+					Logger.error(ex, scope, `Failed to get issues for '${r.remote.url}'`);
 				}
+				if (issues == null) continue;
 
 				for (const issue of issues) {
-					if (issue.reasons.length === 0) {
-						continue;
-					}
+					if (issue.reasons.length === 0) continue;
+
 					allIssues.push({
 						...issue,
-						repoAndRemote: richRepo,
+						repoAndRemote: r,
 						rank: 0, // getIssueRank(issue),
 					});
 				}
