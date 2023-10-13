@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [14.4.0] - 2023-10-13
+
 ### Added
 
 - Adds a _Working Changes_ tab to the _Commit Details_ and _Graph Details_ views to show your working tree changes
@@ -4964,7 +4966,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.3.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v14.4.0...HEAD
+[14.4.0]: https://github.com/gitkraken/vscode-gitlens/compare/v14.3.0...gitkraken:v14.4.0
 [14.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v14.2.1...gitkraken:v14.3.0
 [14.2.1]: https://github.com/gitkraken/vscode-gitlens/compare/v14.2.0...gitkraken:v14.2.1
 [14.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v14.1.1...gitkraken:v14.2.0
