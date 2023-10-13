@@ -2,6 +2,7 @@ import { Disposable, Uri, window } from 'vscode';
 import type { GHPRPullRequest } from '../../../commands/ghpr/openOrCreateWorktree';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
+import type { FeatureAccess, RepoFeatureAccess } from '../../../features';
 import { PlusFeatures } from '../../../features';
 import { add as addRemote } from '../../../git/actions/remote';
 import * as RepoActions from '../../../git/actions/repository';
@@ -394,13 +395,22 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		if (e.etag === this._etagSubscription) return;
 
 		this._etagSubscription = e.etag;
-		void this.notifyDidChangeState(true);
+		this._access = undefined;
+		void this.notifyDidChangeState();
 	}
 
-	private async getState(deferState?: boolean): Promise<State> {
+	private _access: FeatureAccess | RepoFeatureAccess | undefined;
+	private async getAccess(force?: boolean) {
+		if (force || this._access == null) {
+			this._access = await this.container.git.access(PlusFeatures.Focus);
+		}
+		return this._access;
+	}
+
+	private async getState(force?: boolean, deferState?: boolean): Promise<State> {
 		const webviewId = this.host.id;
 
-		const access = await this.container.git.access(PlusFeatures.Focus);
+		const access = await this.getAccess(force);
 		if (access.allowed !== true) {
 			return {
 				webviewId: webviewId,
@@ -409,7 +419,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 			};
 		}
 
-		const allRichRepos = await this.getRichRepos();
+		const allRichRepos = await this.getRichRepos(force);
 		const githubRepos = filterGithubRepos(allRichRepos);
 		const connectedRepos = filterUsableRepos(githubRepos);
 		const hasConnectedRepos = connectedRepos.length > 0;
@@ -426,9 +436,9 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		const repos = connectedRepos.map(r => serializeRepoWithRichRemote(r));
 
 		const statePromise = Promise.allSettled([
-			this.getMyPullRequests(connectedRepos),
-			this.getMyIssues(connectedRepos),
-			this.getEnrichedItems(),
+			this.getMyPullRequests(connectedRepos, force),
+			this.getMyIssues(connectedRepos, force),
+			this.getEnrichedItems(force),
 		]);
 
 		async function getStateCore() {
@@ -476,11 +486,11 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	}
 
 	async includeBootstrap(): Promise<State> {
-		return this.getState(true);
+		return this.getState(true, true);
 	}
 
 	private async getRichRepos(force?: boolean): Promise<RepoWithRichRemote[]> {
-		if (this._repos == null || force === true) {
+		if (force || this._repos == null) {
 			const repos = [];
 			const disposables = [];
 			for (const repo of this.container.git.openRepositories) {
@@ -509,115 +519,123 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		return this._repos;
 	}
 
-	private async onRepositoryChanged(e: RepositoryChangeEvent) {
+	private onRepositoryChanged(e: RepositoryChangeEvent) {
 		if (e.changed(RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
-			await this.getRichRepos(true);
-			void this.notifyDidChangeState();
+			void this.notifyDidChangeState(true);
 		}
 	}
 
-	private async getMyPullRequests(richRepos: RepoWithRichRemote[]): Promise<SearchedPullRequestWithRemote[]> {
-		const allPrs: SearchedPullRequestWithRemote[] = [];
-		for (const richRepo of richRepos) {
-			const remote = richRepo.remote;
-			const prs = await this.container.git.getMyPullRequests(remote);
-			if (prs == null) {
-				continue;
-			}
-
-			for (const pr of prs) {
-				if (pr.reasons.length === 0) {
+	private async getMyPullRequests(
+		richRepos: RepoWithRichRemote[],
+		force?: boolean,
+	): Promise<SearchedPullRequestWithRemote[]> {
+		if (force || this._pullRequests == null) {
+			const allPrs: SearchedPullRequestWithRemote[] = [];
+			for (const richRepo of richRepos) {
+				const remote = richRepo.remote;
+				const prs = await this.container.git.getMyPullRequests(remote);
+				if (prs == null) {
 					continue;
 				}
-				const entry: SearchedPullRequestWithRemote = {
-					...pr,
-					repoAndRemote: richRepo,
-					isCurrentWorktree: false,
-					isCurrentBranch: false,
-					rank: getPrRank(pr),
-				};
 
-				const remoteBranchName = `${entry.pullRequest.refs!.head.owner}/${entry.pullRequest.refs!.head.branch}`; // TODO@eamodio really need to check for upstream url rather than name
+				for (const pr of prs) {
+					if (pr.reasons.length === 0) {
+						continue;
+					}
+					const entry: SearchedPullRequestWithRemote = {
+						...pr,
+						repoAndRemote: richRepo,
+						isCurrentWorktree: false,
+						isCurrentBranch: false,
+						rank: getPrRank(pr),
+					};
 
-				const worktree = await getWorktreeForBranch(
-					entry.repoAndRemote.repo,
-					entry.pullRequest.refs!.head.branch,
-					remoteBranchName,
-				);
-				entry.hasWorktree = worktree != null;
-				entry.isCurrentWorktree = worktree?.opened === true;
+					const remoteBranchName = `${entry.pullRequest.refs!.head.owner}/${
+						entry.pullRequest.refs!.head.branch
+					}`; // TODO@eamodio really need to check for upstream url rather than name
 
-				const branch = await getLocalBranchByUpstream(richRepo.repo, remoteBranchName);
-				if (branch) {
-					entry.branch = branch;
-					entry.hasLocalBranch = true;
-					entry.isCurrentBranch = branch.current;
+					const worktree = await getWorktreeForBranch(
+						entry.repoAndRemote.repo,
+						entry.pullRequest.refs!.head.branch,
+						remoteBranchName,
+					);
+					entry.hasWorktree = worktree != null;
+					entry.isCurrentWorktree = worktree?.opened === true;
+
+					const branch = await getLocalBranchByUpstream(richRepo.repo, remoteBranchName);
+					if (branch) {
+						entry.branch = branch;
+						entry.hasLocalBranch = true;
+						entry.isCurrentBranch = branch.current;
+					}
+
+					allPrs.push(entry);
 				}
-
-				allPrs.push(entry);
 			}
+
+			this._pullRequests = allPrs.sort((a, b) => {
+				const scoreA = a.rank;
+				const scoreB = b.rank;
+
+				if (scoreA === scoreB) {
+					return a.pullRequest.date.getTime() - b.pullRequest.date.getTime();
+				}
+				return (scoreB ?? 0) - (scoreA ?? 0);
+			});
 		}
-
-		this._pullRequests = allPrs.sort((a, b) => {
-			const scoreA = a.rank;
-			const scoreB = b.rank;
-
-			if (scoreA === scoreB) {
-				return a.pullRequest.date.getTime() - b.pullRequest.date.getTime();
-			}
-			return (scoreB ?? 0) - (scoreA ?? 0);
-		});
 
 		return this._pullRequests;
 	}
 
-	private async getMyIssues(richRepos: RepoWithRichRemote[]): Promise<SearchedIssueWithRank[]> {
-		const allIssues = [];
-		for (const richRepo of richRepos) {
-			const remote = richRepo.remote;
-			const issues = await this.container.git.getMyIssues(remote);
-			if (issues == null) {
-				continue;
-			}
-
-			for (const issue of issues) {
-				if (issue.reasons.length === 0) {
+	private async getMyIssues(richRepos: RepoWithRichRemote[], force?: boolean): Promise<SearchedIssueWithRank[]> {
+		if (force || this._pullRequests == null) {
+			const allIssues = [];
+			for (const richRepo of richRepos) {
+				const remote = richRepo.remote;
+				const issues = await this.container.git.getMyIssues(remote);
+				if (issues == null) {
 					continue;
 				}
-				allIssues.push({
-					...issue,
-					repoAndRemote: richRepo,
-					rank: 0, // getIssueRank(issue),
-				});
+
+				for (const issue of issues) {
+					if (issue.reasons.length === 0) {
+						continue;
+					}
+					allIssues.push({
+						...issue,
+						repoAndRemote: richRepo,
+						rank: 0, // getIssueRank(issue),
+					});
+				}
 			}
+
+			// this._issues = allIssues.sort((a, b) => {
+			// 	const scoreA = a.rank;
+			// 	const scoreB = b.rank;
+
+			// 	if (scoreA === scoreB) {
+			// 		return b.issue.updatedDate.getTime() - a.issue.updatedDate.getTime();
+			// 	}
+			// 	return (scoreB ?? 0) - (scoreA ?? 0);
+			// });
+
+			this._issues = allIssues.sort((a, b) => b.issue.updatedDate.getTime() - a.issue.updatedDate.getTime());
 		}
-
-		// this._issues = allIssues.sort((a, b) => {
-		// 	const scoreA = a.rank;
-		// 	const scoreB = b.rank;
-
-		// 	if (scoreA === scoreB) {
-		// 		return b.issue.updatedDate.getTime() - a.issue.updatedDate.getTime();
-		// 	}
-		// 	return (scoreB ?? 0) - (scoreA ?? 0);
-		// });
-
-		this._issues = allIssues.sort((a, b) => b.issue.updatedDate.getTime() - a.issue.updatedDate.getTime());
 
 		return this._issues;
 	}
 
-	private async getEnrichedItems(): Promise<EnrichedItem[] | undefined> {
+	private async getEnrichedItems(force?: boolean): Promise<EnrichedItem[] | undefined> {
 		// TODO needs cache invalidation
-		if (this._enrichedItems == null) {
+		if (force || this._enrichedItems == null) {
 			const enrichedItems = await this.container.focus.get();
 			this._enrichedItems = enrichedItems;
 		}
 		return this._enrichedItems;
 	}
 
-	private async notifyDidChangeState(deferState?: boolean) {
-		void this.host.notify(DidChangeNotificationType, { state: await this.getState(deferState) });
+	private async notifyDidChangeState(force?: boolean, deferState?: boolean) {
+		void this.host.notify(DidChangeNotificationType, { state: await this.getState(force, deferState) });
 	}
 }
 
