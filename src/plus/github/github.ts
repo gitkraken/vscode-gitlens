@@ -2270,7 +2270,7 @@ export class GitHubApi implements Disposable {
 
 	private _enterpriseVersions = new Map<string, Version | null>();
 
-	@debug<GitHubApi['getEnterpriseVersion']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['getEnterpriseVersion']>({ args: { 0: p => p?.name, 1: '<token>' } })
 	private async getEnterpriseVersion(
 		provider: RichRemoteProvider | undefined,
 		token: string,
@@ -2707,7 +2707,7 @@ export class GitHubApi implements Disposable {
 		}
 	}
 
-	@debug<GitHubApi['searchMyIssues']>({ args: { 0: '<token>' } })
+	@debug<GitHubApi['searchMyIssues']>({ args: { 0: p => p.name, 1: '<token>' } })
 	async searchMyIssues(
 		provider: RichRemoteProvider,
 		token: string,
