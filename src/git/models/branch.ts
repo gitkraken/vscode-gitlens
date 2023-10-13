@@ -5,6 +5,7 @@ import { formatDate, fromNow } from '../../system/date';
 import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { getLoggableName } from '../../system/logger';
+import { PageableResult } from '../../system/paging';
 import { sortCompare } from '../../system/string';
 import type { PullRequest, PullRequestState } from './pullRequest';
 import type { GitBranchReference, GitReference } from './reference';
@@ -291,6 +292,7 @@ export function sortBranches(branches: GitBranch[], options?: BranchSortOptions)
 export async function getLocalBranchByUpstream(
 	repo: Repository,
 	remoteBranchName: string,
+	branches?: PageableResult<GitBranch>,
 ): Promise<GitBranch | undefined> {
 	let qualifiedRemoteBranchName;
 	if (remoteBranchName.startsWith('remotes/')) {
@@ -300,19 +302,16 @@ export async function getLocalBranchByUpstream(
 		qualifiedRemoteBranchName = `remotes/${remoteBranchName}`;
 	}
 
-	let branches;
-	do {
-		branches = await repo.getBranches(branches != null ? { paging: branches.paging } : undefined);
-		for (const branch of branches.values) {
-			if (
-				!branch.remote &&
-				branch.upstream?.name != null &&
-				(branch.upstream.name === remoteBranchName || branch.upstream.name === qualifiedRemoteBranchName)
-			) {
-				return branch;
-			}
+	branches ??= new PageableResult<GitBranch>(p => repo.getBranches(p != null ? { paging: p } : undefined));
+	for await (const branch of branches.values()) {
+		if (
+			!branch.remote &&
+			branch.upstream?.name != null &&
+			(branch.upstream.name === remoteBranchName || branch.upstream.name === qualifiedRemoteBranchName)
+		) {
+			return branch;
 		}
-	} while (branches.paging?.more);
+	}
 
 	return undefined;
 }

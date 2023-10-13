@@ -2,6 +2,7 @@ import type { Uri, WorkspaceFolder } from 'vscode';
 import { workspace } from 'vscode';
 import { Container } from '../../container';
 import { memoize } from '../../system/decorators/memoize';
+import { PageableResult } from '../../system/paging';
 import { normalizePath, relative } from '../../system/path';
 import type { GitBranch } from './branch';
 import { shortenRevision } from './reference';
@@ -84,26 +85,34 @@ export class GitWorktree {
 export async function getWorktreeForBranch(
 	repo: Repository,
 	branchName: string,
-	upstreamNames?: string | string[],
+	upstreamNames: string | string[],
+	worktrees?: GitWorktree[],
+	branches?: PageableResult<GitBranch>,
 ): Promise<GitWorktree | undefined> {
 	if (upstreamNames != null && !Array.isArray(upstreamNames)) {
 		upstreamNames = [upstreamNames];
 	}
 
-	const worktrees = await repo.getWorktrees();
+	worktrees ??= await repo.getWorktrees();
 	for (const worktree of worktrees) {
 		if (worktree.branch === branchName) return worktree;
 
 		if (upstreamNames == null || worktree.branch == null) continue;
 
-		const branch = await repo.getBranch(worktree.branch);
-		if (
-			branch?.upstream?.name != null &&
-			(upstreamNames.includes(branch.upstream.name) ||
-				(branch.upstream.name.startsWith('remotes/') &&
-					upstreamNames.includes(branch.upstream.name.substring(8))))
-		) {
-			return worktree;
+		branches ??= new PageableResult<GitBranch>(p => repo.getBranches(p != null ? { paging: p } : undefined));
+		for await (const branch of branches.values()) {
+			if (branch.name === worktree.branch) {
+				if (
+					branch.upstream?.name != null &&
+					(upstreamNames.includes(branch.upstream.name) ||
+						(branch.upstream.name.startsWith('remotes/') &&
+							upstreamNames.includes(branch.upstream.name.substring(8))))
+				) {
+					return worktree;
+				}
+
+				break;
+			}
 		}
 	}
 
