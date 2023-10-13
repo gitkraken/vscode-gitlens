@@ -99,7 +99,7 @@ export class FocusService implements Disposable {
 		return this.get('snooze');
 	}
 
-	@log()
+	@log<FocusService['pinItem']>({ args: { 0: i => `${i.id} (${i.remote.provider.name} ${i.type})` } })
 	async pinItem(item: FocusItem): Promise<EnrichedItem> {
 		const scope = getLogScope();
 
@@ -138,7 +138,7 @@ export class FocusService implements Disposable {
 		return this.delete(id, 'unpin');
 	}
 
-	@log()
+	@log<FocusService['snoozeItem']>({ args: { 0: i => `${i.id} (${i.remote.provider.name} ${i.type})` } })
 	async snoozeItem(item: FocusItem): Promise<EnrichedItem> {
 		const scope = getLogScope();
 

@@ -24,6 +24,7 @@ import { getWorktreeForBranch } from '../../../git/models/worktree';
 import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
 import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
 import { executeCommand, registerCommand } from '../../../system/command';
+import { debug } from '../../../system/decorators/log';
 import { getSettledValue } from '../../../system/promise';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
@@ -129,6 +130,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		}
 	}
 
+	@debug({ args: false })
 	private async onPinIssue({ issue, pin }: PinIssueParams) {
 		const issueWithRemote = this._issues?.find(r => r.issue.nodeId === issue.nodeId);
 		if (issueWithRemote == null) return;
@@ -159,6 +161,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		void this.notifyDidChangeState();
 	}
 
+	@debug({ args: false })
 	private async onSnoozeIssue({ issue, snooze }: SnoozeIssueParams) {
 		const issueWithRemote = this._issues?.find(r => r.issue.nodeId === issue.nodeId);
 		if (issueWithRemote == null) return;
@@ -189,6 +192,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		void this.notifyDidChangeState();
 	}
 
+	@debug({ args: false })
 	private async onPinPr({ pullRequest, pin }: PinPrParams) {
 		const prWithRemote = this._pullRequests?.find(r => r.pullRequest.nodeId === pullRequest.nodeId);
 		if (prWithRemote == null) return;
@@ -219,6 +223,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		void this.notifyDidChangeState();
 	}
 
+	@debug({ args: false })
 	private async onSnoozePr({ pullRequest, snooze }: SnoozePrParams) {
 		const prWithRemote = this._pullRequests?.find(r => r.pullRequest.nodeId === pullRequest.nodeId);
 		if (prWithRemote == null) return;
@@ -323,6 +328,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		};
 	}
 
+	@debug({ args: false })
 	private async onOpenBranch({ pullRequest }: OpenBranchParams) {
 		const prWithRemote = this.findSearchedPullRequest(pullRequest);
 		if (prWithRemote == null) return;
@@ -338,6 +344,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		void executeCommand<ShowInCommitGraphCommandArgs>(Commands.ShowInCommitGraph, { ref: remoteBranch.reference });
 	}
 
+	@debug({ args: false })
 	private async onSwitchBranch({ pullRequest }: SwitchToBranchParams) {
 		const prWithRemote = this.findSearchedPullRequest(pullRequest);
 		if (prWithRemote == null || prWithRemote.isCurrentBranch) return;
@@ -357,6 +364,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		return RepoActions.switchTo(remoteBranch.remote.repoPath, remoteBranch.reference);
 	}
 
+	@debug({ args: false })
 	private async onOpenWorktree({ pullRequest }: OpenWorktreeParams) {
 		const searchedPullRequestWithRemote = this.findSearchedPullRequest(pullRequest);
 		if (searchedPullRequestWithRemote?.repoAndRemote == null) {
@@ -400,6 +408,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private _access: FeatureAccess | RepoFeatureAccess | undefined;
+	@debug()
 	private async getAccess(force?: boolean) {
 		if (force || this._access == null) {
 			this._access = await this.container.git.access(PlusFeatures.Focus);
@@ -407,6 +416,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		return this._access;
 	}
 
+	@debug()
 	private async getState(force?: boolean, deferState?: boolean): Promise<State> {
 		const webviewId = this.host.id;
 
@@ -489,6 +499,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		return this.getState(true, true);
 	}
 
+	@debug()
 	private async getRichRepos(force?: boolean): Promise<RepoWithRichRemote[]> {
 		if (force || this._repos == null) {
 			const repos = [];
@@ -525,6 +536,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		}
 	}
 
+	@debug({ args: { 0: false } })
 	private async getMyPullRequests(
 		richRepos: RepoWithRichRemote[],
 		force?: boolean,
@@ -587,6 +599,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		return this._pullRequests;
 	}
 
+	@debug({ args: { 0: false } })
 	private async getMyIssues(richRepos: RepoWithRichRemote[], force?: boolean): Promise<SearchedIssueWithRank[]> {
 		if (force || this._pullRequests == null) {
 			const allIssues = [];
@@ -625,6 +638,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		return this._issues;
 	}
 
+	@debug()
 	private async getEnrichedItems(force?: boolean): Promise<EnrichedItem[] | undefined> {
 		// TODO needs cache invalidation
 		if (force || this._enrichedItems == null) {
