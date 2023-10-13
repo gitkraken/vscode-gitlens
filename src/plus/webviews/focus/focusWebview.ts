@@ -84,7 +84,9 @@ interface SearchedIssueWithRank extends SearchedIssue {
 export class FocusWebviewProvider implements WebviewProvider<State> {
 	private _pullRequests: SearchedPullRequestWithRemote[] = [];
 	private _issues: SearchedIssueWithRank[] = [];
+	private _discovering: Promise<number | undefined> | undefined;
 	private readonly _disposable: Disposable;
+	private _etag?: number;
 	private _etagSubscription?: number;
 	private _repositoryEventsDisposable?: Disposable;
 	private _repos?: RepoWithRichRemote[];
@@ -96,7 +98,16 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	) {
 		this._disposable = Disposable.from(
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
-			this.container.git.onDidChangeRepositories(() => void this.host.refresh(true)),
+			this.container.git.onDidChangeRepositories(async () => {
+				if (this._etag !== this.container.git.etag) {
+					if (this._discovering != null) {
+						this._etag = await this._discovering;
+						if (this._etag === this.container.git.etag) return;
+					}
+
+					void this.host.refresh(true);
+				}
+			}),
 		);
 	}
 
@@ -423,6 +434,15 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	@debug()
 	private async getState(force?: boolean, deferState?: boolean): Promise<State> {
 		const webviewId = this.host.id;
+
+		this._etag = this.container.git.etag;
+		if (this.container.git.isDiscoveringRepositories) {
+			this._discovering = this.container.git.isDiscoveringRepositories.then(r => {
+				this._discovering = undefined;
+				return r;
+			});
+			this._etag = await this._discovering;
+		}
 
 		const access = await this.getAccess(force);
 		if (access.allowed !== true) {
