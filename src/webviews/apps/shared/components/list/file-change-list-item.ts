@@ -105,7 +105,7 @@ export class FileChangeListItem extends LitElement {
 
 	@state()
 	get isHidden() {
-		return this.baseRef.isHidden ?? 'false';
+		return this.baseRef?.isHidden ?? 'false';
 	}
 
 	@state()
