@@ -1,4 +1,4 @@
-import { parseDiffHunk } from '../parsers/diffParser';
+import { parseGitDiffHunk } from '../parsers/diffParser';
 
 export interface GitDiffLine {
 	line: string;
@@ -35,7 +35,7 @@ export class GitDiffHunk {
 	private parsedHunk: { lines: GitDiffHunkLine[]; state: 'added' | 'changed' | 'removed' } | undefined;
 	private parseHunk() {
 		if (this.parsedHunk == null) {
-			this.parsedHunk = parseDiffHunk(this);
+			this.parsedHunk = parseGitDiffHunk(this);
 		}
 		return this.parsedHunk;
 	}

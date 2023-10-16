@@ -26,7 +26,7 @@ export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProvide
 		const blame = await this.getBlame();
 		if (blame == null) return false;
 
-		const sw = maybeStopWatch(scope);
+		using sw = maybeStopWatch(scope);
 
 		const decorationsMap = new Map<
 			string,

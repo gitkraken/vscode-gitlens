@@ -156,7 +156,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		).filter(<T>(d?: T): d is T => Boolean(d));
 		if (!diffs?.length) return false;
 
-		const sw = maybeStopWatch(scope);
+		using sw = maybeStopWatch(scope);
 
 		const decorationsMap = new Map<
 			string,

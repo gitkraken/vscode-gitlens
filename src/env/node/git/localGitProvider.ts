@@ -108,9 +108,9 @@ import type { GitTreeEntry } from '../../../git/models/tree';
 import type { GitUser } from '../../../git/models/user';
 import { isUserMatch } from '../../../git/models/user';
 import type { GitWorktree } from '../../../git/models/worktree';
-import { GitBlameParser } from '../../../git/parsers/blameParser';
-import { GitBranchParser } from '../../../git/parsers/branchParser';
-import { parseDiffNameStatusFiles, parseDiffShortStat, parseFileDiff } from '../../../git/parsers/diffParser';
+import { parseGitBlame } from '../../../git/parsers/blameParser';
+import { parseGitBranches } from '../../../git/parsers/branchParser';
+import { parseGitDiffNameStatusFiles, parseGitDiffShortStat, parseGitFileDiff } from '../../../git/parsers/diffParser';
 import {
 	createLogParserSingle,
 	createLogParserWithFiles,
@@ -119,15 +119,20 @@ import {
 	getGraphStatsParser,
 	getRefAndDateParser,
 	getRefParser,
-	GitLogParser,
 	LogType,
+	parseGitLog,
+	parseGitLogAllFormat,
+	parseGitLogDefaultFormat,
+	parseGitLogSimple,
+	parseGitLogSimpleFormat,
+	parseGitLogSimpleRenamed,
 } from '../../../git/parsers/logParser';
-import { GitReflogParser } from '../../../git/parsers/reflogParser';
-import { GitRemoteParser } from '../../../git/parsers/remoteParser';
-import { GitStatusParser } from '../../../git/parsers/statusParser';
-import { GitTagParser } from '../../../git/parsers/tagParser';
-import { GitTreeParser } from '../../../git/parsers/treeParser';
-import { GitWorktreeParser } from '../../../git/parsers/worktreeParser';
+import { parseGitRefLog } from '../../../git/parsers/reflogParser';
+import { parseGitRemotes } from '../../../git/parsers/remoteParser';
+import { parseGitStatus } from '../../../git/parsers/statusParser';
+import { parseGitTags } from '../../../git/parsers/tagParser';
+import { parseGitTree } from '../../../git/parsers/treeParser';
+import { parseGitWorktrees } from '../../../git/parsers/worktreeParser';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../git/remotes/remoteProviders';
 import type { GitSearch, GitSearchResultData, GitSearchResults, SearchQuery } from '../../../git/search';
 import { getGitArgsFromSearchQuery, getSearchQueryComparisonKey } from '../../../git/search';
@@ -954,7 +959,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			// Now check if that commit had any renames
 			data = await this.git.log__file(repoPath, '.', ref, {
-				argsOrFormat: GitLogParser.simpleFormat,
+				argsOrFormat: parseGitLogSimpleFormat,
 				fileMode: 'simple',
 				filters: ['R', 'C', 'D'],
 				limit: 1,
@@ -962,7 +967,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			});
 			if (data == null || data.length === 0) break;
 
-			const [foundRef, foundFile, foundStatus] = GitLogParser.parseSimpleRenamed(data, relativePath);
+			const [foundRef, foundFile, foundStatus] = parseGitLogSimpleRenamed(data, relativePath);
 			if (foundStatus === 'D' && foundFile != null) return undefined;
 			if (foundRef == null || foundFile == null) break;
 
@@ -1455,7 +1460,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				args: configuration.get('advanced.blame.customArguments'),
 				ignoreWhitespace: configuration.get('blame.ignoreWhitespace'),
 			});
-			const blame = GitBlameParser.parse(this.container, data, root, await this.getCurrentUser(root));
+			const blame = parseGitBlame(this.container, data, root, await this.getCurrentUser(root));
 			return blame;
 		} catch (ex) {
 			// Trap and cache expected blame errors
@@ -1536,7 +1541,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				correlationKey: `:${key}`,
 				ignoreWhitespace: configuration.get('blame.ignoreWhitespace'),
 			});
-			const blame = GitBlameParser.parse(this.container, data, root, await this.getCurrentUser(root));
+			const blame = parseGitBlame(this.container, data, root, await this.getCurrentUser(root));
 			return blame;
 		} catch (ex) {
 			// Trap and cache expected blame errors
@@ -1601,7 +1606,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				startLine: lineToBlame,
 				endLine: lineToBlame,
 			});
-			const blame = GitBlameParser.parse(this.container, data, root, await this.getCurrentUser(root));
+			const blame = parseGitBlame(this.container, data, root, await this.getCurrentUser(root));
 			if (blame == null) return undefined;
 
 			return {
@@ -1652,7 +1657,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				startLine: lineToBlame,
 				endLine: lineToBlame,
 			});
-			const blame = GitBlameParser.parse(this.container, data, root, await this.getCurrentUser(root));
+			const blame = parseGitBlame(this.container, data, root, await this.getCurrentUser(root));
 			if (blame == null) return undefined;
 
 			return {
@@ -1819,7 +1824,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 						return current != null ? { values: [current] } : emptyPagedResult;
 					}
 
-					return { values: GitBranchParser.parse(this.container, data, repoPath!) };
+					return { values: parseGitBranches(this.container, data, repoPath!) };
 				} catch (ex) {
 					this._branchesCache.delete(repoPath!);
 
@@ -1856,7 +1861,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const data = await this.git.diff__shortstat(repoPath, ref);
 		if (!data) return undefined;
 
-		return parseDiffShortStat(data);
+		return parseGitDiffShortStat(data);
 	}
 
 	@log()
@@ -2752,7 +2757,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				similarityThreshold: configuration.get('advanced.similarityThreshold'),
 			});
 
-			const diff = parseFileDiff(data);
+			const diff = parseGitFileDiff(data);
 			return diff;
 		} catch (ex) {
 			// Trap and cache expected diff errors
@@ -2839,7 +2844,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				similarityThreshold: configuration.get('advanced.similarityThreshold'),
 			});
 
-			const diff = parseFileDiff(data);
+			const diff = parseGitFileDiff(data);
 			return diff;
 		} catch (ex) {
 			// Trap and cache expected diff errors
@@ -2895,7 +2900,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			});
 			if (!data) return undefined;
 
-			const files = parseDiffNameStatusFiles(data, repoPath);
+			const files = parseGitDiffNameStatusFiles(data, repoPath);
 			return files == null || files.length === 0 ? undefined : files;
 		} catch (ex) {
 			return undefined;
@@ -2911,7 +2916,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const data = await this.git.show__name_status(root, relativePath, ref);
 		if (!data) return undefined;
 
-		const files = parseDiffNameStatusFiles(data, repoPath);
+		const files = parseGitDiffNameStatusFiles(data, repoPath);
 		if (files == null || files.length === 0) return undefined;
 
 		return files[0];
@@ -2986,7 +2991,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const similarityThreshold = configuration.get('advanced.similarityThreshold');
 
 			const args = [
-				`--format=${options?.all ? GitLogParser.allFormat : GitLogParser.defaultFormat}`,
+				`--format=${options?.all ? parseGitLogAllFormat : parseGitLogDefaultFormat}`,
 				`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 				'-m',
 			];
@@ -3076,7 +3081,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			// 	);
 			// }
 
-			const log = GitLogParser.parse(
+			const log = parseGitLog(
 				this.container,
 				data,
 				LogType.Log,
@@ -3461,7 +3466,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				startLine: range == null ? undefined : range.start.line + 1,
 				endLine: range == null ? undefined : range.end.line + 1,
 			});
-			const log = GitLogParser.parse(
+			const log = parseGitLog(
 				this.container,
 				data,
 				// If this is the log of a folder, parse it as a normal log rather than a file log
@@ -3815,7 +3820,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const relativePath = this.getRelativePath(uri, repoPath);
 		let data = await this.git.log__file(repoPath, relativePath, ref, {
-			argsOrFormat: GitLogParser.simpleFormat,
+			argsOrFormat: parseGitLogSimpleFormat,
 			fileMode: 'simple',
 			filters: filters,
 			limit: skip + 1,
@@ -3825,11 +3830,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		});
 		if (data == null || data.length === 0) return undefined;
 
-		const [nextRef, file, status] = GitLogParser.parseSimple(data, skip);
+		const [nextRef, file, status] = parseGitLogSimple(data, skip);
 		// If the file was deleted, check for a possible rename
 		if (status === 'D') {
 			data = await this.git.log__file(repoPath, '.', nextRef, {
-				argsOrFormat: GitLogParser.simpleFormat,
+				argsOrFormat: parseGitLogSimpleFormat,
 				fileMode: 'simple',
 				filters: ['R', 'C'],
 				limit: 1,
@@ -3840,7 +3845,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				return GitUri.fromFile(file ?? relativePath, repoPath, nextRef);
 			}
 
-			const [nextRenamedRef, renamedFile] = GitLogParser.parseSimpleRenamed(data, file ?? relativePath);
+			const [nextRenamedRef, renamedFile] = parseGitLogSimpleRenamed(data, file ?? relativePath);
 			return GitUri.fromFile(
 				renamedFile ?? file ?? relativePath,
 				repoPath,
@@ -4085,7 +4090,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		let data;
 		try {
 			data = await this.git.log__file(repoPath, relativePath, ref, {
-				argsOrFormat: GitLogParser.simpleFormat,
+				argsOrFormat: parseGitLogSimpleFormat,
 				fileMode: 'simple',
 				limit: skip + 2,
 				ordering: configuration.get('advanced.commitOrdering'),
@@ -4113,7 +4118,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 		if (data == null || data.length === 0) return undefined;
 
-		const [previousRef, file] = GitLogParser.parseSimple(data, skip, ref);
+		const [previousRef, file] = parseGitLogSimple(data, skip, ref);
 		// If the previous ref matches the ref we asked for assume we are at the end of the history
 		if (ref != null && ref === previousRef) return undefined;
 
@@ -4143,7 +4148,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			});
 			if (data == null) return undefined;
 
-			const reflog = GitReflogParser.parse(data, repoPath, reflogCommands, limit, limit * 100);
+			const reflog = parseGitRefLog(data, repoPath, reflogCommands, limit, limit * 100);
 			if (reflog?.hasMore) {
 				reflog.more = this.getReflogMoreFn(reflog, options);
 			}
@@ -4209,13 +4214,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 				try {
 					const data = await this.git.remote(repoPath!);
-					const remotes = GitRemoteParser.parse(
+					const remotes = parseGitRemotes(
 						data,
 						repoPath!,
 						getRemoteProviderMatcher(this.container, providers),
 					);
-					if (remotes == null) return [];
-
 					return remotes;
 				} catch (ex) {
 					this._remotesCache.delete(repoPath!);
@@ -4341,7 +4344,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			similarityThreshold: configuration.get('advanced.similarityThreshold'),
 		});
 
-		const status = GitStatusParser.parse(data, root, porcelainVersion);
+		const status = parseGitStatus(data, root, porcelainVersion);
 		return status?.files?.[0];
 	}
 
@@ -4355,7 +4358,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			similarityThreshold: configuration.get('advanced.similarityThreshold'),
 		});
 
-		const status = GitStatusParser.parse(data, root, porcelainVersion);
+		const status = parseGitStatus(data, root, porcelainVersion);
 		return status?.files ?? [];
 	}
 
@@ -4368,7 +4371,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const data = await this.git.status(repoPath, porcelainVersion, {
 			similarityThreshold: configuration.get('advanced.similarityThreshold'),
 		});
-		const status = GitStatusParser.parse(data, repoPath, porcelainVersion);
+		const status = parseGitStatus(data, repoPath, porcelainVersion);
 
 		if (status?.detached) {
 			const rebaseStatus = await this.getRebaseStatus(repoPath);
@@ -4399,7 +4402,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			async function load(this: LocalGitProvider): Promise<PagedResult<GitTag>> {
 				try {
 					const data = await this.git.tag(repoPath!);
-					return { values: GitTagParser.parse(data, repoPath!) ?? [] };
+					return { values: parseGitTags(data, repoPath!) };
 				} catch (ex) {
 					this._tagsCache.delete(repoPath!);
 
@@ -4436,8 +4439,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		const [relativePath, root] = splitPath(path, repoPath);
 
 		const data = await this.git.ls_tree(root, ref, relativePath);
-		const trees = GitTreeParser.parse(data);
-		return trees?.length ? trees[0] : undefined;
+		return parseGitTree(data)[0];
 	}
 
 	@log()
@@ -4445,7 +4447,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (repoPath == null) return [];
 
 		const data = await this.git.ls_tree(repoPath, ref);
-		return GitTreeParser.parse(data) ?? [];
+		return parseGitTree(data);
 	}
 
 	@log({ args: { 1: false } })
@@ -4811,7 +4813,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				shas: shas,
 				stdin: stdin,
 			});
-			const log = GitLogParser.parse(
+			const log = parseGitLog(
 				this.container,
 				data,
 				LogType.Log,
@@ -5212,7 +5214,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		);
 
 		const data = await this.git.worktree__list(repoPath);
-		return GitWorktreeParser.parse(data, repoPath);
+		return parseGitWorktrees(data, repoPath);
 	}
 
 	// eslint-disable-next-line @typescript-eslint/require-await
