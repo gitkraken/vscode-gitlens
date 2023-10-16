@@ -1,6 +1,7 @@
 import type { AuthenticationSession, Disposable } from 'vscode';
 import type { Container } from '../../../container';
 import { debug } from '../../../system/decorators/log';
+import type { ProviderId } from '../providers/models';
 
 interface StoredSession {
 	id: string;
@@ -14,7 +15,7 @@ interface StoredSession {
 }
 
 export interface IntegrationAuthenticationProviderDescriptor {
-	id: string;
+	id: ProviderId;
 	scopes: string[];
 }
 

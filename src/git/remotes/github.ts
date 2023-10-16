@@ -1,15 +1,12 @@
-import type { AuthenticationSession, Disposable, QuickInputButton, Range } from 'vscode';
-import { env, ThemeIcon, Uri, window } from 'vscode';
+import type { AuthenticationSession, Range } from 'vscode';
+import { Uri } from 'vscode';
 import type { Autolink, DynamicAutolinkReference, MaybeEnrichedAutolink } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import type { GkProviderId } from '../../gk/models/repositoryIdentities';
-import type {
-	IntegrationAuthenticationProvider,
-	IntegrationAuthenticationSessionDescriptor,
-} from '../../plus/integrations/authentication/integrationAuthentication';
 import type { GitHubRepositoryDescriptor } from '../../plus/integrations/providers/github';
+import { ProviderId } from '../../plus/integrations/providers/models';
 import type { ProviderIntegration, RepositoryDescriptor } from '../../plus/integrations/providers/providerIntegration';
 import type { Brand, Unbrand } from '../../system/brand';
 import { fromNow } from '../../system/date';
@@ -17,7 +14,6 @@ import { log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { encodeUrl } from '../../system/encoding';
 import { equalsIgnoreCase, escapeMarkdown, unescapeMarkdown } from '../../system/string';
-import { supportedInVSCodeVersion } from '../../system/utils';
 import type { Account } from '../models/author';
 import type { DefaultBranch } from '../models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../models/issue';
@@ -59,7 +55,7 @@ export class GitHubRemote extends RichRemoteProvider<GitHubRepositoryDescriptor>
 	) {
 		super(container, domain, path, protocol, name, custom);
 
-		this._provider = container.providers.get(custom ? 'github-enterprise' : 'github', domain);
+		this._provider = container.providers.get(custom ? ProviderId.GitHubEnterprise : ProviderId.GitHub, domain);
 	}
 
 	get apiBaseUrl() {
@@ -532,88 +528,4 @@ export function getGitHubNoReplyAddressParts(
 
 	const [, userId, login, authority] = match;
 	return { userId: userId, login: login, authority: authority };
-}
-
-export class GitHubAuthenticationProvider implements Disposable, IntegrationAuthenticationProvider {
-	private readonly _disposable: Disposable;
-
-	constructor(container: Container) {
-		this._disposable = container.integrationAuthentication.registerProvider('github-enterprise', this);
-	}
-
-	dispose() {
-		this._disposable.dispose();
-	}
-
-	getSessionId(descriptor?: IntegrationAuthenticationSessionDescriptor): string {
-		return descriptor?.domain ?? '';
-	}
-
-	async createSession(
-		descriptor?: IntegrationAuthenticationSessionDescriptor,
-	): Promise<AuthenticationSession | undefined> {
-		const input = window.createInputBox();
-		input.ignoreFocusOut = true;
-
-		const disposables: Disposable[] = [];
-
-		let token;
-		try {
-			const infoButton: QuickInputButton = {
-				iconPath: new ThemeIcon(`link-external`),
-				tooltip: 'Open the GitHub Access Tokens Page',
-			};
-
-			token = await new Promise<string | undefined>(resolve => {
-				disposables.push(
-					input.onDidHide(() => resolve(undefined)),
-					input.onDidChangeValue(() => (input.validationMessage = undefined)),
-					input.onDidAccept(() => {
-						const value = input.value.trim();
-						if (!value) {
-							input.validationMessage = 'A personal access token is required';
-							return;
-						}
-
-						resolve(value);
-					}),
-					input.onDidTriggerButton(e => {
-						if (e === infoButton) {
-							void env.openExternal(
-								Uri.parse(`https://${descriptor?.domain ?? 'github.com'}/settings/tokens`),
-							);
-						}
-					}),
-				);
-
-				input.password = true;
-				input.title = `GitHub Authentication${descriptor?.domain ? `  \u2022 ${descriptor.domain}` : ''}`;
-				input.placeholder = `Requires ${descriptor?.scopes.join(', ') ?? 'all'} scopes`;
-				input.prompt = supportedInVSCodeVersion('input-prompt-links')
-					? `Paste your [GitHub Personal Access Token](https://${
-							descriptor?.domain ?? 'github.com'
-					  }/settings/tokens "Get your GitHub Access Token")`
-					: 'Paste your GitHub Personal Access Token';
-
-				input.buttons = [infoButton];
-
-				input.show();
-			});
-		} finally {
-			input.dispose();
-			disposables.forEach(d => void d.dispose());
-		}
-
-		if (!token) return undefined;
-
-		return {
-			id: this.getSessionId(descriptor),
-			accessToken: token,
-			scopes: [],
-			account: {
-				id: '',
-				label: '',
-			},
-		};
-	}
 }
