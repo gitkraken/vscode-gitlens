@@ -14844,7 +14844,7 @@
 	},
 	"dependencies": {
 		"@gitkraken/gitkraken-components": "10.1.30",
-		"@gitkraken/shared-web-components": "0.1.1-rc.11",
+		"@gitkraken/shared-web-components": "0.1.1-rc.15",
 		"@microsoft/fast-element": "1.12.0",
 		"@microsoft/fast-react-wrapper": "0.3.19",
 		"@octokit/graphql": "7.0.2",
@@ -14858,7 +14858,7 @@
 		"billboard.js": "3.9.4",
 		"https-proxy-agent": "5.0.1",
 		"iconv-lite": "0.6.3",
-		"lit": "2.8.0",
+		"lit": "3.0.0",
 		"node-fetch": "2.7.0",
 		"os-browserify": "0.3.0",
 		"path-browserify": "1.0.1",
