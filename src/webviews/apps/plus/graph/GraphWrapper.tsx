@@ -1231,8 +1231,8 @@ export function GraphWrapper({
 								errorMessage={searchResultsError?.error ?? ''}
 								resultsHidden={searchResultsHidden}
 								resultsLoaded={searchResults != null}
-								onChange={e => handleSearchInput(e as CustomEvent<SearchQuery>)}
-								onNavigate={e => handleSearchNavigation(e as CustomEvent<SearchNavigationEventDetail>)}
+								onChange={e => handleSearchInput(e)}
+								onNavigate={e => handleSearchNavigation(e)}
 								onOpenInView={() => handleSearchOpenInView()}
 							/>
 							<span>
@@ -1369,7 +1369,7 @@ export function GraphWrapper({
 					markers={minimapData?.markers}
 					searchResults={minimapSearchResults}
 					visibleDays={visibleDays}
-					onSelected={e => handleOnMinimapDaySelected(e as CustomEvent<GraphMinimapDaySelectedEventDetail>)}
+					onSelected={e => handleOnMinimapDaySelected(e)}
 				></GraphMinimap>
 			)}
 			<main id="main" className="graph-app__main" aria-hidden={!allowed}>
