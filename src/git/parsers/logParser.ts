@@ -1,8 +1,8 @@
 import type { Range } from 'vscode';
 import type { Container } from '../../container';
 import { filterMap } from '../../system/array';
-import { debug } from '../../system/decorators/log';
 import { normalizePath, relative } from '../../system/path';
+import { maybeStopWatch } from '../../system/stopwatch';
 import { getLines } from '../../system/string';
 import type { GitCommitLine, GitStashCommit } from '../models/commit';
 import { GitCommit, GitCommitIdentity } from '../models/commit';
@@ -363,581 +363,548 @@ export function createLogParserWithStats<T extends Record<string, unknown>>(
 	});
 }
 
-// eslint-disable-next-line @typescript-eslint/no-extraneous-class
-export class GitLogParser {
-	// private static _defaultParser: ParserWithFiles<{
-	// 	sha: string;
-	// 	author: string;
-	// 	authorEmail: string;
-	// 	authorDate: string;
-	// 	committer: string;
-	// 	committerEmail: string;
-	// 	committerDate: string;
-	// 	message: string;
-	// 	parents: string[];
-	// }>;
-	// static get defaultParser() {
-	// 	if (this._defaultParser == null) {
-	// 		this._defaultParser = GitLogParser.createWithFiles({
-	// 			sha: '%H',
-	// 			author: '%aN',
-	// 			authorEmail: '%aE',
-	// 			authorDate: '%at',
-	// 			committer: '%cN',
-	// 			committerEmail: '%cE',
-	// 			committerDate: '%ct',
-	// 			message: '%B',
-	// 			parents: '%P',
-	// 		});
-	// 	}
-	// 	return this._defaultParser;
-	// }
+export const parseGitLogAllFormat = [
+	`${lb}${sl}f${rb}`,
+	`${lb}r${rb}${sp}%H`, // ref
+	`${lb}a${rb}${sp}%aN`, // author
+	`${lb}e${rb}${sp}%aE`, // author email
+	`${lb}d${rb}${sp}%at`, // author date
+	`${lb}n${rb}${sp}%cN`, // committer
+	`${lb}m${rb}${sp}%cE`, // committer email
+	`${lb}c${rb}${sp}%ct`, // committer date
+	`${lb}p${rb}${sp}%P`, // parents
+	`${lb}t${rb}${sp}%D`, // tips
+	`${lb}s${rb}`,
+	'%B', // summary
+	`${lb}${sl}s${rb}`,
+	`${lb}f${rb}`,
+].join('%n');
+export const parseGitLogDefaultFormat = [
+	`${lb}${sl}f${rb}`,
+	`${lb}r${rb}${sp}%H`, // ref
+	`${lb}a${rb}${sp}%aN`, // author
+	`${lb}e${rb}${sp}%aE`, // author email
+	`${lb}d${rb}${sp}%at`, // author date
+	`${lb}n${rb}${sp}%cN`, // committer
+	`${lb}m${rb}${sp}%cE`, // committer email
+	`${lb}c${rb}${sp}%ct`, // committer date
+	`${lb}p${rb}${sp}%P`, // parents
+	`${lb}s${rb}`,
+	'%B', // summary
+	`${lb}${sl}s${rb}`,
+	`${lb}f${rb}`,
+].join('%n');
+export const parseGitLogSimpleFormat = `${lb}r${rb}${sp}%H`;
 
-	static allFormat = [
-		`${lb}${sl}f${rb}`,
-		`${lb}r${rb}${sp}%H`, // ref
-		`${lb}a${rb}${sp}%aN`, // author
-		`${lb}e${rb}${sp}%aE`, // author email
-		`${lb}d${rb}${sp}%at`, // author date
-		`${lb}n${rb}${sp}%cN`, // committer
-		`${lb}m${rb}${sp}%cE`, // committer email
-		`${lb}c${rb}${sp}%ct`, // committer date
-		`${lb}p${rb}${sp}%P`, // parents
-		`${lb}t${rb}${sp}%D`, // tips
-		`${lb}s${rb}`,
-		'%B', // summary
-		`${lb}${sl}s${rb}`,
-		`${lb}f${rb}`,
-	].join('%n');
+export function parseGitLog(
+	container: Container,
+	data: string,
+	type: LogType,
+	repoPath: string | undefined,
+	fileName: string | undefined,
+	sha: string | undefined,
+	currentUser: GitUser | undefined,
+	limit: number | undefined,
+	reverse: boolean,
+	range: Range | undefined,
+	stashes?: Map<string, GitStashCommit>,
+	hasMoreOverride?: boolean,
+): GitLog | undefined {
+	using sw = maybeStopWatch(`Git.parseLog(${repoPath}, fileName=${fileName}, sha=${sha})`, {
+		log: false,
+		logLevel: 'debug',
+	});
+	if (!data) return undefined;
 
-	static defaultFormat = [
-		`${lb}${sl}f${rb}`,
-		`${lb}r${rb}${sp}%H`, // ref
-		`${lb}a${rb}${sp}%aN`, // author
-		`${lb}e${rb}${sp}%aE`, // author email
-		`${lb}d${rb}${sp}%at`, // author date
-		`${lb}n${rb}${sp}%cN`, // committer
-		`${lb}m${rb}${sp}%cE`, // committer email
-		`${lb}c${rb}${sp}%ct`, // committer date
-		`${lb}p${rb}${sp}%P`, // parents
-		`${lb}s${rb}`,
-		'%B', // summary
-		`${lb}${sl}s${rb}`,
-		`${lb}f${rb}`,
-	].join('%n');
+	let relativeFileName: string | undefined;
 
-	static simpleRefs = `${lb}r${rb}${sp}%H`;
-	static simpleFormat = `${lb}r${rb}${sp}%H`;
+	let entry: LogEntry = {};
+	let line: string | undefined = undefined;
+	let token: number;
 
-	static shortlog = '%H%x00%aN%x00%aE%x00%at';
+	let i = 0;
+	let first = true;
 
-	@debug({ args: false })
-	static parse(
-		container: Container,
-		data: string,
-		type: LogType,
-		repoPath: string | undefined,
-		fileName: string | undefined,
-		sha: string | undefined,
-		currentUser: GitUser | undefined,
-		limit: number | undefined,
-		reverse: boolean,
-		range: Range | undefined,
-		stashes?: Map<string, GitStashCommit>,
-		hasMoreOverride?: boolean,
-	): GitLog | undefined {
-		if (!data) return undefined;
+	const lines = getLines(`${data}</f>`);
+	// Skip the first line since it will always be </f>
+	let next = lines.next();
+	if (next.done) return undefined;
 
-		let relativeFileName: string | undefined;
+	if (repoPath !== undefined) {
+		repoPath = normalizePath(repoPath);
+	}
 
-		let entry: LogEntry = {};
-		let line: string | undefined = undefined;
-		let token: number;
+	const commits = new Map<string, GitCommit>();
+	let truncationCount = limit;
 
-		let i = 0;
-		let first = true;
+	let match;
+	let renamedFileName;
+	let renamedMatch;
 
-		const lines = getLines(`${data}</f>`);
-		// Skip the first line since it will always be </f>
-		let next = lines.next();
-		if (next.done) return undefined;
+	loop: while (true) {
+		next = lines.next();
+		if (next.done) break;
 
-		if (repoPath !== undefined) {
-			repoPath = normalizePath(repoPath);
-		}
+		line = next.value;
 
-		const commits = new Map<string, GitCommit>();
-		let truncationCount = limit;
+		// Since log --reverse doesn't properly honor a max count -- enforce it here
+		if (reverse && limit && i >= limit) break;
 
-		let match;
-		let renamedFileName;
-		let renamedMatch;
+		// <1-char token> data
+		// e.g. <r> bd1452a2dc
+		token = line.charCodeAt(1);
 
-		loop: while (true) {
-			next = lines.next();
-			if (next.done) break;
+		switch (token) {
+			case 114: // 'r': // ref
+				entry = {
+					sha: line.substring(4),
+				};
+				break;
 
-			line = next.value;
+			case 97: // 'a': // author
+				if (uncommitted === entry.sha) {
+					entry.author = 'You';
+				} else {
+					entry.author = line.substring(4);
+				}
+				break;
 
-			// Since log --reverse doesn't properly honor a max count -- enforce it here
-			if (reverse && limit && i >= limit) break;
+			case 101: // 'e': // author-mail
+				entry.authorEmail = line.substring(4);
+				break;
 
-			// <1-char token> data
-			// e.g. <r> bd1452a2dc
-			token = line.charCodeAt(1);
+			case 100: // 'd': // author-date
+				entry.authorDate = line.substring(4);
+				break;
 
-			switch (token) {
-				case 114: // 'r': // ref
-					entry = {
-						sha: line.substring(4),
-					};
-					break;
+			case 110: // 'n': // committer
+				entry.committer = line.substring(4);
+				break;
 
-				case 97: // 'a': // author
-					if (uncommitted === entry.sha) {
-						entry.author = 'You';
-					} else {
-						entry.author = line.substring(4);
-					}
-					break;
+			case 109: // 'm': // committer-mail
+				entry.committedDate = line.substring(4);
+				break;
 
-				case 101: // 'e': // author-mail
-					entry.authorEmail = line.substring(4);
-					break;
+			case 99: // 'c': // committer-date
+				entry.committedDate = line.substring(4);
+				break;
 
-				case 100: // 'd': // author-date
-					entry.authorDate = line.substring(4);
-					break;
+			case 112: // 'p': // parents
+				line = line.substring(4);
+				entry.parentShas = line.length !== 0 ? line.split(' ') : undefined;
+				break;
 
-				case 110: // 'n': // committer
-					entry.committer = line.substring(4);
-					break;
+			case 116: // 't': // tips
+				line = line.substring(4);
+				entry.tips = line.length !== 0 ? line.split(', ') : undefined;
+				break;
 
-				case 109: // 'm': // committer-mail
-					entry.committedDate = line.substring(4);
-					break;
-
-				case 99: // 'c': // committer-date
-					entry.committedDate = line.substring(4);
-					break;
-
-				case 112: // 'p': // parents
-					line = line.substring(4);
-					entry.parentShas = line.length !== 0 ? line.split(' ') : undefined;
-					break;
-
-				case 116: // 't': // tips
-					line = line.substring(4);
-					entry.tips = line.length !== 0 ? line.split(', ') : undefined;
-					break;
-
-				case 115: // 's': // summary
-					while (true) {
-						next = lines.next();
-						if (next.done) break;
-
-						line = next.value;
-						if (line === '</s>') break;
-
-						if (entry.summary === undefined) {
-							entry.summary = line;
-						} else {
-							entry.summary += `\n${line}`;
-						}
-					}
-
-					// Remove the trailing newline
-					if (entry.summary != null && entry.summary.charCodeAt(entry.summary.length - 1) === 10) {
-						entry.summary = entry.summary.slice(0, -1);
-					}
-					break;
-
-				case 102: {
-					// 'f': // files
-					// Skip the blank line git adds before the files
+			case 115: // 's': // summary
+				while (true) {
 					next = lines.next();
+					if (next.done) break;
 
-					let hasFiles = true;
-					if (next.done || next.value === '</f>') {
-						// If this is a merge commit and there are no files returned, skip the commit and reduce our truncationCount to ensure accurate truncation detection
-						if ((entry.parentShas?.length ?? 0) > 1) {
-							if (truncationCount) {
-								truncationCount--;
-							}
+					line = next.value;
+					if (line === '</s>') break;
 
-							break;
+					if (entry.summary === undefined) {
+						entry.summary = line;
+					} else {
+						entry.summary += `\n${line}`;
+					}
+				}
+
+				// Remove the trailing newline
+				if (entry.summary != null && entry.summary.charCodeAt(entry.summary.length - 1) === 10) {
+					entry.summary = entry.summary.slice(0, -1);
+				}
+				break;
+
+			case 102: {
+				// 'f': // files
+				// Skip the blank line git adds before the files
+				next = lines.next();
+
+				let hasFiles = true;
+				if (next.done || next.value === '</f>') {
+					// If this is a merge commit and there are no files returned, skip the commit and reduce our truncationCount to ensure accurate truncation detection
+					if ((entry.parentShas?.length ?? 0) > 1) {
+						if (truncationCount) {
+							truncationCount--;
 						}
 
-						hasFiles = false;
+						break;
 					}
 
-					// eslint-disable-next-line no-unmodified-loop-condition
-					while (hasFiles) {
-						next = lines.next();
-						if (next.done) break;
+					hasFiles = false;
+				}
 
-						line = next.value;
-						if (line === '</f>') break;
+				// eslint-disable-next-line no-unmodified-loop-condition
+				while (hasFiles) {
+					next = lines.next();
+					if (next.done) break;
 
-						if (line.startsWith('warning:')) continue;
+					line = next.value;
+					if (line === '</f>') break;
 
-						if (type === LogType.Log) {
-							match = fileStatusRegex.exec(line);
-							if (match != null) {
-								if (entry.files === undefined) {
-									entry.files = [];
-								}
+					if (line.startsWith('warning:')) continue;
 
-								renamedFileName = match[3];
-								if (renamedFileName !== undefined) {
-									entry.files.push({
-										status: match[1] as GitFileIndexStatus,
-										path: renamedFileName,
-										originalPath: match[2],
-									});
-								} else {
-									entry.files.push({
-										status: match[1] as GitFileIndexStatus,
-										path: match[2],
-									});
-								}
+					if (type === LogType.Log) {
+						match = fileStatusRegex.exec(line);
+						if (match != null) {
+							if (entry.files === undefined) {
+								entry.files = [];
 							}
-						} else {
-							match = diffRegex.exec(line);
-							if (match != null) {
-								[, entry.originalPath, entry.path] = match;
-								if (entry.path === entry.originalPath) {
-									entry.originalPath = undefined;
-									entry.status = GitFileIndexStatus.Modified;
-								} else {
-									entry.status = GitFileIndexStatus.Renamed;
-								}
 
-								void lines.next();
-								void lines.next();
-								next = lines.next();
-
-								match = diffRangeRegex.exec(next.value);
-								if (match !== null) {
-									entry.line = {
-										sha: entry.sha!,
-										originalLine: parseInt(match[1], 10),
-										// count: parseInt(match[2], 10),
-										line: parseInt(match[3], 10),
-										// count: parseInt(match[4], 10),
-									};
-								}
-
-								while (true) {
-									next = lines.next();
-									if (next.done || next.value === '</f>') break;
-								}
-								break;
+							renamedFileName = match[3];
+							if (renamedFileName !== undefined) {
+								entry.files.push({
+									status: match[1] as GitFileIndexStatus,
+									path: renamedFileName,
+									originalPath: match[2],
+								});
 							} else {
+								entry.files.push({
+									status: match[1] as GitFileIndexStatus,
+									path: match[2],
+								});
+							}
+						}
+					} else {
+						match = diffRegex.exec(line);
+						if (match != null) {
+							[, entry.originalPath, entry.path] = match;
+							if (entry.path === entry.originalPath) {
+								entry.originalPath = undefined;
+								entry.status = GitFileIndexStatus.Modified;
+							} else {
+								entry.status = GitFileIndexStatus.Renamed;
+							}
+
+							void lines.next();
+							void lines.next();
+							next = lines.next();
+
+							match = diffRangeRegex.exec(next.value);
+							if (match !== null) {
+								entry.line = {
+									sha: entry.sha!,
+									originalLine: parseInt(match[1], 10),
+									// count: parseInt(match[2], 10),
+									line: parseInt(match[3], 10),
+									// count: parseInt(match[4], 10),
+								};
+							}
+
+							while (true) {
 								next = lines.next();
-								match = fileStatusAndSummaryRegex.exec(`${line}\n${next.value}`);
-								if (match != null) {
-									entry.fileStats = {
-										additions: Number(match[1]) || 0,
-										deletions: Number(match[2]) || 0,
-										changes: 0,
-									};
-
-									switch (match[4]) {
-										case undefined:
-											entry.status = 'M' as GitFileIndexStatus;
-											entry.path = match[3];
-											break;
-										case 'copy':
-										case 'rename':
-											entry.status = (match[4] === 'copy' ? 'C' : 'R') as GitFileIndexStatus;
-
-											renamedFileName = match[3];
-											renamedMatch =
-												fileStatusAndSummaryRenamedFilePathRegex.exec(renamedFileName);
-											if (renamedMatch != null) {
-												const [, start, from, to, end] = renamedMatch;
-												// If there is no new path, the path part was removed so ensure we don't end up with //
-												if (!to) {
-													entry.path = `${
-														start.endsWith('/') && end.startsWith('/')
-															? start.slice(0, -1)
-															: start
-													}${end}`;
-												} else {
-													entry.path = `${start}${to}${end}`;
-												}
-
-												if (!from) {
-													entry.originalPath = `${
-														start.endsWith('/') && end.startsWith('/')
-															? start.slice(0, -1)
-															: start
-													}${end}`;
-												} else {
-													entry.originalPath = `${start}${from}${end}`;
-												}
-											} else {
-												renamedMatch =
-													fileStatusAndSummaryRenamedFileRegex.exec(renamedFileName);
-												if (renamedMatch != null) {
-													entry.path = renamedMatch[2];
-													entry.originalPath = renamedMatch[1];
-												} else {
-													entry.path = renamedFileName;
-												}
-											}
-
-											break;
-										case 'create':
-											entry.status = 'A' as GitFileIndexStatus;
-											entry.path = match[3];
-											break;
-										case 'delete':
-											entry.status = 'D' as GitFileIndexStatus;
-											entry.path = match[3];
-											break;
-										default:
-											entry.status = 'M' as GitFileIndexStatus;
-											entry.path = match[3];
-											break;
-									}
-								}
-
 								if (next.done || next.value === '</f>') break;
 							}
+							break;
+						} else {
+							next = lines.next();
+							match = fileStatusAndSummaryRegex.exec(`${line}\n${next.value}`);
+							if (match != null) {
+								entry.fileStats = {
+									additions: Number(match[1]) || 0,
+									deletions: Number(match[2]) || 0,
+									changes: 0,
+								};
+
+								switch (match[4]) {
+									case undefined:
+										entry.status = 'M' as GitFileIndexStatus;
+										entry.path = match[3];
+										break;
+									case 'copy':
+									case 'rename':
+										entry.status = (match[4] === 'copy' ? 'C' : 'R') as GitFileIndexStatus;
+
+										renamedFileName = match[3];
+										renamedMatch = fileStatusAndSummaryRenamedFilePathRegex.exec(renamedFileName);
+										if (renamedMatch != null) {
+											const [, start, from, to, end] = renamedMatch;
+											// If there is no new path, the path part was removed so ensure we don't end up with //
+											if (!to) {
+												entry.path = `${
+													start.endsWith('/') && end.startsWith('/')
+														? start.slice(0, -1)
+														: start
+												}${end}`;
+											} else {
+												entry.path = `${start}${to}${end}`;
+											}
+
+											if (!from) {
+												entry.originalPath = `${
+													start.endsWith('/') && end.startsWith('/')
+														? start.slice(0, -1)
+														: start
+												}${end}`;
+											} else {
+												entry.originalPath = `${start}${from}${end}`;
+											}
+										} else {
+											renamedMatch = fileStatusAndSummaryRenamedFileRegex.exec(renamedFileName);
+											if (renamedMatch != null) {
+												entry.path = renamedMatch[2];
+												entry.originalPath = renamedMatch[1];
+											} else {
+												entry.path = renamedFileName;
+											}
+										}
+
+										break;
+									case 'create':
+										entry.status = 'A' as GitFileIndexStatus;
+										entry.path = match[3];
+										break;
+									case 'delete':
+										entry.status = 'D' as GitFileIndexStatus;
+										entry.path = match[3];
+										break;
+									default:
+										entry.status = 'M' as GitFileIndexStatus;
+										entry.path = match[3];
+										break;
+								}
+							}
+
+							if (next.done || next.value === '</f>') break;
 						}
 					}
+				}
 
-					if (entry.files !== undefined) {
-						entry.path = filterMap(entry.files, f => (f.path ? f.path : undefined)).join(', ');
-					}
+				if (entry.files !== undefined) {
+					entry.path = filterMap(entry.files, f => (f.path ? f.path : undefined)).join(', ');
+				}
 
-					if (first && repoPath === undefined && type === LogType.LogFile && fileName !== undefined) {
-						// Try to get the repoPath from the most recent commit
-						repoPath = normalizePath(
-							fileName.replace(fileName.startsWith('/') ? `/${entry.path}` : entry.path!, ''),
-						);
-						relativeFileName = normalizePath(relative(repoPath, fileName));
-					} else {
-						relativeFileName =
-							entry.path ??
-							(repoPath != null && fileName != null
-								? normalizePath(relative(repoPath, fileName))
-								: undefined);
-					}
-					first = false;
-
-					const commit = commits.get(entry.sha!);
-					if (commit === undefined) {
-						i++;
-						if (limit && i > limit) break loop;
-					} else if (truncationCount) {
-						// Since this matches an existing commit it will be skipped, so reduce our truncationCount to ensure accurate truncation detection
-						truncationCount--;
-					}
-
-					GitLogParser.parseEntry(
-						container,
-						entry,
-						commit,
-						type,
-						repoPath,
-						relativeFileName,
-						commits,
-						currentUser,
-						stashes,
+				if (first && repoPath === undefined && type === LogType.LogFile && fileName !== undefined) {
+					// Try to get the repoPath from the most recent commit
+					repoPath = normalizePath(
+						fileName.replace(fileName.startsWith('/') ? `/${entry.path}` : entry.path!, ''),
 					);
-
-					break;
+					relativeFileName = normalizePath(relative(repoPath, fileName));
+				} else {
+					relativeFileName =
+						entry.path ??
+						(repoPath != null && fileName != null
+							? normalizePath(relative(repoPath, fileName))
+							: undefined);
 				}
-			}
-		}
+				first = false;
 
-		const log: GitLog = {
-			repoPath: repoPath!,
-			commits: commits,
-			sha: sha,
-			count: i,
-			limit: limit,
-			range: range,
-			hasMore: hasMoreOverride ?? Boolean(truncationCount && i > truncationCount && truncationCount !== 1),
-		};
-		return log;
-	}
-
-	private static parseEntry(
-		container: Container,
-		entry: LogEntry,
-		commit: GitCommit | undefined,
-		type: LogType,
-		repoPath: string | undefined,
-		relativeFileName: string | undefined,
-		commits: Map<string, GitCommit>,
-		currentUser: GitUser | undefined,
-		stashes: Map<string, GitStashCommit> | undefined,
-	): void {
-		if (commit == null) {
-			if (entry.author != null) {
-				if (isUserMatch(currentUser, entry.author, entry.authorEmail)) {
-					entry.author = 'You';
+				const commit = commits.get(entry.sha!);
+				if (commit === undefined) {
+					i++;
+					if (limit && i > limit) break loop;
+				} else if (truncationCount) {
+					// Since this matches an existing commit it will be skipped, so reduce our truncationCount to ensure accurate truncation detection
+					truncationCount--;
 				}
-			}
 
-			if (entry.committer != null) {
-				if (isUserMatch(currentUser, entry.committer, entry.committerEmail)) {
-					entry.committer = 'You';
-				}
-			}
-
-			const originalFileName = entry.originalPath ?? (relativeFileName !== entry.path ? entry.path : undefined);
-
-			const files: { file?: GitFileChange; files?: GitFileChange[] } = {
-				files: entry.files?.map(f => new GitFileChange(repoPath!, f.path, f.status, f.originalPath)),
-			};
-			if (type === LogType.LogFile && relativeFileName != null) {
-				files.file = new GitFileChange(
-					repoPath!,
+				parseLogEntry(
+					container,
+					entry,
+					commit,
+					type,
+					repoPath,
 					relativeFileName,
-					entry.status!,
-					originalFileName,
-					undefined,
-					entry.fileStats,
+					commits,
+					currentUser,
+					stashes,
 				);
-			}
 
-			const stash = stashes?.get(entry.sha!);
-			if (stash != null) {
-				commit = new GitCommit(
-					container,
-					repoPath!,
-					stash.sha,
-					stash.author,
-					stash.committer,
-					stash.summary,
-					stash.parents,
-					stash.message,
-					files,
-					undefined,
-					entry.line != null ? [entry.line] : [],
-					entry.tips,
-					stash.stashName,
-					stash.stashOnRef,
-				);
-				commits.set(stash.sha, commit);
-			} else {
-				commit = new GitCommit(
-					container,
-					repoPath!,
-					entry.sha!,
-
-					new GitCommitIdentity(
-						entry.author!,
-						entry.authorEmail,
-						new Date((entry.authorDate! as any) * 1000),
-					),
-
-					new GitCommitIdentity(
-						entry.committer!,
-						entry.committerEmail,
-						new Date((entry.committedDate! as any) * 1000),
-					),
-					entry.summary?.split('\n', 1)[0] ?? '',
-					entry.parentShas ?? [],
-					entry.summary ?? '',
-					files,
-					undefined,
-					entry.line != null ? [entry.line] : [],
-					entry.tips,
-				);
-				commits.set(entry.sha!, commit);
+				break;
 			}
 		}
 	}
 
-	@debug({ args: false })
-	static parseSimple(
-		data: string,
-		skip: number,
-		skipRef?: string,
-	): [string | undefined, string | undefined, GitFileIndexStatus | undefined] {
-		let ref;
-		let diffFile;
-		let diffRenamed;
-		let status;
-		let file;
-		let renamed;
+	sw?.stop({ suffix: ` parsed ${commits.size} commits` });
 
-		let match;
-		do {
-			match = logFileSimpleRegex.exec(data);
-			if (match == null) break;
+	const log: GitLog = {
+		repoPath: repoPath!,
+		commits: commits,
+		sha: sha,
+		count: i,
+		limit: limit,
+		range: range,
+		hasMore: hasMoreOverride ?? Boolean(truncationCount && i > truncationCount && truncationCount !== 1),
+	};
+	return log;
+}
 
-			if (match[1] === skipRef) continue;
-			if (skip-- > 0) continue;
+function parseLogEntry(
+	container: Container,
+	entry: LogEntry,
+	commit: GitCommit | undefined,
+	type: LogType,
+	repoPath: string | undefined,
+	relativeFileName: string | undefined,
+	commits: Map<string, GitCommit>,
+	currentUser: GitUser | undefined,
+	stashes: Map<string, GitStashCommit> | undefined,
+): void {
+	if (commit == null) {
+		if (entry.author != null) {
+			if (isUserMatch(currentUser, entry.author, entry.authorEmail)) {
+				entry.author = 'You';
+			}
+		}
 
-			[, ref, diffFile, diffRenamed, status, file, renamed] = match;
+		if (entry.committer != null) {
+			if (isUserMatch(currentUser, entry.committer, entry.committerEmail)) {
+				entry.committer = 'You';
+			}
+		}
 
-			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			file = ` ${diffRenamed || diffFile || renamed || file}`.substr(1);
-			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			status = status == null || status.length === 0 ? undefined : ` ${status}`.substr(1);
-		} while (skip >= 0);
+		const originalFileName = entry.originalPath ?? (relativeFileName !== entry.path ? entry.path : undefined);
 
-		// Ensure the regex state is reset
-		logFileSimpleRegex.lastIndex = 0;
+		const files: { file?: GitFileChange; files?: GitFileChange[] } = {
+			files: entry.files?.map(f => new GitFileChange(repoPath!, f.path, f.status, f.originalPath)),
+		};
+		if (type === LogType.LogFile && relativeFileName != null) {
+			files.file = new GitFileChange(
+				repoPath!,
+				relativeFileName,
+				entry.status!,
+				originalFileName,
+				undefined,
+				entry.fileStats,
+			);
+		}
+
+		const stash = stashes?.get(entry.sha!);
+		if (stash != null) {
+			commit = new GitCommit(
+				container,
+				repoPath!,
+				stash.sha,
+				stash.author,
+				stash.committer,
+				stash.summary,
+				stash.parents,
+				stash.message,
+				files,
+				undefined,
+				entry.line != null ? [entry.line] : [],
+				entry.tips,
+				stash.stashName,
+				stash.stashOnRef,
+			);
+			commits.set(stash.sha, commit);
+		} else {
+			commit = new GitCommit(
+				container,
+				repoPath!,
+				entry.sha!,
+
+				new GitCommitIdentity(entry.author!, entry.authorEmail, new Date((entry.authorDate! as any) * 1000)),
+
+				new GitCommitIdentity(
+					entry.committer!,
+					entry.committerEmail,
+					new Date((entry.committedDate! as any) * 1000),
+				),
+				entry.summary?.split('\n', 1)[0] ?? '',
+				entry.parentShas ?? [],
+				entry.summary ?? '',
+				files,
+				undefined,
+				entry.line != null ? [entry.line] : [],
+				entry.tips,
+			);
+			commits.set(entry.sha!, commit);
+		}
+	}
+}
+
+export function parseGitLogSimple(
+	data: string,
+	skip: number,
+	skipRef?: string,
+): [string | undefined, string | undefined, GitFileIndexStatus | undefined] {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	using _sw = maybeStopWatch('Git.parseLogSimple', { log: false, logLevel: 'debug' });
+
+	let ref;
+	let diffFile;
+	let diffRenamed;
+	let status;
+	let file;
+	let renamed;
+
+	let match;
+	do {
+		match = logFileSimpleRegex.exec(data);
+		if (match == null) break;
+
+		if (match[1] === skipRef) continue;
+		if (skip-- > 0) continue;
+
+		[, ref, diffFile, diffRenamed, status, file, renamed] = match;
 
 		// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-		return [
-			ref == null || ref.length === 0 ? undefined : ` ${ref}`.substr(1),
-			file,
-			status as GitFileIndexStatus | undefined,
-		];
-	}
+		file = ` ${diffRenamed || diffFile || renamed || file}`.substr(1);
+		// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+		status = status == null || status.length === 0 ? undefined : ` ${status}`.substr(1);
+	} while (skip >= 0);
 
-	@debug({ args: false })
-	static parseSimpleRenamed(
-		data: string,
-		originalFileName: string,
-	): [string | undefined, string | undefined, GitFileIndexStatus | undefined] {
-		let match = logFileSimpleRenamedRegex.exec(data);
-		if (match == null) return [undefined, undefined, undefined];
+	// Ensure the regex state is reset
+	logFileSimpleRegex.lastIndex = 0;
 
-		const [, ref, files] = match;
+	// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+	return [
+		ref == null || ref.length === 0 ? undefined : ` ${ref}`.substr(1),
+		file,
+		status as GitFileIndexStatus | undefined,
+	];
+}
 
-		let status;
-		let file;
-		let renamed;
+export function parseGitLogSimpleRenamed(
+	data: string,
+	originalFileName: string,
+): [string | undefined, string | undefined, GitFileIndexStatus | undefined] {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	using _sw = maybeStopWatch('Git.parseLogSimpleRenamed', { log: false, logLevel: 'debug' });
 
-		do {
-			match = logFileSimpleRenamedFilesRegex.exec(files);
-			if (match == null) break;
+	let match = logFileSimpleRenamedRegex.exec(data);
+	if (match == null) return [undefined, undefined, undefined];
 
-			[, status, file, renamed] = match;
+	const [, ref, files] = match;
 
-			if (originalFileName !== file) {
-				status = undefined;
-				file = undefined;
-				renamed = undefined;
-				continue;
-			}
+	let status;
+	let file;
+	let renamed;
 
-			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			file = ` ${renamed || file}`.substr(1);
-			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			status = status == null || status.length === 0 ? undefined : ` ${status}`.substr(1);
+	do {
+		match = logFileSimpleRenamedFilesRegex.exec(files);
+		if (match == null) break;
 
-			break;
-		} while (true);
+		[, status, file, renamed] = match;
 
-		// Ensure the regex state is reset
-		logFileSimpleRenamedFilesRegex.lastIndex = 0;
+		if (originalFileName !== file) {
+			status = undefined;
+			file = undefined;
+			renamed = undefined;
+			continue;
+		}
 
-		return [
-			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			ref == null || ref.length === 0 || file == null ? undefined : ` ${ref}`.substr(1),
-			file,
-			status as GitFileIndexStatus | undefined,
-		];
-	}
+		// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+		file = ` ${renamed || file}`.substr(1);
+		// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+		status = status == null || status.length === 0 ? undefined : ` ${status}`.substr(1);
+
+		break;
+	} while (true);
+
+	// Ensure the regex state is reset
+	logFileSimpleRenamedFilesRegex.lastIndex = 0;
+
+	return [
+		// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+		ref == null || ref.length === 0 || file == null ? undefined : ` ${ref}`.substr(1),
+		file,
+		status as GitFileIndexStatus | undefined,
+	];
 }

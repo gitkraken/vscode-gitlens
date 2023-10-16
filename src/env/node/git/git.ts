@@ -24,11 +24,11 @@ import type { GitDir } from '../../../git/gitProvider';
 import type { GitDiffFilter } from '../../../git/models/diff';
 import { isUncommitted, isUncommittedStaged, shortenRevision } from '../../../git/models/reference';
 import type { GitUser } from '../../../git/models/user';
-import { GitBranchParser } from '../../../git/parsers/branchParser';
-import { GitLogParser } from '../../../git/parsers/logParser';
-import { GitReflogParser } from '../../../git/parsers/reflogParser';
+import { parseGitBranchesDefaultFormat } from '../../../git/parsers/branchParser';
+import { parseGitLogAllFormat, parseGitLogDefaultFormat } from '../../../git/parsers/logParser';
+import { parseGitRefLogDefaultFormat } from '../../../git/parsers/reflogParser';
 import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
-import { GitTagParser } from '../../../git/parsers/tagParser';
+import { parseGitTagsDefaultFormat } from '../../../git/parsers/tagParser';
 import { splitAt } from '../../../system/array';
 import { configuration } from '../../../system/configuration';
 import { log } from '../../../system/decorators/log';
@@ -1011,7 +1011,7 @@ export class Git {
 	}
 
 	for_each_ref__branch(repoPath: string, options: { all: boolean } = { all: false }) {
-		const params = ['for-each-ref', `--format=${GitBranchParser.defaultFormat}`, 'refs/heads'];
+		const params = ['for-each-ref', `--format=${parseGitBranchesDefaultFormat}`, 'refs/heads'];
 		if (options.all) {
 			params.push('refs/remotes');
 		}
@@ -1045,7 +1045,7 @@ export class Git {
 		},
 	) {
 		if (argsOrFormat == null) {
-			argsOrFormat = ['--name-status', `--format=${all ? GitLogParser.allFormat : GitLogParser.defaultFormat}`];
+			argsOrFormat = ['--name-status', `--format=${all ? parseGitLogAllFormat : parseGitLogDefaultFormat}`];
 		}
 
 		if (typeof argsOrFormat === 'string') {
@@ -1242,7 +1242,7 @@ export class Git {
 		const [file, root] = splitPath(fileName, repoPath, true);
 
 		if (argsOrFormat == null) {
-			argsOrFormat = [`--format=${all ? GitLogParser.allFormat : GitLogParser.defaultFormat}`];
+			argsOrFormat = [`--format=${all ? parseGitLogAllFormat : parseGitLogDefaultFormat}`];
 		}
 
 		if (typeof argsOrFormat === 'string') {
@@ -1438,7 +1438,7 @@ export class Git {
 				'show',
 				'--stdin',
 				'--name-status',
-				`--format=${GitLogParser.defaultFormat}`,
+				`--format=${parseGitLogDefaultFormat}`,
 				'--use-mailmap',
 			);
 		}
@@ -1451,7 +1451,7 @@ export class Git {
 			'log',
 			...(options?.stdin ? ['--stdin'] : emptyArray),
 			'--name-status',
-			`--format=${GitLogParser.defaultFormat}`,
+			`--format=${parseGitLogDefaultFormat}`,
 			'--use-mailmap',
 			...search,
 			...(options?.ordering ? [`--${options.ordering}-order`] : emptyArray),
@@ -1542,7 +1542,7 @@ export class Git {
 			skip?: number;
 		} = {},
 	): Promise<string> {
-		const params = ['log', '--walk-reflogs', `--format=${GitReflogParser.defaultFormat}`, '--date=iso8601'];
+		const params = ['log', '--walk-reflogs', `--format=${parseGitRefLogDefaultFormat}`, '--date=iso8601'];
 
 		if (ordering) {
 			params.push(`--${ordering}-order`);
@@ -2139,7 +2139,7 @@ export class Git {
 	}
 
 	tag(repoPath: string) {
-		return this.git<string>({ cwd: repoPath }, 'tag', '-l', `--format=${GitTagParser.defaultFormat}`);
+		return this.git<string>({ cwd: repoPath }, 'tag', '-l', `--format=${parseGitTagsDefaultFormat}`);
 	}
 
 	worktree__add(

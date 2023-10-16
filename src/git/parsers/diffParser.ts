@@ -1,5 +1,5 @@
 import { maybeStopWatch } from '../../system/stopwatch';
-import { getLines, pluralize } from '../../system/string';
+import { getLines } from '../../system/string';
 import type { GitDiffFile, GitDiffHunkLine, GitDiffLine, GitDiffShortStat } from '../models/diff';
 import { GitDiffHunk } from '../models/diff';
 import type { GitFile, GitFileStatus } from '../models/file';
@@ -7,10 +7,9 @@ import type { GitFile, GitFileStatus } from '../models/file';
 const shortStatDiffRegex = /(\d+)\s+files? changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/;
 const unifiedDiffRegex = /^@@ -([\d]+)(?:,([\d]+))? \+([\d]+)(?:,([\d]+))? @@(?:.*?)\n([\s\S]*?)(?=^@@)/gm;
 
-export function parseFileDiff(data: string, includeContents: boolean = false): GitDiffFile | undefined {
+export function parseGitFileDiff(data: string, includeContents: boolean = false): GitDiffFile | undefined {
+	using sw = maybeStopWatch('Git.parseFileDiff', { log: false, logLevel: 'debug' });
 	if (!data) return undefined;
-
-	const sw = maybeStopWatch('parseFileDiff', { log: false, logLevel: 'debug' });
 
 	const hunks: GitDiffHunk[] = [];
 
@@ -54,7 +53,7 @@ export function parseFileDiff(data: string, includeContents: boolean = false): G
 		);
 	} while (true);
 
-	sw?.stop({ suffix: ` parsed ${pluralize('hunk', hunks.length)}` });
+	sw?.stop({ suffix: ` parsed ${hunks.length} hunks` });
 
 	if (!hunks.length) return undefined;
 
@@ -65,8 +64,11 @@ export function parseFileDiff(data: string, includeContents: boolean = false): G
 	return diff;
 }
 
-export function parseDiffHunk(hunk: GitDiffHunk): { lines: GitDiffHunkLine[]; state: 'added' | 'changed' | 'removed' } {
-	const sw = maybeStopWatch('parseDiffHunk', { log: false, logLevel: 'debug' });
+export function parseGitDiffHunk(hunk: GitDiffHunk): {
+	lines: GitDiffHunkLine[];
+	state: 'added' | 'changed' | 'removed';
+} {
+	using sw = maybeStopWatch('Git.parseDiffHunk', { log: false, logLevel: 'debug' });
 
 	const currentStart = hunk.current.position.start;
 	const previousStart = hunk.previous.position.start;
@@ -140,7 +142,7 @@ export function parseDiffHunk(hunk: GitDiffHunk): { lines: GitDiffHunkLine[]; st
 		});
 	}
 
-	sw?.stop({ suffix: ` parsed ${pluralize('line', hunkLines.length)}` });
+	sw?.stop({ suffix: ` parsed ${hunkLines.length} hunk lines` });
 
 	return {
 		lines: hunkLines,
@@ -148,10 +150,9 @@ export function parseDiffHunk(hunk: GitDiffHunk): { lines: GitDiffHunkLine[]; st
 	};
 }
 
-export function parseDiffNameStatusFiles(data: string, repoPath: string): GitFile[] | undefined {
+export function parseGitDiffNameStatusFiles(data: string, repoPath: string): GitFile[] | undefined {
+	using sw = maybeStopWatch('Git.parseDiffNameStatusFiles', { log: false, logLevel: 'debug' });
 	if (!data) return undefined;
-
-	const sw = maybeStopWatch('parseDiffNameStatusFiles', { log: false, logLevel: 'debug' });
 
 	const files: GitFile[] = [];
 
@@ -172,15 +173,14 @@ export function parseDiffNameStatusFiles(data: string, repoPath: string): GitFil
 		});
 	}
 
-	sw?.stop({ suffix: ` parsed ${pluralize('file', files.length)}` });
+	sw?.stop({ suffix: ` parsed ${files.length} files` });
 
 	return files;
 }
 
-export function parseDiffShortStat(data: string): GitDiffShortStat | undefined {
+export function parseGitDiffShortStat(data: string): GitDiffShortStat | undefined {
+	using sw = maybeStopWatch('Git.parseDiffShortStat', { log: false, logLevel: 'debug' });
 	if (!data) return undefined;
-
-	const sw = maybeStopWatch('parseDiffShortStat', { log: false, logLevel: 'debug' });
 
 	const match = shortStatDiffRegex.exec(data);
 	if (match == null) return undefined;
@@ -194,9 +194,7 @@ export function parseDiffShortStat(data: string): GitDiffShortStat | undefined {
 	};
 
 	sw?.stop({
-		suffix: ` parsed ${pluralize('file', diffShortStat.changedFiles)}, +${diffShortStat.additions} -${
-			diffShortStat.deletions
-		}`,
+		suffix: ` parsed ${diffShortStat.changedFiles} files, +${diffShortStat.additions} -${diffShortStat.deletions}`,
 	});
 
 	return diffShortStat;
