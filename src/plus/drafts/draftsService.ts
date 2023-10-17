@@ -81,6 +81,24 @@ export class DraftService implements Disposable {
 
 	dispose(): void {}
 
+	// @log({ args: { 2: false } })
+	// async createDraft2(
+	// 	type: 'patch' | 'stash',
+	// 	title: string,
+	// 	changes: { contents: string; baseSha: string; branchName: string; repository: Repository }[],
+	// 	options?: { description?: string },
+	// ): Promise<Draft | undefined> {
+	// 	const scope = getLogScope();
+
+	// 	try {
+	// 	} catch (ex) {
+	// 		debugger;
+	// 		Logger.error(ex, scope);
+
+	// 		throw ex;
+	// 	}
+	// }
+
 	@log({ args: { 2: false } })
 	async createDraft(
 		type: 'patch' | 'stash',

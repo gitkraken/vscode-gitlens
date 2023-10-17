@@ -127,7 +127,7 @@ export const ApplyPatchCommandType = new IpcCommandType<ApplyPatchParams>('patch
 export interface CreatePatchParams {
 	title: string;
 	description?: string;
-	changes: Change[];
+	changeSets: Record<string, RepoChangeSet>;
 }
 export const CreatePatchCommandType = new IpcCommandType<CreatePatchParams>('patch/create');
 

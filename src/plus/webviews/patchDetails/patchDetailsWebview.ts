@@ -18,6 +18,7 @@ import {
 	showDetailsQuickPick,
 } from '../../../git/actions/commit';
 import type { GitCommit } from '../../../git/models/commit';
+import type { GitDiff } from '../../../git/models/diff';
 import type { GitFileChange, GitFileChangeShape } from '../../../git/models/file';
 import type { GitCloudPatch, GitPatch } from '../../../git/models/patch';
 import { createReference } from '../../../git/models/reference';
@@ -493,6 +494,7 @@ export class PatchDetailsWebviewProvider
 				);
 			} else {
 				repoChangeSet = {
+					checked: true,
 					getChange: async () =>
 						Promise.resolve({
 							type: change.type,
@@ -502,6 +504,12 @@ export class PatchDetailsWebviewProvider
 
 							checked: true,
 							expanded: true,
+						}),
+					provideDataForDraft: async () =>
+						Promise.resolve({
+							repository: repo,
+							baseSha: change.range.baseSha,
+							branchName: change.range.branchName,
 						}),
 				};
 			}
@@ -932,6 +940,9 @@ export class PatchDetailsWebviewProvider
 			if (ref == null) return;
 		}
 
+		// TODO: need to figure out branch name
+		const branchName = '';
+		const baseSha = patch.baseRef ?? 'HEAD';
 		const change: RepoChangeSet = {
 			type: 'commit',
 			repoName: patch.repo!.name,
@@ -944,10 +955,9 @@ export class PatchDetailsWebviewProvider
 					uri: patch.repo!.uri.toString(),
 				},
 				range: {
-					baseSha: patch.baseRef ?? 'HEAD',
+					baseSha: baseSha,
 					sha: patch.commit?.sha,
-					// TODO: need to figure out branch name
-					branchName: '',
+					branchName: branchName,
 				},
 				files:
 					patch.files?.map(file => {
@@ -965,7 +975,17 @@ export class PatchDetailsWebviewProvider
 
 		this.updatePendingContext({
 			mode: 'create',
-			create: new Map([[patch.repo!.id, { getChange: () => Promise.resolve(change) }]]),
+			create: new Map([
+				[
+					patch.repo!.id,
+					{
+						checked: true,
+						getChange: () => Promise.resolve(change),
+						provideDataForDraft: () =>
+							Promise.resolve({ repository: patch.repo!, branchName: branchName, baseSha: baseSha }),
+					},
+				],
+			]),
 		});
 		this.updateState();
 	}
@@ -1133,14 +1153,20 @@ export class PatchDetailsWebviewProvider
 		};
 	}
 
-	private async getChangeContents(change: Change) {
-		const repo = this.container.git.getRepository(change.repository.path)!;
-		const diff = await this.container.git.getDiff(repo.path, change.range.baseSha, change.range.sha);
+	private async getChangeContents(changeSet: RepoChangeSet) {
+		if (changeSet.change == null) return;
+
+		const repo = this.container.git.getRepository(Uri.parse(changeSet.repoUri))!;
+		const diff = await this.container.git.getDiff(
+			repo.path,
+			changeSet.change.range.baseSha,
+			changeSet.change.range.sha,
+		);
 		if (diff == null) return;
 
 		return {
 			repository: repo,
-			baseSha: change.range.baseSha,
+			baseSha: changeSet.change.range.baseSha,
 			contents: diff.contents,
 		};
 	}
@@ -1148,9 +1174,51 @@ export class PatchDetailsWebviewProvider
 	// create a patch from the current working tree or from a commit
 	// create a draft from the resulting patch
 	// how do I incorporate branch
-	private async createDraft({ title, changes, description }: CreatePatchParams): Promise<void> {
-		// const changeContents = await this.getChangeContents(changes[0]);
-		// if (changeContents == null) return;
+	private async createDraft({ title, changeSets, description }: CreatePatchParams): Promise<void> {
+		// const changeContents = await this.getChangeContents(changeSets);
+		const changeContents: { contents: string; baseSha: string; repository: Repository }[] = [];
+		for (const [id, changeSet] of Object.entries(changeSets)) {
+			if (changeSet.checked === false) continue;
+
+			const repositoryChangeSet = this._context.create?.get(id);
+			if (repositoryChangeSet == null) continue;
+
+			const { baseSha, branchName, repository } = await repositoryChangeSet.provideDataForDraft();
+
+			let diff: GitDiff | undefined;
+			if (changeSet.type === 'wip') {
+				if (changeSet.checked === 'staged') {
+					// need to get the staged changes only
+					diff = await this.container.git.getDiff(
+						repository.path,
+						changeSet.change!.range.baseSha,
+						changeSet.change!.range.sha,
+					);
+				} else {
+					diff = await this.container.git.getDiff(
+						repository.path,
+						changeSet.change!.range.baseSha,
+						changeSet.change!.range.sha,
+					);
+				}
+			} else {
+				diff = await this.container.git.getDiff(
+					repository.path,
+					changeSet.change.range.baseSha,
+					changeSet.change.range.sha,
+				);
+			}
+			if (diff == null) continue;
+
+			changeContents.push({
+				repository: repository,
+				baseSha: baseSha,
+				contents: diff.contents,
+			});
+		}
+		if (changeContents == null) return;
+
+		// TODO: support multiple changesets in createDraft
 		// const draft = await this.container.drafts.createDraft(
 		// 	'patch',
 		// 	title,
@@ -1187,7 +1255,9 @@ async function toRepoChanges(
 // }
 
 interface RepositoryChangeSet {
+	checked: RepoWipChangeSet['checked'];
 	getChange(): Promise<RepoChangeSet>;
+	provideDataForDraft(): Promise<{ baseSha: string; branchName: string; repository: Repository }>;
 }
 
 class RepositoryWipChangeSet implements RepositoryChangeSet {
@@ -1241,6 +1311,20 @@ class RepositoryWipChangeSet implements RepositoryChangeSet {
 			checked: this.checked,
 			expanded: this.expanded,
 		};
+	}
+
+	async provideDataForDraft(): Promise<{
+		contents: string;
+		baseSha: string;
+		branchName: string;
+		repository: Repository;
+	}> {
+		return Promise.resolve({
+			contents: '',
+			baseSha: 'HEAD',
+			branchName: '',
+			repository: this.repository,
+		});
 	}
 
 	private subscribe() {

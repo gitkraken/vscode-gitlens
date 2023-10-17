@@ -2,7 +2,7 @@ import { defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-
 import { html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { Change, RepoWipChangeSet, State } from '../../../../../plus/webviews/patchDetails/protocol';
+import type { RepoChangeSet, RepoWipChangeSet, State } from '../../../../../plus/webviews/patchDetails/protocol';
 import type { Serialized } from '../../../../../system/serialize';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
@@ -11,7 +11,7 @@ import './gl-create-details';
 export interface CreatePatchEventDetail {
 	title: string;
 	description?: string;
-	changes: Change[];
+	changeSets: Record<string, RepoChangeSet>;
 }
 
 @customElement('gl-patch-create')
@@ -24,28 +24,37 @@ export class GlPatchCreate extends LitElement {
 	@state()
 	description = '';
 
-	@state()
-	selectedChanges: Change[] = [];
+	get createEntries() {
+		if (this.state?.create == null) {
+			return undefined;
+		}
+
+		return Object.entries(this.state.create);
+	}
 
 	get hasWipChanges() {
-		if (this.state?.create == null) {
+		if (this.createEntries == null) {
 			return false;
 		}
 
-		return Object.values(this.state.create).some(c => c.change?.type === 'wip');
+		return this.createEntries.some(([_id, changeSet]) => changeSet.change?.type === 'wip');
 	}
 
 	get hasChangedFiles() {
-		if (this.state?.create == null) {
+		if (this.createEntries == null) {
 			return false;
 		}
 
-		return Object.values(this.state.create).some(c => c.change?.files != null);
+		return this.createEntries.some(([_id, changeSet]) => changeSet.change?.files != null);
+	}
+
+	get selectedChanges(): [string, RepoChangeSet][] | undefined {
+		return this.createEntries?.filter(([_id, changeSet]) => changeSet.checked !== false);
 	}
 
 	@state()
 	get canSubmit() {
-		return this.patchTitle.length > 0 && this.hasChangedFiles; // this.selectedChanges.length > 0 &&
+		return this.patchTitle.length > 0 && this.selectedChanges != null && this.selectedChanges.length > 0;
 	}
 
 	get repoChanges() {
@@ -115,16 +124,21 @@ export class GlPatchCreate extends LitElement {
 		`;
 	}
 
-	private createPatch(changes: Change[]) {
+	private createPatch() {
 		if (!this.canSubmit) {
 			// TODO: show error
 			return;
 		}
 
+		const changes = this.selectedChanges!.reduce<Record<string, RepoChangeSet>>((a, [id, changeSet]) => {
+			a[id] = changeSet;
+			return a;
+		}, {});
+
 		const patch = {
 			title: this.patchTitle,
 			description: this.description,
-			changes: changes,
+			changeSets: changes,
 		};
 
 		this.dispatchEvent(new CustomEvent<CreatePatchEventDetail>('create-patch', { detail: patch }));
@@ -136,6 +150,7 @@ export class GlPatchCreate extends LitElement {
 		// 	return;
 		// }
 		// this.createPatch([change]);
+		this.createPatch();
 	}
 
 	private onSelectCreateOption(e: CustomEvent<{ target: MenuItem }>) {
@@ -172,7 +187,7 @@ export class GlPatchCreate extends LitElement {
 	}
 
 	private onRepoChecked(e: CustomEvent<{ repoUri: string; checked: boolean }>) {
-		const [id, changeSet] = this.getRepoChangeSet(e.detail.repoUri);
+		const [_, changeSet] = this.getRepoChangeSet(e.detail.repoUri);
 
 		if ((changeSet as RepoWipChangeSet).checked === e.detail.checked) {
 			return;
@@ -183,7 +198,7 @@ export class GlPatchCreate extends LitElement {
 	}
 
 	private onUnstagedChecked(e: CustomEvent<{ repoUri: string; checked: boolean | 'staged' }>) {
-		const [id, changeSet] = this.getRepoChangeSet(e.detail.repoUri);
+		const [_, changeSet] = this.getRepoChangeSet(e.detail.repoUri);
 
 		if ((changeSet as RepoWipChangeSet).checked === e.detail.checked) {
 			return;
