@@ -223,10 +223,8 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		if (e.data == null) return;
 
 		let uri: Uri | undefined = e.data.uri;
-		if (uri != null) {
-			if (!this.container.git.isTrackable(uri)) {
-				uri = undefined;
-			}
+		if (uri != null && !this.container.git.isTrackable(uri)) {
+			uri = undefined;
 		}
 
 		if (!this.updatePendingUri(uri)) return;
