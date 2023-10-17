@@ -1,14 +1,11 @@
-import type { WebviewIds, WebviewViewIds } from '../../../constants';
 import type { FeatureAccess } from '../../../features';
 import type { IssueShape } from '../../../git/models/issue';
 import type { PullRequestShape } from '../../../git/models/pullRequest';
+import type { WebviewState } from '../../../webviews/protocol';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
 import type { EnrichedItem } from '../../focus/focusService';
 
-export interface State {
-	webviewId: WebviewIds | WebviewViewIds;
-	timestamp: number;
-
+export interface State extends WebviewState {
 	access: FeatureAccess;
 	pullRequests?: PullRequestResult[];
 	issues?: IssueResult[];

@@ -1,11 +1,12 @@
-import { ViewColumn } from 'vscode';
+import { Disposable, ViewColumn } from 'vscode';
 import { Commands } from '../../../constants';
-import type { WebviewsController } from '../../../webviews/webviewsController';
+import { registerCommand } from '../../../system/command';
+import type { WebviewPanelsProxy, WebviewsController } from '../../../webviews/webviewsController';
 import type { State } from './protocol';
 
 export function registerTimelineWebviewPanel(controller: WebviewsController) {
 	return controller.registerWebviewPanel<State>(
-		Commands.ShowTimelinePage,
+		{ id: Commands.ShowTimelinePage },
 		{
 			id: 'gitlens.timeline',
 			fileName: 'timeline.html',
@@ -44,5 +45,13 @@ export function registerTimelineWebviewView(controller: WebviewsController) {
 			const { TimelineWebviewProvider } = await import(/* webpackChunkName: "timeline" */ './timelineWebview');
 			return new TimelineWebviewProvider(container, host);
 		},
+	);
+}
+
+export function registerTimelineWebviewCommands(panels: WebviewPanelsProxy) {
+	return Disposable.from(
+		registerCommand(`${panels.id}.refresh`, () => {
+			void panels.getActiveOrFirstInstance()?.refresh(true);
+		}),
 	);
 }

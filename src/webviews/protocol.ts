@@ -1,4 +1,5 @@
 import type { Config } from '../config';
+import type { CustomEditorIds, WebviewIds, WebviewViewIds } from '../constants';
 import type { ConfigPath, ConfigPathValue, Path, PathValue } from '../system/configuration';
 
 export interface IpcMessage {
@@ -122,4 +123,10 @@ export function assertsConfigKeyValue<T extends ConfigPath>(
 	value: unknown,
 ): asserts value is ConfigPathValue<T> {
 	// Noop
+}
+
+export interface WebviewState<Id extends WebviewIds | WebviewViewIds | CustomEditorIds = WebviewIds | WebviewViewIds> {
+	webviewId: Id;
+	webviewInstanceId: string | undefined;
+	timestamp: number;
 }

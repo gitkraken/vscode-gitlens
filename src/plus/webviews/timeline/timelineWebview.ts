@@ -1,5 +1,5 @@
 import type { TextEditor, ViewColumn } from 'vscode';
-import { commands, Disposable, Uri, window } from 'vscode';
+import { Disposable, Uri, window } from 'vscode';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
 import type { CommitSelectedEvent, FileSelectedEvent } from '../../../eventBus';
@@ -9,7 +9,7 @@ import { GitUri } from '../../../git/gitUri';
 import { getChangedFilesCount } from '../../../git/models/commit';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
-import { registerCommand } from '../../../system/command';
+import { executeCommand, registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
 import { createFromDateDelta } from '../../../system/date';
 import { debug } from '../../../system/decorators/log';
@@ -23,6 +23,7 @@ import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
 import { updatePendingContext } from '../../../webviews/webviewController';
+import type { WebviewPanelShowCommandArgs } from '../../../webviews/webviewsController';
 import { isSerializedState } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import type { Commit, Period, State } from './protocol';
@@ -127,14 +128,24 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 	}
 
 	registerCommands(): Disposable[] {
-		if (this.host.isEditor()) {
-			return [registerCommand(Commands.RefreshTimelinePage, () => this.host.refresh(true))];
-		}
+		return this.host.isView()
+			? [
+					registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this),
+					registerCommand(
+						`${this.host.id}.openInTab`,
+						() => {
+							if (this._context.uri == null) return;
 
-		return [
-			registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this),
-			registerCommand(`${this.host.id}.openInTab`, () => this.openInTab(), this),
-		];
+							void executeCommand<WebviewPanelShowCommandArgs>(
+								Commands.ShowTimelinePage,
+								{ _type: 'WebviewPanelShowOptions' },
+								this._context.uri,
+							);
+						},
+						this,
+					),
+			  ]
+			: [];
 	}
 
 	onVisibilityChanged(visible: boolean) {
@@ -280,8 +291,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		if (current.uri == null || gitUri == null || repoPath == null || access.allowed === false) {
 			const access = await this.container.git.access(PlusFeatures.Timeline, repoPath);
 			return {
-				webviewId: this.host.id,
-				timestamp: Date.now(),
+				...this.host.baseWebviewState,
 				period: period,
 				title: gitUri?.relativePath,
 				sha: gitUri?.shortSha,
@@ -303,8 +313,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 
 		if (log == null) {
 			return {
-				webviewId: this.host.id,
-				timestamp: Date.now(),
+				...this.host.baseWebviewState,
 				dataset: [],
 				period: period,
 				title: gitUri.relativePath,
@@ -362,8 +371,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		dataset.sort((a, b) => b.sort - a.sort);
 
 		return {
-			webviewId: this.host.id,
-			timestamp: Date.now(),
+			...this.host.baseWebviewState,
 			dataset: dataset,
 			period: period,
 			title: gitUri.relativePath,
@@ -440,13 +448,6 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 
 		if (!this.host.isView()) return task();
 		return window.withProgress({ location: { viewId: this.host.id } }, task);
-	}
-
-	private openInTab() {
-		const uri = this._context.uri;
-		if (uri == null) return;
-
-		void commands.executeCommand(Commands.ShowTimelinePage, uri);
 	}
 }
 

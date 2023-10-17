@@ -23,7 +23,6 @@ import type {
 	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
 import type { Config, DateStyle } from '../../../config';
-import type { WebviewIds, WebviewViewIds } from '../../../constants';
 import type { RepositoryVisibility } from '../../../git/gitProvider';
 import type { GitTrackingState } from '../../../git/models/branch';
 import type { GitGraphRowType } from '../../../git/models/graph';
@@ -38,6 +37,7 @@ import type { GitSearchResultData, SearchQuery } from '../../../git/search';
 import type { Subscription } from '../../../subscription';
 import type { DateTimeFormat } from '../../../system/date';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview';
+import type { WebviewState } from '../../../webviews/protocol';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
 
 export type { GraphRefType } from '@gitkraken/gitkraken-components';
@@ -81,10 +81,7 @@ export type GraphMinimapMarkerTypes =
 
 export const supportedRefMetadataTypes: GraphRefMetadataType[] = ['upstream', 'pullRequest', 'issue'];
 
-export interface State {
-	webviewId: WebviewIds | WebviewViewIds;
-	timestamp: number;
-
+export interface State extends WebviewState {
 	windowFocused?: boolean;
 	repositories?: GraphRepository[];
 	selectedRepository?: string;

@@ -84,6 +84,7 @@ import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
 import type { IpcMessage, IpcNotificationType } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
+import type { WebviewPanelShowCommandArgs } from '../../../webviews/webviewsController';
 import { isSerializedState } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import type {
@@ -363,13 +364,17 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	registerCommands(): Disposable[] {
 		return [
-			registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true)),
-
 			...(this.host.isView()
 				? [
+						registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true)),
 						registerCommand(
 							`${this.host.id}.openInTab`,
-							() => void executeCommand(Commands.ShowGraphPage, this.repository),
+							() =>
+								void executeCommand<WebviewPanelShowCommandArgs>(
+									Commands.ShowGraphPage,
+									undefined,
+									this.repository,
+								),
 						),
 				  ]
 				: []),
@@ -668,7 +673,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	private showActiveSelectionDetailsCore() {
 		const { activeSelection } = this;
-		if (activeSelection == null) return;
+		if (activeSelection == null || !this.host.active) return;
 
 		this.container.events.fire(
 			'commit:selected',
@@ -1209,6 +1214,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		this._selection = commits;
 
 		if (commits == null) return;
+		if (!this._firstSelection && !this.host.active) return;
 
 		this.container.events.fire(
 			'commit:selected',
@@ -1899,13 +1905,13 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	private async getState(deferRows?: boolean): Promise<State> {
 		if (this.container.git.repositoryCount === 0) {
-			return { webviewId: this.host.id, timestamp: Date.now(), allowed: true, repositories: [] };
+			return { ...this.host.baseWebviewState, allowed: true, repositories: [] };
 		}
 
 		if (this.repository == null) {
 			this.repository = this.container.git.getBestRepositoryOrFirst();
 			if (this.repository == null) {
-				return { webviewId: this.host.id, timestamp: Date.now(), allowed: true, repositories: [] };
+				return { ...this.host.baseWebviewState, allowed: true, repositories: [] };
 			}
 		}
 
@@ -1990,8 +1996,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		}
 
 		return {
-			webviewId: this.host.id,
-			timestamp: Date.now(),
+			...this.host.baseWebviewState,
 			windowFocused: this.isWindowFocused,
 			repositories: formatRepositories(this.container.git.openRepositories),
 			selectedRepository: this.repository.path,

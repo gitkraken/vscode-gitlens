@@ -5,7 +5,7 @@ import type { State } from './protocol';
 
 export function registerWelcomeWebviewPanel(controller: WebviewsController) {
 	return controller.registerWebviewPanel<State>(
-		Commands.ShowWelcomePage,
+		{ id: Commands.ShowWelcomePage },
 		{
 			id: 'gitlens.welcome',
 			fileName: 'welcome.html',

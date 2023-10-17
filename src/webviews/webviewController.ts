@@ -9,10 +9,16 @@ import { debug, logName } from '../system/decorators/log';
 import { serialize } from '../system/decorators/serialize';
 import { isPromise } from '../system/promise';
 import type { WebviewContext } from '../system/webview';
-import type { IpcMessage, IpcMessageParams, IpcNotificationType, WebviewFocusChangedParams } from './protocol';
+import type {
+	IpcMessage,
+	IpcMessageParams,
+	IpcNotificationType,
+	WebviewFocusChangedParams,
+	WebviewState,
+} from './protocol';
 import { ExecuteCommandType, onIpc, WebviewFocusChangedCommandType, WebviewReadyCommandType } from './protocol';
 import type { WebviewCommandCallback, WebviewCommandRegistrar } from './webviewCommandRegistrar';
-import type { WebviewPanelDescriptor, WebviewViewDescriptor } from './webviewsController';
+import type { WebviewPanelDescriptor, WebviewShowOptions, WebviewViewDescriptor } from './webviewsController';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 const utf8TextDecoder = new TextDecoder('utf8');
@@ -35,11 +41,7 @@ type GetParentType<T extends WebviewPanelDescriptor | WebviewViewDescriptor> = T
 	: never;
 
 export interface WebviewProvider<State, SerializedState = State> extends Disposable {
-	onShowing?(
-		loading: boolean,
-		options: { column?: ViewColumn; preserveFocus?: boolean },
-		...args: unknown[]
-	): boolean | Promise<boolean>;
+	onShowing?(loading: boolean, options: WebviewShowOptions, ...args: unknown[]): boolean | Promise<boolean>;
 	registerCommands?(): Disposable[];
 
 	includeBootstrap?(): SerializedState | Promise<SerializedState>;
@@ -79,6 +81,7 @@ export class WebviewController<
 		container: Container,
 		commandRegistrar: WebviewCommandRegistrar,
 		descriptor: WebviewPanelDescriptor,
+		instanceId: string | undefined,
 		parent: WebviewPanel,
 		resolveProvider: (
 			container: Container,
@@ -89,6 +92,7 @@ export class WebviewController<
 		container: Container,
 		commandRegistrar: WebviewCommandRegistrar,
 		descriptor: WebviewViewDescriptor,
+		instanceId: string | undefined,
 		parent: WebviewView,
 		resolveProvider: (
 			container: Container,
@@ -99,6 +103,7 @@ export class WebviewController<
 		container: Container,
 		commandRegistrar: WebviewCommandRegistrar,
 		descriptor: WebviewPanelDescriptor | WebviewViewDescriptor,
+		instanceId: string | undefined,
 		parent: WebviewPanel | WebviewView,
 		resolveProvider: (
 			container: Container,
@@ -109,6 +114,7 @@ export class WebviewController<
 			container,
 			commandRegistrar,
 			descriptor,
+			instanceId,
 			parent,
 			resolveProvider,
 		);
@@ -136,6 +142,7 @@ export class WebviewController<
 		private readonly container: Container,
 		private readonly _commandRegistrar: WebviewCommandRegistrar,
 		private readonly descriptor: Descriptor,
+		public readonly instanceId: string | undefined,
 		public readonly parent: GetParentType<Descriptor>,
 		resolveProvider: (
 			container: Container,
@@ -187,7 +194,7 @@ export class WebviewController<
 	}
 
 	registerWebviewCommand<T extends Partial<WebviewContext>>(command: string, callback: WebviewCommandCallback<T>) {
-		return this._commandRegistrar.registerCommand(this.provider, this.id, command, callback);
+		return this._commandRegistrar.registerCommand(this.provider, this.id, this.instanceId, command, callback);
 	}
 
 	private _initializing: Promise<void> | undefined;
@@ -255,7 +262,7 @@ export class WebviewController<
 	}
 
 	@debug({ args: false })
-	async show(loading: boolean, options?: { column?: ViewColumn; preserveFocus?: boolean }, ...args: unknown[]) {
+	async show(loading: boolean, options?: WebviewShowOptions, ...args: unknown[]) {
 		if (options == null) {
 			options = {};
 		}
@@ -288,6 +295,14 @@ export class WebviewController<
 		}
 
 		setContextKeys(this.descriptor.contextKeyPrefix, this.active);
+	}
+
+	get baseWebviewState(): WebviewState {
+		return {
+			webviewId: this.id,
+			webviewInstanceId: this.instanceId,
+			timestamp: Date.now(),
+		};
 	}
 
 	private readonly _cspNonce = getNonce();
@@ -458,7 +473,8 @@ export class WebviewController<
 
 		const html = replaceWebviewHtmlTokens(
 			utf8TextDecoder.decode(bytes),
-			this.descriptor.id,
+			this.id,
+			this.instanceId,
 			webview.cspSource,
 			this._cspNonce,
 			this.asWebviewUri(this.getRootUri()).toString(),
@@ -560,6 +576,7 @@ export class WebviewController<
 export function replaceWebviewHtmlTokens<SerializedState>(
 	html: string,
 	webviewId: string,
+	webviewInstanceId: string | undefined,
 	cspSource: string,
 	cspNonce: string,
 	root: string,
@@ -571,7 +588,7 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 	endOfBody?: string,
 ) {
 	return html.replace(
-		/#{(head|body|endOfBody|webviewId|placement|cspSource|cspNonce|root|webroot)}/g,
+		/#{(head|body|endOfBody|webviewId|webviewInstanceId|placement|cspSource|cspNonce|root|webroot)}/g,
 		(_substring: string, token: string) => {
 			switch (token) {
 				case 'head':
@@ -588,6 +605,8 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 					}${endOfBody ?? ''}`;
 				case 'webviewId':
 					return webviewId;
+				case 'webviewInstanceId':
+					return webviewInstanceId ?? '';
 				case 'placement':
 					return placement;
 				case 'cspSource':

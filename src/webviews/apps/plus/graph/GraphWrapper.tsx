@@ -1020,7 +1020,11 @@ export function GraphWrapper({
 			<div className="titlebar__group">
 				{(isBehind || isAhead) && (
 					<a
-						href={createWebviewCommandLink(`gitlens.graph.${action}`, state.webviewId)}
+						href={createWebviewCommandLink(
+							`gitlens.graph.${action}`,
+							state.webviewId,
+							state.webviewInstanceId,
+						)}
 						className={`action-button${isBehind ? ' is-behind' : ''}${isAhead ? ' is-ahead' : ''}`}
 						title={tooltip}
 					>
@@ -1045,7 +1049,7 @@ export function GraphWrapper({
 					</a>
 				)}
 				<a
-					href={createWebviewCommandLink('gitlens.graph.fetch', state.webviewId)}
+					href={createWebviewCommandLink('gitlens.graph.fetch', state.webviewId, state.webviewInstanceId)}
 					className="action-button"
 					title={fetchTooltip}
 				>
@@ -1106,7 +1110,11 @@ export function GraphWrapper({
 								<span className="codicon codicon-chevron-right"></span>
 							</span>
 							<a
-								href={createWebviewCommandLink('gitlens.graph.switchToAnotherBranch', state.webviewId)}
+								href={createWebviewCommandLink(
+									'gitlens.graph.switchToAnotherBranch',
+									state.webviewId,
+									state.webviewInstanceId,
+								)}
 								className="action-button"
 								title="Switch to Another Branch..."
 								aria-label="Switch to Another Branch..."

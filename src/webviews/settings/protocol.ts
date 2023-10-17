@@ -1,10 +1,7 @@
 import type { Config } from '../../config';
-import type { WebviewIds, WebviewViewIds } from '../../constants';
+import type { WebviewState } from '../protocol';
 
-export interface State {
-	webviewId: WebviewIds | WebviewViewIds;
-	timestamp: number;
-
+export interface State extends WebviewState {
 	version: string;
 	config: Config;
 	customSettings?: Record<string, boolean>;

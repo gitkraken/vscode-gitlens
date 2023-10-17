@@ -1,13 +1,13 @@
 import type { TextDocumentShowOptions } from 'vscode';
 import type { Autolink } from '../../annotations/autolinks';
 import type { Config } from '../../config';
-import type { WebviewIds, WebviewViewIds } from '../../constants';
 import type { GitCommitIdentityShape, GitCommitStats } from '../../git/models/commit';
 import type { GitFileChangeShape } from '../../git/models/file';
 import type { IssueOrPullRequest } from '../../git/models/issue';
 import type { PullRequestShape } from '../../git/models/pullRequest';
 import type { DateTimeFormat } from '../../system/date';
 import type { Serialized } from '../../system/serialize';
+import type { WebviewState } from '../protocol';
 import { IpcCommandType, IpcNotificationType } from '../protocol';
 
 export const messageHeadlineSplitterToken = '\x00\n\x00';
@@ -55,9 +55,7 @@ export interface Wip {
 	repositoryCount: number;
 }
 
-export interface State {
-	webviewId: WebviewIds | WebviewViewIds;
-	timestamp: number;
+export interface State extends WebviewState {
 	mode: Mode;
 
 	pinned: boolean;

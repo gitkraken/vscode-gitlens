@@ -7,11 +7,13 @@ import type {
 	WebviewViewResolveContext,
 } from 'vscode';
 import { Disposable, Uri, ViewColumn, window } from 'vscode';
+import { uuid } from '@env/crypto';
 import type { Commands, WebviewIds, WebviewTypes, WebviewViewIds, WebviewViewTypes } from '../constants';
 import type { Container } from '../container';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
 import { executeCoreCommand, registerCommand } from '../system/command';
 import { debug } from '../system/decorators/log';
+import { find, first, map } from '../system/iterable';
 import { Logger } from '../system/logger';
 import { getLogScope } from '../system/logger.scope';
 import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
@@ -30,20 +32,34 @@ export interface WebviewPanelDescriptor {
 	readonly column?: ViewColumn;
 	readonly webviewOptions?: WebviewOptions;
 	readonly webviewHostOptions?: WebviewPanelOptions;
+
+	readonly allowMultipleInstances?: boolean;
 }
 
 interface WebviewPanelRegistration<State, SerializedState = State> {
 	readonly descriptor: WebviewPanelDescriptor;
-	controller?: WebviewController<State, SerializedState, WebviewPanelDescriptor> | undefined;
+	controllers?:
+		| Map<string | undefined, WebviewController<State, SerializedState, WebviewPanelDescriptor>>
+		| undefined;
 }
 
 export interface WebviewPanelProxy extends Disposable {
 	readonly id: WebviewIds;
+	readonly instanceId: string | undefined;
 	readonly ready: boolean;
+	readonly active: boolean;
 	readonly visible: boolean;
 	close(): void;
 	refresh(force?: boolean): Promise<void>;
-	show(options?: { column?: ViewColumn; preserveFocus?: boolean }, ...args: unknown[]): Promise<void>;
+	show(options?: WebviewPanelShowOptions, ...args: unknown[]): Promise<void>;
+}
+
+export interface WebviewPanelsProxy extends Disposable {
+	readonly id: WebviewIds;
+	readonly instances: Iterable<WebviewPanelProxy>;
+	getActiveInstance(): WebviewPanelProxy | undefined;
+	getActiveOrFirstInstance(): WebviewPanelProxy | undefined;
+	show(options?: WebviewPanelsShowOptions, ...args: unknown[]): Promise<void>;
 }
 
 export interface WebviewViewDescriptor {
@@ -70,7 +86,7 @@ export interface WebviewViewProxy extends Disposable {
 	readonly ready: boolean;
 	readonly visible: boolean;
 	refresh(force?: boolean): Promise<void>;
-	show(options?: { preserveFocus?: boolean }, ...args: unknown[]): Promise<void>;
+	show(options?: WebviewViewShowOptions, ...args: unknown[]): Promise<void>;
 }
 
 export class WebviewsController implements Disposable {
@@ -141,6 +157,7 @@ export class WebviewsController implements Disposable {
 							this.container,
 							this._commandRegistrar,
 							descriptor,
+							undefined,
 							webviewView,
 							resolveProvider,
 						);
@@ -188,15 +205,18 @@ export class WebviewsController implements Disposable {
 			dispose: function () {
 				disposable.dispose();
 			},
-			refresh: async force => registration.controller?.refresh(force),
-			// eslint-disable-next-line @typescript-eslint/require-await
-			show: async (options?: { preserveFocus?: boolean }, ...args) => {
-				if (registration.controller != null) return void registration.controller.show(false, options, ...args);
+			refresh: function (force?: boolean) {
+				return registration.controller != null ? registration.controller.refresh(force) : Promise.resolve();
+			},
+			show: function (options?: WebviewViewShowOptions, ...args: unknown[]) {
+				if (registration.controller != null) {
+					return registration.controller.show(false, options, ...args);
+				}
 
 				Logger.debug(scope, `Showing webview view (${descriptor.id})`);
 
 				registration.pendingShowArgs = [options, ...args];
-				return void executeCoreCommand(`${descriptor.id}.focus`, options);
+				return Promise.resolve(void executeCoreCommand(`${descriptor.id}.focus`, options));
 			},
 		} satisfies WebviewViewProxy;
 	}
@@ -210,14 +230,17 @@ export class WebviewsController implements Disposable {
 		},
 	})
 	registerWebviewPanel<State, SerializedState = State>(
-		command: Commands,
+		command: {
+			id: Commands;
+			options?: WebviewPanelsShowOptions;
+		},
 		descriptor: WebviewPanelDescriptor,
 		resolveProvider: (
 			container: Container,
 			controller: WebviewController<State, SerializedState>,
 		) => Promise<WebviewProvider<State, SerializedState>>,
 		canResolveProvider?: () => boolean | Promise<boolean>,
-	): WebviewPanelProxy {
+	): WebviewPanelsProxy {
 		const scope = getLogScope();
 
 		const registration: WebviewPanelRegistration<State, SerializedState> = { descriptor: descriptor };
@@ -228,10 +251,7 @@ export class WebviewsController implements Disposable {
 
 		let serializedPanel: WebviewPanel | undefined;
 
-		async function show(
-			options?: { column?: ViewColumn; preserveFocus?: boolean },
-			...args: unknown[]
-		): Promise<void> {
+		async function show(options?: WebviewPanelsShowOptions, ...args: unknown[]): Promise<void> {
 			if (canResolveProvider != null) {
 				if ((await canResolveProvider()) === false) return;
 			}
@@ -249,9 +269,19 @@ export class WebviewsController implements Disposable {
 				column = ViewColumn.Active;
 			}
 
-			let { controller } = registration;
+			let preserveInstance: string | boolean;
+			// eslint-disable-next-line prefer-const
+			({ preserveInstance, ...options } = { preserveInstance: true, ...options });
+
+			let controller: WebviewController<State, SerializedState, WebviewPanelDescriptor> | undefined;
+			if (!descriptor.allowMultipleInstances || preserveInstance === true) {
+				controller = getActiveOrFirstController(registration.controllers);
+			} else if (preserveInstance != null && typeof preserveInstance === 'string') {
+				controller = registration.controllers?.get(preserveInstance);
+			}
+
 			if (controller == null) {
-				let panel;
+				let panel: WebviewPanel;
 				if (serializedPanel != null) {
 					Logger.debug(scope, `Restoring webview panel (${descriptor.id})`);
 
@@ -282,23 +312,26 @@ export class WebviewsController implements Disposable {
 					container,
 					commandRegistrar,
 					descriptor,
+					descriptor.allowMultipleInstances ? uuid() : undefined,
 					panel,
 					resolveProvider,
 				);
-				registration.controller = controller;
+
+				registration.controllers ??= new Map();
+				registration.controllers.set(controller.instanceId, controller);
 
 				disposables.push(
 					controller.onDidDispose(() => {
 						Logger.debug(scope, `Disposing webview panel (${descriptor.id})`);
 
-						registration.controller = undefined;
+						registration.controllers?.delete(controller!.instanceId);
 					}),
 					controller,
 				);
 
 				await controller.show(true, options, ...args);
 			} else {
-				Logger.debug(scope, `Showing webview panel (${descriptor.id})`);
+				Logger.debug(scope, `Showing webview panel (${descriptor.id}, ${controller.instanceId}})`);
 				await controller.show(false, options, ...args);
 			}
 		}
@@ -309,9 +342,12 @@ export class WebviewsController implements Disposable {
 			// We probably need to separate state into actual "state" and all the data that is sent to the webview, e.g. for the Graph state might be the selected repo, selected sha, etc vs the entire data set to render the Graph
 			serializedPanel = panel;
 			if (state != null) {
-				await show({ column: panel.viewColumn, preserveFocus: true }, { state: state });
+				await show(
+					{ column: panel.viewColumn, preserveFocus: true, preserveInstance: false },
+					{ state: state },
+				);
 			} else {
-				await show({ column: panel.viewColumn, preserveFocus: true });
+				await show({ column: panel.viewColumn, preserveFocus: true, preserveInstance: false });
 			}
 		}
 
@@ -320,27 +356,111 @@ export class WebviewsController implements Disposable {
 			window.registerWebviewPanelSerializer(descriptor.id, {
 				deserializeWebviewPanel: deserializeWebviewPanel,
 			}),
-			registerCommand(command, (...args) => show(undefined, ...args), this),
+			registerCommand(
+				command.id,
+				(...args: unknown[]) => {
+					if (hasWebviewPanelShowOptions(args)) {
+						const [{ _type, ...opts }, ...rest] = args;
+						return show({ ...command.options, ...opts }, ...rest);
+					}
+
+					return show({ ...command.options }, ...args);
+				},
+				this,
+			),
 		);
 		this.disposables.push(disposable);
 		return {
 			id: descriptor.id,
-			get ready() {
-				return registration.controller?.ready ?? false;
+			get instances() {
+				if (!registration.controllers?.size) return [];
+
+				return map(registration.controllers.values(), c => convertToWebviewPanelProxy(c));
 			},
-			get visible() {
-				return registration.controller?.visible ?? false;
+			getActiveInstance: function () {
+				if (!registration.controllers?.size) return undefined;
+
+				const controller = find(registration.controllers.values(), c => c.active ?? false);
+				return controller != null ? convertToWebviewPanelProxy(controller) : undefined;
+			},
+			getActiveOrFirstInstance: function () {
+				const controller = getActiveOrFirstController(registration.controllers);
+				return controller != null ? convertToWebviewPanelProxy(controller) : undefined;
 			},
 			dispose: function () {
 				disposable.dispose();
 			},
-			close: () => void registration.controller?.parent.dispose(),
-			refresh: async force => registration.controller?.refresh(force),
 			show: show,
-		} satisfies WebviewPanelProxy;
+		} satisfies WebviewPanelsProxy;
 	}
+}
+
+interface WebviewPanelShowOptions {
+	column?: ViewColumn;
+	preserveFocus?: boolean;
+}
+
+interface WebviewPanelsShowOptions extends WebviewPanelShowOptions {
+	preserveInstance?: string | boolean;
+}
+
+export type WebviewPanelShowCommandArgs = [
+	WebviewPanelsShowOptions & { _type: 'WebviewPanelShowOptions' },
+	...args: unknown[],
+];
+
+interface WebviewViewShowOptions {
+	column?: never;
+	preserveFocus?: boolean;
+}
+
+export type WebviewShowOptions = WebviewPanelShowOptions | WebviewViewShowOptions;
+
+function getActiveOrFirstController<State, SerializedState>(
+	controllers: Map<string | undefined, WebviewController<State, SerializedState, WebviewPanelDescriptor>> | undefined,
+) {
+	if (!controllers?.size) return undefined;
+	if (controllers.size === 1) return first(controllers.values());
+
+	let firstController;
+	for (const controller of controllers.values()) {
+		if (controller.active) return controller;
+
+		firstController ??= controller;
+	}
+
+	return firstController;
+}
+
+function convertToWebviewPanelProxy<State, SerializedState>(
+	controller: WebviewController<State, SerializedState, WebviewPanelDescriptor>,
+): WebviewPanelProxy {
+	return {
+		id: controller.id,
+		instanceId: controller.instanceId,
+		ready: controller.ready,
+		active: controller.active ?? false,
+		visible: controller.visible,
+		close: function () {
+			controller.parent.dispose();
+		},
+		dispose: function () {
+			controller.dispose();
+		},
+		refresh: function (force?: boolean) {
+			return controller.refresh(force);
+		},
+		show: function (options?: WebviewPanelShowOptions, ...args: unknown[]) {
+			return controller.show(false, options, ...args);
+		},
+	};
 }
 
 export function isSerializedState<State>(o: unknown): o is { state: Partial<State> } {
 	return o != null && typeof o === 'object' && 'state' in o && o.state != null && typeof o.state === 'object';
+}
+
+function hasWebviewPanelShowOptions(args: unknown[]): args is WebviewPanelShowCommandArgs {
+	const [arg] = args;
+	return arg != null && typeof arg === 'object' && '_type' in arg && arg._type === 'WebviewPanelShowOptions';
 }
