@@ -753,13 +753,11 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private onThemeChanged(theme: ColorTheme) {
-		if (this._theme != null) {
-			if (
-				(isDarkTheme(theme) && isDarkTheme(this._theme)) ||
-				(isLightTheme(theme) && isLightTheme(this._theme))
-			) {
-				return;
-			}
+		if (
+			this._theme != null &&
+			((isDarkTheme(theme) && isDarkTheme(this._theme)) || (isLightTheme(theme) && isLightTheme(this._theme)))
+		) {
+			return;
 		}
 
 		this._theme = theme;
