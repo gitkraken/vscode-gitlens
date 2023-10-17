@@ -330,6 +330,11 @@ export class Container {
 		return this._accountAuthentication;
 	}
 
+	private readonly _accountView: WebviewViewProxy;
+	get accountView() {
+		return this._accountView;
+	}
+
 	private readonly _actionRunners: ActionRunners;
 	get actionRunners() {
 		return this._actionRunners;
@@ -396,6 +401,11 @@ export class Container {
 		return this._context.extensionMode === ExtensionMode.Development;
 	}
 
+	private readonly _deepLinks: DeepLinkService;
+	get deepLinks() {
+		return this._deepLinks;
+	}
+
 	@memoize()
 	get env(): Environment {
 		if (this.prereleaseOrDebugging) {
@@ -422,21 +432,6 @@ export class Container {
 		return this._fileHistoryView;
 	}
 
-	private readonly _git: GitProviderService;
-	get git() {
-		return this._git;
-	}
-
-	private readonly _uri: UriService;
-	get uri() {
-		return this._uri;
-	}
-
-	private readonly _deepLinks: DeepLinkService;
-	get deepLinks() {
-		return this._deepLinks;
-	}
-
 	private _focus: FocusService | undefined;
 	get focus() {
 		if (this._focus == null) {
@@ -444,6 +439,11 @@ export class Container {
 		}
 
 		return this._focus;
+	}
+
+	private readonly _git: GitProviderService;
+	get git() {
+		return this._git;
 	}
 
 	private _github: Promise<import('./plus/github/github').GitHubApi | undefined> | undefined;
@@ -502,11 +502,6 @@ export class Container {
 		return this._homeView;
 	}
 
-	private readonly _accountView: WebviewViewProxy;
-	get accountView() {
-		return this._accountView;
-	}
-
 	@memoize()
 	get id() {
 		return this._context.extension.id;
@@ -549,6 +544,14 @@ export class Container {
 	private readonly _lineTracker: GitLineTracker;
 	get lineTracker() {
 		return this._lineTracker;
+	}
+
+	private _mode: ModeConfig | undefined;
+	get mode() {
+		if (this._mode == null) {
+			this._mode = configuration.get('modes')?.[configuration.get('mode.active')];
+		}
+		return this._mode;
 	}
 
 	private readonly _prerelease;
@@ -637,6 +640,11 @@ export class Container {
 		return this._tracker;
 	}
 
+	private readonly _uri: UriService;
+	get uri() {
+		return this._uri;
+	}
+
 	private readonly _usage: UsageTracker;
 	get usage(): UsageTracker {
 		return this._usage;
@@ -676,14 +684,6 @@ export class Container {
 	private readonly _worktreesView: WorktreesView;
 	get worktreesView() {
 		return this._worktreesView;
-	}
-
-	private _mode: ModeConfig | undefined;
-	get mode() {
-		if (this._mode == null) {
-			this._mode = configuration.get('modes')?.[configuration.get('mode.active')];
-		}
-		return this._mode;
 	}
 
 	private ensureModeApplied() {
