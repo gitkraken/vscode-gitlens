@@ -217,7 +217,9 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		return this._selection?.[0];
 	}
 
+	private _discovering: Promise<number | undefined> | undefined;
 	private readonly _disposable: Disposable;
+	private _etag?: number;
 	private _etagSubscription?: number;
 	private _etagRepository?: number;
 	private _firstSelection = true;
@@ -261,7 +263,16 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
-			this.container.git.onDidChangeRepositories(() => void this.host.refresh(true)),
+			this.container.git.onDidChangeRepositories(async () => {
+				if (this._etag !== this.container.git.etag) {
+					if (this._discovering != null) {
+						this._etag = await this._discovering;
+						if (this._etag === this.container.git.etag) return;
+					}
+
+					void this.host.refresh(true);
+				}
+			}),
 			window.onDidChangeActiveColorTheme(this.onThemeChanged, this),
 			{
 				dispose: () => {
@@ -283,6 +294,15 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		...args: [Repository, { ref: GitReference }, { state: Partial<State> }] | unknown[]
 	): Promise<boolean> {
 		this._firstSelection = true;
+
+		this._etag = this.container.git.etag;
+		if (this.container.git.isDiscoveringRepositories) {
+			this._discovering = this.container.git.isDiscoveringRepositories.then(r => {
+				this._discovering = undefined;
+				return r;
+			});
+			this._etag = await this._discovering;
+		}
 
 		const [arg] = args;
 		if (isRepository(arg)) {
@@ -508,10 +528,10 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 	}
 
 	onFocusChanged(focused: boolean): void {
+		this._showActiveSelectionDetailsDebounced?.cancel();
 		void this.notifyDidChangeFocus(focused);
 
 		if (!focused || this.activeSelection == null || !this.container.commitDetailsView.visible) {
-			this._showActiveSelectionDetailsDebounced?.cancel();
 			return;
 		}
 
@@ -810,6 +830,8 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 				);
 			}
 		} else if (e.type === 'row' && e.row) {
+			this._showActiveSelectionDetailsDebounced?.cancel();
+
 			const commit = this.getRevisionReference(this.repository?.path, e.row.id, e.row.type);
 			if (commit != null) {
 				this.container.events.fire(
@@ -1166,11 +1188,13 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		undefined;
 
 	private onSelectionChanged(e: UpdateSelectionParams) {
+		this._showActiveSelectionDetailsDebounced?.cancel();
+
 		const item = e.selection[0];
 		this.setSelectedRows(item?.id);
 
 		if (this._fireSelectionChangedDebounced == null) {
-			this._fireSelectionChangedDebounced = debounce(this.fireSelectionChanged.bind(this), 250);
+			this._fireSelectionChangedDebounced = debounce(this.fireSelectionChanged.bind(this), 50);
 		}
 
 		this._fireSelectionChangedDebounced(item?.id, item?.type);
@@ -1900,7 +1924,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		const columnSettings = this.getColumnSettings(columns);
 
 		const dataPromise = this.container.git.getCommitsForGraph(
-			this.repository.path,
+			this.repository.uri,
 			uri => this.host.asWebviewUri(uri),
 			{
 				include: {
