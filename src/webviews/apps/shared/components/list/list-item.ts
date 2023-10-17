@@ -341,7 +341,7 @@ export class ListItem extends LitElement {
 				class="checkbox__input"
 				id="checkbox"
 				type="checkbox"
-				?checked=${this.checked}
+				.checked=${this.checked}
 				?disabled=${this.disableCheck}
 				@change=${this.onCheckedChange}
 				@click=${this.onCheckedClick} /><code-icon icon="check" size="14" class="checkbox__check"></code-icon
