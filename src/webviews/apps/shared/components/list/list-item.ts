@@ -162,6 +162,45 @@ export class ListItem extends LitElement {
 			display: flex;
 			align-items: center;
 		}
+
+		.checkbox {
+			display: inline-flex;
+			width: 1.6rem;
+			aspect-ratio: 1 / 1;
+			text-align: center;
+			background: var(--vscode-checkbox-background);
+			border: 1px solid var(--vscode-checkbox-border);
+			border-radius: 3px;
+			overflow: hidden;
+		}
+
+		.checkbox:has(:checked) {
+			color: var(--vscode-inputOption-activeForeground);
+			border-color: var(--vscode-inputOption-activeBorder);
+			background-color: var(--vscode-inputOption-activeBackground);
+		}
+
+		.checkbox__input {
+			position: absolute;
+			appearance: none;
+			width: 1.6rem;
+			aspect-ratio: 1 / 1;
+			margin: 0;
+			cursor: pointer;
+		}
+
+		.checkbox__check {
+			width: 1.6rem;
+			aspect-ratio: 1 / 1;
+			opacity: 0;
+			transition: opacity 0.1s linear;
+			color: var(--vscode-checkbox-foreground);
+			pointer-events: none;
+		}
+
+		.checkbox__input:checked + .checkbox__check {
+			opacity: 1;
+		}
 	`;
 
 	@property({ type: Boolean, reflect: true }) tree = false;
@@ -284,14 +323,16 @@ export class ListItem extends LitElement {
 		if (!this.checkable) {
 			return nothing;
 		}
-		return html`<input
-			id="checkbox"
-			type="checkbox"
-			?checked=${this.checked}
-			?disabled=${this.disableCheck}
-			@change=${this.onCheckedChange}
-			@click=${this.onCheckedClick}
-		/>`;
+		return html`<span class="checkbox"
+			><input
+				class="checkbox__input"
+				id="checkbox"
+				type="checkbox"
+				?checked=${this.checked}
+				?disabled=${this.disableCheck}
+				@change=${this.onCheckedChange}
+				@click=${this.onCheckedClick} /><code-icon icon="check" size="14" class="checkbox__check"></code-icon
+		></span>`;
 	}
 
 	override render() {
@@ -335,5 +376,7 @@ export class ListItem extends LitElement {
 		e.preventDefault();
 		e.stopPropagation();
 		this.checked = (e.target as HTMLInputElement).checked;
+
+		this.dispatchEvent(new CustomEvent('list-item-checked', { detail: { checked: this.checked } }));
 	}
 }

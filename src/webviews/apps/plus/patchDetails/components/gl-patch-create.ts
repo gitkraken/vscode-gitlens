@@ -2,7 +2,7 @@ import { defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-
 import { html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { Change, State } from '../../../../../plus/webviews/patchDetails/protocol';
+import type { Change, RepoWipChangeSet, State } from '../../../../../plus/webviews/patchDetails/protocol';
 import type { Serialized } from '../../../../../system/serialize';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
@@ -108,6 +108,8 @@ export class GlPatchCreate extends LitElement {
 				.repoChanges=${this.repoChanges}
 				.preferences=${this.state?.preferences}
 				.isUncommitted=${true}
+				@changeset-repo-checked=${this.onRepoChecked}
+				@changeset-unstaged-checked=${this.onUnstagedChecked}
 			>
 			</gl-create-details>
 		`;
@@ -151,6 +153,44 @@ export class GlPatchCreate extends LitElement {
 		// 	}),
 		// };
 		// this.createPatch([change]);
+	}
+
+	private getRepoChangeSet(repoUri: string) {
+		if (this.state?.create == null) {
+			return [];
+		}
+
+		for (const [id, changeSet] of Object.entries(this.state.create)) {
+			if (changeSet.repoUri !== repoUri) {
+				continue;
+			}
+
+			return [id, changeSet];
+		}
+
+		return [];
+	}
+
+	private onRepoChecked(e: CustomEvent<{ repoUri: string; checked: boolean }>) {
+		const [id, changeSet] = this.getRepoChangeSet(e.detail.repoUri);
+
+		if ((changeSet as RepoWipChangeSet).checked === e.detail.checked) {
+			return;
+		}
+
+		(changeSet as RepoWipChangeSet).checked = e.detail.checked;
+		this.requestUpdate('state');
+	}
+
+	private onUnstagedChecked(e: CustomEvent<{ repoUri: string; checked: boolean | 'staged' }>) {
+		const [id, changeSet] = this.getRepoChangeSet(e.detail.repoUri);
+
+		if ((changeSet as RepoWipChangeSet).checked === e.detail.checked) {
+			return;
+		}
+
+		(changeSet as RepoWipChangeSet).checked = e.detail.checked;
+		this.requestUpdate('state');
 	}
 
 	private onTitleInput(e: InputEvent) {

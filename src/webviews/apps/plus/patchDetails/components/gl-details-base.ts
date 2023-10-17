@@ -1,7 +1,6 @@
 import type { TemplateResult } from 'lit';
 import { html, LitElement } from 'lit';
 import { property } from 'lit/decorators.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
 import type { Change, Preferences, RepoChangeSet } from '../../../../../plus/webviews/patchDetails/protocol';
 import type { HierarchicalItem } from '../../../../../system/array';
@@ -31,7 +30,7 @@ export class GlDetailsBase extends LitElement {
 		return this.repoChanges?.some(c => c.change?.files != null) ?? false;
 	}
 
-	private renderFileList(mode: Mode, files: Files) {
+	private renderFileList(mode: Mode, files: Files, repoState?: { repoUri: string; checked: boolean | 'staged' }) {
 		let items;
 
 		if (this.isUncommitted) {
@@ -39,8 +38,9 @@ export class GlDetailsBase extends LitElement {
 
 			const staged = files.filter(f => f.staged);
 			if (staged.length) {
+				const isChecked = repoState!.checked !== false;
 				items.push(
-					html`<list-item level="2" tree branch hide-icon checkable checked disable-check
+					html`<list-item level="2" tree branch hide-icon checkable .checked=${isChecked} disable-check
 						>Staged Changes</list-item
 					>`,
 				);
@@ -52,8 +52,19 @@ export class GlDetailsBase extends LitElement {
 
 			const unstaged = files.filter(f => !f.staged);
 			if (unstaged.length) {
+				const isChecked = repoState!.checked === true;
 				items.push(
-					html`<list-item level="2" tree branch hide-icon checkable checked>Unstaged Changes</list-item>`,
+					html`<list-item
+						level="2"
+						tree
+						branch
+						hide-icon
+						checkable
+						.checked=${isChecked}
+						@list-item-checked=${(e: CustomEvent<{ checked: boolean }>) =>
+							this.onUnstagedChecked(e, repoState!.repoUri)}
+						>Unstaged Changes</list-item
+					>`,
 				);
 
 				for (const f of unstaged) {
@@ -67,7 +78,7 @@ export class GlDetailsBase extends LitElement {
 		return items;
 	}
 
-	private renderFileTree(mode: Mode, files: Files) {
+	private renderFileTree(mode: Mode, files: Files, repoState?: { repoUri: string; checked: boolean | 'staged' }) {
 		const compact = this.preferences?.files?.compact ?? true;
 
 		let items;
@@ -77,8 +88,9 @@ export class GlDetailsBase extends LitElement {
 
 			const staged = files.filter(f => f.staged);
 			if (staged.length) {
+				const isChecked = repoState!.checked !== false;
 				items.push(
-					html`<list-item level="2" tree branch hide-icon checkable checked disable-check
+					html`<list-item level="2" tree branch hide-icon checkable .checked=${isChecked} disable-check
 						>Staged Changes</list-item
 					>`,
 				);
@@ -87,8 +99,19 @@ export class GlDetailsBase extends LitElement {
 
 			const unstaged = files.filter(f => !f.staged);
 			if (unstaged.length) {
+				const isChecked = repoState!.checked === true;
 				items.push(
-					html`<list-item level="2" tree branch hide-icon checkable checked>Unstaged Changes</list-item>`,
+					html`<list-item
+						level="2"
+						tree
+						branch
+						hide-icon
+						checkable
+						.checked=${isChecked}
+						@list-item-checked=${(e: CustomEvent<{ checked: boolean }>) =>
+							this.onUnstagedChecked(e, repoState!.repoUri)}
+						>Unstaged Changes</list-item
+					>`,
 				);
 				items.push(...this.renderFileSubtree(mode, unstaged, 3, compact));
 			}
@@ -144,8 +167,20 @@ export class GlDetailsBase extends LitElement {
 		const items: (TemplateResult<1> | undefined)[] = [];
 
 		for (const repoChange of repoChanges) {
-			const { repoName, repoUri, change } = repoChange;
-			items.push(html`<list-item tree branch hide-icon checkable checked>${repoName}</list-item>`);
+			const { repoName, repoUri, change, checked } = repoChange;
+			const checkedWithDefault = checked ?? false;
+			const isChecked = checkedWithDefault !== false;
+			items.push(
+				html`<list-item
+					tree
+					branch
+					hide-icon
+					checkable
+					.checked=${isChecked}
+					@list-item-checked=${(e: CustomEvent<{ checked: boolean }>) => this.onRepositoryChecked(e, repoUri)}
+					>${repoName}</list-item
+				>`,
+			);
 
 			if (change == null) {
 				items.push(html`<list-item level="2" hide-icon>Loading...</list-item>`);
@@ -167,9 +202,13 @@ export class GlDetailsBase extends LitElement {
 				}
 			}
 			if (isTree) {
-				items.push(...this.renderFileTree(repoChange.type, files));
+				items.push(
+					...this.renderFileTree(repoChange.type, files, { repoUri: repoUri, checked: checkedWithDefault }),
+				);
 			} else {
-				items.push(...this.renderFileList(repoChange.type, files));
+				items.push(
+					...this.renderFileList(repoChange.type, files, { repoUri: repoUri, checked: checkedWithDefault }),
+				);
 			}
 		}
 
@@ -307,6 +346,27 @@ export class GlDetailsBase extends LitElement {
 
 	protected override createRenderRoot() {
 		return this;
+	}
+
+	onRepositoryChecked(e: CustomEvent<{ checked: boolean }>, repoUri: string) {
+		console.log('onRepositoryChecked', repoUri, e.detail.checked);
+
+		this.dispatchEvent(
+			new CustomEvent<{ repoUri: string; checked: boolean }>('changeset-repo-checked', {
+				detail: { repoUri: repoUri, checked: e.detail.checked },
+			}),
+		);
+	}
+
+	onUnstagedChecked(e: CustomEvent<{ checked: boolean }>, repoUri: string) {
+		const checked = e.detail.checked === true ? true : 'staged';
+		console.log('onUnstagedChecked', repoUri, checked);
+
+		this.dispatchEvent(
+			new CustomEvent<{ repoUri: string; checked: boolean | 'staged' }>('changeset-unstaged-checked', {
+				detail: { repoUri: repoUri, checked: checked },
+			}),
+		);
 	}
 }
 
