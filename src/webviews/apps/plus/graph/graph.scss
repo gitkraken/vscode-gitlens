@@ -414,18 +414,11 @@ button:not([disabled]),
 .columns-settings {
 	--column-button-height: 19px;
 
-	position: absolute;
-	top: 2px;
-	right: 0 !important;
-	z-index: 2;
-
 	appearance: none;
 	font-family: inherit;
 	background-color: transparent;
 	border: none;
 	color: var(--color-graph-text-disabled, hsla(0, 0%, 100%, 0.4));
-	margin: 0;
-	padding: 0 2px;
 	height: var(--column-button-height);
 	cursor: pointer;
 	background-color: var(--color-graph-actionbar-background);
@@ -944,9 +937,7 @@ button:not([disabled]),
 	}
 }
 
-.graph-header {
-	padding-top: 1px;
-
+.gk-graph .graph-header {
 	& .resizable-handle.horizontal {
 		--sash-size: 4px;
 		--sash-hover-size: 4px;
@@ -988,6 +979,10 @@ button:not([disabled]),
 		}
 	}
 
+	.columns-btn {
+		margin-top: 0.1rem;
+	}
+
 	.button {
 		background-color: var(--color-graph-actionbar-background);
 		color: var(--color-graph-text-disabled, hsla(0deg, 0%, 100%, 0.4));
@@ -1010,8 +1005,6 @@ button:not([disabled]),
 	}
 
 	.graph-icon {
-		position: relative;
-		top: -2px;
 		color: var(--color-graph-text-disabled, hsla(0, 0%, 100%, 0.4));
 	}
 }
