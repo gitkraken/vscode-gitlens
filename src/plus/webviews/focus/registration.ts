@@ -1,12 +1,13 @@
 import { Disposable, ViewColumn } from 'vscode';
 import { Commands } from '../../../constants';
 import { registerCommand } from '../../../system/command';
+import { configuration } from '../../../system/configuration';
 import type { WebviewPanelsProxy, WebviewsController } from '../../../webviews/webviewsController';
 import type { State } from './protocol';
 
 export function registerFocusWebviewPanel(controller: WebviewsController) {
 	return controller.registerWebviewPanel<State>(
-		{ id: Commands.ShowFocusPage },
+		{ id: Commands.ShowFocusPage, options: { preserveInstance: false } },
 		{
 			id: 'gitlens.focus',
 			fileName: 'focus.html',
@@ -20,6 +21,7 @@ export function registerFocusWebviewPanel(controller: WebviewsController) {
 				retainContextWhenHidden: true,
 				enableFindWidget: true,
 			},
+			allowMultipleInstances: configuration.get('focus.experimental.allowMultipleInstances'),
 		},
 		async (container, host) => {
 			const { FocusWebviewProvider } = await import(/* webpackChunkName: "focus" */ './focusWebview');

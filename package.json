@@ -2476,14 +2476,35 @@
 				}
 			},
 			{
+				"id": "focus",
+				"title": "Focus View",
+				"order": 106,
+				"properties": {
+					"gitlens.focus.experimental.allowMultipleInstances": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Focus View_",
+						"scope": "window",
+						"order": 10
+					}
+				}
+			},
+			{
 				"id": "visual-history",
 				"title": "Visual File History",
 				"order": 106,
 				"properties": {
+					"gitlens.visualHistory.experimental.allowMultipleInstances": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Visual File History_ in the editor area",
+						"scope": "window",
+						"order": 10
+					},
 					"gitlens.visualHistory.queryLimit": {
 						"type": "number",
 						"default": 20,
-						"markdownDescription": "Specifies the limit on the how many commits can be queried for statistics in the Visual File History, because of rate limits. Only applies to virtual workspaces.",
+						"markdownDescription": "Specifies the limit on the how many commits can be queried for statistics in the _Visual File History_, because of rate limits. Only applies to virtual workspaces.",
 						"scope": "window"
 					}
 				}
