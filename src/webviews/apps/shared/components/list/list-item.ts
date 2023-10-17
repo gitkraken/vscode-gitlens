@@ -164,14 +164,16 @@ export class ListItem extends LitElement {
 		}
 
 		.checkbox {
+			position: relative;
 			display: inline-flex;
 			width: 1.6rem;
 			aspect-ratio: 1 / 1;
 			text-align: center;
+			color: var(--vscode-checkbox-foreground);
 			background: var(--vscode-checkbox-background);
 			border: 1px solid var(--vscode-checkbox-border);
-			border-radius: 3px;
-			overflow: hidden;
+			border-radius: 0.3rem;
+			// overflow: hidden;
 		}
 
 		.checkbox:has(:checked) {
@@ -180,13 +182,24 @@ export class ListItem extends LitElement {
 			background-color: var(--vscode-inputOption-activeBackground);
 		}
 
+		.checkbox:has(:disabled) {
+			opacity: 0.4;
+		}
+
 		.checkbox__input {
 			position: absolute;
+			top: 0;
+			left: 0;
 			appearance: none;
-			width: 1.6rem;
+			width: 1.4rem;
 			aspect-ratio: 1 / 1;
 			margin: 0;
 			cursor: pointer;
+			border-radius: 0.3rem;
+		}
+
+		.checkbox__input:disabled {
+			cursor: default;
 		}
 
 		.checkbox__check {
