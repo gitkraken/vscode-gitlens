@@ -2465,6 +2465,13 @@
 						"markdownDescription": "Specifies additional markers to show on the minimap in the _Commit Graph_",
 						"scope": "window",
 						"order": 102
+					},
+					"gitlens.graph.experimental.allowMultipleInstances": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Commit Graph_ in the editor area",
+						"scope": "window",
+						"order": 110
 					}
 				}
 			},

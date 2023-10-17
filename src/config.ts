@@ -321,6 +321,9 @@ export interface GraphConfig {
 	readonly dateStyle: DateStyle | null;
 	readonly defaultItemLimit: number;
 	readonly dimMergeCommits: boolean;
+	readonly experimental: {
+		allowMultipleInstances: boolean;
+	};
 	readonly minimap: {
 		readonly enabled: boolean;
 		readonly dataType: 'commits' | 'lines';
