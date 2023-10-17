@@ -19,7 +19,7 @@ import type { ShowInCommitGraphCommandArgs, State } from './protocol';
 
 export function registerGraphWebviewPanel(controller: WebviewsController) {
 	return controller.registerWebviewPanel<State>(
-		{ id: Commands.ShowGraphPage },
+		{ id: Commands.ShowGraphPage, options: { preserveInstance: false } },
 		{
 			id: 'gitlens.graph',
 			fileName: 'graph.html',
@@ -33,6 +33,7 @@ export function registerGraphWebviewPanel(controller: WebviewsController) {
 				retainContextWhenHidden: true,
 				enableFindWidget: false,
 			},
+			allowMultipleInstances: configuration.get('graph.experimental.allowMultipleInstances'),
 		},
 		async (container, host) => {
 			const { GraphWebviewProvider } = await import(/* webpackChunkName: "graph" */ './graphWebview');
@@ -66,11 +67,22 @@ export function registerGraphWebviewCommands(container: Container, panels: Webvi
 		registerCommand(Commands.ShowGraph, (...args: unknown[]) =>
 			configuration.get('graph.layout') === 'panel'
 				? executeCommand(Commands.ShowGraphView, ...args)
-				: executeCommand<WebviewPanelShowCommandArgs>(Commands.ShowGraphPage, undefined, ...args),
+				: executeCommand<WebviewPanelShowCommandArgs>(
+						Commands.ShowGraphPage,
+						{ _type: 'WebviewPanelShowOptions', preserveInstance: true },
+						undefined,
+						...args,
+				  ),
 		),
 		registerCommand(`${panels.id}.switchToEditorLayout`, async () => {
 			await configuration.updateEffective('graph.layout', 'editor');
-			queueMicrotask(() => void executeCommand<WebviewPanelShowCommandArgs>(Commands.ShowGraphPage));
+			queueMicrotask(
+				() =>
+					void executeCommand<WebviewPanelShowCommandArgs>(Commands.ShowGraphPage, {
+						_type: 'WebviewPanelShowOptions',
+						preserveInstance: true,
+					}),
+			);
 		}),
 		registerCommand(`${panels.id}.switchToPanelLayout`, async () => {
 			await configuration.updateEffective('graph.layout', 'panel');
@@ -111,7 +123,8 @@ export function registerGraphWebviewCommands(container: Container, panels: Webvi
 				if (configuration.get('graph.layout') === 'panel') {
 					void container.graphView.show({ preserveFocus: preserveFocus }, args);
 				} else {
-					void panels.show({ preserveFocus: preserveFocus }, args);
+					const active = panels.getActiveInstance()?.instanceId;
+					void panels.show({ preserveFocus: preserveFocus, preserveInstance: active ?? true }, args);
 				}
 			},
 		),
