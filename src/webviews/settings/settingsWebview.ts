@@ -47,8 +47,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State> {
 		}
 
 		return {
-			webviewId: this.host.id,
-			timestamp: Date.now(),
+			...this.host.baseWebviewState,
 			version: this.container.version,
 			// Make sure to get the raw config, not from the container which has the modes mixed in
 			config: configuration.getAll(true),

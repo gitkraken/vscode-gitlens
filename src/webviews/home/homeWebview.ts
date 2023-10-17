@@ -48,8 +48,7 @@ export class HomeWebviewProvider implements WebviewProvider<State> {
 
 	private getState(): State {
 		return {
-			webviewId: this.host.id,
-			timestamp: Date.now(),
+			...this.host.baseWebviewState,
 			repositories: this.getRepositoriesState(),
 			webroot: this.host.getWebRoot(),
 		};

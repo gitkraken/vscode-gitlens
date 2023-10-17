@@ -223,7 +223,6 @@ export const enum Commands {
 	RefreshFocus = 'gitlens.focus.refresh',
 	RefreshGraph = 'gitlens.graph.refresh',
 	RefreshHover = 'gitlens.refreshHover',
-	RefreshTimelinePage = 'gitlens.timeline.refresh',
 	ResetAvatarCache = 'gitlens.resetAvatarCache',
 	ResetAIKey = 'gitlens.resetAIKey',
 	ResetSuppressedWarnings = 'gitlens.resetSuppressedWarnings',

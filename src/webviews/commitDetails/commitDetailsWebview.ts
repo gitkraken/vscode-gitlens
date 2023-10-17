@@ -553,9 +553,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		}
 
 		const state = serialize<State>({
+			...this.host.baseWebviewState,
 			mode: current.mode,
-			webviewId: this.host.id,
-			timestamp: Date.now(),
 			commit: details,
 			navigationStack: current.navigationStack,
 			pinned: current.pinned,

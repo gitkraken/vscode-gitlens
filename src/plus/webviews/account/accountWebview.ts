@@ -87,8 +87,7 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 		const subscriptionResult = await this.getSubscription(subscription);
 
 		return {
-			webviewId: this.host.id,
-			timestamp: Date.now(),
+			...this.host.baseWebviewState,
 			webroot: this.host.getWebRoot(),
 			subscription: subscriptionResult.subscription,
 			avatar: subscriptionResult.avatar,

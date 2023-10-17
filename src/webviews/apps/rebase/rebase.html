@@ -11,7 +11,11 @@
 		</style>
 	</head>
 
-	<body class="scrollable preload" data-placement="#{placement}" data-vscode-context='{ "webview": "#{webviewId}" }'>
+	<body
+		class="scrollable preload"
+		data-placement="#{placement}"
+		data-vscode-context='{ "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
+	>
 		<div class="container">
 			<header>
 				<h2>GitLens Interactive Rebase</h2>

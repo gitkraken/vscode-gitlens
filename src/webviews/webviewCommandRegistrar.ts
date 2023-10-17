@@ -19,6 +19,7 @@ export class WebviewCommandRegistrar implements Disposable {
 	registerCommand<T extends WebviewProvider<any>>(
 		provider: T,
 		id: string,
+		instanceId: string | undefined,
 		command: string,
 		callback: CommandCallback,
 	) {
@@ -35,11 +36,11 @@ export class WebviewCommandRegistrar implements Disposable {
 							return;
 						}
 
-						const handler = handlers.get(item.webview);
+						const key = item.webviewInstance ? `${item.webview}:${item.webviewInstance}` : item.webview;
+
+						const handler = handlers.get(key);
 						if (handler == null) {
-							throw new Error(
-								`Unable to find Command '${command}' registration for Webview '${item.webview}'`,
-							);
+							throw new Error(`Unable to find Command '${command}' registration for Webview '${key}'`);
 						}
 
 						handler.callback.call(handler.thisArg, item);
@@ -51,15 +52,17 @@ export class WebviewCommandRegistrar implements Disposable {
 			this._commandRegistrations.set(command, registration);
 		}
 
-		if (registration.handlers.has(id)) {
-			throw new Error(`Command '${command}' has already been registered for Webview '${id}'`);
+		const key = instanceId ? `${id}:${instanceId}` : id;
+
+		if (registration.handlers.has(key)) {
+			throw new Error(`Command '${command}' has already been registered for Webview '${key}'`);
 		}
 
-		registration.handlers.set(id, { callback: callback, thisArg: provider });
+		registration.handlers.set(key, { callback: callback, thisArg: provider });
 
 		return {
 			dispose: () => {
-				registration!.handlers.delete(id);
+				registration!.handlers.delete(key);
 				if (registration!.handlers.size === 0) {
 					this._commandRegistrations.delete(command);
 					registration!.subscription.dispose();

@@ -1,10 +1,7 @@
-import type { WebviewIds, WebviewViewIds } from '../../constants';
+import type { WebviewState } from '../protocol';
 import { IpcNotificationType } from '../protocol';
 
-export interface State {
-	webviewId: WebviewIds | WebviewViewIds;
-	timestamp: number;
-
+export interface State extends WebviewState {
 	repositories: DidChangeRepositoriesParams;
 	webroot?: string;
 }

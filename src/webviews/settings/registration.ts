@@ -1,12 +1,12 @@
 import { Disposable, ViewColumn } from 'vscode';
 import { Commands } from '../../constants';
 import { registerCommand } from '../../system/command';
-import type { WebviewPanelProxy, WebviewsController } from '../webviewsController';
+import type { WebviewPanelsProxy, WebviewsController } from '../webviewsController';
 import type { State } from './protocol';
 
 export function registerSettingsWebviewPanel(controller: WebviewsController) {
 	return controller.registerWebviewPanel<State>(
-		Commands.ShowSettingsPage,
+		{ id: Commands.ShowSettingsPage },
 		{
 			id: 'gitlens.settings',
 			fileName: 'settings.html',
@@ -28,7 +28,7 @@ export function registerSettingsWebviewPanel(controller: WebviewsController) {
 	);
 }
 
-export function registerSettingsWebviewCommands(webview: WebviewPanelProxy) {
+export function registerSettingsWebviewCommands(panels: WebviewPanelsProxy) {
 	return Disposable.from(
 		...[
 			Commands.ShowSettingsPageAndJumpToBranchesView,
@@ -53,7 +53,7 @@ export function registerSettingsWebviewCommands(webview: WebviewPanelProxy) {
 				[, anchor] = match;
 			}
 
-			return registerCommand(c, (...args: any[]) => void webview.show(undefined, anchor, ...args));
+			return registerCommand(c, (...args: any[]) => void panels.show(undefined, anchor, ...args));
 		}),
 	);
 }

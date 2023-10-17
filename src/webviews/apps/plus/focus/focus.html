@@ -20,7 +20,11 @@
 		</style>
 	</head>
 
-	<body class="preload" data-placement="#{placement}" data-vscode-context='{ "webview": "#{webviewId}" }'>
+	<body
+		class="preload"
+		data-placement="#{placement}"
+		data-vscode-context='{ "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
+	>
 		<gl-focus-app id="app"></gl-focus-app>
 		#{endOfBody}
 	</body>

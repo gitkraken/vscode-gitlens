@@ -27,14 +27,18 @@ import { ServerConnection } from './plus/gk/serverConnection';
 import { IntegrationAuthenticationService } from './plus/integrationAuthentication';
 import { SubscriptionService } from './plus/subscription/subscriptionService';
 import { registerAccountWebviewView } from './plus/webviews/account/registration';
-import { registerFocusWebviewPanel } from './plus/webviews/focus/registration';
+import { registerFocusWebviewCommands, registerFocusWebviewPanel } from './plus/webviews/focus/registration';
 import {
 	registerGraphWebviewCommands,
 	registerGraphWebviewPanel,
 	registerGraphWebviewView,
 } from './plus/webviews/graph/registration';
 import { GraphStatusBarController } from './plus/webviews/graph/statusbar';
-import { registerTimelineWebviewPanel, registerTimelineWebviewView } from './plus/webviews/timeline/registration';
+import {
+	registerTimelineWebviewCommands,
+	registerTimelineWebviewPanel,
+	registerTimelineWebviewView,
+} from './plus/webviews/timeline/registration';
 import { scheduleAddMissingCurrentWorkspaceRepos, WorkspacesService } from './plus/workspaces/workspacesService';
 import { StatusBarController } from './statusbar/statusBarController';
 import { executeCommand } from './system/command';
@@ -73,7 +77,7 @@ import {
 import { registerHomeWebviewView } from './webviews/home/registration';
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor';
 import { registerSettingsWebviewCommands, registerSettingsWebviewPanel } from './webviews/settings/registration';
-import type { WebviewPanelProxy, WebviewViewProxy } from './webviews/webviewsController';
+import type { WebviewViewProxy } from './webviews/webviewsController';
 import { WebviewsController } from './webviews/webviewsController';
 import { registerWelcomeWebviewPanel } from './webviews/welcome/registration';
 
@@ -220,20 +224,29 @@ export class Container {
 		this._disposables.push((this._codeLensController = new GitCodeLensController(this)));
 
 		this._disposables.push((this._webviews = new WebviewsController(this)));
-		this._disposables.push(registerTimelineWebviewPanel(this._webviews));
-		this._disposables.push((this._timelineView = registerTimelineWebviewView(this._webviews)));
 
-		this._disposables.push((this._graphPanel = registerGraphWebviewPanel(this._webviews)));
-		this._disposables.push(registerGraphWebviewCommands(this, this._graphPanel));
+		const graphPanels = registerGraphWebviewPanel(this._webviews);
+		this._disposables.push(graphPanels);
+		this._disposables.push(registerGraphWebviewCommands(this, graphPanels));
 		this._disposables.push((this._graphView = registerGraphWebviewView(this._webviews)));
 		this._disposables.push(new GraphStatusBarController(this));
 
-		const settingsWebviewPanel = registerSettingsWebviewPanel(this._webviews);
-		this._disposables.push(settingsWebviewPanel);
-		this._disposables.push(registerSettingsWebviewCommands(settingsWebviewPanel));
-		this._disposables.push(registerWelcomeWebviewPanel(this._webviews));
+		const focusPanels = registerFocusWebviewPanel(this._webviews);
+		this._disposables.push(focusPanels);
+		this._disposables.push(registerFocusWebviewCommands(focusPanels));
+
+		const timelinePanels = registerTimelineWebviewPanel(this._webviews);
+		this._disposables.push(timelinePanels);
+		this._disposables.push(registerTimelineWebviewCommands(timelinePanels));
+		this._disposables.push((this._timelineView = registerTimelineWebviewView(this._webviews)));
+
 		this._disposables.push((this._rebaseEditor = new RebaseEditorProvider(this)));
-		this._disposables.push(registerFocusWebviewPanel(this._webviews));
+
+		const settingsPanels = registerSettingsWebviewPanel(this._webviews);
+		this._disposables.push(settingsPanels);
+		this._disposables.push(registerSettingsWebviewCommands(settingsPanels));
+
+		this._disposables.push(registerWelcomeWebviewPanel(this._webviews));
 
 		this._disposables.push(new ViewFileDecorationProvider());
 
@@ -491,7 +504,6 @@ export class Container {
 		return this._graphDetailsView;
 	}
 
-	private readonly _graphPanel: WebviewPanelProxy;
 	private readonly _graphView: WebviewViewProxy;
 	get graphView() {
 		return this._graphView;

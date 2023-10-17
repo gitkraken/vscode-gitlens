@@ -24,7 +24,7 @@ import type { GitWorktree } from '../../../git/models/worktree';
 import { getWorktreeForBranch } from '../../../git/models/worktree';
 import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
 import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
-import { executeCommand, registerCommand } from '../../../system/command';
+import { executeCommand } from '../../../system/command';
 import { debug } from '../../../system/decorators/log';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
@@ -113,10 +113,6 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 
 	dispose() {
 		this._disposable.dispose();
-	}
-
-	registerCommands(): Disposable[] {
-		return [registerCommand(Commands.RefreshFocus, () => this.host.refresh(true))];
 	}
 
 	onMessageReceived(e: IpcMessage) {
@@ -433,7 +429,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 
 	@debug()
 	private async getState(force?: boolean, deferState?: boolean): Promise<State> {
-		const webviewId = this.host.id;
+		const baseState = this.host.baseWebviewState;
 
 		this._etag = this.container.git.etag;
 		if (this.container.git.isDiscoveringRepositories) {
@@ -447,8 +443,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		const access = await this.getAccess(force);
 		if (access.allowed !== true) {
 			return {
-				webviewId: webviewId,
-				timestamp: Date.now(),
+				...baseState,
 				access: access,
 			};
 		}
@@ -460,8 +455,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 
 		if (!hasConnectedRepos) {
 			return {
-				webviewId: webviewId,
-				timestamp: Date.now(),
+				...baseState,
 				access: access,
 				repos: githubRepos.map(r => serializeRepoWithRichRemote(r)),
 			};
@@ -478,8 +472,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		async function getStateCore() {
 			const [prsResult, issuesResult, enrichedItems] = await statePromise;
 			return {
-				webviewId: webviewId,
-				timestamp: Date.now(),
+				...baseState,
 				access: access,
 				repos: repos,
 				pullRequests: getSettledValue(prsResult)?.map(pr => ({
@@ -508,8 +501,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 			});
 
 			return {
-				webviewId: webviewId,
-				timestamp: Date.now(),
+				...baseState,
 				access: access,
 				repos: repos,
 			};
