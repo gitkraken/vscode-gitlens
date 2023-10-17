@@ -138,7 +138,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 
 							void executeCommand<WebviewPanelShowCommandArgs>(
 								Commands.ShowTimelinePage,
-								{ _type: 'WebviewPanelShowOptions' },
+								{ _type: 'WebviewPanelShowOptions', preserveInstance: true },
 								this._context.uri,
 							);
 						},

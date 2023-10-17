@@ -1,12 +1,13 @@
 import { Disposable, ViewColumn } from 'vscode';
 import { Commands } from '../../../constants';
 import { registerCommand } from '../../../system/command';
+import { configuration } from '../../../system/configuration';
 import type { WebviewPanelsProxy, WebviewsController } from '../../../webviews/webviewsController';
 import type { State } from './protocol';
 
 export function registerTimelineWebviewPanel(controller: WebviewsController) {
 	return controller.registerWebviewPanel<State>(
-		{ id: Commands.ShowTimelinePage },
+		{ id: Commands.ShowTimelinePage, options: { preserveInstance: false } },
 		{
 			id: 'gitlens.timeline',
 			fileName: 'timeline.html',
@@ -20,6 +21,7 @@ export function registerTimelineWebviewPanel(controller: WebviewsController) {
 				retainContextWhenHidden: false,
 				enableFindWidget: false,
 			},
+			allowMultipleInstances: configuration.get('visualHistory.experimental.allowMultipleInstances'),
 		},
 		async (container, host) => {
 			const { TimelineWebviewProvider } = await import(/* webpackChunkName: "timeline" */ './timelineWebview');

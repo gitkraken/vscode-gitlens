@@ -68,6 +68,11 @@ export interface Config {
 	readonly fileAnnotations: {
 		readonly command: string | null;
 	};
+	readonly focus: {
+		readonly experimental: {
+			allowMultipleInstances: boolean;
+		};
+	};
 	readonly gitCommands: {
 		readonly closeOnFocusOut: boolean;
 		readonly search: {
@@ -192,6 +197,9 @@ export interface Config {
 	};
 	readonly visualHistory: {
 		readonly queryLimit: number;
+		readonly experimental: {
+			allowMultipleInstances: boolean;
+		};
 	};
 	readonly worktrees: {
 		readonly defaultLocation: string | null;
