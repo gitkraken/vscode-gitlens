@@ -2679,7 +2679,7 @@
 					},
 					"gitlens.graph.experimental.allowMultipleInstances": {
 						"type": "boolean",
-						"default": false,
+						"default": true,
 						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Commit Graph_ in the editor area",
 						"scope": "window",
 						"order": 110
@@ -2693,7 +2693,7 @@
 				"properties": {
 					"gitlens.focus.experimental.allowMultipleInstances": {
 						"type": "boolean",
-						"default": false,
+						"default": true,
 						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Focus View_",
 						"scope": "window",
 						"order": 10
@@ -2707,7 +2707,7 @@
 				"properties": {
 					"gitlens.visualHistory.experimental.allowMultipleInstances": {
 						"type": "boolean",
-						"default": false,
+						"default": true,
 						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Visual File History_ in the editor area",
 						"scope": "window",
 						"order": 10
