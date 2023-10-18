@@ -576,6 +576,7 @@ interface ViewsConfigs {
 	readonly stashes: StashesViewConfig;
 	readonly tags: TagsViewConfig;
 	readonly worktrees: WorktreesViewConfig;
+	readonly workspaces: WorkspacesViewConfig;
 }
 
 export type ViewsConfigKeys = keyof ViewsConfigs;
@@ -592,6 +593,7 @@ export const viewsConfigKeys: ViewsConfigKeys[] = [
 	'stashes',
 	'tags',
 	'worktrees',
+	'workspaces',
 ];
 
 export type ViewsConfig = ViewsCommonConfig & ViewsConfigs;
@@ -736,6 +738,32 @@ export interface WorktreesViewConfig {
 	};
 	readonly reveal: boolean;
 	readonly showBranchComparison: false | Extract<ViewShowBranchComparison, 'branch'>;
+}
+
+export interface WorkspacesViewConfig {
+	readonly avatars: boolean;
+	readonly branches: {
+		readonly layout: ViewBranchesLayout;
+		readonly showBranchComparison: false | Extract<ViewShowBranchComparison, 'branch'>;
+	};
+	readonly compact: boolean;
+	readonly files: ViewsFilesConfig;
+	readonly includeWorkingTree: boolean;
+	readonly pullRequests: {
+		readonly enabled: boolean;
+		readonly showForBranches: boolean;
+		readonly showForCommits: boolean;
+	};
+	readonly showBranchComparison: false | ViewShowBranchComparison;
+	readonly showBranches: boolean;
+	readonly showCommits: boolean;
+	readonly showContributors: boolean;
+	readonly showIncomingActivity: boolean;
+	readonly showRemotes: boolean;
+	readonly showStashes: boolean;
+	readonly showTags: boolean;
+	readonly showUpstreamStatus: boolean;
+	readonly showWorktrees: boolean;
 }
 
 export interface ViewsFilesConfig {

@@ -86,7 +86,7 @@ export class WorkspacesViewNode extends ViewNode<'workspaces-view', WorkspacesVi
 }
 
 export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, WorkspacesViewConfig> {
-	protected readonly configKey = 'repositories';
+	protected readonly configKey = 'workspaces';
 	private _disposable: Disposable | undefined;
 
 	constructor(container: Container) {

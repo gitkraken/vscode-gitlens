@@ -127,7 +127,7 @@ export class RepositoriesNode extends SubscribeableViewNode<'repositories', View
 	protected subscribe() {
 		const subscriptions = [this.view.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this)];
 
-		if (this.view.config.autoReveal) {
+		if (this.view.id === 'gitlens.views.repositories' && this.view.config.autoReveal) {
 			subscriptions.push(window.onDidChangeActiveTextEditor(debounce(this.onActiveEditorChanged, 500), this));
 		}
 
