@@ -41,7 +41,12 @@ type GetParentType<T extends WebviewPanelDescriptor | WebviewViewDescriptor> = T
 	: never;
 
 export interface WebviewProvider<State, SerializedState = State> extends Disposable {
-	canReuseInstance?(options?: WebviewShowOptions, ...args: unknown[]): boolean | undefined;
+	/**
+	 * Determines whether the webview instance can be reused
+	 * @returns `true` if the webview should be reused, `false` if it should NOT be reused, and `undefined` if it *could* be reused but not ideal
+	 */
+	canReuseInstance?(...args: unknown[]): boolean | undefined;
+	getSplitArgs?(): unknown[];
 	onShowing?(loading: boolean, options: WebviewShowOptions, ...args: unknown[]): boolean | Promise<boolean>;
 	registerCommands?(): Disposable[];
 
@@ -266,7 +271,13 @@ export class WebviewController<
 		if (!this.isEditor()) return undefined;
 
 		if (options?.column != null && options.column !== this.parent.viewColumn) return false;
-		return this.provider.canReuseInstance?.(options, ...args);
+		return this.provider.canReuseInstance?.(...args);
+	}
+
+	getSplitArgs(): unknown[] {
+		if (!this.isEditor()) return [];
+
+		return this.provider.getSplitArgs?.() ?? [];
 	}
 
 	@debug({ args: false })

@@ -33,7 +33,7 @@ export function registerGraphWebviewPanel(controller: WebviewsController) {
 				retainContextWhenHidden: true,
 				enableFindWidget: false,
 			},
-			allowMultipleInstances: configuration.get('graph.experimental.allowMultipleInstances'),
+			allowMultipleInstances: configuration.get('graph.allowMultiple'),
 		},
 		async (container, host) => {
 			const { GraphWebviewProvider } = await import(/* webpackChunkName: "graph" */ './graphWebview');
@@ -122,8 +122,7 @@ export function registerGraphWebviewCommands(container: Container, panels: Webvi
 				if (configuration.get('graph.layout') === 'panel') {
 					void container.graphView.show({ preserveFocus: preserveFocus }, args);
 				} else {
-					// const active = panels.getActiveInstance()?.instanceId;
-					void panels.show({ preserveFocus: preserveFocus /*preserveInstance: active ?? true*/ }, args);
+					void panels.show({ preserveFocus: preserveFocus }, args);
 				}
 			},
 		),
@@ -146,7 +145,7 @@ export function registerGraphWebviewCommands(container: Container, panels: Webvi
 		registerCommand(`${panels.id}.refresh`, () => void panels.getActiveInstance()?.refresh(true)),
 		registerCommand(
 			`${panels.id}.split`,
-			() => void panels.show({ preserveInstance: false, column: ViewColumn.Beside }),
+			() => void panels.splitActiveInstance({ preserveInstance: false, column: ViewColumn.Beside }),
 		),
 	);
 }

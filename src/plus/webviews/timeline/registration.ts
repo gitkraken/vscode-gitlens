@@ -21,7 +21,7 @@ export function registerTimelineWebviewPanel(controller: WebviewsController) {
 				retainContextWhenHidden: false,
 				enableFindWidget: false,
 			},
-			allowMultipleInstances: configuration.get('visualHistory.experimental.allowMultipleInstances'),
+			allowMultipleInstances: configuration.get('visualHistory.allowMultiple'),
 		},
 		async (container, host) => {
 			const { TimelineWebviewProvider } = await import(/* webpackChunkName: "timeline" */ './timelineWebview');
@@ -52,10 +52,11 @@ export function registerTimelineWebviewView(controller: WebviewsController) {
 
 export function registerTimelineWebviewCommands(panels: WebviewPanelsProxy) {
 	return Disposable.from(
+		registerCommand(Commands.ShowInTimeline, (...args: unknown[]) => void panels.show(undefined, ...args)),
 		registerCommand(`${panels.id}.refresh`, () => void panels.getActiveInstance()?.refresh(true)),
 		registerCommand(
 			`${panels.id}.split`,
-			() => void panels.show({ preserveInstance: false, column: ViewColumn.Beside }),
+			() => void panels.splitActiveInstance({ preserveInstance: false, column: ViewColumn.Beside }),
 		),
 	);
 }

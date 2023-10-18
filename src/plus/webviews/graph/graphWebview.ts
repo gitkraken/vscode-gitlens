@@ -84,7 +84,7 @@ import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
 import type { IpcMessage, IpcNotificationType } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
-import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../../webviews/webviewsController';
+import type { WebviewPanelShowCommandArgs } from '../../../webviews/webviewsController';
 import { isSerializedState } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import type {
@@ -289,7 +289,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		this._disposable.dispose();
 	}
 
-	canReuseInstance(_options?: WebviewShowOptions, ...args: unknown[]): boolean | undefined {
+	canReuseInstance(...args: unknown[]): boolean | undefined {
 		if (this.container.git.openRepositoryCount === 1) return true;
 
 		const [arg] = args;
@@ -303,7 +303,11 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			repository = this.container.git.getRepository(arg.state.selectedRepository);
 		}
 
-		return repository == null ? undefined : repository.uri.toString() === this.repository?.uri.toString();
+		return repository?.uri.toString() === this.repository?.uri.toString() ? true : undefined;
+	}
+
+	getSplitArgs(): unknown[] {
+		return [this.repository];
 	}
 
 	async onShowing(
