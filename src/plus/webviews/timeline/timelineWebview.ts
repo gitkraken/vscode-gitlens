@@ -23,7 +23,7 @@ import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
 import { updatePendingContext } from '../../../webviews/webviewController';
-import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../../webviews/webviewsController';
+import type { WebviewShowOptions } from '../../../webviews/webviewsController';
 import { isSerializedState } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import type { Commit, Period, State } from './protocol';
@@ -87,10 +87,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		void this.notifyDidChangeState(true);
 	}
 
-	canReuseInstance(
-		_options?: WebviewShowOptions,
-		...args: [Uri | ViewFileNode | { state: Partial<State> }] | unknown[]
-	): boolean | undefined {
+	canReuseInstance(...args: [Uri | ViewFileNode | { state: Partial<State> }] | unknown[]): boolean | undefined {
 		let uri: Uri | undefined;
 
 		const [arg] = args;
@@ -106,7 +103,11 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 			uri = window.activeTextEditor?.document.uri;
 		}
 
-		return uri == null ? undefined : uri.toString() === this._context.uri?.toString();
+		return uri?.toString() === this._context.uri?.toString() ? true : undefined;
+	}
+
+	getSplitArgs(): unknown[] {
+		return [this._context.uri];
 	}
 
 	onShowing(
@@ -158,11 +159,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 						() => {
 							if (this._context.uri == null) return;
 
-							void executeCommand<WebviewPanelShowCommandArgs>(
-								Commands.ShowTimelinePage,
-								{ _type: 'WebviewPanelShowOptions' },
-								this._context.uri,
-							);
+							void executeCommand(Commands.ShowInTimeline, this._context.uri);
 						},
 						this,
 					),

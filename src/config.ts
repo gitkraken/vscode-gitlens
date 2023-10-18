@@ -69,9 +69,7 @@ export interface Config {
 		readonly command: string | null;
 	};
 	readonly focus: {
-		readonly experimental: {
-			allowMultipleInstances: boolean;
-		};
+		readonly allowMultiple: boolean;
 	};
 	readonly gitCommands: {
 		readonly closeOnFocusOut: boolean;
@@ -196,10 +194,8 @@ export interface Config {
 		readonly enabled: boolean;
 	};
 	readonly visualHistory: {
+		readonly allowMultiple: boolean;
 		readonly queryLimit: number;
-		readonly experimental: {
-			allowMultipleInstances: boolean;
-		};
 	};
 	readonly worktrees: {
 		readonly defaultLocation: string | null;
@@ -323,15 +319,13 @@ export interface AdvancedConfig {
 }
 
 export interface GraphConfig {
+	readonly allowMultiple: boolean;
 	readonly avatars: boolean;
 	readonly commitOrdering: 'date' | 'author-date' | 'topo';
 	readonly dateFormat: DateTimeFormat | string | null;
 	readonly dateStyle: DateStyle | null;
 	readonly defaultItemLimit: number;
 	readonly dimMergeCommits: boolean;
-	readonly experimental: {
-		allowMultipleInstances: boolean;
-	};
 	readonly minimap: {
 		readonly enabled: boolean;
 		readonly dataType: 'commits' | 'lines';

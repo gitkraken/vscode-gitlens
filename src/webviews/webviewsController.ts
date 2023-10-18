@@ -59,6 +59,7 @@ export interface WebviewPanelsProxy extends Disposable {
 	readonly instances: Iterable<WebviewPanelProxy>;
 	getActiveInstance(): WebviewPanelProxy | undefined;
 	show(options?: WebviewPanelsShowOptions, ...args: unknown[]): Promise<void>;
+	splitActiveInstance(options?: WebviewPanelsShowOptions): Promise<void>;
 }
 
 export interface WebviewViewDescriptor {
@@ -285,9 +286,19 @@ export class WebviewsController implements Disposable {
 									active = c;
 								}
 
-								if (c.canReuseInstance(options, ...args) === true) {
+								const canReuse = c.canReuseInstance(options, ...args);
+								if (canReuse === true) {
+									// If the webview says it should be reused, use it
 									controller = c;
 									break;
+								} else if (canReuse === false) {
+									// If the webview says it should not be reused don't and clear it from being first/active
+									if (first === c) {
+										first = undefined;
+									}
+									if (active === c) {
+										active = undefined;
+									}
 								}
 							}
 
@@ -403,6 +414,14 @@ export class WebviewsController implements Disposable {
 
 				const controller = find(registration.controllers.values(), c => c.active ?? false);
 				return controller != null ? convertToWebviewPanelProxy(controller) : undefined;
+			},
+			splitActiveInstance: function (options?: WebviewPanelsShowOptions) {
+				const controller =
+					registration.controllers != null
+						? find(registration.controllers.values(), c => c.active ?? false)
+						: undefined;
+				const args = controller?.getSplitArgs() ?? [];
+				return show({ ...options, preserveInstance: false }, ...args);
 			},
 			dispose: function () {
 				disposable.dispose();

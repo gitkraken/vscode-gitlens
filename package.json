@@ -2428,6 +2428,13 @@
 				"title": "Commit Graph",
 				"order": 105,
 				"properties": {
+					"gitlens.graph.allowMultiple": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Commit Graph_ in the editor area",
+						"scope": "window",
+						"order": 5
+					},
 					"gitlens.graph.defaultItemLimit": {
 						"type": "number",
 						"default": 500,
@@ -2676,13 +2683,6 @@
 						"markdownDescription": "Specifies additional markers to show on the minimap in the _Commit Graph_",
 						"scope": "window",
 						"order": 102
-					},
-					"gitlens.graph.experimental.allowMultipleInstances": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Commit Graph_ in the editor area",
-						"scope": "window",
-						"order": 110
 					}
 				}
 			},
@@ -2691,7 +2691,7 @@
 				"title": "Focus View",
 				"order": 106,
 				"properties": {
-					"gitlens.focus.experimental.allowMultipleInstances": {
+					"gitlens.focus.allowMultiple": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Focus View_",
@@ -2705,7 +2705,7 @@
 				"title": "Visual File History",
 				"order": 106,
 				"properties": {
-					"gitlens.visualHistory.experimental.allowMultipleInstances": {
+					"gitlens.visualHistory.allowMultiple": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Visual File History_ in the editor area",
@@ -2716,7 +2716,8 @@
 						"type": "number",
 						"default": 20,
 						"markdownDescription": "Specifies the limit on the how many commits can be queried for statistics in the _Visual File History_, because of rate limits. Only applies to virtual workspaces.",
-						"scope": "window"
+						"scope": "window",
+						"order": 20
 					}
 				}
 			},
@@ -5137,6 +5138,12 @@
 			},
 			{
 				"command": "gitlens.showTimelinePage",
+				"title": "Show Visual File History",
+				"category": "GitLens",
+				"icon": "$(graph-scatter)"
+			},
+			{
+				"command": "gitlens.showInTimeline",
 				"title": "Open Visual File History",
 				"category": "GitLens",
 				"icon": "$(graph-scatter)"
@@ -8351,7 +8358,7 @@
 				},
 				{
 					"command": "gitlens.focus.split",
-					"when": "gitlens:enabled && config.gitlens.focus.experimental.allowMultipleInstances"
+					"when": "gitlens:enabled && config.gitlens.focus.allowMultiple"
 				},
 				{
 					"command": "gitlens.showGraph",
@@ -8363,7 +8370,7 @@
 				},
 				{
 					"command": "gitlens.graph.split",
-					"when": "gitlens:enabled && config.gitlens.graph.experimental.allowMultipleInstances"
+					"when": "gitlens:enabled && config.gitlens.graph.allowMultiple"
 				},
 				{
 					"command": "gitlens.showGraphView",
@@ -8471,11 +8478,15 @@
 				},
 				{
 					"command": "gitlens.showTimelinePage",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showInTimeline",
 					"when": "gitlens:enabled && gitlens:activeFileStatus =~ /tracked/"
 				},
 				{
 					"command": "gitlens.timeline.split",
-					"when": "gitlens:enabled && config.gitlens.visualHistory.experimental.allowMultipleInstances"
+					"when": "gitlens:enabled && config.gitlens.visualHistory.allowMultiple"
 				},
 				{
 					"command": "gitlens.showTimelineView",
@@ -10659,17 +10670,17 @@
 				},
 				{
 					"command": "gitlens.focus.split",
-					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.focus && config.gitlens.focus.experimental.allowMultipleInstances",
+					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.focus && config.gitlens.focus.allowMultiple",
 					"group": "navigation@-97"
 				},
 				{
 					"command": "gitlens.graph.split",
-					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.graph && config.gitlens.graph.experimental.allowMultipleInstances",
+					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.graph && config.gitlens.graph.allowMultiple",
 					"group": "navigation@-97"
 				},
 				{
 					"command": "gitlens.timeline.split",
-					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.timeline && config.gitlens.visualHistory.experimental.allowMultipleInstances",
+					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.timeline && config.gitlens.visualHistory.allowMultiple",
 					"group": "navigation@-97"
 				}
 			],
@@ -10706,17 +10717,17 @@
 				},
 				{
 					"command": "gitlens.focus.split",
-					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.focus && config.gitlens.focus.experimental.allowMultipleInstances",
+					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.focus && config.gitlens.focus.allowMultiple",
 					"group": "6_split_in_group_gitlens@2"
 				},
 				{
 					"command": "gitlens.graph.split",
-					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.graph && config.gitlens.graph.experimental.allowMultipleInstances",
+					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.graph && config.gitlens.graph.allowMultiple",
 					"group": "6_split_in_group_gitlens@2"
 				},
 				{
 					"command": "gitlens.timeline.split",
-					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.timeline && config.gitlens.visualHistory.experimental.allowMultipleInstances",
+					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.timeline && config.gitlens.visualHistory.allowMultiple",
 					"group": "6_split_in_group_gitlens@2"
 				}
 			],
@@ -13756,7 +13767,7 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.showTimelinePage",
+					"command": "gitlens.showInTimeline",
 					"group": "1_gitlens@2"
 				},
 				{
@@ -13900,7 +13911,7 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.showTimelinePage",
+					"command": "gitlens.showInTimeline",
 					"group": "1_gitlens@2"
 				},
 				{
@@ -13995,7 +14006,7 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.showTimelinePage",
+					"command": "gitlens.showInTimeline",
 					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled",
 					"group": "1_gitlens@2"
 				},
@@ -14113,7 +14124,7 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.showTimelinePage",
+					"command": "gitlens.showInTimeline",
 					"group": "1_gitlens@2"
 				},
 				{

@@ -21,7 +21,7 @@ export function registerFocusWebviewPanel(controller: WebviewsController) {
 				retainContextWhenHidden: true,
 				enableFindWidget: true,
 			},
-			allowMultipleInstances: configuration.get('focus.experimental.allowMultipleInstances'),
+			allowMultipleInstances: configuration.get('focus.allowMultiple'),
 		},
 		async (container, host) => {
 			const { FocusWebviewProvider } = await import(/* webpackChunkName: "focus" */ './focusWebview');
@@ -35,7 +35,7 @@ export function registerFocusWebviewCommands(panels: WebviewPanelsProxy) {
 		registerCommand(`${panels.id}.refresh`, () => void panels.getActiveInstance()?.refresh(true)),
 		registerCommand(
 			`${panels.id}.split`,
-			() => void panels.show({ preserveInstance: false, column: ViewColumn.Beside }),
+			() => void panels.splitActiveInstance({ preserveInstance: false, column: ViewColumn.Beside }),
 		),
 	);
 }

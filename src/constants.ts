@@ -247,6 +247,7 @@ export const enum Commands {
 	ShowInCommitGraph = 'gitlens.showInCommitGraph',
 	ShowInCommitGraphView = 'gitlens.showInCommitGraphView',
 	ShowInDetailsView = 'gitlens.showInDetailsView',
+	ShowInTimeline = 'gitlens.showInTimeline',
 	ShowLastQuickPick = 'gitlens.showLastQuickPick',
 	ShowLineCommitInView = 'gitlens.showLineCommitInView',
 	ShowLineHistoryView = 'gitlens.showLineHistoryView',
