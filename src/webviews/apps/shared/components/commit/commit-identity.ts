@@ -68,9 +68,10 @@ export class CommitIdentity extends LitElement {
 	actionLabel = 'committed';
 
 	override render() {
+		const showAvatar = this.showAvatar && this.avatarUrl != null && this.avatarUrl.length > 0;
 		return html`
 			<a class="avatar" href="${this.email ? `mailto:${this.email}` : '#'}">
-				${this.showAvatar
+				${showAvatar
 					? html`<img class="thumb" src="${this.avatarUrl}" alt="${this.name}" />`
 					: html`<code-icon icon="person" size="32"></code-icon>`}
 			</a>
