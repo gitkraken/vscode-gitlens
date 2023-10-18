@@ -34,7 +34,10 @@ type State = {
 	pendingPullRequest: Promise<PullRequest | undefined> | undefined;
 };
 
-export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReference, State> implements PageableViewNode {
+export class BranchNode
+	extends ViewRefNode<'branch', ViewsWithBranches, GitBranchReference, State>
+	implements PageableViewNode
+{
 	limit: number | undefined;
 
 	private readonly options: {
@@ -68,10 +71,10 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 			authors?: GitUser[];
 		},
 	) {
-		super(uri, view, parent);
+		super('branch', uri, view, parent);
 
 		this.updateContext({ repository: repo, branch: branch, root: root });
-		this._uniqueId = getViewNodeId('branch', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 		this.limit = this.view.getNodeLastKnownLimit(this);
 
 		this.options = {

@@ -12,7 +12,7 @@ import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class RemoteNode extends ViewNode<ViewsWithRemotes> {
+export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 	constructor(
 		uri: GitUri,
 		view: ViewsWithRemotes,
@@ -20,10 +20,10 @@ export class RemoteNode extends ViewNode<ViewsWithRemotes> {
 		public readonly repo: Repository,
 		public readonly remote: GitRemote,
 	) {
-		super(uri, view, parent);
+		super('remote', uri, view, parent);
 
 		this.updateContext({ repository: repo, remote: remote });
-		this._uniqueId = getViewNodeId('remote', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {

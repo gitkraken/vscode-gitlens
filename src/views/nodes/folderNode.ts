@@ -18,7 +18,7 @@ export interface FileNode extends ViewFileNode {
 	// root?: HierarchicalItem<FileNode>;
 }
 
-export class FolderNode extends ViewNode<ViewsWithCommits | StashesView> {
+export class FolderNode extends ViewNode<'folder', ViewsWithCommits | StashesView> {
 	readonly priority: number = 1;
 
 	constructor(
@@ -30,9 +30,9 @@ export class FolderNode extends ViewNode<ViewsWithCommits | StashesView> {
 		public readonly relativePath: string | undefined,
 		private readonly containsWorkingFiles?: boolean,
 	) {
-		super(GitUri.fromRepoPath(repoPath), view, parent);
+		super('folder', GitUri.fromRepoPath(repoPath), view, parent);
 
-		this._uniqueId = getViewNodeId(`folder+${relativePath ?? folderName}`, this.context);
+		this._uniqueId = getViewNodeId(`${this.type}+${relativePath ?? folderName}`, this.context);
 	}
 
 	override get id(): string {

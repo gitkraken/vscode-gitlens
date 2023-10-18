@@ -9,17 +9,17 @@ import { MessageNode } from './common';
 import { StashNode } from './stashNode';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class StashesNode extends ViewNode<ViewsWithStashesNode> {
+export class StashesNode extends ViewNode<'stashes', ViewsWithStashesNode> {
 	constructor(
 		uri: GitUri,
 		view: ViewsWithStashesNode,
 		protected override parent: ViewNode,
 		public readonly repo: Repository,
 	) {
-		super(uri, view, parent);
+		super('stashes', uri, view, parent);
 
 		this.updateContext({ repository: repo });
-		this._uniqueId = getViewNodeId('stashes', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {

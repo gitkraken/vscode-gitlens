@@ -1,5 +1,12 @@
 import type { Command, Event, TreeViewVisibilityChangeEvent } from 'vscode';
 import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import type {
+	TreeViewFileNodeTypes,
+	TreeViewNodeTypes,
+	TreeViewRefFileNodeTypes,
+	TreeViewRefNodeTypes,
+	TreeViewSubscribableNodeTypes,
+} from '../../constants';
 import { GlyphChars } from '../../constants';
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import type { GitUri } from '../../git/gitUri';
@@ -29,7 +36,21 @@ import { is as isA, szudzikPairing } from '../../system/function';
 import { getLoggableName } from '../../system/logger';
 import { pad } from '../../system/string';
 import type { View } from '../viewBase';
+import type { BranchNode } from './branchNode';
 import type { BranchTrackingStatus } from './branchTrackingStatusNode';
+import type { CommitFileNode } from './commitFileNode';
+import type { CommitNode } from './commitNode';
+import type { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
+import type { FolderNode } from './folderNode';
+import type { LineHistoryTrackerNode } from './lineHistoryTrackerNode';
+import type { MergeConflictFileNode } from './mergeConflictFileNode';
+import type { RepositoryNode } from './repositoryNode';
+import type { ResultsFileNode } from './resultsFileNode';
+import type { StashFileNode } from './stashFileNode';
+import type { StashNode } from './stashNode';
+import type { StatusFileNode } from './statusFileNode';
+import type { TagNode } from './tagNode';
+import type { UncommittedFileNode } from './UncommittedFileNode';
 
 export const enum ContextValues {
 	ActiveFileHistory = 'gitlens:history:active:file',
@@ -185,12 +206,21 @@ export function getViewNodeId(type: string, context: AmbientContext): string {
 }
 
 @logName<ViewNode>((c, name) => `${name}${c.id != null ? `(${c.id})` : ''}`)
-export abstract class ViewNode<TView extends View = View, State extends object = any> {
+export abstract class ViewNode<
+	Type extends TreeViewNodeTypes = TreeViewNodeTypes,
+	TView extends View = View,
+	State extends object = any,
+> {
+	is<T extends keyof TreeViewNodesByType>(type: T): this is TreeViewNodesByType[T] {
+		return this.type === (type as unknown as Type);
+	}
+
 	protected _uniqueId!: string;
 
 	protected splatted = false;
 
 	constructor(
+		public readonly type: Type,
 		// public readonly id: string | undefined,
 		uri: GitUri,
 		public readonly view: TView,
@@ -288,29 +318,22 @@ export abstract class ViewNode<TView extends View = View, State extends object =
 		this.view.nodeState.storeState(this.id, key as string, value, sticky);
 	}
 }
-
-export function isViewNode(node: any): node is ViewNode {
-	return node instanceof ViewNode;
-}
-
-export function isViewFileNode(node: any): node is ViewFileNode {
-	return node instanceof ViewFileNode;
-}
-
 type StateKey<T> = keyof T;
 type StateValue<T, P extends StateKey<T>> = P extends keyof T ? T[P] : never;
 
-export abstract class ViewFileNode<TView extends View = View, State extends object = any> extends ViewNode<
-	TView,
-	State
-> {
+export abstract class ViewFileNode<
+	Type extends TreeViewFileNodeTypes = TreeViewFileNodeTypes,
+	TView extends View = View,
+	State extends object = any,
+> extends ViewNode<Type, TView, State> {
 	constructor(
+		type: Type,
 		uri: GitUri,
 		view: TView,
 		public override parent: ViewNode,
 		public readonly file: GitFile,
 	) {
-		super(uri, view, parent);
+		super(type, uri, view, parent);
 	}
 
 	get repoPath(): string {
@@ -323,16 +346,18 @@ export abstract class ViewFileNode<TView extends View = View, State extends obje
 }
 
 export abstract class ViewRefNode<
+	Type extends TreeViewRefNodeTypes = TreeViewRefNodeTypes,
 	TView extends View = View,
 	TReference extends GitReference = GitReference,
 	State extends object = any,
-> extends ViewNode<TView, State> {
+> extends ViewNode<Type, TView, State> {
 	constructor(
+		type: Type,
 		uri: GitUri,
 		view: TView,
 		protected override readonly parent: ViewNode,
 	) {
-		super(uri, view, parent);
+		super(type, uri, view, parent);
 	}
 
 	abstract get ref(): TReference;
@@ -346,10 +371,11 @@ export abstract class ViewRefNode<
 	}
 }
 
-export abstract class ViewRefFileNode<TView extends View = View, State extends object = any> extends ViewFileNode<
-	TView,
-	State
-> {
+export abstract class ViewRefFileNode<
+	Type extends TreeViewRefFileNodeTypes = TreeViewRefFileNodeTypes,
+	TView extends View = View,
+	State extends object = any,
+> extends ViewFileNode<Type, TView, State> {
 	abstract get ref(): GitRevisionReference;
 
 	override toString(): string {
@@ -368,14 +394,17 @@ export function isPageableViewNode(node: ViewNode): node is ViewNode & PageableV
 	return isA<ViewNode & PageableViewNode>(node, 'loadMore');
 }
 
-export abstract class SubscribeableViewNode<TView extends View = View> extends ViewNode<TView> {
+export abstract class SubscribeableViewNode<
+	Type extends TreeViewSubscribableNodeTypes = TreeViewSubscribableNodeTypes,
+	TView extends View = View,
+> extends ViewNode<Type, TView> {
 	protected disposable: Disposable;
 	protected subscription: Promise<Disposable | undefined> | undefined;
 
 	protected loaded: boolean = false;
 
-	constructor(uri: GitUri, view: TView, parent?: ViewNode) {
-		super(uri, view, parent);
+	constructor(type: Type, uri: GitUri, view: TView, parent?: ViewNode) {
+		super(type, uri, view, parent);
 
 		const disposables = [
 			this.view.onDidChangeVisibility(this.onVisibilityChanged, this),
@@ -387,14 +416,14 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 		}
 
 		const getTreeItem = this.getTreeItem;
-		this.getTreeItem = function (this: SubscribeableViewNode<TView>) {
+		this.getTreeItem = function (this: SubscribeableViewNode<Type, TView>) {
 			this.loaded = true;
 			void this.ensureSubscription();
 			return getTreeItem.apply(this);
 		};
 
 		const getChildren = this.getChildren;
-		this.getChildren = function (this: SubscribeableViewNode<TView>) {
+		this.getChildren = function (this: SubscribeableViewNode<Type, TView>) {
 			this.loaded = true;
 			void this.ensureSubscription();
 			return getChildren.apply(this);
@@ -526,7 +555,7 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 export abstract class RepositoryFolderNode<
 	TView extends View = View,
 	TChild extends ViewNode = ViewNode,
-> extends SubscribeableViewNode<TView> {
+> extends SubscribeableViewNode<'repository-folder', TView> {
 	protected override splatted = true;
 	protected child: TChild | undefined;
 
@@ -538,10 +567,10 @@ export abstract class RepositoryFolderNode<
 		splatted: boolean,
 		private readonly options?: { showBranchAndLastFetched?: boolean },
 	) {
-		super(uri, view, parent);
+		super('repository-folder', uri, view, parent);
 
 		this.updateContext({ repository: this.repo });
-		this._uniqueId = getViewNodeId('repository-folder', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 
 		this.splatted = splatted;
 	}
@@ -704,12 +733,12 @@ export abstract class RepositoryFolderNode<
 export abstract class RepositoriesSubscribeableNode<
 	TView extends View = View,
 	TChild extends ViewNode & Disposable = ViewNode & Disposable,
-> extends SubscribeableViewNode<TView> {
+> extends SubscribeableViewNode<'repositories', TView> {
 	protected override splatted = true;
 	protected children: TChild[] | undefined;
 
 	constructor(view: TView) {
-		super(unknownGitUri, view);
+		super('repositories', unknownGitUri, view);
 	}
 
 	override dispose() {
@@ -796,4 +825,35 @@ export function canViewDismissNode(view: View): view is View & { dismissNode(nod
 
 export function getNodeRepoPath(node?: ViewNode): string | undefined {
 	return canGetNodeRepoPath(node) ? node.repoPath : undefined;
+}
+
+type TreeViewNodesByType = {
+	[T in TreeViewNodeTypes]: ViewNode<T>;
+} & {
+	['branch']: BranchNode;
+	['commit']: CommitNode;
+	['commit-file']: CommitFileNode;
+	['conflict-file']: MergeConflictFileNode;
+	['file-commit']: FileRevisionAsCommitNode;
+	['folder']: FolderNode;
+	['line-history-tracker']: LineHistoryTrackerNode;
+	['repository']: RepositoryNode;
+	['results-file']: ResultsFileNode;
+	['stash']: StashNode;
+	['stash-file']: StashFileNode;
+	['status-file']: StatusFileNode;
+	['tag']: TagNode;
+	['uncommitted-file']: UncommittedFileNode;
+	// Add more real types as needed
+};
+
+export function isViewNode(node: unknown): node is ViewNode;
+export function isViewNode<T extends keyof TreeViewNodesByType>(node: unknown, type: T): node is TreeViewNodesByType[T];
+export function isViewNode<T extends keyof TreeViewNodesByType>(node: unknown, type?: T): node is ViewNode {
+	if (node == null) return false;
+	return node instanceof ViewNode ? type == null || node.type === type : false;
+}
+
+export function isViewFileNode(node: unknown): node is ViewFileNode {
+	return node instanceof ViewFileNode;
 }

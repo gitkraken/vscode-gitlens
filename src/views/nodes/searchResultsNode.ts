@@ -24,7 +24,7 @@ interface SearchQueryResults {
 	more?(limit: number | undefined): Promise<void>;
 }
 
-export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements PageableViewNode {
+export class SearchResultsNode extends ViewNode<'search-results', SearchAndCompareView> implements PageableViewNode {
 	private _instanceId: number;
 
 	constructor(
@@ -49,11 +49,11 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 			| undefined,
 		private _storedAt: number = 0,
 	) {
-		super(GitUri.fromRepoPath(repoPath), view, parent);
+		super('search-results', GitUri.fromRepoPath(repoPath), view, parent);
 
 		this._instanceId = instanceId++;
 		this.updateContext({ searchId: `${getSearchQueryComparisonKey(this._search)}+${this._instanceId}` });
-		this._uniqueId = getViewNodeId('search-results', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 
 		// If this is a new search, save it
 		if (this._storedAt === 0) {

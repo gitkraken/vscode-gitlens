@@ -33,7 +33,7 @@ type State = {
 	pendingPullRequest: Promise<PullRequest | undefined> | undefined;
 };
 
-export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, GitRevisionReference, State> {
+export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHistoryView, GitRevisionReference, State> {
 	constructor(
 		view: ViewsWithCommits | FileHistoryView,
 		parent: ViewNode,
@@ -43,10 +43,10 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits | FileHistoryView, 
 		protected readonly getBranchAndTagTips?: (sha: string, options?: { compact?: boolean }) => string | undefined,
 		protected readonly _options: { expand?: boolean } = {},
 	) {
-		super(commit.getGitUri(), view, parent);
+		super('commit', commit.getGitUri(), view, parent);
 
 		this.updateContext({ commit: commit });
-		this._uniqueId = getViewNodeId('commit', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {

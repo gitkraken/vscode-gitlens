@@ -1,22 +1,91 @@
 import type { CancellationToken, Disposable } from 'vscode';
-import { env, ProgressLocation, Uri, window } from 'vscode';
-import type { RepositoriesViewConfig } from '../config';
+import { env, ProgressLocation, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
+import type { WorkspacesViewConfig } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
 import type { Repository } from '../git/models/repository';
 import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
 import { executeCommand } from '../system/command';
+import { gate } from '../system/decorators/gate';
+import { debug } from '../system/decorators/log';
 import { openWorkspace } from '../system/utils';
-import type { RepositoriesNode } from './nodes/repositoriesNode';
+import { MessageNode } from './nodes/common';
+import { RepositoriesNode } from './nodes/repositoriesNode';
 import { RepositoryNode } from './nodes/repositoryNode';
+import { ViewNode } from './nodes/viewNode';
 import type { WorkspaceMissingRepositoryNode } from './nodes/workspaceMissingRepositoryNode';
 import { WorkspaceNode } from './nodes/workspaceNode';
-import { WorkspacesViewNode } from './nodes/workspacesViewNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
-export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, RepositoriesViewConfig> {
+export class WorkspacesViewNode extends ViewNode<'workspaces-view', WorkspacesView> {
+	constructor(view: WorkspacesView) {
+		super('workspaces-view', unknownGitUri, view);
+	}
+
+	private _children: (WorkspaceNode | MessageNode | RepositoriesNode)[] | undefined;
+
+	async getChildren(): Promise<ViewNode[]> {
+		if (this._children == null) {
+			const children: (WorkspaceNode | MessageNode | RepositoriesNode)[] = [];
+
+			const { cloudWorkspaces, cloudWorkspaceInfo, localWorkspaces, localWorkspaceInfo } =
+				await this.view.container.workspaces.getWorkspaces();
+
+			if (cloudWorkspaces.length || localWorkspaces.length) {
+				children.push(new RepositoriesNode(this.view));
+
+				for (const workspace of cloudWorkspaces) {
+					children.push(new WorkspaceNode(this.uri, this.view, this, workspace));
+				}
+
+				if (cloudWorkspaceInfo != null) {
+					children.push(new MessageNode(this.view, this, cloudWorkspaceInfo));
+				}
+
+				for (const workspace of localWorkspaces) {
+					children.push(new WorkspaceNode(this.uri, this.view, this, workspace));
+				}
+
+				if (cloudWorkspaces.length === 0 && cloudWorkspaceInfo == null) {
+					children.push(new MessageNode(this.view, this, 'No cloud workspaces found.'));
+				}
+
+				if (localWorkspaceInfo != null) {
+					children.push(new MessageNode(this.view, this, localWorkspaceInfo));
+				}
+			}
+
+			this._children = children;
+		}
+
+		return this._children;
+	}
+
+	getTreeItem(): TreeItem {
+		const item = new TreeItem('Workspaces', TreeItemCollapsibleState.Expanded);
+		return item;
+	}
+
+	@gate()
+	@debug()
+	override refresh() {
+		if (this._children == null) return;
+
+		if (this._children.length) {
+			for (const child of this._children) {
+				if ('dispose' in child) {
+					child.dispose();
+				}
+			}
+		}
+
+		this._children = undefined;
+	}
+}
+
+export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, WorkspacesViewConfig> {
 	protected readonly configKey = 'repositories';
 	private _disposable: Disposable | undefined;
 
@@ -37,7 +106,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, R
 	}
 
 	protected getRoot() {
-		return new WorkspacesViewNode(unknownGitUri, this);
+		return new WorkspacesViewNode(this);
 	}
 
 	override async show(options?: { preserveFocus?: boolean | undefined }): Promise<void> {

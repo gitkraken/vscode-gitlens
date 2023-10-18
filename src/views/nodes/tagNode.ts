@@ -17,7 +17,7 @@ import { insertDateMarkers } from './helpers';
 import type { PageableViewNode, ViewNode } from './viewNode';
 import { ContextValues, getViewNodeId, ViewRefNode } from './viewNode';
 
-export class TagNode extends ViewRefNode<ViewsWithTags, GitTagReference> implements PageableViewNode {
+export class TagNode extends ViewRefNode<'tag', ViewsWithTags, GitTagReference> implements PageableViewNode {
 	limit: number | undefined;
 
 	constructor(
@@ -26,10 +26,10 @@ export class TagNode extends ViewRefNode<ViewsWithTags, GitTagReference> impleme
 		public override parent: ViewNode,
 		public readonly tag: GitTag,
 	) {
-		super(uri, view, parent);
+		super('tag', uri, view, parent);
 
 		this.updateContext({ tag: tag });
-		this._uniqueId = getViewNodeId('tag', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 

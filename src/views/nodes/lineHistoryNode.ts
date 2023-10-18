@@ -23,7 +23,7 @@ import type { PageableViewNode, ViewNode } from './viewNode';
 import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 
 export class LineHistoryNode
-	extends SubscribeableViewNode<FileHistoryView | LineHistoryView>
+	extends SubscribeableViewNode<'line-history', FileHistoryView | LineHistoryView>
 	implements PageableViewNode
 {
 	limit: number | undefined;
@@ -38,13 +38,13 @@ export class LineHistoryNode
 		public readonly selection: Selection,
 		private readonly editorContents: string | undefined,
 	) {
-		super(uri, view, parent);
+		super('line-history', uri, view, parent);
 
 		if (branch != null) {
 			this.updateContext({ branch: branch });
 		}
 		this._uniqueId = getViewNodeId(
-			`file-history+${uri.toString()}+[${selection.start.line},${selection.start.character}-${
+			`${this.type}+${uri.toString()}+[${selection.start.line},${selection.start.character}-${
 				selection.end.line
 			},${selection.end.character}]`,
 			this.context,

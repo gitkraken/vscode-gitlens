@@ -12,11 +12,11 @@ import { RepositoryNode } from './repositoryNode';
 import type { ViewNode } from './viewNode';
 import { ContextValues, SubscribeableViewNode } from './viewNode';
 
-export class RepositoriesNode extends SubscribeableViewNode<ViewsWithRepositoriesNode> {
+export class RepositoriesNode extends SubscribeableViewNode<'repositories', ViewsWithRepositoriesNode> {
 	private _children: (RepositoryNode | MessageNode)[] | undefined;
 
 	constructor(view: ViewsWithRepositoriesNode) {
-		super(unknownGitUri, view);
+		super('repositories', unknownGitUri, view);
 	}
 
 	override dispose() {

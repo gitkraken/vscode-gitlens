@@ -19,7 +19,7 @@ import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode'
 
 let instanceId = 0;
 
-export class CompareResultsNode extends SubscribeableViewNode<SearchAndCompareView> {
+export class CompareResultsNode extends SubscribeableViewNode<'compare-results', SearchAndCompareView> {
 	private _instanceId: number;
 
 	constructor(
@@ -30,14 +30,14 @@ export class CompareResultsNode extends SubscribeableViewNode<SearchAndCompareVi
 		private _compareWith: StoredNamedRef,
 		private _storedAt: number = 0,
 	) {
-		super(GitUri.fromRepoPath(repoPath), view, parent);
+		super('compare-results', GitUri.fromRepoPath(repoPath), view, parent);
 
 		this._instanceId = instanceId++;
 		this.updateContext({
 			comparisonId: `${_ref.ref}+${_compareWith.ref}+${this._instanceId}`,
 			storedComparisonId: this.getStorageId(),
 		});
-		this._uniqueId = getViewNodeId('comparison-results', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 
 		// If this is a new comparison, save it
 		if (this._storedAt === 0) {

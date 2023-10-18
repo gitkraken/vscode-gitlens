@@ -15,7 +15,7 @@ import { FolderNode } from './folderNode';
 import { StatusFileNode } from './statusFileNode';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class StatusFilesNode extends ViewNode<ViewsWithWorkingTree> {
+export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTree> {
 	constructor(
 		view: ViewsWithWorkingTree,
 		protected override readonly parent: ViewNode,
@@ -29,9 +29,9 @@ export class StatusFilesNode extends ViewNode<ViewsWithWorkingTree> {
 			  },
 		public readonly range: string | undefined,
 	) {
-		super(GitUri.fromRepoPath(status.repoPath), view, parent);
+		super('status-files', GitUri.fromRepoPath(status.repoPath), view, parent);
 
-		this._uniqueId = getViewNodeId('status-files', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {

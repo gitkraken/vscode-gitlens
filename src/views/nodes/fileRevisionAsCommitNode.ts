@@ -24,7 +24,10 @@ import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChanges
 import type { ViewNode } from './viewNode';
 import { ContextValues, ViewRefFileNode } from './viewNode';
 
-export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits | FileHistoryView | LineHistoryView> {
+export class FileRevisionAsCommitNode extends ViewRefFileNode<
+	'file-commit',
+	ViewsWithCommits | FileHistoryView | LineHistoryView
+> {
 	constructor(
 		view: ViewsWithCommits | FileHistoryView | LineHistoryView,
 		parent: ViewNode,
@@ -37,7 +40,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 			unpublished?: boolean;
 		} = {},
 	) {
-		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent, file);
+		super('file-commit', GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent, file);
 	}
 
 	override toClipboard(): string {

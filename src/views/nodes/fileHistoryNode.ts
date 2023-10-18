@@ -21,7 +21,10 @@ import { insertDateMarkers } from './helpers';
 import type { PageableViewNode, ViewNode } from './viewNode';
 import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 
-export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> implements PageableViewNode {
+export class FileHistoryNode
+	extends SubscribeableViewNode<'file-history', FileHistoryView>
+	implements PageableViewNode
+{
 	limit: number | undefined;
 
 	protected override splatted = true;
@@ -33,12 +36,12 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 		private readonly folder: boolean,
 		private readonly branch: GitBranch | undefined,
 	) {
-		super(uri, view, parent);
+		super('file-history', uri, view, parent);
 
 		if (branch != null) {
 			this.updateContext({ branch: branch });
 		}
-		this._uniqueId = getViewNodeId(`file-history+${uri.toString()}`, this.context);
+		this._uniqueId = getViewNodeId(`${this.type}+${uri.toString()}`, this.context);
 		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 

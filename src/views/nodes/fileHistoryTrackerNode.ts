@@ -18,13 +18,13 @@ import { FileHistoryNode } from './fileHistoryNode';
 import type { ViewNode } from './viewNode';
 import { ContextValues, SubscribeableViewNode } from './viewNode';
 
-export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView> {
+export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-tracker', FileHistoryView> {
 	private _base: string | undefined;
 	private _child: FileHistoryNode | undefined;
 	protected override splatted = true;
 
 	constructor(view: FileHistoryView) {
-		super(unknownGitUri, view);
+		super('file-history-tracker', unknownGitUri, view);
 	}
 
 	override dispose() {

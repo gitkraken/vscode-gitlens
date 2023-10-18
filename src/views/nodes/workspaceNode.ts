@@ -12,17 +12,17 @@ import type { ViewNode } from './viewNode';
 import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 import { WorkspaceMissingRepositoryNode } from './workspaceMissingRepositoryNode';
 
-export class WorkspaceNode extends SubscribeableViewNode<WorkspacesView> {
+export class WorkspaceNode extends SubscribeableViewNode<'workspace', WorkspacesView> {
 	constructor(
 		uri: GitUri,
 		view: WorkspacesView,
 		protected override parent: ViewNode,
 		public readonly workspace: CloudWorkspace | LocalWorkspace,
 	) {
-		super(uri, view, parent);
+		super('workspace', uri, view, parent);
 
 		this.updateContext({ workspace: workspace });
-		this._uniqueId = getViewNodeId('workspace', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override dispose() {

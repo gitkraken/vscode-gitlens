@@ -11,7 +11,7 @@ import { MessageNode } from './common';
 import { ContributorNode } from './contributorNode';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class ContributorsNode extends ViewNode<ViewsWithContributorsNode> {
+export class ContributorsNode extends ViewNode<'contributors', ViewsWithContributorsNode> {
 	protected override splatted = true;
 
 	constructor(
@@ -20,10 +20,10 @@ export class ContributorsNode extends ViewNode<ViewsWithContributorsNode> {
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
 	) {
-		super(uri, view, parent);
+		super('contributors', uri, view, parent);
 
 		this.updateContext({ repository: repo });
-		this._uniqueId = getViewNodeId('contributors', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {

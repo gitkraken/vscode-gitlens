@@ -10,7 +10,7 @@ import type { ViewsWithCommits } from '../viewBase';
 import { MergeConflictFilesNode } from './mergeConflictFilesNode';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
+export class MergeStatusNode extends ViewNode<'merge-status', ViewsWithCommits> {
 	constructor(
 		view: ViewsWithCommits,
 		protected override readonly parent: ViewNode,
@@ -20,10 +20,10 @@ export class MergeStatusNode extends ViewNode<ViewsWithCommits> {
 		// Specifies that the node is shown as a root
 		public readonly root: boolean,
 	) {
-		super(GitUri.fromRepoPath(mergeStatus.repoPath), view, parent);
+		super('merge-status', GitUri.fromRepoPath(mergeStatus.repoPath), view, parent);
 
 		this.updateContext({ branch: branch, root: root, status: 'merging' });
-		this._uniqueId = getViewNodeId('merge-status', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	get repoPath(): string {

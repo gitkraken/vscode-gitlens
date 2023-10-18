@@ -19,7 +19,7 @@ type State = {
 	checked: TreeItemCheckboxState;
 };
 
-export class ResultsFileNode extends ViewRefFileNode<View, State> implements FileNode {
+export class ResultsFileNode extends ViewRefFileNode<'results-file', View, State> implements FileNode {
 	constructor(
 		view: View,
 		parent: ViewNode,
@@ -29,7 +29,7 @@ export class ResultsFileNode extends ViewRefFileNode<View, State> implements Fil
 		public readonly ref2: string,
 		private readonly direction: 'ahead' | 'behind' | undefined,
 	) {
-		super(GitUri.fromFile(file, repoPath, ref1 || ref2), view, parent, file);
+		super('results-file', GitUri.fromFile(file, repoPath, ref1 || ref2), view, parent, file);
 
 		this.updateContext({ file: file });
 		if (this.context.storedComparisonId != null) {
@@ -37,7 +37,7 @@ export class ResultsFileNode extends ViewRefFileNode<View, State> implements Fil
 				file.path
 			}`;
 		} else {
-			this._uniqueId = getViewNodeId('results-file', this.context);
+			this._uniqueId = getViewNodeId(this.type, this.context);
 		}
 	}
 

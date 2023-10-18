@@ -27,12 +27,12 @@ import { ContextValues, RepositoryFolderNode, ViewNode } from './nodes/viewNode'
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
-export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
+export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchAndCompareView> {
 	protected override splatted = true;
 	private comparePicker: ComparePickerNode | undefined;
 
 	constructor(view: SearchAndCompareView) {
-		super(unknownGitUri, view);
+		super('search-compare', unknownGitUri, view);
 	}
 
 	private _children: (ComparePickerNode | CompareResultsNode | SearchResultsNode)[] | undefined;
