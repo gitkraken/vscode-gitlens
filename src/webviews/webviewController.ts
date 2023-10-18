@@ -302,7 +302,7 @@ export class WebviewController<
 			}
 		}
 
-		setContextKeys(this.descriptor.contextKeyPrefix, this.active);
+		setContextKeys(this.descriptor.contextKeyPrefix);
 	}
 
 	get baseWebviewState(): WebviewState {
@@ -398,7 +398,7 @@ export class WebviewController<
 		args: { 0: e => `focused=${e.focused}, inputFocused=${e.inputFocused}` },
 	})
 	onViewFocusChanged(e: WebviewFocusChangedParams): void {
-		setContextKeys(this.descriptor.contextKeyPrefix, undefined, e.focused, e.inputFocused);
+		setContextKeys(this.descriptor.contextKeyPrefix);
 		this.provider.onFocusChanged?.(e.focused);
 	}
 
@@ -422,7 +422,7 @@ export class WebviewController<
 		if (visible) {
 			void this.container.usage.track(`${this.descriptor.trackingFeature}:shown`);
 
-			setContextKeys(this.descriptor.contextKeyPrefix, active);
+			setContextKeys(this.descriptor.contextKeyPrefix);
 			if (active != null) {
 				this.provider.onActiveChanged?.(active);
 				if (!active) {
@@ -636,40 +636,12 @@ export function resetContextKeys(
 	contextKeyPrefix: `gitlens:webview:${WebviewTypes | CustomEditorTypes}` | `gitlens:webviewView:${WebviewViewTypes}`,
 ): void {
 	void setContext(`${contextKeyPrefix}:visible`, false);
-	void setContext(`${contextKeyPrefix}:inputFocus`, false);
-	void setContext(`${contextKeyPrefix}:focus`, false);
-	if (contextKeyPrefix.startsWith('gitlens:webview:')) {
-		void setContext(`${contextKeyPrefix as `gitlens:webview:${WebviewTypes | CustomEditorTypes}`}:active`, false);
-	}
 }
 
 export function setContextKeys(
 	contextKeyPrefix: `gitlens:webview:${WebviewTypes | CustomEditorTypes}` | `gitlens:webviewView:${WebviewViewTypes}`,
-	active?: boolean,
-	focus?: boolean,
-	inputFocus?: boolean,
 ): void {
 	void setContext(`${contextKeyPrefix}:visible`, true);
-	if (contextKeyPrefix.startsWith('gitlens:webview:')) {
-		if (active != null) {
-			void setContext(
-				`${contextKeyPrefix as `gitlens:webview:${WebviewTypes | CustomEditorTypes}`}:active`,
-				active,
-			);
-
-			if (!active) {
-				focus = false;
-				inputFocus = false;
-			}
-		}
-	}
-
-	if (focus != null) {
-		void setContext(`${contextKeyPrefix}:focus`, focus);
-	}
-	if (inputFocus != null) {
-		void setContext(`${contextKeyPrefix}:inputFocus`, inputFocus);
-	}
 }
 
 export function updatePendingContext<Context extends object>(

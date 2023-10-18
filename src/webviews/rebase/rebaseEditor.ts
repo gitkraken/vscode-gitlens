@@ -251,8 +251,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	@debug<RebaseEditorProvider['onViewFocusChanged']>({
 		args: { 0: e => `focused=${e.focused}, inputFocused=${e.inputFocused}` },
 	})
-	protected onViewFocusChanged(e: WebviewFocusChangedParams): void {
-		setContextKeys(this.contextKeyPrefix, e.focused, e.focused, e.inputFocused);
+	protected onViewFocusChanged(_e: WebviewFocusChangedParams): void {
+		setContextKeys(this.contextKeyPrefix);
 	}
 
 	@debug<RebaseEditorProvider['onViewStateChanged']>({
@@ -262,9 +262,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		},
 	})
 	protected onViewStateChanged(context: RebaseEditorContext, e: WebviewPanelOnDidChangeViewStateEvent): void {
-		const { active, visible } = e.webviewPanel;
-		if (visible) {
-			setContextKeys(this.contextKeyPrefix, active);
+		if (e.webviewPanel.visible) {
+			setContextKeys(this.contextKeyPrefix);
 		} else {
 			resetContextKeys(this.contextKeyPrefix);
 		}
