@@ -406,6 +406,7 @@ export abstract class ViewBase<
 
 	protected onSelectionChanged(e: TreeViewSelectionChangeEvent<ViewNode>) {
 		this._onDidChangeSelection.fire(e);
+		this.notifySelections();
 	}
 
 	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
@@ -414,6 +415,45 @@ export abstract class ViewBase<
 		}
 
 		this._onDidChangeVisibility.fire(e);
+		if (e.visible) {
+			this.notifySelections();
+		}
+	}
+
+	private notifySelections() {
+		const node = this.selection?.[0];
+		if (node == null) return;
+
+		if (
+			node.is('commit') ||
+			node.is('stash') ||
+			node.is('file-commit') ||
+			node.is('commit-file') ||
+			node.is('stash-file')
+		) {
+			this.container.events.fire(
+				'commit:selected',
+				{
+					commit: node.commit,
+					interaction: 'passive',
+					preserveFocus: true,
+					preserveVisibility: true,
+				},
+				{ source: this.id },
+			);
+		}
+
+		if (node.is('file-commit') || node.is('commit-file') || node.is('stash-file')) {
+			this.container.events.fire(
+				'file:selected',
+				{
+					uri: node.uri,
+					preserveFocus: true,
+					preserveVisibility: true,
+				},
+				{ source: this.id },
+			);
+		}
 	}
 
 	get activeSelection(): ViewNode | undefined {
