@@ -14,7 +14,7 @@ import { FolderNode } from './folderNode';
 import { StatusFileNode } from './statusFileNode';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
+export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-files', ViewsWithCommits> {
 	constructor(
 		view: ViewsWithCommits,
 		protected override readonly parent: ViewNode,
@@ -22,10 +22,10 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 		public readonly status: Required<BranchTrackingStatus>,
 		public readonly direction: 'ahead' | 'behind',
 	) {
-		super(GitUri.fromRepoPath(status.repoPath), view, parent);
+		super('tracking-status-files', GitUri.fromRepoPath(status.repoPath), view, parent);
 
 		this.updateContext({ branch: branch, branchStatus: status, branchStatusUpstreamType: direction });
-		this._uniqueId = getViewNodeId('tracking-status-files', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	get repoPath(): string {

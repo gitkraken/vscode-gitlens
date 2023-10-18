@@ -10,17 +10,17 @@ import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class BranchesNode extends ViewNode<ViewsWithBranchesNode> {
+export class BranchesNode extends ViewNode<'branches', ViewsWithBranchesNode> {
 	constructor(
 		uri: GitUri,
 		view: ViewsWithBranchesNode,
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
 	) {
-		super(uri, view, parent);
+		super('branches', uri, view, parent);
 
 		this.updateContext({ repository: repo });
-		this._uniqueId = getViewNodeId('branches', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {

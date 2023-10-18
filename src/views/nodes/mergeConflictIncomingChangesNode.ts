@@ -16,14 +16,17 @@ import type { ViewsWithCommits } from '../viewBase';
 import { getFileRevisionAsCommitTooltip } from './fileRevisionAsCommitNode';
 import { ContextValues, ViewNode } from './viewNode';
 
-export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits | FileHistoryView | LineHistoryView> {
+export class MergeConflictIncomingChangesNode extends ViewNode<
+	'conflict-incoming-changes',
+	ViewsWithCommits | FileHistoryView | LineHistoryView
+> {
 	constructor(
 		view: ViewsWithCommits | FileHistoryView | LineHistoryView,
 		protected override readonly parent: ViewNode,
 		private readonly status: GitMergeStatus | GitRebaseStatus,
 		private readonly file: GitFile,
 	) {
-		super(GitUri.fromFile(file, status.repoPath, status.HEAD.ref), view, parent);
+		super('conflict-incoming-changes', GitUri.fromFile(file, status.repoPath, status.HEAD.ref), view, parent);
 	}
 
 	private _commit: Promise<GitCommit | undefined> | undefined;

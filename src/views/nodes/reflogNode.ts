@@ -11,7 +11,7 @@ import { ReflogRecordNode } from './reflogRecordNode';
 import type { PageableViewNode } from './viewNode';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class ReflogNode extends ViewNode<RepositoriesView | WorkspacesView> implements PageableViewNode {
+export class ReflogNode extends ViewNode<'reflog', RepositoriesView | WorkspacesView> implements PageableViewNode {
 	limit: number | undefined;
 
 	constructor(
@@ -20,10 +20,10 @@ export class ReflogNode extends ViewNode<RepositoriesView | WorkspacesView> impl
 		parent: ViewNode,
 		public readonly repo: Repository,
 	) {
-		super(uri, view, parent);
+		super('reflog', uri, view, parent);
 
 		this.updateContext({ repository: repo });
-		this._uniqueId = getViewNodeId('reflog', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 

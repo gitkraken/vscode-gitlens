@@ -509,6 +509,63 @@ export const viewIdsByDefaultContainerId = new Map<ViewContainerIds | CoreViewCo
 	['workbench.view.extension.gitlens', ['home', 'workspaces', 'account']],
 ]);
 
+export type TreeViewRefNodeTypes = 'branch' | 'commit' | 'stash' | 'tag';
+export type TreeViewRefFileNodeTypes = 'commit-file' | 'file-commit' | 'results-file' | 'stash-file';
+export type TreeViewFileNodeTypes =
+	| TreeViewRefFileNodeTypes
+	| 'conflict-file'
+	| 'folder'
+	| 'status-file'
+	| 'uncommitted-file';
+export type TreeViewSubscribableNodeTypes =
+	| 'compare-branch'
+	| 'compare-results'
+	| 'file-history'
+	| 'file-history-tracker'
+	| 'line-history'
+	| 'line-history-tracker'
+	| 'repositories'
+	| 'repository'
+	| 'repository-folder'
+	| 'search-results'
+	| 'workspace';
+export type TreeViewNodeTypes =
+	| TreeViewRefNodeTypes
+	| TreeViewFileNodeTypes
+	| TreeViewSubscribableNodeTypes
+	| 'autolink'
+	| 'autolinks'
+	| 'branch-tag-folder'
+	| 'branches'
+	| 'compare-picker'
+	| 'contributor'
+	| 'contributors'
+	| 'conflict-files'
+	| 'conflict-current-changes'
+	| 'conflict-incoming-changes'
+	| 'merge-status'
+	| 'message'
+	| 'pager'
+	| 'pullrequest'
+	| 'rebase-status'
+	| 'reflog'
+	| 'reflog-record'
+	| 'remote'
+	| 'remotes'
+	| 'results-commits'
+	| 'results-files'
+	| 'search-compare'
+	| 'stashes'
+	| 'status-files'
+	| 'tags'
+	| 'tracking-status'
+	| 'tracking-status-files'
+	| 'uncommitted-files'
+	| 'workspace-missing-repository'
+	| 'workspaces-view'
+	| 'worktree'
+	| 'worktrees';
+
 export type ContextKeys =
 	| `${typeof extensionPrefix}:action:${string}`
 	| `${typeof extensionPrefix}:key:${Keys}`

@@ -12,7 +12,7 @@ import { MergeConflictFilesNode } from './mergeConflictFilesNode';
 import { RebaseCommitNode } from './rebaseCommitNode';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
+export class RebaseStatusNode extends ViewNode<'rebase-status', ViewsWithCommits> {
 	constructor(
 		view: ViewsWithCommits,
 		protected override readonly parent: ViewNode,
@@ -22,10 +22,10 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 		// Specifies that the node is shown as a root
 		public readonly root: boolean,
 	) {
-		super(GitUri.fromRepoPath(rebaseStatus.repoPath), view, parent);
+		super('rebase-status', GitUri.fromRepoPath(rebaseStatus.repoPath), view, parent);
 
 		this.updateContext({ branch: branch, root: root, status: 'rebasing' });
-		this._uniqueId = getViewNodeId('merge-status', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	get repoPath(): string {

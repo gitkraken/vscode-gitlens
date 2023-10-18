@@ -7,7 +7,7 @@ import type { PullRequest } from '../../git/models/pullRequest';
 import type { ViewsWithCommits } from '../viewBase';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class PullRequestNode extends ViewNode<ViewsWithCommits> {
+export class PullRequestNode extends ViewNode<'pullrequest', ViewsWithCommits> {
 	readonly repoPath: string;
 
 	constructor(
@@ -25,7 +25,7 @@ export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 			branchOrCommit = branchOrCommitOrRepoPath;
 		}
 
-		super(GitUri.fromRepoPath(repoPath), view, parent);
+		super('pullrequest', GitUri.fromRepoPath(repoPath), view, parent);
 
 		if (branchOrCommit != null) {
 			if (branchOrCommit instanceof GitBranch) {
@@ -35,7 +35,7 @@ export class PullRequestNode extends ViewNode<ViewsWithCommits> {
 			}
 		}
 
-		this._uniqueId = getViewNodeId('pullrequest', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 		this.repoPath = repoPath;
 	}
 

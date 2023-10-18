@@ -36,7 +36,7 @@ import type { AmbientContext, ViewNode } from './viewNode';
 import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 import { WorktreesNode } from './worktreesNode';
 
-export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories> {
+export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWithRepositories> {
 	private _children: ViewNode[] | undefined;
 	private _status: Promise<GitStatus | undefined>;
 
@@ -47,10 +47,10 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 		public readonly repo: Repository,
 		context?: AmbientContext,
 	) {
-		super(uri, view, parent);
+		super('repository', uri, view, parent);
 
 		this.updateContext({ ...context, repository: this.repo });
-		this._uniqueId = getViewNodeId('repository', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 
 		this._status = this.repo.getStatus();
 	}
@@ -423,14 +423,11 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 		if (this._children !== undefined) {
 			const status = await this._status;
 
-			let index = this._children.findIndex(c => c instanceof StatusFilesNode);
+			let index = this._children.findIndex(c => c.type === 'status-files');
 			if (status !== undefined && (status.state.ahead || status.files.length !== 0)) {
 				let deleteCount = 1;
 				if (index === -1) {
-					index = findLastIndex(
-						this._children,
-						c => c instanceof BranchTrackingStatusNode || c instanceof BranchNode,
-					);
+					index = findLastIndex(this._children, c => c.type === 'tracking-status' || c.type === 'branch');
 					deleteCount = 0;
 					index++;
 				}
@@ -471,21 +468,21 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 		}
 
 		if (e.changed(RepositoryChange.Remotes, RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
-			const node = this._children.find(c => c instanceof RemotesNode);
+			const node = this._children.find(c => c.type === 'remotes');
 			if (node != null) {
 				this.view.triggerNodeChange(node);
 			}
 		}
 
 		if (e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
-			const node = this._children.find(c => c instanceof StashesNode);
+			const node = this._children.find(c => c.type === 'stashes');
 			if (node != null) {
 				this.view.triggerNodeChange(node);
 			}
 		}
 
 		if (e.changed(RepositoryChange.Tags, RepositoryChangeComparisonMode.Any)) {
-			const node = this._children.find(c => c instanceof TagsNode);
+			const node = this._children.find(c => c.type === 'tags');
 			if (node != null) {
 				this.view.triggerNodeChange(node);
 			}

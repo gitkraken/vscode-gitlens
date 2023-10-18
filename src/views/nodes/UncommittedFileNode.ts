@@ -12,9 +12,9 @@ import type { FileNode } from './folderNode';
 import type { ViewNode } from './viewNode';
 import { ContextValues, ViewFileNode } from './viewNode';
 
-export class UncommittedFileNode extends ViewFileNode<ViewsWithCommits> implements FileNode {
+export class UncommittedFileNode extends ViewFileNode<'uncommitted-file', ViewsWithCommits> implements FileNode {
 	constructor(view: ViewsWithCommits, parent: ViewNode, repoPath: string, file: GitFile) {
-		super(GitUri.fromFile(file, repoPath), view, parent, file);
+		super('uncommitted-file', GitUri.fromFile(file, repoPath), view, parent, file);
 	}
 
 	override toClipboard(): string {

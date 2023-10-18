@@ -27,7 +27,7 @@ import { ResultsFilesNode } from './resultsFilesNode';
 import type { ViewNode } from './viewNode';
 import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 
-export class CompareBranchNode extends SubscribeableViewNode<ViewsWithBranches | WorktreesView> {
+export class CompareBranchNode extends SubscribeableViewNode<'compare-branch', ViewsWithBranches | WorktreesView> {
 	private _children: ViewNode[] | undefined;
 	private _compareWith: StoredBranchComparison | undefined;
 
@@ -40,10 +40,10 @@ export class CompareBranchNode extends SubscribeableViewNode<ViewsWithBranches |
 		// Specifies that the node is shown as a root
 		public readonly root: boolean = false,
 	) {
-		super(uri, view, parent);
+		super('compare-branch', uri, view, parent);
 
 		this.updateContext({ branch: branch, root: root, storedComparisonId: this.getStorageId() });
-		this._uniqueId = getViewNodeId('compare-branch', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 		this.loadCompareWith();
 	}
 

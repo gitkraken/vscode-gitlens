@@ -13,17 +13,17 @@ import { StashFileNode } from './stashFileNode';
 import type { ViewNode } from './viewNode';
 import { ContextValues, getViewNodeId, ViewRefNode } from './viewNode';
 
-export class StashNode extends ViewRefNode<ViewsWithStashes, GitStashReference> {
+export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashReference> {
 	constructor(
 		view: ViewsWithStashes,
 		protected override parent: ViewNode,
 		public readonly commit: GitStashCommit,
 		private readonly options?: { icon?: boolean },
 	) {
-		super(commit.getGitUri(), view, parent);
+		super('stash', commit.getGitUri(), view, parent);
 
 		this.updateContext({ commit: commit });
-		this._uniqueId = getViewNodeId('stash', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {

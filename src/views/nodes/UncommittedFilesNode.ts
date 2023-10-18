@@ -12,7 +12,7 @@ import { FolderNode } from './folderNode';
 import { UncommittedFileNode } from './UncommittedFileNode';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class UncommittedFilesNode extends ViewNode<ViewsWithWorkingTree> {
+export class UncommittedFilesNode extends ViewNode<'uncommitted-files', ViewsWithWorkingTree> {
 	constructor(
 		view: ViewsWithWorkingTree,
 		protected override readonly parent: ViewNode,
@@ -26,9 +26,9 @@ export class UncommittedFilesNode extends ViewNode<ViewsWithWorkingTree> {
 			  },
 		public readonly range: string | undefined,
 	) {
-		super(GitUri.fromRepoPath(status.repoPath), view, parent);
+		super('uncommitted-files', GitUri.fromRepoPath(status.repoPath), view, parent);
 
-		this._uniqueId = getViewNodeId('uncommitted-files', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {

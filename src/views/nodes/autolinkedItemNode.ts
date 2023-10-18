@@ -8,7 +8,7 @@ import { isPromise } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
+export class AutolinkedItemNode extends ViewNode<'autolink', ViewsWithCommits> {
 	constructor(
 		view: ViewsWithCommits,
 		protected override readonly parent: ViewNode,
@@ -16,9 +16,9 @@ export class AutolinkedItemNode extends ViewNode<ViewsWithCommits> {
 		public readonly item: Autolink,
 		private enrichedItem: Promise<IssueOrPullRequest | undefined> | IssueOrPullRequest | undefined,
 	) {
-		super(GitUri.fromRepoPath(repoPath), view, parent);
+		super('autolink', GitUri.fromRepoPath(repoPath), view, parent);
 
-		this._uniqueId = getViewNodeId(`autolink+${item.id}`, this.context);
+		this._uniqueId = getViewNodeId(`${this.type}+${item.id}`, this.context);
 	}
 
 	override get id(): string {

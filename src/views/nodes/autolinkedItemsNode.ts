@@ -14,7 +14,7 @@ import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 let instanceId = 0;
 
-export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
+export class AutolinkedItemsNode extends ViewNode<'autolinks', ViewsWithCommits> {
 	private _instanceId: number;
 
 	constructor(
@@ -24,11 +24,11 @@ export class AutolinkedItemsNode extends ViewNode<ViewsWithCommits> {
 		public readonly log: GitLog,
 		private expand: boolean,
 	) {
-		super(GitUri.fromRepoPath(repoPath), view, parent);
+		super('autolinks', GitUri.fromRepoPath(repoPath), view, parent);
 
 		this._instanceId = instanceId++;
 		this.updateContext({ autolinksId: String(this._instanceId) });
-		this._uniqueId = getViewNodeId('autolinks', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {

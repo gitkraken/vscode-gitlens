@@ -27,7 +27,7 @@ export interface CommitsQueryResults {
 }
 
 export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits>
-	extends ViewNode<View>
+	extends ViewNode<'results-commits', View>
 	implements PageableViewNode
 {
 	limit: number | undefined;
@@ -51,12 +51,12 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		private readonly _options: { description?: string; expand?: boolean } = undefined!,
 		splatted?: boolean,
 	) {
-		super(GitUri.fromRepoPath(repoPath), view, parent);
+		super('results-commits', GitUri.fromRepoPath(repoPath), view, parent);
 
 		if (_results.direction != null) {
 			this.updateContext({ branchStatusUpstreamType: _results.direction });
 		}
-		this._uniqueId = getViewNodeId('results-commits', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 		this.limit = this.view.getNodeLastKnownLimit(this);
 
 		this._options = { expand: true, ..._options };

@@ -29,7 +29,7 @@ type State = {
 	pendingPullRequest: Promise<PullRequest | undefined> | undefined;
 };
 
-export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
+export class WorktreeNode extends ViewNode<'worktree', ViewsWithWorktrees, State> {
 	limit: number | undefined;
 
 	private _branch: GitBranch | undefined;
@@ -40,10 +40,10 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 		protected override readonly parent: ViewNode,
 		public readonly worktree: GitWorktree,
 	) {
-		super(uri, view, parent);
+		super('worktree', uri, view, parent);
 
 		this.updateContext({ worktree: worktree });
-		this._uniqueId = getViewNodeId('worktree', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 
@@ -98,7 +98,7 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 						// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
 						if (pr != null && this._children != null) {
 							this._children.splice(
-								this._children[0] instanceof CompareBranchNode ? 1 : 0,
+								this._children[0].type === 'compare-branch' ? 1 : 0,
 								0,
 								new PullRequestNode(this.view, this, pr, branch),
 							);

@@ -11,7 +11,7 @@ interface RepoRef {
 	ref: string | StoredNamedRef;
 }
 
-export class ComparePickerNode extends ViewNode<SearchAndCompareView> {
+export class ComparePickerNode extends ViewNode<'compare-picker', SearchAndCompareView> {
 	readonly order: number = Date.now();
 
 	constructor(
@@ -19,7 +19,7 @@ export class ComparePickerNode extends ViewNode<SearchAndCompareView> {
 		parent: SearchAndCompareViewNode,
 		public readonly selectedRef: RepoRef,
 	) {
-		super(unknownGitUri, view, parent);
+		super('compare-picker', unknownGitUri, view, parent);
 	}
 
 	getChildren(): ViewNode[] {

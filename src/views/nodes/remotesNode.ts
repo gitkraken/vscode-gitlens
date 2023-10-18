@@ -8,17 +8,17 @@ import { MessageNode } from './common';
 import { RemoteNode } from './remoteNode';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class RemotesNode extends ViewNode<ViewsWithRemotesNode> {
+export class RemotesNode extends ViewNode<'remotes', ViewsWithRemotesNode> {
 	constructor(
 		uri: GitUri,
 		view: ViewsWithRemotesNode,
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
 	) {
-		super(uri, view, parent);
+		super('remotes', uri, view, parent);
 
 		this.updateContext({ repository: repo });
-		this._uniqueId = getViewNodeId('remotes', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {

@@ -19,7 +19,10 @@ import { LineHistoryNode } from './lineHistoryNode';
 import type { ViewNode } from './viewNode';
 import { ContextValues, SubscribeableViewNode } from './viewNode';
 
-export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView | LineHistoryView> {
+export class LineHistoryTrackerNode extends SubscribeableViewNode<
+	'line-history-tracker',
+	FileHistoryView | LineHistoryView
+> {
 	private _base: string | undefined;
 	private _child: LineHistoryNode | undefined;
 	private _editorContents: string | undefined;
@@ -27,7 +30,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	protected override splatted = true;
 
 	constructor(view: FileHistoryView | LineHistoryView) {
-		super(unknownGitUri, view);
+		super('line-history-tracker', unknownGitUri, view);
 	}
 
 	override dispose() {

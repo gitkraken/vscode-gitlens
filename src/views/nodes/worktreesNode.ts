@@ -10,7 +10,7 @@ import { MessageNode } from './common';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 import { WorktreeNode } from './worktreeNode';
 
-export class WorktreesNode extends ViewNode<ViewsWithWorktreesNode> {
+export class WorktreesNode extends ViewNode<'worktrees', ViewsWithWorktreesNode> {
 	private _children: WorktreeNode[] | undefined;
 
 	constructor(
@@ -19,10 +19,10 @@ export class WorktreesNode extends ViewNode<ViewsWithWorktreesNode> {
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
 	) {
-		super(uri, view, parent);
+		super('worktrees', uri, view, parent);
 
 		this.updateContext({ repository: repo });
-		this._uniqueId = getViewNodeId('worktrees', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {

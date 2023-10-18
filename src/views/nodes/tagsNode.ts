@@ -10,17 +10,17 @@ import { MessageNode } from './common';
 import { TagNode } from './tagNode';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class TagsNode extends ViewNode<ViewsWithTagsNode> {
+export class TagsNode extends ViewNode<'tags', ViewsWithTagsNode> {
 	constructor(
 		uri: GitUri,
 		view: ViewsWithTagsNode,
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
 	) {
-		super(uri, view, parent);
+		super('tags', uri, view, parent);
 
 		this.updateContext({ repository: repo });
-		this._uniqueId = getViewNodeId('tags', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {

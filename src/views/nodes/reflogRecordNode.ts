@@ -12,7 +12,7 @@ import { LoadMoreNode, MessageNode } from './common';
 import type { PageableViewNode } from './viewNode';
 import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class ReflogRecordNode extends ViewNode<ViewsWithCommits> implements PageableViewNode {
+export class ReflogRecordNode extends ViewNode<'reflog-record', ViewsWithCommits> implements PageableViewNode {
 	limit: number | undefined;
 
 	constructor(
@@ -20,10 +20,10 @@ export class ReflogRecordNode extends ViewNode<ViewsWithCommits> implements Page
 		parent: ViewNode,
 		public readonly record: GitReflogRecord,
 	) {
-		super(GitUri.fromRepoPath(record.repoPath), view, parent);
+		super('reflog-record', GitUri.fromRepoPath(record.repoPath), view, parent);
 
 		this.updateContext({ reflog: record });
-		this._uniqueId = getViewNodeId('reflog-record', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 

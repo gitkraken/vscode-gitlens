@@ -32,7 +32,7 @@ export interface FilesQueryResults {
 	filtered?: Map<FilesQueryFilter, GitFile[]>;
 }
 
-export class ResultsFilesNode extends ViewNode<ViewsWithCommits, State> {
+export class ResultsFilesNode extends ViewNode<'results-files', ViewsWithCommits, State> {
 	constructor(
 		view: ViewsWithCommits,
 		protected override parent: ViewNode,
@@ -45,12 +45,12 @@ export class ResultsFilesNode extends ViewNode<ViewsWithCommits, State> {
 			expand?: boolean;
 		} = undefined!,
 	) {
-		super(GitUri.fromRepoPath(repoPath), view, parent);
+		super('results-files', GitUri.fromRepoPath(repoPath), view, parent);
 
 		if (this.direction != null) {
 			this.updateContext({ branchStatusUpstreamType: this.direction });
 		}
-		this._uniqueId = getViewNodeId('results-files', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 		this._options = { expand: true, ..._options };
 	}
 

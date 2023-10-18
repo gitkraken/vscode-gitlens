@@ -12,14 +12,14 @@ import { FolderNode } from './folderNode';
 import { MergeConflictFileNode } from './mergeConflictFileNode';
 import { ViewNode } from './viewNode';
 
-export class MergeConflictFilesNode extends ViewNode<ViewsWithCommits> {
+export class MergeConflictFilesNode extends ViewNode<'conflict-files', ViewsWithCommits> {
 	constructor(
 		view: ViewsWithCommits,
 		protected override readonly parent: ViewNode,
 		private readonly status: GitMergeStatus | GitRebaseStatus,
 		private readonly conflicts: GitStatusFile[],
 	) {
-		super(GitUri.fromRepoPath(status.repoPath), view, parent);
+		super('conflict-files', GitUri.fromRepoPath(status.repoPath), view, parent);
 	}
 
 	get repoPath(): string {
