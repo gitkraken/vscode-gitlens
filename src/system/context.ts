@@ -14,6 +14,8 @@ export function getContext<T>(key: ContextKeys, defaultValue?: T): T | undefined
 }
 
 export async function setContext(key: ContextKeys, value: unknown): Promise<void> {
+	if (contextStorage.get(key) === value) return;
+
 	contextStorage.set(key, value);
 	void (await executeCoreCommand('setContext', key, value));
 	_onDidChangeContext.fire(key);
