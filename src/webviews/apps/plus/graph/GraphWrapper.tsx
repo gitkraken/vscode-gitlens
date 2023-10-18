@@ -1395,6 +1395,7 @@ export function GraphWrapper({
 							enabledScrollMarkerTypes={graphConfig?.scrollMarkerTypes}
 							enableShowHideRefsOptions
 							enableMultiSelection={graphConfig?.enableMultiSelection}
+							enableRowsLazyLoading
 							excludeRefsById={excludeRefsById}
 							excludeByType={excludeTypes}
 							formatCommitDateTime={getGraphDateFormatter(graphConfig)}
