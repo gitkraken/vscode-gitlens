@@ -26,6 +26,9 @@ export class GlDetailsBase extends LitElement {
 	@property({ attribute: 'empty-text' })
 	emptyText? = 'No Repositories';
 
+	@property()
+	validityMessage?: string;
+
 	get hasChangedFiles() {
 		return this.repoChanges?.some(c => c.change?.files != null) ?? false;
 	}
@@ -255,6 +258,16 @@ export class GlDetailsBase extends LitElement {
 					></action-item>
 				</action-nav>
 
+				${when(
+					this.validityMessage != null,
+					() =>
+						html`<div class="section">
+							<div class="alert alert--error">
+								<code-icon icon="error"></code-icon>
+								<p class="alert__content">${this.validityMessage}</p>
+							</div>
+						</div>`,
+				)}
 				<div class="change-list" data-region="files">
 					${when(
 						changedFileTemplates.length > 0,

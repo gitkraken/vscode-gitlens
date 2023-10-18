@@ -1,9 +1,10 @@
 import { defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-components';
 import { html, LitElement } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { RepoChangeSet, RepoWipChangeSet, State } from '../../../../../plus/webviews/patchDetails/protocol';
 import type { Serialized } from '../../../../../system/serialize';
+import type { GlCreateDetails } from './gl-create-details';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
 import './gl-create-details';
@@ -23,6 +24,15 @@ export class GlPatchCreate extends LitElement {
 
 	@state()
 	description = '';
+
+	@query('#title')
+	titleInput!: HTMLInputElement;
+
+	@query('#desc')
+	descInput!: HTMLInputElement;
+
+	@query('gl-create-details')
+	createDetails!: GlCreateDetails;
 
 	get createEntries() {
 		if (this.state?.create == null) {
@@ -52,7 +62,6 @@ export class GlPatchCreate extends LitElement {
 		return this.createEntries?.filter(([_id, changeSet]) => changeSet.checked !== false);
 	}
 
-	@state()
 	get canSubmit() {
 		return this.patchTitle.length > 0 && this.selectedChanges != null && this.selectedChanges.length > 0;
 	}
@@ -74,18 +83,18 @@ export class GlPatchCreate extends LitElement {
 		return html`
 			<div class="section">
 				<div class="message-input">
-					<input type="text" class="message-input__control" placeholder="Title" .value=${this.patchTitle} @input=${
-						this.onTitleInput
-					}></textarea>
+					<input id="title" type="text" class="message-input__control" placeholder="Title (required)" .value=${
+						this.patchTitle
+					} @input=${this.onTitleInput}></textarea>
 				</div>
 				<div class="message-input">
-					<textarea class="message-input__control" placeholder="Description (optional)" .value=${this.description}  @input=${
-						this.onDescriptionInput
-					}></textarea>
+					<textarea id="desc" class="message-input__control" placeholder="Description (optional)" .value=${
+						this.description
+					}  @input=${this.onDescriptionInput}></textarea>
 				</div>
 				<p class="button-container">
 					<span class="button-group button-group--single">
-						<gl-button ?disabled=${!this.canSubmit} full @click=${this.onCreateAll}>Create Patch</gl-button>
+						<gl-button full @click=${this.onCreateAll}>Create Patch</gl-button>
 						${when(
 							this.hasWipChanges,
 							() => html`
@@ -127,8 +136,28 @@ export class GlPatchCreate extends LitElement {
 	private createPatch() {
 		if (!this.canSubmit) {
 			// TODO: show error
+			let focused = false;
+			if (this.titleInput.value.length === 0) {
+				this.titleInput.setCustomValidity('Title is required');
+				this.titleInput.reportValidity();
+				this.titleInput.focus();
+				focused = true;
+			} else {
+				this.titleInput.setCustomValidity('');
+			}
+
+			if (this.selectedChanges == null || this.selectedChanges.length === 0) {
+				this.createDetails.validityMessage = 'Check at least one change';
+				if (!focused) {
+					this.createDetails.focus();
+				}
+			} else {
+				this.titleInput.setCustomValidity('');
+			}
 			return;
 		}
+		this.createDetails.validityMessage = undefined;
+		this.titleInput.setCustomValidity('');
 
 		const changes = this.selectedChanges!.reduce<Record<string, RepoChangeSet>>((a, [id, changeSet]) => {
 			a[id] = changeSet;

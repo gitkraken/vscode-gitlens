@@ -61,6 +61,11 @@
 			color: var(--vscode-input-placeholderForeground);
 		}
 
+		&:invalid {
+			border-color: var(--vscode-inputValidation-errorBorder);
+			background-color: var(--vscode-inputValidation-errorBackground);
+		}
+
 		&:focus {
 			outline: 1px solid var(--vscode-focusBorder);
 			outline-offset: -1px;
@@ -71,5 +76,28 @@
 .h {
 	&-spacing {
 		margin-bottom: 1.5rem;
+	}
+}
+
+.alert {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	padding: 0.8rem 1.2rem;
+	line-height: 1.2;
+	background-color: var(--color-alert-errorBackground);
+	border-left: 0.3rem solid var(--color-alert-errorBorder);
+	color: var(--color-alert-foreground);
+
+	code-icon {
+		margin-right: 0.4rem;
+		vertical-align: baseline;
+	}
+
+	&__content {
+		font-size: 1.2rem;
+		line-height: 1.2;
+		text-align: left;
+		margin: 0;
 	}
 }
