@@ -1124,7 +1124,12 @@ type GKLicenseType =
 	| 'bundle-teams'
 	| 'bundle-hosted-enterprise'
 	| 'bundle-self-hosted-enterprise'
-	| 'bundle-standalone-enterprise';
+	| 'bundle-standalone-enterprise'
+	| 'gitkraken_v1-pro'
+	| 'gitkraken_v1-teams'
+	| 'gitkraken_v1-hosted-enterprise'
+	| 'gitkraken_v1-self-hosted-enterprise'
+	| 'gitkraken_v1-standalone-enterprise';
 
 interface GKUser {
 	readonly id: string;
@@ -1139,9 +1144,11 @@ function convertLicenseTypeToPlanId(licenseType: GKLicenseType): SubscriptionPla
 	switch (licenseType) {
 		case 'gitlens-pro':
 		case 'bundle-pro':
+		case 'gitkraken_v1-pro':
 			return SubscriptionPlanId.Pro;
 		case 'gitlens-teams':
 		case 'bundle-teams':
+		case 'gitkraken_v1-teams':
 			return SubscriptionPlanId.Teams;
 		case 'gitlens-hosted-enterprise':
 		case 'gitlens-self-hosted-enterprise':
@@ -1149,6 +1156,9 @@ function convertLicenseTypeToPlanId(licenseType: GKLicenseType): SubscriptionPla
 		case 'bundle-hosted-enterprise':
 		case 'bundle-self-hosted-enterprise':
 		case 'bundle-standalone-enterprise':
+		case 'gitkraken_v1-hosted-enterprise':
+		case 'gitkraken_v1-self-hosted-enterprise':
+		case 'gitkraken_v1-standalone-enterprise':
 			return SubscriptionPlanId.Enterprise;
 		default:
 			return SubscriptionPlanId.FreePlus;
@@ -1181,5 +1191,7 @@ function licenseStatusPriority(status: GKLicense['latestStatus']): number {
 		case 'canceled':
 		case 'non_renewing':
 			return 0;
+		default:
+			return -200;
 	}
 }
