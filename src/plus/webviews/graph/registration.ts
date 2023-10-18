@@ -19,7 +19,7 @@ import type { ShowInCommitGraphCommandArgs, State } from './protocol';
 
 export function registerGraphWebviewPanel(controller: WebviewsController) {
 	return controller.registerWebviewPanel<State>(
-		{ id: Commands.ShowGraphPage, options: { preserveInstance: false } },
+		{ id: Commands.ShowGraphPage, options: { preserveInstance: true } },
 		{
 			id: 'gitlens.graph',
 			fileName: 'graph.html',
@@ -69,7 +69,7 @@ export function registerGraphWebviewCommands(container: Container, panels: Webvi
 				? executeCommand(Commands.ShowGraphView, ...args)
 				: executeCommand<WebviewPanelShowCommandArgs>(
 						Commands.ShowGraphPage,
-						{ _type: 'WebviewPanelShowOptions', preserveInstance: true },
+						{ _type: 'WebviewPanelShowOptions' },
 						undefined,
 						...args,
 				  ),
@@ -80,7 +80,6 @@ export function registerGraphWebviewCommands(container: Container, panels: Webvi
 				() =>
 					void executeCommand<WebviewPanelShowCommandArgs>(Commands.ShowGraphPage, {
 						_type: 'WebviewPanelShowOptions',
-						preserveInstance: true,
 					}),
 			);
 		}),
@@ -123,8 +122,8 @@ export function registerGraphWebviewCommands(container: Container, panels: Webvi
 				if (configuration.get('graph.layout') === 'panel') {
 					void container.graphView.show({ preserveFocus: preserveFocus }, args);
 				} else {
-					const active = panels.getActiveInstance()?.instanceId;
-					void panels.show({ preserveFocus: preserveFocus, preserveInstance: active ?? true }, args);
+					// const active = panels.getActiveInstance()?.instanceId;
+					void panels.show({ preserveFocus: preserveFocus /*preserveInstance: active ?? true*/ }, args);
 				}
 			},
 		),
@@ -144,8 +143,10 @@ export function registerGraphWebviewCommands(container: Container, panels: Webvi
 				void container.graphView.show({ preserveFocus: preserveFocus }, args);
 			},
 		),
-		registerCommand(`${panels.id}.refresh`, () => {
-			void panels.getActiveOrFirstInstance()?.refresh(true);
-		}),
+		registerCommand(`${panels.id}.refresh`, () => void panels.getActiveInstance()?.refresh(true)),
+		registerCommand(
+			`${panels.id}.split`,
+			() => void panels.show({ preserveInstance: false, column: ViewColumn.Beside }),
+		),
 	);
 }

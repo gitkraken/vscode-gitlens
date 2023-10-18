@@ -1,4 +1,4 @@
-import type { TextEditor, ViewColumn } from 'vscode';
+import type { TextEditor } from 'vscode';
 import { Disposable, Uri, window } from 'vscode';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
@@ -23,7 +23,7 @@ import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
 import { updatePendingContext } from '../../../webviews/webviewController';
-import type { WebviewPanelShowCommandArgs } from '../../../webviews/webviewsController';
+import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../../webviews/webviewsController';
 import { isSerializedState } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import type { Commit, Period, State } from './protocol';
@@ -87,9 +87,31 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		void this.notifyDidChangeState(true);
 	}
 
+	canReuseInstance(
+		_options?: WebviewShowOptions,
+		...args: [Uri | ViewFileNode | { state: Partial<State> }] | unknown[]
+	): boolean | undefined {
+		let uri: Uri | undefined;
+
+		const [arg] = args;
+		if (arg != null) {
+			if (arg instanceof Uri) {
+				uri = arg;
+			} else if (isViewFileNode(arg)) {
+				uri = arg.uri;
+			} else if (isSerializedState<State>(arg) && arg.state.uri != null) {
+				uri = Uri.parse(arg.state.uri);
+			}
+		} else {
+			uri = window.activeTextEditor?.document.uri;
+		}
+
+		return uri == null ? undefined : uri.toString() === this._context.uri?.toString();
+	}
+
 	onShowing(
 		loading: boolean,
-		_options: { column?: ViewColumn; preserveFocus?: boolean },
+		_options: WebviewShowOptions | undefined,
 		...args: [Uri | ViewFileNode | { state: Partial<State> }] | unknown[]
 	): boolean {
 		const [arg] = args;
@@ -138,7 +160,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 
 							void executeCommand<WebviewPanelShowCommandArgs>(
 								Commands.ShowTimelinePage,
-								{ _type: 'WebviewPanelShowOptions', preserveInstance: true },
+								{ _type: 'WebviewPanelShowOptions' },
 								this._context.uri,
 							);
 						},

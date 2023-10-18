@@ -7,7 +7,7 @@ import type { State } from './protocol';
 
 export function registerTimelineWebviewPanel(controller: WebviewsController) {
 	return controller.registerWebviewPanel<State>(
-		{ id: Commands.ShowTimelinePage, options: { preserveInstance: false } },
+		{ id: Commands.ShowTimelinePage, options: { preserveInstance: true } },
 		{
 			id: 'gitlens.timeline',
 			fileName: 'timeline.html',
@@ -52,8 +52,10 @@ export function registerTimelineWebviewView(controller: WebviewsController) {
 
 export function registerTimelineWebviewCommands(panels: WebviewPanelsProxy) {
 	return Disposable.from(
-		registerCommand(`${panels.id}.refresh`, () => {
-			void panels.getActiveOrFirstInstance()?.refresh(true);
-		}),
+		registerCommand(`${panels.id}.refresh`, () => void panels.getActiveInstance()?.refresh(true)),
+		registerCommand(
+			`${panels.id}.split`,
+			() => void panels.show({ preserveInstance: false, column: ViewColumn.Beside }),
+		),
 	);
 }

@@ -7,7 +7,7 @@ import type { State } from './protocol';
 
 export function registerFocusWebviewPanel(controller: WebviewsController) {
 	return controller.registerWebviewPanel<State>(
-		{ id: Commands.ShowFocusPage, options: { preserveInstance: false } },
+		{ id: Commands.ShowFocusPage, options: { preserveInstance: true } },
 		{
 			id: 'gitlens.focus',
 			fileName: 'focus.html',
@@ -32,8 +32,10 @@ export function registerFocusWebviewPanel(controller: WebviewsController) {
 
 export function registerFocusWebviewCommands(panels: WebviewPanelsProxy) {
 	return Disposable.from(
-		registerCommand(`${panels.id}.refresh`, () => {
-			void panels.getActiveOrFirstInstance()?.refresh(true);
-		}),
+		registerCommand(`${panels.id}.refresh`, () => void panels.getActiveInstance()?.refresh(true)),
+		registerCommand(
+			`${panels.id}.split`,
+			() => void panels.show({ preserveInstance: false, column: ViewColumn.Beside }),
+		),
 	);
 }

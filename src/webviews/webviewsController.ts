@@ -58,7 +58,6 @@ export interface WebviewPanelsProxy extends Disposable {
 	readonly id: WebviewIds;
 	readonly instances: Iterable<WebviewPanelProxy>;
 	getActiveInstance(): WebviewPanelProxy | undefined;
-	getActiveOrFirstInstance(): WebviewPanelProxy | undefined;
 	show(options?: WebviewPanelsShowOptions, ...args: unknown[]): Promise<void>;
 }
 
@@ -269,15 +268,37 @@ export class WebviewsController implements Disposable {
 				column = ViewColumn.Active;
 			}
 
-			let preserveInstance: string | boolean;
-			// eslint-disable-next-line prefer-const
-			({ preserveInstance, ...options } = { preserveInstance: true, ...options });
-
 			let controller: WebviewController<State, SerializedState, WebviewPanelDescriptor> | undefined;
-			if (!descriptor.allowMultipleInstances || preserveInstance === true) {
-				controller = getActiveOrFirstController(registration.controllers);
-			} else if (preserveInstance != null && typeof preserveInstance === 'string') {
-				controller = registration.controllers?.get(preserveInstance);
+			if (registration.controllers?.size) {
+				if (descriptor.allowMultipleInstances) {
+					if (options?.preserveInstance !== false) {
+						if (options?.preserveInstance != null && typeof options.preserveInstance === 'string') {
+							controller = registration.controllers.get(options.preserveInstance);
+						}
+
+						if (controller == null) {
+							let active;
+							let first;
+							for (const c of registration.controllers.values()) {
+								first ??= c;
+								if (c.active) {
+									active = c;
+								}
+
+								if (c.canReuseInstance(options, ...args) === true) {
+									controller = c;
+									break;
+								}
+							}
+
+							if (controller == null && options?.preserveInstance === true) {
+								controller = active ?? first;
+							}
+						}
+					}
+				} else {
+					controller = first(registration.controllers)?.[1];
+				}
 			}
 
 			if (controller == null) {
@@ -383,10 +404,6 @@ export class WebviewsController implements Disposable {
 				const controller = find(registration.controllers.values(), c => c.active ?? false);
 				return controller != null ? convertToWebviewPanelProxy(controller) : undefined;
 			},
-			getActiveOrFirstInstance: function () {
-				const controller = getActiveOrFirstController(registration.controllers);
-				return controller != null ? convertToWebviewPanelProxy(controller) : undefined;
-			},
 			dispose: function () {
 				disposable.dispose();
 			},
@@ -415,22 +432,6 @@ interface WebviewViewShowOptions {
 }
 
 export type WebviewShowOptions = WebviewPanelShowOptions | WebviewViewShowOptions;
-
-function getActiveOrFirstController<State, SerializedState>(
-	controllers: Map<string | undefined, WebviewController<State, SerializedState, WebviewPanelDescriptor>> | undefined,
-) {
-	if (!controllers?.size) return undefined;
-	if (controllers.size === 1) return first(controllers.values());
-
-	let firstController;
-	for (const controller of controllers.values()) {
-		if (controller.active) return controller;
-
-		firstController ??= controller;
-	}
-
-	return firstController;
-}
 
 function convertToWebviewPanelProxy<State, SerializedState>(
 	controller: WebviewController<State, SerializedState, WebviewPanelDescriptor>,

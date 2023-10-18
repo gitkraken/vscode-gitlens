@@ -4962,6 +4962,12 @@
 				"icon": "$(layers)"
 			},
 			{
+				"command": "gitlens.focus.split",
+				"title": "Split Focus View",
+				"category": "GitLens",
+				"icon": "$(split-horizontal)"
+			},
+			{
 				"command": "gitlens.showGraph",
 				"title": "Show Commit Graph",
 				"category": "GitLens",
@@ -4972,6 +4978,12 @@
 				"title": "Show Commit Graph in Editor Area",
 				"category": "GitLens",
 				"icon": "$(gitlens-graph)"
+			},
+			{
+				"command": "gitlens.graph.split",
+				"title": "Split Commit Graph",
+				"category": "GitLens",
+				"icon": "$(split-horizontal)"
 			},
 			{
 				"command": "gitlens.showGraphView",
@@ -5128,6 +5140,12 @@
 				"title": "Open Visual File History",
 				"category": "GitLens",
 				"icon": "$(graph-scatter)"
+			},
+			{
+				"command": "gitlens.timeline.split",
+				"title": "Split Visual File History",
+				"category": "GitLens",
+				"icon": "$(split-horizontal)"
 			},
 			{
 				"command": "gitlens.showStashesView",
@@ -8332,12 +8350,20 @@
 					"when": "gitlens:enabled"
 				},
 				{
+					"command": "gitlens.focus.split",
+					"when": "gitlens:enabled && config.gitlens.focus.experimental.allowMultipleInstances"
+				},
+				{
 					"command": "gitlens.showGraph",
 					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.showGraphPage",
 					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.graph.split",
+					"when": "gitlens:enabled && config.gitlens.graph.experimental.allowMultipleInstances"
 				},
 				{
 					"command": "gitlens.showGraphView",
@@ -8446,6 +8472,10 @@
 				{
 					"command": "gitlens.showTimelinePage",
 					"when": "gitlens:enabled && gitlens:activeFileStatus =~ /tracked/"
+				},
+				{
+					"command": "gitlens.timeline.split",
+					"when": "gitlens:enabled && config.gitlens.visualHistory.experimental.allowMultipleInstances"
 				},
 				{
 					"command": "gitlens.showTimelineView",
@@ -10609,23 +10639,38 @@
 				},
 				{
 					"command": "gitlens.timeline.refresh",
-					"when": "gitlens:webview:timeline:active",
+					"when": "activeWebviewPanelId === gitlens.timeline",
 					"group": "navigation@-99"
 				},
 				{
 					"command": "gitlens.graph.refresh",
-					"when": "gitlens:webview:graph:active",
+					"when": "activeWebviewPanelId === gitlens.graph",
 					"group": "navigation@-99"
 				},
 				{
 					"submenu": "gitlens/graph/configuration",
-					"when": "gitlens:webview:graph:active",
+					"when": "activeWebviewPanelId === gitlens.graph",
 					"group": "navigation@-98"
 				},
 				{
 					"command": "gitlens.focus.refresh",
-					"when": "gitlens:webview:focus:active",
+					"when": "activeWebviewPanelId === gitlens.focus",
 					"group": "navigation@-98"
+				},
+				{
+					"command": "gitlens.focus.split",
+					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.focus && config.gitlens.focus.experimental.allowMultipleInstances",
+					"group": "navigation@-97"
+				},
+				{
+					"command": "gitlens.graph.split",
+					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.graph && config.gitlens.graph.experimental.allowMultipleInstances",
+					"group": "navigation@-97"
+				},
+				{
+					"command": "gitlens.timeline.split",
+					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.timeline && config.gitlens.visualHistory.experimental.allowMultipleInstances",
+					"group": "navigation@-97"
 				}
 			],
 			"editor/title/context": [
@@ -10658,6 +10703,21 @@
 					"submenu": "gitlens/editor/history",
 					"when": "gitlens:enabled && config.gitlens.menus.editorTab.history && isFileSystemResource && resourceScheme =~ /^(?!output$|vscode-(?!remote|vfs$)).*$/",
 					"group": "2_a_gitlens_open_file@1"
+				},
+				{
+					"command": "gitlens.focus.split",
+					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.focus && config.gitlens.focus.experimental.allowMultipleInstances",
+					"group": "6_split_in_group_gitlens@2"
+				},
+				{
+					"command": "gitlens.graph.split",
+					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.graph && config.gitlens.graph.experimental.allowMultipleInstances",
+					"group": "6_split_in_group_gitlens@2"
+				},
+				{
+					"command": "gitlens.timeline.split",
+					"when": "resourceScheme == webview-panel && activeWebviewPanelId === gitlens.timeline && config.gitlens.visualHistory.experimental.allowMultipleInstances",
+					"group": "6_split_in_group_gitlens@2"
 				}
 			],
 			"explorer/context": [

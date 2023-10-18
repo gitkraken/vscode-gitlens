@@ -84,7 +84,7 @@ import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
 import type { IpcMessage, IpcNotificationType } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
-import type { WebviewPanelShowCommandArgs } from '../../../webviews/webviewsController';
+import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../../webviews/webviewsController';
 import { isSerializedState } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
 import type {
@@ -289,6 +289,23 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		this._disposable.dispose();
 	}
 
+	canReuseInstance(_options?: WebviewShowOptions, ...args: unknown[]): boolean | undefined {
+		if (this.container.git.openRepositoryCount === 1) return true;
+
+		const [arg] = args;
+
+		let repository: Repository | undefined;
+		if (isRepository(arg)) {
+			repository = arg;
+		} else if (hasGitReference(arg)) {
+			repository = this.container.git.getRepository(arg.ref.repoPath);
+		} else if (isSerializedState<State>(arg) && arg.state.selectedRepository != null) {
+			repository = this.container.git.getRepository(arg.state.selectedRepository);
+		}
+
+		return repository == null ? undefined : repository.uri.toString() === this.repository?.uri.toString();
+	}
+
 	async onShowing(
 		loading: boolean,
 		_options: { column?: ViewColumn; preserveFocus?: boolean },
@@ -372,7 +389,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 							() =>
 								void executeCommand<WebviewPanelShowCommandArgs>(
 									Commands.ShowGraphPage,
-									{ _type: 'WebviewPanelShowOptions', preserveInstance: true },
+									{ _type: 'WebviewPanelShowOptions' },
 									this.repository,
 								),
 						),
