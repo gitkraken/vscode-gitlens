@@ -10,6 +10,7 @@ import { GlyphChars } from '../../../constants';
 import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
 import { GitErrorHandling } from '../../../git/commandOptions';
 import {
+	BlameIgnoreRevsFileError,
 	FetchError,
 	FetchErrorReason,
 	PullError,
@@ -68,6 +69,7 @@ const textDecoder = new TextDecoder('utf8');
 const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
 export const GitErrors = {
+	badIgnoreRevsFile: /could not open object name list: (.*)\w/i,
 	badRevision: /bad revision '(.*?)'/i,
 	cantLockRef: /cannot lock ref|unable to update local ref/i,
 	changesWouldBeOverwritten: /Your local changes to the following files would be overwritten/i,
@@ -464,10 +466,20 @@ export class Git {
 			}
 		}
 
-		return this.git<string>({ cwd: root, stdin: stdin }, ...params, '--', file);
+		try {
+			const blame = await this.git<string>({ cwd: root, stdin: stdin }, ...params, '--', file);
+			return blame;
+		} catch (ex) {
+			// Since `-c blame.ignoreRevsFile=` doesn't seem to work (unlike as the docs suggest), try to detect the error and throw a more helpful one
+			const match = GitErrors.badIgnoreRevsFile.exec(ex.message);
+			if (match != null) {
+				throw new BlameIgnoreRevsFileError(match[1], ex);
+			}
+			throw ex;
+		}
 	}
 
-	blame__contents(
+	async blame__contents(
 		repoPath: string | undefined,
 		fileName: string,
 		contents: string,
@@ -496,12 +508,22 @@ export class Git {
 		// Pipe the blame contents to stdin
 		params.push('--contents', '-');
 
-		return this.git<string>(
-			{ cwd: root, stdin: contents, correlationKey: options.correlationKey },
-			...params,
-			'--',
-			file,
-		);
+		try {
+			const blame = await this.git<string>(
+				{ cwd: root, stdin: contents, correlationKey: options.correlationKey },
+				...params,
+				'--',
+				file,
+			);
+			return blame;
+		} catch (ex) {
+			// Since `-c blame.ignoreRevsFile=` doesn't seem to work (unlike as the docs suggest), try to detect the error and throw a more helpful one
+			const match = GitErrors.badIgnoreRevsFile.exec(ex.message);
+			if (match != null) {
+				throw new BlameIgnoreRevsFileError(match[1], ex);
+			}
+			throw ex;
+		}
 	}
 
 	branchOrTag__containsOrPointsAt(

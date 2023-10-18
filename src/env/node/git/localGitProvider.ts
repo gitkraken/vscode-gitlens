@@ -21,6 +21,7 @@ import { emojify } from '../../../emojis';
 import { Features } from '../../../features';
 import { GitErrorHandling } from '../../../git/commandOptions';
 import {
+	BlameIgnoreRevsFileError,
 	FetchError,
 	GitSearchError,
 	PullError,
@@ -1463,18 +1464,23 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const blame = parseGitBlame(this.container, data, root, await this.getCurrentUser(root));
 			return blame;
 		} catch (ex) {
+			Logger.error(ex, scope);
+
 			// Trap and cache expected blame errors
 			if (document.state != null) {
 				const msg = ex?.toString() ?? '';
-				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
+				Logger.debug(scope, `Cache replace (with empty promise): '${key}'; reason=${msg}`);
 
 				const value: CachedBlame = {
 					item: emptyPromise as Promise<GitBlame>,
 					errorMessage: msg,
 				};
 				document.state.setBlame(key, value);
-
 				document.setBlameFailure();
+
+				if (ex instanceof BlameIgnoreRevsFileError) {
+					void window.showErrorMessage(ex.friendlyMessage);
+				}
 
 				return emptyPromise as Promise<GitBlame>;
 			}
@@ -1544,18 +1550,24 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const blame = parseGitBlame(this.container, data, root, await this.getCurrentUser(root));
 			return blame;
 		} catch (ex) {
+			Logger.error(ex, scope);
+
 			// Trap and cache expected blame errors
 			if (document.state != null) {
 				const msg = ex?.toString() ?? '';
-				Logger.debug(scope, `Cache replace (with empty promise): '${key}'`);
+				Logger.debug(scope, `Cache replace (with empty promise): '${key}'; reason=${msg}`);
 
 				const value: CachedBlame = {
 					item: emptyPromise as Promise<GitBlame>,
 					errorMessage: msg,
 				};
 				document.state.setBlame(key, value);
-
 				document.setBlameFailure();
+
+				if (ex instanceof BlameIgnoreRevsFileError) {
+					void window.showErrorMessage(ex.friendlyMessage);
+				}
+
 				return emptyPromise as Promise<GitBlame>;
 			}
 
@@ -1574,6 +1586,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		options?: { forceSingleLine?: boolean },
 	): Promise<GitBlameLine | undefined> {
 		if (document?.isDirty) return this.getBlameForLineContents(uri, editorLine, document.getText(), options);
+
+		const scope = getLogScope();
 
 		if (!options?.forceSingleLine && this.useCaching) {
 			const blame = await this.getBlame(uri, document);
@@ -1614,7 +1628,12 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				commit: first(blame.commits.values())!,
 				line: blame.lines[editorLine],
 			};
-		} catch {
+		} catch (ex) {
+			Logger.error(ex, scope);
+			if (ex instanceof BlameIgnoreRevsFileError) {
+				void window.showErrorMessage(ex.friendlyMessage);
+			}
+
 			return undefined;
 		}
 	}

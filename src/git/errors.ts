@@ -6,12 +6,30 @@ export class GitSearchError extends Error {
 	}
 }
 
+export class BlameIgnoreRevsFileError extends Error {
+	static is(ex: unknown): ex is BlameIgnoreRevsFileError {
+		return ex instanceof BlameIgnoreRevsFileError;
+	}
+
+	readonly friendlyMessage: string;
+
+	constructor(
+		filename: string,
+		public readonly original?: Error,
+	) {
+		super(`Invalid blame.ignoreRevsFile: '${filename}'`);
+
+		this.friendlyMessage = `Unable to show blame. Invalid or missing blame.ignoreRevsFile (${filename}) specified in your Git config.`;
+		Error.captureStackTrace?.(this, BlameIgnoreRevsFileError);
+	}
+}
+
 export const enum StashApplyErrorReason {
 	WorkingChanges = 1,
 }
 
 export class StashApplyError extends Error {
-	static is(ex: any, reason?: StashApplyErrorReason): ex is StashApplyError {
+	static is(ex: unknown, reason?: StashApplyErrorReason): ex is StashApplyError {
 		return ex instanceof StashApplyError && (reason == null || ex.reason === reason);
 	}
 
@@ -46,7 +64,7 @@ export const enum StashPushErrorReason {
 }
 
 export class StashPushError extends Error {
-	static is(ex: any, reason?: StashPushErrorReason): ex is StashPushError {
+	static is(ex: unknown, reason?: StashPushErrorReason): ex is StashPushError {
 		return ex instanceof StashPushError && (reason == null || ex.reason === reason);
 	}
 
@@ -93,7 +111,7 @@ export const enum PushErrorReason {
 }
 
 export class PushError extends Error {
-	static is(ex: any, reason?: PushErrorReason): ex is PushError {
+	static is(ex: unknown, reason?: PushErrorReason): ex is PushError {
 		return ex instanceof PushError && (reason == null || ex.reason === reason);
 	}
 
@@ -164,7 +182,7 @@ export const enum PullErrorReason {
 }
 
 export class PullError extends Error {
-	static is(ex: any, reason?: PullErrorReason): ex is PullError {
+	static is(ex: unknown, reason?: PullErrorReason): ex is PullError {
 		return ex instanceof PullError && (reason == null || ex.reason === reason);
 	}
 
@@ -240,7 +258,7 @@ export const enum FetchErrorReason {
 }
 
 export class FetchError extends Error {
-	static is(ex: any, reason?: FetchErrorReason): ex is FetchError {
+	static is(ex: unknown, reason?: FetchErrorReason): ex is FetchError {
 		return ex instanceof FetchError && (reason == null || ex.reason === reason);
 	}
 
@@ -301,7 +319,7 @@ export const enum WorktreeCreateErrorReason {
 }
 
 export class WorktreeCreateError extends Error {
-	static is(ex: any, reason?: WorktreeCreateErrorReason): ex is WorktreeCreateError {
+	static is(ex: unknown, reason?: WorktreeCreateErrorReason): ex is WorktreeCreateError {
 		return ex instanceof WorktreeCreateError && (reason == null || ex.reason === reason);
 	}
 
@@ -343,7 +361,7 @@ export const enum WorktreeDeleteErrorReason {
 }
 
 export class WorktreeDeleteError extends Error {
-	static is(ex: any, reason?: WorktreeDeleteErrorReason): ex is WorktreeDeleteError {
+	static is(ex: unknown, reason?: WorktreeDeleteErrorReason): ex is WorktreeDeleteError {
 		return ex instanceof WorktreeDeleteError && (reason == null || ex.reason === reason);
 	}
 
