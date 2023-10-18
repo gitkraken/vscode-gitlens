@@ -569,12 +569,8 @@ export type TreeViewNodeTypes =
 export type ContextKeys =
 	| `${typeof extensionPrefix}:action:${string}`
 	| `${typeof extensionPrefix}:key:${Keys}`
-	| `${typeof extensionPrefix}:webview:${WebviewTypes | CustomEditorTypes}:${
-			| 'active'
-			| 'focus'
-			| 'inputFocus'
-			| 'visible'}`
-	| `${typeof extensionPrefix}:webviewView:${WebviewViewTypes}:${'active' | 'focus' | 'inputFocus' | 'visible'}`
+	| `${typeof extensionPrefix}:webview:${WebviewTypes | CustomEditorTypes}:visible`
+	| `${typeof extensionPrefix}:webviewView:${WebviewViewTypes}:visible`
 	| `${typeof extensionPrefix}:activeFileStatus`
 	| `${typeof extensionPrefix}:annotationStatus`
 	| `${typeof extensionPrefix}:debugging`
