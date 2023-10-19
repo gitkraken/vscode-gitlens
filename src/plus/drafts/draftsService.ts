@@ -1,6 +1,6 @@
 import type { Disposable } from 'vscode';
 import type { Container } from '../../container';
-import type { GitCloudPatch, GitPatch } from '../../git/models/patch';
+import type { GitCloudPatch, GitPatch, GitRepositoryData } from '../../git/models/patch';
 import { isSha } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { log } from '../../system/decorators/log';
@@ -339,7 +339,7 @@ export class DraftService implements Disposable {
 				const repoData = await this.getRepositoryData(p.gitRepositoryId);
 				const repo = await this.container.git.findMatchingRepository({
 					firstSha: repoData.initialCommitSha,
-					remoteUrl: repoData.remoteUrl,
+					remoteUrl: repoData.remote?.url,
 				});
 
 				patches.push({
@@ -353,6 +353,7 @@ export class DraftService implements Disposable {
 
 					// TODO@eamodio FIX THIS
 					repo: repo ?? this.container.git.getBestRepository()!,
+					repoData: repoData,
 				});
 			}
 
@@ -373,6 +374,9 @@ export class DraftService implements Disposable {
 		return changesets;
 	}
 
+	// TODO: Remove this. /drafts/{id}/patches is no longer a valid route - patches come from a changeset
+	// now (see getChangesets function above). We can maybe implement getPatchContentsCore there and add
+	// an includeContents option to use it.
 	@log()
 	async getPatches(id: string, options?: { includeContents?: boolean }): Promise<DraftPatch[]> {
 		type Result = { data: DraftPatchResponse[] };
@@ -465,8 +469,8 @@ export class DraftService implements Disposable {
 		return contentsRsp.text();
 	}
 
-	async getRepositoryData(id: string): Promise<GitRepositoryDataResponse> {
-		type Result = { data: GitRepositoryDataResponse };
+	async getRepositoryData(id: string): Promise<GitRepositoryData> {
+		type Result = { data: GitRepositoryData };
 
 		const rsp = await this.connection.fetchGkDevApi(`/v1/git-repositories/${id}`, {
 			method: 'GET',
@@ -510,22 +514,6 @@ type GitRepositoryDataRequest =
 	| BaseGitRepositoryDataRequestWithRemote
 	| BaseGitRepositoryDataRequestWithRemoteProvider
 	| BaseGitRepositoryDataRequestWithoutRemoteProvider;
-
-interface GitRepositoryDataResponse {
-	readonly id: string;
-
-	readonly initialCommitSha?: string;
-	readonly remoteUrl?: string;
-	readonly remoteDomain?: string;
-	readonly remotePath?: string;
-	readonly remoteProvider?: string;
-	readonly remoteProviderRepoDomain?: string;
-	readonly remoteProviderRepoName?: string;
-	readonly remoteProviderRepoOwnerDomain?: string;
-
-	readonly createdAt: string;
-	readonly updatedAt: string;
-}
 
 interface CreateDraftRequest {
 	type: 'patch' | 'stash';
@@ -638,7 +626,7 @@ interface DraftPatchResponse {
 	};
 
 	readonly gitRepositoryId: string;
-	readonly gitRepositoryData: GitRepositoryDataResponse;
+	readonly gitRepositoryData: GitRepositoryData;
 
 	readonly createdAt: string;
 	readonly updatedAt: string;

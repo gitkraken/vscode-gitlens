@@ -42,6 +42,7 @@ import { updatePendingContext } from '../../../webviews/webviewController';
 import type { Draft, LocalDraft } from '../../drafts/draftsService';
 import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
 import type {
+	ApplyPatchParams,
 	Change,
 	CreatePatchParams,
 	DidExplainParams,
@@ -56,6 +57,7 @@ import type {
 	UpdateablePreferences,
 } from './protocol';
 import {
+	ApplyPatchCommandType,
 	CopyCloudLinkCommandType,
 	CreateFromLocalPatchCommandType,
 	CreatePatchCommandType,
@@ -390,6 +392,8 @@ export class PatchDetailsWebviewProvider
 			case CreatePatchCommandType.method:
 				onIpc(CreatePatchCommandType, e, params => this.createDraft(params));
 				break;
+			case ApplyPatchCommandType.method:
+				onIpc(ApplyPatchCommandType, e, params => this.applyPatch(params));
 		}
 	}
 
@@ -416,6 +420,12 @@ export class PatchDetailsWebviewProvider
 		if (this._context.draft?._brand !== 'cloud') return;
 
 		void env.clipboard.writeText(this._context.draft.deepLinkUrl);
+	}
+
+	private applyPatch(params: ApplyPatchParams) {
+		if (params.details.repoPath == null || params.details.commit == null) return;
+
+		void this.container.git.applyPatchCommit(params.details.repoPath, params.details.commit, params.targetRef);
 	}
 
 	private switchMode(params: SwitchModeParams) {
@@ -658,7 +668,7 @@ export class PatchDetailsWebviewProvider
 			draft.changesets = changesets;
 		}
 
-		const patch = draft.changesets[0].patches[0];
+		const patch = draft.changesets[0].patches?.[0];
 		if (patch == null) return undefined;
 
 		if (patch.contents == null) {
@@ -709,6 +719,7 @@ export class PatchDetailsWebviewProvider
 
 		return {
 			type: 'cloud',
+			commit: (await this.getUnreachablePatchCommit())?.sha,
 			// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
 			repoPath: patch?.repo?.path!,
 			// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain

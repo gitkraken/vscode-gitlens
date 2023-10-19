@@ -594,6 +594,16 @@ export class Git {
 		return this.git<string>({ cwd: repoPath }, ...params);
 	}
 
+	cherrypick(repoPath: string, sha: string, { noCommit }: { noCommit?: boolean } = {}) {
+		const params = ['cherry-pick'];
+		if (noCommit) {
+			params.push('-n');
+		}
+		params.push(sha);
+
+		return this.git<string>({ cwd: repoPath }, ...params);
+	}
+
 	// TODO: Expand to include options and other params
 	async clone(url: string, parentPath: string): Promise<string | undefined> {
 		let count = 0;

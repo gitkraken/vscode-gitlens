@@ -1122,6 +1122,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return undefined;
 	}
 
+	async applyPatchCommit(repoPath: string, sha: string, ref?: string): Promise<void> {
+		if (ref) {
+			// Check if the ref is the current branch. If not, we need to checkout the ref first.
+			const currentBranch = await this.getBranch(repoPath);
+			if (currentBranch?.name !== ref) {
+				await this.git.checkout(repoPath, ref);
+			}
+		}
+
+		// Apply the patch using a cherry pick without committing
+		await this.git.cherrypick(repoPath, sha, { noCommit: true });
+	}
+
 	@log()
 	async createUnreachableCommitForPatch(
 		repoPath: string,

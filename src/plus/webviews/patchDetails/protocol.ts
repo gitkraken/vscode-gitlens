@@ -14,6 +14,8 @@ export type FileShowOptions = TextDocumentShowOptions;
 interface LocalDraftDetails {
 	type: 'local';
 
+	commit?: string;
+
 	message?: string;
 	files?: GitFileChangeShape[];
 	stats?: GitCommitStats;
@@ -28,6 +30,8 @@ interface LocalDraftDetails {
 
 interface CloudDraftDetails {
 	type: 'cloud';
+
+	commit?: string;
 
 	message?: string;
 	files?: GitFileChangeShape[];
@@ -120,7 +124,8 @@ export type ShowCommitDetailsViewCommandArgs = string[];
 // COMMANDS
 
 export interface ApplyPatchParams {
-	target?: 'head' | 'branch' | 'worktree';
+	details: DraftDetails;
+	targetRef?: string; // a branch name. default to HEAD if not supplied
 }
 export const ApplyPatchCommandType = new IpcCommandType<ApplyPatchParams>('patch/apply');
 

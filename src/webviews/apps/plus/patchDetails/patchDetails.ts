@@ -2,6 +2,7 @@
 import type { ViewFilesLayout } from '../../../../config';
 import type { State, SwitchModeParams } from '../../../../plus/webviews/patchDetails/protocol';
 import {
+	ApplyPatchCommandType,
 	CopyCloudLinkCommandType,
 	CreateFromLocalPatchCommandType,
 	CreatePatchCommandType,
@@ -175,6 +176,7 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 
 	private onApplyPatch(e: ApplyPatchDetail) {
 		console.log('onApplyPatch', e);
+		this.sendCommand(ApplyPatchCommandType, { details: e.draft });
 	}
 
 	private onChangePatchBase(e: ChangePatchBaseDetail) {

@@ -15,6 +15,25 @@ export interface GitPatch {
 	commit?: GitCommit;
 }
 
+export interface GitRepositoryData {
+	readonly id: string;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+
+	readonly initialCommitSha?: string;
+	readonly remote?: {
+		readonly url?: string;
+		readonly domain?: string;
+		readonly path?: string;
+	};
+	readonly provider?: {
+		readonly id?: string;
+		readonly repoDomain?: string;
+		readonly repoName?: string;
+		readonly repoOwnerDomain?: string;
+	};
+}
+
 export interface GitCloudPatch {
 	readonly _brand: 'cloud';
 	readonly id: string;
@@ -31,5 +50,6 @@ export interface GitCloudPatch {
 	baseRef?: string;
 	files?: GitDiffFiles['files'];
 	repo: Repository;
+	repoData?: GitRepositoryData;
 	commit?: GitCommit;
 }
