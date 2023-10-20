@@ -4,7 +4,6 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 import type { DraftDetails, State } from '../../../../../plus/webviews/patchDetails/protocol';
-import { messageHeadlineSplitterToken } from '../../../../../plus/webviews/patchDetails/protocol';
 import type { HierarchicalItem } from '../../../../../system/array';
 import { makeHierarchical } from '../../../../../system/array';
 
@@ -166,34 +165,11 @@ export class GlDraftDetails extends LitElement {
 		return html`<commit-stats added="${added}" modified="${changed}" removed="${deleted}"></commit-stats>`;
 	}
 
-	private renderFileList() {
-		return html`<list-container>
-			${this.state.draft!.files!.map(
-				(file: Record<string, any>) => html`
-					<file-change-list-item
-						?stash=${false}
-						?uncommitted=${false}
-						path="${file.path}"
-						repo="${file.repoPath}"
-						status="${file.status}"
-					></file-change-list-item>
-				`,
-			)}
-		</list-container>`;
-	}
-
-	private renderFileTree() {
-		const tree = makeHierarchical(
-			this.state.draft!.files!,
-			n => n.path.split('/'),
-			(...parts: string[]) => parts.join('/'),
-			this.state.preferences?.files?.compact ?? true,
-		);
-		const flatTree = flattenHeirarchy(tree);
-		return html`<list-container class="indentGuides-${this.state.preferences?.indentGuides}">
+	private renderRepoItem() {
+		return html`
 			<list-item level="1" tree branch>
 				<code-icon slot="icon" icon="repo" title="Repository" aria-label="Repository"></code-icon>
-				gitkraken/shared-web-components
+				${this.state.draft!.repoName}
 				<span slot="actions">
 					<a class="change-list__action" href="#" title="Apply..." aria-label="Apply..."
 						><code-icon icon="cloud-download"></code-icon
@@ -213,6 +189,37 @@ export class GlDraftDetails extends LitElement {
 					></a>
 				</span>
 			</list-item>
+		`;
+	}
+
+	private renderFileList() {
+		return html`<list-container>
+			${this.renderRepoItem()}
+			${this.state.draft!.files!.map(
+				(file: Record<string, any>) => html`
+					<file-change-list-item
+						?stash=${false}
+						?uncommitted=${false}
+						path="${file.path}"
+						repo="${file.repoPath}"
+						status="${file.status}"
+						level="2"
+					></file-change-list-item>
+				`,
+			)}
+		</list-container>`;
+	}
+
+	private renderFileTree() {
+		const tree = makeHierarchical(
+			this.state.draft!.files!,
+			n => n.path.split('/'),
+			(...parts: string[]) => parts.join('/'),
+			this.state.preferences?.files?.compact ?? true,
+		);
+		const flatTree = flattenHeirarchy(tree);
+		return html`<list-container class="indentGuides-${this.state.preferences?.indentGuides}">
+			${this.renderRepoItem()}
 			${flatTree.map(({ level, item }) => {
 				if (item.name === '') {
 					return undefined;
