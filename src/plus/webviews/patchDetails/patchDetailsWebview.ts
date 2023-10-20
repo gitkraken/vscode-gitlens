@@ -490,7 +490,9 @@ export class PatchDetailsWebviewProvider
 	private _commitDisposable: Disposable | undefined;
 
 	private updateCreate(changes: Change[]) {
-		const repoChanges = new Map<Repository['id'], RepositoryChangeSet>();
+		const repoChanges = this._context.create ?? new Map<Repository['id'], RepositoryChangeSet>();
+
+		const updated = new Set<Repository['id']>();
 		for (const change of changes) {
 			const repo = this.container.git.getRepository(Uri.parse(change.repository.uri));
 			if (repo == null) continue;
@@ -502,6 +504,7 @@ export class PatchDetailsWebviewProvider
 					repo,
 					this.onDidChangeRepositoryWip.bind(this),
 				);
+				repoChangeSet.checked = true;
 			} else {
 				repoChangeSet = {
 					checked: true,
@@ -524,7 +527,15 @@ export class PatchDetailsWebviewProvider
 				};
 			}
 
+			updated.add(repo.id);
 			repoChanges.set(repo.id, repoChangeSet);
+		}
+
+		if (updated.size !== repoChanges.size) {
+			for (const [id, repoChange] of repoChanges) {
+				if (updated.has(id)) continue;
+				repoChange.checked = false;
+			}
 		}
 
 		this.updatePendingContext({ mode: 'create', create: repoChanges });
@@ -1251,7 +1262,11 @@ async function toRepoChanges(
 	if (createMap == null || createMap.size === 0) return repoChanges;
 
 	for (const [id, repo] of createMap) {
-		repoChanges[id] = await repo.getChange();
+		const change = await repo.getChange();
+		if (change.checked !== repo.checked) {
+			change.checked = repo.checked;
+		}
+		repoChanges[id] = change;
 	}
 
 	return repoChanges;

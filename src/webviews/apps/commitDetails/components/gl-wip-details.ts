@@ -45,8 +45,10 @@ export class GlWipDetails extends GlDetailsBase {
 								data-action="create-patch"
 								aria-label="Share as Cloud Patch"
 								title="Share as Cloud Patch"
-								>Share</a
 							>
+								<code-icon icon="live-share"></code-icon>
+								<span class="top-details__sha">Share</span>
+							</a>
 							<a
 								class="commit-action"
 								href="#"
