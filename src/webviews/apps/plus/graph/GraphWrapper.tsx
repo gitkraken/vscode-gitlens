@@ -17,7 +17,6 @@ import type { FormEvent, ReactElement } from 'react';
 import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
 import type { DateStyle } from '../../../../config';
-import { emojify } from '../../../../emojis';
 import type { SearchQuery } from '../../../../git/search';
 import type {
 	DidEnsureRowParams,
@@ -163,10 +162,6 @@ const iconElementLibrary = createIconElements();
 
 const getIconElementLibrary = (iconKey: string) => {
 	return iconElementLibrary[iconKey];
-};
-
-const formatCommitMessage = (commitMessage: string) => {
-	return emojify(commitMessage);
 };
 
 const getClientPlatform = (): GraphPlatform => {
@@ -1403,7 +1398,6 @@ export function GraphWrapper({
 							excludeRefsById={excludeRefsById}
 							excludeByType={excludeTypes}
 							formatCommitDateTime={getGraphDateFormatter(graphConfig)}
-							formatCommitMessage={formatCommitMessage}
 							getExternalIcon={getIconElementLibrary}
 							graphRows={rows}
 							hasMoreCommits={pagingHasMore}
