@@ -13,7 +13,6 @@ import { authentication, EventEmitter, FileType, Uri, window, workspace } from '
 import { encodeUtf8Hex } from '@env/hex';
 import { CharCode, Schemes } from '../../constants';
 import type { Container } from '../../container';
-import { emojify } from '../../emojis';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
@@ -1533,7 +1532,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				author: commit.author.name,
 				email: commit.author.email ?? '',
 				date: commit.committer.date.getTime(),
-				message: emojify(commit.message && String(commit.message).length ? commit.message : commit.summary),
+				message: commit.message && String(commit.message).length ? commit.message : commit.summary,
 				// TODO: review logic for stash, wip, etc
 				type: commit.parents.length > 1 ? 'merge-node' : 'commit-node',
 				heads: refHeads,

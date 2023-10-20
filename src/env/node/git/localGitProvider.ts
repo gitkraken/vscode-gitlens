@@ -17,7 +17,6 @@ import { getCachedAvatarUri } from '../../../avatars';
 import type { CoreConfiguration, CoreGitConfiguration } from '../../../constants';
 import { GlyphChars, Schemes } from '../../../constants';
 import type { Container } from '../../../container';
-import { emojify } from '../../../emojis';
 import { Features } from '../../../features';
 import { GitErrorHandling } from '../../../git/commandOptions';
 import {
@@ -2390,7 +2389,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					author: isCurrentUser ? 'You' : commit.author,
 					email: commit.authorEmail,
 					date: Number(ordering === 'author-date' ? commit.authorDate : commit.committerDate) * 1000,
-					message: emojify(commit.message.trim()),
+					message: commit.message.trim(),
 					// TODO: review logic for stash, wip, etc
 					type: stashCommit != null ? 'stash-node' : parents.length > 1 ? 'merge-node' : 'commit-node',
 					heads: refHeads,
