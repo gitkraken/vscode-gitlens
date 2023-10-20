@@ -14732,9 +14732,9 @@
 				"authority": "*",
 				"formatting": {
 					"label": "${path} (${query.ref})",
-					"separator": "/",
-					"workspaceSuffix": "GitLens",
-					"stripPathStartingSeparator": true
+					"normalizeDriveLetter": true,
+					"tildify": true,
+					"workspaceSuffix": "GitLens"
 				}
 			}
 		],
