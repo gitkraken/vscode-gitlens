@@ -4,7 +4,8 @@ import type { Container } from '../container';
 import { executeGitCommand } from '../git/actions';
 import { showDetailsView } from '../git/actions/commit';
 import { GitUri } from '../git/gitUri';
-import { createReference } from '../git/models/reference';
+import type { GitRevisionReference } from '../git/models/reference';
+import { createReference, getReferenceFromRevision } from '../git/models/reference';
 import { createSearchQueryForCommits } from '../git/search';
 import { showFileNotUnderSourceControlWarningMessage, showGenericErrorMessage } from '../messages';
 import { command } from '../system/command';
@@ -14,6 +15,7 @@ import type { CommandContext } from './base';
 import { ActiveEditorCommand, getCommandUri, isCommandContextViewNodeHasCommit } from './base';
 
 export interface ShowCommitsInViewCommandArgs {
+	ref?: GitRevisionReference;
 	refs?: string[];
 	repoPath?: string;
 }
@@ -35,8 +37,7 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 		if (context.type === 'viewItem') {
 			args = { ...args };
 			if (isCommandContextViewNodeHasCommit(context)) {
-				args.refs = [context.node.commit.sha];
-				args.repoPath = context.node.commit.repoPath;
+				args.ref = getReferenceFromRevision(context.node.commit);
 			}
 		}
 
@@ -45,6 +46,8 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: ShowCommitsInViewCommandArgs) {
 		args = { ...args };
+
+		if (args.ref != null) return showDetailsView(args.ref);
 
 		if (args.refs === undefined) {
 			uri = getCommandUri(uri, editor);
