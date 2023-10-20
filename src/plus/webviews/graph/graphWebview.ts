@@ -1235,7 +1235,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		this._selection = commits;
 
 		if (commits == null) return;
-		if (!this._firstSelection && !this.host.active) return;
+		if (!this._firstSelection && this.host.isEditor() && !this.host.active) return;
 
 		this.container.events.fire(
 			'commit:selected',
