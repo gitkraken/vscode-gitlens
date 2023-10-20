@@ -1123,6 +1123,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	async applyPatchCommit(repoPath: string, sha: string, ref?: string): Promise<void> {
+		// Stash any changes first
+		const repoStatus = await this.getStatusForRepo(repoPath);
+		const diffStatus = repoStatus?.getDiffStatus();
+		if (diffStatus?.added || diffStatus?.deleted || diffStatus?.changed) {
+			await this.git.stash__push(repoPath, undefined, { includeUntracked: true });
+		}
+
 		if (ref) {
 			// Check if the ref is the current branch. If not, we need to checkout the ref first.
 			const currentBranch = await this.getBranch(repoPath);
