@@ -17,6 +17,8 @@
 		"../**/protocol.ts",
 		"../../config.ts",
 		"../../constants.ts",
+		"../../emojis.ts",
+		"../../emojis.generated.ts",
 		"../../features.ts",
 		"../../subscription.ts",
 		"../../system/**/*",
