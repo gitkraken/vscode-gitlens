@@ -314,6 +314,46 @@ export class FetchError extends Error {
 	}
 }
 
+export const enum CherryPickErrorReason {
+	OverwrittenChanges = 1,
+	Other = 2,
+}
+
+export class CherryPickError extends Error {
+	static is(ex: unknown, reason?: CherryPickErrorReason): ex is CherryPickError {
+		return ex instanceof CherryPickError && (reason == null || ex.reason === reason);
+	}
+
+	readonly original?: Error;
+	readonly reason: CherryPickErrorReason | undefined;
+
+	constructor(reason?: CherryPickErrorReason, original?: Error, sha?: string);
+	constructor(message?: string, original?: Error);
+	constructor(messageOrReason: string | CherryPickErrorReason | undefined, original?: Error, sha?: string) {
+		let message;
+		const baseMessage = `Unable to cherry-pick${sha ? ` commit '${sha}'` : ''}`;
+		let reason: CherryPickErrorReason | undefined;
+		if (messageOrReason == null) {
+			message = baseMessage;
+		} else if (typeof messageOrReason === 'string') {
+			message = messageOrReason;
+			reason = undefined;
+		} else {
+			reason = messageOrReason;
+			switch (reason) {
+				case CherryPickErrorReason.OverwrittenChanges:
+					message = `${baseMessage} because local changes to some files would be overwritten.`;
+					break;
+			}
+		}
+		super(message);
+
+		this.original = original;
+		this.reason = reason;
+		Error.captureStackTrace?.(this, CherryPickError);
+	}
+}
+
 export class WorkspaceUntrustedError extends Error {
 	constructor() {
 		super('Unable to perform Git operations because the current workspace is untrusted');

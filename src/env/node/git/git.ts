@@ -11,6 +11,8 @@ import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOpt
 import { GitErrorHandling } from '../../../git/commandOptions';
 import {
 	BlameIgnoreRevsFileError,
+	CherryPickError,
+	CherryPickErrorReason,
 	FetchError,
 	FetchErrorReason,
 	PullError,
@@ -601,7 +603,20 @@ export class Git {
 		}
 		params.push(sha);
 
-		return this.git<string>({ cwd: repoPath }, ...params);
+		try {
+			return this.git<string>({ cwd: repoPath }, ...params);
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			let reason: CherryPickErrorReason = CherryPickErrorReason.Other;
+			if (
+				GitErrors.changesWouldBeOverwritten.test(msg) ||
+				GitErrors.changesWouldBeOverwritten.test(ex.stderr ?? '')
+			) {
+				reason = CherryPickErrorReason.OverwrittenChanges;
+			}
+
+			throw new CherryPickError(reason, ex, sha);
+		}
 	}
 
 	// TODO: Expand to include options and other params
