@@ -171,7 +171,9 @@ export class GlDetailsBase extends LitElement {
 
 		for (const repoChange of repoChanges) {
 			const { repoName, repoUri, change, checked } = repoChange;
-			const checkedWithDefault = checked ?? false;
+			const files = change?.files;
+			const hasFiles = files != null && files.length > 0;
+			const checkedWithDefault = hasFiles && (checked ?? false);
 			const isChecked = checkedWithDefault !== false;
 			items.push(
 				html`<list-item
@@ -180,6 +182,7 @@ export class GlDetailsBase extends LitElement {
 					hide-icon
 					checkable
 					.checked=${isChecked}
+					?disable-check=${!hasFiles}
 					@list-item-checked=${(e: CustomEvent<{ checked: boolean }>) => this.onRepositoryChecked(e, repoUri)}
 					>${repoName}</list-item
 				>`,
@@ -190,14 +193,13 @@ export class GlDetailsBase extends LitElement {
 				continue;
 			}
 
-			const files = change.files;
-			if (files == null || files.length === 0) {
+			if (!hasFiles) {
 				items.push(html`<list-item level="2" hide-icon>No Files</list-item>`);
 				continue;
 			}
 
 			let isTree = false;
-			if (this.preferences != null && files != null) {
+			if (this.preferences != null && hasFiles) {
 				if (layout === 'auto') {
 					isTree = files.length > (this.preferences.files?.threshold ?? 5);
 				} else {
