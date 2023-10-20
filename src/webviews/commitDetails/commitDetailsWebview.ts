@@ -165,6 +165,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		void this.notifyDidChangeState(true);
 	}
 
+	private _skipNextRefreshOnVisibilityChange = false;
+
 	async onShowing(
 		_loading: boolean,
 		options: { column?: ViewColumn; preserveFocus?: boolean },
@@ -223,6 +225,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 
 		if (data?.preserveVisibility && !this.host.visible) return false;
 
+		this._skipNextRefreshOnVisibilityChange = true;
 		return true;
 	}
 
@@ -278,6 +281,11 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 		this.updatePendingContext({ visible: visible });
 		if (!visible) return;
 
+		const skipRefresh = this._skipNextRefreshOnVisibilityChange;
+		if (skipRefresh) {
+			this._skipNextRefreshOnVisibilityChange = false;
+		}
+
 		// Since this gets called even the first time the webview is shown, avoid sending an update, because the bootstrap has the data
 		if (this._bootstraping) {
 			this._bootstraping = false;
@@ -286,7 +294,9 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 
 			this.updateState();
 		} else {
-			this.onRefresh();
+			if (!skipRefresh) {
+				this.onRefresh();
+			}
 			this.updateState(true);
 		}
 	}
