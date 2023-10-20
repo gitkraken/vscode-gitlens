@@ -16,7 +16,7 @@ interface LocalDraftDetails {
 
 	commit?: string;
 
-	message?: string;
+	title?: string;
 	files?: GitFileChangeShape[];
 	stats?: GitCommitStats;
 
@@ -33,7 +33,8 @@ interface CloudDraftDetails {
 
 	commit?: string;
 
-	message?: string;
+	title: string;
+	description?: string;
 	files?: GitFileChangeShape[];
 	stats?: GitCommitStats;
 

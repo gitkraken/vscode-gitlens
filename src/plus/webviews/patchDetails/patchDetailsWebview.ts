@@ -563,6 +563,7 @@ export class PatchDetailsWebviewProvider
 
 		this.updatePendingContext(
 			{
+				mode: 'draft',
 				draft: draft,
 				// richStateLoaded: false, //(commit?.isUncommitted) || !getContext('gitlens:hasConnectedRemotes'),
 				// formattedMessage: undefined,
@@ -729,6 +730,8 @@ export class PatchDetailsWebviewProvider
 				email: 'no@way.com',
 				avatar: undefined,
 			},
+			title: draft.title,
+			description: draft.description,
 			files: patch?.files,
 			baseRef: patch?.baseRef,
 			createdAt: draft.createdAt.getTime(),

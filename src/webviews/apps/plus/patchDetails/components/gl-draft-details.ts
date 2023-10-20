@@ -72,38 +72,24 @@ export class GlDraftDetails extends LitElement {
 	}
 
 	private renderPatchMessage() {
-		if (this.state?.draft?.message == null) {
+		if (this.state?.draft?.title == null) {
 			return undefined;
 		}
 
-		// if (this.state.draft.message == null) {
-		// 	return html`
-		// 		<div class="section section--message">
-		// 			<div class="message-block">
-		// 				<p class="message-block__text scrollable" data-region="message">
-		// 					<strong>Cloud</strong>
-		// 				</p>
-		// 			</div>
-		// 		</div>
-		// 	`;
-		// }
-
-		const message = this.state.draft.message ?? '';
-		const index = message.indexOf(messageHeadlineSplitterToken);
+		const title = this.state.draft.title;
+		const description = this.state.draft.type === 'cloud' ? this.state.draft.description : undefined;
 		return html`
 			<div class="section section--message">
 				<div class="message-block">
 					${when(
-						index === -1,
+						description != null,
 						() =>
 							html`<p class="message-block__text scrollable" data-region="message">
-								<strong>${unsafeHTML(message)}</strong>
+								<strong>${unsafeHTML(title)}</strong>
 							</p>`,
 						() =>
 							html`<p class="message-block__text scrollable" data-region="message">
-								<strong>${unsafeHTML(message.substring(0, index))}</strong><br /><span
-									>${unsafeHTML(message.substring(index + 3))}</span
-								>
+								<strong>${unsafeHTML(title)}</strong><br /><span>${unsafeHTML(description)}</span>
 							</p>`,
 					)}
 				</div>
