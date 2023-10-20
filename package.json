@@ -15153,7 +15153,7 @@
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
-		"@gitkraken/gitkraken-components": "10.1.30",
+		"@gitkraken/gitkraken-components": "10.2.0",
 		"@gitkraken/shared-web-components": "0.1.1-rc.15",
 		"@lit/react": "1.0.0",
 		"@microsoft/fast-element": "1.12.0",
