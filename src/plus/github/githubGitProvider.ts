@@ -75,13 +75,13 @@ import type { GitTreeEntry } from '../../git/models/tree';
 import type { GitUser } from '../../git/models/user';
 import { isUserMatch } from '../../git/models/user';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../git/remotes/remoteProviders';
-import type { GitSearch, GitSearchResultData, GitSearchResults, SearchQuery } from '../../git/search';
+import type { GitSearch, GitSearchResultData, GitSearchResults, SearchOperators, SearchQuery } from '../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../git/search';
 import { configuration } from '../../system/configuration';
 import { setContext } from '../../system/context';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
-import { filterMap, first, last, some } from '../../system/iterable';
+import { filterMap, first, last, map, some } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
@@ -2888,8 +2888,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const operations = parseSearchQuery(search);
 
 		const values = operations.get('commit:');
-		if (values != null) {
-			const commit = await this.getCommit(repoPath, values[0]);
+		if (values?.size) {
+			const commit = await this.getCommit(repoPath, first(values)!);
 			if (commit == null) return undefined;
 
 			return {
@@ -3058,9 +3058,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			const values = operations.get('commit:');
 			if (values != null) {
-				const commitsResults = await Promise.allSettled<Promise<GitCommit | undefined>[]>(
-					values.map(v => this.getCommit(repoPath, v.replace(doubleQuoteRegex, ''))),
-				);
+				const commitsResults = await Promise.allSettled<Promise<GitCommit | undefined>[]>([
+					...map(values, v => this.getCommit(repoPath, v.replace(doubleQuoteRegex, ''))),
+				]);
 
 				let i = 0;
 				for (const commitResult of commitsResults) {
@@ -3442,7 +3442,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	private async getQueryArgsFromSearchQuery(
 		search: SearchQuery,
-		operations: Map<string, string[]>,
+		operations: Map<SearchOperators, Set<string>>,
 		repoPath: string,
 	) {
 		const query = [];
@@ -3450,12 +3450,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		for (const [op, values] of operations.entries()) {
 			switch (op) {
 				case 'message:':
-					query.push(...values.map(m => m.replace(/ /g, '+')));
+					query.push(...map(values, m => m.replace(/ /g, '+')));
 					break;
 
 				case 'author:': {
 					let currentUser: GitUser | undefined;
-					if (values.includes('@me')) {
+					if (values.has('@me')) {
 						currentUser = await this.getCurrentUser(repoPath);
 					}
 

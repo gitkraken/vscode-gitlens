@@ -1,28 +1,40 @@
+import type { QuickInputButton, QuickPick } from 'vscode';
+import { ThemeIcon, window } from 'vscode';
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import { showDetailsView } from '../../git/actions/commit';
 import type { GitCommit } from '../../git/models/commit';
 import type { GitLog } from '../../git/models/log';
 import type { Repository } from '../../git/models/repository';
-import type { SearchOperators, SearchQuery } from '../../git/search';
+import type { NormalizedSearchOperators, SearchOperators, SearchQuery } from '../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery, searchOperators } from '../../git/search';
+import { showContributorsPicker } from '../../quickpicks/contributorsPicker';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common';
 import { ActionQuickPickItem } from '../../quickpicks/items/common';
 import { configuration } from '../../system/configuration';
 import { getContext } from '../../system/context';
+import { join, map } from '../../system/iterable';
 import { pluralize } from '../../system/string';
 import { SearchResultsNode } from '../../views/nodes/searchResultsNode';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import { getSteps } from '../gitCommands.utils';
 import type {
 	PartialStepState,
+	QuickPickStep,
 	StepGenerator,
 	StepResult,
 	StepResultGenerator,
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { canPickStepContinue, createPickStep, endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
+import {
+	canPickStepContinue,
+	createPickStep,
+	endSteps,
+	freezeStep,
+	QuickCommand,
+	StepResultBreak,
+} from '../quickCommand';
 import {
 	MatchAllToggleQuickInputButton,
 	MatchCaseToggleQuickInputButton,
@@ -31,7 +43,23 @@ import {
 } from '../quickCommand.buttons';
 import { appendReposToTitle, pickCommitStep, pickRepositoryStep } from '../quickCommand.steps';
 
+const UseAuthorPickerQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('person-add'),
+	tooltip: 'Pick Authors',
+};
+
+const UseFilePickerQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('new-file'),
+	tooltip: 'Pick Files',
+};
+
+const UseFolderPickerQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('new-folder'),
+	tooltip: 'Pick Folder',
+};
+
 interface Context {
+	container: Container;
 	repos: Repository[];
 	associatedView: ViewsWithRepositoryFolders;
 	commit: GitCommit | undefined;
@@ -105,6 +133,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
+			container: this.container,
 			repos: this.container.git.openRepositories,
 			associatedView: this.container.searchAndCompareView,
 			commit: undefined,
@@ -281,20 +310,24 @@ export class SearchGitCommand extends QuickCommand<State> {
 	}
 
 	private *pickSearchOperatorStep(state: SearchStepState, context: Context): StepResultGenerator<string> {
-		const items: QuickPickItemOfT<SearchOperators>[] = [
+		const items: QuickPickItemOfT<NormalizedSearchOperators>[] = [
 			{
 				label: searchOperatorToTitleMap.get('')!,
 				description: `pattern or message: pattern or =: pattern ${GlyphChars.Dash} use quotes to search for phrases`,
+				alwaysShow: true,
 				item: 'message:' as const,
 			},
 			{
 				label: searchOperatorToTitleMap.get('author:')!,
 				description: 'author: pattern or @: pattern',
+				buttons: [UseAuthorPickerQuickInputButton],
+				alwaysShow: true,
 				item: 'author:' as const,
 			},
 			{
 				label: searchOperatorToTitleMap.get('commit:')!,
 				description: 'commit: sha or #: sha',
+				alwaysShow: true,
 				item: 'commit:' as const,
 			},
 			context.hasVirtualFolders
@@ -302,6 +335,8 @@ export class SearchGitCommand extends QuickCommand<State> {
 				: {
 						label: searchOperatorToTitleMap.get('file:')!,
 						description: 'file: glob or ?: glob',
+						buttons: [UseFilePickerQuickInputButton, UseFolderPickerQuickInputButton],
+						alwaysShow: true,
 						item: 'file:' as const,
 				  },
 			context.hasVirtualFolders
@@ -309,6 +344,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 				: {
 						label: searchOperatorToTitleMap.get('change:')!,
 						description: 'change: pattern or ~: pattern',
+						alwaysShow: true,
 						item: 'change:' as const,
 				  },
 		].filter(<T>(i?: T): i is T => i != null);
@@ -317,7 +353,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 		const matchAllButton = new MatchAllToggleQuickInputButton(state.matchAll);
 		const matchRegexButton = new MatchRegexToggleQuickInputButton(state.matchRegex);
 
-		const step = createPickStep<QuickPickItemOfT<SearchOperators>>({
+		const step = createPickStep<QuickPickItemOfT<NormalizedSearchOperators>>({
 			title: appendReposToTitle(context.title, state, context),
 			placeholder: 'e.g. "Updates dependencies" author:eamodio',
 			matchOnDescription: true,
@@ -326,19 +362,11 @@ export class SearchGitCommand extends QuickCommand<State> {
 			items: items,
 			value: state.query,
 			selectValueWhenShown: false,
-			onDidAccept: (quickpick): boolean => {
-				const pick = quickpick.selectedItems[0];
-				if (!searchOperators.has(pick.item)) return true;
+			onDidAccept: async quickpick => {
+				const item = quickpick.selectedItems[0];
+				if (!searchOperators.has(item.item)) return true;
 
-				const value = quickpick.value.trim();
-				if (value.length === 0 || searchOperators.has(value)) {
-					quickpick.value = pick.item;
-				} else {
-					quickpick.value = `${value} ${pick.item}`;
-				}
-
-				void step.onDidChangeValue!(quickpick);
-
+				await updateSearchQuery(item, {}, quickpick, step, state, context);
 				return false;
 			},
 			onDidClickButton: (quickpick, button) => {
@@ -352,6 +380,17 @@ export class SearchGitCommand extends QuickCommand<State> {
 					state.matchRegex = !state.matchRegex;
 					matchRegexButton.on = state.matchRegex;
 				}
+			},
+			onDidClickItemButton: async function (quickpick, button, item) {
+				if (button === UseAuthorPickerQuickInputButton) {
+					await updateSearchQuery(item, { author: true }, quickpick, step, state, context);
+				} else if (button === UseFilePickerQuickInputButton) {
+					await updateSearchQuery(item, { file: { type: 'file' } }, quickpick, step, state, context);
+				} else if (button === UseFolderPickerQuickInputButton) {
+					await updateSearchQuery(item, { file: { type: 'folder' } }, quickpick, step, state, context);
+				}
+
+				return false;
 			},
 			onDidChangeValue: (quickpick): boolean => {
 				const value = quickpick.value.trim();
@@ -384,9 +423,13 @@ export class SearchGitCommand extends QuickCommand<State> {
 						{
 							label: 'Search for',
 							description: quickpick.value,
-							item: quickpick.value as SearchOperators,
+							item: quickpick.value as NormalizedSearchOperators,
+							picked: true,
 						},
+						...items,
 					];
+
+					quickpick.activeItems = [quickpick.items[0]];
 				}
 
 				return true;
@@ -403,4 +446,101 @@ export class SearchGitCommand extends QuickCommand<State> {
 		state.counter--;
 		return selection[0].item.trim();
 	}
+}
+
+async function updateSearchQuery(
+	item: QuickPickItemOfT<NormalizedSearchOperators>,
+	usePickers: { author?: boolean; file?: { type: 'file' | 'folder' } },
+	quickpick: QuickPick<any>,
+	step: QuickPickStep,
+	state: SearchStepState,
+	context: Context,
+) {
+	const ops = parseSearchQuery({
+		query: quickpick.value,
+		matchCase: state.matchCase,
+		matchAll: state.matchAll,
+	});
+
+	let append = false;
+
+	if (usePickers?.author && item.item === 'author:') {
+		using frozen = freezeStep(step, quickpick);
+
+		const authors = ops.get('author:');
+
+		const contributors = await showContributorsPicker(
+			context.container,
+			state.repo,
+			'Search by Author',
+			'Choose contributors to include commits from',
+			{
+				appendReposToTitle: true,
+				clearButton: true,
+				multiselect: true,
+				picked: c =>
+					authors != null &&
+					((c.email != null && authors.has(c.email)) ||
+						(c.name != null && authors.has(c.name)) ||
+						(c.username != null && authors.has(c.username))),
+			},
+		);
+
+		frozen[Symbol.dispose]();
+
+		if (contributors != null) {
+			const authors = contributors
+				.map(c => c.email ?? c.name ?? c.username)
+				.filter(<T>(c?: T): c is T => c != null);
+			if (authors.length) {
+				ops.set('author:', new Set(authors));
+			} else {
+				ops.delete('author:');
+			}
+		} else {
+			append = true;
+		}
+	} else if (usePickers?.file && item.item === 'file:') {
+		using frozen = freezeStep(step, quickpick);
+
+		let files = ops.get('file:');
+
+		const uris = await window.showOpenDialog({
+			canSelectFiles: usePickers.file.type === 'file',
+			canSelectFolders: usePickers.file.type === 'folder',
+			canSelectMany: usePickers.file.type === 'file',
+			title: 'Search by File',
+			openLabel: 'Add to Search',
+			defaultUri: state.repo.folder?.uri,
+		});
+
+		frozen[Symbol.dispose]();
+
+		if (uris?.length) {
+			if (files == null) {
+				files = new Set();
+				ops.set('file:', files);
+			}
+
+			for (const uri of uris) {
+				files.add(context.container.git.getRelativePath(uri, state.repo.uri));
+			}
+		} else {
+			append = true;
+		}
+
+		if (files == null || files.size === 0) {
+			ops.delete('file:');
+		}
+	} else {
+		const values = ops.get(item.item);
+		append = !values?.has('');
+	}
+
+	quickpick.value = `${join(
+		map(ops.entries(), ([op, values]) => `${op}${join(values, ` ${op}`)}`),
+		' ',
+	)}${append ? ` ${item.item}` : ''}`;
+
+	void step.onDidChangeValue!(quickpick);
 }
