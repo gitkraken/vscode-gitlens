@@ -46,6 +46,7 @@ export class BranchNode
 		showAsCommits: boolean;
 		showComparison: false | ViewShowBranchComparison;
 		showCurrent: boolean;
+		showMergeCommits?: boolean;
 		showStatus: boolean;
 		showTracking: boolean;
 		authors?: GitUser[];
@@ -66,6 +67,7 @@ export class BranchNode
 			showAsCommits?: boolean;
 			showComparison?: false | ViewShowBranchComparison;
 			showCurrent?: boolean;
+			showMergeCommits?: boolean;
 			showStatus?: boolean;
 			showTracking?: boolean;
 			authors?: GitUser[];
@@ -208,6 +210,7 @@ export class BranchNode
 								? this.view.container.git.getLogRefsOnly(this.uri.repoPath!, {
 										limit: 0,
 										ref: range,
+										merges: this.options.showMergeCommits,
 								  })
 								: undefined,
 					  )
@@ -556,6 +559,7 @@ export class BranchNode
 				limit: limit,
 				ref: this.ref.ref,
 				authors: this.options?.authors,
+				merges: this.options?.showMergeCommits,
 			});
 		}
 

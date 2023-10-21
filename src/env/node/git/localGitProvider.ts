@@ -2993,7 +2993,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			authors?: GitUser[];
 			cursor?: string;
 			limit?: number;
-			merges?: boolean;
+			merges?: boolean | 'first-parent';
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			ref?: string;
 			status?: null | 'name-status' | 'numstat' | 'stat';
@@ -3024,6 +3024,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				args.push('--all');
 			}
 			if (!merges) {
+				args.push('--no-merges');
+			} else if (merges === 'first-parent') {
 				args.push('--first-parent');
 			}
 			if (ordering) {
