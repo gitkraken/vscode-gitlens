@@ -337,7 +337,8 @@ export type TreeViewCommands = `gitlens.views.${
 			| `setCommitsFilter${'Authors' | 'Off'}`
 			| `setShowAvatars${'On' | 'Off'}`
 			| `setShowBranchComparison${'On' | 'Off'}`
-			| `setShowBranchPullRequest${'On' | 'Off'}`}`
+			| `setShowBranchPullRequest${'On' | 'Off'}`
+			| `setShowMergeCommits${'On' | 'Off'}`}`
 	| `contributors.${
 			| 'copy'
 			| 'refresh'
@@ -588,6 +589,7 @@ export type ContextKeys =
 	| `${typeof extensionPrefix}:views:canCompare`
 	| `${typeof extensionPrefix}:views:canCompare:file`
 	| `${typeof extensionPrefix}:views:commits:filtered`
+	| `${typeof extensionPrefix}:views:commits:hideMergeCommits`
 	| `${typeof extensionPrefix}:views:fileHistory:canPin`
 	| `${typeof extensionPrefix}:views:fileHistory:cursorFollowing`
 	| `${typeof extensionPrefix}:views:fileHistory:editorFollowing`

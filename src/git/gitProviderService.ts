@@ -1815,7 +1815,7 @@ export class GitProviderService implements Disposable {
 			all?: boolean;
 			authors?: GitUser[];
 			limit?: number;
-			merges?: boolean;
+			merges?: boolean | 'first-parent';
 			ordering?: 'date' | 'author-date' | 'topo' | null;
 			ref?: string;
 			since?: string;

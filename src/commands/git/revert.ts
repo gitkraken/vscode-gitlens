@@ -127,7 +127,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 
 				let log = context.cache.get(ref);
 				if (log == null) {
-					log = this.container.git.getLog(state.repo.path, { ref: ref, merges: false });
+					log = this.container.git.getLog(state.repo.path, { ref: ref, merges: 'first-parent' });
 					context.cache.set(ref, log);
 				}
 

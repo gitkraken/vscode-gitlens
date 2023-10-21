@@ -6692,6 +6692,16 @@
 				"icon": "$(filter-filled)"
 			},
 			{
+				"command": "gitlens.views.commits.setShowMergeCommitsOff",
+				"title": "Hide Merge Commits",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.commits.setShowMergeCommitsOn",
+				"title": "Show Merge Commits",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.commits.setShowAvatarsOn",
 				"title": "Show Avatars",
 				"category": "GitLens"
@@ -9522,6 +9532,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.commits.setShowMergeCommitsOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.commits.setShowMergeCommitsOn",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.commits.setShowAvatarsOn",
 					"when": "false"
 				},
@@ -11054,6 +11072,16 @@
 					"command": "gitlens.views.commits.setCommitsFilterAuthors",
 					"when": "view =~ /^gitlens\\.views\\.commits/",
 					"group": "3_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.commits.setShowMergeCommitsOff",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && !gitlens:views:commits:hideMergeCommits",
+					"group": "3_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.commits.setShowMergeCommitsOn",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && gitlens:views:commits:hideMergeCommits",
+					"group": "3_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.commits.setFilesLayoutToAuto",
