@@ -1285,16 +1285,19 @@ export async function* pickContributorsStep<
 ): AsyncStepResultGenerator<GitContributor[]> {
 	const message = (await Container.instance.git.getOrOpenScmRepository(state.repo.path))?.inputBox.value;
 
+	const contributors = await Container.instance.git.getContributors(state.repo.path);
 	const step = createPickStep<ContributorQuickPickItem>({
 		title: appendReposToTitle(context.title, state, context),
 		allowEmpty: true,
 		multiselect: true,
 		placeholder: placeholder,
 		matchOnDescription: true,
-		items: (await Container.instance.git.getContributors(state.repo.path)).map(c =>
-			createContributorQuickPickItem(c, message?.includes(c.getCoauthor()), {
-				buttons: [RevealInSideBarQuickInputButton],
-			}),
+		items: await Promise.all(
+			contributors.map(c =>
+				createContributorQuickPickItem(c, message?.includes(c.getCoauthor()), {
+					buttons: [RevealInSideBarQuickInputButton],
+				}),
+			),
 		),
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {

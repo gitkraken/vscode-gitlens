@@ -5,6 +5,7 @@ import { configuration } from '../../system/configuration';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
 import { sortCompare } from '../../system/string';
+import type { GitUser } from './user';
 
 export interface ContributorSortOptions {
 	current?: true;
@@ -103,4 +104,8 @@ export class GitContributor {
 	getCoauthor(): string {
 		return `${this.name}${this.email ? ` <${this.email}>` : ''}`;
 	}
+}
+
+export function matchContributor(c: GitContributor, user: GitUser): boolean {
+	return c.name === user.name && c.email === user.email && c.username === user.username;
 }

@@ -334,7 +334,7 @@ export type TreeViewCommands = `gitlens.views.${
 			| 'copy'
 			| 'refresh'
 			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
-			| `setMyCommitsOnly${'On' | 'Off'}`
+			| `setCommitsFilter${'Authors' | 'Off'}`
 			| `setShowAvatars${'On' | 'Off'}`
 			| `setShowBranchComparison${'On' | 'Off'}`
 			| `setShowBranchPullRequest${'On' | 'Off'}`}`
@@ -527,7 +527,7 @@ export type TreeViewSubscribableNodeTypes =
 	| 'line-history-tracker'
 	| 'repositories'
 	| 'repository'
-	| 'repository-folder'
+	| 'repo-folder'
 	| 'search-results'
 	| 'workspace';
 export type TreeViewNodeTypes =
@@ -587,7 +587,7 @@ export type ContextKeys =
 	| `${typeof extensionPrefix}:untrusted`
 	| `${typeof extensionPrefix}:views:canCompare`
 	| `${typeof extensionPrefix}:views:canCompare:file`
-	| `${typeof extensionPrefix}:views:commits:myCommitsOnly`
+	| `${typeof extensionPrefix}:views:commits:filtered`
 	| `${typeof extensionPrefix}:views:fileHistory:canPin`
 	| `${typeof extensionPrefix}:views:fileHistory:cursorFollowing`
 	| `${typeof extensionPrefix}:views:fileHistory:editorFollowing`
