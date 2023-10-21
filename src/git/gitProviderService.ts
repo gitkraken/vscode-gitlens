@@ -1403,9 +1403,10 @@ export class GitProviderService implements Disposable {
 	getAheadBehindCommitCount(
 		repoPath: string | Uri,
 		refs: string[],
+		options?: { authors?: GitUser[] | undefined },
 	): Promise<{ ahead: number; behind: number } | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.getAheadBehindCommitCount(path, refs);
+		return provider.getAheadBehindCommitCount(path, refs, options);
 	}
 
 	@log<GitProviderService['getBlame']>({ args: { 1: d => d?.isDirty } })

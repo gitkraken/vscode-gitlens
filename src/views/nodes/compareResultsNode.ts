@@ -4,6 +4,7 @@ import { md5 } from '@env/crypto';
 import type { StoredNamedRef } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import { createRevisionRange, shortenRevision } from '../../git/models/reference';
+import type { GitUser } from '../../git/models/user';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
 import { getSettledValue } from '../../system/promise';
@@ -19,7 +20,11 @@ import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode'
 
 let instanceId = 0;
 
-export class CompareResultsNode extends SubscribeableViewNode<'compare-results', SearchAndCompareView> {
+type State = {
+	filterCommits: GitUser[] | undefined;
+};
+
+export class CompareResultsNode extends SubscribeableViewNode<'compare-results', SearchAndCompareView, State> {
 	private _instanceId: number;
 
 	constructor(
@@ -80,6 +85,19 @@ export class CompareResultsNode extends SubscribeableViewNode<'compare-results',
 		return this._compareWith;
 	}
 
+	private _isFiltered: boolean | undefined;
+	private get filterByAuthors(): GitUser[] | undefined {
+		const authors = this.getState('filterCommits');
+
+		const isFiltered = Boolean(authors?.length);
+		if (this._isFiltered != null && this._isFiltered !== isFiltered) {
+			this.updateContext({ comparisonFiltered: isFiltered });
+		}
+		this._isFiltered = isFiltered;
+
+		return authors;
+	}
+
 	protected override subscribe(): Disposable | Promise<Disposable | undefined> | undefined {
 		return this.view.onDidChangeNodesCheckedState(this.onNodesCheckedStateChanged, this);
 	}
@@ -102,9 +120,12 @@ export class CompareResultsNode extends SubscribeableViewNode<'compare-results',
 			const ahead = this.ahead;
 			const behind = this.behind;
 
-			const aheadBehindCounts = await this.view.container.git.getAheadBehindCommitCount(this.repoPath, [
-				createRevisionRange(behind.ref1 || 'HEAD', behind.ref2, '...'),
-			]);
+			const aheadBehindCounts = await this.view.container.git.getAheadBehindCommitCount(
+				this.repoPath,
+				[createRevisionRange(behind.ref1 || 'HEAD', behind.ref2, '...')],
+				{ authors: this.filterByAuthors },
+			);
+
 			const mergeBase =
 				(await this.view.container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2, {
 					forkPoint: true,
@@ -151,17 +172,23 @@ export class CompareResultsNode extends SubscribeableViewNode<'compare-results',
 						expand: false,
 					},
 				),
-				new ResultsFilesNode(
-					this.view,
-					this,
-					this.repoPath,
-					this._compareWith.ref,
-					this._ref.ref,
-					this.getFilesQuery.bind(this),
-					undefined,
-					{ expand: false },
-				),
 			];
+
+			// Can't support showing files when commits are filtered
+			if (!this.filterByAuthors?.length) {
+				this._children.push(
+					new ResultsFilesNode(
+						this.view,
+						this,
+						this.repoPath,
+						this._compareWith.ref,
+						this._ref.ref,
+						this.getFilesQuery.bind(this),
+						undefined,
+						{ expand: false },
+					),
+				);
+			}
 		}
 		return this._children;
 	}
@@ -183,7 +210,9 @@ export class CompareResultsNode extends SubscribeableViewNode<'compare-results',
 			TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
-		item.contextValue = `${ContextValues.CompareResults}${this._ref.ref === '' ? '+working' : ''}`;
+		item.contextValue = `${ContextValues.CompareResults}${this._ref.ref === '' ? '+working' : ''}${
+			this.filterByAuthors?.length ? '+filtered' : ''
+		}`;
 		item.description = description;
 		item.iconPath = new ThemeIcon('compare-changes');
 
@@ -299,6 +328,7 @@ export class CompareResultsNode extends SubscribeableViewNode<'compare-results',
 			const log = await this.view.container.git.getLog(repoPath, {
 				limit: limit,
 				ref: range,
+				authors: this.filterByAuthors,
 			});
 
 			const results: Mutable<Partial<CommitsQueryResults>> = {

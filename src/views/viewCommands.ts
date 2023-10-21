@@ -19,8 +19,10 @@ import * as TagActions from '../git/actions/tag';
 import * as WorktreeActions from '../git/actions/worktree';
 import { GitUri } from '../git/gitUri';
 import { deletedOrMissing } from '../git/models/constants';
+import { matchContributor } from '../git/models/contributor';
 import type { GitStashReference } from '../git/models/reference';
 import { createReference, getReferenceLabel, shortenRevision } from '../git/models/reference';
+import { showContributorsPicker } from '../quickpicks/contributorsPicker';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -297,7 +299,19 @@ export class ViewCommands {
 			n => this.openWorktree(n, { location: 'newWindow' }),
 			this,
 		);
+
+		registerViewCommand(
+			'gitlens.views.setResultsCommitsFilterAuthors',
+			n => this.setResultsCommitsFilter(n, true),
+			this,
+		);
+		registerViewCommand(
+			'gitlens.views.setResultsCommitsFilterOff',
+			n => this.setResultsCommitsFilter(n, false),
+			this,
+		);
 	}
+
 	@debug()
 	private addAuthors(node?: ViewNode) {
 		return ContributorActions.addAuthors(getNodeRepoPath(node));
@@ -1315,5 +1329,48 @@ export class ViewCommands {
 		}
 
 		return CommitActions.openFilesAtRevision(node.commit);
+	}
+
+	@debug()
+	private async setResultsCommitsFilter(node: ViewNode, filter: boolean) {
+		if (!node?.is('compare-results') && !node?.is('compare-branch')) return;
+
+		const repo = this.container.git.getRepository(node.repoPath);
+		if (repo == null) return;
+
+		if (filter) {
+			let authors = node.getState('filterCommits');
+			if (authors == null) {
+				const current = await this.container.git.getCurrentUser(repo.uri);
+				authors = current != null ? [current] : undefined;
+			}
+
+			const result = await showContributorsPicker(
+				this.container,
+				repo,
+				'Filter Commits',
+				repo.virtual ? 'Choose a contributor to show commits from' : 'Choose contributors to show commits from',
+				{
+					appendReposToTitle: true,
+					clearButton: true,
+					multiselect: !repo.virtual,
+					picked: c => authors?.some(u => matchContributor(c, u)) ?? false,
+				},
+			);
+			if (result == null) return;
+
+			if (result.length === 0) {
+				filter = false;
+				node.deleteState('filterCommits');
+			} else {
+				node.storeState('filterCommits', result);
+			}
+		} else if (repo != null) {
+			node.deleteState('filterCommits');
+		} else {
+			node.deleteState('filterCommits');
+		}
+
+		void node.triggerChange(true);
 	}
 }

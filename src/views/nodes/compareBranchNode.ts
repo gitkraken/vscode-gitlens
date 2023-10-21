@@ -6,6 +6,7 @@ import { GlyphChars } from '../../constants';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import { createRevisionRange, shortenRevision } from '../../git/models/reference';
+import type { GitUser } from '../../git/models/user';
 import { CommandQuickPickItem } from '../../quickpicks/items/common';
 import { showReferencePicker } from '../../quickpicks/referencePicker';
 import { gate } from '../../system/decorators/gate';
@@ -27,7 +28,15 @@ import { ResultsFilesNode } from './resultsFilesNode';
 import type { ViewNode } from './viewNode';
 import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 
-export class CompareBranchNode extends SubscribeableViewNode<'compare-branch', ViewsWithBranches | WorktreesView> {
+type State = {
+	filterCommits: GitUser[] | undefined;
+};
+
+export class CompareBranchNode extends SubscribeableViewNode<
+	'compare-branch',
+	ViewsWithBranches | WorktreesView,
+	State
+> {
 	private _children: ViewNode[] | undefined;
 	private _compareWith: StoredBranchComparison | undefined;
 
@@ -65,6 +74,19 @@ export class CompareBranchNode extends SubscribeableViewNode<'compare-branch', V
 		};
 	}
 
+	private _isFiltered: boolean | undefined;
+	private get filterByAuthors(): GitUser[] | undefined {
+		const authors = this.getState('filterCommits');
+
+		const isFiltered = Boolean(authors?.length);
+		if (this._isFiltered != null && this._isFiltered !== isFiltered) {
+			this.updateContext({ comparisonFiltered: isFiltered });
+		}
+		this._isFiltered = isFiltered;
+
+		return authors;
+	}
+
 	get repoPath(): string {
 		return this.branch.repoPath;
 	}
@@ -87,9 +109,11 @@ export class CompareBranchNode extends SubscribeableViewNode<'compare-branch', V
 			const ahead = this.ahead;
 			const behind = this.behind;
 
-			const aheadBehindCounts = await this.view.container.git.getAheadBehindCommitCount(this.branch.repoPath, [
-				createRevisionRange(behind.ref1, behind.ref2, '...'),
-			]);
+			const aheadBehindCounts = await this.view.container.git.getAheadBehindCommitCount(
+				this.branch.repoPath,
+				[createRevisionRange(behind.ref1, behind.ref2, '...')],
+				{ authors: this.filterByAuthors },
+			);
 			const mergeBase =
 				(await this.view.container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2, {
 					forkPoint: true,
@@ -138,17 +162,23 @@ export class CompareBranchNode extends SubscribeableViewNode<'compare-branch', V
 						expand: false,
 					},
 				),
-				new ResultsFilesNode(
-					this.view,
-					this,
-					this.repoPath,
-					this._compareWith.ref || 'HEAD',
-					this.compareWithWorkingTree ? '' : this.branch.ref,
-					this.getFilesQuery.bind(this),
-					undefined,
-					{ expand: false },
-				),
 			];
+
+			// Can't support showing files when commits are filtered
+			if (!this.filterByAuthors?.length) {
+				this._children.push(
+					new ResultsFilesNode(
+						this.view,
+						this,
+						this.repoPath,
+						this._compareWith.ref || 'HEAD',
+						this.compareWithWorkingTree ? '' : this.branch.ref,
+						this.getFilesQuery.bind(this),
+						undefined,
+						{ expand: false },
+					),
+				);
+			}
 		}
 		return this._children;
 	}
@@ -179,7 +209,9 @@ export class CompareBranchNode extends SubscribeableViewNode<'compare-branch', V
 		item.id = this.id;
 		item.contextValue = `${ContextValues.CompareBranch}${this.branch.current ? '+current' : ''}+${
 			this.comparisonType
-		}${this._compareWith == null ? '' : '+comparing'}${this.root ? '+root' : ''}`;
+		}${this._compareWith == null ? '' : '+comparing'}${this.root ? '+root' : ''}${
+			this.filterByAuthors?.length ? '+filtered' : ''
+		}`;
 
 		if (this._compareWith == null) {
 			item.command = {
@@ -338,6 +370,7 @@ export class CompareBranchNode extends SubscribeableViewNode<'compare-branch', V
 			const log = await this.view.container.git.getLog(repoPath, {
 				limit: limit,
 				ref: range,
+				authors: this.filterByAuthors,
 			});
 
 			const results: Mutable<Partial<CommitsQueryResults>> = {

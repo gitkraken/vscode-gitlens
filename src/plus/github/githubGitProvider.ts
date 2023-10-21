@@ -521,6 +521,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async getAheadBehindCommitCount(
 		_repoPath: string,
 		_refs: string[],
+		_options?: { authors?: GitUser[] | undefined },
 	): Promise<{ ahead: number; behind: number } | undefined> {
 		return undefined;
 	}

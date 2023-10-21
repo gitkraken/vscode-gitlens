@@ -1396,8 +1396,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	getAheadBehindCommitCount(
 		repoPath: string,
 		refs: string[],
+		options?: { authors?: GitUser[] | undefined },
 	): Promise<{ ahead: number; behind: number } | undefined> {
-		return this.git.rev_list__left_right(repoPath, refs);
+		return this.git.rev_list__left_right(repoPath, refs, options?.authors);
 	}
 
 	@gate<LocalGitProvider['getBlame']>((u, d) => `${u.toString()}|${d?.isDirty}`)
