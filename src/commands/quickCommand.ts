@@ -54,6 +54,8 @@ export interface QuickPickStep<T extends QuickPickItem = QuickPickItem> {
 	value?: string;
 	selectValueWhenShown?: boolean;
 
+	frozen?: boolean;
+
 	onDidAccept?(quickpick: QuickPick<T>): boolean | Promise<boolean>;
 	onDidChangeValue?(quickpick: QuickPick<T>): boolean | Promise<boolean>;
 	onDidClickButton?(quickpick: QuickPick<T>, button: QuickInputButton): boolean | void | Promise<boolean | void>;
@@ -349,4 +351,16 @@ export function createCustomStep<T>(step: CustomStep<T>): CustomStep<T> {
 
 export function endSteps(state: PartialStepState) {
 	state.counter = -1;
+}
+
+export function freezeStep(step: QuickPickStep, quickpick: QuickPick<any>): Disposable {
+	quickpick.enabled = false;
+	step.frozen = true;
+	return {
+		[Symbol.dispose]: () => {
+			step.frozen = false;
+			quickpick.enabled = true;
+			quickpick.show();
+		},
+	};
 }

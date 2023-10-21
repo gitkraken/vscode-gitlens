@@ -2,18 +2,8 @@ import type { GitRevisionReference } from './models/reference';
 import { isSha, shortenRevision } from './models/reference';
 import type { GitUser } from './models/user';
 
-export type SearchOperators =
-	| ''
-	| '=:'
-	| 'message:'
-	| '@:'
-	| 'author:'
-	| '#:'
-	| 'commit:'
-	| '?:'
-	| 'file:'
-	| '~:'
-	| 'change:';
+export type NormalizedSearchOperators = 'message:' | 'author:' | 'commit:' | 'file:' | 'change:';
+export type SearchOperators = NormalizedSearchOperators | '' | '=:' | '@:' | '#:' | '?:' | '~:';
 
 export const searchOperators = new Set<string>([
 	'',
@@ -100,7 +90,7 @@ export function createSearchQueryForCommits(refsOrCommits: (string | GitRevision
 	return refsOrCommits.map(r => `#:${typeof r === 'string' ? shortenRevision(r) : r.name}`).join(' ');
 }
 
-const normalizeSearchOperatorsMap = new Map<SearchOperators, SearchOperators>([
+const normalizeSearchOperatorsMap = new Map<SearchOperators, NormalizedSearchOperators>([
 	['', 'message:'],
 	['=:', 'message:'],
 	['message:', 'message:'],
@@ -117,8 +107,8 @@ const normalizeSearchOperatorsMap = new Map<SearchOperators, SearchOperators>([
 const searchOperationRegex =
 	/(?:(?<op>=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)\s?(?<value>".+?"|\S+}?))|(?<text>\S+)(?!(?:=|message|@|author|#|commit|\?|file|~|change):)/gi;
 
-export function parseSearchQuery(search: SearchQuery): Map<string, string[]> {
-	const operations = new Map<string, string[]>();
+export function parseSearchQuery(search: SearchQuery): Map<NormalizedSearchOperators, Set<string>> {
+	const operations = new Map<NormalizedSearchOperators, Set<string>>();
 
 	let op: SearchOperators | undefined;
 	let value: string | undefined;
@@ -134,16 +124,18 @@ export function parseSearchQuery(search: SearchQuery): Map<string, string[]> {
 
 		if (text) {
 			op = text === '@me' ? 'author:' : isSha(text) ? 'commit:' : 'message:';
-			value = text;
+			if (!normalizeSearchOperatorsMap.has(op)) {
+				value = text;
+			}
 		}
 
 		if (op && value) {
-			const values = operations.get(op);
+			let values = operations.get(op);
 			if (values == null) {
-				operations.set(op, [value]);
-			} else {
-				values.push(value);
+				values = new Set();
+				operations.set(op, values);
 			}
+			values.add(value);
 		}
 	} while (match != null);
 
