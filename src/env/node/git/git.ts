@@ -1660,12 +1660,17 @@ export class Git {
 	async rev_list__left_right(
 		repoPath: string,
 		refs: string[],
+		authors?: GitUser[] | undefined,
 	): Promise<{ ahead: number; behind: number } | undefined> {
+		const params = ['rev-list', '--left-right', '--count'];
+
+		if (authors?.length) {
+			params.push(...authors.map(a => `--author=^${a.name} <${a.email}>$`));
+		}
+
 		const data = await this.git<string>(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
-			'rev-list',
-			'--left-right',
-			'--count',
+			...params,
 			...refs,
 			'--',
 		);

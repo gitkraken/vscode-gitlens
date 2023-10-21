@@ -40,6 +40,8 @@ import type { BranchNode } from './branchNode';
 import type { BranchTrackingStatus } from './branchTrackingStatusNode';
 import type { CommitFileNode } from './commitFileNode';
 import type { CommitNode } from './commitNode';
+import type { CompareBranchNode } from './compareBranchNode';
+import type { CompareResultsNode } from './compareResultsNode';
 import type { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
 import type { FolderNode } from './folderNode';
 import type { LineHistoryTrackerNode } from './lineHistoryTrackerNode';
@@ -125,6 +127,7 @@ export interface AmbientContext {
 	readonly branchStatusUpstreamType?: 'ahead' | 'behind' | 'same' | 'none';
 	readonly commit?: GitCommit;
 	readonly comparisonId?: string;
+	readonly comparisonFiltered?: boolean;
 	readonly contributor?: GitContributor;
 	readonly file?: GitFile;
 	readonly reflog?: GitReflogRecord;
@@ -397,7 +400,8 @@ export function isPageableViewNode(node: ViewNode): node is ViewNode & PageableV
 export abstract class SubscribeableViewNode<
 	Type extends TreeViewSubscribableNodeTypes = TreeViewSubscribableNodeTypes,
 	TView extends View = View,
-> extends ViewNode<Type, TView> {
+	State extends object = any,
+> extends ViewNode<Type, TView, State> {
 	protected disposable: Disposable;
 	protected subscription: Promise<Disposable | undefined> | undefined;
 
@@ -831,24 +835,41 @@ export function getNodeRepoPath(node?: ViewNode): string | undefined {
 }
 
 type TreeViewNodesByType = {
-	[T in TreeViewNodeTypes]: ViewNode<T>;
-} & {
-	['branch']: BranchNode;
-	['commit']: CommitNode;
-	['commit-file']: CommitFileNode;
-	['conflict-file']: MergeConflictFileNode;
-	['file-commit']: FileRevisionAsCommitNode;
-	['folder']: FolderNode;
-	['line-history-tracker']: LineHistoryTrackerNode;
-	['repository']: RepositoryNode;
-	['repo-folder']: RepositoryFolderNode;
-	['results-file']: ResultsFileNode;
-	['stash']: StashNode;
-	['stash-file']: StashFileNode;
-	['status-file']: StatusFileNode;
-	['tag']: TagNode;
-	['uncommitted-file']: UncommittedFileNode;
-	// Add more real types as needed
+	[T in TreeViewNodeTypes]: T extends 'branch'
+		? BranchNode
+		: T extends 'commit'
+		? CommitNode
+		: T extends 'commit-file'
+		? CommitFileNode
+		: T extends 'compare-branch'
+		? CompareBranchNode
+		: T extends 'compare-results'
+		? CompareResultsNode
+		: T extends 'conflict-file'
+		? MergeConflictFileNode
+		: T extends 'file-commit'
+		? FileRevisionAsCommitNode
+		: T extends 'folder'
+		? FolderNode
+		: T extends 'line-history-tracker'
+		? LineHistoryTrackerNode
+		: T extends 'repository'
+		? RepositoryNode
+		: T extends 'repo-folder'
+		? RepositoryFolderNode
+		: T extends 'results-file'
+		? ResultsFileNode
+		: T extends 'stash'
+		? StashNode
+		: T extends 'stash-file'
+		? StashFileNode
+		: T extends 'status-file'
+		? StatusFileNode
+		: T extends 'tag'
+		? TagNode
+		: T extends 'uncommitted-file'
+		? UncommittedFileNode
+		: ViewNode<T>;
 };
 
 export function isViewNode(node: unknown): node is ViewNode;

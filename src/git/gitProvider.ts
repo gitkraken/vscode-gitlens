@@ -172,7 +172,11 @@ export interface GitProvider extends Disposable {
 		},
 	): Promise<void>;
 	findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined>;
-	getAheadBehindCommitCount(repoPath: string, refs: string[]): Promise<{ ahead: number; behind: number } | undefined>;
+	getAheadBehindCommitCount(
+		repoPath: string,
+		refs: string[],
+		options?: { authors?: GitUser[] | undefined },
+	): Promise<{ ahead: number; behind: number } | undefined>;
 	/**
 	 * Returns the blame of a file
 	 * @param uri Uri of the file to blame

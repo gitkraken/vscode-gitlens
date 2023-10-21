@@ -77,6 +77,10 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		return this._results.comparison?.ref2;
 	}
 
+	private get isComparisonFiltered(): boolean | undefined {
+		return this.context.comparisonFiltered;
+	}
+
 	private _onChildrenCompleted: Deferred<void> | undefined;
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -96,7 +100,8 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		this._expandAutolinks = false;
 
 		const { files } = this._results;
-		if (files != null) {
+		// Can't support showing files when commits are filtered
+		if (files != null && !this.isComparisonFiltered) {
 			children.push(
 				new ResultsFilesNode(
 					this.view,
