@@ -54,6 +54,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 					limitCommits: !this.splatted,
 					showComparison: this.view.config.showBranchComparison,
 					showCurrent: false,
+					showMergeCommits: !this.view.state.hideMergeCommits,
 					showTracking: true,
 					authors: authors,
 				},
@@ -178,6 +179,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 
 interface CommitsViewState {
 	filterCommits: Map<string, GitUser[] | undefined>;
+	hideMergeCommits?: boolean;
 }
 
 export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsViewConfig> {
@@ -250,6 +252,17 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 				n => this.setCommitsFilter(n, false),
 				this,
 			),
+			registerViewCommand(
+				this.getQualifiedCommand('setShowMergeCommitsOn'),
+				() => this.setShowMergeCommits(true),
+				this,
+			),
+			registerViewCommand(
+				this.getQualifiedCommand('setShowMergeCommitsOff'),
+				() => this.setShowMergeCommits(false),
+				this,
+			),
+
 			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
 			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this),
 			registerViewCommand(
@@ -446,6 +459,12 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 		}
 
 		void setContext('gitlens:views:commits:filtered', this.state.filterCommits.size !== 0);
+		void this.refresh(true);
+	}
+
+	private setShowMergeCommits(on: boolean) {
+		void setContext('gitlens:views:commits:hideMergeCommits', !on);
+		this.state.hideMergeCommits = !on;
 		void this.refresh(true);
 	}
 
