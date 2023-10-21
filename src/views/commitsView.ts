@@ -6,10 +6,14 @@ import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
 import { isCommit } from '../git/models/commit';
+import { matchContributor } from '../git/models/contributor';
 import type { GitRevisionReference } from '../git/models/reference';
 import { getReferenceLabel } from '../git/models/reference';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
+import type { GitUser } from '../git/models/user';
+import { showContributorsPicker } from '../quickpicks/contributorsPicker';
+import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { createCommand, executeCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { setContext } from '../system/context';
@@ -37,14 +41,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 
 			this.view.message = undefined;
 
-			let authors;
-			if (this.view.state.myCommitsOnly) {
-				const user = await this.view.container.git.getCurrentUser(this.repo.path);
-				if (user != null) {
-					authors = [{ name: user.name, email: user.email, username: user.username, id: user.id }];
-				}
-			}
-
+			const authors = this.view.state.filterCommits.get(this.repo.id);
 			this.child = new BranchNode(
 				this.uri,
 				this.view,
@@ -180,7 +177,7 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 }
 
 interface CommitsViewState {
-	myCommitsOnly?: boolean;
+	filterCommits: Map<string, GitUser[] | undefined>;
 }
 
 export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsViewConfig> {
@@ -202,7 +199,7 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 		return this.config.reveal || !configuration.get('views.repositories.showCommits');
 	}
 
-	private readonly _state: CommitsViewState = {};
+	private readonly _state: CommitsViewState = { filterCommits: new Map<string, GitUser[] | undefined>() };
 	get state(): CommitsViewState {
 		return this._state;
 	}
@@ -244,13 +241,13 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 				this,
 			),
 			registerViewCommand(
-				this.getQualifiedCommand('setMyCommitsOnlyOn'),
-				() => this.setMyCommitsOnly(true),
+				this.getQualifiedCommand('setCommitsFilterAuthors'),
+				n => this.setCommitsFilter(n, true),
 				this,
 			),
 			registerViewCommand(
-				this.getQualifiedCommand('setMyCommitsOnlyOff'),
-				() => this.setMyCommitsOnly(false),
+				this.getQualifiedCommand('setCommitsFilterOff'),
+				n => this.setCommitsFilter(n, false),
 				this,
 			),
 			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
@@ -395,9 +392,60 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 		return configuration.updateEffective(`views.${this.configKey}.files.layout` as const, layout);
 	}
 
-	private setMyCommitsOnly(enabled: boolean) {
-		void setContext('gitlens:views:commits:myCommitsOnly', enabled);
-		this.state.myCommitsOnly = enabled;
+	private async setCommitsFilter(node: ViewNode, filter: boolean) {
+		let repo;
+		if (node != null) {
+			if (node.is('repo-folder')) {
+				repo = node.repo;
+			} else {
+				let parent: ViewNode | undefined = node;
+				do {
+					parent = parent.getParent();
+					if (parent?.is('repo-folder')) {
+						repo = parent.repo;
+						break;
+					}
+				} while (parent != null);
+			}
+		}
+
+		if (filter) {
+			repo ??= await getRepositoryOrShowPicker('Filter Commits', 'Choose a repository');
+			if (repo == null) return;
+
+			let authors = this.state.filterCommits.get(repo.id);
+			if (authors == null) {
+				const current = await this.container.git.getCurrentUser(repo.uri);
+				authors = current != null ? [current] : undefined;
+			}
+
+			const result = await showContributorsPicker(
+				this.container,
+				repo,
+				'Filter Commits',
+				repo.virtual ? 'Choose a contributor to show commits from' : 'Choose contributors to show commits from',
+				{
+					appendReposToTitle: true,
+					clearButton: true,
+					multiselect: !repo.virtual,
+					picked: c => authors?.some(u => matchContributor(c, u)) ?? false,
+				},
+			);
+			if (result == null) return;
+
+			if (result.length === 0) {
+				filter = false;
+				this.state.filterCommits.delete(repo.id);
+			} else {
+				this.state.filterCommits.set(repo.id, result);
+			}
+		} else if (repo != null) {
+			this.state.filterCommits.delete(repo.id);
+		} else {
+			this.state.filterCommits.clear();
+		}
+
+		void setContext('gitlens:views:commits:filtered', this.state.filterCommits.size !== 0);
 		void this.refresh(true);
 	}
 

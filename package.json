@@ -4,7 +4,7 @@
 	"description": "Supercharge Git within VS Code — Visualize code authorship at a glance via Git blame annotations and CodeLens, seamlessly navigate and explore Git repositories, gain valuable insights via rich visualizations and powerful comparison commands, and so much more",
 	"version": "14.4.0",
 	"engines": {
-		"vscode": "^1.80.0"
+		"vscode": "^1.81.0"
 	},
 	"license": "SEE LICENSE IN LICENSE",
 	"publisher": "eamodio",
@@ -6680,14 +6680,14 @@
 				"icon": "$(list-flat)"
 			},
 			{
-				"command": "gitlens.views.commits.setMyCommitsOnlyOn",
-				"title": "View Only My Commits",
+				"command": "gitlens.views.commits.setCommitsFilterAuthors",
+				"title": "Filter Commits by Author...",
 				"category": "GitLens",
 				"icon": "$(filter)"
 			},
 			{
-				"command": "gitlens.views.commits.setMyCommitsOnlyOff",
-				"title": "View All Commits",
+				"command": "gitlens.views.commits.setCommitsFilterOff",
+				"title": "Clear Filter",
 				"category": "GitLens",
 				"icon": "$(filter-filled)"
 			},
@@ -9502,11 +9502,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.commits.setMyCommitsOnlyOn",
+					"command": "gitlens.views.commits.setCommitsFilterAuthors",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.commits.setMyCommitsOnlyOff",
+					"command": "gitlens.views.commits.setCommitsFilterOff",
 					"when": "false"
 				},
 				{
@@ -11016,8 +11016,8 @@
 					"group": "navigation@99"
 				},
 				{
-					"command": "gitlens.views.commits.setMyCommitsOnlyOff",
-					"when": "view =~ /^gitlens\\.views\\.commits/ && gitlens:views:commits:myCommitsOnly",
+					"command": "gitlens.views.commits.setCommitsFilterOff",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && gitlens:views:commits:filtered",
 					"group": "navigation@50"
 				},
 				{
@@ -11026,29 +11026,29 @@
 					"group": "navigation@99"
 				},
 				{
-					"command": "gitlens.views.commits.setMyCommitsOnlyOn",
-					"when": "view =~ /^gitlens\\.views\\.commits/ && !gitlens:views:commits:myCommitsOnly",
+					"command": "gitlens.views.commits.setCommitsFilterOff",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && gitlens:views:commits:filtered",
 					"group": "3_gitlens@0"
 				},
 				{
-					"command": "gitlens.views.commits.setMyCommitsOnlyOff",
-					"when": "view =~ /^gitlens\\.views\\.commits/ && gitlens:views:commits:myCommitsOnly",
-					"group": "3_gitlens@0"
+					"command": "gitlens.views.commits.setCommitsFilterAuthors",
+					"when": "view =~ /^gitlens\\.views\\.commits/",
+					"group": "3_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.commits.setFilesLayoutToAuto",
 					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.views.commits.files.layout == tree",
-					"group": "3_gitlens@1"
+					"group": "3_gitlens@2"
 				},
 				{
 					"command": "gitlens.views.commits.setFilesLayoutToList",
 					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.views.commits.files.layout == auto",
-					"group": "3_gitlens@1"
+					"group": "3_gitlens@2"
 				},
 				{
 					"command": "gitlens.views.commits.setFilesLayoutToTree",
 					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.views.commits.files.layout == list",
-					"group": "3_gitlens@1"
+					"group": "3_gitlens@2"
 				},
 				{
 					"command": "gitlens.views.commits.setShowAvatarsOn",
@@ -12652,6 +12652,11 @@
 					"group": "inline@100"
 				},
 				{
+					"command": "gitlens.views.commits.setCommitsFilterOff",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && viewItem =~ /gitlens:repo-folder\\b(?=.*?\\b\\+filtered\\b)/ && gitlens:views:commits:filtered",
+					"group": "inline@101"
+				},
+				{
 					"command": "gitlens.views.fetch",
 					"when": "gitlens:hasRemotes && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && viewItem =~ /gitlens:repo-folder\\b/",
 					"group": "1_gitlens_actions@1"
@@ -12716,6 +12721,16 @@
 					"command": "gitlens.views.closeRepository",
 					"when": "viewItem =~ /gitlens:repo-folder\\b/",
 					"group": "8_gitlens_actions_@2"
+				},
+				{
+					"command": "gitlens.views.commits.setCommitsFilterOff",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && viewItem =~ /gitlens:repo-folder\\b(?=.*?\\b\\+filtered\\b)/ && gitlens:views:commits:filtered",
+					"group": "8_gitlens_filter_@1"
+				},
+				{
+					"command": "gitlens.views.commits.setCommitsFilterAuthors",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && viewItem =~ /gitlens:repo-folder\\b/",
+					"group": "8_gitlens_filter_@2"
 				},
 				{
 					"command": "gitlens.views.publishRepository",
@@ -15196,7 +15211,7 @@
 		"@types/react": "17.0.69",
 		"@types/react-dom": "17.0.21",
 		"@types/sortablejs": "1.15.4",
-		"@types/vscode": "1.80.0",
+		"@types/vscode": "1.81.0",
 		"@typescript-eslint/eslint-plugin": "6.8.0",
 		"@typescript-eslint/parser": "6.8.0",
 		"@vscode/test-electron": "2.3.5",

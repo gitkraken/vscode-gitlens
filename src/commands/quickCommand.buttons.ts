@@ -57,6 +57,11 @@ export class SelectableQuickInputButton extends ToggleQuickInputButton {
 	}
 }
 
+export const ClearQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('clear-all'),
+	tooltip: 'Clear',
+};
+
 export const FetchQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('sync'),
 	tooltip: 'Fetch',

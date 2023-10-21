@@ -219,18 +219,19 @@ export function createCommitQuickPickItem<T extends GitCommit = GitCommit>(
 
 export type ContributorQuickPickItem = QuickPickItemOfT<GitContributor>;
 
-export function createContributorQuickPickItem(
+export async function createContributorQuickPickItem(
 	contributor: GitContributor,
 	picked?: boolean,
 	options?: { alwaysShow?: boolean; buttons?: QuickInputButton[] },
-): ContributorQuickPickItem {
+): Promise<ContributorQuickPickItem> {
 	const item: ContributorQuickPickItem = {
 		label: contributor.label,
-		description: contributor.email,
+		description: contributor.current ? 'you' : contributor.email,
 		alwaysShow: options?.alwaysShow,
 		buttons: options?.buttons,
 		picked: picked,
 		item: contributor,
+		iconPath: await contributor.getAvatarUri(),
 	};
 	return item;
 }

@@ -555,7 +555,7 @@ export abstract class SubscribeableViewNode<
 export abstract class RepositoryFolderNode<
 	TView extends View = View,
 	TChild extends ViewNode = ViewNode,
-> extends SubscribeableViewNode<'repository-folder', TView> {
+> extends SubscribeableViewNode<'repo-folder', TView> {
 	protected override splatted = true;
 	protected child: TChild | undefined;
 
@@ -567,7 +567,7 @@ export abstract class RepositoryFolderNode<
 		splatted: boolean,
 		private readonly options?: { showBranchAndLastFetched?: boolean },
 	) {
-		super('repository-folder', uri, view, parent);
+		super('repo-folder', uri, view, parent);
 
 		this.updateContext({ repository: this.repo });
 		this._uniqueId = getViewNodeId(this.type, this.context);
@@ -606,6 +606,9 @@ export abstract class RepositoryFolderNode<
 		}
 		if (behind) {
 			item.contextValue += '+behind';
+		}
+		if (this.view.type === 'commits' && this.view.state.filterCommits.get(this.repo.id)?.length) {
+			item.contextValue += '+filtered';
 		}
 
 		if (branch != null && this.options?.showBranchAndLastFetched) {
@@ -838,6 +841,7 @@ type TreeViewNodesByType = {
 	['folder']: FolderNode;
 	['line-history-tracker']: LineHistoryTrackerNode;
 	['repository']: RepositoryNode;
+	['repo-folder']: RepositoryFolderNode;
 	['results-file']: ResultsFileNode;
 	['stash']: StashNode;
 	['stash-file']: StashFileNode;
