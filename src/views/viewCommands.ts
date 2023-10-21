@@ -136,6 +136,7 @@ export class ViewCommands {
 			},
 			this,
 		);
+		registerViewCommand('gitlens.views.collapseNode', () => executeCoreCommand('list.collapseAllToFocus'), this);
 		registerViewCommand(
 			'gitlens.views.dismissNode',
 			(n: ViewNode) => canViewDismissNode(n.view) && n.view.dismissNode(n),

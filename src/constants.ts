@@ -606,6 +606,7 @@ export type CoreCommands =
 	| 'editor.action.showReferences'
 	| 'editor.action.webvieweditor.showFind'
 	| 'editorScroll'
+	| 'list.collapseAllToFocus'
 	| 'openInTerminal'
 	| 'revealFileInOS'
 	| 'revealInExplorer'

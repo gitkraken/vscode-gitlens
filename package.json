@@ -6525,6 +6525,11 @@
 				"icon": "$(close)"
 			},
 			{
+				"command": "gitlens.views.collapseNode",
+				"title": "Collapse",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.dismissNode",
 				"title": "Dismiss",
 				"category": "GitLens",
@@ -9382,6 +9387,10 @@
 				},
 				{
 					"command": "gitlens.views.clearNode",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.collapseNode",
 					"when": "false"
 				},
 				{
@@ -13081,9 +13090,14 @@
 					"group": "8_gitlens_actions@98"
 				},
 				{
-					"command": "gitlens.views.expandNode",
+					"command": "gitlens.views.collapseNode",
 					"when": "viewItem =~ /gitlens:(branch|compare|folder|results|search|status)\\b/",
 					"group": "9_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.expandNode",
+					"when": "viewItem =~ /gitlens:(branch|compare|folder|results|search|status)\\b/",
+					"group": "9_gitlens@2"
 				},
 				{
 					"command": "gitlens.views.refreshNode",
