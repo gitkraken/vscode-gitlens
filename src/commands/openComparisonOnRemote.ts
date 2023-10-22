@@ -4,7 +4,6 @@ import { RemoteResourceType } from '../git/models/remoteResource';
 import { showGenericErrorMessage } from '../messages';
 import { command, executeCommand } from '../system/command';
 import { Logger } from '../system/logger';
-import { ResultsCommitsNode } from '../views/nodes/resultsCommitsNode';
 import type { CommandContext } from './base';
 import { Command } from './base';
 import type { OpenOnRemoteCommandArgs } from './openOnRemote';
@@ -25,12 +24,19 @@ export class OpenComparisonOnRemoteCommand extends Command {
 
 	protected override preExecute(context: CommandContext, args?: OpenComparisonOnRemoteCommandArgs) {
 		if (context.type === 'viewItem') {
-			if (context.node instanceof ResultsCommitsNode) {
+			if (context.node.is('results-commits')) {
 				args = {
 					...args,
 					repoPath: context.node.repoPath,
 					ref1: context.node.ref1,
 					ref2: context.node.ref2,
+				};
+			} else if (context.node.is('compare-results')) {
+				args = {
+					...args,
+					repoPath: context.node.repoPath,
+					ref1: context.node.ahead.ref1,
+					ref2: context.node.ahead.ref2,
 				};
 			}
 		}

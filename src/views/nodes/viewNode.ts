@@ -47,6 +47,7 @@ import type { FolderNode } from './folderNode';
 import type { LineHistoryTrackerNode } from './lineHistoryTrackerNode';
 import type { MergeConflictFileNode } from './mergeConflictFileNode';
 import type { RepositoryNode } from './repositoryNode';
+import type { ResultsCommitsNode } from './resultsCommitsNode';
 import type { ResultsFileNode } from './resultsFileNode';
 import type { StashFileNode } from './stashFileNode';
 import type { StashNode } from './stashNode';
@@ -857,6 +858,8 @@ type TreeViewNodesByType = {
 		? RepositoryNode
 		: T extends 'repo-folder'
 		? RepositoryFolderNode
+		: T extends 'results-commits'
+		? ResultsCommitsNode
 		: T extends 'results-file'
 		? ResultsFileNode
 		: T extends 'stash'

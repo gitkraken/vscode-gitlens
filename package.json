@@ -12964,9 +12964,15 @@
 					"group": "1_gitlens_actions@2"
 				},
 				{
+					"command": "gitlens.openComparisonOnRemote",
+					"when": "viewItem =~ /gitlens:compare:results(?!:)\\b/",
+					"group": "2_gitlens_quickopen@1 && gitlens:hasRemotes",
+					"alt": "gitlens.copyRemoteComparisonUrl"
+				},
+				{
 					"command": "gitlens.views.openDirectoryDiff",
 					"when": "viewItem =~ /gitlens:compare:results(?!:)\\b/",
-					"group": "2_gitlens_quickopen@1"
+					"group": "2_gitlens_quickopen@2"
 				},
 				{
 					"command": "gitlens.views.setResultsCommitsFilterOff",
@@ -12990,13 +12996,13 @@
 				},
 				{
 					"command": "gitlens.openComparisonOnRemote",
-					"when": "viewItem =~ /gitlens:compare:results:commits\\b/",
+					"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && gitlens:hasRemotes",
 					"group": "inline@99",
 					"alt": "gitlens.copyRemoteComparisonUrl"
 				},
 				{
 					"command": "gitlens.openComparisonOnRemote",
-					"when": "viewItem =~ /gitlens:compare:results:commits\\b/",
+					"when": "viewItem =~ /gitlens:compare:results:commits\\b/ && gitlens:hasRemotes",
 					"group": "3_gitlens_explore@0",
 					"alt": "gitlens.copyRemoteComparisonUrl"
 				},
