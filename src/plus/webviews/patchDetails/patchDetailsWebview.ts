@@ -1,10 +1,4 @@
-import type {
-	CancellationToken,
-	CancellationTokenSource,
-	ConfigurationChangeEvent,
-	TextDocumentShowOptions,
-	ViewColumn,
-} from 'vscode';
+import type { CancellationTokenSource, ConfigurationChangeEvent, TextDocumentShowOptions, ViewColumn } from 'vscode';
 import { Disposable, env, Uri, window } from 'vscode';
 import type { CoreConfiguration } from '../../../constants';
 import { Commands } from '../../../constants';
@@ -61,7 +55,6 @@ import {
 	CopyCloudLinkCommandType,
 	CreateFromLocalPatchCommandType,
 	CreatePatchCommandType,
-	DidChangeCreateNotificationType,
 	DidChangeNotificationType,
 	DidExplainCommandType,
 	ExplainCommandType,
@@ -477,8 +470,7 @@ export class PatchDetailsWebviewProvider
 		}
 
 		const state = serialize<State>({
-			webviewId: this.host.id,
-			timestamp: Date.now(),
+			...this.host.baseWebviewState,
 			mode: current.mode,
 			draft: details,
 			create: await toRepoChanges(current.create),
