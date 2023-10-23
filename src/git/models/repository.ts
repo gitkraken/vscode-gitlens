@@ -471,6 +471,7 @@ export class Repository implements Disposable {
 		const changed = this._closed !== value;
 		this._closed = value;
 		if (changed) {
+			Logger.debug(`Repository(${this.id}).closed(${value})`);
 			this.fireChange(this._closed ? RepositoryChange.Closed : RepositoryChange.Opened);
 		}
 	}

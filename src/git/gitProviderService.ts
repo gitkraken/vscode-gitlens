@@ -121,6 +121,13 @@ export class GitProviderService implements Disposable {
 	get onDidChangeProviders(): Event<GitProvidersChangeEvent> {
 		return this._onDidChangeProviders.event;
 	}
+
+	@debug<GitProviderService['fireProvidersChanged']>({
+		args: {
+			0: added => `(${added?.length ?? 0}) ${added?.map(p => p.descriptor.id).join(', ')}`,
+			1: removed => `(${removed?.length ?? 0}) ${removed?.map(p => p.descriptor.id).join(', ')}`,
+		},
+	})
 	private fireProvidersChanged(added?: GitProvider[], removed?: GitProvider[]) {
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.setGlobalAttributes({
@@ -143,6 +150,12 @@ export class GitProviderService implements Disposable {
 		return this._onDidChangeRepositories.event;
 	}
 
+	@debug<GitProviderService['fireRepositoriesChanged']>({
+		args: {
+			0: added => `(${added?.length ?? 0}) ${added?.map(r => r.id).join(', ')}`,
+			1: removed => `(${removed?.length ?? 0}) ${removed?.map(r => r.id).join(', ')}`,
+		},
+	})
 	private fireRepositoriesChanged(added?: Repository[], removed?: Repository[]) {
 		if (this.container.telemetry.enabled) {
 			const openSchemes = this.openRepositories.map(r => r.uri.scheme);
@@ -415,12 +428,16 @@ export class GitProviderService implements Disposable {
 			provider,
 			...disposables,
 			provider.onDidChange(() => {
+				Logger.debug(`GitProvider(${id}).onDidChange()`);
+
 				const { workspaceFolders } = workspace;
 				if (workspaceFolders?.length) {
 					void this.discoverRepositories(workspaceFolders, { force: true });
 				}
 			}),
 			provider.onDidChangeRepository(async e => {
+				Logger.debug(`GitProvider(${id}).onDidChangeRepository(e=${e.repository.toString()})`);
+
 				if (
 					e.changed(
 						RepositoryChange.Remotes,
@@ -455,12 +472,18 @@ export class GitProviderService implements Disposable {
 			}),
 			provider.onDidCloseRepository(e => {
 				const repository = this._repositories.get(e.uri);
+				Logger.debug(
+					`GitProvider(${id}).onDidCloseRepository(e=${repository?.toString() ?? e.uri.toString()})`,
+				);
+
 				if (repository != null) {
 					repository.closed = true;
 				}
 			}),
 			provider.onDidOpenRepository(e => {
 				const repository = this._repositories.get(e.uri);
+				Logger.debug(`GitProvider(${id}).onDidOpenRepository(e=${repository?.toString() ?? e.uri.toString()})`);
+
 				if (repository != null) {
 					repository.closed = false;
 				} else {
