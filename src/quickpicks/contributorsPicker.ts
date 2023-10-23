@@ -19,6 +19,7 @@ export async function showContributorsPicker(
 	options?: {
 		appendReposToTitle?: boolean;
 		clearButton?: boolean;
+		ignoreFocusOut?: boolean;
 		multiselect?: boolean;
 		picked?: (contributor: GitContributor) => boolean;
 	},
@@ -45,7 +46,7 @@ export async function showContributorsPicker(
 			}),
 		);
 
-		quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
+		quickpick.ignoreFocusOut = options?.ignoreFocusOut ?? getQuickPickIgnoreFocusOut();
 
 		quickpick.title = options?.appendReposToTitle ? appendRepoToTitle(container, title, repository) : title;
 		quickpick.placeholder = placeholder;

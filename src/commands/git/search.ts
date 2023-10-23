@@ -356,6 +356,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 		const step = createPickStep<QuickPickItemOfT<NormalizedSearchOperators>>({
 			title: appendReposToTitle(context.title, state, context),
 			placeholder: 'e.g. "Updates dependencies" author:eamodio',
+			ignoreFocusOut: true,
 			matchOnDescription: true,
 			matchOnDetail: true,
 			additionalButtons: [matchCaseButton, matchAllButton, matchRegexButton],
@@ -477,6 +478,7 @@ async function updateSearchQuery(
 			{
 				appendReposToTitle: true,
 				clearButton: true,
+				ignoreFocusOut: true,
 				multiselect: true,
 				picked: c =>
 					authors != null &&
