@@ -69,55 +69,65 @@ export class PromiseCancelledError<T extends Promise<any> = Promise<any>> extend
 
 export function cancellable<T>(
 	promise: Promise<T>,
-	timeoutOrToken?: number | CancellationToken,
-	options: {
+	timeout?: number | CancellationToken,
+	cancellation?: CancellationToken,
+	options?: {
 		cancelMessage?: string;
-		onDidCancel?(resolve: (value: T | PromiseLike<T>) => void, reject: (reason?: any) => void): void;
-	} = {},
+		onDidCancel?(
+			resolve: (value: T | PromiseLike<T>) => void,
+			reject: (reason?: any) => void,
+			reason: 'cancelled' | 'timedout',
+		): void;
+	},
 ): Promise<T> {
-	if (timeoutOrToken == null || (typeof timeoutOrToken === 'number' && timeoutOrToken <= 0)) return promise;
+	if (timeout == null && cancellation == null) return promise;
 
 	return new Promise((resolve, reject) => {
 		let fulfilled = false;
-		let timer: ReturnType<typeof setTimeout> | undefined;
-		let disposable: Disposable | undefined;
+		let disposeCancellation: Disposable | undefined;
+		let disposeTimeout: Disposable | undefined;
 
-		if (typeof timeoutOrToken === 'number') {
-			timer = setTimeout(() => {
-				if (typeof options.onDidCancel === 'function') {
-					options.onDidCancel(resolve, reject);
-				} else {
-					reject(new PromiseCancelledError(promise, options.cancelMessage ?? 'TIMED OUT'));
-				}
-			}, timeoutOrToken);
-		} else {
-			disposable = timeoutOrToken.onCancellationRequested(() => {
-				disposable?.dispose();
-				if (fulfilled) return;
+		const resolver = (reason: 'cancelled' | 'timedout') => {
+			disposeCancellation?.dispose();
+			disposeTimeout?.dispose();
 
-				if (typeof options.onDidCancel === 'function') {
-					options.onDidCancel(resolve, reject);
-				} else {
-					reject(new PromiseCancelledError(promise, options.cancelMessage ?? 'CANCELLED'));
-				}
-			});
+			if (fulfilled) return;
+
+			if (options?.onDidCancel != null) {
+				options.onDidCancel(resolve, reject, reason);
+			} else {
+				reject(
+					new PromiseCancelledError(
+						promise,
+						options?.cancelMessage ?? (reason === 'cancelled' ? 'CANCELLED' : 'TIMED OUT'),
+					),
+				);
+			}
+		};
+
+		disposeCancellation = cancellation?.onCancellationRequested(() => resolver('cancelled'));
+		if (timeout != null) {
+			if (typeof timeout === 'number') {
+				const timer = setTimeout(() => resolver('timedout'), timeout);
+				disposeTimeout = { dispose: () => clearTimeout(timer) };
+			} else {
+				disposeTimeout = timeout.onCancellationRequested(() => resolver('timedout'));
+			}
 		}
 
 		promise.then(
 			() => {
 				fulfilled = true;
-				if (timer != null) {
-					clearTimeout(timer);
-				}
-				disposable?.dispose();
+				disposeCancellation?.dispose();
+				disposeTimeout?.dispose();
+
 				resolve(promise);
 			},
 			ex => {
 				fulfilled = true;
-				if (timer != null) {
-					clearTimeout(timer);
-				}
-				disposable?.dispose();
+				disposeCancellation?.dispose();
+				disposeTimeout?.dispose();
+
 				reject(ex);
 			},
 		);

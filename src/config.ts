@@ -122,6 +122,7 @@ export interface Config {
 	};
 	readonly keymap: KeyMap;
 	readonly liveshare: {
+		readonly enabled: boolean;
 		readonly allowGuestAccess: boolean;
 	};
 	readonly menus: boolean | MenuConfig;

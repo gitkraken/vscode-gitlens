@@ -16,7 +16,7 @@ import type { GitRemote } from '../git/models/remote';
 import type { RemoteProvider } from '../git/remotes/remoteProvider';
 import { pauseOnCancelOrTimeout, pauseOnCancelOrTimeoutMapTuplePromise } from '../system/cancellation';
 import { configuration } from '../system/configuration';
-import { getSettledValue } from '../system/promise';
+import { cancellable, getSettledValue } from '../system/promise';
 
 export async function changesMessage(
 	container: Container,
@@ -257,7 +257,9 @@ export async function detailsMessage(
 						options?.timeout,
 				  )
 				: undefined,
-			container.vsls.maybeGetPresence(commit.author.email),
+			container.vsls.enabled
+				? cancellable(container.vsls.getContactPresence(commit.author.email), 250, options?.cancellation)
+				: undefined,
 			commit.isUncommitted ? commit.getPreviousComparisonUrisForLine(editorLine, uri.sha) : undefined,
 			commit.message == null ? commit.ensureFullDetails() : undefined,
 		]);
