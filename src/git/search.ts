@@ -123,8 +123,8 @@ export function parseSearchQuery(search: SearchQuery): Map<NormalizedSearchOpera
 		({ value, text } = match.groups);
 
 		if (text) {
-			op = text === '@me' ? 'author:' : isSha(text) ? 'commit:' : 'message:';
-			if (!normalizeSearchOperatorsMap.has(op)) {
+			if (!normalizeSearchOperatorsMap.has(text.trim() as SearchOperators)) {
+				op = text === '@me' ? 'author:' : isSha(text) ? 'commit:' : 'message:';
 				value = text;
 			}
 		}
