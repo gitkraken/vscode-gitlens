@@ -579,7 +579,7 @@ export abstract class ViewBase<
 
 						await this.loadMoreNodeChildren(node, defaultPageSize);
 
-						pagedChildren = await cancellable(Promise.resolve(node.getChildren()), token ?? 60000, {
+						pagedChildren = await cancellable(Promise.resolve(node.getChildren()), 60000, token, {
 							onDidCancel: resolve => resolve([]),
 						});
 

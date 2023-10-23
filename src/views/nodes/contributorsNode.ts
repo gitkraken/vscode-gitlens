@@ -5,7 +5,6 @@ import type { Repository } from '../../git/models/repository';
 import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
-import { timeout } from '../../system/decorators/timeout';
 import type { ViewsWithContributorsNode } from '../viewBase';
 import { MessageNode } from './common';
 import { ContributorNode } from './contributorNode';
@@ -57,7 +56,7 @@ export class ContributorsNode extends ViewNode<'contributors', ViewsWithContribu
 			if (contributors.length === 0) return [new MessageNode(this.view, this, 'No contributors could be found.')];
 
 			GitContributor.sort(contributors);
-			const presenceMap = await this.maybeGetPresenceMap(contributors);
+			const presenceMap = this.view.container.vsls.enabled ? await this.getPresenceMap(contributors) : undefined;
 
 			this._children = contributors.map(
 				c =>
@@ -99,8 +98,7 @@ export class ContributorsNode extends ViewNode<'contributors', ViewsWithContribu
 	}
 
 	@debug({ args: false })
-	@timeout(250)
-	private async maybeGetPresenceMap(contributors: GitContributor[]) {
+	private async getPresenceMap(contributors: GitContributor[]) {
 		// Only get presence for the current user, because it is far too slow otherwise
 		const email = contributors.find(c => c.current)?.email;
 		if (email == null) return undefined;

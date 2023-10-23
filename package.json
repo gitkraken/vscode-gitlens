@@ -3090,12 +3090,19 @@
 						"scope": "window",
 						"order": 40
 					},
+					"gitlens.liveshare.enabled": {
+						"type": "boolean",
+						"default": true,
+						"description": "Specifies whether to enable integration with Visual Studio Live Share",
+						"scope": "window",
+						"order": 50
+					},
 					"gitlens.liveshare.allowGuestAccess": {
 						"type": "boolean",
 						"default": true,
 						"description": "Specifies whether to allow guest access to GitLens features when using Visual Studio Live Share",
 						"scope": "window",
-						"order": 50
+						"order": 51
 					}
 				}
 			},

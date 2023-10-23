@@ -1,3 +1,4 @@
+import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, extensions, workspace } from 'vscode';
 import type { LiveShare, LiveShareExtension, SessionChangeEvent } from '../@types/vsls';
 import { Schemes } from '../constants';
@@ -5,7 +6,6 @@ import type { Container } from '../container';
 import { configuration } from '../system/configuration';
 import { setContext } from '../system/context';
 import { debug } from '../system/decorators/log';
-import { timeout } from '../system/decorators/timeout';
 import { once } from '../system/event';
 import { Logger } from '../system/logger';
 import type { Deferred } from '../system/promise';
@@ -43,7 +43,10 @@ export class VslsController implements Disposable {
 
 	constructor(private readonly container: Container) {
 		this._ready = defer<void>();
-		this._disposable = Disposable.from(once(container.onReady)(this.onReady, this));
+		this._disposable = Disposable.from(
+			once(container.onReady)(this.onReady, this),
+			configuration.onDidChange(this.onConfigurationChanged, this),
+		);
 	}
 
 	dispose() {
@@ -59,6 +62,11 @@ export class VslsController implements Disposable {
 	}
 
 	private async initialize() {
+		if (!this.enabled) {
+			void setContext('gitlens:vsls', false);
+			return;
+		}
+
 		// If we have a vsls: workspace open, we might be a guest, so wait until live share transitions into a mode
 		if (workspace.workspaceFolders?.some(f => f.uri.scheme === Schemes.Vsls)) {
 			this.setReadonly(true);
@@ -85,6 +93,12 @@ export class VslsController implements Disposable {
 		} catch (ex) {
 			Logger.error(ex);
 			debugger;
+		}
+	}
+
+	private onConfigurationChanged(e: ConfigurationChangeEvent) {
+		if (configuration.changed(e, 'liveshare.enabled')) {
+			void this.initialize();
 		}
 	}
 
@@ -151,6 +165,10 @@ export class VslsController implements Disposable {
 		void setContext('gitlens:readonly', value ? true : undefined);
 	}
 
+	get enabled() {
+		return configuration.get('liveshare.enabled');
+	}
+
 	async guest() {
 		if (this._guest != null) return this._guest;
 
@@ -194,12 +212,6 @@ export class VslsController implements Disposable {
 		return new Map<string, ContactPresence>(
 			Object.values(contacts).map(c => [c.email, contactStatusToPresence(c.status)]),
 		);
-	}
-
-	@debug()
-	@timeout(250)
-	maybeGetPresence(email: string | undefined): Promise<ContactPresence | undefined> {
-		return this.getContactPresence(email);
 	}
 
 	async invite(email: string | undefined) {
