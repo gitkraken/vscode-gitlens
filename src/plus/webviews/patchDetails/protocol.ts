@@ -77,13 +77,24 @@ export type UpdateablePreferences = Partial<Pick<Preferences, 'files'>>;
 
 export type Mode = 'draft' | 'create';
 
-export interface Change {
-	type: 'commit' | 'wip';
+export interface WipChange {
+	type: 'wip';
+	repository: { name: string; path: string; uri: string };
+
+	range: RangeRef;
+	files: GitFileChangeShape[];
+	checked?: boolean | 'staged';
+}
+
+export interface CommitChange {
+	type: 'commit';
 	repository: { name: string; path: string; uri: string };
 
 	range: RangeRef;
 	files: GitFileChangeShape[];
 }
+
+export type Change = WipChange | CommitChange;
 
 export interface RepoCommitChangeSet {
 	type: 'commit';

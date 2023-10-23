@@ -24,6 +24,25 @@ export class GlDetailsBase extends LitElement {
 	@property({ attribute: 'empty-text' })
 	emptyText? = 'No Files';
 
+	private renderWipCategory(staged = true, hasFiles = true) {
+		const label = staged ? 'Staged Changes' : 'Unstaged Changes';
+		const shareLabel = `Share ${label}`;
+		return html`
+			<list-item tree branch hide-icon>
+				${label}
+				<span slot="actions"
+					><a
+						class="change-list__action ${!hasFiles ? 'is-disabled' : ''}"
+						href="#"
+						title="${shareLabel}"
+						aria-label="${shareLabel}"
+						data-action="create-patch"
+						data-wip-checked="${staged ? 'staged' : 'true'}"
+						><code-icon icon="live-share"></code-icon></a></span
+			></list-item>
+		`;
+	}
+
 	private renderFileList(mode: Mode, files: Files) {
 		let items;
 		let classes;
@@ -34,7 +53,8 @@ export class GlDetailsBase extends LitElement {
 
 			const staged = files.filter(f => f.staged);
 			if (staged.length) {
-				items.push(html`<list-item tree branch hide-icon>Staged Changes</list-item>`);
+				// items.push(html`<list-item tree branch hide-icon>Staged Changes</list-item>`);
+				items.push(this.renderWipCategory(true, true));
 
 				for (const f of staged) {
 					items.push(this.renderFile(mode, f, 2, true));
@@ -43,7 +63,8 @@ export class GlDetailsBase extends LitElement {
 
 			const unstaged = files.filter(f => !f.staged);
 			if (unstaged.length) {
-				items.push(html`<list-item tree branch hide-icon>Unstaged Changes</list-item>`);
+				// items.push(html`<list-item tree branch hide-icon>Unstaged Changes</list-item>`);
+				items.push(this.renderWipCategory(false, true));
 
 				for (const f of unstaged) {
 					items.push(this.renderFile(mode, f, 2, true));
@@ -66,13 +87,15 @@ export class GlDetailsBase extends LitElement {
 
 			const staged = files.filter(f => f.staged);
 			if (staged.length) {
-				items.push(html`<list-item tree branch hide-icon>Staged Changes</list-item>`);
+				// items.push(html`<list-item tree branch hide-icon>Staged Changes</list-item>`);
+				items.push(this.renderWipCategory(true, true));
 				items.push(...this.renderFileSubtree(mode, staged, 1, compact));
 			}
 
 			const unstaged = files.filter(f => !f.staged);
 			if (unstaged.length) {
-				items.push(html`<list-item tree branch hide-icon>Unstaged Changes</list-item>`);
+				// items.push(html`<list-item tree branch hide-icon>Unstaged Changes</list-item>`);
+				items.push(this.renderWipCategory(false, true));
 				items.push(...this.renderFileSubtree(mode, unstaged, 1, compact));
 			}
 		} else {
@@ -195,6 +218,16 @@ export class GlDetailsBase extends LitElement {
 				</div>
 			</webview-pane>
 		`;
+	}
+
+	protected onShareWipChanges(_e: Event, staged: boolean, hasFiles: boolean) {
+		if (!hasFiles) return;
+		const event = new CustomEvent('share-wip', {
+			detail: {
+				checked: staged,
+			},
+		});
+		this.dispatchEvent(event);
 	}
 
 	protected override createRenderRoot() {

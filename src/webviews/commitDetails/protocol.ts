@@ -127,6 +127,7 @@ export const UpdatePreferencesCommandType = new IpcCommandType<UpdatePreferenceP
 
 export interface CreatePatchFromWipParams {
 	changes: WipChange;
+	checked: boolean | 'staged';
 }
 export const CreatePatchFromWipCommandType = new IpcCommandType<CreatePatchFromWipParams>('commit/wip/createPatch');
 

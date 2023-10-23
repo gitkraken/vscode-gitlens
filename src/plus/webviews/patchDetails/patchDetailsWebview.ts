@@ -496,7 +496,7 @@ export class PatchDetailsWebviewProvider
 					repo,
 					this.onDidChangeRepositoryWip.bind(this),
 				);
-				repoChangeSet.checked = true;
+				repoChangeSet.checked = change.checked ?? true;
 			} else {
 				repoChangeSet = {
 					checked: true,

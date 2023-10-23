@@ -508,6 +508,7 @@ export class CommitDetailsWebviewProvider
 			},
 			files: e.changes.files,
 			type: 'wip' as 'commit' | 'wip',
+			checked: e.checked,
 		};
 
 		void showPatchesView({

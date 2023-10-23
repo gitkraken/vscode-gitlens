@@ -156,10 +156,21 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 		}
 	}
 
-	private onCreatePatchFromWip(_e: MouseEvent) {
+	private onCreatePatchFromWip(e: MouseEvent) {
 		if (this.state.wip?.changes == null) return;
 
-		this.sendCommand(CreatePatchFromWipCommandType, { changes: this.state.wip?.changes });
+		const wipCheckedParam = ((e.target as HTMLElement)?.closest('[data-wip-checked]') as HTMLElement | undefined)
+			?.dataset.wipChecked;
+		let wipChecked: boolean | 'staged';
+		if (wipCheckedParam == null) {
+			wipChecked = true;
+		} else if (wipCheckedParam === 'staged') {
+			wipChecked = wipCheckedParam;
+		} else {
+			wipChecked = wipCheckedParam === 'true';
+		}
+
+		this.sendCommand(CreatePatchFromWipCommandType, { changes: this.state.wip?.changes, checked: wipChecked });
 	}
 
 	private onCommandClickedCore(action?: string) {

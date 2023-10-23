@@ -1,1 +1,31 @@
 @use '../shared/styles/details-base';
+
+// TODO: "change-list__action" should be a separate component
+.change-list__action {
+	box-sizing: border-box;
+	display: inline-flex;
+	justify-content: center;
+	align-items: center;
+	width: 2rem;
+	height: 2rem;
+	border-radius: 0.25em;
+	color: inherit;
+	padding: 2px;
+	vertical-align: text-bottom;
+	text-decoration: none;
+}
+.change-list__action:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+.change-list__action:hover {
+	color: inherit;
+	background-color: var(--vscode-toolbar-hoverBackground);
+	text-decoration: none;
+}
+.change-list__action:active {
+	background-color: var(--vscode-toolbar-activeBackground);
+}
+.change-list__action.is-disabled {
+	opacity: 0.5;
+}
