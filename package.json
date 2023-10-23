@@ -4169,18 +4169,20 @@
 					},
 					"gitlens.outputLevel": {
 						"type": "string",
-						"default": "errors",
+						"default": "warn",
 						"enum": [
-							"silent",
-							"errors",
-							"verbose",
+							"off",
+							"error",
+							"warn",
+							"info",
 							"debug"
 						],
 						"enumDescriptions": [
 							"Logs nothing",
 							"Logs only errors",
-							"Logs all errors, warnings, and messages",
-							"Logs all errors, warnings, and messages with extra context useful for debugging"
+							"Logs errors and warnings",
+							"Logs errors, warnings, and messages",
+							"Logs verbose errors, warnings, and messages. Best for issue reporting."
 						],
 						"markdownDescription": "Specifies how much (if any) output will be sent to the GitLens output channel",
 						"scope": "window",
@@ -10481,7 +10483,7 @@
 				},
 				{
 					"command": "gitlens.disableDebugLogging",
-					"when": "config.gitlens.outputLevel != errors"
+					"when": "config.gitlens.outputLevel == debug"
 				},
 				{
 					"command": "gitlens.generateCommitMessage",
