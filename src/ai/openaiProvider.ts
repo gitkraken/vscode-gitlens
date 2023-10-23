@@ -20,7 +20,7 @@ export class OpenAIProvider implements AIProvider {
 	dispose() {}
 
 	private get url(): string {
-		return configuration.get('ai.experimental.openai.url') ?? 'https://api.openai.com/v1/chat/completions';
+		return configuration.get('ai.experimental.openai.url') || 'https://api.openai.com/v1/chat/completions';
 	}
 
 	async generateCommitMessage(diff: string, options?: { context?: string }): Promise<string | undefined> {
