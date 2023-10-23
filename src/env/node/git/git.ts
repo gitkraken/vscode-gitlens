@@ -48,7 +48,6 @@ import { fsExists, isWindows, run, RunError } from './shell';
 
 const emptyArray = Object.freeze([]) as unknown as any[];
 const emptyObj = Object.freeze({});
-const emptyStr = '';
 
 const gitBranchDefaultConfigs = Object.freeze(['-c', 'color.branch=false']);
 const gitDiffDefaultConfigs = Object.freeze(['-c', 'color.diff=false']);
@@ -226,32 +225,7 @@ export class Git {
 			}
 		} finally {
 			this.pendingCommands.delete(command);
-
-			const duration = getDurationMilliseconds(start);
-			const slow = duration > slowCallWarningThreshold;
-			const status =
-				slow || waiting
-					? ` (${slow ? `slow${waiting ? ', waiting' : ''}` : ''}${waiting ? 'waiting' : ''})`
-					: '';
-
-			if (exception != null) {
-				Logger.error(
-					'',
-					`[GIT  ] ${gitCommand} ${GlyphChars.Dot} ${(exception.message || String(exception) || '')
-						.trim()
-						.replace(/fatal: /g, '')
-						.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} [${duration}ms]${status}`,
-				);
-			} else if (slow) {
-				Logger.warn(`[GIT  ] ${gitCommand} [*${duration}ms]${status}`);
-			} else {
-				Logger.log(`[GIT  ] ${gitCommand} [${duration}ms]${status}`);
-			}
-			this.logGitCommand(
-				`${gitCommand}${exception != null ? ` ${GlyphChars.Dot} FAILED` : ''}${waiting ? ' (waited)' : ''}`,
-				duration,
-				exception,
-			);
+			this.logGitCommand(gitCommand, exception, getDurationMilliseconds(start), waiting);
 		}
 	}
 
@@ -278,7 +252,7 @@ export class Git {
 			},
 		};
 
-		const gitCommand = `[${spawnOpts.cwd as string}] git ${args.join(' ')}`;
+		const gitCommand = `(spawn) [${spawnOpts.cwd as string}] git ${args.join(' ')}`;
 
 		// Fixes https://github.com/gitkraken/vscode-gitlens/issues/73 & https://github.com/gitkraken/vscode-gitlens/issues/161
 		// See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
@@ -307,30 +281,7 @@ export class Git {
 
 		let exception: Error | undefined;
 		proc.once('error', e => (exception = e));
-		proc.once('exit', () => {
-			const duration = getDurationMilliseconds(start);
-			const slow = duration > slowCallWarningThreshold;
-			const status = slow ? ' (slow)' : '';
-
-			if (exception != null) {
-				Logger.error(
-					'',
-					`[SGIT ] ${gitCommand} ${GlyphChars.Dot} ${(exception.message || String(exception) || '')
-						.trim()
-						.replace(/fatal: /g, '')
-						.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} [${duration}ms]${status}`,
-				);
-			} else if (slow) {
-				Logger.warn(`[SGIT ] ${gitCommand} [*${duration}ms]${status}`);
-			} else {
-				Logger.log(`[SGIT ] ${gitCommand} [${duration}ms]${status}`);
-			}
-			this.logGitCommand(
-				`${gitCommand}${exception != null ? ` ${GlyphChars.Dot} FAILED` : ''}`,
-				duration,
-				exception,
-			);
-		});
+		proc.once('exit', () => this.logGitCommand(gitCommand, exception, getDurationMilliseconds(start), false));
 		return proc;
 	}
 
@@ -2268,7 +2219,7 @@ export class Git {
 		}
 
 		Logger.log(scope, `\u2022 '${text}'`);
-		this.logGitCommand(`[TERM] ${text}`, 0);
+		this.logCore(`[TERM] ${text}`);
 
 		const terminal = ensureGitTerminal();
 		terminal.show(false);
@@ -2278,31 +2229,37 @@ export class Git {
 		terminal.sendText(text, options?.execute ?? false);
 	}
 
+	private logGitCommand(command: string, ex: Error | undefined, duration: number, waiting: boolean): void {
+		const slow = duration > slowCallWarningThreshold;
+		const status = slow && waiting ? ' (slow, waiting)' : waiting ? ' (waiting)' : slow ? ' (slow)' : '';
+
+		if (ex != null) {
+			Logger.error(
+				'',
+				`[GIT  ] ${command} ${GlyphChars.Dot} ${(ex.message || String(ex) || '')
+					.trim()
+					.replace(/fatal: /g, '')
+					.replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} [${duration}ms]${status}`,
+			);
+		} else if (slow) {
+			Logger.warn(`[GIT  ] ${command} [*${duration}ms]${status}`);
+		} else {
+			Logger.log(`[GIT  ] ${command} [${duration}ms]${status}`);
+		}
+
+		this.logCore(`[${slow ? '*' : ' '}${duration.toString().padStart(6)}ms] ${command}${status}`, ex);
+	}
+
 	private _gitOutput: OutputChannel | undefined;
 
-	private logGitCommand(command: string, duration: number, ex?: Error): void {
-		if (!Logger.enabled('debug') && !Logger.isDebugging) return;
+	private logCore(message: string, ex?: Error | undefined): void {
+		if (!Logger.enabled(ex != null ? 'error' : 'debug')) return;
 
-		const slow = duration > slowCallWarningThreshold;
-
-		if (Logger.isDebugging) {
-			if (ex != null) {
-				console.error(Logger.timestamp, '[GitLens (Git)]', command ?? emptyStr, ex);
-			} else if (slow) {
-				console.warn(Logger.timestamp, '[GitLens (Git)]', command ?? emptyStr);
-			} else {
-				console.log(Logger.timestamp, '[GitLens (Git)]', command ?? emptyStr);
-			}
+		this._gitOutput ??= window.createOutputChannel('GitLens (Git)');
+		this._gitOutput.appendLine(`${Logger.timestamp} ${message}${ex != null ? ` ${GlyphChars.Dot} FAILED` : ''}`);
+		if (ex != null) {
+			this._gitOutput.appendLine(`\n${String(ex)}\n`);
 		}
-
-		if (this._gitOutput == null) {
-			this._gitOutput = window.createOutputChannel('GitLens (Git)');
-		}
-		this._gitOutput.appendLine(
-			`${Logger.timestamp} [${slow ? '*' : ' '}${duration.toString().padStart(6)}ms] ${command}${
-				ex != null ? `\n\n${ex.toString()}` : emptyStr
-			}`,
-		);
 	}
 }
 

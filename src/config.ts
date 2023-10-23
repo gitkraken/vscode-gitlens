@@ -263,7 +263,12 @@ export type GraphMinimapMarkersAdditionalTypes = 'localBranches' | 'remoteBranch
 export type GravatarDefaultStyle = 'wavatar' | 'identicon' | 'monsterid' | 'mp' | 'retro' | 'robohash';
 export type HeatmapLocations = 'gutter' | 'line' | 'overview';
 export type KeyMap = 'alternate' | 'chorded' | 'none';
-export type OutputLevel = 'silent' | 'errors' | 'verbose' | 'debug';
+
+type DeprecatedOutputLevel =
+	| /** @deprecated use `off` */ 'silent'
+	| /** @deprecated use `error` */ 'errors'
+	| /** @deprecated use `info` */ 'verbose';
+export type OutputLevel = LogLevel | DeprecatedOutputLevel;
 
 export const enum StatusBarCommand {
 	CopyRemoteCommitUrl = 'gitlens.copyRemoteCommitUrl',
@@ -767,16 +772,14 @@ export interface ViewsFilesConfig {
 	readonly threshold: number;
 }
 
-export function fromOutputLevel(level: LogLevel | OutputLevel): LogLevel {
+export function fromOutputLevel(level: OutputLevel): LogLevel {
 	switch (level) {
-		case 'silent':
+		case /** @deprecated use `off` */ 'silent':
 			return 'off';
-		case 'errors':
+		case /** @deprecated use `error` */ 'errors':
 			return 'error';
-		case 'verbose':
+		case /** @deprecated use `info` */ 'verbose':
 			return 'info';
-		case 'debug':
-			return 'debug';
 		default:
 			return level;
 	}

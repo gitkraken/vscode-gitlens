@@ -22,6 +22,6 @@ export class DisableDebugLoggingCommand extends Command {
 	}
 
 	async execute() {
-		await configuration.updateEffective('outputLevel', 'errors');
+		await configuration.updateEffective('outputLevel', 'error');
 	}
 }
