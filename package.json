@@ -11078,12 +11078,12 @@
 				{
 					"command": "gitlens.views.commits.setShowMergeCommitsOff",
 					"when": "view =~ /^gitlens\\.views\\.commits/ && !gitlens:views:commits:hideMergeCommits",
-					"group": "3_gitlens@0"
+					"group": "3_gitlens@2"
 				},
 				{
 					"command": "gitlens.views.commits.setShowMergeCommitsOn",
 					"when": "view =~ /^gitlens\\.views\\.commits/ && gitlens:views:commits:hideMergeCommits",
-					"group": "3_gitlens@0"
+					"group": "3_gitlens@2"
 				},
 				{
 					"command": "gitlens.views.commits.setFilesLayoutToAuto",
