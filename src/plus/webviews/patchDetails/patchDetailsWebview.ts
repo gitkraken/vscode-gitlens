@@ -396,11 +396,7 @@ export class PatchDetailsWebviewProvider
 
 	private setMode(mode: Mode) {
 		this.updatePendingContext({ mode: mode });
-		if (mode === 'draft') {
-			this.updateState(true);
-		} else {
-			// void this.updateCreateStateFromWip();
-		}
+		this.updateState(true);
 	}
 
 	private shareLocalPatch() {
