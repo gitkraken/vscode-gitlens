@@ -676,7 +676,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				};
 				document.state.setBlame(key, value);
 
-				document.setBlameFailure();
+				document.setBlameFailure(ex);
 
 				return emptyPromise as Promise<GitBlame>;
 			}

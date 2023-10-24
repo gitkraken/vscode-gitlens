@@ -70,7 +70,7 @@ export class TrackedDocument<T> implements Disposable {
 	}
 
 	get isBlameable() {
-		return this._blameFailed ? false : this._isTracked;
+		return this._blameFailed != null ? false : this._isTracked;
 	}
 
 	private _isDirtyIdle: boolean = false;
@@ -110,12 +110,12 @@ export class TrackedDocument<T> implements Disposable {
 	}
 
 	private _updateDebounced:
-		| Deferrable<({ forceBlameChange }?: { forceBlameChange?: boolean | undefined }) => Promise<void>>
+		| Deferrable<(options?: { forceBlameChange?: boolean | undefined }) => Promise<void>>
 		| undefined;
 
-	reset(reason: 'config' | 'document' | 'repository') {
+	refresh(reason: 'doc-changed' | 'repo-changed') {
 		this._requiresUpdate = true;
-		this._blameFailed = false;
+		this._blameFailed = undefined;
 		this._isDirtyIdle = false;
 
 		if (this.state != null) {
@@ -123,7 +123,7 @@ export class TrackedDocument<T> implements Disposable {
 			Logger.log(`Reset state for '${this.document.uri.toString(true)}', reason=${reason}`);
 		}
 
-		if (reason === 'repository' && isActiveDocument(this.document)) {
+		if (reason === 'repo-changed' && isActiveDocument(this.document)) {
 			if (this._updateDebounced == null) {
 				this._updateDebounced = debounce(this.update.bind(this), 250);
 			}
@@ -132,11 +132,11 @@ export class TrackedDocument<T> implements Disposable {
 		}
 	}
 
-	private _blameFailed: boolean = false;
-	setBlameFailure() {
+	private _blameFailed: Error | undefined;
+	setBlameFailure(ex: Error) {
 		const wasBlameable = this.isBlameable;
 
-		this._blameFailed = true;
+		this._blameFailed = ex;
 
 		if (wasBlameable && isActiveDocument(this.document)) {
 			void this.update({ forceBlameChange: true });
@@ -152,7 +152,7 @@ export class TrackedDocument<T> implements Disposable {
 	}
 
 	private _requiresUpdate: boolean = true;
-	async update({ forceBlameChange }: { forceBlameChange?: boolean } = {}) {
+	async update(options?: { forceBlameChange?: boolean }) {
 		this._requiresUpdate = false;
 
 		if (this._disposed || this._uri == null) {
@@ -166,7 +166,7 @@ export class TrackedDocument<T> implements Disposable {
 
 		// Caches these before the awaits
 		const active = getEditorIfActive(this.document);
-		const wasBlameable = forceBlameChange ? undefined : this.isBlameable;
+		const wasBlameable = options?.forceBlameChange ? undefined : this.isBlameable;
 
 		const repo = this.container.git.getRepository(this._uri);
 		if (repo == null) {
