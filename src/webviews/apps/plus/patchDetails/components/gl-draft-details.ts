@@ -160,9 +160,9 @@ export class GlDraftDetails extends LitElement {
 
 		if (typeof this.state.draft.stats.changedFiles === 'number') {
 			return html`<commit-stats
-				added="?"
+				.added=${undefined}
 				modified="${this.state.draft.stats.changedFiles}"
-				removed="?"
+				.removed=${undefined}
 			></commit-stats>`;
 		}
 
