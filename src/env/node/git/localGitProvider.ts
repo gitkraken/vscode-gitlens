@@ -1488,7 +1488,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					errorMessage: msg,
 				};
 				document.state.setBlame(key, value);
-				document.setBlameFailure();
+				document.setBlameFailure(ex);
 
 				if (ex instanceof BlameIgnoreRevsFileError) {
 					void window.showErrorMessage(ex.friendlyMessage);
@@ -1574,7 +1574,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					errorMessage: msg,
 				};
 				document.state.setBlame(key, value);
-				document.setBlameFailure();
+				document.setBlameFailure(ex);
 
 				if (ex instanceof BlameIgnoreRevsFileError) {
 					void window.showErrorMessage(ex.friendlyMessage);
