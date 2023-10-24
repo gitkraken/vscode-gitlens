@@ -50,7 +50,14 @@ export class CopyDeepLinkCommand extends ActiveEditorCommand {
 			if (isCommandContextViewNodeHasCommit(context)) {
 				args = { refOrRepoPath: context.node.commit };
 			} else if (isCommandContextViewNodeHasBranch(context)) {
-				args = { refOrRepoPath: context.node.branch };
+				if (context.command === Commands.CopyDeepLinkToRepo) {
+					args = {
+						refOrRepoPath: context.node.branch.repoPath,
+						remote: context.node.branch.getRemoteName(),
+					};
+				} else {
+					args = { refOrRepoPath: context.node.branch };
+				}
 			} else if (isCommandContextViewNodeHasTag(context)) {
 				args = { refOrRepoPath: context.node.tag };
 			} else if (isCommandContextViewNodeHasRemote(context)) {
