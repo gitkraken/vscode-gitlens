@@ -1,6 +1,7 @@
 import { defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-components';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 import type { DraftDetails, State } from '../../../../../plus/webviews/patchDetails/protocol';
@@ -46,6 +47,10 @@ export class GlDraftDetails extends LitElement {
 
 	@property({ type: Object })
 	explain?: ExplainState;
+
+	get canSubmit() {
+		return this.state.draft?.repoPath != null && this.state.draft?.baseRef != null;
+	}
 
 	constructor() {
 		super();
@@ -114,7 +119,7 @@ export class GlDraftDetails extends LitElement {
 								class="button button--full button--busy"
 								type="button"
 								data-action="ai-explain"
-								aria-busy="${this.explainBusy ? 'true' : nothing}"
+								aria-busy="${ifDefined(this.explainBusy ? 'true' : undefined)}"
 								@click=${this.onExplainChanges}
 								@keydown=${this.onExplainChanges}
 							>
@@ -171,10 +176,20 @@ export class GlDraftDetails extends LitElement {
 				<code-icon slot="icon" icon="repo" title="Repository" aria-label="Repository"></code-icon>
 				${this.state.draft!.repoName}
 				<span slot="actions">
-					<a class="change-list__action" href="#" title="Apply..." aria-label="Apply..."
+					<a
+						class="change-list__action"
+						href="#"
+						title="Apply..."
+						aria-label="Apply..."
+						@click=${this.onApplyPatch}
 						><code-icon icon="cloud-download"></code-icon
 					></a>
-					<a class="change-list__action" href="#" title="Change Base" aria-label="Change Base"
+					<a
+						class="change-list__action"
+						href="#"
+						title="Change Base"
+						aria-label="Change Base"
+						@click=${this.onChangePatchBase}
 						><code-icon icon="git-commit"></code-icon
 					></a>
 					<a
@@ -182,10 +197,8 @@ export class GlDraftDetails extends LitElement {
 						href="#"
 						title="Open in Commit Graph"
 						aria-label="Open in Commit Graph"
+						@click=${this.onShowInGraph}
 						><code-icon icon="gl-graph"></code-icon
-					></a>
-					<a class="change-list__action" href="#" title="More options..." aria-label="More options..."
-						><code-icon icon="ellipsis"></code-icon
 					></a>
 				</span>
 			</list-item>
@@ -363,7 +376,7 @@ export class GlDraftDetails extends LitElement {
 					<div class="patch-base">${getActions()}</div>
 				</div>
 				${when(
-					path != null && base != null,
+					this.canSubmit,
 					() => html`
 						<div class="section section--sticky-actions">
 							<p class="button-container">
@@ -489,7 +502,7 @@ export class GlDraftDetails extends LitElement {
 								<li class="top-details__author" data-region="author">
 									<commit-identity
 										name="${this.state.draft!.author!.name}"
-										email="${this.state.draft!.author!.email}"
+										email="${ifDefined(this.state.draft!.author!.email)}"
 										date="${this.state.draft!.createdAt!}"
 										dateFormat="${this.state.preferences.dateFormat}"
 										avatarUrl="${this.state.draft!.author!.avatar ?? ''}"
@@ -520,6 +533,9 @@ export class GlDraftDetails extends LitElement {
 	}
 
 	onApplyPatch(e?: MouseEvent | KeyboardEvent, target: 'current' | 'branch' | 'worktree' = 'current') {
+		if (this.canSubmit === false) {
+			return;
+		}
 		const evt = new CustomEvent<ApplyPatchDetail>('apply-patch', {
 			detail: {
 				draft: this.state.draft!,
@@ -530,6 +546,9 @@ export class GlDraftDetails extends LitElement {
 	}
 
 	onSelectApplyOption(e: CustomEvent<{ target: MenuItem }>) {
+		if (this.canSubmit === false) {
+			return;
+		}
 		const target = e.detail?.target;
 		if (target?.dataset?.value != null) {
 			this.onApplyPatch(undefined, target.dataset.value as 'current' | 'branch' | 'worktree');
