@@ -3,8 +3,10 @@ import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { getBranchNameWithoutRemote } from '../../git/models/branch';
+import type { GitRepositoryData } from '../../git/models/patch';
 import type { GitReference } from '../../git/models/reference';
 import { createReference, isSha } from '../../git/models/reference';
+import type { Repository } from '../../git/models/repository';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { executeCommand } from '../../system/command';
@@ -104,6 +106,7 @@ export class DeepLinkService implements Disposable {
 			secondaryRemoteUrl: undefined,
 			targetType: undefined,
 			targetSha: undefined,
+			targetDraft: undefined,
 		};
 	}
 
@@ -445,16 +448,48 @@ export class DeepLinkService implements Disposable {
 				}
 				case DeepLinkServiceState.RepoMatch:
 				case DeepLinkServiceState.AddedRepoMatch: {
-					if (!mainId && !remoteUrl && !repoPath) {
+					if (!mainId && !remoteUrl && !repoPath && targetType !== DeepLinkType.Draft) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
 						message = 'No repository id, remote url or path was provided.';
 						break;
 					}
 
+					let draftRepoData: GitRepositoryData | undefined;
+					let draftRepo: Repository | undefined;
+
+					if (targetType === DeepLinkType.Draft) {
+						if (this._context.targetDraft == null && targetId != null) {
+							this._context.targetDraft = await this.container.drafts.getDraft(targetId);
+						}
+
+						if (
+							this._context.targetDraft?.changesets?.length &&
+							this._context.targetDraft?.changesets[0].patches?.length
+						) {
+							draftRepoData = this._context.targetDraft.changesets[0].patches[0].repoData;
+							draftRepo = this._context.targetDraft.changesets[0].patches[0].repo;
+						}
+					}
+
+					if (draftRepo != null) {
+						action = DeepLinkServiceAction.RepoMatchedForDraft;
+						break;
+					}
+
+					let mainIdToSearch = mainId;
+					let remoteUrlToSearch = remoteUrl;
+
+					if (draftRepoData != null) {
+						this._context.remoteUrl = draftRepoData.remote?.url;
+						remoteUrlToSearch = draftRepoData.remote?.url;
+						this._context.mainId = draftRepoData.initialCommitSha;
+						mainIdToSearch = draftRepoData.initialCommitSha;
+					}
+
 					let remoteDomain = '';
 					let remotePath = '';
-					if (remoteUrl != null) {
-						[, remoteDomain, remotePath] = parseGitRemoteUrl(remoteUrl);
+					if (remoteUrlToSearch != null) {
+						[, remoteDomain, remotePath] = parseGitRemoteUrl(remoteUrlToSearch);
 					}
 					// Try to match a repo using the remote URL first, since that saves us some steps.
 					// As a fallback, try to match using the repo id.
@@ -480,10 +515,10 @@ export class DeepLinkService implements Disposable {
 							}
 						}
 
-						if (mainId != null && mainId !== missingRepositoryId) {
+						if (mainIdToSearch != null && mainIdToSearch !== missingRepositoryId) {
 							// Repo ID can be any valid SHA in the repo, though standard practice is to use the
 							// first commit SHA.
-							if (await this.container.git.validateReference(repo.path, mainId)) {
+							if (await this.container.git.validateReference(repo.path, mainIdToSearch)) {
 								this._context.repo = repo;
 								action = DeepLinkServiceAction.RepoMatched;
 								break;
@@ -493,7 +528,7 @@ export class DeepLinkService implements Disposable {
 
 					if (!this._context.repo && state === DeepLinkServiceState.RepoMatch) {
 						matchingLocalRepoPaths = await this.container.repositoryPathMapping.getLocalRepoPaths({
-							remoteUrl: remoteUrl,
+							remoteUrl: remoteUrlToSearch,
 						});
 						if (matchingLocalRepoPaths.length > 0) {
 							for (const repo of this.container.git.repositories) {
@@ -554,9 +589,8 @@ export class DeepLinkService implements Disposable {
 
 					if (repoOpenType == null) {
 						repoOpenType = await this.showOpenTypePrompt({
-							includeCurrent: targetType === DeepLinkType.Draft,
 							customMessage:
-								chosenRepoPath === 'Choose a different location' || targetType === DeepLinkType.Draft
+								chosenRepoPath === 'Choose a different location'
 									? 'Please choose an option to open the repository'
 									: undefined,
 						});
@@ -912,7 +946,11 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					void (await executeCommand(Commands.OpenCloudPatch, { id: targetId, patchId: secondaryTargetId }));
+					void (await executeCommand(Commands.OpenCloudPatch, {
+						id: targetId,
+						patchId: secondaryTargetId,
+						draft: this._context.targetDraft,
+					}));
 					action = DeepLinkServiceAction.DeepLinkResolved;
 					break;
 				}

@@ -2,6 +2,7 @@ import type { Uri } from 'vscode';
 import type { GitReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
+import type { Draft } from '../../plus/drafts/draftsService';
 
 export type UriTypes = 'link';
 
@@ -175,6 +176,7 @@ export const enum DeepLinkServiceAction {
 	OpenRepo,
 	RepoMatched,
 	RepoMatchedInLocalMapping,
+	RepoMatchedForDraft,
 	RepoMatchFailed,
 	RepoAdded,
 	RepoOpened,
@@ -206,6 +208,7 @@ export interface DeepLinkServiceContext {
 	targetType?: DeepLinkType | undefined;
 	targetSha?: string | undefined;
 	secondaryTargetSha?: string | undefined;
+	targetDraft?: Draft | undefined;
 }
 
 export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLinkServiceState>> = {
@@ -217,7 +220,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.LinkIsRepoType]: DeepLinkServiceState.RepoMatch,
-		[DeepLinkServiceAction.LinkIsDraftType]: DeepLinkServiceState.CloneOrAddRepo,
+		[DeepLinkServiceAction.LinkIsDraftType]: DeepLinkServiceState.RepoMatch,
 		[DeepLinkServiceAction.LinkIsWorkspaceType]: DeepLinkServiceState.OpenWorkspace,
 	},
 	[DeepLinkServiceState.RepoMatch]: {
@@ -225,6 +228,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.RepoMatched]: DeepLinkServiceState.RemoteMatch,
 		[DeepLinkServiceAction.RepoMatchedInLocalMapping]: DeepLinkServiceState.CloneOrAddRepo,
 		[DeepLinkServiceAction.RepoMatchFailed]: DeepLinkServiceState.CloneOrAddRepo,
+		[DeepLinkServiceAction.RepoMatchedForDraft]: DeepLinkServiceState.OpenDraft,
 	},
 	[DeepLinkServiceState.CloneOrAddRepo]: {
 		[DeepLinkServiceAction.OpenRepo]: DeepLinkServiceState.OpeningRepo,
