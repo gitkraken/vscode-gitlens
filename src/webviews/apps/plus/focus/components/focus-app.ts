@@ -308,8 +308,8 @@ export class GlFocusApp extends LitElement {
 						class="feedback"
 						appearance="toolbar"
 						href="https://github.com/gitkraken/vscode-gitlens/discussions/2535"
-						title="Focus View Feedback"
-						aria-label="Focus View Feedback"
+						title="Focus Feedback"
+						aria-label="Focus Feedback"
 						><code-icon icon="feedback"></code-icon
 					></gk-button>
 				</div>
@@ -329,9 +329,9 @@ export class GlFocusApp extends LitElement {
 					<gk-feature-gate .visible=${this.showConnectionGate} id="connection-gate" class="scrollable">
 						<h3>No GitHub remotes are connected</h3>
 						<p>
-							This enables access to Pull Requests and Issues in the Focus View as well as provide
-							additional information inside hovers and the Commit Details view, such as auto-linked issues
-							and pull requests and avatars.
+							This enables access to Pull Requests and Issues as well as provide additional information
+							inside hovers and the Commit Details view, such as auto-linked issues and pull requests and
+							avatars.
 						</p>
 						<gl-button appearance="alert" href="command:gitlens.connectRemoteProvider"
 							>Connect to GitHub</gl-button
