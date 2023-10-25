@@ -9,7 +9,7 @@ import { CommitFormatter } from '../git/formatters/commitFormatter';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
 import { uncommittedStaged } from '../git/models/constants';
-import type { GitDiffHunk, GitDiffHunkLine } from '../git/models/diff';
+import type { GitDiffHunk, GitDiffLine } from '../git/models/diff';
 import type { PullRequest } from '../git/models/pullRequest';
 import { isUncommittedStaged, shortenRevision } from '../git/models/reference';
 import type { GitRemote } from '../git/models/remote';
@@ -32,6 +32,9 @@ export async function changesMessage(
 	async function getDiff() {
 		if (commit.file == null) return undefined;
 
+		const line = editorLine + 1;
+		const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
+
 		// TODO: Figure out how to optimize this
 		let ref;
 		if (commit.isUncommitted) {
@@ -39,15 +42,12 @@ export async function changesMessage(
 				ref = documentRef;
 			}
 		} else {
-			previousSha = await commit.getPreviousSha();
+			previousSha = commitLine.previousSha;
 			ref = previousSha;
 			if (ref == null) {
 				return `\`\`\`diff\n+ ${document.lineAt(editorLine).text}\n\`\`\``;
 			}
 		}
-
-		const line = editorLine + 1;
-		const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
 
 		let originalPath = commit.file.originalPath;
 		if (originalPath == null) {
@@ -58,14 +58,14 @@ export async function changesMessage(
 
 		editorLine = commitLine.line - 1;
 		// TODO: Doesn't work with dirty files -- pass in editor? or contents?
-		let hunkLine = await container.git.getDiffForLine(uri, editorLine, ref, documentRef);
+		let lineDiff = await container.git.getDiffForLine(uri, editorLine, ref, documentRef);
 
 		// If we didn't find a diff & ref is undefined (meaning uncommitted), check for a staged diff
-		if (hunkLine == null && ref == null && documentRef !== uncommittedStaged) {
-			hunkLine = await container.git.getDiffForLine(uri, editorLine, undefined, uncommittedStaged);
+		if (lineDiff == null && ref == null && documentRef !== uncommittedStaged) {
+			lineDiff = await container.git.getDiffForLine(uri, editorLine, undefined, uncommittedStaged);
 		}
 
-		return hunkLine != null ? getDiffFromHunkLine(hunkLine) : undefined;
+		return lineDiff != null ? getDiffFromLine(lineDiff) : undefined;
 	}
 
 	const diff = await getDiff();
@@ -297,12 +297,12 @@ function getDiffFromHunk(hunk: GitDiffHunk): string {
 	return `\`\`\`diff\n${hunk.contents.trim()}\n\`\`\``;
 }
 
-function getDiffFromHunkLine(hunkLine: GitDiffHunkLine, diffStyle?: 'line' | 'hunk'): string {
+function getDiffFromLine(lineDiff: GitDiffLine, diffStyle?: 'line' | 'hunk'): string {
 	if (diffStyle === 'hunk' || (diffStyle == null && configuration.get('hovers.changesDiff') === 'hunk')) {
-		return getDiffFromHunk(hunkLine.hunk);
+		return getDiffFromHunk(lineDiff.hunk);
 	}
 
-	return `\`\`\`diff${hunkLine.previous == null ? '' : `\n- ${hunkLine.previous.line.trim()}`}${
-		hunkLine.current == null ? '' : `\n+ ${hunkLine.current.line.trim()}`
+	return `\`\`\`diff${lineDiff.line.previous == null ? '' : `\n- ${lineDiff.line.previous.trim()}`}${
+		lineDiff.line.current == null ? '' : `\n+ ${lineDiff.line.current.trim()}`
 	}\n\`\`\``;
 }

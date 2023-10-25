@@ -14,6 +14,7 @@ import { localChangesMessage } from '../hovers/hovers';
 import { configuration } from '../system/configuration';
 import { log } from '../system/decorators/log';
 import { getLogScope } from '../system/logger.scope';
+import { getSettledValue } from '../system/promise';
 import { maybeStopWatch } from '../system/stopwatch';
 import type { GitDocumentState } from '../trackers/gitDocumentTracker';
 import type { TrackedDocument } from '../trackers/trackedDocument';
@@ -141,7 +142,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		}
 
 		const diffs = (
-			await Promise.all(
+			await Promise.allSettled(
 				ref2 == null && this.editor.document.isDirty
 					? [
 							this.container.git.getDiffForFileContents(
@@ -153,7 +154,9 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 					  ]
 					: [this.container.git.getDiffForFile(this.trackedDocument.uri, ref1, ref2)],
 			)
-		).filter(<T>(d?: T): d is T => Boolean(d));
+		)
+			.map(d => getSettledValue(d))
+			.filter(<T>(d?: T): d is T => Boolean(d));
 		if (!diffs?.length) return false;
 
 		using sw = maybeStopWatch(scope);
@@ -187,14 +190,8 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 					if (skip) continue;
 				}
 
-				// Subtract 2 because editor lines are 0-based and we will be adding 1 in the first iteration of the loop
-				let count = Math.max(hunk.current.position.start - 2, -1);
-				let index = -1;
-				for (const hunkLine of hunk.lines) {
-					index++;
-					count++;
-
-					if (hunkLine.current?.state === 'unchanged') continue;
+				for (const [line, hunkLine] of hunk.lines) {
+					if (hunkLine.state === 'unchanged') continue;
 
 					// Uncomment this if we want to only show "visible" lines, rather than just visible hunks
 					// if (blame != null && blame.lines[count].sha !== context!.sha) {
@@ -202,56 +199,23 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 					// }
 
 					const range = this.editor.document.validateRange(
-						new Range(new Position(count, 0), new Position(count, maxSmallIntegerV8)),
+						new Range(new Position(line - 1, 0), new Position(line - 1, maxSmallIntegerV8)),
 					);
 					if (selection == null) {
 						selection = new Selection(range.start, range.end);
 					}
 
-					let state;
-					if (hunkLine.current == null) {
-						const previous = hunk.lines[index - 1];
-						if (hunkLine.previous != null && (previous == null || previous.current != null)) {
-							// Check if there are more deleted lines than added lines show a deleted indicator
-							if (hunk.previous.count > hunk.current.count) {
-								state = 'removed';
-							} else {
-								count--;
-								continue;
-							}
-						} else {
-							count--;
-							continue;
-						}
-					} else if (hunkLine.current?.state === 'added') {
-						if (hunkLine.previous?.state === 'removed') {
-							state = 'changed';
-						} else {
-							state = 'added';
-						}
-					} else if (hunkLine?.current.state === 'removed') {
-						// Check if there are more deleted lines than added lines show a deleted indicator
-						if (hunk.previous.count > hunk.current.count) {
-							state = 'removed';
-						} else {
-							count--;
-							continue;
-						}
-					} else {
-						state = 'changed';
-					}
-
-					let decoration = decorationsMap.get(state);
+					let decoration = decorationsMap.get(hunkLine.state);
 					if (decoration == null) {
 						decoration = {
-							decorationType: (state === 'added'
+							decorationType: (hunkLine.state === 'added'
 								? Decorations.changesLineAddedAnnotation
-								: state === 'removed'
+								: hunkLine.state === 'removed'
 								? Decorations.changesLineDeletedAnnotation
 								: Decorations.changesLineChangedAnnotation)!,
 							rangesOrOptions: [{ range: range }],
 						};
-						decorationsMap.set(state, decoration);
+						decorationsMap.set(hunkLine.state, decoration);
 					} else {
 						decoration.rangesOrOptions.push({ range: range });
 					}
@@ -303,7 +267,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase<Chan
 		for (const diff of diffs) {
 			for (const hunk of diff.hunks) {
 				// If we have a "mixed" diff hunk, check if we have more deleted lines than added, to include a trailing line for the deleted indicator
-				const hasMoreDeletedLines = hunk.state === 'changed' && hunk.previous.count > hunk.current.count;
+				const hasMoreDeletedLines = /*hunk.state === 'changed' &&*/ hunk.previous.count > hunk.current.count;
 				if (
 					position.line >= hunk.current.position.start - 1 &&
 					position.line <= hunk.current.position.end - (hasMoreDeletedLines ? 0 : 1)

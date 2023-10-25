@@ -65,7 +65,7 @@ import type { GitStashCommit } from '../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../git/models/commit';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from '../../../git/models/constants';
 import { GitContributor } from '../../../git/models/contributor';
-import type { GitDiff, GitDiffFile, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from '../../../git/models/diff';
+import type { GitDiff, GitDiffFile, GitDiffFilter, GitDiffLine, GitDiffShortStat } from '../../../git/models/diff';
 import type { GitFile, GitFileStatus } from '../../../git/models/file';
 import { GitFileChange } from '../../../git/models/file';
 import type {
@@ -1435,9 +1435,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			Logger.debug(scope, `Cache miss: '${key}'`);
 
-			if (doc.state == null) {
-				doc.state = new GitDocumentState();
-			}
+			doc.state ??= new GitDocumentState();
 		}
 
 		const promise = this.getBlameCore(uri, doc, key, scope);
@@ -1519,9 +1517,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			Logger.debug(scope, `Cache miss: ${key}`);
 
-			if (doc.state == null) {
-				doc.state = new GitDocumentState();
-			}
+			doc.state ??= new GitDocumentState();
 		}
 
 		const promise = this.getBlameContentsCore(uri, contents, doc, key, scope);
@@ -2738,9 +2734,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			Logger.debug(scope, `Cache miss: '${key}'`);
 
-			if (doc.state == null) {
-				doc.state = new GitDocumentState();
-			}
+			doc.state ??= new GitDocumentState();
 		}
 
 		const encoding = await getEncoding(uri);
@@ -2827,9 +2821,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			Logger.debug(scope, `Cache miss: ${key}`);
 
-			if (doc.state == null) {
-				doc.state = new GitDocumentState();
-			}
+			doc.state ??= new GitDocumentState();
 		}
 
 		const encoding = await getEncoding(uri);
@@ -2902,7 +2894,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		editorLine: number, // 0-based, Git is 1-based
 		ref1: string | undefined,
 		ref2?: string,
-	): Promise<GitDiffHunkLine | undefined> {
+	): Promise<GitDiffLine | undefined> {
 		try {
 			const diff = await this.getDiffForFile(uri, ref1, ref2);
 			if (diff == null) return undefined;
@@ -2911,7 +2903,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			const hunk = diff.hunks.find(c => c.current.position.start <= line && c.current.position.end >= line);
 			if (hunk == null) return undefined;
 
-			return hunk.lines[line - Math.min(hunk.current.position.start, hunk.previous.position.start)];
+			const hunkLine = hunk.lines.get(line);
+			if (hunkLine == null) return undefined;
+
+			return {
+				hunk: hunk,
+				line: hunkLine,
+			};
 		} catch (ex) {
 			return undefined;
 		}
@@ -3437,9 +3435,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			Logger.debug(scope, `Cache miss: '${key}'`);
 
-			if (doc.state == null) {
-				doc.state = new GitDocumentState();
-			}
+			doc.state ??= new GitDocumentState();
 		}
 
 		const promise = this.getLogForFileCore(repoPath, relativePath, opts, doc, key, scope);

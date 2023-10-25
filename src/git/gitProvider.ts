@@ -7,7 +7,7 @@ import type { GitBlame, GitBlameLine, GitBlameLines } from './models/blame';
 import type { BranchSortOptions, GitBranch } from './models/branch';
 import type { GitCommit } from './models/commit';
 import type { GitContributor } from './models/contributor';
-import type { GitDiff, GitDiffFile, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from './models/diff';
+import type { GitDiff, GitDiffFile, GitDiffFilter, GitDiffLine, GitDiffShortStat } from './models/diff';
 import type { GitFile } from './models/file';
 import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
@@ -304,7 +304,7 @@ export interface GitProvider extends Disposable {
 		editorLine: number,
 		ref1: string | undefined,
 		ref2?: string,
-	): Promise<GitDiffHunkLine | undefined>;
+	): Promise<GitDiffLine | undefined>;
 	getDiffStatus(
 		repoPath: string,
 		ref1?: string,

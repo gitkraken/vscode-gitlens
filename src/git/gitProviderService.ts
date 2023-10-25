@@ -57,7 +57,7 @@ import type { BranchSortOptions, GitBranch } from './models/branch';
 import { GitCommit, GitCommitIdentity } from './models/commit';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from './models/constants';
 import type { GitContributor } from './models/contributor';
-import type { GitDiff, GitDiffFile, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from './models/diff';
+import type { GitDiff, GitDiffFile, GitDiffFilter, GitDiffLine, GitDiffShortStat } from './models/diff';
 import type { GitFile } from './models/file';
 import type { GitGraph } from './models/graph';
 import type { SearchedIssue } from './models/issue';
@@ -1795,7 +1795,7 @@ export class GitProviderService implements Disposable {
 		editorLine: number,
 		ref1: string | undefined,
 		ref2?: string,
-	): Promise<GitDiffHunkLine | undefined> {
+	): Promise<GitDiffLine | undefined> {
 		const { provider } = this.getProvider(uri);
 		return provider.getDiffForLine(uri, editorLine, ref1, ref2);
 	}
