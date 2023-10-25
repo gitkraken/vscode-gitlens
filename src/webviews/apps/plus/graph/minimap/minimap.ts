@@ -406,6 +406,10 @@ const styles = css`
 		border: 1px solid var(--color-graph-minimap-tip-tagBorder);
 		color: var(--color-graph-minimap-tip-tagForeground);
 	}
+
+	.bb-event-rects {
+		cursor: pointer !important;
+	}
 `;
 
 const markerZOrder = [
