@@ -145,7 +145,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes [#2744](https://github.com/gitkraken/vscode-gitlens/issues/2744) - GH enterprise access with focus view
+- Fixes [#2744](https://github.com/gitkraken/vscode-gitlens/issues/2744) - GH enterprise access with _Focus_
 - Fixes deeplink comparison ordering for a better experience
 - Fixes deeplinks to comparisons with working tree not resolving
 
@@ -361,7 +361,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds tooltips to work-in-progress (WIP) and stash nodes
   - Adds a "Publish Branch" context menu action to local branches without an upstream branch &mdash; closes [#2619](https://github.com/gitkraken/vscode-gitlens/pull/2619)
   - Lowers the minimum width of the "Branch / Tag" column
-- Adds actions to _Focus View_ Pull Requests
+- Adds actions to _Focus_ Pull Requests
   - Switch to or create a local branch
   - Create or open a worktree from the branch
 - Adds a _Generate Commit Message (Experimental)..._ command to the SCM context menus
@@ -446,10 +446,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- ✨ Adds a preview of the all-new **Focus View**, a [GitLens+ feature](https://gitkraken.com/gitlens/pro-features) &mdash; provides you with a comprehensive list of all your most important work across your connected GitHub repos:
+- ✨ Adds a preview of the all-new **Focus**, a [GitLens+ feature](https://gitkraken.com/gitlens/pro-features) &mdash; provides you with a comprehensive list of all your most important work across your connected GitHub repos:
   - My Pull Requests: shows all GitHub PRs opened by you, assigned to you, or awaiting your review
   - My Issues: shows all issues created by you, assigned to you, or that mention you
-  - Open it via _GitLens+: Show Focus View_ from the Command Palette
+  - Open it via _GitLens+: Show Focus_ from the Command Palette
 - Adds new _Commit Graph_ features and improvements
   - Adds a new experimental minimap of commit activity to the _Commit Graph_
   - Adds a new experimental _Changes_ column visualizing commit changes

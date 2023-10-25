@@ -2688,13 +2688,13 @@
 			},
 			{
 				"id": "focus",
-				"title": "Focus View",
+				"title": "Focus",
 				"order": 106,
 				"properties": {
 					"gitlens.focus.allowMultiple": {
 						"type": "boolean",
 						"default": true,
-						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Focus View_",
+						"markdownDescription": "Specifies whether to allow opening multiple instances of the _Focus_",
 						"scope": "window",
 						"order": 10
 					}
@@ -4967,13 +4967,13 @@
 			},
 			{
 				"command": "gitlens.showFocusPage",
-				"title": "Show Focus View",
+				"title": "Show Focus",
 				"category": "GitLens",
 				"icon": "$(layers)"
 			},
 			{
 				"command": "gitlens.focus.split",
-				"title": "Split Focus View",
+				"title": "Split Focus",
 				"category": "GitLens",
 				"icon": "$(split-horizontal)"
 			},
@@ -15231,7 +15231,7 @@
 					{
 						"id": "gitlens.welcome.workspaces",
 						"title": "Work smarter with GitKraken Workspaces ☁️ and Focus ✨",
-						"description": "GitKraken Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration.\n\n[Open Workspaces](command:gitlens.showWorkspacesView)\n\nThe Focus view brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more.\nQuickly see if anything requires your attention while keeping you focused.\n\n[Open Focus](command:gitlens.showFocusPage)",
+						"description": "GitKraken Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow.\nCreate workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration.\n\n[Open Workspaces](command:gitlens.showWorkspacesView)\n\nFocus brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more.\nQuickly see if anything requires your attention while keeping you focused.\n\n[Open Focus](command:gitlens.showFocusPage)",
 						"media": {
 							"altText": "Illustrations of Focus and Workspaces view",
 							"svg": "walkthroughs/welcome/workspaces-focus.svg"
