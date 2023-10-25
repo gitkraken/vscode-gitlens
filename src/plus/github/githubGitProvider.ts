@@ -43,7 +43,7 @@ import type { GitCommitLine } from '../../git/models/commit';
 import { getChangedFilesCount, GitCommit, GitCommitIdentity } from '../../git/models/commit';
 import { deletedOrMissing, uncommitted } from '../../git/models/constants';
 import { GitContributor } from '../../git/models/contributor';
-import type { GitDiffFile, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from '../../git/models/diff';
+import type { GitDiffFile, GitDiffFilter, GitDiffLine, GitDiffShortStat } from '../../git/models/diff';
 import type { GitFile } from '../../git/models/file';
 import { GitFileChange, GitFileIndexStatus } from '../../git/models/file';
 import type {
@@ -1736,7 +1736,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		_editorLine: number, // 0-based, Git is 1-based
 		_ref1: string | undefined,
 		_ref2?: string,
-	): Promise<GitDiffHunkLine | undefined> {
+	): Promise<GitDiffLine | undefined> {
 		return undefined;
 	}
 
