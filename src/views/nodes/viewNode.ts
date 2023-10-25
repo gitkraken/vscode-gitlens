@@ -815,10 +815,6 @@ export function canAutoRefreshView(view: View): view is View & AutoRefreshableVi
 	return isA<View & AutoRefreshableView>(view, 'onDidChangeAutoRefresh');
 }
 
-export function canClearNode(node: ViewNode): node is ViewNode & { clear(): void | Promise<void> } {
-	return typeof (node as ViewNode & { clear(): void | Promise<void> }).clear === 'function';
-}
-
 export function canEditNode(node: ViewNode): node is ViewNode & { edit(): void | Promise<void> } {
 	return typeof (node as ViewNode & { edit(): void | Promise<void> }).edit === 'function';
 }

@@ -757,6 +757,9 @@ export class ViewNodeState implements Disposable {
 			for (const [id, map] of store) {
 				if (id.startsWith(prefix)) {
 					map.delete(key);
+					if (map.size === 0) {
+						store.delete(id);
+					}
 				}
 			}
 		}
@@ -767,8 +770,17 @@ export class ViewNodeState implements Disposable {
 			this._store?.delete(id);
 			this._stickyStore?.delete(id);
 		} else {
-			this._store?.get(id)?.delete(key);
-			this._stickyStore?.get(id)?.delete(key);
+			for (const store of [this._store, this._stickyStore]) {
+				if (store == null) continue;
+
+				const map = store.get(id);
+				if (map == null) continue;
+
+				map.delete(key);
+				if (map.size === 0) {
+					store.delete(id);
+				}
+			}
 		}
 	}
 

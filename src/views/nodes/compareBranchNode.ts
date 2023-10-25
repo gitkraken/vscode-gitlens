@@ -239,6 +239,12 @@ export class CompareBranchNode extends SubscribeableViewNode<
 	}
 
 	@log()
+	clearReviewed() {
+		void this.storeCompareWith(true);
+		void this.triggerChange();
+	}
+
+	@log()
 	async edit() {
 		await this.compareWith();
 	}
