@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes Otel library regressions
+
 ## [14.4.0] - 2023-10-13
 
 ### Added
