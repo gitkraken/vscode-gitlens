@@ -234,6 +234,12 @@ export class CompareResultsNode extends SubscribeableViewNode<'compare-results',
 	}
 
 	@log()
+	clearReviewed() {
+		resetComparisonCheckedFiles(this.view, this.getStorageId());
+		void this.store();
+	}
+
+	@log()
 	async swap() {
 		if (this._ref.ref === '') {
 			void window.showErrorMessage('Cannot swap comparisons with the working tree');
@@ -375,10 +381,12 @@ export class CompareResultsNode extends SubscribeableViewNode<'compare-results',
 	}
 
 	private remove(silent: boolean = false) {
+		resetComparisonCheckedFiles(this.view, this.getStorageId());
 		return this.view.updateStorage(this.getStorageId(), undefined, silent);
 	}
 
 	private async replace(id: string, silent: boolean = false) {
+		resetComparisonCheckedFiles(this.view, id);
 		await this.view.updateStorage(id, undefined, silent);
 		return this.store(silent);
 	}

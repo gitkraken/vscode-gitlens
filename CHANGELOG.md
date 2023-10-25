@@ -9,9 +9,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds a _[Show|Hide] Merge Commits_ toggle to the Commits\_ view &mdash; closes [#1399](https://github.com/gitkraken/vscode-gitlens/issues/1399) thanks to [PR #1540](https://github.com/gitkraken/vscode-gitlens/pull/1540) by Shashank Shastri ([@Shashank-Shastri](https://github.com/Shashank-Shastri))
+- Adds a _Clear Reviewed Files_ command to comparisons to clear all reviewed files &mdash; closes [#2987](https://github.com/gitkraken/vscode-gitlens/issues/2987)
 
 ### Fixed
 
+- Fixes [#2987](https://github.com/gitkraken/vscode-gitlens/issues/2987) - Unable to remove all marks on reviewed files with a single operation
 - Fixes [#2923](https://github.com/gitkraken/vscode-gitlens/issues/2923) - TypeError: Only absolute URLs are supported
 - Fixes [#2926](https://github.com/gitkraken/vscode-gitlens/issues/2926) - "Open File at Revision" has incorrect editor label if revision contains path separator
 - Fixes [#2952](https://github.com/gitkraken/vscode-gitlens/issues/2952) - Inline blame not working because of missing ignoreRevsFile
@@ -55,7 +57,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds checkboxes to files in the _Search & Compare_ view to allow for tracking review progress &mdash; closes [#836](https://github.com/gitkraken/vscode-gitlens/issues/836)
+- Adds checkboxes to files in comparisons to allow for tracking review progress &mdash; closes [#836](https://github.com/gitkraken/vscode-gitlens/issues/836)
 - Allows the _Commit Graph_ to be open in the panel and in the editor area simultaneously
 - Adds an _Open Changes_ button to commits in the file history quick pick menu &mdash; closes [#2641](https://github.com/gitkraken/vscode-gitlens/issues/2641) thanks to [PR #2800](https://github.com/gitkraken/vscode-gitlens/pull/2800) by Omar Ghazi ([@omarfesal](https://github.com/omarfesal))
 
