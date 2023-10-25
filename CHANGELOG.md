@@ -8,16 +8,42 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds support to open multiple instances of the _Commit Graph_, _Focus_, and _Visual File History_ in the editor area
+  - Adds a _Split Commit Graph_ command to the _Commit Graph_ tab context menu
+  - Adds a `gitlens.graph.allowMultiple` setting to specify whether to allow opening multiple instances of the _Commit Graph_ in the editor area
+  - Adds a _Split Focus_ command to the _Focus_ tab context menu
+  - Adds a `gitlens.focus.allowMultiple` setting to specify whether to allow opening multiple instances of the _Focus_ in the editor area
+  - Adds a _Split Visual File History_ command to the _Visual File History_ tab context menu
+  - Adds a `gitlens.visualHistory.allowMultiple` setting to specify whether to allow opening multiple instances of the _Visual File History_ in the editor area
+- Improves the experience of the _Search Commits_ quick pick menu
+  - Adds a stateful authors picker to make it much easier to search for commits by specific authors
+  - Adds a file and folder picker to make it much easier to search for commits containing specific files or in specific folders
 - Adds a _[Show|Hide] Merge Commits_ toggle to the Commits\_ view &mdash; closes [#1399](https://github.com/gitkraken/vscode-gitlens/issues/1399) thanks to [PR #1540](https://github.com/gitkraken/vscode-gitlens/pull/1540) by Shashank Shastri ([@Shashank-Shastri](https://github.com/Shashank-Shastri))
+- Adds a _Filter Commits by Author..._ commands to the _Commits_ view and comparisons context menus to filter commits in the _Commits_ view by specific authors
+- Adds an _Open Comparison on Remote_ command to comparisons in views
+- Adds a _Share > Copy Link to Repository_ command on branches in the views
+- Adds _Share > Copy Link to Branch_ and _Share > Copy Link to Repository_ commands on the current branch status in the _Commits_ view
 - Adds a _Clear Reviewed Files_ command to comparisons to clear all reviewed files &mdash; closes [#2987](https://github.com/gitkraken/vscode-gitlens/issues/2987)
+- Adds a _Collapse_ command to many view nodes
+- Adds a `gitlens.liveshare.enabled` setting to specify whether to enable integration with Visual Studio Live Share
+
+### Changed
+
+- Improves accuracy, performance, and memory usage related to parsing diffs, used in _Changes_ hovers, _Changes_ file annotations, etc
 
 ### Fixed
 
 - Fixes [#2987](https://github.com/gitkraken/vscode-gitlens/issues/2987) - Unable to remove all marks on reviewed files with a single operation
 - Fixes [#2923](https://github.com/gitkraken/vscode-gitlens/issues/2923) - TypeError: Only absolute URLs are supported
 - Fixes [#2926](https://github.com/gitkraken/vscode-gitlens/issues/2926) - "Open File at Revision" has incorrect editor label if revision contains path separator
-- Fixes [#2952](https://github.com/gitkraken/vscode-gitlens/issues/2952) - Inline blame not working because of missing ignoreRevsFile
+- Fixes [#2971](https://github.com/gitkraken/vscode-gitlens/issues/2971) - \[Regression\] The branch column header text disappears when you have a hidden ref
 - Fixes [#2814](https://github.com/gitkraken/vscode-gitlens/issues/2814) - GitLens Inspect: "Files Changed" not following when switching between commits in File History
+- Fixes [#2952](https://github.com/gitkraken/vscode-gitlens/issues/2952) - Inline blame not working because of missing ignoreRevsFile
+- Fixes issue where _Changes_ hovers and _Changes_ file annotations sometimes weren't accurate
+- Fixes intermittent issue where inline blame and other revision-based editor features are unavailable when repository discovery takes a bit
+- Fixes intermittent issues where details sometimes get cleared/overwritten when opening the _Commit Details_ view
+- Fixes issue when clicking on commits in the Visual File History to open the _Commit Details_ view
+- Fixes issue opening stashes in the _Commit Details_ view from the _Stashes_ view
 
 ## [14.4.0] - 2023-10-13
 
