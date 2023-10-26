@@ -2,16 +2,18 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitUri } from '../../git/gitUri';
 import type { GitReflog } from '../../git/models/reflog';
 import type { Repository } from '../../git/models/repository';
-import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import type { RepositoriesView } from '../repositoriesView';
 import type { WorkspacesView } from '../workspacesView';
 import { LoadMoreNode, MessageNode } from './common';
 import { ReflogRecordNode } from './reflogRecordNode';
-import type { PageableViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
+import type { PageableViewNode, ViewNode } from './viewNode';
+import { CacheableChildrenViewNode, ContextValues, getViewNodeId } from './viewNode';
 
-export class ReflogNode extends ViewNode<'reflog', RepositoriesView | WorkspacesView> implements PageableViewNode {
+export class ReflogNode
+	extends CacheableChildrenViewNode<'reflog', RepositoriesView | WorkspacesView>
+	implements PageableViewNode
+{
 	limit: number | undefined;
 
 	constructor(
@@ -31,10 +33,8 @@ export class ReflogNode extends ViewNode<'reflog', RepositoriesView | Workspaces
 		return this._uniqueId;
 	}
 
-	private _children: ViewNode[] | undefined;
-
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children === undefined) {
+		if (this.children === undefined) {
 			const children = [];
 
 			const reflog = await this.getReflog();
@@ -48,9 +48,9 @@ export class ReflogNode extends ViewNode<'reflog', RepositoriesView | Workspaces
 				children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
 			}
 
-			this._children = children;
+			this.children = children;
 		}
-		return this._children;
+		return this.children;
 	}
 
 	getTreeItem(): TreeItem {
@@ -66,10 +66,10 @@ export class ReflogNode extends ViewNode<'reflog', RepositoriesView | Workspaces
 		return item;
 	}
 
-	@gate()
 	@debug()
 	override refresh(reset?: boolean) {
-		this._children = undefined;
+		super.refresh(true);
+
 		if (reset) {
 			this._reflog = undefined;
 		}

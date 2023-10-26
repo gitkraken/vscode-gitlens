@@ -3,16 +3,14 @@ import { GlyphChars } from '../../constants';
 import { PlusFeatures } from '../../features';
 import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
-import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import type { ViewsWithWorktreesNode } from '../viewBase';
 import { MessageNode } from './common';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { CacheableChildrenViewNode, ContextValues, getViewNodeId } from './viewNode';
 import { WorktreeNode } from './worktreeNode';
 
-export class WorktreesNode extends ViewNode<'worktrees', ViewsWithWorktreesNode> {
-	private _children: WorktreeNode[] | undefined;
-
+export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsWithWorktreesNode, WorktreeNode> {
 	constructor(
 		uri: GitUri,
 		view: ViewsWithWorktreesNode,
@@ -34,17 +32,17 @@ export class WorktreesNode extends ViewNode<'worktrees', ViewsWithWorktreesNode>
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children == null) {
+		if (this.children == null) {
 			const access = await this.repo.access(PlusFeatures.Worktrees);
 			if (!access.allowed) return [];
 
 			const worktrees = await this.repo.getWorktrees();
 			if (worktrees.length === 0) return [new MessageNode(this.view, this, 'No worktrees could be found.')];
 
-			this._children = worktrees.map(wt => new WorktreeNode(this.uri, this.view, this, wt));
+			this.children = worktrees.map(wt => new WorktreeNode(this.uri, this.view, this, wt));
 		}
 
-		return this._children;
+		return this.children;
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
@@ -64,9 +62,8 @@ export class WorktreesNode extends ViewNode<'worktrees', ViewsWithWorktreesNode>
 		return item;
 	}
 
-	@gate()
 	@debug()
 	override refresh() {
-		this._children = undefined;
+		super.refresh(true);
 	}
 }

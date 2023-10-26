@@ -3,14 +3,18 @@ import type { GitUri } from '../../git/gitUri';
 import { GitContributor } from '../../git/models/contributor';
 import type { Repository } from '../../git/models/repository';
 import { configuration } from '../../system/configuration';
-import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import type { ViewsWithContributorsNode } from '../viewBase';
 import { MessageNode } from './common';
 import { ContributorNode } from './contributorNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { CacheableChildrenViewNode, ContextValues, getViewNodeId } from './viewNode';
 
-export class ContributorsNode extends ViewNode<'contributors', ViewsWithContributorsNode> {
+export class ContributorsNode extends CacheableChildrenViewNode<
+	'contributors',
+	ViewsWithContributorsNode,
+	ContributorNode
+> {
 	protected override splatted = true;
 
 	constructor(
@@ -33,10 +37,8 @@ export class ContributorsNode extends ViewNode<'contributors', ViewsWithContribu
 		return this.repo.path;
 	}
 
-	private _children: ContributorNode[] | undefined;
-
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children == null) {
+		if (this.children == null) {
 			const all = configuration.get('views.contributors.showAllBranches');
 
 			let ref: string | undefined;
@@ -58,7 +60,7 @@ export class ContributorsNode extends ViewNode<'contributors', ViewsWithContribu
 			GitContributor.sort(contributors);
 			const presenceMap = this.view.container.vsls.enabled ? await this.getPresenceMap(contributors) : undefined;
 
-			this._children = contributors.map(
+			this.children = contributors.map(
 				c =>
 					new ContributorNode(this.uri, this.view, this, c, {
 						all: all,
@@ -68,7 +70,7 @@ export class ContributorsNode extends ViewNode<'contributors', ViewsWithContribu
 			);
 		}
 
-		return this._children;
+		return this.children;
 	}
 
 	getTreeItem(): TreeItem {
@@ -82,19 +84,18 @@ export class ContributorsNode extends ViewNode<'contributors', ViewsWithContribu
 	}
 
 	updateAvatar(email: string) {
-		if (this._children == null) return;
+		if (this.children == null) return;
 
-		for (const child of this._children) {
+		for (const child of this.children) {
 			if (child.contributor.email === email) {
 				void child.triggerChange();
 			}
 		}
 	}
 
-	@gate()
 	@debug()
 	override refresh() {
-		this._children = undefined;
+		super.refresh(true);
 	}
 
 	@debug({ args: false })

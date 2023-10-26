@@ -7,6 +7,7 @@ import { createRevisionRange, shortenRevision } from '../../git/models/reference
 import type { GitUser } from '../../git/models/user';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
+import { weakEvent } from '../../system/event';
 import { getSettledValue } from '../../system/promise';
 import { pluralize } from '../../system/string';
 import type { SearchAndCompareView } from '../searchAndCompareView';
@@ -24,7 +25,12 @@ type State = {
 	filterCommits: GitUser[] | undefined;
 };
 
-export class CompareResultsNode extends SubscribeableViewNode<'compare-results', SearchAndCompareView, State> {
+export class CompareResultsNode extends SubscribeableViewNode<
+	'compare-results',
+	SearchAndCompareView,
+	ViewNode,
+	State
+> {
 	private _instanceId: number;
 
 	constructor(
@@ -99,7 +105,7 @@ export class CompareResultsNode extends SubscribeableViewNode<'compare-results',
 	}
 
 	protected override subscribe(): Disposable | Promise<Disposable | undefined> | undefined {
-		return this.view.onDidChangeNodesCheckedState(this.onNodesCheckedStateChanged, this);
+		return weakEvent(this.view.onDidChangeNodesCheckedState, this.onNodesCheckedStateChanged, this);
 	}
 
 	private onNodesCheckedStateChanged(e: TreeCheckboxChangeEvent<ViewNode>) {
@@ -113,10 +119,8 @@ export class CompareResultsNode extends SubscribeableViewNode<'compare-results',
 		void this.remove(true);
 	}
 
-	private _children: ViewNode[] | undefined;
-
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children == null) {
+		if (this.children == null) {
 			const ahead = this.ahead;
 			const behind = this.behind;
 
@@ -131,7 +135,7 @@ export class CompareResultsNode extends SubscribeableViewNode<'compare-results',
 					forkPoint: true,
 				})) ?? (await this.view.container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2));
 
-			this._children = [
+			const children: ViewNode[] = [
 				new ResultsCommitsNode(
 					this.view,
 					this,
@@ -176,7 +180,7 @@ export class CompareResultsNode extends SubscribeableViewNode<'compare-results',
 
 			// Can't support showing files when commits are filtered
 			if (!this.filterByAuthors?.length) {
-				this._children.push(
+				children.push(
 					new ResultsFilesNode(
 						this.view,
 						this,
@@ -189,8 +193,10 @@ export class CompareResultsNode extends SubscribeableViewNode<'compare-results',
 					),
 				);
 			}
+
+			this.children = children;
 		}
-		return this._children;
+		return this.children;
 	}
 
 	getTreeItem(): TreeItem {
@@ -225,14 +231,6 @@ export class CompareResultsNode extends SubscribeableViewNode<'compare-results',
 		return Promise.resolve<[string, string]>([this._compareWith.ref, this._ref.ref]);
 	}
 
-	@gate()
-	@debug()
-	override refresh(reset: boolean = false) {
-		if (!reset) return;
-
-		this._children = undefined;
-	}
-
 	@log()
 	clearReviewed() {
 		resetComparisonCheckedFiles(this.view, this.getStorageId());
@@ -256,7 +254,7 @@ export class CompareResultsNode extends SubscribeableViewNode<'compare-results',
 		// Remove the existing stored item and save a new one
 		await this.replace(currentId, true);
 
-		this._children = undefined;
+		this.children = undefined;
 		this.view.triggerNodeChange(this.parent);
 		queueMicrotask(() => this.view.reveal(this, { expand: true, focus: true, select: true }));
 	}

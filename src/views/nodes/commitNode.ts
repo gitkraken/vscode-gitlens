@@ -14,13 +14,14 @@ import { makeHierarchical } from '../../system/array';
 import { pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/cancellation';
 import { configuration } from '../../system/configuration';
 import { getContext } from '../../system/context';
-import { gate } from '../../system/decorators/gate';
+import { debug } from '../../system/decorators/log';
 import { joinPaths, normalizePath } from '../../system/path';
 import type { Deferred } from '../../system/promise';
 import { defer, getSettledValue } from '../../system/promise';
 import { sortCompare } from '../../system/string';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { ViewsWithCommits } from '../viewBase';
+import { disposeChildren } from '../viewBase';
 import { CommitFileNode } from './commitFileNode';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
@@ -49,6 +50,12 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
+	@debug()
+	override dispose() {
+		super.dispose();
+		this.children = undefined;
+	}
+
 	override get id(): string {
 		return this._uniqueId;
 	}
@@ -65,13 +72,22 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		return this.commit;
 	}
 
-	private _children: (PullRequestNode | FileNode)[] | undefined;
+	private _children: ViewNode[] | undefined;
+	protected get children(): ViewNode[] | undefined {
+		return this._children;
+	}
+	protected set children(value: ViewNode[] | undefined) {
+		if (this._children === value) return;
+
+		disposeChildren(this._children, value);
+		this._children = value;
+	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children == null) {
+		if (this.children == null) {
 			const commit = this.commit;
 
-			let children: (PullRequestNode | FileNode)[] = [];
+			let children: ViewNode[] = [];
 			let onCompleted: Deferred<void> | undefined;
 			let pullRequest;
 
@@ -101,8 +117,8 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 						clearTimeout(timeout);
 
 						// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
-						if (pr != null && this._children != null) {
-							this._children.unshift(new PullRequestNode(this.view, this, pr, commit));
+						if (pr != null && this.children != null) {
+							this.children.unshift(new PullRequestNode(this.view, this, pr, commit));
 						}
 
 						// Refresh this node to add the pull request node or remove the spinner
@@ -136,11 +152,11 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 				children.unshift(new PullRequestNode(this.view, this, pullRequest, commit));
 			}
 
-			this._children = children;
+			this.children = children;
 			setTimeout(() => onCompleted?.fulfill(), 1);
 		}
 
-		return this._children;
+		return this.children;
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
@@ -197,9 +213,10 @@ export class CommitNode extends ViewRefNode<'commit', ViewsWithCommits | FileHis
 		};
 	}
 
-	@gate()
 	override refresh(reset?: boolean) {
-		this._children = undefined;
+		void super.refresh?.(reset);
+
+		this.children = undefined;
 		if (reset) {
 			this.deleteState();
 		}

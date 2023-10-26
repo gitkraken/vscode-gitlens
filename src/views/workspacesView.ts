@@ -16,7 +16,7 @@ import { RepositoryNode } from './nodes/repositoryNode';
 import { ViewNode } from './nodes/viewNode';
 import type { WorkspaceMissingRepositoryNode } from './nodes/workspaceMissingRepositoryNode';
 import { WorkspaceNode } from './nodes/workspaceNode';
-import { ViewBase } from './viewBase';
+import { disposeChildren, ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
 export class WorkspacesViewNode extends ViewNode<'workspaces-view', WorkspacesView> {
@@ -73,14 +73,7 @@ export class WorkspacesViewNode extends ViewNode<'workspaces-view', WorkspacesVi
 	override refresh() {
 		if (this._children == null) return;
 
-		if (this._children.length) {
-			for (const child of this._children) {
-				if ('dispose' in child) {
-					child.dispose();
-				}
-			}
-		}
-
+		disposeChildren(this._children);
 		this._children = undefined;
 	}
 }
