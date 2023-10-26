@@ -5,7 +5,7 @@ import type { GitCommit } from '../../git/models/commit';
 import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } from '../../git/models/issue';
 import type { PullRequest } from '../../git/models/pullRequest';
 import type { ViewsWithCommits } from '../viewBase';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 
 export class PullRequestNode extends ViewNode<'pullrequest', ViewsWithCommits> {
 	readonly repoPath: string;

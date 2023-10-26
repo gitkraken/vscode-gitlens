@@ -7,10 +7,10 @@ import type { Repository } from '../../git/models/repository';
 import { makeHierarchical } from '../../system/array';
 import { log } from '../../system/decorators/log';
 import type { ViewsWithRemotes } from '../viewBase';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 	constructor(

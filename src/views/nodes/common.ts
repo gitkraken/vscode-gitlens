@@ -4,8 +4,8 @@ import { GlyphChars } from '../../constants';
 import { unknownGitUri } from '../../git/gitUri';
 import { configuration } from '../../system/configuration';
 import type { View } from '../viewBase';
-import type { PageableViewNode } from './viewNode';
-import { ContextValues, ViewNode } from './viewNode';
+import type { PageableViewNode } from './abstract/viewNode';
+import { ContextValues, ViewNode } from './abstract/viewNode';
 
 export class MessageNode extends ViewNode<'message'> {
 	constructor(

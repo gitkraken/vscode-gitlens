@@ -20,6 +20,9 @@ import { weakEvent } from '../../system/event';
 import { disposableInterval } from '../../system/function';
 import { pad } from '../../system/string';
 import type { ViewsWithRepositories } from '../viewBase';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
+import type { AmbientContext, ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { BranchesNode } from './branchesNode';
 import { BranchNode } from './branchNode';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
@@ -33,8 +36,6 @@ import { RemotesNode } from './remotesNode';
 import { StashesNode } from './stashesNode';
 import { StatusFilesNode } from './statusFilesNode';
 import { TagsNode } from './tagsNode';
-import type { AmbientContext, ViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 import { WorktreesNode } from './worktreesNode';
 
 export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWithRepositories> {

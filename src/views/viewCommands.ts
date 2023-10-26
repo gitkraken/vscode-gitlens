@@ -37,6 +37,15 @@ import { log } from '../system/decorators/log';
 import { sequentialize } from '../system/function';
 import type { OpenWorkspaceLocation } from '../system/utils';
 import { openWorkspace } from '../system/utils';
+import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
+import {
+	canEditNode,
+	canViewDismissNode,
+	getNodeRepoPath,
+	isPageableViewNode,
+	ViewNode,
+} from './nodes/abstract/viewNode';
+import { ViewRefFileNode, ViewRefNode } from './nodes/abstract/viewRefNode';
 import type { BranchesNode } from './nodes/branchesNode';
 import { BranchNode } from './nodes/branchNode';
 import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
@@ -60,16 +69,6 @@ import { StashNode } from './nodes/stashNode';
 import { StatusFileNode } from './nodes/statusFileNode';
 import { TagNode } from './nodes/tagNode';
 import type { TagsNode } from './nodes/tagsNode';
-import {
-	canEditNode,
-	canViewDismissNode,
-	getNodeRepoPath,
-	isPageableViewNode,
-	RepositoryFolderNode,
-	ViewNode,
-	ViewRefFileNode,
-	ViewRefNode,
-} from './nodes/viewNode';
 import { WorktreeNode } from './nodes/worktreeNode';
 import { WorktreesNode } from './nodes/worktreesNode';
 

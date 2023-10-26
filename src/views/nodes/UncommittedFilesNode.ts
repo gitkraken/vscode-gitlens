@@ -7,10 +7,10 @@ import { groupBy, makeHierarchical } from '../../system/array';
 import { flatMap } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
 import type { ViewsWithWorkingTree } from '../viewBase';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
 import { UncommittedFileNode } from './UncommittedFileNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class UncommittedFilesNode extends ViewNode<'uncommitted-files', ViewsWithWorkingTree> {
 	constructor(

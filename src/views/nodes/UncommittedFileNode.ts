@@ -8,9 +8,10 @@ import type { GitFile } from '../../git/models/file';
 import { getGitFileStatusIcon } from '../../git/models/file';
 import { dirname, joinPaths } from '../../system/path';
 import type { ViewsWithCommits } from '../viewBase';
+import { ViewFileNode } from './abstract/viewFileNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues } from './abstract/viewNode';
 import type { FileNode } from './folderNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, ViewFileNode } from './viewNode';
 
 export class UncommittedFileNode extends ViewFileNode<'uncommitted-file', ViewsWithCommits> implements FileNode {
 	constructor(view: ViewsWithCommits, parent: ViewNode, repoPath: string, file: GitFile) {

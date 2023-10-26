@@ -16,9 +16,10 @@ import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
 import type { LinesChangeEvent } from '../../trackers/lineTracker';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues } from './abstract/viewNode';
 import { LineHistoryNode } from './lineHistoryNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, SubscribeableViewNode } from './viewNode';
 
 export class LineHistoryTrackerNode extends SubscribeableViewNode<
 	'line-history-tracker',

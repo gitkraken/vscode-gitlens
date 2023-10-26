@@ -8,7 +8,7 @@ import type {
 	LocalWorkspaceRepositoryDescriptor,
 } from '../../plus/workspaces/models';
 import type { WorkspacesView } from '../workspacesView';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 
 export class WorkspaceMissingRepositoryNode extends ViewNode<'workspace-missing-repository', WorkspacesView> {
 	constructor(

@@ -8,10 +8,11 @@ import { weakEvent } from '../../system/event';
 import { debounce, szudzikPairing } from '../../system/function';
 import { Logger } from '../../system/logger';
 import type { ViewsWithRepositoriesNode } from '../viewBase';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues } from './abstract/viewNode';
 import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, SubscribeableViewNode } from './viewNode';
 
 export class RepositoriesNode extends SubscribeableViewNode<
 	'repositories',

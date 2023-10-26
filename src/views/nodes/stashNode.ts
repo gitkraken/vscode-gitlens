@@ -7,11 +7,12 @@ import { configuration } from '../../system/configuration';
 import { joinPaths, normalizePath } from '../../system/path';
 import { sortCompare } from '../../system/string';
 import type { ViewsWithStashes } from '../viewBase';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
+import { ViewRefNode } from './abstract/viewRefNode';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
 import { StashFileNode } from './stashFileNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, ViewRefNode } from './viewNode';
 
 export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashReference> {
 	constructor(

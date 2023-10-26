@@ -5,10 +5,11 @@ import type { Repository } from '../../git/models/repository';
 import { configuration } from '../../system/configuration';
 import { debug } from '../../system/decorators/log';
 import type { ViewsWithContributorsNode } from '../viewBase';
+import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { MessageNode } from './common';
 import { ContributorNode } from './contributorNode';
-import type { ViewNode } from './viewNode';
-import { CacheableChildrenViewNode, ContextValues, getViewNodeId } from './viewNode';
 
 export class ContributorsNode extends CacheableChildrenViewNode<
 	'contributors',

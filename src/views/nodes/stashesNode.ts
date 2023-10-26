@@ -4,10 +4,11 @@ import type { Repository } from '../../git/models/repository';
 import { debug } from '../../system/decorators/log';
 import { map } from '../../system/iterable';
 import type { ViewsWithStashesNode } from '../viewBase';
+import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { MessageNode } from './common';
 import { StashNode } from './stashNode';
-import type { ViewNode } from './viewNode';
-import { CacheableChildrenViewNode, ContextValues, getViewNodeId } from './viewNode';
 
 export class StashesNode extends CacheableChildrenViewNode<'stashes', ViewsWithStashesNode> {
 	constructor(
