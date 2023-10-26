@@ -32,10 +32,12 @@ import type {
 } from '../../plus/workspaces/models';
 import { gate } from '../../system/decorators/gate';
 import { debug, log, logName } from '../../system/decorators/log';
+import { weakEvent } from '../../system/event';
 import { is as isA, szudzikPairing } from '../../system/function';
 import { getLoggableName } from '../../system/logger';
 import { pad } from '../../system/string';
 import type { View } from '../viewBase';
+import { disposeChildren } from '../viewBase';
 import type { BranchNode } from './branchNode';
 import type { BranchTrackingStatus } from './branchTrackingStatusNode';
 import type { CommitFileNode } from './commitFileNode';
@@ -214,14 +216,16 @@ export abstract class ViewNode<
 	Type extends TreeViewNodeTypes = TreeViewNodeTypes,
 	TView extends View = View,
 	State extends object = any,
-> {
+> implements Disposable
+{
 	is<T extends keyof TreeViewNodesByType>(type: T): this is TreeViewNodesByType[T] {
 		return this.type === (type as unknown as Type);
 	}
 
 	protected _uniqueId!: string;
-
 	protected splatted = false;
+	// NOTE: @eamodio uncomment to track node leaks
+	// readonly uuid = uuid();
 
 	constructor(
 		public readonly type: Type,
@@ -230,7 +234,17 @@ export abstract class ViewNode<
 		public readonly view: TView,
 		protected parent?: ViewNode,
 	) {
+		// NOTE: @eamodio uncomment to track node leaks
+		// queueMicrotask(() => this.view.registerNode(this));
 		this._uri = uri;
+	}
+
+	protected _disposed = false;
+	@debug()
+	dispose() {
+		this._disposed = true;
+		// NOTE: @eamodio uncomment to track node leaks
+		// this.view.unregisterNode(this);
 	}
 
 	get id(): string | undefined {
@@ -279,11 +293,11 @@ export abstract class ViewNode<
 
 	refresh?(reset?: boolean): boolean | void | Promise<void> | Promise<boolean>;
 
-	@gate<ViewNode['triggerChange']>((reset: boolean = false, force: boolean = false, avoidSelf?: ViewNode) =>
-		JSON.stringify([reset, force, avoidSelf?.toString()]),
-	)
+	@gate<ViewNode['triggerChange']>((reset, force, avoidSelf) => `${reset}|${force}|${avoidSelf?.toString()}`)
 	@debug()
 	triggerChange(reset: boolean = false, force: boolean = false, avoidSelf?: ViewNode): Promise<void> {
+		if (this._disposed) return Promise.resolve();
+
 		// If this node has been splatted (e.g. not shown itself, but its children are), then delegate the change to its parent
 		if (this.splatted && this.parent != null && this.parent !== avoidSelf) {
 			return this.parent.triggerChange(reset, force);
@@ -322,8 +336,40 @@ export abstract class ViewNode<
 		this.view.nodeState.storeState(this.id, key as string, value, sticky);
 	}
 }
+
 type StateKey<T> = keyof T;
 type StateValue<T, P extends StateKey<T>> = P extends keyof T ? T[P] : never;
+
+export abstract class CacheableChildrenViewNode<
+	Type extends TreeViewNodeTypes = TreeViewNodeTypes,
+	TView extends View = View,
+	TChild extends ViewNode = ViewNode,
+	State extends object = any,
+> extends ViewNode<Type, TView, State> {
+	private _children: TChild[] | undefined;
+	protected get children(): TChild[] | undefined {
+		return this._children;
+	}
+	protected set children(value: TChild[] | undefined) {
+		if (this._children === value) return;
+
+		disposeChildren(this._children, value);
+		this._children = value;
+	}
+
+	@debug()
+	override dispose() {
+		super.dispose();
+		this.children = undefined;
+	}
+
+	@debug()
+	override refresh(reset: boolean = false) {
+		if (reset) {
+			this.children = undefined;
+		}
+	}
+}
 
 export abstract class ViewFileNode<
 	Type extends TreeViewFileNodeTypes = TreeViewFileNodeTypes,
@@ -401,8 +447,9 @@ export function isPageableViewNode(node: ViewNode): node is ViewNode & PageableV
 export abstract class SubscribeableViewNode<
 	Type extends TreeViewSubscribableNodeTypes = TreeViewSubscribableNodeTypes,
 	TView extends View = View,
+	TChild extends ViewNode = ViewNode,
 	State extends object = any,
-> extends ViewNode<Type, TView, State> {
+> extends CacheableChildrenViewNode<Type, TView, TChild, State> {
 	protected disposable: Disposable;
 	protected subscription: Promise<Disposable | undefined> | undefined;
 
@@ -412,12 +459,12 @@ export abstract class SubscribeableViewNode<
 		super(type, uri, view, parent);
 
 		const disposables = [
-			this.view.onDidChangeVisibility(this.onVisibilityChanged, this),
-			// this.view.onDidChangeNodeCollapsibleState(this.onNodeCollapsibleStateChanged, this),
+			weakEvent(this.view.onDidChangeVisibility, this.onVisibilityChanged, this),
+			// weak(this.view.onDidChangeNodeCollapsibleState, this.onNodeCollapsibleStateChanged, this),
 		];
 
 		if (canAutoRefreshView(this.view)) {
-			disposables.push(this.view.onDidChangeAutoRefresh(this.onAutoRefreshChanged, this));
+			disposables.push(weakEvent(this.view.onDidChangeAutoRefresh, this.onAutoRefreshChanged, this));
 		}
 
 		const getTreeItem = this.getTreeItem;
@@ -438,16 +485,17 @@ export abstract class SubscribeableViewNode<
 	}
 
 	@debug()
-	dispose() {
+	override dispose() {
+		super.dispose();
 		void this.unsubscribe();
 
 		this.disposable?.dispose();
 	}
 
-	@gate()
+	@gate<ViewNode['triggerChange']>((reset, force) => `${reset}|${force}`)
 	@debug()
 	override async triggerChange(reset: boolean = false, force: boolean = false): Promise<void> {
-		if (!this.loaded) return;
+		if (!this.loaded || this._disposed) return;
 
 		if (reset && !this.view.visible) {
 			this._pendingReset = reset;
@@ -457,7 +505,7 @@ export abstract class SubscribeableViewNode<
 
 	private _canSubscribe: boolean = true;
 	protected get canSubscribe(): boolean {
-		return this._canSubscribe;
+		return this._canSubscribe && !this._disposed;
 	}
 	protected set canSubscribe(value: boolean) {
 		if (this._canSubscribe === value) return;
@@ -508,7 +556,6 @@ export abstract class SubscribeableViewNode<
 
 	// protected onParentCollapsibleStateChanged?(state: TreeItemCollapsibleState): void;
 	// protected onCollapsibleStateChanged?(state: TreeItemCollapsibleState): void;
-
 	// protected collapsibleState: TreeItemCollapsibleState | undefined;
 	// protected onNodeCollapsibleStateChanged(e: TreeViewNodeCollapsibleStateChangeEvent<ViewNode>) {
 	// 	if (e.element === this) {
@@ -562,7 +609,6 @@ export abstract class RepositoryFolderNode<
 	TChild extends ViewNode = ViewNode,
 > extends SubscribeableViewNode<'repo-folder', TView> {
 	protected override splatted = true;
-	protected child: TChild | undefined;
 
 	constructor(
 		uri: GitUri,
@@ -578,6 +624,23 @@ export abstract class RepositoryFolderNode<
 		this._uniqueId = getViewNodeId(this.type, this.context);
 
 		this.splatted = splatted;
+	}
+
+	private _child: TChild | undefined;
+	protected get child(): TChild | undefined {
+		return this._child;
+	}
+	protected set child(value: TChild | undefined) {
+		if (this._child === value) return;
+
+		this._child?.dispose();
+		this._child = value;
+	}
+
+	@debug()
+	override dispose() {
+		super.dispose();
+		this.child = undefined;
 	}
 
 	override get id(): string {
@@ -686,6 +749,7 @@ export abstract class RepositoryFolderNode<
 	@gate()
 	@debug()
 	override async refresh(reset: boolean = false) {
+		super.refresh(reset);
 		await this.child?.triggerChange(reset, false, this);
 
 		await this.ensureSubscription();
@@ -705,7 +769,7 @@ export abstract class RepositoryFolderNode<
 
 	@debug()
 	protected subscribe(): Disposable | Promise<Disposable> {
-		return this.repo.onDidChange(this.onRepositoryChanged, this);
+		return weakEvent(this.repo.onDidChange, this.onRepositoryChanged, this);
 	}
 
 	protected override etag(): number {
@@ -740,29 +804,12 @@ export abstract class RepositoryFolderNode<
 
 export abstract class RepositoriesSubscribeableNode<
 	TView extends View = View,
-	TChild extends ViewNode & Disposable = ViewNode & Disposable,
-> extends SubscribeableViewNode<'repositories', TView> {
+	TChild extends ViewNode = ViewNode,
+> extends SubscribeableViewNode<'repositories', TView, TChild> {
 	protected override splatted = true;
-	protected children: TChild[] | undefined;
 
 	constructor(view: TView) {
 		super('repositories', unknownGitUri, view);
-	}
-
-	override dispose() {
-		super.dispose();
-		this.resetChildren();
-	}
-
-	private resetChildren() {
-		if (this.children == null) return;
-
-		for (const child of this.children) {
-			if ('dispose' in child) {
-				child.dispose();
-			}
-		}
-		this.children = undefined;
 	}
 
 	override async getSplattedChild() {
@@ -773,16 +820,6 @@ export abstract class RepositoriesSubscribeableNode<
 		return this.children?.length === 1 ? this.children[0] : undefined;
 	}
 
-	@gate()
-	@debug()
-	override refresh(reset: boolean = false) {
-		if (this.children == null) return;
-
-		if (reset) {
-			this.resetChildren();
-		}
-	}
-
 	protected override etag(): number {
 		return szudzikPairing(this.view.container.git.etag, this.view.container.subscription.etag);
 	}
@@ -790,8 +827,8 @@ export abstract class RepositoriesSubscribeableNode<
 	@debug()
 	protected subscribe(): Disposable | Promise<Disposable> {
 		return Disposable.from(
-			this.view.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
-			this.view.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			weakEvent(this.view.container.git.onDidChangeRepositories, this.onRepositoriesChanged, this),
+			weakEvent(this.view.container.subscription.onDidChange, this.onSubscriptionChanged, this),
 		);
 	}
 

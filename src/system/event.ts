@@ -103,3 +103,27 @@ export function promisifyDeferred<T, U>(
 		cancel: () => cancel?.(),
 	};
 }
+
+export function weakEvent<T, U extends object>(
+	event: Event<T>,
+	listener: (e: T) => any,
+	thisArg: U,
+	disposables?: Disposable[],
+): Disposable {
+	const ref = new WeakRef<U>(thisArg);
+
+	const disposable = event(
+		(e: T) => {
+			const obj = ref.deref();
+			if (obj != null) {
+				listener.call(obj, e);
+			} else {
+				disposable.dispose();
+			}
+		},
+		null,
+		disposables,
+	);
+
+	return disposable;
+}

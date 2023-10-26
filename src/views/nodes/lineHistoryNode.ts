@@ -11,6 +11,7 @@ import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/mode
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
+import { weakEvent } from '../../system/event';
 import { filterMap } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import type { FileHistoryView } from '../fileHistoryView';
@@ -199,9 +200,8 @@ export class LineHistoryNode
 		if (repo == null) return undefined;
 
 		const subscription = Disposable.from(
-			repo.onDidChange(this.onRepositoryChanged, this),
-			repo.onDidChangeFileSystem(this.onFileSystemChanged, this),
-			repo.startWatchingFileSystem(),
+			weakEvent(repo.onDidChange, this.onRepositoryChanged, this),
+			weakEvent(repo.onDidChangeFileSystem, this.onFileSystemChanged, this, [repo.startWatchingFileSystem()]),
 		);
 
 		return subscription;

@@ -22,14 +22,15 @@ import { CompareBranchNode } from './compareBranchNode';
 import { insertDateMarkers } from './helpers';
 import { PullRequestNode } from './pullRequestNode';
 import { UncommittedFilesNode } from './UncommittedFilesNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { CacheableChildrenViewNode, ContextValues, getViewNodeId } from './viewNode';
 
 type State = {
 	pullRequest: PullRequest | null | undefined;
 	pendingPullRequest: Promise<PullRequest | undefined> | undefined;
 };
 
-export class WorktreeNode extends ViewNode<'worktree', ViewsWithWorktrees, State> {
+export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWithWorktrees, ViewNode, State> {
 	limit: number | undefined;
 
 	private _branch: GitBranch | undefined;
@@ -59,10 +60,8 @@ export class WorktreeNode extends ViewNode<'worktree', ViewsWithWorktrees, State
 		return this.uri.repoPath!;
 	}
 
-	private _children: ViewNode[] | undefined;
-
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children == null) {
+		if (this.children == null) {
 			const branch = this._branch;
 
 			let onCompleted: Deferred<void> | undefined;
@@ -96,9 +95,9 @@ export class WorktreeNode extends ViewNode<'worktree', ViewsWithWorktrees, State
 						clearTimeout(timeout);
 
 						// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
-						if (pr != null && this._children != null) {
-							this._children.splice(
-								this._children[0].type === 'compare-branch' ? 1 : 0,
+						if (pr != null && this.children != null) {
+							this.children.splice(
+								this.children[0].type === 'compare-branch' ? 1 : 0,
 								0,
 								new PullRequestNode(this.view, this, pr, branch),
 							);
@@ -181,11 +180,11 @@ export class WorktreeNode extends ViewNode<'worktree', ViewsWithWorktrees, State
 				children.unshift(new UncommittedFilesNode(this.view, this, status, undefined));
 			}
 
-			this._children = children;
+			this.children = children;
 			onCompleted?.fulfill();
 		}
 
-		return this._children;
+		return this.children;
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
@@ -378,10 +377,10 @@ export class WorktreeNode extends ViewNode<'worktree', ViewsWithWorktrees, State
 		return item;
 	}
 
-	@gate()
 	@debug()
 	override refresh(reset?: boolean) {
-		this._children = undefined;
+		super.refresh(true);
+
 		if (reset) {
 			this._log = undefined;
 			this.deleteState();
@@ -442,7 +441,7 @@ export class WorktreeNode extends ViewNode<'worktree', ViewsWithWorktrees, State
 		this._log = log;
 		this.limit = log?.count;
 
-		this._children = undefined;
+		this.children = undefined;
 		void this.triggerChange(false);
 	}
 }

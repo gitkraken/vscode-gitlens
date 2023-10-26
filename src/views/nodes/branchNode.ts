@@ -18,6 +18,7 @@ import type { Deferred } from '../../system/promise';
 import { defer, getSettledValue } from '../../system/promise';
 import { pad } from '../../system/string';
 import type { ViewsWithBranches } from '../viewBase';
+import { disposeChildren } from '../viewBase';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
@@ -94,6 +95,12 @@ export class BranchNode
 		};
 	}
 
+	@debug()
+	override dispose() {
+		super.dispose();
+		this.children = undefined;
+	}
+
 	override get id(): string {
 		return this._uniqueId;
 	}
@@ -135,9 +142,18 @@ export class BranchNode
 	}
 
 	private _children: ViewNode[] | undefined;
+	protected get children(): ViewNode[] | undefined {
+		return this._children;
+	}
+	protected set children(value: ViewNode[] | undefined) {
+		if (this._children === value) return;
+
+		disposeChildren(this._children, value);
+		this._children = value;
+	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children == null) {
+		if (this.children == null) {
 			const branch = this.branch;
 
 			let onCompleted: Deferred<void> | undefined;
@@ -171,9 +187,9 @@ export class BranchNode
 						clearTimeout(timeout);
 
 						// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
-						if (pr != null && this._children != null) {
-							this._children.splice(
-								this._children[0] instanceof CompareBranchNode ? 1 : 0,
+						if (pr != null && this.children != null) {
+							this.children.splice(
+								this.children[0] instanceof CompareBranchNode ? 1 : 0,
 								0,
 								new PullRequestNode(this.view, this, pr, branch),
 							);
@@ -330,11 +346,11 @@ export class BranchNode
 				);
 			}
 
-			this._children = children;
+			this.children = children;
 			setTimeout(() => onCompleted?.fulfill(), 1);
 		}
 
-		return this._children;
+		return this.children;
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
@@ -510,10 +526,10 @@ export class BranchNode
 		void this.view.refresh(true);
 	}
 
-	@gate()
-	@debug()
 	override refresh(reset?: boolean) {
-		this._children = undefined;
+		void super.refresh?.(reset);
+
+		this.children = undefined;
 		if (reset) {
 			this._log = undefined;
 			this.deleteState();
@@ -586,7 +602,7 @@ export class BranchNode
 		this._log = log;
 		this.limit = log?.count;
 
-		this._children = undefined;
+		this.children = undefined;
 		void this.triggerChange(false);
 	}
 }

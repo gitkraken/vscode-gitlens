@@ -3,8 +3,8 @@ import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { GitUri } from '../../git/gitUri';
 import type { CloudWorkspace, LocalWorkspace } from '../../plus/workspaces/models';
 import { createCommand } from '../../system/command';
-import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
+import { weakEvent } from '../../system/event';
 import type { WorkspacesView } from '../workspacesView';
 import { CommandMessageNode, MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
@@ -12,7 +12,11 @@ import type { ViewNode } from './viewNode';
 import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 import { WorkspaceMissingRepositoryNode } from './workspaceMissingRepositoryNode';
 
-export class WorkspaceNode extends SubscribeableViewNode<'workspace', WorkspacesView> {
+export class WorkspaceNode extends SubscribeableViewNode<
+	'workspace',
+	WorkspacesView,
+	CommandMessageNode | MessageNode | RepositoryNode | WorkspaceMissingRepositoryNode
+> {
 	constructor(
 		uri: GitUri,
 		view: WorkspacesView,
@@ -25,22 +29,6 @@ export class WorkspaceNode extends SubscribeableViewNode<'workspace', Workspaces
 		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
-	override dispose() {
-		super.dispose();
-		this.resetChildren();
-	}
-
-	private resetChildren() {
-		if (this._children == null) return;
-
-		for (const child of this._children) {
-			if ('dispose' in child) {
-				child.dispose();
-			}
-		}
-		this._children = undefined;
-	}
-
 	override get id(): string {
 		return this._uniqueId;
 	}
@@ -49,19 +37,15 @@ export class WorkspaceNode extends SubscribeableViewNode<'workspace', Workspaces
 		return this.workspace.name;
 	}
 
-	private _children:
-		| (CommandMessageNode | MessageNode | RepositoryNode | WorkspaceMissingRepositoryNode)[]
-		| undefined;
-
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children == null) {
-			this._children = [];
+		if (this.children == null) {
+			const children = [];
 
 			try {
 				const descriptors = await this.workspace.getRepositoryDescriptors();
 
-				if (descriptors == null || descriptors.length === 0) {
-					this._children.push(
+				if (!descriptors?.length) {
+					children.push(
 						new CommandMessageNode(
 							this.view,
 							this,
@@ -73,7 +57,9 @@ export class WorkspaceNode extends SubscribeableViewNode<'workspace', Workspaces
 							'No repositories',
 						),
 					);
-					return this._children;
+
+					this.children = children;
+					return this.children;
 				}
 
 				const reposByName = await this.workspace.getRepositoriesByName({ force: true });
@@ -81,13 +67,11 @@ export class WorkspaceNode extends SubscribeableViewNode<'workspace', Workspaces
 				for (const descriptor of descriptors) {
 					const repo = reposByName.get(descriptor.name)?.repository;
 					if (!repo) {
-						this._children.push(
-							new WorkspaceMissingRepositoryNode(this.view, this, this.workspace, descriptor),
-						);
+						children.push(new WorkspaceMissingRepositoryNode(this.view, this, this.workspace, descriptor));
 						continue;
 					}
 
-					this._children.push(
+					children.push(
 						new RepositoryNode(
 							GitUri.fromRepoPath(repo.path),
 							this.view,
@@ -98,11 +82,14 @@ export class WorkspaceNode extends SubscribeableViewNode<'workspace', Workspaces
 					);
 				}
 			} catch (ex) {
+				this.children = undefined;
 				return [new MessageNode(this.view, this, 'Failed to load repositories')];
 			}
+
+			this.children = children;
 		}
 
-		return this._children;
+		return this.children;
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
@@ -146,23 +133,15 @@ export class WorkspaceNode extends SubscribeableViewNode<'workspace', Workspaces
 		return item;
 	}
 
-	@gate()
-	@debug()
-	override refresh(reset: boolean = false) {
-		if (this._children == null) return;
-
-		if (reset) {
-			this.resetChildren();
-		}
-	}
-
 	protected override etag(): number {
 		return this.view.container.git.etag;
 	}
 
 	@debug()
 	protected subscribe(): Disposable | Promise<Disposable> {
-		return Disposable.from(this.view.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this));
+		return Disposable.from(
+			weakEvent(this.view.container.git.onDidChangeRepositories, this.onRepositoriesChanged, this),
+		);
 	}
 
 	private onRepositoriesChanged(_e: RepositoriesChangeEvent) {

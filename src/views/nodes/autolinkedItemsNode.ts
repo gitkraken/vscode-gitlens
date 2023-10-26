@@ -3,18 +3,17 @@ import { GitUri } from '../../git/gitUri';
 import type { GitLog } from '../../git/models/log';
 import { PullRequest } from '../../git/models/pullRequest';
 import { pauseOnCancelOrTimeoutMapTuple } from '../../system/cancellation';
-import { gate } from '../../system/decorators/gate';
-import { debug } from '../../system/decorators/log';
 import { getSettledValue } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
 import { AutolinkedItemNode } from './autolinkedItemNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { PullRequestNode } from './pullRequestNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { CacheableChildrenViewNode, ContextValues, getViewNodeId } from './viewNode';
 
 let instanceId = 0;
 
-export class AutolinkedItemsNode extends ViewNode<'autolinks', ViewsWithCommits> {
+export class AutolinkedItemsNode extends CacheableChildrenViewNode<'autolinks', ViewsWithCommits> {
 	private _instanceId: number;
 
 	constructor(
@@ -35,10 +34,8 @@ export class AutolinkedItemsNode extends ViewNode<'autolinks', ViewsWithCommits>
 		return this._uniqueId;
 	}
 
-	private _children: ViewNode[] | undefined;
-
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children == null) {
+		if (this.children == null) {
 			const commits = [...this.log.commits.values()];
 
 			let children: ViewNode[] | undefined;
@@ -92,9 +89,9 @@ export class AutolinkedItemsNode extends ViewNode<'autolinks', ViewsWithCommits>
 				);
 			}
 
-			this._children = children;
+			this.children = children;
 		}
-		return this._children;
+		return this.children;
 	}
 
 	getTreeItem(): TreeItem {
@@ -106,13 +103,5 @@ export class AutolinkedItemsNode extends ViewNode<'autolinks', ViewsWithCommits>
 		item.contextValue = ContextValues.AutolinkedItems;
 
 		return item;
-	}
-
-	@gate()
-	@debug()
-	override refresh(reset: boolean = false) {
-		if (!reset) return;
-
-		this._children = undefined;
 	}
 }

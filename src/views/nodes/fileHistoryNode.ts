@@ -9,6 +9,7 @@ import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
+import { weakEvent } from '../../system/event';
 import { filterMap, flatMap, map, uniqueBy } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import { basename } from '../../system/path';
@@ -178,14 +179,17 @@ export class FileHistoryNode
 		if (repo == null) return undefined;
 
 		const subscription = Disposable.from(
-			repo.onDidChange(this.onRepositoryChanged, this),
-			repo.onDidChangeFileSystem(this.onFileSystemChanged, this),
-			repo.startWatchingFileSystem(),
-			configuration.onDidChange(e => {
-				if (configuration.changed(e, 'advanced.fileHistoryFollowsRenames')) {
-					this.view.resetNodeLastKnownLimit(this);
-				}
-			}),
+			weakEvent(repo.onDidChange, this.onRepositoryChanged, this),
+			weakEvent(repo.onDidChangeFileSystem, this.onFileSystemChanged, this, [repo.startWatchingFileSystem()]),
+			weakEvent(
+				configuration.onDidChange,
+				e => {
+					if (configuration.changed(e, 'advanced.fileHistoryFollowsRenames')) {
+						this.view.resetNodeLastKnownLimit(this);
+					}
+				},
+				this,
+			),
 		);
 
 		return subscription;

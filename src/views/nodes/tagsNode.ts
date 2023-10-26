@@ -2,15 +2,15 @@ import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
 import { makeHierarchical } from '../../system/array';
-import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import type { ViewsWithTagsNode } from '../viewBase';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
 import { TagNode } from './tagNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { CacheableChildrenViewNode, ContextValues, getViewNodeId } from './viewNode';
 
-export class TagsNode extends ViewNode<'tags', ViewsWithTagsNode> {
+export class TagsNode extends CacheableChildrenViewNode<'tags', ViewsWithTagsNode> {
 	constructor(
 		uri: GitUri,
 		view: ViewsWithTagsNode,
@@ -31,10 +31,8 @@ export class TagsNode extends ViewNode<'tags', ViewsWithTagsNode> {
 		return this.repo.path;
 	}
 
-	private _children: ViewNode[] | undefined;
-
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children == null) {
+		if (this.children == null) {
 			const tags = await this.repo.getTags({ sort: true });
 			if (tags.values.length === 0) return [new MessageNode(this.view, this, 'No tags could be found.')];
 
@@ -52,10 +50,10 @@ export class TagsNode extends ViewNode<'tags', ViewsWithTagsNode> {
 			);
 
 			const root = new BranchOrTagFolderNode(this.view, this, 'tag', hierarchy, this.repo.path, '', undefined);
-			this._children = root.getChildren();
+			this.children = root.getChildren();
 		}
 
-		return this._children;
+		return this.children;
 	}
 
 	getTreeItem(): TreeItem {
@@ -66,9 +64,8 @@ export class TagsNode extends ViewNode<'tags', ViewsWithTagsNode> {
 		return item;
 	}
 
-	@gate()
 	@debug()
 	override refresh() {
-		this._children = undefined;
+		super.refresh(true);
 	}
 }

@@ -24,7 +24,7 @@ import { CompareResultsNode, restoreComparisonCheckedFiles } from './nodes/compa
 import { FilesQueryFilter, ResultsFilesNode } from './nodes/resultsFilesNode';
 import { SearchResultsNode } from './nodes/searchResultsNode';
 import { ContextValues, RepositoryFolderNode, ViewNode } from './nodes/viewNode';
-import { ViewBase } from './viewBase';
+import { disposeChildren, ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
 export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchAndCompareView> {
@@ -35,19 +35,32 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 		super('search-compare', unknownGitUri, view);
 	}
 
+	override dispose() {
+		disposeChildren(this._children);
+	}
+
 	private _children: (ComparePickerNode | CompareResultsNode | SearchResultsNode)[] | undefined;
 	private get children(): (ComparePickerNode | CompareResultsNode | SearchResultsNode)[] {
 		if (this._children == null) {
-			this._children = [];
+			const children = [];
 
 			// Get stored searches & comparisons
 			const stored = this.view.getStoredNodes();
 			if (stored.length !== 0) {
-				this._children.push(...stored);
+				children.push(...stored);
 			}
+
+			disposeChildren(this._children, children);
+			this._children = children;
 		}
 
 		return this._children;
+	}
+	private set children(value: (ComparePickerNode | CompareResultsNode | SearchResultsNode)[] | undefined) {
+		if (this.children === value) return;
+
+		disposeChildren(this.children, value);
+		this._children = value;
 	}
 
 	getChildren(): ViewNode[] {
@@ -66,10 +79,11 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 	}
 
 	addOrReplace(results: CompareResultsNode | SearchResultsNode) {
-		const children = this.children;
+		const children = [...this.children];
 		if (children.includes(results)) return;
 
 		children.push(results);
+		this.children = children;
 
 		this.view.triggerNodeChange();
 	}
@@ -79,7 +93,7 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 		if (this.children.length === 0) return;
 
 		this.removeComparePicker(true);
-		this._children!.length = 0;
+		this.children = [];
 
 		await this.view.clearStorage();
 
@@ -98,13 +112,14 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 			node.dismiss();
 		}
 
-		const children = this.children;
+		const children = [...this.children];
 		if (children.length === 0) return;
 
 		const index = children.indexOf(node);
 		if (index === -1) return;
 
 		children.splice(index, 1);
+		this.children = children;
 
 		this.view.triggerNodeChange();
 	}
@@ -210,7 +225,11 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 			repoPath: repoPath,
 			ref: ref,
 		});
-		this.children.unshift(this.comparePicker);
+
+		const children = [...this.children];
+		children.unshift(this.comparePicker);
+		this.children = children;
+
 		void setContext('gitlens:views:canCompare', true);
 
 		await this.triggerChange();
@@ -231,10 +250,12 @@ export class SearchAndCompareViewNode extends ViewNode<'search-compare', SearchA
 	private removeComparePicker(silent: boolean = false) {
 		void setContext('gitlens:views:canCompare', false);
 		if (this.comparePicker != null) {
-			const children = this.children;
+			const children = [...this.children];
 			const index = children.indexOf(this.comparePicker);
 			if (index !== -1) {
 				children.splice(index, 1);
+				this.children = children;
+
 				if (!silent) {
 					void this.triggerChange();
 				}

@@ -2,15 +2,15 @@ import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
 import { makeHierarchical } from '../../system/array';
-import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import type { ViewsWithBranchesNode } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
+import type { ViewNode } from './viewNode';
+import { CacheableChildrenViewNode, ContextValues, getViewNodeId } from './viewNode';
 
-export class BranchesNode extends ViewNode<'branches', ViewsWithBranchesNode> {
+export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWithBranchesNode> {
 	constructor(
 		uri: GitUri,
 		view: ViewsWithBranchesNode,
@@ -31,10 +31,8 @@ export class BranchesNode extends ViewNode<'branches', ViewsWithBranchesNode> {
 		return this.repo.path;
 	}
 
-	private _children: ViewNode[] | undefined;
-
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children == null) {
+		if (this.children == null) {
 			const branches = await this.repo.getBranches({
 				// only show local branches
 				filter: b => !b.remote,
@@ -74,10 +72,10 @@ export class BranchesNode extends ViewNode<'branches', ViewsWithBranchesNode> {
 			);
 
 			const root = new BranchOrTagFolderNode(this.view, this, 'branch', hierarchy, this.repo.path, '', undefined);
-			this._children = root.getChildren();
+			this.children = root.getChildren();
 		}
 
-		return this._children;
+		return this.children;
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
@@ -96,9 +94,8 @@ export class BranchesNode extends ViewNode<'branches', ViewsWithBranchesNode> {
 		return item;
 	}
 
-	@gate()
 	@debug()
 	override refresh() {
-		this._children = undefined;
+		super.refresh(true);
 	}
 }

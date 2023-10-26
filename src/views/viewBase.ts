@@ -732,6 +732,57 @@ export abstract class ViewBase<
 
 		return this._config;
 	}
+
+	// NOTE: @eamodio uncomment to track node leaks
+	// private _nodeTracking = new Map<string, string | undefined>();
+	// private registry = new FinalizationRegistry<string>(uuid => {
+	// 	const id = this._nodeTracking.get(uuid);
+
+	// 	Logger.log(`@@@ ${this.type} Finalizing [${uuid}]:${id}`);
+
+	// 	this._nodeTracking.delete(uuid);
+
+	// 	if (id != null) {
+	// 		const c = count(this._nodeTracking.values(), v => v === id);
+	// 		Logger.log(`@@@ ${this.type} [${padLeft(String(c), 3)}] ${id}`);
+	// 	}
+	// });
+
+	// registerNode(node: ViewNode) {
+	// 	const uuid = node.uuid;
+
+	// 	Logger.log(`@@@ ${this.type}.registerNode [${uuid}]:${node.id}`);
+
+	// 	this._nodeTracking.set(uuid, node.id);
+	// 	this.registry.register(node, uuid);
+	// }
+
+	// unregisterNode(node: ViewNode) {
+	// 	const uuid = node.uuid;
+
+	// 	Logger.log(`@@@ ${this.type}.unregisterNode [${uuid}]:${node.id}`);
+
+	// 	this._nodeTracking.delete(uuid);
+	// 	this.registry.unregister(node);
+	// }
+
+	// private _timer = setInterval(() => {
+	// 	const counts = new Map<string | undefined, number>();
+	// 	for (const value of this._nodeTracking.values()) {
+	// 		const count = counts.get(value) ?? 0;
+	// 		counts.set(value, count + 1);
+	// 	}
+
+	// 	let total = 0;
+	// 	for (const [id, count] of counts) {
+	// 		if (count > 1) {
+	// 			Logger.log(`@@@ ${this.type} [${padLeft(String(count), 3)}] ${id}`);
+	// 		}
+	// 		total += count;
+	// 	}
+
+	// 	Logger.log(`@@@ ${this.type} total=${total}`);
+	// }, 10000);
 }
 
 export class ViewNodeState implements Disposable {
@@ -824,5 +875,15 @@ export class ViewNodeState implements Disposable {
 		} else {
 			store.set(id, new Map([[key, value]]));
 		}
+	}
+}
+
+export function disposeChildren(oldChildren: ViewNode[] | undefined, newChildren?: ViewNode[]) {
+	if (!oldChildren?.length) return;
+
+	for (const child of oldChildren) {
+		if (newChildren?.includes(child)) continue;
+
+		child.dispose();
 	}
 }
