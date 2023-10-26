@@ -152,7 +152,7 @@ export class GlPatchCreate extends LitElement {
 					this.createDetails.focus();
 				}
 			} else {
-				this.titleInput.setCustomValidity('');
+				this.createDetails.validityMessage = undefined;
 			}
 			return;
 		}
