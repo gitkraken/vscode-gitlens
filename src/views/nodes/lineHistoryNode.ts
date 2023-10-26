@@ -16,12 +16,13 @@ import { filterMap } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
+import type { PageableViewNode, ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
 import { insertDateMarkers } from './helpers';
 import { LineHistoryTrackerNode } from './lineHistoryTrackerNode';
-import type { PageableViewNode, ViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 
 export class LineHistoryNode
 	extends SubscribeableViewNode<'line-history', FileHistoryView | LineHistoryView>

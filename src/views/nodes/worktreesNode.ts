@@ -5,9 +5,10 @@ import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
 import { debug } from '../../system/decorators/log';
 import type { ViewsWithWorktreesNode } from '../viewBase';
+import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { MessageNode } from './common';
-import type { ViewNode } from './viewNode';
-import { CacheableChildrenViewNode, ContextValues, getViewNodeId } from './viewNode';
 import { WorktreeNode } from './worktreeNode';
 
 export class WorktreesNode extends CacheableChildrenViewNode<'worktrees', ViewsWithWorktreesNode, WorktreeNode> {

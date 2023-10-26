@@ -10,10 +10,10 @@ import { filter, flatMap, map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
 import { pluralize, sortCompare } from '../../system/string';
 import type { ViewsWithWorkingTree } from '../viewBase';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
 import { StatusFileNode } from './statusFileNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class StatusFilesNode extends ViewNode<'status-files', ViewsWithWorkingTree> {
 	constructor(

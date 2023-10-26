@@ -19,6 +19,9 @@ import { defer, getSettledValue } from '../../system/promise';
 import { pad } from '../../system/string';
 import type { ViewsWithBranches } from '../viewBase';
 import { disposeChildren } from '../viewBase';
+import type { PageableViewNode, ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
+import { ViewRefNode } from './abstract/viewRefNode';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
@@ -27,8 +30,6 @@ import { insertDateMarkers } from './helpers';
 import { MergeStatusNode } from './mergeStatusNode';
 import { PullRequestNode } from './pullRequestNode';
 import { RebaseStatusNode } from './rebaseStatusNode';
-import type { PageableViewNode, ViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, ViewRefNode } from './viewNode';
 
 type State = {
 	pullRequest: PullRequest | null | undefined;

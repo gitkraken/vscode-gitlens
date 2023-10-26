@@ -10,10 +10,11 @@ import type { GitRevisionReference } from '../../git/models/reference';
 import { createReference } from '../../git/models/reference';
 import { joinPaths, relativeDir } from '../../system/path';
 import type { View } from '../viewBase';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
+import { ViewRefFileNode } from './abstract/viewRefNode';
 import { getComparisonStoragePrefix } from './compareResultsNode';
 import type { FileNode } from './folderNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, ViewRefFileNode } from './viewNode';
 
 type State = {
 	checked: TreeItemCheckboxState;

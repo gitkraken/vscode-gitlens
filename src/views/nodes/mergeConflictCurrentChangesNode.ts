@@ -13,8 +13,8 @@ import { configuration } from '../../system/configuration';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import type { ViewsWithCommits } from '../viewBase';
+import { ContextValues, ViewNode } from './abstract/viewNode';
 import { getFileRevisionAsCommitTooltip } from './fileRevisionAsCommitNode';
-import { ContextValues, ViewNode } from './viewNode';
 
 export class MergeConflictCurrentChangesNode extends ViewNode<
 	'conflict-current-changes',

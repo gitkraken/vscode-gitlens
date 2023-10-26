@@ -26,7 +26,7 @@ import { flatten } from './system/object';
 import { Stopwatch } from './system/stopwatch';
 import { Storage } from './system/storage';
 import { compare, fromString, satisfies } from './system/version';
-import { isViewNode } from './views/nodes/viewNode';
+import { isViewNode } from './views/nodes/abstract/viewNode';
 import './commands';
 
 export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {

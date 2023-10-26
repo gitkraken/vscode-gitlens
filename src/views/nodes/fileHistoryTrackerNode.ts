@@ -15,9 +15,10 @@ import { Logger } from '../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
 import { isVirtualUri } from '../../system/utils';
 import type { FileHistoryView } from '../fileHistoryView';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues } from './abstract/viewNode';
 import { FileHistoryNode } from './fileHistoryNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, SubscribeableViewNode } from './viewNode';
 
 export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-tracker', FileHistoryView> {
 	private _base: string | undefined;

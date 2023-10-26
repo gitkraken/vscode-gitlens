@@ -11,10 +11,11 @@ import { getGitFileStatusIcon } from '../../git/models/file';
 import { joinPaths, relativeDir } from '../../system/path';
 import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
+import { ViewFileNode } from './abstract/viewFileNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues } from './abstract/viewNode';
 import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
 import type { FileNode } from './folderNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, ViewFileNode } from './viewNode';
 
 export class StatusFileNode extends ViewFileNode<'status-file', ViewsWithCommits> implements FileNode {
 	public readonly commits: GitCommit[];

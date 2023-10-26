@@ -5,11 +5,12 @@ import { PullRequest } from '../../git/models/pullRequest';
 import { pauseOnCancelOrTimeoutMapTuple } from '../../system/cancellation';
 import { getSettledValue } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
+import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { AutolinkedItemNode } from './autolinkedItemNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { PullRequestNode } from './pullRequestNode';
-import type { ViewNode } from './viewNode';
-import { CacheableChildrenViewNode, ContextValues, getViewNodeId } from './viewNode';
 
 let instanceId = 0;
 

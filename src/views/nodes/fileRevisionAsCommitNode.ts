@@ -19,10 +19,11 @@ import { getSettledValue } from '../../system/promise';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import type { ViewsWithCommits } from '../viewBase';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues } from './abstract/viewNode';
+import { ViewRefFileNode } from './abstract/viewRefNode';
 import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNode';
 import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChangesNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, ViewRefFileNode } from './viewNode';
 
 export class FileRevisionAsCommitNode extends ViewRefFileNode<
 	'file-commit',

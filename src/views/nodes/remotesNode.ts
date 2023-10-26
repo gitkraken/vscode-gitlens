@@ -3,10 +3,11 @@ import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
 import { debug } from '../../system/decorators/log';
 import type { ViewsWithRemotesNode } from '../viewBase';
+import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { MessageNode } from './common';
 import { RemoteNode } from './remoteNode';
-import type { ViewNode } from './viewNode';
-import { CacheableChildrenViewNode, ContextValues, getViewNodeId } from './viewNode';
 
 export class RemotesNode extends CacheableChildrenViewNode<'remotes', ViewsWithRemotesNode> {
 	constructor(

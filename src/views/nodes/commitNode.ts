@@ -22,12 +22,13 @@ import { sortCompare } from '../../system/string';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { ViewsWithCommits } from '../viewBase';
 import { disposeChildren } from '../viewBase';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
+import { ViewRefNode } from './abstract/viewRefNode';
 import { CommitFileNode } from './commitFileNode';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
 import { PullRequestNode } from './pullRequestNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, ViewRefNode } from './viewNode';
 
 type State = {
 	pullRequest: PullRequest | null | undefined;

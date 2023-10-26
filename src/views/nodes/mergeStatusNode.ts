@@ -7,8 +7,8 @@ import { getReferenceLabel } from '../../git/models/reference';
 import type { GitStatus } from '../../git/models/status';
 import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { MergeConflictFilesNode } from './mergeConflictFilesNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class MergeStatusNode extends ViewNode<'merge-status', ViewsWithCommits> {
 	constructor(

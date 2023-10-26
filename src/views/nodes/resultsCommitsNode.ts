@@ -9,6 +9,8 @@ import { map } from '../../system/iterable';
 import type { Deferred } from '../../system/promise';
 import { cancellable, defer, PromiseCancelledError } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
+import type { PageableViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { AutolinkedItemsNode } from './autolinkedItemsNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
@@ -16,8 +18,6 @@ import { insertDateMarkers } from './helpers';
 import type { FilesQueryResults } from './resultsFilesNode';
 import { ResultsFilesNode } from './resultsFilesNode';
 import { StashNode } from './stashNode';
-import type { PageableViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export interface CommitsQueryResults {
 	readonly label: string;

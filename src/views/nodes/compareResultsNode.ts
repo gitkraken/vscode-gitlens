@@ -12,12 +12,13 @@ import { getSettledValue } from '../../system/promise';
 import { pluralize } from '../../system/string';
 import type { SearchAndCompareView } from '../searchAndCompareView';
 import type { View } from '../viewBase';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import type { CommitsQueryResults } from './resultsCommitsNode';
 import { ResultsCommitsNode } from './resultsCommitsNode';
 import type { FilesQueryResults } from './resultsFilesNode';
 import { ResultsFilesNode } from './resultsFilesNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 
 let instanceId = 0;
 

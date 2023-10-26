@@ -3,7 +3,7 @@ import type { StoredNamedRef } from '../../constants';
 import { GlyphChars } from '../../constants';
 import { unknownGitUri } from '../../git/gitUri';
 import type { SearchAndCompareView, SearchAndCompareViewNode } from '../searchAndCompareView';
-import { ContextValues, ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './abstract/viewNode';
 
 interface RepoRef {
 	label: string;

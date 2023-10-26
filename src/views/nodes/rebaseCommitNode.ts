@@ -1,7 +1,7 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
+import { ContextValues } from './abstract/viewNode';
 import { CommitNode } from './commitNode';
-import { ContextValues } from './viewNode';
 
 export class RebaseCommitNode extends CommitNode {
 	// eslint-disable-next-line @typescript-eslint/require-await

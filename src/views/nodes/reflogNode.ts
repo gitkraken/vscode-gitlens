@@ -5,10 +5,11 @@ import type { Repository } from '../../git/models/repository';
 import { debug } from '../../system/decorators/log';
 import type { RepositoriesView } from '../repositoriesView';
 import type { WorkspacesView } from '../workspacesView';
+import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
+import type { PageableViewNode, ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { ReflogRecordNode } from './reflogRecordNode';
-import type { PageableViewNode, ViewNode } from './viewNode';
-import { CacheableChildrenViewNode, ContextValues, getViewNodeId } from './viewNode';
 
 export class ReflogNode
 	extends CacheableChildrenViewNode<'reflog', RepositoriesView | WorkspacesView>

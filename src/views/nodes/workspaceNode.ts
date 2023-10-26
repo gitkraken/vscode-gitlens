@@ -6,10 +6,11 @@ import { createCommand } from '../../system/command';
 import { debug } from '../../system/decorators/log';
 import { weakEvent } from '../../system/event';
 import type { WorkspacesView } from '../workspacesView';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { CommandMessageNode, MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 import { WorkspaceMissingRepositoryNode } from './workspaceMissingRepositoryNode';
 
 export class WorkspaceNode extends SubscribeableViewNode<

@@ -8,9 +8,9 @@ import type { GitStatus } from '../../git/models/status';
 import { executeCoreCommand } from '../../system/command';
 import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { MergeConflictFilesNode } from './mergeConflictFilesNode';
 import { RebaseCommitNode } from './rebaseCommitNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export class RebaseStatusNode extends ViewNode<'rebase-status', ViewsWithCommits> {
 	constructor(

@@ -12,8 +12,9 @@ import { getGitFileStatusIcon } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { joinPaths, relativeDir } from '../../system/path';
 import type { ViewsWithCommits, ViewsWithStashes } from '../viewBase';
-import type { ViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, ViewRefFileNode } from './viewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
+import { ViewRefFileNode } from './abstract/viewRefNode';
 
 export abstract class CommitFileNodeBase<
 	Type extends TreeViewRefFileNodeTypes,

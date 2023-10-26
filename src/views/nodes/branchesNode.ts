@@ -4,11 +4,12 @@ import type { Repository } from '../../git/models/repository';
 import { makeHierarchical } from '../../system/array';
 import { debug } from '../../system/decorators/log';
 import type { ViewsWithBranchesNode } from '../viewBase';
+import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
-import type { ViewNode } from './viewNode';
-import { CacheableChildrenViewNode, ContextValues, getViewNodeId } from './viewNode';
 
 export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWithBranchesNode> {
 	constructor(

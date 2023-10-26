@@ -1,7 +1,7 @@
 import type { GitCommit } from '../../git/models/commit';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues } from './abstract/viewNode';
 import { MessageNode } from './common';
-import type { ViewNode } from './viewNode';
-import { ContextValues } from './viewNode';
 
 const markers: [number, string][] = [
 	[0, 'Less than a week ago'],

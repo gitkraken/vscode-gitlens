@@ -8,11 +8,12 @@ import type { GitRebaseStatus } from '../../git/models/rebase';
 import { createCoreCommand } from '../../system/command';
 import { relativeDir } from '../../system/path';
 import type { ViewsWithCommits } from '../viewBase';
+import { ViewFileNode } from './abstract/viewFileNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues } from './abstract/viewNode';
 import type { FileNode } from './folderNode';
 import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNode';
 import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChangesNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, ViewFileNode } from './viewNode';
 
 export class MergeConflictFileNode extends ViewFileNode<'conflict-file', ViewsWithCommits> implements FileNode {
 	constructor(

@@ -10,10 +10,10 @@ import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { pluralize } from '../../system/string';
 import type { SearchAndCompareView } from '../searchAndCompareView';
+import type { PageableViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import type { CommitsQueryResults } from './resultsCommitsNode';
 import { ResultsCommitsNode } from './resultsCommitsNode';
-import type { PageableViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 let instanceId = 0;
 

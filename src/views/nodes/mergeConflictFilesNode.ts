@@ -7,10 +7,10 @@ import { makeHierarchical } from '../../system/array';
 import { joinPaths, normalizePath } from '../../system/path';
 import { pluralize, sortCompare } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
+import { ViewNode } from './abstract/viewNode';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
 import { MergeConflictFileNode } from './mergeConflictFileNode';
-import { ViewNode } from './viewNode';
 
 export class MergeConflictFilesNode extends ViewNode<'conflict-files', ViewsWithCommits> {
 	constructor(

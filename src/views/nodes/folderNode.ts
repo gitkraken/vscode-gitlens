@@ -5,8 +5,8 @@ import type { HierarchicalItem } from '../../system/array';
 import { sortCompare } from '../../system/string';
 import type { StashesView } from '../stashesView';
 import type { ViewsWithCommits } from '../viewBase';
-import type { ViewFileNode } from './viewNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
+import type { ViewFileNode } from './abstract/viewFileNode';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 
 export interface FileNode extends ViewFileNode {
 	folderName: string;

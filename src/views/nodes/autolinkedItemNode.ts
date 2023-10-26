@@ -6,7 +6,7 @@ import { getIssueOrPullRequestMarkdownIcon, getIssueOrPullRequestThemeIcon } fro
 import { fromNow } from '../../system/date';
 import { isPromise } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 
 export class AutolinkedItemNode extends ViewNode<'autolink', ViewsWithCommits> {
 	constructor(
