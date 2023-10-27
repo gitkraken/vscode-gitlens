@@ -201,3 +201,19 @@ The [Publish Pre-release workflow](.github/workflows/cd-pre.yml) is automaticall
 ### Insiders (deprecated use pre-release instead)
 
 The Publish Insiders workflow is no longer available and was replaced with the pre-release edition.
+
+## Updating GL Icons
+
+To add new icons to the GL Icons font follow the steps below:
+
+- Add new SVG icons to the `images/icons` folder
+- Update the `images/icons/mappings.json` file with entries for the new icons (append to the end of the file)
+- Optimize and build the icons by running the following from a terminal:
+
+  ```
+  yarn run icons:svgo
+  yarn run build:icons
+
+  ```
+
+Once you've finshed copy the new `glicons.woff2?<uuid>` URL from `src/webviews/apps/shared/glicons.scss` and search and replace the old references with the new one.
