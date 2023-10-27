@@ -1130,6 +1130,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		// Stash any changes first
 		const repoStatus = await this.getStatusForRepo(repoPath);
 		const diffStatus = repoStatus?.getDiffStatus();
+		let currentBranch = await this.getBranch(repoPath);
 		if (diffStatus?.added || diffStatus?.deleted || diffStatus?.changed) {
 			await this.git.stash__push(repoPath, undefined, { includeUntracked: true });
 		}
@@ -1137,17 +1138,19 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (options?.branchName != null) {
 			const branchName = options.branchName;
 			// Check if the ref exists
-			const refExists = Boolean(await this.getBranches(repoPath, { filter: b => b.name === branchName }));
+			const refExists =
+				(await this.getBranches(repoPath, { filter: b => b.name === branchName }))?.values?.length > 0;
 			if (!refExists) {
 				if (options?.createBranchIfNeeded) {
 					// Create a new branch from the ref
-					await this.runGitCommandViaTerminal(repoPath, 'branch', [branchName], { execute: true });
+					await this.checkout(repoPath, currentBranch?.ref ?? 'HEAD', { createBranch: branchName });
+					currentBranch = await this.getBranch(repoPath);
 				} else {
 					return;
 				}
 			}
+
 			// Check if the ref is the current branch. If not, we need to checkout the ref first.
-			const currentBranch = await this.getBranch(repoPath);
 			if (currentBranch?.name !== branchName) {
 				await this.git.checkout(repoPath, branchName);
 			}
