@@ -1,6 +1,6 @@
 import type { WebviewState } from '../../../webviews/protocol';
 import { IpcNotificationType } from '../../../webviews/protocol';
-import type { Subscription } from '../../gk/subscription/subscription';
+import type { Subscription } from '../../gk/account/subscription';
 
 export interface State extends WebviewState {
 	webroot?: string;

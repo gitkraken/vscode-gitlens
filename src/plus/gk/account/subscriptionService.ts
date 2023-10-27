@@ -39,11 +39,11 @@ import { flatten } from '../../../system/object';
 import { pluralize } from '../../../system/string';
 import { openWalkthrough } from '../../../system/utils';
 import { satisfies } from '../../../system/version';
-import { authenticationProviderId, authenticationProviderScopes } from '../authenticationProvider';
+import type { GKCheckInResponse } from '../checkin';
+import { getSubscriptionFromCheckIn } from '../checkin';
 import type { ServerConnection } from '../serverConnection';
 import { ensurePlusFeaturesEnabled } from '../utils';
-import type { GKCheckInResponse } from './checkin';
-import { getSubscriptionFromCheckIn } from './checkin';
+import { authenticationProviderId, authenticationProviderScopes } from './authenticationProvider';
 import type { Subscription } from './subscription';
 import {
 	assertSubscriptionState,

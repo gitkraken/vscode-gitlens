@@ -1,7 +1,7 @@
 /*global*/
 import './account.scss';
 import type { Disposable } from 'vscode';
-import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../plus/gk/subscription/subscription';
+import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../plus/gk/account/subscription';
 import type { State } from '../../../../plus/webviews/account/protocol';
 import { DidChangeSubscriptionNotificationType } from '../../../../plus/webviews/account/protocol';
 import type { IpcMessage } from '../../../protocol';

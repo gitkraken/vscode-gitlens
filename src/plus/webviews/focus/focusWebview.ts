@@ -34,7 +34,7 @@ import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
 import type { EnrichedItem, FocusItem } from '../../focus/focusService';
-import type { SubscriptionChangeEvent } from '../../gk/subscription/subscriptionService';
+import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
 import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
 import type {
 	OpenBranchParams,

@@ -2,13 +2,13 @@ import type { CancellationToken, Disposable, StatusBarItem } from 'vscode';
 import { CancellationTokenSource, env, StatusBarAlignment, Uri, window } from 'vscode';
 import { uuid } from '@env/crypto';
 import type { Response } from '@env/fetch';
-import type { Container } from '../../container';
-import { debug } from '../../system/decorators/log';
-import type { DeferredEvent, DeferredEventExecutor } from '../../system/event';
-import { promisifyDeferred } from '../../system/event';
-import { Logger } from '../../system/logger';
-import { getLogScope } from '../../system/logger.scope';
-import type { ServerConnection } from './serverConnection';
+import type { Container } from '../../../container';
+import { debug } from '../../../system/decorators/log';
+import type { DeferredEvent, DeferredEventExecutor } from '../../../system/event';
+import { promisifyDeferred } from '../../../system/event';
+import { Logger } from '../../../system/logger';
+import { getLogScope } from '../../../system/logger.scope';
+import type { ServerConnection } from '../serverConnection';
 
 export const AuthenticationUriPathPrefix = 'did-authenticate';
 

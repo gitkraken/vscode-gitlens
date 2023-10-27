@@ -1,5 +1,5 @@
-import type { Subscription } from './subscription';
-import { getSubscriptionPlan, getSubscriptionPlanPriority, SubscriptionPlanId } from './subscription';
+import type { Subscription } from './account/subscription';
+import { getSubscriptionPlan, getSubscriptionPlanPriority, SubscriptionPlanId } from './account/subscription';
 
 export interface GKCheckInResponse {
 	readonly user: GKUser;

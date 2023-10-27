@@ -5,12 +5,12 @@ import type {
 } from 'vscode';
 import { authentication, Disposable, EventEmitter, window } from 'vscode';
 import { uuid } from '@env/crypto';
-import type { Container, Environment } from '../../container';
-import { debug } from '../../system/decorators/log';
-import { Logger } from '../../system/logger';
-import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
+import type { Container, Environment } from '../../../container';
+import { debug } from '../../../system/decorators/log';
+import { Logger } from '../../../system/logger';
+import { getLogScope, setLogScopeExit } from '../../../system/logger.scope';
+import type { ServerConnection } from '../serverConnection';
 import { AuthenticationConnection } from './authenticationConnection';
-import type { ServerConnection } from './serverConnection';
 
 interface StoredSession {
 	id: string;

@@ -1,13 +1,13 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { Subscription } from '../../../../plus/gk/subscription/subscription';
+import type { Subscription } from '../../../../plus/gk/account/subscription';
 import {
 	getSubscriptionStatePlanName,
 	getSubscriptionTimeRemaining,
 	isSubscriptionStatePaidOrTrial,
 	isSubscriptionStateTrial,
 	SubscriptionState,
-} from '../../../../plus/gk/subscription/subscription';
+} from '../../../../plus/gk/account/subscription';
 import '../../plus/shared/components/feature-gate-plus-state';
 import { pluralize } from '../../../../system/string';
 import { focusOutline } from './styles/lit/a11y.css';

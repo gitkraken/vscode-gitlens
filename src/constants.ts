@@ -1,7 +1,7 @@
 import type { ViewShowBranchComparison } from './config';
 import type { Environment } from './container';
 import type { StoredSearchQuery } from './git/search';
-import type { Subscription } from './plus/gk/subscription/subscription';
+import type { Subscription } from './plus/gk/account/subscription';
 import type { TrackedUsage, TrackedUsageKeys } from './telemetry/usageTracker';
 
 export const extensionPrefix = 'gitlens';

@@ -12,7 +12,7 @@ import { isWeb } from '@env/platform';
 import type { Container } from '../../container';
 import { AuthenticationError, ProviderRequestClientError } from '../../errors';
 import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '../../messages';
-import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../../plus/gk/subscription/subscription';
+import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../../plus/gk/account/subscription';
 import type { IntegrationAuthenticationSessionDescriptor } from '../../plus/integrationAuthentication';
 import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
