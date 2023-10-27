@@ -24,8 +24,8 @@ import type { RepositoryPathMappingProvider } from './pathMapping/repositoryPath
 import { FocusService } from './plus/focus/focusService';
 import { AccountAuthenticationProvider } from './plus/gk/authenticationProvider';
 import { ServerConnection } from './plus/gk/serverConnection';
+import { SubscriptionService } from './plus/gk/subscription/subscriptionService';
 import { IntegrationAuthenticationService } from './plus/integrationAuthentication';
-import { SubscriptionService } from './plus/subscription/subscriptionService';
 import { registerAccountWebviewView } from './plus/webviews/account/registration';
 import { registerFocusWebviewCommands, registerFocusWebviewPanel } from './plus/webviews/focus/registration';
 import {

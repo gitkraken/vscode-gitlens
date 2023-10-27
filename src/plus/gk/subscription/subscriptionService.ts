@@ -20,12 +20,29 @@ import {
 	window,
 } from 'vscode';
 import { getPlatform } from '@env/platform';
-import type { CoreColors } from '../../constants';
-import { Commands } from '../../constants';
-import type { Container } from '../../container';
-import { AccountValidationError } from '../../errors';
-import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
-import type { Subscription } from '../../subscription';
+import type { CoreColors } from '../../../constants';
+import { Commands } from '../../../constants';
+import type { Container } from '../../../container';
+import { AccountValidationError } from '../../../errors';
+import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
+import { executeCommand, registerCommand } from '../../../system/command';
+import { configuration } from '../../../system/configuration';
+import { setContext } from '../../../system/context';
+import { createFromDateDelta } from '../../../system/date';
+import { gate } from '../../../system/decorators/gate';
+import { debug, log } from '../../../system/decorators/log';
+import type { Deferrable } from '../../../system/function';
+import { debounce, once } from '../../../system/function';
+import { Logger } from '../../../system/logger';
+import { getLogScope } from '../../../system/logger.scope';
+import { flatten } from '../../../system/object';
+import { pluralize } from '../../../system/string';
+import { openWalkthrough } from '../../../system/utils';
+import { satisfies } from '../../../system/version';
+import { authenticationProviderId, authenticationProviderScopes } from '../authenticationProvider';
+import type { ServerConnection } from '../serverConnection';
+import { ensurePlusFeaturesEnabled } from '../utils';
+import type { Subscription } from './subscription';
 import {
 	computeSubscriptionState,
 	getSubscriptionPlan,
@@ -39,24 +56,7 @@ import {
 	isSubscriptionTrial,
 	SubscriptionPlanId,
 	SubscriptionState,
-} from '../../subscription';
-import { executeCommand, registerCommand } from '../../system/command';
-import { configuration } from '../../system/configuration';
-import { setContext } from '../../system/context';
-import { createFromDateDelta } from '../../system/date';
-import { gate } from '../../system/decorators/gate';
-import { debug, log } from '../../system/decorators/log';
-import type { Deferrable } from '../../system/function';
-import { debounce, once } from '../../system/function';
-import { Logger } from '../../system/logger';
-import { getLogScope } from '../../system/logger.scope';
-import { flatten } from '../../system/object';
-import { pluralize } from '../../system/string';
-import { openWalkthrough } from '../../system/utils';
-import { satisfies } from '../../system/version';
-import { authenticationProviderId, authenticationProviderScopes } from '../gk/authenticationProvider';
-import type { ServerConnection } from '../gk/serverConnection';
-import { ensurePlusFeaturesEnabled } from './utils';
+} from './subscription';
 
 export interface SubscriptionChangeEvent {
 	readonly current: Subscription;

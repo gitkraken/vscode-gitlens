@@ -18,6 +18,7 @@ import React, { createElement, useEffect, useMemo, useRef, useState } from 'reac
 import { getPlatform } from '@env/platform';
 import type { DateStyle } from '../../../../config';
 import type { SearchQuery } from '../../../../git/search';
+import type { Subscription } from '../../../../plus/gk/subscription/subscription';
 import type {
 	DidEnsureRowParams,
 	DidSearchParams,
@@ -53,7 +54,6 @@ import {
 	DidFetchNotificationType,
 	DidSearchNotificationType,
 } from '../../../../plus/webviews/graph/protocol';
-import type { Subscription } from '../../../../subscription';
 import { pluralize } from '../../../../system/string';
 import { createWebviewCommandLink } from '../../../../system/webview';
 import type { IpcNotificationType } from '../../../protocol';

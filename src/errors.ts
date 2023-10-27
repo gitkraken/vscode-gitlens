@@ -1,8 +1,8 @@
 import type { Uri } from 'vscode';
 import { CancellationError as _CancellationError } from 'vscode';
 import type { Response } from '@env/fetch';
-import type { RequiredSubscriptionPlans, Subscription } from './subscription';
-import { isSubscriptionPaidPlan } from './subscription';
+import type { RequiredSubscriptionPlans, Subscription } from './plus/gk/subscription/subscription';
+import { isSubscriptionPaidPlan } from './plus/gk/subscription/subscription';
 
 export class AccessDeniedError extends Error {
 	public readonly subscription: Subscription;

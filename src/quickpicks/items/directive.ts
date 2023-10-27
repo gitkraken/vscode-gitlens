@@ -1,5 +1,5 @@
 import type { QuickPickItem } from 'vscode';
-import type { Subscription } from '../../subscription';
+import type { Subscription } from '../../plus/gk/subscription/subscription';
 
 export enum Directive {
 	Back,

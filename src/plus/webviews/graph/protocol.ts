@@ -34,11 +34,11 @@ import type {
 	GitTagReference,
 } from '../../../git/models/reference';
 import type { GitSearchResultData, SearchQuery } from '../../../git/search';
-import type { Subscription } from '../../../subscription';
 import type { DateTimeFormat } from '../../../system/date';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview';
 import type { WebviewState } from '../../../webviews/protocol';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
+import type { Subscription } from '../../gk/subscription/subscription';
 
 export type { GraphRefType } from '@gitkraken/gitkraken-components';
 

@@ -1,5 +1,5 @@
 import type { RepositoryVisibility } from './git/gitProvider';
-import type { RequiredSubscriptionPlans, Subscription } from './subscription';
+import type { RequiredSubscriptionPlans, Subscription } from './plus/gk/subscription/subscription';
 
 export const enum Features {
 	Stashes = 'stashes',

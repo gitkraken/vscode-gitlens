@@ -1,6 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { SubscriptionState } from '../../../../../subscription';
+import { SubscriptionState } from '../../../../../plus/gk/subscription/subscription';
 import '../../../shared/components/button';
 import { linkStyles } from './vscode.css';
 

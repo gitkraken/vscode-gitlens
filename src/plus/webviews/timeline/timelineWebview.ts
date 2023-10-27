@@ -25,7 +25,7 @@ import type { WebviewController, WebviewProvider } from '../../../webviews/webvi
 import { updatePendingContext } from '../../../webviews/webviewController';
 import type { WebviewShowOptions } from '../../../webviews/webviewsController';
 import { isSerializedState } from '../../../webviews/webviewsController';
-import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
+import type { SubscriptionChangeEvent } from '../../gk/subscription/subscriptionService';
 import type { Commit, Period, State } from './protocol';
 import { DidChangeNotificationType, OpenDataPointCommandType, UpdatePeriodCommandType } from './protocol';
 

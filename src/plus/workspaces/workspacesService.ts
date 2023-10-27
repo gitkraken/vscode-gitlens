@@ -6,13 +6,13 @@ import type { GitRemote } from '../../git/models/remote';
 import { RemoteResourceType } from '../../git/models/remoteResource';
 import { Repository } from '../../git/models/repository';
 import { showRepositoriesPicker } from '../../quickpicks/repositoryPicker';
-import { SubscriptionState } from '../../subscription';
+import { SubscriptionState } from '../gk/subscription/subscription';
 import { log } from '../../system/decorators/log';
 import { normalizePath } from '../../system/path';
 import type { OpenWorkspaceLocation } from '../../system/utils';
 import { openWorkspace } from '../../system/utils';
 import type { ServerConnection } from '../gk/serverConnection';
-import type { SubscriptionChangeEvent } from '../subscription/subscriptionService';
+import type { SubscriptionChangeEvent } from '../gk/subscription/subscriptionService';
 import type {
 	AddWorkspaceRepoDescriptor,
 	CloudWorkspaceData,

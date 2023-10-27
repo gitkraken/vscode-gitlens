@@ -3,7 +3,7 @@ import { window } from 'vscode';
 import type { Container } from '../../container';
 import type { GitRemote } from '../../git/models/remote';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
-import { isSubscriptionPaidPlan } from '../../subscription';
+import { isSubscriptionPaidPlan } from '../gk/subscription/subscription';
 import { log } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';

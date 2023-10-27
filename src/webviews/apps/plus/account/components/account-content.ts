@@ -1,6 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { hasAccountFromSubscriptionState, SubscriptionState } from '../../../../../subscription';
+import { hasAccountFromSubscriptionState, SubscriptionState } from '../../../../../plus/gk/subscription/subscription';
 import { pluralize } from '../../../../../system/string';
 import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css';
 import '../../../shared/components/button';
