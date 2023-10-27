@@ -596,15 +596,15 @@ export class Git {
 		return this.git<string>({ cwd: repoPath }, ...params);
 	}
 
-	cherrypick(repoPath: string, sha: string, { noCommit }: { noCommit?: boolean } = {}) {
+	async cherrypick(repoPath: string, sha: string, options: { noCommit?: boolean; errors?: GitErrorHandling } = {}) {
 		const params = ['cherry-pick'];
-		if (noCommit) {
+		if (options?.noCommit) {
 			params.push('-n');
 		}
 		params.push(sha);
 
 		try {
-			return this.git<string>({ cwd: repoPath }, ...params);
+			await this.git<string>({ cwd: repoPath, errors: options?.errors }, ...params);
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			let reason: CherryPickErrorReason = CherryPickErrorReason.Other;
@@ -613,6 +613,8 @@ export class Git {
 				GitErrors.changesWouldBeOverwritten.test(ex.stderr ?? '')
 			) {
 				reason = CherryPickErrorReason.OverwrittenChanges;
+			} else if (GitErrors.conflict.test(msg) || GitErrors.conflict.test(ex.stdout ?? '')) {
+				reason = CherryPickErrorReason.Conflict;
 			}
 
 			throw new CherryPickError(reason, ex, sha);

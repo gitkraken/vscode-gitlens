@@ -18,6 +18,8 @@ import { Features } from '../../../features';
 import { GitErrorHandling } from '../../../git/commandOptions';
 import {
 	BlameIgnoreRevsFileError,
+	CherryPickError,
+	CherryPickErrorReason,
 	FetchError,
 	GitSearchError,
 	PullError,
@@ -25,6 +27,7 @@ import {
 	PushErrorReason,
 	StashApplyError,
 	StashApplyErrorReason,
+	StashPushError,
 	WorktreeCreateError,
 	WorktreeCreateErrorReason,
 	WorktreeDeleteError,
@@ -1127,37 +1130,55 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		patchCommitRef: string,
 		options?: { branchName?: string; createBranchIfNeeded?: boolean },
 	): Promise<void> {
+		const scope = getLogScope();
 		// Stash any changes first
 		const repoStatus = await this.getStatusForRepo(repoPath);
 		const diffStatus = repoStatus?.getDiffStatus();
-		let currentBranch = await this.getBranch(repoPath);
 		if (diffStatus?.added || diffStatus?.deleted || diffStatus?.changed) {
-			await this.git.stash__push(repoPath, undefined, { includeUntracked: true });
+			try {
+				await this.git.stash__push(repoPath, undefined, { includeUntracked: true });
+			} catch (ex) {
+				Logger.error(ex, scope);
+				if (ex instanceof StashPushError) {
+					void showGenericErrorMessage(`Error applying patch - unable to stash changes: ${ex.message}`);
+				} else {
+					void showGenericErrorMessage(`Error applying patch - unable to stash changes`);
+				}
+
+				return;
+			}
 		}
 
 		if (options?.branchName != null) {
 			const branchName = options.branchName;
-			// Check if the ref exists
 			const refExists =
-				(await this.getBranches(repoPath, { filter: b => b.name === branchName }))?.values?.length > 0;
-			if (!refExists) {
-				if (options?.createBranchIfNeeded) {
-					// Create a new branch from the ref
-					await this.checkout(repoPath, currentBranch?.ref ?? 'HEAD', { createBranch: branchName });
-					currentBranch = await this.getBranch(repoPath);
-				} else {
-					return;
-				}
-			}
+				(await this.getBranches(repoPath, { filter: b => b.name === options.branchName }))?.values?.length > 0;
+			const shouldCreate = !refExists && options.createBranchIfNeeded;
+			const currentBranch = await this.getBranch(repoPath);
 
-			// Check if the ref is the current branch. If not, we need to checkout the ref first.
 			if (currentBranch?.name !== branchName) {
-				await this.git.checkout(repoPath, branchName);
+				const checkoutRef = shouldCreate ? currentBranch?.ref ?? 'HEAD' : branchName;
+				await this.checkout(repoPath, checkoutRef, { createBranch: shouldCreate ? branchName : undefined });
 			}
 		}
 
 		// Apply the patch using a cherry pick without committing
-		await this.git.cherrypick(repoPath, patchCommitRef, { noCommit: true });
+		try {
+			await this.git.cherrypick(repoPath, patchCommitRef, { noCommit: true, errors: GitErrorHandling.Throw });
+		} catch (ex) {
+			Logger.error(ex, scope);
+			if (ex instanceof CherryPickError) {
+				if (ex.reason === CherryPickErrorReason.Conflict) {
+					void showGenericErrorMessage(
+						`Error applying patch - conflicts detected. Please resolve conflicts.`,
+					);
+				} else {
+					void showGenericErrorMessage(`Error applying patch - unable to apply patch changes: ${ex.message}`);
+				}
+			} else {
+				void showGenericErrorMessage(`Error applying patch - unable to apply patch changes`);
+			}
+		}
 	}
 
 	@log()

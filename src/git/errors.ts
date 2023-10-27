@@ -315,8 +315,9 @@ export class FetchError extends Error {
 }
 
 export const enum CherryPickErrorReason {
-	OverwrittenChanges = 1,
-	Other = 2,
+	Conflict,
+	OverwrittenChanges,
+	Other,
 }
 
 export class CherryPickError extends Error {
@@ -344,6 +345,11 @@ export class CherryPickError extends Error {
 				case CherryPickErrorReason.OverwrittenChanges:
 					message = `${baseMessage} because local changes to some files would be overwritten.`;
 					break;
+				case CherryPickErrorReason.Conflict:
+					message = `${baseMessage} due to conflicts.`;
+					break;
+				default:
+					message = baseMessage;
 			}
 		}
 		super(message);
