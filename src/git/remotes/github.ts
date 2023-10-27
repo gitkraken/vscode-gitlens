@@ -1,27 +1,30 @@
 import type { AuthenticationSession, Disposable, QuickInputButton, Range } from 'vscode';
 import { env, ThemeIcon, Uri, window } from 'vscode';
-import type { Autolink, DynamicAutolinkReference } from '../../annotations/autolinks';
+import type { Autolink, DynamicAutolinkReference, MaybeEnrichedAutolink } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
+import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
 import type {
 	IntegrationAuthenticationProvider,
 	IntegrationAuthenticationSessionDescriptor,
 } from '../../plus/integrationAuthentication';
+import { fromNow } from '../../system/date';
 import { log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
 import { encodeUrl } from '../../system/encoding';
-import { equalsIgnoreCase } from '../../system/string';
+import { equalsIgnoreCase, escapeMarkdown } from '../../system/string';
 import { supportedInVSCodeVersion } from '../../system/utils';
 import type { Account } from '../models/author';
 import type { DefaultBranch } from '../models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../models/issue';
+import { getIssueOrPullRequestMarkdownIcon } from '../models/issue';
 import type { PullRequest, PullRequestState, SearchedPullRequest } from '../models/pullRequest';
 import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
 import type { RepositoryMetadata } from '../models/repositoryMetadata';
 import { ensurePaidPlan, RichRemoteProvider } from './richRemoteProvider';
 
-const autolinkFullIssuesRegex = /\b(?<repo>[^/\s]+\/[^/\s]+)#(?<num>[0-9]+)\b(?!]\()/g;
+const autolinkFullIssuesRegex = /\b([^/\s]+\/[^/\s]+?)(?:\\)?#([0-9]+)\b(?!]\()/g;
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/blob(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;
 
@@ -32,7 +35,14 @@ function isGitHubDotCom(domain: string): boolean {
 	return equalsIgnoreCase(domain, 'github.com');
 }
 
-export class GitHubRemote extends RichRemoteProvider {
+type GitHubRepositoryDescriptor =
+	| {
+			owner: string;
+			name: string;
+	  }
+	| Record<string, never>;
+
+export class GitHubRemote extends RichRemoteProvider<GitHubRepositoryDescriptor> {
 	@memoize()
 	protected get authProvider() {
 		return isGitHubDotCom(this.domain) ? authProvider : enterpriseAuthProvider;
@@ -77,6 +87,9 @@ export class GitHubRemote extends RichRemoteProvider {
 						text: string,
 						outputFormat: 'html' | 'markdown' | 'plaintext',
 						tokenMapping: Map<string, string>,
+						enrichedAutolinks?: Map<string, MaybeEnrichedAutolink>,
+						prs?: Set<string>,
+						footnotes?: Map<number, string>,
 					) => {
 						return outputFormat === 'plaintext'
 							? text
@@ -91,28 +104,72 @@ export class GitHubRemote extends RichRemoteProvider {
 										tokenMapping.set(token, `<a href="${url}" title=${title}>${linkText}</a>`);
 									}
 
+									let footnoteIndex: number;
+
+									const issueResult = enrichedAutolinks?.get(num)?.[0];
+									if (issueResult?.value != null) {
+										if (issueResult.paused) {
+											if (footnotes != null && !prs?.has(num)) {
+												footnoteIndex = footnotes.size + 1;
+												footnotes.set(
+													footnoteIndex,
+													`[${getIssueOrPullRequestMarkdownIcon()} ${
+														this.name
+													} Issue or Pull Request ${repo}#${num} $(loading~spin)](${url}${title}")`,
+												);
+											}
+										} else {
+											const issue = issueResult.value;
+											const issueTitle = escapeMarkdown(issue.title.trim());
+											if (footnotes != null && !prs?.has(num)) {
+												footnoteIndex = footnotes.size + 1;
+												footnotes.set(
+													footnoteIndex,
+													`[${getIssueOrPullRequestMarkdownIcon(
+														issue,
+													)} **${issueTitle}**](${url}${title})\\\n${GlyphChars.Space.repeat(
+														5,
+													)}${linkText} ${issue.state} ${fromNow(
+														issue.closedDate ?? issue.date,
+													)}`,
+												);
+											}
+										}
+									} else if (footnotes != null && !prs?.has(num)) {
+										footnoteIndex = footnotes.size + 1;
+										footnotes.set(
+											footnoteIndex,
+											`[${getIssueOrPullRequestMarkdownIcon()} ${
+												this.name
+											} Issue or Pull Request ${repo}#${num}](${url}${title})`,
+										);
+									}
+
 									return token;
 							  });
 					},
 					parse: (text: string, autolinks: Map<string, Autolink>) => {
-						let repo: string;
+						let ownerAndRepo: string;
 						let num: string;
 
 						let match;
 						do {
 							match = autolinkFullIssuesRegex.exec(text);
-							if (match?.groups == null) break;
+							if (match == null) break;
 
-							({ repo, num } = match.groups);
+							[, ownerAndRepo, num] = match;
 
+							const [owner, repo] = ownerAndRepo.split('/', 2);
 							autolinks.set(num, {
 								provider: this,
 								id: num,
-								prefix: `${repo}#`,
-								url: `${this.protocol}://${this.domain}/${repo}/issues/${num}`,
-								title: `Open Issue or Pull Request #<num> from ${repo} on ${this.name}`,
+								prefix: `${ownerAndRepo}#`,
+								url: `${this.protocol}://${this.domain}/${ownerAndRepo}/issues/${num}`,
+								title: `Open Issue or Pull Request #<num> from ${ownerAndRepo} on ${this.name}`,
 
-								description: `${this.name} Issue or Pull Request ${repo}#${num}`,
+								description: `${this.name} Issue or Pull Request ${ownerAndRepo}#${num}`,
+
+								descriptor: { owner: owner, name: repo } satisfies GitHubRepositoryDescriptor,
 							});
 						} while (true);
 					},
@@ -300,8 +357,15 @@ export class GitHubRemote extends RichRemoteProvider {
 	protected override async getProviderIssueOrPullRequest(
 		{ accessToken }: AuthenticationSession,
 		id: string,
+		descriptor: GitHubRepositoryDescriptor | undefined,
 	): Promise<IssueOrPullRequest | undefined> {
-		const [owner, repo] = this.splitPath();
+		let owner;
+		let repo;
+		if (descriptor != null) {
+			({ owner, name: repo } = descriptor);
+		} else {
+			[owner, repo] = this.splitPath();
+		}
 		return (await this.container.github)?.getIssueOrPullRequest(this, accessToken, owner, repo, Number(id), {
 			baseUrl: this.apiBaseUrl,
 		});

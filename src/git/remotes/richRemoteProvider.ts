@@ -29,7 +29,12 @@ import { RemoteProvider } from './remoteProvider';
 
 // TODO@eamodio revisit how once authenticated, all remotes are always connected, even after a restart
 
-export abstract class RichRemoteProvider extends RemoteProvider implements Disposable {
+export type RepositoryDescriptor = Record<string, string>;
+
+export abstract class RichRemoteProvider<T extends RepositoryDescriptor = RepositoryDescriptor>
+	extends RemoteProvider
+	implements Disposable
+{
 	override readonly type: 'simple' | 'rich' = 'rich';
 
 	private readonly _onDidChange = new EventEmitter<void>();
@@ -356,16 +361,16 @@ export abstract class RichRemoteProvider extends RemoteProvider implements Dispo
 	}: AuthenticationSession): Promise<RepositoryMetadata | undefined>;
 
 	@debug()
-	async getIssueOrPullRequest(id: string): Promise<IssueOrPullRequest | undefined> {
+	async getIssueOrPullRequest(id: string, repo: T | undefined): Promise<IssueOrPullRequest | undefined> {
 		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		const issueOrPR = this.container.cache.getIssueOrPullRequest(id, this, () => ({
+		const issueOrPR = this.container.cache.getIssueOrPullRequest(id, repo, this, () => ({
 			value: (async () => {
 				try {
-					const result = await this.getProviderIssueOrPullRequest(this._session!, id);
+					const result = await this.getProviderIssueOrPullRequest(this._session!, id, repo);
 					this.resetRequestExceptionCount();
 					return result;
 				} catch (ex) {
@@ -379,6 +384,7 @@ export abstract class RichRemoteProvider extends RemoteProvider implements Dispo
 	protected abstract getProviderIssueOrPullRequest(
 		session: AuthenticationSession,
 		id: string,
+		repo: T | undefined,
 	): Promise<IssueOrPullRequest | undefined>;
 
 	@debug()

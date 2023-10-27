@@ -33,6 +33,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#2625](https://github.com/gitkraken/vscode-gitlens/issues/2625) - full issue ref has escape characters that break hover links
 - Fixes [#2987](https://github.com/gitkraken/vscode-gitlens/issues/2987) - Unable to remove all marks on reviewed files with a single operation
 - Fixes [#2923](https://github.com/gitkraken/vscode-gitlens/issues/2923) - TypeError: Only absolute URLs are supported
 - Fixes [#2926](https://github.com/gitkraken/vscode-gitlens/issues/2926) - "Open File at Revision" has incorrect editor label if revision contains path separator
@@ -44,6 +45,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes intermittent issues where details sometimes get cleared/overwritten when opening the _Commit Details_ view
 - Fixes issue when clicking on commits in the Visual File History to open the _Commit Details_ view
 - Fixes issue opening stashes in the _Commit Details_ view from the _Stashes_ view
+- Fixes issue where GitHub/GitLab enriched autolinks could incorrectly point to the wrong repository
 
 ## [14.4.0] - 2023-10-13
 

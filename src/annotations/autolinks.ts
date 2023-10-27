@@ -7,7 +7,7 @@ import type { IssueOrPullRequest } from '../git/models/issue';
 import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/models/issue';
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteProviderReference } from '../git/models/remoteProvider';
-import type { RichRemoteProvider } from '../git/remotes/richRemoteProvider';
+import type { RepositoryDescriptor, RichRemoteProvider } from '../git/remotes/richRemoteProvider';
 import type { MaybePausedResult } from '../system/cancellation';
 import { configuration } from '../system/configuration';
 import { fromNow } from '../system/date';
@@ -30,6 +30,8 @@ export interface Autolink {
 
 	type?: AutolinkType;
 	description?: string;
+
+	descriptor?: RepositoryDescriptor;
 }
 
 export type EnrichedAutolink = [
@@ -240,7 +242,7 @@ export class Autolinks implements Disposable {
 							provider != null &&
 							link.provider?.id === provider.id &&
 							link.provider?.domain === provider.domain
-								? provider.getIssueOrPullRequest(id)
+								? provider.getIssueOrPullRequest(id, link.descriptor)
 								: undefined,
 							link,
 						] satisfies EnrichedAutolink,
