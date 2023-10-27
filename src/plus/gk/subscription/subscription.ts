@@ -251,3 +251,7 @@ export function hasAccountFromSubscriptionState(state: SubscriptionState | undef
 		state !== SubscriptionState.FreeInPreviewTrial
 	);
 }
+
+export function assertSubscriptionState(
+	subscription: Optional<Subscription, 'state'>,
+): asserts subscription is Subscription {}
