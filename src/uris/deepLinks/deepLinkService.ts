@@ -459,7 +459,13 @@ export class DeepLinkService implements Disposable {
 
 					if (targetType === DeepLinkType.Draft) {
 						if (this._context.targetDraft == null && targetId != null) {
-							this._context.targetDraft = await this.container.drafts.getDraft(targetId);
+							try {
+								this._context.targetDraft = await this.container.drafts.getDraft(targetId);
+							} catch (ex) {
+								action = DeepLinkServiceAction.DeepLinkErrored;
+								message = `Unable to fetch draft${ex.message ? ` - ${ex.message}` : ''}`;
+								break;
+							}
 						}
 
 						if (

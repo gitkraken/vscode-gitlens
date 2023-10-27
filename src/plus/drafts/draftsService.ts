@@ -275,6 +275,11 @@ export class DraftService implements Disposable {
 			method: 'GET',
 		});
 
+		if (!rsp.ok) {
+			Logger.error(undefined, `Getting draft failed: (${rsp.status}) ${rsp.statusText}`);
+			throw new Error(rsp.statusText);
+		}
+
 		const draft = ((await rsp.json()) as Result).data;
 		const changeSets = await this.getChangesets(id);
 		return {
