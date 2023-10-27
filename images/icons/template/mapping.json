@@ -37,5 +37,7 @@
   "provider-github": 61730,
   "provider-gitlab": 61731,
   "gitlens-inspect": 61732,
-  "workspaces-view": 61733
+  "workspaces-view": 61733,
+  "confirm-checked": 61734,
+  "confirm-unchecked": 61735
 }

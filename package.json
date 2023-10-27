@@ -8329,6 +8329,20 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f125"
 				}
+			},
+			"gitlens-confirm-checked": {
+				"description": "confirm-checked icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f126"
+				}
+			},
+			"gitlens-confirm-unchecked": {
+				"description": "confirm-unchecked icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f127"
+				}
 			}
 		},
 		"menus": {

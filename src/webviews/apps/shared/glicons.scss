@@ -6,7 +6,7 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 	@font-face {
 		font-family: 'glicons';
 		font-display: block;
-		src: url("#{root}/dist/glicons.woff2?8e33f5a80a91b05940d687a08305c156") format("woff2");
+		src: url("#{root}/dist/glicons.woff2?30855d21cb614f41edfd373458624529") format("woff2");
 	}
 </style>
 */
@@ -175,4 +175,10 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 }
 .glicon-workspaces-view:before {
 	content: '\f125';
+}
+.glicon-confirm-checked:before {
+	content: '\f126';
+}
+.glicon-confirm-unchecked:before {
+	content: '\f127';
 }
