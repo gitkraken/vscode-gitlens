@@ -18,7 +18,7 @@ import React, { createElement, useEffect, useMemo, useRef, useState } from 'reac
 import { getPlatform } from '@env/platform';
 import type { DateStyle } from '../../../../config';
 import type { SearchQuery } from '../../../../git/search';
-import type { Subscription } from '../../../../plus/gk/subscription/subscription';
+import type { Subscription } from '../../../../plus/gk/account/subscription';
 import type {
 	DidEnsureRowParams,
 	DidSearchParams,

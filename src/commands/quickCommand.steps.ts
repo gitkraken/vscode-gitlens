@@ -37,7 +37,7 @@ import type { GitTag, TagSortOptions } from '../git/models/tag';
 import { sortTags } from '../git/models/tag';
 import type { GitWorktree } from '../git/models/worktree';
 import { remoteUrlRegex } from '../git/parsers/remoteParser';
-import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../plus/gk/subscription/subscription';
+import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../plus/gk/account/subscription';
 import {
 	CommitApplyFileChangesCommandQuickPickItem,
 	CommitBrowseRepositoryFromHereCommandQuickPickItem,

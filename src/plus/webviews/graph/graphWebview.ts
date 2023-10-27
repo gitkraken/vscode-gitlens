@@ -86,7 +86,7 @@ import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
 import type { WebviewPanelShowCommandArgs } from '../../../webviews/webviewsController';
 import { isSerializedState } from '../../../webviews/webviewsController';
-import type { SubscriptionChangeEvent } from '../../gk/subscription/subscriptionService';
+import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
 import type {
 	BranchState,
 	DimMergeCommitsParams,

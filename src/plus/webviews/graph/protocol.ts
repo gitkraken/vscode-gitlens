@@ -38,7 +38,7 @@ import type { DateTimeFormat } from '../../../system/date';
 import type { WebviewItemContext, WebviewItemGroupContext } from '../../../system/webview';
 import type { WebviewState } from '../../../webviews/protocol';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
-import type { Subscription } from '../../gk/subscription/subscription';
+import type { Subscription } from '../../gk/account/subscription';
 
 export type { GraphRefType } from '@gitkraken/gitkraken-components';
 

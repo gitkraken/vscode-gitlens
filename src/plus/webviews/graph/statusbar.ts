@@ -5,7 +5,7 @@ import type { Container } from '../../../container';
 import { configuration } from '../../../system/configuration';
 import { getContext, onDidChangeContext } from '../../../system/context';
 import { once } from '../../../system/function';
-import type { SubscriptionChangeEvent } from '../../gk/subscription/subscriptionService';
+import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
 import { arePlusFeaturesEnabled } from '../../gk/utils';
 
 export class GraphStatusBarController implements Disposable {

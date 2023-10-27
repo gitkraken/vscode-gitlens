@@ -1,7 +1,7 @@
 import { Disposable } from 'vscode';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import { unknownGitUri } from '../../../git/gitUri';
-import type { SubscriptionChangeEvent } from '../../../plus/gk/subscription/subscriptionService';
+import type { SubscriptionChangeEvent } from '../../../plus/gk/account/subscriptionService';
 import { debug } from '../../../system/decorators/log';
 import { weakEvent } from '../../../system/event';
 import { szudzikPairing } from '../../../system/function';
