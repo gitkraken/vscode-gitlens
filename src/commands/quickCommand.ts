@@ -21,6 +21,7 @@ export interface QuickInputStep {
 	additionalButtons?: QuickInputButton[];
 	buttons?: QuickInputButton[];
 	ignoreFocusOut?: boolean;
+	isConfirmationStep?: boolean;
 	keys?: StepNavigationKeys[];
 	placeholder?: string;
 	prompt?: string;
@@ -43,6 +44,7 @@ export interface QuickPickStep<T extends QuickPickItem = QuickPickItem> {
 	allowEmpty?: boolean;
 	buttons?: QuickInputButton[];
 	ignoreFocusOut?: boolean;
+	isConfirmationStep?: boolean;
 	items: (DirectiveQuickPickItem | T)[]; // | DirectiveQuickPickItem[];
 	keys?: StepNavigationKeys[];
 	matchOnDescription?: boolean;
@@ -323,15 +325,16 @@ export function createConfirmStep<T extends QuickPickItem, Context extends { tit
 	confirmations: T[],
 	context: Context,
 	cancel?: DirectiveQuickPickItem,
-	options: Partial<QuickPickStep<T>> = {},
+	options?: Partial<QuickPickStep<T>>,
 ): QuickPickStep<T> {
 	return createPickStep<T>({
+		isConfirmationStep: true,
 		placeholder: `Confirm ${context.title}`,
 		title: title,
 		ignoreFocusOut: true,
 		items: [...confirmations, cancel ?? createDirectiveQuickPickItem(Directive.Cancel)],
 		selectedItems: [confirmations.find(c => c.picked) ?? confirmations[0]],
-		...options,
+		...(options ?? {}),
 	});
 }
 

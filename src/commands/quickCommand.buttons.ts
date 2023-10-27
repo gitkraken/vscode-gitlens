@@ -149,27 +149,25 @@ export const ShowTagsToggleQuickInputButton = class extends SelectableQuickInput
 };
 
 export const WillConfirmForcedQuickInputButton: QuickInputButton = {
-	iconPath: new ThemeIcon('check'),
-	tooltip: 'Will always confirm',
+	iconPath: new ThemeIcon('gitlens-confirm-checked'),
+	tooltip: 'You will be presented with a required confirmation step before the action is performed',
 };
 
 export const WillConfirmToggleQuickInputButton = class extends ToggleQuickInputButton {
-	constructor(on = false, onDidClick?: (quickInput: QuickInput) => void) {
+	constructor(on = false, isConfirmationStep: boolean, onDidClick?: (quickInput: QuickInput) => void) {
 		super(
 			() => ({
 				on: {
-					tooltip: 'Will confirm',
-					icon: {
-						dark: Uri.file(Container.instance.context.asAbsolutePath('images/dark/icon-check.svg')),
-						light: Uri.file(Container.instance.context.asAbsolutePath('images/light/icon-check.svg')),
-					},
+					tooltip: isConfirmationStep
+						? 'For future actions, you will be presented with confirmation step before the action is performed\nClick to toggle'
+						: 'You will be presented with confirmation step before the action is performed\nClick to toggle',
+					icon: new ThemeIcon('gitlens-confirm-checked'),
 				},
 				off: {
-					tooltip: 'Skips confirm',
-					icon: {
-						dark: Uri.file(Container.instance.context.asAbsolutePath('images/dark/icon-no-check.svg')),
-						light: Uri.file(Container.instance.context.asAbsolutePath('images/light/icon-no-check.svg')),
-					},
+					tooltip: isConfirmationStep
+						? "For future actions, you won't be presented with confirmation step before the action is performed\nClick to toggle"
+						: "You won't be presented with confirmation step before the action is performed\nClick to toggle",
+					icon: new ThemeIcon('gitlens-confirm-unchecked'),
 				},
 			}),
 			on,

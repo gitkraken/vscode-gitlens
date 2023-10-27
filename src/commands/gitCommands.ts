@@ -249,22 +249,26 @@ export class GitCommandsCommand extends Command {
 
 		if (command?.canConfirm) {
 			if (command.canSkipConfirm) {
-				const willConfirmToggle = new WillConfirmToggleQuickInputButton(command.confirm(), async () => {
-					if (command?.skipConfirmKey == null) return;
+				const willConfirmToggle = new WillConfirmToggleQuickInputButton(
+					command.confirm(),
+					step?.isConfirmationStep ?? false,
+					async () => {
+						if (command?.skipConfirmKey == null) return;
 
-					const skipConfirmations = configuration.get('gitCommands.skipConfirmations') ?? [];
+						const skipConfirmations = configuration.get('gitCommands.skipConfirmations') ?? [];
 
-					const index = skipConfirmations.indexOf(command.skipConfirmKey);
-					if (index !== -1) {
-						skipConfirmations.splice(index, 1);
-					} else {
-						skipConfirmations.push(command.skipConfirmKey);
-					}
+						const index = skipConfirmations.indexOf(command.skipConfirmKey);
+						if (index !== -1) {
+							skipConfirmations.splice(index, 1);
+						} else {
+							skipConfirmations.push(command.skipConfirmKey);
+						}
 
-					await configuration.updateEffective('gitCommands.skipConfirmations', skipConfirmations);
-				});
+						await configuration.updateEffective('gitCommands.skipConfirmations', skipConfirmations);
+					},
+				);
 				buttons.push(willConfirmToggle);
-			} else {
+			} else if (!step?.isConfirmationStep) {
 				buttons.push(WillConfirmForcedQuickInputButton);
 			}
 		}
