@@ -1,5 +1,5 @@
 // NOTE@eamodio This file is referenced in the webviews to we can't use anything vscode or other imports that aren't available in the webviews
-import { getDateDifference } from './system/date';
+import { getDateDifference } from '../../../system/date';
 
 export const enum SubscriptionPlanId {
 	Free = 'free',

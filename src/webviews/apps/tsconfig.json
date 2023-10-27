@@ -11,6 +11,7 @@
 	},
 	"include": [
 		"**/*",
+		"../../plus/gk/subscription/**/*",
 		"../../plus/webviews/**/*",
 		"../../@types/**/*",
 		"../protocol.ts",

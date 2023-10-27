@@ -1,9 +1,9 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { Disposable, workspace } from 'vscode';
 import type { Container } from '../../container';
-import type { SubscriptionChangeEvent } from '../../plus/subscription/subscriptionService';
-import type { Subscription } from '../../subscription';
-import { SubscriptionState } from '../../subscription';
+import type { SubscriptionChangeEvent } from '../../plus/gk/subscription/subscriptionService';
+import type { Subscription } from '../../plus/gk/subscription/subscription';
+import { SubscriptionState } from '../../plus/gk/subscription/subscription';
 import { configuration } from '../../system/configuration';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';

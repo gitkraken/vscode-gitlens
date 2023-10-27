@@ -19,7 +19,7 @@ import type { DateStyle } from '../../config';
 import { Commands, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { emojify } from '../../emojis';
-import { arePlusFeaturesEnabled } from '../../plus/subscription/utils';
+import { arePlusFeaturesEnabled } from '../../plus/gk/utils';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { configuration } from '../../system/configuration';
 import { join, map } from '../../system/iterable';

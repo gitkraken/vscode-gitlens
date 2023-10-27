@@ -9,7 +9,7 @@ import { GitUri } from '../git/gitUri';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import type { GitWorktree } from '../git/models/worktree';
-import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
+import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
 import { executeCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';

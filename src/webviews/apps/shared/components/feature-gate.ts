@@ -1,6 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { isSubscriptionStatePaidOrTrial, SubscriptionState } from '../../../../subscription';
+import { isSubscriptionStatePaidOrTrial, SubscriptionState } from '../../../../plus/gk/subscription/subscription';
 import '../../plus/shared/components/feature-gate-plus-state';
 
 @customElement('gk-feature-gate')

@@ -1,12 +1,12 @@
 import { Disposable, window } from 'vscode';
 import { getAvatarUriFromGravatarEmail } from '../../../avatars';
 import type { Container } from '../../../container';
-import type { Subscription } from '../../../subscription';
+import type { Subscription } from '../../gk/subscription/subscription';
 import { registerCommand } from '../../../system/command';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
-import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
+import type { SubscriptionChangeEvent } from '../../gk/subscription/subscriptionService';
 import type { State } from './protocol';
 import { DidChangeSubscriptionNotificationType } from './protocol';
 
