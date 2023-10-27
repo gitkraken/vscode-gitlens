@@ -212,14 +212,20 @@ export class MergeGitCommand extends QuickCommand<State> {
 		const count = aheadBehind != null ? aheadBehind.ahead + aheadBehind.behind : 0;
 		if (count === 0) {
 			const step: QuickPickStep<DirectiveQuickPickItem> = this.createConfirmStep(
-				appendReposToTitle(`Confirm ${context.title}`, state, context),
+				appendReposToTitle(context.title, state, context),
 				[],
 				createDirectiveQuickPickItem(Directive.Cancel, true, {
-					label: `Cancel ${this.title}`,
+					label: 'OK',
 					detail: `${getReferenceLabel(context.destination, {
 						capitalize: true,
-					})} is up to date with ${getReferenceLabel(state.reference)}`,
+					})} is already up to date with ${getReferenceLabel(state.reference)}`,
 				}),
+				{
+					placeholder: `Nothing to merge; ${getReferenceLabel(context.destination, {
+						label: false,
+						icon: false,
+					})} is already up to date`,
+				},
 			);
 			const selection: StepSelection<typeof step> = yield step;
 			canPickStepContinue(step, state, selection);
