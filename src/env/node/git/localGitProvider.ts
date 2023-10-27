@@ -1122,7 +1122,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return undefined;
 	}
 
-	async applyPatchCommit(repoPath: string, sha: string, ref?: string): Promise<void> {
+	async applyPatchCommit(
+		repoPath: string,
+		patchCommitRef: string,
+		options?: { branchName?: string; createBranchIfNeeded?: boolean },
+	): Promise<void> {
 		// Stash any changes first
 		const repoStatus = await this.getStatusForRepo(repoPath);
 		const diffStatus = repoStatus?.getDiffStatus();
@@ -1130,16 +1134,27 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			await this.git.stash__push(repoPath, undefined, { includeUntracked: true });
 		}
 
-		if (ref) {
+		if (options?.branchName != null) {
+			const branchName = options.branchName;
+			// Check if the ref exists
+			const refExists = Boolean(await this.getBranches(repoPath, { filter: b => b.name === branchName }));
+			if (!refExists) {
+				if (options?.createBranchIfNeeded) {
+					// Create a new branch from the ref
+					await this.runGitCommandViaTerminal(repoPath, 'branch', [branchName], { execute: true });
+				} else {
+					return;
+				}
+			}
 			// Check if the ref is the current branch. If not, we need to checkout the ref first.
 			const currentBranch = await this.getBranch(repoPath);
-			if (currentBranch?.name !== ref) {
-				await this.git.checkout(repoPath, ref);
+			if (currentBranch?.name !== branchName) {
+				await this.git.checkout(repoPath, branchName);
 			}
 		}
 
 		// Apply the patch using a cherry pick without committing
-		await this.git.cherrypick(repoPath, sha, { noCommit: true });
+		await this.git.cherrypick(repoPath, patchCommitRef, { noCommit: true });
 	}
 
 	@log()

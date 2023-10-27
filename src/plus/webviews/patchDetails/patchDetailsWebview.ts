@@ -414,7 +414,9 @@ export class PatchDetailsWebviewProvider
 	private applyPatch(params: ApplyPatchParams) {
 		if (params.details.repoPath == null || params.details.commit == null) return;
 
-		void this.container.git.applyPatchCommit(params.details.repoPath, params.details.commit, params.targetRef);
+		void this.container.git.applyPatchCommit(params.details.repoPath, params.details.commit, {
+			branchName: params.targetRef,
+		});
 	}
 
 	private switchMode(params: SwitchModeParams) {

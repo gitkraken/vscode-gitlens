@@ -1358,9 +1358,13 @@ export class GitProviderService implements Disposable {
 		return provider.clone?.(url, parentPath);
 	}
 
-	async applyPatchCommit(repoPath: string | Uri, sha: string, ref?: string): Promise<void> {
+	async applyPatchCommit(
+		repoPath: string | Uri,
+		patchCommitRef: string,
+		options?: { branchName?: string; createBranchIfNeeded?: boolean },
+	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
-		return provider.applyPatchCommit?.(path, sha, ref);
+		return provider.applyPatchCommit?.(path, patchCommitRef, options);
 	}
 
 	@log()
