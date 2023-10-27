@@ -7,13 +7,14 @@ import type { PullRequest } from './git/models/pullRequest';
 import type { GitRemote } from './git/models/remote';
 import type { RepositoryMetadata } from './git/models/repositoryMetadata';
 import type { RemoteProvider } from './git/remotes/remoteProvider';
-import type { RichRemoteProvider } from './git/remotes/richRemoteProvider';
+import type { RepositoryDescriptor, RichRemoteProvider } from './git/remotes/richRemoteProvider';
 import { isPromise } from './system/promise';
 
 type Caches = {
 	defaultBranch: { key: `repo:${string}`; value: DefaultBranch };
 	// enrichedAutolinksBySha: { key: `sha:${string}:${string}`; value: Map<string, EnrichedAutolink> };
 	issuesOrPrsById: { key: `id:${string}:${string}`; value: IssueOrPullRequest };
+	issuesOrPrsByIdAndRepo: { key: `id:${string}:${string}:${string}`; value: IssueOrPullRequest };
 	prByBranch: { key: `branch:${string}:${string}`; value: PullRequest };
 	prsBySha: { key: `sha:${string}:${string}`; value: PullRequest };
 	repoMetadata: { key: `repo:${string}`; value: RepositoryMetadata };
@@ -73,11 +74,16 @@ export class CacheProvider implements Disposable {
 
 	getIssueOrPullRequest(
 		id: string,
+		repo: RepositoryDescriptor | undefined,
 		remoteOrProvider: RichRemoteProvider | GitRemote<RichRemoteProvider>,
 		cacheable: Cacheable<IssueOrPullRequest>,
 	): CacheResult<IssueOrPullRequest> {
 		const { key, etag } = getRemoteKeyAndEtag(remoteOrProvider);
-		return this.get('issuesOrPrsById', `id:${id}:${key}`, etag, cacheable);
+
+		if (repo == null) {
+			return this.get('issuesOrPrsById', `id:${id}:${key}`, etag, cacheable);
+		}
+		return this.get('issuesOrPrsByIdAndRepo', `id:${id}:${key}:${JSON.stringify(repo)}}`, etag, cacheable);
 	}
 
 	// getEnrichedAutolinks(
@@ -182,7 +188,8 @@ function getExpiresAt<T extends Cache>(cache: T, value: CacheValue<T> | undefine
 		case 'defaultBranch':
 		case 'repoMetadata':
 			return 0; // Never expires
-		case 'issuesOrPrsById': {
+		case 'issuesOrPrsById':
+		case 'issuesOrPrsByIdAndRepo': {
 			if (value == null) return 0; // Never expires
 
 			// Open issues expire after 1 hour, but closed issues expire after 12 hours unless recently updated and then expire in 1 hour
