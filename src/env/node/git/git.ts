@@ -68,7 +68,7 @@ const textDecoder = new TextDecoder('utf8');
 const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
 export const GitErrors = {
-	badIgnoreRevsFile: /could not open object name list: (.*)\w/i,
+	badIgnoreRevsFile: /could not open object name list: (.*)\s/i,
 	badRevision: /bad revision '(.*?)'/i,
 	cantLockRef: /cannot lock ref|unable to update local ref/i,
 	changesWouldBeOverwritten: /Your local changes to the following files would be overwritten/i,
