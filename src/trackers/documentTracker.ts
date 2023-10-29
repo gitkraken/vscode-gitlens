@@ -149,8 +149,12 @@ export class DocumentTracker<T> implements Disposable {
 
 	private onRepositoriesChanged(e: RepositoriesChangeEvent) {
 		void this.refreshDocuments({
-			addedOrChangedRepoPaths: e.added.length ? new Set<string>(e.added.map(r => r.path)) : undefined,
-			removedRepoPaths: e.removed.length ? new Set<string>(e.removed.map(r => r.path)) : undefined,
+			addedOrChangedRepoPaths: e.added.length
+				? new Set<string>(e.added.map(r => r.path.toLocaleLowerCase()))
+				: undefined,
+			removedRepoPaths: e.removed.length
+				? new Set<string>(e.removed.map(r => r.path.toLocaleLowerCase()))
+				: undefined,
 		});
 	}
 
@@ -389,10 +393,13 @@ export class DocumentTracker<T> implements Disposable {
 		addedOrChangedRepoPaths?: Set<string>;
 		removedRepoPaths?: Set<string>;
 	}) {
+		if (this._documentMap.size === 0) return;
+
 		for await (const doc of this._documentMap.values()) {
-			if (changed?.removedRepoPaths?.has(doc.uri.repoPath!)) {
+			const repoPath = doc.uri.repoPath!.toLocaleLowerCase();
+			if (changed?.removedRepoPaths?.has(repoPath)) {
 				void this.remove(doc.document, doc);
-			} else if (changed == null || changed?.addedOrChangedRepoPaths?.has(doc.uri.repoPath!)) {
+			} else if (changed == null || changed?.addedOrChangedRepoPaths?.has(repoPath)) {
 				doc.refresh('repo-changed');
 			}
 		}

@@ -501,4 +501,5 @@ export interface GitProvider extends Disposable {
 export interface RevisionUriData {
 	ref?: string;
 	repoPath: string;
+	uncPath?: string;
 }
