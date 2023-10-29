@@ -143,6 +143,7 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 }
 
 type ExitCodeOnlyGitCommandOptions = GitCommandOptions & { exitCodeOnly: true };
+export type PushForceOptions = { withLease: true; ifIncludes?: boolean } | { withLease: false; ifIncludes?: never };
 
 export class Git {
 	/** Map of running git commands -- avoids running duplicate overlaping commands */
@@ -881,12 +882,27 @@ export class Git {
 
 	async push(
 		repoPath: string,
-		options: { branch?: string; force?: boolean; publish?: boolean; remote?: string; upstream?: string },
+		options: {
+			branch?: string;
+			force?: PushForceOptions;
+			publish?: boolean;
+			remote?: string;
+			upstream?: string;
+		},
 	): Promise<void> {
 		const params = ['push'];
 
-		if (options.force) {
-			params.push('--force');
+		if (options.force != null) {
+			if (options.force.withLease) {
+				params.push('--force-with-lease');
+				if (options.force.ifIncludes) {
+					if (await this.isAtLeastVersion('2.30.0')) {
+						params.push('--force-if-includes');
+					}
+				}
+			} else {
+				params.push('--force');
+			}
 		}
 
 		if (options.branch && options.remote) {
@@ -911,7 +927,20 @@ export class Git {
 			} else if (GitWarnings.tipBehind.test(msg) || GitWarnings.tipBehind.test(ex.stderr ?? '')) {
 				reason = PushErrorReason.TipBehind;
 			} else if (GitErrors.pushRejected.test(msg) || GitErrors.pushRejected.test(ex.stderr ?? '')) {
-				reason = PushErrorReason.PushRejected;
+				if (options?.force?.withLease) {
+					if (/! \[rejected\].*\(stale info\)/m.test(ex.stderr || '')) {
+						reason = PushErrorReason.PushRejected;
+					} else if (
+						options.force.ifIncludes &&
+						/! \[rejected\].*\(remote ref updated since checkout\)/m.test(ex.stderr || '')
+					) {
+						reason = PushErrorReason.PushRejected;
+					} else {
+						reason = PushErrorReason.PushRejected;
+					}
+				} else {
+					reason = PushErrorReason.PushRejected;
+				}
 			} else if (GitErrors.permissionDenied.test(msg) || GitErrors.permissionDenied.test(ex.stderr ?? '')) {
 				reason = PushErrorReason.PermissionDenied;
 			} else if (GitErrors.remoteConnection.test(msg) || GitErrors.remoteConnection.test(ex.stderr ?? '')) {

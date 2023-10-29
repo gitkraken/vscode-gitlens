@@ -182,7 +182,7 @@ import { serializeWebviewItemContext } from '../../../system/webview';
 import type { CachedBlame, CachedDiff, CachedLog } from '../../../trackers/gitDocumentTracker';
 import { GitDocumentState } from '../../../trackers/gitDocumentTracker';
 import type { TrackedDocument } from '../../../trackers/trackedDocument';
-import type { Git } from './git';
+import type { Git, PushForceOptions } from './git';
 import {
 	getShaInLogRegex,
 	GitErrors,
@@ -1246,12 +1246,28 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			return undefined;
 		}
 
+		let forceOpts: PushForceOptions | undefined;
+		if (options?.force) {
+			const withLease = configuration.getAny<CoreGitConfiguration, boolean>('git.useForcePushWithLease') ?? true;
+			if (withLease) {
+				forceOpts = {
+					withLease: withLease,
+					ifIncludes:
+						configuration.getAny<CoreGitConfiguration, boolean>('git.useForcePushIfIncludes') ?? true,
+				};
+			} else {
+				forceOpts = {
+					withLease: withLease,
+				};
+			}
+		}
+
 		try {
 			await this.git.push(repoPath, {
 				branch: branchName,
 				remote: options?.publish ? options.publish.remote : remoteName,
 				upstream: getBranchTrackingWithoutRemote(branch),
-				force: options?.force,
+				force: forceOpts,
 				publish: options?.publish != null,
 			});
 

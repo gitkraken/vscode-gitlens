@@ -102,12 +102,14 @@ export class StashPushError extends Error {
 
 export const enum PushErrorReason {
 	RemoteAhead = 1,
-	TipBehind = 2,
-	PushRejected = 3,
-	PermissionDenied = 4,
-	RemoteConnection = 5,
-	NoUpstream = 6,
-	Other = 7,
+	TipBehind,
+	PushRejected,
+	PushRejectedWithLease,
+	PushRejectedWithLeaseIfIncludes,
+	PermissionDenied,
+	RemoteConnection,
+	NoUpstream,
+	Other,
 }
 
 export class PushError extends Error {
@@ -136,15 +138,22 @@ export class PushError extends Error {
 			reason = undefined;
 		} else {
 			reason = messageOrReason;
+
 			switch (reason) {
 				case PushErrorReason.RemoteAhead:
-					message = `${baseMessage} because the remote contains work that you do not have locally. Try doing a fetch first.`;
+					message = `${baseMessage} because the remote contains work that you do not have locally. Try fetching first.`;
 					break;
 				case PushErrorReason.TipBehind:
-					message = `${baseMessage} as it is behind its remote counterpart. Try doing a pull first.`;
+					message = `${baseMessage} as it is behind its remote counterpart. Try pulling first.`;
 					break;
 				case PushErrorReason.PushRejected:
-					message = `${baseMessage} because some refs failed to push or the push was rejected.`;
+					message = `${baseMessage} because some refs failed to push or the push was rejected. Try pulling first.`;
+					break;
+				case PushErrorReason.PushRejectedWithLease:
+				case PushErrorReason.PushRejectedWithLeaseIfIncludes:
+					message = `Unable to force push${branch ? ` branch '${branch}'` : ''}${
+						remote ? ` to ${remote}` : ''
+					} because some refs failed to push or the push was rejected. The tip of the remote-tracking branch has been updated since the last checkout. Try pulling first.`;
 					break;
 				case PushErrorReason.PermissionDenied:
 					message = `${baseMessage} because you don't have permission to push to this remote repository.`;

@@ -157,7 +157,7 @@ export class PushGitCommand extends QuickCommand<State> {
 
 	private async *confirmStep(state: PushStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
 		const useForceWithLease =
-			configuration.getAny<CoreGitConfiguration, boolean>('git.useForcePushWithLease') ?? false;
+			configuration.getAny<CoreGitConfiguration, boolean>('git.useForcePushWithLease') ?? true;
 
 		let step: QuickPickStep<FlagsQuickPickItem<Flags>>;
 
