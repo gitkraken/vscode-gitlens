@@ -664,6 +664,7 @@ export type CoreGitConfiguration =
 	| 'git.pullTags'
 	| 'git.repositoryScanIgnoredFolders'
 	| 'git.repositoryScanMaxDepth'
+	| 'git.useForcePushIfIncludes'
 	| 'git.useForcePushWithLease';
 
 export const enum GlyphChars {
