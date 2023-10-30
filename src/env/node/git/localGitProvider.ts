@@ -474,7 +474,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			if (!options?.silent && (autoRepositoryDetection === true || autoRepositoryDetection === 'subFolders')) {
 				for (const repository of repositories) {
-					void this.openScmRepository(repository.uri);
+					void this.getOrOpenScmRepository(repository.uri);
 				}
 			}
 
@@ -508,39 +508,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		closed?: boolean,
 	): Repository[] {
 		if (!closed) {
-			void this.openScmRepository(uri);
+			void this.getOrOpenScmRepository(uri);
 		}
 
-		// Add a closed (hidden) repository for the canonical version
-		const canonicalUri = this.toCanonicalMap.get(getBestPath(uri));
-		if (canonicalUri != null) {
-			return [
-				new Repository(
-					this.container,
-					this.onRepositoryChanged.bind(this),
-					this.descriptor,
-					folder ?? workspace.getWorkspaceFolder(uri),
-					uri,
-					root,
-					suspended ?? !window.state.focused,
-					closed,
-					// canonicalUri,
-				),
-				new Repository(
-					this.container,
-					this.onRepositoryChanged.bind(this),
-					this.descriptor,
-					folder ?? workspace.getWorkspaceFolder(canonicalUri),
-					canonicalUri,
-					root,
-					suspended ?? !window.state.focused,
-					true,
-					// uri,
-				),
-			];
-		}
-
-		return [
+		const opened = [
 			new Repository(
 				this.container,
 				this.onRepositoryChanged.bind(this),
@@ -552,6 +523,25 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				closed,
 			),
 		];
+
+		// Add a closed (hidden) repository for the canonical version if not already opened
+		const canonicalUri = this.toCanonicalMap.get(getBestPath(uri));
+		if (canonicalUri != null && this.container.git.getRepository(canonicalUri) == null) {
+			opened.push(
+				new Repository(
+					this.container,
+					this.onRepositoryChanged.bind(this),
+					this.descriptor,
+					folder ?? workspace.getWorkspaceFolder(canonicalUri),
+					canonicalUri,
+					root,
+					suspended ?? !window.state.focused,
+					true,
+				),
+			);
+		}
+
+		return opened;
 	}
 
 	@debug()
@@ -5386,27 +5376,18 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	async getOrOpenScmRepository(repoPath: string): Promise<ScmRepository | undefined> {
+	async getOrOpenScmRepository(repoPath: string | Uri): Promise<ScmRepository | undefined> {
 		const scope = getLogScope();
 		try {
+			const uri = repoPath instanceof Uri ? repoPath : Uri.file(repoPath);
 			const gitApi = await this.getScmGitApi();
-			if (gitApi?.openRepository != null) {
-				return (await gitApi?.openRepository?.(Uri.file(repoPath))) ?? undefined;
+
+			let repo = gitApi?.getRepository(uri) ?? undefined;
+			if (repo == null && gitApi?.openRepository != null) {
+				repo = (await gitApi?.openRepository?.(uri)) ?? undefined;
 			}
 
-			return gitApi?.getRepository(Uri.file(repoPath)) ?? undefined;
-		} catch (ex) {
-			Logger.error(ex, scope);
-			return undefined;
-		}
-	}
-
-	@log()
-	private async openScmRepository(uri: Uri): Promise<ScmRepository | undefined> {
-		const scope = getLogScope();
-		try {
-			const gitApi = await this.getScmGitApi();
-			return (await gitApi?.openRepository?.(uri)) ?? undefined;
+			return repo;
 		} catch (ex) {
 			Logger.error(ex, scope);
 			return undefined;
