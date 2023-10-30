@@ -170,6 +170,7 @@ import {
 	joinPaths,
 	maybeUri,
 	normalizePath,
+	pathEquals,
 	relative,
 	splitPath,
 } from '../../../system/path';
@@ -1364,10 +1365,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							),
 						);
 						if (networkPath != null) {
+							// If the repository is at the root of the mapped drive then we
+							// have to append `\` (ex: D:\) otherwise the path is not valid.
+							const isDriveRoot = pathEquals(repoUri.fsPath, networkPath);
+
 							repoPath = normalizePath(
 								repoUri.fsPath.replace(
 									networkPath,
-									`${letter.toLowerCase()}:${networkPath.endsWith('\\') ? '\\' : ''}`,
+									`${letter.toLowerCase()}:${isDriveRoot || networkPath.endsWith('\\') ? '\\' : ''}`,
 								),
 							);
 							return Uri.file(repoPath);

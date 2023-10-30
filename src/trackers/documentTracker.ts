@@ -150,11 +150,9 @@ export class DocumentTracker<T> implements Disposable {
 	private onRepositoriesChanged(e: RepositoriesChangeEvent) {
 		void this.refreshDocuments({
 			addedOrChangedRepoPaths: e.added.length
-				? new Set<string>(e.added.map(r => r.path.toLocaleLowerCase()))
+				? new Set<string>(e.added.map(r => r.path.toLowerCase()))
 				: undefined,
-			removedRepoPaths: e.removed.length
-				? new Set<string>(e.removed.map(r => r.path.toLocaleLowerCase()))
-				: undefined,
+			removedRepoPaths: e.removed.length ? new Set<string>(e.removed.map(r => r.path.toLowerCase())) : undefined,
 		});
 	}
 

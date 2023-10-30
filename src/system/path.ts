@@ -191,6 +191,14 @@ export function normalizePath(path: string): string {
 	return path;
 }
 
+export function pathEquals(a: string, b: string, ignoreCase?: boolean): boolean {
+	if (ignoreCase || (ignoreCase == null && !isLinux)) {
+		a = a.toLowerCase();
+		b = b.toLowerCase();
+	}
+	return normalizePath(a) === normalizePath(b);
+}
+
 export function relative(from: string, to: string, ignoreCase?: boolean): string {
 	from = hasSchemeRegex.test(from) ? Uri.parse(from, true).path : normalizePath(from);
 	to = hasSchemeRegex.test(to) ? Uri.parse(to, true).path : normalizePath(to);
