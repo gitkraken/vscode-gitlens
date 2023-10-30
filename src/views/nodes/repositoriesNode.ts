@@ -136,7 +136,7 @@ export class RepositoriesNode extends SubscribeableViewNode<
 				| undefined;
 			if (node == null) return;
 
-			// Check to see if this repo has a descendent that is already selected
+			// Check to see if this repo has a descendant that is already selected
 			let parent = this.view.selection.length === 0 ? undefined : this.view.selection[0];
 			while (parent != null) {
 				if (parent === node) return;

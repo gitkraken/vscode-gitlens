@@ -21,7 +21,7 @@ import { Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { configuration } from '../../system/configuration';
-import { basename, isDescendent } from '../../system/path';
+import { basename, isDescendant } from '../../system/path';
 import { pluralize, truncateLeft } from '../../system/string';
 import { openWorkspace } from '../../system/utils';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
@@ -586,7 +586,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		const trailer = `${basename(repoUri.path)}.worktrees`;
 
 		if (repoUri.toString() !== pickedUri.toString()) {
-			if (isDescendent(pickedUri, repoUri)) {
+			if (isDescendant(pickedUri, repoUri)) {
 				recommendedRootUri = Uri.joinPath(repoUri, '..', trailer);
 			} else if (basename(pickedUri.path) === trailer) {
 				recommendedRootUri = pickedUri;
