@@ -6,6 +6,9 @@ import type { LogLevel } from './system/logger.constants';
 export interface Config {
 	readonly ai: {
 		readonly experimental: {
+			readonly generateCommitMessage: {
+				readonly enabled: boolean;
+			};
 			readonly provider: 'openai' | 'anthropic';
 			readonly openai: {
 				readonly model?: OpenAIModels;

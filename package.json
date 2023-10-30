@@ -3139,12 +3139,19 @@
 				"title": "AI",
 				"order": 113,
 				"properties": {
+					"gitlens.ai.experimental.generateCommitMessage.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to enable GitLens' experimental, AI-powered, on-demand commit message generation",
+						"scope": "window",
+						"order": 1
+					},
 					"gitlens.experimental.generateCommitMessagePrompt": {
 						"type": "string",
 						"default": "Commit messages must have a short description that is less than 50 chars followed by a newline and a more detailed description.\n- Write concisely using an informal tone and avoid specific names from the code",
 						"markdownDescription": "Specifies the prompt to use to tell OpenAI how to structure or format the generated commit message",
 						"scope": "window",
-						"order": 1
+						"order": 2
 					},
 					"gitlens.ai.experimental.provider": {
 						"type": "string",
@@ -10517,7 +10524,7 @@
 				},
 				{
 					"command": "gitlens.generateCommitMessage",
-					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.ai.experimental.generateCommitMessage.enabled"
 				},
 				{
 					"command": "gitlens.resetAIKey",
@@ -10862,7 +10869,7 @@
 				},
 				{
 					"command": "gitlens.generateCommitMessage",
-					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.menus.scmRepository.generateCommitMessage",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.ai.experimental.generateCommitMessage.enabled && config.gitlens.menus.scmRepository.generateCommitMessage",
 					"group": "4_gitlens@2"
 				}
 			],
@@ -10898,7 +10905,7 @@
 				},
 				{
 					"command": "gitlens.generateCommitMessage",
-					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && scmProvider == git && config.gitlens.menus.scmRepository.generateCommitMessage",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && config.gitlens.ai.experimental.generateCommitMessage.enabled && scmProvider == git && config.gitlens.menus.scmRepository.generateCommitMessage",
 					"group": "2_z_gitlens@2"
 				},
 				{
