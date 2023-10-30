@@ -8,11 +8,7 @@ import { md5 } from '@env/crypto';
 import { fetch, getProxyAgent } from '@env/fetch';
 import { hrtime } from '@env/hrtime';
 import { isLinux, isWindows } from '@env/platform';
-import type {
-	API as BuiltInGitApi,
-	Repository as BuiltInGitRepository,
-	GitExtension,
-} from '../../../@types/vscode.git';
+import type { GitExtension, API as ScmGitApi } from '../../../@types/vscode.git';
 import { getCachedAvatarUri } from '../../../avatars';
 import type { CoreConfiguration, CoreGitConfiguration } from '../../../constants';
 import { GlyphChars, Schemes } from '../../../constants';
@@ -183,6 +179,7 @@ import { serializeWebviewItemContext } from '../../../system/webview';
 import type { CachedBlame, CachedDiff, CachedLog } from '../../../trackers/gitDocumentTracker';
 import { GitDocumentState } from '../../../trackers/gitDocumentTracker';
 import type { TrackedDocument } from '../../../trackers/trackedDocument';
+import { registerCommitMessageProvider } from './commitMessageProvider';
 import type { Git, PushForceOptions } from './git';
 import {
 	getShaInLogRegex,
@@ -352,6 +349,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		async function subscribeToScmOpenCloseRepository(this: LocalGitProvider) {
 			const scmGit = await scmGitPromise;
 			if (scmGit == null) return;
+
+			registerCommitMessageProvider(this.container, scmGit);
 
 			// Find env to pass to Git
 			if (configuration.get('experimental.nativeGit')) {
@@ -5328,13 +5327,13 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 	}
 
-	private _scmGitApi: Promise<BuiltInGitApi | undefined> | undefined;
-	private async getScmGitApi(): Promise<BuiltInGitApi | undefined> {
+	private _scmGitApi: Promise<ScmGitApi | undefined> | undefined;
+	private async getScmGitApi(): Promise<ScmGitApi | undefined> {
 		return this._scmGitApi ?? (this._scmGitApi = this.getScmGitApiCore());
 	}
 
 	@log()
-	private async getScmGitApiCore(): Promise<BuiltInGitApi | undefined> {
+	private async getScmGitApiCore(): Promise<ScmGitApi | undefined> {
 		try {
 			const extension = extensions.getExtension<GitExtension>('vscode.git');
 			if (extension == null) return undefined;
@@ -5403,7 +5402,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	@log()
-	private async openScmRepository(uri: Uri): Promise<BuiltInGitRepository | undefined> {
+	private async openScmRepository(uri: Uri): Promise<ScmRepository | undefined> {
 		const scope = getLogScope();
 		try {
 			const gitApi = await this.getScmGitApi();
