@@ -1396,7 +1396,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 							return;
 						}
 
-						if (equalsIgnoreCase(uri.fsPath, resolvedPath)) {
+						if (pathEquals(uri.fsPath, resolvedPath)) {
 							Logger.debug(scope, `No symlink detected; repoPath=${repoPath}`);
 							resolve([repoPath!, undefined]);
 							return;
