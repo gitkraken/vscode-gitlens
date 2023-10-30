@@ -2284,10 +2284,20 @@ export class GitProviderService implements Disposable {
 			return repository;
 		} else {
 			const stats = await workspace.fs.stat(uri);
+
+			const bestPath = getBestPath(uri);
+
+			Logger.debug(
+				scope,
+				`Ensuring URI is a folder; repository=${repository?.toString()}, uri=${uri.toString(true)} stats.type=${
+					stats.type
+				}, bestPath=${bestPath}, visitedPaths.has=${this._visitedPaths.has(bestPath)}`,
+			);
+
 			// If the uri isn't a directory, go up one level
 			if ((stats.type & FileType.Directory) !== FileType.Directory) {
 				uri = Uri.joinPath(uri, '..');
-				if (!options?.force && this._visitedPaths.has(getBestPath(uri))) return repository;
+				if (!options?.force && this._visitedPaths.has(bestPath)) return repository;
 			}
 
 			isDirectory = true;
