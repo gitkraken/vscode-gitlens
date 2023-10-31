@@ -52,6 +52,7 @@ interface TreeModelBase extends TreeItemBase {
 	label: string;
 	icon?: string | { type: 'status'; name: GitFileStatus };
 	description?: string;
+	context?: any[];
 	actions?: TreeItemAction[];
 	decorators?: TreeItemDecorator[];
 	contextData?: unknown;
@@ -68,6 +69,7 @@ export interface TreeModelFlat extends TreeModelBase {
 
 export interface TreeItemSelectionDetail {
 	node: TreeItemBase;
+	context?: any[];
 	dblClick: boolean;
 	altKey: boolean;
 	ctrlKey: boolean;
@@ -80,6 +82,7 @@ export interface TreeItemActionDetail extends TreeItemSelectionDetail {
 
 export interface TreeItemCheckedDetail {
 	node: TreeItemBase;
+	context?: any[];
 	checked: boolean;
 }
 

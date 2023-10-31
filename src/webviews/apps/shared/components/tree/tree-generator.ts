@@ -142,6 +142,7 @@ export class GlTreeGenerator extends LitElement {
 				detail: {
 					...e.detail,
 					node: model,
+					context: model.context,
 				},
 			}),
 		);
@@ -154,6 +155,7 @@ export class GlTreeGenerator extends LitElement {
 				detail: {
 					...e.detail,
 					node: model,
+					context: model.context,
 				},
 			}),
 		);
@@ -165,6 +167,7 @@ export class GlTreeGenerator extends LitElement {
 			new CustomEvent<TreeItemActionDetail>('tree-generated-item-action-clicked', {
 				detail: {
 					node: model,
+					context: model.context,
 					action: action,
 					dblClick: false,
 					altKey: e.altKey,
