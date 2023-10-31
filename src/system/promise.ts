@@ -161,6 +161,10 @@ export function defer<T>(): Deferred<T> {
 	return deferred;
 }
 
+export function getDeferredPromiseIfPending<T>(deferred: Deferred<T> | undefined): Promise<T> | undefined {
+	return deferred?.pending ? deferred.promise : undefined;
+}
+
 export function getSettledValue<T>(promise: PromiseSettledResult<T> | undefined): T | undefined;
 export function getSettledValue<T>(
 	promise: PromiseSettledResult<T> | undefined,
