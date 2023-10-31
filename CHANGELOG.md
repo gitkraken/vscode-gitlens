@@ -54,6 +54,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issue when clicking on commits in the Visual File History to open the _Commit Details_ view
 - Fixes issue opening stashes in the _Commit Details_ view from the _Stashes_ view
 - Fixes issue where GitHub/GitLab enriched autolinks could incorrectly point to the wrong repository
+- Fixes issue showing folder history in the _File History_ view when there are uncommitted changes (staged or unstaged)
 
 ## [14.4.0] - 2023-10-13
 

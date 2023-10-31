@@ -88,7 +88,15 @@ export class FileHistoryNode
 					uniqueBy(
 						flatMap(fileStatuses, f => f.getPseudoCommits(this.view.container, currentUser)),
 						c => c.sha,
-						(original, c) => original.with({ files: { files: [...original.files!, ...c.files!] } }),
+						(original, c) =>
+							original.with({
+								files: {
+									files: [
+										...(original.files ?? (original.file != null ? [original.file] : [])),
+										...(c.files ?? (c.file != null ? [c.file] : [])),
+									],
+								},
+							}),
 					),
 					commit => new CommitNode(this.view, this, commit),
 				);
