@@ -907,7 +907,7 @@ export class Git {
 
 		if (options.branch && options.remote) {
 			if (options.upstream) {
-				params.push('-u', options.remote, `${options.upstream}:${options.branch}`);
+				params.push('-u', options.remote, `${options.branch}:${options.upstream}`);
 			} else if (options.publish) {
 				params.push('--set-upstream', options.remote, options.branch);
 			} else {
