@@ -447,6 +447,15 @@ export class GitStatusFile implements GitFile {
 		const now = new Date();
 
 		if (this.conflicted) {
+			const file = new GitFileChange(
+				this.repoPath,
+				this.path,
+				this.status,
+				this.originalPath,
+				'HEAD',
+				undefined,
+				false,
+			);
 			return [
 				new GitCommit(
 					container,
@@ -457,15 +466,7 @@ export class GitStatusFile implements GitFile {
 					'Uncommitted changes',
 					['HEAD'],
 					'Uncommitted changes',
-					new GitFileChange(
-						this.repoPath,
-						this.path,
-						this.status,
-						this.originalPath,
-						'HEAD',
-						undefined,
-						false,
-					),
+					{ file: file, files: [file] },
 					undefined,
 					[],
 				),
@@ -477,6 +478,15 @@ export class GitStatusFile implements GitFile {
 
 		if (this.wip) {
 			const previousSha = staged ? uncommittedStaged : 'HEAD';
+			const file = new GitFileChange(
+				this.repoPath,
+				this.path,
+				this.status,
+				this.originalPath,
+				previousSha,
+				undefined,
+				false,
+			);
 			commits.push(
 				new GitCommit(
 					container,
@@ -487,15 +497,7 @@ export class GitStatusFile implements GitFile {
 					'Uncommitted changes',
 					[previousSha],
 					'Uncommitted changes',
-					new GitFileChange(
-						this.repoPath,
-						this.path,
-						this.status,
-						this.originalPath,
-						previousSha,
-						undefined,
-						false,
-					),
+					{ file: file, files: [file] },
 					undefined,
 					[],
 				),
@@ -506,6 +508,15 @@ export class GitStatusFile implements GitFile {
 		}
 
 		if (staged) {
+			const file = new GitFileChange(
+				this.repoPath,
+				this.path,
+				this.status,
+				this.originalPath,
+				'HEAD',
+				undefined,
+				true,
+			);
 			commits.push(
 				new GitCommit(
 					container,
@@ -516,15 +527,7 @@ export class GitStatusFile implements GitFile {
 					'Uncommitted changes',
 					['HEAD'],
 					'Uncommitted changes',
-					new GitFileChange(
-						this.repoPath,
-						this.path,
-						this.status,
-						this.originalPath,
-						'HEAD',
-						undefined,
-						true,
-					),
+					{ file: file, files: [file] },
 					undefined,
 					[],
 				),
