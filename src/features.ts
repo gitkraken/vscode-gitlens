@@ -6,6 +6,7 @@ export const enum Features {
 	Timeline = 'timeline',
 	Worktrees = 'worktrees',
 	StashOnlyStaged = 'stashOnlyStaged',
+	ForceIfIncludes = 'forceIfIncludes',
 }
 
 export type FeatureAccess =

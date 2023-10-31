@@ -1,6 +1,7 @@
 import type { CoreGitConfiguration } from '../../constants';
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
+import { Features } from '../../features';
 import { getRemoteNameFromBranchName } from '../../git/models/branch';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
 import { getReferenceLabel, isBranchReference } from '../../git/models/reference';
@@ -158,6 +159,10 @@ export class PushGitCommand extends QuickCommand<State> {
 	private async *confirmStep(state: PushStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
 		const useForceWithLease =
 			configuration.getAny<CoreGitConfiguration, boolean>('git.useForcePushWithLease') ?? true;
+		const useForceIfIncludes =
+			useForceWithLease &&
+			(configuration.getAny<CoreGitConfiguration, boolean>('git.useForcePushIfIncludes') ?? true) &&
+			(await this.container.git.supports(state.repos[0].uri, Features.ForceIfIncludes));
 
 		let step: QuickPickStep<FlagsQuickPickItem<Flags>>;
 
@@ -168,11 +173,15 @@ export class PushGitCommand extends QuickCommand<State> {
 					detail: `Will push ${state.repos.length} repositories`,
 				}),
 				createFlagsQuickPickItem<Flags>(state.flags, ['--force'], {
-					label: `Force ${this.title}${useForceWithLease ? ' (with lease)' : ''}`,
-					description: `--force${useForceWithLease ? '-with-lease' : ''}`,
-					detail: `Will force push${useForceWithLease ? ' (with lease)' : ''} ${
-						state.repos.length
-					} repositories`,
+					label: `Force ${this.title}${
+						useForceIfIncludes ? ' (with lease and if includes)' : useForceWithLease ? ' (with lease)' : ''
+					}`,
+					description: `--force${
+						useForceWithLease ? `-with-lease${useForceIfIncludes ? ' --force-if-includes' : ''}` : ''
+					}`,
+					detail: `Will force push${
+						useForceIfIncludes ? ' (with lease and if includes)' : useForceWithLease ? ' (with lease)' : ''
+					} ${state.repos.length} repositories`,
 				}),
 			]);
 		} else {
@@ -230,11 +239,27 @@ export class PushGitCommand extends QuickCommand<State> {
 							appendReposToTitle(`Confirm ${context.title}`, state, context),
 							[
 								createFlagsQuickPickItem<Flags>(state.flags, ['--force'], {
-									label: `Force ${this.title}${useForceWithLease ? ' (with lease)' : ''}`,
-									description: `--force${useForceWithLease ? '-with-lease' : ''}`,
-									detail: `Will force push${useForceWithLease ? ' (with lease)' : ''} ${
-										branch?.state.ahead ? ` ${pluralize('commit', branch.state.ahead)}` : ''
-									}${branch.getRemoteName() ? ` to ${branch.getRemoteName()}` : ''}${
+									label: `Force ${this.title}${
+										useForceIfIncludes
+											? ' (with lease and if includes)'
+											: useForceWithLease
+											? ' (with lease)'
+											: ''
+									}`,
+									description: `--force${
+										useForceWithLease
+											? `-with-lease${useForceIfIncludes ? ' --force-if-includes' : ''}`
+											: ''
+									}`,
+									detail: `Will force push${
+										useForceIfIncludes
+											? ' (with lease and if includes)'
+											: useForceWithLease
+											? ' (with lease)'
+											: ''
+									} ${branch?.state.ahead ? ` ${pluralize('commit', branch.state.ahead)}` : ''}${
+										branch.getRemoteName() ? ` to ${branch.getRemoteName()}` : ''
+									}${
 										branch != null && branch.state.behind > 0
 											? `, overwriting ${pluralize('commit', branch.state.behind)}${
 													branch?.getRemoteName() ? ` on ${branch.getRemoteName()}` : ''
@@ -363,9 +388,25 @@ export class PushGitCommand extends QuickCommand<State> {
 										}),
 								  ]),
 							createFlagsQuickPickItem<Flags>(state.flags, ['--force'], {
-								label: `Force ${this.title}${useForceWithLease ? ' (with lease)' : ''}`,
-								description: `--force${useForceWithLease ? '-with-lease' : ''}`,
-								detail: `Will force push${useForceWithLease ? ' (with lease)' : ''} ${pushDetails}${
+								label: `Force ${this.title}${
+									useForceIfIncludes
+										? ' (with lease and if includes)'
+										: useForceWithLease
+										? ' (with lease)'
+										: ''
+								}`,
+								description: `--force${
+									useForceWithLease
+										? `-with-lease${useForceIfIncludes ? ' --force-if-includes' : ''}`
+										: ''
+								}`,
+								detail: `Will force push${
+									useForceIfIncludes
+										? ' (with lease and if includes)'
+										: useForceWithLease
+										? ' (with lease)'
+										: ''
+								} ${pushDetails}${
 									status != null && status.state.behind > 0
 										? `, overwriting ${pluralize('commit', status.state.behind)}${
 												status?.upstream

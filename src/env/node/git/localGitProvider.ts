@@ -567,6 +567,10 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				supported = await this.git.isAtLeastVersion('2.35.0');
 				this._supportedFeatures.set(feature, supported);
 				return supported;
+			case Features.ForceIfIncludes:
+				supported = await this.git.isAtLeastVersion('2.30.0');
+				this._supportedFeatures.set(feature, supported);
+				return supported;
 			default:
 				return true;
 		}
