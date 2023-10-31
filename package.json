@@ -1292,25 +1292,6 @@
 						"scope": "window",
 						"order": 30
 					},
-					"gitlens.sortBranchesBy": {
-						"type": "string",
-						"default": "date:desc",
-						"enum": [
-							"date:desc",
-							"date:asc",
-							"name:asc",
-							"name:desc"
-						],
-						"enumDescriptions": [
-							"Sorts branches by the most recent commit date in descending order",
-							"Sorts branches by the most recent commit date in ascending order",
-							"Sorts branches by name in ascending order",
-							"Sorts branches by name in descending order"
-						],
-						"markdownDescription": "Specifies how branches are sorted in quick pick menus and views",
-						"scope": "window",
-						"order": 40
-					},
 					"gitlens.views.branches.files.layout": {
 						"type": "string",
 						"default": "auto",
@@ -1556,25 +1537,6 @@
 						"scope": "window",
 						"order": 10
 					},
-					"gitlens.sortTagsBy": {
-						"type": "string",
-						"default": "date:desc",
-						"enum": [
-							"date:desc",
-							"date:asc",
-							"name:asc",
-							"name:desc"
-						],
-						"enumDescriptions": [
-							"Sorts tags by date in descending order",
-							"Sorts tags by date in ascending order",
-							"Sorts tags by name in ascending order",
-							"Sorts tags by name in descending order"
-						],
-						"markdownDescription": "Specifies how tags are sorted in quick pick menus and views",
-						"scope": "window",
-						"order": 20
-					},
 					"gitlens.views.tags.files.layout": {
 						"type": "string",
 						"default": "auto",
@@ -1810,49 +1772,6 @@
 						"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Contributors_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 						"scope": "window",
 						"order": 31
-					},
-					"gitlens.sortContributorsBy": {
-						"type": "string",
-						"default": "count:desc",
-						"enum": [
-							"count:desc",
-							"count:asc",
-							"date:desc",
-							"date:asc",
-							"name:asc",
-							"name:desc"
-						],
-						"enumDescriptions": [
-							"Sorts contributors by commit count in descending order",
-							"Sorts contributors by commit count in ascending order",
-							"Sorts contributors by the most recent commit date in descending order",
-							"Sorts contributors by the most recent commit date in ascending order",
-							"Sorts contributors by name in ascending order",
-							"Sorts contributors by name in descending order"
-						],
-						"markdownDescription": "Specifies how contributors are sorted in quick pick menus and views",
-						"scope": "window",
-						"order": 40
-					},
-					"gitlens.sortRepositoriesBy": {
-						"type": "string",
-						"default": "lastFetched:desc",
-						"enum": [
-							"name:asc",
-							"name:desc",
-							"lastFetched:asc",
-							"lastFetched:desc"
-						],
-						"enumDescriptions": [
-							"Sorts repositories by name in ascending order",
-							"Sorts repositories by name in descending order",
-							"Sorts repositories by last fetched date in ascending order",
-							"Sorts repositories by last fetched date in descending order",
-							"Sorts repositories by starred first"
-						],
-						"markdownDescription": "Specifies how repositories are sorted in quick pick menus and views",
-						"scope": "window",
-						"order": 41
 					},
 					"gitlens.views.contributors.files.layout": {
 						"type": "string",
@@ -3324,9 +3243,98 @@
 				}
 			},
 			{
+				"id": "sorting",
+				"title": "Sorting",
+				"order": 121,
+				"properties": {
+					"gitlens.sortRepositoriesBy": {
+						"type": "string",
+						"default": "discovered",
+						"enum": [
+							"discovered",
+							"lastFetched:desc",
+							"lastFetched:asc",
+							"name:asc",
+							"name:desc"
+						],
+						"enumDescriptions": [
+							"Sorts repositories by discovery or workspace order",
+							"Sorts repositories by last fetched date in descending order",
+							"Sorts repositories by last fetched date in ascending order",
+							"Sorts repositories by name in ascending order",
+							"Sorts repositories by name in descending order"
+						],
+						"markdownDescription": "Specifies how repositories are sorted in quick pick menus and views",
+						"scope": "window",
+						"order": 10
+					},
+					"gitlens.sortBranchesBy": {
+						"type": "string",
+						"default": "date:desc",
+						"enum": [
+							"date:desc",
+							"date:asc",
+							"name:asc",
+							"name:desc"
+						],
+						"enumDescriptions": [
+							"Sorts branches by the most recent commit date in descending order",
+							"Sorts branches by the most recent commit date in ascending order",
+							"Sorts branches by name in ascending order",
+							"Sorts branches by name in descending order"
+						],
+						"markdownDescription": "Specifies how branches are sorted in quick pick menus and views",
+						"scope": "window",
+						"order": 20
+					},
+					"gitlens.sortTagsBy": {
+						"type": "string",
+						"default": "date:desc",
+						"enum": [
+							"date:desc",
+							"date:asc",
+							"name:asc",
+							"name:desc"
+						],
+						"enumDescriptions": [
+							"Sorts tags by date in descending order",
+							"Sorts tags by date in ascending order",
+							"Sorts tags by name in ascending order",
+							"Sorts tags by name in descending order"
+						],
+						"markdownDescription": "Specifies how tags are sorted in quick pick menus and views",
+						"scope": "window",
+						"order": 30
+					},
+					"gitlens.sortContributorsBy": {
+						"type": "string",
+						"default": "count:desc",
+						"enum": [
+							"count:desc",
+							"count:asc",
+							"date:desc",
+							"date:asc",
+							"name:asc",
+							"name:desc"
+						],
+						"enumDescriptions": [
+							"Sorts contributors by commit count in descending order",
+							"Sorts contributors by commit count in ascending order",
+							"Sorts contributors by the most recent commit date in descending order",
+							"Sorts contributors by the most recent commit date in ascending order",
+							"Sorts contributors by name in ascending order",
+							"Sorts contributors by name in descending order"
+						],
+						"markdownDescription": "Specifies how contributors are sorted in quick pick menus and views",
+						"scope": "window",
+						"order": 40
+					}
+				}
+			},
+			{
 				"id": "menus-toolbars",
 				"title": "Menus & Toolbars",
-				"order": 121,
+				"order": 122,
 				"properties": {
 					"gitlens.menus": {
 						"anyOf": [
@@ -3701,7 +3709,7 @@
 			{
 				"id": "keyboard",
 				"title": "Keyboard Shortcuts",
-				"order": 122,
+				"order": 123,
 				"properties": {
 					"gitlens.keymap": {
 						"type": "string",
@@ -3725,7 +3733,7 @@
 			{
 				"id": "modes",
 				"title": "Modes",
-				"order": 123,
+				"order": 124,
 				"properties": {
 					"gitlens.mode.statusBar.enabled": {
 						"type": "boolean",

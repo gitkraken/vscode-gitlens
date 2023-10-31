@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Improves the experience of the _Search Commits_ quick pick menu
   - Adds a stateful authors picker to make it much easier to search for commits by specific authors
   - Adds a file and folder picker to make it much easier to search for commits containing specific files or in specific folders
+- Adds ability to sort repositories in the views and quick pick menus &mdash; closes [#2836](https://github.com/gitkraken/vscode-gitlens/issues/2836) thanks to [PR #2991](https://github.com/gitkraken/vscode-gitlens/pull/2991)
+  - Adds a `gitlens.sortRepositoriesBy` setting to specify how repositories are sorted in quick pick menus and viewsby Aidos Kanapyanov ([@aidoskanapyanov](https://github.com/aidoskanapyanov))
 - Adds a _[Show|Hide] Merge Commits_ toggle to the Commits\_ view &mdash; closes [#1399](https://github.com/gitkraken/vscode-gitlens/issues/1399) thanks to [PR #1540](https://github.com/gitkraken/vscode-gitlens/pull/1540) by Shashank Shastri ([@Shashank-Shastri](https://github.com/Shashank-Shastri))
 - Adds a _Filter Commits by Author..._ commands to the _Commits_ view and comparisons context menus to filter commits in the _Commits_ view by specific authors
 - Adds an _Open Comparison on Remote_ command to comparisons in views

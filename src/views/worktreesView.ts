@@ -212,7 +212,8 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
-			!configuration.changed(e, 'defaultTimeFormat')
+			!configuration.changed(e, 'defaultTimeFormat') &&
+			!configuration.changed(e, 'sortRepositoriesBy')
 			// !configuration.changed(e, 'sortWorktreesBy')
 		) {
 			return false;
