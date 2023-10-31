@@ -35,7 +35,15 @@ import { Logger } from '../system/logger';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import { getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
 import type { Deferred } from '../system/promise';
-import { asSettled, cancellable, defer, getSettledValue, isPromise, PromiseCancelledError } from '../system/promise';
+import {
+	asSettled,
+	cancellable,
+	defer,
+	getDeferredPromiseIfPending,
+	getSettledValue,
+	isPromise,
+	PromiseCancelledError,
+} from '../system/promise';
 import { sortCompare } from '../system/string';
 import { VisitedPathsTrie } from '../system/trie';
 import type {
@@ -213,14 +221,14 @@ export class GitProviderService implements Disposable {
 		Promise<GitRemote<RemoteProvider | RichRemoteProvider>[]>
 	>();
 	private readonly _disposable: Disposable;
-	private _initializingDeferred: Deferred<number> | undefined;
+	private _initializing: Deferred<number> | undefined;
 	private readonly _pendingRepositories = new Map<RepoComparisonKey, Promise<Repository | undefined>>();
 	private readonly _providers = new Map<GitProviderId, GitProvider>();
 	private readonly _repositories = new Repositories();
 	private readonly _visitedPaths = new VisitedPathsTrie();
 
 	constructor(private readonly container: Container) {
-		this._initializingDeferred = defer<number>();
+		this._initializing = defer<number>();
 		this._disposable = Disposable.from(
 			container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			window.onDidChangeWindowState(this.onWindowStateChanged, this),
@@ -498,7 +506,7 @@ export class GitProviderService implements Disposable {
 		this.fireProvidersChanged([provider]);
 
 		// Don't kick off the discovery if we're still initializing (we'll do it at the end for all "known" providers)
-		if (!this._initializing) {
+		if (this._initializing != null) {
 			this.onWorkspaceFoldersChanged({ added: workspace.workspaceFolders ?? [], removed: [] });
 		}
 
@@ -538,13 +546,9 @@ export class GitProviderService implements Disposable {
 		};
 	}
 
-	private _initializing: boolean = true;
-
 	@log({ singleLine: true })
 	async registrationComplete() {
 		const scope = getLogScope();
-
-		this._initializing = false;
 
 		let { workspaceFolders } = workspace;
 		if (workspaceFolders?.length) {
@@ -560,6 +564,9 @@ export class GitProviderService implements Disposable {
 				}, 1000);
 			}
 		} else {
+			this._initializing?.fulfill(this._etag);
+			this._initializing = undefined;
+
 			this.updateContext();
 		}
 
@@ -606,20 +613,24 @@ export class GitProviderService implements Disposable {
 
 	private _discoveredWorkspaceFolders = new Map<WorkspaceFolder, Promise<Repository[]>>();
 
-	private _isDiscoveringRepositories: Promise<number> | undefined;
+	private _discoveringRepositories: Deferred<number> | undefined;
 	get isDiscoveringRepositories(): Promise<number> | undefined {
-		return this._isDiscoveringRepositories;
+		return (
+			getDeferredPromiseIfPending(this._discoveringRepositories) ??
+			getDeferredPromiseIfPending(this._initializing)
+		);
 	}
 
 	@log<GitProviderService['discoverRepositories']>({ args: { 0: folders => folders.length } })
 	async discoverRepositories(folders: readonly WorkspaceFolder[], options?: { force?: boolean }): Promise<void> {
-		if (this._isDiscoveringRepositories != null) {
-			await this._isDiscoveringRepositories;
-			this._isDiscoveringRepositories = undefined;
+		if (this._discoveringRepositories?.pending) {
+			await this._discoveringRepositories.promise;
+			this._discoveringRepositories = undefined;
 		}
 
-		const deferred = this._initializingDeferred ?? defer<number>();
-		this._isDiscoveringRepositories = deferred.promise;
+		const deferred = this._initializing ?? defer<number>();
+		this._discoveringRepositories = deferred;
+		this._initializing = undefined;
 
 		try {
 			const promises = [];
@@ -662,9 +673,6 @@ export class GitProviderService implements Disposable {
 		} finally {
 			queueMicrotask(() => {
 				deferred.fulfill(this._etag);
-				if (this._initializingDeferred != null) {
-					this._initializingDeferred = undefined;
-				}
 			});
 		}
 	}
@@ -1032,7 +1040,7 @@ export class GitProviderService implements Disposable {
 	async setEnabledContext(enabled: boolean): Promise<void> {
 		let disabled = !enabled;
 		// If we think we should be disabled during startup, check if we have a saved value from the last time this repo was loaded
-		if (!enabled && this._initializing) {
+		if (!enabled && this._initializing != null) {
 			disabled = !(this.container.storage.getWorkspace('assumeRepositoriesOnStartup') ?? false);
 		}
 
@@ -1054,7 +1062,7 @@ export class GitProviderService implements Disposable {
 
 		await Promise.allSettled(promises);
 
-		if (!this._initializing) {
+		if (this._initializing == null) {
 			void this.container.storage.storeWorkspace('assumeRepositoriesOnStartup', enabled).catch();
 		}
 	}
@@ -1070,7 +1078,7 @@ export class GitProviderService implements Disposable {
 		void this.setEnabledContext(hasRepositories);
 
 		// Don't bother trying to set the values if we're still starting up
-		if (this._initializing) return;
+		if (this._initializing != null) return;
 
 		this.container.telemetry.setGlobalAttributes({
 			enabled: hasRepositories,
@@ -2278,8 +2286,8 @@ export class GitProviderService implements Disposable {
 		let repository: Repository | undefined;
 		repository = this.getRepository(uri);
 
-		if (repository == null && this._isDiscoveringRepositories != null) {
-			await this._isDiscoveringRepositories;
+		if (repository == null && this._discoveringRepositories?.pending) {
+			await this._discoveringRepositories.promise;
 			repository = this.getRepository(uri);
 		}
 
