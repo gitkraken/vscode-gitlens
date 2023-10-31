@@ -16,7 +16,7 @@ import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../..
 import type { IntegrationAuthenticationSessionDescriptor } from '../../plus/integrationAuthentication';
 import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
-import { debug, log } from '../../system/decorators/log';
+import { debug, log, logName } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
@@ -31,6 +31,7 @@ import { RemoteProvider } from './remoteProvider';
 
 export type RepositoryDescriptor = Record<string, string>;
 
+@logName<RichRemoteProvider>((c, name) => `${name}(${c.remoteKey})`)
 export abstract class RichRemoteProvider<T extends RepositoryDescriptor = RepositoryDescriptor>
 	extends RemoteProvider
 	implements Disposable
