@@ -140,7 +140,8 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
-			!configuration.changed(e, 'defaultTimeFormat')
+			!configuration.changed(e, 'defaultTimeFormat') &&
+			!configuration.changed(e, 'sortRepositoriesBy')
 		) {
 			return false;
 		}

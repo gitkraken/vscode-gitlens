@@ -300,7 +300,8 @@ export class CommitsView extends ViewBase<'commits', CommitsViewNode, CommitsVie
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
-			!configuration.changed(e, 'plusFeatures.enabled')
+			!configuration.changed(e, 'plusFeatures.enabled') &&
+			!configuration.changed(e, 'sortRepositoriesBy')
 		) {
 			return false;
 		}

@@ -170,7 +170,8 @@ export class RemotesView extends ViewBase<'remotes', RemotesViewNode, RemotesVie
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
 			!configuration.changed(e, 'integrations.enabled') &&
-			!configuration.changed(e, 'sortBranchesBy')
+			!configuration.changed(e, 'sortBranchesBy') &&
+			!configuration.changed(e, 'sortRepositoriesBy')
 		) {
 			return false;
 		}

@@ -207,7 +207,9 @@ export abstract class RepositoryFolderNode<
 		}
 
 		if (this.changed(e)) {
-			void (this.loaded ? this : this.parent ?? this).triggerChange(true);
+			// If we are sorting by last fetched, then we need to trigger the parent to resort
+			const node = !this.loaded || this.repo.orderByLastFetched ? this.parent ?? this : this;
+			void node.triggerChange(true);
 		}
 	}
 }

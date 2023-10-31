@@ -72,9 +72,7 @@ export const enum RepositoryChange {
 	Remotes = 5,
 	Worktrees = 6,
 	Config = 7,
-	/*
-	 * Union of Cherry, Merge, and Rebase
-	 */
+	/** Union of Cherry, Merge, and Rebase */
 	Status = 8,
 	CherryPick = 9,
 	Merge = 10,
@@ -90,7 +88,6 @@ export const enum RepositoryChange {
 
 export const enum RepositoryChangeComparisonMode {
 	Any,
-	All,
 	Exclusive,
 }
 
@@ -194,20 +191,18 @@ export class Repository implements Disposable {
 					(a, b) => (a.starred ? -1 : 1) - (b.starred ? -1 : 1) || sortCompare(b.name, a.name),
 				);
 			case 'lastFetched:asc':
-				return repositories.sort((a, b) => {
-					if (typeof a._lastFetched === 'undefined' && typeof b._lastFetched === 'undefined') return 0;
-					else if (typeof a._lastFetched === 'undefined') return 1;
-					else if (typeof b._lastFetched === 'undefined') return -1;
-					return (a.starred ? -1 : 1) - (b.starred ? -1 : 1) || a._lastFetched - b._lastFetched;
-				});
+				return repositories.sort(
+					(a, b) =>
+						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) || (a._lastFetched ?? 0) - (b._lastFetched ?? 0),
+				);
 			case 'lastFetched:desc':
+				return repositories.sort(
+					(a, b) =>
+						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) || (b._lastFetched ?? 0) - (a._lastFetched ?? 0),
+				);
+			case 'discovered':
 			default:
-				return repositories.sort((a, b) => {
-					if (typeof a._lastFetched === 'undefined' && typeof b._lastFetched === 'undefined') return 0;
-					else if (typeof a._lastFetched === 'undefined') return 1;
-					else if (typeof b._lastFetched === 'undefined') return -1;
-					return (a.starred ? -1 : 1) - (b.starred ? -1 : 1) || b._lastFetched - a._lastFetched;
-				});
+				return repositories;
 		}
 	}
 
@@ -301,6 +296,9 @@ export class Repository implements Disposable {
 		);
 
 		this.onConfigurationChanged();
+		if (this._orderByLastFetched) {
+			void this.getLastFetched();
+		}
 	}
 
 	private setupRepoWatchers() {
@@ -388,12 +386,21 @@ export class Repository implements Disposable {
 		return this._updatedAt;
 	}
 
+	private _orderByLastFetched = false;
+	get orderByLastFetched(): boolean {
+		return this._orderByLastFetched;
+	}
+
 	private _updatedAt: number = 0;
 	get updatedAt(): number {
 		return this._updatedAt;
 	}
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent) {
+		if (configuration.changed(e, 'sortRepositoriesBy')) {
+			this._orderByLastFetched = configuration.get('sortRepositoriesBy')?.startsWith('lastFetched:') ?? false;
+		}
+
 		if (e != null && configuration.changed(e, 'remotes', this.folder?.uri)) {
 			this.resetCaches('remotes');
 			this.fireChange(RepositoryChange.Remotes);
@@ -421,6 +428,9 @@ export class Repository implements Disposable {
 		}
 
 		this._lastFetched = undefined;
+		if (this._orderByLastFetched) {
+			void this.getLastFetched();
+		}
 
 		const match =
 			uri != null
@@ -684,18 +694,10 @@ export class Repository implements Disposable {
 	private _lastFetched: number | undefined;
 	@gate()
 	async getLastFetched(): Promise<number> {
-		if (this._lastFetched == null) {
-			if (!(await this.hasRemotes())) return 0;
-		}
-
-		try {
-			const lastFetched = await this.container.git.getLastFetchedTimestamp(this.uri);
-			// If we don't get a number, assume the fetch failed, and don't update the timestamp
-			if (lastFetched != null) {
-				this._lastFetched = lastFetched;
-			}
-		} catch {
-			this._lastFetched = undefined;
+		const lastFetched = await this.container.git.getLastFetchedTimestamp(this.uri);
+		// If we don't get a number, assume the fetch failed, and don't update the timestamp
+		if (lastFetched != null) {
+			this._lastFetched = lastFetched;
 		}
 
 		return this._lastFetched ?? 0;

@@ -146,7 +146,8 @@ export class TagsView extends ViewBase<'tags', TagsViewNode, TagsViewConfig> {
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
-			!configuration.changed(e, 'sortTagsBy')
+			!configuration.changed(e, 'sortTagsBy') &&
+			!configuration.changed(e, 'sortRepositoriesBy')
 		) {
 			return false;
 		}

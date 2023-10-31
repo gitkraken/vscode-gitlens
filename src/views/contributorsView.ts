@@ -197,7 +197,8 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
-			!configuration.changed(e, 'sortContributorsBy')
+			!configuration.changed(e, 'sortContributorsBy') &&
+			!configuration.changed(e, 'sortRepositoriesBy')
 		) {
 			return false;
 		}
