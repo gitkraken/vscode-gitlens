@@ -6,8 +6,8 @@ const shortStatDiffRegex = /(\d+)\s+files? changed(?:,\s+(\d+)\s+insertions?\(\+
 
 function parseHunkHeaderPart(headerPart: string) {
 	const [startS, countS] = headerPart.split(',');
-	const count = Number(countS) || 1;
 	const start = Number(startS);
+	const count = Number(countS) || 1;
 	return { count: count, position: { start: start, end: start + count - 1 } };
 }
 
@@ -33,11 +33,11 @@ export function parseGitFileDiff(data: string, includeContents = false): GitDiff
 		line = lines[i];
 		if (!line.startsWith('@@')) continue;
 
-		const content = line.slice(4, -3);
-		const [previousHeaderPart, currentHeaderPart] = content.split(' +');
+		const header = line.split('@@')[1].trim();
+		const [previousHeaderPart, currentHeaderPart] = header.split(' ');
 
-		const current = parseHunkHeaderPart(currentHeaderPart);
-		const previous = parseHunkHeaderPart(previousHeaderPart);
+		const current = parseHunkHeaderPart(currentHeaderPart.slice(1));
+		const previous = parseHunkHeaderPart(previousHeaderPart.slice(1));
 
 		const hunkLines = new Map<number, GitDiffHunkLine>();
 		let fileLineNumber = current.position.start;
