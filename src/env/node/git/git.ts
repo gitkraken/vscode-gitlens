@@ -929,12 +929,12 @@ export class Git {
 			} else if (GitErrors.pushRejected.test(msg) || GitErrors.pushRejected.test(ex.stderr ?? '')) {
 				if (options?.force?.withLease) {
 					if (/! \[rejected\].*\(stale info\)/m.test(ex.stderr || '')) {
-						reason = PushErrorReason.PushRejected;
+						reason = PushErrorReason.PushRejectedWithLease;
 					} else if (
 						options.force.ifIncludes &&
 						/! \[rejected\].*\(remote ref updated since checkout\)/m.test(ex.stderr || '')
 					) {
-						reason = PushErrorReason.PushRejected;
+						reason = PushErrorReason.PushRejectedWithLeaseIfIncludes;
 					} else {
 						reason = PushErrorReason.PushRejected;
 					}
