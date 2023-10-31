@@ -48,7 +48,9 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 		if (this.children == null) {
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = 'No worktrees could be found.';
+				this.view.message = this.view.container.git.isDiscoveringRepositories
+					? 'Loading worktrees...'
+					: 'No worktrees could be found.';
 
 				return [];
 			}
