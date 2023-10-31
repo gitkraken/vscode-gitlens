@@ -76,7 +76,7 @@ type WebviewViewController<State, SerializedState = State> = WebviewController<
 	WebviewViewDescriptor
 >;
 
-@logName<WebviewController<any>>(c => `WebviewController(${c.id})`)
+@logName<WebviewController<any>>(c => `WebviewController(${c.id}${c.instanceId != null ? `|${c.instanceId}` : ''})`)
 export class WebviewController<
 	State,
 	SerializedState = State,

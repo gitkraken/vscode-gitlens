@@ -15,7 +15,7 @@ import { executeCoreCommand, registerCommand } from '../system/command';
 import { debug } from '../system/decorators/log';
 import { find, first, map } from '../system/iterable';
 import { Logger } from '../system/logger';
-import { getLogScope } from '../system/logger.scope';
+import { getNewLogScope } from '../system/logger.scope';
 import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
 import { WebviewCommandRegistrar } from './webviewCommandRegistrar';
 import type { WebviewProvider } from './webviewController';
@@ -116,9 +116,8 @@ export class WebviewsController implements Disposable {
 			container: Container,
 			controller: WebviewController<State, SerializedState>,
 		) => Promise<WebviewProvider<State, SerializedState>>,
-		canResolveProvider?: () => boolean | Promise<boolean>,
 	): WebviewViewProxy {
-		const scope = getLogScope();
+		const scope = getNewLogScope(`WebviewView(${descriptor.id})`);
 
 		const registration: WebviewViewRegistration<State, SerializedState> = { descriptor: descriptor };
 		this._views.set(descriptor.id, registration);
@@ -133,16 +132,12 @@ export class WebviewsController implements Disposable {
 						context: WebviewViewResolveContext<SerializedState>,
 						token: CancellationToken,
 					) => {
-						if (canResolveProvider != null) {
-							if ((await canResolveProvider()) === false) return;
-						}
-
 						if (registration.descriptor.plusFeature) {
 							if (!(await ensurePlusFeaturesEnabled())) return;
 							if (token.isCancellationRequested) return;
 						}
 
-						Logger.debug(scope, `Resolving webview view (${descriptor.id})`);
+						Logger.debug(scope, 'Resolving view');
 
 						webviewView.webview.options = {
 							enableCommandUris: true,
@@ -167,7 +162,7 @@ export class WebviewsController implements Disposable {
 
 						disposables.push(
 							controller.onDidDispose(() => {
-								Logger.debug(scope, `Disposing webview view (${descriptor.id})`);
+								Logger.debug(scope, 'Disposing view');
 
 								registration.pendingShowArgs = undefined;
 								registration.controller = undefined;
@@ -181,6 +176,7 @@ export class WebviewsController implements Disposable {
 							args = [undefined, context];
 						}
 
+						Logger.debug(scope, 'Showing view');
 						if (args != null) {
 							await controller.show(true, ...args);
 						} else {
@@ -209,11 +205,11 @@ export class WebviewsController implements Disposable {
 				return registration.controller != null ? registration.controller.refresh(force) : Promise.resolve();
 			},
 			show: function (options?: WebviewViewShowOptions, ...args: unknown[]) {
+				Logger.debug(scope, 'Showing view');
+
 				if (registration.controller != null) {
 					return registration.controller.show(false, options, ...args);
 				}
-
-				Logger.debug(scope, `Showing webview view (${descriptor.id})`);
 
 				registration.pendingShowArgs = [options, ...args];
 				return Promise.resolve(void executeCoreCommand(`${descriptor.id}.focus`, options));
@@ -223,7 +219,7 @@ export class WebviewsController implements Disposable {
 
 	@debug<WebviewsController['registerWebviewPanel']>({
 		args: {
-			0: c => c,
+			0: c => c.id,
 			1: d => d.id,
 			2: false,
 			3: false,
@@ -239,9 +235,8 @@ export class WebviewsController implements Disposable {
 			container: Container,
 			controller: WebviewController<State, SerializedState>,
 		) => Promise<WebviewProvider<State, SerializedState>>,
-		canResolveProvider?: () => boolean | Promise<boolean>,
 	): WebviewPanelsProxy {
-		const scope = getLogScope();
+		const scope = getNewLogScope(`WebviewPanel(${descriptor.id})`);
 
 		const registration: WebviewPanelRegistration<State, SerializedState> = { descriptor: descriptor };
 		this._panels.set(descriptor.id, registration);
@@ -252,10 +247,6 @@ export class WebviewsController implements Disposable {
 		let serializedPanel: WebviewPanel | undefined;
 
 		async function show(options?: WebviewPanelsShowOptions, ...args: unknown[]): Promise<void> {
-			if (canResolveProvider != null) {
-				if ((await canResolveProvider()) === false) return;
-			}
-
 			const { descriptor } = registration;
 			if (descriptor.plusFeature) {
 				if (!(await ensurePlusFeaturesEnabled())) return;
@@ -315,12 +306,12 @@ export class WebviewsController implements Disposable {
 			if (controller == null) {
 				let panel: WebviewPanel;
 				if (serializedPanel != null) {
-					Logger.debug(scope, `Restoring webview panel (${descriptor.id})`);
+					Logger.debug(scope, 'Restoring panel');
 
 					panel = serializedPanel;
 					serializedPanel = undefined;
 				} else {
-					Logger.debug(scope, `Creating webview panel (${descriptor.id})`);
+					Logger.debug(scope, 'Creating panel');
 
 					panel = window.createWebviewPanel(
 						descriptor.id,
@@ -354,16 +345,17 @@ export class WebviewsController implements Disposable {
 
 				disposables.push(
 					controller.onDidDispose(() => {
-						Logger.debug(scope, `Disposing webview panel (${descriptor.id})`);
+						Logger.debug(scope, `Disposing panel (${controller!.instanceId})`);
 
 						registration.controllers?.delete(controller!.instanceId);
 					}),
 					controller,
 				);
 
+				Logger.debug(scope, `Showing panel (${controller.instanceId})`);
 				await controller.show(true, options, ...args);
 			} else {
-				Logger.debug(scope, `Showing webview panel (${descriptor.id}, ${controller.instanceId}})`);
+				Logger.debug(scope, `Showing existing panel (${controller.instanceId})`);
 				await controller.show(false, options, ...args);
 			}
 		}
@@ -373,6 +365,7 @@ export class WebviewsController implements Disposable {
 			// Where as right now our webviews are only saving "client" state, e.g. the entire state sent to the webview, rather than key pieces of state
 			// We probably need to separate state into actual "state" and all the data that is sent to the webview, e.g. for the Graph state might be the selected repo, selected sha, etc vs the entire data set to render the Graph
 			serializedPanel = panel;
+			Logger.debug(scope, `Deserializing panel state=${state != null ? '<state>' : 'undefined'}`);
 			if (state != null) {
 				await show(
 					{ column: panel.viewColumn, preserveFocus: true, preserveInstance: false },
