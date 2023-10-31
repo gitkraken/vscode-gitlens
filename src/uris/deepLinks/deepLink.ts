@@ -16,6 +16,9 @@ export enum DeepLinkType {
 	Workspace = 'workspace',
 }
 
+export const AccountDeepLinkTypes = [DeepLinkType.Draft, DeepLinkType.Workspace];
+export const PaidDeepLinkTypes = [];
+
 export function deepLinkTypeToString(type: DeepLinkType): string {
 	switch (type) {
 		case DeepLinkType.Branch:
@@ -148,6 +151,8 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 
 export const enum DeepLinkServiceState {
 	Idle,
+	AccountCheck,
+	PlanCheck,
 	TypeMatch,
 	RepoMatch,
 	CloneOrAddRepo,
@@ -165,6 +170,7 @@ export const enum DeepLinkServiceState {
 }
 
 export const enum DeepLinkServiceAction {
+	AccountCheckPassed,
 	DeepLinkEventFired,
 	DeepLinkCancelled,
 	DeepLinkResolved,
@@ -174,6 +180,7 @@ export const enum DeepLinkServiceAction {
 	LinkIsDraftType,
 	LinkIsWorkspaceType,
 	OpenRepo,
+	PlanCheckPassed,
 	RepoMatched,
 	RepoMatchedInLocalMapping,
 	RepoMatchedForDraft,
@@ -213,7 +220,17 @@ export interface DeepLinkServiceContext {
 
 export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLinkServiceState>> = {
 	[DeepLinkServiceState.Idle]: {
-		[DeepLinkServiceAction.DeepLinkEventFired]: DeepLinkServiceState.TypeMatch,
+		[DeepLinkServiceAction.DeepLinkEventFired]: DeepLinkServiceState.AccountCheck,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.AccountCheck]: {
+		[DeepLinkServiceAction.AccountCheckPassed]: DeepLinkServiceState.PlanCheck,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.PlanCheck]: {
+		[DeepLinkServiceAction.PlanCheckPassed]: DeepLinkServiceState.TypeMatch,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.TypeMatch]: {
@@ -300,6 +317,8 @@ export interface DeepLinkProgress {
 
 export const deepLinkStateToProgress: Record<string, DeepLinkProgress> = {
 	[DeepLinkServiceState.Idle]: { message: 'Done.', increment: 100 },
+	[DeepLinkServiceState.AccountCheck]: { message: 'Checking account...', increment: 1 },
+	[DeepLinkServiceState.PlanCheck]: { message: 'Checking plan...', increment: 2 },
 	[DeepLinkServiceState.TypeMatch]: { message: 'Matching link type...', increment: 5 },
 	[DeepLinkServiceState.RepoMatch]: { message: 'Finding a matching repository...', increment: 10 },
 	[DeepLinkServiceState.CloneOrAddRepo]: { message: 'Adding repository...', increment: 20 },

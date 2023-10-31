@@ -8,6 +8,7 @@ import type { GitReference } from '../../git/models/reference';
 import { createReference, isSha } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
+import { ensureAccount, ensurePaidPlan } from '../../plus/utils';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { executeCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
@@ -18,6 +19,7 @@ import type { OpenWorkspaceLocation } from '../../system/utils';
 import { openWorkspace } from '../../system/utils';
 import type { DeepLink, DeepLinkProgress, DeepLinkRepoOpenType, DeepLinkServiceContext, UriTypes } from './deepLink';
 import {
+	AccountDeepLinkTypes,
 	DeepLinkServiceAction,
 	DeepLinkServiceState,
 	deepLinkStateToProgress,
@@ -430,6 +432,56 @@ export class DeepLinkService implements Disposable {
 					// Deep link processing complete. Reset the context and return.
 					this.resetContext();
 					return;
+				}
+				case DeepLinkServiceState.AccountCheck: {
+					if (targetType == null) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'No link type provided.';
+						break;
+					}
+					if (!AccountDeepLinkTypes.includes(targetType)) {
+						action = DeepLinkServiceAction.AccountCheckPassed;
+						break;
+					}
+
+					if (
+						!(await ensureAccount(
+							`Account required to open ${deepLinkTypeToString(targetType)} link`,
+							this.container,
+						))
+					) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Account required to open link';
+						break;
+					}
+
+					action = DeepLinkServiceAction.AccountCheckPassed;
+					break;
+				}
+				case DeepLinkServiceState.PlanCheck: {
+					if (targetType == null) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'No link type provided.';
+						break;
+					}
+					if (!AccountDeepLinkTypes.includes(targetType)) {
+						action = DeepLinkServiceAction.PlanCheckPassed;
+						break;
+					}
+
+					if (
+						!(await ensurePaidPlan(
+							`Paid plan required to open ${deepLinkTypeToString(targetType)} link`,
+							this.container,
+						))
+					) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Paid plan required to open link';
+						break;
+					}
+
+					action = DeepLinkServiceAction.PlanCheckPassed;
+					break;
 				}
 				case DeepLinkServiceState.TypeMatch: {
 					switch (targetType) {
