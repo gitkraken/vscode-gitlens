@@ -122,7 +122,9 @@ export class CommitsViewNode extends RepositoriesSubscribeableNode<CommitsView, 
 		if (this.children == null) {
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = 'No commits could be found.';
+				this.view.message = this.view.container.git.isDiscoveringRepositories
+					? 'Loading commits...'
+					: 'No commits could be found.';
 
 				return [];
 			}

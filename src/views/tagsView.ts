@@ -38,7 +38,9 @@ export class TagsViewNode extends RepositoriesSubscribeableNode<TagsView, TagsRe
 		if (this.children == null) {
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = 'No tags could be found.';
+				this.view.message = this.view.container.git.isDiscoveringRepositories
+					? 'Loading tags...'
+					: 'No tags could be found.';
 
 				return [];
 			}

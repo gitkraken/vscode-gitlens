@@ -37,7 +37,9 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 		if (this.children == null) {
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = 'No stashes could be found.';
+				this.view.message = this.view.container.git.isDiscoveringRepositories
+					? 'Loading stashes...'
+					: 'No stashes could be found.';
 
 				return [];
 			}

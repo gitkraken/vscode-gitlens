@@ -51,7 +51,9 @@ export class RemotesViewNode extends RepositoriesSubscribeableNode<RemotesView, 
 		if (this.children == null) {
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = 'No remotes could be found.';
+				this.view.message = this.view.container.git.isDiscoveringRepositories
+					? 'Loading remotes...'
+					: 'No remotes could be found.';
 
 				return [];
 			}

@@ -50,7 +50,9 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 		if (this.children == null) {
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = 'No branches could be found.';
+				this.view.message = this.view.container.git.isDiscoveringRepositories
+					? 'Loading branches...'
+					: 'No branches could be found.';
 
 				return [];
 			}
