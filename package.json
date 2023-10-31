@@ -1834,6 +1834,26 @@
 						"scope": "window",
 						"order": 40
 					},
+					"gitlens.sortRepositoriesBy": {
+						"type": "string",
+						"default": "lastFetched:desc",
+						"enum": [
+							"name:asc",
+							"name:desc",
+							"lastFetched:asc",
+							"lastFetched:desc"
+						],
+						"enumDescriptions": [
+							"Sorts repositories by name in ascending order",
+							"Sorts repositories by name in descending order",
+							"Sorts repositories by last fetched date in ascending order",
+							"Sorts repositories by last fetched date in descending order",
+							"Sorts repositories by starred first"
+						],
+						"markdownDescription": "Specifies how repositories are sorted in quick pick menus and views",
+						"scope": "window",
+						"order": 41
+					},
 					"gitlens.views.contributors.files.layout": {
 						"type": "string",
 						"default": "auto",

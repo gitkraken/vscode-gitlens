@@ -3,6 +3,7 @@ import { Disposable, EventEmitter, ProgressLocation, RelativePattern, window, wo
 import { md5 } from '@env/crypto';
 import { ForcePushMode } from '../../@types/vscode.git.enums';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
+import type { RepositoriesSorting } from '../../config';
 import type { CoreGitConfiguration } from '../../constants';
 import { Schemes } from '../../constants';
 import type { Container } from '../../container';
@@ -21,6 +22,7 @@ import { getLoggableName, Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import { updateRecordValue } from '../../system/object';
 import { basename, normalizePath } from '../../system/path';
+import { sortCompare } from '../../system/string';
 import type { GitDir, GitProviderDescriptor, GitRepositoryCaches } from '../gitProvider';
 import type { RichRemoteProvider } from '../remotes/richRemoteProvider';
 import type { GitSearch, SearchQuery } from '../search';
@@ -39,6 +41,10 @@ import type { GitStash } from './stash';
 import type { GitStatus } from './status';
 import type { GitTag, TagSortOptions } from './tag';
 import type { GitWorktree } from './worktree';
+
+export interface RepositoriesSortOptions {
+	orderBy?: RepositoriesSorting;
+}
 
 const emptyArray = Object.freeze([]) as unknown as any[];
 
@@ -175,8 +181,34 @@ export class Repository implements Disposable {
 			: 0;
 	}
 
-	static sort(repositories: Repository[]) {
-		return repositories.sort((a, b) => (a.starred ? -1 : 1) - (b.starred ? -1 : 1) || a.index - b.index);
+	static sort(repositories: Repository[], options?: RepositoriesSortOptions) {
+		options = { orderBy: configuration.get('sortRepositoriesBy'), ...options };
+
+		switch (options.orderBy) {
+			case 'name:asc':
+				return repositories.sort(
+					(a, b) => (a.starred ? -1 : 1) - (b.starred ? -1 : 1) || sortCompare(a.name, b.name),
+				);
+			case 'name:desc':
+				return repositories.sort(
+					(a, b) => (a.starred ? -1 : 1) - (b.starred ? -1 : 1) || sortCompare(b.name, a.name),
+				);
+			case 'lastFetched:asc':
+				return repositories.sort((a, b) => {
+					if (typeof a._lastFetched === 'undefined' && typeof b._lastFetched === 'undefined') return 0;
+					else if (typeof a._lastFetched === 'undefined') return 1;
+					else if (typeof b._lastFetched === 'undefined') return -1;
+					return (a.starred ? -1 : 1) - (b.starred ? -1 : 1) || a._lastFetched - b._lastFetched;
+				});
+			case 'lastFetched:desc':
+			default:
+				return repositories.sort((a, b) => {
+					if (typeof a._lastFetched === 'undefined' && typeof b._lastFetched === 'undefined') return 0;
+					else if (typeof a._lastFetched === 'undefined') return 1;
+					else if (typeof b._lastFetched === 'undefined') return -1;
+					return (a.starred ? -1 : 1) - (b.starred ? -1 : 1) || b._lastFetched - a._lastFetched;
+				});
+		}
 	}
 
 	private _onDidChange = new EventEmitter<RepositoryChangeEvent>();
