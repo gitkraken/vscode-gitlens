@@ -1,5 +1,5 @@
 import { defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-components';
-import { html, LitElement } from 'lit';
+import { html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
@@ -7,7 +7,6 @@ import { when } from 'lit/directives/when.js';
 import type { TextDocumentShowOptions } from 'vscode';
 import type { GitFileChangeShape } from '../../../../../git/models/file';
 import type { DraftDetails, State } from '../../../../../plus/webviews/patchDetails/protocol';
-import type { HierarchicalItem } from '../../../../../system/array';
 import { makeHierarchical } from '../../../../../system/array';
 import type {
 	TreeItemActionDetail,
@@ -16,6 +15,7 @@ import type {
 	TreeItemSelectionDetail,
 	TreeModel,
 } from '../../../shared/components/tree/base';
+import { GlTreeBase } from './gl-tree-base';
 import '../../../shared/components/tree/tree-generator';
 
 // Can only import types from 'vscode'
@@ -51,7 +51,7 @@ export interface ShowPatchInGraphDetail {
 }
 
 @customElement('gl-draft-details')
-export class GlDraftDetails extends LitElement {
+export class GlDraftDetails extends GlTreeBase {
 	@property({ type: Object })
 	state!: State;
 
@@ -227,18 +227,8 @@ export class GlDraftDetails extends LitElement {
 				<div class="change-list" data-region="files">
 					${when(
 						this.state?.draft?.files == null,
-						() => html`
-							<div class="section section--skeleton">
-								<skeleton-loader></skeleton-loader>
-							</div>
-							<div class="section section--skeleton">
-								<skeleton-loader></skeleton-loader>
-							</div>
-							<div class="section section--skeleton">
-								<skeleton-loader></skeleton-loader>
-							</div>
-						`,
-						() => this.renderTreeView(),
+						() => this.renderLoading(),
+						() => this.renderTreeView(this.treeModel),
 					)}
 				</div>
 			</webview-pane>
@@ -263,19 +253,10 @@ export class GlDraftDetails extends LitElement {
 
 		// checkable only for multi-repo
 		const options = { checkable: false };
-		const testModel = draftDetailsToTreeModel(draft, isTree, this.state.preferences?.files?.compact, options);
+		const testModel = this.draftDetailsToTreeModel(draft, isTree, this.state.preferences?.files?.compact, options);
 		console.log(testModel);
 
 		return [testModel];
-	}
-
-	renderTreeView() {
-		return html`<gl-tree-generator
-			.model=${this.treeModel}
-			@tree-generated-item-action-clicked=${this.onTreeItemActionClicked}
-			@tree-generated-item-checked=${this.onTreeItemChecked}
-			@tree-generated-item-selected=${this.onTreeItemSelected}
-		></gl-tree-generator>`;
 	}
 
 	renderPatches() {
@@ -486,7 +467,7 @@ export class GlDraftDetails extends LitElement {
 		this.explainBusy = true;
 	}
 
-	onTreeItemActionClicked(e: CustomEvent<TreeItemActionDetail>) {
+	override onTreeItemActionClicked(e: CustomEvent<TreeItemActionDetail>) {
 		if (!e.detail.context || !e.detail.action) return;
 
 		const action = e.detail.action;
@@ -543,7 +524,7 @@ export class GlDraftDetails extends LitElement {
 		});
 	}
 
-	onTreeItemChecked(e: CustomEvent<TreeItemCheckedDetail>) {
+	override onTreeItemChecked(e: CustomEvent<TreeItemCheckedDetail>) {
 		if (!e.detail.context) return;
 
 		const [repoPath] = e.detail.context;
@@ -555,7 +536,7 @@ export class GlDraftDetails extends LitElement {
 		this.dispatchEvent(event);
 	}
 
-	onTreeItemSelected(e: CustomEvent<TreeItemSelectionDetail>) {
+	override onTreeItemSelected(e: CustomEvent<TreeItemSelectionDetail>) {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
@@ -635,107 +616,50 @@ export class GlDraftDetails extends LitElement {
 		});
 		this.dispatchEvent(evt);
 	}
-}
 
-function draftDetailsToTreeModel(
-	details: DraftDetails,
-	isTree = false,
-	compact = true,
-	options?: Partial<TreeItemBase>,
-): TreeModel {
-	const model = repoToTreeModel(details.repoName!, details.repoPath!, options);
+	draftDetailsToTreeModel(
+		details: DraftDetails,
+		isTree = false,
+		compact = true,
+		options?: Partial<TreeItemBase>,
+	): TreeModel {
+		const model = this.repoToTreeModel(details.repoName!, details.repoPath!, options);
 
-	if (details.files == null) {
-		return model;
-	}
-
-	const children = [];
-	if (isTree) {
-		const fileTree = makeHierarchical(
-			details.files,
-			n => n.path.split('/'),
-			(...parts: string[]) => parts.join('/'),
-			compact,
-		);
-		console.log(fileTree);
-		if (fileTree.children != null) {
-			for (const child of fileTree.children.values()) {
-				const childModel = walkFileTree(child, { level: 2 });
-				children.push(childModel);
-			}
+		if (details.files == null) {
+			return model;
 		}
-	} else {
-		for (const file of details.files) {
-			const child = fileToTreeModel(file, { level: 2, branch: false }, true);
-			children.push(child);
-		}
-	}
 
-	if (children.length > 0) {
-		model.branch = true;
-		model.children = children;
-	}
-
-	return model;
-}
-
-function walkFileTree(
-	item: HierarchicalItem<GitFileChangeShape>,
-	options: Partial<TreeItemBase> = { level: 1 },
-): TreeModel {
-	if (options.level === undefined) {
-		options.level = 1;
-	}
-
-	let model: TreeModel;
-	if (item.value == null) {
-		model = folderToTreeModel(item.name, options);
-	} else {
-		model = fileToTreeModel(item.value, options);
-	}
-
-	if (item.children != null) {
 		const children = [];
-		for (const child of item.children.values()) {
-			const childModel = walkFileTree(child, { ...options, level: options.level + 1 });
-			children.push(childModel);
+		if (isTree) {
+			const fileTree = makeHierarchical(
+				details.files,
+				n => n.path.split('/'),
+				(...parts: string[]) => parts.join('/'),
+				compact,
+			);
+			if (fileTree.children != null) {
+				for (const child of fileTree.children.values()) {
+					const childModel = this.walkFileTree(child, { level: 2 });
+					children.push(childModel);
+				}
+			}
+		} else {
+			for (const file of details.files) {
+				const child = this.fileToTreeModel(file, { level: 2, branch: false }, true);
+				children.push(child);
+			}
 		}
 
 		if (children.length > 0) {
 			model.branch = true;
 			model.children = children;
 		}
+
+		return model;
 	}
 
-	return model;
-}
-
-function folderToTreeModel(name: string, options?: Partial<TreeItemBase>): TreeModel {
-	return {
-		branch: false,
-		expanded: true,
-		path: name,
-		level: 1,
-		checkable: false,
-		checked: false,
-		icon: 'folder',
-		label: name,
-		...options,
-	};
-}
-
-function repoToTreeModel(name: string, path: string, options?: Partial<TreeItemBase>): TreeModel {
-	return {
-		branch: false,
-		expanded: true,
-		path: path,
-		level: 1,
-		checkable: true,
-		checked: true,
-		icon: 'repo',
-		label: name,
-		context: [path],
-		actions: [
+	override getRepoActions(_name: string, _path: string, _options?: Partial<TreeItemBase>) {
+		return [
 			{
 				icon: 'cloud-download',
 				label: 'Apply...',
@@ -751,33 +675,11 @@ function repoToTreeModel(name: string, path: string, options?: Partial<TreeItemB
 				label: 'Open in Commit Graph',
 				action: 'show-patch-in-graph',
 			},
-		],
-		...options,
-	};
-}
+		];
+	}
 
-function fileToTreeModel(
-	file: GitFileChangeShape,
-	options?: Partial<TreeItemBase>,
-	flat = false,
-	glue = '/',
-): TreeModel {
-	const pathIndex = file.path.lastIndexOf(glue);
-	const fileName = pathIndex !== -1 ? file.path.substring(pathIndex + 1) : file.path;
-	const filePath = flat && pathIndex !== -1 ? file.path.substring(0, pathIndex) : '';
-
-	return {
-		branch: false,
-		expanded: true,
-		path: file.path,
-		level: 1,
-		checkable: false,
-		checked: false,
-		icon: { type: 'status', name: file.status },
-		label: fileName,
-		description: flat === true ? filePath : undefined,
-		context: [file],
-		actions: [
+	override getFileActions(_file: GitFileChangeShape, _options?: Partial<TreeItemBase>) {
+		return [
 			{
 				icon: 'go-to-file',
 				label: 'Open file',
@@ -788,9 +690,8 @@ function fileToTreeModel(
 				label: 'Open Changes with Working File',
 				action: 'file-compare-working',
 			},
-		],
-		...options,
-	};
+		];
+	}
 }
 
 declare global {
