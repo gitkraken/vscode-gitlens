@@ -34,6 +34,7 @@ import { count, filter, first, flatMap, join, map, some } from '../system/iterab
 import { Logger } from '../system/logger';
 import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import { getBestPath, getScheme, isAbsolute, maybeUri, normalizePath } from '../system/path';
+import type { Deferred } from '../system/promise';
 import { asSettled, cancellable, defer, getSettledValue, isPromise, PromiseCancelledError } from '../system/promise';
 import { sortCompare } from '../system/string';
 import { VisitedPathsTrie } from '../system/trie';
@@ -212,12 +213,14 @@ export class GitProviderService implements Disposable {
 		Promise<GitRemote<RemoteProvider | RichRemoteProvider>[]>
 	>();
 	private readonly _disposable: Disposable;
+	private _initializingDeferred: Deferred<number> | undefined;
 	private readonly _pendingRepositories = new Map<RepoComparisonKey, Promise<Repository | undefined>>();
 	private readonly _providers = new Map<GitProviderId, GitProvider>();
 	private readonly _repositories = new Repositories();
 	private readonly _visitedPaths = new VisitedPathsTrie();
 
 	constructor(private readonly container: Container) {
+		this._initializingDeferred = defer<number>();
 		this._disposable = Disposable.from(
 			container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			window.onDidChangeWindowState(this.onWindowStateChanged, this),
@@ -615,7 +618,7 @@ export class GitProviderService implements Disposable {
 			this._isDiscoveringRepositories = undefined;
 		}
 
-		const deferred = defer<number>();
+		const deferred = this._initializingDeferred ?? defer<number>();
 		this._isDiscoveringRepositories = deferred.promise;
 
 		try {
@@ -657,7 +660,12 @@ export class GitProviderService implements Disposable {
 				queueMicrotask(() => this.fireRepositoriesChanged(added));
 			}
 		} finally {
-			queueMicrotask(() => deferred.fulfill(this._etag));
+			queueMicrotask(() => {
+				deferred.fulfill(this._etag);
+				if (this._initializingDeferred != null) {
+					this._initializingDeferred = undefined;
+				}
+			});
 		}
 	}
 
