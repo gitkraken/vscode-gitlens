@@ -1,12 +1,25 @@
 import { defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-components';
-import { html, LitElement, nothing } from 'lit';
+import { html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
+import type { TextDocumentShowOptions } from 'vscode';
+import type { GitFileChangeShape } from '../../../../../git/models/file';
 import type { DraftDetails, State } from '../../../../../plus/webviews/patchDetails/protocol';
 import type { HierarchicalItem } from '../../../../../system/array';
 import { makeHierarchical } from '../../../../../system/array';
+import type {
+	TreeItemActionDetail,
+	TreeItemBase,
+	TreeItemCheckedDetail,
+	TreeItemSelectionDetail,
+	TreeModel,
+} from '../../../shared/components/tree/base';
+import '../../../shared/components/tree/tree-generator';
+
+// Can only import types from 'vscode'
+const BesideViewColumn = -2; /*ViewColumn.Beside*/
 
 interface ExplainState {
 	cancelled?: boolean;
@@ -170,98 +183,6 @@ export class GlDraftDetails extends LitElement {
 		return html`<commit-stats added="${added}" modified="${changed}" removed="${deleted}"></commit-stats>`;
 	}
 
-	private renderRepoItem() {
-		return html`
-			<list-item level="1" tree branch>
-				<code-icon slot="icon" icon="repo" title="Repository" aria-label="Repository"></code-icon>
-				${this.state.draft!.repoName}
-				<span slot="actions">
-					<a
-						class="change-list__action"
-						href="#"
-						title="Apply..."
-						aria-label="Apply..."
-						@click=${this.onApplyPatch}
-						><code-icon icon="cloud-download"></code-icon
-					></a>
-					<a
-						class="change-list__action"
-						href="#"
-						title="Change Base"
-						aria-label="Change Base"
-						@click=${this.onChangePatchBase}
-						><code-icon icon="git-commit"></code-icon
-					></a>
-					<a
-						class="change-list__action"
-						href="#"
-						title="Open in Commit Graph"
-						aria-label="Open in Commit Graph"
-						@click=${this.onShowInGraph}
-						><code-icon icon="gl-graph"></code-icon
-					></a>
-				</span>
-			</list-item>
-		`;
-	}
-
-	private renderFileList() {
-		return html`<list-container>
-			${this.renderRepoItem()}
-			${this.state.draft!.files!.map(
-				(file: Record<string, any>) => html`
-					<file-change-list-item
-						?stash=${false}
-						?uncommitted=${false}
-						path="${file.path}"
-						repo="${file.repoPath}"
-						status="${file.status}"
-						level="2"
-					></file-change-list-item>
-				`,
-			)}
-		</list-container>`;
-	}
-
-	private renderFileTree() {
-		const tree = makeHierarchical(
-			this.state.draft!.files!,
-			n => n.path.split('/'),
-			(...parts: string[]) => parts.join('/'),
-			this.state.preferences?.files?.compact ?? true,
-		);
-		const flatTree = flattenHeirarchy(tree);
-		return html`<list-container class="indentGuides-${this.state.preferences?.indentGuides}">
-			${this.renderRepoItem()}
-			${flatTree.map(({ level, item }) => {
-				if (item.name === '') {
-					return undefined;
-				}
-
-				if (item.value == null) {
-					return html`
-						<list-item level="${level + 1}" tree branch>
-							<code-icon slot="icon" icon="folder" title="Directory" aria-label="Directory"></code-icon>
-							${item.name}
-						</list-item>
-					`;
-				}
-
-				return html`
-					<file-change-list-item
-						tree
-						level="${level + 1}"
-						?stash=${false}
-						?uncommitted=${false}
-						path="${item.value.path}"
-						repo="${item.value.repoPath}"
-						status="${item.value.status}"
-					></file-change-list-item>
-				`;
-			})}
-		</list-container>`;
-	}
-
 	private renderChangedFiles() {
 		const layout = this.state?.preferences?.files?.layout ?? 'auto';
 
@@ -317,11 +238,44 @@ export class GlDraftDetails extends LitElement {
 								<skeleton-loader></skeleton-loader>
 							</div>
 						`,
-						() => (isTree ? this.renderFileTree() : this.renderFileList()),
+						() => this.renderTreeView(),
 					)}
 				</div>
 			</webview-pane>
 		`;
+	}
+
+	get treeModel(): TreeModel[] {
+		if (this.state?.draft == null) return [];
+
+		const draft = this.state.draft;
+		// const files = draft.files;
+
+		const layout = this.state?.preferences?.files?.layout ?? 'auto';
+		let isTree = false;
+		if (this.state?.draft?.files != null) {
+			if (layout === 'auto') {
+				isTree = this.state.draft.files.length > (this.state.preferences?.files?.threshold ?? 5);
+			} else {
+				isTree = layout === 'tree';
+			}
+		}
+
+		// checkable only for multi-repo
+		const options = { checkable: false };
+		const testModel = draftDetailsToTreeModel(draft, isTree, this.state.preferences?.files?.compact, options);
+		console.log(testModel);
+
+		return [testModel];
+	}
+
+	renderTreeView() {
+		return html`<gl-tree-generator
+			.model=${this.treeModel}
+			@tree-generated-item-action-clicked=${this.onTreeItemActionClicked}
+			@tree-generated-item-checked=${this.onTreeItemChecked}
+			@tree-generated-item-selected=${this.onTreeItemSelected}
+		></gl-tree-generator>`;
 	}
 
 	renderPatches() {
@@ -514,7 +468,7 @@ export class GlDraftDetails extends LitElement {
 					)}
 				</div>
 			</div>
-			${this.renderPatchMessage()}${this.renderPatches()} ${this.renderChangedFiles()}${this.renderExplainAi()}
+			${this.renderPatchMessage()}${this.renderPatches()}${this.renderChangedFiles()}${this.renderExplainAi()}
 		`;
 	}
 
@@ -530,6 +484,88 @@ export class GlDraftDetails extends LitElement {
 		}
 
 		this.explainBusy = true;
+	}
+
+	onTreeItemActionClicked(e: CustomEvent<TreeItemActionDetail>) {
+		if (!e.detail.context || !e.detail.action) return;
+
+		const action = e.detail.action;
+		switch (action.action) {
+			// repo actions
+			case 'apply-patch':
+				this.onApplyPatch();
+				break;
+			case 'change-patch-base':
+				this.onChangePatchBase();
+				break;
+			case 'show-patch-in-graph':
+				this.onShowInGraph();
+				break;
+			// file actions
+			case 'file-open':
+				this.onOpenFile(e);
+				break;
+			case 'file-compare-working':
+				this.onCompareWorking(e);
+				break;
+		}
+	}
+
+	fireFileEvent(name: string, file: GitFileChangeShape, showOptions?: TextDocumentShowOptions) {
+		const event = new CustomEvent(name, {
+			detail: {
+				path: file.path,
+				repoPath: file.repoPath,
+				staged: file.staged,
+				showOptions: showOptions,
+			},
+		});
+		this.dispatchEvent(event);
+	}
+
+	onCompareWorking(e: CustomEvent<TreeItemActionDetail>) {
+		if (!e.detail.context) return;
+
+		const [file] = e.detail.context;
+		this.fireFileEvent('file-compare-working', file, {
+			preview: false,
+			viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
+		});
+	}
+
+	onOpenFile(e: CustomEvent<TreeItemActionDetail>) {
+		if (!e.detail.context) return;
+
+		const [file] = e.detail.context;
+		this.fireFileEvent('file-open', file, {
+			preview: false,
+			viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
+		});
+	}
+
+	onTreeItemChecked(e: CustomEvent<TreeItemCheckedDetail>) {
+		if (!e.detail.context) return;
+
+		const [repoPath] = e.detail.context;
+		const event = new CustomEvent('repo-checked', {
+			detail: {
+				path: repoPath,
+			},
+		});
+		this.dispatchEvent(event);
+	}
+
+	onTreeItemSelected(e: CustomEvent<TreeItemSelectionDetail>) {
+		if (!e.detail.context) return;
+
+		const [file] = e.detail.context;
+		const event = new CustomEvent('file-compare-previous', {
+			detail: {
+				path: file.path,
+				repo: file.repoPath,
+			},
+		});
+		this.dispatchEvent(event);
 	}
 
 	onApplyPatch(e?: MouseEvent | KeyboardEvent, target: 'current' | 'branch' | 'worktree' = 'current') {
@@ -555,7 +591,7 @@ export class GlDraftDetails extends LitElement {
 		}
 	}
 
-	onChangePatchBase(_e: MouseEvent | KeyboardEvent) {
+	onChangePatchBase(_e?: MouseEvent | KeyboardEvent) {
 		const evt = new CustomEvent<ChangePatchBaseDetail>('change-patch-base', {
 			detail: {
 				draft: this.state.draft!,
@@ -564,7 +600,7 @@ export class GlDraftDetails extends LitElement {
 		this.dispatchEvent(evt);
 	}
 
-	onSelectPatchRepo(_e: MouseEvent | KeyboardEvent) {
+	onSelectPatchRepo(_e?: MouseEvent | KeyboardEvent) {
 		const evt = new CustomEvent<SelectPatchRepoDetail>('select-patch-repo', {
 			detail: {
 				draft: this.state.draft!,
@@ -573,7 +609,7 @@ export class GlDraftDetails extends LitElement {
 		this.dispatchEvent(evt);
 	}
 
-	onShowInGraph(_e: MouseEvent | KeyboardEvent) {
+	onShowInGraph(_e?: MouseEvent | KeyboardEvent) {
 		const evt = new CustomEvent<ShowPatchInGraphDetail>('graph-show-patch', {
 			detail: {
 				draft: this.state.draft!,
@@ -601,36 +637,160 @@ export class GlDraftDetails extends LitElement {
 	}
 }
 
-function flattenHeirarchy<T>(item: HierarchicalItem<T>, level = 0): { level: number; item: HierarchicalItem<T> }[] {
-	const flattened: { level: number; item: HierarchicalItem<T> }[] = [];
-	if (item == null) return flattened;
+function draftDetailsToTreeModel(
+	details: DraftDetails,
+	isTree = false,
+	compact = true,
+	options?: Partial<TreeItemBase>,
+): TreeModel {
+	const model = repoToTreeModel(details.repoName!, details.repoPath!, options);
 
-	flattened.push({ level: level, item: item });
-
-	if (item.children != null) {
-		const children = Array.from(item.children.values());
-		children.sort((a, b) => {
-			if (!a.value || !b.value) {
-				return (a.value ? 1 : -1) - (b.value ? 1 : -1);
-			}
-
-			if (a.relativePath < b.relativePath) {
-				return -1;
-			}
-
-			if (a.relativePath > b.relativePath) {
-				return 1;
-			}
-
-			return 0;
-		});
-
-		children.forEach(child => {
-			flattened.push(...flattenHeirarchy(child, level + 1));
-		});
+	if (details.files == null) {
+		return model;
 	}
 
-	return flattened;
+	const children = [];
+	if (isTree) {
+		const fileTree = makeHierarchical(
+			details.files,
+			n => n.path.split('/'),
+			(...parts: string[]) => parts.join('/'),
+			compact,
+		);
+		console.log(fileTree);
+		if (fileTree.children != null) {
+			for (const child of fileTree.children.values()) {
+				const childModel = walkFileTree(child, { level: 2 });
+				children.push(childModel);
+			}
+		}
+	} else {
+		for (const file of details.files) {
+			const child = fileToTreeModel(file, { level: 2, branch: false }, true);
+			children.push(child);
+		}
+	}
+
+	if (children.length > 0) {
+		model.branch = true;
+		model.children = children;
+	}
+
+	return model;
+}
+
+function walkFileTree(
+	item: HierarchicalItem<GitFileChangeShape>,
+	options: Partial<TreeItemBase> = { level: 1 },
+): TreeModel {
+	if (options.level === undefined) {
+		options.level = 1;
+	}
+
+	let model: TreeModel;
+	if (item.value == null) {
+		model = folderToTreeModel(item.name, options);
+	} else {
+		model = fileToTreeModel(item.value, options);
+	}
+
+	if (item.children != null) {
+		const children = [];
+		for (const child of item.children.values()) {
+			const childModel = walkFileTree(child, { ...options, level: options.level + 1 });
+			children.push(childModel);
+		}
+
+		if (children.length > 0) {
+			model.branch = true;
+			model.children = children;
+		}
+	}
+
+	return model;
+}
+
+function folderToTreeModel(name: string, options?: Partial<TreeItemBase>): TreeModel {
+	return {
+		branch: false,
+		expanded: true,
+		path: name,
+		level: 1,
+		checkable: false,
+		checked: false,
+		icon: 'folder',
+		label: name,
+		...options,
+	};
+}
+
+function repoToTreeModel(name: string, path: string, options?: Partial<TreeItemBase>): TreeModel {
+	return {
+		branch: false,
+		expanded: true,
+		path: path,
+		level: 1,
+		checkable: true,
+		checked: true,
+		icon: 'repo',
+		label: name,
+		context: [path],
+		actions: [
+			{
+				icon: 'cloud-download',
+				label: 'Apply...',
+				action: 'apply-patch',
+			},
+			{
+				icon: 'git-commit',
+				label: 'Change Base',
+				action: 'change-patch-base',
+			},
+			{
+				icon: 'gl-graph',
+				label: 'Open in Commit Graph',
+				action: 'show-patch-in-graph',
+			},
+		],
+		...options,
+	};
+}
+
+function fileToTreeModel(
+	file: GitFileChangeShape,
+	options?: Partial<TreeItemBase>,
+	flat = false,
+	glue = '/',
+): TreeModel {
+	const pathIndex = file.path.lastIndexOf(glue);
+	const fileName = pathIndex !== -1 ? file.path.substring(pathIndex + 1) : file.path;
+	const filePath = flat && pathIndex !== -1 ? file.path.substring(0, pathIndex) : '';
+
+	return {
+		branch: false,
+		expanded: true,
+		path: file.path,
+		level: 1,
+		checkable: false,
+		checked: false,
+		icon: { type: 'status', name: file.status },
+		label: fileName,
+		description: flat === true ? filePath : undefined,
+		context: [file],
+		actions: [
+			{
+				icon: 'go-to-file',
+				label: 'Open file',
+				action: 'file-open',
+			},
+			{
+				icon: 'git-compare',
+				label: 'Open Changes with Working File',
+				action: 'file-compare-working',
+			},
+		],
+		...options,
+	};
 }
 
 declare global {
