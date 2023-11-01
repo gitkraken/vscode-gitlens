@@ -115,6 +115,7 @@ export class GlTreeGenerator extends LitElement {
 			.checkable=${model.checkable}
 			.checked=${model.checked ?? false}
 			.disableCheck=${model.disableCheck ?? false}
+			.showIcon=${model.icon != null}
 			@tree-item-selected=${(e: CustomEvent<TreeItemSelectionDetail>) => this.onTreeItemSelected(e, model)}
 			@tree-item-checked=${(e: CustomEvent<TreeItemCheckedDetail>) => this.onTreeItemChecked(e, model)}
 		>

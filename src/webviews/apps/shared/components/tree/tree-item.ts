@@ -1,5 +1,6 @@
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { when } from 'lit/directives/when.js';
 import type { TreeItemCheckedDetail, TreeItemSelectionDetail } from './base';
 import { treeItemStyles } from './tree.css';
 import '../actions/action-nav';
@@ -45,6 +46,9 @@ export class GlTreeItem extends LitElement {
 
 	@property({ type: Boolean })
 	disableCheck = false;
+
+	@property({ type: Boolean })
+	showIcon = true;
 
 	// state
 	@state()
@@ -146,7 +150,7 @@ export class GlTreeItem extends LitElement {
 				@click=${this.onButtonClick}
 				@dblclick=${this.onButtonDblClick}
 			>
-				<slot name="icon" class="icon"></slot>
+				${when(this.showIcon, () => html`<slot name="icon" class="icon"></slot>`)}
 				<span class="text">
 					<slot class="main"></slot>
 					<slot name="description" class="description"></slot>
