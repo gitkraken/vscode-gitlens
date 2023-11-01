@@ -83,7 +83,7 @@ import { isWebviewItemContext, isWebviewItemGroupContext, serializeWebviewItemCo
 import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode';
 import type { IpcMessage, IpcNotificationType } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
-import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
+import type { WebviewController, WebviewProvider, WebviewShowingArgs } from '../../../webviews/webviewController';
 import type { WebviewPanelShowCommandArgs } from '../../../webviews/webviewsController';
 import { isSerializedState } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
@@ -172,6 +172,7 @@ import {
 	UpdateRefsVisibilityCommandType,
 	UpdateSelectionCommandType,
 } from './protocol';
+import type { GraphWebviewShowingArgs } from './registration';
 
 const defaultGraphColumnsSettings: GraphColumnsSettings = {
 	ref: { width: 130, isHidden: false, order: 0 },
@@ -193,7 +194,7 @@ const compactGraphColumnsSettings: GraphColumnsSettings = {
 	sha: { width: 130, isHidden: false, order: 6 },
 };
 
-export class GraphWebviewProvider implements WebviewProvider<State> {
+export class GraphWebviewProvider implements WebviewProvider<State, State, GraphWebviewShowingArgs> {
 	private _repository?: Repository;
 	private get repository(): Repository | undefined {
 		return this._repository;
@@ -251,7 +252,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	constructor(
 		private readonly container: Container,
-		private readonly host: WebviewController<State>,
+		private readonly host: WebviewController<State, State, GraphWebviewShowingArgs>,
 	) {
 		this._showDetailsView = configuration.get('graph.showDetailsView');
 		this._theme = window.activeColorTheme;
@@ -289,7 +290,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		this._disposable.dispose();
 	}
 
-	canReuseInstance(...args: unknown[]): boolean | undefined {
+	canReuseInstance(...args: WebviewShowingArgs<GraphWebviewShowingArgs, State>): boolean | undefined {
 		if (this.container.git.openRepositoryCount === 1) return true;
 
 		const [arg] = args;
@@ -306,14 +307,14 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		return repository?.uri.toString() === this.repository?.uri.toString() ? true : undefined;
 	}
 
-	getSplitArgs(): unknown[] {
-		return [this.repository];
+	getSplitArgs(): WebviewShowingArgs<GraphWebviewShowingArgs, State> {
+		return this.repository != null ? [this.repository] : [];
 	}
 
 	async onShowing(
 		loading: boolean,
 		_options: { column?: ViewColumn; preserveFocus?: boolean },
-		...args: [Repository, { ref: GitReference }, { state: Partial<State> }] | unknown[]
+		...args: WebviewShowingArgs<GraphWebviewShowingArgs, State>
 	): Promise<boolean> {
 		this._firstSelection = true;
 

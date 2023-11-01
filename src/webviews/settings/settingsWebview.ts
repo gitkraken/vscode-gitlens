@@ -24,14 +24,15 @@ import {
 } from '../protocol';
 import type { WebviewController, WebviewProvider } from '../webviewController';
 import type { State } from './protocol';
+import type { SettingsWebviewShowingArgs } from './registration';
 
-export class SettingsWebviewProvider implements WebviewProvider<State> {
+export class SettingsWebviewProvider implements WebviewProvider<State, State, SettingsWebviewShowingArgs> {
 	private readonly _disposable: Disposable;
 	private _pendingJumpToAnchor: string | undefined;
 
 	constructor(
 		protected readonly container: Container,
-		protected readonly host: WebviewController<State>,
+		protected readonly host: WebviewController<State, State, SettingsWebviewShowingArgs>,
 	) {
 		this._disposable = configuration.onDidChangeAny(this.onAnyConfigurationChanged, this);
 	}
@@ -64,7 +65,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State> {
 	onShowing?(
 		loading: boolean,
 		_options: { column?: ViewColumn; preserveFocus?: boolean },
-		...args: unknown[]
+		...args: SettingsWebviewShowingArgs
 	): boolean | Promise<boolean> {
 		const anchor = args[0];
 		if (anchor && typeof anchor === 'string') {

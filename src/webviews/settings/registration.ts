@@ -4,8 +4,10 @@ import { registerCommand } from '../../system/command';
 import type { WebviewPanelsProxy, WebviewsController } from '../webviewsController';
 import type { State } from './protocol';
 
+export type SettingsWebviewShowingArgs = [string];
+
 export function registerSettingsWebviewPanel(controller: WebviewsController) {
-	return controller.registerWebviewPanel<State>(
+	return controller.registerWebviewPanel<State, State, SettingsWebviewShowingArgs>(
 		{ id: Commands.ShowSettingsPage },
 		{
 			id: 'gitlens.settings',
@@ -28,7 +30,7 @@ export function registerSettingsWebviewPanel(controller: WebviewsController) {
 	);
 }
 
-export function registerSettingsWebviewCommands(panels: WebviewPanelsProxy) {
+export function registerSettingsWebviewCommands<T>(panels: WebviewPanelsProxy<SettingsWebviewShowingArgs, T>) {
 	return Disposable.from(
 		...[
 			Commands.ShowSettingsPageAndJumpToBranchesView,
@@ -53,7 +55,7 @@ export function registerSettingsWebviewCommands(panels: WebviewPanelsProxy) {
 				[, anchor] = match;
 			}
 
-			return registerCommand(c, (...args: any[]) => void panels.show(undefined, anchor, ...args));
+			return registerCommand(c, () => void panels.show(undefined, ...(anchor ? [anchor] : [])));
 		}),
 	);
 }

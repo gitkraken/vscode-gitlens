@@ -235,7 +235,7 @@ export type CommandContext =
 	| CommandViewNodeContext
 	| CommandViewNodesContext;
 
-function isScm(scm: any): scm is SourceControl {
+export function isScm(scm: any): scm is SourceControl {
 	if (scm == null) return false;
 
 	return (

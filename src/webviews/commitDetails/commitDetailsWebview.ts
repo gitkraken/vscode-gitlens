@@ -47,7 +47,7 @@ import { serialize } from '../../system/serialize';
 import type { LinesChangeEvent } from '../../trackers/lineTracker';
 import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
-import type { WebviewController, WebviewProvider } from '../webviewController';
+import type { WebviewController, WebviewProvider, WebviewShowingArgs } from '../webviewController';
 import { updatePendingContext } from '../webviewController';
 import { isSerializedState } from '../webviewsController';
 import type {
@@ -84,6 +84,7 @@ import {
 	UnstageFileCommandType,
 	UpdatePreferencesCommandType,
 } from './protocol';
+import type { CommitDetailsWebviewShowingArgs } from './registration';
 
 type RepositorySubscription = { repo: Repository; subscription: Disposable };
 
@@ -106,7 +107,9 @@ interface Context {
 	wip: Wip | undefined;
 }
 
-export class CommitDetailsWebviewProvider implements WebviewProvider<State, Serialized<State>> {
+export class CommitDetailsWebviewProvider
+	implements WebviewProvider<State, Serialized<State>, CommitDetailsWebviewShowingArgs>
+{
 	private _bootstraping = true;
 	/** The context the webview has */
 	private _context: Context;
@@ -119,7 +122,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 
 	constructor(
 		private readonly container: Container,
-		private readonly host: WebviewController<State, Serialized<State>>,
+		private readonly host: WebviewController<State, Serialized<State>, CommitDetailsWebviewShowingArgs>,
 		private readonly options: { attachedTo: 'default' | 'graph' },
 	) {
 		this._context = {
@@ -170,7 +173,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Seri
 	async onShowing(
 		_loading: boolean,
 		options: { column?: ViewColumn; preserveFocus?: boolean },
-		...args: [Partial<CommitSelectedEvent['data']> | { state: Partial<Serialized<State>> }] | unknown[]
+		...args: WebviewShowingArgs<CommitDetailsWebviewShowingArgs, Serialized<State>>
 	): Promise<boolean> {
 		let data: Partial<CommitSelectedEvent['data']> | undefined;
 
