@@ -17,17 +17,17 @@ import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
 import { filter } from '../../../system/iterable';
 import { hasVisibleTextEditor, isTextEditor } from '../../../system/utils';
-import type { ViewFileNode } from '../../../views/nodes/abstract/viewFileNode';
 import { isViewFileNode } from '../../../views/nodes/abstract/viewFileNode';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
-import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
+import type { WebviewController, WebviewProvider, WebviewShowingArgs } from '../../../webviews/webviewController';
 import { updatePendingContext } from '../../../webviews/webviewController';
 import type { WebviewShowOptions } from '../../../webviews/webviewsController';
 import { isSerializedState } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
 import type { Commit, Period, State } from './protocol';
 import { DidChangeNotificationType, OpenDataPointCommandType, UpdatePeriodCommandType } from './protocol';
+import type { TimelineWebviewShowingArgs } from './registration';
 
 interface Context {
 	uri: Uri | undefined;
@@ -39,7 +39,7 @@ interface Context {
 
 const defaultPeriod: Period = '3|M';
 
-export class TimelineWebviewProvider implements WebviewProvider<State> {
+export class TimelineWebviewProvider implements WebviewProvider<State, State, TimelineWebviewShowingArgs> {
 	private _bootstraping = true;
 	/** The context the webview has */
 	private _context: Context;
@@ -49,7 +49,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 
 	constructor(
 		private readonly container: Container,
-		private readonly host: WebviewController<State>,
+		private readonly host: WebviewController<State, State, TimelineWebviewShowingArgs>,
 	) {
 		this._context = {
 			uri: undefined,
@@ -87,7 +87,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		void this.notifyDidChangeState(true);
 	}
 
-	canReuseInstance(...args: [Uri | ViewFileNode | { state: Partial<State> }] | unknown[]): boolean | undefined {
+	canReuseInstance(...args: WebviewShowingArgs<TimelineWebviewShowingArgs, State>): boolean | undefined {
 		let uri: Uri | undefined;
 
 		const [arg] = args;
@@ -106,14 +106,14 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		return uri?.toString() === this._context.uri?.toString() ? true : undefined;
 	}
 
-	getSplitArgs(): unknown[] {
-		return [this._context.uri];
+	getSplitArgs(): WebviewShowingArgs<TimelineWebviewShowingArgs, State> {
+		return this._context.uri != null ? [this._context.uri] : [];
 	}
 
 	onShowing(
 		loading: boolean,
 		_options: WebviewShowOptions | undefined,
-		...args: [Uri | ViewFileNode | { state: Partial<State> }] | unknown[]
+		...args: WebviewShowingArgs<TimelineWebviewShowingArgs, State>
 	): boolean {
 		const [arg] = args;
 		if (arg != null) {

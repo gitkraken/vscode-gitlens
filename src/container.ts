@@ -28,12 +28,14 @@ import { ServerConnection } from './plus/gk/serverConnection';
 import { IntegrationAuthenticationService } from './plus/integrationAuthentication';
 import { registerAccountWebviewView } from './plus/webviews/account/registration';
 import { registerFocusWebviewCommands, registerFocusWebviewPanel } from './plus/webviews/focus/registration';
+import type { GraphWebviewShowingArgs } from './plus/webviews/graph/registration';
 import {
 	registerGraphWebviewCommands,
 	registerGraphWebviewPanel,
 	registerGraphWebviewView,
 } from './plus/webviews/graph/registration';
 import { GraphStatusBarController } from './plus/webviews/graph/statusbar';
+import type { TimelineWebviewShowingArgs } from './plus/webviews/timeline/registration';
 import {
 	registerTimelineWebviewCommands,
 	registerTimelineWebviewPanel,
@@ -70,6 +72,7 @@ import { ViewFileDecorationProvider } from './views/viewDecorationProvider';
 import { WorkspacesView } from './views/workspacesView';
 import { WorktreesView } from './views/worktreesView';
 import { VslsController } from './vsls/vsls';
+import type { CommitDetailsWebviewShowingArgs } from './webviews/commitDetails/registration';
 import {
 	registerCommitDetailsWebviewView,
 	registerGraphDetailsWebviewView,
@@ -343,7 +346,7 @@ export class Container {
 		return this._accountAuthentication;
 	}
 
-	private readonly _accountView: WebviewViewProxy;
+	private readonly _accountView: WebviewViewProxy<[]>;
 	get accountView() {
 		return this._accountView;
 	}
@@ -394,7 +397,7 @@ export class Container {
 		return this._commitsView;
 	}
 
-	private readonly _commitDetailsView: WebviewViewProxy;
+	private readonly _commitDetailsView: WebviewViewProxy<CommitDetailsWebviewShowingArgs>;
 	get commitDetailsView() {
 		return this._commitDetailsView;
 	}
@@ -499,17 +502,17 @@ export class Container {
 		}
 	}
 
-	private readonly _graphDetailsView: WebviewViewProxy;
+	private readonly _graphDetailsView: WebviewViewProxy<CommitDetailsWebviewShowingArgs>;
 	get graphDetailsView() {
 		return this._graphDetailsView;
 	}
 
-	private readonly _graphView: WebviewViewProxy;
+	private readonly _graphView: WebviewViewProxy<GraphWebviewShowingArgs>;
 	get graphView() {
 		return this._graphView;
 	}
 
-	private readonly _homeView: WebviewViewProxy;
+	private readonly _homeView: WebviewViewProxy<[]>;
 	get homeView() {
 		return this._homeView;
 	}
@@ -642,7 +645,7 @@ export class Container {
 		return this._telemetry;
 	}
 
-	private readonly _timelineView: WebviewViewProxy;
+	private readonly _timelineView: WebviewViewProxy<TimelineWebviewShowingArgs>;
 	get timelineView() {
 		return this._timelineView;
 	}

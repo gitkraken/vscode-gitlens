@@ -40,14 +40,21 @@ type GetParentType<T extends WebviewPanelDescriptor | WebviewViewDescriptor> = T
 	? WebviewView
 	: never;
 
-export interface WebviewProvider<State, SerializedState = State> extends Disposable {
+export type WebviewShowingArgs<T extends unknown[], SerializedState> = T | [{ state: Partial<SerializedState> }] | [];
+
+export interface WebviewProvider<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]>
+	extends Disposable {
 	/**
 	 * Determines whether the webview instance can be reused
 	 * @returns `true` if the webview should be reused, `false` if it should NOT be reused, and `undefined` if it *could* be reused but not ideal
 	 */
-	canReuseInstance?(...args: unknown[]): boolean | undefined;
-	getSplitArgs?(): unknown[];
-	onShowing?(loading: boolean, options: WebviewShowOptions, ...args: unknown[]): boolean | Promise<boolean>;
+	canReuseInstance?(...args: WebviewShowingArgs<ShowingArgs, SerializedState>): boolean | undefined;
+	getSplitArgs?(): WebviewShowingArgs<ShowingArgs, SerializedState>;
+	onShowing?(
+		loading: boolean,
+		options: WebviewShowOptions,
+		...args: WebviewShowingArgs<ShowingArgs, SerializedState>
+	): boolean | Promise<boolean>;
 	registerCommands?(): Disposable[];
 
 	includeBootstrap?(): SerializedState | Promise<SerializedState>;
@@ -65,25 +72,26 @@ export interface WebviewProvider<State, SerializedState = State> extends Disposa
 	onWindowFocusChanged?(focused: boolean): void;
 }
 
-type WebviewPanelController<State, SerializedState = State> = WebviewController<
+type WebviewPanelController<
 	State,
-	SerializedState,
-	WebviewPanelDescriptor
->;
-type WebviewViewController<State, SerializedState = State> = WebviewController<
+	SerializedState = State,
+	ShowingArgs extends unknown[] = unknown[],
+> = WebviewController<State, SerializedState, ShowingArgs, WebviewPanelDescriptor>;
+type WebviewViewController<
 	State,
-	SerializedState,
-	WebviewViewDescriptor
->;
+	SerializedState = State,
+	ShowingArgs extends unknown[] = unknown[],
+> = WebviewController<State, SerializedState, ShowingArgs, WebviewViewDescriptor>;
 
 @logName<WebviewController<any>>(c => `WebviewController(${c.id}${c.instanceId != null ? `|${c.instanceId}` : ''})`)
 export class WebviewController<
 	State,
 	SerializedState = State,
+	ShowingArgs extends unknown[] = unknown[],
 	Descriptor extends WebviewPanelDescriptor | WebviewViewDescriptor = WebviewPanelDescriptor | WebviewViewDescriptor,
 > implements Disposable
 {
-	static async create<State, SerializedState = State>(
+	static async create<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]>(
 		container: Container,
 		commandRegistrar: WebviewCommandRegistrar,
 		descriptor: WebviewPanelDescriptor,
@@ -91,10 +99,10 @@ export class WebviewController<
 		parent: WebviewPanel,
 		resolveProvider: (
 			container: Container,
-			controller: WebviewController<State, SerializedState>,
-		) => Promise<WebviewProvider<State, SerializedState>>,
-	): Promise<WebviewController<State, SerializedState, WebviewPanelDescriptor>>;
-	static async create<State, SerializedState = State>(
+			controller: WebviewController<State, SerializedState, ShowingArgs>,
+		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
+	): Promise<WebviewController<State, SerializedState, ShowingArgs, WebviewPanelDescriptor>>;
+	static async create<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]>(
 		container: Container,
 		commandRegistrar: WebviewCommandRegistrar,
 		descriptor: WebviewViewDescriptor,
@@ -102,10 +110,10 @@ export class WebviewController<
 		parent: WebviewView,
 		resolveProvider: (
 			container: Container,
-			controller: WebviewController<State, SerializedState>,
-		) => Promise<WebviewProvider<State, SerializedState>>,
-	): Promise<WebviewController<State, SerializedState, WebviewViewDescriptor>>;
-	static async create<State, SerializedState = State>(
+			controller: WebviewController<State, SerializedState, ShowingArgs>,
+		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
+	): Promise<WebviewController<State, SerializedState, ShowingArgs, WebviewViewDescriptor>>;
+	static async create<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]>(
 		container: Container,
 		commandRegistrar: WebviewCommandRegistrar,
 		descriptor: WebviewPanelDescriptor | WebviewViewDescriptor,
@@ -113,10 +121,10 @@ export class WebviewController<
 		parent: WebviewPanel | WebviewView,
 		resolveProvider: (
 			container: Container,
-			controller: WebviewController<State, SerializedState>,
-		) => Promise<WebviewProvider<State, SerializedState>>,
-	): Promise<WebviewController<State, SerializedState>> {
-		const controller = new WebviewController<State, SerializedState>(
+			controller: WebviewController<State, SerializedState, ShowingArgs>,
+		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
+	): Promise<WebviewController<State, SerializedState, ShowingArgs>> {
+		const controller = new WebviewController<State, SerializedState, ShowingArgs>(
 			container,
 			commandRegistrar,
 			descriptor,
@@ -141,7 +149,7 @@ export class WebviewController<
 	}
 
 	private disposable: Disposable | undefined;
-	private /*readonly*/ provider!: WebviewProvider<State, SerializedState>;
+	private /*readonly*/ provider!: WebviewProvider<State, SerializedState, ShowingArgs>;
 	private readonly webview: Webview;
 
 	private constructor(
@@ -152,8 +160,8 @@ export class WebviewController<
 		public readonly parent: GetParentType<Descriptor>,
 		resolveProvider: (
 			container: Container,
-			controller: WebviewController<State, SerializedState>,
-		) => Promise<WebviewProvider<State, SerializedState>>,
+			controller: WebviewController<State, SerializedState, ShowingArgs>,
+		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
 	) {
 		this.id = descriptor.id;
 		this.webview = parent.webview;
@@ -267,21 +275,28 @@ export class WebviewController<
 		return this._disposed ? false : this.parent.visible;
 	}
 
-	canReuseInstance(options?: WebviewShowOptions, ...args: unknown[]): boolean | undefined {
+	canReuseInstance(
+		options?: WebviewShowOptions,
+		...args: WebviewShowingArgs<ShowingArgs, SerializedState>
+	): boolean | undefined {
 		if (!this.isEditor()) return undefined;
 
 		if (options?.column != null && options.column !== this.parent.viewColumn) return false;
 		return this.provider.canReuseInstance?.(...args);
 	}
 
-	getSplitArgs(): unknown[] {
+	getSplitArgs(): WebviewShowingArgs<ShowingArgs, SerializedState> {
 		if (!this.isEditor()) return [];
 
 		return this.provider.getSplitArgs?.() ?? [];
 	}
 
 	@debug({ args: false })
-	async show(loading: boolean, options?: WebviewShowOptions, ...args: unknown[]) {
+	async show(
+		loading: boolean,
+		options?: WebviewShowOptions,
+		...args: WebviewShowingArgs<ShowingArgs, SerializedState>
+	) {
 		if (options == null) {
 			options = {};
 		}

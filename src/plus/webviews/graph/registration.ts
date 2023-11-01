@@ -1,10 +1,13 @@
 import { Disposable, ViewColumn } from 'vscode';
+import { isScm } from '../../../commands/base';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
+import type { GitReference } from '../../../git/models/reference';
 import type { Repository } from '../../../git/models/repository';
 import { executeCommand, executeCoreCommand, registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
 import { getContext } from '../../../system/context';
+import { ViewNode } from '../../../views/nodes/abstract/viewNode';
 import type { BranchNode } from '../../../views/nodes/branchNode';
 import type { CommitFileNode } from '../../../views/nodes/commitFileNode';
 import type { CommitNode } from '../../../views/nodes/commitNode';
@@ -17,8 +20,10 @@ import type {
 } from '../../../webviews/webviewsController';
 import type { ShowInCommitGraphCommandArgs, State } from './protocol';
 
+export type GraphWebviewShowingArgs = [Repository | { ref: GitReference }];
+
 export function registerGraphWebviewPanel(controller: WebviewsController) {
-	return controller.registerWebviewPanel<State>(
+	return controller.registerWebviewPanel<State, State, GraphWebviewShowingArgs>(
 		{ id: Commands.ShowGraphPage, options: { preserveInstance: true } },
 		{
 			id: 'gitlens.graph',
@@ -43,7 +48,7 @@ export function registerGraphWebviewPanel(controller: WebviewsController) {
 }
 
 export function registerGraphWebviewView(controller: WebviewsController) {
-	return controller.registerWebviewView<State>(
+	return controller.registerWebviewView<State, State, GraphWebviewShowingArgs>(
 		{
 			id: 'gitlens.views.graph',
 			fileName: 'graph.html',
@@ -62,18 +67,45 @@ export function registerGraphWebviewView(controller: WebviewsController) {
 	);
 }
 
-export function registerGraphWebviewCommands(container: Container, panels: WebviewPanelsProxy) {
+export function registerGraphWebviewCommands<T>(
+	container: Container,
+	panels: WebviewPanelsProxy<GraphWebviewShowingArgs, T>,
+) {
 	return Disposable.from(
-		registerCommand(Commands.ShowGraph, (...args: unknown[]) =>
-			configuration.get('graph.layout') === 'panel'
-				? executeCommand(Commands.ShowGraphView, ...args)
-				: executeCommand<WebviewPanelShowCommandArgs>(
-						Commands.ShowGraphPage,
-						{ _type: 'WebviewPanelShowOptions' },
-						undefined,
-						...args,
-				  ),
-		),
+		registerCommand(Commands.ShowGraph, (...args: unknown[]) => {
+			const [arg] = args;
+
+			let showInGraphArg;
+			if (isScm(arg)) {
+				if (arg.rootUri != null) {
+					const repo = container.git.getRepository(arg.rootUri);
+					if (repo != null) {
+						showInGraphArg = repo;
+					}
+				}
+				args = [];
+			} else if (arg instanceof ViewNode) {
+				if (arg.is('repo-folder')) {
+					showInGraphArg = arg.repo;
+				}
+				args = [];
+			}
+
+			if (showInGraphArg != null) {
+				return executeCommand(Commands.ShowInCommitGraph, showInGraphArg);
+			}
+
+			if (configuration.get('graph.layout') === 'panel') {
+				return executeCommand(Commands.ShowGraphView, ...args);
+			}
+
+			return executeCommand<WebviewPanelShowCommandArgs>(
+				Commands.ShowGraphPage,
+				{ _type: 'WebviewPanelShowOptions' },
+				undefined,
+				...args,
+			);
+		}),
 		registerCommand(`${panels.id}.switchToEditorLayout`, async () => {
 			await configuration.updateEffective('graph.layout', 'editor');
 			queueMicrotask(
@@ -120,6 +152,14 @@ export function registerGraphWebviewCommands(container: Container, panels: Webvi
 			) => {
 				const preserveFocus = 'preserveFocus' in args ? args.preserveFocus ?? false : false;
 				if (configuration.get('graph.layout') === 'panel') {
+					if (!container.graphView.visible) {
+						const instance = panels.getBestInstance({ preserveFocus: preserveFocus }, args);
+						if (instance != null) {
+							void instance.show({ preserveFocus: preserveFocus }, args);
+							return;
+						}
+					}
+
 					void container.graphView.show({ preserveFocus: preserveFocus }, args);
 				} else {
 					void panels.show({ preserveFocus: preserveFocus }, args);

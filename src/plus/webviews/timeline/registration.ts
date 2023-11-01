@@ -1,12 +1,16 @@
+import type { Uri } from 'vscode';
 import { Disposable, ViewColumn } from 'vscode';
 import { Commands } from '../../../constants';
 import { registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
+import type { ViewFileNode } from '../../../views/nodes/abstract/viewFileNode';
 import type { WebviewPanelsProxy, WebviewsController } from '../../../webviews/webviewsController';
 import type { State } from './protocol';
 
+export type TimelineWebviewShowingArgs = [Uri | ViewFileNode];
+
 export function registerTimelineWebviewPanel(controller: WebviewsController) {
-	return controller.registerWebviewPanel<State>(
+	return controller.registerWebviewPanel<State, State, TimelineWebviewShowingArgs>(
 		{ id: Commands.ShowTimelinePage, options: { preserveInstance: true } },
 		{
 			id: 'gitlens.timeline',
@@ -31,7 +35,7 @@ export function registerTimelineWebviewPanel(controller: WebviewsController) {
 }
 
 export function registerTimelineWebviewView(controller: WebviewsController) {
-	return controller.registerWebviewView<State>(
+	return controller.registerWebviewView<State, State, TimelineWebviewShowingArgs>(
 		{
 			id: 'gitlens.views.timeline',
 			fileName: 'timeline.html',
@@ -50,9 +54,12 @@ export function registerTimelineWebviewView(controller: WebviewsController) {
 	);
 }
 
-export function registerTimelineWebviewCommands(panels: WebviewPanelsProxy) {
+export function registerTimelineWebviewCommands<T>(panels: WebviewPanelsProxy<TimelineWebviewShowingArgs, T>) {
 	return Disposable.from(
-		registerCommand(Commands.ShowInTimeline, (...args: unknown[]) => void panels.show(undefined, ...args)),
+		registerCommand(
+			Commands.ShowInTimeline,
+			(...args: TimelineWebviewShowingArgs) => void panels.show(undefined, ...args),
+		),
 		registerCommand(`${panels.id}.refresh`, () => void panels.getActiveInstance()?.refresh(true)),
 		registerCommand(
 			`${panels.id}.split`,
