@@ -1128,7 +1128,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	async applyPatchCommit(
 		repoPath: string,
 		patchCommitRef: string,
-		options?: { branchName?: string; createBranchIfNeeded?: boolean },
+		options?: { branchName?: string; createBranchIfNeeded?: boolean; createWorktreePath?: string },
 	): Promise<void> {
 		const scope = getLogScope();
 		// Stash any changes first
@@ -1149,22 +1149,59 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			}
 		}
 
-		if (options?.branchName != null) {
-			const branchName = options.branchName;
-			const refExists =
-				(await this.getBranches(repoPath, { filter: b => b.name === options.branchName }))?.values?.length > 0;
-			const shouldCreate = !refExists && options.createBranchIfNeeded;
-			const currentBranch = await this.getBranch(repoPath);
+		let targetPath = repoPath;
+		const currentBranch = await this.getBranch(repoPath);
+		const branchExists =
+			options?.branchName == null ||
+			(await this.getBranches(repoPath, { filter: b => b.name === options.branchName }))?.values?.length > 0;
+		const shouldCreate = options?.branchName != null && !branchExists && options.createBranchIfNeeded;
 
-			if (currentBranch?.name !== branchName) {
-				const checkoutRef = shouldCreate ? currentBranch?.ref ?? 'HEAD' : branchName;
-				await this.checkout(repoPath, checkoutRef, { createBranch: shouldCreate ? branchName : undefined });
+		// TODO: Worktree creation should ideally be handled before calling this, and then
+		// applyPatchCommit should be pointing to the worktree path. If done here, the newly created
+		// worktree cannot be opened and we cannot handle issues elegantly.
+		if (options?.createWorktreePath != null) {
+			if (options?.branchName === null || options.branchName === currentBranch?.name) {
+				void showGenericErrorMessage(`Error applying patch - unable to create worktree`);
+				return;
 			}
+			try {
+				await this.createWorktree(repoPath, options.createWorktreePath, {
+					commitish: options?.branchName != null && branchExists ? options.branchName : currentBranch?.name,
+					createBranch: shouldCreate ? options.branchName : undefined,
+				});
+			} catch (ex) {
+				Logger.error(ex, scope);
+				if (ex instanceof WorktreeCreateError) {
+					void showGenericErrorMessage(`Error applying patch - unable to create worktree: ${ex.message}`);
+				} else {
+					void showGenericErrorMessage(`Error applying patch - unable to create worktree`);
+				}
+
+				return;
+			}
+
+			const worktree = await this.container.git.getWorktree(
+				repoPath,
+				w => normalizePath(w.uri.fsPath) === normalizePath(options.createWorktreePath!),
+			);
+			if (worktree == null) {
+				void showGenericErrorMessage(`Error applying patch - unable to create worktree`);
+				return;
+			}
+
+			targetPath = worktree.uri.fsPath;
+		}
+
+		if (options?.branchName != null && currentBranch?.name !== options.branchName) {
+			const checkoutRef = shouldCreate ? currentBranch?.ref ?? 'HEAD' : options.branchName;
+			await this.checkout(targetPath, checkoutRef, {
+				createBranch: shouldCreate ? options.branchName : undefined,
+			});
 		}
 
 		// Apply the patch using a cherry pick without committing
 		try {
-			await this.git.cherrypick(repoPath, patchCommitRef, { noCommit: true, errors: GitErrorHandling.Throw });
+			await this.git.cherrypick(targetPath, patchCommitRef, { noCommit: true, errors: GitErrorHandling.Throw });
 		} catch (ex) {
 			Logger.error(ex, scope);
 			if (ex instanceof CherryPickError) {
