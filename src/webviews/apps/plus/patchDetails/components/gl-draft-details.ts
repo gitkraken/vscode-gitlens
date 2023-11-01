@@ -189,14 +189,7 @@ export class GlDraftDetails extends GlTreeBase {
 		let value = 'tree';
 		let icon = 'list-tree';
 		let label = 'View as Tree';
-		let isTree = false;
 		if (this.state?.draft?.files != null) {
-			if (layout === 'auto') {
-				isTree = this.state.draft.files.length > (this.state.preferences?.files?.threshold ?? 5);
-			} else {
-				isTree = layout === 'tree';
-			}
-
 			switch (layout) {
 				case 'auto':
 					value = 'list';
@@ -260,7 +253,7 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	renderPatches() {
-		const path = this.state.draft?.repoPath;
+		// const path = this.state.draft?.repoPath;
 		const repo = this.state.draft?.repoName;
 		const base = this.state.draft?.baseRef;
 

@@ -239,7 +239,7 @@ declare global {
 	}
 
 	interface WindowEventMap {
-		'tree-item-select': CustomEvent;
+		'tree-item-select': CustomEvent<undefined>;
 		'tree-item-selected': CustomEvent<TreeItemSelectionDetail>;
 		'tree-item-checked': CustomEvent<TreeItemCheckedDetail>;
 	}

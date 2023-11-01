@@ -40,7 +40,7 @@ export class GlTreeBase extends LitElement {
 		></gl-tree-generator>`;
 	}
 
-	protected renderFiles(files: GitFileChangeShape[], isTree = false, compact = false): TreeModel[] {
+	protected renderFiles(files: GitFileChangeShape[], isTree = false, compact = false, level = 2): TreeModel[] {
 		const children: TreeModel[] = [];
 		if (isTree) {
 			const fileTree = makeHierarchical(
@@ -51,13 +51,13 @@ export class GlTreeBase extends LitElement {
 			);
 			if (fileTree.children != null) {
 				for (const child of fileTree.children.values()) {
-					const childModel = this.walkFileTree(child, { level: 2 });
+					const childModel = this.walkFileTree(child, { level: level });
 					children.push(childModel);
 				}
 			}
 		} else {
 			for (const file of files) {
-				const child = this.fileToTreeModel(file, { level: 2, branch: false }, true);
+				const child = this.fileToTreeModel(file, { level: level, branch: false }, true);
 				children.push(child);
 			}
 		}
@@ -112,6 +112,20 @@ export class GlTreeBase extends LitElement {
 
 	protected getRepoActions(_name: string, _path: string, _options?: Partial<TreeItemBase>): TreeItemAction[] {
 		return [];
+	}
+
+	protected emptyTreeModel(name: string, options?: Partial<TreeItemBase>): TreeModel {
+		return {
+			branch: false,
+			expanded: true,
+			path: '',
+			level: 1,
+			checkable: true,
+			checked: true,
+			icon: undefined,
+			label: name,
+			...options,
+		};
 	}
 
 	protected repoToTreeModel(name: string, path: string, options?: Partial<TreeItemBase>): TreeModel {
