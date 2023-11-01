@@ -529,7 +529,7 @@ export class DeepLinkService implements Disposable {
 						}
 					}
 
-					if (draftRepo != null) {
+					if (draftRepo != null && targetType === DeepLinkType.Draft) {
 						action = DeepLinkServiceAction.RepoMatchedForDraft;
 						break;
 					}
@@ -538,9 +538,9 @@ export class DeepLinkService implements Disposable {
 					let remoteUrlToSearch = remoteUrl;
 
 					if (draftRepoData != null) {
-						this._context.remoteUrl = draftRepoData.remote?.url;
+						this._context.remoteUrl = draftRepoData.remote?.url ?? undefined;
 						remoteUrlToSearch = draftRepoData.remote?.url;
-						this._context.mainId = draftRepoData.initialCommitSha;
+						this._context.mainId = draftRepoData.initialCommitSha ?? undefined;
 						mainIdToSearch = draftRepoData.initialCommitSha;
 					}
 
@@ -606,6 +606,14 @@ export class DeepLinkService implements Disposable {
 								break;
 							}
 						}
+					}
+
+					if (targetType === DeepLinkType.Draft && this._context.repo != null) {
+						action = DeepLinkServiceAction.RepoMatchedForDraft;
+						if (this._context.targetDraft?.changesets?.[0]?.patches?.[0] != null) {
+							this._context.targetDraft.changesets[0].patches[0].repo = this._context.repo;
+						}
+						break;
 					}
 
 					if (!this._context.repo) {

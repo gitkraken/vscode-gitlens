@@ -71,6 +71,8 @@ export interface DraftPatch {
 	readonly gitRepositoryId?: string;
 
 	contents?: string;
+	repo?: Repository;
+	repoData?: GitRepositoryData;
 }
 
 export class DraftService implements Disposable {
@@ -357,7 +359,7 @@ export class DraftService implements Disposable {
 					contents: undefined!,
 
 					// TODO@eamodio FIX THIS
-					repo: repo ?? this.container.git.getBestRepository()!,
+					repo: repo,
 					repoData: repoData,
 				});
 			}

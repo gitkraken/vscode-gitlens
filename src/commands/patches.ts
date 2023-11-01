@@ -208,13 +208,6 @@ export class OpenCloudPatchCommand extends Command {
 	}
 
 	async execute(args?: OpenCloudPatchCommandArgs) {
-		// TODO: We need to be able to infer the repo path from the patch id, rather than using the current repo. Then we should take the user through
-		// the flow of getting the repo open (clone if it's not available, etc., use the repo mapping file) and then open the patch in the details view
-		if (this.container.git.highlander == null && args?.draft == null) {
-			void window.showErrorMessage('Cannot open cloud patch: no active repository');
-			return;
-		}
-
 		if (args?.id == null && args?.draft == null) {
 			void window.showErrorMessage('Cannot open cloud patch: no patch or patch id provided');
 			return;
@@ -238,6 +231,23 @@ export class OpenCloudPatchCommand extends Command {
 			}
 
 			patch = patches[0];
+
+			if (patch.repo == null && patch.repoData != null) {
+				const repo = await this.container.git.findMatchingRepository({
+					firstSha: patch.repoData.initialCommitSha,
+					remoteUrl: patch.repoData.remote?.url,
+				});
+				if (repo != null) {
+					patch.repo = repo;
+				}
+			}
+
+			if (patch.repo == null) {
+				void window.showErrorMessage(`Cannot open cloud patch: no repository found for patch ${args.patchId}`);
+				return;
+			} else if (this.container.git.highlander == null) {
+				await this.container.git.getOrOpenRepository(patch.repo.uri.fsPath);
+			}
 
 			const patchContents = await this.container.drafts.getPatchContents(patch.id);
 			if (patchContents == null) {
