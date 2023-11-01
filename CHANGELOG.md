@@ -36,6 +36,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Improves accuracy, performance, and memory usage related to parsing diffs, used in _Changes_ hovers, _Changes_ file annotations, etc
 - Improves confirmation messaging in the _Git Command Palette_
 - Refines merge/rebase messaging when there is nothing to do &mdash; refs [#1660](https://github.com/gitkraken/vscode-gitlens/issues/1660)
+- Improves view messaging while loading/discovering repositories
+- Honors VS Code's `git.useForcePushWithLease` and `git.useForcePushIfIncludes` settings when force pushing
 
 ### Fixed
 
@@ -55,6 +57,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issue opening stashes in the _Commit Details_ view from the _Stashes_ view
 - Fixes issue where GitHub/GitLab enriched autolinks could incorrectly point to the wrong repository
 - Fixes issue showing folder history in the _File History_ view when there are uncommitted changes (staged or unstaged)
+- Fixes issue when pushing to a remote branch with different name than the local
+- Fixes tooltip styling/theming on the _Commit Graph_
 
 ## [14.4.0] - 2023-10-13
 
