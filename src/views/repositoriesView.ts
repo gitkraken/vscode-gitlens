@@ -1,7 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable, Event } from 'vscode';
 import { EventEmitter, ProgressLocation, window } from 'vscode';
-import type { RepositoriesViewConfig } from '../config';
-import { ViewBranchesLayout, ViewFilesLayout, ViewShowBranchComparison } from '../config';
+import type { RepositoriesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { getRemoteNameFromBranchName } from '../git/models/branch';
@@ -79,27 +78,27 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setBranchesLayoutToList'),
-				() => this.setBranchesLayout(ViewBranchesLayout.List),
+				() => this.setBranchesLayout('list'),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setBranchesLayoutToTree'),
-				() => this.setBranchesLayout(ViewBranchesLayout.Tree),
+				() => this.setBranchesLayout('tree'),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
-				() => this.setFilesLayout(ViewFilesLayout.Auto),
+				() => this.setFilesLayout('auto'),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToList'),
-				() => this.setFilesLayout(ViewFilesLayout.List),
+				() => this.setFilesLayout('list'),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToTree'),
-				() => this.setFilesLayout(ViewFilesLayout.Tree),
+				() => this.setFilesLayout('tree'),
 				this,
 			),
 			registerViewCommand(
@@ -255,7 +254,8 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 			!configuration.changed(e, 'defaultTimeFormat') &&
 			!configuration.changed(e, 'sortBranchesBy') &&
 			!configuration.changed(e, 'sortContributorsBy') &&
-			!configuration.changed(e, 'sortTagsBy')
+			!configuration.changed(e, 'sortTagsBy') &&
+			!configuration.changed(e, 'sortRepositoriesBy')
 		) {
 			return false;
 		}
@@ -330,6 +330,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		let branches = await this.container.git.getCommitBranches(
 			commit.repoPath,
 			commit.ref,
+			undefined,
 			isCommit(commit) ? { commitDate: commit.committer.date } : undefined,
 		);
 		if (branches.length !== 0) {
@@ -363,6 +364,7 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 		branches = await this.container.git.getCommitBranches(
 			commit.repoPath,
 			commit.ref,
+			undefined,
 			isCommit(commit) ? { commitDate: commit.committer.date, remotes: true } : { remotes: true },
 		);
 		if (branches.length === 0) return undefined;
@@ -863,14 +865,14 @@ export class RepositoriesView extends ViewBase<'repositories', RepositoriesNode,
 	private setShowBranchComparison(enabled: boolean) {
 		return configuration.updateEffective(
 			`views.${this.configKey}.showBranchComparison` as const,
-			enabled ? ViewShowBranchComparison.Working : false,
+			enabled ? 'working' : false,
 		);
 	}
 
 	private setBranchShowBranchComparison(enabled: boolean) {
 		return configuration.updateEffective(
 			`views.${this.configKey}.branches.showBranchComparison` as const,
-			enabled ? ViewShowBranchComparison.Branch : false,
+			enabled ? 'branch' : false,
 		);
 	}
 

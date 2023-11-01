@@ -21,9 +21,9 @@ import { Directive } from '../../quickpicks/items/directive';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags';
 import { configuration } from '../../system/configuration';
-import { basename, isDescendent } from '../../system/path';
+import { basename, isDescendant } from '../../system/path';
 import { pluralize, truncateLeft } from '../../system/string';
-import { openWorkspace, OpenWorkspaceLocation } from '../../system/utils';
+import { openWorkspace } from '../../system/utils';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -36,7 +36,6 @@ import type {
 	StepState,
 } from '../quickCommand';
 import {
-	appendReposToTitle,
 	canInputStepContinue,
 	canPickStepContinue,
 	canStepContinue,
@@ -44,15 +43,18 @@ import {
 	createCustomStep,
 	createPickStep,
 	endSteps,
+	QuickCommand,
+	StepResultBreak,
+} from '../quickCommand';
+import {
+	appendReposToTitle,
 	ensureAccessStep,
 	inputBranchNameStep,
 	pickBranchOrTagStep,
 	pickRepositoryStep,
 	pickWorktreesStep,
 	pickWorktreeStep,
-	QuickCommand,
-	StepResultBreak,
-} from '../quickCommand';
+} from '../quickCommand.steps';
 
 interface Context {
 	repos: Repository[];
@@ -505,16 +507,14 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 			queueMicrotask(() => {
 				switch (action) {
 					case 'always':
-						openWorkspace(worktree!.uri, { location: OpenWorkspaceLocation.CurrentWindow });
+						openWorkspace(worktree!.uri, { location: 'currentWindow' });
 						break;
 					case 'alwaysNewWindow':
-						openWorkspace(worktree!.uri, { location: OpenWorkspaceLocation.NewWindow });
+						openWorkspace(worktree!.uri, { location: 'newWindow' });
 						break;
 					case 'onlyWhenEmpty':
 						openWorkspace(worktree!.uri, {
-							location: workspace.workspaceFolders?.length
-								? OpenWorkspaceLocation.CurrentWindow
-								: OpenWorkspaceLocation.NewWindow,
+							location: workspace.workspaceFolders?.length ? 'currentWindow' : 'newWindow',
 						});
 						break;
 				}
@@ -586,7 +586,7 @@ export class WorktreeGitCommand extends QuickCommand<State> {
 		const trailer = `${basename(repoUri.path)}.worktrees`;
 
 		if (repoUri.toString() !== pickedUri.toString()) {
-			if (isDescendent(pickedUri, repoUri)) {
+			if (isDescendant(pickedUri, repoUri)) {
 				recommendedRootUri = Uri.joinPath(repoUri, '..', trailer);
 			} else if (basename(pickedUri.path) === trailer) {
 				recommendedRootUri = pickedUri;

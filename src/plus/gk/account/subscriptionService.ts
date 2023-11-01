@@ -17,21 +17,39 @@ import {
 	ProgressLocation,
 	StatusBarAlignment,
 	ThemeColor,
-	Uri,
 	window,
 } from 'vscode';
 import { getPlatform } from '@env/platform';
-import type { CoreColors } from '../../constants';
-import { Commands } from '../../constants';
-import type { Container } from '../../container';
-import { AccountValidationError } from '../../errors';
-import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
-import type { Subscription } from '../../subscription';
+import type { CoreColors } from '../../../constants';
+import { Commands } from '../../../constants';
+import type { Container } from '../../../container';
+import { AccountValidationError } from '../../../errors';
+import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
+import { executeCommand, registerCommand } from '../../../system/command';
+import { configuration } from '../../../system/configuration';
+import { setContext } from '../../../system/context';
+import { createFromDateDelta } from '../../../system/date';
+import { gate } from '../../../system/decorators/gate';
+import { debug, log } from '../../../system/decorators/log';
+import type { Deferrable } from '../../../system/function';
+import { debounce, once } from '../../../system/function';
+import { Logger } from '../../../system/logger';
+import { getLogScope } from '../../../system/logger.scope';
+import { flatten } from '../../../system/object';
+import { pluralize } from '../../../system/string';
+import { openWalkthrough } from '../../../system/utils';
+import { satisfies } from '../../../system/version';
+import type { GKCheckInResponse } from '../checkin';
+import { getSubscriptionFromCheckIn } from '../checkin';
+import type { ServerConnection } from '../serverConnection';
+import { ensurePlusFeaturesEnabled } from '../utils';
+import { authenticationProviderId, authenticationProviderScopes } from './authenticationProvider';
+import type { Subscription } from './subscription';
 import {
+	assertSubscriptionState,
 	computeSubscriptionState,
 	getSubscriptionPlan,
 	getSubscriptionPlanName,
-	getSubscriptionPlanPriority,
 	getSubscriptionTimeRemaining,
 	getTimeRemaining,
 	isSubscriptionExpired,
@@ -40,24 +58,7 @@ import {
 	isSubscriptionTrial,
 	SubscriptionPlanId,
 	SubscriptionState,
-} from '../../subscription';
-import { executeCommand, registerCommand } from '../../system/command';
-import { configuration } from '../../system/configuration';
-import { setContext } from '../../system/context';
-import { createFromDateDelta } from '../../system/date';
-import { gate } from '../../system/decorators/gate';
-import { debug, log } from '../../system/decorators/log';
-import type { Deferrable } from '../../system/function';
-import { debounce, once } from '../../system/function';
-import { Logger } from '../../system/logger';
-import { getLogScope } from '../../system/logger.scope';
-import { flatten } from '../../system/object';
-import { pluralize } from '../../system/string';
-import { openWalkthrough } from '../../system/utils';
-import { satisfies } from '../../system/version';
-import { authenticationProviderId, authenticationProviderScopes } from '../gk/authenticationProvider';
-import type { ServerConnection } from '../gk/serverConnection';
-import { ensurePlusFeaturesEnabled } from './utils';
+} from './subscription';
 
 export interface SubscriptionChangeEvent {
 	readonly current: Subscription;
@@ -100,7 +101,7 @@ export class SubscriptionService implements Disposable {
 			subscription.previewTrial = undefined;
 		}
 
-		this.changeSubscription(subscription, true);
+		this.changeSubscription(subscription, { silent: true });
 		setTimeout(() => void this.ensureSession(false), 10000);
 	}
 
@@ -131,7 +132,7 @@ export class SubscriptionService implements Disposable {
 		}
 
 		this._session = session;
-		void this.validate();
+		void this.validate({ force: true });
 	}
 
 	private _etag: number = 0;
@@ -164,7 +165,7 @@ export class SubscriptionService implements Disposable {
 			registerCommand(Commands.PlusPurchase, () => this.purchase()),
 
 			registerCommand(Commands.PlusResendVerification, () => this.resendVerification()),
-			registerCommand(Commands.PlusValidate, () => this.validate()),
+			registerCommand(Commands.PlusValidate, () => this.validate({ force: true })),
 
 			registerCommand(Commands.PlusShowPlans, () => this.showPlans()),
 
@@ -276,6 +277,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private async logoutCore(reset: boolean = false): Promise<void> {
+		this._lastValidatedDate = undefined;
 		if (this._validationTimer != null) {
 			clearInterval(this._validationTimer);
 			this._validationTimer = undefined;
@@ -304,6 +306,7 @@ export class SubscriptionService implements Disposable {
 				actual: getSubscriptionPlan(
 					SubscriptionPlanId.Free,
 					false,
+					0,
 					undefined,
 					this._subscription.plan?.actual?.startedOn != null
 						? new Date(this._subscription.plan.actual.startedOn)
@@ -312,6 +315,7 @@ export class SubscriptionService implements Disposable {
 				effective: getSubscriptionPlan(
 					SubscriptionPlanId.Free,
 					false,
+					0,
 					undefined,
 					this._subscription.plan?.effective?.startedOn != null
 						? new Date(this._subscription.plan.actual.startedOn)
@@ -324,7 +328,7 @@ export class SubscriptionService implements Disposable {
 
 	@log()
 	manage(): void {
-		void env.openExternal(this.connection.baseAccountUri);
+		void env.openExternal(this.connection.getAccountsUri());
 	}
 
 	@log()
@@ -334,11 +338,7 @@ export class SubscriptionService implements Disposable {
 		if (this._subscription.account == null) {
 			this.showPlans();
 		} else {
-			void env.openExternal(
-				Uri.joinPath(this.connection.baseAccountUri, 'subscription').with({
-					query: 'product=gitlens&license=PRO',
-				}),
-			);
+			void env.openExternal(this.connection.getAccountsUri('subscription', 'product=gitlens&license=PRO'));
 		}
 		await this.showAccountView();
 	}
@@ -356,8 +356,8 @@ export class SubscriptionService implements Disposable {
 		if (session == null) return false;
 
 		try {
-			const rsp = await this.connection.fetch(
-				Uri.joinPath(this.connection.baseApiUri, 'resend-email').toString(),
+			const rsp = await this.connection.fetchApi(
+				'resend-email',
 				{
 					method: 'POST',
 					body: JSON.stringify({ id: session.account.id }),
@@ -387,7 +387,7 @@ export class SubscriptionService implements Disposable {
 			);
 
 			if (result === confirm) {
-				await this.validate();
+				await this.validate({ force: true });
 				return true;
 			}
 		} catch (ex) {
@@ -410,7 +410,7 @@ export class SubscriptionService implements Disposable {
 	}
 
 	private showPlans(): void {
-		void env.openExternal(Uri.joinPath(this.connection.baseSiteUri, 'gitlens/pricing'));
+		void env.openExternal(this.connection.getSiteUri('gitlens/pricing'));
 	}
 
 	@gate()
@@ -423,10 +423,10 @@ export class SubscriptionService implements Disposable {
 			void this.showAccountView();
 
 			if (!silent && plan.effective.id === SubscriptionPlanId.Free) {
-				const confirm: MessageItem = { title: 'Start Free Pro Trial', isCloseAffordance: true };
+				const confirm: MessageItem = { title: 'Start Free GitKraken Trial', isCloseAffordance: true };
 				const cancel: MessageItem = { title: 'Cancel' };
 				const result = await window.showInformationMessage(
-					'Your 3-day Pro preview has ended, start a free Pro trial to get an additional 7 days.\n\n✨ A trial or paid plan is required to use Pro features on privately hosted repos.',
+					'Your 3-day Pro preview has ended, start a free GitKraken trial to get an additional 7 days.\n\n✨ A trial or paid plan is required to use Pro features on privately hosted repos.',
 					{ modal: true },
 					confirm,
 					cancel,
@@ -466,7 +466,7 @@ export class SubscriptionService implements Disposable {
 			...this._subscription,
 			plan: {
 				...this._subscription.plan,
-				effective: getSubscriptionPlan(SubscriptionPlanId.Pro, false, undefined, startedOn, expiresOn),
+				effective: getSubscriptionPlan(SubscriptionPlanId.Pro, false, 0, undefined, startedOn, expiresOn),
 			},
 			previewTrial: previewTrial,
 		});
@@ -479,7 +479,7 @@ export class SubscriptionService implements Disposable {
 					`You can now preview Pro features for ${pluralize(
 						'day',
 						days,
-					)}. After which, you can start a free Pro trial for an additional 7 days.`,
+					)}. After which, you can start a free GitKraken trial for an additional 7 days.`,
 					confirm,
 					learn,
 				);
@@ -493,7 +493,7 @@ export class SubscriptionService implements Disposable {
 
 	@gate()
 	@log()
-	async validate(): Promise<void> {
+	async validate(options?: { force?: boolean }): Promise<void> {
 		const scope = getLogScope();
 
 		const session = await this.ensureSession(false);
@@ -503,17 +503,30 @@ export class SubscriptionService implements Disposable {
 		}
 
 		try {
-			await this.checkInAndValidate(session);
+			await this.checkInAndValidate(session, options);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;
 		}
 	}
 
-	private _lastCheckInDate: Date | undefined;
+	private _lastValidatedDate: Date | undefined;
 	@gate<SubscriptionService['checkInAndValidate']>(s => s.account.id)
-	private async checkInAndValidate(session: AuthenticationSession, showSlowProgress: boolean = false): Promise<void> {
-		if (!showSlowProgress) return this.checkInAndValidateCore(session);
+	private async checkInAndValidate(
+		session: AuthenticationSession,
+		options?: { force?: boolean; showSlowProgress?: boolean },
+	): Promise<void> {
+		// Only check in if we haven't in the last 12 hours
+		if (
+			!options?.force &&
+			this._lastValidatedDate != null &&
+			Date.now() - this._lastValidatedDate.getTime() < 12 * 60 * 60 * 1000 &&
+			!isSubscriptionExpired(this._subscription)
+		) {
+			return;
+		}
+
+		if (!options?.showSlowProgress) return this.checkInAndValidateCore(session);
 
 		const validating = this.checkInAndValidateCore(session);
 		const result = await Promise.race([
@@ -532,9 +545,10 @@ export class SubscriptionService implements Disposable {
 		}
 	}
 
-	@debug<SubscriptionService['checkInAndValidate']>({ args: { 0: s => s?.account.label } })
+	@debug<SubscriptionService['checkInAndValidateCore']>({ args: { 0: s => s?.account.label } })
 	private async checkInAndValidateCore(session: AuthenticationSession): Promise<void> {
 		const scope = getLogScope();
+		this._lastValidatedDate = undefined;
 
 		try {
 			const checkInData = {
@@ -550,8 +564,8 @@ export class SubscriptionService implements Disposable {
 				previewExpiresOn: this._subscription.previewTrial?.expiresOn,
 			};
 
-			const rsp = await this.connection.fetch(
-				Uri.joinPath(this.connection.baseApiUri, 'gitlens/checkin').toString(),
+			const rsp = await this.connection.fetchApi(
+				'gitlens/checkin',
 				{
 					method: 'POST',
 					body: JSON.stringify(checkInData),
@@ -563,9 +577,8 @@ export class SubscriptionService implements Disposable {
 				throw new AccountValidationError('Unable to validate account', undefined, rsp.status, rsp.statusText);
 			}
 
-			const data: GKLicenseInfo = await rsp.json();
-			this.validateSubscription(data);
-			this._lastCheckInDate = new Date();
+			const data: GKCheckInResponse = await rsp.json();
+			this.validateAndUpdateSubscription(data);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;
@@ -585,99 +598,26 @@ export class SubscriptionService implements Disposable {
 		// Check 4 times a day to ensure we validate at least once a day
 		this._validationTimer = setInterval(
 			() => {
-				if (this._lastCheckInDate == null || this._lastCheckInDate.getDate() !== new Date().getDate()) {
+				if (this._lastValidatedDate == null || this._lastValidatedDate.getDate() !== new Date().getDate()) {
 					void this.ensureSession(false, true);
 				}
 			},
-			1000 * 60 * 60 * 6,
+			6 * 60 * 60 * 1000,
 		);
 	}
 
 	@debug()
-	private validateSubscription(data: GKLicenseInfo) {
-		const account: Subscription['account'] = {
-			id: data.user.id,
-			name: data.user.name,
-			email: data.user.email,
-			verified: data.user.status === 'activated',
-			createdOn: data.user.createdDate,
-			organizationIds: data.orgIds ?? [],
-		};
+	private validateAndUpdateSubscription(data: GKCheckInResponse) {
+		const subscription = getSubscriptionFromCheckIn(data);
 
-		const effectiveLicenses = Object.entries(data.licenses.effectiveLicenses) as [GKLicenseType, GKLicense][];
-		const paidLicenses = Object.entries(data.licenses.paidLicenses) as [GKLicenseType, GKLicense][];
-
-		let actual: Subscription['plan']['actual'] | undefined;
-		if (paidLicenses.length > 0) {
-			if (paidLicenses.length > 1) {
-				paidLicenses.sort(
-					(a, b) =>
-						getSubscriptionPlanPriority(convertLicenseTypeToPlanId(b[0])) +
-						licenseStatusPriority(b[1].latestStatus) -
-						(getSubscriptionPlanPriority(convertLicenseTypeToPlanId(a[0])) +
-							licenseStatusPriority(a[1].latestStatus)),
-				);
-			}
-
-			const [licenseType, license] = paidLicenses[0];
-			actual = getSubscriptionPlan(
-				convertLicenseTypeToPlanId(licenseType),
-				isBundleLicenseType(licenseType),
-				license.organizationId,
-				new Date(license.latestStartDate),
-				new Date(license.latestEndDate),
-				license.latestStatus === 'cancelled',
-			);
-		}
-
-		if (actual == null) {
-			actual = getSubscriptionPlan(
-				SubscriptionPlanId.FreePlus,
-				false,
-				undefined,
-				data.user.firstGitLensCheckIn != null
-					? new Date(data.user.firstGitLensCheckIn)
-					: data.user.createdDate != null
-					? new Date(data.user.createdDate)
-					: undefined,
-			);
-		}
-
-		let effective: Subscription['plan']['effective'] | undefined;
-		if (effectiveLicenses.length > 0) {
-			if (effectiveLicenses.length > 1) {
-				effectiveLicenses.sort(
-					(a, b) =>
-						getSubscriptionPlanPriority(convertLicenseTypeToPlanId(b[0])) +
-						licenseStatusPriority(b[1].latestStatus) -
-						(getSubscriptionPlanPriority(convertLicenseTypeToPlanId(a[0])) +
-							licenseStatusPriority(a[1].latestStatus)),
-				);
-			}
-
-			const [licenseType, license] = effectiveLicenses[0];
-			effective = getSubscriptionPlan(
-				convertLicenseTypeToPlanId(licenseType),
-				isBundleLicenseType(licenseType),
-				license.organizationId,
-				new Date(license.latestStartDate),
-				new Date(license.latestEndDate),
-				license.latestStatus === 'cancelled',
-			);
-		}
-
-		if (effective == null || getSubscriptionPlanPriority(actual.id) >= getSubscriptionPlanPriority(effective.id)) {
-			effective = { ...actual };
-		}
-
-		this.changeSubscription({
-			...this._subscription,
-			plan: {
-				actual: actual,
-				effective: effective,
+		this._lastValidatedDate = new Date();
+		this.changeSubscription(
+			{
+				...this._subscription,
+				...subscription,
 			},
-			account: account,
-		});
+			{ store: true },
+		);
 	}
 
 	private _sessionPromise: Promise<AuthenticationSession | null> | undefined;
@@ -742,7 +682,7 @@ export class SubscriptionService implements Disposable {
 		}
 
 		try {
-			await this.checkInAndValidate(session, createIfNeeded);
+			await this.checkInAndValidate(session, { showSlowProgress: createIfNeeded, force: createIfNeeded });
 		} catch (ex) {
 			Logger.error(ex, scope);
 			debugger;
@@ -807,13 +747,13 @@ export class SubscriptionService implements Disposable {
 	@debug()
 	private changeSubscription(
 		subscription: Optional<Subscription, 'state'> | undefined,
-		silent: boolean = false,
+		options?: { silent?: boolean; store?: boolean },
 	): void {
 		if (subscription == null) {
 			subscription = {
 				plan: {
-					actual: getSubscriptionPlan(SubscriptionPlanId.Free, false, undefined),
-					effective: getSubscriptionPlan(SubscriptionPlanId.Free, false, undefined),
+					actual: getSubscriptionPlan(SubscriptionPlanId.Free, false, 0, undefined),
+					effective: getSubscriptionPlan(SubscriptionPlanId.Free, false, 0, undefined),
 				},
 				account: undefined,
 				state: SubscriptionState.Free,
@@ -844,6 +784,7 @@ export class SubscriptionService implements Disposable {
 					effective: getSubscriptionPlan(
 						SubscriptionPlanId.Pro,
 						false,
+						0,
 						undefined,
 						new Date(subscription.previewTrial.startedOn),
 						new Date(subscription.previewTrial.expiresOn),
@@ -860,7 +801,12 @@ export class SubscriptionService implements Disposable {
 		const matches = previous != null && JSON.stringify(previous) === JSON.stringify(subscription);
 
 		// If the previous and new subscriptions are exactly the same, kick out
-		if (matches) return;
+		if (matches) {
+			if (options?.store) {
+				void this.storeSubscription(subscription);
+			}
+			return;
+		}
 
 		queueMicrotask(() => {
 			let data = flattenSubscription(subscription);
@@ -879,7 +825,7 @@ export class SubscriptionService implements Disposable {
 		this._subscription = subscription;
 		this._etag = Date.now();
 
-		if (!silent) {
+		if (!options?.silent) {
 			this.updateContext();
 
 			if (previous != null) {
@@ -891,7 +837,15 @@ export class SubscriptionService implements Disposable {
 	private getStoredSubscription(): Subscription | undefined {
 		const storedSubscription = this.container.storage.get('premium:subscription');
 
-		const subscription = storedSubscription?.data;
+		let lastValidatedAt: number | undefined;
+		let subscription: Subscription | undefined;
+		if (storedSubscription?.data != null) {
+			({ lastValidatedAt, ...subscription } = storedSubscription.data);
+			this._lastValidatedDate = lastValidatedAt != null ? new Date(lastValidatedAt) : undefined;
+		} else {
+			subscription = undefined;
+		}
+
 		if (subscription != null) {
 			// Migrate the plan names to the latest names
 			(subscription.plan.actual as Mutable<Subscription['plan']['actual']>).name = getSubscriptionPlanName(
@@ -908,7 +862,7 @@ export class SubscriptionService implements Disposable {
 	private async storeSubscription(subscription: Subscription): Promise<void> {
 		return this.container.storage.store('premium:subscription', {
 			v: 1,
-			data: subscription,
+			data: { ...subscription, lastValidatedAt: this._lastValidatedDate?.getTime() },
 		});
 	}
 
@@ -923,7 +877,6 @@ export class SubscriptionService implements Disposable {
 
 		if (this._cancellationSource != null) {
 			this._cancellationSource.cancel();
-			this._cancellationSource.dispose();
 		}
 		this._cancellationSource = new CancellationTokenSource();
 
@@ -974,6 +927,7 @@ export class SubscriptionService implements Disposable {
 		const {
 			account,
 			plan: { effective },
+			state,
 		} = this._subscription;
 
 		if (effective.id === SubscriptionPlanId.Free) {
@@ -998,7 +952,7 @@ export class SubscriptionService implements Disposable {
 		}
 
 		this._statusBarSubscription.name = 'GitKraken Subscription';
-		this._statusBarSubscription.command = Commands.ShowHomeView;
+		this._statusBarSubscription.command = Commands.ShowAccountView;
 
 		if (account?.verified === false) {
 			this._statusBarSubscription.text = `$(warning) ${effective.name} (Unverified)`;
@@ -1013,12 +967,21 @@ export class SubscriptionService implements Disposable {
 			);
 		} else {
 			const remaining = getSubscriptionTimeRemaining(this._subscription, 'days');
+			const isReactivatedTrial =
+				state === SubscriptionState.FreePlusInTrial && effective.trialReactivationCount > 0;
 
 			this._statusBarSubscription.text = `${effective.name} (Trial)`;
 			this._statusBarSubscription.tooltip = new MarkdownString(
-				`You have ${pluralize('day', remaining ?? 0)} left in your free **${
-					effective.name
-				}** trial, which gives you additional access to Pro features on privately hosted repos.\n\nClick for details`,
+				`${
+					isReactivatedTrial
+						? `[See what's new](https://help.gitkraken.com/gitlens/gitlens-release-notes-current/) with
+			${pluralize('day', remaining ?? 0, {
+				infix: ' more ',
+			})}
+			in your **${effective.name}** trial.`
+						: `You have ${pluralize('day', remaining ?? 0)} remaining in your **${effective.name}** trial.`
+				} Once your trial ends, you'll need a paid plan to continue using ✨ features.\n\nTry our
+			[other developer tools](https://www.gitkraken.com/suite) also included in your trial.`,
 				true,
 			);
 		}
@@ -1052,92 +1015,4 @@ function flattenSubscription(subscription: Optional<Subscription, 'state'> | und
 		}),
 		'subscription.state': subscription.state,
 	};
-}
-
-function assertSubscriptionState(subscription: Optional<Subscription, 'state'>): asserts subscription is Subscription {}
-
-interface GKLicenseInfo {
-	readonly user: GKUser;
-	readonly licenses: {
-		readonly paidLicenses: Record<GKLicenseType, GKLicense>;
-		readonly effectiveLicenses: Record<GKLicenseType, GKLicense>;
-	};
-	readonly orgIds?: string[];
-}
-
-interface GKLicense {
-	readonly latestStatus: 'active' | 'canceled' | 'cancelled' | 'expired' | 'in_trial' | 'non_renewing' | 'trial';
-	readonly latestStartDate: string;
-	readonly latestEndDate: string;
-	readonly organizationId: string | undefined;
-}
-
-type GKLicenseType =
-	| 'gitlens-pro'
-	| 'gitlens-teams'
-	| 'gitlens-hosted-enterprise'
-	| 'gitlens-self-hosted-enterprise'
-	| 'gitlens-standalone-enterprise'
-	| 'bundle-pro'
-	| 'bundle-teams'
-	| 'bundle-hosted-enterprise'
-	| 'bundle-self-hosted-enterprise'
-	| 'bundle-standalone-enterprise';
-
-interface GKUser {
-	readonly id: string;
-	readonly name: string;
-	readonly email: string;
-	readonly status: 'activated' | 'pending';
-	readonly createdDate: string;
-	readonly firstGitLensCheckIn?: string;
-}
-
-function convertLicenseTypeToPlanId(licenseType: GKLicenseType): SubscriptionPlanId {
-	switch (licenseType) {
-		case 'gitlens-pro':
-		case 'bundle-pro':
-			return SubscriptionPlanId.Pro;
-		case 'gitlens-teams':
-		case 'bundle-teams':
-			return SubscriptionPlanId.Teams;
-		case 'gitlens-hosted-enterprise':
-		case 'gitlens-self-hosted-enterprise':
-		case 'gitlens-standalone-enterprise':
-		case 'bundle-hosted-enterprise':
-		case 'bundle-self-hosted-enterprise':
-		case 'bundle-standalone-enterprise':
-			return SubscriptionPlanId.Enterprise;
-		default:
-			return SubscriptionPlanId.FreePlus;
-	}
-}
-
-function isBundleLicenseType(licenseType: GKLicenseType): boolean {
-	switch (licenseType) {
-		case 'bundle-pro':
-		case 'bundle-teams':
-		case 'bundle-hosted-enterprise':
-		case 'bundle-self-hosted-enterprise':
-		case 'bundle-standalone-enterprise':
-			return true;
-		default:
-			return false;
-	}
-}
-
-function licenseStatusPriority(status: GKLicense['latestStatus']): number {
-	switch (status) {
-		case 'active':
-			return 100;
-		case 'expired':
-		case 'cancelled':
-			return -100;
-		case 'in_trial':
-		case 'trial':
-			return 1;
-		case 'canceled':
-		case 'non_renewing':
-			return 0;
-	}
 }

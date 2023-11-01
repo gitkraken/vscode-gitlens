@@ -5,9 +5,6 @@ import type { DirectiveQuickPickItem } from '../quickpicks/items/directive';
 import { createDirectiveQuickPickItem, Directive, isDirective } from '../quickpicks/items/directive';
 import { configuration } from '../system/configuration';
 
-export * from './quickCommand.buttons';
-export * from './quickCommand.steps';
-
 export interface CustomStep<T = unknown> {
 	ignoreFocusOut?: boolean;
 
@@ -24,6 +21,7 @@ export interface QuickInputStep {
 	additionalButtons?: QuickInputButton[];
 	buttons?: QuickInputButton[];
 	ignoreFocusOut?: boolean;
+	isConfirmationStep?: boolean;
 	keys?: StepNavigationKeys[];
 	placeholder?: string;
 	prompt?: string;
@@ -46,6 +44,7 @@ export interface QuickPickStep<T extends QuickPickItem = QuickPickItem> {
 	allowEmpty?: boolean;
 	buttons?: QuickInputButton[];
 	ignoreFocusOut?: boolean;
+	isConfirmationStep?: boolean;
 	items: (DirectiveQuickPickItem | T)[]; // | DirectiveQuickPickItem[];
 	keys?: StepNavigationKeys[];
 	matchOnDescription?: boolean;
@@ -56,6 +55,8 @@ export interface QuickPickStep<T extends QuickPickItem = QuickPickItem> {
 	title?: string;
 	value?: string;
 	selectValueWhenShown?: boolean;
+
+	frozen?: boolean;
 
 	onDidAccept?(quickpick: QuickPick<T>): boolean | Promise<boolean>;
 	onDidChangeValue?(quickpick: QuickPick<T>): boolean | Promise<boolean>;
@@ -324,15 +325,16 @@ export function createConfirmStep<T extends QuickPickItem, Context extends { tit
 	confirmations: T[],
 	context: Context,
 	cancel?: DirectiveQuickPickItem,
-	options: Partial<QuickPickStep<T>> = {},
+	options?: Partial<QuickPickStep<T>>,
 ): QuickPickStep<T> {
 	return createPickStep<T>({
+		isConfirmationStep: true,
 		placeholder: `Confirm ${context.title}`,
 		title: title,
 		ignoreFocusOut: true,
 		items: [...confirmations, cancel ?? createDirectiveQuickPickItem(Directive.Cancel)],
 		selectedItems: [confirmations.find(c => c.picked) ?? confirmations[0]],
-		...options,
+		...(options ?? {}),
 	});
 }
 
@@ -352,4 +354,16 @@ export function createCustomStep<T>(step: CustomStep<T>): CustomStep<T> {
 
 export function endSteps(state: PartialStepState) {
 	state.counter = -1;
+}
+
+export function freezeStep(step: QuickPickStep, quickpick: QuickPick<any>): Disposable {
+	quickpick.enabled = false;
+	step.frozen = true;
+	return {
+		[Symbol.dispose]: () => {
+			step.frozen = false;
+			quickpick.enabled = true;
+			quickpick.show();
+		},
+	};
 }

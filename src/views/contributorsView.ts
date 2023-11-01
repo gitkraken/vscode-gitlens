@@ -1,8 +1,7 @@
 import type { CancellationToken, ConfigurationChangeEvent } from 'vscode';
 import { Disposable, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { onDidFetchAvatar } from '../avatars';
-import type { ContributorsViewConfig } from '../config';
-import { ViewFilesLayout } from '../config';
+import type { ContributorsViewConfig, ViewFilesLayout } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -13,10 +12,11 @@ import { executeCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
 import { debug } from '../system/decorators/log';
+import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
+import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
+import type { ViewNode } from './nodes/abstract/viewNode';
 import { ContributorNode } from './nodes/contributorNode';
 import { ContributorsNode } from './nodes/contributorsNode';
-import type { ViewNode } from './nodes/viewNode';
-import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
@@ -53,7 +53,9 @@ export class ContributorsViewNode extends RepositoriesSubscribeableNode<Contribu
 		if (this.children == null) {
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = 'No contributors could be found.';
+				this.view.message = this.view.container.git.isDiscoveringRepositories
+					? 'Loading contributors...'
+					: 'No contributors could be found.';
 
 				return [];
 			}
@@ -145,17 +147,17 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
-				() => this.setFilesLayout(ViewFilesLayout.Auto),
+				() => this.setFilesLayout('auto'),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToList'),
-				() => this.setFilesLayout(ViewFilesLayout.List),
+				() => this.setFilesLayout('list'),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToTree'),
-				() => this.setFilesLayout(ViewFilesLayout.Tree),
+				() => this.setFilesLayout('tree'),
 				this,
 			),
 
@@ -197,7 +199,8 @@ export class ContributorsView extends ViewBase<'contributors', ContributorsViewN
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
-			!configuration.changed(e, 'sortContributorsBy')
+			!configuration.changed(e, 'sortContributorsBy') &&
+			!configuration.changed(e, 'sortRepositoriesBy')
 		) {
 			return false;
 		}

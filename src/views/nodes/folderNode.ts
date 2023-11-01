@@ -1,13 +1,12 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import type { ViewsFilesConfig } from '../../config';
-import { ViewFilesLayout } from '../../config';
+import type { ViewFilesLayout, ViewsFilesConfig } from '../../config';
 import { GitUri } from '../../git/gitUri';
 import type { HierarchicalItem } from '../../system/array';
 import { sortCompare } from '../../system/string';
 import type { StashesView } from '../stashesView';
 import type { ViewsWithCommits } from '../viewBase';
-import type { ViewFileNode } from './viewNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
+import type { ViewFileNode } from './abstract/viewFileNode';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 
 export interface FileNode extends ViewFileNode {
 	folderName: string;
@@ -19,7 +18,7 @@ export interface FileNode extends ViewFileNode {
 	// root?: HierarchicalItem<FileNode>;
 }
 
-export class FolderNode extends ViewNode<ViewsWithCommits | StashesView> {
+export class FolderNode extends ViewNode<'folder', ViewsWithCommits | StashesView> {
 	readonly priority: number = 1;
 
 	constructor(
@@ -31,9 +30,9 @@ export class FolderNode extends ViewNode<ViewsWithCommits | StashesView> {
 		public readonly relativePath: string | undefined,
 		private readonly containsWorkingFiles?: boolean,
 	) {
-		super(GitUri.fromRepoPath(repoPath), view, parent);
+		super('folder', GitUri.fromRepoPath(repoPath), view, parent);
 
-		this._uniqueId = getViewNodeId(`folder+${relativePath ?? folderName}`, this.context);
+		this._uniqueId = getViewNodeId(`${this.type}+${relativePath ?? folderName}`, this.context);
 	}
 
 	override get id(): string {
@@ -54,7 +53,7 @@ export class FolderNode extends ViewNode<ViewsWithCommits | StashesView> {
 			this.root.descendants,
 			this.relativePath === undefined,
 		);
-		if (nesting === ViewFilesLayout.List) {
+		if (nesting === 'list') {
 			this.root.descendants.forEach(n => (n.relativePath = this.root.relativePath));
 			children = this.root.descendants;
 		} else {
@@ -114,13 +113,13 @@ export class FolderNode extends ViewNode<ViewsWithCommits | StashesView> {
 		children: T[],
 		isRoot: boolean,
 	): ViewFilesLayout {
-		const nesting = config.layout || ViewFilesLayout.Auto;
-		if (nesting === ViewFilesLayout.Auto) {
+		const nesting = config.layout || 'auto';
+		if (nesting === 'auto') {
 			if (isRoot || config.compact) {
 				const nestingThreshold = config.threshold || 5;
-				if (children.length <= nestingThreshold) return ViewFilesLayout.List;
+				if (children.length <= nestingThreshold) return 'list';
 			}
-			return ViewFilesLayout.Tree;
+			return 'tree';
 		}
 		return nesting;
 	}

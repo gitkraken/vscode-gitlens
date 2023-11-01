@@ -20,17 +20,9 @@ import type {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import {
-	appendReposToTitle,
-	canPickStepContinue,
-	endSteps,
-	pickBranchOrTagStep,
-	pickCommitStep,
-	PickCommitToggleQuickInputButton,
-	pickRepositoryStep,
-	QuickCommand,
-	StepResultBreak,
-} from '../quickCommand';
+import { canPickStepContinue, endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
+import { PickCommitToggleQuickInputButton } from '../quickCommand.buttons';
+import { appendReposToTitle, pickBranchOrTagStep, pickCommitStep, pickRepositoryStep } from '../quickCommand.steps';
 
 interface Context {
 	repos: Repository[];
@@ -186,7 +178,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 
 				let log = context.cache.get(ref);
 				if (log == null) {
-					log = this.container.git.getLog(state.repo.path, { ref: ref, merges: false });
+					log = this.container.git.getLog(state.repo.path, { ref: ref, merges: 'first-parent' });
 					context.cache.set(ref, log);
 				}
 
@@ -231,14 +223,20 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		const count = aheadBehind != null ? aheadBehind.ahead + aheadBehind.behind : 0;
 		if (count === 0) {
 			const step: QuickPickStep<DirectiveQuickPickItem> = this.createConfirmStep(
-				appendReposToTitle(`Confirm ${context.title}`, state, context),
+				appendReposToTitle(context.title, state, context),
 				[],
 				createDirectiveQuickPickItem(Directive.Cancel, true, {
-					label: `Cancel ${this.title}`,
+					label: 'OK',
 					detail: `${getReferenceLabel(context.destination, {
 						capitalize: true,
-					})} is up to date with ${getReferenceLabel(state.reference)}`,
+					})} is already up to date with ${getReferenceLabel(state.reference)}`,
 				}),
+				{
+					placeholder: `Nothing to rebase; ${getReferenceLabel(context.destination, {
+						label: false,
+						icon: false,
+					})} is already up to date`,
+				},
 			);
 			const selection: StepSelection<typeof step> = yield step;
 			canPickStepContinue(step, state, selection);

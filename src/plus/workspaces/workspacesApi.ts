@@ -1,6 +1,6 @@
-import { Uri } from 'vscode';
 import type { RequestInit } from '@env/fetch';
 import type { Container } from '../../container';
+import { log } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import type { GraphQLRequest, ServerConnection } from '../gk/serverConnection';
 import type {
@@ -24,6 +24,7 @@ export class WorkspacesApi {
 		private readonly connection: ServerConnection,
 	) {}
 
+	@log()
 	async getWorkspace(
 		id: string,
 		options?: {
@@ -94,6 +95,7 @@ export class WorkspacesApi {
 		return json;
 	}
 
+	@log()
 	async getWorkspaces(options?: {
 		count?: number;
 		cursor?: string;
@@ -217,6 +219,7 @@ export class WorkspacesApi {
 		return outputData;
 	}
 
+	@log()
 	async getWorkspaceRepositories(
 		workspaceId: string,
 		options?: {
@@ -273,6 +276,7 @@ export class WorkspacesApi {
 		return json;
 	}
 
+	@log()
 	async createWorkspace(options: {
 		name: string;
 		description: string;
@@ -340,6 +344,7 @@ export class WorkspacesApi {
 		return json;
 	}
 
+	@log()
 	async deleteWorkspace(workspaceId: string): Promise<DeleteWorkspaceResponse | undefined> {
 		const rsp = await this.fetch({
 			query: `
@@ -370,6 +375,7 @@ export class WorkspacesApi {
 		return json;
 	}
 
+	@log()
 	async addReposToWorkspace(
 		workspaceId: string,
 		repos: AddWorkspaceRepoDescriptor[],
@@ -433,6 +439,7 @@ export class WorkspacesApi {
 		return json;
 	}
 
+	@log()
 	async removeReposFromWorkspace(
 		workspaceId: string,
 		repos: RemoveWorkspaceRepoDescriptor[],
@@ -478,10 +485,6 @@ export class WorkspacesApi {
 	}
 
 	private async fetch(request: GraphQLRequest, init?: RequestInit) {
-		return this.connection.fetchGraphQL(
-			Uri.joinPath(this.connection.baseApiUri, 'api/projects/graphql').toString(),
-			request,
-			init,
-		);
+		return this.connection.fetchApiGraphQL('api/projects/graphql', request, init);
 	}
 }

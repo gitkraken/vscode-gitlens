@@ -1,158 +1,137 @@
-import { LogLevel } from '../../system/logger.constants';
 import { maybeStopWatch } from '../../system/stopwatch';
-import { getLines, pluralize } from '../../system/string';
-import type { GitDiffFile, GitDiffHunkLine, GitDiffLine, GitDiffShortStat } from '../models/diff';
-import { GitDiffHunk } from '../models/diff';
+import type { GitDiffFile, GitDiffHunk, GitDiffHunkLine, GitDiffShortStat } from '../models/diff';
 import type { GitFile, GitFileStatus } from '../models/file';
 
 const shortStatDiffRegex = /(\d+)\s+files? changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/;
-const unifiedDiffRegex = /^@@ -([\d]+)(?:,([\d]+))? \+([\d]+)(?:,([\d]+))? @@(?:.*?)\n([\s\S]*?)(?=^@@)/gm;
 
-export function parseFileDiff(data: string, includeContents: boolean = false): GitDiffFile | undefined {
+function parseHunkHeaderPart(headerPart: string) {
+	const [startS, countS] = headerPart.split(',');
+	const start = Number(startS);
+	const count = Number(countS) || 1;
+	return { count: count, position: { start: start, end: start + count - 1 } };
+}
+
+export function parseGitFileDiff(data: string, includeContents = false): GitDiffFile | undefined {
+	using sw = maybeStopWatch('Git.parseFileDiff', { log: false, logLevel: 'debug' });
 	if (!data) return undefined;
-
-	const sw = maybeStopWatch('parseFileDiff', { log: false, logLevel: LogLevel.Debug });
 
 	const hunks: GitDiffHunk[] = [];
 
-	let previousStart;
-	let previousCount;
-	let currentStart;
-	let currentCount;
-	let hunk;
+	const lines = data.split('\n');
 
-	let match;
-	do {
-		match = unifiedDiffRegex.exec(`${data}\n@@`);
-		if (match == null) break;
-
-		[, previousStart, previousCount, currentStart, currentCount, hunk] = match;
-
-		previousCount = Number(previousCount) || 0;
-		previousStart = Number(previousStart) || 0;
-		currentCount = Number(currentCount) || 0;
-		currentStart = Number(currentStart) || 0;
-
-		hunks.push(
-			new GitDiffHunk(
-				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-				` ${hunk}`.substr(1),
-				{
-					count: currentCount === 0 ? 1 : currentCount,
-					position: {
-						start: currentStart,
-						end: currentStart + (currentCount > 0 ? currentCount - 1 : 0),
-					},
-				},
-				{
-					count: previousCount === 0 ? 1 : previousCount,
-					position: {
-						start: previousStart,
-						end: previousStart + (previousCount > 0 ? previousCount - 1 : 0),
-					},
-				},
-			),
-		);
-	} while (true);
-
-	sw?.stop({ suffix: ` parsed ${pluralize('hunk', hunks.length)}` });
-
-	if (!hunks.length) return undefined;
-
-	const diff: GitDiffFile = {
-		contents: includeContents ? data : undefined,
-		hunks: hunks,
-	};
-	return diff;
-}
-
-export function parseDiffHunk(hunk: GitDiffHunk): { lines: GitDiffHunkLine[]; state: 'added' | 'changed' | 'removed' } {
-	const sw = maybeStopWatch('parseDiffHunk', { log: false, logLevel: LogLevel.Debug });
-
-	const currentStart = hunk.current.position.start;
-	const previousStart = hunk.previous.position.start;
-
-	const currentLines: (GitDiffLine | undefined)[] =
-		currentStart > previousStart
-			? new Array(currentStart - previousStart).fill(undefined, 0, currentStart - previousStart)
-			: [];
-	const previousLines: (GitDiffLine | undefined)[] =
-		previousStart > currentStart
-			? new Array(previousStart - currentStart).fill(undefined, 0, previousStart - currentStart)
-			: [];
-
-	let hasAddedOrChanged;
-	let hasRemoved;
-
-	let removed = 0;
-	for (const l of getLines(hunk.contents)) {
-		switch (l[0]) {
-			case '+':
-				hasAddedOrChanged = true;
-				currentLines.push({
-					line: ` ${l.substring(1)}`,
-					state: 'added',
-				});
-
-				if (removed > 0) {
-					removed--;
-				} else {
-					previousLines.push(undefined);
-				}
-
-				break;
-
-			case '-':
-				hasRemoved = true;
-				removed++;
-
-				previousLines.push({
-					line: ` ${l.substring(1)}`,
-					state: 'removed',
-				});
-
-				break;
-
-			default:
-				while (removed > 0) {
-					removed--;
-					currentLines.push(undefined);
-				}
-
-				currentLines.push({ line: l, state: 'unchanged' });
-				previousLines.push({ line: l, state: 'unchanged' });
-
-				break;
+	// Skip header
+	let i = -1;
+	while (i < lines.length) {
+		if (lines[++i].startsWith('@@')) {
+			break;
 		}
 	}
 
-	while (removed > 0) {
-		removed--;
-		currentLines.push(undefined);
+	// Parse hunks
+	let line;
+	while (i < lines.length) {
+		line = lines[i];
+		if (!line.startsWith('@@')) continue;
+
+		const header = line.split('@@')[1].trim();
+		const [previousHeaderPart, currentHeaderPart] = header.split(' ');
+
+		const current = parseHunkHeaderPart(currentHeaderPart.slice(1));
+		const previous = parseHunkHeaderPart(previousHeaderPart.slice(1));
+
+		const hunkLines = new Map<number, GitDiffHunkLine>();
+		let fileLineNumber = current.position.start;
+
+		line = lines[++i];
+		const contentStartLine = i;
+
+		// Parse hunks lines
+		while (i < lines.length && !line.startsWith('@@')) {
+			switch (line[0]) {
+				// deleted
+				case '-': {
+					let deletedLineNumber = fileLineNumber;
+					while (line?.startsWith('-')) {
+						hunkLines.set(deletedLineNumber++, {
+							current: undefined,
+							previous: line.slice(1),
+							state: 'removed',
+						});
+						line = lines[++i];
+					}
+
+					if (line?.startsWith('+')) {
+						let addedLineNumber = fileLineNumber;
+						while (line?.startsWith('+')) {
+							const hunkLine = hunkLines.get(addedLineNumber);
+							if (hunkLine != null) {
+								hunkLine.current = line.slice(1);
+								hunkLine.state = 'changed';
+							} else {
+								hunkLines.set(addedLineNumber, {
+									current: line.slice(1),
+									previous: undefined,
+									state: 'added',
+								});
+							}
+							addedLineNumber++;
+							line = lines[++i];
+						}
+						fileLineNumber = addedLineNumber;
+					} else {
+						fileLineNumber = deletedLineNumber;
+					}
+					break;
+				}
+				// added
+				case '+':
+					hunkLines.set(fileLineNumber++, {
+						current: line.slice(1),
+						previous: undefined,
+						state: 'added',
+					});
+
+					line = lines[++i];
+					break;
+
+				// unchanged (context)
+				case ' ':
+					hunkLines.set(fileLineNumber++, {
+						current: line.slice(1),
+						previous: line.slice(1),
+						state: 'unchanged',
+					});
+
+					line = lines[++i];
+					break;
+
+				default:
+					line = lines[++i];
+					break;
+			}
+		}
+
+		const hunk: GitDiffHunk = {
+			contents: `${lines.slice(contentStartLine, i).join('\n')}\n`,
+			current: current,
+			previous: previous,
+			lines: hunkLines,
+		};
+
+		hunks.push(hunk);
 	}
 
-	const hunkLines: GitDiffHunkLine[] = [];
-
-	for (let i = 0; i < Math.max(currentLines.length, previousLines.length); i++) {
-		hunkLines.push({
-			hunk: hunk,
-			current: currentLines[i],
-			previous: previousLines[i],
-		});
-	}
-
-	sw?.stop({ suffix: ` parsed ${pluralize('line', hunkLines.length)}` });
+	sw?.stop({ suffix: ` parsed ${hunks.length} hunks` });
 
 	return {
-		lines: hunkLines,
-		state: hasAddedOrChanged && hasRemoved ? 'changed' : hasAddedOrChanged ? 'added' : 'removed',
+		contents: includeContents ? data : undefined,
+		hunks: hunks,
 	};
 }
 
-export function parseDiffNameStatusFiles(data: string, repoPath: string): GitFile[] | undefined {
+export function parseGitDiffNameStatusFiles(data: string, repoPath: string): GitFile[] | undefined {
+	using sw = maybeStopWatch('Git.parseDiffNameStatusFiles', { log: false, logLevel: 'debug' });
 	if (!data) return undefined;
-
-	const sw = maybeStopWatch('parseDiffNameStatusFiles', { log: false, logLevel: LogLevel.Debug });
 
 	const files: GitFile[] = [];
 
@@ -173,15 +152,14 @@ export function parseDiffNameStatusFiles(data: string, repoPath: string): GitFil
 		});
 	}
 
-	sw?.stop({ suffix: ` parsed ${pluralize('file', files.length)}` });
+	sw?.stop({ suffix: ` parsed ${files.length} files` });
 
 	return files;
 }
 
-export function parseDiffShortStat(data: string): GitDiffShortStat | undefined {
+export function parseGitDiffShortStat(data: string): GitDiffShortStat | undefined {
+	using sw = maybeStopWatch('Git.parseDiffShortStat', { log: false, logLevel: 'debug' });
 	if (!data) return undefined;
-
-	const sw = maybeStopWatch('parseDiffShortStat', { log: false, logLevel: LogLevel.Debug });
 
 	const match = shortStatDiffRegex.exec(data);
 	if (match == null) return undefined;
@@ -195,9 +173,7 @@ export function parseDiffShortStat(data: string): GitDiffShortStat | undefined {
 	};
 
 	sw?.stop({
-		suffix: ` parsed ${pluralize('file', diffShortStat.changedFiles)}, +${diffShortStat.additions} -${
-			diffShortStat.deletions
-		}`,
+		suffix: ` parsed ${diffShortStat.changedFiles} files, +${diffShortStat.additions} -${diffShortStat.deletions}`,
 	});
 
 	return diffShortStat;

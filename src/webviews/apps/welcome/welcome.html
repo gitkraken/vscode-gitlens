@@ -6,12 +6,12 @@
 			@font-face {
 				font-family: 'codicon';
 				font-display: block;
-				src: url('#{webroot}/codicon.ttf?2ab61cbaefbdf4c7c5589068100bee0c') format('truetype');
+				src: url('#{webroot}/codicon.ttf?79130123c9d3674a686cf03962523e8a') format('truetype');
 			}
 			@font-face {
 				font-family: 'glicons';
 				font-display: block;
-				src: url('#{root}/dist/glicons.woff2?8e33f5a80a91b05940d687a08305c156') format('woff2');
+				src: url('#{root}/dist/glicons.woff2?30855d21cb614f41edfd373458624529') format('woff2');
 			}
 		</style>
 	</head>
@@ -19,7 +19,7 @@
 	<body
 		class="welcome scrollable preload"
 		data-placement="#{placement}"
-		data-vscode-context='{ "webview": "#{webviewId}" }'
+		data-vscode-context='{ "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
 	>
 		<!-- <canvas class="snow"></canvas>
 		<img
@@ -272,9 +272,9 @@
 				<gk-workspaces-svg></gk-workspaces-svg>
 
 				<p>
-					Use the Focus view to bring all of your GitHub pull requests and issues into a unified actionable to
-					help to you more easily juggle work in progress, pending work, reviews, and more. Quickly see if
-					anything requires your attention while keeping you focused.
+					Use Focus to bring all of your GitHub pull requests and issues into a unified actionable to help to
+					you more easily juggle work in progress, pending work, reviews, and more. Quickly see if anything
+					requires your attention while keeping you focused.
 				</p>
 
 				<gk-focus-svg></gk-focus-svg>
@@ -392,7 +392,7 @@
 					<p class="h-space-half">Unlock the full power of GitLens ✨ and ☁️ features</p>
 					<p>
 						<gl-button appearance="secondary" href="command:gitlens.plus.loginOrSignUp"
-							>Start a Pro trial</gl-button
+							>Start a GitKraken trial</gl-button
 						>
 						&nbsp;or <a href="command:gitlens.plus.loginOrSignUp" title="Sign In">sign in</a>
 					</p>

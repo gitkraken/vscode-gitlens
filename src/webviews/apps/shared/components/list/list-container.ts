@@ -1,65 +1,52 @@
-import { css, customElement, FASTElement, html, observable, slotted } from '@microsoft/fast-element';
+import { css, html, LitElement } from 'lit';
+import { customElement, queryAssignedElements } from 'lit/decorators.js';
 import type { FileChangeListItem } from './file-change-list-item';
 import type { ListItem, ListItemSelectedEvent } from './list-item';
 
-// Can only import types from 'vscode'
-const BesideViewColumn = -2; /*ViewColumn.Beside*/
-
-const template = html<ListContainer>`
-	<template role="tree">
-		<slot ${slotted('itemNodes')}></slot>
-	</template>
-`;
-
-const styles = css`
-	::slotted(*) {
-		box-sizing: inherit;
-	}
-`;
-
-type ListItemTypes = ListItem | FileChangeListItem;
-@customElement({ name: 'list-container', template: template, styles: styles })
-export class ListContainer extends FASTElement {
-	private _lastSelected: ListItem | undefined;
-
-	@observable
-	itemNodes?: ListItemTypes[];
-
-	itemNodesDisposer?: () => void;
-
-	itemNodesChanged(_oldValue?: ListItemTypes[], newValue?: ListItemTypes[]) {
-		this.itemNodesDisposer?.();
-
-		if (!newValue?.length) {
-			return;
+@customElement('list-container')
+export class ListContainer extends LitElement {
+	static override styles = css`
+		::slotted(*) {
+			box-sizing: inherit;
 		}
+	`;
 
-		const nodeEvents = newValue
-			?.filter(node => node.nodeType === 1)
-			.map(node => {
-				const keyHandler = this.handleKeydown.bind(this);
-				const beforeSelectHandler = this.handleBeforeSelected.bind(this);
-				const selectHandler = this.handleSelected.bind(this);
-				node.addEventListener('keydown', keyHandler, false);
-				node.addEventListener('select', beforeSelectHandler, false);
-				node.addEventListener('selected', selectHandler, false);
+	private _lastSelected!: ListItem | undefined;
+	private _slotSubscriptionsDisposer?: () => void;
 
-				return {
-					dispose: function () {
-						node?.removeEventListener('keydown', keyHandler, false);
-						node?.removeEventListener('select', beforeSelectHandler, false);
-						node?.removeEventListener('selected', selectHandler, false);
-					},
-				};
-			});
+	@queryAssignedElements()
+	private _listItems!: (ListItem | FileChangeListItem)[];
 
-		this.itemNodesDisposer = () => {
-			nodeEvents?.forEach(({ dispose }) => dispose());
+	handleSlotChange(_e: Event) {
+		this._slotSubscriptionsDisposer?.();
+
+		if (!this._listItems?.length) return;
+		const subscriptions = this._listItems.map(node => {
+			const keyHandler = this.handleKeydown.bind(this);
+			const beforeSelectHandler = this.handleBeforeSelected.bind(this);
+			const selectHandler = this.handleSelected.bind(this);
+			node.addEventListener('keydown', keyHandler, false);
+			node.addEventListener('select', beforeSelectHandler, false);
+			node.addEventListener('selected', selectHandler, false);
+
+			return {
+				dispose: function () {
+					node?.removeEventListener('keydown', keyHandler, false);
+					node?.removeEventListener('select', beforeSelectHandler, false);
+					node?.removeEventListener('selected', selectHandler, false);
+				},
+			};
+		});
+
+		this._slotSubscriptionsDisposer = () => {
+			subscriptions?.forEach(({ dispose }) => dispose());
 		};
 	}
 
 	override disconnectedCallback() {
-		this.itemNodesDisposer?.();
+		super.disconnectedCallback();
+
+		this._slotSubscriptionsDisposer?.();
 	}
 
 	handleBeforeSelected(e: Event) {
@@ -100,8 +87,9 @@ export class ListContainer extends FASTElement {
 			if (level == getLevel(nextElement)) break;
 
 			const parentElement = getParent(nextElement);
-			nextElement.setAttribute('parentexpanded', parentElement?.expanded === false ? 'false' : 'true');
-			nextElement.setAttribute('expanded', e.detail.expanded ? 'true' : 'false');
+			nextElement.parentexpanded = parentElement?.expanded !== false;
+			nextElement.expanded = e.detail.expanded;
+
 			nextElement = nextElement.nextElementSibling as ListItem;
 		}
 	}
@@ -110,17 +98,20 @@ export class ListContainer extends FASTElement {
 		if (!e.target) return;
 		const target = e.target as ListItem;
 
-		if (e.key === 'Enter' || e.key === ' ') {
-			target.select({
-				preserveFocus: e.key !== 'Enter',
-				viewColumn: e.altKey ? BesideViewColumn : undefined,
-			});
-		} else if (e.key === 'ArrowUp') {
+		if (e.key === 'ArrowUp') {
 			const $previous: HTMLElement | null = target.previousElementSibling as HTMLElement;
 			$previous?.focus();
 		} else if (e.key === 'ArrowDown') {
 			const $next: HTMLElement | null = target.nextElementSibling as HTMLElement;
 			$next?.focus();
 		}
+	}
+
+	override firstUpdated() {
+		this.setAttribute('role', 'tree');
+	}
+
+	override render() {
+		return html`<slot @slotchange=${this.handleSlotChange}></slot>`;
 	}
 }

@@ -1,5 +1,4 @@
 import type { QuickInputButton, QuickPick } from 'vscode';
-import { BranchSorting, TagSorting } from '../config';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
 import type { PlusFeatures } from '../features';
@@ -38,6 +37,7 @@ import type { GitTag, TagSortOptions } from '../git/models/tag';
 import { sortTags } from '../git/models/tag';
 import type { GitWorktree } from '../git/models/worktree';
 import { remoteUrlRegex } from '../git/parsers/remoteParser';
+import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../plus/gk/account/subscription';
 import {
 	CommitApplyFileChangesCommandQuickPickItem,
 	CommitBrowseRepositoryFromHereCommandQuickPickItem,
@@ -94,14 +94,13 @@ import {
 	CopyRemoteResourceCommandQuickPickItem,
 	OpenRemoteResourceCommandQuickPickItem,
 } from '../quickpicks/remoteProviderPicker';
-import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../subscription';
 import { filterMap, intersection, isStringArray } from '../system/array';
 import { configuration } from '../system/configuration';
 import { formatPath } from '../system/formatPath';
 import { first, map } from '../system/iterable';
 import { getSettledValue } from '../system/promise';
 import { pad, pluralize, truncate } from '../system/string';
-import { openWorkspace, OpenWorkspaceLocation } from '../system/utils';
+import { openWorkspace } from '../system/utils';
 import type { ViewsWithRepositoryFolders } from '../views/viewBase';
 import type {
 	AsyncStepResultGenerator,
@@ -118,6 +117,9 @@ import {
 	createInputStep,
 	createPickStep,
 	endSteps,
+	StepResultBreak,
+} from './quickCommand';
+import {
 	LoadMoreQuickInputButton,
 	OpenChangesViewQuickInputButton,
 	OpenInNewWindowQuickInputButton,
@@ -125,8 +127,7 @@ import {
 	RevealInSideBarQuickInputButton,
 	ShowDetailsViewQuickInputButton,
 	ShowTagsToggleQuickInputButton,
-	StepResultBreak,
-} from './quickCommand';
+} from './quickCommand.buttons';
 
 export function appendReposToTitle<
 	State extends { repo: Repository } | { repos: Repository[] },
@@ -945,7 +946,7 @@ export async function* pickBranchOrTagStepMultiRepo<
 			// Filter out remote branches if we are going to affect multiple repos
 			filter: { branches: state.repos.length === 1 ? undefined : b => !b.remote, ...filter },
 			picked: picked ?? state.reference?.ref,
-			sort: { branches: { orderBy: BranchSorting.DateDesc }, tags: { orderBy: TagSorting.DateDesc } },
+			sort: { branches: { orderBy: 'date:desc' }, tags: { orderBy: 'date:desc' } },
 		});
 	};
 	const branchesAndOrTags = await getBranchesAndOrTagsFn();
@@ -1284,16 +1285,19 @@ export async function* pickContributorsStep<
 ): AsyncStepResultGenerator<GitContributor[]> {
 	const message = (await Container.instance.git.getOrOpenScmRepository(state.repo.path))?.inputBox.value;
 
+	const contributors = await Container.instance.git.getContributors(state.repo.path);
 	const step = createPickStep<ContributorQuickPickItem>({
 		title: appendReposToTitle(context.title, state, context),
 		allowEmpty: true,
 		multiselect: true,
 		placeholder: placeholder,
 		matchOnDescription: true,
-		items: (await Container.instance.git.getContributors(state.repo.path)).map(c =>
-			createContributorQuickPickItem(c, message?.includes(c.getCoauthor()), {
-				buttons: [RevealInSideBarQuickInputButton],
-			}),
+		items: await Promise.all(
+			contributors.map(c =>
+				createContributorQuickPickItem(c, message?.includes(c.getCoauthor()), {
+					buttons: [RevealInSideBarQuickInputButton],
+				}),
+			),
 		),
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			if (button === RevealInSideBarQuickInputButton) {
@@ -1694,7 +1698,7 @@ export async function* pickWorktreeStep<
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			switch (button) {
 				case OpenInNewWindowQuickInputButton:
-					openWorkspace(item.uri, { location: OpenWorkspaceLocation.NewWindow });
+					openWorkspace(item.uri, { location: 'newWindow' });
 					break;
 				case RevealInSideBarQuickInputButton:
 					void WorktreeActions.reveal(item, { select: true, focus: false, expand: true });
@@ -1755,7 +1759,7 @@ export async function* pickWorktreesStep<
 		onDidClickItemButton: (quickpick, button, { item }) => {
 			switch (button) {
 				case OpenInNewWindowQuickInputButton:
-					openWorkspace(item.uri, { location: OpenWorkspaceLocation.NewWindow });
+					openWorkspace(item.uri, { location: 'newWindow' });
 					break;
 				case RevealInSideBarQuickInputButton:
 					void WorktreeActions.reveal(item, { select: true, focus: false, expand: true });
@@ -1892,8 +1896,7 @@ async function getShowCommitOrStashStepItems<
 		const branch = await Container.instance.git.getBranch(state.repo.path);
 		const [branches, published] = await Promise.all([
 			branch != null
-				? Container.instance.git.getCommitBranches(state.repo.path, state.reference.ref, {
-						branch: branch.name,
+				? Container.instance.git.getCommitBranches(state.repo.path, state.reference.ref, branch.name, {
 						commitDate: isCommit(state.reference) ? state.reference.committer.date : undefined,
 				  })
 				: undefined,

@@ -1,15 +1,13 @@
 import type { TextDocumentShowOptions } from 'vscode';
-import { env, Range, Uri, window } from 'vscode';
-import type {
-	DiffWithCommandArgs,
-	DiffWithPreviousCommandArgs,
-	DiffWithWorkingCommandArgs,
-	OpenFileOnRemoteCommandArgs,
-	OpenOnlyChangedFilesCommandArgs,
-	OpenWorkingFileCommandArgs,
-	ShowQuickCommitCommandArgs,
-	ShowQuickCommitFileCommandArgs,
-} from '../../commands';
+import { env, Range, Uri, window, workspace } from 'vscode';
+import type { DiffWithCommandArgs } from '../../commands/diffWith';
+import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
+import type { DiffWithWorkingCommandArgs } from '../../commands/diffWithWorking';
+import type { OpenFileOnRemoteCommandArgs } from '../../commands/openFileOnRemote';
+import type { OpenOnlyChangedFilesCommandArgs } from '../../commands/openOnlyChangedFiles';
+import type { OpenWorkingFileCommandArgs } from '../../commands/openWorkingFile';
+import type { ShowQuickCommitCommandArgs } from '../../commands/showQuickCommit';
+import type { ShowQuickCommitFileCommandArgs } from '../../commands/showQuickCommitFile';
 import type { FileAnnotationType } from '../../config';
 import { Commands } from '../../constants';
 import { Container } from '../../container';
@@ -24,17 +22,40 @@ import type { GitFile } from '../models/file';
 import type { GitRevisionReference } from '../models/reference';
 import { getReferenceFromRevision, isUncommitted, isUncommittedStaged } from '../models/reference';
 
-export async function applyChanges(file: string | GitFile, ref1: GitRevisionReference, ref2?: GitRevisionReference) {
-	// Open the working file to ensure undo will work
-	await openFile(file, ref1, { preserveFocus: true, preview: false });
+export async function applyChanges(file: string | GitFile, rev1: GitRevisionReference, rev2?: GitRevisionReference) {
+	let create = false;
+	let ref1 = rev1.ref;
+	let ref2 = rev2?.ref;
+	if (typeof file !== 'string') {
+		// If the file is `?` (untracked), then this must be a stash, so get the ^3 commit to access the untracked file
+		if (file.status === '?') {
+			ref1 = `${ref1}^3`;
+			create = true;
+		} else if (file.status === 'A') {
+			create = true;
+		} else if (file.status === 'D') {
+			// If the file is deleted, check to see if it exists, if so, apply the delete, otherwise restore it from the previous commit
+			const uri = GitUri.fromFile(file, rev1.repoPath);
+			try {
+				await workspace.fs.stat(uri);
+			} catch {
+				create = true;
 
-	let ref = ref1.ref;
-	// If the file is `?` (untracked), then this must be a stash, so get the ^3 commit to access the untracked file
-	if (typeof file !== 'string' && file.status === '?') {
-		ref = `${ref}^3`;
+				ref2 = ref1;
+				ref1 = `${ref1}^`;
+			}
+		}
 	}
 
-	await Container.instance.git.applyChangesToWorkingFile(GitUri.fromFile(file, ref1.repoPath, ref), ref, ref2?.ref);
+	if (create) {
+		const uri = GitUri.fromFile(file, rev1.repoPath);
+		await Container.instance.git.applyChangesToWorkingFile(uri, ref1, ref2);
+		await openFile(uri, { preserveFocus: true, preview: false });
+	} else {
+		// Open the working file to ensure undo will work
+		await openFile(file, rev1, { preserveFocus: true, preview: false });
+		await Container.instance.git.applyChangesToWorkingFile(GitUri.fromFile(file, rev1.repoPath, ref1), ref1, ref2);
+	}
 }
 
 export async function copyIdToClipboard(ref: { repoPath: string; ref: string } | GitCommit) {
@@ -537,7 +558,20 @@ export async function restoreFile(file: string | GitFile, revision: GitRevisionR
 		ref = revision.ref;
 	} else {
 		path = file.path;
-		ref = file.status === `?` ? `${revision.ref}^3` : file.status === 'D' ? `${revision.ref}^` : revision.ref;
+		if (file.status === 'D') {
+			// If the file is deleted, check to see if it exists, if so, restore it from the previous commit, otherwise restore it from the current commit
+			const uri = GitUri.fromFile(file, revision.repoPath);
+			try {
+				await workspace.fs.stat(uri);
+				ref = `${revision.ref}^`;
+			} catch {
+				ref = revision.ref;
+			}
+		} else if (file.status === '?') {
+			ref = `${revision.ref}^3`;
+		} else {
+			ref = revision.ref;
+		}
 	}
 
 	await Container.instance.git.checkout(revision.repoPath, ref, { path: path });

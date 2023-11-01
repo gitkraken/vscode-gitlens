@@ -20,7 +20,7 @@ export class OpenAIProvider implements AIProvider {
 	dispose() {}
 
 	private get url(): string {
-		return configuration.get('ai.experimental.openai.url') ?? 'https://api.openai.com/v1/chat/completions';
+		return configuration.get('ai.experimental.openai.url') || 'https://api.openai.com/v1/chat/completions';
 	}
 
 	async generateCommitMessage(diff: string, options?: { context?: string }): Promise<string | undefined> {
@@ -68,16 +68,7 @@ export class OpenAIProvider implements AIProvider {
 			content: `Write a meaningful commit message for the following code changes:\n\n${code}`,
 		});
 
-		const rsp = await fetch(this.url, {
-			headers: {
-				Accept: 'application/json',
-				Authorization: `Bearer ${apiKey}`,
-				'Content-Type': 'application/json',
-			},
-			method: 'POST',
-			body: JSON.stringify(request),
-		});
-
+		const rsp = await this.fetch(apiKey, request);
 		if (!rsp.ok) {
 			debugger;
 			if (rsp.status === 429) {
@@ -130,18 +121,14 @@ export class OpenAIProvider implements AIProvider {
 			],
 		};
 
-		const rsp = await fetch(this.url, {
-			headers: {
-				Accept: 'application/json',
-				Authorization: `Bearer ${apiKey}`,
-				'Content-Type': 'application/json',
-			},
-			method: 'POST',
-			body: JSON.stringify(request),
-		});
-
+		const rsp = await this.fetch(apiKey, request);
 		if (!rsp.ok) {
 			debugger;
+			if (rsp.status === 404) {
+				throw new Error(
+					`Unable to explain commit: Your API key doesn't seem to have access to the selected '${model}' model`,
+				);
+			}
 			if (rsp.status === 429) {
 				throw new Error(
 					`Unable to explain commit: (${this.name}:${rsp.status}) Too many requests (rate limit exceeded) or your API key is associated with an expired trial`,
@@ -153,6 +140,20 @@ export class OpenAIProvider implements AIProvider {
 		const data: OpenAIChatCompletionResponse = await rsp.json();
 		const summary = data.choices[0].message.content.trim();
 		return summary;
+	}
+
+	private fetch(apiKey: string, request: OpenAIChatCompletionRequest) {
+		const url = this.url;
+		const isAzure = url.includes('.azure.com');
+		return fetch(url, {
+			headers: {
+				Accept: 'application/json',
+				'Content-Type': 'application/json',
+				...(isAzure ? { 'api-key': apiKey } : { Authorization: `Bearer ${apiKey}` }),
+			},
+			method: 'POST',
+			body: JSON.stringify(request),
+		});
 	}
 }
 
@@ -174,7 +175,7 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 				disposables.push(
 					input.onDidHide(() => resolve(undefined)),
 					input.onDidChangeValue(value => {
-						if (value && !/sk-[a-zA-Z0-9]{32}/.test(value)) {
+						if (value && !/(?:sk-)?[a-zA-Z0-9]{32,}/.test(value)) {
 							input.validationMessage = 'Please enter a valid OpenAI API key';
 							return;
 						}
@@ -182,7 +183,7 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 					}),
 					input.onDidAccept(() => {
 						const value = input.value.trim();
-						if (!value || !/sk-[a-zA-Z0-9]{32}/.test(value)) {
+						if (!value || !/(?:sk-)?[a-zA-Z0-9]{32,}/.test(value)) {
 							input.validationMessage = 'Please enter a valid OpenAI API key';
 							return;
 						}
@@ -222,7 +223,6 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 function getMaxCharacters(model: OpenAIModels): number {
 	switch (model) {
 		case 'gpt-4-32k':
-		case 'gpt-4-32k-0314':
 		case 'gpt-4-32k-0613':
 			return 43000;
 		case 'gpt-3.5-turbo-16k':
@@ -235,13 +235,10 @@ function getMaxCharacters(model: OpenAIModels): number {
 export type OpenAIModels =
 	| 'gpt-3.5-turbo'
 	| 'gpt-3.5-turbo-16k'
-	| 'gpt-3.5-turbo-0301'
 	| 'gpt-3.5-turbo-0613'
 	| 'gpt-4'
-	| 'gpt-4-0314'
 	| 'gpt-4-0613'
 	| 'gpt-4-32k'
-	| 'gpt-4-32k-0314'
 	| 'gpt-4-32k-0613';
 
 interface OpenAIChatCompletionRequest {

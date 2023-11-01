@@ -93,7 +93,12 @@ export function executeCoreCommand<T extends [...unknown[]] = [], U = any>(
 	command: CoreCommands,
 	...args: T
 ): Thenable<U> {
-	if (command != 'setContext' && command !== 'vscode.executeDocumentSymbolProvider') {
+	if (
+		command != 'setContext' &&
+		command !== 'vscode.executeDocumentSymbolProvider' &&
+		command !== 'vscode.diff' &&
+		command !== 'vscode.open'
+	) {
 		Container.instance.telemetry.sendEvent('command/core', { command: command });
 	}
 	return commands.executeCommand<U>(command, ...args);

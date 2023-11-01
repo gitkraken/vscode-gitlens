@@ -28,11 +28,12 @@ import './gk-issue-row';
 @customElement('gl-focus-app')
 export class GlFocusApp extends LitElement {
 	static override styles = [themeProperties];
-	private readonly tabFilters = ['prs', 'issues'];
+	private readonly tabFilters = ['prs', 'issues', 'snoozed'];
 	private readonly tabFilterOptions = [
 		{ label: 'All', value: '' },
 		{ label: 'PRs', value: 'prs' },
 		{ label: 'Issues', value: 'issues' },
+		{ label: 'Snoozed', value: 'snoozed' },
 	];
 	private readonly mineFilters = ['authored', 'assigned', 'review-requested', 'mentioned'];
 	private readonly mineFilterOptions = [
@@ -98,11 +99,29 @@ export class GlFocusApp extends LitElement {
 			return [];
 		}
 
-		const items: { isPullrequest: boolean; rank: number; state: Record<string, any>; tags: string[] }[] = [];
+		const items: {
+			isPullrequest: boolean;
+			rank: number;
+			state: Record<string, any>;
+			tags: string[];
+			isPinned?: string;
+			isSnoozed?: string;
+		}[] = [];
 
-		let rank = 0;
 		this.state?.pullRequests?.forEach(
-			({ pullRequest, reasons, isCurrentBranch, isCurrentWorktree, hasWorktree, hasLocalBranch }) => {
+			({
+				pullRequest,
+				reasons,
+				isCurrentBranch,
+				isCurrentWorktree,
+				hasWorktree,
+				hasLocalBranch,
+				rank,
+				enriched,
+			}) => {
+				const isPinned = enriched?.find(item => item.type === 'pin')?.id;
+				const isSnoozed = enriched?.find(item => item.type === 'snooze')?.id;
+
 				items.push({
 					isPullrequest: true,
 					state: {
@@ -112,19 +131,26 @@ export class GlFocusApp extends LitElement {
 						hasWorktree: hasWorktree,
 						hasLocalBranch: hasLocalBranch,
 					},
-					rank: ++rank,
+					rank: rank ?? 0,
 					tags: reasons,
+					isPinned: isPinned,
+					isSnoozed: isSnoozed,
 				});
 			},
 		);
-		this.state?.issues?.forEach(({ issue, reasons }) => {
+		this.state?.issues?.forEach(({ issue, reasons, rank, enriched }) => {
+			const isPinned = enriched?.find(item => item.type === 'pin')?.id;
+			const isSnoozed = enriched?.find(item => item.type === 'snooze')?.id;
+
 			items.push({
 				isPullrequest: false,
-				rank: ++rank,
+				rank: rank ?? 0,
 				state: {
 					issue: issue,
 				},
 				tags: reasons,
+				isPinned: isPinned,
+				isSnoozed: isSnoozed,
 			});
 		});
 
@@ -135,8 +161,8 @@ export class GlFocusApp extends LitElement {
 		const counts: Record<string, number> = {};
 		this.tabFilters.forEach(f => (counts[f] = 0));
 
-		this.items.forEach(({ isPullrequest }) => {
-			const key = isPullrequest ? 'prs' : 'issues';
+		this.items.forEach(({ isPullrequest, isSnoozed }) => {
+			const key = isSnoozed ? 'snoozed' : isPullrequest ? 'prs' : 'issues';
 			if (counts[key] != null) {
 				counts[key]++;
 			}
@@ -159,16 +185,21 @@ export class GlFocusApp extends LitElement {
 		const hasMineFilter = this.selectedMineFilter != null && this.selectedMineFilter !== '';
 		const hasTabFilter = this.selectedTabFilter != null && this.selectedTabFilter !== '';
 		if (!hasSearch && !hasMineFilter && !hasTabFilter) {
-			return this.items;
+			return this.items.filter(i => i.isSnoozed == null);
 		}
 
 		const searchText = this.searchText?.toLowerCase();
 		return this.items.filter(i => {
-			if (
-				hasTabFilter &&
-				((i.isPullrequest === true && this.selectedTabFilter === 'issues') ||
-					(i.isPullrequest === false && this.selectedTabFilter === 'prs'))
-			) {
+			if (hasTabFilter) {
+				if (
+					(i.isSnoozed != null && this.selectedTabFilter !== 'snoozed') ||
+					(i.isSnoozed == null && this.selectedTabFilter == 'snoozed') ||
+					(i.isPullrequest === true && this.selectedTabFilter === 'issues') ||
+					(i.isPullrequest === false && this.selectedTabFilter === 'prs')
+				) {
+					return false;
+				}
+			} else if (i.isSnoozed != null) {
 				return false;
 			}
 
@@ -190,6 +221,16 @@ export class GlFocusApp extends LitElement {
 		});
 	}
 
+	get sortedItems() {
+		return this.filteredItems.sort((a, b) => {
+			if (a.isPinned === b.isPinned) {
+				return 0;
+				// return a.rank - b.rank;
+			}
+			return a.isPinned ? -1 : 1;
+		});
+	}
+
 	get isLoading() {
 		return this.state?.pullRequests == null || this.state?.issues == null;
 	}
@@ -207,7 +248,7 @@ export class GlFocusApp extends LitElement {
 			return this.loadingContent();
 		}
 
-		if (this.filteredItems.length === 0) {
+		if (this.sortedItems.length === 0) {
 			return html`
 				<div class="alert">
 					<span class="alert__content">None found</span>
@@ -217,9 +258,12 @@ export class GlFocusApp extends LitElement {
 
 		return html`
 			${repeat(
-				this.filteredItems,
-				item => item.rank,
-				({ isPullrequest, rank, state }) =>
+				this.sortedItems,
+				(item, i) =>
+					`item-${i}-${
+						item.isPullrequest ? `pr-${item.state.pullRequest.id}` : `issue-${item.state.issue.id}`
+					}`,
+				({ isPullrequest, rank, state, isPinned, isSnoozed }) =>
 					when(
 						isPullrequest,
 						() =>
@@ -230,8 +274,18 @@ export class GlFocusApp extends LitElement {
 								.isCurrentWorktree=${state.isCurrentWorktree}
 								.hasWorktree=${state.hasWorktree}
 								.hasLocalBranch=${state.hasLocalBranch}
+								.pinned=${isPinned}
+								.snoozed=${isSnoozed}
+								.enrichedId=${state.enrichedId}
 							></gk-pull-request-row>`,
-						() => html`<gk-issue-row .rank=${rank} .issue=${state.issue}></gk-issue-row>`,
+						() =>
+							html`<gk-issue-row
+								.rank=${rank}
+								.issue=${state.issue}
+								.pinned=${isPinned}
+								.snoozed=${isSnoozed}
+								.enrichedId=${state.enrichedId}
+							></gk-issue-row>`,
 					),
 			)}
 		`;
@@ -254,8 +308,8 @@ export class GlFocusApp extends LitElement {
 						class="feedback"
 						appearance="toolbar"
 						href="https://github.com/gitkraken/vscode-gitlens/discussions/2535"
-						title="Focus View Feedback"
-						aria-label="Focus View Feedback"
+						title="Focus Feedback"
+						aria-label="Focus Feedback"
 						><code-icon icon="feedback"></code-icon
 					></gk-button>
 				</div>
@@ -275,9 +329,9 @@ export class GlFocusApp extends LitElement {
 					<gk-feature-gate .visible=${this.showConnectionGate} id="connection-gate" class="scrollable">
 						<h3>No GitHub remotes are connected</h3>
 						<p>
-							This enables access to Pull Requests and Issues in the Focus View as well as provide
-							additional information inside hovers and the Commit Details view, such as auto-linked issues
-							and pull requests and avatars.
+							This enables access to Pull Requests and Issues as well as provide additional information
+							inside hovers and the Commit Details view, such as auto-linked issues and pull requests and
+							avatars.
 						</p>
 						<gl-button appearance="alert" href="command:gitlens.connectRemoteProvider"
 							>Connect to GitHub</gl-button
@@ -341,6 +395,9 @@ export class GlFocusApp extends LitElement {
 						</header>
 						<main class="app__main">
 							<gk-focus-container id="list-focus-items">
+								<span slot="pin">
+									<code-icon icon="pinned"></code-icon>
+								</span>
 								<span slot="key"><code-icon icon="circle-large-outline"></code-icon></span>
 								<span slot="date"><code-icon icon="gl-clock"></code-icon></span>
 								<span slot="repo">Repo / Branch</span>

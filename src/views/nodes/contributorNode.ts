@@ -11,13 +11,13 @@ import { map } from '../../system/iterable';
 import { pluralize } from '../../system/string';
 import type { ContactPresence } from '../../vsls/vsls';
 import type { ViewsWithContributors } from '../viewBase';
+import type { PageableViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { insertDateMarkers } from './helpers';
-import type { PageableViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class ContributorNode extends ViewNode<ViewsWithContributors> implements PageableViewNode {
+export class ContributorNode extends ViewNode<'contributor', ViewsWithContributors> implements PageableViewNode {
 	limit: number | undefined;
 
 	constructor(
@@ -31,10 +31,10 @@ export class ContributorNode extends ViewNode<ViewsWithContributors> implements 
 			presence: Map<string, ContactPresence> | undefined;
 		},
 	) {
-		super(uri, view, parent);
+		super('contributor', uri, view, parent);
 
 		this.updateContext({ contributor: contributor });
-		this._uniqueId = getViewNodeId('contributor', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 

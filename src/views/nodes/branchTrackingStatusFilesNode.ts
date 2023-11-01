@@ -1,5 +1,4 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ViewFilesLayout } from '../../config';
 import { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitFileWithCommit } from '../../git/models/file';
@@ -9,13 +8,13 @@ import { filter, flatMap, map } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
 import { pluralize, sortCompare } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import type { BranchTrackingStatus } from './branchTrackingStatusNode';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
 import { StatusFileNode } from './statusFileNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
+export class BranchTrackingStatusFilesNode extends ViewNode<'tracking-status-files', ViewsWithCommits> {
 	constructor(
 		view: ViewsWithCommits,
 		protected override readonly parent: ViewNode,
@@ -23,10 +22,10 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 		public readonly status: Required<BranchTrackingStatus>,
 		public readonly direction: 'ahead' | 'behind',
 	) {
-		super(GitUri.fromRepoPath(status.repoPath), view, parent);
+		super('tracking-status-files', GitUri.fromRepoPath(status.repoPath), view, parent);
 
 		this.updateContext({ branch: branch, branchStatus: status, branchStatusUpstreamType: direction });
-		this._uniqueId = getViewNodeId('tracking-status-files', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	get repoPath(): string {
@@ -75,7 +74,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 				),
 		);
 
-		if (this.view.config.files.layout !== ViewFilesLayout.List) {
+		if (this.view.config.files.layout !== 'list') {
 			const hierarchy = makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),

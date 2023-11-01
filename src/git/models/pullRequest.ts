@@ -1,18 +1,10 @@
-import { ColorThemeKind, ThemeColor, ThemeIcon, window } from 'vscode';
-import { DateStyle } from '../../config';
-import type { Colors } from '../../constants';
 import { Container } from '../../container';
 import { formatDate, fromNow } from '../../system/date';
 import { memoize } from '../../system/decorators/memoize';
-import type { IssueOrPullRequest } from './issue';
-import { IssueOrPullRequestType } from './issue';
+import type { IssueOrPullRequest, IssueOrPullRequestState as PullRequestState } from './issue';
 import type { RemoteProviderReference } from './remoteProvider';
 
-export const enum PullRequestState {
-	Open = 'Open',
-	Closed = 'Closed',
-	Merged = 'Merged',
-}
+export type { PullRequestState };
 
 export const enum PullRequestReviewDecision {
 	Approved = 'Approved',
@@ -54,7 +46,6 @@ export interface PullRequestReviewer {
 
 export interface PullRequestShape extends IssueOrPullRequest {
 	readonly author: PullRequestMember;
-	readonly state: PullRequestState;
 	readonly mergedDate?: Date;
 	readonly refs?: PullRequestRefs;
 	readonly isDraft?: boolean;
@@ -82,6 +73,7 @@ export function serializePullRequest(value: PullRequest): PullRequestShape {
 			icon: value.provider.icon,
 		},
 		id: value.id,
+		nodeId: value.nodeId,
 		title: value.title,
 		url: value.url,
 		date: value.date,
@@ -132,48 +124,7 @@ export class PullRequest implements PullRequestShape {
 		return pr instanceof PullRequest;
 	}
 
-	static getMarkdownIcon(pullRequest: PullRequest): string {
-		switch (pullRequest.state) {
-			case PullRequestState.Open:
-				return `<span style="color:${
-					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#3fb950' : '#1a7f37'
-				};">$(git-pull-request)</span>`;
-			case PullRequestState.Closed:
-				return `<span style="color:${
-					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#f85149' : '#cf222e'
-				};">$(git-pull-request-closed)</span>`;
-			case PullRequestState.Merged:
-				return `<span style="color:${
-					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#a371f7' : '#8250df'
-				};">$(git-merge)</span>`;
-			default:
-				return '$(git-pull-request)';
-		}
-	}
-
-	static getThemeIcon(pullRequest: PullRequest): ThemeIcon {
-		switch (pullRequest.state) {
-			case PullRequestState.Open:
-				return new ThemeIcon(
-					'git-pull-request',
-					new ThemeColor('gitlens.openPullRequestIconColor' satisfies Colors),
-				);
-			case PullRequestState.Closed:
-				return new ThemeIcon(
-					'git-pull-request-closed',
-					new ThemeColor('gitlens.closedPullRequestIconColor' satisfies Colors),
-				);
-			case PullRequestState.Merged:
-				return new ThemeIcon(
-					'git-merge',
-					new ThemeColor('gitlens.mergedPullRequestIconColor' satisfies Colors),
-				);
-			default:
-				return new ThemeIcon('git-pull-request');
-		}
-	}
-
-	readonly type = IssueOrPullRequestType.PullRequest;
+	readonly type = 'pullrequest';
 
 	constructor(
 		public readonly provider: RemoteProviderReference,
@@ -183,6 +134,7 @@ export class PullRequest implements PullRequestShape {
 			readonly url: string;
 		},
 		public readonly id: string,
+		public readonly nodeId: string | undefined,
 		public readonly title: string,
 		public readonly url: string,
 		public readonly state: PullRequestState,
@@ -201,11 +153,11 @@ export class PullRequest implements PullRequestShape {
 	) {}
 
 	get closed(): boolean {
-		return this.state === PullRequestState.Closed;
+		return this.state === 'closed';
 	}
 
 	get formattedDate(): string {
-		return Container.instance.PullRequestDateFormatting.dateStyle === DateStyle.Absolute
+		return Container.instance.PullRequestDateFormatting.dateStyle === 'absolute'
 			? this.formatDate(Container.instance.PullRequestDateFormatting.dateFormat)
 			: this.formatDateFromNow();
 	}

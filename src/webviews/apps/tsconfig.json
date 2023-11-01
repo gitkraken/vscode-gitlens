@@ -2,7 +2,7 @@
 	"extends": "../../../tsconfig.base.json",
 	"compilerOptions": {
 		"jsx": "react",
-		"lib": ["dom", "dom.iterable", "es2022"],
+		"lib": ["dom", "dom.iterable", "es2022", "esnext.disposable"],
 		"outDir": "../../",
 		"paths": {
 			"@env/*": ["src/env/browser/*"]
@@ -11,6 +11,7 @@
 	},
 	"include": [
 		"**/*",
+		"../../plus/gk/**/*",
 		"../../plus/webviews/**/*",
 		"../../@types/**/*",
 		"../protocol.ts",

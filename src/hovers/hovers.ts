@@ -1,26 +1,25 @@
 import type { CancellationToken, TextDocument } from 'vscode';
 import { MarkdownString } from 'vscode';
-import { hrtime } from '@env/hrtime';
-import { DiffWithCommand, ShowQuickCommitCommand } from '../commands';
+import type { EnrichedAutolink } from '../annotations/autolinks';
+import { DiffWithCommand } from '../commands/diffWith';
+import { ShowQuickCommitCommand } from '../commands/showQuickCommit';
 import { GlyphChars } from '../constants';
-import { Container } from '../container';
+import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
 import { GitUri } from '../git/gitUri';
 import type { GitCommit } from '../git/models/commit';
 import { uncommittedStaged } from '../git/models/constants';
-import type { GitDiffHunk, GitDiffHunkLine } from '../git/models/diff';
+import type { GitDiffHunk, GitDiffLine } from '../git/models/diff';
 import type { PullRequest } from '../git/models/pullRequest';
 import { isUncommittedStaged, shortenRevision } from '../git/models/reference';
-import { GitRemote } from '../git/models/remote';
+import type { GitRemote } from '../git/models/remote';
+import type { RemoteProvider } from '../git/remotes/remoteProvider';
+import { pauseOnCancelOrTimeout, pauseOnCancelOrTimeoutMapTuplePromise } from '../system/cancellation';
 import { configuration } from '../system/configuration';
-import { count } from '../system/iterable';
-import { Logger } from '../system/logger';
-import { LogLevel } from '../system/logger.constants';
-import { getNewLogScope } from '../system/logger.scope';
-import { getSettledValue, PromiseCancelledError } from '../system/promise';
-import { getDurationMilliseconds } from '../system/string';
+import { cancellable, getSettledValue } from '../system/promise';
 
 export async function changesMessage(
+	container: Container,
 	commit: GitCommit,
 	uri: GitUri,
 	editorLine: number, // 0-based, Git is 1-based
@@ -33,6 +32,9 @@ export async function changesMessage(
 	async function getDiff() {
 		if (commit.file == null) return undefined;
 
+		const line = editorLine + 1;
+		const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
+
 		// TODO: Figure out how to optimize this
 		let ref;
 		if (commit.isUncommitted) {
@@ -40,15 +42,12 @@ export async function changesMessage(
 				ref = documentRef;
 			}
 		} else {
-			previousSha = await commit.getPreviousSha();
+			previousSha = commitLine.previousSha;
 			ref = previousSha;
 			if (ref == null) {
 				return `\`\`\`diff\n+ ${document.lineAt(editorLine).text}\n\`\`\``;
 			}
 		}
-
-		const line = editorLine + 1;
-		const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
 
 		let originalPath = commit.file.originalPath;
 		if (originalPath == null) {
@@ -59,14 +58,14 @@ export async function changesMessage(
 
 		editorLine = commitLine.line - 1;
 		// TODO: Doesn't work with dirty files -- pass in editor? or contents?
-		let hunkLine = await Container.instance.git.getDiffForLine(uri, editorLine, ref, documentRef);
+		let lineDiff = await container.git.getDiffForLine(uri, editorLine, ref, documentRef);
 
 		// If we didn't find a diff & ref is undefined (meaning uncommitted), check for a staged diff
-		if (hunkLine == null && ref == null && documentRef !== uncommittedStaged) {
-			hunkLine = await Container.instance.git.getDiffForLine(uri, editorLine, undefined, uncommittedStaged);
+		if (lineDiff == null && ref == null && documentRef !== uncommittedStaged) {
+			lineDiff = await container.git.getDiffForLine(uri, editorLine, undefined, uncommittedStaged);
 		}
 
-		return hunkLine != null ? getDiffFromHunkLine(hunkLine) : undefined;
+		return lineDiff != null ? getDiffFromLine(lineDiff) : undefined;
 	}
 
 	const diff = await getDiff();
@@ -188,78 +187,100 @@ export async function localChangesMessage(
 }
 
 export async function detailsMessage(
+	container: Container,
 	commit: GitCommit,
 	uri: GitUri,
 	editorLine: number, // 0-based, Git is 1-based
 	options: Readonly<{
 		autolinks?: boolean;
-		cancellationToken?: CancellationToken;
+		cancellation?: CancellationToken;
 		dateFormat: string | null;
+		enrichedAutolinks?: Promise<Map<string, EnrichedAutolink> | undefined> | undefined;
 		format: string;
-		pullRequests?: Readonly<{
-			enabled: boolean;
-			pr?: PullRequest | PromiseCancelledError<Promise<PullRequest | undefined>>;
-		}>;
 		getBranchAndTagTips?: (
 			sha: string,
 			options?: { compact?: boolean | undefined; icons?: boolean | undefined },
 		) => string | undefined;
+		pullRequest?: Promise<PullRequest | undefined> | PullRequest | undefined;
+		pullRequests?: boolean;
+		remotes?: GitRemote<RemoteProvider>[];
+		timeout?: number;
 	}>,
-): Promise<MarkdownString> {
-	let message = commit.message ?? commit.summary;
-	if (commit.message == null && !commit.isUncommitted) {
-		await commit.ensureFullDetails();
-		message = commit.message ?? commit.summary;
+): Promise<MarkdownString | undefined> {
+	const remotesResult = await pauseOnCancelOrTimeout(
+		options?.remotes ?? container.git.getBestRemotesWithProviders(commit.repoPath),
+		options?.cancellation,
+		options?.timeout,
+	);
 
-		if (options?.cancellationToken?.isCancellationRequested) return new MarkdownString();
+	let remotes: GitRemote<RemoteProvider>[] | undefined;
+	let remote: GitRemote<RemoteProvider> | undefined;
+	if (remotesResult.paused) {
+		if (remotesResult.reason === 'cancelled') return undefined;
+		// If we timed out, just continue without the remotes
+	} else {
+		remotes = remotesResult.value;
+		[remote] = remotes;
 	}
 
-	const remotes = await Container.instance.git.getRemotesWithProviders(commit.repoPath, { sort: true });
+	const cfg = configuration.get('hovers');
+	const autolinks =
+		remote?.provider != null &&
+		(options?.autolinks || (options?.autolinks !== false && cfg.autolinks.enabled && cfg.autolinks.enhanced)) &&
+		CommitFormatter.has(cfg.detailsMarkdownFormat, 'message');
+	const prs =
+		remote?.hasRichIntegration() &&
+		remote.provider.maybeConnected !== false &&
+		(options?.pullRequests || (options?.pullRequests !== false && cfg.pullRequests.enabled)) &&
+		CommitFormatter.has(
+			options.format,
+			'pullRequest',
+			'pullRequestAgo',
+			'pullRequestAgoOrDate',
+			'pullRequestDate',
+			'pullRequestState',
+		);
 
-	if (options?.cancellationToken?.isCancellationRequested) return new MarkdownString();
-
-	const [previousLineComparisonUrisResult, autolinkedIssuesOrPullRequestsResult, prResult, presenceResult] =
+	const [enrichedAutolinksResult, prResult, presenceResult, previousLineComparisonUrisResult] =
 		await Promise.allSettled([
+			autolinks
+				? pauseOnCancelOrTimeoutMapTuplePromise(
+						options?.enrichedAutolinks ?? commit.getEnrichedAutolinks(remote),
+						options?.cancellation,
+						options?.timeout,
+				  )
+				: undefined,
+			prs
+				? pauseOnCancelOrTimeout(
+						options?.pullRequest ?? commit.getAssociatedPullRequest(remote),
+						options?.cancellation,
+						options?.timeout,
+				  )
+				: undefined,
+			container.vsls.enabled
+				? cancellable(container.vsls.getContactPresence(commit.author.email), 250, options?.cancellation)
+				: undefined,
 			commit.isUncommitted ? commit.getPreviousComparisonUrisForLine(editorLine, uri.sha) : undefined,
-			getAutoLinkedIssuesOrPullRequests(message, remotes),
-			options?.pullRequests?.pr ??
-				getPullRequestForCommitOrBestRemote(commit.ref, remotes, {
-					pullRequests:
-						options?.pullRequests?.enabled !== false &&
-						CommitFormatter.has(
-							options.format,
-							'pullRequest',
-							'pullRequestAgo',
-							'pullRequestAgoOrDate',
-							'pullRequestDate',
-							'pullRequestState',
-						),
-				}),
-			Container.instance.vsls.maybeGetPresence(commit.author.email),
+			commit.message == null ? commit.ensureFullDetails() : undefined,
 		]);
 
-	if (options?.cancellationToken?.isCancellationRequested) return new MarkdownString();
+	if (options?.cancellation?.isCancellationRequested) return undefined;
 
-	const previousLineComparisonUris = getSettledValue(previousLineComparisonUrisResult);
-	const autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
+	const enrichedResult = getSettledValue(enrichedAutolinksResult);
 	const pr = getSettledValue(prResult);
 	const presence = getSettledValue(presenceResult);
-
-	// Remove possible duplicate pull request
-	if (pr != null && !(pr instanceof PromiseCancelledError || pr instanceof GitRemote)) {
-		autolinkedIssuesOrPullRequests?.delete(pr.id);
-	}
+	const previousLineComparisonUris = getSettledValue(previousLineComparisonUrisResult);
 
 	const details = await CommitFormatter.fromTemplateAsync(options.format, commit, {
-		autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
+		enrichedAutolinks: enrichedResult?.value != null && !enrichedResult.paused ? enrichedResult.value : undefined,
 		dateFormat: options.dateFormat === null ? 'MMMM Do, YYYY h:mma' : options.dateFormat,
 		editor: {
 			line: editorLine,
 			uri: uri,
 		},
 		getBranchAndTagTips: options?.getBranchAndTagTips,
-		messageAutolinks: options?.autolinks,
-		pullRequestOrRemote: pr,
+		messageAutolinks: options?.autolinks || (options?.autolinks !== false && cfg.autolinks.enabled),
+		pullRequest: pr?.value,
 		presence: presence,
 		previousLineComparisonUris: previousLineComparisonUris,
 		outputFormat: 'markdown',
@@ -276,140 +297,12 @@ function getDiffFromHunk(hunk: GitDiffHunk): string {
 	return `\`\`\`diff\n${hunk.contents.trim()}\n\`\`\``;
 }
 
-function getDiffFromHunkLine(hunkLine: GitDiffHunkLine, diffStyle?: 'line' | 'hunk'): string {
+function getDiffFromLine(lineDiff: GitDiffLine, diffStyle?: 'line' | 'hunk'): string {
 	if (diffStyle === 'hunk' || (diffStyle == null && configuration.get('hovers.changesDiff') === 'hunk')) {
-		return getDiffFromHunk(hunkLine.hunk);
+		return getDiffFromHunk(lineDiff.hunk);
 	}
 
-	return `\`\`\`diff${hunkLine.previous == null ? '' : `\n- ${hunkLine.previous.line.trim()}`}${
-		hunkLine.current == null ? '' : `\n+ ${hunkLine.current.line.trim()}`
+	return `\`\`\`diff${lineDiff.line.previous == null ? '' : `\n- ${lineDiff.line.previous.trim()}`}${
+		lineDiff.line.current == null ? '' : `\n+ ${lineDiff.line.current.trim()}`
 	}\n\`\`\``;
-}
-
-async function getAutoLinkedIssuesOrPullRequests(message: string, remotes: GitRemote[]) {
-	const scope = getNewLogScope('Hovers.getAutoLinkedIssuesOrPullRequests');
-	Logger.debug(scope, `${GlyphChars.Dash} message=<message>`);
-
-	const start = hrtime();
-
-	const cfg = configuration.get('hovers');
-	if (
-		!cfg.autolinks.enabled ||
-		!cfg.autolinks.enhanced ||
-		!CommitFormatter.has(cfg.detailsMarkdownFormat, 'message')
-	) {
-		Logger.debug(scope, `completed [${getDurationMilliseconds(start)}ms]`);
-
-		return undefined;
-	}
-
-	const remote = await Container.instance.git.getBestRemoteWithRichProvider(remotes);
-	if (remote?.provider == null) {
-		Logger.debug(scope, `completed [${getDurationMilliseconds(start)}ms]`);
-
-		return undefined;
-	}
-
-	// TODO: Make this configurable?
-	const timeout = 250;
-
-	try {
-		const autolinks = await Container.instance.autolinks.getLinkedIssuesAndPullRequests(message, remote, {
-			timeout: timeout,
-		});
-
-		if (autolinks != null && Logger.enabled(LogLevel.Debug)) {
-			// If there are any issues/PRs that timed out, log it
-			const prCount = count(autolinks.values(), pr => pr instanceof PromiseCancelledError);
-			if (prCount !== 0) {
-				Logger.debug(
-					scope,
-					`timed out ${
-						GlyphChars.Dash
-					} ${prCount} issue/pull request queries took too long (over ${timeout} ms) [${getDurationMilliseconds(
-						start,
-					)}ms]`,
-				);
-
-				// const pending = [
-				// 	...Iterables.map(autolinks.values(), issueOrPullRequest =>
-				// 		issueOrPullRequest instanceof CancelledPromiseError
-				// 			? issueOrPullRequest.promise
-				// 			: undefined,
-				// 	),
-				// ];
-				// void Promise.all(pending).then(() => {
-				// 	Logger.debug(
-				// 		scope,
-				// 		`${GlyphChars.Dot} ${count} issue/pull request queries completed; refreshing...`,
-				// 	);
-				// 	void executeCoreCommand('editor.action.showHover');
-				// });
-
-				return autolinks;
-			}
-		}
-
-		Logger.debug(scope, `completed [${getDurationMilliseconds(start)}ms]`);
-
-		return autolinks;
-	} catch (ex) {
-		Logger.error(ex, scope, `failed [${getDurationMilliseconds(start)}ms]`);
-
-		return undefined;
-	}
-}
-
-async function getPullRequestForCommitOrBestRemote(
-	ref: string,
-	remotes: GitRemote[],
-	options?: {
-		pullRequests?: boolean;
-	},
-) {
-	const scope = getNewLogScope('Hovers.getPullRequestForCommit');
-	Logger.debug(scope, `${GlyphChars.Dash} ref=${ref}`);
-
-	const start = hrtime();
-
-	if (!options?.pullRequests) {
-		Logger.debug(scope, `completed [${getDurationMilliseconds(start)}ms]`);
-
-		return undefined;
-	}
-
-	const remote = await Container.instance.git.getBestRemoteWithRichProvider(remotes, {
-		includeDisconnected: true,
-	});
-	if (remote?.provider == null) {
-		Logger.debug(scope, `completed [${getDurationMilliseconds(start)}ms]`);
-
-		return undefined;
-	}
-
-	const { provider } = remote;
-	const connected = provider.maybeConnected ?? (await provider.isConnected());
-	if (!connected) {
-		Logger.debug(scope, `completed [${getDurationMilliseconds(start)}ms]`);
-
-		return remote;
-	}
-
-	try {
-		const pr = await Container.instance.git.getPullRequestForCommit(ref, provider, { timeout: 250 });
-
-		Logger.debug(scope, `completed [${getDurationMilliseconds(start)}ms]`);
-
-		return pr;
-	} catch (ex) {
-		if (ex instanceof PromiseCancelledError) {
-			Logger.debug(scope, `timed out [${getDurationMilliseconds(start)}ms]`);
-
-			return ex;
-		}
-
-		Logger.error(ex, scope, `failed [${getDurationMilliseconds(start)}ms]`);
-
-		return undefined;
-	}
 }

@@ -21,9 +21,11 @@ import { GitRemote } from '../git/models/remote';
 import { Repository } from '../git/models/repository';
 import type { GitTag } from '../git/models/tag';
 import { isTag } from '../git/models/tag';
+import { CloudWorkspace, LocalWorkspace } from '../plus/workspaces/models';
 import { registerCommand } from '../system/command';
 import { sequentialize } from '../system/function';
-import { ViewNode, ViewRefFileNode, ViewRefNode } from '../views/nodes/viewNode';
+import { ViewNode } from '../views/nodes/abstract/viewNode';
+import { ViewRefFileNode, ViewRefNode } from '../views/nodes/abstract/viewRefNode';
 
 export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
 	// Always use the editor.uri (if we have one), so we are correct for a split diff
@@ -212,6 +214,14 @@ export function isCommandContextViewNodeHasTag(
 	return isTag((context.node as ViewNode & { tag: GitTag }).tag);
 }
 
+export function isCommandContextViewNodeHasWorkspace(
+	context: CommandContext,
+): context is CommandViewNodeContext & { node: ViewNode & { workspace: CloudWorkspace | LocalWorkspace } } {
+	if (context.type !== 'viewItem') return false;
+	const workspace = (context.node as ViewNode & { workspace?: CloudWorkspace | LocalWorkspace }).workspace;
+	return workspace instanceof CloudWorkspace || workspace instanceof LocalWorkspace;
+}
+
 export type CommandContext =
 	| CommandEditorLineContext
 	| CommandGitTimelineItemContext
@@ -225,7 +235,7 @@ export type CommandContext =
 	| CommandViewNodeContext
 	| CommandViewNodesContext;
 
-function isScm(scm: any): scm is SourceControl {
+export function isScm(scm: any): scm is SourceControl {
 	if (scm == null) return false;
 
 	return (

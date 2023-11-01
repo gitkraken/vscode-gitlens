@@ -1,6 +1,7 @@
 import type { Command, Selection } from 'vscode';
 import { MarkdownString, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
-import type { DiffWithPreviousCommandArgs } from '../../commands';
+import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
+import type { TreeViewRefFileNodeTypes } from '../../constants';
 import { Commands, Schemes } from '../../constants';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
@@ -11,27 +12,30 @@ import { getGitFileStatusIcon } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
 import { joinPaths, relativeDir } from '../../system/path';
 import type { ViewsWithCommits, ViewsWithStashes } from '../viewBase';
-import type { ViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, ViewRefFileNode } from './viewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
+import { ViewRefFileNode } from './abstract/viewRefNode';
 
-export class CommitFileNode<
-	TView extends ViewsWithCommits | ViewsWithStashes = ViewsWithCommits,
-> extends ViewRefFileNode<TView> {
+export abstract class CommitFileNodeBase<
+	Type extends TreeViewRefFileNodeTypes,
+	TView extends ViewsWithCommits | ViewsWithStashes,
+> extends ViewRefFileNode<Type, TView> {
 	constructor(
+		type: Type,
 		view: TView,
 		parent: ViewNode,
 		file: GitFile,
 		public commit: GitCommit,
-		private readonly _options: {
+		private readonly options?: {
 			branch?: GitBranch;
 			selection?: Selection;
 			unpublished?: boolean;
-		} = {},
+		},
 	) {
-		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent, file);
+		super(type, GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent, file);
 
 		this.updateContext({ commit: commit, file: file });
-		this._uniqueId = getViewNodeId('commit-file', this.context);
+		this._uniqueId = getViewNodeId(type, this.context);
 	}
 
 	override get id(): string {
@@ -106,9 +110,9 @@ export class CommitFileNode<
 
 	protected get contextValue(): string {
 		if (!this.commit.isUncommitted) {
-			return `${ContextValues.File}+committed${this._options.branch?.current ? '+current' : ''}${
-				this._options.branch?.current && this._options.branch.sha === this.commit.ref ? '+HEAD' : ''
-			}${this._options.unpublished ? '+unpublished' : ''}`;
+			return `${ContextValues.File}+committed${this.options?.branch?.current ? '+current' : ''}${
+				this.options?.branch?.current && this.options.branch.sha === this.commit.ref ? '+HEAD' : ''
+			}${this.options?.unpublished ? '+unpublished' : ''}`;
 		}
 
 		return this.commit.isUncommittedStaged ? `${ContextValues.File}+staged` : `${ContextValues.File}+unstaged`;
@@ -165,7 +169,7 @@ export class CommitFileNode<
 		if (this.commit.lines.length) {
 			line = this.commit.lines[0].line - 1;
 		} else {
-			line = this._options.selection?.active.line ?? 0;
+			line = this.options?.selection?.active.line ?? 0;
 		}
 
 		const commandArgs: DiffWithPreviousCommandArgs = {
@@ -182,5 +186,21 @@ export class CommitFileNode<
 			command: Commands.DiffWithPrevious,
 			arguments: [undefined, commandArgs],
 		};
+	}
+}
+
+export class CommitFileNode extends CommitFileNodeBase<'commit-file', ViewsWithCommits> {
+	constructor(
+		view: ViewsWithCommits,
+		parent: ViewNode,
+		file: GitFile,
+		commit: GitCommit,
+		options?: {
+			branch?: GitBranch;
+			selection?: Selection;
+			unpublished?: boolean;
+		},
+	) {
+		super('commit-file', view, parent, file, commit, options);
 	}
 }

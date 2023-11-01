@@ -164,23 +164,19 @@ export async function openWalkthrough(
 	));
 }
 
-export const enum OpenWorkspaceLocation {
-	CurrentWindow = 'currentWindow',
-	NewWindow = 'newWindow',
-	AddToWorkspace = 'addToWorkspace',
-}
+export type OpenWorkspaceLocation = 'currentWindow' | 'newWindow' | 'addToWorkspace';
 
 export function openWorkspace(
 	uri: Uri,
-	options: { location?: OpenWorkspaceLocation; name?: string } = { location: OpenWorkspaceLocation.CurrentWindow },
+	options: { location?: OpenWorkspaceLocation; name?: string } = { location: 'currentWindow' },
 ): void {
-	if (options?.location === OpenWorkspaceLocation.AddToWorkspace) {
+	if (options?.location === 'addToWorkspace') {
 		const count = workspace.workspaceFolders?.length ?? 0;
 		return void workspace.updateWorkspaceFolders(count, 0, { uri: uri, name: options?.name });
 	}
 
 	return void executeCoreCommand('vscode.openFolder', uri, {
-		forceNewWindow: options?.location === OpenWorkspaceLocation.NewWindow,
+		forceNewWindow: options?.location === 'newWindow',
 	});
 }
 

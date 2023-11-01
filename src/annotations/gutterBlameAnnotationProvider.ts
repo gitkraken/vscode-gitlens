@@ -1,7 +1,6 @@
 import type { DecorationOptions, TextEditor, ThemableDecorationAttachmentRenderOptions } from 'vscode';
 import { Range } from 'vscode';
-import type { GravatarDefaultStyle } from '../config';
-import { FileAnnotationType } from '../config';
+import type { FileAnnotationType, GravatarDefaultStyle } from '../config';
 import { GlyphChars } from '../constants';
 import type { Container } from '../container';
 import type { CommitFormatOptions } from '../git/formatters/commitFormatter';
@@ -27,7 +26,7 @@ const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis
 
 export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 	constructor(editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>, container: Container) {
-		super(FileAnnotationType.Blame, editor, trackedDocument, container);
+		super('blame', editor, trackedDocument, container);
 	}
 
 	override clear() {
@@ -49,7 +48,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		const blame = await this.getBlame();
 		if (blame == null) return false;
 
-		const sw = maybeStopWatch(scope);
+		using sw = maybeStopWatch(scope);
 
 		const cfg = configuration.get('blame');
 

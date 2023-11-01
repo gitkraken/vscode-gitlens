@@ -1,7 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import type { BranchesViewConfig } from '../config';
-import { ViewBranchesLayout, ViewFilesLayout, ViewShowBranchComparison } from '../config';
+import type { BranchesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -14,11 +13,12 @@ import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/
 import { executeCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
+import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
+import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
+import type { ViewNode } from './nodes/abstract/viewNode';
 import { BranchesNode } from './nodes/branchesNode';
 import { BranchNode } from './nodes/branchNode';
 import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
-import type { ViewNode } from './nodes/viewNode';
-import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
@@ -50,7 +50,9 @@ export class BranchesViewNode extends RepositoriesSubscribeableNode<BranchesView
 		if (this.children == null) {
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = 'No branches could be found.';
+				this.view.message = this.view.container.git.isDiscoveringRepositories
+					? 'Loading branches...'
+					: 'No branches could be found.';
 
 				return [];
 			}
@@ -125,29 +127,21 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 				},
 				this,
 			),
-			registerViewCommand(
-				this.getQualifiedCommand('setLayoutToList'),
-				() => this.setLayout(ViewBranchesLayout.List),
-				this,
-			),
-			registerViewCommand(
-				this.getQualifiedCommand('setLayoutToTree'),
-				() => this.setLayout(ViewBranchesLayout.Tree),
-				this,
-			),
+			registerViewCommand(this.getQualifiedCommand('setLayoutToList'), () => this.setLayout('list'), this),
+			registerViewCommand(this.getQualifiedCommand('setLayoutToTree'), () => this.setLayout('tree'), this),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
-				() => this.setFilesLayout(ViewFilesLayout.Auto),
+				() => this.setFilesLayout('auto'),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToList'),
-				() => this.setFilesLayout(ViewFilesLayout.List),
+				() => this.setFilesLayout('list'),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToTree'),
-				() => this.setFilesLayout(ViewFilesLayout.Tree),
+				() => this.setFilesLayout('tree'),
 				this,
 			),
 			registerViewCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this),
@@ -186,7 +180,8 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'defaultTimeFormat') &&
-			!configuration.changed(e, 'sortBranchesBy')
+			!configuration.changed(e, 'sortBranchesBy') &&
+			!configuration.changed(e, 'sortRepositoriesBy')
 		) {
 			return false;
 		}
@@ -222,6 +217,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 		const branches = await this.container.git.getCommitBranches(
 			commit.repoPath,
 			commit.ref,
+			undefined,
 			isCommit(commit) ? { commitDate: commit.committer.date } : undefined,
 		);
 		if (branches.length === 0) return undefined;
@@ -337,7 +333,7 @@ export class BranchesView extends ViewBase<'branches', BranchesViewNode, Branche
 	private setShowBranchComparison(enabled: boolean) {
 		return configuration.updateEffective(
 			`views.${this.configKey}.showBranchComparison` as const,
-			enabled ? ViewShowBranchComparison.Branch : false,
+			enabled ? 'branch' : false,
 		);
 	}
 

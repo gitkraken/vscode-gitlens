@@ -1,18 +1,20 @@
 import type { Endpoints } from '@octokit/types';
 import { GitFileIndexStatus } from '../../git/models/file';
-import type { IssueLabel, IssueMember, IssueOrPullRequestType } from '../../git/models/issue';
+import type { IssueLabel, IssueOrPullRequestType } from '../../git/models/issue';
 import { Issue } from '../../git/models/issue';
-import {
-	PullRequest,
-	PullRequestMergeableState,
-	PullRequestReviewDecision,
-	PullRequestState,
-} from '../../git/models/pullRequest';
+import type { PullRequestState } from '../../git/models/pullRequest';
+import { PullRequest, PullRequestMergeableState, PullRequestReviewDecision } from '../../git/models/pullRequest';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
 
 export interface GitHubBlame {
 	ranges: GitHubBlameRange[];
 	viewer?: string;
+}
+
+export interface GitHubMember {
+	login: string;
+	avatarUrl: string;
+	url: string;
 }
 
 export interface GitHubBlameRange {
@@ -49,6 +51,8 @@ export interface GitHubCommitRef {
 
 export type GitHubContributor = Endpoints['GET /repos/{owner}/{repo}/contributors']['response']['data'][0];
 export interface GitHubIssueOrPullRequest {
+	id: string;
+	nodeId: string;
 	type: IssueOrPullRequestType;
 	number: number;
 	createdAt: string;
@@ -56,6 +60,7 @@ export interface GitHubIssueOrPullRequest {
 	closedAt: string | null;
 	title: string;
 	url: string;
+	state: GitHubPullRequestState;
 }
 
 export interface GitHubPagedResult<T> {
@@ -79,6 +84,7 @@ export interface GitHubPullRequest {
 	};
 	permalink: string;
 	number: number;
+	id: string;
 	title: string;
 	state: GitHubPullRequestState;
 	updatedAt: string;
@@ -95,12 +101,8 @@ export interface GitHubPullRequest {
 export interface GitHubIssueDetailed extends GitHubIssueOrPullRequest {
 	date: Date;
 	updatedAt: Date;
-	author: {
-		login: string;
-		avatarUrl: string;
-		url: string;
-	};
-	assignees: { nodes: IssueMember[] };
+	author: GitHubMember;
+	assignees: { nodes: GitHubMember[] };
 	repository: {
 		name: string;
 		owner: {
@@ -150,19 +152,11 @@ export interface GitHubDetailedPullRequest extends GitHubPullRequest {
 	reviewRequests: {
 		nodes: {
 			asCodeOwner: boolean;
-			requestedReviewer: {
-				login: string;
-				avatarUrl: string;
-				url: string;
-			};
+			requestedReviewer: GitHubMember;
 		}[];
 	};
 	assignees: {
-		nodes: {
-			login: string;
-			avatarUrl: string;
-			url: string;
-		}[];
+		nodes: GitHubMember[];
 	};
 }
 
@@ -175,6 +169,7 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: RichRemot
 			url: pr.author.url,
 		},
 		String(pr.number),
+		pr.id,
 		pr.title,
 		pr.permalink,
 		fromGitHubPullRequestState(pr.state),
@@ -185,15 +180,11 @@ export function fromGitHubPullRequest(pr: GitHubPullRequest, provider: RichRemot
 }
 
 export function fromGitHubPullRequestState(state: GitHubPullRequestState): PullRequestState {
-	return state === 'MERGED'
-		? PullRequestState.Merged
-		: state === 'CLOSED'
-		? PullRequestState.Closed
-		: PullRequestState.Open;
+	return state === 'MERGED' ? 'merged' : state === 'CLOSED' ? 'closed' : 'opened';
 }
 
 export function toGitHubPullRequestState(state: PullRequestState): GitHubPullRequestState {
-	return state === PullRequestState.Merged ? 'MERGED' : state === PullRequestState.Closed ? 'CLOSED' : 'OPEN';
+	return state === 'merged' ? 'MERGED' : state === 'closed' ? 'CLOSED' : 'OPEN';
 }
 
 export function fromGitHubPullRequestReviewDecision(
@@ -260,6 +251,7 @@ export function fromGitHubPullRequestDetailed(
 			url: pr.author.url,
 		},
 		String(pr.number),
+		pr.id,
 		pr.title,
 		pr.permalink,
 		fromGitHubPullRequestState(pr.state),
@@ -316,10 +308,12 @@ export function fromGitHubIssueDetailed(value: GitHubIssueDetailed, provider: Ri
 			icon: provider.icon,
 		},
 		String(value.number),
+		value.id,
 		value.title,
 		value.url,
 		new Date(value.createdAt),
 		value.closed,
+		fromGitHubPullRequestState(value.state),
 		new Date(value.updatedAt),
 		{
 			name: value.author.login,
@@ -331,7 +325,7 @@ export function fromGitHubIssueDetailed(value: GitHubIssueDetailed, provider: Ri
 			repo: value.repository.name,
 		},
 		value.assignees.nodes.map(assignee => ({
-			name: assignee.name,
+			name: assignee.login,
 			avatarUrl: assignee.avatarUrl,
 			url: assignee.url,
 		})),

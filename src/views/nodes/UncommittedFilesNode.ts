@@ -1,22 +1,18 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ViewFilesLayout } from '../../config';
 import { GitUri } from '../../git/gitUri';
 import type { GitTrackingState } from '../../git/models/branch';
-import { GitCommit, GitCommitIdentity } from '../../git/models/commit';
-import { uncommitted, uncommittedStaged } from '../../git/models/constants';
 import type { GitFileWithCommit } from '../../git/models/file';
-import { GitFileChange } from '../../git/models/file';
 import type { GitStatus, GitStatusFile } from '../../git/models/status';
 import { groupBy, makeHierarchical } from '../../system/array';
 import { flatMap } from '../../system/iterable';
 import { joinPaths, normalizePath } from '../../system/path';
 import type { ViewsWithWorkingTree } from '../viewBase';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
 import { UncommittedFileNode } from './UncommittedFileNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class UncommittedFilesNode extends ViewNode<ViewsWithWorkingTree> {
+export class UncommittedFilesNode extends ViewNode<'uncommitted-files', ViewsWithWorkingTree> {
 	constructor(
 		view: ViewsWithWorkingTree,
 		protected override readonly parent: ViewNode,
@@ -30,9 +26,9 @@ export class UncommittedFilesNode extends ViewNode<ViewsWithWorkingTree> {
 			  },
 		public readonly range: string | undefined,
 	) {
-		super(GitUri.fromRepoPath(status.repoPath), view, parent);
+		super('uncommitted-files', GitUri.fromRepoPath(status.repoPath), view, parent);
 
-		this._uniqueId = getViewNodeId('uncommitted-files', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {
@@ -48,20 +44,19 @@ export class UncommittedFilesNode extends ViewNode<ViewsWithWorkingTree> {
 
 		const files: GitFileWithCommit[] = [
 			...flatMap(this.status.files, f => {
-				if (f.workingTreeStatus != null && f.indexStatus != null) {
-					// Decrements the date to guarantee this entry will be sorted after the previous entry (most recent first)
-					const older = new Date();
-					older.setMilliseconds(older.getMilliseconds() - 1);
-
-					return [
-						this.getFileWithPseudoCommit(f, uncommitted, uncommittedStaged),
-						this.getFileWithPseudoCommit(f, uncommittedStaged, 'HEAD', older),
-					];
-				} else if (f.indexStatus != null) {
-					return [this.getFileWithPseudoCommit(f, uncommittedStaged, 'HEAD')];
-				}
-
-				return [this.getFileWithPseudoCommit(f, uncommitted, 'HEAD')];
+				const commits = f.getPseudoCommits(this.view.container, undefined);
+				return commits.map(
+					c =>
+						({
+							status: f.status,
+							repoPath: f.repoPath,
+							indexStatus: f.indexStatus,
+							workingTreeStatus: f.workingTreeStatus,
+							path: f.path,
+							originalPath: f.originalPath,
+							commit: c,
+						}) satisfies GitFileWithCommit,
+				);
 			}),
 		];
 
@@ -73,7 +68,7 @@ export class UncommittedFilesNode extends ViewNode<ViewsWithWorkingTree> {
 			files => new UncommittedFileNode(this.view, this, repoPath, files[files.length - 1]),
 		);
 
-		if (this.view.config.files.layout !== ViewFilesLayout.List) {
+		if (this.view.config.files.layout !== 'list') {
 			const hierarchy = makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),
@@ -101,35 +96,5 @@ export class UncommittedFilesNode extends ViewNode<ViewsWithWorkingTree> {
 		item.iconPath = new ThemeIcon('folder');
 
 		return item;
-	}
-
-	private getFileWithPseudoCommit(
-		file: GitStatusFile,
-		ref: string,
-		previousRef: string,
-		date?: Date,
-	): GitFileWithCommit {
-		date = date ?? new Date();
-		return {
-			status: file.status,
-			repoPath: file.repoPath,
-			indexStatus: file.indexStatus,
-			workingTreeStatus: file.workingTreeStatus,
-			path: file.path,
-			originalPath: file.originalPath,
-			commit: new GitCommit(
-				this.view.container,
-				file.repoPath,
-				ref,
-				new GitCommitIdentity('You', undefined, date),
-				new GitCommitIdentity('You', undefined, date),
-				'Uncommitted changes',
-				[previousRef],
-				'Uncommitted changes',
-				new GitFileChange(file.repoPath, file.path, file.status, file.originalPath, previousRef),
-				undefined,
-				[],
-			),
-		};
 	}
 }

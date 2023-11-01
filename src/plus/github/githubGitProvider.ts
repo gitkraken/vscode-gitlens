@@ -32,9 +32,9 @@ import type {
 	PreviousLineComparisonUrisResult,
 	RepositoryCloseEvent,
 	RepositoryOpenEvent,
+	RepositoryVisibility,
 	ScmRepository,
 } from '../../git/gitProvider';
-import { GitProviderId, RepositoryVisibility } from '../../git/gitProvider';
 import { GitUri } from '../../git/gitUri';
 import type { GitBlame, GitBlameAuthor, GitBlameLine, GitBlameLines } from '../../git/models/blame';
 import type { BranchSortOptions } from '../../git/models/branch';
@@ -43,11 +43,12 @@ import type { GitCommitLine } from '../../git/models/commit';
 import { getChangedFilesCount, GitCommit, GitCommitIdentity } from '../../git/models/commit';
 import { deletedOrMissing, uncommitted } from '../../git/models/constants';
 import { GitContributor } from '../../git/models/contributor';
-import type { GitDiffFile, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from '../../git/models/diff';
+import type { GitDiffFile, GitDiffFilter, GitDiffLine, GitDiffShortStat } from '../../git/models/diff';
 import type { GitFile } from '../../git/models/file';
 import { GitFileChange, GitFileIndexStatus } from '../../git/models/file';
 import type {
 	GitGraph,
+	GitGraphHostingServiceType,
 	GitGraphRow,
 	GitGraphRowContexts,
 	GitGraphRowHead,
@@ -56,14 +57,13 @@ import type {
 	GitGraphRowStats,
 	GitGraphRowTag,
 } from '../../git/models/graph';
-import { GitGraphRowType } from '../../git/models/graph';
 import type { GitLog } from '../../git/models/log';
 import type { GitMergeStatus } from '../../git/models/merge';
 import type { GitRebaseStatus } from '../../git/models/rebase';
 import type { GitBranchReference, GitReference } from '../../git/models/reference';
 import { createReference, isRevisionRange, isSha, isShaLike, isUncommitted } from '../../git/models/reference';
 import type { GitReflog } from '../../git/models/reflog';
-import { getRemoteIconUri, getVisibilityCacheKey, GitRemote, GitRemoteType } from '../../git/models/remote';
+import { getRemoteIconUri, getVisibilityCacheKey, GitRemote } from '../../git/models/remote';
 import type { RepositoryChangeEvent } from '../../git/models/repository';
 import { Repository } from '../../git/models/repository';
 import type { GitStash } from '../../git/models/stash';
@@ -75,13 +75,13 @@ import type { GitTreeEntry } from '../../git/models/tree';
 import type { GitUser } from '../../git/models/user';
 import { isUserMatch } from '../../git/models/user';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../git/remotes/remoteProviders';
-import type { GitSearch, GitSearchResultData, GitSearchResults, SearchQuery } from '../../git/search';
+import type { GitSearch, GitSearchResultData, GitSearchResults, SearchOperators, SearchQuery } from '../../git/search';
 import { getSearchQueryComparisonKey, parseSearchQuery } from '../../git/search';
 import { configuration } from '../../system/configuration';
 import { setContext } from '../../system/context';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
-import { filterMap, first, last, some } from '../../system/iterable';
+import { filterMap, first, last, map, some } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
@@ -117,7 +117,7 @@ interface RepositoryInfo {
 }
 
 export class GitHubGitProvider implements GitProvider, Disposable {
-	descriptor = { id: GitProviderId.GitHub, name: 'GitHub', virtual: true };
+	descriptor = { id: 'github' as const, name: 'GitHub', virtual: true };
 	readonly supportedSchemes = new Set<string>([Schemes.Virtual, Schemes.GitHub, Schemes.PRs]);
 
 	private _onDidChange = new EventEmitter<void>();
@@ -261,7 +261,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				this.container,
 				this.onRepositoryChanged.bind(this),
 				this.descriptor,
-				folder,
+				folder ?? workspace.getWorkspaceFolder(uri),
 				uri,
 				root,
 				suspended ?? !window.state.focused,
@@ -287,17 +287,17 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	async visibility(repoPath: string): Promise<[visibility: RepositoryVisibility, cacheKey: string | undefined]> {
 		const remotes = await this.getRemotes(repoPath, { sort: true });
-		if (remotes.length === 0) return [RepositoryVisibility.Local, undefined];
+		if (remotes.length === 0) return ['local', undefined];
 
 		for await (const result of asSettled(remotes.map(r => this.getRemoteVisibility(r)))) {
 			if (result.status !== 'fulfilled') continue;
 
-			if (result.value[0] === RepositoryVisibility.Public) {
-				return [RepositoryVisibility.Public, getVisibilityCacheKey(result.value[1])];
+			if (result.value[0] === 'public') {
+				return ['public', getVisibilityCacheKey(result.value[1])];
 			}
 		}
 
-		return [RepositoryVisibility.Private, getVisibilityCacheKey(remotes)];
+		return ['private', getVisibilityCacheKey(remotes)];
 	}
 
 	private async getRemoteVisibility(
@@ -312,10 +312,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 					metadata.repo.name,
 				);
 
-				return [visibility ?? RepositoryVisibility.Private, remote];
+				return [visibility ?? 'private', remote];
 			}
 			default:
-				return [RepositoryVisibility.Private, remote];
+				return ['private', remote];
 		}
 	}
 
@@ -521,6 +521,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async getAheadBehindCommitCount(
 		_repoPath: string,
 		_refs: string[],
+		_options?: { authors?: GitUser[] | undefined },
 	): Promise<{ ahead: number; behind: number } | undefined> {
 		return undefined;
 	}
@@ -675,7 +676,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				};
 				document.state.setBlame(key, value);
 
-				document.setBlameFailure();
+				document.setBlameFailure(ex);
 
 				return emptyPromise as Promise<GitBlame>;
 			}
@@ -917,11 +918,28 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 							const ref = branch.target.oid;
 
 							branches.push(
-								new GitBranch(repoPath!, branch.name, false, branch.name === current, date, ref, {
-									name: `origin/${branch.name}`,
-									missing: false,
-								}),
-								new GitBranch(repoPath!, `origin/${branch.name}`, true, false, date, ref),
+								new GitBranch(
+									this.container,
+									repoPath!,
+									branch.name,
+									false,
+									branch.name === current,
+									date,
+									ref,
+									{
+										name: `origin/${branch.name}`,
+										missing: false,
+									},
+								),
+								new GitBranch(
+									this.container,
+									repoPath!,
+									`origin/${branch.name}`,
+									true,
+									false,
+									date,
+									ref,
+								),
 							);
 						}
 
@@ -1032,7 +1050,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async getCommitBranches(
 		repoPath: string,
 		ref: string,
-		options?: { branch?: string; commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
+		branch?: string | undefined,
+		options?:
+			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
+			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
 	): Promise<string[]> {
 		if (repoPath == null || options?.commitDate == null) return [];
 
@@ -1043,12 +1064,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			let branches;
 
-			if (options?.branch) {
+			if (branch) {
 				branches = await github.getCommitOnBranch(
 					session.accessToken,
 					metadata.repo.owner,
 					metadata.repo.name,
-					options?.branch,
+					branch,
 					ref,
 					options?.commitDate,
 				);
@@ -1390,6 +1411,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 							avatarUrl: avatarUrl,
 							context: serializeWebviewItemContext<GraphItemRefContext>(context),
 							current: true,
+							hostingServiceType: remote.provider?.id as GitGraphHostingServiceType,
 						},
 					];
 
@@ -1441,6 +1463,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 							url: remote.url,
 							avatarUrl: avatarUrl,
 							context: serializeWebviewItemContext<GraphItemRefContext>(context),
+							hostingServiceType: remote.provider?.id as GitGraphHostingServiceType,
 						});
 					}
 				}
@@ -1513,7 +1536,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				date: commit.committer.date.getTime(),
 				message: emojify(commit.message && String(commit.message).length ? commit.message : commit.summary),
 				// TODO: review logic for stash, wip, etc
-				type: commit.parents.length > 1 ? GitGraphRowType.MergeCommit : GitGraphRowType.Commit,
+				type: commit.parents.length > 1 ? 'merge-node' : 'commit-node',
 				heads: refHeads,
 				remotes: refRemoteHeads,
 				tags: refTags,
@@ -1573,6 +1596,35 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				);
 			},
 		};
+	}
+
+	@log()
+	async getCommitTags(
+		repoPath: string,
+		ref: string,
+		options?: { commitDate?: Date; mode?: 'contains' | 'pointsAt' },
+	): Promise<string[]> {
+		if (repoPath == null || options?.commitDate == null) return [];
+
+		const scope = getLogScope();
+
+		try {
+			const { metadata, github, session } = await this.ensureRepositoryContext(repoPath);
+
+			const tags = await github.getCommitTags(
+				session.accessToken,
+				metadata.repo.owner,
+				metadata.repo.name,
+				ref,
+				options?.commitDate,
+			);
+
+			return tags;
+		} catch (ex) {
+			Logger.error(ex, scope);
+			debugger;
+			return [];
+		}
 	}
 
 	@log()
@@ -1684,7 +1736,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		_editorLine: number, // 0-based, Git is 1-based
 		_ref1: string | undefined,
 		_ref2?: string,
-	): Promise<GitDiffHunkLine | undefined> {
+	): Promise<GitDiffLine | undefined> {
 		return undefined;
 	}
 
@@ -2362,7 +2414,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		uri: Uri,
 		ref: string | undefined,
 		skip: number = 0,
-		_firstParent: boolean = false,
 	): Promise<PreviousComparisonUrisResult | undefined> {
 		if (ref === deletedOrMissing) return undefined;
 
@@ -2526,8 +2577,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 				path,
 				getRemoteProviderMatcher(this.container, providers)(url, domain, path),
 				[
-					{ type: GitRemoteType.Fetch, url: url },
-					{ type: GitRemoteType.Push, url: url },
+					{ type: 'fetch', url: url },
+					{ type: 'push', url: url },
 				],
 			),
 		];
@@ -2721,11 +2772,6 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		return [];
 	}
 
-	async getUniqueRepositoryId(_repoPath: string): Promise<string | undefined> {
-		// TODO@ramint implement this if there is a way.
-		return undefined;
-	}
-
 	@log()
 	async hasBranchOrTag(
 		repoPath: string | undefined,
@@ -2842,8 +2888,8 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		const operations = parseSearchQuery(search);
 
 		const values = operations.get('commit:');
-		if (values != null) {
-			const commit = await this.getCommit(repoPath, values[0]);
+		if (values?.size) {
+			const commit = await this.getCommit(repoPath, first(values)!);
 			if (commit == null) return undefined;
 
 			return {
@@ -3012,9 +3058,9 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 			const values = operations.get('commit:');
 			if (values != null) {
-				const commitsResults = await Promise.allSettled<Promise<GitCommit | undefined>[]>(
-					values.map(v => this.getCommit(repoPath, v.replace(doubleQuoteRegex, ''))),
-				);
+				const commitsResults = await Promise.allSettled<Promise<GitCommit | undefined>[]>([
+					...map(values, v => this.getCommit(repoPath, v.replace(doubleQuoteRegex, ''))),
+				]);
 
 				let i = 0;
 				for (const commitResult of commitsResults) {
@@ -3124,10 +3170,10 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	async stageDirectory(_repoPath: string, _directoryOrUri: string | Uri): Promise<void> {}
 
 	@log()
-	async unStageFile(_repoPath: string, _pathOrUri: string | Uri): Promise<void> {}
+	async unstageFile(_repoPath: string, _pathOrUri: string | Uri): Promise<void> {}
 
 	@log()
-	async unStageDirectory(_repoPath: string, _directoryOrUri: string | Uri): Promise<void> {}
+	async unstageDirectory(_repoPath: string, _directoryOrUri: string | Uri): Promise<void> {}
 
 	@gate()
 	private async ensureRepositoryContext(
@@ -3396,7 +3442,7 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 
 	private async getQueryArgsFromSearchQuery(
 		search: SearchQuery,
-		operations: Map<string, string[]>,
+		operations: Map<SearchOperators, Set<string>>,
 		repoPath: string,
 	) {
 		const query = [];
@@ -3404,12 +3450,12 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 		for (const [op, values] of operations.entries()) {
 			switch (op) {
 				case 'message:':
-					query.push(...values.map(m => m.replace(/ /g, '+')));
+					query.push(...map(values, m => m.replace(/ /g, '+')));
 					break;
 
 				case 'author:': {
 					let currentUser: GitUser | undefined;
-					if (values.includes('@me')) {
+					if (values.has('@me')) {
 						currentUser = await this.getCurrentUser(repoPath);
 					}
 

@@ -2,24 +2,24 @@ import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitUri';
 import type { HierarchicalItem } from '../../system/array';
 import type { View } from '../viewBase';
-import { BranchNode } from './branchNode';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
+import type { BranchNode } from './branchNode';
 import type { TagNode } from './tagNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class BranchOrTagFolderNode extends ViewNode {
+export class BranchOrTagFolderNode extends ViewNode<'branch-tag-folder'> {
 	constructor(
 		view: View,
 		protected override readonly parent: ViewNode,
-		public readonly type: 'branch' | 'remote-branch' | 'tag',
+		public readonly folderType: 'branch' | 'remote-branch' | 'tag',
 		public readonly root: HierarchicalItem<BranchNode | TagNode>,
 		public readonly repoPath: string,
 		public readonly folderName: string,
 		public readonly relativePath: string | undefined,
 		private readonly _expanded: boolean = false,
 	) {
-		super(GitUri.fromRepoPath(repoPath), view, parent);
+		super('branch-tag-folder', GitUri.fromRepoPath(repoPath), view, parent);
 
-		this._uniqueId = getViewNodeId(`${type}-folder+${relativePath ?? folderName}`, this.context);
+		this._uniqueId = getViewNodeId(`${this.type}+${folderType}+${relativePath ?? folderName}`, this.context);
 	}
 
 	override get id(): string {
@@ -38,12 +38,12 @@ export class BranchOrTagFolderNode extends ViewNode {
 		for (const folder of this.root.children.values()) {
 			if (folder.value === undefined) {
 				// If the folder contains the current branch, expand it by default
-				const expanded = folder.descendants?.some(n => n instanceof BranchNode && n.current);
+				const expanded = folder.descendants?.some(n => n.is('branch') && n.current);
 				children.push(
 					new BranchOrTagFolderNode(
 						this.view,
 						this.folderName ? this : this.parent,
-						this.type,
+						this.folderType,
 						folder,
 						this.repoPath,
 						folder.name,

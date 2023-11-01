@@ -19,6 +19,7 @@ export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorComman
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
+		let args: OpenPullRequestOnRemoteCommandArgs;
 		if (editor != null && gitUri != null) {
 			const blameline = editor.selection.active.line;
 			if (blameline < 0) return;
@@ -27,46 +28,31 @@ export class OpenAssociatedPullRequestOnRemoteCommand extends ActiveEditorComman
 				const blame = await this.container.git.getBlameForLine(gitUri, blameline);
 				if (blame == null) return;
 
-				await executeCommand<OpenPullRequestOnRemoteCommandArgs>(Commands.OpenPullRequestOnRemote, {
-					clipboard: false,
-					ref: blame.commit.sha,
-					repoPath: blame.commit.repoPath,
-				});
+				args = { clipboard: false, ref: blame.commit.sha, repoPath: blame.commit.repoPath };
 			} catch (ex) {
 				Logger.error(ex, 'OpenAssociatedPullRequestOnRemoteCommand', `getBlameForLine(${blameline})`);
+				return;
 			}
+		} else {
+			try {
+				const repo = await getRepositoryOrShowPicker('Open Associated Pull Request', undefined, undefined, {
+					filter: async r => (await this.container.git.getBestRemoteWithRichProvider(r.uri)) != null,
+				});
+				if (repo == null) return;
 
-			return;
+				const branch = await repo?.getBranch();
+				const pr = await branch?.getAssociatedPullRequest();
+
+				args =
+					pr != null
+						? { clipboard: false, pr: { url: pr.url } }
+						: { clipboard: false, ref: branch?.name ?? 'HEAD', repoPath: repo.path };
+			} catch (ex) {
+				Logger.error(ex, 'OpenAssociatedPullRequestOnRemoteCommand', 'No editor opened');
+				return;
+			}
 		}
 
-		try {
-			const repo = await getRepositoryOrShowPicker('Open Pull Request Associated', undefined, {
-				filter: async r => (await this.container.git.getBestRemoteWithRichProvider(r.uri))?.provider != null,
-			});
-			if (repo == null) return;
-
-			const remote = await this.container.git.getBestRemoteWithRichProvider(repo.uri);
-			if (remote?.provider == null) return;
-
-			const branch = await repo.getBranch();
-			if (branch == null) return;
-
-			let pr = await this.container.git.getPullRequestForBranch(branch.ref, remote.provider);
-			if (pr == null) {
-				const commit = await repo.getCommit('HEAD');
-				if (commit == null) return;
-
-				pr = await this.container.git.getPullRequestForCommit(commit.ref, remote.provider);
-				if (pr == null) return;
-			}
-
-			await executeCommand<OpenPullRequestOnRemoteCommandArgs>(Commands.OpenPullRequestOnRemote, {
-				pr: {
-					url: pr.url,
-				},
-			});
-		} catch (ex) {
-			Logger.error(ex, 'OpenAssociatedPullRequestOnRemoteCommand', 'No editor opened');
-		}
+		await executeCommand<OpenPullRequestOnRemoteCommandArgs>(Commands.OpenPullRequestOnRemote, args);
 	}
 }

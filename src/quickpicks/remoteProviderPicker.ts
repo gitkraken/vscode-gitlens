@@ -1,6 +1,6 @@
 import type { Disposable, QuickInputButton } from 'vscode';
 import { env, Uri, window } from 'vscode';
-import type { OpenOnRemoteCommandArgs } from '../commands';
+import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote';
 import { SetRemoteAsDefaultQuickInputButton } from '../commands/quickCommand.buttons';
 import type { Keys } from '../constants';
 import { Commands, GlyphChars } from '../constants';
@@ -54,7 +54,7 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 			let branch = resource.base.branch;
 			if (branch == null) {
 				branch = await Container.instance.git.getDefaultBranchName(this.remote.repoPath, this.remote.name);
-				if (branch == null && this.remote.hasRichProvider()) {
+				if (branch == null && this.remote.hasRichIntegration()) {
 					const defaultBranch = await this.remote.provider.getDefaultBranch?.();
 					branch = defaultBranch?.name;
 				}

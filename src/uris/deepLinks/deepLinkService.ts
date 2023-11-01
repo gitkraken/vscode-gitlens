@@ -12,30 +12,30 @@ import { configuration } from '../../system/configuration';
 import { once } from '../../system/event';
 import { Logger } from '../../system/logger';
 import { normalizePath } from '../../system/path';
-import { openWorkspace, OpenWorkspaceLocation } from '../../system/utils';
-import type { DeepLink, DeepLinkProgress, DeepLinkServiceContext } from './deepLink';
+import type { OpenWorkspaceLocation } from '../../system/utils';
+import { openWorkspace } from '../../system/utils';
+import type { DeepLink, DeepLinkProgress, DeepLinkRepoOpenType, DeepLinkServiceContext, UriTypes } from './deepLink';
 import {
-	DeepLinkRepoOpenType,
 	DeepLinkServiceAction,
 	DeepLinkServiceState,
 	deepLinkStateToProgress,
 	deepLinkStateTransitionTable,
 	DeepLinkType,
+	deepLinkTypeToString,
 	parseDeepLinkUri,
-	UriTypes,
 } from './deepLink';
+
+const missingRepositoryId = '-';
 
 export class DeepLinkService implements Disposable {
 	private readonly _disposables: Disposable[] = [];
 	private _context: DeepLinkServiceContext;
-	private readonly _onDeepLinkProgressUpdated: EventEmitter<DeepLinkProgress>;
+	private readonly _onDeepLinkProgressUpdated = new EventEmitter<DeepLinkProgress>();
 
 	constructor(private readonly container: Container) {
 		this._context = {
 			state: DeepLinkServiceState.Idle,
 		};
-
-		this._onDeepLinkProgressUpdated = new EventEmitter<DeepLinkProgress>();
 
 		this._disposables.push(
 			container.uri.onDidReceiveUri(async (uri: Uri) => {
@@ -47,7 +47,7 @@ export class DeepLinkService implements Disposable {
 						await this.container.git.isDiscoveringRepositories;
 					}
 
-					if (!link.type || (!link.repoId && !link.remoteUrl && !link.repoPath)) {
+					if (!link.type || (!link.mainId && !link.remoteUrl && !link.repoPath)) {
 						void window.showErrorMessage('Unable to resolve link');
 						Logger.warn(`Unable to resolve link - missing basic properties: ${uri.toString()}`);
 						return;
@@ -59,9 +59,9 @@ export class DeepLinkService implements Disposable {
 						return;
 					}
 
-					if (link.type !== DeepLinkType.Repository && link.targetId == null) {
+					if (link.type !== DeepLinkType.Repository && link.targetId == null && link.mainId == null) {
 						void window.showErrorMessage('Unable to resolve link');
-						Logger.warn(`Unable to resolve link - no target id provided: ${uri.toString()}`);
+						Logger.warn(`Unable to resolve link - no main/target id provided: ${uri.toString()}`);
 						return;
 					}
 
@@ -93,7 +93,7 @@ export class DeepLinkService implements Disposable {
 		this._context = {
 			state: DeepLinkServiceState.Idle,
 			url: undefined,
-			repoId: undefined,
+			mainId: undefined,
 			repo: undefined,
 			remoteUrl: undefined,
 			remote: undefined,
@@ -110,7 +110,7 @@ export class DeepLinkService implements Disposable {
 	private setContextFromDeepLink(link: DeepLink, url: string) {
 		this._context = {
 			...this._context,
-			repoId: link.repoId,
+			mainId: link.mainId,
 			targetType: link.type,
 			url: url,
 			remoteUrl: link.remoteUrl,
@@ -279,16 +279,16 @@ export class DeepLinkService implements Disposable {
 		customMessage?: string;
 	}): Promise<DeepLinkRepoOpenType | undefined> {
 		const openOptions: { title: string; action?: DeepLinkRepoOpenType; isCloseAffordance?: boolean }[] = [
-			{ title: 'Open Folder', action: DeepLinkRepoOpenType.Folder },
-			{ title: 'Open Workspace', action: DeepLinkRepoOpenType.Workspace },
+			{ title: 'Open Folder', action: 'folder' },
+			{ title: 'Open Workspace', action: 'workspace' },
 		];
 
 		if (this._context.remoteUrl != null) {
-			openOptions.push({ title: 'Clone', action: DeepLinkRepoOpenType.Clone });
+			openOptions.push({ title: 'Clone', action: 'clone' });
 		}
 
 		if (options?.includeCurrent) {
-			openOptions.push({ title: 'Use Current Window', action: DeepLinkRepoOpenType.Current });
+			openOptions.push({ title: 'Use Current Window', action: 'current' });
 		}
 
 		openOptions.push({ title: 'Cancel', isCloseAffordance: true });
@@ -302,21 +302,19 @@ export class DeepLinkService implements Disposable {
 	}
 
 	private async showOpenLocationPrompt(openType: DeepLinkRepoOpenType): Promise<OpenWorkspaceLocation | undefined> {
-		// Only add the "add to workspace" option if openType is DeepLinkRepoOpenType.Folder
+		// Only add the "add to workspace" option if openType is 'folder'
 		const openOptions: { title: string; action?: OpenWorkspaceLocation; isCloseAffordance?: boolean }[] = [
-			{ title: 'Open', action: OpenWorkspaceLocation.CurrentWindow },
-			{ title: 'Open in New Window', action: OpenWorkspaceLocation.NewWindow },
+			{ title: 'Open', action: 'currentWindow' },
+			{ title: 'Open in New Window', action: 'newWindow' },
 		];
 
-		if (openType !== DeepLinkRepoOpenType.Workspace) {
-			openOptions.push({ title: 'Add to Workspace', action: OpenWorkspaceLocation.AddToWorkspace });
+		if (openType !== 'workspace') {
+			openOptions.push({ title: 'Add to Workspace', action: 'addToWorkspace' });
 		}
 
 		openOptions.push({ title: 'Cancel', isCloseAffordance: true });
 		const openLocationResult = await window.showInformationMessage(
-			`Please choose an option to open the repository ${
-				openType === DeepLinkRepoOpenType.Clone ? 'after cloning' : openType
-			}.`,
+			`Please choose an option to open the repository ${openType === 'clone' ? 'after cloning' : openType}.`,
 			{ modal: true },
 			...openOptions,
 		);
@@ -362,9 +360,13 @@ export class DeepLinkService implements Disposable {
 	): Promise<void> {
 		let message = '';
 		let action = initialAction;
+		if (action === DeepLinkServiceAction.DeepLinkCancelled && this._context.state === DeepLinkServiceState.Idle) {
+			return;
+		}
 
 		//Repo match
 		let matchingLocalRepoPaths: string[] = [];
+		const { targetType } = this._context;
 
 		queueMicrotask(
 			() =>
@@ -372,7 +374,7 @@ export class DeepLinkService implements Disposable {
 					{
 						cancellable: true,
 						location: ProgressLocation.Notification,
-						title: `Opening repository for link: ${this._context.url}}`,
+						title: `Opening ${deepLinkTypeToString(targetType ?? DeepLinkType.Repository)} link...`,
 					},
 					(progress, token) => {
 						progress.report({ increment: 0 });
@@ -382,14 +384,12 @@ export class DeepLinkService implements Disposable {
 								resolve();
 							});
 
-							this._disposables.push(
-								this._onDeepLinkProgressUpdated.event(({ message, increment }) => {
-									progress.report({ message: message, increment: increment });
-									if (increment === 100) {
-										resolve();
-									}
-								}),
-							);
+							this._onDeepLinkProgressUpdated.event(({ message, increment }) => {
+								progress.report({ message: message, increment: increment });
+								if (increment === 100) {
+									resolve();
+								}
+							});
 						});
 					},
 				),
@@ -399,7 +399,7 @@ export class DeepLinkService implements Disposable {
 			this._context.state = deepLinkStateTransitionTable[this._context.state][action];
 			const {
 				state,
-				repoId,
+				mainId,
 				repo,
 				url,
 				remoteUrl,
@@ -425,9 +425,21 @@ export class DeepLinkService implements Disposable {
 					this.resetContext();
 					return;
 				}
+				case DeepLinkServiceState.TypeMatch: {
+					switch (targetType) {
+						case DeepLinkType.Workspace:
+							action = DeepLinkServiceAction.LinkIsWorkspaceType;
+							break;
+						default:
+							action = DeepLinkServiceAction.LinkIsRepoType;
+							break;
+					}
+
+					break;
+				}
 				case DeepLinkServiceState.RepoMatch:
 				case DeepLinkServiceState.AddedRepoMatch: {
-					if (!repoId && !remoteUrl && !repoPath) {
+					if (!mainId && !remoteUrl && !repoPath) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
 						message = 'No repository id, remote url or path was provided.';
 						break;
@@ -462,10 +474,10 @@ export class DeepLinkService implements Disposable {
 							}
 						}
 
-						if (repoId != null && repoId !== '-') {
+						if (mainId != null && mainId !== missingRepositoryId) {
 							// Repo ID can be any valid SHA in the repo, though standard practice is to use the
 							// first commit SHA.
-							if (await this.container.git.validateReference(repo.path, repoId)) {
+							if (await this.container.git.validateReference(repo.path, mainId)) {
 								this._context.repo = repo;
 								action = DeepLinkServiceAction.RepoMatched;
 								break;
@@ -478,8 +490,22 @@ export class DeepLinkService implements Disposable {
 							remoteUrl: remoteUrl,
 						});
 						if (matchingLocalRepoPaths.length > 0) {
-							action = DeepLinkServiceAction.RepoMatchedInLocalMapping;
-							break;
+							for (const repo of this.container.git.repositories) {
+								if (
+									matchingLocalRepoPaths.some(
+										p => normalizePath(repo.path.toLowerCase()) === normalizePath(p.toLowerCase()),
+									)
+								) {
+									this._context.repo = repo;
+									action = DeepLinkServiceAction.RepoMatched;
+									break;
+								}
+							}
+
+							if (this._context.repo == null) {
+								action = DeepLinkServiceAction.RepoMatchedInLocalMapping;
+								break;
+							}
 						}
 					}
 
@@ -495,7 +521,7 @@ export class DeepLinkService implements Disposable {
 					break;
 				}
 				case DeepLinkServiceState.CloneOrAddRepo: {
-					if (!repoId && !remoteUrl && !repoPath) {
+					if (!mainId && !remoteUrl && !repoPath) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
 						message = 'Missing repository id, remote url and path.';
 						break;
@@ -516,7 +542,7 @@ export class DeepLinkService implements Disposable {
 							break;
 						} else if (chosenRepoPath !== 'Choose a different location') {
 							repoOpenUri = Uri.file(chosenRepoPath);
-							repoOpenType = DeepLinkRepoOpenType.Folder;
+							repoOpenType = 'folder';
 						}
 					}
 
@@ -543,17 +569,13 @@ export class DeepLinkService implements Disposable {
 					if (repoOpenUri == null) {
 						repoOpenUri = (
 							await window.showOpenDialog({
-								title: `Choose a ${
-									repoOpenType === DeepLinkRepoOpenType.Workspace ? 'workspace' : 'folder'
-								} to ${
-									repoOpenType === DeepLinkRepoOpenType.Clone
-										? 'clone the repository to'
-										: 'open the repository'
+								title: `Choose a ${repoOpenType === 'workspace' ? 'workspace' : 'folder'} to ${
+									repoOpenType === 'clone' ? 'clone the repository to' : 'open the repository'
 								}`,
-								canSelectFiles: repoOpenType === DeepLinkRepoOpenType.Workspace,
-								canSelectFolders: repoOpenType !== DeepLinkRepoOpenType.Workspace,
+								canSelectFiles: repoOpenType === 'workspace',
+								canSelectFolders: repoOpenType !== 'workspace',
 								canSelectMany: false,
-								...(repoOpenType === DeepLinkRepoOpenType.Workspace && {
+								...(repoOpenType === 'workspace' && {
 									filters: { Workspaces: ['code-workspace'] },
 								}),
 							})
@@ -565,7 +587,7 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					if (repoOpenUri != null && remoteUrl != null && repoOpenType === DeepLinkRepoOpenType.Clone) {
+					if (repoOpenUri != null && remoteUrl != null && repoOpenType === 'clone') {
 						// clone the repository, then set repoOpenUri to the repo path
 						let repoClonePath;
 						try {
@@ -594,8 +616,8 @@ export class DeepLinkService implements Disposable {
 
 					// Add the repo to the repo path mapping if it exists
 					if (
-						repoOpenType !== DeepLinkRepoOpenType.Current &&
-						repoOpenType !== DeepLinkRepoOpenType.Workspace &&
+						repoOpenType !== 'current' &&
+						repoOpenType !== 'workspace' &&
 						!matchingLocalRepoPaths.includes(repoOpenUri.fsPath)
 					) {
 						const chosenRepo = await this.container.git.getOrOpenRepository(repoOpenUri, {
@@ -610,10 +632,7 @@ export class DeepLinkService implements Disposable {
 						}
 					}
 
-					if (
-						repoOpenLocation === OpenWorkspaceLocation.AddToWorkspace &&
-						(workspace.workspaceFolders?.length || 0) > 1
-					) {
+					if (repoOpenLocation === 'addToWorkspace' && (workspace.workspaceFolders?.length || 0) > 1) {
 						action = DeepLinkServiceAction.OpenRepo;
 					} else {
 						// Deep link will resolve in a different service instance
@@ -868,6 +887,22 @@ export class DeepLinkService implements Disposable {
 					action = DeepLinkServiceAction.DeepLinkResolved;
 					break;
 				}
+				case DeepLinkServiceState.OpenWorkspace: {
+					if (!mainId) {
+						action = DeepLinkServiceAction.DeepLinkErrored;
+						message = 'Missing workspace id.';
+						break;
+					}
+
+					await this.container.workspacesView.revealWorkspaceNode(mainId, {
+						select: true,
+						focus: true,
+						expand: true,
+					});
+
+					action = DeepLinkServiceAction.DeepLinkResolved;
+					break;
+				}
 				default: {
 					action = DeepLinkServiceAction.DeepLinkErrored;
 					message = 'Unknown state.';
@@ -877,6 +912,7 @@ export class DeepLinkService implements Disposable {
 		}
 	}
 
+	async copyDeepLinkUrl(workspaceId: string): Promise<void>;
 	async copyDeepLinkUrl(ref: GitReference, remoteUrl: string): Promise<void>;
 	async copyDeepLinkUrl(
 		repoPath: string,
@@ -885,17 +921,20 @@ export class DeepLinkService implements Disposable {
 		compareWithRef?: StoredNamedRef,
 	): Promise<void>;
 	async copyDeepLinkUrl(
-		refOrRepoPath: string | GitReference,
-		remoteUrl: string,
+		refOrIdOrRepoPath: string | GitReference,
+		remoteUrl?: string,
 		compareRef?: StoredNamedRef,
 		compareWithRef?: StoredNamedRef,
 	): Promise<void> {
-		const url = await (typeof refOrRepoPath === 'string'
-			? this.generateDeepLinkUrl(refOrRepoPath, remoteUrl, compareRef, compareWithRef)
-			: this.generateDeepLinkUrl(refOrRepoPath, remoteUrl));
+		const url = await (typeof refOrIdOrRepoPath === 'string'
+			? remoteUrl != null
+				? this.generateDeepLinkUrl(refOrIdOrRepoPath, remoteUrl, compareRef, compareWithRef)
+				: this.generateDeepLinkUrl(refOrIdOrRepoPath)
+			: this.generateDeepLinkUrl(refOrIdOrRepoPath, remoteUrl!));
 		await env.clipboard.writeText(url.toString());
 	}
 
+	async generateDeepLinkUrl(workspaceId: string): Promise<URL>;
 	async generateDeepLinkUrl(ref: GitReference, remoteUrl: string): Promise<URL>;
 	async generateDeepLinkUrl(
 		repoPath: string,
@@ -904,37 +943,45 @@ export class DeepLinkService implements Disposable {
 		compareWithRef?: StoredNamedRef,
 	): Promise<URL>;
 	async generateDeepLinkUrl(
-		refOrRepoPath: string | GitReference,
-		remoteUrl: string,
+		refOrIdOrRepoPath: string | GitReference,
+		remoteUrl?: string,
 		compareRef?: StoredNamedRef,
 		compareWithRef?: StoredNamedRef,
 	): Promise<URL> {
-		const repoPath = typeof refOrRepoPath !== 'string' ? refOrRepoPath.repoPath : refOrRepoPath;
-		let repoId;
-		try {
-			repoId = await this.container.git.getUniqueRepositoryId(repoPath);
-		} catch {
-			repoId = '-';
-		}
-
 		let targetType: DeepLinkType | undefined;
 		let targetId: string | undefined;
 		let compareWithTargetId: string | undefined;
-		if (typeof refOrRepoPath !== 'string') {
-			switch (refOrRepoPath.refType) {
+		const schemeOverride = configuration.get('deepLinks.schemeOverride');
+		const scheme = !schemeOverride ? 'vscode' : schemeOverride === true ? env.uriScheme : schemeOverride;
+		let modePrefixString = '';
+		if (this.container.env === 'dev') {
+			modePrefixString = 'dev.';
+		} else if (this.container.env === 'staging') {
+			modePrefixString = 'staging.';
+		}
+
+		if (remoteUrl == null && typeof refOrIdOrRepoPath === 'string') {
+			return new URL(`https://${modePrefixString}gitkraken.dev/link/workspaces/${refOrIdOrRepoPath}`);
+		}
+
+		const repoPath = typeof refOrIdOrRepoPath !== 'string' ? refOrIdOrRepoPath.repoPath : refOrIdOrRepoPath;
+		const repoId = (await this.container.git.getUniqueRepositoryId(repoPath)) ?? missingRepositoryId;
+
+		if (typeof refOrIdOrRepoPath !== 'string') {
+			switch (refOrIdOrRepoPath.refType) {
 				case 'branch':
 					targetType = DeepLinkType.Branch;
-					targetId = refOrRepoPath.remote
-						? getBranchNameWithoutRemote(refOrRepoPath.name)
-						: refOrRepoPath.name;
+					targetId = refOrIdOrRepoPath.remote
+						? getBranchNameWithoutRemote(refOrIdOrRepoPath.name)
+						: refOrIdOrRepoPath.name;
 					break;
 				case 'revision':
 					targetType = DeepLinkType.Commit;
-					targetId = refOrRepoPath.ref;
+					targetId = refOrIdOrRepoPath.ref;
 					break;
 				case 'tag':
 					targetType = DeepLinkType.Tag;
-					targetId = refOrRepoPath.name;
+					targetId = refOrIdOrRepoPath.name;
 					break;
 			}
 		}
@@ -945,9 +992,6 @@ export class DeepLinkService implements Disposable {
 			compareWithTargetId = compareWithRef.label ?? compareWithRef.ref;
 		}
 
-		const schemeOverride = configuration.get('deepLinks.schemeOverride');
-
-		const scheme = !schemeOverride ? 'vscode' : schemeOverride === true ? env.uriScheme : schemeOverride;
 		let target;
 		if (targetType === DeepLinkType.Comparison) {
 			target = `/${targetType}/${compareWithTargetId}...${targetId}`;
@@ -959,19 +1003,14 @@ export class DeepLinkService implements Disposable {
 
 		// Start with the prefix, add the repo prefix and the repo ID to the URL, and then add the target tag and target ID to the URL (if applicable)
 		const deepLink = new URL(
-			`${scheme}://${this.container.context.extension.id}/${UriTypes.DeepLink}/${DeepLinkType.Repository}/${repoId}${target}`,
+			`${scheme}://${this.container.context.extension.id}/${'link' satisfies UriTypes}/${
+				DeepLinkType.Repository
+			}/${repoId}${target}`,
 		);
 
-		// Add the remote URL as a query parameter
-		deepLink.searchParams.set('url', remoteUrl);
-		const params = new URLSearchParams();
-		params.set('url', remoteUrl);
-
-		let modePrefixString = '';
-		if (this.container.env === 'dev') {
-			modePrefixString = 'dev.';
-		} else if (this.container.env === 'staging') {
-			modePrefixString = 'staging.';
+		if (remoteUrl != null) {
+			// Add the remote URL as a query parameter
+			deepLink.searchParams.set('url', remoteUrl);
 		}
 
 		const deepLinkRedirectUrl = new URL(

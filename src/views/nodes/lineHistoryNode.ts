@@ -11,19 +11,21 @@ import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/mode
 import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
+import { weakEvent } from '../../system/event';
 import { filterMap } from '../../system/iterable';
 import { Logger } from '../../system/logger';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
+import type { PageableViewNode, ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
 import { insertDateMarkers } from './helpers';
 import { LineHistoryTrackerNode } from './lineHistoryTrackerNode';
-import type { PageableViewNode, ViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 
 export class LineHistoryNode
-	extends SubscribeableViewNode<FileHistoryView | LineHistoryView>
+	extends SubscribeableViewNode<'line-history', FileHistoryView | LineHistoryView>
 	implements PageableViewNode
 {
 	limit: number | undefined;
@@ -38,13 +40,13 @@ export class LineHistoryNode
 		public readonly selection: Selection,
 		private readonly editorContents: string | undefined,
 	) {
-		super(uri, view, parent);
+		super('line-history', uri, view, parent);
 
 		if (branch != null) {
 			this.updateContext({ branch: branch });
 		}
 		this._uniqueId = getViewNodeId(
-			`file-history+${uri.toString()}+[${selection.start.line},${selection.start.character}-${
+			`${this.type}+${uri.toString()}+[${selection.start.line},${selection.start.character}-${
 				selection.end.line
 			},${selection.end.character}]`,
 			this.context,
@@ -199,9 +201,8 @@ export class LineHistoryNode
 		if (repo == null) return undefined;
 
 		const subscription = Disposable.from(
-			repo.onDidChange(this.onRepositoryChanged, this),
-			repo.onDidChangeFileSystem(this.onFileSystemChanged, this),
-			repo.startWatchingFileSystem(),
+			weakEvent(repo.onDidChange, this.onRepositoryChanged, this),
+			weakEvent(repo.onDidChangeFileSystem, this.onFileSystemChanged, this, [repo.startWatchingFileSystem()]),
 		);
 
 		return subscription;

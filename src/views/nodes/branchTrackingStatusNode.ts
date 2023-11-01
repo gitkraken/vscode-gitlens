@@ -12,12 +12,12 @@ import { debug } from '../../system/decorators/log';
 import { first, map } from '../../system/iterable';
 import { pluralize } from '../../system/string';
 import type { ViewsWithCommits } from '../viewBase';
+import type { PageableViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { BranchTrackingStatusFilesNode } from './branchTrackingStatusFilesNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
-import type { PageableViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export interface BranchTrackingStatus {
 	ref: string;
@@ -26,7 +26,10 @@ export interface BranchTrackingStatus {
 	upstream?: string;
 }
 
-export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> implements PageableViewNode {
+export class BranchTrackingStatusNode
+	extends ViewNode<'tracking-status', ViewsWithCommits>
+	implements PageableViewNode
+{
 	limit: number | undefined;
 
 	constructor(
@@ -41,7 +44,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 			showAheadCommits?: boolean;
 		},
 	) {
-		super(GitUri.fromRepoPath(status.repoPath), view, parent);
+		super('tracking-status', GitUri.fromRepoPath(status.repoPath), view, parent);
 
 		this.updateContext({
 			branch: branch,
@@ -49,7 +52,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 			branchStatusUpstreamType: upstreamType,
 			root: root,
 		});
-		this._uniqueId = getViewNodeId('tracking-status', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 

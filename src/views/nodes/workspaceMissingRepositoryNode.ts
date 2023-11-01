@@ -8,19 +8,19 @@ import type {
 	LocalWorkspaceRepositoryDescriptor,
 } from '../../plus/workspaces/models';
 import type { WorkspacesView } from '../workspacesView';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 
-export class WorkspaceMissingRepositoryNode extends ViewNode<WorkspacesView> {
+export class WorkspaceMissingRepositoryNode extends ViewNode<'workspace-missing-repository', WorkspacesView> {
 	constructor(
 		view: WorkspacesView,
 		parent: ViewNode,
 		public readonly workspace: CloudWorkspace | LocalWorkspace,
 		public readonly wsRepositoryDescriptor: CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor,
 	) {
-		super(unknownGitUri, view, parent);
+		super('workspace-missing-repository', unknownGitUri, view, parent);
 
 		this.updateContext({ wsRepositoryDescriptor: wsRepositoryDescriptor });
-		this._uniqueId = getViewNodeId('missing-workspace-repository', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {

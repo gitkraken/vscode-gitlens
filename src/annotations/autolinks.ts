@@ -7,15 +7,15 @@ import type { IssueOrPullRequest } from '../git/models/issue';
 import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/models/issue';
 import type { GitRemote } from '../git/models/remote';
 import type { RemoteProviderReference } from '../git/models/remoteProvider';
+import type { RepositoryDescriptor, RichRemoteProvider } from '../git/remotes/richRemoteProvider';
+import type { MaybePausedResult } from '../system/cancellation';
 import { configuration } from '../system/configuration';
 import { fromNow } from '../system/date';
 import { debug } from '../system/decorators/log';
 import { encodeUrl } from '../system/encoding';
 import { join, map } from '../system/iterable';
 import { Logger } from '../system/logger';
-import type { PromiseCancelledErrorWithId } from '../system/promise';
-import { PromiseCancelledError, raceAll } from '../system/promise';
-import { encodeHtmlWeak, escapeMarkdown, escapeRegex, getSuperscript } from '../system/string';
+import { capitalize, encodeHtmlWeak, escapeMarkdown, escapeRegex, getSuperscript } from '../system/string';
 
 const emptyAutolinkMap = Object.freeze(new Map<string, Autolink>());
 
@@ -30,7 +30,19 @@ export interface Autolink {
 
 	type?: AutolinkType;
 	description?: string;
+
+	descriptor?: RepositoryDescriptor;
 }
+
+export type EnrichedAutolink = [
+	issueOrPullRequest: Promise<IssueOrPullRequest | undefined> | undefined,
+	autolink: Autolink,
+];
+
+export type MaybeEnrichedAutolink = readonly [
+	issueOrPullRequest: MaybePausedResult<IssueOrPullRequest | undefined> | undefined,
+	autolink: Autolink,
+];
 
 export function serializeAutolink(value: Autolink): Autolink {
 	const serialized: Autolink = {
@@ -58,7 +70,8 @@ export interface CacheableAutolinkReference extends AutolinkReference {
 				text: string,
 				outputFormat: 'html' | 'markdown' | 'plaintext',
 				tokenMapping: Map<string, string>,
-				issuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>,
+				enrichedAutolinks?: Map<string, MaybeEnrichedAutolink>,
+				prs?: Set<string>,
 				footnotes?: Map<number, string>,
 		  ) => string)
 		| null;
@@ -74,7 +87,8 @@ export interface DynamicAutolinkReference {
 				text: string,
 				outputFormat: 'html' | 'markdown' | 'plaintext',
 				tokenMapping: Map<string, string>,
-				issuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>,
+				enrichedAutolinks?: Map<string, MaybeEnrichedAutolink>,
+				prs?: Set<string>,
 				footnotes?: Map<number, string>,
 		  ) => string)
 		| null;
@@ -125,112 +139,123 @@ export class Autolinks implements Disposable {
 		}
 	}
 
+	getAutolinks(message: string, remote?: GitRemote): Map<string, Autolink>;
+	// eslint-disable-next-line @typescript-eslint/unified-signatures
+	getAutolinks(message: string, remote: GitRemote, options?: { excludeCustom?: boolean }): Map<string, Autolink>;
 	@debug<Autolinks['getAutolinks']>({
 		args: {
 			0: '<message>',
 			1: false,
 		},
 	})
-	getAutolinks(message: string, remote?: GitRemote): Map<string, Autolink> {
-		const provider = remote?.provider;
-		// If a remote is provided but there is no provider return an empty set
-		if (remote != null && remote.provider == null) return emptyAutolinkMap;
+	getAutolinks(message: string, remote?: GitRemote, options?: { excludeCustom?: boolean }): Map<string, Autolink> {
+		const refsets: [
+			RemoteProviderReference | undefined,
+			(AutolinkReference | DynamicAutolinkReference)[] | CacheableAutolinkReference[],
+		][] = [];
+		if (remote?.provider?.autolinks?.length) {
+			refsets.push([remote.provider, remote.provider.autolinks]);
+		}
+		if (this._references.length && (remote?.provider == null || !options?.excludeCustom)) {
+			refsets.push([undefined, this._references]);
+		}
+		if (refsets.length === 0) return emptyAutolinkMap;
 
 		const autolinks = new Map<string, Autolink>();
 
 		let match;
 		let num;
-		for (const ref of provider?.autolinks ?? this._references) {
-			if (!isCacheable(ref)) {
-				if (isDynamic(ref)) {
-					ref.parse(message, autolinks);
+		for (const [provider, refs] of refsets) {
+			for (const ref of refs) {
+				if (!isCacheable(ref)) {
+					if (isDynamic(ref)) {
+						ref.parse(message, autolinks);
+					}
+					continue;
 				}
-				continue;
+
+				ensureCachedRegex(ref, 'plaintext');
+
+				do {
+					match = ref.messageRegex.exec(message);
+					if (match == null) break;
+
+					[, , , num] = match;
+
+					autolinks.set(num, {
+						provider: provider,
+						id: num,
+						prefix: ref.prefix,
+						url: ref.url?.replace(numRegex, num),
+						title: ref.title?.replace(numRegex, num),
+
+						type: ref.type,
+						description: ref.description?.replace(numRegex, num),
+					});
+				} while (true);
 			}
-
-			ensureCachedRegex(ref, 'plaintext');
-
-			do {
-				match = ref.messageRegex.exec(message);
-				if (match == null) break;
-
-				[, , , num] = match;
-
-				autolinks.set(num, {
-					provider: provider,
-					id: num,
-					prefix: ref.prefix,
-					url: ref.url?.replace(numRegex, num),
-					title: ref.title?.replace(numRegex, num),
-
-					type: ref.type,
-					description: ref.description?.replace(numRegex, num),
-				});
-			} while (true);
 		}
 
 		return autolinks;
 	}
 
-	async getLinkedIssuesAndPullRequests(
+	async getEnrichedAutolinks(
 		message: string,
-		remote: GitRemote,
-		options?: { autolinks?: Map<string, Autolink>; timeout?: never },
-	): Promise<Map<string, IssueOrPullRequest> | undefined>;
-	async getLinkedIssuesAndPullRequests(
-		message: string,
-		remote: GitRemote,
-		options: { autolinks?: Map<string, Autolink>; timeout: number },
-	): Promise<
-		| Map<string, IssueOrPullRequest | PromiseCancelledErrorWithId<string, Promise<IssueOrPullRequest | undefined>>>
-		| undefined
-	>;
-	@debug<Autolinks['getLinkedIssuesAndPullRequests']>({
+		remote: GitRemote | undefined,
+	): Promise<Map<string, EnrichedAutolink> | undefined>;
+	async getEnrichedAutolinks(
+		autolinks: Map<string, Autolink>,
+		remote: GitRemote | undefined,
+	): Promise<Map<string, EnrichedAutolink> | undefined>;
+	@debug<Autolinks['getEnrichedAutolinks']>({
 		args: {
-			0: '<message>',
-			1: false,
-			2: options => `autolinks=${options?.autolinks != null}, timeout=${options?.timeout}`,
+			0: messageOrAutolinks =>
+				typeof messageOrAutolinks === 'string' ? '<message>' : `autolinks=${messageOrAutolinks.size}`,
+			1: remote => remote?.remoteKey,
 		},
 	})
-	async getLinkedIssuesAndPullRequests(
-		message: string,
-		remote: GitRemote,
-		options?: { autolinks?: Map<string, Autolink>; timeout?: number },
-	) {
-		if (!remote.hasRichProvider()) return undefined;
-
-		const { provider } = remote;
-		const connected = provider.maybeConnected ?? (await provider.isConnected());
-		if (!connected) return undefined;
-
-		let autolinks = options?.autolinks;
-		if (autolinks == null) {
-			autolinks = this.getAutolinks(message, remote);
+	async getEnrichedAutolinks(
+		messageOrAutolinks: string | Map<string, Autolink>,
+		remote: GitRemote | undefined,
+	): Promise<Map<string, EnrichedAutolink> | undefined> {
+		if (typeof messageOrAutolinks === 'string') {
+			messageOrAutolinks = this.getAutolinks(messageOrAutolinks, remote);
 		}
+		if (messageOrAutolinks.size === 0) return undefined;
 
-		if (autolinks.size === 0) return undefined;
-
-		const issuesOrPullRequests = await raceAll(
-			autolinks.keys(),
-			id => provider.getIssueOrPullRequest(id),
-			options?.timeout,
-		);
-
-		// Remove any issues or pull requests that were not found
-		for (const [id, issueOrPullRequest] of issuesOrPullRequests) {
-			if (issueOrPullRequest == null) {
-				issuesOrPullRequests.delete(id);
+		let provider: RichRemoteProvider | undefined;
+		if (remote?.hasRichIntegration()) {
+			({ provider } = remote);
+			const connected = remote.provider.maybeConnected ?? (await remote.provider.isConnected());
+			if (!connected) {
+				provider = undefined;
 			}
 		}
 
-		return issuesOrPullRequests.size !== 0 ? issuesOrPullRequests : undefined;
+		return new Map(
+			map(
+				messageOrAutolinks,
+				([id, link]) =>
+					[
+						id,
+						[
+							provider != null &&
+							link.provider?.id === provider.id &&
+							link.provider?.domain === provider.domain
+								? provider.getIssueOrPullRequest(id, link.descriptor)
+								: undefined,
+							link,
+						] satisfies EnrichedAutolink,
+					] as const,
+			),
+		);
 	}
 
 	@debug<Autolinks['linkify']>({
 		args: {
 			0: '<text>',
 			2: remotes => remotes?.length,
-			3: issuesOrPullRequests => issuesOrPullRequests?.size,
+			3: issuesAndPullRequests => issuesAndPullRequests?.size,
 			4: footnotes => footnotes?.size,
 		},
 	})
@@ -238,7 +263,8 @@ export class Autolinks implements Disposable {
 		text: string,
 		outputFormat: 'html' | 'markdown' | 'plaintext',
 		remotes?: GitRemote[],
-		issuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>,
+		enrichedAutolinks?: Map<string, MaybeEnrichedAutolink>,
+		prs?: Set<string>,
 		footnotes?: Map<number, string>,
 	): string {
 		const includeFootnotesInText = outputFormat === 'plaintext' && footnotes == null;
@@ -251,7 +277,7 @@ export class Autolinks implements Disposable {
 		for (const ref of this._references) {
 			if (this.ensureAutolinkCached(ref)) {
 				if (ref.tokenize != null) {
-					text = ref.tokenize(text, outputFormat, tokenMapping, issuesOrPullRequests, footnotes);
+					text = ref.tokenize(text, outputFormat, tokenMapping, enrichedAutolinks, prs, footnotes);
 				}
 			}
 		}
@@ -268,7 +294,7 @@ export class Autolinks implements Disposable {
 				for (const ref of r.provider.autolinks) {
 					if (this.ensureAutolinkCached(ref)) {
 						if (ref.tokenize != null) {
-							text = ref.tokenize(text, outputFormat, tokenMapping, issuesOrPullRequests, footnotes);
+							text = ref.tokenize(text, outputFormat, tokenMapping, enrichedAutolinks, prs, footnotes);
 						}
 					}
 				}
@@ -302,7 +328,8 @@ export class Autolinks implements Disposable {
 				text: string,
 				outputFormat: 'html' | 'markdown' | 'plaintext',
 				tokenMapping: Map<string, string>,
-				issuesOrPullRequests?: Map<string, IssueOrPullRequest | PromiseCancelledError | undefined>,
+				enrichedAutolinks?: Map<string, MaybeEnrichedAutolink>,
+				prs?: Set<string>,
 				footnotes?: Map<number, string>,
 			) => {
 				let footnoteIndex: number;
@@ -319,15 +346,28 @@ export class Autolinks implements Disposable {
 								if (ref.title) {
 									title = ` "${ref.title.replace(numRegex, num)}`;
 
-									const issue = issuesOrPullRequests?.get(num);
-									if (issue != null) {
-										if (issue instanceof PromiseCancelledError) {
-											title += `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`;
+									const issueResult = enrichedAutolinks?.get(num)?.[0];
+									if (issueResult?.value != null) {
+										if (issueResult.paused) {
+											if (footnotes != null && !prs?.has(num)) {
+												let name = ref.description?.replace(numRegex, num);
+												if (name == null) {
+													name = `Custom Autolink ${ref.prefix}${num}`;
+												}
+												footnoteIndex = footnotes.size + 1;
+												footnotes.set(
+													footnoteIndex,
+													`[${getIssueOrPullRequestMarkdownIcon()} ${name} $(loading~spin)](${url}${title}")`,
+												);
+											}
+
+											title += `\n${GlyphChars.Dash.repeat(2)}\nLoading...`;
 										} else {
+											const issue = issueResult.value;
 											const issueTitle = escapeMarkdown(issue.title.trim());
 											const issueTitleQuoteEscaped = issueTitle.replace(/"/g, '\\"');
 
-											if (footnotes != null) {
+											if (footnotes != null && !prs?.has(num)) {
 												footnoteIndex = footnotes.size + 1;
 												footnotes.set(
 													footnoteIndex,
@@ -335,16 +375,28 @@ export class Autolinks implements Disposable {
 														issue,
 													)} **${issueTitle}**](${url}${title}")\\\n${GlyphChars.Space.repeat(
 														5,
-													)}${linkText} ${issue.closed ? 'closed' : 'opened'} ${fromNow(
+													)}${linkText} ${issue.state} ${fromNow(
 														issue.closedDate ?? issue.date,
 													)}`,
 												);
 											}
 
-											title += `\n${GlyphChars.Dash.repeat(2)}\n${issueTitleQuoteEscaped}\n${
-												issue.closed ? 'Closed' : 'Opened'
-											}, ${fromNow(issue.closedDate ?? issue.date)}`;
+											title += `\n${GlyphChars.Dash.repeat(
+												2,
+											)}\n${issueTitleQuoteEscaped}\n${capitalize(issue.state)}, ${fromNow(
+												issue.closedDate ?? issue.date,
+											)}`;
 										}
+									} else if (footnotes != null && !prs?.has(num)) {
+										let name = ref.description?.replace(numRegex, num);
+										if (name == null) {
+											name = `Custom Autolink ${ref.prefix}${num}`;
+										}
+										footnoteIndex = footnotes.size + 1;
+										footnotes.set(
+											footnoteIndex,
+											`[${getIssueOrPullRequestMarkdownIcon()} ${name}](${url}${title}")`,
+										);
 									}
 									title += '"';
 								}
@@ -366,15 +418,28 @@ export class Autolinks implements Disposable {
 								if (ref.title) {
 									title = `"${encodeHtmlWeak(ref.title.replace(numRegex, num))}`;
 
-									const issue = issuesOrPullRequests?.get(num);
-									if (issue != null) {
-										if (issue instanceof PromiseCancelledError) {
-											title += `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`;
+									const issueResult = enrichedAutolinks?.get(num)?.[0];
+									if (issueResult?.value != null) {
+										if (issueResult.paused) {
+											if (footnotes != null && !prs?.has(num)) {
+												let name = ref.description?.replace(numRegex, num);
+												if (name == null) {
+													name = `Custom Autolink ${ref.prefix}${num}`;
+												}
+												footnoteIndex = footnotes.size + 1;
+												footnotes.set(
+													footnoteIndex,
+													`<a href="${url}" title=${title}>${getIssueOrPullRequestHtmlIcon()} ${name}</a>`,
+												);
+											}
+
+											title += `\n${GlyphChars.Dash.repeat(2)}\nLoading...`;
 										} else {
+											const issue = issueResult.value;
 											const issueTitle = encodeHtmlWeak(issue.title.trim());
 											const issueTitleQuoteEscaped = issueTitle.replace(/"/g, '&quot;');
 
-											if (footnotes != null) {
+											if (footnotes != null && !prs?.has(num)) {
 												footnoteIndex = footnotes.size + 1;
 												footnotes.set(
 													footnoteIndex,
@@ -382,16 +447,28 @@ export class Autolinks implements Disposable {
 														issue,
 													)} <b>${issueTitle}</b></a><br /><span>${GlyphChars.Space.repeat(
 														5,
-													)}${linkText} ${issue.closed ? 'closed' : 'opened'} ${fromNow(
+													)}${linkText} ${issue.state} ${fromNow(
 														issue.closedDate ?? issue.date,
 													)}</span>`,
 												);
 											}
 
-											title += `\n${GlyphChars.Dash.repeat(2)}\n${issueTitleQuoteEscaped}\n${
-												issue.closed ? 'Closed' : 'Opened'
-											}, ${fromNow(issue.closedDate ?? issue.date)}`;
+											title += `\n${GlyphChars.Dash.repeat(
+												2,
+											)}\n${issueTitleQuoteEscaped}\n${capitalize(issue.state)}, ${fromNow(
+												issue.closedDate ?? issue.date,
+											)}`;
 										}
+									} else if (footnotes != null && !prs?.has(num)) {
+										let name = ref.description?.replace(numRegex, num);
+										if (name == null) {
+											name = `Custom Autolink ${ref.prefix}${num}`;
+										}
+										footnoteIndex = footnotes.size + 1;
+										footnotes.set(
+											footnoteIndex,
+											`<a href="${url}" title=${title}>${getIssueOrPullRequestHtmlIcon()} ${name}</a>`,
+										);
 									}
 									title += '"';
 								}
@@ -407,19 +484,21 @@ export class Autolinks implements Disposable {
 						return text.replace(
 							ref.messageRegex,
 							(_: string, prefix: string, linkText: string, num: string) => {
-								const issue = issuesOrPullRequests?.get(num);
-								if (issue == null) return linkText;
+								const issueResult = enrichedAutolinks?.get(num)?.[0];
+								if (issueResult?.value == null) return linkText;
 
-								if (footnotes != null) {
+								if (footnotes != null && !prs?.has(num)) {
 									footnoteIndex = footnotes.size + 1;
 									footnotes.set(
 										footnoteIndex,
 										`${linkText}: ${
-											issue instanceof PromiseCancelledError
-												? 'Details timed out'
-												: `${issue.title}  ${GlyphChars.Dot}  ${
-														issue.closed ? 'Closed' : 'Opened'
-												  }, ${fromNow(issue.closedDate ?? issue.date)}`
+											issueResult.paused
+												? 'Loading...'
+												: `${issueResult.value.title}  ${GlyphChars.Dot}  ${capitalize(
+														issueResult.value.state,
+												  )}, ${fromNow(
+														issueResult.value.closedDate ?? issueResult.value.date,
+												  )}`
 										}`,
 									);
 								}

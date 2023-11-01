@@ -15,89 +15,26 @@ import { when } from 'lit/directives/when.js';
 import type { IssueMember, IssueShape } from '../../../../../git/models/issue';
 import { elementBase } from '../../../shared/components/styles/lit/base.css';
 import { repoBranchStyles } from './branch-tag.css';
+import { rowBaseStyles } from './common.css';
 import { dateAgeStyles } from './date-styles.css';
 import { themeProperties } from './gk-theme.css';
 import { fromDateRange } from './helpers';
 
 @customElement('gk-issue-row')
 export class GkIssueRow extends LitElement {
-	static override styles = [
-		themeProperties,
-		elementBase,
-		dateAgeStyles,
-		repoBranchStyles,
-		css`
-			:host {
-				display: block;
-			}
-
-			p {
-				margin: 0;
-			}
-
-			a {
-				color: var(--vscode-textLink-foreground);
-				text-decoration: none;
-			}
-			a:hover {
-				text-decoration: underline;
-			}
-			a:focus {
-				outline: 1px solid var(--vscode-focusBorder);
-				outline-offset: -1px;
-			}
-
-			.actions {
-			}
-
-			.actions a {
-				box-sizing: border-box;
-				display: inline-flex;
-				justify-content: center;
-				align-items: center;
-				width: 3.2rem;
-				height: 3.2rem;
-				border-radius: 0.5rem;
-				color: inherit;
-				padding: 0.2rem;
-				vertical-align: text-bottom;
-				text-decoration: none;
-				cursor: pointer;
-			}
-			.actions a:hover {
-				background-color: var(--vscode-toolbar-hoverBackground);
-			}
-			.actions a:active {
-				background-color: var(--vscode-toolbar-activeBackground);
-			}
-
-			.actions a code-icon {
-				font-size: 1.6rem;
-			}
-
-			.row-type {
-				--gk-badge-outline-padding: 0.3rem 0.8rem;
-				--gk-badge-font-size: 1.1rem;
-				opacity: 0.5;
-				vertical-align: middle;
-			}
-
-			.title {
-				font-size: 1.4rem;
-			}
-
-			.date {
-				display: inline-block;
-				min-width: 1.6rem;
-			}
-		`,
-	];
+	static override styles = [themeProperties, elementBase, dateAgeStyles, repoBranchStyles, rowBaseStyles, css``];
 
 	@property({ type: Number })
 	public rank?: number;
 
 	@property({ type: Object })
 	public issue?: IssueShape;
+
+	@property()
+	public pinned = false;
+
+	@property()
+	public snoozed = false;
 
 	constructor() {
 		super();
@@ -132,6 +69,31 @@ export class GkIssueRow extends LitElement {
 
 		return html`
 			<gk-focus-row>
+				<span slot="pin">
+					<gk-tooltip>
+						<a
+							href="#"
+							class="icon pin ${this.pinned ? ' is-active' : ''}"
+							slot="trigger"
+							@click="${this.onPinClick}"
+							><code-icon icon="pinned"></code-icon
+						></a>
+						<span>${this.pinned ? 'Unpin' : 'Pin'}</span>
+					</gk-tooltip>
+					<gk-tooltip>
+						<a
+							href="#"
+							class="icon pin ${this.snoozed ? ' is-active' : ''}"
+							slot="trigger"
+							@click="${this.onSnoozeClick}"
+							><code-icon icon="${this.snoozed ? 'bell' : 'bell-slash'}"></code-icon
+						></a>
+						<span>${this.snoozed ? 'Unsnooze' : 'Snooze'}</span>
+					</gk-tooltip>
+				</span>
+				<span slot="date">
+					<gk-date-from class="date ${this.dateStyle}" date="${this.lastUpdatedDate}"></gk-date-from>
+				</span>
 				<span slot="key"></span>
 				<gk-focus-item>
 					<p>
@@ -180,9 +142,6 @@ export class GkIssueRow extends LitElement {
 							)}
 						</gk-avatar-group>
 					</span>
-					<span slot="date">
-						<gk-date-from class="date ${this.dateStyle}" date="${this.lastUpdatedDate}"></gk-date-from>
-					</span>
 					<div slot="repo">
 						<gk-tag variant="ghost" full>
 							<span slot="prefix"><code-icon icon="repo"></code-icon></span>
@@ -198,5 +157,23 @@ export class GkIssueRow extends LitElement {
 				</gk-focus-item>
 			</gk-focus-row>
 		`;
+	}
+
+	onSnoozeClick(e: Event) {
+		e.preventDefault();
+		this.dispatchEvent(
+			new CustomEvent('snooze-item', {
+				detail: { item: this.issue!, snooze: this.snoozed },
+			}),
+		);
+	}
+
+	onPinClick(e: Event) {
+		e.preventDefault();
+		this.dispatchEvent(
+			new CustomEvent('pin-item', {
+				detail: { item: this.issue!, pin: this.pinned },
+			}),
+		);
 	}
 }

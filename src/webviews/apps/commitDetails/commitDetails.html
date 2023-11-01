@@ -6,12 +6,12 @@
 			@font-face {
 				font-family: 'codicon';
 				font-display: block;
-				src: url('#{webroot}/codicon.ttf?2ab61cbaefbdf4c7c5589068100bee0c') format('truetype');
+				src: url('#{webroot}/codicon.ttf?79130123c9d3674a686cf03962523e8a') format('truetype');
 			}
 			@font-face {
 				font-family: 'glicons';
 				font-display: block;
-				src: url('#{root}/dist/glicons.woff2?8e33f5a80a91b05940d687a08305c156') format('woff2');
+				src: url('#{root}/dist/glicons.woff2?30855d21cb614f41edfd373458624529') format('woff2');
 			}
 		</style>
 	</head>
@@ -19,7 +19,7 @@
 	<body
 		class="preload"
 		data-placement="#{placement}"
-		data-vscode-context='{ "preventDefaultContextMenuItems": true, "webview": "#{webviewId}" }'
+		data-vscode-context='{ "preventDefaultContextMenuItems": true, "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
 	>
 		<gl-commit-details-app id="app"></gl-commit-details-app>
 		#{endOfBody}

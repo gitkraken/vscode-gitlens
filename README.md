@@ -29,7 +29,7 @@ See the [FAQ](#is-gitlens-free-to-use 'Jump to FAQ') for more details.
 
 [Features](#discover-powerful-features 'Jump to Discover Powerful Features')
 | [Labs](#gitkraken-labs 'Jump to GitKraken Labs')
-| [Pro](#ready-for-gitlens-pro 'Jump to Ready for GitLens Pro?')
+| [Pro](#ready-for-gitlens-pro 'Jump to Ready for GitKraken Pro?')
 | [FAQ](#faq 'Jump to FAQ')
 | [Support and Community](#support-and-community 'Jump to Support and Community')
 | [Contributing](#contributing 'Jump to Contributing')
@@ -179,10 +179,10 @@ Use the rich commit search to find exactly what you're looking for. Its powerful
 
 GitKraken Workspaces allow you to easily group and manage multiple repositories together, accessible from anywhere, streamlining your workflow. Create workspaces just for yourself or share (coming soon in GitLens) them with your team for faster onboarding and better collaboration.
 
-The Focus view brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more. Quickly see if anything requires your attention while keeping you focused.
+Focus brings all of your GitHub pull requests and issues into a unified actionable view to help to you more easily juggle work in progress, pending work, reviews, and more. Quickly see if anything requires your attention while keeping you focused.
 
 <figure align="center">
-  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/focus-view.png" alt="Focus View" />
+  <img src="https://raw.githubusercontent.com/gitkraken/vscode-gitlens/main/images/docs/focus-view.png" alt="Focus view" />
 </figure>
 
 ## Visual File History ✨
@@ -227,7 +227,7 @@ A guided, step-by-step experience for quickly and safely executing Git commands.
 
 Use a series of new commands to:
 
-- Expore the commit history of branches and files
+- Explore the commit history of branches and files
 - Quickly search for and navigate to (and action upon) commits
 - Explore a file of a commit
 - View and explore your stashes
@@ -257,11 +257,11 @@ Use the Explain panel on the **Commit Details** view to leverage AI to help you 
 
 Use the `Generate Commit Message` command from the Source Control view's context menu to automatically generate a commit message for your staged changes by leveraging AI.
 
-# Ready for GitLens Pro?
+# Ready for GitKraken Pro?
 
-When you're ready to unlock the full potential of GitLens and enjoy all the benefits on your privately hosted repos, consider upgrading to GitLens Pro. With GitLens Pro, you'll gain access to ✨ features on privately hosted repos and ☁️ features based on the Pro plan.
+When you're ready to unlock the full potential of GitLens and enjoy all the benefits on your privately hosted repos, consider upgrading to GitKraken Pro. With GitKraken Pro, you'll gain access to ✨ features on privately hosted repos and ☁️ features based on the Pro plan.
 
-To learn more about the pricing and the additional ✨ and ☁️ features offered with GitLens Pro, visit the [GitLens Pricing page](https://www.gitkraken.com/gitlens/pricing). Upgrade to GitLens Pro today and take your Git workflow to the next level!
+To learn more about the pricing and the additional ✨ and ☁️ features offered with GitKraken Pro, visit the [GitLens Pricing page](https://www.gitkraken.com/gitlens/pricing). Upgrade to GitKraken Pro today and take your Git workflow to the next level!
 
 # FAQ
 
@@ -274,7 +274,7 @@ Yes. All features are free to use on all repos, **except** for features,
 
 While GitLens offers a remarkable set of free features, a subset of features tailored for professional developers and teams, marked with a ✨, require a trial or paid plan for use on privately hosted repos &mdash; use on local or publicly hosted repos is free for everyone. Additionally some features marked with a ☁️, rely on GitKraken Dev Services which requires an account and access is based on your plan, e.g. Free, Pro, etc.
 
-Preview ✨ features instantly for free for 3 days without an account, or start a free Pro trial to get an additional 7 days and gain access to ☁️ features to experience the full power of GitLens.
+Preview ✨ features instantly for free for 3 days without an account, or start a free GitKraken trial to get an additional 7 days and gain access to ☁️ features to experience the full power of GitLens.
 
 ## Are ✨ and ☁️ features free to use?
 
@@ -300,7 +300,7 @@ Join the GitLens community on [GitHub Discussions](https://github.com/gitkraken/
 
 For any issues or inquiries related to GitLens, you can reach out to the GitKraken support team via the [official support page](https://support.gitkraken.com/). They will be happy to assist you with any problems you may encounter.
 
-With GitLens Pro, you gain access to priority email support from our customer success team, ensuring higher priority and faster response times. Custom onboarding and training are also available to help you and your team quickly get up and running with a GitLens Pro plan.
+With GitKraken Pro, you gain access to priority email support from our customer success team, ensuring higher priority and faster response times. Custom onboarding and training are also available to help you and your team quickly get up and running with a GitKraken Pro plan.
 
 # Contributing
 
@@ -361,6 +361,7 @@ A big thanks to the people that have contributed to this project 🙏❤️:
 - jogo- ([@jogo-](https://github.com/jogo-)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=jogo-)
 - Nils K ([@septatrix](https://github.com/septatrix)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=septatrix)
 - Chris Kaczor ([@ckaczor](https://github.com/ckaczor)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=ckaczor)
+- Aidos Kanapyanov ([@aidoskanapyanov](https://github.com/aidoskanapyanov)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=aidoskanapyanov)
 - Allan Karlson ([@bees4ever](https://github.com/bees4ever)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=bees4ever)
 - Nafiur Rahman Khadem ([@ShafinKhadem](https://github.com/ShafinKhadem)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=ShafinKhadem)
 - Mathew King ([@MathewKing](https://github.com/MathewKing)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=MathewKing)
@@ -386,6 +387,7 @@ A big thanks to the people that have contributed to this project 🙏❤️:
 - Connor Peet ([@connor4312](https://github.com/connor4312)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=connor4312)
 - Maxim Pekurin ([@pmaxim25](https://github.com/pmaxim25)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=pmaxim25)
 - Leo Dan Peña ([@leo9-py](https://github.com/leo9-py)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=leo9-py)
+- Aman Prakash ([@gitgoap](https://github.com/gitgoap)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=gitgoap)
 - Arunprasad Rajkumar ([@arajkumar](https://github.com/arajkumar)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=arajkumar)
 - David Rees ([@studgeek](https://github.com/studgeek)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=studgeek)
 - Rickard ([@rickardp](https://github.com/rickardp)) &mdash; [contributions](https://github.com/gitkraken/vscode-gitlens/commits?author=rickardp)

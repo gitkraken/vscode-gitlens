@@ -1,13 +1,6 @@
-import type {
-	CancellationToken,
-	ConfigurationChangeEvent,
-	Disposable,
-	TreeViewSelectionChangeEvent,
-	TreeViewVisibilityChangeEvent,
-} from 'vscode';
+import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import type { StashesViewConfig } from '../config';
-import { ViewFilesLayout } from '../config';
+import type { StashesViewConfig, ViewFilesLayout } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -18,11 +11,10 @@ import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/
 import { executeCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
+import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
+import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
+import type { ViewNode } from './nodes/abstract/viewNode';
 import { StashesNode } from './nodes/stashesNode';
-import { StashFileNode } from './nodes/stashFileNode';
-import { StashNode } from './nodes/stashNode';
-import type { ViewNode } from './nodes/viewNode';
-import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
 import { ViewBase } from './viewBase';
 import { registerViewCommand } from './viewCommands';
 
@@ -45,7 +37,9 @@ export class StashesViewNode extends RepositoriesSubscribeableNode<StashesView, 
 		if (this.children == null) {
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = 'No stashes could be found.';
+				this.view.message = this.view.container.git.isDiscoveringRepositories
+					? 'Loading stashes...'
+					: 'No stashes could be found.';
 
 				return [];
 			}
@@ -122,17 +116,17 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
-				() => this.setFilesLayout(ViewFilesLayout.Auto),
+				() => this.setFilesLayout('auto'),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToList'),
-				() => this.setFilesLayout(ViewFilesLayout.List),
+				() => this.setFilesLayout('list'),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToTree'),
-				() => this.setFilesLayout(ViewFilesLayout.Tree),
+				() => this.setFilesLayout('tree'),
 				this,
 			),
 		];
@@ -148,54 +142,13 @@ export class StashesView extends ViewBase<'stashes', StashesViewNode, StashesVie
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
-			!configuration.changed(e, 'defaultTimeFormat')
+			!configuration.changed(e, 'defaultTimeFormat') &&
+			!configuration.changed(e, 'sortRepositoriesBy')
 		) {
 			return false;
 		}
 
 		return true;
-	}
-
-	protected override onSelectionChanged(e: TreeViewSelectionChangeEvent<ViewNode>) {
-		super.onSelectionChanged(e);
-		this.notifySelections();
-	}
-
-	protected override onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
-		super.onVisibilityChanged(e);
-		if (e.visible) {
-			this.notifySelections();
-		}
-	}
-
-	private notifySelections() {
-		const node = this.selection?.[0];
-		if (node == null) return;
-
-		if (node instanceof StashNode || node instanceof StashFileNode) {
-			this.container.events.fire(
-				'commit:selected',
-				{
-					commit: node.commit,
-					interaction: 'passive',
-					preserveFocus: true,
-					preserveVisibility: true,
-				},
-				{ source: this.id },
-			);
-		}
-
-		if (node instanceof StashFileNode) {
-			this.container.events.fire(
-				'file:selected',
-				{
-					uri: node.uri,
-					preserveFocus: true,
-					preserveVisibility: true,
-				},
-				{ source: this.id },
-			);
-		}
 	}
 
 	findStash(stash: GitStashReference, token?: CancellationToken) {

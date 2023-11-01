@@ -44,8 +44,8 @@ import type { CommitsView } from './commitsView';
 import type { ContributorsView } from './contributorsView';
 import type { FileHistoryView } from './fileHistoryView';
 import type { LineHistoryView } from './lineHistoryView';
-import type { PageableViewNode, ViewNode } from './nodes/viewNode';
-import { isPageableViewNode } from './nodes/viewNode';
+import type { PageableViewNode, ViewNode } from './nodes/abstract/viewNode';
+import { isPageableViewNode } from './nodes/abstract/viewNode';
 import type { RemotesView } from './remotesView';
 import type { RepositoriesView } from './repositoriesView';
 import type { SearchAndCompareView } from './searchAndCompareView';
@@ -115,6 +115,9 @@ export abstract class ViewBase<
 		return `gitlens.views.${this.type}`;
 	}
 
+	protected _onDidInitialize = new EventEmitter<void>();
+	private initialized = false;
+
 	protected _onDidChangeTreeData = new EventEmitter<ViewNode | undefined>();
 	get onDidChangeTreeData(): Event<ViewNode | undefined> {
 		return this._onDidChangeTreeData.event;
@@ -133,6 +136,11 @@ export abstract class ViewBase<
 	private _onDidChangeNodeCollapsibleState = new EventEmitter<TreeViewNodeCollapsibleStateChangeEvent<ViewNode>>();
 	get onDidChangeNodeCollapsibleState(): Event<TreeViewNodeCollapsibleStateChangeEvent<ViewNode>> {
 		return this._onDidChangeNodeCollapsibleState.event;
+	}
+
+	private _onDidChangeNodesCheckedState = new EventEmitter<TreeCheckboxChangeEvent<ViewNode>>();
+	get onDidChangeNodesCheckedState(): Event<TreeCheckboxChangeEvent<ViewNode>> {
+		return this._onDidChangeNodesCheckedState.event;
 	}
 
 	protected disposables: Disposable[] = [];
@@ -343,7 +351,22 @@ export abstract class ViewBase<
 		if (node != null) return node.getChildren();
 
 		const root = this.ensureRoot();
-		return root.getChildren();
+		const children = root.getChildren();
+		if (!this.initialized) {
+			if (isPromise(children)) {
+				void children.then(() => {
+					if (!this.initialized) {
+						this.initialized = true;
+						setTimeout(() => this._onDidInitialize.fire(), 1);
+					}
+				});
+			} else {
+				this.initialized = true;
+				setTimeout(() => this._onDidInitialize.fire(), 1);
+			}
+		}
+
+		return children;
 	}
 
 	getParent(node: ViewNode): ViewNode | undefined {
@@ -367,18 +390,23 @@ export abstract class ViewBase<
 	}
 
 	protected onCheckboxStateChanged(e: TreeCheckboxChangeEvent<ViewNode>) {
-		for (const [node, state] of e.items) {
-			if (node.id == null) {
-				debugger;
-				throw new Error('Id is required for checkboxes');
-			}
+		try {
+			for (const [node, state] of e.items) {
+				if (node.id == null) {
+					debugger;
+					throw new Error('Id is required for checkboxes');
+				}
 
-			node.storeState('checked', state, true);
+				node.storeState('checked', state, true);
+			}
+		} finally {
+			this._onDidChangeNodesCheckedState.fire(e);
 		}
 	}
 
 	protected onSelectionChanged(e: TreeViewSelectionChangeEvent<ViewNode>) {
 		this._onDidChangeSelection.fire(e);
+		this.notifySelections();
 	}
 
 	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
@@ -387,6 +415,45 @@ export abstract class ViewBase<
 		}
 
 		this._onDidChangeVisibility.fire(e);
+		if (e.visible) {
+			this.notifySelections();
+		}
+	}
+
+	private notifySelections() {
+		const node = this.selection?.[0];
+		if (node == null) return;
+
+		if (
+			node.is('commit') ||
+			node.is('stash') ||
+			node.is('file-commit') ||
+			node.is('commit-file') ||
+			node.is('stash-file')
+		) {
+			this.container.events.fire(
+				'commit:selected',
+				{
+					commit: node.commit,
+					interaction: 'passive',
+					preserveFocus: true,
+					preserveVisibility: true,
+				},
+				{ source: this.id },
+			);
+		}
+
+		if (node.is('file-commit') || node.is('commit-file') || node.is('stash-file')) {
+			this.container.events.fire(
+				'file:selected',
+				{
+					uri: node.uri,
+					preserveFocus: true,
+					preserveVisibility: true,
+				},
+				{ source: this.id },
+			);
+		}
 	}
 
 	get activeSelection(): ViewNode | undefined {
@@ -446,12 +513,14 @@ export abstract class ViewBase<
 			}
 		}
 
-		if (this.root != null) return find.call(this);
+		if (this.initialized) return find.call(this);
 
 		// If we have no root (e.g. never been initialized) force it so the tree will load properly
-		await this.show({ preserveFocus: true });
+		void this.show({ preserveFocus: true });
 		// Since we have to show the view, give the view time to load and let the callstack unwind before we try to find the node
-		return new Promise<ViewNode | undefined>(resolve => setTimeout(() => resolve(find.call(this)), 100));
+		return new Promise<ViewNode | undefined>(resolve =>
+			once(this._onDidInitialize.event)(() => resolve(find.call(this)), this),
+		);
 	}
 
 	private async findNodeCoreBFS(
@@ -510,7 +579,7 @@ export abstract class ViewBase<
 
 						await this.loadMoreNodeChildren(node, defaultPageSize);
 
-						pagedChildren = await cancellable(Promise.resolve(node.getChildren()), token ?? 60000, {
+						pagedChildren = await cancellable(Promise.resolve(node.getChildren()), 60000, token, {
 							onDidCancel: resolve => resolve([]),
 						});
 
@@ -663,6 +732,57 @@ export abstract class ViewBase<
 
 		return this._config;
 	}
+
+	// NOTE: @eamodio uncomment to track node leaks
+	// private _nodeTracking = new Map<string, string | undefined>();
+	// private registry = new FinalizationRegistry<string>(uuid => {
+	// 	const id = this._nodeTracking.get(uuid);
+
+	// 	Logger.log(`@@@ ${this.type} Finalizing [${uuid}]:${id}`);
+
+	// 	this._nodeTracking.delete(uuid);
+
+	// 	if (id != null) {
+	// 		const c = count(this._nodeTracking.values(), v => v === id);
+	// 		Logger.log(`@@@ ${this.type} [${padLeft(String(c), 3)}] ${id}`);
+	// 	}
+	// });
+
+	// registerNode(node: ViewNode) {
+	// 	const uuid = node.uuid;
+
+	// 	Logger.log(`@@@ ${this.type}.registerNode [${uuid}]:${node.id}`);
+
+	// 	this._nodeTracking.set(uuid, node.id);
+	// 	this.registry.register(node, uuid);
+	// }
+
+	// unregisterNode(node: ViewNode) {
+	// 	const uuid = node.uuid;
+
+	// 	Logger.log(`@@@ ${this.type}.unregisterNode [${uuid}]:${node.id}`);
+
+	// 	this._nodeTracking.delete(uuid);
+	// 	this.registry.unregister(node);
+	// }
+
+	// private _timer = setInterval(() => {
+	// 	const counts = new Map<string | undefined, number>();
+	// 	for (const value of this._nodeTracking.values()) {
+	// 		const count = counts.get(value) ?? 0;
+	// 		counts.set(value, count + 1);
+	// 	}
+
+	// 	let total = 0;
+	// 	for (const [id, count] of counts) {
+	// 		if (count > 1) {
+	// 			Logger.log(`@@@ ${this.type} [${padLeft(String(count), 3)}] ${id}`);
+	// 		}
+	// 		total += count;
+	// 	}
+
+	// 	Logger.log(`@@@ ${this.type} total=${total}`);
+	// }, 10000);
 }
 
 export class ViewNodeState implements Disposable {
@@ -681,14 +801,54 @@ export class ViewNodeState implements Disposable {
 		this._store = undefined;
 	}
 
+	delete(prefix: string, key: string): void {
+		for (const store of [this._store, this._stickyStore]) {
+			if (store == null) continue;
+
+			for (const [id, map] of store) {
+				if (id.startsWith(prefix)) {
+					map.delete(key);
+					if (map.size === 0) {
+						store.delete(id);
+					}
+				}
+			}
+		}
+	}
+
 	deleteState(id: string, key?: string): void {
 		if (key == null) {
 			this._store?.delete(id);
 			this._stickyStore?.delete(id);
 		} else {
-			this._store?.get(id)?.delete(key);
-			this._stickyStore?.get(id)?.delete(key);
+			for (const store of [this._store, this._stickyStore]) {
+				if (store == null) continue;
+
+				const map = store.get(id);
+				if (map == null) continue;
+
+				map.delete(key);
+				if (map.size === 0) {
+					store.delete(id);
+				}
+			}
 		}
+	}
+
+	get<T>(prefix: string, key: string): Map<string, T> {
+		const maps = new Map<string, T>();
+
+		for (const store of [this._store, this._stickyStore]) {
+			if (store == null) continue;
+
+			for (const [id, map] of store) {
+				if (id.startsWith(prefix) && map.has(key)) {
+					maps.set(id, map.get(key) as T);
+				}
+			}
+		}
+
+		return maps;
 	}
 
 	getState<T>(id: string, key: string): T | undefined {
@@ -715,5 +875,15 @@ export class ViewNodeState implements Disposable {
 		} else {
 			store.set(id, new Map([[key, value]]));
 		}
+	}
+}
+
+export function disposeChildren(oldChildren: ViewNode[] | undefined, newChildren?: ViewNode[]) {
+	if (!oldChildren?.length) return;
+
+	for (const child of oldChildren) {
+		if (newChildren?.includes(child)) continue;
+
+		child.dispose();
 	}
 }

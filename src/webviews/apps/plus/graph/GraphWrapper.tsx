@@ -16,8 +16,9 @@ import { VSCodeCheckbox, VSCodeRadio, VSCodeRadioGroup } from '@vscode/webview-u
 import type { FormEvent, ReactElement } from 'react';
 import React, { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import { getPlatform } from '@env/platform';
-import { DateStyle } from '../../../../config';
+import type { DateStyle } from '../../../../config';
 import type { SearchQuery } from '../../../../git/search';
+import type { Subscription } from '../../../../plus/gk/account/subscription';
 import type {
 	DidEnsureRowParams,
 	DidSearchParams,
@@ -53,7 +54,6 @@ import {
 	DidFetchNotificationType,
 	DidSearchNotificationType,
 } from '../../../../plus/webviews/graph/protocol';
-import type { Subscription } from '../../../../subscription';
 import { pluralize } from '../../../../system/string';
 import { createWebviewCommandLink } from '../../../../system/webview';
 import type { IpcNotificationType } from '../../../protocol';
@@ -111,6 +111,13 @@ const createIconElements = (): Record<string, ReactElement> => {
 	const iconList = [
 		'head',
 		'remote',
+		'remote-github',
+		'remote-githubEnterprise',
+		'remote-gitlab',
+		'remote-gitlabSelfHosted',
+		'remote-bitbucket',
+		'remote-bitbucketServer',
+		'remote-azureDevops',
 		'tag',
 		'stash',
 		'check',
@@ -1013,7 +1020,11 @@ export function GraphWrapper({
 			<div className="titlebar__group">
 				{(isBehind || isAhead) && (
 					<a
-						href={createWebviewCommandLink(`gitlens.graph.${action}`, state.webviewId)}
+						href={createWebviewCommandLink(
+							`gitlens.graph.${action}`,
+							state.webviewId,
+							state.webviewInstanceId,
+						)}
 						className={`action-button${isBehind ? ' is-behind' : ''}${isAhead ? ' is-ahead' : ''}`}
 						title={tooltip}
 					>
@@ -1038,7 +1049,7 @@ export function GraphWrapper({
 					</a>
 				)}
 				<a
-					href={createWebviewCommandLink('gitlens.graph.fetch', state.webviewId)}
+					href={createWebviewCommandLink('gitlens.graph.fetch', state.webviewId, state.webviewInstanceId)}
 					className="action-button"
 					title={fetchTooltip}
 				>
@@ -1099,7 +1110,11 @@ export function GraphWrapper({
 								<span className="codicon codicon-chevron-right"></span>
 							</span>
 							<a
-								href={createWebviewCommandLink('gitlens.graph.switchToAnotherBranch', state.webviewId)}
+								href={createWebviewCommandLink(
+									'gitlens.graph.switchToAnotherBranch',
+									state.webviewId,
+									state.webviewInstanceId,
+								)}
 								className="action-button"
 								title="Switch to Another Branch..."
 								aria-label="Switch to Another Branch..."
@@ -1224,8 +1239,8 @@ export function GraphWrapper({
 								errorMessage={searchResultsError?.error ?? ''}
 								resultsHidden={searchResultsHidden}
 								resultsLoaded={searchResults != null}
-								onChange={e => handleSearchInput(e as CustomEvent<SearchQuery>)}
-								onNavigate={e => handleSearchNavigation(e as CustomEvent<SearchNavigationEventDetail>)}
+								onChange={e => handleSearchInput(e)}
+								onNavigate={e => handleSearchNavigation(e)}
 								onOpenInView={() => handleSearchOpenInView()}
 							/>
 							<span>
@@ -1362,7 +1377,7 @@ export function GraphWrapper({
 					markers={minimapData?.markers}
 					searchResults={minimapSearchResults}
 					visibleDays={visibleDays}
-					onSelected={e => handleOnMinimapDaySelected(e as CustomEvent<GraphMinimapDaySelectedEventDetail>)}
+					onSelected={e => handleOnMinimapDaySelected(e)}
 				></GraphMinimap>
 			)}
 			<main id="main" className="graph-app__main" aria-hidden={!allowed}>
@@ -1430,7 +1445,7 @@ export function GraphWrapper({
 
 function formatCommitDateTime(
 	date: number,
-	style: DateStyle = DateStyle.Absolute,
+	style: DateStyle = 'absolute',
 	format: DateTimeFormat | string = 'short+short',
 	source?: CommitDateTimeSources,
 ): string {
@@ -1439,7 +1454,7 @@ function formatCommitDateTime(
 			return `${formatDate(date, format)} (${fromNow(date)})`;
 		case CommitDateTimeSources.RowEntry:
 		default:
-			return style === DateStyle.Relative ? fromNow(date) : formatDate(date, format);
+			return style === 'relative' ? fromNow(date) : formatDate(date, format);
 	}
 }
 

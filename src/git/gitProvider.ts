@@ -7,7 +7,7 @@ import type { GitBlame, GitBlameLine, GitBlameLines } from './models/blame';
 import type { BranchSortOptions, GitBranch } from './models/branch';
 import type { GitCommit } from './models/commit';
 import type { GitContributor } from './models/contributor';
-import type { GitDiff, GitDiffFile, GitDiffFilter, GitDiffHunkLine, GitDiffShortStat } from './models/diff';
+import type { GitDiff, GitDiffFile, GitDiffFilter, GitDiffLine, GitDiffShortStat } from './models/diff';
 import type { GitFile } from './models/file';
 import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
@@ -34,11 +34,7 @@ export interface GitDir {
 	readonly commonUri?: Uri;
 }
 
-export const enum GitProviderId {
-	Git = 'git',
-	GitHub = 'github',
-	Vsls = 'vsls',
-}
+export type GitProviderId = 'git' | 'github' | 'vsls';
 
 export interface GitProviderDescriptor {
 	readonly id: GitProviderId;
@@ -89,11 +85,7 @@ export interface RepositoryOpenEvent {
 	readonly uri: Uri;
 }
 
-export const enum RepositoryVisibility {
-	Private = 'private',
-	Public = 'public',
-	Local = 'local',
-}
+export type RepositoryVisibility = 'private' | 'public' | 'local';
 
 export interface RepositoryVisibilityInfo {
 	visibility: RepositoryVisibility;
@@ -180,7 +172,11 @@ export interface GitProvider extends Disposable {
 		},
 	): Promise<void>;
 	findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined>;
-	getAheadBehindCommitCount(repoPath: string, refs: string[]): Promise<{ ahead: number; behind: number } | undefined>;
+	getAheadBehindCommitCount(
+		repoPath: string,
+		refs: string[],
+		options?: { authors?: GitUser[] | undefined },
+	): Promise<{ ahead: number; behind: number } | undefined>;
 	/**
 	 * Returns the blame of a file
 	 * @param uri Uri of the file to blame
@@ -235,13 +231,10 @@ export interface GitProvider extends Disposable {
 	getCommitBranches(
 		repoPath: string,
 		ref: string,
-		options?: {
-			branch?: string | undefined;
-			commitDate?: Date | undefined;
-			mode?: 'contains' | 'pointsAt' | undefined;
-			name?: string | undefined;
-			remotes?: boolean | undefined;
-		},
+		branch?: string | undefined,
+		options?:
+			| { all?: boolean; commitDate?: Date; mode?: 'contains' | 'pointsAt' }
+			| { commitDate?: Date; mode?: 'contains' | 'pointsAt'; remotes?: boolean },
 	): Promise<string[]>;
 	getCommitCount(repoPath: string, ref: string): Promise<number | undefined>;
 	getCommitForFile(
@@ -263,6 +256,14 @@ export interface GitProvider extends Disposable {
 			ref?: string;
 		},
 	): Promise<GitGraph>;
+	getCommitTags(
+		repoPath: string,
+		ref: string,
+		options?: {
+			commitDate?: Date | undefined;
+			mode?: 'contains' | 'pointsAt' | undefined;
+		},
+	): Promise<string[]>;
 	getConfig?(repoPath: string, key: string): Promise<string | undefined>;
 	setConfig?(repoPath: string, key: string, value: string | undefined): Promise<void>;
 	getContributors(
@@ -303,7 +304,7 @@ export interface GitProvider extends Disposable {
 		editorLine: number,
 		ref1: string | undefined,
 		ref2?: string,
-	): Promise<GitDiffHunkLine | undefined>;
+	): Promise<GitDiffLine | undefined>;
 	getDiffStatus(
 		repoPath: string,
 		ref1?: string,
@@ -311,6 +312,7 @@ export interface GitProvider extends Disposable {
 		options?: { filters?: GitDiffFilter[] | undefined; similarityThreshold?: number | undefined },
 	): Promise<GitFile[] | undefined>;
 	getFileStatusForCommit(repoPath: string, uri: Uri, ref: string): Promise<GitFile | undefined>;
+	getFirstCommitSha?(repoPath: string): Promise<string | undefined>;
 	getGitDir?(repoPath: string): Promise<GitDir | undefined>;
 	getLastFetchedTimestamp(repoPath: string): Promise<number | undefined>;
 	getLog(
@@ -320,7 +322,7 @@ export interface GitProvider extends Disposable {
 			authors?: GitUser[] | undefined;
 			cursor?: string | undefined;
 			limit?: number | undefined;
-			merges?: boolean | undefined;
+			merges?: boolean | 'first-parent' | undefined;
 			ordering?: 'date' | 'author-date' | 'topo' | null | undefined;
 			ref?: string | undefined;
 			since?: string | undefined;
@@ -375,7 +377,6 @@ export interface GitProvider extends Disposable {
 		uri: Uri,
 		ref: string | undefined,
 		skip?: number,
-		firstParent?: boolean,
 	): Promise<PreviousComparisonUrisResult | undefined>;
 	getPreviousComparisonUrisForLine(
 		repoPath: string,
@@ -410,7 +411,6 @@ export interface GitProvider extends Disposable {
 	): Promise<PagedResult<GitTag>>;
 	getTreeEntryForRevision(repoPath: string, path: string, ref: string): Promise<GitTreeEntry | undefined>;
 	getTreeForRevision(repoPath: string, ref: string): Promise<GitTreeEntry[]>;
-	getUniqueRepositoryId(repoPath: string): Promise<string | undefined>;
 	hasBranchOrTag(
 		repoPath: string | undefined,
 		options?: {
@@ -475,8 +475,8 @@ export interface GitProvider extends Disposable {
 
 	stageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
 	stageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
-	unStageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
-	unStageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
+	unstageFile(repoPath: string, pathOrUri: string | Uri): Promise<void>;
+	unstageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<void>;
 
 	stashApply?(repoPath: string, stashName: string, options?: { deleteAfter?: boolean | undefined }): Promise<void>;
 	stashDelete?(repoPath: string, stashName: string, ref?: string): Promise<void>;
@@ -501,4 +501,5 @@ export interface GitProvider extends Disposable {
 export interface RevisionUriData {
 	ref?: string;
 	repoPath: string;
+	uncPath?: string;
 }

@@ -1,10 +1,10 @@
-import type { Disposable, MessageItem, ProgressOptions } from 'vscode';
+import type { CancellationToken, Disposable, MessageItem, ProgressOptions } from 'vscode';
 import { Uri, window } from 'vscode';
 import type { AIProviders } from '../constants';
 import type { Container } from '../container';
 import type { GitCommit } from '../git/models/commit';
 import { assertsCommitHasFullDetails, isCommit } from '../git/models/commit';
-import { uncommittedStaged } from '../git/models/constants';
+import { uncommitted, uncommittedStaged } from '../git/models/constants';
 import type { GitRevisionReference } from '../git/models/reference';
 import type { Repository } from '../git/models/repository';
 import { isRepository } from '../git/models/repository';
@@ -45,35 +45,57 @@ export class AIProviderService implements Disposable {
 		this._provider?.dispose();
 	}
 
+	get providerId() {
+		return this.provider?.id;
+	}
+
 	public async generateCommitMessage(
-		repoPath: string | Uri,
-		options?: { context?: string; progress?: ProgressOptions },
+		changes: string[],
+		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
+	): Promise<string | undefined>;
+	public async generateCommitMessage(
+		repoPath: Uri,
+		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
 	): Promise<string | undefined>;
 	public async generateCommitMessage(
 		repository: Repository,
-		options?: { context?: string; progress?: ProgressOptions },
+		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
 	): Promise<string | undefined>;
 	public async generateCommitMessage(
-		repoOrPath: string | Uri | Repository,
-		options?: { context?: string; progress?: ProgressOptions },
+		changesOrRepoOrPath: string[] | Repository | Uri,
+		options?: { cancellation?: CancellationToken; context?: string; progress?: ProgressOptions },
 	): Promise<string | undefined> {
-		const repository = isRepository(repoOrPath) ? repoOrPath : this.container.git.getRepository(repoOrPath);
-		if (repository == null) throw new Error('Unable to find repository');
+		let changes: string;
+		if (Array.isArray(changesOrRepoOrPath)) {
+			changes = changesOrRepoOrPath.join('\n');
+		} else {
+			const repository = isRepository(changesOrRepoOrPath)
+				? changesOrRepoOrPath
+				: this.container.git.getRepository(changesOrRepoOrPath);
+			if (repository == null) throw new Error('Unable to find repository');
 
-		const diff = await this.container.git.getDiff(repository.uri, uncommittedStaged);
-		if (diff == null) throw new Error('No staged changes to generate a commit message from.');
+			let diff = await this.container.git.getDiff(repository.uri, uncommittedStaged);
+			if (diff == null) {
+				diff = await this.container.git.getDiff(repository.uri, uncommitted);
+				if (diff == null) throw new Error('No changes to generate a commit message from.');
+			}
+			if (options?.cancellation?.isCancellationRequested) return undefined;
+
+			changes = diff.contents;
+		}
 
 		const provider = this.provider;
 
 		const confirmed = await confirmAIProviderToS(provider, this.container.storage);
 		if (!confirmed) return undefined;
+		if (options?.cancellation?.isCancellationRequested) return undefined;
 
 		if (options?.progress != null) {
 			return window.withProgress(options.progress, async () =>
-				provider.generateCommitMessage(diff.contents, { context: options?.context }),
+				provider.generateCommitMessage(changes, { context: options?.context }),
 			);
 		}
-		return provider.generateCommitMessage(diff.contents, { context: options?.context });
+		return provider.generateCommitMessage(changes, { context: options?.context });
 	}
 
 	async explainCommit(
@@ -124,6 +146,16 @@ export class AIProviderService implements Disposable {
 			);
 		}
 		return provider.explainChanges(commit.message, diff.contents);
+	}
+
+	reset() {
+		const { providerId } = this;
+		if (providerId == null) return;
+
+		void this.container.storage.deleteSecret(`gitlens.${providerId}.key`);
+
+		void this.container.storage.delete(`confirm:ai:tos:${providerId}`);
+		void this.container.storage.deleteWorkspace(`confirm:ai:tos:${providerId}`);
 	}
 }
 

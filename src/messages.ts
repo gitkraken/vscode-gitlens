@@ -1,26 +1,25 @@
 import type { MessageItem } from 'vscode';
 import { ConfigurationTarget, window } from 'vscode';
-import { SuppressedMessages } from './config';
+import type { SuppressedMessages } from './config';
 import { Commands } from './constants';
 import type { GitCommit } from './git/models/commit';
 import { executeCommand } from './system/command';
 import { configuration } from './system/configuration';
 import { Logger } from './system/logger';
-import { LogLevel } from './system/logger.constants';
 
 export function showCommitHasNoPreviousCommitWarningMessage(commit?: GitCommit): Promise<MessageItem | undefined> {
 	if (commit == null) {
-		return showMessage('info', 'There is no previous commit.', SuppressedMessages.CommitHasNoPreviousCommitWarning);
+		return showMessage('info', 'There is no previous commit.', 'suppressCommitHasNoPreviousCommitWarning');
 	}
 	return showMessage(
 		'info',
 		`Commit ${commit.shortSha} (${commit.author.name}, ${commit.formattedDate}) has no previous commit.`,
-		SuppressedMessages.CommitHasNoPreviousCommitWarning,
+		'suppressCommitHasNoPreviousCommitWarning',
 	);
 }
 
 export function showCommitNotFoundWarningMessage(message: string): Promise<MessageItem | undefined> {
-	return showMessage('warn', `${message}. The commit could not be found.`, SuppressedMessages.CommitNotFoundWarning);
+	return showMessage('warn', `${message}. The commit could not be found.`, 'suppressCommitNotFoundWarning');
 }
 
 export async function showCreatePullRequestPrompt(branch: string): Promise<boolean> {
@@ -28,7 +27,7 @@ export async function showCreatePullRequestPrompt(branch: string): Promise<boole
 	const result = await showMessage(
 		'info',
 		`Would you like to create a Pull Request for branch '${branch}'?`,
-		SuppressedMessages.CreatePullRequestPrompt,
+		'suppressCreatePullRequestPrompt',
 		{ title: "Don't Show Again" },
 		create,
 	);
@@ -40,7 +39,7 @@ export async function showDebugLoggingWarningMessage(): Promise<boolean> {
 	const result = await showMessage(
 		'warn',
 		'GitLens debug logging is currently enabled. Unless you are reporting an issue, it is recommended to be disabled. Would you like to disable it?',
-		SuppressedMessages.SuppressDebugLoggingWarning,
+		'suppressDebugLoggingWarning',
 		{ title: "Don't Show Again" },
 		disable,
 	);
@@ -49,7 +48,7 @@ export async function showDebugLoggingWarningMessage(): Promise<boolean> {
 }
 
 export async function showGenericErrorMessage(message: string): Promise<void> {
-	if (Logger.enabled(LogLevel.Error)) {
+	if (Logger.enabled('error')) {
 		const result = await showMessage('error', `${message}. See output channel for more details.`, undefined, null, {
 			title: 'Open Output Channel',
 		});
@@ -78,7 +77,7 @@ export function showFileNotUnderSourceControlWarningMessage(message: string): Pr
 	return showMessage(
 		'warn',
 		`${message}. The file is probably not under source control.`,
-		SuppressedMessages.FileNotUnderSourceControlWarning,
+		'suppressFileNotUnderSourceControlWarning',
 	);
 }
 
@@ -86,7 +85,7 @@ export function showGitDisabledErrorMessage() {
 	return showMessage(
 		'error',
 		'GitLens requires Git to be enabled. Please re-enable Git \u2014 set `git.enabled` to true and reload.',
-		SuppressedMessages.GitDisabledWarning,
+		'suppressGitDisabledWarning',
 	);
 }
 
@@ -101,7 +100,7 @@ export function showGitMissingErrorMessage() {
 	return showMessage(
 		'error',
 		"GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'git.path' is pointed to its installed location.",
-		SuppressedMessages.GitMissingWarning,
+		'suppressGitMissingWarning',
 	);
 }
 
@@ -112,7 +111,7 @@ export function showGitVersionUnsupportedErrorMessage(
 	return showMessage(
 		'error',
 		`GitLens requires a newer version of Git (>= ${required}) than is currently installed (${version}). Please install a more recent version of Git.`,
-		SuppressedMessages.GitVersionWarning,
+		'suppressGitVersionWarning',
 	);
 }
 
@@ -124,22 +123,18 @@ export function showPreReleaseExpiredErrorMessage(version: string) {
 }
 
 export function showLineUncommittedWarningMessage(message: string): Promise<MessageItem | undefined> {
-	return showMessage(
-		'warn',
-		`${message}. The line has uncommitted changes.`,
-		SuppressedMessages.LineUncommittedWarning,
-	);
+	return showMessage('warn', `${message}. The line has uncommitted changes.`, 'suppressLineUncommittedWarning');
 }
 
 export function showNoRepositoryWarningMessage(message: string): Promise<MessageItem | undefined> {
-	return showMessage('warn', `${message}. No repository could be found.`, SuppressedMessages.NoRepositoryWarning);
+	return showMessage('warn', `${message}. No repository could be found.`, 'suppressNoRepositoryWarning');
 }
 
 export function showRebaseSwitchToTextWarningMessage(): Promise<MessageItem | undefined> {
 	return showMessage(
 		'warn',
 		'Closing either the git-rebase-todo file or the Rebase Editor will start the rebase.',
-		SuppressedMessages.RebaseSwitchToTextWarning,
+		'suppressRebaseSwitchToTextWarning',
 	);
 }
 
@@ -149,7 +144,7 @@ export function showIntegrationDisconnectedTooManyFailedRequestsWarningMessage(
 	return showMessage(
 		'error',
 		`Rich integration with ${providerName} has been disconnected for this session, because of too many failed requests.`,
-		SuppressedMessages.IntegrationDisconnectedTooManyFailedRequestsWarning,
+		'suppressIntegrationDisconnectedTooManyFailedRequestsWarning',
 		undefined,
 		{
 			title: 'OK',
@@ -158,7 +153,7 @@ export function showIntegrationDisconnectedTooManyFailedRequestsWarningMessage(
 }
 
 export function showIntegrationRequestFailed500WarningMessage(message: string): Promise<MessageItem | undefined> {
-	return showMessage('error', message, SuppressedMessages.IntegrationRequestFailed500Warning, undefined, {
+	return showMessage('error', message, 'suppressIntegrationRequestFailed500Warning', undefined, {
 		title: 'OK',
 	});
 }
@@ -167,7 +162,7 @@ export function showIntegrationRequestTimedOutWarningMessage(providerName: strin
 	return showMessage(
 		'error',
 		`${providerName} request timed out.`,
-		SuppressedMessages.IntegrationRequestTimedOutWarning,
+		'suppressIntegrationRequestTimedOutWarning',
 		undefined,
 		{
 			title: 'OK',

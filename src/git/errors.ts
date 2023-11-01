@@ -6,12 +6,30 @@ export class GitSearchError extends Error {
 	}
 }
 
+export class BlameIgnoreRevsFileError extends Error {
+	static is(ex: unknown): ex is BlameIgnoreRevsFileError {
+		return ex instanceof BlameIgnoreRevsFileError;
+	}
+
+	readonly friendlyMessage: string;
+
+	constructor(
+		filename: string,
+		public readonly original?: Error,
+	) {
+		super(`Invalid blame.ignoreRevsFile: '${filename}'`);
+
+		this.friendlyMessage = `Unable to show blame. Invalid or missing blame.ignoreRevsFile (${filename}) specified in your Git config.`;
+		Error.captureStackTrace?.(this, BlameIgnoreRevsFileError);
+	}
+}
+
 export const enum StashApplyErrorReason {
 	WorkingChanges = 1,
 }
 
 export class StashApplyError extends Error {
-	static is(ex: any, reason?: StashApplyErrorReason): ex is StashApplyError {
+	static is(ex: unknown, reason?: StashApplyErrorReason): ex is StashApplyError {
 		return ex instanceof StashApplyError && (reason == null || ex.reason === reason);
 	}
 
@@ -46,7 +64,7 @@ export const enum StashPushErrorReason {
 }
 
 export class StashPushError extends Error {
-	static is(ex: any, reason?: StashPushErrorReason): ex is StashPushError {
+	static is(ex: unknown, reason?: StashPushErrorReason): ex is StashPushError {
 		return ex instanceof StashPushError && (reason == null || ex.reason === reason);
 	}
 
@@ -84,16 +102,18 @@ export class StashPushError extends Error {
 
 export const enum PushErrorReason {
 	RemoteAhead = 1,
-	TipBehind = 2,
-	PushRejected = 3,
-	PermissionDenied = 4,
-	RemoteConnection = 5,
-	NoUpstream = 6,
-	Other = 7,
+	TipBehind,
+	PushRejected,
+	PushRejectedWithLease,
+	PushRejectedWithLeaseIfIncludes,
+	PermissionDenied,
+	RemoteConnection,
+	NoUpstream,
+	Other,
 }
 
 export class PushError extends Error {
-	static is(ex: any, reason?: PushErrorReason): ex is PushError {
+	static is(ex: unknown, reason?: PushErrorReason): ex is PushError {
 		return ex instanceof PushError && (reason == null || ex.reason === reason);
 	}
 
@@ -118,15 +138,22 @@ export class PushError extends Error {
 			reason = undefined;
 		} else {
 			reason = messageOrReason;
+
 			switch (reason) {
 				case PushErrorReason.RemoteAhead:
-					message = `${baseMessage} because the remote contains work that you do not have locally. Try doing a fetch first.`;
+					message = `${baseMessage} because the remote contains work that you do not have locally. Try fetching first.`;
 					break;
 				case PushErrorReason.TipBehind:
-					message = `${baseMessage} as it is behind its remote counterpart. Try doing a pull first.`;
+					message = `${baseMessage} as it is behind its remote counterpart. Try pulling first.`;
 					break;
 				case PushErrorReason.PushRejected:
-					message = `${baseMessage} because some refs failed to push or the push was rejected.`;
+					message = `${baseMessage} because some refs failed to push or the push was rejected. Try pulling first.`;
+					break;
+				case PushErrorReason.PushRejectedWithLease:
+				case PushErrorReason.PushRejectedWithLeaseIfIncludes:
+					message = `Unable to force push${branch ? ` branch '${branch}'` : ''}${
+						remote ? ` to ${remote}` : ''
+					} because some refs failed to push or the push was rejected. The tip of the remote-tracking branch has been updated since the last checkout. Try pulling first.`;
 					break;
 				case PushErrorReason.PermissionDenied:
 					message = `${baseMessage} because you don't have permission to push to this remote repository.`;
@@ -164,7 +191,7 @@ export const enum PullErrorReason {
 }
 
 export class PullError extends Error {
-	static is(ex: any, reason?: PullErrorReason): ex is PullError {
+	static is(ex: unknown, reason?: PullErrorReason): ex is PullError {
 		return ex instanceof PullError && (reason == null || ex.reason === reason);
 	}
 
@@ -240,7 +267,7 @@ export const enum FetchErrorReason {
 }
 
 export class FetchError extends Error {
-	static is(ex: any, reason?: FetchErrorReason): ex is FetchError {
+	static is(ex: unknown, reason?: FetchErrorReason): ex is FetchError {
 		return ex instanceof FetchError && (reason == null || ex.reason === reason);
 	}
 
@@ -301,7 +328,7 @@ export const enum WorktreeCreateErrorReason {
 }
 
 export class WorktreeCreateError extends Error {
-	static is(ex: any, reason?: WorktreeCreateErrorReason): ex is WorktreeCreateError {
+	static is(ex: unknown, reason?: WorktreeCreateErrorReason): ex is WorktreeCreateError {
 		return ex instanceof WorktreeCreateError && (reason == null || ex.reason === reason);
 	}
 
@@ -343,7 +370,7 @@ export const enum WorktreeDeleteErrorReason {
 }
 
 export class WorktreeDeleteError extends Error {
-	static is(ex: any, reason?: WorktreeDeleteErrorReason): ex is WorktreeDeleteError {
+	static is(ex: unknown, reason?: WorktreeDeleteErrorReason): ex is WorktreeDeleteError {
 		return ex instanceof WorktreeDeleteError && (reason == null || ex.reason === reason);
 	}
 

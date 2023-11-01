@@ -1,15 +1,13 @@
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import type { ViewShowBranchComparison } from '../../config';
-import { ViewBranchesLayout } from '../../config';
 import type { Colors } from '../../constants';
 import { GlyphChars } from '../../constants';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
-import type { PullRequest } from '../../git/models/pullRequest';
-import { PullRequestState } from '../../git/models/pullRequest';
+import type { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import type { GitBranchReference } from '../../git/models/reference';
-import { GitRemote, GitRemoteType } from '../../git/models/remote';
+import { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
 import { getContext } from '../../system/context';
@@ -19,8 +17,11 @@ import { map } from '../../system/iterable';
 import type { Deferred } from '../../system/promise';
 import { defer, getSettledValue } from '../../system/promise';
 import { pad } from '../../system/string';
-import { RemotesView } from '../remotesView';
 import type { ViewsWithBranches } from '../viewBase';
+import { disposeChildren } from '../viewBase';
+import type { PageableViewNode, ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
+import { ViewRefNode } from './abstract/viewRefNode';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
@@ -29,15 +30,16 @@ import { insertDateMarkers } from './helpers';
 import { MergeStatusNode } from './mergeStatusNode';
 import { PullRequestNode } from './pullRequestNode';
 import { RebaseStatusNode } from './rebaseStatusNode';
-import type { PageableViewNode, ViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, ViewRefNode } from './viewNode';
 
 type State = {
 	pullRequest: PullRequest | null | undefined;
 	pendingPullRequest: Promise<PullRequest | undefined> | undefined;
 };
 
-export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReference, State> implements PageableViewNode {
+export class BranchNode
+	extends ViewRefNode<'branch', ViewsWithBranches, GitBranchReference, State>
+	implements PageableViewNode
+{
 	limit: number | undefined;
 
 	private readonly options: {
@@ -46,6 +48,7 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 		showAsCommits: boolean;
 		showComparison: false | ViewShowBranchComparison;
 		showCurrent: boolean;
+		showMergeCommits?: boolean;
 		showStatus: boolean;
 		showTracking: boolean;
 		authors?: GitUser[];
@@ -66,15 +69,16 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 			showAsCommits?: boolean;
 			showComparison?: false | ViewShowBranchComparison;
 			showCurrent?: boolean;
+			showMergeCommits?: boolean;
 			showStatus?: boolean;
 			showTracking?: boolean;
 			authors?: GitUser[];
 		},
 	) {
-		super(uri, view, parent);
+		super('branch', uri, view, parent);
 
 		this.updateContext({ repository: repo, branch: branch, root: root });
-		this._uniqueId = getViewNodeId('branch', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 		this.limit = this.view.getNodeLastKnownLimit(this);
 
 		this.options = {
@@ -90,6 +94,12 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 			showTracking: !this.root,
 			...options,
 		};
+	}
+
+	@debug()
+	override dispose() {
+		super.dispose();
+		this.children = undefined;
 	}
 
 	override get id(): string {
@@ -111,7 +121,7 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 
 		const branchName = this.branch.getNameWithoutRemote();
 		return `${
-			this.view.config.branches?.layout !== ViewBranchesLayout.Tree ||
+			this.view.config.branches?.layout !== 'tree' ||
 			this.compacted ||
 			this.root ||
 			this.current ||
@@ -133,9 +143,18 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 	}
 
 	private _children: ViewNode[] | undefined;
+	protected get children(): ViewNode[] | undefined {
+		return this._children;
+	}
+	protected set children(value: ViewNode[] | undefined) {
+		if (this._children === value) return;
+
+		disposeChildren(this._children, value);
+		this._children = value;
+	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children == null) {
+		if (this.children == null) {
 			const branch = this.branch;
 
 			let onCompleted: Deferred<void> | undefined;
@@ -152,7 +171,7 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 					onCompleted = defer<void>();
 					const prPromise = this.getAssociatedPullRequest(
 						branch,
-						this.root ? { include: [PullRequestState.Open, PullRequestState.Merged] } : undefined,
+						this.root ? { include: ['opened', 'merged'] } : undefined,
 					);
 
 					queueMicrotask(async () => {
@@ -169,9 +188,9 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 						clearTimeout(timeout);
 
 						// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
-						if (pr != null && this._children != null) {
-							this._children.splice(
-								this._children[0] instanceof CompareBranchNode ? 1 : 0,
+						if (pr != null && this.children != null) {
+							this.children.splice(
+								this.children[0] instanceof CompareBranchNode ? 1 : 0,
 								0,
 								new PullRequestNode(this.view, this, pr, branch),
 							);
@@ -208,6 +227,7 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 								? this.view.container.git.getLogRefsOnly(this.uri.repoPath!, {
 										limit: 0,
 										ref: range,
+										merges: this.options.showMergeCommits,
 								  })
 								: undefined,
 					  )
@@ -218,7 +238,7 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 
 			const children = [];
 
-			if (this.options.showComparison !== false && !(this.view instanceof RemotesView)) {
+			if (this.options.showComparison !== false && this.view.type !== 'remotes') {
 				children.push(
 					new CompareBranchNode(
 						this.uri,
@@ -327,11 +347,11 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 				);
 			}
 
-			this._children = children;
+			this.children = children;
 			setTimeout(() => onCompleted?.fulfill(), 1);
 		}
 
-		return this._children;
+		return this.children;
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
@@ -375,11 +395,11 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 						let left;
 						let right;
 						for (const { type } of remote.urls) {
-							if (type === GitRemoteType.Fetch) {
+							if (type === 'fetch') {
 								left = true;
 
 								if (right) break;
-							} else if (type === GitRemoteType.Push) {
+							} else if (type === 'push') {
 								right = true;
 
 								if (left) break;
@@ -507,10 +527,10 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 		void this.view.refresh(true);
 	}
 
-	@gate()
-	@debug()
 	override refresh(reset?: boolean) {
-		this._children = undefined;
+		void super.refresh?.(reset);
+
+		this.children = undefined;
 		if (reset) {
 			this._log = undefined;
 			this.deleteState();
@@ -556,6 +576,7 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 				limit: limit,
 				ref: this.ref.ref,
 				authors: this.options?.authors,
+				merges: this.options?.showMergeCommits,
 			});
 		}
 
@@ -582,7 +603,7 @@ export class BranchNode extends ViewRefNode<ViewsWithBranches, GitBranchReferenc
 		this._log = log;
 		this.limit = log?.count;
 
-		this._children = undefined;
+		this.children = undefined;
 		void this.triggerChange(false);
 	}
 }

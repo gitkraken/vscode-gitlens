@@ -2,44 +2,32 @@ import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from '
 import type { RepositoriesChangeEvent } from '../../git/gitProviderService';
 import { GitUri } from '../../git/gitUri';
 import type { CloudWorkspace, LocalWorkspace } from '../../plus/workspaces/models';
-import { WorkspaceType } from '../../plus/workspaces/models';
 import { createCommand } from '../../system/command';
-import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
+import { weakEvent } from '../../system/event';
 import type { WorkspacesView } from '../workspacesView';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { CommandMessageNode, MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 import { WorkspaceMissingRepositoryNode } from './workspaceMissingRepositoryNode';
 
-export class WorkspaceNode extends SubscribeableViewNode<WorkspacesView> {
+export class WorkspaceNode extends SubscribeableViewNode<
+	'workspace',
+	WorkspacesView,
+	CommandMessageNode | MessageNode | RepositoryNode | WorkspaceMissingRepositoryNode
+> {
 	constructor(
 		uri: GitUri,
 		view: WorkspacesView,
 		protected override parent: ViewNode,
 		public readonly workspace: CloudWorkspace | LocalWorkspace,
 	) {
-		super(uri, view, parent);
+		super('workspace', uri, view, parent);
 
 		this.updateContext({ workspace: workspace });
-		this._uniqueId = getViewNodeId('workspace', this.context);
-	}
-
-	override dispose() {
-		super.dispose();
-		this.resetChildren();
-	}
-
-	private resetChildren() {
-		if (this._children == null) return;
-
-		for (const child of this._children) {
-			if ('dispose' in child) {
-				child.dispose();
-			}
-		}
-		this._children = undefined;
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {
@@ -50,19 +38,15 @@ export class WorkspaceNode extends SubscribeableViewNode<WorkspacesView> {
 		return this.workspace.name;
 	}
 
-	private _children:
-		| (CommandMessageNode | MessageNode | RepositoryNode | WorkspaceMissingRepositoryNode)[]
-		| undefined;
-
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children == null) {
-			this._children = [];
+		if (this.children == null) {
+			const children = [];
 
 			try {
 				const descriptors = await this.workspace.getRepositoryDescriptors();
 
-				if (descriptors == null || descriptors.length === 0) {
-					this._children.push(
+				if (!descriptors?.length) {
+					children.push(
 						new CommandMessageNode(
 							this.view,
 							this,
@@ -74,7 +58,9 @@ export class WorkspaceNode extends SubscribeableViewNode<WorkspacesView> {
 							'No repositories',
 						),
 					);
-					return this._children;
+
+					this.children = children;
+					return this.children;
 				}
 
 				const reposByName = await this.workspace.getRepositoriesByName({ force: true });
@@ -82,13 +68,11 @@ export class WorkspaceNode extends SubscribeableViewNode<WorkspacesView> {
 				for (const descriptor of descriptors) {
 					const repo = reposByName.get(descriptor.name)?.repository;
 					if (!repo) {
-						this._children.push(
-							new WorkspaceMissingRepositoryNode(this.view, this, this.workspace, descriptor),
-						);
+						children.push(new WorkspaceMissingRepositoryNode(this.view, this, this.workspace, descriptor));
 						continue;
 					}
 
-					this._children.push(
+					children.push(
 						new RepositoryNode(
 							GitUri.fromRepoPath(repo.path),
 							this.view,
@@ -99,20 +83,25 @@ export class WorkspaceNode extends SubscribeableViewNode<WorkspacesView> {
 					);
 				}
 			} catch (ex) {
+				this.children = undefined;
 				return [new MessageNode(this.view, this, 'Failed to load repositories')];
 			}
+
+			this.children = children;
 		}
 
-		return this._children;
+		return this.children;
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
 		const item = new TreeItem(this.workspace.name, TreeItemCollapsibleState.Collapsed);
 
+		const cloud = this.workspace.type === 'cloud';
+
 		let contextValue = `${ContextValues.Workspace}`;
 		item.resourceUri = undefined;
 		const descriptionItems = [];
-		if (this.workspace.type === WorkspaceType.Cloud) {
+		if (cloud) {
 			contextValue += '+cloud';
 		} else {
 			contextValue += '+local';
@@ -132,33 +121,17 @@ export class WorkspaceNode extends SubscribeableViewNode<WorkspacesView> {
 
 		item.id = this.id;
 		item.contextValue = contextValue;
-		item.iconPath = new ThemeIcon(this.workspace.type == WorkspaceType.Cloud ? 'cloud' : 'folder');
+		item.iconPath = new ThemeIcon(this.workspace.type == 'cloud' ? 'cloud' : 'folder');
 		item.tooltip = `${this.workspace.name}\n${
-			this.workspace.type === WorkspaceType.Cloud
-				? `Cloud Workspace ${this.workspace.shared ? '(Shared)' : ''}`
-				: 'Local Workspace'
-		}${
-			this.workspace.type === WorkspaceType.Cloud && this.workspace.provider != null
-				? `\nProvider: ${this.workspace.provider}`
-				: ''
-		}`;
+			cloud ? `Cloud Workspace ${this.workspace.shared ? '(Shared)' : ''}` : 'Local Workspace'
+		}${cloud && this.workspace.provider != null ? `\nProvider: ${this.workspace.provider}` : ''}`;
 
-		if (this.workspace.type === WorkspaceType.Cloud && this.workspace.organizationId != null) {
+		if (cloud && this.workspace.organizationId != null) {
 			descriptionItems.push('shared');
 		}
 
 		item.description = descriptionItems.join(', ');
 		return item;
-	}
-
-	@gate()
-	@debug()
-	override refresh(reset: boolean = false) {
-		if (this._children == null) return;
-
-		if (reset) {
-			this.resetChildren();
-		}
 	}
 
 	protected override etag(): number {
@@ -167,7 +140,9 @@ export class WorkspaceNode extends SubscribeableViewNode<WorkspacesView> {
 
 	@debug()
 	protected subscribe(): Disposable | Promise<Disposable> {
-		return Disposable.from(this.view.container.git.onDidChangeRepositories(this.onRepositoriesChanged, this));
+		return Disposable.from(
+			weakEvent(this.view.container.git.onDidChangeRepositories, this.onRepositoriesChanged, this),
+		);
 	}
 
 	private onRepositoriesChanged(_e: RepositoriesChangeEvent) {

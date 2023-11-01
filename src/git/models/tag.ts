@@ -1,4 +1,4 @@
-import { DateStyle, TagSorting } from '../../config';
+import type { TagSorting } from '../../config';
 import { Container } from '../../container';
 import { configuration } from '../../system/configuration';
 import { formatDate, fromNow } from '../../system/date';
@@ -36,7 +36,7 @@ export class GitTag implements GitTagReference {
 	}
 
 	get formattedDate(): string {
-		return Container.instance.TagDateFormatting.dateStyle === DateStyle.Absolute
+		return Container.instance.TagDateFormatting.dateStyle === 'absolute'
 			? this.formatDate(Container.instance.TagDateFormatting.dateFormat)
 			: this.formatDateFromNow();
 	}
@@ -82,13 +82,13 @@ export function sortTags(tags: GitTag[], options?: TagSortOptions) {
 	options = { orderBy: configuration.get('sortTagsBy'), ...options };
 
 	switch (options.orderBy) {
-		case TagSorting.DateAsc:
+		case 'date:asc':
 			return tags.sort((a, b) => (a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0));
-		case TagSorting.NameAsc:
+		case 'name:asc':
 			return tags.sort((a, b) => sortCompare(a.name, b.name));
-		case TagSorting.NameDesc:
+		case 'name:desc':
 			return tags.sort((a, b) => sortCompare(b.name, a.name));
-		case TagSorting.DateDesc:
+		case 'date:desc':
 		default:
 			return tags.sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0));
 	}

@@ -1,30 +1,29 @@
-import type { CancellationToken, ConfigurationChangeEvent, StatusBarItem, TextEditor, Uri } from 'vscode';
+import type { ConfigurationChangeEvent, StatusBarItem, TextEditor, Uri } from 'vscode';
 import { CancellationTokenSource, Disposable, MarkdownString, StatusBarAlignment, window } from 'vscode';
 import type { ToggleFileChangesAnnotationCommandArgs } from '../commands/toggleFileAnnotations';
-import { FileAnnotationType, StatusBarCommand } from '../config';
+import { StatusBarCommand } from '../config';
 import { Commands, GlyphChars } from '../constants';
 import type { Container } from '../container';
 import { CommitFormatter } from '../git/formatters/commitFormatter';
-import type { GitCommit } from '../git/models/commit';
 import type { PullRequest } from '../git/models/pullRequest';
 import { detailsMessage } from '../hovers/hovers';
+import type { MaybePausedResult } from '../system/cancellation';
+import { pauseOnCancelOrTimeout } from '../system/cancellation';
 import { asCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import { Logger } from '../system/logger';
-import type { LogScope } from '../system/logger.scope';
 import { getLogScope } from '../system/logger.scope';
-import { PromiseCancelledError } from '../system/promise';
+import { getSettledValue } from '../system/promise';
 import { isTextEditor } from '../system/utils';
-import type { LinesChangeEvent } from '../trackers/gitLineTracker';
+import type { GitLineState } from '../trackers/gitLineTracker';
+import type { LinesChangeEvent } from '../trackers/lineTracker';
 
 export class StatusBarController implements Disposable {
-	private _pullRequestCancellation: CancellationTokenSource | undefined;
-	private _tooltipCancellation: CancellationTokenSource | undefined;
-	private _tooltipDelayTimer: ReturnType<typeof setTimeout> | undefined;
-
+	private _cancellation: CancellationTokenSource | undefined;
 	private readonly _disposable: Disposable;
+	private _selectedSha: string | undefined;
 	private _statusBarBlame: StatusBarItem | undefined;
 	private _statusBarMode: StatusBarItem | undefined;
 
@@ -146,7 +145,7 @@ export class StatusBarController implements Disposable {
 		if (!e.pending && e.selections != null) {
 			const state = this.container.lineTracker.getState(e.selections[0].active);
 			if (state?.commit != null) {
-				void this.updateBlame(e.editor!, state.commit);
+				void this.updateBlame(e.editor!, state);
 
 				return;
 			}
@@ -156,25 +155,158 @@ export class StatusBarController implements Disposable {
 
 		if (clear) {
 			this.clearBlame();
-		} else if (this._statusBarBlame != null) {
-			this._statusBarBlame.text = this._statusBarBlame.text.replace('$(git-commit)', '$(watch)');
+		} else if (this._statusBarBlame?.text.startsWith('$(git-commit)')) {
+			this._statusBarBlame.text = `$(watch)${this._statusBarBlame.text.substring(13)}`;
 		}
 	}
 
 	clearBlame() {
-		this._pullRequestCancellation?.cancel();
-		this._tooltipCancellation?.cancel();
+		this._selectedSha = undefined;
+		this._cancellation?.cancel();
 		this._statusBarBlame?.hide();
 	}
 
-	@debug({ args: false })
-	private async updateBlame(editor: TextEditor, commit: GitCommit, options?: { pr?: PullRequest | null }) {
+	@debug<StatusBarController['updateBlame']>({
+		args: {
+			0: false,
+			1: s => s.commit?.sha,
+		},
+	})
+	private async updateBlame(editor: TextEditor, state: GitLineState) {
 		const cfg = configuration.get('statusBar');
-		if (!cfg.enabled || this._statusBarBlame == null || !isTextEditor(editor)) return;
+		if (!cfg.enabled || this._statusBarBlame == null || !isTextEditor(editor)) {
+			this._cancellation?.cancel();
+			this._selectedSha = undefined;
+
+			return;
+		}
+
+		const { commit } = state;
+		if (commit == null) {
+			this._cancellation?.cancel();
+
+			return;
+		}
+
+		// We can avoid refreshing if the commit is the same, except when the commit is uncommitted, since we need to incorporate the line number in the hover
+		if (this._selectedSha === commit.sha && !commit.isUncommitted) {
+			if (this._statusBarBlame?.text.startsWith('$(watch)')) {
+				this._statusBarBlame.text = `$(git-commit)${this._statusBarBlame.text.substring(8)}`;
+			}
+
+			return;
+		}
 
 		const scope = getLogScope();
+		this._selectedSha = commit.sha;
+
+		this._cancellation?.cancel();
+		this._cancellation = new CancellationTokenSource();
+		const cancellation = this._cancellation.token;
+
+		let actionTooltip: string;
+		switch (cfg.command) {
+			case StatusBarCommand.CopyRemoteCommitUrl:
+				actionTooltip = 'Click to Copy Remote Commit URL';
+				break;
+			case StatusBarCommand.CopyRemoteFileUrl:
+				this._statusBarBlame.command = Commands.CopyRemoteFileUrl;
+				actionTooltip = 'Click to Copy Remote File Revision URL';
+				break;
+			case StatusBarCommand.DiffWithPrevious:
+				this._statusBarBlame.command = Commands.DiffLineWithPrevious;
+				actionTooltip = 'Click to Open Line Changes with Previous Revision';
+				break;
+			case StatusBarCommand.DiffWithWorking:
+				this._statusBarBlame.command = Commands.DiffLineWithWorking;
+				actionTooltip = 'Click to Open Line Changes with Working File';
+				break;
+			case StatusBarCommand.OpenCommitOnRemote:
+				actionTooltip = 'Click to Open Commit on Remote';
+				break;
+			case StatusBarCommand.OpenFileOnRemote:
+				actionTooltip = 'Click to Open Revision on Remote';
+				break;
+			case StatusBarCommand.RevealCommitInView:
+				actionTooltip = 'Click to Reveal Commit in the Side Bar';
+				break;
+			case StatusBarCommand.ShowCommitsInView:
+				actionTooltip = 'Click to Search for Commit';
+				break;
+			case StatusBarCommand.ShowQuickCommitDetails:
+				actionTooltip = 'Click to Show Commit';
+				break;
+			case StatusBarCommand.ShowQuickCommitFileDetails:
+				actionTooltip = 'Click to Show Commit (file)';
+				break;
+			case StatusBarCommand.ShowQuickCurrentBranchHistory:
+				actionTooltip = 'Click to Show Branch History';
+				break;
+			case StatusBarCommand.ShowQuickFileHistory:
+				actionTooltip = 'Click to Show File History';
+				break;
+			case StatusBarCommand.ToggleCodeLens:
+				actionTooltip = 'Click to Toggle Git CodeLens';
+				break;
+			case StatusBarCommand.ToggleFileBlame:
+				actionTooltip = 'Click to Toggle File Blame';
+				break;
+			case StatusBarCommand.ToggleFileChanges: {
+				if (commit.file != null) {
+					this._statusBarBlame.command = asCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
+						title: 'Toggle File Changes',
+						command: Commands.ToggleFileChanges,
+						arguments: [
+							commit.file.uri,
+							{
+								type: 'changes',
+								context: { sha: commit.sha, only: false, selection: false },
+							},
+						],
+					});
+				}
+				actionTooltip = 'Click to Toggle File Changes';
+				break;
+			}
+			case StatusBarCommand.ToggleFileChangesOnly: {
+				if (commit.file != null) {
+					this._statusBarBlame.command = asCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
+						title: 'Toggle File Changes',
+						command: Commands.ToggleFileChanges,
+						arguments: [
+							commit.file.uri,
+							{
+								type: 'changes',
+								context: { sha: commit.sha, only: true, selection: false },
+							},
+						],
+					});
+				}
+				actionTooltip = 'Click to Toggle File Changes';
+				break;
+			}
+			case StatusBarCommand.ToggleFileHeatmap:
+				actionTooltip = 'Click to Toggle File Heatmap';
+				break;
+		}
+
+		this._statusBarBlame.tooltip = new MarkdownString(`Loading... \n\n---\n\n${actionTooltip}`);
+		this._statusBarBlame.accessibilityInformation = {
+			label: `${this._statusBarBlame.text}\n${actionTooltip}`,
+		};
+
+		const remotes = await this.container.git.getBestRemotesWithProviders(commit.repoPath);
+		const [remote] = remotes;
+
+		const defaultDateFormat = configuration.get('defaultDateFormat');
+		const getBranchAndTagTipsPromise =
+			CommitFormatter.has(cfg.format, 'tips') || CommitFormatter.has(cfg.tooltipFormat, 'tips')
+				? this.container.git.getBranchesAndTagsTipsFn(commit.repoPath)
+				: undefined;
 
 		const showPullRequests =
+			!commit.isUncommitted &&
+			remote?.hasRichIntegration() &&
 			cfg.pullRequests.enabled &&
 			(CommitFormatter.has(
 				cfg.format,
@@ -193,224 +325,104 @@ export class StatusBarController implements Disposable {
 					'pullRequestState',
 				));
 
-		// TODO: Make this configurable?
-		const timeout = 100;
-		const [getBranchAndTagTips, pr] = await Promise.all([
-			CommitFormatter.has(cfg.format, 'tips') || CommitFormatter.has(cfg.tooltipFormat, 'tips')
-				? this.container.git.getBranchesAndTagsTipsFn(commit.repoPath)
-				: undefined,
-			showPullRequests && options?.pr === undefined
-				? this.getPullRequest(commit, { timeout: timeout })
-				: options?.pr ?? undefined,
-		]);
+		function setBlameText(
+			statusBarItem: StatusBarItem,
+			getBranchAndTagTips: Awaited<typeof getBranchAndTagTipsPromise> | undefined,
+			pr: Promise<PullRequest | undefined> | PullRequest | undefined,
+		) {
+			statusBarItem.text = `$(git-commit) ${CommitFormatter.fromTemplate(cfg.format, commit, {
+				dateFormat: cfg.dateFormat === null ? defaultDateFormat : cfg.dateFormat,
+				getBranchAndTagTips: getBranchAndTagTips,
+				messageTruncateAtNewLine: true,
+				pullRequest: pr,
+				pullRequestPendingMessage: 'PR $(watch)',
+				remotes: remotes,
+			})}`;
+			statusBarItem.accessibilityInformation = {
+				label: `${statusBarItem.text}\n${actionTooltip}`,
+			};
+		}
 
-		if (pr != null) {
-			this._pullRequestCancellation?.cancel();
-			this._pullRequestCancellation = new CancellationTokenSource();
-			void this.waitForPendingPullRequest(
-				editor,
-				commit,
-				pr,
-				this._pullRequestCancellation.token,
+		async function getBlameTooltip(
+			container: Container,
+			getBranchAndTagTips: Awaited<typeof getBranchAndTagTipsPromise> | undefined,
+			pr: Promise<PullRequest | undefined> | PullRequest | undefined,
+			timeout?: number,
+		) {
+			return detailsMessage(container, commit, commit.getGitUri(), commit.lines[0].line, {
+				autolinks: true,
+				cancellation: cancellation,
+				dateFormat: defaultDateFormat,
+				format: cfg.tooltipFormat,
+				getBranchAndTagTips: getBranchAndTagTips,
+				pullRequest: pr,
+				pullRequests: showPullRequests && pr != null,
+				remotes: remotes,
+				timeout: timeout,
+			});
+		}
+
+		let prResult: MaybePausedResult<PullRequest | undefined> | undefined;
+		if (showPullRequests) {
+			// TODO: Make this configurable?
+			const timeout = 100;
+
+			prResult = await pauseOnCancelOrTimeout(
+				commit.getAssociatedPullRequest(remote),
+				cancellation,
 				timeout,
-				scope,
-			);
-		}
+				async result => {
+					if (result.reason !== 'timedout' || this._statusBarBlame == null) return;
 
-		this._statusBarBlame.text = `$(git-commit) ${CommitFormatter.fromTemplate(cfg.format, commit, {
-			dateFormat: cfg.dateFormat === null ? configuration.get('defaultDateFormat') : cfg.dateFormat,
-			getBranchAndTagTips: getBranchAndTagTips,
-			messageTruncateAtNewLine: true,
-			pullRequestOrRemote: pr,
-			pullRequestPendingMessage: 'PR $(watch)',
-		})}`;
+					// If the PR is taking too long, refresh the status bar once it completes
 
-		let tooltip: string;
-		switch (cfg.command) {
-			case StatusBarCommand.CopyRemoteCommitUrl:
-				tooltip = 'Click to Copy Remote Commit URL';
-				break;
-			case StatusBarCommand.CopyRemoteFileUrl:
-				this._statusBarBlame.command = Commands.CopyRemoteFileUrl;
-				tooltip = 'Click to Copy Remote File Revision URL';
-				break;
-			case StatusBarCommand.DiffWithPrevious:
-				this._statusBarBlame.command = Commands.DiffLineWithPrevious;
-				tooltip = 'Click to Open Line Changes with Previous Revision';
-				break;
-			case StatusBarCommand.DiffWithWorking:
-				this._statusBarBlame.command = Commands.DiffLineWithWorking;
-				tooltip = 'Click to Open Line Changes with Working File';
-				break;
-			case StatusBarCommand.OpenCommitOnRemote:
-				tooltip = 'Click to Open Commit on Remote';
-				break;
-			case StatusBarCommand.OpenFileOnRemote:
-				tooltip = 'Click to Open Revision on Remote';
-				break;
-			case StatusBarCommand.RevealCommitInView:
-				tooltip = 'Click to Reveal Commit in the Side Bar';
-				break;
-			case StatusBarCommand.ShowCommitsInView:
-				tooltip = 'Click to Search for Commit';
-				break;
-			case StatusBarCommand.ShowQuickCommitDetails:
-				tooltip = 'Click to Show Commit';
-				break;
-			case StatusBarCommand.ShowQuickCommitFileDetails:
-				tooltip = 'Click to Show Commit (file)';
-				break;
-			case StatusBarCommand.ShowQuickCurrentBranchHistory:
-				tooltip = 'Click to Show Branch History';
-				break;
-			case StatusBarCommand.ShowQuickFileHistory:
-				tooltip = 'Click to Show File History';
-				break;
-			case StatusBarCommand.ToggleCodeLens:
-				tooltip = 'Click to Toggle Git CodeLens';
-				break;
-			case StatusBarCommand.ToggleFileBlame:
-				tooltip = 'Click to Toggle File Blame';
-				break;
-			case StatusBarCommand.ToggleFileChanges: {
-				if (commit.file != null) {
-					this._statusBarBlame.command = asCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
-						title: 'Toggle File Changes',
-						command: Commands.ToggleFileChanges,
-						arguments: [
-							commit.file.uri,
-							{
-								type: FileAnnotationType.Changes,
-								context: { sha: commit.sha, only: false, selection: false },
-							},
-						],
-					});
-				}
-				tooltip = 'Click to Toggle File Changes';
-				break;
-			}
-			case StatusBarCommand.ToggleFileChangesOnly: {
-				if (commit.file != null) {
-					this._statusBarBlame.command = asCommand<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
-						title: 'Toggle File Changes',
-						command: Commands.ToggleFileChanges,
-						arguments: [
-							commit.file.uri,
-							{
-								type: FileAnnotationType.Changes,
-								context: { sha: commit.sha, only: true, selection: false },
-							},
-						],
-					});
-				}
-				tooltip = 'Click to Toggle File Changes';
-				break;
-			}
-			case StatusBarCommand.ToggleFileHeatmap:
-				tooltip = 'Click to Toggle File Heatmap';
-				break;
-		}
+					Logger.debug(scope, `${GlyphChars.Dot} pull request query took too long (over ${timeout} ms)`);
 
-		this._statusBarBlame.tooltip = tooltip;
-		this._statusBarBlame.accessibilityInformation = {
-			label: `${this._statusBarBlame.text}\n${tooltip}`,
-		};
+					const [getBranchAndTagTipsResult, prResult] = await Promise.allSettled([
+						getBranchAndTagTipsPromise,
+						result.value,
+					]);
 
-		if (this._tooltipDelayTimer != null) {
-			clearTimeout(this._tooltipDelayTimer);
-		}
-		this._tooltipCancellation?.cancel();
+					if (cancellation.isCancellationRequested || this._statusBarBlame == null) return;
 
-		this._tooltipDelayTimer = setTimeout(() => {
-			this._tooltipDelayTimer = undefined;
-			this._tooltipCancellation = new CancellationTokenSource();
+					const pr = getSettledValue(prResult);
+					const getBranchAndTagTips = getSettledValue(getBranchAndTagTipsResult);
 
-			void this.updateCommitTooltip(
-				this._statusBarBlame!,
-				commit,
-				tooltip,
-				getBranchAndTagTips,
-				{
-					enabled: showPullRequests || pr != null,
-					pr: pr,
+					Logger.debug(scope, `${GlyphChars.Dot} pull request query completed; updating...`);
+
+					setBlameText(this._statusBarBlame, getBranchAndTagTips, pr);
+
+					const tooltip = await getBlameTooltip(this.container, getBranchAndTagTips, pr);
+					if (tooltip != null) {
+						this._statusBarBlame.tooltip = tooltip.appendMarkdown(`\n\n---\n\n${actionTooltip}`);
+					}
 				},
-				this._tooltipCancellation.token,
 			);
-		}, 500);
-
-		this._statusBarBlame.show();
-	}
-
-	private async getPullRequest(
-		commit: GitCommit,
-		{ timeout }: { timeout?: number } = {},
-	): Promise<PullRequest | PromiseCancelledError<Promise<PullRequest | undefined>> | undefined> {
-		const remote = await this.container.git.getBestRemoteWithRichProvider(commit.repoPath);
-		if (remote?.provider == null) return undefined;
-
-		const { provider } = remote;
-		try {
-			return await this.container.git.getPullRequestForCommit(commit.ref, provider, { timeout: timeout });
-		} catch (ex) {
-			return ex instanceof PromiseCancelledError ? ex : undefined;
 		}
-	}
 
-	private async updateCommitTooltip(
-		statusBarItem: StatusBarItem,
-		commit: GitCommit,
-		actionTooltip: string,
-		getBranchAndTagTips:
-			| ((
-					sha: string,
-					options?: { compact?: boolean | undefined; icons?: boolean | undefined } | undefined,
-			  ) => string | undefined)
-			| undefined,
-		pullRequests: {
-			enabled: boolean;
-			pr: PullRequest | PromiseCancelledError<Promise<PullRequest | undefined>> | undefined;
-		},
-		cancellationToken: CancellationToken,
-	) {
-		if (cancellationToken.isCancellationRequested) return;
+		const getBranchAndTagTips = getBranchAndTagTipsPromise != null ? await getBranchAndTagTipsPromise : undefined;
 
-		const tooltip = await detailsMessage(commit, commit.getGitUri(), commit.lines[0].line, {
-			autolinks: true,
-			cancellationToken: cancellationToken,
-			dateFormat: configuration.get('defaultDateFormat'),
-			format: configuration.get('statusBar.tooltipFormat'),
-			getBranchAndTagTips: getBranchAndTagTips,
-			pullRequests: pullRequests,
-		});
+		if (cancellation.isCancellationRequested) return;
 
-		if (cancellationToken.isCancellationRequested) return;
+		setBlameText(this._statusBarBlame, getBranchAndTagTips, prResult?.value);
+		this._statusBarBlame.show();
 
-		tooltip.appendMarkdown(`\n\n---\n\n${actionTooltip}`);
-		statusBarItem.tooltip = tooltip;
-		statusBarItem.accessibilityInformation = {
-			label: `${statusBarItem.text}\n${actionTooltip}`,
-		};
-	}
+		const tooltipResult = await pauseOnCancelOrTimeout(
+			getBlameTooltip(this.container, getBranchAndTagTips, prResult?.value, 20),
+			cancellation,
+			100,
+			async result => {
+				if (result.reason !== 'timedout' || this._statusBarBlame == null) return;
 
-	private async waitForPendingPullRequest(
-		editor: TextEditor,
-		commit: GitCommit,
-		pr: PullRequest | PromiseCancelledError<Promise<PullRequest | undefined>> | undefined,
-		cancellationToken: CancellationToken,
-		timeout: number,
-		scope: LogScope | undefined,
-	) {
-		if (cancellationToken.isCancellationRequested || !(pr instanceof PromiseCancelledError)) return;
+				const tooltip = await result.value;
+				if (tooltip != null) {
+					this._statusBarBlame.tooltip = tooltip.appendMarkdown(`\n\n---\n\n${actionTooltip}`);
+				}
+			},
+		);
 
-		// If the PR timed out, refresh the status bar once it completes
-		Logger.debug(scope, `${GlyphChars.Dot} pull request query took too long (over ${timeout} ms)`);
-
-		pr = await pr.promise;
-
-		if (cancellationToken.isCancellationRequested) return;
-
-		Logger.debug(scope, `${GlyphChars.Dot} pull request query completed; refreshing...`);
-
-		void this.updateBlame(editor, commit, { pr: pr ?? null });
+		if (!cancellation.isCancellationRequested && !tooltipResult.paused && tooltipResult.value != null) {
+			this._statusBarBlame.tooltip = tooltipResult.value.appendMarkdown(`\n\n---\n\n${actionTooltip}`);
+		}
 	}
 }

@@ -1,7 +1,7 @@
 import type { ViewShowBranchComparison } from './config';
 import type { Environment } from './container';
 import type { StoredSearchQuery } from './git/search';
-import type { Subscription } from './subscription';
+import type { Subscription } from './plus/gk/account/subscription';
 import type { TrackedUsage, TrackedUsageKeys } from './telemetry/usageTracker';
 
 export const extensionPrefix = 'gitlens';
@@ -72,6 +72,8 @@ export type Colors =
 	| `${typeof extensionPrefix}.decorations.deletedForegroundColor`
 	| `${typeof extensionPrefix}.decorations.ignoredForegroundColor`
 	| `${typeof extensionPrefix}.decorations.modifiedForegroundColor`
+	| `${typeof extensionPrefix}.decorations.statusMergingOrRebasingConflictForegroundColor`
+	| `${typeof extensionPrefix}.decorations.statusMergingOrRebasingForegroundColor`
 	| `${typeof extensionPrefix}.decorations.renamedForegroundColor`
 	| `${typeof extensionPrefix}.decorations.untrackedForegroundColor`
 	| `${typeof extensionPrefix}.decorations.workspaceCurrentForegroundColor`
@@ -124,6 +126,7 @@ export const enum Commands {
 	CopyDeepLinkToComparison = 'gitlens.copyDeepLinkToComparison',
 	CopyDeepLinkToRepo = 'gitlens.copyDeepLinkToRepo',
 	CopyDeepLinkToTag = 'gitlens.copyDeepLinkToTag',
+	CopyDeepLinkToWorkspace = 'gitlens.copyDeepLinkToWorkspace',
 	CopyMessageToClipboard = 'gitlens.copyMessageToClipboard',
 	CopyRemoteBranchesUrl = 'gitlens.copyRemoteBranchesUrl',
 	CopyRemoteBranchUrl = 'gitlens.copyRemoteBranchUrl',
@@ -220,9 +223,8 @@ export const enum Commands {
 	RefreshFocus = 'gitlens.focus.refresh',
 	RefreshGraph = 'gitlens.graph.refresh',
 	RefreshHover = 'gitlens.refreshHover',
-	RefreshTimelinePage = 'gitlens.timeline.refresh',
 	ResetAvatarCache = 'gitlens.resetAvatarCache',
-	ResetOpenAIKey = 'gitlens.resetOpenAIKey',
+	ResetAIKey = 'gitlens.resetAIKey',
 	ResetSuppressedWarnings = 'gitlens.resetSuppressedWarnings',
 	ResetTrackedUsage = 'gitlens.resetTrackedUsage',
 	ResetViewsLayout = 'gitlens.resetViewsLayout',
@@ -245,6 +247,7 @@ export const enum Commands {
 	ShowInCommitGraph = 'gitlens.showInCommitGraph',
 	ShowInCommitGraphView = 'gitlens.showInCommitGraphView',
 	ShowInDetailsView = 'gitlens.showInDetailsView',
+	ShowInTimeline = 'gitlens.showInTimeline',
 	ShowLastQuickPick = 'gitlens.showLastQuickPick',
 	ShowLineCommitInView = 'gitlens.showLineCommitInView',
 	ShowLineHistoryView = 'gitlens.showLineHistoryView',
@@ -331,10 +334,11 @@ export type TreeViewCommands = `gitlens.views.${
 			| 'copy'
 			| 'refresh'
 			| `setFilesLayoutTo${'Auto' | 'List' | 'Tree'}`
-			| `setMyCommitsOnly${'On' | 'Off'}`
+			| `setCommitsFilter${'Authors' | 'Off'}`
 			| `setShowAvatars${'On' | 'Off'}`
 			| `setShowBranchComparison${'On' | 'Off'}`
-			| `setShowBranchPullRequest${'On' | 'Off'}`}`
+			| `setShowBranchPullRequest${'On' | 'Off'}`
+			| `setShowMergeCommits${'On' | 'Off'}`}`
 	| `contributors.${
 			| 'copy'
 			| 'refresh'
@@ -350,6 +354,7 @@ export type TreeViewCommands = `gitlens.views.${
 			| `setEditorFollowing${'On' | 'Off'}`
 			| `setRenameFollowing${'On' | 'Off'}`
 			| `setShowAllBranches${'On' | 'Off'}`
+			| `setShowMergeCommits${'On' | 'Off'}`
 			| `setShowAvatars${'On' | 'Off'}`}`
 	| `lineHistory.${
 			| 'copy'
@@ -506,15 +511,68 @@ export const viewIdsByDefaultContainerId = new Map<ViewContainerIds | CoreViewCo
 	['workbench.view.extension.gitlens', ['home', 'workspaces', 'account']],
 ]);
 
+export type TreeViewRefNodeTypes = 'branch' | 'commit' | 'stash' | 'tag';
+export type TreeViewRefFileNodeTypes = 'commit-file' | 'file-commit' | 'results-file' | 'stash-file';
+export type TreeViewFileNodeTypes =
+	| TreeViewRefFileNodeTypes
+	| 'conflict-file'
+	| 'folder'
+	| 'status-file'
+	| 'uncommitted-file';
+export type TreeViewSubscribableNodeTypes =
+	| 'compare-branch'
+	| 'compare-results'
+	| 'file-history'
+	| 'file-history-tracker'
+	| 'line-history'
+	| 'line-history-tracker'
+	| 'repositories'
+	| 'repository'
+	| 'repo-folder'
+	| 'search-results'
+	| 'workspace';
+export type TreeViewNodeTypes =
+	| TreeViewRefNodeTypes
+	| TreeViewFileNodeTypes
+	| TreeViewSubscribableNodeTypes
+	| 'autolink'
+	| 'autolinks'
+	| 'branch-tag-folder'
+	| 'branches'
+	| 'compare-picker'
+	| 'contributor'
+	| 'contributors'
+	| 'conflict-files'
+	| 'conflict-current-changes'
+	| 'conflict-incoming-changes'
+	| 'merge-status'
+	| 'message'
+	| 'pager'
+	| 'pullrequest'
+	| 'rebase-status'
+	| 'reflog'
+	| 'reflog-record'
+	| 'remote'
+	| 'remotes'
+	| 'results-commits'
+	| 'results-files'
+	| 'search-compare'
+	| 'stashes'
+	| 'status-files'
+	| 'tags'
+	| 'tracking-status'
+	| 'tracking-status-files'
+	| 'uncommitted-files'
+	| 'workspace-missing-repository'
+	| 'workspaces-view'
+	| 'worktree'
+	| 'worktrees';
+
 export type ContextKeys =
 	| `${typeof extensionPrefix}:action:${string}`
 	| `${typeof extensionPrefix}:key:${Keys}`
-	| `${typeof extensionPrefix}:webview:${WebviewTypes | CustomEditorTypes}:${
-			| 'active'
-			| 'focus'
-			| 'inputFocus'
-			| 'visible'}`
-	| `${typeof extensionPrefix}:webviewView:${WebviewViewTypes}:${'active' | 'focus' | 'inputFocus' | 'visible'}`
+	| `${typeof extensionPrefix}:webview:${WebviewTypes | CustomEditorTypes}:visible`
+	| `${typeof extensionPrefix}:webviewView:${WebviewViewTypes}:visible`
 	| `${typeof extensionPrefix}:activeFileStatus`
 	| `${typeof extensionPrefix}:annotationStatus`
 	| `${typeof extensionPrefix}:debugging`
@@ -530,13 +588,13 @@ export type ContextKeys =
 	| `${typeof extensionPrefix}:untrusted`
 	| `${typeof extensionPrefix}:views:canCompare`
 	| `${typeof extensionPrefix}:views:canCompare:file`
-	| `${typeof extensionPrefix}:views:commits:myCommitsOnly`
+	| `${typeof extensionPrefix}:views:commits:filtered`
+	| `${typeof extensionPrefix}:views:commits:hideMergeCommits`
 	| `${typeof extensionPrefix}:views:fileHistory:canPin`
 	| `${typeof extensionPrefix}:views:fileHistory:cursorFollowing`
 	| `${typeof extensionPrefix}:views:fileHistory:editorFollowing`
 	| `${typeof extensionPrefix}:views:lineHistory:editorFollowing`
 	| `${typeof extensionPrefix}:views:repositories:autoRefresh`
-	| `${typeof extensionPrefix}:views:searchAndCompare:keepResults`
 	| `${typeof extensionPrefix}:vsls`
 	| `${typeof extensionPrefix}:plus`
 	| `${typeof extensionPrefix}:plus:disallowedRepos`
@@ -550,6 +608,7 @@ export type CoreCommands =
 	| 'editor.action.showReferences'
 	| 'editor.action.webvieweditor.showFind'
 	| 'editorScroll'
+	| 'list.collapseAllToFocus'
 	| 'openInTerminal'
 	| 'revealFileInOS'
 	| 'revealInExplorer'
@@ -605,6 +664,7 @@ export type CoreGitConfiguration =
 	| 'git.pullTags'
 	| 'git.repositoryScanIgnoredFolders'
 	| 'git.repositoryScanMaxDepth'
+	| 'git.useForcePushIfIncludes'
 	| 'git.useForcePushWithLease';
 
 export const enum GlyphChars {
@@ -715,7 +775,7 @@ export const enum SyncedStorageKeys {
 }
 
 export type DeprecatedGlobalStorage = {
-	/** @deprecated use `confirm:ai:send:openai` */
+	/** @deprecated use `confirm:ai:tos:${AIProviders}` */
 	'confirm:sendToOpenAI': boolean;
 	/** @deprecated */
 	'home:actions:completed': ('dismissed:welcome' | 'opened:scm')[];
@@ -749,7 +809,7 @@ export type GlobalStorage = {
 	pendingWelcomeOnFocus: boolean;
 	pendingWhatsNewOnFocus: boolean;
 	// Don't change this key name ('premium`) as its the stored subscription
-	'premium:subscription': Stored<Subscription>;
+	'premium:subscription': Stored<Subscription & { lastValidatedAt: number | undefined }>;
 	'synced:version': string;
 	// Keep the pre-release version separate from the released version
 	'synced:preVersion': string;
@@ -763,14 +823,14 @@ export type GlobalStorage = {
 };
 
 export type DeprecatedWorkspaceStorage = {
-	/** @deprecated use `confirm:ai:send:openai` */
+	/** @deprecated use `confirm:ai:tos:${AIProviders}` */
 	'confirm:sendToOpenAI': boolean;
 	/** @deprecated */
 	'graph:banners:dismissed': Record<string, boolean>;
 	/** @deprecated use `graph:filtersByRepo.excludeRefs` */
 	'graph:hiddenRefs': Record<string, StoredGraphExcludedRef>;
-	/** @deprecated use `views:searchAndCompare:pinned` */
-	'pinned:comparisons': Record<string, DeprecatedPinnedComparison>;
+	/** @deprecated */
+	'views:searchAndCompare:keepResults': boolean;
 };
 
 export type WorkspaceStorage = {
@@ -784,8 +844,7 @@ export type WorkspaceStorage = {
 	'starred:branches': StoredStarred;
 	'starred:repositories': StoredStarred;
 	'views:repositories:autoRefresh': boolean;
-	'views:searchAndCompare:keepResults': boolean;
-	'views:searchAndCompare:pinned': StoredPinnedItems;
+	'views:searchAndCompare:pinned': StoredSearchAndCompareItems;
 	'views:commitDetails:autolinksExpanded': boolean;
 } & { [key in `confirm:ai:tos:${AIProviders}`]: boolean } & { [key in `connected:${string}`]: boolean };
 
@@ -811,6 +870,7 @@ export interface StoredBranchComparison {
 	ref: string;
 	notation: '..' | '...' | undefined;
 	type: Exclude<ViewShowBranchComparison, false> | undefined;
+	checkedFiles?: string[];
 }
 
 export type StoredBranchComparisons = Record<string, string | StoredBranchComparison>;
@@ -853,16 +913,18 @@ export interface StoredNamedRef {
 	ref: string;
 }
 
-export interface StoredPinnedComparison {
+export interface StoredComparison {
 	type: 'comparison';
 	timestamp: number;
 	path: string;
 	ref1: StoredNamedRef;
 	ref2: StoredNamedRef;
 	notation?: '..' | '...';
+
+	checkedFiles?: string[];
 }
 
-export interface StoredPinnedSearch {
+export interface StoredSearch {
 	type: 'search';
 	timestamp: number;
 	path: string;
@@ -878,14 +940,7 @@ export interface StoredPinnedSearch {
 	search: StoredSearchQuery;
 }
 
-export type StoredPinnedItem = StoredPinnedComparison | StoredPinnedSearch;
-export type StoredPinnedItems = Record<string, StoredPinnedItem>;
+export type StoredSearchAndCompareItem = StoredComparison | StoredSearch;
+export type StoredSearchAndCompareItems = Record<string, StoredSearchAndCompareItem>;
 export type StoredStarred = Record<string, boolean>;
 export type RecentUsage = Record<string, number>;
-
-interface DeprecatedPinnedComparison {
-	path: string;
-	ref1: StoredNamedRef;
-	ref2: StoredNamedRef;
-	notation?: '..' | '...';
-}

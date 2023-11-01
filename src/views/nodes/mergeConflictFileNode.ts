@@ -8,20 +8,21 @@ import type { GitRebaseStatus } from '../../git/models/rebase';
 import { createCoreCommand } from '../../system/command';
 import { relativeDir } from '../../system/path';
 import type { ViewsWithCommits } from '../viewBase';
+import { ViewFileNode } from './abstract/viewFileNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues } from './abstract/viewNode';
 import type { FileNode } from './folderNode';
 import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNode';
 import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChangesNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, ViewFileNode } from './viewNode';
 
-export class MergeConflictFileNode extends ViewFileNode<ViewsWithCommits> implements FileNode {
+export class MergeConflictFileNode extends ViewFileNode<'conflict-file', ViewsWithCommits> implements FileNode {
 	constructor(
 		view: ViewsWithCommits,
 		parent: ViewNode,
 		file: GitFile,
 		public readonly status: GitMergeStatus | GitRebaseStatus,
 	) {
-		super(GitUri.fromFile(file, status.repoPath, status.HEAD.ref), view, parent, file);
+		super('conflict-file', GitUri.fromFile(file, status.repoPath, status.HEAD.ref), view, parent, file);
 	}
 
 	override toClipboard(): string {

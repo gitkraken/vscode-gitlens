@@ -3,28 +3,62 @@ GitLens
 THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 This project incorporates components from the projects listed below.
 
-1. @microsoft/fast-element version 1.12.0 (https://github.com/Microsoft/fast)
-2. @microsoft/fast-react-wrapper version 0.3.19 (https://github.com/Microsoft/fast)
-3. @octokit/core version 4.2.4 (https://github.com/octokit/core.js)
-4. @opentelemetry/api version 1.4.1 (https://github.com/open-telemetry/opentelemetry-js)
-5. @opentelemetry/exporter-trace-otlp-http version 0.41.2 (https://github.com/open-telemetry/opentelemetry-js)
-6. @opentelemetry/sdk-trace-base version 1.15.2 (https://github.com/open-telemetry/opentelemetry-js)
-7. @vscode/codicons version 0.0.33 (https://github.com/microsoft/vscode-codicons)
-8. @vscode/webview-ui-toolkit version 1.2.2 (https://github.com/microsoft/vscode-webview-ui-toolkit)
-9. ansi-regex version 6.0.1 (https://github.com/chalk/ansi-regex)
-10. billboard.js version 3.9.3 (https://github.com/naver/billboard.js)
-11. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
-12. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
-13. lit version 2.8.0 (https://github.com/lit/lit)
-14. microsoft/vscode (https://github.com/microsoft/vscode)
-15. node-fetch version 2.6.9 (https://github.com/bitinn/node-fetch)
-16. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
-17. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
-18. react-dom version 16.8.4 (https://github.com/facebook/react)
-19. react version 16.8.4 (https://github.com/facebook/react)
-20. sindresorhus/is-fullwidth-code-point (https://github.com/sindresorhus/is-fullwidth-code-point)
-21. sindresorhus/string-width (https://github.com/sindresorhus/string-width)
-22. sortablejs version 1.15.0 (https://github.com/SortableJS/Sortable)
+1. @lit/react version 1.0.1 (https://github.com/lit/lit)
+2. @microsoft/fast-element version 1.12.0 (https://github.com/Microsoft/fast)
+3. @octokit/graphql version 7.0.2 (https://github.com/octokit/graphql.js)
+4. @octokit/request version 8.1.4 (https://github.com/octokit/request.js)
+5. @opentelemetry/api version 1.6.0 (https://github.com/open-telemetry/opentelemetry-js)
+6. @opentelemetry/exporter-trace-otlp-http version 0.43.0 (https://github.com/open-telemetry/opentelemetry-js)
+7. @opentelemetry/sdk-trace-base version 1.17.0 (https://github.com/open-telemetry/opentelemetry-js)
+8. @vscode/codicons version 0.0.35 (https://github.com/microsoft/vscode-codicons)
+9. @vscode/webview-ui-toolkit version 1.2.2 (https://github.com/microsoft/vscode-webview-ui-toolkit)
+10. ansi-regex version 6.0.1 (https://github.com/chalk/ansi-regex)
+11. billboard.js version 3.10.2 (https://github.com/naver/billboard.js)
+12. https-proxy-agent version 5.0.1 (https://github.com/TooTallNate/node-https-proxy-agent)
+13. iconv-lite version 0.6.3 (https://github.com/ashtuchkin/iconv-lite)
+14. lit version 3.0.1 (https://github.com/lit/lit)
+15. microsoft/vscode (https://github.com/microsoft/vscode)
+16. node-fetch version 2.7.0 (https://github.com/bitinn/node-fetch)
+17. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
+18. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
+19. react-dom version 16.8.4 (https://github.com/facebook/react)
+20. react version 16.8.4 (https://github.com/facebook/react)
+21. sindresorhus/is-fullwidth-code-point (https://github.com/sindresorhus/is-fullwidth-code-point)
+22. sindresorhus/string-width (https://github.com/sindresorhus/string-width)
+23. sortablejs version 1.15.0 (https://github.com/SortableJS/Sortable)
+
+%% @lit/react NOTICES AND INFORMATION BEGIN HERE
+=========================================
+BSD 3-Clause License
+
+Copyright (c) 2017 Google LLC. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+=========================================
+END OF  @lit/react NOTICES AND INFORMATION
 
 %% @microsoft/fast-element NOTICES AND INFORMATION BEGIN HERE
 =========================================
@@ -93,49 +127,11 @@ Looking for a quick guide on building components?  Check out [our Cheat Sheet](.
 =========================================
 END OF  @microsoft/fast-element NOTICES AND INFORMATION
 
-%% @microsoft/fast-react-wrapper NOTICES AND INFORMATION BEGIN HERE
-=========================================
-# FAST React Wrapper
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![npm version](https://badge.fury.io/js/%40microsoft%2Ffast-react-wrapper.svg)](https://badge.fury.io/js/%40microsoft%2Ffast-react-wrapper)
-
-The `fast-react-wrapper` package contains a utility that enables automatically wrapping Web Components in a React component for ease of integration into React projects.
-
-## Installation
-
-### From NPM
-
-To install the `fast-react-wrapper` library, use either `npm` or `yarn` as follows:
-
-```shell
-npm install --save @microsoft/fast-react-wrapper
-```
-
-```shell
-yarn add @microsoft/fast-react-wrapper
-```
-
-Within your JavaScript or TypeScript code, you can then and use the wrapper like this:
-
-```ts
-import React from 'react';
-import { provideReactWrapper } from '@microsoft/fast-react-wrapper';
-
-const { wrap } = provideReactWrapper(React);
-
-const MyComponent = wrap(MyComponent);
-```
-
-For additional wrapper settings and more information on integrating with Design Systems, see [our integration docs](https://fast.design/docs/integrations/react).
-=========================================
-END OF  @microsoft/fast-react-wrapper NOTICES AND INFORMATION
-
-%% @octokit/core NOTICES AND INFORMATION BEGIN HERE
+%% @octokit/graphql NOTICES AND INFORMATION BEGIN HERE
 =========================================
 The MIT License
 
-Copyright (c) 2019 Octokit contributors
+Copyright (c) 2018 Octokit contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -156,7 +152,34 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 =========================================
-END OF  @octokit/core NOTICES AND INFORMATION
+END OF  @octokit/graphql NOTICES AND INFORMATION
+
+%% @octokit/request NOTICES AND INFORMATION BEGIN HERE
+=========================================
+The MIT License
+
+Copyright (c) 2018 Octokit contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+=========================================
+END OF  @octokit/request NOTICES AND INFORMATION
 
 %% @opentelemetry/api NOTICES AND INFORMATION BEGIN HERE
 =========================================

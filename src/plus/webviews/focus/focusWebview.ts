@@ -1,7 +1,8 @@
 import { Disposable, Uri, window } from 'vscode';
-import type { GHPRPullRequest } from '../../../commands';
+import type { GHPRPullRequest } from '../../../commands/ghpr/openOrCreateWorktree';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
+import type { FeatureAccess, RepoFeatureAccess } from '../../../features';
 import { PlusFeatures } from '../../../features';
 import { add as addRemote } from '../../../git/actions/remote';
 import * as RepoActions from '../../../git/actions/repository';
@@ -19,21 +20,40 @@ import { createReference } from '../../../git/models/reference';
 import type { GitRemote } from '../../../git/models/remote';
 import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
+import type { GitWorktree } from '../../../git/models/worktree';
 import { getWorktreeForBranch } from '../../../git/models/worktree';
 import { parseGitRemoteUrl } from '../../../git/parsers/remoteParser';
 import type { RichRemoteProvider } from '../../../git/remotes/richRemoteProvider';
-import { executeCommand, registerCommand } from '../../../system/command';
+import { executeCommand } from '../../../system/command';
+import { debug } from '../../../system/decorators/log';
+import { Logger } from '../../../system/logger';
+import { getLogScope } from '../../../system/logger.scope';
+import { PageableResult } from '../../../system/paging';
 import { getSettledValue } from '../../../system/promise';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
-import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
+import type { EnrichedItem, FocusItem } from '../../focus/focusService';
+import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
 import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
-import type { OpenBranchParams, OpenWorktreeParams, State, SwitchToBranchParams } from './protocol';
+import type {
+	OpenBranchParams,
+	OpenWorktreeParams,
+	PinIssueParams,
+	PinPrParams,
+	SnoozeIssueParams,
+	SnoozePrParams,
+	State,
+	SwitchToBranchParams,
+} from './protocol';
 import {
 	DidChangeNotificationType,
 	OpenBranchCommandType,
 	OpenWorktreeCommandType,
+	PinIssueCommandType,
+	PinPrCommandType,
+	SnoozeIssueCommandType,
+	SnoozePrCommandType,
 	SwitchToBranchCommandType,
 } from './protocol';
 
@@ -51,15 +71,26 @@ interface SearchedPullRequestWithRemote extends SearchedPullRequest {
 	isCurrentBranch?: boolean;
 	hasWorktree?: boolean;
 	isCurrentWorktree?: boolean;
+	rank: number;
+	enriched?: EnrichedItem[];
+}
+
+interface SearchedIssueWithRank extends SearchedIssue {
+	repoAndRemote: RepoWithRichRemote;
+	rank: number;
+	enriched?: EnrichedItem[];
 }
 
 export class FocusWebviewProvider implements WebviewProvider<State> {
 	private _pullRequests: SearchedPullRequestWithRemote[] = [];
-	private _issues: SearchedIssue[] = [];
+	private _issues: SearchedIssueWithRank[] = [];
+	private _discovering: Promise<number | undefined> | undefined;
 	private readonly _disposable: Disposable;
+	private _etag?: number;
 	private _etagSubscription?: number;
 	private _repositoryEventsDisposable?: Disposable;
 	private _repos?: RepoWithRichRemote[];
+	private _enrichedItems?: EnrichedItem[];
 
 	constructor(
 		private readonly container: Container,
@@ -67,16 +98,21 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	) {
 		this._disposable = Disposable.from(
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
-			this.container.git.onDidChangeRepositories(() => void this.host.refresh(true)),
+			this.container.git.onDidChangeRepositories(async () => {
+				if (this._etag !== this.container.git.etag) {
+					if (this._discovering != null) {
+						this._etag = await this._discovering;
+						if (this._etag === this.container.git.etag) return;
+					}
+
+					void this.host.refresh(true);
+				}
+			}),
 		);
 	}
 
 	dispose() {
 		this._disposable.dispose();
-	}
-
-	registerCommands(): Disposable[] {
-		return [registerCommand(Commands.RefreshFocus, () => this.host.refresh(true))];
 	}
 
 	onMessageReceived(e: IpcMessage) {
@@ -90,7 +126,143 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 			case OpenWorktreeCommandType.method:
 				onIpc(OpenWorktreeCommandType, e, params => this.onOpenWorktree(params));
 				break;
+			case SnoozePrCommandType.method:
+				onIpc(SnoozePrCommandType, e, params => this.onSnoozePr(params));
+				break;
+			case PinPrCommandType.method:
+				onIpc(PinPrCommandType, e, params => this.onPinPr(params));
+				break;
+			case SnoozeIssueCommandType.method:
+				onIpc(SnoozeIssueCommandType, e, params => this.onSnoozeIssue(params));
+				break;
+			case PinIssueCommandType.method:
+				onIpc(PinIssueCommandType, e, params => this.onPinIssue(params));
+				break;
 		}
+	}
+
+	@debug({ args: false })
+	private async onPinIssue({ issue, pin }: PinIssueParams) {
+		const issueWithRemote = this._issues?.find(r => r.issue.nodeId === issue.nodeId);
+		if (issueWithRemote == null) return;
+
+		if (pin) {
+			await this.container.focus.unpinItem(pin);
+			this._enrichedItems = this._enrichedItems?.filter(e => e.id !== pin);
+			issueWithRemote.enriched = issueWithRemote.enriched?.filter(e => e.id !== pin);
+		} else {
+			const focusItem: FocusItem = {
+				type: 'issue',
+				id: issueWithRemote.issue.nodeId!,
+				remote: issueWithRemote.repoAndRemote.remote,
+				url: issueWithRemote.issue.url,
+			};
+			const enrichedItem = await this.container.focus.pinItem(focusItem);
+			if (enrichedItem == null) return;
+			if (this._enrichedItems == null) {
+				this._enrichedItems = [];
+			}
+			this._enrichedItems.push(enrichedItem);
+			if (issueWithRemote.enriched == null) {
+				issueWithRemote.enriched = [];
+			}
+			issueWithRemote.enriched.push(enrichedItem);
+		}
+
+		void this.notifyDidChangeState();
+	}
+
+	@debug({ args: false })
+	private async onSnoozeIssue({ issue, snooze }: SnoozeIssueParams) {
+		const issueWithRemote = this._issues?.find(r => r.issue.nodeId === issue.nodeId);
+		if (issueWithRemote == null) return;
+
+		if (snooze) {
+			await this.container.focus.unsnoozeItem(snooze);
+			this._enrichedItems = this._enrichedItems?.filter(e => e.id !== snooze);
+			issueWithRemote.enriched = issueWithRemote.enriched?.filter(e => e.id !== snooze);
+		} else {
+			const focusItem: FocusItem = {
+				type: 'issue',
+				id: issueWithRemote.issue.nodeId!,
+				remote: issueWithRemote.repoAndRemote.remote,
+				url: issueWithRemote.issue.url,
+			};
+			const enrichedItem = await this.container.focus.snoozeItem(focusItem);
+			if (enrichedItem == null) return;
+			if (this._enrichedItems == null) {
+				this._enrichedItems = [];
+			}
+			this._enrichedItems.push(enrichedItem);
+			if (issueWithRemote.enriched == null) {
+				issueWithRemote.enriched = [];
+			}
+			issueWithRemote.enriched.push(enrichedItem);
+		}
+
+		void this.notifyDidChangeState();
+	}
+
+	@debug({ args: false })
+	private async onPinPr({ pullRequest, pin }: PinPrParams) {
+		const prWithRemote = this._pullRequests?.find(r => r.pullRequest.nodeId === pullRequest.nodeId);
+		if (prWithRemote == null) return;
+
+		if (pin) {
+			await this.container.focus.unpinItem(pin);
+			this._enrichedItems = this._enrichedItems?.filter(e => e.id !== pin);
+			prWithRemote.enriched = prWithRemote.enriched?.filter(e => e.id !== pin);
+		} else {
+			const focusItem: FocusItem = {
+				type: 'pr',
+				id: prWithRemote.pullRequest.nodeId!,
+				remote: prWithRemote.repoAndRemote.remote,
+				url: prWithRemote.pullRequest.url,
+			};
+			const enrichedItem = await this.container.focus.pinItem(focusItem);
+			if (enrichedItem == null) return;
+			if (this._enrichedItems == null) {
+				this._enrichedItems = [];
+			}
+			this._enrichedItems.push(enrichedItem);
+			if (prWithRemote.enriched == null) {
+				prWithRemote.enriched = [];
+			}
+			prWithRemote.enriched.push(enrichedItem);
+		}
+
+		void this.notifyDidChangeState();
+	}
+
+	@debug({ args: false })
+	private async onSnoozePr({ pullRequest, snooze }: SnoozePrParams) {
+		const prWithRemote = this._pullRequests?.find(r => r.pullRequest.nodeId === pullRequest.nodeId);
+		if (prWithRemote == null) return;
+
+		if (snooze) {
+			await this.container.focus.unsnoozeItem(snooze);
+			this._enrichedItems = this._enrichedItems?.filter(e => e.id !== snooze);
+			prWithRemote.enriched = prWithRemote.enriched?.filter(e => e.id !== snooze);
+		} else {
+			const focusItem: FocusItem = {
+				type: 'pr',
+				id: prWithRemote.pullRequest.nodeId!,
+				remote: prWithRemote.repoAndRemote.remote,
+				url: prWithRemote.pullRequest.url,
+			};
+			const enrichedItem = await this.container.focus.snoozeItem(focusItem);
+			if (enrichedItem == null) return;
+			if (this._enrichedItems == null) {
+				this._enrichedItems = [];
+			}
+			this._enrichedItems.push(enrichedItem);
+			if (prWithRemote.enriched == null) {
+				prWithRemote.enriched = [];
+			}
+			prWithRemote.enriched.push(enrichedItem);
+		}
+
+		void this.notifyDidChangeState();
 	}
 
 	private findSearchedPullRequest(pullRequest: PullRequestShape): SearchedPullRequestWithRemote | undefined {
@@ -167,6 +339,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		};
 	}
 
+	@debug({ args: false })
 	private async onOpenBranch({ pullRequest }: OpenBranchParams) {
 		const prWithRemote = this.findSearchedPullRequest(pullRequest);
 		if (prWithRemote == null) return;
@@ -182,6 +355,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		void executeCommand<ShowInCommitGraphCommandArgs>(Commands.ShowInCommitGraph, { ref: remoteBranch.reference });
 	}
 
+	@debug({ args: false })
 	private async onSwitchBranch({ pullRequest }: SwitchToBranchParams) {
 		const prWithRemote = this.findSearchedPullRequest(pullRequest);
 		if (prWithRemote == null || prWithRemote.isCurrentBranch) return;
@@ -201,6 +375,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		return RepoActions.switchTo(remoteBranch.remote.repoPath, remoteBranch.reference);
 	}
 
+	@debug({ args: false })
 	private async onOpenWorktree({ pullRequest }: OpenWorktreeParams) {
 		const searchedPullRequestWithRemote = this.findSearchedPullRequest(pullRequest);
 		if (searchedPullRequestWithRemote?.repoAndRemote == null) {
@@ -239,30 +414,48 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		if (e.etag === this._etagSubscription) return;
 
 		this._etagSubscription = e.etag;
-		void this.notifyDidChangeState(true);
+		this._access = undefined;
+		void this.notifyDidChangeState();
 	}
 
-	private async getState(deferState?: boolean): Promise<State> {
-		const webviewId = this.host.id;
+	private _access: FeatureAccess | RepoFeatureAccess | undefined;
+	@debug()
+	private async getAccess(force?: boolean) {
+		if (force || this._access == null) {
+			this._access = await this.container.git.access(PlusFeatures.Focus);
+		}
+		return this._access;
+	}
 
-		const access = await this.container.git.access(PlusFeatures.Focus);
+	@debug()
+	private async getState(force?: boolean, deferState?: boolean): Promise<State> {
+		const baseState = this.host.baseWebviewState;
+
+		this._etag = this.container.git.etag;
+		if (this.container.git.isDiscoveringRepositories) {
+			this._discovering = this.container.git.isDiscoveringRepositories.then(r => {
+				this._discovering = undefined;
+				return r;
+			});
+			this._etag = await this._discovering;
+		}
+
+		const access = await this.getAccess(force);
 		if (access.allowed !== true) {
 			return {
-				webviewId: webviewId,
-				timestamp: Date.now(),
+				...baseState,
 				access: access,
 			};
 		}
 
-		const allRichRepos = await this.getRichRepos();
+		const allRichRepos = await this.getRichRepos(force);
 		const githubRepos = filterGithubRepos(allRichRepos);
 		const connectedRepos = filterUsableRepos(githubRepos);
 		const hasConnectedRepos = connectedRepos.length > 0;
 
 		if (!hasConnectedRepos) {
 			return {
-				webviewId: webviewId,
-				timestamp: Date.now(),
+				...baseState,
 				access: access,
 				repos: githubRepos.map(r => serializeRepoWithRichRemote(r)),
 			};
@@ -271,15 +464,15 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		const repos = connectedRepos.map(r => serializeRepoWithRichRemote(r));
 
 		const statePromise = Promise.allSettled([
-			this.getMyPullRequests(connectedRepos),
-			this.getMyIssues(connectedRepos),
+			this.getMyPullRequests(connectedRepos, force),
+			this.getMyIssues(connectedRepos, force),
+			this.getEnrichedItems(force),
 		]);
 
 		async function getStateCore() {
-			const [prsResult, issuesResult] = await statePromise;
+			const [prsResult, issuesResult, enrichedItems] = await statePromise;
 			return {
-				webviewId: webviewId,
-				timestamp: Date.now(),
+				...baseState,
 				access: access,
 				repos: repos,
 				pullRequests: getSettledValue(prsResult)?.map(pr => ({
@@ -289,10 +482,14 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 					isCurrentWorktree: pr.isCurrentWorktree ?? false,
 					hasWorktree: pr.hasWorktree ?? false,
 					hasLocalBranch: pr.hasLocalBranch ?? false,
+					enriched: findEnrichedItems(pr, getSettledValue(enrichedItems)),
+					rank: pr.rank,
 				})),
 				issues: getSettledValue(issuesResult)?.map(issue => ({
 					issue: serializeIssue(issue.issue),
 					reasons: issue.reasons,
+					enriched: findEnrichedItems(issue, getSettledValue(enrichedItems)),
+					rank: issue.rank,
 				})),
 			};
 		}
@@ -304,8 +501,7 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 			});
 
 			return {
-				webviewId: webviewId,
-				timestamp: Date.now(),
+				...baseState,
 				access: access,
 				repos: repos,
 			};
@@ -316,11 +512,12 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 	}
 
 	async includeBootstrap(): Promise<State> {
-		return this.getState(true);
+		return this.getState(true, true);
 	}
 
+	@debug()
 	private async getRichRepos(force?: boolean): Promise<RepoWithRichRemote[]> {
-		if (this._repos == null || force === true) {
+		if (force || this._repos == null) {
 			const repos = [];
 			const disposables = [];
 			for (const repo of this.container.git.openRepositories) {
@@ -349,113 +546,224 @@ export class FocusWebviewProvider implements WebviewProvider<State> {
 		return this._repos;
 	}
 
-	private async onRepositoryChanged(e: RepositoryChangeEvent) {
+	private onRepositoryChanged(e: RepositoryChangeEvent) {
 		if (e.changed(RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
-			await this.getRichRepos(true);
-			void this.notifyDidChangeState();
+			void this.notifyDidChangeState(true);
 		}
 	}
 
-	private async getMyPullRequests(richRepos: RepoWithRichRemote[]): Promise<SearchedPullRequestWithRemote[]> {
-		const allPrs: SearchedPullRequestWithRemote[] = [];
-		for (const richRepo of richRepos) {
-			const remote = richRepo.remote;
-			const prs = await this.container.git.getMyPullRequests(remote);
-			if (prs == null) {
-				continue;
+	@debug({ args: { 0: false } })
+	private async getMyPullRequests(
+		richRepos: RepoWithRichRemote[],
+		force?: boolean,
+	): Promise<SearchedPullRequestWithRemote[]> {
+		const scope = getLogScope();
+
+		if (force || this._pullRequests == null) {
+			const allPrs: SearchedPullRequestWithRemote[] = [];
+
+			const branchesByRepo = new Map<Repository, PageableResult<GitBranch>>();
+			const worktreesByRepo = new Map<Repository, GitWorktree[]>();
+
+			const queries = richRepos.map(r => [r, this.container.git.getMyPullRequests(r.remote)] as const);
+			for (const [r, query] of queries) {
+				let prs;
+				try {
+					prs = await query;
+				} catch (ex) {
+					Logger.error(ex, scope, `Failed to get prs for '${r.remote.url}'`);
+				}
+				if (prs == null) continue;
+
+				for (const pr of prs) {
+					if (pr.reasons.length === 0) continue;
+
+					const entry: SearchedPullRequestWithRemote = {
+						...pr,
+						repoAndRemote: r,
+						isCurrentWorktree: false,
+						isCurrentBranch: false,
+						rank: getPrRank(pr),
+					};
+
+					const remoteBranchName = `${entry.pullRequest.refs!.head.owner}/${
+						entry.pullRequest.refs!.head.branch
+					}`; // TODO@eamodio really need to check for upstream url rather than name
+
+					let branches = branchesByRepo.get(entry.repoAndRemote.repo);
+					if (branches == null) {
+						branches = new PageableResult<GitBranch>(paging =>
+							entry.repoAndRemote.repo.getBranches(paging != null ? { paging: paging } : undefined),
+						);
+						branchesByRepo.set(entry.repoAndRemote.repo, branches);
+					}
+
+					let worktrees = worktreesByRepo.get(entry.repoAndRemote.repo);
+					if (worktrees == null) {
+						worktrees = await entry.repoAndRemote.repo.getWorktrees();
+						worktreesByRepo.set(entry.repoAndRemote.repo, worktrees);
+					}
+
+					const worktree = await getWorktreeForBranch(
+						entry.repoAndRemote.repo,
+						entry.pullRequest.refs!.head.branch,
+						remoteBranchName,
+						worktrees,
+						branches,
+					);
+
+					entry.hasWorktree = worktree != null;
+					entry.isCurrentWorktree = worktree?.opened === true;
+
+					const branch = await getLocalBranchByUpstream(r.repo, remoteBranchName, branches);
+					if (branch) {
+						entry.branch = branch;
+						entry.hasLocalBranch = true;
+						entry.isCurrentBranch = branch.current;
+					}
+
+					allPrs.push(entry);
+				}
 			}
 
-			for (const pr of prs) {
-				if (pr.reasons.length === 0) {
-					continue;
+			this._pullRequests = allPrs.sort((a, b) => {
+				const scoreA = a.rank;
+				const scoreB = b.rank;
+
+				if (scoreA === scoreB) {
+					return a.pullRequest.date.getTime() - b.pullRequest.date.getTime();
 				}
-				const entry: SearchedPullRequestWithRemote = {
-					...pr,
-					repoAndRemote: richRepo,
-					isCurrentWorktree: false,
-					isCurrentBranch: false,
-				};
-
-				const remoteBranchName = `${entry.pullRequest.refs!.head.owner}/${entry.pullRequest.refs!.head.branch}`; // TODO@eamodio really need to check for upstream url rather than name
-
-				const worktree = await getWorktreeForBranch(
-					entry.repoAndRemote.repo,
-					entry.pullRequest.refs!.head.branch,
-					remoteBranchName,
-				);
-				entry.hasWorktree = worktree != null;
-				entry.isCurrentWorktree = worktree?.opened === true;
-
-				const branch = await getLocalBranchByUpstream(richRepo.repo, remoteBranchName);
-				if (branch) {
-					entry.branch = branch;
-					entry.hasLocalBranch = true;
-					entry.isCurrentBranch = branch.current;
-				}
-
-				allPrs.push(entry);
-			}
+				return (scoreB ?? 0) - (scoreA ?? 0);
+			});
 		}
-
-		function getScore(pr: SearchedPullRequest) {
-			let score = 0;
-			if (pr.reasons.includes('authored')) {
-				score += 1000;
-			} else if (pr.reasons.includes('assigned')) {
-				score += 900;
-			} else if (pr.reasons.includes('review-requested')) {
-				score += 800;
-			} else if (pr.reasons.includes('mentioned')) {
-				score += 700;
-			}
-
-			if (pr.pullRequest.reviewDecision === PullRequestReviewDecision.Approved) {
-				if (pr.pullRequest.mergeableState === PullRequestMergeableState.Mergeable) {
-					score += 100;
-				} else if (pr.pullRequest.mergeableState === PullRequestMergeableState.Conflicting) {
-					score += 90;
-				} else {
-					score += 80;
-				}
-			} else if (pr.pullRequest.reviewDecision === PullRequestReviewDecision.ChangesRequested) {
-				score += 70;
-			}
-
-			return score;
-		}
-
-		this._pullRequests = allPrs.sort((a, b) => {
-			const scoreA = getScore(a);
-			const scoreB = getScore(b);
-
-			if (scoreA === scoreB) {
-				return a.pullRequest.date.getTime() - b.pullRequest.date.getTime();
-			}
-			return (scoreB ?? 0) - (scoreA ?? 0);
-		});
 
 		return this._pullRequests;
 	}
 
-	private async getMyIssues(richRepos: RepoWithRichRemote[]): Promise<SearchedIssue[]> {
-		const allIssues = [];
-		for (const { remote } of richRepos) {
-			const issues = await this.container.git.getMyIssues(remote);
-			if (issues == null) {
-				continue;
-			}
-			allIssues.push(...issues.filter(pr => pr.reasons.length > 0));
-		}
+	@debug({ args: { 0: false } })
+	private async getMyIssues(richRepos: RepoWithRichRemote[], force?: boolean): Promise<SearchedIssueWithRank[]> {
+		const scope = getLogScope();
 
-		this._issues = allIssues.sort((a, b) => b.issue.updatedDate.getTime() - a.issue.updatedDate.getTime());
+		if (force || this._pullRequests == null) {
+			const allIssues = [];
+
+			const queries = richRepos.map(r => [r, this.container.git.getMyIssues(r.remote)] as const);
+			for (const [r, query] of queries) {
+				let issues;
+				try {
+					issues = await query;
+				} catch (ex) {
+					Logger.error(ex, scope, `Failed to get issues for '${r.remote.url}'`);
+				}
+				if (issues == null) continue;
+
+				for (const issue of issues) {
+					if (issue.reasons.length === 0) continue;
+
+					allIssues.push({
+						...issue,
+						repoAndRemote: r,
+						rank: 0, // getIssueRank(issue),
+					});
+				}
+			}
+
+			// this._issues = allIssues.sort((a, b) => {
+			// 	const scoreA = a.rank;
+			// 	const scoreB = b.rank;
+
+			// 	if (scoreA === scoreB) {
+			// 		return b.issue.updatedDate.getTime() - a.issue.updatedDate.getTime();
+			// 	}
+			// 	return (scoreB ?? 0) - (scoreA ?? 0);
+			// });
+
+			this._issues = allIssues.sort((a, b) => b.issue.updatedDate.getTime() - a.issue.updatedDate.getTime());
+		}
 
 		return this._issues;
 	}
 
-	private async notifyDidChangeState(deferState?: boolean) {
-		void this.host.notify(DidChangeNotificationType, { state: await this.getState(deferState) });
+	@debug()
+	private async getEnrichedItems(force?: boolean): Promise<EnrichedItem[] | undefined> {
+		// TODO needs cache invalidation
+		if (force || this._enrichedItems == null) {
+			const enrichedItems = await this.container.focus.get();
+			this._enrichedItems = enrichedItems;
+		}
+		return this._enrichedItems;
+	}
+
+	private async notifyDidChangeState(force?: boolean, deferState?: boolean) {
+		void this.host.notify(DidChangeNotificationType, { state: await this.getState(force, deferState) });
 	}
 }
+
+function findEnrichedItems(
+	item: SearchedPullRequestWithRemote | SearchedIssueWithRank,
+	enrichedItems?: EnrichedItem[],
+) {
+	if (enrichedItems == null || enrichedItems.length === 0) return;
+
+	let result;
+	// TODO: filter by entity id, type, and gitRepositoryId
+	if ((item as SearchedPullRequestWithRemote).pullRequest != null) {
+		result = enrichedItems.filter(e => e.entityUrl === (item as SearchedPullRequestWithRemote).pullRequest.url);
+	} else {
+		result = enrichedItems.filter(e => e.entityUrl === (item as SearchedIssueWithRank).issue.url);
+	}
+
+	if (result.length === 0) return;
+
+	item.enriched = result;
+
+	return result.map(result => {
+		return {
+			id: result.id,
+			type: result.type,
+		};
+	});
+}
+
+function getPrRank(pr: SearchedPullRequest) {
+	let score = 0;
+	if (pr.reasons.includes('authored')) {
+		score += 1000;
+	} else if (pr.reasons.includes('assigned')) {
+		score += 900;
+	} else if (pr.reasons.includes('review-requested')) {
+		score += 800;
+	} else if (pr.reasons.includes('mentioned')) {
+		score += 700;
+	}
+
+	if (pr.pullRequest.reviewDecision === PullRequestReviewDecision.Approved) {
+		if (pr.pullRequest.mergeableState === PullRequestMergeableState.Mergeable) {
+			score += 100;
+		} else if (pr.pullRequest.mergeableState === PullRequestMergeableState.Conflicting) {
+			score += 90;
+		} else {
+			score += 80;
+		}
+	} else if (pr.pullRequest.reviewDecision === PullRequestReviewDecision.ChangesRequested) {
+		score += 70;
+	}
+
+	return score;
+}
+
+// function getIssueRank(issue: SearchedIssue) {
+// 	let score = 0;
+// 	if (issue.reasons.includes('authored')) {
+// 		score += 1000;
+// 	} else if (issue.reasons.includes('assigned')) {
+// 		score += 900;
+// 	} else if (issue.reasons.includes('mentioned')) {
+// 		score += 700;
+// 	}
+
+// 	return score;
+// }
 
 function filterGithubRepos(list: RepoWithRichRemote[]): RepoWithRichRemote[] {
 	return list.filter(entry => entry.isGitHub);

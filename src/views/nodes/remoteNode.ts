@@ -1,5 +1,4 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
-import { ViewBranchesLayout } from '../../config';
 import { GlyphChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import type { GitRemote } from '../../git/models/remote';
@@ -8,12 +7,12 @@ import type { Repository } from '../../git/models/repository';
 import { makeHierarchical } from '../../system/array';
 import { log } from '../../system/decorators/log';
 import type { ViewsWithRemotes } from '../viewBase';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class RemoteNode extends ViewNode<ViewsWithRemotes> {
+export class RemoteNode extends ViewNode<'remote', ViewsWithRemotes> {
 	constructor(
 		uri: GitUri,
 		view: ViewsWithRemotes,
@@ -21,10 +20,10 @@ export class RemoteNode extends ViewNode<ViewsWithRemotes> {
 		public readonly repo: Repository,
 		public readonly remote: GitRemote,
 	) {
-		super(uri, view, parent);
+		super('remote', uri, view, parent);
 
 		this.updateContext({ repository: repo, remote: remote });
-		this._uniqueId = getViewNodeId('remote', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {
@@ -55,7 +54,7 @@ export class RemoteNode extends ViewNode<ViewsWithRemotes> {
 					showTracking: false,
 				}),
 		);
-		if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchNodes;
+		if (this.view.config.branches.layout === 'list') return branchNodes;
 
 		const hierarchy = makeHierarchical(
 			branchNodes,

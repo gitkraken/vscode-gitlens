@@ -6,7 +6,7 @@
 		"forceConsistentCasingInFileNames": true,
 		"incremental": true,
 		"isolatedModules": true,
-		"lib": ["es2022"],
+		"lib": ["es2022", "esnext.disposable"],
 		"module": "esnext",
 		"moduleResolution": "node",
 		"noFallthroughCasesInSwitch": true,

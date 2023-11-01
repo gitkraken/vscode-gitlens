@@ -3,7 +3,7 @@ import type { WorktreeGitCommandArgs } from '../../commands/git/worktree';
 import { Container } from '../../container';
 import { ensure } from '../../system/array';
 import { executeCoreCommand } from '../../system/command';
-import { OpenWorkspaceLocation } from '../../system/utils';
+import type { OpenWorkspaceLocation } from '../../system/utils';
 import { executeGitCommand } from '../actions';
 import type { GitReference } from '../models/reference';
 import type { Repository } from '../models/repository';
@@ -75,11 +75,11 @@ export function convertLocationToOpenFlags(location: OpenWorkspaceLocation | und
 	if (location == null) return undefined;
 
 	switch (location) {
-		case OpenWorkspaceLocation.NewWindow:
+		case 'newWindow':
 			return ['--new-window'];
-		case OpenWorkspaceLocation.AddToWorkspace:
+		case 'addToWorkspace':
 			return ['--add-to-workspace'];
-		case OpenWorkspaceLocation.CurrentWindow:
+		case 'currentWindow':
 		default:
 			return [];
 	}
@@ -88,7 +88,7 @@ export function convertLocationToOpenFlags(location: OpenWorkspaceLocation | und
 export function convertOpenFlagsToLocation(flags: OpenFlagsArray | undefined): OpenWorkspaceLocation | undefined {
 	if (flags == null) return undefined;
 
-	if (flags.includes('--new-window')) return OpenWorkspaceLocation.NewWindow;
-	if (flags.includes('--add-to-workspace')) return OpenWorkspaceLocation.AddToWorkspace;
-	return OpenWorkspaceLocation.CurrentWindow;
+	if (flags.includes('--new-window')) return 'newWindow';
+	if (flags.includes('--add-to-workspace')) return 'addToWorkspace';
+	return 'currentWindow';
 }

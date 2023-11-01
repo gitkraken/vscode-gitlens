@@ -1,8 +1,9 @@
 import type { Command, Selection } from 'vscode';
 import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
-import type { DiffWithPreviousCommandArgs } from '../../commands';
+import type { DiffWithPreviousCommandArgs } from '../../commands/diffWithPrevious';
 import type { Colors } from '../../constants';
 import { Commands } from '../../constants';
+import type { Container } from '../../container';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { StatusFileFormatter } from '../../git/formatters/statusFormatter';
 import { GitUri } from '../../git/gitUri';
@@ -11,18 +12,23 @@ import type { GitCommit } from '../../git/models/commit';
 import type { GitFile } from '../../git/models/file';
 import { getGitFileStatusIcon } from '../../git/models/file';
 import type { GitRevisionReference } from '../../git/models/reference';
+import { pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/cancellation';
 import { configuration } from '../../system/configuration';
 import { joinPaths } from '../../system/path';
 import { getSettledValue } from '../../system/promise';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
 import type { ViewsWithCommits } from '../viewBase';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues } from './abstract/viewNode';
+import { ViewRefFileNode } from './abstract/viewRefNode';
 import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNode';
 import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChangesNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, ViewRefFileNode } from './viewNode';
 
-export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits | FileHistoryView | LineHistoryView> {
+export class FileRevisionAsCommitNode extends ViewRefFileNode<
+	'file-commit',
+	ViewsWithCommits | FileHistoryView | LineHistoryView
+> {
 	constructor(
 		view: ViewsWithCommits | FileHistoryView | LineHistoryView,
 		parent: ViewNode,
@@ -35,7 +41,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 			unpublished?: boolean;
 		} = {},
 	) {
-		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent, file);
+		super('file-commit', GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent, file);
 	}
 
 	override toClipboard(): string {
@@ -59,10 +65,8 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		]);
 
 		const mergeStatus = getSettledValue(mergeStatusResult);
-		if (mergeStatus == null) return [];
-
 		const rebaseStatus = getSettledValue(rebaseStatusResult);
-		if (rebaseStatus == null) return [];
+		if (mergeStatus == null && rebaseStatus == null) return [];
 
 		return [
 			new MergeConflictCurrentChangesNode(this.view, this, (mergeStatus ?? rebaseStatus)!, this.file),
@@ -203,50 +207,13 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 	}
 
 	private async getTooltip() {
-		const remotes = await this.view.container.git.getRemotesWithProviders(this.commit.repoPath);
-		const remote = await this.view.container.git.getBestRemoteWithRichProvider(remotes);
-
-		if (this.commit.message == null) {
-			await this.commit.ensureFullDetails();
-		}
-
-		let autolinkedIssuesOrPullRequests;
-		let pr;
-
-		if (remote?.provider != null) {
-			const [autolinkedIssuesOrPullRequestsResult, prResult] = await Promise.allSettled([
-				this.view.container.autolinks.getLinkedIssuesAndPullRequests(
-					this.commit.message ?? this.commit.summary,
-					remote,
-				),
-				this.commit.getAssociatedPullRequest({ remote: remote }),
-			]);
-
-			autolinkedIssuesOrPullRequests = getSettledValue(autolinkedIssuesOrPullRequestsResult);
-			pr = getSettledValue(prResult);
-
-			// Remove possible duplicate pull request
-			if (pr != null) {
-				autolinkedIssuesOrPullRequests?.delete(pr.id);
-			}
-		}
-
-		const status = StatusFileFormatter.fromTemplate(
-			`\${status}\${ (originalPath)}\${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail}`,
-			this.file,
-		);
-		const tooltip = await CommitFormatter.fromTemplateAsync(
-			this.view.config.formats.commits.tooltipWithStatus.replace('{{slot-status}}', status),
+		const tooltip = await getFileRevisionAsCommitTooltip(
+			this.view.container,
 			this.commit,
+			this.file,
+			this.view.config.formats.commits.tooltipWithStatus,
 			{
-				autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
-				dateFormat: configuration.get('defaultDateFormat'),
 				getBranchAndTagTips: this._options.getBranchAndTagTips,
-				messageAutolinks: true,
-				messageIndent: 4,
-				pullRequestOrRemote: pr,
-				outputFormat: 'markdown',
-				remotes: remotes,
 				unpublished: this._options.unpublished,
 			},
 		);
@@ -254,7 +221,54 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		const markdown = new MarkdownString(tooltip, true);
 		markdown.supportHtml = true;
 		markdown.isTrusted = true;
-
 		return markdown;
 	}
+}
+
+export async function getFileRevisionAsCommitTooltip(
+	container: Container,
+	commit: GitCommit,
+	file: GitFile,
+	tooltipWithStatusFormat: string,
+	options?: {
+		getBranchAndTagTips?: (sha: string, options?: { compact?: boolean }) => string | undefined;
+		unpublished?: boolean;
+	},
+) {
+	const [remotesResult, _] = await Promise.allSettled([
+		container.git.getBestRemotesWithProviders(commit.repoPath),
+		commit.message == null ? commit.ensureFullDetails() : undefined,
+	]);
+
+	const remotes = getSettledValue(remotesResult, []);
+	const [remote] = remotes;
+
+	let enrichedAutolinks;
+	let pr;
+
+	if (remote?.hasRichIntegration()) {
+		const [enrichedAutolinksResult, prResult] = await Promise.allSettled([
+			pauseOnCancelOrTimeoutMapTuplePromise(commit.getEnrichedAutolinks(remote)),
+			commit.getAssociatedPullRequest(remote),
+		]);
+
+		enrichedAutolinks = getSettledValue(enrichedAutolinksResult)?.value;
+		pr = getSettledValue(prResult);
+	}
+
+	const status = StatusFileFormatter.fromTemplate(
+		`\${status}\${ (originalPath)}\${'&nbsp;&nbsp;•&nbsp;&nbsp;'changesDetail}`,
+		file,
+	);
+	return CommitFormatter.fromTemplateAsync(tooltipWithStatusFormat.replace('{{slot-status}}', status), commit, {
+		enrichedAutolinks: enrichedAutolinks,
+		dateFormat: configuration.get('defaultDateFormat'),
+		getBranchAndTagTips: options?.getBranchAndTagTips,
+		messageAutolinks: true,
+		messageIndent: 4,
+		pullRequest: pr,
+		outputFormat: 'markdown',
+		remotes: remotes,
+		unpublished: options?.unpublished,
+	});
 }

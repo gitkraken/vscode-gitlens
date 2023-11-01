@@ -7,7 +7,7 @@ import type {
 } from 'vscode';
 import { ConfigurationTarget, Disposable, Position, Range, Uri, window, workspace, WorkspaceEdit } from 'vscode';
 import { getNonce } from '@env/crypto';
-import { ShowCommitsInViewCommand } from '../../commands';
+import { ShowCommitsInViewCommand } from '../../commands/showCommitsInView';
 import type { CoreConfiguration } from '../../constants';
 import type { Container } from '../../container';
 import { emojify } from '../../emojis';
@@ -251,8 +251,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	@debug<RebaseEditorProvider['onViewFocusChanged']>({
 		args: { 0: e => `focused=${e.focused}, inputFocused=${e.inputFocused}` },
 	})
-	protected onViewFocusChanged(e: WebviewFocusChangedParams): void {
-		setContextKeys(this.contextKeyPrefix, e.focused, e.focused, e.inputFocused);
+	protected onViewFocusChanged(_e: WebviewFocusChangedParams): void {
+		setContextKeys(this.contextKeyPrefix);
 	}
 
 	@debug<RebaseEditorProvider['onViewStateChanged']>({
@@ -262,9 +262,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		},
 	})
 	protected onViewStateChanged(context: RebaseEditorContext, e: WebviewPanelOnDidChangeViewStateEvent): void {
-		const { active, visible } = e.webviewPanel;
-		if (visible) {
-			setContextKeys(this.contextKeyPrefix, active);
+		if (e.webviewPanel.visible) {
+			setContextKeys(this.contextKeyPrefix);
 		} else {
 			resetContextKeys(this.contextKeyPrefix);
 		}
@@ -599,6 +598,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		const html = replaceWebviewHtmlTokens(
 			utf8TextDecoder.decode(bytes),
 			'gitlens.rebase',
+			undefined,
 			context.panel.webview.cspSource,
 			getNonce(),
 			context.panel.webview.asWebviewUri(this.container.context.extensionUri).toString(),
@@ -693,6 +693,7 @@ async function parseRebaseTodo(
 
 	return {
 		webviewId: 'gitlens.rebase',
+		webviewInstanceId: undefined,
 		timestamp: Date.now(),
 		branch: context.branchName ?? '',
 		onto: onto

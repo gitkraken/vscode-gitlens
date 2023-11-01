@@ -7,7 +7,7 @@ import { showGenericErrorMessage } from '../messages';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command, executeCoreCommand } from '../system/command';
 import { Logger } from '../system/logger';
-import { ActiveEditorCommand, Command, getCommandUri } from './base';
+import { ActiveEditorCommand, getCommandUri } from './base';
 
 export interface GenerateCommitMessageCommandArgs {
 	repoPath?: string;
@@ -46,32 +46,16 @@ export class GenerateCommitMessageCommand extends ActiveEditorCommand {
 			if (message == null) return;
 
 			void executeCoreCommand('workbench.view.scm');
-			scmRepo.inputBox.value = `${currentMessage ? `${currentMessage}\n\n` : ''}${message}`;
+			scmRepo.inputBox.value = currentMessage ? `${currentMessage}\n\n${message}` : message;
 		} catch (ex) {
 			Logger.error(ex, 'GenerateCommitMessageCommand');
 
-			if (ex instanceof Error && ex.message.startsWith('No staged changes')) {
-				void window.showInformationMessage('No staged changes to generate a commit message from.');
+			if (ex instanceof Error && ex.message.startsWith('No changes')) {
+				void window.showInformationMessage('No changes to generate a commit message from.');
 				return;
 			}
 
 			void showGenericErrorMessage(ex.message);
 		}
-	}
-}
-
-@command()
-export class ResetOpenAIKeyCommand extends Command {
-	constructor(private readonly container: Container) {
-		super(Commands.ResetOpenAIKey);
-	}
-
-	execute() {
-		void this.container.storage.deleteSecret('gitlens.openai.key');
-		void this.container.storage.deleteWithPrefix('confirm:ai:tos');
-		void this.container.storage.deleteWorkspaceWithPrefix('confirm:ai:tos');
-
-		void this.container.storage.delete('confirm:sendToOpenAI');
-		void this.container.storage.deleteWorkspace('confirm:sendToOpenAI');
 	}
 }

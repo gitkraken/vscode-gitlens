@@ -1,6 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { SubscriptionState } from '../../../../../subscription';
+import { SubscriptionState } from '../../../../../plus/gk/account/subscription';
 import '../../../shared/components/button';
 import { linkStyles } from './vscode.css';
 
@@ -76,7 +76,7 @@ export class FeatureGatePlusState extends LitElement {
 					>
 					<p>
 						Preview Pro for 3 days, or
-						<a href="command:gitlens.plus.loginOrSignUp">sign in</a> to start a full 7-day Pro trial.
+						<a href="command:gitlens.plus.loginOrSignUp">sign in</a> to start a full 7-day GitKraken trial.
 					</p>
 					<p>✨ A trial or paid plan is required to use this on privately hosted repos.</p>
 				`;
@@ -84,18 +84,21 @@ export class FeatureGatePlusState extends LitElement {
 			case SubscriptionState.FreePreviewTrialExpired:
 				return html`
 					<p>
-						Your 3-day Pro preview has ended, start a free Pro trial to get an additional 7 days, or
+						Your 3-day Pro preview has ended, start a free GitKraken trial to get an additional 7 days, or
 						<a href="command:gitlens.plus.loginOrSignUp">sign in</a>.
 					</p>
 					<gl-button appearance="${appearance}" href="command:gitlens.plus.loginOrSignUp"
-						>Start Free Pro Trial</gl-button
+						>Start Free GitKraken Trial</gl-button
 					>
 					<p>✨ A trial or paid plan is required to use this on privately hosted repos.</p>
 				`;
 
 			case SubscriptionState.FreePlusTrialExpired:
 				return html`
-					<p>Your Pro trial has ended, please upgrade to continue to use this on privately hosted repos.</p>
+					<p>
+						Your GitKraken trial has ended, please upgrade to continue to use this on privately hosted
+						repos.
+					</p>
 					<gl-button appearance="${appearance}" href="command:gitlens.plus.purchase"
 						>Upgrade to Pro</gl-button
 					>

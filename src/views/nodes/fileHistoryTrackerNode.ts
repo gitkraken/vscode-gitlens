@@ -8,41 +8,45 @@ import { UriComparer } from '../../system/comparers';
 import { setContext } from '../../system/context';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
+import { weakEvent } from '../../system/event';
 import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
 import { Logger } from '../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
 import { isVirtualUri } from '../../system/utils';
 import type { FileHistoryView } from '../fileHistoryView';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues } from './abstract/viewNode';
 import { FileHistoryNode } from './fileHistoryNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, SubscribeableViewNode } from './viewNode';
 
-export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView> {
+export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-tracker', FileHistoryView> {
 	private _base: string | undefined;
-	private _child: FileHistoryNode | undefined;
 	protected override splatted = true;
 
 	constructor(view: FileHistoryView) {
-		super(unknownGitUri, view);
-	}
-
-	override dispose() {
-		super.dispose();
-
-		this.resetChild();
+		super('file-history-tracker', unknownGitUri, view);
 	}
 
 	@debug()
-	private resetChild() {
-		if (this._child == null) return;
+	override dispose() {
+		super.dispose();
+		this.child = undefined;
+	}
 
-		this._child.dispose();
-		this._child = undefined;
+	private _child: FileHistoryNode | undefined;
+	protected get child(): FileHistoryNode | undefined {
+		return this._child;
+	}
+	protected set child(value: FileHistoryNode | undefined) {
+		if (this._child === value) return;
+
+		this._child?.dispose();
+		this._child = value;
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._child == null) {
+		if (this.child == null) {
 			if (!this.hasUri) {
 				this.view.description = undefined;
 
@@ -79,10 +83,10 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 					filter: b => b.name === commitish.sha,
 				}));
 			}
-			this._child = new FileHistoryNode(fileUri, this.view, this, folder, branch);
+			this.child = new FileHistoryNode(fileUri, this.view, this, folder, branch);
 		}
 
-		return this._child.getChildren();
+		return this.child.getChildren();
 	}
 
 	getTreeItem(): TreeItem {
@@ -124,7 +128,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		} else {
 			this._base = pick.ref;
 		}
-		if (this._child == null) return;
+		if (this.child == null) return;
 
 		this.setUri();
 		await this.triggerChange();
@@ -190,7 +194,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			this.reset();
 		} else {
 			this.setUri(gitUri);
-			this.resetChild();
+			this.child = undefined;
 		}
 
 		setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
@@ -199,7 +203,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 	private reset() {
 		this.setUri();
-		this.resetChild();
+		this.child = undefined;
 	}
 
 	@log()
@@ -223,7 +227,9 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 	@debug()
 	protected subscribe() {
-		return Disposable.from(window.onDidChangeActiveTextEditor(debounce(this.onActiveEditorChanged, 250), this));
+		return Disposable.from(
+			weakEvent(window.onDidChangeActiveTextEditor, debounce(this.onActiveEditorChanged, 250), this),
+		);
 	}
 
 	protected override etag(): number {

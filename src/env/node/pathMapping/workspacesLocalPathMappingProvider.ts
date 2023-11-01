@@ -160,15 +160,15 @@ export class WorkspacesLocalPathMappingProvider implements WorkspacesPathMapping
 		try {
 			localFileUri = getSharedLocalWorkspaceMappingFileUri();
 			data = await workspace.fs.readFile(localFileUri);
-			return JSON.parse(data.toString()) as LocalWorkspaceFileData;
-		} catch (error) {
+			if (data?.length) return JSON.parse(data.toString()) as LocalWorkspaceFileData;
+		} catch (ex) {
 			// Fall back to using legacy location for file
 			try {
 				localFileUri = getSharedLegacyLocalWorkspaceMappingFileUri();
 				data = await workspace.fs.readFile(localFileUri);
-				return JSON.parse(data.toString()) as LocalWorkspaceFileData;
-			} catch (error) {
-				Logger.error(error, 'getLocalWorkspaceData');
+				if (data?.length) return JSON.parse(data.toString()) as LocalWorkspaceFileData;
+			} catch (ex) {
+				Logger.error(ex, 'getLocalWorkspaceData');
 			}
 		}
 

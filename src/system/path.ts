@@ -101,7 +101,7 @@ export function isChild(pathOrUri: string | Uri, base: string | Uri): boolean {
 		}
 
 		return (
-			isDescendent(pathOrUri, base) &&
+			isDescendant(pathOrUri, base) &&
 			(typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.path)
 				.substr(base.length + (base.charCodeAt(base.length - 1) === slash ? 0 : 1))
 				.split('/').length === 1
@@ -109,17 +109,17 @@ export function isChild(pathOrUri: string | Uri, base: string | Uri): boolean {
 	}
 
 	return (
-		isDescendent(pathOrUri, base) &&
+		isDescendant(pathOrUri, base) &&
 		(typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.path)
 			.substr(base.path.length + (base.path.charCodeAt(base.path.length - 1) === slash ? 0 : 1))
 			.split('/').length === 1
 	);
 }
 
-export function isDescendent(path: string, base: string | Uri): boolean;
-export function isDescendent(uri: Uri, base: string | Uri): boolean;
-export function isDescendent(pathOrUri: string | Uri, base: string | Uri): boolean;
-export function isDescendent(pathOrUri: string | Uri, base: string | Uri): boolean {
+export function isDescendant(path: string, base: string | Uri): boolean;
+export function isDescendant(uri: Uri, base: string | Uri): boolean;
+export function isDescendant(pathOrUri: string | Uri, base: string | Uri): boolean;
+export function isDescendant(pathOrUri: string | Uri, base: string | Uri): boolean {
 	if (typeof base === 'string') {
 		base = normalizePath(base);
 		if (base.charCodeAt(0) !== slash) {
@@ -189,6 +189,14 @@ export function normalizePath(path: string): string {
 	}
 
 	return path;
+}
+
+export function pathEquals(a: string, b: string, ignoreCase?: boolean): boolean {
+	if (ignoreCase || (ignoreCase == null && !isLinux)) {
+		a = a.toLowerCase();
+		b = b.toLowerCase();
+	}
+	return normalizePath(a) === normalizePath(b);
 }
 
 export function relative(from: string, to: string, ignoreCase?: boolean): string {

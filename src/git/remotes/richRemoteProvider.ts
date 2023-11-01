@@ -1,18 +1,25 @@
-import type { AuthenticationSession, AuthenticationSessionsChangeEvent, Event, MessageItem } from 'vscode';
-import { authentication, EventEmitter, window } from 'vscode';
+/* eslint-disable @typescript-eslint/no-confusing-void-expression */
+import type {
+	AuthenticationSession,
+	AuthenticationSessionsChangeEvent,
+	CancellationToken,
+	Event,
+	MessageItem,
+} from 'vscode';
+import { authentication, CancellationError, Disposable, EventEmitter, window } from 'vscode';
 import { wrapForForcedInsecureSSL } from '@env/fetch';
 import { isWeb } from '@env/platform';
 import type { Container } from '../../container';
 import { AuthenticationError, ProviderRequestClientError } from '../../errors';
 import { showIntegrationDisconnectedTooManyFailedRequestsWarningMessage } from '../../messages';
+import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../../plus/gk/account/subscription';
 import type { IntegrationAuthenticationSessionDescriptor } from '../../plus/integrationAuthentication';
-import { isSubscriptionPaidPlan, isSubscriptionPreviewTrialExpired } from '../../subscription';
 import { configuration } from '../../system/configuration';
 import { gate } from '../../system/decorators/gate';
-import { debug, log } from '../../system/decorators/log';
+import { debug, log, logName } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
+import type { LogScope } from '../../system/logger.scope';
 import { getLogScope } from '../../system/logger.scope';
-import { isPromise } from '../../system/promise';
 import type { Account } from '../models/author';
 import type { DefaultBranch } from '../models/defaultBranch';
 import type { IssueOrPullRequest, SearchedIssue } from '../models/issue';
@@ -22,13 +29,21 @@ import { RemoteProvider } from './remoteProvider';
 
 // TODO@eamodio revisit how once authenticated, all remotes are always connected, even after a restart
 
-export abstract class RichRemoteProvider extends RemoteProvider {
+export type RepositoryDescriptor = Record<string, string>;
+
+@logName<RichRemoteProvider>((c, name) => `${name}(${c.remoteKey})`)
+export abstract class RichRemoteProvider<T extends RepositoryDescriptor = RepositoryDescriptor>
+	extends RemoteProvider
+	implements Disposable
+{
 	override readonly type: 'simple' | 'rich' = 'rich';
 
 	private readonly _onDidChange = new EventEmitter<void>();
 	get onDidChange(): Event<void> {
 		return this._onDidChange.event;
 	}
+
+	private readonly _disposable: Disposable;
 
 	constructor(
 		protected readonly container: Container,
@@ -40,7 +55,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 	) {
 		super(domain, path, protocol, name, custom);
 
-		container.context.subscriptions.push(
+		this._disposable = Disposable.from(
 			configuration.onDidChange(e => {
 				if (configuration.changed(e, 'remotes')) {
 					this._ignoreSSLErrors.clear();
@@ -58,6 +73,20 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			}),
 			authentication.onDidChangeSessions(this.onAuthenticationSessionsChanged, this),
 		);
+
+		container.context.subscriptions.push(this._disposable);
+
+		// If we think we should be connected, try to
+		if (this.shouldConnect) {
+			void this.isConnected();
+		}
+	}
+
+	disposed = false;
+
+	dispose() {
+		this._disposable.dispose();
+		this.disposed = true;
 	}
 
 	abstract get apiBaseUrl(): string;
@@ -76,6 +105,11 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 	override get maybeConnected(): boolean | undefined {
 		return this._session === undefined ? undefined : this._session !== null;
+	}
+
+	// This is a hack for now, since providers come and go with remotes
+	get shouldConnect(): boolean {
+		return this.container.richRemoteProviders.isConnected(this.key);
 	}
 
 	protected _session: AuthenticationSession | null | undefined;
@@ -146,8 +180,6 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		}
 
 		this.resetRequestExceptionCount();
-		this._repoMetadata = undefined;
-		this._prsByCommit.clear();
 		this._session = null;
 
 		if (connected) {
@@ -175,6 +207,17 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 	resetRequestExceptionCount() {
 		this.requestExceptionCount = 0;
+	}
+
+	private handleProviderException<T>(ex: Error, scope: LogScope | undefined, defaultValue: T): T {
+		if (ex instanceof CancellationError) return defaultValue;
+
+		Logger.error(ex, scope);
+
+		if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
+			this.trackRequestException();
+		}
+		return defaultValue;
 	}
 
 	@debug()
@@ -210,12 +253,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			this.resetRequestExceptionCount();
 			return author;
 		} catch (ex) {
-			Logger.error(ex, scope);
-
-			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-				this.trackRequestException();
-			}
-			return undefined;
+			return this.handleProviderException(ex, scope, undefined);
 		}
 	}
 
@@ -245,12 +283,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			this.resetRequestExceptionCount();
 			return author;
 		} catch (ex) {
-			Logger.error(ex, scope);
-
-			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-				this.trackRequestException();
-			}
-			return undefined;
+			return this.handleProviderException(ex, scope, undefined);
 		}
 	}
 
@@ -262,7 +295,6 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		},
 	): Promise<Account | undefined>;
 
-	@gate()
 	@debug()
 	async getDefaultBranch(): Promise<DefaultBranch | undefined> {
 		const scope = getLogScope();
@@ -270,118 +302,23 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		try {
-			const defaultBranch = await this.getProviderDefaultBranch(this._session!);
-			this.resetRequestExceptionCount();
-			return defaultBranch;
-		} catch (ex) {
-			Logger.error(ex, scope);
-
-			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-				this.trackRequestException();
-			}
-			return undefined;
-		}
+		const defaultBranch = this.container.cache.getRepositoryDefaultBranch(this, () => ({
+			value: (async () => {
+				try {
+					const result = await this.getProviderDefaultBranch(this._session!);
+					this.resetRequestExceptionCount();
+					return result;
+				} catch (ex) {
+					return this.handleProviderException<DefaultBranch | undefined>(ex, scope, undefined);
+				}
+			})(),
+		}));
+		return defaultBranch;
 	}
 
 	protected abstract getProviderDefaultBranch({
 		accessToken,
 	}: AuthenticationSession): Promise<DefaultBranch | undefined>;
-
-	private _repoMetadata: RepositoryMetadata | undefined;
-
-	@gate()
-	@debug()
-	async getRepositoryMetadata(): Promise<RepositoryMetadata | undefined> {
-		if (this._repoMetadata != null) return this._repoMetadata;
-
-		const scope = getLogScope();
-
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		try {
-			const metadata = await this.getProviderRepositoryMetadata(this._session!);
-			this._repoMetadata = metadata;
-			this.resetRequestExceptionCount();
-			return metadata;
-		} catch (ex) {
-			Logger.error(ex, scope);
-
-			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-				this.trackRequestException();
-			}
-			return undefined;
-		}
-	}
-
-	protected abstract getProviderRepositoryMetadata({
-		accessToken,
-	}: AuthenticationSession): Promise<RepositoryMetadata | undefined>;
-
-	@gate()
-	@debug()
-	async searchMyPullRequests(): Promise<SearchedPullRequest[] | undefined> {
-		const scope = getLogScope();
-
-		try {
-			const pullRequests = await this.searchProviderMyPullRequests(this._session!);
-			this.resetRequestExceptionCount();
-			return pullRequests;
-		} catch (ex) {
-			Logger.error(ex, scope);
-
-			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-				this.trackRequestException();
-			}
-			return undefined;
-		}
-	}
-	protected abstract searchProviderMyPullRequests(
-		session: AuthenticationSession,
-	): Promise<SearchedPullRequest[] | undefined>;
-
-	@gate()
-	@debug()
-	async searchMyIssues(): Promise<SearchedIssue[] | undefined> {
-		const scope = getLogScope();
-
-		try {
-			const issues = await this.searchProviderMyIssues(this._session!);
-			this.resetRequestExceptionCount();
-			return issues;
-		} catch (ex) {
-			Logger.error(ex, scope);
-
-			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-				this.trackRequestException();
-			}
-			return undefined;
-		}
-	}
-	protected abstract searchProviderMyIssues(session: AuthenticationSession): Promise<SearchedIssue[] | undefined>;
-
-	@gate()
-	@debug()
-	async getIssueOrPullRequest(id: string): Promise<IssueOrPullRequest | undefined> {
-		const scope = getLogScope();
-
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		try {
-			const issueOrPullRequest = await this.getProviderIssueOrPullRequest(this._session!, id);
-			this.resetRequestExceptionCount();
-			return issueOrPullRequest;
-		} catch (ex) {
-			Logger.error(ex, scope);
-
-			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-				this.trackRequestException();
-			}
-			return undefined;
-		}
-	}
 
 	private _ignoreSSLErrors = new Map<string, boolean | 'force'>();
 	getIgnoreSSLErrors(): boolean | 'force' {
@@ -399,12 +336,58 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		return ignoreSSLErrors;
 	}
 
+	@debug()
+	async getRepositoryMetadata(_cancellation?: CancellationToken): Promise<RepositoryMetadata | undefined> {
+		const scope = getLogScope();
+
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		const metadata = this.container.cache.getRepositoryMetadata(this, () => ({
+			value: (async () => {
+				try {
+					const result = await this.getProviderRepositoryMetadata(this._session!);
+					this.resetRequestExceptionCount();
+					return result;
+				} catch (ex) {
+					return this.handleProviderException<RepositoryMetadata | undefined>(ex, scope, undefined);
+				}
+			})(),
+		}));
+		return metadata;
+	}
+
+	protected abstract getProviderRepositoryMetadata({
+		accessToken,
+	}: AuthenticationSession): Promise<RepositoryMetadata | undefined>;
+
+	@debug()
+	async getIssueOrPullRequest(id: string, repo: T | undefined): Promise<IssueOrPullRequest | undefined> {
+		const scope = getLogScope();
+
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		const issueOrPR = this.container.cache.getIssueOrPullRequest(id, repo, this, () => ({
+			value: (async () => {
+				try {
+					const result = await this.getProviderIssueOrPullRequest(this._session!, id, repo);
+					this.resetRequestExceptionCount();
+					return result;
+				} catch (ex) {
+					return this.handleProviderException<IssueOrPullRequest | undefined>(ex, scope, undefined);
+				}
+			})(),
+		}));
+		return issueOrPR;
+	}
+
 	protected abstract getProviderIssueOrPullRequest(
 		session: AuthenticationSession,
 		id: string,
+		repo: T | undefined,
 	): Promise<IssueOrPullRequest | undefined>;
 
-	@gate()
 	@debug()
 	async getPullRequestForBranch(
 		branch: string,
@@ -418,19 +401,20 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		const connected = this.maybeConnected ?? (await this.isConnected());
 		if (!connected) return undefined;
 
-		try {
-			const pr = await this.getProviderPullRequestForBranch(this._session!, branch, options);
-			this.resetRequestExceptionCount();
-			return pr;
-		} catch (ex) {
-			Logger.error(ex, scope);
-
-			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-				this.trackRequestException();
-			}
-			return undefined;
-		}
+		const pr = this.container.cache.getPullRequestForBranch(branch, this, () => ({
+			value: (async () => {
+				try {
+					const result = await this.getProviderPullRequestForBranch(this._session!, branch, options);
+					this.resetRequestExceptionCount();
+					return result;
+				} catch (ex) {
+					return this.handleProviderException<PullRequest | undefined>(ex, scope, undefined);
+				}
+			})(),
+		}));
+		return pr;
 	}
+
 	protected abstract getProviderPullRequestForBranch(
 		session: AuthenticationSession,
 		branch: string,
@@ -440,48 +424,63 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		},
 	): Promise<PullRequest | undefined>;
 
-	private _prsByCommit = new Map<string, Promise<PullRequest | null> | PullRequest | null>();
-
 	@debug()
-	getPullRequestForCommit(ref: string): Promise<PullRequest | undefined> | PullRequest | undefined {
-		let pr = this._prsByCommit.get(ref);
-		if (pr === undefined) {
-			pr = this.getPullRequestForCommitCore(ref);
-			this._prsByCommit.set(ref, pr);
-		}
-		if (pr == null || !isPromise(pr)) return pr ?? undefined;
-
-		return pr.then(pr => pr ?? undefined);
-	}
-
-	@debug()
-	private async getPullRequestForCommitCore(ref: string) {
+	async getPullRequestForCommit(ref: string): Promise<PullRequest | undefined> {
 		const scope = getLogScope();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return null;
+		if (!connected) return undefined;
 
-		try {
-			const pr = (await this.getProviderPullRequestForCommit(this._session!, ref)) ?? null;
-			this._prsByCommit.set(ref, pr);
-			this.resetRequestExceptionCount();
-			return pr;
-		} catch (ex) {
-			Logger.error(ex, scope);
-
-			this._prsByCommit.delete(ref);
-
-			if (ex instanceof AuthenticationError || ex instanceof ProviderRequestClientError) {
-				this.trackRequestException();
-			}
-			return null;
-		}
+		const pr = this.container.cache.getPullRequestForSha(ref, this, () => ({
+			value: (async () => {
+				try {
+					const result = await this.getProviderPullRequestForCommit(this._session!, ref);
+					this.resetRequestExceptionCount();
+					return result;
+				} catch (ex) {
+					return this.handleProviderException<PullRequest | undefined>(ex, scope, undefined);
+				}
+			})(),
+		}));
+		return pr;
 	}
 
 	protected abstract getProviderPullRequestForCommit(
 		session: AuthenticationSession,
 		ref: string,
 	): Promise<PullRequest | undefined>;
+
+	@gate()
+	@debug()
+	async searchMyIssues(): Promise<SearchedIssue[] | undefined> {
+		const scope = getLogScope();
+
+		try {
+			const issues = await this.searchProviderMyIssues(this._session!);
+			this.resetRequestExceptionCount();
+			return issues;
+		} catch (ex) {
+			return this.handleProviderException(ex, scope, undefined);
+		}
+	}
+	protected abstract searchProviderMyIssues(session: AuthenticationSession): Promise<SearchedIssue[] | undefined>;
+
+	@gate()
+	@debug()
+	async searchMyPullRequests(): Promise<SearchedPullRequest[] | undefined> {
+		const scope = getLogScope();
+
+		try {
+			const pullRequests = await this.searchProviderMyPullRequests(this._session!);
+			this.resetRequestExceptionCount();
+			return pullRequests;
+		} catch (ex) {
+			return this.handleProviderException(ex, scope, undefined);
+		}
+	}
+	protected abstract searchProviderMyPullRequests(
+		session: AuthenticationSession,
+	): Promise<SearchedPullRequest[] | undefined>;
 
 	@gate()
 	private async ensureSession(
@@ -586,7 +585,7 @@ export async function ensurePaidPlan(providerName: string, container: Container)
 			void container.subscription.startPreviewTrial();
 			break;
 		} else if (subscription.account == null) {
-			const signIn = { title: 'Start Free Pro Trial' };
+			const signIn = { title: 'Start Free GitKraken Trial' };
 			const cancel = { title: 'Cancel', isCloseAffordance: true };
 			const result = await window.showWarningMessage(
 				`${title}\n\nDo you want to continue to use ✨ features on privately hosted repos, free for an additional 7 days?`,

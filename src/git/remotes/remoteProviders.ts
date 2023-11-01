@@ -1,5 +1,4 @@
 import type { RemotesConfig } from '../../config';
-import { CustomRemoteType } from '../../config';
 import type { Container } from '../../container';
 import { Logger } from '../../system/logger';
 import { AzureDevOpsRemote } from './azure-devops';
@@ -104,31 +103,31 @@ export function loadRemoteProviders(cfg: RemotesConfig[] | null | undefined): Re
 
 function getCustomProviderCreator(cfg: RemotesConfig) {
 	switch (cfg.type) {
-		case CustomRemoteType.AzureDevOps:
+		case 'AzureDevOps':
 			return (_container: Container, domain: string, path: string) =>
 				new AzureDevOpsRemote(domain, path, cfg.protocol, cfg.name, true);
-		case CustomRemoteType.Bitbucket:
+		case 'Bitbucket':
 			return (_container: Container, domain: string, path: string) =>
 				new BitbucketRemote(domain, path, cfg.protocol, cfg.name, true);
-		case CustomRemoteType.BitbucketServer:
+		case 'BitbucketServer':
 			return (_container: Container, domain: string, path: string) =>
 				new BitbucketServerRemote(domain, path, cfg.protocol, cfg.name, true);
-		case CustomRemoteType.Custom:
+		case 'Custom':
 			return (_container: Container, domain: string, path: string) =>
 				new CustomRemote(domain, path, cfg.urls!, cfg.protocol, cfg.name);
-		case CustomRemoteType.Gerrit:
+		case 'Gerrit':
 			return (_container: Container, domain: string, path: string) =>
 				new GerritRemote(domain, path, cfg.protocol, cfg.name, true);
-		case CustomRemoteType.GoogleSource:
+		case 'GoogleSource':
 			return (_container: Container, domain: string, path: string) =>
 				new GoogleSourceRemote(domain, path, cfg.protocol, cfg.name, true);
-		case CustomRemoteType.Gitea:
+		case 'Gitea':
 			return (_container: Container, domain: string, path: string) =>
 				new GiteaRemote(domain, path, cfg.protocol, cfg.name, true);
-		case CustomRemoteType.GitHub:
+		case 'GitHub':
 			return (container: Container, domain: string, path: string) =>
 				new GitHubRemote(container, domain, path, cfg.protocol, cfg.name, true);
-		case CustomRemoteType.GitLab:
+		case 'GitLab':
 			return (container: Container, domain: string, path: string) =>
 				new GitLabRemote(container, domain, path, cfg.protocol, cfg.name, true);
 		default:
@@ -171,6 +170,7 @@ function createBestRemoteProvider(
 
 		return undefined;
 	} catch (ex) {
+		debugger;
 		Logger.error(ex, 'createRemoteProvider');
 		return undefined;
 	}

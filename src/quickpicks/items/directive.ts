@@ -1,5 +1,5 @@
 import type { QuickPickItem } from 'vscode';
-import type { Subscription } from '../../subscription';
+import type { Subscription } from '../../plus/gk/account/subscription';
 
 export enum Directive {
 	Back,
@@ -47,7 +47,7 @@ export function createDirectiveQuickPickItem(
 				detail = 'Preview Pro for 3-days to use this on privately hosted repos';
 				break;
 			case Directive.ExtendTrial:
-				label = 'Start Free Pro Trial';
+				label = 'Start Free GitKraken Trial';
 				detail = 'Continue to use this on privately hosted repos, free for an additional 7 days';
 				break;
 			case Directive.RequiresVerification:

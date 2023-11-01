@@ -1,7 +1,6 @@
 import { join as joinPaths } from 'path';
 import * as process from 'process';
 import { GlyphChars } from '../../../constants';
-import { LogLevel } from '../../../system/logger.constants';
 import { any } from '../../../system/promise';
 import { maybeStopWatch } from '../../../system/stopwatch';
 import { findExecutable, run } from './shell';
@@ -28,7 +27,7 @@ export interface GitLocation {
 }
 
 async function findSpecificGit(path: string): Promise<GitLocation> {
-	const sw = maybeStopWatch(`findSpecificGit(${path})`, { logLevel: LogLevel.Debug });
+	const sw = maybeStopWatch(`findSpecificGit(${path})`, { logLevel: 'debug' });
 
 	let version;
 	try {

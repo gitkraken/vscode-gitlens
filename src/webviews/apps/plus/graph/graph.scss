@@ -414,18 +414,11 @@ button:not([disabled]),
 .columns-settings {
 	--column-button-height: 19px;
 
-	position: absolute;
-	top: 2px;
-	right: 0 !important;
-	z-index: 2;
-
 	appearance: none;
 	font-family: inherit;
 	background-color: transparent;
 	border: none;
 	color: var(--color-graph-text-disabled, hsla(0, 0%, 100%, 0.4));
-	margin: 0;
-	padding: 0 2px;
 	height: var(--column-button-height);
 	cursor: pointer;
 	background-color: var(--color-graph-actionbar-background);
@@ -620,6 +613,37 @@ button:not([disabled]),
 			// codicon-cloud
 			font-family: codicon;
 			content: '\ebaa';
+		}
+	}
+	&--remote-github,
+	&--remote-githubEnterprise {
+		&::before {
+			// codicon-github-inverted
+			font-family: codicon;
+			content: '\eba1';
+		}
+	}
+	&--remote-gitlab,
+	&--remote-gitlabSelfHosted {
+		&::before {
+			// glicon-provider-gitlab
+			font-family: 'glicons';
+			content: '\f123';
+		}
+	}
+	&--remote-bitbucket,
+	&--remote-bitbucketServer {
+		&::before {
+			// glicon-provider-bitbucket
+			font-family: 'glicons';
+			content: '\f11f';
+		}
+	}
+	&--remote-azureDevops {
+		&::before {
+			// glicon-provider-azdo
+			font-family: 'glicons';
+			content: '\f11e';
 		}
 	}
 	&--tag {
@@ -913,9 +937,7 @@ button:not([disabled]),
 	}
 }
 
-.graph-header {
-	padding-top: 1px;
-
+.gk-graph .graph-header {
 	& .resizable-handle.horizontal {
 		--sash-size: 4px;
 		--sash-hover-size: 4px;
@@ -957,6 +979,10 @@ button:not([disabled]),
 		}
 	}
 
+	.columns-btn {
+		margin-top: 0.1rem;
+	}
+
 	.button {
 		background-color: var(--color-graph-actionbar-background);
 		color: var(--color-graph-text-disabled, hsla(0deg, 0%, 100%, 0.4));
@@ -979,8 +1005,6 @@ button:not([disabled]),
 	}
 
 	.graph-icon {
-		position: relative;
-		top: -2px;
 		color: var(--color-graph-text-disabled, hsla(0, 0%, 100%, 0.4));
 	}
 }
@@ -1096,25 +1120,33 @@ button:not([disabled]),
 	}
 }
 
-.tooltip {
-	font-size: var(--vscode-font-size);
-	font-family: var(--vscode-font-family);
-	font-weight: normal;
-	line-height: 19px;
+.gk-graph .tooltip,
+.gk-graph.tooltip {
+	font-size: var(--vscode-font-size) !important;
+	font-family: var(--vscode-font-family) !important;
+	font-weight: normal !important;
+	line-height: 19px !important;
 
 	&.in {
 		opacity: 1;
 	}
+
+	&.tooltip-arrow:after {
+		background-color: var(--color-hover-background) !important;
+		border-right-color: var(--color-hover-border) !important;
+		border-bottom-color: var(--color-hover-border) !important;
+	}
+
 	&-inner {
-		font-size: var(--vscode-font-size);
-		padding: 4px 10px 5px 10px;
-		color: var(--color-hover-foreground);
-		background-color: var(--color-hover-background);
-		border: 1px solid var(--color-hover-border);
-		border-radius: 0;
-		box-shadow: 0 2px 8px var(--vscode-widget-shadow);
-		text-align: start;
-		white-space: break-spaces;
+		font-size: var(--vscode-font-size) !important;
+		padding: 4px 10px 5px 10px !important;
+		color: var(--color-hover-foreground) !important;
+		background-color: var(--color-hover-background) !important;
+		border: 1px solid var(--color-hover-border) !important;
+		border-radius: 0 !important;
+		box-shadow: 0 2px 8px var(--vscode-widget-shadow) !important;
+		text-align: start !important;
+		white-space: break-spaces !important;
 	}
 }
 

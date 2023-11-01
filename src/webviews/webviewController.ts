@@ -9,10 +9,16 @@ import { debug, logName } from '../system/decorators/log';
 import { serialize } from '../system/decorators/serialize';
 import { isPromise } from '../system/promise';
 import type { WebviewContext } from '../system/webview';
-import type { IpcMessage, IpcMessageParams, IpcNotificationType, WebviewFocusChangedParams } from './protocol';
+import type {
+	IpcMessage,
+	IpcMessageParams,
+	IpcNotificationType,
+	WebviewFocusChangedParams,
+	WebviewState,
+} from './protocol';
 import { ExecuteCommandType, onIpc, WebviewFocusChangedCommandType, WebviewReadyCommandType } from './protocol';
 import type { WebviewCommandCallback, WebviewCommandRegistrar } from './webviewCommandRegistrar';
-import type { WebviewPanelDescriptor, WebviewViewDescriptor } from './webviewsController';
+import type { WebviewPanelDescriptor, WebviewShowOptions, WebviewViewDescriptor } from './webviewsController';
 
 const maxSmallIntegerV8 = 2 ** 30; // Max number that can be stored in V8's smis (small integers)
 const utf8TextDecoder = new TextDecoder('utf8');
@@ -34,11 +40,20 @@ type GetParentType<T extends WebviewPanelDescriptor | WebviewViewDescriptor> = T
 	? WebviewView
 	: never;
 
-export interface WebviewProvider<State, SerializedState = State> extends Disposable {
+export type WebviewShowingArgs<T extends unknown[], SerializedState> = T | [{ state: Partial<SerializedState> }] | [];
+
+export interface WebviewProvider<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]>
+	extends Disposable {
+	/**
+	 * Determines whether the webview instance can be reused
+	 * @returns `true` if the webview should be reused, `false` if it should NOT be reused, and `undefined` if it *could* be reused but not ideal
+	 */
+	canReuseInstance?(...args: WebviewShowingArgs<ShowingArgs, SerializedState>): boolean | undefined;
+	getSplitArgs?(): WebviewShowingArgs<ShowingArgs, SerializedState>;
 	onShowing?(
 		loading: boolean,
-		options: { column?: ViewColumn; preserveFocus?: boolean },
-		...args: unknown[]
+		options: WebviewShowOptions,
+		...args: WebviewShowingArgs<ShowingArgs, SerializedState>
 	): boolean | Promise<boolean>;
 	registerCommands?(): Disposable[];
 
@@ -57,58 +72,63 @@ export interface WebviewProvider<State, SerializedState = State> extends Disposa
 	onWindowFocusChanged?(focused: boolean): void;
 }
 
-type WebviewPanelController<State, SerializedState = State> = WebviewController<
+type WebviewPanelController<
 	State,
-	SerializedState,
-	WebviewPanelDescriptor
->;
-type WebviewViewController<State, SerializedState = State> = WebviewController<
+	SerializedState = State,
+	ShowingArgs extends unknown[] = unknown[],
+> = WebviewController<State, SerializedState, ShowingArgs, WebviewPanelDescriptor>;
+type WebviewViewController<
 	State,
-	SerializedState,
-	WebviewViewDescriptor
->;
+	SerializedState = State,
+	ShowingArgs extends unknown[] = unknown[],
+> = WebviewController<State, SerializedState, ShowingArgs, WebviewViewDescriptor>;
 
-@logName<WebviewController<any>>(c => `WebviewController(${c.id})`)
+@logName<WebviewController<any>>(c => `WebviewController(${c.id}${c.instanceId != null ? `|${c.instanceId}` : ''})`)
 export class WebviewController<
 	State,
 	SerializedState = State,
+	ShowingArgs extends unknown[] = unknown[],
 	Descriptor extends WebviewPanelDescriptor | WebviewViewDescriptor = WebviewPanelDescriptor | WebviewViewDescriptor,
 > implements Disposable
 {
-	static async create<State, SerializedState = State>(
+	static async create<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]>(
 		container: Container,
 		commandRegistrar: WebviewCommandRegistrar,
 		descriptor: WebviewPanelDescriptor,
+		instanceId: string | undefined,
 		parent: WebviewPanel,
 		resolveProvider: (
 			container: Container,
-			controller: WebviewController<State, SerializedState>,
-		) => Promise<WebviewProvider<State, SerializedState>>,
-	): Promise<WebviewController<State, SerializedState, WebviewPanelDescriptor>>;
-	static async create<State, SerializedState = State>(
+			controller: WebviewController<State, SerializedState, ShowingArgs>,
+		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
+	): Promise<WebviewController<State, SerializedState, ShowingArgs, WebviewPanelDescriptor>>;
+	static async create<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]>(
 		container: Container,
 		commandRegistrar: WebviewCommandRegistrar,
 		descriptor: WebviewViewDescriptor,
+		instanceId: string | undefined,
 		parent: WebviewView,
 		resolveProvider: (
 			container: Container,
-			controller: WebviewController<State, SerializedState>,
-		) => Promise<WebviewProvider<State, SerializedState>>,
-	): Promise<WebviewController<State, SerializedState, WebviewViewDescriptor>>;
-	static async create<State, SerializedState = State>(
+			controller: WebviewController<State, SerializedState, ShowingArgs>,
+		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
+	): Promise<WebviewController<State, SerializedState, ShowingArgs, WebviewViewDescriptor>>;
+	static async create<State, SerializedState = State, ShowingArgs extends unknown[] = unknown[]>(
 		container: Container,
 		commandRegistrar: WebviewCommandRegistrar,
 		descriptor: WebviewPanelDescriptor | WebviewViewDescriptor,
+		instanceId: string | undefined,
 		parent: WebviewPanel | WebviewView,
 		resolveProvider: (
 			container: Container,
-			controller: WebviewController<State, SerializedState>,
-		) => Promise<WebviewProvider<State, SerializedState>>,
-	): Promise<WebviewController<State, SerializedState>> {
-		const controller = new WebviewController<State, SerializedState>(
+			controller: WebviewController<State, SerializedState, ShowingArgs>,
+		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
+	): Promise<WebviewController<State, SerializedState, ShowingArgs>> {
+		const controller = new WebviewController<State, SerializedState, ShowingArgs>(
 			container,
 			commandRegistrar,
 			descriptor,
+			instanceId,
 			parent,
 			resolveProvider,
 		);
@@ -129,18 +149,19 @@ export class WebviewController<
 	}
 
 	private disposable: Disposable | undefined;
-	private /*readonly*/ provider!: WebviewProvider<State, SerializedState>;
+	private /*readonly*/ provider!: WebviewProvider<State, SerializedState, ShowingArgs>;
 	private readonly webview: Webview;
 
 	private constructor(
 		private readonly container: Container,
 		private readonly _commandRegistrar: WebviewCommandRegistrar,
 		private readonly descriptor: Descriptor,
+		public readonly instanceId: string | undefined,
 		public readonly parent: GetParentType<Descriptor>,
 		resolveProvider: (
 			container: Container,
-			controller: WebviewController<State, SerializedState>,
-		) => Promise<WebviewProvider<State, SerializedState>>,
+			controller: WebviewController<State, SerializedState, ShowingArgs>,
+		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
 	) {
 		this.id = descriptor.id;
 		this.webview = parent.webview;
@@ -187,7 +208,7 @@ export class WebviewController<
 	}
 
 	registerWebviewCommand<T extends Partial<WebviewContext>>(command: string, callback: WebviewCommandCallback<T>) {
-		return this._commandRegistrar.registerCommand(this.provider, this.id, command, callback);
+		return this._commandRegistrar.registerCommand(this.provider, this.id, this.instanceId, command, callback);
 	}
 
 	private _initializing: Promise<void> | undefined;
@@ -254,8 +275,28 @@ export class WebviewController<
 		return this._disposed ? false : this.parent.visible;
 	}
 
+	canReuseInstance(
+		options?: WebviewShowOptions,
+		...args: WebviewShowingArgs<ShowingArgs, SerializedState>
+	): boolean | undefined {
+		if (!this.isEditor()) return undefined;
+
+		if (options?.column != null && options.column !== this.parent.viewColumn) return false;
+		return this.provider.canReuseInstance?.(...args);
+	}
+
+	getSplitArgs(): WebviewShowingArgs<ShowingArgs, SerializedState> {
+		if (!this.isEditor()) return [];
+
+		return this.provider.getSplitArgs?.() ?? [];
+	}
+
 	@debug({ args: false })
-	async show(loading: boolean, options?: { column?: ViewColumn; preserveFocus?: boolean }, ...args: unknown[]) {
+	async show(
+		loading: boolean,
+		options?: WebviewShowOptions,
+		...args: WebviewShowingArgs<ShowingArgs, SerializedState>
+	) {
 		if (options == null) {
 			options = {};
 		}
@@ -287,7 +328,15 @@ export class WebviewController<
 			}
 		}
 
-		setContextKeys(this.descriptor.contextKeyPrefix, this.active);
+		setContextKeys(this.descriptor.contextKeyPrefix);
+	}
+
+	get baseWebviewState(): WebviewState {
+		return {
+			webviewId: this.id,
+			webviewInstanceId: this.instanceId,
+			timestamp: Date.now(),
+		};
 	}
 
 	private readonly _cspNonce = getNonce();
@@ -375,7 +424,7 @@ export class WebviewController<
 		args: { 0: e => `focused=${e.focused}, inputFocused=${e.inputFocused}` },
 	})
 	onViewFocusChanged(e: WebviewFocusChangedParams): void {
-		setContextKeys(this.descriptor.contextKeyPrefix, undefined, e.focused, e.inputFocused);
+		setContextKeys(this.descriptor.contextKeyPrefix);
 		this.provider.onFocusChanged?.(e.focused);
 	}
 
@@ -399,7 +448,7 @@ export class WebviewController<
 		if (visible) {
 			void this.container.usage.track(`${this.descriptor.trackingFeature}:shown`);
 
-			setContextKeys(this.descriptor.contextKeyPrefix, active);
+			setContextKeys(this.descriptor.contextKeyPrefix);
 			if (active != null) {
 				this.provider.onActiveChanged?.(active);
 				if (!active) {
@@ -458,7 +507,8 @@ export class WebviewController<
 
 		const html = replaceWebviewHtmlTokens(
 			utf8TextDecoder.decode(bytes),
-			this.descriptor.id,
+			this.id,
+			this.instanceId,
 			webview.cspSource,
 			this._cspNonce,
 			this.asWebviewUri(this.getRootUri()).toString(),
@@ -560,6 +610,7 @@ export class WebviewController<
 export function replaceWebviewHtmlTokens<SerializedState>(
 	html: string,
 	webviewId: string,
+	webviewInstanceId: string | undefined,
 	cspSource: string,
 	cspNonce: string,
 	root: string,
@@ -571,7 +622,7 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 	endOfBody?: string,
 ) {
 	return html.replace(
-		/#{(head|body|endOfBody|webviewId|placement|cspSource|cspNonce|root|webroot)}/g,
+		/#{(head|body|endOfBody|webviewId|webviewInstanceId|placement|cspSource|cspNonce|root|webroot)}/g,
 		(_substring: string, token: string) => {
 			switch (token) {
 				case 'head':
@@ -588,6 +639,8 @@ export function replaceWebviewHtmlTokens<SerializedState>(
 					}${endOfBody ?? ''}`;
 				case 'webviewId':
 					return webviewId;
+				case 'webviewInstanceId':
+					return webviewInstanceId ?? '';
 				case 'placement':
 					return placement;
 				case 'cspSource':
@@ -609,40 +662,12 @@ export function resetContextKeys(
 	contextKeyPrefix: `gitlens:webview:${WebviewTypes | CustomEditorTypes}` | `gitlens:webviewView:${WebviewViewTypes}`,
 ): void {
 	void setContext(`${contextKeyPrefix}:visible`, false);
-	void setContext(`${contextKeyPrefix}:inputFocus`, false);
-	void setContext(`${contextKeyPrefix}:focus`, false);
-	if (contextKeyPrefix.startsWith('gitlens:webview:')) {
-		void setContext(`${contextKeyPrefix as `gitlens:webview:${WebviewTypes | CustomEditorTypes}`}:active`, false);
-	}
 }
 
 export function setContextKeys(
 	contextKeyPrefix: `gitlens:webview:${WebviewTypes | CustomEditorTypes}` | `gitlens:webviewView:${WebviewViewTypes}`,
-	active?: boolean,
-	focus?: boolean,
-	inputFocus?: boolean,
 ): void {
 	void setContext(`${contextKeyPrefix}:visible`, true);
-	if (contextKeyPrefix.startsWith('gitlens:webview:')) {
-		if (active != null) {
-			void setContext(
-				`${contextKeyPrefix as `gitlens:webview:${WebviewTypes | CustomEditorTypes}`}:active`,
-				active,
-			);
-
-			if (!active) {
-				focus = false;
-				inputFocus = false;
-			}
-		}
-	}
-
-	if (focus != null) {
-		void setContext(`${contextKeyPrefix}:focus`, focus);
-	}
-	if (inputFocus != null) {
-		void setContext(`${contextKeyPrefix}:inputFocus`, inputFocus);
-	}
 }
 
 export function updatePendingContext<Context extends object>(

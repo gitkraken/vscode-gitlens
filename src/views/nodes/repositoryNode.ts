@@ -13,13 +13,16 @@ import type {
 	LocalWorkspace,
 	LocalWorkspaceRepositoryDescriptor,
 } from '../../plus/workspaces/models';
-import { WorkspaceType } from '../../plus/workspaces/models';
 import { findLastIndex } from '../../system/array';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
+import { weakEvent } from '../../system/event';
 import { disposableInterval } from '../../system/function';
 import { pad } from '../../system/string';
 import type { ViewsWithRepositories } from '../viewBase';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
+import type { AmbientContext, ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { BranchesNode } from './branchesNode';
 import { BranchNode } from './branchNode';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
@@ -33,12 +36,9 @@ import { RemotesNode } from './remotesNode';
 import { StashesNode } from './stashesNode';
 import { StatusFilesNode } from './statusFilesNode';
 import { TagsNode } from './tagsNode';
-import type { AmbientContext, ViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, SubscribeableViewNode } from './viewNode';
 import { WorktreesNode } from './worktreesNode';
 
-export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories> {
-	private _children: ViewNode[] | undefined;
+export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWithRepositories> {
 	private _status: Promise<GitStatus | undefined>;
 
 	constructor(
@@ -48,10 +48,10 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 		public readonly repo: Repository,
 		context?: AmbientContext,
 	) {
-		super(uri, view, parent);
+		super('repository', uri, view, parent);
 
 		this.updateContext({ ...context, repository: this.repo });
-		this._uniqueId = getViewNodeId('repository', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 
 		this._status = this.repo.getStatus();
 	}
@@ -77,12 +77,13 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children === undefined) {
+		if (this.children === undefined) {
 			const children = [];
 
 			const status = await this._status;
 			if (status != null) {
 				const branch = new GitBranch(
+					this.view.container,
 					status.repoPath,
 					status.branch,
 					false,
@@ -192,9 +193,9 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 				children.push(new ReflogNode(this.uri, this.view, this, this.repo));
 			}
 
-			this._children = children;
+			this.children = children;
 		}
-		return this._children;
+		return this.children;
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
@@ -218,9 +219,9 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 		}
 		if (workspace != null) {
 			contextValue += '+workspace';
-			if (workspace.type === WorkspaceType.Cloud) {
+			if (workspace.type === 'cloud') {
 				contextValue += '+cloud';
-			} else if (workspace.type === WorkspaceType.Local) {
+			} else if (workspace.type === 'local') {
 				contextValue += '+local';
 			}
 		}
@@ -349,10 +350,10 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 	@gate()
 	@debug()
 	override async refresh(reset: boolean = false) {
+		super.refresh(reset);
+
 		if (reset) {
 			this._status = this.repo.getStatus();
-
-			this._children = undefined;
 		}
 
 		await this.ensureSubscription();
@@ -374,7 +375,7 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 	protected async subscribe() {
 		const lastFetched = (await this.repo?.getLastFetched()) ?? 0;
 
-		const disposables = [this.repo.onDidChange(this.onRepositoryChanged, this)];
+		const disposables = [weakEvent(this.repo.onDidChange, this.onRepositoryChanged, this)];
 
 		const interval = Repository.getLastFetchedUpdateInterval(lastFetched);
 		if (lastFetched !== 0 && interval > 0) {
@@ -396,8 +397,9 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 
 		if (this.view.config.includeWorkingTree) {
 			disposables.push(
-				this.repo.onDidChangeFileSystem(this.onFileSystemChanged, this),
-				this.repo.startWatchingFileSystem(),
+				weakEvent(this.repo.onDidChangeFileSystem, this.onFileSystemChanged, this, [
+					this.repo.startWatchingFileSystem(),
+				]),
 			);
 		}
 
@@ -420,25 +422,22 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 	private async onFileSystemChanged(_e: RepositoryFileSystemChangeEvent) {
 		this._status = this.repo.getStatus();
 
-		if (this._children !== undefined) {
+		if (this.children !== undefined) {
 			const status = await this._status;
 
-			let index = this._children.findIndex(c => c instanceof StatusFilesNode);
+			let index = this.children.findIndex(c => c.type === 'status-files');
 			if (status !== undefined && (status.state.ahead || status.files.length !== 0)) {
 				let deleteCount = 1;
 				if (index === -1) {
-					index = findLastIndex(
-						this._children,
-						c => c instanceof BranchTrackingStatusNode || c instanceof BranchNode,
-					);
+					index = findLastIndex(this.children, c => c.type === 'tracking-status' || c.type === 'branch');
 					deleteCount = 0;
 					index++;
 				}
 
 				const range = undefined; //status.upstream ? createRange(status.upstream, status.sha) : undefined;
-				this._children.splice(index, deleteCount, new StatusFilesNode(this.view, this, status, range));
+				this.children.splice(index, deleteCount, new StatusFilesNode(this.view, this, status, range));
 			} else if (index !== -1) {
-				this._children.splice(index, 1);
+				this.children.splice(index, 1);
 			}
 		}
 
@@ -454,7 +453,7 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 		}
 
 		if (
-			this._children == null ||
+			this.children == null ||
 			e.changed(
 				RepositoryChange.Config,
 				RepositoryChange.Index,
@@ -471,21 +470,21 @@ export class RepositoryNode extends SubscribeableViewNode<ViewsWithRepositories>
 		}
 
 		if (e.changed(RepositoryChange.Remotes, RepositoryChange.RemoteProviders, RepositoryChangeComparisonMode.Any)) {
-			const node = this._children.find(c => c instanceof RemotesNode);
+			const node = this.children.find(c => c.type === 'remotes');
 			if (node != null) {
 				this.view.triggerNodeChange(node);
 			}
 		}
 
 		if (e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
-			const node = this._children.find(c => c instanceof StashesNode);
+			const node = this.children.find(c => c.type === 'stashes');
 			if (node != null) {
 				this.view.triggerNodeChange(node);
 			}
 		}
 
 		if (e.changed(RepositoryChange.Tags, RepositoryChangeComparisonMode.Any)) {
-			const node = this._children.find(c => c instanceof TagsNode);
+			const node = this.children.find(c => c.type === 'tags');
 			if (node != null) {
 				this.view.triggerNodeChange(node);
 			}

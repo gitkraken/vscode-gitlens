@@ -4,7 +4,6 @@ import { Schemes } from '../../../constants';
 import { Container } from '../../../container';
 import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOptions';
 import type { GitProviderDescriptor } from '../../../git/gitProvider';
-import { GitProviderId } from '../../../git/gitProvider';
 import type { Repository } from '../../../git/models/repository';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
@@ -58,7 +57,7 @@ export class VslsGit extends Git {
 
 export class VslsGitProvider extends LocalGitProvider {
 	override readonly descriptor: GitProviderDescriptor = {
-		id: GitProviderId.Vsls,
+		id: 'vsls',
 		name: 'Live Share',
 		virtual: false,
 	};

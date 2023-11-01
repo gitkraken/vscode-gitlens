@@ -3,10 +3,9 @@ import { GlyphChars } from '../../constants';
 import type { GitUri } from '../../git/gitUri';
 import type { GitBranch } from '../../git/models/branch';
 import type { GitLog } from '../../git/models/log';
-import type { PullRequest } from '../../git/models/pullRequest';
-import { PullRequestState } from '../../git/models/pullRequest';
+import type { PullRequest, PullRequestState } from '../../git/models/pullRequest';
 import { shortenRevision } from '../../git/models/reference';
-import { GitRemote, GitRemoteType } from '../../git/models/remote';
+import { GitRemote } from '../../git/models/remote';
 import type { GitWorktree } from '../../git/models/worktree';
 import { getContext } from '../../system/context';
 import { gate } from '../../system/decorators/gate';
@@ -17,20 +16,22 @@ import type { Deferred } from '../../system/promise';
 import { defer, getSettledValue } from '../../system/promise';
 import { pad } from '../../system/string';
 import type { ViewsWithWorktrees } from '../viewBase';
+import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { CompareBranchNode } from './compareBranchNode';
 import { insertDateMarkers } from './helpers';
 import { PullRequestNode } from './pullRequestNode';
 import { UncommittedFilesNode } from './UncommittedFilesNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 type State = {
 	pullRequest: PullRequest | null | undefined;
 	pendingPullRequest: Promise<PullRequest | undefined> | undefined;
 };
 
-export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
+export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWithWorktrees, ViewNode, State> {
 	limit: number | undefined;
 
 	private _branch: GitBranch | undefined;
@@ -41,10 +42,10 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 		protected override readonly parent: ViewNode,
 		public readonly worktree: GitWorktree,
 	) {
-		super(uri, view, parent);
+		super('worktree', uri, view, parent);
 
 		this.updateContext({ worktree: worktree });
-		this._uniqueId = getViewNodeId('worktree', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 		this.limit = this.view.getNodeLastKnownLimit(this);
 	}
 
@@ -60,10 +61,8 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 		return this.uri.repoPath!;
 	}
 
-	private _children: ViewNode[] | undefined;
-
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children == null) {
+		if (this.children == null) {
 			const branch = this._branch;
 
 			let onCompleted: Deferred<void> | undefined;
@@ -80,7 +79,7 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 				if (pullRequest === undefined && this.getState('pendingPullRequest') === undefined) {
 					onCompleted = defer<void>();
 					const prPromise = this.getAssociatedPullRequest(branch, {
-						include: [PullRequestState.Open, PullRequestState.Merged],
+						include: ['opened', 'merged'],
 					});
 
 					queueMicrotask(async () => {
@@ -97,9 +96,9 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 						clearTimeout(timeout);
 
 						// If we found a pull request, insert it into the children cache (if loaded) and refresh the node
-						if (pr != null && this._children != null) {
-							this._children.splice(
-								this._children[0] instanceof CompareBranchNode ? 1 : 0,
+						if (pr != null && this.children != null) {
+							this.children.splice(
+								this.children[0].type === 'compare-branch' ? 1 : 0,
 								0,
 								new PullRequestNode(this.view, this, pr, branch),
 							);
@@ -182,11 +181,11 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 				children.unshift(new UncommittedFilesNode(this.view, this, status, undefined));
 			}
 
-			this._children = children;
+			this.children = children;
 			onCompleted?.fulfill();
 		}
 
-		return this._children;
+		return this.children;
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
@@ -263,11 +262,11 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 									let left;
 									let right;
 									for (const { type } of remote.urls) {
-										if (type === GitRemoteType.Fetch) {
+										if (type === 'fetch') {
 											left = true;
 
 											if (right) break;
-										} else if (type === GitRemoteType.Push) {
+										} else if (type === 'push') {
 											right = true;
 
 											if (left) break;
@@ -379,10 +378,10 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 		return item;
 	}
 
-	@gate()
 	@debug()
 	override refresh(reset?: boolean) {
-		this._children = undefined;
+		super.refresh(true);
+
 		if (reset) {
 			this._log = undefined;
 			this.deleteState();
@@ -443,7 +442,7 @@ export class WorktreeNode extends ViewNode<ViewsWithWorktrees, State> {
 		this._log = log;
 		this.limit = log?.count;
 
-		this._children = undefined;
+		this.children = undefined;
 		void this.triggerChange(false);
 	}
 }

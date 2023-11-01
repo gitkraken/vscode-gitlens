@@ -18,21 +18,22 @@ import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import { configuration } from '../system/configuration';
 import { setContext } from '../system/context';
-import { debug } from '../system/decorators/log';
 import { once } from '../system/event';
 import type { Deferrable } from '../system/function';
 import { debounce } from '../system/function';
-import { filter, join, map } from '../system/iterable';
 import { findTextDocument, isActiveDocument, isTextEditor } from '../system/utils';
-import type { DocumentBlameStateChangeEvent } from './trackedDocument';
 import { TrackedDocument } from './trackedDocument';
-
-export * from './trackedDocument';
 
 export interface DocumentContentChangeEvent<T> {
 	readonly editor: TextEditor;
 	readonly document: TrackedDocument<T>;
 	readonly contentChanges: readonly TextDocumentContentChangeEvent[];
+}
+
+export interface DocumentBlameStateChangeEvent<T> {
+	readonly editor: TextEditor;
+	readonly document: TrackedDocument<T>;
+	readonly blameable: boolean;
 }
 
 export interface DocumentDirtyStateChangeEvent<T> {
@@ -137,7 +138,7 @@ export class DocumentTracker<T> implements Disposable {
 			e != null &&
 			(configuration.changed(e, 'blame.ignoreWhitespace') || configuration.changed(e, 'advanced.caching.enabled'))
 		) {
-			this.reset('config');
+			void this.refreshDocuments();
 		}
 
 		if (configuration.changed(e, 'advanced.blame.delayAfterEdit')) {
@@ -147,11 +148,12 @@ export class DocumentTracker<T> implements Disposable {
 	}
 
 	private onRepositoriesChanged(e: RepositoriesChangeEvent) {
-		this.reset(
-			'repository',
-			e.added.length ? new Set<string>(e.added.map(r => r.path)) : undefined,
-			e.removed.length ? new Set<string>(e.removed.map(r => r.path)) : undefined,
-		);
+		void this.refreshDocuments({
+			addedOrChangedRepoPaths: e.added.length
+				? new Set<string>(e.added.map(r => r.path.toLowerCase()))
+				: undefined,
+			removedRepoPaths: e.removed.length ? new Set<string>(e.removed.map(r => r.path.toLowerCase())) : undefined,
+		});
 	}
 
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
@@ -164,7 +166,7 @@ export class DocumentTracker<T> implements Disposable {
 				RepositoryChangeComparisonMode.Any,
 			)
 		) {
-			this.reset('repository', new Set([e.repository.path]));
+			void this.refreshDocuments({ addedOrChangedRepoPaths: new Set([e.repository.path]) });
 		}
 	}
 
@@ -173,7 +175,7 @@ export class DocumentTracker<T> implements Disposable {
 		if (!this.container.git.supportedSchemes.has(scheme)) return;
 
 		const doc = await (this._documentMap.get(e.document) ?? this.addCore(e.document));
-		doc.reset('document');
+		doc.refresh('doc-changed');
 
 		const dirty = e.document.isDirty;
 		const editor = window.activeTextEditor;
@@ -337,14 +339,14 @@ export class DocumentTracker<T> implements Disposable {
 	}
 
 	private async remove(document: TextDocument, tracked?: TrackedDocument<T>): Promise<void> {
-		let promise;
+		let docPromise;
 		if (tracked != null) {
-			promise = this._documentMap.get(document);
+			docPromise = this._documentMap.get(document);
 		}
 
 		this._documentMap.delete(document);
 
-		(tracked ?? (await promise))?.dispose();
+		(tracked ?? (await docPromise))?.dispose();
 	}
 
 	private _dirtyIdleTriggeredDebounced: Deferrable<(e: DocumentDirtyIdleTriggerEvent<T>) => void> | undefined;
@@ -385,30 +387,20 @@ export class DocumentTracker<T> implements Disposable {
 		this._dirtyStateChangedDebounced(e);
 	}
 
-	@debug<DocumentTracker<T>['reset']>({
-		args: {
-			1: c => (c != null ? join(c, ',') : ''),
-			2: r => (r != null ? join(r, ',') : ''),
-		},
-	})
-	private reset(reason: 'config' | 'repository', changedRepoPaths?: Set<string>, removedRepoPaths?: Set<string>) {
-		void Promise.allSettled(
-			map(
-				filter(this._documentMap, ([key]) => typeof key === 'string'),
-				async ([, promise]) => {
-					const doc = await promise;
+	private async refreshDocuments(changed?: {
+		addedOrChangedRepoPaths?: Set<string>;
+		removedRepoPaths?: Set<string>;
+	}) {
+		if (this._documentMap.size === 0) return;
 
-					if (removedRepoPaths?.has(doc.uri.repoPath!)) {
-						void this.remove(doc.document, doc);
-						return;
-					}
-
-					if (changedRepoPaths == null || changedRepoPaths.has(doc.uri.repoPath!)) {
-						doc.reset(reason);
-					}
-				},
-			),
-		);
+		for await (const doc of this._documentMap.values()) {
+			const repoPath = doc.uri.repoPath!.toLocaleLowerCase();
+			if (changed?.removedRepoPaths?.has(repoPath)) {
+				void this.remove(doc.document, doc);
+			} else if (changed == null || changed?.addedOrChangedRepoPaths?.has(repoPath)) {
+				doc.refresh('repo-changed');
+			}
+		}
 	}
 }
 

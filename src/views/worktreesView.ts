@@ -1,7 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent, Disposable } from 'vscode';
 import { ProgressLocation, ThemeColor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import type { WorktreesViewConfig } from '../config';
-import { ViewFilesLayout, ViewShowBranchComparison } from '../config';
+import type { ViewFilesLayout, WorktreesViewConfig } from '../config';
 import type { Colors } from '../constants';
 import { Commands, GlyphChars } from '../constants';
 import type { Container } from '../container';
@@ -10,12 +9,13 @@ import { GitUri } from '../git/gitUri';
 import type { RepositoryChangeEvent } from '../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/models/repository';
 import type { GitWorktree } from '../git/models/worktree';
-import { ensurePlusFeaturesEnabled } from '../plus/subscription/utils';
+import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
 import { executeCommand } from '../system/command';
 import { configuration } from '../system/configuration';
 import { gate } from '../system/decorators/gate';
-import type { ViewNode } from './nodes/viewNode';
-import { RepositoriesSubscribeableNode, RepositoryFolderNode } from './nodes/viewNode';
+import { RepositoriesSubscribeableNode } from './nodes/abstract/repositoriesSubscribeableNode';
+import { RepositoryFolderNode } from './nodes/abstract/repositoryFolderNode';
+import type { ViewNode } from './nodes/abstract/viewNode';
 import { WorktreeNode } from './nodes/worktreeNode';
 import { WorktreesNode } from './nodes/worktreesNode';
 import { ViewBase } from './viewBase';
@@ -48,7 +48,9 @@ export class WorktreesViewNode extends RepositoriesSubscribeableNode<WorktreesVi
 		if (this.children == null) {
 			const repositories = this.view.container.git.openRepositories;
 			if (repositories.length === 0) {
-				this.view.message = 'No worktrees could be found.';
+				this.view.message = this.view.container.git.isDiscoveringRepositories
+					? 'Loading worktrees...'
+					: 'No worktrees could be found.';
 
 				return [];
 			}
@@ -163,17 +165,17 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToAuto'),
-				() => this.setFilesLayout(ViewFilesLayout.Auto),
+				() => this.setFilesLayout('auto'),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToList'),
-				() => this.setFilesLayout(ViewFilesLayout.List),
+				() => this.setFilesLayout('list'),
 				this,
 			),
 			registerViewCommand(
 				this.getQualifiedCommand('setFilesLayoutToTree'),
-				() => this.setFilesLayout(ViewFilesLayout.Tree),
+				() => this.setFilesLayout('tree'),
 				this,
 			),
 
@@ -212,7 +214,8 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
-			!configuration.changed(e, 'defaultTimeFormat')
+			!configuration.changed(e, 'defaultTimeFormat') &&
+			!configuration.changed(e, 'sortRepositoriesBy')
 			// !configuration.changed(e, 'sortWorktreesBy')
 		) {
 			return false;
@@ -294,7 +297,7 @@ export class WorktreesView extends ViewBase<'worktrees', WorktreesViewNode, Work
 	private setShowBranchComparison(enabled: boolean) {
 		return configuration.updateEffective(
 			`views.${this.configKey}.showBranchComparison` as const,
-			enabled ? ViewShowBranchComparison.Branch : false,
+			enabled ? 'branch' : false,
 		);
 	}
 

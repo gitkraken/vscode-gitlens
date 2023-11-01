@@ -1,5 +1,5 @@
 import type { HttpsProxyAgent } from 'https-proxy-agent';
-import type { Disposable } from 'vscode';
+import type { CancellationToken, Disposable } from 'vscode';
 import { Uri, window } from 'vscode';
 import type { RequestInit, Response } from '@env/fetch';
 import { fetch, getProxyAgent, wrapForForcedInsecureSSL } from '@env/fetch';
@@ -9,6 +9,7 @@ import type { Container } from '../../container';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
+	CancellationError,
 	ProviderFetchError,
 	ProviderRequestClientError,
 	ProviderRequestNotFoundError,
@@ -17,7 +18,6 @@ import {
 import type { Account } from '../../git/models/author';
 import type { DefaultBranch } from '../../git/models/defaultBranch';
 import type { IssueOrPullRequest } from '../../git/models/issue';
-import { IssueOrPullRequestType } from '../../git/models/issue';
 import { PullRequest } from '../../git/models/pullRequest';
 import type { RepositoryMetadata } from '../../git/models/repositoryMetadata';
 import type { RichRemoteProvider } from '../../git/remotes/richRemoteProvider';
@@ -37,10 +37,11 @@ import type {
 	GitLabIssue,
 	GitLabMergeRequest,
 	GitLabMergeRequestREST,
+	GitLabMergeRequestState,
 	GitLabProjectREST,
 	GitLabUser,
 } from './models';
-import { fromGitLabMergeRequestREST, fromGitLabMergeRequestState, GitLabMergeRequestState } from './models';
+import { fromGitLabMergeRequestREST, fromGitLabMergeRequestState } from './models';
 
 export class GitLabApi implements Disposable {
 	private readonly _disposable: Disposable;
@@ -91,10 +92,11 @@ export class GitLabApi implements Disposable {
 			baseUrl?: string;
 			avatarSize?: number;
 		},
+		cancellation?: CancellationToken,
 	): Promise<Account | undefined> {
 		const scope = getLogScope();
 
-		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl);
+		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl, cancellation);
 		if (!projectId) return undefined;
 
 		try {
@@ -107,6 +109,7 @@ export class GitLabApi implements Disposable {
 					method: 'GET',
 					// ...options,
 				},
+				cancellation,
 				scope,
 			);
 
@@ -185,6 +188,7 @@ export class GitLabApi implements Disposable {
 		options?: {
 			baseUrl?: string;
 		},
+		cancellation?: CancellationToken,
 	): Promise<DefaultBranch | undefined> {
 		const scope = getLogScope();
 
@@ -217,6 +221,7 @@ export class GitLabApi implements Disposable {
 				{
 					fullPath: `${owner}/${repo}`,
 				},
+				cancellation,
 				scope,
 			);
 
@@ -244,6 +249,7 @@ export class GitLabApi implements Disposable {
 		options?: {
 			baseUrl?: string;
 		},
+		cancellation?: CancellationToken,
 	): Promise<IssueOrPullRequest | undefined> {
 		const scope = getLogScope();
 
@@ -304,6 +310,7 @@ export class GitLabApi implements Disposable {
 					fullPath: `${owner}/${repo}`,
 					iid: String(number),
 				},
+				cancellation,
 				scope,
 			);
 
@@ -311,13 +318,15 @@ export class GitLabApi implements Disposable {
 				const issue = rsp.data.project.issue;
 				return {
 					provider: provider,
-					type: IssueOrPullRequestType.Issue,
+					type: 'issue',
 					id: issue.iid,
+					nodeId: undefined,
 					date: new Date(issue.createdAt),
 					title: issue.title,
 					closed: issue.state === 'closed',
 					closedDate: issue.closedAt == null ? undefined : new Date(issue.closedAt),
 					url: issue.webUrl,
+					state: issue.state === 'locked' ? 'closed' : issue.state,
 				};
 			}
 
@@ -325,14 +334,16 @@ export class GitLabApi implements Disposable {
 				const mergeRequest = rsp.data.project.mergeRequest;
 				return {
 					provider: provider,
-					type: IssueOrPullRequestType.PullRequest,
+					type: 'pullrequest',
 					id: mergeRequest.iid,
+					nodeId: undefined,
 					date: new Date(mergeRequest.createdAt),
 					title: mergeRequest.title,
 					closed: mergeRequest.state === 'closed',
 					// TODO@eamodio this isn't right, but GitLab doesn't seem to provide a closedAt on merge requests in GraphQL
 					closedDate: mergeRequest.state === 'closed' ? new Date(mergeRequest.updatedAt) : undefined,
 					url: mergeRequest.webUrl,
+					state: mergeRequest.state === 'locked' ? 'closed' : mergeRequest.state,
 				};
 			}
 
@@ -356,6 +367,7 @@ export class GitLabApi implements Disposable {
 			avatarSize?: number;
 			include?: GitLabMergeRequestState[];
 		},
+		cancellation?: CancellationToken,
 	): Promise<PullRequest | undefined> {
 		const scope = getLogScope();
 
@@ -409,21 +421,21 @@ export class GitLabApi implements Disposable {
 				: ''
 		}
 		${
-			options?.include?.includes(GitLabMergeRequestState.OPEN)
+			options?.include?.includes('opened')
 				? `opened: mergeRequests(sourceBranches: $branches state: opened sort: UPDATED_DESC first: 1) {
 			${fragment}
 		}`
 				: ''
 		}
 		${
-			options?.include?.includes(GitLabMergeRequestState.MERGED)
+			options?.include?.includes('merged')
 				? `merged: mergeRequests(sourceBranches: $branches state: merged sort: UPDATED_DESC first: 1) {
 			${fragment}
 		}`
 				: ''
 		}
 		${
-			options?.include?.includes(GitLabMergeRequestState.CLOSED)
+			options?.include?.includes('closed')
 				? `closed: mergeRequests(sourceBranches: $branches state: closed sort: UPDATED_DESC first: 1) {
 			${fragment}
 		}`
@@ -442,6 +454,7 @@ export class GitLabApi implements Disposable {
 					branches: [branch],
 					state: options?.include,
 				},
+				cancellation,
 				scope,
 			);
 
@@ -452,11 +465,11 @@ export class GitLabApi implements Disposable {
 			} else {
 				for (const state of options.include) {
 					let mr;
-					if (state === GitLabMergeRequestState.OPEN) {
+					if (state === 'opened') {
 						mr = rsp?.data?.project?.opened?.nodes?.[0];
-					} else if (state === GitLabMergeRequestState.MERGED) {
+					} else if (state === 'merged') {
 						mr = rsp?.data?.project?.merged?.nodes?.[0];
-					} else if (state === GitLabMergeRequestState.CLOSED) {
+					} else if (state === 'closed') {
 						mr = rsp?.data?.project?.closed?.nodes?.[0];
 					}
 
@@ -476,12 +489,13 @@ export class GitLabApi implements Disposable {
 					url: pr.author?.webUrl ?? '',
 				},
 				String(pr.iid),
+				undefined,
 				pr.title,
 				pr.webUrl,
 				fromGitLabMergeRequestState(pr.state),
 				new Date(pr.updatedAt),
 				// TODO@eamodio this isn't right, but GitLab doesn't seem to provide a closedAt on merge requests in GraphQL
-				pr.state !== GitLabMergeRequestState.CLOSED ? undefined : new Date(pr.updatedAt),
+				pr.state !== 'closed' ? undefined : new Date(pr.updatedAt),
 				pr.mergedAt == null ? undefined : new Date(pr.mergedAt),
 			);
 		} catch (ex) {
@@ -502,16 +516,16 @@ export class GitLabApi implements Disposable {
 			baseUrl?: string;
 			avatarSize?: number;
 		},
+		cancellation?: CancellationToken,
 	): Promise<PullRequest | undefined> {
 		const scope = getLogScope();
 
-		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl);
+		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl, cancellation);
 		if (!projectId) return undefined;
 
 		try {
 			const mrs = await this.request<GitLabMergeRequestREST[]>(
 				provider,
-
 				token,
 				options?.baseUrl,
 				`v4/projects/${projectId}/repository/commits/${ref}/merge_requests`,
@@ -519,6 +533,7 @@ export class GitLabApi implements Disposable {
 					method: 'GET',
 					// ...options,
 				},
+				cancellation,
 				scope,
 			);
 			if (mrs == null || mrs.length === 0) return undefined;
@@ -526,8 +541,7 @@ export class GitLabApi implements Disposable {
 			if (mrs.length > 1) {
 				mrs.sort(
 					(a, b) =>
-						(a.state === GitLabMergeRequestState.OPEN ? -1 : 1) -
-							(b.state === GitLabMergeRequestState.OPEN ? -1 : 1) ||
+						(a.state === 'opened' ? -1 : 1) - (b.state === 'opened' ? -1 : 1) ||
 						new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
 				);
 			}
@@ -549,16 +563,16 @@ export class GitLabApi implements Disposable {
 		options?: {
 			baseUrl?: string;
 		},
+		cancellation?: CancellationToken,
 	): Promise<RepositoryMetadata | undefined> {
 		const scope = getLogScope();
 
-		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl);
+		const projectId = await this.getProjectId(provider, token, owner, repo, options?.baseUrl, cancellation);
 		if (!projectId) return undefined;
 
 		try {
 			const proj = await this.request<GitLabProjectREST>(
 				provider,
-
 				token,
 				options?.baseUrl,
 				`v4/projects/${projectId}`,
@@ -566,6 +580,7 @@ export class GitLabApi implements Disposable {
 					method: 'GET',
 					// ...options,
 				},
+				cancellation,
 				scope,
 			);
 			if (proj == null) return undefined;
@@ -598,6 +613,7 @@ export class GitLabApi implements Disposable {
 			baseUrl?: string;
 			avatarSize?: number;
 		},
+		cancellation?: CancellationToken,
 	): Promise<GitLabUser[]> {
 		const scope = getLogScope();
 
@@ -641,6 +657,7 @@ $search: String!
 				{
 					search: search,
 				},
+				cancellation,
 				scope,
 			);
 
@@ -678,13 +695,14 @@ $search: String!
 		token: string,
 		group: string,
 		repo: string,
-		baseUrl?: string,
+		baseUrl: string | undefined,
+		cancellation: CancellationToken | undefined,
 	): Promise<string | undefined> {
 		const key = `${token}|${group}/${repo}`;
 
 		let projectId = this._projectIds.get(key);
 		if (projectId == null) {
-			projectId = this.getProjectIdCore(provider, token, group, repo, baseUrl);
+			projectId = this.getProjectIdCore(provider, token, group, repo, baseUrl, cancellation);
 			this._projectIds.set(key, projectId);
 		}
 
@@ -696,7 +714,8 @@ $search: String!
 		token: string,
 		group: string,
 		repo: string,
-		baseUrl?: string,
+		baseUrl: string | undefined,
+		cancellation: CancellationToken | undefined,
 	): Promise<string | undefined> {
 		const scope = getLogScope();
 
@@ -720,6 +739,7 @@ $search: String!
 				{
 					fullPath: `${group}/${repo}`,
 				},
+				cancellation,
 				scope,
 			);
 
@@ -747,6 +767,7 @@ $search: String!
 		baseUrl: string | undefined,
 		query: string,
 		variables: Record<string, any>,
+		cancellation: CancellationToken | undefined,
 		scope: LogScope | undefined,
 	): Promise<T | undefined> {
 		let rsp: Response;
@@ -755,11 +776,20 @@ $search: String!
 			const agent = this.getProxyAgent(provider);
 
 			try {
+				let aborter: AbortController | undefined;
+				if (cancellation != null) {
+					if (cancellation.isCancellationRequested) throw new CancellationError();
+
+					aborter = new AbortController();
+					cancellation.onCancellationRequested(() => aborter!.abort());
+				}
+
 				rsp = await wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
 					fetch(`${baseUrl ?? 'https://gitlab.com/api'}/graphql`, {
 						method: 'POST',
 						headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
 						agent: agent,
+						signal: aborter?.signal,
 						body: JSON.stringify({ query: query, variables: variables }),
 					}),
 				);
@@ -779,7 +809,7 @@ $search: String!
 				sw?.stop({ message: message });
 			}
 		} catch (ex) {
-			if (ex instanceof ProviderFetchError) {
+			if (ex instanceof ProviderFetchError || ex.name === 'AbortError') {
 				this.handleRequestError(provider, token, ex, scope);
 			} else if (Logger.isDebugging) {
 				void window.showErrorMessage(`GitLab request failed: ${ex.message}`);
@@ -795,6 +825,7 @@ $search: String!
 		baseUrl: string | undefined,
 		route: string,
 		options: { method: RequestInit['method'] } & Record<string, unknown>,
+		cancellation: CancellationToken | undefined,
 		scope: LogScope | undefined,
 	): Promise<T> {
 		const url = `${baseUrl ?? 'https://gitlab.com/api'}/${route}`;
@@ -805,10 +836,19 @@ $search: String!
 			const agent = this.getProxyAgent(provider);
 
 			try {
+				let aborter: AbortController | undefined;
+				if (cancellation != null) {
+					if (cancellation.isCancellationRequested) throw new CancellationError();
+
+					aborter = new AbortController();
+					cancellation.onCancellationRequested(() => aborter!.abort());
+				}
+
 				rsp = await wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
 					fetch(url, {
 						headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
 						agent: agent,
+						signal: aborter?.signal,
 						...options,
 					}),
 				);
@@ -823,7 +863,7 @@ $search: String!
 				sw?.stop();
 			}
 		} catch (ex) {
-			if (ex instanceof ProviderFetchError) {
+			if (ex instanceof ProviderFetchError || ex.name === 'AbortError') {
 				this.handleRequestError(provider, token, ex, scope);
 			} else if (Logger.isDebugging) {
 				void window.showErrorMessage(`GitLab request failed: ${ex.message}`);
@@ -836,9 +876,11 @@ $search: String!
 	private handleRequestError(
 		provider: RichRemoteProvider | undefined,
 		token: string,
-		ex: ProviderFetchError,
+		ex: ProviderFetchError | (Error & { name: 'AbortError' }),
 		scope: LogScope | undefined,
 	): void {
+		if (ex.name === 'AbortError' || !(ex instanceof ProviderFetchError)) throw new CancellationError();
+
 		switch (ex.status) {
 			case 404: // Not found
 			case 410: // Gone
@@ -919,6 +961,7 @@ $search: String!
 
 			if (result === confirm) {
 				await provider.reauthenticate();
+				this.resetCaches();
 			}
 		} else {
 			void window.showErrorMessage(ex.message);

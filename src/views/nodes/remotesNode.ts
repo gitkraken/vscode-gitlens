@@ -1,24 +1,25 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitUri } from '../../git/gitUri';
 import type { Repository } from '../../git/models/repository';
-import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
 import type { ViewsWithRemotesNode } from '../viewBase';
+import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { MessageNode } from './common';
 import { RemoteNode } from './remoteNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class RemotesNode extends ViewNode<ViewsWithRemotesNode> {
+export class RemotesNode extends CacheableChildrenViewNode<'remotes', ViewsWithRemotesNode> {
 	constructor(
 		uri: GitUri,
 		view: ViewsWithRemotesNode,
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
 	) {
-		super(uri, view, parent);
+		super('remotes', uri, view, parent);
 
 		this.updateContext({ repository: repo });
-		this._uniqueId = getViewNodeId('remotes', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {
@@ -29,19 +30,17 @@ export class RemotesNode extends ViewNode<ViewsWithRemotesNode> {
 		return this.repo.path;
 	}
 
-	private _children: ViewNode[] | undefined;
-
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children == null) {
+		if (this.children == null) {
 			const remotes = await this.repo.getRemotes({ sort: true });
 			if (remotes.length === 0) {
 				return [new MessageNode(this.view, this, 'No remotes could be found')];
 			}
 
-			this._children = remotes.map(r => new RemoteNode(this.uri, this.view, this, this.repo, r));
+			this.children = remotes.map(r => new RemoteNode(this.uri, this.view, this, this.repo, r));
 		}
 
-		return this._children;
+		return this.children;
 	}
 
 	getTreeItem(): TreeItem {
@@ -53,9 +52,8 @@ export class RemotesNode extends ViewNode<ViewsWithRemotesNode> {
 		return item;
 	}
 
-	@gate()
 	@debug()
 	override refresh() {
-		this._children = undefined;
+		super.refresh(true);
 	}
 }

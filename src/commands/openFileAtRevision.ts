@@ -1,6 +1,6 @@
 import type { TextDocumentShowOptions, TextEditor } from 'vscode';
 import { Uri } from 'vscode';
-import { FileAnnotationType } from '../config';
+import type { FileAnnotationType } from '../config';
 import { Commands, GlyphChars, quickPickTitleMaxChars } from '../constants';
 import type { Container } from '../container';
 import { openFileAtRevision } from '../git/actions/commit';
@@ -55,7 +55,7 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 
 	protected override async preExecute(context: CommandContext, args?: OpenFileAtRevisionCommandArgs) {
 		if (context.command === Commands.OpenBlamePriorToChange) {
-			args = { ...args, annotationType: FileAnnotationType.Blame };
+			args = { ...args, annotationType: 'blame' };
 			if (args.revisionUri == null && context.editor != null) {
 				const editorLine = context.editor.selection.active.line;
 				if (editorLine >= 0) {
@@ -119,18 +119,18 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 							: undefined),
 				);
 
-				const title = `Open ${
-					args.annotationType === FileAnnotationType.Blame ? 'Blame' : 'File'
-				} at Revision${pad(GlyphChars.Dot, 2, 2)}`;
+				const title = `Open ${args.annotationType === 'blame' ? 'Blame' : 'File'} at Revision${pad(
+					GlyphChars.Dot,
+					2,
+					2,
+				)}`;
 				const pick = await showCommitPicker(
 					log,
 					`${title}${gitUri.getFormattedFileName({
 						suffix: gitUri.sha ? `:${shortenRevision(gitUri.sha)}` : undefined,
 						truncateTo: quickPickTitleMaxChars - title.length,
 					})}`,
-					`Choose a commit to ${
-						args.annotationType === FileAnnotationType.Blame ? 'blame' : 'open'
-					} the file revision from`,
+					`Choose a commit to ${args.annotationType === 'blame' ? 'blame' : 'open'} the file revision from`,
 					{
 						picked: gitUri.sha,
 						keys: ['right', 'alt+right', 'ctrl+right'],

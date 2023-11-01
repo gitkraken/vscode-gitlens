@@ -6,12 +6,16 @@
 			@font-face {
 				font-family: 'codicon';
 				font-display: block;
-				src: url('#{webroot}/codicon.ttf?2ab61cbaefbdf4c7c5589068100bee0c') format('truetype');
+				src: url('#{webroot}/codicon.ttf?79130123c9d3674a686cf03962523e8a') format('truetype');
 			}
 		</style>
 	</head>
 
-	<body class="scrollable preload" data-placement="#{placement}" data-vscode-context='{ "webview": "#{webviewId}" }'>
+	<body
+		class="scrollable preload"
+		data-placement="#{placement}"
+		data-vscode-context='{ "webview": "#{webviewId}", "webviewInstance": "#{webviewInstanceId}" }'
+	>
 		<!-- <canvas class="snow"></canvas>
 		<img
 			class="snow__trigger snow__trigger--fixed-right snow__trigger--flipped"
@@ -96,6 +100,7 @@
 				<%= require('html-loader?{"esModule":false}!./partials/autolinks.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/terminal-links.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/dates.html') %>
+				<%= require('html-loader?{"esModule":false}!./partials/sorting.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/menus.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/shortcuts.html') %>
 				<%= require('html-loader?{"esModule":false}!./partials/modes.html') %>
@@ -321,6 +326,15 @@
 								href="#dates"
 								title="Jump to Dates & Times settings"
 								>Dates & Times</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#views"
+								title="Jump to Sorting settings"
+								>Sorting</a
 							>
 						</li>
 						<li>

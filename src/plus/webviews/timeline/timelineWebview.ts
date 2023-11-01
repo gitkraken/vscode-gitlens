@@ -1,5 +1,5 @@
-import type { TextEditor, ViewColumn } from 'vscode';
-import { commands, Disposable, Uri, window } from 'vscode';
+import type { TextEditor } from 'vscode';
+import { Disposable, Uri, window } from 'vscode';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
 import type { CommitSelectedEvent, FileSelectedEvent } from '../../../eventBus';
@@ -9,7 +9,7 @@ import { GitUri } from '../../../git/gitUri';
 import { getChangedFilesCount } from '../../../git/models/commit';
 import type { RepositoryChangeEvent } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
-import { registerCommand } from '../../../system/command';
+import { executeCommand, registerCommand } from '../../../system/command';
 import { configuration } from '../../../system/configuration';
 import { createFromDateDelta } from '../../../system/date';
 import { debug } from '../../../system/decorators/log';
@@ -17,16 +17,17 @@ import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
 import { filter } from '../../../system/iterable';
 import { hasVisibleTextEditor, isTextEditor } from '../../../system/utils';
-import type { ViewFileNode } from '../../../views/nodes/viewNode';
-import { isViewFileNode } from '../../../views/nodes/viewNode';
+import { isViewFileNode } from '../../../views/nodes/abstract/viewFileNode';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
-import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
+import type { WebviewController, WebviewProvider, WebviewShowingArgs } from '../../../webviews/webviewController';
 import { updatePendingContext } from '../../../webviews/webviewController';
+import type { WebviewShowOptions } from '../../../webviews/webviewsController';
 import { isSerializedState } from '../../../webviews/webviewsController';
-import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
+import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
 import type { Commit, Period, State } from './protocol';
 import { DidChangeNotificationType, OpenDataPointCommandType, UpdatePeriodCommandType } from './protocol';
+import type { TimelineWebviewShowingArgs } from './registration';
 
 interface Context {
 	uri: Uri | undefined;
@@ -38,7 +39,7 @@ interface Context {
 
 const defaultPeriod: Period = '3|M';
 
-export class TimelineWebviewProvider implements WebviewProvider<State> {
+export class TimelineWebviewProvider implements WebviewProvider<State, State, TimelineWebviewShowingArgs> {
 	private _bootstraping = true;
 	/** The context the webview has */
 	private _context: Context;
@@ -48,7 +49,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 
 	constructor(
 		private readonly container: Container,
-		private readonly host: WebviewController<State>,
+		private readonly host: WebviewController<State, State, TimelineWebviewShowingArgs>,
 	) {
 		this._context = {
 			uri: undefined,
@@ -86,10 +87,33 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		void this.notifyDidChangeState(true);
 	}
 
+	canReuseInstance(...args: WebviewShowingArgs<TimelineWebviewShowingArgs, State>): boolean | undefined {
+		let uri: Uri | undefined;
+
+		const [arg] = args;
+		if (arg != null) {
+			if (arg instanceof Uri) {
+				uri = arg;
+			} else if (isViewFileNode(arg)) {
+				uri = arg.uri;
+			} else if (isSerializedState<State>(arg) && arg.state.uri != null) {
+				uri = Uri.parse(arg.state.uri);
+			}
+		} else {
+			uri = window.activeTextEditor?.document.uri;
+		}
+
+		return uri?.toString() === this._context.uri?.toString() ? true : undefined;
+	}
+
+	getSplitArgs(): WebviewShowingArgs<TimelineWebviewShowingArgs, State> {
+		return this._context.uri != null ? [this._context.uri] : [];
+	}
+
 	onShowing(
 		loading: boolean,
-		_options: { column?: ViewColumn; preserveFocus?: boolean },
-		...args: [Uri | ViewFileNode | { state: Partial<State> }] | unknown[]
+		_options: WebviewShowOptions | undefined,
+		...args: WebviewShowingArgs<TimelineWebviewShowingArgs, State>
 	): boolean {
 		const [arg] = args;
 		if (arg != null) {
@@ -127,14 +151,20 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 	}
 
 	registerCommands(): Disposable[] {
-		if (this.host.isEditor()) {
-			return [registerCommand(Commands.RefreshTimelinePage, () => this.host.refresh(true))];
-		}
+		return this.host.isView()
+			? [
+					registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this),
+					registerCommand(
+						`${this.host.id}.openInTab`,
+						() => {
+							if (this._context.uri == null) return;
 
-		return [
-			registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this),
-			registerCommand(`${this.host.id}.openInTab`, () => this.openInTab(), this),
-		];
+							void executeCommand(Commands.ShowInTimeline, this._context.uri);
+						},
+						this,
+					),
+			  ]
+			: [];
 	}
 
 	onVisibilityChanged(visible: boolean) {
@@ -223,10 +253,8 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		if (e.data == null) return;
 
 		let uri: Uri | undefined = e.data.uri;
-		if (uri != null) {
-			if (!this.container.git.isTrackable(uri)) {
-				uri = undefined;
-			}
+		if (uri != null && !this.container.git.isTrackable(uri)) {
+			uri = undefined;
 		}
 
 		if (!this.updatePendingUri(uri)) return;
@@ -282,8 +310,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		if (current.uri == null || gitUri == null || repoPath == null || access.allowed === false) {
 			const access = await this.container.git.access(PlusFeatures.Timeline, repoPath);
 			return {
-				webviewId: this.host.id,
-				timestamp: Date.now(),
+				...this.host.baseWebviewState,
 				period: period,
 				title: gitUri?.relativePath,
 				sha: gitUri?.shortSha,
@@ -305,8 +332,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 
 		if (log == null) {
 			return {
-				webviewId: this.host.id,
-				timestamp: Date.now(),
+				...this.host.baseWebviewState,
 				dataset: [],
 				period: period,
 				title: gitUri.relativePath,
@@ -364,8 +390,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 		dataset.sort((a, b) => b.sort - a.sort);
 
 		return {
-			webviewId: this.host.id,
-			timestamp: Date.now(),
+			...this.host.baseWebviewState,
 			dataset: dataset,
 			period: period,
 			title: gitUri.relativePath,
@@ -442,13 +467,6 @@ export class TimelineWebviewProvider implements WebviewProvider<State> {
 
 		if (!this.host.isView()) return task();
 		return window.withProgress({ location: { viewId: this.host.id } }, task);
-	}
-
-	private openInTab() {
-		const uri = this._context.uri;
-		if (uri == null) return;
-
-		void commands.executeCommand(Commands.ShowTimelinePage, uri);
 	}
 }
 

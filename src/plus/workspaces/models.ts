@@ -2,16 +2,8 @@ import type { Disposable } from '../../api/gitlens';
 import type { Container } from '../../container';
 import type { Repository } from '../../git/models/repository';
 
-export enum WorkspaceType {
-	Local = 'local',
-	Cloud = 'cloud',
-}
-
-export enum WorkspaceAutoAddSetting {
-	Disabled = 'disabled',
-	Enabled = 'enabled',
-	Prompt = 'prompt',
-}
+export type WorkspaceType = 'cloud' | 'local';
+export type WorkspaceAutoAddSetting = 'disabled' | 'enabled' | 'prompt';
 
 export enum WorkspaceRepositoryRelation {
 	Direct = 'DIRECT',
@@ -61,7 +53,7 @@ export interface GetCloudWorkspaceRepositoriesResponse {
 
 // Cloud Workspace types
 export class CloudWorkspace {
-	readonly type = WorkspaceType.Cloud;
+	readonly type = 'cloud' satisfies WorkspaceType;
 
 	private _repositoryDescriptors: CloudWorkspaceRepositoryDescriptor[] | undefined;
 	private _repositoriesByName: WorkspaceRepositoriesByName | undefined;
@@ -532,7 +524,7 @@ export interface RemoveWorkspaceRepoDescriptor {
 
 // Local Workspace Types
 export class LocalWorkspace {
-	readonly type = WorkspaceType.Local;
+	readonly type = 'local' satisfies WorkspaceType;
 
 	private _localPath: string | undefined;
 	private _repositoriesByName: WorkspaceRepositoriesByName | undefined;

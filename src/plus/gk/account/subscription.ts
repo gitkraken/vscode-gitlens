@@ -1,5 +1,5 @@
 // NOTE@eamodio This file is referenced in the webviews to we can't use anything vscode or other imports that aren't available in the webviews
-import { getDateDifference } from './system/date';
+import { getDateDifference } from '../../../system/date';
 
 export const enum SubscriptionPlanId {
 	Free = 'free',
@@ -22,12 +22,15 @@ export interface Subscription {
 	previewTrial?: SubscriptionPreviewTrial;
 
 	state: SubscriptionState;
+
+	lastValidatedAt?: number;
 }
 
 export interface SubscriptionPlan {
 	readonly id: SubscriptionPlanId;
 	readonly name: string;
 	readonly bundle: boolean;
+	readonly trialReactivationCount: number;
 	readonly cancelled: boolean;
 	readonly startedOn: string;
 	readonly expiresOn?: string | undefined;
@@ -110,6 +113,7 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 export function getSubscriptionPlan(
 	id: SubscriptionPlanId,
 	bundle: boolean,
+	trialReactivationCount: number,
 	organizationId: string | undefined,
 	startedOn?: Date,
 	expiresOn?: Date,
@@ -121,6 +125,7 @@ export function getSubscriptionPlan(
 		bundle: bundle,
 		cancelled: cancelled,
 		organizationId: organizationId,
+		trialReactivationCount: trialReactivationCount,
 		startedOn: (startedOn ?? new Date()).toISOString(),
 		expiresOn: expiresOn != null ? expiresOn.toISOString() : undefined,
 	};
@@ -129,16 +134,16 @@ export function getSubscriptionPlan(
 export function getSubscriptionPlanName(id: SubscriptionPlanId) {
 	switch (id) {
 		case SubscriptionPlanId.FreePlus:
-			return 'GitLens Free';
+			return 'GitKraken Free';
 		case SubscriptionPlanId.Pro:
-			return 'GitLens Pro';
+			return 'GitKraken Pro';
 		case SubscriptionPlanId.Teams:
-			return 'GitLens Teams';
+			return 'GitKraken Teams';
 		case SubscriptionPlanId.Enterprise:
-			return 'GitLens Enterprise';
+			return 'GitKraken Enterprise';
 		case SubscriptionPlanId.Free:
 		default:
-			return 'GitLens';
+			return 'GitKraken';
 	}
 }
 
@@ -151,14 +156,14 @@ export function getSubscriptionStatePlanName(state: SubscriptionState | undefine
 		case SubscriptionState.FreePlusInTrial:
 			return `${getSubscriptionPlanName(id ?? SubscriptionPlanId.Pro)} (Trial)`;
 		case SubscriptionState.VerificationRequired:
-			return `GitLens (Unverified)`;
+			return `GitKraken (Unverified)`;
 		case SubscriptionState.Paid:
 			return getSubscriptionPlanName(id ?? SubscriptionPlanId.Pro);
 		case SubscriptionState.Free:
 		case SubscriptionState.FreePreviewTrialExpired:
 		case null:
 		default:
-			return 'GitLens';
+			return 'GitKraken';
 	}
 }
 
@@ -246,3 +251,7 @@ export function hasAccountFromSubscriptionState(state: SubscriptionState | undef
 		state !== SubscriptionState.FreeInPreviewTrial
 	);
 }
+
+export function assertSubscriptionState(
+	subscription: Optional<Subscription, 'state'>,
+): asserts subscription is Subscription {}

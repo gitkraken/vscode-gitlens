@@ -6,7 +6,7 @@ import type { Container } from '../../container';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import { GitCommit, GitCommitIdentity } from '../../git/models/commit';
 import { GitFileChange, GitFileIndexStatus } from '../../git/models/file';
-import { PullRequest, PullRequestState } from '../../git/models/pullRequest';
+import { PullRequest } from '../../git/models/pullRequest';
 import type { ConfigPath } from '../../system/configuration';
 import { configuration } from '../../system/configuration';
 import { map } from '../../system/iterable';
@@ -24,14 +24,15 @@ import {
 } from '../protocol';
 import type { WebviewController, WebviewProvider } from '../webviewController';
 import type { State } from './protocol';
+import type { SettingsWebviewShowingArgs } from './registration';
 
-export class SettingsWebviewProvider implements WebviewProvider<State> {
+export class SettingsWebviewProvider implements WebviewProvider<State, State, SettingsWebviewShowingArgs> {
 	private readonly _disposable: Disposable;
 	private _pendingJumpToAnchor: string | undefined;
 
 	constructor(
 		protected readonly container: Container,
-		protected readonly host: WebviewController<State>,
+		protected readonly host: WebviewController<State, State, SettingsWebviewShowingArgs>,
 	) {
 		this._disposable = configuration.onDidChangeAny(this.onAnyConfigurationChanged, this);
 	}
@@ -47,8 +48,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State> {
 		}
 
 		return {
-			webviewId: this.host.id,
-			timestamp: Date.now(),
+			...this.host.baseWebviewState,
 			version: this.container.version,
 			// Make sure to get the raw config, not from the container which has the modes mixed in
 			config: configuration.getAll(true),
@@ -65,7 +65,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State> {
 	onShowing?(
 		loading: boolean,
 		_options: { column?: ViewColumn; preserveFocus?: boolean },
-		...args: unknown[]
+		...args: SettingsWebviewShowingArgs
 	): boolean | Promise<boolean> {
 		const anchor = args[0];
 		if (anchor && typeof anchor === 'string') {
@@ -200,9 +200,10 @@ export class SettingsWebviewProvider implements WebviewProvider<State> {
 										url: 'https://github.com/eamodio',
 									},
 									'1',
+									undefined,
 									'Supercharged',
 									'https://github.com/gitkraken/vscode-gitlens/pulls/1',
-									PullRequestState.Merged,
+									'merged',
 									new Date('Sat, 12 Nov 2016 19:41:00 GMT'),
 									undefined,
 									new Date('Sat, 12 Nov 2016 20:41:00 GMT'),
@@ -213,7 +214,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State> {
 							try {
 								preview = CommitFormatter.fromTemplate(params.format, commit, {
 									dateFormat: configuration.get('defaultDateFormat'),
-									pullRequestOrRemote: pr,
+									pullRequest: pr,
 									messageTruncateAtNewLine: true,
 								});
 							} catch {

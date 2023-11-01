@@ -55,19 +55,7 @@ export class AnthropicProvider implements AIProvider {
 			max_tokens_to_sample: 5000,
 			stop_sequences: ['\n\nHuman:'],
 		};
-
-		const rsp = await fetch('https://api.anthropic.com/v1/complete', {
-			headers: {
-				Accept: 'application/json',
-				Authorization: `Bearer ${apiKey}`,
-				'Content-Type': 'application/json',
-				Client: 'anthropic-typescript/0.4.3',
-				'X-API-Key': apiKey,
-			},
-			method: 'POST',
-			body: JSON.stringify(request),
-		});
-
+		const rsp = await this.fetch(apiKey, request);
 		if (!rsp.ok) {
 			let json;
 			try {
@@ -116,19 +104,7 @@ export class AnthropicProvider implements AIProvider {
 			stop_sequences: ['\n\nHuman:'],
 		};
 
-		const rsp = await fetch('https://api.anthropic.com/v1/complete', {
-			headers: {
-				Accept: 'application/json',
-				Authorization: `Bearer ${apiKey}`,
-				'Content-Type': 'application/json',
-				Client: 'anthropic-typescript/0.4.3',
-				'X-API-Key': apiKey,
-				'anthropic-version': '2023-06-01',
-			},
-			method: 'POST',
-			body: JSON.stringify(request),
-		});
-
+		const rsp = await this.fetch(apiKey, request);
 		if (!rsp.ok) {
 			let json;
 			try {
@@ -144,6 +120,20 @@ export class AnthropicProvider implements AIProvider {
 		const data: AnthropicCompletionResponse = await rsp.json();
 		const summary = data.completion.trim();
 		return summary;
+	}
+
+	private fetch(apiKey: string, request: AnthropicCompletionRequest) {
+		return fetch('https://api.anthropic.com/v1/complete', {
+			headers: {
+				Accept: 'application/json',
+				Authorization: `Bearer ${apiKey}`,
+				'Content-Type': 'application/json',
+				'X-API-Key': apiKey,
+				'anthropic-version': '2023-06-01',
+			},
+			method: 'POST',
+			body: JSON.stringify(request),
+		});
 	}
 }
 
@@ -165,7 +155,7 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 				disposables.push(
 					input.onDidHide(() => resolve(undefined)),
 					input.onDidChangeValue(value => {
-						if (value && !/sk-[a-zA-Z0-9-_]{32,}/.test(value)) {
+						if (value && !/(?:sk-)?[a-zA-Z0-9-_]{32,}/.test(value)) {
 							input.validationMessage = 'Please enter a valid Anthropic API key';
 							return;
 						}
@@ -173,7 +163,7 @@ async function getApiKey(storage: Storage): Promise<string | undefined> {
 					}),
 					input.onDidAccept(() => {
 						const value = input.value.trim();
-						if (!value || !/sk-[a-zA-Z0-9-_]{32,}/.test(value)) {
+						if (!value || !/(?:sk-)?[a-zA-Z0-9-_]{32,}/.test(value)) {
 							input.validationMessage = 'Please enter a valid Anthropic API key';
 							return;
 						}

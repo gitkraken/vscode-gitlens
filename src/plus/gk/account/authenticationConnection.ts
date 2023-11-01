@@ -2,13 +2,13 @@ import type { CancellationToken, Disposable, StatusBarItem } from 'vscode';
 import { CancellationTokenSource, env, StatusBarAlignment, Uri, window } from 'vscode';
 import { uuid } from '@env/crypto';
 import type { Response } from '@env/fetch';
-import type { Container } from '../../container';
-import { debug } from '../../system/decorators/log';
-import type { DeferredEvent, DeferredEventExecutor } from '../../system/event';
-import { promisifyDeferred } from '../../system/event';
-import { Logger } from '../../system/logger';
-import { getLogScope } from '../../system/logger.scope';
-import type { ServerConnection } from './serverConnection';
+import type { Container } from '../../../container';
+import { debug } from '../../../system/decorators/log';
+import type { DeferredEvent, DeferredEventExecutor } from '../../../system/event';
+import { promisifyDeferred } from '../../../system/event';
+import { Logger } from '../../../system/logger';
+import { getLogScope } from '../../../system/logger.scope';
+import type { ServerConnection } from '../serverConnection';
 
 export const AuthenticationUriPathPrefix = 'did-authenticate';
 
@@ -44,11 +44,7 @@ export class AuthenticationConnection implements Disposable {
 
 		let rsp: Response;
 		try {
-			rsp = await this.connection.fetch(
-				Uri.joinPath(this.connection.baseApiUri, 'user').toString(),
-				undefined,
-				token,
-			);
+			rsp = await this.connection.fetchApi('user', undefined, token);
 		} catch (ex) {
 			Logger.error(ex, scope);
 			throw ex;
@@ -78,11 +74,12 @@ export class AuthenticationConnection implements Disposable {
 			),
 		);
 
-		const uri = Uri.joinPath(this.connection.baseAccountUri, 'register').with({
-			query: `${
-				scopes.includes('gitlens') ? 'referrer=gitlens&' : ''
-			}pass-token=true&return-url=${encodeURIComponent(callbackUri.toString())}`,
-		});
+		const uri = this.connection.getAccountsUri(
+			'register',
+			`${scopes.includes('gitlens') ? 'referrer=gitlens&' : ''}pass-token=true&return-url=${encodeURIComponent(
+				callbackUri.toString(),
+			)}`,
+		);
 		void (await env.openExternal(uri));
 
 		// Ensure there is only a single listener for the URI callback, in case the user starts the login process multiple times before completing it
@@ -97,7 +94,6 @@ export class AuthenticationConnection implements Disposable {
 
 		if (this._cancellationSource != null) {
 			this._cancellationSource.cancel();
-			this._cancellationSource.dispose();
 			this._cancellationSource = undefined;
 		}
 
@@ -115,7 +111,6 @@ export class AuthenticationConnection implements Disposable {
 			new Promise<string>((_, reject) => setTimeout(reject, 120000, 'Cancelled')),
 		]).finally(() => {
 			this._cancellationSource?.cancel();
-			this._cancellationSource?.dispose();
 			this._cancellationSource = undefined;
 
 			this._pendingStates.delete(scopeKey);

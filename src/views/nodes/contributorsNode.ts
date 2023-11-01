@@ -3,15 +3,19 @@ import type { GitUri } from '../../git/gitUri';
 import { GitContributor } from '../../git/models/contributor';
 import type { Repository } from '../../git/models/repository';
 import { configuration } from '../../system/configuration';
-import { gate } from '../../system/decorators/gate';
 import { debug } from '../../system/decorators/log';
-import { timeout } from '../../system/decorators/timeout';
 import type { ViewsWithContributorsNode } from '../viewBase';
+import { CacheableChildrenViewNode } from './abstract/cacheableChildrenViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
 import { MessageNode } from './common';
 import { ContributorNode } from './contributorNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
-export class ContributorsNode extends ViewNode<ViewsWithContributorsNode> {
+export class ContributorsNode extends CacheableChildrenViewNode<
+	'contributors',
+	ViewsWithContributorsNode,
+	ContributorNode
+> {
 	protected override splatted = true;
 
 	constructor(
@@ -20,10 +24,10 @@ export class ContributorsNode extends ViewNode<ViewsWithContributorsNode> {
 		protected override readonly parent: ViewNode,
 		public readonly repo: Repository,
 	) {
-		super(uri, view, parent);
+		super('contributors', uri, view, parent);
 
 		this.updateContext({ repository: repo });
-		this._uniqueId = getViewNodeId('contributors', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {
@@ -34,10 +38,8 @@ export class ContributorsNode extends ViewNode<ViewsWithContributorsNode> {
 		return this.repo.path;
 	}
 
-	private _children: ContributorNode[] | undefined;
-
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children == null) {
+		if (this.children == null) {
 			const all = configuration.get('views.contributors.showAllBranches');
 
 			let ref: string | undefined;
@@ -57,9 +59,9 @@ export class ContributorsNode extends ViewNode<ViewsWithContributorsNode> {
 			if (contributors.length === 0) return [new MessageNode(this.view, this, 'No contributors could be found.')];
 
 			GitContributor.sort(contributors);
-			const presenceMap = await this.maybeGetPresenceMap(contributors);
+			const presenceMap = this.view.container.vsls.enabled ? await this.getPresenceMap(contributors) : undefined;
 
-			this._children = contributors.map(
+			this.children = contributors.map(
 				c =>
 					new ContributorNode(this.uri, this.view, this, c, {
 						all: all,
@@ -69,7 +71,7 @@ export class ContributorsNode extends ViewNode<ViewsWithContributorsNode> {
 			);
 		}
 
-		return this._children;
+		return this.children;
 	}
 
 	getTreeItem(): TreeItem {
@@ -83,24 +85,22 @@ export class ContributorsNode extends ViewNode<ViewsWithContributorsNode> {
 	}
 
 	updateAvatar(email: string) {
-		if (this._children == null) return;
+		if (this.children == null) return;
 
-		for (const child of this._children) {
+		for (const child of this.children) {
 			if (child.contributor.email === email) {
 				void child.triggerChange();
 			}
 		}
 	}
 
-	@gate()
 	@debug()
 	override refresh() {
-		this._children = undefined;
+		super.refresh(true);
 	}
 
 	@debug({ args: false })
-	@timeout(250)
-	private async maybeGetPresenceMap(contributors: GitContributor[]) {
+	private async getPresenceMap(contributors: GitContributor[]) {
 		// Only get presence for the current user, because it is far too slow otherwise
 		const email = contributors.find(c => c.current)?.email;
 		if (email == null) return undefined;

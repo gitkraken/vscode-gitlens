@@ -1,5 +1,4 @@
 import { ProgressLocation, window } from 'vscode';
-import { BranchSorting } from '../../config';
 import type { Container } from '../../container';
 import type { GitReference } from '../../git/models/reference';
 import { getNameWithoutRemote, getReferenceLabel, isBranchReference } from '../../git/models/reference';
@@ -15,16 +14,13 @@ import type {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
+import { canPickStepContinue, endSteps, QuickCommand, StepResultBreak } from '../quickCommand';
 import {
 	appendReposToTitle,
-	canPickStepContinue,
-	endSteps,
 	inputBranchNameStep,
 	pickBranchOrTagStepMultiRepo,
 	pickRepositoriesStep,
-	QuickCommand,
-	StepResultBreak,
-} from '../quickCommand';
+} from '../quickCommand.steps';
 
 interface Context {
 	repos: Repository[];
@@ -163,7 +159,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 
 				const { values: branches } = await this.container.git.getBranches(state.reference.repoPath, {
 					filter: b => b.upstream?.name === state.reference!.name,
-					sort: { orderBy: BranchSorting.DateDesc },
+					sort: { orderBy: 'date:desc' },
 				});
 
 				if (branches.length === 0) {

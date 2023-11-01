@@ -1,7 +1,8 @@
 import type { Uri } from 'vscode';
+import { CancellationError as _CancellationError } from 'vscode';
 import type { Response } from '@env/fetch';
-import type { RequiredSubscriptionPlans, Subscription } from './subscription';
-import { isSubscriptionPaidPlan } from './subscription';
+import type { RequiredSubscriptionPlans, Subscription } from './plus/gk/account/subscription';
+import { isSubscriptionPaidPlan } from './plus/gk/account/subscription';
 
 export class AccessDeniedError extends Error {
 	public readonly subscription: Subscription;
@@ -82,6 +83,14 @@ export class AuthenticationError extends Error {
 		this.original = original;
 		this.reason = reason;
 		Error.captureStackTrace?.(this, AuthenticationError);
+	}
+}
+
+export class CancellationError extends _CancellationError {
+	constructor() {
+		super();
+
+		Error.captureStackTrace?.(this, CancellationError);
 	}
 }
 

@@ -20,7 +20,7 @@ import {
 	window,
 	workspace,
 } from 'vscode';
-import { AnnotationsToggleMode, BlameHighlightLocations, ChangesLocations, FileAnnotationType } from '../config';
+import type { AnnotationsToggleMode, FileAnnotationType } from '../config';
 import type { Colors, CoreColors } from '../constants';
 import type { Container } from '../container';
 import { configuration } from '../system/configuration';
@@ -32,23 +32,19 @@ import type { KeyboardScope } from '../system/keyboard';
 import { Logger } from '../system/logger';
 import { basename } from '../system/path';
 import { isTextEditor } from '../system/utils';
-import type {
-	DocumentBlameStateChangeEvent,
-	DocumentDirtyStateChangeEvent,
-	GitDocumentState,
-} from '../trackers/gitDocumentTracker';
+import type { DocumentBlameStateChangeEvent, DocumentDirtyStateChangeEvent } from '../trackers/documentTracker';
+import type { GitDocumentState } from '../trackers/gitDocumentTracker';
 import type { AnnotationContext, AnnotationProviderBase, TextEditorCorrelationKey } from './annotationProvider';
-import { AnnotationStatus, getEditorCorrelationKey } from './annotationProvider';
+import { getEditorCorrelationKey } from './annotationProvider';
 import type { ChangesAnnotationContext } from './gutterChangesAnnotationProvider';
 
-export const enum AnnotationClearReason {
-	User = 'User',
-	BlameabilityChanged = 'BlameabilityChanged',
-	ColumnChanged = 'ColumnChanged',
-	Disposing = 'Disposing',
-	DocumentChanged = 'DocumentChanged',
-	DocumentClosed = 'DocumentClosed',
-}
+export type AnnotationClearReason =
+	| 'User'
+	| 'BlameabilityChanged'
+	| 'ColumnChanged'
+	| 'Disposing'
+	| 'DocumentChanged'
+	| 'DocumentClosed';
 
 export const Decorations = {
 	gutterBlameAnnotation: window.createTextEditorDecorationType({
@@ -112,24 +108,24 @@ export class FileAnnotationController implements Disposable {
 		let toggleMode;
 		if (configuration.changed(e, 'blame.toggleMode')) {
 			toggleMode = configuration.get('blame.toggleMode');
-			this._toggleModes.set(FileAnnotationType.Blame, toggleMode);
-			if (!initializing && toggleMode === AnnotationsToggleMode.File) {
+			this._toggleModes.set('blame', toggleMode);
+			if (!initializing && toggleMode === 'file') {
 				void this.clearAll();
 			}
 		}
 
 		if (configuration.changed(e, 'changes.toggleMode')) {
 			toggleMode = configuration.get('changes.toggleMode');
-			this._toggleModes.set(FileAnnotationType.Changes, toggleMode);
-			if (!initializing && toggleMode === AnnotationsToggleMode.File) {
+			this._toggleModes.set('changes', toggleMode);
+			if (!initializing && toggleMode === 'file') {
 				void this.clearAll();
 			}
 		}
 
 		if (configuration.changed(e, 'heatmap.toggleMode')) {
 			toggleMode = configuration.get('heatmap.toggleMode');
-			this._toggleModes.set(FileAnnotationType.Heatmap, toggleMode);
-			if (!initializing && toggleMode === AnnotationsToggleMode.File) {
+			this._toggleModes.set('heatmap', toggleMode);
+			if (!initializing && toggleMode === 'file') {
 				void this.clearAll();
 			}
 		}
@@ -152,7 +148,7 @@ export class FileAnnotationController implements Disposable {
 			for (const provider of this._annotationProviders.values()) {
 				if (provider == null) continue;
 
-				void this.show(provider.editor, provider.annotationType ?? FileAnnotationType.Blame);
+				void this.show(provider.editor, provider.annotationType ?? 'blame');
 			}
 		}
 	}
@@ -190,14 +186,14 @@ export class FileAnnotationController implements Disposable {
 		const editor = window.activeTextEditor;
 		if (editor == null) return;
 
-		void this.clear(editor, AnnotationClearReason.BlameabilityChanged);
+		void this.clear(editor, 'BlameabilityChanged');
 	}
 
 	private onDirtyStateChanged(e: DocumentDirtyStateChangeEvent<GitDocumentState>) {
 		for (const [key, p] of this._annotationProviders) {
 			if (!e.document.is(p.document)) continue;
 
-			void this.clearCore(key, AnnotationClearReason.DocumentChanged);
+			void this.clearCore(key, 'DocumentChanged');
 		}
 	}
 
@@ -207,7 +203,7 @@ export class FileAnnotationController implements Disposable {
 		for (const [key, p] of this._annotationProviders) {
 			if (p.document !== document) continue;
 
-			void this.clearCore(key, AnnotationClearReason.DocumentClosed);
+			void this.clearCore(key, 'DocumentClosed');
 		}
 	}
 
@@ -222,7 +218,7 @@ export class FileAnnotationController implements Disposable {
 			);
 			if (fuzzyProvider == null) return;
 
-			void this.clearCore(fuzzyProvider.correlationKey, AnnotationClearReason.ColumnChanged);
+			void this.clearCore(fuzzyProvider.correlationKey, 'ColumnChanged');
 
 			return;
 		}
@@ -237,16 +233,16 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	isInWindowToggle(): boolean {
-		return this.getToggleMode(this._windowAnnotationType) === AnnotationsToggleMode.Window;
+		return this.getToggleMode(this._windowAnnotationType) === 'window';
 	}
 
 	private getToggleMode(annotationType: FileAnnotationType | undefined): AnnotationsToggleMode {
-		if (annotationType == null) return AnnotationsToggleMode.File;
+		if (annotationType == null) return 'file';
 
-		return this._toggleModes.get(annotationType) ?? AnnotationsToggleMode.File;
+		return this._toggleModes.get(annotationType) ?? 'file';
 	}
 
-	clear(editor: TextEditor, reason: AnnotationClearReason = AnnotationClearReason.User) {
+	clear(editor: TextEditor, reason: AnnotationClearReason = 'User') {
 		if (this.isInWindowToggle()) {
 			return this.clearAll();
 		}
@@ -257,7 +253,7 @@ export class FileAnnotationController implements Disposable {
 	async clearAll() {
 		this._windowAnnotationType = undefined;
 		for (const [key] of this._annotationProviders) {
-			await this.clearCore(key, AnnotationClearReason.Disposing);
+			await this.clearCore(key, 'Disposing');
 		}
 	}
 
@@ -277,17 +273,13 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	async show(editor: TextEditor | undefined, type: FileAnnotationType, context?: AnnotationContext): Promise<boolean>;
-	async show(
-		editor: TextEditor | undefined,
-		type: FileAnnotationType.Changes,
-		context?: ChangesAnnotationContext,
-	): Promise<boolean>;
+	async show(editor: TextEditor | undefined, type: 'changes', context?: ChangesAnnotationContext): Promise<boolean>;
 	async show(
 		editor: TextEditor | undefined,
 		type: FileAnnotationType,
 		context?: AnnotationContext | ChangesAnnotationContext,
 	): Promise<boolean> {
-		if (this.getToggleMode(type) === AnnotationsToggleMode.Window) {
+		if (this.getToggleMode(type) === 'window') {
 			let first = this._windowAnnotationType == null;
 			const reset = !first && this._windowAnnotationType !== type;
 
@@ -323,7 +315,7 @@ export class FileAnnotationController implements Disposable {
 		const provider = await window.withProgress(
 			{ location: ProgressLocation.Window },
 			async (progress: Progress<{ message: string }>) => {
-				await setContext('gitlens:annotationStatus', AnnotationStatus.Computing);
+				await setContext('gitlens:annotationStatus', 'computing');
 
 				const computingAnnotations = this.showAnnotationsCore(currentProvider, editor, type, context, progress);
 				const provider = await computingAnnotations;
@@ -347,7 +339,7 @@ export class FileAnnotationController implements Disposable {
 	): Promise<boolean>;
 	async toggle(
 		editor: TextEditor | undefined,
-		type: FileAnnotationType.Changes,
+		type: 'changes',
 		context?: ChangesAnnotationContext,
 		on?: boolean,
 	): Promise<boolean>;
@@ -357,9 +349,9 @@ export class FileAnnotationController implements Disposable {
 		context?: AnnotationContext | ChangesAnnotationContext,
 		on?: boolean,
 	): Promise<boolean> {
-		if (editor != null && this._toggleModes.get(type) === AnnotationsToggleMode.File) {
+		if (editor != null && this._toggleModes.get(type) === 'file') {
 			const trackedDocument = await this.container.tracker.getOrAdd(editor.document);
-			if ((type === FileAnnotationType.Changes && !trackedDocument.isTracked) || !trackedDocument.isBlameable) {
+			if ((type === 'changes' && !trackedDocument.isTracked) || !trackedDocument.isBlameable) {
 				return false;
 			}
 		}
@@ -373,7 +365,7 @@ export class FileAnnotationController implements Disposable {
 		if (this.isInWindowToggle()) {
 			await this.clearAll();
 		} else {
-			await this.clearCore(provider.correlationKey, AnnotationClearReason.User);
+			await this.clearCore(provider.correlationKey, 'User');
 		}
 
 		if (!reopen) return false;
@@ -390,7 +382,7 @@ export class FileAnnotationController implements Disposable {
 						const e = this._editor;
 						if (e == null) return undefined;
 
-						await this.clear(e, AnnotationClearReason.User);
+						await this.clear(e, 'User');
 						return undefined;
 					},
 				},
@@ -439,15 +431,15 @@ export class FileAnnotationController implements Disposable {
 		if (progress != null) {
 			let annotationsLabel = 'annotations';
 			switch (type) {
-				case FileAnnotationType.Blame:
+				case 'blame':
 					annotationsLabel = 'blame annotations';
 					break;
 
-				case FileAnnotationType.Changes:
+				case 'changes':
 					annotationsLabel = 'changes annotations';
 					break;
 
-				case FileAnnotationType.Heatmap:
+				case 'heatmap':
 					annotationsLabel = 'heatmap annotations';
 					break;
 			}
@@ -464,21 +456,21 @@ export class FileAnnotationController implements Disposable {
 
 		let provider: AnnotationProviderBase | undefined = undefined;
 		switch (type) {
-			case FileAnnotationType.Blame: {
+			case 'blame': {
 				const { GutterBlameAnnotationProvider } = await import(
 					/* webpackChunkName: "annotations-blame" */ './gutterBlameAnnotationProvider'
 				);
 				provider = new GutterBlameAnnotationProvider(editor, trackedDocument, this.container);
 				break;
 			}
-			case FileAnnotationType.Changes: {
+			case 'changes': {
 				const { GutterChangesAnnotationProvider } = await import(
 					/* webpackChunkName: "annotations-changes" */ './gutterChangesAnnotationProvider'
 				);
 				provider = new GutterChangesAnnotationProvider(editor, trackedDocument, this.container);
 				break;
 			}
-			case FileAnnotationType.Heatmap: {
+			case 'heatmap': {
 				const { GutterHeatmapBlameAnnotationProvider } = await import(
 					/* webpackChunkName: "annotations-heatmap" */ './gutterHeatmapBlameAnnotationProvider'
 				);
@@ -489,7 +481,7 @@ export class FileAnnotationController implements Disposable {
 		if (provider == null || !(await provider.validate())) return undefined;
 
 		if (currentProvider != null) {
-			await this.clearCore(currentProvider.correlationKey, AnnotationClearReason.User);
+			await this.clearCore(currentProvider.correlationKey, 'User');
 		}
 
 		if (this._annotationsDisposable == null && this._annotationProviders.size === 0) {
@@ -511,7 +503,7 @@ export class FileAnnotationController implements Disposable {
 			return provider;
 		}
 
-		await this.clearCore(provider.correlationKey, AnnotationClearReason.Disposing);
+		await this.clearCore(provider.correlationKey, 'Disposing');
 
 		return undefined;
 	}
@@ -575,11 +567,9 @@ export class FileAnnotationController implements Disposable {
 		}
 
 		Decorations.changesLineAddedAnnotation = window.createTextEditorDecorationType({
-			backgroundColor: locations.includes(ChangesLocations.Line)
-				? `rgba(${addedColor.join(',')},0.4)`
-				: undefined,
-			isWholeLine: locations.includes(ChangesLocations.Line) ? true : undefined,
-			gutterIconPath: locations.includes(ChangesLocations.Gutter)
+			backgroundColor: locations.includes('line') ? `rgba(${addedColor.join(',')},0.4)` : undefined,
+			isWholeLine: locations.includes('line') ? true : undefined,
+			gutterIconPath: locations.includes('gutter')
 				? Uri.parse(
 						`data:image/svg+xml,${encodeURIComponent(
 							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='rgb(${addedColor.join(
@@ -590,17 +580,15 @@ export class FileAnnotationController implements Disposable {
 				: undefined,
 			gutterIconSize: 'contain',
 			overviewRulerLane: OverviewRulerLane.Left,
-			overviewRulerColor: locations.includes(ChangesLocations.Scrollbar)
+			overviewRulerColor: locations.includes('overview')
 				? new ThemeColor('editorOverviewRuler.addedForeground' satisfies CoreColors)
 				: undefined,
 		});
 
 		Decorations.changesLineChangedAnnotation = window.createTextEditorDecorationType({
-			backgroundColor: locations.includes(ChangesLocations.Line)
-				? `rgba(${changedColor.join(',')},0.4)`
-				: undefined,
-			isWholeLine: locations.includes(ChangesLocations.Line) ? true : undefined,
-			gutterIconPath: locations.includes(ChangesLocations.Gutter)
+			backgroundColor: locations.includes('line') ? `rgba(${changedColor.join(',')},0.4)` : undefined,
+			isWholeLine: locations.includes('line') ? true : undefined,
+			gutterIconPath: locations.includes('gutter')
 				? Uri.parse(
 						`data:image/svg+xml,${encodeURIComponent(
 							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='rgb(${changedColor.join(
@@ -611,13 +599,13 @@ export class FileAnnotationController implements Disposable {
 				: undefined,
 			gutterIconSize: 'contain',
 			overviewRulerLane: OverviewRulerLane.Left,
-			overviewRulerColor: locations.includes(ChangesLocations.Scrollbar)
+			overviewRulerColor: locations.includes('overview')
 				? new ThemeColor('editorOverviewRuler.modifiedForeground' satisfies CoreColors)
 				: undefined,
 		});
 
 		Decorations.changesLineDeletedAnnotation = window.createTextEditorDecorationType({
-			gutterIconPath: locations.includes(ChangesLocations.Gutter)
+			gutterIconPath: locations.includes('gutter')
 				? Uri.parse(
 						`data:image/svg+xml,${encodeURIComponent(
 							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><polygon fill='rgb(${deletedColor.join(
@@ -628,7 +616,7 @@ export class FileAnnotationController implements Disposable {
 				: undefined,
 			gutterIconSize: 'contain',
 			overviewRulerLane: OverviewRulerLane.Left,
-			overviewRulerColor: locations.includes(ChangesLocations.Scrollbar)
+			overviewRulerColor: locations.includes('overview')
 				? new ThemeColor('editorOverviewRuler.deletedForeground' satisfies CoreColors)
 				: undefined,
 		});
@@ -644,7 +632,7 @@ export class FileAnnotationController implements Disposable {
 
 			// TODO@eamodio: Read from the theme color when the API exists
 			const gutterHighlightColor = '#00bcf2'; // new ThemeColor('gitlens.lineHighlightOverviewRulerColor' satisfies Colors)
-			const gutterHighlightUri = locations.includes(BlameHighlightLocations.Gutter)
+			const gutterHighlightUri = locations.includes('gutter')
 				? Uri.parse(
 						`data:image/svg+xml,${encodeURIComponent(
 							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='${gutterHighlightColor}' fill-opacity='0.6' x='7' y='0' width='3' height='18'/></svg>`,
@@ -657,10 +645,10 @@ export class FileAnnotationController implements Disposable {
 				gutterIconSize: 'contain',
 				isWholeLine: true,
 				overviewRulerLane: OverviewRulerLane.Right,
-				backgroundColor: locations.includes(BlameHighlightLocations.Line)
+				backgroundColor: locations.includes('line')
 					? new ThemeColor('gitlens.lineHighlightBackgroundColor' satisfies Colors)
 					: undefined,
-				overviewRulerColor: locations.includes(BlameHighlightLocations.Scrollbar)
+				overviewRulerColor: locations.includes('overview')
 					? new ThemeColor('gitlens.lineHighlightOverviewRulerColor' satisfies Colors)
 					: undefined,
 			});

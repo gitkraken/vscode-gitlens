@@ -1,9 +1,12 @@
+import type { CommitSelectedEvent } from '../../eventBus';
 import type { Serialized } from '../../system/serialize';
 import type { WebviewsController } from '../webviewsController';
 import type { State } from './protocol';
 
+export type CommitDetailsWebviewShowingArgs = [Partial<CommitSelectedEvent['data']>];
+
 export function registerCommitDetailsWebviewView(controller: WebviewsController) {
-	return controller.registerWebviewView<State, Serialized<State>>(
+	return controller.registerWebviewView<State, Serialized<State>, CommitDetailsWebviewShowingArgs>(
 		{
 			id: 'gitlens.views.commitDetails',
 			fileName: 'commitDetails.html',
@@ -19,13 +22,13 @@ export function registerCommitDetailsWebviewView(controller: WebviewsController)
 			const { CommitDetailsWebviewProvider } = await import(
 				/* webpackChunkName: "commitDetails" */ './commitDetailsWebview'
 			);
-			return new CommitDetailsWebviewProvider(container, host, { mode: 'default' });
+			return new CommitDetailsWebviewProvider(container, host, { attachedTo: 'default' });
 		},
 	);
 }
 
 export function registerGraphDetailsWebviewView(controller: WebviewsController) {
-	return controller.registerWebviewView<State, Serialized<State>>(
+	return controller.registerWebviewView<State, Serialized<State>, CommitDetailsWebviewShowingArgs>(
 		{
 			id: 'gitlens.views.graphDetails',
 			fileName: 'commitDetails.html',
@@ -41,7 +44,7 @@ export function registerGraphDetailsWebviewView(controller: WebviewsController) 
 			const { CommitDetailsWebviewProvider } = await import(
 				/* webpackChunkName: "commitDetails" */ './commitDetailsWebview'
 			);
-			return new CommitDetailsWebviewProvider(container, host, { mode: 'graph' });
+			return new CommitDetailsWebviewProvider(container, host, { attachedTo: 'graph' });
 		},
 	);
 }

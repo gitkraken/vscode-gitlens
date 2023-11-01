@@ -1,13 +1,12 @@
 import { Disposable, window } from 'vscode';
 import { getAvatarUriFromGravatarEmail } from '../../../avatars';
 import type { Container } from '../../../container';
-import type { RepositoriesVisibility } from '../../../git/gitProviderService';
-import type { Subscription } from '../../../subscription';
 import { registerCommand } from '../../../system/command';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
-import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
+import type { Subscription } from '../../gk/account/subscription';
+import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
 import type { State } from './protocol';
 import { DidChangeSubscriptionNotificationType } from './protocol';
 
@@ -30,7 +29,16 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 	}
 
 	registerCommands(): Disposable[] {
-		return [registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true), this)];
+		return [
+			registerCommand(
+				`${this.host.id}.refresh`,
+				async () => {
+					await this.validateSubscriptionCore(true);
+					await this.host.refresh(true);
+				},
+				this,
+			),
+		];
 	}
 
 	includeBootstrap(): Promise<State> {
@@ -59,11 +67,6 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 		queueMicrotask(() => void this.validateSubscription());
 	}
 
-	private async getRepoVisibility(): Promise<RepositoriesVisibility> {
-		const visibility = await this.container.git.visibility();
-		return visibility;
-	}
-
 	private async getSubscription(subscription?: Subscription) {
 		const sub = subscription ?? (await this.container.subscription.getSubscription(true));
 
@@ -84,8 +87,7 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 		const subscriptionResult = await this.getSubscription(subscription);
 
 		return {
-			webviewId: this.host.id,
-			timestamp: Date.now(),
+			...this.host.baseWebviewState,
 			webroot: this.host.getWebRoot(),
 			subscription: subscriptionResult.subscription,
 			avatar: subscriptionResult.avatar,
@@ -113,9 +115,9 @@ export class AccountWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private _validating: Promise<void> | undefined;
-	private async validateSubscriptionCore() {
-		if (this._validating == null) {
-			this._validating = this.container.subscription.validate();
+	private async validateSubscriptionCore(force?: boolean) {
+		if (this._validating == null || force) {
+			this._validating = this.container.subscription.validate({ force: force });
 			try {
 				await this._validating;
 			} finally {

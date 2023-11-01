@@ -2,15 +2,13 @@ import type { ColorTheme, ConfigurationChangeEvent, Uri, ViewColumn } from 'vsco
 import { CancellationTokenSource, Disposable, env, window } from 'vscode';
 import type { CreatePullRequestActionContext } from '../../../api/gitlens';
 import { getAvatarUri } from '../../../avatars';
-import type {
-	CopyDeepLinkCommandArgs,
-	CopyMessageToClipboardCommandArgs,
-	CopyShaToClipboardCommandArgs,
-	OpenOnRemoteCommandArgs,
-	OpenPullRequestOnRemoteCommandArgs,
-	ShowCommitsInViewCommandArgs,
-} from '../../../commands';
 import { parseCommandContext } from '../../../commands/base';
+import type { CopyDeepLinkCommandArgs } from '../../../commands/copyDeepLink';
+import type { CopyMessageToClipboardCommandArgs } from '../../../commands/copyMessageToClipboard';
+import type { CopyShaToClipboardCommandArgs } from '../../../commands/copyShaToClipboard';
+import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote';
+import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openPullRequestOnRemote';
+import type { ShowCommitsInViewCommandArgs } from '../../../commands/showCommitsInView';
 import type { Config, GraphMinimapMarkersAdditionalTypes, GraphScrollMarkersAdditionalTypes } from '../../../config';
 import type { StoredGraphFilters, StoredGraphIncludeOnlyRef, StoredGraphRefType } from '../../../constants';
 import { Commands, GlyphChars } from '../../../constants';
@@ -36,8 +34,7 @@ import { getBranchId, getBranchNameWithoutRemote, getRemoteNameFromBranchName } 
 import type { GitCommit } from '../../../git/models/commit';
 import { uncommitted } from '../../../git/models/constants';
 import { GitContributor } from '../../../git/models/contributor';
-import type { GitGraph } from '../../../git/models/graph';
-import { GitGraphRowType } from '../../../git/models/graph';
+import type { GitGraph, GitGraphRowType } from '../../../git/models/graph';
 import type {
 	GitBranchReference,
 	GitReference,
@@ -83,12 +80,13 @@ import { updateRecordValue } from '../../../system/object';
 import { getSettledValue } from '../../../system/promise';
 import { isDarkTheme, isLightTheme } from '../../../system/utils';
 import { isWebviewItemContext, isWebviewItemGroupContext, serializeWebviewItemContext } from '../../../system/webview';
-import { RepositoryFolderNode } from '../../../views/nodes/viewNode';
+import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode';
 import type { IpcMessage, IpcNotificationType } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
-import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
+import type { WebviewController, WebviewProvider, WebviewShowingArgs } from '../../../webviews/webviewController';
+import type { WebviewPanelShowCommandArgs } from '../../../webviews/webviewsController';
 import { isSerializedState } from '../../../webviews/webviewsController';
-import type { SubscriptionChangeEvent } from '../../subscription/subscriptionService';
+import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
 import type {
 	BranchState,
 	DimMergeCommitsParams,
@@ -164,7 +162,6 @@ import {
 	GetMissingAvatarsCommandType,
 	GetMissingRefsMetadataCommandType,
 	GetMoreRowsCommandType,
-	GraphRefMetadataTypes,
 	SearchCommandType,
 	SearchOpenInViewCommandType,
 	supportedRefMetadataTypes,
@@ -175,6 +172,7 @@ import {
 	UpdateRefsVisibilityCommandType,
 	UpdateSelectionCommandType,
 } from './protocol';
+import type { GraphWebviewShowingArgs } from './registration';
 
 const defaultGraphColumnsSettings: GraphColumnsSettings = {
 	ref: { width: 130, isHidden: false, order: 0 },
@@ -196,7 +194,7 @@ const compactGraphColumnsSettings: GraphColumnsSettings = {
 	sha: { width: 130, isHidden: false, order: 6 },
 };
 
-export class GraphWebviewProvider implements WebviewProvider<State> {
+export class GraphWebviewProvider implements WebviewProvider<State, State, GraphWebviewShowingArgs> {
 	private _repository?: Repository;
 	private get repository(): Repository | undefined {
 		return this._repository;
@@ -221,7 +219,9 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		return this._selection?.[0];
 	}
 
+	private _discovering: Promise<number | undefined> | undefined;
 	private readonly _disposable: Disposable;
+	private _etag?: number;
 	private _etagSubscription?: number;
 	private _etagRepository?: number;
 	private _firstSelection = true;
@@ -252,7 +252,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	constructor(
 		private readonly container: Container,
-		private readonly host: WebviewController<State>,
+		private readonly host: WebviewController<State, State, GraphWebviewShowingArgs>,
 	) {
 		this._showDetailsView = configuration.get('graph.showDetailsView');
 		this._theme = window.activeColorTheme;
@@ -265,7 +265,16 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
-			this.container.git.onDidChangeRepositories(() => void this.host.refresh(true)),
+			this.container.git.onDidChangeRepositories(async () => {
+				if (this._etag !== this.container.git.etag) {
+					if (this._discovering != null) {
+						this._etag = await this._discovering;
+						if (this._etag === this.container.git.etag) return;
+					}
+
+					void this.host.refresh(true);
+				}
+			}),
 			window.onDidChangeActiveColorTheme(this.onThemeChanged, this),
 			{
 				dispose: () => {
@@ -281,12 +290,42 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		this._disposable.dispose();
 	}
 
+	canReuseInstance(...args: WebviewShowingArgs<GraphWebviewShowingArgs, State>): boolean | undefined {
+		if (this.container.git.openRepositoryCount === 1) return true;
+
+		const [arg] = args;
+
+		let repository: Repository | undefined;
+		if (isRepository(arg)) {
+			repository = arg;
+		} else if (hasGitReference(arg)) {
+			repository = this.container.git.getRepository(arg.ref.repoPath);
+		} else if (isSerializedState<State>(arg) && arg.state.selectedRepository != null) {
+			repository = this.container.git.getRepository(arg.state.selectedRepository);
+		}
+
+		return repository?.uri.toString() === this.repository?.uri.toString() ? true : undefined;
+	}
+
+	getSplitArgs(): WebviewShowingArgs<GraphWebviewShowingArgs, State> {
+		return this.repository != null ? [this.repository] : [];
+	}
+
 	async onShowing(
 		loading: boolean,
 		_options: { column?: ViewColumn; preserveFocus?: boolean },
-		...args: [Repository, { ref: GitReference }, { state: Partial<State> }] | unknown[]
+		...args: WebviewShowingArgs<GraphWebviewShowingArgs, State>
 	): Promise<boolean> {
 		this._firstSelection = true;
+
+		this._etag = this.container.git.etag;
+		if (this.container.git.isDiscoveringRepositories) {
+			this._discovering = this.container.git.isDiscoveringRepositories.then(r => {
+				this._discovering = undefined;
+				return r;
+			});
+			this._etag = await this._discovering;
+		}
 
 		const [arg] = args;
 		if (isRepository(arg)) {
@@ -347,13 +386,17 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	registerCommands(): Disposable[] {
 		return [
-			registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true)),
-
 			...(this.host.isView()
 				? [
+						registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true)),
 						registerCommand(
 							`${this.host.id}.openInTab`,
-							() => void executeCommand(Commands.ShowGraphPage, this.repository),
+							() =>
+								void executeCommand<WebviewPanelShowCommandArgs>(
+									Commands.ShowGraphPage,
+									{ _type: 'WebviewPanelShowOptions' },
+									this.repository,
+								),
 						),
 				  ]
 				: []),
@@ -512,10 +555,10 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 	}
 
 	onFocusChanged(focused: boolean): void {
+		this._showActiveSelectionDetailsDebounced?.cancel();
 		void this.notifyDidChangeFocus(focused);
 
 		if (!focused || this.activeSelection == null || !this.container.commitDetailsView.visible) {
-			this._showActiveSelectionDetailsDebounced?.cancel();
 			return;
 		}
 
@@ -652,7 +695,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	private showActiveSelectionDetailsCore() {
 		const { activeSelection } = this;
-		if (activeSelection == null) return;
+		if (activeSelection == null || !this.host.active) return;
 
 		this.container.events.fire(
 			'commit:selected',
@@ -757,13 +800,11 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 	}
 
 	private onThemeChanged(theme: ColorTheme) {
-		if (this._theme != null) {
-			if (
-				(isDarkTheme(theme) && isDarkTheme(this._theme)) ||
-				(isLightTheme(theme) && isLightTheme(this._theme))
-			) {
-				return;
-			}
+		if (
+			this._theme != null &&
+			((isDarkTheme(theme) && isDarkTheme(this._theme)) || (isLightTheme(theme) && isLightTheme(this._theme)))
+		) {
+			return;
 		}
 
 		this._theme = theme;
@@ -816,6 +857,8 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 				);
 			}
 		} else if (e.type === 'row' && e.row) {
+			this._showActiveSelectionDetailsDebounced?.cancel();
+
 			const commit = this.getRevisionReference(this.repository?.path, e.row.id, e.row.type);
 			if (commit != null) {
 				this.container.events.fire(
@@ -926,7 +969,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 					continue;
 				}
 
-				if (type === GraphRefMetadataTypes.PullRequest) {
+				if (type === 'pullRequest') {
 					const pr = await branch?.getAssociatedPullRequest();
 
 					if (pr == null) {
@@ -963,7 +1006,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 					continue;
 				}
 
-				if (type === GraphRefMetadataTypes.Upstream) {
+				if (type === 'upstream') {
 					const upstream = branch?.upstream;
 
 					if (upstream == null || upstream == undefined || upstream.missing) {
@@ -1071,7 +1114,6 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 			if (this._searchCancellation != null) {
 				this._searchCancellation.cancel();
-				this._searchCancellation.dispose();
 			}
 
 			const cancellation = new CancellationTokenSource();
@@ -1173,11 +1215,13 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		undefined;
 
 	private onSelectionChanged(e: UpdateSelectionParams) {
+		this._showActiveSelectionDetailsDebounced?.cancel();
+
 		const item = e.selection[0];
 		this.setSelectedRows(item?.id);
 
 		if (this._fireSelectionChangedDebounced == null) {
-			this._fireSelectionChangedDebounced = debounce(this.fireSelectionChanged.bind(this), 250);
+			this._fireSelectionChangedDebounced = debounce(this.fireSelectionChanged.bind(this), 50);
 		}
 
 		this._fireSelectionChangedDebounced(item?.id, item?.type);
@@ -1192,6 +1236,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		this._selection = commits;
 
 		if (commits == null) return;
+		if (!this._firstSelection && this.host.isEditor() && !this.host.active) return;
 
 		this.container.events.fire(
 			'commit:selected',
@@ -1221,14 +1266,14 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		if (repoPath == null || id == null) return undefined;
 
 		switch (type) {
-			case GitGraphRowType.Stash:
+			case 'stash-node':
 				return createReference(id, repoPath, {
 					refType: 'stash',
 					name: id,
 					number: undefined,
 				});
 
-			case GitGraphRowType.Working:
+			case 'work-dir-changes':
 				return createReference(uncommitted, repoPath, { refType: 'revision' });
 
 			default:
@@ -1822,12 +1867,13 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	private getEnabledRefMetadataTypes(): GraphRefMetadataType[] {
 		const types: GraphRefMetadataType[] = [];
+
 		if (configuration.get('graph.pullRequests.enabled')) {
-			types.push(GraphRefMetadataTypes.PullRequest as GraphRefMetadataType);
+			types.push('pullRequest');
 		}
 
 		if (configuration.get('graph.showUpstreamStatus')) {
-			types.push(GraphRefMetadataTypes.Upstream as GraphRefMetadataType);
+			types.push('upstream');
 		}
 
 		return types;
@@ -1873,7 +1919,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 				webviewItem: 'gitlens:wip',
 				webviewItemValue: {
 					type: 'commit',
-					ref: this.getRevisionReference(this.repository.path, uncommitted, GitGraphRowType.Working)!,
+					ref: this.getRevisionReference(this.repository.path, uncommitted, 'work-dir-changes')!,
 				},
 			}),
 		};
@@ -1881,13 +1927,13 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 	private async getState(deferRows?: boolean): Promise<State> {
 		if (this.container.git.repositoryCount === 0) {
-			return { webviewId: this.host.id, timestamp: Date.now(), allowed: true, repositories: [] };
+			return { ...this.host.baseWebviewState, allowed: true, repositories: [] };
 		}
 
 		if (this.repository == null) {
 			this.repository = this.container.git.getBestRepositoryOrFirst();
 			if (this.repository == null) {
-				return { webviewId: this.host.id, timestamp: Date.now(), allowed: true, repositories: [] };
+				return { ...this.host.baseWebviewState, allowed: true, repositories: [] };
 			}
 		}
 
@@ -1899,13 +1945,14 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		// If we have a set of data refresh to the same set
 		const limit = Math.max(defaultItemLimit, this._graph?.ids.size ?? defaultItemLimit);
 
-		const ref = this._selectedId == null || this._selectedId === uncommitted ? 'HEAD' : this._selectedId;
+		const selectedId = this._selectedId;
+		const ref = selectedId == null || selectedId === uncommitted ? 'HEAD' : selectedId;
 
 		const columns = this.getColumns();
 		const columnSettings = this.getColumnSettings(columns);
 
 		const dataPromise = this.container.git.getCommitsForGraph(
-			this.repository.path,
+			this.repository.uri,
 			uri => this.host.asWebviewUri(uri),
 			{
 				include: {
@@ -1932,7 +1979,9 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 			queueMicrotask(async () => {
 				const data = await dataPromise;
 				this.setGraph(data);
-				this.setSelectedRows(data.id);
+				if (selectedId !== uncommitted) {
+					this.setSelectedRows(data.id);
+				}
 
 				void this.notifyDidChangeRefsVisibility();
 				void this.notifyDidChangeRows(true);
@@ -1940,7 +1989,9 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		} else {
 			data = await dataPromise;
 			this.setGraph(data);
-			this.setSelectedRows(data.id);
+			if (selectedId !== uncommitted) {
+				this.setSelectedRows(data.id);
+			}
 		}
 
 		const [accessResult, workingStatsResult, branchResult, lastFetchedResult] = await promises;
@@ -1967,8 +2018,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 		}
 
 		return {
-			webviewId: this.host.id,
-			timestamp: Date.now(),
+			...this.host.baseWebviewState,
 			windowFocused: this.isWindowFocused,
 			repositories: formatRepositories(this.container.git.openRepositories),
 			selectedRepository: this.repository.path,
@@ -2099,7 +2149,7 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 
 		this._selectedId = id;
 		if (id === uncommitted) {
-			id = GitGraphRowType.Working;
+			id = 'work-dir-changes' satisfies GitGraphRowType;
 		}
 		this._selectedRows = id != null ? { [id]: true } : undefined;
 	}
@@ -2184,13 +2234,20 @@ export class GraphWebviewProvider implements WebviewProvider<State> {
 	private openBranchOnRemote(item?: GraphItemContext, clipboard?: boolean) {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
+			let remote;
+			if (ref.remote) {
+				remote = getRemoteNameFromBranchName(ref.name);
+			} else if (ref.upstream != null) {
+				remote = getRemoteNameFromBranchName(ref.upstream.name);
+			}
+
 			return executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
 				repoPath: ref.repoPath,
 				resource: {
 					type: RemoteResourceType.Branch,
 					branch: ref.name,
 				},
-				remote: ref.upstream?.name,
+				remote: remote,
 				clipboard: clipboard,
 			});
 		}

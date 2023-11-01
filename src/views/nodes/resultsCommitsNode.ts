@@ -9,6 +9,8 @@ import { map } from '../../system/iterable';
 import type { Deferred } from '../../system/promise';
 import { cancellable, defer, PromiseCancelledError } from '../../system/promise';
 import type { ViewsWithCommits } from '../viewBase';
+import type { PageableViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 import { AutolinkedItemsNode } from './autolinkedItemsNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
@@ -16,8 +18,6 @@ import { insertDateMarkers } from './helpers';
 import type { FilesQueryResults } from './resultsFilesNode';
 import { ResultsFilesNode } from './resultsFilesNode';
 import { StashNode } from './stashNode';
-import type { PageableViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, ViewNode } from './viewNode';
 
 export interface CommitsQueryResults {
 	readonly label: string;
@@ -27,7 +27,7 @@ export interface CommitsQueryResults {
 }
 
 export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits>
-	extends ViewNode<View>
+	extends ViewNode<'results-commits', View>
 	implements PageableViewNode
 {
 	limit: number | undefined;
@@ -51,12 +51,12 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		private readonly _options: { description?: string; expand?: boolean } = undefined!,
 		splatted?: boolean,
 	) {
-		super(GitUri.fromRepoPath(repoPath), view, parent);
+		super('results-commits', GitUri.fromRepoPath(repoPath), view, parent);
 
 		if (_results.direction != null) {
 			this.updateContext({ branchStatusUpstreamType: _results.direction });
 		}
-		this._uniqueId = getViewNodeId('results-commits', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 		this.limit = this.view.getNodeLastKnownLimit(this);
 
 		this._options = { expand: true, ..._options };
@@ -75,6 +75,10 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 
 	get ref2(): string | undefined {
 		return this._results.comparison?.ref2;
+	}
+
+	private get isComparisonFiltered(): boolean | undefined {
+		return this.context.comparisonFiltered;
 	}
 
 	private _onChildrenCompleted: Deferred<void> | undefined;
@@ -96,7 +100,8 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 		this._expandAutolinks = false;
 
 		const { files } = this._results;
-		if (files != null) {
+		// Can't support showing files when commits are filtered
+		if (files != null && !this.isComparisonFiltered) {
 			children.push(
 				new ResultsFilesNode(
 					this.view,
@@ -204,7 +209,7 @@ export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits
 			if (this._results.deferred) {
 				this._results.deferred = false;
 
-				// void this.triggerChange(false);
+				void this.parent.triggerChange(false);
 			}
 		}
 

@@ -3,12 +3,16 @@ import type { WebviewIds, WebviewViewIds } from '../constants';
 export function createWebviewCommandLink(
 	command: `${WebviewIds | WebviewViewIds}.${string}`,
 	webviewId: WebviewIds | WebviewViewIds,
+	webviewInstanceId: string | undefined,
 ): string {
-	return `command:${command}?${encodeURIComponent(JSON.stringify({ webview: webviewId } satisfies WebviewContext))}`;
+	return `command:${command}?${encodeURIComponent(
+		JSON.stringify({ webview: webviewId, webviewInstance: webviewInstanceId } satisfies WebviewContext),
+	)}`;
 }
 
 export interface WebviewContext {
 	webview: WebviewIds | WebviewViewIds;
+	webviewInstance: string | undefined;
 }
 
 export function isWebviewContext(item: object | null | undefined): item is WebviewContext {

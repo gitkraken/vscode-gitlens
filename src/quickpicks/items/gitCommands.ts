@@ -11,7 +11,7 @@ import type { GitContributor } from '../../git/models/contributor';
 import type { GitReference } from '../../git/models/reference';
 import { createReference, isRevisionRange, shortenRevision } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
-import { getRemoteUpstreamDescription, GitRemoteType } from '../../git/models/remote';
+import { getRemoteUpstreamDescription } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import type { GitStatus } from '../../git/models/status';
 import type { GitTag } from '../../git/models/tag';
@@ -76,11 +76,11 @@ export async function createBranchQuickPickItem(
 				let left;
 				let right;
 				for (const { type } of remote.urls) {
-					if (type === GitRemoteType.Fetch) {
+					if (type === 'fetch') {
 						left = true;
 
 						if (right) break;
-					} else if (type === GitRemoteType.Push) {
+					} else if (type === 'push') {
 						right = true;
 
 						if (left) break;
@@ -219,18 +219,19 @@ export function createCommitQuickPickItem<T extends GitCommit = GitCommit>(
 
 export type ContributorQuickPickItem = QuickPickItemOfT<GitContributor>;
 
-export function createContributorQuickPickItem(
+export async function createContributorQuickPickItem(
 	contributor: GitContributor,
 	picked?: boolean,
 	options?: { alwaysShow?: boolean; buttons?: QuickInputButton[] },
-): ContributorQuickPickItem {
+): Promise<ContributorQuickPickItem> {
 	const item: ContributorQuickPickItem = {
 		label: contributor.label,
-		description: contributor.email,
+		description: contributor.current ? 'you' : contributor.email,
 		alwaysShow: options?.alwaysShow,
 		buttons: options?.buttons,
 		picked: picked,
 		item: contributor,
+		iconPath: await contributor.getAvatarUri(),
 	};
 	return item;
 }

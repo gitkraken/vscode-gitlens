@@ -16,111 +16,14 @@ import { when } from 'lit/directives/when.js';
 import type { PullRequestMember, PullRequestShape } from '../../../../../git/models/pullRequest';
 import { elementBase } from '../../../shared/components/styles/lit/base.css';
 import { repoBranchStyles } from './branch-tag.css';
+import { rowBaseStyles } from './common.css';
 import { dateAgeStyles } from './date-styles.css';
 import { themeProperties } from './gk-theme.css';
 import { fromDateRange } from './helpers';
 
 @customElement('gk-pull-request-row')
 export class GkPullRequestRow extends LitElement {
-	static override styles = [
-		themeProperties,
-		elementBase,
-		dateAgeStyles,
-		repoBranchStyles,
-		css`
-			:host {
-				display: block;
-			}
-
-			p {
-				margin: 0;
-			}
-
-			a {
-				color: var(--vscode-textLink-foreground);
-				text-decoration: none;
-			}
-			a:hover {
-				text-decoration: underline;
-			}
-			a:focus {
-				outline: 1px solid var(--vscode-focusBorder);
-				outline-offset: -1px;
-			}
-
-			.actions gk-tooltip {
-				display: inline-block;
-			}
-
-			.actions a {
-				box-sizing: border-box;
-				display: inline-flex;
-				justify-content: center;
-				align-items: center;
-				width: 3.2rem;
-				height: 3.2rem;
-				border-radius: 0.5rem;
-				color: inherit;
-				padding: 0.2rem;
-				vertical-align: text-bottom;
-				text-decoration: none;
-				cursor: pointer;
-			}
-			.actions a:hover {
-				background-color: var(--vscode-toolbar-hoverBackground);
-			}
-			.actions a:active {
-				background-color: var(--vscode-toolbar-activeBackground);
-			}
-			.actions a[tabindex='-1'] {
-				opacity: 0.5;
-				cursor: default;
-			}
-
-			.actions a code-icon {
-				font-size: 1.6rem;
-			}
-
-			.indicator-info {
-				color: var(--vscode-problemsInfoIcon-foreground);
-			}
-			.indicator-warning {
-				color: var(--vscode-problemsWarningIcon-foreground);
-			}
-			.indicator-error {
-				color: var(--vscode-problemsErrorIcon-foreground);
-			}
-			.indicator-neutral {
-				color: var(--color-alert-neutralBorder);
-			}
-
-			.row-type {
-				--gk-badge-outline-padding: 0.3rem 0.8rem;
-				--gk-badge-font-size: 1.1rem;
-				opacity: 0.5;
-				vertical-align: middle;
-			}
-
-			.title {
-				font-size: 1.4rem;
-			}
-
-			.add-delete {
-				margin-left: 0.4rem;
-				margin-right: 0.2rem;
-			}
-
-			.key {
-				z-index: 1;
-				position: relative;
-			}
-
-			.date {
-				display: inline-block;
-				min-width: 1.6rem;
-			}
-		`,
-	];
+	static override styles = [themeProperties, elementBase, dateAgeStyles, repoBranchStyles, rowBaseStyles, css``];
 
 	@property({ type: Number })
 	public rank?: number;
@@ -139,6 +42,12 @@ export class GkPullRequestRow extends LitElement {
 
 	@property({ type: Boolean })
 	public hasLocalBranch = false;
+
+	@property()
+	public pinned?: string;
+
+	@property()
+	public snoozed?: string;
 
 	constructor() {
 		super();
@@ -191,17 +100,70 @@ export class GkPullRequestRow extends LitElement {
 		return `indicator-${fromDateRange(this.lastUpdatedDate).status}`;
 	}
 
+	get participants() {
+		const participants: { member: PullRequestMember; roles: string[] }[] = [];
+		function addMember(member: PullRequestMember, role: string) {
+			const participant = participants.find(p => p.member.name === member.name);
+			if (participant != null) {
+				participant.roles.push(role);
+			} else {
+				participants.push({ member: member, roles: [role] });
+			}
+		}
+
+		if (this.pullRequest?.author != null) {
+			addMember(this.pullRequest.author, 'author');
+		}
+
+		if (this.pullRequest?.assignees != null) {
+			this.pullRequest.assignees.forEach(m => addMember(m, 'assigned'));
+		}
+
+		if (this.pullRequest?.reviewRequests != null) {
+			this.pullRequest.reviewRequests.forEach(m => addMember(m.reviewer, 'reviewer'));
+		}
+
+		return participants;
+	}
+
 	override render() {
 		if (!this.pullRequest) return undefined;
 
 		return html`
 			<gk-focus-row>
+				<span slot="pin">
+					<gk-tooltip>
+						<a
+							href="#"
+							class="icon pin ${this.pinned ? ' is-active' : ''}"
+							slot="trigger"
+							@click="${this.onPinClick}"
+							><code-icon icon="pinned"></code-icon
+						></a>
+						<span>${this.pinned ? 'Unpin' : 'Pin'}</span>
+					</gk-tooltip>
+					<gk-tooltip>
+						<a
+							href="#"
+							class="icon pin ${this.snoozed ? ' is-active' : ''}"
+							slot="trigger"
+							@click="${this.onSnoozeClick}"
+							><code-icon icon="${this.snoozed ? 'bell' : 'bell-slash'}"></code-icon
+						></a>
+						<span>${this.snoozed ? 'Unsnooze' : 'Snooze'}</span>
+					</gk-tooltip>
+				</span>
+				<span slot="date">
+					<gk-date-from class="date ${this.dateStyle}" date="${this.lastUpdatedDate}"></gk-date-from>
+				</span>
 				<span slot="key" class="key">
 					${when(
 						this.indicator === 'changes',
 						() =>
 							html`<gk-tooltip>
-								<code-icon slot="trigger" class="indicator-error" icon="request-changes"></code-icon>
+								<span class="icon" slot="trigger"
+									><code-icon class="indicator-error" icon="request-changes"></code-icon
+								></span>
 								<span>changes requested</span>
 							</gk-tooltip>`,
 					)}
@@ -209,7 +171,9 @@ export class GkPullRequestRow extends LitElement {
 						this.indicator === 'ready',
 						() =>
 							html`<gk-tooltip>
-								<code-icon slot="trigger" class="indicator-info" icon="pass"></code-icon>
+								<span class="icon" slot="trigger"
+									><code-icon class="indicator-info" icon="pass"></code-icon
+								></span>
 								<span>approved and ready to merge</span>
 							</gk-tooltip>`,
 					)}
@@ -217,7 +181,9 @@ export class GkPullRequestRow extends LitElement {
 						this.indicator === 'conflicting',
 						() =>
 							html`<gk-tooltip>
-								<code-icon slot="trigger" class="indicator-error" icon="bracket-error"></code-icon>
+								<span class="icon" slot="trigger"
+									><code-icon class="indicator-error" icon="bracket-error"></code-icon
+								></span>
 								<span>cannot be merged due to merge conflicts</span>
 							</gk-tooltip>`,
 					)}
@@ -248,31 +214,22 @@ export class GkPullRequestRow extends LitElement {
 					<span slot="people">
 						<gk-avatar-group>
 							${when(
-								this.pullRequest.author != null,
-								() =>
-									html`<gk-avatar
-										src="${this.pullRequest!.author.avatarUrl}"
-										title="${this.pullRequest!.author.name} (author)"
-									></gk-avatar>`,
-							)}
-							${when(
-								this.assignees.length > 0,
+								this.participants.length > 0,
 								() => html`
 									${repeat(
-										this.assignees,
-										item => item.url,
+										this.participants,
+										item => item.member.url,
 										item =>
 											html`<gk-avatar
-												src="${item.avatarUrl}"
-												title="${item.name ? `${item.name} (assignee)` : '(assignee)'}"
+												src="${item.member.avatarUrl}"
+												title="${`${
+													item.member.name ? `${item.member.name} ` : ''
+												}(${item.roles.join(', ')})`}"
 											></gk-avatar>`,
 									)}
 								`,
 							)}
 						</gk-avatar-group>
-					</span>
-					<span slot="date">
-						<gk-date-from class="date ${this.dateStyle}" date="${this.lastUpdatedDate}"></gk-date-from>
 					</span>
 					<div slot="repo" class="repo-branch">
 						<gk-tag class="repo-branch__tag" full @click=${this.onOpenBranchClick}>
@@ -346,5 +303,23 @@ export class GkPullRequestRow extends LitElement {
 			return;
 		}
 		this.dispatchEvent(new CustomEvent('switch-branch', { detail: this.pullRequest! }));
+	}
+
+	onSnoozeClick(e: Event) {
+		e.preventDefault();
+		this.dispatchEvent(
+			new CustomEvent('snooze-item', {
+				detail: { item: this.pullRequest!, snooze: this.snoozed },
+			}),
+		);
+	}
+
+	onPinClick(e: Event) {
+		e.preventDefault();
+		this.dispatchEvent(
+			new CustomEvent('pin-item', {
+				detail: { item: this.pullRequest!, pin: this.pinned },
+			}),
+		);
 	}
 }

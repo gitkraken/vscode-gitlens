@@ -1,5 +1,4 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ViewFilesLayout } from '../../config';
 import { CommitFormatter } from '../../git/formatters/commitFormatter';
 import type { GitStashCommit } from '../../git/models/commit';
 import type { GitStashReference } from '../../git/models/reference';
@@ -8,23 +7,24 @@ import { configuration } from '../../system/configuration';
 import { joinPaths, normalizePath } from '../../system/path';
 import { sortCompare } from '../../system/string';
 import type { ViewsWithStashes } from '../viewBase';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues, getViewNodeId } from './abstract/viewNode';
+import { ViewRefNode } from './abstract/viewRefNode';
 import type { FileNode } from './folderNode';
 import { FolderNode } from './folderNode';
 import { StashFileNode } from './stashFileNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, getViewNodeId, ViewRefNode } from './viewNode';
 
-export class StashNode extends ViewRefNode<ViewsWithStashes, GitStashReference> {
+export class StashNode extends ViewRefNode<'stash', ViewsWithStashes, GitStashReference> {
 	constructor(
 		view: ViewsWithStashes,
 		protected override parent: ViewNode,
 		public readonly commit: GitStashCommit,
 		private readonly options?: { icon?: boolean },
 	) {
-		super(commit.getGitUri(), view, parent);
+		super('stash', commit.getGitUri(), view, parent);
 
 		this.updateContext({ commit: commit });
-		this._uniqueId = getViewNodeId('stash', this.context);
+		this._uniqueId = getViewNodeId(this.type, this.context);
 	}
 
 	override get id(): string {
@@ -44,7 +44,7 @@ export class StashNode extends ViewRefNode<ViewsWithStashes, GitStashReference> 
 		const commits = await this.commit.getCommitsForFiles();
 		let children: FileNode[] = commits.map(c => new StashFileNode(this.view, this, c.file!, c as GitStashCommit));
 
-		if (this.view.config.files.layout !== ViewFilesLayout.List) {
+		if (this.view.config.files.layout !== 'list') {
 			const hierarchy = makeHierarchical(
 				children,
 				n => n.uri.relativePath.split('/'),

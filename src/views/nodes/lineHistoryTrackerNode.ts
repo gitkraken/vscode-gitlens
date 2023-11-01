@@ -9,43 +9,50 @@ import { UriComparer } from '../../system/comparers';
 import { setContext } from '../../system/context';
 import { gate } from '../../system/decorators/gate';
 import { debug, log } from '../../system/decorators/log';
+import { weakEvent } from '../../system/event';
 import { debounce } from '../../system/function';
 import { Logger } from '../../system/logger';
 import { getLogScope, setLogScopeExit } from '../../system/logger.scope';
-import type { LinesChangeEvent } from '../../trackers/gitLineTracker';
+import type { LinesChangeEvent } from '../../trackers/lineTracker';
 import type { FileHistoryView } from '../fileHistoryView';
 import type { LineHistoryView } from '../lineHistoryView';
+import { SubscribeableViewNode } from './abstract/subscribeableViewNode';
+import type { ViewNode } from './abstract/viewNode';
+import { ContextValues } from './abstract/viewNode';
 import { LineHistoryNode } from './lineHistoryNode';
-import type { ViewNode } from './viewNode';
-import { ContextValues, SubscribeableViewNode } from './viewNode';
 
-export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView | LineHistoryView> {
+export class LineHistoryTrackerNode extends SubscribeableViewNode<
+	'line-history-tracker',
+	FileHistoryView | LineHistoryView
+> {
 	private _base: string | undefined;
-	private _child: LineHistoryNode | undefined;
 	private _editorContents: string | undefined;
 	private _selection: Selection | undefined;
 	protected override splatted = true;
 
 	constructor(view: FileHistoryView | LineHistoryView) {
-		super(unknownGitUri, view);
-	}
-
-	override dispose() {
-		super.dispose();
-
-		this.resetChild();
+		super('line-history-tracker', unknownGitUri, view);
 	}
 
 	@debug()
-	private resetChild() {
-		if (this._child == null) return;
+	override dispose() {
+		super.dispose();
+		this.child = undefined;
+	}
 
-		this._child.dispose();
-		this._child = undefined;
+	private _child: LineHistoryNode | undefined;
+	protected get child(): LineHistoryNode | undefined {
+		return this._child;
+	}
+	protected set child(value: LineHistoryNode | undefined) {
+		if (this._child === value) return;
+
+		this._child?.dispose();
+		this._child = value;
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._child == null) {
+		if (this.child == null) {
 			if (!this.hasUri) {
 				this.view.description = undefined;
 
@@ -84,10 +91,10 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 					filter: b => b.name === commitish.sha,
 				}));
 			}
-			this._child = new LineHistoryNode(fileUri, this.view, this, branch, this._selection, this._editorContents);
+			this.child = new LineHistoryNode(fileUri, this.view, this, branch, this._selection, this._editorContents);
 		}
 
-		return this._child.getChildren();
+		return this.child.getChildren();
 	}
 
 	getTreeItem(): TreeItem {
@@ -131,7 +138,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		} else {
 			this._base = pick.ref;
 		}
-		if (this._child == null) return;
+		if (this.child == null) return;
 
 		this.setUri();
 		await this.triggerChange();
@@ -195,7 +202,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			this.setUri(gitUri);
 			this._editorContents = editor.document.isDirty ? editor.document.getText() : undefined;
 			this._selection = editor.selection;
-			this.resetChild();
+			this.child = undefined;
 		}
 
 		setLogScopeExit(scope, `, uri=${Logger.toLoggable(this._uri)}`);
@@ -206,7 +213,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		this.setUri();
 		this._editorContents = undefined;
 		this._selection = undefined;
-		this.resetChild();
+		this.child = undefined;
 	}
 
 	@log()
@@ -222,11 +229,15 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 		return this.view.container.lineTracker.subscribe(
 			this,
-			this.view.container.lineTracker.onDidChangeActiveLines((e: LinesChangeEvent) => {
-				if (e.pending) return;
+			weakEvent(
+				this.view.container.lineTracker.onDidChangeActiveLines,
+				(e: LinesChangeEvent) => {
+					if (e.pending) return;
 
-				onActiveLinesChanged(e);
-			}),
+					onActiveLinesChanged(e);
+				},
+				this,
+			),
 		);
 	}
 

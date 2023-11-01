@@ -4,8 +4,6 @@ import type { GitDiffFile } from '../git/models/diff';
 import type { GitLog } from '../git/models/log';
 import { DocumentTracker } from './documentTracker';
 
-export * from './documentTracker';
-
 interface CachedItem<T> {
 	item: Promise<T>;
 	errorMessage?: string;

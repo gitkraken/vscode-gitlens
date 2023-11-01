@@ -1,9 +1,9 @@
 /*global*/
 import './account.scss';
 import type { Disposable } from 'vscode';
+import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../plus/gk/account/subscription';
 import type { State } from '../../../../plus/webviews/account/protocol';
 import { DidChangeSubscriptionNotificationType } from '../../../../plus/webviews/account/protocol';
-import { getSubscriptionTimeRemaining, SubscriptionState } from '../../../../subscription';
 import type { IpcMessage } from '../../../protocol';
 import { ExecuteCommandType, onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
@@ -83,6 +83,7 @@ export class AccountApp extends App<State> {
 		$content.state = subscription.state;
 		$content.plan = subscription.plan.effective.name;
 		$content.days = days;
+		$content.trialReactivationCount = subscription.plan.effective.trialReactivationCount;
 	}
 }
 
