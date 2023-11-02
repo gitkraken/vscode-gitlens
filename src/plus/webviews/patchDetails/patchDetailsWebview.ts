@@ -41,6 +41,7 @@ import type {
 	ApplyPatchParams,
 	Change,
 	ChangeType,
+	CreatePatchCheckRepositoryParams,
 	CreatePatchParams,
 	DidExplainParams,
 	DraftDetails,
@@ -56,6 +57,7 @@ import {
 	ApplyPatchCommandType,
 	CopyCloudLinkCommandType,
 	CreateFromLocalPatchCommandType,
+	CreatePatchCheckRepositoryCommandType,
 	CreatePatchCommandType,
 	DidChangeNotificationType,
 	DidExplainCommandType,
@@ -210,6 +212,9 @@ export class PatchDetailsWebviewProvider
 				break;
 			case ApplyPatchCommandType.method:
 				onIpc(ApplyPatchCommandType, e, params => this.applyPatch(params));
+				break;
+			case CreatePatchCheckRepositoryCommandType.method:
+				onIpc(CreatePatchCheckRepositoryCommandType, e, params => this.checkChange(params));
 		}
 	}
 
@@ -359,6 +364,15 @@ export class PatchDetailsWebviewProvider
 
 	private switchMode(params: SwitchModeParams) {
 		this.setMode(params.mode);
+	}
+
+	private checkChange(params: CreatePatchCheckRepositoryParams) {
+		const changeset = this._context.create?.changes.get(params.repoUri);
+		if (changeset == null) return;
+
+		changeset.checked = params.checked;
+		this.updatePendingContext({ create: this._context.create }, true);
+		this.updateState();
 	}
 
 	private async explainPatch(completionId?: string) {

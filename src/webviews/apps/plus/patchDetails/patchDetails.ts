@@ -5,6 +5,7 @@ import {
 	ApplyPatchCommandType,
 	CopyCloudLinkCommandType,
 	CreateFromLocalPatchCommandType,
+	CreatePatchCheckRepositoryCommandType,
 	CreatePatchCommandType,
 	DidChangeNotificationType,
 	DidExplainCommandType,
@@ -25,7 +26,7 @@ import { ExecuteCommandType, onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
 import type { FileChangeListItem, FileChangeListItemDetail } from '../../shared/components/list/file-change-list-item';
 import { DOM } from '../../shared/dom';
-import type { CreatePatchEventDetail } from './components/gl-patch-create';
+import type { CheckRepositoryEventDetail, CreatePatchEventDetail, GlPatchCreate } from './components/gl-patch-create';
 import type {
 	ApplyPatchDetail,
 	ChangePatchBaseDetail,
@@ -103,6 +104,9 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 			DOM.on<GlPatchDetailsApp, undefined>('gl-patch-details-app', 'copy-cloud-link', () =>
 				this.onCopyCloudLink(),
 			),
+			DOM.on<GlPatchCreate, CheckRepositoryEventDetail>('gl-patch-create', 'patch-create-check', e =>
+				this.onCreateCheckRepo(e.detail),
+			),
 		];
 
 		return disposables;
@@ -149,6 +153,10 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 			default:
 				super.onMessageReceived?.(e);
 		}
+	}
+
+	private onCreateCheckRepo(e: CheckRepositoryEventDetail) {
+		this.sendCommand(CreatePatchCheckRepositoryCommandType, e);
 	}
 
 	private onShowPatchInGraph(_e: ShowPatchInGraphDetail) {

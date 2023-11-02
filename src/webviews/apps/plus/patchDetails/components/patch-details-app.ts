@@ -152,4 +152,10 @@ declare global {
 	interface HTMLElementTagNameMap {
 		'gl-patch-details-app': GlPatchDetailsApp;
 	}
+
+	interface HTMLElementEventMap {
+		'graph-show-patch': CustomEvent<ShowPatchInGraphDetail>;
+		'share-local-patch': CustomEvent<undefined>;
+		'copy-cloud-link': CustomEvent<undefined>;
+	}
 }

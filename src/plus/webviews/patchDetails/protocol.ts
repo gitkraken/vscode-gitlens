@@ -144,6 +144,14 @@ export type ShowCommitDetailsViewCommandArgs = string[];
 
 // COMMANDS
 
+export interface CreatePatchCheckRepositoryParams {
+	repoUri: string;
+	checked: boolean | 'staged';
+}
+export const CreatePatchCheckRepositoryCommandType = new IpcCommandType<CreatePatchCheckRepositoryParams>(
+	'patch/create/checkRepository',
+);
+
 export interface ApplyPatchParams {
 	details: DraftDetails;
 	targetRef?: string; // a branch name. default to HEAD if not supplied

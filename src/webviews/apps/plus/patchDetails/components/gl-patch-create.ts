@@ -15,6 +15,11 @@ export interface CreatePatchEventDetail {
 	changesets: Record<string, Change>;
 }
 
+export interface CheckRepositoryEventDetail {
+	repoUri: string;
+	checked: boolean | 'staged';
+}
+
 @customElement('gl-patch-create')
 export class GlPatchCreate extends GlTreeBase {
 	@property({ type: Object }) state?: Serialized<State>;
@@ -221,6 +226,15 @@ export class GlPatchCreate extends GlTreeBase {
 
 		change.checked = checked;
 		this.requestUpdate('state');
+
+		this.dispatchEvent(
+			new CustomEvent<CheckRepositoryEventDetail>('patch-create-check', {
+				detail: {
+					repoUri: repoUri,
+					checked: checked,
+				},
+			}),
+		);
 	}
 
 	private renderTreeViewWithModel() {
@@ -429,5 +443,15 @@ export class GlPatchCreate extends GlTreeBase {
 
 	protected override createRenderRoot() {
 		return this;
+	}
+}
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'gl-patch-create': GlPatchCreate;
+	}
+
+	interface HTMLElementEventMap {
+		'patch-create-check': CustomEvent<CreatePatchEventDetail>;
 	}
 }
