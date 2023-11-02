@@ -1350,7 +1350,7 @@ class RepositoryWipChangeSet implements RepositoryChangeSet {
 		if (this._disposable != null) return;
 
 		this._disposable = Disposable.from(
-			this.repository.startWatchingFileSystem(),
+			this.repository.watchFileSystem(1000),
 			this.repository.onDidChangeFileSystem(() => this.onDidChangeWip(), this),
 			this.repository.onDidChange(e => {
 				if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
