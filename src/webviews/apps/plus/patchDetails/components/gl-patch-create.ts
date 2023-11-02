@@ -238,8 +238,18 @@ export class GlPatchCreate extends GlTreeBase {
 	}
 
 	private renderTreeViewWithModel() {
-		if (this.createChanges == null) {
-			return this.renderTreeView([]);
+		if (this.createChanges == null || this.createChanges.length === 0) {
+			return this.renderTreeView([
+				{
+					label: 'No changes',
+					path: '',
+					level: 1,
+					branch: false,
+					checkable: false,
+					expanded: true,
+					checked: false,
+				},
+			]);
 		}
 
 		const treeModel: TreeModel[] = [];
@@ -266,52 +276,51 @@ export class GlPatchCreate extends GlTreeBase {
 	}
 
 	private getTreeForChange(change: Change, isMulti = false, isTree = false, compact = true): TreeModel[] | undefined {
-		if (change.files == null || change.files.length === 0) {
-			if (!isMulti) {
-				return undefined;
-			}
-			const repoModel = this.repoToTreeModel(change.repository.name, change.repository.uri, {
-				branch: true,
-				checkable: true,
-				checked: false,
-				disableCheck: true,
-			});
-			repoModel.children = [this.emptyTreeModel('No files', { level: 2, checkable: false, checked: false })];
-			return [repoModel];
-		}
+		if (change.files == null || change.files.length === 0) return undefined;
 
 		const children = [];
-
 		if (change.type === 'wip') {
-			// remove parent if there's only staged or unstaged
-			const staged = change.files.filter(f => f.staged);
-			if (staged.length) {
-				children.push({
-					label: 'Staged Changes',
-					path: '',
-					level: isMulti ? 2 : 1,
-					branch: true,
-					checkable: true,
-					expanded: true,
-					checked: change.checked !== false,
-					disableCheck: true,
-					children: this.renderFiles(staged, isTree, compact, isMulti ? 3 : 2),
-				});
-			}
+			const staged: Change['files'] = [];
+			const unstaged: Change['files'] = [];
 
-			const unstaged = change.files.filter(f => !f.staged);
-			if (unstaged.length) {
-				children.push({
-					label: 'Unstaged Changes',
-					path: '',
-					level: isMulti ? 2 : 1,
-					branch: true,
-					checkable: true,
-					expanded: true,
-					checked: change.checked === true,
-					context: [change.repository.uri, 'unstaged'],
-					children: this.renderFiles(unstaged, isTree, compact, isMulti ? 3 : 2),
-				});
+			change.files.forEach(f => {
+				if (f.staged) {
+					staged.push(f);
+				} else {
+					unstaged.push(f);
+				}
+			});
+
+			if (staged.length === 0 || unstaged.length === 0) {
+				children.push(...this.renderFiles(change.files, isTree, compact, isMulti ? 2 : 1));
+			} else {
+				if (staged.length) {
+					children.push({
+						label: 'Staged Changes',
+						path: '',
+						level: isMulti ? 2 : 1,
+						branch: true,
+						checkable: true,
+						expanded: true,
+						checked: change.checked !== false,
+						disableCheck: true,
+						children: this.renderFiles(staged, isTree, compact, isMulti ? 3 : 2),
+					});
+				}
+
+				if (unstaged.length) {
+					children.push({
+						label: 'Unstaged Changes',
+						path: '',
+						level: isMulti ? 2 : 1,
+						branch: true,
+						checkable: true,
+						expanded: true,
+						checked: change.checked === true,
+						context: [change.repository.uri, 'unstaged'],
+						children: this.renderFiles(unstaged, isTree, compact, isMulti ? 3 : 2),
+					});
+				}
 			}
 		} else {
 			children.push(...this.renderFiles(change.files, isTree, compact));
