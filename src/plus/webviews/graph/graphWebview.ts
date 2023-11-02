@@ -1,4 +1,4 @@
-import type { ColorTheme, ConfigurationChangeEvent, Uri, ViewColumn } from 'vscode';
+import type { ColorTheme, ConfigurationChangeEvent, Uri } from 'vscode';
 import { CancellationTokenSource, Disposable, env, window } from 'vscode';
 import type { CreatePullRequestActionContext } from '../../../api/gitlens';
 import { getAvatarUri } from '../../../avatars';
@@ -84,7 +84,7 @@ import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFo
 import type { IpcMessage, IpcNotificationType } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider, WebviewShowingArgs } from '../../../webviews/webviewController';
-import type { WebviewPanelShowCommandArgs } from '../../../webviews/webviewsController';
+import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../../webviews/webviewsController';
 import { isSerializedState } from '../../../webviews/webviewsController';
 import type { SubscriptionChangeEvent } from '../../gk/account/subscriptionService';
 import type {
@@ -313,7 +313,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	async onShowing(
 		loading: boolean,
-		_options: { column?: ViewColumn; preserveFocus?: boolean },
+		_options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<GraphWebviewShowingArgs, State>
 	): Promise<boolean> {
 		this._firstSelection = true;
