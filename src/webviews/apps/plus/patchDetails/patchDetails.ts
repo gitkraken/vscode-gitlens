@@ -7,7 +7,10 @@ import {
 	CreateFromLocalPatchCommandType,
 	CreatePatchCheckRepositoryCommandType,
 	CreatePatchCommandType,
+	DidChangeCreateNotificationType,
+	DidChangeDraftNotificationType,
 	DidChangeNotificationType,
+	DidChangePreferencesNotificationType,
 	DidExplainCommandType,
 	ExplainCommandType,
 	FileActionsCommandType,
@@ -150,6 +153,36 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 				});
 				break;
 
+			case DidChangeCreateNotificationType.method:
+				onIpc(DidChangeCreateNotificationType, msg, params => {
+					// assertsSerialized<State>(params.state);
+
+					this.state = { ...this.state, ...params };
+					this.setState(this.state);
+					this.attachState(true);
+				});
+				break;
+
+			case DidChangeDraftNotificationType.method:
+				onIpc(DidChangeDraftNotificationType, msg, params => {
+					// assertsSerialized<State>(params.state);
+
+					this.state = { ...this.state, ...params };
+					this.setState(this.state);
+					this.attachState(true);
+				});
+				break;
+
+			case DidChangePreferencesNotificationType.method:
+				onIpc(DidChangePreferencesNotificationType, msg, params => {
+					// assertsSerialized<State>(params.state);
+
+					this.state = { ...this.state, ...params };
+					this.setState(this.state);
+					this.attachState(true);
+				});
+				break;
+
 			default:
 				super.onMessageReceived?.(e);
 		}
@@ -271,8 +304,11 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 		return this._component;
 	}
 
-	attachState() {
+	attachState(_force?: boolean) {
 		this.component.state = this.state!;
+		// if (force) {
+		// 	this.component.requestUpdate('state');
+		// }
 	}
 }
 

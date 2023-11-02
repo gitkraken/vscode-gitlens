@@ -1,4 +1,4 @@
-import type { CancellationTokenSource, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
+import type { ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
 import { Disposable, env, Uri, window } from 'vscode';
 import type { CoreConfiguration } from '../../../constants';
 import { Commands } from '../../../constants';
@@ -26,14 +26,11 @@ import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
 import { find } from '../../../system/iterable';
-import { Logger } from '../../../system/logger';
-import { getLogScope } from '../../../system/logger.scope';
 import type { Serialized } from '../../../system/serialize';
 import { serialize } from '../../../system/serialize';
 import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
-import { updatePendingContext } from '../../../webviews/webviewController';
 import type { WebviewShowOptions } from '../../../webviews/webviewsController';
 import type { Draft, LocalDraft } from '../../drafts/draftsService';
 import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
@@ -59,7 +56,10 @@ import {
 	CreateFromLocalPatchCommandType,
 	CreatePatchCheckRepositoryCommandType,
 	CreatePatchCommandType,
+	DidChangeCreateNotificationType,
+	DidChangeDraftNotificationType,
 	DidChangeNotificationType,
+	DidChangePreferencesNotificationType,
 	DidExplainCommandType,
 	ExplainCommandType,
 	FileActionsCommandType,
@@ -92,11 +92,8 @@ interface Context {
 export class PatchDetailsWebviewProvider
 	implements WebviewProvider<State, Serialized<State>, PatchDetailsWebviewShowingArgs>
 {
-	private _bootstraping = true;
 	/** The context the webview has */
 	private _context: Context;
-	/** The context the webview should have */
-	private _pendingContext: Partial<Context> | undefined;
 	private readonly _disposable: Disposable;
 
 	constructor(
@@ -127,14 +124,14 @@ export class PatchDetailsWebviewProvider
 	): Promise<boolean> {
 		const [arg] = args;
 		if (arg?.mode === 'open' && arg.open != null) {
-			this.updateOpen(arg.open);
+			this.updateOpenState(arg.open);
 		} else {
 			if (this.container.git.isDiscoveringRepositories) {
 				await this.container.git.isDiscoveringRepositories;
 			}
 
 			const create = arg?.mode === 'create' && arg.create != null ? arg.create : { repositories: undefined };
-			this.updateCreate(create);
+			this.updateCreateState(create);
 		}
 
 		if (options?.preserveVisibility && !this.host.visible) return false;
@@ -143,11 +140,6 @@ export class PatchDetailsWebviewProvider
 	}
 
 	includeBootstrap(): Promise<Serialized<State>> {
-		this._bootstraping = true;
-
-		this._context = { ...this._context, ...this._pendingContext };
-		this._pendingContext = undefined;
-
 		return this.getState(this._context);
 	}
 
@@ -218,56 +210,27 @@ export class PatchDetailsWebviewProvider
 		}
 	}
 
-	onRefresh(force?: boolean): void {
-		if (force) {
-			void this.notifyDidChangeState(true);
-			return;
-			// if (this.mode === 'create') {
-			// 	this.updatePendingContext(
-			// 		{
-			// 			mode: 'create',
-			// 			create: this._context.create,
-			// 		},
-			// 		true,
-			// 	);
-			// } else {
-			// 	this.updatePendingContext(
-			// 		{
-			// 			mode: 'open',
-			// 			open: this._context.open,
-			// 		},
-			// 		true,
-			// 	);
-			// }
-		}
-
-		this.updateState();
+	onRefresh(): void {
+		this.updateState(true);
 	}
 
 	onReloaded(): void {
-		void this.notifyDidChangeState(true);
+		this.updateState(true);
 	}
 
 	onVisibilityChanged(visible: boolean) {
 		if (!visible) {
+			// TODO@eamodio ugly -- clean this up later
 			this._context.create?.changes.forEach(c => c.suspend());
-			this._pendingContext?.create?.changes.forEach(c => c.suspend());
 
 			return;
 		}
 
+		// TODO@eamodio ugly -- clean this up later
 		this._context.create?.changes.forEach(c => c.resume());
-		this._pendingContext?.create?.changes.forEach(c => c.resume());
 
-		// Since this gets called even the first time the webview is shown, avoid sending an update, because the bootstrap has the data
-		if (this._bootstraping) {
-			this._bootstraping = false;
-
-			if (this._pendingContext == null) return;
-
-			this.updateState();
-		} else {
-			this.updateState(true);
+		if (visible) {
+			this.host.sendPendingIpcNotifications();
 		}
 	}
 
@@ -276,13 +239,7 @@ export class PatchDetailsWebviewProvider
 			configuration.changed(e, ['defaultDateFormat', 'views.patchDetails.files', 'views.patchDetails.avatars']) ||
 			configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.renderIndentGuides')
 		) {
-			this.updatePendingContext({
-				preferences: {
-					...this._context.preferences,
-					...this._pendingContext?.preferences,
-					...this.getPreferences(),
-				},
-			});
+			this._context.preferences = { ...this._context.preferences, ...this.getPreferences() };
 			this.updateState();
 		}
 	}
@@ -299,46 +256,42 @@ export class PatchDetailsWebviewProvider
 		};
 	}
 
-	private onRepositoriesChanged(_e: RepositoriesChangeEvent) {
-		if (this.mode === 'create') {
+	private onRepositoriesChanged(e: RepositoriesChangeEvent) {
+		if (this.mode === 'create' && this._context.create != null) {
 			if (this._context.create?.allRepos) {
-				this.updateCreate(
-					{
-						title: this._context.create.title,
-						description: this._context.create.description,
-						repositories: undefined,
-					},
-					{ immediate: true },
-				);
-
-				return;
+				for (const repo of e.added) {
+					this._context.create.changes.set(
+						repo.uri.toString(),
+						new RepositoryWipChangeset(
+							this.container,
+							repo,
+							{ baseSha: 'HEAD', sha: undefined },
+							this.onRepositoryWipChanged.bind(this),
+							false,
+							true,
+						),
+					);
+				}
 			}
 
-			void this.notifyDidChangeState(true);
+			for (const repo of e.removed) {
+				this._context.create.changes.delete(repo.uri.toString());
+			}
+
+			void this.notifyDidChangeCreateState();
 		}
 	}
 
-	private updatePendingCreateContext(context: Context['create'], force?: boolean) {
-		if (this._context.create != null) {
-			this._context.create.changes.forEach(c => void c.dispose());
-		}
-		if (this._pendingContext?.create != null) {
-			this._pendingContext.create.changes.forEach(c => void c.dispose());
-		}
-
-		this.updatePendingContext({ mode: 'create', create: context }, force);
-	}
-
-	private onRepositoryWipChanged(_e: RepositoryWipChanges) {
-		void this.notifyDidChangeState(true);
+	private onRepositoryWipChanged(_e: RepositoryWipChangeset) {
+		void this.notifyDidChangeCreateState();
 	}
 
 	private get mode(): Mode {
-		return this._pendingContext?.mode ?? this._context.mode;
+		return this._context.mode;
 	}
 
 	private setMode(mode: Mode) {
-		this.updatePendingContext({ mode: mode });
+		this._context.mode = mode;
 		this.updateState(true);
 	}
 
@@ -371,8 +324,7 @@ export class PatchDetailsWebviewProvider
 		if (changeset == null) return;
 
 		changeset.checked = params.checked;
-		this.updatePendingContext({ create: this._context.create }, true);
-		this.updateState();
+		void this.notifyDidChangeCreateState();
 	}
 
 	private async explainPatch(completionId?: string) {
@@ -396,40 +348,29 @@ export class PatchDetailsWebviewProvider
 		void this.host.notify(DidExplainCommandType, params, completionId);
 	}
 
-	private _cancellationTokenSource: CancellationTokenSource | undefined = undefined;
-
 	@debug({ args: false })
 	protected async getState(current: Context): Promise<Serialized<State>> {
-		if (this._cancellationTokenSource != null) {
-			this._cancellationTokenSource.cancel();
-			this._cancellationTokenSource = undefined;
+		let create;
+		if (current.mode === 'create' && current.create != null) {
+			create = await this.getCreateState(current);
 		}
 
 		let details;
 		if (current.mode === 'open' && current.open != null) {
-			details = await this.getDetailsModel(current.open);
-		}
-
-		let create;
-		if (current.mode === 'create' && current.create != null) {
-			create = {
-				title: current.create.title,
-				description: current.create.description,
-				changes: await toRepoChanges(current.create.changes),
-			};
+			details = await this.getDraftState(current);
 		}
 
 		const state = serialize<State>({
 			...this.host.baseWebviewState,
 			mode: current.mode,
-			draft: details,
 			create: create,
+			draft: details,
 			preferences: current.preferences,
 		});
 		return state;
 	}
 
-	private updateCreate(create: CreateDraft, options?: { force?: boolean; immediate?: boolean }) {
+	private updateCreateState(create: CreateDraft) {
 		let changesetByRepo: Map<string, RepositoryChangeset>;
 		let allRepos = false;
 
@@ -441,9 +382,9 @@ export class PatchDetailsWebviewProvider
 				const repo = this.container.git.getRepository(Uri.parse(change.repository.uri));
 				if (repo == null) continue;
 
-				let repoChange: RepositoryChangeset;
+				let changeset: RepositoryChangeset;
 				if (change.type === 'wip') {
-					repoChange = new RepositoryWipChanges(
+					changeset = new RepositoryWipChangeset(
 						this.container,
 						repo,
 						change.revision,
@@ -452,7 +393,7 @@ export class PatchDetailsWebviewProvider
 						change.expanded ?? true,
 					);
 				} else {
-					repoChange = new RepositoryRefChangeset(
+					changeset = new RepositoryRefChangeset(
 						this.container,
 						repo,
 						change.revision,
@@ -463,7 +404,7 @@ export class PatchDetailsWebviewProvider
 				}
 
 				updated.add(repo.uri.toString());
-				changesetByRepo.set(repo.uri.toString(), repoChange);
+				changesetByRepo.set(repo.uri.toString(), changeset);
 			}
 
 			if (updated.size !== changesetByRepo.size) {
@@ -478,7 +419,7 @@ export class PatchDetailsWebviewProvider
 			changesetByRepo = new Map(
 				repos.map(r => [
 					r.uri.toString(),
-					new RepositoryWipChanges(
+					new RepositoryWipChangeset(
 						this.container,
 						r,
 						{
@@ -493,58 +434,20 @@ export class PatchDetailsWebviewProvider
 			);
 		}
 
-		this.updatePendingCreateContext(
-			{
-				title: create.title,
-				description: create.description,
-				changes: changesetByRepo,
-				allRepos: allRepos,
-			},
-			options?.force,
-		);
-		this.updateState(options?.immediate ?? true);
+		this._context.mode = 'create';
+		this._context.create = {
+			title: create.title,
+			description: create.description,
+			changes: changesetByRepo,
+			allRepos: allRepos,
+		};
+		void this.notifyDidChangeCreateState();
 	}
 
-	private updateOpen(draft: LocalDraft | Draft | undefined, options?: { force?: boolean; immediate?: boolean }) {
-		// // this.commits = [commit];
-		// if (!options?.force && this._context.commit?.sha === patch?.ref) return;
-		// this._commitDisposable?.dispose();
-		// let commit: GitCommit | undefined;
-		// if (isCommit(patch)) {
-		// 	commit = patch;
-		// } else if (patch != null) {
-		// 	if (patch.refType === 'stash') {
-		// 		const stash = await this.container.git.getStash(patch.repoPath);
-		// 		commit = stash?.commits.get(patch.ref);
-		// 	} else {
-		// 		commit = await this.container.git.getCommit(patch.repoPath, patch.ref);
-		// 	}
-		// }
-		// if (commit?.isUncommitted) {
-		// 	const repository = this.container.git.getRepository(commit.repoPath)!;
-		// 	this._commitDisposable = Disposable.from(
-		// 		repository.startWatchingFileSystem(),
-		// 		repository.onDidChangeFileSystem(() => {
-		// 			// this.updatePendingContext({ commit: undefined });
-		// 			this.updatePendingContext({ commit: commit }, true);
-		// 			this.updateState();
-		// 		}),
-		// 	);
-		// }
-
-		this.updatePendingContext(
-			{
-				mode: 'open',
-				open: draft,
-				// richStateLoaded: false, //(commit?.isUncommitted) || !getContext('gitlens:hasConnectedRemotes'),
-				// formattedMessage: undefined,
-				// autolinkedIssues: undefined,
-				// pullRequest: undefined,
-			},
-			options?.force,
-		);
-		// this.ensureTrackers();
-		this.updateState(options?.immediate ?? true);
+	private updateOpenState(draft: LocalDraft | Draft | undefined) {
+		this._context.mode = 'open';
+		this._context.open = draft;
+		void this.notifyDidChangeDraftState();
 	}
 
 	private updatePreferences(preferences: UpdateablePreferences) {
@@ -556,11 +459,6 @@ export class PatchDetailsWebviewProvider
 		) {
 			return;
 		}
-
-		const changes: Preferences = {
-			...this._context.preferences,
-			...this._pendingContext?.preferences,
-		};
 
 		if (preferences.files != null) {
 			if (this._context.preferences?.files?.compact !== preferences.files?.compact) {
@@ -576,25 +474,17 @@ export class PatchDetailsWebviewProvider
 				void configuration.updateEffective('views.patchDetails.files.threshold', preferences.files?.threshold);
 			}
 
-			changes.files = preferences.files;
+			this._context.preferences.files = preferences.files;
 		}
 
-		this.updatePendingContext({ preferences: changes });
-		this.updateState();
-	}
-
-	private updatePendingContext(context: Partial<Context>, force: boolean = false): boolean {
-		const [changed, pending] = updatePendingContext(this._context, this._pendingContext, context, force);
-		if (changed) {
-			this._pendingContext = pending;
-		}
-
-		return changed;
+		void this.notifyDidChangePreferences();
 	}
 
 	private _notifyDidChangeStateDebounced: Deferrable<() => void> | undefined = undefined;
 
 	private updateState(immediate: boolean = false) {
+		this.host.clearPendingIpcNotifications();
+
 		if (immediate) {
 			void this.notifyDidChangeState();
 			return;
@@ -607,31 +497,44 @@ export class PatchDetailsWebviewProvider
 		this._notifyDidChangeStateDebounced();
 	}
 
-	private async notifyDidChangeState(force: boolean = false) {
-		const scope = getLogScope();
+	private async getCreateState(current: Context): Promise<Serialized<State>['create'] | undefined> {
+		const { create } = current;
+		if (create == null) return undefined;
 
-		this._notifyDidChangeStateDebounced?.cancel();
-		if (!force && this._pendingContext == null) return false;
+		return {
+			title: create.title,
+			description: create.description,
+			changes: await toRepoChanges(create.changes),
+		};
+	}
 
-		let context: Context;
-		if (this._pendingContext != null) {
-			context = { ...this._context, ...this._pendingContext };
-			this._context = context;
-			this._pendingContext = undefined;
-		} else {
-			context = this._context;
-		}
-
-		return window.withProgress({ location: { viewId: this.host.id } }, async () => {
-			try {
-				await this.host.notify(DidChangeNotificationType, {
-					state: await this.getState(context),
-				});
-			} catch (ex) {
-				Logger.error(scope, ex);
-				debugger;
-			}
+	private async notifyDidChangeCreateState() {
+		return this.host.notify(DidChangeCreateNotificationType, {
+			mode: this._context.mode,
+			create: await this.getCreateState(this._context),
 		});
+	}
+
+	private async getDraftState(current: Context): Promise<Serialized<State>['draft'] | undefined> {
+		if (current.open == null) return undefined;
+
+		return this.getDetailsModel(current.open);
+	}
+
+	private async notifyDidChangeDraftState() {
+		return this.host.notify(DidChangeDraftNotificationType, {
+			mode: this._context.mode,
+			draft: await this.getDraftState(this._context),
+		});
+	}
+
+	private async notifyDidChangePreferences() {
+		return this.host.notify(DidChangePreferencesNotificationType, { preferences: this._context.preferences });
+	}
+
+	private async notifyDidChangeState() {
+		this._notifyDidChangeStateDebounced?.cancel();
+		return this.host.notify(DidChangeNotificationType, { state: await this.getState(this._context) });
 	}
 
 	private async getDraftPatch(draft: Draft): Promise<GitCloudPatch | undefined> {
@@ -664,8 +567,8 @@ export class PatchDetailsWebviewProvider
 				const files = await this.container.git.getDiffFiles('', patch!.contents!);
 				patch!.files = files?.files;
 
-				this.updatePendingContext({ open: draft }, true);
-				this.updateState();
+				this._context.open = draft;
+				void this.notifyDidChangeDraftState();
 			}, 1);
 		}
 
@@ -838,7 +741,7 @@ export class PatchDetailsWebviewProvider
 		const baseRef = await this.getPatchBaseRef(patch, true);
 		if (baseRef == null) return;
 
-		this.updateOpen(this._context.open, { force: true });
+		this.updateOpenState(this._context.open);
 	}
 
 	private async selectPatchRepo() {
@@ -858,7 +761,7 @@ export class PatchDetailsWebviewProvider
 		const repo = await this.getPatchRepo(patch, true);
 		if (repo == null) return;
 
-		this.updateOpen(this._context.open, { force: true });
+		this.updateOpenState(this._context.open);
 	}
 
 	private async getPatchRepo(patch: GitPatch | GitCloudPatch, force = false) {
@@ -976,16 +879,7 @@ export class PatchDetailsWebviewProvider
 			expanded: true,
 		};
 
-		this.updatePendingCreateContext({
-			changes: new Map([
-				[
-					patch.repo!.uri.toString(),
-					new RepositoryRefChangeset(this.container, patch.repo!, change.revision, change.files, true, true),
-				],
-			]),
-			allRepos: false,
-		});
-		this.updateState();
+		this.updateCreateState({ changes: [change] });
 	}
 
 	// private async updateCreateStateFromWip(repository?: Repository, cancellation?: CancellationToken) {
@@ -1358,7 +1252,7 @@ class RepositoryRefChangeset implements RepositoryChangeset {
 	// }
 }
 
-class RepositoryWipChanges implements RepositoryChangeset {
+class RepositoryWipChangeset implements RepositoryChangeset {
 	readonly type = 'wip';
 
 	private _disposable: Disposable | undefined;
@@ -1367,7 +1261,7 @@ class RepositoryWipChanges implements RepositoryChangeset {
 		private readonly container: Container,
 		public readonly repository: Repository,
 		public readonly range: RevisionRange,
-		private readonly onDidChangeRepositoryWip: (e: RepositoryWipChanges) => void,
+		private readonly onDidChangeRepositoryWip: (e: RepositoryWipChangeset) => void,
 		checked: Change['checked'],
 		expanded: boolean,
 	) {

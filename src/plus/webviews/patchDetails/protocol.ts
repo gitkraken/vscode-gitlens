@@ -212,6 +212,17 @@ export interface DidChangeParams {
 }
 export const DidChangeNotificationType = new IpcNotificationType<DidChangeParams>('patch/didChange', true);
 
+export type DidChangeCreateParams = Pick<Serialized<State>, 'create' | 'mode'>;
+export const DidChangeCreateNotificationType = new IpcNotificationType<DidChangeCreateParams>('patch/create/didChange');
+
+export type DidChangeDraftParams = Pick<Serialized<State>, 'draft' | 'mode'>;
+export const DidChangeDraftNotificationType = new IpcNotificationType<DidChangeDraftParams>('patch/draft/didChange');
+
+export type DidChangePreferencesParams = Pick<Serialized<State>, 'preferences'>;
+export const DidChangePreferencesNotificationType = new IpcNotificationType<DidChangePreferencesParams>(
+	'patch/preferences/didChange',
+);
+
 export type DidExplainParams =
 	| {
 			summary: string | undefined;
@@ -219,6 +230,3 @@ export type DidExplainParams =
 	  }
 	| { error: { message: string } };
 export const DidExplainCommandType = new IpcNotificationType<DidExplainParams>('patch/didExplain');
-
-export type DidChangeCreateParams = Pick<Serialized<State>, 'create'>;
-export const DidChangeCreateNotificationType = new IpcNotificationType<DidChangeCreateParams>('patch/create/didChange');
