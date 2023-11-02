@@ -79,12 +79,7 @@ export class EventBus implements Disposable {
 		return _cachedEventArgs.get(name) as CacheableEventsMapping[T] | undefined;
 	}
 
-	on<T extends keyof EventsMapping>(
-		name: T,
-		handler: (e: EventBusEvent<T>) => void,
-		thisArgs?: unknown,
-		disposables?: Disposable[],
-	) {
+	on<T extends keyof EventsMapping>(name: T, handler: (e: EventBusEvent<T>) => void, thisArgs?: unknown) {
 		return this._emitter.event(
 			// eslint-disable-next-line prefer-arrow-callback
 			function (e) {
@@ -92,7 +87,6 @@ export class EventBus implements Disposable {
 				handler.call(thisArgs, e as EventBusEvent<T>);
 			},
 			thisArgs,
-			disposables,
 		);
 	}
 }

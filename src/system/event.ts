@@ -3,15 +3,11 @@ import { Disposable } from 'vscode';
 import type { Deferred } from './promise';
 
 export function once<T>(event: Event<T>): Event<T> {
-	return (listener: (e: T) => unknown, thisArgs?: unknown, disposables?: Disposable[]) => {
-		const result = event(
-			e => {
-				result.dispose();
-				return listener.call(thisArgs, e);
-			},
-			null,
-			disposables,
-		);
+	return (listener: (e: T) => unknown, thisArgs?: unknown) => {
+		const result = event(e => {
+			result.dispose();
+			return listener.call(thisArgs, e);
+		});
 
 		return result;
 	};
@@ -22,17 +18,13 @@ export function promisify<T>(event: Event<T>): Promise<T> {
 }
 
 export function until<T>(event: Event<T>, predicate: (e: T) => boolean): Event<T> {
-	return (listener: (e: T) => unknown, thisArgs?: unknown, disposables?: Disposable[]) => {
-		const result = event(
-			e => {
-				if (predicate(e)) {
-					result.dispose();
-				}
-				return listener.call(thisArgs, e);
-			},
-			null,
-			disposables,
-		);
+	return (listener: (e: T) => unknown, thisArgs?: unknown) => {
+		const result = event(e => {
+			if (predicate(e)) {
+				result.dispose();
+			}
+			return listener.call(thisArgs, e);
+		});
 
 		return result;
 	};
@@ -109,25 +101,25 @@ export function weakEvent<T, U extends object>(
 	event: Event<T>,
 	listener: (e: T) => any,
 	thisArg: U,
-	disposables?: Disposable[],
+	alsoDisposeOnReleaseOrDispose?: Disposable[],
 ): Disposable {
 	const ref = new WeakRef<U>(thisArg);
 
-	const disposable = event(
-		(e: T) => {
-			const obj = ref.deref();
-			if (obj != null) {
-				listener.call(obj, e);
-			} else {
-				disposable.dispose();
-				disposables?.forEach(d => void d.dispose());
-			}
-		},
-		null,
-		disposables,
-	);
+	let disposable: Disposable;
 
-	if (disposables == null) return disposable;
+	const d = event((e: T) => {
+		const obj = ref.deref();
+		if (obj != null) {
+			listener.call(obj, e);
+		} else {
+			disposable.dispose();
+		}
+	});
 
-	return Disposable.from(disposable, ...disposables);
+	if (alsoDisposeOnReleaseOrDispose == null) {
+		disposable = d;
+	} else {
+		disposable = Disposable.from(d, ...alsoDisposeOnReleaseOrDispose);
+	}
+	return disposable;
 }
