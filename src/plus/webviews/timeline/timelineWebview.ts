@@ -460,13 +460,9 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 			context = this._context;
 		}
 
-		const task = async () =>
-			this.host.notify(DidChangeNotificationType, {
-				state: await this.getState(context),
-			});
-
-		if (!this.host.isView()) return task();
-		return window.withProgress({ location: { viewId: this.host.id } }, task);
+		return this.host.notify(DidChangeNotificationType, {
+			state: await this.getState(context),
+		});
 	}
 }
 

@@ -7,6 +7,7 @@ export interface LogScope {
 	readonly scopeId?: number;
 	readonly prefix: string;
 	exitDetails?: string;
+	exitFailed?: string;
 }
 
 export function clearLogScope(scopeId: number) {
@@ -40,8 +41,11 @@ export function setLogScope(scopeId: number, scope: LogScope) {
 	scopes.set(scopeId, scope);
 }
 
-export function setLogScopeExit(scope: LogScope | undefined, details: string): void {
+export function setLogScopeExit(scope: LogScope | undefined, details: string | undefined, failed?: string): void {
 	if (scope == null) return;
 
 	scope.exitDetails = details;
+	if (failed != null) {
+		scope.exitFailed = failed;
+	}
 }

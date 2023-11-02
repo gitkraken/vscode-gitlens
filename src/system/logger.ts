@@ -112,12 +112,18 @@ export const Logger = new (class Logger {
 		}
 
 		if (this.isDebugging) {
-			console.error(this.timestamp, `[${this.provider!.name}]`, message ?? emptyStr, ...params, ex);
+			if (ex != null) {
+				console.error(this.timestamp, `[${this.provider!.name}]`, message ?? emptyStr, ...params, ex);
+			} else {
+				console.error(this.timestamp, `[${this.provider!.name}]`, message ?? emptyStr, ...params);
+			}
 		}
 
 		if (this.output == null || this.level < OrderedLevel.Error) return;
 		this.output.appendLine(
-			`${this.timestamp} ${message ?? emptyStr}${this.toLoggableParams(false, params)}\n${String(ex)}`,
+			`${this.timestamp} ${message ?? emptyStr}${this.toLoggableParams(false, params)}${
+				ex != null ? `\n${String(ex)}` : ''
+			}`,
 		);
 	}
 
