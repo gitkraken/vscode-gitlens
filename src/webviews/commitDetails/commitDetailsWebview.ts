@@ -1,4 +1,4 @@
-import type { CancellationToken, ConfigurationChangeEvent, TextDocumentShowOptions, ViewColumn } from 'vscode';
+import type { CancellationToken, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
 import { CancellationTokenSource, Disposable, Uri, window } from 'vscode';
 import type { MaybeEnrichedAutolink } from '../../annotations/autolinks';
 import { serializeAutolink } from '../../annotations/autolinks';
@@ -49,6 +49,7 @@ import type { IpcMessage } from '../protocol';
 import { onIpc } from '../protocol';
 import type { WebviewController, WebviewProvider, WebviewShowingArgs } from '../webviewController';
 import { updatePendingContext } from '../webviewController';
+import type { WebviewShowOptions } from '../webviewsController';
 import { isSerializedState } from '../webviewsController';
 import type {
 	CommitDetails,
@@ -97,7 +98,6 @@ interface Context {
 	};
 	pinned: boolean;
 	preferences: Preferences;
-	visible: boolean;
 
 	commit: GitCommit | undefined;
 	richStateLoaded: boolean;
@@ -132,18 +132,7 @@ export class CommitDetailsWebviewProvider
 				position: 0,
 			},
 			pinned: false,
-			preferences: {
-				autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded') ?? true,
-				avatars: configuration.get('views.commitDetails.avatars'),
-				dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
-				files: configuration.get('views.commitDetails.files'),
-				// indent: configuration.getAny('workbench.tree.indent') ?? 8,
-				indentGuides:
-					configuration.getAny<CoreConfiguration, Preferences['indentGuides']>(
-						'workbench.tree.renderIndentGuides',
-					) ?? 'onHover',
-			},
-			visible: false,
+			preferences: this.getPreferences(),
 
 			commit: undefined,
 			richStateLoaded: false,
@@ -158,21 +147,17 @@ export class CommitDetailsWebviewProvider
 
 	dispose() {
 		this._disposable.dispose();
-		this._commitTrackerDisposable?.dispose();
 		this._lineTrackerDisposable?.dispose();
 		this._repositorySubscription?.subscription.dispose();
+		this._selectionTrackerDisposable?.dispose();
 		this._wipSubscription?.subscription.dispose();
-	}
-
-	onReloaded(): void {
-		void this.notifyDidChangeState(true);
 	}
 
 	private _skipNextRefreshOnVisibilityChange = false;
 
 	async onShowing(
 		_loading: boolean,
-		options: { column?: ViewColumn; preserveFocus?: boolean },
+		options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<CommitDetailsWebviewShowingArgs, Serialized<State>>
 	): Promise<boolean> {
 		let data: Partial<CommitSelectedEvent['data']> | undefined;
@@ -207,7 +192,11 @@ export class CommitDetailsWebviewProvider
 		let commit;
 		if (data != null) {
 			if (data.preserveFocus) {
-				options.preserveFocus = true;
+				if (options == null) {
+					options = { preserveFocus: true };
+				} else {
+					options.preserveFocus = true;
+				}
 			}
 			({ commit, ...data } = data);
 		}
@@ -245,145 +234,12 @@ export class CommitDetailsWebviewProvider
 		return [registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true))];
 	}
 
-	private onCommitSelected(e: CommitSelectedEvent) {
-		if (
-			e.data == null ||
-			(this.options.attachedTo === 'graph' && e.source !== 'gitlens.views.graph') ||
-			(this.options.attachedTo === 'default' && e.source === 'gitlens.views.graph')
-		) {
-			return;
-		}
-
-		if (this.mode === 'wip') {
-			if (e.data.commit.repoPath !== this._context.wip?.changes?.repository.path) {
-				void this.updateWipState(this.container.git.getRepository(e.data.commit.repoPath));
-			}
-
-			return;
-		}
-
-		if (this._pinned && e.data.interaction === 'passive') {
-			this._commitStack.insert(getReferenceFromRevision(e.data.commit));
-			this.updateNavigation();
-		} else {
-			void this.host.show(false, { preserveFocus: e.data.preserveFocus }, e.data);
-		}
-	}
-
 	onFocusChanged(focused: boolean): void {
 		if (this._focused === focused) return;
 
 		this._focused = focused;
 		if (focused && this.isLineTrackerSuspended) {
 			this.ensureTrackers();
-		}
-	}
-
-	onVisibilityChanged(visible: boolean) {
-		this.ensureTrackers();
-		this.updatePendingContext({ visible: visible });
-		if (!visible) return;
-
-		const skipRefresh = this._skipNextRefreshOnVisibilityChange;
-		if (skipRefresh) {
-			this._skipNextRefreshOnVisibilityChange = false;
-		}
-
-		// Since this gets called even the first time the webview is shown, avoid sending an update, because the bootstrap has the data
-		if (this._bootstraping) {
-			this._bootstraping = false;
-
-			if (this._pendingContext == null) return;
-
-			this.updateState();
-		} else {
-			if (!skipRefresh) {
-				this.onRefresh();
-			}
-			this.updateState(true);
-		}
-	}
-
-	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (
-			configuration.changed(e, [
-				'defaultDateFormat',
-				'views.commitDetails.files',
-				'views.commitDetails.avatars',
-			]) ||
-			configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.renderIndentGuides')
-		) {
-			this.updatePendingContext({
-				preferences: {
-					...this._context.preferences,
-					...this._pendingContext?.preferences,
-					avatars: configuration.get('views.commitDetails.avatars'),
-					dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
-					files: configuration.get('views.commitDetails.files'),
-					indentGuides:
-						configuration.getAny<CoreConfiguration, Preferences['indentGuides']>(
-							'workbench.tree.renderIndentGuides',
-						) ?? 'onHover',
-				},
-			});
-			this.updateState();
-		}
-
-		if (
-			this._context.commit != null &&
-			configuration.changed(e, ['views.commitDetails.autolinks', 'views.commitDetails.pullRequests'])
-		) {
-			void this.updateCommit(this._context.commit, { force: true });
-			this.updateState();
-		}
-	}
-
-	private _commitTrackerDisposable: Disposable | undefined;
-	private _lineTrackerDisposable: Disposable | undefined;
-	private ensureTrackers(): void {
-		this._commitTrackerDisposable?.dispose();
-		this._commitTrackerDisposable = undefined;
-		this._lineTrackerDisposable?.dispose();
-		this._lineTrackerDisposable = undefined;
-
-		if (!this.host.visible) return;
-
-		this._commitTrackerDisposable = this.container.events.on('commit:selected', this.onCommitSelected, this);
-
-		if (this._pinned) return;
-
-		if (this.options.attachedTo !== 'graph') {
-			const { lineTracker } = this.container;
-			this._lineTrackerDisposable = lineTracker.subscribe(
-				this,
-				lineTracker.onDidChangeActiveLines(this.onActiveEditorLinesChanged, this),
-			);
-		}
-	}
-
-	private get isLineTrackerSuspended() {
-		return this.options.attachedTo !== 'graph' ? this._lineTrackerDisposable == null : false;
-	}
-
-	private suspendLineTracker() {
-		// Defers the suspension of the line tracker, so that the focus change event can be handled first
-		setTimeout(() => {
-			this._lineTrackerDisposable?.dispose();
-			this._lineTrackerDisposable = undefined;
-		}, 100);
-	}
-
-	onRefresh(_force?: boolean | undefined): void {
-		if (this._pinned) return;
-
-		if (this.mode === 'wip') {
-			const uri = this._context.wip?.changes?.repository.uri;
-			void this.updateWipState(
-				this.container.git.getBestRepositoryOrFirst(uri != null ? Uri.parse(uri) : undefined),
-			);
-		} else {
-			const commit = this._pendingContext?.commit ?? this.getBestCommitOrStash();
-			void this.updateCommit(commit, { immediate: false });
 		}
 	}
 
@@ -485,6 +341,149 @@ export class CommitDetailsWebviewProvider
 				onIpc(UnstageFileCommandType, e, params => this.unstageFile(params));
 				break;
 		}
+	}
+
+	onRefresh(_force?: boolean | undefined): void {
+		if (this._pinned) return;
+
+		if (this.mode === 'wip') {
+			const uri = this._context.wip?.changes?.repository.uri;
+			void this.updateWipState(
+				this.container.git.getBestRepositoryOrFirst(uri != null ? Uri.parse(uri) : undefined),
+			);
+		} else {
+			const commit = this._pendingContext?.commit ?? this.getBestCommitOrStash();
+			void this.updateCommit(commit, { immediate: false });
+		}
+	}
+
+	onReloaded(): void {
+		void this.notifyDidChangeState(true);
+	}
+
+	onVisibilityChanged(visible: boolean) {
+		this.ensureTrackers();
+		if (!visible) return;
+
+		const skipRefresh = this._skipNextRefreshOnVisibilityChange;
+		if (skipRefresh) {
+			this._skipNextRefreshOnVisibilityChange = false;
+		}
+
+		// Since this gets called even the first time the webview is shown, avoid sending an update, because the bootstrap has the data
+		if (this._bootstraping) {
+			this._bootstraping = false;
+
+			if (this._pendingContext == null) return;
+
+			this.updateState();
+		} else {
+			if (!skipRefresh) {
+				this.onRefresh();
+			}
+			this.updateState(true);
+		}
+	}
+
+	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
+		if (
+			configuration.changed(e, [
+				'defaultDateFormat',
+				'views.commitDetails.files',
+				'views.commitDetails.avatars',
+			]) ||
+			configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.renderIndentGuides')
+		) {
+			this.updatePendingContext({
+				preferences: {
+					...this._context.preferences,
+					...this._pendingContext?.preferences,
+					...this.getPreferences(),
+				},
+			});
+			this.updateState();
+		}
+
+		if (
+			this._context.commit != null &&
+			configuration.changed(e, ['views.commitDetails.autolinks', 'views.commitDetails.pullRequests'])
+		) {
+			void this.updateCommit(this._context.commit, { force: true });
+			this.updateState();
+		}
+	}
+
+	private getPreferences(): Preferences {
+		return {
+			autolinksExpanded: this.container.storage.getWorkspace('views:commitDetails:autolinksExpanded') ?? true,
+			avatars: configuration.get('views.commitDetails.avatars'),
+			dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
+			files: configuration.get('views.commitDetails.files'),
+			indentGuides:
+				configuration.getAny<CoreConfiguration, Preferences['indentGuides']>(
+					'workbench.tree.renderIndentGuides',
+				) ?? 'onHover',
+		};
+	}
+
+	private onCommitSelected(e: CommitSelectedEvent) {
+		if (
+			e.data == null ||
+			(this.options.attachedTo === 'graph' && e.source !== 'gitlens.views.graph') ||
+			(this.options.attachedTo === 'default' && e.source === 'gitlens.views.graph')
+		) {
+			return;
+		}
+
+		if (this.mode === 'wip') {
+			if (e.data.commit.repoPath !== this._context.wip?.changes?.repository.path) {
+				void this.updateWipState(this.container.git.getRepository(e.data.commit.repoPath));
+			}
+
+			return;
+		}
+
+		if (this._pinned && e.data.interaction === 'passive') {
+			this._commitStack.insert(getReferenceFromRevision(e.data.commit));
+			this.updateNavigation();
+		} else {
+			void this.host.show(false, { preserveFocus: e.data.preserveFocus }, e.data);
+		}
+	}
+
+	private _lineTrackerDisposable: Disposable | undefined;
+	private _selectionTrackerDisposable: Disposable | undefined;
+	private ensureTrackers(): void {
+		this._selectionTrackerDisposable?.dispose();
+		this._selectionTrackerDisposable = undefined;
+		this._lineTrackerDisposable?.dispose();
+		this._lineTrackerDisposable = undefined;
+
+		if (!this.host.visible) return;
+
+		this._selectionTrackerDisposable = this.container.events.on('commit:selected', this.onCommitSelected, this);
+
+		if (this._pinned) return;
+
+		if (this.options.attachedTo !== 'graph') {
+			const { lineTracker } = this.container;
+			this._lineTrackerDisposable = lineTracker.subscribe(
+				this,
+				lineTracker.onDidChangeActiveLines(this.onActiveEditorLinesChanged, this),
+			);
+		}
+	}
+
+	private get isLineTrackerSuspended() {
+		return this.options.attachedTo !== 'graph' ? this._lineTrackerDisposable == null : false;
+	}
+
+	private suspendLineTracker() {
+		// Defers the suspension of the line tracker, so that the focus change event can be handled first
+		setTimeout(() => {
+			this._lineTrackerDisposable?.dispose();
+			this._lineTrackerDisposable = undefined;
+		}, 100);
 	}
 
 	private onActiveEditorLinesChanged(e: LinesChangeEvent) {
@@ -771,10 +770,7 @@ export class CommitDetailsWebviewProvider
 
 			files.push(change);
 			if (file.staged && file.wip) {
-				files.push({
-					...change,
-					staged: false,
-				});
+				files.push({ ...change, staged: false });
 			}
 		}
 
