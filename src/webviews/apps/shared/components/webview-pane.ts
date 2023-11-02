@@ -59,6 +59,10 @@ export class WebviewPane extends LitElement {
 			text-transform: uppercase;
 		}
 
+		:host(:not([collapsable])) .title {
+			margin-left: 0.8rem;
+		}
+
 		.subtitle {
 			margin-left: 1rem;
 			opacity: 0.6;
@@ -123,7 +127,7 @@ export class WebviewPane extends LitElement {
 			<header class="header">
 				${this.renderTitle()}
 				<slot name="actions"></slot>
-				<progress-indicator active="${this.loading}"></progress-indicator>
+				<progress-indicator ?active="${this.loading}"></progress-indicator>
 			</header>
 			<div id="content" role="region" class="content">
 				<slot></slot>
