@@ -398,7 +398,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		if (this.view.config.includeWorkingTree) {
 			disposables.push(
 				weakEvent(this.repo.onDidChangeFileSystem, this.onFileSystemChanged, this, [
-					this.repo.startWatchingFileSystem(),
+					this.repo.watchFileSystem(),
 				]),
 			);
 		}

@@ -189,7 +189,7 @@ export class FileHistoryNode
 
 		const subscription = Disposable.from(
 			weakEvent(repo.onDidChange, this.onRepositoryChanged, this),
-			weakEvent(repo.onDidChangeFileSystem, this.onFileSystemChanged, this, [repo.startWatchingFileSystem()]),
+			weakEvent(repo.onDidChangeFileSystem, this.onFileSystemChanged, this, [repo.watchFileSystem()]),
 			weakEvent(
 				configuration.onDidChange,
 				e => {
