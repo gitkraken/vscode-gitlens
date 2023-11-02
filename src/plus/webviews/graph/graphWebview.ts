@@ -580,9 +580,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		if (visible) {
-			if (this.host.ready) {
-				this.host.sendPendingIpcNotifications();
-			}
+			this.host.sendPendingIpcNotifications();
 
 			const { activeSelection } = this;
 			if (activeSelection == null) return;
@@ -1527,6 +1525,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return false;
 		}
 
+		this._notifyDidChangeStateDebounced?.cancel();
 		return this.host.notify(DidChangeNotificationType, { state: await this.getState() });
 	}
 

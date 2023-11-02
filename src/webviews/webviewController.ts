@@ -3,10 +3,13 @@ import { Disposable, EventEmitter, Uri, ViewColumn, window, workspace } from 'vs
 import { getNonce } from '@env/crypto';
 import type { Commands, CustomEditorTypes, WebviewTypes, WebviewViewTypes } from '../constants';
 import type { Container } from '../container';
+import { pauseOnCancelOrTimeout } from '../system/cancellation';
 import { executeCommand, executeCoreCommand } from '../system/command';
 import { setContext } from '../system/context';
 import { debug, logName } from '../system/decorators/log';
 import { serialize } from '../system/decorators/serialize';
+import { Logger } from '../system/logger';
+import { getLogScope, setLogScopeExit } from '../system/logger.scope';
 import { isPromise } from '../system/promise';
 import type { WebviewContext } from '../system/webview';
 import type {
@@ -537,6 +540,7 @@ export class WebviewController<
 			params: params,
 			completionId: completionId,
 		};
+
 		const success = await this.postMessage(msg);
 		if (success) {
 			this._pendingIpcNotifications.clear();
@@ -548,18 +552,52 @@ export class WebviewController<
 
 	@serialize()
 	@debug<WebviewController<State>['postMessage']>({
-		args: {
-			0: m => `{"id":${m.id},"method":${m.method}${m.completionId ? `,"completionId":${m.completionId}` : ''}}`,
-		},
+		args: false,
+		enter: m => `(${m.id}|${m.method}${m.completionId ? `+${m.completionId}` : ''})`,
 	})
 	private async postMessage(message: IpcMessage): Promise<boolean> {
 		if (!this._ready) return Promise.resolve(false);
 
-		// It looks like there is a bug where `postMessage` can sometimes just hang infinitely. Not sure why, but ensure we don't hang
-		const success = await Promise.race<boolean>([
-			this.webview.postMessage(message),
-			new Promise<boolean>(resolve => setTimeout(resolve, 5000, false)),
+		const scope = getLogScope();
+		let timeout: ReturnType<typeof setTimeout> | undefined;
+
+		// It looks like there is a bug where `postMessage` can sometimes just hang infinitely. Not sure why, but ensure we don't hang forever
+		const promise = Promise.race<boolean>([
+			this.webview.postMessage(message).then(
+				s => {
+					clearTimeout(timeout);
+					return s;
+				},
+				ex => {
+					clearTimeout(timeout);
+					Logger.error(scope, ex);
+					debugger;
+					return false;
+				},
+			),
+			new Promise<boolean>(resolve => {
+				timeout = setTimeout(() => {
+					debugger;
+					setLogScopeExit(scope, undefined, 'TIMEDOUT');
+					resolve(false);
+				}, 5000);
+			}),
 		]);
+
+		let success;
+
+		if (this.isView()) {
+			// If we are in a view, show progress if we are waiting too long
+			const result = await pauseOnCancelOrTimeout(promise, undefined, 100);
+			if (result.paused) {
+				success = await window.withProgress({ location: { viewId: this.id } }, () => result.value);
+			} else {
+				success = result.value;
+			}
+		} else {
+			success = await promise;
+		}
+
 		return success;
 	}
 
@@ -593,7 +631,7 @@ export class WebviewController<
 	}
 
 	sendPendingIpcNotifications() {
-		if (this._pendingIpcNotifications.size === 0) return;
+		if (!this._ready || this._pendingIpcNotifications.size === 0) return;
 
 		const ipcs = new Map(this._pendingIpcNotifications);
 		this._pendingIpcNotifications.clear();

@@ -91,6 +91,7 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 
 	const logFn = debug ? Logger.debug.bind(Logger) : Logger.log.bind(Logger);
 	const warnFn = Logger.warn.bind(Logger);
+	const errorFn = Logger.error.bind(Logger);
 
 	return (target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => {
 		let fn: Function | undefined;
@@ -263,6 +264,9 @@ export function log<T extends (...arg: any) => any>(options?: LogOptions<T>, deb
 						} else if (exitFn === true) {
 							exit = `returned ${Logger.toLoggable(r)}`;
 						}
+					} else if (scope?.exitFailed) {
+						exit = scope.exitFailed;
+						exitLogFn = errorFn;
 					} else {
 						exit = 'completed';
 					}
