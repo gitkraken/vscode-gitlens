@@ -1164,6 +1164,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 				void showGenericErrorMessage(`Error applying patch - unable to create worktree`);
 				return;
 			}
+
 			try {
 				await this.createWorktree(repoPath, options.createWorktreePath, {
 					commitish: options?.branchName != null && branchExists ? options.branchName : currentBranch?.name,
@@ -1215,7 +1216,11 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			} else {
 				void showGenericErrorMessage(`Error applying patch - unable to apply patch changes`);
 			}
+
+			return;
 		}
+
+		void window.showInformationMessage(`Patch applied successfully`);
 	}
 
 	@log()
