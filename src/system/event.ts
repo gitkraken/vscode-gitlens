@@ -1,4 +1,5 @@
-import type { Disposable, Event } from 'vscode';
+import type { Event } from 'vscode';
+import { Disposable } from 'vscode';
 import type { Deferred } from './promise';
 
 export function once<T>(event: Event<T>): Event<T> {
@@ -119,11 +120,14 @@ export function weakEvent<T, U extends object>(
 				listener.call(obj, e);
 			} else {
 				disposable.dispose();
+				disposables?.forEach(d => void d.dispose());
 			}
 		},
 		null,
 		disposables,
 	);
 
-	return disposable;
+	if (disposables == null) return disposable;
+
+	return Disposable.from(disposable, ...disposables);
 }
