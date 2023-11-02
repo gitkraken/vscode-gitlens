@@ -170,6 +170,48 @@ export function* map<T, TMapped>(
 	}
 }
 
+export function max(source: Iterable<number> | IterableIterator<number>): number;
+export function max<T>(source: Iterable<T> | IterableIterator<T>, selector: (item: T) => number): number;
+export function max<T>(source: Iterable<T> | IterableIterator<T>, selector?: (item: T) => number): number {
+	let max = Number.NEGATIVE_INFINITY;
+	if (selector == null) {
+		for (const item of source as Iterable<number> | IterableIterator<number>) {
+			if (item > max) {
+				max = item;
+			}
+		}
+	} else {
+		for (const item of source) {
+			const value = selector(item);
+			if (value > max) {
+				max = value;
+			}
+		}
+	}
+	return max;
+}
+
+export function min(source: Iterable<number> | IterableIterator<number>): number;
+export function min<T>(source: Iterable<T> | IterableIterator<T>, selector: (item: T) => number): number;
+export function min<T>(source: Iterable<T> | IterableIterator<T>, selector?: (item: T) => number): number {
+	let min = Number.POSITIVE_INFINITY;
+	if (selector == null) {
+		for (const item of source as Iterable<number> | IterableIterator<number>) {
+			if (item < min) {
+				min = item;
+			}
+		}
+	} else {
+		for (const item of source) {
+			const value = selector(item);
+			if (value < min) {
+				min = value;
+			}
+		}
+	}
+	return min;
+}
+
 export function next<T>(source: IterableIterator<T>): T {
 	return source.next().value as T;
 }

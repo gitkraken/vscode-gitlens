@@ -740,7 +740,7 @@ export class CommitDetailsWebviewProvider
 
 	private subscribeToRepositoryWip(repo: Repository) {
 		return Disposable.from(
-			repo.startWatchingFileSystem(),
+			repo.watchFileSystem(1000),
 			repo.onDidChangeFileSystem(() => this.onWipChanged(repo)),
 			repo.onDidChange(e => {
 				if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {

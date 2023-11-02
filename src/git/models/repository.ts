@@ -1,6 +1,6 @@
 import type { CancellationToken, ConfigurationChangeEvent, Event, Uri, WorkspaceFolder } from 'vscode';
 import { Disposable, EventEmitter, ProgressLocation, RelativePattern, window, workspace } from 'vscode';
-import { md5 } from '@env/crypto';
+import { md5, uuid } from '@env/crypto';
 import { ForcePushMode } from '../../@types/vscode.git.enums';
 import type { CreatePullRequestActionContext } from '../../api/gitlens';
 import type { RepositoriesSorting } from '../../config';
@@ -16,8 +16,9 @@ import { configuration } from '../../system/configuration';
 import { formatDate, fromNow } from '../../system/date';
 import { gate } from '../../system/decorators/gate';
 import { debug, log, logName } from '../../system/decorators/log';
+import type { Deferrable } from '../../system/function';
 import { debounce } from '../../system/function';
-import { filter, join, some } from '../../system/iterable';
+import { filter, join, min, some } from '../../system/iterable';
 import { getLoggableName, Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import { updateRecordValue } from '../../system/object';
@@ -90,6 +91,9 @@ export const enum RepositoryChangeComparisonMode {
 	Any,
 	Exclusive,
 }
+
+const defaultFileSystemChangeDelay = 2500;
+const defaultRepositoryChangeDelay = 250;
 
 export class RepositoryChangeEvent {
 	private readonly _changes: Set<RepositoryChange>;
@@ -235,10 +239,8 @@ export class Repository implements Disposable {
 
 	private _branch: Promise<GitBranch | undefined> | undefined;
 	private readonly _disposable: Disposable;
-	private _fireChangeDebounced: (() => void) | undefined = undefined;
-	private _fireFileSystemChangeDebounced: (() => void) | undefined = undefined;
-	private _fsWatchCounter = 0;
-	private _fsWatcherDisposable: Disposable | undefined;
+	private _fireChangeDebounced: Deferrable<() => void> | undefined = undefined;
+	private _fireFileSystemChangeDebounced: Deferrable<() => void> | undefined = undefined;
 	private _pendingFileSystemChange?: RepositoryFileSystemChangeEvent;
 	private _pendingRepoChange?: RepositoryChangeEvent;
 	private _suspended: boolean;
@@ -365,7 +367,7 @@ export class Repository implements Disposable {
 	}
 
 	dispose() {
-		this.stopWatchingFileSystem();
+		this.unWatchFileSystem(true);
 
 		this._disposable.dispose();
 	}
@@ -1002,7 +1004,7 @@ export class Repository implements Disposable {
 		}
 
 		if (this._pendingFileSystemChange != null) {
-			this._fireFileSystemChangeDebounced!();
+			this._fireFileSystemChangeDebounced?.();
 		}
 	}
 
@@ -1138,33 +1140,6 @@ export class Repository implements Disposable {
 		return this._etagFileSystem;
 	}
 
-	startWatchingFileSystem(): Disposable {
-		this._fsWatchCounter++;
-		if (this._fsWatcherDisposable == null) {
-			const watcher = workspace.createFileSystemWatcher(new RelativePattern(this.uri, '**'));
-			this._fsWatcherDisposable = Disposable.from(
-				watcher,
-				watcher.onDidChange(this.onFileSystemChanged, this),
-				watcher.onDidCreate(this.onFileSystemChanged, this),
-				watcher.onDidDelete(this.onFileSystemChanged, this),
-			);
-
-			this._etagFileSystem = Date.now();
-		}
-
-		return { dispose: () => this.stopWatchingFileSystem() };
-	}
-
-	stopWatchingFileSystem(force: boolean = false) {
-		if (this._fsWatcherDisposable == null) return;
-		if (--this._fsWatchCounter > 0 && !force) return;
-
-		this._etagFileSystem = undefined;
-		this._fsWatchCounter = 0;
-		this._fsWatcherDisposable.dispose();
-		this._fsWatcherDisposable = undefined;
-	}
-
 	suspend() {
 		this._suspended = true;
 	}
@@ -1184,6 +1159,55 @@ export class Repository implements Disposable {
 		void this.runTerminalCommand('tag', ...args, ...tags.map(t => t.ref));
 	}
 
+	private _fsWatcherDisposable: Disposable | undefined;
+	private _fsWatchers = new Map<string, number>();
+	private _fsChangeDelay: number = defaultFileSystemChangeDelay;
+
+	watchFileSystem(delay: number = defaultFileSystemChangeDelay): Disposable {
+		const id = uuid();
+		this._fsWatchers.set(id, delay);
+		if (this._fsWatcherDisposable == null) {
+			const watcher = workspace.createFileSystemWatcher(new RelativePattern(this.uri, '**'));
+			this._fsWatcherDisposable = Disposable.from(
+				watcher,
+				watcher.onDidChange(this.onFileSystemChanged, this),
+				watcher.onDidCreate(this.onFileSystemChanged, this),
+				watcher.onDidDelete(this.onFileSystemChanged, this),
+			);
+
+			this._etagFileSystem = Date.now();
+		}
+
+		this.ensureMinFileSystemChangeDelay();
+
+		return { dispose: () => this.unWatchFileSystem(id) };
+	}
+
+	private unWatchFileSystem(forceOrId: true | string) {
+		if (typeof forceOrId !== 'boolean') {
+			this._fsWatchers.delete(forceOrId);
+			if (this._fsWatchers.size !== 0) {
+				this.ensureMinFileSystemChangeDelay();
+				return;
+			}
+		}
+
+		this._etagFileSystem = undefined;
+		this._fsChangeDelay = defaultFileSystemChangeDelay;
+		this._fsWatchers.clear();
+		this._fsWatcherDisposable?.dispose();
+		this._fsWatcherDisposable = undefined;
+	}
+
+	private ensureMinFileSystemChangeDelay() {
+		const minDelay = min(this._fsWatchers.values());
+		if (minDelay === this._fsChangeDelay) return;
+
+		this._fsChangeDelay = minDelay;
+		this._fireFileSystemChangeDebounced?.flush();
+		this._fireFileSystemChangeDebounced = undefined;
+	}
+
 	@debug()
 	private fireChange(...changes: RepositoryChange[]) {
 		const scope = getLogScope();
@@ -1191,7 +1215,7 @@ export class Repository implements Disposable {
 		this._updatedAt = Date.now();
 
 		if (this._fireChangeDebounced == null) {
-			this._fireChangeDebounced = debounce(this.fireChangeCore.bind(this), 250);
+			this._fireChangeDebounced = debounce(this.fireChangeCore.bind(this), defaultRepositoryChangeDelay);
 		}
 
 		this._pendingRepoChange = this._pendingRepoChange?.with(changes) ?? new RepositoryChangeEvent(this, changes);
@@ -1224,7 +1248,10 @@ export class Repository implements Disposable {
 		this._updatedAt = Date.now();
 
 		if (this._fireFileSystemChangeDebounced == null) {
-			this._fireFileSystemChangeDebounced = debounce(this.fireFileSystemChangeCore.bind(this), 2500);
+			this._fireFileSystemChangeDebounced = debounce(
+				this.fireFileSystemChangeCore.bind(this),
+				this._fsChangeDelay,
+			);
 		}
 
 		if (this._pendingFileSystemChange == null) {

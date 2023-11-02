@@ -202,7 +202,7 @@ export class LineHistoryNode
 
 		const subscription = Disposable.from(
 			weakEvent(repo.onDidChange, this.onRepositoryChanged, this),
-			weakEvent(repo.onDidChangeFileSystem, this.onFileSystemChanged, this, [repo.startWatchingFileSystem()]),
+			weakEvent(repo.onDidChangeFileSystem, this.onFileSystemChanged, this, [repo.watchFileSystem()]),
 		);
 
 		return subscription;

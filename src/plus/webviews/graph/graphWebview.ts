@@ -1544,7 +1544,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		this._repositoryEventsDisposable = Disposable.from(
 			repo.onDidChange(this.onRepositoryChanged, this),
-			repo.startWatchingFileSystem(),
+			repo.watchFileSystem(1000),
 			repo.onDidChangeFileSystem(this.onRepositoryFileSystemChanged, this),
 			onDidChangeContext(key => {
 				if (key !== 'gitlens:hasConnectedRemotes') return;
