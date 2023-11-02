@@ -402,9 +402,10 @@ export class OpenCloudPatchCommand extends Command {
 			if (patch.repo == null) {
 				void window.showErrorMessage(`Cannot open cloud patch: no repository found for patch ${args.patchId}`);
 				return;
-			} else if (this.container.git.highlander == null) {
-				await this.container.git.getOrOpenRepository(patch.repo.uri.fsPath);
 			}
+
+			// Opens the patch repository if it's not already open
+			void this.container.git.getOrOpenRepository(patch.repo.uri);
 
 			const patchContents = await this.container.drafts.getPatchContents(patch.id);
 			if (patchContents == null) {
