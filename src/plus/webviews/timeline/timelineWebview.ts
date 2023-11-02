@@ -112,7 +112,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 	onShowing(
 		loading: boolean,
-		_options: WebviewShowOptions | undefined,
+		_options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<TimelineWebviewShowingArgs, State>
 	): boolean {
 		const [arg] = args;

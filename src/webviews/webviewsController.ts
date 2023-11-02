@@ -399,9 +399,10 @@ export class WebviewsController implements Disposable {
 	}
 }
 
-interface WebviewPanelShowOptions {
+export interface WebviewPanelShowOptions {
 	column?: ViewColumn;
 	preserveFocus?: boolean;
+	preserveVisibility?: boolean;
 }
 
 interface WebviewPanelsShowOptions extends WebviewPanelShowOptions {
@@ -413,9 +414,10 @@ export type WebviewPanelShowCommandArgs = [
 	...args: unknown[],
 ];
 
-interface WebviewViewShowOptions {
+export interface WebviewViewShowOptions {
 	column?: never;
 	preserveFocus?: boolean;
+	preserveVisibility?: boolean;
 }
 
 export type WebviewShowOptions = WebviewPanelShowOptions | WebviewViewShowOptions;
