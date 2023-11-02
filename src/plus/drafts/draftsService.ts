@@ -10,13 +10,13 @@ import { getSettledValue } from '../../system/promise';
 import type { ServerConnection } from '../gk/serverConnection';
 
 export interface LocalDraft {
-	readonly _brand: 'local';
+	readonly draftType: 'local';
 
 	patch: GitPatch;
 }
 
 export interface Draft {
-	readonly _brand: 'cloud';
+	readonly draftType: 'cloud';
 	readonly type: 'patch' | 'stash';
 	readonly id: string;
 
@@ -214,7 +214,7 @@ export class DraftService implements Disposable {
 			const draft = ((await draftRsp.json()) as Result).data;
 
 			return {
-				_brand: 'cloud',
+				draftType: 'cloud',
 				type: draft.type,
 				id: draftId,
 				createdBy: draft.createdBy,
@@ -283,9 +283,9 @@ export class DraftService implements Disposable {
 		}
 
 		const draft = ((await rsp.json()) as Result).data;
-		const changeSets = await this.getChangesets(id);
+		const changesets = await this.getChangesets(id);
 		return {
-			_brand: 'cloud',
+			draftType: 'cloud',
 			type: draft.type,
 			id: draft.id,
 			createdBy: draft.createdBy,
@@ -297,7 +297,7 @@ export class DraftService implements Disposable {
 			updatedAt: new Date(draft.updatedAt),
 			title: draft.title,
 			description: draft.description,
-			changesets: changeSets ?? [],
+			changesets: changesets ?? [],
 		};
 	}
 
@@ -312,7 +312,7 @@ export class DraftService implements Disposable {
 		const draft = ((await rsp.json()) as Result).data;
 		return draft.map(
 			(d): Draft => ({
-				_brand: 'cloud',
+				draftType: 'cloud',
 				type: d.type,
 				id: d.id,
 				createdBy: d.createdBy,

@@ -1,9 +1,8 @@
-import type { CancellationTokenSource, ConfigurationChangeEvent, TextDocumentShowOptions, ViewColumn } from 'vscode';
+import type { CancellationTokenSource, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
 import { Disposable, env, Uri, window } from 'vscode';
 import type { CoreConfiguration } from '../../../constants';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
-import type { DraftSelectedEvent } from '../../../eventBus';
 import {
 	openChanges,
 	openChangesWithWorking,
@@ -11,12 +10,13 @@ import {
 	openFileOnRemote,
 	showDetailsQuickPick,
 } from '../../../git/actions/commit';
+import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import type { GitCommit } from '../../../git/models/commit';
 import type { GitDiff } from '../../../git/models/diff';
 import type { GitFileChange, GitFileChangeShape } from '../../../git/models/file';
-import type { GitCloudPatch, GitPatch } from '../../../git/models/patch';
+import type { GitCloudPatch, GitPatch, RevisionRange } from '../../../git/models/patch';
 import { createReference } from '../../../git/models/reference';
-import type { Repository, RepositoryChangeEvent } from '../../../git/models/repository';
+import type { Repository } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import { showCommitPicker } from '../../../quickpicks/commitPicker';
 import { getRepositoryOrShowPicker } from '../../../quickpicks/repositoryPicker';
@@ -25,6 +25,7 @@ import { configuration } from '../../../system/configuration';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
+import { find } from '../../../system/iterable';
 import { Logger } from '../../../system/logger';
 import { getLogScope } from '../../../system/logger.scope';
 import type { Serialized } from '../../../system/serialize';
@@ -33,19 +34,20 @@ import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
 import { updatePendingContext } from '../../../webviews/webviewController';
+import type { WebviewShowOptions } from '../../../webviews/webviewsController';
 import type { Draft, LocalDraft } from '../../drafts/draftsService';
 import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
 import type {
 	ApplyPatchParams,
 	Change,
+	ChangeType,
 	CreatePatchParams,
 	DidExplainParams,
 	DraftDetails,
 	FileActionParams,
 	Mode,
 	Preferences,
-	RepoChangeSet,
-	RepoWipChangeSet,
+	RevisionChange,
 	State,
 	SwitchModeParams,
 	UpdateablePreferences,
@@ -69,15 +71,20 @@ import {
 	SwitchModeCommandType,
 	UpdatePreferencesCommandType,
 } from './protocol';
-import type { PatchDetailsWebviewShowingArgs } from './registration';
+import type { CreateDraft, PatchDetailsWebviewShowingArgs } from './registration';
 
 interface Context {
 	mode: Mode;
-	draft: LocalDraft | Draft | undefined;
-	create: Map<Repository['id'], RepositoryChangeSet>;
+	open: LocalDraft | Draft | undefined;
+	create:
+		| {
+				title?: string;
+				description?: string;
+				changes: Map<string, RepositoryChangeset>;
+				allRepos: boolean;
+		  }
+		| undefined;
 	preferences: Preferences;
-
-	visible: boolean;
 }
 
 export class PatchDetailsWebviewProvider
@@ -89,7 +96,6 @@ export class PatchDetailsWebviewProvider
 	/** The context the webview should have */
 	private _pendingContext: Partial<Context> | undefined;
 	private readonly _disposable: Disposable;
-	private _focused = false;
 
 	constructor(
 		private readonly container: Container,
@@ -97,100 +103,39 @@ export class PatchDetailsWebviewProvider
 	) {
 		this._context = {
 			mode: 'create',
-			draft: undefined,
-			create: new Map(
-				container.git.openRepositories.map(r => [
-					r.id,
-					new RepositoryWipChangeSet(container, r, this.onDidChangeRepositoryWip.bind(this)),
-				]),
-			),
-			preferences: {
-				avatars: configuration.get('views.patchDetails.avatars'),
-				dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
-				files: configuration.get('views.patchDetails.files'),
-				indentGuides:
-					configuration.getAny<CoreConfiguration, Preferences['indentGuides']>(
-						'workbench.tree.renderIndentGuides',
-					) ?? 'onHover',
-			},
-			visible: false,
+			open: undefined,
+			create: undefined,
+			preferences: this.getPreferences(),
 		};
 
 		this._disposable = Disposable.from(
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
-			container.git.onDidChangeRepository(this.onRepositoriesChanged, this),
+			container.git.onDidChangeRepositories(this.onRepositoriesChanged, this),
 		);
 	}
 
 	dispose() {
 		this._disposable.dispose();
-		// this._selectionTrackerDisposable?.dispose();
 	}
 
-	onReloaded(): void {
-		void this.notifyDidChangeState(true);
-	}
-
-	onDidChangeRepositoryWip(_e: RepositoryWipChangeSet) {
-		this.updateState();
-	}
-
-	onShowing(
+	async onShowing(
 		_loading: boolean,
-		options: { column?: ViewColumn; preserveFocus?: boolean },
+		options: WebviewShowOptions,
 		...args: PatchDetailsWebviewShowingArgs
-	): boolean {
-		let data: Partial<DraftSelectedEvent['data']> | { preserveVisibility?: boolean; changes: Change[] } | undefined;
-
+	): Promise<boolean> {
 		const [arg] = args;
-		// if (isSerializedState<Serialized<State>>(arg)) {
-		// 	const { selected } = arg.state;
-		// 	if (selected?.repoPath != null && selected?.sha != null) {
-		// 		if (selected.stashNumber != null) {
-		// 			data = {
-		// 				patch: createReference(selected.sha, selected.repoPath, {
-		// 					refType: 'stash',
-		// 					name: selected.message,
-		// 					number: selected.stashNumber,
-		// 				}),
-		// 			};
-		// 		} else {
-		// 			data = {
-		// 				commit: createReference(selected.sha, selected.repoPath, {
-		// 					refType: 'revision',
-		// 					message: selected.message,
-		// 				}),
-		// 			};
-		// 		}
-		// 	}
-		if (arg != null && typeof arg === 'object') {
-			data = arg;
+		if (arg?.mode === 'open' && arg.open != null) {
+			this.updateOpen(arg.open);
 		} else {
-			data = undefined;
-		}
-
-		let draft;
-		let changes: Change[] | undefined;
-		if (data != null) {
-			if ('changes' in data) {
-				({ changes, ...data } = data as { preserveVisibility?: boolean; changes: Change[] });
-			} else {
-				if (data.preserveFocus) {
-					options.preserveFocus = true;
-				}
-				({ draft, ...data } = data);
+			if (this.container.git.isDiscoveringRepositories) {
+				await this.container.git.isDiscoveringRepositories;
 			}
+
+			const create = arg?.mode === 'create' && arg.create != null ? arg.create : { repositories: undefined };
+			this.updateCreate(create);
 		}
 
-		if (draft != null) {
-			this.updateDraft(draft);
-		}
-
-		if (changes != null) {
-			this.updateCreate(changes);
-		}
-
-		if (data?.preserveVisibility && !this.host.visible) return false;
+		if (options?.preserveVisibility && !this.host.visible) return false;
 
 		return true;
 	}
@@ -207,128 +152,6 @@ export class PatchDetailsWebviewProvider
 	registerCommands(): Disposable[] {
 		return [registerCommand(`${this.host.id}.refresh`, () => this.host.refresh(true))];
 	}
-
-	private onDraftSelected(e: DraftSelectedEvent) {
-		if (e.data == null) return;
-
-		// if (this._pinned && e.data.interaction === 'passive') {
-		// 	this._commitStack.insert(getReferenceFromRevision(e.data.commit));
-		// 	this.updateNavigation();
-		// } else {
-		void this.host.show(false, { preserveFocus: e.data.preserveFocus }, e.data);
-		// }
-	}
-
-	onFocusChanged(focused: boolean): void {
-		if (this._focused === focused) return;
-
-		this._focused = focused;
-		// if (focused) {
-		// 	this.ensureTrackers();
-		// }
-	}
-
-	onVisibilityChanged(visible: boolean) {
-		// this.ensureTrackers();
-		this.updatePendingContext({ visible: visible });
-		if (!visible) return;
-
-		// Since this gets called even the first time the webview is shown, avoid sending an update, because the bootstrap has the data
-		if (this._bootstraping) {
-			this._bootstraping = false;
-
-			if (this._pendingContext == null) return;
-
-			this.updateState();
-		} else {
-			this.updateState(true);
-		}
-	}
-
-	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (
-			configuration.changed(e, ['defaultDateFormat', 'views.patchDetails.files', 'views.patchDetails.avatars']) ||
-			configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.renderIndentGuides')
-		) {
-			this.updatePendingContext({
-				preferences: {
-					...this._context.preferences,
-					...this._pendingContext?.preferences,
-					avatars: configuration.get('views.patchDetails.avatars'),
-					dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
-					files: configuration.get('views.patchDetails.files'),
-					indentGuides:
-						configuration.getAny<CoreConfiguration, Preferences['indentGuides']>(
-							'workbench.tree.renderIndentGuides',
-						) ?? 'onHover',
-				},
-			});
-			this.updateState();
-		}
-	}
-
-	// private _selectionTrackerDisposable: Disposable | undefined;
-	// // private _repositoryTrackerDisposable: Disposable | undefined;
-	// private _repositorySubscriptions: Map<Repository, Disposable> | undefined;
-	// private ensureTrackers(): void {
-	// 	this._selectionTrackerDisposable?.dispose();
-	// 	this._selectionTrackerDisposable = undefined;
-	// 	// this._repositoryTrackerDisposable?.dispose();
-	// 	// this._repositoryTrackerDisposable = undefined;
-	// 	if (this._repositorySubscriptions != null) {
-	// 		for (const disposable of this._repositorySubscriptions.values()) {
-	// 			disposable.dispose();
-	// 		}
-	// 		this._repositorySubscriptions.clear();
-	// 		this._repositorySubscriptions = undefined;
-	// 	}
-
-	// 	if (!this.host.visible) return;
-
-	// 	this._selectionTrackerDisposable = this.container.events.on('draft:selected', this.onDraftSelected, this);
-	// 	// this._repositoryTrackerDisposable = this.container.git.onDidChangeRepository(this.onRepositoryChanged, this);
-
-	// 	// TODO do we need to watch each individual repository?
-	// 	// const repos = this.container.git.openRepositories;
-	// 	// for (const repo of repos) {
-	// 	// 	this.watchRepository(repo);
-	// 	// }
-	// 	if (this._context.create == null) {
-	// 		const repo = this.container.git.getBestRepositoryOrFirst();
-	// 		if (repo == null) return;
-	// 		this.watchRepository(repo);
-	// 	} else {
-	// 		for (const change of this._context.create) {
-	// 			const repo = this.container.git.getRepository(change.repository.uri);
-	// 			if (repo == null) continue;
-	// 			this.watchRepository(repo);
-	// 		}
-	// 	}
-	// }
-
-	private onRepositoriesChanged(_e: RepositoryChangeEvent) {
-		// this.ensureTrackers();
-		// void this.updateCreateStateFromWip();
-	}
-
-	// private watchRepository(repository: Repository) {
-	// 	if (this._repositorySubscriptions == null) {
-	// 		this._repositorySubscriptions = new Map();
-	// 	}
-
-	// 	if (this._repositorySubscriptions.has(repository)) return;
-
-	// 	const disposable = Disposable.from(
-	// 		repository.onDidChange(this.onRepositoriesChanged, this),
-	// 		repository.onDidChangeFileSystem(() => this.updateCreateStateFromWip(repository), this),
-	// 		repository.onDidChange(e => {
-	// 			if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
-	// 				void this.updateCreateStateFromWip(repository);
-	// 			}
-	// 		}),
-	// 	);
-	// 	this._repositorySubscriptions.set(repository, disposable);
-	// }
 
 	onMessageReceived(e: IpcMessage) {
 		switch (e.method) {
@@ -390,6 +213,121 @@ export class PatchDetailsWebviewProvider
 		}
 	}
 
+	onRefresh(force?: boolean): void {
+		if (force) {
+			void this.notifyDidChangeState(true);
+			return;
+			// if (this.mode === 'create') {
+			// 	this.updatePendingContext(
+			// 		{
+			// 			mode: 'create',
+			// 			create: this._context.create,
+			// 		},
+			// 		true,
+			// 	);
+			// } else {
+			// 	this.updatePendingContext(
+			// 		{
+			// 			mode: 'open',
+			// 			open: this._context.open,
+			// 		},
+			// 		true,
+			// 	);
+			// }
+		}
+
+		this.updateState();
+	}
+
+	onReloaded(): void {
+		void this.notifyDidChangeState(true);
+	}
+
+	onVisibilityChanged(visible: boolean) {
+		if (!visible) {
+			this._context.create?.changes.forEach(c => c.suspend());
+			this._pendingContext?.create?.changes.forEach(c => c.suspend());
+
+			return;
+		}
+
+		this._context.create?.changes.forEach(c => c.resume());
+		this._pendingContext?.create?.changes.forEach(c => c.resume());
+
+		// Since this gets called even the first time the webview is shown, avoid sending an update, because the bootstrap has the data
+		if (this._bootstraping) {
+			this._bootstraping = false;
+
+			if (this._pendingContext == null) return;
+
+			this.updateState();
+		} else {
+			this.updateState(true);
+		}
+	}
+
+	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
+		if (
+			configuration.changed(e, ['defaultDateFormat', 'views.patchDetails.files', 'views.patchDetails.avatars']) ||
+			configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.renderIndentGuides')
+		) {
+			this.updatePendingContext({
+				preferences: {
+					...this._context.preferences,
+					...this._pendingContext?.preferences,
+					...this.getPreferences(),
+				},
+			});
+			this.updateState();
+		}
+	}
+
+	private getPreferences(): Preferences {
+		return {
+			avatars: configuration.get('views.patchDetails.avatars'),
+			dateFormat: configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma',
+			files: configuration.get('views.patchDetails.files'),
+			indentGuides:
+				configuration.getAny<CoreConfiguration, Preferences['indentGuides']>(
+					'workbench.tree.renderIndentGuides',
+				) ?? 'onHover',
+		};
+	}
+
+	private onRepositoriesChanged(_e: RepositoriesChangeEvent) {
+		if (this.mode === 'create') {
+			if (this._context.create?.allRepos) {
+				this.updateCreate(
+					{
+						title: this._context.create.title,
+						description: this._context.create.description,
+						repositories: undefined,
+					},
+					{ immediate: true },
+				);
+
+				return;
+			}
+
+			void this.notifyDidChangeState(true);
+		}
+	}
+
+	private updatePendingCreateContext(context: Context['create'], force?: boolean) {
+		if (this._context.create != null) {
+			this._context.create.changes.forEach(c => void c.dispose());
+		}
+		if (this._pendingContext?.create != null) {
+			this._pendingContext.create.changes.forEach(c => void c.dispose());
+		}
+
+		this.updatePendingContext({ mode: 'create', create: context }, force);
+	}
+
+	private onRepositoryWipChanged(_e: RepositoryWipChanges) {
+		void this.notifyDidChangeState(true);
+	}
+
 	private get mode(): Mode {
 		return this._pendingContext?.mode ?? this._context.mode;
 	}
@@ -400,15 +338,15 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private shareLocalPatch() {
-		if (this._context.draft?._brand !== 'local') return;
+		if (this._context.open?.draftType !== 'local') return;
 
-		this.updateCreateFromLocalPatch();
+		this.updateCreateFromLocalPatch(this._context.open);
 	}
 
 	private copyCloudLink() {
-		if (this._context.draft?._brand !== 'cloud') return;
+		if (this._context.open?.draftType !== 'cloud') return;
 
-		void env.clipboard.writeText(this._context.draft.deepLinkUrl);
+		void env.clipboard.writeText(this._context.open.deepLinkUrl);
 	}
 
 	private applyPatch(params: ApplyPatchParams) {
@@ -424,7 +362,7 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private async explainPatch(completionId?: string) {
-		if (this._context.draft == null) return;
+		if (this._context.open == null) return;
 
 		let params: DidExplainParams;
 
@@ -454,88 +392,106 @@ export class PatchDetailsWebviewProvider
 		}
 
 		let details;
-		if (current.draft != null) {
-			details = await this.getDetailsModel(current.draft);
+		if (current.mode === 'open' && current.open != null) {
+			details = await this.getDetailsModel(current.open);
 		}
 
-		if (current.create == null) {
-			// this._cancellationTokenSource = new CancellationTokenSource();
-			// const cancellation = this._cancellationTokenSource.token;
-			// setTimeout(() => {
-			// 	if (cancellation.isCancellationRequested) return;
-			// 	void this.updateCreateStateFromWip(undefined, cancellation);
-			// }, 100);
+		let create;
+		if (current.mode === 'create' && current.create != null) {
+			create = {
+				title: current.create.title,
+				description: current.create.description,
+				changes: await toRepoChanges(current.create.changes),
+			};
 		}
 
 		const state = serialize<State>({
 			...this.host.baseWebviewState,
 			mode: current.mode,
 			draft: details,
-			create: await toRepoChanges(current.create),
+			create: create,
 			preferences: current.preferences,
 		});
 		return state;
 	}
 
-	private _commitDisposable: Disposable | undefined;
+	private updateCreate(create: CreateDraft, options?: { force?: boolean; immediate?: boolean }) {
+		let changesetByRepo: Map<string, RepositoryChangeset>;
+		let allRepos = false;
 
-	private updateCreate(changes: Change[]) {
-		const repoChanges = this._context.create ?? new Map<Repository['id'], RepositoryChangeSet>();
+		if (create.changes != null) {
+			changesetByRepo = new Map<string, RepositoryChangeset>();
 
-		const updated = new Set<Repository['id']>();
-		for (const change of changes) {
-			const repo = this.container.git.getRepository(Uri.parse(change.repository.uri));
-			if (repo == null) continue;
+			const updated = new Set<string>();
+			for (const change of create.changes) {
+				const repo = this.container.git.getRepository(Uri.parse(change.repository.uri));
+				if (repo == null) continue;
 
-			let repoChangeSet: RepositoryChangeSet;
-			if (change.type === 'wip') {
-				repoChangeSet = new RepositoryWipChangeSet(
-					this.container,
-					repo,
-					this.onDidChangeRepositoryWip.bind(this),
-				);
-				repoChangeSet.checked = change.checked ?? true;
-			} else {
-				repoChangeSet = {
-					checked: true,
-					getChange: async () =>
-						Promise.resolve({
-							type: change.type,
-							repoName: repo.name,
-							repoUri: repo.uri.toString(),
-							change: change,
+				let repoChange: RepositoryChangeset;
+				if (change.type === 'wip') {
+					repoChange = new RepositoryWipChanges(
+						this.container,
+						repo,
+						change.revision,
+						this.onRepositoryWipChanged.bind(this),
+						change.checked ?? true,
+						change.expanded ?? true,
+					);
+				} else {
+					repoChange = new RepositoryRefChangeset(
+						this.container,
+						repo,
+						change.revision,
+						change.files,
+						change.checked ?? true,
+						change.expanded ?? true,
+					);
+				}
 
-							checked: true,
-							expanded: true,
-						}),
-					provideDataForDraft: async () =>
-						Promise.resolve({
-							repository: repo,
-							baseSha: change.range.baseSha,
-							branchName: change.range.branchName,
-						}),
-				};
+				updated.add(repo.uri.toString());
+				changesetByRepo.set(repo.uri.toString(), repoChange);
 			}
 
-			updated.add(repo.id);
-			repoChanges.set(repo.id, repoChangeSet);
-		}
-
-		if (updated.size !== repoChanges.size) {
-			for (const [id, repoChange] of repoChanges) {
-				if (updated.has(id)) continue;
-				repoChange.checked = false;
+			if (updated.size !== changesetByRepo.size) {
+				for (const [uri, repoChange] of changesetByRepo) {
+					if (updated.has(uri)) continue;
+					repoChange.checked = false;
+				}
 			}
+		} else {
+			allRepos = create.repositories == null;
+			const repos = create.repositories ?? this.container.git.openRepositories;
+			changesetByRepo = new Map(
+				repos.map(r => [
+					r.uri.toString(),
+					new RepositoryWipChanges(
+						this.container,
+						r,
+						{
+							baseSha: 'HEAD',
+							sha: undefined,
+						},
+						this.onRepositoryWipChanged.bind(this),
+						false,
+						true, // TODO revisit
+					),
+				]),
+			);
 		}
 
-		this.updatePendingContext({ mode: 'create', create: repoChanges });
-		this.updateState();
-
-		// this.updatePendingContext({ mode: 'create', wipStateLoaded: true, create: changes });
-		// // this.ensureTrackers();
+		this.updatePendingCreateContext(
+			{
+				title: create.title,
+				description: create.description,
+				changes: changesetByRepo,
+				allRepos: allRepos,
+			},
+			options?.force,
+		);
+		this.updateState(options?.immediate ?? true);
 	}
 
-	private updateDraft(draft: LocalDraft | Draft | undefined, options?: { force?: boolean; immediate?: boolean }) {
+	private updateOpen(draft: LocalDraft | Draft | undefined, options?: { force?: boolean; immediate?: boolean }) {
 		// // this.commits = [commit];
 		// if (!options?.force && this._context.commit?.sha === patch?.ref) return;
 		// this._commitDisposable?.dispose();
@@ -564,8 +520,8 @@ export class PatchDetailsWebviewProvider
 
 		this.updatePendingContext(
 			{
-				mode: 'draft',
-				draft: draft,
+				mode: 'open',
+				open: draft,
 				// richStateLoaded: false, //(commit?.isUncommitted) || !getContext('gitlens:hasConnectedRemotes'),
 				// formattedMessage: undefined,
 				// autolinkedIssues: undefined,
@@ -683,7 +639,7 @@ export class PatchDetailsWebviewProvider
 
 	private async getDetailsModel(draft: LocalDraft | Draft): Promise<DraftDetails> {
 		let patch: GitPatch | GitCloudPatch | undefined;
-		if (draft._brand === 'local') {
+		if (draft.draftType === 'local') {
 			patch = draft.patch;
 		} else {
 			patch = await this.getDraftPatch(draft);
@@ -694,12 +650,12 @@ export class PatchDetailsWebviewProvider
 				const files = await this.container.git.getDiffFiles('', patch!.contents!);
 				patch!.files = files?.files;
 
-				this.updatePendingContext({ draft: draft }, true);
+				this.updatePendingContext({ open: draft }, true);
 				this.updateState();
 			}, 1);
 		}
 
-		if (draft._brand === 'local' || patch?._brand === 'file') {
+		if (draft.draftType === 'local' || patch?._brand === 'file') {
 			if (patch && patch.repo == null) {
 				const repo = this.container.git.getBestRepository();
 				if (repo != null) {
@@ -747,18 +703,43 @@ export class PatchDetailsWebviewProvider
 		return commit != null ? [commit, commit.file!] : undefined;
 	}
 
+	private async getUnreachablePatchCommit2(repoPath: string): Promise<GitCommit | undefined> {
+		if (this.mode === 'create') {
+			const changeset = find(this._context.create!.changes.values(), cs => cs.repository.path === repoPath);
+			if (changeset == null) return undefined;
+
+			const change = await changeset.getChange();
+			if (change == null) return undefined;
+
+			// if (change.change.)
+			// return change.commit;
+			return undefined;
+		}
+
+		return undefined;
+	}
+
 	private async getUnreachablePatchCommit(): Promise<GitCommit | undefined> {
 		let patch: GitPatch | GitCloudPatch | undefined;
-		switch (this._context.draft?._brand) {
+		switch (this._context.open?.draftType) {
 			case 'local':
-				patch = this._context.draft.patch;
+				patch = this._context.open.patch;
 				break;
 			case 'cloud':
-				patch = await this.getDraftPatch(this._context.draft);
+				patch = await this.getDraftPatch(this._context.open);
 				if (patch == null) return undefined;
 				break;
 			default:
+				// if (this._context.create == null) {
 				throw new Error('Invalid patch type');
+			// }
+
+			// const changeset = first(this._context.create.values());
+			// changeset?.getChange;
+			// patch = {
+			// 	_brand: 'file',
+			// 	contents: first(this._context.create),
+			// };
 		}
 
 		if (patch.repo == null) {
@@ -828,12 +809,12 @@ export class PatchDetailsWebviewProvider
 
 	private async selectPatchBase() {
 		let patch: GitPatch | GitCloudPatch | undefined;
-		switch (this._context.draft?._brand) {
+		switch (this._context.open?.draftType) {
 			case 'local':
-				patch = this._context.draft.patch;
+				patch = this._context.open.patch;
 				break;
 			case 'cloud':
-				patch = await this.getDraftPatch(this._context.draft);
+				patch = await this.getDraftPatch(this._context.open);
 				if (patch == null) return undefined;
 				break;
 			default:
@@ -843,17 +824,17 @@ export class PatchDetailsWebviewProvider
 		const baseRef = await this.getPatchBaseRef(patch, true);
 		if (baseRef == null) return;
 
-		this.updateDraft(this._context.draft, { force: true });
+		this.updateOpen(this._context.open, { force: true });
 	}
 
 	private async selectPatchRepo() {
 		let patch: GitPatch | GitCloudPatch | undefined;
-		switch (this._context.draft?._brand) {
+		switch (this._context.open?.draftType) {
 			case 'local':
-				patch = this._context.draft.patch;
+				patch = this._context.open.patch;
 				break;
 			case 'cloud':
-				patch = await this.getDraftPatch(this._context.draft);
+				patch = await this.getDraftPatch(this._context.open);
 				if (patch == null) return undefined;
 				break;
 			default:
@@ -863,7 +844,7 @@ export class PatchDetailsWebviewProvider
 		const repo = await this.getPatchRepo(patch, true);
 		if (repo == null) return;
 
-		this.updateDraft(this._context.draft, { force: true });
+		this.updateOpen(this._context.open, { force: true });
 	}
 
 	private async getPatchRepo(patch: GitPatch | GitCloudPatch, force = false) {
@@ -946,10 +927,8 @@ export class PatchDetailsWebviewProvider
 		// 	? { ...params.showOptions, viewColumn: ViewColumn.Beside } : params.showOptions;
 	}
 
-	private updateCreateFromLocalPatch() {
-		if (this._context.draft?._brand !== 'local') return;
-
-		const patch = this._context.draft.patch;
+	private updateCreateFromLocalPatch(draft: LocalDraft) {
+		const patch = draft.patch;
 		if (patch.baseRef == null) {
 			const ref = this.getPatchBaseRef(patch);
 			if (ref == null) return;
@@ -958,49 +937,39 @@ export class PatchDetailsWebviewProvider
 		// TODO: need to figure out branch name
 		const branchName = '';
 		const baseSha = patch.baseRef ?? 'HEAD';
-		const change: RepoChangeSet = {
-			type: 'commit',
-			repoName: patch.repo!.name,
-			repoUri: patch.repo!.uri.toString(),
-			change: {
-				type: 'commit',
-				repository: {
-					name: patch.repo!.name,
-					path: patch.repo!.path,
-					uri: patch.repo!.uri.toString(),
-				},
-				range: {
-					baseSha: baseSha,
-					sha: patch.commit?.sha,
-					branchName: branchName,
-				},
-				files:
-					patch.files?.map(file => {
-						return {
-							repoPath: file.repoPath,
-							path: file.path,
-							status: file.status,
-							originalPath: file.originalPath,
-						};
-					}) ?? [],
+		const change: Change = {
+			type: 'revision',
+			repository: {
+				name: patch.repo!.name,
+				path: patch.repo!.path,
+				uri: patch.repo!.uri.toString(),
 			},
+			revision: {
+				baseSha: baseSha,
+				sha: patch.commit?.sha,
+				branchName: branchName,
+			},
+			files:
+				patch.files?.map(file => {
+					return {
+						repoPath: file.repoPath,
+						path: file.path,
+						status: file.status,
+						originalPath: file.originalPath,
+					};
+				}) ?? [],
 			checked: true,
 			expanded: true,
 		};
 
-		this.updatePendingContext({
-			mode: 'create',
-			create: new Map([
+		this.updatePendingCreateContext({
+			changes: new Map([
 				[
-					patch.repo!.id,
-					{
-						checked: true,
-						getChange: () => Promise.resolve(change),
-						provideDataForDraft: () =>
-							Promise.resolve({ repository: patch.repo!, branchName: branchName, baseSha: baseSha }),
-					},
+					patch.repo!.uri.toString(),
+					new RepositoryRefChangeset(this.container, patch.repo!, change.revision, change.files, true, true),
 				],
 			]),
+			allRepos: false,
 		});
 		this.updateState();
 	}
@@ -1144,13 +1113,13 @@ export class PatchDetailsWebviewProvider
 		const repo = commit.getRepository()!;
 
 		return {
-			type: 'commit',
+			type: 'revision',
 			repository: {
 				name: repo.name,
 				path: repo.path,
 				uri: repo.uri.toString(),
 			},
-			range: {
+			revision: {
 				baseSha: commit.sha,
 				sha: undefined,
 				branchName: repo.branch.name,
@@ -1168,59 +1137,62 @@ export class PatchDetailsWebviewProvider
 		};
 	}
 
-	private async getChangeContents(changeSet: RepoChangeSet) {
-		if (changeSet.change == null) return;
+	// private async getChangeContents(changeset: RepoChangeSet) {
+	// 	if (changeset.change == null) return;
 
-		const repo = this.container.git.getRepository(Uri.parse(changeSet.repoUri))!;
-		const diff = await this.container.git.getDiff(
-			repo.path,
-			changeSet.change.range.baseSha,
-			changeSet.change.range.sha,
-		);
-		if (diff == null) return;
+	// 	const repo = this.container.git.getRepository(Uri.parse(changeset.repoUri))!;
+	// 	const diff = await this.container.git.getDiff(
+	// 		repo.path,
+	// 		changeset.change.range.baseSha,
+	// 		changeset.change.range.sha,
+	// 	);
+	// 	if (diff == null) return;
 
-		return {
-			repository: repo,
-			baseSha: changeSet.change.range.baseSha,
-			contents: diff.contents,
-		};
-	}
+	// 	return {
+	// 		repository: repo,
+	// 		baseSha: changeset.change.range.baseSha,
+	// 		contents: diff.contents,
+	// 	};
+	// }
 
 	// create a patch from the current working tree or from a commit
 	// create a draft from the resulting patch
 	// how do I incorporate branch
-	private async createDraft({ title, changeSets, description }: CreatePatchParams): Promise<void> {
-		// const changeContents = await this.getChangeContents(changeSets);
+	private async createDraft({ title, changesets, description }: CreatePatchParams): Promise<void> {
+		// const changeContents = await this.getChangeContents(changesets);
 		const changeContents: { contents: string; baseSha: string; repository: Repository }[] = [];
-		for (const [id, changeSet] of Object.entries(changeSets)) {
-			if (changeSet.checked === false) continue;
+		for (const [id, changeset] of Object.entries(changesets)) {
+			if (changeset.checked === false) continue;
 
-			const repositoryChangeSet = this._context.create?.get(id);
+			const repositoryChangeSet = this._context.create?.changes?.get(id);
 			if (repositoryChangeSet == null) continue;
 
-			const { baseSha, branchName, repository } = await repositoryChangeSet.provideDataForDraft();
+			const {
+				range: { baseSha, branchName },
+				repository,
+			} = repositoryChangeSet;
 
 			let diff: GitDiff | undefined;
-			if (changeSet.type === 'wip') {
-				if (changeSet.checked === 'staged') {
+			if (changeset.type === 'wip') {
+				if (changeset.checked === 'staged') {
 					// need to get the staged changes only
 					diff = await this.container.git.getDiff(
 						repository.path,
-						changeSet.change!.range.baseSha,
-						changeSet.change!.range.sha,
+						changeset.revision.baseSha,
+						changeset.revision.sha,
 					);
 				} else {
 					diff = await this.container.git.getDiff(
 						repository.path,
-						changeSet.change!.range.baseSha,
-						changeSet.change!.range.sha,
+						changeset.revision.baseSha,
+						changeset.revision.sha,
 					);
 				}
 			} else {
 				diff = await this.container.git.getDiff(
 					repository.path,
-					changeSet.change.range.baseSha,
-					changeSet.change.range.sha,
+					changeset.revision.baseSha,
+					changeset.revision.sha,
 				);
 			}
 			if (diff == null) continue;
@@ -1245,14 +1217,14 @@ export class PatchDetailsWebviewProvider
 	}
 }
 
-async function toRepoChanges(
-	createMap?: Map<Repository['id'], RepositoryChangeSet>,
-): Promise<Record<string, RepoChangeSet>> {
-	const repoChanges: Record<string, RepoChangeSet> = {};
-	if (createMap == null || createMap.size === 0) return repoChanges;
+async function toRepoChanges(createMap: Map<string, RepositoryChangeset>): Promise<Record<string, Change>> {
+	const repoChanges: Record<string, Change> = {};
+	if (createMap.size === 0) return repoChanges;
 
 	for (const [id, repo] of createMap) {
 		const change = await repo.getChange();
+		if (change?.files?.length === 0) continue; // TODO remove when we support dynamic expanded repos
+
 		if (change.checked !== repo.checked) {
 			change.checked = repo.checked;
 		}
@@ -1273,29 +1245,45 @@ async function toRepoChanges(
 // 	};
 // }
 
-interface RepositoryChangeSet {
-	checked: RepoWipChangeSet['checked'];
-	getChange(): Promise<RepoChangeSet>;
-	provideDataForDraft(): Promise<{ baseSha: string; branchName: string; repository: Repository }>;
+interface RepositoryChangeset extends Disposable {
+	type: ChangeType;
+	repository: Repository;
+	range: RevisionRange;
+	getChange(): Promise<Change>;
+
+	suspend(): void;
+	resume(): void;
+
+	checked: Change['checked'];
+	expanded: boolean;
 }
 
-class RepositoryWipChangeSet implements RepositoryChangeSet {
-	private _disposable: Disposable | undefined;
+class RepositoryRefChangeset implements RepositoryChangeset {
+	readonly type = 'revision';
 
 	constructor(
 		private readonly container: Container,
 		public readonly repository: Repository,
-		private readonly onDidChangeRepositoryWip: (e: RepositoryWipChangeSet) => void,
-		expanded: boolean = true,
+		public readonly range: RevisionRange,
+		private readonly files: RevisionChange['files'],
+		checked: Change['checked'],
+		expanded: boolean,
 	) {
+		this.checked = checked;
 		this.expanded = expanded;
 	}
 
-	private _checked: RepoWipChangeSet['checked'] = false;
-	get checked(): RepoWipChangeSet['checked'] {
+	dispose() {}
+
+	suspend() {}
+
+	resume() {}
+
+	private _checked: Change['checked'] = false;
+	get checked(): Change['checked'] {
 		return this._checked;
 	}
-	set checked(value: RepoWipChangeSet['checked']) {
+	set checked(value: Change['checked']) {
 		this._checked = value;
 	}
 
@@ -1306,7 +1294,105 @@ class RepositoryWipChangeSet implements RepositoryChangeSet {
 	set expanded(value: boolean) {
 		if (this._expanded === value) return;
 
-		this._wipChange = undefined;
+		this._expanded = value;
+	}
+
+	// private _files: Promise<{ files: Change['files'] }> | undefined;
+	// eslint-disable-next-line @typescript-eslint/require-await
+	async getChange(): Promise<Change> {
+		// let filesResult;
+		// if (this.expanded) {
+		// 	if (this._files == null) {
+		// 		this._files = this.getFiles();
+		// 	}
+
+		// 	filesResult = await this._files;
+		// }
+
+		return {
+			type: 'revision',
+			repository: {
+				name: this.repository.name,
+				path: this.repository.path,
+				uri: this.repository.uri.toString(),
+			},
+			revision: this.range,
+			files: this.files, //filesResult?.files,
+			checked: this.checked,
+			expanded: this.expanded,
+		};
+	}
+
+	// private async getFiles(): Promise<{ files: Change['files'] }> {
+	// 	const commit = await this.container.git.getCommit(this.repository.path, this.range.sha!);
+
+	// 	const files: GitFileChangeShape[] = [];
+	// 	if (commit != null) {
+	// 		for (const file of commit.files ?? []) {
+	// 			const change = {
+	// 				repoPath: file.repoPath,
+	// 				path: file.path,
+	// 				status: file.status,
+	// 				originalPath: file.originalPath,
+	// 			};
+
+	// 			files.push(change);
+	// 		}
+	// 	}
+
+	// 	return { files: files };
+	// }
+}
+
+class RepositoryWipChanges implements RepositoryChangeset {
+	readonly type = 'wip';
+
+	private _disposable: Disposable | undefined;
+
+	constructor(
+		private readonly container: Container,
+		public readonly repository: Repository,
+		public readonly range: RevisionRange,
+		private readonly onDidChangeRepositoryWip: (e: RepositoryWipChanges) => void,
+		checked: Change['checked'],
+		expanded: boolean,
+	) {
+		this.checked = checked;
+		this.expanded = expanded;
+	}
+
+	dispose() {
+		this._disposable?.dispose();
+		this._disposable = undefined;
+	}
+
+	suspend() {
+		this._disposable?.dispose();
+		this._disposable = undefined;
+	}
+
+	resume() {
+		if (this._expanded) {
+			this.subscribe();
+		}
+	}
+
+	private _checked: Change['checked'] = false;
+	get checked(): Change['checked'] {
+		return this._checked;
+	}
+	set checked(value: Change['checked']) {
+		this._checked = value;
+	}
+
+	private _expanded = false;
+	get expanded(): boolean {
+		return this._expanded;
+	}
+	set expanded(value: boolean) {
+		if (this._expanded === value) return;
+
+		this._files = undefined;
 		if (value) {
 			this.subscribe();
 		} else {
@@ -1316,34 +1402,29 @@ class RepositoryWipChangeSet implements RepositoryChangeSet {
 		this._expanded = value;
 	}
 
-	private _wipChange: Promise<Change> | undefined;
-	async getChange(): Promise<RepoChangeSet> {
-		if (this.expanded && this._wipChange == null) {
-			this._wipChange = this.getWipChange();
+	private _files: Promise<{ files: Change['files'] }> | undefined;
+	async getChange(): Promise<Change> {
+		let filesResult;
+		if (this.expanded) {
+			if (this._files == null) {
+				this._files = this.getFiles();
+			}
+
+			filesResult = await this._files;
 		}
 
 		return {
 			type: 'wip',
-			repoName: this.repository.name,
-			repoUri: this.repository.uri.toString(),
-			change: this.expanded ? await this._wipChange : undefined,
+			repository: {
+				name: this.repository.name,
+				path: this.repository.path,
+				uri: this.repository.uri.toString(),
+			},
+			revision: this.range,
+			files: filesResult?.files,
 			checked: this.checked,
 			expanded: this.expanded,
 		};
-	}
-
-	async provideDataForDraft(): Promise<{
-		contents: string;
-		baseSha: string;
-		branchName: string;
-		repository: Repository;
-	}> {
-		return Promise.resolve({
-			contents: '',
-			baseSha: 'HEAD',
-			branchName: '',
-			repository: this.repository,
-		});
 	}
 
 	private subscribe() {
@@ -1361,11 +1442,11 @@ class RepositoryWipChangeSet implements RepositoryChangeSet {
 	}
 
 	private onDidChangeWip() {
-		this._wipChange = undefined;
+		this._files = undefined;
 		this.onDidChangeRepositoryWip(this);
 	}
 
-	private async getWipChange(): Promise<Change> {
+	private async getFiles(): Promise<{ files: Change['files'] }> {
 		const status = await this.container.git.getStatusForRepo(this.repository.path);
 
 		const files: GitFileChangeShape[] = [];
@@ -1386,19 +1467,6 @@ class RepositoryWipChangeSet implements RepositoryChangeSet {
 			}
 		}
 
-		return {
-			type: 'wip',
-			repository: {
-				name: this.repository.name,
-				path: this.repository.path,
-				uri: this.repository.uri.toString(),
-			},
-			files: files,
-			range: {
-				baseSha: 'HEAD',
-				sha: undefined,
-				branchName: status?.branch ?? '',
-			},
-		};
+		return { files: files };
 	}
 }

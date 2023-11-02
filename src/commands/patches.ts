@@ -1,9 +1,12 @@
 import type { TextEditor } from 'vscode';
-import { env, window, workspace } from 'vscode';
+import { window, workspace } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
+import type { RevisionRange } from '../git/models/patch';
+import type { Repository } from '../git/models/repository';
 import { showPatchesView } from '../plus/drafts/actions';
 import type { Draft, DraftPatch, LocalDraft } from '../plus/drafts/draftsService';
+import type { Change } from '../plus/webviews/patchDetails/protocol';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
 import { command } from '../system/command';
 import type { CommandContext } from './base';
@@ -54,10 +57,22 @@ export class CreatePatchCommand extends Command {
 		} else {
 			repo = this.container.git.getRepository(args.repoPath);
 		}
-		if (repo == null) return;
+		if (repo == null) return undefined;
+		if (args?.ref1 == null) return;
 
-		const diff = await this.container.git.getDiff(repo.uri, args?.ref1 ?? 'HEAD', args?.ref2);
+		const diff = await getDiffContents(this.container, repo, args);
 		if (diff == null) return;
+
+		// let repo;
+		// if (args?.repoPath == null) {
+		// 	repo = await getRepositoryOrShowPicker('Create Patch');
+		// } else {
+		// 	repo = this.container.git.getRepository(args.repoPath);
+		// }
+		// if (repo == null) return;
+
+		// const diff = await this.container.git.getDiff(repo.uri, args?.ref1 ?? 'HEAD', args?.ref2);
+		// if (diff == null) return;
 
 		const d = await workspace.openTextDocument({ content: diff.contents, language: 'diff' });
 		await window.showTextDocument(d);
@@ -70,6 +85,102 @@ export class CreatePatchCommand extends Command {
 
 		// await workspace.fs.writeFile(uri, new TextEncoder().encode(patch.contents));
 	}
+}
+
+async function getDiffContents(
+	container: Container,
+	repository: Repository,
+	args: CreatePatchCommandArgs,
+): Promise<{ contents: string; range: Omit<RevisionRange, 'branchName'> } | undefined> {
+	const sha = args.ref1 ?? 'HEAD';
+
+	const diff = await container.git.getDiff(repository.uri, sha, args.ref2);
+	if (diff == null) return undefined;
+
+	return {
+		contents: diff.contents,
+		range: {
+			baseSha: args.ref2 ?? `${sha}^`,
+			sha: sha,
+		},
+	};
+}
+
+interface CreateLocalChange {
+	title?: string;
+	description?: string;
+	changes: Change[];
+}
+
+async function createLocalChange(
+	container: Container,
+	repository: Repository,
+	args: CreatePatchCommandArgs,
+): Promise<CreateLocalChange | undefined> {
+	if (args.ref1 == null) return undefined;
+
+	const sha = args.ref1 ?? 'HEAD';
+	const [branchName] = await container.git.getCommitBranches(repository.uri, sha);
+
+	const change: Change = {
+		type: 'revision',
+		repository: {
+			name: repository.name,
+			path: repository.path,
+			uri: repository.uri.toString(),
+		},
+		files: undefined!,
+		revision: {
+			sha: sha,
+			baseSha: args.ref2 ?? `${sha}^`,
+			branchName: branchName ?? 'HEAD',
+		},
+	};
+
+	const create: CreateLocalChange = { changes: [change] };
+
+	const commit = await container.git.getCommit(repository.uri, sha);
+	if (commit == null) return undefined;
+
+	const message = commit.message!.trim();
+	const index = message.indexOf('\n');
+	if (index < 0) {
+		create.title = message;
+	} else {
+		create.title = message.substring(0, index);
+		create.description = message.substring(index + 1);
+	}
+
+	if (args.ref2 == null) {
+		change.files = commit.files != null ? [...commit.files] : [];
+	} else {
+		const diff = await getDiffContents(container, repository, args);
+		if (diff == null) return undefined;
+
+		const result = await container.git.getDiffFiles(repository.uri, diff.contents);
+		if (result?.files == null) return;
+
+		create.title = `Range ${args.ref2}..${args.ref1}`;
+		create.description = `${create.title}\n${create.description}`;
+
+		change.files = result.files;
+	}
+
+	// const change: Change = {
+	// 	type: 'commit',
+	// 	repository: {
+	// 		name: repository.name,
+	// 		path: repository.path,
+	// 		uri: repository.uri.toString(),
+	// 	},
+	// 	files: result.files,
+	// 	range: {
+	// 		...range,
+	// 		branchName: branchName ?? 'HEAD',
+	// 	},
+	// };
+
+	return create;
 }
 
 @command()
@@ -100,60 +211,106 @@ export class CreateCloudPatchCommand extends Command {
 	}
 
 	async execute(args?: CreatePatchCommandArgs) {
-		let repo;
 		if (args?.repoPath == null) {
-			repo = await getRepositoryOrShowPicker('Create Cloud Patch');
-		} else {
-			repo = this.container.git.getRepository(args.repoPath);
+			return showPatchesView({ mode: 'create' });
 		}
-		if (repo == null) return;
 
-		const diff = await this.container.git.getDiff(repo.uri, args?.ref1 ?? 'HEAD', args?.ref2);
-		if (diff == null) return;
+		const repo = this.container.git.getRepository(args.repoPath);
+		if (repo == null) {
+			return showPatchesView({ mode: 'create' });
+		}
 
-		const d = await workspace.openTextDocument({ content: diff.contents, language: 'diff' });
-		await window.showTextDocument(d);
+		const create = await createLocalChange(this.container, repo, args);
+		if (create == null) {
+			return showPatchesView({ mode: 'create', create: { repositories: [repo] } });
+		}
+		return showPatchesView({ mode: 'create', create: create });
 
-		// ask the user for a title
+		// let changes: Change[] | undefined;
+		// if (args?.repoPath != null) {
+		// 	const repo = this.container.git.getRepository(args.repoPath);
+		// 	if (repo == null) return;
 
-		const title = await window.showInputBox({
-			title: 'Create Cloud Patch',
-			prompt: 'Enter a title for the patch',
-			validateInput: value => (value == null || value.length === 0 ? 'A title is required' : undefined),
-		});
-		if (title == null) return;
+		// 	const diff = await this.container.git.getDiff(repo.uri, args.ref1 ?? 'HEAD', args.ref2);
+		// 	if (diff == null) return;
 
-		// ask the user for an optional description
-		const description = await window.showInputBox({
-			title: 'Create Cloud Patch',
-			prompt: 'Enter an optional description for the patch',
-		});
+		// 	const result = await this.container.git.getDiffFiles(args.repoPath, diff.contents);
+		// 	if (result?.files == null) return;
 
-		const patch = await this.container.drafts.createDraft(
-			'patch',
-			title,
-			{
-				contents: diff.contents,
-				baseSha: diff.baseSha,
-				repository: repo,
-			},
-			{ description: description },
-		);
-		void this.showPatchNotification(patch);
+		// 	const branch = await repo.getBranch();
+
+		// 	changes = [
+		// 		{
+		// 			type: 'commit',
+		// 			repository: {
+		// 				name: repo.name,
+		// 				path: repo.path,
+		// 				uri: repo.uri.toString(true),
+		// 			},
+		// 			files: result.files,
+		// 			range: {
+		// 				baseSha: args.ref2 ?? `${args.ref1 ?? 'HEAD'}^`,
+		// 				branchName: branch?.name ?? 'HEAD',
+		// 				sha: args.ref1 ?? 'HEAD',
+		// 			},
+		// 		},
+		// 	];
+		// }
+
+		// let repo;
+		// if (args?.repoPath == null) {
+		// 	repo = await getRepositoryOrShowPicker('Create Cloud Patch');
+		// } else {
+		// 	repo = this.container.git.getRepository(args.repoPath);
+		// }
+		// if (repo == null) return;
+
+		// const diff = await this.container.git.getDiff(repo.uri, args?.ref1 ?? 'HEAD', args?.ref2);
+		// if (diff == null) return;
+
+		// const d = await workspace.openTextDocument({ content: diff.contents, language: 'diff' });
+		// await window.showTextDocument(d);
+
+		// // ask the user for a title
+
+		// const title = await window.showInputBox({
+		// 	title: 'Create Cloud Patch',
+		// 	prompt: 'Enter a title for the patch',
+		// 	validateInput: value => (value == null || value.length === 0 ? 'A title is required' : undefined),
+		// });
+		// if (title == null) return;
+
+		// // ask the user for an optional description
+		// const description = await window.showInputBox({
+		// 	title: 'Create Cloud Patch',
+		// 	prompt: 'Enter an optional description for the patch',
+		// });
+
+		// const patch = await this.container.drafts.createDraft(
+		// 	'patch',
+		// 	title,
+		// 	{
+		// 		contents: diff.contents,
+		// 		baseSha: diff.baseSha,
+		// 		repository: repo,
+		// 	},
+		// 	{ description: description },
+		// );
+		// void this.showPatchNotification(patch);
 	}
 
-	private async showPatchNotification(patch: Draft | undefined) {
-		if (patch == null) return;
+	// private async showPatchNotification(patch: Draft | undefined) {
+	// 	if (patch == null) return;
 
-		await env.clipboard.writeText(patch.deepLinkUrl);
+	// 	await env.clipboard.writeText(patch.deepLinkUrl);
 
-		const copy = { title: 'Copy Link' };
-		const result = await window.showInformationMessage(`Created cloud patch ${patch.id}`, copy);
+	// 	const copy = { title: 'Copy Link' };
+	// 	const result = await window.showInformationMessage(`Created cloud patch ${patch.id}`, copy);
 
-		if (result === copy) {
-			await env.clipboard.writeText(patch.deepLinkUrl);
-		}
-	}
+	// 	if (result === copy) {
+	// 		await env.clipboard.writeText(patch.deepLinkUrl);
+	// 	}
+	// }
 }
 
 @command()
@@ -183,7 +340,7 @@ export class OpenPatchCommand extends ActiveEditorCommand {
 		}
 
 		const patch: LocalDraft = {
-			_brand: 'local',
+			draftType: 'local',
 			patch: {
 				_brand: 'file',
 				uri: document.uri,
@@ -191,7 +348,7 @@ export class OpenPatchCommand extends ActiveEditorCommand {
 			},
 		};
 
-		void showPatchesView({ mode: 'draft', draft: patch });
+		void showPatchesView({ mode: 'open', open: patch });
 	}
 }
 
@@ -262,6 +419,6 @@ export class OpenCloudPatchCommand extends Command {
 			return;
 		}
 
-		void showPatchesView({ mode: 'draft', draft: draft });
+		void showPatchesView({ mode: 'open', open: draft });
 	}
 }

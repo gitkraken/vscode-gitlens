@@ -1841,7 +1841,7 @@ export class GitProviderService implements Disposable {
 		return provider.getDiff?.(path, ref1, ref2, options);
 	}
 
-	@log()
+	@log({ args: { 1: false } })
 	async getDiffFiles(repoPath: string | Uri, contents: string): Promise<GitDiffFiles | undefined> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.getDiffFiles?.(path, contents);

@@ -3,16 +3,25 @@ import type { GitCommit } from './commit';
 import type { GitDiffFiles } from './diff';
 import type { Repository } from './repository';
 
+export interface RevisionRange {
+	baseSha: string;
+	sha: string | undefined;
+	branchName?: string; // TODO remove this
+}
+
 export interface GitPatch {
 	readonly _brand: 'file';
-	readonly id?: undefined;
-	readonly uri: Uri;
 	readonly contents: string;
 
-	baseRef?: string;
+	readonly id?: undefined;
+	readonly uri?: Uri;
+
 	files?: GitDiffFiles['files'];
+	range?: RevisionRange;
 	repo?: Repository;
 	commit?: GitCommit;
+
+	baseRef?: string;
 }
 
 export interface GitRepositoryData {
@@ -36,6 +45,8 @@ export interface GitRepositoryData {
 
 export interface GitCloudPatch {
 	readonly _brand: 'cloud';
+	contents?: string;
+
 	readonly id: string;
 	readonly changesetId: string;
 	readonly userId: string;
@@ -45,11 +56,12 @@ export interface GitCloudPatch {
 
 	readonly gitRepositoryId?: string;
 
-	contents?: string;
+	repoData?: GitRepositoryData;
+
+	files?: GitDiffFiles['files'];
+	range?: RevisionRange;
+	repo?: Repository;
+	commit?: GitCommit;
 
 	baseRef?: string;
-	files?: GitDiffFiles['files'];
-	repo?: Repository;
-	repoData?: GitRepositoryData;
-	commit?: GitCommit;
 }

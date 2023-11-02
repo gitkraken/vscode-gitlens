@@ -31,6 +31,7 @@ import type { Repository } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
 import { showPatchesView } from '../../plus/drafts/actions';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
+import type { Change } from '../../plus/webviews/patchDetails/protocol';
 import { pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/cancellation';
 import { executeCommand, executeCoreCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
@@ -495,26 +496,23 @@ export class CommitDetailsWebviewProvider
 	private createPatchFromWip(e: CreatePatchFromWipParams) {
 		if (e.changes == null) return;
 
-		const change = {
+		const change: Change = {
+			type: 'wip',
 			repository: {
 				name: e.changes.repository.name,
 				path: e.changes.repository.path,
 				uri: e.changes.repository.uri,
 			},
-			range: {
+			files: e.changes.files,
+			revision: {
 				baseSha: 'HEAD',
 				sha: undefined,
 				branchName: e.changes.branchName,
 			},
-			files: e.changes.files,
-			type: 'wip' as 'commit' | 'wip',
 			checked: e.checked,
 		};
 
-		void showPatchesView({
-			mode: 'create',
-			changes: [change],
-		});
+		void showPatchesView({ mode: 'create', create: { changes: [change] } });
 	}
 
 	private onActiveEditorLinesChanged(e: LinesChangeEvent) {

@@ -218,14 +218,14 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 
 	private onToggleFilesLayout(e: MouseEvent) {
 		const layout = ((e.target as HTMLElement)?.dataset.switchValue as ViewFilesLayout) ?? undefined;
-		if (layout === this.state.preferences.files.layout) return;
+		if (layout === this.state.preferences.files?.layout) return;
 
 		const files: State['preferences']['files'] = {
 			...this.state.preferences.files,
 			layout: layout ?? 'auto',
-			compact: this.state.preferences.files.compact ?? true,
-			threshold: this.state.preferences.files.threshold ?? 5,
-			icon: this.state.preferences.files.icon ?? 'type',
+			compact: this.state.preferences.files?.compact ?? true,
+			threshold: this.state.preferences.files?.threshold ?? 5,
+			icon: this.state.preferences.files?.icon ?? 'type',
 		};
 
 		this.state = { ...this.state, preferences: { ...this.state.preferences, files: files } };

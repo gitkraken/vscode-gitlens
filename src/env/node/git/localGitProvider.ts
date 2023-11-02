@@ -2997,7 +2997,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		return diff;
 	}
 
-	@log()
+	@log({ args: { 1: false } })
 	async getDiffFiles(repoPath: string, contents: string): Promise<GitDiffFiles | undefined> {
 		const data = await this.git.apply2(repoPath, { stdin: contents }, '--numstat', '--summary', '-z');
 		if (!data) return undefined;

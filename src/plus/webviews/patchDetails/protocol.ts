@@ -3,6 +3,7 @@ import type { Config } from '../../../config';
 import type { WebviewIds, WebviewViewIds } from '../../../constants';
 import type { GitCommitStats } from '../../../git/models/commit';
 import type { GitFileChangeShape } from '../../../git/models/file';
+import type { RevisionRange } from '../../../git/models/patch';
 import type { DateTimeFormat } from '../../../system/date';
 import type { Serialized } from '../../../system/serialize';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
@@ -52,19 +53,19 @@ interface CloudDraftDetails {
 
 export type DraftDetails = LocalDraftDetails | CloudDraftDetails;
 
-export interface RangeRef {
-	baseSha: string;
-	sha: string | undefined;
-	branchName: string;
-	// shortSha: string;
-	// summary: string;
-	// message: string;
-	// author: GitCommitIdentityShape & { avatar: string | undefined };
-	// committer: GitCommitIdentityShape & { avatar: string | undefined };
-	// parents: string[];
-	// repoPath: string;
-	// stashNumber?: string;
-}
+// export interface RangeRef {
+// 	baseSha: string;
+// 	sha: string | undefined;
+// 	branchName: string;
+// 	// shortSha: string;
+// 	// summary: string;
+// 	// message: string;
+// 	// author: GitCommitIdentityShape & { avatar: string | undefined };
+// 	// committer: GitCommitIdentityShape & { avatar: string | undefined };
+// 	// parents: string[];
+// 	// repoPath: string;
+// 	// stashNumber?: string;
+// }
 
 export interface Preferences {
 	avatars: boolean;
@@ -75,50 +76,54 @@ export interface Preferences {
 
 export type UpdateablePreferences = Partial<Pick<Preferences, 'files'>>;
 
-export type Mode = 'draft' | 'create';
+export type Mode = 'create' | 'open';
+export type ChangeType = 'revision' | 'wip';
 
 export interface WipChange {
 	type: 'wip';
 	repository: { name: string; path: string; uri: string };
+	revision: RevisionRange;
+	files: GitFileChangeShape[] | undefined;
 
-	range: RangeRef;
-	files: GitFileChangeShape[];
 	checked?: boolean | 'staged';
+	expanded?: boolean;
 }
 
-export interface CommitChange {
-	type: 'commit';
+export interface RevisionChange {
+	type: 'revision';
 	repository: { name: string; path: string; uri: string };
-
-	range: RangeRef;
+	revision: RevisionRange;
 	files: GitFileChangeShape[];
+
+	checked?: boolean | 'staged';
+	expanded?: boolean;
 }
 
-export type Change = WipChange | CommitChange;
+export type Change = WipChange | RevisionChange;
 
-export interface RepoCommitChangeSet {
-	type: 'commit';
+// export interface RepoCommitChange {
+// 	type: 'commit';
 
-	repoName: string;
-	repoUri: string;
-	change: Change;
+// 	repoName: string;
+// 	repoUri: string;
+// 	change: Change;
 
-	checked: boolean;
-	expanded: boolean;
-}
+// 	checked: boolean;
+// 	expanded: boolean;
+// }
 
-export interface RepoWipChangeSet {
-	type: 'wip';
+// export interface RepoWipChange {
+// 	type: 'wip';
 
-	repoName: string;
-	repoUri: string;
-	change: Change | undefined;
+// 	repoName: string;
+// 	repoUri: string;
+// 	change: Change | undefined;
 
-	checked: boolean | 'staged';
-	expanded: boolean;
-}
+// 	checked: boolean | 'staged';
+// 	expanded: boolean;
+// }
 
-export type RepoChangeSet = RepoCommitChangeSet | RepoWipChangeSet;
+// export type RepoChangeSet = RepoCommitChange | RepoWipChange;
 
 export interface State {
 	webviewId: WebviewIds | WebviewViewIds;
@@ -128,7 +133,11 @@ export interface State {
 	preferences: Preferences;
 
 	draft?: DraftDetails;
-	create?: Record<string, RepoChangeSet>;
+	create?: {
+		title?: string;
+		description?: string;
+		changes: Record<string, Change>;
+	};
 }
 
 export type ShowCommitDetailsViewCommandArgs = string[];
@@ -144,7 +153,7 @@ export const ApplyPatchCommandType = new IpcCommandType<ApplyPatchParams>('patch
 export interface CreatePatchParams {
 	title: string;
 	description?: string;
-	changeSets: Record<string, RepoChangeSet>;
+	changesets: Record<string, Change>;
 }
 export const CreatePatchCommandType = new IpcCommandType<CreatePatchParams>('patch/create');
 

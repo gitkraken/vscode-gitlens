@@ -55,26 +55,22 @@ export class GlPatchDetailsApp extends LitElement {
 	}
 
 	get wipChangesCount() {
-		if (this.state?.create == null) {
-			return 0;
-		}
+		if (this.state?.create == null) return 0;
 
-		return Object.values(this.state.create).reduce((a, c) => {
-			a += c.change?.files?.length ?? 0;
+		return Object.values(this.state.create.changes).reduce((a, c) => {
+			a += c.files?.length ?? 0;
 			return a;
 		}, 0);
 	}
 
 	get wipChangeState() {
-		if (this.state?.create == null) {
-			return undefined;
-		}
+		if (this.state?.create == null) return undefined;
 
-		const state = Object.values(this.state.create).reduce(
+		const state = Object.values(this.state.create.changes).reduce(
 			(a, c) => {
-				if (c.change?.files != null) {
-					a.files += c.change.files.length;
-					a.on.add(`${c.repoName}:${c.change.range.branchName}`);
+				if (c.files != null) {
+					a.files += c.files.length;
+					a.on.add(`${c.repository.name}:${c.revision.branchName}`);
 				}
 				return a;
 			},
@@ -89,7 +85,7 @@ export class GlPatchDetailsApp extends LitElement {
 	}
 
 	get mode() {
-		return this.state?.mode ?? 'draft';
+		return this.state?.mode ?? 'open';
 	}
 
 	override render() {
@@ -97,9 +93,9 @@ export class GlPatchDetailsApp extends LitElement {
 			<div class="commit-detail-panel scrollable">
 				<nav class="details-tab">
 					<button
-						class="details-tab__item ${this.mode === 'draft' ? ' is-active' : ''}"
+						class="details-tab__item ${this.mode === 'open' ? ' is-active' : ''}"
 						data-action="mode"
-						data-action-value="draft"
+						data-action-value="open"
 					>
 						Patch
 					</button>
@@ -120,7 +116,7 @@ export class GlPatchDetailsApp extends LitElement {
 				</nav>
 				<main id="main" tabindex="-1">
 					${when(
-						this.mode === 'draft',
+						this.mode === 'open',
 						() =>
 							html`<gl-draft-details
 								.state=${this.state}

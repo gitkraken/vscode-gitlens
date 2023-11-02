@@ -2,7 +2,7 @@ import { defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-
 import { html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { RepoChangeSet, RepoWipChangeSet, State } from '../../../../../plus/webviews/patchDetails/protocol';
+import type { Change, State } from '../../../../../plus/webviews/patchDetails/protocol';
 import type { Serialized } from '../../../../../system/serialize';
 import type { TreeItemCheckedDetail, TreeModel } from '../../../shared/components/tree/base';
 import { GlTreeBase } from './gl-tree-base';
@@ -12,18 +12,18 @@ import '../../../shared/components/code-icon';
 export interface CreatePatchEventDetail {
 	title: string;
 	description?: string;
-	changeSets: Record<string, RepoChangeSet>;
+	changesets: Record<string, Change>;
 }
 
 @customElement('gl-patch-create')
 export class GlPatchCreate extends GlTreeBase {
 	@property({ type: Object }) state?: Serialized<State>;
 
-	@state()
-	patchTitle = '';
+	// @state()
+	// patchTitle = this.create.title ?? '';
 
-	@state()
-	description = '';
+	// @state()
+	// description = this.create.description ?? '';
 
 	@query('#title')
 	titleInput!: HTMLInputElement;
@@ -34,35 +34,33 @@ export class GlPatchCreate extends GlTreeBase {
 	@state()
 	validityMessage?: string;
 
-	get createEntries() {
-		if (this.state?.create == null) {
-			return undefined;
-		}
+	get create() {
+		return this.state!.create!;
+	}
 
-		return Object.entries(this.state.create);
+	get createChanges() {
+		return Object.values(this.create.changes);
+	}
+
+	get createEntries() {
+		return Object.entries(this.create.changes);
 	}
 
 	get hasWipChanges() {
-		if (this.createEntries == null) {
-			return false;
-		}
-
-		return this.createEntries.some(([_id, changeSet]) => changeSet.change?.type === 'wip');
+		return this.createChanges.some(change => change?.type === 'wip');
 	}
 
-	get selectedChanges(): [string, RepoChangeSet][] | undefined {
-		return this.createEntries?.filter(([_id, changeSet]) => changeSet.checked !== false);
+	get selectedChanges(): [string, Change][] | undefined {
+		return this.createEntries.filter(([, change]) => change.checked !== false);
 	}
 
 	get canSubmit() {
-		return this.patchTitle.length > 0 && this.selectedChanges != null && this.selectedChanges.length > 0;
-	}
-
-	get repoChanges() {
-		if (this.state?.create == null) {
-			return undefined;
-		}
-		return Object.values(this.state.create);
+		return (
+			this.create.title != null &&
+			this.create.title.length > 0 &&
+			this.selectedChanges != null &&
+			this.selectedChanges.length > 0
+		);
 	}
 
 	get fileLayout() {
@@ -74,12 +72,10 @@ export class GlPatchCreate extends GlTreeBase {
 	}
 
 	get filesModified() {
-		if (this.repoChanges == null) return undefined;
-
 		let modified = 0;
-		for (const change of this.repoChanges) {
-			if (change.change?.files != null) {
-				modified += change.change.files.length;
+		for (const change of this.createChanges) {
+			if (change.files != null) {
+				modified += change.files.length;
 			}
 		}
 
@@ -97,12 +93,12 @@ export class GlPatchCreate extends GlTreeBase {
 			<div class="section">
 				<div class="message-input">
 					<input id="title" type="text" class="message-input__control" placeholder="Title (required)" .value=${
-						this.patchTitle
+						this.create.title ?? ''
 					} @input=${this.onTitleInput}></textarea>
 				</div>
 				<div class="message-input">
 					<textarea id="desc" class="message-input__control" placeholder="Description (optional)" .value=${
-						this.description
+						this.create.description ?? ''
 					}  @input=${this.onDescriptionInput}></textarea>
 				</div>
 				<p class="button-container">
@@ -148,24 +144,22 @@ export class GlPatchCreate extends GlTreeBase {
 		let value = 'tree';
 		let icon = 'list-tree';
 		let label = 'View as Tree';
-		if (this.state?.create?.files != null) {
-			switch (this.fileLayout) {
-				case 'auto':
-					value = 'list';
-					icon = 'list-flat';
-					label = 'View as List';
-					break;
-				case 'list':
-					value = 'tree';
-					icon = 'list-tree';
-					label = 'View as Tree';
-					break;
-				case 'tree':
-					value = 'auto';
-					icon = 'gl-list-auto';
-					label = 'View as Auto';
-					break;
-			}
+		switch (this.fileLayout) {
+			case 'auto':
+				value = 'list';
+				icon = 'list-flat';
+				label = 'View as List';
+				break;
+			case 'list':
+				value = 'tree';
+				icon = 'list-tree';
+				label = 'View as Tree';
+				break;
+			case 'tree':
+				value = 'auto';
+				icon = 'gl-list-auto';
+				label = 'View as Auto';
+				break;
 		}
 
 		return html`
@@ -188,7 +182,7 @@ export class GlPatchCreate extends GlTreeBase {
 				)}
 				<div class="change-list" data-region="files">
 					${when(
-						this.state?.draft?.files == null,
+						this.create.changes == null,
 						() => this.renderLoading(),
 						() => this.renderTreeViewWithModel(),
 					)}
@@ -217,37 +211,39 @@ export class GlPatchCreate extends GlTreeBase {
 		if (type === 'unstaged') {
 			checked = e.detail.checked ? true : 'staged';
 		}
-		const [_, changeSet] = this.getRepoChangeSet(repoUri as string);
-
-		if ((changeSet as RepoWipChangeSet).checked === checked) {
+		const change = this.getChangeForRepo(repoUri as string);
+		if (change == null) {
+			debugger;
 			return;
 		}
 
-		(changeSet as RepoWipChangeSet).checked = checked;
+		if (change.checked === checked) return;
+
+		change.checked = checked;
 		this.requestUpdate('state');
 	}
 
 	private renderTreeViewWithModel() {
-		if (this.repoChanges == null) {
+		if (this.createChanges == null) {
 			return this.renderTreeView([]);
 		}
 
 		const treeModel: TreeModel[] = [];
 		// for knowing if we need to show repos
-		const isCheckable = this.repoChanges.length > 1;
+		const isCheckable = this.createChanges.length > 1;
 		const isTree = this.isTree(this.filesModified ?? 0);
 		const compact = this.isCompact;
 
 		if (isCheckable) {
-			for (const changeSet of this.repoChanges) {
-				const tree = this.getTreeForChangeSet(changeSet, true, isTree, compact);
+			for (const changeset of this.createChanges) {
+				const tree = this.getTreeForChange(changeset, true, isTree, compact);
 				if (tree != null) {
 					treeModel.push(...tree);
 				}
 			}
 		} else {
-			const changeSet = this.repoChanges[0];
-			const tree = this.getTreeForChangeSet(changeSet, false, isTree, compact);
+			const changeset = this.createChanges[0];
+			const tree = this.getTreeForChange(changeset, false, isTree, compact);
 			if (tree != null) {
 				treeModel.push(...tree);
 			}
@@ -255,17 +251,12 @@ export class GlPatchCreate extends GlTreeBase {
 		return this.renderTreeView(treeModel);
 	}
 
-	private getTreeForChangeSet(
-		changeSet: RepoChangeSet,
-		isMulti = false,
-		isTree = false,
-		compact = true,
-	): TreeModel[] | undefined {
-		if (changeSet.change?.files == null || changeSet.change.files.length === 0) {
+	private getTreeForChange(change: Change, isMulti = false, isTree = false, compact = true): TreeModel[] | undefined {
+		if (change.files == null || change.files.length === 0) {
 			if (!isMulti) {
 				return undefined;
 			}
-			const repoModel = this.repoToTreeModel(changeSet.repoName, changeSet.repoUri, {
+			const repoModel = this.repoToTreeModel(change.repository.name, change.repository.uri, {
 				branch: true,
 				checkable: true,
 				checked: false,
@@ -277,9 +268,9 @@ export class GlPatchCreate extends GlTreeBase {
 
 		const children = [];
 
-		if (changeSet.type === 'wip') {
+		if (change.type === 'wip') {
 			// remove parent if there's only staged or unstaged
-			const staged = changeSet.change.files.filter(f => f.staged);
+			const staged = change.files.filter(f => f.staged);
 			if (staged.length) {
 				children.push({
 					label: 'Staged Changes',
@@ -288,13 +279,13 @@ export class GlPatchCreate extends GlTreeBase {
 					branch: true,
 					checkable: true,
 					expanded: true,
-					checked: changeSet.checked !== false,
+					checked: change.checked !== false,
 					disableCheck: true,
 					children: this.renderFiles(staged, isTree, compact, isMulti ? 3 : 2),
 				});
 			}
 
-			const unstaged = changeSet.change.files.filter(f => !f.staged);
+			const unstaged = change.files.filter(f => !f.staged);
 			if (unstaged.length) {
 				children.push({
 					label: 'Unstaged Changes',
@@ -303,23 +294,23 @@ export class GlPatchCreate extends GlTreeBase {
 					branch: true,
 					checkable: true,
 					expanded: true,
-					checked: changeSet.checked === true,
-					context: [changeSet.repoUri, 'unstaged'],
+					checked: change.checked === true,
+					context: [change.repository.uri, 'unstaged'],
 					children: this.renderFiles(unstaged, isTree, compact, isMulti ? 3 : 2),
 				});
 			}
 		} else {
-			children.push(...this.renderFiles(changeSet.change.files, isTree, compact));
+			children.push(...this.renderFiles(change.files, isTree, compact));
 		}
 
 		if (!isMulti) {
 			return children;
 		}
 
-		const repoModel = this.repoToTreeModel(changeSet.repoName, changeSet.repoUri, {
+		const repoModel = this.repoToTreeModel(change.repository.name, change.repository.uri, {
 			branch: true,
 			checkable: true,
-			checked: changeSet.checked !== false,
+			checked: change.checked !== false,
 		});
 		repoModel.children = children;
 
@@ -354,22 +345,22 @@ export class GlPatchCreate extends GlTreeBase {
 		this.validityMessage = undefined;
 		this.titleInput.setCustomValidity('');
 
-		const changes = this.selectedChanges!.reduce<Record<string, RepoChangeSet>>((a, [id, changeSet]) => {
-			a[id] = changeSet;
+		const changes = this.selectedChanges!.reduce<Record<string, Change>>((a, [id, change]) => {
+			a[id] = change;
 			return a;
 		}, {});
 
 		const patch = {
-			title: this.patchTitle,
-			description: this.description,
-			changeSets: changes,
+			title: this.create.title ?? '',
+			description: this.create.description,
+			changesets: changes,
 		};
 
 		this.dispatchEvent(new CustomEvent<CreatePatchEventDetail>('create-patch', { detail: patch }));
 	}
 
 	private onCreateAll(_e: Event) {
-		// const change = this.state?.create?.[0];
+		// const change = this.create.[0];
 		// if (change == null) {
 		// 	return;
 		// }
@@ -380,7 +371,7 @@ export class GlPatchCreate extends GlTreeBase {
 	private onSelectCreateOption(_e: CustomEvent<{ target: MenuItem }>) {
 		// const target = e.detail?.target;
 		// const value = target?.dataset?.value as 'staged' | 'unstaged' | undefined;
-		// const currentChange = this.state?.create?.[0];
+		// const currentChange = this.create.[0];
 		// if (value == null || currentChange == null) {
 		// 	return;
 		// }
@@ -394,50 +385,46 @@ export class GlPatchCreate extends GlTreeBase {
 		// this.createPatch([change]);
 	}
 
-	private getRepoChangeSet(repoUri: string) {
-		if (this.state?.create == null) {
-			return [];
-		}
+	private getChangeForRepo(repoUri: string): Change | undefined {
+		return this.create.changes[repoUri];
 
-		for (const [id, changeSet] of Object.entries(this.state.create)) {
-			if (changeSet.repoUri !== repoUri) {
-				continue;
-			}
+		// for (const [id, change] of this.createEntries) {
+		// 	if (change.repository.uri === repoUri) return change;
+		// }
 
-			return [id, changeSet];
-		}
-
-		return [];
+		// return undefined;
 	}
 
 	// private onRepoChecked(e: CustomEvent<{ repoUri: string; checked: boolean }>) {
-	// 	const [_, changeSet] = this.getRepoChangeSet(e.detail.repoUri);
+	// 	const [_, changeset] = this.getRepoChangeSet(e.detail.repoUri);
 
-	// 	if ((changeSet as RepoWipChangeSet).checked === e.detail.checked) {
+	// 	if ((changeset as RepoWipChangeSet).checked === e.detail.checked) {
 	// 		return;
 	// 	}
 
-	// 	(changeSet as RepoWipChangeSet).checked = e.detail.checked;
+	// 	(changeset as RepoWipChangeSet).checked = e.detail.checked;
 	// 	this.requestUpdate('state');
 	// }
 
 	// private onUnstagedChecked(e: CustomEvent<{ repoUri: string; checked: boolean | 'staged' }>) {
-	// 	const [_, changeSet] = this.getRepoChangeSet(e.detail.repoUri);
+	// 	const [_, changeset] = this.getRepoChangeSet(e.detail.repoUri);
 
-	// 	if ((changeSet as RepoWipChangeSet).checked === e.detail.checked) {
+	// 	if ((changeset as RepoWipChangeSet).checked === e.detail.checked) {
 	// 		return;
 	// 	}
 
-	// 	(changeSet as RepoWipChangeSet).checked = e.detail.checked;
+	// 	(changeset as RepoWipChangeSet).checked = e.detail.checked;
 	// 	this.requestUpdate('state');
 	// }
 
 	private onTitleInput(e: InputEvent) {
-		this.patchTitle = (e.target as HTMLInputElement).value;
+		this.create.title = (e.target as HTMLInputElement).value;
+		// TODO: Send to extension
 	}
 
 	private onDescriptionInput(e: InputEvent) {
-		this.description = (e.target as HTMLInputElement).value;
+		this.create.description = (e.target as HTMLInputElement).value;
+		// TODO: Send to extension
 	}
 
 	protected override createRenderRoot() {
