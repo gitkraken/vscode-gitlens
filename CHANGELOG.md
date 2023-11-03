@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a `gitlens.sortRepositoriesBy` setting to specify how repositories are sorted in quick pick menus and viewsby Aidos Kanapyanov ([@aidoskanapyanov](https://github.com/aidoskanapyanov))
 - Adds a _[Show|Hide] Merge Commits_ toggle to the Commits\_ view &mdash; closes [#1399](https://github.com/gitkraken/vscode-gitlens/issues/1399) thanks to [PR #1540](https://github.com/gitkraken/vscode-gitlens/pull/1540) by Shashank Shastri ([@Shashank-Shastri](https://github.com/Shashank-Shastri))
 - Adds a _Filter Commits by Author..._ commands to the _Commits_ view and comparisons context menus to filter commits in the _Commits_ view by specific authors
+- Adds ability to publish to a remote branch to a specific commit using the _Push to Commit_ command
 - Adds an _Open Comparison on Remote_ command to comparisons in views
 - Adds a _Share > Copy Link to Repository_ command on branches in the views
 - Adds _Share > Copy Link to Branch_ and _Share > Copy Link to Repository_ commands on the current branch status in the _Commits_ view
@@ -41,6 +42,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#2997](https://github.com/gitkraken/vscode-gitlens/issues/2997) - "push to commit" pushes everything instead of up to the selected commit
 - Fixes [#2615](https://github.com/gitkraken/vscode-gitlens/issues/2615) - Source Control views disappear after opening a file beyond a symbolic link
 - Fixes [#2443](https://github.com/gitkraken/vscode-gitlens/issues/2443) - UNC-PATH: File History changes not displaying any changes when open
 - Fixes [#2625](https://github.com/gitkraken/vscode-gitlens/issues/2625) - full issue ref has escape characters that break hover links

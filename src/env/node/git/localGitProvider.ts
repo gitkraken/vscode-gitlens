@@ -22,6 +22,7 @@ import {
 	GitSearchError,
 	PullError,
 	PushError,
+	PushErrorReason,
 	StashApplyError,
 	StashApplyErrorReason,
 	WorktreeCreateError,
@@ -78,7 +79,7 @@ import type {
 import type { GitLog } from '../../../git/models/log';
 import type { GitMergeStatus } from '../../../git/models/merge';
 import type { GitRebaseStatus } from '../../../git/models/rebase';
-import type { GitBranchReference, GitTagReference } from '../../../git/models/reference';
+import type { GitBranchReference, GitReference, GitTagReference } from '../../../git/models/reference';
 import {
 	createReference,
 	getBranchTrackingWithoutRemote,
@@ -1213,11 +1214,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 		} catch (ex) {
 			Logger.error(ex, scope);
-			if (FetchError.is(ex)) {
-				void window.showErrorMessage(ex.message);
-			} else {
-				throw ex;
-			}
+			if (!FetchError.is(ex)) throw ex;
+
+			void window.showErrorMessage(ex.message);
 		}
 	}
 
@@ -1225,19 +1224,56 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	@log()
 	async push(
 		repoPath: string,
-		options?: { branch?: GitBranchReference; force?: boolean; publish?: { remote: string } },
+		options?: { reference?: GitReference; force?: boolean; publish?: { remote: string } },
 	): Promise<void> {
 		const scope = getLogScope();
 
-		let branch = options?.branch;
-		if (!isBranchReference(branch)) {
-			branch = await this.getBranch(repoPath);
-			if (branch == null) return undefined;
+		let branchName: string;
+		let remoteName: string | undefined;
+		let upstreamName: string | undefined;
+		let setUpstream:
+			| {
+					branch: string;
+					remote: string;
+					remoteBranch: string;
+			  }
+			| undefined;
+
+		if (isBranchReference(options?.reference)) {
+			if (options.publish != null) {
+				branchName = options.reference.name;
+				remoteName = options.publish.remote;
+				upstreamName = getBranchTrackingWithoutRemote(options.reference);
+			} else {
+				[branchName, remoteName] = getBranchNameAndRemote(options.reference);
+				upstreamName = undefined;
+			}
+		} else {
+			const branch = await this.getBranch(repoPath);
+			if (branch == null) return;
+
+			branchName =
+				options?.reference != null
+					? `${options.reference.ref}:${
+							options?.publish != null ? 'refs/heads/' : ''
+					  }${branch.getNameWithoutRemote()}`
+					: branch.name;
+			remoteName = branch.getRemoteName() ?? options?.publish?.remote;
+			upstreamName = options?.reference == null && options?.publish != null ? branch.name : undefined;
+
+			// Git can't setup remote tracking when publishing a new branch to a specific commit, so we'll need to do it after the push
+			if (options?.publish?.remote != null && options?.reference != null) {
+				setUpstream = {
+					branch: branch.getNameWithoutRemote(),
+					remote: remoteName!,
+					remoteBranch: branch.getNameWithoutRemote(),
+				};
+			}
 		}
 
-		const [branchName, remoteName] = getBranchNameAndRemote(branch);
-		if (options?.publish == null && remoteName == null && branch.upstream == null) {
-			return undefined;
+		if (options?.publish == null && remoteName == null && upstreamName == null) {
+			debugger;
+			throw new PushError(PushErrorReason.Other);
 		}
 
 		let forceOpts: PushForceOptions | undefined;
@@ -1259,20 +1295,28 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		try {
 			await this.git.push(repoPath, {
 				branch: branchName,
-				remote: options?.publish ? options.publish.remote : remoteName,
-				upstream: getBranchTrackingWithoutRemote(branch),
+				remote: remoteName,
+				upstream: upstreamName,
 				force: forceOpts,
 				publish: options?.publish != null,
 			});
 
+			// Since Git can't setup remote tracking when publishing a new branch to a specific commit, do it now
+			if (setUpstream != null) {
+				await this.git.branch__set_upstream(
+					repoPath,
+					setUpstream.branch,
+					setUpstream.remote,
+					setUpstream.remoteBranch,
+				);
+			}
+
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 		} catch (ex) {
 			Logger.error(ex, scope);
-			if (PushError.is(ex)) {
-				void window.showErrorMessage(ex.message);
-			} else {
-				throw ex;
-			}
+			if (!PushError.is(ex)) throw ex;
+
+			void window.showErrorMessage(ex.message);
 		}
 	}
 
@@ -1304,11 +1348,9 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			this.container.events.fire('git:cache:reset', { repoPath: repoPath });
 		} catch (ex) {
 			Logger.error(ex, scope);
-			if (PullError.is(ex)) {
-				void window.showErrorMessage(ex.message);
-			} else {
-				throw ex;
-			}
+			if (!PullError.is(ex)) throw ex;
+
+			void window.showErrorMessage(ex.message);
 		}
 	}
 

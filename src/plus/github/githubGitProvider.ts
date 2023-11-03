@@ -495,7 +495,11 @@ export class GitHubGitProvider implements GitProvider, Disposable {
 	@log()
 	async push(
 		_repoPath: string,
-		_options?: { branch?: GitBranchReference; force?: boolean; publish?: { remote: string } },
+		_options?: {
+			reference?: GitReference;
+			force?: boolean;
+			publish?: { remote: string };
+		},
 	): Promise<void> {}
 
 	@gate()

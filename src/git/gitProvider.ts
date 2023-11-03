@@ -13,7 +13,7 @@ import type { GitGraph } from './models/graph';
 import type { GitLog } from './models/log';
 import type { GitMergeStatus } from './models/merge';
 import type { GitRebaseStatus } from './models/rebase';
-import type { GitBranchReference } from './models/reference';
+import type { GitBranchReference, GitReference } from './models/reference';
 import type { GitReflog } from './models/reflog';
 import type { GitRemote } from './models/remote';
 import type { Repository, RepositoryChangeEvent } from './models/repository';
@@ -166,7 +166,7 @@ export interface GitProvider extends Disposable {
 	push(
 		repoPath: string,
 		options?: {
-			branch?: GitBranchReference | undefined;
+			reference?: GitReference | undefined;
 			force?: boolean | undefined;
 			publish?: { remote: string };
 		},
