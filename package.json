@@ -2309,7 +2309,6 @@
 						"type": "array",
 						"default": [
 							"gutter",
-							"line",
 							"overview"
 						],
 						"items": {
