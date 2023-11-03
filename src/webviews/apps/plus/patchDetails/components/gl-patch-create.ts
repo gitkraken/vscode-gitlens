@@ -2,9 +2,17 @@ import { defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-
 import { html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import type { TextDocumentShowOptions } from 'vscode';
+import type { GitFileChangeShape } from '../../../../../git/models/file';
 import type { Change, FileActionParams, State } from '../../../../../plus/webviews/patchDetails/protocol';
 import type { Serialized } from '../../../../../system/serialize';
-import type { TreeItemCheckedDetail, TreeItemSelectionDetail, TreeModel } from '../../../shared/components/tree/base';
+import type {
+	TreeItemActionDetail,
+	TreeItemBase,
+	TreeItemCheckedDetail,
+	TreeItemSelectionDetail,
+	TreeModel,
+} from '../../../shared/components/tree/base';
 import { GlTreeBase } from './gl-tree-base';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
@@ -19,6 +27,9 @@ export interface CheckRepositoryEventDetail {
 	repoUri: string;
 	checked: boolean | 'staged';
 }
+
+// Can only import types from 'vscode'
+const BesideViewColumn = -2; /*ViewColumn.Beside*/
 
 @customElement('gl-patch-create')
 export class GlPatchCreate extends GlTreeBase {
@@ -434,6 +445,45 @@ export class GlPatchCreate extends GlTreeBase {
 
 	protected override createRenderRoot() {
 		return this;
+	}
+
+	override onTreeItemActionClicked(e: CustomEvent<TreeItemActionDetail>) {
+		if (!e.detail.context || !e.detail.action) return;
+
+		if (e.detail.action.action !== 'file-open') return;
+		this.onOpenFile(e);
+	}
+
+	fireFileEvent(name: string, file: GitFileChangeShape, showOptions?: TextDocumentShowOptions) {
+		const event = new CustomEvent(name, {
+			detail: {
+				path: file.path,
+				repoPath: file.repoPath,
+				staged: file.staged,
+				showOptions: showOptions,
+			},
+		});
+		this.dispatchEvent(event);
+	}
+
+	onOpenFile(e: CustomEvent<TreeItemActionDetail>) {
+		if (!e.detail.context) return;
+
+		const [file] = e.detail.context;
+		this.fireFileEvent('file-open', file, {
+			preview: false,
+			viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
+		});
+	}
+
+	override getFileActions(_file: GitFileChangeShape, _options?: Partial<TreeItemBase>) {
+		return [
+			{
+				icon: 'go-to-file',
+				label: 'Open file',
+				action: 'file-open',
+			},
+		];
 	}
 }
 

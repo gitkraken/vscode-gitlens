@@ -27,8 +27,9 @@ import type { Serialized } from '../../../../system/serialize';
 import type { IpcMessage } from '../../../protocol';
 import { ExecuteCommandType, onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
-import type { FileChangeListItem, FileChangeListItemDetail } from '../../shared/components/list/file-change-list-item';
+import type { FileChangeListItemDetail } from '../../shared/components/list/file-change-list-item';
 import { DOM } from '../../shared/dom';
+import type { GlDraftDetails } from './components/gl-draft-details';
 import type { CheckRepositoryEventDetail, CreatePatchEventDetail, GlPatchCreate } from './components/gl-patch-create';
 import type {
 	ApplyPatchDetail,
@@ -67,21 +68,15 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 
 	override onBind() {
 		const disposables = [
-			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-open-on-remote', e =>
-				this.onOpenFileOnRemote(e.detail),
-			),
-			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-open', e =>
-				this.onOpenFile(e.detail),
-			),
-			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-compare-working', e =>
-				this.onCompareFileWithWorking(e.detail),
-			),
-			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-compare-previous', e =>
-				this.onCompareFileWithPrevious(e.detail),
-			),
-			DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-more-actions', e =>
-				this.onFileMoreActions(e.detail),
-			),
+			// DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-open-on-remote', e =>
+			// 	this.onOpenFileOnRemote(e.detail),
+			// ),
+			// DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-compare-working', e =>
+			// 	this.onCompareFileWithWorking(e.detail),
+			// ),
+			// DOM.on<FileChangeListItem, FileChangeListItemDetail>('file-change-list-item', 'file-more-actions', e =>
+			// 	this.onFileMoreActions(e.detail),
+			// ),
 			DOM.on('[data-switch-value]', 'click', e => this.onToggleFilesLayout(e)),
 			DOM.on('[data-action="ai-explain"]', 'click', e => this.onAIExplain(e)),
 			DOM.on('[data-action="switch-ai"]', 'click', e => this.onSwitchAIModel(e)),
@@ -112,6 +107,12 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 			),
 			DOM.on<GlPatchCreate, FileChangeListItemDetail>('gl-patch-create', 'file-compare-previous', e =>
 				this.onCompareFileWithPrevious(e.detail),
+			),
+			DOM.on<GlDraftDetails, FileChangeListItemDetail>('gl-draft-details', 'file-open', e =>
+				this.onOpenFile(e.detail),
+			),
+			DOM.on<GlPatchCreate, FileChangeListItemDetail>('gl-patch-create', 'file-open', e =>
+				this.onOpenFile(e.detail),
 			),
 		];
 
