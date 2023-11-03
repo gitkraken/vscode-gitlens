@@ -274,7 +274,7 @@ export class GlDraftDetails extends GlTreeBase {
 
 		return html`
 			<webview-pane collapsable expanded>
-				<span slot="title">Patches</span>
+				<span slot="title">Apply</span>
 				<div class="section">
 					<div class="patch-base">${getActions()}</div>
 				</div>
@@ -369,55 +369,66 @@ export class GlDraftDetails extends GlTreeBase {
 		}
 
 		return html`
-			<div class="top-details">
-				<div class="top-details__top-menu">
-					<div class="top-details__actionbar">
-						<div class="top-details__actionbar-group"></div>
-						<div class="top-details__actionbar-group">
-							${when(
-								this.state?.draft?.type === 'cloud',
-								() => html`
-									<a class="commit-action" href="#" @click=${this.onCopyCloudLink}>
-										<code-icon icon="link"></code-icon>
-										<span class="top-details__sha">Copy Link</span></a
-									>
-								`,
-								() => html`
+			<div class="pane-groups">
+				<div class="pane-groups__group">
+					<div class="top-details">
+						<div class="top-details__top-menu">
+							<div class="top-details__actionbar">
+								<div class="top-details__actionbar-group"></div>
+								<div class="top-details__actionbar-group">
+									${when(
+										this.state?.draft?.type === 'cloud',
+										() => html`
+											<a class="commit-action" href="#" @click=${this.onCopyCloudLink}>
+												<code-icon icon="link"></code-icon>
+												<span class="top-details__sha">Copy Link</span></a
+											>
+										`,
+										() => html`
+											<a
+												class="commit-action"
+												href="#"
+												aria-label="Share Patch"
+												title="Share Patch"
+												@click=${this.onShareLocalPatch}
+												>Share</a
+											>
+										`,
+									)}
 									<a
 										class="commit-action"
 										href="#"
-										aria-label="Share Patch"
-										title="Share Patch"
-										@click=${this.onShareLocalPatch}
-										>Share</a
-									>
+										aria-label="Show Patch Actions"
+										title="Show Patch Actions"
+										><code-icon icon="kebab-vertical"></code-icon
+									></a>
+								</div>
+							</div>
+							${when(
+								this.state.draft?.type === 'cloud' && this.state.draft?.author != null,
+								() => html`
+									<ul class="top-details__authors" aria-label="Authors">
+										<li class="top-details__author" data-region="author">
+											<commit-identity
+												name="${this.state.draft!.author!.name}"
+												email="${ifDefined(this.state.draft!.author!.email)}"
+												date="${this.state.draft!.createdAt!}"
+												dateFormat="${this.state.preferences.dateFormat}"
+												avatarUrl="${this.state.draft!.author!.avatar ?? ''}"
+												?showavatar=${this.state.preferences?.avatars ?? true}
+											></commit-identity>
+										</li>
+									</ul>
 								`,
 							)}
-							<a class="commit-action" href="#" aria-label="Show Patch Actions" title="Show Patch Actions"
-								><code-icon icon="kebab-vertical"></code-icon
-							></a>
 						</div>
 					</div>
-					${when(
-						this.state.draft?.type === 'cloud' && this.state.draft?.author != null,
-						() => html`
-							<ul class="top-details__authors" aria-label="Authors">
-								<li class="top-details__author" data-region="author">
-									<commit-identity
-										name="${this.state.draft!.author!.name}"
-										email="${ifDefined(this.state.draft!.author!.email)}"
-										date="${this.state.draft!.createdAt!}"
-										dateFormat="${this.state.preferences.dateFormat}"
-										avatarUrl="${this.state.draft!.author!.avatar ?? ''}"
-										?showavatar=${this.state.preferences?.avatars ?? true}
-									></commit-identity>
-								</li>
-							</ul>
-						`,
-					)}
+					${this.renderPatchMessage()} ${this.renderChangedFiles()}
+				</div>
+				<div class="pane-groups__group pane-groups__group--bottom">
+					${this.renderExplainAi()}${this.renderPatches()}
 				</div>
 			</div>
-			${this.renderPatchMessage()}${this.renderPatches()}${this.renderChangedFiles()}${this.renderExplainAi()}
 		`;
 	}
 

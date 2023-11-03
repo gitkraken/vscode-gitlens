@@ -150,7 +150,16 @@ export class GlPatchCreate extends GlTreeBase {
 	// >
 	// </gl-create-details>
 	override render() {
-		return html`${this.renderForm()}${this.renderChangedFiles()}`;
+		return html`
+			<div class="pane-groups">
+				<div class="pane-groups__group">
+					${this.renderChangedFiles()}${this.renderChangedFiles()}${this.renderChangedFiles()}
+				</div>
+				<div class="pane-groups__group pane-groups__group--bottom">
+					<webview-pane expanded><span slot="title">Create Patch</span>${this.renderForm()}</webview-pane>
+				</div>
+			</div>
+		`;
 	}
 
 	private renderChangedFiles() {

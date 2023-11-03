@@ -27,3 +27,38 @@ export const linkBase = css`
 		text-decoration: underline;
 	}
 `;
+
+export const scrollableBase = css`
+	::-webkit-scrollbar {
+		width: 10px;
+		height: 10px;
+	}
+	::-webkit-scrollbar-corner {
+		background-color: transparent;
+	}
+
+	::-webkit-scrollbar-thumb {
+		background-color: transparent;
+		border-color: inherit;
+		border-right-style: inset;
+		border-right-width: calc(100vw + 100vh);
+		border-radius: unset !important;
+	}
+	::-webkit-scrollbar-thumb:hover {
+		border-color: var(--vscode-scrollbarSlider-hoverBackground);
+	}
+	::-webkit-scrollbar-thumb:active {
+		border-color: var(--vscode-scrollbarSlider-activeBackground);
+	}
+
+	.scrollable {
+		border-color: transparent;
+		transition: border-color 1s linear;
+	}
+
+	:host(:hover) .scrollable,
+	:host(:focus-within) .scrollable {
+		border-color: var(--vscode-scrollbarSlider-background);
+		transition: none;
+	}
+`;
