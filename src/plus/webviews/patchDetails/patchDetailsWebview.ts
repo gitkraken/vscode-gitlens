@@ -13,11 +13,10 @@ import {
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import type { GitCommit } from '../../../git/models/commit';
 import type { GitDiff } from '../../../git/models/diff';
-import type { GitFileChange, GitFileChangeShape } from '../../../git/models/file';
-import type { GitCloudPatch, GitPatch, RevisionRange } from '../../../git/models/patch';
+import type { GitFileChange } from '../../../git/models/file';
+import type { GitCloudPatch, GitPatch } from '../../../git/models/patch';
 import { createReference } from '../../../git/models/reference';
 import type { Repository } from '../../../git/models/repository';
-import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import { showCommitPicker } from '../../../quickpicks/commitPicker';
 import { getRepositoryOrShowPicker } from '../../../quickpicks/repositoryPicker';
 import { executeCommand, registerCommand } from '../../../system/command';
@@ -37,15 +36,12 @@ import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
 import type {
 	ApplyPatchParams,
 	Change,
-	ChangeType,
 	CreatePatchCheckRepositoryParams,
 	CreatePatchParams,
 	DidExplainParams,
-	DraftDetails,
 	FileActionParams,
 	Mode,
 	Preferences,
-	RevisionChange,
 	State,
 	SwitchModeParams,
 	UpdateablePreferences,
@@ -74,6 +70,8 @@ import {
 	UpdatePreferencesCommandType,
 } from './protocol';
 import type { CreateDraft, PatchDetailsWebviewShowingArgs } from './registration';
+import type { RepositoryChangeset } from './repositoryChangeset';
+import { RepositoryRefChangeset, RepositoryWipChangeset } from './repositoryChangeset';
 
 interface Context {
 	mode: Mode;
@@ -83,7 +81,7 @@ interface Context {
 				title?: string;
 				description?: string;
 				changes: Map<string, RepositoryChangeset>;
-				allRepos: boolean;
+				showingAllRepos: boolean;
 		  }
 		| undefined;
 	preferences: Preferences;
@@ -92,7 +90,6 @@ interface Context {
 export class PatchDetailsWebviewProvider
 	implements WebviewProvider<State, Serialized<State>, PatchDetailsWebviewShowingArgs>
 {
-	/** The context the webview has */
 	private _context: Context;
 	private readonly _disposable: Disposable;
 
@@ -219,15 +216,8 @@ export class PatchDetailsWebviewProvider
 	}
 
 	onVisibilityChanged(visible: boolean) {
-		if (!visible) {
-			// TODO@eamodio ugly -- clean this up later
-			this._context.create?.changes.forEach(c => c.suspend());
-
-			return;
-		}
-
 		// TODO@eamodio ugly -- clean this up later
-		this._context.create?.changes.forEach(c => c.resume());
+		this._context.create?.changes.forEach(c => (visible ? c.resume() : c.suspend()));
 
 		if (visible) {
 			this.host.sendPendingIpcNotifications();
@@ -258,7 +248,7 @@ export class PatchDetailsWebviewProvider
 
 	private onRepositoriesChanged(e: RepositoriesChangeEvent) {
 		if (this.mode === 'create' && this._context.create != null) {
-			if (this._context.create?.allRepos) {
+			if (this._context.create?.showingAllRepos) {
 				for (const repo of e.added) {
 					this._context.create.changes.set(
 						repo.uri.toString(),
@@ -289,22 +279,9 @@ export class PatchDetailsWebviewProvider
 	private get mode(): Mode {
 		return this._context.mode;
 	}
-
 	private setMode(mode: Mode) {
 		this._context.mode = mode;
 		this.updateState(true);
-	}
-
-	private shareLocalPatch() {
-		if (this._context.open?.draftType !== 'local') return;
-
-		this.updateCreateFromLocalPatch(this._context.open);
-	}
-
-	private copyCloudLink() {
-		if (this._context.open?.draftType !== 'cloud') return;
-
-		void env.clipboard.writeText(this._context.open.deepLinkUrl);
 	}
 
 	private applyPatch(params: ApplyPatchParams) {
@@ -315,10 +292,6 @@ export class PatchDetailsWebviewProvider
 		});
 	}
 
-	private switchMode(params: SwitchModeParams) {
-		this.setMode(params.mode);
-	}
-
 	private checkChange(params: CreatePatchCheckRepositoryParams) {
 		const changeset = this._context.create?.changes.get(params.repoUri);
 		if (changeset == null) return;
@@ -327,9 +300,13 @@ export class PatchDetailsWebviewProvider
 		void this.notifyDidChangeCreateState();
 	}
 
-	private async explainPatch(completionId?: string) {
-		if (this._context.open == null) return;
+	private copyCloudLink() {
+		if (this._context.open?.draftType !== 'cloud') return;
 
+		void env.clipboard.writeText(this._context.open.deepLinkUrl);
+	}
+
+	private async explainPatch(completionId?: string) {
 		let params: DidExplainParams;
 
 		try {
@@ -346,6 +323,33 @@ export class PatchDetailsWebviewProvider
 		}
 
 		void this.host.notify(DidExplainCommandType, params, completionId);
+	}
+
+	private shareLocalPatch() {
+		if (this._context.open?.draftType !== 'local') return;
+
+		this.updateCreateFromLocalPatch(this._context.open);
+	}
+
+	private switchMode(params: SwitchModeParams) {
+		this.setMode(params.mode);
+	}
+
+	private _notifyDidChangeStateDebounced: Deferrable<() => void> | undefined = undefined;
+
+	private updateState(immediate: boolean = false) {
+		this.host.clearPendingIpcNotifications();
+
+		if (immediate) {
+			void this.notifyDidChangeState();
+			return;
+		}
+
+		if (this._notifyDidChangeStateDebounced == null) {
+			this._notifyDidChangeStateDebounced = debounce(this.notifyDidChangeState.bind(this), 500);
+		}
+
+		this._notifyDidChangeStateDebounced();
 	}
 
 	@debug({ args: false })
@@ -368,6 +372,11 @@ export class PatchDetailsWebviewProvider
 			preferences: current.preferences,
 		});
 		return state;
+	}
+
+	private async notifyDidChangeState() {
+		this._notifyDidChangeStateDebounced?.cancel();
+		return this.host.notify(DidChangeNotificationType, { state: await this.getState(this._context) });
 	}
 
 	private updateCreateState(create: CreateDraft) {
@@ -439,72 +448,33 @@ export class PatchDetailsWebviewProvider
 			title: create.title,
 			description: create.description,
 			changes: changesetByRepo,
-			allRepos: allRepos,
+			showingAllRepos: allRepos,
 		};
 		void this.notifyDidChangeCreateState();
-	}
-
-	private updateOpenState(draft: LocalDraft | Draft | undefined) {
-		this._context.mode = 'open';
-		this._context.open = draft;
-		void this.notifyDidChangeDraftState();
-	}
-
-	private updatePreferences(preferences: UpdateablePreferences) {
-		if (
-			this._context.preferences?.files?.compact === preferences.files?.compact &&
-			this._context.preferences?.files?.icon === preferences.files?.icon &&
-			this._context.preferences?.files?.layout === preferences.files?.layout &&
-			this._context.preferences?.files?.threshold === preferences.files?.threshold
-		) {
-			return;
-		}
-
-		if (preferences.files != null) {
-			if (this._context.preferences?.files?.compact !== preferences.files?.compact) {
-				void configuration.updateEffective('views.patchDetails.files.compact', preferences.files?.compact);
-			}
-			if (this._context.preferences?.files?.icon !== preferences.files?.icon) {
-				void configuration.updateEffective('views.patchDetails.files.icon', preferences.files?.icon);
-			}
-			if (this._context.preferences?.files?.layout !== preferences.files?.layout) {
-				void configuration.updateEffective('views.patchDetails.files.layout', preferences.files?.layout);
-			}
-			if (this._context.preferences?.files?.threshold !== preferences.files?.threshold) {
-				void configuration.updateEffective('views.patchDetails.files.threshold', preferences.files?.threshold);
-			}
-
-			this._context.preferences.files = preferences.files;
-		}
-
-		void this.notifyDidChangePreferences();
-	}
-
-	private _notifyDidChangeStateDebounced: Deferrable<() => void> | undefined = undefined;
-
-	private updateState(immediate: boolean = false) {
-		this.host.clearPendingIpcNotifications();
-
-		if (immediate) {
-			void this.notifyDidChangeState();
-			return;
-		}
-
-		if (this._notifyDidChangeStateDebounced == null) {
-			this._notifyDidChangeStateDebounced = debounce(this.notifyDidChangeState.bind(this), 500);
-		}
-
-		this._notifyDidChangeStateDebounced();
 	}
 
 	private async getCreateState(current: Context): Promise<Serialized<State>['create'] | undefined> {
 		const { create } = current;
 		if (create == null) return undefined;
 
+		const repoChanges: Record<string, Change> = {};
+
+		if (create.changes.size !== 0) {
+			for (const [id, repo] of create.changes) {
+				const change = await repo.getChange();
+				if (change?.files?.length === 0) continue; // TODO remove when we support dynamic expanded repos
+
+				if (change.checked !== repo.checked) {
+					change.checked = repo.checked;
+				}
+				repoChanges[id] = change;
+			}
+		}
+
 		return {
 			title: create.title,
 			description: create.description,
-			changes: await toRepoChanges(create.changes),
+			changes: repoChanges,
 		};
 	}
 
@@ -515,46 +485,17 @@ export class PatchDetailsWebviewProvider
 		});
 	}
 
+	private updateOpenState(draft: LocalDraft | Draft | undefined) {
+		this._context.mode = 'open';
+		this._context.open = draft;
+		void this.notifyDidChangeDraftState();
+	}
+
 	private async getDraftState(current: Context): Promise<Serialized<State>['draft'] | undefined> {
 		if (current.open == null) return undefined;
 
-		return this.getDetailsModel(current.open);
-	}
+		const draft = current.open;
 
-	private async notifyDidChangeDraftState() {
-		return this.host.notify(DidChangeDraftNotificationType, {
-			mode: this._context.mode,
-			draft: await this.getDraftState(this._context),
-		});
-	}
-
-	private async notifyDidChangePreferences() {
-		return this.host.notify(DidChangePreferencesNotificationType, { preferences: this._context.preferences });
-	}
-
-	private async notifyDidChangeState() {
-		this._notifyDidChangeStateDebounced?.cancel();
-		return this.host.notify(DidChangeNotificationType, { state: await this.getState(this._context) });
-	}
-
-	private async getDraftPatch(draft: Draft): Promise<GitCloudPatch | undefined> {
-		if (draft.changesets == null) {
-			const changesets = await this.container.drafts.getChangesets(draft.id);
-			draft.changesets = changesets;
-		}
-
-		const patch = draft.changesets[0].patches?.[0];
-		if (patch == null) return undefined;
-
-		if (patch.contents == null) {
-			const contents = await this.container.drafts.getPatchContents(patch.id);
-			patch.contents = contents;
-		}
-
-		return patch;
-	}
-
-	private async getDetailsModel(draft: LocalDraft | Draft): Promise<DraftDetails> {
 		let patch: GitPatch | GitCloudPatch | undefined;
 		if (draft.draftType === 'local') {
 			patch = draft.patch;
@@ -611,6 +552,64 @@ export class PatchDetailsWebviewProvider
 			createdAt: draft.createdAt.getTime(),
 			updatedAt: draft.updatedAt.getTime(),
 		};
+	}
+
+	private async notifyDidChangeDraftState() {
+		return this.host.notify(DidChangeDraftNotificationType, {
+			mode: this._context.mode,
+			draft: await this.getDraftState(this._context),
+		});
+	}
+
+	private updatePreferences(preferences: UpdateablePreferences) {
+		if (
+			this._context.preferences?.files?.compact === preferences.files?.compact &&
+			this._context.preferences?.files?.icon === preferences.files?.icon &&
+			this._context.preferences?.files?.layout === preferences.files?.layout &&
+			this._context.preferences?.files?.threshold === preferences.files?.threshold
+		) {
+			return;
+		}
+
+		if (preferences.files != null) {
+			if (this._context.preferences?.files?.compact !== preferences.files?.compact) {
+				void configuration.updateEffective('views.patchDetails.files.compact', preferences.files?.compact);
+			}
+			if (this._context.preferences?.files?.icon !== preferences.files?.icon) {
+				void configuration.updateEffective('views.patchDetails.files.icon', preferences.files?.icon);
+			}
+			if (this._context.preferences?.files?.layout !== preferences.files?.layout) {
+				void configuration.updateEffective('views.patchDetails.files.layout', preferences.files?.layout);
+			}
+			if (this._context.preferences?.files?.threshold !== preferences.files?.threshold) {
+				void configuration.updateEffective('views.patchDetails.files.threshold', preferences.files?.threshold);
+			}
+
+			this._context.preferences.files = preferences.files;
+		}
+
+		void this.notifyDidChangePreferences();
+	}
+
+	private async notifyDidChangePreferences() {
+		return this.host.notify(DidChangePreferencesNotificationType, { preferences: this._context.preferences });
+	}
+
+	private async getDraftPatch(draft: Draft): Promise<GitCloudPatch | undefined> {
+		if (draft.changesets == null) {
+			const changesets = await this.container.drafts.getChangesets(draft.id);
+			draft.changesets = changesets;
+		}
+
+		const patch = draft.changesets[0].patches?.[0];
+		if (patch == null) return undefined;
+
+		if (patch.contents == null) {
+			const contents = await this.container.drafts.getPatchContents(patch.id);
+			patch.contents = contents;
+		}
+
+		return patch;
 	}
 
 	private async getFileCommitFromParams(
@@ -1122,259 +1121,5 @@ export class PatchDetailsWebviewProvider
 		// );
 
 		return Promise.resolve();
-	}
-}
-
-async function toRepoChanges(createMap: Map<string, RepositoryChangeset>): Promise<Record<string, Change>> {
-	const repoChanges: Record<string, Change> = {};
-	if (createMap.size === 0) return repoChanges;
-
-	for (const [id, repo] of createMap) {
-		const change = await repo.getChange();
-		if (change?.files?.length === 0) continue; // TODO remove when we support dynamic expanded repos
-
-		if (change.checked !== repo.checked) {
-			change.checked = repo.checked;
-		}
-		repoChanges[id] = change;
-	}
-
-	return repoChanges;
-}
-
-// async function summaryModel(commit: GitCommit): Promise<CommitSummary> {
-// 	return {
-// 		sha: commit.sha,
-// 		shortSha: commit.shortSha,
-// 		summary: commit.summary,
-// 		message: commit.message,
-// 		author: commit.author,
-// 		avatar: (await commit.getAvatarUri())?.toString(true),
-// 	};
-// }
-
-interface RepositoryChangeset extends Disposable {
-	type: ChangeType;
-	repository: Repository;
-	range: RevisionRange;
-	getChange(): Promise<Change>;
-
-	suspend(): void;
-	resume(): void;
-
-	checked: Change['checked'];
-	expanded: boolean;
-}
-
-class RepositoryRefChangeset implements RepositoryChangeset {
-	readonly type = 'revision';
-
-	constructor(
-		private readonly container: Container,
-		public readonly repository: Repository,
-		public readonly range: RevisionRange,
-		private readonly files: RevisionChange['files'],
-		checked: Change['checked'],
-		expanded: boolean,
-	) {
-		this.checked = checked;
-		this.expanded = expanded;
-	}
-
-	dispose() {}
-
-	suspend() {}
-
-	resume() {}
-
-	private _checked: Change['checked'] = false;
-	get checked(): Change['checked'] {
-		return this._checked;
-	}
-	set checked(value: Change['checked']) {
-		this._checked = value;
-	}
-
-	private _expanded = false;
-	get expanded(): boolean {
-		return this._expanded;
-	}
-	set expanded(value: boolean) {
-		if (this._expanded === value) return;
-
-		this._expanded = value;
-	}
-
-	// private _files: Promise<{ files: Change['files'] }> | undefined;
-	// eslint-disable-next-line @typescript-eslint/require-await
-	async getChange(): Promise<Change> {
-		// let filesResult;
-		// if (this.expanded) {
-		// 	if (this._files == null) {
-		// 		this._files = this.getFiles();
-		// 	}
-
-		// 	filesResult = await this._files;
-		// }
-
-		return {
-			type: 'revision',
-			repository: {
-				name: this.repository.name,
-				path: this.repository.path,
-				uri: this.repository.uri.toString(),
-			},
-			revision: this.range,
-			files: this.files, //filesResult?.files,
-			checked: this.checked,
-			expanded: this.expanded,
-		};
-	}
-
-	// private async getFiles(): Promise<{ files: Change['files'] }> {
-	// 	const commit = await this.container.git.getCommit(this.repository.path, this.range.sha!);
-
-	// 	const files: GitFileChangeShape[] = [];
-	// 	if (commit != null) {
-	// 		for (const file of commit.files ?? []) {
-	// 			const change = {
-	// 				repoPath: file.repoPath,
-	// 				path: file.path,
-	// 				status: file.status,
-	// 				originalPath: file.originalPath,
-	// 			};
-
-	// 			files.push(change);
-	// 		}
-	// 	}
-
-	// 	return { files: files };
-	// }
-}
-
-class RepositoryWipChangeset implements RepositoryChangeset {
-	readonly type = 'wip';
-
-	private _disposable: Disposable | undefined;
-
-	constructor(
-		private readonly container: Container,
-		public readonly repository: Repository,
-		public readonly range: RevisionRange,
-		private readonly onDidChangeRepositoryWip: (e: RepositoryWipChangeset) => void,
-		checked: Change['checked'],
-		expanded: boolean,
-	) {
-		this.checked = checked;
-		this.expanded = expanded;
-	}
-
-	dispose() {
-		this._disposable?.dispose();
-		this._disposable = undefined;
-	}
-
-	suspend() {
-		this._disposable?.dispose();
-		this._disposable = undefined;
-	}
-
-	resume() {
-		if (this._expanded) {
-			this.subscribe();
-		}
-	}
-
-	private _checked: Change['checked'] = false;
-	get checked(): Change['checked'] {
-		return this._checked;
-	}
-	set checked(value: Change['checked']) {
-		this._checked = value;
-	}
-
-	private _expanded = false;
-	get expanded(): boolean {
-		return this._expanded;
-	}
-	set expanded(value: boolean) {
-		if (this._expanded === value) return;
-
-		this._files = undefined;
-		if (value) {
-			this.subscribe();
-		} else {
-			this._disposable?.dispose();
-			this._disposable = undefined;
-		}
-		this._expanded = value;
-	}
-
-	private _files: Promise<{ files: Change['files'] }> | undefined;
-	async getChange(): Promise<Change> {
-		let filesResult;
-		if (this.expanded) {
-			if (this._files == null) {
-				this._files = this.getFiles();
-			}
-
-			filesResult = await this._files;
-		}
-
-		return {
-			type: 'wip',
-			repository: {
-				name: this.repository.name,
-				path: this.repository.path,
-				uri: this.repository.uri.toString(),
-			},
-			revision: this.range,
-			files: filesResult?.files,
-			checked: this.checked,
-			expanded: this.expanded,
-		};
-	}
-
-	private subscribe() {
-		if (this._disposable != null) return;
-
-		this._disposable = Disposable.from(
-			this.repository.watchFileSystem(1000),
-			this.repository.onDidChangeFileSystem(() => this.onDidChangeWip(), this),
-			this.repository.onDidChange(e => {
-				if (e.changed(RepositoryChange.Index, RepositoryChangeComparisonMode.Any)) {
-					this.onDidChangeWip();
-				}
-			}),
-		);
-	}
-
-	private onDidChangeWip() {
-		this._files = undefined;
-		this.onDidChangeRepositoryWip(this);
-	}
-
-	private async getFiles(): Promise<{ files: Change['files'] }> {
-		const status = await this.container.git.getStatusForRepo(this.repository.path);
-
-		const files: GitFileChangeShape[] = [];
-		if (status != null) {
-			for (const file of status.files) {
-				const change = {
-					repoPath: file.repoPath,
-					path: file.path,
-					status: file.status,
-					originalPath: file.originalPath,
-					staged: file.staged,
-				};
-
-				files.push(change);
-				if (file.staged && file.wip) {
-					files.push({ ...change, staged: false });
-				}
-			}
-		}
-
-		return { files: files };
 	}
 }
