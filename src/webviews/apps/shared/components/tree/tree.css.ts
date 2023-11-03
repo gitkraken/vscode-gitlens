@@ -7,6 +7,8 @@ export const treeItemStyles = [
 	elementBase,
 	css`
 		:host {
+			--tree-connector-spacing: 0.6rem;
+			--tree-connector-size: var(--gitlens-tree-indent, 1.6rem);
 			box-sizing: border-box;
 			padding-left: var(--gitlens-gutter-width);
 			padding-right: var(--gitlens-scrollbar-gutter-width);
@@ -90,10 +92,13 @@ export const treeItemStyles = [
 
 		.node {
 			display: inline-block;
-			width: 1.6rem;
+			width: var(--tree-connector-size);
 			text-align: center;
-			margin-right: 0.6rem;
 			flex: none;
+		}
+
+		.node:last-of-type {
+			margin-right: 0.3rem;
 		}
 
 		.node--connector {

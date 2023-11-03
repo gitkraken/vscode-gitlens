@@ -669,7 +669,8 @@ export type CoreConfiguration =
 	| 'http.proxyStrictSSL'
 	| 'search.exclude'
 	| 'workbench.editorAssociations'
-	| 'workbench.tree.renderIndentGuides';
+	| 'workbench.tree.renderIndentGuides'
+	| 'workbench.tree.indent';
 
 export type CoreGitConfiguration =
 	| 'git.autoRepositoryDetection'

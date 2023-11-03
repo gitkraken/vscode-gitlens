@@ -228,7 +228,8 @@ export class PatchDetailsWebviewProvider
 	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (
 			configuration.changed(e, ['defaultDateFormat', 'views.patchDetails.files', 'views.patchDetails.avatars']) ||
-			configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.renderIndentGuides')
+			configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.renderIndentGuides') ||
+			configuration.changedAny<CoreConfiguration>(e, 'workbench.tree.indent')
 		) {
 			this._context.preferences = { ...this._context.preferences, ...this.getPreferences() };
 			this.updateState();
@@ -244,6 +245,7 @@ export class PatchDetailsWebviewProvider
 				configuration.getAny<CoreConfiguration, Preferences['indentGuides']>(
 					'workbench.tree.renderIndentGuides',
 				) ?? 'onHover',
+			indent: configuration.getAny<CoreConfiguration, Preferences['indent']>('workbench.tree.indent'),
 		};
 	}
 

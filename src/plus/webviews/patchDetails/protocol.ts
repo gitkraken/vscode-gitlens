@@ -72,6 +72,7 @@ export interface Preferences {
 	dateFormat: DateTimeFormat | string;
 	files: Config['views']['patchDetails']['files'];
 	indentGuides: 'none' | 'onHover' | 'always';
+	indent: number | undefined;
 }
 
 export type UpdateablePreferences = Partial<Pick<Preferences, 'files'>>;
