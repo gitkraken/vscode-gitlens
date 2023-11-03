@@ -143,34 +143,11 @@ export class GlPatchCreate extends GlTreeBase {
 	}
 
 	private renderChangedFiles() {
-		let value = 'tree';
-		let icon = 'list-tree';
-		let label = 'View as Tree';
-		switch (this.fileLayout) {
-			case 'auto':
-				value = 'list';
-				icon = 'gl-list-auto';
-				label = 'View as List';
-				break;
-			case 'list':
-				value = 'tree';
-				icon = 'list-flat';
-				label = 'View as Tree';
-				break;
-			case 'tree':
-				value = 'auto';
-				icon = 'list-tree';
-				label = 'View as Auto';
-				break;
-		}
-
 		return html`
 			<webview-pane collapsable expanded>
 				<span slot="title">Files changed</span>
 				<span slot="subtitle" data-region="stats">${this.renderChangeStats()}</span>
-				<action-nav slot="actions">
-					<action-item data-switch-value="${value}" label="${label}" icon="${icon}"></action-item>
-				</action-nav>
+				<action-nav slot="actions">${this.renderLayoutAction(this.fileLayout)}</action-nav>
 
 				${when(
 					this.validityMessage != null,

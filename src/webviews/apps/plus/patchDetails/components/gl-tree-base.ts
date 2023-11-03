@@ -1,4 +1,4 @@
-import { html, LitElement } from 'lit';
+import { html, LitElement, nothing } from 'lit';
 import type { GitFileChangeShape } from '../../../../../git/models/file';
 import type { HierarchicalItem } from '../../../../../system/array';
 import { makeHierarchical } from '../../../../../system/array';
@@ -29,6 +29,33 @@ export class GlTreeBase extends LitElement {
 				<skeleton-loader></skeleton-loader>
 			</div>
 		`;
+	}
+
+	protected renderLayoutAction(layout: string) {
+		if (!layout) return nothing;
+
+		let value = 'tree';
+		let icon = 'list-tree';
+		let label = 'View as Tree';
+		switch (layout) {
+			case 'auto':
+				value = 'list';
+				icon = 'gl-list-auto';
+				label = 'View as List';
+				break;
+			case 'list':
+				value = 'tree';
+				icon = 'list-flat';
+				label = 'View as Tree';
+				break;
+			case 'tree':
+				value = 'auto';
+				icon = 'list-tree';
+				label = 'View as Auto';
+				break;
+		}
+
+		return html`<action-item data-switch-value="${value}" label="${label}" icon="${icon}"></action-item>`;
 	}
 
 	protected renderTreeView(treeModel: TreeModel[], guides: 'none' | 'onHover' | 'always' = 'none') {
