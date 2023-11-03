@@ -221,7 +221,7 @@ export class GlDraftDetails extends GlTreeBase {
 					${when(
 						this.state?.draft?.files == null,
 						() => this.renderLoading(),
-						() => this.renderTreeView(this.treeModel),
+						() => this.renderTreeView(this.treeModel, this.state?.preferences?.indentGuides),
 					)}
 				</div>
 			</webview-pane>

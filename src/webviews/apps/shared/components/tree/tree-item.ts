@@ -64,6 +64,25 @@ export class GlTreeItem extends LitElement {
 		return this.parentExpanded === false || (!this.branch && !this.expanded);
 	}
 
+	override connectedCallback() {
+		super.connectedCallback();
+		this.addEventListener('click', this.onComponentClickBound);
+	}
+
+	override disconnectedCallback() {
+		super.disconnectedCallback();
+		this.removeEventListener('click', this.onComponentClickBound);
+	}
+
+	private onComponentClick(e: MouseEvent) {
+		this.selectCore({
+			dblClick: false,
+			altKey: e.altKey,
+		});
+		this.buttonEl.focus();
+	}
+	private onComponentClickBound = this.onComponentClick.bind(this);
+
 	private updateAttrs(changedProperties: Map<string, any>, force = false) {
 		if (changedProperties.has('expanded') || force) {
 			this.setAttribute('aria-expanded', this.expanded.toString());
@@ -88,6 +107,10 @@ export class GlTreeItem extends LitElement {
 		if (changedProperties.has('level') || force) {
 			this.setAttribute('aria-level', this.level.toString());
 		}
+	}
+
+	override firstUpdated() {
+		this.role = 'treeitem';
 	}
 
 	override updated(changedProperties: Map<string, any>) {
@@ -198,6 +221,7 @@ export class GlTreeItem extends LitElement {
 
 	onButtonClick(e: MouseEvent) {
 		console.log('onButtonClick', e);
+		e.stopPropagation();
 		this.selectCore({
 			dblClick: false,
 			altKey: e.altKey,
@@ -206,6 +230,7 @@ export class GlTreeItem extends LitElement {
 
 	onButtonDblClick(e: MouseEvent) {
 		console.log('onButtonDblClick', e);
+		e.stopPropagation();
 		this.selectCore({
 			dblClick: true,
 			altKey: e.altKey,

@@ -1,5 +1,5 @@
-import { html, LitElement, nothing } from 'lit';
-import { customElement, property, queryAssignedElements, state } from 'lit/decorators.js';
+import { html, LitElement } from 'lit';
+import { customElement, property, queryAssignedElements } from 'lit/decorators.js';
 import type { TreeItemSelectionDetail } from './base';
 import type { GlTreeItem } from './tree-item';
 import { treeStyles } from './tree.css';
@@ -7,6 +7,9 @@ import { treeStyles } from './tree.css';
 @customElement('gl-tree')
 export class GlTree extends LitElement {
 	static override styles = treeStyles;
+
+	@property({ reflect: true })
+	guides?: 'none' | 'onHover' | 'always';
 
 	private _slotSubscriptionsDisposer?: () => void;
 

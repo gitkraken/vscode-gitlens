@@ -24,6 +24,7 @@ export const treeItemStyles = [
 
 			content-visibility: auto;
 			contain-intrinsic-size: auto 2.2rem;
+			cursor: pointer;
 		}
 
 		:host([aria-hidden='true']) {
@@ -69,12 +70,12 @@ export const treeItemStyles = [
 			min-width: 0;
 		}
 
-		/* FIXME: remove, this is for debugging */
+		/* FIXME: remove, this is for debugging
 		.item:focus {
 			outline: 1px solid var(--vscode-list-focusOutline);
 			outline-offset: -0.1rem;
 		}
-
+ 		*/
 		.icon {
 			display: inline-block;
 			width: 1.6rem;
@@ -105,11 +106,17 @@ export const treeItemStyles = [
 			height: 2.2rem;
 			border-left: 1px solid transparent;
 			top: 50%;
-			transform: translate(-50%, -50%);
+			transform: translate(-1px, -50%);
 			left: 0.8rem;
 			width: 0.1rem;
 			transition: border-color 0.1s linear;
 			opacity: 0.4;
+		}
+
+		:host-context([guides='always']) .node--connector::before,
+		:host-context([guides='onHover']:focus-within) .node--connector::before,
+		:host-context([guides='onHover']:hover) .node--connector::before {
+			border-color: var(--vscode-tree-indentGuidesStroke);
 		}
 
 		.branch {

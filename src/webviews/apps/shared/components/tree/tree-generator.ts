@@ -27,6 +27,9 @@ export class GlTreeGenerator extends LitElement {
 	@state()
 	treeItems?: TreeModelFlat[] = undefined;
 
+	@property({ reflect: true })
+	guides?: 'none' | 'onHover' | 'always';
+
 	_model?: TreeModel[];
 	@property({ type: Array, attribute: false })
 	set model(value: TreeModel[] | undefined) {

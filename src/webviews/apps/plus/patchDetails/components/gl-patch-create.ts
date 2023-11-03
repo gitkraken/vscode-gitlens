@@ -272,7 +272,7 @@ export class GlPatchCreate extends GlTreeBase {
 				treeModel.push(...tree);
 			}
 		}
-		return this.renderTreeView(treeModel);
+		return this.renderTreeView(treeModel, this.state?.preferences?.indentGuides);
 	}
 
 	private getTreeForChange(change: Change, isMulti = false, isTree = false, compact = true): TreeModel[] | undefined {

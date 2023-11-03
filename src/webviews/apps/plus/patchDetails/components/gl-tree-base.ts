@@ -31,9 +31,10 @@ export class GlTreeBase extends LitElement {
 		`;
 	}
 
-	protected renderTreeView(treeModel: TreeModel[]) {
+	protected renderTreeView(treeModel: TreeModel[], guides: 'none' | 'onHover' | 'always' = 'none') {
 		return html`<gl-tree-generator
 			.model=${treeModel}
+			.guides=${guides}
 			@tree-generated-item-action-clicked=${this.onTreeItemActionClicked}
 			@tree-generated-item-checked=${this.onTreeItemChecked}
 			@tree-generated-item-selected=${this.onTreeItemSelected}
