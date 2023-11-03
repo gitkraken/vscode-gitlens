@@ -69,8 +69,6 @@ export class PushGitCommand extends QuickCommand<State> {
 	execute(state: State<Repository[]>) {
 		const index = state.flags.indexOf('--set-upstream');
 		if (index !== -1) {
-			if (!isBranchReference(state.reference)) return Promise.resolve();
-
 			return this.container.git.pushAll(state.repos, {
 				force: false,
 				publish: { remote: state.flags[index + 1] },
@@ -192,12 +190,13 @@ export class PushGitCommand extends QuickCommand<State> {
 			if (isBranchReference(state.reference)) {
 				if (state.reference.remote) {
 					step = this.createConfirmStep(
-						appendReposToTitle(`Confirm ${context.title}`, state, context),
+						appendReposToTitle(context.title, state, context),
 						[],
 						createDirectiveQuickPickItem(Directive.Cancel, true, {
-							label: `Cancel ${this.title}`,
-							detail: 'Cannot push remote branch',
+							label: 'OK',
+							detail: 'Cannot push a remote branch',
 						}),
+						{ placeholder: 'Cannot push a remote branch' },
 					);
 				} else {
 					const branch = await repo.getBranch(state.reference.name);
@@ -225,13 +224,13 @@ export class PushGitCommand extends QuickCommand<State> {
 							);
 						} else {
 							step = this.createConfirmStep(
-								appendReposToTitle('Confirm Publish', state, context),
+								appendReposToTitle('Publish', state, context),
 								[],
 								createDirectiveQuickPickItem(Directive.Cancel, true, {
-									label: 'Cancel Publish',
-									detail: 'Cannot publish; No remotes found',
+									label: 'OK',
+									detail: 'No remotes found',
 								}),
-								{ placeholder: 'Confirm Publish' },
+								{ placeholder: 'Cannot publish; No remotes found' },
 							);
 						}
 					} else if (branch != null && branch?.state.behind > 0) {
@@ -286,12 +285,13 @@ export class PushGitCommand extends QuickCommand<State> {
 						]);
 					} else {
 						step = this.createConfirmStep(
-							appendReposToTitle(`Confirm ${context.title}`, state, context),
+							appendReposToTitle(context.title, state, context),
 							[],
 							createDirectiveQuickPickItem(Directive.Cancel, true, {
-								label: `Cancel ${this.title}`,
+								label: 'OK',
 								detail: 'No commits found to push',
 							}),
+							{ placeholder: 'Nothing to push; No commits found to push' },
 						);
 					}
 				}
@@ -307,8 +307,17 @@ export class PushGitCommand extends QuickCommand<State> {
 				};
 
 				if (status?.state.ahead === 0) {
-					if (state.reference == null && status.upstream == null) {
-						state.reference = branch;
+					if (!isBranchReference(state.reference) && status.upstream == null) {
+						let pushDetails;
+
+						if (state.reference != null) {
+							pushDetails = ` up to and including ${getReferenceLabel(state.reference, {
+								label: false,
+							})}`;
+						} else {
+							state.reference = branch;
+							pushDetails = '';
+						}
 
 						for (const remote of await repo.getRemotes()) {
 							items.push(
@@ -317,7 +326,9 @@ export class PushGitCommand extends QuickCommand<State> {
 									['--set-upstream', remote.name, status.branch],
 									{
 										label: `Publish ${branch.name} to ${remote.name}`,
-										detail: `Will publish ${getReferenceLabel(branch)} to ${remote.name}`,
+										detail: `Will publish ${getReferenceLabel(branch)}${pushDetails} to ${
+											remote.name
+										}`,
 									},
 								),
 							);
@@ -333,24 +344,27 @@ export class PushGitCommand extends QuickCommand<State> {
 						);
 					} else if (status.upstream == null) {
 						step = this.createConfirmStep(
-							appendReposToTitle('Confirm Publish', state, context),
+							appendReposToTitle('Publish', state, context),
 							[],
 							createDirectiveQuickPickItem(Directive.Cancel, true, {
-								label: 'Cancel Publish',
-								detail: 'Cannot publish; No remotes found',
+								label: 'OK',
+								detail: 'No remotes found',
 							}),
-							{ placeholder: 'Confirm Publish' },
+							{ placeholder: 'Cannot publish; No remotes found' },
 						);
 					} else {
 						step = this.createConfirmStep(
-							appendReposToTitle('Confirm Push', state, context),
+							appendReposToTitle(context.title, state, context),
 							[],
 							createDirectiveQuickPickItem(Directive.Cancel, true, {
-								label: `Cancel ${this.title}`,
-								detail: `Cannot push; No commits ahead of ${getRemoteNameFromBranchName(
+								label: 'OK',
+								detail: `No commits ahead of ${getRemoteNameFromBranchName(status.upstream)}`,
+							}),
+							{
+								placeholder: `Nothing to push; No commits ahead of ${getRemoteNameFromBranchName(
 									status.upstream,
 								)}`,
-							}),
+							},
 						);
 					}
 				} else {

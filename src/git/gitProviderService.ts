@@ -1400,7 +1400,7 @@ export class GitProviderService implements Disposable {
 	@log()
 	push(
 		repoPath: string | Uri,
-		options?: { branch?: GitBranchReference; force?: boolean; publish?: { remote: string } },
+		options?: { reference?: GitReference; force?: boolean; publish?: { remote: string } },
 	): Promise<void> {
 		const { provider, path } = this.getProvider(repoPath);
 		return provider.push(path, options);

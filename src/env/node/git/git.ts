@@ -478,6 +478,10 @@ export class Git {
 		}
 	}
 
+	branch__set_upstream(repoPath: string, branch: string, remote: string, remoteBranch: string) {
+		return this.git<string>({ cwd: repoPath }, 'branch', '--set-upstream-to', `${remote}/${remoteBranch}`, branch);
+	}
+
 	branchOrTag__containsOrPointsAt(
 		repoPath: string,
 		ref: string,

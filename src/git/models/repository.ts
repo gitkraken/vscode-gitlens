@@ -891,9 +891,7 @@ export class Repository implements Disposable {
 		force?: boolean;
 		progress?: boolean;
 		reference?: GitReference;
-		publish?: {
-			remote: string;
-		};
+		publish?: { remote: string };
 	}) {
 		const { progress, ...opts } = { progress: true, ...options };
 		if (!progress) return this.pushCore(opts);
@@ -909,21 +907,18 @@ export class Repository implements Disposable {
 		);
 	}
 
-	private async pushCore(options?: {
-		force?: boolean;
-		reference?: GitReference;
-		publish?: {
-			remote: string;
-		};
-	}) {
+	private async pushCore(options?: { force?: boolean; reference?: GitReference; publish?: { remote: string } }) {
 		try {
 			if (configuration.get('experimental.nativeGit')) {
-				const branch = await this.getBranch(options?.reference?.name);
 				await this.container.git.push(this.uri, {
+					reference: options?.reference,
 					force: options?.force,
-					branch: isBranchReference(options?.reference) ? options?.reference : branch,
-					...(options?.publish && { publish: options.publish }),
+					publish: options?.publish,
 				});
+
+				if (isBranchReference(options?.reference) && options?.publish != null) {
+					void this.showCreatePullRequestPrompt(options.publish.remote, options.reference);
+				}
 			} else if (isBranchReference(options?.reference)) {
 				const repo = await this.container.git.getOrOpenScmRepository(this.uri);
 				if (repo == null) return;
