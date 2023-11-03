@@ -52,9 +52,13 @@ export class WebviewPane extends LitElement {
 				height: 2.2rem;
 				background: transparent;
 				color: inherit;
-				cursor: pointer;
 				outline: none;
 				text-overflow: ellipsis;
+				user-select: none;
+			}
+
+			:host([collapsable]) .label {
+				cursor: pointer;
 			}
 
 			.title {
