@@ -55,17 +55,14 @@ export class GlPatchCreate extends GlTreeBase {
 		return this.createChanges.some(change => change?.type === 'wip');
 	}
 
-	get selectedChanges(): [string, Change][] | undefined {
+	get selectedChanges(): [string, Change][] {
+		if (this.createChanges.length === 1) return this.createEntries;
+
 		return this.createEntries.filter(([, change]) => change.checked !== false);
 	}
 
 	get canSubmit() {
-		return (
-			this.create.title != null &&
-			this.create.title.length > 0 &&
-			this.selectedChanges != null &&
-			this.selectedChanges.length > 0
-		);
+		return this.create.title != null && this.create.title.length > 0 && this.selectedChanges.length > 0;
 	}
 
 	get fileLayout() {
@@ -368,7 +365,7 @@ export class GlPatchCreate extends GlTreeBase {
 		this.validityMessage = undefined;
 		this.titleInput.setCustomValidity('');
 
-		const changes = this.selectedChanges!.reduce<Record<string, Change>>((a, [id, change]) => {
+		const changes = this.selectedChanges.reduce<Record<string, Change>>((a, [id, change]) => {
 			a[id] = change;
 			return a;
 		}, {});
