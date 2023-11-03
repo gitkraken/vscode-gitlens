@@ -129,7 +129,7 @@ export class GlTreeBase extends LitElement {
 		};
 	}
 
-	protected repoToTreeModel(name: string, path: string, options?: Partial<TreeItemBase>): TreeModel {
+	protected repoToTreeModel(name: string, path: string, options?: Partial<TreeItemBase>): TreeModel<string[]> {
 		return {
 			branch: false,
 			expanded: true,
@@ -154,7 +154,7 @@ export class GlTreeBase extends LitElement {
 		options?: Partial<TreeItemBase>,
 		flat = false,
 		glue = '/',
-	): TreeModel {
+	): TreeModel<GitFileChangeShape[]> {
 		const pathIndex = file.path.lastIndexOf(glue);
 		const fileName = pathIndex !== -1 ? file.path.substring(pathIndex + 1) : file.path;
 		const filePath = flat && pathIndex !== -1 ? file.path.substring(0, pathIndex) : '';

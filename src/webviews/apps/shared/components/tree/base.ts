@@ -1,4 +1,4 @@
-import type { GitFileStatus } from '../../../../../git/models/file';
+import type { GitFileChangeShape, GitFileStatus } from '../../../../../git/models/file';
 
 export interface TreeItemBase {
 	// node properties
@@ -48,18 +48,18 @@ export interface TreeItemDecoratorStatus extends TreeItemDecoratorBase {
 
 export type TreeItemDecorator = TreeItemDecoratorText | TreeItemDecoratorIcon | TreeItemDecoratorStatus;
 
-interface TreeModelBase extends TreeItemBase {
+interface TreeModelBase<Context = any[]> extends TreeItemBase {
 	label: string;
 	icon?: string | { type: 'status'; name: GitFileStatus };
 	description?: string;
-	context?: any[];
+	context?: Context;
 	actions?: TreeItemAction[];
 	decorators?: TreeItemDecorator[];
 	contextData?: unknown;
 }
 
-export interface TreeModel extends TreeModelBase {
-	children?: TreeModel[];
+export interface TreeModel<Context = any[]> extends TreeModelBase<Context> {
+	children?: TreeModel<Context>[];
 }
 
 export interface TreeModelFlat extends TreeModelBase {
@@ -69,7 +69,7 @@ export interface TreeModelFlat extends TreeModelBase {
 
 export interface TreeItemSelectionDetail {
 	node: TreeItemBase;
-	context?: any[];
+	context?: GitFileChangeShape[];
 	dblClick: boolean;
 	altKey: boolean;
 	ctrlKey: boolean;
@@ -82,7 +82,7 @@ export interface TreeItemActionDetail extends TreeItemSelectionDetail {
 
 export interface TreeItemCheckedDetail {
 	node: TreeItemBase;
-	context?: any[];
+	context?: string[];
 	checked: boolean;
 }
 

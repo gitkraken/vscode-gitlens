@@ -3,6 +3,7 @@ import { window, workspace } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import type { RevisionRange } from '../git/models/patch';
+import { shortenRevision } from '../git/models/reference';
 import type { Repository } from '../git/models/repository';
 import { showPatchesView } from '../plus/drafts/actions';
 import type { Draft, DraftPatch, LocalDraft } from '../plus/drafts/draftsService';
@@ -160,8 +161,7 @@ async function createLocalChange(
 		const result = await container.git.getDiffFiles(repository.uri, diff.contents);
 		if (result?.files == null) return;
 
-		create.title = `Range ${args.ref2}..${args.ref1}`;
-		create.description = `${create.title}\n${create.description}`;
+		create.title = `Comparing ${shortenRevision(args.ref2)} with ${shortenRevision(args.ref1)}`;
 
 		change.files = result.files;
 	}

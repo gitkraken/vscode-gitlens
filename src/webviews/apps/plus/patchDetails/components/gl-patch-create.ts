@@ -213,7 +213,7 @@ export class GlPatchCreate extends GlTreeBase {
 		if (type === 'unstaged') {
 			checked = e.detail.checked ? true : 'staged';
 		}
-		const change = this.getChangeForRepo(repoUri as string);
+		const change = this.getChangeForRepo(repoUri);
 		if (change == null) {
 			debugger;
 			return;
@@ -238,12 +238,7 @@ export class GlPatchCreate extends GlTreeBase {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
-		const event = new CustomEvent<FileActionParams>('file-compare-previous', {
-			detail: {
-				path: file.path,
-				repoPath: file.repoPath,
-			},
-		});
+		const event = new CustomEvent<FileActionParams>('file-compare-previous', { detail: { ...file } });
 		this.dispatchEvent(event);
 	}
 

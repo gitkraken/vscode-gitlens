@@ -533,12 +533,7 @@ export class GlDraftDetails extends GlTreeBase {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
-		const event = new CustomEvent<FileActionParams>('file-compare-previous', {
-			detail: {
-				path: file.path,
-				repoPath: file.repoPath,
-			},
-		});
+		const event = new CustomEvent<FileActionParams>('file-compare-previous', { detail: { ...file } });
 		this.dispatchEvent(event);
 	}
 

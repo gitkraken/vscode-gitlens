@@ -1,6 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import type { TextDocumentShowOptions } from 'vscode';
+import type { GitFileChangeShape, GitFileStatus } from '../../../../../git/models/file';
 import type { ListItem, ListItemSelectedEvent } from './list-item';
 import '../code-icon';
 import '../status/git-status';
@@ -8,11 +9,7 @@ import '../status/git-status';
 // Can only import types from 'vscode'
 const BesideViewColumn = -2; /*ViewColumn.Beside*/
 
-export interface FileChangeListItemDetail {
-	path: string;
-	repoPath: string;
-	staged: boolean | undefined;
-
+export interface FileChangeListItemDetail extends GitFileChangeShape {
 	showOptions?: TextDocumentShowOptions;
 }
 
@@ -264,6 +261,8 @@ export class FileChangeListItem extends LitElement {
 		return {
 			path: this.path,
 			repoPath: this.repo,
+			status: this.status as GitFileStatus,
+			// originalPath: this.originalPath,
 			staged: this.staged,
 			showOptions: showOptions,
 		};

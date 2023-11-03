@@ -221,6 +221,11 @@ export async function openChanges(
 	options?: TextDocumentShowOptions,
 ): Promise<void>;
 export async function openChanges(
+	file: GitFile,
+	commitOrRefs: GitCommit | { repoPath: string; ref1: string; ref2: string },
+	options?: TextDocumentShowOptions,
+): Promise<void>;
+export async function openChanges(
 	file: string | GitFile,
 	commitOrRefs: GitCommit | { repoPath: string; ref1: string; ref2: string },
 	options?: TextDocumentShowOptions,

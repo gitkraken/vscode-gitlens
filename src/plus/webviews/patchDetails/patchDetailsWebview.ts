@@ -14,8 +14,8 @@ import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import type { GitCommit } from '../../../git/models/commit';
 import { uncommitted } from '../../../git/models/constants';
 import type { GitDiff } from '../../../git/models/diff';
-import type { GitFileChange } from '../../../git/models/file';
-import type { GitCloudPatch, GitPatch } from '../../../git/models/patch';
+import { GitFileChange } from '../../../git/models/file';
+import type { GitCloudPatch, GitPatch, RevisionRange } from '../../../git/models/patch';
 import { createReference } from '../../../git/models/reference';
 import type { Repository } from '../../../git/models/repository';
 import { showCommitPicker } from '../../../quickpicks/commitPicker';
@@ -615,41 +615,63 @@ export class PatchDetailsWebviewProvider
 
 	private async getFileCommitFromParams(
 		params: FileActionParams,
-	): Promise<[commit: GitCommit, file: GitFileChange] | undefined> {
-		const commit = await (await this.getOrCreateCommit(params.repoPath))?.getCommitForFile(params.path);
-		return commit != null ? [commit, commit.file!] : undefined;
+	): Promise<
+		[commit: GitCommit, file: GitFileChange, revision?: Required<Omit<RevisionRange, 'branchName'>>] | undefined
+	> {
+		let [commit, revision] = await this.getOrCreateCommit(params.repoPath);
+
+		if (commit != null && revision != null) {
+			return [
+				commit,
+				new GitFileChange(
+					params.repoPath,
+					params.path,
+					params.status,
+					params.originalPath,
+					undefined,
+					undefined,
+					params.staged,
+				),
+				revision,
+			];
+		}
+
+		commit = await commit?.getCommitForFile(params.path, params.staged);
+		return commit != null ? [commit, commit.file!, revision] : undefined;
 	}
 
-	private async getOrCreateCommit(repoPath: string): Promise<GitCommit | undefined> {
+	private async getOrCreateCommit(
+		repoPath: string,
+	): Promise<[commit: GitCommit | undefined, revision?: RevisionRange]> {
 		if (this.mode === 'create') {
 			const changeset = find(this._context.create!.changes.values(), cs => cs.repository.path === repoPath);
-			if (changeset == null) return undefined;
+			if (changeset == null) return [undefined];
 
 			const change = await changeset.getChange();
-			if (change == null) return undefined;
+			if (change == null) return [undefined];
 
 			if (change.type === 'revision') {
+				const commit = await this.container.git.getCommit(repoPath, change.revision.sha ?? uncommitted);
 				if (
 					change.revision.sha === change.revision.baseSha ||
 					change.revision.sha === change.revision.baseSha.substring(0, change.revision.baseSha.length - 1)
 				) {
-					return this.container.git.getCommit(repoPath, change.revision.sha);
+					return [commit];
 				}
 
-				// TODO: handle ranges
-				debugger;
+				return [commit, change.revision];
 			} else if (change.type === 'wip') {
-				return this.container.git.getCommit(repoPath, change.revision.sha ?? uncommitted);
+				return [await this.container.git.getCommit(repoPath, change.revision.sha ?? uncommitted)];
 			}
 
-			return undefined;
+			return [undefined];
 		}
 
 		if (this.mode === 'open') {
-			return this.getOrCreateUnreachableCommitForPatch(repoPath);
+			return [await this.getOrCreateUnreachableCommitForPatch(repoPath)];
 		}
 
-		return undefined;
+		return [undefined];
 	}
 
 	private async getOrCreateUnreachableCommitForPatch(repoPath?: string): Promise<GitCommit | undefined> {
@@ -804,26 +826,36 @@ export class PatchDetailsWebviewProvider
 		const result = await this.getFileCommitFromParams(params);
 		if (result == null) return;
 
-		const [commit, file] = result;
+		const [commit, file, revision] = result;
 
-		void openChangesWithWorking(file, commit, {
-			preserveFocus: true,
-			preview: true,
-			...this.getShowOptions(params),
-		});
+		void openChangesWithWorking(
+			file,
+			revision != null ? { repoPath: commit.repoPath, ref: revision.baseSha } : commit,
+			{
+				preserveFocus: true,
+				preview: true,
+				...this.getShowOptions(params),
+			},
+		);
 	}
 
 	private async openFileComparisonWithPrevious(params: FileActionParams) {
 		const result = await this.getFileCommitFromParams(params);
 		if (result == null) return;
 
-		const [commit, file] = result;
+		const [commit, file, revision] = result;
 
-		void openChanges(file, commit, {
-			preserveFocus: true,
-			preview: true,
-			...this.getShowOptions(params),
-		});
+		void openChanges(
+			file,
+			revision != null
+				? { repoPath: commit.repoPath, ref1: revision.sha ?? uncommitted, ref2: revision.baseSha }
+				: commit,
+			{
+				preserveFocus: true,
+				preview: true,
+				...this.getShowOptions(params),
+			},
+		);
 		this.container.events.fire('file:selected', { uri: file.uri }, { source: this.host.id });
 	}
 

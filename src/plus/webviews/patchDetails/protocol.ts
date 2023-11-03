@@ -178,10 +178,7 @@ export const SelectPatchRepoCommandType = new IpcCommandType<undefined>('patch/s
 
 export const SelectPatchBaseCommandType = new IpcCommandType<undefined>('patch/selectBase');
 
-export interface FileActionParams {
-	path: string;
-	repoPath: string;
-
+export interface FileActionParams extends GitFileChangeShape {
 	showOptions?: TextDocumentShowOptions;
 }
 export const FileActionsCommandType = new IpcCommandType<FileActionParams>('patch/file/actions');

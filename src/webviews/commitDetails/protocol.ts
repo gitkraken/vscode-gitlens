@@ -83,11 +83,7 @@ export interface CommitActionsParams {
 }
 export const CommitActionsCommandType = new IpcCommandType<CommitActionsParams>('commit/actions');
 
-export interface FileActionParams {
-	path: string;
-	repoPath: string;
-	staged: boolean | undefined;
-
+export interface FileActionParams extends GitFileChangeShape {
 	showOptions?: TextDocumentShowOptions;
 }
 export const FileActionsCommandType = new IpcCommandType<FileActionParams>('commit/file/actions');
