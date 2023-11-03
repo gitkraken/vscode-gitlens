@@ -42,14 +42,14 @@ export class GlTree extends LitElement {
 		const selectHandler = this.handleSelected.bind(this) as EventListenerOrEventListenerObject;
 		const subscriptions = this.treeItems.map(node => {
 			node.addEventListener('keydown', keyHandler, false);
-			node.addEventListener('tree-item-select', beforeSelectHandler, false);
-			node.addEventListener('tree-item-selected', selectHandler, false);
+			node.addEventListener('gl-tree-item-select', beforeSelectHandler, false);
+			node.addEventListener('gl-tree-item-selected', selectHandler, false);
 
 			return {
 				dispose: function () {
 					node?.removeEventListener('keydown', keyHandler, false);
-					node?.removeEventListener('tree-item-select', beforeSelectHandler, false);
-					node?.removeEventListener('tree-item-selected', selectHandler, false);
+					node?.removeEventListener('gl-tree-item-select', beforeSelectHandler, false);
+					node?.removeEventListener('gl-tree-item-selected', selectHandler, false);
 				},
 			};
 		});

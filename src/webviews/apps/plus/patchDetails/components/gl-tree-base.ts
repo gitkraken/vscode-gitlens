@@ -13,9 +13,9 @@ import type {
 import '../../../shared/components/tree/tree-generator';
 
 export class GlTreeBase extends LitElement {
-	protected onTreeItemActionClicked(_e: CustomEvent<TreeItemActionDetail>) {}
-	protected onTreeItemChecked(_e: CustomEvent<TreeItemCheckedDetail>) {}
-	protected onTreeItemSelected(_e: CustomEvent<TreeItemSelectionDetail>) {}
+	protected onTreeItemActionClicked?(_e: CustomEvent<TreeItemActionDetail>): void;
+	protected onTreeItemChecked?(_e: CustomEvent<TreeItemCheckedDetail>): void;
+	protected onTreeItemSelected?(_e: CustomEvent<TreeItemSelectionDetail>): void;
 
 	protected renderLoading() {
 		return html`
@@ -35,9 +35,9 @@ export class GlTreeBase extends LitElement {
 		return html`<gl-tree-generator
 			.model=${treeModel}
 			.guides=${guides}
-			@tree-generated-item-action-clicked=${this.onTreeItemActionClicked}
-			@tree-generated-item-checked=${this.onTreeItemChecked}
-			@tree-generated-item-selected=${this.onTreeItemSelected}
+			@gl-tree-generated-item-action-clicked=${this.onTreeItemActionClicked}
+			@gl-tree-generated-item-checked=${this.onTreeItemChecked}
+			@gl-tree-generated-item-selected=${this.onTreeItemSelected}
 		></gl-tree-generator>`;
 	}
 

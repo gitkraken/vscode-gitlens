@@ -110,6 +110,9 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 			DOM.on<GlPatchCreate, CheckRepositoryEventDetail>('gl-patch-create', 'patch-create-check', e =>
 				this.onCreateCheckRepo(e.detail),
 			),
+			DOM.on<GlPatchCreate, FileChangeListItemDetail>('gl-patch-create', 'file-compare-previous', e =>
+				this.onCompareFileWithPrevious(e.detail),
+			),
 		];
 
 		return disposables;

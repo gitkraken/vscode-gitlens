@@ -119,8 +119,8 @@ export class GlTreeGenerator extends LitElement {
 			.checked=${model.checked ?? false}
 			.disableCheck=${model.disableCheck ?? false}
 			.showIcon=${model.icon != null}
-			@tree-item-selected=${(e: CustomEvent<TreeItemSelectionDetail>) => this.onTreeItemSelected(e, model)}
-			@tree-item-checked=${(e: CustomEvent<TreeItemCheckedDetail>) => this.onTreeItemChecked(e, model)}
+			@gl-tree-item-selected=${(e: CustomEvent<TreeItemSelectionDetail>) => this.onTreeItemSelected(e, model)}
+			@gl-tree-item-checked=${(e: CustomEvent<TreeItemCheckedDetail>) => this.onTreeItemChecked(e, model)}
 		>
 			${this.renderIcon(model.icon)}
 			${model.label}${when(
@@ -142,7 +142,7 @@ export class GlTreeGenerator extends LitElement {
 	private onTreeItemSelected(e: CustomEvent<TreeItemSelectionDetail>, model: TreeModelFlat) {
 		e.stopPropagation();
 		this.dispatchEvent(
-			new CustomEvent<TreeItemSelectionDetail>('tree-generated-item-selected', {
+			createEvent('gl-tree-generated-item-selected', {
 				detail: {
 					...e.detail,
 					node: model,
@@ -155,7 +155,7 @@ export class GlTreeGenerator extends LitElement {
 	private onTreeItemChecked(e: CustomEvent<TreeItemCheckedDetail>, model: TreeModelFlat) {
 		e.stopPropagation();
 		this.dispatchEvent(
-			new CustomEvent<TreeItemCheckedDetail>('tree-generated-item-checked', {
+			createEvent('gl-tree-generated-item-checked', {
 				detail: {
 					...e.detail,
 					node: model,
@@ -168,7 +168,7 @@ export class GlTreeGenerator extends LitElement {
 	private onTreeItemActionClicked(e: MouseEvent, model: TreeModelFlat, action: TreeItemAction) {
 		e.stopPropagation();
 		this.dispatchEvent(
-			new CustomEvent<TreeItemActionDetail>('tree-generated-item-action-clicked', {
+			createEvent('gl-tree-generated-item-action-clicked', {
 				detail: {
 					node: model,
 					context: model.context,
@@ -223,4 +223,25 @@ declare global {
 	interface HTMLElementTagNameMap {
 		'gl-tree-generator': GlTreeGenerator;
 	}
+
+	interface WindowEventMap {
+		'gl-tree-generated-item-action-clicked': CustomEvent<TreeItemActionDetail>;
+		'gl-tree-generated-item-selected': CustomEvent<TreeItemSelectionDetail>;
+		'gl-tree-generated-item-checked': CustomEvent<TreeItemCheckedDetail>;
+	}
+}
+
+export type GlTreeGeneratedItemEvents = {
+	[K in Extract<keyof WindowEventMap, `gl-tree-generated-item-${string}`>]: WindowEventMap[K];
+};
+
+type GlTreeGeneratedItemEventsUnwrapped = {
+	[P in keyof GlTreeGeneratedItemEvents]: UnwrapCustomEvent<GlTreeGeneratedItemEvents[P]>;
+};
+
+function createEvent<T extends keyof GlTreeGeneratedItemEventsUnwrapped>(
+	name: T,
+	eventInitDict?: CustomEventInit<GlTreeGeneratedItemEventsUnwrapped[T]> | undefined,
+): CustomEvent<GlTreeGeneratedItemEventsUnwrapped[T]> {
+	return new CustomEvent<GlTreeGeneratedItemEventsUnwrapped[T]>(name, eventInitDict);
 }

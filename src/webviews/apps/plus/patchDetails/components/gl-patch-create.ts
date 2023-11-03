@@ -2,9 +2,9 @@ import { defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-
 import { html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { Change, State } from '../../../../../plus/webviews/patchDetails/protocol';
+import type { Change, FileActionParams, State } from '../../../../../plus/webviews/patchDetails/protocol';
 import type { Serialized } from '../../../../../system/serialize';
-import type { TreeItemCheckedDetail, TreeModel } from '../../../shared/components/tree/base';
+import type { TreeItemCheckedDetail, TreeItemSelectionDetail, TreeModel } from '../../../shared/components/tree/base';
 import { GlTreeBase } from './gl-tree-base';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
@@ -149,17 +149,17 @@ export class GlPatchCreate extends GlTreeBase {
 		switch (this.fileLayout) {
 			case 'auto':
 				value = 'list';
-				icon = 'list-flat';
+				icon = 'gl-list-auto';
 				label = 'View as List';
 				break;
 			case 'list':
 				value = 'tree';
-				icon = 'list-tree';
+				icon = 'list-flat';
 				label = 'View as Tree';
 				break;
 			case 'tree':
 				value = 'auto';
-				icon = 'gl-list-auto';
+				icon = 'list-tree';
 				label = 'View as Auto';
 				break;
 		}
@@ -232,6 +232,19 @@ export class GlPatchCreate extends GlTreeBase {
 				},
 			}),
 		);
+	}
+
+	override onTreeItemSelected(e: CustomEvent<TreeItemSelectionDetail>) {
+		if (!e.detail.context) return;
+
+		const [file] = e.detail.context;
+		const event = new CustomEvent<FileActionParams>('file-compare-previous', {
+			detail: {
+				path: file.path,
+				repoPath: file.repoPath,
+			},
+		});
+		this.dispatchEvent(event);
 	}
 
 	private renderTreeViewWithModel() {

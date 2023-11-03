@@ -187,7 +187,7 @@ export class GlTreeItem extends LitElement {
 		modifiers?: { dblClick: boolean; altKey?: boolean; ctrlKey?: boolean; metaKey?: boolean },
 		quiet = false,
 	) {
-		this.dispatchEvent(new CustomEvent('tree-item-select'));
+		this.dispatchEvent(createEvent('gl-tree-item-select'));
 		if (this.branch) {
 			this.expanded = !this.expanded;
 		}
@@ -202,7 +202,7 @@ export class GlTreeItem extends LitElement {
 					ctrlKey: modifiers?.ctrlKey ?? false,
 					metaKey: modifiers?.metaKey ?? false,
 				};
-				this.dispatchEvent(new CustomEvent<TreeItemSelectionDetail>('tree-item-selected', { detail: detail }));
+				this.dispatchEvent(createEvent('gl-tree-item-selected', { detail: detail }));
 			});
 		}
 	}
@@ -251,7 +251,7 @@ export class GlTreeItem extends LitElement {
 		this.checked = (e.target as HTMLInputElement).checked;
 
 		this.dispatchEvent(
-			new CustomEvent<TreeItemCheckedDetail>('tree-item-checked', {
+			createEvent('gl-tree-item-checked', {
 				detail: { node: this, checked: this.checked },
 			}),
 		);
@@ -264,8 +264,23 @@ declare global {
 	}
 
 	interface WindowEventMap {
-		'tree-item-select': CustomEvent<undefined>;
-		'tree-item-selected': CustomEvent<TreeItemSelectionDetail>;
-		'tree-item-checked': CustomEvent<TreeItemCheckedDetail>;
+		'gl-tree-item-select': CustomEvent<undefined>;
+		'gl-tree-item-selected': CustomEvent<TreeItemSelectionDetail>;
+		'gl-tree-item-checked': CustomEvent<TreeItemCheckedDetail>;
 	}
+}
+
+export type GlTreeItemEvents = {
+	[K in Extract<keyof WindowEventMap, `gl-tree-item-${string}`>]: WindowEventMap[K];
+};
+
+type GlTreeItemEventsUnwrapped = {
+	[P in keyof GlTreeItemEvents]: UnwrapCustomEvent<GlTreeItemEvents[P]>;
+};
+
+function createEvent<T extends keyof GlTreeItemEventsUnwrapped>(
+	name: T,
+	eventInitDict?: CustomEventInit<GlTreeItemEventsUnwrapped[T]> | undefined,
+): CustomEvent<GlTreeItemEventsUnwrapped[T]> {
+	return new CustomEvent<GlTreeItemEventsUnwrapped[T]>(name, eventInitDict);
 }

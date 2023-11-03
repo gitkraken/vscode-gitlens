@@ -6,7 +6,7 @@ import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 import type { TextDocumentShowOptions } from 'vscode';
 import type { GitFileChangeShape } from '../../../../../git/models/file';
-import type { DraftDetails, State } from '../../../../../plus/webviews/patchDetails/protocol';
+import type { DraftDetails, FileActionParams, State } from '../../../../../plus/webviews/patchDetails/protocol';
 import { makeHierarchical } from '../../../../../system/array';
 import type {
 	TreeItemActionDetail,
@@ -193,17 +193,17 @@ export class GlDraftDetails extends GlTreeBase {
 			switch (layout) {
 				case 'auto':
 					value = 'list';
-					icon = 'list-flat';
+					icon = 'gl-list-auto';
 					label = 'View as List';
 					break;
 				case 'list':
 					value = 'tree';
-					icon = 'list-tree';
+					icon = 'list-flat';
 					label = 'View as Tree';
 					break;
 				case 'tree':
 					value = 'auto';
-					icon = 'gl-list-auto';
+					icon = 'list-tree';
 					label = 'View as Auto';
 					break;
 			}
@@ -533,10 +533,10 @@ export class GlDraftDetails extends GlTreeBase {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
-		const event = new CustomEvent('file-compare-previous', {
+		const event = new CustomEvent<FileActionParams>('file-compare-previous', {
 			detail: {
 				path: file.path,
-				repo: file.repoPath,
+				repoPath: file.repoPath,
 			},
 		});
 		this.dispatchEvent(event);

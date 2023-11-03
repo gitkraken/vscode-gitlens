@@ -12,6 +12,7 @@ import {
 } from '../../../git/actions/commit';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import type { GitCommit } from '../../../git/models/commit';
+import { uncommitted } from '../../../git/models/constants';
 import type { GitDiff } from '../../../git/models/diff';
 import type { GitFileChange } from '../../../git/models/file';
 import type { GitCloudPatch, GitPatch } from '../../../git/models/patch';
@@ -310,7 +311,7 @@ export class PatchDetailsWebviewProvider
 		let params: DidExplainParams;
 
 		try {
-			const commit = await this.getUnreachablePatchCommit();
+			const commit = await this.getOrCreateUnreachableCommitForPatch();
 			if (commit == null) return;
 
 			const summary = await this.container.ai.explainCommit(commit, {
@@ -535,7 +536,7 @@ export class PatchDetailsWebviewProvider
 
 		return {
 			type: 'cloud',
-			commit: (await this.getUnreachablePatchCommit())?.sha,
+			commit: (await this.getOrCreateUnreachableCommitForPatch())?.sha,
 			// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
 			repoPath: patch?.repo?.path!,
 			// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
@@ -615,11 +616,11 @@ export class PatchDetailsWebviewProvider
 	private async getFileCommitFromParams(
 		params: FileActionParams,
 	): Promise<[commit: GitCommit, file: GitFileChange] | undefined> {
-		const commit = await (await this.getUnreachablePatchCommit())?.getCommitForFile(params.path);
+		const commit = await (await this.getOrCreateCommit(params.repoPath))?.getCommitForFile(params.path);
 		return commit != null ? [commit, commit.file!] : undefined;
 	}
 
-	private async getUnreachablePatchCommit2(repoPath: string): Promise<GitCommit | undefined> {
+	private async getOrCreateCommit(repoPath: string): Promise<GitCommit | undefined> {
 		if (this.mode === 'create') {
 			const changeset = find(this._context.create!.changes.values(), cs => cs.repository.path === repoPath);
 			if (changeset == null) return undefined;
@@ -627,15 +628,31 @@ export class PatchDetailsWebviewProvider
 			const change = await changeset.getChange();
 			if (change == null) return undefined;
 
-			// if (change.change.)
-			// return change.commit;
+			if (change.type === 'revision') {
+				if (
+					change.revision.sha === change.revision.baseSha ||
+					change.revision.sha === change.revision.baseSha.substring(0, change.revision.baseSha.length - 1)
+				) {
+					return this.container.git.getCommit(repoPath, change.revision.sha);
+				}
+
+				// TODO: handle ranges
+				debugger;
+			} else if (change.type === 'wip') {
+				return this.container.git.getCommit(repoPath, change.revision.sha ?? uncommitted);
+			}
+
 			return undefined;
+		}
+
+		if (this.mode === 'open') {
+			return this.getOrCreateUnreachableCommitForPatch(repoPath);
 		}
 
 		return undefined;
 	}
 
-	private async getUnreachablePatchCommit(): Promise<GitCommit | undefined> {
+	private async getOrCreateUnreachableCommitForPatch(repoPath?: string): Promise<GitCommit | undefined> {
 		let patch: GitPatch | GitCloudPatch | undefined;
 		switch (this._context.open?.draftType) {
 			case 'local':
@@ -646,26 +663,22 @@ export class PatchDetailsWebviewProvider
 				if (patch == null) return undefined;
 				break;
 			default:
-				// if (this._context.create == null) {
 				throw new Error('Invalid patch type');
-			// }
-
-			// const changeset = first(this._context.create.values());
-			// changeset?.getChange;
-			// patch = {
-			// 	_brand: 'file',
-			// 	contents: first(this._context.create),
-			// };
 		}
 
 		if (patch.repo == null) {
-			const pick = await getRepositoryOrShowPicker(
-				'Patch Details: Select Repository',
-				'Choose which repository this patch belongs to',
-			);
-			if (pick == null) return undefined;
+			const repo = repoPath != null ? this.container.git.getRepository(repoPath) : undefined;
+			if (repo == null) {
+				const pick = await getRepositoryOrShowPicker(
+					'Patch Details: Select Repository',
+					'Choose which repository this patch belongs to',
+				);
+				if (pick == null) return undefined;
 
-			patch.repo = pick;
+				patch.repo = pick;
+			} else {
+				patch.repo = repo;
+			}
 		}
 
 		if (patch.baseRef == null) {
