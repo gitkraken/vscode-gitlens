@@ -3,6 +3,8 @@ import type { Container } from '../../container';
 import type { GitCloudPatch, GitPatch, GitRepositoryData } from '../../git/models/patch';
 import { isSha } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import type { GitUser } from '../../git/models/user';
+import type { GkProviderId } from '../../git/remotes/remoteProvider';
 import { log } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
@@ -75,6 +77,12 @@ export interface DraftPatch {
 	repoData?: GitRepositoryData;
 }
 
+export interface CreateDraftChange {
+	baseSha: string;
+	contents: string;
+	repository: Repository;
+}
+
 export class DraftService implements Disposable {
 	constructor(
 		private readonly container: Container,
@@ -101,57 +109,81 @@ export class DraftService implements Disposable {
 	// 	}
 	// }
 
+	private async getCreateDraftPatchRequest(
+		change: CreateDraftChange,
+	): Promise<{ change: CreateDraftChange; patch: CreateDraftPatchRequest; user: GitUser | undefined }> {
+		const [remoteResult, userResult, branchResult, firstShaResult] = await Promise.allSettled([
+			this.container.git.getBestRemoteWithProvider(change.repository.uri),
+			this.container.git.getCurrentUser(change.repository.uri),
+			change.repository.getBranch(),
+			this.container.git.getFirstCommitSha(change.repository.path),
+		]);
+
+		const firstSha = getSettledValue(firstShaResult);
+		// TODO: what happens if there are multiple remotes -- which one should we use? Do we need to ask? See more notes below
+		const remote = getSettledValue(remoteResult);
+
+		let repoData: GitRepositoryDataRequest;
+		if (remote == null) {
+			if (firstSha == null) throw new Error('No remote or initial commit found');
+
+			repoData = {
+				initialCommitSha: firstSha,
+			};
+		} else {
+			repoData = {
+				initialCommitSha: firstSha,
+				remote: {
+					url: remote.url,
+					domain: remote.domain,
+					path: remote.path,
+				},
+				provider:
+					remote.provider.gkProviderId != null
+						? {
+								id: remote.provider.gkProviderId,
+								repoDomain: remote.provider.domain,
+								repoName: remote.provider.path,
+								// repoOwnerDomain: ??
+						  }
+						: undefined,
+			};
+		}
+
+		const user = getSettledValue(userResult);
+
+		const branch = getSettledValue(branchResult);
+		const branchName = branch?.name ?? '';
+		let baseSha = change.baseSha;
+		if (!isSha(change.baseSha)) {
+			const commit = await change.repository.getCommit(change.baseSha);
+			if (commit == null) throw new Error(`No commit found for ${change.baseSha}`);
+
+			baseSha = commit.sha;
+		}
+
+		return {
+			change: change,
+			patch: {
+				baseCommitSha: baseSha,
+				baseBranchName: branchName,
+				gitRepoData: repoData,
+			},
+			user: user,
+		};
+	}
+
 	@log({ args: { 2: false } })
 	async createDraft(
 		type: 'patch' | 'stash',
 		title: string,
-		{ contents, baseSha, repository }: { contents: string; baseSha: string; repository: Repository },
-		options?: { description?: string },
+		changes: CreateDraftChange[],
+		options?: { description?: string; organizationId?: string },
 	): Promise<Draft | undefined> {
 		const scope = getLogScope();
 
 		try {
-			const [remoteResult, userResult, branchResult, firstShaResult] = await Promise.allSettled([
-				this.container.git.getBestRemoteWithProvider(repository.uri),
-				this.container.git.getCurrentUser(repository.uri),
-				repository.getBranch(),
-				this.container.git.getFirstCommitSha(repository.path),
-			]);
-
-			const firstSha = getSettledValue(firstShaResult);
-			// TODO: what happens if there are multiple remotes -- which one should we use? Do we need to ask? See more notes below
-			const remote = getSettledValue(remoteResult);
-
-			let gitRepoData: GitRepositoryDataRequest;
-			if (remote == null) {
-				if (firstSha == null) throw new Error('No remote or initial commit found');
-				gitRepoData = {
-					initialCommitSha: firstSha,
-				};
-			} else {
-				gitRepoData = {
-					initialCommitSha: firstSha,
-					remoteUrl: remote.url,
-					remoteDomain: remote.domain,
-					remotePath: remote.path,
-					remoteProvider: remote.provider.id,
-					remoteProviderRepoDomain: remote.provider.domain,
-					remoteProviderRepoName: remote.provider.path,
-					// remoteProviderRepoOwnerDomain: ??
-				};
-			}
-
-			const user = getSettledValue(userResult);
-
-			const branch = getSettledValue(branchResult);
-			const branchName = branch?.name ?? '';
-
-			if (!isSha(baseSha)) {
-				const commit = await repository.getCommit(baseSha);
-				if (commit == null) throw new Error(`No commit found for ${baseSha}`);
-
-				baseSha = commit.sha;
-			}
+			const patchesPromise = Promise.allSettled(changes.map(c => this.getCreateDraftPatchRequest(c)));
 
 			type DraftResult = { data: CreateDraftResponse };
 
@@ -169,6 +201,24 @@ export class DraftService implements Disposable {
 			const createDraft = ((await createDraftRsp.json()) as DraftResult).data;
 			const draftId = createDraft.id;
 
+			const results = await patchesPromise;
+			const failed = results.filter(
+				(r: PromiseSettledResult<any>): r is PromiseRejectedResult => r.status === 'rejected',
+			);
+			if (failed.length) {
+				debugger;
+				throw new AggregateError(
+					failed.map(r => r.reason as Error),
+					'Unable to create draft',
+				);
+			}
+
+			const user = getSettledValue(results.find(r => getSettledValue(r)?.user != null))?.user;
+			const patches = results.map(r => {
+				const { change, patch } = getSettledValue(r)!;
+				return [change, patch] as const;
+			});
+
 			type ChangesetResult = { data: CreateDraftChangesetResponse };
 
 			// POST /v1/drafts/:draftId/changesets
@@ -178,33 +228,51 @@ export class DraftService implements Disposable {
 					// parentChangesetId: null,
 					gitUserName: user?.name,
 					gitUserEmail: user?.email,
-					patches: [
-						{
-							baseCommitSha: baseSha,
-							baseBranchName: branchName,
-							gitRepoData: gitRepoData,
-						},
-					],
+					patches: patches.map(([, p]) => p),
 				} satisfies CreateDraftChangesetRequest),
 			});
 
 			const createChangeset = ((await createChangesetRsp.json()) as ChangesetResult).data;
-			const [patch] = createChangeset.patches;
 
-			const { url, method, headers } = patch.secureUploadData;
+			const patchResults: GitCloudPatch[] = [];
 
-			// Upload patch to returned S3 url
-			await this.connection.fetchRaw(url, {
-				method: method,
-				headers: {
-					'Content-Type': 'plain/text',
-					Host: headers?.['Host']?.['0'] ?? '',
-				},
-				body: contents,
-			});
+			let i = 0;
+			for (const patch of createChangeset.patches) {
+				const { url, method, headers } = patch.secureUploadData;
+
+				const { contents, repository } = patches[i++][0];
+				if (contents == null) {
+					debugger;
+					throw new Error(`No contents found for ${patch.baseCommitSha}`);
+				}
+
+				// Upload patch to returned S3 url
+				await this.connection.fetchRaw(url, {
+					method: method,
+					headers: {
+						'Content-Type': 'plain/text',
+						Host: headers?.['Host']?.['0'] ?? '',
+					},
+					body: contents,
+				});
+
+				patchResults.push({
+					type: 'cloud',
+					id: patch.id,
+					changesetId: patch.changesetId,
+					userId: createChangeset.userId,
+					baseBranchName: patch.baseBranchName,
+					baseCommitSha: patch.baseCommitSha,
+
+					contents: contents,
+					repo: repository,
+				});
+			}
 
 			// POST /v1/drafts/:draftId/publish
-			const publishRsp = await this.connection.fetchGkDevApi(`v1/drafts/${draftId}/publish`, { method: 'POST' });
+			const publishRsp = await this.connection.fetchGkDevApi(`v1/drafts/${draftId}/publish`, {
+				method: 'POST',
+			});
 			if (!publishRsp.ok) throw new Error(`Failed to publish draft: ${publishRsp.statusText}`);
 
 			type Result = { data: DraftResponse };
@@ -240,20 +308,10 @@ export class DraftService implements Disposable {
 						deepLinkUrl: createChangeset.deepLink,
 						createdAt: new Date(createChangeset.createdAt),
 						updatedAt: new Date(createChangeset.updatedAt),
-						patches: createChangeset.patches.map(p => ({
-							_brand: 'cloud',
-							id: p.id,
-							changesetId: p.changesetId,
-							userId: createChangeset.userId,
-							baseBranchName: p.baseBranchName,
-							baseCommitSha: p.baseCommitSha,
-							contents: contents,
-
-							repo: repository,
-						})),
+						patches: patchResults,
 					},
 				],
-			};
+			} satisfies Draft;
 		} catch (ex) {
 			debugger;
 			Logger.error(ex, scope);
@@ -350,7 +408,7 @@ export class DraftService implements Disposable {
 				});
 
 				patches.push({
-					_brand: 'cloud',
+					type: 'cloud',
 					id: p.id,
 					changesetId: p.changesetId,
 					userId: c.userId,
@@ -497,23 +555,20 @@ type BaseGitRepositoryDataRequestWithCommitSha = BaseGitRepositoryDataRequest & 
 };
 
 type BaseGitRepositoryDataRequestWithRemote = BaseGitRepositoryDataRequest & {
-	remoteUrl: string;
-	remoteDomain: string;
-	remotePath: string;
+	remote: { url: string; domain: string; path: string };
 };
 
 type BaseGitRepositoryDataRequestWithRemoteProvider = BaseGitRepositoryDataRequestWithRemote & {
-	remoteProvider: string;
-	remoteProviderRepoDomain: string;
-	remoteProviderRepoName: string;
-	remoteProviderRepoOwnerDomain?: string;
+	provider: {
+		id: GkProviderId;
+		repoDomain: string;
+		repoName: string;
+		repoOwnerDomain?: string;
+	};
 };
 
 type BaseGitRepositoryDataRequestWithoutRemoteProvider = BaseGitRepositoryDataRequestWithRemote & {
-	remoteProvider?: never;
-	remoteProviderRepoDomain?: never;
-	remoteProviderRepoName?: never;
-	remoteProviderRepoOwnerDomain?: never;
+	provider?: never;
 };
 
 type GitRepositoryDataRequest =

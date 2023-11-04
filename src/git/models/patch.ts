@@ -10,7 +10,7 @@ export interface RevisionRange {
 }
 
 export interface GitPatch {
-	readonly _brand: 'file';
+	readonly type: 'local';
 	readonly contents: string;
 
 	readonly id?: undefined;
@@ -44,7 +44,7 @@ export interface GitRepositoryData {
 }
 
 export interface GitCloudPatch {
-	readonly _brand: 'cloud';
+	readonly type: 'cloud';
 	contents?: string;
 
 	readonly id: string;

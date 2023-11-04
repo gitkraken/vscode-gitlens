@@ -342,7 +342,7 @@ export class OpenPatchCommand extends ActiveEditorCommand {
 		const patch: LocalDraft = {
 			draftType: 'local',
 			patch: {
-				_brand: 'file',
+				type: 'local',
 				uri: document.uri,
 				contents: document.getText(),
 			},

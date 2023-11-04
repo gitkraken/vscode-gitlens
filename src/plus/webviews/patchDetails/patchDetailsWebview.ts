@@ -17,7 +17,6 @@ import type { GitDiff } from '../../../git/models/diff';
 import { GitFileChange } from '../../../git/models/file';
 import type { GitCloudPatch, GitPatch, RevisionRange } from '../../../git/models/patch';
 import { createReference } from '../../../git/models/reference';
-import type { Repository } from '../../../git/models/repository';
 import { showCommitPicker } from '../../../quickpicks/commitPicker';
 import { getRepositoryOrShowPicker } from '../../../quickpicks/repositoryPicker';
 import { executeCommand, registerCommand } from '../../../system/command';
@@ -32,7 +31,7 @@ import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
 import type { WebviewShowOptions } from '../../../webviews/webviewsController';
-import type { Draft, LocalDraft } from '../../drafts/draftsService';
+import type { CreateDraftChange, Draft, LocalDraft } from '../../drafts/draftsService';
 import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
 import type {
 	ApplyPatchParams,
@@ -516,7 +515,7 @@ export class PatchDetailsWebviewProvider
 			}, 1);
 		}
 
-		if (draft.draftType === 'local' || patch?._brand === 'file') {
+		if (draft.draftType === 'local' || patch?.type === 'local') {
 			if (patch && patch.repo == null) {
 				const repo = this.container.git.getBestRepository();
 				if (repo != null) {
@@ -1112,19 +1111,19 @@ export class PatchDetailsWebviewProvider
 	// create a patch from the current working tree or from a commit
 	// create a draft from the resulting patch
 	// how do I incorporate branch
-	private async createDraft({ title, changesets, description }: CreatePatchParams): Promise<void> {
+	private async createDraft({ title, changesets, description }: CreatePatchParams): Promise<Draft | undefined> {
 		// const changeContents = await this.getChangeContents(changesets);
-		const changeContents: { contents: string; baseSha: string; repository: Repository }[] = [];
+		const createChanges: CreateDraftChange[] = [];
 		for (const [id, changeset] of Object.entries(changesets)) {
 			if (changeset.checked === false) continue;
 
-			const repositoryChangeSet = this._context.create?.changes?.get(id);
-			if (repositoryChangeSet == null) continue;
+			const repoChangeset = this._context.create?.changes?.get(id);
+			if (repoChangeset == null) continue;
 
 			const {
-				range: { baseSha, branchName },
+				revision: { baseSha, branchName },
 				repository,
-			} = repositoryChangeSet;
+			} = repoChangeset;
 
 			let diff: GitDiff | undefined;
 			if (changeset.type === 'wip') {
@@ -1151,22 +1150,20 @@ export class PatchDetailsWebviewProvider
 			}
 			if (diff == null) continue;
 
-			changeContents.push({
+			createChanges.push({
 				repository: repository,
 				baseSha: baseSha,
 				contents: diff.contents,
 			});
 		}
-		if (changeContents == null) return;
+		if (createChanges == null) return;
 
-		// TODO: support multiple changesets in createDraft
-		// const draft = await this.container.drafts.createDraft(
-		// 	'patch',
-		// 	title,
-		// 	changeContents,
-		// 	description ? { description: description } : undefined,
-		// );
-
-		return Promise.resolve();
+		const draft = await this.container.drafts.createDraft(
+			'patch',
+			title,
+			createChanges,
+			description ? { description: description } : undefined,
+		);
+		return draft;
 	}
 }

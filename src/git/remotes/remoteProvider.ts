@@ -10,6 +10,26 @@ import { RemoteResourceType } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
 import type { RichRemoteProvider } from './richRemoteProvider';
 
+export type RemoteProviderId =
+	| 'azure-devops'
+	| 'bitbucket'
+	| 'bitbucket-server'
+	| 'custom'
+	| 'gerrit'
+	| 'gitea'
+	| 'github'
+	| 'gitlab'
+	| 'google-source';
+
+export type GkProviderId =
+	| 'github'
+	| 'githubEnterprise'
+	| 'gitlab'
+	| 'gitlabSelfHosted'
+	| 'bitbucket'
+	| 'bitbucketServer'
+	| 'azureDevops';
+
 export abstract class RemoteProvider implements RemoteProviderReference {
 	readonly type: 'simple' | 'rich' = 'simple';
 	protected readonly _name: string | undefined;
@@ -49,7 +69,8 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 		return this.path.split('/')[0];
 	}
 
-	abstract get id(): string;
+	abstract get id(): RemoteProviderId;
+	abstract get gkProviderId(): GkProviderId | undefined;
 	abstract get name(): string;
 
 	async copy(resource: RemoteResource): Promise<void> {

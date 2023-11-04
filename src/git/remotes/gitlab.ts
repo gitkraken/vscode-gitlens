@@ -21,6 +21,7 @@ import type { PullRequest, PullRequestState, SearchedPullRequest } from '../mode
 import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
 import type { RepositoryMetadata } from '../models/repositoryMetadata';
+import type { GkProviderId, RemoteProviderId } from './remoteProvider';
 import { ensurePaidPlan, RichRemoteProvider } from './richRemoteProvider';
 
 const autolinkFullIssuesRegex = /\b([^/\s]+\/[^/\s]+?)(?:\\)?#([0-9]+)\b(?!]\()/g;
@@ -29,6 +30,10 @@ const fileRegex = /^\/([^/]+)\/([^/]+?)\/-\/blob(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-(\d+))?$/;
 
 const authProvider = Object.freeze({ id: 'gitlab', scopes: ['read_api', 'read_user', 'read_repository'] });
+
+function isGitLabDotCom(domain: string): boolean {
+	return equalsIgnoreCase(domain, 'gitlab.com');
+}
 
 type GitLabRepositoryDescriptor =
 	| {
@@ -271,8 +276,12 @@ export class GitLabRemote extends RichRemoteProvider<GitLabRepositoryDescriptor>
 		return 'gitlab';
 	}
 
-	get id() {
+	get id(): RemoteProviderId {
 		return 'gitlab';
+	}
+
+	get gkProviderId(): GkProviderId {
+		return !isGitLabDotCom(this.domain) ? 'gitlabSelfHosted' : 'gitlab';
 	}
 
 	get name() {

@@ -22,6 +22,7 @@ import type { PullRequest, PullRequestState, SearchedPullRequest } from '../mode
 import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
 import type { RepositoryMetadata } from '../models/repositoryMetadata';
+import type { GkProviderId, RemoteProviderId } from './remoteProvider';
 import { ensurePaidPlan, RichRemoteProvider } from './richRemoteProvider';
 
 const autolinkFullIssuesRegex = /\b([^/\s]+\/[^/\s]+?)(?:\\)?#([0-9]+)\b(?!]\()/g;
@@ -188,8 +189,12 @@ export class GitHubRemote extends RichRemoteProvider<GitHubRepositoryDescriptor>
 		return 'github';
 	}
 
-	get id() {
+	get id(): RemoteProviderId {
 		return 'github';
+	}
+
+	get gkProviderId(): GkProviderId {
+		return !isGitHubDotCom(this.domain) ? 'githubEnterprise' : 'github';
 	}
 
 	get name() {

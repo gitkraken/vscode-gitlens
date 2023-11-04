@@ -2,6 +2,7 @@ import type { Range, Uri } from 'vscode';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
 import type { Repository } from '../models/repository';
+import type { GkProviderId, RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
 const gitRegex = /\/_git\/?/i;
@@ -73,8 +74,12 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		return 'azdo';
 	}
 
-	get id() {
+	get id(): RemoteProviderId {
 		return 'azure-devops';
+	}
+
+	get gkProviderId(): GkProviderId {
+		return 'azureDevops';
 	}
 
 	get name() {

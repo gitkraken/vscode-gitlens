@@ -3,6 +3,7 @@ import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
 import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
+import type { GkProviderId, RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/src(.+)$/i;
@@ -50,8 +51,12 @@ export class BitbucketServerRemote extends RemoteProvider {
 		return 'bitbucket';
 	}
 
-	get id() {
+	get id(): RemoteProviderId {
 		return 'bitbucket-server';
+	}
+
+	get gkProviderId(): GkProviderId {
+		return 'bitbucketServer';
 	}
 
 	get name() {

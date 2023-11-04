@@ -9,7 +9,7 @@ import type { Change, ChangeType, RevisionChange } from './protocol';
 export interface RepositoryChangeset extends Disposable {
 	type: ChangeType;
 	repository: Repository;
-	range: RevisionRange;
+	revision: RevisionRange;
 	getChange(): Promise<Change>;
 
 	suspend(): void;
@@ -25,7 +25,7 @@ export class RepositoryRefChangeset implements RepositoryChangeset {
 	constructor(
 		private readonly container: Container,
 		public readonly repository: Repository,
-		public readonly range: RevisionRange,
+		public readonly revision: RevisionRange,
 		private readonly files: RevisionChange['files'],
 		checked: Change['checked'],
 		expanded: boolean,
@@ -77,7 +77,7 @@ export class RepositoryRefChangeset implements RepositoryChangeset {
 				path: this.repository.path,
 				uri: this.repository.uri.toString(),
 			},
-			revision: this.range,
+			revision: this.revision,
 			files: this.files, //filesResult?.files,
 			checked: this.checked,
 			expanded: this.expanded,
@@ -113,7 +113,7 @@ export class RepositoryWipChangeset implements RepositoryChangeset {
 	constructor(
 		private readonly container: Container,
 		public readonly repository: Repository,
-		public readonly range: RevisionRange,
+		public readonly revision: RevisionRange,
 		private readonly onDidChangeRepositoryWip: (e: RepositoryWipChangeset) => void,
 		checked: Change['checked'],
 		expanded: boolean,
@@ -181,7 +181,7 @@ export class RepositoryWipChangeset implements RepositoryChangeset {
 				path: this.repository.path,
 				uri: this.repository.uri.toString(),
 			},
-			revision: this.range,
+			revision: this.revision,
 			files: filesResult?.files,
 			checked: this.checked,
 			expanded: this.expanded,
