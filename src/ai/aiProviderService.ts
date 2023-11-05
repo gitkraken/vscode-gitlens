@@ -75,9 +75,9 @@ export class AIProviderService implements Disposable {
 			if (repository == null) throw new Error('Unable to find repository');
 
 			let diff = await this.container.git.getDiff(repository.uri, uncommittedStaged);
-			if (diff == null) {
+			if (!diff?.contents) {
 				diff = await this.container.git.getDiff(repository.uri, uncommitted);
-				if (diff == null) throw new Error('No changes to generate a commit message from.');
+				if (!diff?.contents) throw new Error('No changes to generate a commit message from.');
 			}
 			if (options?.cancellation?.isCancellationRequested) return undefined;
 
@@ -128,7 +128,7 @@ export class AIProviderService implements Disposable {
 		if (commit == null) throw new Error('Unable to find commit');
 
 		const diff = await this.container.git.getDiff(commit.repoPath, commit.sha);
-		if (diff == null) throw new Error('No changes found to explain.');
+		if (!diff?.contents) throw new Error('No changes found to explain.');
 
 		const provider = this.provider;
 
