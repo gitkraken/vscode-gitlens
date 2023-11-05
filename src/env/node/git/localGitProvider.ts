@@ -129,7 +129,7 @@ import { parseGitRefLog } from '../../../git/parsers/reflogParser';
 import { parseGitRemotes } from '../../../git/parsers/remoteParser';
 import { parseGitStatus } from '../../../git/parsers/statusParser';
 import { parseGitTags } from '../../../git/parsers/tagParser';
-import { parseGitTree } from '../../../git/parsers/treeParser';
+import { parseGitLsFiles, parseGitTree } from '../../../git/parsers/treeParser';
 import { parseGitWorktrees } from '../../../git/parsers/worktreeParser';
 import { getRemoteProviderMatcher, loadRemoteProviders } from '../../../git/remotes/remoteProviders';
 import type { GitSearch, GitSearchResultData, GitSearchResults, SearchQuery } from '../../../git/search';
@@ -874,7 +874,21 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			return undefined;
 		}
 
-		if (isUncommittedStaged(ref)) return this.getScmGitUri(path, repoPath);
+		// If the ref is the index, then try to create a Uri using the Git extension, but if we can't find a repo for it, then generate our own Uri
+		if (isUncommittedStaged(ref)) {
+			let scmRepo = await this.getScmRepository(repoPath);
+			if (scmRepo == null) {
+				// If the repoPath is a canonical path, then we need to remap it to the real path, because the vscode.git extension always uses the real path
+				const realUri = this.fromCanonicalMap.get(repoPath);
+				if (realUri != null) {
+					scmRepo = await this.getScmRepository(realUri.fsPath);
+				}
+			}
+
+			if (scmRepo != null) {
+				return this.getScmGitUri(path, repoPath);
+			}
+		}
 
 		return this.getRevisionUri(repoPath, path, ref);
 	}
@@ -916,9 +930,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 	}
 
 	getRevisionUri(repoPath: string, path: string, ref: string): Uri {
-		if (isUncommitted(ref)) {
-			return isUncommittedStaged(ref) ? this.getScmGitUri(path, repoPath) : this.getAbsoluteUri(path, repoPath);
-		}
+		if (isUncommitted(ref) && !isUncommittedStaged(ref)) return this.getAbsoluteUri(path, repoPath);
 
 		let uncPath;
 
@@ -2751,8 +2763,8 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			if (ref2 != null) {
 				params.push(ref2);
 			} else {
-			// Get only unstaged changes
-			ref2 = 'HEAD';
+				// Get only unstaged changes
+				ref2 = 'HEAD';
 			}
 		} else if (ref1 === uncommittedStaged) {
 			params.push('--staged');
@@ -4082,37 +4094,37 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			// If line is uncommitted, we need to dig deeper to figure out where to go (because blame can't be trusted)
 			if (blameLine.commit.isUncommitted) {
-					// Check the file status to see if there is anything staged
-					const status = await this.getStatusForFile(repoPath, uri);
-					if (status != null) {
-						// If the file is staged, diff working with staged (index)
-						// If the file is not staged, diff working with HEAD
-						if (status.indexStatus != null) {
-							// Diff working with staged
-							return {
-								current: GitUri.fromFile(relativePath, repoPath, undefined),
-								previous: GitUri.fromFile(relativePath, repoPath, uncommittedStaged),
-								line: editorLine,
-							};
-						}
+				// Check the file status to see if there is anything staged
+				const status = await this.getStatusForFile(repoPath, uri);
+				if (status != null) {
+					// If the file is staged, diff working with staged (index)
+					// If the file is not staged, diff working with HEAD
+					if (status.indexStatus != null) {
+						// Diff working with staged
+						return {
+							current: GitUri.fromFile(relativePath, repoPath, undefined),
+							previous: GitUri.fromFile(relativePath, repoPath, uncommittedStaged),
+							line: editorLine,
+						};
 					}
-
-					// Diff working with HEAD (or prior if more skips)
-					return {
-						current: GitUri.fromFile(relativePath, repoPath, undefined),
-						previous: await this.getPreviousUri(repoPath, uri, undefined, skip, editorLine),
-						line: editorLine,
-					};
 				}
 
-			// If line is committed, diff with line ref with previous
-				ref = blameLine.commit.sha;
-				relativePath = blameLine.commit.file?.path ?? blameLine.commit.file?.originalPath ?? relativePath;
-				uri = this.getAbsoluteUri(relativePath, repoPath);
-				editorLine = blameLine.line.originalLine - 1;
+				// Diff working with HEAD (or prior if more skips)
+				return {
+					current: GitUri.fromFile(relativePath, repoPath, undefined),
+					previous: await this.getPreviousUri(repoPath, uri, undefined, skip, editorLine),
+					line: editorLine,
+				};
+			}
 
-				if (skip === 0 && blameLine.commit.file?.previousSha) {
-					previous = GitUri.fromFile(relativePath, repoPath, blameLine.commit.file.previousSha);
+			// If line is committed, diff with line ref with previous
+			ref = blameLine.commit.sha;
+			relativePath = blameLine.commit.file?.path ?? blameLine.commit.file?.originalPath ?? relativePath;
+			uri = this.getAbsoluteUri(relativePath, repoPath);
+			editorLine = blameLine.line.originalLine - 1;
+
+			if (skip === 0 && blameLine.commit.file?.previousSha) {
+				previous = GitUri.fromFile(relativePath, repoPath, blameLine.commit.file.previousSha);
 			}
 		} else {
 			if (isUncommittedStaged(ref)) {
@@ -4526,6 +4538,20 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		if (repoPath == null || !path) return undefined;
 
 		const [relativePath, root] = splitPath(path, repoPath);
+
+		if (isUncommittedStaged(ref)) {
+			const data = await this.git.ls_files(root, relativePath, { ref: ref });
+			const [result] = parseGitLsFiles(data);
+			if (result == null) return undefined;
+
+			const size = await this.git.cat_file__size(repoPath, result.object);
+			return {
+				commitSha: ref,
+				path: relativePath,
+				size: size,
+				type: 'blob',
+			};
+		}
 
 		const data = await this.git.ls_tree(root, ref, relativePath);
 		return parseGitTree(data)[0];
