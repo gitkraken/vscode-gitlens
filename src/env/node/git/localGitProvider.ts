@@ -2744,17 +2744,22 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		ref2?: string,
 		options?: { context?: number },
 	): Promise<GitDiff | undefined> {
+		const scope = getLogScope();
 		const params = [`-U${options?.context ?? 3}`];
 
 		if (ref1 === uncommitted) {
+			if (ref2 != null) {
+				params.push(ref2);
+			} else {
 			// Get only unstaged changes
 			ref2 = 'HEAD';
+			}
 		} else if (ref1 === uncommittedStaged) {
-			// Get up to staged changes
 			params.push('--staged');
 			if (ref2 != null) {
 				params.push(ref2);
 			} else {
+				// Get only staged changes
 				ref2 = 'HEAD';
 			}
 		} else if (ref2 == null) {
@@ -2769,8 +2774,14 @@ export class LocalGitProvider implements GitProvider, Disposable {
 			params.push(ref1, ref2);
 		}
 
-		const data = await this.git.diff2(repoPath, undefined, ...params);
-		if (!data) return undefined;
+		let data;
+		try {
+			data = await this.git.diff2(repoPath, { errors: GitErrorHandling.Throw }, ...params);
+		} catch (ex) {
+			debugger;
+			Logger.error(ex, scope);
+			return undefined;
+		}
 
 		const diff: GitDiff = { baseSha: ref2, contents: data };
 		return diff;
