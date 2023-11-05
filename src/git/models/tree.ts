@@ -4,3 +4,10 @@ export interface GitTreeEntry {
 	size: number;
 	type: 'blob' | 'tree';
 }
+
+export interface GitLsFilesEntry {
+	mode: string;
+	path: string;
+	object: string;
+	stage: number;
+}

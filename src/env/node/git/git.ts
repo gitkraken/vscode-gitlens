@@ -513,6 +513,11 @@ export class Git {
 		);
 	}
 
+	async cat_file__size(repoPath: string, object: string): Promise<number> {
+		const data = await this.git<string>({ cwd: repoPath }, 'cat-file', '-s', object);
+		return data.length ? parseInt(data.trim(), 10) : 0;
+	}
+
 	check_ignore(repoPath: string, ...files: string[]) {
 		return this.git<string>(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore, stdin: files.join('\0') },
@@ -1478,14 +1483,18 @@ export class Git {
 	async ls_files(
 		repoPath: string,
 		fileName: string,
-		{ ref, untracked }: { ref?: string; untracked?: boolean } = {},
+		options?: { ref?: string; untracked?: boolean },
 	): Promise<string | undefined> {
 		const params = ['ls-files'];
-		if (ref && !isUncommitted(ref)) {
-			params.push(`--with-tree=${ref}`);
+		if (options?.ref) {
+			if (!isUncommitted(options.ref)) {
+				params.push(`--with-tree=${options.ref}`);
+			} else if (isUncommittedStaged(options.ref)) {
+				params.push('--stage');
+			}
 		}
 
-		if (!ref && untracked) {
+		if (!options?.ref && options?.untracked) {
 			params.push('-o');
 		}
 

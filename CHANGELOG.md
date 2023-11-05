@@ -62,6 +62,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issue showing folder history in the _File History_ view when there are uncommitted changes (staged or unstaged)
 - Fixes issue when pushing to a remote branch with different name than the local
 - Fixes tooltip styling/theming on the _Commit Graph_
+- Fixes issues staged files in repositories not "opened" (discovered) by the built-in Git extension
 
 ## [14.4.0] - 2023-10-13
 
