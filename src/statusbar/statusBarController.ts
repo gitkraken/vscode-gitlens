@@ -349,7 +349,7 @@ export class StatusBarController implements Disposable {
 			pr: Promise<PullRequest | undefined> | PullRequest | undefined,
 			timeout?: number,
 		) {
-			return detailsMessage(container, commit, commit.getGitUri(), commit.lines[0].line, {
+			return detailsMessage(container, commit, commit.getGitUri(), commit.lines[0].line - 1, {
 				autolinks: true,
 				cancellation: cancellation,
 				dateFormat: defaultDateFormat,
