@@ -15433,7 +15433,7 @@
 		"esbuild": "0.19.5",
 		"esbuild-loader": "4.0.2",
 		"esbuild-sass-plugin": "2.16.0",
-		"eslint": "8.52.0",
+		"eslint": "8.53.0",
 		"eslint-cli": "1.1.1",
 		"eslint-config-prettier": "9.0.0",
 		"eslint-import-resolver-typescript": "3.6.1",
