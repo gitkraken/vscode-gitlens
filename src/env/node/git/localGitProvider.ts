@@ -4071,8 +4071,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 			// If line is uncommitted, we need to dig deeper to figure out where to go (because blame can't be trusted)
 			if (blameLine.commit.isUncommitted) {
-				// If the document is dirty (unsaved), use the status to determine where to go
-				if (document.isDirty) {
 					// Check the file status to see if there is anything staged
 					const status = await this.getStatusForFile(repoPath, uri);
 					if (status != null) {
@@ -4096,21 +4094,7 @@ export class LocalGitProvider implements GitProvider, Disposable {
 					};
 				}
 
-				// First, check if we have a diff in the working tree
-				let hunkLine = await this.getDiffForLine(gitUri, editorLine, undefined);
-				if (hunkLine == null) {
-					// Next, check if we have a diff in the index (staged)
-					hunkLine = await this.getDiffForLine(gitUri, editorLine, undefined, uncommittedStaged);
-
-					if (hunkLine != null) {
-						ref = uncommittedStaged;
-					} else {
-						skip++;
-					}
-				}
-			}
 			// If line is committed, diff with line ref with previous
-			else {
 				ref = blameLine.commit.sha;
 				relativePath = blameLine.commit.file?.path ?? blameLine.commit.file?.originalPath ?? relativePath;
 				uri = this.getAbsoluteUri(relativePath, repoPath);
@@ -4118,7 +4102,6 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 				if (skip === 0 && blameLine.commit.file?.previousSha) {
 					previous = GitUri.fromFile(relativePath, repoPath, blameLine.commit.file.previousSha);
-				}
 			}
 		} else {
 			if (isUncommittedStaged(ref)) {
