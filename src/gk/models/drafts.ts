@@ -1,6 +1,8 @@
-import type { GitCloudPatch, GitPatch, GitRepositoryData } from '../../git/models/patch';
+import type { GitCommit } from '../../git/models/commit';
+import type { GitFileChangeShape } from '../../git/models/file';
+import type { GitPatch } from '../../git/models/patch';
 import type { Repository } from '../../git/models/repository';
-import type { GkRepositoryId, RepositoryIdentityRequest } from './repositoryIdentities';
+import type { GkRepositoryId, RepositoryIdentity, RepositoryIdentityRequest } from './repositoryIdentities';
 
 export interface LocalDraft {
 	readonly draftType: 'local';
@@ -12,33 +14,34 @@ export interface Draft {
 	readonly draftType: 'cloud';
 	readonly type: 'patch' | 'stash';
 	readonly id: string;
-
-	readonly createdBy: string; // userId of creator
-	readonly organizationId?: string;
-
-	readonly deepLinkUrl: string;
-	readonly isPublic: boolean;
-	readonly latestChangesetId: string;
-
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
+	readonly createdBy: string; // userId of creator
+	readonly author?: {
+		readonly id: string;
+		readonly name: string;
+		readonly email: string | undefined;
+		avatar?: string;
+	};
+	readonly organizationId?: string;
+	readonly isPublished: boolean;
 
 	readonly title: string;
 	readonly description?: string;
 
-	readonly user?: {
-		readonly id: string;
-		readonly name: string;
-		readonly email: string;
-	};
+	readonly deepLinkUrl: string;
+	readonly deepLinkAccess: 'public' | 'private';
 
+	readonly latestChangesetId: string;
 	changesets?: DraftChangeset[];
 }
 
 export interface DraftChangeset {
 	readonly id: string;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
 	readonly draftId: string;
-	readonly parentChangesetId: string;
+	readonly parentChangesetId: string | undefined;
 
 	readonly userId: string;
 	readonly gitUserName: string;
@@ -46,26 +49,29 @@ export interface DraftChangeset {
 
 	readonly deepLinkUrl?: string;
 
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-
-	readonly patches: GitCloudPatch[];
+	readonly patches: DraftPatch[];
 }
 
 export interface DraftPatch {
+	readonly type: 'cloud';
 	readonly id: string;
-	// readonly draftId: string;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+	readonly draftId: string;
 	readonly changesetId: string;
 	readonly userId: string;
 
 	readonly baseBranchName: string;
-	readonly baseCommitSha: string;
+	/*readonly*/ baseRef: string;
 
-	readonly gitRepositoryId?: GkRepositoryId;
+	readonly gkRepositoryId: GkRepositoryId;
+	repoData?: RepositoryIdentity;
+	readonly secureLink: DraftPatchResponse['secureDownloadData'];
 
+	commit?: GitCommit;
 	contents?: string;
-	repo?: Repository;
-	repoData?: GitRepositoryData;
+	files?: GitFileChangeShape[];
+	repository?: Repository;
 }
 
 export interface CreateDraftChange {
@@ -87,37 +93,69 @@ export interface CreateDraftResponse {
 	deepLink: string;
 }
 
-export interface CreateDraftChangesetRequest {
+export interface DraftResponse {
+	readonly type: 'patch' | 'stash';
+	readonly id: string;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+	readonly createdBy: string;
+	readonly organizationId?: string;
+	readonly isPublished: boolean;
+
+	readonly title: string;
+	readonly description?: string;
+
+	readonly deepLink: string;
+	readonly isPublic: boolean;
+	readonly latestChangesetId: string;
+}
+
+export interface DraftChangesetCreateRequest {
 	parentChangesetId?: string | null;
 	gitUserName?: string;
 	gitUserEmail?: string;
-	patches: CreateDraftPatchRequest[];
+	patches: DraftPatchCreateRequest[];
 }
 
-export interface CreateDraftChangesetResponse {
+export interface DraftChangesetCreateResponse {
 	readonly id: string;
+	readonly createdAt: string;
+	readonly updatedAt: string;
 	readonly draftId: string;
-	readonly parentChangesetId: string;
-
+	readonly parentChangesetId: string | undefined;
 	readonly userId: string;
 	readonly gitUserName: string;
 	readonly gitUserEmail: string;
 
 	readonly deepLink?: string;
-
-	readonly createdAt: string;
-	readonly updatedAt: string;
-	readonly patches: CreateDraftPatchResponse[];
+	readonly patches: DraftPatchCreateResponse[];
 }
 
-export interface CreateDraftPatchRequest {
+export interface DraftChangesetResponse {
+	readonly id: string;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+	readonly draftId: string;
+	readonly parentChangesetId: string | undefined;
+	readonly userId: string;
+	readonly gitUserName: string;
+	readonly gitUserEmail: string;
+
+	readonly deepLink?: string;
+	readonly patches: DraftPatchResponse[];
+}
+
+export interface DraftPatchCreateRequest {
 	baseCommitSha: string;
 	baseBranchName: string;
 	gitRepoData: RepositoryIdentityRequest;
 }
 
-export interface CreateDraftPatchResponse {
+export interface DraftPatchCreateResponse {
 	readonly id: string;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+	readonly draftId: string;
 	readonly changesetId: string;
 
 	readonly baseCommitSha: string;
@@ -133,60 +171,24 @@ export interface CreateDraftPatchResponse {
 	};
 }
 
-export interface DraftResponse {
-	readonly id: string;
-	readonly type: 'patch' | 'stash';
-	readonly createdBy: string;
-	readonly organizationId?: string;
-
-	readonly deepLink: string;
-	readonly isPublic: boolean;
-	readonly latestChangesetId: string;
-
-	readonly createdAt: string;
-	readonly updatedAt: string;
-
-	readonly title: string;
-	readonly description?: string;
-}
-
-export interface DraftChangesetResponse {
-	readonly id: string;
-	readonly draftId: string;
-	readonly parentChangesetId: string;
-
-	readonly userId: string;
-	readonly gitUserName: string;
-	readonly gitUserEmail: string;
-
-	readonly deepLink?: string;
-
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-
-	readonly patches: DraftPatchResponse[];
-}
-
 export interface DraftPatchResponse {
 	readonly id: string;
-
+	readonly createdAt: string;
+	readonly updatedAt: string;
+	readonly draftId: string;
 	readonly changesetId: string;
 	readonly userId: string;
 
 	readonly baseCommitSha: string;
 	readonly baseBranchName: string;
+	readonly gitRepositoryId: GkRepositoryId;
+	// readonly gitRepositoryData: RepositoryIdentity;
 
 	readonly secureDownloadData: {
-		readonly url: string;
-		readonly method: string;
 		readonly headers: {
 			readonly Host: string[];
 		};
+		readonly method: string;
+		readonly url: string;
 	};
-
-	readonly gitRepositoryId: GkRepositoryId;
-	readonly gitRepositoryData: GitRepositoryData;
-
-	readonly createdAt: string;
-	readonly updatedAt: string;
 }

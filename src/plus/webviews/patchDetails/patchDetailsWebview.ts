@@ -15,9 +15,9 @@ import type { GitCommit } from '../../../git/models/commit';
 import { uncommitted } from '../../../git/models/constants';
 import type { GitDiff } from '../../../git/models/diff';
 import { GitFileChange } from '../../../git/models/file';
-import type { GitCloudPatch, GitPatch, RevisionRange } from '../../../git/models/patch';
+import type { GitPatch, RevisionRange } from '../../../git/models/patch';
 import { createReference } from '../../../git/models/reference';
-import type { CreateDraftChange, Draft, LocalDraft } from '../../../gk/models/drafts';
+import type { CreateDraftChange, Draft, DraftPatch, LocalDraft } from '../../../gk/models/drafts';
 import { showCommitPicker } from '../../../quickpicks/commitPicker';
 import { getRepositoryOrShowPicker } from '../../../quickpicks/repositoryPicker';
 import { executeCommand, registerCommand } from '../../../system/command';
@@ -498,7 +498,7 @@ export class PatchDetailsWebviewProvider
 
 		const draft = current.open;
 
-		let patch: GitPatch | GitCloudPatch | undefined;
+		let patch: GitPatch | DraftPatch | undefined;
 		if (draft.draftType === 'local') {
 			patch = draft.patch;
 		} else {
@@ -516,32 +516,32 @@ export class PatchDetailsWebviewProvider
 		}
 
 		if (draft.draftType === 'local' || patch?.type === 'local') {
-			if (patch && patch.repo == null) {
+			if (patch && patch.repository == null) {
 				const repo = this.container.git.getBestRepository();
 				if (repo != null) {
-					patch.repo = repo;
+					patch.repository = repo;
 				}
 			}
 			return {
 				type: 'local',
 				files: patch?.files,
-				repoPath: patch?.repo?.path,
-				repoName: patch?.repo?.name,
+				repoPath: patch?.repository?.path,
+				repoName: patch?.repository?.name,
 				baseRef: patch?.baseRef,
 			};
 		}
 
-		if (patch != null && patch.baseRef == null) {
-			patch.baseRef = patch.baseCommitSha;
-		}
+		// if (patch != null && patch.baseRef == null) {
+		// 	patch.baseRef = patch.baseRef;
+		// }
 
 		return {
 			type: 'cloud',
 			commit: (await this.getOrCreateUnreachableCommitForPatch())?.sha,
 			// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-			repoPath: patch?.repo?.path!,
+			repoPath: patch?.repository?.path!,
 			// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-			repoName: patch?.repo?.name!,
+			repoName: patch?.repository?.name!,
 			author: {
 				name: 'You',
 				email: 'no@way.com',
@@ -597,7 +597,7 @@ export class PatchDetailsWebviewProvider
 		return this.host.notify(DidChangePreferencesNotificationType, { preferences: this._context.preferences });
 	}
 
-	private async getDraftPatch(draft: Draft): Promise<GitCloudPatch | undefined> {
+	private async getDraftPatch(draft: Draft): Promise<DraftPatch | undefined> {
 		if (draft.changesets == null) {
 			const changesets = await this.container.drafts.getChangesets(draft.id);
 			draft.changesets = changesets;
@@ -676,7 +676,7 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private async getOrCreateUnreachableCommitForPatch(repoPath?: string): Promise<GitCommit | undefined> {
-		let patch: GitPatch | GitCloudPatch | undefined;
+		let patch: GitPatch | DraftPatch | undefined;
 		switch (this._context.open?.draftType) {
 			case 'local':
 				patch = this._context.open.patch;
@@ -689,7 +689,7 @@ export class PatchDetailsWebviewProvider
 				throw new Error('Invalid patch type');
 		}
 
-		if (patch.repo == null) {
+		if (patch.repository == null) {
 			const repo = repoPath != null ? this.container.git.getRepository(repoPath) : undefined;
 			if (repo == null) {
 				const pick = await getRepositoryOrShowPicker(
@@ -698,15 +698,15 @@ export class PatchDetailsWebviewProvider
 				);
 				if (pick == null) return undefined;
 
-				patch.repo = pick;
+				patch.repository = pick;
 			} else {
-				patch.repo = repo;
+				patch.repository = repo;
 			}
 		}
 
 		if (patch.baseRef == null) {
 			const pick = await showCommitPicker(
-				this.container.git.getLog(patch.repo.uri),
+				this.container.git.getLog(patch.repository.uri),
 				'Patch Details: Select Base',
 				'Choose the base which this patch was created from or should be applied to',
 			);
@@ -718,7 +718,7 @@ export class PatchDetailsWebviewProvider
 		if (patch.commit == null) {
 			try {
 				const commit = await this.container.git.createUnreachableCommitForPatch(
-					patch.repo.uri,
+					patch.repository.uri,
 					patch.contents!,
 					patch.baseRef ?? 'HEAD',
 					'PATCH',
@@ -732,23 +732,23 @@ export class PatchDetailsWebviewProvider
 		return patch.commit;
 	}
 
-	private async getPatchBaseRef(patch: GitPatch | GitCloudPatch, force = false) {
+	private async getPatchBaseRef(patch: GitPatch | DraftPatch, force = false) {
 		if (patch.baseRef != null && force === false) {
 			return patch.baseRef;
 		}
 
-		if (patch.repo == null) {
+		if (patch.repository == null) {
 			const pick = await getRepositoryOrShowPicker(
 				'Patch Repository',
 				'Choose which repository this patch belongs to',
 			);
 			if (pick == null) return undefined;
 
-			patch.repo = pick;
+			patch.repository = pick;
 		}
 
 		const pick = await showCommitPicker(
-			this.container.git.getLog(patch.repo.uri),
+			this.container.git.getLog(patch.repository.uri),
 			'Patch Base',
 			'Choose which base this patch was created from',
 		);
@@ -760,7 +760,7 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private async selectPatchBase() {
-		let patch: GitPatch | GitCloudPatch | undefined;
+		let patch: GitPatch | DraftPatch | undefined;
 		switch (this._context.open?.draftType) {
 			case 'local':
 				patch = this._context.open.patch;
@@ -780,7 +780,7 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private async selectPatchRepo() {
-		let patch: GitPatch | GitCloudPatch | undefined;
+		let patch: GitPatch | DraftPatch | undefined;
 		switch (this._context.open?.draftType) {
 			case 'local':
 				patch = this._context.open.patch;
@@ -799,9 +799,9 @@ export class PatchDetailsWebviewProvider
 		this.updateOpenState(this._context.open);
 	}
 
-	private async getPatchRepo(patch: GitPatch | GitCloudPatch, force = false) {
-		if (patch.repo != null && force === false) {
-			return patch.repo;
+	private async getPatchRepo(patch: GitPatch | DraftPatch, force = false) {
+		if (patch.repository != null && force === false) {
+			return patch.repository;
 		}
 		const pick = await getRepositoryOrShowPicker(
 			'Patch Repository',
@@ -809,9 +809,9 @@ export class PatchDetailsWebviewProvider
 		);
 		if (pick == null) return undefined;
 
-		patch.repo = pick;
+		patch.repository = pick;
 
-		return patch.repo;
+		return patch.repository;
 	}
 
 	private async showFileActions(params: FileActionParams) {
@@ -902,9 +902,9 @@ export class PatchDetailsWebviewProvider
 		const change: Change = {
 			type: 'revision',
 			repository: {
-				name: patch.repo!.name,
-				path: patch.repo!.path,
-				uri: patch.repo!.uri.toString(),
+				name: patch.repository!.name,
+				path: patch.repository!.path,
+				uri: patch.repository!.uri.toString(),
 			},
 			revision: {
 				baseSha: baseSha,

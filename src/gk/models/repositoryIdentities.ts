@@ -8,8 +8,8 @@ export type GkRepositoryId = Branded<string, 'GkRepositoryId'>;
 
 export interface RepositoryIdentity {
 	readonly id: GkRepositoryId;
-	readonly createdAt: string;
-	readonly updatedAt: string;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
 
 	readonly initialCommitSha?: string;
 	readonly remote?: {
@@ -55,3 +55,22 @@ export type RepositoryIdentityRequest =
 	| BaseRepositoryIdentityRequestWithRemote
 	| BaseRepositoryIdentityRequestWithRemoteProvider
 	| BaseRepositoryIdentityRequestWithoutRemoteProvider;
+
+export interface RepositoryIdentityResponse {
+	readonly id: GkRepositoryId;
+	readonly createdAt: string;
+	readonly updatedAt: string;
+
+	readonly initialCommitSha?: string;
+	readonly remote?: {
+		readonly url?: string;
+		readonly domain?: string;
+		readonly path?: string;
+	};
+	readonly provider?: {
+		readonly id?: GkProviderId;
+		readonly repoDomain?: string;
+		readonly repoName?: string;
+		readonly repoOwnerDomain?: string;
+	};
+}

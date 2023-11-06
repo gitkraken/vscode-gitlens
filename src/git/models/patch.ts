@@ -1,9 +1,13 @@
 import type { Uri } from 'vscode';
-import type { GkRepositoryId } from '../../gk/models/repositoryIdentities';
 import type { GitCommit } from './commit';
 import type { GitDiffFiles } from './diff';
 import type { Repository } from './repository';
 
+/**
+ * For a single commit `sha` is the commit SHA and `baseSha` is its parent `<sha>^`
+ * For a commit range `sha` is the tip SHA and `baseSha` is the base SHA
+ * For a WIP `sha` is the "uncommitted" SHA and `baseSha` is the current HEAD SHA
+ */
 export interface RevisionRange {
 	baseSha: string;
 	sha: string | undefined;
@@ -17,52 +21,9 @@ export interface GitPatch {
 	readonly id?: undefined;
 	readonly uri?: Uri;
 
+	baseRef?: string;
+	commit?: GitCommit;
 	files?: GitDiffFiles['files'];
 	range?: RevisionRange;
-	repo?: Repository;
-	commit?: GitCommit;
-
-	baseRef?: string;
-}
-
-export interface GitRepositoryData {
-	readonly id: string;
-	readonly createdAt: string;
-	readonly updatedAt: string;
-
-	readonly initialCommitSha?: string;
-	readonly remote?: {
-		readonly url?: string;
-		readonly domain?: string;
-		readonly path?: string;
-	};
-	readonly provider?: {
-		readonly id?: string;
-		readonly repoDomain?: string;
-		readonly repoName?: string;
-		readonly repoOwnerDomain?: string;
-	};
-}
-
-export interface GitCloudPatch {
-	readonly type: 'cloud';
-	contents?: string;
-
-	readonly id: string;
-	readonly changesetId: string;
-	readonly userId: string;
-
-	readonly baseBranchName: string;
-	readonly baseCommitSha: string;
-
-	readonly gitRepositoryId?: GkRepositoryId;
-
-	repoData?: GitRepositoryData;
-
-	files?: GitDiffFiles['files'];
-	range?: RevisionRange;
-	repo?: Repository;
-	commit?: GitCommit;
-
-	baseRef?: string;
+	repository?: Repository;
 }

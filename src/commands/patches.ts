@@ -389,23 +389,23 @@ export class OpenCloudPatchCommand extends Command {
 
 			patch = patches[0];
 
-			if (patch.repo == null && patch.repoData != null) {
+			if (patch.repository == null && patch.repoData != null) {
 				const repo = await this.container.git.findMatchingRepository({
 					firstSha: patch.repoData.initialCommitSha,
 					remoteUrl: patch.repoData.remote?.url,
 				});
 				if (repo != null) {
-					patch.repo = repo;
+					patch.repository = repo;
 				}
 			}
 
-			if (patch.repo == null) {
+			if (patch.repository == null) {
 				void window.showErrorMessage(`Cannot open cloud patch: no repository found for patch ${args.patchId}`);
 				return;
 			}
 
 			// Opens the patch repository if it's not already open
-			void this.container.git.getOrOpenRepository(patch.repo.uri);
+			void this.container.git.getOrOpenRepository(patch.repository.uri);
 
 			const patchContents = await this.container.drafts.getPatchContents(patch.id);
 			if (patchContents == null) {

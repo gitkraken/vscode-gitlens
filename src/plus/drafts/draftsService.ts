@@ -1,19 +1,18 @@
 import type { Disposable } from 'vscode';
 import type { Container } from '../../container';
-import type { GitCloudPatch } from '../../git/models/patch';
 import { isSha } from '../../git/models/reference';
 import type { GitUser } from '../../git/models/user';
 import type {
 	CreateDraftChange,
-	CreateDraftChangesetRequest,
-	CreateDraftChangesetResponse,
-	CreateDraftPatchRequest,
 	CreateDraftRequest,
 	CreateDraftResponse,
 	Draft,
 	DraftChangeset,
+	DraftChangesetCreateRequest,
+	DraftChangesetCreateResponse,
 	DraftChangesetResponse,
 	DraftPatch,
+	DraftPatchCreateRequest,
 	DraftPatchResponse,
 	DraftResponse,
 } from '../../gk/models/drafts';
@@ -52,7 +51,7 @@ export class DraftService implements Disposable {
 
 	private async getCreateDraftPatchRequest(
 		change: CreateDraftChange,
-	): Promise<{ change: CreateDraftChange; patch: CreateDraftPatchRequest; user: GitUser | undefined }> {
+	): Promise<{ change: CreateDraftChange; patch: DraftPatchCreateRequest; user: GitUser | undefined }> {
 		const [remoteResult, userResult, branchResult, firstShaResult] = await Promise.allSettled([
 			this.container.git.getBestRemoteWithProvider(change.repository.uri),
 			this.container.git.getCurrentUser(change.repository.uri),
@@ -160,7 +159,7 @@ export class DraftService implements Disposable {
 				return [change, patch] as const;
 			});
 
-			type ChangesetResult = { data: CreateDraftChangesetResponse };
+			type ChangesetResult = { data: DraftChangesetCreateResponse };
 
 			// POST /v1/drafts/:draftId/changesets
 			const createChangesetRsp = await this.connection.fetchGkDevApi(`v1/drafts/${draftId}/changesets`, {
@@ -170,12 +169,12 @@ export class DraftService implements Disposable {
 					gitUserName: user?.name,
 					gitUserEmail: user?.email,
 					patches: patches.map(([, p]) => p),
-				} satisfies CreateDraftChangesetRequest),
+				} satisfies DraftChangesetCreateRequest),
 			});
 
 			const createChangeset = ((await createChangesetRsp.json()) as ChangesetResult).data;
 
-			const patchResults: GitCloudPatch[] = [];
+			const patchResults: DraftPatch[] = [];
 
 			let i = 0;
 			for (const patch of createChangeset.patches) {
@@ -200,13 +199,18 @@ export class DraftService implements Disposable {
 				patchResults.push({
 					type: 'cloud',
 					id: patch.id,
+					createdAt: new Date(patch.createdAt),
+					updatedAt: new Date(patch.updatedAt),
+					draftId: patch.draftId,
 					changesetId: patch.changesetId,
 					userId: createChangeset.userId,
 					baseBranchName: patch.baseBranchName,
-					baseCommitSha: patch.baseCommitSha,
+					baseRef: patch.baseCommitSha,
+					gkRepositoryId: patch.gitRepositoryId,
+					secureLink: undefined!, //.secureDownloadData,
 
 					contents: contents,
-					repo: repository,
+					repository: repository,
 				});
 			}
 
@@ -226,14 +230,14 @@ export class DraftService implements Disposable {
 				draftType: 'cloud',
 				type: draft.type,
 				id: draftId,
-				createdBy: draft.createdBy,
-				organizationId: draft.organizationId,
-				deepLinkUrl: createDraft.deepLink,
-				isPublic: draft.isPublic,
-				latestChangesetId: draft.latestChangesetId,
-
 				createdAt: new Date(draft.createdAt),
 				updatedAt: new Date(draft.updatedAt),
+				createdBy: draft.createdBy,
+				organizationId: draft.organizationId,
+				isPublished: draft.isPublished,
+				deepLinkUrl: createDraft.deepLink,
+				deepLinkAccess: draft.isPublic ? 'public' : 'private',
+				latestChangesetId: draft.latestChangesetId,
 
 				title: draft.title,
 				description: draft.description,
@@ -289,8 +293,9 @@ export class DraftService implements Disposable {
 			id: draft.id,
 			createdBy: draft.createdBy,
 			organizationId: draft.organizationId,
+			isPublished: draft.isPublished,
 			deepLinkUrl: draft.deepLink,
-			isPublic: draft.isPublic,
+			deepLinkAccess: draft.isPublic ? 'public' : 'private',
 			latestChangesetId: draft.latestChangesetId,
 			createdAt: new Date(draft.createdAt),
 			updatedAt: new Date(draft.updatedAt),
@@ -316,8 +321,9 @@ export class DraftService implements Disposable {
 				id: d.id,
 				createdBy: d.createdBy,
 				organizationId: d.organizationId,
+				isPublished: d.isPublished,
 				deepLinkUrl: d.deepLink,
-				isPublic: d.isPublic,
+				deepLinkAccess: d.isPublic ? 'public' : 'private',
 				latestChangesetId: d.latestChangesetId,
 				createdAt: new Date(d.createdAt),
 				updatedAt: new Date(d.updatedAt),
@@ -339,7 +345,7 @@ export class DraftService implements Disposable {
 
 		const changesets: DraftChangeset[] = [];
 		for (const c of changeset) {
-			const patches: GitCloudPatch[] = [];
+			const patches: DraftPatch[] = [];
 
 			for (const p of c.patches) {
 				const repoData = await this.container.repositoryIdentity.getRepositoryIdentity(p.gitRepositoryId);
@@ -351,14 +357,19 @@ export class DraftService implements Disposable {
 				patches.push({
 					type: 'cloud',
 					id: p.id,
+					createdAt: new Date(p.createdAt),
+					updatedAt: new Date(p.updatedAt),
+					draftId: p.draftId,
 					changesetId: p.changesetId,
 					userId: c.userId,
 					baseBranchName: p.baseBranchName,
-					baseCommitSha: p.baseCommitSha,
-					contents: undefined!,
+					baseRef: p.baseCommitSha,
+					gkRepositoryId: p.gitRepositoryId,
+					secureLink: p.secureDownloadData,
 
+					contents: undefined!,
 					// TODO@eamodio FIX THIS
-					repo: repo,
+					repository: repo,
 					repoData: repoData,
 				});
 			}
@@ -393,23 +404,28 @@ export class DraftService implements Disposable {
 
 		const data = ((await rsp.json()) as Result).data;
 		const patches = await Promise.allSettled(
-			data.map(async (d): Promise<DraftPatch> => {
+			data.map(async (p): Promise<DraftPatch> => {
 				let contents = undefined;
 				if (options?.includeContents) {
 					try {
-						contents = await this.getPatchContentsCore(d.secureDownloadData);
+						contents = await this.getPatchContentsCore(p.secureDownloadData);
 					} catch (ex) {
 						debugger;
 					}
 				}
 
 				return {
-					id: d.id,
-					// draftId: d.draftId,
-					changesetId: d.changesetId,
-					userId: d.userId,
-					baseBranchName: d.baseBranchName,
-					baseCommitSha: d.baseCommitSha,
+					type: 'cloud',
+					id: p.id,
+					draftId: p.draftId,
+					createdAt: new Date(p.createdAt),
+					updatedAt: new Date(p.updatedAt),
+					changesetId: p.changesetId,
+					userId: p.userId,
+					baseBranchName: p.baseBranchName,
+					baseRef: p.baseCommitSha,
+					gkRepositoryId: p.gitRepositoryId,
+					secureLink: p.secureDownloadData,
 					contents: contents,
 				};
 			}),
@@ -435,12 +451,17 @@ export class DraftService implements Disposable {
 		const contents = await this.getPatchContentsCore(data.secureDownloadData);
 
 		return {
+			type: 'cloud',
 			id: data.id,
-			// draftId: data.draftId,
+			createdAt: new Date(data.createdAt),
+			updatedAt: new Date(data.updatedAt),
+			draftId: data.draftId,
 			changesetId: data.changesetId,
 			userId: data.userId,
 			baseBranchName: data.baseBranchName,
-			baseCommitSha: data.baseCommitSha,
+			baseRef: data.baseCommitSha,
+			gkRepositoryId: data.gitRepositoryId,
+			secureLink: data.secureDownloadData,
 			contents: contents,
 		};
 	}
@@ -474,46 +495,4 @@ export class DraftService implements Disposable {
 
 		return contentsRsp.text();
 	}
-
-	// async getRepositoryData(id: string): Promise<GitRepositoryData> {
-	// 	type Result = { data: GitRepositoryData };
-
-	// 	const rsp = await this.connection.fetchGkDevApi(`/v1/git-repositories/${id}`, {
-	// 		method: 'GET',
-	// 	});
-
-	// 	const data = ((await rsp.json()) as Result).data;
-	// 	return data;
-	// }
 }
-
-// type BaseGitRepositoryDataRequest = {
-// 	initialCommitSha?: string;
-// };
-
-// type BaseGitRepositoryDataRequestWithCommitSha = BaseGitRepositoryDataRequest & {
-// 	initialCommitSha: string;
-// };
-
-// type BaseGitRepositoryDataRequestWithRemote = BaseGitRepositoryDataRequest & {
-// 	remote: { url: string; domain: string; path: string };
-// };
-
-// type BaseGitRepositoryDataRequestWithRemoteProvider = BaseGitRepositoryDataRequestWithRemote & {
-// 	provider: {
-// 		id: GkProviderId;
-// 		repoDomain: string;
-// 		repoName: string;
-// 		repoOwnerDomain?: string;
-// 	};
-// };
-
-// type BaseGitRepositoryDataRequestWithoutRemoteProvider = BaseGitRepositoryDataRequestWithRemote & {
-// 	provider?: never;
-// };
-
-// type GitRepositoryDataRequest =
-// 	| BaseGitRepositoryDataRequestWithCommitSha
-// 	| BaseGitRepositoryDataRequestWithRemote
-// 	| BaseGitRepositoryDataRequestWithRemoteProvider
-// 	| BaseGitRepositoryDataRequestWithoutRemoteProvider;

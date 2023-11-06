@@ -3,11 +3,11 @@ import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants';
 import { Commands } from '../../constants';
 import type { Container } from '../../container';
 import { getBranchNameWithoutRemote } from '../../git/models/branch';
-import type { GitRepositoryData } from '../../git/models/patch';
 import type { GitReference } from '../../git/models/reference';
 import { createReference, isSha } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
+import type { RepositoryIdentity } from '../../gk/models/repositoryIdentities';
 import { ensureAccount, ensurePaidPlan } from '../../plus/utils';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { executeCommand } from '../../system/command';
@@ -506,7 +506,7 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					let draftRepoData: GitRepositoryData | undefined;
+					let draftRepoData: RepositoryIdentity | undefined;
 					let draftRepo: Repository | undefined;
 
 					if (targetType === DeepLinkType.Draft) {
@@ -525,7 +525,7 @@ export class DeepLinkService implements Disposable {
 							this._context.targetDraft?.changesets[0].patches?.length
 						) {
 							draftRepoData = this._context.targetDraft.changesets[0].patches[0].repoData;
-							draftRepo = this._context.targetDraft.changesets[0].patches[0].repo;
+							draftRepo = this._context.targetDraft.changesets[0].patches[0].repository;
 						}
 					}
 
@@ -611,7 +611,7 @@ export class DeepLinkService implements Disposable {
 					if (targetType === DeepLinkType.Draft && this._context.repo != null) {
 						action = DeepLinkServiceAction.RepoMatchedForDraft;
 						if (this._context.targetDraft?.changesets?.[0]?.patches?.[0] != null) {
-							this._context.targetDraft.changesets[0].patches[0].repo = this._context.repo;
+							this._context.targetDraft.changesets[0].patches[0].repository = this._context.repo;
 						}
 						break;
 					}

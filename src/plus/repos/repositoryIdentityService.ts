@@ -1,7 +1,11 @@
 import type { Disposable } from 'vscode';
 import type { Container } from '../../container';
 import type { Repository } from '../../git/models/repository';
-import type { GkRepositoryId, RepositoryIdentity } from '../../gk/models/repositoryIdentities';
+import type {
+	GkRepositoryId,
+	RepositoryIdentity,
+	RepositoryIdentityResponse,
+} from '../../gk/models/repositoryIdentities';
 import { log } from '../../system/decorators/log';
 import type { ServerConnection } from '../gk/serverConnection';
 
@@ -24,11 +28,18 @@ export class RepositoryIdentityService implements Disposable {
 
 	@log()
 	async getRepositoryIdentity(id: GkRepositoryId): Promise<RepositoryIdentity> {
-		type Result = { data: RepositoryIdentity };
+		type Result = { data: RepositoryIdentityResponse };
 
 		const rsp = await this.connection.fetchGkDevApi(`/v1/git-repositories/${id}`, { method: 'GET' });
 
 		const data = ((await rsp.json()) as Result).data;
-		return data;
+		return {
+			id: data.id,
+			createdAt: new Date(data.createdAt),
+			updatedAt: new Date(data.updatedAt),
+			initialCommitSha: data.initialCommitSha,
+			remote: data.remote,
+			provider: data.provider,
+		};
 	}
 }
