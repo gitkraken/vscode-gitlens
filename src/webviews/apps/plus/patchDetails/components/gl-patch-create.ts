@@ -149,6 +149,8 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 						)}
 					</span>
 				</p>
+				<!-- <p class="h-deemphasize"><code-icon icon="account"></code-icon> Requires an account <a href="#">sign-in</a></p>
+				<p class="h-deemphasize"><code-icon icon="info"></code-icon> <a href="#">Learn more about cloud patches</a></p> -->
 			</div>
 			`;
 	}
@@ -166,7 +168,10 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 			<div class="pane-groups">
 				<div class="pane-groups__group">${this.renderChangedFiles()}</div>
 				<div class="pane-groups__group-fixed pane-groups__group--bottom">
-					<webview-pane expanded><span slot="title">Create Patch</span>${this.renderForm()}</webview-pane>
+					<webview-pane expanded
+						><span slot="title">Create Patch</span
+						><span slot="subtitle">PREVIEW ☁️</span>${this.renderForm()}</webview-pane
+					>
 				</div>
 			</div>
 		`;

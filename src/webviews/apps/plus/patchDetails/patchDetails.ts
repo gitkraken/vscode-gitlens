@@ -31,7 +31,7 @@ import type { IpcMessage } from '../../../protocol';
 import { ExecuteCommandType, onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
 import { DOM } from '../../shared/dom';
-import type { GlDraftDetails } from './components/gl-draft-details';
+import type { ApplyPatchDetail, GlDraftDetails } from './components/gl-draft-details';
 import type {
 	CreatePatchCheckRepositoryEventDetail,
 	CreatePatchEventDetail,
@@ -39,7 +39,6 @@ import type {
 	GlPatchCreate,
 } from './components/gl-patch-create';
 import type {
-	ApplyPatchDetail,
 	ChangePatchBaseDetail,
 	GlPatchDetailsApp,
 	SelectPatchRepoDetail,
@@ -78,7 +77,7 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 			DOM.on('[data-action="ai-explain"]', 'click', e => this.onAIExplain(e)),
 			DOM.on('[data-action="switch-ai"]', 'click', e => this.onSwitchAIModel(e)),
 			DOM.on('[data-action="mode"]', 'click', e => this.onModeClicked(e)),
-			DOM.on<GlPatchDetailsApp, ApplyPatchDetail>('gl-patch-details-app', 'apply-patch', e =>
+			DOM.on<GlDraftDetails, ApplyPatchDetail>('gl-draft-details', 'apply-patch', e =>
 				this.onApplyPatch(e.detail),
 			),
 			DOM.on<GlPatchDetailsApp, ChangePatchBaseDetail>('gl-patch-details-app', 'change-patch-base', e =>
@@ -230,7 +229,8 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 
 	private onApplyPatch(e: ApplyPatchDetail) {
 		console.log('onApplyPatch', e);
-		this.sendCommand(ApplyPatchCommandType, { details: e.draft });
+		if (e.selectedPatches == null || e.selectedPatches.length === 0) return;
+		this.sendCommand(ApplyPatchCommandType, { details: e.draft, selected: e.selectedPatches });
 	}
 
 	private onChangePatchBase(e: ChangePatchBaseDetail) {

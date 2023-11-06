@@ -39,6 +39,7 @@ export interface ApplyPatchDetail {
 	draft: DraftDetails;
 	target?: 'current' | 'branch' | 'worktree';
 	base?: string;
+	selectedPatches?: string[];
 	// [key: string]: unknown;
 }
 
@@ -69,8 +70,12 @@ export class GlDraftDetails extends GlTreeBase {
 	@property({ type: Object })
 	explain?: ExplainState;
 
+	@state()
+	selectedPatches: string[] = [];
+
 	get canSubmit() {
-		return false; //this.state.draft?.repoPath != null && this.state.draft?.baseRef != null;
+		return this.selectedPatches.length > 0;
+		// return this.state.draft?.repoPath != null && this.state.draft?.baseRef != null;
 	}
 
 	constructor() {
@@ -83,6 +88,19 @@ export class GlDraftDetails extends GlTreeBase {
 		if (changedProperties.has('explain')) {
 			this.explainBusy = false;
 			this.querySelector('[data-region="ai-explanation"]')?.scrollIntoView();
+		}
+
+		if (changedProperties.has('state')) {
+			const patches = this.state?.draft?.patches;
+			if (!patches?.length) {
+				this.selectedPatches = [];
+			} else if (patches?.length === 1) {
+				this.selectedPatches = [patches[0].id];
+			} else {
+				this.selectedPatches = this.selectedPatches.filter(id => {
+					return patches.find(p => p.id === id) != null;
+				});
+			}
 		}
 	}
 
@@ -229,7 +247,7 @@ export class GlDraftDetails extends GlTreeBase {
 		}
 
 		// checkable only for multi-repo
-		const options = { checkable: false };
+		const options = { checkable: patches.length > 1 };
 		const models = patches?.map(p =>
 			this.draftPatchToTreeModel(p, isTree, this.state.preferences?.files?.compact, options),
 		);
@@ -315,7 +333,7 @@ export class GlDraftDetails extends GlTreeBase {
 						<div class="section section--sticky-actions">
 							<p class="button-container">
 								<span class="button-group button-group--single">
-									<gl-button disabled full>Apply Patch</gl-button>
+									<gl-button full @click=${this.onApplyPatch}>Apply Patch</gl-button>
 									<gl-button
 										disabled
 										density="compact"
@@ -536,6 +554,7 @@ export class GlDraftDetails extends GlTreeBase {
 			detail: {
 				draft: this.state.draft!,
 				target: target,
+				selectedPatches: this.selectedPatches,
 			},
 		});
 		this.dispatchEvent(evt);
