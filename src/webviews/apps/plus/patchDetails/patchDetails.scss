@@ -143,13 +143,7 @@ gl-patch-create {
 		}
 	}
 
-	&__group--top {
+	&__group-fixed {
 		flex: none;
-	}
-
-	&__group--bottom {
-		min-height: fit-content;
-		flex: none;
-		margin-top: auto;
 	}
 }

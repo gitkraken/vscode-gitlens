@@ -379,7 +379,7 @@ export class GlDraftDetails extends GlTreeBase {
 
 		return html`
 			<div class="pane-groups">
-				<div class="pane-groups__group">
+				<div class="pane-groups__group-fixed">
 					<div class="top-details">
 						<div class="top-details__top-menu">
 							<div class="top-details__actionbar">
@@ -432,9 +432,10 @@ export class GlDraftDetails extends GlTreeBase {
 							)}
 						</div>
 					</div>
-					${this.renderPatchMessage()} ${this.renderChangedFiles()}
+					${this.renderPatchMessage()}
 				</div>
-				<div class="pane-groups__group pane-groups__group--bottom">
+				<div class="pane-groups__group">${this.renderChangedFiles()}</div>
+				<div class="pane-groups__group-fixed pane-groups__group--bottom">
 					${this.renderExplainAi()}${this.renderPatches()}
 				</div>
 			</div>
