@@ -1,4 +1,5 @@
-import type { GitFileChangeShape, GitFileStatus } from '../../../../../git/models/file';
+import type { GitFileStatus } from '../../../../../git/models/file';
+import type { DraftPatchFileChange } from '../../../../../gk/models/drafts';
 
 export interface TreeItemBase {
 	// node properties
@@ -69,7 +70,7 @@ export interface TreeModelFlat extends TreeModelBase {
 
 export interface TreeItemSelectionDetail {
 	node: TreeItemBase;
-	context?: GitFileChangeShape[];
+	context?: DraftPatchFileChange[];
 	dblClick: boolean;
 	altKey: boolean;
 	ctrlKey: boolean;

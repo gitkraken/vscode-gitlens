@@ -1,6 +1,7 @@
 import type { Disposable } from 'vscode';
 import type { Container } from '../../container';
 import { isSha, isUncommitted } from '../../git/models/reference';
+import { isRepository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
 import type {
 	CreateDraftChange,
@@ -475,19 +476,25 @@ export class DraftService implements Disposable {
 
 		const [contentsResult, repositoryResult] = await Promise.allSettled([
 			this.getPatchContentsCore(patch.secureLink),
-			this.container.repositoryIdentity.getRepository(patch.gkRepositoryId),
+			this.container.repositoryIdentity.getRepositoryOrIdentity(patch.gkRepositoryId),
 		]);
 
 		const contents = getSettledValue(contentsResult)!;
-		const repository = getSettledValue(repositoryResult);
-		const diffFiles = await this.container.git.getDiffFiles(repository?.path ?? '', contents);
+		const repositoryOrIdentity = getSettledValue(repositoryResult)!;
+
+		let repoPath = '';
+		if (isRepository(repositoryOrIdentity)) {
+			repoPath = repositoryOrIdentity.path;
+		}
+
+		const diffFiles = await this.container.git.getDiffFiles(repoPath, contents);
 		const files = diffFiles?.files.map(f => ({ ...f, gkRepositoryId: patch.gkRepositoryId })) ?? [];
 
 		return {
 			id: patch.id,
 			contents: contents,
 			files: files,
-			repository: repository,
+			repository: repositoryOrIdentity,
 		};
 	}
 

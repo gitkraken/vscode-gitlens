@@ -5,7 +5,7 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { when } from 'lit/directives/when.js';
 import type { TextDocumentShowOptions } from 'vscode';
-import type { GitFileChangeShape } from '../../../../../git/models/file';
+import type { DraftPatchFileChange } from '../../../../../gk/models/drafts';
 import type { DraftDetails, FileActionParams, State } from '../../../../../plus/webviews/patchDetails/protocol';
 import { makeHierarchical } from '../../../../../system/array';
 import { flatCount } from '../../../../../system/iterable';
@@ -474,14 +474,9 @@ export class GlDraftDetails extends GlTreeBase {
 		}
 	}
 
-	fireFileEvent(name: string, file: GitFileChangeShape, showOptions?: TextDocumentShowOptions) {
+	fireFileEvent(name: string, file: DraftPatchFileChange, showOptions?: TextDocumentShowOptions) {
 		const event = new CustomEvent(name, {
-			detail: {
-				path: file.path,
-				repoPath: file.repoPath,
-				staged: file.staged,
-				showOptions: showOptions,
-			},
+			detail: { ...file, showOptions: showOptions },
 		});
 		this.dispatchEvent(event);
 	}
@@ -600,7 +595,7 @@ export class GlDraftDetails extends GlTreeBase {
 		compact = true,
 		options?: Partial<TreeItemBase>,
 	): TreeModel {
-		const model = this.repoToTreeModel(patch.gkRepositoryId, patch.gkRepositoryId, options);
+		const model = this.repoToTreeModel(patch.repository.name, patch.gkRepositoryId, options);
 
 		if (!patch.files?.length) return model;
 
@@ -653,7 +648,7 @@ export class GlDraftDetails extends GlTreeBase {
 		];
 	}
 
-	override getFileActions(_file: GitFileChangeShape, _options?: Partial<TreeItemBase>) {
+	override getFileActions(_file: DraftPatchFileChange, _options?: Partial<TreeItemBase>) {
 		return [
 			{
 				icon: 'go-to-file',

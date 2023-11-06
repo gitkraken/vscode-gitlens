@@ -1,5 +1,7 @@
 import type { Branded } from '../../system/brand';
 
+export const missingRepositoryId = '-';
+
 export type GkProviderId = Branded<
 	'github' | 'githubEnterprise' | 'gitlab' | 'gitlabSelfHosted' | 'bitbucket' | 'bitbucketServer' | 'azureDevops',
 	'GkProviderId'
@@ -10,6 +12,8 @@ export interface RepositoryIdentity {
 	readonly id: GkRepositoryId;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
+
+	readonly name: string;
 
 	readonly initialCommitSha?: string;
 	readonly remote?: {
@@ -26,6 +30,7 @@ export interface RepositoryIdentity {
 }
 
 type BaseRepositoryIdentityRequest = {
+	// name: string;
 	initialCommitSha?: string;
 };
 
@@ -60,6 +65,8 @@ export interface RepositoryIdentityResponse {
 	readonly id: GkRepositoryId;
 	readonly createdAt: string;
 	readonly updatedAt: string;
+
+	// readonly name: string;
 
 	readonly initialCommitSha?: string;
 	readonly remote?: {

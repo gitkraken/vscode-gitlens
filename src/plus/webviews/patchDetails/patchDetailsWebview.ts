@@ -16,7 +16,9 @@ import { uncommitted, uncommittedStaged } from '../../../git/models/constants';
 import { GitFileChange } from '../../../git/models/file';
 import type { GitPatch, PatchRevisionRange } from '../../../git/models/patch';
 import { createReference } from '../../../git/models/reference';
-import type { CreateDraftChange, Draft, DraftPatch, LocalDraft } from '../../../gk/models/drafts';
+import { isRepository } from '../../../git/models/repository';
+import type { CreateDraftChange, Draft, DraftPatch, DraftPatchFileChange, LocalDraft } from '../../../gk/models/drafts';
+import type { GkRepositoryId } from '../../../gk/models/repositoryIdentities';
 import { showCommitPicker } from '../../../quickpicks/commitPicker';
 import { getRepositoryOrShowPicker } from '../../../quickpicks/repositoryPicker';
 import { executeCommand, registerCommand } from '../../../system/command';
@@ -25,6 +27,7 @@ import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
 import { find, some } from '../../../system/iterable';
+import { basename } from '../../../system/path';
 import type { Serialized } from '../../../system/serialize';
 import { serialize } from '../../../system/serialize';
 import type { IpcMessage } from '../../../webviews/protocol';
@@ -182,12 +185,12 @@ export class PatchDetailsWebviewProvider
 			case ExplainCommandType.method:
 				onIpc(ExplainCommandType, e, () => this.explainPatch(e.completionId));
 				break;
-			case SelectPatchBaseCommandType.method:
-				onIpc(SelectPatchBaseCommandType, e, () => void this.selectPatchBase());
-				break;
-			case SelectPatchRepoCommandType.method:
-				onIpc(SelectPatchRepoCommandType, e, () => void this.selectPatchRepo());
-				break;
+			// case SelectPatchBaseCommandType.method:
+			// 	onIpc(SelectPatchBaseCommandType, e, () => void this.selectPatchBase());
+			// 	break;
+			// case SelectPatchRepoCommandType.method:
+			// 	onIpc(SelectPatchRepoCommandType, e, () => void this.selectPatchRepo());
+			// 	break;
 			case SwitchModeCommandType.method:
 				onIpc(SwitchModeCommandType, e, params => this.switchMode(params));
 				break;
@@ -326,7 +329,7 @@ export class PatchDetailsWebviewProvider
 		let params: DidExplainParams;
 
 		try {
-			const commit = await this.getOrCreateUnreachableCommitForPatch();
+			const commit = undefined!; // await this.getOrCreateUnreachableCommitForPatch();
 			if (commit == null) return;
 
 			const summary = await this.container.ai.explainCommit(commit, {
@@ -534,7 +537,9 @@ export class PatchDetailsWebviewProvider
 		if (draft.draftType === 'cloud') {
 			if (
 				draft.changesets == null ||
-				some(draft.changesets, cs => cs.patches.some(p => p.contents == null || p.files == null))
+				some(draft.changesets, cs =>
+					cs.patches.some(p => p.contents == null || p.files == null || p.repository == null),
+				)
 			) {
 				setTimeout(async () => {
 					if (draft.changesets == null) {
@@ -543,7 +548,7 @@ export class PatchDetailsWebviewProvider
 
 					const patches = draft.changesets
 						.flatMap(cs => cs.patches)
-						.filter(p => p.contents == null || p.files == null);
+						.filter(p => p.contents == null || p.files == null || p.repository == null);
 					const patchDetails = await Promise.allSettled(
 						patches.map(p => this.container.drafts.getPatchDetails(p)),
 					);
@@ -576,7 +581,10 @@ export class PatchDetailsWebviewProvider
 						...p,
 						contents: undefined,
 						commit: undefined,
-						repository: undefined,
+						repository: {
+							id: p.gkRepositoryId,
+							name: p.repository?.name ?? '',
+						},
 					})),
 				),
 				// commit: (await this.getOrCreateUnreachableCommitForPatch())?.sha,
@@ -635,16 +643,16 @@ export class PatchDetailsWebviewProvider
 		return this.host.notify(DidChangePreferencesNotificationType, { preferences: this._context.preferences });
 	}
 
-	private async getDraftPatch(draft: Draft): Promise<DraftPatch | undefined> {
+	private async getDraftPatch(draft: Draft, gkRepositoryId: GkRepositoryId): Promise<DraftPatch | undefined> {
 		if (draft.changesets == null) {
 			const changesets = await this.container.drafts.getChangesets(draft.id);
 			draft.changesets = changesets;
 		}
 
-		const patch = draft.changesets[0].patches?.[0];
+		const patch = draft.changesets[0].patches?.find(p => p.gkRepositoryId === gkRepositoryId);
 		if (patch == null) return undefined;
 
-		if (patch.contents == null) {
+		if (patch.contents == null || patch.files == null || patch.repository == null) {
 			const details = await this.container.drafts.getPatchDetails(patch.id);
 			patch.contents = details.contents;
 			patch.files = details.files;
@@ -660,7 +668,7 @@ export class PatchDetailsWebviewProvider
 		| [commit: GitCommit, file: GitFileChange, revision?: Required<Omit<PatchRevisionRange, 'branchName'>>]
 		| undefined
 	> {
-		let [commit, revision] = await this.getOrCreateCommit(params.repoPath);
+		let [commit, revision] = await this.getOrCreateCommit(params);
 
 		if (commit != null && revision != null) {
 			return [
@@ -683,177 +691,217 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private async getOrCreateCommit(
-		repoPath: string,
+		file: DraftPatchFileChange,
 	): Promise<[commit: GitCommit | undefined, revision?: PatchRevisionRange]> {
-		if (this.mode === 'create') {
-			const changeset = find(this._context.create!.changes.values(), cs => cs.repository.path === repoPath);
-			if (changeset == null) return [undefined];
+		switch (this.mode) {
+			case 'create': {
+				const changeset = find(
+					this._context.create!.changes.values(),
+					cs => cs.repository.path === file.repoPath,
+				);
+				if (changeset == null) return [undefined];
 
-			const change = await changeset.getChange();
-			if (change == null) return [undefined];
+				const change = await changeset.getChange();
+				if (change == null) return [undefined];
 
-			if (change.type === 'revision') {
-				const commit = await this.container.git.getCommit(repoPath, change.revision.sha ?? uncommitted);
-				if (
-					change.revision.sha === change.revision.baseSha ||
-					change.revision.sha === change.revision.baseSha.substring(0, change.revision.baseSha.length - 1)
-				) {
-					return [commit];
+				if (change.type === 'revision') {
+					const commit = await this.container.git.getCommit(
+						file.repoPath,
+						change.revision.sha ?? uncommitted,
+					);
+					if (
+						change.revision.sha === change.revision.baseSha ||
+						change.revision.sha === change.revision.baseSha.substring(0, change.revision.baseSha.length - 1)
+					) {
+						return [commit];
+					}
+
+					return [commit, change.revision];
+				} else if (change.type === 'wip') {
+					return [await this.container.git.getCommit(file.repoPath, change.revision.sha ?? uncommitted)];
 				}
 
-				return [commit, change.revision];
-			} else if (change.type === 'wip') {
-				return [await this.container.git.getCommit(repoPath, change.revision.sha ?? uncommitted)];
+				return [undefined];
 			}
+			case 'open': {
+				const draft = this._context.open!;
+				if (draft.draftType === 'local') return [undefined]; // TODO
 
-			return [undefined];
-		}
+				const patch = await this.getDraftPatch(draft, file.gkRepositoryId);
+				if (patch?.repository == null) return [undefined];
 
-		if (this.mode === 'open') {
-			return [await this.getOrCreateUnreachableCommitForPatch(repoPath)];
-		}
+				if (patch?.commit == null) {
+					if (!isRepository(patch.repository)) {
+						const repo = await this.container.repositoryIdentity.getRepository(patch.repository, {
+							openIfNeeded: true,
+						});
+						if (repo == null) return [undefined]; // TODO
 
-		return [undefined];
-	}
+						patch.repository = repo;
+					}
 
-	private async getOrCreateUnreachableCommitForPatch(repoPath?: string): Promise<GitCommit | undefined> {
-		let patch: GitPatch | DraftPatch | undefined;
-		switch (this._context.open?.draftType) {
-			case 'local':
-				patch = this._context.open.patch;
-				break;
-			case 'cloud':
-				patch = await this.getDraftPatch(this._context.open);
-				if (patch == null) return undefined;
-				break;
-			default:
-				throw new Error('Invalid patch type');
-		}
+					try {
+						const commit = await this.container.git.createUnreachableCommitForPatch(
+							patch.repository.uri,
+							patch.contents!,
+							patch.baseRef ?? 'HEAD',
+							draft.title,
+						);
+						patch.commit = commit;
+					} catch (ex) {
+						void window.showErrorMessage(
+							`Unable preview the patch on base '${patch.baseRef}': ${ex.message}`,
+						);
+						patch.baseRef = undefined!;
+					}
+				}
 
-		if (patch.repository == null) {
-			const repo = repoPath != null ? this.container.git.getRepository(repoPath) : undefined;
-			if (repo == null) {
-				const pick = await getRepositoryOrShowPicker(
-					'Patch Details: Select Repository',
-					'Choose which repository this patch belongs to',
-				);
-				if (pick == null) return undefined;
-
-				patch.repository = pick;
-			} else {
-				patch.repository = repo;
+				// return [await this.getOrCreateUnreachableCommitForPatch(repoPath)];
+				return [patch?.commit];
 			}
-		}
-
-		if (patch.baseRef == null) {
-			const pick = await showCommitPicker(
-				this.container.git.getLog(patch.repository.uri),
-				'Patch Details: Select Base',
-				'Choose the base which this patch was created from or should be applied to',
-			);
-			if (pick == null) return undefined;
-
-			patch.baseRef = pick.sha;
-		}
-
-		if (patch.commit == null) {
-			try {
-				const commit = await this.container.git.createUnreachableCommitForPatch(
-					patch.repository.uri,
-					patch.contents!,
-					patch.baseRef ?? 'HEAD',
-					'PATCH',
-				);
-				patch.commit = commit;
-			} catch (ex) {
-				void window.showErrorMessage(`Unable preview the patch on base '${patch.baseRef}': ${ex.message}`);
-				patch.baseRef = undefined;
-			}
-		}
-		return patch.commit;
-	}
-
-	private async getPatchBaseRef(patch: GitPatch | DraftPatch, force = false) {
-		if (patch.baseRef != null && force === false) {
-			return patch.baseRef;
-		}
-
-		if (patch.repository == null) {
-			const pick = await getRepositoryOrShowPicker(
-				'Patch Repository',
-				'Choose which repository this patch belongs to',
-			);
-			if (pick == null) return undefined;
-
-			patch.repository = pick;
-		}
-
-		const pick = await showCommitPicker(
-			this.container.git.getLog(patch.repository.uri),
-			'Patch Base',
-			'Choose which base this patch was created from',
-		);
-		if (pick == null) return undefined;
-
-		patch.baseRef = pick.sha;
-
-		return patch.baseRef;
-	}
-
-	private async selectPatchBase() {
-		let patch: GitPatch | DraftPatch | undefined;
-		switch (this._context.open?.draftType) {
-			case 'local':
-				patch = this._context.open.patch;
-				break;
-			case 'cloud':
-				patch = await this.getDraftPatch(this._context.open);
-				if (patch == null) return undefined;
-				break;
 			default:
-				throw new Error('Invalid patch type');
+				return [undefined];
 		}
-
-		const baseRef = await this.getPatchBaseRef(patch, true);
-		if (baseRef == null) return;
-
-		this.updateOpenState(this._context.open);
 	}
 
-	private async selectPatchRepo() {
-		let patch: GitPatch | DraftPatch | undefined;
-		switch (this._context.open?.draftType) {
-			case 'local':
-				patch = this._context.open.patch;
-				break;
-			case 'cloud':
-				patch = await this.getDraftPatch(this._context.open);
-				if (patch == null) return undefined;
-				break;
-			default:
-				throw new Error('Invalid patch type');
-		}
+	// private async getOrCreateUnreachableCommitForPatch(repoPath?: string): Promise<GitCommit | undefined> {
+	// 	let patch: GitPatch | DraftPatch | undefined;
+	// 	switch (this._context.open?.draftType) {
+	// 		case 'local':
+	// 			patch = this._context.open.patch;
+	// 			break;
+	// 		case 'cloud':
+	// 			patch = await this.getDraftPatch(this._context.open);
+	// 			if (patch == null) return undefined;
+	// 			break;
+	// 		default:
+	// 			throw new Error('Invalid patch type');
+	// 	}
 
-		const repo = await this.getPatchRepo(patch, true);
-		if (repo == null) return;
+	// 	if (patch.repository == null) {
+	// 		const repo = repoPath != null ? this.container.git.getRepository(repoPath) : undefined;
+	// 		if (repo == null) {
+	// 			const pick = await getRepositoryOrShowPicker(
+	// 				'Patch Details: Select Repository',
+	// 				'Choose which repository this patch belongs to',
+	// 			);
+	// 			if (pick == null) return undefined;
 
-		this.updateOpenState(this._context.open);
-	}
+	// 			patch.repository = pick;
+	// 		} else {
+	// 			patch.repository = repo;
+	// 		}
+	// 	}
 
-	private async getPatchRepo(patch: GitPatch | DraftPatch, force = false) {
-		if (patch.repository != null && force === false) {
-			return patch.repository;
-		}
-		const pick = await getRepositoryOrShowPicker(
-			'Patch Repository',
-			'Choose which repository this patch belongs to',
-		);
-		if (pick == null) return undefined;
+	// 	if (patch.baseRef == null) {
+	// 		const pick = await showCommitPicker(
+	// 			this.container.git.getLog(patch.repository.uri),
+	// 			'Patch Details: Select Base',
+	// 			'Choose the base which this patch was created from or should be applied to',
+	// 		);
+	// 		if (pick == null) return undefined;
 
-		patch.repository = pick;
+	// 		patch.baseRef = pick.sha;
+	// 	}
 
-		return patch.repository;
-	}
+	// 	if (patch.commit == null) {
+	// 		try {
+	// 			const commit = await this.container.git.createUnreachableCommitForPatch(
+	// 				patch.repository.uri,
+	// 				patch.contents!,
+	// 				patch.baseRef ?? 'HEAD',
+	// 				'PATCH',
+	// 			);
+	// 			patch.commit = commit;
+	// 		} catch (ex) {
+	// 			void window.showErrorMessage(`Unable preview the patch on base '${patch.baseRef}': ${ex.message}`);
+	// 			patch.baseRef = undefined;
+	// 		}
+	// 	}
+	// 	return patch.commit;
+	// }
+
+	// private async getPatchBaseRef(patch: GitPatch | DraftPatch, force = false) {
+	// 	if (patch.baseRef != null && force === false) {
+	// 		return patch.baseRef;
+	// 	}
+
+	// 	if (patch.repository == null) {
+	// 		const pick = await getRepositoryOrShowPicker(
+	// 			'Patch Repository',
+	// 			'Choose which repository this patch belongs to',
+	// 		);
+	// 		if (pick == null) return undefined;
+
+	// 		patch.repository = pick;
+	// 	}
+
+	// 	const pick = await showCommitPicker(
+	// 		this.container.git.getLog(patch.repository.uri),
+	// 		'Patch Base',
+	// 		'Choose which base this patch was created from',
+	// 	);
+	// 	if (pick == null) return undefined;
+
+	// 	patch.baseRef = pick.sha;
+
+	// 	return patch.baseRef;
+	// }
+
+	// private async selectPatchBase() {
+	// 	let patch: GitPatch | DraftPatch | undefined;
+	// 	switch (this._context.open?.draftType) {
+	// 		case 'local':
+	// 			patch = this._context.open.patch;
+	// 			break;
+	// 		case 'cloud':
+	// 			patch = await this.getDraftPatch(this._context.open);
+	// 			if (patch == null) return undefined;
+	// 			break;
+	// 		default:
+	// 			throw new Error('Invalid patch type');
+	// 	}
+
+	// 	const baseRef = await this.getPatchBaseRef(patch, true);
+	// 	if (baseRef == null) return;
+
+	// 	this.updateOpenState(this._context.open);
+	// }
+
+	// private async selectPatchRepo() {
+	// 	let patch: GitPatch | DraftPatch | undefined;
+	// 	switch (this._context.open?.draftType) {
+	// 		case 'local':
+	// 			patch = this._context.open.patch;
+	// 			break;
+	// 		case 'cloud':
+	// 			patch = await this.getDraftPatch(this._context.open);
+	// 			if (patch == null) return undefined;
+	// 			break;
+	// 		default:
+	// 			throw new Error('Invalid patch type');
+	// 	}
+
+	// 	const repo = await this.getPatchRepo(patch, true);
+	// 	if (repo == null) return;
+
+	// 	this.updateOpenState(this._context.open);
+	// }
+
+	// private async getPatchRepo(patch: GitPatch | DraftPatch, force = false) {
+	// 	if (patch.repository != null && force === false) {
+	// 		return patch.repository;
+	// 	}
+	// 	const pick = await getRepositoryOrShowPicker(
+	// 		'Patch Repository',
+	// 		'Choose which repository this patch belongs to',
+	// 	);
+	// 	if (pick == null) return undefined;
+
+	// 	patch.repository = pick;
+
+	// 	return patch.repository;
+	// }
 
 	private async showFileActions(params: FileActionParams) {
 		const result = await this.getFileCommitFromParams(params);
@@ -896,6 +944,7 @@ export class PatchDetailsWebviewProvider
 				preserveFocus: true,
 				preview: true,
 				...this.getShowOptions(params),
+				rhsTitle: `${basename(file.path)} (Patch)`,
 			},
 		);
 		this.container.events.fire('file:selected', { uri: file.uri }, { source: this.host.id });
@@ -933,7 +982,7 @@ export class PatchDetailsWebviewProvider
 	private updateCreateFromLocalPatch(draft: LocalDraft) {
 		const patch = draft.patch;
 		if (patch.baseRef == null) {
-			const ref = this.getPatchBaseRef(patch);
+			const ref = undefined!; //this.getPatchBaseRef(patch);
 			if (ref == null) return;
 		}
 

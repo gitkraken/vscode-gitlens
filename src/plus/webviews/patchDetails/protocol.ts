@@ -4,7 +4,8 @@ import type { WebviewIds, WebviewViewIds } from '../../../constants';
 import type { GitCommitStats } from '../../../git/models/commit';
 import type { GitFileChangeShape } from '../../../git/models/file';
 import type { PatchRevisionRange } from '../../../git/models/patch';
-import type { DraftChangeset, DraftPatch } from '../../../gk/models/drafts';
+import type { DraftChangeset, DraftPatch, DraftPatchFileChange } from '../../../gk/models/drafts';
+import type { GkRepositoryId } from '../../../gk/models/repositoryIdentities';
 import type { DateTimeFormat } from '../../../system/date';
 import type { Serialized } from '../../../system/serialize';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
@@ -12,6 +13,10 @@ import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol'
 export const messageHeadlineSplitterToken = '\x00\n\x00';
 
 export type FileShowOptions = TextDocumentShowOptions;
+
+type PatchDetails = Serialized<
+	Omit<DraftPatch, 'commit' | 'contents' | 'repository'> & { repository: { id: GkRepositoryId; name: string } }
+>;
 
 interface LocalDraftDetails {
 	draftType: 'local';
@@ -24,7 +29,7 @@ interface LocalDraftDetails {
 	title?: string;
 	description?: string;
 
-	patches?: Serialized<Omit<DraftPatch, 'commit' | 'contents' | 'repository'>>[];
+	patches?: PatchDetails[];
 
 	// files?: GitFileChangeShape[];
 	// stats?: GitCommitStats;
@@ -52,7 +57,7 @@ interface CloudDraftDetails {
 	title: string;
 	description?: string;
 
-	patches?: Serialized<Omit<DraftPatch, 'commit' | 'contents' | 'repository'>>[];
+	patches?: PatchDetails[];
 
 	// commit?: string;
 
@@ -184,7 +189,7 @@ export const SelectPatchRepoCommandType = new IpcCommandType<undefined>('patch/s
 
 export const SelectPatchBaseCommandType = new IpcCommandType<undefined>('patch/selectBase');
 
-export interface FileActionParams extends GitFileChangeShape {
+export interface FileActionParams extends DraftPatchFileChange {
 	showOptions?: TextDocumentShowOptions;
 }
 export const FileActionsCommandType = new IpcCommandType<FileActionParams>('patch/file/actions');

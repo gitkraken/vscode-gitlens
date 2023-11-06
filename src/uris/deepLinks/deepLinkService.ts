@@ -6,8 +6,10 @@ import { getBranchNameWithoutRemote } from '../../git/models/branch';
 import type { GitReference } from '../../git/models/reference';
 import { createReference, isSha } from '../../git/models/reference';
 import type { Repository } from '../../git/models/repository';
+import { isRepository } from '../../git/models/repository';
 import { parseGitRemoteUrl } from '../../git/parsers/remoteParser';
 import type { RepositoryIdentity } from '../../gk/models/repositoryIdentities';
+import { missingRepositoryId } from '../../gk/models/repositoryIdentities';
 import { ensureAccount, ensurePaidPlan } from '../../plus/utils';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
 import { executeCommand } from '../../system/command';
@@ -28,8 +30,6 @@ import {
 	deepLinkTypeToString,
 	parseDeepLinkUri,
 } from './deepLink';
-
-const missingRepositoryId = '-';
 
 export class DeepLinkService implements Disposable {
 	private readonly _disposables: Disposable[] = [];
@@ -526,10 +526,15 @@ export class DeepLinkService implements Disposable {
 						) {
 							// TODO@axosoft-ramint Look at this
 							// draftRepoData = this._context.targetDraft.changesets[0].patches[0].repoData;
-							draftRepo = this._context.targetDraft.changesets[0].patches[0].repository;
-							if (draftRepo == null) {
-								const gkId = this._context.targetDraft.changesets[0].patches[0].gkRepositoryId;
-								draftRepo = await this.container.repositoryIdentity.getRepository(gkId);
+							const repoOrIdentity = this._context.targetDraft.changesets[0].patches[0].repository;
+							if (isRepository(repoOrIdentity)) {
+								draftRepo = repoOrIdentity;
+								if (draftRepo == null) {
+									const gkId = this._context.targetDraft.changesets[0].patches[0].gkRepositoryId;
+									draftRepo = await this.container.repositoryIdentity.getRepository(gkId);
+								}
+							} else {
+								repoIdentity = repoOrIdentity;
 							}
 						}
 					}

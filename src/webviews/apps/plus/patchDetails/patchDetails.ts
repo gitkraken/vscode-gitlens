@@ -1,5 +1,7 @@
 /*global*/
+import type { TextDocumentShowOptions } from 'vscode';
 import type { ViewFilesLayout } from '../../../../config';
+import type { DraftPatchFileChange } from '../../../../gk/models/drafts';
 import type { State, SwitchModeParams } from '../../../../plus/webviews/patchDetails/protocol';
 import {
 	ApplyPatchCommandType,
@@ -28,7 +30,6 @@ import type { Serialized } from '../../../../system/serialize';
 import type { IpcMessage } from '../../../protocol';
 import { ExecuteCommandType, onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
-import type { FileChangeListItemDetail } from '../../shared/components/list/file-change-list-item';
 import { DOM } from '../../shared/dom';
 import type { GlDraftDetails } from './components/gl-draft-details';
 import type {
@@ -56,12 +57,13 @@ import '../../shared/components/skeleton-loader';
 import '../../shared/components/commit/commit-stats';
 import '../../shared/components/webview-pane';
 import '../../shared/components/progress';
-import '../../shared/components/list/list-container';
-import '../../shared/components/list/list-item';
-import '../../shared/components/list/file-change-list-item';
 import './components/patch-details-app';
 
 export const uncommittedSha = '0000000000000000000000000000000000000000';
+
+export interface FileChangeListItemDetail extends DraftPatchFileChange {
+	showOptions?: TextDocumentShowOptions;
+}
 
 export class PatchDetailsApp extends App<Serialized<State>> {
 	constructor() {
@@ -120,13 +122,12 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 				'gl-patch-create-update-metadata',
 				e => this.onCreateUpdateMetadata(e.detail),
 			),
-			DOM.on<GlPatchCreate, FileChangeListItemDetail>('gl-patch-create', 'file-compare-previous', e =>
-				this.onCompareFileWithPrevious(e.detail),
+			DOM.on<GlPatchCreate, FileChangeListItemDetail>(
+				'gl-patch-create,gl-draft-details',
+				'file-compare-previous',
+				e => this.onCompareFileWithPrevious(e.detail),
 			),
-			DOM.on<GlDraftDetails, FileChangeListItemDetail>('gl-draft-details', 'file-open', e =>
-				this.onOpenFile(e.detail),
-			),
-			DOM.on<GlPatchCreate, FileChangeListItemDetail>('gl-patch-create', 'file-open', e =>
+			DOM.on<GlDraftDetails, FileChangeListItemDetail>('gl-patch-create,gl-draft-details', 'file-open', e =>
 				this.onOpenFile(e.detail),
 			),
 		];

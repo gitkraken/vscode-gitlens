@@ -3,8 +3,7 @@ import type { GitFileChangeShape } from '../../git/models/file';
 import type { GitPatch, PatchRevisionRange } from '../../git/models/patch';
 import type { Repository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
-import type { Brand } from '../../system/brand';
-import type { GkRepositoryId, RepositoryIdentityRequest } from './repositoryIdentities';
+import type { GkRepositoryId, RepositoryIdentity, RepositoryIdentityRequest } from './repositoryIdentities';
 
 export interface LocalDraft {
 	readonly draftType: 'local';
@@ -77,18 +76,18 @@ export interface DraftPatch {
 
 	commit?: GitCommit;
 	contents?: string;
-	files?: PatchFileChange[];
-	repository?: Repository;
+	files?: DraftPatchFileChange[];
+	repository?: Repository | RepositoryIdentity;
 }
 
 export interface DraftPatchDetails {
 	id: string;
 	contents: string;
-	files: PatchFileChange[];
-	repository: Repository | undefined;
+	files: DraftPatchFileChange[];
+	repository: Repository | RepositoryIdentity;
 }
 
-export interface PatchFileChange extends GitFileChangeShape {
+export interface DraftPatchFileChange extends GitFileChangeShape {
 	readonly gkRepositoryId: GkRepositoryId;
 }
 
@@ -186,7 +185,7 @@ export interface DraftPatchCreateResponse {
 
 	readonly baseCommitSha: string;
 	readonly baseBranchName: string;
-	readonly gitRepositoryId: Brand<GkRepositoryId>;
+	readonly gitRepositoryId: GkRepositoryId;
 
 	readonly secureUploadData: {
 		readonly headers: {
@@ -207,7 +206,7 @@ export interface DraftPatchResponse {
 
 	readonly baseCommitSha: string;
 	readonly baseBranchName: string;
-	readonly gitRepositoryId: Brand<GkRepositoryId>;
+	readonly gitRepositoryId: GkRepositoryId;
 
 	readonly secureDownloadData: {
 		readonly headers: {

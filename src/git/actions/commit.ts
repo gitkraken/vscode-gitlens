@@ -218,17 +218,17 @@ export async function openChanges(
 export async function openChanges(
 	file: GitFile,
 	refs: { repoPath: string; ref1: string; ref2: string },
-	options?: TextDocumentShowOptions,
+	options?: TextDocumentShowOptions & { lhsTitle?: string; rhsTitle?: string },
 ): Promise<void>;
 export async function openChanges(
 	file: GitFile,
 	commitOrRefs: GitCommit | { repoPath: string; ref1: string; ref2: string },
-	options?: TextDocumentShowOptions,
+	options?: TextDocumentShowOptions & { lhsTitle?: string; rhsTitle?: string },
 ): Promise<void>;
 export async function openChanges(
 	file: string | GitFile,
 	commitOrRefs: GitCommit | { repoPath: string; ref1: string; ref2: string },
-	options?: TextDocumentShowOptions,
+	options?: TextDocumentShowOptions & { lhsTitle?: string; rhsTitle?: string },
 ) {
 	const isArgCommit = isCommit(commitOrRefs);
 
@@ -268,8 +268,8 @@ export async function openChanges(
 
 	void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 		repoPath: refs.repoPath,
-		lhs: { uri: lhsUri, sha: refs.ref1 },
-		rhs: { uri: rhsUri, sha: refs.ref2 },
+		lhs: { uri: lhsUri, sha: refs.ref1, title: options?.lhsTitle },
+		rhs: { uri: rhsUri, sha: refs.ref2, title: options?.rhsTitle },
 		showOptions: options,
 	}));
 }
