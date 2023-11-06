@@ -108,6 +108,7 @@ export class PatchDetailsWebviewProvider
 			preferences: this.getPreferences(),
 		};
 		this.setHostTitle();
+		this.host.description = 'PREVIEW ☁️';
 
 		this._disposable = Disposable.from(
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
