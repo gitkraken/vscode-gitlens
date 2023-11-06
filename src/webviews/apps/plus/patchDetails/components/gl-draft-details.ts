@@ -305,47 +305,13 @@ export class GlDraftDetails extends GlTreeBase {
 		return html`
 			<webview-pane expanded>
 				<span slot="title">Apply</span>
-				${when(
-					this.canSubmit,
-					() => html`
-						<div class="section section--sticky-actions">
-							<p class="button-container">
-								<span class="button-group button-group--single">
-									<gl-button full @click=${this.onApplyPatch}>Apply Patch</gl-button>
-									<gk-popover placement="bottom">
-										<gl-button
-											slot="trigger"
-											density="compact"
-											aria-label="Apply Patch Options..."
-											title="Apply Patch Options..."
-											><code-icon icon="chevron-down"></code-icon
-										></gl-button>
-										<gk-menu class="mine-menu" @select=${this.onSelectApplyOption}>
-											<gk-menu-item data-value="branch">Apply to new branch</gk-menu-item>
-											<gk-menu-item data-value="worktree">Apply to new worktree</gk-menu-item>
-										</gk-menu>
-									</gk-popover>
-								</span>
-							</p>
-						</div>
-					`,
-					() => html`
-						<div class="section section--sticky-actions">
-							<p class="button-container">
-								<span class="button-group button-group--single">
-									<gl-button full @click=${this.onApplyPatch}>Apply Patch</gl-button>
-									<gl-button
-										disabled
-										density="compact"
-										aria-label="Apply Patch Options..."
-										title="Apply Patch Options..."
-										><code-icon icon="chevron-down"></code-icon
-									></gl-button>
-								</span>
-							</p>
-						</div>
-					`,
-				)}
+				<div class="section section--sticky-actions">
+					<p class="button-container">
+						<span class="button-group button-group--single">
+							<gl-button full @click=${this.onApplyPatch}>Apply Cloud Patch</gl-button>
+						</span>
+					</p>
+				</div>
 			</webview-pane>
 		`;
 	}
