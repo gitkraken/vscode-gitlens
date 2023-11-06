@@ -1,5 +1,6 @@
+import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import { GerritRemote } from './gerrit';
-import type { GkProviderId, RemoteProviderId } from './remoteProvider';
+import type { RemoteProviderId } from './remoteProvider';
 
 export class GoogleSourceRemote extends GerritRemote {
 	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {

@@ -1,87 +1,28 @@
 import type { Disposable } from 'vscode';
 import type { Container } from '../../container';
-import type { GitCloudPatch, GitPatch, GitRepositoryData } from '../../git/models/patch';
+import type { GitCloudPatch } from '../../git/models/patch';
 import { isSha } from '../../git/models/reference';
-import type { Repository } from '../../git/models/repository';
 import type { GitUser } from '../../git/models/user';
-import type { GkProviderId } from '../../git/remotes/remoteProvider';
+import type {
+	CreateDraftChange,
+	CreateDraftChangesetRequest,
+	CreateDraftChangesetResponse,
+	CreateDraftPatchRequest,
+	CreateDraftRequest,
+	CreateDraftResponse,
+	Draft,
+	DraftChangeset,
+	DraftChangesetResponse,
+	DraftPatch,
+	DraftPatchResponse,
+	DraftResponse,
+} from '../../gk/models/drafts';
+import type { RepositoryIdentityRequest } from '../../gk/models/repositoryIdentities';
 import { log } from '../../system/decorators/log';
 import { Logger } from '../../system/logger';
 import { getLogScope } from '../../system/logger.scope';
 import { getSettledValue } from '../../system/promise';
 import type { ServerConnection } from '../gk/serverConnection';
-
-export interface LocalDraft {
-	readonly draftType: 'local';
-
-	patch: GitPatch;
-}
-
-export interface Draft {
-	readonly draftType: 'cloud';
-	readonly type: 'patch' | 'stash';
-	readonly id: string;
-
-	readonly createdBy: string; // userId of creator
-	readonly organizationId?: string;
-
-	readonly deepLinkUrl: string;
-	readonly isPublic: boolean;
-	readonly latestChangesetId: string;
-
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-
-	readonly title: string;
-	readonly description?: string;
-
-	readonly user?: {
-		readonly id: string;
-		readonly name: string;
-		readonly email: string;
-	};
-
-	changesets?: DraftChangeset[];
-}
-
-export interface DraftChangeset {
-	readonly id: string;
-	readonly draftId: string;
-	readonly parentChangesetId: string;
-
-	readonly userId: string;
-	readonly gitUserName: string;
-	readonly gitUserEmail: string;
-
-	readonly deepLinkUrl?: string;
-
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-
-	readonly patches: GitCloudPatch[];
-}
-
-export interface DraftPatch {
-	readonly id: string;
-	// readonly draftId: string;
-	readonly changesetId: string;
-	readonly userId: string;
-
-	readonly baseBranchName: string;
-	readonly baseCommitSha: string;
-
-	readonly gitRepositoryId?: string;
-
-	contents?: string;
-	repo?: Repository;
-	repoData?: GitRepositoryData;
-}
-
-export interface CreateDraftChange {
-	baseSha: string;
-	contents: string;
-	repository: Repository;
-}
 
 export class DraftService implements Disposable {
 	constructor(
@@ -123,7 +64,7 @@ export class DraftService implements Disposable {
 		// TODO: what happens if there are multiple remotes -- which one should we use? Do we need to ask? See more notes below
 		const remote = getSettledValue(remoteResult);
 
-		let repoData: GitRepositoryDataRequest;
+		let repoData: RepositoryIdentityRequest;
 		if (remote == null) {
 			if (firstSha == null) throw new Error('No remote or initial commit found');
 
@@ -401,7 +342,7 @@ export class DraftService implements Disposable {
 			const patches: GitCloudPatch[] = [];
 
 			for (const p of c.patches) {
-				const repoData = await this.getRepositoryData(p.gitRepositoryId);
+				const repoData = await this.container.repositoryIdentity.getRepositoryIdentity(p.gitRepositoryId);
 				const repo = await this.container.git.findMatchingRepository({
 					firstSha: repoData.initialCommitSha,
 					remoteUrl: repoData.remote?.url,
@@ -534,162 +475,45 @@ export class DraftService implements Disposable {
 		return contentsRsp.text();
 	}
 
-	async getRepositoryData(id: string): Promise<GitRepositoryData> {
-		type Result = { data: GitRepositoryData };
+	// async getRepositoryData(id: string): Promise<GitRepositoryData> {
+	// 	type Result = { data: GitRepositoryData };
 
-		const rsp = await this.connection.fetchGkDevApi(`/v1/git-repositories/${id}`, {
-			method: 'GET',
-		});
+	// 	const rsp = await this.connection.fetchGkDevApi(`/v1/git-repositories/${id}`, {
+	// 		method: 'GET',
+	// 	});
 
-		const data = ((await rsp.json()) as Result).data;
-		return data;
-	}
+	// 	const data = ((await rsp.json()) as Result).data;
+	// 	return data;
+	// }
 }
 
-type BaseGitRepositoryDataRequest = {
-	initialCommitSha?: string;
-};
+// type BaseGitRepositoryDataRequest = {
+// 	initialCommitSha?: string;
+// };
 
-type BaseGitRepositoryDataRequestWithCommitSha = BaseGitRepositoryDataRequest & {
-	initialCommitSha: string;
-};
+// type BaseGitRepositoryDataRequestWithCommitSha = BaseGitRepositoryDataRequest & {
+// 	initialCommitSha: string;
+// };
 
-type BaseGitRepositoryDataRequestWithRemote = BaseGitRepositoryDataRequest & {
-	remote: { url: string; domain: string; path: string };
-};
+// type BaseGitRepositoryDataRequestWithRemote = BaseGitRepositoryDataRequest & {
+// 	remote: { url: string; domain: string; path: string };
+// };
 
-type BaseGitRepositoryDataRequestWithRemoteProvider = BaseGitRepositoryDataRequestWithRemote & {
-	provider: {
-		id: GkProviderId;
-		repoDomain: string;
-		repoName: string;
-		repoOwnerDomain?: string;
-	};
-};
+// type BaseGitRepositoryDataRequestWithRemoteProvider = BaseGitRepositoryDataRequestWithRemote & {
+// 	provider: {
+// 		id: GkProviderId;
+// 		repoDomain: string;
+// 		repoName: string;
+// 		repoOwnerDomain?: string;
+// 	};
+// };
 
-type BaseGitRepositoryDataRequestWithoutRemoteProvider = BaseGitRepositoryDataRequestWithRemote & {
-	provider?: never;
-};
+// type BaseGitRepositoryDataRequestWithoutRemoteProvider = BaseGitRepositoryDataRequestWithRemote & {
+// 	provider?: never;
+// };
 
-type GitRepositoryDataRequest =
-	| BaseGitRepositoryDataRequestWithCommitSha
-	| BaseGitRepositoryDataRequestWithRemote
-	| BaseGitRepositoryDataRequestWithRemoteProvider
-	| BaseGitRepositoryDataRequestWithoutRemoteProvider;
-
-interface CreateDraftRequest {
-	type: 'patch' | 'stash';
-	title: string;
-	description?: string;
-	isPublic: boolean;
-	organizationId?: string;
-}
-
-interface CreateDraftResponse {
-	id: string;
-	deepLink: string;
-}
-
-interface CreateDraftChangesetRequest {
-	parentChangesetId?: string | null;
-	gitUserName?: string;
-	gitUserEmail?: string;
-	patches: CreateDraftPatchRequest[];
-}
-
-interface CreateDraftChangesetResponse {
-	readonly id: string;
-	readonly draftId: string;
-	readonly parentChangesetId: string;
-
-	readonly userId: string;
-	readonly gitUserName: string;
-	readonly gitUserEmail: string;
-
-	readonly deepLink?: string;
-
-	readonly createdAt: string;
-	readonly updatedAt: string;
-	readonly patches: CreateDraftPatchResponse[];
-}
-
-interface CreateDraftPatchRequest {
-	baseCommitSha: string;
-	baseBranchName: string;
-	gitRepoData: GitRepositoryDataRequest;
-}
-
-interface CreateDraftPatchResponse {
-	readonly id: string;
-	readonly changesetId: string;
-
-	readonly baseCommitSha: string;
-	readonly baseBranchName: string;
-	readonly gitRepositoryId: string;
-
-	readonly secureUploadData: {
-		readonly headers: {
-			readonly Host: string[];
-		};
-		readonly method: string;
-		readonly url: string;
-	};
-}
-
-interface DraftResponse {
-	readonly id: string;
-	readonly type: 'patch' | 'stash';
-	readonly createdBy: string;
-	readonly organizationId?: string;
-
-	readonly deepLink: string;
-	readonly isPublic: boolean;
-	readonly latestChangesetId: string;
-
-	readonly createdAt: string;
-	readonly updatedAt: string;
-
-	readonly title: string;
-	readonly description?: string;
-}
-
-interface DraftChangesetResponse {
-	readonly id: string;
-	readonly draftId: string;
-	readonly parentChangesetId: string;
-
-	readonly userId: string;
-	readonly gitUserName: string;
-	readonly gitUserEmail: string;
-
-	readonly deepLink?: string;
-
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-
-	readonly patches: DraftPatchResponse[];
-}
-
-interface DraftPatchResponse {
-	readonly id: string;
-
-	readonly changesetId: string;
-	readonly userId: string;
-
-	readonly baseCommitSha: string;
-	readonly baseBranchName: string;
-
-	readonly secureDownloadData: {
-		readonly url: string;
-		readonly method: string;
-		readonly headers: {
-			readonly Host: string[];
-		};
-	};
-
-	readonly gitRepositoryId: string;
-	readonly gitRepositoryData: GitRepositoryData;
-
-	readonly createdAt: string;
-	readonly updatedAt: string;
-}
+// type GitRepositoryDataRequest =
+// 	| BaseGitRepositoryDataRequestWithCommitSha
+// 	| BaseGitRepositoryDataRequestWithRemote
+// 	| BaseGitRepositoryDataRequestWithRemoteProvider
+// 	| BaseGitRepositoryDataRequestWithoutRemoteProvider;

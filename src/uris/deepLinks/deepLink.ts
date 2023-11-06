@@ -2,7 +2,7 @@ import type { Uri } from 'vscode';
 import type { GitReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
-import type { Draft } from '../../plus/drafts/draftsService';
+import type { Draft } from '../../gk/models/drafts';
 
 export type UriTypes = 'link';
 

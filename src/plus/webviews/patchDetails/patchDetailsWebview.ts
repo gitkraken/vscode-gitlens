@@ -17,6 +17,7 @@ import type { GitDiff } from '../../../git/models/diff';
 import { GitFileChange } from '../../../git/models/file';
 import type { GitCloudPatch, GitPatch, RevisionRange } from '../../../git/models/patch';
 import { createReference } from '../../../git/models/reference';
+import type { CreateDraftChange, Draft, LocalDraft } from '../../../gk/models/drafts';
 import { showCommitPicker } from '../../../quickpicks/commitPicker';
 import { getRepositoryOrShowPicker } from '../../../quickpicks/repositoryPicker';
 import { executeCommand, registerCommand } from '../../../system/command';
@@ -31,7 +32,6 @@ import type { IpcMessage } from '../../../webviews/protocol';
 import { onIpc } from '../../../webviews/protocol';
 import type { WebviewController, WebviewProvider } from '../../../webviews/webviewController';
 import type { WebviewShowOptions } from '../../../webviews/webviewsController';
-import type { CreateDraftChange, Draft, LocalDraft } from '../../drafts/draftsService';
 import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
 import type {
 	ApplyPatchParams,

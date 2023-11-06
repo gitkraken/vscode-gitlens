@@ -10,7 +10,7 @@ import type { GitRemote } from '../../../git/models/remote';
 import type { Repository } from '../../../git/models/repository';
 import type { GitTag } from '../../../git/models/tag';
 import type { GitWorktree } from '../../../git/models/worktree';
-import type { Draft } from '../../../plus/drafts/draftsService';
+import type { Draft } from '../../../gk/models/drafts';
 import type {
 	CloudWorkspace,
 	CloudWorkspaceRepositoryDescriptor,

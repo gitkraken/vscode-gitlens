@@ -1,6 +1,6 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitUri } from '../../git/gitUri';
-import type { Draft } from '../../plus/drafts/draftsService';
+import type { Draft } from '../../gk/models/drafts';
 import type { DraftsView } from '../draftsView';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 

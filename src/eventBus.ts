@@ -5,7 +5,7 @@ import type { CustomEditorIds, WebviewIds, WebviewViewIds } from './constants';
 import type { GitCaches } from './git/gitProvider';
 import type { GitCommit } from './git/models/commit';
 import type { GitRevisionReference } from './git/models/reference';
-import type { Draft, LocalDraft } from './plus/drafts/draftsService';
+import type { Draft, LocalDraft } from './gk/models/drafts';
 
 export type CommitSelectedEvent = EventBusEvent<'commit:selected'>;
 interface CommitSelectedEventArgs {

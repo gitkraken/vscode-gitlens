@@ -4,10 +4,12 @@ import type { Autolink, DynamicAutolinkReference, MaybeEnrichedAutolink } from '
 import type { AutolinkReference } from '../../config';
 import { GlyphChars } from '../../constants';
 import type { Container } from '../../container';
+import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import type {
 	IntegrationAuthenticationProvider,
 	IntegrationAuthenticationSessionDescriptor,
 } from '../../plus/integrationAuthentication';
+import type { Brand, Unbrand } from '../../system/brand';
 import { fromNow } from '../../system/date';
 import { log } from '../../system/decorators/log';
 import { memoize } from '../../system/decorators/memoize';
@@ -22,7 +24,7 @@ import type { PullRequest, PullRequestState, SearchedPullRequest } from '../mode
 import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
 import type { RepositoryMetadata } from '../models/repositoryMetadata';
-import type { GkProviderId, RemoteProviderId } from './remoteProvider';
+import type { RemoteProviderId } from './remoteProvider';
 import { ensurePaidPlan, RichRemoteProvider } from './richRemoteProvider';
 
 const autolinkFullIssuesRegex = /\b([^/\s]+\/[^/\s]+?)(?:\\)?#([0-9]+)\b(?!]\()/g;
@@ -194,7 +196,9 @@ export class GitHubRemote extends RichRemoteProvider<GitHubRepositoryDescriptor>
 	}
 
 	get gkProviderId(): GkProviderId {
-		return !isGitHubDotCom(this.domain) ? 'githubEnterprise' : 'github';
+		return (!isGitHubDotCom(this.domain)
+			? 'githubEnterprise'
+			: 'github') satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
 	}
 
 	get name() {

@@ -1,4 +1,5 @@
 import type { Uri } from 'vscode';
+import type { GkRepositoryId } from '../../gk/models/repositoryIdentities';
 import type { GitCommit } from './commit';
 import type { GitDiffFiles } from './diff';
 import type { Repository } from './repository';
@@ -54,7 +55,7 @@ export interface GitCloudPatch {
 	readonly baseBranchName: string;
 	readonly baseCommitSha: string;
 
-	readonly gitRepositoryId?: string;
+	readonly gitRepositoryId?: GkRepositoryId;
 
 	repoData?: GitRepositoryData;
 

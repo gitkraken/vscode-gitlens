@@ -27,6 +27,7 @@ import { AccountAuthenticationProvider } from './plus/gk/account/authenticationP
 import { SubscriptionService } from './plus/gk/account/subscriptionService';
 import { ServerConnection } from './plus/gk/serverConnection';
 import { IntegrationAuthenticationService } from './plus/integrationAuthentication';
+import { RepositoryIdentityService } from './plus/repos/repositoryIdentityService';
 import { registerAccountWebviewView } from './plus/webviews/account/registration';
 import { registerFocusWebviewCommands, registerFocusWebviewPanel } from './plus/webviews/focus/registration';
 import type { GraphWebviewShowingArgs } from './plus/webviews/graph/registration';
@@ -399,6 +400,14 @@ export class Container {
 			this._disposables.push((this._drafts = new DraftService(this, this._connection)));
 		}
 		return this._drafts;
+	}
+
+	private _repositoryIdentity: RepositoryIdentityService | undefined;
+	get repositoryIdentity() {
+		if (this._repositoryIdentity == null) {
+			this._disposables.push((this._repositoryIdentity = new RepositoryIdentityService(this, this._connection)));
+		}
+		return this._repositoryIdentity;
 	}
 
 	private readonly _draftsView: DraftsView;

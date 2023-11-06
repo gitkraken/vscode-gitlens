@@ -2,6 +2,7 @@ import type { Range, Uri } from 'vscode';
 import { env } from 'vscode';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
+import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import { memoize } from '../../system/decorators/memoize';
 import { encodeUrl } from '../../system/encoding';
 import type { RemoteProviderReference } from '../models/remoteProvider';
@@ -20,15 +21,6 @@ export type RemoteProviderId =
 	| 'github'
 	| 'gitlab'
 	| 'google-source';
-
-export type GkProviderId =
-	| 'github'
-	| 'githubEnterprise'
-	| 'gitlab'
-	| 'gitlabSelfHosted'
-	| 'bitbucket'
-	| 'bitbucketServer'
-	| 'azureDevops';
 
 export abstract class RemoteProvider implements RemoteProviderReference {
 	readonly type: 'simple' | 'rich' = 'simple';
