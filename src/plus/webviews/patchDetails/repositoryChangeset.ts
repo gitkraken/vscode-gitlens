@@ -1,7 +1,7 @@
 import { Disposable } from 'vscode';
 import type { Container } from '../../../container';
 import type { GitFileChangeShape } from '../../../git/models/file';
-import type { RevisionRange } from '../../../git/models/patch';
+import type { PatchRevisionRange } from '../../../git/models/patch';
 import type { Repository } from '../../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../../git/models/repository';
 import type { Change, ChangeType, RevisionChange } from './protocol';
@@ -9,7 +9,7 @@ import type { Change, ChangeType, RevisionChange } from './protocol';
 export interface RepositoryChangeset extends Disposable {
 	type: ChangeType;
 	repository: Repository;
-	revision: RevisionRange;
+	revision: PatchRevisionRange;
 	getChange(): Promise<Change>;
 
 	suspend(): void;
@@ -25,7 +25,7 @@ export class RepositoryRefChangeset implements RepositoryChangeset {
 	constructor(
 		private readonly container: Container,
 		public readonly repository: Repository,
-		public readonly revision: RevisionRange,
+		public readonly revision: PatchRevisionRange,
 		private readonly files: RevisionChange['files'],
 		checked: Change['checked'],
 		expanded: boolean,
@@ -113,7 +113,7 @@ export class RepositoryWipChangeset implements RepositoryChangeset {
 	constructor(
 		private readonly container: Container,
 		public readonly repository: Repository,
-		public readonly revision: RevisionRange,
+		public readonly revision: PatchRevisionRange,
 		private readonly onDidChangeRepositoryWip: (e: RepositoryWipChangeset) => void,
 		checked: Change['checked'],
 		expanded: boolean,

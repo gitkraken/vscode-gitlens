@@ -8,6 +8,7 @@ import type { TextDocumentShowOptions } from 'vscode';
 import type { GitFileChangeShape } from '../../../../../git/models/file';
 import type { DraftDetails, FileActionParams, State } from '../../../../../plus/webviews/patchDetails/protocol';
 import { makeHierarchical } from '../../../../../system/array';
+import { flatCount } from '../../../../../system/iterable';
 import type {
 	TreeItemActionDetail,
 	TreeItemBase,
@@ -62,7 +63,7 @@ export class GlDraftDetails extends GlTreeBase {
 	explain?: ExplainState;
 
 	get canSubmit() {
-		return this.state.draft?.repoPath != null && this.state.draft?.baseRef != null;
+		return false; //this.state.draft?.repoPath != null && this.state.draft?.baseRef != null;
 	}
 
 	constructor() {
@@ -94,7 +95,7 @@ export class GlDraftDetails extends GlTreeBase {
 		}
 
 		const title = this.state.draft.title;
-		const description = this.state.draft.type === 'cloud' ? this.state.draft.description : undefined;
+		const description = this.state.draft.draftType === 'cloud' ? this.state.draft.description : undefined;
 		return html`
 			<div class="section section--message">
 				<div class="message-block">
@@ -166,22 +167,22 @@ export class GlDraftDetails extends GlTreeBase {
 		`;
 	}
 
-	private renderCommitStats() {
-		if (this.state?.draft?.stats?.changedFiles == null) {
-			return undefined;
-		}
+	// private renderCommitStats() {
+	// 	if (this.state?.draft?.stats?.changedFiles == null) {
+	// 		return undefined;
+	// 	}
 
-		if (typeof this.state.draft.stats.changedFiles === 'number') {
-			return html`<commit-stats
-				.added=${undefined}
-				modified="${this.state.draft.stats.changedFiles}"
-				.removed=${undefined}
-			></commit-stats>`;
-		}
+	// 	if (typeof this.state.draft.stats.changedFiles === 'number') {
+	// 		return html`<commit-stats
+	// 			.added=${undefined}
+	// 			modified="${this.state.draft.stats.changedFiles}"
+	// 			.removed=${undefined}
+	// 		></commit-stats>`;
+	// 	}
 
-		const { added, deleted, changed } = this.state.draft.stats.changedFiles;
-		return html`<commit-stats added="${added}" modified="${changed}" removed="${deleted}"></commit-stats>`;
-	}
+	// 	const { added, deleted, changed } = this.state.draft.stats.changedFiles;
+	// 	return html`<commit-stats added="${added}" modified="${changed}" removed="${deleted}"></commit-stats>`;
+	// }
 
 	private renderChangedFiles() {
 		const layout = this.state?.preferences?.files?.layout ?? 'auto';
@@ -189,12 +190,12 @@ export class GlDraftDetails extends GlTreeBase {
 		return html`
 			<webview-pane collapsable expanded>
 				<span slot="title">Files changed </span>
-				<span slot="subtitle" data-region="stats">${this.renderCommitStats()}</span>
+				<!-- <span slot="subtitle" data-region="stats">\${this.renderCommitStats()}</span> -->
 				<action-nav slot="actions">${this.renderLayoutAction(layout)}</action-nav>
 
 				<div class="change-list" data-region="files">
 					${when(
-						this.state?.draft?.files == null,
+						this.state?.draft?.patches == null,
 						() => this.renderLoading(),
 						() => this.renderTreeView(this.treeModel, this.state?.preferences?.indentGuides),
 					)}
@@ -204,123 +205,125 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	get treeModel(): TreeModel[] {
-		if (this.state?.draft == null) return [];
+		if (this.state?.draft?.patches == null) return [];
 
-		const draft = this.state.draft;
-		// const files = draft.files;
+		const {
+			draft: { patches },
+		} = this.state;
 
 		const layout = this.state?.preferences?.files?.layout ?? 'auto';
 		let isTree = false;
-		if (this.state?.draft?.files != null) {
-			if (layout === 'auto') {
-				isTree = this.state.draft.files.length > (this.state.preferences?.files?.threshold ?? 5);
-			} else {
-				isTree = layout === 'tree';
-			}
+
+		const fileCount = flatCount(patches, p => p?.files?.length ?? 0);
+		if (layout === 'auto') {
+			isTree = fileCount > (this.state.preferences?.files?.threshold ?? 5);
+		} else {
+			isTree = layout === 'tree';
 		}
 
 		// checkable only for multi-repo
 		const options = { checkable: false };
-		const testModel = this.draftDetailsToTreeModel(draft, isTree, this.state.preferences?.files?.compact, options);
-		console.log(testModel);
-
-		return [testModel];
+		const models = patches?.map(p =>
+			this.draftPatchToTreeModel(p, isTree, this.state.preferences?.files?.compact, options),
+		);
+		return models;
 	}
 
 	renderPatches() {
-		// const path = this.state.draft?.repoPath;
-		const repo = this.state.draft?.repoName;
-		const base = this.state.draft?.baseRef;
+		return '';
+		// // const path = this.state.draft?.repoPath;
+		// const repo = this.state.draft?.repoName;
+		// const base = this.state.draft?.baseRef;
 
-		const getActions = () => {
-			if (!repo) {
-				return html`
-					<a href="#" class="commit-action" data-action="select-patch-repo" @click=${this.onSelectPatchRepo}
-						><code-icon icon="repo" title="Repository" aria-label="Repository"></code-icon
-						><span class="top-details__sha">Select base repo</span></a
-					>
-					<a href="#" class="commit-action is-disabled"><code-icon icon="gl-graph"></code-icon></a>
-				`;
-			}
+		// const getActions = () => {
+		// 	if (!repo) {
+		// 		return html`
+		// 			<a href="#" class="commit-action" data-action="select-patch-repo" @click=${this.onSelectPatchRepo}
+		// 				><code-icon icon="repo" title="Repository" aria-label="Repository"></code-icon
+		// 				><span class="top-details__sha">Select base repo</span></a
+		// 			>
+		// 			<a href="#" class="commit-action is-disabled"><code-icon icon="gl-graph"></code-icon></a>
+		// 		`;
+		// 	}
 
-			if (!base) {
-				return html`
-					<a href="#" class="commit-action" data-action="select-patch-repo" @click=${this.onSelectPatchRepo}
-						><code-icon icon="repo" title="Repository" aria-label="Repository"></code-icon
-						><span class="top-details__sha">${repo}</span></a
-					>
-					<a href="#" class="commit-action" data-action="select-patch-base" @click=${this.onChangePatchBase}
-						><code-icon icon="git-commit" title="Repository" aria-label="Repository"></code-icon
-						><span class="top-details__sha">Select base</span></a
-					>
-					<a href="#" class="commit-action is-disabled"><code-icon icon="gl-graph"></code-icon></a>
-				`;
-			}
+		// 	if (!base) {
+		// 		return html`
+		// 			<a href="#" class="commit-action" data-action="select-patch-repo" @click=${this.onSelectPatchRepo}
+		// 				><code-icon icon="repo" title="Repository" aria-label="Repository"></code-icon
+		// 				><span class="top-details__sha">${repo}</span></a
+		// 			>
+		// 			<a href="#" class="commit-action" data-action="select-patch-base" @click=${this.onChangePatchBase}
+		// 				><code-icon icon="git-commit" title="Repository" aria-label="Repository"></code-icon
+		// 				><span class="top-details__sha">Select base</span></a
+		// 			>
+		// 			<a href="#" class="commit-action is-disabled"><code-icon icon="gl-graph"></code-icon></a>
+		// 		`;
+		// 	}
 
-			return html`
-				<a href="#" class="commit-action" data-action="select-patch-repo" @click=${this.onSelectPatchRepo}
-					><code-icon icon="repo" title="Repository" aria-label="Repository"></code-icon
-					><span class="top-details__sha">${repo}</span></a
-				>
-				<a href="#" class="commit-action" data-action="select-patch-base" @click=${this.onChangePatchBase}
-					><code-icon icon="git-commit"></code-icon
-					><span class="top-details__sha">${base?.substring(0, 7)}</span></a
-				>
-				<a href="#" class="commit-action" data-action="patch-base-in-graph" @click=${this.onShowInGraph}
-					><code-icon icon="gl-graph"></code-icon
-				></a>
-			`;
-		};
+		// 	return html`
+		// 		<a href="#" class="commit-action" data-action="select-patch-repo" @click=${this.onSelectPatchRepo}
+		// 			><code-icon icon="repo" title="Repository" aria-label="Repository"></code-icon
+		// 			><span class="top-details__sha">${repo}</span></a
+		// 		>
+		// 		<a href="#" class="commit-action" data-action="select-patch-base" @click=${this.onChangePatchBase}
+		// 			><code-icon icon="git-commit"></code-icon
+		// 			><span class="top-details__sha">${base?.substring(0, 7)}</span></a
+		// 		>
+		// 		<a href="#" class="commit-action" data-action="patch-base-in-graph" @click=${this.onShowInGraph}
+		// 			><code-icon icon="gl-graph"></code-icon
+		// 		></a>
+		// 	`;
+		// };
 
-		return html`
-			<webview-pane collapsable expanded>
-				<span slot="title">Apply</span>
-				<div class="section">
-					<div class="patch-base">${getActions()}</div>
-				</div>
-				${when(
-					this.canSubmit,
-					() => html`
-						<div class="section section--sticky-actions">
-							<p class="button-container">
-								<span class="button-group button-group--single">
-									<gl-button full @click=${this.onApplyPatch}>Apply Patch</gl-button>
-									<gk-popover placement="bottom">
-										<gl-button
-											slot="trigger"
-											density="compact"
-											aria-label="Apply Patch Options..."
-											title="Apply Patch Options..."
-											><code-icon icon="chevron-down"></code-icon
-										></gl-button>
-										<gk-menu class="mine-menu" @select=${this.onSelectApplyOption}>
-											<gk-menu-item data-value="branch">Apply to new branch</gk-menu-item>
-											<gk-menu-item data-value="worktree">Apply to new worktree</gk-menu-item>
-										</gk-menu>
-									</gk-popover>
-								</span>
-							</p>
-						</div>
-					`,
-					() => html`
-						<div class="section section--sticky-actions">
-							<p class="button-container">
-								<span class="button-group button-group--single">
-									<gl-button disabled full>Apply Patch</gl-button>
-									<gl-button
-										disabled
-										density="compact"
-										aria-label="Apply Patch Options..."
-										title="Apply Patch Options..."
-										><code-icon icon="chevron-down"></code-icon
-									></gl-button>
-								</span>
-							</p>
-						</div>
-					`,
-				)}
-			</webview-pane>
-		`;
+		// return html`
+		// 	<webview-pane collapsable expanded>
+		// 		<span slot="title">Apply</span>
+		// 		<div class="section">
+		// 			<div class="patch-base">${getActions()}</div>
+		// 		</div>
+		// 		${when(
+		// 			this.canSubmit,
+		// 			() => html`
+		// 				<div class="section section--sticky-actions">
+		// 					<p class="button-container">
+		// 						<span class="button-group button-group--single">
+		// 							<gl-button full @click=${this.onApplyPatch}>Apply Patch</gl-button>
+		// 							<gk-popover placement="bottom">
+		// 								<gl-button
+		// 									slot="trigger"
+		// 									density="compact"
+		// 									aria-label="Apply Patch Options..."
+		// 									title="Apply Patch Options..."
+		// 									><code-icon icon="chevron-down"></code-icon
+		// 								></gl-button>
+		// 								<gk-menu class="mine-menu" @select=${this.onSelectApplyOption}>
+		// 									<gk-menu-item data-value="branch">Apply to new branch</gk-menu-item>
+		// 									<gk-menu-item data-value="worktree">Apply to new worktree</gk-menu-item>
+		// 								</gk-menu>
+		// 							</gk-popover>
+		// 						</span>
+		// 					</p>
+		// 				</div>
+		// 			`,
+		// 			() => html`
+		// 				<div class="section section--sticky-actions">
+		// 					<p class="button-container">
+		// 						<span class="button-group button-group--single">
+		// 							<gl-button disabled full>Apply Patch</gl-button>
+		// 							<gl-button
+		// 								disabled
+		// 								density="compact"
+		// 								aria-label="Apply Patch Options..."
+		// 								title="Apply Patch Options..."
+		// 								><code-icon icon="chevron-down"></code-icon
+		// 							></gl-button>
+		// 						</span>
+		// 					</p>
+		// 				</div>
+		// 			`,
+		// 		)}
+		// 	</webview-pane>
+		// `;
 	}
 
 	renderCollaborators() {
@@ -377,7 +380,7 @@ export class GlDraftDetails extends GlTreeBase {
 								<div class="top-details__actionbar-group"></div>
 								<div class="top-details__actionbar-group">
 									${when(
-										this.state?.draft?.type === 'cloud',
+										this.state?.draft?.draftType === 'cloud',
 										() => html`
 											<a class="commit-action" href="#" @click=${this.onCopyCloudLink}>
 												<code-icon icon="link"></code-icon>
@@ -405,7 +408,7 @@ export class GlDraftDetails extends GlTreeBase {
 								</div>
 							</div>
 							${when(
-								this.state.draft?.type === 'cloud' && this.state.draft?.author != null,
+								this.state.draft?.draftType === 'cloud' && this.state.draft?.author != null,
 								() => html`
 									<ul class="top-details__authors" aria-label="Authors">
 										<li class="top-details__author" data-region="author">
@@ -565,7 +568,7 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	onShowInGraph(_e?: MouseEvent | KeyboardEvent) {
-		const evt = new CustomEvent<ShowPatchInGraphDetail>('graph-show-patch', {
+		const evt = new CustomEvent<ShowPatchInGraphDetail>('gl-patch-details-graph-show-patch', {
 			detail: {
 				draft: this.state.draft!,
 			},
@@ -574,7 +577,7 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	onCopyCloudLink() {
-		const evt = new CustomEvent('copy-cloud-link', {
+		const evt = new CustomEvent('gl-patch-details-copy-cloud-link', {
 			detail: {
 				draft: this.state.draft!,
 			},
@@ -583,7 +586,7 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	onShareLocalPatch() {
-		const evt = new CustomEvent('share-local-patch', {
+		const evt = new CustomEvent('gl-patch-details-share-local-patch', {
 			detail: {
 				draft: this.state.draft!,
 			},
@@ -591,22 +594,20 @@ export class GlDraftDetails extends GlTreeBase {
 		this.dispatchEvent(evt);
 	}
 
-	draftDetailsToTreeModel(
-		details: DraftDetails,
+	draftPatchToTreeModel(
+		patch: NonNullable<DraftDetails['patches']>[0],
 		isTree = false,
 		compact = true,
 		options?: Partial<TreeItemBase>,
 	): TreeModel {
-		const model = this.repoToTreeModel(details.repoName!, details.repoPath!, options);
+		const model = this.repoToTreeModel(patch.gkRepositoryId, patch.gkRepositoryId, options);
 
-		if (details.files == null) {
-			return model;
-		}
+		if (!patch.files?.length) return model;
 
 		const children = [];
 		if (isTree) {
 			const fileTree = makeHierarchical(
-				details.files,
+				patch.files,
 				n => n.path.split('/'),
 				(...parts: string[]) => parts.join('/'),
 				compact,
@@ -618,7 +619,7 @@ export class GlDraftDetails extends GlTreeBase {
 				}
 			}
 		} else {
-			for (const file of details.files) {
+			for (const file of patch.files) {
 				const child = this.fileToTreeModel(file, { level: 2, branch: false }, true);
 				children.push(child);
 			}

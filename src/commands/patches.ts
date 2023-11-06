@@ -2,10 +2,10 @@ import type { TextEditor } from 'vscode';
 import { window, workspace } from 'vscode';
 import { Commands } from '../constants';
 import type { Container } from '../container';
-import type { RevisionRange } from '../git/models/patch';
+import type { PatchRevisionRange } from '../git/models/patch';
 import { shortenRevision } from '../git/models/reference';
 import type { Repository } from '../git/models/repository';
-import type { Draft, DraftPatch, LocalDraft } from '../gk/models/drafts';
+import type { Draft, LocalDraft } from '../gk/models/drafts';
 import { showPatchesView } from '../plus/drafts/actions';
 import type { Change } from '../plus/webviews/patchDetails/protocol';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker';
@@ -92,7 +92,7 @@ async function getDiffContents(
 	container: Container,
 	repository: Repository,
 	args: CreatePatchCommandArgs,
-): Promise<{ contents: string; range: Omit<RevisionRange, 'branchName'> } | undefined> {
+): Promise<{ contents: string; revision: PatchRevisionRange } | undefined> {
 	const sha = args.ref1 ?? 'HEAD';
 
 	const diff = await container.git.getDiff(repository.uri, sha, args.ref2);
@@ -100,7 +100,7 @@ async function getDiffContents(
 
 	return {
 		contents: diff.contents,
-		range: {
+		revision: {
 			baseSha: args.ref2 ?? `${sha}^`,
 			sha: sha,
 		},
@@ -121,7 +121,7 @@ async function createLocalChange(
 	if (args.ref1 == null) return undefined;
 
 	const sha = args.ref1 ?? 'HEAD';
-	const [branchName] = await container.git.getCommitBranches(repository.uri, sha);
+	// const [branchName] = await container.git.getCommitBranches(repository.uri, sha);
 
 	const change: Change = {
 		type: 'revision',
@@ -134,7 +134,7 @@ async function createLocalChange(
 		revision: {
 			sha: sha,
 			baseSha: args.ref2 ?? `${sha}^`,
-			branchName: branchName ?? 'HEAD',
+			// branchName: branchName ?? 'HEAD',
 		},
 	};
 
@@ -376,49 +376,49 @@ export class OpenCloudPatchCommand extends Command {
 			return;
 		}
 
-		let patch: DraftPatch | undefined;
-		if (args?.patchId) {
-			patch = await this.container.drafts.getPatch(args.patchId);
-		} else {
-			const patches = draft.changesets?.[0]?.patches;
+		// let patch: DraftPatch | undefined;
+		// if (args?.patchId) {
+		// 	patch = await this.container.drafts.getPatch(args.patchId);
+		// } else {
+		// 	const patches = draft.changesets?.[0]?.patches;
 
-			if (patches == null || patches.length === 0) {
-				void window.showErrorMessage(`Cannot open cloud patch: no patch found under id ${args.patchId}`);
-				return;
-			}
+		// 	if (patches == null || patches.length === 0) {
+		// 		void window.showErrorMessage(`Cannot open cloud patch: no patch found under id ${args.patchId}`);
+		// 		return;
+		// 	}
 
-			patch = patches[0];
+		// 	patch = patches[0];
 
-			if (patch.repository == null && patch.repoData != null) {
-				const repo = await this.container.git.findMatchingRepository({
-					firstSha: patch.repoData.initialCommitSha,
-					remoteUrl: patch.repoData.remote?.url,
-				});
-				if (repo != null) {
-					patch.repository = repo;
-				}
-			}
+		// if (patch.repo == null && patch.repoData != null) {
+		// 	const repo = await this.container.git.findMatchingRepository({
+		// 		firstSha: patch.repoData.initialCommitSha,
+		// 		remoteUrl: patch.repoData.remote?.url,
+		// 	});
+		// 	if (repo != null) {
+		// 		patch.repo = repo;
+		// 	}
+		// }
 
-			if (patch.repository == null) {
-				void window.showErrorMessage(`Cannot open cloud patch: no repository found for patch ${args.patchId}`);
-				return;
-			}
+		// if (patch.repo == null) {
+		// 	void window.showErrorMessage(`Cannot open cloud patch: no repository found for patch ${args.patchId}`);
+		// 	return;
+		// }
 
-			// Opens the patch repository if it's not already open
-			void this.container.git.getOrOpenRepository(patch.repository.uri);
+		// // Opens the patch repository if it's not already open
+		// void this.container.git.getOrOpenRepository(patch.repo.uri);
 
-			const patchContents = await this.container.drafts.getPatchContents(patch.id);
-			if (patchContents == null) {
-				void window.showErrorMessage(`Cannot open cloud patch: patch not found of contents empty`);
-				return;
-			}
-			patch.contents = patchContents;
-		}
+		// 	const patchContents = await this.container.drafts.getPatchContents(patch.id);
+		// 	if (patchContents == null) {
+		// 		void window.showErrorMessage(`Cannot open cloud patch: patch not found of contents empty`);
+		// 		return;
+		// 	}
+		// 	patch.contents = patchContents;
+		// }
 
-		if (patch == null) {
-			void window.showErrorMessage(`Cannot open cloud patch: patch not found`);
-			return;
-		}
+		// if (patch == null) {
+		// 	void window.showErrorMessage(`Cannot open cloud patch: patch not found`);
+		// 	return;
+		// }
 
 		void showPatchesView({ mode: 'open', open: draft });
 	}

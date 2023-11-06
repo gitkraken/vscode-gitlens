@@ -23,7 +23,12 @@ export interface CreatePatchEventDetail {
 	changesets: Record<string, Change>;
 }
 
-export interface CheckRepositoryEventDetail {
+export interface CreatePatchMetadataEventDetail {
+	title: string;
+	description: string | undefined;
+}
+
+export interface CreatePatchCheckRepositoryEventDetail {
 	repoUri: string;
 	checked: boolean | 'staged';
 }
@@ -31,8 +36,12 @@ export interface CheckRepositoryEventDetail {
 // Can only import types from 'vscode'
 const BesideViewColumn = -2; /*ViewColumn.Beside*/
 
+export type GlPatchCreateEvents = {
+	[K in Extract<keyof WindowEventMap, `gl-patch-create-${string}`>]: WindowEventMap[K];
+};
+
 @customElement('gl-patch-create')
-export class GlPatchCreate extends GlTreeBase {
+export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 	@property({ type: Object }) state?: Serialized<State>;
 
 	// @state()
@@ -219,14 +228,10 @@ export class GlPatchCreate extends GlTreeBase {
 		change.checked = checked;
 		this.requestUpdate('state');
 
-		this.dispatchEvent(
-			new CustomEvent<CheckRepositoryEventDetail>('patch-create-check', {
-				detail: {
-					repoUri: repoUri,
-					checked: checked,
-				},
-			}),
-		);
+		this.fireEvent('gl-patch-create-check', {
+			repoUri: repoUri,
+			checked: checked,
+		});
 	}
 
 	override onTreeItemSelected(e: CustomEvent<TreeItemSelectionDetail>) {
@@ -294,20 +299,6 @@ export class GlPatchCreate extends GlTreeBase {
 			if (staged.length === 0 || unstaged.length === 0) {
 				children.push(...this.renderFiles(change.files, isTree, compact, isMulti ? 2 : 1));
 			} else {
-				if (staged.length) {
-					children.push({
-						label: 'Staged Changes',
-						path: '',
-						level: isMulti ? 2 : 1,
-						branch: true,
-						checkable: true,
-						expanded: true,
-						checked: change.checked !== false,
-						disableCheck: true,
-						children: this.renderFiles(staged, isTree, compact, isMulti ? 3 : 2),
-					});
-				}
-
 				if (unstaged.length) {
 					children.push({
 						label: 'Unstaged Changes',
@@ -319,6 +310,20 @@ export class GlPatchCreate extends GlTreeBase {
 						checked: change.checked === true,
 						context: [change.repository.uri, 'unstaged'],
 						children: this.renderFiles(unstaged, isTree, compact, isMulti ? 3 : 2),
+					});
+				}
+
+				if (staged.length) {
+					children.push({
+						label: 'Staged Changes',
+						path: '',
+						level: isMulti ? 2 : 1,
+						branch: true,
+						checkable: true,
+						expanded: true,
+						checked: change.checked !== false,
+						disableCheck: true,
+						children: this.renderFiles(staged, isTree, compact, isMulti ? 3 : 2),
 					});
 				}
 			}
@@ -442,12 +447,18 @@ export class GlPatchCreate extends GlTreeBase {
 
 	private onTitleInput(e: InputEvent) {
 		this.create.title = (e.target as HTMLInputElement).value;
-		// TODO: Send to extension
+		this.fireEvent('gl-patch-create-update-metadata', {
+			title: this.create.title,
+			description: this.create.description,
+		});
 	}
 
 	private onDescriptionInput(e: InputEvent) {
 		this.create.description = (e.target as HTMLInputElement).value;
-		// TODO: Send to extension
+		this.fireEvent('gl-patch-create-update-metadata', {
+			title: this.create.title!,
+			description: this.create.description,
+		});
 	}
 
 	protected override createRenderRoot() {
@@ -499,7 +510,8 @@ declare global {
 		'gl-patch-create': GlPatchCreate;
 	}
 
-	interface HTMLElementEventMap {
-		'patch-create-check': CustomEvent<CreatePatchEventDetail>;
+	interface WindowEventMap {
+		'gl-patch-create-check': CustomEvent<CreatePatchCheckRepositoryEventDetail>;
+		'gl-patch-create-update-metadata': CustomEvent<CreatePatchMetadataEventDetail>;
 	}
 }

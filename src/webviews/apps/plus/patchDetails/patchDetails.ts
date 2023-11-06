@@ -5,7 +5,6 @@ import {
 	ApplyPatchCommandType,
 	CopyCloudLinkCommandType,
 	CreateFromLocalPatchCommandType,
-	CreatePatchCheckRepositoryCommandType,
 	CreatePatchCommandType,
 	DidChangeCreateNotificationType,
 	DidChangeDraftNotificationType,
@@ -21,6 +20,8 @@ import {
 	SelectPatchBaseCommandType,
 	SelectPatchRepoCommandType,
 	SwitchModeCommandType,
+	UpdateCreatePatchMetadataCommandType,
+	UpdateCreatePatchRepositoryCheckedStateCommandType,
 	UpdatePreferencesCommandType,
 } from '../../../../plus/webviews/patchDetails/protocol';
 import type { Serialized } from '../../../../system/serialize';
@@ -30,7 +31,12 @@ import { App } from '../../shared/appBase';
 import type { FileChangeListItemDetail } from '../../shared/components/list/file-change-list-item';
 import { DOM } from '../../shared/dom';
 import type { GlDraftDetails } from './components/gl-draft-details';
-import type { CheckRepositoryEventDetail, CreatePatchEventDetail, GlPatchCreate } from './components/gl-patch-create';
+import type {
+	CreatePatchCheckRepositoryEventDetail,
+	CreatePatchEventDetail,
+	CreatePatchMetadataEventDetail,
+	GlPatchCreate,
+} from './components/gl-patch-create';
 import type {
 	ApplyPatchDetail,
 	ChangePatchBaseDetail,
@@ -90,20 +96,29 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 			DOM.on<GlPatchDetailsApp, SelectPatchRepoDetail>('gl-patch-details-app', 'select-patch-repo', e =>
 				this.onSelectPatchRepo(e.detail),
 			),
-			DOM.on<GlPatchDetailsApp, ShowPatchInGraphDetail>('gl-patch-details-app', 'graph-show-patch', e =>
-				this.onShowPatchInGraph(e.detail),
+			DOM.on<GlPatchDetailsApp, ShowPatchInGraphDetail>(
+				'gl-patch-details-app',
+				'gl-patch-details-graph-show-patch',
+				e => this.onShowPatchInGraph(e.detail),
 			),
 			DOM.on<GlPatchDetailsApp, CreatePatchEventDetail>('gl-patch-details-app', 'create-patch', e =>
 				this.onCreatePatch(e.detail),
 			),
-			DOM.on<GlPatchDetailsApp, undefined>('gl-patch-details-app', 'share-local-patch', () =>
+			DOM.on<GlPatchDetailsApp, undefined>('gl-patch-details-app', 'gl-patch-details-share-local-patch', () =>
 				this.onShareLocalPatch(),
 			),
-			DOM.on<GlPatchDetailsApp, undefined>('gl-patch-details-app', 'copy-cloud-link', () =>
+			DOM.on<GlPatchDetailsApp, undefined>('gl-patch-details-app', 'gl-patch-details-copy-cloud-link', () =>
 				this.onCopyCloudLink(),
 			),
-			DOM.on<GlPatchCreate, CheckRepositoryEventDetail>('gl-patch-create', 'patch-create-check', e =>
-				this.onCreateCheckRepo(e.detail),
+			DOM.on<GlPatchCreate, CreatePatchCheckRepositoryEventDetail>(
+				'gl-patch-create',
+				'gl-patch-create-check',
+				e => this.onCreateCheckRepo(e.detail),
+			),
+			DOM.on<GlPatchCreate, CreatePatchMetadataEventDetail>(
+				'gl-patch-create',
+				'gl-patch-create-update-metadata',
+				e => this.onCreateUpdateMetadata(e.detail),
 			),
 			DOM.on<GlPatchCreate, FileChangeListItemDetail>('gl-patch-create', 'file-compare-previous', e =>
 				this.onCompareFileWithPrevious(e.detail),
@@ -192,8 +207,12 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 		}
 	}
 
-	private onCreateCheckRepo(e: CheckRepositoryEventDetail) {
-		this.sendCommand(CreatePatchCheckRepositoryCommandType, e);
+	private onCreateCheckRepo(e: CreatePatchCheckRepositoryEventDetail) {
+		this.sendCommand(UpdateCreatePatchRepositoryCheckedStateCommandType, e);
+	}
+
+	private onCreateUpdateMetadata(e: CreatePatchMetadataEventDetail) {
+		this.sendCommand(UpdateCreatePatchMetadataCommandType, e);
 	}
 
 	private onShowPatchInGraph(_e: ShowPatchInGraphDetail) {

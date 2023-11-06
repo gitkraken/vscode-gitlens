@@ -12,10 +12,9 @@ import {
 } from '../../../git/actions/commit';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import type { GitCommit } from '../../../git/models/commit';
-import { uncommitted } from '../../../git/models/constants';
-import type { GitDiff } from '../../../git/models/diff';
+import { uncommitted, uncommittedStaged } from '../../../git/models/constants';
 import { GitFileChange } from '../../../git/models/file';
-import type { GitPatch, RevisionRange } from '../../../git/models/patch';
+import type { GitPatch, PatchRevisionRange } from '../../../git/models/patch';
 import { createReference } from '../../../git/models/reference';
 import type { CreateDraftChange, Draft, DraftPatch, LocalDraft } from '../../../gk/models/drafts';
 import { showCommitPicker } from '../../../quickpicks/commitPicker';
@@ -25,7 +24,7 @@ import { configuration } from '../../../system/configuration';
 import { debug } from '../../../system/decorators/log';
 import type { Deferrable } from '../../../system/function';
 import { debounce } from '../../../system/function';
-import { find } from '../../../system/iterable';
+import { find, some } from '../../../system/iterable';
 import type { Serialized } from '../../../system/serialize';
 import { serialize } from '../../../system/serialize';
 import type { IpcMessage } from '../../../webviews/protocol';
@@ -36,7 +35,6 @@ import type { ShowInCommitGraphCommandArgs } from '../graph/protocol';
 import type {
 	ApplyPatchParams,
 	Change,
-	CreatePatchCheckRepositoryParams,
 	CreatePatchParams,
 	DidExplainParams,
 	FileActionParams,
@@ -45,12 +43,13 @@ import type {
 	State,
 	SwitchModeParams,
 	UpdateablePreferences,
+	UpdateCreatePatchMetadataParams,
+	UpdateCreatePatchRepositoryCheckedStateParams,
 } from './protocol';
 import {
 	ApplyPatchCommandType,
 	CopyCloudLinkCommandType,
 	CreateFromLocalPatchCommandType,
-	CreatePatchCheckRepositoryCommandType,
 	CreatePatchCommandType,
 	DidChangeCreateNotificationType,
 	DidChangeDraftNotificationType,
@@ -67,6 +66,8 @@ import {
 	SelectPatchBaseCommandType,
 	SelectPatchRepoCommandType,
 	SwitchModeCommandType,
+	UpdateCreatePatchMetadataCommandType,
+	UpdateCreatePatchRepositoryCheckedStateCommandType,
 	UpdatePreferencesCommandType,
 } from './protocol';
 import type { CreateDraft, PatchDetailsWebviewShowingArgs } from './registration';
@@ -202,8 +203,14 @@ export class PatchDetailsWebviewProvider
 			case ApplyPatchCommandType.method:
 				onIpc(ApplyPatchCommandType, e, params => this.applyPatch(params));
 				break;
-			case CreatePatchCheckRepositoryCommandType.method:
-				onIpc(CreatePatchCheckRepositoryCommandType, e, params => this.checkChange(params));
+			case UpdateCreatePatchRepositoryCheckedStateCommandType.method:
+				onIpc(UpdateCreatePatchRepositoryCheckedStateCommandType, e, params =>
+					this.updateCreateCheckedState(params),
+				);
+				break;
+			case UpdateCreatePatchMetadataCommandType.method:
+				onIpc(UpdateCreatePatchMetadataCommandType, e, params => this.updateCreateMetadata(params));
+				break;
 		}
 	}
 
@@ -257,7 +264,7 @@ export class PatchDetailsWebviewProvider
 						new RepositoryWipChangeset(
 							this.container,
 							repo,
-							{ baseSha: 'HEAD', sha: undefined },
+							{ baseSha: 'HEAD', sha: uncommitted },
 							this.onRepositoryWipChanged.bind(this),
 							false,
 							true,
@@ -287,18 +294,25 @@ export class PatchDetailsWebviewProvider
 	}
 
 	private applyPatch(params: ApplyPatchParams) {
-		if (params.details.repoPath == null || params.details.commit == null) return;
-
-		void this.container.git.applyPatchCommit(params.details.repoPath, params.details.commit, {
-			branchName: params.targetRef,
-		});
+		// if (params.details.repoPath == null || params.details.commit == null) return;
+		// void this.container.git.applyPatchCommit(params.details.repoPath, params.details.commit, {
+		// 	branchName: params.targetRef,
+		// });
 	}
 
-	private checkChange(params: CreatePatchCheckRepositoryParams) {
+	private updateCreateCheckedState(params: UpdateCreatePatchRepositoryCheckedStateParams) {
 		const changeset = this._context.create?.changes.get(params.repoUri);
 		if (changeset == null) return;
 
 		changeset.checked = params.checked;
+		void this.notifyDidChangeCreateState();
+	}
+
+	private updateCreateMetadata(params: UpdateCreatePatchMetadataParams) {
+		if (this._context.create == null) return;
+
+		this._context.create.title = params.title;
+		this._context.create.description = params.description;
 		void this.notifyDidChangeCreateState();
 	}
 
@@ -361,16 +375,16 @@ export class PatchDetailsWebviewProvider
 			create = await this.getCreateState(current);
 		}
 
-		let details;
+		let draft;
 		if (current.mode === 'open' && current.open != null) {
-			details = await this.getDraftState(current);
+			draft = await this.getDraftState(current);
 		}
 
 		const state = serialize<State>({
 			...this.host.baseWebviewState,
 			mode: current.mode,
 			create: create,
-			draft: details,
+			draft: draft,
 			preferences: current.preferences,
 		});
 		return state;
@@ -435,7 +449,7 @@ export class PatchDetailsWebviewProvider
 						r,
 						{
 							baseSha: 'HEAD',
-							sha: undefined,
+							sha: uncommitted,
 						},
 						this.onRepositoryWipChanged.bind(this),
 						false,
@@ -455,7 +469,7 @@ export class PatchDetailsWebviewProvider
 		void this.notifyDidChangeCreateState();
 	}
 
-	private async getCreateState(current: Context): Promise<Serialized<State>['create'] | undefined> {
+	private async getCreateState(current: Context): Promise<State['create'] | undefined> {
 		const { create } = current;
 		if (create == null) return undefined;
 
@@ -493,73 +507,97 @@ export class PatchDetailsWebviewProvider
 		void this.notifyDidChangeDraftState();
 	}
 
-	private async getDraftState(current: Context): Promise<Serialized<State>['draft'] | undefined> {
+	// eslint-disable-next-line @typescript-eslint/require-await
+	private async getDraftState(current: Context): Promise<State['draft'] | undefined> {
 		if (current.open == null) return undefined;
 
 		const draft = current.open;
 
-		let patch: GitPatch | DraftPatch | undefined;
-		if (draft.draftType === 'local') {
-			patch = draft.patch;
-		} else {
-			patch = await this.getDraftPatch(draft);
-		}
+		// if (draft.draftType === 'local') {
+		// 	const { patch } = draft;
+		// 	if (patch.repository == null) {
+		// 		const repo = this.container.git.getBestRepository();
+		// 		if (repo != null) {
+		// 			patch.repository = repo;
+		// 		}
+		// 	}
 
-		if (patch?.contents != null && patch.files == null) {
-			setTimeout(async () => {
-				const files = await this.container.git.getDiffFiles('', patch!.contents!);
-				patch!.files = files?.files;
+		// 	return {
+		// 		draftType: 'local',
+		// 		files: patch.files ?? [],
+		// 		repoPath: patch.repository?.path,
+		// 		repoName: patch.repository?.name,
+		// 		baseRef: patch.baseRef,
+		// 	};
+		// }
 
-				this._context.open = draft;
-				void this.notifyDidChangeDraftState();
-			}, 1);
-		}
+		if (draft.draftType === 'cloud') {
+			if (
+				draft.changesets == null ||
+				some(draft.changesets, cs => cs.patches.some(p => p.contents == null || p.files == null))
+			) {
+				setTimeout(async () => {
+					if (draft.changesets == null) {
+						draft.changesets = await this.container.drafts.getChangesets(draft.id);
+					}
 
-		if (draft.draftType === 'local' || patch?.type === 'local') {
-			if (patch && patch.repository == null) {
-				const repo = this.container.git.getBestRepository();
-				if (repo != null) {
-					patch.repository = repo;
-				}
+					const patches = draft.changesets
+						.flatMap(cs => cs.patches)
+						.filter(p => p.contents == null || p.files == null);
+					const patchDetails = await Promise.allSettled(
+						patches.map(p => this.container.drafts.getPatchDetails(p)),
+					);
+
+					for (const d of patchDetails) {
+						if (d.status === 'fulfilled') {
+							const patch = patches.find(p => p.id === d.value.id);
+							if (patch != null) {
+								patch.contents = d.value.contents;
+								patch.files = d.value.files;
+								patch.repository = d.value.repository;
+							}
+						}
+					}
+
+					void this.notifyDidChangeDraftState();
+				}, 0);
 			}
+
 			return {
-				type: 'local',
-				files: patch?.files,
-				repoPath: patch?.repository?.path,
-				repoName: patch?.repository?.name,
-				baseRef: patch?.baseRef,
+				draftType: 'cloud',
+				id: draft.id,
+				createdAt: draft.createdAt.getTime(),
+				updatedAt: draft.updatedAt.getTime(),
+				author: draft.author,
+				title: draft.title,
+				description: draft.description,
+				patches: serialize(
+					draft.changesets![0].patches.map(p => ({
+						...p,
+						contents: undefined,
+						commit: undefined,
+						repository: undefined,
+					})),
+				),
+				// commit: (await this.getOrCreateUnreachableCommitForPatch())?.sha,
+
+				// repoPath: patch?.repository?.path!,
+				// // eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
+				// repoName: patch?.repository?.name!,
+				// title: draft.title,
+				// description: draft.description,
+				// files: patch?.files,
+				// baseRef: patch?.baseRef,
 			};
 		}
 
-		// if (patch != null && patch.baseRef == null) {
-		// 	patch.baseRef = patch.baseRef;
-		// }
-
-		return {
-			type: 'cloud',
-			commit: (await this.getOrCreateUnreachableCommitForPatch())?.sha,
-			// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-			repoPath: patch?.repository?.path!,
-			// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-			repoName: patch?.repository?.name!,
-			author: {
-				name: 'You',
-				email: 'no@way.com',
-				avatar: undefined,
-			},
-			title: draft.title,
-			description: draft.description,
-			files: patch?.files,
-			baseRef: patch?.baseRef,
-			createdAt: draft.createdAt.getTime(),
-			updatedAt: draft.updatedAt.getTime(),
-		};
+		return undefined;
 	}
 
 	private async notifyDidChangeDraftState() {
 		return this.host.notify(DidChangeDraftNotificationType, {
 			mode: this._context.mode,
-			draft: await this.getDraftState(this._context),
+			draft: serialize(await this.getDraftState(this._context)),
 		});
 	}
 
@@ -607,8 +645,10 @@ export class PatchDetailsWebviewProvider
 		if (patch == null) return undefined;
 
 		if (patch.contents == null) {
-			const contents = await this.container.drafts.getPatchContents(patch.id);
-			patch.contents = contents;
+			const details = await this.container.drafts.getPatchDetails(patch.id);
+			patch.contents = details.contents;
+			patch.files = details.files;
+			patch.repository = details.repository;
 		}
 
 		return patch;
@@ -617,7 +657,8 @@ export class PatchDetailsWebviewProvider
 	private async getFileCommitFromParams(
 		params: FileActionParams,
 	): Promise<
-		[commit: GitCommit, file: GitFileChange, revision?: Required<Omit<RevisionRange, 'branchName'>>] | undefined
+		| [commit: GitCommit, file: GitFileChange, revision?: Required<Omit<PatchRevisionRange, 'branchName'>>]
+		| undefined
 	> {
 		let [commit, revision] = await this.getOrCreateCommit(params.repoPath);
 
@@ -643,7 +684,7 @@ export class PatchDetailsWebviewProvider
 
 	private async getOrCreateCommit(
 		repoPath: string,
-	): Promise<[commit: GitCommit | undefined, revision?: RevisionRange]> {
+	): Promise<[commit: GitCommit | undefined, revision?: PatchRevisionRange]> {
 		if (this.mode === 'create') {
 			const changeset = find(this._context.create!.changes.values(), cs => cs.repository.path === repoPath);
 			if (changeset == null) return [undefined];
@@ -896,8 +937,6 @@ export class PatchDetailsWebviewProvider
 			if (ref == null) return;
 		}
 
-		// TODO: need to figure out branch name
-		const branchName = '';
 		const baseSha = patch.baseRef ?? 'HEAD';
 		const change: Change = {
 			type: 'revision',
@@ -908,8 +947,7 @@ export class PatchDetailsWebviewProvider
 			},
 			revision: {
 				baseSha: baseSha,
-				sha: patch.commit?.sha,
-				branchName: branchName,
+				sha: patch.commit?.sha ?? uncommitted,
 			},
 			files:
 				patch.files?.map(file => {
@@ -1074,8 +1112,7 @@ export class PatchDetailsWebviewProvider
 			},
 			revision: {
 				baseSha: commit.sha,
-				sha: undefined,
-				branchName: repo.branch.name,
+				sha: uncommitted,
 			},
 			files:
 				commit.files?.map(({ status, repoPath, path, originalPath, staged }) => {
@@ -1120,50 +1157,35 @@ export class PatchDetailsWebviewProvider
 			const repoChangeset = this._context.create?.changes?.get(id);
 			if (repoChangeset == null) continue;
 
-			const {
-				revision: { baseSha, branchName },
-				repository,
-			} = repoChangeset;
-
-			let diff: GitDiff | undefined;
-			if (changeset.type === 'wip') {
-				if (changeset.checked === 'staged') {
-					// need to get the staged changes only
-					diff = await this.container.git.getDiff(
-						repository.path,
-						changeset.revision.baseSha,
-						changeset.revision.sha,
-					);
-				} else {
-					diff = await this.container.git.getDiff(
-						repository.path,
-						changeset.revision.baseSha,
-						changeset.revision.sha,
-					);
-				}
-			} else {
-				diff = await this.container.git.getDiff(
-					repository.path,
-					changeset.revision.baseSha,
-					changeset.revision.sha,
-				);
+			let { revision, repository } = repoChangeset;
+			if (changeset.type === 'wip' && changeset.checked === 'staged') {
+				revision = { ...revision, sha: uncommittedStaged };
 			}
-			if (diff == null) continue;
+
+			// const diff = await this.container.git.getDiff(repository.path, revision.baseSha, revision.sha);
+			// if (diff == null) continue;
 
 			createChanges.push({
 				repository: repository,
-				baseSha: baseSha,
-				contents: diff.contents,
+				revision: revision,
+				// contents: diff.contents,
 			});
 		}
 		if (createChanges == null) return;
 
-		const draft = await this.container.drafts.createDraft(
-			'patch',
-			title,
-			createChanges,
-			description ? { description: description } : undefined,
-		);
-		return draft;
+		try {
+			const draft = await this.container.drafts.createDraft(
+				'patch',
+				title,
+				createChanges,
+				description ? { description: description } : undefined,
+			);
+			return draft;
+		} catch (ex) {
+			debugger;
+
+			void window.showErrorMessage(`Unable to create draft: ${ex.message}`);
+			return undefined;
+		}
 	}
 }

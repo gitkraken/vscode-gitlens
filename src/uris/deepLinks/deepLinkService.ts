@@ -506,7 +506,7 @@ export class DeepLinkService implements Disposable {
 						break;
 					}
 
-					let draftRepoData: RepositoryIdentity | undefined;
+					let repoIdentity: RepositoryIdentity | undefined;
 					let draftRepo: Repository | undefined;
 
 					if (targetType === DeepLinkType.Draft) {
@@ -524,8 +524,13 @@ export class DeepLinkService implements Disposable {
 							this._context.targetDraft?.changesets?.length &&
 							this._context.targetDraft?.changesets[0].patches?.length
 						) {
-							draftRepoData = this._context.targetDraft.changesets[0].patches[0].repoData;
+							// TODO@axosoft-ramint Look at this
+							// draftRepoData = this._context.targetDraft.changesets[0].patches[0].repoData;
 							draftRepo = this._context.targetDraft.changesets[0].patches[0].repository;
+							if (draftRepo == null) {
+								const gkId = this._context.targetDraft.changesets[0].patches[0].gkRepositoryId;
+								draftRepo = await this.container.repositoryIdentity.getRepository(gkId);
+							}
 						}
 					}
 
@@ -537,11 +542,11 @@ export class DeepLinkService implements Disposable {
 					let mainIdToSearch = mainId;
 					let remoteUrlToSearch = remoteUrl;
 
-					if (draftRepoData != null) {
-						this._context.remoteUrl = draftRepoData.remote?.url ?? undefined;
-						remoteUrlToSearch = draftRepoData.remote?.url;
-						this._context.mainId = draftRepoData.initialCommitSha ?? undefined;
-						mainIdToSearch = draftRepoData.initialCommitSha;
+					if (repoIdentity != null) {
+						this._context.remoteUrl = repoIdentity.remote?.url ?? undefined;
+						remoteUrlToSearch = repoIdentity.remote?.url;
+						this._context.mainId = repoIdentity.initialCommitSha ?? undefined;
+						mainIdToSearch = repoIdentity.initialCommitSha;
 					}
 
 					let remoteDomain = '';

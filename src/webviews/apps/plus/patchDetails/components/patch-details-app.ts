@@ -1,9 +1,10 @@
 import { Badge, defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-components';
-import { html, LitElement, nothing } from 'lit';
+import { html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { DraftDetails, State } from '../../../../../plus/webviews/patchDetails/protocol';
 import { pluralize } from '../../../../../system/string';
+import { GlElement } from '../../../shared/components/element';
 import type { PatchDetailsApp } from '../patchDetails';
 import './gl-draft-details';
 import './gl-patch-create';
@@ -37,8 +38,12 @@ export interface ShowPatchInGraphDetail {
 	// [key: string]: unknown;
 }
 
+export type GlPatchDetailsAppEvents = {
+	[K in Extract<keyof WindowEventMap, `gl-patch-details-${string}`>]: WindowEventMap[K];
+};
+
 @customElement('gl-patch-details-app')
-export class GlPatchDetailsApp extends LitElement {
+export class GlPatchDetailsApp extends GlElement<GlPatchDetailsAppEvents> {
 	@property({ type: Object })
 	state!: State;
 
@@ -70,7 +75,7 @@ export class GlPatchDetailsApp extends LitElement {
 			(a, c) => {
 				if (c.files != null) {
 					a.files += c.files.length;
-					a.on.add(`${c.repository.name}:${c.revision.branchName}`);
+					a.on.add(c.repository.uri);
 				}
 				return a;
 			},
@@ -137,8 +142,8 @@ export class GlPatchDetailsApp extends LitElement {
 							html`<gl-draft-details
 								.state=${this.state}
 								.explain=${this.explain}
-								@share-local-patch=${this.onShareLocalPatch}
-								@copy-cloud-link=${this.onCopyCloudLink}
+								@gl-patch-details-share-local-patch=${this.onShareLocalPatch}
+								@gl-patch-details-copy-cloud-link=${this.onCopyCloudLink}
 							></gl-draft-details>`,
 						() => html`<gl-patch-create .state=${this.state}></gl-patch-create>`,
 					)}
@@ -148,15 +153,15 @@ export class GlPatchDetailsApp extends LitElement {
 	}
 
 	onShowInGraph(e: CustomEvent<ShowPatchInGraphDetail>) {
-		this.dispatchEvent(new CustomEvent<ShowPatchInGraphDetail>('graph-show-patch', { detail: e.detail }));
+		this.fireEvent('gl-patch-details-graph-show-patch', e.detail);
 	}
 
 	private onShareLocalPatch(_e: CustomEvent<undefined>) {
-		this.dispatchEvent(new CustomEvent<undefined>('share-local-patch'));
+		this.fireEvent('gl-patch-details-share-local-patch');
 	}
 
 	private onCopyCloudLink(_e: CustomEvent<undefined>) {
-		this.dispatchEvent(new CustomEvent<undefined>('copy-cloud-link'));
+		this.fireEvent('gl-patch-details-copy-cloud-link');
 	}
 
 	protected override createRenderRoot() {
@@ -169,9 +174,9 @@ declare global {
 		'gl-patch-details-app': GlPatchDetailsApp;
 	}
 
-	interface HTMLElementEventMap {
-		'graph-show-patch': CustomEvent<ShowPatchInGraphDetail>;
-		'share-local-patch': CustomEvent<undefined>;
-		'copy-cloud-link': CustomEvent<undefined>;
+	interface WindowEventMap {
+		'gl-patch-details-graph-show-patch': CustomEvent<ShowPatchInGraphDetail>;
+		'gl-patch-details-share-local-patch': CustomEvent<undefined>;
+		'gl-patch-details-copy-cloud-link': CustomEvent<undefined>;
 	}
 }

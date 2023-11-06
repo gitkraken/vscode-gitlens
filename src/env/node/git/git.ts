@@ -144,6 +144,14 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 	throw ex;
 }
 
+let _uniqueCounterForStdin = 0;
+function getStdinUniqueKey(): number {
+	if (_uniqueCounterForStdin === Number.MAX_SAFE_INTEGER) {
+		_uniqueCounterForStdin = 0;
+	}
+	return _uniqueCounterForStdin++;
+}
+
 type ExitCodeOnlyGitCommandOptions = GitCommandOptions & { exitCodeOnly: true };
 export type PushForceOptions = { withLease: true; ifIncludes?: boolean } | { withLease: false; ifIncludes?: never };
 
@@ -177,7 +185,9 @@ export class Git {
 
 		const gitCommand = `[${runOpts.cwd}] git ${args.join(' ')}`;
 
-		const command = `${correlationKey !== undefined ? `${correlationKey}:` : ''}${gitCommand}`;
+		const command = `${correlationKey !== undefined ? `${correlationKey}:` : ''}${
+			options?.stdin != null ? `${getStdinUniqueKey()}:` : ''
+		}${gitCommand}`;
 
 		let waiting;
 		let promise = this.pendingCommands.get(command);

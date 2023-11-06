@@ -8,10 +8,9 @@ import type { Repository } from './repository';
  * For a commit range `sha` is the tip SHA and `baseSha` is the base SHA
  * For a WIP `sha` is the "uncommitted" SHA and `baseSha` is the current HEAD SHA
  */
-export interface RevisionRange {
+export interface PatchRevisionRange {
 	baseSha: string;
-	sha: string | undefined;
-	branchName?: string; // TODO remove this
+	sha: string;
 }
 
 export interface GitPatch {
@@ -24,6 +23,5 @@ export interface GitPatch {
 	baseRef?: string;
 	commit?: GitCommit;
 	files?: GitDiffFiles['files'];
-	range?: RevisionRange;
 	repository?: Repository;
 }

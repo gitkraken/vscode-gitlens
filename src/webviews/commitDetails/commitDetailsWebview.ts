@@ -506,8 +506,7 @@ export class CommitDetailsWebviewProvider
 			files: e.changes.files,
 			revision: {
 				baseSha: 'HEAD',
-				sha: undefined,
-				branchName: e.changes.branchName,
+				sha: uncommitted,
 			},
 			checked: e.checked,
 		};

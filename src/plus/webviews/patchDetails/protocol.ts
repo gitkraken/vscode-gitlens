@@ -3,7 +3,8 @@ import type { Config } from '../../../config';
 import type { WebviewIds, WebviewViewIds } from '../../../constants';
 import type { GitCommitStats } from '../../../git/models/commit';
 import type { GitFileChangeShape } from '../../../git/models/file';
-import type { RevisionRange } from '../../../git/models/patch';
+import type { PatchRevisionRange } from '../../../git/models/patch';
+import type { DraftChangeset, DraftPatch } from '../../../gk/models/drafts';
 import type { DateTimeFormat } from '../../../system/date';
 import type { Serialized } from '../../../system/serialize';
 import { IpcCommandType, IpcNotificationType } from '../../../webviews/protocol';
@@ -13,42 +14,54 @@ export const messageHeadlineSplitterToken = '\x00\n\x00';
 export type FileShowOptions = TextDocumentShowOptions;
 
 interface LocalDraftDetails {
-	type: 'local';
+	draftType: 'local';
 
-	commit?: string;
+	id?: never;
+	author?: never;
+	createdAt?: never;
+	updatedAt?: never;
 
 	title?: string;
-	files?: GitFileChangeShape[];
-	stats?: GitCommitStats;
+	description?: string;
 
-	author?: undefined;
-	createdAt?: undefined;
-	updatedAt?: undefined;
-	repoPath?: string;
-	repoName?: string;
-	baseRef?: string;
+	patches?: Serialized<Omit<DraftPatch, 'commit' | 'contents' | 'repository'>>[];
+
+	// files?: GitFileChangeShape[];
+	// stats?: GitCommitStats;
+
+	// repoPath?: string;
+	// repoName?: string;
+
+	// baseRef?: string;
+	// commit?: string;
 }
 
 interface CloudDraftDetails {
-	type: 'cloud';
+	draftType: 'cloud';
 
-	commit?: string;
+	id: string;
+	createdAt: number;
+	updatedAt: number;
+	author: {
+		id: string;
+		name: string;
+		email: string | undefined;
+		avatar?: string;
+	};
 
 	title: string;
 	description?: string;
-	files?: GitFileChangeShape[];
-	stats?: GitCommitStats;
 
-	author: {
-		avatar: string | undefined;
-		name: string;
-		email: string | undefined;
-	};
-	createdAt: number;
-	updatedAt: number;
-	repoPath: string;
-	repoName?: string;
-	baseRef?: string;
+	patches?: Serialized<Omit<DraftPatch, 'commit' | 'contents' | 'repository'>>[];
+
+	// commit?: string;
+
+	// files?: GitFileChangeShape[];
+	// stats?: GitCommitStats;
+
+	// repoPath: string;
+	// repoName?: string;
+	// baseRef?: string;
 }
 
 export type DraftDetails = LocalDraftDetails | CloudDraftDetails;
@@ -83,7 +96,7 @@ export type ChangeType = 'revision' | 'wip';
 export interface WipChange {
 	type: 'wip';
 	repository: { name: string; path: string; uri: string };
-	revision: RevisionRange;
+	revision: PatchRevisionRange;
 	files: GitFileChangeShape[] | undefined;
 
 	checked?: boolean | 'staged';
@@ -93,7 +106,7 @@ export interface WipChange {
 export interface RevisionChange {
 	type: 'revision';
 	repository: { name: string; path: string; uri: string };
-	revision: RevisionRange;
+	revision: PatchRevisionRange;
 	files: GitFileChangeShape[];
 
 	checked?: boolean | 'staged';
@@ -145,14 +158,6 @@ export type ShowCommitDetailsViewCommandArgs = string[];
 
 // COMMANDS
 
-export interface CreatePatchCheckRepositoryParams {
-	repoUri: string;
-	checked: boolean | 'staged';
-}
-export const CreatePatchCheckRepositoryCommandType = new IpcCommandType<CreatePatchCheckRepositoryParams>(
-	'patch/create/checkRepository',
-);
-
 export interface ApplyPatchParams {
 	details: DraftDetails;
 	targetRef?: string; // a branch name. default to HEAD if not supplied
@@ -202,6 +207,21 @@ export const SwitchModeCommandType = new IpcCommandType<SwitchModeParams>('patch
 export const CopyCloudLinkCommandType = new IpcCommandType<undefined>('patch/cloud/copyLink');
 
 export const CreateFromLocalPatchCommandType = new IpcCommandType<undefined>('patch/local/createPatch');
+
+export interface UpdateCreatePatchRepositoryCheckedStateParams {
+	repoUri: string;
+	checked: boolean | 'staged';
+}
+export const UpdateCreatePatchRepositoryCheckedStateCommandType =
+	new IpcCommandType<UpdateCreatePatchRepositoryCheckedStateParams>('patch/create/repository/check');
+
+export interface UpdateCreatePatchMetadataParams {
+	title: string;
+	description: string | undefined;
+}
+export const UpdateCreatePatchMetadataCommandType = new IpcCommandType<UpdateCreatePatchMetadataParams>(
+	'patch/update/create/metadata',
+);
 
 // NOTIFICATIONS
 
