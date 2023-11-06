@@ -137,24 +137,6 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 				<p class="button-container">
 					<span class="button-group button-group--single">
 						<gl-button full @click=${this.onCreateAll}>Create Cloud Patch</gl-button>
-						${when(
-							this.hasWipChanges,
-							() => html`
-								<gk-popover placement="bottom">
-									<gl-button
-										slot="trigger"
-										?disabled=${!this.canSubmit}
-										density="compact"
-										aria-label="Create Patch Options..."
-										title="Create Patch Options..."
-										><code-icon icon="chevron-down"></code-icon
-									></gl-button>
-									<gk-menu class="mine-menu" @select=${this.onSelectCreateOption}>
-										<gk-menu-item data-value="local">Create Local Patch</gk-menu-item>
-									</gk-menu>
-								</gk-popover>
-							`,
-						)}
 					</span>
 				</p>
 				<!-- <p class="h-deemphasize"><code-icon icon="account"></code-icon> Requires an account <a href="#">sign-in</a></p>
