@@ -109,32 +109,39 @@ export class GlPatchDetailsApp extends GlElement<GlPatchDetailsAppEvents> {
 		}
 	}
 
+	private renderTabs() {
+		return nothing;
+		// return html`
+		// 	<nav class="details-tab">
+		// 		<button
+		// 			class="details-tab__item ${this.mode === 'open' ? ' is-active' : ''}"
+		// 			data-action="mode"
+		// 			data-action-value="open"
+		// 		>
+		// 			Patch
+		// 		</button>
+		// 		<button
+		// 			class="details-tab__item ${this.mode === 'create' ? ' is-active' : ''}"
+		// 			data-action="mode"
+		// 			data-action-value="create"
+		// 			title="${this.wipChangeState != null
+		// 				? `${pluralize('file change', this.wipChangeState.count, {
+		// 						plural: 'file changes',
+		// 				  })} on ${this.wipChangeState.branches}`
+		// 				: nothing}"
+		// 		>
+		// 			Create${this.wipChangeState
+		// 				? html` &nbsp;<gk-badge variant="filled">${this.wipChangeState.count}</gk-badge>`
+		// 				: ''}
+		// 		</button>
+		// 	</nav>
+		// `;
+	}
+
 	override render() {
 		return html`
 			<div class="commit-detail-panel scrollable">
-				<nav class="details-tab">
-					<button
-						class="details-tab__item ${this.mode === 'open' ? ' is-active' : ''}"
-						data-action="mode"
-						data-action-value="open"
-					>
-						Patch
-					</button>
-					<button
-						class="details-tab__item ${this.mode === 'create' ? ' is-active' : ''}"
-						data-action="mode"
-						data-action-value="create"
-						title="${this.wipChangeState != null
-							? `${pluralize('file change', this.wipChangeState.count, {
-									plural: 'file changes',
-							  })} on ${this.wipChangeState.branches}`
-							: nothing}"
-					>
-						Create${this.wipChangeState
-							? html` &nbsp;<gk-badge variant="filled">${this.wipChangeState.count}</gk-badge>`
-							: ''}
-					</button>
-				</nav>
+				${this.renderTabs()}
 				<main id="main" tabindex="-1">
 					${when(
 						this.mode === 'open',

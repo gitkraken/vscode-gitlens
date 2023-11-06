@@ -107,6 +107,7 @@ export class PatchDetailsWebviewProvider
 			create: undefined,
 			preferences: this.getPreferences(),
 		};
+		this.setHostTitle();
 
 		this._disposable = Disposable.from(
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
@@ -293,6 +294,7 @@ export class PatchDetailsWebviewProvider
 	}
 	private setMode(mode: Mode) {
 		this._context.mode = mode;
+		this.setHostTitle();
 		this.updateState(true);
 	}
 
@@ -301,6 +303,12 @@ export class PatchDetailsWebviewProvider
 		// void this.container.git.applyPatchCommit(params.details.repoPath, params.details.commit, {
 		// 	branchName: params.targetRef,
 		// });
+		if (this._context.open == null) return;
+		if (this._context.open.draftType === 'local') return;
+		const draft = this._context.open;
+		const changeset = draft.changesets?.[0];
+		if (changeset == null) return;
+		console.log(changeset);
 	}
 
 	private updateCreateCheckedState(params: UpdateCreatePatchRepositoryCheckedStateParams) {
@@ -463,6 +471,7 @@ export class PatchDetailsWebviewProvider
 		}
 
 		this._context.mode = 'create';
+		this.setHostTitle();
 		this._context.create = {
 			title: create.title,
 			description: create.description,
@@ -507,7 +516,12 @@ export class PatchDetailsWebviewProvider
 	private updateOpenState(draft: LocalDraft | Draft | undefined) {
 		this._context.mode = 'open';
 		this._context.open = draft;
+		this.setHostTitle();
 		void this.notifyDidChangeDraftState();
+	}
+
+	private setHostTitle(mode: Mode = this._context.mode) {
+		this.host.title = mode === 'create' ? 'Create Patch' : 'Patch Details';
 	}
 
 	// eslint-disable-next-line @typescript-eslint/require-await
