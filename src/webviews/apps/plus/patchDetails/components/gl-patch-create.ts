@@ -116,6 +116,14 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 	renderForm() {
 		return html`
 			<div class="section">
+				${when(
+					this.state?.create?.creationError != null,
+					() =>
+						html` <div class="alert alert--error">
+							<code-icon icon="error"></code-icon>
+							<p class="alert__content">${this.state!.create!.creationError}</p>
+						</div>`,
+				)}
 				<div class="message-input">
 					<input id="title" type="text" class="message-input__control" placeholder="Title (required)" .value=${
 						this.create.title ?? ''

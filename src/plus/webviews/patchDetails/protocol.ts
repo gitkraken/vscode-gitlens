@@ -156,6 +156,7 @@ export interface State {
 		title?: string;
 		description?: string;
 		changes: Record<string, Change>;
+		creationError?: string;
 	};
 }
 
