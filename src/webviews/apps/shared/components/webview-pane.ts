@@ -3,6 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { scrollableBase } from './styles/lit/base.css';
 import './code-icon';
 import './actions/action-nav';
+import './progress';
 
 export interface WebviewPaneExpandedChangeEventDetail {
 	expanded: boolean;
@@ -157,5 +158,11 @@ export class WebviewPane extends LitElement {
 				composed: true,
 			}),
 		);
+	}
+}
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'webview-pane': WebviewPane;
 	}
 }

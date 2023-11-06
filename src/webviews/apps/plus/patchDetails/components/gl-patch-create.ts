@@ -14,8 +14,11 @@ import type {
 	TreeModel,
 } from '../../../shared/components/tree/base';
 import { GlTreeBase } from './gl-tree-base';
+import '../../../shared/components/actions/action-nav';
 import '../../../shared/components/button';
 import '../../../shared/components/code-icon';
+import '../../../shared/components/commit/commit-stats';
+import '../../../shared/components/webview-pane';
 
 export interface CreatePatchEventDetail {
 	title: string;
@@ -125,7 +128,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 				</div>
 				<p class="button-container">
 					<span class="button-group button-group--single">
-						<gl-button full @click=${this.onCreateAll}>Create Patch</gl-button>
+						<gl-button full @click=${this.onCreateAll}>Create Cloud Patch</gl-button>
 						${when(
 							this.hasWipChanges,
 							() => html`

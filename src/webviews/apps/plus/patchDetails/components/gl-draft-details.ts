@@ -17,7 +17,14 @@ import type {
 	TreeModel,
 } from '../../../shared/components/tree/base';
 import { GlTreeBase } from './gl-tree-base';
+import '../../../shared/components/actions/action-item';
+import '../../../shared/components/actions/action-nav';
+import '../../../shared/components/button-container';
+import '../../../shared/components/button';
+import '../../../shared/components/code-icon';
+import '../../../shared/components/commit/commit-identity';
 import '../../../shared/components/tree/tree-generator';
+import '../../../shared/components/webview-pane';
 
 // Can only import types from 'vscode'
 const BesideViewColumn = -2; /*ViewColumn.Beside*/
@@ -100,7 +107,7 @@ export class GlDraftDetails extends GlTreeBase {
 			<div class="section section--message">
 				<div class="message-block">
 					${when(
-						description != null,
+						description == null,
 						() =>
 							html`<p class="message-block__text scrollable" data-region="message">
 								<strong>${unsafeHTML(title)}</strong>
@@ -230,7 +237,6 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	renderPatches() {
-		return '';
 		// // const path = this.state.draft?.repoPath;
 		// const repo = this.state.draft?.repoName;
 		// const base = this.state.draft?.baseRef;
@@ -275,96 +281,96 @@ export class GlDraftDetails extends GlTreeBase {
 		// 	`;
 		// };
 
-		// return html`
-		// 	<webview-pane collapsable expanded>
-		// 		<span slot="title">Apply</span>
-		// 		<div class="section">
-		// 			<div class="patch-base">${getActions()}</div>
-		// 		</div>
-		// 		${when(
-		// 			this.canSubmit,
-		// 			() => html`
-		// 				<div class="section section--sticky-actions">
-		// 					<p class="button-container">
-		// 						<span class="button-group button-group--single">
-		// 							<gl-button full @click=${this.onApplyPatch}>Apply Patch</gl-button>
-		// 							<gk-popover placement="bottom">
-		// 								<gl-button
-		// 									slot="trigger"
-		// 									density="compact"
-		// 									aria-label="Apply Patch Options..."
-		// 									title="Apply Patch Options..."
-		// 									><code-icon icon="chevron-down"></code-icon
-		// 								></gl-button>
-		// 								<gk-menu class="mine-menu" @select=${this.onSelectApplyOption}>
-		// 									<gk-menu-item data-value="branch">Apply to new branch</gk-menu-item>
-		// 									<gk-menu-item data-value="worktree">Apply to new worktree</gk-menu-item>
-		// 								</gk-menu>
-		// 							</gk-popover>
-		// 						</span>
-		// 					</p>
-		// 				</div>
-		// 			`,
-		// 			() => html`
-		// 				<div class="section section--sticky-actions">
-		// 					<p class="button-container">
-		// 						<span class="button-group button-group--single">
-		// 							<gl-button disabled full>Apply Patch</gl-button>
-		// 							<gl-button
-		// 								disabled
-		// 								density="compact"
-		// 								aria-label="Apply Patch Options..."
-		// 								title="Apply Patch Options..."
-		// 								><code-icon icon="chevron-down"></code-icon
-		// 							></gl-button>
-		// 						</span>
-		// 					</p>
-		// 				</div>
-		// 			`,
-		// 		)}
-		// 	</webview-pane>
-		// `;
-	}
-
-	renderCollaborators() {
+		// <div class="section">
+		// 	<div class="patch-base">${getActions()}</div>
+		// </div>
 		return html`
-			<webview-pane collapsable expanded>
-				<span slot="title">Collaborators</span>
-
-				<div class="h-spacing">
-					<list-container>
-						<list-item>
-							<code-icon
-								slot="icon"
-								icon="account"
-								title="Collaborator"
-								aria-label="Collaborator"
-							></code-icon>
-							justin.roberts@gitkraken.com
-						</list-item>
-						<list-item>
-							<code-icon
-								slot="icon"
-								icon="account"
-								title="Collaborator"
-								aria-label="Collaborator"
-							></code-icon>
-							eamodio@gitkraken.com
-						</list-item>
-						<list-item>
-							<code-icon
-								slot="icon"
-								icon="account"
-								title="Collaborator"
-								aria-label="Collaborator"
-							></code-icon>
-							keith.daulton@gitkraken.com
-						</list-item>
-					</list-container>
-				</div>
+			<webview-pane expanded>
+				<span slot="title">Apply</span>
+				${when(
+					this.canSubmit,
+					() => html`
+						<div class="section section--sticky-actions">
+							<p class="button-container">
+								<span class="button-group button-group--single">
+									<gl-button full @click=${this.onApplyPatch}>Apply Patch</gl-button>
+									<gk-popover placement="bottom">
+										<gl-button
+											slot="trigger"
+											density="compact"
+											aria-label="Apply Patch Options..."
+											title="Apply Patch Options..."
+											><code-icon icon="chevron-down"></code-icon
+										></gl-button>
+										<gk-menu class="mine-menu" @select=${this.onSelectApplyOption}>
+											<gk-menu-item data-value="branch">Apply to new branch</gk-menu-item>
+											<gk-menu-item data-value="worktree">Apply to new worktree</gk-menu-item>
+										</gk-menu>
+									</gk-popover>
+								</span>
+							</p>
+						</div>
+					`,
+					() => html`
+						<div class="section section--sticky-actions">
+							<p class="button-container">
+								<span class="button-group button-group--single">
+									<gl-button disabled full>Apply Patch</gl-button>
+									<gl-button
+										disabled
+										density="compact"
+										aria-label="Apply Patch Options..."
+										title="Apply Patch Options..."
+										><code-icon icon="chevron-down"></code-icon
+									></gl-button>
+								</span>
+							</p>
+						</div>
+					`,
+				)}
 			</webview-pane>
 		`;
 	}
+
+	// renderCollaborators() {
+	// 	return html`
+	// 		<webview-pane collapsable expanded>
+	// 			<span slot="title">Collaborators</span>
+
+	// 			<div class="h-spacing">
+	// 				<list-container>
+	// 					<list-item>
+	// 						<code-icon
+	// 							slot="icon"
+	// 							icon="account"
+	// 							title="Collaborator"
+	// 							aria-label="Collaborator"
+	// 						></code-icon>
+	// 						justin.roberts@gitkraken.com
+	// 					</list-item>
+	// 					<list-item>
+	// 						<code-icon
+	// 							slot="icon"
+	// 							icon="account"
+	// 							title="Collaborator"
+	// 							aria-label="Collaborator"
+	// 						></code-icon>
+	// 						eamodio@gitkraken.com
+	// 					</list-item>
+	// 					<list-item>
+	// 						<code-icon
+	// 							slot="icon"
+	// 							icon="account"
+	// 							title="Collaborator"
+	// 							aria-label="Collaborator"
+	// 						></code-icon>
+	// 						keith.daulton@gitkraken.com
+	// 					</list-item>
+	// 				</list-container>
+	// 			</div>
+	// 		</webview-pane>
+	// 	`;
+	// }
 
 	override render() {
 		if (this.state?.draft == null) {

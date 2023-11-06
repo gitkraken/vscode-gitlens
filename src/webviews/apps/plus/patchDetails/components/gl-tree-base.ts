@@ -13,6 +13,8 @@ import type {
 	TreeModel,
 } from '../../../shared/components/tree/base';
 import '../../../shared/components/tree/tree-generator';
+import '../../../shared/components/skeleton-loader';
+import '../../../shared/components/actions/action-item';
 
 export class GlTreeBase<Events extends GlEvents = GlEvents> extends GlElement<Events> {
 	protected onTreeItemActionClicked?(_e: CustomEvent<TreeItemActionDetail>): void;
