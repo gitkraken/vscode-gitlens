@@ -1,6 +1,7 @@
-import { css, html, LitElement, nothing } from 'lit';
+import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import { GlElement } from '../element';
 import type { GlGitStatus } from '../status/git-status';
 import type {
 	TreeItemAction,
@@ -16,8 +17,12 @@ import '../code-icon';
 import './tree';
 import './tree-item';
 
+export type GlTreeGeneratorEvents = {
+	[K in Extract<keyof WindowEventMap, `gl-tree-generated-item-${string}`>]: WindowEventMap[K];
+};
+
 @customElement('gl-tree-generator')
-export class GlTreeGenerator extends LitElement {
+export class GlTreeGenerator extends GlElement<GlTreeGeneratorEvents> {
 	static override styles = css`
 		:host {
 			display: contents;
@@ -141,45 +146,33 @@ export class GlTreeGenerator extends LitElement {
 
 	private onTreeItemSelected(e: CustomEvent<TreeItemSelectionDetail>, model: TreeModelFlat) {
 		e.stopPropagation();
-		this.dispatchEvent(
-			createEvent('gl-tree-generated-item-selected', {
-				detail: {
-					...e.detail,
-					node: model,
-					context: model.context,
-				},
-			}),
-		);
+		this.fireEvent('gl-tree-generated-item-selected', {
+			...e.detail,
+			node: model,
+			context: model.context,
+		});
 	}
 
 	private onTreeItemChecked(e: CustomEvent<TreeItemCheckedDetail>, model: TreeModelFlat) {
 		e.stopPropagation();
-		this.dispatchEvent(
-			createEvent('gl-tree-generated-item-checked', {
-				detail: {
-					...e.detail,
-					node: model,
-					context: model.context,
-				},
-			}),
-		);
+		this.fireEvent('gl-tree-generated-item-checked', {
+			...e.detail,
+			node: model,
+			context: model.context,
+		});
 	}
 
 	private onTreeItemActionClicked(e: MouseEvent, model: TreeModelFlat, action: TreeItemAction) {
 		e.stopPropagation();
-		this.dispatchEvent(
-			createEvent('gl-tree-generated-item-action-clicked', {
-				detail: {
-					node: model,
-					context: model.context,
-					action: action,
-					dblClick: false,
-					altKey: e.altKey,
-					ctrlKey: e.ctrlKey,
-					metaKey: e.metaKey,
-				},
-			}),
-		);
+		this.fireEvent('gl-tree-generated-item-action-clicked', {
+			node: model,
+			context: model.context,
+			action: action,
+			dblClick: false,
+			altKey: e.altKey,
+			ctrlKey: e.ctrlKey,
+			metaKey: e.metaKey,
+		});
 	}
 }
 
@@ -229,19 +222,4 @@ declare global {
 		'gl-tree-generated-item-selected': CustomEvent<TreeItemSelectionDetail>;
 		'gl-tree-generated-item-checked': CustomEvent<TreeItemCheckedDetail>;
 	}
-}
-
-export type GlTreeGeneratedItemEvents = {
-	[K in Extract<keyof WindowEventMap, `gl-tree-generated-item-${string}`>]: WindowEventMap[K];
-};
-
-type GlTreeGeneratedItemEventsUnwrapped = {
-	[P in keyof GlTreeGeneratedItemEvents]: UnwrapCustomEvent<GlTreeGeneratedItemEvents[P]>;
-};
-
-function createEvent<T extends keyof GlTreeGeneratedItemEventsUnwrapped>(
-	name: T,
-	eventInitDict?: CustomEventInit<GlTreeGeneratedItemEventsUnwrapped[T]> | undefined,
-): CustomEvent<GlTreeGeneratedItemEventsUnwrapped[T]> {
-	return new CustomEvent<GlTreeGeneratedItemEventsUnwrapped[T]>(name, eventInitDict);
 }

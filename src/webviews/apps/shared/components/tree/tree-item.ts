@@ -1,13 +1,18 @@
-import { html, LitElement, nothing } from 'lit';
+import { html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import { GlElement } from '../element';
 import type { TreeItemCheckedDetail, TreeItemSelectionDetail } from './base';
 import { treeItemStyles } from './tree.css';
 import '../actions/action-nav';
 import '../code-icon';
 
+export type GlTreeItemEvents = {
+	[K in Extract<keyof WindowEventMap, `gl-tree-item-${string}`>]: WindowEventMap[K];
+};
+
 @customElement('gl-tree-item')
-export class GlTreeItem extends LitElement {
+export class GlTreeItem extends GlElement<GlTreeItemEvents> {
 	static override styles = treeItemStyles;
 
 	// node properties
@@ -187,7 +192,7 @@ export class GlTreeItem extends LitElement {
 		modifiers?: { dblClick: boolean; altKey?: boolean; ctrlKey?: boolean; metaKey?: boolean },
 		quiet = false,
 	) {
-		this.dispatchEvent(createEvent('gl-tree-item-select'));
+		this.fireEvent('gl-tree-item-select');
 		if (this.branch) {
 			this.expanded = !this.expanded;
 		}
@@ -195,14 +200,13 @@ export class GlTreeItem extends LitElement {
 
 		if (!quiet) {
 			window.requestAnimationFrame(() => {
-				const detail = {
+				this.fireEvent('gl-tree-item-selected', {
 					node: this,
 					dblClick: modifiers?.dblClick ?? false,
 					altKey: modifiers?.altKey ?? false,
 					ctrlKey: modifiers?.ctrlKey ?? false,
 					metaKey: modifiers?.metaKey ?? false,
-				};
-				this.dispatchEvent(createEvent('gl-tree-item-selected', { detail: detail }));
+				});
 			});
 		}
 	}
@@ -250,11 +254,7 @@ export class GlTreeItem extends LitElement {
 		e.stopPropagation();
 		this.checked = (e.target as HTMLInputElement).checked;
 
-		this.dispatchEvent(
-			createEvent('gl-tree-item-checked', {
-				detail: { node: this, checked: this.checked },
-			}),
-		);
+		this.fireEvent('gl-tree-item-checked', { node: this, checked: this.checked });
 	}
 }
 
@@ -268,19 +268,4 @@ declare global {
 		'gl-tree-item-selected': CustomEvent<TreeItemSelectionDetail>;
 		'gl-tree-item-checked': CustomEvent<TreeItemCheckedDetail>;
 	}
-}
-
-export type GlTreeItemEvents = {
-	[K in Extract<keyof WindowEventMap, `gl-tree-item-${string}`>]: WindowEventMap[K];
-};
-
-type GlTreeItemEventsUnwrapped = {
-	[P in keyof GlTreeItemEvents]: UnwrapCustomEvent<GlTreeItemEvents[P]>;
-};
-
-function createEvent<T extends keyof GlTreeItemEventsUnwrapped>(
-	name: T,
-	eventInitDict?: CustomEventInit<GlTreeItemEventsUnwrapped[T]> | undefined,
-): CustomEvent<GlTreeItemEventsUnwrapped[T]> {
-	return new CustomEvent<GlTreeItemEventsUnwrapped[T]>(name, eventInitDict);
 }

@@ -1,7 +1,9 @@
-import { html, LitElement, nothing } from 'lit';
+import { html, nothing } from 'lit';
 import type { GitFileChangeShape } from '../../../../../git/models/file';
 import type { HierarchicalItem } from '../../../../../system/array';
 import { makeHierarchical } from '../../../../../system/array';
+import type { GlEvents } from '../../../shared/components/element';
+import { GlElement } from '../../../shared/components/element';
 import type {
 	TreeItemAction,
 	TreeItemActionDetail,
@@ -12,7 +14,7 @@ import type {
 } from '../../../shared/components/tree/base';
 import '../../../shared/components/tree/tree-generator';
 
-export class GlTreeBase extends LitElement {
+export class GlTreeBase<Events extends GlEvents = GlEvents> extends GlElement<Events> {
 	protected onTreeItemActionClicked?(_e: CustomEvent<TreeItemActionDetail>): void;
 	protected onTreeItemChecked?(_e: CustomEvent<TreeItemCheckedDetail>): void;
 	protected onTreeItemSelected?(_e: CustomEvent<TreeItemSelectionDetail>): void;
