@@ -2686,13 +2686,13 @@
 			},
 			{
 				"id": "cloud-patches",
-				"title": "Cloud Patches",
+				"title": "Cloud Patches (Preview)",
 				"order": 300,
 				"properties": {
 					"gitlens.cloudPatches.enabled": {
 						"type": "boolean",
 						"default": false,
-						"markdownDescription": "Specifies whether to enable the _Cloud Patches_ feature",
+						"markdownDescription": "Specifies whether to enable the preview of _Cloud Patches_, which allow you to easily and securely share code with your teammates or other developers",
 						"scope": "window",
 						"order": 10
 					}
@@ -2700,7 +2700,7 @@
 			},
 			{
 				"id": "focus",
-				"title": "Focus",
+				"title": "Focus (Preview)",
 				"order": 400,
 				"properties": {
 					"gitlens.focus.allowMultiple": {
@@ -3148,7 +3148,7 @@
 			},
 			{
 				"id": "ai",
-				"title": "AI",
+				"title": "AI (Experimental)",
 				"order": 1000,
 				"properties": {
 					"gitlens.ai.experimental.generateCommitMessage.enabled": {
