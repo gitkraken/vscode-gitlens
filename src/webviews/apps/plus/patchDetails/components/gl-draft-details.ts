@@ -639,25 +639,25 @@ export class GlDraftDetails extends GlTreeBase {
 		return model;
 	}
 
-	override getRepoActions(_name: string, _path: string, _options?: Partial<TreeItemBase>) {
-		return [
-			{
-				icon: 'cloud-download',
-				label: 'Apply...',
-				action: 'apply-patch',
-			},
-			// {
-			// 	icon: 'git-commit',
-			// 	label: 'Change Base',
-			// 	action: 'change-patch-base',
-			// },
-			{
-				icon: 'gl-graph',
-				label: 'Open in Commit Graph',
-				action: 'show-patch-in-graph',
-			},
-		];
-	}
+	// override getRepoActions(_name: string, _path: string, _options?: Partial<TreeItemBase>) {
+	// 	return [
+	// 		{
+	// 			icon: 'cloud-download',
+	// 			label: 'Apply...',
+	// 			action: 'apply-patch',
+	// 		},
+	// 		// {
+	// 		// 	icon: 'git-commit',
+	// 		// 	label: 'Change Base',
+	// 		// 	action: 'change-patch-base',
+	// 		// },
+	// 		{
+	// 			icon: 'gl-graph',
+	// 			label: 'Open in Commit Graph',
+	// 			action: 'show-patch-in-graph',
+	// 		},
+	// 	];
+	// }
 
 	override getFileActions(_file: DraftPatchFileChange, _options?: Partial<TreeItemBase>) {
 		return [
