@@ -108,7 +108,6 @@ export class DeepLinkService implements Disposable {
 			secondaryRemoteUrl: undefined,
 			targetType: undefined,
 			targetSha: undefined,
-			targetDraft: undefined,
 		};
 	}
 
@@ -147,10 +146,7 @@ export class DeepLinkService implements Disposable {
 				const repo = await this.container.git.getOrOpenRepository(repoOpenUri, { detectNested: false });
 				if (repo != null) {
 					this._context.repo = repo;
-					action =
-						this._context.targetType === DeepLinkType.Draft
-							? DeepLinkServiceAction.RepoOpenedForDraft
-							: DeepLinkServiceAction.RepoOpened;
+					action = DeepLinkServiceAction.RepoOpened;
 				}
 			} catch {}
 		}
@@ -500,49 +496,13 @@ export class DeepLinkService implements Disposable {
 				}
 				case DeepLinkServiceState.RepoMatch:
 				case DeepLinkServiceState.AddedRepoMatch: {
-					if (!mainId && !remoteUrl && !repoPath && targetType !== DeepLinkType.Draft) {
+					if (!mainId && !remoteUrl && !repoPath) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
 						message = 'No repository id, remote url or path was provided.';
 						break;
 					}
 
 					let repoIdentity: RepositoryIdentity | undefined;
-					let draftRepo: Repository | undefined;
-
-					if (targetType === DeepLinkType.Draft) {
-						if (this._context.targetDraft == null && targetId != null) {
-							try {
-								this._context.targetDraft = await this.container.drafts.getDraft(targetId);
-							} catch (ex) {
-								action = DeepLinkServiceAction.DeepLinkErrored;
-								message = `Unable to fetch draft${ex.message ? ` - ${ex.message}` : ''}`;
-								break;
-							}
-						}
-
-						if (
-							this._context.targetDraft?.changesets?.length &&
-							this._context.targetDraft?.changesets[0].patches?.length
-						) {
-							// TODO@axosoft-ramint Look at this
-							// draftRepoData = this._context.targetDraft.changesets[0].patches[0].repoData;
-							const repoOrIdentity = this._context.targetDraft.changesets[0].patches[0].repository;
-							if (isRepository(repoOrIdentity)) {
-								draftRepo = repoOrIdentity;
-								if (draftRepo == null) {
-									const gkId = this._context.targetDraft.changesets[0].patches[0].gkRepositoryId;
-									draftRepo = await this.container.repositoryIdentity.getRepository(gkId);
-								}
-							} else {
-								repoIdentity = repoOrIdentity;
-							}
-						}
-					}
-
-					if (draftRepo != null && targetType === DeepLinkType.Draft) {
-						action = DeepLinkServiceAction.RepoMatchedForDraft;
-						break;
-					}
 
 					let mainIdToSearch = mainId;
 					let remoteUrlToSearch = remoteUrl;
@@ -618,14 +578,6 @@ export class DeepLinkService implements Disposable {
 						}
 					}
 
-					if (targetType === DeepLinkType.Draft && this._context.repo != null) {
-						action = DeepLinkServiceAction.RepoMatchedForDraft;
-						if (this._context.targetDraft?.changesets?.[0]?.patches?.[0] != null) {
-							this._context.targetDraft.changesets[0].patches[0].repository = this._context.repo;
-						}
-						break;
-					}
-
 					if (!this._context.repo) {
 						if (state === DeepLinkServiceState.RepoMatch) {
 							action = DeepLinkServiceAction.RepoMatchFailed;
@@ -638,7 +590,7 @@ export class DeepLinkService implements Disposable {
 					break;
 				}
 				case DeepLinkServiceState.CloneOrAddRepo: {
-					if (!mainId && !remoteUrl && !repoPath && targetType !== DeepLinkType.Draft) {
+					if (!mainId && !remoteUrl && !repoPath) {
 						action = DeepLinkServiceAction.DeepLinkErrored;
 						message = 'Missing repository id, remote url and path.';
 						break;
@@ -670,11 +622,6 @@ export class DeepLinkService implements Disposable {
 									? 'Please choose an option to open the repository'
 									: undefined,
 						});
-					}
-
-					if (repoOpenType === 'current' && targetType === DeepLinkType.Draft) {
-						action = DeepLinkServiceAction.RepoOpenedForDraft;
-						break;
 					}
 
 					if (!repoOpenType) {
@@ -771,13 +718,7 @@ export class DeepLinkService implements Disposable {
 				case DeepLinkServiceState.OpeningRepo: {
 					this._disposables.push(
 						once(this.container.git.onDidChangeRepositories)(() => {
-							queueMicrotask(() =>
-								this.processDeepLink(
-									targetType === DeepLinkType.Draft
-										? DeepLinkServiceAction.RepoOpenedForDraft
-										: DeepLinkServiceAction.RepoAdded,
-								),
-							);
+							queueMicrotask(() => this.processDeepLink(DeepLinkServiceAction.RepoAdded));
 						}),
 					);
 					return;
@@ -1025,7 +966,6 @@ export class DeepLinkService implements Disposable {
 					void (await executeCommand(Commands.OpenCloudPatch, {
 						id: targetId,
 						patchId: secondaryTargetId,
-						draft: this._context.targetDraft,
 					}));
 					action = DeepLinkServiceAction.DeepLinkResolved;
 					break;
