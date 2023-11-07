@@ -153,17 +153,16 @@ export class GlDraftDetails extends GlTreeBase {
 				<div class="section">
 					<p>Let AI assist in understanding the changes made with this patch.</p>
 					<p class="button-container">
-						<span class="button-group">
-							<button
-								class="button button--full button--busy"
-								type="button"
+						<span class="button-group button-group--single">
+							<gl-button
+								full
+								class="button--busy"
 								data-action="ai-explain"
 								aria-busy="${ifDefined(this.explainBusy ? 'true' : undefined)}"
 								@click=${this.onExplainChanges}
 								@keydown=${this.onExplainChanges}
+								><code-icon icon="loading" modifier="spin"></code-icon>Explain this Change</gl-button
 							>
-								<code-icon icon="loading" modifier="spin"></code-icon>Explain this Change
-							</button>
 						</span>
 					</p>
 					${when(
