@@ -21,11 +21,13 @@ import { GitLabAuthenticationProvider } from './git/remotes/gitlab';
 import { RichRemoteProviderService } from './git/remotes/remoteProviderService';
 import { LineHoverController } from './hovers/lineHoverController';
 import type { RepositoryPathMappingProvider } from './pathMapping/repositoryPathMappingProvider';
+import { DraftService } from './plus/drafts/draftsService';
 import { FocusService } from './plus/focus/focusService';
 import { AccountAuthenticationProvider } from './plus/gk/account/authenticationProvider';
 import { SubscriptionService } from './plus/gk/account/subscriptionService';
 import { ServerConnection } from './plus/gk/serverConnection';
 import { IntegrationAuthenticationService } from './plus/integrationAuthentication';
+import { RepositoryIdentityService } from './plus/repos/repositoryIdentityService';
 import { registerAccountWebviewView } from './plus/webviews/account/registration';
 import { registerFocusWebviewCommands, registerFocusWebviewPanel } from './plus/webviews/focus/registration';
 import type { GraphWebviewShowingArgs } from './plus/webviews/graph/registration';
@@ -35,6 +37,8 @@ import {
 	registerGraphWebviewView,
 } from './plus/webviews/graph/registration';
 import { GraphStatusBarController } from './plus/webviews/graph/statusbar';
+import type { PatchDetailsWebviewShowingArgs } from './plus/webviews/patchDetails/registration';
+import { registerPatchDetailsWebviewView } from './plus/webviews/patchDetails/registration';
 import type { TimelineWebviewShowingArgs } from './plus/webviews/timeline/registration';
 import {
 	registerTimelineWebviewCommands,
@@ -60,6 +64,7 @@ import { UriService } from './uris/uriService';
 import { BranchesView } from './views/branchesView';
 import { CommitsView } from './views/commitsView';
 import { ContributorsView } from './views/contributorsView';
+import { DraftsView } from './views/draftsView';
 import { FileHistoryView } from './views/fileHistoryView';
 import { LineHistoryView } from './views/lineHistoryView';
 import { RemotesView } from './views/remotesView';
@@ -255,6 +260,7 @@ export class Container {
 
 		this._disposables.push((this._repositoriesView = new RepositoriesView(this)));
 		this._disposables.push((this._commitDetailsView = registerCommitDetailsWebviewView(this._webviews)));
+		this._disposables.push((this._patchDetailsView = registerPatchDetailsWebviewView(this._webviews)));
 		this._disposables.push((this._graphDetailsView = registerGraphDetailsWebviewView(this._webviews)));
 		this._disposables.push((this._commitsView = new CommitsView(this)));
 		this._disposables.push((this._fileHistoryView = new FileHistoryView(this)));
@@ -266,6 +272,7 @@ export class Container {
 		this._disposables.push((this._worktreesView = new WorktreesView(this)));
 		this._disposables.push((this._contributorsView = new ContributorsView(this)));
 		this._disposables.push((this._searchAndCompareView = new SearchAndCompareView(this)));
+		this._disposables.push((this._draftsView = new DraftsView(this)));
 		this._disposables.push((this._workspacesView = new WorkspacesView(this)));
 
 		this._disposables.push((this._homeView = registerHomeWebviewView(this._webviews)));
@@ -385,6 +392,27 @@ export class Container {
 		}
 
 		return this._cache;
+	}
+
+	private _drafts: DraftService | undefined;
+	get drafts() {
+		if (this._drafts == null) {
+			this._disposables.push((this._drafts = new DraftService(this, this._connection)));
+		}
+		return this._drafts;
+	}
+
+	private _repositoryIdentity: RepositoryIdentityService | undefined;
+	get repositoryIdentity() {
+		if (this._repositoryIdentity == null) {
+			this._disposables.push((this._repositoryIdentity = new RepositoryIdentityService(this, this._connection)));
+		}
+		return this._repositoryIdentity;
+	}
+
+	private readonly _draftsView: DraftsView;
+	get draftsView() {
+		return this._draftsView;
 	}
 
 	private readonly _codeLensController: GitCodeLensController;
@@ -567,6 +595,11 @@ export class Container {
 			this._mode = configuration.get('modes')?.[configuration.get('mode.active')];
 		}
 		return this._mode;
+	}
+
+	private readonly _patchDetailsView: WebviewViewProxy<PatchDetailsWebviewShowingArgs>;
+	get patchDetailsView() {
+		return this._patchDetailsView;
 	}
 
 	private readonly _prerelease;

@@ -1,8 +1,11 @@
 import type { Range, Uri } from 'vscode';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
+import type { GkProviderId } from '../../gk/models/repositoryIdentities';
+import type { Brand, Unbrand } from '../../system/brand';
 import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
+import type { RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/src(.+)$/i;
@@ -40,18 +43,30 @@ export class BitbucketServerRemote extends RemoteProvider {
 	}
 
 	protected override get baseUrl(): string {
-		const [project, repo] = this.path.startsWith('scm/')
-			? this.path.replace('scm/', '').split('/')
-			: this.splitPath();
+		const [project, repo] = this.splitPath();
 		return `${this.protocol}://${this.domain}/projects/${project}/repos/${repo}`;
+	}
+
+	protected override splitPath(): [string, string] {
+		if (this.path.startsWith('scm/')) {
+			const path = this.path.replace('scm/', '');
+			const index = path.indexOf('/');
+			return [this.path.substring(0, index), this.path.substring(index + 1)];
+		}
+
+		return super.splitPath();
 	}
 
 	override get icon() {
 		return 'bitbucket';
 	}
 
-	get id() {
+	get id(): RemoteProviderId {
 		return 'bitbucket-server';
+	}
+
+	get gkProviderId(): GkProviderId {
+		return 'bitbucketServer' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
 	}
 
 	get name() {

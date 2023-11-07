@@ -2,6 +2,7 @@ import type { Range, Uri } from 'vscode';
 import { env } from 'vscode';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
+import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import { memoize } from '../../system/decorators/memoize';
 import { encodeUrl } from '../../system/encoding';
 import type { RemoteProviderReference } from '../models/remoteProvider';
@@ -9,6 +10,17 @@ import type { RemoteResource } from '../models/remoteResource';
 import { RemoteResourceType } from '../models/remoteResource';
 import type { Repository } from '../models/repository';
 import type { RichRemoteProvider } from './richRemoteProvider';
+
+export type RemoteProviderId =
+	| 'azure-devops'
+	| 'bitbucket'
+	| 'bitbucket-server'
+	| 'custom'
+	| 'gerrit'
+	| 'gitea'
+	| 'github'
+	| 'gitlab'
+	| 'google-source';
 
 export abstract class RemoteProvider implements RemoteProviderReference {
 	readonly type: 'simple' | 'rich' = 'simple';
@@ -46,10 +58,15 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 	}
 
 	get owner(): string | undefined {
-		return this.path.split('/')[0];
+		return this.splitPath()[0];
 	}
 
-	abstract get id(): string;
+	get repoName(): string | undefined {
+		return this.splitPath()[1];
+	}
+
+	abstract get id(): RemoteProviderId;
+	abstract get gkProviderId(): GkProviderId | undefined;
 	abstract get name(): string;
 
 	async copy(resource: RemoteResource): Promise<void> {

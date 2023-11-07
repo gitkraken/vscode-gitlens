@@ -128,6 +128,7 @@ export class WebviewsController implements Disposable {
 			container: Container,
 			controller: WebviewController<State, SerializedState, ShowingArgs>,
 		) => Promise<WebviewProvider<State, SerializedState, ShowingArgs>>,
+		onBeforeShow?: (...args: WebviewShowingArgs<ShowingArgs, SerializedState>) => void | Promise<void>,
 	): WebviewViewProxy<ShowingArgs, SerializedState> {
 		const scope = getNewLogScope(`WebviewView(${descriptor.id})`);
 
@@ -212,7 +213,7 @@ export class WebviewsController implements Disposable {
 			refresh: function (force?: boolean) {
 				return registration.controller != null ? registration.controller.refresh(force) : Promise.resolve();
 			},
-			show: function (
+			show: async function (
 				options?: WebviewViewShowOptions,
 				...args: WebviewShowingArgs<ShowingArgs, SerializedState>
 			) {
@@ -223,7 +224,12 @@ export class WebviewsController implements Disposable {
 				}
 
 				registration.pendingShowArgs = [options, args];
-				return Promise.resolve(void executeCoreCommand(`${descriptor.id}.focus`, options));
+
+				if (onBeforeShow != null) {
+					await onBeforeShow?.(...args);
+				}
+
+				return void executeCoreCommand(`${descriptor.id}.focus`, options);
 			},
 		} satisfies WebviewViewProxy<ShowingArgs, SerializedState>;
 	}

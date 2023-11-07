@@ -1,8 +1,11 @@
 import type { Range, Uri } from 'vscode';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
+import type { GkProviderId } from '../../gk/models/repositoryIdentities';
+import type { Brand, Unbrand } from '../../system/brand';
 import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
+import type { RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/src(.+)$/i;
@@ -42,8 +45,12 @@ export class BitbucketRemote extends RemoteProvider {
 		return 'bitbucket';
 	}
 
-	get id() {
+	get id(): RemoteProviderId {
 		return 'bitbucket';
+	}
+
+	get gkProviderId(): GkProviderId {
+		return 'bitbucket' satisfies Unbrand<GkProviderId> as Brand<GkProviderId>;
 	}
 
 	get name() {

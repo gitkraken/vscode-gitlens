@@ -218,12 +218,17 @@ export async function openChanges(
 export async function openChanges(
 	file: GitFile,
 	refs: { repoPath: string; ref1: string; ref2: string },
-	options?: TextDocumentShowOptions,
+	options?: TextDocumentShowOptions & { lhsTitle?: string; rhsTitle?: string },
+): Promise<void>;
+export async function openChanges(
+	file: GitFile,
+	commitOrRefs: GitCommit | { repoPath: string; ref1: string; ref2: string },
+	options?: TextDocumentShowOptions & { lhsTitle?: string; rhsTitle?: string },
 ): Promise<void>;
 export async function openChanges(
 	file: string | GitFile,
 	commitOrRefs: GitCommit | { repoPath: string; ref1: string; ref2: string },
-	options?: TextDocumentShowOptions,
+	options?: TextDocumentShowOptions & { lhsTitle?: string; rhsTitle?: string },
 ) {
 	const isArgCommit = isCommit(commitOrRefs);
 
@@ -263,8 +268,8 @@ export async function openChanges(
 
 	void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 		repoPath: refs.repoPath,
-		lhs: { uri: lhsUri, sha: refs.ref1 },
-		rhs: { uri: rhsUri, sha: refs.ref2 },
+		lhs: { uri: lhsUri, sha: refs.ref1, title: options?.lhsTitle },
+		rhs: { uri: rhsUri, sha: refs.ref2, title: options?.rhsTitle },
 		showOptions: options,
 	}));
 }
@@ -304,17 +309,17 @@ export async function openChangesWithDiffTool(
 export async function openChangesWithWorking(
 	file: string | GitFile,
 	commit: GitCommit,
-	options?: TextDocumentShowOptions,
+	options?: TextDocumentShowOptions & { lhsTitle?: string },
 ): Promise<void>;
 export async function openChangesWithWorking(
 	file: GitFile,
 	ref: { repoPath: string; ref: string },
-	options?: TextDocumentShowOptions,
+	options?: TextDocumentShowOptions & { lhsTitle?: string },
 ): Promise<void>;
 export async function openChangesWithWorking(
 	file: string | GitFile,
 	commitOrRef: GitCommit | { repoPath: string; ref: string },
-	options?: TextDocumentShowOptions,
+	options?: TextDocumentShowOptions & { lhsTitle?: string },
 ) {
 	if (typeof file === 'string') {
 		if (!isCommit(commitOrRef)) throw new Error('Invalid arguments');
@@ -342,6 +347,7 @@ export async function openChangesWithWorking(
 	void (await executeEditorCommand<DiffWithWorkingCommandArgs>(Commands.DiffWithWorking, undefined, {
 		uri: GitUri.fromFile(file, ref.repoPath, ref.ref),
 		showOptions: options,
+		lhsTitle: options?.lhsTitle,
 	}));
 }
 

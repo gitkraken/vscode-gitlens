@@ -1,7 +1,9 @@
 import type { Range, Uri } from 'vscode';
 import type { RemotesUrlsConfig } from '../../config';
+import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import { getTokensFromTemplate, interpolate } from '../../system/string';
 import type { Repository } from '../models/repository';
+import type { RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
 export class CustomRemote extends RemoteProvider {
@@ -12,8 +14,12 @@ export class CustomRemote extends RemoteProvider {
 		this.urls = urls;
 	}
 
-	get id() {
+	get id(): RemoteProviderId {
 		return 'custom';
+	}
+
+	get gkProviderId(): GkProviderId | undefined {
+		return undefined;
 	}
 
 	get name() {

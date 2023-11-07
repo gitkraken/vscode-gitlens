@@ -1,7 +1,9 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { scrollableBase } from './styles/lit/base.css';
 import './code-icon';
 import './actions/action-nav';
+import './progress';
 
 export interface WebviewPaneExpandedChangeEventDetail {
 	expanded: boolean;
@@ -9,85 +11,98 @@ export interface WebviewPaneExpandedChangeEventDetail {
 
 @customElement('webview-pane')
 export class WebviewPane extends LitElement {
-	static override styles = css`
-		:host {
-			display: flex;
-			flex-direction: column;
-			background-color: var(--vscode-sideBar-background);
-		}
+	static override styles = [
+		scrollableBase,
+		css`
+			:host {
+				display: flex;
+				flex-direction: column;
+				background-color: var(--vscode-sideBar-background);
+			}
 
-		* {
-			box-sizing: border-box;
-		}
+			* {
+				box-sizing: border-box;
+			}
 
-		.header {
-			flex: none;
-			display: flex;
-			background-color: var(--vscode-sideBarSectionHeader-background);
-			color: var(--vscode-sideBarSectionHeader-foreground);
-			border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
-			position: relative;
-		}
+			.header {
+				flex: none;
+				display: flex;
+				background-color: var(--vscode-sideBarSectionHeader-background);
+				color: var(--vscode-sideBarSectionHeader-foreground);
+				border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
+				position: relative;
+			}
 
-		.header:focus-within {
-			outline: 1px solid var(--vscode-focusBorder);
-			outline-offset: -1px;
-		}
+			.header:focus-within {
+				outline: 1px solid var(--vscode-focusBorder);
+				outline-offset: -1px;
+			}
 
-		.label {
-			appearance: none;
-			display: flex;
-			flex-direction: row;
-			align-items: center;
-			width: 100%;
-			padding: 0;
-			border: none;
-			text-align: left;
-			font-family: var(--font-family);
-			font-size: 1.1rem;
-			line-height: 2.2rem;
-			height: 2.2rem;
-			background: transparent;
-			color: inherit;
-			cursor: pointer;
-			outline: none;
-			text-overflow: ellipsis;
-		}
+			.label {
+				appearance: none;
+				display: flex;
+				flex-direction: row;
+				align-items: center;
+				width: 100%;
+				padding: 0;
+				border: none;
+				text-align: left;
+				font-family: var(--font-family);
+				font-size: 1.1rem;
+				line-height: 2.2rem;
+				height: 2.2rem;
+				background: transparent;
+				color: inherit;
+				outline: none;
+				text-overflow: ellipsis;
+				user-select: none;
+			}
 
-		.title {
-			font-weight: bold;
-			text-transform: uppercase;
-		}
+			:host([collapsable]) .label {
+				cursor: pointer;
+			}
 
-		.subtitle {
-			margin-left: 1rem;
-			opacity: 0.6;
-		}
+			.title {
+				font-weight: bold;
+				text-transform: uppercase;
+			}
 
-		.icon {
-			font-weight: normal;
-			margin: 0 0.2rem;
-		}
+			:host(:not([collapsable])) .title {
+				margin-left: 0.8rem;
+			}
 
-		.content {
-			overflow: auto;
-			/*
+			.subtitle {
+				margin-left: 1rem;
+				opacity: 0.6;
+			}
+
+			.icon {
+				font-weight: normal;
+				margin: 0 0.2rem;
+			}
+
+			.content {
+				flex: 1;
+				overflow: auto;
+				min-height: 0;
+				/*
 			scrollbar-gutter: stable;
 			box-shadow: #000000 0 0.6rem 0.6rem -0.6rem inset;
 			*/
-			padding-top: 0.6rem;
-		}
+				padding-top: 0.6rem;
+			}
 
-		:host([collapsable]:not([expanded])) .content,
-		:host([collapsable][expanded='false']) .content {
-			display: none;
-		}
+			:host([collapsable]:not([expanded])) .content,
+			:host([collapsable][expanded='false']) .content {
+				display: none;
+			}
 
-		slot[name='actions']::slotted(*) {
-			flex: none;
-			margin-left: auto;
-		}
-	`;
+			slot[name='actions']::slotted(*) {
+				flex: none;
+				margin-left: auto;
+			}
+		`,
+	];
 
 	@property({ type: Boolean, reflect: true })
 	collapsable = false;
@@ -123,9 +138,9 @@ export class WebviewPane extends LitElement {
 			<header class="header">
 				${this.renderTitle()}
 				<slot name="actions"></slot>
-				<progress-indicator active="${this.loading}"></progress-indicator>
+				<progress-indicator ?active="${this.loading}"></progress-indicator>
 			</header>
-			<div id="content" role="region" class="content">
+			<div id="content" role="region" class="content scrollable">
 				<slot></slot>
 			</div>
 		`;
@@ -143,5 +158,11 @@ export class WebviewPane extends LitElement {
 				composed: true,
 			}),
 		);
+	}
+}
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'webview-pane': WebviewPane;
 	}
 }

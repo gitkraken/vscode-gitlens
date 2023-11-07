@@ -1,6 +1,6 @@
-import { readdir, realpath } from 'fs';
-import { homedir, hostname, userInfo } from 'os';
-import { resolve as resolvePath } from 'path';
+import { promises as fs, readdir, realpath } from 'fs';
+import { homedir, hostname, tmpdir, userInfo } from 'os';
+import path, { resolve as resolvePath } from 'path';
 import { env as process_env } from 'process';
 import type { CancellationToken, Event, TextDocument, WorkspaceFolder } from 'vscode';
 import { Disposable, env, EventEmitter, extensions, FileType, Range, Uri, window, workspace } from 'vscode';
@@ -18,6 +18,8 @@ import { Features } from '../../../features';
 import { GitErrorHandling } from '../../../git/commandOptions';
 import {
 	BlameIgnoreRevsFileError,
+	CherryPickError,
+	CherryPickErrorReason,
 	FetchError,
 	GitSearchError,
 	PullError,
@@ -25,6 +27,7 @@ import {
 	PushErrorReason,
 	StashApplyError,
 	StashApplyErrorReason,
+	StashPushError,
 	WorktreeCreateError,
 	WorktreeCreateErrorReason,
 	WorktreeDeleteError,
@@ -62,7 +65,14 @@ import type { GitStashCommit } from '../../../git/models/commit';
 import { GitCommit, GitCommitIdentity } from '../../../git/models/commit';
 import { deletedOrMissing, uncommitted, uncommittedStaged } from '../../../git/models/constants';
 import { GitContributor } from '../../../git/models/contributor';
-import type { GitDiff, GitDiffFile, GitDiffFilter, GitDiffLine, GitDiffShortStat } from '../../../git/models/diff';
+import type {
+	GitDiff,
+	GitDiffFile,
+	GitDiffFiles,
+	GitDiffFilter,
+	GitDiffLine,
+	GitDiffShortStat,
+} from '../../../git/models/diff';
 import type { GitFile, GitFileStatus } from '../../../git/models/file';
 import { GitFileChange } from '../../../git/models/file';
 import type {
@@ -108,7 +118,12 @@ import { isUserMatch } from '../../../git/models/user';
 import type { GitWorktree } from '../../../git/models/worktree';
 import { parseGitBlame } from '../../../git/parsers/blameParser';
 import { parseGitBranches } from '../../../git/parsers/branchParser';
-import { parseGitDiffNameStatusFiles, parseGitDiffShortStat, parseGitFileDiff } from '../../../git/parsers/diffParser';
+import {
+	parseGitApplyFiles,
+	parseGitDiffNameStatusFiles,
+	parseGitDiffShortStat,
+	parseGitFileDiff,
+} from '../../../git/parsers/diffParser';
 import {
 	createLogParserSingle,
 	createLogParserWithFiles,
@@ -1108,6 +1123,194 @@ export class LocalGitProvider implements GitProvider, Disposable {
 		}
 
 		return undefined;
+	}
+
+	async applyPatchCommit(
+		repoPath: string,
+		patchCommitRef: string,
+		options?: { branchName?: string; createBranchIfNeeded?: boolean; createWorktreePath?: string },
+	): Promise<void> {
+		const scope = getLogScope();
+		// Stash any changes first
+		const repoStatus = await this.getStatusForRepo(repoPath);
+		const diffStatus = repoStatus?.getDiffStatus();
+		if (diffStatus?.added || diffStatus?.deleted || diffStatus?.changed) {
+			try {
+				await this.git.stash__push(repoPath, undefined, { includeUntracked: true });
+			} catch (ex) {
+				Logger.error(ex, scope);
+				if (ex instanceof StashPushError) {
+					void showGenericErrorMessage(`Error applying patch - unable to stash changes: ${ex.message}`);
+				} else {
+					void showGenericErrorMessage(`Error applying patch - unable to stash changes`);
+				}
+
+				return;
+			}
+		}
+
+		let targetPath = repoPath;
+		const currentBranch = await this.getBranch(repoPath);
+		const branchExists =
+			options?.branchName == null ||
+			(await this.getBranches(repoPath, { filter: b => b.name === options.branchName }))?.values?.length > 0;
+		const shouldCreate = options?.branchName != null && !branchExists && options.createBranchIfNeeded;
+
+		// TODO: Worktree creation should ideally be handled before calling this, and then
+		// applyPatchCommit should be pointing to the worktree path. If done here, the newly created
+		// worktree cannot be opened and we cannot handle issues elegantly.
+		if (options?.createWorktreePath != null) {
+			if (options?.branchName === null || options.branchName === currentBranch?.name) {
+				void showGenericErrorMessage(`Error applying patch - unable to create worktree`);
+				return;
+			}
+
+			try {
+				await this.createWorktree(repoPath, options.createWorktreePath, {
+					commitish: options?.branchName != null && branchExists ? options.branchName : currentBranch?.name,
+					createBranch: shouldCreate ? options.branchName : undefined,
+				});
+			} catch (ex) {
+				Logger.error(ex, scope);
+				if (ex instanceof WorktreeCreateError) {
+					void showGenericErrorMessage(`Error applying patch - unable to create worktree: ${ex.message}`);
+				} else {
+					void showGenericErrorMessage(`Error applying patch - unable to create worktree`);
+				}
+
+				return;
+			}
+
+			const worktree = await this.container.git.getWorktree(
+				repoPath,
+				w => normalizePath(w.uri.fsPath) === normalizePath(options.createWorktreePath!),
+			);
+			if (worktree == null) {
+				void showGenericErrorMessage(`Error applying patch - unable to create worktree`);
+				return;
+			}
+
+			targetPath = worktree.uri.fsPath;
+		}
+
+		if (options?.branchName != null && currentBranch?.name !== options.branchName) {
+			const checkoutRef = shouldCreate ? currentBranch?.ref ?? 'HEAD' : options.branchName;
+			await this.checkout(targetPath, checkoutRef, {
+				createBranch: shouldCreate ? options.branchName : undefined,
+			});
+		}
+
+		// Apply the patch using a cherry pick without committing
+		try {
+			await this.git.cherrypick(targetPath, patchCommitRef, { noCommit: true, errors: GitErrorHandling.Throw });
+		} catch (ex) {
+			Logger.error(ex, scope);
+			if (ex instanceof CherryPickError) {
+				if (ex.reason === CherryPickErrorReason.Conflict) {
+					void showGenericErrorMessage(
+						`Error applying patch - conflicts detected. Please resolve conflicts.`,
+					);
+				} else {
+					void showGenericErrorMessage(`Error applying patch - unable to apply patch changes: ${ex.message}`);
+				}
+			} else {
+				void showGenericErrorMessage(`Error applying patch - unable to apply patch changes`);
+			}
+
+			return;
+		}
+
+		void window.showInformationMessage(`Patch applied successfully`);
+	}
+
+	@log({ args: { 1: '<contents>', 3: '<message>' } })
+	async createUnreachableCommitForPatch(
+		repoPath: string,
+		contents: string,
+		baseRef: string,
+		message: string,
+	): Promise<GitCommit | undefined> {
+		const scope = getLogScope();
+
+		// Create a temporary index file
+		const tempDir = await fs.mkdtemp(path.join(tmpdir(), 'gl-'));
+		const tempIndex = joinPaths(tempDir, 'index');
+
+		try {
+			// Tell Git to use our soon to be created index file
+			const env = { GIT_INDEX_FILE: tempIndex };
+
+			// Create the temp index file from a base ref/sha
+
+			// Get the tree of the base
+			const newIndex = await this.git.git<string>(
+				{
+					cwd: repoPath,
+					env: env,
+				},
+				'ls-tree',
+				'-z',
+				'-r',
+				'--full-name',
+				baseRef,
+			);
+
+			// Write the tree to our temp index
+			await this.git.git<string>(
+				{
+					cwd: repoPath,
+					env: env,
+					stdin: newIndex,
+				},
+				'update-index',
+				'-z',
+				'--index-info',
+			);
+
+			// Apply the patch to our temp index, without touching the working directory
+			await this.git.apply2(repoPath, { env: env, stdin: contents }, '--cached');
+
+			// Create a new tree from our patched index
+			const tree = (
+				await this.git.git<string>(
+					{
+						cwd: repoPath,
+						env: env,
+					},
+					'write-tree',
+				)
+			)?.trim();
+
+			// Create new commit from the tree
+			const sha = (
+				await this.git.git<string>(
+					{
+						cwd: repoPath,
+						env: env,
+					},
+					'commit-tree',
+					tree,
+					'-p',
+					baseRef,
+					'-m',
+					message,
+				)
+			)?.trim();
+
+			return this.getCommit(repoPath, sha);
+		} catch (ex) {
+			Logger.error(ex, scope);
+			debugger;
+
+			throw ex;
+		} finally {
+			// Delete the temporary index file
+			try {
+				await fs.rmdir(tempDir, { recursive: true });
+			} catch (ex) {
+				debugger;
+			}
+		}
 	}
 
 	@log({ singleLine: true })
@@ -2797,6 +3000,17 @@ export class LocalGitProvider implements GitProvider, Disposable {
 
 		const diff: GitDiff = { baseSha: ref2, contents: data };
 		return diff;
+	}
+
+	@log({ args: { 1: false } })
+	async getDiffFiles(repoPath: string, contents: string): Promise<GitDiffFiles | undefined> {
+		const data = await this.git.apply2(repoPath, { stdin: contents }, '--numstat', '--summary', '-z');
+		if (!data) return undefined;
+
+		const files = parseGitApplyFiles(data, repoPath);
+		return {
+			files: files,
+		};
 	}
 
 	@log()

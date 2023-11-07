@@ -40,6 +40,7 @@ import './commands/openPullRequestOnRemote';
 import './commands/openRepoOnRemote';
 import './commands/openRevisionFile';
 import './commands/openWorkingFile';
+import './commands/patches';
 import './commands/rebaseEditor';
 import './commands/refreshHover';
 import './commands/remoteProviders';

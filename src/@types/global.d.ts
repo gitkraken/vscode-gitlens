@@ -28,4 +28,6 @@ export declare global {
 	export type StartsWith<P extends string, T extends string, S extends string = ''> = T extends `${P}${S}${string}`
 		? T
 		: never;
+
+	export type UnwrapCustomEvent<T> = T extends CustomEvent<infer U> ? U : never;
 }

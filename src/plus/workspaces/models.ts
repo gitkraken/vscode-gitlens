@@ -1,6 +1,7 @@
 import type { Disposable } from '../../api/gitlens';
 import type { Container } from '../../container';
 import type { Repository } from '../../git/models/repository';
+import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 
 export type WorkspaceType = 'cloud' | 'local';
 export type WorkspaceAutoAddSetting = 'disabled' | 'enabled' | 'prompt';
@@ -149,7 +150,7 @@ export interface CloudWorkspaceRepositoryDescriptor {
 	name: string;
 	description: string;
 	repository_id: string;
-	provider: string | null;
+	provider: GkProviderId | null;
 	provider_project_name: string | null;
 	provider_organization_id: string;
 	provider_organization_name: string | null;
@@ -317,7 +318,7 @@ export interface CloudWorkspaceRepositoryData {
 	name: string;
 	description: string;
 	repository_id: string;
-	provider: string | null;
+	provider: GkProviderId | null;
 	provider_project_name: string | null;
 	provider_organization_id: string;
 	provider_organization_name: string | null;

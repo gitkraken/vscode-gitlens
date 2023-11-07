@@ -136,6 +136,25 @@ export class ServerConnection implements Disposable {
 		return this.fetch(this.getGkDevApiUrl(path), init, token);
 	}
 
+	async fetchRaw(url: RequestInfo, init?: RequestInit): Promise<Response> {
+		const scope = getLogScope();
+
+		try {
+			const options = {
+				agent: getProxyAgent(),
+				...init,
+				headers: {
+					'User-Agent': this.userAgent,
+					...init?.headers,
+				},
+			};
+			return await _fetch(url, options);
+		} catch (ex) {
+			Logger.error(ex, scope);
+			throw ex;
+		}
+	}
+
 	private async getAccessToken() {
 		const session = await this.container.subscription.getAuthenticationSession();
 		if (session != null) return session.accessToken;

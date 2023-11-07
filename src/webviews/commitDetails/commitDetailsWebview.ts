@@ -29,7 +29,9 @@ import { createReference, getReferenceFromRevision, shortenRevision } from '../.
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
 import { RepositoryChange, RepositoryChangeComparisonMode } from '../../git/models/repository';
+import { showPatchesView } from '../../plus/drafts/actions';
 import type { ShowInCommitGraphCommandArgs } from '../../plus/webviews/graph/protocol';
+import type { Change } from '../../plus/webviews/patchDetails/protocol';
 import { pauseOnCancelOrTimeoutMapTuplePromise } from '../../system/cancellation';
 import { executeCommand, executeCoreCommand, registerCommand } from '../../system/command';
 import { configuration } from '../../system/configuration';
@@ -53,6 +55,7 @@ import type { WebviewShowOptions } from '../webviewsController';
 import { isSerializedState } from '../webviewsController';
 import type {
 	CommitDetails,
+	CreatePatchFromWipParams,
 	DidExplainParams,
 	FileActionParams,
 	Mode,
@@ -66,6 +69,7 @@ import type {
 import {
 	AutolinkSettingsCommandType,
 	CommitActionsCommandType,
+	CreatePatchFromWipCommandType,
 	DidChangeNotificationType,
 	DidChangeWipStateNotificationType,
 	DidExplainCommandType,
@@ -340,6 +344,9 @@ export class CommitDetailsWebviewProvider
 			case UnstageFileCommandType.method:
 				onIpc(UnstageFileCommandType, e, params => this.unstageFile(params));
 				break;
+			case CreatePatchFromWipCommandType.method:
+				onIpc(CreatePatchFromWipCommandType, e, params => this.createPatchFromWip(params));
+				break;
 		}
 	}
 
@@ -484,6 +491,27 @@ export class CommitDetailsWebviewProvider
 			this._lineTrackerDisposable?.dispose();
 			this._lineTrackerDisposable = undefined;
 		}, 100);
+	}
+
+	private createPatchFromWip(e: CreatePatchFromWipParams) {
+		if (e.changes == null) return;
+
+		const change: Change = {
+			type: 'wip',
+			repository: {
+				name: e.changes.repository.name,
+				path: e.changes.repository.path,
+				uri: e.changes.repository.uri,
+			},
+			files: e.changes.files,
+			revision: {
+				baseSha: 'HEAD',
+				sha: uncommitted,
+			},
+			checked: e.checked,
+		};
+
+		void showPatchesView({ mode: 'create', create: { changes: [change] } });
 	}
 
 	private onActiveEditorLinesChanged(e: LinesChangeEvent) {

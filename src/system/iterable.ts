@@ -38,19 +38,18 @@ export function* chunkByStringLength(source: string[], maxLength: number): Itera
 	}
 }
 
-export function count<T>(source: IterableIterator<T>, predicate?: (item: T) => boolean): number {
+export function count<T>(
+	source: Iterable<T> | IterableIterator<T> | undefined,
+	predicate?: (item: T) => boolean,
+): number {
+	if (source == null) return 0;
+
 	let count = 0;
-	let next: IteratorResult<T>;
-
-	while (true) {
-		next = source.next();
-		if (next.done) break;
-
-		if (predicate === undefined || predicate(next.value)) {
+	for (const item of source) {
+		if (predicate == null || predicate(item)) {
 			count++;
 		}
 	}
-
 	return count;
 }
 
@@ -118,6 +117,19 @@ export function findIndex<T>(source: Iterable<T> | IterableIterator<T>, predicat
 
 export function first<T>(source: Iterable<T> | IterableIterator<T>): T | undefined {
 	return source[Symbol.iterator]().next().value as T | undefined;
+}
+
+export function flatCount<T>(
+	source: Iterable<T> | IterableIterator<T> | undefined,
+	accumulator: (item: T) => number,
+): number {
+	if (source == null) return 0;
+
+	let count = 0;
+	for (const item of source) {
+		count += accumulator(item);
+	}
+	return count;
 }
 
 export function* flatMap<T, TMapped>(

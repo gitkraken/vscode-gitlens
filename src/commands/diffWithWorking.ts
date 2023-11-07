@@ -15,6 +15,7 @@ export interface DiffWithWorkingCommandArgs {
 	uri?: Uri;
 	line?: number;
 	showOptions?: TextDocumentShowOptions;
+	lhsTitle?: string;
 }
 
 @command()
@@ -106,6 +107,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 			lhs: {
 				sha: gitUri.sha,
 				uri: uri,
+				title: args?.lhsTitle,
 			},
 			rhs: {
 				sha: '',
