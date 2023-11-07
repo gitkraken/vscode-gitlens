@@ -5,6 +5,7 @@ import type { CommitActionsParams, Mode, State } from '../../commitDetails/proto
 import {
 	AutolinkSettingsCommandType,
 	CommitActionsCommandType,
+	CreatePatchFromWipCommandType,
 	DidChangeNotificationType,
 	DidChangeWipStateNotificationType,
 	DidExplainCommandType,
@@ -91,6 +92,7 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			DOM.on('[data-action="pin"]', 'click', e => this.onTogglePin(e)),
 			DOM.on('[data-action="back"]', 'click', e => this.onNavigate('back', e)),
 			DOM.on('[data-action="forward"]', 'click', e => this.onNavigate('forward', e)),
+			DOM.on('[data-action="create-patch"]', 'click', e => this.onCreatePatchFromWip(e)),
 			DOM.on<WebviewPane, WebviewPaneExpandedChangeEventDetail>(
 				'[data-region="rich-pane"]',
 				'expanded-change',
@@ -152,6 +154,23 @@ export class CommitDetailsApp extends App<Serialized<State>> {
 			default:
 				super.onMessageReceived?.(e);
 		}
+	}
+
+	private onCreatePatchFromWip(e: MouseEvent) {
+		if (this.state.wip?.changes == null) return;
+
+		const wipCheckedParam = ((e.target as HTMLElement)?.closest('[data-wip-checked]') as HTMLElement | undefined)
+			?.dataset.wipChecked;
+		let wipChecked: boolean | 'staged';
+		if (wipCheckedParam == null) {
+			wipChecked = true;
+		} else if (wipCheckedParam === 'staged') {
+			wipChecked = wipCheckedParam;
+		} else {
+			wipChecked = wipCheckedParam === 'true';
+		}
+
+		this.sendCommand(CreatePatchFromWipCommandType, { changes: this.state.wip?.changes, checked: wipChecked });
 	}
 
 	private onCommandClickedCore(action?: string) {

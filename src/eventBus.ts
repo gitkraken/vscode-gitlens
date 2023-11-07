@@ -5,10 +5,19 @@ import type { CustomEditorIds, WebviewIds, WebviewViewIds } from './constants';
 import type { GitCaches } from './git/gitProvider';
 import type { GitCommit } from './git/models/commit';
 import type { GitRevisionReference } from './git/models/reference';
+import type { Draft, LocalDraft } from './gk/models/drafts';
 
 export type CommitSelectedEvent = EventBusEvent<'commit:selected'>;
 interface CommitSelectedEventArgs {
 	readonly commit: GitRevisionReference | GitCommit;
+	readonly interaction: 'active' | 'passive';
+	readonly preserveFocus?: boolean;
+	readonly preserveVisibility?: boolean;
+}
+
+export type DraftSelectedEvent = EventBusEvent<'draft:selected'>;
+interface DraftSelectedEventArgs {
+	readonly draft: LocalDraft | Draft;
 	readonly interaction: 'active' | 'passive';
 	readonly preserveFocus?: boolean;
 	readonly preserveVisibility?: boolean;
@@ -29,6 +38,7 @@ interface GitCacheResetEventArgs {
 
 type EventsMapping = {
 	'commit:selected': CommitSelectedEventArgs;
+	'draft:selected': DraftSelectedEventArgs;
 	'file:selected': FileSelectedEventArgs;
 	'git:cache:reset': GitCacheResetEventArgs;
 };
@@ -47,10 +57,15 @@ export type EventBusOptions = {
 
 type CacheableEventsMapping = {
 	'commit:selected': CommitSelectedEventArgs;
+	'draft:selected': DraftSelectedEventArgs;
 	'file:selected': FileSelectedEventArgs;
 };
 
-const _cacheableEventNames = new Set<keyof CacheableEventsMapping>(['commit:selected', 'file:selected']);
+const _cacheableEventNames = new Set<keyof CacheableEventsMapping>([
+	'commit:selected',
+	'draft:selected',
+	'file:selected',
+]);
 const _cachedEventArgs = new Map<keyof CacheableEventsMapping, CacheableEventsMapping[keyof CacheableEventsMapping]>();
 
 export class EventBus implements Disposable {

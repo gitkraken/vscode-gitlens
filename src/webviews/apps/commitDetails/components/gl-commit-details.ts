@@ -93,7 +93,7 @@ export class GlCommitDetails extends GlDetailsBase {
 					<button class="button button--full" type="button" data-action="wip">Show Working Changes</button>
 				</p>
 				<p class="button-container">
-					<span class="button-group">
+					<span class="button-group button-group--single">
 						<button class="button button--full" type="button" data-action="pick-commit">
 							Choose Commit...
 						</button>
@@ -326,7 +326,7 @@ export class GlCommitDetails extends GlDetailsBase {
 								@click=${this.onExplainChanges}
 								@keydown=${this.onExplainChanges}
 							>
-								<code-icon icon="loading" modifier="spin"></code-icon>Explain this Commit
+								<code-icon icon="loading" modifier="spin"></code-icon>Explain Changes
 							</button>
 						</span>
 					</p>

@@ -1,0 +1,164 @@
+@use '../../shared/styles/details-base';
+
+.message-block__text strong:not(:only-child) {
+	display: inline-block;
+	margin-bottom: 0.52rem;
+}
+
+// TODO: "change-list__action" should be a separate component
+.change-list__action {
+	box-sizing: border-box;
+	display: inline-flex;
+	justify-content: center;
+	align-items: center;
+	width: 2rem;
+	height: 2rem;
+	border-radius: 0.25em;
+	color: inherit;
+	padding: 2px;
+	vertical-align: text-bottom;
+	text-decoration: none;
+}
+.change-list__action:focus {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+.change-list__action:hover {
+	color: inherit;
+	background-color: var(--vscode-toolbar-hoverBackground);
+	text-decoration: none;
+}
+.change-list__action:active {
+	background-color: var(--vscode-toolbar-activeBackground);
+}
+
+.patch-base {
+	display: flex;
+	flex-direction: row;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 0.4rem;
+	padding: {
+		top: 0.1rem;
+		bottom: 0.1rem;
+	}
+
+	:first-child {
+		margin-right: auto;
+	}
+}
+
+textarea.message-input__control {
+	resize: vertical;
+	min-height: 4rem;
+	max-height: 40rem;
+}
+
+.message-input {
+	padding-top: 0.8rem;
+
+	&__control {
+		border: 1px solid var(--vscode-input-border);
+		background: var(--vscode-input-background);
+		padding: 0.5rem;
+		font-size: 1.3rem;
+		line-height: 1.4;
+		width: 100%;
+		border-radius: 0.2rem;
+		color: var(--vscode-input-foreground);
+		font-family: inherit;
+
+		&::placeholder {
+			color: var(--vscode-input-placeholderForeground);
+		}
+
+		&:invalid {
+			border-color: var(--vscode-inputValidation-errorBorder);
+			background-color: var(--vscode-inputValidation-errorBackground);
+		}
+
+		&:focus {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: -1px;
+		}
+	}
+}
+
+.h {
+	&-spacing {
+		margin-bottom: 1.5rem;
+	}
+	&-deemphasize {
+		margin: 0.8rem 0 0.4rem;
+		opacity: 0.8;
+	}
+}
+
+.alert {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	padding: 0.8rem 1.2rem;
+	line-height: 1.2;
+	background-color: var(--color-alert-errorBackground);
+	border-left: 0.3rem solid var(--color-alert-errorBorder);
+	color: var(--color-alert-foreground);
+
+	code-icon {
+		margin-right: 0.4rem;
+		vertical-align: baseline;
+	}
+
+	&__content {
+		font-size: 1.2rem;
+		line-height: 1.2;
+		text-align: left;
+		margin: 0;
+	}
+}
+
+.commit-detail-panel {
+	height: 100vh;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+.details-tab {
+	flex: none;
+}
+
+main {
+	flex: 1 1 auto;
+	overflow: hidden;
+}
+
+gl-patch-create {
+	display: contents;
+}
+
+.pane-groups {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+
+	&__group {
+		min-height: 0;
+		flex: 1 1 auto;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+
+		webview-pane {
+			flex: none;
+
+			&[expanded] {
+				min-height: 0;
+				flex: 1;
+			}
+		}
+	}
+
+	&__group-fixed {
+		flex: none;
+	}
+}

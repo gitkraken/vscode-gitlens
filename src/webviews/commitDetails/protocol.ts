@@ -83,11 +83,7 @@ export interface CommitActionsParams {
 }
 export const CommitActionsCommandType = new IpcCommandType<CommitActionsParams>('commit/actions');
 
-export interface FileActionParams {
-	path: string;
-	repoPath: string;
-	staged: boolean | undefined;
-
+export interface FileActionParams extends GitFileChangeShape {
 	showOptions?: TextDocumentShowOptions;
 }
 export const FileActionsCommandType = new IpcCommandType<FileActionParams>('commit/file/actions');
@@ -124,6 +120,12 @@ export const NavigateCommitCommandType = new IpcCommandType<NavigateParams>('com
 
 export type UpdatePreferenceParams = UpdateablePreferences;
 export const UpdatePreferencesCommandType = new IpcCommandType<UpdatePreferenceParams>('commit/preferences/update');
+
+export interface CreatePatchFromWipParams {
+	changes: WipChange;
+	checked: boolean | 'staged';
+}
+export const CreatePatchFromWipCommandType = new IpcCommandType<CreatePatchFromWipParams>('commit/wip/createPatch');
 
 // NOTIFICATIONS
 

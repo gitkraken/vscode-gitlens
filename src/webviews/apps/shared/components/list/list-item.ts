@@ -1,6 +1,6 @@
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import type { TextDocumentShowOptions } from 'vscode';
 import '../converters/number-converter';
 import '../code-icon';
@@ -162,6 +162,58 @@ export class ListItem extends LitElement {
 			display: flex;
 			align-items: center;
 		}
+
+		.checkbox {
+			position: relative;
+			display: inline-flex;
+			width: 1.6rem;
+			aspect-ratio: 1 / 1;
+			text-align: center;
+			color: var(--vscode-checkbox-foreground);
+			background: var(--vscode-checkbox-background);
+			border: 1px solid var(--vscode-checkbox-border);
+			border-radius: 0.3rem;
+			// overflow: hidden;
+		}
+
+		.checkbox:has(:checked) {
+			color: var(--vscode-inputOption-activeForeground);
+			border-color: var(--vscode-inputOption-activeBorder);
+			background-color: var(--vscode-inputOption-activeBackground);
+		}
+
+		.checkbox:has(:disabled) {
+			opacity: 0.4;
+		}
+
+		.checkbox__input {
+			position: absolute;
+			top: 0;
+			left: 0;
+			appearance: none;
+			width: 1.4rem;
+			aspect-ratio: 1 / 1;
+			margin: 0;
+			cursor: pointer;
+			border-radius: 0.3rem;
+		}
+
+		.checkbox__input:disabled {
+			cursor: default;
+		}
+
+		.checkbox__check {
+			width: 1.6rem;
+			aspect-ratio: 1 / 1;
+			opacity: 0;
+			transition: opacity 0.1s linear;
+			color: var(--vscode-checkbox-foreground);
+			pointer-events: none;
+		}
+
+		.checkbox__input:checked + .checkbox__check {
+			opacity: 1;
+		}
 	`;
 
 	@property({ type: Boolean, reflect: true }) tree = false;
@@ -173,6 +225,10 @@ export class ListItem extends LitElement {
 	@property({ type: Boolean, reflect: true }) parentexpanded = true;
 
 	@property({ type: Number }) level = 1;
+
+	@property({ type: Boolean, reflect: true }) checkable = false;
+	@property({ type: Boolean, reflect: true }) checked = false;
+	@property({ type: Boolean, attribute: 'disable-check', reflect: true }) disableCheck = false;
 
 	@property({ type: Boolean })
 	active = false;
@@ -197,11 +253,24 @@ export class ListItem extends LitElement {
 		return 'false';
 	}
 
+	@query('#checkbox')
+	checkboxEl?: HTMLInputElement;
+
 	onItemClick(e: MouseEvent) {
+		if (this.checkable && e.target === this.checkboxEl) {
+			e.preventDefault();
+			e.stopPropagation();
+			return;
+		}
 		this.select(e.altKey ? { viewColumn: BesideViewColumn } : undefined);
 	}
 
 	onDblItemClick(e: MouseEvent) {
+		if (this.checkable && e.target === this.checkboxEl) {
+			e.preventDefault();
+			e.stopPropagation();
+			return;
+		}
 		this.select({
 			preview: false,
 			viewColumn: e.altKey || e.ctrlKey || e.metaKey ? BesideViewColumn : undefined,
@@ -263,6 +332,22 @@ export class ListItem extends LitElement {
 		this.setAttribute('aria-hidden', this.isHidden);
 	}
 
+	renderCheckbox() {
+		if (!this.checkable) {
+			return nothing;
+		}
+		return html`<span class="checkbox"
+			><input
+				class="checkbox__input"
+				id="checkbox"
+				type="checkbox"
+				.checked=${this.checked}
+				?disabled=${this.disableCheck}
+				@change=${this.onCheckedChange}
+				@click=${this.onCheckedClick} /><code-icon icon="check" size="14" class="checkbox__check"></code-icon
+		></span>`;
+	}
+
 	override render() {
 		return html`
 			<button
@@ -283,6 +368,7 @@ export class ListItem extends LitElement {
 							></code-icon
 					  ></span>`
 					: nothing}
+				${this.renderCheckbox()}
 				${this.hideIcon ? nothing : html`<span class="icon"><slot name="icon"></slot></span>`}
 				<span class="text">
 					<span class="main"><slot></slot></span>
@@ -291,5 +377,19 @@ export class ListItem extends LitElement {
 			</button>
 			<nav class="actions"><slot name="actions"></slot></nav>
 		`;
+	}
+
+	onCheckedClick(e: Event) {
+		console.log('onCheckedClick', e);
+		e.stopPropagation();
+	}
+
+	onCheckedChange(e: Event) {
+		console.log('onCheckedChange', e);
+		e.preventDefault();
+		e.stopPropagation();
+		this.checked = (e.target as HTMLInputElement).checked;
+
+		this.dispatchEvent(new CustomEvent('list-item-checked', { detail: { checked: this.checked } }));
 	}
 }

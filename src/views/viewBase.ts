@@ -42,6 +42,7 @@ import type { TrackedUsageFeatures } from '../telemetry/usageTracker';
 import type { BranchesView } from './branchesView';
 import type { CommitsView } from './commitsView';
 import type { ContributorsView } from './contributorsView';
+import type { DraftsView } from './draftsView';
 import type { FileHistoryView } from './fileHistoryView';
 import type { LineHistoryView } from './lineHistoryView';
 import type { PageableViewNode, ViewNode } from './nodes/abstract/viewNode';
@@ -58,6 +59,7 @@ export type View =
 	| BranchesView
 	| CommitsView
 	| ContributorsView
+	| DraftsView
 	| FileHistoryView
 	| LineHistoryView
 	| RemotesView
@@ -79,7 +81,7 @@ export type ViewsWithRepositories = RepositoriesView | WorkspacesView;
 export type ViewsWithRepositoriesNode = RepositoriesView | WorkspacesView;
 export type ViewsWithRepositoryFolders = Exclude<
 	View,
-	FileHistoryView | LineHistoryView | RepositoriesView | WorkspacesView
+	DraftsView | FileHistoryView | LineHistoryView | RepositoriesView | WorkspacesView
 >;
 export type ViewsWithStashes = StashesView | ViewsWithCommits;
 export type ViewsWithStashesNode = RepositoriesView | StashesView | WorkspacesView;

@@ -299,7 +299,7 @@ export class WebviewController<
 		loading: boolean,
 		options?: WebviewShowOptions,
 		...args: WebviewShowingArgs<ShowingArgs, SerializedState>
-	) {
+	): Promise<void> {
 		if (options == null) {
 			options = {};
 		}

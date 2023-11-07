@@ -11,6 +11,8 @@ import type { GitCommandOptions, GitSpawnOptions } from '../../../git/commandOpt
 import { GitErrorHandling } from '../../../git/commandOptions';
 import {
 	BlameIgnoreRevsFileError,
+	CherryPickError,
+	CherryPickErrorReason,
 	FetchError,
 	FetchErrorReason,
 	PullError,
@@ -142,6 +144,14 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 	throw ex;
 }
 
+let _uniqueCounterForStdin = 0;
+function getStdinUniqueKey(): number {
+	if (_uniqueCounterForStdin === Number.MAX_SAFE_INTEGER) {
+		_uniqueCounterForStdin = 0;
+	}
+	return _uniqueCounterForStdin++;
+}
+
 type ExitCodeOnlyGitCommandOptions = GitCommandOptions & { exitCodeOnly: true };
 export type PushForceOptions = { withLease: true; ifIncludes?: boolean } | { withLease: false; ifIncludes?: never };
 
@@ -175,7 +185,9 @@ export class Git {
 
 		const gitCommand = `[${runOpts.cwd}] git ${args.join(' ')}`;
 
-		const command = `${correlationKey !== undefined ? `${correlationKey}:` : ''}${gitCommand}`;
+		const command = `${correlationKey !== undefined ? `${correlationKey}:` : ''}${
+			options?.stdin != null ? `${getStdinUniqueKey()}:` : ''
+		}${gitCommand}`;
 
 		let waiting;
 		let promise = this.pendingCommands.get(command);
@@ -341,6 +353,32 @@ export class Git {
 			params.push('-3');
 		}
 		return this.git<string>({ cwd: repoPath, stdin: patch }, ...params);
+	}
+
+	async apply2(
+		repoPath: string,
+		options?: {
+			cancellation?: CancellationToken;
+			configs?: readonly string[];
+			errors?: GitErrorHandling;
+			env?: Record<string, unknown>;
+			stdin?: string;
+		},
+		...args: string[]
+	) {
+		return this.git<string>(
+			{
+				cwd: repoPath,
+				cancellation: options?.cancellation,
+				configs: options?.configs ?? gitLogDefaultConfigs,
+				env: options?.env,
+				errors: options?.errors,
+				stdin: options?.stdin,
+			},
+			'apply',
+			...args,
+			...(options?.stdin ? ['-'] : emptyArray),
+		);
 	}
 
 	private readonly ignoreRevsFileMap = new Map<string, boolean>();
@@ -566,6 +604,31 @@ export class Git {
 		}
 
 		return this.git<string>({ cwd: repoPath }, ...params);
+	}
+
+	async cherrypick(repoPath: string, sha: string, options: { noCommit?: boolean; errors?: GitErrorHandling } = {}) {
+		const params = ['cherry-pick'];
+		if (options?.noCommit) {
+			params.push('-n');
+		}
+		params.push(sha);
+
+		try {
+			await this.git<string>({ cwd: repoPath, errors: options?.errors }, ...params);
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			let reason: CherryPickErrorReason = CherryPickErrorReason.Other;
+			if (
+				GitErrors.changesWouldBeOverwritten.test(msg) ||
+				GitErrors.changesWouldBeOverwritten.test(ex.stderr ?? '')
+			) {
+				reason = CherryPickErrorReason.OverwrittenChanges;
+			} else if (GitErrors.conflict.test(msg) || GitErrors.conflict.test(ex.stdout ?? '')) {
+				reason = CherryPickErrorReason.Conflict;
+			}
+
+			throw new CherryPickError(reason, ex, sha);
+		}
 	}
 
 	// TODO: Expand to include options and other params

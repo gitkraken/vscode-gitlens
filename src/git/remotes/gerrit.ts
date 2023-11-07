@@ -1,8 +1,10 @@
 import type { Range, Uri } from 'vscode';
 import type { DynamicAutolinkReference } from '../../annotations/autolinks';
 import type { AutolinkReference } from '../../config';
+import type { GkProviderId } from '../../gk/models/repositoryIdentities';
 import { isSha } from '../models/reference';
 import type { Repository } from '../models/repository';
+import type { RemoteProviderId } from './remoteProvider';
 import { RemoteProvider } from './remoteProvider';
 
 const fileRegex = /^\/([^/]+)\/\+(.+)$/i;
@@ -53,8 +55,12 @@ export class GerritRemote extends RemoteProvider {
 		return 'gerrit';
 	}
 
-	get id() {
+	get id(): RemoteProviderId {
 		return 'gerrit';
+	}
+
+	get gkProviderId(): GkProviderId | undefined {
+		return undefined; // TODO@eamodio DRAFTS add this when supported by backend
 	}
 
 	get name() {

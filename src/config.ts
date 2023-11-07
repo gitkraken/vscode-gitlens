@@ -41,6 +41,9 @@ export interface Config {
 		readonly locations: ChangesLocations[];
 		/*readonly*/ toggleMode: AnnotationsToggleMode;
 	};
+	readonly cloudPatches: {
+		readonly enabled: boolean;
+	};
 	readonly codeLens: CodeLensConfig;
 	readonly currentLine: {
 		readonly dateFormat: string | null;
@@ -573,8 +576,10 @@ interface ViewsConfigs {
 	readonly commits: CommitsViewConfig;
 	readonly commitDetails: CommitDetailsViewConfig;
 	readonly contributors: ContributorsViewConfig;
+	readonly drafts: object; // TODO@eamodio add real types
 	readonly fileHistory: FileHistoryViewConfig;
 	readonly lineHistory: LineHistoryViewConfig;
+	readonly patchDetails: PatchDetailsViewConfig;
 	readonly remotes: RemotesViewConfig;
 	readonly repositories: RepositoriesViewConfig;
 	readonly searchAndCompare: SearchAndCompareViewConfig;
@@ -590,8 +595,10 @@ export const viewsConfigKeys: ViewsConfigKeys[] = [
 	'commits',
 	'commitDetails',
 	'contributors',
+	'drafts',
 	'fileHistory',
 	'lineHistory',
+	'patchDetails',
 	'remotes',
 	'repositories',
 	'searchAndCompare',
@@ -641,6 +648,11 @@ export interface CommitDetailsViewConfig {
 	readonly pullRequests: {
 		readonly enabled: boolean;
 	};
+}
+
+export interface PatchDetailsViewConfig {
+	readonly avatars: boolean;
+	readonly files: ViewsFilesConfig;
 }
 
 export interface ContributorsViewConfig {

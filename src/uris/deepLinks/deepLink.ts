@@ -2,6 +2,7 @@ import type { Uri } from 'vscode';
 import type { GitReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
+import type { Draft } from '../../gk/models/drafts';
 
 export type UriTypes = 'link';
 
@@ -9,10 +10,14 @@ export enum DeepLinkType {
 	Branch = 'b',
 	Commit = 'c',
 	Comparison = 'compare',
+	Draft = 'drafts',
 	Repository = 'r',
 	Tag = 't',
 	Workspace = 'workspace',
 }
+
+export const AccountDeepLinkTypes = [DeepLinkType.Draft, DeepLinkType.Workspace];
+export const PaidDeepLinkTypes = [];
 
 export function deepLinkTypeToString(type: DeepLinkType): string {
 	switch (type) {
@@ -22,6 +27,8 @@ export function deepLinkTypeToString(type: DeepLinkType): string {
 			return 'Commit';
 		case DeepLinkType.Comparison:
 			return 'Comparison';
+		case DeepLinkType.Draft:
+			return 'Cloud Patch';
 		case DeepLinkType.Repository:
 			return 'Repository';
 		case DeepLinkType.Tag:
@@ -49,7 +56,7 @@ export function refTypeToDeepLinkType(refType: GitReference['refType']): DeepLin
 
 export interface DeepLink {
 	type: DeepLinkType;
-	mainId: string;
+	mainId?: string;
 	remoteUrl?: string;
 	repoPath?: string;
 	targetId?: string;
@@ -116,6 +123,21 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 				secondaryRemoteUrl: secondaryRemoteUrl,
 			};
 		}
+		case DeepLinkType.Draft: {
+			if (mainId == null || mainId.match(/^v\d+$/)) return undefined;
+
+			let patchId = urlParams.get('patch') ?? undefined;
+			if (patchId != null) {
+				patchId = decodeURIComponent(patchId);
+			}
+
+			return {
+				type: DeepLinkType.Draft,
+				targetId: mainId,
+				secondaryTargetId: patchId,
+			};
+		}
+
 		case DeepLinkType.Workspace:
 			return {
 				type: DeepLinkType.Workspace,
@@ -129,6 +151,8 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 
 export const enum DeepLinkServiceState {
 	Idle,
+	AccountCheck,
+	PlanCheck,
 	TypeMatch,
 	RepoMatch,
 	CloneOrAddRepo,
@@ -141,23 +165,29 @@ export const enum DeepLinkServiceState {
 	FetchedTargetMatch,
 	OpenGraph,
 	OpenComparison,
+	OpenDraft,
 	OpenWorkspace,
 }
 
 export const enum DeepLinkServiceAction {
+	AccountCheckPassed,
 	DeepLinkEventFired,
 	DeepLinkCancelled,
 	DeepLinkResolved,
 	DeepLinkStored,
 	DeepLinkErrored,
 	LinkIsRepoType,
+	LinkIsDraftType,
 	LinkIsWorkspaceType,
 	OpenRepo,
+	PlanCheckPassed,
 	RepoMatched,
 	RepoMatchedInLocalMapping,
+	RepoMatchedForDraft,
 	RepoMatchFailed,
 	RepoAdded,
 	RepoOpened,
+	RepoOpenedForDraft,
 	RemoteMatched,
 	RemoteMatchFailed,
 	RemoteMatchUnneeded,
@@ -185,17 +215,29 @@ export interface DeepLinkServiceContext {
 	targetType?: DeepLinkType | undefined;
 	targetSha?: string | undefined;
 	secondaryTargetSha?: string | undefined;
+	targetDraft?: Draft | undefined;
 }
 
 export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLinkServiceState>> = {
 	[DeepLinkServiceState.Idle]: {
-		[DeepLinkServiceAction.DeepLinkEventFired]: DeepLinkServiceState.TypeMatch,
+		[DeepLinkServiceAction.DeepLinkEventFired]: DeepLinkServiceState.AccountCheck,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.AccountCheck]: {
+		[DeepLinkServiceAction.AccountCheckPassed]: DeepLinkServiceState.PlanCheck,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
+	},
+	[DeepLinkServiceState.PlanCheck]: {
+		[DeepLinkServiceAction.PlanCheckPassed]: DeepLinkServiceState.TypeMatch,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.TypeMatch]: {
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.LinkIsRepoType]: DeepLinkServiceState.RepoMatch,
+		[DeepLinkServiceAction.LinkIsDraftType]: DeepLinkServiceState.RepoMatch,
 		[DeepLinkServiceAction.LinkIsWorkspaceType]: DeepLinkServiceState.OpenWorkspace,
 	},
 	[DeepLinkServiceState.RepoMatch]: {
@@ -203,16 +245,19 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.RepoMatched]: DeepLinkServiceState.RemoteMatch,
 		[DeepLinkServiceAction.RepoMatchedInLocalMapping]: DeepLinkServiceState.CloneOrAddRepo,
 		[DeepLinkServiceAction.RepoMatchFailed]: DeepLinkServiceState.CloneOrAddRepo,
+		[DeepLinkServiceAction.RepoMatchedForDraft]: DeepLinkServiceState.OpenDraft,
 	},
 	[DeepLinkServiceState.CloneOrAddRepo]: {
 		[DeepLinkServiceAction.OpenRepo]: DeepLinkServiceState.OpeningRepo,
 		[DeepLinkServiceAction.RepoOpened]: DeepLinkServiceState.RemoteMatch,
+		[DeepLinkServiceAction.RepoOpenedForDraft]: DeepLinkServiceState.OpenDraft,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkStored]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.OpeningRepo]: {
 		[DeepLinkServiceAction.RepoAdded]: DeepLinkServiceState.AddedRepoMatch,
+		[DeepLinkServiceAction.RepoOpenedForDraft]: DeepLinkServiceState.OpenDraft,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},
@@ -255,6 +300,10 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 	},
+	[DeepLinkServiceState.OpenDraft]: {
+		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
+		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
+	},
 	[DeepLinkServiceState.OpenWorkspace]: {
 		[DeepLinkServiceAction.DeepLinkResolved]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
@@ -268,6 +317,8 @@ export interface DeepLinkProgress {
 
 export const deepLinkStateToProgress: Record<string, DeepLinkProgress> = {
 	[DeepLinkServiceState.Idle]: { message: 'Done.', increment: 100 },
+	[DeepLinkServiceState.AccountCheck]: { message: 'Checking account...', increment: 1 },
+	[DeepLinkServiceState.PlanCheck]: { message: 'Checking plan...', increment: 2 },
 	[DeepLinkServiceState.TypeMatch]: { message: 'Matching link type...', increment: 5 },
 	[DeepLinkServiceState.RepoMatch]: { message: 'Finding a matching repository...', increment: 10 },
 	[DeepLinkServiceState.CloneOrAddRepo]: { message: 'Adding repository...', increment: 20 },
@@ -280,5 +331,6 @@ export const deepLinkStateToProgress: Record<string, DeepLinkProgress> = {
 	[DeepLinkServiceState.FetchedTargetMatch]: { message: 'Finding a matching target...', increment: 90 },
 	[DeepLinkServiceState.OpenGraph]: { message: 'Opening graph...', increment: 95 },
 	[DeepLinkServiceState.OpenComparison]: { message: 'Opening comparison...', increment: 95 },
+	[DeepLinkServiceState.OpenDraft]: { message: 'Opening cloud patch...', increment: 95 },
 	[DeepLinkServiceState.OpenWorkspace]: { message: 'Opening workspace...', increment: 95 },
 };

@@ -1,5 +1,6 @@
 import type { RemotesConfig } from '../../config';
 import type { Container } from '../../container';
+import { configuration } from '../../system/configuration';
 import { Logger } from '../../system/logger';
 import { AzureDevOpsRemote } from './azure-devops';
 import { BitbucketRemote } from './bitbucket';
@@ -137,10 +138,14 @@ function getCustomProviderCreator(cfg: RemotesConfig) {
 
 export function getRemoteProviderMatcher(
 	container: Container,
-	providers: RemoteProviders,
+	providers?: RemoteProviders,
 ): (url: string, domain: string, path: string) => RemoteProvider | undefined {
+	if (providers == null) {
+		providers = loadRemoteProviders(configuration.get('remotes', null));
+	}
+
 	return (url: string, domain: string, path: string) =>
-		createBestRemoteProvider(container, providers, url, domain, path);
+		createBestRemoteProvider(container, providers!, url, domain, path);
 }
 
 function createBestRemoteProvider(

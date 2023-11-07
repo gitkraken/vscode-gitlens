@@ -140,6 +140,8 @@ export const enum Commands {
 	CopyRemoteRepositoryUrl = 'gitlens.copyRemoteRepositoryUrl',
 	CopyShaToClipboard = 'gitlens.copyShaToClipboard',
 	CopyRelativePathToClipboard = 'gitlens.copyRelativePathToClipboard',
+	CreatePatch = 'gitlens.createPatch',
+	CreateCloudPatch = 'gitlens.createCloudPatch',
 	CreatePullRequestOnRemote = 'gitlens.createPullRequestOnRemote',
 	DiffDirectory = 'gitlens.diffDirectory',
 	DiffDirectoryWithHead = 'gitlens.diffDirectoryWithHead',
@@ -185,6 +187,8 @@ export const enum Commands {
 	OpenFolderHistory = 'gitlens.openFolderHistory',
 	OpenOnRemote = 'gitlens.openOnRemote',
 	OpenIssueOnRemote = 'gitlens.openIssueOnRemote',
+	OpenCloudPatch = 'gitlens.openCloudPatch',
+	OpenPatch = 'gitlens.openPatch',
 	OpenPullRequestOnRemote = 'gitlens.openPullRequestOnRemote',
 	OpenAssociatedPullRequestOnRemote = 'gitlens.openAssociatedPullRequestOnRemote',
 	OpenRepoOnRemote = 'gitlens.openRepoOnRemote',
@@ -229,6 +233,7 @@ export const enum Commands {
 	ResetTrackedUsage = 'gitlens.resetTrackedUsage',
 	ResetViewsLayout = 'gitlens.resetViewsLayout',
 	RevealCommitInView = 'gitlens.revealCommitInView',
+	ShareAsCloudPatch = 'gitlens.shareAsCloudPatch',
 	SearchCommits = 'gitlens.showCommitSearch',
 	SearchCommitsInView = 'gitlens.views.searchAndCompare.searchCommits',
 	ShowBranchesView = 'gitlens.showBranchesView',
@@ -346,6 +351,7 @@ export type TreeViewCommands = `gitlens.views.${
 			| `setShowAllBranches${'On' | 'Off'}`
 			| `setShowAvatars${'On' | 'Off'}`
 			| `setShowStatistics${'On' | 'Off'}`}`
+	| `drafts.${'copy' | 'refresh' | 'create' | 'delete' | 'open'}`
 	| `fileHistory.${
 			| 'copy'
 			| 'refresh'
@@ -451,6 +457,7 @@ export type TreeViewTypes =
 	| 'branches'
 	| 'commits'
 	| 'contributors'
+	| 'drafts'
 	| 'fileHistory'
 	| 'lineHistory'
 	| 'remotes'
@@ -465,7 +472,14 @@ export type TreeViewIds = `gitlens.views.${TreeViewTypes}`;
 export type WebviewTypes = 'graph' | 'settings' | 'timeline' | 'welcome' | 'focus';
 export type WebviewIds = `gitlens.${WebviewTypes}`;
 
-export type WebviewViewTypes = 'account' | 'commitDetails' | 'graph' | 'graphDetails' | 'home' | 'timeline';
+export type WebviewViewTypes =
+	| 'account'
+	| 'commitDetails'
+	| 'graph'
+	| 'graphDetails'
+	| 'home'
+	| 'patchDetails'
+	| 'timeline';
 export type WebviewViewIds = `gitlens.views.${WebviewViewTypes}`;
 
 export type ViewTypes = TreeViewTypes | WebviewViewTypes;
@@ -545,6 +559,8 @@ export type TreeViewNodeTypes =
 	| 'conflict-files'
 	| 'conflict-current-changes'
 	| 'conflict-incoming-changes'
+	| 'draft'
+	| 'drafts'
 	| 'merge-status'
 	| 'message'
 	| 'pager'
@@ -594,6 +610,7 @@ export type ContextKeys =
 	| `${typeof extensionPrefix}:views:fileHistory:cursorFollowing`
 	| `${typeof extensionPrefix}:views:fileHistory:editorFollowing`
 	| `${typeof extensionPrefix}:views:lineHistory:editorFollowing`
+	| `${typeof extensionPrefix}:views:patchDetails:mode`
 	| `${typeof extensionPrefix}:views:repositories:autoRefresh`
 	| `${typeof extensionPrefix}:vsls`
 	| `${typeof extensionPrefix}:plus`
@@ -654,7 +671,8 @@ export type CoreConfiguration =
 	| 'http.proxyStrictSSL'
 	| 'search.exclude'
 	| 'workbench.editorAssociations'
-	| 'workbench.tree.renderIndentGuides';
+	| 'workbench.tree.renderIndentGuides'
+	| 'workbench.tree.indent';
 
 export type CoreGitConfiguration =
 	| 'git.autoRepositoryDetection'
