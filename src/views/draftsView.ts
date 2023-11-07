@@ -1,12 +1,14 @@
-import type { Disposable } from 'vscode';
+import type { CancellationToken, Disposable } from 'vscode';
 import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import type { RepositoriesViewConfig } from '../config';
 import { Commands } from '../constants';
 import type { Container } from '../container';
 import { unknownGitUri } from '../git/gitUri';
+import type { Draft } from '../gk/models/drafts';
 import { showPatchesView } from '../plus/drafts/actions';
 import { ensurePlusFeaturesEnabled } from '../plus/gk/utils';
 import { executeCommand } from '../system/command';
+import { gate } from '../system/decorators/gate';
 import { CacheableChildrenViewNode } from './nodes/abstract/cacheableChildrenViewNode';
 import type { ViewNode } from './nodes/abstract/viewNode';
 import { DraftNode } from './nodes/draftNode';
@@ -93,13 +95,7 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, RepositoriesV
 				() => executeCommand(Commands.ViewsCopy, this.activeSelection, this.selection),
 				this,
 			),
-			registerViewCommand(
-				this.getQualifiedCommand('refresh'),
-				() => {
-					// this.container.drafts.resetDrafts();
-				},
-				this,
-			),
+			registerViewCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this),
 			registerViewCommand(
 				this.getQualifiedCommand('create'),
 				async () => {
@@ -134,10 +130,40 @@ export class DraftsView extends ViewBase<'drafts', DraftsViewNode, RepositoriesV
 					if (draft.changesets == null) {
 						draft = await this.container.drafts.getDraft(node.draft.id);
 					}
-					void showPatchesView({ mode: 'open', open: draft });
+					void showPatchesView({ mode: 'view', draft: draft });
 				},
 				this,
 			),
 		];
+	}
+
+	async findDraft(draft: Draft, cancellation?: CancellationToken) {
+		return this.findNode((n: any) => n.draft?.id === draft.id, {
+			allowPaging: false,
+			maxDepth: 2,
+			canTraverse: n => {
+				if (n instanceof DraftsViewNode) return true;
+
+				return false;
+			},
+			token: cancellation,
+		});
+	}
+
+	@gate(() => '')
+	async revealDraft(
+		draft: Draft,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		},
+	) {
+		const node = await this.findDraft(draft);
+		if (node == null) return undefined;
+
+		await this.ensureRevealNode(node, options);
+
+		return node;
 	}
 }

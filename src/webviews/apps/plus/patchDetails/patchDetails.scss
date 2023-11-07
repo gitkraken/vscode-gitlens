@@ -48,6 +48,12 @@
 	}
 }
 
+textarea.message-input__control {
+	resize: vertical;
+	min-height: 4rem;
+	max-height: 40rem;
+}
+
 .message-input {
 	padding-top: 0.8rem;
 

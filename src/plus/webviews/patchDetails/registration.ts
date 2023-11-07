@@ -20,19 +20,19 @@ interface CreateDraftFromRepositories {
 }
 
 export type CreateDraft = CreateDraftFromChanges | CreateDraftFromRepositories;
-export type OpenDraft = DraftSelectedEvent['data']['draft'];
+export type ViewDraft = DraftSelectedEvent['data']['draft'];
 
 export type ShowCreateDraft = {
 	mode: 'create';
 	create?: CreateDraft;
 };
 
-export type ShowOpenDraft = {
-	mode: 'open';
-	open: OpenDraft;
+export type ShowViewDraft = {
+	mode: 'view';
+	draft: ViewDraft;
 };
 
-export type PatchDetailsWebviewShowingArgs = [ShowCreateDraft | ShowOpenDraft];
+export type PatchDetailsWebviewShowingArgs = [ShowCreateDraft | ShowViewDraft];
 
 export function registerPatchDetailsWebviewView(controller: WebviewsController) {
 	return controller.registerWebviewView<State, Serialized<State>, PatchDetailsWebviewShowingArgs>(

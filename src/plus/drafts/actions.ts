@@ -1,8 +1,8 @@
 import { Container } from '../../container';
 import type { WebviewViewShowOptions } from '../../webviews/webviewsController';
-import type { ShowCreateDraft, ShowOpenDraft } from '../webviews/patchDetails/registration';
+import type { ShowCreateDraft, ShowViewDraft } from '../webviews/patchDetails/registration';
 
-type ShowCreateOrOpen = ShowCreateDraft | ShowOpenDraft;
+type ShowCreateOrOpen = ShowCreateDraft | ShowViewDraft;
 
 export function showPatchesView(createOrOpen: ShowCreateOrOpen, options?: WebviewViewShowOptions): Promise<void> {
 	if (createOrOpen.mode === 'create') {

@@ -161,7 +161,7 @@ export class GlDraftDetails extends GlTreeBase {
 								aria-busy="${ifDefined(this.explainBusy ? 'true' : undefined)}"
 								@click=${this.onExplainChanges}
 								@keydown=${this.onExplainChanges}
-								><code-icon icon="loading" modifier="spin"></code-icon>Explain this Change</gl-button
+								><code-icon icon="loading" modifier="spin"></code-icon>Explain Changes</gl-button
 							>
 						</span>
 					</p>

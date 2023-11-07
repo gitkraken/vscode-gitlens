@@ -2,8 +2,7 @@ import { Badge, defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shar
 import { html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { DraftDetails, State } from '../../../../../plus/webviews/patchDetails/protocol';
-import { pluralize } from '../../../../../system/string';
+import type { DraftDetails, Mode, State } from '../../../../../plus/webviews/patchDetails/protocol';
 import { GlElement } from '../../../shared/components/element';
 import type { PatchDetailsApp } from '../patchDetails';
 import './gl-draft-details';
@@ -89,8 +88,8 @@ export class GlPatchDetailsApp extends GlElement<GlPatchDetailsAppEvents> {
 		};
 	}
 
-	get mode() {
-		return this.state?.mode ?? 'open';
+	get mode(): Mode {
+		return this.state?.mode ?? 'view';
 	}
 
 	private indentPreference = 16;
@@ -114,9 +113,9 @@ export class GlPatchDetailsApp extends GlElement<GlPatchDetailsAppEvents> {
 		// return html`
 		// 	<nav class="details-tab">
 		// 		<button
-		// 			class="details-tab__item ${this.mode === 'open' ? ' is-active' : ''}"
+		// 			class="details-tab__item ${this.mode === 'view' ? ' is-active' : ''}"
 		// 			data-action="mode"
-		// 			data-action-value="open"
+		// 			data-action-value="view"
 		// 		>
 		// 			Patch
 		// 		</button>
@@ -144,7 +143,7 @@ export class GlPatchDetailsApp extends GlElement<GlPatchDetailsAppEvents> {
 				${this.renderTabs()}
 				<main id="main" tabindex="-1">
 					${when(
-						this.mode === 'open',
+						this.mode === 'view',
 						() =>
 							html`<gl-draft-details
 								.state=${this.state}

@@ -39,11 +39,12 @@ export class DraftService implements Disposable {
 		title: string,
 		changes: CreateDraftChange[],
 		options?: { description?: string; organizationId?: string },
-	): Promise<Draft | undefined> {
+	): Promise<Draft> {
 		const scope = getLogScope();
 
 		try {
 			const results = await Promise.allSettled(changes.map(c => this.getCreateDraftPatchRequestFromChange(c)));
+			if (!results.length) throw new Error('No changes found');
 
 			const patchRequests: CreateDraftPatchRequestFromChange[] = [];
 			const failed: Error[] = [];

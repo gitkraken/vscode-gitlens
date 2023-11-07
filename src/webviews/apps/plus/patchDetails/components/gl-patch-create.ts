@@ -5,6 +5,7 @@ import { when } from 'lit/directives/when.js';
 import type { TextDocumentShowOptions } from 'vscode';
 import type { GitFileChangeShape } from '../../../../../git/models/file';
 import type { Change, FileActionParams, State } from '../../../../../plus/webviews/patchDetails/protocol';
+import { flatCount } from '../../../../../system/iterable';
 import type { Serialized } from '../../../../../system/serialize';
 import type {
 	TreeItemActionDetail,
@@ -97,14 +98,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 	}
 
 	get filesModified() {
-		let modified = 0;
-		for (const change of this.createChanges) {
-			if (change.files != null) {
-				modified += change.files.length;
-			}
-		}
-
-		return modified;
+		return flatCount(this.createChanges, c => c.files?.length ?? 0);
 	}
 
 	constructor() {
@@ -256,7 +250,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 
 		const treeModel: TreeModel[] = [];
 		// for knowing if we need to show repos
-		const isCheckable = this.createChanges.length > 1;
+		const isCheckable = true; //this.createChanges.length > 1;
 		const isTree = this.isTree(this.filesModified ?? 0);
 		const compact = this.isCompact;
 
@@ -285,13 +279,13 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 			const staged: Change['files'] = [];
 			const unstaged: Change['files'] = [];
 
-			change.files.forEach(f => {
+			for (const f of change.files) {
 				if (f.staged) {
 					staged.push(f);
 				} else {
 					unstaged.push(f);
 				}
-			});
+			}
 
 			if (staged.length === 0 || unstaged.length === 0) {
 				children.push(...this.renderFiles(change.files, isTree, compact, isMulti ? 2 : 1));

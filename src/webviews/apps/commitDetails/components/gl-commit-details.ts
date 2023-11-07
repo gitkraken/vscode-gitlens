@@ -326,7 +326,7 @@ export class GlCommitDetails extends GlDetailsBase {
 								@click=${this.onExplainChanges}
 								@keydown=${this.onExplainChanges}
 							>
-								<code-icon icon="loading" modifier="spin"></code-icon>Explain this Commit
+								<code-icon icon="loading" modifier="spin"></code-icon>Explain Changes
 							</button>
 						</span>
 					</p>

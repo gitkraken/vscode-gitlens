@@ -348,7 +348,7 @@ export class OpenPatchCommand extends ActiveEditorCommand {
 			},
 		};
 
-		void showPatchesView({ mode: 'open', open: patch });
+		void showPatchesView({ mode: 'view', draft: patch });
 	}
 }
 
@@ -420,6 +420,6 @@ export class OpenCloudPatchCommand extends Command {
 		// 	return;
 		// }
 
-		void showPatchesView({ mode: 'open', open: draft });
+		void showPatchesView({ mode: 'view', draft: draft });
 	}
 }

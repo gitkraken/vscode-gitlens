@@ -1,10 +1,9 @@
 import type { TextDocumentShowOptions } from 'vscode';
 import type { Config } from '../../../config';
 import type { WebviewIds, WebviewViewIds } from '../../../constants';
-import type { GitCommitStats } from '../../../git/models/commit';
 import type { GitFileChangeShape } from '../../../git/models/file';
 import type { PatchRevisionRange } from '../../../git/models/patch';
-import type { DraftChangeset, DraftPatch, DraftPatchFileChange } from '../../../gk/models/drafts';
+import type { DraftPatch, DraftPatchFileChange } from '../../../gk/models/drafts';
 import type { GkRepositoryId } from '../../../gk/models/repositoryIdentities';
 import type { DateTimeFormat } from '../../../system/date';
 import type { Serialized } from '../../../system/serialize';
@@ -95,7 +94,7 @@ export interface Preferences {
 
 export type UpdateablePreferences = Partial<Pick<Preferences, 'files'>>;
 
-export type Mode = 'create' | 'open';
+export type Mode = 'create' | 'view';
 export type ChangeType = 'revision' | 'wip';
 
 export interface WipChange {
