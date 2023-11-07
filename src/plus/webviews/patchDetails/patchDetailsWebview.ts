@@ -34,6 +34,7 @@ import type {
 	Change,
 	CreatePatchParams,
 	DidExplainParams,
+	DraftPatchCheckedParams,
 	FileActionParams,
 	Mode,
 	Preferences,
@@ -50,8 +51,10 @@ import {
 	DidChangeCreateNotificationType,
 	DidChangeDraftNotificationType,
 	DidChangeNotificationType,
+	DidChangePatchRepositoryNotificationType,
 	DidChangePreferencesNotificationType,
 	DidExplainCommandType,
+	DraftPatchCheckedCommandType,
 	ExplainCommandType,
 	OpenFileCommandType,
 	OpenFileComparePreviousCommandType,
@@ -204,6 +207,9 @@ export class PatchDetailsWebviewProvider
 				break;
 			case UpdatePreferencesCommandType.method:
 				onIpc(UpdatePreferencesCommandType, e, params => this.updatePreferences(params));
+				break;
+			case DraftPatchCheckedCommandType.method:
+				onIpc(DraftPatchCheckedCommandType, e, params => this.onPatchChecked(params));
 				break;
 		}
 	}
@@ -411,6 +417,43 @@ export class PatchDetailsWebviewProvider
 
 	private async openPatchContents(_params: FileActionParams) {
 		// TODO@eamodio Open the patch contents for the selected repo in an untitled editor
+	}
+
+	private async onPatchChecked(params: DraftPatchCheckedParams) {
+		if (params.patch.repository.located || params.checked === false) return;
+
+		const patch = (this._context.draft as Draft)?.changesets?.[0].patches?.find(
+			p => p.gkRepositoryId === params.patch.gkRepositoryId,
+		);
+		if (patch?.repository == null || isRepository(patch.repository)) return;
+
+		const repo = await this.container.repositoryIdentity.getRepository(patch.repository, {
+			openIfNeeded: true,
+			prompt: true,
+		});
+
+		if (repo == null) {
+			void window.showErrorMessage(`Unable to locate repository '${patch.repository.name}'`);
+		} else {
+			patch.repository = repo;
+		}
+
+		void this.notifyPatchRepositoryUpdated(patch);
+	}
+
+	private notifyPatchRepositoryUpdated(patch: DraftPatch) {
+		return this.host.notify(DidChangePatchRepositoryNotificationType, {
+			patch: serialize({
+				...patch,
+				contents: undefined,
+				commit: undefined,
+				repository: {
+					id: patch.gkRepositoryId,
+					name: patch.repository?.name ?? '',
+					located: patch.repository != null && isRepository(patch.repository),
+				},
+			}),
+		});
 	}
 
 	private updateCreateCheckedState(params: UpdateCreatePatchRepositoryCheckedStateParams) {
@@ -669,6 +712,7 @@ export class PatchDetailsWebviewProvider
 						repository: {
 							id: p.gkRepositoryId,
 							name: p.repository?.name ?? '',
+							located: p.repository != null && isRepository(p.repository),
 						},
 					})),
 				),

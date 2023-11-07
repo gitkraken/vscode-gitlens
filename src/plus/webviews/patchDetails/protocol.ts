@@ -13,8 +13,10 @@ export const messageHeadlineSplitterToken = '\x00\n\x00';
 
 export type FileShowOptions = TextDocumentShowOptions;
 
-type PatchDetails = Serialized<
-	Omit<DraftPatch, 'commit' | 'contents' | 'repository'> & { repository: { id: GkRepositoryId; name: string } }
+export type PatchDetails = Serialized<
+	Omit<DraftPatch, 'commit' | 'contents' | 'repository'> & {
+		repository: { id: GkRepositoryId; name: string; located: boolean };
+	}
 >;
 
 interface LocalDraftDetails {
@@ -183,6 +185,12 @@ export interface OpenInCommitGraphParams {
 }
 export const OpenInCommitGraphCommandType = new IpcCommandType<OpenInCommitGraphParams>('patch/openInGraph');
 
+export interface DraftPatchCheckedParams {
+	patch: PatchDetails;
+	checked: boolean;
+}
+export const DraftPatchCheckedCommandType = new IpcCommandType<DraftPatchCheckedParams>('patch/checked');
+
 export interface SelectPatchRepoParams {
 	repoPath: string;
 }
@@ -254,3 +262,10 @@ export type DidExplainParams =
 	  }
 	| { error: { message: string } };
 export const DidExplainCommandType = new IpcNotificationType<DidExplainParams>('patch/didExplain');
+
+export interface DidChangePatchRepositoryParams {
+	patch: PatchDetails;
+}
+export const DidChangePatchRepositoryNotificationType = new IpcNotificationType<DidChangePatchRepositoryParams>(
+	'patch/draft/didChangeRepository',
+);

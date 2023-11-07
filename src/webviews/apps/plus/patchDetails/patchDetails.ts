@@ -11,8 +11,10 @@ import {
 	DidChangeCreateNotificationType,
 	DidChangeDraftNotificationType,
 	DidChangeNotificationType,
+	DidChangePatchRepositoryNotificationType,
 	DidChangePreferencesNotificationType,
 	DidExplainCommandType,
+	DraftPatchCheckedCommandType,
 	ExplainCommandType,
 	FileActionsCommandType,
 	OpenFileCommandType,
@@ -31,7 +33,7 @@ import type { IpcMessage } from '../../../protocol';
 import { ExecuteCommandType, onIpc } from '../../../protocol';
 import { App } from '../../shared/appBase';
 import { DOM } from '../../shared/dom';
-import type { ApplyPatchDetail, GlDraftDetails } from './components/gl-draft-details';
+import type { ApplyPatchDetail, GlDraftDetails, PatchCheckedDetail } from './components/gl-draft-details';
 import type {
 	CreatePatchCheckRepositoryEventDetail,
 	CreatePatchEventDetail,
@@ -125,6 +127,9 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 				'gl-patch-file-open',
 				e => this.onOpenFile(e.detail),
 			),
+			DOM.on<GlDraftDetails, PatchCheckedDetail>('gl-draft-details', 'gl-patch-checked', e =>
+				this.onPatchChecked(e.detail),
+			),
 		];
 
 		return disposables;
@@ -198,9 +203,31 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 				});
 				break;
 
+			case DidChangePatchRepositoryNotificationType.method:
+				onIpc(DidChangePatchRepositoryNotificationType, msg, params => {
+					// assertsSerialized<State>(params.state);
+
+					const draft = this.state.draft!;
+					const patches = draft.patches!;
+					const patchIndex = patches.findIndex(p => p.id === params.patch.id);
+					patches.splice(patchIndex, 1, params.patch);
+
+					this.state = {
+						...this.state,
+						draft: draft,
+					};
+					this.setState(this.state);
+					this.attachState(true);
+				});
+				break;
+
 			default:
 				super.onMessageReceived?.(e);
 		}
+	}
+
+	private onPatchChecked(e: PatchCheckedDetail) {
+		this.sendCommand(DraftPatchCheckedCommandType, e);
 	}
 
 	private onCreateCheckRepo(e: CreatePatchCheckRepositoryEventDetail) {
