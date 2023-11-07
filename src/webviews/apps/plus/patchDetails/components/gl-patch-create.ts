@@ -2,7 +2,6 @@ import { defineGkElement, Menu, MenuItem, Popover } from '@gitkraken/shared-web-
 import { html } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import type { TextDocumentShowOptions } from 'vscode';
 import type { GitFileChangeShape } from '../../../../../git/models/file';
 import type { Change, FileActionParams, State } from '../../../../../plus/webviews/patchDetails/protocol';
 import { flatCount } from '../../../../../system/iterable';
@@ -41,7 +40,7 @@ export interface CreatePatchCheckRepositoryEventDetail {
 const BesideViewColumn = -2; /*ViewColumn.Beside*/
 
 export type GlPatchCreateEvents = {
-	[K in Extract<keyof WindowEventMap, `gl-patch-create-${string}`>]: WindowEventMap[K];
+	[K in Extract<keyof WindowEventMap, `gl-patch-${string}` | `gl-patch-create-${string}`>]: WindowEventMap[K];
 };
 
 @customElement('gl-patch-create')
@@ -219,7 +218,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 		change.checked = checked;
 		this.requestUpdate('state');
 
-		this.fireEvent('gl-patch-create-check', {
+		this.fireEvent('gl-patch-create-repo-checked', {
 			repoUri: repoUri,
 			checked: checked,
 		});
@@ -229,8 +228,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
-		const event = new CustomEvent<FileActionParams>('file-compare-previous', { detail: { ...file } });
-		this.dispatchEvent(event);
+		this.fireEvent('gl-patch-file-compare-previous', { ...file });
 	}
 
 	private renderTreeViewWithModel() {
@@ -374,8 +372,7 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 			description: this.create.description,
 			changesets: changes,
 		};
-
-		this.dispatchEvent(new CustomEvent<CreatePatchEventDetail>('create-patch', { detail: patch }));
+		this.fireEvent('gl-patch-create-patch', patch);
 	}
 
 	private onCreateAll(_e: Event) {
@@ -459,30 +456,33 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 	override onTreeItemActionClicked(e: CustomEvent<TreeItemActionDetail>) {
 		if (!e.detail.context || !e.detail.action) return;
 
-		if (e.detail.action.action !== 'file-open') return;
-		this.onOpenFile(e);
-	}
+		const action = e.detail.action;
+		switch (action.action) {
+			case 'show-patch-in-graph':
+				this.onShowInGraph(e);
+				break;
 
-	fireFileEvent(name: string, file: GitFileChangeShape, showOptions?: TextDocumentShowOptions) {
-		const event = new CustomEvent(name, {
-			detail: {
-				path: file.path,
-				repoPath: file.repoPath,
-				staged: file.staged,
-				showOptions: showOptions,
-			},
-		});
-		this.dispatchEvent(event);
+			case 'file-open':
+				this.onOpenFile(e);
+				break;
+		}
 	}
 
 	onOpenFile(e: CustomEvent<TreeItemActionDetail>) {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
-		this.fireFileEvent('file-open', file, {
-			preview: false,
-			viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
+		this.fireEvent('gl-patch-file-open', {
+			...file,
+			showOptions: {
+				preview: false,
+				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
+			},
 		});
+	}
+
+	onShowInGraph(e: CustomEvent<TreeItemActionDetail>) {
+		// this.fireEvent('gl-patch-details-graph-show-patch', { draft: this.state!.create! });
 	}
 
 	override getFileActions(_file: GitFileChangeShape, _options?: Partial<TreeItemBase>) {
@@ -494,6 +494,16 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 			},
 		];
 	}
+
+	override getRepoActions(_name: string, _path: string, _options?: Partial<TreeItemBase>) {
+		return [
+			{
+				icon: 'gl-graph',
+				label: 'Open in Commit Graph',
+				action: 'show-patch-in-graph',
+			},
+		];
+	}
 }
 
 declare global {
@@ -502,7 +512,12 @@ declare global {
 	}
 
 	interface WindowEventMap {
-		'gl-patch-create-check': CustomEvent<CreatePatchCheckRepositoryEventDetail>;
+		'gl-patch-create-repo-checked': CustomEvent<CreatePatchCheckRepositoryEventDetail>;
+		'gl-patch-create-patch': CustomEvent<CreatePatchEventDetail>;
 		'gl-patch-create-update-metadata': CustomEvent<CreatePatchMetadataEventDetail>;
+		'gl-patch-file-compare-previous': CustomEvent<FileActionParams>;
+		'gl-patch-file-compare-working': CustomEvent<FileActionParams>;
+		'gl-patch-file-open': CustomEvent<FileActionParams>;
+		// 'gl-patch-details-graph-show-patch': CustomEvent<{ draft: State['create'] }>;
 	}
 }

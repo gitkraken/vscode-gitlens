@@ -144,13 +144,7 @@ export class GlPatchDetailsApp extends GlElement<GlPatchDetailsAppEvents> {
 				<main id="main" tabindex="-1">
 					${when(
 						this.mode === 'view',
-						() =>
-							html`<gl-draft-details
-								.state=${this.state}
-								.explain=${this.explain}
-								@gl-patch-details-share-local-patch=${this.onShareLocalPatch}
-								@gl-patch-details-copy-cloud-link=${this.onCopyCloudLink}
-							></gl-draft-details>`,
+						() => html`<gl-draft-details .state=${this.state} .explain=${this.explain}></gl-draft-details>`,
 						() => html`<gl-patch-create .state=${this.state}></gl-patch-create>`,
 					)}
 				</main>
@@ -158,17 +152,17 @@ export class GlPatchDetailsApp extends GlElement<GlPatchDetailsAppEvents> {
 		`;
 	}
 
-	onShowInGraph(e: CustomEvent<ShowPatchInGraphDetail>) {
-		this.fireEvent('gl-patch-details-graph-show-patch', e.detail);
-	}
+	// onShowInGraph(e: CustomEvent<ShowPatchInGraphDetail>) {
+	// 	this.fireEvent('gl-patch-details-graph-show-patch', e.detail);
+	// }
 
-	private onShareLocalPatch(_e: CustomEvent<undefined>) {
-		this.fireEvent('gl-patch-details-share-local-patch');
-	}
+	// private onShareLocalPatch(_e: CustomEvent<undefined>) {
+	// 	this.fireEvent('gl-patch-details-share-local-patch');
+	// }
 
-	private onCopyCloudLink(_e: CustomEvent<undefined>) {
-		this.fireEvent('gl-patch-details-copy-cloud-link');
-	}
+	// private onCopyCloudLink(_e: CustomEvent<undefined>) {
+	// 	this.fireEvent('gl-patch-details-copy-cloud-link');
+	// }
 
 	protected override createRenderRoot() {
 		return this;
@@ -180,9 +174,9 @@ declare global {
 		'gl-patch-details-app': GlPatchDetailsApp;
 	}
 
-	interface WindowEventMap {
-		'gl-patch-details-graph-show-patch': CustomEvent<ShowPatchInGraphDetail>;
-		'gl-patch-details-share-local-patch': CustomEvent<undefined>;
-		'gl-patch-details-copy-cloud-link': CustomEvent<undefined>;
-	}
+	// interface WindowEventMap {
+	// 	'gl-patch-details-graph-show-patch': CustomEvent<ShowPatchInGraphDetail>;
+	// 	'gl-patch-details-share-local-patch': CustomEvent<undefined>;
+	// 	'gl-patch-details-copy-cloud-link': CustomEvent<undefined>;
+	// }
 }

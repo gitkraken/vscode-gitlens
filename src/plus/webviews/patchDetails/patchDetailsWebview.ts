@@ -3,7 +3,7 @@ import { Disposable, env, Uri, window } from 'vscode';
 import type { CoreConfiguration } from '../../../constants';
 import { Commands } from '../../../constants';
 import type { Container } from '../../../container';
-import { openChanges, openChangesWithWorking, openFile, openFileOnRemote } from '../../../git/actions/commit';
+import { openChanges, openChangesWithWorking, openFile } from '../../../git/actions/commit';
 import type { RepositoriesChangeEvent } from '../../../git/gitProviderService';
 import type { GitCommit } from '../../../git/models/commit';
 import { uncommitted, uncommittedStaged } from '../../../git/models/constants';
@@ -56,7 +56,6 @@ import {
 	OpenFileCommandType,
 	OpenFileComparePreviousCommandType,
 	OpenFileCompareWorkingCommandType,
-	OpenFileOnRemoteCommandType,
 	OpenInCommitGraphCommandType,
 	SwitchModeCommandType,
 	UpdateCreatePatchMetadataCommandType,
@@ -175,12 +174,6 @@ export class PatchDetailsWebviewProvider
 			case OpenFileCommandType.method:
 				onIpc(OpenFileCommandType, e, params => void this.openFile(params));
 				break;
-			case OpenFileOnRemoteCommandType.method:
-				onIpc(OpenFileOnRemoteCommandType, e, params => void this.openFileOnRemote(params));
-				break;
-			// case FileActionsCommandType.method:
-			// 	onIpc(FileActionsCommandType, e, params => void this.showFileActions(params));
-			// 	break;
 
 			case OpenInCommitGraphCommandType.method:
 				onIpc(
@@ -416,7 +409,9 @@ export class PatchDetailsWebviewProvider
 		void this.host.notify(DidExplainCommandType, params, completionId);
 	}
 
-	private async openPatchContents(_params: FileActionParams) {}
+	private async openPatchContents(_params: FileActionParams) {
+		// TODO@eamodio Open the patch contents for the selected repo in an untitled editor
+	}
 
 	private updateCreateCheckedState(params: UpdateCreatePatchRepositoryCheckedStateParams) {
 		const changeset = this._context.create?.changes.get(params.repoUri);
@@ -894,16 +889,8 @@ export class PatchDetailsWebviewProvider
 				preserveFocus: true,
 				preview: true,
 				...params.showOptions,
+				lhsTitle: this.mode === 'view' ? `${basename(file.path)} (Patch)` : undefined,
 			},
 		);
-	}
-
-	private async openFileOnRemote(params: FileActionParams) {
-		const result = await this.getFileCommitFromParams(params);
-		if (result == null) return;
-
-		const [commit, file] = result;
-
-		void openFileOnRemote(file, commit);
 	}
 }

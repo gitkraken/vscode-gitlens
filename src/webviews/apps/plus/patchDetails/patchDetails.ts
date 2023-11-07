@@ -77,7 +77,7 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 			DOM.on('[data-action="ai-explain"]', 'click', e => this.onAIExplain(e)),
 			DOM.on('[data-action="switch-ai"]', 'click', e => this.onSwitchAIModel(e)),
 			DOM.on('[data-action="mode"]', 'click', e => this.onModeClicked(e)),
-			DOM.on<GlDraftDetails, ApplyPatchDetail>('gl-draft-details', 'apply-patch', e =>
+			DOM.on<GlDraftDetails, ApplyPatchDetail>('gl-draft-details', 'gl-patch-apply-patch', e =>
 				this.onApplyPatch(e.detail),
 			),
 			DOM.on<GlPatchDetailsApp, ChangePatchBaseDetail>('gl-patch-details-app', 'change-patch-base', e =>
@@ -91,18 +91,18 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 				'gl-patch-details-graph-show-patch',
 				e => this.onShowPatchInGraph(e.detail),
 			),
-			DOM.on<GlPatchDetailsApp, CreatePatchEventDetail>('gl-patch-details-app', 'create-patch', e =>
+			DOM.on<GlPatchDetailsApp, CreatePatchEventDetail>('gl-patch-details-app', 'gl-patch-create-patch', e =>
 				this.onCreatePatch(e.detail),
 			),
-			DOM.on<GlPatchDetailsApp, undefined>('gl-patch-details-app', 'gl-patch-details-share-local-patch', () =>
+			DOM.on<GlPatchDetailsApp, undefined>('gl-patch-details-app', 'gl-patch-share-local-patch', () =>
 				this.onShareLocalPatch(),
 			),
-			DOM.on<GlPatchDetailsApp, undefined>('gl-patch-details-app', 'gl-patch-details-copy-cloud-link', () =>
+			DOM.on<GlPatchDetailsApp, undefined>('gl-patch-details-app', 'gl-patch-copy-cloud-link', () =>
 				this.onCopyCloudLink(),
 			),
 			DOM.on<GlPatchCreate, CreatePatchCheckRepositoryEventDetail>(
 				'gl-patch-create',
-				'gl-patch-create-check',
+				'gl-patch-create-repo-checked',
 				e => this.onCreateCheckRepo(e.detail),
 			),
 			DOM.on<GlPatchCreate, CreatePatchMetadataEventDetail>(
@@ -112,11 +112,18 @@ export class PatchDetailsApp extends App<Serialized<State>> {
 			),
 			DOM.on<GlPatchCreate, FileChangeListItemDetail>(
 				'gl-patch-create,gl-draft-details',
-				'file-compare-previous',
+				'gl-patch-file-compare-previous',
 				e => this.onCompareFileWithPrevious(e.detail),
 			),
-			DOM.on<GlDraftDetails, FileChangeListItemDetail>('gl-patch-create,gl-draft-details', 'file-open', e =>
-				this.onOpenFile(e.detail),
+			DOM.on<GlPatchCreate, FileChangeListItemDetail>(
+				'gl-patch-create,gl-draft-details',
+				'gl-patch-file-compare-working',
+				e => this.onCompareFileWithWorking(e.detail),
+			),
+			DOM.on<GlDraftDetails, FileChangeListItemDetail>(
+				'gl-patch-create,gl-draft-details',
+				'gl-patch-file-open',
+				e => this.onOpenFile(e.detail),
 			),
 		];
 

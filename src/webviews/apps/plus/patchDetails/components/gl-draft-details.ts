@@ -476,9 +476,12 @@ export class GlDraftDetails extends GlTreeBase {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
-		this.fireFileEvent('file-compare-working', file, {
-			preview: false,
-			viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
+		this.fireEvent('gl-patch-file-compare-working', {
+			...file,
+			showOptions: {
+				preview: false,
+				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
+			},
 		});
 	}
 
@@ -486,9 +489,12 @@ export class GlDraftDetails extends GlTreeBase {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
-		this.fireFileEvent('file-open', file, {
-			preview: false,
-			viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
+		this.fireEvent('gl-patch-file-open', {
+			...file,
+			showOptions: {
+				preview: false,
+				viewColumn: e.detail.altKey ? BesideViewColumn : undefined,
+			},
 		});
 	}
 
@@ -508,28 +514,22 @@ export class GlDraftDetails extends GlTreeBase {
 		if (!e.detail.context) return;
 
 		const [file] = e.detail.context;
-		const event = new CustomEvent<FileActionParams>('file-compare-previous', { detail: { ...file } });
-		this.dispatchEvent(event);
+		this.fireEvent('gl-patch-file-compare-previous', { ...file });
 	}
 
 	onApplyPatch(e?: MouseEvent | KeyboardEvent, target: 'current' | 'branch' | 'worktree' = 'current') {
-		if (this.canSubmit === false) {
-			return;
-		}
-		const evt = new CustomEvent<ApplyPatchDetail>('apply-patch', {
-			detail: {
-				draft: this.state.draft!,
-				target: target,
-				selectedPatches: this.selectedPatches,
-			},
+		if (this.canSubmit === false) return;
+
+		this.fireEvent('gl-patch-apply-patch', {
+			draft: this.state.draft!,
+			target: target,
+			selectedPatches: this.selectedPatches,
 		});
-		this.dispatchEvent(evt);
 	}
 
 	onSelectApplyOption(e: CustomEvent<{ target: MenuItem }>) {
-		if (this.canSubmit === false) {
-			return;
-		}
+		if (this.canSubmit === false) return;
+
 		const target = e.detail?.target;
 		if (target?.dataset?.value != null) {
 			this.onApplyPatch(undefined, target.dataset.value as 'current' | 'branch' | 'worktree');
@@ -555,30 +555,15 @@ export class GlDraftDetails extends GlTreeBase {
 	}
 
 	onShowInGraph(_e?: MouseEvent | KeyboardEvent) {
-		const evt = new CustomEvent<ShowPatchInGraphDetail>('gl-patch-details-graph-show-patch', {
-			detail: {
-				draft: this.state.draft!,
-			},
-		});
-		this.dispatchEvent(evt);
+		this.fireEvent('gl-patch-details-graph-show-patch', { draft: this.state.draft! });
 	}
 
 	onCopyCloudLink() {
-		const evt = new CustomEvent('gl-patch-details-copy-cloud-link', {
-			detail: {
-				draft: this.state.draft!,
-			},
-		});
-		this.dispatchEvent(evt);
+		this.fireEvent('gl-patch-details-copy-cloud-link', { draft: this.state.draft! });
 	}
 
 	onShareLocalPatch() {
-		const evt = new CustomEvent('gl-patch-details-share-local-patch', {
-			detail: {
-				draft: this.state.draft!,
-			},
-		});
-		this.dispatchEvent(evt);
+		this.fireEvent('gl-patch-details-share-local-patch', { draft: this.state.draft! });
 	}
 
 	draftPatchToTreeModel(
@@ -627,11 +612,11 @@ export class GlDraftDetails extends GlTreeBase {
 				label: 'Apply...',
 				action: 'apply-patch',
 			},
-			{
-				icon: 'git-commit',
-				label: 'Change Base',
-				action: 'change-patch-base',
-			},
+			// {
+			// 	icon: 'git-commit',
+			// 	label: 'Change Base',
+			// 	action: 'change-patch-base',
+			// },
 			{
 				icon: 'gl-graph',
 				label: 'Open in Commit Graph',
@@ -659,5 +644,15 @@ export class GlDraftDetails extends GlTreeBase {
 declare global {
 	interface HTMLElementTagNameMap {
 		'gl-patch-details': GlDraftDetails;
+	}
+
+	interface WindowEventMap {
+		'gl-patch-apply-patch': CustomEvent<ApplyPatchDetail>;
+		'gl-patch-details-graph-show-patch': CustomEvent<{ draft: DraftDetails }>;
+		'gl-patch-details-share-local-patch': CustomEvent<{ draft: DraftDetails }>;
+		'gl-patch-details-copy-cloud-link': CustomEvent<{ draft: DraftDetails }>;
+		'gl-patch-file-compare-previous': CustomEvent<FileActionParams>;
+		'gl-patch-file-compare-working': CustomEvent<FileActionParams>;
+		'gl-patch-file-open': CustomEvent<FileActionParams>;
 	}
 }

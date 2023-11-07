@@ -309,17 +309,17 @@ export async function openChangesWithDiffTool(
 export async function openChangesWithWorking(
 	file: string | GitFile,
 	commit: GitCommit,
-	options?: TextDocumentShowOptions,
+	options?: TextDocumentShowOptions & { lhsTitle?: string },
 ): Promise<void>;
 export async function openChangesWithWorking(
 	file: GitFile,
 	ref: { repoPath: string; ref: string },
-	options?: TextDocumentShowOptions,
+	options?: TextDocumentShowOptions & { lhsTitle?: string },
 ): Promise<void>;
 export async function openChangesWithWorking(
 	file: string | GitFile,
 	commitOrRef: GitCommit | { repoPath: string; ref: string },
-	options?: TextDocumentShowOptions,
+	options?: TextDocumentShowOptions & { lhsTitle?: string },
 ) {
 	if (typeof file === 'string') {
 		if (!isCommit(commitOrRef)) throw new Error('Invalid arguments');
@@ -347,6 +347,7 @@ export async function openChangesWithWorking(
 	void (await executeEditorCommand<DiffWithWorkingCommandArgs>(Commands.DiffWithWorking, undefined, {
 		uri: GitUri.fromFile(file, ref.repoPath, ref.ref),
 		showOptions: options,
+		lhsTitle: options?.lhsTitle,
 	}));
 }
 
