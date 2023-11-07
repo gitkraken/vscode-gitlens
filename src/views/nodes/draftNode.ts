@@ -1,6 +1,8 @@
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { MarkdownString, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import type { GitUri } from '../../git/gitUri';
 import type { Draft } from '../../gk/models/drafts';
+import { configuration } from '../../system/configuration';
+import { formatDate, fromNow } from '../../system/date';
 import type { DraftsView } from '../draftsView';
 import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode';
 
@@ -33,11 +35,26 @@ export class DraftNode extends ViewNode<'draft', DraftsView> {
 		const label = this.draft.title ?? `Draft (${this.draft.id})`;
 		const item = new TreeItem(label, TreeItemCollapsibleState.None);
 
+		const dateFormat = configuration.get('defaultDateFormat') ?? 'MMMM Do, YYYY h:mma';
+
+		const showUpdated = this.draft.updatedAt.getTime() - this.draft.createdAt.getTime() >= 1000;
+
 		item.id = this.id;
 		item.contextValue = ContextValues.Draft;
 		item.iconPath = new ThemeIcon('cloud');
-		item.tooltip = `${label}`;
-		// item.description = descriptionItems.join(', ');
+		item.tooltip = new MarkdownString(
+			`${label}${this.draft.description ? `\\\n${this.draft.description}` : ''}\n\nCreated ${fromNow(
+				this.draft.createdAt,
+			)} &nbsp; _(${formatDate(this.draft.createdAt, dateFormat)})_${
+				showUpdated
+					? ` \\\nLast updated ${fromNow(this.draft.updatedAt)} &nbsp; _(${formatDate(
+							this.draft.updatedAt,
+							dateFormat,
+					  )})_`
+					: ''
+			}`,
+		);
+		item.description = fromNow(this.draft.updatedAt);
 		return item;
 	}
 }
