@@ -819,6 +819,7 @@ export class PatchDetailsWebviewProvider
 			if (!isRepository(patch.repository)) {
 				const repo = await this.container.repositoryIdentity.getRepository(patch.repository, {
 					openIfNeeded: true,
+					prompt: true,
 				});
 				if (repo == null) return undefined; // TODO
 

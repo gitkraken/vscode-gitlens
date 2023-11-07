@@ -22,8 +22,14 @@ export class RepositoryIdentityService implements Disposable {
 
 	dispose(): void {}
 
-	getRepository(id: GkRepositoryId, options?: { openIfNeeded?: boolean }): Promise<Repository | undefined>;
-	getRepository(identity: RepositoryIdentity, options?: { openIfNeeded?: boolean }): Promise<Repository | undefined>;
+	getRepository(
+		id: GkRepositoryId,
+		options?: { openIfNeeded?: boolean; prompt?: boolean },
+	): Promise<Repository | undefined>;
+	getRepository(
+		identity: RepositoryIdentity,
+		options?: { openIfNeeded?: boolean; prompt?: boolean },
+	): Promise<Repository | undefined>;
 
 	@log()
 	getRepository(
@@ -36,7 +42,7 @@ export class RepositoryIdentityService implements Disposable {
 	@log()
 	async getRepositoryOrIdentity(
 		id: GkRepositoryId,
-		options?: { openIfNeeded?: boolean },
+		options?: { openIfNeeded?: boolean; prompt?: boolean },
 	): Promise<Repository | RepositoryIdentity> {
 		const identity = await this.getRepositoryIdentity(id);
 		return (await this.locateRepository(identity, options)) ?? identity;
