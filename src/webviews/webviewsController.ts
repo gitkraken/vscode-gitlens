@@ -223,10 +223,11 @@ export class WebviewsController implements Disposable {
 					return registration.controller.show(false, options, ...args);
 				}
 
+				registration.pendingShowArgs = [options, args];
+
 				if (onBeforeShow != null) {
 					await onBeforeShow?.(...args);
 				}
-				registration.pendingShowArgs = [options, args];
 
 				return void executeCoreCommand(`${descriptor.id}.focus`, options);
 			},
