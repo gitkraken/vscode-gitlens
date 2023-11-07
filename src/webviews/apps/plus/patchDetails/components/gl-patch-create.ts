@@ -169,9 +169,8 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 
 	private renderChangedFiles() {
 		return html`
-			<webview-pane collapsable expanded>
-				<span slot="title">Files changed</span>
-				<span slot="subtitle" data-region="stats">${this.renderChangeStats()}</span>
+			<webview-pane expanded>
+				<span slot="title">Changes to Include</span>
 				<action-nav slot="actions">${this.renderLayoutAction(this.fileLayout)}</action-nav>
 
 				${when(
@@ -195,15 +194,15 @@ export class GlPatchCreate extends GlTreeBase<GlPatchCreateEvents> {
 		`;
 	}
 
-	private renderChangeStats() {
-		if (this.filesModified == null) return undefined;
+	// private renderChangeStats() {
+	// 	if (this.filesModified == null) return undefined;
 
-		return html`<commit-stats
-			.added=${undefined}
-			modified="${this.filesModified}"
-			.removed=${undefined}
-		></commit-stats>`;
-	}
+	// 	return html`<commit-stats
+	// 		.added=${undefined}
+	// 		modified="${this.filesModified}"
+	// 		.removed=${undefined}
+	// 	></commit-stats>`;
+	// }
 
 	override onTreeItemChecked(e: CustomEvent<TreeItemCheckedDetail>) {
 		console.log(e);
