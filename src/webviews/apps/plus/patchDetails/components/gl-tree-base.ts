@@ -197,11 +197,12 @@ export class GlTreeBase<Events extends GlEvents = GlEvents> extends GlElement<Ev
 			level: 1,
 			checkable: false,
 			checked: false,
-			icon: { type: 'status', name: file.status },
+			// icon: 'file', //{ type: 'status', name: file.status },
 			label: fileName,
 			description: flat === true ? filePath : undefined,
 			context: [file],
 			actions: this.getFileActions(file, options),
+			decorators: [{ type: 'text', label: file.status }],
 			...options,
 		};
 	}
