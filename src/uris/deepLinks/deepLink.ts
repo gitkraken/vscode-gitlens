@@ -2,7 +2,6 @@ import type { Uri } from 'vscode';
 import type { GitReference } from '../../git/models/reference';
 import type { GitRemote } from '../../git/models/remote';
 import type { Repository } from '../../git/models/repository';
-import type { Draft } from '../../gk/models/drafts';
 
 export type UriTypes = 'link';
 
@@ -183,11 +182,9 @@ export const enum DeepLinkServiceAction {
 	PlanCheckPassed,
 	RepoMatched,
 	RepoMatchedInLocalMapping,
-	RepoMatchedForDraft,
 	RepoMatchFailed,
 	RepoAdded,
 	RepoOpened,
-	RepoOpenedForDraft,
 	RemoteMatched,
 	RemoteMatchFailed,
 	RemoteMatchUnneeded,
@@ -215,7 +212,6 @@ export interface DeepLinkServiceContext {
 	targetType?: DeepLinkType | undefined;
 	targetSha?: string | undefined;
 	secondaryTargetSha?: string | undefined;
-	targetDraft?: Draft | undefined;
 }
 
 export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLinkServiceState>> = {
@@ -237,7 +233,7 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.LinkIsRepoType]: DeepLinkServiceState.RepoMatch,
-		[DeepLinkServiceAction.LinkIsDraftType]: DeepLinkServiceState.RepoMatch,
+		[DeepLinkServiceAction.LinkIsDraftType]: DeepLinkServiceState.OpenDraft,
 		[DeepLinkServiceAction.LinkIsWorkspaceType]: DeepLinkServiceState.OpenWorkspace,
 	},
 	[DeepLinkServiceState.RepoMatch]: {
@@ -245,19 +241,16 @@ export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLin
 		[DeepLinkServiceAction.RepoMatched]: DeepLinkServiceState.RemoteMatch,
 		[DeepLinkServiceAction.RepoMatchedInLocalMapping]: DeepLinkServiceState.CloneOrAddRepo,
 		[DeepLinkServiceAction.RepoMatchFailed]: DeepLinkServiceState.CloneOrAddRepo,
-		[DeepLinkServiceAction.RepoMatchedForDraft]: DeepLinkServiceState.OpenDraft,
 	},
 	[DeepLinkServiceState.CloneOrAddRepo]: {
 		[DeepLinkServiceAction.OpenRepo]: DeepLinkServiceState.OpeningRepo,
 		[DeepLinkServiceAction.RepoOpened]: DeepLinkServiceState.RemoteMatch,
-		[DeepLinkServiceAction.RepoOpenedForDraft]: DeepLinkServiceState.OpenDraft,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkStored]: DeepLinkServiceState.Idle,
 	},
 	[DeepLinkServiceState.OpeningRepo]: {
 		[DeepLinkServiceAction.RepoAdded]: DeepLinkServiceState.AddedRepoMatch,
-		[DeepLinkServiceAction.RepoOpenedForDraft]: DeepLinkServiceState.OpenDraft,
 		[DeepLinkServiceAction.DeepLinkErrored]: DeepLinkServiceState.Idle,
 		[DeepLinkServiceAction.DeepLinkCancelled]: DeepLinkServiceState.Idle,
 	},

@@ -821,7 +821,10 @@ export class PatchDetailsWebviewProvider
 					openIfNeeded: true,
 					prompt: true,
 				});
-				if (repo == null) return undefined; // TODO
+				if (repo == null) {
+					void window.showErrorMessage(`Unable to locate repository '${patch.repository.name}'`);
+					return undefined;
+				}
 
 				patch.repository = repo;
 			}
