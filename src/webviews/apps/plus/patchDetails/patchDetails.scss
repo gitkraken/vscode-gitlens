@@ -1,5 +1,10 @@
 @use '../../shared/styles/details-base';
 
+.message-block__text strong:not(:only-child) {
+	display: inline-block;
+	margin-bottom: 0.52rem;
+}
+
 // TODO: "change-list__action" should be a separate component
 .change-list__action {
 	box-sizing: border-box;

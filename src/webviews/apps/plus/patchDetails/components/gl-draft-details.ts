@@ -397,7 +397,7 @@ export class GlDraftDetails extends GlTreeBase {
 								</div>
 							</div>
 							${when(
-								this.state.draft?.draftType === 'cloud' && this.state.draft?.author != null,
+								this.state.draft?.draftType === 'cloud' && this.state.draft?.author.name != null,
 								() => html`
 									<ul class="top-details__authors" aria-label="Authors">
 										<li class="top-details__author" data-region="author">
@@ -408,6 +408,7 @@ export class GlDraftDetails extends GlTreeBase {
 												dateFormat="${this.state.preferences.dateFormat}"
 												avatarUrl="${this.state.draft!.author!.avatar ?? ''}"
 												?showavatar=${this.state.preferences?.avatars ?? true}
+												.actionLabel=${'created'}
 											></commit-identity>
 										</li>
 									</ul>
